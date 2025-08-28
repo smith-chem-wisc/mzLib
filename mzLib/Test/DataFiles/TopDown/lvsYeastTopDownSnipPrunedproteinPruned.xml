@@ -1,0 +1,2759 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<mzLibProteinDb>
+  <modification>ID   N6-acetyllysine on K
+AC   PTM-0190
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C2H2O
+MM   42.010565
+DR   PSI-MOD; MOD:00064
+DR   RESID; AA0055
+TR   Archaea; taxId:2157 (Archaea)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Acetylation
+
+//</modification>
+  <modification>ID   N6-butyryllysine on K
+AC   PTM-0637
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C4H6O
+MM   70.041865
+DR   PSI-MOD; MOD:01781
+DR   RESID; AA0532
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+
+//</modification>
+  <modification>ID   N6-methyllysine on K
+AC   PTM-0194
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   CH2
+MM   14.01565
+DR   PSI-MOD; MOD:00085
+DR   RESID; AA0076
+TR   Archaea; taxId:2157 (Archaea)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Methylation
+
+//</modification>
+  <modification>ID   N6-succinyllysine on K
+AC   PTM-0438
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C4H4O3
+MM   100.016044
+DR   PSI-MOD; MOD:01819
+DR   RESID; AA0545
+TR   Archaea; taxId:2157 (Archaea)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+
+//</modification>
+  <modification>ID   N6,N6-dimethyllysine on K
+AC   PTM-0188
+MT   UniProt
+FT   MOD_RES
+TG   K
+PP   Anywhere.
+CF   C2H4
+MM   28.0313
+DR   PSI-MOD; MOD:00084
+DR   RESID; AA0075
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+KW   Methylation
+
+//</modification>
+  <modification>ID   Omega-N-methylarginine on R
+AC   PTM-0237
+MT   UniProt
+FT   MOD_RES
+TG   R
+PP   Anywhere.
+CF   CH2
+MM   14.01565
+DR   PSI-MOD; MOD:00078
+DR   RESID; AA0069
+TR   Eukaryota; taxId:5661 (Leishmania donovani), taxId:40674 (Mammalia)
+KW   Methylation
+
+//</modification>
+  <modification>ID   Phosphoserine on S
+AC   PTM-0253
+MT   UniProt
+FT   MOD_RES
+TG   S
+PP   Anywhere.
+CF   HO3P
+MM   79.966331
+DR   PSI-MOD; MOD:00046
+DR   RESID; AA0037
+TR   Archaea; taxId:2157 (Archaea)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+TR   Viruses; taxId:10239 (Viruses)
+KW   Phosphoprotein
+
+//</modification>
+  <entry dataset="Swiss-Prot" created="1988-11-01" modified="2019-05-08" version="161" xmlns="http://uniprot.org/uniprot">
+    <accession>P05749</accession>
+    <name>RL22A_YEAST</name>
+    <protein>
+      <recommendedName>
+        <fullName>60S ribosomal protein L22-A</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">RPL22A</name>
+      <name type="ordered locus">YLR061W</name>
+      <name type="ORF">L2168</name>
+    </gene>
+    <organism>
+      <name type="scientific">Saccharomyces cerevisiae (strain ATCC 204508 / S288c)</name>
+    </organism>
+    <dbReference type="NCBI Taxonomy" id="559292" />
+    <dbReference type="PubMed" id="9169871" />
+    <dbReference type="PubMed" id="24374639" />
+    <dbReference type="DOI" id="10.1534/g3.113.008995" />
+    <dbReference type="PubMed" id="6814480" />
+    <dbReference type="DOI" id="10.1021/bi00262a005" />
+    <dbReference type="PubMed" id="9559554" />
+    <dbReference type="DOI" id="10.1002/(SICI)1097-0061(19980330)14:5&lt;471::AID-YEA241&gt;3.0.CO;2-U" />
+    <dbReference type="PubMed" id="10601260" />
+    <dbReference type="DOI" id="10.1074/jbc.274.52.37035" />
+    <dbReference type="PubMed" id="14562095" />
+    <dbReference type="DOI" id="10.1038/nature02026" />
+    <dbReference type="PubMed" id="14562106" />
+    <dbReference type="DOI" id="10.1038/nature02046" />
+    <dbReference type="PubMed" id="18407956" />
+    <dbReference type="DOI" id="10.1074/mcp.M700468-MCP200" />
+    <dbReference type="PubMed" id="24524803" />
+    <dbReference type="DOI" id="10.1016/j.sbi.2014.01.002" />
+    <dbReference type="PubMed" id="21109664" />
+    <dbReference type="DOI" id="10.1126/science.1194294" />
+    <dbReference type="PubMed" id="22096102" />
+    <dbReference type="DOI" id="10.1126/science.1212642" />
+    <dbReference type="EMBL" id="X94607">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="CAA64308.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="Z73233">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="CAA97592.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="BK006945">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="DAA09379.1" />
+    </dbReference>
+    <dbReference type="PIR" id="S61635">
+      <property type="entry name" value="S61635" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_013162.1">
+      <property type="nucleotide sequence ID" value="NM_001181948.1" />
+    </dbReference>
+    <dbReference type="PDB" id="3J6X">
+      <property type="chains" value="62=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="6.10" />
+    </dbReference>
+    <dbReference type="PDB" id="3J6Y">
+      <property type="chains" value="62=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="6.10" />
+    </dbReference>
+    <dbReference type="PDB" id="3J77">
+      <property type="chains" value="72=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="6.20" />
+    </dbReference>
+    <dbReference type="PDB" id="3J78">
+      <property type="chains" value="72=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="6.30" />
+    </dbReference>
+    <dbReference type="PDB" id="3JCT">
+      <property type="chains" value="U=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.08" />
+    </dbReference>
+    <dbReference type="PDB" id="4U3M">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.00" />
+    </dbReference>
+    <dbReference type="PDB" id="4U3N">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.20" />
+    </dbReference>
+    <dbReference type="PDB" id="4U3U">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.90" />
+    </dbReference>
+    <dbReference type="PDB" id="4U4N">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.10" />
+    </dbReference>
+    <dbReference type="PDB" id="4U4O">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.60" />
+    </dbReference>
+    <dbReference type="PDB" id="4U4Q">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.00" />
+    </dbReference>
+    <dbReference type="PDB" id="4U4R">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.80" />
+    </dbReference>
+    <dbReference type="PDB" id="4U4U">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.00" />
+    </dbReference>
+    <dbReference type="PDB" id="4U4Y">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.20" />
+    </dbReference>
+    <dbReference type="PDB" id="4U4Z">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.10" />
+    </dbReference>
+    <dbReference type="PDB" id="4U50">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.20" />
+    </dbReference>
+    <dbReference type="PDB" id="4U51">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.20" />
+    </dbReference>
+    <dbReference type="PDB" id="4U52">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.00" />
+    </dbReference>
+    <dbReference type="PDB" id="4U53">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.30" />
+    </dbReference>
+    <dbReference type="PDB" id="4U55">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.20" />
+    </dbReference>
+    <dbReference type="PDB" id="4U56">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.45" />
+    </dbReference>
+    <dbReference type="PDB" id="4U6F">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.10" />
+    </dbReference>
+    <dbReference type="PDB" id="4V6I">
+      <property type="chains" value="BW=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="8.80" />
+    </dbReference>
+    <dbReference type="PDB" id="4V7F">
+      <property type="chains" value="V=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="8.70" />
+    </dbReference>
+    <dbReference type="PDB" id="4V88">
+      <property type="chains" value="BU/DU=1-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.00" />
+    </dbReference>
+    <dbReference type="PDB" id="4V8T">
+      <property type="chains" value="U=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="8.10" />
+    </dbReference>
+    <dbReference type="PDB" id="4V8Y">
+      <property type="chains" value="BU=2-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="4.30" />
+    </dbReference>
+    <dbReference type="PDB" id="4V8Z">
+      <property type="chains" value="BU=2-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="6.60" />
+    </dbReference>
+    <dbReference type="PDB" id="4V91">
+      <property type="chains" value="U=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.70" />
+    </dbReference>
+    <dbReference type="PDB" id="5APN">
+      <property type="chains" value="U=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.91" />
+    </dbReference>
+    <dbReference type="PDB" id="5APO">
+      <property type="chains" value="U=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.41" />
+    </dbReference>
+    <dbReference type="PDB" id="5DAT">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.15" />
+    </dbReference>
+    <dbReference type="PDB" id="5DC3">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.25" />
+    </dbReference>
+    <dbReference type="PDB" id="5DGE">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.45" />
+    </dbReference>
+    <dbReference type="PDB" id="5DGF">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.30" />
+    </dbReference>
+    <dbReference type="PDB" id="5DGV">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.10" />
+    </dbReference>
+    <dbReference type="PDB" id="5FCI">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.40" />
+    </dbReference>
+    <dbReference type="PDB" id="5FCJ">
+      <property type="chains" value="N2/n2=2-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.10" />
+    </dbReference>
+    <dbReference type="PDB" id="5FL8">
+      <property type="chains" value="U=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="9.50" />
+    </dbReference>
+    <dbReference type="PDB" id="5GAK">
+      <property type="chains" value="W=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.88" />
+    </dbReference>
+    <dbReference type="PDB" id="5H4P">
+      <property type="chains" value="U=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.07" />
+    </dbReference>
+    <dbReference type="PDB" id="5I4L">
+      <property type="chains" value="N2/n2=9-108" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.10" />
+    </dbReference>
+    <dbReference type="PDB" id="5JCS">
+      <property type="chains" value="U=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="9.50" />
+    </dbReference>
+    <dbReference type="PDB" id="5JUO">
+      <property type="chains" value="Z=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="4.00" />
+    </dbReference>
+    <dbReference type="PDB" id="5JUP">
+      <property type="chains" value="Z=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.50" />
+    </dbReference>
+    <dbReference type="PDB" id="5JUS">
+      <property type="chains" value="Z=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="4.20" />
+    </dbReference>
+    <dbReference type="PDB" id="5JUT">
+      <property type="chains" value="Z=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="4.00" />
+    </dbReference>
+    <dbReference type="PDB" id="5JUU">
+      <property type="chains" value="Z=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="4.00" />
+    </dbReference>
+    <dbReference type="PDB" id="5LYB">
+      <property type="chains" value="N2/n2=9-108" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.25" />
+    </dbReference>
+    <dbReference type="PDB" id="5M1J">
+      <property type="chains" value="U5=9-108" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.30" />
+    </dbReference>
+    <dbReference type="PDB" id="5MC6">
+      <property type="chains" value="BL=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.80" />
+    </dbReference>
+    <dbReference type="PDB" id="5MEI">
+      <property type="chains" value="5/CW=9-108" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.50" />
+    </dbReference>
+    <dbReference type="PDB" id="5NDG">
+      <property type="chains" value="N2/n2=11-108" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.70" />
+    </dbReference>
+    <dbReference type="PDB" id="5NDV">
+      <property type="chains" value="N2/n2=10-108" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.30" />
+    </dbReference>
+    <dbReference type="PDB" id="5NDW">
+      <property type="chains" value="N2/n2=9-108" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.70" />
+    </dbReference>
+    <dbReference type="PDB" id="5OBM">
+      <property type="chains" value="N2/n2=9-108" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.40" />
+    </dbReference>
+    <dbReference type="PDB" id="5ON6">
+      <property type="chains" value="5/CW=9-108" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.10" />
+    </dbReference>
+    <dbReference type="PDB" id="5T62">
+      <property type="chains" value="h=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.30" />
+    </dbReference>
+    <dbReference type="PDB" id="5T6R">
+      <property type="chains" value="h=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="4.50" />
+    </dbReference>
+    <dbReference type="PDB" id="5TBW">
+      <property type="chains" value="5/CW=9-108" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.00" />
+    </dbReference>
+    <dbReference type="PDB" id="5TGA">
+      <property type="chains" value="N2/n2=9-108" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.30" />
+    </dbReference>
+    <dbReference type="PDB" id="5TGM">
+      <property type="chains" value="N2/n2=9-108" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.50" />
+    </dbReference>
+    <dbReference type="PDB" id="6ELZ">
+      <property type="chains" value="U=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.30" />
+    </dbReference>
+    <dbReference type="PDB" id="6EM5">
+      <property type="chains" value="U=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="4.30" />
+    </dbReference>
+    <dbReference type="PDB" id="6FT6">
+      <property type="chains" value="U=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.90" />
+    </dbReference>
+    <dbReference type="PDB" id="6GQ1">
+      <property type="chains" value="U=9-108" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="4.40" />
+    </dbReference>
+    <dbReference type="PDB" id="6GQB">
+      <property type="chains" value="U=9-108" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.90" />
+    </dbReference>
+    <dbReference type="PDB" id="6GQV">
+      <property type="chains" value="U=9-108" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="4.00" />
+    </dbReference>
+    <dbReference type="PDB" id="6HD7">
+      <property type="chains" value="W=1-121" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.40" />
+    </dbReference>
+    <dbReference type="PDB" id="6HHQ">
+      <property type="chains" value="5/CW=1-121" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.10" />
+    </dbReference>
+    <dbReference type="PDB" id="6I7O">
+      <property type="chains" value="BL/YL=11-108" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="5.30" />
+    </dbReference>
+    <dbReference type="PDBsum" id="3J6X" />
+    <dbReference type="PDBsum" id="3J6Y" />
+    <dbReference type="PDBsum" id="3J77" />
+    <dbReference type="PDBsum" id="3J78" />
+    <dbReference type="PDBsum" id="3JCT" />
+    <dbReference type="PDBsum" id="4U3M" />
+    <dbReference type="PDBsum" id="4U3N" />
+    <dbReference type="PDBsum" id="4U3U" />
+    <dbReference type="PDBsum" id="4U4N" />
+    <dbReference type="PDBsum" id="4U4O" />
+    <dbReference type="PDBsum" id="4U4Q" />
+    <dbReference type="PDBsum" id="4U4R" />
+    <dbReference type="PDBsum" id="4U4U" />
+    <dbReference type="PDBsum" id="4U4Y" />
+    <dbReference type="PDBsum" id="4U4Z" />
+    <dbReference type="PDBsum" id="4U50" />
+    <dbReference type="PDBsum" id="4U51" />
+    <dbReference type="PDBsum" id="4U52" />
+    <dbReference type="PDBsum" id="4U53" />
+    <dbReference type="PDBsum" id="4U55" />
+    <dbReference type="PDBsum" id="4U56" />
+    <dbReference type="PDBsum" id="4U6F" />
+    <dbReference type="PDBsum" id="4V6I" />
+    <dbReference type="PDBsum" id="4V7F" />
+    <dbReference type="PDBsum" id="4V88" />
+    <dbReference type="PDBsum" id="4V8T" />
+    <dbReference type="PDBsum" id="4V8Y" />
+    <dbReference type="PDBsum" id="4V8Z" />
+    <dbReference type="PDBsum" id="4V91" />
+    <dbReference type="PDBsum" id="5APN" />
+    <dbReference type="PDBsum" id="5APO" />
+    <dbReference type="PDBsum" id="5DAT" />
+    <dbReference type="PDBsum" id="5DC3" />
+    <dbReference type="PDBsum" id="5DGE" />
+    <dbReference type="PDBsum" id="5DGF" />
+    <dbReference type="PDBsum" id="5DGV" />
+    <dbReference type="PDBsum" id="5FCI" />
+    <dbReference type="PDBsum" id="5FCJ" />
+    <dbReference type="PDBsum" id="5FL8" />
+    <dbReference type="PDBsum" id="5GAK" />
+    <dbReference type="PDBsum" id="5H4P" />
+    <dbReference type="PDBsum" id="5I4L" />
+    <dbReference type="PDBsum" id="5JCS" />
+    <dbReference type="PDBsum" id="5JUO" />
+    <dbReference type="PDBsum" id="5JUP" />
+    <dbReference type="PDBsum" id="5JUS" />
+    <dbReference type="PDBsum" id="5JUT" />
+    <dbReference type="PDBsum" id="5JUU" />
+    <dbReference type="PDBsum" id="5LYB" />
+    <dbReference type="PDBsum" id="5M1J" />
+    <dbReference type="PDBsum" id="5MC6" />
+    <dbReference type="PDBsum" id="5MEI" />
+    <dbReference type="PDBsum" id="5NDG" />
+    <dbReference type="PDBsum" id="5NDV" />
+    <dbReference type="PDBsum" id="5NDW" />
+    <dbReference type="PDBsum" id="5OBM" />
+    <dbReference type="PDBsum" id="5ON6" />
+    <dbReference type="PDBsum" id="5T62" />
+    <dbReference type="PDBsum" id="5T6R" />
+    <dbReference type="PDBsum" id="5TBW" />
+    <dbReference type="PDBsum" id="5TGA" />
+    <dbReference type="PDBsum" id="5TGM" />
+    <dbReference type="PDBsum" id="6ELZ" />
+    <dbReference type="PDBsum" id="6EM5" />
+    <dbReference type="PDBsum" id="6FT6" />
+    <dbReference type="PDBsum" id="6GQ1" />
+    <dbReference type="PDBsum" id="6GQB" />
+    <dbReference type="PDBsum" id="6GQV" />
+    <dbReference type="PDBsum" id="6HD7" />
+    <dbReference type="PDBsum" id="6HHQ" />
+    <dbReference type="PDBsum" id="6I7O" />
+    <dbReference type="SMR" id="P05749" />
+    <dbReference type="BioGrid" id="31336">
+      <property type="interactions" value="390" />
+    </dbReference>
+    <dbReference type="IntAct" id="P05749">
+      <property type="interactions" value="5" />
+    </dbReference>
+    <dbReference type="MINT" id="P05749" />
+    <dbReference type="STRING" id="4932.YLR061W" />
+    <dbReference type="iPTMnet" id="P05749" />
+    <dbReference type="MaxQB" id="P05749" />
+    <dbReference type="PaxDb" id="P05749" />
+    <dbReference type="PRIDE" id="P05749" />
+    <dbReference type="TopDownProteomics" id="P05749" />
+    <dbReference type="EnsemblFungi" id="YLR061W_mRNA">
+      <property type="gene ID" value="YLR061W" />
+      <property type="protein sequence ID" value="YLR061W_mRNA" />
+    </dbReference>
+    <dbReference type="GeneID" id="850750" />
+    <dbReference type="KEGG" id="sce:YLR061W" />
+    <dbReference type="EuPathDB" id="FungiDB:YLR061W" />
+    <dbReference type="SGD" id="S000004051">
+      <property type="gene designation" value="RPL22A" />
+    </dbReference>
+    <dbReference type="GeneTree" id="ENSGT00940000169435" />
+    <dbReference type="HOGENOM" id="HOG000198396" />
+    <dbReference type="InParanoid" id="P05749" />
+    <dbReference type="KO" id="K02891" />
+    <dbReference type="BioCyc" id="YEAST:G3O-32215-MONOMER" />
+    <dbReference type="Reactome" id="R-SCE-156827">
+      <property type="pathway name" value="L13a-mediated translational silencing of Ceruloplasmin expression" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-1799339">
+      <property type="pathway name" value="SRP-dependent cotranslational protein targeting to membrane" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-72689">
+      <property type="pathway name" value="Formation of a pool of free 40S subunits" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-72706">
+      <property type="pathway name" value="GTP hydrolysis and joining of the 60S ribosomal subunit" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-975956">
+      <property type="pathway name" value="Nonsense Mediated Decay (NMD) independent of the Exon Junction Complex (EJC)" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-975957">
+      <property type="pathway name" value="Nonsense Mediated Decay (NMD) enhanced by the Exon Junction Complex (EJC)" />
+    </dbReference>
+    <dbReference type="PRO" id="PR:P05749" />
+    <dbReference type="Proteomes" id="UP000002311">
+      <property type="component" value="Chromosome XII" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0022625">
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="SGD" />
+      <property type="term" value="C:cytosolic large ribosomal subunit" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0003723">
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+      <property type="term" value="F:RNA binding" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0003735">
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="SGD" />
+      <property type="term" value="F:structural constituent of ribosome" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0002181">
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="SGD" />
+      <property type="term" value="P:cytoplasmic translation" />
+    </dbReference>
+    <dbReference type="Gene3D" id="3.30.1360.210">
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR002671">
+      <property type="entry name" value="Ribosomal_L22e" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR038526">
+      <property type="entry name" value="Ribosomal_L22e_sf" />
+    </dbReference>
+    <dbReference type="PANTHER" id="PTHR10064">
+      <property type="entry name" value="PTHR10064" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="Pfam" id="PF01776">
+      <property type="entry name" value="Ribosomal_L22e" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PDB" id="4U3U" />
+    <dbReference type="PDB" id="4U4R" />
+    <dbReference type="PubMed" id="10601260" />
+    <dbReference type="PubMed" id="14562095" />
+    <dbReference type="PubMed" id="14562106" />
+    <dbReference type="PubMed" id="22096102" />
+    <dbReference type="PubMed" id="6814480" />
+    <dbReference type="PubMed" id="24524803" />
+    <dbReference type="PubMed" id="9559554" />
+    <dbReference type="PubMed" id="22096102" />
+    <dbReference type="PubMed" id="9559554" />
+    <feature type="chain">
+      <location>
+        <begin position="2" />
+        <end position="121" />
+      </location>
+    </feature>
+    <sequence length="121">MAPNTSRKQKIAKTFTVDVSSPTENGVFDPASYAKYLIDHIKVEGAVGNLGNAVTVTEDGTVVTVVSTAKFSGKYLKYLTKKYLKKNQLRDWIRFVSTKTNEYRLAFYQVTPEEDEEEDEE</sequence>
+  </entry>
+  <entry dataset="Swiss-Prot" created="1986-07-21" modified="2019-05-08" version="197" xmlns="http://uniprot.org/uniprot">
+    <accession>P02293</accession>
+    <name>H2B1_YEAST</name>
+    <protein>
+      <recommendedName>
+        <fullName>Histone H2B.1</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">HTB1</name>
+      <name type="synonym">H2B1</name>
+      <name type="synonym">SPT12</name>
+      <name type="ordered locus">YDR224C</name>
+      <name type="ORF">YD9934.09C</name>
+    </gene>
+    <organism>
+      <name type="scientific">Saccharomyces cerevisiae (strain ATCC 204508 / S288c)</name>
+    </organism>
+    <dbReference type="NCBI Taxonomy" id="559292" />
+    <dbReference type="PubMed" id="7006833" />
+    <dbReference type="DOI" id="10.1016/0092-8674(80)90556-5" />
+    <dbReference type="PubMed" id="7885847" />
+    <dbReference type="DOI" id="10.1093/nar/23.3.507" />
+    <dbReference type="PubMed" id="9169867" />
+    <dbReference type="PubMed" id="24374639" />
+    <dbReference type="DOI" id="10.1534/g3.113.008995" />
+    <dbReference type="PubMed" id="17322287" />
+    <dbReference type="DOI" id="10.1101/gr.6037607" />
+    <dbReference type="PubMed" id="7002547" />
+    <dbReference type="DOI" id="10.1111/j.1432-1033.1980.tb04841.x" />
+    <dbReference type="PubMed" id="2188095" />
+    <dbReference type="DOI" id="10.1128/MCB.10.6.2687" />
+    <dbReference type="PubMed" id="10777603" />
+    <dbReference type="DOI" id="10.1074/jbc.275.17.13007" />
+    <dbReference type="PubMed" id="10642555" />
+    <dbReference type="DOI" id="10.1126/science.287.5452.501" />
+    <dbReference type="PubMed" id="11545749" />
+    <dbReference type="DOI" id="10.1016/S1097-2765(01)00301-X" />
+    <dbReference type="PubMed" id="11973294" />
+    <dbReference type="PubMed" id="12152067" />
+    <dbReference type="DOI" id="10.1038/nature00970" />
+    <dbReference type="PubMed" id="14563679" />
+    <dbReference type="DOI" id="10.1101/gad.1144003" />
+    <dbReference type="PubMed" id="12535538" />
+    <dbReference type="DOI" id="10.1016/S1097-2765(02)00826-2" />
+    <dbReference type="PubMed" id="12535539" />
+    <dbReference type="DOI" id="10.1016/S1097-2765(02)00802-X" />
+    <dbReference type="PubMed" id="15186774" />
+    <dbReference type="DOI" id="10.1016/j.cell.2004.05.023" />
+    <dbReference type="PubMed" id="14752010" />
+    <dbReference type="DOI" id="10.1101/gad.1149604" />
+    <dbReference type="PubMed" id="14660635" />
+    <dbReference type="DOI" id="10.1074/jbc.C300505200" />
+    <dbReference type="PubMed" id="15166219" />
+    <dbReference type="DOI" id="10.1074/jbc.M404173200" />
+    <dbReference type="PubMed" id="15280549" />
+    <dbReference type="DOI" id="10.1073/pnas.0400078101" />
+    <dbReference type="PubMed" id="15652479" />
+    <dbReference type="DOI" id="10.1016/j.cell.2004.11.016" />
+    <dbReference type="PubMed" id="15970663" />
+    <dbReference type="DOI" id="10.4161/cc.4.6.1745" />
+    <dbReference type="PubMed" id="15632126" />
+    <dbReference type="DOI" id="10.1074/jbc.M414453200" />
+    <dbReference type="PubMed" id="15632065" />
+    <dbReference type="DOI" id="10.1128/MCB.25.2.637-651.2005" />
+    <dbReference type="PubMed" id="15657441" />
+    <dbReference type="DOI" id="10.1128/MCB.25.3.1162-1172.2005" />
+    <dbReference type="PubMed" id="15657442" />
+    <dbReference type="DOI" id="10.1128/MCB.25.3.1173-1182.2005" />
+    <dbReference type="PubMed" id="16598039" />
+    <dbReference type="DOI" id="10.1101/gad.1404206" />
+    <dbReference type="PubMed" id="16432255" />
+    <dbReference type="DOI" id="10.1074/mcp.M500368-MCP200" />
+    <dbReference type="PubMed" id="19113941" />
+    <dbReference type="DOI" id="10.1021/pr8005155" />
+    <dbReference type="PubMed" id="22389435" />
+    <dbReference type="DOI" id="10.1074/mcp.M111.015875" />
+    <dbReference type="PubMed" id="22814378" />
+    <dbReference type="DOI" id="10.1073/pnas.1210303109" />
+    <dbReference type="PubMed" id="18641662" />
+    <dbReference type="DOI" id="10.1038/nsmb.1465" />
+    <dbReference type="EMBL" id="J01327">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="AAA88719.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="U13239">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="AAC33141.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="Z48612">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="CAA88504.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="AY557724">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="AAS56050.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="M37743">
+      <property type="molecule type" value="mRNA" />
+      <property type="protein sequence ID" value="AAA34694.2" />
+    </dbReference>
+    <dbReference type="EMBL" id="BK006938">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="DAA12066.1" />
+    </dbReference>
+    <dbReference type="PIR" id="A02621">
+      <property type="entry name" value="HSBY22" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_010510.3">
+      <property type="nucleotide sequence ID" value="NM_001180532.3" />
+    </dbReference>
+    <dbReference type="PDB" id="2JSS">
+      <property type="chains" value="A=37-131" />
+      <property type="method" value="NMR" />
+    </dbReference>
+    <dbReference type="PDB" id="4KUD">
+      <property type="chains" value="D/H=1-131" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.20" />
+    </dbReference>
+    <dbReference type="PDB" id="4M6B">
+      <property type="chains" value="A/D=37-131" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="1.78" />
+    </dbReference>
+    <dbReference type="PDB" id="4WNN">
+      <property type="chains" value="B/D/F/H=31-131" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="1.80" />
+    </dbReference>
+    <dbReference type="PDB" id="5BT1">
+      <property type="chains" value="D=1-131" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.62" />
+    </dbReference>
+    <dbReference type="PDB" id="6GEJ">
+      <property type="chains" value="G/H=1-131" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.60" />
+    </dbReference>
+    <dbReference type="PDB" id="6GEN">
+      <property type="chains" value="G/H=1-131" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.60" />
+    </dbReference>
+    <dbReference type="PDBsum" id="2JSS" />
+    <dbReference type="PDBsum" id="4KUD" />
+    <dbReference type="PDBsum" id="4M6B" />
+    <dbReference type="PDBsum" id="4WNN" />
+    <dbReference type="PDBsum" id="5BT1" />
+    <dbReference type="PDBsum" id="6GEJ" />
+    <dbReference type="PDBsum" id="6GEN" />
+    <dbReference type="SMR" id="P02293" />
+    <dbReference type="BioGrid" id="32276">
+      <property type="interactions" value="418" />
+    </dbReference>
+    <dbReference type="ComplexPortal" id="CPX-1611">
+      <property type="entry name" value="Nucleosome, variant HTA2-HTB1" />
+    </dbReference>
+    <dbReference type="ComplexPortal" id="CPX-1612">
+      <property type="entry name" value="Nucleosome, variant HTA1-HTB1" />
+    </dbReference>
+    <dbReference type="ComplexPortal" id="CPX-1613">
+      <property type="entry name" value="Nucleosome, variant HTZ1-HTB1" />
+    </dbReference>
+    <dbReference type="DIP" id="DIP-416N" />
+    <dbReference type="ELM" id="P02293" />
+    <dbReference type="IntAct" id="P02293">
+      <property type="interactions" value="240" />
+    </dbReference>
+    <dbReference type="MINT" id="P02293" />
+    <dbReference type="STRING" id="4932.YDR224C" />
+    <dbReference type="iPTMnet" id="P02293" />
+    <dbReference type="MaxQB" id="P02293" />
+    <dbReference type="PaxDb" id="P02293" />
+    <dbReference type="PRIDE" id="P02293" />
+    <dbReference type="EnsemblFungi" id="YDR224C_mRNA">
+      <property type="gene ID" value="YDR224C" />
+      <property type="protein sequence ID" value="YDR224C_mRNA" />
+    </dbReference>
+    <dbReference type="GeneID" id="851810" />
+    <dbReference type="KEGG" id="sce:YDR224C" />
+    <dbReference type="EuPathDB" id="FungiDB:YDR224C" />
+    <dbReference type="SGD" id="S000002632">
+      <property type="gene designation" value="HTB1" />
+    </dbReference>
+    <dbReference type="GeneTree" id="ENSGT00950000182677" />
+    <dbReference type="HOGENOM" id="HOG000231213" />
+    <dbReference type="InParanoid" id="P02293" />
+    <dbReference type="KO" id="K11252" />
+    <dbReference type="OMA" id="DIFDRMA" />
+    <dbReference type="BioCyc" id="YEAST:G3O-29804-MONOMER" />
+    <dbReference type="Reactome" id="R-SCE-2299718">
+      <property type="pathway name" value="Condensation of Prophase Chromosomes" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-2559580">
+      <property type="pathway name" value="Oxidative Stress Induced Senescence" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-3214847">
+      <property type="pathway name" value="HATs acetylate histones" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-9018519">
+      <property type="pathway name" value="Estrogen-dependent gene expression" />
+    </dbReference>
+    <dbReference type="EvolutionaryTrace" id="P02293" />
+    <dbReference type="PRO" id="PR:P02293" />
+    <dbReference type="Proteomes" id="UP000002311">
+      <property type="component" value="Chromosome IV" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0000788">
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="SGD" />
+      <property type="term" value="C:nuclear nucleosome" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0031298">
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="SGD" />
+      <property type="term" value="C:replication fork protection complex" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0003677">
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="SGD" />
+      <property type="term" value="F:DNA binding" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0046982">
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="InterPro" />
+      <property type="term" value="F:protein heterodimerization activity" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0006333">
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="SGD" />
+      <property type="term" value="P:chromatin assembly or disassembly" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0000122">
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="SGD" />
+      <property type="term" value="P:negative regulation of transcription by RNA polymerase II" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0006301">
+      <property type="evidence" value="ECO:0000316" />
+      <property type="project" value="SGD" />
+      <property type="term" value="P:postreplication repair" />
+    </dbReference>
+    <dbReference type="Gene3D" id="1.10.20.10">
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR009072">
+      <property type="entry name" value="Histone-fold" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR007125">
+      <property type="entry name" value="Histone_H2A/H2B/H3" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR000558">
+      <property type="entry name" value="Histone_H2B" />
+    </dbReference>
+    <dbReference type="PANTHER" id="PTHR23428">
+      <property type="entry name" value="PTHR23428" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="Pfam" id="PF00125">
+      <property type="entry name" value="Histone" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PRINTS" id="PR00621">
+      <property type="entry name" value="HISTONEH2B" />
+    </dbReference>
+    <dbReference type="SMART" id="SM00427">
+      <property type="entry name" value="H2B" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="SUPFAM" id="SSF47113">
+      <property type="entry name" value="SSF47113" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PROSITE" id="PS00357">
+      <property type="entry name" value="HISTONE_H2B" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PDB" id="4M6B" />
+    <dbReference type="PubMed" id="10642555" />
+    <dbReference type="PubMed" id="10777603" />
+    <dbReference type="PubMed" id="11545749" />
+    <dbReference type="PubMed" id="11973294" />
+    <dbReference type="PubMed" id="12152067" />
+    <dbReference type="PubMed" id="12535538" />
+    <dbReference type="PubMed" id="12535539" />
+    <dbReference type="PubMed" id="14660635" />
+    <dbReference type="PubMed" id="14752010" />
+    <dbReference type="PubMed" id="15166219" />
+    <dbReference type="PubMed" id="15186774" />
+    <dbReference type="PubMed" id="15280549" />
+    <dbReference type="PubMed" id="15632065" />
+    <dbReference type="PubMed" id="15632126" />
+    <dbReference type="PubMed" id="15652479" />
+    <dbReference type="PubMed" id="15970663" />
+    <dbReference type="PubMed" id="16432255" />
+    <dbReference type="PubMed" id="16598039" />
+    <dbReference type="PubMed" id="19113941" />
+    <dbReference type="PubMed" id="22389435" />
+    <feature type="chain">
+      <location>
+        <begin position="2" />
+        <end position="131" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="7" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="8" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine on S">
+      <location>
+        <position position="11" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="12" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="17" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="18" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="22" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-butyryllysine on K">
+      <location>
+        <position position="22" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="23" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-methyllysine on K">
+      <location>
+        <position position="23" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-succinyllysine on K">
+      <location>
+        <position position="35" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6,N6-dimethyllysine on K">
+      <location>
+        <position position="38" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-succinyllysine on K">
+      <location>
+        <position position="47" />
+      </location>
+    </feature>
+    <sequence length="131">MSAKAEKKPASKAPAEKKPAAKKTSTSTDGKKRSKARKETYSSYIYKVLKQTHPDTGISQKSMSILNSFVNDIFERIATEASKLAAYNKKSTISAREIQTAVRLILPGELAKHAVSEGTRAVTKYSSSTQA</sequence>
+  </entry>
+  <entry dataset="Swiss-Prot" created="1990-01-01" modified="2019-05-08" version="190" xmlns="http://uniprot.org/uniprot">
+    <accession>P14120</accession>
+    <name>RL30_YEAST</name>
+    <protein>
+      <recommendedName>
+        <fullName>60S ribosomal protein L30</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">RPL30</name>
+      <name type="synonym">RPL32</name>
+      <name type="ordered locus">YGL030W</name>
+    </gene>
+    <organism>
+      <name type="scientific">Saccharomyces cerevisiae (strain ATCC 204508 / S288c)</name>
+    </organism>
+    <dbReference type="NCBI Taxonomy" id="559292" />
+    <dbReference type="PubMed" id="3316213" />
+    <dbReference type="PubMed" id="9169869" />
+    <dbReference type="PubMed" id="24374639" />
+    <dbReference type="DOI" id="10.1534/g3.113.008995" />
+    <dbReference type="PubMed" id="9559554" />
+    <dbReference type="DOI" id="10.1002/(SICI)1097-0061(19980330)14:5&lt;471::AID-YEA241&gt;3.0.CO;2-U" />
+    <dbReference type="PubMed" id="10601260" />
+    <dbReference type="DOI" id="10.1074/jbc.274.52.37035" />
+    <dbReference type="PubMed" id="14562106" />
+    <dbReference type="DOI" id="10.1038/nature02046" />
+    <dbReference type="PubMed" id="22106047" />
+    <dbReference type="DOI" id="10.1002/pmic.201100166" />
+    <dbReference type="PubMed" id="24524803" />
+    <dbReference type="DOI" id="10.1016/j.sbi.2014.01.002" />
+    <dbReference type="PubMed" id="10581556" />
+    <dbReference type="DOI" id="10.1038/70081" />
+    <dbReference type="PubMed" id="12589748" />
+    <dbReference type="DOI" id="10.1016/S0022-2836(02)01476-6" />
+    <dbReference type="PubMed" id="15242593" />
+    <dbReference type="DOI" id="10.1016/j.str.2004.04.023" />
+    <dbReference type="PubMed" id="21109664" />
+    <dbReference type="DOI" id="10.1126/science.1194294" />
+    <dbReference type="PubMed" id="22096102" />
+    <dbReference type="DOI" id="10.1126/science.1212642" />
+    <dbReference type="EMBL" id="J03457">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="AAA35005.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="Z72552">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="CAA96731.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="BK006941">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="DAA08069.1" />
+    </dbReference>
+    <dbReference type="PIR" id="A29779">
+      <property type="entry name" value="R6BY30" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_011485.1">
+      <property type="nucleotide sequence ID" value="NM_001180895.1" />
+    </dbReference>
+    <dbReference type="PDB" id="1CK2">
+      <property type="chains" value="A=2-105" />
+      <property type="method" value="NMR" />
+    </dbReference>
+    <dbReference type="PDB" id="1CN7">
+      <property type="chains" value="A=2-105" />
+      <property type="method" value="NMR" />
+    </dbReference>
+    <dbReference type="PDB" id="1NMU">
+      <property type="chains" value="B/D=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.31" />
+    </dbReference>
+    <dbReference type="PDB" id="1T0K">
+      <property type="chains" value="B=1-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.24" />
+    </dbReference>
+    <dbReference type="PDB" id="3J6X">
+      <property type="chains" value="70=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="6.10" />
+    </dbReference>
+    <dbReference type="PDB" id="3J6Y">
+      <property type="chains" value="70=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="6.10" />
+    </dbReference>
+    <dbReference type="PDB" id="3J77">
+      <property type="chains" value="80=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="6.20" />
+    </dbReference>
+    <dbReference type="PDB" id="3J78">
+      <property type="chains" value="80=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="6.30" />
+    </dbReference>
+    <dbReference type="PDB" id="3JCT">
+      <property type="chains" value="c=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.08" />
+    </dbReference>
+    <dbReference type="PDB" id="4U3M">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.00" />
+    </dbReference>
+    <dbReference type="PDB" id="4U3N">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.20" />
+    </dbReference>
+    <dbReference type="PDB" id="4U3U">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.90" />
+    </dbReference>
+    <dbReference type="PDB" id="4U4N">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.10" />
+    </dbReference>
+    <dbReference type="PDB" id="4U4O">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.60" />
+    </dbReference>
+    <dbReference type="PDB" id="4U4Q">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.00" />
+    </dbReference>
+    <dbReference type="PDB" id="4U4R">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.80" />
+    </dbReference>
+    <dbReference type="PDB" id="4U4U">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.00" />
+    </dbReference>
+    <dbReference type="PDB" id="4U4Y">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.20" />
+    </dbReference>
+    <dbReference type="PDB" id="4U4Z">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.10" />
+    </dbReference>
+    <dbReference type="PDB" id="4U50">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.20" />
+    </dbReference>
+    <dbReference type="PDB" id="4U51">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.20" />
+    </dbReference>
+    <dbReference type="PDB" id="4U52">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.00" />
+    </dbReference>
+    <dbReference type="PDB" id="4U53">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.30" />
+    </dbReference>
+    <dbReference type="PDB" id="4U55">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.20" />
+    </dbReference>
+    <dbReference type="PDB" id="4U56">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.45" />
+    </dbReference>
+    <dbReference type="PDB" id="4U6F">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.10" />
+    </dbReference>
+    <dbReference type="PDB" id="4V6I">
+      <property type="chains" value="Bf=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="8.80" />
+    </dbReference>
+    <dbReference type="PDB" id="4V7F">
+      <property type="chains" value="b=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="8.70" />
+    </dbReference>
+    <dbReference type="PDB" id="4V7R">
+      <property type="chains" value="BZ/DZ=1-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="4.00" />
+    </dbReference>
+    <dbReference type="PDB" id="4V88">
+      <property type="chains" value="Bc/Dc=1-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.00" />
+    </dbReference>
+    <dbReference type="PDB" id="4V8T">
+      <property type="chains" value="c=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="8.10" />
+    </dbReference>
+    <dbReference type="PDB" id="4V8Y">
+      <property type="chains" value="Bc=2-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="4.30" />
+    </dbReference>
+    <dbReference type="PDB" id="4V8Z">
+      <property type="chains" value="Bc=2-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="6.60" />
+    </dbReference>
+    <dbReference type="PDB" id="4V91">
+      <property type="chains" value="c=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.70" />
+    </dbReference>
+    <dbReference type="PDB" id="5APN">
+      <property type="chains" value="c=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.91" />
+    </dbReference>
+    <dbReference type="PDB" id="5APO">
+      <property type="chains" value="c=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.41" />
+    </dbReference>
+    <dbReference type="PDB" id="5DAT">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.15" />
+    </dbReference>
+    <dbReference type="PDB" id="5DC3">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.25" />
+    </dbReference>
+    <dbReference type="PDB" id="5DGE">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.45" />
+    </dbReference>
+    <dbReference type="PDB" id="5DGF">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.30" />
+    </dbReference>
+    <dbReference type="PDB" id="5DGV">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.10" />
+    </dbReference>
+    <dbReference type="PDB" id="5FCI">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.40" />
+    </dbReference>
+    <dbReference type="PDB" id="5FCJ">
+      <property type="chains" value="O0/o0=2-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.10" />
+    </dbReference>
+    <dbReference type="PDB" id="5FL8">
+      <property type="chains" value="c=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="9.50" />
+    </dbReference>
+    <dbReference type="PDB" id="5GAK">
+      <property type="chains" value="e=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.88" />
+    </dbReference>
+    <dbReference type="PDB" id="5H4P">
+      <property type="chains" value="c=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.07" />
+    </dbReference>
+    <dbReference type="PDB" id="5I4L">
+      <property type="chains" value="O0/o0=6-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.10" />
+    </dbReference>
+    <dbReference type="PDB" id="5JCS">
+      <property type="chains" value="c=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="9.50" />
+    </dbReference>
+    <dbReference type="PDB" id="5JUO">
+      <property type="chains" value="HA=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="4.00" />
+    </dbReference>
+    <dbReference type="PDB" id="5JUP">
+      <property type="chains" value="HA=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.50" />
+    </dbReference>
+    <dbReference type="PDB" id="5JUS">
+      <property type="chains" value="HA=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="4.20" />
+    </dbReference>
+    <dbReference type="PDB" id="5JUT">
+      <property type="chains" value="HA=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="4.00" />
+    </dbReference>
+    <dbReference type="PDB" id="5JUU">
+      <property type="chains" value="HA=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="4.00" />
+    </dbReference>
+    <dbReference type="PDB" id="5LYB">
+      <property type="chains" value="O0/o0=6-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.25" />
+    </dbReference>
+    <dbReference type="PDB" id="5M1J">
+      <property type="chains" value="c5=9-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.30" />
+    </dbReference>
+    <dbReference type="PDB" id="5MC6">
+      <property type="chains" value="AY=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.80" />
+    </dbReference>
+    <dbReference type="PDB" id="5MEI">
+      <property type="chains" value="AD/DE=9-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.50" />
+    </dbReference>
+    <dbReference type="PDB" id="5NDG">
+      <property type="chains" value="O0/o0=6-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.70" />
+    </dbReference>
+    <dbReference type="PDB" id="5NDV">
+      <property type="chains" value="O0/o0=6-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.30" />
+    </dbReference>
+    <dbReference type="PDB" id="5NDW">
+      <property type="chains" value="O0/o0=6-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.70" />
+    </dbReference>
+    <dbReference type="PDB" id="5OBM">
+      <property type="chains" value="O0/o0=6-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.40" />
+    </dbReference>
+    <dbReference type="PDB" id="5ON6">
+      <property type="chains" value="AD/DE=9-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.10" />
+    </dbReference>
+    <dbReference type="PDB" id="5T62">
+      <property type="chains" value="p=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.30" />
+    </dbReference>
+    <dbReference type="PDB" id="5T6R">
+      <property type="chains" value="p=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="4.50" />
+    </dbReference>
+    <dbReference type="PDB" id="5TBW">
+      <property type="chains" value="AD/DE=9-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.00" />
+    </dbReference>
+    <dbReference type="PDB" id="5TGA">
+      <property type="chains" value="O0/o0=6-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.30" />
+    </dbReference>
+    <dbReference type="PDB" id="5TGM">
+      <property type="chains" value="O0/o0=6-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.50" />
+    </dbReference>
+    <dbReference type="PDB" id="6CB1">
+      <property type="chains" value="c=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="4.60" />
+    </dbReference>
+    <dbReference type="PDB" id="6ELZ">
+      <property type="chains" value="c=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.30" />
+    </dbReference>
+    <dbReference type="PDB" id="6EM5">
+      <property type="chains" value="c=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="4.30" />
+    </dbReference>
+    <dbReference type="PDB" id="6FT6">
+      <property type="chains" value="c=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.90" />
+    </dbReference>
+    <dbReference type="PDB" id="6GQ1">
+      <property type="chains" value="c=9-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="4.40" />
+    </dbReference>
+    <dbReference type="PDB" id="6GQB">
+      <property type="chains" value="c=9-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.90" />
+    </dbReference>
+    <dbReference type="PDB" id="6GQV">
+      <property type="chains" value="c=9-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="4.00" />
+    </dbReference>
+    <dbReference type="PDB" id="6HD7">
+      <property type="chains" value="e=1-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.40" />
+    </dbReference>
+    <dbReference type="PDB" id="6HHQ">
+      <property type="chains" value="AD/DE=1-105" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.10" />
+    </dbReference>
+    <dbReference type="PDB" id="6I7O">
+      <property type="chains" value="AY/XY=6-105" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="5.30" />
+    </dbReference>
+    <dbReference type="PDBsum" id="1CK2" />
+    <dbReference type="PDBsum" id="1CN7" />
+    <dbReference type="PDBsum" id="1NMU" />
+    <dbReference type="PDBsum" id="1T0K" />
+    <dbReference type="PDBsum" id="3J6X" />
+    <dbReference type="PDBsum" id="3J6Y" />
+    <dbReference type="PDBsum" id="3J77" />
+    <dbReference type="PDBsum" id="3J78" />
+    <dbReference type="PDBsum" id="3JCT" />
+    <dbReference type="PDBsum" id="4U3M" />
+    <dbReference type="PDBsum" id="4U3N" />
+    <dbReference type="PDBsum" id="4U3U" />
+    <dbReference type="PDBsum" id="4U4N" />
+    <dbReference type="PDBsum" id="4U4O" />
+    <dbReference type="PDBsum" id="4U4Q" />
+    <dbReference type="PDBsum" id="4U4R" />
+    <dbReference type="PDBsum" id="4U4U" />
+    <dbReference type="PDBsum" id="4U4Y" />
+    <dbReference type="PDBsum" id="4U4Z" />
+    <dbReference type="PDBsum" id="4U50" />
+    <dbReference type="PDBsum" id="4U51" />
+    <dbReference type="PDBsum" id="4U52" />
+    <dbReference type="PDBsum" id="4U53" />
+    <dbReference type="PDBsum" id="4U55" />
+    <dbReference type="PDBsum" id="4U56" />
+    <dbReference type="PDBsum" id="4U6F" />
+    <dbReference type="PDBsum" id="4V6I" />
+    <dbReference type="PDBsum" id="4V7F" />
+    <dbReference type="PDBsum" id="4V7R" />
+    <dbReference type="PDBsum" id="4V88" />
+    <dbReference type="PDBsum" id="4V8T" />
+    <dbReference type="PDBsum" id="4V8Y" />
+    <dbReference type="PDBsum" id="4V8Z" />
+    <dbReference type="PDBsum" id="4V91" />
+    <dbReference type="PDBsum" id="5APN" />
+    <dbReference type="PDBsum" id="5APO" />
+    <dbReference type="PDBsum" id="5DAT" />
+    <dbReference type="PDBsum" id="5DC3" />
+    <dbReference type="PDBsum" id="5DGE" />
+    <dbReference type="PDBsum" id="5DGF" />
+    <dbReference type="PDBsum" id="5DGV" />
+    <dbReference type="PDBsum" id="5FCI" />
+    <dbReference type="PDBsum" id="5FCJ" />
+    <dbReference type="PDBsum" id="5FL8" />
+    <dbReference type="PDBsum" id="5GAK" />
+    <dbReference type="PDBsum" id="5H4P" />
+    <dbReference type="PDBsum" id="5I4L" />
+    <dbReference type="PDBsum" id="5JCS" />
+    <dbReference type="PDBsum" id="5JUO" />
+    <dbReference type="PDBsum" id="5JUP" />
+    <dbReference type="PDBsum" id="5JUS" />
+    <dbReference type="PDBsum" id="5JUT" />
+    <dbReference type="PDBsum" id="5JUU" />
+    <dbReference type="PDBsum" id="5LYB" />
+    <dbReference type="PDBsum" id="5M1J" />
+    <dbReference type="PDBsum" id="5MC6" />
+    <dbReference type="PDBsum" id="5MEI" />
+    <dbReference type="PDBsum" id="5NDG" />
+    <dbReference type="PDBsum" id="5NDV" />
+    <dbReference type="PDBsum" id="5NDW" />
+    <dbReference type="PDBsum" id="5OBM" />
+    <dbReference type="PDBsum" id="5ON6" />
+    <dbReference type="PDBsum" id="5T62" />
+    <dbReference type="PDBsum" id="5T6R" />
+    <dbReference type="PDBsum" id="5TBW" />
+    <dbReference type="PDBsum" id="5TGA" />
+    <dbReference type="PDBsum" id="5TGM" />
+    <dbReference type="PDBsum" id="6CB1" />
+    <dbReference type="PDBsum" id="6ELZ" />
+    <dbReference type="PDBsum" id="6EM5" />
+    <dbReference type="PDBsum" id="6FT6" />
+    <dbReference type="PDBsum" id="6GQ1" />
+    <dbReference type="PDBsum" id="6GQB" />
+    <dbReference type="PDBsum" id="6GQV" />
+    <dbReference type="PDBsum" id="6HD7" />
+    <dbReference type="PDBsum" id="6HHQ" />
+    <dbReference type="PDBsum" id="6I7O" />
+    <dbReference type="SMR" id="P14120" />
+    <dbReference type="BioGrid" id="33216">
+      <property type="interactions" value="98" />
+    </dbReference>
+    <dbReference type="ComplexPortal" id="CPX-1601">
+      <property type="entry name" value="60S cytosolic large ribosomal subunit" />
+    </dbReference>
+    <dbReference type="DIP" id="DIP-1891N" />
+    <dbReference type="IntAct" id="P14120">
+      <property type="interactions" value="89" />
+    </dbReference>
+    <dbReference type="MINT" id="P14120" />
+    <dbReference type="STRING" id="4932.YGL030W" />
+    <dbReference type="MoonProt" id="P14120" />
+    <dbReference type="iPTMnet" id="P14120" />
+    <dbReference type="MaxQB" id="P14120" />
+    <dbReference type="PaxDb" id="P14120" />
+    <dbReference type="PRIDE" id="P14120" />
+    <dbReference type="TopDownProteomics" id="P14120" />
+    <dbReference type="EnsemblFungi" id="YGL030W_mRNA">
+      <property type="gene ID" value="YGL030W" />
+      <property type="protein sequence ID" value="YGL030W_mRNA" />
+    </dbReference>
+    <dbReference type="GeneID" id="852853" />
+    <dbReference type="KEGG" id="sce:YGL030W" />
+    <dbReference type="EuPathDB" id="FungiDB:YGL030W" />
+    <dbReference type="SGD" id="S000002998">
+      <property type="gene designation" value="RPL30" />
+    </dbReference>
+    <dbReference type="GeneTree" id="ENSGT00390000012138" />
+    <dbReference type="HOGENOM" id="HOG000055224" />
+    <dbReference type="InParanoid" id="P14120" />
+    <dbReference type="KO" id="K02908" />
+    <dbReference type="OMA" id="YEFEGTS" />
+    <dbReference type="BioCyc" id="YEAST:G3O-30546-MONOMER" />
+    <dbReference type="Reactome" id="R-SCE-156827">
+      <property type="pathway name" value="L13a-mediated translational silencing of Ceruloplasmin expression" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-1799339">
+      <property type="pathway name" value="SRP-dependent cotranslational protein targeting to membrane" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-72689">
+      <property type="pathway name" value="Formation of a pool of free 40S subunits" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-72706">
+      <property type="pathway name" value="GTP hydrolysis and joining of the 60S ribosomal subunit" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-975956">
+      <property type="pathway name" value="Nonsense Mediated Decay (NMD) independent of the Exon Junction Complex (EJC)" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-975957">
+      <property type="pathway name" value="Nonsense Mediated Decay (NMD) enhanced by the Exon Junction Complex (EJC)" />
+    </dbReference>
+    <dbReference type="EvolutionaryTrace" id="P14120" />
+    <dbReference type="PRO" id="PR:P14120" />
+    <dbReference type="Proteomes" id="UP000002311">
+      <property type="component" value="Chromosome VII" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005737">
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="SGD" />
+      <property type="term" value="C:cytoplasm" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0022625">
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="SGD" />
+      <property type="term" value="C:cytosolic large ribosomal subunit" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0030627">
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="SGD" />
+      <property type="term" value="F:pre-mRNA 5'-splice site binding" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0003723">
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="SGD" />
+      <property type="term" value="F:RNA binding" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0003735">
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="SGD" />
+      <property type="term" value="F:structural constituent of ribosome" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0002181">
+      <property type="evidence" value="ECO:0000305" />
+      <property type="project" value="SGD" />
+      <property type="term" value="P:cytoplasmic translation" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0048025">
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="SGD" />
+      <property type="term" value="P:negative regulation of mRNA splicing, via spliceosome" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0006364">
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="SGD" />
+      <property type="term" value="P:rRNA processing" />
+    </dbReference>
+    <dbReference type="Gene3D" id="3.30.1330.30">
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR039109">
+      <property type="entry name" value="L30/L30e/YlxQ" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR029064">
+      <property type="entry name" value="L30e-like" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR022991">
+      <property type="entry name" value="Ribosomal_L30e_CS" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR004038">
+      <property type="entry name" value="Ribosomal_L7Ae/L30e/S12e/Gad45" />
+    </dbReference>
+    <dbReference type="PANTHER" id="PTHR11449">
+      <property type="entry name" value="PTHR11449" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="Pfam" id="PF01248">
+      <property type="entry name" value="Ribosomal_L7Ae" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="SUPFAM" id="SSF55315">
+      <property type="entry name" value="SSF55315" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PROSITE" id="PS00709">
+      <property type="entry name" value="RIBOSOMAL_L30E_1" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PROSITE" id="PS00993">
+      <property type="entry name" value="RIBOSOMAL_L30E_2" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PDB" id="1NMU" />
+    <dbReference type="PubMed" id="22106047" />
+    <dbReference type="PubMed" id="10601260" />
+    <dbReference type="PubMed" id="14562106" />
+    <dbReference type="PubMed" id="22096102" />
+    <dbReference type="PubMed" id="3316213" />
+    <dbReference type="PubMed" id="24524803" />
+    <dbReference type="PubMed" id="9559554" />
+    <dbReference type="PubMed" id="22096102" />
+    <dbReference type="PubMed" id="9559554" />
+    <feature type="chain">
+      <location>
+        <begin position="2" />
+        <end position="105" />
+      </location>
+    </feature>
+    <sequence length="105">MAPVKSQESINQKLALVIKSGKYTLGYKSTVKSLRQGKSKLIIIAANTPVLRKSELEYYAMLSKTKVYYFQGGNNELGTAVGKLFRVGVVSILEAGDSDILTTLA</sequence>
+  </entry>
+  <entry dataset="Swiss-Prot" created="1986-07-21" modified="2019-05-08" version="194" xmlns="http://uniprot.org/uniprot">
+    <accession>P02294</accession>
+    <name>H2B2_YEAST</name>
+    <protein>
+      <recommendedName>
+        <fullName>Histone H2B.2</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">HTB2</name>
+      <name type="synonym">H2B2</name>
+      <name type="ordered locus">YBL002W</name>
+      <name type="ORF">YBL0104</name>
+    </gene>
+    <organism>
+      <name type="scientific">Saccharomyces cerevisiae (strain ATCC 204508 / S288c)</name>
+    </organism>
+    <dbReference type="NCBI Taxonomy" id="559292" />
+    <dbReference type="PubMed" id="7006833" />
+    <dbReference type="DOI" id="10.1016/0092-8674(80)90556-5" />
+    <dbReference type="PubMed" id="8091860" />
+    <dbReference type="DOI" id="10.1002/yea.320100006" />
+    <dbReference type="PubMed" id="7813418" />
+    <dbReference type="PubMed" id="24374639" />
+    <dbReference type="DOI" id="10.1534/g3.113.008995" />
+    <dbReference type="PubMed" id="17322287" />
+    <dbReference type="DOI" id="10.1101/gr.6037607" />
+    <dbReference type="PubMed" id="7002547" />
+    <dbReference type="DOI" id="10.1111/j.1432-1033.1980.tb04841.x" />
+    <dbReference type="PubMed" id="10777603" />
+    <dbReference type="DOI" id="10.1074/jbc.275.17.13007" />
+    <dbReference type="PubMed" id="11545749" />
+    <dbReference type="DOI" id="10.1016/S1097-2765(01)00301-X" />
+    <dbReference type="PubMed" id="12152067" />
+    <dbReference type="DOI" id="10.1038/nature00970" />
+    <dbReference type="PubMed" id="14563679" />
+    <dbReference type="DOI" id="10.1101/gad.1144003" />
+    <dbReference type="PubMed" id="12535538" />
+    <dbReference type="DOI" id="10.1016/S1097-2765(02)00826-2" />
+    <dbReference type="PubMed" id="12535539" />
+    <dbReference type="DOI" id="10.1016/S1097-2765(02)00802-X" />
+    <dbReference type="PubMed" id="14562106" />
+    <dbReference type="DOI" id="10.1038/nature02046" />
+    <dbReference type="PubMed" id="15186774" />
+    <dbReference type="DOI" id="10.1016/j.cell.2004.05.023" />
+    <dbReference type="PubMed" id="14752010" />
+    <dbReference type="DOI" id="10.1101/gad.1149604" />
+    <dbReference type="PubMed" id="14660635" />
+    <dbReference type="DOI" id="10.1074/jbc.C300505200" />
+    <dbReference type="PubMed" id="15166219" />
+    <dbReference type="DOI" id="10.1074/jbc.M404173200" />
+    <dbReference type="PubMed" id="15280549" />
+    <dbReference type="DOI" id="10.1073/pnas.0400078101" />
+    <dbReference type="PubMed" id="15652479" />
+    <dbReference type="DOI" id="10.1016/j.cell.2004.11.016" />
+    <dbReference type="PubMed" id="15970663" />
+    <dbReference type="DOI" id="10.4161/cc.4.6.1745" />
+    <dbReference type="PubMed" id="15632065" />
+    <dbReference type="DOI" id="10.1128/MCB.25.2.637-651.2005" />
+    <dbReference type="PubMed" id="15657441" />
+    <dbReference type="DOI" id="10.1128/MCB.25.3.1162-1172.2005" />
+    <dbReference type="PubMed" id="15657442" />
+    <dbReference type="DOI" id="10.1128/MCB.25.3.1173-1182.2005" />
+    <dbReference type="PubMed" id="16598039" />
+    <dbReference type="DOI" id="10.1101/gad.1404206" />
+    <dbReference type="PubMed" id="18086883" />
+    <dbReference type="DOI" id="10.1128/MCB.01035-07" />
+    <dbReference type="PubMed" id="19113941" />
+    <dbReference type="DOI" id="10.1021/pr8005155" />
+    <dbReference type="PubMed" id="22389435" />
+    <dbReference type="DOI" id="10.1074/mcp.M111.015875" />
+    <dbReference type="PubMed" id="22814378" />
+    <dbReference type="DOI" id="10.1073/pnas.1210303109" />
+    <dbReference type="PubMed" id="11566884" />
+    <dbReference type="DOI" id="10.1093/emboj/20.18.5207" />
+    <dbReference type="PubMed" id="16631569" />
+    <dbReference type="DOI" id="10.1016/j.cub.2006.03.054" />
+    <dbReference type="EMBL" id="V01308">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="CAA24615.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="Z26494">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="CAA81268.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="Z35763">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="CAA84817.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="AY693063">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="AAT93082.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="BK006936">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="DAA07120.1" />
+    </dbReference>
+    <dbReference type="PIR" id="S44558">
+      <property type="entry name" value="HSBYB2" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_009553.1">
+      <property type="nucleotide sequence ID" value="NM_001178242.1" />
+    </dbReference>
+    <dbReference type="PDB" id="1ID3">
+      <property type="chains" value="D/H=2-131" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.10" />
+    </dbReference>
+    <dbReference type="PDB" id="2FSB">
+      <property type="chains" value="D/H=1-131" />
+      <property type="method" value="Model" />
+    </dbReference>
+    <dbReference type="PDB" id="4JJN">
+      <property type="chains" value="D/H=2-131" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.09" />
+    </dbReference>
+    <dbReference type="PDBsum" id="1ID3" />
+    <dbReference type="PDBsum" id="2FSB" />
+    <dbReference type="PDBsum" id="4JJN" />
+    <dbReference type="SMR" id="P02294" />
+    <dbReference type="BioGrid" id="32700">
+      <property type="interactions" value="270" />
+    </dbReference>
+    <dbReference type="ComplexPortal" id="CPX-1610">
+      <property type="entry name" value="Nucleosome, variant HTA2-HTB2" />
+    </dbReference>
+    <dbReference type="ComplexPortal" id="CPX-1614">
+      <property type="entry name" value="Nucleosome, variant HTZ1-HTB2" />
+    </dbReference>
+    <dbReference type="ComplexPortal" id="CPX-2566">
+      <property type="entry name" value="Nucleosome, variant HTA1-HTB2" />
+    </dbReference>
+    <dbReference type="DIP" id="DIP-3897N" />
+    <dbReference type="IntAct" id="P02294">
+      <property type="interactions" value="101" />
+    </dbReference>
+    <dbReference type="MINT" id="P02294" />
+    <dbReference type="STRING" id="4932.YBL002W" />
+    <dbReference type="iPTMnet" id="P02294" />
+    <dbReference type="MaxQB" id="P02294" />
+    <dbReference type="PaxDb" id="P02294" />
+    <dbReference type="PRIDE" id="P02294" />
+    <dbReference type="EnsemblFungi" id="YBL002W_mRNA">
+      <property type="gene ID" value="YBL002W" />
+      <property type="protein sequence ID" value="YBL002W_mRNA" />
+    </dbReference>
+    <dbReference type="GeneID" id="852284" />
+    <dbReference type="KEGG" id="sce:YBL002W" />
+    <dbReference type="EuPathDB" id="FungiDB:YBL002W" />
+    <dbReference type="SGD" id="S000000098">
+      <property type="gene designation" value="HTB2" />
+    </dbReference>
+    <dbReference type="GeneTree" id="ENSGT00950000182677" />
+    <dbReference type="HOGENOM" id="HOG000231213" />
+    <dbReference type="InParanoid" id="P02294" />
+    <dbReference type="KO" id="K11252" />
+    <dbReference type="OMA" id="MIMNSYI" />
+    <dbReference type="BioCyc" id="YEAST:G3O-28908-MONOMER" />
+    <dbReference type="Reactome" id="R-SCE-2299718">
+      <property type="pathway name" value="Condensation of Prophase Chromosomes" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-2559580">
+      <property type="pathway name" value="Oxidative Stress Induced Senescence" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-3214847">
+      <property type="pathway name" value="HATs acetylate histones" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-9018519">
+      <property type="pathway name" value="Estrogen-dependent gene expression" />
+    </dbReference>
+    <dbReference type="EvolutionaryTrace" id="P02294" />
+    <dbReference type="PRO" id="PR:P02294" />
+    <dbReference type="Proteomes" id="UP000002311">
+      <property type="component" value="Chromosome II" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0000788">
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="SGD" />
+      <property type="term" value="C:nuclear nucleosome" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0031298">
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="SGD" />
+      <property type="term" value="C:replication fork protection complex" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0003677">
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="SGD" />
+      <property type="term" value="F:DNA binding" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0046982">
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="InterPro" />
+      <property type="term" value="F:protein heterodimerization activity" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0006333">
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="SGD" />
+      <property type="term" value="P:chromatin assembly or disassembly" />
+    </dbReference>
+    <dbReference type="Gene3D" id="1.10.20.10">
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR009072">
+      <property type="entry name" value="Histone-fold" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR007125">
+      <property type="entry name" value="Histone_H2A/H2B/H3" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR000558">
+      <property type="entry name" value="Histone_H2B" />
+    </dbReference>
+    <dbReference type="PANTHER" id="PTHR23428">
+      <property type="entry name" value="PTHR23428" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="Pfam" id="PF00125">
+      <property type="entry name" value="Histone" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PRINTS" id="PR00621">
+      <property type="entry name" value="HISTONEH2B" />
+    </dbReference>
+    <dbReference type="SMART" id="SM00427">
+      <property type="entry name" value="H2B" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="SUPFAM" id="SSF47113">
+      <property type="entry name" value="SSF47113" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PROSITE" id="PS00357">
+      <property type="entry name" value="HISTONE_H2B" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PDB" id="4JJN" />
+    <dbReference type="PubMed" id="10777603" />
+    <dbReference type="PubMed" id="11545749" />
+    <dbReference type="PubMed" id="11566884" />
+    <dbReference type="PubMed" id="12152067" />
+    <dbReference type="PubMed" id="12535538" />
+    <dbReference type="PubMed" id="12535539" />
+    <dbReference type="PubMed" id="14562106" />
+    <dbReference type="PubMed" id="14660635" />
+    <dbReference type="PubMed" id="14752010" />
+    <dbReference type="PubMed" id="15166219" />
+    <dbReference type="PubMed" id="15186774" />
+    <dbReference type="PubMed" id="15280549" />
+    <dbReference type="PubMed" id="15632065" />
+    <dbReference type="PubMed" id="15652479" />
+    <dbReference type="PubMed" id="15970663" />
+    <dbReference type="PubMed" id="16598039" />
+    <dbReference type="PubMed" id="18086883" />
+    <dbReference type="PubMed" id="19113941" />
+    <dbReference type="PubMed" id="22389435" />
+    <feature type="chain">
+      <location>
+        <begin position="2" />
+        <end position="131" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="7" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="8" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine on S">
+      <location>
+        <position position="11" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="12" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="17" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="18" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="22" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-butyryllysine on K">
+      <location>
+        <position position="22" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="23" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-methyllysine on K">
+      <location>
+        <position position="23" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-succinyllysine on K">
+      <location>
+        <position position="35" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6,N6-dimethyllysine on K">
+      <location>
+        <position position="38" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-succinyllysine on K">
+      <location>
+        <position position="47" />
+      </location>
+    </feature>
+    <sequence length="131">MSSAAEKKPASKAPAEKKPAAKKTSTSVDGKKRSKVRKETYSSYIYKVLKQTHPDTGISQKSMSILNSFVNDIFERIATEASKLAAYNKKSTISAREIQTAVRLILPGELAKHAVSEGTRAVTKYSSSTQA</sequence>
+  </entry>
+  <entry dataset="Swiss-Prot" created="1986-07-21" modified="2019-05-08" version="205" xmlns="http://uniprot.org/uniprot">
+    <accession>P02309</accession>
+    <name>H4_YEAST</name>
+    <protein>
+      <recommendedName>
+        <fullName>Histone H4</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">HHF1</name>
+      <name type="ordered locus">YBR009C</name>
+      <name type="ORF">YBR0122</name>
+      <name type="primary">HHF2</name>
+      <name type="ordered locus">YNL030W</name>
+      <name type="ORF">N2752</name>
+    </gene>
+    <organism>
+      <name type="scientific">Saccharomyces cerevisiae (strain ATCC 204508 / S288c)</name>
+    </organism>
+    <dbReference type="NCBI Taxonomy" id="559292" />
+    <dbReference type="PubMed" id="6355483" />
+    <dbReference type="DOI" id="10.1016/S0022-2836(83)80164-8" />
+    <dbReference type="PubMed" id="6310494" />
+    <dbReference type="DOI" id="10.1093/nar/11.16.5347" />
+    <dbReference type="PubMed" id="7813418" />
+    <dbReference type="PubMed" id="9169873" />
+    <dbReference type="PubMed" id="24374639" />
+    <dbReference type="DOI" id="10.1534/g3.113.008995" />
+    <dbReference type="PubMed" id="17322287" />
+    <dbReference type="DOI" id="10.1101/gr.6037607" />
+    <dbReference type="PubMed" id="7002547" />
+    <dbReference type="DOI" id="10.1111/j.1432-1033.1980.tb04841.x" />
+    <dbReference type="PubMed" id="9391047" />
+    <dbReference type="DOI" id="10.1073/pnas.94.25.13458" />
+    <dbReference type="PubMed" id="14562106" />
+    <dbReference type="DOI" id="10.1038/nature02046" />
+    <dbReference type="PubMed" id="17287358" />
+    <dbReference type="DOI" id="10.1073/pnas.0607084104" />
+    <dbReference type="PubMed" id="18407956" />
+    <dbReference type="DOI" id="10.1074/mcp.M700468-MCP200" />
+    <dbReference type="PubMed" id="19113941" />
+    <dbReference type="DOI" id="10.1021/pr8005155" />
+    <dbReference type="PubMed" id="19779198" />
+    <dbReference type="DOI" id="10.1126/science.1172867" />
+    <dbReference type="PubMed" id="22389435" />
+    <dbReference type="DOI" id="10.1074/mcp.M111.015875" />
+    <dbReference type="PubMed" id="27105113" />
+    <dbReference type="DOI" id="10.1016/j.molcel.2016.03.014" />
+    <dbReference type="PubMed" id="11080160" />
+    <dbReference type="DOI" id="10.1093/emboj/19.22.6141" />
+    <dbReference type="PubMed" id="11566884" />
+    <dbReference type="DOI" id="10.1093/emboj/20.18.5207" />
+    <dbReference type="PubMed" id="15150415" />
+    <dbReference type="DOI" id="10.1073/pnas.0401057101" />
+    <dbReference type="PubMed" id="16768447" />
+    <dbReference type="DOI" id="10.1021/bi0526332" />
+    <dbReference type="PubMed" id="16631569" />
+    <dbReference type="DOI" id="10.1016/j.cub.2006.03.054" />
+    <dbReference type="PubMed" id="17289592" />
+    <dbReference type="DOI" id="10.1016/j.molcel.2006.12.022" />
+    <dbReference type="PubMed" id="21412236" />
+    <dbReference type="DOI" id="10.1038/nature09854" />
+    <dbReference type="PubMed" id="22020126" />
+    <dbReference type="DOI" id="10.1038/emboj.2011.382" />
+    <dbReference type="EMBL" id="X00724">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="CAA25311.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="X00725">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="CAA25313.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="K03154">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="AAA34660.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="Z35878">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="CAA84947.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="Z71306">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="CAA95892.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="AY692960">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="AAT92979.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="BK006936">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="DAA07130.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="BK006947">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="DAA10515.1" />
+    </dbReference>
+    <dbReference type="PIR" id="A02647">
+      <property type="entry name" value="HSBY4" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_009563.1">
+      <property type="nucleotide sequence ID" value="NM_001178357.1" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_014368.1">
+      <property type="nucleotide sequence ID" value="NM_001182869.1" />
+    </dbReference>
+    <dbReference type="PDB" id="1E6I">
+      <property type="chains" value="P=16-30" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="1.87" />
+    </dbReference>
+    <dbReference type="PDB" id="1ID3">
+      <property type="chains" value="B/F=2-103" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.10" />
+    </dbReference>
+    <dbReference type="PDB" id="1Q1A">
+      <property type="chains" value="B=13-22" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="1.50" />
+    </dbReference>
+    <dbReference type="PDB" id="1SZC">
+      <property type="chains" value="B=13-22" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="1.75" />
+    </dbReference>
+    <dbReference type="PDB" id="1SZD">
+      <property type="chains" value="B=13-22" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="1.50" />
+    </dbReference>
+    <dbReference type="PDB" id="2DVQ">
+      <property type="chains" value="P/Q=2-16" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.04" />
+    </dbReference>
+    <dbReference type="PDB" id="2DVR">
+      <property type="chains" value="P/Q=2-16" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.30" />
+    </dbReference>
+    <dbReference type="PDB" id="2E3K">
+      <property type="chains" value="Q/R=2-16" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.30" />
+    </dbReference>
+    <dbReference type="PDB" id="2FSB">
+      <property type="chains" value="B/F=1-103" />
+      <property type="method" value="Model" />
+    </dbReference>
+    <dbReference type="PDB" id="2H2H">
+      <property type="chains" value="B=76-86" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.20" />
+    </dbReference>
+    <dbReference type="PDB" id="2L5A">
+      <property type="chains" value="A=42-103" />
+      <property type="method" value="NMR" />
+    </dbReference>
+    <dbReference type="PDB" id="2QQF">
+      <property type="chains" value="B=13-23" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.00" />
+    </dbReference>
+    <dbReference type="PDB" id="2QQG">
+      <property type="chains" value="B=13-23" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.05" />
+    </dbReference>
+    <dbReference type="PDB" id="3TO6">
+      <property type="chains" value="B=12-23" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.10" />
+    </dbReference>
+    <dbReference type="PDB" id="4JJN">
+      <property type="chains" value="B/F=2-103" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.09" />
+    </dbReference>
+    <dbReference type="PDB" id="4KUD">
+      <property type="chains" value="B/F=1-103" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.20" />
+    </dbReference>
+    <dbReference type="PDB" id="4PSX">
+      <property type="chains" value="C/F=2-49" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.51" />
+    </dbReference>
+    <dbReference type="PDB" id="4TWI">
+      <property type="chains" value="B=9-21" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="1.79" />
+    </dbReference>
+    <dbReference type="PDB" id="4TWJ">
+      <property type="chains" value="B=9-21" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="1.65" />
+    </dbReference>
+    <dbReference type="PDB" id="5W0V">
+      <property type="chains" value="C/D=2-35" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="2.82" />
+    </dbReference>
+    <dbReference type="PDB" id="5ZBA">
+      <property type="chains" value="D=1-103" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.50" />
+    </dbReference>
+    <dbReference type="PDB" id="5ZBB">
+      <property type="chains" value="D=1-103" />
+      <property type="method" value="X-ray" />
+      <property type="resolution" value="3.60" />
+    </dbReference>
+    <dbReference type="PDB" id="6GEJ">
+      <property type="chains" value="C/D=1-103" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.60" />
+    </dbReference>
+    <dbReference type="PDB" id="6GEN">
+      <property type="chains" value="C/D=1-103" />
+      <property type="method" value="EM" />
+      <property type="resolution" value="3.60" />
+    </dbReference>
+    <dbReference type="PDBsum" id="1E6I" />
+    <dbReference type="PDBsum" id="1ID3" />
+    <dbReference type="PDBsum" id="1Q1A" />
+    <dbReference type="PDBsum" id="1SZC" />
+    <dbReference type="PDBsum" id="1SZD" />
+    <dbReference type="PDBsum" id="2DVQ" />
+    <dbReference type="PDBsum" id="2DVR" />
+    <dbReference type="PDBsum" id="2E3K" />
+    <dbReference type="PDBsum" id="2FSB" />
+    <dbReference type="PDBsum" id="2H2H" />
+    <dbReference type="PDBsum" id="2L5A" />
+    <dbReference type="PDBsum" id="2QQF" />
+    <dbReference type="PDBsum" id="2QQG" />
+    <dbReference type="PDBsum" id="3TO6" />
+    <dbReference type="PDBsum" id="4JJN" />
+    <dbReference type="PDBsum" id="4KUD" />
+    <dbReference type="PDBsum" id="4PSX" />
+    <dbReference type="PDBsum" id="4TWI" />
+    <dbReference type="PDBsum" id="4TWJ" />
+    <dbReference type="PDBsum" id="5W0V" />
+    <dbReference type="PDBsum" id="5ZBA" />
+    <dbReference type="PDBsum" id="5ZBB" />
+    <dbReference type="PDBsum" id="6GEJ" />
+    <dbReference type="PDBsum" id="6GEN" />
+    <dbReference type="SMR" id="P02309" />
+    <dbReference type="BioGrid" id="32710">
+      <property type="interactions" value="718" />
+    </dbReference>
+    <dbReference type="BioGrid" id="35797">
+      <property type="interactions" value="486" />
+    </dbReference>
+    <dbReference type="ComplexPortal" id="CPX-1101">
+      <property type="entry name" value="RNA polymerase I upstream activating factor complex" />
+    </dbReference>
+    <dbReference type="ComplexPortal" id="CPX-1610">
+      <property type="entry name" value="Nucleosome, variant HTA2-HTB2" />
+    </dbReference>
+    <dbReference type="ComplexPortal" id="CPX-1611">
+      <property type="entry name" value="Nucleosome, variant HTA2-HTB1" />
+    </dbReference>
+    <dbReference type="ComplexPortal" id="CPX-1612">
+      <property type="entry name" value="Nucleosome, variant HTA1-HTB1" />
+    </dbReference>
+    <dbReference type="ComplexPortal" id="CPX-1613">
+      <property type="entry name" value="Nucleosome, variant HTZ1-HTB1" />
+    </dbReference>
+    <dbReference type="ComplexPortal" id="CPX-1614">
+      <property type="entry name" value="Nucleosome, variant HTZ1-HTB2" />
+    </dbReference>
+    <dbReference type="ComplexPortal" id="CPX-2566">
+      <property type="entry name" value="Nucleosome, variant HTA1-HTB2" />
+    </dbReference>
+    <dbReference type="DIP" id="DIP-418N" />
+    <dbReference type="IntAct" id="P02309">
+      <property type="interactions" value="312" />
+    </dbReference>
+    <dbReference type="MINT" id="P02309" />
+    <dbReference type="STRING" id="4932.YNL030W" />
+    <dbReference type="iPTMnet" id="P02309" />
+    <dbReference type="MaxQB" id="P02309" />
+    <dbReference type="PaxDb" id="P02309" />
+    <dbReference type="PRIDE" id="P02309" />
+    <dbReference type="EnsemblFungi" id="YBR009C_mRNA">
+      <property type="gene ID" value="YBR009C" />
+      <property type="protein sequence ID" value="YBR009C_mRNA" />
+    </dbReference>
+    <dbReference type="EnsemblFungi" id="YNL030W_mRNA">
+      <property type="gene ID" value="YNL030W" />
+      <property type="protein sequence ID" value="YNL030W_mRNA" />
+    </dbReference>
+    <dbReference type="GeneID" id="852294" />
+    <dbReference type="GeneID" id="855701" />
+    <dbReference type="KEGG" id="sce:YBR009C" />
+    <dbReference type="KEGG" id="sce:YNL030W" />
+    <dbReference type="SGD" id="S000000213">
+      <property type="gene designation" value="HHF1" />
+    </dbReference>
+    <dbReference type="SGD" id="S000004975">
+      <property type="gene designation" value="HHF2" />
+    </dbReference>
+    <dbReference type="GeneTree" id="ENSGT00950000182673" />
+    <dbReference type="HOGENOM" id="HOG000234654" />
+    <dbReference type="InParanoid" id="P02309" />
+    <dbReference type="KO" id="K11254" />
+    <dbReference type="OMA" id="QKEHING" />
+    <dbReference type="BioCyc" id="YEAST:G3O-28996-MONOMER" />
+    <dbReference type="BioCyc" id="YEAST:G3O-33067-MONOMER" />
+    <dbReference type="Reactome" id="R-SCE-2299718">
+      <property type="pathway name" value="Condensation of Prophase Chromosomes" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-2559580">
+      <property type="pathway name" value="Oxidative Stress Induced Senescence" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-3214842">
+      <property type="pathway name" value="HDMs demethylate histones" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-3214847">
+      <property type="pathway name" value="HATs acetylate histones" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-3214858">
+      <property type="pathway name" value="RMTs methylate histone arginines" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-4551638">
+      <property type="pathway name" value="SUMOylation of chromatin organization proteins" />
+    </dbReference>
+    <dbReference type="Reactome" id="R-SCE-9018519">
+      <property type="pathway name" value="Estrogen-dependent gene expression" />
+    </dbReference>
+    <dbReference type="EvolutionaryTrace" id="P02309" />
+    <dbReference type="PRO" id="PR:P02309" />
+    <dbReference type="Proteomes" id="UP000002311">
+      <property type="component" value="Chromosome II" />
+    </dbReference>
+    <dbReference type="Proteomes" id="UP000002311">
+      <property type="component" value="Chromosome XIV" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0000788">
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="SGD" />
+      <property type="term" value="C:nuclear nucleosome" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0031298">
+      <property type="evidence" value="ECO:0000314" />
+      <property type="project" value="SGD" />
+      <property type="term" value="C:replication fork protection complex" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0003677">
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+      <property type="term" value="F:DNA binding" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0046982">
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="InterPro" />
+      <property type="term" value="F:protein heterodimerization activity" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0006333">
+      <property type="evidence" value="ECO:0000304" />
+      <property type="project" value="SGD" />
+      <property type="term" value="P:chromatin assembly or disassembly" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0034729">
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="SGD" />
+      <property type="term" value="P:histone H3-K79 methylation" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0006334">
+      <property type="evidence" value="ECO:0000318" />
+      <property type="project" value="GO_Central" />
+      <property type="term" value="P:nucleosome assembly" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0043935">
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="SGD" />
+      <property type="term" value="P:sexual sporulation resulting in formation of a cellular spore" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0061587">
+      <property type="evidence" value="ECO:0000315" />
+      <property type="project" value="SGD" />
+      <property type="term" value="P:transfer RNA gene-mediated silencing" />
+    </dbReference>
+    <dbReference type="CDD" id="cd00076">
+      <property type="entry name" value="H4" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="Gene3D" id="1.10.20.10">
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR035425">
+      <property type="entry name" value="CENP-T/H4_C" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR009072">
+      <property type="entry name" value="Histone-fold" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR001951">
+      <property type="entry name" value="Histone_H4" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR019809">
+      <property type="entry name" value="Histone_H4_CS" />
+    </dbReference>
+    <dbReference type="Pfam" id="PF15511">
+      <property type="entry name" value="CENP-T_C" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PRINTS" id="PR00623">
+      <property type="entry name" value="HISTONEH4" />
+    </dbReference>
+    <dbReference type="SMART" id="SM00417">
+      <property type="entry name" value="H4" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="SUPFAM" id="SSF47113">
+      <property type="entry name" value="SSF47113" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PROSITE" id="PS00047">
+      <property type="entry name" value="HISTONE_H4" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PDB" id="2L5A" />
+    <dbReference type="PDB" id="4JJN" />
+    <dbReference type="PDB" id="4PSX" />
+    <dbReference type="PDB" id="4TWI" />
+    <dbReference type="PubMed" id="17287358" />
+    <dbReference type="PubMed" id="18407956" />
+    <dbReference type="PubMed" id="19779198" />
+    <dbReference type="PubMed" id="11080160" />
+    <dbReference type="PubMed" id="14562106" />
+    <dbReference type="PubMed" id="15150415" />
+    <dbReference type="PubMed" id="16768447" />
+    <dbReference type="PubMed" id="17289592" />
+    <dbReference type="PubMed" id="19113941" />
+    <dbReference type="PubMed" id="22389435" />
+    <dbReference type="PubMed" id="27105113" />
+    <dbReference type="PubMed" id="9391047" />
+    <feature type="chain">
+      <location>
+        <begin position="2" />
+        <end position="103" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="6" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="9" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-butyryllysine on K">
+      <location>
+        <position position="9" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="13" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-butyryllysine on K">
+      <location>
+        <position position="13" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="17" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-succinyllysine on K">
+      <location>
+        <position position="32" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Omega-N-methylarginine on R">
+      <location>
+        <position position="56" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine on S">
+      <location>
+        <position position="61" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine on S">
+      <location>
+        <position position="65" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-succinyllysine on K">
+      <location>
+        <position position="78" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N6-acetyllysine on K">
+      <location>
+        <position position="80" />
+      </location>
+    </feature>
+    <sequence length="103">MSGRGKGGKGLGKGGAKRHRKILRDNIQGITKPAIRRLARRGGVKRISGLIYEEVRAVLKSFLESVIRDSVTYTEHAKRKTVTSLDVVYALKRQGRTLYGFGG</sequence>
+  </entry>
+  <entry dataset="Swiss-Prot" created="1997-11-01" modified="2019-05-08" version="72" xmlns="http://uniprot.org/uniprot">
+    <accession>Q04276</accession>
+    <name>YMX2_YEAST</name>
+    <protein>
+      <recommendedName>
+        <fullName>Uncharacterized protein YMR082C</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="ordered locus">YMR082C</name>
+      <name type="ORF">YM9582.07C</name>
+    </gene>
+    <organism>
+      <name type="scientific">Saccharomyces cerevisiae (strain ATCC 204508 / S288c)</name>
+    </organism>
+    <dbReference type="NCBI Taxonomy" id="559292" />
+    <dbReference type="PubMed" id="9169872" />
+    <dbReference type="PubMed" id="24374639" />
+    <dbReference type="DOI" id="10.1534/g3.113.008995" />
+    <dbReference type="PubMed" id="17322287" />
+    <dbReference type="DOI" id="10.1101/gr.6037607" />
+    <dbReference type="EMBL" id="Z49259">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="CAA89228.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="AY558364">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="AAS56690.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="BK006946">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="DAA80325.1" />
+    </dbReference>
+    <dbReference type="PIR" id="S54457">
+      <property type="entry name" value="S54457" />
+    </dbReference>
+    <dbReference type="PaxDb" id="Q04276" />
+    <dbReference type="EnsemblFungi" id="YMR082C_mRNA">
+      <property type="gene ID" value="YMR082C" />
+      <property type="protein sequence ID" value="YMR082C_mRNA" />
+    </dbReference>
+    <dbReference type="SGD" id="S000004687">
+      <property type="gene designation" value="YMR082C" />
+    </dbReference>
+    <dbReference type="PRO" id="PR:Q04276" />
+    <dbReference type="Proteomes" id="UP000002311">
+      <property type="component" value="Chromosome XIII" />
+    </dbReference>
+    <feature type="chain">
+      <location>
+        <begin position="1" />
+        <end position="118" />
+      </location>
+    </feature>
+    <sequence length="118">MTIAEITIRQKFSYPFLFGNVLGHPWPRNVPRKEIKMLLFRTANNSFPGFLLIFTRKRRNLPKQRDNEIPRTRALETYLRVFSAARKQREADATASFWRLVTSASRSHYHMWPIKRII</sequence>
+  </entry>
+  <entry dataset="Swiss-Prot" created="1995-02-01" modified="2019-05-08" version="138" xmlns="http://uniprot.org/uniprot">
+    <accession>P38744</accession>
+    <name>PHS_YEAST</name>
+    <protein>
+      <recommendedName>
+        <fullName>Putative pterin-4-alpha-carbinolamine dehydratase</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="ordered locus">YHL018W</name>
+    </gene>
+    <organism>
+      <name type="scientific">Saccharomyces cerevisiae (strain ATCC 204508 / S288c)</name>
+    </organism>
+    <dbReference type="NCBI Taxonomy" id="559292" />
+    <dbReference type="PubMed" id="8091229" />
+    <dbReference type="DOI" id="10.1126/science.8091229" />
+    <dbReference type="PubMed" id="24374639" />
+    <dbReference type="DOI" id="10.1534/g3.113.008995" />
+    <dbReference type="PubMed" id="17322287" />
+    <dbReference type="DOI" id="10.1101/gr.6037607" />
+    <dbReference type="PubMed" id="14562106" />
+    <dbReference type="DOI" id="10.1038/nature02046" />
+    <dbReference type="Rhea" id="RHEA:11920" />
+    <dbReference type="ChEBI" id="CHEBI:15377" />
+    <dbReference type="ChEBI" id="CHEBI:15642" />
+    <dbReference type="ChEBI" id="CHEBI:43120" />
+    <dbReference type="EC" id="4.2.1.96" />
+    <dbReference type="EC" id="4.2.1.96" />
+    <dbReference type="EMBL" id="U11582">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="AAB65071.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="AY558391">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="AAS56717.1" />
+    </dbReference>
+    <dbReference type="EMBL" id="BK006934">
+      <property type="molecule type" value="Genomic_DNA" />
+      <property type="protein sequence ID" value="DAA06667.1" />
+    </dbReference>
+    <dbReference type="PIR" id="S46832">
+      <property type="entry name" value="S46832" />
+    </dbReference>
+    <dbReference type="RefSeq" id="NP_011845.1">
+      <property type="nucleotide sequence ID" value="NM_001179098.1" />
+    </dbReference>
+    <dbReference type="BioGrid" id="36405">
+      <property type="interactions" value="82" />
+    </dbReference>
+    <dbReference type="DIP" id="DIP-1872N" />
+    <dbReference type="IntAct" id="P38744">
+      <property type="interactions" value="12" />
+    </dbReference>
+    <dbReference type="MINT" id="P38744" />
+    <dbReference type="STRING" id="4932.YHL018W" />
+    <dbReference type="MaxQB" id="P38744" />
+    <dbReference type="PaxDb" id="P38744" />
+    <dbReference type="PRIDE" id="P38744" />
+    <dbReference type="EnsemblFungi" id="YHL018W_mRNA">
+      <property type="gene ID" value="YHL018W" />
+      <property type="protein sequence ID" value="YHL018W_mRNA" />
+    </dbReference>
+    <dbReference type="GeneID" id="856368" />
+    <dbReference type="KEGG" id="sce:YHL018W" />
+    <dbReference type="EuPathDB" id="FungiDB:YHL018W" />
+    <dbReference type="SGD" id="S000001010">
+      <property type="gene designation" value="YHL018W" />
+    </dbReference>
+    <dbReference type="HOGENOM" id="HOG000007680" />
+    <dbReference type="InParanoid" id="P38744" />
+    <dbReference type="KO" id="K01724" />
+    <dbReference type="OMA" id="AIAMRSH" />
+    <dbReference type="BioCyc" id="YEAST:G3O-31038-MONOMER" />
+    <dbReference type="Reactome" id="R-SCE-71182">
+      <property type="pathway name" value="Phenylalanine and tyrosine catabolism" />
+    </dbReference>
+    <dbReference type="PRO" id="PR:P38744" />
+    <dbReference type="Proteomes" id="UP000002311">
+      <property type="component" value="Chromosome VIII" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0005739">
+      <property type="evidence" value="ECO:0007005" />
+      <property type="project" value="SGD" />
+      <property type="term" value="C:mitochondrion" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0008124">
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="UniProtKB-EC" />
+      <property type="term" value="F:4-alpha-hydroxytetrahydrobiopterin dehydratase activity" />
+    </dbReference>
+    <dbReference type="GO" id="GO:0006729">
+      <property type="evidence" value="ECO:0000501" />
+      <property type="project" value="InterPro" />
+      <property type="term" value="P:tetrahydrobiopterin biosynthetic process" />
+    </dbReference>
+    <dbReference type="Gene3D" id="3.30.1360.20">
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR036428">
+      <property type="entry name" value="PCD_sf" />
+    </dbReference>
+    <dbReference type="InterPro" id="IPR001533">
+      <property type="entry name" value="Pterin_deHydtase" />
+    </dbReference>
+    <dbReference type="PANTHER" id="PTHR12599">
+      <property type="entry name" value="PTHR12599" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="Pfam" id="PF01329">
+      <property type="entry name" value="Pterin_4a" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="SUPFAM" id="SSF55248">
+      <property type="entry name" value="SSF55248" />
+      <property type="match status" value="1" />
+    </dbReference>
+    <dbReference type="PubMed" id="14562106" />
+    <feature type="chain">
+      <location>
+        <begin position="1" />
+        <end position="120" />
+      </location>
+    </feature>
+    <sequence length="120">MHNKIVRIASSALTGGKLLEKLKPLTRWEVQWDPNKTKCLGITREVTFKDYETTWAFLTRVSMRSHLWGHHPLIHTSYTWVKLELHTHDIDPKDGAHSQLSDIDVRMAKRIDSYIDEMTT</sequence>
+  </entry>
+</mzLibProteinDb>

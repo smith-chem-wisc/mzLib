@@ -346,25 +346,120 @@ namespace Test
         [Test]
         public void FlashDeconvolutionTest()
         {
-            const string inputFile = @"E:\Projects\LVS_TD_Yeast\05-26-17_B7A_yeast_td_fract7_rep1.mzML";
-            const string outputFile = @"E:\Projects\LVS_TD_Yeast\out.tsv";
+            string inputFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "TopDown", "lvsYeastTopDownSnip.mzML");
+            string expectedOutputTsv = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "TopDown", "lvsYeastSnipFlashDeconvExpected.tsv");
+
             if (!File.Exists(inputFile))
                 Assert.Ignore("Missing input file: " + inputFile);
+            if (!File.Exists(expectedOutputTsv))
+                Assert.Ignore("Missing expected output TSV: " + expectedOutputTsv);
 
-            var runner = new MassSpectrometry.FlashDeconvRuntime.FlashDeconvRunner(
-                preflight: false); // skip preflight; no startup timeout
+            string tempDir = Path.Combine(Path.GetTempPath(), "FlashDeconvTest_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            string outputTsv = Path.Combine(tempDir, "deconv.tsv");
 
-            try { if (File.Exists(outputFile)) File.Delete(outputFile); } catch { }
+            try
+            {
+                var runner = new MassSpectrometry.FlashDeconvRuntime.FlashDeconvRunner(preflight: false);
+                string extraArgs = (Environment.GetEnvironmentVariable("FLASHDECONV_ARGS") ?? "").Trim();
+                var result = runner.Run(inputFile, outputTsv, extraArgs, timeoutMs: 0);
 
-            var result = runner.Run(inputFile, outputFile,
-                Environment.GetEnvironmentVariable("FLASHDECONV_ARGS") ?? "",
-                timeoutMs: 0); // infinite
-            Assert.That(result.ExitCode, Is.EqualTo(0), "FLASHDeconv failed: " + result.StdErr);
-            Assert.That(File.Exists(outputFile), "Output file not created.");
+                Assert.That(result.ExitCode, Is.EqualTo(0), "FLASHDeconv failed: " + result.StdErr);
+                Assert.That(File.Exists(outputTsv), "TSV output not created.");
+                Assert.That(new FileInfo(outputTsv).Length, Is.GreaterThan(0), "TSV output empty.");
+
+                CompareTsvIgnoringColumn(expectedOutputTsv, outputTsv,
+                    ignoreColumnIndex: 1,        // Ignore FileName column (2nd column, zero-based index = 1)
+                    numericAbsTol: 1e-3,
+                    numericRelTol: 1e-3);
+            }
+            finally
+            {
+                try { Directory.Delete(tempDir, true); } catch { }
+            }
         }
 
+        private static void CompareTsvIgnoringColumn(string expectedPath, string actualPath,
+            int ignoreColumnIndex, double numericAbsTol, double numericRelTol)
+        {
+            var expectedLines = File.ReadAllLines(expectedPath)
+                .Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
+            var actualLines = File.ReadAllLines(actualPath)
+                .Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
 
+            Assert.That(actualLines.Count, Is.EqualTo(expectedLines.Count),
+                $"Line count mismatch. Expected {expectedLines.Count}, got {actualLines.Count}.");
 
+            if (expectedLines.Count == 0)
+                Assert.Fail("Expected TSV is empty.");
+
+            AssertHeadersCompatibleSkip(expectedLines[0], actualLines[0], ignoreColumnIndex);
+
+            for (int i = 1; i < expectedLines.Count; i++)
+            {
+                var expCols = expectedLines[i].Split('\t');
+                var actCols = actualLines[i].Split('\t');
+
+                int maxCols = Math.Max(expCols.Length, actCols.Length);
+                if (expCols.Length != actCols.Length)
+                {
+                    Array.Resize(ref expCols, maxCols);
+                    Array.Resize(ref actCols, maxCols);
+                }
+
+                for (int c = 0; c < maxCols; c++)
+                {
+                    if (c == ignoreColumnIndex) // skip FileName column
+                        continue;
+
+                    var e = (expCols[c] ?? "").Trim();
+                    var a = (actCols[c] ?? "").Trim();
+
+                    if (string.Equals(e, a, StringComparison.Ordinal))
+                        continue;
+
+                    if (double.TryParse(e, NumberStyles.Any, CultureInfo.InvariantCulture, out double ev) &&
+                        double.TryParse(a, NumberStyles.Any, CultureInfo.InvariantCulture, out double av))
+                    {
+                        double absDiff = Math.Abs(ev - av);
+                        double relDiff = ev != 0 ? absDiff / Math.Abs(ev) : absDiff;
+                        if (absDiff <= numericAbsTol || relDiff <= numericRelTol)
+                            continue;
+
+                        Assert.Fail($"Numeric mismatch (line {i + 1}, col {c + 1}): expected {ev}, actual {av}, absDiff={absDiff}, relDiff={relDiff}");
+                    }
+                    else
+                    {
+                        if (!(string.IsNullOrEmpty(e) && string.IsNullOrEmpty(a)))
+                        {
+                            Assert.Fail($"Text mismatch (line {i + 1}, col {c + 1}): expected '{e}', actual '{a}'");
+                        }
+                    }
+                }
+            }
+        }
+
+        private static void AssertHeadersCompatibleSkip(string expectedHeader, string actualHeader, int ignoreColumnIndex)
+        {
+            if (expectedHeader == actualHeader)
+                return;
+
+            var expCols = expectedHeader.Split('\t');
+            var actCols = actualHeader.Split('\t');
+            int max = Math.Max(expCols.Length, actCols.Length);
+
+            for (int c = 0; c < max; c++)
+            {
+                if (c == ignoreColumnIndex)
+                    continue;
+
+                string e = c < expCols.Length ? expCols[c] : "";
+                string a = c < actCols.Length ? actCols[c] : "";
+
+                if (!string.Equals(e, a, StringComparison.Ordinal))
+                    Assert.Fail($"Header mismatch at column {c + 1}: expected '{e}', actual '{a}'");
+            }
+        }
         #endregion
     }
 }
