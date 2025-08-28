@@ -8,50 +8,27 @@ using System.Threading.Tasks;
 namespace MassSpectrometry.FlashDeconvRuntime
 {
     /// <summary>
-    /// High-level convenience runner for the FLASHDeconv executable.
+    /// Higher-level orchestration runner for executing FLASHDeconv.
     /// 
     /// WHAT:
-    /// - Locates the executable (delegates to FlashDeconvLocator).
-    /// - Optionally performs a "preflight" help invocation to validate environment / dependencies.
-    /// - Executes FLASHDeconv with provided arguments (sync or async).
-    /// - Supports optional timeout enforcement and cancellation.
+    /// - Locates executable (FlashDeconvLocator).
+    /// - Optional preflight (help call) to detect missing dependencies early.
+    /// - Provides sync & async execution paths with optional timeout & cancellation.
+    /// - Adds OPENMS_DATA_PATH inference for environments where it's not configured.
     /// 
-    /// WHY this abstraction (vs. directly spawning Process everywhere):
-    /// - Centralizes preflight logic, error reporting, and timeout handling.
-    /// - Reduces duplication in tests and integration code.
-    /// - Provides strongly documented environment variable overrides to alter behavior without code changes.
-    /// 
-    /// Design decisions:
-    /// - Preflight is opt-out (default true) because early failure is usually preferable to a late crash.
-    /// - Timeout strategy: separate configurable preflight timeout vs. run timeout (both can be infinite).
-    /// - Streams (stdout/stderr) are buffered in memory because typical diagnostic output is short; for huge output
-    ///   volumes, a future enhancement could stream to disk or expose IProgress handlers.
-    /// - No attempt to parse output here; separation of concerns keeps runner focused on orchestration.
+    /// WHY this layer (vs. direct Process use per call site):
+    /// - Consolidates argument shaping & diagnostics logic.
+    /// - Reduces duplication and chance of inconsistent error handling.
+    /// - Exposes environment-variable overrides for non-code configuration (CI, containers).
+    /// - Leaves parsing and domain interpretation to higher-level code (single responsibility).
     /// </summary>
     public sealed class FlashDeconvRunner
     {
         private readonly string _exe;
 
         /// <summary>
-        /// Creates a runner instance.
-        /// 
-        /// Parameter semantics (WHAT / WHY):
-        /// overridePath:
-        ///   Explicit path to the executable (wins over all other resolution strategies). Useful for A/B testing versions.
-        /// preflight:
-        ///   true  => Run a lightweight help command (-h or custom arg) to ensure binary loads and dependencies resolve.
-        ///   false => Skip preflight entirely (reduces startup latency but risks late failure).
-        /// preflightTimeoutMs:
-        ///   >0    => Maximum time (ms) to wait for preflight before treating it as failure (prevents indefinite hang).
-        ///   null or <=0 => Infinite wait (useful in cold container starts where dynamic linking is slow).
-        /// preflightArg:
-        ///   The argument used during preflight. Some versions may require "--help" instead of "-h"; making this configurable
-        ///   avoids recompilation. Null falls back to environment variable or "-h".
-        /// 
-        /// Environment variable overrides (WHY they matter):
-        ///   FLASHDECONV_SKIP_PREFLIGHT          => Force skip regardless of constructor 'preflight' value (CI toggles).
-        ///   FLASHDECONV_PREFLIGHT_TIMEOUT_MS    => Adjust preflight timeout externally (no code redeploy).
-        ///   FLASHDECONV_PREFLIGHT_ARG           => Provide alternative help flag or blank (some builds behave differently).
+        /// Construct a runner, optionally performing a preflight.
+        /// Preflight is enabled by default to fail fast on missing DLLs / share data, but can be skipped for speed.
         /// </summary>
         public FlashDeconvRunner(
             string? overridePath = null,
@@ -59,11 +36,11 @@ namespace MassSpectrometry.FlashDeconvRuntime
             int? preflightTimeoutMs = 30000,
             string? preflightArg = null)
         {
-            // Resolve the executable path (throws if not found) – WHY: fail early for more actionable error reporting.
+            // Resolve path first; throw early if absent for easier debugging.
             _exe = FlashDeconvLocator.FindExecutable(overridePath)
                    ?? throw new FileNotFoundException("FLASHDeconv executable not found (env FLASHDECONV_PATH or vendored runtime).");
 
-            // Environment can enforce skip (WHY: CI / stress tests may prefer speed over early validation).
+            // Environment can force skip (typical for iterative dev loops or when dependency warmup is known slow).
             var skip = Environment.GetEnvironmentVariable("FLASHDECONV_SKIP_PREFLIGHT");
             if (string.Equals(skip, "1", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(skip, "true", StringComparison.OrdinalIgnoreCase))
@@ -72,15 +49,14 @@ namespace MassSpectrometry.FlashDeconvRuntime
             if (!preflight)
                 return;
 
-            // Allow environment to override the timeout (WHY: flaky shared infra might need longer warmups).
+            // Allow external runtime to tune preflight timeout without code change (e.g., GH Actions vs local).
             if (Environment.GetEnvironmentVariable("FLASHDECONV_PREFLIGHT_TIMEOUT_MS") is string tov &&
                 int.TryParse(tov, out var envTimeout))
                 preflightTimeoutMs = envTimeout;
 
-            // Provide overridable help argument (WHY: some distributions require "--help" or a blank invocation).
+            // Use environment override or default to "-h" (some builds may prefer "--help" or blank).
             preflightArg ??= Environment.GetEnvironmentVariable("FLASHDECONV_PREFLIGHT_ARG") ?? "-h";
 
-            // Execute the preflight; on failure gather enough context for straightforward remediation.
             if (!FlashDeconvLocator.Preflight(
                     _exe,
                     out var so,
@@ -89,6 +65,7 @@ namespace MassSpectrometry.FlashDeconvRuntime
                     preflightTimeoutMs,
                     preflightArg))
             {
+                // Provide targeted hints to accelerate user remediation.
                 var msg = new StringBuilder()
                     .AppendLine("FLASHDeconv preflight failed.")
                     .AppendLine($"  Path   : {_exe}")
@@ -98,9 +75,9 @@ namespace MassSpectrometry.FlashDeconvRuntime
                     .AppendLine($"  StdOut : {(string.IsNullOrWhiteSpace(so) ? "<empty>" : Trim(so, 400))}")
                     .AppendLine($"  StdErr : {(string.IsNullOrWhiteSpace(se) ? "<empty>" : Trim(se, 400))}")
                     .AppendLine("Hints:")
-                    .AppendLine("  - Skip preflight: set FLASHDECONV_SKIP_PREFLIGHT=1 or use new FlashDeconvRunner(preflight:false)")
+                    .AppendLine("  - Skip preflight: set FLASHDECONV_SKIP_PREFLIGHT=1 or new FlashDeconvRunner(preflight:false)")
                     .AppendLine("  - Increase timeout: set FLASHDECONV_PREFLIGHT_TIMEOUT_MS=60000")
-                    .AppendLine("  - Try different help arg: set FLASHDECONV_PREFLIGHT_ARG=--help or empty")
+                    .AppendLine("  - Adjust help arg: set FLASHDECONV_PREFLIGHT_ARG=--help (or blank)")
                     .AppendLine("  - If help hangs, skip preflight and run directly.")
                     .ToString();
                 throw new InvalidOperationException(msg);
@@ -108,31 +85,19 @@ namespace MassSpectrometry.FlashDeconvRuntime
         }
 
         /// <summary>
-        /// Synchronous wrapper over the asynchronous run. WHY:
-        /// - Many call sites (e.g., legacy test frameworks) are synchronous; this avoids boilerplate GetAwaiter code.
-        /// - Keeps single implementation surface (RunAsync) to avoid duplication.
+        /// Convenience synchronous API that delegates to RunAsync (single implementation surface).
         /// </summary>
         public (int ExitCode, string StdOut, string StdErr) Run(
             string inputMzml, string outputTsv, string extraArgs = "", int timeoutMs = 0)
             => RunAsync(inputMzml, outputTsv, extraArgs, timeoutMs, CancellationToken.None).GetAwaiter().GetResult();
 
         /// <summary>
-        /// Executes FLASHDeconv asynchronously.
-        /// 
-        /// WHAT:
-        /// - Spawns the process with mandatory -in / -out arguments plus optional extra args appended verbatim.
-        /// - Captures stdout and stderr concurrently.
-        /// - Supports cooperative cancellation (via provided token) and a simple wall-clock timeout (timeoutMs).
-        /// 
-        /// WHY (timeout design):
-        /// - A positive timeout ensures runaway processes (e.g., hung native calls) do not stall test runs indefinitely.
-        /// - A non-positive timeout disables enforcement (caller explicitly accepts indefinite runtime).
-        /// 
-        /// Failure semantics:
-        /// - Throws FileNotFoundException if input is missing (fast path).
-        /// - Throws TimeoutException if enforced timeout elapses (with best-effort process kill).
-        /// - Does NOT throw on non-zero exit; instead returns exit code to let caller decide (unlike the simpler FlashDeconv wrapper).
-        ///   WHY: This runner aims to be more flexible for scenarios where partial failures are inspected programmatically.
+        /// Asynchronously execute FLASHDeconv.
+        /// - Always supplies -in and -out.
+        /// - Appends any additional caller-specified arguments verbatim (caller handles quoting).
+        /// - Captures stdout/stderr (line-buffered) to StringBuilder to avoid blocking on large output.
+        /// - Supports either a wall-clock timeout (timeoutMs > 0) or external cancellation token.
+        /// - Returns exit code instead of throwing (unlike simpler wrapper) to allow nuanced caller handling.
         /// </summary>
         public async Task<(int ExitCode, string StdOut, string StdErr)> RunAsync(
             string inputMzml,
@@ -144,7 +109,7 @@ namespace MassSpectrometry.FlashDeconvRuntime
             if (!File.Exists(inputMzml))
                 throw new FileNotFoundException("Input file missing", inputMzml);
 
-            // Ensure output directory exists (WHY: tool will not create deep path structures).
+            // Guarantee directory exists (tool does not create multi-level paths).
             Directory.CreateDirectory(Path.GetDirectoryName(outputTsv)!);
 
             var args = new StringBuilder()
@@ -158,19 +123,25 @@ namespace MassSpectrometry.FlashDeconvRuntime
             {
                 FileName = _exe,
                 Arguments = args.ToString(),
-                UseShellExecute = false,             // WHY: required for redirection; avoids shell quoting ambiguities
-                RedirectStandardOutput = true,       // WHY: capture diagnostics & potential version info
-                RedirectStandardError = true,        // WHY: capture warnings/errors from native layers
-                CreateNoWindow = true                // WHY: suppress window in GUI / CI environments
+                UseShellExecute = false,             // Required for redirection & security context.
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
             };
+
+            // Heuristic addition: autoconfigure OPENMS_DATA_PATH if absent to reduce friction in CI
+            // (mirrors logic inside the simpler FlashDeconv wrapper so both paths behave uniformly).
+            if (string.IsNullOrWhiteSpace(psi.Environment["OPENMS_DATA_PATH"]))
+            {
+                TryInferOpenMsDataPath(Path.GetDirectoryName(_exe)!, p => psi.Environment["OPENMS_DATA_PATH"] = p);
+            }
 
             using var p = new Process { StartInfo = psi };
             var so = new StringBuilder();
             var se = new StringBuilder();
 
-            // Event handlers accumulate output lines; asynchronous pattern prevents deadlocks if tool writes heavily.
             p.OutputDataReceived += (_, e) => { if (e.Data != null) so.AppendLine(e.Data); };
-            p.ErrorDataReceived += (_, e) => { if (e.Data != null) se.AppendLine(e.Data); };
+            p.ErrorDataReceived  += (_, e) => { if (e.Data != null) se.AppendLine(e.Data); };
 
             if (!p.Start())
                 throw new InvalidOperationException("Failed to start FLASHDeconv process.");
@@ -178,25 +149,25 @@ namespace MassSpectrometry.FlashDeconvRuntime
             p.BeginOutputReadLine();
             p.BeginErrorReadLine();
 
-            // Linked CTS combines caller cancellation + timeout (if any) for unified handling.
+            // Combine caller cancellation with internal timeout.
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             if (timeoutMs > 0)
                 linkedCts.CancelAfter(timeoutMs);
 
             try
             {
-                // Offload blocking WaitForExit to thread pool so cancellation token can interrupt.
+                // WaitForExit is blocking; wrap in Task.Run so cancellation can interrupt.
                 await Task.Run(() => p.WaitForExit(), linkedCts.Token);
             }
             catch (OperationCanceledException)
             {
-                // Distinguish between timeout vs. external cancellation only by context (both arrive here).
+                // If we canceled due to timeout (process still running), kill and surface a TimeoutException.
                 if (!p.HasExited)
                 {
-                    try { p.Kill(true); } catch { /* swallow kill exceptions (process might exit between checks) */ }
+                    try { p.Kill(true); } catch { /* ignore race conditions */ }
                     if (timeoutMs > 0 && !ct.IsCancellationRequested)
                         throw new TimeoutException($"FLASHDeconv run timed out after {timeoutMs} ms");
-                    throw; // propagate caller cancellation
+                    throw; // propagate external cancellation
                 }
             }
 
@@ -204,7 +175,37 @@ namespace MassSpectrometry.FlashDeconvRuntime
         }
 
         /// <summary>
-        /// Utility: trims long stdout/stderr segments for concise diagnostics (WHY: prevents log flooding in CI).
+        /// Attempt to infer OpenMS shared data path relative to the executable (common layouts).
+        /// WHY: Many CI / local setups bundle share/OpenMS but do not export OPENMS_DATA_PATH.
+        /// If inference fails, we let the tool emit its own fatal error for clarity.
+        /// </summary>
+        private static void TryInferOpenMsDataPath(string exeDir, Action<string> setter)
+        {
+            try
+            {
+                var candidates = new[]
+                {
+                    Path.Combine(exeDir, "share", "OpenMS"),
+                    Path.GetFullPath(Path.Combine(exeDir, "..", "share", "OpenMS")),
+                    Path.GetFullPath(Path.Combine(exeDir, "..", "..", "share", "OpenMS"))
+                };
+                foreach (var c in candidates)
+                {
+                    if (Directory.Exists(c))
+                    {
+                        setter(c);
+                        break;
+                    }
+                }
+            }
+            catch
+            {
+                // Silent: best-effort only.
+            }
+        }
+
+        /// <summary>
+        /// Utility for truncating large captured output to keep logs concise.
         /// </summary>
         private static string Trim(string s, int max) =>
             s.Length <= max ? s : s.Substring(0, max) + "...";

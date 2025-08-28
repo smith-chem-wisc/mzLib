@@ -354,6 +354,17 @@ namespace Test
             if (!File.Exists(expectedOutputTsv))
                 Assert.Ignore("Missing expected output TSV: " + expectedOutputTsv);
 
+            // Allow enforcing test in CI by setting FLASHDECONV_REQUIRE=1
+            bool strict = string.Equals(Environment.GetEnvironmentVariable("FLASHDECONV_REQUIRE"), "1", StringComparison.OrdinalIgnoreCase);
+
+            // Skip early if OPENMS_DATA_PATH missing (unless strict mode).
+            var openms = Environment.GetEnvironmentVariable("OPENMS_DATA_PATH");
+            if (!strict && (string.IsNullOrWhiteSpace(openms) || !Directory.Exists(openms)))
+            {
+                TestContext.WriteLine("Skipping FLASHDeconvolutionTest (OPENMS_DATA_PATH missing).");
+                Assert.Ignore("Missing OpenMS shared data (OPENMS_DATA_PATH).");
+            }
+
             string tempDir = Path.Combine(Path.GetTempPath(), "FlashDeconvTest_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempDir);
             string outputTsv = Path.Combine(tempDir, "deconv.tsv");
@@ -363,6 +374,14 @@ namespace Test
                 var runner = new MassSpectrometry.FlashDeconvRuntime.FlashDeconvRunner(preflight: false);
                 string extraArgs = (Environment.GetEnvironmentVariable("FLASHDECONV_ARGS") ?? "").Trim();
                 var result = runner.Run(inputFile, outputTsv, extraArgs, timeoutMs: 0);
+
+                // If shared data missing and tool reported so, downgrade to Ignore (unless strict).
+                if (!strict && result.ExitCode != 0 &&
+                    result.StdErr.IndexOf("Cannot find shared data", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    TestContext.WriteLine("FLASHDeconv reported missing OpenMS data; test skipped.");
+                    Assert.Ignore("FLASHDeconv missing OpenMS shared data.");
+                }
 
                 Assert.That(result.ExitCode, Is.EqualTo(0), "FLASHDeconv failed: " + result.StdErr);
                 Assert.That(File.Exists(outputTsv), "TSV output not created.");
