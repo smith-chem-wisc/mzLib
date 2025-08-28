@@ -19,7 +19,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
     <PackageReference Include="SharpLearning.Optimization" Version="0.28.0" />
     <PackageReference Include="TopDownProteomics" Version="0.0.297" />
-	<AssemblyAttribute Include="System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute" />
+    <AssemblyAttribute Include="System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute" />
   </ItemGroup>
 
   <ItemGroup>
@@ -33,754 +33,281 @@
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
     <ProjectReference Include="..\mzPlot\mzPlot.csproj" />
     <ProjectReference Include="..\Proteomics\Proteomics.csproj" />
-    <ProjectReference Include="..\SpectralAveraging\SpectralAveraging.csproj" />
     <ProjectReference Include="..\Readers\Readers.csproj" />
     <ProjectReference Include="..\Transcriptomics\Transcriptomics.csproj" />
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="DatabaseTests\nucleotideVariantsAsModifications.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\proteinEntryLipidMoietyBindingRegion.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\SingleEntry_ModOrder1.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\SingleEntry_ModOrder2.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\b_availableUniProtProteomes.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\b_availableUniProtProteomes.txt.gz">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\b_availableUniProtProteomes.zip">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\bad.fasta">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\bad3.fasta">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\bad4.fasta">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\blank.fasta">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\bonds1.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\bonds2.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\cfInNL.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\cRAP_databaseGPTMD.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\DecoyVariants.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\disulfidetests.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\ensembl_prrc2a.fa">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\essentialSequences.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\fake_h4.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\fasta.fasta">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\fullSequences.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\fullSequencesWithMassShift.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\gencode_mmp20.fa">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\HomozygousHLA.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\humanGAPDH.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\IndelDecoy.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\Isoform.fasta">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\Isoform.fasta.gz">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\isoformTest.fasta">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\m.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\modified_start.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\MultipleAlternateAlleles.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\MultipleAlternateFrameshifts.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\mzlibReducedMzXCorr.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\O43653.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\oblm.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\oblm1.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\oblm2.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\oblm3.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\ProteoformClassificationUnitTest.csv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\PSI-MOD.obo">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\ranges1.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\ranges2.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\sampleModFile.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\sampleModFileDouble.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\sampleModFileDouble2.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\sampleModFileFail1.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\sampleModFileFail2.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\sampleModFileFail3.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\sampleModFileFail5.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\sampleModFileFail6.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\sampleModFileFail_missingChemicalFormulaAndMonoisotopicMass.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\sampleModFileFail_missingPosition.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\SampleMod_Comments.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\SampleMod_NoComments.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\SeqVar.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\SeqVarLongDeletion.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\SeqVarSymbolWeirdness.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\SeqVarSymbolWeirdness2.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\seqvartests.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\sliced_b6.mzML">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\splices1.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\splices2.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\splices3.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\splices4.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\splices5.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\splices6.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\splices7.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\splices8.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\StopGain.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\StopGained.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\TestProtein.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\test_ensembl.pep.all.fasta">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\uniprot_aifm1.fasta">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\unknownStatus.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\unprocessedMzAndIntensities.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\VariantModsGPTMD.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\Working_86.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\xml.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\xml.xml.gz">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\xml2.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DatabaseTests\z.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\05-13-16_cali_MS_60K-res_MS.raw">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\12-18-17_frac7_calib_ms1_663_665.mzML">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\14kDaProteoformMzIntensityMs1.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\badScan7192.mzML">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\BinGenerationTest.mzML">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\SmallCalibratible_Yeast.mzID">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\TestParentTolerance.mzid">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-     </None>
-    <None Update="DataFiles\timsTOF_DIA.d\analysis.tdf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\timsTOF_DIA.d\analysis.tdf_bin">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\timsTOF_MRM.d\analysis.tdf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\timsTOF_MRM.d\analysis.tdf_bin">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\timsTOF_snippet_Corrupted.d\analysis.tdf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\timsTOF_snippet_Corrupted.d\analysis.tdf_bin">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\DinoSnippet.features.tsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\timsTOF_TSF_MRM.d\analysis.tsf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\timsTOF_TSF_MRM.d\analysis.tsf_bin">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\A_1\protein.tsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\A_1\psm.tsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\A_2\protein.tsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\A_2\psm.tsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\combined_ion.tsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\experiment_annotation.tsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\timsTOF_snippet.d\analysis.tdf">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\timsTOF_snippet.d\analysis.tdf_bin">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\FlashLFQ_MzLib1.0.549_QuantifiedPeaks.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\crux.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\FraggerPeptide_FragPipev21.1combined_peptide.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\FraggerPeptide_FragPipev21.1individual_peptide.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\FraggerProtein_FragPipev21.1combined_protein.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\FraggerProtein_FragPipev21.1individual_protein.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\Ms1Align_FlashDeconvOpenMs3.0.0_ms1.msalign">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\Ms1Align_IsoDec1.0.0_ms1.msalign">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\Ms1Align_TopFDv1.6.2_ms1.msalign">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\Ms2Align_FlashDeconvOpenMs3.0.0_ms2.msalign">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\Ms2Align_IsoDec1.0.0_ms2.msalign">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\Ms2Align_TopFDv1.6.2_ms2.msalign">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	</None>
-    <None Update="FileReadingTests\ExternalFileTypes\MsPathFinderT_WithMods_IcTda.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\MsPathFinderT_AllResults_IcTda.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\MsPathFinderT_DecoyResults_IcDecoy.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\MsPathFinderT_TargetResults_IcTarget.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\SmallCalibratibleYeastFragger_psm.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\ToppicProteoformSingle_TopPICv1.5.3_proteoform_single.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\ToppicProteoformSingle_TopPICv1.5.3_proteoform_single.tsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\ToppicProteofromSingle_TopPICv1.6.2_proteoform_single.tsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\ToppicProteofrom_TopPICv1.6.2_proteoform.tsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\ToppicPrsmSingle_TopPICv1.6.2_prsm_single.tsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\ToppicPrsm_TopPICv1.6.2_prsm.tsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\GUACUG_NegativeMode_Sliced.mzML">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\ScanDescriptionTestData.raw">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\Ms1Feature_FlashDeconvOpenMs3.0.0_ms1.feature">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\Ms1Tsv_FlashDeconvOpenMs3.0.0_ms1.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\Ms2Feature_FlashDeconvOpenMs3.0.0_ms2.feature">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\Tsv_FlashDeconvOpenMs3.0.0.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.6.2_ms1.feature">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\Ms2Feature_TopFDv1.6.2_ms2.feature">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\ExternalFileTypes\mzrt_TopFDv1.6.2.mzrt.csv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\humanInsulin.fasta">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\humanInsulin.xml">
-       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\FXN11_tr1_032017-calib_ms1_scans1321_1323.mzML">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\FXN11_tr1_032017-calib_ms1_scans716_718.mzML">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\FXN11_tr1_032017-calib_ms1_scans781_783.mzML">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\noPrecursorScans.mzML">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\noScanNumber.mzML">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\P08709.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\PSI-MOD.obo">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\sliced_ethcd.mzML">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\sliced_ethcd.raw">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\small.RAW">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\SmallCalibratibleYeast.mgf">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\SmallCalibratibleYeast.mzml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\SmallCalibratibleYeast_mixed_bits.mzml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\Tab_separated_peak_list.mgf">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="AveragingTests\TestData\TDYeastFractionMMResult.psmtsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="AveragingTests\TestData\TDYeastFractionMS1.mzML">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\tester.mgf">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\tester.mzML">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\tester_corrupt.mgf">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\testFileWMS2.raw">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\tiny.pwiz.1.1.mzML">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DataFiles\withZeros.mgf">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="DoubleProtease.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\SearchResults\AutoGeneratedManuscriptProse.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\SearchResults\BottomUpExample.psmtsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\SearchResults\NewHeader.psmtsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\SearchResults\oglycoWithWrongExtension.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\SearchResults\OneOverK0Example.psmtsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\SearchResults\XLink.psmtsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\SearchResults\XL_Intralinks.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FlashLFQ\TestData\20100614_Velos1_TaGe_SA_K562_3.mzML">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FlashLFQ\TestData\20100614_Velos1_TaGe_SA_K562_4.mzML">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FlashLFQ\TestData\aggregatePSMs_5ppmAroundZero.psmtsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FlashLFQ\TestData\AllPSMs.psmtsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FlashLFQ\TestData\AllPSMs2.psmtsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FlashLFQ\TestData\AllPSMsWNewFormat.psmtsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FlashLFQ\TestData\f1r1_sliced_mbr.raw">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FlashLFQ\TestData\f1r2_sliced_mbr.raw">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FlashLFQ\TestData\PSMsForMbrTest.psmtsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FlashLFQ\TestData\SilacTest.mzML">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FlashLFQ\TestData\sliced-mzml.mzML">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FlashLFQ\TestData\sliced-raw.raw">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FlashLFQ\TestData\SmallCalibratibleYeast.mzml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FlashLFQ\TestData\Task1-SearchTaskconfig.toml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="FlashLFQ\TestData\UP000005640_reviewedproteinPruned.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="ModificationTests\CommonArtifacts.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="ModificationTests\CommonBiological.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="ModificationTests\ModsWithComments.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="ModificationTests\ProteaseMods.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="ProteaseFilesForLoadingTests\TestProteases_badMod.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="ProteaseFilesForLoadingTests\TestProteases_badMod_dupName.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="ProteaseFilesForLoadingTests\TestProteases_dupName.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="ProteaseFilesForLoadingTests\TestProteases_Mod_dupName.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	</None>
-    <None Update="FileReadingTests\SearchResults\ExcelEditedPeptide.psmtsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\SearchResults\internalIons.psmtsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\SearchResults\nglyco_f5.psmtsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\SearchResults\oglyco.psmtsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\SearchResults\oglycoSinglePsms.psmtsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\SearchResults\simple.msp">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="FileReadingTests\SearchResults\VariantCrossTest.psmtsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="SpectralLibrary\SpectralLibraryData\myPrositLib.msp">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="SpectralLibrary\SpectralLibraryData\RnaSpectralLibrary.msp">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="SpectralLibrary\SpectralLibraryData\spectralLibraryNeutralLossTest.msp">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="SpectralLibrary\SpectralLibraryData\SpectralLibrary_XL.msp">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="SpectralLibrary\SpectralLibraryData\test_ms2pip.msp">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="SpectralLibrary\SpectralLibraryData\yeast2fake_pdeep_lib.msp">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\20mer1.fasta">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\20mer1.fasta.gz">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\20mer1.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\20mer1.xml.gz">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\DecoyVariants.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\HomozygousHLA.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\ModomicsUnmodifiedTrimmed.fasta">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\ModomicsUnmodifiedTrimmed.fasta.gz">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\MultipleAlternateAlleles.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\oblm1.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\oblm2.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\oblm3.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\OsmFileForTesting.osmtsv">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\ranges1.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\ranges2.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\RnaMods.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\SeqVar.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\StopGained.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\TestDatabase_Ensembl.GRCh38.ncrna.fa">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\TestDatabase_NcbiAssembly.fna">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\TestDatabase_NcbiRefSeq_gene.fna">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Transcriptomics\TestData\TruncationAndVariantMods.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="XICData\20100604_Velos1_TaGe_SA_A549_3_first_noRt.mzML">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="XICData\20100604_Velos1_TaGe_SA_A549_3_second_noRt.mzML">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="XICData\AllPSMs.psmtsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="XICData\AllPSMs_IDMergeConflict_2.psmtsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="XICData\AllPSMs_IDMergeConflict.psmtsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="XICData\AllPSMs_IsoID.psmtsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="XICData\AllPSMs_IdChecking.psmtsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="XICData\AllPSMs_SearchTarget.psmtsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="XICData\AllPSMs_IsoID_Combined.psmtsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="XICData\AllPSMs_IsoID_Mixture.psmtsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="XICData\AllPSMs_IsoID_MonoIsotopicmassTolerance.psmtsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-	<None Update="DataFiles\centroid_1x_MS1_4x_autoMS2.d\**">
-	  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	</None>
-    <None Update="Transcriptomics\TestData\VariantModsGPTMD.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-	<None Update="DataFiles\centroid_1x_MS1_4x_autoMS2.d\**">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DataFiles\profile_1x_MS1_4x_autoMS2.d\**">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </None>
-	  <None Update="DataFiles\profile_and_centroid_1x_MS1_4x_autoMS2.d\**">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </None>
+    <None Update="DatabaseTests\nucleotideVariantsAsModifications.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\proteinEntryLipidMoietyBindingRegion.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\SingleEntry_ModOrder1.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\SingleEntry_ModOrder2.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\b_availableUniProtProteomes.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\b_availableUniProtProteomes.txt.gz"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\b_availableUniProtProteomes.zip"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\bad.fasta"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\bad3.fasta"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\bad4.fasta"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\blank.fasta"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\bonds1.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\bonds2.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\cfInNL.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\cRAP_databaseGPTMD.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\DecoyVariants.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\disulfidetests.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\ensembl_prrc2a.fa"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\essentialSequences.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\fake_h4.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\fasta.fasta"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\fullSequences.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\fullSequencesWithMassShift.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\gencode_mmp20.fa"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\HomozygousHLA.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\humanGAPDH.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\IndelDecoy.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\Isoform.fasta"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\Isoform.fasta.gz"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\isoformTest.fasta"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\m.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\modified_start.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\MultipleAlternateAlleles.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\MultipleAlternateFrameshifts.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\mzlibReducedMzXCorr.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\O43653.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\oblm.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\oblm1.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\oblm2.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\oblm3.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\ProteoformClassificationUnitTest.csv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\PSI-MOD.obo"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\ranges1.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\ranges2.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\sampleModFile.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\sampleModFileDouble.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\sampleModFileDouble2.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\sampleModFileFail1.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\sampleModFileFail2.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\sampleModFileFail3.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\sampleModFileFail5.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\sampleModFileFail6.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\sampleModFileFail_missingChemicalFormulaAndMonoisotopicMass.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\sampleModFileFail_missingPosition.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\SampleMod_Comments.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\SampleMod_NoComments.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\SeqVar.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\SeqVarLongDeletion.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\SeqVarSymbolWeirdness.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\SeqVarSymbolWeirdness2.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\seqvartests.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\sliced_b6.mzML"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\splices1.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\splices2.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\splices3.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\splices4.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\splices5.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\splices6.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\splices7.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\splices8.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\StopGain.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\StopGained.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\TestProtein.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\test_ensembl.pep.all.fasta"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\uniprot_aifm1.fasta"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\unknownStatus.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\unprocessedMzAndIntensities.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\VariantModsGPTMD.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\Working_86.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\xml.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\xml.xml.gz"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\xml2.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DatabaseTests\z.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+
+    <None Update="DataFiles\05-13-16_cali_MS_60K-res_MS.raw"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\12-18-17_frac7_calib_ms1_663_665.mzML"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\14kDaProteoformMzIntensityMs1.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\badScan7192.mzML"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\BinGenerationTest.mzML"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+
+    <None Update="DataFiles\timsTOF_DIA.d\analysis.tdf"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="DataFiles\timsTOF_DIA.d\analysis.tdf_bin"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="DataFiles\timsTOF_MRM.d\analysis.tdf"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="DataFiles\timsTOF_TSF_MRM.d\analysis.tsf_bin"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="DataFiles\timsTOF_TSF_MRM.d\analysis.tsf"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="DataFiles\timsTOF_MRM.d\analysis.tdf_bin"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>    <None Update="DataFiles\timsTOF_snippet_Corrupted.d\analysis.tdf"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="DataFiles\timsTOF_snippet_Corrupted.d\analysis.tdf_bin"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+
+    <None Update="DataFiles\TopDown\lvsYeastSnipFlashDeconvOptions_features.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="DataFiles\TopDown\lvsYeastSnipFlashDeconvOptions_spectra.mzML"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None> 
+    <None Update="DataFiles\TopDown\lvsYeastSnipFlashDeconvExpected.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\TopDown\lvsYeastTopDownSnip.mzML"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\TopDown\lvsYeastTopDownSnipPrunedproteinPruned.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+
+    <None Update="FlashLFQ\TestData\20100614_Velos1_TaGe_SA_K562_3.mzML"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\20100614_Velos1_TaGe_SA_K562_4.mzML"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\aggregatePSMs_5ppmAroundZero.psmtsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\AllPSMs.psmtsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\AllPSMs2.psmtsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\AllPSMsWNewFormat.psmtsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\f1r1_sliced_mbr.raw"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\f1r2_sliced_mbr.raw"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\PSMsForMbrTest.psmtsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\SilacTest.mzML"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\sliced-mzml.mzML"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\sliced-raw.raw"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\SmallCalibratibleYeast.mzml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\Task1-SearchTaskconfig.toml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FlashLFQ\TestData\UP000005640_reviewedproteinPruned.xml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+
+    <None Update="FileReadingTests\ExternalFileTypes\DinoSnippet.features.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\A_1\protein.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\A_1\psm.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\A_2\protein.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\A_2\psm.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\combined_ion.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\experiment_annotation.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\SmallCalibratibleYeastFragger_psm.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+
+    <None Update="FileReadingTests\ExternalFileTypes\ToppicProteoformSingle_TopPICv1.5.3_proteoform_single.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\ToppicProteoformSingle_TopPICv1.5.3_proteoform_single.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\ToppicProteofromSingle_TopPICv1.6.2_proteoform_single.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\ToppicProteofrom_TopPICv1.6.2_proteoform.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\ToppicPrsmSingle_TopPICv1.6.2_prsm_single.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\ToppicPrsm_TopPICv1.6.2_prsm.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+
+    <None Update="DataFiles\timsTOF_snippet.d\analysis.tdf"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="DataFiles\timsTOF_snippet.d\analysis.tdf_bin"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+
+    <None Update="FileReadingTests\ExternalFileTypes\FlashLFQ_MzLib1.0.549_QuantifiedPeaks.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\crux.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\FraggerPeptide_FragPipev21.1combined_peptide.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\FraggerPeptide_FragPipev21.1individual_peptide.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\FraggerProtein_FragPipev21.1combined_protein.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\FraggerProtein_FragPipev21.1individual_protein.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+
+    <None Update="FileReadingTests\ExternalFileTypes\Ms1Align_FlashDeconvOpenMs3.0.0_ms1.msalign"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\Ms1Align_IsoDec1.0.0_ms1.msalign"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\Ms1Align_TopFDv1.6.2_ms1.msalign"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\Ms2Align_FlashDeconvOpenMs3.0.0_ms2.msalign"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\Ms2Align_IsoDec1.0.0_ms2.msalign"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\Ms2Align_TopFDv1.6.2_ms2.msalign"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+
+    <None Update="FileReadingTests\ExternalFileTypes\MsPathFinderT_WithMods_IcTda.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\MsPathFinderT_AllResults_IcTda.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\MsPathFinderT_DecoyResults_IcDecoy.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\MsPathFinderT_TargetResults_IcTarget.tsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+
+    <None Update="DataFiles\GUACUG_NegativeMode_Sliced.mzML"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="DataFiles\ScanDescriptionTestData.raw"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+
+    <None Update="FileReadingTests\ExternalFileTypes\Ms1Feature_FlashDeconvOpenMs3.0.0_ms1.feature"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\Ms1Tsv_FlashDeconvOpenMs3.0.0_ms1.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\Ms2Feature_FlashDeconvOpenMs3.0.0_ms2.feature"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\Tsv_FlashDeconvOpenMs3.0.0.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+
+    <None Update="FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.6.2_ms1.feature"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\Ms2Feature_TopFDv1.6.2_ms2.feature"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\ExternalFileTypes\mzrt_TopFDv1.6.2.mzrt.csv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+
+    <None Update="ModificationTests\CommonArtifacts.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="ModificationTests\CommonBiological.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="ModificationTests\ModsWithComments.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="ModificationTests\ProteaseMods.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="ProteaseFilesForLoadingTests\TestProteases_badMod.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="ProteaseFilesForLoadingTests\TestProteases_badMod_dupName.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="ProteaseFilesForLoadingTests\TestProteases_dupName.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="ProteaseFilesForLoadingTests\TestProteases_Mod_dupName.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+
+    <None Update="DataFiles\humanInsulin.fasta"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\humanInsulin.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\FXN11_tr1_032017-calib_ms1_scans1321_1323.mzML"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\FXN11_tr1_032017-calib_ms1_scans716_718.mzML"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\FXN11_tr1_032017-calib_ms1_scans781_783.mzML"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\noPrecursorScans.mzML"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\noScanNumber.mzML"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\P08709.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\PSI-MOD.obo"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="DataFiles\sliced_ethcd.mzML"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\sliced_ethcd.raw"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\small.RAW"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\SmallCalibratibleYeast.mgf"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\SmallCalibratible_Yeast.mzID"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\SmallCalibratibleYeast.mzml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\SmallCalibratibleYeast_mixed_bits.mzml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\Tab_separated_peak_list.mgf"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\TestParentTolerance.mzid"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="AveragingTests\TestData\TDYeastFractionMMResult.psmtsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="AveragingTests\TestData\TDYeastFractionMS1.mzML"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\tester.mgf"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\tester.mzML"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\tester_corrupt.mgf"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\testFileWMS2.raw"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\tiny.pwiz.1.1.mzML"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\withZeros.mgf"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DoubleProtease.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\SearchResults\AutoGeneratedManuscriptProse.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\SearchResults\BottomUpExample.psmtsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\SearchResults\NewHeader.psmtsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\SearchResults\oglycoWithWrongExtension.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\SearchResults\OneOverK0Example.psmtsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\SearchResults\XLink.psmtsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\SearchResults\XL_Intralinks.tsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\SearchResults\ExcelEditedPeptide.psmtsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\SearchResults\internalIons.psmtsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\SearchResults\nglyco_f5.psmtsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\SearchResults\oglyco.psmtsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\SearchResults\oglycoSinglePsms.psmtsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\SearchResults\simple.msp"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="FileReadingTests\SearchResults\VariantCrossTest.psmtsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+
+    <None Update="SpectralLibrary\SpectralLibraryData\myPrositLib.msp"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="SpectralLibrary\SpectralLibraryData\RnaSpectralLibrary.msp"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="SpectralLibrary\SpectralLibraryData\spectralLibraryNeutralLossTest.msp"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="SpectralLibrary\SpectralLibraryData\SpectralLibrary_XL.msp"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="SpectralLibrary\SpectralLibraryData\yeast2fake_pdeep_lib.msp"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="SpectralLibrary\SpectralLibraryData\test_ms2pip.msp"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+
+    <None Update="Transcriptomics\TestData\20mer1.fasta"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\20mer1.fasta.gz"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\20mer1.xml"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\20mer1.xml.gz"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\DecoyVariants.xml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\HomozygousHLA.xml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\ModomicsUnmodifiedTrimmed.fasta"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\ModomicsUnmodifiedTrimmed.fasta.gz"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\MultipleAlternateAlleles.xml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\oblm1.xml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\oblm2.xml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\oblm3.xml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\OsmFileForTesting.osmtsv"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\ranges1.xml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\ranges2.xml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\RnaMods.txt"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\SeqVar.xml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\StopGained.xml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\TestDatabase_Ensembl.GRCh38.ncrna.fa"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\TestDatabase_NcbiAssembly.fna"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\TestDatabase_NcbiRefSeq_gene.fna"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\TruncationAndVariantMods.xml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+
+    <None Update="XICData\20100604_Velos1_TaGe_SA_A549_3_first_noRt.mzML"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="XICData\20100604_Velos1_TaGe_SA_A549_3_second_noRt.mzML"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="XICData\AllPSMs.psmtsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="XICData\AllPSMs_IDMergeConflict_2.psmtsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="XICData\AllPSMs_IDMergeConflict.psmtsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="XICData\AllPSMs_IsoID.psmtsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="XICData\AllPSMs_IdChecking.psmtsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="XICData\AllPSMs_SearchTarget.psmtsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="XICData\AllPSMs_IsoID_Combined.psmtsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="XICData\AllPSMs_IsoID_Mixture.psmtsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="XICData\AllPSMs_IsoID_MonoIsotopicmassTolerance.psmtsv"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+
+    <None Update="DataFiles\centroid_1x_MS1_4x_autoMS2.d\**"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="Transcriptomics\TestData\VariantModsGPTMD.xml"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None>
+    <None Update="DataFiles\profile_1x_MS1_4x_autoMS2.d\**"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
+    <None Update="DataFiles\profile_and_centroid_1x_MS1_4x_autoMS2.d\**"><CopyToOutputDirectory>Always</CopyToOutputDirectory></None>
   </ItemGroup>
 
   <ItemGroup>
@@ -790,6 +317,14 @@
 
   <ItemGroup>
     <Folder Include="TestData\" />
+  </ItemGroup>
+
+  <!-- Vendored OpenMS runtime copied from MassSpectrometry project -->
+  <ItemGroup>
+    <None Include="..\MassSpectrometry\External\OpenMS\**\*.*">
+      <Link>External\OpenMS\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

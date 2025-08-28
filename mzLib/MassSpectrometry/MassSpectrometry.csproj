@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Platforms>x64</Platforms>
   </PropertyGroup>
-  
+
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
     <DebugType>full</DebugType>
     <DebugSymbols>true</DebugSymbols>
@@ -20,23 +20,34 @@
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
   </ItemGroup>
 
-	<ItemGroup>
-		<InternalsVisibleTo Include="Development" />
-		<InternalsVisibleTo Include="Test" />
-	</ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Development" />
+    <InternalsVisibleTo Include="Test" />
+  </ItemGroup>
 
-	<ItemGroup>
-	  <None Update="isodeclib.dll">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </None>
-	  <None Update="isogenmass.dll">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </None>
-	  <None Update="libmmd.dll">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </None>
-	  <None Update="svml_dispmd.dll">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </None>
-	</ItemGroup>
+  <!-- Native IsoDec library -->
+  <ItemGroup>
+    <None Include="isodeclib.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- Vendor full OpenMS / FLASHDeconv runtime (includes .tls folder) -->
+  <ItemGroup>
+    <None Include="External\OpenMS\**\*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="isogenmass.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="libmmd.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="svml_dispmd.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
