@@ -8,6 +8,7 @@ using System.Linq;
 using Proteomics.AminoAcidPolymer;
 using System;
 using NUnit.Framework.Legacy;
+using MzLibUtil.PositionFrequencyAnalysis;
 
 namespace Test
 {
@@ -335,7 +336,7 @@ namespace Test
             sequenceInputs.Add(("AAAA", new List<string> { "TESTPROT1|TESTPROT2" }, 10));
 
             var quant = new PositionFrequencyAnalysis();
-            quant.SetUpQuantificationObjects(sequenceInputs, proteinSequences);
+            quant.SetUpQuantificationObjectsFromFullSequences(sequenceInputs, proteinSequences);
             Assert.AreEqual(quant.ProteinGroups.Count, 2);
             Assert.That(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins.Keys.Contains("TESTPROT1"));
             Assert.That(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins.Keys.Contains("TESTPROT2"));
