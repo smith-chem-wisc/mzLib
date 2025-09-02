@@ -11,6 +11,10 @@
   </PropertyGroup>
   
   <ItemGroup>
+    <None Remove="Transcriptomics\modomics.json" />
+  </ItemGroup>
+  
+  <ItemGroup>
     <PackageReference Include="CsvHelper" Version="32.0.3" />
     <PackageReference Include="TopDownProteomics" Version="0.0.297" />
   </ItemGroup>
@@ -32,6 +36,12 @@
 	<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
 	  <_Parameter1>Readers</_Parameter1>
 	</AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Transcriptomics\modomics.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>
