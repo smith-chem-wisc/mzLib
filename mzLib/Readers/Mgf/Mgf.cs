@@ -82,7 +82,7 @@ namespace Readers
 
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int scanNumber, IFilteringParams filterParams = null)
         {
-            if (CheckIfScansLoaded())
+            if (CheckIfScansLoaded() && scanNumber <= IndexedScans.Length)
                 return GetOneBasedScan(scanNumber);
 
             lock (DynamicReadingLock)

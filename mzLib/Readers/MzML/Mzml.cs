@@ -309,7 +309,7 @@ namespace Readers
         /// </summary>
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
         {
-            if (CheckIfScansLoaded())
+            if (CheckIfScansLoaded() && oneBasedScanNumber <= Scans.Length)
                 return GetOneBasedScan(oneBasedScanNumber);
 
             MsDataScan scan = null;
