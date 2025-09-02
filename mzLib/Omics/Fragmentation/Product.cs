@@ -124,4 +124,14 @@ namespace Omics.Fragmentation
         private string? _annotation;
         public override string Annotation => _annotation ??= base.Annotation;
     }
+
+    /// <summary>
+    /// Allows the addition of a string to the end of the product type and before fragment number in the annotation. 
+    /// </summary>
+    public class CustomMProduct(string customAnnotation, double neutralMass)
+        : Product(ProductType.M, FragmentationTerminus.None, neutralMass, 0, 0, 0)
+    {
+        public override string Annotation => $"M{customAnnotation}";
+        public override string ToString() => Annotation;
+    }
 }

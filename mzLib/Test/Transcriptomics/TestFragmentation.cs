@@ -239,5 +239,43 @@ namespace Test.Transcriptomics
             Assert.That(!product1.Equals((object)new Product(ProductType.d, FragmentationTerminus.N, 200, 4, 4, 0.0)));
             Assert.That(!product1.Equals((object)null));
         }
+
+        [Test]
+        public void TestCustomMProducts()
+        {
+            var rna = new RNA("GUACUG")
+                .Digest(new RnaDigestionParams(), new List<Modification>(), new List<Modification>())
+                .First() as OligoWithSetMods ?? throw new NullReferenceException();
+            List<Product> products = new();
+
+            // No custom M products
+            rna.Fragment(DissociationType.CID, FragmentationTerminus.Both, products);
+            var mProducts = products.Where(p => p.ProductType == ProductType.M).ToList();
+            Assert.That(mProducts.Count, Is.EqualTo(1));
+            Assert.That(mProducts[0].NeutralMass, Is.EqualTo(rna.MonoisotopicMass).Within(0.01));
+
+            // With Fragment Params, no custom M Products
+            products.Clear();
+            var fragmentParams = new RnaFragmentationParams();
+            rna.Fragment(DissociationType.CID, FragmentationTerminus.Both, products, fragmentParams);
+            mProducts = products.Where(p => p.ProductType == ProductType.M).ToList();
+            Assert.That(mProducts.Count, Is.EqualTo(1));
+            Assert.That(mProducts[0].NeutralMass, Is.EqualTo(rna.MonoisotopicMass).Within(0.01));
+
+            // With Fragment Params, with custom M Products
+            products.Clear();
+            fragmentParams = new RnaFragmentationParams();
+            fragmentParams.MIonLosses.Add(MIonLoss.WaterLoss);
+            rna.Fragment(DissociationType.CID, FragmentationTerminus.Both, products, fragmentParams);
+            mProducts = products.Where(p => p.ProductType == ProductType.M).ToList();
+            Assert.That(mProducts.Count, Is.EqualTo(2));
+            var expectedMasses = new[] { rna.MonoisotopicMass, rna.MonoisotopicMass - MIonLoss.WaterLoss.MonoisotopicMass };
+            var expectedAnnotations = new[] { "M", "M-H2O" };
+            for (int i = 0; i < mProducts.Count; i++)
+            {
+                Assert.That(mProducts[i].NeutralMass, Is.EqualTo(expectedMasses[i]).Within(0.01));
+                Assert.That(mProducts[i].Annotation, Is.EqualTo(expectedAnnotations[i]));
+            }
+        }
     }
 }
