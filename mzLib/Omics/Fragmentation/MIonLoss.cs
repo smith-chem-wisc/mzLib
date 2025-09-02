@@ -26,4 +26,6 @@ public class MIonLoss(string name, string annotation, ChemicalFormula chemicalFo
     public string Annotation { get; init; } = annotation;
     public double MonoisotopicMass => ThisChemicalFormula.MonoisotopicMass;
     public ChemicalFormula ThisChemicalFormula { get; set; } = chemicalFormula;
+
+    public override string ToString() => Annotation;
 }

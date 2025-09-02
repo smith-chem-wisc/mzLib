@@ -277,5 +277,54 @@ namespace Test.Transcriptomics
                 Assert.That(mProducts[i].Annotation, Is.EqualTo(expectedAnnotations[i]));
             }
         }
+
+        [Test]
+        public void TestAllRnaNeutralLossProducts()
+        {
+            // Create a simple RNA sequence and digest it
+            var rna = new RNA("GUACUG")
+                .Digest(new RnaDigestionParams(), new List<Modification>(), new List<Modification>())
+                .First() as OligoWithSetMods ?? throw new NullReferenceException();
+
+            // Use all neutral loss products defined in MIonLoss.AllMIonLosses
+            var fragParams = new RnaFragmentationParams();
+            var allNeutralLosses = MIonLoss.AllMIonLosses.Values.ToList();
+
+            // Set up fragmentation params to use all neutral losses
+            fragParams.MIonLosses.AddRange(allNeutralLosses);
+
+            // Fragment and collect M ions with all neutral losses
+            List<Product> products = new();
+            rna.Fragment(DissociationType.CID, FragmentationTerminus.Both, products, fragParams);
+
+            // Find all M ions and their neutral loss annotations
+            var mProducts = products.Where(p => p.ProductType == ProductType.M).ToList();
+
+            // There should be one M ion for each neutral loss (plus the unmodified M ion)
+            Assert.That(mProducts.Count, Is.EqualTo(allNeutralLosses.Count + 1));
+
+            // Check that each neutral loss annotation is present
+            var expectedAnnotations = new HashSet<string>(allNeutralLosses.Select(l => "M" + l.Annotation));
+            expectedAnnotations.Add("M"); // unmodified
+
+            var actualAnnotations = new HashSet<string>(mProducts.Select(p => p.Annotation));
+            Assert.That(actualAnnotations.SetEquals(expectedAnnotations));
+
+            // Check that the neutral mass for each M ion matches the expected loss
+            foreach (var mProduct in mProducts)
+            {
+                if (mProduct.Annotation == "M")
+                {
+                    Assert.That(mProduct.NeutralMass, Is.EqualTo(rna.MonoisotopicMass).Within(0.01));
+                }
+                else
+                {
+                    var loss = allNeutralLosses.FirstOrDefault(l => "M" + l.Annotation == mProduct.Annotation);
+                    Assert.That(loss, Is.Not.Null, $"Loss not found for annotation {mProduct.Annotation}");
+                    Assert.That(mProduct.NeutralMass, Is.EqualTo(rna.MonoisotopicMass - loss.MonoisotopicMass).Within(0.01));
+                }
+            }
+        }
+
     }
 }
