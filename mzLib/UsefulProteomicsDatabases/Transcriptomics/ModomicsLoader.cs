@@ -13,7 +13,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics;
 public static class ModomicsLoader
 {
     private static string _modomicsResourceName = "UsefulProteomicsDatabases.Transcriptomics.modomics.json";
-    public static List<Modification>? ModomicsModifications { get; private set; }
+    internal static List<Modification>? ModomicsModifications { get; private set; }
 
     public static List<Modification> LoadModomics()
     {
@@ -84,56 +84,41 @@ public static class ModomicsLoader
             .Where(p => p is not null)
             .Cast<Modification>()
             .ToList();
+
         return ModomicsModifications;
     }
 
-
-    public static Modification? ToModification(this ModomicsDto dto)
+    internal static Modification? ToModification(this ModomicsDto dto)
     {
         // Stand in mods for unknown residues, ignore them
         if (dto.Name.Contains("unknown", System.StringComparison.InvariantCultureIgnoreCase))
-            return null!;
+            return null;
 
-        // Caps and other weird mods. TODO: handle those that are appropriate to do so
-        if (dto.ReferenceMoiety.Count > 1)
-            return null!;
+        // Caps and other weird mods. TODO: Handle those that are appropriate to do so
+        if (dto.ReferenceMoiety.Count != 1)
+            return null;
+        string refMoiety = dto.ReferenceMoiety.First();
 
+        // Filters out X as a moiety which occurs when mods are aimed at purine or pyrimidines TODO: Handle these appropriately
+        if (!Nucleotide.AllKnownResidues.TryGetValue(refMoiety, out var baseNuc))
+            return null;
 
+        // Subtract nucleoside formula/mass
+        var fullFormula = ChemicalFormula.ParseFormula(dto.Formula);
+        ChemicalFormula modFormula = new ChemicalFormula(fullFormula);
+        modFormula.Remove(baseNuc.NucleosideChemicalFormula);
 
-        // Defensive: Only use first reference moiety
-        var refMoiety = dto.ReferenceMoiety?.FirstOrDefault();
-        Nucleotide baseNuc = null;
-        if (!string.IsNullOrEmpty(refMoiety) && Nucleotide.AllKnownResidues.TryGetValue(refMoiety, out var nuc))
-            baseNuc = nuc;
-
-        // Subtract nucleoside formula/mass if possible
-        ChemicalFormula modFormula = null;
-        double? modMonoMass = null;
-        if (!string.IsNullOrWhiteSpace(dto.Formula) && baseNuc != null)
-        {
-            var fullFormula = ChemicalFormula.ParseFormula(dto.Formula);
-            modFormula = new ChemicalFormula(fullFormula);
-            modFormula.Remove(baseNuc.NucleosideChemicalFormula);
-        }
-        if (dto.MassMonoiso > 0 && baseNuc != null)
-        {
-            var baseMonoMass = baseNuc.NucleosideChemicalFormula.MonoisotopicMass;
-            modMonoMass = dto.MassMonoiso - baseMonoMass;
-        }
-
-        ModificationMotif motif = null;
-        if (!string.IsNullOrEmpty(refMoiety) && ModificationMotif.TryGetMotif(refMoiety, out var m))
-            motif = m;
+        if (!ModificationMotif.TryGetMotif(refMoiety, out var motif))
+            return null;
 
         return new Modification(
             _originalId: dto.ShortName,
-            _modificationType: "RNA",
-            _featureType: "MODOMICS",
+            _modificationType: "Modomics",
             _target: motif,
             _locationRestriction: "Anywhere.",
             _chemicalFormula: modFormula,
-            _monoisotopicMass: modMonoMass,
-            _databaseReference: new Dictionary<string, IList<string>> { { "MODOMICS", new List<string> { dto.ShortName } } },
+            _monoisotopicMass: modFormula.MonoisotopicMass,
+            _databaseReference: new Dictionary<string, IList<string>> { { "Modomics", new List<string> { dto.ShortName, dto.Name } } },
             _keywords: new List<string> { dto.Abbrev, dto.Name }
         );
     }
