@@ -564,7 +564,24 @@ namespace Chemistry
             ChemicalFormula newFormula = new ChemicalFormula(left);
             newFormula.Add(right);
             return newFormula;
+        }
 
+        public static ChemicalFormula operator *(ChemicalFormula formula, int multiplier)
+        {
+            if (formula == null)
+                return null;
+            ChemicalFormula newFormula = new ChemicalFormula(formula);
+            newFormula.Multiply(multiplier);
+            return newFormula;
+        }
+
+        public static ChemicalFormula operator *(int multiplier, ChemicalFormula formula)
+        {
+            if (formula == null)
+                return null;
+            ChemicalFormula newFormula = new ChemicalFormula(formula);
+            newFormula.Multiply(multiplier);
+            return newFormula;
         }
     }
 }
