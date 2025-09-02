@@ -95,6 +95,9 @@ namespace Readers
 
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams? filterParams = null)
 		{
+            if (CheckIfScansLoaded())
+                return GetOneBasedScan(oneBasedScanNumber);
+
             lock (DynamicReadingLock)
             {
                 return GetMsDataScanDynamic(oneBasedScanNumber, filterParams);

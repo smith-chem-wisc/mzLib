@@ -161,6 +161,9 @@ namespace Readers
         /// </summary>
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
         {
+            if (CheckIfScansLoaded())
+                return GetOneBasedScan(oneBasedScanNumber);
+
             var dymConnection = RawFileReaderAdapter.FileFactory(FilePath);
             dymConnection.SelectInstrument(Device.MS, 1);
 

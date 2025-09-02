@@ -135,6 +135,39 @@ namespace Test.FileReadingTests
             Assert.That(a == null);
         }
 
+        [Test]
+        public static void TestDynamicConnectionRawFileReader_AfterStaticLoading()
+        {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            var path1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw");
+            var thermoDynamic1 = MsDataFileReader.GetDataFile(path1).LoadAllStaticData();
+            thermoDynamic1.InitiateDynamicConnection();
+
+            var path2 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "testFileWMS2.raw");
+            var thermoDynamic2 = MsDataFileReader.GetDataFile(path2).LoadAllStaticData();
+            thermoDynamic2.InitiateDynamicConnection();
+
+            var msOrders = thermoDynamic1.GetMsOrderByScanInDynamicConnection();
+            Assert.That(msOrders != null && msOrders.Length > 0);
+
+            var a = thermoDynamic1.GetOneBasedScanFromDynamicConnection(1);
+            Assert.That(a != null);
+
+            var b = thermoDynamic2.GetOneBasedScanFromDynamicConnection(1);
+            Assert.That(b != null);
+
+            Assert.That(a.MassSpectrum.XArray.Length != b.MassSpectrum.XArray.Length);
+
+            a = thermoDynamic1.GetOneBasedScanFromDynamicConnection(10000);
+            thermoDynamic1.CloseDynamicConnection();
+            thermoDynamic2.CloseDynamicConnection();
+
+            Console.WriteLine($"Analysis time for TestDynamicConnectionRawFileReader: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
+            Assert.That(a == null);
+        }
+
         /// <summary>
         /// Tests peak filtering for ThermoRawFileReader
         /// </summary>

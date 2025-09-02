@@ -108,6 +108,16 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void TestMgfDynamicConnection_AfterStaticLoading()
+        {
+            var filter = new FilteringParams(1, 0.01);
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf");
+            var readerReal = MsDataFileReader.GetDataFile(path).LoadAllStaticData(filter);
+            readerReal.InitiateDynamicConnection();
+            readerReal.GetOneBasedScanFromDynamicConnection(2, filter);
+        }
+
+        [Test]
         public void EliminateZeroIntensityPeaksFromMgfOnFileLoad()
         {
             //read the mgf file. zero intensity peaks should be eliminated during read
