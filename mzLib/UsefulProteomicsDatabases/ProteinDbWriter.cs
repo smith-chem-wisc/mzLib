@@ -28,13 +28,11 @@ namespace UsefulProteomicsDatabases
         /// <param name="bioPolymerList">A list of RNA sequences to be written to the database.</param>
         /// <param name="outputFileName">The name of the output XML file.</param>
         /// <returns>A dictionary of new modification residue entries.</returns>
-        public static Dictionary<string, int> WriteXmlDatabase(
-            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
-            List<IBioPolymer> bioPolymerList, string outputFileName)
+        public static Dictionary<string, int> WriteXmlDatabase(List<IBioPolymer> bioPolymerList, string outputFileName)
         {
             return bioPolymerList.Any(p => p is Protein)
-                ? WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<Protein>().ToList(), outputFileName)
-                : WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<RNA>().ToList(), outputFileName);
+                ? WriteXmlDatabase(bioPolymerList.Cast<Protein>().ToList(), outputFileName)
+                : WriteXmlDatabase(bioPolymerList.Cast<RNA>().ToList(), outputFileName);
         }
 
         /// <summary>
@@ -48,11 +46,9 @@ namespace UsefulProteomicsDatabases
         /// Several chunks of code are commented out. These are blocks that are intended to be implmented in the future, but
         /// are not necessary for the bare bones implementation of Transcriptomics
         /// </remarks>
-        public static Dictionary<string, int> WriteXmlDatabase(
-            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
-            List<RNA> nucleicAcidList, string outputFileName, bool updateTimeStamp = false)
+        public static Dictionary<string, int> WriteXmlDatabase(List<RNA> nucleicAcidList, string outputFileName, bool updateTimeStamp = false)
         {
-            additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+            Dictionary<string, HashSet<Tuple<int, Modification>>> modsToAddToProteins = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
             
             // write nonvariant rna (for cases where variants aren't applied, this just gets the protein itself)
             var nonVariantRna = nucleicAcidList.Select(p => p.ConsensusVariant).Distinct().ToList();
@@ -85,7 +81,7 @@ namespace UsefulProteomicsDatabases
                             .SelectMany(sv => sv.OneBasedModifications)
                             .Concat(p.OneBasedPossibleLocalizedModifications)
                             .SelectMany(kv => kv.Value))
-                        .Concat(additionalModsToAddToProteins
+                        .Concat(modsToAddToProteins
                             .Where(kv => nonVariantRna
                                 .SelectMany(p => p.SequenceVariations
                                     .Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession }))
@@ -190,7 +186,7 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement();
                     }
 
-                    foreach (var hm in GetModsForThisBioPolymer(nucleicAcid, null, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
+                    foreach (var hm in GetModsForThisBioPolymer(nucleicAcid, null, modsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
                     {
                         foreach (var modId in hm.Value)
                         {
@@ -233,7 +229,7 @@ namespace UsefulProteomicsDatabases
                             writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
                             writer.WriteEndElement();
                         }
-                        foreach (var hmm in GetModsForThisBioPolymer(nucleicAcid, hm, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
+                        foreach (var hmm in GetModsForThisBioPolymer(nucleicAcid, hm, modsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
                         {
                             foreach (var modId in hmm.Value)
                             {
@@ -297,10 +293,9 @@ namespace UsefulProteomicsDatabases
         /// <param name="proteinList"></param>
         /// <param name="outputFileName"></param>
         /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
-        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
-            List<Protein> proteinList, string outputFileName, bool updateTimeStamp = false)
+        public static Dictionary<string, int> WriteXmlDatabase(List<Protein> proteinList, string outputFileName, bool updateTimeStamp = false)
         {
-            additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+            Dictionary<string, HashSet<Tuple<int, Modification>>> modsToAddToProteins = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
             // write nonvariant proteins (for cases where variants aren't applied, this just gets the protein itself)
             var nonVariantProteins = proteinList.Select(p => p.ConsensusVariant).Distinct().ToList();
@@ -333,7 +328,7 @@ namespace UsefulProteomicsDatabases
                             .SelectMany(sv => sv.OneBasedModifications)
                             .Concat(p.OneBasedPossibleLocalizedModifications)
                             .SelectMany(kv => kv.Value))
-                        .Concat(additionalModsToAddToProteins
+                        .Concat(modsToAddToProteins
                             .Where(kv => nonVariantProteins
                                 .SelectMany(p => p.SequenceVariations
                                     .Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession }))
@@ -448,7 +443,7 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement();
                     }
 
-                    foreach (var positionModKvp in GetModsForThisBioPolymer(protein, null, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
+                    foreach (var positionModKvp in GetModsForThisBioPolymer(protein, null, modsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
                     {
                         foreach (var modId in positionModKvp.Value.OrderBy(mod => mod))
                         {
@@ -492,7 +487,7 @@ namespace UsefulProteomicsDatabases
                             writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
                             writer.WriteEndElement();
                         }
-                        foreach (var hmm in GetModsForThisBioPolymer(protein, hm, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
+                        foreach (var hmm in GetModsForThisBioPolymer(protein, hm, modsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
                         {
                             foreach (var modId in hmm.Value.OrderBy(mod => mod))
                             {
@@ -562,7 +557,21 @@ namespace UsefulProteomicsDatabases
                     }
 
                     writer.WriteStartElement("sequence");
-                    writer.WriteAttributeString("length", protein.Length.ToString(CultureInfo.InvariantCulture));
+                    writer.WriteAttributeString("length", protein.UniProtSequenceAttributes.Length.ToString(CultureInfo.InvariantCulture));
+                    writer.WriteAttributeString("mass", protein.UniProtSequenceAttributes.Mass.ToString(CultureInfo.InvariantCulture));
+                    writer.WriteAttributeString("checksum", protein.UniProtSequenceAttributes.Checksum);
+                    writer.WriteAttributeString("modified", protein.UniProtSequenceAttributes.EntryModified.ToString("yyyy-MM-dd"));
+                    writer.WriteAttributeString("version", protein.UniProtSequenceAttributes.SequenceVersion.ToString(CultureInfo.InvariantCulture));
+                    //optional attributes
+                    if (protein.UniProtSequenceAttributes.IsPrecursor != null)
+                    {
+                        writer.WriteAttributeString("precursor", protein.UniProtSequenceAttributes.IsPrecursor.Value.ToString().ToLowerInvariant());
+                    }
+                    if(protein.UniProtSequenceAttributes.Fragment != UniProtSequenceAttributes.FragmentType.unspecified)
+                    {
+                        writer.WriteAttributeString("fragment", protein.UniProtSequenceAttributes.Fragment.ToString().ToLowerInvariant());
+                    }
+                    //end optional attributes
                     writer.WriteString(protein.BaseSequence);
                     writer.WriteEndElement(); // sequence
                     writer.WriteEndElement(); // entry

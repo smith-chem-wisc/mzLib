@@ -17,6 +17,7 @@
         MsFragger, // files tested were from fragpipe v21.1
         MsPathFinderT,
         Crux,
+        Dinosaur,
         ProteomeDiscoverer,
         ProsightPD,
         Chimerys,

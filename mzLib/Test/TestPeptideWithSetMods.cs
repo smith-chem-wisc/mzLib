@@ -17,6 +17,7 @@ using Omics.Modifications;
 using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using Transcriptomics;
 
 namespace Test
 {
@@ -1324,6 +1325,28 @@ namespace Test
                         Assert.Contains(pwsmModification, expectedModifications);
                 }
             }
+        }
+
+        [Test]
+        public static void TestGetSubstitutedFullSequence()
+        {
+            //It should take care of multiple substitutions
+            string test1 = "F[1 nucleotide substitution:F->Y on F]SIMGGGLA[1 nucleotide substitution:A->S on A]DR";
+            string expected1 = "YSIMGGGLSDR";
+            var actual1 = IBioPolymerWithSetMods.ParseSubstitutedFullSequence(test1);
+            Assert.That(actual1, Is.EqualTo(expected1));
+
+            //It should not change other modifications
+            string test2 = "SANH[1 nucleotide substitution:H->L on H]M[Common Variable:Oxidation on M]AGHWVAISGAAGGLGSLAVQYAK";
+            string expected2 = "SANLM[Common Variable:Oxidation on M]AGHWVAISGAAGGLGSLAVQYAK";
+            var actual2 = IBioPolymerWithSetMods.ParseSubstitutedFullSequence(test2);
+            Assert.That(actual2, Is.EqualTo(expected2));
+
+            //It should work on 2 nucleotide substitutions
+            string test3 = "S[2+ nucleotide substitution:S->E on S]AAADRLNLTSGHLNAGR";
+            string expected3 = "EAAADRLNLTSGHLNAGR";
+            var actual3 = IBioPolymerWithSetMods.ParseSubstitutedFullSequence(test3);
+            Assert.That(actual3, Is.EqualTo(expected3));
         }
     }
 }

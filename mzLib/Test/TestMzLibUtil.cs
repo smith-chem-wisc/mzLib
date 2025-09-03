@@ -144,6 +144,29 @@ namespace Test
             Assert.IsFalse(result);
         }
 
+        [Test]
+        public void TestRemoveSpecialCharacters()
+        {
+            // Test default pipe removal
+            string seqWithPipes = "PE|PTI|DE";
+            string seqNoPipes = seqWithPipes.ToString();
+            ClassExtensions.RemoveSpecialCharacters(ref seqNoPipes);
+            Assert.AreEqual("PEPTIDE", seqNoPipes);
+
+
+            // Test specified character replacement
+            string seqWithHash = seqWithPipes.ToString();
+            ClassExtensions.RemoveSpecialCharacters(ref seqWithHash, replacement: "#", specialCharacter: @"\|");
+            Assert.AreEqual("PE#PTI#DE", seqWithHash);
+
+            // Test specified character removal
+            string cleanSeq = seqWithHash.ToString();
+            ClassExtensions.RemoveSpecialCharacters(ref cleanSeq, specialCharacter: "#");
+            Assert.AreEqual("PEPTIDE", cleanSeq);
+
+
+        }
+
         public struct TestStruct
         {
             public int X { get; set; }
