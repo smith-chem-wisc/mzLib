@@ -11,6 +11,7 @@
   </PropertyGroup>
   
   <ItemGroup>
+    <None Remove="Resources\modomicsmods.csv" />
     <None Remove="Transcriptomics\modomics.json" />
   </ItemGroup>
   
@@ -39,7 +40,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Transcriptomics\modomics.json">
+    <EmbeddedResource Include="Resources\modomicsmods.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources\modomicsmods.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>
   </ItemGroup>
