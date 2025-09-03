@@ -341,11 +341,7 @@ namespace Readers
                         double intens = ExtractNumber(peakIntensities[index], 2);
 
                         double neutralMass = mZ.ToMass(charge);
-
-                        // Remove leading '-' if present in customAnnotation for consistency
-                        string annotation = customAnnotation.StartsWith('-') ? customAnnotation[1..] : customAnnotation;
-
-                        var product = new CustomMProduct(annotation, neutralMass);
+                        var product = new CustomMProduct(customAnnotation, neutralMass);
                         matchedIons.Add(new MatchedFragmentIonWithCache(product, mZ, intens, charge));
                         continue;
                     }
