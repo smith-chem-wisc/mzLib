@@ -255,8 +255,8 @@ namespace Proteomics.ProteolyticDigestion
             // inefficient memory usage and thus frequent garbage collection. 
             // TODO: If you can think of a way to remove these collections and still maintain correct 
             // fragmentation, please do so.
-            HashSet<double> nTermNeutralLosses = null;
-            HashSet<double> cTermNeutralLosses = null;
+            List<double> nTermNeutralLosses = null; //allow the duplicated mod in the same fragment
+            List<double> cTermNeutralLosses = null;
 
             // n-terminus mod
             if (calculateNTermFragments)
@@ -350,10 +350,11 @@ namespace Proteomics.ProteolyticDigestion
                             0));
 
                         nTermNeutralLosses = AddNeutralLossesFromMods(mod, nTermNeutralLosses, dissociationType);
-
+                        
                         if (nTermNeutralLosses != null)
                         {
-                            foreach (double neutralLoss in nTermNeutralLosses)
+                            double cumulativeLoss = 0; // the cumulative loss is used to generate the sum of the sequentially neutral losses
+                            foreach (double neutralLoss in nTermNeutralLosses.Distinct()) // distinct() is used to avoid duplicating the same neutral loss from multiple mods
                             {
                                 products.Add(new Product(
                                     nTermProductTypes[i],
@@ -362,6 +363,21 @@ namespace Proteomics.ProteolyticDigestion
                                     r + 1,
                                     r + 1,
                                     neutralLoss));
+                            }
+
+                            foreach (double neutralLoss in nTermNeutralLosses) 
+                            {
+                                if (cumulativeLoss != 0)
+                                {
+                                    products.Add(new Product(
+                                        nTermProductTypes[i],
+                                        FragmentationTerminus.N,
+                                        nTermMass + massCaps.Item1[i] - neutralLoss - cumulativeLoss,
+                                        r + 1,
+                                        r + 1,
+                                        neutralLoss + cumulativeLoss));
+                                }
+                                cumulativeLoss += neutralLoss;
                             }
                         }
                     }
@@ -439,7 +455,8 @@ namespace Proteomics.ProteolyticDigestion
 
                         if (cTermNeutralLosses != null)
                         {
-                            foreach (double neutralLoss in cTermNeutralLosses)
+                            double cumulativeLoss = 0;
+                            foreach (double neutralLoss in cTermNeutralLosses.Distinct())
                             {
                                 products.Add(new Product(
                                     cTermProductTypes[i],
@@ -448,6 +465,21 @@ namespace Proteomics.ProteolyticDigestion
                                     r + 1,
                                     BaseSequence.Length - r,
                                     neutralLoss));
+                            }
+
+                            foreach (double neutralLoss in cTermNeutralLosses)
+                            {
+                                if (cumulativeLoss != 0)
+                                {
+                                    products.Add(new Product(
+                                        cTermProductTypes[i],
+                                        FragmentationTerminus.C,
+                                        cTermMass + massCaps.Item2[i] - neutralLoss - cumulativeLoss,
+                                        r + 1,
+                                        BaseSequence.Length - r,
+                                        neutralLoss + cumulativeLoss));
+                                }
+                                cumulativeLoss += neutralLoss;
                             }
                         }
                     }
@@ -976,21 +1008,19 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
         
-        private HashSet<double> AddNeutralLossesFromMods(Modification mod, HashSet<double> allNeutralLossesSoFar, DissociationType dissociationType)
+        private List<double> AddNeutralLossesFromMods(Modification mod, List<double> allNeutralLossesSoFar, DissociationType dissociationType)
         {
+
             // add neutral losses specific to this dissociation type
+            List<double> addedNL = new List<double>(); // neutral losses to be added from this mod
+
             if (mod != null
                 && mod.NeutralLosses != null
-                && mod.NeutralLosses.TryGetValue(dissociationType, out List<double> neutralLossesFromMod))
+                && (mod.NeutralLosses.TryGetValue(dissociationType, out List<double> neutralLossesFromMod)))
             {
                 foreach (double neutralLoss in neutralLossesFromMod.Where(p => p != 0))
                 {
-                    if (allNeutralLossesSoFar == null)
-                    {
-                        allNeutralLossesSoFar = new HashSet<double>();
-                    }
-
-                    allNeutralLossesSoFar.Add(neutralLoss);
+                    addedNL.Add(neutralLoss);
                 }
             }
 
@@ -1001,16 +1031,19 @@ namespace Proteomics.ProteolyticDigestion
             {
                 foreach (double neutralLoss in neutralLossesFromMod.Where(p => p != 0))
                 {
-                    if (allNeutralLossesSoFar == null)
-                    {
-                        allNeutralLossesSoFar = new HashSet<double>();
-                    }
-
-                    allNeutralLossesSoFar.Add(neutralLoss);
+                    addedNL.Add(neutralLoss);
                 }
             }
 
-            return allNeutralLossesSoFar;
+            if (addedNL.Any())
+            {
+                if (allNeutralLossesSoFar == null)
+                {
+                    allNeutralLossesSoFar = new List<double>(); // initialize if null
+                }
+                allNeutralLossesSoFar.AddRange(addedNL.Distinct()); // avoid duplicates
+            }
+            return allNeutralLossesSoFar; // updated list of all neutral losses so far
         }
 
         //This function maintains the amino acids associated with the protease motif and reverses all other amino acids.

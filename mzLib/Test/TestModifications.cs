@@ -508,8 +508,8 @@ namespace Test
             var myModFragments = new List<Product>();
             peptideWithNeutralMassMod.Fragment(DissociationType.HCD, FragmentationTerminus.Both, myModFragments);
             HashSet<int> neutralMasses = new HashSet<int>(myModFragments.Select(m => (int)m.NeutralMass.ToMz(1)).ToList());
-            HashSet<int> expectedMasses = new HashSet<int> { 98, 227, 355, 536, 649, 764, 438, 551, 666, 338, 519, 632, 747, // b-ions with and without neutral losses
-                                                             148, 263, 376, 557, 685, 814, 668, 797, 459, 587, 716, //y ions with and without neutral losses
+            HashSet<int> expectedMasses = new HashSet<int> { 98, 227, 355, 536, 649, 764, 438, 551, 666, 338, 519, 632, 747, 421, 534, 649, // b-ions with and without neutral losses
+                                                             148, 263, 376, 557, 685, 814, 668, 797, 459, 587, 716, 570, 699, //y ions with and without neutral losses
                                                                813, 894, }; //molecular ion with neutral losses (phospho and ammonia respectively)
 
             CollectionAssert.AreEquivalent(neutralMasses, expectedMasses);
