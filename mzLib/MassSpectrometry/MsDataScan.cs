@@ -292,6 +292,11 @@ namespace MassSpectrometry
             this.IsolationMz = value;
         }
 
+        public void SetIsolationRange(double min, double max)
+        {
+            this.isolationRange = new MzRange(min, max);
+        }
+
         private IEnumerable<double> GetNoiseDataMass(double[,] noiseData)
         {
             for (int i = 0; i < noiseData.Length / 3; i++)

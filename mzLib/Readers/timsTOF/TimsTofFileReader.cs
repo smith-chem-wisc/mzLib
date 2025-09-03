@@ -1,26 +1,39 @@
-﻿using System;
-using System.Runtime.InteropServices;
-using System.Text;
+﻿using System.Runtime.InteropServices;
 using MassSpectrometry;
 using System.Data.SQLite;
 using Easy.Common.Extensions;
 using MzLibUtil;
-using UsefulProteomicsDatabases;
-using System.Data.Common;
-using Readers;
-using System.Data.SqlClient;
 using System.Data;
-using ThermoFisher.CommonCore.Data.Business;
-using Polarity = MassSpectrometry.Polarity;
-using System.Security.AccessControl;
 using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.Security.Permissions;
-using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
+[assembly: InternalsVisibleTo("Test")]
 namespace Readers
 {
+    /// <summary>
+    /// In the .tdf files, the Frames table has a "Scan Mode" column that indicates the type of scan
+    /// This enum maps to that column
+    /// </summary>
+    public enum ScanMode
+    {
+        MS = 0,
+        AutoMSMS = 1, // This is only relevant for .tsf data
+        MRM = 2,
+        InSourceCID = 3,
+        BroadbandCID = 4,
+        PASEF = 8,
+        DIA = 9,
+        PRM = 10,
+        Maldi = 20
+    }
+
+    public enum TimsTofFileType
+    {
+        TDF = 0, // data with tims seperation + information
+        TSF = 1, // data without tims seperation
+        Unknown = 2 // Unknown file type
+    }
+
     public class TimsTofFileReader : MsDataFile, IDisposable
     {
         // timsTOF instruments collect frames, packets of ions collected by the tims, then analyzed 
@@ -32,7 +45,6 @@ namespace Readers
         {
             FaultyFrameIds = new();
         }
-
         private UInt64? _fileHandle;
         private Object _fileLock;
         private SQLiteConnection? _sqlConnection;
@@ -50,53 +62,56 @@ namespace Readers
         private MzRange? _scanWindow;
         public MzRange ScanWindow => _scanWindow ??= new MzRange(20, 2000);
         public const string ScanFilter = "f";
+        public bool HasProfileSpectra { get; private set; }
+        public bool HasLineSpectra { get; private set; }
+        public ScanMode ScanMode { get; private set; }
+        public TimsTofFileType FileType { get; private set; }
+        public ConcurrentBag<TimsDataScan> Ms1ScansNoPrecursorsBag { internal get; set; }
+        public TimsDataScan[] Ms1ScanArray { internal get; set; }
+        public TimsDataScan[] PasefScanArray { internal get; set; }
+        public TimsDataScan[] MrmScanArray { internal get; set; }
 
         public override void InitiateDynamicConnection()
         {
-            if (!File.Exists(FilePath + @"\analysis.tdf") | !File.Exists(FilePath + @"\analysis.tdf_bin"))
+            if (File.Exists(FilePath + @"\analysis.tdf")  && File.Exists(FilePath + @"\analysis.tdf_bin"))
             {
-                throw new FileNotFoundException("Data file is missing .tdf and/or .tdf_bin file");
+                FileType = TimsTofFileType.TDF;
             }
-
-            if (Scans.IsNotNullOrEmpty() && Scans.All(s => s != null)) // If all scans have been loaded, then don't reload
-                return;
+            else if (File.Exists(FilePath + @"\analysis.tsf") && File.Exists(FilePath + @"\analysis.tsf_bin"))
+            {
+                FileType = TimsTofFileType.TSF;
+            }
+            else
+            {
+                throw new FileNotFoundException("Could not locate the the database (analysis.tdf, analysis.tsf) and/or binary (analysis.tdf_bin, analysis.tsf_bin) files");
+            }
 
             OpenSqlConnection();
 
-            if(_fileHandle != null) tims_close((UInt64)_fileHandle);
+            if(_fileHandle != null) CloseBinaryFileConnection();
             OpenBinaryFileConnection();
             _fileLock = new();
 
             CountFrames();
             BuildProxyFactory();
-            CountMS1Frames();
-            CountPrecursors();
-        }
+            CheckScanMode();
+            if(FileType == TimsTofFileType.TSF)
+            {
+                CheckSpectraType();
+            }
 
-        internal void OpenSqlConnection()
-        {
-            if (_sqlConnection?.State == ConnectionState.Open)
+            if (Scans.IsNotNullOrEmpty() && Scans.All(s => s != null)) // If all scans have been loaded, then don't reload
                 return;
 
-            _sqlConnection = new SQLiteConnection("Data Source=" +
-                                    Path.Combine(FilePath, "analysis.tdf") +
-                                    "; Version=3", parseViaFramework: true);
-            try
+            // Currently, only MRM data is supported in addition to DDA_PASEF. For MRM, no additional functions need to be called
+            // however, as additional data becomes supported, this switch statement could grow
+            switch (ScanMode)
             {
-                _sqlConnection.Open();
+                case ScanMode.PASEF:
+                    CountMS1Frames();
+                    CountPrecursors();
+                    break; 
             }
-            catch (Exception e)
-            {
-                throw new MzLibException("Error opening the .tdf file: " + e.Message);
-            }
-        }
-
-        internal void OpenBinaryFileConnection()
-        {
-            byte[] binaryFileBytePath = BrukerFileReader.ConvertStringToUTF8ByteArray(FilePath);
-            _fileHandle = tims_open(binaryFileBytePath, 0);
-            if (_fileHandle == null || _fileHandle == 0)
-                throw new MzLibException("Could not open the analysis.tdf_bin file");
         }
 
         public override void CloseDynamicConnection()
@@ -104,11 +119,56 @@ namespace Readers
             if (_sqlConnection?.State == ConnectionState.Open) _sqlConnection.Close();
             _sqlConnection?.Dispose();
             _sqlConnection = null;
-            if (_fileHandle != null)
+            CloseBinaryFileConnection();
+        }
+
+        #region Database Access
+
+        internal void OpenSqlConnection()
+        {
+            if (_sqlConnection?.State == ConnectionState.Open)
+                return;
+
+            string analysisFileName = FileType == TimsTofFileType.TDF ? "analysis.tdf" : "analysis.tsf";    
+            _sqlConnection = new SQLiteConnection("Data Source=" +
+                                    Path.Combine(FilePath, analysisFileName) +
+                                    "; Version=3", parseViaFramework: true);
+            try
             {
-                tims_close((UInt64)_fileHandle);
-                _fileHandle = null;
-            }   
+                _sqlConnection.Open();
+            }
+            catch (Exception e)
+            {
+                throw new MzLibException("Error opening the database file: " + e.Message);
+            }
+        }
+
+        internal void OpenBinaryFileConnection()
+        {
+            byte[] binaryFileBytePath = BrukerFileReader.ConvertStringToUTF8ByteArray(FilePath);
+            if (FileType == TimsTofFileType.TDF)
+                _fileHandle = tims_open(binaryFileBytePath, 0);
+            else if (FileType == TimsTofFileType.TSF)
+                _fileHandle = tsf_open(binaryFileBytePath, 0); 
+            else
+                throw new MzLibException("Unknown file type: " + FileType);
+            if (_fileHandle == null || _fileHandle == 0)
+                throw new MzLibException("Could not open the binary data (.tdf_bin or .tsf_bin) file");
+        }
+
+        internal void CloseBinaryFileConnection()
+        {
+            if (_fileHandle == null) return;
+            if (FileType == TimsTofFileType.TDF)
+            {
+                tims_close((ulong)_fileHandle);
+                _fileHandle = null; // Set to null to indicate that the file is closed
+            }
+            else if (FileType == TimsTofFileType.TSF)
+            {
+                tsf_close((ulong)_fileHandle);
+                _fileHandle = null; // Set to null to indicate that the file is closed
+            }  
         }
 
         public void Dispose()
@@ -116,10 +176,131 @@ namespace Readers
             CloseDynamicConnection();
         }
 
+        internal void CountFrames()
+        {
+            if (_sqlConnection == null) return;
+            using var command = new SQLiteCommand(_sqlConnection);
+            command.CommandText = @"SELECT COUNT(*) FROM Frames;";
+            using var sqliteReader = command.ExecuteReader();
+            int count = 0;
+            while (sqliteReader.Read())
+            {
+                count = sqliteReader.GetInt32(0);
+                break;
+            }
+            NumberOfFrames = count;
+        }
+
+        internal void CheckScanMode()
+        {
+            if (_sqlConnection == null) return;
+            using var command = new SQLiteCommand(_sqlConnection);
+            command.CommandText = @"SELECT DISTINCT ScanMode FROM Frames;";
+            using var sqliteReader = command.ExecuteReader();
+            HashSet<int> scanModes = new();
+
+            while (sqliteReader.Read())
+            {
+                scanModes.Add(sqliteReader.GetInt32(0));
+            }
+            if (scanModes.Count > 1)
+            {
+                throw new MzLibException("The timsTOF file contains multiple scan modes. This is not supported yet.");
+            }
+            ScanMode = (ScanMode)scanModes.FirstOrDefault();
+        }
+
+        internal void CountMS1Frames()
+        {
+            if (_sqlConnection == null) return;
+            using var command = new SQLiteCommand(_sqlConnection);
+            command.CommandText = @"SELECT f.Id FROM Frames f WHERE f.MsMsType = 0;";
+            using var sqliteReader = command.ExecuteReader();
+            Ms1FrameIds = new();
+
+            while (sqliteReader.Read())
+            {
+                Ms1FrameIds.Add(sqliteReader.GetInt64(0));
+            }
+        }
+        
+        internal void CountPrecursors()
+        {
+            if (_sqlConnection == null) return;
+            using var command = new SQLiteCommand(_sqlConnection);
+            command.CommandText = @"SELECT MAX(Id) FROM Precursors;";
+            using var sqliteReader = command.ExecuteReader();
+            var columns = Enumerable.Range(0, sqliteReader.FieldCount)
+                .Select(sqliteReader.GetName).ToList();
+            long maxPrecursorId = 0;
+            while (sqliteReader.Read())
+            {
+                maxPrecursorId = sqliteReader.GetInt64(0);
+            }
+            Ms1ScanArray = new TimsDataScan[maxPrecursorId];
+            PasefScanArray = new TimsDataScan[maxPrecursorId];
+        }
+
+        internal int GetNumberOfDigitizerSamples()
+        {
+            using var command = new SQLiteCommand(_sqlConnection);
+            command.CommandText = @"SELECT value FROM GlobalMetadata" +
+                                  " WHERE GlobalMetadata.Key = 'DigitizerNumSamples'";
+            using var reader = command.ExecuteReader();
+            reader.Read();
+            return Int32.Parse(reader.GetString(0));
+        }
+
+        internal void CheckSpectraType()
+        {
+            using var command = new SQLiteCommand(_sqlConnection);
+            {
+                command.CommandText = @"SELECT value FROM GlobalMetadata" +
+                                      " WHERE GlobalMetadata.Key = 'HasLineSpectra'";
+                using var reader = command.ExecuteReader();
+                {
+                    reader.Read();
+                    HasLineSpectra = reader.GetString(0) == "1";
+                }
+            }
+
+            using var command2 = new SQLiteCommand(_sqlConnection);
+            {
+                command2.CommandText = @"SELECT value FROM GlobalMetadata" +
+                                       " WHERE GlobalMetadata.Key = 'HasProfileSpectra'";
+                using var reader = command.ExecuteReader();
+                {
+                    reader.Read();
+                    HasProfileSpectra = reader.GetString(0) == "1";
+                }
+            }
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Builds a new FrameProxyFactory to pull frames from the timsTOF data file
+        /// and sets the FrameProxyFactory property 
+        /// </summary>
+        /// <exception cref="MzLibException"></exception>
+        internal void BuildProxyFactory()
+        {
+            if (_sqlConnection == null || _fileHandle == null) return;
+            var framesTable = new FrameTable(_sqlConnection, NumberOfFrames, FileType);
+            if (framesTable == null)
+                throw new MzLibException("Something went wrong while loading the Frames table from the database.");
+
+            int numberOfIndexedMzs = GetNumberOfDigitizerSamples();
+            FrameProxyFactory = new FrameProxyFactory(framesTable, (ulong)_fileHandle, _fileLock, numberOfIndexedMzs, FileType);
+        }
+
         /// <summary>
         /// WARNING! This method reads in the entire data file before
         /// returning the requested scan! It is recommended to call the 
-        /// GetScanFromPrecursorAndFrameIdFromDynamicConnection()
+        /// GetScanFromPrecursorAndFrameIdFromDynamicConnection().
+        /// 
+        /// Additionally, calling this method will 1 less than the maximum number
+        /// of available threads to read the data file
         /// </summary>
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
         {
@@ -128,7 +309,7 @@ namespace Readers
             if (Scans != null && Scans.Length >= oneBasedScanNumber && Scans[oneBasedScanNumber - 1] != null)
                 return Scans[oneBasedScanNumber - 1];
 
-            LoadAllStaticData(filteringParams: (FilteringParams)filterParams);
+            LoadAllStaticData(filteringParams: (FilteringParams)filterParams, maxThreads: Environment.ProcessorCount - 1);
             if (oneBasedScanNumber > Scans.Length)
                 throw new IndexOutOfRangeException("Invalid one-based index given when accessing data scans. Index: " + oneBasedScanNumber);
             return Scans[oneBasedScanNumber - 1];
@@ -166,104 +347,83 @@ namespace Readers
             }
         }
 
-        internal void CountFrames()
-        {
-            if (_sqlConnection == null) return;
-            using var command = new SQLiteCommand(_sqlConnection);
-            command.CommandText = @"SELECT COUNT(*) FROM Frames;";
-            using var sqliteReader = command.ExecuteReader();
-            int count = 0;
-            while (sqliteReader.Read())
-            {
-                count = sqliteReader.GetInt32(0);
-                break;
-            }
-            NumberOfFrames = count;
-        }
-
-        internal void CountMS1Frames()
-        {
-            if (_sqlConnection == null) return;
-            using var command = new SQLiteCommand(_sqlConnection);
-            command.CommandText = @"SELECT f.Id FROM Frames f WHERE f.MsMsType = 0;";
-            using var sqliteReader = command.ExecuteReader();
-            Ms1FrameIds = new();
-
-            while (sqliteReader.Read())
-            {
-                Ms1FrameIds.Add(sqliteReader.GetInt64(0));
-            }
-            
-        }
-
-        /// <summary>
-        /// Builds a new FrameProxyFactory to pull frames from the timsTOF data file
-        /// and sets the FrameProxyFactory property 
-        /// </summary>
-        /// <exception cref="MzLibException"></exception>
-        internal void BuildProxyFactory()
-        {
-            if (_sqlConnection == null || _fileHandle == null) return;
-            var framesTable = new FrameTable(_sqlConnection, NumberOfFrames);
-            if (framesTable == null)
-                throw new MzLibException("Something went wrong while loading the Frames table from the analysis.tdf database.");
-
-            int numberOfIndexedMzs = GetNumberOfDigitizerSamples();
-            FrameProxyFactory = new FrameProxyFactory(framesTable, (ulong)_fileHandle, _fileLock, numberOfIndexedMzs);
-        }
-
-        internal void CountPrecursors()
-        {
-            if (_sqlConnection == null) return;
-            using var command = new SQLiteCommand(_sqlConnection);
-            command.CommandText = @"SELECT MAX(Id) FROM Precursors;";
-            using var sqliteReader = command.ExecuteReader();
-            var columns = Enumerable.Range(0, sqliteReader.FieldCount)
-                .Select(sqliteReader.GetName).ToList();
-            long maxPrecursorId = 0;
-            while (sqliteReader.Read())
-            {
-                maxPrecursorId = sqliteReader.GetInt64(0);
-            }
-            Ms1ScanArray = new TimsDataScan[maxPrecursorId];
-            PasefScanArray = new TimsDataScan[maxPrecursorId];
-        }
-
-        public ConcurrentBag<TimsDataScan> Ms1ScansNoPrecursorsBag { internal get; set; }
-        public TimsDataScan[] Ms1ScanArray { internal get; set; }
-        public TimsDataScan[] PasefScanArray { internal get; set; }
-
-        internal int GetNumberOfDigitizerSamples()
-        {
-            using var command = new SQLiteCommand(_sqlConnection);
-            command.CommandText = @"SELECT value FROM GlobalMetadata" +
-                " WHERE GlobalMetadata.Key = 'DigitizerNumSamples'";
-            using var reader = command.ExecuteReader();
-            reader.Read();
-            return Int32.Parse(reader.GetString(0));
-        }
-
         public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1)
         {
             InitiateDynamicConnection();
-
             _maxThreads = maxThreads;
-            Ms1ScansNoPrecursorsBag = new();
-            Parallel.ForEach(
-                Partitioner.Create(0, Ms1FrameIds.Count),
-                new ParallelOptions() { MaxDegreeOfParallelism = _maxThreads },
-                (range) =>
+
+            switch(FileType)
             {
-                for (int i = range.Item1; i < range.Item2; i++)
-                {
-                    BuildAllScans(Ms1FrameIds[i], filteringParams);
-                }
-            });
+                case TimsTofFileType.TDF:
+                    LoadAllDataTdf(filteringParams);
+                    break;
+                case TimsTofFileType.TSF:
+                    LoadAllDataTsf(filteringParams);
+                    break;
+                default:
+                    throw new MzLibException("Unknown file type: " + FileType);
+            }
 
             CloseDynamicConnection();
-            AssignOneBasedPrecursorsToPasefScans();
             SourceFile = GetSourceFile();
             return this;
+        }
+
+        internal void LoadAllDataTdf(FilteringParams filteringParams = null)
+        {
+            switch (ScanMode)
+            {
+                case ScanMode.PASEF:
+                    Ms1ScansNoPrecursorsBag = new();
+                    Parallel.ForEach(
+                        Partitioner.Create(0, Ms1FrameIds.Count),
+                        new ParallelOptions() { MaxDegreeOfParallelism = _maxThreads },
+                        (range) =>
+                        {
+                            for (int i = range.Item1; i < range.Item2; i++)
+                            {
+                                BuildDDAScans(Ms1FrameIds[i], filteringParams);
+                            }
+                        });
+                    AssignOneBasedPrecursorsToPasefScans();
+                    break;
+                case ScanMode.MRM:
+                    // The implicit assumption here is that in MRM mode, no MS1 scans are collected
+                    MrmScanArray = new TimsDataScan[NumberOfFrames];
+                    Parallel.ForEach(
+                        Partitioner.Create(0, NumberOfFrames),
+                        new ParallelOptions() { MaxDegreeOfParallelism = _maxThreads },
+                        (range) =>
+                        {
+                            for (int i = range.Item1; i < range.Item2; i++)
+                            {
+                                BuildMrmScan(i + 1, filteringParams); // i is zero-based, frame ids are one-based
+                            }
+                        });
+                    AssignScanNumbersToMrmScans();
+                    break;
+                default:
+                    throw new MzLibException($"The timsTOF file contains unsupported scan mode: {Enum.GetName((ScanMode)ScanMode)}. Only DDA-PASEF and MRM data is supported at this time.");
+            }
+        }
+
+        internal void LoadAllDataTsf(FilteringParams filteringParams = null)
+        {
+            switch (ScanMode)
+            {
+                case ScanMode.MRM:
+                    MrmScanArray = new TimsDataScan[NumberOfFrames];
+                    for (int i = 0; i < MrmScanArray.Length; i++)
+                    {
+                        var record = GetMrmRecordTsf(i+1);
+                        var scan = GetMrmScanTsf(record, FrameProxyFactory.GetFrameProxy(i + 1), filteringParams);
+                        MrmScanArray[i] = scan;
+                    }
+                    AssignScanNumbersToMrmScans();
+                    break;
+                default:
+                    throw new MzLibException($"The timsTOF file contains unsupported scan mode: {Enum.GetName((ScanMode)ScanMode)}. Only DMRM data is supported for .tsf files");
+            }
         }
 
         internal void AssignOneBasedPrecursorsToPasefScans()
@@ -315,6 +475,27 @@ namespace Readers
             Scans = scanArray.Where(scan => scan != null).ToArray();
         }
 
+        internal void AssignScanNumbersToMrmScans()
+        {
+            int validScans = MrmScanArray.Count(s => s != null);
+            if (validScans == 0) return; // If there are no valid scans, then we don't need to assign scan numbers
+            if (validScans != MrmScanArray.Length)
+            {
+                Scans = new TimsDataScan[validScans]; // Create a new array to hold the scans
+                int oneBasedScanNo = 1;
+                foreach (var scan in MrmScanArray.Where(s => s != null))
+                {
+                    scan.SetOneBasedScanNumber(oneBasedScanNo);
+                    oneBasedScanNo++;
+                    Scans[scan.OneBasedScanNumber - 1] = scan; // Assign the scan to the Scans array
+                }
+            }
+            else
+            {
+                Scans = MrmScanArray; // If all scans are valid, then we can just assign the MrmScanArray to the Scans array
+            }
+        }
+
         /// <summary>
         /// This function will create multiple MS1 scans from each MS1 frame in the timsTOF data file
         /// One Ms1 Scan per precursor
@@ -324,7 +505,7 @@ namespace Readers
         /// </summary>
         /// <param name="frameId"></param>
         /// <param name="filteringParams"></param>
-        internal void BuildAllScans(long frameId, FilteringParams filteringParams)
+        internal void BuildDDAScans(long frameId, FilteringParams filteringParams)
         {
             FrameProxy frame = FrameProxyFactory.GetFrameProxy(frameId);
             if (frame == null || !frame.IsFrameValid())
@@ -353,6 +534,29 @@ namespace Readers
                     PasefScanArray[(int)scan.PrecursorId - 1] = scan;
             }
         }
+
+        /// <summary>
+        /// This function will create an TimsDataScan for timsTOF data collected using the MRM scan mode and write it to the MrmScanarray
+        /// The scan's spectrum is created by averaging the spectra from all scans in the selected frame
+        /// </summary>
+        /// <param name="frameId"></param>
+        /// <param name="filteringParams"></param>
+        internal void BuildMrmScan(long frameId, FilteringParams filteringParams)
+        {
+            FrameProxy frame = FrameProxyFactory.GetFrameProxy(frameId);
+            if (frame == null || !frame.IsFrameValid())
+            {
+                FaultyFrameIds.Add(frameId);
+                return; // If the frame is null, then we can't build any scans for it
+            }
+            var record = GetMrmRecord(frameId);
+            if (record.Equals(default(MrmRecord))) return; // If the record is null, then we can't build any scans for it
+            TimsDataScan? dataScan = GetMrmScan(record, frame, filteringParams);
+            if (dataScan != null)
+            {
+                MrmScanArray[(int)frameId - 1] = dataScan;
+            }
+        }   
 
         internal List<Ms1Record> GetMs1Records(long frameId)
         {
@@ -397,7 +601,7 @@ namespace Readers
                 intensityArrays.Add(frame.GetScanIntensities(scan-1));
             }
             // Step 2: Average those suckers
-            MzSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToMs1Spectrum(indexArrays, intensityArrays, FrameProxyFactory, filteringParams: filteringParams);
+            MzSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToSpectrum(indexArrays, intensityArrays, FrameProxyFactory, filteringParams: filteringParams);
             if (averagedSpectrum.Size < 1)
             {
                 return null;
@@ -425,6 +629,83 @@ namespace Readers
                 medianOneOverK0: FrameProxyFactory.GetOneOverK0(record.ScanMedian),
                 precursorId: record.PrecursorId);
 
+            return dataScan;
+        }
+
+        internal TimsDataScan? GetMrmScanTsf(MrmRecord record, FrameProxy frame, FilteringParams filteringParams)
+        {
+            var tsfFrame = (TsfFrameProxy)frame;
+            double[] mzArray = FrameProxyFactory.ConvertIndicesToMz(tsfFrame.IndexArray);
+            double[] intensityArray = Array.ConvertAll(tsfFrame.IntensityArray, i => (double)i);
+
+            MzSpectrum spectrum = new MzSpectrum(mzArray, intensityArray, shouldCopy: false);
+
+            // Step 3: Make an MsDataScan bby
+            var dataScan = new TimsDataScan(
+                massSpectrum: spectrum,
+                oneBasedScanNumber: (int)record.FrameId, // This gets adjusted once all data has been read
+                msnOrder: 2,
+                isCentroid: true,
+                polarity: FrameProxyFactory.GetPolarity(frame.FrameId),
+                retentionTime: FrameProxyFactory.GetRetentionTime(frame.FrameId),
+                scanWindowRange: ScanWindow,
+                isolationMZ: record.IsolationMz,
+                isolationWidth: record.IsolationWidth,
+                hcdEnergy: record.CollisionEnergy.ToString(),
+                scanFilter: ScanFilter,
+                mzAnalyzer: MZAnalyzerType.TOF,
+                totalIonCurrent: intensityArray.Sum(),
+                injectionTime: -1,
+                noiseData: null,
+                nativeId: "frame=" + frame.FrameId.ToString(),
+                frameId: frame.FrameId,
+                scanNumberStart: -1,
+                scanNumberEnd: -1,
+                medianOneOverK0: -1,
+                precursorId: null);
+            return dataScan;
+        }
+
+        internal TimsDataScan? GetMrmScan(MrmRecord record, FrameProxy frame, FilteringParams filteringParams)
+        {
+            if (!record.ScanStart.HasValue || !record.ScanEnd.HasValue) return null;
+            List<uint[]> indexArrays = new();
+            List<int[]> intensityArrays = new();
+            for (int scan = (int)record.ScanStart; scan < (int)record.ScanEnd; scan++)
+            {
+                indexArrays.Add(frame.GetScanIndices(scan - 1));
+                intensityArrays.Add(frame.GetScanIntensities(scan - 1));
+            }
+            // Step 2: Average those suckers
+            MzSpectrum averagedSpectrum = TofSpectraMerger.MergeArraysToSpectrum(indexArrays, intensityArrays, FrameProxyFactory, filteringParams: filteringParams, msnLevel: 2);
+            if (averagedSpectrum.Size < 1)
+            {
+                return null;
+            }
+            // Step 3: Make an MsDataScan bby
+            var dataScan = new TimsDataScan(
+                massSpectrum: averagedSpectrum,
+                oneBasedScanNumber: (int)record.FrameId, // This gets adjusted once all data has been read
+                msnOrder: 2,
+                isCentroid: true,
+                polarity: FrameProxyFactory.GetPolarity(frame.FrameId),
+                retentionTime: FrameProxyFactory.GetRetentionTime(frame.FrameId),
+                scanWindowRange: ScanWindow,
+                isolationMZ: record.IsolationMz,
+                isolationWidth: record.IsolationWidth,
+                hcdEnergy: record.CollisionEnergy.ToString(),
+                scanFilter: ScanFilter,
+                mzAnalyzer: MZAnalyzerType.TOF,
+                totalIonCurrent: intensityArrays.Sum(array => array.Sum()),
+                injectionTime: FrameProxyFactory.GetInjectionTime(frame.FrameId),
+                noiseData: null,
+                nativeId: "frame=" + frame.FrameId.ToString() +
+                    ";scans=" + record.ScanStart.ToString() + "-" + record.ScanEnd.ToString(),
+                frameId: frame.FrameId,
+                scanNumberStart: (int)record.ScanStart,
+                scanNumberEnd: (int)record.ScanEnd,
+                medianOneOverK0: FrameProxyFactory.GetOneOverK0(((int)record.ScanStart + (int)record.ScanEnd) / 2.0),
+                precursorId: null);
             return dataScan;
         }
 
@@ -514,6 +795,59 @@ namespace Readers
             }
         }
 
+        internal MrmRecord GetMrmRecord(long frameId)
+        {
+            using (var command = new SQLiteCommand(_sqlConnection))
+            {
+                // This command finds all the precursors identified and fragmented in each MS/MS Pasef scan
+                // It is used to take an MS1 frame and create multiple "MsDataScans" by averaging the 
+                // spectra from each scan within a given Ion Mobility (i.e. ScanNum) range
+                command.CommandText =
+                    @"SELECT f.NumScans," +
+                    " m.TriggerMass, m.IsolationWidth, m.CollisionEnergy" +
+                    " FROM Frames f" +
+                    " INNER JOIN FrameMsMsInfo m on m.Frame = " + frameId.ToString() +
+                    " WHERE f.ID = " + frameId.ToString() +
+                    ";";
+                using var sqliteReader = command.ExecuteReader();
+
+                while (sqliteReader.Read())
+                {
+                    var numScans = sqliteReader.GetInt32(0);
+                    var triggerMz = sqliteReader.GetFloat(1);
+                    var isolationWidth = sqliteReader.GetFloat(2);
+                    var collisionEnergy = sqliteReader.GetFloat(3);
+                    return new MrmRecord(frameId, scanStart: 1, scanEnd: numScans, isolationMz: triggerMz, isolationWidth: isolationWidth, collisionEnergy: collisionEnergy);
+                }
+            }
+
+            return default(MrmRecord); // If no record was found, return a default MrmRecord
+        }
+
+        internal MrmRecord GetMrmRecordTsf(long frameId)
+        {
+            using (var command = new SQLiteCommand(_sqlConnection))
+            {
+                // This command finds all the precursors identified and fragmented in each MS/MS Pasef scan
+                // It is used to take an MS1 frame and create multiple "MsDataScans" by averaging the 
+                // spectra from each scan within a given Ion Mobility (i.e. ScanNum) range
+                command.CommandText =
+                    @"SELECT TriggerMass, IsolationWidth, CollisionEnergy" +
+                    " FROM FrameMsMsInfo WHERE Frame = " + frameId.ToString() + ";";
+                using var sqliteReader = command.ExecuteReader();
+
+                while (sqliteReader.Read())
+                {
+                    var triggerMz = sqliteReader.GetFloat(0);
+                    var isolationWidth = sqliteReader.GetFloat(1);
+                    var collisionEnergy = sqliteReader.GetFloat(2);
+                    return new MrmRecord(frameId, scanStart: null, null, isolationMz: triggerMz, isolationWidth: isolationWidth, collisionEnergy: collisionEnergy);
+                }
+            }
+
+            return default(MrmRecord); // If no record was found, return a default MrmRecord
+        }
+
         /// <summary>
         /// Grab all fragmentation spectra for each precursor
         /// Each TimsDataScan in pasefScansWithNullSpectra corresponds to one precursor.
@@ -566,9 +900,8 @@ namespace Readers
         private const string massSpecFileFormat = ".D format";
         public override SourceFile GetSourceFile()
         {
-            // append the analysis.baf because the constructor for SourceFile will look for the 
-            // parent directory. 
-            string fileName = FilePath + @"\analysis.tdf";
+            string extension = FileType == TimsTofFileType.TDF ? ".tdf" : ".tsf";
+            string fileName = FilePath + @"\analysis" + extension;
             return new SourceFile(nativeIdFormat, massSpecFileFormat,
                 null, null, id: null, filePath: fileName);
         }
@@ -591,6 +924,23 @@ namespace Readers
         [DllImport("timsdata.dll", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
         public static extern void tims_close
               (UInt64 fileHandle);
+
+        /// <summary>
+        /// Returns a unique handle that references an open timsTOF data file
+        /// </summary>
+        /// <param name="analysis_directory_name_utf8"></param>
+        /// <param name="use_recalibrated_state"></param>
+        /// <returns></returns>
+        [DllImport("timsdata.dll", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
+        public static extern UInt64 tsf_open
+            (byte[] analysis_directory_name_utf8, UInt32 use_recalibrated_state);
+
+        /// <summary>
+        /// Closes a file connection to a .tdf binary file
+        /// </summary>
+        [DllImport("timsdata.dll", CharSet = CharSet.Ansi, CallingConvention = CallingConvention.Cdecl)]
+        public static extern void tsf_close
+            (UInt64 fileHandle);
 
         #endregion Bruker Dll Functions
 

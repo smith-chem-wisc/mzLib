@@ -9,6 +9,8 @@ using Omics.Modifications;
 using Transcriptomics.Digestion;
 using Transcriptomics;
 using Omics;
+using MassSpectrometry;
+using Omics.Fragmentation;
 
 namespace Test.Transcriptomics
 {
@@ -170,6 +172,33 @@ namespace Test.Transcriptomics
             Assert.That(oligo1, Is.Not.EqualTo(oligo2));
             Assert.That(oligo1, Is.Not.EqualTo((object)oligo2));
             Assert.That(oligo1.GetHashCode(), Is.Not.EqualTo(oligo2.GetHashCode()));
+        }
+
+        [Test]
+        public static void Fragment_WorksWhenParentIsNull()
+        {
+            // Arrange: create an OligoWithSetMods with no parent (using the string constructor)
+            var baseSequence = "GUACUG";
+            var mod = TestDigestion.PotassiumAdducts[1];
+            var modDict = new Dictionary<string, Modification> { { mod.IdWithMotif, mod } };
+            var oligo = new OligoWithSetMods(baseSequence, modDict);
+
+            // Confirm parent is null
+            Assert.That(oligo.Parent == null);
+
+            // Act: call Fragment
+            var products = new List<Product>();
+            oligo.Fragment(DissociationType.CID, FragmentationTerminus.Both, products);
+
+            // Assert: products are generated and not empty
+            Assert.That(products, Is.Not.Null);
+            Assert.That(products.Count, Is.GreaterThan(0), "Fragment should generate at least one product when parent is null.");
+
+            // Optionally, check that all products are for the correct sequence length
+            foreach (var product in products)
+            {
+                Assert.That(product.NeutralMass, Is.GreaterThan(0), "Product neutral mass should be positive.");
+            }
         }
     }
 }

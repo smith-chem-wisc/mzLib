@@ -1,5 +1,6 @@
 ﻿using MassSpectrometry;
 using MathNet.Numerics;
+using MzLibUtil;
 using NUnit.Framework;
 using NUnit.Framework.Legacy;
 using Readers;
@@ -17,7 +18,7 @@ namespace Test.FileReadingTests
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class TestTimsTofFileReader
     {
-
+        // The timsTOF_snippet.d contains DDA_PASEF data
         public string _testDataPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_snippet.d");
         public TimsTofFileReader _testReader;
         public TimsDataScan _testMs2Scan;
@@ -33,12 +34,80 @@ namespace Test.FileReadingTests
             _testMs1Scan = (TimsDataScan)_testReader.Scans.Skip(500).First(scan => scan.MsnOrder == 1);
         }
 
+
+        [Test]
+        public static void TsfTest()
+        {
+            string tsfFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_TSF_MRM.d");
+            var tsfFile = MsDataFileReader.GetDataFile(tsfFilePath);
+            tsfFile.LoadAllStaticData();
+
+            Assert.That(tsfFile.Scans[969].MassSpectrum.Size, Is.EqualTo(36));
+            Assert.That(tsfFile.Scans[969].MassSpectrum.SumOfAllY, Is.EqualTo(6494));
+        }
+
+        [Test]
+        public void TestReadForMrmFile()
+        {
+            // This mrm file has been modified! There are actually 6437 scans per frame in this file. However, that takes a while to read in,
+            // merge, and centroid. So I edited the SQL database (contained in the .tdf) file to show that each frame only contains 100 scans)
+            // This resulted in a ~20x speed up
+            // This probably implies that the reader should handle the data fundamentally differently (e.g., chunking up each frame into 100 scan segments)
+            string mrmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_MRM.d");
+            var reader = new TimsTofFileReader(mrmFilePath);
+            reader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 10);
+            Assert.That(reader.NumSpectra, Is.EqualTo(909), "Number of spectra in the MRM file is not as expected.");
+
+            reader.MrmScanArray[10] = null;
+            reader.AssignScanNumbersToMrmScans();
+            Assert.That(reader.Scans[10], Is.Not.Null); // Null scan should be removed in AssignScanNumbersToMrmScans
+            Assert.That(reader.NumSpectra, Is.EqualTo(908));
+            Assert.That(reader.Scans[^1].OneBasedScanNumber, Is.EqualTo(908));
+            Assert.That(reader.Scans[0].IsolationWidth, Is.EqualTo(5).Within(0.01), "Isolation width of first scan is not as expected.");
+            Assert.That(reader.Scans[0].IsolationMz, Is.EqualTo(627.52).Within(0.01), "Selected ion m/z of first scan is not as expected.");
+            Assert.That(reader.Scans[0].HcdEnergy, Is.EqualTo("28"));
+
+            reader.MrmScanArray = new TimsDataScan[reader.NumSpectra];
+            reader.AssignScanNumbersToMrmScans();
+            Assert.Pass(); // Make sure empty scan array doesn't crash
+        }
+
+        [Test]
+        public static void TestDiaFileThrowsAppropriateException()
+        {
+            string diaFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_DIA.d");
+            var reader = new TimsTofFileReader(diaFilePath);
+            Assert.That(
+                () => reader.LoadAllStaticData(filteringParams: new FilteringParams()),
+                Throws.TypeOf<MzLibException>()
+                    .With.Message.EqualTo("The timsTOF file contains unsupported scan mode: DIA. Only DDA-PASEF and MRM data is supported at this time.")
+            );
+        }
+
         [Test]
         public void TestDynamicConnection()
         {
             _testReader.InitiateDynamicConnection();
             _testReader.CloseDynamicConnection();
             _testReader.InitiateDynamicConnection();
+
+            var sqlConnectionField = typeof(TimsTofFileReader).GetField("_sqlConnection",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+
+            // Check that it's not null before closing
+            var sqlConnectionBeforeClose = sqlConnectionField.GetValue(_testReader);
+            Assert.That(sqlConnectionBeforeClose, Is.Not.Null,
+                "SQL connection should not be null after opening dynamic connection");
+
+            // Close the connection
+            _testReader.Dispose();
+
+            // Check that it's null after closing
+            var sqlConnectionAfterClose = sqlConnectionField.GetValue(_testReader);
+            Assert.That(sqlConnectionAfterClose, Is.Null,
+                "SQL connection should be null after closing dynamic connection");
+            
+            _testReader.CloseDynamicConnection(); // Shouldn't throw an error
             Assert.Pass();
         }
 
@@ -80,7 +149,7 @@ namespace Test.FileReadingTests
                 x.SetValue(tempReader, mockFactory);
                 //typeof(TimsTofFileReader).GetProperty("FrameProxyFactory", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(tempReader, mockFactory);
 
-                tempReader.BuildAllScans(frameId: 1, null);
+                tempReader.BuildDDAScans(frameId: 1, null);
                 var scan = new TimsDataScan(massSpectrum: null,
                     oneBasedScanNumber: -1, // This will be adjusted once all scans have been read
                     msnOrder: 2,
@@ -273,6 +342,38 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void TestTsfMzToIndexConversion()
+        {
+            // Skip test if TSF file is not available
+            string tsfFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_TSF_MRM.d");
+            if (!Directory.Exists(tsfFilePath))
+            {
+                Assert.Ignore("TSF test file not available, skipping test.");
+            }
+
+            var reader = new TimsTofFileReader(tsfFilePath);
+            reader.InitiateDynamicConnection();
+            try
+            {
+                TimsConversion timsConverter = new TimsConversion(reader.FrameProxyFactory.FileHandle, reader.FrameProxyFactory.FileLock);
+                var indexValues = new double[] { 100.0, 200.0, 500.0, 1000.0 };
+                var mzValues = timsConverter.DoTransformation(reader.FrameProxyFactory.FileHandle, 1, indexValues, ConversionFunctions.IndexToMzTsf);
+                var transformedIndices = timsConverter.DoTransformation(reader.FrameProxyFactory.FileHandle, 1, mzValues, ConversionFunctions.MzToIndexTsf);
+
+                Assert.That(transformedIndices, Is.Not.Null, "Transformed indices should not be null");
+                for (int i = 0; i < indexValues.Length; i++)
+                {
+                    Assert.That(transformedIndices[i], Is.EqualTo(indexValues[i]).Within(0.1),
+                        $"Transformed index for mz={mzValues[i]} should be close to original value {indexValues[i]}");
+                }
+            }
+            finally
+            {
+                reader.CloseDynamicConnection();
+            }
+        }
+
+        [Test]
         public void TestConstructor()
         {
             var reader = MsDataFileReader.GetDataFile(_testDataPath);
@@ -406,7 +507,7 @@ namespace Test.FileReadingTests
 
     internal class MockFrameProxyFactory : FrameProxyFactory
     {
-        public MockFrameProxyFactory(FrameProxyFactory realFactory) : base(realFactory.FramesTable, realFactory.FileHandle, realFactory.FileLock, realFactory.MaxIndex)
+        public MockFrameProxyFactory(FrameProxyFactory realFactory) : base(realFactory.FramesTable, realFactory.FileHandle, realFactory.FileLock, realFactory.MaxIndex, TimsTofFileType.TDF)
         {
             // Mock constructor does not need to do anything special
         }

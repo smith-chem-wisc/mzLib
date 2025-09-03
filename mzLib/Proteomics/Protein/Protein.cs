@@ -10,6 +10,8 @@ using Omics.Modifications;
 using MzLibUtil;
 using Omics.BioPolymer;
 using System.Data;
+using Chemistry;
+using Easy.Common.Extensions;
 
 
 namespace Proteomics
@@ -41,9 +43,9 @@ namespace Proteomics
             string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null,
             List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
             List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false, 
-            string dataset = "unknown", string created = "unknown", string modified = "unknown", string version = "unknown", string xmlns = "http://uniprot.org/uniprot")
+            string dataset = "unknown", string created = "unknown", string modified = "unknown", string version = "unknown", string xmlns = "http://uniprot.org/uniprot",
+            UniProtSequenceAttributes uniProtSequenceAttributes = null)
         {
-            // Mandatory
             BaseSequence = sequence;
             NonVariantProtein = this;
             Accession = accession;
@@ -82,6 +84,7 @@ namespace Proteomics
             ModifiedEntryTag = modified;
             VersionEntryTag = version;
             XmlnsEntryTag = xmlns;
+            UniProtSequenceAttributes = uniProtSequenceAttributes ?? new UniProtSequenceAttributes(Length, (int)Math.Round(new PeptideWithSetModifications(BaseSequence, new Dictionary<string,Modification>()).MonoisotopicMass), "unknown", DateTime.Now, -1);
         }
 
         /// <summary>
@@ -118,6 +121,7 @@ namespace Proteomics
             ModifiedEntryTag = originalProtein.ModifiedEntryTag;
             VersionEntryTag = originalProtein.VersionEntryTag;
             XmlnsEntryTag = originalProtein.XmlnsEntryTag;
+            UniProtSequenceAttributes = originalProtein.UniProtSequenceAttributes;
         }
 
         /// <summary>
@@ -151,7 +155,8 @@ namespace Proteomics
                   created: protein.CreatedEntryTag,
                   modified: protein.ModifiedEntryTag,
                   version: protein.VersionEntryTag,
-                  xmlns: protein.XmlnsEntryTag)
+                  xmlns: protein.XmlnsEntryTag,
+                  uniProtSequenceAttributes: protein.UniProtSequenceAttributes)
         {
             NonVariantProtein = protein.ConsensusVariant as Protein;
             OriginalNonVariantModifications = ConsensusVariant.OriginalNonVariantModifications;
@@ -222,7 +227,7 @@ namespace Proteomics
         public string ModifiedEntryTag { get; private set; }
         public string VersionEntryTag { get; private set; }
         public string XmlnsEntryTag { get; private set; }
-
+        public UniProtSequenceAttributes UniProtSequenceAttributes { get; private set; }
         /// <summary>
         /// Formats a string for a UniProt fasta header. See https://www.uniprot.org/help/fasta-headers.
         /// Note that the db field isn't very applicable here, so mz is placed in to denote written by mzLib.
@@ -602,12 +607,10 @@ namespace Proteomics
                 applicableProteolysisProducts, oneBasedModifications, sampleNameForVariants);
             return (TBioPolymerType)(IHasSequenceVariants)variantProtein;
         }
-
         #endregion
 
         #region Truncation Products
 
-        
         /// <summary>
         /// Protein XML files contain annotated proteolysis products for many proteins (e.g. signal peptides, chain peptides).
         /// This method adds N- and C-terminal truncations to these products.

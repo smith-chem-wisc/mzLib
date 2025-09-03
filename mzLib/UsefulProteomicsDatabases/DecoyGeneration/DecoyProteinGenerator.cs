@@ -174,7 +174,8 @@ namespace UsefulProteomicsDatabases
                     created: protein.CreatedEntryTag,
                     modified: protein.ModifiedEntryTag,
                     version: protein.VersionEntryTag,
-                    xmlns: protein.XmlnsEntryTag);
+                    xmlns: protein.XmlnsEntryTag,
+                    uniProtSequenceAttributes: protein.UniProtSequenceAttributes);
 
                 lock (decoyProteins) { decoyProteins.Add(decoyProtein); }
             });

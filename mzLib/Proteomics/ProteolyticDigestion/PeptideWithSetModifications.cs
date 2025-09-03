@@ -195,7 +195,7 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         if (pep_c_term_variable_mod is Modification jj)
                         {
-                            subsequence.Append('[' + jj.ChemicalFormula.Formula + ']');
+                            subsequence.Append("-[" + jj.ChemicalFormula.Formula + ']');
                         }
                         else
                         {
