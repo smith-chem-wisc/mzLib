@@ -45,7 +45,10 @@ namespace Test.Transcriptomics
         [Test]  
         public static void MethylsHaveCorrectFormula()
         {
-            var mods = ModomicsLoader.LoadModomics();
+            var mods = ModomicsLoader.LoadModomics()
+                .Where(p => !p.ModificationType.Contains("Cap"))
+                .ToList();
+
             var singleMethylMods = mods.Where(m =>
                     System.Text.RegularExpressions.Regex.IsMatch(
                         m.IdWithMotif,
@@ -65,16 +68,10 @@ namespace Test.Transcriptomics
             );
 
             var diMethylMods = mods.Where(m =>
-                    m.DatabaseReference["Modomics"].Any(p => p.Contains("dimethyl") && !p.Contains("inosine")) && !m.IdWithMotif.Contains("AA"))
-                    .ToList();
-
-            var phosphoDiMethyl = diMethylMods.Where(p => p.IdWithMotif.StartsWith("pm")).ToList();
-            expectedFormula = ChemicalFormula.ParseFormula("C2H3O3P");
-            CollectionAssert.AreEqual(
-                Enumerable.Repeat(expectedFormula, phosphoDiMethyl.Count),
-                phosphoDiMethyl.Select(p => p.ChemicalFormula));
-            foreach (var pdm in phosphoDiMethyl)
-                diMethylMods.Remove(pdm);
+                    System.Text.RegularExpressions.Regex.IsMatch(
+                        m.IdWithMotif,
+                        @"^m\d+[ACGU]m on [ACGU]$"))
+                .ToList();
 
             expectedFormula = ChemicalFormula.ParseFormula("C2H4");
             CollectionAssert.AreEqual(

@@ -105,6 +105,7 @@ public static class ModomicsLoader
         }
 
         ModomicsModifications = dtos
+            .Where(p => p.Formula != string.Empty)
             .SelectMany(dto => dto.ToModification())
             .ToList();
 
@@ -120,9 +121,11 @@ public static class ModomicsLoader
         if (dto.Name.Contains("unknown", System.StringComparison.InvariantCultureIgnoreCase))
             yield break;
 
-        // Caps and other weird mods. TODO: Handle those that are appropriate to do so
-        if (dto.ReferenceMoiety.Count != 1)
-            Debugger.Break();
+        if (dto.Name.Contains(" cap"))
+        {
+            modificationType = "5' Terminal Cap";
+            localizationRestriction = "5'-terminal.";
+        }
 
         foreach (var refMoiety in dto.ReferenceMoiety)
         {
@@ -151,17 +154,8 @@ public static class ModomicsLoader
             else
             {
                 // fallback or throw
-                modFormula.Remove(baseNuc.NucleosideChemicalFormula);
+                yield break;
             }
-            //if (dto.Name.Contains("cap")) // Caps are in the database as mod + sugar
-            //{
-            //    var sugarToRemove = baseNuc.NucleosideChemicalFormula - baseNuc.BaseChemicalFormula - Constants.WaterChemicalFormula;
-            //    modFormula.Remove(sugarToRemove);
-            //}
-            //else // The rest are in the database as full nucleotides. 
-            //{
-            //    modFormula.Remove(baseNuc.NucleosideChemicalFormula);
-            //}
 
             if (!ModificationMotif.TryGetMotif(refMoiety, out var motif))
                 continue;
