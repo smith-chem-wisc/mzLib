@@ -323,6 +323,23 @@ namespace Readers
                 for (int index = 0; index < peakMzs.Count; index++)
                 {
                     string peak = peakMzs[index];
+
+                    // Try to match M ions (legacy and new)
+                    //var mIonMatch = Regex.Match(peak, @"^(M[\w\-]*)(?:-?\d*)[+-](\d+):([\d\.]+)$");
+                    var mIonMatch = Regex.Match(peak, @"^(M[\w\-]*)([+-]\d+):([\d\.]+)$");
+                    if (mIonMatch.Success)
+                    {
+                        string customAnnotation = mIonMatch.Groups[1].Value; // e.g., "M", "M-P", "M-A-P-H20"
+                        int charge = int.Parse(mIonMatch.Groups[2].Value, CultureInfo.InvariantCulture);
+                        double mZ = double.Parse(mIonMatch.Groups[3].Value, CultureInfo.InvariantCulture);
+                        double intens = ExtractNumber(peakIntensities[index], 2);
+
+                        double neutralMass = mZ.ToMass(charge);
+                        var product = new CustomMProduct(customAnnotation[1..], neutralMass);
+                        matchedIons.Add(new MatchedFragmentIonWithCache(product, mZ, intens, charge));
+                        continue;
+                    }
+
                     // Regex: IonTypeAndNumber (with optional neutral loss), charge (+/-), m/z
                     // Examples:
                     //   y1+1:147.11267
