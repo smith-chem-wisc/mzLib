@@ -162,8 +162,7 @@ namespace Readers
 
             foreach (MatchedFragmentIon ion in this.MatchedIons)
             {
-                Product product = new Product(ion.NeutralTheoreticalProduct.ProductType, ion.NeutralTheoreticalProduct.Terminus, ion.NeutralTheoreticalProduct.NeutralMass, ion.NeutralTheoreticalProduct.FragmentNumber, ion.NeutralTheoreticalProduct.AminoAcidPosition, ion.NeutralTheoreticalProduct.NeutralLoss);
-                fragments.Add(new MatchedFragmentIon(product, ion.Mz, ion.Intensity / matchedIonIntensitySum, ion.Charge));
+                fragments.Add(new MatchedFragmentIon(ion.NeutralTheoreticalProduct, ion.Mz, ion.Intensity / matchedIonIntensitySum, ion.Charge));
             }
 
             if (BetaPeptideMatchedIons.IsNotNullOrEmpty())
@@ -171,8 +170,7 @@ namespace Readers
                 List<MatchedFragmentIon> betaFragments = new();
                 foreach (var ion in BetaPeptideMatchedIons)
                 {
-                    Product product = new Product(ion.NeutralTheoreticalProduct.ProductType, ion.NeutralTheoreticalProduct.Terminus, ion.NeutralTheoreticalProduct.NeutralMass, ion.NeutralTheoreticalProduct.FragmentNumber, ion.NeutralTheoreticalProduct.AminoAcidPosition, ion.NeutralTheoreticalProduct.NeutralLoss);
-                    betaFragments.Add(new MatchedFragmentIon(product, ion.Mz, ion.Intensity / matchedIonIntensitySum, ion.Charge));
+                    betaFragments.Add(new MatchedFragmentIon(ion.NeutralTheoreticalProduct, ion.Mz, ion.Intensity / matchedIonIntensitySum, ion.Charge));
                 }
                 string uniqueSequence = UniqueSequence ?? FullSequence + BetaPeptideFullSequence;
                 return new CrosslinkLibrarySpectrum(uniqueSequence, PrecursorMz, PrecursorCharge, fragments, RetentionTime, betaFragments);
