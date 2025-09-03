@@ -57,9 +57,9 @@ namespace Readers
                     };
                     psmsArray[i - 1] = result; // -1 to align with result array (excluding header)
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
-                    warningsBag.Add("Could not read line: " + (i + 1) + $"with error {e.Message}"); // plus one to account for header line
+                    warningsBag.Add("Could not read line: " + (i + 1)); // plus one to account for header line
                 }
             });
 
