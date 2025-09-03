@@ -7,12 +7,19 @@ using System.Text.Json;
 using Chemistry;
 using Transcriptomics;
 using System.Reflection;
+using System.Diagnostics;
+using CsvHelper;
+using System.Globalization;
 
 namespace UsefulProteomicsDatabases.Transcriptomics;
 
 public static class ModomicsLoader
 {
-    private static string _modomicsResourceName = "UsefulProteomicsDatabases.Transcriptomics.modomics.json";
+    // Json gives us most of the information 
+    private static string _modomicsJsonPath = "UsefulProteomicsDatabases.Resources.modomics.json";
+
+    // Csv tells us if the chemical formula is for a nucleotide or nucleoside. 
+    private static string _modomicsCsvPath = "UsefulProteomicsDatabases.Resources.modomics.csv";
     internal static List<Modification>? ModomicsModifications { get; private set; }
 
     public static List<Modification> LoadModomics()
@@ -24,15 +31,35 @@ public static class ModomicsLoader
 
         // Load embedded resource
         var info = Assembly.GetExecutingAssembly().GetName().Name;
-        var modomicsStream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"{info}.Transcriptomics.modomics.json");
+        var modomicsJsonStream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"{info}.Resources.modomicsmods.json");
 
-        if (modomicsStream is null)
-            throw new FileNotFoundException("Could not find embedded resource", _modomicsResourceName);
-        var modsDict = JsonSerializer.Deserialize<Dictionary<int, JsonElement>>(modomicsStream)!;
+        if (modomicsJsonStream is null)
+            throw new FileNotFoundException("Could not find embedded resource", _modomicsJsonPath);
+        var jsonDict = JsonSerializer.Deserialize<Dictionary<int, JsonElement>>(modomicsJsonStream)!;
 
-        // Parse each entry into a DTO
+        var modomicsCsvStream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"{info}.Resources.modomicsmods.csv");
+        if (modomicsCsvStream is null)
+            throw new FileNotFoundException("Could not find embedded resource", _modomicsCsvPath);
+
+        // Parse CSV to get MoietyType (nucleotide vs nucleoside) mapping
+        var moietyTypeByShortName = new Dictionary<string, string>();
+        using (var reader = new StreamReader(modomicsCsvStream))
+        using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
+        {
+            csv.Read();
+            csv.ReadHeader();
+            while (csv.Read())
+            {
+                var shortName = csv.GetField("Short Name");
+                var moietyType = csv.GetField("Moiety type");
+                if (!string.IsNullOrWhiteSpace(shortName) && !string.IsNullOrWhiteSpace(moietyType))
+                    moietyTypeByShortName[shortName] = moietyType;
+            }
+        }
+
+        // Parse each entry into a DTO from the json
         var dtos = new List<ModomicsDto>();
-        foreach (var kvp in modsDict)
+        foreach (var kvp in jsonDict)
         {
             var modEntry = kvp.Value;
 
@@ -70,16 +97,14 @@ public static class ModomicsLoader
                 ProductIons = productIons,
                 ReferenceMoiety = referenceMoiety,
                 ShortName = shortName,
-                Smile = smile
+                Smile = smile,
+                MoietyType = moietyTypeByShortName.GetValueOrDefault(shortName)
             };
 
             dtos.Add(dto);
         }
 
-        var dtosToParse = dtos
-            .Where(p => !p.Name.Contains("unknown", System.StringComparison.InvariantCultureIgnoreCase));
-
-        ModomicsModifications = dtosToParse
+        ModomicsModifications = dtos
             .SelectMany(dto => dto.ToModification())
             .ToList();
 
@@ -89,6 +114,7 @@ public static class ModomicsLoader
     internal static IEnumerable<Modification> ToModification(this ModomicsDto dto)
     {
         string localizationRestriction = "Anywhere.";
+        string modificationType = "Modomics";
 
         // Stand in mods for unknown residues, ignore them
         if (dto.Name.Contains("unknown", System.StringComparison.InvariantCultureIgnoreCase))
@@ -96,7 +122,7 @@ public static class ModomicsLoader
 
         // Caps and other weird mods. TODO: Handle those that are appropriate to do so
         if (dto.ReferenceMoiety.Count != 1)
-            yield break;
+            Debugger.Break();
 
         foreach (var refMoiety in dto.ReferenceMoiety)
         {
@@ -107,20 +133,48 @@ public static class ModomicsLoader
             // Subtract nucleoside formula/mass
             var fullFormula = ChemicalFormula.ParseFormula(dto.Formula);
             ChemicalFormula modFormula = new ChemicalFormula(fullFormula);
-            modFormula.Remove(baseNuc.NucleosideChemicalFormula);
+
+            if (dto.MoietyType == "nucleoside")
+            {
+                modFormula.Remove(baseNuc.NucleosideChemicalFormula);
+            }
+            else if (dto.MoietyType == "nucleotide")
+            {
+                var sugarToRemove = baseNuc.NucleosideChemicalFormula - baseNuc.BaseChemicalFormula - Constants.WaterChemicalFormula;
+                modFormula.Remove(sugarToRemove);
+            }
+            else if (dto.MoietyType == "base")
+            {
+                // These are unique bases due to modifications, will need to create a new nucleotide or create an x->This mod for each nucleotide. 
+                yield break; 
+            }
+            else
+            {
+                // fallback or throw
+                modFormula.Remove(baseNuc.NucleosideChemicalFormula);
+            }
+            //if (dto.Name.Contains("cap")) // Caps are in the database as mod + sugar
+            //{
+            //    var sugarToRemove = baseNuc.NucleosideChemicalFormula - baseNuc.BaseChemicalFormula - Constants.WaterChemicalFormula;
+            //    modFormula.Remove(sugarToRemove);
+            //}
+            //else // The rest are in the database as full nucleotides. 
+            //{
+            //    modFormula.Remove(baseNuc.NucleosideChemicalFormula);
+            //}
 
             if (!ModificationMotif.TryGetMotif(refMoiety, out var motif))
                 continue;
 
             yield return new Modification(
                 _originalId: dto.ShortName,
-                _modificationType: "Modomics",
+                _modificationType: modificationType,
                 _target: motif,
                 _locationRestriction: localizationRestriction,
                 _chemicalFormula: modFormula,
                 _monoisotopicMass: modFormula.MonoisotopicMass,
                 _databaseReference: new Dictionary<string, IList<string>> { { "Modomics", new List<string> { dto.ShortName, dto.Name } } },
-                _keywords: new List<string> { dto.Abbrev, dto.Name }
+                _keywords: new List<string> { dto.Abbrev, dto.ShortName, dto.Name }
             );
         }
     }

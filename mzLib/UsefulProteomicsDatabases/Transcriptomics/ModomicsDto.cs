@@ -20,4 +20,5 @@ public class ModomicsDto
     public List<string> ReferenceMoiety { get; set; }
     public string ShortName { get; set; }
     public string Smile { get; set; }
+    public string MoietyType { get; set; }
 }
