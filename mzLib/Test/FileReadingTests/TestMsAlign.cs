@@ -244,6 +244,19 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void GetOneBasedScanFromDynamicConnection_ExistingScanNumberOnLoadedData_ReturnsMsDataScan()
+        {
+            var msAlign = MsAlignTestFiles.First().Value;
+            msAlign.LoadAllStaticData();
+            msAlign.InitiateDynamicConnection();
+
+            var scan = msAlign.GetOneBasedScanFromDynamicConnection(1);
+
+            Assert.That(scan, Is.Not.Null);
+            Assert.That(1, Is.EqualTo(scan.OneBasedScanNumber));
+        }
+
+        [Test]
         public void GetOneBasedScanFromDynamicConnection_NonExistingScanNumber_ThrowsException()
         {
             var msAlign = MsAlignTestFiles.First().Value;
