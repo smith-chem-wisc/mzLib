@@ -215,7 +215,7 @@ namespace Proteomics.ProteolyticDigestion
         /// Generates theoretical fragments for given dissociation type for this peptide. 
         /// The "products" parameter is filled with these fragments.
         /// </summary>
-        public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus, List<Product> products)
+        public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus, List<Product> products, FragmentationParams? fragmentationParams = null)
         {
             // This code is specifically written to be memory- and CPU -efficient because it is 
             // called millions of times for a typical search (i.e., at least once per peptide). 
@@ -226,6 +226,9 @@ namespace Proteomics.ProteolyticDigestion
             // memory issues).
 
             products.Clear();
+
+            if (fragmentationParams is { GenerateMIon: true})
+                products.AddRange(this.GetMIons(fragmentationParams));
 
             var massCaps = DissociationTypeCollection.GetNAndCTerminalMassShiftsForDissociationType(dissociationType);
 
@@ -549,7 +552,7 @@ namespace Proteomics.ProteolyticDigestion
         /// TODO: Implement neutral losses (e.g. phospho)
         /// TODO: Implement Star/Degree ions from CID
         /// </summary>
-        public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments, List<Product> products)
+        public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments, List<Product> products, FragmentationParams? fragmentationParams = null)
         {
             products.Clear();
 
