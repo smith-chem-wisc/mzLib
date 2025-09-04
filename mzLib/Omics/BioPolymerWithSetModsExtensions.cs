@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using Chemistry;
+using Omics.Fragmentation;
 using Omics.Modifications;
 
 namespace Omics;
@@ -110,4 +111,19 @@ public static class BioPolymerWithSetModsExtensions
 
     public static string DetermineFullSequence(this IBioPolymerWithSetMods withSetMods) => IBioPolymerWithSetMods
         .DetermineFullSequence(withSetMods.BaseSequence, withSetMods.AllModsOneIsNterminus);
+
+    public static IEnumerable<Product> GetMIons(this IBioPolymerWithSetMods withSetMods, FragmentationParams? fragmentParams)
+    {
+        // Normal intact molecular ion
+        yield return new CustomMProduct("", withSetMods.MonoisotopicMass);
+
+        if (fragmentParams is null)
+            yield break;
+
+        // Molecular ion with neutral losses
+        foreach (var ionLoss in fragmentParams.MIonLosses)
+        {
+            yield return new CustomMProduct(ionLoss.Annotation, withSetMods.MonoisotopicMass - ionLoss.MonoisotopicMass);
+        }
+    }
 }
