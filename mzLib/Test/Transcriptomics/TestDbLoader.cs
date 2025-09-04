@@ -142,7 +142,7 @@ namespace Test.Transcriptomics
             rna.Add(newRna);
             string outpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.xml");
 
-            var xml = ProteinDbWriter.WriteXmlDatabase(rna, outpath);
+            var xml = ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), rna, outpath);
 
             var temp = RnaDbLoader.LoadRnaXML(outpath, true, DecoyType.None, false,
                 new List<Modification>() { methylG }, new List<string>(), out var unknownMods);
@@ -185,7 +185,7 @@ namespace Test.Transcriptomics
             rna.Add(newRna);
             string outpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed2.xml");
 
-            var xml = ProteinDbWriter.WriteXmlDatabase(rna, outpath);
+            var xml = ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), rna, outpath);
             var temp = RnaDbLoader.LoadRnaXML(outpath, true, DecoyType.None, false,
                 new List<Modification>() { methylG }, new List<string>(), out var unknownMods);
 
@@ -217,7 +217,7 @@ namespace Test.Transcriptomics
             });
 
             string outpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed2.xml");
-            var xml = ProteinDbWriter.WriteXmlDatabase(rna, outpath);
+            var xml = ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), rna, outpath);
             rna = RnaDbLoader.LoadRnaXML(outpath, true, DecoyType.Reverse, false,
                 new List<Modification>() { methylG }, new List<string>(), out var unknownMods, decoyIdentifier: "rev");
 

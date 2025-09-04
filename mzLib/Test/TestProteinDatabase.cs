@@ -198,7 +198,7 @@ namespace Test
             Assert.AreEqual(16, proteins[0].TruncationProducts.Where(p => p.Type.Contains("truncation")).Count());
 
             string testOutXml = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "testOutXml.xml");
-            ProteinDbWriter.WriteXmlDatabase(proteins.Where(p => !p.IsDecoy).ToList(), testOutXml);
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteins.Where(p => !p.IsDecoy).ToList(), testOutXml);
             string[] lines = File.ReadAllLines(testOutXml);
             Assert.AreEqual(0, lines.Where(l => l.Contains("truncation")).Count());
 
@@ -244,7 +244,7 @@ namespace Test
             try
             {
                 // Act
-                var result = ProteinDbWriter.WriteXmlDatabase(proteinList, tempFile);
+                var result = ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteinList, tempFile);
 
                 // Assert
                 Assert.That(File.Exists(tempFile), Is.True);
@@ -298,7 +298,7 @@ namespace Test
             try
             {
                 // Act
-                var result = ProteinDbWriter.WriteXmlDatabase(proteinList, tempFile);
+                var result = ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteinList, tempFile);
 
                 // Assert
                 Assert.That(File.Exists(tempFile), Is.True);
