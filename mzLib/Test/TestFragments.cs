@@ -33,6 +33,7 @@ using System.Linq;
 using Omics.Digestion;
 using Omics.Modifications;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using Transcriptomics;
 
 namespace Test
 {
@@ -476,7 +477,7 @@ namespace Test
         [Test]
         public static void Test_WaterAndAmmoniaLossFragmentProductIons()
         {
-            CollectionAssert.AreEquivalent(new List<ProductType>(){ ProductType.bWaterLoss, ProductType.bAmmoniaLoss, ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.CID, FragmentationTerminus.Both));
+            CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.bWaterLoss, ProductType.bAmmoniaLoss, ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.CID, FragmentationTerminus.Both));
             CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.bWaterLoss, ProductType.bAmmoniaLoss, ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.IRMPD, FragmentationTerminus.Both));
             CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.bWaterLoss, ProductType.bAmmoniaLoss, ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.HCD, FragmentationTerminus.Both));
             CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.bWaterLoss, ProductType.bAmmoniaLoss, ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.EThcD, FragmentationTerminus.Both));
@@ -817,7 +818,7 @@ namespace Test
             DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom].Clear();
             Assert.That(!DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom].Any());
             DissociationTypeCollection.ProductsFromDissociationType[DissociationType.Custom].AddRange(new List<ProductType> { ProductType.b, ProductType.y });
-            
+
             var secondTimeProducts = new List<Product>();
             peptide.Fragment(DissociationType.Custom, FragmentationTerminus.Both, secondTimeProducts);
             Assert.That(secondTimeProducts.Any(p => p.ProductType == ProductType.b));
@@ -1160,15 +1161,15 @@ namespace Test
         {
             ModificationMotif.TryGetMotif("X", out var motif);
 
-            var modsDictionary = new Dictionary<string, Modification> 
-            { 
+            var modsDictionary = new Dictionary<string, Modification>
+            {
                 { @"NeutralLoss-N on X", new Modification(
-                    _originalId: @"NeutralLoss-N", 
-                    _modificationType: "Test Category", 
-                    _target: motif, 
-                    _locationRestriction: "Peptide N-terminal.", 
+                    _originalId: @"NeutralLoss-N",
+                    _modificationType: "Test Category",
+                    _target: motif,
+                    _locationRestriction: "Peptide N-terminal.",
                     _monoisotopicMass: 225,
-                    _neutralLosses: new Dictionary<DissociationType, List<double>>{ { DissociationType.HCD, new List<double> { 126 } } }) 
+                    _neutralLosses: new Dictionary<DissociationType, List<double>>{ { DissociationType.HCD, new List<double> { 126 } } })
                 },
 
                 { @"NeutralLoss-C on X", new Modification(
@@ -1257,12 +1258,55 @@ namespace Test
             PeptideWithSetModifications pep = new PeptideWithSetModifications(@"AAAAAAAAAK[Test Category:NeutralLoss-C on X]", modsDictionary);
 
             pep.Fragment(DissociationType.ETD, FragmentationTerminus.Both, products);
-            
+
             Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.zDot) == 10);
             Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.c) == 0);
             Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.y) == 9);
             Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.M) == 1);
             Assert.That(products.Count(p => p.NeutralLoss == 126) == 20);
+        }
+
+        [Test]
+        public static void TestMIonGeneration()
+        {
+            var pep = new PeptideWithSetModifications("PEPTIDE", []);
+            var products = new List<Product>();
+
+            // Default -> No M Ions
+            pep.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products);
+            var mProducts = products.Where(p => p.ProductType == ProductType.M).ToList();
+            Assert.That(mProducts.Count, Is.EqualTo(0));
+
+            // With Parameters -> No M Ions
+            products.Clear();
+            pep.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products, new FragmentationParams());
+            mProducts = products.Where(p => p.ProductType == ProductType.M).ToList();
+            Assert.That(mProducts.Count, Is.EqualTo(0));
+
+            // With Parameters and M Ion
+            products.Clear();
+            var fParams = new FragmentationParams { GenerateMIon = true };
+            pep.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products, fParams);
+            mProducts = products.Where(p => p.ProductType == ProductType.M).ToList();
+            Assert.That(mProducts.Count, Is.EqualTo(1));
+            Assert.That(mProducts[0].FragmentNumber, Is.EqualTo(0));
+            Assert.That(mProducts[0].NeutralMass, Is.EqualTo(pep.MonoisotopicMass));
+
+            // With parameters and M Ions with custom neutral loss
+            products.Clear();
+            fParams = new FragmentationParams { GenerateMIon = true };
+            fParams.MIonLosses.Add(MIonLoss.WaterLoss);
+            pep.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products, fParams);
+            mProducts = products.Where(p => p.ProductType == ProductType.M).ToList();
+            Assert.That(mProducts.Count, Is.EqualTo(2));
+
+            var expectedMasses = new[] { pep.MonoisotopicMass, pep.MonoisotopicMass - MIonLoss.WaterLoss.MonoisotopicMass };
+            var expectedAnnotations = new[] { "M", "M-H2O" };
+            for (int i = 0; i < mProducts.Count; i++)
+            {
+                Assert.That(mProducts[i].NeutralMass, Is.EqualTo(expectedMasses[i]).Within(0.01));
+                Assert.That(mProducts[i].Annotation, Is.EqualTo(expectedAnnotations[i]));
+            }
         }
     }
 }

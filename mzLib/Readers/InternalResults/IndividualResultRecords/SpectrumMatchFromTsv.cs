@@ -323,6 +323,29 @@ namespace Readers
                 for (int index = 0; index < peakMzs.Count; index++)
                 {
                     string peak = peakMzs[index];
+
+                    // Matches M, optional digits (to be stripped), optional custom loss, charge, m/z
+                    // Examples matched: M15+1, M+1, M-P+1, M-P+1, M-A-P-H20-2, etc.
+                    var mIonMatch = Regex.Match(peak, @"^(M)(\d*)([\w\-]*)([+-]\d+):([\d\.]+)$");
+                    if (mIonMatch.Success)
+                    {
+                        // mIonMatch.Groups[1]: "M"
+                        // mIonMatch.Groups[2]: digits after M (to be ignored)
+                        // mIonMatch.Groups[3]: custom annotation (e.g., "-P", "-A-P-H20", or empty)
+                        // mIonMatch.Groups[4]: charge (with sign)
+                        // mIonMatch.Groups[5]: m/z
+
+                        string customAnnotation = mIonMatch.Groups[3].Value; // e.g., "-P", "-A-P-H20", or ""
+                        int charge = int.Parse(mIonMatch.Groups[4].Value, CultureInfo.InvariantCulture);
+                        double mZ = double.Parse(mIonMatch.Groups[5].Value, CultureInfo.InvariantCulture);
+                        double intens = ExtractNumber(peakIntensities[index], 2);
+
+                        double neutralMass = mZ.ToMass(charge);
+                        var product = new CustomMProduct(customAnnotation, neutralMass);
+                        matchedIons.Add(new MatchedFragmentIonWithCache(product, mZ, intens, charge));
+                        continue;
+                    }
+
                     // Regex: IonTypeAndNumber (with optional neutral loss), charge (+/-), m/z
                     // Examples:
                     //   y1+1:147.11267
