@@ -150,7 +150,7 @@ namespace Omics
                         currentlyReadingMod = false;
                     }
                 }
-                else if (!currentlyReadingMod)
+                else if (!currentlyReadingMod && c!='-')
                 {
                     currentModificationLocation++;
                 }
