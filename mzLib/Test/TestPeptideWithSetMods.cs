@@ -431,7 +431,7 @@ namespace Test
         [Test]
         public static void TestCTermAndLastSideChainModParsing()
         {
-            string fullSequence = "PEPTIDE[Mod:MyMod on E][PeptideCTermMod:MyCTermMod on E]";
+            string fullSequence = "PEPTIDE[Mod:MyMod on E]-[PeptideCTermMod:MyCTermMod on E]";
 
             ModificationMotif.TryGetMotif("E", out var motif);
 
