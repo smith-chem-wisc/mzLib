@@ -2,7 +2,7 @@ using NUnit.Framework;
 using MassSpectrometry;
 using System.Collections.Generic;
 
-namespace Test.MassSpectrometry
+namespace Test
 {
     [TestFixture]
     public class IsotopicEnvelopeEqualityTests
