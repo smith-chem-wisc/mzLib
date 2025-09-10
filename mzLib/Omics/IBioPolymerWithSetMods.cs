@@ -142,6 +142,9 @@ namespace Omics
                             throw new MzLibUtil.MzLibException(
                                 "Could not find modification while reading string: " + fullSequence);
                         }
+                        // Set the C-terminus modification index to its OneIsNTerminus Index.
+                        // Checks if the location restriction for the mod contains C-terminal' (for protein and peptide BioPolymer objects)
+                        // or '3'-terminal' (for nucleic acid BioPolymer objects) and if we are at the last residue of the full sequence.
                         if ((mod.LocationRestriction.Contains("C-terminal.") || mod.LocationRestriction.Contains("3'-terminal.") && r == fullSequence.Length - 1))
                         {
                             currentModificationLocation = baseSequence.Length + 2;
