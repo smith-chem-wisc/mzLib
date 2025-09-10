@@ -142,7 +142,7 @@ namespace Omics
                             throw new MzLibUtil.MzLibException(
                                 "Could not find modification while reading string: " + fullSequence);
                         }
-                        if (mod.LocationRestriction.Contains("C-terminal.") && r == fullSequence.Length - 1)
+                        if ((mod.LocationRestriction.Contains("C-terminal.") || mod.LocationRestriction.Contains("3'-terminal.") && r == fullSequence.Length - 1))
                         {
                             currentModificationLocation = baseSequence.Length + 2;
                         }
