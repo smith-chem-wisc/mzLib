@@ -28,17 +28,17 @@ namespace UsefulProteomicsDatabases
         /// <param name="bioPolymerList">A list of RNA sequences to be written to the database.</param>
         /// <param name="outputFileName">The name of the output XML file.</param>
         /// <returns>A dictionary of new modification residue entries.</returns>
-        public static Dictionary<string, int> WriteXmlDatabase(List<IBioPolymer> bioPolymerList, string outputFileName)
+        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, List<IBioPolymer> bioPolymerList, string outputFileName)
         {
             return bioPolymerList.Any(p => p is Protein)
-                ? WriteXmlDatabase(bioPolymerList.Cast<Protein>().ToList(), outputFileName)
-                : WriteXmlDatabase(bioPolymerList.Cast<RNA>().ToList(), outputFileName);
+                ? WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<Protein>().ToList(), outputFileName)
+                : WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<RNA>().ToList(), outputFileName);
         }
 
         /// <summary>
         /// Writes an XML database for a list of nucleic acid sequences, including additional modifications.
         /// </summary>
-        /// <param name="additionalModsToAddToProteins">A dictionary of additional modifications to add to proteins.</param>
+        /// <param name="additionalModsToAddToNucleicAcids">A dictionary of additional modifications to add to proteins.</param>
         /// <param name="nucleicAcidList">A list of nucleic acid sequences to be written to the database.</param>
         /// <param name="outputFileName">The name of the output XML file.</param>
         /// <returns>A dictionary of new modification residue entries.</returns>
@@ -46,10 +46,10 @@ namespace UsefulProteomicsDatabases
         /// Several chunks of code are commented out. These are blocks that are intended to be implmented in the future, but
         /// are not necessary for the bare bones implementation of Transcriptomics
         /// </remarks>
-        public static Dictionary<string, int> WriteXmlDatabase(List<RNA> nucleicAcidList, string outputFileName, bool updateTimeStamp = false)
+        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToNucleicAcids, List<RNA> nucleicAcidList, string outputFileName, bool updateTimeStamp = false)
         {
-            Dictionary<string, HashSet<Tuple<int, Modification>>> modsToAddToProteins = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
-            
+            additionalModsToAddToNucleicAcids = additionalModsToAddToNucleicAcids ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+
             // write nonvariant rna (for cases where variants aren't applied, this just gets the protein itself)
             var nonVariantRna = nucleicAcidList.Select(p => p.ConsensusVariant).Distinct().ToList();
 
@@ -81,7 +81,7 @@ namespace UsefulProteomicsDatabases
                             .SelectMany(sv => sv.OneBasedModifications)
                             .Concat(p.OneBasedPossibleLocalizedModifications)
                             .SelectMany(kv => kv.Value))
-                        .Concat(modsToAddToProteins
+                        .Concat(additionalModsToAddToNucleicAcids
                             .Where(kv => nonVariantRna
                                 .SelectMany(p => p.SequenceVariations
                                     .Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession }))
@@ -186,7 +186,7 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement();
                     }
 
-                    foreach (var hm in GetModsForThisBioPolymer(nucleicAcid, null, modsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
+                    foreach (var hm in GetModsForThisBioPolymer(nucleicAcid, null, additionalModsToAddToNucleicAcids, newModResEntries).OrderBy(b => b.Key))
                     {
                         foreach (var modId in hm.Value)
                         {
@@ -229,7 +229,7 @@ namespace UsefulProteomicsDatabases
                             writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
                             writer.WriteEndElement();
                         }
-                        foreach (var hmm in GetModsForThisBioPolymer(nucleicAcid, hm, modsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
+                        foreach (var hmm in GetModsForThisBioPolymer(nucleicAcid, hm, additionalModsToAddToNucleicAcids, newModResEntries).OrderBy(b => b.Key))
                         {
                             foreach (var modId in hmm.Value)
                             {
@@ -293,9 +293,9 @@ namespace UsefulProteomicsDatabases
         /// <param name="proteinList"></param>
         /// <param name="outputFileName"></param>
         /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
-        public static Dictionary<string, int> WriteXmlDatabase(List<Protein> proteinList, string outputFileName, bool updateTimeStamp = false)
+        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, List<Protein> proteinList, string outputFileName, bool updateTimeStamp = false)
         {
-            Dictionary<string, HashSet<Tuple<int, Modification>>> modsToAddToProteins = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+            additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
             // write nonvariant proteins (for cases where variants aren't applied, this just gets the protein itself)
             var nonVariantProteins = proteinList.Select(p => p.ConsensusVariant).Distinct().ToList();
@@ -328,7 +328,7 @@ namespace UsefulProteomicsDatabases
                             .SelectMany(sv => sv.OneBasedModifications)
                             .Concat(p.OneBasedPossibleLocalizedModifications)
                             .SelectMany(kv => kv.Value))
-                        .Concat(modsToAddToProteins
+                        .Concat(additionalModsToAddToProteins
                             .Where(kv => nonVariantProteins
                                 .SelectMany(p => p.SequenceVariations
                                     .Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession }))
@@ -443,7 +443,7 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement();
                     }
 
-                    foreach (var positionModKvp in GetModsForThisBioPolymer(protein, null, modsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
+                    foreach (var positionModKvp in GetModsForThisBioPolymer(protein, null, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
                     {
                         foreach (var modId in positionModKvp.Value.OrderBy(mod => mod))
                         {
@@ -487,7 +487,7 @@ namespace UsefulProteomicsDatabases
                             writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
                             writer.WriteEndElement();
                         }
-                        foreach (var hmm in GetModsForThisBioPolymer(protein, hm, modsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
+                        foreach (var hmm in GetModsForThisBioPolymer(protein, hm, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
                         {
                             foreach (var modId in hmm.Value.OrderBy(mod => mod))
                             {

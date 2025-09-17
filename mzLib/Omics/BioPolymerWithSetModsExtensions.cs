@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using Chemistry;
+using Omics.Fragmentation;
 using Omics.Modifications;
 
 namespace Omics;
@@ -46,11 +47,11 @@ public static class BioPolymerWithSetModsExtensions
         {
             if (mod.MonoisotopicMass > 0)
             {
-                subsequence.Append($"[+{mod.MonoisotopicMass.RoundedDouble(6)}]");
+                subsequence.Append($"-[+{mod.MonoisotopicMass.RoundedDouble(6)}]");
             }
             else
             {
-                subsequence.Append($"[{mod.MonoisotopicMass.RoundedDouble(6)}]");
+                subsequence.Append($"-[{mod.MonoisotopicMass.RoundedDouble(6)}]");
             }
         }
         return subsequence.ToString();
@@ -99,7 +100,7 @@ public static class BioPolymerWithSetModsExtensions
                 if (modstoWritePruned.ContainsKey(pep_c_term_variable_mod.ModificationType))
                 {
                     sbsequence.Append(
-                        $"[{pep_c_term_variable_mod.ModificationType}:{pep_c_term_variable_mod.IdWithMotif}]");
+                        $"-[{pep_c_term_variable_mod.ModificationType}:{pep_c_term_variable_mod.IdWithMotif}]");
                 }
             }
 
@@ -110,4 +111,19 @@ public static class BioPolymerWithSetModsExtensions
 
     public static string DetermineFullSequence(this IBioPolymerWithSetMods withSetMods) => IBioPolymerWithSetMods
         .DetermineFullSequence(withSetMods.BaseSequence, withSetMods.AllModsOneIsNterminus);
+
+    public static IEnumerable<Product> GetMIons(this IBioPolymerWithSetMods withSetMods, FragmentationParams? fragmentParams)
+    {
+        // Normal intact molecular ion
+        yield return new CustomMProduct("", withSetMods.MonoisotopicMass);
+
+        if (fragmentParams is null)
+            yield break;
+
+        // Molecular ion with neutral losses
+        foreach (var ionLoss in fragmentParams.MIonLosses)
+        {
+            yield return new CustomMProduct(ionLoss.Annotation, withSetMods.MonoisotopicMass - ionLoss.MonoisotopicMass);
+        }
+    }
 }

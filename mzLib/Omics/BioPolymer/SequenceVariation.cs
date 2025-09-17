@@ -21,7 +21,7 @@ namespace Omics.BioPolymer
             OriginalSequence = originalSequence ?? "";
             VariantSequence = variantSequence ?? "";
             Description = new SequenceVariantDescription(description);
-            OneBasedModifications = oneBasedModifications ?? [];
+            OneBasedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
         }
 
         /// <summary>

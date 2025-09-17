@@ -141,5 +141,25 @@ namespace Test.FileReadingTests
             Assert.That(results.Values.All(scan => scan != null), Is.True, "Null scan(s) returned.");
         }
 
+        [Test]
+        [TestCase("DataFiles/small.RAW", 48, "Thermo nativeID format")]
+        [TestCase("DataFiles/sliced_ethcd.raw", 6, "Thermo nativeID format")]
+        [TestCase("DataFiles/SmallCalibratibleYeast.mzml", 142, "Thermo nativeID format")]
+        [TestCase("DataFiles/tester.mzML", 7, null)]
+        public static void TestLoadingDynamicAfterStaticLoading(string filePath, int expectedScanCount, string sourceFormat)
+        {
+            string spectraPath = Path.Combine(TestContext.CurrentContext.TestDirectory, filePath);
+            MsDataFile datafile = MsDataFileReader.GetDataFile(spectraPath);
+            datafile.InitiateDynamicConnection();
+            var dynScan = datafile.GetOneBasedScanFromDynamicConnection(1);
+            datafile.CloseDynamicConnection();
+
+            datafile.LoadAllStaticData();
+            var staticScan = datafile.GetOneBasedScan(1);
+            var dynScanAfterLoad = datafile.GetOneBasedScanFromDynamicConnection(1);
+
+            Assert.That(dynScan.MassSpectrum, Is.EqualTo(dynScanAfterLoad.MassSpectrum));
+            Assert.That(dynScan.MassSpectrum, Is.EqualTo(staticScan.MassSpectrum));
+        }
     }
 }
