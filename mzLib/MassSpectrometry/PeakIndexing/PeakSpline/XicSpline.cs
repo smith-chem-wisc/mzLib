@@ -16,9 +16,21 @@ namespace MassSpectrometry
     /// </summary>
     public abstract class XicSpline
     {
-        public double SplineRtInterval { get; set; } //can be in RT or scan cycle
-        public int NumberOfPeaksToAdd { get; set; } //number of peaks to add on each side of the chromatogram
-        public double Gap { get; set; } // gap between added peaks
+        /// <summary>
+        /// The interval after interpolation, which can be in RT or scan index
+        /// </summary>
+        public double SplineRtInterval { get; set; }
+        /// <summary>
+        /// The number of peaks to add on each side of the chromatogram
+        /// </summary>
+        public int NumberOfPeaksToAdd { get; set; }
+        /// <summary>
+        /// The gap between added peaks
+        /// </summary>
+        public double Gap { get; set; }
+        /// <summary>
+        /// If true, the spline is based on scan index instead of retention time
+        /// </summary>
         public bool ScanIndexBased { get; set; }
 
         protected XicSpline(double splineRtInterval = 0.05, int numberOfPeaksToAdd = 0, double gap = 1, bool scanIndexBased = false)
