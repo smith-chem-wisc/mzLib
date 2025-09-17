@@ -40,6 +40,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="DatabaseTests\longSubstitution.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\nucleotideVariantsAsModifications.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

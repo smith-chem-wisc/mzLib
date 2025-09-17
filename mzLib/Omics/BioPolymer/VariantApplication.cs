@@ -215,6 +215,11 @@ namespace Omics.BioPolymer
         private static TBioPolymerType ApplySingleVariant<TBioPolymerType>(SequenceVariation variantGettingApplied, TBioPolymerType protein, string individual)
             where TBioPolymerType : IHasSequenceVariants
         {
+            if(variantGettingApplied.OneBasedBeginPosition > protein.BaseSequence.Length ||
+               variantGettingApplied.OneBasedBeginPosition < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(variantGettingApplied), $"Variant begin position {variantGettingApplied.OneBasedBeginPosition} is out of range for protein of length {protein.BaseSequence.Length}");
+            }
             string seqBefore = protein.BaseSequence.Substring(0, variantGettingApplied.OneBasedBeginPosition - 1);
             string seqVariant = variantGettingApplied.VariantSequence;
             int afterIdx = variantGettingApplied.OneBasedBeginPosition + variantGettingApplied.OriginalSequence.Length - 1;
