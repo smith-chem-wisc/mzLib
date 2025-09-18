@@ -40,10 +40,16 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="DatabaseTests\longSubstitution.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\nucleotideVariantsAsModifications.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DatabaseTests\proteinEntryLipidMoietyBindingRegion.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DatabaseTests\sequenceVariantOnAlternateIsoform.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DatabaseTests\SingleEntry_ModOrder1.xml">

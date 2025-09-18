@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"  standalone="no" ?>
+<uniprot xmlns="http://uniprot.org/uniprot" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://uniprot.org/uniprot http://www.uniprot.org/docs/uniprot.xsd">
+<entry dataset="Swiss-Prot" created="2007-12-04" modified="2024-10-02" version="154" xmlns="http://uniprot.org/uniprot">
+  <accession>Q9H3J6</accession>
+  <accession>Q8WUC6</accession>
+  <name>MTRFR_HUMAN</name>
+  <protein>
+    <recommendedName>
+      <fullName evidence="17">Mitochondrial translation release factor in rescue</fullName>
+    </recommendedName>
+  </protein>
+  <gene>
+    <name evidence="18" type="primary">MTRFR</name>
+    <name type="ORF">C12orf65</name>
+    <name type="ORF">My030</name>
+  </gene>
+  <organism>
+    <name type="scientific">Homo sapiens</name>
+    <name type="common">Human</name>
+    <dbReference type="NCBI Taxonomy" id="9606"/>
+    <lineage>
+      <taxon>Eukaryota</taxon>
+      <taxon>Metazoa</taxon>
+      <taxon>Chordata</taxon>
+      <taxon>Craniata</taxon>
+      <taxon>Vertebrata</taxon>
+      <taxon>Euteleostomi</taxon>
+      <taxon>Mammalia</taxon>
+      <taxon>Eutheria</taxon>
+      <taxon>Euarchontoglires</taxon>
+      <taxon>Primates</taxon>
+      <taxon>Haplorrhini</taxon>
+      <taxon>Catarrhini</taxon>
+      <taxon>Hominidae</taxon>
+      <taxon>Homo</taxon>
+    </lineage>
+  </organism>
+  <proteinExistence type="evidence at protein level"/>
+  <keyword id="KW-0002">3D-structure</keyword>
+  <keyword id="KW-0025">Alternative splicing</keyword>
+  <keyword id="KW-0175">Coiled coil</keyword>
+  <keyword id="KW-0225">Disease variant</keyword>
+  <keyword id="KW-0890">Hereditary spastic paraplegia</keyword>
+  <keyword id="KW-0488">Methylation</keyword>
+  <keyword id="KW-0496">Mitochondrion</keyword>
+  <keyword id="KW-0523">Neurodegeneration</keyword>
+  <keyword id="KW-1274">Primary mitochondrial disease</keyword>
+  <keyword id="KW-0648">Protein biosynthesis</keyword>
+  <keyword id="KW-1267">Proteomics identification</keyword>
+  <keyword id="KW-1185">Reference proteome</keyword>
+  <keyword id="KW-0694">RNA-binding</keyword>
+  <keyword id="KW-0809">Transit peptide</keyword>
+  <feature type="transit peptide" description="Mitochondrion" evidence="2">
+    <location>
+      <begin position="1"/>
+      <end position="35"/>
+    </location>
+  </feature>
+  <feature type="chain" id="PRO_0000311835" description="Mitochondrial translation release factor in rescue">
+    <location>
+      <begin position="36"/>
+      <end position="166"/>
+    </location>
+  </feature>
+  <feature type="region of interest" description="GGQ domain" evidence="1">
+    <location>
+      <begin position="57"/>
+      <end position="121"/>
+    </location>
+  </feature>
+  <feature type="region of interest" description="Disordered" evidence="3">
+    <location>
+      <begin position="122"/>
+      <end position="148"/>
+    </location>
+  </feature>
+  <feature type="coiled-coil region" evidence="2">
+    <location>
+      <begin position="127"/>
+      <end position="160"/>
+    </location>
+  </feature>
+  <feature type="short sequence motif" description="GGQ" evidence="9">
+    <location>
+      <begin position="71"/>
+      <end position="73"/>
+    </location>
+  </feature>
+  <feature type="modified residue" description="N5-methylglutamine" evidence="15">
+    <location>
+      <position position="73"/>
+    </location>
+  </feature>
+  <feature type="splice variant" id="VSP_029602" description="In isoform 2." evidence="16">
+    <original>CHQTRSVDQNRKLARKILQEKVDVF</original>
+    <variation>VDHRRPLRGEAPPKGSTASRDFSQV</variation>
+    <location>
+      <begin position="95"/>
+      <end position="119"/>
+    </location>
+  </feature>
+  <feature type="splice variant" id="VSP_029603" description="In isoform 2." evidence="16">
+    <location>
+      <begin position="120"/>
+      <end position="166"/>
+    </location>
+  </feature>
+  <feature type="sequence variant" id="VAR_084490" description="In COXPD7; decreased cytochrome c oxidase activity in fibroblasts; severe assembly defects in mitochondrial complexes I, IV and V with a milder defect in the assembly of complex III; no effect on mitochondrial transcripts, rRNAs and tRNAs levels." evidence="5">
+    <original>VLKHIPSGIVVKCHQTRSVDQNRKLARKILQEKVDVFYNGENSPVHKEKREAAKKKQERKKRAKETLEKKKLLKELWESSKKVH</original>
+    <variation>G</variation>
+    <location>
+      <begin position="83"/>
+      <end position="166"/>
+    </location>
+  </feature>
+  <feature type="sequence variant" id="VAR_084491" description="In SPG55 and COXPD7; decreased activity of mitochondrial respiratory chain; no effect on mitochondrial morphology." evidence="9 10">
+    <location>
+      <begin position="116"/>
+      <end position="166"/>
+    </location>
+  </feature>
+  <feature type="sequence variant" id="VAR_084492" description="In SPG55." evidence="7">
+    <location>
+      <begin position="132"/>
+      <end position="166"/>
+    </location>
+  </feature>
+  <feature type="sequence variant" id="VAR_037325" description="In dbSNP:rs1045496.">
+    <original>A</original>
+    <variation>T</variation>
+    <location>
+      <position position="134"/>
+    </location>
+  </feature>
+  <feature type="sequence variant" id="VAR_084493" description="In SPG55." evidence="8">
+    <location>
+      <begin position="139"/>
+      <end position="166"/>
+    </location>
+  </feature>
+  <sequence length="166" mass="18828" checksum="CB9B74E0CC7E920C" modified="2001-03-01" version="1" precursor="true">MSTVGLFHFPTPLTRICPAPWGLRLWEKLTLLSPGIAVTPVQMAGKKDYPALLSLDENELEEQFVKGHGPGGQATNKTSNCVVLKHIPSGIVVKCHQTRSVDQNRKLARKILQEKVDVFYNGENSPVHKEKREAAKKKQERKKRAKETLEKKKLLKELWESSKKVH</sequence>
+</entry>
+<copyright>
+Copyrighted by the UniProt Consortium, see https://www.uniprot.org/terms Distributed under the Creative Commons Attribution (CC BY 4.0) License
+</copyright>
+</uniprot>

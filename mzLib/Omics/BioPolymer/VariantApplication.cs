@@ -23,6 +23,11 @@ namespace Omics.BioPolymer
         public static List<TBioPolymerType> GetVariantBioPolymers<TBioPolymerType>(this TBioPolymerType protein, int maxAllowedVariantsForCombinatorics = 4, int minAlleleDepth = 1)
             where TBioPolymerType : IHasSequenceVariants
         {
+            if(maxAllowedVariantsForCombinatorics == 0)
+            {
+                // if no combinatorics allowed, just return the base protein
+                return new List<TBioPolymerType> { protein };
+            }
             protein.ConsensusVariant.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
             protein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
             if (protein.SequenceVariations.All(v => v.AreValid()) && protein.SequenceVariations.Any(v => v.Description == null || v.Description.Genotypes.Count == 0))
@@ -457,6 +462,8 @@ namespace Omics.BioPolymer
             {
                 foreach (var combo in GetCombinations(variations, size))
                 {
+                    if(!ValidCombination(combo.ToList()))
+                        continue;
                     var result = baseBioPolymer;
                     foreach (var variant in combo)
                     {
@@ -502,6 +509,36 @@ namespace Omics.BioPolymer
                 for (int i = pos + 1; i < size; i++)
                     indices[i] = indices[i - 1] + 1;
             }
+        }
+        public static bool ValidCombination(List<SequenceVariation> variations)
+        {
+            if (variations.Count <= 1)
+                return true;
+
+            // Validate inputs
+            for (int i = 0; i < variations.Count; i++)
+            {
+                var v = variations[i];
+                if (v == null || !v.AreValid())
+                    return false;
+            }
+
+            // Sort by begin then end, then check only adjacent intervals
+            var ordered = variations
+                .OrderBy(v => v.OneBasedBeginPosition)
+                .ThenBy(v => v.OneBasedEndPosition)
+                .ToList();
+
+            var prev = ordered[0];
+            for (int i = 1; i < ordered.Count; i++)
+            {
+                var curr = ordered[i];
+                if (prev.Intersects(curr)) // inclusive overlap check
+                    return false;
+
+                prev = curr;
+            }
+            return true;
         }
         public static void ConvertNucleotideSubstitutionModificationsToSequenceVariants<TBioPolymerType>(this TBioPolymerType protein)
             where TBioPolymerType : IHasSequenceVariants
