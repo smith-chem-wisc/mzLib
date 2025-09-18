@@ -215,10 +215,12 @@ namespace Omics.BioPolymer
         private static TBioPolymerType ApplySingleVariant<TBioPolymerType>(SequenceVariation variantGettingApplied, TBioPolymerType protein, string individual)
             where TBioPolymerType : IHasSequenceVariants
         {
-            if(variantGettingApplied.OneBasedBeginPosition > protein.BaseSequence.Length ||
+            if (variantGettingApplied.OneBasedBeginPosition > protein.BaseSequence.Length ||
                variantGettingApplied.OneBasedBeginPosition < 1)
             {
-                throw new ArgumentOutOfRangeException(nameof(variantGettingApplied), $"Variant begin position {variantGettingApplied.OneBasedBeginPosition} is out of range for protein of length {protein.BaseSequence.Length}");
+                int k = 3;
+                
+                //throw new ArgumentOutOfRangeException(nameof(variantGettingApplied), $"Variant begin position {variantGettingApplied.OneBasedBeginPosition} is out of range for protein of length {protein.BaseSequence.Length}");
             }
             string seqBefore = protein.BaseSequence.Substring(0, variantGettingApplied.OneBasedBeginPosition - 1);
             string seqVariant = variantGettingApplied.VariantSequence;
@@ -462,6 +464,8 @@ namespace Omics.BioPolymer
             {
                 foreach (var combo in GetCombinations(variations, size))
                 {
+                    if(!ValidCombination(combo.ToList()))
+                        continue;
                     var result = baseBioPolymer;
                     foreach (var variant in combo)
                     {
@@ -507,6 +511,36 @@ namespace Omics.BioPolymer
                 for (int i = pos + 1; i < size; i++)
                     indices[i] = indices[i - 1] + 1;
             }
+        }
+        public static bool ValidCombination(List<SequenceVariation> variations)
+        {
+            if (variations.Count <= 1)
+                return true;
+
+            // Validate inputs
+            for (int i = 0; i < variations.Count; i++)
+            {
+                var v = variations[i];
+                if (v == null || !v.AreValid())
+                    return false;
+            }
+
+            // Sort by begin then end, then check only adjacent intervals
+            var ordered = variations
+                .OrderBy(v => v.OneBasedBeginPosition)
+                .ThenBy(v => v.OneBasedEndPosition)
+                .ToList();
+
+            var prev = ordered[0];
+            for (int i = 1; i < ordered.Count; i++)
+            {
+                var curr = ordered[i];
+                if (prev.Intersects(curr)) // inclusive overlap check
+                    return false;
+
+                prev = curr;
+            }
+            return true;
         }
         public static void ConvertNucleotideSubstitutionModificationsToSequenceVariants<TBioPolymerType>(this TBioPolymerType protein)
             where TBioPolymerType : IHasSequenceVariants

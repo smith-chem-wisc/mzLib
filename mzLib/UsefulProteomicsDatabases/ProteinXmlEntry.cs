@@ -54,6 +54,9 @@ namespace UsefulProteomicsDatabases
         private List<(int, string)> AnnotatedMods = new List<(int position, string originalModificationID)>();
         private List<(int, string)> AnnotatedVariantMods = new List<(int position, string originalModificationID)>();
 
+        // NEW: Captured isoform/sequence identifier from <location sequence="...">
+        private string LocationSequenceId;
+
         /// <summary>
         /// Start parsing a protein XML element
         /// </summary>
@@ -136,6 +139,11 @@ namespace UsefulProteomicsDatabases
                 case "property":
                     PropertyTypes.Add(xml.GetAttribute("type"));
                     PropertyValues.Add(xml.GetAttribute("value"));
+                    break;
+
+                // NEW: capture isoform target for this feature's location
+                case "location":
+                    LocationSequenceId = xml.GetAttribute("sequence");
                     break;
 
                 case "position":
@@ -442,17 +450,31 @@ namespace UsefulProteomicsDatabases
             }
             else if (FeatureType == "sequence variant" && VariationValue != null && VariationValue != "") // Only keep if there is variant sequence information and position information
             {
-                ParseAnnotatedMods(OneBasedVariantModifications, modTypesToExclude, unknownModifications, AnnotatedVariantMods);
-                if (OneBasedBeginPosition != null && OneBasedEndPosition != null)
+                // NEW: filter out variants that refer to other isoforms (e.g., sequence="Q96J88-3")
+                bool appliesToThisSequence = true;
+                if (!string.IsNullOrEmpty(LocationSequenceId))
                 {
-                    SequenceVariations.Add(new SequenceVariation((int)OneBasedBeginPosition, (int)OneBasedEndPosition, OriginalValue, VariationValue, FeatureDescription, OneBasedVariantModifications));
+                    string acc = Accession ?? "";
+                    appliesToThisSequence =
+                        LocationSequenceId.Equals(acc, StringComparison.OrdinalIgnoreCase)
+                        || (!string.IsNullOrEmpty(acc) && LocationSequenceId.Equals($"{acc}-1", StringComparison.OrdinalIgnoreCase));
                 }
-                else if (OneBasedFeaturePosition >= 1)
+
+                if (appliesToThisSequence)
                 {
-                    SequenceVariations.Add(new SequenceVariation(OneBasedFeaturePosition, OriginalValue, VariationValue, FeatureDescription, OneBasedVariantModifications));
+                    ParseAnnotatedMods(OneBasedVariantModifications, modTypesToExclude, unknownModifications, AnnotatedVariantMods);
+                    if (OneBasedBeginPosition != null && OneBasedEndPosition != null)
+                    {
+                        SequenceVariations.Add(new SequenceVariation((int)OneBasedBeginPosition, (int)OneBasedEndPosition, OriginalValue, VariationValue, FeatureDescription, OneBasedVariantModifications));
+                    }
+                    else if (OneBasedFeaturePosition >= 1)
+                    {
+                        SequenceVariations.Add(new SequenceVariation(OneBasedFeaturePosition, OriginalValue, VariationValue, FeatureDescription, OneBasedVariantModifications));
+                    }
+                    AnnotatedVariantMods = new List<(int, string)>();
+                    OneBasedVariantModifications = new Dictionary<int, List<Modification>>();
                 }
-                AnnotatedVariantMods = new List<(int, string)>();
-                OneBasedVariantModifications = new Dictionary<int, List<Modification>>();
+                // else: variant points to another isoform; discard
             }
             else if (FeatureType == "disulfide bond")
             {
@@ -481,64 +503,8 @@ namespace UsefulProteomicsDatabases
             OneBasedFeaturePosition = -1;
             OriginalValue = "";
             VariationValue = "";
-        }
-
-        private static void ParseAnnotatedMods(Dictionary<int, List<Modification>> destination, IEnumerable<string> modTypesToExclude,
-            Dictionary<string, Modification> unknownModifications, List<(int, string)> annotatedMods)
-        {
-            foreach (var annotatedMod in annotatedMods)
-            {
-                string annotatedId = annotatedMod.Item2;
-                int annotatedModLocation = annotatedMod.Item1;
-
-                if (ProteinDbLoader.IdWithMotifToMod.TryGetValue(annotatedId, out Modification foundMod)
-                    || RnaDbLoader.IdWithMotifToMod.TryGetValue(annotatedId, out foundMod))
-                {
-                    // if the list of known mods contains this IdWithMotif
-                    if (!modTypesToExclude.Contains(foundMod.ModificationType))
-                    {
-                        if (destination.TryGetValue(annotatedModLocation, out var listOfModsAtThisLocation))
-                        {
-                            listOfModsAtThisLocation.Add(foundMod);
-                        }
-                        else
-                        {
-                            destination.Add(annotatedModLocation, new List<Modification> { foundMod });
-                        }
-                    }
-                    // else - the mod ID was found but the motif didn't fit the annotated location
-                }
-
-                // no known mod - try looking it up in the dictionary of mods without motif appended
-                else if (ProteinDbLoader.IdToPossibleMods.TryGetValue(annotatedId, out IList<Modification> mods)
-                         || RnaDbLoader.IdToPossibleMods.TryGetValue(annotatedId, out mods))
-                {
-                    foreach (Modification mod in mods)
-                    {
-                        if (!modTypesToExclude.Contains(mod.ModificationType))
-                        {
-                            if (destination.TryGetValue(annotatedModLocation, out var listOfModsAtThisLocation))
-                            {
-                                listOfModsAtThisLocation.Add(mod);
-                            }
-                            else
-                            {
-                                destination.Add(annotatedModLocation, new List<Modification> { mod });
-                            }
-                            break;
-                        }
-                    }
-                }
-                else
-                {
-                    // could not find the annotated mod's ID in our list of known mods - it's an unknown mod
-                    // I don't think this really does anything...
-                    if (!unknownModifications.ContainsKey(annotatedId))
-                    {
-                        unknownModifications.Add(annotatedId, new Modification(annotatedId));
-                    }
-                }
-            }
+            // NEW: reset per-feature location sequence id
+            LocationSequenceId = null;
         }
 
         /// <summary>
@@ -594,6 +560,63 @@ namespace UsefulProteomicsDatabases
             GeneNames = new List<Tuple<string, string>>();
             ReadingGene = false;
             ReadingOrganism = false;
+            // NEW: clear captured location sequence id
+            LocationSequenceId = null;
+        }
+
+        private static void ParseAnnotatedMods(
+            Dictionary<int, List<Modification>> destination,
+            IEnumerable<string> modTypesToExclude,
+            Dictionary<string, Modification> unknownModifications,
+            List<(int position, string originalModificationID)> annotatedMods)
+        {
+            foreach (var (annotatedModLocation, annotatedId) in annotatedMods)
+            {
+                // First try exact IdWithMotif
+                if (ProteinDbLoader.IdWithMotifToMod.TryGetValue(annotatedId, out Modification foundMod)
+                    || RnaDbLoader.IdWithMotifToMod.TryGetValue(annotatedId, out foundMod))
+                {
+                    if (!modTypesToExclude.Contains(foundMod.ModificationType))
+                    {
+                        if (destination.TryGetValue(annotatedModLocation, out var listOfModsAtThisLocation))
+                        {
+                            listOfModsAtThisLocation.Add(foundMod);
+                        }
+                        else
+                        {
+                            destination.Add(annotatedModLocation, new List<Modification> { foundMod });
+                        }
+                    }
+                }
+                // Then try Id without motif (list of possible mods)
+                else if (ProteinDbLoader.IdToPossibleMods.TryGetValue(annotatedId, out IList<Modification> mods)
+                         || RnaDbLoader.IdToPossibleMods.TryGetValue(annotatedId, out mods))
+                {
+                    foreach (Modification mod in mods)
+                    {
+                        if (!modTypesToExclude.Contains(mod.ModificationType))
+                        {
+                            if (destination.TryGetValue(annotatedModLocation, out var listOfModsAtThisLocation))
+                            {
+                                listOfModsAtThisLocation.Add(mod);
+                            }
+                            else
+                            {
+                                destination.Add(annotatedModLocation, new List<Modification> { mod });
+                            }
+                            break;
+                        }
+                    }
+                }
+                // Unknown mod id; record once
+                else
+                {
+                    if (!unknownModifications.ContainsKey(annotatedId))
+                    {
+                        unknownModifications.Add(annotatedId, new Modification(annotatedId));
+                    }
+                }
+            }
         }
     }
 }

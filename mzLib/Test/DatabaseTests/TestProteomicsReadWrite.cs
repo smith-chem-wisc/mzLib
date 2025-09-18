@@ -41,8 +41,12 @@ namespace Test.DatabaseTests
                 null, false, null, out Dictionary<string, Modification> un);
         }
         [Test]
-        public void ReadSomeOldXmlWithLongSubstitution()
+        public void ReadSomeOldXmlWithLongSubstitutionThatHasAConflict()
         {
+            //In this case, we have two different sequence variants. One is a long substitution, the other is a point mutation.
+            //If their positions didn't overlap, we should end up with four total protein sequences: the base protein, the protein with the long substitution,
+            //the protein with the point mutation, and the protein with both the long substitution and the point mutation.
+            //but, because the point mutation falls within the range of the long substitution, we should only end up with three total protein sequences:
             string oldXmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"longSubstitution.xml");
             var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
@@ -50,9 +54,23 @@ namespace Test.DatabaseTests
 
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(oldXmlPath, true, DecoyType.None, uniprotPtms, false, null,
                 out Dictionary<string, Modification> un);
-            Assert.IsTrue(ok.Count > 0);
+            Assert.IsTrue(ok.Count == 3);
         }
+        [Test]
+        public void SequenceVariantRefersToAlternateIsoform()
+        {
+            //In this case, we have a sequence variant that refers to an alternate isoform.
+            //We should still be able to load the protein, even if we don't have the alternate isoform sequence.
+            //for now we are ignoring the sequence variant if we don't have the alternate isoform sequence.
+            string oldXmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"sequenceVariantOnAlternateIsoform.xml");
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
 
+            List<Protein> ok = ProteinDbLoader.LoadProteinXML(oldXmlPath, true, DecoyType.None, uniprotPtms, false, null,
+                out Dictionary<string, Modification> un);
+            Assert.IsTrue(ok.Count == 1);
+        }
         [Test]
         public void Test_readUniProtXML_writeProteinXml()
         {
