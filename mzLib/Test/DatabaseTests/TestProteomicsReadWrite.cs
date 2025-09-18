@@ -72,6 +72,20 @@ namespace Test.DatabaseTests
             Assert.IsTrue(ok.Count == 1);
         }
         [Test]
+        public void ReadXmlSkipVariants()
+        {
+            //In this case, we have a couple different sequence variants. But, we don't want to apply any of them.
+            //instead, we just want the base protein sequence with mods.
+            string oldXmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"longSubstitution.xml");
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+
+            List<Protein> ok = ProteinDbLoader.LoadProteinXML(oldXmlPath, true, DecoyType.None, uniprotPtms, false, null,
+                out Dictionary<string, Modification> un, maxHeterozygousVariants: 0);
+            Assert.IsTrue(ok.Count == 1);
+        }
+        [Test]
         public void Test_readUniProtXML_writeProteinXml()
         {
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
