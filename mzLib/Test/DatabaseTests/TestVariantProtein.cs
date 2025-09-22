@@ -668,21 +668,65 @@ namespace Test.DatabaseTests
             string databaseName = "nucleotideVariantsAsModifications.xml";
 
             Assert.That(File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName)).Count(l => l.Contains("1 nucleotide substitution")), Is.EqualTo(57));
+            string databasePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName);
+            
+            int maxVariants = 0;
+            var proteins = ProteinDbLoader.LoadProteinXML(databasePath, true,
+                DecoyType.None, null, false, null, out var unknownModifications, maxHeterozygousVariants: maxVariants);
+            Assert.AreEqual(9, proteins.Count);
+            int sumOfAllModifications = proteins.Sum(p => p.OneBasedPossibleLocalizedModifications.Values.Count);
+            int sumOfAllSequenceVariations = proteins.Select(v => v.SequenceVariations.Count).Sum();
+            int sumOfAllAppliedSequenceVariants = proteins.Select(v => v.AppliedSequenceVariations.Count).Sum();
+            Assert.AreEqual(0, sumOfAllModifications); //all modifications of type '1 nucleotide substitution' should have been converted to sequence variations. There were 194 modifications of this type in the original file.
+            Assert.AreEqual(194, sumOfAllSequenceVariations);//there are 194 sequence variations converted from modifications
+            Assert.AreEqual(0, sumOfAllAppliedSequenceVariants); //this should be zero because we set maxVariants to 0
+            Assert.AreEqual(9, proteins.Count); // there were 9 proteins in the original file, and no sequence variants were applied because maxVariants was set to 0. also no decoys. so the total should be 9
 
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
-                DecoyType.None, null, false, null, out var unknownModifications, 1, 0);
-            Assert.AreEqual(9, proteins.Count); // 1 target
-            Assert.AreEqual(194, proteins.Select(v=>v.SequenceVariations.Count).Sum()); // there are no sequence variations in the original proteins
-            Assert.AreEqual(0, proteins.Select(m => m.OneBasedPossibleLocalizedModifications.Sum(list=>list.Value.Count)).Sum()); // there are 194 sequence variants as modifications in the original proteins
+
+            maxVariants = 4;
+            proteins = ProteinDbLoader.LoadProteinXML(databasePath, true,
+                DecoyType.None, null, false, null, out unknownModifications, maxHeterozygousVariants: maxVariants);
+            Assert.AreEqual(36, proteins.Count); // When we read proteins that have modifications that are sequence variants,
+                                                 // we generate all possible combinations of those sequence variants up to the
+                                                 // maxVariants limit. This results in an expansion of the original list of 9 proteins
+                                                 // to 36 proteins, where 27 proteins have applied sequence variations and 9 cannical
+                                                 // sequences.
+            Assert.AreEqual(27, proteins.Where(p => p.AppliedSequenceVariations.Count >= 1).Count());
+            Assert.AreEqual(0, proteins.Where(p => p.AppliedSequenceVariations.Count >= 2).Count());
+            //Assert.AreEqual(776, proteins.Select(v => v.SequenceVariations.Count).Sum()); // all sequence vari
+            //Assert.AreEqual(0, proteins.Select(m => m.OneBasedPossibleLocalizedModifications.Sum(list => list.Value.Count)).Sum()); // there are 194 sequence variants as modifications in the original proteins
+
+
+            maxVariants = 10;
+            proteins = ProteinDbLoader.LoadProteinXML(databasePath, true,
+                DecoyType.None, null, false, null, out unknownModifications, maxHeterozygousVariants: maxVariants);
+            Assert.AreEqual(90, proteins.Count); // When we read proteins that have modifications that are sequence variants,
+                                                 // we generate all possible combinations of those sequence variants up to the
+                                                 // maxVariants limit. This results in an expansion of the original list of 9 proteins
+                                                 // to 36 proteins, where 27 proteins have applied sequence variations and 9 cannical
+                                                 // sequences.
+            Assert.AreEqual(81, proteins.Where(p => p.AppliedSequenceVariations.Count >= 1).Count());
+            Assert.AreEqual(6, proteins.Where(p => p.AppliedSequenceVariations.Count >= 2).Count());
+            //Assert.AreEqual(776, proteins.Select(v => v.SequenceVariations.Count).Sum()); // all sequence vari
+            //Assert.AreEqual(0, proteins.Select(m => m.OneBasedPossibleLocalizedModifications.Sum(list => list.Value.Count)).Sum()); // there are 194 sequence variants as modifications in the original proteins
+
+
+
+
+
+
+
+
 
             string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
             Directory.CreateDirectory(tempDir);
-            string tempFile = Path.Combine(tempDir, "xmlWithSequenceVariantsAndNoModifications.txt");
+            string tempFile = Path.Combine(tempDir, "xmlWithSequenceVariantsAndNoModifications.xml");
 
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteins.Where(p => !p.IsDecoy).ToList(), tempFile);
             proteins = ProteinDbLoader.LoadProteinXML(tempFile, true,
-                DecoyType.None, null, false, null, out unknownModifications, 1, 0);
+                DecoyType.None, null, false, null, out unknownModifications, maxHeterozygousVariants: 0, minAlleleDepth: 0);
             Assert.AreEqual(9, proteins.Count); // 1 target
+            int totalSequenceVariations = proteins.Select(v => v.SequenceVariations.Count).Sum();
             Assert.AreEqual(194, proteins.Select(v => v.SequenceVariations.Count).Sum()); // there are 194 sequence variations in the revised proteins
             Assert.AreEqual(0, proteins.Select(m => m.OneBasedPossibleLocalizedModifications.Sum(list => list.Value.Count)).Sum()); // there are 0 sequence variants as modifications in the original proteins
             

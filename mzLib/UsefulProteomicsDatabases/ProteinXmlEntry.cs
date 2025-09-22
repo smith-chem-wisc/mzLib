@@ -412,6 +412,8 @@ namespace UsefulProteomicsDatabases
             if (FeatureType == "modified residue")
             {
                 FeatureDescription = FeatureDescription.Split(';')[0];
+                //Historically, amino acid substitutions have been annotated as modifications in UniProt XML files.
+                // These are now handled as sequence variants. So we will want to convert those modifications to sequence variants instead.
                 AnnotatedMods.Add((OneBasedFeaturePosition, FeatureDescription));
             }
             else if (FeatureType == "lipid moiety-binding region")

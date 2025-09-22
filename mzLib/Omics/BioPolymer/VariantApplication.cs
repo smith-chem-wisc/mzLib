@@ -28,8 +28,8 @@ namespace Omics.BioPolymer
                 // if no combinatorics allowed, just return the base protein
                 return new List<TBioPolymerType> { protein };
             }
-            protein.ConsensusVariant.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
-            protein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
+            //protein.ConsensusVariant.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
+            //protein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
             if (protein.SequenceVariations.All(v => v.AreValid()) && protein.SequenceVariations.Any(v => v.Description == null || v.Description.Genotypes.Count == 0))
             {
                 // this is a protein with either no VCF lines or a mix of VCF and non-VCF lines

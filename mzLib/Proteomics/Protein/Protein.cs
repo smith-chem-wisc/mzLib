@@ -147,7 +147,7 @@ namespace Proteomics
                   isDecoy: protein.IsDecoy,
                   isContaminant: protein.IsContaminant,
                   databaseReferences: new List<DatabaseReference>(protein.DatabaseReferences),
-                  sequenceVariations: new List<SequenceVariation>(protein.SequenceVariations),
+                  sequenceVariations: new List<SequenceVariation>(), //originally, we copied all the sequence variations from the canonical, but many won't make any sense. now we empty the list, and those that are applied are in the applied list
                   disulfideBonds: new List<DisulfideBond>(protein.DisulfideBonds),
                   spliceSites: new List<SpliceSite>(protein.SpliceSites),
                   databaseFilePath: protein.DatabaseFilePath,
