@@ -431,7 +431,9 @@ namespace Test
         [Test]
         public static void TestCTermAndLastSideChainModParsing()
         {
-            string fullSequence = "PEPTIDE[Mod:MyMod on E][PeptideCTermMod:MyCTermMod on E]";
+            string fullSequenceBothMods = "PEPTIDE[Mod:MyMod on E]-[PeptideCTermMod:MyCTermMod on E]";
+            string fullSequenceCTermOnly = "PEPTIDE-[PeptideCTermMod:MyCTermMod on E]";
+            string fullSequenceSideChainOnly = "PEPTIDE[Mod:MyMod on E]";
 
             ModificationMotif.TryGetMotif("E", out var motif);
 
@@ -447,10 +449,20 @@ namespace Test
                 { "MyCTermMod on E", cTermMod }
             };
 
-            PeptideWithSetModifications pep = new PeptideWithSetModifications(fullSequence, mods);
+            PeptideWithSetModifications pepBothMods = new PeptideWithSetModifications(fullSequenceBothMods, mods);
+            PeptideWithSetModifications pepCterm = new PeptideWithSetModifications(fullSequenceCTermOnly, mods);
+            PeptideWithSetModifications pepSideChain = new PeptideWithSetModifications(fullSequenceSideChainOnly, mods);
 
-            Assert.That(pep.AllModsOneIsNterminus.Count == 2);
-            Assert.That(pep.AllModsOneIsNterminus.Keys.SequenceEqual(new int[] { 8, 9 }));
+            Assert.That(pepBothMods.AllModsOneIsNterminus.Count == 2);
+            Assert.That(pepBothMods.AllModsOneIsNterminus.Keys.SequenceEqual(new int[] { 8, 9 }));
+            Assert.That(pepBothMods.AllModsOneIsNterminus[8].IdWithMotif == "MyMod on E");
+            Assert.That(pepBothMods.AllModsOneIsNterminus[9].IdWithMotif == "MyCTermMod on E");
+            Assert.That(pepCterm.AllModsOneIsNterminus.Count == 1);
+            Assert.That(pepCterm.AllModsOneIsNterminus.Keys.SequenceEqual(new int[] { 9 }));
+            Assert.That(pepCterm.AllModsOneIsNterminus[9].IdWithMotif == "MyCTermMod on E");
+            Assert.That(pepSideChain.AllModsOneIsNterminus.Count == 1);
+            Assert.That(pepSideChain.AllModsOneIsNterminus.Keys.SequenceEqual(new int[] { 8 }));
+            Assert.That(pepSideChain.AllModsOneIsNterminus[8].IdWithMotif == "MyMod on E");
         }
 
         [Test]
