@@ -53,7 +53,9 @@ namespace Test.DatabaseTests
             var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
 
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(oldXmlPath, true, DecoyType.None, uniprotPtms, false, null,
-                out Dictionary<string, Modification> un);
+                out Dictionary<string, Modification> un,
+                maxSequenceVariantsPerIsoform:2,
+                maxSequenceVariantIsoforms:100);
             Assert.IsTrue(ok.Count == 3);
         }
         [Test]

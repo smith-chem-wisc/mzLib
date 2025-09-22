@@ -694,22 +694,22 @@ namespace Test
             DigestionParams dp2 = new DigestionParams(protease: "Asp-N", minPeptideLength: 2);
             DigestionParams dp3 = new DigestionParams(protease: "Lys-N", minPeptideLength: 2);
 
-            var protein0_variant = proteins.ElementAt(0).GetVariantBioPolymers().ElementAt(0);
-            var protein1_variant = proteins.ElementAt(1).GetVariantBioPolymers().ElementAt(0);
-            var protein2_variant = proteins.ElementAt(2).GetVariantBioPolymers().ElementAt(0);
-            var protein3_variant = proteins.ElementAt(3).GetVariantBioPolymers().ElementAt(0);
-            var protein4_variant = proteins.ElementAt(4).GetVariantBioPolymers().ElementAt(0);
-            var protein5_variant = proteins.ElementAt(5).GetVariantBioPolymers().ElementAt(0);
-            var protein6_variant = proteins.ElementAt(6).GetVariantBioPolymers().ElementAt(0);
-            var protein7_variant = proteins.ElementAt(7).GetVariantBioPolymers().ElementAt(0);
-            var protein8_variant = proteins.ElementAt(8).GetVariantBioPolymers().ElementAt(0);
-            var protein9_variant = proteins.ElementAt(9).GetVariantBioPolymers().ElementAt(0);
-            var protein10_variant = proteins.ElementAt(10).GetVariantBioPolymers().ElementAt(0);
-            var protein11_variant = proteins.ElementAt(11).GetVariantBioPolymers().ElementAt(0);
-            var protein12_variant = proteins.ElementAt(12).GetVariantBioPolymers().ElementAt(0);
-            var protein13_variant = proteins.ElementAt(13).GetVariantBioPolymers().ElementAt(0);
-            var protein14_variant = proteins.ElementAt(14).GetVariantBioPolymers().ElementAt(0);
-            var protein15_variant = proteins.ElementAt(15).GetVariantBioPolymers().ElementAt(0);
+            var protein0_variant = proteins.ElementAt(0).GetVariantBioPolymers(maxSequenceVariantIsoforms: 100).ElementAt(0);
+            var protein1_variant = proteins.ElementAt(1).GetVariantBioPolymers(maxSequenceVariantIsoforms: 100).ElementAt(0);
+            var protein2_variant = proteins.ElementAt(2).GetVariantBioPolymers(maxSequenceVariantIsoforms: 100).ElementAt(0);
+            var protein3_variant = proteins.ElementAt(3).GetVariantBioPolymers(maxSequenceVariantIsoforms: 100).ElementAt(0);
+            var protein4_variant = proteins.ElementAt(4).GetVariantBioPolymers(maxSequenceVariantIsoforms: 100).ElementAt(0);
+            var protein5_variant = proteins.ElementAt(5).GetVariantBioPolymers(maxSequenceVariantIsoforms: 100).ElementAt(0);
+            var protein6_variant = proteins.ElementAt(6).GetVariantBioPolymers(maxSequenceVariantIsoforms: 100).ElementAt(0);
+            var protein7_variant = proteins.ElementAt(7).GetVariantBioPolymers(maxSequenceVariantIsoforms: 100).ElementAt(0);
+            var protein8_variant = proteins.ElementAt(8).GetVariantBioPolymers(maxSequenceVariantIsoforms: 100).ElementAt(0);
+            var protein9_variant = proteins.ElementAt(9).GetVariantBioPolymers(maxSequenceVariantIsoforms: 100).ElementAt(0);
+            var protein10_variant = proteins.ElementAt(10).GetVariantBioPolymers(maxSequenceVariantIsoforms: 100).ElementAt(0);
+            var protein11_variant = proteins.ElementAt(11).GetVariantBioPolymers(maxSequenceVariantIsoforms: 100).ElementAt(0);
+            var protein12_variant = proteins.ElementAt(12).GetVariantBioPolymers(maxSequenceVariantIsoforms: 100).ElementAt(0);
+            var protein13_variant = proteins.ElementAt(13).GetVariantBioPolymers(maxSequenceVariantIsoforms: 100).ElementAt(0);
+            var protein14_variant = proteins.ElementAt(14).GetVariantBioPolymers(maxSequenceVariantIsoforms: 100).ElementAt(0);
+            var protein15_variant = proteins.ElementAt(15).GetVariantBioPolymers(maxSequenceVariantIsoforms: 100).ElementAt(0);
 
             List<Modification> digestMods = new List<Modification>();
 

@@ -58,7 +58,7 @@ namespace Test.DatabaseTests
         public void VariantXml()
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SeqVar.xml");
-            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
+            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un, maxSequenceVariantIsoforms: 100);
 
             Assert.AreEqual(5, variantProteins.First().ConsensusVariant.SequenceVariations.Count());
             Assert.AreEqual(1, variantProteins.Count); // there is only one unique amino acid change
@@ -299,11 +299,12 @@ namespace Test.DatabaseTests
                 new Protein("MPEPPPTIDE", "protein4", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "PPP", "P", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
                 new Protein("MPEPTIDE", "protein5", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> {{ 5, new[] { mp }.ToList() } }) }),
              };
-            var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList();
-            var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList(); // should be stable
+            var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantIsoforms: 100)).ToList();
+            var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantIsoforms: 100)).ToList(); // should be stable
             string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteinsWithSeqVars, xml);
-            var proteinsWithAppliedVariants3 = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un);
+            var proteinsWithAppliedVariants3 = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un,
+                maxSequenceVariantIsoforms: 100);
 
             var listArray = new[] { proteinsWithAppliedVariants, proteinsWithAppliedVariants2, proteinsWithAppliedVariants3 };
             for (int dbIdx = 0; dbIdx < listArray.Length; dbIdx++)
@@ -348,11 +349,12 @@ namespace Test.DatabaseTests
                 new Protein("MPEPPPTIDE", "protein4", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "PPP", "P", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
                 new Protein("MPEPTIDE", "protein5", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> {{ 5, new[] { mp }.ToList() } }) }),
              };
-            var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList();
-            var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList(); // should be stable
+            var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantIsoforms: 100)).ToList();
+            var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantIsoforms: 100)).ToList(); // should be stable
             string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteinsWithSeqVars, xml);
-            var proteinsWithAppliedVariants3 = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un);
+            var proteinsWithAppliedVariants3 = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un,
+                maxSequenceVariantIsoforms: 100);
 
             var listArray = new List<IBioPolymer>[]
             {
@@ -406,7 +408,10 @@ namespace Test.DatabaseTests
         public static void StopGained()
         {
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGained.xml"), true,
-                DecoyType.None, null, false, null, out var unknownModifications);
+                DecoyType.None, null, false, null, out var unknownModifications,
+                maxSequenceVariantsPerIsoform:4,
+                minAlleleDepth:1,
+                maxSequenceVariantIsoforms:100);
             Assert.AreEqual(2, proteins.Count);
             Assert.AreEqual(1, proteins[0].SequenceVariations.Count()); // some redundant
             Assert.AreEqual(1, proteins[0].SequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
@@ -444,7 +449,7 @@ namespace Test.DatabaseTests
         public static void MultipleAlternateAlleles()
         {
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "MultipleAlternateAlleles.xml"), true,
-                DecoyType.None, null, false, null, out var unknownModifications);
+                DecoyType.None, null, false, null, out var unknownModifications, maxSequenceVariantIsoforms: 100);
             Assert.AreEqual(2, proteins.Count);
             Assert.AreEqual(2, proteins[0].SequenceVariations.Count()); // some redundant
             Assert.AreEqual(2, proteins[0].SequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
@@ -458,7 +463,7 @@ namespace Test.DatabaseTests
             Assert.AreEqual('R', proteins[1][63 - 1]);
 
             proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "MultipleAlternateAlleles.xml"), true,
-                DecoyType.None, null, false, null, out unknownModifications, minAlleleDepth: 10);
+                DecoyType.None, null, false, null, out unknownModifications, minAlleleDepth: 10, maxSequenceVariantIsoforms: 100);
             Assert.AreEqual(1, proteins.Count);
             Assert.AreEqual(0, proteins[0].AppliedSequenceVariations.Count()); // some redundant
             Assert.AreEqual(0, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
@@ -469,7 +474,7 @@ namespace Test.DatabaseTests
         public static void MultipleAlternateFrameshifts()
         {
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "MultipleAlternateFrameshifts.xml"), true,
-                DecoyType.None, null, false, null, out var unknownModifications);
+                DecoyType.None, null, false, null, out var unknownModifications, maxSequenceVariantsPerIsoform: 10, maxSequenceVariantIsoforms: 100);
             Assert.AreEqual(2, proteins.Count);
             Assert.AreEqual(3, proteins[0].SequenceVariations.Count()); // some redundant
             Assert.AreEqual(3, proteins[0].SequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
@@ -488,7 +493,7 @@ namespace Test.DatabaseTests
         public void VariantSymbolWeirdnessXml()
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SeqVarSymbolWeirdness.xml");
-            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
+            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un, maxSequenceVariantIsoforms: 100);
             Assert.AreEqual(12, variantProteins.First().ConsensusVariant.SequenceVariations.Count());
             Assert.AreEqual(2, variantProteins.First().ConsensusVariant.SequenceVariations.Count(v => v.Description.Heterozygous.Any(kv => kv.Value)));
 
@@ -505,7 +510,7 @@ namespace Test.DatabaseTests
         public void VariantSymbolWeirdness2Xml()
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SeqVarSymbolWeirdness2.xml");
-            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
+            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un, maxSequenceVariantIsoforms: 100);
 
             Assert.AreEqual(1, variantProteins.First().ConsensusVariant.SequenceVariations.Count());
             Assert.AreEqual(2, variantProteins.Count); // there is only one unique amino acid change
@@ -528,7 +533,8 @@ namespace Test.DatabaseTests
         public void IndelDecoyError()
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IndelDecoy.xml");
-            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un);
+            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un,
+                maxSequenceVariantIsoforms: 100);
             Assert.AreEqual(8, variantProteins.Count);
             var indelProtein = variantProteins[2];
             Assert.AreNotEqual(indelProtein.AppliedSequenceVariations.Single().OriginalSequence.Length, indelProtein.AppliedSequenceVariations.Single().VariantSequence.Length);
@@ -546,7 +552,8 @@ namespace Test.DatabaseTests
         public void IndelDecoyVariants()
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "DecoyVariants.xml");
-            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un);
+            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un,
+                maxSequenceVariantIsoforms: 100);
             Assert.AreEqual(4, variantProteins.Count);
             Assert.AreEqual(3, variantProteins[0].AppliedSequenceVariations.Count); // homozygous variations
             Assert.AreEqual(4, variantProteins[1].AppliedSequenceVariations.Count); // plus one heterozygous variation
@@ -580,7 +587,7 @@ namespace Test.DatabaseTests
         public void VariantModificationTest()
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "VariantModsGPTMD.xml");
-            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un);
+            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un, maxSequenceVariantsPerIsoform:3, maxSequenceVariantIsoforms: 100);
             List<Protein> targets = variantProteins.Where(p => p.IsDecoy == false).ToList();
             List<Protein> variantTargets = targets.Where(p => p.AppliedSequenceVariations.Count >= 1).ToList();
             List<Protein> decoys = variantProteins.Where(p => p.IsDecoy == true).ToList();
