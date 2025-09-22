@@ -20,23 +20,22 @@ namespace Omics.BioPolymer
         /// <param name="maxAllowedVariantsForCombinatorics"></param>
         /// <param name="minAlleleDepth"></param>
         /// <remarks>This replaces a method call that was previously an instance method in Protein</remarks>
-        public static List<TBioPolymerType> GetVariantBioPolymers<TBioPolymerType>(this TBioPolymerType protein, int maxAllowedVariantsForCombinatorics = 4, int minAlleleDepth = 1)
+        public static List<TBioPolymerType> GetVariantBioPolymers<TBioPolymerType>(this TBioPolymerType protein, int maxSequenceVariantsPerIsoform = 4, int minAlleleDepth = 1, int maxSequenceVariantIsoforms = 1)
             where TBioPolymerType : IHasSequenceVariants
         {
-            if(maxAllowedVariantsForCombinatorics == 0)
+            if(maxSequenceVariantsPerIsoform == 0 || maxSequenceVariantIsoforms == 1)
             {
                 // if no combinatorics allowed, just return the base protein
                 return new List<TBioPolymerType> { protein };
             }
-            //protein.ConsensusVariant.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
-            //protein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
+
             if (protein.SequenceVariations.All(v => v.AreValid()) && protein.SequenceVariations.Any(v => v.Description == null || v.Description.Genotypes.Count == 0))
             {
                 // this is a protein with either no VCF lines or a mix of VCF and non-VCF lines
-                return ApplyAllVariantCombinations(protein, protein.SequenceVariations, maxAllowedVariantsForCombinatorics).ToList();
+                return ApplyAllVariantCombinations(protein, protein.SequenceVariations, maxSequenceVariantsPerIsoform, maxSequenceVariantIsoforms).ToList();
             }
             // this is a protein with only VCF lines
-            return ApplyVariants(protein, protein.SequenceVariations, maxAllowedVariantsForCombinatorics, minAlleleDepth);
+            return ApplyVariants(protein, protein.SequenceVariations, maxSequenceVariantsPerIsoform, minAlleleDepth);
         }
 
         /// <summary>
@@ -439,14 +438,16 @@ namespace Omics.BioPolymer
         /// <typeparam name="TBioPolymerType">The type of the biopolymer object.</typeparam>
         /// <param name="baseBioPolymer">The base biopolymer object to apply variations to.</param>
         /// <param name="variations">List of SequenceVariation objects to combine and apply. Assumed not null or empty.</param>
-        /// <param name="maxCombinations">Maximum number of combinations to return.</param>
+        /// <param name="maxSequenceVariantsPerIsoform">Maximum number of combinations to return.</param>
+        /// <!---->/ <param name="maxSequenceVariantIsoforms">.</param> -->
         /// <returns>
         /// An IEnumerable of TBioPolymerType objects, each with a unique combination of variations applied.
         /// </returns>
         public static IEnumerable<TBioPolymerType> ApplyAllVariantCombinations<TBioPolymerType>(
             TBioPolymerType baseBioPolymer,
             List<SequenceVariation> variations,
-            int maxCombinations)
+            int maxSequenceVariantsPerIsoform,
+            int maxSequenceVariantIsoforms)
             where TBioPolymerType : IHasSequenceVariants
         {
             int count = 0;
@@ -454,15 +455,19 @@ namespace Omics.BioPolymer
             // Always yield the base biopolymer first
             yield return baseBioPolymer;
             count++;
-            if (count >= maxCombinations)
-                yield break;
+            //if (count >= maxSequenceVariantsPerIsoform)
+            //    yield break;
 
             int n = variations.Count;
-            for (int size = 1; size <= n; size++)
+            // generate combinations of isoforms but limit the number of variants per isoform
+            for (int size = 1; size <= maxSequenceVariantsPerIsoform; size++)
             {
                 foreach (var combo in GetCombinations(variations, size))
                 {
-                    if(!ValidCombination(combo.ToList()))
+                    // break if we've reached the maximum number of isoforms
+                    if (count >= maxSequenceVariantIsoforms)
+                        yield break;
+                    if (!ValidCombination(combo.ToList()))
                         continue;
                     var result = baseBioPolymer;
                     foreach (var variant in combo)
@@ -473,8 +478,7 @@ namespace Omics.BioPolymer
                     {
                         yield return result;
                         count++;
-                        if (count >= maxCombinations)
-                            yield break;
+
                     }
                 }
             }

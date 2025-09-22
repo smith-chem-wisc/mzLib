@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using Omics.BioPolymer;
 using Omics.Modifications;
+using MzLibUtil;
 
 namespace UsefulProteomicsDatabases
 {
@@ -54,12 +55,21 @@ namespace UsefulProteomicsDatabases
         /// If so, this modification list can be acquired with GetPtmListFromProteinXml after using this method.
         /// They may also be read in separately from a ptmlist text file, and then input as allKnownModifications.
         /// If protein modifications are specified both in the mzLibProteinDb XML file and in allKnownModifications, they are collapsed into a HashSet of Modifications before generating Protein entries.
+        /// 
         /// </summary>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
-            int maxHeterozygousVariants = 4, int minAlleleDepth = 1, bool addTruncations = false, string decoyIdentifier = "DECOY")
+            int maxSequenceVariantsPerIsoform = 4, 
+            int minAlleleDepth = 1, 
+            int maxSequenceVariantIsoforms = 1, 
+            bool addTruncations = false, 
+            string decoyIdentifier = "DECOY")
         {
+            if(maxSequenceVariantIsoforms < 1)
+            {
+                throw new MzLibException("maxSequenceVariantIsoforms must be at least 1 to return the canonical isoform");
+            }
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
             modTypesToExclude = modTypesToExclude ?? new List<string>();
@@ -79,7 +89,7 @@ namespace UsefulProteomicsDatabases
             //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
             if (proteinDbLocation.EndsWith(".gz"))
             {
-                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation),"temp.xml");
+                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation), "temp.xml");
                 using var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
                 using FileStream outputFileStream = File.Create(newProteinDbLocation);
                 using var decompressor = new GZipStream(stream, CompressionMode.Decompress);
@@ -103,8 +113,8 @@ namespace UsefulProteomicsDatabases
                         if (xml.NodeType == XmlNodeType.EndElement || xml.IsEmptyElement)
                         {
                             Protein newProtein = block.ParseEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, proteinDbLocation);
-                            
-                            
+
+
                             if (newProtein != null)
                             {
                                 //If we have read any modifications that are nucleotide substitutions, convert them to sequence variants here:
@@ -132,8 +142,11 @@ namespace UsefulProteomicsDatabases
 
             List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier);
             IEnumerable<Protein> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
-            return proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth)).ToList();
+            return proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantsPerIsoform, minAlleleDepth, maxSequenceVariantIsoforms)).ToList();
         }
+
+
+
 
         /// <summary>
         /// Get the modification entries specified in a mzLibProteinDb XML file (.xml or .xml.gz).
