@@ -44,33 +44,33 @@ namespace Readers
             // Pre-allocate result array
             T?[] psmsArray = new T[lineCount];
             var warningsBag = new System.Collections.Concurrent.ConcurrentBag<string>();
+            int maxThreads = Math.Min(8, Environment.ProcessorCount - 1);
+            int chunkSize = (int)Math.Ceiling((double)lineCount / maxThreads);
 
-            Parallel.For(1, lines.Length, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, i =>
+            Parallel.For(0, maxThreads, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, threadIdx =>
             {
-                var line = lines[i];
-                try
+                int start = 1 + threadIdx * chunkSize;
+                int end = Math.Min(lines.Length, start + chunkSize);
+                for (int i = start; i < end; i++)
                 {
-                    T result = type switch
+                    var line = lines[i];
+                    try
                     {
-                        SupportedFileType.osmtsv => (T)(SpectrumMatchFromTsv)new OsmFromTsv(line, Split, parsedHeader),
-                        _ => (T)(SpectrumMatchFromTsv)new PsmFromTsv(line, Split, parsedHeader)
-                    };
-                    psmsArray[i - 1] = result; // -1 to align with result array (excluding header)
-                }
-                catch (Exception)
-                {
-                    warningsBag.Add("Could not read line: " + (i + 1)); // plus one to account for header line
+                        T result = type switch
+                        {
+                            SupportedFileType.osmtsv => (T)(SpectrumMatchFromTsv)new OsmFromTsv(line, Split, parsedHeader),
+                            _ => (T)(SpectrumMatchFromTsv)new PsmFromTsv(line, Split, parsedHeader)
+                        };
+                        psmsArray[i - 1] = result; // -1 to align with result array (excluding header)
+                    }
+                    catch (Exception)
+                    {
+                        warningsBag.Add("Could not read line: " + (i + 1)); // plus one to account for header line
+                    }
                 }
             });
 
-            var psms = new List<T>(lineCount);
-            foreach (var x in psmsArray)
-            {
-                if (x is not null)
-                {
-                    psms.Add(x);
-                }
-            }
+            var psms = psmsArray.Where(p => p != null).Cast<T>().ToList();
             warnings = warningsBag.ToList();
 
             if (lineCount != psms.Count)
