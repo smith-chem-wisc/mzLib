@@ -291,22 +291,44 @@ namespace Test.DatabaseTests
             ModificationMotif.TryGetMotif("P", out ModificationMotif motifP);
             Modification mp = new Modification("mod", null, "type", null, motifP, "Anywhere.", null, 42.01, new Dictionary<string, IList<string>>(), null, null, null, null, null);
 
+            SequenceVariation sv1_substitution = new SequenceVariation(4, 4, "P", "V", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null); // single amino acid variant
+            SequenceVariation sv2_multiAminoAcidSubstitution = new SequenceVariation(4, 5, "PT", "KT", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null); // multi-nucleotide variant
+            SequenceVariation sv3_insertion = new SequenceVariation(4, 4, "P", "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null); // insertion
+            SequenceVariation sv4_deletion = new SequenceVariation(4, 6, "PPP", "P", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null); // deletion
+            SequenceVariation sv5_notApplied = new SequenceVariation(4, 4, "P", "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> { { 5, new[] { mp }.ToList() } }); // should not be applied
+
             List<Protein> proteinsWithSeqVars = new List<Protein>
             {
-                new Protein("MPEPTIDE", "protein1", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "V", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE", "protein2", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 5, "PT", "KT", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE", "protein3", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPPPTIDE", "protein4", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "PPP", "P", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE", "protein5", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> {{ 5, new[] { mp }.ToList() } }) }),
+                new Protein("MPEPTIDE", "protein1", sequenceVariations: new List<SequenceVariation> { sv1_substitution}),
+                new Protein("MPEPTIDE", "protein2", sequenceVariations: new List<SequenceVariation> { sv2_multiAminoAcidSubstitution }),
+                new Protein("MPEPTIDE", "protein3", sequenceVariations: new List<SequenceVariation> { sv3_insertion }),
+                new Protein("MPEPPPTIDE", "protein4", sequenceVariations: new List<SequenceVariation> { sv4_deletion }),
+                new Protein("MPEPTIDE", "protein5", sequenceVariations: new List<SequenceVariation> { sv5_notApplied }),
              };
+
+            // at this point we have added potential sequence variants to proteins but they have not yet been applied
+            Assert.AreEqual(5, proteinsWithSeqVars.Count);
+            Assert.AreEqual(5, proteinsWithSeqVars.Select(s=>s.SequenceVariations).ToList().Count);
+            Assert.AreEqual(0, proteinsWithSeqVars.Select(s => s.AppliedSequenceVariations.Count).Sum());
+
+            //now we apply the sequence variants and the number of proteins should increase
+            //each of the first 4 proteins should generate one variant each
+            //the 5th protein should not generate a variant because the sequence variant has a mod that cannot be applied
             var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantIsoforms: 100)).ToList();
-            var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantIsoforms: 100)).ToList(); // should be stable
+            Assert.AreEqual(9, proteinsWithAppliedVariants.Count);
+            Assert.AreEqual(1, proteinsWithAppliedVariants.Select(s => s.SequenceVariations).ToList().Count);
+            Assert.AreEqual(4, proteinsWithAppliedVariants.Select(s => s.AppliedSequenceVariations.Count).Sum());
+
+
+
+
+
             string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteinsWithSeqVars, xml);
             var proteinsWithAppliedVariants3 = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un,
                 maxSequenceVariantIsoforms: 100);
 
-            var listArray = new[] { proteinsWithAppliedVariants, proteinsWithAppliedVariants2, proteinsWithAppliedVariants3 };
+            var listArray = new[] { proteinsWithAppliedVariants, proteinsWithAppliedVariants, proteinsWithAppliedVariants3 };
             for (int dbIdx = 0; dbIdx < listArray.Length; dbIdx++)
             {
                 // sequences

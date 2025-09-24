@@ -34,7 +34,7 @@ namespace Proteomics
         /// <param name="isDecoy"></param>
         /// <param name="isContaminant"></param>
         /// <param name="databaseReferences"></param>
-        /// <param name="sequenceVariations"></param>
+        /// <param name="sequenceVariations">This list should only contain potential variants. There is a separate field for applied variants only for variant proteins</param>
         /// <param name="disulfideBonds"></param>
         /// <param name="spliceSites"></param>
         /// <param name="databaseFilePath"></param>
