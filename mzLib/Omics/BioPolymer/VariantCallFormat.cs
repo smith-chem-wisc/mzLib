@@ -1,10 +1,11 @@
-﻿using System;
+﻿using MzLibUtil;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace Omics.BioPolymer
 {
-    public class SequenceVariantDescription
+    public class VariantCallFormat
     {
 
         // Example VCF line with snpEff annotation:
@@ -122,37 +123,49 @@ namespace Omics.BioPolymer
         //   AD helps you see how many reads support each allele individually.
         //   DP tells you the overall depth of coverage at the variant site.
 
-        public SequenceVariantDescription(string description)
+        public VariantCallFormat(string description)
         {
             Description = description;
-            if (description == null)
+
+            // FIX: Split on actual tab characters instead of the literal sequence "\t"
+            // Old (buggy): description.Split(new[] { @"\t" }, StringSplitOptions.None);
+            string[] vcfFields = description.Split('\t');
+
+            if (vcfFields.Length < 10)
             {
+                ReferenceAlleleString = null;
+                AlternateAlleleString = null;
+                Info = null;
+                Format = null;
                 return;
             }
 
-            // Parse description into
-            string[] vcfFields = description.Split(new[] { @"\t" }, StringSplitOptions.None);
-            if (vcfFields.Length < 10) { return; }
             ReferenceAlleleString = vcfFields[3];
             AlternateAlleleString = vcfFields[4];
             Info = new SnpEffAnnotation(vcfFields[7]);
-            AlleleIndex = Info.Allele == null ? -1 : AlternateAlleleString.Split(',').ToList().IndexOf(Info.Allele) + 1; // reference is zero
+            AlleleIndex = Info.Allele == null
+                ? -1
+                : AlternateAlleleString.Split(',').ToList().IndexOf(Info.Allele) + 1;
             Format = vcfFields[8];
             string[] genotypes = Enumerable.Range(9, vcfFields.Length - 9).Select(i => vcfFields[i]).ToArray();
 
-            // loop through genotypes for this variant (e.g. tumor and normal)
             for (int individual = 0; individual < genotypes.Length; individual++)
             {
                 var genotypeFields = GenotypeDictionary(Format.Trim(), genotypes[individual].Trim());
 
-                // parse genotype
-                string[] gt = null;
-                if (genotypeFields.TryGetValue("GT", out string gtString)) { gt = gtString.Split('/'); }
-                if (gt == null) { continue; }
+                string[] gt = genotypeFields.TryGetValue("GT", out var gtString)
+                    ? gtString.Split(new[] { '/', '|' }, StringSplitOptions.RemoveEmptyEntries)
+                    : Array.Empty<string>();
 
-                // parse allele depth (might be null, technically, but shouldn't be in most use cases)
-                string[] ad = null;
-                if (genotypeFields.TryGetValue("AD", out string adString)) { ad = adString.Split(','); }
+                if (gt.IsNullOrEmpty() && !GTvaluesAreValid(gt))
+                {
+                    continue;
+                }
+
+                int[] adDepths;
+                string[] ad = genotypeFields.TryGetValue("AD", out var adString) && TryParseAD(adString, out adDepths)
+                    ? adString.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    : Array.Empty<string>();
 
                 Genotypes.Add(individual.ToString(), gt);
                 AlleleDepths.Add(individual.ToString(), ad);
@@ -162,45 +175,28 @@ namespace Omics.BioPolymer
         }
 
         public string Description { get; }
-        public string ReferenceAlleleString { get; }
-        public string AlternateAlleleString { get; }
+        public string? ReferenceAlleleString { get; }
+        public string? AlternateAlleleString { get; }
         public SnpEffAnnotation Info { get; }
         public string Format { get; }
-        public Dictionary<string, bool> Homozygous { get; } = new Dictionary<string, bool>();
-        public Dictionary<string, bool> Heterozygous { get; } = new Dictionary<string, bool>();
-        public Dictionary<string, string[]> Genotypes { get; } = new Dictionary<string, string[]>();
-        public Dictionary<string, string[]> AlleleDepths { get; } = new Dictionary<string, string[]>();
+        public Dictionary<string, bool> Homozygous { get; } = new();
+        public Dictionary<string, bool> Heterozygous { get; } = new();
+        public Dictionary<string, string[]> Genotypes { get; } = new();
+        public Dictionary<string, string[]> AlleleDepths { get; } = new();
         public int AlleleIndex { get; }
 
-        /// <summary>
-        /// Returns original string for the description
-        /// </summary>
-        /// <returns></returns>
-        public override string ToString()
-        {
-            return Description;
-        }
+        public override string ToString() => Description;
 
         public override bool Equals(object obj)
         {
-            SequenceVariantDescription s = obj as SequenceVariantDescription;
+            var s = obj as VariantCallFormat;
             return s != null && s.Description == Description;
         }
 
-        public override int GetHashCode()
-        {
-            return (Description ?? "").GetHashCode();
-        }
+        public override int GetHashCode() => (Description ?? "").GetHashCode();
 
-        /// <summary>
-        /// Gets a dictionary of the format (key) and fields (value) for a genotype
-        /// </summary>
-        /// <param name="format"></param>
-        /// <param name="genotype"></param>
-        /// <returns></returns>
         internal static Dictionary<string, string> GenotypeDictionary(string format, string genotype)
         {
-            Dictionary<string, string> genotypeDict = new Dictionary<string, string>();
             string[] formatSplit = format.Split(':');
             string[] genotypeSplit = genotype.Split(':');
             if (formatSplit.Length != genotypeSplit.Length)
@@ -208,6 +204,62 @@ namespace Omics.BioPolymer
                 throw new ArgumentException("Genotype format: " + format + " and genotype: " + genotype + " do not match -- they're not the same length");
             }
             return Enumerable.Range(0, formatSplit.Length).ToDictionary(x => formatSplit[x], x => genotypeSplit[x]);
+        }
+
+        public bool GTvaluesAreValid(string[] gt)
+        {
+            string[] validValues = { "0", "1", "2", "3", "." };
+            return ValidationHelpers.TryValidateValues(gt.ToList(), validValues, out _);
+        }
+
+        public bool ADvaluesAreValid(string[] ad)
+        {
+            if (ad is null || ad.Length == 0) return false;
+            foreach (var token in ad)
+            {
+                var s = token?.Trim();
+                if (string.IsNullOrEmpty(s)) return false;
+                if (s == ".") continue;
+                if (!int.TryParse(s, out var n) || n < 0) return false;
+            }
+            return true;
+        }
+
+        public bool TryParseAD(string adString, out int[] depths)
+        {
+            depths = Array.Empty<int>();
+            if (string.IsNullOrWhiteSpace(adString)) return false;
+
+            var parts = adString.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (!ADvaluesAreValid(parts)) return false;
+
+            depths = parts.Where(p => p != ".").Select(int.Parse).ToArray();
+            return true;
+        }
+
+        public static class ValidationHelpers
+        {
+            public static bool TryValidateValues(
+                IEnumerable<string?> values,
+                IEnumerable<string> allowedValues,
+                out string[] invalid,
+                bool ignoreCase = true,
+                bool trim = true)
+            {
+                var comparer = ignoreCase ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
+                var allowed = new HashSet<string>(allowedValues, comparer);
+
+                IEnumerable<string> Normalize(IEnumerable<string?> seq) =>
+                    seq.Where(v => v is not null)
+                       .Select(v => trim ? v!.Trim() : v!)
+                       .Where(v => v.Length > 0);
+
+                var normalized = Normalize(values);
+                invalid = normalized.Where(v => !allowed.Contains(v))
+                                    .Distinct(comparer)
+                                    .ToArray();
+                return invalid.Length == 0;
+            }
         }
     }
 }

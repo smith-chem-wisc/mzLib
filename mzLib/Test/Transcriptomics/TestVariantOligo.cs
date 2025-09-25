@@ -163,7 +163,7 @@ public class TestVariantOligo
                 new RNA("GUACUGUA", "protein2", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 5, "CU", "AU", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
                 new RNA("GUACUGUA", "protein3", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "C", "CCC", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
                 new RNA("GUACCCUGUA", "protein4", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "CCC", "C", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new RNA("GUACUGUA", "protein5", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "C", "CCC", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> {{ 5, new[] { mp }.ToList() } }) }),
+                new RNA("GUACUGUA", "protein5", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "C", "CCC", "", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> {{ 5, new[] { mp }.ToList() } }) }),
              };
         var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList();
         var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList(); // should be stable
@@ -212,7 +212,7 @@ public class TestVariantOligo
                 new RNA("GUACUGUA", "protein2", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 5, "CU", "AU", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
                 new RNA("GUACUGUA", "protein3", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "C", "CCC", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
                 new RNA("GUACCCUGUA", "protein4", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "CCC", "C", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new RNA("GUACUGUA", "protein5", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "C", "CCC", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> {{ 5, new[] { mp }.ToList() } }) }),
+                new RNA("GUACUGUA", "protein5", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "C", "CCC", "", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> {{ 5, new[] { mp }.ToList() } }) }),
              };
         var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList();
         var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList(); // should be stable

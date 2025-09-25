@@ -206,7 +206,7 @@ namespace UsefulProteomicsDatabases
                     {
                         writer.WriteStartElement("feature");
                         writer.WriteAttributeString("type", "sequence variant");
-                        writer.WriteAttributeString("description", hm.Description.ToString());
+                        writer.WriteAttributeString("description", hm.VariantCallFormatData.ToString());
                         writer.WriteStartElement("original");
                         writer.WriteString(hm.OriginalSequence);
                         writer.WriteEndElement(); // original
@@ -464,7 +464,7 @@ namespace UsefulProteomicsDatabases
                     {
                         writer.WriteStartElement("feature");
                         writer.WriteAttributeString("type", "sequence variant");
-                        writer.WriteAttributeString("description", hm.Description.ToString());
+                        writer.WriteAttributeString("description", hm.VariantCallFormatData.ToString());
                         writer.WriteStartElement("original");
                         writer.WriteString(hm.OriginalSequence);
                         writer.WriteEndElement(); // original

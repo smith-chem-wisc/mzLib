@@ -13,14 +13,17 @@ namespace Omics.BioPolymer
         /// <param name="oneBasedEndPosition"></param>
         /// <param name="originalSequence"></param>
         /// <param name="variantSequence"></param>
+        /// <param name="description"></param>
+        /// <param name="variantCallFormatDataString"></param>
         /// <param name="oneBasedModifications"></param>
-        public SequenceVariation(int oneBasedBeginPosition, int oneBasedEndPosition, string originalSequence, string variantSequence, string description, Dictionary<int, List<Modification>>? oneBasedModifications = null)
+        public SequenceVariation(int oneBasedBeginPosition, int oneBasedEndPosition, string originalSequence, string variantSequence, string description, string? variantCallFormatDataString = null, Dictionary<int, List<Modification>>? oneBasedModifications = null)
         {
             OneBasedBeginPosition = oneBasedBeginPosition;
             OneBasedEndPosition = oneBasedEndPosition;
             OriginalSequence = originalSequence ?? "";
             VariantSequence = variantSequence ?? "";
-            Description = new SequenceVariantDescription(description);
+            Description = description;
+            VariantCallFormatData = variantCallFormatDataString is null ? null : new VariantCallFormat(variantCallFormatDataString);
             OneBasedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
         }
 
@@ -33,8 +36,8 @@ namespace Omics.BioPolymer
         /// <param name="variantSequence"></param>
         /// <param name="description"></param>
         /// <param name="oneBasedModifications"></param>
-        public SequenceVariation(int oneBasedPosition, string originalSequence, string variantSequence, string description, Dictionary<int, List<Modification>>? oneBasedModifications = null)
-            : this(oneBasedPosition, originalSequence == null ? oneBasedPosition : oneBasedPosition + originalSequence.Length - 1, originalSequence, variantSequence, description, oneBasedModifications)
+        public SequenceVariation(int oneBasedPosition, string? originalSequence, string variantSequence, string description, string? variantCallFormatDataString = null, Dictionary<int, List<Modification>>? oneBasedModifications = null)
+            : this(oneBasedPosition, originalSequence == null ? oneBasedPosition : oneBasedPosition + originalSequence.Length - 1, originalSequence, variantSequence, description, variantCallFormatDataString, oneBasedModifications)
         { }
 
         /// <summary>
@@ -56,11 +59,12 @@ namespace Omics.BioPolymer
         /// Variant sequence information (required)
         /// </summary>
         public string VariantSequence { get; }
+        public string Description { get; }
 
         /// <summary>
-        /// Description of this variation (optional)
+        /// VCF details for this variation (optional)
         /// </summary>
-        public SequenceVariantDescription Description { get; }
+        public VariantCallFormat? VariantCallFormatData { get; }
 
         /// <summary>
         /// Modifications specifically for this variant
@@ -75,7 +79,7 @@ namespace Omics.BioPolymer
                 && OneBasedEndPosition == s.OneBasedEndPosition
                 && (s.OriginalSequence == null && OriginalSequence == null || OriginalSequence.Equals(s.OriginalSequence))
                 && (s.VariantSequence == null && VariantSequence == null || VariantSequence.Equals(s.VariantSequence))
-                && (s.Description == null && Description == null || Description.Equals(s.Description))
+                && ((VariantCallFormatData?.Equals(s.VariantCallFormatData)) ?? s.VariantCallFormatData == null)
                 && (s.OneBasedModifications == null && OneBasedModifications == null ||
                     s.OneBasedModifications.Keys.ToList().SequenceEqual(OneBasedModifications.Keys.ToList())
                     && s.OneBasedModifications.Values.SelectMany(m => m).ToList().SequenceEqual(OneBasedModifications.Values.SelectMany(m => m).ToList()));
@@ -87,7 +91,7 @@ namespace Omics.BioPolymer
                 ^ OneBasedEndPosition.GetHashCode()
                 ^ OriginalSequence.GetHashCode() // null handled in constructor
                 ^ VariantSequence.GetHashCode() // null handled in constructor
-                ^ Description.GetHashCode(); // always constructed in constructor
+                ^ (VariantCallFormatData?.GetHashCode() ?? 0); // may be null
         }
 
         /// <summary>

@@ -550,12 +550,12 @@ namespace Test.DatabaseTests
             Assert.AreEqual(originalProtein.TruncationProducts.First().OneBasedEndPosition, proteinReadFromXml[0].TruncationProducts.First().OneBasedEndPosition);
             Assert.AreEqual(originalProtein.TruncationProducts.First().Type, proteinReadFromXml[0].TruncationProducts.First().Type.Split('(')[0]);
 
-            Assert.AreEqual(originalProtein.SequenceVariations.First().Description, proteinReadFromXml[0].SequenceVariations.First().Description);
+            Assert.AreEqual(originalProtein.SequenceVariations.First().VariantCallFormatData, proteinReadFromXml[0].SequenceVariations.First().VariantCallFormatData);
             Assert.AreEqual(originalProtein.SequenceVariations.First().OneBasedBeginPosition, proteinReadFromXml[0].SequenceVariations.First().OneBasedBeginPosition);
             Assert.AreEqual(originalProtein.SequenceVariations.First().OneBasedEndPosition, proteinReadFromXml[0].SequenceVariations.First().OneBasedEndPosition);
             Assert.AreEqual(originalProtein.SequenceVariations.First().OriginalSequence, proteinReadFromXml[0].SequenceVariations.First().OriginalSequence);
             Assert.AreEqual(originalProtein.SequenceVariations.First().VariantSequence, proteinReadFromXml[0].SequenceVariations.First().VariantSequence);
-            Assert.AreEqual(originalProtein.SequenceVariations.Last().Description, proteinReadFromXml[0].SequenceVariations.Last().Description);
+            Assert.AreEqual(originalProtein.SequenceVariations.Last().VariantCallFormatData, proteinReadFromXml[0].SequenceVariations.Last().VariantCallFormatData);
             Assert.AreEqual(originalProtein.SequenceVariations.Last().OneBasedBeginPosition, proteinReadFromXml[0].SequenceVariations.Last().OneBasedBeginPosition);
             Assert.AreEqual(originalProtein.SequenceVariations.Last().OneBasedEndPosition, proteinReadFromXml[0].SequenceVariations.Last().OneBasedEndPosition);
             Assert.AreEqual(originalProtein.SequenceVariations.Last().OriginalSequence, proteinReadFromXml[0].SequenceVariations.Last().OriginalSequence);
@@ -580,7 +580,7 @@ namespace Test.DatabaseTests
             Assert.AreEqual(ok[0].SequenceVariations.Count(), ok2[0].SequenceVariations.Count());
             Assert.AreEqual(ok[0].SequenceVariations.First().OneBasedBeginPosition, ok2[0].SequenceVariations.First().OneBasedBeginPosition);
             Assert.AreEqual(ok[0].SequenceVariations.First().OneBasedEndPosition, ok2[0].SequenceVariations.First().OneBasedEndPosition);
-            Assert.AreEqual(ok[0].SequenceVariations.First().Description, ok2[0].SequenceVariations.First().Description);
+            Assert.AreEqual(ok[0].SequenceVariations.First().VariantCallFormatData, ok2[0].SequenceVariations.First().VariantCallFormatData);
             Assert.AreEqual(ok[0].SequenceVariations.First().OriginalSequence, ok2[0].SequenceVariations.First().OriginalSequence);
             Assert.AreEqual(ok[0].SequenceVariations.First().VariantSequence, ok2[0].SequenceVariations.First().VariantSequence);
         }
@@ -603,7 +603,7 @@ namespace Test.DatabaseTests
             Assert.AreEqual(ok[0].SequenceVariations.Count(), ok2[0].SequenceVariations.Count());
             Assert.AreEqual(ok[0].SequenceVariations.First().OneBasedBeginPosition, ok2[0].SequenceVariations.First().OneBasedBeginPosition);
             Assert.AreEqual(ok[0].SequenceVariations.First().OneBasedEndPosition, ok2[0].SequenceVariations.First().OneBasedEndPosition);
-            Assert.AreEqual(ok[0].SequenceVariations.First().Description, ok2[0].SequenceVariations.First().Description);
+            Assert.AreEqual(ok[0].SequenceVariations.First().VariantCallFormatData, ok2[0].SequenceVariations.First().VariantCallFormatData);
             Assert.AreEqual(ok[0].SequenceVariations.First().OriginalSequence, ok2[0].SequenceVariations.First().OriginalSequence);
             Assert.AreEqual(ok[0].SequenceVariations.First().VariantSequence, ok2[0].SequenceVariations.First().VariantSequence);
         }
