@@ -47,21 +47,22 @@ namespace Test
 
                 var vcf = new VariantCallFormat(originalLine);
 
-                Assert.That(vcf.Description, Is.EqualTo(originalLine), $"Row {rowIndex + 1}: Description mismatch.");
-                Assert.That(vcf.ReferenceAlleleString, Is.EqualTo(rawFields[3]), $"Row {rowIndex + 1}: REF mismatch.");
-                Assert.That(vcf.AlternateAlleleString, Is.EqualTo(rawFields[4]), $"Row {rowIndex + 1}: ALT mismatch.");
-                Assert.That(vcf.Format, Is.EqualTo(rawFields[8]), $"Row {rowIndex + 1}: FORMAT mismatch.");
+                Assert.That(vcf.Description, Is.EqualTo(originalLine));
+                Assert.That(vcf.ReferenceAlleleString, Is.EqualTo(rawFields[3]));
+                Assert.That(vcf.AlternateAlleleString, Is.EqualTo(rawFields[4]));
+                Assert.That(vcf.Format, Is.EqualTo(rawFields[8]));
 
                 if (rawFields[7] == ".")
                 {
-                    Assert.That(vcf.Info.Annotation, Is.EqualTo(rawFields[7]), $"Row {rowIndex + 1}: INFO mismatch.");
+                    Assert.That(vcf.Info.Annotation, Is.EqualTo(rawFields[7]));
                 }
 
                 var sampleFields = rawFields.Skip(9).ToArray();
-                Assert.That(vcf.Genotypes.Count, Is.EqualTo(sampleFields.Length), $"Row {rowIndex + 1}: genotype count mismatch.");
-                Assert.That(vcf.AlleleDepths.Count, Is.EqualTo(sampleFields.Length), $"Row {rowIndex + 1}: AD count mismatch.");
-                Assert.That(vcf.Homozygous.Count, Is.EqualTo(sampleFields.Length), $"Row {rowIndex + 1}: Homozygous count mismatch.");
-                Assert.That(vcf.Heterozygous.Count, Is.EqualTo(sampleFields.Length), $"Row {rowIndex + 1}: Heterozygous count mismatch.");
+                Assert.That(vcf.Genotypes.Count, Is.EqualTo(sampleFields.Length));
+                Assert.That(vcf.AlleleDepths.Count, Is.EqualTo(sampleFields.Length));
+                Assert.That(vcf.Homozygous.Count, Is.EqualTo(sampleFields.Length));
+                Assert.That(vcf.Heterozygous.Count, Is.EqualTo(sampleFields.Length));
+                Assert.That(vcf.ZygosityBySample.Count, Is.EqualTo(sampleFields.Length));
 
                 for (int sampleIndex = 0; sampleIndex < sampleFields.Length; sampleIndex++)
                 {
@@ -69,56 +70,50 @@ namespace Test
                     string key = sampleIndex.ToString();
 
                     string[] parts = sample.Split(':');
-                    Assert.That(parts.Length, Is.EqualTo(vcf.Format.Split(':').Length),
-                        $"Row {rowIndex + 1}, Sample {sampleIndex + 1}: FORMAT parts mismatch.");
+                    Assert.That(parts.Length, Is.EqualTo(vcf.Format.Split(':').Length));
 
                     string gtPart = parts[0];
                     string adPart = parts.Length > 1 ? parts[1] : null;
 
+                    // Expected GT tokens
                     string[] expectedGtTokens = gtPart.Split(new[] { '/', '|' }, StringSplitOptions.RemoveEmptyEntries);
-
                     if (gtPart.Contains('.') && expectedGtTokens.Length == 1 &&
                         (gtPart == "./." || gtPart == ".|." || gtPart == ".|1" || gtPart == "0|." || gtPart == "0/."))
                     {
                         expectedGtTokens = new[] { ".", "." };
                     }
 
-                    Assert.That(vcf.Genotypes.ContainsKey(key), $"Row {rowIndex + 1}, Sample {sampleIndex + 1}: genotype key missing.");
+                    Assert.That(vcf.Genotypes.ContainsKey(key));
                     var parsedGt = vcf.Genotypes[key];
-                    Assert.That(parsedGt, Is.EqualTo(expectedGtTokens),
-                        $"Row {rowIndex + 1}, Sample {sampleIndex + 1}: GT mismatch.");
+                    Assert.That(parsedGt, Is.EqualTo(expectedGtTokens));
 
-                    string[] expectedAdTokens;
-                    if (string.IsNullOrWhiteSpace(adPart))
-                    {
-                        expectedAdTokens = Array.Empty<string>();
-                    }
-                    else if (adPart == ".")
-                    {
-                        expectedAdTokens = new[] { "." };
-                    }
-                    else
-                    {
-                        expectedAdTokens = adPart.Split(',');
-                    }
+                    // Expected AD tokens
+                    string[] expectedAdTokens =
+                        string.IsNullOrWhiteSpace(adPart) ? Array.Empty<string>() :
+                        adPart == "." ? new[] { "." } :
+                        adPart.Split(',');
 
-                    Assert.That(vcf.AlleleDepths.ContainsKey(key), $"Row {rowIndex + 1}, Sample {sampleIndex + 1}: AD key missing.");
+                    Assert.That(vcf.AlleleDepths.ContainsKey(key));
                     var parsedAd = vcf.AlleleDepths[key] ?? Array.Empty<string>();
-
                     if (!(parsedAd.Length == 0 && expectedAdTokens.Length == 1 && expectedAdTokens[0] == "."))
                     {
-                        Assert.That(parsedAd, Is.EqualTo(expectedAdTokens),
-                            $"Row {rowIndex + 1}, Sample {sampleIndex + 1}: AD mismatch.");
+                        Assert.That(parsedAd, Is.EqualTo(expectedAdTokens));
                     }
 
-                    int distinctAlleles = parsedGt.Distinct().Count();
-                    bool expectedHom = distinctAlleles == 1;
-                    bool expectedHet = distinctAlleles > 1;
+                    // Expected zygosity using ONLY non-missing alleles (must mirror implementation)
+                    var calledAlleles = parsedGt.Where(a => a != ".").ToArray();
+                    bool expectedHom = calledAlleles.Length > 0 && calledAlleles.Distinct().Count() == 1;
+                    bool expectedHet = calledAlleles.Distinct().Count() > 1;
+                    VariantCallFormat.Zygosity expectedZ =
+                        calledAlleles.Length == 0
+                            ? VariantCallFormat.Zygosity.Unknown
+                            : expectedHet
+                                ? VariantCallFormat.Zygosity.Heterozygous
+                                : VariantCallFormat.Zygosity.Homozygous;
 
-                    Assert.That(vcf.Homozygous[key], Is.EqualTo(expectedHom),
-                        $"Row {rowIndex + 1}, Sample {sampleIndex + 1}: Homozygous flag mismatch.");
-                    Assert.That(vcf.Heterozygous[key], Is.EqualTo(expectedHet),
-                        $"Row {rowIndex + 1}, Sample {sampleIndex + 1}: Heterozygous flag mismatch.");
+                    Assert.That(vcf.Homozygous[key], Is.EqualTo(expectedHom));
+                    Assert.That(vcf.Heterozygous[key], Is.EqualTo(expectedHet));
+                    Assert.That(vcf.ZygosityBySample[key], Is.EqualTo(expectedZ));
                 }
             }
         }
