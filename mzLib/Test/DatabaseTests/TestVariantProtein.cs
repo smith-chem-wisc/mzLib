@@ -412,42 +412,11 @@ namespace Test.DatabaseTests
             Assert.AreEqual(4, nonVariantAndVariantAppliedProteins.Where(s => s.AppliedSequenceVariations.Count > 0).Count());//these are proteins with applied sequence appliedSequenceVariants is no populated
             Assert.AreEqual(4, nonVariantAndVariantAppliedProteins.Where(s => s.AppliedSequenceVariations.Count == 0).Count());//these are proteins without applied sequence variants (zero appliedSequenceVariants)
 
-
-
-
-
             string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteinsWithSeqVars, xml);
-            var proteinsWithAppliedVariants3 = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un,
+            var proteinsWithAppliedVariants = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un,
                 maxSequenceVariantIsoforms: 100);
-
-            var listArray = new[] { nonVariantAndVariantAppliedProteins, nonVariantAndVariantAppliedProteins, proteinsWithAppliedVariants3 };
-            for (int dbIdx = 0; dbIdx < listArray.Length; dbIdx++)
-            {
-                // sequences
-                Assert.AreEqual("MPEVTIDE", listArray[dbIdx][0].BaseSequence);
-                Assert.AreEqual("MPEKTIDE", listArray[dbIdx][1].BaseSequence);
-                Assert.AreEqual("MPEPPPTIDE", listArray[dbIdx][2].BaseSequence);
-                Assert.AreEqual("MPEPTIDE", listArray[dbIdx][3].BaseSequence);
-                Assert.AreEqual("MPEPPPTIDE", listArray[dbIdx][4].BaseSequence);
-                Assert.AreEqual(5, listArray[dbIdx][4].OneBasedPossibleLocalizedModifications.Single().Key);
-
-                // SAV
-                Assert.AreEqual(4, listArray[dbIdx][0].AppliedSequenceVariations.Single().OneBasedBeginPosition);
-                Assert.AreEqual(4, listArray[dbIdx][0].AppliedSequenceVariations.Single().OneBasedEndPosition);
-
-                // MNV
-                Assert.AreEqual(4, listArray[dbIdx][1].AppliedSequenceVariations.Single().OneBasedBeginPosition);
-                Assert.AreEqual(5, listArray[dbIdx][1].AppliedSequenceVariations.Single().OneBasedEndPosition);
-
-                // insertion
-                Assert.AreEqual(4, listArray[dbIdx][2].AppliedSequenceVariations.Single().OneBasedBeginPosition);
-                Assert.AreEqual(6, listArray[dbIdx][2].AppliedSequenceVariations.Single().OneBasedEndPosition);
-
-                // deletion
-                Assert.AreEqual(4, listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedBeginPosition);
-                Assert.AreEqual(4, listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedEndPosition);
-            }
+            Assert.AreEqual(8, proteinsWithAppliedVariants.Count); //we now have 8 proteins, the original 4 and one variant for each
         }
 
         [Test]

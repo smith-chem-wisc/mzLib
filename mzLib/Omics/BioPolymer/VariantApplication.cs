@@ -29,7 +29,7 @@ namespace Omics.BioPolymer
                 // if no combinatorics allowed, just return the base protein
                 return new List<TBioPolymerType> { protein };
             }
-            return ApplyAllVariantCombinations(protein, protein.SequenceVariations, maxSequenceVariantsPerIsoform, maxSequenceVariantIsoforms).ToList();
+            return ApplyAllVariantCombinations(protein, protein.SequenceVariations, maxSequenceVariantsPerIsoform, maxSequenceVariantIsoforms, minAlleleDepth).ToList();
         }
 
         /// <summary>
@@ -443,7 +443,8 @@ namespace Omics.BioPolymer
             TBioPolymerType baseBioPolymer,
             List<SequenceVariation> variations,
             int maxSequenceVariantsPerIsoform,
-            int maxSequenceVariantIsoforms)
+            int maxSequenceVariantIsoforms,
+            int minAlleleDepth)
             where TBioPolymerType : IHasSequenceVariants
         {
             int count = 0;
@@ -453,6 +454,16 @@ namespace Omics.BioPolymer
             count++;
             //if (count >= maxSequenceVariantsPerIsoform)
             //    yield break;
+
+            //Expand sequence variants by genotype
+            List<SequenceVariation> sequenceVariations = new();
+            foreach (var v in variations)
+            {
+                sequenceVariations.AddRange(v.SplitPerGenotype(minAlleleDepth)); // add the original variant
+            }
+            // combine equivalent variants (same position and sequence change, different genotype)
+            if(sequenceVariations.Count > 1)
+                sequenceVariations = SequenceVariation.CombineEquivalent(sequenceVariations);
 
             int n = variations.Count;
             // generate combinations of isoforms but limit the number of variants per isoform
@@ -482,17 +493,45 @@ namespace Omics.BioPolymer
 
         /// <summary>
         /// Generates all possible combinations of the specified size from the input list.
+        /// Robust to:
+        /// - null / empty variation list (yields nothing)
+        /// - size <= 0 (yields nothing)
+        /// - size > count (yields nothing)
+        /// Fast paths:
+        /// - size == 1 → yield each variation individually
+        /// - size == count → yield the whole set once
         /// </summary>
-        /// <param name="variations">List of SequenceVariation objects to combine. Assumed not null or empty.</param>
+        /// <param name="variations">List of SequenceVariation objects to combine.</param>
         /// <param name="size">The size of each combination.</param>
-        /// <returns>
-        /// An IEnumerable of IList&lt;SequenceVariation&gt; representing each combination.
-        /// </returns>
         private static IEnumerable<IList<SequenceVariation>> GetCombinations(List<SequenceVariation> variations, int size)
         {
+            // Guard conditions
+            if (variations == null || variations.Count == 0 || size <= 0 || size > variations.Count)
+                yield break;
+
             int n = variations.Count;
+
+            // Single element combinations → just yield each item
+            if (size == 1)
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    yield return new List<SequenceVariation>(1) { variations[i] };
+                }
+                yield break;
+            }
+
+            // Whole-set combination
+            if (size == n)
+            {
+                yield return new List<SequenceVariation>(variations);
+                yield break;
+            }
+
+            // Standard iterative k-combination generator (lexicographic indices)
             var indices = new int[size];
-            for (int i = 0; i < size; i++) indices[i] = i;
+            for (int i = 0; i < size; i++)
+                indices[i] = i;
 
             while (true)
             {
@@ -504,9 +543,12 @@ namespace Omics.BioPolymer
                 int pos = size - 1;
                 while (pos >= 0 && indices[pos] == n - size + pos)
                     pos--;
-                if (pos < 0) break;
-                indices[pos]++;
-                for (int i = pos + 1; i < size; i++)
+                if (pos < 0)
+                    break;
+
+                indices[pos++]++;
+
+                for (int i = pos; i < size; i++)
                     indices[i] = indices[i - 1] + 1;
             }
         }
