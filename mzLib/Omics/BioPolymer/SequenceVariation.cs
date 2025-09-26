@@ -567,22 +567,29 @@ namespace Omics.BioPolymer
             }
             else
             {
-                // If position lies inside the replaced region, it must map inside the new variant span
-                if (oneBasedPosition >= OneBasedBeginPosition && oneBasedPosition > (OneBasedBeginPosition + VariantSequence.Length - 1))
+                // NEW LOGIC:
+                // Only enforce the "beyond new variant span" restriction for coordinates that were actually
+                // inside the ORIGINAL replaced span (i.e. <= original end). This allows adding modifications
+                // immediately after an insertion expansion, which was previously (incorrectly) rejected.
+                // Original replaced span = [OneBasedBeginPosition, OneBasedEndPosition]
+                // New variant span        = [OneBasedBeginPosition, OneBasedBeginPosition + VariantSequence.Length - 1]
+                int newSpanEnd = OneBasedBeginPosition + VariantSequence.Length - 1;
+
+                if (oneBasedPosition >= OneBasedBeginPosition
+                    && oneBasedPosition <= OneBasedEndPosition   // ensure it was in the original replaced region
+                    && oneBasedPosition > newSpanEnd)            // but lies past the substituted span
                 {
                     error = "Position lies beyond the new variant span inside the edited region.";
                     return false;
                 }
             }
 
-            // Passed validation; add (deduplicating)
             if (!OneBasedModifications.TryGetValue(oneBasedPosition, out var list))
             {
                 list = new List<Modification>();
                 OneBasedModifications[oneBasedPosition] = list;
             }
 
-            // Avoid duplicates (Modification implements equality)
             if (!list.Contains(modification))
             {
                 list.Add(modification);
@@ -678,7 +685,12 @@ namespace Omics.BioPolymer
                     yield return pos;
                     continue;
                 }
-                if (pos >= OneBasedBeginPosition && pos > newSpanEnd)
+
+                // Updated to match TryAddModification logic: only invalidate when the position was inside
+                // the ORIGINAL replaced span but past the substituted (shorter) variant span.
+                if (pos >= OneBasedBeginPosition
+                    && pos <= OneBasedEndPosition
+                    && pos > newSpanEnd)
                 {
                     yield return pos;
                 }
