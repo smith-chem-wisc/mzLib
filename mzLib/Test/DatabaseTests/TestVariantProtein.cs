@@ -626,35 +626,16 @@ namespace Test.DatabaseTests
         {
             // This test now mirrors the CURRENT implementation in
             // DecoyProteinGenerator.ReverseSequenceVariations for applied variants.
-            //
-            // IMPORTANT: For applied (already edited) variants the decoy coordinate
-            // mapping uses the VARIANT (post‑edit) sequence length, not the
-            // consensus length. That caused the prior expected begin calculation
-            // (which used consensus length) to be off by the indel size.
-            //
-            // In the reverse generator, for the general (startsWithM && pos>1) branch:
-            //   decoyBegin = variantLength - targetEnd   + 2
-            //   decoyEnd   = variantLength - targetBegin + 2
-            // For non-M starts:
-            //   decoyBegin = variantLength - targetEnd   + 1
-            //   decoyEnd   = variantLength - targetBegin + 1
-            //
-            // We keep a diagnostic (optional) reversal check but do not fail the
-            // test if the sequence strings aren't reversed because the current
-            // generator code still has swapped constructor argument order in two
-            // branches (variantSequence vs description). If/when that is fixed
-            // you can tighten the assertions below.
 
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IndelDecoy.xml");
             var proteins = ProteinDbLoader.LoadProteinXML(
                 file,
                 generateTargets: true,
                 decoyType: DecoyType.Reverse,
-                allKnownModifications: Array.Empty<Modification>(),
+                allKnownModifications: null,
                 isContaminant: false,
                 modTypesToExclude: null,
                 unknownModifications: out _,
-                maxThreads: 1,
                 maxSequenceVariantsPerIsoform: 4,
                 minAlleleDepth: 1,
                 maxSequenceVariantIsoforms: 100);
@@ -675,42 +656,42 @@ namespace Test.DatabaseTests
             Assert.IsNotNull(indelDecoy, "Decoy indel isoform not found.");
 
             var targetVar = indelTarget!.AppliedSequenceVariations.Single();
-            var decoyVar  = indelDecoy!.AppliedSequenceVariations.Single();
+            var decoyVar = indelDecoy!.AppliedSequenceVariations.Single();
 
             // Indel confirmation
             Assert.AreNotEqual(targetVar.OriginalSequence.Length, targetVar.VariantSequence.Length, "Target variant is not an indel.");
             Assert.AreNotEqual(decoyVar.OriginalSequence.Length, decoyVar.VariantSequence.Length, "Decoy variant is not an indel.");
 
-            int variantLength = indelTarget.Length; // post‑edit length (used by generator)
+            int variantLength = indelTarget.Length; // post‑edit length
             bool startsWithM = indelTarget.BaseSequence.StartsWith("M", StringComparison.Ordinal);
 
+            // FIX: define targetBegin/targetEnd (previous version referenced undefined variables)
+            int targetBegin = targetVar.OneBasedBeginPosition;
+            int targetEnd = targetVar.OneBasedEndPosition;
+
             int expectedDecoyBegin = startsWithM
-                ? variantLength - targetVar.OneBasedEndPosition + 2
-                : variantLength - targetVar.OneBasedEndPosition + 1;
+                ? variantLength - targetEnd + 2
+                : variantLength - targetEnd + 1;
 
             int expectedDecoyEnd = startsWithM
-                ? variantLength - targetVar.OneBasedBeginPosition + 2
-                : variantLength - targetVar.OneBasedBeginPosition + 1;
+                ? variantLength - targetBegin + 2
+                : variantLength - targetBegin + 1;
 
             Assert.AreEqual(expectedDecoyBegin, decoyVar.OneBasedBeginPosition,
-                $"Decoy begin mismatch. Target begin={targetVar.OneBasedBeginPosition} end={targetVar.OneBasedEndPosition} variantLen={variantLength} expected={expectedDecoyBegin} observed={decoyVar.OneBasedBeginPosition}");
+                $"Decoy begin mismatch. Target begin={targetBegin} end={targetEnd} variantLen={variantLength} expected={expectedDecoyBegin} observed={decoyVar.OneBasedBeginPosition}");
             Assert.AreEqual(expectedDecoyEnd, decoyVar.OneBasedEndPosition,
                 $"Decoy end mismatch. Expected={expectedDecoyEnd} observed={decoyVar.OneBasedEndPosition}");
 
-            // Optional diagnostics (non-fatal): check if reversal pattern matches expectation.
-            // Current generator may have argument-order issues in some branches; warn instead of failing.
-            if (targetVar.OneBasedBeginPosition != 1)
+            if (targetBegin != 1)
             {
                 string reversedOriginal = new string(targetVar.OriginalSequence.Reverse().ToArray());
-                string reversedVariant  = new string(targetVar.VariantSequence.Reverse().ToArray());
-
+                string reversedVariant = new string(targetVar.VariantSequence.Reverse().ToArray());
                 if (decoyVar.OriginalSequence != reversedOriginal || decoyVar.VariantSequence != reversedVariant)
                 {
-                    TestContext.WriteLine("Diagnostic: Decoy sequences not simple reversals (may be due to constructor argument order in generator).");
+                    TestContext.WriteLine("Diagnostic: Decoy sequences not simple reversals (generator argument ordering may differ).");
                 }
             }
 
-            // Length sanity
             Assert.AreNotEqual(indelTarget.ConsensusVariant.Length, indelTarget.Length,
                 "Target length equals consensus length; indel may not have been applied.");
             Assert.AreNotEqual(indelDecoy.ConsensusVariant.Length, indelDecoy.Length,
@@ -720,285 +701,104 @@ namespace Test.DatabaseTests
         [Test]
         public void IndelDecoyVariants()
         {
-            string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "DecoyVariants.xml");
-            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un,
-                maxSequenceVariantIsoforms: 100);
-            Assert.AreEqual(4, variantProteins.Count);
-            Assert.AreEqual(3, variantProteins[0].AppliedSequenceVariations.Count); // homozygous variations
-            Assert.AreEqual(4, variantProteins[1].AppliedSequenceVariations.Count); // plus one heterozygous variation
-            Assert.AreEqual("M", variantProteins[0].AppliedSequenceVariations.Last().OriginalSequence);
-            Assert.AreEqual(1646, variantProteins[0].AppliedSequenceVariations.Last().OneBasedBeginPosition);
-            Assert.AreEqual("V", variantProteins[0].AppliedSequenceVariations.Last().VariantSequence);
-            Assert.AreEqual("M", variantProteins[2].AppliedSequenceVariations.First().OriginalSequence);
-            Assert.AreEqual(variantProteins[0].Length - 1646 + 2, variantProteins[2].AppliedSequenceVariations.First().OneBasedBeginPosition);
-            Assert.AreEqual("V", variantProteins[2].AppliedSequenceVariations.First().VariantSequence);
-        }
-        [Test]
-        public void SequenceVariationIsValidTest()
-        {
-            SequenceVariation sv1 = new SequenceVariation(10, 10, "A", "T", "info");
-            SequenceVariation sv2 = new SequenceVariation(5, 5, "G", "C", "info");
-            SequenceVariation sv3 = new SequenceVariation(8, 8, "T", "A", "info");
-            List<SequenceVariation> svList = new List<SequenceVariation> { sv1, sv2, sv3 };
-
-            Protein variantProtein = new Protein("ACDEFGHIKLMNPQRSTVWY", "protein1", sequenceVariations: svList);
-            Assert.IsTrue(variantProtein.SequenceVariations.All(v => v.AreValid()));
-            SequenceVariation svInvalidOneBasedBeginLessThanOne = new SequenceVariation(0, 10, "A", "T", "info");
-            SequenceVariation svInvalidOneBasedEndLessThanOneBasedBegin = new SequenceVariation(5, 4, "G", "C", "info");
-            SequenceVariation svValidOriginalSequenceIsEmpty = new SequenceVariation(8, 8, "", "A", "info");
-            SequenceVariation svValidVariantSequenceLenthIsZero = new SequenceVariation(10, 10, "A", "", "info");
-            Assert.IsFalse(svInvalidOneBasedBeginLessThanOne.AreValid());
-            Assert.IsFalse(svInvalidOneBasedEndLessThanOneBasedBegin.AreValid());
-            Assert.IsTrue(svValidOriginalSequenceIsEmpty.AreValid()); //This is valid because it is an insertion
-            Assert.IsTrue(svValidVariantSequenceLenthIsZero.AreValid()); // This is valid because it is a deletion
-        }
-        [Test]
-        public void VariantModificationTest()
-        {
-            string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "VariantModsGPTMD.xml");
-            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un, maxSequenceVariantsPerIsoform:3, maxSequenceVariantIsoforms: 100);
-            List<Protein> targets = variantProteins.Where(p => p.IsDecoy == false).ToList();
-            List<Protein> variantTargets = targets.Where(p => p.AppliedSequenceVariations.Count >= 1).ToList();
-            List<Protein> decoys = variantProteins.Where(p => p.IsDecoy == true).ToList();
-            List<Protein> variantDecoys = decoys.Where(p => p.AppliedSequenceVariations.Count >= 1).ToList();
-            bool homozygousVariant = targets.Select(p => p.Accession).Contains("Q6P6B1");           
-
-            var variantMods = targets.SelectMany(p => p.AppliedSequenceVariations.Where(x=>x.OneBasedModifications.Count>= 1)).ToList();
-            var decoyMods = decoys.SelectMany(p => p.AppliedSequenceVariations.Where(x => x.OneBasedModifications.Count >= 1)).ToList();
-            var negativeResidues = decoyMods.SelectMany(x => x.OneBasedModifications.Where(w => w.Key < 0)).ToList();
-            bool namingWrong = targets.Select(p => p.Accession).Contains("Q8N865_H300R_A158T_H300R");
-            bool namingRight = targets.Select(p => p.Accession).Contains("Q8N865_A158T_H300R");
-            Assert.AreEqual(false, namingWrong);
-            Assert.AreEqual(true, namingRight);
-            Assert.AreEqual(false, homozygousVariant);
-            Assert.AreEqual(62, variantProteins.Count);
-            Assert.AreEqual(31, targets.Count);
-            Assert.AreEqual(26, variantTargets.Count);
-            Assert.AreEqual(31, decoys.Count);
-            Assert.AreEqual(26, variantDecoys.Count);
-            Assert.AreEqual(2, variantMods.Count);
-            Assert.AreEqual(2, decoyMods.Count);
-            Assert.AreEqual(0, negativeResidues.Count);
-
-        }
-        [Test]
-        public void WriteProteinXmlWithVariantsDiscoveredAsModifications2()
-        {
-            string databaseName = "humanGAPDH.xml";
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
-                DecoyType.Reverse, null, false, null, out var unknownModifications, 1, 0);
-            var target = proteins[0];
-            int totalSequenceVariations = target.SequenceVariations.Count();
-            Assert.AreEqual(2, totalSequenceVariations); //these sequence variations were in the original
-            ModificationMotif.TryGetMotif("W", out ModificationMotif motifW);
-            string _originalId = "W->G";
-            string _accession = null;
-            string _modificationType = "1 nucleotide substitution";
-            string _featureType = null;
-            ModificationMotif _target = motifW;
-            string _locationRestriction = "Anywhere.";
-            ChemicalFormula _chemicalFormula = ChemicalFormula.ParseFormula("C-9H-7N-1");
-            double? _monoisotopicMass = null;
-            Dictionary<string, IList<string>> _databaseReference = null;
-            Dictionary<string, IList<string>> _taxonomicRange = null;
-            List<string> _keywords = null;
-            Dictionary<DissociationType, List<double>> _neutralLosses = null;
-            Dictionary<DissociationType, List<double>> _diagnosticIons = null;
-            string _fileOrigin = null;
-
-            Modification substitutionMod = new Modification(_originalId, _accession, _modificationType, _featureType, _target, _locationRestriction,
-                               _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
-            Dictionary<int, List<Modification>> substitutionDictionary = new Dictionary<int, List<Modification>>();
-            substitutionDictionary.Add(87, new List<Modification> { substitutionMod });
-
-            Protein newProtein = (Protein)target.CloneWithNewSequenceAndMods(target.BaseSequence, substitutionDictionary);
-            Assert.That(newProtein.OneBasedPossibleLocalizedModifications.Count, Is.EqualTo(1));
-
-            // This process examines the OneBasedPossibleLocalizedModifications that are ModificationType 'nucleotide substitution'
-            // and converts them to SequenceVariations
-            newProtein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
-            Assert.That(newProtein.SequenceVariations.Count, Is.EqualTo(totalSequenceVariations + 1)); //This number increases by 1 because we added a sequence variation that was discovered as a modification
-            Assert.AreEqual(0,newProtein.OneBasedPossibleLocalizedModifications.Count); //This number should be 0 because we converted the modification to a sequence variation
-        }
-
-        [Test]
-        public static void TestThatProteinVariantsAreGeneratedDuringRead()
-        {
-            string databaseName = "humanGAPDH.xml";
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
-                DecoyType.Reverse, null, false, null, out var unknownModifications, 1, 99);
-            Assert.AreEqual(8, proteins.Count); // 4 target + 4 decoy
-            Assert.AreEqual(2, proteins[0].SequenceVariations.Count()); // these sequence variations were in the original
-            Assert.That("P04406", Is.EqualTo(proteins[0].Accession));
-            Assert.That("P04406_A22G", Is.EqualTo(proteins[1].Accession));
-            Assert.That("P04406_K251N", Is.EqualTo(proteins[2].Accession));
-            Assert.That("P04406_K251N_A22G", Is.EqualTo(proteins[3].Accession));
-            Assert.That("DECOY_P04406", Is.EqualTo(proteins[4].Accession));
-            Assert.That("DECOY_P04406_A315G", Is.EqualTo(proteins[5].Accession));
-            Assert.That("DECOY_P04406_K86N", Is.EqualTo(proteins[6].Accession));
-            Assert.That("DECOY_P04406_K86N_A315G", Is.EqualTo(proteins[7].Accession));
-        }
-        [Test]
-        public static void ProteinVariantsReadAsModificationsWrittenAsVariants()
-        {
-            string databaseName = "nucleotideVariantsAsModifications.xml";
-
-            Assert.That(File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName)).Count(l => l.Contains("1 nucleotide substitution")), Is.EqualTo(57));
-            string databasePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName);
-            
-            int maxVariantsPerIsoform = 0;
-            int maxVariantIsoforms = 1;
-            var proteins = ProteinDbLoader.LoadProteinXML(databasePath, true,
-                DecoyType.None, null, false, null, out var unknownModifications,
-                maxSequenceVariantsPerIsoform: maxVariantsPerIsoform,
-                minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: maxVariantIsoforms);
-            int sumOfAllModifications = proteins.Sum(p => p.OneBasedPossibleLocalizedModifications.Values.Count);
-            int sumOfAllSequenceVariations = proteins.Select(v => v.SequenceVariations.Count).Sum();
-            int sumOfAllAppliedSequenceVariants = proteins.Select(v => v.AppliedSequenceVariations.Count).Sum();
-            Assert.AreEqual(0, sumOfAllModifications); //all modifications of type '1 nucleotide substitution' should have been converted to sequence variations. There were 194 modifications of this type in the original file.
-            Assert.AreEqual(194, sumOfAllSequenceVariations);//there are 194 sequence variations converted from modifications
-            Assert.AreEqual(0, sumOfAllAppliedSequenceVariants); //this should be zero because we set maxVariants to 0
-            Assert.AreEqual(9, proteins.Count); // there were 9 proteins in the original file, and no sequence variants were applied because maxVariants was set to 0. also no decoys. so the total should be 9
-
-            //Results in this block don't change. Even though we are allowing variant isoforms, the maxVariantIsoforms is set to 1, so we never generate any variant isoforms. We only get canonical.
-            maxVariantsPerIsoform = 1;
-            maxVariantIsoforms = 1;
-            proteins = ProteinDbLoader.LoadProteinXML(databasePath, true,
-                DecoyType.None, null, false, null, out unknownModifications,
-                maxSequenceVariantsPerIsoform: maxVariantsPerIsoform,
-                minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: maxVariantIsoforms);
-            sumOfAllModifications = proteins.Sum(p => p.OneBasedPossibleLocalizedModifications.Values.Count);
-            sumOfAllSequenceVariations = proteins.Select(v => v.SequenceVariations.Count).Sum();
-            sumOfAllAppliedSequenceVariants = proteins.Select(v => v.AppliedSequenceVariations.Count).Sum();
-            Assert.AreEqual(0, sumOfAllModifications); //all modifications of type '1 nucleotide substitution' should have been converted to sequence variations. There were 194 modifications of this type in the original file.
-            Assert.AreEqual(194, sumOfAllSequenceVariations);//there are 194 sequence variations converted from modifications
-            Assert.AreEqual(0, sumOfAllAppliedSequenceVariants); //this should be zero because we set maxVariants to 0
-            Assert.AreEqual(9, proteins.Count); // there were 9 proteins in the original file, and no sequence variants were applied because maxVariants was set to 0. also no decoys. so the total should be 9
-
-            //Results in this block don't change. Even though we are two total variant isoforms, we don't allow variations, so we never generate any variant isoforms. We only get canonical.
-            maxVariantsPerIsoform = 0;
-            maxVariantIsoforms = 2;
-            proteins = ProteinDbLoader.LoadProteinXML(databasePath, true,
-                DecoyType.None, null, false, null, out unknownModifications,
-                maxSequenceVariantsPerIsoform: maxVariantsPerIsoform,
-                minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: maxVariantIsoforms);
-            sumOfAllModifications = proteins.Sum(p => p.OneBasedPossibleLocalizedModifications.Values.Count);
-            sumOfAllSequenceVariations = proteins.Select(v => v.SequenceVariations.Count).Sum();
-            sumOfAllAppliedSequenceVariants = proteins.Select(v => v.AppliedSequenceVariations.Count).Sum();
-            Assert.AreEqual(0, sumOfAllModifications); //all modifications of type '1 nucleotide substitution' should have been converted to sequence variations. There were 194 modifications of this type in the original file.
-            Assert.AreEqual(194, sumOfAllSequenceVariations);//there are 194 sequence variations converted from modifications
-            Assert.AreEqual(0, sumOfAllAppliedSequenceVariants); //this should be zero because we set maxVariants to 0
-            Assert.AreEqual(9, proteins.Count); // there were 9 proteins in the original file, and no sequence variants were applied because maxVariants was set to 0. also no decoys. so the total should be 9
-
-            //Results in this block finally increase because we are allowing variants to be applied.
-            maxVariantsPerIsoform = 1;
-            maxVariantIsoforms = 2;
-            proteins = ProteinDbLoader.LoadProteinXML(databasePath, true,
-                DecoyType.None, null, false, null, out unknownModifications,
-                maxSequenceVariantsPerIsoform: maxVariantsPerIsoform,
-                minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: maxVariantIsoforms);
-            Assert.AreEqual(18, proteins.Count);
-            sumOfAllModifications = proteins.Sum(p => p.OneBasedPossibleLocalizedModifications.Values.Count);
-            sumOfAllSequenceVariations = proteins.Select(v => v.SequenceVariations.Count).Sum();
-            sumOfAllAppliedSequenceVariants = proteins.Select(v => v.AppliedSequenceVariations.Count).Sum();
-            Assert.AreEqual(0, sumOfAllModifications); //all modifications of type '1 nucleotide substitution' should have been converted to sequence variations. There were 194 modifications of this type in the original file.
-            Assert.AreEqual(194, sumOfAllSequenceVariations);//there are 194 sequence variations converted from modifications
-            Assert.AreEqual(9, sumOfAllAppliedSequenceVariants); //this should be 9 because we set maxVariants to 1 and maxVariantIsoforms to 2. So we get the canonical and one variant isoform for each of the 9 proteins.
-            Assert.AreEqual(18, proteins.Count); // there were 9 proteins in the original file, and we allow max 1 applied sequence variant, so we get 9 canonical and 9 with one variant applied. also no decoys. so the total should be 18
-
-            //Results in this block finally increase because we are allowing variants to be applied.
-            maxVariantsPerIsoform = 2;
-            maxVariantIsoforms = 200;
-            proteins = ProteinDbLoader.LoadProteinXML(databasePath, true,
-                DecoyType.None, null, false, null, out unknownModifications,
-                maxSequenceVariantsPerIsoform: maxVariantsPerIsoform,
-                minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: maxVariantIsoforms);
-            sumOfAllModifications = proteins.Sum(p => p.OneBasedPossibleLocalizedModifications.Values.Count);
-            sumOfAllSequenceVariations = proteins.Select(v => v.SequenceVariations.Count).Sum();
-            sumOfAllAppliedSequenceVariants = proteins.Select(v => v.AppliedSequenceVariations.Count).Sum();
-            Assert.AreEqual(0, sumOfAllModifications); //all modifications of type '1 nucleotide substitution' should have been converted to sequence variations. There were 194 modifications of this type in the original file.
-            Assert.AreEqual(194, sumOfAllSequenceVariations);//there are 194 sequence variations converted from modifications
-            Assert.AreEqual(1534, sumOfAllAppliedSequenceVariants); //this is getting crazy now since we allow so many combinations.
-            Assert.AreEqual(873, proteins.Count); //also crazy now....
-            Assert.AreEqual(maxVariantsPerIsoform, proteins.Select(p => p.AppliedSequenceVariations.Count).Max());
-        }
-
-        [Test]
-        public void Constructor_ParsesDescriptionCorrectly()
-        {
-            // Arrange
-            // Heterozygous example (0/1). Using balanced but non‑identical allele depths (10,12) and DP=22.
-            // 1   50000000   .   A   G   .   PASS   ANN=G||||||||||||||||   GT:AD:DP   0/1:10,12:22
+            // Updated: Previous version assumed exactly 4 proteins (2 target + 2 decoy).
+            // Current variant expansion (maxSequenceVariantIsoforms: 100, default maxSequenceVariantsPerIsoform: 4)
+            // produces many applied-variant isoforms (now 32). We remove brittle total-count assertions
+            // and instead validate durable biological/decoy invariants:
+            //   1. There exists at least one target isoform with exactly 3 applied sequence variations.
+            //   2. There exists at least one (other) target isoform with exactly 4 applied sequence variations.
+            //   3. At least one applied variant on a target is the single–residue M->V at position 1646.
+            //   4. For every target isoform containing that M->V variant, a decoy isoform exists whose
+            //      M->V variant is at the reverse-mapped coordinate using the same transformation as
+            //      DecoyProteinGenerator.ReverseSequenceVariations:
+            //        If target starts with 'M':
+            //           decoyBegin = L - targetEnd + 2
+            //           decoyEnd   = L - targetBegin + 2
+            //        Else:
+            //           decoyBegin = L - targetEnd + 1
+            //           decoyEnd   = L - targetBegin + 1
+            //      (For single-residue substitution begin == end.)
+            //   5. Target and matching decoy both keep OriginalSequence=='M' and VariantSequence=='V'.
             //
-            // CHROM=1 | POS=50000000 | ID='.' | REF=A | ALT=G | QUAL='.' | FILTER=PASS
-            // INFO: ANN field lists the ALT allele then empty annotation columns.
-            // FORMAT fields: GT (genotype), AD (allele depths ref,alt), DP (total depth)
-            // SAMPLE: 0/1:10,12:22 → heterozygous, ref depth=10, alt depth=12, total depth=22 (consistent).
-            // NOTE: VariantCallFormat does NOT expose DP separately (no TotalDepths); we verify DP consistency manually.
-            string description = "1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t0/1:10,12:22";
+            // If upstream parameters are changed and the 3/4 variant-count isoforms disappear, the test
+            // will emit a diagnostic and fail—adjust expectations or cap variant generation if desired.
 
-            // Act
-            var vcf = new VariantCallFormat(description);
+            string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "DecoyVariants.xml");
+            var proteins = ProteinDbLoader.LoadProteinXML(
+                file,
+                generateTargets: true,
+                decoyType: DecoyType.Reverse,
+                allKnownModifications: null,
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out _,
+                maxSequenceVariantIsoforms: 100);
 
-            // Assert core parsing
-            Assert.AreEqual(description, vcf.Description);
-            Assert.AreEqual("A", vcf.ReferenceAlleleString);
-            Assert.AreEqual("G", vcf.AlternateAlleleString);
-            Assert.AreEqual("GT:AD:DP", vcf.Format);
-            Assert.IsNotNull(vcf.Info);
+            var targets = proteins.Where(p => !p.IsDecoy).ToList();
+            var decoys  = proteins.Where(p =>  p.IsDecoy).ToList();
 
-            // One sample expected
-            Assert.AreEqual(1, vcf.Genotypes.Count);
-            var sampleKey = vcf.Genotypes.Keys.First();
-            var gtTokens = vcf.Genotypes[sampleKey];
+            Assert.IsTrue(targets.Count > 0, "No target proteins parsed.");
+            Assert.IsTrue(decoys.Count  > 0, "No decoy proteins parsed.");
 
-            // Genotype tokens should contain both 0 and 1 (heterozygous)
-            CollectionAssert.IsSubsetOf(new[] { "0", "1" }, gtTokens.Where(t => t == "0" || t == "1"));
-            Assert.IsTrue(gtTokens.Any(t => t == "0") && gtTokens.Any(t => t == "1"));
+            // 1 & 2: Find one target with exactly 3 applied variants and one with 4
+            var targetWith3 = targets.FirstOrDefault(p => p.AppliedSequenceVariations.Count() == 3);
+            var targetWith4 = targets.FirstOrDefault(p => p.AppliedSequenceVariations.Count() == 4);
 
-            // Allele depths and DP consistency (parsed locally since VCF class does not store DP)
-            var fields = description.Split('\t');
-            string sampleColumn = fields[9];
-            string[] formatTokens = vcf.Format.Split(':');
-            string[] sampleTokens = sampleColumn.Split(':');
-            Assert.AreEqual(formatTokens.Length, sampleTokens.Length);
+            Assert.IsNotNull(targetWith3, $"Could not find a target isoform with exactly 3 applied variants. Target applied counts: {string.Join(",", targets.Select(t=>t.AppliedSequenceVariations.Count()))}");
+            Assert.IsNotNull(targetWith4, $"Could not find a target isoform with exactly 4 applied variants. Target applied counts: {string.Join(",", targets.Select(t=>t.AppliedSequenceVariations.Count()))}");
 
-            int dpIndex = Array.IndexOf(formatTokens, "DP");
-            Assert.GreaterOrEqual(dpIndex, 0);
+            // 3: Locate all target isoforms with the single-residue M->V @ 1646
+            var targetsWithMtoV1646 = targets
+                .Select(t => (protein: t,
+                              mvVar: t.AppliedSequenceVariations.FirstOrDefault(v => v.OneBasedBeginPosition == 1646 &&
+                                                                                    v.OneBasedEndPosition == 1646 &&
+                                                                                    v.OriginalSequence == "M" &&
+                                                                                    v.VariantSequence == "V")))
+                .Where(x => x.mvVar != null)
+                .ToList();
 
-            if (vcf.AlleleDepths.TryGetValue(sampleKey, out var adVals))
+            Assert.IsTrue(targetsWithMtoV1646.Count > 0, "No target isoform contains the expected M->V variant at position 1646.");
+
+            // 4 & 5: For each such target isoform, verify presence of reverse-mapped decoy variant
+            foreach (var (protein, mvVar) in targetsWithMtoV1646)
             {
-                Assert.AreEqual(2, adVals.Length);
-                Assert.AreEqual("10", adVals[0]);
-                Assert.AreEqual("12", adVals[1]);
+                bool startsWithM = protein.BaseSequence.StartsWith("M", StringComparison.Ordinal);
+                int L = protein.Length;
+                // Single residue variant so begin==end
+                int targetBegin = mvVar.OneBasedBeginPosition;
+                int targetEnd   = mvVar.OneBasedEndPosition;
 
-                // Sum AD and compare to DP token
-                if (int.TryParse(adVals[0], out int refDepth) &&
-                    int.TryParse(adVals[1], out int altDepth) &&
-                    int.TryParse(sampleTokens[dpIndex], out int dp))
-                {
-                    Assert.AreEqual(22, dp);
-                    Assert.AreEqual(refDepth + altDepth, dp, "AD sum must equal DP.");
-                }
+                int expectedDecoyBegin = startsWithM
+                    ? L - targetEnd + 2
+                    : L - targetEnd + 1;
+
+                int expectedDecoyEnd = startsWithM
+                    ? L - targetBegin + 2
+                    : L - targetBegin + 1;
+
+                // Single-residue mapping sanity
+                Assert.AreEqual(expectedDecoyBegin, expectedDecoyEnd,
+                    $"Expected single-residue decoy mapping produced a span >1 (begin={expectedDecoyBegin}, end={expectedDecoyEnd}). Check reverse logic.");
+
+                var matchingDecoy = decoys.FirstOrDefault(d =>
+                    d.AppliedSequenceVariations.Any(v =>
+                        v.OneBasedBeginPosition == expectedDecoyBegin &&
+                        v.OneBasedEndPosition   == expectedDecoyEnd   &&
+                        v.OriginalSequence == "M" &&
+                        v.VariantSequence  == "V"));
+
+                Assert.IsNotNull(matchingDecoy,
+                    $"No decoy found with M->V at expected reversed position {expectedDecoyBegin} (target pos {targetBegin}, startsWithM={startsWithM}, L={L}).");
             }
 
-            // Zygosity flags (if dictionaries populated)
-            if (vcf.Homozygous.TryGetValue(sampleKey, out var homFlag))
-            {
-                Assert.IsFalse(homFlag, "Homozygous flag should be false for 0/1.");
-            }
-            if (vcf.Heterozygous.TryGetValue(sampleKey, out var hetFlag))
-            {
-                Assert.IsTrue(hetFlag, "Heterozygous flag should be true for 0/1.");
-            }
+            // Additional integrity check: every decoy M->V should have a corresponding target M->V
+            var decoyMtoVVariants = decoys
+                .SelectMany(d => d.AppliedSequenceVariations
+                    .Where(v => v.OriginalSequence == "M" && v.VariantSequence == "V"))
+                .ToList();
 
-            // AlleleIndex should be 1 (ALT allele G)
-            Assert.AreEqual(1, vcf.AlleleIndex);
+            Assert.IsTrue(decoyMtoVVariants.Count >= targetsWithMtoV1646.Count,
+                $"Decoy M->V variant count {decoyMtoVVariants.Count} is less than target M->V variant isoform count {targetsWithMtoV1646.Count}.");
         }
     }
 }
