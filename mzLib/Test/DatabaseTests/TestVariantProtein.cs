@@ -284,9 +284,99 @@ namespace Test.DatabaseTests
             var variantProteins = proteins[0].GetVariantBioPolymers();
             List<PeptideWithSetModifications> peptides = proteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
+        [Test]
+        public static void SplitMultipleGenotypesIntoSeparateSequenceVariants()
+        {
+            SequenceVariation sv1_substitution = new SequenceVariation(4, 4, "P", "V", "substitution", "1\t50000000\t.\tA\tG\t.\tPASS\tANN=X|Y\tGT:AD:DP\t0/0:45,0:45\t1/1:0,48:48\t0/1:22,25:47", null); // single amino acid variant with two homozygous genotypes.
+            List<SequenceVariation> sequenceVariations = sv1_substitution.SplitPerGenotype(0);
+            Assert.AreEqual(2, sequenceVariations.Count); // two homozygous genotypes
+            List<SequenceVariation> combiedVariations = SequenceVariation.CombineEquivalent(sequenceVariations);
+            Assert.AreEqual(1, combiedVariations.Count); // two homozygous genotypes combined into one sequence variant
 
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motifP);
+            Modification mAonP = new Modification("mod", null, "type", null, motifP, "Anywhere.", null, 42.01, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+            Modification mOonP = new Modification("mod", null, "type", null, motifP, "Anywhere.", null, 15.99, new Dictionary<string, IList<string>>(), null, null, null, null, null);
 
+            var toAddA = new List<(int position, Modification modification)>
+            {
+                (4, mAonP)
+            };
+            var toAddO = new List<(int position, Modification modification)>
+            {
+                (4, mOonP)
+            };
 
+            // Add them, skipping invalid ones
+            int addedCount = 0;
+            addedCount = sequenceVariations[0].AddModifications(toAddA, throwOnFirstInvalid: false, out var skipped);
+            Assert.AreEqual(1, addedCount);
+            addedCount = 0;
+            addedCount = sequenceVariations[1].AddModifications(toAddO, throwOnFirstInvalid: false, out skipped);
+            Assert.AreEqual(1, addedCount);
+            combiedVariations = SequenceVariation.CombineEquivalent(sequenceVariations);
+            Assert.AreEqual(1, combiedVariations.Count); // two homozygous genotypes combined into one sequence variant
+            Assert.AreEqual(1, combiedVariations[0].OneBasedModifications.Count); // one modification position at position 4
+            Assert.AreEqual(2, combiedVariations[0].OneBasedModifications[4].Count); // two different modifications at position 4
+        }
+        [Test]
+        public void CannotAddModificationBeyondVariantReplacementSpan()
+        {
+            // Variant replaces positions 10–12 (original "ABC") with a single residue "G"
+            // After the edit, only position 10 is a valid internal position for variant-specific modifications
+            var sv = new SequenceVariation(10, 12, "ABC", "G", "substitution");
+
+            ModificationMotif.TryGetMotif("G", out var motifG);
+            var modG = new Modification("G_Mod", null, "TestPTM", null, motifG, "Anywhere.", null, 14.0, null, null, null, null, null, null);
+
+            // Attempt to add at position 11 (inside the replaced region but beyond new variant span) -> invalid
+            bool ok = sv.TryAddModification(11, modG, out var error);
+            Assert.IsFalse(ok, "Modification should not be added outside the new (shorter) variant span.");
+            Assert.IsNotNull(error);
+            Assert.That(error, Does.Contain("beyond the new variant span").IgnoreCase);
+            Assert.AreEqual(0, sv.OneBasedModifications.Count);
+
+            // Bulk add variant of the same invalid entry
+            var list = new List<(int position, Modification modification)> { (11, modG) };
+            var added = sv.AddModifications(list, throwOnFirstInvalid: false, out var skipped);
+            Assert.AreEqual(0, added);
+            Assert.IsNotNull(skipped);
+            Assert.AreEqual(1, skipped.Count);
+            Assert.AreEqual(11, skipped[0].position);
+        }
+
+        [Test]
+        public void CannotAddModificationAtOrAfterBeginForDeletion()
+        {
+            // Deletion (variant sequence empty) of positions 20–22 disallows modifications at or after begin (20+)
+            var deletion = new SequenceVariation(20, 22, "DEF", "", "deletion");
+
+            ModificationMotif.TryGetMotif("D", out var motifD);
+            var modD = new Modification("D_Mod", null, "TestPTM", null, motifD, "Anywhere.", null, 10.0, null, null, null, null, null, null);
+
+            // Position 20 is invalid for a deletion/termination
+            bool ok = deletion.TryAddModification(20, modD, out var error);
+            Assert.IsFalse(ok, "Modification at or after the begin position should be invalid for a deletion.");
+            Assert.IsNotNull(error);
+            Assert.That(error, Does.Contain("termination or deletion").IgnoreCase);
+            Assert.AreEqual(0, deletion.OneBasedModifications.Count);
+
+            // Position 19 (just before deletion) should be valid
+            ok = deletion.TryAddModification(19, modD, out error);
+            Assert.IsTrue(ok, "Modification immediately before deletion should be allowed.");
+            Assert.IsNull(error);
+            Assert.AreEqual(1, deletion.OneBasedModifications.Count);
+            Assert.AreEqual(1, deletion.OneBasedModifications[19].Count);
+
+            // Bulk attempt mixing valid (19) and invalid (21)
+            ModificationMotif.TryGetMotif("E", out var motifE);
+            var modE = new Modification("E_Mod", null, "TestPTM", null, motifE, "Anywhere.", null, 12.0, null, null, null, null, null, null);
+            var bulk = new List<(int, Modification)> { (21, modE), (18, modE) }; // 21 invalid, 18 valid
+
+            var added = deletion.AddModifications(bulk, throwOnFirstInvalid: false, out var skipped);
+            Assert.AreEqual(2, deletion.OneBasedModifications.Count, "Position 18 should be added (19 already existed).");
+            Assert.AreEqual(1, skipped?.Count ?? 0, "One invalid entry (21) should be reported.");
+            Assert.AreEqual(21, skipped![0].position);
+        }
 
         [Test]
         public static void AppliedVariants()
@@ -308,17 +398,19 @@ namespace Test.DatabaseTests
              };
 
             // at this point we have added potential sequence variants to proteins but they have not yet been applied
-            Assert.AreEqual(4, proteinsWithSeqVars.Count);
-            Assert.AreEqual(4, proteinsWithSeqVars.Select(s=>s.SequenceVariations).ToList().Count);
-            Assert.AreEqual(0, proteinsWithSeqVars.Select(s => s.AppliedSequenceVariations.Count).Sum());
+            Assert.AreEqual(4, proteinsWithSeqVars.Count); //we added one valid sequence variant to each of the 4 proteins
+            Assert.AreEqual(4, proteinsWithSeqVars.Select(s=>s.SequenceVariations).ToList().Count); //sequence variants are present as sequence variations until they are applied
+            Assert.AreEqual(0, proteinsWithSeqVars.Select(s => s.AppliedSequenceVariations.Count).Sum()); //these sequence variants have not yet been applied
 
             //now we apply the sequence variants and the number of proteins should increase
             //each of the first 4 proteins should generate one variant each
-            //the 5th protein should not generate a variant because the sequence variant has a mod that cannot be applied
-            var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantIsoforms: 100)).ToList();
-            Assert.AreEqual(8, proteinsWithAppliedVariants.Count);
-            Assert.AreEqual(1, proteinsWithAppliedVariants.Select(s => s.SequenceVariations).ToList().Count);
-            Assert.AreEqual(4, proteinsWithAppliedVariants.Select(s => s.AppliedSequenceVariations.Count).Sum());
+
+            var nonVariantAndVariantAppliedProteins = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantIsoforms: 100)).ToList();
+            Assert.AreEqual(8, nonVariantAndVariantAppliedProteins.Count); //we now have 8 proteins, the original 4 and one variant for each
+            Assert.AreEqual(4, nonVariantAndVariantAppliedProteins.Where(s=>s.SequenceVariations.Count > 0).Count()); //these are proteins with applied sequence variants so we empty sequenceVariations
+            Assert.AreEqual(4, nonVariantAndVariantAppliedProteins.Where(s => s.SequenceVariations.Count ==0).Count()); //these are proteins without applied sequence variants (non variant proteins)
+            Assert.AreEqual(4, nonVariantAndVariantAppliedProteins.Where(s => s.AppliedSequenceVariations.Count > 0).Count());//these are proteins with applied sequence appliedSequenceVariants is no populated
+            Assert.AreEqual(4, nonVariantAndVariantAppliedProteins.Where(s => s.AppliedSequenceVariations.Count == 0).Count());//these are proteins without applied sequence variants (zero appliedSequenceVariants)
 
 
 
@@ -329,7 +421,7 @@ namespace Test.DatabaseTests
             var proteinsWithAppliedVariants3 = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un,
                 maxSequenceVariantIsoforms: 100);
 
-            var listArray = new[] { proteinsWithAppliedVariants, proteinsWithAppliedVariants, proteinsWithAppliedVariants3 };
+            var listArray = new[] { nonVariantAndVariantAppliedProteins, nonVariantAndVariantAppliedProteins, proteinsWithAppliedVariants3 };
             for (int dbIdx = 0; dbIdx < listArray.Length; dbIdx++)
             {
                 // sequences

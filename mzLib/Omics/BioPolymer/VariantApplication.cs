@@ -1,6 +1,7 @@
 ﻿using MzLibUtil;
 using Omics.BioPolymer;
 using Omics.Modifications;
+using System.Net.Http.Headers;
 
 namespace Omics.BioPolymer
 {
@@ -23,19 +24,12 @@ namespace Omics.BioPolymer
         public static List<TBioPolymerType> GetVariantBioPolymers<TBioPolymerType>(this TBioPolymerType protein, int maxSequenceVariantsPerIsoform = 4, int minAlleleDepth = 1, int maxSequenceVariantIsoforms = 1)
             where TBioPolymerType : IHasSequenceVariants
         {
-            if(maxSequenceVariantsPerIsoform == 0 || maxSequenceVariantIsoforms == 1)
+            if(maxSequenceVariantsPerIsoform == 0 || maxSequenceVariantIsoforms == 1 || !protein.SequenceVariations.All(v=>v.AreValid()))
             {
                 // if no combinatorics allowed, just return the base protein
                 return new List<TBioPolymerType> { protein };
             }
-
-            if (protein.SequenceVariations.All(v => v.AreValid()) && protein.SequenceVariations.Any(v => v.VariantCallFormatData == null || v.VariantCallFormatData.Genotypes.Count == 0))
-            {
-                // this is a protein with either no VCF lines or a mix of VCF and non-VCF lines
-                return ApplyAllVariantCombinations(protein, protein.SequenceVariations, maxSequenceVariantsPerIsoform, maxSequenceVariantIsoforms).ToList();
-            }
-            // this is a protein with only VCF lines
-            return ApplyVariants(protein, protein.SequenceVariations, maxSequenceVariantsPerIsoform, minAlleleDepth);
+            return ApplyAllVariantCombinations(protein, protein.SequenceVariations, maxSequenceVariantsPerIsoform, maxSequenceVariantIsoforms).ToList();
         }
 
         /// <summary>
