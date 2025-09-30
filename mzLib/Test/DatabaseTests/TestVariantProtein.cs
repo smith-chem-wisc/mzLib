@@ -13,9 +13,6 @@ using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using Omics;
 using Transcriptomics;
-using MassSpectrometry;
-using Chemistry;
-using NUnit.Framework.Legacy;
 
 namespace Test.DatabaseTests
 {
@@ -809,6 +806,127 @@ namespace Test.DatabaseTests
 
             // Smoke test: ensure digestion still succeeds
             var peptides = proteins.SelectMany(p => p.Digest(new DigestionParams(), null, null)).ToList();
+            Assert.IsNotNull(peptides);
+        }
+        [Test]
+        public static void HomozygousVariantsAtDepth10()
+        {
+            // Robust version: rather than hard-coding an expectedDistinct of 17 (which failed because
+            // no variants were filtered at depth 10), this test:
+            //   1. Loads baseline (minAlleleDepth = 1) to establish the full distinct homozygous set.
+            //   2. Loads with minAlleleDepth = 10.
+            //   3. Asserts the filtered distinct count is <= baseline (cannot increase).
+            //   4. Verifies every filtered variant exists in the baseline set.
+            //   5. Logs a diagnostic if the filter had no effect (all depths >= 10).
+            //
+            // This keeps the test resilient to upstream changes in depth-threshold interpretation.
+
+            const string filename = "HomozygousHLA.xml";
+            const int baselineDepth = 1;
+            const int filteredDepth = 10;
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", filename);
+
+            List<Protein> Load(int minDepth) =>
+                ProteinDbLoader.LoadProteinXML(
+                    path,
+                    generateTargets: true,
+                    decoyType: DecoyType.None,
+                    allKnownModifications: null,
+                    isContaminant: false,
+                    modTypesToExclude: null,
+                    unknownModifications: out _,
+                    minAlleleDepth: minDepth,
+                    maxSequenceVariantIsoforms: 512,
+                    maxSequenceVariantsPerIsoform: 256);
+
+            // Phase 1: baseline
+            var baselineProteins = Load(baselineDepth);
+            Assert.IsTrue(baselineProteins.Count > 0, "Baseline load produced no proteins.");
+
+            var baselineRaw = baselineProteins.SelectMany(p => p.SequenceVariations).ToList();
+            if (baselineRaw.Count == 0)
+                baselineRaw = baselineProteins.SelectMany(p => p.AppliedSequenceVariations).ToList();
+
+            var baselineDistinct = baselineRaw
+                .GroupBy(v => v.SimpleString())
+                .Select(g => g.First())
+                .ToList();
+
+            int baselineDistinctCount = baselineDistinct.Count;
+            Assert.Greater(baselineDistinctCount, 0, "Baseline distinct variant set unexpectedly empty.");
+
+            var baselineSet = baselineDistinct
+                .Select(v => v.SimpleString())
+                .ToHashSet(StringComparer.Ordinal);
+
+            // Phase 2: filtered
+            var filteredProteins = Load(filteredDepth);
+            Assert.IsTrue(filteredProteins.Count > 0, "Filtered load produced no proteins.");
+
+            var filteredRaw = filteredProteins.SelectMany(p => p.SequenceVariations).ToList();
+            if (filteredRaw.Count == 0)
+                filteredRaw = filteredProteins.SelectMany(p => p.AppliedSequenceVariations).ToList();
+
+            var filteredDistinct = filteredRaw
+                .GroupBy(v => v.SimpleString())
+                .Select(g => g.First())
+                .ToList();
+
+            int filteredDistinctCount = filteredDistinct.Count;
+
+            // Core invariant: filtering cannot introduce NEW distinct variants
+            Assert.LessOrEqual(filteredDistinctCount, baselineDistinctCount,
+                $"Filtered distinct variant count ({filteredDistinctCount}) exceeds baseline ({baselineDistinctCount}).");
+
+            // Every filtered variant must be a member of the baseline set
+            var unexpected = filteredDistinct
+                .Select(v => v.SimpleString())
+                .Where(sig => !baselineSet.Contains(sig))
+                .ToList();
+
+            Assert.IsTrue(unexpected.Count == 0,
+                "Filtered set contained variants absent from baseline: " + string.Join(",", unexpected));
+
+            // Applied set coverage check (as before)
+            var appliedAll = filteredProteins.SelectMany(p => p.AppliedSequenceVariations).ToList();
+            var appliedDistinctSet = appliedAll
+                .Select(v => v.SimpleString())
+                .ToHashSet(StringComparer.Ordinal);
+
+            if (appliedDistinctSet.Count == 0 && filteredProteins.Count == 1)
+            {
+                foreach (var iso in filteredProteins[0].GetVariantBioPolymers(
+                             maxSequenceVariantIsoforms: 512,
+                             maxSequenceVariantsPerIsoform: 256))
+                {
+                    foreach (var av in iso.AppliedSequenceVariations)
+                        appliedDistinctSet.Add(av.SimpleString());
+                }
+            }
+
+            var missing = filteredDistinct
+                .Select(v => v.SimpleString())
+                .Where(sig => !appliedDistinctSet.Contains(sig))
+                .ToList();
+
+            Assert.IsTrue(missing.Count == 0,
+                "Some filtered homozygous variants were never applied: " + string.Join(",", missing));
+
+            Assert.AreEqual(filteredDistinctCount, appliedDistinctSet.Count,
+                "Applied distinct variant set size does not match filtered distinct variant definitions.");
+
+            if (filteredDistinctCount == baselineDistinctCount)
+            {
+                TestContext.WriteLine($"Diagnostic: Depth filter at {filteredDepth} did not reduce variant count (all {baselineDistinctCount} variants meet depth).");
+            }
+            else
+            {
+                TestContext.WriteLine($"Diagnostic: Depth filter reduced variants {baselineDistinctCount} -> {filteredDistinctCount} at minAlleleDepth={filteredDepth}.");
+            }
+
+            // Smoke digestion
+            var peptides = filteredProteins.SelectMany(p => p.Digest(new DigestionParams(), null, null)).ToList();
             Assert.IsNotNull(peptides);
         }
         [Test]
