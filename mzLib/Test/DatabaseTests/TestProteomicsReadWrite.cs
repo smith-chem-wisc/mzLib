@@ -916,7 +916,6 @@ namespace Test.DatabaseTests
             }
 
             FlushLog();
-            Log("Log written: " + logPath);
             Assert.Pass("Completed diagnostic run. See log: " + logPath);
 
             // Helpers
@@ -931,9 +930,10 @@ namespace Test.DatabaseTests
         [Category("Diagnostic")]
         public void DiagnoseSingleProblemProteinVariants()
         {
-            // small.xml should contain ONLY the first failing UniProt <entry> (e.g., A0A087X1C5)
-            // placed in the same directory as the large file. This test mirrors the large diagnostic
-            // but adds deeper per‑variant validation and never hard-fails.
+            // Single-variant isolation mode
+            const int MaxVariantsPerIsoform = 1;
+            const int MaxIsoforms = 50;
+
             string folder = @"E:\Projects\Mann_11cell_lines\A549\A549_1";
             string inputPath = Path.Combine(folder, "small.xml");
             string outputPath = Path.Combine(folder, "small_variant.xml");
@@ -947,13 +947,13 @@ namespace Test.DatabaseTests
             }
             void Flush()
             {
-                try { File.WriteAllLines(logPath, log); }
-                catch (Exception ex) { TestContext.WriteLine("[WARN] Could not write log: " + ex.Message); }
+                try { File.WriteAllLines(logPath, log); } catch { }
             }
 
             Log("=== Single Protein Variant Diagnostic ===");
             Log("Input:  " + inputPath);
             Log("Output: " + outputPath);
+            Log($"[INFO] Using variant expansion parameters: maxSequenceVariantsPerIsoform={MaxVariantsPerIsoform} maxSequenceVariantIsoforms={MaxIsoforms}");
 
             if (!File.Exists(inputPath))
             {
@@ -972,21 +972,19 @@ namespace Test.DatabaseTests
                 Log("[WARN] Could not stat file: " + ex.Message);
             }
 
-            // Preview first few lines
+            // Preview head
             try
             {
-                foreach (var l in File.ReadLines(inputPath).Take(15))
+                foreach (var l in File.ReadLines(inputPath).Take(12))
                     Log(l);
             }
             catch (Exception ex)
             {
-                Log("[WARN] Could not preview file head: " + ex.Message);
+                Log("[WARN] File preview failed: " + ex.Message);
             }
 
             Dictionary<string, Modification> unknown;
             List<Protein> proteins = null;
-            Exception loadEx = null;
-
             try
             {
                 proteins = ProteinDbLoader.LoadProteinXML(
@@ -997,12 +995,11 @@ namespace Test.DatabaseTests
                     isContaminant: false,
                     modTypesToExclude: new List<string>(),
                     unknownModifications: out unknown,
-                    maxSequenceVariantsPerIsoform: 50,
-                    maxSequenceVariantIsoforms: 200);
+                    maxSequenceVariantsPerIsoform: MaxVariantsPerIsoform,
+                    maxSequenceVariantIsoforms: MaxIsoforms);
             }
             catch (Exception ex)
             {
-                loadEx = ex;
                 Log("[ERROR] LoadProteinXML threw: " + ex.Message);
                 if (ex.StackTrace != null)
                     Log("StackTop: " + string.Join(" | ", ex.StackTrace.Split('\n').Take(4).Select(s => s.Trim())));
@@ -1010,33 +1007,31 @@ namespace Test.DatabaseTests
 
             if (proteins == null || proteins.Count == 0)
             {
-                Log("[FATAL] No proteins parsed from small.xml.");
-                if (loadEx != null && loadEx.InnerException != null)
-                    Log("Inner: " + loadEx.InnerException.GetType().Name + " - " + loadEx.InnerException.Message);
+                Log("[FATAL] No proteins parsed.");
                 Flush();
-                Assert.Pass("Load failed; see log.");
+                Assert.Pass("No proteins parsed.");
             }
 
             Log($"[INFO] Proteins parsed: {proteins.Count}");
 
-            // We expect exactly one; if more, we still proceed
-            foreach (var p in proteins)
+            var allForWrite = new List<Protein>();
+            foreach (var baseProt in proteins)
             {
-                Log($"--- Protein Accession: {p.Accession} Name:{p.Name} Length:{p.Length} VariationsDefined:{p.SequenceVariations?.Count() ?? 0}");
-                if (p.SequenceVariations == null || !p.SequenceVariations.Any())
+                Log($"--- Protein Accession: {baseProt.Accession} Name:{baseProt.Name} Length:{baseProt.Length} VariationsDefined:{baseProt.SequenceVariations?.Count() ?? 0}");
+                if (baseProt.SequenceVariations == null || !baseProt.SequenceVariations.Any())
                 {
                     Log("[INFO] No declared sequence variations; nothing to apply.");
+                    allForWrite.Add(baseProt);
                     continue;
                 }
 
-                // Per-variation structural validation
                 int idx = 0;
-                foreach (var v in p.SequenceVariations)
+                foreach (var v in baseProt.SequenceVariations)
                 {
                     idx++;
                     try
                     {
-                        ValidateVariation(p, v, idx, Log);
+                        ValidateVariation(baseProt, v, idx, Log);
                     }
                     catch (Exception ex)
                     {
@@ -1044,61 +1039,164 @@ namespace Test.DatabaseTests
                     }
                 }
 
-                // Attempt variant generation with guarded catch
                 List<Protein> variantForms = null;
                 try
                 {
-                    variantForms = p.GetVariantBioPolymers(maxSequenceVariantIsoforms: 100).OfType<Protein>().ToList();
+                    variantForms = baseProt
+                        .GetVariantBioPolymers(
+                            maxSequenceVariantsPerIsoform: MaxVariantsPerIsoform,
+                            minAlleleDepth: 1,
+                            maxSequenceVariantIsoforms: MaxIsoforms)
+                        .OfType<Protein>()
+                        .ToList();
                     Log($"[APPLY] Variant proteoforms generated: {variantForms.Count} (Applied sets: {variantForms.Count(vf => vf.AppliedSequenceVariations.Any())})");
                 }
                 catch (Exception ex)
                 {
                     Log("[APPLY-ERROR] GetVariantBioPolymers: " + ex.Message);
-                    if (ex.StackTrace != null)
-                        Log("StackTop: " + string.Join(" | ", ex.StackTrace.Split('\n').Take(5).Select(s => s.Trim())));
                 }
 
-                // Enumerate failing application individually (simulate what ApplySingleVariant might do)
                 if (variantForms == null || variantForms.Count == 0)
                 {
-                    Log("[INFO] No variant proteoforms produced; attempting manual sequential application per variation to isolate culprit.");
-                    // Try applying each variation in isolation by constructing a single-variation scenario
-                    int vNum = 0;
-                    foreach (var v in p.SequenceVariations)
+                    // Fall back to base only
+                    allForWrite.Add(baseProt);
+                    continue;
+                }
+
+                // Normalize + filter
+                var normalized = new List<Protein>();
+                foreach (var pf in variantForms)
+                {
+                    try
                     {
-                        vNum++;
-                        try
+                        // Ensure UniProtSequenceAttributes reflect new length
+                        pf.UniProtSequenceAttributes?.UpdateLengthAttribute(pf.BaseSequence);
+                        pf.UniProtSequenceAttributes?.UpdateMassAttribute(pf.BaseSequence);
+
+                        // Filter: keep base always; keep variant if sequence differs AND has applied variations
+                        bool isBase = ReferenceEquals(pf, baseProt);
+                        bool changed = !string.Equals(pf.BaseSequence, baseProt.BaseSequence, StringComparison.Ordinal);
+                        bool hasApplied = pf.AppliedSequenceVariations != null && pf.AppliedSequenceVariations.Count > 0;
+
+                        if (isBase || (changed && hasApplied))
                         {
-                            ManualApplyVariantPreview(p, v, vNum, Log);
+                            normalized.Add(pf);
                         }
-                        catch (Exception ex)
+                        else
                         {
-                            Log($"[MANUAL-APPLY-FAIL] Var#{vNum} {ex.GetType().Name}: {ex.Message}");
+                            Log($"[SKIP] Removed trivial/no-op isoform Accession:{pf.Accession}");
                         }
                     }
+                    catch (Exception ex)
+                    {
+                        Log($"[NORM-ERROR] {pf.Accession} {ex.GetType().Name}: {ex.Message}");
+                    }
                 }
+
+                // Audit required fields to catch NRE causes
+                foreach (var pf in normalized)
+                {
+                    AuditProtein(pf, Log);
+                }
+
+                allForWrite.AddRange(normalized);
             }
 
-            // Attempt to serialize whatever we have (even if only original protein) to catch write-specific NREs
+            // Deduplicate by accession to avoid writer confusion
+            allForWrite = allForWrite
+                .GroupBy(p => p.Accession)
+                .Select(g => g.First())
+                .ToList();
+
+            Log($"[INFO] Proteins queued for write (after filtering): {allForWrite.Count}");
+
+            // Attempt bulk write
+            bool bulkOk = false;
             try
             {
                 ProteinDbWriter.WriteXmlDatabase(
                     new Dictionary<string, HashSet<Tuple<int, Modification>>>(),
-                    proteins,
+                    allForWrite,
                     outputPath);
-                Log("[INFO] Wrote small_variant.xml successfully.");
+                bulkOk = true;
+                Log("[INFO] Bulk write succeeded.");
             }
             catch (Exception ex)
             {
-                Log("[WRITE-ERROR] " + ex.Message);
+                Log("[WRITE-ERROR] Bulk write failed: " + ex.Message);
                 if (ex.StackTrace != null)
                     Log("WriteStackTop: " + string.Join(" | ", ex.StackTrace.Split('\n').Take(4).Select(s => s.Trim())));
             }
 
+            // If bulk write failed, isolate faulty protein(s)
+            if (!bulkOk)
+            {
+                Log("[INFO] Beginning per-protein isolation to detect writer NRE.");
+                int faultCount = 0;
+                foreach (var p in allForWrite)
+                {
+                    try
+                    {
+                        var tmp = Path.Combine(Path.GetTempPath(), $"iso_{SanitizeFilePart(p.Accession)}_{Guid.NewGuid():N}.xml");
+                        ProteinDbWriter.WriteXmlDatabase(
+                            new Dictionary<string, HashSet<Tuple<int, Modification>>>(),
+                            new List<Protein> { p },
+                            tmp);
+                        try { File.Delete(tmp); } catch { }
+                    }
+                    catch (Exception ex)
+                    {
+                        faultCount++;
+                        Log($"[WRITE-FAIL] Accession:{p.Accession} Msg:{ex.Message}");
+                        if (ex.StackTrace != null)
+                            Log("  StackTop: " + string.Join(" | ", ex.StackTrace.Split('\n').Take(3).Select(s => s.Trim())));
+                        AuditProtein(p, Log, prefix: "  ");
+                    }
+                }
+                Log($"[INFO] Isolation complete. Faulty entries: {faultCount}");
+            }
+
+            // Flush collected log lines to disk (local helper is named Flush in this method scope)
             Flush();
             Assert.Pass("Diagnostic complete. See log: " + logPath);
 
-            // Helper: structural checks
+            // Helpers
+            static string SanitizeFilePart(string s)
+            {
+                if (string.IsNullOrWhiteSpace(s)) return "NA";
+                var invalid = Path.GetInvalidFileNameChars();
+                return new string(s.Select(c => invalid.Contains(c) ? '_' : c).ToArray());
+            }
+
+            static void AuditProtein(Protein p, Action<string> log, string prefix = "")
+            {
+                try
+                {
+                    void F(string name, object val) =>
+                        log($"{prefix}[AUDIT] {p.Accession} {name} {(val == null ? "NULL" : "OK")}");
+                    F("BaseSequence", p.BaseSequence);
+                    F("Name", p.Name);
+                    F("FullName", p.FullName);
+                    F("Organism", p.Organism);
+                    F("GeneNames", p.GeneNames);
+                    F("DatabaseReferences", p.DatabaseReferences);
+                    F("SequenceVariations", p.SequenceVariations);
+                    F("AppliedSequenceVariations", p.AppliedSequenceVariations);
+                    F("OneBasedPossibleLocalizedModifications", p.OneBasedPossibleLocalizedModifications);
+                    F("TruncationProducts", p.TruncationProducts);
+                    F("UniProtSequenceAttributes", p.UniProtSequenceAttributes);
+                    if (p.UniProtSequenceAttributes != null)
+                    {
+                        if (p.UniProtSequenceAttributes.Length != p.BaseSequence.Length)
+                            log($"{prefix}[AUDIT] {p.Accession} LengthMismatch AttrLen={p.UniProtSequenceAttributes.Length} SeqLen={p.BaseSequence.Length}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    log($"{prefix}[AUDIT-EX] {p.Accession} {ex.GetType().Name}: {ex.Message}");
+                }
+            }
+
             static void ValidateVariation(Protein p, SequenceVariation v, int idx, Action<string> log)
             {
                 string baseSeq = p.BaseSequence;
@@ -1107,55 +1205,39 @@ namespace Test.DatabaseTests
                 int e = v.OneBasedEndPosition;
                 string orig = v.OriginalSequence ?? "";
                 string varSeq = v.VariantSequence ?? "";
-
                 log($"[VAR] #{idx} Begin:{b} End:{e} Orig:'{orig}' Var:'{varSeq}' TypeHint:{v.Description}");
 
-                // Coordinate sanity
                 if (b < 1 || e < b)
                     log($"  [WARN] Invalid coordinate ordering (Begin:{b}, End:{e}).");
                 if (e > len)
                     log($"  [WARN] End position ({e}) exceeds sequence length ({len}).");
 
-                // If original sequence provided, verify it matches the substring
                 if (!string.IsNullOrEmpty(orig) && e <= len)
                 {
-                    int subLen = e - b + 1;
-                    if (subLen == orig.Length)
+                    int span = e - b + 1;
+                    if (span == orig.Length)
                     {
-                        string actual = baseSeq.Substring(b - 1, subLen);
+                        string actual = baseSeq.Substring(b - 1, span);
                         if (!string.Equals(actual, orig, StringComparison.Ordinal))
-                        {
                             log($"  [MISMATCH] OriginalSequence mismatch. ExpectedInBase:'{actual}' Provided:'{orig}'");
-                        }
                     }
                     else
                     {
-                        log($"  [WARN] OriginalSequence length ({orig.Length}) != span length ({subLen}).");
+                        log($"  [WARN] OriginalSequence length ({orig.Length}) != span length ({span}).");
                     }
                 }
 
-                // Insertion: orig empty, variant non-empty
-                if (string.IsNullOrEmpty(orig) && !string.IsNullOrEmpty(varSeq))
-                {
-                    if (b > len + 1)
-                        log($"  [WARN] Insertion begin {b} beyond permissible insertion boundary (len+1={len + 1}).");
-                }
+                if (string.IsNullOrEmpty(orig) && !string.IsNullOrEmpty(varSeq) && b > len + 1)
+                    log($"  [WARN] Insertion coordinate {b} beyond len+1 ({len + 1}).");
+                if (!string.IsNullOrEmpty(orig) && string.IsNullOrEmpty(varSeq) && e > len)
+                    log($"  [WARN] Deletion end {e} beyond sequence length {len}.");
 
-                // Deletion: var empty
-                if (!string.IsNullOrEmpty(orig) && string.IsNullOrEmpty(varSeq))
-                {
-                    if (e > len)
-                        log($"  [WARN] Deletion end {e} beyond sequence length {len}.");
-                }
-
-                // Stop-gain / stop-loss heuristics (asterisk)
                 if (varSeq == "*")
                     log("  [INFO] Stop-gain detected.");
                 if (orig == "*")
                     log("  [INFO] Stop-loss / extension detected.");
             }
 
-            // Helper: manual preview (simulate variant application core logic simplistically)
             static void ManualApplyVariantPreview(Protein p, SequenceVariation v, int idx, Action<string> log)
             {
                 string seq = p.BaseSequence;
@@ -1164,34 +1246,26 @@ namespace Test.DatabaseTests
                 int e = v.OneBasedEndPosition;
                 string orig = v.OriginalSequence ?? "";
                 string varSeq = v.VariantSequence ?? "";
-
                 log($"[MANUAL] Applying Var#{idx} Begin:{b} End:{e} Orig:'{orig}' Var:'{varSeq}'");
 
                 if (b < 1 || e < b || e > len)
                     throw new ArgumentOutOfRangeException($"Coordinates out of range (Begin={b}, End={e}, Len={len}).");
 
-                // If original given, verify
                 if (!string.IsNullOrEmpty(orig))
                 {
-                    string actual = seq.Substring(b - 1, Math.Min(e, len) - b + 1);
+                    int span = Math.Min(e, len) - b + 1;
+                    string actual = seq.Substring(b - 1, span);
                     if (actual.Length == orig.Length && actual != orig)
-                        log($"  [CHECK] Original mismatch (BaseSpan='{actual}' vs Orig='{orig}'). Proceeding anyway.");
+                        log($"  [CHECK] Original mismatch (BaseSpan='{actual}' vs Orig='{orig}').");
                 }
 
                 string newSeq;
                 if (orig == "*" && !string.IsNullOrEmpty(varSeq))
-                {
-                    // stop-loss: append extension
                     newSeq = seq + varSeq;
-                }
                 else if (varSeq == "*")
-                {
-                    // stop-gain: truncate just before begin
                     newSeq = seq.Substring(0, b - 1);
-                }
                 else
                 {
-                    // general replacement
                     int removeLen = e - b + 1;
                     if (b - 1 + removeLen > seq.Length)
                         removeLen = Math.Max(0, seq.Length - (b - 1));

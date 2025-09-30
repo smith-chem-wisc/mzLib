@@ -267,30 +267,30 @@ namespace Omics.BioPolymer
                         }
                     }
 
-                    // heterozygous combinitorics
+                    // heterozygous combinatorics
                     else if (hetero && isDeepAlternateAllele && !tooManyHeterozygousVariants)
                     {
-                        List<TBioPolymerType> combinitoricProteins = new();
+                        List<TBioPolymerType> combinatoricProteins = new();
                         foreach (var ppp in newVariantProteins)
                         {
                             if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0 && isDeepReferenceAllele)
                             {
                                 if (vcf.Genotypes[individual].Contains("0"))
                                 {
-                                    combinitoricProteins.Add(ppp);
+                                    combinatoricProteins.Add(ppp);
                                 }
-                                combinitoricProteins.Add(ApplySingleVariant(variant, ppp, individual));
+                                combinatoricProteins.Add(ApplySingleVariant(variant, ppp, individual));
                             }
                             else if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0)
                             {
-                                combinitoricProteins.Add(ApplySingleVariant(variant, ppp, individual));
+                                combinatoricProteins.Add(ApplySingleVariant(variant, ppp, individual));
                             }
                             else if (vcf.Genotypes[individual].Contains("0"))
                             {
-                                combinitoricProteins.Add(ppp);
+                                combinatoricProteins.Add(ppp);
                             }
                         }
-                        newVariantProteins = combinitoricProteins;
+                        newVariantProteins = combinatoricProteins;
                     }
                 }
                 variantProteins.AddRange(newVariantProteins);
@@ -313,24 +313,19 @@ namespace Omics.BioPolymer
                 return protein;
             }
 
-            // Treat null original sequence as empty (pure insertion)
             string originalSeq = variantGettingApplied.OriginalSequence ?? string.Empty;
             string variantSeq = variantGettingApplied.VariantSequence ?? string.Empty;
 
-            // Coordinate sanity: begin must be within (length + 1) for pure insertion
             if (variantGettingApplied.OneBasedBeginPosition < 1 ||
                 variantGettingApplied.OneBasedBeginPosition > protein.BaseSequence.Length + 1)
             {
-                // Skip invalid variant silently
                 return protein;
             }
 
-            // Compute the index AFTER the replaced region (clamp if original length runs past end)
             int replacedLength = originalSeq.Length;
             int afterIdx = variantGettingApplied.OneBasedBeginPosition + replacedLength - 1;
             if (afterIdx > protein.BaseSequence.Length)
             {
-                // Truncate replaced length if XML claimed a longer original sequence than exists
                 replacedLength = Math.Max(0, protein.BaseSequence.Length - (variantGettingApplied.OneBasedBeginPosition - 1));
                 afterIdx = variantGettingApplied.OneBasedBeginPosition + replacedLength - 1;
             }
@@ -340,11 +335,9 @@ namespace Omics.BioPolymer
                 ? string.Empty
                 : protein.BaseSequence.Substring(afterIdx);
 
-            // Build applied variant object (post‑application coordinates)
             int appliedBegin = variantGettingApplied.OneBasedBeginPosition;
             int appliedEnd = variantGettingApplied.OneBasedBeginPosition + variantSeq.Length - 1;
 
-            // Safely copy variant-specific modifications (they are in post‑variant coordinate system)
             var variantModDict = variantGettingApplied.OneBasedModifications != null
                 ? variantGettingApplied.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value)
                 : new Dictionary<int, List<Modification>>();
@@ -360,45 +353,125 @@ namespace Omics.BioPolymer
                 vcfDescription,
                 variantModDict.Count == 0 ? null : variantModDict);
 
-            // Detect incomplete overlap with already applied variants
             bool intersectsAppliedRegionIncompletely = protein.AppliedSequenceVariations
                 .Any(x => variantGettingApplied.Intersects(x) && !variantGettingApplied.Includes(x));
 
             IEnumerable<SequenceVariation> appliedVariations = new[] { variantAfterApplication };
             if (!intersectsAppliedRegionIncompletely)
             {
-                // Keep previously applied ones that are not fully included in this new variant
                 appliedVariations = appliedVariations
                     .Concat(protein.AppliedSequenceVariations.Where(x => !variantGettingApplied.Includes(x)))
                     .ToList();
             }
             else
             {
-                // If partial/incomplete overlap, restart tail from consensus (pre‑variant) sequence to avoid compounding corruption
                 seqAfter = afterIdx >= protein.ConsensusVariant.BaseSequence.Length
                     ? string.Empty
                     : protein.ConsensusVariant.BaseSequence.Substring(afterIdx);
             }
 
-            // Apply (stop codon truncation handled by splitting at first '*')
             string newBaseSequence = (seqBefore + variantSeq + seqAfter).Split('*')[0];
 
-            // Adjust dependent annotations
-            List<TruncationProduct> adjustedProteolysisProducts =
+            var adjustedProteolysisProducts =
                 AdjustTruncationProductIndices(variantAfterApplication, newBaseSequence, protein, protein.TruncationProducts);
 
-            Dictionary<int, List<Modification>> adjustedModifications =
+            var adjustedModifications =
                 AdjustModificationIndices(variantAfterApplication, newBaseSequence, protein);
 
-            List<SequenceVariation> adjustedAppliedVariations =
+            var adjustedAppliedVariations =
                 AdjustSequenceVariationIndices(variantAfterApplication, newBaseSequence, appliedVariations);
 
-            return protein.CreateVariant(newBaseSequence,
-                                         protein,
-                                         adjustedAppliedVariations,
-                                         adjustedProteolysisProducts,
-                                         adjustedModifications,
-                                         individual);
+            var created = protein.CreateVariant(newBaseSequence,
+                                                protein,
+                                                adjustedAppliedVariations,
+                                                adjustedProteolysisProducts,
+                                                adjustedModifications,
+                                                individual);
+
+
+            // Defensive normalization – ensure UniProt sequence attribute length matches new sequence
+            try
+            {
+                var attrProp = created.GetType().GetProperty("UniProtSequenceAttributes");
+                var attr = attrProp?.GetValue(created);
+                if (attr != null)
+                {
+                    string seq = created.BaseSequence ?? string.Empty;
+                    var lenPi = attr.GetType().GetProperty("Length");
+                    int currentLen = lenPi != null ? (int)lenPi.GetValue(attr)! : -1;
+
+                    if (currentLen != seq.Length)
+                    {
+                        // Extract existing metadata (best effort; tolerate missing members)
+                        var massPi = attr.GetType().GetProperty("Mass");
+                        var checkSumPi = attr.GetType().GetProperty("CheckSum") ?? attr.GetType().GetProperty("Checksum");
+                        var modifiedPi = attr.GetType().GetProperty("EntryModified") ?? attr.GetType().GetProperty("Modified");
+                        var versionPi = attr.GetType().GetProperty("SequenceVersion") ?? attr.GetType().GetProperty("Version");
+
+                        double massVal = (massPi?.GetValue(attr) as double?) ?? 0d;
+                        string checkSumVal = checkSumPi?.GetValue(attr) as string ?? "";
+                        DateTime modVal = (modifiedPi?.GetValue(attr) as DateTime?) ?? DateTime.Today;
+                        int versionVal = (versionPi?.GetValue(attr) as int?) ?? 1;
+
+                        // Try canonical ctor: (int length, double mass, string checksum, DateTime modified, int version)
+                        var ctor = attr.GetType().GetConstructor(new[]
+                        {
+                            typeof(int), typeof(double), typeof(string), typeof(DateTime), typeof(int)
+                        });
+
+                        object replacement = null;
+                        if (ctor != null)
+                        {
+                            replacement = ctor.Invoke(new object[]
+                            {
+                                seq.Length, massVal, checkSumVal, modVal, versionVal
+                            });
+                        }
+                        else if (lenPi?.CanWrite == true)
+                        {
+                            // Last resort: modify in place
+                            lenPi.SetValue(attr, seq.Length);
+                        }
+
+                        if (replacement != null)
+                        {
+                            // Assign via property if writable
+                            if (attrProp?.CanWrite == true)
+                            {
+                                attrProp.SetValue(created, replacement);
+                            }
+                            else
+                            {
+                                // Replace backing field (shared reference issue)
+                                var backingField = created.GetType()
+                                    .GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public)
+                                    .FirstOrDefault(f => f.FieldType == attrProp!.PropertyType);
+                                backingField?.SetValue(created, replacement);
+                            }
+                        }
+                    }
+                }
+
+                // IMPORTANT: Do NOT repopulate SequenceVariations on the variant proteoform.
+                // Copying the base entry's declared variants caused 'OriginalSequence mismatch'
+                // because those definitions refer to the pre-variant residues. Leave the list
+                // exactly as the concrete CreateVariant implementation produced.
+                //
+                // Likewise do not inject base variants when empty; AppliedSequenceVariations already
+                // records what was applied.
+
+                // Only ensure applied list is non-empty if implementation provided an empty container.
+                var appliedList = created.AppliedSequenceVariations;
+                if (appliedList != null && appliedList.Count == 0 && adjustedAppliedVariations != null)
+                {
+                    appliedList.AddRange(adjustedAppliedVariations);
+                }
+            }
+            catch
+            {
+                // Silent – best effort normalization
+            }
+            return created;
         }
 
         /// <summary>
