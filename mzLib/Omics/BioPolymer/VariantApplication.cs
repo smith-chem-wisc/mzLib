@@ -21,15 +21,80 @@ namespace Omics.BioPolymer
         /// <param name="maxAllowedVariantsForCombinatorics"></param>
         /// <param name="minAlleleDepth"></param>
         /// <remarks>This replaces a method call that was previously an instance method in Protein</remarks>
-        public static List<TBioPolymerType> GetVariantBioPolymers<TBioPolymerType>(this TBioPolymerType protein, int maxSequenceVariantsPerIsoform = 4, int minAlleleDepth = 1, int maxSequenceVariantIsoforms = 1)
+        public static List<TBioPolymerType> GetVariantBioPolymers<TBioPolymerType>(this TBioPolymerType protein,
+            int maxSequenceVariantsPerIsoform = 4,
+            int minAlleleDepth = 1,
+            int maxSequenceVariantIsoforms = 1)
             where TBioPolymerType : IHasSequenceVariants
         {
-            if (maxSequenceVariantsPerIsoform == 0 || maxSequenceVariantIsoforms == 1 || !protein.SequenceVariations.All(v => v != null && v.AreValid()))
+            // If combinatorics disabled, just return base
+            if (maxSequenceVariantsPerIsoform == 0 || maxSequenceVariantIsoforms == 1)
             {
-                // if no combinatorics allowed, just return the base protein
                 return new List<TBioPolymerType> { protein };
             }
-            return ApplyAllVariantCombinations(protein, protein.SequenceVariations, maxSequenceVariantsPerIsoform, maxSequenceVariantIsoforms, minAlleleDepth).ToList();
+
+            var all = protein.SequenceVariations ?? new List<SequenceVariation>();
+            if (all.Count == 0)
+            {
+                return new List<TBioPolymerType> { protein };
+            }
+
+            // Try validation, but DO NOT let complete failure collapse all variants.
+            var valid = new List<SequenceVariation>(all.Count);
+            int threw = 0, failed = 0;
+            foreach (var v in all)
+            {
+                if (v == null)
+                {
+                    failed++;
+                    continue;
+                }
+                bool ok;
+                try
+                {
+                    ok = v.AreValid();
+                }
+                catch
+                {
+                    ok = true; // treat exceptions as “usable” so we can still attempt variant generation
+                    threw++;
+                }
+                if (ok)
+                    valid.Add(v);
+                else
+                    failed++;
+            }
+
+            // Fallback: if none passed (over‑strict validation), use original non-null set
+            if (valid.Count == 0)
+            {
+                valid = all.Where(v => v != null).ToList();
+            }
+
+            // If after fallback we still have nothing usable, just return base
+            if (valid.Count == 0)
+            {
+                return new List<TBioPolymerType> { protein };
+            }
+
+            return ApplyAllVariantCombinations(protein,
+                                               valid,
+                                               maxSequenceVariantsPerIsoform,
+                                               maxSequenceVariantIsoforms,
+                                               minAlleleDepth).ToList();
+        }
+
+        // Safe wrapper so a single bad variant does not abort all combinatorics
+        private static bool SafeAreValid(SequenceVariation v)
+        {
+            try
+            {
+                return v.AreValid();
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         /// <summary>
@@ -593,36 +658,68 @@ namespace Omics.BioPolymer
             yield return baseBioPolymer;
             count++;
 
-            // Expand genotype-aware variants safely
+            // 1. Attempt genotype-aware expansion
             List<SequenceVariation> sequenceVariations = new();
             foreach (var v in variations.Where(v => v != null))
             {
                 try
                 {
-                    sequenceVariations.AddRange(v.SplitPerGenotype(minAlleleDepth));
+                    // Only try per-genotype split if VCF data present; otherwise just add the raw variant
+                    if (v.VariantCallFormatData != null)
+                    {
+                        var split = v.SplitPerGenotype(minAlleleDepth);
+                        if (split != null && split.Count > 0)
+                        {
+                            sequenceVariations.AddRange(split);
+                            continue;
+                        }
+                    }
+                    sequenceVariations.Add(v); // fallback to original
                 }
                 catch
                 {
-                    // If SplitPerGenotype fails (e.g., malformed VCF), fall back to original variant
+                    // On any parsing/splitting issue, keep original variant so we still attempt application
                     sequenceVariations.Add(v);
                 }
             }
 
+            // 2. Collapse equivalent variants (only if >1)
             if (sequenceVariations.Count > 1)
+            {
                 sequenceVariations = SequenceVariation.CombineEquivalent(sequenceVariations);
+            }
 
-            // Filter invalid / null objects
-            sequenceVariations = sequenceVariations
-                .Where(v => v != null && v.AreValid())
+            // 3. Filter invalid (but keep at least something if all fail)
+            var filtered = sequenceVariations.Where(v =>
+            {
+                try { return v != null && v.AreValid(); }
+                catch { return true; } // treat exceptions as usable to avoid discarding everything
+            }).ToList();
+
+            if (filtered.Count == 0)
+            {
+                filtered = sequenceVariations.Where(v => v != null).ToList();
+            }
+
+            // 4. Remove pure no-op substitutions (no sequence change and no variant-specific mods)
+            filtered = filtered.Where(v =>
+                    !(string.Equals(v.OriginalSequence ?? "",
+                                    v.VariantSequence ?? "",
+                                    StringComparison.Ordinal)
+                      && (v.OneBasedModifications == null || v.OneBasedModifications.Count == 0)))
                 .ToList();
 
-            int total = sequenceVariations.Count;
-            if (total == 0)
-                yield break;
-
-            for (int size = 1; size <= Math.Min(maxSequenceVariantsPerIsoform, total); size++)
+            if (filtered.Count == 0)
             {
-                foreach (var combo in GetCombinations(sequenceVariations, size))
+                yield break; // nothing meaningful to apply beyond the base already yielded
+            }
+
+            int total = filtered.Count;
+            int maxVariantsPerIsoformCapped = Math.Min(maxSequenceVariantsPerIsoform, total);
+
+            for (int size = 1; size <= maxVariantsPerIsoformCapped; size++)
+            {
+                foreach (var combo in GetCombinations(filtered, size))
                 {
                     if (count >= maxSequenceVariantIsoforms)
                         yield break;
@@ -636,6 +733,7 @@ namespace Omics.BioPolymer
 
                     var result = baseBioPolymer;
                     bool aborted = false;
+
                     foreach (var variant in listCombo)
                     {
                         result = ApplySingleVariant(variant, result, string.Empty);
@@ -646,11 +744,16 @@ namespace Omics.BioPolymer
                         }
                     }
 
-                    if (!aborted && result != null)
-                    {
-                        yield return result;
-                        count++;
-                    }
+                    if (aborted || result == null)
+                        continue;
+
+                    // Skip if sequence remained identical (all variants net no-op)
+                    if (ReferenceEquals(result, baseBioPolymer) ||
+                        string.Equals(result.BaseSequence, baseBioPolymer.BaseSequence, StringComparison.Ordinal))
+                        continue;
+
+                    yield return result;
+                    count++;
                 }
             }
         }

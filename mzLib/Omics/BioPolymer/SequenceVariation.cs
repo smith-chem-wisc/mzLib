@@ -186,12 +186,15 @@ namespace Omics.BioPolymer
         #region Validation
 
         /// <summary>
-        /// Validates coordinate ordering (begin &gt;= 1 and end &gt;= begin) and ensures
-        /// that any variant-specific modifications remain addressable after the edit:
-        /// <list type="number">
-        /// <item>Deletion (VariantSequence length == 0) or termination (“*”): disallow modifications at/after begin.</item>
-        /// <item>Otherwise: modifications inside the replaced span must fall within the new substituted span.</item>
-        /// </list>
+        /// Validates this variation.
+        /// Rules:
+        /// 1. Coordinates must be sensible (begin >= 1 and end >= begin).
+        /// 2. Variation must represent a meaningful change:
+        ///    - Either the sequence actually changes (insertion, deletion, substitution, stop, frameshift),
+        ///    - OR there are variant-specific modifications.
+        ///    A “no-op” (OriginalSequence == VariantSequence with no variant-specific mods) is now invalid and will be skipped.
+        /// 3. If variant-specific modifications exist, they must not violate positional constraints
+        ///    (see GetInvalidModificationPositions).
         /// </summary>
         public bool AreValid()
         {
@@ -200,11 +203,26 @@ namespace Omics.BioPolymer
                 return false;
             }
 
-            if (OneBasedModifications == null || OneBasedModifications.Count == 0)
+            // Detect pure no-op (no actual sequence change and no variant-specific modifications)
+            bool noSequenceChange = string.Equals(OriginalSequence ?? string.Empty,
+                                                  VariantSequence ?? string.Empty,
+                                                  StringComparison.Ordinal);
+
+            bool hasMods = OneBasedModifications != null && OneBasedModifications.Count > 0;
+
+            // Reject a no-op variation (prevents generating useless variant proteoforms)
+            if (noSequenceChange && !hasMods)
+            {
+                return false;
+            }
+
+            // If there are no modifications, and we have a real sequence change, it's valid
+            if (!hasMods)
             {
                 return true;
             }
 
+            // Validate modification positions
             return !GetInvalidModificationPositions().Any();
         }
 
