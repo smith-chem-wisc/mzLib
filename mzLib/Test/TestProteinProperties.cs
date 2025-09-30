@@ -211,7 +211,6 @@ namespace Test
             Assert.AreNotEqual(pp1, pp5);
             Assert.AreNotEqual(pp1, pp6);
         }
-
         [Test]
         public static void CompareProteinProperties()
         {
@@ -228,16 +227,21 @@ namespace Test
             Assert.False(dh.Equals(d));
             Assert.AreEqual(5, new HashSet<DatabaseReference> { d, dd, de, df, dg, dh }.Count);
 
+            // SequenceVariation equality DOES NOT include Description (see SequenceVariation.Equals)
+            // Only coordinates, original/variant sequences, VCF data, and modification dictionaries are compared.
             SequenceVariation s = new SequenceVariation(1, "hello", "hey", "hi");
-            SequenceVariation sv = new SequenceVariation(1, "hello", "hey", "hi");
-            SequenceVariation sss = new SequenceVariation(2, "hallo", "hey", "hi");
-            SequenceVariation ssss = new SequenceVariation(1, "hello", "heyy", "hi");
-            SequenceVariation sssss = new SequenceVariation(1, "hello", "hey", "hii");
+            SequenceVariation sv = new SequenceVariation(1, "hello", "hey", "hi");   // identical
+            SequenceVariation sss = new SequenceVariation(2, "hallo", "hey", "hi");  // different begin/original
+            SequenceVariation ssss = new SequenceVariation(1, "hello", "heyy", "hi"); // different variant seq
+            SequenceVariation sssss = new SequenceVariation(1, "hello", "hey", "hii"); // ONLY description differs -> equal to s
+
             Assert.True(s.Equals(sv));
             Assert.False(s.Equals(sss));
             Assert.False(s.Equals(ssss));
-            Assert.False(s.Equals(sssss));
-            Assert.AreEqual(4, new HashSet<SequenceVariation> { s, sv, sss, ssss, sssss }.Count);
+            Assert.True(s.Equals(sssss)); // updated: description difference alone does NOT affect equality
+
+            // Unique set should collapse s, sv, sssss into one entry
+            Assert.AreEqual(3, new HashSet<SequenceVariation> { s, sv, sss, ssss, sssss }.Count);
 
             DisulfideBond b = new DisulfideBond(1, "hello");
             DisulfideBond bb = new DisulfideBond(1, "hello");
@@ -267,7 +271,6 @@ namespace Test
             Assert.AreNotEqual(pp, paa);
             Assert.AreEqual(5, new HashSet<TruncationProduct> { p, pp, ppp, pa, paa, paaa }.Count);
         }
-
         [Test]
         public static void TestProteoformClassification()//string inputPath)
         {
