@@ -38,7 +38,7 @@ namespace Test.DatabaseTests
         public static void Setuppp()
         {
             Stopwatch = new Stopwatch();
-            Stopwatch.Start();
+            Stopwatch.Start(); 
         }
 
         [TearDown]
