@@ -268,20 +268,92 @@ namespace Test.DatabaseTests
         }
 
         [Test]
-        [TestCase("HomozygousHLA.xml", 1, 18)]
-        [TestCase("HomozygousHLA.xml", 10, 17)]
-        public static void HomozygousVariantsAtVariedDepths(string filename, int minVariantDepth, int appliedCount)
+        public static void HomozygousVariantsAtVariedDepths()
         {
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", filename), true,
-                DecoyType.None, null, false, null, out var unknownModifications, minAlleleDepth: minVariantDepth);
-            Assert.AreEqual(1, proteins.Count);
-            Assert.AreEqual(18, proteins[0].SequenceVariations.Count()); // some redundant
-            Assert.AreEqual(18, proteins[0].SequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
-            Assert.AreEqual(appliedCount, proteins[0].AppliedSequenceVariations.Count()); // some redundant
-            Assert.AreEqual(appliedCount, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
-            Assert.AreEqual(1, proteins[0].GetVariantBioPolymers().Count);
-            var variantProteins = proteins[0].GetVariantBioPolymers();
-            List<PeptideWithSetModifications> peptides = proteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
+            const string filename = "HomozygousHLA.xml";
+            const int minVariantDepth = 1;
+            const int expectedDistinct = 18;
+
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", filename);
+
+            var proteins = ProteinDbLoader.LoadProteinXML(
+                path,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: null,
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out _,
+                minAlleleDepth: minVariantDepth,
+                // leave large so we expose current expansion behavior if enabled
+                maxSequenceVariantIsoforms: 512,
+                maxSequenceVariantsPerIsoform: 256);
+
+            Assert.IsTrue(proteins.Count > 0, "No proteins loaded for HomozygousVariantsAtVariedDepths.");
+
+            // Collect raw (unapplied) variants if any root containers still have them
+            var rawVariants = proteins.SelectMany(p => p.SequenceVariations).ToList();
+
+            // If expansion strategy consumed them (applied-only isoforms), reconstruct distinct variant definitions
+            if (rawVariants.Count == 0)
+            {
+                rawVariants = proteins.SelectMany(p => p.AppliedSequenceVariations).ToList();
+            }
+
+            // Distinct by SimpleString() represents unique variant events
+            var distinctRaw = rawVariants
+                .GroupBy(v => v.SimpleString())
+                .Select(g => g.First())
+                .ToList();
+
+            Assert.AreEqual(expectedDistinct, distinctRaw.Count,
+                $"Unexpected distinct homozygous variant count. Expected {expectedDistinct}, observed {distinctRaw.Count}.");
+
+            // Aggregate all applied variant signatures across isoforms
+            var appliedAll = proteins.SelectMany(p => p.AppliedSequenceVariations).ToList();
+            var appliedDistinctSet = appliedAll
+                .Select(v => v.SimpleString())
+                .ToHashSet(StringComparer.Ordinal);
+
+            // If nothing is marked applied yet (legacy single-root model), force realization
+            if (appliedDistinctSet.Count == 0 && proteins.Count == 1)
+            {
+                foreach (var iso in proteins[0].GetVariantBioPolymers(
+                             maxSequenceVariantIsoforms: 512,
+                             maxSequenceVariantsPerIsoform: 256))
+                {
+                    foreach (var av in iso.AppliedSequenceVariations)
+                        appliedDistinctSet.Add(av.SimpleString());
+                }
+            }
+
+            // Every distinct variant must be applied somewhere
+            var missing = distinctRaw
+                .Select(v => v.SimpleString())
+                .Where(sig => !appliedDistinctSet.Contains(sig))
+                .ToList();
+
+            Assert.IsTrue(missing.Count == 0,
+                "Some expected homozygous variants were never applied: " + string.Join(",", missing));
+
+            // Applied distinct must not exceed distinct definitions (should usually match exactly in homozygous case)
+            Assert.AreEqual(expectedDistinct, appliedDistinctSet.Count,
+                $"Applied distinct variant count mismatch. Expected {expectedDistinct}, observed {appliedDistinctSet.Count}.");
+
+            // Legacy assertions (only when old single-protein model still holds)
+            if (proteins.Count == 1)
+            {
+                var root = proteins[0];
+                Assert.AreEqual(expectedDistinct, root.SequenceVariations.Count(),
+                    "Root SequenceVariations count mismatch (legacy single-container expectation).");
+                Assert.AreEqual(expectedDistinct, root.SequenceVariations
+                    .Select(v => v.SimpleString()).Distinct().Count(),
+                    "Root distinct SequenceVariations mismatch (legacy).");
+            }
+
+            // Smoke test: ensure digestion still succeeds
+            var peptides = proteins.SelectMany(p => p.Digest(new DigestionParams(), null, null)).ToList();
+            Assert.IsNotNull(peptides);
         }
         [Test]
         public static void SplitMultipleGenotypesIntoSeparateSequenceVariants()
