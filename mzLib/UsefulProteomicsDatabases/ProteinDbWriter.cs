@@ -460,36 +460,76 @@ namespace UsefulProteomicsDatabases
                     }
 
                     
-                    foreach (var hm in protein.SequenceVariations.OrderBy(sv => sv.OneBasedBeginPosition).ThenBy(sv => sv.VariantSequence)) 
+                    // --- PATCH: robust sequence variant feature writing with guaranteed description ---
+                    foreach (var hm in (protein.SequenceVariations ?? Enumerable.Empty<SequenceVariation>())
+                                    .OrderBy(sv => sv.OneBasedBeginPosition)
+                                    .ThenBy(sv => sv.VariantSequence ?? string.Empty))
                     {
+                        if (hm == null)
+                            continue;
+
+                        // Build a guaranteed non-empty description
+                        string description =
+                            hm.Description ??
+                            hm.VariantCallFormatData?.Description ??
+                            hm.VariantCallFormatData?.ToString() ??
+                            hm.SimpleString();
+
+                        if (string.IsNullOrWhiteSpace(description))
+                        {
+                            // Try to synthesize a concise code like S70N or AHMPC369VHMPY
+                            var orig = hm.OriginalSequence ?? "";
+                            var varSeq = hm.VariantSequence ?? "";
+                            if (!string.IsNullOrEmpty(orig) && !string.IsNullOrEmpty(varSeq))
+                            {
+                                if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
+                                {
+                                    description = $"{orig}{hm.OneBasedBeginPosition}{varSeq}";
+                                }
+                                else
+                                {
+                                    description = $"{orig}{hm.OneBasedBeginPosition}-{hm.OneBasedEndPosition}{varSeq}";
+                                }
+                            }
+                            else
+                            {
+                                description = "sequence variant";
+                            }
+                        }
+
                         writer.WriteStartElement("feature");
                         writer.WriteAttributeString("type", "sequence variant");
-                        writer.WriteAttributeString("description", hm.VariantCallFormatData.ToString());
+                        writer.WriteAttributeString("description", description);
+
                         writer.WriteStartElement("original");
-                        writer.WriteString(hm.OriginalSequence);
+                        writer.WriteString(hm.OriginalSequence ?? string.Empty);
                         writer.WriteEndElement(); // original
+
                         writer.WriteStartElement("variation");
-                        writer.WriteString(hm.VariantSequence);
+                        writer.WriteString(hm.VariantSequence ?? string.Empty);
                         writer.WriteEndElement(); // variation
+
                         writer.WriteStartElement("location");
                         if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
                         {
                             writer.WriteStartElement("position");
-                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
+                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString(CultureInfo.InvariantCulture));
                             writer.WriteEndElement();
                         }
                         else
                         {
                             writer.WriteStartElement("begin");
-                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
+                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString(CultureInfo.InvariantCulture));
                             writer.WriteEndElement();
                             writer.WriteStartElement("end");
-                            writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
+                            writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString(CultureInfo.InvariantCulture));
                             writer.WriteEndElement();
                         }
+
+                        // Variant‑specific modifications (safe if null)
                         foreach (var hmm in GetModsForThisBioPolymer(protein, hm, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
                         {
-                            foreach (var modId in hmm.Value.OrderBy(mod => mod))
+                            foreach (var modId in hmm.Value.OrderBy(m => m))
                             {
                                 writer.WriteStartElement("subfeature");
                                 writer.WriteAttributeString("type", "modified residue");
@@ -497,14 +537,16 @@ namespace UsefulProteomicsDatabases
                                 writer.WriteStartElement("location");
                                 writer.WriteStartElement("subposition");
                                 writer.WriteAttributeString("subposition", hmm.Key.ToString(CultureInfo.InvariantCulture));
-                                writer.WriteEndElement();
-                                writer.WriteEndElement();
-                                writer.WriteEndElement();
+                                writer.WriteEndElement(); // subposition
+                                writer.WriteEndElement(); // location
+                                writer.WriteEndElement(); // subfeature
                             }
                         }
+
                         writer.WriteEndElement(); // location
                         writer.WriteEndElement(); // feature
                     }
+                    // --- END PATCH ---
 
                     foreach (var hm in protein.DisulfideBonds.OrderBy(bond => bond.OneBasedBeginPosition))
                     {
@@ -601,55 +643,58 @@ namespace UsefulProteomicsDatabases
         {
             var modsToWriteForThisSpecificProtein = new Dictionary<int, HashSet<string>>();
 
-            var primaryModDict = seqvar == null ? protein.OneBasedPossibleLocalizedModifications : seqvar.OneBasedModifications;
+            // Primary dict (variant-specific if seqvar != null); treat null as empty
+            IDictionary<int, List<Modification>> primaryModDict =
+                seqvar == null
+                    ? (protein.OneBasedPossibleLocalizedModifications ?? new Dictionary<int, List<Modification>>())
+                    : (seqvar.OneBasedModifications ?? new Dictionary<int, List<Modification>>());
+
+            // If primaryModDict somehow null after safety, just return empty
+            if (primaryModDict == null)
+                return modsToWriteForThisSpecificProtein;
+
             foreach (var mods in primaryModDict)
             {
+                if (mods.Value == null) continue;
                 foreach (var mod in mods.Value)
                 {
-                    if (modsToWriteForThisSpecificProtein.TryGetValue(mods.Key, out HashSet<string> val))
-                        val.Add(mod.IdWithMotif);
+                    if (mod == null) continue;
+                    if (modsToWriteForThisSpecificProtein.TryGetValue(mods.Key, out var set))
+                        set.Add(mod.IdWithMotif);
                     else
                         modsToWriteForThisSpecificProtein.Add(mods.Key, new HashSet<string> { mod.IdWithMotif });
                 }
             }
 
-            string accession = seqvar == null ? protein.Accession : VariantApplication.GetAccession(protein, new[] { seqvar }); 
-            if (additionalModsToAddToProteins.ContainsKey(accession))
+            // Additional externally supplied mods
+            string accession = seqvar == null
+                ? protein.Accession
+                : VariantApplication.GetAccession(protein, new[] { seqvar });
+
+            if (additionalModsToAddToProteins != null && accession != null &&
+                additionalModsToAddToProteins.TryGetValue(accession, out var extraMods))
             {
-                foreach (var ye in additionalModsToAddToProteins[accession])
+                foreach (var (pos, mod) in extraMods.Where(t => t != null))
                 {
-                    int additionalModResidueIndex = ye.Item1;
-                    string additionalModId = ye.Item2.IdWithMotif;
-                    bool modAdded = false;
-
-                    // If we already have modifications that need to be written to the specific residue, get the hash set of those mods
-                    if (modsToWriteForThisSpecificProtein.TryGetValue(additionalModResidueIndex, out HashSet<string> val))
-                    {
-                        // Try to add the new mod to that hash set. If it's not there, modAdded=true, and it is added.
-                        modAdded = val.Add(additionalModId);
-                    }
-
-                    // Otherwise, no modifications currently need to be written to the residue at residueIndex, so need to create new hash set for that residue
+                    if (mod == null) continue;
+                    bool added;
+                    if (modsToWriteForThisSpecificProtein.TryGetValue(pos, out var set))
+                        added = set.Add(mod.IdWithMotif);
                     else
                     {
-                        modsToWriteForThisSpecificProtein.Add(additionalModResidueIndex, new HashSet<string> { additionalModId });
-                        modAdded = true;
+                        modsToWriteForThisSpecificProtein.Add(pos, new HashSet<string> { mod.IdWithMotif });
+                        added = true;
                     }
-
-                    // Finally, if a new modification has in fact been deemed worthy of being added to the database, mark that in the output dictionary
-                    if (modAdded)
+                    if (added)
                     {
-                        if (newModResEntries.ContainsKey(additionalModId))
-                        {
-                            newModResEntries[additionalModId]++;
-                        }
+                        if (newModResEntries.ContainsKey(mod.IdWithMotif))
+                            newModResEntries[mod.IdWithMotif]++;
                         else
-                        {
-                            newModResEntries.Add(additionalModId, 1);
-                        }
+                            newModResEntries.Add(mod.IdWithMotif, 1);
                     }
                 }
             }
+
             return modsToWriteForThisSpecificProtein;
         }
     }

@@ -232,6 +232,9 @@
     <None Update="DatabaseTests\sliced_b6.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DatabaseTests\small.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\splices1.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

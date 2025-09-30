@@ -166,7 +166,18 @@ namespace Omics.BioPolymer
         #region Convenience / Interval Logic
 
         /// <summary>Simple concatenated representation (Original + Begin + Variant).</summary>
-        public string SimpleString() => OriginalSequence + OneBasedBeginPosition + VariantSequence;
+        public string SimpleString()
+        {
+            // Use true 1-based inclusive coordinates already validated.
+            // Point change, insertion, or deletion (begin == end OR original length == 1)
+            if (OneBasedBeginPosition == OneBasedEndPosition || (OriginalSequence?.Length ?? 0) <= 1)
+            {
+                return $"{(OriginalSequence ?? string.Empty)}{OneBasedBeginPosition}{(VariantSequence ?? string.Empty)}";
+            }
+
+            // Span substitution / delins
+            return $"{(OriginalSequence ?? string.Empty)}{OneBasedBeginPosition}-{OneBasedEndPosition}{(VariantSequence ?? string.Empty)}";
+        }
 
         internal bool Intersects(SequenceVariation segment) =>
             segment.OneBasedEndPosition >= OneBasedBeginPosition && segment.OneBasedBeginPosition <= OneBasedEndPosition;
