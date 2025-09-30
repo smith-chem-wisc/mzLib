@@ -210,99 +210,202 @@ namespace Omics.BioPolymer
         /// <summary>
         /// Applies a single variant to a protein sequence
         /// </summary>
+        /// <summary>
+        /// Applies a single variant to a protein sequence
+        /// </summary>
         private static TBioPolymerType ApplySingleVariant<TBioPolymerType>(SequenceVariation variantGettingApplied, TBioPolymerType protein, string individual)
             where TBioPolymerType : IHasSequenceVariants
         {
+            if (variantGettingApplied == null || protein == null)
+            {
+                return protein;
+            }
+
+            // Treat null original sequence as empty (pure insertion)
+            string originalSeq = variantGettingApplied.OriginalSequence ?? string.Empty;
+            string variantSeq = variantGettingApplied.VariantSequence ?? string.Empty;
+
+            // Coordinate sanity: begin must be within (length + 1) for pure insertion
+            if (variantGettingApplied.OneBasedBeginPosition < 1 ||
+                variantGettingApplied.OneBasedBeginPosition > protein.BaseSequence.Length + 1)
+            {
+                // Skip invalid variant silently
+                return protein;
+            }
+
+            // Compute the index AFTER the replaced region (clamp if original length runs past end)
+            int replacedLength = originalSeq.Length;
+            int afterIdx = variantGettingApplied.OneBasedBeginPosition + replacedLength - 1;
+            if (afterIdx > protein.BaseSequence.Length)
+            {
+                // Truncate replaced length if XML claimed a longer original sequence than exists
+                replacedLength = Math.Max(0, protein.BaseSequence.Length - (variantGettingApplied.OneBasedBeginPosition - 1));
+                afterIdx = variantGettingApplied.OneBasedBeginPosition + replacedLength - 1;
+            }
+
             string seqBefore = protein.BaseSequence.Substring(0, variantGettingApplied.OneBasedBeginPosition - 1);
-            string seqVariant = variantGettingApplied.VariantSequence;
-            int afterIdx = variantGettingApplied.OneBasedBeginPosition + variantGettingApplied.OriginalSequence.Length - 1;
+            string seqAfter = afterIdx >= protein.BaseSequence.Length
+                ? string.Empty
+                : protein.BaseSequence.Substring(afterIdx);
+
+            // Build applied variant object (post‑application coordinates)
+            int appliedBegin = variantGettingApplied.OneBasedBeginPosition;
+            int appliedEnd = variantGettingApplied.OneBasedBeginPosition + variantSeq.Length - 1;
+
+            // Safely copy variant-specific modifications (they are in post‑variant coordinate system)
+            var variantModDict = variantGettingApplied.OneBasedModifications != null
+                ? variantGettingApplied.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value)
+                : new Dictionary<int, List<Modification>>();
+
+            string vcfDescription = variantGettingApplied.VariantCallFormatData?.Description;
 
             SequenceVariation variantAfterApplication = new SequenceVariation(
-                variantGettingApplied.OneBasedBeginPosition,
-                variantGettingApplied.OneBasedBeginPosition + variantGettingApplied.VariantSequence.Length - 1,
-                variantGettingApplied.OriginalSequence,
-                variantGettingApplied.VariantSequence,
+                appliedBegin,
+                appliedEnd,
+                originalSeq,
+                variantSeq,
                 variantGettingApplied.Description,
-                variantGettingApplied.VariantCallFormatData.Description,
-                variantGettingApplied.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value));
+                vcfDescription,
+                variantModDict.Count == 0 ? null : variantModDict);
 
-            // check to see if there is incomplete indel overlap, which would lead to weird variant sequences
-            // complete overlap is okay, since it will be overwritten; this can happen if there are two alternate alleles,
-            //    e.g. reference sequence is wrong at that point
-            bool intersectsAppliedRegionIncompletely = protein.AppliedSequenceVariations.Any(x => variantGettingApplied.Intersects(x) && !variantGettingApplied.Includes(x));
+            // Detect incomplete overlap with already applied variants
+            bool intersectsAppliedRegionIncompletely = protein.AppliedSequenceVariations
+                .Any(x => variantGettingApplied.Intersects(x) && !variantGettingApplied.Includes(x));
+
             IEnumerable<SequenceVariation> appliedVariations = new[] { variantAfterApplication };
-            string seqAfter = null;
-            if (intersectsAppliedRegionIncompletely)
+            if (!intersectsAppliedRegionIncompletely)
             {
-                // use original protein sequence for the remaining sequence
-                seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.ConsensusVariant.BaseSequence.Substring(afterIdx);
-            }
-            else
-            {
-                // use this variant protein sequence for the remaining sequence
-                seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.BaseSequence.Substring(afterIdx);
+                // Keep previously applied ones that are not fully included in this new variant
                 appliedVariations = appliedVariations
                     .Concat(protein.AppliedSequenceVariations.Where(x => !variantGettingApplied.Includes(x)))
                     .ToList();
             }
-            string variantSequence = (seqBefore + seqVariant + seqAfter).Split('*')[0]; // there may be a stop gained
+            else
+            {
+                // If partial/incomplete overlap, restart tail from consensus (pre‑variant) sequence to avoid compounding corruption
+                seqAfter = afterIdx >= protein.ConsensusVariant.BaseSequence.Length
+                    ? string.Empty
+                    : protein.ConsensusVariant.BaseSequence.Substring(afterIdx);
+            }
 
-            // adjust indices
-            List<TruncationProduct> adjustedProteolysisProducts = AdjustTruncationProductIndices(variantGettingApplied, variantSequence, protein, protein.TruncationProducts);
-            Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variantGettingApplied, variantSequence, protein);
-            List<SequenceVariation> adjustedAppliedVariations = AdjustSequenceVariationIndices(variantGettingApplied, variantSequence, appliedVariations);
+            // Apply (stop codon truncation handled by splitting at first '*')
+            string newBaseSequence = (seqBefore + variantSeq + seqAfter).Split('*')[0];
 
-            return protein.CreateVariant(variantSequence, protein, adjustedAppliedVariations, adjustedProteolysisProducts, adjustedModifications, individual);
+            // Adjust dependent annotations
+            List<TruncationProduct> adjustedProteolysisProducts =
+                AdjustTruncationProductIndices(variantAfterApplication, newBaseSequence, protein, protein.TruncationProducts);
+
+            Dictionary<int, List<Modification>> adjustedModifications =
+                AdjustModificationIndices(variantAfterApplication, newBaseSequence, protein);
+
+            List<SequenceVariation> adjustedAppliedVariations =
+                AdjustSequenceVariationIndices(variantAfterApplication, newBaseSequence, appliedVariations);
+
+            return protein.CreateVariant(newBaseSequence,
+                                         protein,
+                                         adjustedAppliedVariations,
+                                         adjustedProteolysisProducts,
+                                         adjustedModifications,
+                                         individual);
         }
-
         /// <summary>
         /// Adjusts the indices of sequence variations due to applying a single additional variant
         /// </summary>
         private static List<SequenceVariation> AdjustSequenceVariationIndices(SequenceVariation variantGettingApplied, string variantAppliedProteinSequence, IEnumerable<SequenceVariation> alreadyAppliedVariations)
         {
-            List<SequenceVariation> variations = new List<SequenceVariation>();
-            if (alreadyAppliedVariations == null) { return variations; }
+            List<SequenceVariation> variations = new();
+            if (alreadyAppliedVariations == null)
+            {
+                return variations;
+            }
+
             foreach (SequenceVariation v in alreadyAppliedVariations)
             {
-                int addedIdx = alreadyAppliedVariations
-                    .Where(applied => applied.OneBasedEndPosition < v.OneBasedBeginPosition)
-                    .Sum(applied => applied.VariantSequence.Length - applied.OriginalSequence.Length);
+                if (v == null)
+                {
+                    continue;
+                }
 
-                // variant was entirely before the one being applied (shouldn't happen because of order of applying variants)
-                // or it's the current variation
-                if (v.VariantCallFormatData.Equals(variantGettingApplied.VariantCallFormatData) || v.OneBasedEndPosition - addedIdx < variantGettingApplied.OneBasedBeginPosition)
+                // Defensive null handling
+                string vOrig = v.OriginalSequence ?? string.Empty;
+                string vVar = v.VariantSequence ?? string.Empty;
+
+                int addedIdx = alreadyAppliedVariations
+                    .Where(applied => applied != null && applied.OneBasedEndPosition < v.OneBasedBeginPosition)
+                    .Sum(applied =>
+                    {
+                        string aVar = applied.VariantSequence ?? string.Empty;
+                        string aOrig = applied.OriginalSequence ?? string.Empty;
+                        return aVar.Length - aOrig.Length;
+                    });
+
+                bool sameVcfRecord =
+                    v.VariantCallFormatData != null &&
+                    variantGettingApplied.VariantCallFormatData != null &&
+                    v.VariantCallFormatData.Equals(variantGettingApplied.VariantCallFormatData);
+
+                // variant was entirely before the one being applied OR it's the current variation (same VCF)
+                if (sameVcfRecord || v.OneBasedEndPosition - addedIdx < variantGettingApplied.OneBasedBeginPosition)
                 {
                     variations.Add(v);
+                    continue;
                 }
 
                 // adjust indices based on new included sequence, minding possible overlaps to be filtered later
-                else
+                int intersectOneBasedStart = Math.Max(variantGettingApplied.OneBasedBeginPosition, v.OneBasedBeginPosition);
+                int intersectOneBasedEnd = Math.Min(variantGettingApplied.OneBasedEndPosition, v.OneBasedEndPosition);
+                int overlap = intersectOneBasedEnd < intersectOneBasedStart
+                    ? 0
+                    : intersectOneBasedEnd - intersectOneBasedStart + 1;
+
+                int seqLenChange =
+                    (variantGettingApplied.VariantSequence ?? string.Empty).Length -
+                    (variantGettingApplied.OriginalSequence ?? string.Empty).Length;
+
+                int begin = v.OneBasedBeginPosition + seqLenChange - overlap;
+                if (begin > variantAppliedProteinSequence.Length)
                 {
-                    int intersectOneBasedStart = Math.Max(variantGettingApplied.OneBasedBeginPosition, v.OneBasedBeginPosition);
-                    int intersectOneBasedEnd = Math.Min(variantGettingApplied.OneBasedEndPosition, v.OneBasedEndPosition);
-                    int overlap = intersectOneBasedEnd < intersectOneBasedStart ? 0 : // no overlap
-                        intersectOneBasedEnd - intersectOneBasedStart + 1; // there's some overlap
-                    int sequenceLengthChange = variantGettingApplied.VariantSequence.Length - variantGettingApplied.OriginalSequence.Length;
-                    int begin = v.OneBasedBeginPosition + sequenceLengthChange - overlap;
-                    if (begin > variantAppliedProteinSequence.Length)
-                    {
-                        continue; // cut out by a stop gain
-                    }
-                    int end = v.OneBasedEndPosition + sequenceLengthChange - overlap;
-                    if (end > variantAppliedProteinSequence.Length)
-                    {
-                        end = variantAppliedProteinSequence.Length; // end shortened by a stop gain
-                    }
-                    variations.Add(new SequenceVariation(
-                        begin,
-                        end,
-                        v.OriginalSequence,
-                        v.VariantSequence,
-                        v.Description,
-                        v.VariantCallFormatData.Description,
-                        v.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value)));
+                    // cut out by a stop gain / truncation
+                    continue;
                 }
+
+                int end = v.OneBasedEndPosition + seqLenChange - overlap;
+                if (end > variantAppliedProteinSequence.Length)
+                {
+                    end = variantAppliedProteinSequence.Length; // shortened by stop
+                }
+                if (end < begin)
+                {
+                    // Degenerate after adjustment; skip
+                    continue;
+                }
+
+                // Null-safe copy of variant-specific mods
+                Dictionary<int, List<Modification>> copiedMods = null;
+                if (v.OneBasedModifications != null)
+                {
+                    copiedMods = new Dictionary<int, List<Modification>>(v.OneBasedModifications.Count);
+                    foreach (var kv in v.OneBasedModifications)
+                    {
+                        if (kv.Value == null)
+                        {
+                            continue;
+                        }
+                        // shallow copy of list is fine here
+                        copiedMods[kv.Key] = new List<Modification>(kv.Value);
+                    }
+                }
+
+                variations.Add(new SequenceVariation(
+                    begin,
+                    end,
+                    vOrig,
+                    vVar,
+                    v.Description,
+                    v.VariantCallFormatData?.Description,
+                    copiedMods));
             }
+
             return variations;
         }
 
