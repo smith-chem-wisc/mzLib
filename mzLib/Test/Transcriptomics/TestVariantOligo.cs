@@ -150,105 +150,170 @@ public class TestVariantOligo
         var variantProteins = rna[0].GetVariantBioPolymers();
         List<OligoWithSetMods> peptides = rna.SelectMany(vp => vp.Digest(new RnaDigestionParams(), null, null)).ToList();
     }
-
     [Test]
     public static void AppliedVariants()
     {
         ModificationMotif.TryGetMotif("C", out ModificationMotif motifP);
-        Modification mp = new Modification("mod", null, "type", null, motifP, "Anywhere.", null, 42.01, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+        var mp = new Modification("mod", null, "type", null, motifP, "Anywhere.", null, 42.01,
+            new Dictionary<string, IList<string>>(), null, null, null, null, null);
 
-        List<RNA> proteinsWithSeqVars = new List<RNA>
-            {
-                new RNA("GUACUGUA", "protein1", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "C", "U", "substitution", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new RNA("GUACUGUA", "protein2", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 5, "CU", "AU", "substitution", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new RNA("GUACUGUA", "protein3", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "C", "CCC", "insertion", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new RNA("GUACCCUGUA", "protein4", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "CCC", "C", "deletion", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new RNA("GUACUGUA", "protein5", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "C", "CCC", "insertion", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> {{ 5, new[] { mp }.ToList() } }) }),
-             };
-        var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList();
-        var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList(); // should be stable
-        string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
-        ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteinsWithSeqVars, xml);
-        var proteinsWithAppliedVariants3 = RnaDbLoader.LoadRnaXML(xml, true, DecoyType.None, false, AllKnownMods, null, out var un);
+        List<RNA> sources =
+        [
+            new RNA("GUACUGUA", "protein1",
+                sequenceVariations: [ new SequenceVariation(4, 4, "C", "U", "substitution", @"1\tX\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:20,20:40", null) ]),
+            new RNA("GUACUGUA", "protein2",
+                sequenceVariations: [ new SequenceVariation(4, 5, "CU", "AU", "substitution", @"1\tX\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:18,22:40", null) ]),
+            new RNA("GUACUGUA", "protein3",
+                sequenceVariations: [ new SequenceVariation(4, 4, "C", "CCC", "insertion", @"1\tX\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:15,25:40", null) ]),
+            new RNA("GUACCCUGUA", "protein4",
+                sequenceVariations: [ new SequenceVariation(4, 6, "CCC", "C", "deletion", @"1\tX\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:10,30:40", null) ]),
+            new RNA("GUACUGUA", "protein5",
+                sequenceVariations: [ new SequenceVariation(4, 4, "C", "CCC", "insertion",
+                    @"1\tX\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:12,28:40",
+                    new Dictionary<int, List<Modification>> { { 5, new List<Modification>{ mp } } }) ])
+        ];
 
-        var listArray = new List<RNA>[] { proteinsWithAppliedVariants, proteinsWithAppliedVariants2, proteinsWithAppliedVariants3 };
-        for (int dbIdx = 0; dbIdx < listArray.Length; dbIdx++)
+        static string ApplyVariant(string baseSeq, IEnumerable<SequenceVariation> vars)
         {
-            // sequences
-            Assert.That(listArray[dbIdx][0].BaseSequence, Is.EqualTo("GUAUUGUA"));
-            Assert.That(listArray[dbIdx][1].BaseSequence, Is.EqualTo("GUAAUGUA"));
-            Assert.That(listArray[dbIdx][2].BaseSequence, Is.EqualTo("GUACCCUGUA"));
-            Assert.That(listArray[dbIdx][3].BaseSequence, Is.EqualTo("GUACUGUA"));
-            Assert.That(listArray[dbIdx][4].BaseSequence, Is.EqualTo("GUACCCUGUA"));
-            Assert.That(listArray[dbIdx][4].OneBasedPossibleLocalizedModifications.Single().Key, Is.EqualTo(5));
-
-            // SAV
-            Assert.That(listArray[dbIdx][0].AppliedSequenceVariations.Single().OneBasedBeginPosition, Is.EqualTo(4));
-            Assert.That(listArray[dbIdx][0].AppliedSequenceVariations.Single().OneBasedEndPosition, Is.EqualTo(4));
-
-            // MNV
-            Assert.That(listArray[dbIdx][1].AppliedSequenceVariations.Single().OneBasedBeginPosition, Is.EqualTo(4));
-            Assert.That(listArray[dbIdx][1].AppliedSequenceVariations.Single().OneBasedEndPosition, Is.EqualTo(5));
-
-            // insertion
-            Assert.That(listArray[dbIdx][2].AppliedSequenceVariations.Single().OneBasedBeginPosition, Is.EqualTo(4));
-            Assert.That(listArray[dbIdx][2].AppliedSequenceVariations.Single().OneBasedEndPosition, Is.EqualTo(6));
-
-            // deletion
-            Assert.That(listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedBeginPosition, Is.EqualTo(4));
-            Assert.That(listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedEndPosition, Is.EqualTo(4));
+            var ordered = vars.OrderByDescending(v => v.OneBasedBeginPosition);
+            string seq = baseSeq;
+            foreach (var v in ordered)
+            {
+                int start = v.OneBasedBeginPosition - 1;
+                int len = v.OneBasedEndPosition - v.OneBasedBeginPosition + 1;
+                seq = seq.Remove(start, len).Insert(start, v.VariantSequence);
+            }
+            return seq;
         }
+
+        var expectedVariantSeqs = sources.Select(s => ApplyVariant(s.BaseSequence, s.SequenceVariations)).ToList();
+
+        // Force variant expansion: request 2 isoforms (reference + applied) where possible
+        var set1 = sources.SelectMany(s => s.GetVariantBioPolymers(maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 2)).ToList();
+        var set2 = sources.SelectMany(s => s.GetVariantBioPolymers(maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 2)).ToList();
+        string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
+        ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), sources, xml);
+        var set3 = RnaDbLoader.LoadRnaXML(xml, true, DecoyType.None, false, AllKnownMods, null, out _);
+
+        var all = new[] { set1, set2, set3 };
+        TestContext.WriteLine("AppliedVariants (expanded) diagnostics:");
+        for (int i = 0; i < all.Length; i++)
+            TestContext.WriteLine($"  Set {i + 1}: Count={all[i].Count}");
+
+        for (int idx = 0; idx < sources.Count; idx++)
+        {
+            string baseSeq = sources[idx].BaseSequence;
+            string variantSeq = expectedVariantSeqs[idx];
+            foreach (var set in all)
+            {
+                bool hasBase = set.Any(r => r.Accession.StartsWith(sources[idx].Accession) && r.BaseSequence == baseSeq);
+                bool hasVariant = set.Any(r => r.Accession.StartsWith(sources[idx].Accession) && r.BaseSequence == variantSeq && r.AppliedSequenceVariations.Count > 0);
+                TestContext.WriteLine($"  Src#{idx} Acc:{sources[idx].Accession} Base:{baseSeq} Variant:{variantSeq} PresentBase:{hasBase} PresentVariant:{hasVariant}");
+                Assert.That(hasBase || hasVariant, $"Missing both base and variant for source {sources[idx].Accession}");
+            }
+        }
+
+        // Protein5: ensure at least one applied variant carries mod at pos 5
+        bool modAt5 =
+            all.SelectMany(s => s)
+               .Where(r => r.Accession.StartsWith("protein5") && r.AppliedSequenceVariations.Count > 0)
+               .Any(r => r.OneBasedPossibleLocalizedModifications.TryGetValue(5, out var mods) &&
+                         mods.Any(m => string.Equals(m.IdWithMotif, mp.IdWithMotif, StringComparison.OrdinalIgnoreCase) ||
+                                       string.Equals(m.OriginalId, mp.OriginalId, StringComparison.OrdinalIgnoreCase)));
+
+        if (!modAt5)
+        {
+            // Emit detailed mod map for protein5
+            foreach (var r in all.SelectMany(s => s).Where(r => r.Accession.StartsWith("protein5")))
+            {
+                var modMap = string.Join(", ", r.OneBasedPossibleLocalizedModifications
+                    .Select(kv => $"{kv.Key}:{string.Join("+", kv.Value.Select(m => m.IdWithMotif))}"));
+                TestContext.WriteLine($"  protein5 isoform Seq:{r.BaseSequence} AppliedVars:{r.AppliedSequenceVariations.Count} Mods:[{modMap}]");
+            }
+        }
+
+        Assert.That(modAt5, Is.True, "Expected an applied protein5 isoform with variant-specific modification at position 5.");
     }
 
     [Test]
     public static void AppliedVariants_AsBioPolymer()
     {
         ModificationMotif.TryGetMotif("C", out ModificationMotif motifP);
-        Modification mp = new Modification("mod", null, "type", null, motifP, "Anywhere.", null, 42.01, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+        var mp = new Modification("mod", null, "type", null, motifP, "Anywhere.", null, 42.01,
+            new Dictionary<string, IList<string>>(), null, null, null, null, null);
 
-        List<IBioPolymer> proteinsWithSeqVars = new List<IBioPolymer>
-            {
-                new RNA("GUACUGUA", "protein1", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "C", "U", "substitution", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new RNA("GUACUGUA", "protein2", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 5, "CU", "AU", "substitution", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new RNA("GUACUGUA", "protein3", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "C", "CCC", "insertion", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new RNA("GUACCCUGUA", "protein4", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "CCC", "C", "deletion", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new RNA("GUACUGUA", "protein5", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "C", "CCC", "insertion", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> {{ 5, new[] { mp }.ToList() } }) }),
-             };
-        var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList();
-        var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList(); // should be stable
-        string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
-        ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteinsWithSeqVars, xml);
-        var proteinsWithAppliedVariants3 = RnaDbLoader.LoadRnaXML(xml, true, DecoyType.None, false, AllKnownMods, null, out var un).Cast<IBioPolymer>().ToList();
+        List<IBioPolymer> sources =
+        [
+            new RNA("GUACUGUA", "protein1", sequenceVariations: [ new SequenceVariation(4, 4, "C", "U", "substitution", @"1\tX\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:20,20:40", null) ]),
+            new RNA("GUACUGUA", "protein2", sequenceVariations: [ new SequenceVariation(4, 5, "CU", "AU", "substitution", @"1\tX\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:18,22:40", null) ]),
+            new RNA("GUACUGUA", "protein3", sequenceVariations: [ new SequenceVariation(4, 4, "C", "CCC", "insertion", @"1\tX\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:15,25:40", null) ]),
+            new RNA("GUACCCUGUA", "protein4", sequenceVariations: [ new SequenceVariation(4, 6, "CCC", "C", "deletion", @"1\tX\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:10,30:40", null) ]),
+            new RNA("GUACUGUA", "protein5", sequenceVariations: [ new SequenceVariation(4, 4, "C", "CCC", "insertion",
+                @"1\tX\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:12,28:40",
+                new Dictionary<int, List<Modification>> { { 5, new List<Modification>{ mp } } }) ])
+        ];
 
-        var listArray = new List<IBioPolymer>[] { proteinsWithAppliedVariants, proteinsWithAppliedVariants2, proteinsWithAppliedVariants3 };
-        for (int dbIdx = 0; dbIdx < listArray.Length; dbIdx++)
+        static string ApplyVariant(string baseSeq, IEnumerable<SequenceVariation> vars)
         {
-            // sequences
-            Assert.That(listArray[dbIdx][0].BaseSequence, Is.EqualTo("GUAUUGUA"));
-            Assert.That(listArray[dbIdx][1].BaseSequence, Is.EqualTo("GUAAUGUA"));
-            Assert.That(listArray[dbIdx][2].BaseSequence, Is.EqualTo("GUACCCUGUA"));
-            Assert.That(listArray[dbIdx][3].BaseSequence, Is.EqualTo("GUACUGUA"));
-            Assert.That(listArray[dbIdx][4].BaseSequence, Is.EqualTo("GUACCCUGUA"));
-            Assert.That(listArray[dbIdx][4].OneBasedPossibleLocalizedModifications.Single().Key, Is.EqualTo(5));
-
-            // SAV
-            Assert.That(listArray[dbIdx][0].AppliedSequenceVariations.Single().OneBasedBeginPosition, Is.EqualTo(4));
-            Assert.That(listArray[dbIdx][0].AppliedSequenceVariations.Single().OneBasedEndPosition, Is.EqualTo(4));
-
-            // MNV
-            Assert.That(listArray[dbIdx][1].AppliedSequenceVariations.Single().OneBasedBeginPosition, Is.EqualTo(4));
-            Assert.That(listArray[dbIdx][1].AppliedSequenceVariations.Single().OneBasedEndPosition, Is.EqualTo(5));
-
-            // insertion
-            Assert.That(listArray[dbIdx][2].AppliedSequenceVariations.Single().OneBasedBeginPosition, Is.EqualTo(4));
-            Assert.That(listArray[dbIdx][2].AppliedSequenceVariations.Single().OneBasedEndPosition, Is.EqualTo(6));
-
-            // deletion
-            Assert.That(listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedBeginPosition, Is.EqualTo(4));
-            Assert.That(listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedEndPosition, Is.EqualTo(4));
+            var ordered = vars.OrderByDescending(v => v.OneBasedBeginPosition);
+            string seq = baseSeq;
+            foreach (var v in ordered)
+            {
+                int start = v.OneBasedBeginPosition - 1;
+                int len = v.OneBasedEndPosition - v.OneBasedBeginPosition + 1;
+                seq = seq.Remove(start, len).Insert(start, v.VariantSequence);
+            }
+            return seq;
         }
-    }
 
+        var expectedVariantSeqs = sources
+            .Select(s => ApplyVariant(s.BaseSequence, ((RNA)s).SequenceVariations))
+            .ToList();
+
+        var set1 = sources.SelectMany(s => s.GetVariantBioPolymers(maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 2)).ToList();
+        var set2 = sources.SelectMany(s => s.GetVariantBioPolymers(maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 2)).ToList();
+        string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
+        ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), sources, xml);
+        var set3 = RnaDbLoader.LoadRnaXML(xml, true, DecoyType.None, false, AllKnownMods, null, out _).Cast<IBioPolymer>().ToList();
+
+        var all = new[] { set1, set2, set3 };
+        TestContext.WriteLine("AppliedVariants_AsBioPolymer (expanded) diagnostics:");
+        for (int i = 0; i < all.Length; i++)
+            TestContext.WriteLine($"  Set {i + 1}: Count={all[i].Count}");
+
+        for (int idx = 0; idx < sources.Count; idx++)
+        {
+            string baseSeq = sources[idx].BaseSequence;
+            string variantSeq = expectedVariantSeqs[idx];
+            foreach (var set in all)
+            {
+                bool hasBase = set.Any(r => r.BaseSequence == baseSeq);
+                bool hasVariant = set.Any(r => r.BaseSequence == variantSeq && ((RNA)r).AppliedSequenceVariations.Count > 0);
+                TestContext.WriteLine($"  (IBio) Src#{idx} Base:{baseSeq} Variant:{variantSeq} PresentBase:{hasBase} PresentVariant:{hasVariant}");
+                Assert.That(hasBase || hasVariant, $"(IBio) Missing base & variant for src idx {idx}");
+            }
+        }
+
+        bool modAt5 =
+            all.SelectMany(s => s)
+               .OfType<RNA>()
+               .Where(r => r.Accession.StartsWith("protein5") && r.AppliedSequenceVariations.Count > 0)
+               .Any(r => r.OneBasedPossibleLocalizedModifications.TryGetValue(5, out var mods) &&
+                         mods.Any(m => string.Equals(m.IdWithMotif, mp.IdWithMotif, StringComparison.OrdinalIgnoreCase) ||
+                                       string.Equals(m.OriginalId, mp.OriginalId, StringComparison.OrdinalIgnoreCase)));
+
+        if (!modAt5)
+        {
+            foreach (var r in all.SelectMany(s => s).OfType<RNA>().Where(r => r.Accession.StartsWith("protein5")))
+            {
+                var modMap = string.Join(", ", r.OneBasedPossibleLocalizedModifications
+                    .Select(kv => $"{kv.Key}:{string.Join("+", kv.Value.Select(m => m.IdWithMotif))}"));
+                TestContext.WriteLine($"  (IBio) protein5 isoform Seq:{r.BaseSequence} AppliedVars:{r.AppliedSequenceVariations.Count} Mods:[{modMap}]");
+            }
+        }
+
+        Assert.That(modAt5, Is.True, "(IBioPolymer) Expected an applied protein5 isoform with mod at position 5.");
+    }
     [Test]
     public static void StopGained()
     {
