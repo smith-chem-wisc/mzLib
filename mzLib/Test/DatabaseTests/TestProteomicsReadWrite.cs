@@ -430,28 +430,128 @@ namespace Test.DatabaseTests
         [Test]
         public void SmallXml_VariantTokens_And_Lengths()
         {
+            // Arrange
+            string xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "small.xml");
+
+            // Load with single-variant expansion (base + each single variant)
             var proteins = ProteinDbLoader.LoadProteinXML(
-                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "small.xml"),
-                true, DecoyType.None, Enumerable.Empty<Modification>(), false, null,
-                out var _, maxSequenceVariantsPerIsoform:1, maxSequenceVariantIsoforms:50);
+                xmlPath,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: Enumerable.Empty<Modification>(),
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var _,
+                maxSequenceVariantsPerIsoform: 1,
+                maxSequenceVariantIsoforms: 50);
 
-            // Expect base + 6 variants
-            Assert.AreEqual(7, proteins.Count);
+            // Expect: 1 base + 6 single-variant proteoforms
+            Assert.AreEqual(7, proteins.Count, "Unexpected proteoform count (expected base + 6 variants).");
 
-            // Map accession suffixes
-            var accessions = proteins.Select(p => p.Accession).ToList();
-            CollectionAssert.Contains(accessions, "A0A087X1C5_C337CS");
-            CollectionAssert.Contains(accessions, "A0A087X1C5_AHMPC369-373VHMPY");
+            // Collect base (no underscore) and variant proteoforms (underscore suffix)
+            var baseProteins = proteins.Where(p => !p.Accession.Contains('_')).ToList();
+            Assert.AreEqual(1, baseProteins.Count, "Should have exactly one base (non-suffixed) accession.");
+            var baseProt = baseProteins.Single();
+            int baseLength = baseProt.Length;
 
-            // Length checks
+            // Expected variant tokens (SimpleString forms)
+            var expectedTokens = new HashSet<string>
+            {
+                "S70N",
+                "S311L",
+                "C337CS",
+                "AHMPC369-373VHMPY",
+                "H383R",
+                "K428E"
+            };
+
+            // Pull variant proteoforms
+            var variantProteins = proteins.Where(p => p.Accession.Contains('_')).ToList();
+            Assert.AreEqual(expectedTokens.Count, variantProteins.Count, "Mismatch in variant isoform count.");
+
+            // Map accession suffix to proteoform
+            var tokenToProtein = new Dictionary<string, Protein>(StringComparer.Ordinal);
+            foreach (var vp in variantProteins)
+            {
+                string suffix = vp.Accession[(vp.Accession.IndexOf('_') + 1)..];
+                tokenToProtein[suffix] = vp;
+            }
+
+            // Ensure all expected tokens present
+            foreach (var token in expectedTokens)
+            {
+                Assert.IsTrue(tokenToProtein.ContainsKey(token), $"Missing variant accession token {token}");
+            }
+
+            // Insertion variant (C337CS) should have length +1
+            Assert.AreEqual(baseLength + 1, tokenToProtein["C337CS"].Length, "Insertion variant length incorrect.");
+
+            // All other variants should retain base length
+            foreach (var kv in tokenToProtein.Where(kv => kv.Key != "C337CS"))
+            {
+                Assert.AreEqual(baseLength, kv.Value.Length, $"Length mismatch for {kv.Key}");
+            }
+
+            // UniProtSequenceAttributes integrity (present and matching length if available)
             foreach (var p in proteins)
             {
-                if (p.AppliedSequenceVariations.Any(v => v.SimpleString().StartsWith("C337CS")))
-                    Assert.AreEqual(516, p.Length);
-                else
-                    Assert.AreEqual(515, p.Length);
                 if (p.UniProtSequenceAttributes != null)
-                    Assert.AreEqual(p.Length, p.UniProtSequenceAttributes.Length);
+                {
+                    Assert.AreEqual(p.Length, p.UniProtSequenceAttributes.Length,
+                        $"UniProtSequenceAttributes.Length mismatch for {p.Accession}");
+                }
+            }
+
+            // AppliedSequenceVariations: base has none; each variant exactly one applied
+            Assert.IsTrue(baseProt.AppliedSequenceVariations == null || baseProt.AppliedSequenceVariations.Count == 0,
+                "Base protein should have no applied sequence variations.");
+
+            foreach (var kv in tokenToProtein)
+            {
+                var ap = kv.Value.AppliedSequenceVariations;
+                Assert.IsNotNull(ap, $"AppliedSequenceVariations null for {kv.Key}");
+                Assert.AreEqual(1, ap.Count, $"Expected exactly 1 applied variant for {kv.Key}");
+                Assert.AreEqual(kv.Key, ap[0].SimpleString(), $"Applied variant token mismatch for {kv.Key}");
+            }
+
+            // Base protein should enumerate all 6 defined variants (original annotations)
+            Assert.IsNotNull(baseProt.SequenceVariations, "Base SequenceVariations null.");
+            Assert.AreEqual(6, baseProt.SequenceVariations.Count(), "Base protein should define 6 sequence variants.");
+            var baseVariantTokens = new HashSet<string>(baseProt.SequenceVariations.Select(v => v.SimpleString()));
+            foreach (var token in expectedTokens)
+            {
+                Assert.IsTrue(baseVariantTokens.Contains(token), $"Base variant list missing {token}");
+            }
+
+            // Variant name tagging (variant:token present in Name for variants)
+            foreach (var kv in tokenToProtein)
+            {
+                string name = kv.Value.Name ?? "";
+                Assert.IsTrue(name.Contains(kv.Key) || name.Contains("variant:"), $"Variant name missing token hint for {kv.Key}");
+            }
+
+            // Accession uniqueness
+            Assert.AreEqual(proteins.Count, proteins.Select(p => p.Accession).Distinct().Count(), "Duplicate accessions detected.");
+
+            // Sequence uniqueness sanity: at least insertion differs in length; substitutions differ in sequence
+            var seqSet = new HashSet<string>(proteins.Select(p => p.BaseSequence));
+            Assert.IsTrue(seqSet.Count >= 2, "Expected at least two distinct sequences (insertion must differ).");
+            Assert.IsTrue(tokenToProtein["C337CS"].BaseSequence.Length == baseProt.BaseSequence.Length + 1,
+                "Insertion sequence length delta not observed.");
+
+            // No zero-length sequences
+            Assert.IsFalse(proteins.Any(p => string.IsNullOrEmpty(p.BaseSequence)), "Found empty BaseSequence.");
+
+            // Final safety: all applied variants' coordinates are within sequence bounds
+            foreach (var vp in variantProteins)
+            {
+                foreach (var sv in vp.AppliedSequenceVariations)
+                {
+                    Assert.IsTrue(sv.OneBasedBeginPosition >= 1 && sv.OneBasedBeginPosition <= vp.Length,
+                        $"Begin out of range in {vp.Accession}");
+                    Assert.IsTrue(sv.OneBasedEndPosition >= sv.OneBasedBeginPosition && sv.OneBasedEndPosition <= vp.Length,
+                        $"End out of range in {vp.Accession}");
+                }
             }
         }
     }
