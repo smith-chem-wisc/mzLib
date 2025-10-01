@@ -1,18 +1,19 @@
-﻿using System;
+﻿using NUnit.Framework;
+using NUnit.Framework.Legacy;
+using Omics;
+using Omics.BioPolymer;
+using Omics.Modifications;
+using Proteomics;
+using Proteomics.ProteolyticDigestion;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using NUnit.Framework;
-using Omics.BioPolymer;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using Omics.Modifications;
-using Proteomics;
-using Proteomics.ProteolyticDigestion;
-using UsefulProteomicsDatabases;
-using Stopwatch = System.Diagnostics.Stopwatch;
-using Omics;
 using Transcriptomics;
+using UsefulProteomicsDatabases;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test.DatabaseTests
 {
@@ -1063,70 +1064,140 @@ namespace Test.DatabaseTests
                 maxSequenceVariantIsoforms: 100);
             Assert.AreEqual(8, proteinsWithAppliedVariants.Count); //we now have 8 proteins, the original 4 and one variant for each
         }
-
         [Test]
         public static void AppliedVariants_AsIBioPolymer()
         {
+            // Updated to be order- and implementation-agnostic:
+            // 1. Do not rely on index ordering of GetVariantBioPolymers().
+            // 2. Pair original vs applied isoforms via NonVariantProtein or AppliedSequenceVariations count.
+            // 3. Assert exactly one applied variant per variant isoform.
+            // 4. Validate coordinates & sequence length delta for substitution, multi-AA substitution, insertion, deletion.
+            // 5. Verify idempotency (second expansion identical) and round-trip XML persistence.
+
             ModificationMotif.TryGetMotif("P", out ModificationMotif motifP);
-            Modification mp = new Modification("mod", null, "type", null, motifP, "Anywhere.", null, 42.01, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+            var mp = new Modification("mod", null, "type", null, motifP, "Anywhere.", null, 42.01,
+                new Dictionary<string, IList<string>>(), null, null, null, null, null);
 
-            List<IBioPolymer> proteinsWithSeqVars = new List<IBioPolymer>
+            var originals = new List<IBioPolymer>
             {
-                new Protein("MPEPTIDE", "protein1", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "V", "substituion", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE", "protein2", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 5, "PT", "KT", "substitution", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE", "protein3", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", "insertion", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPPPTIDE", "protein4", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "PPP", "P", "deletion", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-             };
-            var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantIsoforms: 100)).ToList();
-            var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantIsoforms: 100)).ToList(); // should be stable
-            string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
-            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteinsWithSeqVars, xml);
-            var proteinsWithAppliedVariants3 = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un,
-                maxSequenceVariantIsoforms: 100);
-
-            var listArray = new List<IBioPolymer>[]
-            {
-                proteinsWithAppliedVariants,
-                proteinsWithAppliedVariants2,
-                proteinsWithAppliedVariants3.Cast<IBioPolymer>().ToList()
+                new Protein("MPEPTIDE",   "protein1",
+                    sequenceVariations: new List<SequenceVariation>{
+                        new SequenceVariation(4,4,"P","V","substitution",
+                            @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30")}),
+                new Protein("MPEPTIDE",   "protein2",
+                    sequenceVariations: new List<SequenceVariation>{
+                        new SequenceVariation(4,5,"PT","KT","multi_aa_substitution",
+                            @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30")}),
+                new Protein("MPEPTIDE",   "protein3",
+                    sequenceVariations: new List<SequenceVariation>{
+                        new SequenceVariation(4,4,"P","PPP","insertion",
+                            @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30")}),
+                new Protein("MPEPPPTIDE", "protein4",
+                    sequenceVariations: new List<SequenceVariation>{
+                        new SequenceVariation(4,6,"PPP","P","deletion",
+                            @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30")})
             };
 
-            for (int dbIdx = 0; dbIdx < listArray.Length; dbIdx++)
+            // Expected variant outcome model per original accession
+            var expectations = new Dictionary<string, (string originalSeq, string variantSeq,
+                string origSeg, string varSeg, int begin, int end)>
             {
-                // sequences
-                Assert.AreEqual("MPEPTIDE", listArray[dbIdx][0].BaseSequence);
-                Assert.AreEqual("MPEVTIDE", listArray[dbIdx][1].BaseSequence);
+                // accession : (originalIsoformSequence, variantIsoformSequence, OriginalSequenceSegment, VariantSequenceSegment, begin, end)
+                ["protein1"] = ("MPEPTIDE", "MPEVTIDE", "P", "V", 4, 4),
+                ["protein2"] = ("MPEPTIDE", "MPEKTIDE", "PT", "KT", 4, 5),
+                ["protein3"] = ("MPEPTIDE", "MPEPPPTIDE", "P", "PPP", 4, 4),   // insertion (expansion)
+                ["protein4"] = ("MPEPPPTIDE", "MPEPTIDE", "PPP", "P", 4, 6)     // deletion (contraction)
+            };
 
-                Assert.AreEqual("MPEPTIDE", listArray[dbIdx][2].BaseSequence);
-                Assert.AreEqual("MPEKTIDE", listArray[dbIdx][3].BaseSequence);
+            // First expansion
+            var expanded1 = originals.SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantIsoforms: 100)).OfType<Protein>().ToList();
+            // Second expansion (idempotency)
+            var expanded2 = originals.SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantIsoforms: 100)).OfType<Protein>().ToList();
 
-                Assert.AreEqual("MPEPTIDE", listArray[dbIdx][4].BaseSequence);
-                Assert.AreEqual("MPEPPPTIDE", listArray[dbIdx][5].BaseSequence);
+            // Round-trip XML
+            string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(),
+                originals.OfType<Protein>().ToList(), xml);
+            var reloaded = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out _,
+                maxSequenceVariantIsoforms: 100).OfType<Protein>().ToList();
 
-                Assert.AreEqual("MPEPPPTIDE", listArray[dbIdx][6].BaseSequence);
-                Assert.AreEqual("MPEPTIDE", listArray[dbIdx][7].BaseSequence);
+            void ValidateSet(List<Protein> set, string label)
+            {
+                // Group originals + variants by root (NonVariantProtein.Accession or self if unapplied)
+                var groups = set
+                    .GroupBy(p => p.NonVariantProtein?.Accession ?? p.Accession)
+                    .ToDictionary(g => g.Key, g => g.ToList());
 
-                // SAV
-                Assert.AreEqual(4, listArray[dbIdx][0].SequenceVariations.Single().OneBasedBeginPosition);
-                Assert.AreEqual(4, listArray[dbIdx][1].AppliedSequenceVariations.Single().OneBasedBeginPosition);
+                Assert.AreEqual(expectations.Count, groups.Count,
+                    $"{label}: Group count mismatch (expected one original+variant per starting accession).");
 
-                // MNV
-                Assert.AreEqual(4, listArray[dbIdx][2].SequenceVariations.Single().OneBasedBeginPosition);
-                Assert.AreEqual(4, listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedBeginPosition);
-                Assert.AreEqual(5, listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedEndPosition);
+                foreach (var kv in expectations)
+                {
+                    string acc = kv.Key;
+                    Assert.IsTrue(groups.ContainsKey(acc), $"{label}: Missing group for {acc}.");
+                    var members = groups[acc];
 
-                // insertion
-                Assert.AreEqual(4, listArray[dbIdx][4].SequenceVariations.Single().OneBasedBeginPosition);
-                Assert.AreEqual(4, listArray[dbIdx][5].AppliedSequenceVariations.Single().OneBasedBeginPosition);
-                Assert.AreEqual(6, listArray[dbIdx][5].AppliedSequenceVariations.Single().OneBasedEndPosition);
+                    // Expect exactly 2 isoforms: one unapplied, one applied
+                    Assert.AreEqual(2, members.Count, $"{label}: Expected 2 isoforms for {acc}.");
 
-                // deletion
-                Assert.AreEqual(4, listArray[dbIdx][6].SequenceVariations.Single().OneBasedBeginPosition);
-                Assert.AreEqual(4, listArray[dbIdx][7].AppliedSequenceVariations.Single().OneBasedBeginPosition);
-                Assert.AreEqual(4, listArray[dbIdx][7].AppliedSequenceVariations.Single().OneBasedBeginPosition);
+                    var originalIso = members.First(p => p.AppliedSequenceVariations.Count == 0);
+                    var variantIso = members.First(p => p.AppliedSequenceVariations.Count == 1);
+
+                    var (expectedOrigSeq, expectedVarSeq, expectedOrigSeg, expectedVarSeg, begin, end) = kv.Value;
+
+                    Assert.AreEqual(expectedOrigSeq, originalIso.BaseSequence,
+                        $"{label}:{acc} original base sequence mismatch.");
+                    Assert.AreEqual(expectedVarSeq, variantIso.BaseSequence,
+                        $"{label}:{acc} variant base sequence mismatch.");
+
+                    // Original protein should retain the potential variant in SequenceVariations (not applied)
+                    Assert.AreEqual(1, originalIso.SequenceVariations.Count,
+                        $"{label}:{acc} expected exactly 1 potential (unapplied) variant.");
+                    var rawSv = originalIso.SequenceVariations.Single();
+                    Assert.AreEqual(begin, rawSv.OneBasedBeginPosition, $"{label}:{acc} raw begin mismatch.");
+                    Assert.AreEqual(end, rawSv.OneBasedEndPosition, $"{label}:{acc} raw end mismatch.");
+                    Assert.AreEqual(expectedOrigSeg, rawSv.OriginalSequence, $"{label}:{acc} raw OriginalSequence mismatch.");
+                    Assert.AreEqual(expectedVarSeg, rawSv.VariantSequence, $"{label}:{acc} raw VariantSequence mismatch.");
+
+                    // Applied isoform should have zero raw SequenceVariations and one applied variant
+                    Assert.AreEqual(0, variantIso.SequenceVariations.Count,
+                        $"{label}:{acc} variant isoform should have zero raw SequenceVariations after application.");
+                    var applied = variantIso.AppliedSequenceVariations.Single();
+                    Assert.AreEqual(begin, applied.OneBasedBeginPosition, $"{label}:{acc} applied begin mismatch.");
+                    Assert.AreEqual(end, applied.OneBasedEndPosition, $"{label}:{acc} applied end mismatch.");
+                    Assert.AreEqual(expectedOrigSeg, applied.OriginalSequence, $"{label}:{acc} applied OriginalSequence mismatch.");
+                    Assert.AreEqual(expectedVarSeg, applied.VariantSequence, $"{label}:{acc} applied VariantSequence mismatch.");
+
+                    // Length delta checks for insertion/deletion
+                    int delta = applied.VariantSequence.Length - applied.OriginalSequence.Length;
+                    if (applied.Description?.Contains("insertion", StringComparison.OrdinalIgnoreCase) == true
+                        || delta > 0)
+                    {
+                        Assert.Greater(variantIso.Length, originalIso.Length,
+                            $"{label}:{acc} insertion expected length increase.");
+                    }
+                    if (applied.Description?.Contains("deletion", StringComparison.OrdinalIgnoreCase) == true
+                        || delta < 0)
+                    {
+                        Assert.Less(variantIso.Length, originalIso.Length,
+                            $"{label}:{acc} deletion expected length decrease.");
+                    }
+                }
             }
-        }
 
+            ValidateSet(expanded1, "FirstExpansion");
+            ValidateSet(expanded2, "SecondExpansion (Idempotent)");
+            ValidateSet(reloaded, "ReloadedFromXml");
+
+            // Idempotency: same set of (accession, sequences) across first/second expansion
+            var sig1 = expanded1.Select(p => (root: p.NonVariantProtein?.Accession ?? p.Accession,
+                                              seq: p.BaseSequence,
+                                              applied: p.AppliedSequenceVariations.Count)).OrderBy(x => x.root).ThenBy(x => x.seq).ToList();
+            var sig2 = expanded2.Select(p => (root: p.NonVariantProtein?.Accession ?? p.Accession,
+                                              seq: p.BaseSequence,
+                                              applied: p.AppliedSequenceVariations.Count)).OrderBy(x => x.root).ThenBy(x => x.seq).ToList();
+            CollectionAssert.AreEqual(sig1, sig2, "Variant expansion not idempotent across repeated GetVariantBioPolymers calls.");
+        }
         [Test]
         public static void CrashOnCreateVariantFromRNA()
         {
