@@ -727,177 +727,177 @@ namespace Test.DatabaseTests
                 }
             }
         }
-        [Test]
-        [Explicit("Long-running diagnostic; generates protein_variant_log.txt with per-protein variant expansion results.")]
-        public void LargeXml_VariantExpansion_Logging_NoCrash()
-        {
-            // Preferred explicit large XML path (user-specified)
-            const string preferredLargeXml = @"E:\Projects\Mann_11cell_lines\A549\A549_1\uniprotkb_taxonomy_id_9606_AND_reviewed_2024_10_07.xml";
-            const string preferredOutputDir = @"E:\Projects\Mann_11cell_lines\A549\A549_1"; // Force all output here
+        //[Test]
+        //[Explicit("Long-running diagnostic; generates protein_variant_log.txt with per-protein variant expansion results.")]
+        //public void LargeXml_VariantExpansion_Logging_NoCrash()
+        //{
+        //    // Preferred explicit large XML path (user-specified)
+        //    const string preferredLargeXml = @"E:\Projects\Mann_11cell_lines\A549\A549_1\uniprotkb_taxonomy_id_9606_AND_reviewed_2024_10_07.xml";
+        //    const string preferredOutputDir = @"E:\Projects\Mann_11cell_lines\A549\A549_1"; // Force all output here
 
-            // Ensure output directory exists
-            try
-            {
-                if (!Directory.Exists(preferredOutputDir))
-                {
-                    Directory.CreateDirectory(preferredOutputDir);
-                }
-            }
-            catch
-            {
-                Assert.Inconclusive($"Cannot create/access output directory: {preferredOutputDir}");
-                return;
-            }
+        //    // Ensure output directory exists
+        //    try
+        //    {
+        //        if (!Directory.Exists(preferredOutputDir))
+        //        {
+        //            Directory.CreateDirectory(preferredOutputDir);
+        //        }
+        //    }
+        //    catch
+        //    {
+        //        Assert.Inconclusive($"Cannot create/access output directory: {preferredOutputDir}");
+        //        return;
+        //    }
              
-            string dbDir = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests");
-            string overridePath = Environment.GetEnvironmentVariable("MZLIB_LARGE_XML") ?? "";
-            string chosenPath = null;
+        //    string dbDir = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests");
+        //    string overridePath = Environment.GetEnvironmentVariable("MZLIB_LARGE_XML") ?? "";
+        //    string chosenPath = null;
 
-            if (File.Exists(preferredLargeXml))
-            {
-                chosenPath = preferredLargeXml;
-            }
-            else if (!string.IsNullOrWhiteSpace(overridePath) && File.Exists(overridePath))
-            {
-                chosenPath = overridePath;
-            }
-            else if (Directory.Exists(dbDir))
-            {
-                chosenPath = Directory.GetFiles(dbDir, "*.xml")
-                    .OrderByDescending(f => new FileInfo(f).Length)
-                    .FirstOrDefault();
-            }
+        //    if (File.Exists(preferredLargeXml))
+        //    {
+        //        chosenPath = preferredLargeXml;
+        //    }
+        //    else if (!string.IsNullOrWhiteSpace(overridePath) && File.Exists(overridePath))
+        //    {
+        //        chosenPath = overridePath;
+        //    }
+        //    else if (Directory.Exists(dbDir))
+        //    {
+        //        chosenPath = Directory.GetFiles(dbDir, "*.xml")
+        //            .OrderByDescending(f => new FileInfo(f).Length)
+        //            .FirstOrDefault();
+        //    }
 
-            if (chosenPath == null)
-            {
-                Assert.Inconclusive("No XML database file found to run large variant logging diagnostic.");
-                return;
-            }
+        //    if (chosenPath == null)
+        //    {
+        //        Assert.Inconclusive("No XML database file found to run large variant logging diagnostic.");
+        //        return;
+        //    }
 
-            string logPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, "protein_variant_log.txt");
-            var sb = new StringBuilder(1 << 16);
-            sb.AppendLine("=== Protein Variant Expansion Diagnostic ===");
-            sb.AppendLine($"Timestamp: {DateTime.Now:O}");
-            sb.AppendLine($"InputFile: {chosenPath}");
-            var fi = new FileInfo(chosenPath);
-            sb.AppendLine($"FileSize: {fi.Length:N0} bytes  LastWrite: {fi.LastWriteTime}");
-            sb.AppendLine("Parameters: maxVariantsPerIsoform=4 maxVariantIsoforms=400");
-            sb.AppendLine();
+        //    string logPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, "protein_variant_log.txt");
+        //    var sb = new StringBuilder(1 << 16);
+        //    sb.AppendLine("=== Protein Variant Expansion Diagnostic ===");
+        //    sb.AppendLine($"Timestamp: {DateTime.Now:O}");
+        //    sb.AppendLine($"InputFile: {chosenPath}");
+        //    var fi = new FileInfo(chosenPath);
+        //    sb.AppendLine($"FileSize: {fi.Length:N0} bytes  LastWrite: {fi.LastWriteTime}");
+        //    sb.AppendLine("Parameters: maxVariantsPerIsoform=4 maxVariantIsoforms=400");
+        //    sb.AppendLine();
 
-            List<Protein> proteins = null;
-            try
-            {
-                proteins = ProteinDbLoader.LoadProteinXML(
-                    chosenPath,
-                    generateTargets: true,
-                    decoyType: DecoyType.None,
-                    allKnownModifications: Enumerable.Empty<Modification>(),
-                    isContaminant: false,
-                    modTypesToExclude: null,
-                    unknownModifications: out var _,
-                    maxSequenceVariantsPerIsoform: 0,      // load base entries only first
-                    maxSequenceVariantIsoforms: 1);
-            }
-            catch (Exception ex)
-            {
-                sb.AppendLine("[FATAL] Exception during initial XML load:");
-                sb.AppendLine(ex.ToString());
-                File.WriteAllText(logPath, sb.ToString());
-                Assert.Fail("Failed to load base XML. See log.");
-                return;
-            }
+        //    List<Protein> proteins = null;
+        //    try
+        //    {
+        //        proteins = ProteinDbLoader.LoadProteinXML(
+        //            chosenPath,
+        //            generateTargets: true,
+        //            decoyType: DecoyType.None,
+        //            allKnownModifications: Enumerable.Empty<Modification>(),
+        //            isContaminant: false,
+        //            modTypesToExclude: null,
+        //            unknownModifications: out var _,
+        //            maxSequenceVariantsPerIsoform: 0,      // load base entries only first
+        //            maxSequenceVariantIsoforms: 1);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        sb.AppendLine("[FATAL] Exception during initial XML load:");
+        //        sb.AppendLine(ex.ToString());
+        //        File.WriteAllText(logPath, sb.ToString());
+        //        Assert.Fail("Failed to load base XML. See log.");
+        //        return;
+        //    }
 
-            if (proteins == null || proteins.Count == 0)
-            {
-                sb.AppendLine("[WARN] No proteins loaded; aborting variant expansion.");
-                File.WriteAllText(logPath, sb.ToString());
-                Assert.Inconclusive("No proteins loaded from selected XML.");
-                return;
-            }
+        //    if (proteins == null || proteins.Count == 0)
+        //    {
+        //        sb.AppendLine("[WARN] No proteins loaded; aborting variant expansion.");
+        //        File.WriteAllText(logPath, sb.ToString());
+        //        Assert.Inconclusive("No proteins loaded from selected XML.");
+        //        return;
+        //    }
 
-            sb.AppendLine($"[INFO] Base proteins loaded: {proteins.Count}");
-            sb.AppendLine();
+        //    sb.AppendLine($"[INFO] Base proteins loaded: {proteins.Count}");
+        //    sb.AppendLine();
 
-            int proteinsAttempted = 0;
-            int proteinsWithVariants = 0;
-            int totalVariantIsoforms = 0;
-            int totalExceptions = 0;
+        //    int proteinsAttempted = 0;
+        //    int proteinsWithVariants = 0;
+        //    int totalVariantIsoforms = 0;
+        //    int totalExceptions = 0;
 
-            foreach (var prot in proteins)
-            {
-                proteinsAttempted++;
-                try
-                {
-                    var varList = prot.GetVariantBioPolymers(
-                        maxSequenceVariantsPerIsoform: 4,
-                        minAlleleDepth: 1,
-                        maxSequenceVariantIsoforms: 400);
+        //    foreach (var prot in proteins)
+        //    {
+        //        proteinsAttempted++;
+        //        try
+        //        {
+        //            var varList = prot.GetVariantBioPolymers(
+        //                maxSequenceVariantsPerIsoform: 4,
+        //                minAlleleDepth: 1,
+        //                maxSequenceVariantIsoforms: 400);
 
-                    // GetVariantBioPolymers returns list including base if combinatorics > 0; filter strict variants
-                    var distinct = varList
-                        .GroupBy(v => v.Accession)
-                        .Select(g => g.First())
-                        .ToList();
+        //            // GetVariantBioPolymers returns list including base if combinatorics > 0; filter strict variants
+        //            var distinct = varList
+        //                .GroupBy(v => v.Accession)
+        //                .Select(g => g.First())
+        //                .ToList();
 
-                    int variantCount = distinct.Count - 1; // subtract base
-                    if (variantCount > 0)
-                    {
-                        proteinsWithVariants++;
-                        totalVariantIsoforms += variantCount;
-                    }
+        //            int variantCount = distinct.Count - 1; // subtract base
+        //            if (variantCount > 0)
+        //            {
+        //                proteinsWithVariants++;
+        //                totalVariantIsoforms += variantCount;
+        //            }
 
-                    sb.Append($"[OK] {prot.Accession} Len:{prot.Length} VariantsDefined:{prot.SequenceVariations?.Count ?? 0} Generated:{variantCount}");
+        //            sb.Append($"[OK] {prot.Accession} Len:{prot.Length} VariantsDefined:{prot.SequenceVariations?.Count ?? 0} Generated:{variantCount}");
 
-                    // Quick audit of each generated variant (length & attribute agreement, error markers)
-                    if (variantCount > 0)
-                    {
-                        var audits = new List<string>();
-                        foreach (var iso in distinct.Where(v => !ReferenceEquals(v, prot)))
-                        {
-                            bool lenAttrMismatch = iso.UniProtSequenceAttributes != null &&
-                                                   iso.UniProtSequenceAttributes.Length != iso.Length;
-                            string token = string.Join("+",
-                                iso.AppliedSequenceVariations.Select(v => v.SimpleString()));
-                            if (string.IsNullOrEmpty(token))
-                                token = "NO_TOKEN";
+        //            // Quick audit of each generated variant (length & attribute agreement, error markers)
+        //            if (variantCount > 0)
+        //            {
+        //                var audits = new List<string>();
+        //                foreach (var iso in distinct.Where(v => !ReferenceEquals(v, prot)))
+        //                {
+        //                    bool lenAttrMismatch = iso.UniProtSequenceAttributes != null &&
+        //                                           iso.UniProtSequenceAttributes.Length != iso.Length;
+        //                    string token = string.Join("+",
+        //                        iso.AppliedSequenceVariations.Select(v => v.SimpleString()));
+        //                    if (string.IsNullOrEmpty(token))
+        //                        token = "NO_TOKEN";
 
-                            audits.Add(token +
-                                       (lenAttrMismatch ? "(LenAttrMismatch)" : "") +
-                                       (iso.BaseSequence.Length == prot.BaseSequence.Length ? "" : "(SeqLenΔ)"));
-                        }
-                        if (audits.Count > 0)
-                            sb.Append(" [" + string.Join(", ", audits.Take(15)) + (audits.Count > 15 ? ", ..." : "") + "]");
-                    }
+        //                    audits.Add(token +
+        //                               (lenAttrMismatch ? "(LenAttrMismatch)" : "") +
+        //                               (iso.BaseSequence.Length == prot.BaseSequence.Length ? "" : "(SeqLenΔ)"));
+        //                }
+        //                if (audits.Count > 0)
+        //                    sb.Append(" [" + string.Join(", ", audits.Take(15)) + (audits.Count > 15 ? ", ..." : "") + "]");
+        //            }
 
-                    sb.AppendLine();
-                }
-                catch (Exception ex)
-                {
-                    totalExceptions++;
-                    sb.AppendLine($"[ERR] {prot.Accession} Exception: {ex.GetType().Name} - {ex.Message}");
-                }
+        //            sb.AppendLine();
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            totalExceptions++;
+        //            sb.AppendLine($"[ERR] {prot.Accession} Exception: {ex.GetType().Name} - {ex.Message}");
+        //        }
 
-                // Periodically flush to disk for very large sets
-                if (proteinsAttempted % 250 == 0)
-                {
-                    File.WriteAllText(logPath, sb.ToString());
-                }
-            }
+        //        // Periodically flush to disk for very large sets
+        //        if (proteinsAttempted % 250 == 0)
+        //        {
+        //            File.WriteAllText(logPath, sb.ToString());
+        //        }
+        //    }
 
-            sb.AppendLine();
-            sb.AppendLine("=== Summary ===");
-            sb.AppendLine($"ProteinsAttempted: {proteinsAttempted}");
-            sb.AppendLine($"ProteinsWithVariants: {proteinsWithVariants}");
-            sb.AppendLine($"TotalVariantIsoforms (excl. bases): {totalVariantIsoforms}");
-            sb.AppendLine($"Exceptions: {totalExceptions}");
-            sb.AppendLine("================");
+        //    sb.AppendLine();
+        //    sb.AppendLine("=== Summary ===");
+        //    sb.AppendLine($"ProteinsAttempted: {proteinsAttempted}");
+        //    sb.AppendLine($"ProteinsWithVariants: {proteinsWithVariants}");
+        //    sb.AppendLine($"TotalVariantIsoforms (excl. bases): {totalVariantIsoforms}");
+        //    sb.AppendLine($"Exceptions: {totalExceptions}");
+        //    sb.AppendLine("================");
 
-            File.WriteAllText(logPath, sb.ToString());
+        //    File.WriteAllText(logPath, sb.ToString());
 
-            // Soft assertions: test passes as long as no catastrophic failure
-            Assert.That(File.Exists(logPath), "Log file not created.");
-            Assert.That(proteinsAttempted, Is.GreaterThan(0), "No proteins processed.");
-            // Do not fail on variant exceptions; log is the artifact for inspection.
-        }
+        //    // Soft assertions: test passes as long as no catastrophic failure
+        //    Assert.That(File.Exists(logPath), "Log file not created.");
+        //    Assert.That(proteinsAttempted, Is.GreaterThan(0), "No proteins processed.");
+        //    // Do not fail on variant exceptions; log is the artifact for inspection.
+        //}
     }
 }
