@@ -748,7 +748,7 @@ namespace Test.DatabaseTests
                 Assert.Inconclusive($"Cannot create/access output directory: {preferredOutputDir}");
                 return;
             }
-
+             
             string dbDir = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests");
             string overridePath = Environment.GetEnvironmentVariable("MZLIB_LARGE_XML") ?? "";
             string chosenPath = null;
