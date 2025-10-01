@@ -138,44 +138,137 @@ namespace Omics.BioPolymer
 
         #region Equality / Hash
 
+        /// <summary>
+        /// Equality compares: coordinates, original sequence, variant sequence, VCF metadata, and
+        /// variant-specific modifications. Modification comparison is:
+        /// - Position keys: order-insensitive (set equality).
+        /// - At each site: order-insensitive multiset comparison on (IdWithMotif || OriginalId || ToString()).
+        /// Description is intentionally excluded.
+        /// </summary>
         public override bool Equals(object obj)
         {
-            SequenceVariation s = obj as SequenceVariation;
-            return s != null
-                && OneBasedBeginPosition == s.OneBasedBeginPosition
-                && OneBasedEndPosition == s.OneBasedEndPosition
-                && (s.OriginalSequence == null && OriginalSequence == null || OriginalSequence.Equals(s.OriginalSequence))
-                && (s.VariantSequence == null && VariantSequence == null || VariantSequence.Equals(s.VariantSequence))
-                && ((VariantCallFormatData?.Equals(s.VariantCallFormatData)) ?? s.VariantCallFormatData == null)
-                && (s.OneBasedModifications == null && OneBasedModifications == null ||
-                    s.OneBasedModifications.Keys.ToList().SequenceEqual(OneBasedModifications.Keys.ToList())
-                    && s.OneBasedModifications.Values.SelectMany(m => m).ToList().SequenceEqual(OneBasedModifications.Values.SelectMany(m => m).ToList()));
+            if (obj is not SequenceVariation s)
+                return false;
+
+            if (OneBasedBeginPosition != s.OneBasedBeginPosition
+                || OneBasedEndPosition != s.OneBasedEndPosition
+                || !string.Equals(OriginalSequence, s.OriginalSequence, StringComparison.Ordinal)
+                || !string.Equals(VariantSequence, s.VariantSequence, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            // VCF metadata
+            if (!((VariantCallFormatData?.Equals(s.VariantCallFormatData)) ?? s.VariantCallFormatData == null))
+            {
+                return false;
+            }
+
+            // Modifications (both constructors ensure dictionary is non-null)
+            return ModificationDictionariesEqual(OneBasedModifications, s.OneBasedModifications);
         }
 
+        /// <summary>
+        /// Order-insensitive hash code:
+        /// Combines coordinates, sequences, VCF hash, and a normalized representation of modification sites
+        /// (positions sorted; each site's modification identifiers sorted).
+        /// </summary>
         public override int GetHashCode()
         {
-            return OneBasedBeginPosition.GetHashCode()
-                ^ OneBasedEndPosition.GetHashCode()
-                ^ OriginalSequence.GetHashCode()
-                ^ VariantSequence.GetHashCode()
-                ^ (VariantCallFormatData?.GetHashCode() ?? 0);
+            var hash = new HashCode();
+            hash.Add(OneBasedBeginPosition);
+            hash.Add(OneBasedEndPosition);
+            hash.Add(OriginalSequence);
+            hash.Add(VariantSequence);
+            hash.Add(VariantCallFormatData?.GetHashCode() ?? 0);
+
+            if (OneBasedModifications != null && OneBasedModifications.Count > 0)
+            {
+                // Stable ordering
+                foreach (var site in OneBasedModifications.OrderBy(k => k.Key))
+                {
+                    var siteHash = new HashCode();
+                    siteHash.Add(site.Key);
+
+                    if (site.Value != null && site.Value.Count > 0)
+                    {
+                        foreach (var key in site.Value
+                                     .Select(m => m.IdWithMotif ?? m.OriginalId ?? m.ToString())
+                                     .OrderBy(k => k, StringComparer.Ordinal))
+                        {
+                            siteHash.Add(key);
+                        }
+                    }
+
+                    hash.Add(siteHash.ToHashCode());
+                }
+            }
+
+            return hash.ToHashCode();
+        }
+
+        /// <summary>
+        /// Order-insensitive multiset comparison of modification dictionaries.
+        /// </summary>
+        private static bool ModificationDictionariesEqual(
+            Dictionary<int, List<Modification>> a,
+            Dictionary<int, List<Modification>> b)
+        {
+            if (ReferenceEquals(a, b))
+                return true;
+            if (a is null || b is null)
+                return false;
+            if (a.Count != b.Count)
+                return false;
+
+            // Compare position sets
+            if (!a.Keys.OrderBy(k => k).SequenceEqual(b.Keys.OrderBy(k => k)))
+                return false;
+
+            foreach (var pos in a.Keys)
+            {
+                var listA = a[pos];
+                var listB = b[pos];
+
+                if (listA is null && listB is null)
+                    continue;
+                if (listA is null || listB is null)
+                    return false;
+                if (listA.Count != listB.Count)
+                    return false;
+
+                // Build frequency maps for multiset compare
+                var freqA = listA
+                    .GroupBy(m => m.IdWithMotif ?? m.OriginalId ?? m.ToString())
+                    .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
+                var freqB = listB
+                    .GroupBy(m => m.IdWithMotif ?? m.OriginalId ?? m.ToString())
+                    .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
+
+                if (freqA.Count != freqB.Count)
+                    return false;
+
+                foreach (var kv in freqA)
+                {
+                    if (!freqB.TryGetValue(kv.Key, out int countB) || countB != kv.Value)
+                        return false;
+                }
+            }
+
+            return true;
         }
 
         #endregion
 
         #region Convenience / Interval Logic
 
-        /// <summary>Simple concatenated representation (Original + Begin + Variant).</summary>
+        /// <summary>Simple concatenated representation (Original + Begin(+/-End) + Variant).</summary>
         public string SimpleString()
         {
-            // Use true 1-based inclusive coordinates already validated.
-            // Point change, insertion, or deletion (begin == end OR original length == 1)
             if (OneBasedBeginPosition == OneBasedEndPosition || (OriginalSequence?.Length ?? 0) <= 1)
             {
                 return $"{(OriginalSequence ?? string.Empty)}{OneBasedBeginPosition}{(VariantSequence ?? string.Empty)}";
             }
-
-            // Span substitution / delins
             return $"{(OriginalSequence ?? string.Empty)}{OneBasedBeginPosition}-{OneBasedEndPosition}{(VariantSequence ?? string.Empty)}";
         }
 
@@ -203,9 +296,9 @@ namespace Omics.BioPolymer
         /// 2. Variation must represent a meaningful change:
         ///    - Either the sequence actually changes (insertion, deletion, substitution, stop, frameshift),
         ///    - OR there are variant-specific modifications.
-        ///    A “no-op” (OriginalSequence == VariantSequence with no variant-specific mods) is now invalid and will be skipped.
+        ///    A “no-op” (OriginalSequence == VariantSequence with no variant-specific mods) is invalid.
         /// 3. If variant-specific modifications exist, they must not violate positional constraints
-        ///    (see GetInvalidModificationPositions).
+        ///    (see <see cref="GetInvalidModificationPositions"/>).
         /// </summary>
         public bool AreValid()
         {
@@ -214,26 +307,22 @@ namespace Omics.BioPolymer
                 return false;
             }
 
-            // Detect pure no-op (no actual sequence change and no variant-specific modifications)
             bool noSequenceChange = string.Equals(OriginalSequence ?? string.Empty,
                                                   VariantSequence ?? string.Empty,
                                                   StringComparison.Ordinal);
 
             bool hasMods = OneBasedModifications != null && OneBasedModifications.Count > 0;
 
-            // Reject a no-op variation (prevents generating useless variant proteoforms)
             if (noSequenceChange && !hasMods)
             {
                 return false;
             }
 
-            // If there are no modifications, and we have a real sequence change, it's valid
             if (!hasMods)
             {
                 return true;
             }
 
-            // Validate modification positions
             return !GetInvalidModificationPositions().Any();
         }
 
@@ -244,7 +333,7 @@ namespace Omics.BioPolymer
         /// <summary>
         /// Split multi-sample VCF metadata into per-sample <see cref="SequenceVariation"/> objects.
         /// Produces genotype-aware variants (e.g. optionally yields “no-op” for homozygous reference or
-        /// both ref+alt for heterozygous). See XML remarks in source for decision matrix.
+        /// both ref+alt for heterozygous). See XML remarks in implementation for decision matrix.
         /// </summary>
         public List<SequenceVariation> SplitPerGenotype(
             int minDepth = 0,
@@ -283,7 +372,6 @@ namespace Omics.BioPolymer
                     continue;
                 }
 
-                // Depth
                 int depth = 0;
                 if (VariantCallFormatData.AlleleDepths != null &&
                     VariantCallFormatData.AlleleDepths.TryGetValue(sampleKey, out var adTokens) &&
@@ -310,7 +398,6 @@ namespace Omics.BioPolymer
                     continue;
                 }
 
-                // Zygosity
                 VariantCallFormat.Zygosity zyg;
                 if (!VariantCallFormatData.ZygosityBySample.TryGetValue(sampleKey, out zyg))
                 {
@@ -320,7 +407,6 @@ namespace Omics.BioPolymer
                           VariantCallFormat.Zygosity.Heterozygous;
                 }
 
-                // Alleles
                 var numericAlleles = new List<int>();
                 bool parseError = false;
                 foreach (var a in gtTokens)
@@ -373,7 +459,7 @@ namespace Omics.BioPolymer
                     }
                     catch
                     {
-                        // ignore
+                        // ignore invalid candidate
                     }
                 }
 
@@ -427,8 +513,6 @@ namespace Omics.BioPolymer
         /// Output is deterministically ordered by Begin, End, OriginalSequence, VariantSequence.
         /// </para>
         /// </summary>
-        /// <param name="variations">Input collection (may be null or empty).</param>
-        /// <returns>Collapsed list of <see cref="SequenceVariation"/> objects.</returns>
         public static List<SequenceVariation> CombineEquivalent(IEnumerable<SequenceVariation> variations)
         {
             var result = new List<SequenceVariation>();
@@ -449,7 +533,6 @@ namespace Omics.BioPolymer
             {
                 var members = g.ToList();
 
-                // Collect distinct descriptions (ignore null/whitespace)
                 var uniqueDescs = members
                     .Select(v => v.Description)
                     .Where(d => !string.IsNullOrWhiteSpace(d))
@@ -477,12 +560,10 @@ namespace Omics.BioPolymer
                     }
                 }
 
-                // Choose representative VCF (first non-null)
                 VariantCallFormat? representativeVcf = members
                     .Select(m => m.VariantCallFormatData)
                     .FirstOrDefault(v => v != null);
 
-                // Merge modifications
                 Dictionary<int, List<Modification>>? mergedMods = null;
                 foreach (var mv in members)
                 {
@@ -512,7 +593,6 @@ namespace Omics.BioPolymer
                     }
                 }
 
-                // Construct new merged variation
                 try
                 {
                     var combined = representativeVcf == null
@@ -540,7 +620,7 @@ namespace Omics.BioPolymer
                 }
                 catch
                 {
-                    // Skip invalid merged candidate
+                    // skip invalid merged candidate
                 }
             }
 
@@ -561,12 +641,6 @@ namespace Omics.BioPolymer
         /// (post-variation coordinate system). Applies the same validity rules enforced during
         /// construction and by <see cref="AreValid"/> / internal <c>GetInvalidModificationPositions</c>.
         /// </summary>
-        /// <param name="oneBasedPosition">1-based residue position AFTER applying this variation.</param>
-        /// <param name="modification">Modification to add (must be non-null).</param>
-        /// <param name="error">
-        /// Populated with a short reason when the addition fails; null when successful.
-        /// </param>
-        /// <returns>true if the modification was added (or was already present at that position); false otherwise.</returns>
         public bool TryAddModification(int oneBasedPosition, Modification modification, out string? error)
         {
             error = null;
@@ -587,7 +661,6 @@ namespace Omics.BioPolymer
 
             if (isTermination)
             {
-                // No modifications allowed at or after the variation begin for termination/deletion
                 if (oneBasedPosition >= OneBasedBeginPosition)
                 {
                     error = "Position invalid for a termination or deletion at/after the begin coordinate.";
@@ -596,17 +669,11 @@ namespace Omics.BioPolymer
             }
             else
             {
-                // NEW LOGIC:
-                // Only enforce the "beyond new variant span" restriction for coordinates that were actually
-                // inside the ORIGINAL replaced span (i.e. <= original end). This allows adding modifications
-                // immediately after an insertion expansion, which was previously (incorrectly) rejected.
-                // Original replaced span = [OneBasedBeginPosition, OneBasedEndPosition]
-                // New variant span        = [OneBasedBeginPosition, OneBasedBeginPosition + VariantSequence.Length - 1]
                 int newSpanEnd = OneBasedBeginPosition + VariantSequence.Length - 1;
 
                 if (oneBasedPosition >= OneBasedBeginPosition
-                    && oneBasedPosition <= OneBasedEndPosition   // ensure it was in the original replaced region
-                    && oneBasedPosition > newSpanEnd)            // but lies past the substituted span
+                    && oneBasedPosition <= OneBasedEndPosition
+                    && oneBasedPosition > newSpanEnd)
                 {
                     error = "Position lies beyond the new variant span inside the edited region.";
                     return false;
@@ -628,20 +695,9 @@ namespace Omics.BioPolymer
         }
 
         /// <summary>
-        /// Bulk-add multiple modifications. Each entry is validated with <see cref="TryAddModification"/>.
+        /// Bulk-add multiple modifications (variant coordinate system). Each entry uses <see cref="TryAddModification"/>.
+        /// Invalid entries optionally throw or are collected.
         /// </summary>
-        /// <param name="modifications">
-        /// Sequence of (position, modification) pairs (positions are 1-based post-variation).
-        /// </param>
-        /// <param name="throwOnFirstInvalid">
-        /// If true, throws on the first invalid modification (nothing is rolled back).
-        /// If false, silently skips invalid entries and records them in <paramref name="skipped"/>.
-        /// </param>
-        /// <param name="skipped">
-        /// Returns a list of (position, reason) pairs for invalid entries when not throwing.
-        /// Null when all succeeded or when <paramref name="throwOnFirstInvalid"/> is true and no invalid encountered.
-        /// </param>
-        /// <returns>The number of successfully added (new or deduplicated) modification positions affected.</returns>
         public int AddModifications(
             IEnumerable<(int position, Modification modification)> modifications,
             bool throwOnFirstInvalid,
@@ -715,8 +771,6 @@ namespace Omics.BioPolymer
                     continue;
                 }
 
-                // Updated to match TryAddModification logic: only invalidate when the position was inside
-                // the ORIGINAL replaced span but past the substituted (shorter) variant span.
                 if (pos >= OneBasedBeginPosition
                     && pos <= OneBasedEndPosition
                     && pos > newSpanEnd)

@@ -622,35 +622,80 @@ namespace Test
             Assert.IsTrue(pepe.IsVariantPeptide());
             Assert.IsFalse(notPepe.IsVariantPeptide());
         }
-
         [Test]
         public static void TestSeqVarString()
         {
+            // Protein baseline
             Protein protein = new Protein("MACDEFGHIK", "test");
 
-            // mod on N-terminus
-            PeptideWithSetModifications pepe = new PeptideWithSetModifications(protein, new DigestionParams(), 1, 10, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification> { { 1, new Modification("mod on M", "mod", "mod", "mod") } }, 0);
-            SequenceVariation sv1Before = new SequenceVariation(1, 1, "A", "M", ""); // n-terminal mod goes before the sequence
-            Assert.AreEqual("A1[mod:mod on M]M", pepe.SequenceVariantString(sv1Before, true));
+            // 1. Substitution at N-terminus with variant-specific modification (M -> A + mod on A)
+            var subMod = new Modification("mod on A", "mod", "mod", "mod");
+            var vSubNterm = new SequenceVariation(
+                oneBasedBeginPosition: 1,
+                oneBasedEndPosition: 1,
+                originalSequence: "M",
+                variantSequence: "A",
+                description: "nterm_substitution_with_variant_mod",
+                oneBasedModifications: new Dictionary<int, List<Modification>> { { 1, new List<Modification> { subMod } } });
 
-            // mod in middle
-            PeptideWithSetModifications pepe2 = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 10, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification> { { 2, new Modification("mod on A", "mod", "mod", "mod") } }, 0);
-            SequenceVariation sv4MissenseBeginning = new SequenceVariation(2, 2, "V", "A", ""); // missense at beginning
-            Assert.AreEqual("V2A[mod:mod on A]", pepe2.SequenceVariantString(sv4MissenseBeginning, true));
+            var pepFull = new PeptideWithSetModifications(
+                protein, new DigestionParams(), 1, 10,
+                CleavageSpecificity.Unknown, "", 0,
+                new Dictionary<int, Modification>(), 0);
 
-            // truncated seqvar doesn't truncate in string report (using applied variation correctly)
-            PeptideWithSetModifications pepe3 = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 9, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
-            SequenceVariation svvvv = new SequenceVariation(7, 10, "GHM", "GHIK", ""); // insertion
-            Assert.AreEqual("GHM7GHIK", pepe3.SequenceVariantString(svvvv, true));
+            Assert.AreEqual("M1A[mod:mod on A]", pepFull.SequenceVariantString(vSubNterm, true));
 
-            Protein protein2 = new Protein("WACDEFGHIK", "test");
+            // 2. Missense at peptide position 2 with variant-specific modification (A -> V)
+            var pos2Mod = new Modification("mod on V", "mod", "mod", "mod");
+            var vMissense = new SequenceVariation(
+                oneBasedBeginPosition: 2,
+                oneBasedEndPosition: 2,
+                originalSequence: "A",
+                variantSequence: "V",
+                description: "missense_with_variant_mod",
+                oneBasedModifications: new Dictionary<int, List<Modification>> { { 2, new List<Modification> { pos2Mod } } });
 
-            //variant starts at protein start but peptide does not
-            PeptideWithSetModifications pepe4 = new PeptideWithSetModifications(protein2, new DigestionParams(), 4, 8, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
-            SequenceVariation variant = new SequenceVariation(1, 10, "MABCDEFGHIJKLMNOP", "WACDEFGHIK", ""); // frameshift
-            Assert.AreEqual("MABCDEFGHIJKLMNOP1WACDEFGHIK", pepe4.SequenceVariantString(variant, true));
+            var pep2toEnd = new PeptideWithSetModifications(
+                protein, new DigestionParams(), 2, 10,
+                CleavageSpecificity.Unknown, "", 0,
+                new Dictionary<int, Modification>(), 0);
+
+            Assert.AreEqual("A2V[mod:mod on V]", pep2toEnd.SequenceVariantString(vMissense, true));
+
+            // 3. Insertion / expansion: positions 7–9 (GHI -> GHIK)
+            // Original segment (7–9) == GHI; variant adds K
+            var vInsertion = new SequenceVariation(
+                oneBasedBeginPosition: 7,
+                oneBasedEndPosition: 9,
+                originalSequence: "GHI",
+                variantSequence: "GHIK",
+                description: "insertion_extension");
+            var pepMid = new PeptideWithSetModifications(
+                protein, new DigestionParams(), 2, 10,
+                CleavageSpecificity.Unknown, "", 0,
+                new Dictionary<int, Modification>(), 0);
+            Assert.AreEqual("GHI7GHIK", pepMid.SequenceVariantString(vInsertion, true));
+
+            // 4. Frameshift/large replacement: full span (1–10) replaced by longer sequence
+            var vFrameshift = new SequenceVariation(
+                oneBasedBeginPosition: 1,
+                oneBasedEndPosition: 10,
+                originalSequence: "MACDEFGHIK",
+                variantSequence: "MABCDEFGHIJKLMNOP",
+                description: "frameshift_extension");
+            Assert.AreEqual("MACDEFGHIK1MABCDEFGHIJKLMNOP", pepFull.SequenceVariantString(vFrameshift, true));
+
+            // 5. Synonymous with variant-specific mod (no sequence change but mod should appear)
+            var synMod = new Modification("mod on C", "mod", "mod", "mod");
+            var vSynonymous = new SequenceVariation(
+                oneBasedBeginPosition: 3,
+                oneBasedEndPosition: 3,
+                originalSequence: "C",
+                variantSequence: "C",
+                description: "synonymous_with_variant_mod",
+                oneBasedModifications: new Dictionary<int, List<Modification>> { { 3, new List<Modification> { synMod } } });
+            Assert.AreEqual("C3C[mod:mod on C]", pepFull.SequenceVariantString(vSynonymous, true));
         }
-        
         [Test]
         public static void BreakDeserializationMethod()
         {
