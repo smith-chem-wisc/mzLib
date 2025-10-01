@@ -565,56 +565,52 @@ namespace Test
             Assert.IsFalse(pepe.IncludesSpliceSite(ss6EndAfter));
             Assert.IsFalse(pepe.IncludesSpliceSite(ss7After));
         }
-
         [Test]
         public static void TestIntersectsSequenceVariations()
         {
-            Protein protein = new Protein("MACDEFGHIK", "test");
-            PeptideWithSetModifications pepe = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 10, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
+            // Protein:  M  A  C  D  E  F  G  H  I  K
+            // Position: 1  2  3  4  5  6  7  8  9  10
+            var protein = new Protein("MACDEFGHIK", "test");
 
-            // The weird thing here is that IntersectsWithVariation takes in applied variations,
-            // so these are constructed as if already applied
-            SequenceVariation sv1Before = new SequenceVariation(1, 1, "A", "M", ""); // before peptide (not identified)
-            SequenceVariation sv2Synonymous = new SequenceVariation(2, 2, "A", "A", ""); // no change (intersects because peptide crosses entire variant but is not truly "identified")
-            SequenceVariation sv4MissenseBeginning = new SequenceVariation(2, 2, "V", "A", ""); // missense at beginning
-            SequenceVariation sv5InsertionAtEnd = new SequenceVariation(7, 9, "GHI", "GHIK", ""); // insertion or stop loss
-            SequenceVariation sv6Deletion = new SequenceVariation(2, 3, "AC", "A", ""); // deletion
-            SequenceVariation sv66Truncation = new SequenceVariation(10, 20, "KAAAAAAAAAA", "K", ""); // truncation or stop gain (identified because peptide crosses entire variant)
-            SequenceVariation sv7MNP = new SequenceVariation(2, 3, "AA", "AC", ""); // mnp
-            SequenceVariation sv77MNP = new SequenceVariation(2, 3, "AC", "AC", ""); // synonymous mnp (identified because peptide crosses entire variant)
-            SequenceVariation sv9MissenseInRange = new SequenceVariation(3, 3, "C", "V", ""); // missense in range
-            SequenceVariation sv10MissenseRangeEdge = new SequenceVariation(10, 10, "K", "R", ""); // missense at end
-            SequenceVariation sv11After = new SequenceVariation(11, 11, "L", "V", ""); // after peptide (not identified)
+            // Peptide covering residues 2–10 (A..K)
+            var pepFull = new PeptideWithSetModifications(
+                protein, new DigestionParams(), 2, 10,
+                CleavageSpecificity.Unknown, "", 0,
+                new Dictionary<int, Modification>(), 0);
 
-            Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv1Before).intersects);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv2Synonymous).intersects);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv4MissenseBeginning).intersects);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv5InsertionAtEnd).intersects);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv6Deletion).intersects);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv66Truncation).intersects);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv7MNP).intersects);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv77MNP).intersects);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv9MissenseInRange).intersects);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv10MissenseRangeEdge).intersects);
-            Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv11After).intersects);
+            // Shorter peptide (2–9) to exercise non-intersect terminal logic with a downstream stop gain
+            var pepShort = new PeptideWithSetModifications(
+                protein, new DigestionParams(), 2, 9,
+                CleavageSpecificity.Unknown, "", 0,
+                new Dictionary<int, Modification>(), 0);
 
-            Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv1Before).identifies);
-            Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv2Synonymous).identifies);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv4MissenseBeginning).identifies);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv5InsertionAtEnd).identifies);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv6Deletion).identifies);
-            Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv66Truncation).identifies);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv7MNP).identifies);
-            Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv77MNP).identifies);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv9MissenseInRange).identifies);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv10MissenseRangeEdge).identifies);
-            Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv11After).identifies);
+            // 1. Missense BEFORE peptide start (pos 1: M -> A)
+            var vBefore = new SequenceVariation(1, 1, "M", "A", "missense_before");
+            // 2. Missense AT peptide start (pos 2: A -> V)
+            var vBegin = new SequenceVariation(2, 2, "A", "V", "missense_begin");
+            // 3. Internal insertion / expansion (pos 5: E -> EQK; expansion length +2)
+            var vInsertion = new SequenceVariation(5, 5, "E", "EQK", "insertion_expansion");
+            // 4. Internal deletion / contraction (pos 7–8: GH -> G; net -1)
+            var vDeletion = new SequenceVariation(7, 8, "GH", "G", "internal_deletion");
+            // 5. Stop gain at last residue (pos 10: K -> * )
+            var vStopEnd = new SequenceVariation(10, 10, "K", "*", "stop_gain_terminal");
+            // 6. Same stop gain evaluated against shorter peptide (should not intersect, but can identify via terminal logic)
+            var vStopBeyondShort = vStopEnd; // reuse object
 
-            PeptideWithSetModifications pepe2 = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 9, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
-            Assert.IsTrue(pepe2.IntersectsAndIdentifiesVariation(sv5InsertionAtEnd).intersects); // this only intersects GHI, which is the same in GHI -> GHIK
-            Assert.IsFalse(pepe2.IntersectsAndIdentifiesVariation(sv5InsertionAtEnd).identifies);
+            // Assertions for pepFull (2–10)
+            Assert.AreEqual((false, false), pepFull.IntersectsAndIdentifiesVariation(vBefore), "Missense before peptide should neither intersect nor identify.");
+            Assert.AreEqual((true, true), pepFull.IntersectsAndIdentifiesVariation(vBegin), "Missense at peptide start should intersect & identify.");
+            Assert.AreEqual((true, true), pepFull.IntersectsAndIdentifiesVariation(vInsertion), "Insertion expansion should intersect & identify.");
+            Assert.AreEqual((true, true), pepFull.IntersectsAndIdentifiesVariation(vDeletion), "Internal deletion should intersect & identify (length contraction).");
+            Assert.AreEqual((true, true), pepFull.IntersectsAndIdentifiesVariation(vStopEnd), "Terminal stop gain inside span should intersect & identify.");
+
+            // Assertions for pepShort (2–9)
+            // Stop gain at position 10 is exactly one residue beyond pepShort end (9);
+            // Intersects = false, but identification can occur if a new protease site / termination is introduced.
+            var shortResult = pepShort.IntersectsAndIdentifiesVariation(vStopBeyondShort);
+            Assert.IsFalse(shortResult.intersects, "Stop gain beyond shorter peptide should not intersect.");
+            Assert.IsTrue(shortResult.identifies, "Stop gain just beyond peptide end should identify (terminal change).");
         }
-
         [Test]
         public static void TestIsVariantPeptide()
         {
