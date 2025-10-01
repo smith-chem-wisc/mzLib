@@ -554,5 +554,177 @@ namespace Test.DatabaseTests
                 }
             }
         }
+        [Test]
+        public void SmallXml_TwoVariantCombinations()
+        {
+            // Arrange
+            string xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "small.xml");
+
+            var proteins = ProteinDbLoader.LoadProteinXML(
+                xmlPath,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: Enumerable.Empty<Modification>(),
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var _,
+                maxSequenceVariantsPerIsoform: 2,
+                maxSequenceVariantIsoforms: 200);
+
+            var baseProt = proteins.Single(p => !p.Accession.Contains('_'));
+            int baseLength = baseProt.Length;
+
+            // Explicit expected single variant tokens (SimpleString forms)
+            var expectedSingles = new List<string>
+            {
+                "S70N",
+                "S311L",
+                "C337CS",
+                "AHMPC369-373VHMPY",
+                "H383R",
+                "K428E"
+            };
+            Assert.AreEqual(6, expectedSingles.Count, "Expected 6 single variant tokens.");
+
+            // Explicit expected pair tokens (canonical: lower coordinate variant first)
+            var expectedPairTokensOrdered = new List<string>
+            {
+                "S70N_S311L",
+                "S70N_C337CS",
+                "S70N_AHMPC369-373VHMPY",
+                "S70N_H383R",
+                "S70N_K428E",
+                "S311L_C337CS",
+                "S311L_AHMPC369-373VHMPY",
+                "S311L_H383R",
+                "S311L_K428E",
+                "C337CS_AHMPC369-373VHMPY",
+                "C337CS_H383R",
+                "C337CS_K428E",
+                "AHMPC369-373VHMPY_H383R",
+                "AHMPC369-373VHMPY_K428E",
+                "H383R_K428E"
+            };
+            Assert.AreEqual(15, expectedPairTokensOrdered.Count, "Expected 15 two-variant combinations.");
+
+            var expectedSinglesSet = new HashSet<string>(expectedSingles);
+            var expectedPairsCanonical = new HashSet<string>(expectedPairTokensOrdered);
+
+            // Helper: extract first coordinate for ordering
+            int ExtractBegin(string token)
+            {
+                for (int i = 0; i < token.Length; i++)
+                {
+                    if (char.IsDigit(token[i]))
+                    {
+                        int j = i;
+                        while (j < token.Length && char.IsDigit(token[j])) j++;
+                        return int.Parse(token[i..j]);
+                    }
+                }
+                return int.MaxValue;
+            }
+
+            string CanonicalPair(string a, string b)
+            {
+                var ordered = new[] { a, b }
+                    .OrderBy(t => ExtractBegin(t))
+                    .ThenBy(t => t, StringComparer.Ordinal)
+                    .ToArray();
+                return $"{ordered[0]}_{ordered[1]}";
+            }
+
+            // Expected total: 1 base + 6 singles + 15 pairs = 22
+            int expectedTotal = 1 + expectedSinglesSet.Count + expectedPairsCanonical.Count;
+            Assert.AreEqual(expectedTotal, proteins.Count, "Unexpected total proteoform count.");
+
+            var singleIsoforms = proteins.Where(p => p.Accession.Contains('_') && p.AppliedSequenceVariations.Count == 1).ToList();
+            var pairIsoforms = proteins.Where(p => p.AppliedSequenceVariations.Count == 2).ToList();
+
+            Assert.AreEqual(expectedSinglesSet.Count, singleIsoforms.Count, "Mismatch in single-variant isoform count.");
+            Assert.AreEqual(expectedPairsCanonical.Count, pairIsoforms.Count, "Mismatch in pair-variant isoform count.");
+
+            // Validate singles
+            foreach (var iso in singleIsoforms)
+            {
+                string suffix = iso.Accession[(iso.Accession.IndexOf('_') + 1)..];
+                Assert.IsTrue(expectedSinglesSet.Contains(suffix), $"Unexpected single variant accession suffix {suffix}");
+                Assert.AreEqual(1, iso.AppliedSequenceVariations.Count, "Single isoform must have exactly one applied variant.");
+                Assert.AreEqual(suffix, iso.AppliedSequenceVariations[0].SimpleString(), $"Applied variant token mismatch for {suffix}");
+
+                // Length rule: only insertion C337CS adds +1
+                if (suffix == "C337CS")
+                    Assert.AreEqual(baseLength + 1, iso.Length, "Insertion single variant length incorrect.");
+                else
+                    Assert.AreEqual(baseLength, iso.Length, $"Length mismatch for single {suffix}");
+
+                if (iso.UniProtSequenceAttributes != null)
+                    Assert.AreEqual(iso.Length, iso.UniProtSequenceAttributes.Length, $"Attribute length mismatch (single) {suffix}");
+            }
+
+            // Track coverage of pairs
+            var seenPairs = new HashSet<string>();
+
+            // Validate pairs (order-insensitive)
+            foreach (var iso in pairIsoforms)
+            {
+                var appliedTokens = iso.AppliedSequenceVariations
+                    .Select(v => v.SimpleString())
+                    .ToList();
+                Assert.AreEqual(2, appliedTokens.Count, $"Applied variant count mismatch for {iso.Accession}");
+
+                string canonical = CanonicalPair(appliedTokens[0], appliedTokens[1]);
+                seenPairs.Add(canonical);
+
+                Assert.IsTrue(expectedPairsCanonical.Contains(canonical),
+                    $"Unexpected pair combination canonical={canonical} accession={iso.Accession}");
+
+                bool containsInsertion = appliedTokens.Contains("C337CS");
+                int expectedLen = containsInsertion ? baseLength + 1 : baseLength;
+                Assert.AreEqual(expectedLen, iso.Length, $"Length mismatch for pair {canonical}");
+
+                if (iso.UniProtSequenceAttributes != null)
+                    Assert.AreEqual(iso.Length, iso.UniProtSequenceAttributes.Length, $"Attribute length mismatch (pair) {canonical}");
+
+                string name = iso.Name ?? "";
+                foreach (var t in appliedTokens)
+                {
+                    Assert.IsTrue(name.Contains(t) || name.Contains("variant:"),
+                        $"Variant name missing token {t} for pair {canonical}");
+                }
+
+                // Non-overlap guarantee (data has disjoint variants)
+                var spans = iso.AppliedSequenceVariations
+                    .Select(v => (v.OneBasedBeginPosition, v.OneBasedEndPosition))
+                    .OrderBy(s => s.OneBasedBeginPosition)
+                    .ToList();
+                Assert.IsTrue(spans[0].OneBasedEndPosition < spans[1].OneBasedBeginPosition,
+                    $"Unexpected coordinate overlap in pair {canonical}");
+            }
+
+            // Report any missing / extra pairs explicitly
+            var missingPairs = expectedPairsCanonical.Except(seenPairs).ToList();
+            var unexpectedPairs = seenPairs.Except(expectedPairsCanonical).ToList();
+
+            Assert.IsTrue(missingPairs.Count == 0,
+                "Missing expected pair tokens: " + string.Join(", ", missingPairs));
+            Assert.IsTrue(unexpectedPairs.Count == 0,
+                "Found unexpected pair tokens: " + string.Join(", ", unexpectedPairs));
+
+            // Global accession uniqueness
+            Assert.AreEqual(proteins.Count, proteins.Select(p => p.Accession).Distinct().Count(), "Duplicate accessions detected.");
+
+            // Coordinate sanity
+            foreach (var iso in proteins.Where(p => p.AppliedSequenceVariations.Any()))
+            {
+                foreach (var sv in iso.AppliedSequenceVariations)
+                {
+                    Assert.That(sv.OneBasedBeginPosition, Is.InRange(1, iso.Length),
+                        $"Begin out of range ({sv.OneBasedBeginPosition}) in {iso.Accession}");
+                    Assert.That(sv.OneBasedEndPosition, Is.InRange(sv.OneBasedBeginPosition, iso.Length),
+                        $"End out of range ({sv.OneBasedEndPosition}) in {iso.Accession}");
+                }
+            }
+        }
     }
 }
