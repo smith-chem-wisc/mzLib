@@ -727,6 +727,7 @@ namespace Test.DatabaseTests
                 }
             }
         }
+
         //[Test]
         //[Explicit("Long-running diagnostic; generates protein_variant_log.txt with per-protein variant expansion results.")]
         //public void LargeXml_VariantExpansion_Logging_NoCrash()
