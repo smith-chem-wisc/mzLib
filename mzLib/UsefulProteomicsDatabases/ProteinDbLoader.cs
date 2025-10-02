@@ -145,9 +145,6 @@ namespace UsefulProteomicsDatabases
             return proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantsPerIsoform, minAlleleDepth, maxSequenceVariantIsoforms)).ToList();
         }
 
-
-
-
         /// <summary>
         /// Get the modification entries specified in a mzLibProteinDb XML file (.xml or .xml.gz).
         /// </summary>
