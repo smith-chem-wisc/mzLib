@@ -22,9 +22,14 @@ namespace MzLibUtil.PositionFrequencyAnalysis
 
         public void SetProteinModsFromPeptides()
         {
-            if (!Sequence.IsNotNullOrEmpty() || !Peptides.IsNotNullOrEmpty())
+            if (Sequence.IsNullOrEmpty())
             {
-                throw new Exception("The protein sequence is unknown, or there're no peptides.");
+                throw new Exception("The protein sequence is unknown.");
+            }
+
+            if (Peptides.IsNullOrEmpty())
+            {
+                return;
             }
 
             ModifiedAminoAcidPositionsInProtein = new Dictionary<int, Dictionary<string, QuantifiedModification>>();
