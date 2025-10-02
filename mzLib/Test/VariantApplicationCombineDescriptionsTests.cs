@@ -8,6 +8,7 @@ using System.Linq;
 namespace Test.DatabaseTests
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class VariantApplicationCombineDescriptionsTests
     {
         private static SequenceVariation MakeVar(int pos, string orig, string variant, string desc, string vcf = null)

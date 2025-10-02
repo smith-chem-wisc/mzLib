@@ -11,6 +11,7 @@ using Proteomics;
 namespace Test.DatabaseTests
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class VariantApplicationSanitizeVariantDataTests
     {
         /*

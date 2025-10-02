@@ -10,6 +10,7 @@ using Proteomics;
 namespace Test.DatabaseTests
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class VariantApplicationSanitizeTests
     {
         private static SequenceVariation MakeVariant(int begin, int end, string orig, string var, string desc,

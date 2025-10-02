@@ -8,6 +8,7 @@ using Omics.BioPolymer;
 namespace Test.DatabaseTests
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public partial class VariantApplicationAdjustSequenceVariationIndicesTests
     {
         // (Reuse existing reflection + helpers if this is appended to previous file.

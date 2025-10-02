@@ -10,6 +10,7 @@ using Omics.Modifications;
 namespace Test.DatabaseTests
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class VariantApplicationApplySingleVariant_SeqAttrNormalizationTests
     {
         private static MethodInfo _applySingleVariantGeneric;

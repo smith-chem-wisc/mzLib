@@ -10,6 +10,7 @@ using Assert = NUnit.Framework.Legacy.ClassicAssert;
 namespace Test.DatabaseTests
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class VariantApplicationAdjustTruncationProductIndicesTests
     {
         private static readonly MethodInfo AdjustMethod =

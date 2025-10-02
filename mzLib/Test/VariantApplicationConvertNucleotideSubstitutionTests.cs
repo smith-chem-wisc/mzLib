@@ -9,6 +9,7 @@ using Proteomics;
 namespace Test.DatabaseTests
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class VariantApplicationConvertNucleotideSubstitutionTests
     {
         // Helper to create a minimal substitution modification matching the required detection pattern

@@ -10,6 +10,7 @@ using Proteomics;
 namespace Test.DatabaseTests
 {
     [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class VariantApplicationApplySingleVariantTests
     {
         private static MethodInfo _applySingleVariantGeneric;
