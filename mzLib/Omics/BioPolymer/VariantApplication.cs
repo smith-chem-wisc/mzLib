@@ -398,6 +398,11 @@ namespace Omics.BioPolymer
                 var seq = created?.BaseSequence;
                 if (!string.IsNullOrEmpty(seq))
                 {
+                    // Guard: detect ambiguous residues that can force UpdateMassAttribute to return sentinel values
+                    bool hasAmbiguousResidues = seq.IndexOf('X') >= 0 || seq.IndexOf('B') >= 0 ||
+                                                seq.IndexOf('J') >= 0 || seq.IndexOf('Z') >= 0 ||
+                                                seq.IndexOf('*') >= 0;
+
                     var attrProp = created.GetType().GetProperty(
                         "UniProtSequenceAttributes",
                         BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
@@ -407,7 +412,6 @@ namespace Omics.BioPolymer
                     {
                         var attrType = attrs.GetType();
 
-                        // Read existing attribute values
                         int oldLen = (int)attrType.GetProperty("Length", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(attrs);
                         int oldMass = (int)attrType.GetProperty("Mass", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(attrs);
                         string checksum = (string)attrType.GetProperty("Checksum", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(attrs);
@@ -416,8 +420,7 @@ namespace Omics.BioPolymer
                         bool? isPrecursor = attrType.GetProperty("IsPrecursor", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(attrs) as bool?;
                         var fragmentVal = attrType.GetProperty("Fragment", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(attrs);
 
-                        // Always recompute mass using trusted path after attach; placeholder keeps constructor happy
-                        int newMass = oldMass;
+                        int newMass = oldMass; // placeholder; recomputed later (if allowed)
 
                         if (seq.Length != oldLen)
                         {
@@ -445,16 +448,22 @@ namespace Omics.BioPolymer
 
                             attrProp?.SetValue(created, newAttr);
 
-                            // Now do the real mass update via the existing API (lives in Proteomics assembly)
-                            var massMethPost = newAttr.GetType().GetMethod("UpdateMassAttribute", new[] { typeof(string) });
-                            massMethPost?.Invoke(newAttr, new object[] { seq });
+                            if (!hasAmbiguousResidues)
+                            {
+                                var massMethPost = newAttr.GetType().GetMethod("UpdateMassAttribute", new[] { typeof(string) });
+                                massMethPost?.Invoke(newAttr, new object[] { seq });
+                            }
                         }
                         else
                         {
                             var lenMeth = attrType.GetMethod("UpdateLengthAttribute", new[] { typeof(string) });
                             lenMeth?.Invoke(attrs, new object[] { seq });
-                            var massMeth = attrType.GetMethod("UpdateMassAttribute", new[] { typeof(string) });
-                            massMeth?.Invoke(attrs, new object[] { seq });
+
+                            if (!hasAmbiguousResidues)
+                            {
+                                var massMeth = attrType.GetMethod("UpdateMassAttribute", new[] { typeof(string) });
+                                massMeth?.Invoke(attrs, new object[] { seq });
+                            }
                         }
                     }
                 }
