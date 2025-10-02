@@ -1042,7 +1042,7 @@ namespace Omics.BioPolymer
                         continue;
                     }
 
-                    // Basic coordinate sanity
+                    // Coordinate sanity (pre-AreValid fast checks)
                     if (v.OneBasedBeginPosition < 1 ||
                         v.OneBasedBeginPosition > prot.BaseSequence.Length + 1)
                     {
@@ -1051,8 +1051,8 @@ namespace Omics.BioPolymer
                         continue;
                     }
 
-                    // Validate internal logic
-                    bool valid = true;
+                    // Validation (can still fail if object was mutated after construction)
+                    bool valid;
                     try
                     {
                         valid = v.AreValid();
@@ -1069,10 +1069,9 @@ namespace Omics.BioPolymer
                         continue;
                     }
 
-                    // Prune variant-specific modifications dictionary in-place (dictionary is mutable)
+                    // Prune variant-specific modifications dictionary (mutable) if present
                     if (v.OneBasedModifications != null && v.OneBasedModifications.Count > 0)
                     {
-                        // Approximate max plausible length delta
                         int delta = (v.VariantSequence?.Length ?? 0) - (v.OriginalSequence?.Length ?? 0);
                         int maxAllowedPos = prot.BaseSequence.Length + Math.Max(0, delta);
 
@@ -1085,7 +1084,6 @@ namespace Omics.BioPolymer
                                 toRemove.Add(pos);
                                 continue;
                             }
-                            // If deletion or stop gained: drop mods at/after variant start
                             bool deletionOrStop = string.IsNullOrEmpty(v.VariantSequence) || (v.VariantSequence?.Contains('*') ?? false);
                             if (deletionOrStop && pos >= v.OneBasedBeginPosition)
                             {

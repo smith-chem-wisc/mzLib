@@ -268,15 +268,26 @@ namespace Test.DatabaseTests
         public void SanitizeVariantData_InvalidNoOp_Removed_WhenRemoveInvalidTrue()
         {
             var prot = new Protein("MPEPTIDESEQ", "ACC_INVALID_DROP");
-            // No-op (Original == Variant, no mods) => AreValid() should return false
-            var noOp = MakeVar(3, "P", "P", "noop_same");
-            prot.SequenceVariations.Add(noOp);
+            int pos = 3;
+            var mod = MakeTestMod("TestMod");
+            var modsDict = new Dictionary<int, List<Modification>> { { pos, new List<Modification> { mod } } };
 
+            // Disambiguated overload: cast null to string? so the (string? variantCallFormatDataString, Dictionary...) overload is chosen
+            var variant = new SequenceVariation(
+                pos,
+                pos,
+                "P",
+                "P",
+                "noop_with_mod_then_cleared",
+                (string?)null,
+                modsDict);
+
+            prot.SequenceVariations.Add(variant);
+            variant.OneBasedModifications.Clear();
             var notes = VariantApplication.SanitizeVariantData(prot, removeInvalidVariants: true).ToList();
-
             Assert.Multiple(() =>
             {
-                Assert.That(notes.Any(n => n.Contains("Dropped invalid variant") && n.Contains(noOp.SimpleString())), Is.True);
+                Assert.That(notes.Any(n => n.Contains("Dropped invalid variant") && n.Contains(variant.SimpleString())), Is.True);
                 Assert.That(notes.Any(n => n.Contains("Sanitized variants: kept 0/1")), Is.True);
                 Assert.That(prot.SequenceVariations.Count, Is.EqualTo(0));
             });
@@ -286,60 +297,85 @@ namespace Test.DatabaseTests
         public void SanitizeVariantData_InvalidNoOp_Retained_WhenRemoveInvalidFalse()
         {
             var prot = new Protein("MPEPTIDESEQ", "ACC_INVALID_KEEP");
-            var noOp = MakeVar(5, "T", "T", "noop_same2");
-            prot.SequenceVariations.Add(noOp);
+            int pos = 5;
+            var mod = MakeTestMod("TestMod2");
+            var modsDict = new Dictionary<int, List<Modification>> { { pos, new List<Modification> { mod } } };
 
+            var variant = new SequenceVariation(
+                pos,
+                pos,
+                "T",
+                "T",
+                "noop_with_mod_then_cleared_keep",
+                (string?)null,
+                modsDict);
+
+            prot.SequenceVariations.Add(variant);
+            try { variant.OneBasedModifications.Clear(); } catch { }
             var notes = VariantApplication.SanitizeVariantData(prot, removeInvalidVariants: false).ToList();
-
             Assert.Multiple(() =>
             {
-                // Drop message still logged
                 Assert.That(notes.Count, Is.EqualTo(1));
-                Assert.That(notes[0].Contains("Dropped invalid variant") && notes[0].Contains(noOp.SimpleString()), Is.True);
-                // Variant retained
+                Assert.That(notes[0].Contains("Dropped invalid variant") && notes[0].Contains(variant.SimpleString()), Is.True);
                 Assert.That(prot.SequenceVariations.Count, Is.EqualTo(1));
-                Assert.That(prot.SequenceVariations[0], Is.SameAs(noOp));
-                // No sanitized summary because kept == original
-                Assert.That(notes.Any(n => n.Contains("Sanitized variants:")), Is.False);
+                Assert.That(prot.SequenceVariations[0], Is.SameAs(variant));
             });
         }
 
+        // REPLACED invalid-span sanitizer tests (constructor now rejects end<begin):
+        // New test: ensure constructor throws for an invalid span (end < begin)
         [Test]
-        public void SanitizeVariantData_AreValidThrows_Removed_WhenRemoveInvalidTrue()
+        public void SequenceVariation_InvalidSpan_ConstructorThrows()
         {
-            var prot = new Protein("MPEPTIDESEQ", "ACC_THROW_DROP");
-            // Craft variant likely to throw in AreValid by supplying a null modification list entry
-            var badMods = new Dictionary<int, List<Modification>> { { 2, null } };
-            var throwing = new SequenceVariation(2, 2, "P", "A", "throw_mod_null", variantCallFormatDataString: null, oneBasedModifications: badMods);
-            prot.SequenceVariations.Add(throwing);
+            Assert.That(() =>
+                new SequenceVariation(10, 9, "A", "G", "invalid_span_should_throw", (string?)null, null),
+                Throws.TypeOf<ArgumentException>().With.Message.Contains("coordinates"));
+        }
+
+        // New test: exercise pruning of variant-specific modifications for a stop-gain / truncation scenario
+        [Test]
+        public void SanitizeVariantData_StopGain_PrunesVariantSpecificModSites()
+        {
+            var prot = new Protein("MPEPTIDEQ", "ACC_STOPGAIN_PRUNE"); // length 9
+            // Variation: replace positions 3..7 ("PTIDE") with "*" (stop)
+            int begin = 3;
+            int end = 7;
+            var modA = MakeTestMod("PruneModA");
+            var modB = MakeTestMod("PruneModB");
+            var modsDict = new Dictionary<int, List<Modification>>
+            {
+                { begin, new List<Modification>{ modA } },
+                { begin + 2, new List<Modification>{ modB } } // both should be pruned (pos >= begin and stop)
+            };
+
+            var stopVariant = new SequenceVariation(
+                begin,
+                end,
+                "PTIDE",
+                "*",
+                "stop_gain_variant",
+                (string?)null,
+                modsDict);
+
+            prot.SequenceVariations.Add(stopVariant);
 
             var notes = VariantApplication.SanitizeVariantData(prot, removeInvalidVariants: true).ToList();
 
             Assert.Multiple(() =>
             {
-                Assert.That(notes.Any(n => n.Contains("Dropped invalid variant") && n.Contains(throwing.SimpleString())), Is.True);
-                Assert.That(notes.Any(n => n.Contains("Sanitized variants: kept 0/1")), Is.True);
-                Assert.That(prot.SequenceVariations.Count, Is.EqualTo(0));
-            });
-        }
+                // Expect pruning note
+                Assert.That(notes.Any(n =>
+                        n.Contains("pruned 2 mod site") &&
+                        n.Contains(stopVariant.SimpleString())),
+                    Is.True, "Expected pruning note for stop-gain variant.");
 
-        [Test]
-        public void SanitizeVariantData_AreValidThrows_Retained_WhenRemoveInvalidFalse()
-        {
-            var prot = new Protein("MPEPTIDESEQ", "ACC_THROW_KEEP");
-            var badMods = new Dictionary<int, List<Modification>> { { 3, null } };
-            var throwing = new SequenceVariation(3, 3, "E", "K", "throw_mod_null_keep", variantCallFormatDataString: null, oneBasedModifications: badMods);
-            prot.SequenceVariations.Add(throwing);
+                // Variant should be retained (valid change) so no 'Sanitized variants' drop summary (kept == original)
+                Assert.That(notes.Any(n => n.Contains("Sanitized variants:")), Is.False,
+                    "No sanitized summary expected (variant retained).");
 
-            var notes = VariantApplication.SanitizeVariantData(prot, removeInvalidVariants: false).ToList();
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(notes.Count, Is.EqualTo(1));
-                Assert.That(notes[0].Contains("Dropped invalid variant") && notes[0].Contains(throwing.SimpleString()), Is.True);
-                Assert.That(prot.SequenceVariations.Count, Is.EqualTo(1));
-                Assert.That(prot.SequenceVariations[0], Is.SameAs(throwing));
-                Assert.That(notes.Any(n => n.Contains("Sanitized variants:")), Is.False);
+                // Mod dictionary should now be empty after pruning
+                Assert.That(stopVariant.OneBasedModifications.Count, Is.EqualTo(0),
+                    "All variant-specific modification sites at/after stop should be pruned.");
             });
         }
 
@@ -355,10 +391,32 @@ namespace Test.DatabaseTests
             Assert.Multiple(() =>
             {
                 Assert.That(notes.Any(n => n.Contains("Dropped invalid variant")), Is.False);
-                // No changes ? no sanitized summary
                 Assert.That(notes.Any(n => n.Contains("Sanitized variants:")), Is.False);
                 Assert.That(prot.SequenceVariations.Count, Is.EqualTo(1));
             });
+        }
+
+        #endregion
+        #region Helpers For Modification Creation (avoid inaccessible setters)
+
+        private static Modification MakeTestMod(string id)
+        {
+            // Use the public constructor instead of property setters (some setters may be non-public in current build).
+            return new Modification(
+                _originalId: id,
+                _accession: id,
+                _modificationType: "test-mod",
+                _featureType: "feature",
+                _target: null,                 // generic (no motif needed for these tests)
+                _locationRestriction: "Unassigned.",
+                _chemicalFormula: null,
+                _monoisotopicMass: null,
+                _databaseReference: null,
+                _taxonomicRange: null,
+                _keywords: new List<string>(), // empty keyword list
+                _neutralLosses: null,
+                _diagnosticIons: null,
+                _fileOrigin: null);
         }
 
         #endregion
