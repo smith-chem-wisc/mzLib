@@ -139,6 +139,37 @@ namespace Omics.BioPolymer
             // For now, keep defaults (0 / '\0').
         }
 
+        private string[] HighPutativeImpactEffects = new string[]
+        {
+            "chromosome_number_variation",
+            "exon_loss_variant",
+            "frameshift_variant",
+            "rare_amino_acid_variant",
+            "splice_acceptor_variant",
+            "splice_donor_variant",
+            "start_lost",
+            "stop_gained",
+            "stop_lost",
+            "transcript_ablation",
+        };
+
+        private string[] ModeratePutativeImpactEffects = new string[]
+        {
+            "3_prime_UTR_truncation", "exon_loss",
+            "5_prime_UTR_truncation", "exon_loss_variant",
+            "coding_sequence_variant",
+            "conservative_inframe_insertion",
+            "conservative_inframe_deletion",
+            "disruptive_inframe_deletion",
+            "disruptive_inframe_insertion",
+            "inframe_deletion",
+            "inframe_insertion",
+            "missense_variant",
+            "regulatory_region_ablation",
+            "splice_region_variant",
+            "TFBS_ablation",
+        };
+
         private string[] NonSynonymousVariations = new string[]
         {
             "exon_loss_variant",
@@ -154,6 +185,46 @@ namespace Omics.BioPolymer
             "inframe_deletion",
             "inframe_insertion",
             "missense_variant",
+        };
+
+        private string[] LowPutativeImpactEffects = new string[]
+        {
+            "5_prime_UTR_premature_start_codon_gain_variant",
+            "initiator_codon_variant",
+            "splice_region_variant",
+            "start_retained",
+            "stop_retained_variant",
+            "synonymous_variant",
+            "sequence_feature"
+        };
+
+        private string[] ModifierEffects = new string[]
+        {
+            "3_prime_UTR_variant",
+            "5_prime_UTR_variant",
+            "coding_sequence_variant",
+            "conserved_intergenic_variant",
+            "conserved_intron_variant",
+            "downstream_gene_variant",
+            "exon_variant",
+            "feature_elongation",
+            "feature_truncation",
+            "gene_variant",
+            "intergenic_region",
+            "intragenic_variant",
+            "intron_variant",
+            "mature_miRNA_variant",
+            "miRNA",
+            "NMD_transcript_variant",
+            "non_coding_transcript_exon_variant",
+            "non_coding_transcript_variant",
+            "regulatory_region_amplification",
+            "regulatory_region_variant",
+            "TF_binding_site_variant",
+            "TFBS_amplification",
+            "transcript_amplification",
+            "transcript_variant",
+            "upstream_gene_variant"
         };
 
         private string[] BadTranscriptWarnings = new string[]
