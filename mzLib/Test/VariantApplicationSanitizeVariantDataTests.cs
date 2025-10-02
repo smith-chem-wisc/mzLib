@@ -1098,5 +1098,108 @@ namespace Test.DatabaseTests
         }
 
         #endregion
+        #region Single Polymer Overload Tests
+
+        [Test]
+        public void SanitizeVariantData_SingleOverload_NullPolymer_YieldsNoNotes()
+        {
+            IHasSequenceVariants polymer = null;
+
+            var notes = VariantApplication.SanitizeVariantData<IHasSequenceVariants>(polymer, removeInvalidVariants: true).ToList();
+
+            Assert.That(notes.Count, Is.EqualTo(0), "Null single polymer should yield no notes (matches enumerable behavior).");
+        }
+
+        [Test]
+        public void SanitizeVariantData_SingleOverload_ValidVariant_NoSummary()
+        {
+            var prot = new Protein("MPEPTIDESEQ", "ACC_SINGLE_VALID");
+            var valid = new SequenceVariation(4, 4, "P", "L", "valid_single");
+            prot.SequenceVariations.Add(valid);
+
+            var notes = VariantApplication.SanitizeVariantData(prot, removeInvalidVariants: true).ToList();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(notes.Any(n => n.Contains("Dropped")), Is.False);
+                Assert.That(notes.Any(n => n.Contains("Sanitized variants:")), Is.False);
+                Assert.That(prot.SequenceVariations.Count, Is.EqualTo(1));
+            });
+        }
+
+        [Test]
+        public void SanitizeVariantData_SingleOverload_InvalidVariant_Removed_WhenRemoveInvalidTrue()
+        {
+            var prot = new Protein("MPEPTIDESEQ", "ACC_SINGLE_INVALID_DROP");
+            int pos = 6;
+            var mod = MakeTestMod("Tmp");
+            var variant = new SequenceVariation(pos, pos, "E", "E", "noop_single_drop", (string?)null,
+                new Dictionary<int, List<Modification>> { { pos, new List<Modification> { mod } } });
+            prot.SequenceVariations.Add(variant);
+            variant.OneBasedModifications.Clear(); // make no-op invalid
+
+            var notes = VariantApplication.SanitizeVariantData(prot, removeInvalidVariants: true).ToList();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(notes.Any(n => n.Contains("Dropped invalid variant") && n.Contains(variant.SimpleString())), Is.True);
+                Assert.That(notes.Any(n => n.Contains("Sanitized variants: kept 0/1")), Is.True);
+                Assert.That(prot.SequenceVariations.Count, Is.EqualTo(0));
+            });
+        }
+
+        [Test]
+        public void SanitizeVariantData_SingleOverload_InvalidVariant_Retained_WhenRemoveInvalidFalse()
+        {
+            var prot = new Protein("MPEPTIDESEQ", "ACC_SINGLE_INVALID_KEEP");
+            int pos = 2;
+            var mod = MakeTestMod("Tmp2");
+            var variant = new SequenceVariation(pos, pos, "M", "M", "noop_single_keep", (string?)null,
+                new Dictionary<int, List<Modification>> { { pos, new List<Modification> { mod } } });
+            prot.SequenceVariations.Add(variant);
+            variant.OneBasedModifications.Clear(); // now invalid
+
+            var notes = VariantApplication.SanitizeVariantData(prot, removeInvalidVariants: false).ToList();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(notes.Count, Is.EqualTo(1), "Expect only invalid note (no sanitized summary).");
+                Assert.That(notes[0].Contains("Dropped invalid variant") && notes[0].Contains(variant.SimpleString()), Is.True);
+                Assert.That(notes.Any(n => n.Contains("Sanitized variants:")), Is.False);
+                Assert.That(prot.SequenceVariations.Count, Is.EqualTo(1));
+                Assert.That(prot.SequenceVariations[0], Is.SameAs(variant));
+            });
+        }
+
+        [Test]
+        public void SanitizeVariantData_SingleOverload_EqualsEnumerableWrapperOutput()
+        {
+            var prot = new Protein("MPEPTIDESEQ", "ACC_SINGLE_EQ");
+            prot.SequenceVariations.Add(null);
+            var noopPos = 5;
+            var mod = MakeTestMod("Tmp3");
+            var invalid = new SequenceVariation(noopPos, noopPos, "T", "T", "noop_eq", (string?)null,
+                new Dictionary<int, List<Modification>> { { noopPos, new List<Modification> { mod } } });
+            prot.SequenceVariations.Add(invalid);
+            invalid.OneBasedModifications.Clear();
+
+            // Call single overload
+            var notesSingle = VariantApplication.SanitizeVariantData(prot, removeInvalidVariants: true).OrderBy(s => s).ToList();
+
+            // Recreate equivalent scenario (need to rebuild prot because previous call mutated collection)
+            var prot2 = new Protein("MPEPTIDESEQ", "ACC_SINGLE_EQ");
+            prot2.SequenceVariations.Add(null);
+            var invalid2 = new SequenceVariation(noopPos, noopPos, "T", "T", "noop_eq", (string?)null,
+                new Dictionary<int, List<Modification>> { { noopPos, new List<Modification> { mod } } });
+            prot2.SequenceVariations.Add(invalid2);
+            invalid2.OneBasedModifications.Clear();
+
+            var notesEnumerable = VariantApplication.SanitizeVariantData(new[] { prot2 }, removeInvalidVariants: true).OrderBy(s => s).ToList();
+
+            Assert.That(notesSingle.SequenceEqual(notesEnumerable), Is.True,
+                "Single overload output must match enumerable wrapper output for identical inputs.");
+        }
+
+        #endregion
     }
 }
