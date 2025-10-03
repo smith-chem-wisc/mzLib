@@ -134,6 +134,77 @@ namespace Omics.BioPolymer
         /// </summary>
         public Dictionary<int, List<Modification>> OneBasedModifications { get; }
 
+        /// <summary>
+        /// Unified annotation text for free-form searching/classification.
+        /// Prefers the raw VCF line if available, otherwise the free-form Description.
+        /// </summary>
+        public string SearchableAnnotation => VariantCallFormatData?.Description ?? Description ?? string.Empty;
+
+        /// <summary>
+        /// Reference allele (REF) convenience passthrough (null if no VCF).
+        /// </summary>
+        public string? ReferenceAllele => VariantCallFormatData?.ReferenceAlleleString;
+
+        /// <summary>
+        /// First (primary) alternate allele convenience passthrough if available.
+        /// Returns null if no VCF or ALT not parsable. (Implement inside VariantCallFormat if not already present.)
+        /// </summary>
+        public string? AlternateAllele => VariantCallFormatData?.AlternateAlleleString; // ensure VariantCallFormat exposes this; if not, remove.
+
+        /// <summary>
+        /// True if this is a point substitution (length 1 → length 1, both non-empty, not a stop).
+        /// </summary>
+        public bool IsPointSubstitution =>
+            OriginalSequence?.Length == 1 &&
+            VariantSequence?.Length == 1 &&
+            VariantSequence != "*" &&
+            OriginalSequence != VariantSequence;
+
+        /// <summary>
+        /// True if substitution length >1 but same length (multi-nucleotide / multi-amino-acid).
+        /// </summary>
+        public bool IsMultiResidueSubstitution =>
+            OriginalSequence?.Length > 1 &&
+            VariantSequence?.Length == OriginalSequence.Length &&
+            OriginalSequence != VariantSequence &&
+            !IsPointSubstitution;
+
+        /// <summary>
+        /// True if an insertion (original empty, variant non-empty).
+        /// </summary>
+        public bool IsInsertion =>
+            (OriginalSequence?.Length ?? 0) == 0 &&
+            !string.IsNullOrEmpty(VariantSequence) &&
+            VariantSequence != "*";
+
+        /// <summary>
+        /// True if a deletion (variant empty).
+        /// </summary>
+        public bool IsDeletion =>
+            string.IsNullOrEmpty(VariantSequence) &&
+            !string.IsNullOrEmpty(OriginalSequence);
+
+        /// <summary>
+        /// True if variant introduces a stop (* at end).
+        /// </summary>
+        public bool IsStopGain => VariantSequence?.EndsWith("*", StringComparison.Ordinal) == true;
+
+        /// <summary>
+        /// Heuristic frameshift flag: length difference not equal & not simple stop gain only.
+        /// (Refine if you have explicit annotation elsewhere.)
+        /// </summary>
+        public bool IsLikelyFrameshift =>
+            !IsInsertion && !IsDeletion &&
+            OriginalSequence != null && VariantSequence != null &&
+            OriginalSequence.Length != VariantSequence.Length &&
+            !IsStopGain;
+
+        /// <summary>
+        /// Backward compatibility shim. Use VariantCallFormatData instead.
+        /// </summary>
+        [Obsolete("Use VariantCallFormatData for structured data or Description/SearchableAnnotation for text.")]
+        public VariantCallFormat? LegacyVariantDescription => VariantCallFormatData;
+
         #endregion
 
         #region Equality / Hash
