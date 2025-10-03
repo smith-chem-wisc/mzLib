@@ -146,6 +146,70 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
+        /// Preferred overload using an options object to avoid positional parameter churn.
+        /// </summary>
+        public static List<Protein> LoadProteinXML(
+            string proteinDbLocation,
+            ProteinXmlLoadOptions options,
+            out Dictionary<string, Modification> unknownModifications)
+        {
+            if (options is null) throw new ArgumentNullException(nameof(options));
+
+            return LoadProteinXML(
+                proteinDbLocation,
+                options.GenerateTargets,
+                options.DecoyType,
+                options.AllKnownModifications,
+                options.IsContaminant,
+                options.ModTypesToExclude,
+                out unknownModifications,
+                options.MaxThreads,
+                options.MaxSequenceVariantsPerIsoform,
+                options.MinAlleleDepth,
+                options.MaxSequenceVariantIsoforms,
+                options.AddTruncations,
+                options.DecoyIdentifier);
+        }
+
+        /// <summary>
+        /// Legacy positional overload (original ordering) retained for backward compatibility.
+        /// Use the options or new signature overload instead.
+        /// </summary>
+        [Obsolete("This overload preserves the legacy parameter order and will be removed in a future release. " +
+                  "Use the options-based overload or the signature with variant parameters grouped before addTruncations.")]
+        public static List<Protein> LoadProteinXML(
+            string proteinDbLocation,
+            bool generateTargets,
+            DecoyType decoyType,
+            IEnumerable<Modification> allKnownModifications,
+            bool isContaminant,
+            IEnumerable<string> modTypesToExclude,
+            out Dictionary<string, Modification> unknownModifications,
+            int maxThreads,
+            bool addTruncations,
+            string decoyIdentifier,
+            int maxSequenceVariantsPerIsoform,
+            int minAlleleDepth,
+            int maxSequenceVariantIsoforms)
+        {
+            // Forward to the new canonical ordering
+            return LoadProteinXML(
+                proteinDbLocation,
+                generateTargets,
+                decoyType,
+                allKnownModifications,
+                isContaminant,
+                modTypesToExclude,
+                out unknownModifications,
+                maxThreads,
+                maxSequenceVariantsPerIsoform,
+                minAlleleDepth,
+                maxSequenceVariantIsoforms,
+                addTruncations,
+                decoyIdentifier);
+        }
+
+        /// <summary>
         /// Get the modification entries specified in a mzLibProteinDb XML file (.xml or .xml.gz).
         /// </summary>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
@@ -530,6 +594,21 @@ namespace UsefulProteomicsDatabases
             }
 
             return FastaHeaderType.Unknown;
+        }
+
+        public sealed class ProteinXmlLoadOptions
+        {
+            public bool GenerateTargets { get; init; }
+            public DecoyType DecoyType { get; init; } = DecoyType.None;
+            public IEnumerable<Modification> AllKnownModifications { get; init; } = Array.Empty<Modification>();
+            public bool IsContaminant { get; init; }
+            public IEnumerable<string> ModTypesToExclude { get; init; } = Array.Empty<string>();
+            public int MaxThreads { get; init; } = -1;
+            public int MaxSequenceVariantsPerIsoform { get; init; } = 4;
+            public int MinAlleleDepth { get; init; } = 1;
+            public int MaxSequenceVariantIsoforms { get; init; } = 1;
+            public bool AddTruncations { get; init; }
+            public string DecoyIdentifier { get; init; } = "DECOY";
         }
     }
 }

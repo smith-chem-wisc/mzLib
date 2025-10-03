@@ -354,7 +354,12 @@ namespace UsefulProteomicsDatabases
                         {
                             variationArraySlided[i] = variationArrayUnslided[GetOldSlidedIndex(i, numSlidesHere, variationArrayUnslided.Length, true)];
                         }
-                        decoyVariationsSlide.Add(new SequenceVariation(1, "M", new string(variationArraySlided), $"{decoyIdentifier} VARIANT: Initiator Methionine Change in " + sv.VariantCallFormatData));
+                        decoyVariationsSlide.Add(new SequenceVariation(
+                            oneBasedPosition: 1,
+                            originalSequence: "M",
+                            variantSequence: new string(variationArraySlided),
+                            description: sv.Description,
+                            variantCallFormatDataString: $"{decoyIdentifier} VARIANT: Initiator Methionine Change in " + sv.VariantCallFormatData));
                     }
                     else
                     {

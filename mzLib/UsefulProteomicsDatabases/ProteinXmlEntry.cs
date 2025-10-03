@@ -467,11 +467,26 @@ namespace UsefulProteomicsDatabases
                     ParseAnnotatedMods(OneBasedVariantModifications, modTypesToExclude, unknownModifications, AnnotatedVariantMods);
                     if (OneBasedBeginPosition != null && OneBasedEndPosition != null)
                     {
-                        SequenceVariations.Add(new SequenceVariation((int)OneBasedBeginPosition, (int)OneBasedEndPosition, OriginalValue, VariationValue, FeatureDescription, FeatureDescription, OneBasedVariantModifications)); //might need null for the second FeatureDescription
+                        SequenceVariations.Add(
+                            new SequenceVariation(
+                                (int)OneBasedBeginPosition,
+                                (int)OneBasedEndPosition,
+                                OriginalValue,
+                                VariationValue,
+                                FeatureDescription,
+                                variantCallFormatDataString: null,
+                                oneBasedModifications: OneBasedVariantModifications));
                     }
                     else if (OneBasedFeaturePosition >= 1)
                     {
-                        SequenceVariations.Add(new SequenceVariation(OneBasedFeaturePosition, OriginalValue, VariationValue,FeatureDescription, FeatureDescription, OneBasedVariantModifications));//might need null for the second FeatureDescription
+                        SequenceVariations.Add(
+                            new SequenceVariation(
+                                OneBasedFeaturePosition,
+                                OriginalValue,
+                                VariationValue,
+                                FeatureDescription,
+                                variantCallFormatDataString: null,
+                                oneBasedModifications: OneBasedVariantModifications));
                     }
                     AnnotatedVariantMods = new List<(int, string)>();
                     OneBasedVariantModifications = new Dictionary<int, List<Modification>>();

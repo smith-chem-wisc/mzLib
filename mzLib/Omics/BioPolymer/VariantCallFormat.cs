@@ -56,22 +56,37 @@ namespace Omics.BioPolymer
         public enum Zygosity { Unknown, Homozygous, Heterozygous }
 
         /// <summary>
+        /// True when the provided line was truncated (< 10 VCF columns). In this case:
+        /// - ReferenceAlleleString / AlternateAlleleString are null
+        /// - AlleleIndex = -1
+        /// - Info is a safe empty annotation (never null)
+        /// - Format is an empty string
+        /// - Genotypes / AlleleDepths / zygosity maps are empty
+        /// </summary>
+        public bool IsTruncated { get; }
+
+        /// <summary>
         /// Construct from a single, tab-delimited VCF record.
         /// If fewer than 10 columns are present, parsing is aborted (object remains mostly unpopulated).
         /// </summary>
         /// <param name="description">Full raw VCF line (must contain actual tab characters).</param>
         public VariantCallFormat(string description)
         {
+            if (description is null)
+                throw new ArgumentNullException(nameof(description));
+
             Description = description;
             string[] vcfFields = description.Split('\t');
 
-            // Guard: not enough columns – leave object in a harmless, mostly-null state.
+            // Guard: not enough columns – populate safe defaults; do NOT leave non-nullable properties null.
             if (vcfFields.Length < 10)
             {
                 ReferenceAlleleString = null;
                 AlternateAlleleString = null;
-                Info = null;
-                Format = null;
+                Info = new SnpEffAnnotation(string.Empty); // safe empty annotation
+                Format = string.Empty;
+                AlleleIndex = -1;
+                IsTruncated = true;
                 return;
             }
 

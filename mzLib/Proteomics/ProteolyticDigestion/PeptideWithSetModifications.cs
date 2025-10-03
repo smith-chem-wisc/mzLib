@@ -793,16 +793,12 @@ namespace Proteomics.ProteolyticDigestion
 
             return (true, identifiesFlag);
         }
-        public string SequenceVariantString(SequenceVariation applied, bool intersects)
+        public string SequenceVariantString(SequenceVariation applied)
         {
-            // Full report: ORIGINAL + position + FULL VARIANT
-            // Only amino acids involved in the change (original vs variant strings), no flanking context.
-            // Variant-specific modifications (applied.OneBasedModifications) are rendered inline on the variant residues.
-            // We ignore other protein/PTMs that are not variant-specific.
+            // ORIGINAL + position + FULL VARIANT (no flanks)
+            // Variant-specific modifications rendered inline at their 1-based global positions
             var sbVariant = new StringBuilder(applied.VariantSequence.Length * 2);
-
-            // Variant-specific mods dictionary can be null
-            var variantMods = applied.OneBasedModifications;
+            var variantMods = applied.OneBasedModifications; // may be null
 
             for (int i = 0; i < applied.VariantSequence.Length; i++)
             {
@@ -811,9 +807,7 @@ namespace Proteomics.ProteolyticDigestion
 
                 if (variantMods != null)
                 {
-                    // Variant residue global 1-based coordinate after applying edit
                     int globalVariantPos = applied.OneBasedBeginPosition + i;
-
                     if (variantMods.TryGetValue(globalVariantPos, out var modsHere) && modsHere != null)
                     {
                         foreach (var m in modsHere)
@@ -830,6 +824,15 @@ namespace Proteomics.ProteolyticDigestion
 
             return $"{applied.OriginalSequence}{applied.OneBasedBeginPosition}{sbVariant}";
         }
+
+        /// <summary>
+        /// BACKWARD COMPATIBILITY ONLY.
+        /// The 'intersects' parameter is ignored. Use SequenceVariantString(SequenceVariation) instead.
+        /// </summary>
+        [Obsolete("intersects parameter is unused. Call SequenceVariantString(SequenceVariation) without the second argument.")]
+        public string SequenceVariantString(SequenceVariation applied, bool intersects) =>
+            SequenceVariantString(applied);
+
         /// <summary>
         /// Takes an individual peptideWithSetModifications and determines if applied variations from the protein are found within its length
         /// </summary>
