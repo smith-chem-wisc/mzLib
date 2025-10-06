@@ -948,5 +948,112 @@ namespace Test.DatabaseTests
             Assert.That(targetProtein.GeneNames.Count() == 1);
             Assert.That(targetProtein.GeneNames.First().Item2 == "ENSG00000206427.11");
         }
+
+        [Test]
+        public void ProteinXmlLoadOptions_DefaultValues_AreExpected()
+        {
+            var opts = new ProteinDbLoader.ProteinXmlLoadOptions();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(opts.GenerateTargets, Is.False);
+                Assert.That(opts.DecoyType, Is.EqualTo(DecoyType.None));
+                Assert.That(opts.AllKnownModifications, Is.Empty);
+                Assert.That(opts.IsContaminant, Is.False);
+                Assert.That(opts.ModTypesToExclude, Is.Empty);
+                Assert.That(opts.MaxThreads, Is.EqualTo(-1));
+                Assert.That(opts.MaxSequenceVariantsPerIsoform, Is.EqualTo(4));
+                Assert.That(opts.MinAlleleDepth, Is.EqualTo(1));
+                Assert.That(opts.MaxSequenceVariantIsoforms, Is.EqualTo(1));
+                Assert.That(opts.AddTruncations, Is.False);
+                Assert.That(opts.DecoyIdentifier, Is.EqualTo("DECOY"));
+            });
+        }
+
+        [Test]
+        public void ProteinXmlLoadOptions_CustomValues_RoundTripThroughOptionsForwarder()
+        {
+            // Minimal valid (empty) protein XML file; parsing will yield zero proteins but still exercise forwarding.
+            string tmp = Path.Combine(TestContext.CurrentContext.WorkDirectory, "customOpts_proteinDb.xml");
+            File.WriteAllText(tmp, "<mzLibProteinDb></mzLibProteinDb>");
+
+            var customMods = new List<Modification>
+            {
+                new Modification(_originalId: "ModX"),
+                new Modification(_originalId: "ModY")
+            };
+            var exclude = new[] { "discard", "ambiguous" };
+
+            var opts = new ProteinDbLoader.ProteinXmlLoadOptions
+            {
+                GenerateTargets = true,
+                DecoyType = DecoyType.Reverse,
+                AllKnownModifications = customMods,
+                IsContaminant = true,
+                ModTypesToExclude = exclude,
+                MaxThreads = 2,
+                MaxSequenceVariantsPerIsoform = 6,
+                MinAlleleDepth = 3,
+                MaxSequenceVariantIsoforms = 5,
+                AddTruncations = true,
+                DecoyIdentifier = "REV"
+            };
+
+            var proteins = ProteinDbLoader.LoadProteinXML(tmp, opts, out var unknownMods);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(unknownMods, Is.Empty);
+                // Empty DB -> no proteins produced (no entries to reverse); this still proves the forwarder invoked positional overload.
+                Assert.That(proteins, Is.Empty);
+            });
+
+            if (File.Exists(tmp)) File.Delete(tmp);
+        }
+
+        [Test]
+        public void ProteinXmlLoadOptions_Invalid_MaxSequenceVariantIsoforms_Throws()
+        {
+            string tmp = Path.Combine(TestContext.CurrentContext.WorkDirectory, "invalidOpts_proteinDb.xml");
+            File.WriteAllText(tmp, "<mzLibProteinDb></mzLibProteinDb>");
+
+            var bad = new ProteinDbLoader.ProteinXmlLoadOptions
+            {
+                GenerateTargets = true,
+                MaxSequenceVariantIsoforms = 0 // invalid -> positional overload throws MzLibException
+            };
+
+            Assert.That(
+                () => ProteinDbLoader.LoadProteinXML(tmp, bad, out _),
+                Throws.TypeOf<MzLibUtil.MzLibException>()
+                      .With.Message.Contains("maxSequenceVariantIsoforms"));
+
+            if (File.Exists(tmp)) File.Delete(tmp);
+        }
+
+        [Test]
+        public void ProteinXmlLoadOptions_GenerateTargetsFalse_NoDecoysWithNone_ReturnsEmpty()
+        {
+            string tmp = Path.Combine(TestContext.CurrentContext.WorkDirectory, "noTargets_proteinDb.xml");
+            // One minimal entry (attempt to allow target creation) – but GenerateTargets = false and DecoyType.None -> empty result.
+            File.WriteAllText(tmp,
+                "<mzLibProteinDb><entry><accession>P1</accession><sequence length=\"3\">ABC</sequence></entry></mzLibProteinDb>");
+
+            var opts = new ProteinDbLoader.ProteinXmlLoadOptions
+            {
+                GenerateTargets = false,
+                DecoyType = DecoyType.None
+            };
+
+            var proteins = ProteinDbLoader.LoadProteinXML(tmp, opts, out var unknownMods);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(unknownMods, Is.Empty);
+                Assert.That(proteins, Is.Empty);
+            });
+
+            if (File.Exists(tmp)) File.Delete(tmp);
+        }
     }
 }

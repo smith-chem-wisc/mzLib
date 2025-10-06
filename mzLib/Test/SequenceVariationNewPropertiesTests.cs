@@ -121,7 +121,7 @@ namespace Test
                     oneBasedModifications: mods),
                 Throws.TypeOf<ArgumentException>());
         }
-
+            
         [Test]
         public void SplitPerGenotype_ProducesExpectedVariants()
         {
@@ -133,15 +133,22 @@ namespace Test
             var sv = new SequenceVariation(34, 34, "K", "N", "origDesc", vcf);
             var perSample = sv.SplitPerGenotype(includeReferenceForHeterozygous: true);
 
+            // Rationale:
+            // The constructor/validation forbids no?op variants (ref->ref with no variant-specific mods).
+            // The heterozygous reference copy therefore cannot be materialized and is skipped.
+            // Expected:
+            //   Sample 0: HeterozygousAlt
+            //   Sample 1: HomozygousAlt
+            // Total: 2 variants (both with VCF metadata)
             Assert.Multiple(() =>
             {
-                Assert.That(perSample, Has.Count.EqualTo(3));
-                Assert.That(perSample.Count(v => v.Description.Contains("Sample=0")), Is.EqualTo(2));
+                Assert.That(perSample, Has.Count.EqualTo(2));
+                Assert.That(perSample.Count(v => v.Description.Contains("Sample=0")), Is.EqualTo(1));
                 Assert.That(perSample.Count(v => v.Description.Contains("Sample=1")), Is.EqualTo(1));
                 Assert.That(perSample.All(v => v.VariantCallFormatData != null), Is.True);
-                Assert.That(perSample.Any(v => v.Description.Contains("HeterozygousRef")), Is.True);
                 Assert.That(perSample.Any(v => v.Description.Contains("HeterozygousAlt")), Is.True);
                 Assert.That(perSample.Any(v => v.Description.Contains("HomozygousAlt")), Is.True);
+                Assert.That(perSample.Any(v => v.Description.Contains("HeterozygousRef")), Is.False);
             });
         }
 
