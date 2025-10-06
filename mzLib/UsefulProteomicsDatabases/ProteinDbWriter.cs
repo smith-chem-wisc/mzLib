@@ -639,19 +639,19 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-        private static Dictionary<int, HashSet<string>> GetModsForThisBioPolymer(IBioPolymer protein, SequenceVariation seqvar, Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, Dictionary<string, int> newModResEntries)
+        private static Dictionary<int, HashSet<string>> GetModsForThisBioPolymer(
+            IBioPolymer protein,
+            SequenceVariation seqvar,
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
+            Dictionary<string, int> newModResEntries)
         {
             var modsToWriteForThisSpecificProtein = new Dictionary<int, HashSet<string>>();
 
-            // Primary dict (variant-specific if seqvar != null); treat null as empty
-            IDictionary<int, List<Modification>> primaryModDict =
-                seqvar == null
-                    ? (protein.OneBasedPossibleLocalizedModifications ?? new Dictionary<int, List<Modification>>())
-                    : (seqvar.OneBasedModifications ?? new Dictionary<int, List<Modification>>());
-
-            // If primaryModDict somehow null after safety, just return empty
-            if (primaryModDict == null)
-                return modsToWriteForThisSpecificProtein;
+            // Select the appropriate modification dictionary (variant-specific if seqvar != null).
+            // Each side guarantees a non-null dictionary (falls back to new Dictionary<,>()), so no further null check needed.
+            var primaryModDict = seqvar == null
+                ? (protein.OneBasedPossibleLocalizedModifications ?? new Dictionary<int, List<Modification>>())
+                : (seqvar.OneBasedModifications ?? new Dictionary<int, List<Modification>>());
 
             foreach (var mods in primaryModDict)
             {
@@ -666,17 +666,19 @@ namespace UsefulProteomicsDatabases
                 }
             }
 
-            // Additional externally supplied mods
+            // Additional externally supplied mods (accession changes if seqvar is applied)
             string accession = seqvar == null
                 ? protein.Accession
                 : VariantApplication.GetAccession(protein, new[] { seqvar });
 
-            if (additionalModsToAddToProteins != null && accession != null &&
+            if (additionalModsToAddToProteins != null &&
+                accession != null &&
                 additionalModsToAddToProteins.TryGetValue(accession, out var extraMods))
             {
                 foreach (var (pos, mod) in extraMods.Where(t => t != null))
                 {
                     if (mod == null) continue;
+
                     bool added;
                     if (modsToWriteForThisSpecificProtein.TryGetValue(pos, out var set))
                         added = set.Add(mod.IdWithMotif);
@@ -685,6 +687,7 @@ namespace UsefulProteomicsDatabases
                         modsToWriteForThisSpecificProtein.Add(pos, new HashSet<string> { mod.IdWithMotif });
                         added = true;
                     }
+
                     if (added)
                     {
                         if (newModResEntries.ContainsKey(mod.IdWithMotif))

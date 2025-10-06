@@ -186,31 +186,53 @@ namespace UsefulProteomicsDatabases
         private static List<SequenceVariation> ReverseSequenceVariations(IEnumerable<SequenceVariation> forwardVariants, IBioPolymer protein, string reversedSequence, string decoyIdentifier = "DECOY")
         {
             List<SequenceVariation> decoyVariations = new List<SequenceVariation>();
+
+            // Local helper constructs a stable decoy VCF string (only appends original VCF if present)
+            static string BuildDecoyVcfTag(string decoyIdentifier, SequenceVariation src)
+            {
+                var baseTag = $"{decoyIdentifier} VARIANT";
+                if (src?.VariantCallFormatData == null)
+                {
+                    return baseTag; // no original VCF
+                }
+
+                // Use the raw VCF line (VariantCallFormat.Description). Fallback to SearchableAnnotation if empty.
+                var raw = src.VariantCallFormatData.Description;
+                if (string.IsNullOrWhiteSpace(raw))
+                {
+                    raw = src.SearchableAnnotation;
+                }
+
+                return string.IsNullOrWhiteSpace(raw) ? baseTag : $"{baseTag}: {raw}";
+            }
+
             foreach (SequenceVariation sv in forwardVariants)
             {
+                if (sv == null)
+                    continue;
+
+                string decoyVcfTag = BuildDecoyVcfTag(decoyIdentifier, sv);
+
                 // place reversed modifications (referencing variant sequence location)
                 Dictionary<int, List<Modification>> decoyVariantModifications = new Dictionary<int, List<Modification>>(sv.OneBasedModifications.Count);
                 int variantSeqLength = protein.BaseSequence.Length + sv.VariantSequence.Length - sv.OriginalSequence.Length;
                 bool startsWithM = protein.BaseSequence.StartsWith("M", StringComparison.Ordinal);
-                bool stopGain = sv.VariantSequence.EndsWith("*");
+                bool stopGain = sv.VariantSequence.EndsWith("*", StringComparison.Ordinal);
+
                 foreach (var kvp in sv.OneBasedModifications)
                 {
-                    // keeping positions for stop gain to make decoys with same length
                     if (stopGain)
                     {
                         decoyVariantModifications.Add(kvp.Key, kvp.Value);
                     }
-                    // methionine retention but rest reversed
-                    if (startsWithM && kvp.Key > 1)
+                    else if (startsWithM && kvp.Key > 1)
                     {
                         decoyVariantModifications.Add(variantSeqLength - kvp.Key + 2, kvp.Value);
                     }
-                    // on starting methionine
                     else if (sv.VariantSequence.StartsWith("M", StringComparison.Ordinal) && kvp.Key == 1)
                     {
                         decoyVariantModifications.Add(1, kvp.Value);
                     }
-                    // on starting non-methionine
                     else if (kvp.Key == 1)
                     {
                         decoyVariantModifications.Add(protein.BaseSequence.Length, kvp.Value);
@@ -221,10 +243,11 @@ namespace UsefulProteomicsDatabases
                     }
                 }
 
-                // reverse sequence variant
-                char[] originalArray = sv.OriginalSequence.ToArray();
-                char[] variationArray = sv.VariantSequence.ToArray();
-                int decoyEnd = protein.BaseSequence.Length - sv.OneBasedBeginPosition + 2 + Convert.ToInt32(sv.OneBasedEndPosition == reversedSequence.Length) - Convert.ToInt32(sv.OneBasedBeginPosition == 1);
+                char[] originalArray = sv.OriginalSequence.ToCharArray();
+                char[] variationArray = sv.VariantSequence.ToCharArray();
+                int decoyEnd = protein.BaseSequence.Length - sv.OneBasedBeginPosition + 2
+                               + Convert.ToInt32(sv.OneBasedEndPosition == reversedSequence.Length)
+                               - Convert.ToInt32(sv.OneBasedBeginPosition == 1);
                 int decoyBegin = decoyEnd - originalArray.Length + 1;
                 Array.Reverse(originalArray);
                 Array.Reverse(variationArray);
@@ -233,49 +256,65 @@ namespace UsefulProteomicsDatabases
                 bool variantInitMet = sv.OneBasedBeginPosition == 1 && sv.VariantSequence.StartsWith("M", StringComparison.Ordinal);
                 bool startLoss = originalInitMet && !variantInitMet;
 
-                // stop gains should still produce decoys with the same length
                 if (stopGain)
                 {
-                    decoyVariations.Add(new SequenceVariation(sv.OneBasedBeginPosition,
+                    decoyVariations.Add(new SequenceVariation(
+                        sv.OneBasedBeginPosition,
                         reversedSequence.Substring(sv.OneBasedBeginPosition - 1, sv.OneBasedEndPosition - sv.OneBasedBeginPosition + 1),
                         new string(variationArray).Substring(1, variationArray.Length - 1) + variationArray[0],
                         sv.Description,
-                        $"{decoyIdentifier} VARIANT: " + sv.VariantCallFormatData, decoyVariantModifications));
+                        decoyVcfTag,
+                        decoyVariantModifications));
                 }
-                // start loss, so the variant is at the end
                 else if (startLoss)
                 {
-                    decoyVariations.Add(new SequenceVariation(protein.BaseSequence.Length - sv.OneBasedEndPosition + 2, protein.BaseSequence.Length, new string(originalArray).Substring(0, originalArray.Length - 1), new string(variationArray), sv.Description, $"{decoyIdentifier} VARIANT: " + sv.VariantCallFormatData, decoyVariantModifications));
+                    decoyVariations.Add(new SequenceVariation(
+                        protein.BaseSequence.Length - sv.OneBasedEndPosition + 2,
+                        protein.BaseSequence.Length,
+                        new string(originalArray).Substring(0, originalArray.Length - 1),
+                        new string(variationArray),
+                        sv.Description,
+                        decoyVcfTag,
+                        decoyVariantModifications));
                 }
-                // both start with M, but there's more
-                else if (sv.VariantSequence.StartsWith("M", StringComparison.Ordinal) && sv.OneBasedBeginPosition == 1 && (sv.OriginalSequence.Length > 1 || sv.VariantSequence.Length > 1))
+                else if (sv.VariantSequence.StartsWith("M", StringComparison.Ordinal) &&
+                         sv.OneBasedBeginPosition == 1 &&
+                         (sv.OriginalSequence.Length > 1 || sv.VariantSequence.Length > 1))
                 {
                     string original = new string(originalArray).Substring(0, originalArray.Length - 1);
                     string variant = new string(variationArray).Substring(0, variationArray.Length - 1);
-                    decoyVariations.Add(new SequenceVariation(protein.BaseSequence.Length - sv.OneBasedEndPosition + 2, protein.BaseSequence.Length, original, variant, sv.Description, $"{decoyIdentifier} VARIANT: " + sv.VariantCallFormatData, decoyVariantModifications));
+                    decoyVariations.Add(new SequenceVariation(
+                        protein.BaseSequence.Length - sv.OneBasedEndPosition + 2,
+                        protein.BaseSequence.Length,
+                        original,
+                        variant,
+                        sv.Description,
+                        decoyVcfTag,
+                        decoyVariantModifications));
                 }
-                // gained an initiating methionine
-                else if (sv.VariantSequence.StartsWith("M", StringComparison.Ordinal) && sv.OneBasedBeginPosition == 1)
+                else if (sv.VariantSequence.StartsWith("M", StringComparison.Ordinal) &&
+                         sv.OneBasedBeginPosition == 1)
                 {
-                    decoyVariations.Add(new SequenceVariation(1, 1, new string(originalArray), new string(variationArray), sv.Description, $"{decoyIdentifier} VARIANT: " + sv.VariantCallFormatData, decoyVariantModifications));
+                    decoyVariations.Add(new SequenceVariation(
+                        1,
+                        1,
+                        new string(originalArray),
+                        new string(variationArray),
+                        sv.Description,
+                        decoyVcfTag,
+                        decoyVariantModifications));
                 }
-                // FIX 1: Branch "starting methionine, but no variations on it"
-                // Old (BUG): parameter order was (original, description, variantSequence) so description became variantSequence.
-                // decoyVariations.Add(new SequenceVariation(protein.BaseSequence.Length - sv.OneBasedEndPosition + 2, protein.BaseSequence.Length - sv.OneBasedBeginPosition + 2, new string(originalArray), sv.Description, new string(variationArray), $"{decoyIdentifier} VARIANT: " + sv.VariantCallFormatData, decoyVariantModifications));
                 else if (startsWithM)
                 {
                     decoyVariations.Add(new SequenceVariation(
                         protein.BaseSequence.Length - sv.OneBasedEndPosition + 2,
                         protein.BaseSequence.Length - sv.OneBasedBeginPosition + 2,
-                        new string(originalArray),              // Original sequence (reversed)
-                        new string(variationArray),             // Variant sequence (reversed)
-                        sv.Description,                         // Description stays the original description
-                        $"{decoyIdentifier} VARIANT: " + sv.VariantCallFormatData,
+                        new string(originalArray),
+                        new string(variationArray),
+                        sv.Description,
+                        decoyVcfTag,
                         decoyVariantModifications));
                 }
-                // FIX 2: Final else (no starting methionine)
-                // Old (BUG): same mis-ordered parameters.
-                // decoyVariations.Add(new SequenceVariation(protein.BaseSequence.Length - sv.OneBasedEndPosition + 1, protein.BaseSequence.Length - sv.OneBasedBeginPosition + 1, new string(originalArray), sv.Description, new string(variationArray), $"{decoyIdentifier} VARIANT: " + sv.VariantCallFormatData, decoyVariantModifications));
                 else
                 {
                     decoyVariations.Add(new SequenceVariation(
@@ -284,10 +323,11 @@ namespace UsefulProteomicsDatabases
                         new string(originalArray),
                         new string(variationArray),
                         sv.Description,
-                        $"{decoyIdentifier} VARIANT: " + sv.VariantCallFormatData,
+                        decoyVcfTag,
                         decoyVariantModifications));
                 }
             }
+
             return decoyVariations;
         }
 
