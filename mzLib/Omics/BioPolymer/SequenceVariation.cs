@@ -852,5 +852,6 @@ namespace Omics.BioPolymer
         }
 
         #endregion
+
     }
 }
