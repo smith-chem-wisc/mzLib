@@ -1536,5 +1536,242 @@ namespace Test
             var actual3 = IBioPolymerWithSetMods.ParseSubstitutedFullSequence(test3);
             Assert.That(actual3, Is.EqualTo(expected3));
         }
+        private static SequenceVariation MakePointVariant(int pos, char original, char variant)
+            => new SequenceVariation(
+                oneBasedBeginPosition: pos,
+                oneBasedEndPosition: pos,
+                originalSequence: original.ToString(),
+                variantSequence: variant.ToString(),
+                description: $"{original}{pos}{variant}");
+
+        private static Protein MakeOriginalProtein(string seq, string accession = "P1")
+            => new Protein(sequence: seq, accession: accession);
+
+        private static Protein MakeVariantProtein(Protein original, string variantSequence, SequenceVariation variation)
+            => new Protein(variantSequence, original, new[] { variation }, applicableProteolysisProducts: new List<TruncationProduct>(),
+                           oneBasedModifications: new Dictionary<int, List<Modification>>(), sampleNameForVariants: null);
+
+        [Test]
+        public static void IntersectsAndIdentifiesVariation_NewCTermCleavageSite_SetsIdentifiesTrue()
+        {
+            // Original sequence (position 5 = A, not a trypsin cleavage residue)
+            // Index: 1 2 3 4 5 6 7 8 9
+            //        P E P T A I D E K
+            string originalSeq = "PEPTAIDEK";
+            var originalProtein = MakeOriginalProtein(originalSeq);
+
+            // Variant changes A5 -> K5 creating a new potential C-terminal cleavage site before peptide start
+            var variation = MakePointVariant(5, 'A', 'K');
+            string variantSeq = "PEPTKIDEK";
+            var variantProtein = MakeVariantProtein(originalProtein, variantSeq, variation);
+
+            // Peptide starts immediately after the variant (residues 6-8: IDE)
+            var dp = new DigestionParams(protease: "trypsin");
+            var peptide = new PeptideWithSetModifications(
+                variantProtein,
+                dp,
+                oneBasedStartResidueInProtein: 6,
+                oneBasedEndResidueInProtein: 8,
+                cleavageSpecificity: CleavageSpecificity.Full,
+                peptideDescription: "test",
+                missedCleavages: 0,
+                allModsOneIsNterminus: new Dictionary<int, Modification>(),
+                numFixedMods: 0,
+                baseSequence: "IDE");
+
+            // Act
+            var (intersects, identifies) = peptide.IntersectsAndIdentifiesVariation(variation);
+
+            // Assert: variant is immediately upstream (no intersection) but creates a new cleavage site => identifies == true
+            Assert.Multiple(() =>
+            {
+                Assert.That(intersects, Is.False, "Expected no positional overlap with the variant");
+                Assert.That(identifies, Is.True, "Expected identification of new upstream cleavage site (A->K)");
+            });
+        }
+
+        [Test]
+        public static void IntersectsAndIdentifiesVariation_NoNewCleavageSite_IdentifiesFalse()
+        {
+            // Original sequence (position 5 = A)
+            string originalSeq = "PEPTAIDEK";
+            var originalProtein = MakeOriginalProtein(originalSeq);
+
+            // Variant changes A5 -> V5 (neither A nor V is a trypsin cleavage residue => no new site)
+            var variation = MakePointVariant(5, 'A', 'V');
+            string variantSeq = "PEPTVIDEK";
+            var variantProtein = MakeVariantProtein(originalProtein, variantSeq, variation);
+
+            var dp = new DigestionParams(protease: "trypsin");
+            var peptide = new PeptideWithSetModifications(
+                variantProtein,
+                dp,
+                oneBasedStartResidueInProtein: 6,
+                oneBasedEndResidueInProtein: 8,
+                cleavageSpecificity: CleavageSpecificity.Full,
+                peptideDescription: "test-noneg",
+                missedCleavages: 0,
+                allModsOneIsNterminus: new Dictionary<int, Modification>(),
+                numFixedMods: 0,
+                baseSequence: "IDE");
+
+            var (intersects, identifies) = peptide.IntersectsAndIdentifiesVariation(variation);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(intersects, Is.False, "Expected no intersection");
+                Assert.That(identifies, Is.False, "No new cleavage site introduced (A->V) so identifies should be false");
+            });
+        }
+        // Helper: build original protein
+        private static Protein MakeProtein(string seq, string acc = "PVAR") => new Protein(seq, acc);
+
+        // Helper: apply variation to produce variant base sequence
+        private static (SequenceVariation variation, string variantBase) MakeDeletionVariation(
+            string originalSeq, int begin, int end, string variantInserted)
+        {
+            string originalSegment = originalSeq.Substring(begin - 1, end - begin + 1);
+            string prefix = originalSeq.Substring(0, begin - 1);
+            string suffix = originalSeq.Substring(end); // after end
+            string variantBase = prefix + variantInserted + suffix;
+
+            var sv = new SequenceVariation(
+                oneBasedBeginPosition: begin,
+                oneBasedEndPosition: end,
+                originalSequence: originalSegment,
+                variantSequence: variantInserted,
+                description: $"del_{begin}_{end}_len{variantInserted.Length}");
+
+            return (sv, variantBase);
+        }
+
+        private static PeptideWithSetModifications MakePeptide(
+            Protein variantProtein,
+            int start,
+            int end,
+            string baseSeq,
+            DigestionParams dp)
+        {
+            return new PeptideWithSetModifications(
+                variantProtein,
+                dp,
+                oneBasedStartResidueInProtein: start,
+                oneBasedEndResidueInProtein: end,
+                cleavageSpecificity: CleavageSpecificity.Full,
+                peptideDescription: "test-pep",
+                missedCleavages: 0,
+                allModsOneIsNterminus: new Dictionary<int, Modification>(),
+                numFixedMods: 0,
+                baseSequence: baseSeq);
+        }
+
+        private const string OriginalProteinSeq = "ACDEFGHIKLMNPQRSTVWYACDEFGHIKLMNPQRSTVWY"; // length 40
+
+        // Matrix of scenarios:
+        // EVC (effectiveVariantEnd correction) & effectiveDegenerate combinations
+
+        [Test]
+        public static void IntersectsAndIdentifiesVariation_FullDeletion_EVCTrue_DegenerateTrue()
+        {
+            // Deletion remove 10-20 entirely (variant sequence empty)
+            int begin = 10;
+            int end = 20;
+
+            var originalProtein = MakeProtein(OriginalProteinSeq);
+            var (variation, variantBase) = MakeDeletionVariation(OriginalProteinSeq, begin, end, variantInserted: "");
+            // Variant protein (shorter by 11 aa)
+            var variantProtein = new Protein(originalProtein, variantBase);
+
+            // Peptide starts AFTER the corrected effectiveVariantEnd (= begin) so degenerate
+            // In variant coordinates: positions after deletion are compressed.
+            // Choose start 15 end 18 (no actual overlap in effective span → degenerate).
+            var dp = new DigestionParams(protease: "trypsin");
+
+            // Derive base sequence from variant
+            string pepBase = variantBase.Substring(15 - 1, 18 - 15 + 1);
+            var peptide = MakePeptide(variantProtein, 15, 18, pepBase, dp);
+
+            var (intersects, identifies) = peptide.IntersectsAndIdentifiesVariation(variation);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(intersects, Is.True, "Deletion path still reports intersects tuple true.");
+                Assert.That(identifies, Is.True, "Full deletion sets identifiesFlag true.");
+            });
+        }
+
+        [Test]
+        public static void IntersectsAndIdentifiesVariation_FullDeletion_EVCTrue_DegenerateFalse()
+        {
+            int begin = 10;
+            int end = 20;
+            var originalProtein = MakeProtein(OriginalProteinSeq);
+            var (variation, variantBase) = MakeDeletionVariation(OriginalProteinSeq, begin, end, variantInserted: "");
+            var variantProtein = new Protein(originalProtein, variantBase);
+            var dp = new DigestionParams(protease: "trypsin");
+
+            // Peptide spans original prefix (variant coords 9..11)
+            // start 9 -> before deletion; end 11 -> after junction (compressed) ensures intersectEndEff == startEff (not degenerate)
+            string pepBase = variantBase.Substring(9 - 1, 11 - 9 + 1);
+            var peptide = MakePeptide(variantProtein, 9, 11, pepBase, dp);
+
+            var (intersects, identifies) = peptide.IntersectsAndIdentifiesVariation(variation);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(intersects, Is.True);
+                Assert.That(identifies, Is.True, "Deletion still marks identifiesFlag.");
+            });
+        }
+
+        [Test]
+        public static void IntersectsAndIdentifiesVariation_PartialDeletion_EVCFalse_DegenerateTrue()
+        {
+            int begin = 10;
+            int end = 20;
+            // Partial deletion: replace 11-length region with 5 aa
+            string inserted = "KLMNP";
+            var originalProtein = MakeProtein(OriginalProteinSeq);
+            var (variation, variantBase) = MakeDeletionVariation(OriginalProteinSeq, begin, end, inserted);
+            var variantProtein = new Protein(originalProtein, variantBase);
+            var dp = new DigestionParams(protease: "trypsin");
+
+            // Choose peptide start AFTER effectiveVariantEnd (which will be end + (lenDiff) = 20 -6 =14)
+            // Variant coordinate 15..17 -> degenerate (intersectEndEff < intersectStartEff)
+            string pepBase = variantBase.Substring(15 - 1, 17 - 15 + 1);
+            var peptide = MakePeptide(variantProtein, 15, 17, pepBase, dp);
+
+            var (intersects, identifies) = peptide.IntersectsAndIdentifiesVariation(variation);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(intersects, Is.True);
+                Assert.That(identifies, Is.True, "Deletion (partial) sets identifiesFlag.");
+            });
+        }
+
+        [Test]
+        public static void IntersectsAndIdentifiesVariation_PartialDeletion_EVCFalse_DegenerateFalse()
+        {
+            int begin = 10;
+            int end = 20;
+            string inserted = "KLMNP";
+            var originalProtein = MakeProtein(OriginalProteinSeq);
+            var (variation, variantBase) = MakeDeletionVariation(OriginalProteinSeq, begin, end, inserted);
+            var variantProtein = new Protein(originalProtein, variantBase);
+            var dp = new DigestionParams(protease: "trypsin");
+
+            // Peptide 9..12 (variant coords) => intersects effective variant span (effectiveVariantEnd=14) producing non-degenerate overlap
+            string pepBase = variantBase.Substring(9 - 1, 12 - 9 + 1);
+            var peptide = MakePeptide(variantProtein, 9, 12, pepBase, dp);
+
+            var (intersects, identifies) = peptide.IntersectsAndIdentifiesVariation(variation);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(intersects, Is.True);
+                Assert.That(identifies, Is.True);
+            });
+        }
     }
 }
