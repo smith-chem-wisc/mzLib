@@ -20,7 +20,7 @@ namespace UsefulProteomicsDatabases
     public enum FastaHeaderType
     { UniProt, Ensembl, Gencode, Unknown }
 
-    public static class ProteinDbLoader
+    public static class ProteinDbLoader 
     {
         public static readonly FastaHeaderFieldRegex UniprotAccessionRegex = new FastaHeaderFieldRegex("accession", @"[|](.+)[|]", 0, 1);
         public static readonly FastaHeaderFieldRegex UniprotFullNameRegex = new FastaHeaderFieldRegex("fullName", @"\s(.*?)\s(OS=|GN=|PE=|SV=|OX=)", 0, 1);
