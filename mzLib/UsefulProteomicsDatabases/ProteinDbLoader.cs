@@ -61,9 +61,9 @@ namespace UsefulProteomicsDatabases
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
-            int maxSequenceVariantsPerIsoform = 4,
-            int minAlleleDepth = 1,
-            int maxSequenceVariantIsoforms = 1,
+            int maxSequenceVariantsPerIsoform = 0,
+            int minAlleleDepth = 0,
+            int maxSequenceVariantIsoforms = 0,
             bool addTruncations = false,
             string decoyIdentifier = "DECOY")
         {

@@ -39,8 +39,13 @@ namespace Test.DatabaseTests
         [Test]
         public void ReadXmlNulls()
         {
-            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"), true, DecoyType.None,
-                null, false, null, out Dictionary<string, Modification> un);
+            var ok = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"),
+                true, DecoyType.None, null, false, null,
+                out Dictionary<string, Modification> un,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                maxSequenceVariantIsoforms: 1);
         }
         [Test]
         public void ReadSomeOldXmlWithLongSubstitutionThatHasAConflict()
@@ -56,8 +61,8 @@ namespace Test.DatabaseTests
 
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(oldXmlPath, true, DecoyType.None, uniprotPtms, false, null,
                 out Dictionary<string, Modification> un,
-                maxSequenceVariantsPerIsoform:2,
-                maxSequenceVariantIsoforms:100);
+                maxSequenceVariantsPerIsoform: 2,
+                maxSequenceVariantIsoforms: 100);
             Assert.IsTrue(ok.Count == 3);
         }
         [Test]
@@ -71,8 +76,12 @@ namespace Test.DatabaseTests
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
             var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
 
-            List<Protein> ok = ProteinDbLoader.LoadProteinXML(oldXmlPath, true, DecoyType.None, uniprotPtms, false, null,
-                out Dictionary<string, Modification> un);
+            List<Protein> ok = ProteinDbLoader.LoadProteinXML(
+                oldXmlPath, true, DecoyType.None, uniprotPtms, false, null,
+                out Dictionary<string, Modification> un,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                maxSequenceVariantIsoforms: 1);
             Assert.IsTrue(ok.Count == 1);
         }
         [Test]
@@ -105,13 +114,20 @@ namespace Test.DatabaseTests
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(
                 Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"),
                 true, DecoyType.None, uniprotPtms.Concat(nice), false, null,
-                out Dictionary<string, Modification> un);
+                out Dictionary<string, Modification> un,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                maxSequenceVariantIsoforms: 1);
 
             // Write and read back
             string outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml");
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, outPath);
-            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(outPath, true, DecoyType.None, nice, false,
-                new List<string>(), out un);
+            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(
+                outPath, true, DecoyType.None, nice, false, new List<string>(),
+                out un,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                maxSequenceVariantIsoforms: 1);
 
             // Count equality
             Assert.AreEqual(ok.Count, ok2.Count);
@@ -184,14 +200,23 @@ namespace Test.DatabaseTests
             }
             Assert.IsTrue(lineModified);
             lineModified = false; // Reset for the next check
-            List<Protein> ok = ProteinDbLoader.LoadProteinXML(inputXmlPath, true, DecoyType.None, uniprotPtms, false, null,
-                out Dictionary<string, Modification> un);
+            List<Protein> ok = ProteinDbLoader.LoadProteinXML(
+                inputXmlPath, true, DecoyType.None, uniprotPtms, false, null,
+                out Dictionary<string, Modification> un,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                maxSequenceVariantIsoforms: 1);
 
             string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml");
 
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, outputPath, true);
-            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"), true, DecoyType.None, uniprotPtms, false,
-                new List<string>(), out un);
+            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"),
+                true, DecoyType.None, uniprotPtms, false, new List<string>(),
+                out un,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                maxSequenceVariantIsoforms: 1);
 
             foreach (var line in File.ReadLines(outputPath))
             {
@@ -234,14 +259,22 @@ namespace Test.DatabaseTests
                 }
             }
 
-            List<Protein> ok = ProteinDbLoader.LoadProteinXML(inputXmlPath, true, DecoyType.None, uniprotPtms, false, null,
-                out Dictionary<string, Modification> un);
+            List<Protein> ok = ProteinDbLoader.LoadProteinXML(
+                inputXmlPath, true, DecoyType.None, uniprotPtms, false, null,
+                out Dictionary<string, Modification> un,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                maxSequenceVariantIsoforms: 1);
 
             string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_unknownStatus.xml");
 
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, outputPath, true);
-            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(outputPath, true, DecoyType.None, uniprotPtms, false,
-                new List<string>(), out un);
+            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(
+                outputPath, true, DecoyType.None, uniprotPtms, false, new List<string>(),
+                out un,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                maxSequenceVariantIsoforms: 1);
 
             foreach (var line in File.ReadLines(outputPath))
             {
@@ -415,8 +448,13 @@ namespace Test.DatabaseTests
                 new Modification("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
             };
 
-            List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"), true, DecoyType.None, nice, false, null,
-                out Dictionary<string, Modification> un);
+            List<Protein> ok = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"),
+                true, DecoyType.None, nice, false, null,
+                out Dictionary<string, Modification> un,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                maxSequenceVariantIsoforms: 1);
             ProteinDbWriter.WriteFastaDatabase(ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml_test.fasta"), "|");
             List<Protein> ok2 = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml_test.fasta"), true, DecoyType.None, false, out var b,
                 ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex);
