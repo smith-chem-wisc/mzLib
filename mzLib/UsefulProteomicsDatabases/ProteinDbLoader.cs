@@ -13,6 +13,7 @@ using System.Xml;
 using Omics.BioPolymer;
 using Omics.Modifications;
 using MzLibUtil;
+using Omics;
 
 namespace UsefulProteomicsDatabases
 {
@@ -60,13 +61,13 @@ namespace UsefulProteomicsDatabases
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
-            int maxSequenceVariantsPerIsoform = 4, 
-            int minAlleleDepth = 1, 
-            int maxSequenceVariantIsoforms = 1, 
-            bool addTruncations = false, 
+            int maxSequenceVariantsPerIsoform = 4,
+            int minAlleleDepth = 1,
+            int maxSequenceVariantIsoforms = 1,
+            bool addTruncations = false,
             string decoyIdentifier = "DECOY")
         {
-            if(maxSequenceVariantIsoforms < 1)
+            if (maxSequenceVariantIsoforms < 1)
             {
                 throw new MzLibException("maxSequenceVariantIsoforms must be at least 1 to return the canonical isoform");
             }
@@ -142,7 +143,14 @@ namespace UsefulProteomicsDatabases
 
             List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier);
             IEnumerable<Protein> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
-            return proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantsPerIsoform, minAlleleDepth, maxSequenceVariantIsoforms)).ToList();
+
+            // Expand to variant biopolymers, then collapse any duplicate applied entries that share the same accession and base sequence.
+            // This situation can occur if a prior write produced an applied-variant entry that is identical (by accession and base sequence)
+            // to one we would generate during expansion here. We collapse duplicates so there is a single representative that
+            // keeps the correct ConsensusVariant mapping and merged modifications/variations.
+            var expanded = proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantsPerIsoform, minAlleleDepth, maxSequenceVariantIsoforms)).ToList();
+            var collapsed = CollapseDuplicateProteinsByAccessionAndBaseSequence(expanded);
+            return collapsed;
         }
 
         /// <summary>
@@ -496,6 +504,110 @@ namespace UsefulProteomicsDatabases
             }
         }
 
+        /// <summary>
+        /// Finds groups of proteins that share the same accession and base sequence.
+        /// Intended to identify cases where an applied-variant entry appears twice
+        /// (e.g., one parsed from XML and another created via variant expansion).
+        /// </summary>
+        internal static IEnumerable<IGrouping<(string accession, string baseSequence), Protein>> FindDuplicateGroupsByAccessionAndBaseSequence(
+            IEnumerable<Protein> proteins)
+        {
+            if (proteins is null) throw new ArgumentNullException(nameof(proteins));
+            // Group by (accession, base sequence). ValueTuple uses default string equality (ordinal).
+            return proteins.GroupBy(p => (p.Accession, p.BaseSequence));
+        }
+
+        /// <summary>
+        /// Collapses groups of proteins with identical accession and base sequence into a single representative.
+        /// - Prefers the applied-variant instance with a non-null ConsensusVariant (best mapping to canonical).
+        /// - Merges possible localized modifications at each site (deduplicated, filtered for validity).
+        /// - Merges candidate SequenceVariations and AppliedSequenceVariations (deduplicated).
+        /// Other metadata is retained from the chosen representative.
+        /// </summary>
+        internal static List<Protein> CollapseDuplicateProteinsByAccessionAndBaseSequence(IEnumerable<Protein> proteins)
+        {
+            if (proteins is null) throw new ArgumentNullException(nameof(proteins));
+
+            var result = new List<Protein>();
+            foreach (var group in FindDuplicateGroupsByAccessionAndBaseSequence(proteins))
+            {
+                var list = group.ToList();
+                if (list.Count == 1)
+                {
+                    result.Add(list[0]);
+                    continue;
+                }
+
+                // Choose a representative.
+                var applied = list.Where(p => p.AppliedSequenceVariations != null && p.AppliedSequenceVariations.Count > 0).ToList();
+                Protein rep = applied.FirstOrDefault(p => p.ConsensusVariant != null)
+                              ?? applied.FirstOrDefault()
+                              ?? list[0];
+
+                // Merge OneBasedPossibleLocalizedModifications (union per position)
+                var mergedMods = new Dictionary<int, HashSet<Modification>>();
+                foreach (var p in list)
+                {
+                    var dict = p.OneBasedPossibleLocalizedModifications ?? new Dictionary<int, List<Modification>>();
+                    foreach (var kv in dict)
+                    {
+                        if (!mergedMods.TryGetValue(kv.Key, out var set))
+                        {
+                            set = new HashSet<Modification>(kv.Value ?? new List<Modification>());
+                            mergedMods[kv.Key] = set;
+                        }
+                        else if (kv.Value != null)
+                        {
+                            foreach (var m in kv.Value) set.Add(m);
+                        }
+                    }
+                }
+
+                // Ensure only valid mods for the rep's sequence are kept
+                var mergedModsFiltered = ((IBioPolymer)rep)
+                    .SelectValidOneBaseMods(mergedMods.ToDictionary(k => k.Key, v => v.Value.ToList()))
+                    .ToDictionary(k => k.Key, v => v.Value);
+
+                // Setter is inaccessible; replace rep with a clone that has the merged mods
+                rep = (Protein)rep.CloneWithNewSequenceAndMods(rep.BaseSequence, mergedModsFiltered);
+
+                // Merge SequenceVariations (candidate) in-place if available
+                var seqVarSet = new HashSet<SequenceVariation>();
+                foreach (var p in list)
+                {
+                    if (p.SequenceVariations != null)
+                    {
+                        foreach (var sv in p.SequenceVariations) seqVarSet.Add(sv);
+                    }
+                }
+                if (rep.SequenceVariations != null)
+                {
+                    rep.SequenceVariations.Clear();
+                    rep.SequenceVariations.AddRange(seqVarSet);
+                }
+                // else: nothing to do (no setter available)
+
+                // Merge AppliedSequenceVariations (applied variants) in-place if available
+                var appliedSet = new HashSet<SequenceVariation>();
+                foreach (var p in list)
+                {
+                    if (p.AppliedSequenceVariations != null)
+                    {
+                        foreach (var sv in p.AppliedSequenceVariations) appliedSet.Add(sv);
+                    }
+                }
+                if (rep.AppliedSequenceVariations != null)
+                {
+                    rep.AppliedSequenceVariations.Clear();
+                    rep.AppliedSequenceVariations.AddRange(appliedSet);
+                }
+                // else: nothing to do (no setter available)
+
+                result.Add(rep);
+            }
+
+            return result;
+        }
         internal static string ApplyRegex(FastaHeaderFieldRegex regex, string line)
         {
             string result = null;
