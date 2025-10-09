@@ -36,7 +36,7 @@ namespace Test.DatabaseTests
         public static void Setuppp()
         {
             Stopwatch = new Stopwatch();
-            Stopwatch.Start(); 
+            Stopwatch.Start();
         }
 
         [TearDown]
@@ -49,7 +49,7 @@ namespace Test.DatabaseTests
         public static void VariantProtein()
         {
             Protein p = new Protein("MAAA", "accession");
-            Protein v = new Protein("MAVA", p, new[] { new SequenceVariation(3, "A", "V", "desc", null) }, null, null, null );
+            Protein v = new Protein("MAVA", p, new[] { new SequenceVariation(3, "A", "V", "desc", null) }, null, null, null);
             Assert.AreEqual(p, v.ConsensusVariant);
         }
         [Test]
@@ -64,6 +64,8 @@ namespace Test.DatabaseTests
                 isContaminant: false,
                 modTypesToExclude: null,
                 unknownModifications: out _,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
                 maxSequenceVariantIsoforms: 100);
 
             // Original expectation: a single applied isoform. Current engine now emits multiple
@@ -166,7 +168,8 @@ namespace Test.DatabaseTests
         public static void SeqVarXmlTest()
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "seqvartests.xml"),
-                true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
+                true, DecoyType.Reverse, UniProtPtms, false, null, out var un,
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
 
             var target = ok.First(p => !p.IsDecoy);
             Protein decoy = ok.Where(p => p.IsDecoy && p.SequenceVariations.Count() > 0).First();
@@ -631,7 +634,8 @@ namespace Test.DatabaseTests
         public static void ReverseDecoyProteolysisProducts(string databaseName, int beginIdx, int reversedBeginIdx, int endIdx, int reversedEndIdx)
         {
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
-                DecoyType.Reverse, null, false, null, out var unknownModifications);
+                DecoyType.Reverse, null, false, null, out var unknownModifications,
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
             var target = proteins[0];
             Assert.AreEqual(1, target.TruncationProducts.Count());
             Assert.AreEqual(beginIdx, target.TruncationProducts.Single().OneBasedBeginPosition); //P[start]EPTI[end]D, M[start]EPTI[end]D
@@ -644,7 +648,8 @@ namespace Test.DatabaseTests
             string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
             proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName), true,
-                DecoyType.Reverse, null, false, null, out unknownModifications);
+                DecoyType.Reverse, null, false, null, out unknownModifications,
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
             target = proteins[0];
             Assert.AreEqual(1, target.TruncationProducts.Count());
             Assert.AreEqual(beginIdx, target.TruncationProducts.Single().OneBasedBeginPosition);
@@ -660,7 +665,8 @@ namespace Test.DatabaseTests
         public static void ReverseDecoyDisulfideBonds(string databaseName, int beginIdx, int reversedBeginIdx, string reversedSequence, int endIdx, int reversedEndIdx)
         {
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
-                DecoyType.Reverse, null, false, null, out var unknownModifications);
+                DecoyType.Reverse, null, false, null, out var unknownModifications,
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
             var target = proteins[0];
             Assert.AreEqual(1, target.DisulfideBonds.Count());
             Assert.AreEqual(beginIdx, target.DisulfideBonds.Single().OneBasedBeginPosition); //PC[start]PC[end]ID, MC[start]PC[end]ID
@@ -674,7 +680,8 @@ namespace Test.DatabaseTests
             string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
             proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName), true,
-                DecoyType.Reverse, null, false, null, out unknownModifications);
+                DecoyType.Reverse, null, false, null, out unknownModifications,
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
             target = proteins[0];
             Assert.AreEqual(1, target.DisulfideBonds.Count());
             Assert.AreEqual(beginIdx, target.DisulfideBonds.Single().OneBasedBeginPosition);
@@ -697,7 +704,8 @@ namespace Test.DatabaseTests
         public static void ReverseDecoySpliceSites(string databaseName, int beginIdx, int reversedBeginIdx, int endIdx, int reversedEndIdx)
         {
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
-                DecoyType.Reverse, null, false, null, out var unknownModifications);
+                DecoyType.Reverse, null, false, null, out var unknownModifications,
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
             var target = proteins[0];
             Assert.AreEqual(1, target.SpliceSites.Count());
             Assert.AreEqual(beginIdx, target.SpliceSites.Single().OneBasedBeginPosition); //PE[start]P[end]TID, ME[start]P[start]TID, PE[site]PTID, ME[site]PTID, P[site]EPTID, M[site]EPTID
@@ -710,7 +718,8 @@ namespace Test.DatabaseTests
             string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
             proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName), true,
-                DecoyType.Reverse, null, false, null, out unknownModifications);
+                DecoyType.Reverse, null, false, null, out unknownModifications,
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
             target = proteins[0];
             Assert.AreEqual(1, target.SpliceSites.Count());
             Assert.AreEqual(beginIdx, target.SpliceSites.Single().OneBasedBeginPosition);
@@ -1045,7 +1054,7 @@ namespace Test.DatabaseTests
 
             // at this point we have added potential sequence variants to proteins but they have not yet been applied
             Assert.AreEqual(4, proteinsWithSeqVars.Count); //we added one valid sequence variant to each of the 4 proteins
-            Assert.AreEqual(4, proteinsWithSeqVars.Select(s=>s.SequenceVariations).ToList().Count); //sequence variants are present as sequence variations until they are applied
+            Assert.AreEqual(4, proteinsWithSeqVars.Select(s => s.SequenceVariations).ToList().Count); //sequence variants are present as sequence variations until they are applied
             Assert.AreEqual(0, proteinsWithSeqVars.Select(s => s.AppliedSequenceVariations.Count).Sum()); //these sequence variants have not yet been applied
 
             //now we apply the sequence variants and the number of proteins should increase
@@ -1053,15 +1062,15 @@ namespace Test.DatabaseTests
 
             var nonVariantAndVariantAppliedProteins = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantIsoforms: 100)).ToList();
             Assert.AreEqual(8, nonVariantAndVariantAppliedProteins.Count); //we now have 8 proteins, the original 4 and one variant for each
-            Assert.AreEqual(4, nonVariantAndVariantAppliedProteins.Where(s=>s.SequenceVariations.Count > 0).Count()); //these are proteins with applied sequence variants so we empty sequenceVariations
-            Assert.AreEqual(4, nonVariantAndVariantAppliedProteins.Where(s => s.SequenceVariations.Count ==0).Count()); //these are proteins without applied sequence variants (non variant proteins)
+            Assert.AreEqual(4, nonVariantAndVariantAppliedProteins.Where(s => s.SequenceVariations.Count > 0).Count()); //these are proteins with applied sequence variants so we empty sequenceVariations
+            Assert.AreEqual(4, nonVariantAndVariantAppliedProteins.Where(s => s.SequenceVariations.Count == 0).Count()); //these are proteins without applied sequence variants (non variant proteins)
             Assert.AreEqual(4, nonVariantAndVariantAppliedProteins.Where(s => s.AppliedSequenceVariations.Count > 0).Count());//these are proteins with applied sequence appliedSequenceVariants is no populated
             Assert.AreEqual(4, nonVariantAndVariantAppliedProteins.Where(s => s.AppliedSequenceVariations.Count == 0).Count());//these are proteins without applied sequence variants (zero appliedSequenceVariants)
 
             string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteinsWithSeqVars, xml);
             var proteinsWithAppliedVariants = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un,
-                maxSequenceVariantIsoforms: 100);
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 100);
             Assert.AreEqual(8, proteinsWithAppliedVariants.Count); //we now have 8 proteins, the original 4 and one variant for each
         }
         [Test]
@@ -1119,7 +1128,7 @@ namespace Test.DatabaseTests
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(),
                 originals.OfType<Protein>().ToList(), xml);
             var reloaded = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out _,
-                maxSequenceVariantIsoforms: 100).OfType<Protein>().ToList();
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 100).OfType<Protein>().ToList();
 
             void ValidateSet(List<Protein> set, string label)
             {
@@ -1202,7 +1211,8 @@ namespace Test.DatabaseTests
         public static void CrashOnCreateVariantFromRNA()
         {
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "HomozygousHLA.xml"), true,
-                DecoyType.None, null, false, null, out var unknownModifications);
+                DecoyType.None, null, false, null, out var unknownModifications,
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
 
             var rna = new RNA("GUACUGACU");
             NUnit.Framework.Assert.Throws<ArgumentException>(() =>
@@ -1327,7 +1337,8 @@ namespace Test.DatabaseTests
         {
             // test decoys and digestion
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGain.xml"), true,
-                DecoyType.Reverse, null, false, null, out var unknownModifications, minAlleleDepth: 400);
+                DecoyType.Reverse, null, false, null, out var unknownModifications, minAlleleDepth: 400,
+                maxSequenceVariantsPerIsoform: 4, maxSequenceVariantIsoforms: 1);
             Assert.AreEqual(2, proteins.Count);
             var targetPeps = proteins[0].Digest(new DigestionParams(), null, null).ToList();
             var decoyPeps = proteins[1].Digest(new DigestionParams(), null, null).ToList();
@@ -1354,6 +1365,8 @@ namespace Test.DatabaseTests
                 isContaminant: false,
                 modTypesToExclude: null,
                 unknownModifications: out _,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
                 maxSequenceVariantIsoforms: 100);
 
             // 1. Canonical: pick first with zero applied variants
@@ -1416,7 +1429,8 @@ namespace Test.DatabaseTests
                 modTypesToExclude: null,
                 unknownModifications: out _,
                 minAlleleDepth: suppressionDepth,
-                maxSequenceVariantIsoforms: 100);
+                maxSequenceVariantIsoforms: 100,
+                maxSequenceVariantsPerIsoform: 4);
 
             // If suppression still results in applied variants, log diagnostic instead of failing (prevents brittleness).
             if (!proteinsSuppressed.All(p => p.AppliedSequenceVariations.Count() == 0))
@@ -1582,7 +1596,8 @@ namespace Test.DatabaseTests
         public void VariantSymbolWeirdness2Xml()
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SeqVarSymbolWeirdness2.xml");
-            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un, maxSequenceVariantIsoforms: 100);
+            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un,
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 100);
 
             Assert.AreEqual(1, variantProteins.First().ConsensusVariant.SequenceVariations.Count());
             Assert.AreEqual(2, variantProteins.Count); // there is only one unique amino acid change
@@ -1791,20 +1806,22 @@ namespace Test.DatabaseTests
                 isContaminant: false,
                 modTypesToExclude: null,
                 unknownModifications: out _,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
                 maxSequenceVariantIsoforms: 100);
 
             var targets = proteins.Where(p => !p.IsDecoy).ToList();
-            var decoys  = proteins.Where(p =>  p.IsDecoy).ToList();
+            var decoys = proteins.Where(p => p.IsDecoy).ToList();
 
             Assert.IsTrue(targets.Count > 0, "No target proteins parsed.");
-            Assert.IsTrue(decoys.Count  > 0, "No decoy proteins parsed.");
+            Assert.IsTrue(decoys.Count > 0, "No decoy proteins parsed.");
 
             // 1 & 2: Find one target with exactly 3 applied variants and one with 4
             var targetWith3 = targets.FirstOrDefault(p => p.AppliedSequenceVariations.Count() == 3);
             var targetWith4 = targets.FirstOrDefault(p => p.AppliedSequenceVariations.Count() == 4);
 
-            Assert.IsNotNull(targetWith3, $"Could not find a target isoform with exactly 3 applied variants. Target applied counts: {string.Join(",", targets.Select(t=>t.AppliedSequenceVariations.Count()))}");
-            Assert.IsNotNull(targetWith4, $"Could not find a target isoform with exactly 4 applied variants. Target applied counts: {string.Join(",", targets.Select(t=>t.AppliedSequenceVariations.Count()))}");
+            Assert.IsNotNull(targetWith3, $"Could not find a target isoform with exactly 3 applied variants. Target applied counts: {string.Join(",", targets.Select(t => t.AppliedSequenceVariations.Count()))}");
+            Assert.IsNotNull(targetWith4, $"Could not find a target isoform with exactly 4 applied variants. Target applied counts: {string.Join(",", targets.Select(t => t.AppliedSequenceVariations.Count()))}");
 
             // 3: Locate all target isoforms with the single-residue M->V @ 1646
             var targetsWithMtoV1646 = targets
@@ -1825,7 +1842,7 @@ namespace Test.DatabaseTests
                 int L = protein.Length;
                 // Single residue variant so begin==end
                 int targetBegin = mvVar.OneBasedBeginPosition;
-                int targetEnd   = mvVar.OneBasedEndPosition;
+                int targetEnd = mvVar.OneBasedEndPosition;
 
                 int expectedDecoyBegin = startsWithM
                     ? L - targetEnd + 2
@@ -1842,9 +1859,9 @@ namespace Test.DatabaseTests
                 var matchingDecoy = decoys.FirstOrDefault(d =>
                     d.AppliedSequenceVariations.Any(v =>
                         v.OneBasedBeginPosition == expectedDecoyBegin &&
-                        v.OneBasedEndPosition   == expectedDecoyEnd   &&
+                        v.OneBasedEndPosition == expectedDecoyEnd &&
                         v.OriginalSequence == "M" &&
-                        v.VariantSequence  == "V"));
+                        v.VariantSequence == "V"));
 
                 Assert.IsNotNull(matchingDecoy,
                     $"No decoy found with M->V at expected reversed position {expectedDecoyBegin} (target pos {targetBegin}, startsWithM={startsWithM}, L={L}).");
