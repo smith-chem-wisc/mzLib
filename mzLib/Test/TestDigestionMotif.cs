@@ -518,13 +518,24 @@ namespace Test
             expectedProductSequences = new List<string> {"PEPTIDE", "EPTIDE", "PEPTID", "MPEPTID", "MPEPTI" };
             CollectionAssert.AreEquivalent(expectedProductSequences, productSequences);
         }
-
         [Test]
         public static void TestProteoformsCleavedOnce()
         {
             string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "P08709.xml");
-            Protein insulin = ProteinDbLoader.LoadProteinXML(xmlDatabase, true, DecoyType.None, null, false, null, out var unknownModifications)[0];
+            Protein insulin = ProteinDbLoader.LoadProteinXML(
+                xmlDatabase,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: null,
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var unknownModifications,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                maxSequenceVariantIsoforms: 1)[0];
+
             insulin.CleaveOnceBetweenProteolysisProducts();
+
             List<string> productNames = insulin.TruncationProducts.Select(t => t.Type).ToList();
             Assert.AreEqual(8, productNames.Count);
             Assert.IsTrue(productNames.Contains("C-terminal Portion of Singly Cleaved Protein(21-466)"));
@@ -532,13 +543,24 @@ namespace Test
             Assert.IsTrue(productNames.Contains("C-terminal Portion of Singly Cleaved Protein(61-466)"));
             Assert.IsTrue(productNames.Contains("N-terminal Portion of Singly Cleaved Protein(1-212)"));
         }
-
         [Test]
         public static void TestProteoformsCleavedOnceLong()
         {
             string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "P08709.xml");
-            Protein insulin = ProteinDbLoader.LoadProteinXML(xmlDatabase, true, DecoyType.None, null, false, null, out var unknownModifications)[0];
+            Protein insulin = ProteinDbLoader.LoadProteinXML(
+                xmlDatabase,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: null,
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var unknownModifications,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                maxSequenceVariantIsoforms: 1)[0];
+
             insulin.CleaveOnceBetweenProteolysisProducts(minimumProductLength: 70);
+
             List<string> productNames = insulin.TruncationProducts.Select(t => t.Type).ToList();
             Assert.AreEqual(7, productNames.Count);
             Assert.IsTrue(productNames.Contains("C-terminal Portion of Singly Cleaved Protein(21-466)"));
@@ -546,7 +568,6 @@ namespace Test
             Assert.IsTrue(productNames.Contains("C-terminal Portion of Singly Cleaved Protein(61-466)"));
             Assert.IsTrue(productNames.Contains("N-terminal Portion of Singly Cleaved Protein(1-212)"));
         }
-
         [Test]
         public static void TestProteolyticDigestion()
         {
