@@ -411,11 +411,14 @@ namespace UsefulProteomicsDatabases
             // Proteolysis products (with null-begin as status="unknown")
             WriteProteolysisProductsProtein(writer, protein.TruncationProducts);
 
-            // Base modification features
+            // Base modification features (top-level). AdditionalMods are allowed here.
             WriteModifiedResidueFeatures(writer, protein, null, additionalMods, newModResEntries, orderModIds: true);
 
-            // Sequence variant features (candidate vs applied)
-            WriteProteinSequenceVariantFeatures(writer, protein, isAppliedVariantEntry, includeAppliedVariantFeatures, additionalMods, newModResEntries);
+            // Sequence variant features:
+            // - For consensus entries, emit candidate sequence variants (features only).
+            // - For applied entries, do not emit sequence variant features at all.
+            var emitVariantFeatures = !isAppliedVariantEntry && includeAppliedVariantFeatures;
+            WriteProteinSequenceVariantFeatures(writer, protein, isAppliedVariantEntry, emitVariantFeatures, additionalMods, newModResEntries);
 
             // Disulfide bonds
             WriteDisulfideBonds(writer, protein.DisulfideBonds);
@@ -429,119 +432,6 @@ namespace UsefulProteomicsDatabases
             writer.WriteEndElement(); // entry
         }
 
-        /// <summary>
-        /// Writes a human-readable "modified residue" feature set for a biopolymer, optionally variant-scoped.
-        /// </summary>
-        private static void WriteModifiedResidueFeatures(
-            XmlWriter writer,
-            IBioPolymer bioPolymer,
-            SequenceVariation seqVar,
-            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalMods,
-            Dictionary<string, int> newModResEntries,
-            bool orderModIds)
-        {
-            var modsForThis = GetModsForThisBioPolymer(bioPolymer, seqVar, additionalMods, newModResEntries);
-
-            foreach (var positionModKvp in modsForThis.OrderBy(kv => kv.Key))
-            {
-                IEnumerable<string> ids = positionModKvp.Value;
-                if (orderModIds) ids = ids.OrderBy(m => m, StringComparer.Ordinal);
-
-                foreach (var modId in ids)
-                {
-                    writer.WriteStartElement("feature");
-                    writer.WriteAttributeString("type", "modified residue");
-                    writer.WriteAttributeString("description", modId);
-                    writer.WriteStartElement("location");
-                    writer.WriteStartElement(seqVar == null ? "position" : "subposition");
-                    writer.WriteAttributeString(seqVar == null ? "position" : "subposition", positionModKvp.Key.ToString(CultureInfo.InvariantCulture));
-                    writer.WriteEndElement(); // position/subposition
-                    writer.WriteEndElement(); // location
-                    writer.WriteEndElement(); // feature or subfeature
-                }
-            }
-        }
-
-        /// <summary>
-        /// Writes RNA sequence variant features and variant-mod subfeatures. Ensures robust non-empty descriptions (VCF Description → VCF.ToString → SimpleString → synthesized).
-        /// </summary>
-        private static void WriteRnaSequenceVariantFeatures(
-            XmlWriter writer,
-            RNA rna,
-            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalMods,
-            Dictionary<string, int> newModResEntries)
-        {
-            foreach (var sv in (rna.SequenceVariations ?? new List<SequenceVariation>())
-                .OrderBy(sv => sv.OneBasedBeginPosition)
-                .ThenBy(sv => sv.VariantSequence ?? string.Empty))
-            {
-                if (sv == null)
-                    continue;
-
-                // Build a guaranteed non-empty description (aligned with protein logic)
-                string description =
-                    sv.Description ??
-                    sv.VariantCallFormatData?.Description ??
-                    sv.VariantCallFormatData?.ToString() ??
-                    sv.SimpleString();
-
-                if (string.IsNullOrWhiteSpace(description))
-                {
-                    var orig = sv.OriginalSequence ?? string.Empty;
-                    var varSeq = sv.VariantSequence ?? string.Empty;
-                    if (!string.IsNullOrEmpty(orig) && !string.IsNullOrEmpty(varSeq))
-                    {
-                        description = sv.OneBasedBeginPosition == sv.OneBasedEndPosition
-                            ? $"{orig}{sv.OneBasedBeginPosition}{varSeq}"
-                            : $"{orig}{sv.OneBasedBeginPosition}-{sv.OneBasedEndPosition}{varSeq}";
-                    }
-                    else
-                    {
-                        description = "sequence variant";
-                    }
-                }
-
-                writer.WriteStartElement("feature");
-                writer.WriteAttributeString("type", "sequence variant");
-                writer.WriteAttributeString("description", description);
-
-                writer.WriteStartElement("original");
-                writer.WriteString(sv.OriginalSequence);
-                writer.WriteEndElement();
-
-                writer.WriteStartElement("variation");
-                writer.WriteString(sv.VariantSequence);
-                writer.WriteEndElement();
-
-                writer.WriteStartElement("location");
-                WriteSpanOrPointLocation(writer, sv.OneBasedBeginPosition, sv.OneBasedEndPosition);
-
-                // Variant-specific modified residues as subfeatures
-                foreach (var hmm in GetModsForThisBioPolymer(rna, sv, additionalMods, newModResEntries).OrderBy(b => b.Key))
-                {
-                    foreach (var modId in hmm.Value)
-                    {
-                        writer.WriteStartElement("subfeature");
-                        writer.WriteAttributeString("type", "modified residue");
-                        writer.WriteAttributeString("description", modId);
-                        writer.WriteStartElement("location");
-                        writer.WriteStartElement("subposition");
-                        writer.WriteAttributeString("subposition", hmm.Key.ToString(CultureInfo.InvariantCulture));
-                        writer.WriteEndElement();
-                        writer.WriteEndElement();
-                        writer.WriteEndElement();
-                    }
-                }
-
-                writer.WriteEndElement(); // location
-                writer.WriteEndElement(); // feature
-            }
-        }
-
-        /// <summary>
-        /// Writes protein sequence variant features (candidate or applied) including subfeatures for variant-specific mods.
-        /// Ensures a robust, non-empty description string.
-        /// </summary>
         private static void WriteProteinSequenceVariantFeatures(
             XmlWriter writer,
             Protein protein,
@@ -550,13 +440,21 @@ namespace UsefulProteomicsDatabases
             Dictionary<string, HashSet<Tuple<int, Modification>>> additionalMods,
             Dictionary<string, int> newModResEntries)
         {
+            // Do not emit sequence-variant features for applied entries
+            if (!includeAppliedVariantFeatures)
+            {
+                return;
+            }
+
             IEnumerable<SequenceVariation> variantFeaturesSource =
                 (protein.SequenceVariations ?? Enumerable.Empty<SequenceVariation>());
 
-            if (isAppliedVariantEntry && includeAppliedVariantFeatures)
-            {
-                variantFeaturesSource = protein.AppliedSequenceVariations ?? new List<SequenceVariation>();
-            }
+            // Previously we allowed applied entries to emit AppliedSequenceVariations.
+            // To align with the desired semantics, we suppress variant features for applied entries entirely.
+            // if (isAppliedVariantEntry && includeAppliedVariantFeatures)
+            // {
+            //     variantFeaturesSource = protein.AppliedSequenceVariations ?? new List<SequenceVariation>();
+            // }
 
             foreach (var sv in variantFeaturesSource
                 .OrderBy(sv => sv.OneBasedBeginPosition)
@@ -601,8 +499,9 @@ namespace UsefulProteomicsDatabases
                 writer.WriteStartElement("location");
                 WriteSpanOrPointLocation(writer, sv.OneBasedBeginPosition, sv.OneBasedEndPosition);
 
-                // Variant-specific modified residues as subfeatures (ordered by mod id for stable output)
-                foreach (var hmm in GetModsForThisBioPolymer(protein, sv, additionalMods, newModResEntries).OrderBy(b => b.Key))
+                // Variant-specific modified residues as subfeatures:
+                // Do NOT merge AdditionalMods here. Only emit variant's intrinsic OneBasedModifications.
+                foreach (var hmm in GetModsForThisBioPolymer(protein, sv, null, newModResEntries).OrderBy(b => b.Key))
                 {
                     foreach (var modId in hmm.Value.OrderBy(m => m, StringComparer.Ordinal))
                     {
@@ -615,6 +514,80 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement(); // subposition
                         writer.WriteEndElement(); // location
                         writer.WriteEndElement(); // subfeature
+                    }
+                }
+
+                writer.WriteEndElement(); // location
+                writer.WriteEndElement(); // feature
+            }
+        }
+
+        private static void WriteRnaSequenceVariantFeatures(
+            XmlWriter writer,
+            RNA rna,
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalMods,
+            Dictionary<string, int> newModResEntries)
+        {
+            foreach (var sv in (rna.SequenceVariations ?? new List<SequenceVariation>())
+                .OrderBy(sv => sv.OneBasedBeginPosition)
+                .ThenBy(sv => sv.VariantSequence ?? string.Empty))
+            {
+                if (sv == null)
+                    continue;
+
+                // Build a guaranteed non-empty description
+                string description =
+                    sv.Description ??
+                    sv.VariantCallFormatData?.Description ??
+                    sv.VariantCallFormatData?.ToString() ??
+                    sv.SimpleString();
+
+                if (string.IsNullOrWhiteSpace(description))
+                {
+                    var orig = sv.OriginalSequence ?? string.Empty;
+                    var varSeq = sv.VariantSequence ?? string.Empty;
+                    if (!string.IsNullOrEmpty(orig) && !string.IsNullOrEmpty(varSeq))
+                    {
+                        description = sv.OneBasedBeginPosition == sv.OneBasedEndPosition
+                            ? $"{orig}{sv.OneBasedBeginPosition}{varSeq}"
+                            : $"{orig}{sv.OneBasedBeginPosition}-{sv.OneBasedEndPosition}{varSeq}";
+                    }
+                    else
+                    {
+                        description = "sequence variant";
+                    }
+                }
+
+                writer.WriteStartElement("feature");
+                writer.WriteAttributeString("type", "sequence variant");
+                writer.WriteAttributeString("description", description);
+
+                writer.WriteStartElement("original");
+                writer.WriteString(sv.OriginalSequence);
+                writer.WriteEndElement();
+
+                writer.WriteStartElement("variation");
+                writer.WriteString(sv.VariantSequence);
+                writer.WriteEndElement();
+
+                writer.WriteStartElement("location");
+                WriteSpanOrPointLocation(writer, sv.OneBasedBeginPosition, sv.OneBasedEndPosition);
+
+                // Variant-specific modified residues as subfeatures:
+                // Do NOT merge AdditionalMods here. Only emit intrinsic sv mods.
+                foreach (var hmm in GetModsForThisBioPolymer(rna, sv, null, newModResEntries).OrderBy(b => b.Key))
+                {
+                    foreach (var modId in hmm.Value)
+                    {
+                        writer.WriteStartElement("subfeature");
+                        writer.WriteAttributeString("type", "modified residue");
+                        writer.WriteAttributeString("description", modId);
+                        writer.WriteStartElement("location");
+                        writer.WriteStartElement("subposition");
+                        writer.WriteAttributeString("subposition", hmm.Key.ToString(CultureInfo.InvariantCulture));
+                        writer.WriteEndElement();
+                        writer.WriteEndElement();
+                        writer.WriteEndElement();
                     }
                 }
 
@@ -1015,6 +988,43 @@ namespace UsefulProteomicsDatabases
             }
 
             return modsToWriteForThisSpecificProtein;
+        }
+
+        /// <summary>
+        /// Writes a human-readable "modified residue" feature set for a biopolymer, optionally variant-scoped.
+        /// </summary>
+        private static void WriteModifiedResidueFeatures(
+            XmlWriter writer,
+            IBioPolymer bioPolymer,
+            SequenceVariation seqVar,
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalMods,
+            Dictionary<string, int> newModResEntries,
+            bool orderModIds)
+        {
+            var modsForThis = GetModsForThisBioPolymer(bioPolymer, seqVar, additionalMods, newModResEntries);
+
+            foreach (var positionModKvp in modsForThis.OrderBy(kv => kv.Key))
+            {
+                IEnumerable<string> ids = positionModKvp.Value;
+                if (orderModIds)
+                {
+                    ids = ids.OrderBy(m => m, StringComparer.Ordinal);
+                }
+
+                foreach (var modId in ids)
+                {
+                    writer.WriteStartElement("feature");
+                    writer.WriteAttributeString("type", "modified residue");
+                    writer.WriteAttributeString("description", modId);
+                    writer.WriteStartElement("location");
+                    writer.WriteStartElement(seqVar == null ? "position" : "subposition");
+                    writer.WriteAttributeString(seqVar == null ? "position" : "subposition",
+                        positionModKvp.Key.ToString(CultureInfo.InvariantCulture));
+                    writer.WriteEndElement(); // position/subposition
+                    writer.WriteEndElement(); // location
+                    writer.WriteEndElement(); // feature or subfeature
+                }
+            }
         }
     }
 }
