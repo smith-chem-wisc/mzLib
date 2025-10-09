@@ -1124,7 +1124,10 @@ namespace Test
             var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
             List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
-            List<Protein> proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"), true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
+            List<Protein> proteins = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"),
+                true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un,
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
 
             List<Modification> fixedMods = new List<Modification>();
             List<Modification> variableMods = new List<Modification>();
@@ -1155,7 +1158,6 @@ namespace Test
 
             Assert.AreEqual(0, unchangedPeptides);
         }
-
         [Test]
         public static void CountTargetsWithMatchingDecoys()
         {
@@ -1163,7 +1165,12 @@ namespace Test
             var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
             List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
-            List<Protein> proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"), true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
+
+            // Pin legacy LoadProteinXML defaults to avoid new default behavior
+            List<Protein> proteins = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"),
+                true, DecoyType.None, UniProtPtms, false, new[] { "exclude_me" }, out un,
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
 
             List<Modification> fixedMods = new List<Modification>();
             List<Modification> variableMods = new List<Modification>();
@@ -1209,34 +1216,54 @@ namespace Test
                 }
             }
         }
-
         [Test]
         public static void TestPeptideWithSetModsReturnsTruncationsInTopDown()
         {
             string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
 
-            Protein insulin = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
-                DecoyType.None, null, false, null, out var unknownModifications, addTruncations: true)[0];
+            // Pin legacy variant-expansion defaults to restore previous behavior
+            Protein insulin = ProteinDbLoader.LoadProteinXML(
+                xmlDatabase,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: null,
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var unknownModifications,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                maxSequenceVariantIsoforms: 1,
+                addTruncations: true)[0];
 
             Protease protease = new Protease("top-down", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
             List<PeptideWithSetModifications> insulinTruncations = insulin.Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
             Assert.AreEqual(68, insulinTruncations.Count);
         }
-
         [Test]
         public static void TestPeptideWithSetModsReturnsDecoyTruncationsInTopDown()
         {
             string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
-            List<Protein> insulinProteins = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
-                DecoyType.Reverse, null, false, null, out var unknownModifications, addTruncations: true);
+            List<Protein> insulinProteins = ProteinDbLoader.LoadProteinXML(
+                xmlDatabase,
+                generateTargets: true,
+                decoyType: DecoyType.Reverse,
+                allKnownModifications: null,
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var unknownModifications,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                maxSequenceVariantIsoforms: 1,
+                addTruncations: true);
 
             Protease protease = new Protease("top-down", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
-            List<PeptideWithSetModifications> insulintTargetTruncations = insulinProteins.Where(p=>!p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
+            List<PeptideWithSetModifications> insulintTargetTruncations = insulinProteins.Where(p => !p.IsDecoy).First()
+                .Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
             Assert.AreEqual(68, insulintTargetTruncations.Count);
-            List<PeptideWithSetModifications> insulintDecoyTruncations = insulinProteins.Where(p => p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
+            List<PeptideWithSetModifications> insulintDecoyTruncations = insulinProteins.Where(p => p.IsDecoy).First()
+                .Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
             Assert.AreEqual(68, insulintDecoyTruncations.Count);
         }
-
         [Test]
         public static void CheckFullChemicalFormula()
         {
@@ -1303,12 +1330,25 @@ namespace Test
             List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
 
             Dictionary<string, int> modsToWrite = new Dictionary<string, int>();
-            modsToWrite.Add("UniProt",0);
+            modsToWrite.Add("UniProt", 0);
 
-            var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml"), true, DecoyType.None, UniProtPtms, false, null, out var unknownMod);
+            var proteinXml = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml"),
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: UniProtPtms,
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var unknownMod,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                maxSequenceVariantIsoforms: 1);
             var gapdh = proteinXml[0];
 
-            var gapdhPeptides = gapdh.Digest(new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Variable), UniProtPtms, new List<Modification>());
+            var gapdhPeptides = gapdh.Digest(
+                new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Variable),
+                UniProtPtms,
+                new List<Modification>());
 
             List<string> allSequences = new List<string>();
             foreach (var peptide in gapdhPeptides)
@@ -1325,12 +1365,25 @@ namespace Test
         {
             var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList(); 
-            var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml"), true, DecoyType.None, UniProtPtms, false, null, out var unknownMod);
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+            var proteinXml = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml"),
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: UniProtPtms,
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var unknownMod,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                maxSequenceVariantIsoforms: 1);
             var gapdh = proteinXml[0];
 
-            var gapdhPeptides = gapdh.Digest(new DigestionParams(maxMissedCleavages:0, minPeptideLength:1, initiatorMethionineBehavior:InitiatorMethionineBehavior.Variable),UniProtPtms,new List<Modification>());
-            
+            var gapdhPeptides = gapdh.Digest(
+                new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Variable),
+                UniProtPtms,
+                new List<Modification>());
+
             List<string> allSequences = new List<string>();
             foreach (var peptide in gapdhPeptides)
             {
@@ -1338,7 +1391,7 @@ namespace Test
             }
 
             var expectedFullStrings = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "fullSequences.txt"));
-            CollectionAssert.AreEquivalent(expectedFullStrings,allSequences.ToArray());
+            CollectionAssert.AreEquivalent(expectedFullStrings, allSequences.ToArray());
 
             allSequences.Clear();
             foreach (var peptide in gapdhPeptides)
@@ -1349,7 +1402,6 @@ namespace Test
             var expectedFullStringsWithMassShifts = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "fullSequencesWithMassShift.txt"));
             CollectionAssert.AreEquivalent(expectedFullStringsWithMassShifts, allSequences.ToArray());
         }
-
         [Test]
         public static void TestPeptideWithSetModsNoParentProtein()
         {
@@ -1422,8 +1474,6 @@ namespace Test
             Assert.That(!peptide1.Equals((PeptideWithSetModifications)null));
         }
 
-       
-
         [Test]
         public static void TestIBioPolymerWithSetModsModificationFromFullSequence()
         {
@@ -1432,8 +1482,20 @@ namespace Test
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
             List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"),
                     formalChargesDictionary).ToList();
-            List<Protein> proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"),
-                true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
+
+            // Pin legacy LoadProteinXML defaults to restore previous behavior
+            List<Protein> proteins = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"),
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: UniProtPtms,
+                isContaminant: false,
+                modTypesToExclude: new string[] { "exclude_me" },
+                unknownModifications: out un,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                maxSequenceVariantIsoforms: 1);
+
             var allKnownModDict = UniProtPtms.ToDictionary(p => p.IdWithMotif, p => p);
             var digestionParameters = new DigestionParams(maxModsForPeptides: 3);
 
@@ -1450,8 +1512,6 @@ namespace Test
                     var startResidue = targetPeptide.OneBasedStartResidue;
                     var endResidue = targetPeptide.OneBasedEndResidue;
 
-                    // Pull our expected modifications based upon parent protein object with a maximum value of DigestionParameters.MaxMods
-                    // A bunch of logic to count the number of expected modifications based upon the xml database entries
                     int expectedModCount = 0;
                     foreach (var modDictEntry in p.OneBasedPossibleLocalizedModifications
                                  .Where(mod => mod.Key >= startResidue && mod.Key <= endResidue))
@@ -1514,7 +1574,6 @@ namespace Test
                 }
             }
         }
-
         [Test]
         public static void TestGetSubstitutedFullSequence()
         {
