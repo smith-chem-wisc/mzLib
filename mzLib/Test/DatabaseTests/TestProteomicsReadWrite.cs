@@ -310,7 +310,10 @@ namespace Test.DatabaseTests
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, xmlPath);
 
             List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(
-                xmlPath, true, DecoyType.None, nice, false, null, out Dictionary<string, Modification> un);
+                xmlPath, true, DecoyType.None, nice, false, null, out Dictionary<string, Modification> un,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                maxSequenceVariantIsoforms: 1);
 
             // Counts equal
             Assert.AreEqual(ok.Count, ok2.Count);
@@ -432,7 +435,10 @@ namespace Test.DatabaseTests
             Assert.AreEqual("mod on K", key);
             Assert.AreEqual(1, value);
             List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_fasta.xml"), true, DecoyType.None,
-                new List<Modification> { m }, false, new List<string>(), out Dictionary<string, Modification> un);
+                new List<Modification> { m }, false, new List<string>(), out Dictionary<string, Modification> un,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                maxSequenceVariantIsoforms: 1);
             Assert.AreEqual(ok.Count, ok2.Count);
             Assert.True(Enumerable.Range(0, ok.Count).All(i => ok[i].BaseSequence == ok2[i].BaseSequence));
             Assert.AreEqual(0, ok[0].OneBasedPossibleLocalizedModifications.Count);
@@ -514,18 +520,25 @@ namespace Test.DatabaseTests
 
             // Load, write, reload
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"), true, DecoyType.None, uniprotPtms.Concat(nice), false, new List<string>(),
-                out Dictionary<string, Modification> un);
+                out Dictionary<string, Modification> un,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                maxSequenceVariantIsoforms: 1);
             var newModResEntries = ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"));
             Assert.AreEqual(0, newModResEntries.Count);
             List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"), true, DecoyType.None,
-                nice, false, new List<string>(), out un);
+                nice, false, new List<string>(), out un,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                maxSequenceVariantIsoforms: 1);
 
             // Count equality
             Assert.AreEqual(ok.Count, ok2.Count);
 
-            // Order-independent comparison by accession
+            // Compare order-independently by accession
             var byAcc1 = ok.ToDictionary(p => p.Accession, p => p);
             var byAcc2 = ok2.ToDictionary(p => p.Accession, p => p);
+
             CollectionAssert.AreEquivalent(byAcc1.Keys, byAcc2.Keys);
 
             // Base sequences must match per accession
