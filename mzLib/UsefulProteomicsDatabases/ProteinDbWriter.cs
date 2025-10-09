@@ -625,7 +625,6 @@ namespace UsefulProteomicsDatabases
             return newModResEntries;
         }
 
-
         public static void WriteFastaDatabase(List<Protein> proteinList, string outputFileName, string delimeter)
         {
             using (StreamWriter writer = new StreamWriter(outputFileName))
