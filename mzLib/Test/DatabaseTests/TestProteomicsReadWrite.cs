@@ -102,40 +102,66 @@ namespace Test.DatabaseTests
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
             var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
 
-            List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"), true, DecoyType.None, uniprotPtms.Concat(nice), false, null,
+            List<Protein> ok = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"),
+                true, DecoyType.None, uniprotPtms.Concat(nice), false, null,
                 out Dictionary<string, Modification> un);
-            Protein zero = ok[0];
-            Protein one = ok[1];
-            Dictionary<int, List<Modification>> zero_mods = zero.OneBasedPossibleLocalizedModifications as Dictionary<int, List<Modification>>;
-            Dictionary<int, List<Modification>> one_mods = one.OneBasedPossibleLocalizedModifications as Dictionary<int, List<Modification>>;
 
-            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"));
-            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"), true, DecoyType.None, nice, false,
+            // Write and read back
+            string outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml");
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, outPath);
+            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(outPath, true, DecoyType.None, nice, false,
                 new List<string>(), out un);
 
+            // Count equality
             Assert.AreEqual(ok.Count, ok2.Count);
-            Assert.True(Enumerable.Range(0, ok.Count).All(i => ok[i].BaseSequence == ok2[i].BaseSequence));
-            Assert.AreEqual(9, ok[0].DatabaseReferences.Count(dbRef => dbRef.Type == "GO"));
-            Assert.AreEqual(1, ok[0].DatabaseReferences.Count(dbRef => dbRef.Type == "GeneID"));
-            Assert.AreEqual(3, ok[0].DatabaseReferences.First(dbRef => dbRef.Type == "GO").Properties.Count());
-            Assert.AreEqual(3, ok[0].GeneNames.Count());
-            Assert.AreEqual("primary", ok[0].GeneNames.First().Item1);
-            Assert.AreEqual("JJJ1", ok[0].GeneNames.First().Item2);
-            Assert.AreEqual("Saccharomyces cerevisiae (strain ATCC 204508 / S288c)", ok[0].Organism);
-            Assert.AreEqual(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"), ok[0].DatabaseFilePath);
-            Assert.AreEqual(9, ok2[0].DatabaseReferences.Count(dbRef => dbRef.Type == "GO"));
-            Assert.AreEqual(3, ok2[0].DatabaseReferences.First(dbRef => dbRef.Type == "GO").Properties.Count());
-            Assert.AreEqual(3, ok2[0].GeneNames.Count());
-            Assert.AreEqual("primary", ok2[0].GeneNames.First().Item1);
-            Assert.AreEqual("JJJ1", ok2[0].GeneNames.First().Item2);
-            Assert.AreEqual("Saccharomyces cerevisiae (strain ATCC 204508 / S288c)", ok2[0].Organism);
-            Assert.AreEqual(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"), ok2[0].DatabaseFilePath);
+
+            // Compare order-independently by accession
+            var byAcc1 = ok.ToDictionary(p => p.Accession, p => p);
+            var byAcc2 = ok2.ToDictionary(p => p.Accession, p => p);
+
+            CollectionAssert.AreEquivalent(byAcc1.Keys, byAcc2.Keys);
+
+            foreach (var acc in byAcc1.Keys)
+            {
+                // Base sequence round-trip
+                Assert.AreEqual(byAcc1[acc].BaseSequence, byAcc2[acc].BaseSequence, $"BaseSequence mismatch for {acc}");
+
+                // Gene name (first)
+                var g1 = byAcc1[acc].GeneNames.First().Item2;
+                var g2 = byAcc2[acc].GeneNames.First().Item2;
+                Assert.AreEqual(g1, g2, $"Gene name mismatch for {acc}");
+
+                // Full name
+                Assert.AreEqual(byAcc1[acc].FullName, byAcc2[acc].FullName, $"FullName mismatch for {acc}");
+            }
+
+            // Keep detailed checks but anchor them to the same protein as ok[0]
+            var anchorAcc = ok[0].Accession;
+
+            Assert.AreEqual(9, byAcc1[anchorAcc].DatabaseReferences.Count(dbRef => dbRef.Type == "GO"));
+            Assert.AreEqual(1, byAcc1[anchorAcc].DatabaseReferences.Count(dbRef => dbRef.Type == "GeneID"));
+            Assert.AreEqual(3, byAcc1[anchorAcc].DatabaseReferences.First(dbRef => dbRef.Type == "GO").Properties.Count());
+            Assert.AreEqual(3, byAcc1[anchorAcc].GeneNames.Count());
+            Assert.AreEqual("primary", byAcc1[anchorAcc].GeneNames.First().Item1);
+            Assert.AreEqual("JJJ1", byAcc1[anchorAcc].GeneNames.First().Item2);
+            Assert.AreEqual("Saccharomyces cerevisiae (strain ATCC 204508 / S288c)", byAcc1[anchorAcc].Organism);
+            Assert.AreEqual(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"), byAcc1[anchorAcc].DatabaseFilePath);
+
+            Assert.AreEqual(9, byAcc2[anchorAcc].DatabaseReferences.Count(dbRef => dbRef.Type == "GO"));
+            Assert.AreEqual(3, byAcc2[anchorAcc].DatabaseReferences.First(dbRef => dbRef.Type == "GO").Properties.Count());
+            Assert.AreEqual(3, byAcc2[anchorAcc].GeneNames.Count());
+            Assert.AreEqual("primary", byAcc2[anchorAcc].GeneNames.First().Item1);
+            Assert.AreEqual("JJJ1", byAcc2[anchorAcc].GeneNames.First().Item2);
+            Assert.AreEqual("Saccharomyces cerevisiae (strain ATCC 204508 / S288c)", byAcc2[anchorAcc].Organism);
+            Assert.AreEqual(outPath, byAcc2[anchorAcc].DatabaseFilePath);
+
+            // Truncation product bounds remain valid
             Assert.True(ok.All(p => p.TruncationProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
             Assert.True(ok.All(p => p.TruncationProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
             Assert.True(ok2.All(p => p.TruncationProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
             Assert.True(ok2.All(p => p.TruncationProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
         }
-
         [Test]
         public void Test_readUniProtXML_writeProteinXmlCheckEntryUpdated()
         {
@@ -232,7 +258,6 @@ namespace Test.DatabaseTests
                 File.Delete(outputPath);
             }
         }
-
         [Test]
         public void Test_read_Ensembl_pepAllFasta()
         {
@@ -242,36 +267,71 @@ namespace Test.DatabaseTests
                 new Modification("fayk", null, "mt", null, motif, "Anywhere.", null, null, null, null, null, null, null, null)
             };
 
-            List<Protein> ok = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"test_ensembl.pep.all.fasta"), true, DecoyType.None, false, out var a,
+            string fastaPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"test_ensembl.pep.all.fasta");
+            string xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_test_ensembl.pep.all.xml");
+
+            List<Protein> ok = ProteinDbLoader.LoadProteinFasta(
+                fastaPath, true, DecoyType.None, false, out var a,
                 ProteinDbLoader.EnsemblAccessionRegex, ProteinDbLoader.EnsemblFullNameRegex, ProteinDbLoader.EnsemblAccessionRegex, ProteinDbLoader.EnsemblGeneNameRegex, null);
-            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_test_ensembl.pep.all.xml"));
-            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_test_ensembl.pep.all.xml"), true, DecoyType.None, nice,
-                false, null, out Dictionary<string, Modification> un);
 
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, xmlPath);
+
+            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(
+                xmlPath, true, DecoyType.None, nice, false, null, out Dictionary<string, Modification> un);
+
+            // Counts equal
             Assert.AreEqual(ok.Count, ok2.Count);
-            Assert.True(Enumerable.Range(0, ok.Count).All(i => ok[i].BaseSequence == ok2[i].BaseSequence));
-            Assert.AreEqual("ENSP00000381386", ok[0].Accession);
-            Assert.AreEqual("ENSP00000215773", ok[1].Accession);
-            Assert.AreEqual("ENSG00000099977", ok[0].GeneNames.First().Item2);
-            Assert.AreEqual("ENSG00000099977", ok[1].GeneNames.First().Item2);
-            Assert.AreEqual("pep:known chromosome:GRCh37:22:24313554:24316773:-1 gene:ENSG00000099977 transcript:ENST00000398344 gene_biotype:protein_coding transcript_biotype:protein_coding", ok[0].FullName);
-            Assert.AreEqual("pep:known chromosome:GRCh37:22:24313554:24322019:-1 gene:ENSG00000099977 transcript:ENST00000350608 gene_biotype:protein_coding transcript_biotype:protein_coding", ok[1].FullName);
-            Assert.AreEqual(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"test_ensembl.pep.all.fasta"), ok[0].DatabaseFilePath);
 
-            Assert.AreEqual("ENSP00000381386", ok2[0].Accession);
-            Assert.AreEqual("ENSP00000215773", ok2[1].Accession);
-            Assert.AreEqual("ENSG00000099977", ok2[0].GeneNames.First().Item2);
-            Assert.AreEqual("ENSG00000099977", ok2[1].GeneNames.First().Item2);
-            Assert.AreEqual("pep:known chromosome:GRCh37:22:24313554:24316773:-1 gene:ENSG00000099977 transcript:ENST00000398344 gene_biotype:protein_coding transcript_biotype:protein_coding", ok2[0].FullName);
-            Assert.AreEqual("pep:known chromosome:GRCh37:22:24313554:24322019:-1 gene:ENSG00000099977 transcript:ENST00000350608 gene_biotype:protein_coding transcript_biotype:protein_coding", ok2[1].FullName);
-            Assert.AreEqual(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_test_ensembl.pep.all.xml"), ok2[0].DatabaseFilePath);
+            // Compare by accession (order-independent)
+            var okByAcc = ok.ToDictionary(p => p.Accession, p => p);
+            var ok2ByAcc = ok2.ToDictionary(p => p.Accession, p => p);
+            CollectionAssert.AreEquivalent(okByAcc.Keys, ok2ByAcc.Keys);
 
+            // Validate per-accession equality for sequence, gene name (first), and full name
+            foreach (var acc in okByAcc.Keys)
+            {
+                Assert.AreEqual(okByAcc[acc].BaseSequence, ok2ByAcc[acc].BaseSequence, $"BaseSequence mismatch for {acc}");
+
+                var okGene = okByAcc[acc].GeneNames.First().Item2;
+                var ok2Gene = ok2ByAcc[acc].GeneNames.First().Item2;
+                Assert.AreEqual(okGene, ok2Gene, $"Gene name mismatch for {acc}");
+
+                Assert.AreEqual(okByAcc[acc].FullName, ok2ByAcc[acc].FullName, $"FullName mismatch for {acc}");
+            }
+
+            // Explicit content checks (still order-independent)
+            var expectedAccs = new[] { "ENSP00000381386", "ENSP00000215773" };
+            CollectionAssert.IsSubsetOf(expectedAccs, okByAcc.Keys);
+            CollectionAssert.IsSubsetOf(expectedAccs, ok2ByAcc.Keys);
+
+            Assert.AreEqual("ENSG00000099977", okByAcc["ENSP00000381386"].GeneNames.First().Item2);
+            Assert.AreEqual("ENSG00000099977", okByAcc["ENSP00000215773"].GeneNames.First().Item2);
+            Assert.AreEqual("ENSG00000099977", ok2ByAcc["ENSP00000381386"].GeneNames.First().Item2);
+            Assert.AreEqual("ENSG00000099977", ok2ByAcc["ENSP00000215773"].GeneNames.First().Item2);
+
+            Assert.AreEqual(
+                "pep:known chromosome:GRCh37:22:24313554:24316773:-1 gene:ENSG00000099977 transcript:ENST00000398344 gene_biotype:protein_coding transcript_biotype:protein_coding",
+                okByAcc["ENSP00000381386"].FullName);
+            Assert.AreEqual(
+                "pep:known chromosome:GRCh37:22:24313554:24322019:-1 gene:ENSG00000099977 transcript:ENST00000350608 gene_biotype:protein_coding transcript_biotype:protein_coding",
+                okByAcc["ENSP00000215773"].FullName);
+            Assert.AreEqual(
+                "pep:known chromosome:GRCh37:22:24313554:24316773:-1 gene:ENSG00000099977 transcript:ENST00000398344 gene_biotype:protein_coding transcript_biotype:protein_coding",
+                ok2ByAcc["ENSP00000381386"].FullName);
+            Assert.AreEqual(
+                "pep:known chromosome:GRCh37:22:24313554:24322019:-1 gene:ENSG00000099977 transcript:ENST00000350608 gene_biotype:protein_coding transcript_biotype:protein_coding",
+                ok2ByAcc["ENSP00000215773"].FullName);
+
+            // File paths (apply to all entries rather than a single index)
+            Assert.True(ok.All(p => p.DatabaseFilePath == fastaPath));
+            Assert.True(ok2.All(p => p.DatabaseFilePath == xmlPath));
+
+            // Truncation product bounds remain valid
             Assert.True(ok.All(p => p.TruncationProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
             Assert.True(ok.All(p => p.TruncationProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
             Assert.True(ok2.All(p => p.TruncationProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
             Assert.True(ok2.All(p => p.TruncationProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
         }
-
         [Test]
         public static void FastaTest()
         {
@@ -388,7 +448,6 @@ namespace Test.DatabaseTests
             Assert.AreEqual(ok.Count, ok2.Count);
             Assert.True(Enumerable.Range(0, ok.Count).All(i => ok[i].BaseSequence == ok2[i].BaseSequence));
         }
-
         [Test]
         public void Test_write_with_custom_mods()
         {
@@ -415,6 +474,7 @@ namespace Test.DatabaseTests
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
             var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
 
+            // Load, write, reload
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"), true, DecoyType.None, uniprotPtms.Concat(nice), false, new List<string>(),
                 out Dictionary<string, Modification> un);
             var newModResEntries = ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"));
@@ -422,12 +482,25 @@ namespace Test.DatabaseTests
             List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"), true, DecoyType.None,
                 nice, false, new List<string>(), out un);
 
+            // Count equality
             Assert.AreEqual(ok.Count, ok2.Count);
-            Assert.True(Enumerable.Range(0, ok.Count).All(i => ok[i].BaseSequence == ok2[i].BaseSequence));
-            Assert.AreEqual(2, ok[0].OneBasedPossibleLocalizedModifications.Count);
-            Assert.AreEqual(2, ok2[0].OneBasedPossibleLocalizedModifications.Count);
-        }
 
+            // Order-independent comparison by accession
+            var byAcc1 = ok.ToDictionary(p => p.Accession, p => p);
+            var byAcc2 = ok2.ToDictionary(p => p.Accession, p => p);
+            CollectionAssert.AreEquivalent(byAcc1.Keys, byAcc2.Keys);
+
+            // Base sequences must match per accession
+            foreach (var acc in byAcc1.Keys)
+            {
+                Assert.AreEqual(byAcc1[acc].BaseSequence, byAcc2[acc].BaseSequence, $"BaseSequence mismatch for {acc}");
+            }
+
+            // The original test expected 2 possible localized mods on ok[0]; anchor by that accession
+            var anchorAcc = ok[0].Accession;
+            Assert.AreEqual(2, byAcc1[anchorAcc].OneBasedPossibleLocalizedModifications.Count);
+            Assert.AreEqual(2, byAcc2[anchorAcc].OneBasedPossibleLocalizedModifications.Count);
+        }
         [Test]
         public void SmallXml_VariantTokens_And_Lengths()
         {

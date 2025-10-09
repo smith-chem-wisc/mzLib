@@ -292,13 +292,53 @@ namespace UsefulProteomicsDatabases
         /// <param name="additionalModsToAddToProteins"></param>
         /// <param name="proteinList"></param>
         /// <param name="outputFileName"></param>
+        /// <param name="updateTimeStamp"></param>
+        /// <param name="includeAppliedVariantEntries">
+        /// If true, applied (realized) variant proteoforms (with a different accession produced by VariantApplication) are written
+        /// as separate <entry> elements in addition to their consensus (canonical) parents.
+        /// </param>
+        /// <param name="includeAppliedVariantFeatures">
+        /// If true and an applied variant entry is written, its AppliedSequenceVariations are emitted as
+        /// <feature type="sequence variant"> elements so differences remain explicit (even though its BaseSequence already contains them).
+        /// </param>
         /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
-        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, List<Protein> proteinList, string outputFileName, bool updateTimeStamp = false)
+        public static Dictionary<string, int> WriteXmlDatabase(
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
+            List<Protein> proteinList,
+            string outputFileName,
+            bool updateTimeStamp = false,
+            bool includeAppliedVariantEntries = false,
+            bool includeAppliedVariantFeatures = true)
         {
             additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
-            // write nonvariant proteins (for cases where variants aren't applied, this just gets the protein itself)
-            var nonVariantProteins = proteinList.Select(p => p.ConsensusVariant).Distinct().ToList();
+            // Canonical (consensus) proteins
+            var consensusProteins = proteinList
+                .Select(p => p.ConsensusVariant)
+                .OfType<Protein>()
+                .Distinct()
+                .ToList();
+
+            List<Protein> proteinsToWrite = new(consensusProteins);
+
+            if (includeAppliedVariantEntries)
+            {
+                // Collect applied variant proteoforms (where the instance is NOT the same object as its consensus OR has AppliedSequenceVariations)
+                foreach (var p in proteinList)
+                {
+                    if (p == null) continue;
+                    var consensus = p.ConsensusVariant as Protein;
+                    bool isAppliedVariant = p.AppliedSequenceVariations != null && p.AppliedSequenceVariations.Count > 0 &&
+                                            (consensus == null || !ReferenceEquals(p, consensus));
+
+                    if (isAppliedVariant)
+                    {
+                        // Avoid duplicates by accession
+                        if (!proteinsToWrite.Any(x => string.Equals(x.Accession, p.Accession, StringComparison.Ordinal)))
+                            proteinsToWrite.Add(p);
+                    }
+                }
+            }
 
             var xmlWriterSettings = new XmlWriterSettings
             {
@@ -313,27 +353,57 @@ namespace UsefulProteomicsDatabases
                 writer.WriteStartDocument();
                 writer.WriteStartElement("mzLibProteinDb");
 
-                List<Modification> myModificationList = new List<Modification>();
-                foreach (Protein p in nonVariantProteins)
+                // Aggregate all modifications (canonical + sequence variant + applied variant if requested)
+                HashSet<Modification> allRelevantModifications = new();
+
+                IEnumerable<Protein> modsSource = proteinsToWrite;
+
+                foreach (var prot in modsSource)
                 {
-                    foreach (KeyValuePair<int, List<Modification>> entry in p.OneBasedPossibleLocalizedModifications)
+                    if (prot == null) continue;
+
+                    // Base (possible localized) modifications
+                    if (prot.OneBasedPossibleLocalizedModifications != null)
                     {
-                        myModificationList.AddRange(entry.Value);
+                        foreach (var kv in prot.OneBasedPossibleLocalizedModifications)
+                            if (kv.Value != null)
+                                foreach (var m in kv.Value)
+                                    if (m != null) allRelevantModifications.Add(m);
+                    }
+
+                    // Potential sequence (candidate) variants on consensus
+                    if (prot.SequenceVariations != null)
+                    {
+                        foreach (var sv in prot.SequenceVariations)
+                            if (sv?.OneBasedModifications != null)
+                                foreach (var kv in sv.OneBasedModifications)
+                                    if (kv.Value != null)
+                                        foreach (var m in kv.Value)
+                                            if (m != null) allRelevantModifications.Add(m);
+                    }
+
+                    // Applied variants (only on applied variant proteoforms, usually SequenceVariations list is empty there)
+                    if (includeAppliedVariantEntries && prot.AppliedSequenceVariations != null)
+                    {
+                        foreach (var sv in prot.AppliedSequenceVariations)
+                            if (sv?.OneBasedModifications != null)
+                                foreach (var kv in sv.OneBasedModifications)
+                                    if (kv.Value != null)
+                                        foreach (var m in kv.Value)
+                                            if (m != null) allRelevantModifications.Add(m);
                     }
                 }
 
-                HashSet<Modification> allRelevantModifications = new HashSet<Modification>(
-                    nonVariantProteins
-                        .SelectMany(p => p.SequenceVariations
-                            .SelectMany(sv => sv.OneBasedModifications)
-                            .Concat(p.OneBasedPossibleLocalizedModifications)
-                            .SelectMany(kv => kv.Value))
-                        .Concat(additionalModsToAddToProteins
-                            .Where(kv => nonVariantProteins
-                                .SelectMany(p => p.SequenceVariations
-                                    .Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession }))
-                                .Contains(kv.Key))
-                            .SelectMany(kv => kv.Value.Select(v => v.Item2))));
+                // Additional externally supplied mods (filter by accessions we will actually write)
+                var allAccessionsToWrite = new HashSet<string>(proteinsToWrite.Select(p => p.Accession), StringComparer.Ordinal);
+                foreach (var kv in additionalModsToAddToProteins.Where(kv => allAccessionsToWrite.Contains(kv.Key)))
+                {
+                    foreach (var tup in kv.Value)
+                    {
+                        if (tup?.Item2 != null)
+                            allRelevantModifications.Add(tup.Item2);
+                    }
+                }
 
                 foreach (Modification mod in allRelevantModifications.OrderBy(m => m.IdWithMotif))
                 {
@@ -342,7 +412,7 @@ namespace UsefulProteomicsDatabases
                     writer.WriteEndElement();
                 }
 
-                foreach (Protein protein in nonVariantProteins)
+                foreach (Protein protein in proteinsToWrite.OrderBy(p => p.Accession, StringComparer.Ordinal))
                 {
                     writer.WriteStartElement("entry", "http://uniprot.org/uniprot");
                     writer.WriteAttributeString("dataset", protein.DatasetEntryTag);
@@ -354,8 +424,21 @@ namespace UsefulProteomicsDatabases
                     else
                     {
                         writer.WriteAttributeString("modified", protein.ModifiedEntryTag);
-                    }         
+                    }
                     writer.WriteAttributeString("version", protein.VersionEntryTag);
+
+                    // Mark applied variant entries (optional attribute)
+                    var consensus = protein.ConsensusVariant as Protein;
+                    bool isAppliedVariantEntry = includeAppliedVariantEntries &&
+                                                 consensus != null &&
+                                                 !ReferenceEquals(protein, consensus) &&
+                                                 protein.AppliedSequenceVariations != null &&
+                                                 protein.AppliedSequenceVariations.Count > 0;
+                    if (isAppliedVariantEntry)
+                    {
+                        writer.WriteAttributeString("variant", "true");
+                    }
+
                     writer.WriteStartElement("accession");
                     writer.WriteString(protein.Accession);
                     writer.WriteEndElement();
@@ -459,9 +542,18 @@ namespace UsefulProteomicsDatabases
                         }
                     }
 
-                    
+
                     // --- PATCH: robust sequence variant feature writing with guaranteed description ---
-                    foreach (var hm in (protein.SequenceVariations ?? Enumerable.Empty<SequenceVariation>())
+                    IEnumerable<SequenceVariation> variantFeaturesSource =
+                        (protein.SequenceVariations ?? Enumerable.Empty<SequenceVariation>());
+
+                    if (isAppliedVariantEntry && includeAppliedVariantFeatures)
+                    {
+                        // Use AppliedSequenceVariations for the variant entry
+                        variantFeaturesSource = protein.AppliedSequenceVariations ?? new List<SequenceVariation>();
+                    }
+
+                    foreach (var hm in variantFeaturesSource
                                     .OrderBy(sv => sv.OneBasedBeginPosition)
                                     .ThenBy(sv => sv.VariantSequence ?? string.Empty))
                     {
@@ -618,12 +710,13 @@ namespace UsefulProteomicsDatabases
                     writer.WriteEndElement(); // sequence
                     writer.WriteEndElement(); // entry
                 }
-
+                    
                 writer.WriteEndElement(); // mzLibProteinDb
                 writer.WriteEndDocument();
             }
             return newModResEntries;
         }
+        
 
         public static void WriteFastaDatabase(List<Protein> proteinList, string outputFileName, string delimeter)
         {
