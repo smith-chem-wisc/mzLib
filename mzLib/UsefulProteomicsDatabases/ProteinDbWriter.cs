@@ -463,7 +463,7 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// Writes RNA sequence variant features and variant-mod subfeatures.
+        /// Writes RNA sequence variant features and variant-mod subfeatures. Ensures robust non-empty descriptions (VCF Description → VCF.ToString → SimpleString → synthesized).
         /// </summary>
         private static void WriteRnaSequenceVariantFeatures(
             XmlWriter writer,
@@ -473,11 +473,37 @@ namespace UsefulProteomicsDatabases
         {
             foreach (var sv in (rna.SequenceVariations ?? new List<SequenceVariation>())
                 .OrderBy(sv => sv.OneBasedBeginPosition)
-                .ThenBy(sv => sv.VariantSequence))
+                .ThenBy(sv => sv.VariantSequence ?? string.Empty))
             {
+                if (sv == null)
+                    continue;
+
+                // Build a guaranteed non-empty description (aligned with protein logic)
+                string description =
+                    sv.Description ??
+                    sv.VariantCallFormatData?.Description ??
+                    sv.VariantCallFormatData?.ToString() ??
+                    sv.SimpleString();
+
+                if (string.IsNullOrWhiteSpace(description))
+                {
+                    var orig = sv.OriginalSequence ?? string.Empty;
+                    var varSeq = sv.VariantSequence ?? string.Empty;
+                    if (!string.IsNullOrEmpty(orig) && !string.IsNullOrEmpty(varSeq))
+                    {
+                        description = sv.OneBasedBeginPosition == sv.OneBasedEndPosition
+                            ? $"{orig}{sv.OneBasedBeginPosition}{varSeq}"
+                            : $"{orig}{sv.OneBasedBeginPosition}-{sv.OneBasedEndPosition}{varSeq}";
+                    }
+                    else
+                    {
+                        description = "sequence variant";
+                    }
+                }
+
                 writer.WriteStartElement("feature");
                 writer.WriteAttributeString("type", "sequence variant");
-                writer.WriteAttributeString("description", sv.VariantCallFormatData?.ToString() ?? sv.Description);
+                writer.WriteAttributeString("description", description);
 
                 writer.WriteStartElement("original");
                 writer.WriteString(sv.OriginalSequence);
