@@ -15,7 +15,7 @@ namespace Test.DatabaseTests
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     internal class TestRnaXmlWrite
     {
-        [Test]
+        [Test] 
         public void RnaSequenceVariantDescription_Fallbacks()
         {
             // RNA: A U G C; apply U2C (position 2)
