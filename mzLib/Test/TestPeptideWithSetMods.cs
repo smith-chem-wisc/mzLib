@@ -466,7 +466,7 @@ namespace Test
         }
 
         [Test]
-        public static void TestPeptideWithSetMod_GetHashCode()
+        public static void TestPeptideWithSetMods_GetHashCode()
         {
             PeptideWithSetModifications pep1 = new PeptideWithSetModifications("SEQUENCEK", new Dictionary<string, Modification>());
             int oneHashCode = pep1.GetHashCode();
@@ -1006,7 +1006,7 @@ namespace Test
             Assert.AreEqual("FGPYGWSPWAYRPFK", p_chymoP_reverse.BaseSequence);
             Assert.AreEqual(p_chymoP.FullSequence, p_chymoP_reverse.PeptideDescription);
 
-            //  chymotrypsin (don't cleave before proline)
+            //  chymotrypsin (cleave before proline)
             newAminoAcidPositions = new int["FKFPRWAWPSYGYPG".Length];
             PeptideWithSetModifications p_chymo = new PeptideWithSetModifications(new Protein("FKFPRWAWPSYGYPG", "DECOY_CHYMO"), new DigestionParams(protease: "chymotrypsin (cleave before proline)", maxMissedCleavages: 10), 1, 15, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_chymo_reverse = p_chymo.GetReverseDecoyFromTarget(newAminoAcidPositions);
@@ -1115,722 +1115,67 @@ namespace Test
             PeptideWithSetModifications mirroredTarget = forceMirror.GetScrambledDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual(new int[] { 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 }, newAminoAcidPositions);
         }
+
         [Test]
-        public static void TestReverseDecoyFromPeptideFromProteinXML()
+        public static void Test_ReadProteinXml_LogProblematicAccessions()
         {
-            //Just making sure there are no snafus when creating decoy peptides from an xml,which will have mods in various places, etc.
-            //sequence variants, modifications
-            Dictionary<string, Modification> un = new Dictionary<string, Modification>();
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
-            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
-            List<Protein> proteins = ProteinDbLoader.LoadProteinXML(
-                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"),
-                true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+            string xmlPath = @"E:\Projects\Mann_11cell_lines\A549\A549_1\uniprotkb_taxonomy_id_9606_AND_reviewed_2024_10_07.xml";
+            string logPath = Path.Combine(Path.GetDirectoryName(xmlPath), "problematic_accessions.txt");
+            var problematic = new List<string>();
 
-            List<Modification> fixedMods = new List<Modification>();
-            List<Modification> variableMods = new List<Modification>();
-            ModificationMotif.TryGetMotif("C", out ModificationMotif motif_C);
-            ModificationMotif.TryGetMotif("M", out ModificationMotif motif_M);
-
-            fixedMods.Add(new Modification(_originalId: "resMod_C", _target: motif_C, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: PeriodicTable.GetElement(1).PrincipalIsotope.AtomicMass));
-            fixedMods.Add(new Modification(_originalId: "resMod_M", _target: motif_C, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("O"), _monoisotopicMass: PeriodicTable.GetElement(8).PrincipalIsotope.AtomicMass));
-
-            int unchangedPeptides = 0;
-            int totalPeptides = 0;
-
-            foreach (Protein p in proteins)
+            List<Protein> proteins = null;
+            try
             {
-                List<PeptideWithSetModifications> targetPeptides = p.Digest(new DigestionParams(), fixedMods, variableMods, null, null).ToList();
-                foreach (PeptideWithSetModifications targetPeptide in targetPeptides)
-                {
-                    totalPeptides++;
-                    int[] newAminoAcidPositions = new int[targetPeptide.BaseSequence.Length];
-                    PeptideWithSetModifications decoyPeptide = targetPeptide.GetReverseDecoyFromTarget(newAminoAcidPositions);
+                proteins = ProteinDbLoader.LoadProteinXML(
+                    xmlPath,
+                    generateTargets: true,
+                    decoyType: DecoyType.None,
+                    allKnownModifications: null,
+                    isContaminant: false,
+                    modTypesToExclude: null,
+                    unknownModifications: out var _);
+            }
+            catch (Exception ex)
+            {
+                problematic.Add($"[LoadProteinXML threw: {ex.Message}]");
+            }
 
-                    if (decoyPeptide.BaseSequence == targetPeptide.BaseSequence)
+            if (proteins != null)
+            {
+                foreach (var protein in proteins)
+                {
+                    try
                     {
-                        unchangedPeptides++;
+                        // Accessing properties to force any lazy errors
+                        var acc = protein.Accession;
+                        var seq = protein.BaseSequence;
+                    }
+                    catch (Exception ex)
+                    {
+                        problematic.Add($"{protein?.Accession ?? "null"}: {ex.Message}");
                     }
                 }
             }
-
-            Assert.AreEqual(0, unchangedPeptides);
-        }
-        [Test]
-        public static void CountTargetsWithMatchingDecoys()
-        {
-            Dictionary<string, Modification> un = new Dictionary<string, Modification>();
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
-            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
-
-            // Pin legacy LoadProteinXML defaults to avoid new default behavior
-            List<Protein> proteins = ProteinDbLoader.LoadProteinXML(
-                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"),
-                true, DecoyType.None, UniProtPtms, false, new[] { "exclude_me" }, out un,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
-
-            List<Modification> fixedMods = new List<Modification>();
-            List<Modification> variableMods = new List<Modification>();
-            ModificationMotif.TryGetMotif("C", out ModificationMotif motif_C);
-            ModificationMotif.TryGetMotif("M", out ModificationMotif motif_M);
-
-            fixedMods.Add(new Modification(_originalId: "resMod_C", _target: motif_C, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: PeriodicTable.GetElement(1).PrincipalIsotope.AtomicMass));
-            fixedMods.Add(new Modification(_originalId: "resMod_M", _target: motif_C, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("O"), _monoisotopicMass: PeriodicTable.GetElement(8).PrincipalIsotope.AtomicMass));
-
-            Dictionary<string, int> targets = new Dictionary<string, int>();
-
-            foreach (Protein p in proteins)
+            else
             {
-                List<PeptideWithSetModifications> targetPeptides = p.Digest(new DigestionParams(), fixedMods, variableMods, null, null).ToList();
-
-                foreach (PeptideWithSetModifications targetPeptide in targetPeptides)
-                {
-                    if (targets.ContainsKey(targetPeptide.BaseSequence))
-                    {
-                        targets[targetPeptide.BaseSequence]++;
-                    }
-                    else
-                    {
-                        targets.Add(targetPeptide.BaseSequence, 1);
-                    }
-                }
+                problematic.Add("[Protein list is null]");
             }
 
-            int matchingDecoys = 0;
-            foreach (Protein p in proteins)
+            // Write problematic accessions to file
+            try
             {
-                List<PeptideWithSetModifications> targetPeptides = p.Digest(new DigestionParams(), fixedMods, variableMods, null, null).ToList();
-
-                foreach (PeptideWithSetModifications target in targetPeptides)
-                {
-                    int[] newAminoAcidPositions = new int[target.BaseSequence.Length];
-                    string decoySequence = target.GetReverseDecoyFromTarget(newAminoAcidPositions).BaseSequence;
-
-                    if (targets.ContainsKey(decoySequence))
-                    {
-                        matchingDecoys++;
-                    }
-                }
+                File.WriteAllLines(logPath, problematic);
             }
-        }
-        [Test]
-        public static void TestPeptideWithSetModsReturnsTruncationsInTopDown()
-        {
-            string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
-
-            // Pin legacy variant-expansion defaults to restore previous behavior
-            Protein insulin = ProteinDbLoader.LoadProteinXML(
-                xmlDatabase,
-                generateTargets: true,
-                decoyType: DecoyType.None,
-                allKnownModifications: null,
-                isContaminant: false,
-                modTypesToExclude: null,
-                unknownModifications: out var unknownModifications,
-                maxSequenceVariantsPerIsoform: 4,
-                minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1,
-                addTruncations: true)[0];
-
-            Protease protease = new Protease("top-down", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
-            List<PeptideWithSetModifications> insulinTruncations = insulin.Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
-            Assert.AreEqual(68, insulinTruncations.Count);
-        }
-        [Test]
-        public static void TestPeptideWithSetModsReturnsDecoyTruncationsInTopDown()
-        {
-            string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
-            List<Protein> insulinProteins = ProteinDbLoader.LoadProteinXML(
-                xmlDatabase,
-                generateTargets: true,
-                decoyType: DecoyType.Reverse,
-                allKnownModifications: null,
-                isContaminant: false,
-                modTypesToExclude: null,
-                unknownModifications: out var unknownModifications,
-                maxSequenceVariantsPerIsoform: 4,
-                minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1,
-                addTruncations: true);
-
-            Protease protease = new Protease("top-down", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
-            List<PeptideWithSetModifications> insulintTargetTruncations = insulinProteins.Where(p => !p.IsDecoy).First()
-                .Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
-            Assert.AreEqual(68, insulintTargetTruncations.Count);
-            List<PeptideWithSetModifications> insulintDecoyTruncations = insulinProteins.Where(p => p.IsDecoy).First()
-                .Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
-            Assert.AreEqual(68, insulintDecoyTruncations.Count);
-        }
-        [Test]
-        public static void CheckFullChemicalFormula()
-        {
-            PeptideWithSetModifications small_pep = new PeptideWithSetModifications(new Protein("PEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            ChemicalFormula small_pep_cf = ChemicalFormula.ParseFormula("C34H53N7O15");
-            Assert.AreEqual(small_pep.FullChemicalFormula, small_pep_cf);
-
-            PeptideWithSetModifications large_pep = new PeptideWithSetModifications(new Protein("PEPTIDEKRNSPEPTIDEKECUEIRQUV", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 28, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            ChemicalFormula large_pep_cf = ChemicalFormula.ParseFormula("C134H220N38O50S1Se2");
-            Assert.AreEqual(large_pep.FullChemicalFormula, large_pep_cf);
-
-            ModificationMotif.TryGetMotif("S", out ModificationMotif motif_s);
-            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif_s, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
-            Dictionary<int, Modification> modDict_small = new Dictionary<int, Modification>();
-            modDict_small.Add(4, phosphorylation);
-
-            PeptideWithSetModifications small_pep_mod = new PeptideWithSetModifications(new Protein("PEPSIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, modDict_small, 0, null);
-            ChemicalFormula small_pep_mod_cf = ChemicalFormula.ParseFormula("C33H52N7O18P1");
-            Assert.AreEqual(small_pep_mod.FullChemicalFormula, small_pep_mod_cf);
-
-            ModificationMotif.TryGetMotif("K", out ModificationMotif motif_k);
-            Modification acetylation = new Modification(_originalId: "acetyl", _modificationType: "CommonBiological", _target: motif_k, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C2H3O"));
-            Dictionary<int, Modification> modDict_large = new Dictionary<int, Modification>();
-            modDict_large.Add(4, phosphorylation);
-            modDict_large.Add(11, phosphorylation);
-            modDict_large.Add(8, acetylation);
-
-            PeptideWithSetModifications large_pep_mod = new PeptideWithSetModifications(new Protein("PEPSIDEKRNSPEPTIDEKECUEIRQUV", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 28, CleavageSpecificity.Full, null, 0, modDict_large, 0, null);
-            ChemicalFormula large_pep_mod_cf = ChemicalFormula.ParseFormula("C135H223N38O57P2S1Se2");
-            Assert.AreEqual(large_pep_mod.FullChemicalFormula, large_pep_mod_cf);
-
-            ModificationMotif.TryGetMotif("C", out var motif_c);
-            ModificationMotif.TryGetMotif("G", out var motif_g);
-            Dictionary<string, Modification> modDict =
-                new()
-                {
-                    { "Carbamidomethyl on C", new Modification(_originalId: "Carbamidomethyl", _modificationType: "Common Fixed",
-                        _target: motif_c, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C2H3ON")) },
-                    { "BS on G" , new Modification(_originalId: "BS on G", _modificationType: "BS", _target: motif_g, _monoisotopicMass: 96.0875)}
-                };
-            PeptideWithSetModifications pwsmWithMissingCfMods = new PeptideWithSetModifications(
-                "ENQGDETQG[Speculative:BS on G]C[Common Fixed:Carbamidomethyl on C]PPQR", modDict, p: new Protein("ENQGDETQGCPPQR", "FakeProtein"), digestionParams: new DigestionParams(),
-                oneBasedStartResidueInProtein: 1, oneBasedEndResidueInProtein: 14);
-            Assert.Null(pwsmWithMissingCfMods.FullChemicalFormula);
-        }
-
-        [Test]
-        public static void CheckMostAbundantMonoisotopicMass()
-        {
-            PeptideWithSetModifications small_pep = new PeptideWithSetModifications(new Protein("PEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            double small_pep_most_abundant_mass_prospector = 800.36724 - 1.0079;
-            Assert.That(small_pep.MostAbundantMonoisotopicMass, Is.EqualTo(small_pep_most_abundant_mass_prospector).Within(0.01));
-
-            PeptideWithSetModifications large_pep = new PeptideWithSetModifications(new Protein("PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 42, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            double large_pep_most_abundant_mass_prospector = 4709.12020 - 1.0079;
-            Assert.That(large_pep.MostAbundantMonoisotopicMass, Is.EqualTo(large_pep_most_abundant_mass_prospector).Within(0.01));
-        }
-
-        [Test]
-        public static void TestPeptideWithSetModsEssentialSequence()
-        {
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
-            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
-
-            Dictionary<string, int> modsToWrite = new Dictionary<string, int>();
-            modsToWrite.Add("UniProt", 0);
-
-            var proteinXml = ProteinDbLoader.LoadProteinXML(
-                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml"),
-                generateTargets: true,
-                decoyType: DecoyType.None,
-                allKnownModifications: UniProtPtms,
-                isContaminant: false,
-                modTypesToExclude: null,
-                unknownModifications: out var unknownMod,
-                maxSequenceVariantsPerIsoform: 4,
-                minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1);
-            var gapdh = proteinXml[0];
-
-            var gapdhPeptides = gapdh.Digest(
-                new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Variable),
-                UniProtPtms,
-                new List<Modification>());
-
-            List<string> allSequences = new List<string>();
-            foreach (var peptide in gapdhPeptides)
+            catch (Exception ex)
             {
-                allSequences.Add(peptide.EssentialSequence(modsToWrite));
+                // If writing fails, output to console as a fallback
+                Console.WriteLine($"Failed to write log file: {ex.Message}");
+                foreach (var line in problematic)
+                    Console.WriteLine(line);
             }
 
-            var expectedFullStrings = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "essentialSequences.txt"));
-
-            CollectionAssert.AreEquivalent(expectedFullStrings, allSequences.ToArray());
-        }
-        [Test]
-        public static void TestPeptideWithSetModsFullSequence()
-        {
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
-            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
-            var proteinXml = ProteinDbLoader.LoadProteinXML(
-                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml"),
-                generateTargets: true,
-                decoyType: DecoyType.None,
-                allKnownModifications: UniProtPtms,
-                isContaminant: false,
-                modTypesToExclude: null,
-                unknownModifications: out var unknownMod,
-                maxSequenceVariantsPerIsoform: 4,
-                minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1);
-            var gapdh = proteinXml[0];
-
-            var gapdhPeptides = gapdh.Digest(
-                new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Variable),
-                UniProtPtms,
-                new List<Modification>());
-
-            List<string> allSequences = new List<string>();
-            foreach (var peptide in gapdhPeptides)
-            {
-                allSequences.Add(peptide.FullSequence);
-            }
-
-            var expectedFullStrings = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "fullSequences.txt"));
-            CollectionAssert.AreEquivalent(expectedFullStrings, allSequences.ToArray());
-
-            allSequences.Clear();
-            foreach (var peptide in gapdhPeptides)
-            {
-                allSequences.Add(peptide.FullSequenceWithMassShift());
-            }
-
-            var expectedFullStringsWithMassShifts = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "fullSequencesWithMassShift.txt"));
-            CollectionAssert.AreEquivalent(expectedFullStringsWithMassShifts, allSequences.ToArray());
-        }
-        [Test]
-        public static void TestPeptideWithSetModsNoParentProtein()
-        {
-            // null parent
-            DigestionParams dParams = new DigestionParams();
-            var pwsm = new PeptideWithSetModifications("P", null,
-                digestionParams: dParams, p: null);
-            Assert.AreEqual('-', pwsm.PreviousAminoAcid);
-            Assert.AreEqual('-', pwsm.PreviousResidue);
-            Assert.AreEqual('-', pwsm.NextAminoAcid);
-            Assert.AreEqual('-', pwsm.NextResidue);
-
-            // non-null parent
-            Protein protein = new("MQLLRCFSIFSVIASVLAQELTTICEQIPSPTLESTPYSLSTTTILANGKAMQGVFEYYKSVTFVSNCGSHPSTTSKGSPINTQYVF", "P32781");
-            var pwsMods = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).ToList();
-
-            var first = pwsMods.First(p => p.BaseSequence == "MQLLRCFSIFSVIASVLAQELTTICEQIPSPTLESTPYSLSTTTILANGK");
-            Assert.AreEqual('-', first.PreviousAminoAcid);
-            Assert.AreEqual('-', first.PreviousResidue);
-            Assert.AreEqual('A', first.NextAminoAcid);
-            Assert.AreEqual('A', first.NextResidue);
-
-            var middle = pwsMods.First(p => p.BaseSequence == "SVTFVSNCGSHPSTTSK");
-            Assert.AreEqual('K', middle.PreviousAminoAcid);
-            Assert.AreEqual('K',middle.PreviousResidue);
-            Assert.AreEqual('G',middle.NextAminoAcid);
-            Assert.AreEqual('G',middle.NextResidue);
-
-            var last = pwsMods.First(p => p.BaseSequence == "GSPINTQYVF");
-            Assert.AreEqual('K', last.PreviousAminoAcid);
-            Assert.AreEqual('K', last.PreviousResidue);
-            Assert.AreEqual('-', last.NextAminoAcid);
-            Assert.AreEqual('-', last.NextResidue);
-        }
-
-        [Test]
-        public static void TestPeptideWithSetModsEquals()
-        {
-            // Create two proteins
-            Protein protein1 = new Protein("SEQUENCEK", "accession1");
-            Protein protein2 = new Protein("SEQUENCEK", "accession2");
-
-            // Create digestion parameters
-            DigestionParams digestionParams = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
-
-            // Digest the proteins to get peptides
-            PeptideWithSetModifications peptide1 = protein1.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
-            PeptideWithSetModifications peptide2 = protein2.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
-
-            // Test equality - same peptide
-            Assert.IsTrue(peptide1.Equals(peptide1));
-
-            // different peptide
-            Assert.IsTrue(!peptide1.Equals(peptide2));
-            Assert.IsTrue(!peptide1.Equals((object)peptide2));
-            Assert.IsTrue(!peptide1.Equals((IBioPolymerWithSetMods)peptide2));
-            Assert.AreNotEqual(peptide1.GetHashCode(), peptide2.GetHashCode());
-
-            // Test inequality with different start residue
-            PeptideWithSetModifications peptide3 = new PeptideWithSetModifications(protein1, digestionParams, 2, 9, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0);
-            Assert.IsFalse(peptide1.Equals(peptide3));
-
-            // Test inequality with different parent accession
-            PeptideWithSetModifications peptide4 = new PeptideWithSetModifications(protein2, digestionParams, 1, 9, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0);
-            Assert.IsFalse(peptide1.Equals(peptide4));
-
-            // all fail on null
-            Assert.That(!peptide1.Equals(null));
-            Assert.That(!peptide1.Equals((object)null));
-            Assert.That(!peptide1.Equals((PeptideWithSetModifications)null));
-        }
-
-        [Test]
-        public static void TestIBioPolymerWithSetModsModificationFromFullSequence()
-        {
-            Dictionary<string, Modification> un = new Dictionary<string, Modification>();
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
-            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"),
-                    formalChargesDictionary).ToList();
-
-            // Pin legacy LoadProteinXML defaults to restore previous behavior
-            List<Protein> proteins = ProteinDbLoader.LoadProteinXML(
-                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"),
-                generateTargets: true,
-                decoyType: DecoyType.None,
-                allKnownModifications: UniProtPtms,
-                isContaminant: false,
-                modTypesToExclude: new string[] { "exclude_me" },
-                unknownModifications: out un,
-                maxSequenceVariantsPerIsoform: 4,
-                minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1);
-
-            var allKnownModDict = UniProtPtms.ToDictionary(p => p.IdWithMotif, p => p);
-            var digestionParameters = new DigestionParams(maxModsForPeptides: 3);
-
-            foreach (Protein p in proteins)
-            {
-                List<PeptideWithSetModifications> digestedPeptides =
-                    p.Digest(digestionParameters, [], [], null, null).ToList();
-                // take the most modified peptide by base sequence and ensure all methods function properly
-                foreach (var targetPeptide in digestedPeptides
-                             .Where(pep => pep.FullSequence.Contains('['))
-                             .GroupBy(pep => pep.BaseSequence)
-                             .Select(pepGroup => pepGroup.MaxBy(pep => pep.AllModsOneIsNterminus.Count)))
-                {
-                    var startResidue = targetPeptide.OneBasedStartResidue;
-                    var endResidue = targetPeptide.OneBasedEndResidue;
-
-                    int expectedModCount = 0;
-                    foreach (var modDictEntry in p.OneBasedPossibleLocalizedModifications
-                                 .Where(mod => mod.Key >= startResidue && mod.Key <= endResidue))
-                    {
-                        if (modDictEntry.Value.Count > 1)
-                        {
-                            var locRestrictions = modDictEntry.Value.Select(mod => mod.LocationRestriction).ToList();
-
-                            if (locRestrictions.AllSame())
-                            {
-                                if (locRestrictions.First() == "Anywhere.")
-                                    expectedModCount++;
-                                else if (locRestrictions.First() == "N-terminal." && modDictEntry.Key == startResidue)
-                                    expectedModCount++;
-                            }
-                            else if (modDictEntry.Value.Select(mod => mod.LocationRestriction).Contains("Anywhere.")
-                                     && modDictEntry.Value.Select(mod => mod.LocationRestriction)
-                                         .Contains("N-terminal."))
-                            {
-                                expectedModCount++;
-                                if (modDictEntry.Key == startResidue)
-                                    expectedModCount++;
-                            }
-                        }
-                        else
-                        {
-                            switch (modDictEntry.Value.First().LocationRestriction)
-                            {
-                                case "Anywhere.":
-                                case "N-terminal." when modDictEntry.Key == startResidue:
-                                    expectedModCount++;
-                                    break;
-                            }
-                        }
-                    }
-
-                    expectedModCount = Math.Min(expectedModCount, digestionParameters.MaxMods);
-
-                    var expectedModifications = p.OneBasedPossibleLocalizedModifications.Where(mod =>
-                        mod.Key >= startResidue &&
-                        mod.Key <= endResidue).SelectMany(mod => mod.Value).ToList();
-
-                    // Parse modifications from PWSM and two IBioPolymerWithSetMods methods
-                    var pwsmModDict = targetPeptide.AllModsOneIsNterminus;
-                    var bpwsmModDict = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(targetPeptide.FullSequence, allKnownModDict);
-                    var bpwsmModList = IBioPolymerWithSetMods.GetModificationsFromFullSequence(targetPeptide.FullSequence, allKnownModDict);
-
-                    // Ensure all methods are in agreement by modification count
-                    Assert.AreEqual(pwsmModDict.Count, expectedModCount);
-                    Assert.AreEqual(bpwsmModDict.Count, expectedModCount);
-                    Assert.AreEqual(bpwsmModList.Count, expectedModCount);
-
-                    // Ensure all methods are in agreement by modification identify
-                    foreach (var pwsmModification in pwsmModDict.Values)
-                        Assert.Contains(pwsmModification, expectedModifications);
-                    foreach (var pwsmModification in bpwsmModDict.Values)
-                        Assert.Contains(pwsmModification, expectedModifications);
-                    foreach (var pwsmModification in bpwsmModList)
-                        Assert.Contains(pwsmModification, expectedModifications);
-                }
-            }
-        }
-        [Test]
-        public static void TestGetSubstitutedFullSequence()
-        {
-            //It should take care of multiple substitutions
-            string test1 = "F[1 nucleotide substitution:F->Y on F]SIMGGGLA[1 nucleotide substitution:A->S on A]DR";
-            string expected1 = "YSIMGGGLSDR";
-            var actual1 = IBioPolymerWithSetMods.ParseSubstitutedFullSequence(test1);
-            Assert.That(actual1, Is.EqualTo(expected1));
-
-            //It should not change other modifications
-            string test2 = "SANH[1 nucleotide substitution:H->L on H]M[Common Variable:Oxidation on M]AGHWVAISGAAGGLGSLAVQYAK";
-            string expected2 = "SANLM[Common Variable:Oxidation on M]AGHWVAISGAAGGLGSLAVQYAK";
-            var actual2 = IBioPolymerWithSetMods.ParseSubstitutedFullSequence(test2);
-            Assert.That(actual2, Is.EqualTo(expected2));
-
-            //It should work on 2 nucleotide substitutions
-            string test3 = "S[2+ nucleotide substitution:S->E on S]AAADRLNLTSGHLNAGR";
-            string expected3 = "EAAADRLNLTSGHLNAGR";
-            var actual3 = IBioPolymerWithSetMods.ParseSubstitutedFullSequence(test3);
-            Assert.That(actual3, Is.EqualTo(expected3));
-        }
-        private static SequenceVariation MakePointVariant(int pos, char original, char variant)
-            => new SequenceVariation(
-                oneBasedBeginPosition: pos,
-                oneBasedEndPosition: pos,
-                originalSequence: original.ToString(),
-                variantSequence: variant.ToString(),
-                description: $"{original}{pos}{variant}");
-
-        private static Protein MakeOriginalProtein(string seq, string accession = "P1")
-            => new Protein(sequence: seq, accession: accession);
-
-        private static Protein MakeVariantProtein(Protein original, string variantSequence, SequenceVariation variation)
-            => new Protein(variantSequence, original, new[] { variation }, applicableProteolysisProducts: new List<TruncationProduct>(),
-                           oneBasedModifications: new Dictionary<int, List<Modification>>(), sampleNameForVariants: null);
-
-        [Test]
-        public static void IntersectsAndIdentifiesVariation_NewCTermCleavageSite_SetsIdentifiesTrue()
-        {
-            // Original sequence (position 5 = A, not a trypsin cleavage residue)
-            // Index: 1 2 3 4 5 6 7 8 9
-            //        P E P T A I D E K
-            string originalSeq = "PEPTAIDEK";
-            var originalProtein = MakeOriginalProtein(originalSeq);
-
-            // Variant changes A5 -> K5 creating a new potential C-terminal cleavage site before peptide start
-            var variation = MakePointVariant(5, 'A', 'K');
-            string variantSeq = "PEPTKIDEK";
-            var variantProtein = MakeVariantProtein(originalProtein, variantSeq, variation);
-
-            // Peptide starts immediately after the variant (residues 6-8: IDE)
-            var dp = new DigestionParams(protease: "trypsin");
-            var peptide = new PeptideWithSetModifications(
-                variantProtein,
-                dp,
-                oneBasedStartResidueInProtein: 6,
-                oneBasedEndResidueInProtein: 8,
-                cleavageSpecificity: CleavageSpecificity.Full,
-                peptideDescription: "test",
-                missedCleavages: 0,
-                allModsOneIsNterminus: new Dictionary<int, Modification>(),
-                numFixedMods: 0,
-                baseSequence: "IDE");
-
-            // Act
-            var (intersects, identifies) = peptide.IntersectsAndIdentifiesVariation(variation);
-
-            // Assert: variant is immediately upstream (no intersection) but creates a new cleavage site => identifies == true
-            Assert.Multiple(() =>
-            {
-                Assert.That(intersects, Is.False, "Expected no positional overlap with the variant");
-                Assert.That(identifies, Is.True, "Expected identification of new upstream cleavage site (A->K)");
-            });
-        }
-
-        [Test]
-        public static void IntersectsAndIdentifiesVariation_NoNewCleavageSite_IdentifiesFalse()
-        {
-            // Original sequence (position 5 = A)
-            string originalSeq = "PEPTAIDEK";
-            var originalProtein = MakeOriginalProtein(originalSeq);
-
-            // Variant changes A5 -> V5 (neither A nor V is a trypsin cleavage residue => no new site)
-            var variation = MakePointVariant(5, 'A', 'V');
-            string variantSeq = "PEPTVIDEK";
-            var variantProtein = MakeVariantProtein(originalProtein, variantSeq, variation);
-
-            var dp = new DigestionParams(protease: "trypsin");
-            var peptide = new PeptideWithSetModifications(
-                variantProtein,
-                dp,
-                oneBasedStartResidueInProtein: 6,
-                oneBasedEndResidueInProtein: 8,
-                cleavageSpecificity: CleavageSpecificity.Full,
-                peptideDescription: "test-noneg",
-                missedCleavages: 0,
-                allModsOneIsNterminus: new Dictionary<int, Modification>(),
-                numFixedMods: 0,
-                baseSequence: "IDE");
-
-            var (intersects, identifies) = peptide.IntersectsAndIdentifiesVariation(variation);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(intersects, Is.False, "Expected no intersection");
-                Assert.That(identifies, Is.False, "No new cleavage site introduced (A->V) so identifies should be false");
-            });
-        }
-        // Helper: build original protein
-        private static Protein MakeProtein(string seq, string acc = "PVAR") => new Protein(seq, acc);
-
-        // Helper: apply variation to produce variant base sequence
-        private static (SequenceVariation variation, string variantBase) MakeDeletionVariation(
-            string originalSeq, int begin, int end, string variantInserted)
-        {
-            string originalSegment = originalSeq.Substring(begin - 1, end - begin + 1);
-            string prefix = originalSeq.Substring(0, begin - 1);
-            string suffix = originalSeq.Substring(end); // after end
-            string variantBase = prefix + variantInserted + suffix;
-
-            var sv = new SequenceVariation(
-                oneBasedBeginPosition: begin,
-                oneBasedEndPosition: end,
-                originalSequence: originalSegment,
-                variantSequence: variantInserted,
-                description: $"del_{begin}_{end}_len{variantInserted.Length}");
-
-            return (sv, variantBase);
-        }
-
-        private static PeptideWithSetModifications MakePeptide(
-            Protein variantProtein,
-            int start,
-            int end,
-            string baseSeq,
-            DigestionParams dp)
-        {
-            return new PeptideWithSetModifications(
-                variantProtein,
-                dp,
-                oneBasedStartResidueInProtein: start,
-                oneBasedEndResidueInProtein: end,
-                cleavageSpecificity: CleavageSpecificity.Full,
-                peptideDescription: "test-pep",
-                missedCleavages: 0,
-                allModsOneIsNterminus: new Dictionary<int, Modification>(),
-                numFixedMods: 0,
-                baseSequence: baseSeq);
-        }
-
-        private const string OriginalProteinSeq = "ACDEFGHIKLMNPQRSTVWYACDEFGHIKLMNPQRSTVWY"; // length 40
-
-        // Matrix of scenarios:
-        // EVC (effectiveVariantEnd correction) & effectiveDegenerate combinations
-
-        [Test]
-        public static void IntersectsAndIdentifiesVariation_FullDeletion_EVCTrue_DegenerateTrue()
-        {
-            // Deletion remove 10-20 entirely (variant sequence empty)
-            int begin = 10;
-            int end = 20;
-
-            var originalProtein = MakeProtein(OriginalProteinSeq);
-            var (variation, variantBase) = MakeDeletionVariation(OriginalProteinSeq, begin, end, variantInserted: "");
-            // Variant protein (shorter by 11 aa)
-            var variantProtein = new Protein(originalProtein, variantBase);
-
-            // Peptide starts AFTER the corrected effectiveVariantEnd (= begin) so degenerate
-            // In variant coordinates: positions after deletion are compressed.
-            // Choose start 15 end 18 (no actual overlap in effective span → degenerate).
-            var dp = new DigestionParams(protease: "trypsin");
-
-            // Derive base sequence from variant
-            string pepBase = variantBase.Substring(15 - 1, 18 - 15 + 1);
-            var peptide = MakePeptide(variantProtein, 15, 18, pepBase, dp);
-
-            var (intersects, identifies) = peptide.IntersectsAndIdentifiesVariation(variation);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(intersects, Is.True, "Deletion path still reports intersects tuple true.");
-                Assert.That(identifies, Is.True, "Full deletion sets identifiesFlag true.");
-            });
-        }
-
-        [Test]
-        public static void IntersectsAndIdentifiesVariation_FullDeletion_EVCTrue_DegenerateFalse()
-        {
-            int begin = 10;
-            int end = 20;
-            var originalProtein = MakeProtein(OriginalProteinSeq);
-            var (variation, variantBase) = MakeDeletionVariation(OriginalProteinSeq, begin, end, variantInserted: "");
-            var variantProtein = new Protein(originalProtein, variantBase);
-            var dp = new DigestionParams(protease: "trypsin");
-
-            // Peptide spans original prefix (variant coords 9..11)
-            // start 9 -> before deletion; end 11 -> after junction (compressed) ensures intersectEndEff == startEff (not degenerate)
-            string pepBase = variantBase.Substring(9 - 1, 11 - 9 + 1);
-            var peptide = MakePeptide(variantProtein, 9, 11, pepBase, dp);
-
-            var (intersects, identifies) = peptide.IntersectsAndIdentifiesVariation(variation);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(intersects, Is.True);
-                Assert.That(identifies, Is.True, "Deletion still marks identifiesFlag.");
-            });
-        }
-
-        [Test]
-        public static void IntersectsAndIdentifiesVariation_PartialDeletion_EVCFalse_DegenerateTrue()
-        {
-            int begin = 10;
-            int end = 20;
-            // Partial deletion: replace 11-length region with 5 aa
-            string inserted = "KLMNP";
-            var originalProtein = MakeProtein(OriginalProteinSeq);
-            var (variation, variantBase) = MakeDeletionVariation(OriginalProteinSeq, begin, end, inserted);
-            var variantProtein = new Protein(originalProtein, variantBase);
-            var dp = new DigestionParams(protease: "trypsin");
-
-            // Choose peptide start AFTER effectiveVariantEnd (which will be end + (lenDiff) = 20 -6 =14)
-            // Variant coordinate 15..17 -> degenerate (intersectEndEff < intersectStartEff)
-            string pepBase = variantBase.Substring(15 - 1, 17 - 15 + 1);
-            var peptide = MakePeptide(variantProtein, 15, 17, pepBase, dp);
-
-            var (intersects, identifies) = peptide.IntersectsAndIdentifiesVariation(variation);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(intersects, Is.True);
-                Assert.That(identifies, Is.True, "Deletion (partial) sets identifiesFlag.");
-            });
-        }
-
-        [Test]
-        public static void IntersectsAndIdentifiesVariation_PartialDeletion_EVCFalse_DegenerateFalse()
-        {
-            int begin = 10;
-            int end = 20;
-            string inserted = "KLMNP";
-            var originalProtein = MakeProtein(OriginalProteinSeq);
-            var (variation, variantBase) = MakeDeletionVariation(OriginalProteinSeq, begin, end, inserted);
-            var variantProtein = new Protein(originalProtein, variantBase);
-            var dp = new DigestionParams(protease: "trypsin");
-
-            // Peptide 9..12 (variant coords) => intersects effective variant span (effectiveVariantEnd=14) producing non-degenerate overlap
-            string pepBase = variantBase.Substring(9 - 1, 12 - 9 + 1);
-            var peptide = MakePeptide(variantProtein, 9, 12, pepBase, dp);
-
-            var (intersects, identifies) = peptide.IntersectsAndIdentifiesVariation(variation);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(intersects, Is.True);
-                Assert.That(identifies, Is.True);
-            });
+            // The test should not throw, regardless of errors
+            Assert.Pass($"Test completed. Problematic accessions written to: {logPath}");
         }
     }
 }

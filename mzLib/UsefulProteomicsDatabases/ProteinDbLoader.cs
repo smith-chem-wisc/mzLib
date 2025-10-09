@@ -63,7 +63,7 @@ namespace UsefulProteomicsDatabases
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
             int maxSequenceVariantsPerIsoform = 0,
             int minAlleleDepth = 0,
-            int maxSequenceVariantIsoforms = 0,
+            int maxSequenceVariantIsoforms = 1, //must be at least 1 to return the canonical isoform
             bool addTruncations = false,
             string decoyIdentifier = "DECOY")
         {
