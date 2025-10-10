@@ -147,18 +147,19 @@ namespace Test
         {
             //Test case using FakeScans
             var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(testScans);
-            var xics = indexingEngine.GetAllXics(new PpmTolerance(20), 2, 2, 3);
+            var xics = indexingEngine.GetAllXics(new PpmTolerance(20), 2, 2, 3, out var matchedPeaks);
             Assert.That(xics.Count, Is.EqualTo(20));
             foreach(var xic in xics)
             {
                 Assert.That(xic.Peaks.Count, Is.EqualTo(10));
             }
+            Assert.That(matchedPeaks.Count, Is.EqualTo(xics.Sum(xic => xic.Peaks.Count)));
 
             //Test with massIndexingEngine
             var deconParameters = new ClassicDeconvolutionParameters(1, 20, 4, 3);
             var allMasses = Deconvoluter.Deconvolute(testScans[0].MassSpectrum, deconParameters);
             var massIndexingEngine = MassIndexingEngine.InitializeMassIndexingEngine(testScans, deconParameters);
-            var massXics = massIndexingEngine.GetAllXics(new PpmTolerance(20), 2, 2, 3);
+            var massXics = massIndexingEngine.GetAllXics(new PpmTolerance(20), 2, 2, 3, out matchedPeaks);
             Assert.That(massXics.Count, Is.EqualTo(2));
             foreach (var mass in allMasses)
             {
@@ -179,12 +180,12 @@ namespace Test
                     mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 1, injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
             }
             var indexingEngine2 = PeakIndexingEngine.InitializeIndexingEngine(fakeScans2);
-            var xics2 = indexingEngine2.GetAllXics(new PpmTolerance(20), 2, 2, 3);
+            var xics2 = indexingEngine2.GetAllXics(new PpmTolerance(20), 2, 2, 3, out matchedPeaks);
             Assert.That(xics2.Count, Is.EqualTo(40)); //the first three scans and the last four scans will each contain two XICs
             Assert.That(xics2.SequenceEqual(xics2.OrderByDescending(x => x.ApexPeak.Intensity)));//make sure the XICs are ordered by descending apex intensity
             //Test with massIndexingEngine
             var massIndexingEngine2 = MassIndexingEngine.InitializeMassIndexingEngine(fakeScans2, deconParameters);
-            var massXics2 = massIndexingEngine2.GetAllXics(new PpmTolerance(20), 2, 2, 3);
+            var massXics2 = massIndexingEngine2.GetAllXics(new PpmTolerance(20), 2, 2, 3, out matchedPeaks);
             Assert.That(massXics2.Count, Is.EqualTo(4));
 
             var fakeScans3 = (MsDataScan[])testScans.Clone();
@@ -195,7 +196,7 @@ namespace Test
                     mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 1, injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
             }
             var indexingEngine3 = PeakIndexingEngine.InitializeIndexingEngine(fakeScans3);
-            var xics3 = indexingEngine3.GetAllXics(new PpmTolerance(20), 2, 2, 3);
+            var xics3 = indexingEngine3.GetAllXics(new PpmTolerance(20), 2, 2, 3, out matchedPeaks);
             Assert.That(xics3.Count, Is.EqualTo(20)); // Because the minumum number of peaks required is set to 3, the first two scans do not contain any XICs with only two consecutive peaks.
             foreach (var xic in xics3)
             {
@@ -203,7 +204,7 @@ namespace Test
             }
             //Test with massIndexingEngine
             var massIndexingEngine3 = MassIndexingEngine.InitializeMassIndexingEngine(fakeScans3, deconParameters);
-            var massXics3 = massIndexingEngine3.GetAllXics(new PpmTolerance(20), 2, 2, 3);
+            var massXics3 = massIndexingEngine3.GetAllXics(new PpmTolerance(20), 2, 2, 3, out matchedPeaks);
             Assert.That(massXics3.Count, Is.EqualTo(2));
             foreach (var xic in massXics3)
             {
@@ -275,14 +276,14 @@ namespace Test
                 testScans[s] = new MsDataScan(massSpectrum: new MzSpectrum(mz, intensities, false), oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
             }
             var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(testScans);
-            var xics = indexingEngine.GetAllXics(new PpmTolerance(5), 2, 3, 3);
+            var xics = indexingEngine.GetAllXics(new PpmTolerance(5), 2, 3, 3, out var matchedPeaks);
             // 10 XICs should be found without peak cutting, each containing 10 peaks
             Assert.That(xics.Count(), Is.EqualTo(10)); 
             Assert.That(xics.All(x => x.Peaks.Count == 10), Is.True);
             //The XICs should have an apex at the eighth scan
             Assert.That(xics.All(x => x.ApexScanIndex == 7), Is.True);
 
-            var xicsWithCutPeak = indexingEngine.GetAllXics(new PpmTolerance(5), 2, 3, 3, 0.6);
+            var xicsWithCutPeak = indexingEngine.GetAllXics(new PpmTolerance(5), 2, 3, 3, out matchedPeaks, 0.6);
             // since each original XIC contain two apex, cutting peaks should double the number of XICs found and each XIC should contain 5 peaks now
             Assert.That(xicsWithCutPeak.Count(), Is.EqualTo(20));
             Assert.That(xicsWithCutPeak.All(x => x.Peaks.Count == 5), Is.True);
