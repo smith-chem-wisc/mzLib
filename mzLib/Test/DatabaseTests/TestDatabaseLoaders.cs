@@ -19,18 +19,18 @@ using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using NUnit.Framework.Legacy;
+using Omics;
+using Omics.BioPolymer;
+using Omics.Modifications;
 using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Omics.Modifications;
 using UsefulProteomicsDatabases;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
-using NUnit.Framework.Legacy;
-using Omics;
-using Omics.BioPolymer;
 
 namespace Test.DatabaseTests
 {
@@ -947,6 +947,72 @@ namespace Test.DatabaseTests
             Assert.That(targetProtein.Accession == "ENSP00000372947.2");
             Assert.That(targetProtein.GeneNames.Count() == 1);
             Assert.That(targetProtein.GeneNames.First().Item2 == "ENSG00000206427.11");
+        }
+
+        [Test]
+        public static void DecoyWritingLoading_Fasta()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "test_ensembl.pep.all.fasta");
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.Reverse, true, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            int targetCount = proteins.Count(p => !p.IsDecoy);
+            int decoyCount = proteins.Count(p => p.IsDecoy);
+            Assert.That(targetCount, Is.EqualTo(2));
+            Assert.That(decoyCount, Is.EqualTo(2));
+
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "fastaFile.fasta");
+
+            ProteinDbWriter.WriteFastaDatabase(proteins, fastapath, "|");
+            var readIn = ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.None, false, out var errors2);
+            Assert.That(errors2.Count, Is.EqualTo(0));
+
+            int readInTargetCount = readIn.Count(p => !p.IsDecoy);
+            int readInDecoyCount = readIn.Count(p => p.IsDecoy);
+            Assert.That(readInTargetCount, Is.EqualTo(2));
+            Assert.That(readInDecoyCount, Is.EqualTo(2));
+
+
+            var readInWithDecoyGeneration = ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.Reverse, false, out var errors3);
+            Assert.That(errors3.Count, Is.EqualTo(0));
+            readInTargetCount = readInWithDecoyGeneration.Count(p => !p.IsDecoy);
+            readInDecoyCount = readInWithDecoyGeneration.Count(p => p.IsDecoy);
+            Assert.That(readInTargetCount, Is.EqualTo(2));
+            Assert.That(readInDecoyCount, Is.EqualTo(2));
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void DecoyWritingLoading_Xml()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "test_ensembl.pep.all.fasta");
+            var oligos = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.Reverse, true, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            int targetCount = oligos.Count(p => !p.IsDecoy);
+            int decoyCount = oligos.Count(p => p.IsDecoy);
+            Assert.That(targetCount, Is.EqualTo(2));
+            Assert.That(decoyCount, Is.EqualTo(2));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"Transcriptomics/TestData/ModomicsUnmodifiedTrimmed_decoy.xml");
+
+            ProteinDbWriter.WriteXmlDatabase([], oligos, xmlPath);
+            var readIn = ProteinDbLoader.LoadProteinXML(xmlPath, true, DecoyType.None, new List<Modification>(), false, new List<string>(), out var errors2);
+            Assert.That(errors2.Count, Is.EqualTo(0));
+
+            int readInTargetCount = readIn.Count(p => !p.IsDecoy);
+            int readInDecoyCount = readIn.Count(p => p.IsDecoy);
+            Assert.That(readInTargetCount, Is.EqualTo(2));
+            Assert.That(readInDecoyCount, Is.EqualTo(2));
+
+
+            var readInWithDecoyGeneration = ProteinDbLoader.LoadProteinXML(xmlPath, true, DecoyType.Reverse,[], false, new List<string>(), out var errors3);
+            Assert.That(errors3.Count, Is.EqualTo(0));
+            readInTargetCount = readInWithDecoyGeneration.Count(p => !p.IsDecoy);
+            readInDecoyCount = readInWithDecoyGeneration.Count(p => p.IsDecoy);
+            Assert.That(readInTargetCount, Is.EqualTo(2));
+            Assert.That(readInDecoyCount, Is.EqualTo(2));
         }
     }
 }
