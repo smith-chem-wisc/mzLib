@@ -44,6 +44,7 @@ namespace UsefulProteomicsDatabases
                 // Do not include the initiator methionine in reversal!!!
                 char[] sequenceArray = protein.BaseSequence.ToCharArray();
                 bool startsWithM = protein.BaseSequence.StartsWith("M", StringComparison.Ordinal);
+                int[] positionMapping = GeneratePositionMapping(protein.BaseSequence, startsWithM);
                 if (startsWithM)
                 {
                     Array.Reverse(sequenceArray, 1, protein.BaseSequence.Length - 1);
@@ -57,6 +58,7 @@ namespace UsefulProteomicsDatabases
                 // reverse nonvariant sequence
                 // Do not include the initiator methionine in reversal!!!
                 char[] nonVariantSequenceArray = protein.ConsensusVariant.BaseSequence.ToCharArray();
+                int[] consensusPositionMapping = GeneratePositionMapping(protein.ConsensusVariant.BaseSequence, startsWithM);
                 if (protein.ConsensusVariant.BaseSequence.StartsWith("M", StringComparison.Ordinal))
                 {
                     Array.Reverse(nonVariantSequenceArray, 1, protein.ConsensusVariant.BaseSequence.Length - 1);
@@ -68,30 +70,7 @@ namespace UsefulProteomicsDatabases
                 string reversedNonVariantSequence = new string(nonVariantSequenceArray);
 
                 // reverse modifications
-                Dictionary<int, List<Modification>> decoyModifications = null;
-                if (startsWithM)
-                {
-                    decoyModifications = new Dictionary<int, List<Modification>>(protein.OneBasedPossibleLocalizedModifications.Count);
-                    foreach (var kvp in protein.OneBasedPossibleLocalizedModifications)
-                    {
-                        if (kvp.Key > 1)
-                        {
-                            decoyModifications.Add(protein.BaseSequence.Length - kvp.Key + 2, kvp.Value);
-                        }
-                        else if (kvp.Key == 1)
-                        {
-                            decoyModifications.Add(1, kvp.Value);
-                        }
-                    }
-                }
-                else
-                {
-                    decoyModifications = new Dictionary<int, List<Modification>>(protein.OneBasedPossibleLocalizedModifications.Count);
-                    foreach (var kvp in protein.OneBasedPossibleLocalizedModifications)
-                    {
-                        decoyModifications.Add(protein.BaseSequence.Length - kvp.Key + 1, kvp.Value);
-                    }
-                }
+                Dictionary<int, List<Modification>> decoyModifications = GetReversedModifications(protein, startsWithM);
 
                 // reverse proteolysis products
                 List<TruncationProduct> decoyPP = new List<TruncationProduct>();
@@ -148,9 +127,10 @@ namespace UsefulProteomicsDatabases
                         spliceSites.Add(new SpliceSite(protein.BaseSequence.Length - spliceSite.OneBasedEndPosition + 1, protein.BaseSequence.Length - spliceSite.OneBasedBeginPosition + 1, $"{decoyIdentifier} {spliceSite.Description}"));
                     }
                 }
-
-                List<SequenceVariation> decoyVariations = ReverseSequenceVariations(protein.SequenceVariations, protein.ConsensusVariant, reversedNonVariantSequence);
-                List<SequenceVariation> decoyAppliedVariations = ReverseSequenceVariations(protein.AppliedSequenceVariations, protein, reversedSequence);
+                List<SequenceVariation> decoyVariations = CreateMappedSequenceVariations(positionMapping, protein.SequenceVariations);
+                List<SequenceVariation> decoyAppliedVariations = CreateMappedSequenceVariations(consensusPositionMapping, protein.AppliedSequenceVariations);
+                //List<SequenceVariation> decoyVariations = ReverseSequenceVariations(protein.SequenceVariations, protein.ConsensusVariant, reversedNonVariantSequence);
+                //List<SequenceVariation> decoyAppliedVariations = ReverseSequenceVariations(protein.AppliedSequenceVariations, protein, reversedSequence);
 
                 var decoyProtein = new Protein(
                     reversedSequence,
@@ -182,154 +162,235 @@ namespace UsefulProteomicsDatabases
             decoyProteins = decoyProteins.OrderBy(p => p.Accession).ToList();
             return decoyProteins;
         }
-
-        private static List<SequenceVariation> ReverseSequenceVariations(IEnumerable<SequenceVariation> forwardVariants, IBioPolymer protein, string reversedSequence, string decoyIdentifier = "DECOY")
+        /// <summary>
+        /// Generates a mapping of amino acid positions resulting from the sequence transformation.
+        /// </summary>
+        /// <param name="sequence">The original sequence of the protein.</param>
+        /// <param name="startsWithM">Indicates if the sequence starts with methionine.</param>
+        /// <returns>An integer array mapping the original positions to the transformed positions.</returns>
+        private static int[] GeneratePositionMapping(string sequence, bool startsWithM)
         {
-            List<SequenceVariation> decoyVariations = new List<SequenceVariation>();
+            int length = sequence.Length;
+            int[] positionMapping = new int[length + 1]; // 1-based indexing
 
-            // Local helper constructs a stable decoy VCF string (only appends original VCF if present)
-            static string BuildDecoyVcfTag(string decoyIdentifier, SequenceVariation src)
+            if (startsWithM)
             {
-                var baseTag = $"{decoyIdentifier} VARIANT";
-                if (src?.VariantCallFormatData == null)
+                // Preserve the first position (M), reverse the rest
+                positionMapping[1] = 1; // M stays at position 1
+                for (int i = 2; i <= length; i++)
                 {
-                    return baseTag; // no original VCF
+                    positionMapping[i] = length - i + 2;
                 }
-
-                // Use the raw VCF line (VariantCallFormat.Description). Fallback to SearchableAnnotation if empty.
-                var raw = src.VariantCallFormatData.Description;
-                if (string.IsNullOrWhiteSpace(raw))
+            }
+            else
+            {
+                // Reverse the entire sequence
+                for (int i = 1; i <= length; i++)
                 {
-                    raw = src.SearchableAnnotation;
+                    positionMapping[i] = length - i + 1;
                 }
-
-                return string.IsNullOrWhiteSpace(raw) ? baseTag : $"{baseTag}: {raw}";
             }
 
-            foreach (SequenceVariation sv in forwardVariants)
+            return positionMapping;
+        }
+        /// <summary>
+        /// Creates a new list of sequence variations based on the provided position mapping.
+        /// </summary>
+        /// <param name="positionMapping">The position mapping array (1-based indexing).</param>
+        /// <param name="originalVariations">The original list of sequence variations.</param>
+        /// <returns>A new list of sequence variations with updated positions and modifications.</returns>
+        private static List<SequenceVariation> CreateMappedSequenceVariations(
+            int[] positionMapping,
+            List<SequenceVariation> originalVariations)
+        {
+            var newVariations = new List<SequenceVariation>();
+
+            foreach (var originalVariation in originalVariations)
             {
-                if (sv == null)
-                    continue;
+                // Map the begin position using the position mapping
+                int newBeginPosition = positionMapping[originalVariation.OneBasedBeginPosition];
 
-                string decoyVcfTag = BuildDecoyVcfTag(decoyIdentifier, sv);
+                // Calculate the new end position
+                int variationLength = originalVariation.OneBasedEndPosition - originalVariation.OneBasedBeginPosition;
+                int newEndPosition = newBeginPosition + variationLength;
 
-                // place reversed modifications (referencing variant sequence location)
-                Dictionary<int, List<Modification>> decoyVariantModifications = new Dictionary<int, List<Modification>>(sv.OneBasedModifications.Count);
-                int variantSeqLength = protein.BaseSequence.Length + sv.VariantSequence.Length - sv.OriginalSequence.Length;
-                bool startsWithM = protein.BaseSequence.StartsWith("M", StringComparison.Ordinal);
-                bool stopGain = sv.VariantSequence.EndsWith("*", StringComparison.Ordinal);
-
-                foreach (var kvp in sv.OneBasedModifications)
+                // Adjust the modification dictionary
+                var newModifications = new Dictionary<int, List<Modification>>();
+                if (originalVariation.OneBasedModifications != null)
                 {
-                    if (stopGain)
+                    foreach (var kvp in originalVariation.OneBasedModifications)
                     {
-                        decoyVariantModifications.Add(kvp.Key, kvp.Value);
+                        int newPosition = positionMapping[kvp.Key];
+                        newModifications[newPosition] = kvp.Value;
                     }
-                    else if (startsWithM && kvp.Key > 1)
+                }
+
+                // Create the new sequence variation
+                var newVariation = new SequenceVariation(
+                    newBeginPosition,
+                    newEndPosition,
+                    originalVariation.OriginalSequence,
+                    originalVariation.VariantSequence,
+                    originalVariation.Description,
+                    originalVariation.VariantCallFormatData?.Description,
+                    newModifications
+                );
+
+                // Add the new variation to the list
+                newVariations.Add(newVariation);
+            }
+
+            return newVariations;
+        }
+        /// <summary>
+        /// Extracted method to reverse modifications for a protein.
+        /// </summary>
+        /// <param name="protein">The protein whose modifications are being reversed.</param>
+        /// <param name="startsWithM">Indicates if the protein sequence starts with methionine.</param>
+        /// <returns>A dictionary of reversed modifications.</returns>
+        private static Dictionary<int, List<Modification>> GetReversedModifications(Protein protein, bool startsWithM)
+        {
+            var reversedModifications = new Dictionary<int, List<Modification>>(protein.OneBasedPossibleLocalizedModifications.Count);
+
+            foreach (var kvp in protein.OneBasedPossibleLocalizedModifications)
+            {
+                if (startsWithM)
+                {
+                    if (kvp.Key > 1)
                     {
-                        decoyVariantModifications.Add(variantSeqLength - kvp.Key + 2, kvp.Value);
-                    }
-                    else if (sv.VariantSequence.StartsWith("M", StringComparison.Ordinal) && kvp.Key == 1)
-                    {
-                        decoyVariantModifications.Add(1, kvp.Value);
+                        reversedModifications.Add(protein.BaseSequence.Length - kvp.Key + 2, kvp.Value);
                     }
                     else if (kvp.Key == 1)
                     {
-                        decoyVariantModifications.Add(protein.BaseSequence.Length, kvp.Value);
+                        reversedModifications.Add(1, kvp.Value);
                     }
-                    else
-                    {
-                        decoyVariantModifications.Add(variantSeqLength - kvp.Key + 1, kvp.Value);
-                    }
-                }
-
-                char[] originalArray = sv.OriginalSequence.ToCharArray();
-                char[] variationArray = sv.VariantSequence.ToCharArray();
-                int decoyEnd = protein.BaseSequence.Length - sv.OneBasedBeginPosition + 2
-                               + Convert.ToInt32(sv.OneBasedEndPosition == reversedSequence.Length)
-                               - Convert.ToInt32(sv.OneBasedBeginPosition == 1);
-                int decoyBegin = decoyEnd - originalArray.Length + 1;
-                Array.Reverse(originalArray);
-                Array.Reverse(variationArray);
-
-                bool originalInitMet = sv.OneBasedBeginPosition == 1 && sv.OriginalSequence.StartsWith("M", StringComparison.Ordinal);
-                bool variantInitMet = sv.OneBasedBeginPosition == 1 && sv.VariantSequence.StartsWith("M", StringComparison.Ordinal);
-                bool startLoss = originalInitMet && !variantInitMet;
-
-                if (stopGain)
-                {
-                    decoyVariations.Add(new SequenceVariation(
-                        sv.OneBasedBeginPosition,
-                        reversedSequence.Substring(sv.OneBasedBeginPosition - 1, sv.OneBasedEndPosition - sv.OneBasedBeginPosition + 1),
-                        new string(variationArray).Substring(1, variationArray.Length - 1) + variationArray[0],
-                        sv.Description,
-                        decoyVcfTag,
-                        decoyVariantModifications));
-                }
-                else if (startLoss)
-                {
-                    decoyVariations.Add(new SequenceVariation(
-                        protein.BaseSequence.Length - sv.OneBasedEndPosition + 2,
-                        protein.BaseSequence.Length,
-                        new string(originalArray).Substring(0, originalArray.Length - 1),
-                        new string(variationArray),
-                        sv.Description,
-                        decoyVcfTag,
-                        decoyVariantModifications));
-                }
-                else if (sv.VariantSequence.StartsWith("M", StringComparison.Ordinal) &&
-                         sv.OneBasedBeginPosition == 1 &&
-                         (sv.OriginalSequence.Length > 1 || sv.VariantSequence.Length > 1))
-                {
-                    string original = new string(originalArray).Substring(0, originalArray.Length - 1);
-                    string variant = new string(variationArray).Substring(0, variationArray.Length - 1);
-                    decoyVariations.Add(new SequenceVariation(
-                        protein.BaseSequence.Length - sv.OneBasedEndPosition + 2,
-                        protein.BaseSequence.Length,
-                        original,
-                        variant,
-                        sv.Description,
-                        decoyVcfTag,
-                        decoyVariantModifications));
-                }
-                else if (sv.VariantSequence.StartsWith("M", StringComparison.Ordinal) &&
-                         sv.OneBasedBeginPosition == 1)
-                {
-                    decoyVariations.Add(new SequenceVariation(
-                        1,
-                        1,
-                        new string(originalArray),
-                        new string(variationArray),
-                        sv.Description,
-                        decoyVcfTag,
-                        decoyVariantModifications));
-                }
-                else if (startsWithM)
-                {
-                    decoyVariations.Add(new SequenceVariation(
-                        protein.BaseSequence.Length - sv.OneBasedEndPosition + 2,
-                        protein.BaseSequence.Length - sv.OneBasedBeginPosition + 2,
-                        new string(originalArray),
-                        new string(variationArray),
-                        sv.Description,
-                        decoyVcfTag,
-                        decoyVariantModifications));
                 }
                 else
                 {
-                    decoyVariations.Add(new SequenceVariation(
-                        protein.BaseSequence.Length - sv.OneBasedEndPosition + 1,
-                        protein.BaseSequence.Length - sv.OneBasedBeginPosition + 1,
-                        new string(originalArray),
-                        new string(variationArray),
-                        sv.Description,
-                        decoyVcfTag,
-                        decoyVariantModifications));
+                    reversedModifications.Add(protein.BaseSequence.Length - kvp.Key + 1, kvp.Value);
                 }
             }
 
-            return decoyVariations;
+            return reversedModifications;
         }
+
+        private static List<SequenceVariation> ReverseSequenceVariations(
+    IEnumerable<SequenceVariation> forwardVariants,
+    IBioPolymer protein,
+    string reversedSequence,
+    string decoyIdentifier = "DECOY")
+{
+    List<SequenceVariation> decoyVariations = new List<SequenceVariation>();
+
+    static string BuildDecoyVcfTag(string decoyIdentifier, SequenceVariation src)
+    {
+        var baseTag = $"{decoyIdentifier} VARIANT";
+        if (src?.VariantCallFormatData == null)
+            return baseTag;
+        var raw = src.VariantCallFormatData.Description;
+        if (string.IsNullOrWhiteSpace(raw))
+            raw = src.SearchableAnnotation;
+        return string.IsNullOrWhiteSpace(raw) ? baseTag : $"{baseTag}: {raw}";
+    }
+
+    bool startsWithM = protein.BaseSequence.StartsWith("M", StringComparison.Ordinal);
+    int seqLen = protein.BaseSequence.Length;
+
+    foreach (SequenceVariation sv in forwardVariants)
+    {
+        if (sv == null)
+            continue;
+
+        string decoyVcfTag = BuildDecoyVcfTag(decoyIdentifier, sv);
+
+        // Reverse modifications as before (not shown for brevity)
+        Dictionary<int, List<Modification>> decoyVariantModifications = new Dictionary<int, List<Modification>>(sv.OneBasedModifications.Count);
+        int variantSeqLength = seqLen + sv.VariantSequence.Length - sv.OriginalSequence.Length;
+        bool stopGain = sv.VariantSequence.EndsWith("*", StringComparison.Ordinal);
+
+        foreach (var kvp in sv.OneBasedModifications)
+        {
+            if (stopGain)
+            {
+                decoyVariantModifications.Add(kvp.Key, kvp.Value);
+            }
+            else if (startsWithM && kvp.Key > 1)
+            {
+                decoyVariantModifications.Add(variantSeqLength - kvp.Key + 2, kvp.Value);
+            }
+            else if (sv.VariantSequence.StartsWith("M", StringComparison.Ordinal) && kvp.Key == 1)
+            {
+                decoyVariantModifications.Add(1, kvp.Value);
+            }
+            else if (kvp.Key == 1)
+            {
+                decoyVariantModifications.Add(seqLen, kvp.Value);
+            }
+            else
+            {
+                decoyVariantModifications.Add(variantSeqLength - kvp.Key + 1, kvp.Value);
+            }
+        }
+
+        char[] originalArray = sv.OriginalSequence.ToCharArray();
+        char[] variationArray = sv.VariantSequence.ToCharArray();
+        Array.Reverse(originalArray);
+        Array.Reverse(variationArray);
+
+        // Special handling for initiator methionine variant at position 1
+        if (startsWithM && sv.OneBasedBeginPosition == 1 && sv.OriginalSequence.StartsWith("M", StringComparison.Ordinal))
+        {
+            decoyVariations.Add(new SequenceVariation(
+                1,
+                1,
+                new string(originalArray),
+                new string(variationArray),
+                sv.Description,
+                decoyVcfTag,
+                decoyVariantModifications));
+            continue;
+        }
+
+        // Special handling for variant at last position (C-term) in target, when M is kept at position 1 in decoy
+        if (startsWithM && sv.OneBasedBeginPosition == seqLen && sv.OneBasedEndPosition == seqLen)
+        {
+            // Map to position 2 in decoy (since position 1 is still M)
+            decoyVariations.Add(new SequenceVariation(
+                2,
+                2,
+                new string(originalArray),
+                new string(variationArray),
+                sv.Description,
+                decoyVcfTag,
+                decoyVariantModifications));
+            continue;
+        }
+
+        // All other cases: adjust as before, but account for preserved M
+        int decoyBegin, decoyEnd;
+        if (startsWithM)
+        {
+            decoyEnd = seqLen - sv.OneBasedBeginPosition + 2;
+            decoyBegin = decoyEnd - originalArray.Length + 1;
+        }
+        else
+        {
+            decoyEnd = seqLen - sv.OneBasedBeginPosition + 1;
+            decoyBegin = decoyEnd - originalArray.Length + 1;
+        }
+
+        decoyVariations.Add(new SequenceVariation(
+            decoyBegin,
+            decoyEnd,
+            new string(originalArray),
+            new string(variationArray),
+            sv.Description,
+            decoyVcfTag,
+            decoyVariantModifications));
+    }
+
+    return decoyVariations;
+}
 
         /// <summary>
         /// Generates a "slided" decoy sequence
