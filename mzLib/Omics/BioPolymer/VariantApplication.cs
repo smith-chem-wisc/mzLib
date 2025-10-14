@@ -309,6 +309,9 @@ namespace Omics.BioPolymer
         /// <summary>
         /// Applies a single variant to a protein sequence
         /// </summary>
+        /// <summary>
+        /// Applies a single variant to a protein sequence
+        /// </summary>
         private static TBioPolymerType ApplySingleVariant<TBioPolymerType>(SequenceVariation variantGettingApplied, TBioPolymerType protein, string individual)
             where TBioPolymerType : IHasSequenceVariants
         {
@@ -340,17 +343,19 @@ namespace Omics.BioPolymer
                 : protein.BaseSequence.Substring(afterIdx);
 
             int appliedBegin = variantGettingApplied.OneBasedBeginPosition;
-            int appliedEnd = variantGettingApplied.OneBasedBeginPosition + Math.Max(0, originalSeq.Length - 1); // end is based on original span, not variant length
+            int appliedEnd = variantGettingApplied.OneBasedBeginPosition + Math.Max(0, originalSeq.Length - 1); // based on original span
 
+            // Copy (not reference) the variant-specific modifications so downstream index adjustments do not mutate the source definition
             var variantModDict = variantGettingApplied.OneBasedModifications != null
                 ? variantGettingApplied.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value)
                 : new Dictionary<int, List<Modification>>();
 
             string vcfDescription = variantGettingApplied.VariantCallFormatData?.Description;
 
+            // This SequenceVariation instance represents the applied (realized) change on the new isoform
             SequenceVariation variantAfterApplication = new SequenceVariation(
                 appliedBegin,
-                appliedEnd,  // end is based on original span, not variant length
+                appliedEnd,
                 originalSeq,
                 variantSeq,
                 variantGettingApplied.Description,
@@ -379,6 +384,11 @@ namespace Omics.BioPolymer
             var adjustedProteolysisProducts =
                 AdjustTruncationProductIndices(variantAfterApplication, newBaseSequence, protein, protein.TruncationProducts);
 
+            // AdjustModificationIndices merges:
+            //   - existing protein-level mods (shifted for length changes)
+            //   - variant-specific mods (variantGettingApplied.OneBasedModifications)
+            // Thus variant-site PTMs are PROMOTED to the applied variant protein's OneBasedPossibleLocalizedModifications,
+            // but NOT copied back to the consensus protein (intentional).
             var adjustedModifications =
                 AdjustModificationIndices(variantAfterApplication, newBaseSequence, protein);
 
@@ -392,16 +402,16 @@ namespace Omics.BioPolymer
                                                 adjustedModifications,
                                                 individual);
 
-            // Normalize UniProt sequence attributes (length + mass) with safe cloning on length change
+            // Normalize UniProt sequence attributes (length + mass)
             try
             {
                 var seq = created?.BaseSequence;
                 if (!string.IsNullOrEmpty(seq))
                 {
-                    // Guard: detect ambiguous residues that can force UpdateMassAttribute to return sentinel values
-                    bool hasAmbiguousResidues = seq.IndexOf('X') >= 0 || seq.IndexOf('B') >= 0 ||
-                                                seq.IndexOf('J') >= 0 || seq.IndexOf('Z') >= 0 ||
-                                                seq.IndexOf('*') >= 0;
+                    bool hasAmbiguousResidues =
+                        seq.IndexOf('X') >= 0 || seq.IndexOf('B') >= 0 ||
+                        seq.IndexOf('J') >= 0 || seq.IndexOf('Z') >= 0 ||
+                        seq.IndexOf('*') >= 0;
 
                     var attrProp = created.GetType().GetProperty(
                         "UniProtSequenceAttributes",
@@ -420,7 +430,7 @@ namespace Omics.BioPolymer
                         bool? isPrecursor = attrType.GetProperty("IsPrecursor", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(attrs) as bool?;
                         var fragmentVal = attrType.GetProperty("Fragment", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(attrs);
 
-                        int newMass = oldMass; // placeholder; recomputed later (if allowed)
+                        int newMass = oldMass; // placeholder; recomputed later if no ambiguous residues
 
                         if (seq.Length != oldLen)
                         {
@@ -475,8 +485,17 @@ namespace Omics.BioPolymer
             }
             catch
             {
-                // best-effort; ignore failures
+                // best-effort; ignore
             }
+
+            // IMPORTANT:
+            // We intentionally DO NOT copy variant-specific modifications to the consensus protein’s
+            // SequenceVariations. They remain:
+            //   - In un-applied SequenceVariation.OneBasedModifications (for still-potential variants), OR
+            //   - Promoted into the applied variant protein’s OneBasedPossibleLocalizedModifications via AdjustModificationIndices.
+            // To persist these PTMs in XML the caller must request applied variant entries
+            // (includeAppliedVariantEntries: true in ProteinDbWriter) because consensus-only output
+            // will not include applied-proteoform-level modifications.
 
             return created;
         }
