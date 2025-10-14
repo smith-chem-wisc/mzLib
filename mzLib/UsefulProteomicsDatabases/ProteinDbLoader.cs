@@ -356,7 +356,7 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// Merge rnas that have the same accession, sequence, and contaminant designation.
+        /// Merge proteins that have the same accession, sequence, and contaminant designation.
         /// </summary>
         public static IEnumerable<Protein> Merge(IEnumerable<Protein> mergeThese)
         {
