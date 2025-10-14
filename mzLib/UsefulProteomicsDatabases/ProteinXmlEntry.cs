@@ -465,6 +465,20 @@ namespace UsefulProteomicsDatabases
                 if (appliesToThisSequence)
                 {
                     ParseAnnotatedMods(OneBasedVariantModifications, modTypesToExclude, unknownModifications, AnnotatedVariantMods);
+
+                    // Validate that the begin position does not exceed the protein length
+                    int proteinLength = Sequence?.Length ?? 0;
+                    if (OneBasedBeginPosition != null && OneBasedBeginPosition > proteinLength)
+                    {
+                        // Skip invalid variant
+                        return;
+                    }
+                    if (OneBasedFeaturePosition > proteinLength)
+                    {
+                        // Skip invalid variant
+                        return;
+                    }
+
                     if (OneBasedBeginPosition != null && OneBasedEndPosition != null)
                     {
                         SequenceVariations.Add(
@@ -488,6 +502,7 @@ namespace UsefulProteomicsDatabases
                                 variantCallFormatDataString: null,
                                 oneBasedModifications: OneBasedVariantModifications));
                     }
+
                     AnnotatedVariantMods = new List<(int, string)>();
                     OneBasedVariantModifications = new Dictionary<int, List<Modification>>();
                 }
