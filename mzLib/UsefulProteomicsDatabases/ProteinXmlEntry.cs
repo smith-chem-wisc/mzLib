@@ -10,6 +10,7 @@ using Transcriptomics;
 using UsefulProteomicsDatabases.Transcriptomics;
 using System.Data;
 using Proteomics.ProteolyticDigestion;
+using System.Diagnostics;
 
 namespace UsefulProteomicsDatabases
 {
@@ -30,7 +31,7 @@ namespace UsefulProteomicsDatabases
         public string FeatureDescription { get; private set; }
         public string SubFeatureType { get; private set; }
         public string SubFeatureDescription { get; private set; }
-        public string OriginalValue { get; private set; } = ""; // if no content is found, assume it is empty, not null (e.g. <original>A</original><variation/> for a deletion event)
+        public string OriginalValue { get; private set; } = "";
         public string VariationValue { get; private set; } = "";
         public string DBReferenceType { get; private set; }
         public string DBReferenceId { get; private set; }
@@ -50,16 +51,13 @@ namespace UsefulProteomicsDatabases
         public List<DatabaseReference> DatabaseReferences { get; private set; } = new List<DatabaseReference>();
         public bool ReadingGene { get; set; }
         public bool ReadingOrganism { get; set; }
-        public UniProtSequenceAttributes SequenceAttributes { get; set; } = null; // this is used to store the sequence attributes from the <sequence> element, if present
+        public UniProtSequenceAttributes SequenceAttributes { get; set; } = null;
         private List<(int, string)> AnnotatedMods = new List<(int position, string originalModificationID)>();
         private List<(int, string)> AnnotatedVariantMods = new List<(int position, string originalModificationID)>();
 
-        // NEW: Captured isoform/sequence identifier from <location sequence="...">
+        // Captured isoform/sequence identifier from <location sequence="...">
         private string LocationSequenceId;
 
-        /// <summary>
-        /// Start parsing a protein XML element
-        /// </summary>
         public void ParseElement(string elementName, XmlReader xml)
         {
             int outValue;
@@ -74,7 +72,6 @@ namespace UsefulProteomicsDatabases
                         Accession = xml.ReadElementString();
                     }
                     break;
-
                 case "name":
                     if (xml.Depth == 2 && !ReadingGene && !ReadingOrganism)
                     {
@@ -92,86 +89,66 @@ namespace UsefulProteomicsDatabases
                         }
                     }
                     break;
-
                 case "gene":
                     ReadingGene = true;
                     break;
-
                 case "organism":
                     if (Organism == null)
                     {
                         ReadingOrganism = true;
                     }
                     break;
-
                 case "fullName":
                     if (FullName == null)
                     {
                         FullName = xml.ReadElementString();
                     }
                     break;
-
                 case "feature":
                     FeatureType = xml.GetAttribute("type");
                     FeatureDescription = xml.GetAttribute("description");
                     break;
-
                 case "subfeature":
                     SubFeatureType = xml.GetAttribute("type");
                     SubFeatureDescription = xml.GetAttribute("description");
                     break;
-
                 case "original":
                     OriginalValue = xml.ReadElementString();
                     break;
-
                 case "variation":
                     VariationValue = xml.ReadElementString();
                     break;
-
                 case "dbReference":
                     PropertyTypes.Clear();
                     PropertyValues.Clear();
                     DBReferenceType = xml.GetAttribute("type");
                     DBReferenceId = xml.GetAttribute("id");
                     break;
-
                 case "property":
                     PropertyTypes.Add(xml.GetAttribute("type"));
                     PropertyValues.Add(xml.GetAttribute("value"));
                     break;
-
-                // NEW: capture isoform target for this feature's location
                 case "location":
                     LocationSequenceId = xml.GetAttribute("sequence");
                     break;
-
                 case "position":
                     OneBasedFeaturePosition = int.Parse(xml.GetAttribute("position"));
                     break;
-
                 case "subposition":
                     OneBasedFeatureSubPosition = int.Parse(xml.GetAttribute("subposition"));
                     break;
-
                 case "begin":
                     OneBasedBeginPosition = int.TryParse(xml.GetAttribute("position"), out outValue) ? (int?)outValue : null;
                     break;
-
                 case "end":
                     OneBasedEndPosition = int.TryParse(xml.GetAttribute("position"), out outValue) ? (int?)outValue : null;
                     break;
-
                 case "sequence":
                     ParseSequenceAttributes(xml);
                     break;
             }
         }
 
-        /// <summary>
-        /// Parses the attributes of the current <entry> element from the provided XmlReader.
-        /// Extracts and stores the values for dataset, created, modified, version, and xmlns attributes.
-        /// </summary>
         private void ParseEntryAttributes(XmlReader xml)
         {
             DatasetEntryTag = xml.GetAttribute("dataset");
@@ -180,19 +157,7 @@ namespace UsefulProteomicsDatabases
             DatabaseVersionEntryTag = xml.GetAttribute("version");
             XmlnsEntryTag = xml.GetAttribute("xmlns");
         }
-        /// <summary>
-        /// Parses some attributes of a &lt;sequence&gt; XML element and assigns their values to the corresponding properties of the ProteinXmlEntry.
-        /// Note: the Length and Mass of the sequence are computed based on the sequence string after parsing it.
-        /// 
-        /// Attribute definitions:
-        /// - length: (string) The length of the protein sequence.
-        /// - mass: (string) The mass of the protein sequence.
-        /// - checksum: (string) The checksum value for the sequence.
-        /// - modified: (string) The date the sequence was last modified.
-        /// - version: (string) The version of the sequence.
-        /// - precursor: (string) Indicates if the sequence is a precursor.
-        /// - fragment: (FragmentType) Indicates the type of fragment (unspecified, single, multiple).
-        /// </summary>
+
         private void ParseSequenceAttributes(XmlReader xml)
         {
             string checksumAttr = xml.GetAttribute("checksum");
@@ -207,19 +172,13 @@ namespace UsefulProteomicsDatabases
             bool isPrecursor = ParseIsPrecursor(precursorAttr);
             UniProtSequenceAttributes.FragmentType fragment = ParseFragmentType(fragmentAttrString);
 
-            // Read sequence and compute length/mass
             Sequence = SubstituteWhitespace.Replace(xml.ReadElementString(), "");
             int length = Sequence.Length;
             int mass = ComputeSequenceMass(Sequence);
 
             SequenceAttributes = new UniProtSequenceAttributes(length, mass, checksum, entryModified, sequenceVersion, isPrecursor, fragment);
-
         }
-        // Helper method to parse the modified date attribute, with fallback to DateTime.Now if parsing fails.
-        /// <summary>
-        /// Parses the modified date attribute from the sequence element.
-        /// Returns DateTime.Now if parsing fails or the attribute is missing.
-        /// </summary>
+
         private static DateTime ParseModifiedDate(string modifiedAttr)
         {
             if (!string.IsNullOrEmpty(modifiedAttr))
@@ -230,18 +189,12 @@ namespace UsefulProteomicsDatabases
                 }
                 catch
                 {
-                    // Parsing failed; falling back to current date.
-                    System.Diagnostics.Trace.TraceWarning($"Warning: Failed to parse modified date '{modifiedAttr}'. Using DateTime.Now.");
+                    Trace.TraceWarning($"Warning: Failed to parse modified date '{modifiedAttr}'. Using DateTime.Now.");
                 }
             }
             return DateTime.Now;
         }
 
-        // Helper method to parse the sequence version attribute.
-        /// <summary>
-        /// Parses the version attribute from the sequence element.
-        /// Returns -1 if parsing fails or the attribute is missing.
-        /// </summary>
         private static int ParseSequenceVersion(string versionAttr)
         {
             if (int.TryParse(versionAttr, out int version))
@@ -251,21 +204,11 @@ namespace UsefulProteomicsDatabases
             return -1;
         }
 
-        // Helper method to parse the precursor attribute.
-        /// <summary>
-        /// Parses the precursor attribute from the sequence element.
-        /// Returns false if the attribute is missing or not "true".
-        /// </summary>
         private static bool ParseIsPrecursor(string precursorAttr)
         {
             return !string.IsNullOrEmpty(precursorAttr) && precursorAttr.Equals("true", StringComparison.OrdinalIgnoreCase);
         }
 
-        // Helper method to parse the fragment type attribute.
-        /// <summary>
-        /// Parses the fragment attribute from the sequence element.
-        /// Returns FragmentType.unspecified if parsing fails or the attribute is missing.
-        /// </summary>
         private static UniProtSequenceAttributes.FragmentType ParseFragmentType(string fragmentAttr)
         {
             if (!string.IsNullOrEmpty(fragmentAttr) &&
@@ -276,20 +219,13 @@ namespace UsefulProteomicsDatabases
             return UniProtSequenceAttributes.FragmentType.unspecified;
         }
 
-        // Helper method to compute the monoisotopic mass of a sequence.
-        /// <summary>
-        /// Computes the monoisotopic mass of the given sequence.
-        /// Returns 0 if the sequence is empty.
-        /// </summary>
         private static int ComputeSequenceMass(string sequence)
         {
             if (string.IsNullOrEmpty(sequence))
                 return 0;
             return (int)Math.Round(new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>()).MonoisotopicMass);
         }
-        /// <summary>
-        /// Finish parsing at the end of an element
-        /// </summary>
+
         public Protein ParseEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications,
             bool isContaminant, string proteinDbLocation)
         {
@@ -353,17 +289,16 @@ namespace UsefulProteomicsDatabases
             return result;
         }
 
-        /// <summary>
-        /// Finish parsing an entry
-        /// </summary>
-        public Protein ParseEntryEndElement(XmlReader xml, bool isContaminant, string proteinDbLocation, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
+        public Protein ParseEntryEndElement(XmlReader xml, bool isContaminant, string proteinDbLocation,
+            IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
         {
             Protein result = null;
             if (Accession != null && Sequence != null)
             {
-                // sanitize the sequence to replace unexpected characters with X (unknown amino acid)
-                // sometimes strange characters get added by RNA sequencing software, etc.
                 Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
+
+                // NEW: prune any sequence variants whose coordinates exceed the now-known sequence length
+                PruneOutOfRangeSequenceVariants();
 
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
                 result = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
@@ -380,9 +315,10 @@ namespace UsefulProteomicsDatabases
             RNA result = null;
             if (Accession != null && Sequence != null)
             {
-                // sanitize the sequence to replace unexpected characters with X (unknown amino acid)
-                // sometimes strange characters get added by RNA sequencing software, etc.
                 Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
+
+                // Prune for RNA as well (shared logic)
+                PruneOutOfRangeSequenceVariants();
 
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
                 result = new RNA(Sequence, Accession, OneBasedModifications, null, null, Name, Organism, rnaDbLocation,
@@ -392,9 +328,6 @@ namespace UsefulProteomicsDatabases
             return result;
         }
 
-        /// <summary>
-        /// Finish parsing a subfeature element
-        /// </summary>
         public void ParseSubFeatureEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
         {
             if (SubFeatureType == "modified residue")
@@ -404,16 +337,11 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-        /// <summary>
-        /// Finish parsing a feature element
-        /// </summary>
         public void ParseFeatureEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
         {
             if (FeatureType == "modified residue")
             {
                 FeatureDescription = FeatureDescription.Split(';')[0];
-                //Historically, amino acid substitutions have been annotated as modifications in UniProt XML files.
-                // These are now handled as sequence variants. So we will want to convert those modifications to sequence variants instead.
                 AnnotatedMods.Add((OneBasedFeaturePosition, FeatureDescription));
             }
             else if (FeatureType == "lipid moiety-binding region")
@@ -424,7 +352,6 @@ namespace UsefulProteomicsDatabases
             else if (FeatureType == "peptide" || FeatureType == "propeptide" || FeatureType == "chain" || FeatureType == "signal peptide")
             {
                 string type = FeatureType;
-                //next we are going to add test descrbing the begin and end positions (if any) of the feature. This results in increased information in the output about feature location in the protein
                 if (OneBasedBeginPosition.HasValue)
                 {
                     type = type + "(" + (int)OneBasedBeginPosition.Value;
@@ -445,14 +372,13 @@ namespace UsefulProteomicsDatabases
                     }
                     else
                     {
-                        type += ("null-null");
+                        type += "null-null";
                     }
                 }
                 ProteolysisProducts.Add(new TruncationProduct(OneBasedBeginPosition, OneBasedEndPosition, type));
             }
-            else if (FeatureType == "sequence variant" && VariationValue != null && VariationValue != "") // Only keep if there is variant sequence information and position information
+            else if (FeatureType == "sequence variant" && VariationValue != null && VariationValue != "")
             {
-                // NEW: filter out variants that refer to other isoforms (e.g., sequence="Q96J88-3")
                 bool appliesToThisSequence = true;
                 if (!string.IsNullOrEmpty(LocationSequenceId))
                 {
@@ -466,18 +392,8 @@ namespace UsefulProteomicsDatabases
                 {
                     ParseAnnotatedMods(OneBasedVariantModifications, modTypesToExclude, unknownModifications, AnnotatedVariantMods);
 
-                    // Validate that the begin position does not exceed the protein length
-                    int proteinLength = Sequence?.Length ?? 0;
-                    if (OneBasedBeginPosition != null && OneBasedBeginPosition > proteinLength)
-                    {
-                        // Skip invalid variant
-                        return;
-                    }
-                    if (OneBasedFeaturePosition > proteinLength)
-                    {
-                        // Skip invalid variant
-                        return;
-                    }
+                    // NOTE: We can NOT validate coordinate vs sequence length here because sequence is usually parsed later.
+                    // Validation is deferred to PruneOutOfRangeSequenceVariants() during ParseEntryEndElement.
 
                     if (OneBasedBeginPosition != null && OneBasedEndPosition != null)
                     {
@@ -506,7 +422,6 @@ namespace UsefulProteomicsDatabases
                     AnnotatedVariantMods = new List<(int, string)>();
                     OneBasedVariantModifications = new Dictionary<int, List<Modification>>();
                 }
-                // else: variant points to another isoform; discard
             }
             else if (FeatureType == "disulfide bond")
             {
@@ -530,19 +445,15 @@ namespace UsefulProteomicsDatabases
                     SpliceSites.Add(new SpliceSite(OneBasedFeaturePosition, FeatureDescription));
                 }
             }
+
             OneBasedBeginPosition = null;
             OneBasedEndPosition = null;
             OneBasedFeaturePosition = -1;
             OriginalValue = "";
             VariationValue = "";
-            // NEW: reset per-feature location sequence id
             LocationSequenceId = null;
         }
 
-        /// <summary>
-        /// Finish parsing a database reference element
-        /// </summary>
-        /// <param name="xml"></param>
         private void ParseDatabaseReferenceEndElement(XmlReader xml)
         {
             DatabaseReferences.Add(
@@ -554,9 +465,6 @@ namespace UsefulProteomicsDatabases
             DBReferenceId = null;
         }
 
-        /// <summary>
-        /// Clear this object's properties
-        /// </summary>
         private void Clear()
         {
             DatasetEntryTag = null;
@@ -592,8 +500,24 @@ namespace UsefulProteomicsDatabases
             GeneNames = new List<Tuple<string, string>>();
             ReadingGene = false;
             ReadingOrganism = false;
-            // NEW: clear captured location sequence id
             LocationSequenceId = null;
+            AnnotatedVariantMods = new List<(int, string)>();
+            OneBasedVariantModifications = new Dictionary<int, List<Modification>>();
+        }
+
+        private void PruneOutOfRangeSequenceVariants()
+        {
+            if (string.IsNullOrEmpty(Sequence) || SequenceVariations.Count == 0)
+                return;
+
+            int len = Sequence.Length;
+            int removed = SequenceVariations.RemoveAll(v =>
+                v.OneBasedBeginPosition > len || v.OneBasedEndPosition > len);
+
+            if (removed > 0)
+            {
+                Trace.TraceWarning($"Pruned {removed} out-of-range sequence variant(s) for accession {Accession} (protein length {len}).");
+            }
         }
 
         private static void ParseAnnotatedMods(
@@ -604,7 +528,6 @@ namespace UsefulProteomicsDatabases
         {
             foreach (var (annotatedModLocation, annotatedId) in annotatedMods)
             {
-                // First try exact IdWithMotif
                 if (ProteinDbLoader.IdWithMotifToMod.TryGetValue(annotatedId, out Modification foundMod)
                     || RnaDbLoader.IdWithMotifToMod.TryGetValue(annotatedId, out foundMod))
                 {
@@ -620,7 +543,6 @@ namespace UsefulProteomicsDatabases
                         }
                     }
                 }
-                // Then try Id without motif (list of possible mods)
                 else if (ProteinDbLoader.IdToPossibleMods.TryGetValue(annotatedId, out IList<Modification> mods)
                          || RnaDbLoader.IdToPossibleMods.TryGetValue(annotatedId, out mods))
                 {
@@ -640,7 +562,6 @@ namespace UsefulProteomicsDatabases
                         }
                     }
                 }
-                // Unknown mod id; record once
                 else
                 {
                     if (!unknownModifications.ContainsKey(annotatedId))
