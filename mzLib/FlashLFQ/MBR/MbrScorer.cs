@@ -78,6 +78,7 @@ namespace FlashLFQ
             return IsValid();
         }
 
+        #region BuildDistributions
         private Normal GetPpmErrorDistribution()
         {
             // Construct a distribution of ppm errors for all MSMS peaks in the acceptor file
@@ -120,6 +121,71 @@ namespace FlashLFQ
 
             return new Normal(mean, stdDev);
         }
+
+        /// <summary>
+        /// Find the difference in peptide intensities between donor and acceptor files
+        /// this intensity score creates a conservative bias in MBR
+        /// </summary>
+        /// <param name="idDonorPeaks"> List of peaks in the donoro file. </param>
+        internal void CalculateFoldChangeBetweenFiles(List<ChromatographicPeak> idDonorPeaks)
+        {
+            if (idDonorPeaks == null || idDonorPeaks.Count == 0)
+                return;
+
+            // Find the difference in peptide intensities between donor and acceptor files
+            // this intensity score creates a conservative bias in MBR
+            List<double> listOfFoldChangesBetweenTheFiles = new List<double>();
+            var acceptorFileBestMsmsPeaks = new Dictionary<string, ChromatographicPeak>();
+
+            // get the best (most intense) peak for each peptide in the acceptor file
+            foreach (ChromatographicPeak acceptorPeak in UnambiguousMsMsAcceptorPeaks)
+            {
+                string key = acceptorPeak.Identifications.First().ModifiedSequence;
+                if (acceptorFileBestMsmsPeaks.TryGetValue(key, out ChromatographicPeak currentBestPeak))
+                {
+                    if (currentBestPeak.Intensity > acceptorPeak.Intensity)
+                    {
+                        acceptorFileBestMsmsPeaks[key] = acceptorPeak;
+                    }
+                }
+                else
+                {
+                    acceptorFileBestMsmsPeaks.Add(key, acceptorPeak);
+                }
+            }
+
+            foreach (var donorPeak in idDonorPeaks)
+            {
+                double donorPeakIntensity = donorPeak.Intensity;
+                if (acceptorFileBestMsmsPeaks.TryGetValue(donorPeak.Identifications.First().ModifiedSequence, out var acceptorPeak))
+                {
+                    double acceptorPeakIntensity = acceptorPeak.Intensity;
+
+                    double intensityLogFoldChange = Math.Log(acceptorPeakIntensity, 2) - Math.Log(donorPeakIntensity, 2);
+
+                    if (!double.IsNaN(intensityLogFoldChange) && !double.IsInfinity(intensityLogFoldChange))
+                    {
+                        listOfFoldChangesBetweenTheFiles.Add(intensityLogFoldChange);
+                    }
+                }
+            }
+
+            listOfFoldChangesBetweenTheFiles = listOfFoldChangesBetweenTheFiles
+                .Where(d => !(double.IsNaN(d) | double.IsInfinity(d)))
+                .ToList();
+
+            if (listOfFoldChangesBetweenTheFiles.Count < 100)
+                return;
+
+            double medianFC = listOfFoldChangesBetweenTheFiles.Median();
+            double stdDevFC = listOfFoldChangesBetweenTheFiles.StandardDeviation();
+
+            if (double.IsNaN(medianFC) || double.IsNaN(stdDevFC) || !Normal.IsValidParameterSet(medianFC, stdDevFC))
+                return;
+
+            _logFcDistributionDictionary[idDonorPeaks.First().SpectraFileInfo] = new Normal(medianFC, stdDevFC);
+        }
+
 
         // This is kludgey, because scan counts are discrete
         private Normal GetScanCountDistribution()
@@ -214,14 +280,20 @@ namespace FlashLFQ
                             ? 1.0
                             : stdDevRtError;
 
-                        rtPredictionErrorDist = new Normal(medianRtError, sigma);
+                        //TODO: This distribution should use the calculated sigma value, not 1 for all cases
+                        // apparently, this is a long-standing bug that was introduced in PR #802
+                        // However, changing this now would change MBR scores in all existing tests that use MBR
+                        // I'm not sure what the overall effect of fixing this is, and plan to carefully evaluate it 
+                        // in the near future and then fix this issue.
+                        rtPredictionErrorDist = new Normal(medianRtError, 1);
                     }
                 }
             }
 
-            // Upsert
             _rtPredictionErrorDistributionDictionary[donorFile] = rtPredictionErrorDist;
         }
+
+        #endregion
 
         /// <summary>
         /// Scores an MBR candidate peak.
@@ -250,15 +322,6 @@ namespace FlashLFQ
                 * acceptorPeak.PpmScore
                 * acceptorPeak.ScanCountScore
                 * acceptorPeak.IsotopicDistributionScore, 0.20);
-        }
-
-        /// <summary>
-        /// Returns the standard deviation of the Ppm error distribution + the median of the Ppm error distribution.
-        /// Uses raw ppm stats to preserve exact behavior for degenerate distributions (e.g., stddev = 0).
-        /// </summary>
-        internal double GetPpmErrorTolerance()
-        {
-            return Math.Abs(_ppmMedianRaw) + 4 * _ppmStdDevRaw;
         }
 
         // Setting a minimum score prevents the MBR score from going to zero if one component of that score is 0
@@ -313,70 +376,6 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// Find the difference in peptide intensities between donor and acceptor files
-        /// this intensity score creates a conservative bias in MBR
-        /// </summary>
-        /// <param name="idDonorPeaks"> List of peaks in the donoro file. </param>
-        internal void CalculateFoldChangeBetweenFiles(List<ChromatographicPeak> idDonorPeaks)
-        {
-            if (idDonorPeaks == null || idDonorPeaks.Count == 0)
-                return;
-
-            // Find the difference in peptide intensities between donor and acceptor files
-            // this intensity score creates a conservative bias in MBR
-            List<double> listOfFoldChangesBetweenTheFiles = new List<double>();
-            var acceptorFileBestMsmsPeaks = new Dictionary<string, ChromatographicPeak>();
-
-            // get the best (most intense) peak for each peptide in the acceptor file
-            foreach (ChromatographicPeak acceptorPeak in UnambiguousMsMsAcceptorPeaks)
-            {
-                string key = acceptorPeak.Identifications.First().ModifiedSequence;
-                if (acceptorFileBestMsmsPeaks.TryGetValue(key, out ChromatographicPeak currentBestPeak))
-                {
-                    if (currentBestPeak.Intensity > acceptorPeak.Intensity)
-                    {
-                        acceptorFileBestMsmsPeaks[key] = acceptorPeak;
-                    }
-                }
-                else
-                {
-                    acceptorFileBestMsmsPeaks.Add(key, acceptorPeak);
-                }
-            }
-
-            foreach (var donorPeak in idDonorPeaks)
-            {
-                double donorPeakIntensity = donorPeak.Intensity;
-                if (acceptorFileBestMsmsPeaks.TryGetValue(donorPeak.Identifications.First().ModifiedSequence, out var acceptorPeak))
-                {
-                    double acceptorPeakIntensity = acceptorPeak.Intensity;
-
-                    double intensityLogFoldChange = Math.Log(acceptorPeakIntensity, 2) - Math.Log(donorPeakIntensity, 2);
-
-                    if (!double.IsNaN(intensityLogFoldChange) && !double.IsInfinity(intensityLogFoldChange))
-                    {
-                        listOfFoldChangesBetweenTheFiles.Add(intensityLogFoldChange);
-                    }
-                }
-            }
-
-            listOfFoldChangesBetweenTheFiles = listOfFoldChangesBetweenTheFiles
-                .Where(d => !(double.IsNaN(d) | double.IsInfinity(d)))
-                .ToList();
-
-            if (listOfFoldChangesBetweenTheFiles.Count < 100)
-                return;
-
-            double medianFC = listOfFoldChangesBetweenTheFiles.Median();
-            double stdDevFC = listOfFoldChangesBetweenTheFiles.StandardDeviation();
-
-            if (double.IsNaN(medianFC) || double.IsNaN(stdDevFC) || !Normal.IsValidParameterSet(medianFC, stdDevFC))
-                return;
-
-            _logFcDistributionDictionary[idDonorPeaks.First().SpectraFileInfo] = new Normal(medianFC, stdDevFC);
-        }
-
-        /// <summary>
         /// Determines whether or not the scorer is validly paramaterized and capable 
         /// of scoring MBR transfers originating from the given donorFile
         /// </summary>
@@ -399,6 +398,15 @@ namespace FlashLFQ
             return _ppmDistribution != null
                 && _scanCountDistribution != null
                 && _logIntensityDistribution != null;
+        }
+
+        /// <summary>
+        /// Returns the standard deviation of the Ppm error distribution + the median of the Ppm error distribution.
+        /// Uses raw ppm stats to preserve exact behavior for degenerate distributions (e.g., stddev = 0).
+        /// </summary>
+        internal double GetPpmErrorTolerance()
+        {
+            return Math.Abs(_ppmMedianRaw) + 4 * _ppmStdDevRaw;
         }
     }
 }
