@@ -283,7 +283,7 @@ namespace UsefulProteomicsDatabases
         /// Finish parsing at the end of an element
         /// </summary>
         public Protein ParseEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications,
-            bool isContaminant, string proteinDbLocation)
+            bool isContaminant, string proteinDbLocation, string decoyIdentifier = "DECOY")
         {
             Protein protein = null;
             if (xml.Name == "feature")
@@ -308,14 +308,14 @@ namespace UsefulProteomicsDatabases
             }
             else if (xml.Name == "entry")
             {
-                protein = ParseEntryEndElement(xml, isContaminant, proteinDbLocation, modTypesToExclude, unknownModifications);
+                protein = ParseEntryEndElement(xml, isContaminant, proteinDbLocation, modTypesToExclude, unknownModifications, decoyIdentifier);
             }
             return protein;
         }
 
         internal RNA ParseRnaEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude,
             Dictionary<string, Modification> unknownModifications,
-            bool isContaminant, string rnaDbLocation)
+            bool isContaminant, string rnaDbLocation, string decoyIdentifier = "DECOY")
         {
             RNA result = null;
             if (xml.Name == "feature")
@@ -340,7 +340,7 @@ namespace UsefulProteomicsDatabases
             }
             else if (xml.Name == "entry")
             {
-                result = ParseRnaEntryEndElement(xml, isContaminant, rnaDbLocation, modTypesToExclude, unknownModifications);
+                result = ParseRnaEntryEndElement(xml, isContaminant, rnaDbLocation, modTypesToExclude, unknownModifications, decoyIdentifier);
             }
             return result;
         }
@@ -348,9 +348,10 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Finish parsing an entry
         /// </summary>
-        public Protein ParseEntryEndElement(XmlReader xml, bool isContaminant, string proteinDbLocation, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
+        public Protein ParseEntryEndElement(XmlReader xml, bool isContaminant, string proteinDbLocation, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications, string decoyIdentifier = "DECOY")
         {
             Protein result = null;
+            bool isDecoy = false;
             if (Accession != null && Sequence != null)
             {
                 // sanitize the sequence to replace unexpected characters with X (unknown amino acid)
@@ -358,8 +359,12 @@ namespace UsefulProteomicsDatabases
                 Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
 
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
+                if (Accession.StartsWith(decoyIdentifier))
+                {
+                    isDecoy = true;
+                }
                 result = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
-                    false, isContaminant, DatabaseReferences, SequenceVariations, null, null, DisulfideBonds, SpliceSites, proteinDbLocation,
+                    isDecoy, isContaminant, DatabaseReferences, SequenceVariations, null, null, DisulfideBonds, SpliceSites, proteinDbLocation,
                     false, DatasetEntryTag, DatabaseCreatedEntryTag, DatabaseModifiedEntryTag, DatabaseVersionEntryTag, XmlnsEntryTag, SequenceAttributes);
             }
             Clear();
@@ -367,18 +372,23 @@ namespace UsefulProteomicsDatabases
         }
 
         internal RNA ParseRnaEntryEndElement(XmlReader xml, bool isContaminant, string rnaDbLocation,
-            IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
+            IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications, string decoyIdentifier = "DECOY")
         {
             RNA result = null;
+            bool isDecoy = false;
             if (Accession != null && Sequence != null)
             {
                 // sanitize the sequence to replace unexpected characters with X (unknown amino acid)
                 // sometimes strange characters get added by RNA sequencing software, etc.
                 Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
+                if (Accession.StartsWith(decoyIdentifier))
+                {
+                    isDecoy = true;
+                }
 
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
                 result = new RNA(Sequence, Accession, OneBasedModifications, null, null, Name, Organism, rnaDbLocation,
-                    isContaminant, false, GeneNames, [], ProteolysisProducts, SequenceVariations, null, null, FullName);
+                    isContaminant, isDecoy, GeneNames, [], ProteolysisProducts, SequenceVariations, null, null, FullName);
             }
             Clear();
             return result;
