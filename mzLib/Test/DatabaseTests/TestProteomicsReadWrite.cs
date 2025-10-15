@@ -272,6 +272,33 @@ namespace Test.DatabaseTests
         }
 
         [Test]
+        public void AddModsDirectlyToProteinDbWriter()
+        {
+            ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
+            Modification m = new Modification("mod", null, "mt", null, motif, "Anywhere.", null, 1, null, null, null, new Dictionary<DissociationType, List<double>>() { { DissociationType.AnyActivationType, new List<double> { -1 } } }, null, null);
+            Dictionary<string, HashSet<Tuple<int, Modification>>> new_mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>
+            {
+                {  "P62805", new HashSet<Tuple<int, Modification>> {new Tuple<int, Modification>(6, m ) } }
+            };
+            List<Protein> ok = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"), true, DecoyType.None, false, out var a,
+                ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
+                ProteinDbLoader.UniprotOrganismRegex);
+            var newModResEntries = ProteinDbWriter.WriteXmlDatabase(new_mods, ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_fasta.xml"));
+            Assert.AreEqual(1, newModResEntries.Count);
+            var key = newModResEntries.Keys.First();
+            var value = newModResEntries[key];
+            Assert.AreEqual("P62805", new_mods.Keys.First());
+            Assert.AreEqual("mod on K", key);
+            Assert.AreEqual(1, value);
+            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_fasta.xml"), true, DecoyType.None,
+                new List<Modification> { m }, false, new List<string>(), out Dictionary<string, Modification> un);
+            Assert.AreEqual(ok.Count, ok2.Count);
+            Assert.True(Enumerable.Range(0, ok.Count).All(i => ok[i].BaseSequence == ok2[i].BaseSequence));
+            Assert.AreEqual(0, ok[0].OneBasedPossibleLocalizedModifications.Count);
+            Assert.AreEqual(1, ok2[0].OneBasedPossibleLocalizedModifications.Count);
+        }
+
+        [Test]
         public void Test_read_xml_write_read_fasta()
         {
             ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
@@ -342,15 +369,15 @@ namespace Test.DatabaseTests
 
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"), true, DecoyType.None, uniprotPtms.Concat(nice), false, new List<string>(),
                 out Dictionary<string, Modification> un);
-            var newModResEntries = ProteinDbWriter.WriteXmlDatabase(new_mods, ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"));
-            Assert.AreEqual(1, newModResEntries.Count);
+            var newModResEntries = ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"));
+            Assert.AreEqual(0, newModResEntries.Count);
             List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"), true, DecoyType.None,
                 nice, false, new List<string>(), out un);
 
             Assert.AreEqual(ok.Count, ok2.Count);
             Assert.True(Enumerable.Range(0, ok.Count).All(i => ok[i].BaseSequence == ok2[i].BaseSequence));
             Assert.AreEqual(2, ok[0].OneBasedPossibleLocalizedModifications.Count);
-            Assert.AreEqual(3, ok2[0].OneBasedPossibleLocalizedModifications.Count);
+            Assert.AreEqual(2, ok2[0].OneBasedPossibleLocalizedModifications.Count);
         }
 
         [Test]
@@ -380,7 +407,7 @@ namespace Test.DatabaseTests
             var proteinListToWrite = new List<Protein> { p1, p2 };
 
             // Generate data for files
-            ProteinDbWriter.WriteXmlDatabase(null, proteinListToWrite, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"differentlyConstuctedProteins.xml"));
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteinListToWrite, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"differentlyConstuctedProteins.xml"));
 
             IEnumerable<string> modTypesToExclude = new List<string>();
             IEnumerable<Modification> allKnownModifications = new List<Modification>();

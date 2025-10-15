@@ -17,6 +17,7 @@ using Omics.Modifications;
 using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using Transcriptomics;
 
 namespace Test
 {
@@ -430,7 +431,9 @@ namespace Test
         [Test]
         public static void TestCTermAndLastSideChainModParsing()
         {
-            string fullSequence = "PEPTIDE[Mod:MyMod on E][PeptideCTermMod:MyCTermMod on E]";
+            string fullSequenceBothMods = "PEPTIDE[Mod:MyMod on E]-[PeptideCTermMod:MyCTermMod on E]";
+            string fullSequenceCTermOnly = "PEPTIDE-[PeptideCTermMod:MyCTermMod on E]";
+            string fullSequenceSideChainOnly = "PEPTIDE[Mod:MyMod on E]";
 
             ModificationMotif.TryGetMotif("E", out var motif);
 
@@ -446,10 +449,20 @@ namespace Test
                 { "MyCTermMod on E", cTermMod }
             };
 
-            PeptideWithSetModifications pep = new PeptideWithSetModifications(fullSequence, mods);
+            PeptideWithSetModifications pepBothMods = new PeptideWithSetModifications(fullSequenceBothMods, mods);
+            PeptideWithSetModifications pepCterm = new PeptideWithSetModifications(fullSequenceCTermOnly, mods);
+            PeptideWithSetModifications pepSideChain = new PeptideWithSetModifications(fullSequenceSideChainOnly, mods);
 
-            Assert.That(pep.AllModsOneIsNterminus.Count == 2);
-            Assert.That(pep.AllModsOneIsNterminus.Keys.SequenceEqual(new int[] { 8, 9 }));
+            Assert.That(pepBothMods.AllModsOneIsNterminus.Count == 2);
+            Assert.That(pepBothMods.AllModsOneIsNterminus.Keys.SequenceEqual(new int[] { 8, 9 }));
+            Assert.That(pepBothMods.AllModsOneIsNterminus[8].IdWithMotif == "MyMod on E");
+            Assert.That(pepBothMods.AllModsOneIsNterminus[9].IdWithMotif == "MyCTermMod on E");
+            Assert.That(pepCterm.AllModsOneIsNterminus.Count == 1);
+            Assert.That(pepCterm.AllModsOneIsNterminus.Keys.SequenceEqual(new int[] { 9 }));
+            Assert.That(pepCterm.AllModsOneIsNterminus[9].IdWithMotif == "MyCTermMod on E");
+            Assert.That(pepSideChain.AllModsOneIsNterminus.Count == 1);
+            Assert.That(pepSideChain.AllModsOneIsNterminus.Keys.SequenceEqual(new int[] { 8 }));
+            Assert.That(pepSideChain.AllModsOneIsNterminus[8].IdWithMotif == "MyMod on E");
         }
 
         [Test]
@@ -1324,6 +1337,28 @@ namespace Test
                         Assert.Contains(pwsmModification, expectedModifications);
                 }
             }
+        }
+
+        [Test]
+        public static void TestGetSubstitutedFullSequence()
+        {
+            //It should take care of multiple substitutions
+            string test1 = "F[1 nucleotide substitution:F->Y on F]SIMGGGLA[1 nucleotide substitution:A->S on A]DR";
+            string expected1 = "YSIMGGGLSDR";
+            var actual1 = IBioPolymerWithSetMods.ParseSubstitutedFullSequence(test1);
+            Assert.That(actual1, Is.EqualTo(expected1));
+
+            //It should not change other modifications
+            string test2 = "SANH[1 nucleotide substitution:H->L on H]M[Common Variable:Oxidation on M]AGHWVAISGAAGGLGSLAVQYAK";
+            string expected2 = "SANLM[Common Variable:Oxidation on M]AGHWVAISGAAGGLGSLAVQYAK";
+            var actual2 = IBioPolymerWithSetMods.ParseSubstitutedFullSequence(test2);
+            Assert.That(actual2, Is.EqualTo(expected2));
+
+            //It should work on 2 nucleotide substitutions
+            string test3 = "S[2+ nucleotide substitution:S->E on S]AAADRLNLTSGHLNAGR";
+            string expected3 = "EAAADRLNLTSGHLNAGR";
+            var actual3 = IBioPolymerWithSetMods.ParseSubstitutedFullSequence(test3);
+            Assert.That(actual3, Is.EqualTo(expected3));
         }
     }
 }

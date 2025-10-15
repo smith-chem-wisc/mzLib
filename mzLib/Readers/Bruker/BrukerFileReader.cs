@@ -1,11 +1,9 @@
-﻿using System.Collections.ObjectModel;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Text;
 using MassSpectrometry;
 using System.Data.SQLite;
 using Easy.Common.Extensions;
 using MzLibUtil;
-using UsefulProteomicsDatabases;
 
 namespace Readers
 {
@@ -94,10 +92,17 @@ namespace Readers
             return new SourceFile(nativeIdFormat, massSpecFileFormat,
 				null, null, id: null, filePath: fileName);
         }
-		public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams? filterParams = null)
+
+        public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams? filterParams = null)
 		{
-			return GetMsDataScanDynamic(oneBasedScanNumber, filterParams); 
-		}
+            if (CheckIfScansLoaded() && oneBasedScanNumber <= Scans.Length)
+                return GetOneBasedScan(oneBasedScanNumber);
+
+            lock (DynamicReadingLock)
+            {
+                return GetMsDataScanDynamic(oneBasedScanNumber, filterParams);
+            }
+        }
 
 		public override void CloseDynamicConnection()
 		{

@@ -131,21 +131,31 @@ namespace Test.Transcriptomics
                 new Tuple<int, Modification>(3, methylG)
             });
 
+            IDictionary<int, List<Modification>> simpleModDictionary = new Dictionary<int, List<Modification>>();
+            simpleModDictionary.Add(3, new List<Modification>() { methylG });
+            simpleModDictionary.Add(4, new List<Modification>() { methylG });
+
+            RNA newRna = (RNA)rna.First().CloneWithNewSequenceAndMods(
+                "GGGGCUAUAGCUCAGCUGGGAGAGCGCCUGCUUUGCACGCAGGAGGUCUGCGGUUCGAUCCCGCAUAGCUCCACCA",
+                simpleModDictionary);
+            rna.RemoveAt(0);
+            rna.Add(newRna);
             string outpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.xml");
 
-            var xml = ProteinDbWriter.WriteXmlDatabase(mods, rna, outpath);
+            var xml = ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), rna, outpath);
+
             var temp = RnaDbLoader.LoadRnaXML(outpath, true, DecoyType.None, false,
                 new List<Modification>() { methylG }, new List<string>(), out var unknownMods);
 
             Assert.That(unknownMods.Count, Is.EqualTo(0));
             Assert.That(temp.Count, Is.EqualTo(5));
-            var first = temp.First();
+            var first = temp.Last();
             var loadedMods = first.OneBasedPossibleLocalizedModifications;
             Assert.That(loadedMods.Count, Is.EqualTo(2));
-            Assert.That(loadedMods[1].Count, Is.EqualTo(1));
             Assert.That(loadedMods[3].Count, Is.EqualTo(1));
-            Assert.That(loadedMods[1].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
+            Assert.That(loadedMods[4].Count, Is.EqualTo(1));
             Assert.That(loadedMods[3].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
+            Assert.That(loadedMods[4].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
         }
 
         [Test]
@@ -164,22 +174,30 @@ namespace Test.Transcriptomics
                 new Tuple<int, Modification>(1, methylG),
                 new Tuple<int, Modification>(3, methylG)
             });
+            IDictionary<int, List<Modification>> simpleModDictionary = new Dictionary<int, List<Modification>>();
+            simpleModDictionary.Add(3, new List<Modification>() { methylG });
+            simpleModDictionary.Add(4, new List<Modification>() { methylG });
 
+            RNA newRna = (RNA)rna.First().CloneWithNewSequenceAndMods(
+                "GGGGCUAUAGCUCAGCUGGGAGAGCGCCUGCUUUGCACGCAGGAGGUCUGCGGUUCGAUCCCGCAUAGCUCCACCA",
+                simpleModDictionary);
+            rna.RemoveAt(0);
+            rna.Add(newRna);
             string outpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed2.xml");
 
-            var xml = ProteinDbWriter.WriteXmlDatabase(mods, rna, outpath);
+            var xml = ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), rna, outpath);
             var temp = RnaDbLoader.LoadRnaXML(outpath, true, DecoyType.None, false,
                 new List<Modification>() { methylG }, new List<string>(), out var unknownMods);
 
             Assert.That(unknownMods.Count, Is.EqualTo(0));
             Assert.That(temp.Count, Is.EqualTo(5));
-            var first = temp.First();
+            var first = temp.Last();
             var loadedMods = first.OneBasedPossibleLocalizedModifications;
             Assert.That(loadedMods.Count, Is.EqualTo(2));
-            Assert.That(loadedMods[1].Count, Is.EqualTo(1));
             Assert.That(loadedMods[3].Count, Is.EqualTo(1));
-            Assert.That(loadedMods[1].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
+            Assert.That(loadedMods[4].Count, Is.EqualTo(1));
             Assert.That(loadedMods[3].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
+            Assert.That(loadedMods[4].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
         }
 
         [Test]
@@ -199,7 +217,7 @@ namespace Test.Transcriptomics
             });
 
             string outpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed2.xml");
-            var xml = ProteinDbWriter.WriteXmlDatabase(mods, rna, outpath);
+            var xml = ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), rna, outpath);
             rna = RnaDbLoader.LoadRnaXML(outpath, true, DecoyType.Reverse, false,
                 new List<Modification>() { methylG }, new List<string>(), out var unknownMods, decoyIdentifier: "rev");
 
@@ -314,5 +332,70 @@ namespace Test.Transcriptomics
             Assert.That(first.AdditionalDatabaseFields!["Chromosome"], Is.EqualTo("1"));
         }
 
+        [Test]
+        public static void DecoyWritingLoading_Fasta()
+        {
+            var oligos = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifedFastaPath, true, DecoyType.Reverse, true, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            int targetCount = oligos.Count(p => !p.IsDecoy);
+            int decoyCount = oligos.Count(p => p.IsDecoy);
+            Assert.That(targetCount, Is.EqualTo(5));
+            Assert.That(decoyCount, Is.EqualTo(5));
+
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"Transcriptomics/TestData/ModomicsUnmodifiedTrimmed_decoy.fasta");
+            
+            ProteinDbWriter.WriteFastaDatabase(oligos, fastapath);
+            var readIn = RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.None, false, out var errors2);
+            Assert.That(errors2.Count, Is.EqualTo(0));
+
+            int readInTargetCount = readIn.Count(p => !p.IsDecoy);
+            int readInDecoyCount = readIn.Count(p => p.IsDecoy);
+            Assert.That(readInTargetCount, Is.EqualTo(5));
+            Assert.That(readInDecoyCount, Is.EqualTo(5));
+
+
+            var readInWithDecoyGeneration = RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.Reverse, false, out var errors3);
+            Assert.That(errors3.Count, Is.EqualTo(0));
+            readInTargetCount = readInWithDecoyGeneration.Count(p => !p.IsDecoy);
+            readInDecoyCount = readInWithDecoyGeneration.Count(p => p.IsDecoy);
+            Assert.That(readInTargetCount, Is.EqualTo(5));
+            Assert.That(readInDecoyCount, Is.EqualTo(5));
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void DecoyWritingLoading_Xml()
+        {
+            var oligos = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifedFastaPath, true, DecoyType.Reverse, true, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            int targetCount = oligos.Count(p => !p.IsDecoy);
+            int decoyCount = oligos.Count(p => p.IsDecoy);
+            Assert.That(targetCount, Is.EqualTo(5));
+            Assert.That(decoyCount, Is.EqualTo(5));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"Transcriptomics/TestData/ModomicsUnmodifiedTrimmed_decoy.xml");
+
+            ProteinDbWriter.WriteXmlDatabase([], oligos, xmlPath);
+            var readIn = RnaDbLoader.LoadRnaXML(xmlPath, true, DecoyType.None, false, new List<Modification>(), new List<string>(), out var errors2);
+            Assert.That(errors2.Count, Is.EqualTo(0));
+
+            int readInTargetCount = readIn.Count(p => !p.IsDecoy);
+            int readInDecoyCount = readIn.Count(p => p.IsDecoy);
+            Assert.That(readInTargetCount, Is.EqualTo(5));
+            Assert.That(readInDecoyCount, Is.EqualTo(5));
+
+
+            var readInWithDecoyGeneration = RnaDbLoader.LoadRnaXML(xmlPath, true, DecoyType.Reverse, false, new List<Modification>(), new List<string>(), out var errors3);
+            Assert.That(errors3.Count, Is.EqualTo(0));
+            readInTargetCount = readInWithDecoyGeneration.Count(p => !p.IsDecoy);
+            readInDecoyCount = readInWithDecoyGeneration.Count(p => p.IsDecoy);
+            Assert.That(readInTargetCount, Is.EqualTo(5));
+            Assert.That(readInDecoyCount, Is.EqualTo(5));
+
+            File.Delete(xmlPath);
+        }
     }
 }

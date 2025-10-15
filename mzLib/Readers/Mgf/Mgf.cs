@@ -1,12 +1,7 @@
 ﻿using MassSpectrometry;
 using MzLibUtil;
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Text.RegularExpressions;
-using UsefulProteomicsDatabases;
 
 // old namespace to ensure backwards compatibility
 namespace IO.Mgf
@@ -87,22 +82,28 @@ namespace Readers
 
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int scanNumber, IFilteringParams filterParams = null)
         {
-            if (_streamReader == null)
-            {
-                throw new MzLibException("Cannot get scan; the dynamic data connection to " + FilePath + " has been closed!");
-            }
+            if (CheckIfScansLoaded() && scanNumber <= IndexedScans.Length)
+                return GetOneBasedScan(scanNumber);
 
-            if (_scanByteOffset.TryGetValue(scanNumber, out long byteOffset))
+            lock (DynamicReadingLock)
             {
-                // seek to the byte of the scan
-                _streamReader.BaseStream.Position = byteOffset;
-                _streamReader.DiscardBufferedData();
+                if (_streamReader == null)
+                {
+                    throw new MzLibException("Cannot get scan; the dynamic data connection to " + FilePath + " has been closed!");
+                }
 
-                return Mgf.GetNextMsDataOneBasedScanFromConnection(_streamReader, new HashSet<int>(), filterParams, scanNumber);
-            }
-            else
-            {
-                throw new MzLibException("The specified scan number: " + scanNumber + " does not exist in " + FilePath);
+                if (_scanByteOffset.TryGetValue(scanNumber, out long byteOffset))
+                {
+                    // seek to the byte of the scan
+                    _streamReader.BaseStream.Position = byteOffset;
+                    _streamReader.DiscardBufferedData();
+
+                    return Mgf.GetNextMsDataOneBasedScanFromConnection(_streamReader, new HashSet<int>(), filterParams, scanNumber);
+                }
+                else
+                {
+                    throw new MzLibException("The specified scan number: " + scanNumber + " does not exist in " + FilePath);
+                }
             }
         }
 

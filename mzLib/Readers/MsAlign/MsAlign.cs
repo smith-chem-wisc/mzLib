@@ -186,22 +186,28 @@ public class MsAlign : MsDataFile
 
     public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
     {
-        if (_streamReader == null)
-        {
-            throw new MzLibException("Cannot get scan; the dynamic data connection to " + FilePath + " has been closed!");
-        }
+        if (CheckIfScansLoaded() && oneBasedScanNumber <= IndexedScans.Length)
+            return GetOneBasedScan(oneBasedScanNumber);
 
-        if (_scanByteOffset.TryGetValue(oneBasedScanNumber, out long byteOffset))
+        lock (DynamicReadingLock)
         {
-            // seek to the byte of the scan
-            _streamReader.BaseStream.Position = byteOffset;
-            _streamReader.DiscardBufferedData();
+            if (_streamReader == null)
+            {
+                throw new MzLibException("Cannot get scan; the dynamic data connection to " + FilePath + " has been closed!");
+            }
 
-            return GetNextMsDataOneBasedScanFromConnection(_streamReader, filterParams);
-        }
-        else
-        {
-            throw new MzLibException("The specified scan number: " + oneBasedScanNumber + " does not exist in " + FilePath);
+            if (_scanByteOffset.TryGetValue(oneBasedScanNumber, out long byteOffset))
+            {
+                // seek to the byte of the scan
+                _streamReader.BaseStream.Position = byteOffset;
+                _streamReader.DiscardBufferedData();
+
+                return GetNextMsDataOneBasedScanFromConnection(_streamReader, filterParams);
+            }
+            else
+            {
+                throw new MzLibException("The specified scan number: " + oneBasedScanNumber + " does not exist in " + FilePath);
+            }
         }
     }
 

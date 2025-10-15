@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Text.RegularExpressions;
 using Chemistry;
 using MassSpectrometry;
 using Omics.Digestion;
@@ -45,10 +46,10 @@ namespace Omics
         IBioPolymer Parent { get; }
 
         public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus,
-            List<Product> products);
+            List<Product> products, FragmentationParams? fragmentationParams = null);
 
         public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments,
-            List<Product> products);
+            List<Product> products, FragmentationParams? fragmentationParams = null);
 
         /// <summary>
         /// Outputs a duplicate IBioPolymerWithSetMods with a localized mass shift, replacing a modification when present
@@ -61,7 +62,7 @@ namespace Omics
         /// <returns></returns>
         public IBioPolymerWithSetMods Localize(int indexOfMass, double massToLocalize);
 
-        public static string GetBaseSequenceFromFullSequence(string fullSequence, char modStartDelimiter = '[', char modEndDelimiter = ']')
+        public static string GetBaseSequenceFromFullSequence(string fullSequence, char modStartDelimiter = '[', char modEndDelimiter = ']', char cTerminusDelimiter = '-')
         {
             StringBuilder sb = new StringBuilder();
             int bracketCount = 0;
@@ -74,6 +75,10 @@ namespace Omics
                 else if (c == modEndDelimiter)
                 {
                     bracketCount--;
+                }
+                else if (c == cTerminusDelimiter)
+                {
+                    continue;
                 }
                 else if (bracketCount == 0)
                 {
@@ -137,7 +142,10 @@ namespace Omics
                             throw new MzLibUtil.MzLibException(
                                 "Could not find modification while reading string: " + fullSequence);
                         }
-                        if (mod.LocationRestriction.Contains("C-terminal.") && r == fullSequence.Length - 1)
+                        // Set the C-terminus modification index to its OneIsNTerminus Index.
+                        // Checks if the location restriction for the mod contains C-terminal' (for protein and peptide BioPolymer objects)
+                        // or '3'-terminal' (for nucleic acid BioPolymer objects) and if we are at the last residue of the full sequence.
+                        if ((mod.LocationRestriction.Contains("C-terminal.") || mod.LocationRestriction.Contains("3'-terminal.") && r == fullSequence.Length - 1))
                         {
                             currentModificationLocation = baseSequence.Length + 2;
                         }
@@ -145,7 +153,7 @@ namespace Omics
                         currentlyReadingMod = false;
                     }
                 }
-                else if (!currentlyReadingMod)
+                else if (!currentlyReadingMod && c!='-')
                 {
                     currentModificationLocation++;
                 }
@@ -192,10 +200,33 @@ namespace Omics
             // modification on peptide C-terminus
             if (allModsOneIsNterminus.TryGetValue(baseSequence.Length + 2, out mod))
             {
-                subSequence.Append($"[{mod.ModificationType}:{mod.IdWithMotif}]");
+                subSequence.Append($"-[{mod.ModificationType}:{mod.IdWithMotif}]");
             }
 
             return subSequence.ToString();
+        }
+
+        public static string ParseSubstitutedFullSequence(string fullSequenceWithSubstitution)
+        {
+            string pattern = @"\[\d+\+?\s*nucleotide substitution:\s*([A-Z])->([A-Z]) on ([A-Z])\]";
+            string parsedSequence = fullSequenceWithSubstitution;
+            var match = Regex.Match(parsedSequence, pattern);
+            while (match.Success)
+            {
+                string original = match.Groups[1].Value; // Z (original)
+                string sub = match.Groups[2].Value;   // Y (substitute)
+                int patternIndex = match.Index;
+                int replaceIndex = parsedSequence.LastIndexOf(original, patternIndex);
+                if (replaceIndex != -1)
+                {
+                    // Replace the first occurrence of Z before the pattern with Y
+                    parsedSequence = parsedSequence.Remove(replaceIndex, 1).Insert(replaceIndex, sub);
+                }
+                // Remove the pattern
+                parsedSequence = parsedSequence.Remove(patternIndex, match.Length);
+                match = Regex.Match(parsedSequence, pattern); // Find the next match
+            }
+            return parsedSequence;
         }
     }
 }

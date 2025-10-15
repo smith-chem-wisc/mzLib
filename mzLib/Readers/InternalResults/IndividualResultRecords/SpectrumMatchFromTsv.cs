@@ -6,6 +6,7 @@ using Chemistry;
 using Omics.Fragmentation.Peptide;
 using Omics.SpectrumMatch;
 using System.Collections.Generic;
+using MzLibUtil;
 
 namespace Readers
 {
@@ -289,68 +290,14 @@ namespace Readers
         }
 
         /// <summary>
-        /// Parses the full sequence to identify mods
+        /// Parses the full sequence to identify mods. Local wrapper for MzLibUtil extension method.
         /// </summary>
         /// <param name="fullSequence"> Full sequence of the peptide in question</param>
         /// <returns> Dictionary with the key being the amino acid position of the mod and the value being the string representing the mod</returns>
-        public static Dictionary<int, List<string>> ParseModifications(string fullSeq)
+        public static Dictionary<int, string> ParseModifications(string fullSeq)
         {
-            // use a regex to get all modifications
-            string pattern = @"\[(.+?)\]";
-            Regex regex = new(pattern);
-
-            // remove each match after adding to the dict. Otherwise, getting positions
-            // of the modifications will be rather difficult.
-            //int patternMatches = regex.Matches(fullSeq).Count;
-            Dictionary<int, List<string>> modDict = new();
-
-            RemoveSpecialCharacters(ref fullSeq);
-            MatchCollection matches = regex.Matches(fullSeq);
-            int totalCaptureLength = 0;
-            foreach (Match match in matches)
-            {
-                GroupCollection group = match.Groups;
-                string val = group[1].Value;
-                int startIndex = group[0].Index;
-                int position = group["(.+?)"].Index;
-
-                List<string> modList = new List<string>();
-                modList.Add(val);
-                // check to see if key already exist
-                // if there is a missed cleavage, then there will be a label on K and a Label on X modification.
-                // And, it'll be like [label]|[label] which complicates the positional stuff a little bit.
-                // if the already key exists, update the current position with the capture length + 1.
-                // otherwise, add the modification to the dict.
-
-                // int to add is startIndex - current position
-                int positionToAddToDict = startIndex - totalCaptureLength;
-                if (modDict.ContainsKey(positionToAddToDict))
-                {
-                    modDict[positionToAddToDict].Add(val);
-                }
-                else
-                {
-                    modDict.Add(positionToAddToDict, modList);
-                }
-                totalCaptureLength = totalCaptureLength + group[0].Length;
-            }
-            return modDict;
+            return fullSeq.ParseModifications();
         }
-
-        /// <summary>
-        /// Fixes an issue where the | appears and throws off the numbering if there are multiple mods on a single amino acid.
-        /// </summary>
-        /// <param name="fullSeq"></param>
-        /// <param name="replacement"></param>
-        /// <param name="specialCharacter"></param>
-        /// <returns></returns>
-        public static void RemoveSpecialCharacters(ref string fullSeq, string replacement = @"", string specialCharacter = @"\|")
-        {
-            // next regex is used in the event that multiple modifications are on a missed cleavage Lysine (K)
-            Regex regexSpecialChar = new(specialCharacter);
-            fullSeq = regexSpecialChar.Replace(fullSeq, replacement);
-        }
-
 
         protected static List<MatchedFragmentIon> ReadFragmentIonsFromString(string matchedMzString, string matchedIntensityString, string peptideBaseSequence, string? matchedMassErrorDaString = null, bool isProtein = true)
         {
@@ -376,6 +323,29 @@ namespace Readers
                 for (int index = 0; index < peakMzs.Count; index++)
                 {
                     string peak = peakMzs[index];
+
+                    // Matches M, optional digits (to be stripped), optional custom loss, charge, m/z
+                    // Examples matched: M15+1, M+1, M-P+1, M-P+1, M-A-P-H20-2, etc.
+                    var mIonMatch = Regex.Match(peak, @"^(M)(\d*)([\w\-]*)([+-]\d+):([\d\.]+)$");
+                    if (mIonMatch.Success)
+                    {
+                        // mIonMatch.Groups[1]: "M"
+                        // mIonMatch.Groups[2]: digits after M (to be ignored)
+                        // mIonMatch.Groups[3]: custom annotation (e.g., "-P", "-A-P-H20", or empty)
+                        // mIonMatch.Groups[4]: charge (with sign)
+                        // mIonMatch.Groups[5]: m/z
+
+                        string customAnnotation = mIonMatch.Groups[3].Value; // e.g., "-P", "-A-P-H20", or ""
+                        int charge = int.Parse(mIonMatch.Groups[4].Value, CultureInfo.InvariantCulture);
+                        double mZ = double.Parse(mIonMatch.Groups[5].Value, CultureInfo.InvariantCulture);
+                        double intens = ExtractNumber(peakIntensities[index], 2);
+
+                        double neutralMass = mZ.ToMass(charge);
+                        var product = new CustomMProduct(customAnnotation, neutralMass);
+                        matchedIons.Add(new MatchedFragmentIonWithCache(product, mZ, intens, charge));
+                        continue;
+                    }
+
                     // Regex: IonTypeAndNumber (with optional neutral loss), charge (+/-), m/z
                     // Examples:
                     //   y1+1:147.11267

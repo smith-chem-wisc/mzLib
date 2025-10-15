@@ -1030,6 +1030,25 @@ namespace Test
         }
 
         [Test]
+        public static void TestMultiplyChemicalFormulaOperator()
+        {
+            ChemicalFormula formula = ChemicalFormula.ParseFormula("C3");
+
+            var multipliedFormula = formula * 3;
+            Assert.AreEqual("C9", multipliedFormula.Formula);
+
+            multipliedFormula = 3 * formula;
+            Assert.AreEqual("C9", multipliedFormula.Formula);
+
+            ChemicalFormula nullFormula = null;
+            var leftNull = nullFormula * 3;
+            Assert.AreEqual(null, leftNull);
+
+            var rightNull = 3 * nullFormula;
+            Assert.AreEqual(null, rightNull);
+        }
+
+        [Test]
         [TestCase("C", "N", "CN-1")]
         [TestCase(null, "N", "N-1")]
         [TestCase("C", null, "C")]
