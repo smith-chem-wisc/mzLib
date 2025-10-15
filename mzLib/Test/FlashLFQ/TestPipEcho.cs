@@ -474,10 +474,10 @@ namespace Test.FlashLFQ
         {
             var peaks = new List<ChromatographicPeak>
             {
-                CreatePeak("A", 1000, 10, 0.8, 3, 1e-6),
-                CreatePeak("B", 1200, 11, 0.85,4, 1e-6),
-                CreatePeak("C", 1100, 12, 0.82,5, 1e-6),
-                CreatePeak("D", 900,  13, 0.81,6, 1e-6)
+                CreatePeak("A", 1000, 10, 0.8, 3, 100, 1.5),
+                CreatePeak("B", 1200, 11, 0.85,4, 100),
+                CreatePeak("C", 1100, 12, 0.82,5, 100),
+                CreatePeak("D", 900,  13, 0.81,6, 100)
             };
             var scorer = MbrScorerFactory.BuildMbrScorer(peaks, new FlashLfqParameters { MbrPpmTolerance = 20 }, out var tol);
             Assert.That(scorer, Is.Not.Null);
