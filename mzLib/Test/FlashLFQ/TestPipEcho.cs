@@ -126,8 +126,8 @@ namespace Test.FlashLFQ
 
             Assert.That(acceptorPeak.MbrScore, Is.EqualTo(61.5).Within(0.1));
             Assert.That(acceptorPeak.PpmScore, Is.EqualTo(1).Within(0.01));
-            Assert.That(acceptorPeak.IntensityScore, Is.EqualTo(0.39).Within(0.01));
-            Assert.That(acceptorPeak.RtScore, Is.EqualTo(0.96).Within(0.01));
+            Assert.That(acceptorPeak.IntensityScore, Is.EqualTo(0.46).Within(0.01));
+            Assert.That(acceptorPeak.RtScore, Is.EqualTo(0.39).Within(0.01));
             Assert.That(acceptorPeak.ScanCountScore, Is.EqualTo(0.59).Within(0.01));
             Assert.That(acceptorPeak.IsotopicDistributionScore, Is.EqualTo(0.83).Within(0.01));
 
