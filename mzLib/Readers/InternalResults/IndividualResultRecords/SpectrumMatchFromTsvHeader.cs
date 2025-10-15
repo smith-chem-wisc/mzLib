@@ -28,6 +28,7 @@
         public const string AmbiguityLevel = "Ambiguity Level";
         public const string SpectrumMatchCount = "Spectrum Match Count";
         public const string Mods = "Mods";
+        public const string NumberOfMods = "Number of Mods";
         public const string ModsChemicalFormulas = "Mods Chemical Formulas";
         public const string ModsCombinedChemicalFormula = "Mods Combined Chemical Formula";
         public const string NumVariableMods = "Num Variable Mods";
@@ -49,6 +50,7 @@
         public const string StartAndEndResiduesInFullSequence = "Start and End Residues In Full Sequence";
         public const string PreviousResidue = "Previous Residue";
         public const string NextResidue = "Next Residue";
+        public const string FlankingResidues = "Flanking Residues";
         public const string TheoreticalsSearched = "Theoreticals Searched";
         public const string DecoyContaminantTarget = "Decoy/Contaminant/Target";
         public const string MatchedIonSeries = "Matched Ion Series";
@@ -102,8 +104,17 @@
         public const string GlycanMass = "GlycanMass";
         public const string GlycanComposition = "Plausible GlycanComposition";
         public const string GlycanStructure = "Plausible GlycanStructure";
+        public const string NumberOfGlycan = "Plausible Number Of Glycans";
+        public const string TotalGlycanSite = "Total Glycosylation Sites";
         public const string GlycanLocalizationLevel = "GlycanLocalizationLevel";
-        public const string LocalizedGlycan = "Localized Glycans with Peptide Site Specific Probability";
+        public const string LocalizedGlycanInPeptide = "Localized Glycans with Peptide Site Specific Probability";
+        public const string LocalizedGlycanInProtein = "Localized Glycans with Protein Site Specific Probability";
+        public const string YionScore = "Yion Score";
+        public const string DiagonosticIonScore = "DiagonosticIon Score";
+        public const string NGlycanMotifCheck = "N-Glycan Motif Check";
+        public const string R138144 = "R138/144";
+        public const string AllPotentialGlycanLocalization = "All Potential Glycan localizations";
+        public const string AllSiteSpecificLocalizationProbability = "All SiteSpecific Localization Probability";
 
     }
 }
