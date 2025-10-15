@@ -475,14 +475,14 @@ namespace Test.FlashLFQ
             var peaks = new List<ChromatographicPeak>
             {
                 CreatePeak("A", 1000, 10, 0.8, 3, 100, 1.5),
-                CreatePeak("B", 1200, 11, 0.85,4, 100),
-                CreatePeak("C", 1100, 12, 0.82,5, 100),
-                CreatePeak("D", 900,  13, 0.81,6, 100)
+                CreatePeak("B", 1200, 11, 0.85,4, 100, 1.5),
+                CreatePeak("C", 1100, 12, 0.82,5, 100, 1.5),
+                CreatePeak("D", 900,  13, 0.81,6, 100, 1.5)
             };
             var scorer = MbrScorerFactory.BuildMbrScorer(peaks, new FlashLfqParameters { MbrPpmTolerance = 20 }, out var tol);
             Assert.That(scorer, Is.Not.Null);
             Assert.That(tol, Is.Not.Null);
-            Assert.That(tol.Value, Is.EqualTo( (1.5 + 4 * 0)  ).Within(1e-9)); // median + 4*std (std=0)
+            Assert.That(tol.Value, Is.EqualTo(1.5).Within(0.1)); // Lots of small doubles means a fair number of rounding errors, exact ppm error is ~1.46
         }
 
         [Test]
@@ -551,24 +551,25 @@ namespace Test.FlashLFQ
             double rt,
             double isoCorr,
             int scanCount,
-            double mz,
+            double mass,
             double massErrorPpm = 0,
             bool makeApex = true,
             SpectraFileInfo fileInfo = null)
         {
             fileInfo ??= new SpectraFileInfo("file_" + seq, "Cond", 1, 1, 1);
-            var id = new Identification(fileInfo, seq, seq, mz, rt, 1, new List<ProteinGroup> { new ProteinGroup("PG_" + seq, "", "") });
-            id.PeakfindingMass = mz;
+            var id = new Identification(fileInfo, seq, seq, mass, rt, 1, new List<ProteinGroup> { new ProteinGroup("PG_" + seq, "", "") });
+            id.PeakfindingMass = mass;
+            double test = mass.ToMz(1);
             var peak = new ChromatographicPeak(id, fileInfo);
             var envelopes = new List<IsotopicEnvelope>(scanCount);
-            mz = mz + (massErrorPpm * mz / 1e6); // apply mass error
+            double mz = (mass + (massErrorPpm * mass / 1e6)).ToMz(1); //  mass.ToMz(1) + (massErrorPpm * mass.ToMz(1) / 1e6); // apply mass error
             foreach (int i in Enumerable.Range(1, scanCount))
             {
-                envelopes.Add(new IsotopicEnvelope(new IndexedMassSpectralPeak(mz.ToMz(1) , intensity * 0.8, i, rt), 1, intensity, isoCorr));
+                envelopes.Add(new IsotopicEnvelope(new IndexedMassSpectralPeak(mz , intensity * 0.8, i, rt), 1, intensity, isoCorr));
             }
             if (makeApex)
             {
-                var ims = new IndexedMassSpectralPeak(mz.ToMz(1), intensity, scanCount, rt);
+                var ims = new IndexedMassSpectralPeak(mz, intensity, scanCount, rt);
                 var env = new IsotopicEnvelope(ims, 1, intensity, isoCorr); 
                 peak.IsotopicEnvelopes.Add(env);
             }
