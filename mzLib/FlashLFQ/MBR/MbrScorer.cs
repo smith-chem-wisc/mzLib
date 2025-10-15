@@ -258,12 +258,7 @@ namespace FlashLFQ
         /// </summary>
         internal double GetPpmErrorTolerance()
         {
-            // If raw stats were not computed (e.g., due to early return), fall back to distribution values
-            if (_ppmDistribution == null)
-                return Math.Abs(_ppmMedianRaw) + 4 * Math.Max(0, _ppmStdDevRaw);
-
-            // Use raw values when available to support stddev == 0 scenario exactly
-            return Math.Abs(_ppmMedianRaw) + 4 * Math.Max(0, _ppmStdDevRaw);
+            return Math.Abs(_ppmMedianRaw) + 4 * _ppmStdDevRaw;
         }
 
         // Setting a minimum score prevents the MBR score from going to zero if one component of that score is 0

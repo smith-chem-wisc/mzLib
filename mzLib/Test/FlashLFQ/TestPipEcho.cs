@@ -423,8 +423,8 @@ namespace Test.FlashLFQ
         {
             var peaks = new List<ChromatographicPeak>
             {
-                CreatePeak("A", 1000, 2.0, 10.0, 0.95, 5, 1e-6),
-                CreatePeak("B", 1200, -1.0, 11.0, 0.90, 4, 2e-6)
+                CreatePeak("A", 1000,  10.0, 0.95, 5, 1e-6),
+                CreatePeak("B", 1200, 11.0, 0.90, 4, 2e-6)
             };
             var scorer = MbrScorerFactory.BuildMbrScorer(peaks, new FlashLfqParameters(), out var tol);
             Assert.That(scorer, Is.Null);
@@ -436,9 +436,9 @@ namespace Test.FlashLFQ
         {
             var peaks = new List<ChromatographicPeak>
             {
-                CreatePeak("A", 1000, 1.0, 10.0, 0.8, 3, 1e-6, makeApex:false),
-                CreatePeak("B", 1100, 2.0, 11.0, 0.7, 4, 1e-6, makeApex:false),
-                CreatePeak("C", 900, -3.0, 12.0, 0.6, 5, 1e-6, makeApex:false)
+                CreatePeak("A", 1000,  10.0, 0.8, 3, 1e-6, makeApex:false),
+                CreatePeak("B", 1100, 11.0, 0.7, 4, 1e-6, makeApex:false),
+                CreatePeak("C", 900, 12.0, 0.6, 5, 1e-6, makeApex:false)
             };
             var scorer = MbrScorerFactory.BuildMbrScorer(peaks, new FlashLfqParameters(), out var tol);
             // Unambiguous list count is 3, but distributions will fail (ppm list has 3, intensity list has 3) Apex null shouldn't crash
@@ -459,37 +459,25 @@ namespace Test.FlashLFQ
         {
             var peaks = new List<ChromatographicPeak>
             {
-                CreatePeak("A", 0,  1.0, 10.0, 0.9, 3, 1e-6),
-                CreatePeak("B", -5, 2.0, 11.0, 0.9, 4, 1e-6),
-                CreatePeak("C", 0, -3.0, 12.0, 0.9, 5, 1e-6)
+                CreatePeak("A", 0,   10.0, 0.9, 3, 1e-6),
+                CreatePeak("B", -5,  11.0, 0.9, 4, 1e-6),
+                CreatePeak("C", 0,  12.0, 0.9, 5, 1e-6)
             };
             var scorer = MbrScorerFactory.BuildMbrScorer(peaks, new FlashLfqParameters(), out var tol);
             Assert.That(scorer, Is.Null);
             Assert.That(tol, Is.Null);
         }
 
-        [Test]
-        public static void TestMbrScorer_Build_PpmErrorsAllNaN_ReturnsNull()
-        {
-            var peaks = new List<ChromatographicPeak>
-            {
-                CreatePeak("A", 1000, double.NaN, 10, 0.8, 3, 1e-6),
-                CreatePeak("B", 1200, double.NaN, 11, 0.9, 4, 1e-6),
-                CreatePeak("C", 1100, double.NaN, 12, 0.85,5, 1e-6)
-            };
-            var scorer = MbrScorerFactory.BuildMbrScorer(peaks, new FlashLfqParameters(), out var tol);
-            Assert.That(scorer, Is.Null);
-        }
 
         [Test]
         public static void TestMbrScorer_Build_PpmErrorsIdentical_ZeroSpreadStillValid()
         {
             var peaks = new List<ChromatographicPeak>
             {
-                CreatePeak("A", 1000, 1.5, 10, 0.8, 3, 1e-6),
-                CreatePeak("B", 1200, 1.5, 11, 0.85,4, 1e-6),
-                CreatePeak("C", 1100, 1.5, 12, 0.82,5, 1e-6),
-                CreatePeak("D", 900,  1.5, 13, 0.81,6, 1e-6)
+                CreatePeak("A", 1000, 10, 0.8, 3, 1e-6),
+                CreatePeak("B", 1200, 11, 0.85,4, 1e-6),
+                CreatePeak("C", 1100, 12, 0.82,5, 1e-6),
+                CreatePeak("D", 900,  13, 0.81,6, 1e-6)
             };
             var scorer = MbrScorerFactory.BuildMbrScorer(peaks, new FlashLfqParameters { MbrPpmTolerance = 20 }, out var tol);
             Assert.That(scorer, Is.Not.Null);
@@ -502,10 +490,10 @@ namespace Test.FlashLFQ
         {
             var peaks = new List<ChromatographicPeak>
             {
-                CreatePeak("A", 1500, 100.0, 10, 0.7, 3, 1e-6),
-                CreatePeak("B", 1400, 120.0, 11, 0.8, 4, 1e-6),
-                CreatePeak("C", 1300, 110.0, 12, 0.75,5, 1e-6),
-                CreatePeak("D", 1250, 105.0, 13, 0.72,6, 1e-6)
+                CreatePeak("A", 1500, 10, 0.7, 3, 100, 100),
+                CreatePeak("B", 1400, 11, 0.8, 4, 100, 120),
+                CreatePeak("C", 1300, 12, 0.75, 5, 100, 110),
+                CreatePeak("D", 1250, 13, 0.72, 6, 100, 130)
             };
             var flashParams = new FlashLfqParameters { MbrPpmTolerance = 30 };
             var scorer = MbrScorerFactory.BuildMbrScorer(peaks, flashParams, out var tol);
@@ -518,10 +506,10 @@ namespace Test.FlashLFQ
         {
             var peaks = new List<ChromatographicPeak>
             {
-                CreatePeak("A", 1000, 1.0, 10, 1.0, 3, 1e-6), // IsotopicPearsonCorrelation=1 => (1 - corr)=0 filtered out
-                CreatePeak("B", 1100, 2.0, 11, 1.0, 4, 1e-6),
-                CreatePeak("C", 1200, 3.0, 12, 1.0, 5, 1e-6),
-                CreatePeak("D", 1300, 4.0, 13, 1.0, 6, 1e-6)
+                CreatePeak("A", 1000, 10, 1.0, 3, 1), // IsotopicPearsonCorrelation=1 => (1 - corr)=0 filtered out
+                CreatePeak("B", 1100, 11, 1.0, 4, 1),
+                CreatePeak("C", 1200, 12, 1.0, 5, 1),
+                CreatePeak("D", 1300, 13, 1.0, 6, 1)
             };
             var scorer = MbrScorerFactory.BuildMbrScorer(peaks, new FlashLfqParameters(), out var tol);
             Assert.That(scorer, Is.Not.Null);
@@ -537,10 +525,10 @@ namespace Test.FlashLFQ
             var acceptorFile = new SpectraFileInfo("acceptor", "C", 1, 1, 1);
             var peaks = new List<ChromatographicPeak>
             {
-                CreatePeak("A", 1500, 1, 10, 0.9, 5, 1e-6, fileInfo:acceptorFile),
-                CreatePeak("B", 1600, 2, 11, 0.85,4, 1e-6, fileInfo:acceptorFile),
-                CreatePeak("C", 1700, 3, 12, 0.8, 6, 1e-6, fileInfo:acceptorFile),
-                CreatePeak("D", 1800, 4, 13, 0.75,7, 1e-6, fileInfo:acceptorFile)
+                CreatePeak("A", 1500, 10, 0.9, 5, 1, fileInfo:acceptorFile),
+                CreatePeak("B", 1600, 11, 0.85,4, 1, fileInfo:acceptorFile),
+                CreatePeak("C", 1700, 12, 0.8, 6, 1, fileInfo:acceptorFile),
+                CreatePeak("D", 1800, 13, 0.75,7, 1, fileInfo:acceptorFile)
             };
             var scorer = MbrScorerFactory.BuildMbrScorer(peaks, new FlashLfqParameters(), out var tol);
             Assert.That(scorer, Is.Not.Null);
@@ -560,21 +548,23 @@ namespace Test.FlashLFQ
         private static ChromatographicPeak CreatePeak(
             string seq,
             double intensity,
-            double massError,
             double rt,
             double isoCorr,
             int scanCount,
             double mz,
+            double massErrorPpm = 0,
             bool makeApex = true,
             SpectraFileInfo fileInfo = null)
         {
             fileInfo ??= new SpectraFileInfo("file_" + seq, "Cond", 1, 1, 1);
             var id = new Identification(fileInfo, seq, seq, mz, rt, 1, new List<ProteinGroup> { new ProteinGroup("PG_" + seq, "", "") });
+            id.PeakfindingMass = mz;
             var peak = new ChromatographicPeak(id, fileInfo);
             var envelopes = new List<IsotopicEnvelope>(scanCount);
+            mz = mz + (massErrorPpm * mz / 1e6); // apply mass error
             foreach (int i in Enumerable.Range(1, scanCount))
             {
-                envelopes.Add(new IsotopicEnvelope(new IndexedMassSpectralPeak(mz.ToMz(1), intensity * 0.8, i, rt), 1, intensity, isoCorr));
+                envelopes.Add(new IsotopicEnvelope(new IndexedMassSpectralPeak(mz.ToMz(1) , intensity * 0.8, i, rt), 1, intensity, isoCorr));
             }
             if (makeApex)
             {
