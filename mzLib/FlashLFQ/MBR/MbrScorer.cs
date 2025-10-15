@@ -156,7 +156,7 @@ namespace FlashLFQ
                 double medianRtError = rtPredictionErrors.Median();
                 double stdDevRtError = rtPredictionErrors.StandardDeviation();
                 if (Normal.IsValidParameterSet(medianRtError, stdDevRtError))
-                    rtPredictionErrorDist = new Normal(medianRtError, 1);
+                    rtPredictionErrorDist = new Normal(medianRtError, stdDevRtError);
             }
 
             _rtPredictionErrorDistributionDictionary.Add(donorFile, rtPredictionErrorDist);
