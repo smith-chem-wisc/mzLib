@@ -52,6 +52,9 @@
     <None Update="DatabaseTests\sequenceVariantOnAlternateIsoform.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DatabaseTests\seqvartestOneProteinOneVariant.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\SingleEntry_ModOrder1.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
