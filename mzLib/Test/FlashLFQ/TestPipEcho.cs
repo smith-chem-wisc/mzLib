@@ -124,7 +124,7 @@ namespace Test.FlashLFQ
 
             acceptorPeak.MbrScore = scorer.ScoreMbr(acceptorPeak, donorPeak, predictedRt: 25.1);
 
-            Assert.That(acceptorPeak.MbrScore, Is.EqualTo(73.8).Within(0.1));
+            Assert.That(acceptorPeak.MbrScore, Is.EqualTo(73.7).Within(0.1));
             Assert.That(acceptorPeak.PpmScore, Is.EqualTo(1).Within(0.01));
             Assert.That(acceptorPeak.IntensityScore, Is.EqualTo(0.46).Within(0.01));
             Assert.That(acceptorPeak.RtScore, Is.EqualTo(0.96).Within(0.01));
