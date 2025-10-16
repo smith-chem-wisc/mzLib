@@ -1,10 +1,88 @@
-﻿using System.Globalization;
-using Easy.Common.Extensions;
+﻿using Easy.Common.Extensions;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
+using System.Globalization;
+using TopDownProteomics.Biochemistry;
 
 namespace Readers
 {
+    public class GlycoPsmFromTsv : SpectrumMatchFromTsv
+    {
+        public string GlycanStructure { get; set; }
+        public double? GlycanMass { get; set; }
+        public string GlycanComposition { get; set; }
+        public LocalizationLevel? GlycanLocalizationLevel { get; set; }
+        public string LocalizedGlycanInPeptide { get; set; }
+        public string LocalizedGlycanInProtein { get; set; }
+        public double R138144 { get; set; }
+        public double? LocalizedScores { get; set; }
+        public double? YionScore { get; set; }
+        public double? DiagonosticIonScore { get; set; }
+        public string TotalGlycanSites { get; set; }
+
+
+        public GlycoPsmFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader) : base(line, split, parsedHeader)
+        {
+            var spl = line.Split(split).Select(p => p.Trim('\"')).ToArray();
+
+            GlycanMass = (parsedHeader[SpectrumMatchFromTsvHeader.GlycanMass] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.GlycanMass]], CultureInfo.InvariantCulture);
+            GlycanComposition = (parsedHeader[SpectrumMatchFromTsvHeader.GlycanComposition] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.GlycanComposition]];
+            GlycanStructure = (parsedHeader[SpectrumMatchFromTsvHeader.GlycanStructure] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.GlycanStructure]];
+            var localizationLevel = (parsedHeader[SpectrumMatchFromTsvHeader.GlycanLocalizationLevel] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.GlycanLocalizationLevel]];
+            if (localizationLevel != null)
+            {
+                if (localizationLevel.Equals("NA"))
+                    GlycanLocalizationLevel = null;
+                else
+                    GlycanLocalizationLevel = (LocalizationLevel)Enum.Parse(typeof(LocalizationLevel), localizationLevel);
+            }
+            LocalizedGlycanInPeptide = (parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycanInPeptide] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycanInPeptide]];
+            LocalizedGlycanInProtein = (parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycanInProtein] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycanInProtein]];
+            R138144 = (parsedHeader[SpectrumMatchFromTsvHeader.R138144] < 0) ? 0 : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.R138144]], CultureInfo.InvariantCulture);
+            LocalizedScores = (parsedHeader[SpectrumMatchFromTsvHeader.LocalizationScore] < 0) ? 0 : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.LocalizationScore]], CultureInfo.InvariantCulture);
+            YionScore = (parsedHeader[SpectrumMatchFromTsvHeader.YionScore] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.YionScore]], CultureInfo.InvariantCulture);
+            DiagonosticIonScore = (parsedHeader[SpectrumMatchFromTsvHeader.DiagonosticIonScore] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.DiagonosticIonScore]], CultureInfo.InvariantCulture);
+            TotalGlycanSites = (parsedHeader[SpectrumMatchFromTsvHeader.TotalGlycanSite] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.TotalGlycanSite]];
+        }
+
+        public GlycoPsmFromTsv(SpectrumMatchFromTsv psm, string fullSequence, int index = 0, string baseSequence = "") : base(psm, fullSequence, index, baseSequence)
+        {
+            if (psm is GlycoPsmFromTsv gly)
+            {
+                GlycanStructure = gly.GlycanStructure;
+                GlycanMass = gly.GlycanMass;
+                GlycanComposition = gly.GlycanComposition;
+                GlycanLocalizationLevel = gly.GlycanLocalizationLevel;
+                LocalizedGlycanInPeptide = gly.LocalizedGlycanInPeptide;
+                LocalizedGlycanInProtein = gly.LocalizedGlycanInProtein;
+                R138144 = gly.R138144;
+                LocalizedScores = gly.LocalizedScores;
+                YionScore = gly.YionScore;
+                DiagonosticIonScore = gly.DiagonosticIonScore;
+                TotalGlycanSites = gly.TotalGlycanSites;
+            }
+        }
+
+        public static List<Tuple<int, string, double>> ReadLocalizedGlycan(string localizedGlycan)
+        {
+            List<Tuple<int, string, double>> tuples = new List<Tuple<int, string, double>>();
+            if (localizedGlycan == null)
+            {
+                return tuples;
+            }
+            var lgs = localizedGlycan.Split(new string[] { "[", "]" }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var lg in lgs)
+            {
+                var g = lg.Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+                Tuple<int, string, double> tuple = new Tuple<int, string, double>(int.Parse(g[0], CultureInfo.InvariantCulture), g[1], double.Parse(g[2], CultureInfo.InvariantCulture));
+                tuples.Add(tuple);
+            }
+
+            return tuples;
+        }   
+    }
+
     public class PsmFromTsv : SpectrumMatchFromTsv
     {
 
@@ -37,13 +115,6 @@ namespace Readers
         public string UniqueSequence { get; }
         public double? XLTotalScore { get; }
         public string ParentIons { get; }
-
-        //For Glyco
-        public string GlycanStructure { get; set; }
-        public double? GlycanMass { get; set; }
-        public string GlycanComposition { get; set; }
-        public LocalizationLevel? GlycanLocalizationLevel { get; set; }
-        public string LocalizedGlycan { get; set; }
 
         public PsmFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader)
             : base (line, split, parsedHeader)
@@ -87,32 +158,6 @@ namespace Readers
             {
                 BetaPeptideChildScanMatchedIons.Remove(Ms2ScanNumber);
             }
-
-            //For Glyco            
-            try // Try is so that glyco and non-glyco psms can be read from the same file
-            {
-                GlycanMass = (parsedHeader[PsmTsvHeader_Glyco.GlycanMass] < 0) ? null : (double?)double.Parse(spl[parsedHeader[PsmTsvHeader_Glyco.GlycanMass]], CultureInfo.InvariantCulture);
-                GlycanComposition = (parsedHeader[PsmTsvHeader_Glyco.GlycanComposition] < 0) ? null : spl[parsedHeader[PsmTsvHeader_Glyco.GlycanComposition]];
-                GlycanStructure = (parsedHeader[PsmTsvHeader_Glyco.GlycanStructure] < 0) ? null : spl[parsedHeader[PsmTsvHeader_Glyco.GlycanStructure]];
-                var localizationLevel = (parsedHeader[PsmTsvHeader_Glyco.GlycanLocalizationLevel] < 0) ? null : spl[parsedHeader[PsmTsvHeader_Glyco.GlycanLocalizationLevel]];
-                if (localizationLevel != null)
-                {
-                    if (localizationLevel.Equals("NA"))
-                        GlycanLocalizationLevel = null;
-                    else
-                        GlycanLocalizationLevel = (LocalizationLevel)Enum.Parse(typeof(LocalizationLevel), localizationLevel);
-                }
-                LocalizedGlycan = (parsedHeader[PsmTsvHeader_Glyco.LocalizedGlycan] < 0) ? null : spl[parsedHeader[PsmTsvHeader_Glyco.LocalizedGlycan]];
-
-            }
-            catch
-            {
-                GlycanMass = null;
-                GlycanComposition = null;
-                GlycanStructure = null;
-                GlycanLocalizationLevel = null;
-                LocalizedGlycan = null;
-            }
         }
 
         /// <summary>
@@ -141,11 +186,6 @@ namespace Readers
             XLTotalScore = psm.XLTotalScore;
             ParentIons = psm.ParentIons;
             RetentionTime = psm.RetentionTime;
-            GlycanStructure = psm.GlycanStructure;
-            GlycanMass = psm.GlycanMass;
-            GlycanComposition = psm.GlycanComposition;
-            GlycanLocalizationLevel = psm.GlycanLocalizationLevel;
-            LocalizedGlycan = psm.LocalizedGlycan;
         }
 
         /// <summary>

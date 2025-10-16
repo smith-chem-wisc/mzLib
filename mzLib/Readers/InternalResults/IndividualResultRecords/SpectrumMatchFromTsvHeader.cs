@@ -61,7 +61,7 @@
         public const string MatchedIonCounts = "Matched Ion Counts";
 
         // Scoring
-        public const string LocalizedScores = "Localized Scores";
+        public const string LocalizationScore = "Localization Score";
         public const string ImprovementPossible = "Improvement Possible";
         public const string CumulativeTarget = "Cumulative Target";
         public const string CumulativeDecoy = "Cumulative Decoy";
@@ -113,8 +113,7 @@
         public const string DiagonosticIonScore = "DiagonosticIon Score";
         public const string NGlycanMotifCheck = "N-Glycan Motif Check";
         public const string R138144 = "R138/144";
-        public const string AllPotentialGlycanLocalization = "All Potential Glycan localizations";
+        public const string AllPotentialGlycanLocalization = "All Potential Glycan Localizations";
         public const string AllSiteSpecificLocalizationProbability = "All SiteSpecific Localization Probability";
-
     }
 }

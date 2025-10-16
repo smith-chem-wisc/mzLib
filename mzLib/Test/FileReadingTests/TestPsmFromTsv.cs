@@ -138,14 +138,28 @@ namespace Test.FileReadingTests
         [TestCase(@"FileReadingTests\SearchResults\oglycoWithWrongExtension.tsv")]
         public static void ReadOGlycoPsmsLocalizedGlycans(string psmFile)
         {
-            List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out var warnings);
+            // Using direct glycopsm reader
+            List<GlycoPsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadGlycoPsmTsv(psmFile, out var warnings);
             Assert.AreEqual(9, parsedPsms.Count);
 
             // read glycans if applicable
             List<Tuple<int, string, double>> localGlycans = null;
             if (parsedPsms[0].GlycanLocalizationLevel != null)
             {
-                localGlycans = PsmFromTsv.ReadLocalizedGlycan(parsedPsms[0].LocalizedGlycan);
+                localGlycans = GlycoPsmFromTsv.ReadLocalizedGlycan(parsedPsms[0].LocalizedGlycanInPeptide);
+            }
+
+            Assert.AreEqual(1, localGlycans.Count);
+
+            // Using generic psm reader and casting
+            parsedPsms = SpectrumMatchTsvReader.ReadTsv(psmFile, out warnings).Cast<GlycoPsmFromTsv>().ToList();
+            Assert.AreEqual(9, parsedPsms.Count);
+
+            // read glycans if applicable
+            localGlycans = null;
+            if (parsedPsms[0].GlycanLocalizationLevel != null)
+            {
+                localGlycans = GlycoPsmFromTsv.ReadLocalizedGlycan(parsedPsms[0].LocalizedGlycanInPeptide);
             }
 
             Assert.AreEqual(1, localGlycans.Count);
