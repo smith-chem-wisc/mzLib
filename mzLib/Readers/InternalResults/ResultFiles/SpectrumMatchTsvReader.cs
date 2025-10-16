@@ -45,7 +45,7 @@ namespace Readers
             // Pre-allocate result array
             T?[] psmsArray = new T[lineCount];
             var warningsBag = new System.Collections.Concurrent.ConcurrentBag<string>();
-            int maxThreads = Math.Min(8, Environment.ProcessorCount - 1);
+            int maxThreads = 1/*Math.Min(8, Environment.ProcessorCount - 1)*/;
             int chunkSize = (int)Math.Ceiling((double)lineCount / maxThreads);
 
             Parallel.For(0, maxThreads, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, threadIdx =>
@@ -55,8 +55,8 @@ namespace Readers
                 for (int i = start; i < end; i++)
                 {
                     var line = lines[i];
-                    try
-                    {
+                    //try
+                    //{
                         T result = type switch
                         {
                             SupportedFileType.osmtsv => (T)(SpectrumMatchFromTsv)new OsmFromTsv(line, Split, parsedHeader),
@@ -64,11 +64,11 @@ namespace Readers
                             _ => (T)(SpectrumMatchFromTsv)new PsmFromTsv(line, Split, parsedHeader)
                         };
                         psmsArray[i - 1] = result; // -1 to align with result array (excluding header)
-                    }
-                    catch (Exception)
-                    {
-                        warningsBag.Add("Could not read line: " + (i + 1)); // plus one to account for header line
-                    }
+                    //}
+                    //catch (Exception)
+                    //{
+                    //    warningsBag.Add("Could not read line: " + (i + 1)); // plus one to account for header line
+                    //}
                 }
             });
 

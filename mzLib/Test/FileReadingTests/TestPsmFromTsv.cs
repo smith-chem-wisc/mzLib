@@ -136,7 +136,7 @@ namespace Test.FileReadingTests
         [Test]
         [TestCase(@"FileReadingTests\SearchResults\oglyco.psmtsv")]
         [TestCase(@"FileReadingTests\SearchResults\oglycoWithWrongExtension.tsv")]
-        public static void ReadOGlycoPsmsLocalizedGlycans(string psmFile)
+        public static void ReadOGlycoPsmsLocalizedGlycans_Glyco(string psmFile)
         {
             // Using direct glycopsm reader
             List<GlycoPsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadGlycoPsmTsv(psmFile, out var warnings);
@@ -150,13 +150,38 @@ namespace Test.FileReadingTests
             }
 
             Assert.AreEqual(1, localGlycans.Count);
+        }
 
+        [Test]
+        [TestCase(@"FileReadingTests\SearchResults\oglyco.psmtsv")]
+        [TestCase(@"FileReadingTests\SearchResults\oglycoWithWrongExtension.tsv")]
+        public static void ReadOGlycoPsmsLocalizedGlycans_Generic(string psmFile)
+        {
             // Using generic psm reader and casting
-            parsedPsms = SpectrumMatchTsvReader.ReadTsv(psmFile, out warnings).Cast<GlycoPsmFromTsv>().ToList();
+            var parsedPsms = SpectrumMatchTsvReader.ReadTsv(psmFile, out var warnings).Cast<GlycoPsmFromTsv>().ToList();
             Assert.AreEqual(9, parsedPsms.Count);
 
             // read glycans if applicable
-            localGlycans = null;
+            List<Tuple<int, string, double>> localGlycans = null;
+            if (parsedPsms[0].GlycanLocalizationLevel != null)
+            {
+                localGlycans = GlycoPsmFromTsv.ReadLocalizedGlycan(parsedPsms[0].LocalizedGlycanInPeptide);
+            }
+
+            Assert.AreEqual(1, localGlycans.Count);
+        }
+
+        [Test]
+        [TestCase(@"FileReadingTests\SearchResults\oglyco.psmtsv")]
+        [TestCase(@"FileReadingTests\SearchResults\oglycoWithWrongExtension.tsv")]
+        public static void ReadOGlycoPsmsLocalizedGlycans_AsPsm(string psmFile)
+        {
+            // Using generic psm reader and casting
+            var parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out var warnings).Cast<GlycoPsmFromTsv>().ToList();
+            Assert.AreEqual(9, parsedPsms.Count);
+
+            // read glycans if applicable
+            List<Tuple<int, string, double>> localGlycans = null;
             if (parsedPsms[0].GlycanLocalizationLevel != null)
             {
                 localGlycans = GlycoPsmFromTsv.ReadLocalizedGlycan(parsedPsms[0].LocalizedGlycanInPeptide);
