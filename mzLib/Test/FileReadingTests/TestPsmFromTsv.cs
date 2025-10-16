@@ -191,6 +191,31 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public static void GlcyoPsmFromTsv_ModifiedPsmFunction()
+        {
+            // Test that the GlycoPsmFromTsv modified PSM constructor works as intended
+            // The modified PSM should have the same glycan information as the unmodified PSM
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\oglyco.psmtsv");
+            var unModifiedPsm = SpectrumMatchTsvReader.ReadPsmTsv(path, out var warnings).Cast<GlycoPsmFromTsv>().First();
+            string newFullSequence = "REVEDPQVAQLELGGGPGAGDLQT[O-Glycosylation:H1N1A2 on T]LALEVAQQKR";
+            var modifiedPsm = new GlycoPsmFromTsv(unModifiedPsm, newFullSequence);
+            Assert.AreEqual(newFullSequence, modifiedPsm.FullSequence); // make sure the full sequence is updated
+            // make sure all glycan information is the same
+            Assert.AreEqual(unModifiedPsm.BaseSeq, modifiedPsm.BaseSeq);
+            Assert.AreEqual(unModifiedPsm.GlycanComposition, modifiedPsm.GlycanComposition);
+            Assert.AreEqual(unModifiedPsm.GlycanMass, modifiedPsm.GlycanMass);
+            Assert.AreEqual(unModifiedPsm.GlycanStructure, modifiedPsm.GlycanStructure);
+            Assert.AreEqual(unModifiedPsm.GlycanLocalizationLevel, modifiedPsm.GlycanLocalizationLevel);
+            Assert.AreEqual(unModifiedPsm.LocalizedGlycanInPeptide, modifiedPsm.LocalizedGlycanInPeptide);
+            Assert.AreEqual(unModifiedPsm.LocalizedGlycanInProtein, modifiedPsm.LocalizedGlycanInProtein);
+            Assert.AreEqual(unModifiedPsm.R138144, modifiedPsm.R138144);
+            Assert.AreEqual(unModifiedPsm.LocalizedScores, modifiedPsm.LocalizedScores);
+            Assert.AreEqual(unModifiedPsm.YionScore, modifiedPsm.YionScore);
+            Assert.AreEqual(unModifiedPsm.DiagonosticIonScore, modifiedPsm.DiagonosticIonScore);
+            Assert.AreEqual(unModifiedPsm.TotalGlycanSites, modifiedPsm.TotalGlycanSites);
+        }
+
+        [Test]
         public static void ReadExcelEditedPsms()
         {
             string psmFile = @"FileReadingTests\SearchResults\ExcelEditedPeptide.psmtsv";
