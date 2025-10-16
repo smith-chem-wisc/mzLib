@@ -211,7 +211,7 @@ namespace Readers
             parsedHeader.Add(SpectrumMatchFromTsvHeader.GlycanMass, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.GlycanMass));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.GlycanStructure, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.GlycanStructure));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.GlycanComposition, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.GlycanComposition));
-            parsedHeader.Add(SpectrumMatchFromTsvHeader.LocalizationScore, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.LocalizationScore));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.LocalizedScores, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.LocalizedScores));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.NumberOfGlycan, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.NumberOfGlycan));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.TotalGlycanSite, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.TotalGlycanSite));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.GlycanLocalizationLevel, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.GlycanLocalizationLevel));

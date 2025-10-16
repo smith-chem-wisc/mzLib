@@ -35,7 +35,7 @@ public class GlycoPsmFromTsv : PsmFromTsv
         LocalizedGlycanInPeptide = (parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycanInPeptide] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycanInPeptide]];
         LocalizedGlycanInProtein = (parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycanInProtein] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycanInProtein]];
         R138144 = (parsedHeader[SpectrumMatchFromTsvHeader.R138144] < 0) ? 0 : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.R138144]], CultureInfo.InvariantCulture);
-        LocalizedScores = (parsedHeader[SpectrumMatchFromTsvHeader.LocalizationScore] < 0) ? 0 : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.LocalizationScore]], CultureInfo.InvariantCulture);
+        LocalizedScores = (parsedHeader[SpectrumMatchFromTsvHeader.LocalizedScores] < 0) ? 0 : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.LocalizedScores]], CultureInfo.InvariantCulture);
         YionScore = (parsedHeader[SpectrumMatchFromTsvHeader.YionScore] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.YionScore]], CultureInfo.InvariantCulture);
         DiagonosticIonScore = (parsedHeader[SpectrumMatchFromTsvHeader.DiagonosticIonScore] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.DiagonosticIonScore]], CultureInfo.InvariantCulture);
         TotalGlycanSites = (parsedHeader[SpectrumMatchFromTsvHeader.TotalGlycanSite] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.TotalGlycanSite]];

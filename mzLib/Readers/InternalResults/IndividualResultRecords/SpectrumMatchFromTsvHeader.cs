@@ -61,7 +61,7 @@
         public const string MatchedIonCounts = "Matched Ion Counts";
 
         // Scoring
-        public const string LocalizationScore = "Localization Score";
+        public const string LocalizedScores = "Localization Score";
         public const string ImprovementPossible = "Improvement Possible";
         public const string CumulativeTarget = "Cumulative Target";
         public const string CumulativeDecoy = "Cumulative Decoy";
