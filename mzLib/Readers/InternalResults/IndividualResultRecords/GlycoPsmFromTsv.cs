@@ -16,6 +16,10 @@ public class GlycoPsmFromTsv : PsmFromTsv
     public double? DiagonosticIonScore { get; set; }
     public string TotalGlycanSites { get; set; }
 
+    public string FlankingResidues { get; set; }
+    public string AllPotentialGlycanLocalization { get; set; }
+    public string NGlycanMotifCheck { get; set; }
+    public string AllSiteSpecificLocalizationProbability { get; set; }
 
     public GlycoPsmFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader) : base(line, split, parsedHeader)
     {
@@ -39,6 +43,11 @@ public class GlycoPsmFromTsv : PsmFromTsv
         YionScore = (parsedHeader[SpectrumMatchFromTsvHeader.YionScore] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.YionScore]], CultureInfo.InvariantCulture);
         DiagonosticIonScore = (parsedHeader[SpectrumMatchFromTsvHeader.DiagonosticIonScore] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.DiagonosticIonScore]], CultureInfo.InvariantCulture);
         TotalGlycanSites = (parsedHeader[SpectrumMatchFromTsvHeader.TotalGlycanSite] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.TotalGlycanSite]];
+        FlankingResidues = (parsedHeader[SpectrumMatchFromTsvHeader.FlankingResidues] < 0) ? null
+            : spl[parsedHeader[SpectrumMatchFromTsvHeader.FlankingResidues]];
+        AllPotentialGlycanLocalization = (parsedHeader[SpectrumMatchFromTsvHeader.AllPotentialGlycanLocalization] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.AllPotentialGlycanLocalization]];
+        AllSiteSpecificLocalizationProbability = (parsedHeader[SpectrumMatchFromTsvHeader.AllSiteSpecificLocalizationProbability] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.AllSiteSpecificLocalizationProbability]];
+        NGlycanMotifCheck = (parsedHeader[SpectrumMatchFromTsvHeader.NGlycanMotifCheck] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.NGlycanMotifCheck]];
     }
 
     public GlycoPsmFromTsv(GlycoPsmFromTsv psm, string fullSequence, int index = 0, string baseSequence = "") : base(psm, fullSequence, index, baseSequence)

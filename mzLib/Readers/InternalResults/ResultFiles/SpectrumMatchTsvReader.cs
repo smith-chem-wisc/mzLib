@@ -173,6 +173,11 @@ namespace Readers
             }
 
             parsedHeader.Add(SpectrumMatchFromTsvHeader.FlankingResidues, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.FlankingResidues));
+            if (parsedHeader[SpectrumMatchFromTsvHeader.FlankingResidues] == -1) // try legacy name from previous versions
+            {
+                parsedHeader[SpectrumMatchFromTsvHeader.FlankingResidues] = Array.IndexOf(spl, "FlankingResidues");
+            }
+
             parsedHeader.Add(SpectrumMatchFromTsvHeader.NumberOfMods, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.NumberOfMods));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.GeneName, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.GeneName));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.OrganismName, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.OrganismName));
@@ -214,16 +219,31 @@ namespace Readers
             parsedHeader.Add(SpectrumMatchFromTsvHeader.LocalizedScores, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.LocalizedScores));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.NumberOfGlycan, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.NumberOfGlycan));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.TotalGlycanSite, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.TotalGlycanSite));
+            if (parsedHeader[SpectrumMatchFromTsvHeader.TotalGlycanSite] == -1) // try legacy name from previous versions
+            {
+                parsedHeader[SpectrumMatchFromTsvHeader.TotalGlycanSite] = Array.IndexOf(spl, "Total Glycosylation sites");
+            }
             parsedHeader.Add(SpectrumMatchFromTsvHeader.GlycanLocalizationLevel, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.GlycanLocalizationLevel));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.LocalizedGlycanInPeptide, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.LocalizedGlycanInPeptide));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.LocalizedGlycanInProtein, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.LocalizedGlycanInProtein));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.YionScore, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.YionScore));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.DiagonosticIonScore, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.DiagonosticIonScore));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.NGlycanMotifCheck, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.NGlycanMotifCheck));
+            if (parsedHeader[SpectrumMatchFromTsvHeader.NGlycanMotifCheck] == -1)// try legacy name from previous versions
+            {
+                parsedHeader[SpectrumMatchFromTsvHeader.NGlycanMotifCheck] = Array.IndexOf(spl, "N-Glycan motif Check");
+            }
             parsedHeader.Add(SpectrumMatchFromTsvHeader.R138144, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.R138144));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.AllPotentialGlycanLocalization, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.AllPotentialGlycanLocalization));
+            if (parsedHeader[SpectrumMatchFromTsvHeader.AllPotentialGlycanLocalization] == -1)// try legacy name from previous versions
+            {
+                parsedHeader[SpectrumMatchFromTsvHeader.AllPotentialGlycanLocalization] = Array.IndexOf(spl, "All potential glycan localizations");
+            }
             parsedHeader.Add(SpectrumMatchFromTsvHeader.AllSiteSpecificLocalizationProbability, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.AllSiteSpecificLocalizationProbability));
-
+            if (parsedHeader[SpectrumMatchFromTsvHeader.AllSiteSpecificLocalizationProbability] == -1)// try legacy name from previous versions
+            {
+                parsedHeader[SpectrumMatchFromTsvHeader.AllSiteSpecificLocalizationProbability] = Array.IndexOf(spl, "AllSiteSpecificLocalizationProbability");
+            }
             return parsedHeader;
         }
     }

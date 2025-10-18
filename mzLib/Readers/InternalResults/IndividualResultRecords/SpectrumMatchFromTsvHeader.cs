@@ -115,5 +115,6 @@
         public const string R138144 = "R138/144";
         public const string AllPotentialGlycanLocalization = "All Potential Glycan Localizations";
         public const string AllSiteSpecificLocalizationProbability = "All SiteSpecific Localization Probability";
+        public const string LocalizationScore = "Localization Score";
     }
 }

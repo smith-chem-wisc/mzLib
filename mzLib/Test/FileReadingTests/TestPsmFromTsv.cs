@@ -10,6 +10,7 @@ using Omics.Fragmentation;
 using Readers;
 using MzLibUtil;
 using FlashLFQ;
+using NUnit.Framework.Interfaces;
 
 namespace Test.FileReadingTests
 {
@@ -21,6 +22,7 @@ namespace Test.FileReadingTests
         [Test]
         [TestCase("oglycoSinglePsms.psmtsv", 2)] // oglyco
         [TestCase("nglyco_f5.psmtsv", 5)] // nglyco
+        [TestCase("nglyco_f5_NewVersion.psmtsv", 5)]
         [TestCase("VariantCrossTest.psmtsv", 15)] // variant crossing
         [TestCase("XL_Intralinks.tsv", 6)] // variant crossing
         [TestCase("XLink.psmtsv", 19)] // variant crossing
@@ -135,6 +137,23 @@ namespace Test.FileReadingTests
 
         [Test]
         [TestCase(@"FileReadingTests\SearchResults\oglyco.psmtsv")]
+        [TestCase(@"FileReadingTests\SearchResults\oglyco_NewVersion.psmtsv")]
+        public static void ReadOGlycoPsms_LegacyVersion(string psmFile)
+        {
+            // In this test, we are testing that the glyco-specific fields are read correctly from older versions of the oglyco.psmtsv file.
+            // There are few headers edited in the newer versions. In order to maintain backward compatibility, we need to ensure that the older files are still read correctly.
+            List<GlycoPsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadGlycoPsmTsv(psmFile, out var warnings);
+            Assert.AreEqual(9, parsedPsms.Count);
+            Assert.That(parsedPsms.All(p=>p.FlankingResidues != null));
+            Assert.That(parsedPsms.All(p => p.TotalGlycanSites != null));
+            Assert.That(parsedPsms.All(p => p.NGlycanMotifCheck != null));
+            Assert.That(parsedPsms.All(p => p.AllPotentialGlycanLocalization != null));
+            Assert.That(parsedPsms.All(p => p.AllSiteSpecificLocalizationProbability != null));
+        }
+
+        [Test]
+        [TestCase(@"FileReadingTests\SearchResults\oglyco.psmtsv")]
+        [TestCase(@"FileReadingTests\SearchResults\oglyco_NewVersion.psmtsv")]
         [TestCase(@"FileReadingTests\SearchResults\oglycoWithWrongExtension.tsv")]
         public static void ReadOGlycoPsmsLocalizedGlycans_Glyco(string psmFile)
         {
@@ -154,6 +173,7 @@ namespace Test.FileReadingTests
 
         [Test]
         [TestCase(@"FileReadingTests\SearchResults\oglyco.psmtsv")]
+        [TestCase(@"FileReadingTests\SearchResults\oglyco_NewVersion.psmtsv")]
         [TestCase(@"FileReadingTests\SearchResults\oglycoWithWrongExtension.tsv")]
         public static void ReadOGlycoPsmsLocalizedGlycans_Generic(string psmFile)
         {
@@ -173,6 +193,7 @@ namespace Test.FileReadingTests
 
         [Test]
         [TestCase(@"FileReadingTests\SearchResults\oglyco.psmtsv")]
+        [TestCase(@"FileReadingTests\SearchResults\oglyco_NewVersion.psmtsv")]
         [TestCase(@"FileReadingTests\SearchResults\oglycoWithWrongExtension.tsv")]
         public static void ReadOGlycoPsmsLocalizedGlycans_AsPsm(string psmFile)
         {
@@ -191,11 +212,12 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        public static void GlcyoPsmFromTsv_ModifiedPsmFunction()
+        [TestCase(@"FileReadingTests\SearchResults\oglyco.psmtsv")]
+        [TestCase(@"FileReadingTests\SearchResults\oglyco_NewVersion.psmtsv")]
+        public static void GlcyoPsmFromTsv_ModifiedPsmFunction(string path)
         {
             // Test that the GlycoPsmFromTsv modified PSM constructor works as intended
             // The modified PSM should have the same glycan information as the unmodified PSM
-            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\oglyco.psmtsv");
             var unModifiedPsm = SpectrumMatchTsvReader.ReadPsmTsv(path, out var warnings).Cast<GlycoPsmFromTsv>().First();
             string newFullSequence = "REVEDPQVAQLELGGGPGAGDLQT[O-Glycosylation:H1N1A2 on T]LALEVAQQKR";
             var modifiedPsm = new GlycoPsmFromTsv(unModifiedPsm, newFullSequence);
