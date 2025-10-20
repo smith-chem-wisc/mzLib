@@ -384,23 +384,21 @@ namespace Omics.BioPolymer
             var adjustedProteolysisProducts =
                 AdjustTruncationProductIndices(variantAfterApplication, newBaseSequence, protein, protein.TruncationProducts);
 
-            // AdjustModificationIndices merges:
-            //   - existing protein-level mods (shifted for length changes)
-            //   - variant-specific mods (variantGettingApplied.OneBasedModifications)
-            // Thus variant-site PTMs are PROMOTED to the applied variant protein's OneBasedPossibleLocalizedModifications,
-            // but NOT copied back to the consensus protein (intentional).
+            // AdjustModificationIndices merges existing protein-level mods and variant-specific mods (promotion to applied isoform)
             var adjustedModifications =
                 AdjustModificationIndices(variantAfterApplication, newBaseSequence, protein);
 
             var adjustedAppliedVariations =
                 AdjustSequenceVariationIndices(variantAfterApplication, newBaseSequence, appliedVariations);
 
-            var created = protein.CreateVariant(newBaseSequence,
-                                                protein,
-                                                adjustedAppliedVariations,
-                                                adjustedProteolysisProducts,
-                                                adjustedModifications,
-                                                individual);
+            // Centralized creation to ensure AppliedSequenceVariations are wired on the new variant
+            var created = BuildVariant(
+                protein,
+                newBaseSequence,
+                adjustedAppliedVariations,
+                adjustedProteolysisProducts,
+                adjustedModifications,
+                individual);
 
             // Normalize UniProt sequence attributes (length + mass)
             try
@@ -487,15 +485,6 @@ namespace Omics.BioPolymer
             {
                 // best-effort; ignore
             }
-
-            // IMPORTANT:
-            // We intentionally DO NOT copy variant-specific modifications to the consensus protein’s
-            // SequenceVariations. They remain:
-            //   - In un-applied SequenceVariation.OneBasedModifications (for still-potential variants), OR
-            //   - Promoted into the applied variant protein’s OneBasedPossibleLocalizedModifications via AdjustModificationIndices.
-            // To persist these PTMs in XML the caller must request applied variant entries
-            // (includeAppliedVariantEntries: true in ProteinDbWriter) because consensus-only output
-            // will not include applied-proteoform-level modifications.
 
             return created;
         }
@@ -928,7 +917,7 @@ namespace Omics.BioPolymer
         }
         public static bool ValidCombination(List<SequenceVariation> variations)
         {
-            if (variations == null || variations.Count <= 1)
+            if ( variations == null || variations.Count <= 1)
                 return true;
 
             // Validate inputs
@@ -1170,6 +1159,25 @@ namespace Omics.BioPolymer
             where TBioPolymerType : IHasSequenceVariants
         {
             return SanitizeVariantData(new[] { polymer }, removeInvalidVariants);
+        }
+
+        // New: always preserves AppliedSequenceVariations on constructed variants
+        private static TBioPolymerType BuildVariant<TBioPolymerType>(
+            TBioPolymerType original,
+            string variantBaseSequence,
+            IEnumerable<SequenceVariation> appliedSequenceVariants,
+            IEnumerable<TruncationProduct> applicableTruncationProducts,
+            IDictionary<int, List<Modification>> promotedMods,
+            string sampleNameForVariants)
+            where TBioPolymerType : IHasSequenceVariants
+        {
+            return original.CreateVariant(
+                variantBaseSequence,
+                original,
+                appliedSequenceVariants ?? Array.Empty<SequenceVariation>(),
+                applicableTruncationProducts ?? Array.Empty<TruncationProduct>(),
+                promotedMods ?? new Dictionary<int, List<Modification>>(),
+                sampleNameForVariants);
         }
     }
 }

@@ -45,21 +45,27 @@ namespace UsefulProteomicsDatabases
         /// <param name="nucleicAcidList">A list of nucleic acid sequences to be written to the database.</param>
         /// <param name="outputFileName">The name of the output XML file.</param>
         /// <param name="updateTimeStamp">If true, updates the modified attribute to today's date when attributes are written (currently RNA omits attributes as per original).</param>
-        /// <returns>A dictionary of new modification residue entries.</returns>
-        /// <remarks>
-        /// Several chunks of code are commented out. These are blocks that are intended to be implemented in the future, but
-        /// are not necessary for the bare bones implementation of Transcriptomics
-        /// </remarks>
+        /// <param name="includeAppliedVariantEntries">
+        /// If true, applied (realized) variant proteoforms (with a different accession produced by VariantApplication) are written
+        /// as separate &lt;entry&gt; elements in addition to their consensus (canonical) parents.
+        /// </param>
+        /// <param name="includeAppliedVariantFeatures">
+        /// If true and an applied variant entry is written, its AppliedSequenceVariations are emitted as
+        /// &lt;feature type="sequence variant"&gt; elements so differences remain explicit (even though its BaseSequence already contains them).
+        /// </param>
+        /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
         public static Dictionary<string, int> WriteXmlDatabase(
             Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToNucleicAcids,
             List<RNA> nucleicAcidList,
             string outputFileName,
-            bool updateTimeStamp = false)
+            bool updateTimeStamp = false,
+            bool includeAppliedVariantEntries = false,
+            bool includeAppliedVariantFeatures = true)
         {
             additionalModsToAddToNucleicAcids ??= new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
-            // Write non-variant RNA (when variants aren't applied, this just returns the RNA itself)
-            var nonVariantRna = nucleicAcidList.Select(p => p.ConsensusVariant).OfType<RNA>().Distinct().ToList();
+            // Build the set to write (consensus + optional applied-variant RNAs)
+            var rnasToWrite = BuildRnaToWrite(nucleicAcidList ?? new List<RNA>(), includeAppliedVariantEntries);
 
             Dictionary<string, int> newModResEntries = new();
 
@@ -67,12 +73,12 @@ namespace UsefulProteomicsDatabases
             {
                 WriteStartDocument(writer);
 
-                // Modifications catalog
-                var allRelevantMods = CollectAllRelevantModsForRna(nonVariantRna, additionalModsToAddToNucleicAcids);
+                // Modifications catalog: collect from everything we will write
+                var allRelevantMods = CollectAllRelevantModsForRna(rnasToWrite, additionalModsToAddToNucleicAcids);
                 WriteModificationCatalog(writer, allRelevantMods);
 
                 // Entries
-                foreach (var rna in nonVariantRna)
+                foreach (var rna in rnasToWrite.OrderBy(r => r.Accession, StringComparer.Ordinal))
                 {
                     WriteRnaEntry(writer, rna, additionalModsToAddToNucleicAcids, newModResEntries, updateTimeStamp);
                 }
@@ -333,6 +339,41 @@ namespace UsefulProteomicsDatabases
             }
 
             return proteinsToWrite;
+        }
+
+        // NEW: helper to assemble RNAs to write (consensus + optional applied-variant isoforms)
+        private static List<RNA> BuildRnaToWrite(IEnumerable<RNA> rnaList, bool includeAppliedVariantEntries)
+        {
+            var consensus = rnaList
+                .Select(r => r?.ConsensusVariant)
+                .OfType<RNA>()
+                .Distinct()
+                .ToList();
+
+            if (!includeAppliedVariantEntries)
+            {
+                return consensus;
+            }
+
+            var toWrite = new List<RNA>(consensus);
+
+            foreach (var r in rnaList)
+            {
+                if (r == null) continue;
+                var cons = r.ConsensusVariant as RNA;
+
+                bool isAppliedVariant =
+                    r.AppliedSequenceVariations != null &&
+                    r.AppliedSequenceVariations.Count > 0 &&
+                    (cons == null || !ReferenceEquals(r, cons));
+
+                if (isAppliedVariant && !toWrite.Any(x => string.Equals(x.Accession, r.Accession, StringComparison.Ordinal)))
+                {
+                    toWrite.Add(r);
+                }
+            }
+
+            return toWrite;
         }
 
         /// <summary>

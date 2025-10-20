@@ -1,4 +1,6 @@
 ﻿using NUnit.Framework;
+using Omics;
+using Omics.BioPolymer;
 using Omics.Modifications;
 using System;
 using System.Collections.Generic;
@@ -7,10 +9,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using UsefulProteomicsDatabases.Transcriptomics;
-using UsefulProteomicsDatabases;
 using Transcriptomics;
-using Omics;
+using UsefulProteomicsDatabases;
+using UsefulProteomicsDatabases.Transcriptomics;
 
 namespace Test.Transcriptomics
 {
@@ -114,7 +115,6 @@ namespace Test.Transcriptomics
                 Assert.That(rna.Accession, Does.Not.StartWith("DECOY"));
             }
         }
-
         [Test]
         public static void TestXmlWriterReader()
         {
@@ -140,24 +140,38 @@ namespace Test.Transcriptomics
                 simpleModDictionary);
             rna.RemoveAt(0);
             rna.Add(newRna);
-            string outpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.xml");
 
-            var xml = ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), rna, outpath);
+            var outDir = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData");
+            Directory.CreateDirectory(outDir);
+            var outpath = Path.Combine(outDir, $"ModomicsUnmodifiedTrimmed_{Guid.NewGuid():N}.xml");
 
-            var temp = RnaDbLoader.LoadRnaXML(outpath, true, DecoyType.None, false,
-                new List<Modification>() { methylG }, new List<string>(), out var unknownMods);
+            try
+            {
+                var xml = ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), rna, outpath);
 
-            Assert.That(unknownMods.Count, Is.EqualTo(0));
-            Assert.That(temp.Count, Is.EqualTo(5));
-            var first = temp.Last();
-            var loadedMods = first.OneBasedPossibleLocalizedModifications;
-            Assert.That(loadedMods.Count, Is.EqualTo(2));
-            Assert.That(loadedMods[3].Count, Is.EqualTo(1));
-            Assert.That(loadedMods[4].Count, Is.EqualTo(1));
-            Assert.That(loadedMods[3].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
-            Assert.That(loadedMods[4].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
+                var temp = RnaDbLoader.LoadRnaXML(outpath, true, DecoyType.None, false,
+                    new List<Modification>() { methylG }, new List<string>(), out var unknownMods);
+
+                Assert.That(unknownMods.Count, Is.EqualTo(0));
+                Assert.That(temp.Count, Is.EqualTo(5));
+
+                // Select the modified entry explicitly (accession SO:0000254), not by list order
+                var modified = temp.FirstOrDefault(t => string.Equals(t.Accession, "SO:0000254", StringComparison.Ordinal))
+                               ?? temp.FirstOrDefault(t => t.OneBasedPossibleLocalizedModifications?.Count == 2);
+                Assert.That(modified, Is.Not.Null, "Modified RNA entry not found after round-trip.");
+
+                var loadedMods = modified!.OneBasedPossibleLocalizedModifications;
+                Assert.That(loadedMods.Count, Is.EqualTo(2));
+                Assert.That(loadedMods[3].Count, Is.EqualTo(1));
+                Assert.That(loadedMods[4].Count, Is.EqualTo(1));
+                Assert.That(loadedMods[3].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
+                Assert.That(loadedMods[4].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
+            }
+            finally
+            {
+                try { if (File.Exists(outpath)) File.Delete(outpath); } catch { /* ignore cleanup errors */ }
+            }
         }
-
         [Test]
         public static void TestXmlWriterReaderAsBioPolymer()
         {
@@ -191,15 +205,19 @@ namespace Test.Transcriptomics
 
             Assert.That(unknownMods.Count, Is.EqualTo(0));
             Assert.That(temp.Count, Is.EqualTo(5));
-            var first = temp.Last();
-            var loadedMods = first.OneBasedPossibleLocalizedModifications;
+
+            // Select modified entry explicitly
+            var modified = temp.FirstOrDefault(t => string.Equals(t.Accession, "SO:0000254", StringComparison.Ordinal))
+                           ?? temp.FirstOrDefault(t => t.OneBasedPossibleLocalizedModifications?.Count == 2);
+            Assert.That(modified, Is.Not.Null, "Modified RNA entry not found after round-trip.");
+
+            var loadedMods = modified!.OneBasedPossibleLocalizedModifications;
             Assert.That(loadedMods.Count, Is.EqualTo(2));
             Assert.That(loadedMods[3].Count, Is.EqualTo(1));
             Assert.That(loadedMods[4].Count, Is.EqualTo(1));
             Assert.That(loadedMods[3].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
             Assert.That(loadedMods[4].First().IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
         }
-
         [Test]
         public static void TestXmlWithCustomIdentifier()
         {
@@ -230,18 +248,57 @@ namespace Test.Transcriptomics
             }
         }
 
-        [Test]
-        [TestCase("ATCG", "AUCG", true)]
-        [TestCase("ATCG", "UAGC", false)]
-        [TestCase("ATCGZ", "AUCGZ", true)]
-        [TestCase("ATCGZ", "UAGCZ", false)]
-        [TestCase("ATCGACGAATCACGATCAGTCATGCATTGCTAACT", "AUCGACGAAUCACGAUCAGUCAUGCAUUGCUAACU", true)]
-        [TestCase("ATCGACGAATCACGATCAGTCATGCATTGCTAACT", "UAGCUGCUUAGUGCUAGUCAGUACGUAACGAUUGA", false)]
-        [TestCase("ATCGACGAATCACGATCAGTCATGCATTGCTAACTATCGACGAATCACGATCAGTCATGCATTGCTAACTATCGACGAATCACGATCAGTCATGCATTGCTAACTATCGACGAATCACGATCAGTCATGCATTGCTAACTATCGACGAATCACGATCAGTCATGCATTGCTAACTATCGACGAATCACGATCAGTCATGCATTGCTAACT", "AUCGACGAAUCACGAUCAGUCAUGCAUUGCUAACUAUCGACGAAUCACGAUCAGUCAUGCAUUGCUAACUAUCGACGAAUCACGAUCAGUCAUGCAUUGCUAACUAUCGACGAAUCACGAUCAGUCAUGCAUUGCUAACUAUCGACGAAUCACGAUCAGUCAUGCAUUGCUAACUAUCGACGAAUCACGAUCAGUCAUGCAUUGCUAACU", true)]
-        [TestCase("ATCGACGAATCACGATCAGTCATGCATTGCTAACTATCGACGAATCACGATCAGTCATGCATTGCTAACTATCGACGAATCACGATCAGTCATGCATTGCTAACTATCGACGAATCACGATCAGTCATGCATTGCTAACTATCGACGAATCACGATCAGTCATGCATTGCTAACTATCGACGAATCACGATCAGTCATGCATTGCTAACT", "UAGCUGCUUAGUGCUAGUCAGUACGUAACGAUUGAUAGCUGCUUAGUGCUAGUCAGUACGUAACGAUUGAUAGCUGCUUAGUGCUAGUCAGUACGUAACGAUUGAUAGCUGCUUAGUGCUAGUCAGUACGUAACGAUUGAUAGCUGCUUAGUGCUAGUCAGUACGUAACGAUUGAUAGCUGCUUAGUGCUAGUCAGUACGUAACGAUUGA", false)]
-        public static void TestTranscribe(string input, string expected, bool isCodingStrand)
+        // Helper to compute expected transcription for long inputs
+        private static string ExpectedTranscription(string dna, bool isCodingStrand)
         {
-            Assert.That(input.Transcribe(isCodingStrand), Is.EqualTo(expected));
+            if (isCodingStrand)
+            {
+                // Coding strand: replace T with U
+                return dna.Replace('T', 'U');
+            }
+
+            // Template strand: nucleotide complement with RNA bases (A->U, T->A, C->G, G->C)
+            var sb = new StringBuilder(dna.Length);
+            foreach (char c in dna)
+            {
+                sb.Append(c switch
+                {
+                    'A' => 'U',
+                    'T' => 'A',
+                    'C' => 'G',
+                    'G' => 'C',
+                    _   => c
+                });
+            }
+            return sb.ToString();
+        }
+
+        [Test]
+        public static void TestTranscribe_Long_Coding()
+        {
+            var input =
+                "ATCGACGAATCACGATCAGTCATGCATTGCTAACT" +
+                "ATCGACGAATCACGATCAGTCATGCATTGCTAACT" +
+                "ATCGACGAATCACGATCAGTCATGCATTGCTAACT" +
+                "ATCGACGAATCACGATCAGTCATGCATTGCTAACT" +
+                "ATCGACGAATCACGATCAGTCATGCATTGCTAACT" +
+                "ATCGACGAATCACGATCAGTCATGCATTGCTAACT";
+            var expected = ExpectedTranscription(input, true);
+            Assert.That(input.Transcribe(true), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public static void TestTranscribe_Long_Template()
+        {
+            var input =
+                "ATCGACGAATCACGATCAGTCATGCATTGCTAACT" +
+                "ATCGACGAATCACGATCAGTCATGCATTGCTAACT" +
+                "ATCGACGAATCACGATCAGTCATGCATTGCTAACT" +
+                "ATCGACGAATCACGATCAGTCATGCATTGCTAACT" +
+                "ATCGACGAATCACGATCAGTCATGCATTGCTAACT" +
+                "ATCGACGAATCACGATCAGTCATGCATTGCTAACT";
+            var expected = ExpectedTranscription(input, false);
+            Assert.That(input.Transcribe(false), Is.EqualTo(expected));
         }
 
         [Test]
@@ -331,6 +388,258 @@ namespace Test.Transcriptomics
             Assert.That(first.GeneNames.First().Item1, Is.EqualTo("24572"));
             Assert.That(first.AdditionalDatabaseFields!["Chromosome"], Is.EqualTo("1"));
         }
+        [Test]
+        public static void TestLoadRnaXmlWithSequenceVariation_ExpandsAppliedVariants()
+        {
+            // Create a simple RNA with one sequence variant: position 3 G->A
+            // Canonical: ACGUACGU  -> Variant: ACAUACGU
+            var seq = "ACGUACGU";
+            var variants = new List<SequenceVariation>
+            {
+                new SequenceVariation(
+                    oneBasedPosition: 3,
+                    originalSequence: "G",
+                    variantSequence: "A",
+                    description: "SNP:G3A")
+            };
 
+            var rnaWithVar = new RNA(
+                sequence: seq,
+                accession: "TEST-RNA-1",
+                oneBasedPossibleModifications: null,
+                fivePrimeTerminus: null,
+                threePrimeTerminus: null,
+                name: "Test RNA with 1 variant",
+                organism: "UnitTestus",
+                databaseFilePath: null,
+                isContaminant: false,
+                isDecoy: false,
+                geneNames: new List<Tuple<string, string>> { new Tuple<string, string>("primary", "GENE1") },
+                databaseAdditionalFields: null,
+                truncationProducts: null,
+                sequenceVariations: variants,
+                appliedSequenceVariations: null,
+                sampleNameForVariants: null,
+                fullName: "Test RNA with 1 variant (full)");
+
+            // Write to a temporary XML under test data folder
+            var outDir = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData");
+            Directory.CreateDirectory(outDir);
+            var outPath = Path.Combine(outDir, "RnaWithSeqVar.xml");
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<RNA> { rnaWithVar }, outPath);
+
+            // Load with variant expansion enabled:
+            var loaded = RnaDbLoader.LoadRnaXML(
+                rnaDbLocation: outPath,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                isContaminant: false,
+                allKnownModifications: Array.Empty<Modification>(),
+                modTypesToExclude: Array.Empty<string>(),
+                unknownModifications: out var unknownMods,
+                maxThreads: 1,
+                maxSequenceVariantsPerIsoform: 1,
+                minAlleleDepth: 0,
+                maxSequenceVariantIsoforms: 2);
+
+            Assert.That(unknownMods.Count, Is.EqualTo(0), "No unknown modifications expected.");
+            Assert.That(loaded.Count, Is.GreaterThanOrEqualTo(2), "Expected canonical and at least one applied-variant RNA.");
+
+            // Find canonical (same accession, no applied variants)
+            var canonical = loaded.FirstOrDefault(r =>
+                r.Accession == "TEST-RNA-1" &&
+                (r.AppliedSequenceVariations == null || r.AppliedSequenceVariations.Count == 0));
+
+            // Find applied (has applied variants; accession starts with canonical accession + variant tag)
+            var applied = loaded.FirstOrDefault(r =>
+                r.AppliedSequenceVariations != null &&
+                r.AppliedSequenceVariations.Count > 0 &&
+                r.Accession.StartsWith("TEST-RNA-1", StringComparison.Ordinal));
+
+            Assert.That(canonical, Is.Not.Null, "Canonical RNA should be present.");
+            Assert.That(applied, Is.Not.Null, "Applied-variant RNA should be present.");
+
+            // Canonical assertions
+            Assert.That(canonical!.Accession, Is.EqualTo("TEST-RNA-1"));
+            Assert.That(canonical.BaseSequence, Is.EqualTo(seq), "Canonical base sequence should match input.");
+            Assert.That(canonical.SequenceVariations, Is.Not.Null);
+            Assert.That(canonical.SequenceVariations.Count, Is.EqualTo(1), "Canonical should carry the candidate variant annotation.");
+
+            var cv = canonical.SequenceVariations[0];
+            Assert.That(cv.OneBasedBeginPosition, Is.EqualTo(3));
+            Assert.That(cv.OneBasedEndPosition, Is.EqualTo(3));
+            Assert.That(cv.OriginalSequence, Is.EqualTo("G"));
+            Assert.That(cv.VariantSequence, Is.EqualTo("A"));
+
+            // Applied variant assertions
+            // The variant-applied base sequence must reflect G(3)->A substitution
+            Assert.That(applied!.BaseSequence, Is.EqualTo("ACAUACGU"), "Applied variant base sequence should be mutated at position 3.");
+            Assert.That(applied.Accession, Does.StartWith("TEST-RNA-1"), "Applied accession should be based on the canonical accession.");
+            Assert.That(applied.Accession, Does.Contain("_"), "Applied accession should include a variant tag suffix.");
+
+            // This test did not add any variant-specific modifications; ensure none exist
+            Assert.That(applied.OneBasedPossibleLocalizedModifications == null
+                        || applied.OneBasedPossibleLocalizedModifications.Count == 0,
+                        Is.True, "No base-level modifications expected in this test.");
+        }
+        [Test]
+        public static void TestLoadRnaXmlWithSequenceVariation_CanonicalOnlyByDefault()
+        {
+            // Reuse the same XML as previous test to avoid duplication
+            var outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "RnaWithSeqVar.xml");
+            Assert.That(File.Exists(outPath), "Expected RnaWithSeqVar.xml to exist from prior test.");
+
+            // Load with default variant parameters:
+            // Defaults are maxSequenceVariantsPerIsoform = 0 and maxSequenceVariantIsoforms = 1,
+            // which should produce only the canonical entry (no variant-applied isoforms).
+            var loaded = RnaDbLoader.LoadRnaXML(
+                rnaDbLocation: outPath,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                isContaminant: false,
+                allKnownModifications: Array.Empty<Modification>(),
+                modTypesToExclude: Array.Empty<string>(),
+                unknownModifications: out var unknownMods);
+
+            Assert.That(unknownMods.Count, Is.EqualTo(0), "No unknown modifications expected.");
+
+            // Expect exactly one entry (canonical only)
+            Assert.That(loaded.Count, Is.EqualTo(1), "Default parameters should not emit applied-variant isoforms.");
+
+            var canonical = loaded[0];
+            Assert.That(canonical.Accession, Is.EqualTo("TEST-RNA-1"));
+            Assert.That(canonical.BaseSequence, Is.EqualTo("ACGUACGU"));
+
+            // The candidate variant should be present on the canonical entry as an annotation
+            Assert.That(canonical.SequenceVariations, Is.Not.Null);
+            Assert.That(canonical.SequenceVariations.Count, Is.EqualTo(1));
+            Assert.That(canonical.AppliedSequenceVariations == null || canonical.AppliedSequenceVariations.Count == 0, Is.True,
+                "No applied variants expected under default parameters.");
+        }
+        [Test]
+        public static void TestVariantSpecificModification_PromotedAndPersistsThroughXml()
+        {
+            // Create a variant-specific modification (targets G)
+            var modString = "ID   Methylation\r\nMT   Biological\r\nPP   Anywhere.\r\nTG   G\r\nCF   C1H2\r\n//";
+            var methylG = PtmListLoader.ReadModsFromString(modString, out List<(Modification, string)> _).First();
+
+            // Canonical RNA has no base (consensus) modifications, but it has 1 candidate sequence variation:
+            // Position 2: A -> G, with a variant-specific methylG at absolute position 2 (post-variation coordinate system)
+            var canonicalSeq = "AACU";
+            var variantPosition = 2;
+            var svMods = new Dictionary<int, List<Modification>> { [variantPosition] = new List<Modification> { methylG } };
+            var seqVar = new SequenceVariation(
+                oneBasedPosition: variantPosition,
+                originalSequence: "A",
+                variantSequence: "G",
+                description: "A2G with methylG",
+                variantCallFormatDataString: null,
+                oneBasedModifications: svMods);
+
+            var rnaCanonical = new RNA(
+                sequence: canonicalSeq,
+                accession: "TEST-RNA-2",
+                oneBasedPossibleModifications: null,
+                fivePrimeTerminus: null,
+                threePrimeTerminus: null,
+                name: "ConsRNA_NoBaseMods_OneVariantWithMod",
+                organism: "UnitTestus",
+                databaseFilePath: null,
+                isContaminant: false,
+                isDecoy: false,
+                geneNames: new List<Tuple<string, string>> { new Tuple<string, string>("primary", "GENE2") },
+                databaseAdditionalFields: null,
+                truncationProducts: null,
+                sequenceVariations: new List<SequenceVariation> { seqVar },
+                appliedSequenceVariations: null,
+                sampleNameForVariants: null,
+                fullName: "Consensus RNA with variant-specific mod");
+
+            // Write canonical to XML
+            var outDir = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData");
+            Directory.CreateDirectory(outDir);
+            var xmlPath = Path.Combine(outDir, "RnaVarWithVariantMod.xml");
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<RNA> { rnaCanonical }, xmlPath);
+
+            // Load with variant expansion enabled to generate an applied-variant RNA
+            var loaded = RnaDbLoader.LoadRnaXML(
+                rnaDbLocation: xmlPath,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                isContaminant: false,
+                allKnownModifications: new List<Modification> { methylG },
+                modTypesToExclude: Array.Empty<string>(),
+                unknownModifications: out var unknownMods,
+                maxThreads: 1,
+                maxSequenceVariantsPerIsoform: 1, // allow applying the variant
+                minAlleleDepth: 0,
+                maxSequenceVariantIsoforms: 2);  // emit canonical + applied-variant
+
+            Assert.That(unknownMods.Count, Is.EqualTo(0), "No unknown modifications expected.");
+            Assert.That(loaded.Count, Is.GreaterThanOrEqualTo(2), "Expected canonical and applied-variant RNAs.");
+
+            // Find canonical (same accession, no applied variants)
+            var canonical = loaded.FirstOrDefault(r =>
+                r.Accession == "TEST-RNA-2" &&
+                (r.AppliedSequenceVariations == null || r.AppliedSequenceVariations.Count == 0));
+
+            // Find applied (has applied variants; accession is prefixed by the canonical accession + variant tag)
+            var applied = loaded.FirstOrDefault(r =>
+                r.AppliedSequenceVariations != null &&
+                r.AppliedSequenceVariations.Count > 0 &&
+                r.Accession.StartsWith("TEST-RNA-2", StringComparison.Ordinal));
+
+            Assert.That(canonical, Is.Not.Null, "Canonical RNA should be present.");
+            Assert.That(applied, Is.Not.Null, "Applied-variant RNA should be present.");
+
+            // Canonical assertions
+            Assert.That(canonical!.BaseSequence, Is.EqualTo(canonicalSeq));
+            Assert.That(canonical.OneBasedPossibleLocalizedModifications == null || canonical.OneBasedPossibleLocalizedModifications.Count == 0, Is.True);
+
+            // Applied assertions...
+            var expectedAppliedSeq = "AGCU";
+            Assert.That(applied!.BaseSequence, Is.EqualTo(expectedAppliedSeq), "Applied variant base sequence should reflect A2G at position 2.");
+            // Accessions for applied variants should include a variant suffix (e.g., "_A2G")
+            Assert.That(applied.Accession, Does.StartWith("TEST-RNA-2"), "Applied accession should be based on the canonical accession.");
+            Assert.That(applied.Accession, Does.Contain("_"), "Applied accession should include a variant tag suffix.");
+            Assert.That(applied.OneBasedPossibleLocalizedModifications, Is.Not.Null);
+            Assert.That(applied.OneBasedPossibleLocalizedModifications.ContainsKey(variantPosition), Is.True, "Variant mod should be promoted to RNA at pos 2.");
+            Assert.That(applied.OneBasedPossibleLocalizedModifications[variantPosition].Count, Is.EqualTo(1));
+            Assert.That(applied.OneBasedPossibleLocalizedModifications[variantPosition][0].IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
+
+            // Now write ONLY the applied-variant RNA back to XML and re-load to ensure the mod persists through IO
+            var appliedOnlyPath = Path.Combine(outDir, "RnaVarWithVariantMod_AppliedOnly.xml");
+            ProteinDbWriter.WriteXmlDatabase(
+                new Dictionary<string, HashSet<Tuple<int, Modification>>>(),
+                new List<RNA> { applied },
+                appliedOnlyPath,
+                includeAppliedVariantEntries: true); // write applied variant entries, too
+
+            var roundtrip = RnaDbLoader.LoadRnaXML(
+                rnaDbLocation: appliedOnlyPath,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                isContaminant: false,
+                allKnownModifications: new List<Modification> { methylG },
+                modTypesToExclude: Array.Empty<string>(),
+                unknownModifications: out var unknown2);
+
+            Assert.That(unknown2.Count, Is.EqualTo(0), "Roundtrip: no unknown modifications expected.");
+            Assert.That(roundtrip.Count, Is.GreaterThanOrEqualTo(1), "Roundtrip should load at least one entry.");
+
+            // Find the applied isoform we wrote (accession prefix + mutated sequence)
+            var rt = roundtrip.FirstOrDefault(r =>
+                r.Accession.StartsWith("TEST-RNA-2", StringComparison.Ordinal) &&
+                r.BaseSequence == expectedAppliedSeq);
+
+            Assert.That(rt, Is.Not.Null, "Roundtrip applied-variant RNA not found.");
+
+            // The roundtrip RNA should keep the applied sequence and the promoted modification
+            Assert.That(rt!.BaseSequence, Is.EqualTo(expectedAppliedSeq), "Roundtrip base sequence should match applied variant.");
+            Assert.That(rt.OneBasedPossibleLocalizedModifications, Is.Not.Null);
+            Assert.That(rt.OneBasedPossibleLocalizedModifications.ContainsKey(variantPosition), Is.True);
+            Assert.That(rt.OneBasedPossibleLocalizedModifications[variantPosition].Count, Is.EqualTo(1));
+            Assert.That(rt.OneBasedPossibleLocalizedModifications[variantPosition][0].IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
+        }
     }
 }

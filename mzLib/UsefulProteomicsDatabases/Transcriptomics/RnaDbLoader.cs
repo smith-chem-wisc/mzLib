@@ -1,16 +1,17 @@
-﻿using Omics.Modifications;
+﻿using Chemistry;
+using MzLibUtil;
+using Omics.BioPolymer;
+using Omics.Modifications;
 using System;
 using System.Collections.Generic;
-using System.IO.Compression;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml;
-using Chemistry;
 using Transcriptomics;
-using Omics.BioPolymer;
 
 namespace UsefulProteomicsDatabases.Transcriptomics
 {
@@ -124,9 +125,8 @@ namespace UsefulProteomicsDatabases.Transcriptomics
         /// <param name="threePrimeTerm">An optional 3' prime chemical modification term</param>
         /// <returns>A list of RNA sequences loaded from the FASTA database</returns>
         /// <exception cref="MzLibUtil.MzLibException">Thrown if the FASTA header format is unknown or other issues occur during loading.</exception>
-
         public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets, DecoyType decoyType,
-            bool isContaminant, out List<string> errors, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null, 
+            bool isContaminant, out List<string> errors, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
             int maxThreads = 1, string decoyIdentifier = "DECOY")
         {
             RnaFastaHeaderType? headerType = null;
@@ -261,7 +261,6 @@ namespace UsefulProteomicsDatabases.Transcriptomics
             return generateTargets ? targets.Concat(decoys).ToList() : decoys;
         }
 
-
         private static Dictionary<string, string> ParseRegexFields(string line,
             Dictionary<string, FastaHeaderFieldRegex> regexes)
         {
@@ -279,20 +278,33 @@ namespace UsefulProteomicsDatabases.Transcriptomics
         public static Dictionary<string, IList<Modification>> IdToPossibleMods = new Dictionary<string, IList<Modification>>();
         public static Dictionary<string, Modification> IdWithMotifToMod = new Dictionary<string, Modification>();
 
+        /// <summary>
+        /// Load an RNA XML (mzLibProteinDb/UniProt-like) and expand into variant RNAs.
+        /// Mirrors ProteinDbLoader variant parameters and behavior:
+        /// - Accepts maxSequenceVariantsPerIsoform, minAlleleDepth, maxSequenceVariantIsoforms
+        /// - Expands via GetVariantBioPolymers(...) to produce applied variant entries
+        /// </summary>
         public static List<RNA> LoadRnaXML(string rnaDbLocation, bool generateTargets, DecoyType decoyType,
             bool isContaminant, IEnumerable<Modification> allKnownModifications,
             IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications,
-            int maxHeterozygousVariants = 4, int minAlleleDepth = 1,
-            int maxThreads = 1, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
+            int maxThreads = 1,
+            int maxSequenceVariantsPerIsoform = 0,
+            int minAlleleDepth = 0,
+            int maxSequenceVariantIsoforms = 1, // must be at least 1 to return the canonical isoform
+            IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
             string decoyIdentifier = "DECOY")
         {
+            if (maxSequenceVariantIsoforms < 1)
+            {
+                throw new MzLibException("maxSequenceVariantIsoforms must be at least 1 to return the canonical isoform");
+            }
+
             var prespecified = ProteinDbLoader.GetPtmListFromProteinXml(rnaDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
             modTypesToExclude = modTypesToExclude ?? new List<string>();
 
             if (prespecified.Count > 0 || allKnownModifications.Count() > 0)
             {
-                //modsDictionary = GetModificationDict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
                 IdToPossibleMods = ProteinDbLoader.GetModificationDict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
                 IdWithMotifToMod = ProteinDbLoader.GetModificationDictWithMotifs(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
             }
@@ -301,7 +313,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
             string newProteinDbLocation = rnaDbLocation;
 
-            //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
+            // we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
             if (rnaDbLocation.EndsWith(".gz"))
             {
                 newProteinDbLocation = Path.Combine(Path.GetDirectoryName(rnaDbLocation), "temp.xml");
@@ -330,6 +342,8 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                             RNA newProtein = block.ParseRnaEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, rnaDbLocation);
                             if (newProtein != null)
                             {
+                                // Note: if you later add RNA-specific conversion of nucleotide substitution mods to variants,
+                                // do it here (analogous to ProteinDbLoader) if RNA supports such an API.
                                 targets.Add(newProtein);
                             }
                         }
@@ -342,10 +356,13 @@ namespace UsefulProteomicsDatabases.Transcriptomics
             }
 
             List<RNA> decoys = RnaDecoyGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier);
-            IEnumerable<RNA> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
-            return proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth)).ToList();
-        }
+            IEnumerable<RNA> rnasToExpand = generateTargets ? targets.Concat(decoys) : decoys;
 
+            // Expand to variant biopolymers (returns canonical + applied-variant RNAs depending on parameters)
+            return rnasToExpand
+                .SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantsPerIsoform, minAlleleDepth, maxSequenceVariantIsoforms))
+                .ToList();
+        }
 
         // TODO: Some oligo databases may have the reverse strand, this is currently not handled yet and this code assumes we are always reading in the strand to search against. 
         public static string SanitizeAndTransform(string rawSequence, SequenceTransformationOnRead sequenceTransformation)
