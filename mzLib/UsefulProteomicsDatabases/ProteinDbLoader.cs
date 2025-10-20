@@ -10,6 +10,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
+using Chemistry;
 using Omics.BioPolymer;
 using Omics.Modifications;
 using MzLibUtil;
@@ -402,6 +403,10 @@ namespace UsefulProteomicsDatabases
                         {
                             errors.Add("Line" + line + ", Protein Length of 0: " + protein.Name + " was skipped from database: " + proteinDbLocation);
                         }
+                        else if (protein.IsDecoy)
+                        {
+                            decoys.Add(protein);
+                        }
                         else
                         {
                             if (protein.IsDecoy)
@@ -465,6 +470,12 @@ namespace UsefulProteomicsDatabases
 
             foreach (KeyValuePair<Tuple<string, string, bool, bool>, List<Protein>> proteins in proteinsByAccessionSequenceContaminant)
             {
+                if (proteins.Value.Count == 1)
+                {
+                    yield return proteins.Value[0];
+                    continue;
+                }
+
                 HashSet<string> datasets = new HashSet<string>(proteins.Value.Select(p => p.DatasetEntryTag));
                 HashSet<string> createds = new HashSet<string>(proteins.Value.Select(p => p.CreatedEntryTag));
                 HashSet<string> modifieds = new HashSet<string>(proteins.Value.Select(p => p.ModifiedEntryTag));
@@ -501,6 +512,7 @@ namespace UsefulProteomicsDatabases
                 }
                 Dictionary<int, List<Modification>> mod_dict2 = mod_dict.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
 
+                // TODO: Handle applied variants. 
                 yield return new Protein(
                     proteins.Key.Item2,
                     proteins.Key.Item1,

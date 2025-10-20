@@ -2,6 +2,7 @@
 using MzLibUtil;
 using Omics.BioPolymer;
 using Omics.Modifications;
+using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -125,7 +126,19 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                 { "Gene", new FastaHeaderFieldRegex("Gene", @"GN=([^\s]*)", 0, 1) },
             };
 
-        #endregion
+        public static readonly Dictionary<string, FastaHeaderFieldRegex> MzLibRegexes =
+            new()
+            {
+                // >mz|{0}|{1} {2} OS={3} GN={4}
+                //  0: Accession, 1: Name, 2: FullName, 3: Organism, 4: GeneName
+                { "Accession", new FastaHeaderFieldRegex("Accession", @"^>mz\|([^|]+)\|", 0, 1) },
+                { "Name", new FastaHeaderFieldRegex("Name", @"^>mz\|[^|]+\|([^\s]+)", 0, 1) },
+                { "FullName", new FastaHeaderFieldRegex("FullName", @"^>mz\|[^|]+\|[^\s]+ ([^O]+) OS=", 0, 1) },
+                { "Organism", new FastaHeaderFieldRegex("Organism", @"OS=([^ ]+)", 0, 1) },
+                { "Gene", new FastaHeaderFieldRegex("Gene", @"GN=([^\s]*)", 0, 1) },
+            };
+
+    #endregion
 
         /// <summary>
         /// Loads an RNA file from the specified location, optionally generating decoys and adding error tracking
@@ -255,6 +268,8 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                             isDecoy: isDecoy, geneNames: geneNames, databaseAdditionalFields: additonalDatabaseFields);
                         if (rna.Length == 0)
                             errors.Add("Line" + line + ", Rna length of 0: " + rna.Name + "was skipped from database: " + rnaDbLocation);
+                        else if (rna.IsDecoy)
+                            decoys.Add(rna);
                         else
                             targets.Add(rna);
 

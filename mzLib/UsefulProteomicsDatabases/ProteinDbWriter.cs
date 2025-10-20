@@ -16,7 +16,7 @@ namespace UsefulProteomicsDatabases
 {
 
     /// <summary>
-    /// Provides methods for writing protein and nucleic acid databases to XML and FASTA formats.
+    /// Provides methods for writing rna and nucleic acid databases to XML and FASTA formats.
     /// Did not rename to DbWriter to ensure compatibility with the original UsefulProteomicsDatabases namespace.
     /// </summary>
     public class ProteinDbWriter
@@ -164,6 +164,8 @@ namespace UsefulProteomicsDatabases
                     var n = rna.GeneNames.FirstOrDefault();
                     string geneName = n == null ? "" : n.Item2;
 
+                        //TODO: handle proteolysis products with null begin position
+                        //see rna writer for example. 
 
                     writer.WriteLine(">mz|{0}|{1} {2} OS={3} GN={4}", rna.Accession, rna.Name, rna.FullName, rna.Organism, geneName);
                     writer.WriteLine(rna.BaseSequence);

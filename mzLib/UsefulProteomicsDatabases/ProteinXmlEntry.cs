@@ -322,6 +322,10 @@ namespace UsefulProteomicsDatabases
             if (Accession != null && Sequence != null)
             {
                 Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
+                if (Accession.StartsWith(decoyIdentifier))
+                {
+                    isDecoy = true;
+                }
 
                 // Prune for RNA as well (shared logic)
                 PruneOutOfRangeSequenceVariants();
