@@ -550,9 +550,45 @@ namespace Test.Transcriptomics
         [Test]
         public static void TestLoadRnaXmlWithSequenceVariation_CanonicalOnlyByDefault()
         {
-            // Reuse the same XML as previous test to avoid duplication
+            // Ensure the XML from the prior test exists; create it if missing to avoid order/parallelism dependency
             var outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "RnaWithSeqVar.xml");
-            Assert.That(File.Exists(outPath), "Expected RnaWithSeqVar.xml to exist from prior test.");
+            if (!File.Exists(outPath))
+            {
+                var outDir = Path.GetDirectoryName(outPath)!;
+                Directory.CreateDirectory(outDir);
+
+                // Minimal RNA with one candidate variant: position 3 G->A
+                var seq = "ACGUACGU";
+                var variants = new List<SequenceVariation>
+                {
+                    new SequenceVariation(
+                        oneBasedPosition: 3,
+                        originalSequence: "G",
+                        variantSequence: "A",
+                        description: "SNP:G3A")
+                };
+
+                var rnaWithVar = new RNA(
+                    sequence: seq,
+                    accession: "TEST-RNA-1",
+                    oneBasedPossibleModifications: null,
+                    fivePrimeTerminus: null,
+                    threePrimeTerminus: null,
+                    name: "Test RNA with 1 variant",
+                    organism: "UnitTestus",
+                    databaseFilePath: null,
+                    isContaminant: false,
+                    isDecoy: false,
+                    geneNames: new List<Tuple<string, string>> { new Tuple<string, string>("primary", "GENE1") },
+                    databaseAdditionalFields: null,
+                    truncationProducts: null,
+                    sequenceVariations: variants,
+                    appliedSequenceVariations: null,
+                    sampleNameForVariants: null,
+                    fullName: "Test RNA with 1 variant (full)");
+
+                ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<RNA> { rnaWithVar }, outPath);
+            }
 
             // Load with default variant parameters:
             // Defaults are maxSequenceVariantsPerIsoform = 0 and maxSequenceVariantIsoforms = 1,
