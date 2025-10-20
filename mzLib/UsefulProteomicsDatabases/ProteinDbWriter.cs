@@ -155,6 +155,21 @@ namespace UsefulProteomicsDatabases
                 }
             }
         }
+        public static void WriteFastaDatabase(List<RNA> rnaList, string outputFileName)
+        {
+            using (StreamWriter writer = new StreamWriter(outputFileName))
+            {
+                foreach (RNA rna in rnaList)
+                {
+                    var n = rna.GeneNames.FirstOrDefault();
+                    string geneName = n == null ? "" : n.Item2;
+
+
+                    writer.WriteLine(">mz|{0}|{1} {2} OS={3} GN={4}", rna.Accession, rna.Name, rna.FullName, rna.Organism, geneName);
+                    writer.WriteLine(rna.BaseSequence);
+                }
+            }
+        }
 
         /// <summary>
         /// Collects all relevant modifications for RNA: base mods, sequence-variant mods, and additional mods scoped by accession keys.
