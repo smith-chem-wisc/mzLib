@@ -195,7 +195,7 @@ namespace UsefulProteomicsDatabases
         [Obsolete("This overload preserves the legacy parameter order and will be removed in a future release. " +
                   "Use the options-based overload or the signature with variant parameters grouped before addTruncations.")]
         public static List<Protein> LoadProteinXML(
-            string proteinDbLocation,
+            string filename,
             bool generateTargets,
             DecoyType decoyType,
             IEnumerable<Modification> allKnownModifications,
@@ -203,28 +203,26 @@ namespace UsefulProteomicsDatabases
             IEnumerable<string> modTypesToExclude,
             out Dictionary<string, Modification> unknownModifications,
             int maxThreads,
-            bool addTruncations,
-            string decoyIdentifier,
-            int maxSequenceVariantsPerIsoform,
-            int minAlleleDepth,
-            int maxSequenceVariantIsoforms)
+            int maxHeterozygousVariants,
+            int minVariantDepth,
+            bool addTruncations)
         {
             // Forward to the new canonical ordering
             return LoadProteinXML(
-                proteinDbLocation,
+                proteinDbLocation: filename,
                 generateTargets,
-                decoyType,
+                decoyType: decoyType,
                 allKnownModifications,
                 isContaminant,
                 modTypesToExclude,
                 out unknownModifications,
                 maxThreads,
-                maxSequenceVariantsPerIsoform,
-                minAlleleDepth,
-                maxSequenceVariantIsoforms,
-                addTruncations,
-                decoyIdentifier);
+                maxSequenceVariantsPerIsoform: 1,
+                minAlleleDepth: minVariantDepth,
+                maxSequenceVariantIsoforms: maxHeterozygousVariants);
         }
+
+        
 
         /// <summary>
         /// Get the modification entries specified in a mzLibProteinDb XML file (.xml or .xml.gz).

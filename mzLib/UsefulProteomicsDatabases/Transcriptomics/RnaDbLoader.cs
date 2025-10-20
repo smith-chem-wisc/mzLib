@@ -318,7 +318,8 @@ namespace UsefulProteomicsDatabases.Transcriptomics
             int maxSequenceVariantsPerIsoform = 0,
             int minAlleleDepth = 0,
             int maxSequenceVariantIsoforms = 1, // must be at least 1 to return the canonical isoform
-            IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
+            IHasChemicalFormula? fivePrimeTerm = null, 
+            IHasChemicalFormula? threePrimeTerm = null,
             string decoyIdentifier = "DECOY")
         {
             if (maxSequenceVariantIsoforms < 1)
