@@ -14,6 +14,7 @@ using Omics.BioPolymer;
 using Omics.Modifications;
 using MzLibUtil;
 using Omics;
+using Transcriptomics;
 
 namespace UsefulProteomicsDatabases
 {
@@ -83,6 +84,7 @@ namespace UsefulProteomicsDatabases
                 IdWithMotifToMod = GetModificationDictWithMotifs(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
             }
             List<Protein> targets = new List<Protein>();
+            List<Protein> decoys = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
 
             string newProteinDbLocation = proteinDbLocation;
@@ -127,7 +129,14 @@ namespace UsefulProteomicsDatabases
                                 {
                                     newProtein.AddTruncations();
                                 }
-                                targets.Add(newProtein);
+                                if (newProtein.IsDecoy)
+                                {
+                                    decoys.Add(newProtein);
+                                }
+                                else
+                                {
+                                    targets.Add(newProtein);
+                                }
                             }
                         }
 
@@ -140,7 +149,7 @@ namespace UsefulProteomicsDatabases
                 File.Delete(newProteinDbLocation);
             }
 
-            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier);
+            decoys.AddRange(DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier));
             IEnumerable<Protein> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
 
             // Expand to variant biopolymers, then collapse any duplicate applied entries that share the same accession and base sequence.
@@ -285,7 +294,7 @@ namespace UsefulProteomicsDatabases
             Regex substituteWhitespace = new Regex(@"\s+");
 
             List<Protein> targets = new List<Protein>();
-
+            List<Protein> decoys = new List<Protein>();
             string newProteinDbLocation = proteinDbLocation;
 
             //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
@@ -388,14 +397,21 @@ namespace UsefulProteomicsDatabases
                         }
                         unique_accessions.Add(accession);
                         Protein protein = new Protein(sequence, accession, organism, geneName, name: name, fullName: fullName,
-                            isContaminant: isContaminant, databaseFilePath: proteinDbLocation, addTruncations: addTruncations);
+                            isContaminant: isContaminant, isDecoy: accession.StartsWith(decoyIdentifier), databaseFilePath: proteinDbLocation, addTruncations: addTruncations);
                         if (protein.Length == 0)
                         {
                             errors.Add("Line" + line + ", Protein Length of 0: " + protein.Name + " was skipped from database: " + proteinDbLocation);
                         }
                         else
                         {
-                            targets.Add(protein);
+                            if (protein.IsDecoy)
+                            {
+                                decoys.Add(protein);
+                            }
+                            else
+                            {
+                                targets.Add(protein);
+                            }
                         }
 
                         accession = null;
@@ -422,8 +438,9 @@ namespace UsefulProteomicsDatabases
             {
                 errors.Add("Error: No proteins could be read from the database: " + proteinDbLocation);
             }
-            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier);
-            return generateTargets ? targets.Concat(decoys).ToList() : decoys;
+            decoys.AddRange(DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier));
+            var toRetrun = generateTargets ? targets.Concat(decoys).ToList() : decoys;
+            return MergeProteins(toRetrun).ToList();
         }
 
         /// <summary>
