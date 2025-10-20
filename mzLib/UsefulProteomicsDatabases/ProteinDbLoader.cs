@@ -479,15 +479,17 @@ namespace UsefulProteomicsDatabases
                 HashSet<DatabaseReference> references = new HashSet<DatabaseReference>(proteins.Value.SelectMany(p => p.DatabaseReferences));
                 HashSet<DisulfideBond> bonds = new HashSet<DisulfideBond>(proteins.Value.SelectMany(p => p.DisulfideBonds));
                 HashSet<SpliceSite> splices = new HashSet<SpliceSite>(proteins.Value.SelectMany(p => p.SpliceSites));
-                // NEW: preserve organism
-                HashSet<string> organisms = new HashSet<string>(proteins.Value.Select(p => p.Organism));
+                // Preserve organism and database file path from any member (they should match for merged entries)
+                string organism = proteins.Value.FirstOrDefault()?.Organism;
+                string dbFilePath = proteins.Value.FirstOrDefault()?.DatabaseFilePath;
 
                 Dictionary<int, HashSet<Modification>> mod_dict = new Dictionary<int, HashSet<Modification>>();
                 foreach (KeyValuePair<int, List<Modification>> nice in proteins.Value.SelectMany(p => p.OneBasedPossibleLocalizedModifications).ToList())
                 {
                     if (!mod_dict.TryGetValue(nice.Key, out HashSet<Modification> val))
                     {
-                        mod_dict.Add(nice.Key, new HashSet<Modification>(nice.Value));
+                        val = new HashSet<Modification>(nice.Value);
+                        mod_dict.Add(nice.Key, val);
                     }
                     else
                     {
@@ -502,7 +504,7 @@ namespace UsefulProteomicsDatabases
                 yield return new Protein(
                     proteins.Key.Item2,
                     proteins.Key.Item1,
-                    organism: organisms.FirstOrDefault(), // pass organism
+                    organism: organism, // keep organism
                     isContaminant: proteins.Key.Item3,
                     isDecoy: proteins.Key.Item4,
                     geneNames: genenames.ToList(),
@@ -514,15 +516,15 @@ namespace UsefulProteomicsDatabases
                     disulfideBonds: bonds.ToList(),
                     sequenceVariations: variants.ToList(),
                     spliceSites: splices.ToList(),
+                    databaseFilePath: dbFilePath, // keep original source path
                     dataset: datasets.FirstOrDefault(),
                     created: createds.FirstOrDefault(),
                     modified: modifieds.FirstOrDefault(),
                     version: versions.FirstOrDefault(),
                     xmlns: xmlnses.FirstOrDefault()
-                    );
+                );
             }
         }
-
         /// <summary>
         /// Finds groups of proteins that share the same accession and base sequence.
         /// Intended to identify cases where an applied-variant entry appears twice
