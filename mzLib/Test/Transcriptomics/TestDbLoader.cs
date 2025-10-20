@@ -641,5 +641,130 @@ namespace Test.Transcriptomics
             Assert.That(rt.OneBasedPossibleLocalizedModifications[variantPosition].Count, Is.EqualTo(1));
             Assert.That(rt.OneBasedPossibleLocalizedModifications[variantPosition][0].IdWithMotif, Is.EqualTo(methylG.IdWithMotif));
         }
+        [Test]
+        public static void TestTruncationVariant_RemovesDownstreamModification_PersistsThroughXml()
+        {
+            // Base sequence (length 13). We will delete positions 10..13 (truncate tail).
+            var baseSeq = "GUACUGUAGCCUA";
+            // Place a consensus modification at position 12 (this site will be removed by the truncation)
+            var modString = "ID   Methylation\r\nMT   Biological\r\nPP   Anywhere.\r\nTG   U\r\nCF   C1H2\r\n//";
+            var methylU = PtmListLoader.ReadModsFromString(modString, out List<(Modification, string)> _).First();
+
+            var consensusMods = new Dictionary<int, List<Modification>>
+            {
+                [12] = new List<Modification> { methylU }
+            };
+
+            // Define a deletion variant: remove positions 10..13 (inclusive).
+            // For correctness, set OriginalSequence to the actual substring being removed.
+            int delBegin = 10, delEnd = 13;
+            string originalSpan = baseSeq.Substring(delBegin - 1, delEnd - delBegin + 1);
+            var truncation = new SequenceVariation(
+                oneBasedPosition: delBegin,
+                originalSequence: originalSpan,
+                variantSequence: "",
+                description: "deletion(10..13)");
+
+            var canonical = new RNA(
+                sequence: baseSeq,
+                accession: "TRUNC-RNA-1",
+                oneBasedPossibleModifications: consensusMods,
+                fivePrimeTerminus: null,
+                threePrimeTerminus: null,
+                name: "TruncationTest",
+                organism: "UnitTestus",
+                databaseFilePath: null,
+                isContaminant: false,
+                isDecoy: false,
+                geneNames: new List<Tuple<string, string>> { new Tuple<string, string>("primary", "GENE-T") },
+                databaseAdditionalFields: null,
+                truncationProducts: null,
+                sequenceVariations: new List<SequenceVariation> { truncation },
+                appliedSequenceVariations: null,
+                sampleNameForVariants: null,
+                fullName: "RNA with tail-deletion variant");
+
+            // Expand to get applied variant isoform
+            var isoforms = canonical.GetVariantBioPolymers(
+                maxSequenceVariantsPerIsoform: 1,
+                minAlleleDepth: 0,
+                maxSequenceVariantIsoforms: 2);
+
+            Assert.That(isoforms.Count, Is.GreaterThanOrEqualTo(2), "Expected canonical + applied variant.");
+
+            var applied = isoforms.FirstOrDefault(r => r.AppliedSequenceVariations.Count > 0);
+            var refLike = isoforms.FirstOrDefault(r => r.AppliedSequenceVariations.Count == 0);
+
+            Assert.That(applied, Is.Not.Null, "Applied truncation isoform not found.");
+            Assert.That(refLike, Is.Not.Null, "Canonical isoform not found.");
+
+            // Expected applied sequence (remove 10..13)
+            var expectedAppliedSeq = baseSeq.Substring(0, delBegin - 1);
+            Assert.That(applied!.BaseSequence, Is.EqualTo(expectedAppliedSeq), "Applied sequence should be truncated.");
+
+            // Precondition: consensus has the mod at position 12
+            Assert.That(refLike!.OneBasedPossibleLocalizedModifications.ContainsKey(12), Is.True,
+                "Consensus should have a modification at position 12.");
+
+            // After truncation, mod at 12 must be gone (position out of range)
+            Assert.That(applied.OneBasedPossibleLocalizedModifications.ContainsKey(12), Is.False,
+                "Applied truncation isoform should not retain a modification at removed position 12.");
+
+            // Also ensure no modification key exceeds applied length
+            int appliedLen = applied.Length;
+            Assert.That(applied.OneBasedPossibleLocalizedModifications.Keys.All(k => k >= 1 && k <= appliedLen), Is.True,
+                "Applied isoform contains a modification indexed outside its new length.");
+
+            // Roundtrip: write consensus + applied, including applied entries, then reload
+            var outDir = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData");
+            Directory.CreateDirectory(outDir);
+            var outPath = Path.Combine(outDir, $"TruncVar_{Guid.NewGuid():N}.xml");
+
+            try
+            {
+                ProteinDbWriter.WriteXmlDatabase(
+                    new Dictionary<string, HashSet<Tuple<int, Modification>>>(),
+                    new List<RNA> { canonical, applied },
+                    outPath,
+                    includeAppliedVariantEntries: true);
+
+                var reloaded = RnaDbLoader.LoadRnaXML(
+                    rnaDbLocation: outPath,
+                    generateTargets: true,
+                    decoyType: DecoyType.None,
+                    isContaminant: false,
+                    allKnownModifications: new List<Modification> { methylU },
+                    modTypesToExclude: Array.Empty<string>(),
+                    unknownModifications: out var unknownMods);
+
+                Assert.That(unknownMods.Count, Is.EqualTo(0), "No unknown mods expected on reload.");
+                Assert.That(reloaded.Count, Is.GreaterThanOrEqualTo(2), "Reloaded set should contain canonical and applied.");
+
+                var reApplied = reloaded.FirstOrDefault(r =>
+                    r.Accession.StartsWith("TRUNC-RNA-1", StringComparison.Ordinal) &&
+                    string.Equals(r.BaseSequence, expectedAppliedSeq, StringComparison.Ordinal));
+
+                var reCanon = reloaded.FirstOrDefault(r =>
+                    r.Accession == "TRUNC-RNA-1" &&
+                    (r.AppliedSequenceVariations == null || r.AppliedSequenceVariations.Count == 0));
+
+                Assert.That(reApplied, Is.Not.Null, "Reloaded applied truncation isoform not found.");
+                Assert.That(reCanon, Is.Not.Null, "Reloaded canonical isoform not found.");
+
+                // Verify applied is still truncated and lacks the removed-site modification
+                Assert.That(reApplied!.BaseSequence, Is.EqualTo(expectedAppliedSeq));
+                Assert.That(reApplied.OneBasedPossibleLocalizedModifications.ContainsKey(12), Is.False,
+                    "Reloaded applied truncation isoform should not have mod at removed position 12.");
+
+                // Verify canonical retains the original site modification
+                Assert.That(reCanon!.OneBasedPossibleLocalizedModifications.ContainsKey(12), Is.True,
+                    "Reloaded canonical should retain the mod at position 12.");
+                Assert.That(reCanon.OneBasedPossibleLocalizedModifications[12][0].IdWithMotif, Is.EqualTo(methylU.IdWithMotif));
+            }
+            finally
+            {
+                try { if (File.Exists(outPath)) File.Delete(outPath); } catch { /* ignore */ }
+            }
+        }
     }
 }
