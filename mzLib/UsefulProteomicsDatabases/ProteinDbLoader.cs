@@ -446,6 +446,7 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Merge proteins that have the same accession, sequence, and contaminant designation.
         /// </summary>
+        // inside MergeProteins(IEnumerable<Protein> mergeThese)
         public static IEnumerable<Protein> MergeProteins(IEnumerable<Protein> mergeThese)
         {
             Dictionary<Tuple<string, string, bool, bool>, List<Protein>> proteinsByAccessionSequenceContaminant = new Dictionary<Tuple<string, string, bool, bool>, List<Protein>>();
@@ -478,6 +479,8 @@ namespace UsefulProteomicsDatabases
                 HashSet<DatabaseReference> references = new HashSet<DatabaseReference>(proteins.Value.SelectMany(p => p.DatabaseReferences));
                 HashSet<DisulfideBond> bonds = new HashSet<DisulfideBond>(proteins.Value.SelectMany(p => p.DisulfideBonds));
                 HashSet<SpliceSite> splices = new HashSet<SpliceSite>(proteins.Value.SelectMany(p => p.SpliceSites));
+                // NEW: preserve organism
+                HashSet<string> organisms = new HashSet<string>(proteins.Value.Select(p => p.Organism));
 
                 Dictionary<int, HashSet<Modification>> mod_dict = new Dictionary<int, HashSet<Modification>>();
                 foreach (KeyValuePair<int, List<Modification>> nice in proteins.Value.SelectMany(p => p.OneBasedPossibleLocalizedModifications).ToList())
@@ -497,9 +500,9 @@ namespace UsefulProteomicsDatabases
                 Dictionary<int, List<Modification>> mod_dict2 = mod_dict.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
 
                 yield return new Protein(
-
                     proteins.Key.Item2,
                     proteins.Key.Item1,
+                    organism: organisms.FirstOrDefault(), // pass organism
                     isContaminant: proteins.Key.Item3,
                     isDecoy: proteins.Key.Item4,
                     geneNames: genenames.ToList(),
