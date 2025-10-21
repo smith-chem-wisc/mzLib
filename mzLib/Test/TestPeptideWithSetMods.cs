@@ -1115,5 +1115,82 @@ namespace Test
             PeptideWithSetModifications mirroredTarget = forceMirror.GetScrambledDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual(new int[] { 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 }, newAminoAcidPositions);
         }
+        // Helper: make a minimal peptide from a protein interval
+        private static PeptideWithSetModifications MakePep(Protein prot, int begin, int end)
+        {
+            var dp = new DigestionParams(); // default protease/settings are fine; not used in these branches
+            return new PeptideWithSetModifications(
+                protein: prot,
+                digestionParams: dp,
+                oneBasedStartResidueInProtein: begin,
+                oneBasedEndResidueInProtein: end,
+                cleavageSpecificity: CleavageSpecificity.Full,
+                peptideDescription: "unit-test",
+                missedCleavages: 0,
+                allModsOneIsNterminus: new Dictionary<int, Modification>(),
+                numFixedMods: 0);
+        }
+
+        [Test]
+        public static void IntersectsAndIdentifiesVariation_EffectiveVariantEndClamped_And_EffectiveDegenerate_EarlyReturn()
+        {
+            // Protein indices:        1 2 3 4 5 6 7 8 9 10 11 12 ...
+            // Sequence (20 AAs):     A C D E F G H I K  L  M  N  P  Q  R  S  T  V  W  Y
+            // Variant: deletion of 5..10 ("FGHIKL") → VariantSequence == "" (lengthDiff negative)
+            // Peptide under test: 8..12 (overlaps the original region but, after effective clamp, becomes degenerate)
+            // Why this triggers the clamp:
+            // - effectiveVariantEnd = end + (len(variant) - len(original)) = 10 + (0 - 6) = 4 < begin(=5) → clamped to 5
+            // - intersectStartEff = max(pepStart=8, varBegin=5) = 8; intersectEndEff = min(pepEnd=12, effEnd=5) = 5
+            //   -> intersectEndEff (5) < intersectStartEff (8) → effectiveDegenerate == true → early return
+            var prot = new Protein("ACDEFGHIKLMNPQRSTVWY", "P1");
+            var pep = MakePep(prot, begin: 8, end: 12);
+
+            var deletion = new SequenceVariation(
+                oneBasedBeginPosition: 5,
+                oneBasedEndPosition: 10,
+                originalSequence: "FGHIKL",
+                variantSequence: string.Empty, // deletion
+                description: "del 5..10");
+
+            var (intersects, identifies) = pep.IntersectsAndIdentifiesVariation(deletion);
+
+            // For deletions, code sets identifiesFlag = true; and early return occurs due to effectiveDegenerate
+            Assert.Multiple(() =>
+            {
+                Assert.That(intersects, Is.True, "Expected 'intersects' == true (original region overlaps the peptide).");
+                Assert.That(identifies, Is.True, "Deletion should set identifiesFlag = true.");
+            });
+
+            TestContext.WriteLine("Early-return path hit: effectiveVariantEnd clamped below begin and effectiveDegenerate == true");
+        }
+
+        [Test]
+        public static void IntersectsAndIdentifiesVariation_NoClamp_NonDegenerate_ContinuesAndIdentifies()
+        {
+            // Same protein as above. Use a same-length substitution 5..7 where sequences differ.
+            // Variant: 5..7 original "FGH" replaced with "YYY" (lengthDiff = 0) → no clamp.
+            // Peptide under test: 5..7 (fully covers the variant span).
+            // Since we cross the entire effective variant and Original != Variant over that window, identifiesFlag becomes true.
+            var prot = new Protein("ACDEFGHIKLMNPQRSTVWY", "P2");
+            var pep = MakePep(prot, begin: 5, end: 7);
+
+            var substitution = new SequenceVariation(
+                oneBasedBeginPosition: 5,
+                oneBasedEndPosition: 7,
+                originalSequence: "FGH",
+                variantSequence: "YYY",
+                description: "sub 5..7 FGH->YYY");
+
+            var (intersects, identifies) = pep.IntersectsAndIdentifiesVariation(substitution);
+
+            // No clamp (lengthDiff == 0), effectiveDegenerate == false (non-empty overlap), and sequences differ across full window -> identifies == true
+            Assert.Multiple(() =>
+            {
+                Assert.That(intersects, Is.True, "Expected 'intersects' == true.");
+                Assert.That(identifies, Is.True, "Expected identify due to full-span substitution with differing sequence.");
+            });
+
+            TestContext.WriteLine("Non-degenerate path hit: no clamp, full-span substitution identified correctly");
+        }
     }
 }
