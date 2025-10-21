@@ -1,7 +1,8 @@
-﻿using System.Globalization;
-using Easy.Common.Extensions;
+﻿using Easy.Common.Extensions;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
+using System.Globalization;
+using TopDownProteomics.Biochemistry;
 
 namespace Readers
 {
@@ -37,13 +38,6 @@ namespace Readers
         public string UniqueSequence { get; }
         public double? XLTotalScore { get; }
         public string ParentIons { get; }
-
-        //For Glyco
-        public string GlycanStructure { get; set; }
-        public double? GlycanMass { get; set; }
-        public string GlycanComposition { get; set; }
-        public LocalizationLevel? GlycanLocalizationLevel { get; set; }
-        public string LocalizedGlycan { get; set; }
 
         public PsmFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader)
             : base (line, split, parsedHeader)
@@ -87,32 +81,6 @@ namespace Readers
             {
                 BetaPeptideChildScanMatchedIons.Remove(Ms2ScanNumber);
             }
-
-            //For Glyco            
-            try // Try is so that glyco and non-glyco psms can be read from the same file
-            {
-                GlycanMass = (parsedHeader[PsmTsvHeader_Glyco.GlycanMass] < 0) ? null : (double?)double.Parse(spl[parsedHeader[PsmTsvHeader_Glyco.GlycanMass]], CultureInfo.InvariantCulture);
-                GlycanComposition = (parsedHeader[PsmTsvHeader_Glyco.GlycanComposition] < 0) ? null : spl[parsedHeader[PsmTsvHeader_Glyco.GlycanComposition]];
-                GlycanStructure = (parsedHeader[PsmTsvHeader_Glyco.GlycanStructure] < 0) ? null : spl[parsedHeader[PsmTsvHeader_Glyco.GlycanStructure]];
-                var localizationLevel = (parsedHeader[PsmTsvHeader_Glyco.GlycanLocalizationLevel] < 0) ? null : spl[parsedHeader[PsmTsvHeader_Glyco.GlycanLocalizationLevel]];
-                if (localizationLevel != null)
-                {
-                    if (localizationLevel.Equals("NA"))
-                        GlycanLocalizationLevel = null;
-                    else
-                        GlycanLocalizationLevel = (LocalizationLevel)Enum.Parse(typeof(LocalizationLevel), localizationLevel);
-                }
-                LocalizedGlycan = (parsedHeader[PsmTsvHeader_Glyco.LocalizedGlycan] < 0) ? null : spl[parsedHeader[PsmTsvHeader_Glyco.LocalizedGlycan]];
-
-            }
-            catch
-            {
-                GlycanMass = null;
-                GlycanComposition = null;
-                GlycanStructure = null;
-                GlycanLocalizationLevel = null;
-                LocalizedGlycan = null;
-            }
         }
 
         /// <summary>
@@ -141,11 +109,6 @@ namespace Readers
             XLTotalScore = psm.XLTotalScore;
             ParentIons = psm.ParentIons;
             RetentionTime = psm.RetentionTime;
-            GlycanStructure = psm.GlycanStructure;
-            GlycanMass = psm.GlycanMass;
-            GlycanComposition = psm.GlycanComposition;
-            GlycanLocalizationLevel = psm.GlycanLocalizationLevel;
-            LocalizedGlycan = psm.LocalizedGlycan;
         }
 
         /// <summary>
