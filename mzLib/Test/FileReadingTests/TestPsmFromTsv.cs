@@ -10,6 +10,7 @@ using Omics.Fragmentation;
 using Readers;
 using MzLibUtil;
 using FlashLFQ;
+using NUnit.Framework.Interfaces;
 
 namespace Test.FileReadingTests
 {
@@ -21,6 +22,7 @@ namespace Test.FileReadingTests
         [Test]
         [TestCase("oglycoSinglePsms.psmtsv", 2)] // oglyco
         [TestCase("nglyco_f5.psmtsv", 5)] // nglyco
+        [TestCase("nglyco_f5_NewVersion.psmtsv", 5)]
         [TestCase("VariantCrossTest.psmtsv", 15)] // variant crossing
         [TestCase("XL_Intralinks.tsv", 6)] // variant crossing
         [TestCase("XLink.psmtsv", 19)] // variant crossing
@@ -135,20 +137,104 @@ namespace Test.FileReadingTests
 
         [Test]
         [TestCase(@"FileReadingTests\SearchResults\oglyco.psmtsv")]
-        [TestCase(@"FileReadingTests\SearchResults\oglycoWithWrongExtension.tsv")]
-        public static void ReadOGlycoPsmsLocalizedGlycans(string psmFile)
+        [TestCase(@"FileReadingTests\SearchResults\oglyco_NewVersion.psmtsv")]
+        public static void ReadOGlycoPsms_LegacyVersion(string psmFile)
         {
-            List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out var warnings);
+            // In this test, we are testing that the glyco-specific fields are read correctly from older versions of the oglyco.psmtsv file.
+            // There are few headers edited in the newer versions. In order to maintain backward compatibility, we need to ensure that the older files are still read correctly.
+            List<GlycoPsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadGlycoPsmTsv(psmFile, out var warnings);
+            Assert.AreEqual(9, parsedPsms.Count);
+            Assert.That(parsedPsms.All(p=>p.FlankingResidues != null));
+            Assert.That(parsedPsms.All(p => p.TotalGlycanSites != null));
+            Assert.That(parsedPsms.All(p => p.NGlycanMotifCheck != null));
+            Assert.That(parsedPsms.All(p => p.AllPotentialGlycanLocalization != null));
+            Assert.That(parsedPsms.All(p => p.AllSiteSpecificLocalizationProbability != null));
+        }
+
+        [Test]
+        [TestCase(@"FileReadingTests\SearchResults\oglyco.psmtsv")]
+        [TestCase(@"FileReadingTests\SearchResults\oglyco_NewVersion.psmtsv")]
+        [TestCase(@"FileReadingTests\SearchResults\oglycoWithWrongExtension.tsv")]
+        public static void ReadOGlycoPsmsLocalizedGlycans_Glyco(string psmFile)
+        {
+            // Using direct glycopsm reader
+            List<GlycoPsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadGlycoPsmTsv(psmFile, out var warnings);
             Assert.AreEqual(9, parsedPsms.Count);
 
             // read glycans if applicable
             List<Tuple<int, string, double>> localGlycans = null;
             if (parsedPsms[0].GlycanLocalizationLevel != null)
             {
-                localGlycans = PsmFromTsv.ReadLocalizedGlycan(parsedPsms[0].LocalizedGlycan);
+                localGlycans = GlycoPsmFromTsv.ReadLocalizedGlycan(parsedPsms[0].LocalizedGlycanInPeptide);
             }
 
             Assert.AreEqual(1, localGlycans.Count);
+        }
+
+        [Test]
+        [TestCase(@"FileReadingTests\SearchResults\oglyco.psmtsv")]
+        [TestCase(@"FileReadingTests\SearchResults\oglyco_NewVersion.psmtsv")]
+        [TestCase(@"FileReadingTests\SearchResults\oglycoWithWrongExtension.tsv")]
+        public static void ReadOGlycoPsmsLocalizedGlycans_Generic(string psmFile)
+        {
+            // Using generic psm reader and casting
+            var parsedPsms = SpectrumMatchTsvReader.ReadTsv(psmFile, out var warnings).Cast<GlycoPsmFromTsv>().ToList();
+            Assert.AreEqual(9, parsedPsms.Count);
+
+            // read glycans if applicable
+            List<Tuple<int, string, double>> localGlycans = null;
+            if (parsedPsms[0].GlycanLocalizationLevel != null)
+            {
+                localGlycans = GlycoPsmFromTsv.ReadLocalizedGlycan(parsedPsms[0].LocalizedGlycanInPeptide);
+            }
+
+            Assert.AreEqual(1, localGlycans.Count);
+        }
+
+        [Test]
+        [TestCase(@"FileReadingTests\SearchResults\oglyco.psmtsv")]
+        [TestCase(@"FileReadingTests\SearchResults\oglyco_NewVersion.psmtsv")]
+        [TestCase(@"FileReadingTests\SearchResults\oglycoWithWrongExtension.tsv")]
+        public static void ReadOGlycoPsmsLocalizedGlycans_AsPsm(string psmFile)
+        {
+            // Using generic psm reader and casting
+            var parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out var warnings).Cast<GlycoPsmFromTsv>().ToList();
+            Assert.AreEqual(9, parsedPsms.Count);
+
+            // read glycans if applicable
+            List<Tuple<int, string, double>> localGlycans = null;
+            if (parsedPsms[0].GlycanLocalizationLevel != null)
+            {
+                localGlycans = GlycoPsmFromTsv.ReadLocalizedGlycan(parsedPsms[0].LocalizedGlycanInPeptide);
+            }
+
+            Assert.AreEqual(1, localGlycans.Count);
+        }
+
+        [Test]
+        [TestCase(@"FileReadingTests\SearchResults\oglyco.psmtsv")]
+        [TestCase(@"FileReadingTests\SearchResults\oglyco_NewVersion.psmtsv")]
+        public static void GlcyoPsmFromTsv_ModifiedPsmFunction(string path)
+        {
+            // Test that the GlycoPsmFromTsv modified PSM constructor works as intended
+            // The modified PSM should have the same glycan information as the unmodified PSM
+            var unModifiedPsm = SpectrumMatchTsvReader.ReadPsmTsv(path, out var warnings).Cast<GlycoPsmFromTsv>().First();
+            string newFullSequence = "REVEDPQVAQLELGGGPGAGDLQT[O-Glycosylation:H1N1A2 on T]LALEVAQQKR";
+            var modifiedPsm = new GlycoPsmFromTsv(unModifiedPsm, newFullSequence);
+            Assert.AreEqual(newFullSequence, modifiedPsm.FullSequence); // make sure the full sequence is updated
+            // make sure all glycan information is the same
+            Assert.AreEqual(unModifiedPsm.BaseSeq, modifiedPsm.BaseSeq);
+            Assert.AreEqual(unModifiedPsm.GlycanComposition, modifiedPsm.GlycanComposition);
+            Assert.AreEqual(unModifiedPsm.GlycanMass, modifiedPsm.GlycanMass);
+            Assert.AreEqual(unModifiedPsm.GlycanStructure, modifiedPsm.GlycanStructure);
+            Assert.AreEqual(unModifiedPsm.GlycanLocalizationLevel, modifiedPsm.GlycanLocalizationLevel);
+            Assert.AreEqual(unModifiedPsm.LocalizedGlycanInPeptide, modifiedPsm.LocalizedGlycanInPeptide);
+            Assert.AreEqual(unModifiedPsm.LocalizedGlycanInProtein, modifiedPsm.LocalizedGlycanInProtein);
+            Assert.AreEqual(unModifiedPsm.R138144, modifiedPsm.R138144);
+            Assert.AreEqual(unModifiedPsm.LocalizedScores, modifiedPsm.LocalizedScores);
+            Assert.AreEqual(unModifiedPsm.YionScore, modifiedPsm.YionScore);
+            Assert.AreEqual(unModifiedPsm.DiagonosticIonScore, modifiedPsm.DiagonosticIonScore);
+            Assert.AreEqual(unModifiedPsm.TotalGlycanSites, modifiedPsm.TotalGlycanSites);
         }
 
         [Test]

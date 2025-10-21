@@ -522,24 +522,7 @@ namespace Readers
             }
             return variantCrossingIons;
         }
-        public static List<Tuple<int, string, double>> ReadLocalizedGlycan(string localizedGlycan)
-        {
-            List<Tuple<int, string, double>> tuples = new List<Tuple<int, string, double>>();
-            if (localizedGlycan == null)
-            {
-                return tuples;
-            }
-            var lgs = localizedGlycan.Split(new string[] { "[", "]" }, StringSplitOptions.RemoveEmptyEntries);
-            foreach (var lg in lgs)
-            {
-                var g = lg.Split(',', StringSplitOptions.RemoveEmptyEntries);
 
-                Tuple<int, string, double> tuple = new Tuple<int, string, double>(int.Parse(g[0], CultureInfo.InvariantCulture), g[1], double.Parse(g[2], CultureInfo.InvariantCulture));
-                tuples.Add(tuple);
-            }
-
-            return tuples;
-        }
 
         public override string ToString()
         {

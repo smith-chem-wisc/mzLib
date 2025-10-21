@@ -544,6 +544,12 @@
     <None Update="FileReadingTests\SearchResults\NewHeader.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="FileReadingTests\SearchResults\nglyco_f5_NewVersion.psmtsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\SearchResults\oglyco.psmtsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="FileReadingTests\SearchResults\oglycoWithWrongExtension.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -634,7 +640,7 @@
     <None Update="FileReadingTests\SearchResults\nglyco_f5.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="FileReadingTests\SearchResults\oglyco.psmtsv">
+    <None Update="FileReadingTests\SearchResults\oglyco_newVersion.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\SearchResults\oglycoSinglePsms.psmtsv">
