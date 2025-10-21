@@ -11,7 +11,7 @@ using Omics.Modifications;
 using Proteomics;
 using UsefulProteomicsDatabases;
 
-namespace Test.DatabaseTests
+namespace Test.DatabaseTests.VariantTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -64,7 +64,7 @@ namespace Test.DatabaseTests
         }
 
         private static Protein GetConsensusCarrier(Protein baseProtein) =>
-            (baseProtein.ConsensusVariant as Protein) ?? baseProtein;
+            baseProtein.ConsensusVariant as Protein ?? baseProtein;
 
         private static XDocument WriteAndLoad(Protein baseProtein,
             string testName,
@@ -168,7 +168,7 @@ namespace Test.DatabaseTests
         {
             var prot = MakeBaseProtein("ACC_INS");
             var carrier = GetConsensusCarrier(prot);
-            carrier.SequenceVariations.Add(new SequenceVariation(5, (string)null, "AA", "  ", variantCallFormatDataString: null));
+            carrier.SequenceVariations.Add(new SequenceVariation(5, null, "AA", "  ", variantCallFormatDataString: null));
 
             var doc = WriteAndLoad(prot, nameof(Variation_Insertion_SynthesizesFallbackSequenceVariant));
             Assert.That((string)AssertSingleVariantFeature(doc).Attribute("description"),

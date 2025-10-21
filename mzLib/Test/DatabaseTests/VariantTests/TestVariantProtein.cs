@@ -15,7 +15,7 @@ using UsefulProteomicsDatabases;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test.DatabaseTests
+namespace Test.DatabaseTests.VariantTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -491,7 +491,7 @@ namespace Test.DatabaseTests
                 if (p.SequenceVariations.Count() == 1)
                     return p.SequenceVariations.Single();
 
-                Assert.Fail($"Could not resolve exactly one sequence variation for protein '{p.Name}'. " +
+                NUnit.Framework.Assert.Fail($"Could not resolve exactly one sequence variation for protein '{p.Name}'. " +
                             $"Applied={p.AppliedSequenceVariations.Count()} Raw={p.SequenceVariations.Count()}");
                 return null!;
             }
@@ -508,7 +508,7 @@ namespace Test.DatabaseTests
                     TestContext.WriteLine($"{label}: No modification at {expectedPos}. " +
                                           $"Protein keys=[{string.Join(",", protein.OneBasedPossibleLocalizedModifications.Keys)}]; " +
                                           $"Variant keys=[{string.Join(",", sv.OneBasedModifications.Keys)}]");
-                    Assert.Fail($"{label}: Expected a modification at position {expectedPos} (protein or variant level).");
+                    NUnit.Framework.Assert.Fail($"{label}: Expected a modification at position {expectedPos} (protein or variant level).");
                 }
 
                 if (proteinLevel && variantLevel)
@@ -566,7 +566,7 @@ namespace Test.DatabaseTests
                 maxSequenceVariantIsoforms: 32,
                 maxSequenceVariantsPerIsoform: 16);
 
-            Assert.That(proteins.Count, Is.GreaterThanOrEqualTo(2), "Expected target + decoy.");
+            NUnit.Framework.Assert.That(proteins.Count, Is.GreaterThanOrEqualTo(2), "Expected target + decoy.");
 
             var target = GetSingleVariantContainer(proteins, decoy: false);
             var decoy = GetSingleVariantContainer(proteins, decoy: true);
@@ -624,7 +624,7 @@ namespace Test.DatabaseTests
                 if (p.SequenceVariations.Count() == 1)
                     return p.SequenceVariations.Single();
 
-                Assert.Fail($"Could not resolve exactly one sequence variation for protein '{p.Name}'. Applied={p.AppliedSequenceVariations.Count()} Raw={p.SequenceVariations.Count()}");
+                NUnit.Framework.Assert.Fail($"Could not resolve exactly one sequence variation for protein '{p.Name}'. Applied={p.AppliedSequenceVariations.Count()} Raw={p.SequenceVariations.Count()}");
                 return null!;
             }
 
@@ -640,7 +640,7 @@ namespace Test.DatabaseTests
                     TestContext.WriteLine($"{label}: No modification at {expectedPos}. " +
                                           $"Protein keys=[{string.Join(",", protein.OneBasedPossibleLocalizedModifications.Keys)}]; " +
                                           $"Variant keys=[{string.Join(",", sv.OneBasedModifications.Keys)}]");
-                    Assert.Fail($"{label}: Expected a modification at position {expectedPos} (protein or variant level).");
+                    NUnit.Framework.Assert.Fail($"{label}: Expected a modification at position {expectedPos} (protein or variant level).");
                 }
 
                 if (proteinLevel && variantLevel)
@@ -698,7 +698,7 @@ namespace Test.DatabaseTests
                 maxSequenceVariantIsoforms: 32,
                 maxSequenceVariantsPerIsoform: 16);
 
-            Assert.That(proteins.Count, Is.GreaterThanOrEqualTo(2), "Expected target + decoy.");
+            NUnit.Framework.Assert.That(proteins.Count, Is.GreaterThanOrEqualTo(2), "Expected target + decoy.");
 
             var target = GetSingleVariantContainer(proteins, decoy: false);
             var decoy = GetSingleVariantContainer(proteins, decoy: true);
@@ -1088,7 +1088,7 @@ namespace Test.DatabaseTests
             bool ok = sv.TryAddModification(11, modG, out var error);
             Assert.IsFalse(ok, "Modification should not be added outside the new (shorter) variant span.");
             Assert.IsNotNull(error);
-            Assert.That(error, Does.Contain("beyond the new variant span").IgnoreCase);
+            NUnit.Framework.Assert.That(error, Does.Contain("beyond the new variant span").IgnoreCase);
             Assert.AreEqual(0, sv.OneBasedModifications.Count);
 
             // Bulk add variant of the same invalid entry
@@ -1113,7 +1113,7 @@ namespace Test.DatabaseTests
             bool ok = deletion.TryAddModification(20, modD, out var error);
             Assert.IsFalse(ok, "Modification at or after the begin position should be invalid for a deletion.");
             Assert.IsNotNull(error);
-            Assert.That(error, Does.Contain("termination or deletion").IgnoreCase);
+            NUnit.Framework.Assert.That(error, Does.Contain("termination or deletion").IgnoreCase);
             Assert.AreEqual(0, deletion.OneBasedModifications.Count);
 
             // Position 19 (just before deletion) should be valid
@@ -1586,7 +1586,7 @@ namespace Test.DatabaseTests
                 try
                 {
                     var zygProp = vcf.GetType().GetProperty("ZygosityBySample");
-                    if (zygProp?.GetValue(vcf) is System.Collections.IEnumerable kvs)
+                    if (zygProp?.GetValue(vcf) is IEnumerable kvs)
                         foreach (var kv in kvs)
                         {
                             var val = kv.GetType().GetProperty("Value")?.GetValue(kv);
@@ -1864,7 +1864,7 @@ namespace Test.DatabaseTests
                         $"TargetSpan={u.var.OneBasedBeginPosition}-{u.var.OneBasedEndPosition} ConsensusLen={u.consensusLen} Δ={u.delta} " +
                         $"ExpectedDecoySpan={u.expectedBegin}-{u.expectedEnd} (LegacyTried={u.altExpectedBegin}-{u.altExpectedEnd})"));
 
-                Assert.Fail("Missing decoy indel mappings for target variants:" + Environment.NewLine +
+                NUnit.Framework.Assert.Fail("Missing decoy indel mappings for target variants:" + Environment.NewLine +
                             details + Environment.NewLine +
                             "Observed decoy indel spans:" + Environment.NewLine +
                             decoySpanSummary);

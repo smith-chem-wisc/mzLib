@@ -4,7 +4,7 @@ using NUnit.Framework;
 using Omics.BioPolymer;
 using Omics.Modifications;
 
-namespace Test.DatabaseTests
+namespace Test.DatabaseTests.VariantTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]

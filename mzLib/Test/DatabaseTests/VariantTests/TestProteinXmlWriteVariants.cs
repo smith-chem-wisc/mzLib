@@ -11,7 +11,7 @@ using UsefulProteomicsDatabases;
 using Omics.BioPolymer;
 using Transcriptomics;
 
-namespace Test.DatabaseTests
+namespace Test.DatabaseTests.VariantTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]

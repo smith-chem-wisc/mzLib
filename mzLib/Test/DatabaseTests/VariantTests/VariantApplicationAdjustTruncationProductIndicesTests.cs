@@ -7,7 +7,7 @@ using Omics.BioPolymer;
 using Proteomics;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
-namespace Test.DatabaseTests
+namespace Test.DatabaseTests.VariantTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -67,7 +67,7 @@ namespace Test.DatabaseTests
             var stopVar = MakeVar(5, "TIDES", "T*", "StopGain");
             string appliedStop = "MPEPT"; // truncated at stop (len 5)
             var adjustedStop = InvokeAdjust(stopVar, appliedStop, protStop, baseProducts);
-            Assert.That(adjustedStop.Count, Is.EqualTo(3));
+            NUnit.Framework.Assert.That(adjustedStop.Count, Is.EqualTo(3));
             Assert.Contains(new TruncationProduct(1, 3, "before"), adjustedStop);
             Assert.Contains(new TruncationProduct(2, 5, "spanning"), adjustedStop);
             Assert.Contains(new TruncationProduct(1, 5, "full"), adjustedStop);
@@ -111,7 +111,7 @@ namespace Test.DatabaseTests
             var adjusted = InvokeAdjust(variant, applied, prot, products);
 
             // Expect new product from original begin to new truncated protein length
-            Assert.That(adjusted.Count, Is.EqualTo(1));
+            NUnit.Framework.Assert.That(adjusted.Count, Is.EqualTo(1));
             Assert.Contains(new TruncationProduct(2, applied.Length, "span"), adjusted);
         }
 
@@ -213,7 +213,7 @@ namespace Test.DatabaseTests
             var adjusted = InvokeAdjust(variant, applied, prot, new[] { productAfter });
 
             // lengthChange = 0 ? coordinates unchanged
-            Assert.That(adjusted, Has.Count.EqualTo(1));
+            NUnit.Framework.Assert.That(adjusted, Has.Count.EqualTo(1));
             Assert.Contains(new TruncationProduct(7, 12, "after"), adjusted);
         }
 
@@ -231,7 +231,7 @@ namespace Test.DatabaseTests
             var adjusted = InvokeAdjust(variant, applied, prot, new[] { productAfter });
 
             // Expect begin/end shifted forward by +3
-            Assert.That(adjusted, Has.Count.EqualTo(1));
+            NUnit.Framework.Assert.That(adjusted, Has.Count.EqualTo(1));
             Assert.Contains(new TruncationProduct(8 + lengthChange, 12 + lengthChange, "after"), adjusted);
         }
 
@@ -249,7 +249,7 @@ namespace Test.DatabaseTests
             var adjusted = InvokeAdjust(variant, applied, prot, new[] { productAfter });
 
             // Shift backward by 2: 8->6, 12->10
-            Assert.That(adjusted, Has.Count.EqualTo(1));
+            NUnit.Framework.Assert.That(adjusted, Has.Count.EqualTo(1));
             Assert.Contains(new TruncationProduct(6, 10, "after"), adjusted);
         }
 
@@ -267,7 +267,7 @@ namespace Test.DatabaseTests
             var adjusted = InvokeAdjust(variant, applied, prot, new[] { productAfter });
 
             // Since variant introduces stop (*), after-variant products are NOT added.
-            Assert.That(adjusted, Is.Empty);
+            NUnit.Framework.Assert.That(adjusted, Is.Empty);
         }
 
         [Test]
@@ -283,7 +283,7 @@ namespace Test.DatabaseTests
 
             var adjusted = InvokeAdjust(variant, applied, prot, new[] { productAdjacent });
 
-            Assert.That(adjusted, Is.Empty, "Product starting at variant end should not be treated as strictly after variant.");
+            NUnit.Framework.Assert.That(adjusted, Is.Empty, "Product starting at variant end should not be treated as strictly after variant.");
         }
 
         [Test]
@@ -311,7 +311,7 @@ namespace Test.DatabaseTests
             // straddling: (3, 7+2) = (3,9)
             // after1: (8+2, 10+2) = (10,12)
             // after2: (9+2, 12+2) = (11,14)
-            Assert.That(adjusted.Count, Is.EqualTo(3), "Straddling product is also retained and adjusted.");
+            NUnit.Framework.Assert.That(adjusted.Count, Is.EqualTo(3), "Straddling product is also retained and adjusted.");
             Assert.Contains(new TruncationProduct(3, 9, "straddling"), adjusted);
             Assert.Contains(new TruncationProduct(10, 12, "after1"), adjusted);
             Assert.Contains(new TruncationProduct(11, 14, "after2"), adjusted);

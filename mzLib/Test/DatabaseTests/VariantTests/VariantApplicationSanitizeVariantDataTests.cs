@@ -8,7 +8,7 @@ using Omics.Digestion;
 using Omics.Modifications;
 using Proteomics;
 
-namespace Test.DatabaseTests
+namespace Test.DatabaseTests.VariantTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -246,7 +246,7 @@ namespace Test.DatabaseTests
             var prot = new Protein("MPEPTIDESEQ", "ACC_INVALID_DROP");
             int pos = 3;
             var mod = MakeTestMod("TestMod");
-            var variant = new SequenceVariation(pos, pos, "P", "P", "noop_with_mod_then_cleared", (string?)null,
+            var variant = new SequenceVariation(pos, pos, "P", "P", "noop_with_mod_then_cleared", (string)null,
                 new Dictionary<int, List<Modification>> { { pos, new List<Modification> { mod } } });
             prot.SequenceVariations.Add(variant);
             variant.OneBasedModifications.Clear(); // becomes pure no-op
@@ -265,7 +265,7 @@ namespace Test.DatabaseTests
             var prot = new Protein("MPEPTIDESEQ", "ACC_INVALID_KEEP");
             int pos = 5;
             var mod = MakeTestMod("TestMod2");
-            var variant = new SequenceVariation(pos, pos, "T", "T", "noop_with_mod_then_cleared_keep", (string?)null,
+            var variant = new SequenceVariation(pos, pos, "T", "T", "noop_with_mod_then_cleared_keep", (string)null,
                 new Dictionary<int, List<Modification>> { { pos, new List<Modification> { mod } } });
             prot.SequenceVariations.Add(variant);
             try { variant.OneBasedModifications.Clear(); } catch { }
@@ -282,7 +282,7 @@ namespace Test.DatabaseTests
         public void SequenceVariation_InvalidSpan_ConstructorThrows()
         {
             Assert.That(() =>
-                new SequenceVariation(10, 9, "A", "G", "invalid_span_should_throw", (string?)null, null),
+                new SequenceVariation(10, 9, "A", "G", "invalid_span_should_throw", (string)null, null),
                 Throws.TypeOf<ArgumentException>().With.Message.Contains("coordinates"));
         }
 
@@ -292,7 +292,7 @@ namespace Test.DatabaseTests
             var prot = new Protein("MPEPTIDEQ", "ACC_PRUNE_OOR"); // length 9
             int pos = 3;
             var mod = MakeTestMod("InRange");
-            var variant = new SequenceVariation(pos, pos, "P", "L", "simple_sub_with_mod", (string?)null,
+            var variant = new SequenceVariation(pos, pos, "P", "L", "simple_sub_with_mod", (string)null,
                 new Dictionary<int, List<Modification>> { { pos, new List<Modification> { mod } } });
             prot.SequenceVariations.Add(variant);
 
@@ -334,7 +334,7 @@ namespace Test.DatabaseTests
             var prot = new Protein("MPEPTIDEQK", "ACC_PRUNE_NONE"); // length 10
             int begin = 5;
             var variant = new SequenceVariation(begin, begin, "T", "A", "subst_with_valid_mods",
-                (string?)null,
+                (string)null,
                 new Dictionary<int, List<Modification>>
                 {
                     { 2, new List<Modification>{ MakeTestMod("ModA") } },
@@ -359,7 +359,7 @@ namespace Test.DatabaseTests
             int begin = 3;
             int end = 6;
             var deletion = new SequenceVariation(begin, end, "PTID", "", "deletion_region",
-                (string?)null,
+                (string)null,
                 new Dictionary<int, List<Modification>>
                 {
                     { 2, new List<Modification>{ MakeTestMod("KeepBefore") } } // valid site (before deletion)
@@ -389,7 +389,7 @@ namespace Test.DatabaseTests
             int begin = 3;
             int end = 6;
             var deletion = new SequenceVariation(begin, end, "PTID", "", "deletion_region_keep",
-                (string?)null,
+                (string)null,
                 new Dictionary<int, List<Modification>>
                 {
                     { 2, new List<Modification>{ MakeTestMod("KeepBefore") } }
@@ -418,7 +418,7 @@ namespace Test.DatabaseTests
             var prot = new Protein("MPEPTIDEQK", "ACC_STOP_DROP");
             int begin = 4;
             var stopGain = new SequenceVariation(begin, begin, "P", "*", "stop_gain_region",
-                (string?)null,
+                (string)null,
                 new Dictionary<int, List<Modification>>
                 {
                     { 3, new List<Modification>{ MakeTestMod("KeepBefore") } }
@@ -444,7 +444,7 @@ namespace Test.DatabaseTests
             var prot = new Protein("MPEPTIDEQK", "ACC_STOP_RETAIN");
             int begin = 4;
             var stopGain = new SequenceVariation(begin, begin, "P", "*", "stop_gain_region_keep",
-                (string?)null,
+                (string)null,
                 new Dictionary<int, List<Modification>>
                 {
                     { 3, new List<Modification>{ MakeTestMod("KeepBefore") } }
@@ -476,7 +476,7 @@ namespace Test.DatabaseTests
                 "T",
                 "TAAA",
                 "insertion_valid_mods",
-                (string?)null,
+                (string)null,
                 new Dictionary<int, List<Modification>>
                 {
                     { 5,  new List<Modification>{ MakeTestMod("KeepSite") } }, // valid (within inserted block)
@@ -506,7 +506,7 @@ namespace Test.DatabaseTests
             int begin = 6;
             int end = 7;
             var deletion = new SequenceVariation(begin, end, "DE", "", "mixed_deletion",
-                (string?)null,
+                (string)null,
                 new Dictionary<int, List<Modification>>
                 {
                     { 5, new List<Modification>{ MakeTestMod("KeepBefore") } }
@@ -542,7 +542,7 @@ namespace Test.DatabaseTests
             var prot = new Protein("MPEPTIDEQK", "ACC_INS_DROP"); // length 10
             int pos = 5;
             var insertion = new SequenceVariation(pos, pos, "T", "TAAA", "insertion_with_invalid_mods",
-                (string?)null,
+                (string)null,
                 new Dictionary<int, List<Modification>>
                 {
                     { 5, new List<Modification>{ MakeTestMod("KeepSite") } },  // valid
@@ -625,7 +625,7 @@ namespace Test.DatabaseTests
             int pos = 3;
             // Create valid (temp) no-op via mod
             var mod = MakeTestMod("TempMod");
-            var variant = new SequenceVariation(pos, pos, "P", "P", "noop_then_invalid", (string?)null,
+            var variant = new SequenceVariation(pos, pos, "P", "P", "noop_then_invalid", (string)null,
                 new Dictionary<int, List<Modification>> { { pos, new List<Modification> { mod } } });
             prot.SequenceVariations.Add(variant);
 
@@ -648,7 +648,7 @@ namespace Test.DatabaseTests
             var prot = new Protein("MPEPTIDESEQ", "ACC_SUMMARY_INVALID_RETAIN");
             int pos = 6;
             var mod = MakeTestMod("TempMod2");
-            var variant = new SequenceVariation(pos, pos, "E", "E", "noop_retain", (string?)null,
+            var variant = new SequenceVariation(pos, pos, "E", "E", "noop_retain", (string)null,
                 new Dictionary<int, List<Modification>> { { pos, new List<Modification> { mod } } });
             prot.SequenceVariations.Add(variant);
             variant.OneBasedModifications.Clear(); // now pure no-op (invalid)
@@ -677,7 +677,7 @@ namespace Test.DatabaseTests
             // invalid (no-op after clearing mods)
             int pos = 7;
             var mod = MakeTestMod("TempMod3");
-            var invalid = new SequenceVariation(pos, pos, "D", "D", "noop_mutated", (string?)null,
+            var invalid = new SequenceVariation(pos, pos, "D", "D", "noop_mutated", (string)null,
                 new Dictionary<int, List<Modification>> { { pos, new List<Modification> { mod } } });
             prot.SequenceVariations.Add(invalid);
             invalid.OneBasedModifications.Clear();
@@ -707,7 +707,7 @@ namespace Test.DatabaseTests
             // invalid mutated no-op retained
             int pos = 8;
             var mod = MakeTestMod("TempMod4");
-            var invalid = new SequenceVariation(pos, pos, "Q", "Q", "noop_mutated_retain", (string?)null,
+            var invalid = new SequenceVariation(pos, pos, "Q", "Q", "noop_mutated_retain", (string)null,
                 new Dictionary<int, List<Modification>> { { pos, new List<Modification> { mod } } });
             prot.SequenceVariations.Add(invalid);
             invalid.OneBasedModifications.Clear();
@@ -803,7 +803,7 @@ namespace Test.DatabaseTests
             // invalid variant (will be dropped)
             int posInvalid = 7;
             var mod = MakeTestMod("TempInv");
-            var invalid = new SequenceVariation(posInvalid, posInvalid, "D", "D", "noop_invalid", (string?)null,
+            var invalid = new SequenceVariation(posInvalid, posInvalid, "D", "D", "noop_invalid", (string)null,
                 new Dictionary<int, List<Modification>> { { posInvalid, new List<Modification> { mod } } });
             prot.SequenceVariations.Add(valid);
             prot.SequenceVariations.Add(invalid);
@@ -868,7 +868,7 @@ namespace Test.DatabaseTests
             var prot = new Protein("MPEPTIDESEQ", "ACC_APPLIED_INVALID_RETAIN");
             int pos = 5;
             var mod = MakeTestMod("TempKeep");
-            var invalid = new SequenceVariation(pos, pos, "T", "T", "noop_invalid_retain", (string?)null,
+            var invalid = new SequenceVariation(pos, pos, "T", "T", "noop_invalid_retain", (string)null,
                 new Dictionary<int, List<Modification>> { { pos, new List<Modification> { mod } } });
             prot.SequenceVariations.Add(invalid);
             invalid.OneBasedModifications.Clear(); // becomes invalid
@@ -916,7 +916,7 @@ namespace Test.DatabaseTests
             // invalid (droppable)
             int posInv = 8;
             var modInv = MakeTestMod("TempInv2");
-            var invalid = new SequenceVariation(posInv, posInv, "Q", "Q", "noop_invalid_drop", (string?)null,
+            var invalid = new SequenceVariation(posInv, posInv, "Q", "Q", "noop_invalid_drop", (string)null,
                 new Dictionary<int, List<Modification>> { { posInv, new List<Modification> { modInv } } });
 
             prot.SequenceVariations.Add(valid);
@@ -1106,7 +1106,7 @@ namespace Test.DatabaseTests
         {
             IHasSequenceVariants polymer = null;
 
-            var notes = VariantApplication.SanitizeVariantData<IHasSequenceVariants>(polymer, removeInvalidVariants: true).ToList();
+            var notes = VariantApplication.SanitizeVariantData(polymer, removeInvalidVariants: true).ToList();
 
             Assert.That(notes.Count, Is.EqualTo(0), "Null single polymer should yield no notes (matches enumerable behavior).");
         }
@@ -1134,7 +1134,7 @@ namespace Test.DatabaseTests
             var prot = new Protein("MPEPTIDESEQ", "ACC_SINGLE_INVALID_DROP");
             int pos = 6;
             var mod = MakeTestMod("Tmp");
-            var variant = new SequenceVariation(pos, pos, "E", "E", "noop_single_drop", (string?)null,
+            var variant = new SequenceVariation(pos, pos, "E", "E", "noop_single_drop", (string)null,
                 new Dictionary<int, List<Modification>> { { pos, new List<Modification> { mod } } });
             prot.SequenceVariations.Add(variant);
             variant.OneBasedModifications.Clear(); // make no-op invalid
@@ -1155,7 +1155,7 @@ namespace Test.DatabaseTests
             var prot = new Protein("MPEPTIDESEQ", "ACC_SINGLE_INVALID_KEEP");
             int pos = 2;
             var mod = MakeTestMod("Tmp2");
-            var variant = new SequenceVariation(pos, pos, "M", "M", "noop_single_keep", (string?)null,
+            var variant = new SequenceVariation(pos, pos, "M", "M", "noop_single_keep", (string)null,
                 new Dictionary<int, List<Modification>> { { pos, new List<Modification> { mod } } });
             prot.SequenceVariations.Add(variant);
             variant.OneBasedModifications.Clear(); // now invalid
@@ -1179,7 +1179,7 @@ namespace Test.DatabaseTests
             prot.SequenceVariations.Add(null);
             var noopPos = 5;
             var mod = MakeTestMod("Tmp3");
-            var invalid = new SequenceVariation(noopPos, noopPos, "T", "T", "noop_eq", (string?)null,
+            var invalid = new SequenceVariation(noopPos, noopPos, "T", "T", "noop_eq", (string)null,
                 new Dictionary<int, List<Modification>> { { noopPos, new List<Modification> { mod } } });
             prot.SequenceVariations.Add(invalid);
             invalid.OneBasedModifications.Clear();
@@ -1190,7 +1190,7 @@ namespace Test.DatabaseTests
             // Recreate equivalent scenario (need to rebuild prot because previous call mutated collection)
             var prot2 = new Protein("MPEPTIDESEQ", "ACC_SINGLE_EQ");
             prot2.SequenceVariations.Add(null);
-            var invalid2 = new SequenceVariation(noopPos, noopPos, "T", "T", "noop_eq", (string?)null,
+            var invalid2 = new SequenceVariation(noopPos, noopPos, "T", "T", "noop_eq", (string)null,
                 new Dictionary<int, List<Modification>> { { noopPos, new List<Modification> { mod } } });
             prot2.SequenceVariations.Add(invalid2);
             invalid2.OneBasedModifications.Clear();

@@ -8,7 +8,7 @@ using Omics.BioPolymer;
 using Omics.Modifications;
 using Proteomics;
 
-namespace Test.DatabaseTests
+namespace Test.DatabaseTests.VariantTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -18,7 +18,7 @@ namespace Test.DatabaseTests
         {
             private readonly Protein _consensus;
             private readonly bool _returnNullSequenceVariations;
-            private readonly List<SequenceVariation>? _seqVars;
+            private readonly List<SequenceVariation> _seqVars;
 
             public NullVariantsProtein(string sequence,
                                        string accession,

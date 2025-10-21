@@ -9,7 +9,7 @@ using System.Linq;
 using System.Reflection;
 using UsefulProteomicsDatabases;
 
-namespace Test.DatabaseTests
+namespace Test.DatabaseTests.VariantTests
 {
     [TestFixture]
     internal class SequenceVariationRandomTests

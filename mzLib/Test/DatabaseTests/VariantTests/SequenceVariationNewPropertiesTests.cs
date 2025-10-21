@@ -5,7 +5,7 @@ using NUnit.Framework;
 using Omics.BioPolymer;
 using Omics.Modifications;
 
-namespace Test
+namespace Test.DatabaseTests.VariantTests
 {
     [TestFixture]
     public class SequenceVariationNewPropertiesTests

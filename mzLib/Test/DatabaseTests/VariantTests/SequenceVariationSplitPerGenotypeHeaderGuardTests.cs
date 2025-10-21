@@ -5,7 +5,7 @@ using NUnit.Framework.Legacy;
 using Omics.BioPolymer;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
-namespace Test.DatabaseTests
+namespace Test.DatabaseTests.VariantTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -26,7 +26,7 @@ namespace Test.DatabaseTests
             // Variant created without a VCF line
             var sv = new SequenceVariation(10, "A", "T", "NoVcf");
             var list = sv.SplitPerGenotype();
-            Assert.That(list, Is.Empty);
+            NUnit.Framework.Assert.That(list, Is.Empty);
         }
 
         [Test]
@@ -36,7 +36,7 @@ namespace Test.DatabaseTests
             string vcfNoSamples = "1\t1000\trsX\tA\tT\t.\tPASS\tANN=.\tGT:AD";
             var sv = Make(vcfNoSamples);
             var split = sv.SplitPerGenotype();
-            Assert.That(split, Is.Empty);
+            NUnit.Framework.Assert.That(split, Is.Empty);
         }
 
         [Test]
@@ -46,7 +46,7 @@ namespace Test.DatabaseTests
             string vcf = "1\t1000\trsX\tA\tT\t.\tPASS\tANN=.\tGT";
             var sv = Make(vcf);
             var split = sv.SplitPerGenotype();
-            Assert.That(split, Is.Empty);
+            NUnit.Framework.Assert.That(split, Is.Empty);
         }
 
         [Test]
@@ -56,7 +56,7 @@ namespace Test.DatabaseTests
             string vcf = "1\t1000\trsX\tA\tT\t.\tPASS\tANN=T|missense_variant\tGT:AD\t0/1:5,4";
             var sv = Make(vcf);
             var split = sv.SplitPerGenotype(minDepth: 0);
-            Assert.That(split.Count, Is.EqualTo(1));
+            NUnit.Framework.Assert.That(split.Count, Is.EqualTo(1));
             var d = split[0].Description;
             StringAssert.Contains("Depth=9", d);
             StringAssert.Contains("Mode=HeterozygousAlt", d);
@@ -69,7 +69,7 @@ namespace Test.DatabaseTests
             string vcf = "1\t1000\trsX\tA\tT\t.\tPASS\tANN=T|.\tGT:DP\t0/1:14";
             var sv = Make(vcf);
             var split = sv.SplitPerGenotype();
-            Assert.That(split.Count, Is.EqualTo(1));
+            NUnit.Framework.Assert.That(split.Count, Is.EqualTo(1));
             StringAssert.Contains("Depth=14", split[0].Description);
         }
 
@@ -80,7 +80,7 @@ namespace Test.DatabaseTests
             string vcf = "1\t1000\trsX\tA\tT\t.\tPASS\tANN=T|.\tGT:AD:DP\t1/1:0,8:8";
             var sv = Make(vcf);
             var split = sv.SplitPerGenotype();
-            Assert.That(split.Count, Is.EqualTo(1));
+            NUnit.Framework.Assert.That(split.Count, Is.EqualTo(1));
             StringAssert.Contains("Mode=HomozygousAlt", split[0].Description);
         }
 
@@ -92,7 +92,7 @@ namespace Test.DatabaseTests
             string vcf = "1\t1000\trsX\tA\tT\t.\tPASS\tANN=A|.\tGT:AD:DP\t1/1:0,9:9";
             var sv = Make(vcf);
             var split = sv.SplitPerGenotype();
-            Assert.That(split.Count, Is.EqualTo(1));
+            NUnit.Framework.Assert.That(split.Count, Is.EqualTo(1));
             StringAssert.Contains("Mode=HeterozygousAlt", split[0].Description);
             Assert.False(split[0].Description.Contains("HomozygousAlt"));
         }
@@ -104,7 +104,7 @@ namespace Test.DatabaseTests
             string vcf = "1\t1000\trsX\tA\tT\t.\tPASS\tANN=.\tGT:AD:DP\t0/1:4,7:11";
             var sv = Make(vcf);
             var split = sv.SplitPerGenotype();
-            Assert.That(split.Count, Is.EqualTo(1));
+            NUnit.Framework.Assert.That(split.Count, Is.EqualTo(1));
             StringAssert.Contains("Mode=HeterozygousAlt", split[0].Description);
         }
 
@@ -116,7 +116,7 @@ namespace Test.DatabaseTests
             string vcf = "1\t1000\trsX\tA\tT,G\t.\tPASS\tANN=T|.\tGT:AD:DP\t0/2:3,0,5:8";
             var sv = Make(vcf);
             var split = sv.SplitPerGenotype(minDepth: 0); // depth 8 passes
-            Assert.That(split, Is.Empty);
+            NUnit.Framework.Assert.That(split, Is.Empty);
         }
 
         [Test]
@@ -125,7 +125,7 @@ namespace Test.DatabaseTests
             string vcf = "1\t1000\trsX\tA\tT,G\t.\tPASS\tANN=T|.\tGT:AD:DP\t0/2:3,0,5:8";
             var sv = Make(vcf);
             var split = sv.SplitPerGenotype(minDepth: 0, skipIfAltIndexMismatch: false);
-            Assert.That(split.Count, Is.EqualTo(1));
+            NUnit.Framework.Assert.That(split.Count, Is.EqualTo(1));
             StringAssert.Contains("Mode=MixedAltIndex(StoredAltOnly)", split[0].Description);
         }
 
@@ -136,7 +136,7 @@ namespace Test.DatabaseTests
             string vcf = "1\t1000\trsX\tA\tT\t.\tPASS\tANN=T|.\tGT:AD:DP\t0/1:6,7:13";
             var sv = Make(vcf);
             var split = sv.SplitPerGenotype(includeReferenceForHeterozygous: true);
-            Assert.That(split.Count, Is.EqualTo(1));
+            NUnit.Framework.Assert.That(split.Count, Is.EqualTo(1));
             Assert.False(split.Any(v => v.Description.Contains("HeterozygousRef")));
             StringAssert.Contains("HeterozygousAlt", split[0].Description);
         }
@@ -148,7 +148,7 @@ namespace Test.DatabaseTests
             string vcf = "1\t1000\trsX\tA\tT\t.\tPASS\tANN=T|.\tGT:AD:DP\t0/0:8,0:8";
             var sv = Make(vcf);
             var split = sv.SplitPerGenotype(emitReferenceForHomozygousRef: true);
-            Assert.That(split, Is.Empty);
+            NUnit.Framework.Assert.That(split, Is.Empty);
         }
 
         [Test]
@@ -158,7 +158,7 @@ namespace Test.DatabaseTests
             string vcf = "1\t1000\trsX\tA\tT\t.\tPASS\tANN=T|.\tGT:AD:DP\t0/1:4,5:9";
             var sv = Make(vcf);
             var split = sv.SplitPerGenotype(minDepth: 10);
-            Assert.That(split, Is.Empty);
+            NUnit.Framework.Assert.That(split, Is.Empty);
         }
     }
 }

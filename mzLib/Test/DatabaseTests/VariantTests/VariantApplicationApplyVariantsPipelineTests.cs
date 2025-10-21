@@ -5,7 +5,7 @@ using NUnit.Framework;
 using Omics.BioPolymer;
 using Proteomics;
 
-namespace Test.DatabaseTests
+namespace Test.DatabaseTests.VariantTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -499,7 +499,7 @@ namespace Test.DatabaseTests
             // No intermediate single-variant proteoform should remain after second variant updates slot
             bool singleVariantPresent = setStrings.Any(s =>
                 !string.IsNullOrEmpty(s) &&
-                (s.Split('|').Length == 1));
+                s.Split('|').Length == 1);
             Assert.That(singleVariantPresent, Is.False,
                 "Found a single-variant proteoform; expected replacement of second branch.");
         }

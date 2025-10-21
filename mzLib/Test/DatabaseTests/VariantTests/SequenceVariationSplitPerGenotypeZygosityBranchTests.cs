@@ -5,7 +5,7 @@ using NUnit.Framework;
 using Omics.BioPolymer;
 using Omics.Modifications;
 
-namespace Test.DatabaseTests
+namespace Test.DatabaseTests.VariantTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -135,7 +135,7 @@ namespace Test.DatabaseTests
             Assert.That(split.Count, Is.EqualTo(1));
             Assert.That(split[0].OneBasedModifications, Is.Not.Null);
             Assert.That(split[0].OneBasedModifications.Count, Is.EqualTo(1));
-            Assert.That(Object.ReferenceEquals(split[0].OneBasedModifications, sv.OneBasedModifications), Is.False,
+            Assert.That(ReferenceEquals(split[0].OneBasedModifications, sv.OneBasedModifications), Is.False,
                 "Expected cloned modification dictionary, not original reference.");
         }
 
