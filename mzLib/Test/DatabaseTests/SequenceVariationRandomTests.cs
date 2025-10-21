@@ -1,10 +1,13 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 using NUnit.Framework;
 using Omics.BioPolymer;
 using Omics.Modifications;
+using Proteomics;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using UsefulProteomicsDatabases;
 
 namespace Test.DatabaseTests
 {
@@ -585,6 +588,218 @@ namespace Test.DatabaseTests
                 Assert.That(invalidList, Does.Contain(-1), "Non-positive position should be reported");
                 Assert.That(invalidList, Does.Contain(12), "Position beyond new variant span should be reported");
             });
+        }
+        [Test]
+        public void Test_LoadProteinXML_Conversion_Idempotent_RoundTrip()
+        {
+            // Purpose:
+            // Verifies that once “nucleotide substitution” site-mods are converted into candidate SequenceVariations,
+            // a subsequent write/read round-trip does not reintroduce the original site-level substitution mods.
+            //
+            // Why:
+            // - Guards against accidental re-emission of site mods in writers.
+            // - Confirms that conversion is effectively one-way for this class of annotations.
+
+            // Sequence: M A A H K
+            string baseSequence = "MAAHK";
+            Assert.That(ModificationMotif.TryGetMotif("A", out var motifA), Is.True);
+            Assert.That(ModificationMotif.TryGetMotif("K", out var motifK), Is.True);
+
+            var subAtoG = new Modification("A->G", null, "nucleotide substitution", null, motifA, "Anywhere.", null, 1.0);
+            var subKtoR = new Modification("K->R", null, "nucleotide substitution", null, motifK, "Anywhere.", null, 1.0);
+
+            var siteMods = new Dictionary<int, List<Modification>>
+            {
+                [3] = new List<Modification> { subAtoG },
+                [5] = new List<Modification> { subKtoR }
+            };
+
+            var prot = new Protein(
+                sequence: baseSequence,
+                accession: "TEST_SUBST_RTRIP",
+                oneBasedModifications: siteMods,
+                isContaminant: false,
+                isDecoy: false);
+
+            string path1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", $"subst_rtrip_{Guid.NewGuid():N}.xml");
+            string path2 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", $"subst_rtrip2_{Guid.NewGuid():N}.xml");
+            Directory.CreateDirectory(Path.GetDirectoryName(path1)!);
+
+            try
+            {
+                // Write original
+                ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { prot }, path1);
+
+                // Load ? conversion should run
+                var firstLoad = ProteinDbLoader.LoadProteinXML(
+                    path1, generateTargets: true, DecoyType.None,
+                    allKnownModifications: new List<Modification> { subAtoG, subKtoR },
+                    isContaminant: false, modTypesToExclude: Array.Empty<string>(),
+                    unknownModifications: out var unknown1,
+                    maxThreads: -1, maxSequenceVariantsPerIsoform: 0, minAlleleDepth: 0, maxSequenceVariantIsoforms: 1);
+
+                Assert.That(unknown1, Is.Empty);
+                var p1 = firstLoad.Single();
+                Assert.That(p1.BaseSequence, Is.EqualTo(baseSequence));
+                Assert.That(p1.SequenceVariations, Has.Count.EqualTo(2), "First load should convert 2 site-mods into variants.");
+                Assert.That(p1.OneBasedPossibleLocalizedModifications.ContainsKey(3), Is.False);
+                Assert.That(p1.OneBasedPossibleLocalizedModifications.ContainsKey(5), Is.False);
+
+                // Re-write the converted entry, then reload again
+                ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), firstLoad, path2);
+
+                var secondLoad = ProteinDbLoader.LoadProteinXML(
+                    path2, generateTargets: true, DecoyType.None,
+                    allKnownModifications: new List<Modification> { subAtoG, subKtoR },
+                    isContaminant: false, modTypesToExclude: Array.Empty<string>(),
+                    unknownModifications: out var unknown2,
+                    maxThreads: -1, maxSequenceVariantsPerIsoform: 0, minAlleleDepth: 0, maxSequenceVariantIsoforms: 1);
+
+                Assert.That(unknown2, Is.Empty);
+                var p2 = secondLoad.Single();
+
+                // Idempotence: still no site mods and still exactly the same two candidate variants
+                Assert.That(p2.OneBasedPossibleLocalizedModifications.ContainsKey(3), Is.False, "Site mod reappeared at 3 after round-trip.");
+                Assert.That(p2.OneBasedPossibleLocalizedModifications.ContainsKey(5), Is.False, "Site mod reappeared at 5 after round-trip.");
+                Assert.That(p2.SequenceVariations, Has.Count.EqualTo(2), "Converted variants should persist after round-trip.");
+
+                var tokens = new HashSet<string>(p2.SequenceVariations.Select(v => v.SimpleString()), StringComparer.Ordinal);
+                Assert.That(tokens, Does.Contain("A3G"));
+                Assert.That(tokens, Does.Contain("K5R"));
+            }
+            finally
+            {
+                try { if (File.Exists(path1)) File.Delete(path1); } catch { /* ignore */ }
+                try { if (File.Exists(path2)) File.Delete(path2); } catch { /* ignore */ }
+            }
+        }
+
+        [Test]
+        public void Test_LoadProteinXML_DoesNotConvert_WhenModsAreNotNucleotideSubstitution()
+        {
+            // Purpose:
+            // Ensures that only modifications whose ModificationType contains "nucleotide substitution"
+            // trigger conversion. Other site mods must remain as OneBasedPossibleLocalizedModifications,
+            // and no SequenceVariations should be created as a result.
+
+            // Sequence: M A A H K
+            string baseSequence = "MAAHK";
+            Assert.That(ModificationMotif.TryGetMotif("A", out var motifA), Is.True);
+
+            // A reasonable, non-substitution mod (valid so it round-trips)
+            var methylA = new Modification(
+                _originalId: "Methyl-A",
+                _modificationType: "Biological",  // does NOT contain "nucleotide substitution"
+                _target: motifA,
+                _locationRestriction: "Anywhere.",
+                _monoisotopicMass: 14.01565);
+
+            var siteMods = new Dictionary<int, List<Modification>>
+            {
+                [2] = new List<Modification> { methylA }, // residue 'A' at pos 2
+            };
+
+            var prot = new Protein(
+                sequence: baseSequence,
+                accession: "TEST_NON_CONVERT",
+                oneBasedModifications: siteMods,
+                isContaminant: false,
+                isDecoy: false);
+
+            string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", $"no_convert_{Guid.NewGuid():N}.xml");
+            Directory.CreateDirectory(Path.GetDirectoryName(xml)!);
+
+            try
+            {
+                ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { prot }, xml);
+
+                var loaded = ProteinDbLoader.LoadProteinXML(
+                    xml, generateTargets: true, DecoyType.None,
+                    allKnownModifications: new List<Modification> { methylA },
+                    isContaminant: false, modTypesToExclude: Array.Empty<string>(),
+                    unknownModifications: out var unknown,
+                    maxThreads: -1, maxSequenceVariantsPerIsoform: 0, minAlleleDepth: 0, maxSequenceVariantIsoforms: 1);
+
+                Assert.That(unknown, Is.Empty);
+                var p = loaded.Single();
+
+                // No conversion ? no candidate variants expected
+                Assert.That(p.SequenceVariations == null || p.SequenceVariations.Count == 0, Is.True, "Non-substitution site-mods must not produce variants.");
+
+                // Original site mod must remain
+                Assert.That(p.OneBasedPossibleLocalizedModifications.ContainsKey(2), Is.True, "Expected non-substitution mod to remain at site 2.");
+                Assert.That(p.OneBasedPossibleLocalizedModifications[2], Has.Count.EqualTo(1));
+                Assert.That(p.OneBasedPossibleLocalizedModifications[2][0].IdWithMotif, Is.EqualTo(methylA.IdWithMotif));
+            }
+            finally
+            {
+                try { if (File.Exists(xml)) File.Delete(xml); } catch { /* ignore */ }
+            }
+        }
+
+        [Test]
+        public void Test_LoadProteinXML_LegacyOverload_AlsoConverts_SubstitutionSiteMods()
+        {
+            // Purpose:
+            // Verifies the legacy positional overload of LoadProteinXML still triggers the conversion.
+            // This protects external callers that haven’t moved to the options-based or canonical overload.
+
+            string baseSequence = "MAAHK";
+            Assert.That(ModificationMotif.TryGetMotif("A", out var motifA), Is.True);
+
+            var subAtoG = new Modification(
+                _originalId: "A->G",
+                _modificationType: "nucleotide substitution",
+                _target: motifA,
+                _locationRestriction: "Anywhere.",
+                _monoisotopicMass: 1.0);
+
+            var siteMods = new Dictionary<int, List<Modification>>
+            {
+                [3] = new List<Modification> { subAtoG }
+            };
+
+            var prot = new Protein(
+                sequence: baseSequence,
+                accession: "TEST_SUBST_LEGACY",
+                oneBasedModifications: siteMods,
+                isContaminant: false,
+                isDecoy: false);
+
+            string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", $"legacy_convert_{Guid.NewGuid():N}.xml");
+            Directory.CreateDirectory(Path.GetDirectoryName(xml)!);
+
+            try
+            {
+                ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { prot }, xml);
+
+                // Legacy positional overload signature:
+                // (filename, generateTargets, decoyType, allKnownMods, isContaminant, modTypesToExclude, out um, maxThreads, maxHeterozygousVariants, minVariantDepth, addTruncations)
+                var loaded = ProteinDbLoader.LoadProteinXML(
+                    filename: xml,
+                    generateTargets: true,
+                    decoyType: DecoyType.None,
+                    allKnownModifications: new List<Modification> { subAtoG },
+                    isContaminant: false,
+                    modTypesToExclude: Array.Empty<string>(),
+                    unknownModifications: out var unknown,
+                    maxThreads: -1,
+                    maxHeterozygousVariants: 1,
+                    minVariantDepth: 0,
+                    addTruncations: false);
+
+                Assert.That(unknown, Is.Empty);
+                var p = loaded.Single();
+
+                // Conversion behavior must match the canonical path
+                Assert.That(p.SequenceVariations, Has.Count.EqualTo(1));
+                Assert.That(p.SequenceVariations[0].SimpleString(), Is.EqualTo("A3G"));
+                Assert.That(p.OneBasedPossibleLocalizedModifications.ContainsKey(3), Is.False);
+            }
+            finally
+            {
+                try { if (File.Exists(xml)) File.Delete(xml); } catch { /* ignore */ }
+            }
         }
     }
 }
