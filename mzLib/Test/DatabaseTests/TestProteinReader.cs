@@ -509,5 +509,98 @@ CF   O1
             Assert.AreEqual("MSGRGKGGKGLGKGGAKRHRKVLRDNIQGITKPAIRRLARRGGVKRISGLIYEETRGVLKVFLENVIRDAVTYTEHAKRKTVTAMDVVYALKRQGRTLYGFGG", prots[0].BaseSequence);
             Assert.AreEqual("MVRRRNAQGIGKGAGRKLRRSGGVGRGSKLLYKEGRKVHKKFLEDVIRGATTPTIHRKAKRVGAKDIVGAIKEQTRGLLGVGLGNFIYDTVGYRELAYRVTMT", prots[1].BaseSequence);
         }
+        [Test]
+        public static void LoadProteinXML_LegacyOverload_ForwardsParameters_AndMatchesCanonical()
+        {
+            // This test validates the obsolete legacy overload forwards parameters to the canonical
+            // LoadProteinXML correctly:
+            // - maxHeterozygousVariants -> maxSequenceVariantIsoforms
+            // - minVariantDepth         -> minAlleleDepth
+            // - maxSequenceVariantsPerIsoform is fixed to 1 in the legacy shim (single-variant isoforms)
+            //
+            // We use small.xml (contains 6 variants) and check two scenarios:
+            // 1) maxHeterozygousVariants = 1   → base only (no applied-variant isoforms)
+            // 2) maxHeterozygousVariants = 7   → base + 6 single-variant isoforms (total 7)
+
+            string xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "small.xml");
+
+            // Scenario 1: legacy with maxHeterozygousVariants = 1 → base only
+            var legacy1 = ProteinDbLoader.LoadProteinXML(
+                filename: xmlPath,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: UniProtPtms ?? Enumerable.Empty<Modification>(),
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var unknownLegacy1,
+                maxThreads: -1,
+                maxHeterozygousVariants: 1,  // maps to maxSequenceVariantIsoforms
+                minVariantDepth: 0,          // maps to minAlleleDepth
+                addTruncations: false);
+
+            // Canonical equivalent of scenario 1
+            var canonical1 = ProteinDbLoader.LoadProteinXML(
+                proteinDbLocation: xmlPath,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: UniProtPtms ?? Enumerable.Empty<Modification>(),
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var unknownCanonical1,
+                maxThreads: -1,
+                maxSequenceVariantsPerIsoform: 1, // legacy shim sets this
+                minAlleleDepth: 0,
+                maxSequenceVariantIsoforms: 1,    // same as legacy maxHeterozygousVariants
+                addTruncations: false);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(unknownLegacy1.Count, Is.EqualTo(unknownCanonical1.Count), "Unknown modification counts mismatch (scenario 1).");
+                Assert.That(legacy1.Count, Is.EqualTo(canonical1.Count), "Legacy vs canonical count mismatch (scenario 1).");
+                Assert.That(legacy1.Count, Is.EqualTo(1), "Expected base-only when maxHeterozygousVariants == 1.");
+                Assert.That(legacy1[0].Accession, Is.EqualTo(canonical1[0].Accession));
+                Assert.That(legacy1[0].BaseSequence, Is.EqualTo(canonical1[0].BaseSequence));
+            });
+
+            // Scenario 2: legacy with maxHeterozygousVariants = 7 → base + 6 singles (total 7)
+            var legacy2 = ProteinDbLoader.LoadProteinXML(
+                filename: xmlPath,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: UniProtPtms ?? Enumerable.Empty<Modification>(),
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var unknownLegacy2,
+                maxThreads: -1,
+                maxHeterozygousVariants: 7, // allow base + 6 single-variant isoforms
+                minVariantDepth: 0,
+                addTruncations: false);
+
+            var canonical2 = ProteinDbLoader.LoadProteinXML(
+                proteinDbLocation: xmlPath,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: UniProtPtms ?? Enumerable.Empty<Modification>(),
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var unknownCanonical2,
+                maxThreads: -1,
+                maxSequenceVariantsPerIsoform: 1, // legacy shim sets this
+                minAlleleDepth: 0,
+                maxSequenceVariantIsoforms: 7,
+                addTruncations: false);
+
+            // Compare counts and the set of (Accession, BaseSequence) pairs to avoid order sensitivity
+            var legacySet = new HashSet<(string acc, string seq)>(legacy2.Select(p => (p.Accession, p.BaseSequence)));
+            var canonicalSet = new HashSet<(string acc, string seq)>(canonical2.Select(p => (p.Accession, p.BaseSequence)));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(unknownLegacy2.Count, Is.EqualTo(unknownCanonical2.Count), "Unknown modification counts mismatch (scenario 2).");
+                Assert.That(legacy2.Count, Is.EqualTo(canonical2.Count), "Legacy vs canonical count mismatch (scenario 2).");
+                Assert.That(legacy2.Count, Is.EqualTo(7), "Expected base + 6 single-variant isoforms (total 7).");
+                Assert.That(legacySet.SetEquals(canonicalSet), Is.True, "Legacy vs canonical entries differ (scenario 2).");
+            });
+        }
     }
 }
