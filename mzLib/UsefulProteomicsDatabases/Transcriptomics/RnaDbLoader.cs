@@ -89,7 +89,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                 { "GeneBiotype", new FastaHeaderFieldRegex("GeneBiotype", @"gene_biotype:([^\s]+)", 0, 1) },
                 { "TranscriptBiotype", new FastaHeaderFieldRegex("TranscriptBiotype", @"transcript_biotype:([^\s]+)", 0, 1) },
                 { "GeneSymbol", new FastaHeaderFieldRegex("GeneSymbol", @"gene_symbol:([^\s]+)", 0, 1) },
-                { "Description", new FastaHeaderFieldRegex("Description", @"description:([^\[]+)", 0, 1) },
+                { "CallFormat", new FastaHeaderFieldRegex("CallFormat", @"description:([^\[]+)", 0, 1) },
             };
 
         public static readonly Dictionary<string, FastaHeaderFieldRegex> NcbiAssemblyFieldRegexes =

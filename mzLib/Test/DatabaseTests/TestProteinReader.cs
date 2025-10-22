@@ -125,7 +125,7 @@ namespace Test.DatabaseTests
             Assert.AreEqual(64, ok[0].SequenceVariations.First().OneBasedEndPosition);
             Assert.AreEqual(103 - 64 + 2, ok[1].SequenceVariations.First().OneBasedBeginPosition);
             Assert.AreEqual(103 - 64 + 2, ok[1].SequenceVariations.First().OneBasedEndPosition);
-            Assert.AreNotEqual(ok[0].SequenceVariations.First().Description, ok[1].SequenceVariations.First().Description); //decoys and target variations don't have the same desc.
+            Assert.AreNotEqual(ok[0].SequenceVariations.First().CallFormat, ok[1].SequenceVariations.First().CallFormat); //decoys and target variations don't have the same desc.
             Assert.AreEqual("Homo sapiens", ok[1].Organism);
         }
 
@@ -420,8 +420,8 @@ CF   O1
 
                 foreach (var variant in protein.AppliedSequenceVariations)
                 {
-                    Assert.That(variant.Description, Does.StartWith("rev"));
-                    Assert.That(variant.Description, Does.Not.StartWith("DECOY"));
+                    Assert.That(variant.CallFormat, Does.StartWith("rev"));
+                    Assert.That(variant.CallFormat, Does.Not.StartWith("DECOY"));
                 }
 
                 foreach (var bond in protein.DisulfideBonds)

@@ -20,7 +20,7 @@ namespace Omics.BioPolymer
             OneBasedEndPosition = oneBasedEndPosition;
             OriginalSequence = originalSequence ?? "";
             VariantSequence = variantSequence ?? "";
-            Description = new SequenceVariantDescription(description);
+            CallFormat = new VariantCallFormat(description);
             OneBasedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
         }
 
@@ -58,9 +58,9 @@ namespace Omics.BioPolymer
         public string VariantSequence { get; }
 
         /// <summary>
-        /// Description of this variation (optional)
+        /// CallFormat of this variation (optional)
         /// </summary>
-        public SequenceVariantDescription Description { get; }
+        public VariantCallFormat CallFormat { get; }
 
         /// <summary>
         /// Modifications specifically for this variant
@@ -75,7 +75,7 @@ namespace Omics.BioPolymer
                 && OneBasedEndPosition == s.OneBasedEndPosition
                 && (s.OriginalSequence == null && OriginalSequence == null || OriginalSequence.Equals(s.OriginalSequence))
                 && (s.VariantSequence == null && VariantSequence == null || VariantSequence.Equals(s.VariantSequence))
-                && (s.Description == null && Description == null || Description.Equals(s.Description))
+                && (s.CallFormat == null && CallFormat == null || CallFormat.Equals(s.CallFormat))
                 && (s.OneBasedModifications == null && OneBasedModifications == null ||
                     s.OneBasedModifications.Keys.ToList().SequenceEqual(OneBasedModifications.Keys.ToList())
                     && s.OneBasedModifications.Values.SelectMany(m => m).ToList().SequenceEqual(OneBasedModifications.Values.SelectMany(m => m).ToList()));
@@ -87,7 +87,7 @@ namespace Omics.BioPolymer
                 ^ OneBasedEndPosition.GetHashCode()
                 ^ OriginalSequence.GetHashCode() // null handled in constructor
                 ^ VariantSequence.GetHashCode() // null handled in constructor
-                ^ Description.GetHashCode(); // always constructed in constructor
+                ^ CallFormat.GetHashCode(); // always constructed in constructor
         }
 
         /// <summary>

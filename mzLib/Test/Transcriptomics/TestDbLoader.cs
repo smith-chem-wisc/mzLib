@@ -291,7 +291,7 @@ namespace Test.Transcriptomics
             Assert.That(fields["GeneBiotype"], Is.EqualTo("snRNA"));
             Assert.That(fields["TranscriptBiotype"], Is.EqualTo("snRNA"));
             Assert.That(fields["GeneSymbol"], Is.EqualTo("U6"));
-            Assert.That(fields["Description"], Does.Contain("U6 spliceosomal RNA"));
+            Assert.That(fields["CallFormat"], Does.Contain("U6 spliceosomal RNA"));
 
         }
 

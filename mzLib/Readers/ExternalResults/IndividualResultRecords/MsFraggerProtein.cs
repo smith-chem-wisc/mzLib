@@ -38,7 +38,7 @@ namespace Readers
         [Name("Organism")]
         public string Organism { get; set; }
 
-        [Name("Protein Description", "Description")]
+        [Name("Protein CallFormat", "CallFormat")]
         public string Description { get; set; }
 
         [Name("Protein Existence")]

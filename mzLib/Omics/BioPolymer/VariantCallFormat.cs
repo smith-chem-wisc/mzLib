@@ -4,9 +4,9 @@ using System.Linq;
 
 namespace Omics.BioPolymer
 {
-    public class SequenceVariantDescription
+    public class VariantCallFormat
     {
-        public SequenceVariantDescription(string description)
+        public VariantCallFormat(string description)
         {
             Description = description;
             if (description == null)
@@ -67,7 +67,7 @@ namespace Omics.BioPolymer
 
         public override bool Equals(object obj)
         {
-            SequenceVariantDescription s = obj as SequenceVariantDescription;
+            VariantCallFormat s = obj as VariantCallFormat;
             return s != null && s.Description == Description;
         }
 
