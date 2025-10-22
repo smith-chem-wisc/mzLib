@@ -591,7 +591,7 @@ namespace Test.Transcriptomics
             }
 
             // Load with default variant parameters:
-            // Defaults are maxSequenceVariantsPerIsoform = 0 and maxSequenceVariantIsoforms = 1,
+            // Defaults are maxSequenceVariantsPerIsoform = 0 and totalConsensusPlusVariantIsoforms = 1,
             // which should produce only the canonical entry (no variant-applied isoforms).
             var loaded = RnaDbLoader.LoadRnaXML(
                 rnaDbLocation: outPath,

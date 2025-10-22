@@ -636,7 +636,7 @@ namespace Test.DatabaseTests.VariantTests
                     allKnownModifications: new List<Modification> { subAtoG, subKtoR },
                     isContaminant: false, modTypesToExclude: Array.Empty<string>(),
                     unknownModifications: out var unknown1,
-                    maxThreads: -1, maxSequenceVariantsPerIsoform: 0, minAlleleDepth: 0, maxSequenceVariantIsoforms: 1);
+                    maxThreads: -1, maxSequenceVariantsPerIsoform: 0, minAlleleDepth: 0, totalConsensusPlusVariantIsoforms: 1);
 
                 Assert.That(unknown1, Is.Empty);
                 var p1 = firstLoad.Single();
@@ -653,7 +653,7 @@ namespace Test.DatabaseTests.VariantTests
                     allKnownModifications: new List<Modification> { subAtoG, subKtoR },
                     isContaminant: false, modTypesToExclude: Array.Empty<string>(),
                     unknownModifications: out var unknown2,
-                    maxThreads: -1, maxSequenceVariantsPerIsoform: 0, minAlleleDepth: 0, maxSequenceVariantIsoforms: 1);
+                    maxThreads: -1, maxSequenceVariantsPerIsoform: 0, minAlleleDepth: 0, totalConsensusPlusVariantIsoforms: 1);
 
                 Assert.That(unknown2, Is.Empty);
                 var p2 = secondLoad.Single();
@@ -718,7 +718,7 @@ namespace Test.DatabaseTests.VariantTests
                     allKnownModifications: new List<Modification> { methylA },
                     isContaminant: false, modTypesToExclude: Array.Empty<string>(),
                     unknownModifications: out var unknown,
-                    maxThreads: -1, maxSequenceVariantsPerIsoform: 0, minAlleleDepth: 0, maxSequenceVariantIsoforms: 1);
+                    maxThreads: -1, maxSequenceVariantsPerIsoform: 0, minAlleleDepth: 0, totalConsensusPlusVariantIsoforms: 1);
 
                 Assert.That(unknown, Is.Empty);
                 var p = loaded.Single();

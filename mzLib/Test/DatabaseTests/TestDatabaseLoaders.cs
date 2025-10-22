@@ -73,7 +73,7 @@ namespace Test.DatabaseTests
             var proteinXml = ProteinDbLoader.LoadProteinXML(
                 Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IsoformTest.xml"),
                 true, DecoyType.None, null, false, null, out var unknownMod,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.AreEqual("Q13409", proteinXml[0].Accession);
             Assert.AreEqual("Q13409-2", proteinXml[1].Accession);
@@ -102,10 +102,10 @@ namespace Test.DatabaseTests
             {
                 proteins1 = ProteinDbLoader.LoadProteinXML(
                     dbPath, true, decoyType, null, false, null, out var unknownModifications,
-                    maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                    maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
                 proteins2 = ProteinDbLoader.LoadProteinXML(
                     dbPath, true, decoyType, null, false, null, out unknownModifications,
-                    maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                    maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
             }
             else if (fileName.Contains(".fasta"))
             {
@@ -135,10 +135,10 @@ namespace Test.DatabaseTests
             var dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", fileName);
             List<Protein> proteins1 = ProteinDbLoader.LoadProteinXML(
                 dbPath, true, decoyType, UniProtPtms, false, null, out var unknownModifications,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
             List<Protein> proteins2 = ProteinDbLoader.LoadProteinXML(
                 dbPath, true, decoyType, UniProtPtms, false, null, out unknownModifications,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             // check are equivalent lists of proteins
             Assert.AreEqual(proteins1.Count, proteins2.Count);
@@ -397,7 +397,7 @@ namespace Test.DatabaseTests
                 out var unk,
                 maxSequenceVariantsPerIsoform: 4,
                 minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1)
+                totalConsensusPlusVariantIsoforms: 1)
                 .First();
 
             Assert.That(protein.BaseSequence.StartsWith("MSGRGK"));
@@ -481,7 +481,7 @@ namespace Test.DatabaseTests
                 Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins.xml"),
                 true, DecoyType.None, new List<Modification>(), false, new List<string>(),
                 out Dictionary<string, Modification> um,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.AreEqual(1, new_proteins.Count);
             Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications.Count);
@@ -573,7 +573,7 @@ namespace Test.DatabaseTests
                 Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins.xml"),
                 true, DecoyType.None, new List<Modification>(), false, new List<string>(),
                 out Dictionary<string, Modification> um,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             // Create a second protein with the same modifications, but listed in a different order.
             sampleModList.Reverse();
@@ -603,7 +603,7 @@ namespace Test.DatabaseTests
                 shuffledProteinFileName,
                 true, DecoyType.None, new List<Modification>(), false, new List<string>(),
                 out um,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             // We've read in proteins from both databases. Assert that they are equal
             Assert.AreEqual(newShuffledProteins.First().Accession, newProteins.First().Accession);
@@ -642,7 +642,7 @@ namespace Test.DatabaseTests
             List<Protein> newProteinList = ProteinDbLoader.LoadProteinXML(
                 proteinDbFilePath, true, DecoyType.Reverse, new List<Modification>(), false, new List<string>(),
                 out var um, -1,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             // We wrote a single target and loaded with Reverse decoys and GenerateTargets = true -> expect target + decoy
             Assert.That(newProteinList, Has.Count.EqualTo(2));
@@ -654,7 +654,7 @@ namespace Test.DatabaseTests
             var emptyLoad = ProteinDbLoader.LoadProteinXML(
                 tmp, true, DecoyType.Reverse, new List<Modification>(), false, new List<string>(),
                 out um, -1,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.That(emptyLoad, Is.Empty);
 
@@ -689,7 +689,7 @@ namespace Test.DatabaseTests
                 Path.Combine(TestContext.CurrentContext.TestDirectory, "test_modifications_with_proteins3.xml"),
                 true, DecoyType.None, new List<Modification>(), false, new List<string>(),
                 out Dictionary<string, Modification> um,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.AreEqual(1, new_proteins.Count);
             Assert.AreEqual(1, new_proteins[0].OneBasedPossibleLocalizedModifications.Count);
@@ -719,7 +719,7 @@ namespace Test.DatabaseTests
                 Path.Combine(TestContext.CurrentContext.TestDirectory, filename),
                 true, DecoyType.None, new List<Modification> { m }, false, new List<string>(),
                 out Dictionary<string, Modification> um,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
             Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().NeutralLosses.First().Value.Count == 2);
 
             // should be able to read mod from top of database...
@@ -727,7 +727,7 @@ namespace Test.DatabaseTests
                 Path.Combine(TestContext.CurrentContext.TestDirectory, filename),
                 true, DecoyType.None, new List<Modification>(), false, new List<string>(),
                 out um,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
             Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().NeutralLosses.First().Value.Count == 2);
         }
 
@@ -754,7 +754,7 @@ namespace Test.DatabaseTests
                 Path.Combine(TestContext.CurrentContext.TestDirectory, filename),
                 true, DecoyType.None, new List<Modification> { m }, false, new List<string>(),
                 out Dictionary<string, Modification> um,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
             Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().NeutralLosses.First().Value.Count == 2);
 
             // should be able to read mod from top of database...
@@ -762,7 +762,7 @@ namespace Test.DatabaseTests
                 Path.Combine(TestContext.CurrentContext.TestDirectory, filename),
                 true, DecoyType.None, new List<Modification>(), false, new List<string>(),
                 out um,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
             Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().NeutralLosses.First().Value.Count == 2);
         }
 
@@ -789,7 +789,7 @@ namespace Test.DatabaseTests
                 Path.Combine(TestContext.CurrentContext.TestDirectory, filename),
                 true, DecoyType.None, new List<Modification> { m }, false, new List<string>(),
                 out Dictionary<string, Modification> um,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
             Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().DiagnosticIons.First().Value.Count == 2);
 
             // should be able to read mod from top of database...
@@ -797,7 +797,7 @@ namespace Test.DatabaseTests
                 Path.Combine(TestContext.CurrentContext.TestDirectory, filename),
                 true, DecoyType.None, new List<Modification>(), false, new List<string>(),
                 out um,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
             Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().DiagnosticIons.First().Value.Count == 2);
         }
 
@@ -825,7 +825,7 @@ namespace Test.DatabaseTests
                 Path.Combine(TestContext.CurrentContext.TestDirectory, filename),
                 true, DecoyType.None, new List<Modification> { m }, false, new List<string>(),
                 out Dictionary<string, Modification> um,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
             Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().NeutralLosses.First().Value.Count == 2);
             Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().DiagnosticIons.First().Value.Count == 2);
 
@@ -834,7 +834,7 @@ namespace Test.DatabaseTests
                 Path.Combine(TestContext.CurrentContext.TestDirectory, filename),
                 true, DecoyType.None, new List<Modification>(), false, new List<string>(),
                 out um,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
             Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().NeutralLosses.First().Value.Count == 2);
             Assert.That(new_proteins.First().OneBasedPossibleLocalizedModifications.First().Value.First().DiagnosticIons.First().Value.Count == 2);
         }
@@ -1107,7 +1107,7 @@ namespace Test.DatabaseTests
             Assert.That(
                 () => ProteinDbLoader.LoadProteinXML(tmp, bad, out _),
                 Throws.TypeOf<MzLibUtil.MzLibException>()
-                      .With.Message.Contains("maxSequenceVariantIsoforms"));
+                      .With.Message.Contains("totalConsensusPlusVariantIsoforms"));
 
             if (File.Exists(tmp)) File.Delete(tmp);
         }

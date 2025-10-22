@@ -532,7 +532,7 @@ namespace Test
                 unknownModifications: out var unknownModifications,
                 maxSequenceVariantsPerIsoform: 4,
                 minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1)[0];
+                totalConsensusPlusVariantIsoforms: 1)[0];
 
             insulin.CleaveOnceBetweenProteolysisProducts();
 
@@ -557,7 +557,7 @@ namespace Test
                 unknownModifications: out var unknownModifications,
                 maxSequenceVariantsPerIsoform: 4,
                 minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1)[0];
+                totalConsensusPlusVariantIsoforms: 1)[0];
 
             insulin.CleaveOnceBetweenProteolysisProducts(minimumProductLength: 70);
 

@@ -51,7 +51,7 @@ namespace Test
             Protein insulinProteinFromXml1
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
                 DecoyType.None, null, false, null, out var unknownModifications1,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1, addTruncations: false)[0];
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1, addTruncations: false)[0];
 
             Assert.AreEqual(4, insulinProteinFromXml1.TruncationProducts.Count());
             insulinProteinFromXml1.AddTruncationsToExistingProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, 7, 5, "truncation");
@@ -60,7 +60,7 @@ namespace Test
             Protein insulinProteinFromXml2
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
                 DecoyType.None, null, false, null, out var unknownModifications2,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1, addTruncations: false)[0];
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1, addTruncations: false)[0];
 
             Assert.AreEqual(4, insulinProteinFromXml2.TruncationProducts.Count());
             insulinProteinFromXml2.AddTruncationsToExistingProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, 7, 5, "truncation");
@@ -69,7 +69,7 @@ namespace Test
             Protein insulinProteinFromXml3
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
                 DecoyType.None, null, false, null, out var unknownModifications3,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1, addTruncations: false)[0];
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1, addTruncations: false)[0];
 
             Assert.AreEqual(4, insulinProteinFromXml3.TruncationProducts.Count());
             insulinProteinFromXml3.AddTruncationsToExistingProteolysisProducts(1, insulinProteinFromXml1.BaseSequence.Length, true, true, 7, 5, "truncation");
@@ -84,21 +84,21 @@ namespace Test
             Protein insulinProteinFromXml1
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
                     DecoyType.None, null, false, null, out var unknownModifications1,
-                    maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1, addTruncations: false)[0];
+                    maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1, addTruncations: false)[0];
 
             Assert.AreEqual(4, insulinProteinFromXml1.TruncationProducts.Count());
 
             Protein insulinProteinFromXml2
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
                     DecoyType.None, null, false, null, out var unknownModifications2,
-                    maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1, addTruncations: false)[0];
+                    maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1, addTruncations: false)[0];
 
             Assert.AreEqual(4, insulinProteinFromXml2.TruncationProducts.Count());
 
             Protein insulinProteinFromXml3
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
                     DecoyType.None, null, false, null, out var unknownModifications3,
-                    maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1, addTruncations: false)[0];
+                    maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1, addTruncations: false)[0];
 
             Assert.AreEqual(4, insulinProteinFromXml3.TruncationProducts.Count());
         }
@@ -127,7 +127,7 @@ namespace Test
             Protein insulinProteinFromXml
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
                 DecoyType.None, null, false, null, out var unknownModifications,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1, addTruncations: true)[0];
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1, addTruncations: true)[0];
 
             Assert.AreEqual(68, insulinProteinFromXml.TruncationProducts.Count());
             Assert.AreEqual(1, insulinProteinFromXml.TruncationProducts.Where(p => p.Type == "full-length proteoform").Count());
@@ -196,7 +196,7 @@ namespace Test
             List<Protein> proteins
                 = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
                     DecoyType.Reverse, null, false, null, out var unknownModifications,
-                    maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1, addTruncations: true);
+                    maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1, addTruncations: true);
 
             Assert.AreEqual(16, proteins[0].TruncationProducts.Where(p => p.Type.Contains("truncation")).Count());
 
@@ -208,7 +208,7 @@ namespace Test
             List<Protein> moreProteins
                 = ProteinDbLoader.LoadProteinXML(testOutXml, true,
                     DecoyType.Reverse, null, false, null, out var moreUnknownModifications,
-                    maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1, addTruncations: false);
+                    maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1, addTruncations: false);
             Assert.AreEqual(0, moreProteins[0].TruncationProducts.Where(p => p.Type.Contains("truncation")).Count());
 
             File.Delete(testOutXml);

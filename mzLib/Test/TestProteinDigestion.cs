@@ -456,9 +456,9 @@ namespace Test
             var dbSix = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SingleEntry_ModOrder2.xml");
 
             var proteins5 = ProteinDbLoader.LoadProteinXML(dbFive, true, DecoyType.None, null, false, null, out var unknownModificationsFive,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
             var proteins6 = ProteinDbLoader.LoadProteinXML(dbSix, true, DecoyType.None, null, false, null, out var unknownModificationsSix,
-                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             var fiveMods = ProteinDbLoader.GetPtmListFromProteinXml(dbFive);
             var sixMods = ProteinDbLoader.GetPtmListFromProteinXml(dbSix);
@@ -484,9 +484,9 @@ namespace Test
             if (fileName.Contains(".xml"))
             {
                 proteins1 = ProteinDbLoader.LoadProteinXML(dbPath, true, decoyType, null, false, null, out var unknownModifications,
-                    maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                    maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
                 proteins2 = ProteinDbLoader.LoadProteinXML(dbPath, true, decoyType, null, false, null, out unknownModifications,
-                    maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                    maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
             }
             else if (fileName.Contains(".fasta"))
             {
@@ -789,7 +789,7 @@ namespace Test
                 out Dictionary<string, Modification> un,
                 maxSequenceVariantsPerIsoform: 4,
                 minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1);
+                totalConsensusPlusVariantIsoforms: 1);
 
             Protein prot = dbProteins.First();
 

@@ -78,7 +78,7 @@ namespace Test.DatabaseTests.VariantTests
         private Modification MakeMod(string id) =>
             new Modification(_originalId: id, _accession: id, _modificationType: "unit-test", _featureType: "ft", _target: null);
 
-        #region Guard: (maxSequenceVariantsPerIsoform == 0 || maxSequenceVariantIsoforms == 1)
+        #region Guard: (maxSequenceVariantsPerIsoform == 0 || totalConsensusPlusVariantIsoforms == 1)
 
         [TestCase(0, 0)]
         [TestCase(0, 1)]

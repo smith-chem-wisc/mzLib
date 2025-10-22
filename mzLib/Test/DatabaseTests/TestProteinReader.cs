@@ -105,7 +105,7 @@ namespace Test.DatabaseTests
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"),
                 true, DecoyType.Reverse, UniProtPtms, false, null, out var un,
-                maxThreads: 1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxThreads: 1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -135,7 +135,7 @@ namespace Test.DatabaseTests
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"),
                 true, DecoyType.Reverse, UniProtPtms, false, null, out Dictionary<string, Modification> un,
-                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -163,7 +163,7 @@ namespace Test.DatabaseTests
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"),
                 true, DecoyType.Reverse, UniProtPtms, false, null, out var un,
-                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             // proteolysis products check
             Assert.True(ok.All(p => p.TruncationProducts.All(d => d.OneBasedBeginPosition == null || d.OneBasedBeginPosition > 0)));
@@ -188,7 +188,7 @@ namespace Test.DatabaseTests
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(directory, @"xml.xml.gz"),
                 true, DecoyType.Reverse, UniProtPtms, false, null, out var un,
-                maxThreads: 1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxThreads: 1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -223,7 +223,7 @@ namespace Test.DatabaseTests
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fake_h4.xml"),
                 true, DecoyType.Reverse, UniProtPtms, false, null, out var un,
-                maxThreads: 1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxThreads: 1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.AreEqual("S", ok[0].BaseSequence.Substring(0, 1));
             Assert.AreEqual("G", ok[1].BaseSequence.Substring(0, 1));
@@ -237,7 +237,7 @@ namespace Test.DatabaseTests
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"modified_start.xml"),
                 true, DecoyType.Reverse, UniProtPtms, false, null, out var un,
-                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.AreEqual("M", ok[0].BaseSequence.Substring(0, 1)); //the original protein sequence in the original order starts with 'M'
             Assert.AreEqual("M", ok[1].BaseSequence.Substring(0, 1)); //the decoy protein sequence in the reverse order from the original still starts with 'M'
@@ -311,7 +311,7 @@ namespace Test.DatabaseTests
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"), true, DecoyType.Reverse, UniProtPtms.Concat(nice), false,
                 new List<string>(), out Dictionary<string, Modification> un,
-                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.True(ok[0].OneBasedPossibleLocalizedModifications.Any(kv => kv.Value.Count > 1));
 
@@ -337,7 +337,7 @@ namespace Test.DatabaseTests
 
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"), true, DecoyType.Reverse, nice, false,
                 new[] { excludeString }, out Dictionary<string, Modification> un,
-                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             List<string> modTypes = new List<string>();
             foreach (KeyValuePair<int, List<Modification>> entry in ok2[0].OneBasedPossibleLocalizedModifications)
@@ -389,7 +389,7 @@ CF   O1
             var nice = new List<Modification>();
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), true, DecoyType.Reverse, nice, false,
                 new string[] { "exclude_me" }, out Dictionary<string, Modification> un,
-                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
             Assert.AreEqual("MNCYNELQYLSCISTCCQDVIGRKQRAVELALTQLDGPSGGLELQEVQPDEVERRSKPTYFFGREGCVLYLAEVLHPGCLHQKVFAQTPKPEWLALLALLPLFHVLLA", ok2[1].BaseSequence);
@@ -413,7 +413,7 @@ CF   O1
             var nice = new List<Modification>();
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), true, DecoyType.Reverse, nice, false,
                 new string[] { "exclude_me" }, out Dictionary<string, Modification> un,
-                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1, decoyIdentifier: "rev");
+                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1, decoyIdentifier: "rev");
 
             foreach (var protein in proteins)
             {
@@ -454,7 +454,7 @@ CF   O1
             //sequence, disulfides
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), true, DecoyType.Slide, UniProtPtms, false,
                 new string[] { "exclude_me" }, out Dictionary<string, Modification> un,
-                maxThreads: 1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxThreads: 1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
             Assert.AreEqual("MTKAEVLQLLAGLHLVHALYAVLGVRFFPYLPLSARWVPDPQQEFLKLHGCPPDLQELLLLVCREKGGFVTQKCRSECELPQVEQYENGCSNGLLYTSAIETACQDRI", ok2[1].BaseSequence);
@@ -479,7 +479,7 @@ CF   O1
             //sequence variants, modifications
             ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"O43653.xml"), true, DecoyType.Slide, UniProtPtms, false,
                 new string[] { "exclude_me" }, out un,
-                maxThreads: 1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, maxSequenceVariantIsoforms: 1);
+                maxThreads: 1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.AreEqual(ok2[1].OneBasedPossibleLocalizedModifications.First().Key, 13);
             var decoyVariants = ok2[1].SequenceVariations.ToList();
@@ -514,7 +514,7 @@ CF   O1
         {
             // This test validates the obsolete legacy overload forwards parameters to the canonical
             // LoadProteinXML correctly:
-            // - maxHeterozygousVariants -> maxSequenceVariantIsoforms
+            // - maxHeterozygousVariants -> totalConsensusPlusVariantIsoforms
             // - minVariantDepth         -> minAlleleDepth
             // - maxSequenceVariantsPerIsoform is fixed to 1 in the legacy shim (single-variant isoforms)
             //
@@ -534,7 +534,7 @@ CF   O1
                 modTypesToExclude: null,
                 unknownModifications: out var unknownLegacy1,
                 maxThreads: -1,
-                maxHeterozygousVariants: 1,  // maps to maxSequenceVariantIsoforms
+                maxHeterozygousVariants: 1,  // maps to totalConsensusPlusVariantIsoforms
                 minVariantDepth: 0,          // maps to minAlleleDepth
                 addTruncations: false);
 
@@ -550,7 +550,7 @@ CF   O1
                 maxThreads: -1,
                 maxSequenceVariantsPerIsoform: 1, // legacy shim sets this
                 minAlleleDepth: 0,
-                maxSequenceVariantIsoforms: 1,    // same as legacy maxHeterozygousVariants
+                totalConsensusPlusVariantIsoforms: 1,    // same as legacy maxHeterozygousVariants
                 addTruncations: false);
 
             Assert.Multiple(() =>
@@ -587,7 +587,7 @@ CF   O1
                 maxThreads: -1,
                 maxSequenceVariantsPerIsoform: 1, // legacy shim sets this
                 minAlleleDepth: 0,
-                maxSequenceVariantIsoforms: 7,
+                totalConsensusPlusVariantIsoforms: 7,
                 addTruncations: false);
 
             // Compare counts and the set of (Accession, BaseSequence) pairs to avoid order sensitivity

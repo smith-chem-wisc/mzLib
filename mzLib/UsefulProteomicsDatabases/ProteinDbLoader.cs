@@ -65,13 +65,13 @@ namespace UsefulProteomicsDatabases
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
             int maxSequenceVariantsPerIsoform = 0,
             int minAlleleDepth = 0,
-            int maxSequenceVariantIsoforms = 1, //must be at least 1 to return the canonical isoform
+            int totalConsensusPlusVariantIsoforms = 1, //must be at least 1 to return the canonical isoform
             bool addTruncations = false,
             string decoyIdentifier = "DECOY")
         {
-            if (maxSequenceVariantIsoforms < 1)
+            if (totalConsensusPlusVariantIsoforms < 1)
             {
-                throw new MzLibException("maxSequenceVariantIsoforms must be at least 1 to return the canonical isoform");
+                throw new MzLibException("totalConsensusPlusVariantIsoforms must be at least 1 to return the canonical isoform");
             }
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
@@ -157,7 +157,7 @@ namespace UsefulProteomicsDatabases
             // This situation can occur if a prior write produced an applied-variant entry that is identical (by accession and base sequence)
             // to one we would generate during expansion here. We collapse duplicates so there is a single representative that
             // keeps the correct ConsensusVariant mapping and merged modifications/variations.
-            var expanded = proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantsPerIsoform, minAlleleDepth, maxSequenceVariantIsoforms)).ToList();
+            var expanded = proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantsPerIsoform, minAlleleDepth, totalConsensusPlusVariantIsoforms)).ToList();
             var collapsed = CollapseDuplicateProteinsByAccessionAndBaseSequence(expanded);
             return collapsed;
         }
@@ -219,7 +219,7 @@ namespace UsefulProteomicsDatabases
                 maxThreads,
                 maxSequenceVariantsPerIsoform: 1,
                 minAlleleDepth: minVariantDepth,
-                maxSequenceVariantIsoforms: maxHeterozygousVariants);
+                totalConsensusPlusVariantIsoforms: maxHeterozygousVariants);
         }
 
         

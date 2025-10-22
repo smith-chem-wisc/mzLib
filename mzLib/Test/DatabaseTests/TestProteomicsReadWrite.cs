@@ -45,7 +45,7 @@ namespace Test.DatabaseTests
                 out Dictionary<string, Modification> un,
                 maxSequenceVariantsPerIsoform: 4,
                 minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1);
+                totalConsensusPlusVariantIsoforms: 1);
         }
         [Test]
         public void ReadSomeOldXmlWithLongSubstitutionThatHasAConflict()
@@ -62,7 +62,7 @@ namespace Test.DatabaseTests
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(oldXmlPath, true, DecoyType.None, uniprotPtms, false, null,
                 out Dictionary<string, Modification> un,
                 maxSequenceVariantsPerIsoform: 2,
-                maxSequenceVariantIsoforms: 100);
+                totalConsensusPlusVariantIsoforms: 100);
             Assert.IsTrue(ok.Count == 3);
         }
         [Test]
@@ -81,7 +81,7 @@ namespace Test.DatabaseTests
                 out Dictionary<string, Modification> un,
                 maxSequenceVariantsPerIsoform: 4,
                 minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1);
+                totalConsensusPlusVariantIsoforms: 1);
             Assert.IsTrue(ok.Count == 1);
         }
         [Test]
@@ -95,7 +95,7 @@ namespace Test.DatabaseTests
             var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
 
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(oldXmlPath, true, DecoyType.None, uniprotPtms, false, null,
-                out Dictionary<string, Modification> un, maxSequenceVariantIsoforms: 1);
+                out Dictionary<string, Modification> un, totalConsensusPlusVariantIsoforms: 1);
             Assert.IsTrue(ok.Count == 1);
         }
         [Test]
@@ -117,7 +117,7 @@ namespace Test.DatabaseTests
                 out Dictionary<string, Modification> un,
                 maxSequenceVariantsPerIsoform: 4,
                 minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1);
+                totalConsensusPlusVariantIsoforms: 1);
 
             // Write and read back
             string outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml");
@@ -127,7 +127,7 @@ namespace Test.DatabaseTests
                 out un,
                 maxSequenceVariantsPerIsoform: 4,
                 minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1);
+                totalConsensusPlusVariantIsoforms: 1);
 
             // Count equality
             Assert.AreEqual(ok.Count, ok2.Count);
@@ -205,7 +205,7 @@ namespace Test.DatabaseTests
                 out Dictionary<string, Modification> un,
                 maxSequenceVariantsPerIsoform: 4,
                 minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1);
+                totalConsensusPlusVariantIsoforms: 1);
 
             string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml");
 
@@ -216,7 +216,7 @@ namespace Test.DatabaseTests
                 out un,
                 maxSequenceVariantsPerIsoform: 4,
                 minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1);
+                totalConsensusPlusVariantIsoforms: 1);
 
             foreach (var line in File.ReadLines(outputPath))
             {
@@ -264,7 +264,7 @@ namespace Test.DatabaseTests
                 out Dictionary<string, Modification> un,
                 maxSequenceVariantsPerIsoform: 4,
                 minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1);
+                totalConsensusPlusVariantIsoforms: 1);
 
             string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_unknownStatus.xml");
 
@@ -274,7 +274,7 @@ namespace Test.DatabaseTests
                 out un,
                 maxSequenceVariantsPerIsoform: 4,
                 minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1);
+                totalConsensusPlusVariantIsoforms: 1);
 
             foreach (var line in File.ReadLines(outputPath))
             {
@@ -313,7 +313,7 @@ namespace Test.DatabaseTests
                 xmlPath, true, DecoyType.None, nice, false, null, out Dictionary<string, Modification> un,
                 maxSequenceVariantsPerIsoform: 4,
                 minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1);
+                totalConsensusPlusVariantIsoforms: 1);
 
             // Counts equal
             Assert.AreEqual(ok.Count, ok2.Count);
@@ -438,7 +438,7 @@ namespace Test.DatabaseTests
                 new List<Modification> { m }, false, new List<string>(), out Dictionary<string, Modification> un,
                 maxSequenceVariantsPerIsoform: 4,
                 minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1);
+                totalConsensusPlusVariantIsoforms: 1);
             Assert.AreEqual(ok.Count, ok2.Count);
             Assert.True(Enumerable.Range(0, ok.Count).All(i => ok[i].BaseSequence == ok2[i].BaseSequence));
             Assert.AreEqual(0, ok[0].OneBasedPossibleLocalizedModifications.Count);
@@ -460,7 +460,7 @@ namespace Test.DatabaseTests
                 out Dictionary<string, Modification> un,
                 maxSequenceVariantsPerIsoform: 4,
                 minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1);
+                totalConsensusPlusVariantIsoforms: 1);
             ProteinDbWriter.WriteFastaDatabase(ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml_test.fasta"), "|");
             List<Protein> ok2 = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml_test.fasta"), true, DecoyType.None, false, out var b,
                 ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex, ProteinDbLoader.UniprotOrganismRegex);
@@ -523,14 +523,14 @@ namespace Test.DatabaseTests
                 out Dictionary<string, Modification> un,
                 maxSequenceVariantsPerIsoform: 4,
                 minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1);
+                totalConsensusPlusVariantIsoforms: 1);
             var newModResEntries = ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"));
             Assert.AreEqual(0, newModResEntries.Count);
             List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"), true, DecoyType.None,
                 nice, false, new List<string>(), out un,
                 maxSequenceVariantsPerIsoform: 4,
                 minAlleleDepth: 1,
-                maxSequenceVariantIsoforms: 1);
+                totalConsensusPlusVariantIsoforms: 1);
 
             // Count equality
             Assert.AreEqual(ok.Count, ok2.Count);
@@ -568,7 +568,7 @@ namespace Test.DatabaseTests
                 modTypesToExclude: null,
                 unknownModifications: out var _,
                 maxSequenceVariantsPerIsoform: 1,
-                maxSequenceVariantIsoforms: 50);
+                totalConsensusPlusVariantIsoforms: 50);
 
             // Expect: 1 base + 6 single-variant proteoforms
             Assert.AreEqual(7, proteins.Count, "Unexpected proteoform count (expected base + 6 variants).");
@@ -694,7 +694,7 @@ namespace Test.DatabaseTests
                 modTypesToExclude: null,
                 unknownModifications: out var _,
                 maxSequenceVariantsPerIsoform: 2,
-                maxSequenceVariantIsoforms: 200);
+                totalConsensusPlusVariantIsoforms: 200);
 
             var baseProt = proteins.Single(p => !p.Accession.Contains('_'));
             int baseLength = baseProt.Length;
@@ -921,7 +921,7 @@ namespace Test.DatabaseTests
         //            modTypesToExclude: null,
         //            unknownModifications: out var _,
         //            maxSequenceVariantsPerIsoform: 0,      // load base entries only first
-        //            maxSequenceVariantIsoforms: 1);
+        //            totalConsensusPlusVariantIsoforms: 1);
         //    }
         //    catch (Exception ex)
         //    {
@@ -956,7 +956,7 @@ namespace Test.DatabaseTests
         //            var varList = prot.GetVariantBioPolymers(
         //                maxSequenceVariantsPerIsoform: 4,
         //                minAlleleDepth: 1,
-        //                maxSequenceVariantIsoforms: 400);
+        //                totalConsensusPlusVariantIsoforms: 400);
 
         //            // GetVariantBioPolymers returns list including base if combinatorics > 0; filter strict variants
         //            var distinct = varList
