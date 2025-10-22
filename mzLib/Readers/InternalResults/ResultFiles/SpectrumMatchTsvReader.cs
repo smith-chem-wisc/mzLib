@@ -39,7 +39,7 @@ namespace Readers
                 type = SupportedFileType.psmtsv;
             }
             Dictionary<string, int> parsedHeader = ParseHeader(lines[0]);
-            bool isGlyco = parsedHeader.ContainsKey(SpectrumMatchFromTsvHeader.GlycanMass) && parsedHeader[ SpectrumMatchFromTsvHeader.GlycanMass] != -1; // Glyco search results have different required headers
+            bool fileIsGlyco = parsedHeader.ContainsKey(SpectrumMatchFromTsvHeader.GlycanMass) && parsedHeader[ SpectrumMatchFromTsvHeader.GlycanMass] != -1; // Glyco search results have different required headers
             int lineCount = lines.Length - 1; // Exclude header
 
             // Pre-allocate result array
@@ -60,12 +60,13 @@ namespace Readers
                         T result = type switch
                         {
                             SupportedFileType.osmtsv => (T)(SpectrumMatchFromTsv)new OsmFromTsv(line, Split, parsedHeader),
-                            _ when isGlyco => (T)(SpectrumMatchFromTsv)new GlycoPsmFromTsv(line, Split, parsedHeader),
+                            // If we are reading an AllPSMs file, we have both glyco and non-glyco results, must split based upon line content
+                            _ when fileIsGlyco && ResultIsGlyco(parsedHeader, line) => (T)(SpectrumMatchFromTsv)new GlycoPsmFromTsv(line, Split, parsedHeader),
                             _ => (T)(SpectrumMatchFromTsv)new PsmFromTsv(line, Split, parsedHeader)
                         };
                         psmsArray[i - 1] = result; // -1 to align with result array (excluding header)
                     }
-                    catch (Exception)
+                    catch (Exception e)
                     {
                         warningsBag.Add("Could not read line: " + (i + 1)); // plus one to account for header line
                     }
@@ -246,5 +247,8 @@ namespace Readers
             }
             return parsedHeader;
         }
+    
+        private static bool ResultIsGlyco(Dictionary<string, int> parsedHeader, string line) =>
+            parsedHeader.ContainsKey(SpectrumMatchFromTsvHeader.GlycanMass) && parsedHeader[SpectrumMatchFromTsvHeader.GlycanMass] != -1 && line.Split(Split).Length > parsedHeader[SpectrumMatchFromTsvHeader.GlycanMass];
     }
 }

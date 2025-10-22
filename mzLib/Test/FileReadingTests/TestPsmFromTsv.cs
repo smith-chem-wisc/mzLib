@@ -21,6 +21,7 @@ namespace Test.FileReadingTests
 
         [Test]
         [TestCase("oglycoSinglePsms.psmtsv", 2)] // oglyco
+        [TestCase("oGlycoAllPsms.psmtsv", 10)] // oglyco - AllPsms
         [TestCase("nglyco_f5.psmtsv", 5)] // nglyco
         [TestCase("nglyco_f5_NewVersion.psmtsv", 5)]
         [TestCase("VariantCrossTest.psmtsv", 15)] // variant crossing
@@ -235,6 +236,31 @@ namespace Test.FileReadingTests
             Assert.AreEqual(unModifiedPsm.YionScore, modifiedPsm.YionScore);
             Assert.AreEqual(unModifiedPsm.DiagonosticIonScore, modifiedPsm.DiagonosticIonScore);
             Assert.AreEqual(unModifiedPsm.TotalGlycanSites, modifiedPsm.TotalGlycanSites);
+        }
+
+        [Test]
+        public static void GlycoPsmReader_CreatesNormalPsmsForAllPSMFileWhenAppropriate()
+        {
+            int expectedGlyco = 9;
+            int expectedNormal = 1;
+            string path = @"FileReadingTests\SearchResults\oGlycoAllPsms.psmtsv";
+
+            var parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(path, out var warnings);
+            Assert.That(warnings.Count, Is.EqualTo(0));
+            Assert.AreEqual(expectedGlyco + expectedNormal, parsedPsms.Count);
+
+            var glyco = parsedPsms.OfType<GlycoPsmFromTsv>().ToList();
+            var normal = parsedPsms.Except(glyco).ToList();
+            Assert.AreEqual(expectedGlyco, glyco.Count);
+            Assert.AreEqual(expectedNormal, normal.Count);
+
+            var parsedSpectralMatches = SpectrumMatchTsvReader.ReadTsv(path, out warnings);
+            Assert.AreEqual(expectedGlyco + expectedNormal, parsedSpectralMatches.Count);
+
+            glyco = parsedSpectralMatches.OfType<GlycoPsmFromTsv>().ToList();
+            var norm= parsedSpectralMatches.Except(glyco).ToList();
+            Assert.AreEqual(expectedGlyco, glyco.Count);
+            Assert.AreEqual(expectedNormal, norm.Count);
         }
 
         [Test]
