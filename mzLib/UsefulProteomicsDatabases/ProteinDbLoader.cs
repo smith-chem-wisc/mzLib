@@ -13,6 +13,8 @@ using System.Xml;
 using Chemistry;
 using Omics.BioPolymer;
 using Omics.Modifications;
+using MzLibUtil;
+using Omics;
 using Transcriptomics;
 
 namespace UsefulProteomicsDatabases
@@ -20,7 +22,7 @@ namespace UsefulProteomicsDatabases
     public enum FastaHeaderType
     { UniProt, Ensembl, Gencode, Unknown }
 
-    public static class ProteinDbLoader
+    public static class ProteinDbLoader 
     {
         public static readonly FastaHeaderFieldRegex UniprotAccessionRegex = new FastaHeaderFieldRegex("accession", @"[|](.+)[|]", 0, 1);
         public static readonly FastaHeaderFieldRegex UniprotFullNameRegex = new FastaHeaderFieldRegex("fullName", @"\s(.*?)\s(OS=|GN=|PE=|SV=|OX=)", 0, 1);
@@ -56,12 +58,21 @@ namespace UsefulProteomicsDatabases
         /// If so, this modification list can be acquired with GetPtmListFromProteinXml after using this method.
         /// They may also be read in separately from a ptmlist text file, and then input as allKnownModifications.
         /// If protein modifications are specified both in the mzLibProteinDb XML file and in allKnownModifications, they are collapsed into a HashSet of Modifications before generating Protein entries.
+        /// 
         /// </summary>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
-            int maxHeterozygousVariants = 4, int minAlleleDepth = 1, bool addTruncations = false, string decoyIdentifier = "DECOY")
+            int maxSequenceVariantsPerIsoform = 0,
+            int minAlleleDepth = 0,
+            int totalConsensusPlusVariantIsoforms = 1, //must be at least 1 to return the canonical isoform
+            bool addTruncations = false,
+            string decoyIdentifier = "DECOY")
         {
+            if (totalConsensusPlusVariantIsoforms < 1)
+            {
+                throw new MzLibException("totalConsensusPlusVariantIsoforms must be at least 1 to return the canonical isoform");
+            }
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
             modTypesToExclude = modTypesToExclude ?? new List<string>();
@@ -82,7 +93,7 @@ namespace UsefulProteomicsDatabases
             //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
             if (proteinDbLocation.EndsWith(".gz"))
             {
-                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation),"temp.xml");
+                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation), "temp.xml");
                 using var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
                 using FileStream outputFileStream = File.Create(newProteinDbLocation);
                 using var decompressor = new GZipStream(stream, CompressionMode.Decompress);
@@ -106,13 +117,19 @@ namespace UsefulProteomicsDatabases
                         if (xml.NodeType == XmlNodeType.EndElement || xml.IsEmptyElement)
                         {
                             Protein newProtein = block.ParseEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, proteinDbLocation);
+
                             if (newProtein != null)
                             {
+                                //If we have read any modifications that are nucleotide substitutions, convert them to sequence variants here:
+                                //newProtein.ConsensusVariant.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
+                                if (newProtein.OneBasedPossibleLocalizedModifications.Any(m => m.Value.Any(mt => mt.ModificationType.Contains("nucleotide substitution"))))
+                                {
+                                    newProtein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
+                                }
                                 if (addTruncations)
                                 {
                                     newProtein.AddTruncations();
                                 }
-
                                 if (newProtein.IsDecoy)
                                 {
                                     decoys.Add(newProtein);
@@ -135,9 +152,77 @@ namespace UsefulProteomicsDatabases
 
             decoys.AddRange(DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier));
             IEnumerable<Protein> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
-            var toReturn = proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth));
-            return Merge(toReturn).ToList();
+
+            // Expand to variant biopolymers, then collapse any duplicate applied entries that share the same accession and base sequence.
+            // This situation can occur if a prior write produced an applied-variant entry that is identical (by accession and base sequence)
+            // to one we would generate during expansion here. We collapse duplicates so there is a single representative that
+            // keeps the correct ConsensusVariant mapping and merged modifications/variations.
+            var expanded = proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxSequenceVariantsPerIsoform, minAlleleDepth, totalConsensusPlusVariantIsoforms)).ToList();
+            var collapsed = CollapseDuplicateProteinsByAccessionAndBaseSequence(expanded);
+            return collapsed;
         }
+
+        /// <summary>
+        /// Preferred overload using an options object to avoid positional parameter churn.
+        /// </summary>
+        public static List<Protein> LoadProteinXML(
+            string proteinDbLocation,
+            ProteinXmlLoadOptions options,
+            out Dictionary<string, Modification> unknownModifications)
+        {
+            if (options is null) throw new ArgumentNullException(nameof(options));
+
+            return LoadProteinXML(
+                proteinDbLocation,
+                options.GenerateTargets,
+                options.DecoyType,
+                options.AllKnownModifications,
+                options.IsContaminant,
+                options.ModTypesToExclude,
+                out unknownModifications,
+                options.MaxThreads,
+                options.MaxSequenceVariantsPerIsoform,
+                options.MinAlleleDepth,
+                options.MaxSequenceVariantIsoforms,
+                options.AddTruncations,
+                options.DecoyIdentifier);
+        }
+
+        /// <summary>
+        /// Legacy positional overload (original ordering) retained for backward compatibility.
+        /// Use the options or new signature overload instead.
+        /// </summary>
+        [Obsolete("This overload preserves the legacy parameter order and will be removed in a future release. " +
+                  "Use the options-based overload or the signature with variant parameters grouped before addTruncations.")]
+        public static List<Protein> LoadProteinXML(
+            string filename,
+            bool generateTargets,
+            DecoyType decoyType,
+            IEnumerable<Modification> allKnownModifications,
+            bool isContaminant,
+            IEnumerable<string> modTypesToExclude,
+            out Dictionary<string, Modification> unknownModifications,
+            int maxThreads,
+            int maxHeterozygousVariants,
+            int minVariantDepth,
+            bool addTruncations)
+        {
+            // Forward to the new canonical ordering
+            return LoadProteinXML(
+                proteinDbLocation: filename,
+                generateTargets,
+                decoyType: decoyType,
+                allKnownModifications,
+                isContaminant,
+                modTypesToExclude,
+                out unknownModifications,
+                maxThreads,
+                maxSequenceVariantsPerIsoform: 1,
+                minAlleleDepth: minVariantDepth,
+                totalConsensusPlusVariantIsoforms: maxHeterozygousVariants);
+        }
+
+        
 
         /// <summary>
         /// Get the modification entries specified in a mzLibProteinDb XML file (.xml or .xml.gz).
@@ -209,7 +294,6 @@ namespace UsefulProteomicsDatabases
 
             List<Protein> targets = new List<Protein>();
             List<Protein> decoys = new List<Protein>();
-
             string newProteinDbLocation = proteinDbLocation;
 
             //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
@@ -351,94 +435,114 @@ namespace UsefulProteomicsDatabases
                 errors.Add("Error: No proteins could be read from the database: " + proteinDbLocation);
             }
             decoys.AddRange(DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier));
-            var toReturn = generateTargets ? targets.Concat(decoys) : decoys;
-            return Merge(toReturn).ToList();
+            var toRetrun = generateTargets ? targets.Concat(decoys) : decoys;
+            return CollapseDuplicateProteinsByAccessionAndBaseSequence(toRetrun).ToList();
         }
 
         /// <summary>
-        /// Merge proteins that have the same accession, sequence, and contaminant designation.
+        /// Finds groups of proteins that share the same accession and base sequence.
+        /// Intended to identify cases where an applied-variant entry appears twice
+        /// (e.g., one parsed from XML and another created via variant expansion).
         /// </summary>
-        public static IEnumerable<Protein> Merge(IEnumerable<Protein> mergeThese)
+        internal static IEnumerable<IGrouping<(string accession, string baseSequence), Protein>> FindDuplicateGroupsByAccessionAndBaseSequence(
+            IEnumerable<Protein> proteins)
         {
-            Dictionary<Tuple<string, string, bool, bool>, List<Protein>> proteinsByAccessionSequenceContaminant = new Dictionary<Tuple<string, string, bool, bool>, List<Protein>>();
-            foreach (Protein p in mergeThese)
-            {
-                Tuple<string, string, bool, bool> key = new Tuple<string, string, bool, bool>(p.Accession, p.BaseSequence, p.IsContaminant, p.IsDecoy);
-                if (!proteinsByAccessionSequenceContaminant.TryGetValue(key, out List<Protein> bundled))
-                {
-                    proteinsByAccessionSequenceContaminant.Add(key, new List<Protein> { p });
-                }
-                else
-                {
-                    bundled.Add(p);
-                }
-            }
+            if (proteins is null) throw new ArgumentNullException(nameof(proteins));
+            // Group by (accession, base sequence). ValueTuple uses default string equality (ordinal).
+            return proteins.GroupBy(p => (p.Accession, p.BaseSequence));
+        }
 
-            foreach (KeyValuePair<Tuple<string, string, bool, bool>, List<Protein>> proteins in proteinsByAccessionSequenceContaminant)
+        /// <summary>
+        /// Collapses groups of proteins with identical accession and base sequence into a single representative.
+        /// - Prefers the applied-variant instance with a non-null ConsensusVariant (best mapping to canonical).
+        /// - Merges possible localized modifications at each site (deduplicated, filtered for validity).
+        /// - Merges candidate SequenceVariations and AppliedSequenceVariations (deduplicated).
+        /// Other metadata is retained from the chosen representative.
+        /// </summary>
+        public static List<Protein> CollapseDuplicateProteinsByAccessionAndBaseSequence(IEnumerable<Protein> proteins)
+        {
+            if (proteins is null) throw new ArgumentNullException(nameof(proteins));
+
+            var result = new List<Protein>();
+            foreach (var group in FindDuplicateGroupsByAccessionAndBaseSequence(proteins))
             {
-                if (proteins.Value.Count == 1)
+                var list = group.ToList();
+                if (list.Count == 1)
                 {
-                    yield return proteins.Value[0];
+                    result.Add(list[0]);
                     continue;
                 }
 
-                HashSet<string> datasets = new HashSet<string>(proteins.Value.Select(p => p.DatasetEntryTag));
-                HashSet<string> createds = new HashSet<string>(proteins.Value.Select(p => p.CreatedEntryTag));
-                HashSet<string> modifieds = new HashSet<string>(proteins.Value.Select(p => p.ModifiedEntryTag));
-                HashSet<string> versions = new HashSet<string>(proteins.Value.Select(p => p.VersionEntryTag));
-                HashSet<string> xmlnses = new HashSet<string>(proteins.Value.Select(p => p.XmlnsEntryTag));
-                HashSet<string> names = new HashSet<string>(proteins.Value.Select(p => p.Name));
-                HashSet<string> fullnames = new HashSet<string>(proteins.Value.Select(p => p.FullName));
-                HashSet<string> descriptions = new HashSet<string>(proteins.Value.Select(p => p.FullDescription));
-                HashSet<Tuple<string, string>> genenames = new HashSet<Tuple<string, string>>(proteins.Value.SelectMany(p => p.GeneNames));
-                HashSet<TruncationProduct> proteolysis = new HashSet<TruncationProduct>(proteins.Value.SelectMany(p => p.TruncationProducts));
-                HashSet<SequenceVariation> variants = new HashSet<SequenceVariation>(proteins.Value.SelectMany(p => p.SequenceVariations));
-                HashSet<DatabaseReference> references = new HashSet<DatabaseReference>(proteins.Value.SelectMany(p => p.DatabaseReferences));
-                HashSet<DisulfideBond> bonds = new HashSet<DisulfideBond>(proteins.Value.SelectMany(p => p.DisulfideBonds));
-                HashSet<SpliceSite> splices = new HashSet<SpliceSite>(proteins.Value.SelectMany(p => p.SpliceSites));
+                // Choose a representative.
+                var applied = list.Where(p => p.AppliedSequenceVariations != null && p.AppliedSequenceVariations.Count > 0).ToList();
+                Protein rep = applied.FirstOrDefault(p => p.ConsensusVariant != null)
+                              ?? applied.FirstOrDefault()
+                              ?? list[0];
 
-                Dictionary<int, HashSet<Modification>> mod_dict = new Dictionary<int, HashSet<Modification>>();
-                foreach (KeyValuePair<int, List<Modification>> nice in proteins.Value.SelectMany(p => p.OneBasedPossibleLocalizedModifications).ToList())
+                // Merge OneBasedPossibleLocalizedModifications (union per position)
+                var mergedMods = new Dictionary<int, HashSet<Modification>>();
+                foreach (var p in list)
                 {
-                    if (!mod_dict.TryGetValue(nice.Key, out HashSet<Modification> val))
+                    var dict = p.OneBasedPossibleLocalizedModifications ?? new Dictionary<int, List<Modification>>();
+                    foreach (var kv in dict)
                     {
-                        mod_dict.Add(nice.Key, new HashSet<Modification>(nice.Value));
-                    }
-                    else
-                    {
-                        foreach (Modification mod in nice.Value)
+                        if (!mergedMods.TryGetValue(kv.Key, out var set))
                         {
-                            val.Add(mod);
+                            set = new HashSet<Modification>(kv.Value ?? new List<Modification>());
+                            mergedMods[kv.Key] = set;
+                        }
+                        else if (kv.Value != null)
+                        {
+                            foreach (var m in kv.Value) set.Add(m);
                         }
                     }
                 }
-                Dictionary<int, List<Modification>> mod_dict2 = mod_dict.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
 
-                // TODO: Handle applied variants. 
-                yield return new Protein(
+                // Ensure only valid mods for the rep's sequence are kept
+                var mergedModsFiltered = ((IBioPolymer)rep)
+                    .SelectValidOneBaseMods(mergedMods.ToDictionary(k => k.Key, v => v.Value.ToList()))
+                    .ToDictionary(k => k.Key, v => v.Value);
 
-                    proteins.Key.Item2,
-                    proteins.Key.Item1,
-                    isContaminant: proteins.Key.Item3,
-                    isDecoy: proteins.Key.Item4,
-                    geneNames: genenames.ToList(),
-                    oneBasedModifications: mod_dict2,
-                    proteolysisProducts: proteolysis.ToList(),
-                    name: names.FirstOrDefault(),
-                    fullName: fullnames.FirstOrDefault(),
-                    databaseReferences: references.ToList(),
-                    disulfideBonds: bonds.ToList(),
-                    sequenceVariations: variants.ToList(),
-                    spliceSites: splices.ToList(),
-                    dataset: datasets.FirstOrDefault(),
-                    created: createds.FirstOrDefault(),
-                    modified: modifieds.FirstOrDefault(),
-                    version: versions.FirstOrDefault(),
-                    xmlns: xmlnses.FirstOrDefault()
-                    );
+                // Setter is inaccessible; replace rep with a clone that has the merged mods
+                rep = (Protein)rep.CloneWithNewSequenceAndMods(rep.BaseSequence, mergedModsFiltered);
+
+                // Merge SequenceVariations (candidate) in-place if available
+                var seqVarSet = new HashSet<SequenceVariation>();
+                foreach (var p in list)
+                {
+                    if (p.SequenceVariations != null)
+                    {
+                        foreach (var sv in p.SequenceVariations) seqVarSet.Add(sv);
+                    }
+                }
+                if (rep.SequenceVariations != null)
+                {
+                    rep.SequenceVariations.Clear();
+                    rep.SequenceVariations.AddRange(seqVarSet);
+                }
+                // else: nothing to do (no setter available)
+
+                // Merge AppliedSequenceVariations (applied variants) in-place if available
+                var appliedSet = new HashSet<SequenceVariation>();
+                foreach (var p in list)
+                {
+                    if (p.AppliedSequenceVariations != null)
+                    {
+                        foreach (var sv in p.AppliedSequenceVariations) appliedSet.Add(sv);
+                    }
+                }
+                if (rep.AppliedSequenceVariations != null)
+                {
+                    rep.AppliedSequenceVariations.Clear();
+                    rep.AppliedSequenceVariations.AddRange(appliedSet);
+                }
+                // else: nothing to do (no setter available)
+
+                result.Add(rep);
             }
-        }
 
+            return result;
+        }
         internal static string ApplyRegex(FastaHeaderFieldRegex regex, string line)
         {
             string result = null;
@@ -537,6 +641,21 @@ namespace UsefulProteomicsDatabases
             }
 
             return FastaHeaderType.Unknown;
+        }
+
+        public sealed class ProteinXmlLoadOptions
+        {
+            public bool GenerateTargets { get; init; }
+            public DecoyType DecoyType { get; init; } = DecoyType.None;
+            public IEnumerable<Modification> AllKnownModifications { get; init; } = Array.Empty<Modification>();
+            public bool IsContaminant { get; init; }
+            public IEnumerable<string> ModTypesToExclude { get; init; } = Array.Empty<string>();
+            public int MaxThreads { get; init; } = -1;
+            public int MaxSequenceVariantsPerIsoform { get; init; } = 4;
+            public int MinAlleleDepth { get; init; } = 1;
+            public int MaxSequenceVariantIsoforms { get; init; } = 1;
+            public bool AddTruncations { get; init; }
+            public string DecoyIdentifier { get; init; } = "DECOY";
         }
     }
 }

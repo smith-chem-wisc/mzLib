@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"  standalone="no" ?>
+<uniprot xmlns="http://uniprot.org/uniprot" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://uniprot.org/uniprot http://www.uniprot.org/docs/uniprot.xsd">
+<entry dataset="Swiss-Prot" created="2008-01-15" modified="2025-06-18" version="148">
+<accession>Q96J88</accession>
+<accession>Q8IVC7</accession>
+<accession>Q8NDQ7</accession>
+<name>ESIP1_HUMAN</name>
+<protein>
+<recommendedName>
+<fullName>Epithelial-stromal interaction protein 1</fullName>
+</recommendedName>
+</protein>
+<gene>
+<name type="primary">EPSTI1</name>
+</gene>
+<organism>
+<name type="scientific">Homo sapiens</name>
+<name type="common">Human</name>
+<dbReference type="NCBI Taxonomy" id="9606"/>
+<lineage>
+</lineage>
+</organism>
+<proteinExistence type="evidence at protein level"/>
+<keyword id="KW-0025">Alternative splicing</keyword>
+<keyword id="KW-0175">Coiled coil</keyword>
+<keyword id="KW-1267">Proteomics identification</keyword>
+<keyword id="KW-1185">Reference proteome</keyword>
+<feature type="chain" id="PRO_0000314034" description="Epithelial-stromal interaction protein 1">
+<location>
+<begin position="1"/>
+<end position="318"/>
+</location>
+</feature>
+<feature type="region of interest" description="Disordered" evidence="3">
+<location>
+<begin position="1"/>
+<end position="60"/>
+</location>
+</feature>
+<feature type="coiled-coil region" evidence="2">
+<location>
+<begin position="73"/>
+<end position="188"/>
+</location>
+</feature>
+<feature type="coiled-coil region" evidence="2">
+<location>
+<begin position="240"/>
+<end position="280"/>
+</location>
+</feature>
+<feature type="splice variant" id="VSP_030201" description="In isoform 2." evidence="6 7">
+<location>
+<begin position="219"/>
+<end position="229"/>
+</location>
+</feature>
+<feature type="splice variant" id="VSP_030202" description="In isoform 3." evidence="8">
+<original>I</original>
+<variation>
+SLLVFSRHLRVYEKILTPIWPSSTDLEKPHEMLFLNVILFSLTVFTLISTAHTLDRAVRSDWLLLVLIYACLEELIPELIFNLYCQGNATLFF
+</variation>
+<location>
+<position position="318"/>
+</location>
+</feature>
+<feature type="sequence conflict" description="In Ref. 3; CAD38599." evidence="9" ref="3">
+<location>
+<position position="83"/>
+</location>
+</feature>
+<feature type="sequence variant" id="VAR_082880" description="In dbSNP:rs11557739." evidence="9">
+<original>P</original>
+<variation>S</variation>
+<location sequence="Q96J88-3">
+<position position="338"/>
+</location>
+</feature>
+<feature type="sequence variant" id="VAR_082881" description="In dbSNP:rs1044856." evidence="9">
+<original>N</original>
+<variation>K</variation>
+<location sequence="Q96J88-3">
+<position position="399"/>
+</location>
+</feature>
+<evidence type="ECO:0000250" key="1">
+<source>
+<dbReference type="UniProtKB" id="Q8VDI1"/>
+</source>
+</evidence>
+<evidence type="ECO:0000255" key="2"/>
+<evidence type="ECO:0000256" key="3">
+<source>
+<dbReference type="SAM" id="MobiDB-lite"/>
+</source>
+</evidence>
+<evidence type="ECO:0000269" key="4">
+<source>
+<dbReference type="PubMed" id="11991720"/>
+</source>
+</evidence>
+<evidence type="ECO:0000269" key="5">
+<source>
+<dbReference type="PubMed" id="16769699"/>
+</source>
+</evidence>
+<evidence type="ECO:0000303" key="6">
+<source>
+<dbReference type="PubMed" id="11991720"/>
+</source>
+</evidence>
+<evidence type="ECO:0000303" key="7">
+<source>
+<dbReference type="PubMed" id="14702039"/>
+</source>
+</evidence>
+<evidence type="ECO:0000303" key="8">
+<source>
+<dbReference type="PubMed" id="15489334"/>
+</source>
+</evidence>
+<evidence type="ECO:0000305" key="9"/>
+<sequence length="318" mass="36793" checksum="28C04AE12042A01A" modified="2008-01-15" version="2">
+MNTRNRVVNSGLGASPASRPTRDPQDPSGRQGELSPVEDQREGLEAAPKGPSRESVVHAGQRRTSAYTLIAPNINRRNEIQRIAEQELANLEKWKEQNRAKPVHLVPRRLGGSQSETEVRQKQQLQLMQSKYKQKLKREESVRIKKEAEEAELQKMKAIQREKSNKLEEKKRLQENLRREAFREHQQYKTAEFLSKLNTESPDRSACQSAVCGPQSSTWKLPILPRDHSWARSWAYRDSLKAEENRKLQKMKDEQHQKSELLELKRQQQEQERAKIHQTEHRRVNNAFLDRLQGKSQPGGLEQSGGCWNMNSGNSWGI
+</sequence>
+</entry>
+<copyright>
+Copyrighted by the UniProt Consortium, see https://www.uniprot.org/terms Distributed under the Creative Commons Attribution (CC BY 4.0) License
+</copyright>
+</uniprot>

@@ -39,27 +39,140 @@ namespace Test
             Protein p11 = new Protein("MSEQ", "accession");
             Assert.AreEqual(p1, p11); // default object hash and equals are used
         }
-
         [Test]
         public void TestHashAndEqualsSequenceVariation()
         {
-            SequenceVariation sv1 = new SequenceVariation(1, "MAA", "MAA", "description", new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("mod") }.ToList() } });
-            SequenceVariation sv2 = new SequenceVariation(1, "MAA", "MAA", "description", new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("mod") }.ToList() } });
-            SequenceVariation sv22 = new SequenceVariation(1, "MAA", "MAA", "description", new Dictionary<int, List<Modification>> { { 3, new[] { new Modification("mod") }.ToList() } });
-            SequenceVariation sv222 = new SequenceVariation(1, "MAA", "MAA", "description", new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("another") }.ToList() } });
-            SequenceVariation sv3 = new SequenceVariation(1, "MAA", "MAA", "description", null);
-            SequenceVariation sv4 = new SequenceVariation(1, "MAA", "MAA", null, new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("mod") }.ToList() } });
-            SequenceVariation sv5 = new SequenceVariation(1, null, null, "description", new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("mod") }.ToList() } });
-            SequenceVariation sv6 = new SequenceVariation(2, "MAA", "MAA", "description", new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("mod") }.ToList() } });
-            Assert.AreEqual(sv1, sv2);
-            Assert.AreNotEqual(sv1, sv22);
-            Assert.AreNotEqual(sv1, sv222);
-            Assert.AreNotEqual(sv1, sv3);
-            Assert.AreNotEqual(sv1, sv4);
-            Assert.AreNotEqual(sv1, sv5);
-            Assert.AreNotEqual(sv1, sv6);
-        }
+            // Base modifications
+            var modM1 = new Modification("m1");
+            var modM1Clone = new Modification("m1"); // logically identical (same id)
+            var modM2 = new Modification("m2");
 
+            // Variant-specific modification dictionaries (post-variation coordinates)
+            var modsPos11_M1 = new Dictionary<int, List<Modification>> { { 11, new() { modM1 } } };
+            var modsPos11_M1Clone = new Dictionary<int, List<Modification>> { { 11, new() { modM1Clone } } }; // value-equal
+            var modsPos11_M2 = new Dictionary<int, List<Modification>> { { 11, new() { modM2 } } };
+            var modsPos12_M1 = new Dictionary<int, List<Modification>> { { 12, new() { modM1 } } };
+
+            // Multiple mods at same site (order-insensitive)
+            var modsMultiAB = new Dictionary<int, List<Modification>>
+            {
+                { 11, new() { new Modification("mA"), new Modification("mB") } }
+            };
+            var modsMultiBA = new Dictionary<int, List<Modification>>
+            {
+                { 11, new() { new Modification("mB"), new Modification("mA") } }
+            };
+
+            // Baseline valid synonymous (no-op) but WITH a variant-specific mod (required for validity)
+            var svBase1 = new SequenceVariation(
+                oneBasedBeginPosition: 10,
+                oneBasedEndPosition: 12,
+                originalSequence: "AAA",
+                variantSequence: "AAA",
+                description: "desc",
+                variantCallFormatDataString: "VCF1",
+                oneBasedModifications: modsPos11_M1);
+
+            // Same logical content, different description (ignored in equality)
+            var svBase2 = new SequenceVariation(
+                10, 12, "AAA", "AAA",
+                "different description",
+                "VCF1",
+                modsPos11_M1Clone);
+
+            var svDiffDescription = new SequenceVariation(
+                10, 12, "AAA", "AAA",
+                "another annotation",
+                "VCF1",
+                modsPos11_M1); // still equal to svBase1
+
+            // Different modification position
+            var svDiffModSite = new SequenceVariation(10, 12, "AAA", "AAA", "desc", "VCF1", modsPos12_M1);
+            // Different modification identity
+            var svDiffModIdentity = new SequenceVariation(10, 12, "AAA", "AAA", "desc", "VCF1", modsPos11_M2);
+            // Different VCF metadata
+            var svDiffVcf = new SequenceVariation(10, 12, "AAA", "AAA", "desc", "VCF2", modsPos11_M1);
+            // Different span
+            var svDiffSpan = new SequenceVariation(11, 13, "AAA", "AAA", "desc", "VCF1", modsPos11_M1);
+            // Different original sequence
+            var svDiffOriginal = new SequenceVariation(10, 12, "AAB", "AAA", "desc", "VCF1", modsPos11_M1);
+            // Different variant sequence
+            var svDiffVariant = new SequenceVariation(10, 12, "AAA", "AAT", "desc", "VCF1", modsPos11_M1);
+
+            // Multi-mod order-insensitivity
+            var svMultiA = new SequenceVariation(10, 12, "AAA", "AAA", "multiA", "VCF1", modsMultiAB);
+            var svMultiB = new SequenceVariation(10, 12, "AAA", "AAA", "multiB", "VCF1", modsMultiBA);
+
+            // Insertion (expansion)
+            var svInsertion1 = new SequenceVariation(
+                5, 5, "A", "ATG",
+                "insertion", "VCF_INS",
+                new Dictionary<int, List<Modification>> { { 5, new() { new Modification("mI") } } });
+
+            var svInsertion2 = new SequenceVariation(
+                5, 5, "A", "ATG",
+                "insertion alt desc", "VCF_INS",
+                new Dictionary<int, List<Modification>> { { 5, new() { new Modification("mI") } } });
+
+            // Deletion (contraction)
+            var svDeletion1 = new SequenceVariation(
+                7, 9, "ATG", "A",
+                "deletion", "VCF_DEL",
+                null);
+
+            var svDeletion2 = new SequenceVariation(
+                7, 9, "ATG", "A",
+                "deletion alt", "VCF_DEL",
+                null);
+
+            // INVALID CASES (no-op without variant-specific modifications) should throw
+            // 1. Synonymous without mods
+            Assert.Throws<ArgumentException>(() => _ = new SequenceVariation(15, 15, "G", "G", "no_op", "VCF_SYN", null),
+                "No-op variant without variant-specific modifications must be invalid.");
+            // 2. Whole-span no-op without mods
+            Assert.Throws<ArgumentException>(() => _ = new SequenceVariation(10, 12, "AAA", "AAA", "no_op2", "VCF1", null),
+                "Whole-span no-op without mods must be invalid.");
+
+            // Positive equality
+            Assert.AreEqual(svBase1, svBase2, "Baseline synonymous with equivalent mods should be equal.");
+            Assert.AreEqual(svBase1, svDiffDescription, "Description difference should be ignored.");
+            Assert.AreEqual(svMultiA, svMultiB, "Modification order should not affect equality.");
+            Assert.AreEqual(svInsertion1, svInsertion2, "Equivalent insertions should be equal.");
+            Assert.AreEqual(svDeletion1, svDeletion2, "Equivalent deletions should be equal.");
+
+            // Hash code parity for equal objects
+            Assert.AreEqual(svBase1.GetHashCode(), svBase2.GetHashCode(), "Equal variations must share hash code.");
+            Assert.AreEqual(svInsertion1.GetHashCode(), svInsertion2.GetHashCode(), "Equal insertions must share hash code.");
+            Assert.AreEqual(svMultiA.GetHashCode(), svMultiB.GetHashCode(), "Equal multi-mod variants must share hash code.");
+            Assert.AreEqual(svDeletion1.GetHashCode(), svDeletion2.GetHashCode(), "Equal deletions must share hash code.");
+
+            // Negative equality
+            Assert.AreNotEqual(svBase1, svDiffModSite, "Different modification site should differ.");
+            Assert.AreNotEqual(svBase1, svDiffModIdentity, "Different modification identity should differ.");
+            Assert.AreNotEqual(svBase1, svDiffVcf, "Different VCF metadata should differ.");
+            Assert.AreNotEqual(svBase1, svDiffSpan, "Different span should differ.");
+            Assert.AreNotEqual(svBase1, svDiffOriginal, "Different original sequence should differ.");
+            Assert.AreNotEqual(svBase1, svDiffVariant, "Different variant sequence should differ.");
+            Assert.AreNotEqual(svBase1, svMultiA, "Different modification sets (different content) should differ.");
+
+            // Collapsed set (description ignored). Unique logical keys:
+            // 1. (10-12 AAA->AAA, mod at 11 m1)
+            // 2. (10-12 AAA->AAA, mods at 11 mA+mB)
+            // 3. (5-5  A->ATG)
+            // 4. (7-9  ATG->A)
+            var collapsed = new HashSet<SequenceVariation>
+            {
+                svBase1, svBase2, svDiffDescription,
+                svMultiA, svMultiB,
+                svInsertion1, svInsertion2,
+                svDeletion1, svDeletion2
+            };
+            Assert.AreEqual(4, collapsed.Count, "HashSet should collapse logically equivalent variants.");
+            Assert.IsTrue(collapsed.Contains(svBase1));
+            Assert.IsTrue(collapsed.Contains(svInsertion1));
+            Assert.IsTrue(collapsed.Contains(svDeletion1));
+            Assert.IsTrue(collapsed.Contains(svMultiA));
+        }
         [Test]
         public void TestProteinVariantModMethods()
         {
@@ -93,6 +206,7 @@ namespace Test
                 appliedSequenceVariations: new List<SequenceVariation>
                 {
                     new SequenceVariation(4, 4, "P", "PPP",
+                    "",
                         @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30",
                         new Dictionary<int, List<Modification>> { { mtModLocationInVariant, new[] { mt }.ToList() } })
                 });
@@ -164,7 +278,6 @@ namespace Test
             Assert.AreNotEqual(pp1, pp5);
             Assert.AreNotEqual(pp1, pp6);
         }
-
         [Test]
         public static void CompareProteinProperties()
         {
@@ -181,16 +294,21 @@ namespace Test
             Assert.False(dh.Equals(d));
             Assert.AreEqual(5, new HashSet<DatabaseReference> { d, dd, de, df, dg, dh }.Count);
 
+            // SequenceVariation equality DOES NOT include Description (see SequenceVariation.Equals)
+            // Only coordinates, original/variant sequences, VCF data, and modification dictionaries are compared.
             SequenceVariation s = new SequenceVariation(1, "hello", "hey", "hi");
-            SequenceVariation sv = new SequenceVariation(1, "hello", "hey", "hi");
-            SequenceVariation sss = new SequenceVariation(2, "hallo", "hey", "hi");
-            SequenceVariation ssss = new SequenceVariation(1, "hello", "heyy", "hi");
-            SequenceVariation sssss = new SequenceVariation(1, "hello", "hey", "hii");
+            SequenceVariation sv = new SequenceVariation(1, "hello", "hey", "hi");   // identical
+            SequenceVariation sss = new SequenceVariation(2, "hallo", "hey", "hi");  // different begin/original
+            SequenceVariation ssss = new SequenceVariation(1, "hello", "heyy", "hi"); // different variant seq
+            SequenceVariation sssss = new SequenceVariation(1, "hello", "hey", "hii"); // ONLY description differs -> equal to s
+
             Assert.True(s.Equals(sv));
             Assert.False(s.Equals(sss));
             Assert.False(s.Equals(ssss));
-            Assert.False(s.Equals(sssss));
-            Assert.AreEqual(4, new HashSet<SequenceVariation> { s, sv, sss, ssss, sssss }.Count);
+            Assert.True(s.Equals(sssss)); // updated: description difference alone does NOT affect equality
+
+            // Unique set should collapse s, sv, sssss into one entry
+            Assert.AreEqual(3, new HashSet<SequenceVariation> { s, sv, sss, ssss, sssss }.Count);
 
             DisulfideBond b = new DisulfideBond(1, "hello");
             DisulfideBond bb = new DisulfideBond(1, "hello");
@@ -220,7 +338,6 @@ namespace Test
             Assert.AreNotEqual(pp, paa);
             Assert.AreEqual(5, new HashSet<TruncationProduct> { p, pp, ppp, pa, paa, paaa }.Count);
         }
-
         [Test]
         public static void TestProteoformClassification()//string inputPath)
         {

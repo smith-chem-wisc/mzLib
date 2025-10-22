@@ -1,0 +1,731 @@
+<?xml version="1.0" encoding="UTF-8"  standalone="no" ?>
+<uniprot xmlns="http://uniprot.org/uniprot" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://uniprot.org/uniprot http://www.uniprot.org/docs/uniprot.xsd">
+<entry dataset="Swiss-Prot" created="2015-04-01" modified="2025-06-18" version="62" xmlns="http://uniprot.org/uniprot">
+  <accession>A0A087X1C5</accession>
+  <accession>Q6XP50</accession>
+  <name>CP2D7_HUMAN</name>
+  <protein>
+    <recommendedName>
+      <fullName evidence="8">Cytochrome P450 2D7</fullName>
+      <ecNumber evidence="4">1.14.14.1</ecNumber>
+    </recommendedName>
+  </protein>
+  <gene>
+    <name evidence="10" type="primary">CYP2D7</name>
+  </gene>
+  <organism>
+    <name type="scientific">Homo sapiens</name>
+    <name type="common">Human</name>
+    <dbReference type="NCBI Taxonomy" id="9606"/>
+    <lineage>
+      <taxon>Eukaryota</taxon>
+      <taxon>Metazoa</taxon>
+      <taxon>Chordata</taxon>
+      <taxon>Craniata</taxon>
+      <taxon>Vertebrata</taxon>
+      <taxon>Euteleostomi</taxon>
+      <taxon>Mammalia</taxon>
+      <taxon>Eutheria</taxon>
+      <taxon>Euarchontoglires</taxon>
+      <taxon>Primates</taxon>
+      <taxon>Haplorrhini</taxon>
+      <taxon>Catarrhini</taxon>
+      <taxon>Hominidae</taxon>
+      <taxon>Homo</taxon>
+    </lineage>
+  </organism>
+  <reference key="1">
+    <citation type="journal article" date="2004" name="J. Biol. Chem." volume="279" first="27383" last="27389">
+      <title>A frameshift mutation and alternate splicing in human brain generate a functional form of the pseudogene cytochrome P4502D7 that demethylates codeine to morphine.</title>
+      <authorList>
+        <person name="Pai H.V."/>
+        <person name="Kommaddi R.P."/>
+        <person name="Chinta S.J."/>
+        <person name="Mori T."/>
+        <person name="Boyd M.R."/>
+        <person name="Ravindranath V."/>
+      </authorList>
+      <dbReference type="PubMed" id="15051713"/>
+      <dbReference type="DOI" id="10.1074/jbc.m402337200"/>
+    </citation>
+    <scope>NUCLEOTIDE SEQUENCE [MRNA]</scope>
+    <scope>VARIANTS ASN-70; LEU-311; SER-337 INS; 369-ALA--CYS-373 DELINS VAL-HIS-MET-PRO-TYR; ARG-383 AND GLU-428</scope>
+    <scope>FUNCTION</scope>
+    <scope>CATALYTIC ACTIVITY</scope>
+    <scope>SUBCELLULAR LOCATION</scope>
+    <scope>TISSUE SPECIFICITY</scope>
+    <source>
+      <tissue>Brain cortex</tissue>
+    </source>
+  </reference>
+  <reference key="2">
+    <citation type="journal article" date="1999" name="Nature" volume="402" first="489" last="495">
+      <title>The DNA sequence of human chromosome 22.</title>
+      <authorList>
+        <person name="Dunham I."/>
+        <person name="Hunt A.R."/>
+        <person name="Collins J.E."/>
+        <person name="Bruskiewich R."/>
+        <person name="Beare D.M."/>
+        <person name="Clamp M."/>
+        <person name="Smink L.J."/>
+        <person name="Ainscough R."/>
+        <person name="Almeida J.P."/>
+        <person name="Babbage A.K."/>
+        <person name="Bagguley C."/>
+        <person name="Bailey J."/>
+        <person name="Barlow K.F."/>
+        <person name="Bates K.N."/>
+        <person name="Beasley O.P."/>
+        <person name="Bird C.P."/>
+        <person name="Blakey S.E."/>
+        <person name="Bridgeman A.M."/>
+        <person name="Buck D."/>
+        <person name="Burgess J."/>
+        <person name="Burrill W.D."/>
+        <person name="Burton J."/>
+        <person name="Carder C."/>
+        <person name="Carter N.P."/>
+        <person name="Chen Y."/>
+        <person name="Clark G."/>
+        <person name="Clegg S.M."/>
+        <person name="Cobley V.E."/>
+        <person name="Cole C.G."/>
+        <person name="Collier R.E."/>
+        <person name="Connor R."/>
+        <person name="Conroy D."/>
+        <person name="Corby N.R."/>
+        <person name="Coville G.J."/>
+        <person name="Cox A.V."/>
+        <person name="Davis J."/>
+        <person name="Dawson E."/>
+        <person name="Dhami P.D."/>
+        <person name="Dockree C."/>
+        <person name="Dodsworth S.J."/>
+        <person name="Durbin R.M."/>
+        <person name="Ellington A.G."/>
+        <person name="Evans K.L."/>
+        <person name="Fey J.M."/>
+        <person name="Fleming K."/>
+        <person name="French L."/>
+        <person name="Garner A.A."/>
+        <person name="Gilbert J.G.R."/>
+        <person name="Goward M.E."/>
+        <person name="Grafham D.V."/>
+        <person name="Griffiths M.N.D."/>
+        <person name="Hall C."/>
+        <person name="Hall R.E."/>
+        <person name="Hall-Tamlyn G."/>
+        <person name="Heathcott R.W."/>
+        <person name="Ho S."/>
+        <person name="Holmes S."/>
+        <person name="Hunt S.E."/>
+        <person name="Jones M.C."/>
+        <person name="Kershaw J."/>
+        <person name="Kimberley A.M."/>
+        <person name="King A."/>
+        <person name="Laird G.K."/>
+        <person name="Langford C.F."/>
+        <person name="Leversha M.A."/>
+        <person name="Lloyd C."/>
+        <person name="Lloyd D.M."/>
+        <person name="Martyn I.D."/>
+        <person name="Mashreghi-Mohammadi M."/>
+        <person name="Matthews L.H."/>
+        <person name="Mccann O.T."/>
+        <person name="Mcclay J."/>
+        <person name="Mclaren S."/>
+        <person name="McMurray A.A."/>
+        <person name="Milne S.A."/>
+        <person name="Mortimore B.J."/>
+        <person name="Odell C.N."/>
+        <person name="Pavitt R."/>
+        <person name="Pearce A.V."/>
+        <person name="Pearson D."/>
+        <person name="Phillimore B.J.C.T."/>
+        <person name="Phillips S.H."/>
+        <person name="Plumb R.W."/>
+        <person name="Ramsay H."/>
+        <person name="Ramsey Y."/>
+        <person name="Rogers L."/>
+        <person name="Ross M.T."/>
+        <person name="Scott C.E."/>
+        <person name="Sehra H.K."/>
+        <person name="Skuce C.D."/>
+        <person name="Smalley S."/>
+        <person name="Smith M.L."/>
+        <person name="Soderlund C."/>
+        <person name="Spragon L."/>
+        <person name="Steward C.A."/>
+        <person name="Sulston J.E."/>
+        <person name="Swann R.M."/>
+        <person name="Vaudin M."/>
+        <person name="Wall M."/>
+        <person name="Wallis J.M."/>
+        <person name="Whiteley M.N."/>
+        <person name="Willey D.L."/>
+        <person name="Williams L."/>
+        <person name="Williams S.A."/>
+        <person name="Williamson H."/>
+        <person name="Wilmer T.E."/>
+        <person name="Wilming L."/>
+        <person name="Wright C.L."/>
+        <person name="Hubbard T."/>
+        <person name="Bentley D.R."/>
+        <person name="Beck S."/>
+        <person name="Rogers J."/>
+        <person name="Shimizu N."/>
+        <person name="Minoshima S."/>
+        <person name="Kawasaki K."/>
+        <person name="Sasaki T."/>
+        <person name="Asakawa S."/>
+        <person name="Kudoh J."/>
+        <person name="Shintani A."/>
+        <person name="Shibuya K."/>
+        <person name="Yoshizaki Y."/>
+        <person name="Aoki N."/>
+        <person name="Mitsuyama S."/>
+        <person name="Roe B.A."/>
+        <person name="Chen F."/>
+        <person name="Chu L."/>
+        <person name="Crabtree J."/>
+        <person name="Deschamps S."/>
+        <person name="Do A."/>
+        <person name="Do T."/>
+        <person name="Dorman A."/>
+        <person name="Fang F."/>
+        <person name="Fu Y."/>
+        <person name="Hu P."/>
+        <person name="Hua A."/>
+        <person name="Kenton S."/>
+        <person name="Lai H."/>
+        <person name="Lao H.I."/>
+        <person name="Lewis J."/>
+        <person name="Lewis S."/>
+        <person name="Lin S.-P."/>
+        <person name="Loh P."/>
+        <person name="Malaj E."/>
+        <person name="Nguyen T."/>
+        <person name="Pan H."/>
+        <person name="Phan S."/>
+        <person name="Qi S."/>
+        <person name="Qian Y."/>
+        <person name="Ray L."/>
+        <person name="Ren Q."/>
+        <person name="Shaull S."/>
+        <person name="Sloan D."/>
+        <person name="Song L."/>
+        <person name="Wang Q."/>
+        <person name="Wang Y."/>
+        <person name="Wang Z."/>
+        <person name="White J."/>
+        <person name="Willingham D."/>
+        <person name="Wu H."/>
+        <person name="Yao Z."/>
+        <person name="Zhan M."/>
+        <person name="Zhang G."/>
+        <person name="Chissoe S."/>
+        <person name="Murray J."/>
+        <person name="Miller N."/>
+        <person name="Minx P."/>
+        <person name="Fulton R."/>
+        <person name="Johnson D."/>
+        <person name="Bemis G."/>
+        <person name="Bentley D."/>
+        <person name="Bradshaw H."/>
+        <person name="Bourne S."/>
+        <person name="Cordes M."/>
+        <person name="Du Z."/>
+        <person name="Fulton L."/>
+        <person name="Goela D."/>
+        <person name="Graves T."/>
+        <person name="Hawkins J."/>
+        <person name="Hinds K."/>
+        <person name="Kemp K."/>
+        <person name="Latreille P."/>
+        <person name="Layman D."/>
+        <person name="Ozersky P."/>
+        <person name="Rohlfing T."/>
+        <person name="Scheet P."/>
+        <person name="Walker C."/>
+        <person name="Wamsley A."/>
+        <person name="Wohldmann P."/>
+        <person name="Pepin K."/>
+        <person name="Nelson J."/>
+        <person name="Korf I."/>
+        <person name="Bedell J.A."/>
+        <person name="Hillier L.W."/>
+        <person name="Mardis E."/>
+        <person name="Waterston R."/>
+        <person name="Wilson R."/>
+        <person name="Emanuel B.S."/>
+        <person name="Shaikh T."/>
+        <person name="Kurahashi H."/>
+        <person name="Saitta S."/>
+        <person name="Budarf M.L."/>
+        <person name="McDermid H.E."/>
+        <person name="Johnson A."/>
+        <person name="Wong A.C.C."/>
+        <person name="Morrow B.E."/>
+        <person name="Edelmann L."/>
+        <person name="Kim U.J."/>
+        <person name="Shizuya H."/>
+        <person name="Simon M.I."/>
+        <person name="Dumanski J.P."/>
+        <person name="Peyrard M."/>
+        <person name="Kedra D."/>
+        <person name="Seroussi E."/>
+        <person name="Fransson I."/>
+        <person name="Tapia I."/>
+        <person name="Bruder C.E."/>
+        <person name="O'Brien K.P."/>
+        <person name="Wilkinson P."/>
+        <person name="Bodenteich A."/>
+        <person name="Hartman K."/>
+        <person name="Hu X."/>
+        <person name="Khan A.S."/>
+        <person name="Lane L."/>
+        <person name="Tilahun Y."/>
+        <person name="Wright H."/>
+      </authorList>
+      <dbReference type="PubMed" id="10591208"/>
+      <dbReference type="DOI" id="10.1038/990031"/>
+    </citation>
+    <scope>NUCLEOTIDE SEQUENCE [LARGE SCALE GENOMIC DNA]</scope>
+  </reference>
+  <reference key="3">
+    <citation type="journal article" date="2005" name="Biochem. Biophys. Res. Commun." volume="336" first="1241" last="1250">
+      <title>CYP2D7 splice variants in human liver and brain: does CYP2D7 encode functional protein?</title>
+      <authorList>
+        <person name="Gaedigk A."/>
+        <person name="Gaedigk R."/>
+        <person name="Leeder J.S."/>
+      </authorList>
+      <dbReference type="PubMed" id="16169517"/>
+      <dbReference type="DOI" id="10.1016/j.bbrc.2005.08.255"/>
+    </citation>
+    <scope>POLYMORPHISM</scope>
+  </reference>
+  <reference key="4">
+    <citation type="journal article" date="2007" name="Drug Metab. Dispos." volume="35" first="1251" last="1253">
+      <title>Frequency of the frame-shifting CYP2D7 138delT polymorphism in a large, ethnically diverse sample population.</title>
+      <authorList>
+        <person name="Bhathena A."/>
+        <person name="Mueller T."/>
+        <person name="Grimm D.R."/>
+        <person name="Idler K."/>
+        <person name="Tsurutani A."/>
+        <person name="Spear B.B."/>
+        <person name="Katz D.A."/>
+      </authorList>
+      <dbReference type="PubMed" id="17494644"/>
+      <dbReference type="DOI" id="10.1124/dmd.107.014993"/>
+    </citation>
+    <scope>POLYMORPHISM</scope>
+  </reference>
+  <reference key="5">
+    <citation type="journal article" date="2009" name="Drug Metab. Dispos." volume="37" first="1" last="4">
+      <title>Expression and functional analysis of CYP2D6.24, CYP2D6.26, CYP2D6.27, and CYP2D7 isozymes.</title>
+      <authorList>
+        <person name="Zhang W.Y."/>
+        <person name="Tu Y.B."/>
+        <person name="Haining R.L."/>
+        <person name="Yu A.M."/>
+      </authorList>
+      <dbReference type="PubMed" id="18838503"/>
+      <dbReference type="DOI" id="10.1124/dmd.108.023663"/>
+    </citation>
+    <scope>FUNCTION</scope>
+    <scope>SUBCELLULAR LOCATION</scope>
+  </reference>
+  <comment type="function">
+    <text evidence="4 7">May be responsible for the metabolism of many drugs and environmental chemicals that it oxidizes. It may be involved in the metabolism of codeine to morphine (PubMed:15051713). However, another study could not confirm it (PubMed:18838503).</text>
+  </comment>
+  <comment type="catalytic activity">
+    <reaction evidence="4">
+      <text>an organic molecule + reduced [NADPH--hemoprotein reductase] + O2 = an alcohol + oxidized [NADPH--hemoprotein reductase] + H2O + H(+)</text>
+      <dbReference type="Rhea" id="RHEA:17149"/>
+      <dbReference type="Rhea" id="RHEA-COMP:11964"/>
+      <dbReference type="Rhea" id="RHEA-COMP:11965"/>
+      <dbReference type="ChEBI" id="CHEBI:15377"/>
+      <dbReference type="ChEBI" id="CHEBI:15378"/>
+      <dbReference type="ChEBI" id="CHEBI:15379"/>
+      <dbReference type="ChEBI" id="CHEBI:30879"/>
+      <dbReference type="ChEBI" id="CHEBI:57618"/>
+      <dbReference type="ChEBI" id="CHEBI:58210"/>
+      <dbReference type="ChEBI" id="CHEBI:142491"/>
+      <dbReference type="EC" id="1.14.14.1"/>
+    </reaction>
+  </comment>
+  <comment type="cofactor">
+    <cofactor>
+      <name>heme</name>
+      <dbReference type="ChEBI" id="CHEBI:30413"/>
+    </cofactor>
+  </comment>
+  <comment type="subcellular location">
+    <subcellularLocation>
+      <location evidence="8">Membrane</location>
+      <topology evidence="2">Multi-pass membrane protein</topology>
+    </subcellularLocation>
+    <subcellularLocation>
+      <location evidence="9">Cytoplasm</location>
+    </subcellularLocation>
+    <subcellularLocation>
+      <location evidence="7">Mitochondrion</location>
+    </subcellularLocation>
+  </comment>
+  <comment type="tissue specificity">
+    <text evidence="4">Expressed in brain cortex (at protein level).</text>
+  </comment>
+  <comment type="polymorphism">
+    <text evidence="4 5 6">One study shows that a rare double polymorphism allows the expression of a functional protein (PubMed:15051713). Two subsequent studies could not confirm the combined existence of both polymorphisms in the genomes examined in those studies (PubMed:16169517, PubMed:17494644).</text>
+  </comment>
+  <comment type="similarity">
+    <text evidence="3">Belongs to the cytochrome P450 family.</text>
+  </comment>
+  <comment type="caution">
+    <text evidence="8">Pseudogene in the majority of genomes but is protein-coding in others. The functional allele is thought to be rare.</text>
+  </comment>
+  <dbReference type="EC" id="1.14.14.1" evidence="4"/>
+  <dbReference type="EMBL" id="AY220845">
+    <property type="protein sequence ID" value="AAO49806.1"/>
+    <property type="molecule type" value="mRNA"/>
+  </dbReference>
+  <dbReference type="EMBL" id="AC254562">
+    <property type="status" value="NOT_ANNOTATED_CDS"/>
+    <property type="molecule type" value="Genomic_DNA"/>
+  </dbReference>
+  <dbReference type="RefSeq" id="NP_001335315.1">
+    <property type="nucleotide sequence ID" value="NM_001348386.1"/>
+  </dbReference>
+  <dbReference type="AlphaFoldDB" id="A0A087X1C5"/>
+  <dbReference type="SMR" id="A0A087X1C5"/>
+  <dbReference type="FunCoup" id="A0A087X1C5">
+    <property type="interactions" value="257"/>
+  </dbReference>
+  <dbReference type="ChEMBL" id="CHEMBL3542437"/>
+  <dbReference type="GlyCosmos" id="A0A087X1C5">
+    <property type="glycosylation" value="1 site, No reported glycans"/>
+  </dbReference>
+  <dbReference type="GlyGen" id="A0A087X1C5">
+    <property type="glycosylation" value="1 site"/>
+  </dbReference>
+  <dbReference type="BioMuta" id="CYP2D7"/>
+  <dbReference type="jPOST" id="A0A087X1C5"/>
+  <dbReference type="MassIVE" id="A0A087X1C5"/>
+  <dbReference type="PeptideAtlas" id="A0A087X1C5"/>
+  <dbReference type="DNASU" id="1564"/>
+  <dbReference type="GeneID" id="1564"/>
+  <dbReference type="KEGG" id="hsa:1564"/>
+  <dbReference type="UCSC" id="uc062eux.1">
+    <property type="organism name" value="human"/>
+  </dbReference>
+  <dbReference type="AGR" id="HGNC:2624"/>
+  <dbReference type="CTD" id="1564"/>
+  <dbReference type="DisGeNET" id="1564"/>
+  <dbReference type="GeneCards" id="CYP2D7"/>
+  <dbReference type="HGNC" id="HGNC:2624">
+    <property type="gene designation" value="CYP2D7"/>
+  </dbReference>
+  <dbReference type="neXtProt" id="NX_A0A087X1C5"/>
+  <dbReference type="VEuPathDB" id="HostDB:ENSG00000205702"/>
+  <dbReference type="HOGENOM" id="CLU_001570_22_0_1"/>
+  <dbReference type="InParanoid" id="A0A087X1C5"/>
+  <dbReference type="OMA" id="EHDIAFA"/>
+  <dbReference type="OrthoDB" id="3934656at2759"/>
+  <dbReference type="PAN-GO" id="A0A087X1C5">
+    <property type="GO annotations" value="7 GO annotations based on evolutionary models"/>
+  </dbReference>
+  <dbReference type="PathwayCommons" id="A0A087X1C5"/>
+  <dbReference type="BioGRID-ORCS" id="1564">
+    <property type="hits" value="0 hits in 40 CRISPR screens"/>
+  </dbReference>
+  <dbReference type="GenomeRNAi" id="1564"/>
+  <dbReference type="Pharos" id="A0A087X1C5">
+    <property type="development level" value="Tbio"/>
+  </dbReference>
+  <dbReference type="Proteomes" id="UP000005640">
+    <property type="component" value="Chromosome 22"/>
+  </dbReference>
+  <dbReference type="RNAct" id="A0A087X1C5">
+    <property type="molecule type" value="protein"/>
+  </dbReference>
+  <dbReference type="Bgee" id="ENSG00000205702">
+    <property type="expression patterns" value="Expressed in right lobe of liver and 91 other cell types or tissues"/>
+  </dbReference>
+  <dbReference type="ExpressionAtlas" id="A0A087X1C5">
+    <property type="expression patterns" value="baseline and differential"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0005737">
+    <property type="term" value="C:cytoplasm"/>
+    <property type="evidence" value="ECO:0000314"/>
+    <property type="project" value="UniProtKB"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0043231">
+    <property type="term" value="C:intracellular membrane-bounded organelle"/>
+    <property type="evidence" value="ECO:0000318"/>
+    <property type="project" value="GO_Central"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0016020">
+    <property type="term" value="C:membrane"/>
+    <property type="evidence" value="ECO:0007669"/>
+    <property type="project" value="UniProtKB-SubCell"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0005739">
+    <property type="term" value="C:mitochondrion"/>
+    <property type="evidence" value="ECO:0000314"/>
+    <property type="project" value="UniProtKB"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0070330">
+    <property type="term" value="F:aromatase activity"/>
+    <property type="evidence" value="ECO:0000314"/>
+    <property type="project" value="UniProtKB"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0020037">
+    <property type="term" value="F:heme binding"/>
+    <property type="evidence" value="ECO:0000318"/>
+    <property type="project" value="GO_Central"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0005506">
+    <property type="term" value="F:iron ion binding"/>
+    <property type="evidence" value="ECO:0007669"/>
+    <property type="project" value="InterPro"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0016712">
+    <property type="term" value="F:oxidoreductase activity, acting on paired donors, with incorporation or reduction of molecular oxygen, reduced flavin or flavoprotein as one donor, and incorporation of one atom of oxygen"/>
+    <property type="evidence" value="ECO:0000318"/>
+    <property type="project" value="GO_Central"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0019369">
+    <property type="term" value="P:arachidonate metabolic process"/>
+    <property type="evidence" value="ECO:0000318"/>
+    <property type="project" value="GO_Central"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0042178">
+    <property type="term" value="P:xenobiotic catabolic process"/>
+    <property type="evidence" value="ECO:0000314"/>
+    <property type="project" value="UniProtKB"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0006805">
+    <property type="term" value="P:xenobiotic metabolic process"/>
+    <property type="evidence" value="ECO:0000314"/>
+    <property type="project" value="UniProtKB"/>
+  </dbReference>
+  <dbReference type="CDD" id="cd20663">
+    <property type="entry name" value="CYP2D"/>
+    <property type="match status" value="1"/>
+  </dbReference>
+  <dbReference type="FunFam" id="1.10.630.10:FF:000004">
+    <property type="entry name" value="cytochrome P450 2D15 isoform X1"/>
+    <property type="match status" value="1"/>
+  </dbReference>
+  <dbReference type="Gene3D" id="1.10.630.10">
+    <property type="entry name" value="Cytochrome P450"/>
+    <property type="match status" value="1"/>
+  </dbReference>
+  <dbReference type="InterPro" id="IPR001128">
+    <property type="entry name" value="Cyt_P450"/>
+  </dbReference>
+  <dbReference type="InterPro" id="IPR017972">
+    <property type="entry name" value="Cyt_P450_CS"/>
+  </dbReference>
+  <dbReference type="InterPro" id="IPR002401">
+    <property type="entry name" value="Cyt_P450_E_grp-I"/>
+  </dbReference>
+  <dbReference type="InterPro" id="IPR008069">
+    <property type="entry name" value="Cyt_P450_E_grp-I_CYP2D-like"/>
+  </dbReference>
+  <dbReference type="InterPro" id="IPR036396">
+    <property type="entry name" value="Cyt_P450_sf"/>
+  </dbReference>
+  <dbReference type="InterPro" id="IPR050182">
+    <property type="entry name" value="Cytochrome_P450_fam2"/>
+  </dbReference>
+  <dbReference type="PANTHER" id="PTHR24300:SF1">
+    <property type="entry name" value="CYTOCHROME P450 2D6-RELATED"/>
+    <property type="match status" value="1"/>
+  </dbReference>
+  <dbReference type="PANTHER" id="PTHR24300">
+    <property type="entry name" value="CYTOCHROME P450 508A4-RELATED"/>
+    <property type="match status" value="1"/>
+  </dbReference>
+  <dbReference type="Pfam" id="PF00067">
+    <property type="entry name" value="p450"/>
+    <property type="match status" value="2"/>
+  </dbReference>
+  <dbReference type="PRINTS" id="PR00463">
+    <property type="entry name" value="EP450I"/>
+  </dbReference>
+  <dbReference type="PRINTS" id="PR01686">
+    <property type="entry name" value="EP450ICYP2D"/>
+  </dbReference>
+  <dbReference type="PRINTS" id="PR00385">
+    <property type="entry name" value="P450"/>
+  </dbReference>
+  <dbReference type="SUPFAM" id="SSF48264">
+    <property type="entry name" value="Cytochrome P450"/>
+    <property type="match status" value="1"/>
+  </dbReference>
+  <dbReference type="PROSITE" id="PS00086">
+    <property type="entry name" value="CYTOCHROME_P450"/>
+    <property type="match status" value="1"/>
+  </dbReference>
+  <proteinExistence type="evidence at protein level"/>
+  <keyword id="KW-0963">Cytoplasm</keyword>
+  <keyword id="KW-0325">Glycoprotein</keyword>
+  <keyword id="KW-0349">Heme</keyword>
+  <keyword id="KW-0408">Iron</keyword>
+  <keyword id="KW-0472">Membrane</keyword>
+  <keyword id="KW-0479">Metal-binding</keyword>
+  <keyword id="KW-0496">Mitochondrion</keyword>
+  <keyword id="KW-0503">Monooxygenase</keyword>
+  <keyword id="KW-0560">Oxidoreductase</keyword>
+  <keyword id="KW-1185">Reference proteome</keyword>
+  <keyword id="KW-0812">Transmembrane</keyword>
+  <keyword id="KW-1133">Transmembrane helix</keyword>
+  <feature type="chain" id="PRO_0000432413" description="Cytochrome P450 2D7">
+    <location>
+      <begin position="1"/>
+      <end position="515"/>
+    </location>
+  </feature>
+  <feature type="topological domain" description="Extracellular" evidence="8">
+    <location>
+      <begin position="1"/>
+      <end position="2"/>
+    </location>
+  </feature>
+  <feature type="transmembrane region" description="Helical; Name=1" evidence="2">
+    <location>
+      <begin position="3"/>
+      <end position="23"/>
+    </location>
+  </feature>
+  <feature type="topological domain" description="Cytoplasmic" evidence="8">
+    <location>
+      <begin position="24"/>
+      <end position="301"/>
+    </location>
+  </feature>
+  <feature type="transmembrane region" description="Helical; Name=2" evidence="2">
+    <location>
+      <begin position="302"/>
+      <end position="322"/>
+    </location>
+  </feature>
+  <feature type="topological domain" description="Extracellular" evidence="8">
+    <location>
+      <begin position="323"/>
+      <end position="515"/>
+    </location>
+  </feature>
+  <feature type="binding site" description="axial binding residue" evidence="1">
+    <location>
+      <position position="461"/>
+    </location>
+    <ligand>
+      <name>heme</name>
+      <dbReference type="ChEBI" id="CHEBI:30413"/>
+    </ligand>
+    <ligandPart>
+      <name>Fe</name>
+      <dbReference type="ChEBI" id="CHEBI:18248"/>
+    </ligandPart>
+  </feature>
+  <feature type="glycosylation site" description="N-linked (GlcNAc...) asparagine" evidence="2">
+    <location>
+      <position position="416"/>
+    </location>
+  </feature>
+  <feature type="sequence variant" id="VAR_072632" description="In dbSNP:rs11090077." evidence="4">
+    <original>S</original>
+    <variation>N</variation>
+    <location>
+      <position position="70"/>
+    </location>
+  </feature>
+  <feature type="sequence variant" id="VAR_072633" description="In dbSNP:rs1800754." evidence="4">
+    <original>S</original>
+    <variation>L</variation>
+    <location>
+      <position position="311"/>
+    </location>
+  </feature>
+  <feature type="sequence variant" id="VAR_072634" evidence="4">
+    <original>C</original>
+    <variation>CS</variation>
+    <location>
+      <position position="337"/>
+    </location>
+  </feature>
+  <feature type="sequence variant" id="VAR_072635" evidence="4">
+    <original>AHMPC</original>
+    <variation>VHMPY</variation>
+    <location>
+      <begin position="369"/>
+      <end position="373"/>
+    </location>
+  </feature>
+  <feature type="sequence variant" id="VAR_072636" description="In dbSNP:rs56127449." evidence="4">
+    <original>H</original>
+    <variation>R</variation>
+    <location>
+      <position position="383"/>
+    </location>
+  </feature>
+  <feature type="sequence variant" id="VAR_072637" description="In dbSNP:rs2070907." evidence="4">
+    <original>K</original>
+    <variation>E</variation>
+    <location>
+      <position position="428"/>
+    </location>
+  </feature>
+  <evidence type="ECO:0000250" key="1">
+    <source>
+      <dbReference type="UniProtKB" id="P10635"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000255" key="2"/>
+  <evidence type="ECO:0000255" key="3">
+    <source>
+      <dbReference type="RuleBase" id="RU000461"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000269" key="4">
+    <source>
+      <dbReference type="PubMed" id="15051713"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000269" key="5">
+    <source>
+      <dbReference type="PubMed" id="16169517"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000269" key="6">
+    <source>
+      <dbReference type="PubMed" id="17494644"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000269" key="7">
+    <source>
+      <dbReference type="PubMed" id="18838503"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000305" key="8"/>
+  <evidence type="ECO:0000305" key="9">
+    <source>
+      <dbReference type="PubMed" id="15051713"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000312" key="10">
+    <source>
+      <dbReference type="HGNC" id="HGNC:2624"/>
+    </source>
+  </evidence>
+  <sequence length="515" mass="57489" checksum="E9331B1589161E03" modified="2014-10-29" version="1">MGLEALVPLAMIVAIFLLLVDLMHRHQRWAARYPPGPLPLPGLGNLLHVDFQNTPYCFDQLRRRFGDVFSLQLAWTPVVVLNGLAAVREAMVTRGEDTADRPPAPIYQVLGFGPRSQGVILSRYGPAWREQRRFSVSTLRNLGLGKKSLEQWVTEEAACLCAAFADQAGRPFRPNGLLDKAVSNVIASLTCGRRFEYDDPRFLRLLDLAQEGLKEESGFLREVLNAVPVLPHIPALAGKVLRFQKAFLTQLDELLTEHRMTWDPAQPPRDLTEAFLAKKEKAKGSPESSFNDENLRIVVGNLFLAGMVTTSTTLAWGLLLMILHLDVQRGRRVSPGCPIVGTHVCPVRVQQEIDDVIGQVRRPEMGDQAHMPCTTAVIHEVQHFGDIVPLGVTHMTSRDIEVQGFRIPKGTTLITNLSSVLKDEAVWKKPFRFHPEHFLDAQGHFVKPEAFLPFSAGRRACLGEPLARMELFLFFTSLLQHFSFSVAAGQPRPSHSRVVSFLVTPSPYELCAVPR</sequence>
+</entry>
+<copyright>
+Copyrighted by the UniProt Consortium, see https://www.uniprot.org/terms Distributed under the Creative Commons Attribution (CC BY 4.0) License
+</copyright>
+</uniprot>

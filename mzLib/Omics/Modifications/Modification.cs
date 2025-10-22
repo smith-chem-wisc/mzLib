@@ -103,7 +103,7 @@ namespace Omics.Modifications
                 this.MonoisotopicMass = this.ChemicalFormula.MonoisotopicMass;
             }
         }
-
+        
         public static string ModLocationOnPeptideOrProtein(string _locationRestriction)
         {
             switch (_locationRestriction)

@@ -455,8 +455,10 @@ namespace Test
             var dbFive = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SingleEntry_ModOrder1.xml");
             var dbSix = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SingleEntry_ModOrder2.xml");
 
-            var proteins5 = ProteinDbLoader.LoadProteinXML(dbFive, true, DecoyType.None, null, false, null, out var unknownModificationsFive);
-            var proteins6 = ProteinDbLoader.LoadProteinXML(dbSix, true, DecoyType.None, null, false, null, out var unknownModificationsSix);
+            var proteins5 = ProteinDbLoader.LoadProteinXML(dbFive, true, DecoyType.None, null, false, null, out var unknownModificationsFive,
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
+            var proteins6 = ProteinDbLoader.LoadProteinXML(dbSix, true, DecoyType.None, null, false, null, out var unknownModificationsSix,
+                maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             var fiveMods = ProteinDbLoader.GetPtmListFromProteinXml(dbFive);
             var sixMods = ProteinDbLoader.GetPtmListFromProteinXml(dbSix);
@@ -469,7 +471,6 @@ namespace Test
             Assert.AreEqual(peptides5.Count, peptides6.Count);
             CollectionAssert.AreEqual(peptides5, peptides6);
         }
-
         [Test]
         [TestCase("cRAP_databaseGPTMD.xml")]
         [TestCase("uniprot_aifm1.fasta")]
@@ -482,8 +483,10 @@ namespace Test
             List<Protein> proteins2 = null;
             if (fileName.Contains(".xml"))
             {
-                proteins1 = ProteinDbLoader.LoadProteinXML(dbPath, true, decoyType, null, false, null, out var unknownModifications);
-                proteins2 = ProteinDbLoader.LoadProteinXML(dbPath, true, decoyType, null, false, null, out unknownModifications);
+                proteins1 = ProteinDbLoader.LoadProteinXML(dbPath, true, decoyType, null, false, null, out var unknownModifications,
+                    maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
+                proteins2 = ProteinDbLoader.LoadProteinXML(dbPath, true, decoyType, null, false, null, out unknownModifications,
+                    maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
             }
             else if (fileName.Contains(".fasta"))
             {
@@ -536,7 +539,6 @@ namespace Test
                 Assert.AreEqual(decoyPair.First().BaseSequence, decoyPair.Last().BaseSequence);
             }
         }
-
         [Test]
         public static void TestDecoyScramblerReplacesPeptides()
         {
@@ -762,7 +764,6 @@ namespace Test
             Assert.AreEqual(digestionParams.SpecificProtease, digestionParamsClone.SpecificProtease);
             NUnit.Framework.Assert.That(!ReferenceEquals(digestionParams, digestionParamsClone));
         }
-
         [Test]
         public static void TestWhenFixedModIsSamePositionAsUniProtModWithDigestion()
         {
@@ -770,17 +771,25 @@ namespace Test
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
             List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
 
-            DigestionParams digestionParams = new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, maxModsForPeptides: 3); // if you pass Custom Protease7 this test gets really flakey.
+            DigestionParams digestionParams = new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, maxModsForPeptides: 3);
             List<Modification> fixedMods = new List<Modification>();
             ModificationMotif.TryGetMotif("S", out ModificationMotif serineMotif);
             ChemicalFormula ohFormula = ChemicalFormula.ParseFormula("OH");
-            double ohMass = GetElement("O").PrincipalIsotope.AtomicMass + GetElement("H").PrincipalIsotope.AtomicMass;
+            double ohMass = Chemistry.PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass + Chemistry.PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass;
 
             fixedMods.Add(new Modification(_originalId: "serineOhMod", _target: serineMotif, _locationRestriction: "Anywhere.", _chemicalFormula: ohFormula, _monoisotopicMass: ohMass));
 
-
-            List<Protein> dbProteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"), true, DecoyType.Reverse, UniProtPtms.Concat(fixedMods), false,
-                new List<string>(), out Dictionary<string, Modification> un);
+            List<Protein> dbProteins = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"),
+                true,
+                DecoyType.Reverse,
+                UniProtPtms.Concat(fixedMods),
+                false,
+                new List<string>(),
+                out Dictionary<string, Modification> un,
+                maxSequenceVariantsPerIsoform: 4,
+                minAlleleDepth: 1,
+                totalConsensusPlusVariantIsoforms: 1);
 
             Protein prot = dbProteins.First();
 

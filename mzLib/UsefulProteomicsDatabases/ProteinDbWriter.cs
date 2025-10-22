@@ -28,7 +28,10 @@ namespace UsefulProteomicsDatabases
         /// <param name="bioPolymerList">A list of RNA sequences to be written to the database.</param>
         /// <param name="outputFileName">The name of the output XML file.</param>
         /// <returns>A dictionary of new modification residue entries.</returns>
-        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, List<IBioPolymer> bioPolymerList, string outputFileName)
+        public static Dictionary<string, int> WriteXmlDatabase(
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
+            List<IBioPolymer> bioPolymerList,
+            string outputFileName)
         {
             return bioPolymerList.Any(p => p is Protein)
                 ? WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<Protein>().ToList(), outputFileName)
@@ -41,549 +44,105 @@ namespace UsefulProteomicsDatabases
         /// <param name="additionalModsToAddToNucleicAcids">A dictionary of additional modifications to add to proteins.</param>
         /// <param name="nucleicAcidList">A list of nucleic acid sequences to be written to the database.</param>
         /// <param name="outputFileName">The name of the output XML file.</param>
-        /// <returns>A dictionary of new modification residue entries.</returns>
-        /// <remarks>
-        /// Several chunks of code are commented out. These are blocks that are intended to be implmented in the future, but
-        /// are not necessary for the bare bones implementation of Transcriptomics
-        /// </remarks>
-        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToNucleicAcids, List<RNA> nucleicAcidList, string outputFileName, bool updateTimeStamp = false)
+        /// <param name="updateTimeStamp">If true, updates the modified attribute to today's date when attributes are written (currently RNA omits attributes as per original).</param>
+        /// <param name="includeAppliedVariantEntries">
+        /// If true, applied (realized) variant proteoforms (with a different accession produced by VariantApplication) are written
+        /// as separate &lt;entry&gt; elements in addition to their consensus (canonical) parents.
+        /// </param>
+        /// <param name="includeAppliedVariantFeatures">
+        /// If true and an applied variant entry is written, its AppliedSequenceVariations are emitted as
+        /// &lt;feature type="sequence variant"&gt; elements so differences remain explicit (even though its BaseSequence already contains them).
+        /// </param>
+        /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
+        public static Dictionary<string, int> WriteXmlDatabase(
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToNucleicAcids,
+            List<RNA> nucleicAcidList,
+            string outputFileName,
+            bool updateTimeStamp = false,
+            bool includeAppliedVariantEntries = false,
+            bool includeAppliedVariantFeatures = true)
         {
-            additionalModsToAddToNucleicAcids = additionalModsToAddToNucleicAcids ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+            additionalModsToAddToNucleicAcids ??= new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
-            // write nonvariant rna (for cases where variants aren't applied, this just gets the rna itself)
-            var nonVariantRna = nucleicAcidList.Select(p => p.ConsensusVariant).Distinct().ToList();
+            // Build the set to write (consensus + optional applied-variant RNAs)
+            var rnasToWrite = BuildRnaToWrite(nucleicAcidList ?? new List<RNA>(), includeAppliedVariantEntries);
 
-            var xmlWriterSettings = new XmlWriterSettings
+            Dictionary<string, int> newModResEntries = new();
+
+            using (XmlWriter writer = XmlWriter.Create(outputFileName, CreateIndentedWriterSettings()))
             {
-                Indent = true,
-                IndentChars = "  "
-            };
+                WriteStartDocument(writer);
 
-            Dictionary<string, int> newModResEntries = new Dictionary<string, int>();
-            using (XmlWriter writer = XmlWriter.Create(outputFileName, xmlWriterSettings))
-            {
-                writer.WriteStartDocument();
-                writer.WriteStartElement("mzLibProteinDb");
+                // Modifications catalog: collect from everything we will write
+                var allRelevantMods = CollectAllRelevantModsForRna(rnasToWrite, additionalModsToAddToNucleicAcids);
+                WriteModificationCatalog(writer, allRelevantMods);
 
-                List<Modification> myModificationList = new List<Modification>();
-                foreach (var p in nonVariantRna)
+                // Entries
+                foreach (var rna in rnasToWrite.OrderBy(r => r.Accession, StringComparer.Ordinal))
                 {
-                    foreach (KeyValuePair<int, List<Modification>> entry in p.OneBasedPossibleLocalizedModifications)
-                    {
-                        myModificationList.AddRange(entry.Value);
-                    }
+                    WriteRnaEntry(writer, rna, additionalModsToAddToNucleicAcids, newModResEntries, updateTimeStamp);
                 }
 
-                // get modifications from nucleic acid list and concatenate the modifications discovered in GPTMDictionary
-                HashSet<Modification> allRelevantModifications = new HashSet<Modification>(
-                    nonVariantRna
-                        .SelectMany(p => p.SequenceVariations
-                            .SelectMany(sv => sv.OneBasedModifications)
-                            .Concat(p.OneBasedPossibleLocalizedModifications)
-                            .SelectMany(kv => kv.Value))
-                        .Concat(additionalModsToAddToNucleicAcids
-                            .Where(kv => nonVariantRna
-                                .SelectMany(p => p.SequenceVariations
-                                    .Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession }))
-                                .Contains(kv.Key))
-                            .SelectMany(kv => kv.Value.Select(v => v.Item2))));
-
-                foreach (Modification mod in allRelevantModifications.OrderBy(m => m.IdWithMotif))
-                {
-                    writer.WriteStartElement("modification");
-                    writer.WriteString(mod.ToString() + Environment.NewLine + "//");
-                    writer.WriteEndElement();
-                }
-
-                foreach (var nucleicAcid in nonVariantRna)
-                {
-                    writer.WriteStartElement("entry", "undefined"); //this should be a website with the XSD namespace
-                    //writer.WriteAttributeString("dataset", nucleicAcid.DatasetEntryTag);
-                    //writer.WriteAttributeString("created", nucleicAcid.CreatedEntryTag);
-                    //if (updateTimeStamp)
-                    //{
-                    //    writer.WriteAttributeString("modified", DateTime.Now.ToString("yyyy-MM-dd"));
-                    //}
-                    //else
-                    //{
-                    //    writer.WriteAttributeString("modified", nucleicAcid.ModifiedEntryTag);
-                    //}
-                    //writer.WriteAttributeString("version", nucleicAcid.VersionEntryTag);
-                    writer.WriteStartElement("accession");
-                    writer.WriteString(nucleicAcid.Accession);
-                    writer.WriteEndElement();
-
-                    if (nucleicAcid.Name.IsNotNullOrEmptyOrWhiteSpace())
-                    {
-                        writer.WriteStartElement("name");
-                        writer.WriteString(nucleicAcid.Name);
-                        writer.WriteEndElement();
-                    }
-
-                    if (nucleicAcid.FullName.IsNotNullOrEmptyOrWhiteSpace())
-                    {
-                        writer.WriteStartElement("protein");
-                        writer.WriteStartElement("recommendedName");
-                        writer.WriteStartElement("fullName");
-                        writer.WriteString(nucleicAcid.FullName);
-                        writer.WriteEndElement();
-                        writer.WriteEndElement();
-                        writer.WriteEndElement();
-                    }
-
-                    writer.WriteStartElement("gene");
-                    foreach (var geneName in nucleicAcid.GeneNames)
-                    {
-                        writer.WriteStartElement("name");
-                        writer.WriteAttributeString("type", geneName.Item1);
-                        writer.WriteString(geneName.Item2);
-                        writer.WriteEndElement();
-                    }
-                    writer.WriteEndElement();
-
-                    if (nucleicAcid.Organism.IsNotNullOrEmptyOrWhiteSpace())
-                    {
-                        writer.WriteStartElement("organism");
-                        writer.WriteStartElement("name");
-                        writer.WriteAttributeString("type", "scientific");
-                        writer.WriteString(nucleicAcid.Organism);
-                        writer.WriteEndElement();
-                        writer.WriteEndElement();
-                    }
-
-                    //foreach (var dbRef in nucleicAcid)
-                    //{
-                    //    writer.WriteStartElement("dbReference");
-                    //    writer.WriteAttributeString("type", dbRef.Type);
-                    //    writer.WriteAttributeString("id", dbRef.Id);
-                    //    foreach (Tuple<string, string> property in dbRef.Properties)
-                    //    {
-                    //        writer.WriteStartElement("property");
-                    //        writer.WriteAttributeString("type", property.Item1);
-                    //        writer.WriteAttributeString("value", property.Item2);
-                    //        writer.WriteEndElement();
-                    //    }
-                    //    writer.WriteEndElement();
-                    //}
-
-                    List<TruncationProduct> proteolysisProducts = nucleicAcid.TruncationProducts.Where(p => !p.Type.Contains("truncation")).ToList();
-                    foreach (var proteolysisProduct in proteolysisProducts)
-                    {
-                        writer.WriteStartElement("feature");
-                        writer.WriteAttributeString("type", proteolysisProduct.Type.Split('(')[0]);
-                        writer.WriteStartElement("location");
-                        writer.WriteStartElement("begin");
-
-                        //TODO: handle proteolysis products with null begin position
-                        //see rna writer for example. 
-
-                        writer.WriteAttributeString("position", proteolysisProduct.OneBasedBeginPosition.ToString());
-                        writer.WriteEndElement();
-                        writer.WriteStartElement("end");
-                        writer.WriteAttributeString("position", proteolysisProduct.OneBasedEndPosition.ToString());
-                        writer.WriteEndElement();
-                        writer.WriteEndElement();
-                        writer.WriteEndElement();
-                    }
-
-                    foreach (var hm in GetModsForThisBioPolymer(nucleicAcid, null, additionalModsToAddToNucleicAcids, newModResEntries).OrderBy(b => b.Key))
-                    {
-                        foreach (var modId in hm.Value)
-                        {
-                            writer.WriteStartElement("feature");
-                            writer.WriteAttributeString("type", "modified residue");
-                            writer.WriteAttributeString("description", modId);
-                            writer.WriteStartElement("location");
-                            writer.WriteStartElement("position");
-                            writer.WriteAttributeString("position", hm.Key.ToString(CultureInfo.InvariantCulture));
-                            writer.WriteEndElement();
-                            writer.WriteEndElement();
-                            writer.WriteEndElement();
-                        }
-                    }
-
-                    foreach (var hm in nucleicAcid.SequenceVariations.OrderBy(sv => sv.OneBasedBeginPosition).ThenBy(sv => sv.VariantSequence))
-                    {
-                        writer.WriteStartElement("feature");
-                        writer.WriteAttributeString("type", "sequence variant");
-                        writer.WriteAttributeString("description", hm.Description.ToString());
-                        writer.WriteStartElement("original");
-                        writer.WriteString(hm.OriginalSequence);
-                        writer.WriteEndElement(); // original
-                        writer.WriteStartElement("variation");
-                        writer.WriteString(hm.VariantSequence);
-                        writer.WriteEndElement(); // variation
-                        writer.WriteStartElement("location");
-                        if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
-                        {
-                            writer.WriteStartElement("position");
-                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
-                            writer.WriteEndElement();
-                        }
-                        else
-                        {
-                            writer.WriteStartElement("begin");
-                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
-                            writer.WriteEndElement();
-                            writer.WriteStartElement("end");
-                            writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
-                            writer.WriteEndElement();
-                        }
-                        foreach (var hmm in GetModsForThisBioPolymer(nucleicAcid, hm, additionalModsToAddToNucleicAcids, newModResEntries).OrderBy(b => b.Key))
-                        {
-                            foreach (var modId in hmm.Value)
-                            {
-                                writer.WriteStartElement("subfeature");
-                                writer.WriteAttributeString("type", "modified residue");
-                                writer.WriteAttributeString("description", modId);
-                                writer.WriteStartElement("location");
-                                writer.WriteStartElement("subposition");
-                                writer.WriteAttributeString("subposition", hmm.Key.ToString(CultureInfo.InvariantCulture));
-                                writer.WriteEndElement();
-                                writer.WriteEndElement();
-                                writer.WriteEndElement();
-                            }
-                        }
-                        writer.WriteEndElement(); // location
-                        writer.WriteEndElement(); // feature
-                    }
-
-                    //foreach (var hm in nucleicAcid.SpliceSites)
-                    //{
-                    //    writer.WriteStartElement("feature");
-                    //    writer.WriteAttributeString("type", "splice site");
-                    //    writer.WriteAttributeString("description", hm.Description);
-                    //    writer.WriteStartElement("location");
-                    //    if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
-                    //    {
-                    //        writer.WriteStartElement("position");
-                    //        writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
-                    //        writer.WriteEndElement();
-                    //    }
-                    //    else
-                    //    {
-                    //        writer.WriteStartElement("begin");
-                    //        writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
-                    //        writer.WriteEndElement();
-                    //        writer.WriteStartElement("end");
-                    //        writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
-                    //        writer.WriteEndElement();
-                    //    }
-                    //    writer.WriteEndElement(); // location
-                    //    writer.WriteEndElement(); // feature
-                    //}
-
-                    writer.WriteStartElement("sequence");
-                    writer.WriteAttributeString("length", nucleicAcid.Length.ToString(CultureInfo.InvariantCulture));
-                    writer.WriteString(nucleicAcid.BaseSequence);
-                    writer.WriteEndElement(); // sequence
-                    writer.WriteEndElement(); // entry
-                }
-
-                writer.WriteEndElement(); // mzLibProteinDb
-                writer.WriteEndDocument();
+                WriteEndDocument(writer);
             }
+
             return newModResEntries;
         }
 
         /// <summary>
-        /// Writes a rna database in mzLibProteinDb format, with additional modifications from the AdditionalModsToAddToProteins list.
+        /// Writes a protein database in mzLibProteinDb format, with additional modifications from the AdditionalModsToAddToProteins list.
         /// </summary>
         /// <param name="additionalModsToAddToProteins"></param>
         /// <param name="proteinList"></param>
         /// <param name="outputFileName"></param>
+        /// <param name="updateTimeStamp"></param>
+        /// <param name="includeAppliedVariantEntries">
+        /// If true, applied (realized) variant proteoforms (with a different accession produced by VariantApplication) are written
+        /// as separate &lt;entry&gt; elements in addition to their consensus (canonical) parents.
+        /// </param>
+        /// <param name="includeAppliedVariantFeatures">
+        /// If true and an applied variant entry is written, its AppliedSequenceVariations are emitted as
+        /// &lt;feature type="sequence variant"&gt; elements so differences remain explicit (even though its BaseSequence already contains them).
+        /// </param>
         /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
-        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, List<Protein> proteinList, string outputFileName, bool updateTimeStamp = false)
+        public static Dictionary<string, int> WriteXmlDatabase(
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
+            List<Protein> proteinList,
+            string outputFileName,
+            bool updateTimeStamp = false,
+            bool includeAppliedVariantEntries = false,
+            bool includeAppliedVariantFeatures = true)
         {
-            additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+            additionalModsToAddToProteins ??= new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
-            // write nonvariant proteins (for cases where variants aren't applied, this just gets the rna itself)
-            var nonVariantProteins = proteinList.Select(p => p.ConsensusVariant).Distinct().ToList();
+            var proteinsToWrite = BuildProteinsToWrite(proteinList, includeAppliedVariantEntries);
 
-            var xmlWriterSettings = new XmlWriterSettings
+            Dictionary<string, int> newModResEntries = new();
+
+            using (XmlWriter writer = XmlWriter.Create(outputFileName, CreateIndentedWriterSettings()))
             {
-                Indent = true,
-                IndentChars = "  "
-            };
+                WriteStartDocument(writer);
 
-            Dictionary<string, int> newModResEntries = new Dictionary<string, int>();
+                // Modifications catalog
+                var allRelevantMods = CollectAllRelevantModsForProteins(proteinsToWrite, includeAppliedVariantEntries, additionalModsToAddToProteins);
+                WriteModificationCatalog(writer, allRelevantMods);
 
-            using (XmlWriter writer = XmlWriter.Create(outputFileName, xmlWriterSettings))
-            {
-                writer.WriteStartDocument();
-                writer.WriteStartElement("mzLibProteinDb");
-
-                List<Modification> myModificationList = new List<Modification>();
-                foreach (Protein p in nonVariantProteins)
+                // Entries
+                foreach (var protein in proteinsToWrite.OrderBy(p => p.Accession, StringComparer.Ordinal))
                 {
-                    foreach (KeyValuePair<int, List<Modification>> entry in p.OneBasedPossibleLocalizedModifications)
-                    {
-                        myModificationList.AddRange(entry.Value);
-                    }
+                    bool isAppliedVariantEntry = DetermineIsAppliedVariantEntry(protein, includeAppliedVariantEntries);
+                    WriteProteinEntry(writer, protein, isAppliedVariantEntry, updateTimeStamp, includeAppliedVariantFeatures, additionalModsToAddToProteins, newModResEntries);
                 }
 
-                HashSet<Modification> allRelevantModifications = new HashSet<Modification>(
-                    nonVariantProteins
-                        .SelectMany(p => p.SequenceVariations
-                            .SelectMany(sv => sv.OneBasedModifications)
-                            .Concat(p.OneBasedPossibleLocalizedModifications)
-                            .SelectMany(kv => kv.Value))
-                        .Concat(additionalModsToAddToProteins
-                            .Where(kv => nonVariantProteins
-                                .SelectMany(p => p.SequenceVariations
-                                    .Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession }))
-                                .Contains(kv.Key))
-                            .SelectMany(kv => kv.Value.Select(v => v.Item2))));
-
-                foreach (Modification mod in allRelevantModifications.OrderBy(m => m.IdWithMotif))
-                {
-                    writer.WriteStartElement("modification");
-                    writer.WriteString(mod.ToString() + Environment.NewLine + "//");
-                    writer.WriteEndElement();
-                }
-
-                foreach (Protein protein in nonVariantProteins)
-                {
-                    writer.WriteStartElement("entry", "http://uniprot.org/uniprot");
-                    writer.WriteAttributeString("dataset", protein.DatasetEntryTag);
-                    writer.WriteAttributeString("created", protein.CreatedEntryTag);
-                    if (updateTimeStamp)
-                    {
-                        writer.WriteAttributeString("modified", DateTime.Now.ToString("yyyy-MM-dd"));
-                    }
-                    else
-                    {
-                        writer.WriteAttributeString("modified", protein.ModifiedEntryTag);
-                    }         
-                    writer.WriteAttributeString("version", protein.VersionEntryTag);
-                    writer.WriteStartElement("accession");
-                    writer.WriteString(protein.Accession);
-                    writer.WriteEndElement();
-
-                    if (protein.Name != null)
-                    {
-                        writer.WriteStartElement("name");
-                        writer.WriteString(protein.Name);
-                        writer.WriteEndElement();
-                    }
-
-                    if (protein.FullName != null)
-                    {
-                        writer.WriteStartElement("protein");
-                        writer.WriteStartElement("recommendedName");
-                        writer.WriteStartElement("fullName");
-                        writer.WriteString(protein.FullName);
-                        writer.WriteEndElement();
-                        writer.WriteEndElement();
-                        writer.WriteEndElement();
-                    }
-
-                    writer.WriteStartElement("gene");
-                    foreach (var gene_name in protein.GeneNames)
-                    {
-                        writer.WriteStartElement("name");
-                        writer.WriteAttributeString("type", gene_name.Item1);
-                        writer.WriteString(gene_name.Item2);
-                        writer.WriteEndElement();
-                    }
-                    writer.WriteEndElement();
-
-                    if (protein.Organism != null)
-                    {
-                        writer.WriteStartElement("organism");
-                        writer.WriteStartElement("name");
-                        writer.WriteAttributeString("type", "scientific");
-                        writer.WriteString(protein.Organism);
-                        writer.WriteEndElement();
-                        writer.WriteEndElement();
-                    }
-
-                    foreach (var dbRef in protein.DatabaseReferences)
-                    {
-                        writer.WriteStartElement("dbReference");
-                        writer.WriteAttributeString("type", dbRef.Type);
-                        writer.WriteAttributeString("id", dbRef.Id);
-                        foreach (Tuple<string, string> property in dbRef.Properties.OrderBy(t => t.Item1).ThenBy(t => t.Item2))
-                        {
-                            writer.WriteStartElement("property");
-                            writer.WriteAttributeString("type", property.Item1);
-                            writer.WriteAttributeString("value", property.Item2);
-                            writer.WriteEndElement();
-                        }
-                        writer.WriteEndElement();
-                    }
-
-                    //for now we are not going to write top-down truncations generated for top-down truncation search. 
-                    //some day we could write those if observed
-                    //the truncation designation is contained in the "type" field of TruncationProduct
-                    List<TruncationProduct> proteolysisProducts = protein.TruncationProducts.Where(p => !p.Type.Contains("truncation"))
-                        .OrderBy(p => p.OneBasedBeginPosition).ToList();
-                    foreach (var proteolysisProduct in proteolysisProducts)
-                    {
-                        writer.WriteStartElement("feature");
-                        writer.WriteAttributeString("type", proteolysisProduct.Type.Split('(')[0]);
-                        writer.WriteStartElement("location");
-                        writer.WriteStartElement("begin");
-
-                        if(proteolysisProduct.OneBasedBeginPosition == null)
-                        {
-                            writer.WriteAttributeString("status", "unknown");
-                        }
-                        else
-                        {
-                            writer.WriteAttributeString("position", proteolysisProduct.OneBasedBeginPosition.ToString());
-                        }
-
-                        //writer.WriteAttributeString("position", proteolysisProduct.OneBasedBeginPosition.ToString());
-                        writer.WriteEndElement();
-                        writer.WriteStartElement("end");
-                        writer.WriteAttributeString("position", proteolysisProduct.OneBasedEndPosition.ToString());
-                        writer.WriteEndElement();
-                        writer.WriteEndElement();
-                        writer.WriteEndElement();
-                    }
-
-                    foreach (var positionModKvp in GetModsForThisBioPolymer(protein, null, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
-                    {
-                        foreach (var modId in positionModKvp.Value.OrderBy(mod => mod))
-                        {
-                            writer.WriteStartElement("feature");
-                            writer.WriteAttributeString("type", "modified residue");
-                            writer.WriteAttributeString("description", modId);
-                            writer.WriteStartElement("location");
-                            writer.WriteStartElement("position");
-                            writer.WriteAttributeString("position", positionModKvp.Key.ToString(CultureInfo.InvariantCulture));
-                            writer.WriteEndElement();
-                            writer.WriteEndElement();
-                            writer.WriteEndElement();
-                        }
-                    }
-
-                    
-                    foreach (var hm in protein.SequenceVariations.OrderBy(sv => sv.OneBasedBeginPosition).ThenBy(sv => sv.VariantSequence)) 
-                    {
-                        writer.WriteStartElement("feature");
-                        writer.WriteAttributeString("type", "sequence variant");
-                        writer.WriteAttributeString("description", hm.Description.ToString());
-                        writer.WriteStartElement("original");
-                        writer.WriteString(hm.OriginalSequence);
-                        writer.WriteEndElement(); // original
-                        writer.WriteStartElement("variation");
-                        writer.WriteString(hm.VariantSequence);
-                        writer.WriteEndElement(); // variation
-                        writer.WriteStartElement("location");
-                        if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
-                        {
-                            writer.WriteStartElement("position");
-                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
-                            writer.WriteEndElement();
-                        }
-                        else
-                        {
-                            writer.WriteStartElement("begin");
-                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
-                            writer.WriteEndElement();
-                            writer.WriteStartElement("end");
-                            writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
-                            writer.WriteEndElement();
-                        }
-                        foreach (var hmm in GetModsForThisBioPolymer(protein, hm, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
-                        {
-                            foreach (var modId in hmm.Value.OrderBy(mod => mod))
-                            {
-                                writer.WriteStartElement("subfeature");
-                                writer.WriteAttributeString("type", "modified residue");
-                                writer.WriteAttributeString("description", modId);
-                                writer.WriteStartElement("location");
-                                writer.WriteStartElement("subposition");
-                                writer.WriteAttributeString("subposition", hmm.Key.ToString(CultureInfo.InvariantCulture));
-                                writer.WriteEndElement();
-                                writer.WriteEndElement();
-                                writer.WriteEndElement();
-                            }
-                        }
-                        writer.WriteEndElement(); // location
-                        writer.WriteEndElement(); // feature
-                    }
-
-                    foreach (var hm in protein.DisulfideBonds.OrderBy(bond => bond.OneBasedBeginPosition))
-                    {
-                        writer.WriteStartElement("feature");
-                        writer.WriteAttributeString("type", "disulfide bond");
-                        writer.WriteAttributeString("description", hm.Description);
-                        writer.WriteStartElement("location");
-                        if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
-                        {
-                            writer.WriteStartElement("position");
-                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
-                            writer.WriteEndElement();
-                        }
-                        else
-                        {
-                            writer.WriteStartElement("begin");
-                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
-                            writer.WriteEndElement();
-                            writer.WriteStartElement("end");
-                            writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
-                            writer.WriteEndElement();
-                        }
-                        writer.WriteEndElement(); // location
-                        writer.WriteEndElement(); // feature
-                    }
-
-                    foreach (var hm in protein.SpliceSites.OrderBy(site => site.OneBasedBeginPosition))
-                    {
-                        writer.WriteStartElement("feature");
-                        writer.WriteAttributeString("type", "splice site");
-                        writer.WriteAttributeString("description", hm.Description);
-                        writer.WriteStartElement("location");
-                        if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
-                        {
-                            writer.WriteStartElement("position");
-                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
-                            writer.WriteEndElement();
-                        }
-                        else
-                        {
-                            writer.WriteStartElement("begin");
-                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
-                            writer.WriteEndElement();
-                            writer.WriteStartElement("end");
-                            writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
-                            writer.WriteEndElement();
-                        }
-                        writer.WriteEndElement(); // location
-                        writer.WriteEndElement(); // feature
-                    }
-
-                    writer.WriteStartElement("sequence");
-                    writer.WriteAttributeString("length", protein.UniProtSequenceAttributes.Length.ToString(CultureInfo.InvariantCulture));
-                    writer.WriteAttributeString("mass", protein.UniProtSequenceAttributes.Mass.ToString(CultureInfo.InvariantCulture));
-                    writer.WriteAttributeString("checksum", protein.UniProtSequenceAttributes.Checksum);
-                    writer.WriteAttributeString("modified", protein.UniProtSequenceAttributes.EntryModified.ToString("yyyy-MM-dd"));
-                    writer.WriteAttributeString("version", protein.UniProtSequenceAttributes.SequenceVersion.ToString(CultureInfo.InvariantCulture));
-                    //optional attributes
-                    if (protein.UniProtSequenceAttributes.IsPrecursor != null)
-                    {
-                        writer.WriteAttributeString("precursor", protein.UniProtSequenceAttributes.IsPrecursor.Value.ToString().ToLowerInvariant());
-                    }
-                    if(protein.UniProtSequenceAttributes.Fragment != UniProtSequenceAttributes.FragmentType.unspecified)
-                    {
-                        writer.WriteAttributeString("fragment", protein.UniProtSequenceAttributes.Fragment.ToString().ToLowerInvariant());
-                    }
-                    //end optional attributes
-                    writer.WriteString(protein.BaseSequence);
-                    writer.WriteEndElement(); // sequence
-                    writer.WriteEndElement(); // entry
-                }
-
-                writer.WriteEndElement(); // mzLibProteinDb
-                writer.WriteEndDocument();
+                WriteEndDocument(writer);
             }
+
             return newModResEntries;
         }
 
-
+        /// <summary>
+        /// Writes a FASTA file for a list of proteins.
+        /// </summary>
         public static void WriteFastaDatabase(List<Protein> proteinList, string outputFileName, string delimeter)
         {
             using (StreamWriter writer = new StreamWriter(outputFileName))
@@ -596,7 +155,6 @@ namespace UsefulProteomicsDatabases
                 }
             }
         }
-
         public static void WriteFastaDatabase(List<RNA> rnaList, string outputFileName)
         {
             using (StreamWriter writer = new StreamWriter(outputFileName))
@@ -606,6 +164,8 @@ namespace UsefulProteomicsDatabases
                     var n = rna.GeneNames.FirstOrDefault();
                     string geneName = n == null ? "" : n.Item2;
 
+                        //TODO: handle proteolysis products with null begin position
+                        //see rna writer for example. 
 
                     writer.WriteLine(">mz|{0}|{1} {2} OS={3} GN={4}", rna.Accession, rna.Name, rna.FullName, rna.Organism, geneName);
                     writer.WriteLine(rna.BaseSequence);
@@ -613,60 +173,916 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-        private static Dictionary<int, HashSet<string>> GetModsForThisBioPolymer(IBioPolymer protein, SequenceVariation seqvar, Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, Dictionary<string, int> newModResEntries)
+        /// <summary>
+        /// Collects all relevant modifications for RNA: base mods, sequence-variant mods, and additional mods scoped by accession keys.
+        /// </summary>
+        private static IEnumerable<Modification> CollectAllRelevantModsForRna(
+            List<RNA> nonVariantRna,
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToNucleicAcids)
+        {
+            HashSet<Modification> allRelevant = new();
+
+            foreach (var p in nonVariantRna)
+            {
+                // Variant-specific mods
+                if (p.SequenceVariations != null)
+                {
+                    foreach (var sv in p.SequenceVariations)
+                    {
+                        if (sv?.OneBasedModifications == null) continue;
+                        foreach (var kv in sv.OneBasedModifications)
+                        {
+                            if (kv.Value == null) continue;
+                            foreach (var m in kv.Value)
+                            {
+                                if (m != null) allRelevant.Add(m);
+                            }
+                        }
+                    }
+                }
+
+                // Base possible localized mods
+                if (p.OneBasedPossibleLocalizedModifications != null)
+                {
+                    foreach (var kv in p.OneBasedPossibleLocalizedModifications)
+                    {
+                        if (kv.Value == null) continue;
+                        foreach (var m in kv.Value)
+                        {
+                            if (m != null) allRelevant.Add(m);
+                        }
+                    }
+                }
+            }
+
+            // Additional externally supplied mods (keys that match base accession or variant-accession)
+            var allowedAccessions = new HashSet<string>(
+                nonVariantRna.SelectMany(p =>
+                    (p.SequenceVariations ?? new List<SequenceVariation>())
+                        .Select(sv => VariantApplication.GetAccession(p, new[] { sv }))
+                        .Concat(new[] { p.Accession })),
+                StringComparer.Ordinal);
+
+            foreach (var kv in (additionalModsToAddToNucleicAcids ?? new()).Where(kv => allowedAccessions.Contains(kv.Key)))
+            {
+                foreach (var t in kv.Value)
+                {
+                    if (t?.Item2 != null) allRelevant.Add(t.Item2);
+                }
+            }
+
+            return allRelevant.OrderBy(m => m.IdWithMotif);
+        }
+
+        /// <summary>
+        /// Collects all relevant modifications for proteins: base mods, sequence-variant mods, applied-variant mods (optional), and additional mods by accession.
+        /// </summary>
+        private static IEnumerable<Modification> CollectAllRelevantModsForProteins(
+            List<Protein> proteinsToWrite,
+            bool includeAppliedVariantEntries,
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins)
+        {
+            HashSet<Modification> allRelevantModifications = new();
+
+            foreach (var prot in proteinsToWrite)
+            {
+                if (prot == null) continue;
+
+                // Base possible localized mods
+                if (prot.OneBasedPossibleLocalizedModifications != null)
+                {
+                    foreach (var kv in prot.OneBasedPossibleLocalizedModifications)
+                    {
+                        if (kv.Value == null) continue;
+                        foreach (var m in kv.Value)
+                        {
+                            if (m != null) allRelevantModifications.Add(m);
+                        }
+                    }
+                }
+
+                // Candidate sequence variants
+                if (prot.SequenceVariations != null)
+                {
+                    foreach (var sv in prot.SequenceVariations)
+                    {
+                        if (sv?.OneBasedModifications == null) continue;
+                        foreach (var kv in sv.OneBasedModifications)
+                        {
+                            if (kv.Value == null) continue;
+                            foreach (var m in kv.Value)
+                            {
+                                if (m != null) allRelevantModifications.Add(m);
+                            }
+                        }
+                    }
+                }
+
+                // Applied sequence variants (when writing applied variant entries)
+                if (includeAppliedVariantEntries && prot.AppliedSequenceVariations != null)
+                {
+                    foreach (var sv in prot.AppliedSequenceVariations)
+                    {
+                        if (sv?.OneBasedModifications == null) continue;
+                        foreach (var kv in sv.OneBasedModifications)
+                        {
+                            if (kv.Value == null) continue;
+                            foreach (var m in kv.Value)
+                            {
+                                if (m != null) allRelevantModifications.Add(m);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Additional externally supplied mods (filter by accession we actually write)
+            var accessionsToWrite = new HashSet<string>(proteinsToWrite.Select(p => p.Accession), StringComparer.Ordinal);
+            foreach (var kv in additionalModsToAddToProteins.Where(kv => accessionsToWrite.Contains(kv.Key)))
+            {
+                foreach (var tup in kv.Value)
+                {
+                    if (tup?.Item2 != null) allRelevantModifications.Add(tup.Item2);
+                }
+            }
+
+            return allRelevantModifications.OrderBy(m => m.IdWithMotif);
+        }
+
+        /// <summary>
+        /// Writes the global catalog of modifications required for all entries in the file.
+        /// </summary>
+        private static void WriteModificationCatalog(XmlWriter writer, IEnumerable<Modification> modifications)
+        {
+            foreach (Modification mod in modifications)
+            {
+                writer.WriteStartElement("modification");
+                writer.WriteString(mod.ToString() + Environment.NewLine + "//");
+                writer.WriteEndElement();
+            }
+        }
+
+        /// <summary>
+        /// Builds the list of proteins to write: canonical consensus entries plus optional applied variant proteoforms.
+        /// </summary>
+        private static List<Protein> BuildProteinsToWrite(IEnumerable<Protein> proteinList, bool includeAppliedVariantEntries)
+        {
+            var consensusProteins = proteinList
+                .Select(p => p?.ConsensusVariant)
+                .OfType<Protein>()
+                .Distinct()
+                .ToList();
+
+            List<Protein> proteinsToWrite = new(consensusProteins);
+
+            if (!includeAppliedVariantEntries)
+            {
+                return proteinsToWrite;
+            }
+
+            foreach (var p in proteinList)
+            {
+                if (p == null) continue;
+                var consensus = p.ConsensusVariant as Protein;
+
+                bool isAppliedVariant = p.AppliedSequenceVariations != null
+                                        && p.AppliedSequenceVariations.Count > 0
+                                        && (consensus == null || !ReferenceEquals(p, consensus));
+
+                if (isAppliedVariant && !proteinsToWrite.Any(x => string.Equals(x.Accession, p.Accession, StringComparison.Ordinal)))
+                {
+                    proteinsToWrite.Add(p);
+                }
+            }
+
+            return proteinsToWrite;
+        }
+
+        // NEW: helper to assemble RNAs to write (consensus + optional applied-variant isoforms)
+        private static List<RNA> BuildRnaToWrite(IEnumerable<RNA> rnaList, bool includeAppliedVariantEntries)
+        {
+            var consensus = rnaList
+                .Select(r => r?.ConsensusVariant)
+                .OfType<RNA>()
+                .Distinct()
+                .ToList();
+
+            if (!includeAppliedVariantEntries)
+            {
+                return consensus;
+            }
+
+            var toWrite = new List<RNA>(consensus);
+
+            foreach (var r in rnaList)
+            {
+                if (r == null) continue;
+                var cons = r.ConsensusVariant as RNA;
+
+                bool isAppliedVariant =
+                    r.AppliedSequenceVariations != null &&
+                    r.AppliedSequenceVariations.Count > 0 &&
+                    (cons == null || !ReferenceEquals(r, cons));
+
+                if (isAppliedVariant && !toWrite.Any(x => string.Equals(x.Accession, r.Accession, StringComparison.Ordinal)))
+                {
+                    toWrite.Add(r);
+                }
+            }
+
+            return toWrite;
+        }
+
+        /// <summary>
+        /// Writes a complete RNA entry (accession, names, gene/organism, features, sequence).
+        /// </summary>
+        private static void WriteRnaEntry(
+            XmlWriter writer,
+            RNA rna,
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalMods,
+            Dictionary<string, int> newModResEntries,
+            bool updateTimeStamp)
+        {
+            writer.WriteStartElement("entry", "undefined"); // placeholder to match original behavior
+
+            // Accession
+            WriteAccession(writer, rna.Accession);
+
+            // Optional presentation fields
+            WriteNameIfNotEmpty(writer, rna.Name);
+            WriteRecommendedProteinNameIfNotEmpty(writer, rna.FullName);
+
+            // Gene/organism
+            WriteGeneNames(writer, rna.GeneNames);
+            WriteOrganismIfNotEmpty(writer, rna.Organism);
+
+            // Proteolysis products (no special null-begin handling here to preserve original behavior)
+            WriteProteolysisProductsRna(writer, rna.TruncationProducts);
+
+            // Base modification features
+            WriteModifiedResidueFeatures(writer, rna, null, additionalMods, newModResEntries, orderModIds: false);
+
+            // Sequence variants and their subfeatures (variant-specific mods)
+            WriteRnaSequenceVariantFeatures(writer, rna, additionalMods, newModResEntries);
+
+            // Sequence
+            WriteRnaSequenceElement(writer, rna);
+
+            writer.WriteEndElement(); // entry
+        }
+
+        /// <summary>
+        /// Writes a complete protein entry with metadata, features, and sequence.
+        /// </summary>
+        private static void WriteProteinEntry(
+            XmlWriter writer,
+            Protein protein,
+            bool isAppliedVariantEntry,
+            bool updateTimeStamp,
+            bool includeAppliedVariantFeatures,
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalMods,
+            Dictionary<string, int> newModResEntries)
+        {
+            writer.WriteStartElement("entry", "http://uniprot.org/uniprot");
+            writer.WriteAttributeString("dataset", protein.DatasetEntryTag);
+            writer.WriteAttributeString("created", protein.CreatedEntryTag);
+            writer.WriteAttributeString("modified", updateTimeStamp ? DateTime.Now.ToString("yyyy-MM-dd") : protein.ModifiedEntryTag);
+            writer.WriteAttributeString("version", protein.VersionEntryTag);
+
+            if (isAppliedVariantEntry)
+            {
+                writer.WriteAttributeString("variant", "true");
+            }
+
+            // Accession and names
+            WriteAccession(writer, protein.Accession);
+            WriteNameIfNotNull(writer, protein.Name);
+            WriteRecommendedProteinNameIfNotNull(writer, protein.FullName);
+
+            // Gene/organism
+            WriteGeneNames(writer, protein.GeneNames);
+            WriteOrganismIfNotNull(writer, protein.Organism);
+
+            // Database references
+            WriteDatabaseReferences(writer, protein.DatabaseReferences);
+
+            // Proteolysis products (with null-begin as status="unknown")
+            WriteProteolysisProductsProtein(writer, protein.TruncationProducts);
+
+            // Base modification features (top-level). AdditionalMods are allowed here.
+            WriteModifiedResidueFeatures(writer, protein, null, additionalMods, newModResEntries, orderModIds: true);
+
+            // Sequence variant features:
+            // - For consensus entries, emit candidate sequence variants (features only).
+            // - For applied entries, do not emit sequence variant features at all.
+            var emitVariantFeatures = !isAppliedVariantEntry && includeAppliedVariantFeatures;
+            WriteProteinSequenceVariantFeatures(writer, protein, isAppliedVariantEntry, emitVariantFeatures, additionalMods, newModResEntries);
+
+            // Disulfide bonds
+            WriteDisulfideBonds(writer, protein.DisulfideBonds);
+
+            // Splice sites
+            WriteSpliceSites(writer, protein.SpliceSites);
+
+            // Sequence
+            WriteProteinSequenceElement(writer, protein);
+
+            writer.WriteEndElement(); // entry
+        }
+
+        private static void WriteProteinSequenceVariantFeatures(
+            XmlWriter writer,
+            Protein protein,
+            bool isAppliedVariantEntry,
+            bool includeAppliedVariantFeatures,
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalMods,
+            Dictionary<string, int> newModResEntries)
+        {
+            // Do not emit sequence-variant features for applied entries
+            if (!includeAppliedVariantFeatures)
+            {
+                return;
+            }
+
+            IEnumerable<SequenceVariation> variantFeaturesSource =
+                (protein.SequenceVariations ?? Enumerable.Empty<SequenceVariation>());
+
+            // Previously we allowed applied entries to emit AppliedSequenceVariations.
+            // To align with the desired semantics, we suppress variant features for applied entries entirely.
+            // if (isAppliedVariantEntry && includeAppliedVariantFeatures)
+            // {
+            //     variantFeaturesSource = protein.AppliedSequenceVariations ?? new List<SequenceVariation>();
+            // }
+
+            foreach (var sv in variantFeaturesSource
+                .OrderBy(sv => sv.OneBasedBeginPosition)
+                .ThenBy(sv => sv.VariantSequence ?? string.Empty))
+            {
+                if (sv == null) continue;
+
+                string description =
+                    sv.Description ??
+                    sv.VariantCallFormatData?.Description ??
+                    sv.VariantCallFormatData?.ToString() ??
+                    sv.SimpleString();
+
+                if (string.IsNullOrWhiteSpace(description))
+                {
+                    var orig = sv.OriginalSequence ?? string.Empty;
+                    var varSeq = sv.VariantSequence ?? string.Empty;
+                    if (!string.IsNullOrEmpty(orig) && !string.IsNullOrEmpty(varSeq))
+                    {
+                        description = sv.OneBasedBeginPosition == sv.OneBasedEndPosition
+                            ? $"{orig}{sv.OneBasedBeginPosition}{varSeq}"
+                            : $"{orig}{sv.OneBasedBeginPosition}-{sv.OneBasedEndPosition}{varSeq}";
+                    }
+                    else
+                    {
+                        description = "sequence variant";
+                    }
+                }
+
+                writer.WriteStartElement("feature");
+                writer.WriteAttributeString("type", "sequence variant");
+                writer.WriteAttributeString("description", description);
+
+                writer.WriteStartElement("original");
+                writer.WriteString(sv.OriginalSequence ?? string.Empty);
+                writer.WriteEndElement();
+
+                writer.WriteStartElement("variation");
+                writer.WriteString(sv.VariantSequence ?? string.Empty);
+                writer.WriteEndElement();
+
+                writer.WriteStartElement("location");
+                WriteSpanOrPointLocation(writer, sv.OneBasedBeginPosition, sv.OneBasedEndPosition);
+
+                // Variant-specific modified residues as subfeatures:
+                // Do NOT merge AdditionalMods here. Only emit variant's intrinsic OneBasedModifications.
+                foreach (var hmm in GetModsForThisBioPolymer(protein, sv, null, newModResEntries).OrderBy(b => b.Key))
+                {
+                    foreach (var modId in hmm.Value.OrderBy(m => m, StringComparer.Ordinal))
+                    {
+                        writer.WriteStartElement("subfeature");
+                        writer.WriteAttributeString("type", "modified residue");
+                        writer.WriteAttributeString("description", modId);
+                        writer.WriteStartElement("location");
+                        writer.WriteStartElement("subposition");
+                        writer.WriteAttributeString("subposition", hmm.Key.ToString(CultureInfo.InvariantCulture));
+                        writer.WriteEndElement(); // subposition
+                        writer.WriteEndElement(); // location
+                        writer.WriteEndElement(); // subfeature
+                    }
+                }
+
+                writer.WriteEndElement(); // location
+                writer.WriteEndElement(); // feature
+            }
+        }
+
+        private static void WriteRnaSequenceVariantFeatures(
+            XmlWriter writer,
+            RNA rna,
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalMods,
+            Dictionary<string, int> newModResEntries)
+        {
+            foreach (var sv in (rna.SequenceVariations ?? new List<SequenceVariation>())
+                .OrderBy(sv => sv.OneBasedBeginPosition)
+                .ThenBy(sv => sv.VariantSequence ?? string.Empty))
+            {
+                if (sv == null)
+                    continue;
+
+                // Build a guaranteed non-empty description
+                string description =
+                    sv.Description ??
+                    sv.VariantCallFormatData?.Description ??
+                    sv.VariantCallFormatData?.ToString() ??
+                    sv.SimpleString();
+
+                if (string.IsNullOrWhiteSpace(description))
+                {
+                    var orig = sv.OriginalSequence ?? string.Empty;
+                    var varSeq = sv.VariantSequence ?? string.Empty;
+                    if (!string.IsNullOrEmpty(orig) && !string.IsNullOrEmpty(varSeq))
+                    {
+                        description = sv.OneBasedBeginPosition == sv.OneBasedEndPosition
+                            ? $"{orig}{sv.OneBasedBeginPosition}{varSeq}"
+                            : $"{orig}{sv.OneBasedBeginPosition}-{sv.OneBasedEndPosition}{varSeq}";
+                    }
+                    else
+                    {
+                        description = "sequence variant";
+                    }
+                }
+
+                writer.WriteStartElement("feature");
+                writer.WriteAttributeString("type", "sequence variant");
+                writer.WriteAttributeString("description", description);
+
+                writer.WriteStartElement("original");
+                writer.WriteString(sv.OriginalSequence);
+                writer.WriteEndElement();
+
+                writer.WriteStartElement("variation");
+                writer.WriteString(sv.VariantSequence);
+                writer.WriteEndElement();
+
+                writer.WriteStartElement("location");
+                WriteSpanOrPointLocation(writer, sv.OneBasedBeginPosition, sv.OneBasedEndPosition);
+
+                // Variant-specific modified residues as subfeatures:
+                // Do NOT merge AdditionalMods here. Only emit intrinsic sv mods.
+                foreach (var hmm in GetModsForThisBioPolymer(rna, sv, null, newModResEntries).OrderBy(b => b.Key))
+                {
+                    foreach (var modId in hmm.Value)
+                    {
+                        writer.WriteStartElement("subfeature");
+                        writer.WriteAttributeString("type", "modified residue");
+                        writer.WriteAttributeString("description", modId);
+                        writer.WriteStartElement("location");
+                        writer.WriteStartElement("subposition");
+                        writer.WriteAttributeString("subposition", hmm.Key.ToString(CultureInfo.InvariantCulture));
+                        writer.WriteEndElement();
+                        writer.WriteEndElement();
+                        writer.WriteEndElement();
+                    }
+                }
+
+                writer.WriteEndElement(); // location
+                writer.WriteEndElement(); // feature
+            }
+        }
+
+        /// <summary>
+        /// Writes proteolysis products for proteins; if begin is null, emits status="unknown" instead of position.
+        /// </summary>
+        private static void WriteProteolysisProductsProtein(XmlWriter writer, IEnumerable<TruncationProduct> products)
+        {
+            var proteolysisProducts = (products ?? Enumerable.Empty<TruncationProduct>())
+                .Where(p => !p.Type.Contains("truncation"))
+                .OrderBy(p => p.OneBasedBeginPosition)
+                .ToList();
+
+            foreach (var proteolysisProduct in proteolysisProducts)
+            {
+                writer.WriteStartElement("feature");
+                writer.WriteAttributeString("type", proteolysisProduct.Type.Split('(')[0]);
+                writer.WriteStartElement("location");
+                writer.WriteStartElement("begin");
+
+                if (proteolysisProduct.OneBasedBeginPosition == null)
+                {
+                    writer.WriteAttributeString("status", "unknown");
+                }
+                else
+                {
+                    writer.WriteAttributeString("position", proteolysisProduct.OneBasedBeginPosition.ToString());
+                }
+
+                writer.WriteEndElement(); // begin
+                writer.WriteStartElement("end");
+                writer.WriteAttributeString("position", proteolysisProduct.OneBasedEndPosition.ToString());
+                writer.WriteEndElement(); // end
+                writer.WriteEndElement(); // location
+                writer.WriteEndElement(); // feature
+            }
+        }
+
+        /// <summary>
+        /// Writes proteolysis products for RNA; preserves original behavior for begin position handling.
+        /// </summary>
+        private static void WriteProteolysisProductsRna(XmlWriter writer, IEnumerable<TruncationProduct> products)
+        {
+            var proteolysisProducts = (products ?? Enumerable.Empty<TruncationProduct>())
+                .Where(p => !p.Type.Contains("truncation"))
+                .ToList();
+
+            foreach (var proteolysisProduct in proteolysisProducts)
+            {
+                writer.WriteStartElement("feature");
+                writer.WriteAttributeString("type", proteolysisProduct.Type.Split('(')[0]);
+                writer.WriteStartElement("location");
+                writer.WriteStartElement("begin");
+
+                // Original RNA writer did not handle null begin specially
+                writer.WriteAttributeString("position", proteolysisProduct.OneBasedBeginPosition.ToString());
+
+                writer.WriteEndElement(); // begin
+                writer.WriteStartElement("end");
+                writer.WriteAttributeString("position", proteolysisProduct.OneBasedEndPosition.ToString());
+                writer.WriteEndElement(); // end
+                writer.WriteEndElement(); // location
+                writer.WriteEndElement(); // feature
+            }
+        }
+
+        /// <summary>
+        /// Writes disulfide bond features with begin/end or single position.
+        /// </summary>
+        private static void WriteDisulfideBonds(XmlWriter writer, IEnumerable<DisulfideBond> bonds)
+        {
+            foreach (var bond in (bonds ?? Enumerable.Empty<DisulfideBond>()).OrderBy(b => b.OneBasedBeginPosition))
+            {
+                writer.WriteStartElement("feature");
+                writer.WriteAttributeString("type", "disulfide bond");
+                writer.WriteAttributeString("description", bond.Description);
+                writer.WriteStartElement("location");
+                WriteSpanOrPointLocation(writer, bond.OneBasedBeginPosition, bond.OneBasedEndPosition);
+                writer.WriteEndElement(); // location
+                writer.WriteEndElement(); // feature
+            }
+        }
+
+        /// <summary>
+        /// Writes splice site features with begin/end or single position.
+        /// </summary>
+        private static void WriteSpliceSites(XmlWriter writer, IEnumerable<SpliceSite> sites)
+        {
+            foreach (var site in (sites ?? Enumerable.Empty<SpliceSite>()).OrderBy(s => s.OneBasedBeginPosition))
+            {
+                writer.WriteStartElement("feature");
+                writer.WriteAttributeString("type", "splice site");
+                writer.WriteAttributeString("description", site.Description);
+                writer.WriteStartElement("location");
+                WriteSpanOrPointLocation(writer, site.OneBasedBeginPosition, site.OneBasedEndPosition);
+                writer.WriteEndElement(); // location
+                writer.WriteEndElement(); // feature
+            }
+        }
+
+        /// <summary>
+        /// Writes a span (begin/end) or a single position to the current "location" element.
+        /// </summary>
+        private static void WriteSpanOrPointLocation(XmlWriter writer, int begin, int end)
+        {
+            if (begin == end)
+            {
+                writer.WriteStartElement("position");
+                writer.WriteAttributeString("position", begin.ToString(CultureInfo.InvariantCulture));
+                writer.WriteEndElement();
+            }
+            else
+            {
+                writer.WriteStartElement("begin");
+                writer.WriteAttributeString("position", begin.ToString(CultureInfo.InvariantCulture));
+                writer.WriteEndElement();
+                writer.WriteStartElement("end");
+                writer.WriteAttributeString("position", end.ToString(CultureInfo.InvariantCulture));
+                writer.WriteEndElement();
+            }
+        }
+
+        /// <summary>
+        /// Writes the UniProt-style sequence element with attributes for proteins.
+        /// </summary>
+        private static void WriteProteinSequenceElement(XmlWriter writer, Protein protein)
+        {
+            writer.WriteStartElement("sequence");
+            writer.WriteAttributeString("length", protein.UniProtSequenceAttributes.Length.ToString(CultureInfo.InvariantCulture));
+            writer.WriteAttributeString("mass", protein.UniProtSequenceAttributes.Mass.ToString(CultureInfo.InvariantCulture));
+            writer.WriteAttributeString("checksum", protein.UniProtSequenceAttributes.Checksum);
+            writer.WriteAttributeString("modified", protein.UniProtSequenceAttributes.EntryModified.ToString("yyyy-MM-dd"));
+            writer.WriteAttributeString("version", protein.UniProtSequenceAttributes.SequenceVersion.ToString(CultureInfo.InvariantCulture));
+
+            if (protein.UniProtSequenceAttributes.IsPrecursor != null)
+            {
+                writer.WriteAttributeString("precursor", protein.UniProtSequenceAttributes.IsPrecursor.Value.ToString().ToLowerInvariant());
+            }
+
+            if (protein.UniProtSequenceAttributes.Fragment != UniProtSequenceAttributes.FragmentType.unspecified)
+            {
+                writer.WriteAttributeString("fragment", protein.UniProtSequenceAttributes.Fragment.ToString().ToLowerInvariant());
+            }
+
+            writer.WriteString(protein.BaseSequence);
+            writer.WriteEndElement(); // sequence
+        }
+
+        /// <summary>
+        /// Writes the simple sequence element for RNA.
+        /// </summary>
+        private static void WriteRnaSequenceElement(XmlWriter writer, RNA rna)
+        {
+            writer.WriteStartElement("sequence");
+            writer.WriteAttributeString("length", rna.Length.ToString(CultureInfo.InvariantCulture));
+            writer.WriteString(rna.BaseSequence);
+            writer.WriteEndElement();
+        }
+
+        /// <summary>
+        /// Writes an accession element.
+        /// </summary>
+        private static void WriteAccession(XmlWriter writer, string accession)
+        {
+            writer.WriteStartElement("accession");
+            writer.WriteString(accession);
+            writer.WriteEndElement();
+        }
+
+        /// <summary>
+        /// Writes the display name if not null.
+        /// </summary>
+        private static void WriteNameIfNotNull(XmlWriter writer, string name)
+        {
+            if (name == null) return;
+            writer.WriteStartElement("name");
+            writer.WriteString(name);
+            writer.WriteEndElement();
+        }
+
+        /// <summary>
+        /// Writes the display name if not null/empty/whitespace (RNA variant).
+        /// </summary>
+        private static void WriteNameIfNotEmpty(XmlWriter writer, string name)
+        {
+            if (!name.IsNotNullOrEmptyOrWhiteSpace()) return;
+            writer.WriteStartElement("name");
+            writer.WriteString(name);
+            writer.WriteEndElement();
+        }
+
+        /// <summary>
+        /// Writes the recommendedName/fullName block if FullName is set (protein).
+        /// </summary>
+        private static void WriteRecommendedProteinNameIfNotNull(XmlWriter writer, string fullName)
+        {
+            if (fullName == null) return;
+            writer.WriteStartElement("protein");
+            writer.WriteStartElement("recommendedName");
+            writer.WriteStartElement("fullName");
+            writer.WriteString(fullName);
+            writer.WriteEndElement(); // fullName
+            writer.WriteEndElement(); // recommendedName
+            writer.WriteEndElement(); // protein
+        }
+
+        /// <summary>
+        /// Writes the recommendedName/fullName block if FullName is not empty (RNA).
+        /// </summary>
+        private static void WriteRecommendedProteinNameIfNotEmpty(XmlWriter writer, string fullName)
+        {
+            if (!fullName.IsNotNullOrEmptyOrWhiteSpace()) return;
+            writer.WriteStartElement("protein");
+            writer.WriteStartElement("recommendedName");
+            writer.WriteStartElement("fullName");
+            writer.WriteString(fullName);
+            writer.WriteEndElement(); // fullName
+            writer.WriteEndElement(); // recommendedName
+            writer.WriteEndElement(); // protein
+        }
+
+        /// <summary>
+        /// Writes gene names.
+        /// </summary>
+        private static void WriteGeneNames(XmlWriter writer, IEnumerable<Tuple<string, string>> geneNames)
+        {
+            writer.WriteStartElement("gene");
+            foreach (var geneName in (geneNames ?? Enumerable.Empty<Tuple<string, string>>()))
+            {
+                writer.WriteStartElement("name");
+                writer.WriteAttributeString("type", geneName.Item1);
+                writer.WriteString(geneName.Item2);
+                writer.WriteEndElement();
+            }
+            writer.WriteEndElement();
+        }
+
+        /// <summary>
+        /// Writes organism block if present (protein).
+        /// </summary>
+        private static void WriteOrganismIfNotNull(XmlWriter writer, string organism)
+        {
+            if (organism == null) return;
+            writer.WriteStartElement("organism");
+            writer.WriteStartElement("name");
+            writer.WriteAttributeString("type", "scientific");
+            writer.WriteString(organism);
+            writer.WriteEndElement(); // name
+            writer.WriteEndElement(); // organism
+        }
+
+        /// <summary>
+        /// Writes organism block if string is not empty (RNA).
+        /// </summary>
+        private static void WriteOrganismIfNotEmpty(XmlWriter writer, string organism)
+        {
+            if (!organism.IsNotNullOrEmptyOrWhiteSpace()) return;
+            writer.WriteStartElement("organism");
+            writer.WriteStartElement("name");
+            writer.WriteAttributeString("type", "scientific");
+            writer.WriteString(organism);
+            writer.WriteEndElement(); // name
+            writer.WriteEndElement(); // organism
+        }
+
+        /// <summary>
+        /// Writes database references with sorted properties for stability.
+        /// </summary>
+        private static void WriteDatabaseReferences(XmlWriter writer, IEnumerable<DatabaseReference> dbRefs)
+        {
+            foreach (var dbRef in (dbRefs ?? Enumerable.Empty<DatabaseReference>()))
+            {
+                writer.WriteStartElement("dbReference");
+                writer.WriteAttributeString("type", dbRef.Type);
+                writer.WriteAttributeString("id", dbRef.Id);
+
+                foreach (Tuple<string, string> property in dbRef.Properties.OrderBy(t => t.Item1).ThenBy(t => t.Item2))
+                {
+                    writer.WriteStartElement("property");
+                    writer.WriteAttributeString("type", property.Item1);
+                    writer.WriteAttributeString("value", property.Item2);
+                    writer.WriteEndElement();
+                }
+
+                writer.WriteEndElement();
+            }
+        }
+
+        /// <summary>
+        /// Returns true if a protein is an applied variant entry that should be annotated as such.
+        /// </summary>
+        private static bool DetermineIsAppliedVariantEntry(Protein protein, bool includeAppliedVariantEntries)
+        {
+            var consensus = protein.ConsensusVariant as Protein;
+            return includeAppliedVariantEntries
+                   && consensus != null
+                   && !ReferenceEquals(protein, consensus)
+                   && protein.AppliedSequenceVariations != null
+                   && protein.AppliedSequenceVariations.Count > 0;
+        }
+
+        /// <summary>
+        /// Creates indented XML writer settings.
+        /// </summary>
+        private static XmlWriterSettings CreateIndentedWriterSettings()
+        {
+            return new XmlWriterSettings
+            {
+                Indent = true,
+                IndentChars = "  "
+            };
+        }
+
+        /// <summary>
+        /// Writes the mzLibProteinDb start element and XML declaration.
+        /// </summary>
+        private static void WriteStartDocument(XmlWriter writer)
+        {
+            writer.WriteStartDocument();
+            writer.WriteStartElement("mzLibProteinDb");
+        }
+
+        /// <summary>
+        /// Closes the mzLibProteinDb element and ends the document.
+        /// </summary>
+        private static void WriteEndDocument(XmlWriter writer)
+        {
+            writer.WriteEndElement(); // mzLibProteinDb
+            writer.WriteEndDocument();
+        }
+
+        /// <summary>
+        /// Gathers modified residue identifiers for a polymer (optionally variant-scoped), merges additional mods,
+        /// and updates counts of new "modified residue" entries introduced by AdditionalMods.
+        /// </summary>
+        private static Dictionary<int, HashSet<string>> GetModsForThisBioPolymer(
+            IBioPolymer protein,
+            SequenceVariation seqvar,
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
+            Dictionary<string, int> newModResEntries)
         {
             var modsToWriteForThisSpecificProtein = new Dictionary<int, HashSet<string>>();
 
-            var primaryModDict = seqvar == null ? protein.OneBasedPossibleLocalizedModifications : seqvar.OneBasedModifications;
+            // Select the appropriate modification dictionary (variant-specific if seqvar != null).
+            // Each side guarantees a non-null dictionary (falls back to new Dictionary<,>()), so no further null check needed.
+            var primaryModDict = seqvar == null
+                ? (protein.OneBasedPossibleLocalizedModifications ?? new Dictionary<int, List<Modification>>())
+                : (seqvar.OneBasedModifications ?? new Dictionary<int, List<Modification>>());
+
             foreach (var mods in primaryModDict)
             {
+                if (mods.Value == null) continue;
                 foreach (var mod in mods.Value)
                 {
-                    if (modsToWriteForThisSpecificProtein.TryGetValue(mods.Key, out HashSet<string> val))
-                        val.Add(mod.IdWithMotif);
+                    if (mod == null) continue;
+                    if (modsToWriteForThisSpecificProtein.TryGetValue(mods.Key, out var set))
+                        set.Add(mod.IdWithMotif);
                     else
                         modsToWriteForThisSpecificProtein.Add(mods.Key, new HashSet<string> { mod.IdWithMotif });
                 }
             }
 
-            string accession = seqvar == null ? protein.Accession : VariantApplication.GetAccession(protein, new[] { seqvar }); 
-            if (additionalModsToAddToProteins.ContainsKey(accession))
+            // Additional externally supplied mods (accession changes if seqvar is applied)
+            string accession = seqvar == null
+                ? protein.Accession
+                : VariantApplication.GetAccession(protein, new[] { seqvar });
+
+            if (additionalModsToAddToProteins != null &&
+                accession != null &&
+                additionalModsToAddToProteins.TryGetValue(accession, out var extraMods))
             {
-                foreach (var ye in additionalModsToAddToProteins[accession])
+                foreach (var (pos, mod) in extraMods.Where(t => t != null))
                 {
-                    int additionalModResidueIndex = ye.Item1;
-                    string additionalModId = ye.Item2.IdWithMotif;
-                    bool modAdded = false;
+                    if (mod == null) continue;
 
-                    // If we already have modifications that need to be written to the specific residue, get the hash set of those mods
-                    if (modsToWriteForThisSpecificProtein.TryGetValue(additionalModResidueIndex, out HashSet<string> val))
-                    {
-                        // Try to add the new mod to that hash set. If it's not there, modAdded=true, and it is added.
-                        modAdded = val.Add(additionalModId);
-                    }
-
-                    // Otherwise, no modifications currently need to be written to the residue at residueIndex, so need to create new hash set for that residue
+                    bool added;
+                    if (modsToWriteForThisSpecificProtein.TryGetValue(pos, out var set))
+                        added = set.Add(mod.IdWithMotif);
                     else
                     {
-                        modsToWriteForThisSpecificProtein.Add(additionalModResidueIndex, new HashSet<string> { additionalModId });
-                        modAdded = true;
+                        modsToWriteForThisSpecificProtein.Add(pos, new HashSet<string> { mod.IdWithMotif });
+                        added = true;
                     }
 
-                    // Finally, if a new modification has in fact been deemed worthy of being added to the database, mark that in the output dictionary
-                    if (modAdded)
+                    if (added)
                     {
-                        if (newModResEntries.ContainsKey(additionalModId))
-                        {
-                            newModResEntries[additionalModId]++;
-                        }
+                        if (newModResEntries.ContainsKey(mod.IdWithMotif))
+                            newModResEntries[mod.IdWithMotif]++;
                         else
-                        {
-                            newModResEntries.Add(additionalModId, 1);
-                        }
+                            newModResEntries.Add(mod.IdWithMotif, 1);
                     }
                 }
             }
+
             return modsToWriteForThisSpecificProtein;
+        }
+
+        /// <summary>
+        /// Writes a human-readable "modified residue" feature set for a biopolymer, optionally variant-scoped.
+        /// </summary>
+        private static void WriteModifiedResidueFeatures(
+            XmlWriter writer,
+            IBioPolymer bioPolymer,
+            SequenceVariation seqVar,
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalMods,
+            Dictionary<string, int> newModResEntries,
+            bool orderModIds)
+        {
+            var modsForThis = GetModsForThisBioPolymer(bioPolymer, seqVar, additionalMods, newModResEntries);
+
+            foreach (var positionModKvp in modsForThis.OrderBy(kv => kv.Key))
+            {
+                IEnumerable<string> ids = positionModKvp.Value;
+                if (orderModIds)
+                {
+                    ids = ids.OrderBy(m => m, StringComparer.Ordinal);
+                }
+
+                foreach (var modId in ids)
+                {
+                    writer.WriteStartElement("feature");
+                    writer.WriteAttributeString("type", "modified residue");
+                    writer.WriteAttributeString("description", modId);
+                    writer.WriteStartElement("location");
+                    writer.WriteStartElement(seqVar == null ? "position" : "subposition");
+                    writer.WriteAttributeString(seqVar == null ? "position" : "subposition",
+                        positionModKvp.Key.ToString(CultureInfo.InvariantCulture));
+                    writer.WriteEndElement(); // position/subposition
+                    writer.WriteEndElement(); // location
+                    writer.WriteEndElement(); // feature or subfeature
+                }
+            }
         }
     }
 }

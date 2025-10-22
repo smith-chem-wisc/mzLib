@@ -9,16 +9,16 @@ using Omics.BioPolymer;
 namespace UsefulProteomicsDatabases
 {
     /// <summary>
-    /// Provides methods for generating decoy nucleic acids from any implementor of <see cref="INucleicAcid"/>.
+    /// Generates decoy nucleic acid sequences from a list of input sequences using the specified decoy generation strategy.
+    /// Supports multiple decoy types (e.g., reverse, slide, shuffle) and applies the chosen method to each input.
+    /// The resulting decoys are annotated with the provided identifier and can be generated in parallel.
     /// </summary>
-    /// <remarks>
-    /// This class supports various types of decoy generation, including reversing, sliding, and shuffling sequences.
-    /// It allows for the creation of decoy sequences while preserving certain characteristics such as modification sites and termini.
-    /// The <c>GenerateDecoys</c> method serves as the main entry point, delegating to specific decoy generation methods based on the specified <see cref="DecoyType"/>.
-    /// TODO: Implement Shuffle and Slide Decoys
-    /// TODO: Consider passing digestion motif as optional parameter to leave digestion sites intact. Currently leaving the 3' intact as it is the predominant cleavage motif.
-    /// TODO: Consider palindromic sequences and the result they have on fragment ions (d/z are identical, c/y are identical). This will be particularly important for slided decoys
-    /// </remarks>
+    /// <typeparam name="T">Type implementing <see cref="INucleicAcid"/> to be decoyed.</typeparam>
+    /// <param name="nucleicAcids">List of input nucleic acid sequences to generate decoys from.</param>
+    /// <param name="decoyType">Decoy generation strategy to use (e.g., Reverse, Slide, Shuffle).</param>
+    /// <param name="maxThreads">Maximum number of threads for parallel processing. Default is -1 (no limit).</param>
+    /// <param name="decoyIdentifier">String to annotate decoy sequences. Default is "DECOY".</param>
+    /// <returns>List of generated decoy nucleic acid sequences.</returns>
     public static class RnaDecoyGenerator
     {
         public static List<T> GenerateDecoys<T>(List<T> nucleicAcids, DecoyType decoyType, int maxThreads = -1, string decoyIdentifier = "DECOY") where T : INucleicAcid
@@ -40,81 +40,164 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// Generated decoys in which the sequence is reversed,
-        /// leaving modification on their nucleic acid of origin,
-        /// and 3' termini intact as it is the most likely cleavage site. 
+        /// Reverse decoys: sequence reversed, 3' terminus retained chemically (termini objects preserved),
+        /// modifications & variant-specific modifications follow their original nucleotide.
+        /// Each modification is cloned with a motif matching the nucleotide at its new (reversed) coordinate
+        /// to avoid motif/base mismatch filtering during RNA construction.
         /// </summary>
-        /// <param name="nucleicAcids"></param>
-        /// <param name="maxThreads"></param>
-        /// <returns></returns>
         private static List<T> GenerateReverseDecoys<T>(List<T> nucleicAcids, int maxThreads, string decoyIdentifier) where T : INucleicAcid
         {
-            List<T> decoyNucleicAcids = new List<T>();
-            Parallel.ForEach(nucleicAcids, new ParallelOptions() { MaxDegreeOfParallelism = maxThreads }, nucleicAcid =>
+            List<T> decoyNucleicAcids = new();
+            Parallel.ForEach(nucleicAcids, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, nucleicAcid =>
             {
-                // reverse sequence
-                var reverseSequence =
-                    new string(nucleicAcid.BaseSequence.Reverse().ToArray());
+                string originalSeq = nucleicAcid.BaseSequence;
+                int L = originalSeq.Length;
 
-                // create a mapping of original to reversed indices
-                var indexMapping = new Dictionary<int, int>();
-                for (int i = 0; i < nucleicAcid.BaseSequence.Length; i++)
+                // Reverse sequence characters
+                string reverseSequence = new string(originalSeq.Reverse().ToArray());
+
+                // Map original 1-based index -> reversed 1-based index
+                Dictionary<int, int> indexMapping = new(L);
+                for (int i = 1; i <= L; i++)
                 {
-                    indexMapping[i + 1] = nucleicAcid.BaseSequence.Length - i;
+                    indexMapping[i] = L - i + 1;
                 }
 
-                // reverse modifications
+                // Helper: try to clone a modification for a specific nucleotide.
+                // If cloning fails (constructor signature mismatches), we fall back to the original modification instance.
+                static Modification CloneForBase(Modification mod, char nucleotide)
+                {
+                    if (!ModificationMotif.TryGetMotif(nucleotide.ToString(), out var motif))
+                    {
+                        // Fallback: reuse existing motif (may be null)
+                        motif = mod.Target;
+                    }
+
+                    try
+                    {
+                        // Prefer the most common simple constructor.
+                        // Many test-created modifications use a short signature:
+                        // (originalId, something?, modificationType, something?, motif, locationRestriction, formula?)
+                        // We only preserve OriginalId, ModificationType (if available), motif, and location restriction when accessible.
+                        string originalId = mod.OriginalId ?? mod.IdWithMotif ?? "";
+                        string modificationType = mod.ModificationType ?? "Cloned";
+                        string locationRestriction = mod.LocationRestriction ?? "Anywhere.";
+
+                        // Attempt to keep formula & masses if available
+                        var formula = mod.ChemicalFormula; // may be null
+                        if (formula != null)
+                        {
+                            return new Modification(
+                                _originalId: originalId,
+                                _modificationType: modificationType,
+                                _target: motif,
+                                _locationRestriction: locationRestriction,
+                                _chemicalFormula: formula);
+                        }
+                        // Fallback minimal
+                        return new Modification(
+                            _originalId: originalId,
+                            _modificationType: modificationType,
+                            _target: motif,
+                            _locationRestriction: locationRestriction);
+                    }
+                    catch
+                    {
+                        // Fallback: return original if construction path unknown
+                        return mod;
+                    }
+                }
+
+                // Reverse base-level modifications by cloning for the nucleotide that moves.
                 var reverseModifications = new Dictionary<int, List<Modification>>();
                 foreach (var kvp in nucleicAcid.OneBasedPossibleLocalizedModifications)
                 {
-                    var reverseKey = indexMapping[kvp.Key];
-                    reverseModifications.Add(reverseKey, kvp.Value);
+                    int originalIndex = kvp.Key;
+                    int reversedIndex = indexMapping[originalIndex];
+                    char nucleotide = originalSeq[originalIndex - 1];
+
+                    var clonedList = new List<Modification>(kvp.Value.Count);
+                    foreach (var m in kvp.Value)
+                    {
+                        clonedList.Add(CloneForBase(m, nucleotide));
+                    }
+                    reverseModifications[reversedIndex] = clonedList;
                 }
-                
-                List<TruncationProduct> reverseTruncs = new List<TruncationProduct>();
-                List<SequenceVariation> reverseVariations = new List<SequenceVariation>();
-                List<SequenceVariation> reverseAppliedVariations = new List<SequenceVariation>();
+
+                List<TruncationProduct> reverseTruncs = new();
+                List<SequenceVariation> reverseVariations = new();
+                List<SequenceVariation> reverseAppliedVariations = new();
+
                 if (nucleicAcid is IHasSequenceVariants variantContaining)
                 {
-                    // Reverse Applied Variants
-                    foreach (SequenceVariation variation in variantContaining.AppliedSequenceVariations)
+                    static void Normalize(ref int a, ref int b)
                     {
-                        var reverseBegin = indexMapping[variation.OneBasedBeginPosition];
-                        var reverseEnd = indexMapping[variation.OneBasedEndPosition];
-                        var reverseModificationsForVariation = new Dictionary<int, List<Modification>>();
-                        foreach (var modKvp in variation.OneBasedModifications)
-                        {
-                            var reverseModKey = indexMapping[modKvp.Key];
-                            reverseModificationsForVariation.Add(reverseModKey, modKvp.Value);
-                        }
-                        reverseAppliedVariations.Add(new SequenceVariation(reverseBegin, reverseEnd, variation.OriginalSequence, variation.VariantSequence, variation.Description.Description, reverseModificationsForVariation));
+                        if (a > b) (a, b) = (b, a);
                     }
 
-                    // Reverse Applied Variants
-                    foreach (SequenceVariation variation in variantContaining.SequenceVariations)
+                    SequenceVariation ReverseVariant(SequenceVariation v)
                     {
-                        var reverseBegin = indexMapping[variation.OneBasedBeginPosition];
-                        var reverseEnd = indexMapping[variation.OneBasedEndPosition];
-                        var reverseModificationsForVariation = new Dictionary<int, List<Modification>>();
-                        foreach (var modKvp in variation.OneBasedModifications)
+                        int rb = indexMapping[v.OneBasedBeginPosition];
+                        int re = indexMapping[v.OneBasedEndPosition];
+                        Normalize(ref rb, ref re);
+
+                        // Reverse variant-specific modifications
+                        Dictionary<int, List<Modification>> reversedVariantMods = null;
+                        if (v.OneBasedModifications != null && v.OneBasedModifications.Count > 0)
                         {
-                            var reverseModKey = indexMapping[modKvp.Key];
-                            reverseModificationsForVariation.Add(reverseModKey, modKvp.Value);
+                            reversedVariantMods = new Dictionary<int, List<Modification>>(v.OneBasedModifications.Count);
+                            foreach (var modKvp in v.OneBasedModifications)
+                            {
+                                int revKey = indexMapping[modKvp.Key];
+                                char baseChar = originalSeq[modKvp.Key - 1];
+                                var cloned = modKvp.Value.Select(m => CloneForBase(m, baseChar)).ToList();
+                                reversedVariantMods[revKey] = cloned;
+                            }
                         }
-                        reverseVariations.Add(new SequenceVariation(reverseBegin, reverseEnd, variation.OriginalSequence, variation.VariantSequence, variation.Description.Description, reverseModificationsForVariation));
+
+                        return new SequenceVariation(
+                            rb,
+                            re,
+                            v.OriginalSequence,
+                            v.VariantSequence,
+                            v.Description,
+                            v.VariantCallFormatData?.Description,
+                            reversedVariantMods);
                     }
 
-                    // Reverse Truncations
-                    foreach (TruncationProduct truncation in variantContaining.TruncationProducts)
+                    foreach (var v in variantContaining.AppliedSequenceVariations)
                     {
-                        var reverseBegin = indexMapping[truncation.OneBasedEndPosition!.Value];
-                        var reverseEnd = indexMapping[truncation.OneBasedBeginPosition!.Value];
+                        reverseAppliedVariations.Add(ReverseVariant(v));
+                    }
 
-                        reverseTruncs.Add(new(reverseBegin, reverseEnd, $"{decoyIdentifier} {truncation.Type}"));
+                    foreach (var v in variantContaining.SequenceVariations)
+                    {
+                        reverseVariations.Add(ReverseVariant(v));
+                    }
+
+                    // Reverse truncations
+                    foreach (var t in variantContaining.TruncationProducts)
+                    {
+                        if (t.OneBasedBeginPosition.HasValue && t.OneBasedEndPosition.HasValue)
+                        {
+                            int rb = indexMapping[t.OneBasedEndPosition.Value];
+                            int re = indexMapping[t.OneBasedBeginPosition.Value];
+                            Normalize(ref rb, ref re);
+                            reverseTruncs.Add(new TruncationProduct(rb, re, $"{decoyIdentifier} {t.Type}"));
+                        }
                     }
                 }
 
-                T newNucleicAcid = nucleicAcid.CreateNew(reverseSequence, reverseModifications, true, reverseTruncs, reverseVariations, reverseAppliedVariations, decoyIdentifier);
+                // Construct decoy
+                T newNucleicAcid = nucleicAcid.CreateNew(
+                    reverseSequence,
+                    reverseModifications,
+                    isDecoy: true,
+                    truncationProducts: reverseTruncs,
+                    sequenceVariations: reverseVariations,
+                    appliedSequenceVariations: reverseAppliedVariations,
+                    decoyIdentifier: decoyIdentifier);
+
                 lock (decoyNucleicAcids)
                 {
                     decoyNucleicAcids.Add(newNucleicAcid);
@@ -132,6 +215,5 @@ namespace UsefulProteomicsDatabases
         {
             throw new NotImplementedException();
         }
-
     }
 }

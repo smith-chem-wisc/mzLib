@@ -1,6 +1,6 @@
 ﻿using MzLibUtil;
-using Omics.BioPolymer;
 using Omics.Modifications;
+using System.Reflection; 
 
 namespace Omics.BioPolymer
 {
@@ -20,18 +20,80 @@ namespace Omics.BioPolymer
         /// <param name="maxAllowedVariantsForCombinatorics"></param>
         /// <param name="minAlleleDepth"></param>
         /// <remarks>This replaces a method call that was previously an instance method in Protein</remarks>
-        public static List<TBioPolymerType> GetVariantBioPolymers<TBioPolymerType>(this TBioPolymerType protein, int maxAllowedVariantsForCombinatorics = 4, int minAlleleDepth = 1)
+        public static List<TBioPolymerType> GetVariantBioPolymers<TBioPolymerType>(this TBioPolymerType protein,
+            int maxSequenceVariantsPerIsoform = 4,
+            int minAlleleDepth = 1,
+            int maxSequenceVariantIsoforms = 1)
             where TBioPolymerType : IHasSequenceVariants
         {
-            protein.ConsensusVariant.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
-            protein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
-            if (protein.SequenceVariations.All(v => v.AreValid()) && protein.SequenceVariations.Any(v => v.Description == null || v.Description.Genotypes.Count == 0))
+            // If combinatorics disabled, just return base
+            if (maxSequenceVariantsPerIsoform == 0 || maxSequenceVariantIsoforms == 1)
             {
-                // this is a protein with either no VCF lines or a mix of VCF and non-VCF lines
-                return ApplyAllVariantCombinations(protein, protein.SequenceVariations, maxAllowedVariantsForCombinatorics).ToList();
+                return new List<TBioPolymerType> { protein };
             }
-            // this is a protein with only VCF lines
-            return ApplyVariants(protein, protein.SequenceVariations, maxAllowedVariantsForCombinatorics, minAlleleDepth);
+
+            var all = protein.SequenceVariations ?? new List<SequenceVariation>();
+            if (all.Count == 0)
+            {
+                return new List<TBioPolymerType> { protein };
+            }
+
+            // Try validation, but DO NOT let complete failure collapse all variants.
+            var valid = new List<SequenceVariation>(all.Count);
+            int threw = 0, failed = 0;
+            foreach (var v in all)
+            {
+                if (v == null)
+                {
+                    failed++;
+                    continue;
+                }
+                bool ok;
+                try
+                {
+                    ok = v.AreValid();
+                }
+                catch
+                {
+                    ok = true; // treat exceptions as “usable” so we can still attempt variant generation
+                    threw++;
+                }
+                if (ok)
+                    valid.Add(v);
+                else
+                    failed++;
+            }
+
+            // Fallback: if none passed (over‑strict validation), use original non-null set
+            if (valid.Count == 0)
+            {
+                valid = all.Where(v => v != null).ToList();
+            }
+
+            // If after fallback we still have nothing usable, just return base
+            if (valid.Count == 0)
+            {
+                return new List<TBioPolymerType> { protein };
+            }
+
+            return ApplyAllVariantCombinations(protein,
+                                               valid,
+                                               maxSequenceVariantsPerIsoform,
+                                               maxSequenceVariantIsoforms,
+                                               minAlleleDepth).ToList();
+        }
+
+        // Safe wrapper so a single bad variant does not abort all combinatorics
+        private static bool SafeAreValid(SequenceVariation v)
+        {
+            try
+            {
+                return v.AreValid();
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         /// <summary>
@@ -43,7 +105,25 @@ namespace Omics.BioPolymer
             if (name == null && emptyVars)
                 return null;
 
-            string variantTag = emptyVars ? "" : $" variant:{CombineDescriptions(appliedVariations)}";
+            string variantTag = "";
+            if (!emptyVars)
+            {
+                // build a concise, de-duplicated set of variant descriptors (prefer VCF description, fallback to SimpleString)
+                var descriptors = appliedVariations!
+                    .Where(v => v != null)
+                    .Select(v =>
+                        v.VariantCallFormatData?.Description ??
+                        (string.IsNullOrWhiteSpace(v.Description) ? v.SimpleString() : v.Description))
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Distinct()
+                    .Take(6) // cap to avoid pathologically long names
+                    .ToList();
+
+                if (descriptors.Count > 0)
+                {
+                    variantTag = " variant:" + string.Join(", variant:", descriptors);
+                }
+            }
             return name + variantTag;
         }
 
@@ -88,20 +168,27 @@ namespace Omics.BioPolymer
         {
             return variantProteinModificationIndex - protein.AppliedSequenceVariations
                 .Where(v => v.OneBasedEndPosition < variantProteinModificationIndex)
-                .Sum(v => v.VariantSequence.Length - v.OriginalSequence.Length);
+                .Sum(v => (v.VariantSequence ?? string.Empty).Length - (v.OriginalSequence ?? string.Empty).Length);
         }
 
         /// <summary>
         /// Applies multiple variant changes to a protein sequence
+        /// (legacy path – now null-safe around VariantCallFormatData).
+        /// Corrected spelling: maxAllowedVariantsForCombinatorics (was ...Combinitorics).
         /// </summary>
-        public static List<TBioPolymerType> ApplyVariants<TBioPolymerType>(TBioPolymerType protein, IEnumerable<SequenceVariation> sequenceVariations, int maxAllowedVariantsForCombinitorics, int minAlleleDepth)
+        public static List<TBioPolymerType> ApplyVariants<TBioPolymerType>(
+            TBioPolymerType protein,
+            IEnumerable<SequenceVariation> sequenceVariations,
+            int maxAllowedVariantsForCombinatorics,
+            int minAlleleDepth)
             where TBioPolymerType : IHasSequenceVariants
         {
             List<SequenceVariation> uniqueEffectsToApply = sequenceVariations
+                .Where(v => v != null)
                 .GroupBy(v => v.SimpleString())
-                .Select(x => x.First())
-                .Where(v => v.Description.Genotypes.Count > 0) // this is a VCF line
-                .OrderByDescending(v => v.OneBasedBeginPosition) // apply variants at the end of the protein sequence first
+                .Select(g => g.First())
+                .Where(v => v.VariantCallFormatData != null && v.VariantCallFormatData.Genotypes != null && v.VariantCallFormatData.Genotypes.Count > 0)
+                .OrderByDescending(v => v.OneBasedBeginPosition)
                 .ToList();
 
             TBioPolymerType proteinCopy = protein.CreateVariant(protein.BaseSequence, protein, null, protein.TruncationProducts, protein.OneBasedPossibleLocalizedModifications, null);
@@ -112,7 +199,11 @@ namespace Omics.BioPolymer
                 return new List<TBioPolymerType> { proteinCopy };
             }
 
-            HashSet<string> individuals = new HashSet<string>(uniqueEffectsToApply.SelectMany(v => v.Description.Genotypes.Keys));
+            HashSet<string> individuals = new HashSet<string>(
+                uniqueEffectsToApply
+                    .Where(v => v.VariantCallFormatData?.Genotypes != null)
+                    .SelectMany(v => v.VariantCallFormatData!.Genotypes.Keys));
+
             List<TBioPolymerType> variantProteins = new();
             List<TBioPolymerType> newVariantProteins = new();
             // loop through genotypes for each sample/individual (e.g. tumor and normal)
@@ -121,139 +212,281 @@ namespace Omics.BioPolymer
                 newVariantProteins.Clear();
                 newVariantProteins.Add(proteinCopy);
 
-                bool tooManyHeterozygousVariants = uniqueEffectsToApply.Count(v => v.Description.Heterozygous[individual]) > maxAllowedVariantsForCombinitorics;
+                bool tooManyHeterozygousVariants = uniqueEffectsToApply
+                    .Where(v => v.VariantCallFormatData?.Heterozygous != null && v.VariantCallFormatData.Heterozygous.ContainsKey(individual))
+                    .Count(v => v.VariantCallFormatData.Heterozygous[individual]) > maxAllowedVariantsForCombinatorics;
+
                 foreach (var variant in uniqueEffectsToApply)
                 {
-                    bool variantAlleleIsInTheGenotype = variant.Description.Genotypes[individual].Contains(variant.Description.AlleleIndex.ToString()); // should catch the case where it's -1 if the INFO isn't from SnpEff
-                    if (!variantAlleleIsInTheGenotype)
-                    {
+                    var vcf = variant.VariantCallFormatData;
+                    if (vcf == null || vcf.Genotypes == null || !vcf.Genotypes.ContainsKey(individual))
                         continue;
-                    }
-                    bool isHomozygousAlternate = variant.Description.Homozygous[individual] && variant.Description.Genotypes[individual].All(d => d == variant.Description.AlleleIndex.ToString()); // note this isn't a great test for homozygosity, since the genotype could be 1/2 and this would still return true. But currently, alleles 1 and 2 will be included as separate variants, so this is fine for now.
-                    bool isDeepReferenceAllele = int.TryParse(variant.Description.AlleleDepths[individual][0], out int depthRef) && depthRef >= minAlleleDepth;
-                    bool isDeepAlternateAllele = int.TryParse(variant.Description.AlleleDepths[individual][variant.Description.AlleleIndex], out int depthAlt) && depthAlt >= minAlleleDepth;
+
+                    var alleleIndexStr = vcf.AlleleIndex.ToString();
+                    bool variantAlleleIsInTheGenotype = vcf.Genotypes[individual].Contains(alleleIndexStr);
+                    if (!variantAlleleIsInTheGenotype)
+                        continue;
+
+                    bool hetero = vcf.Heterozygous != null && vcf.Heterozygous.ContainsKey(individual) && vcf.Heterozygous[individual];
+                    bool homoAlternate = vcf.Homozygous != null && vcf.Homozygous.ContainsKey(individual) && vcf.Homozygous[individual] &&
+                                         vcf.Genotypes[individual].All(d => d == alleleIndexStr);
+
+                    bool isDeepReferenceAllele = vcf.AlleleDepths != null &&
+                                                 vcf.AlleleDepths.ContainsKey(individual) &&
+                                                 vcf.AlleleDepths[individual].Length > 0 &&
+                                                 int.TryParse(vcf.AlleleDepths[individual][0], out int depthRef) &&
+                                                 depthRef >= minAlleleDepth;
+
+                    bool isDeepAlternateAllele = vcf.AlleleDepths != null &&
+                                                 vcf.AlleleDepths.ContainsKey(individual) &&
+                                                 vcf.AlleleDepths[individual].Length > vcf.AlleleIndex &&
+                                                 int.TryParse(vcf.AlleleDepths[individual][vcf.AlleleIndex], out int depthAlt) &&
+                                                 depthAlt >= minAlleleDepth;
 
                     // homozygous alternate
-                    if (isHomozygousAlternate && isDeepAlternateAllele)
+                    if (homoAlternate && isDeepAlternateAllele)
                     {
                         newVariantProteins = newVariantProteins.Select(p => ApplySingleVariant(variant, p, individual)).ToList();
                     }
 
                     // heterozygous basic
                     // first protein with variants contains all homozygous variation, second contains all variations
-                    else if (variant.Description.Heterozygous[individual] && tooManyHeterozygousVariants)
+                    else if (hetero && tooManyHeterozygousVariants)
                     {
                         if (isDeepAlternateAllele && isDeepReferenceAllele)
                         {
-                            if (newVariantProteins.Count == 1 && maxAllowedVariantsForCombinitorics > 0)
+                            if (newVariantProteins.Count == 1 && maxAllowedVariantsForCombinatorics > 0)
                             {
-                                TBioPolymerType variantProtein = ApplySingleVariant(variant, newVariantProteins[0], individual);
+                                var variantProtein = ApplySingleVariant(variant, newVariantProteins[0], individual);
                                 newVariantProteins.Add(variantProtein);
                             }
-                            else if (maxAllowedVariantsForCombinitorics > 0)
+                            else if (maxAllowedVariantsForCombinatorics > 0 && newVariantProteins.Count > 1)
                             {
                                 newVariantProteins[1] = ApplySingleVariant(variant, newVariantProteins[1], individual);
                             }
-                            else
-                            {
-                                // no heterozygous variants
-                            }
                         }
-                        else if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0)
+                        else if (isDeepAlternateAllele && maxAllowedVariantsForCombinatorics > 0)
                         {
                             newVariantProteins = newVariantProteins.Select(p => ApplySingleVariant(variant, p, individual)).ToList();
                         }
-                        else
-                        {
-                            // keep reference only
-                        }
                     }
 
-                    // heterozygous combinitorics
-                    else if (variant.Description.Heterozygous[individual] && isDeepAlternateAllele && !tooManyHeterozygousVariants)
+                    // heterozygous combinatorics
+                    else if (hetero && isDeepAlternateAllele && !tooManyHeterozygousVariants)
                     {
-                        List<TBioPolymerType> combinitoricProteins = new();
-
+                        List<TBioPolymerType> combinatoricProteins = new();
                         foreach (var ppp in newVariantProteins)
                         {
-                            if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0 && isDeepReferenceAllele)
+                            if (isDeepAlternateAllele && maxAllowedVariantsForCombinatorics > 0 && isDeepReferenceAllele)
                             {
-                                // keep reference allele
-                                if (variant.Description.Genotypes[individual].Contains("0"))
+                                if (vcf.Genotypes[individual].Contains("0"))
                                 {
-                                    combinitoricProteins.Add(ppp);
+                                    combinatoricProteins.Add(ppp);
                                 }
-
-                                // alternate allele (replace all, since in heterozygous with two alternates, both alternates are included)
-                                combinitoricProteins.Add(ApplySingleVariant(variant, ppp, individual));
+                                combinatoricProteins.Add(ApplySingleVariant(variant, ppp, individual));
                             }
-                            else if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0)
+                            else if (isDeepAlternateAllele && maxAllowedVariantsForCombinatorics > 0)
                             {
-                                combinitoricProteins.Add(ApplySingleVariant(variant, ppp, individual));
+                                combinatoricProteins.Add(ApplySingleVariant(variant, ppp, individual));
                             }
-                            else if (variant.Description.Genotypes[individual].Contains("0"))
+                            else if (vcf.Genotypes[individual].Contains("0"))
                             {
-                                combinitoricProteins.Add(ppp);
-                            }
-                            else
-                            {
-                                // must be two alternate alleles with not enough depth
+                                combinatoricProteins.Add(ppp);
                             }
                         }
-                        newVariantProteins = combinitoricProteins;
+                        newVariantProteins = combinatoricProteins;
                     }
                 }
                 variantProteins.AddRange(newVariantProteins);
             }
 
-            return variantProteins.GroupBy(x => x.BaseSequence).Select(x => x.First()).ToList();
+            return variantProteins
+                .GroupBy(x => x.BaseSequence)
+                .Select(x => x.First())
+                .ToList();
         }
 
+        /// <summary>
+        /// Applies a single variant to a protein sequence
+        /// </summary>
         /// <summary>
         /// Applies a single variant to a protein sequence
         /// </summary>
         private static TBioPolymerType ApplySingleVariant<TBioPolymerType>(SequenceVariation variantGettingApplied, TBioPolymerType protein, string individual)
             where TBioPolymerType : IHasSequenceVariants
         {
-            string seqBefore = protein.BaseSequence.Substring(0, variantGettingApplied.OneBasedBeginPosition - 1);
-            string seqVariant = variantGettingApplied.VariantSequence;
-            int afterIdx = variantGettingApplied.OneBasedBeginPosition + variantGettingApplied.OriginalSequence.Length - 1;
-
-            SequenceVariation variantAfterApplication = new SequenceVariation(
-                variantGettingApplied.OneBasedBeginPosition,
-                variantGettingApplied.OneBasedBeginPosition + variantGettingApplied.VariantSequence.Length - 1,
-                variantGettingApplied.OriginalSequence,
-                variantGettingApplied.VariantSequence,
-                variantGettingApplied.Description.Description,
-                variantGettingApplied.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value));
-
-            // check to see if there is incomplete indel overlap, which would lead to weird variant sequences
-            // complete overlap is okay, since it will be overwritten; this can happen if there are two alternate alleles,
-            //    e.g. reference sequence is wrong at that point
-            bool intersectsAppliedRegionIncompletely = protein.AppliedSequenceVariations.Any(x => variantGettingApplied.Intersects(x) && !variantGettingApplied.Includes(x));
-            IEnumerable<SequenceVariation> appliedVariations = new[] { variantAfterApplication };
-            string seqAfter = null;
-            if (intersectsAppliedRegionIncompletely)
+            if (variantGettingApplied == null || protein == null)
             {
-                // use original protein sequence for the remaining sequence
-                seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.ConsensusVariant.BaseSequence.Substring(afterIdx);
+                return protein;
             }
-            else
+
+            string originalSeq = variantGettingApplied.OriginalSequence ?? string.Empty;
+            string variantSeq = variantGettingApplied.VariantSequence ?? string.Empty;
+
+            if (variantGettingApplied.OneBasedBeginPosition < 1 ||
+                variantGettingApplied.OneBasedBeginPosition > protein.BaseSequence.Length + 1)
             {
-                // use this variant protein sequence for the remaining sequence
-                seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.BaseSequence.Substring(afterIdx);
+                return protein;
+            }
+
+            int replacedLength = originalSeq.Length;
+            int afterIdx = variantGettingApplied.OneBasedBeginPosition + replacedLength - 1;
+            if (afterIdx > protein.BaseSequence.Length)
+            {
+                replacedLength = Math.Max(0, protein.BaseSequence.Length - (variantGettingApplied.OneBasedBeginPosition - 1));
+                afterIdx = variantGettingApplied.OneBasedBeginPosition + replacedLength - 1;
+            }
+
+            string seqBefore = protein.BaseSequence.Substring(0, variantGettingApplied.OneBasedBeginPosition - 1);
+            string seqAfter = afterIdx >= protein.BaseSequence.Length
+                ? string.Empty
+                : protein.BaseSequence.Substring(afterIdx);
+
+            int appliedBegin = variantGettingApplied.OneBasedBeginPosition;
+            int appliedEnd = variantGettingApplied.OneBasedBeginPosition + Math.Max(0, originalSeq.Length - 1); // based on original span
+
+            // Copy (not reference) the variant-specific modifications so downstream index adjustments do not mutate the source definition
+            var variantModDict = variantGettingApplied.OneBasedModifications != null
+                ? variantGettingApplied.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value)
+                : new Dictionary<int, List<Modification>>();
+
+            string vcfDescription = variantGettingApplied.VariantCallFormatData?.Description;
+
+            // This SequenceVariation instance represents the applied (realized) change on the new isoform
+            SequenceVariation variantAfterApplication = new SequenceVariation(
+                appliedBegin,
+                appliedEnd,
+                originalSeq,
+                variantSeq,
+                variantGettingApplied.Description,
+                vcfDescription,
+                variantModDict.Count == 0 ? null : variantModDict);
+
+            bool intersectsAppliedRegionIncompletely = protein.AppliedSequenceVariations
+                .Any(x => variantGettingApplied.Intersects(x) && !variantGettingApplied.Includes(x));
+
+            IEnumerable<SequenceVariation> appliedVariations = new[] { variantAfterApplication };
+            if (!intersectsAppliedRegionIncompletely)
+            {
                 appliedVariations = appliedVariations
                     .Concat(protein.AppliedSequenceVariations.Where(x => !variantGettingApplied.Includes(x)))
                     .ToList();
             }
-            string variantSequence = (seqBefore + seqVariant + seqAfter).Split('*')[0]; // there may be a stop gained
+            else
+            {
+                seqAfter = afterIdx >= protein.ConsensusVariant.BaseSequence.Length
+                    ? string.Empty
+                    : protein.ConsensusVariant.BaseSequence.Substring(afterIdx);
+            }
 
-            // adjust indices
-            List<TruncationProduct> adjustedProteolysisProducts = AdjustTruncationProductIndices(variantGettingApplied, variantSequence, protein, protein.TruncationProducts);
-            Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variantGettingApplied, variantSequence, protein);
-            List<SequenceVariation> adjustedAppliedVariations = AdjustSequenceVariationIndices(variantGettingApplied, variantSequence, appliedVariations);
+            string newBaseSequence = (seqBefore + variantSeq + seqAfter).Split('*')[0];
 
-            return protein.CreateVariant(variantSequence, protein, adjustedAppliedVariations, adjustedProteolysisProducts, adjustedModifications, individual);
+            var adjustedProteolysisProducts =
+                AdjustTruncationProductIndices(variantAfterApplication, newBaseSequence, protein, protein.TruncationProducts);
+
+            // AdjustModificationIndices merges existing protein-level mods and variant-specific mods (promotion to applied isoform)
+            var adjustedModifications =
+                AdjustModificationIndices(variantAfterApplication, newBaseSequence, protein);
+
+            var adjustedAppliedVariations =
+                AdjustSequenceVariationIndices(variantAfterApplication, newBaseSequence, appliedVariations);
+
+            // Centralized creation to ensure AppliedSequenceVariations are wired on the new variant
+            var created = BuildVariant(
+                protein,
+                newBaseSequence,
+                adjustedAppliedVariations,
+                adjustedProteolysisProducts,
+                adjustedModifications,
+                individual);
+
+            // Normalize UniProt sequence attributes (length + mass)
+            try
+            {
+                var seq = created?.BaseSequence;
+                if (!string.IsNullOrEmpty(seq))
+                {
+                    bool hasAmbiguousResidues =
+                        seq.IndexOf('X') >= 0 || seq.IndexOf('B') >= 0 ||
+                        seq.IndexOf('J') >= 0 || seq.IndexOf('Z') >= 0 ||
+                        seq.IndexOf('*') >= 0;
+
+                    var attrProp = created.GetType().GetProperty(
+                        "UniProtSequenceAttributes",
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+                    var attrs = attrProp?.GetValue(created);
+                    if (attrs != null)
+                    {
+                        var attrType = attrs.GetType();
+
+                        int oldLen = (int)attrType.GetProperty("Length", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(attrs);
+                        int oldMass = (int)attrType.GetProperty("Mass", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(attrs);
+                        string checksum = (string)attrType.GetProperty("Checksum", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(attrs);
+                        DateTime entryMod = (DateTime)attrType.GetProperty("EntryModified", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(attrs);
+                        int seqVersion = (int)attrType.GetProperty("SequenceVersion", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)!.GetValue(attrs);
+                        bool? isPrecursor = attrType.GetProperty("IsPrecursor", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(attrs) as bool?;
+                        var fragmentVal = attrType.GetProperty("Fragment", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(attrs);
+
+                        int newMass = oldMass; // placeholder; recomputed later if no ambiguous residues
+
+                        if (seq.Length != oldLen)
+                        {
+                            var ctor = attrType.GetConstructor(new[]
+                            {
+                                typeof(int), typeof(int), typeof(string), typeof(DateTime), typeof(int),
+                                typeof(bool?), fragmentVal?.GetType() ?? attrType
+                            });
+
+                            object newAttr;
+                            if (ctor != null)
+                            {
+                                newAttr = ctor.Invoke(new object[]
+                                {
+                                    seq.Length, newMass, checksum, entryMod, seqVersion,
+                                    isPrecursor, fragmentVal ?? Enum.ToObject(attrType.GetNestedType("FragmentType")!, 0)
+                                });
+                            }
+                            else
+                            {
+                                newAttr = attrs;
+                                var lenMeth = attrType.GetMethod("UpdateLengthAttribute", new[] { typeof(string) });
+                                lenMeth?.Invoke(newAttr, new object[] { seq });
+                            }
+
+                            attrProp?.SetValue(created, newAttr);
+
+                            if (!hasAmbiguousResidues)
+                            {
+                                var massMethPost = newAttr.GetType().GetMethod("UpdateMassAttribute", new[] { typeof(string) });
+                                massMethPost?.Invoke(newAttr, new object[] { seq });
+                            }
+                        }
+                        else
+                        {
+                            var lenMeth = attrType.GetMethod("UpdateLengthAttribute", new[] { typeof(string) });
+                            lenMeth?.Invoke(attrs, new object[] { seq });
+
+                            if (!hasAmbiguousResidues)
+                            {
+                                var massMeth = attrType.GetMethod("UpdateMassAttribute", new[] { typeof(string) });
+                                massMeth?.Invoke(attrs, new object[] { seq });
+                            }
+                        }
+                    }
+                }
+
+                if (created?.AppliedSequenceVariations?.Count == 0 && adjustedAppliedVariations != null)
+                {
+                    created.AppliedSequenceVariations.AddRange(adjustedAppliedVariations);
+                }
+            }
+            catch
+            {
+                // best-effort; ignore
+            }
+
+            return created;
         }
 
         /// <summary>
@@ -261,48 +494,106 @@ namespace Omics.BioPolymer
         /// </summary>
         private static List<SequenceVariation> AdjustSequenceVariationIndices(SequenceVariation variantGettingApplied, string variantAppliedProteinSequence, IEnumerable<SequenceVariation> alreadyAppliedVariations)
         {
-            List<SequenceVariation> variations = new List<SequenceVariation>();
-            if (alreadyAppliedVariations == null) { return variations; }
+            List<SequenceVariation> variations = new();
+            if (alreadyAppliedVariations == null)
+            {
+                return variations;
+            }
+
             foreach (SequenceVariation v in alreadyAppliedVariations)
             {
-                int addedIdx = alreadyAppliedVariations
-                    .Where(applied => applied.OneBasedEndPosition < v.OneBasedBeginPosition)
-                    .Sum(applied => applied.VariantSequence.Length - applied.OriginalSequence.Length);
+                if (v == null)
+                {
+                    continue;
+                }
 
-                // variant was entirely before the one being applied (shouldn't happen because of order of applying variants)
-                // or it's the current variation
-                if (v.Description.Equals(variantGettingApplied.Description) || v.OneBasedEndPosition - addedIdx < variantGettingApplied.OneBasedBeginPosition)
+                // NEW: Do not re-shift the variant we just applied; keep its original coordinates.
+                if (ReferenceEquals(v, variantGettingApplied))
                 {
                     variations.Add(v);
+                    continue;
+                }
+
+                // Defensive null handling
+                string vOrig = v.OriginalSequence ?? string.Empty;
+                string vVar = v.VariantSequence ?? string.Empty;
+
+                int addedIdx = alreadyAppliedVariations
+                    .Where(applied => applied != null && applied.OneBasedEndPosition < v.OneBasedBeginPosition)
+                    .Sum(applied =>
+                    {
+                        string aVar = applied.VariantSequence ?? string.Empty;
+                        string aOrig = applied.OriginalSequence ?? string.Empty;
+                        return aVar.Length - aOrig.Length;
+                    });
+
+                bool sameVcfRecord =
+                    v.VariantCallFormatData != null &&
+                    variantGettingApplied.VariantCallFormatData != null &&
+                    v.VariantCallFormatData.Equals(variantGettingApplied.VariantCallFormatData);
+
+                // variant was entirely before the one being applied OR it's the current variation (same VCF)
+                if (sameVcfRecord || v.OneBasedEndPosition - addedIdx < variantGettingApplied.OneBasedBeginPosition)
+                {
+                    variations.Add(v);
+                    continue;
                 }
 
                 // adjust indices based on new included sequence, minding possible overlaps to be filtered later
-                else
+                int intersectOneBasedStart = Math.Max(variantGettingApplied.OneBasedBeginPosition, v.OneBasedBeginPosition);
+                int intersectOneBasedEnd = Math.Min(variantGettingApplied.OneBasedEndPosition, v.OneBasedEndPosition);
+                int overlap = intersectOneBasedEnd < intersectOneBasedStart
+                    ? 0
+                    : intersectOneBasedEnd - intersectOneBasedStart + 1;
+
+                int seqLenChange =
+                    (variantGettingApplied.VariantSequence ?? string.Empty).Length -
+                    (variantGettingApplied.OriginalSequence ?? string.Empty).Length;
+
+                int begin = v.OneBasedBeginPosition + seqLenChange - overlap;
+                if (begin > variantAppliedProteinSequence.Length)
                 {
-                    int intersectOneBasedStart = Math.Max(variantGettingApplied.OneBasedBeginPosition, v.OneBasedBeginPosition);
-                    int intersectOneBasedEnd = Math.Min(variantGettingApplied.OneBasedEndPosition, v.OneBasedEndPosition);
-                    int overlap = intersectOneBasedEnd < intersectOneBasedStart ? 0 : // no overlap
-                        intersectOneBasedEnd - intersectOneBasedStart + 1; // there's some overlap
-                    int sequenceLengthChange = variantGettingApplied.VariantSequence.Length - variantGettingApplied.OriginalSequence.Length;
-                    int begin = v.OneBasedBeginPosition + sequenceLengthChange - overlap;
-                    if (begin > variantAppliedProteinSequence.Length)
-                    {
-                        continue; // cut out by a stop gain
-                    }
-                    int end = v.OneBasedEndPosition + sequenceLengthChange - overlap;
-                    if (end > variantAppliedProteinSequence.Length)
-                    {
-                        end = variantAppliedProteinSequence.Length; // end shortened by a stop gain
-                    }
-                    variations.Add(new SequenceVariation(
-                        begin,
-                        end,
-                        v.OriginalSequence,
-                        v.VariantSequence,
-                        v.Description.Description,
-                        v.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value)));
+                    // cut out by a stop gain / truncation
+                    continue;
                 }
+
+                int end = v.OneBasedEndPosition + seqLenChange - overlap;
+                if (end > variantAppliedProteinSequence.Length)
+                {
+                    end = variantAppliedProteinSequence.Length; // shortened by stop
+                }
+                if (end < begin)
+                {
+                    // Degenerate after adjustment; skip
+                    continue;
+                }
+
+                // Null-safe copy of variant-specific mods
+                Dictionary<int, List<Modification>> copiedMods = null;
+                if (v.OneBasedModifications != null)
+                {
+                    copiedMods = new Dictionary<int, List<Modification>>(v.OneBasedModifications.Count);
+                    foreach (var kv in v.OneBasedModifications)
+                    {
+                        if (kv.Value == null)
+                        {
+                            continue;
+                        }
+                        // shallow copy of list is fine here
+                        copiedMods[kv.Key] = new List<Modification>(kv.Value);
+                    }
+                }
+
+                variations.Add(new SequenceVariation(
+                    begin,
+                    end,
+                    vOrig,
+                    vVar,
+                    v.Description,
+                    v.VariantCallFormatData?.Description,
+                    copiedMods));
             }
+
             return variations;
         }
 
@@ -315,7 +606,7 @@ namespace Omics.BioPolymer
         {
             List<TruncationProduct> products = new List<TruncationProduct>();
             if (proteolysisProducts == null) { return products; }
-            int sequenceLengthChange = variant.VariantSequence.Length - variant.OriginalSequence.Length;
+            int sequenceLengthChange = (variant.VariantSequence ?? string.Empty).Length - (variant.OriginalSequence ?? string.Empty).Length;
             foreach (TruncationProduct p in proteolysisProducts.Where(p => p.OneBasedEndPosition.HasValue && p.OneBasedBeginPosition.HasValue))
             {
                 // proteolysis product is entirely before the variant
@@ -327,7 +618,7 @@ namespace Omics.BioPolymer
                 else if ((p.OneBasedBeginPosition < variant.OneBasedBeginPosition || p.OneBasedBeginPosition == 1 || p.OneBasedBeginPosition == 2)
                          && (p.OneBasedEndPosition > variant.OneBasedEndPosition || p.OneBasedEndPosition == protein.ConsensusVariant.BaseSequence.Length))
                 {
-                    if (variant.VariantSequence.EndsWith("*"))
+                    if ((variant.VariantSequence ?? string.Empty).EndsWith("*"))
                     {
                         products.Add(new TruncationProduct(p.OneBasedBeginPosition, variantAppliedProteinSequence.Length, p.Type));
                     }
@@ -335,22 +626,14 @@ namespace Omics.BioPolymer
                     {
                         products.Add(new TruncationProduct(p.OneBasedBeginPosition, p.OneBasedEndPosition + sequenceLengthChange, p.Type));
                     }
-                    else
-                    {
-                        // cleavage site is not intact
-                    }
                 }
                 // proteolysis product is after the variant and there is no stop gain
                 else if (p.OneBasedBeginPosition > variant.OneBasedEndPosition
                          && p.OneBasedBeginPosition + sequenceLengthChange <= variantAppliedProteinSequence.Length
                          && p.OneBasedEndPosition + sequenceLengthChange <= variantAppliedProteinSequence.Length
-                         && !variant.VariantSequence.EndsWith("*"))
+                         && !(variant.VariantSequence ?? string.Empty).EndsWith("*"))
                 {
                     products.Add(new TruncationProduct(p.OneBasedBeginPosition + sequenceLengthChange, p.OneBasedEndPosition + sequenceLengthChange, p.Type));
-                }
-                else // sequence variant conflicts with proteolysis cleavage site (cleavage site was lost)
-                {
-                    continue;
                 }
             }
             return products;
@@ -364,7 +647,7 @@ namespace Omics.BioPolymer
             IDictionary<int, List<Modification>> modificationDictionary = protein.OneBasedPossibleLocalizedModifications;
             IDictionary<int, List<Modification>> variantModificationDictionary = variant.OneBasedModifications;
             Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>>();
-            int sequenceLengthChange = variant.VariantSequence.Length - variant.OriginalSequence.Length;
+            int sequenceLengthChange = (variant.VariantSequence ?? string.Empty).Length - (variant.OriginalSequence ?? string.Empty).Length;
 
             // change modification indices for variant sequence
             if (modificationDictionary != null)
@@ -417,7 +700,11 @@ namespace Omics.BioPolymer
         /// </summary>
         private static string CombineSimpleStrings(IEnumerable<SequenceVariation>? variations)
         {
-            return variations.IsNullOrEmpty() ? "" : string.Join("_", variations.Select(v => v.SimpleString()));
+            return variations.IsNullOrEmpty()
+                ? ""
+                : string.Join("_", variations
+                    .Where(v => v != null)
+                    .Select(v => v.SimpleString()));
         }
 
         /// <summary>
@@ -425,8 +712,21 @@ namespace Omics.BioPolymer
         /// </summary>
         public static string CombineDescriptions(IEnumerable<SequenceVariation>? variations)
         {
-            return variations.IsNullOrEmpty() ? "" : string.Join(", variant:", variations.Select(d => d.Description));
+            if (variations.IsNullOrEmpty())
+                return "";
+
+            var tokens = variations!
+                .Where(v => v != null)
+                .Select(v => v.VariantCallFormatData?.Description ??
+                             (string.IsNullOrWhiteSpace(v.Description) ? v.SimpleString() : v.Description))
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Distinct()
+                .Take(10)
+                .ToList();
+
+            return string.Join(", variant:", tokens);
         }
+
         /// <summary>
         /// Applies all possible combinations of the provided SequenceVariation list to the base TBioPolymerType object,
         /// starting with the fewest single variations and up to the specified maximum number of combinations.
@@ -434,14 +734,17 @@ namespace Omics.BioPolymer
         /// <typeparam name="TBioPolymerType">The type of the biopolymer object.</typeparam>
         /// <param name="baseBioPolymer">The base biopolymer object to apply variations to.</param>
         /// <param name="variations">List of SequenceVariation objects to combine and apply. Assumed not null or empty.</param>
-        /// <param name="maxCombinations">Maximum number of combinations to return.</param>
+        /// <param name="maxSequenceVariantsPerIsoform">Maximum number of combinations to return.</param>
+        /// <!---->/ <param name="maxSequenceVariantIsoforms">.</param> -->
         /// <returns>
         /// An IEnumerable of TBioPolymerType objects, each with a unique combination of variations applied.
         /// </returns>
         public static IEnumerable<TBioPolymerType> ApplyAllVariantCombinations<TBioPolymerType>(
             TBioPolymerType baseBioPolymer,
             List<SequenceVariation> variations,
-            int maxCombinations)
+            int maxSequenceVariantsPerIsoform,
+            int maxSequenceVariantIsoforms,
+            int minAlleleDepth)
             where TBioPolymerType : IHasSequenceVariants
         {
             int count = 0;
@@ -449,43 +752,149 @@ namespace Omics.BioPolymer
             // Always yield the base biopolymer first
             yield return baseBioPolymer;
             count++;
-            if (count >= maxCombinations)
-                yield break;
 
-            int n = variations.Count;
-            for (int size = 1; size <= n; size++)
+            // 1. Attempt genotype-aware expansion
+            List<SequenceVariation> sequenceVariations = new();
+            foreach (var v in variations.Where(v => v != null))
             {
-                foreach (var combo in GetCombinations(variations, size))
+                try
                 {
+                    // Only try per-genotype split if VCF data present; otherwise just add the raw variant
+                    if (v.VariantCallFormatData != null)
+                    {
+                        var split = v.SplitPerGenotype(minAlleleDepth);
+                        if (split != null && split.Count > 0)
+                        {
+                            sequenceVariations.AddRange(split);
+                            continue;
+                        }
+                    }
+                    sequenceVariations.Add(v); // fallback to original
+                }
+                catch
+                {
+                    // On any parsing/splitting issue, keep original variant so we still attempt application
+                    sequenceVariations.Add(v);
+                }
+            }
+
+            // 2. Collapse equivalent variants (only if >1)
+            if (sequenceVariations.Count > 1)
+            {
+                sequenceVariations = SequenceVariation.CombineEquivalent(sequenceVariations);
+            }
+
+            // 3. Filter invalid (but keep at least something if all fail)
+            var filtered = sequenceVariations.Where(v =>
+            {
+                try { return v != null && v.AreValid(); }
+                catch { return true; // treat exceptions as usable to avoid discarding everything
+                }
+            }).ToList();
+
+            if (filtered.Count == 0)
+            {
+                filtered = sequenceVariations.Where(v => v != null).ToList();
+            }
+
+            // 4. Remove pure no-op substitutions (no sequence change and no variant-specific mods)
+            filtered = filtered.Where(v =>
+                    !(string.Equals(v.OriginalSequence ?? "",
+                                    v.VariantSequence ?? "",
+                                    StringComparison.Ordinal)
+                      && (v.OneBasedModifications == null || v.OneBasedModifications.Count == 0)))
+                .ToList();
+
+            if (filtered.Count == 0)
+            {
+                yield break; // nothing meaningful to apply beyond the base already yielded
+            }
+
+            int total = filtered.Count;
+            int maxVariantsPerIsoformCapped = Math.Min(maxSequenceVariantsPerIsoform, total);
+
+            for (int size = 1; size <= maxVariantsPerIsoformCapped; size++)
+            {
+                foreach (var combo in GetCombinations(filtered, size))
+                {
+                    if (count >= maxSequenceVariantIsoforms)
+                        yield break;
+
+                    var listCombo = combo.Where(c => c != null).ToList();
+                    if (listCombo.Count == 0)
+                        continue;
+
+                    if (!ValidCombination(listCombo))
+                        continue;
+
                     var result = baseBioPolymer;
-                    foreach (var variant in combo)
+                    bool aborted = false;
+
+                    foreach (var variant in listCombo)
                     {
                         result = ApplySingleVariant(variant, result, string.Empty);
+                        if (result == null)
+                        {
+                            aborted = true;
+                            break;
+                        }
                     }
-                    if (result != null)
-                    {
-                        yield return result;
-                        count++;
-                        if (count >= maxCombinations)
-                            yield break;
-                    }
+
+                    if (aborted || result == null)
+                        continue;
+
+                    // Skip if sequence remained identical (all variants net no-op)
+                    if (ReferenceEquals(result, baseBioPolymer) ||
+                        string.Equals(result.BaseSequence, baseBioPolymer.BaseSequence, StringComparison.Ordinal))
+                        continue;
+
+                    yield return result;
+                    count++;
                 }
             }
         }
 
         /// <summary>
         /// Generates all possible combinations of the specified size from the input list.
+        /// Robust to:
+        /// - null / empty variation list (yields nothing)
+        /// - size <= 0 (yields nothing)
+        /// - size > count (yields nothing)
+        /// Fast paths:
+        /// - size == 1 → yield each variation individually
+        /// - size == count → yield the whole set once
         /// </summary>
-        /// <param name="variations">List of SequenceVariation objects to combine. Assumed not null or empty.</param>
+        /// <param name="variations">List of SequenceVariation objects to combine.</param>
         /// <param name="size">The size of each combination.</param>
-        /// <returns>
-        /// An IEnumerable of IList&lt;SequenceVariation&gt; representing each combination.
-        /// </returns>
         private static IEnumerable<IList<SequenceVariation>> GetCombinations(List<SequenceVariation> variations, int size)
         {
+            // Guard conditions
+            if (variations == null || variations.Count == 0 || size <= 0 || size > variations.Count)
+                yield break;
+
             int n = variations.Count;
+
+            // Single element combinations → just yield each item
+            if (size == 1)
+            {
+                for (int i = 0; i < n; i++)
+                {
+                    yield return new List<SequenceVariation>(1) { variations[i] };
+                }
+                yield break;
+            }
+
+            // Whole-set combination
+            if (size == n)
+            {
+                yield return new List<SequenceVariation>(variations);
+                yield break;
+            }
+
+            // Standard iterative k-combination generator (lexicographic indices)
             var indices = new int[size];
-            for (int i = 0; i < size; i++) indices[i] = i;
+            for (int i = 0; i < size; i++)
+                indices[i] = i;
 
             while (true)
             {
@@ -497,11 +906,44 @@ namespace Omics.BioPolymer
                 int pos = size - 1;
                 while (pos >= 0 && indices[pos] == n - size + pos)
                     pos--;
-                if (pos < 0) break;
-                indices[pos]++;
-                for (int i = pos + 1; i < size; i++)
+                if (pos < 0)
+                    break;
+
+                indices[pos++]++;
+
+                for (int i = pos; i < size; i++)
                     indices[i] = indices[i - 1] + 1;
             }
+        }
+        public static bool ValidCombination(List<SequenceVariation> variations)
+        {
+            if ( variations == null || variations.Count <= 1)
+                return true;
+
+            // Validate inputs
+            for (int i = 0; i < variations.Count; i++)
+            {
+                var v = variations[i];
+                if (v == null || !v.AreValid())
+                    return false;
+            }
+
+            // Sort by begin then end, then check only adjacent intervals
+            var ordered = variations
+                .OrderBy(v => v.OneBasedBeginPosition)
+                .ThenBy(v => v.OneBasedEndPosition)
+                .ToList();
+
+            var prev = ordered[0];
+            for (int i = 1; i < ordered.Count; i++)
+            {
+                var curr = ordered[i];
+                if (prev.Intersects(curr)) // inclusive overlap check
+                    return false;
+
+                prev = curr;
+            }
+            return true;
         }
         public static void ConvertNucleotideSubstitutionModificationsToSequenceVariants<TBioPolymerType>(this TBioPolymerType protein)
             where TBioPolymerType : IHasSequenceVariants
@@ -514,14 +956,13 @@ namespace Omics.BioPolymer
                 {
                     if (mod.ModificationType.Contains("nucleotide substitution") && mod.OriginalId.Contains("->"))
                     {
-                        string[] originalAndSubstitutedAminoAcids = mod.OriginalId.Split(new[] { "->" }, StringSplitOptions.RemoveEmptyEntries);
+						string[] originalAndSubstitutedAminoAcids = mod.OriginalId.Split(new[] { "->" }, StringSplitOptions.RemoveEmptyEntries);
                         SequenceVariation sequenceVariation = new SequenceVariation(kvp.Key, kvp.Key, originalAndSubstitutedAminoAcids[0], originalAndSubstitutedAminoAcids[1], "Putative GPTMD Substitution");
                         if (!protein.SequenceVariations.Contains(sequenceVariation))
                         {
                             protein.SequenceVariations.Add(sequenceVariation);
                         }
-                        KeyValuePair<int, Modification> pair = new(kvp.Key, mod);
-                        modificationsToRemove.Add(pair);
+                        modificationsToRemove.Add(new(kvp.Key, mod));
                     }
                 }
             }
@@ -561,6 +1002,182 @@ namespace Omics.BioPolymer
                     }
                 }
             }
+        }
+        /// <summary>
+        /// Lightweight sanitizer for variant data prior to XML write or further combinatorics.
+        /// Removes null / invalid / out-of-range SequenceVariations and prunes obviously invalid
+        /// variant-specific modification indices so downstream writers do not throw NREs.
+        /// Returns a short enumerable of human‑readable notes (can be logged) describing actions taken.
+        /// 
+        /// Non‑destructive policy:
+        /// - SequenceVariation objects are never mutated (they are immutable); any problematic one is dropped.
+        /// - AppliedSequenceVariations is re-filtered to only include surviving base SequenceVariations (by reference equality)
+        ///   plus any that were already applied but still valid against the current sequence.
+        /// - Variant-specific modifications that point outside the plausible post‑edit protein length are removed.
+        /// 
+        /// Safety heuristics (fast, no deep recomputation):
+        /// 1. Drop variant if:
+        ///    - null
+        ///    - begin < 1
+        ///    - begin > BaseSequence.Length + 1 (cannot even be an insertion)
+        ///    - AreValid() returns false
+        /// 2. Prune variant.OneBasedModifications keys if:
+        ///    - key < 1
+        ///    - key > (BaseSequence.Length + maxDeltaLen)   (where maxDeltaLen = variant.VariantSequence.Length - variant.OriginalSequence.Length, if positive)
+        ///    - variant encodes a deletion or stop-gain (VariantSequence empty or ends with '*') AND key >= variant.OneBasedBeginPosition
+        /// 
+        /// This is intentionally conservative: we do not attempt to "fix" coordinates, only remove obviously hazardous data.
+        /// </summary>
+        public static IEnumerable<string> SanitizeVariantData<TBioPolymerType>(
+            IEnumerable<TBioPolymerType> polymers,
+            bool removeInvalidVariants = true)
+            where TBioPolymerType : IHasSequenceVariants
+        {
+            if (polymers == null)
+                yield break;
+
+            foreach (var prot in polymers)
+            {
+                if (prot == null)
+                    continue;
+
+                var notes = new List<string>();
+                var originalCount = prot.SequenceVariations?.Count ?? 0;
+
+                if (prot.SequenceVariations == null)
+                {
+                    continue; // nothing to sanitize
+                }
+
+                // Working list (do not modify while iterating original)
+                var kept = new List<SequenceVariation>(prot.SequenceVariations.Count);
+                foreach (var v in prot.SequenceVariations)
+                {
+                    if (v == null)
+                    {
+                        notes.Add("Dropped null variant");
+                        continue;
+                    }
+
+                    // Coordinate sanity (pre-AreValid fast checks)
+                    if (v.OneBasedBeginPosition < 1 ||
+                        v.OneBasedBeginPosition > prot.BaseSequence.Length + 1)
+                    {
+                        notes.Add($"Dropped variant (coords out of range) {v.SimpleString()}");
+                        if (removeInvalidVariants) continue; else kept.Add(v);
+                        continue;
+                    }
+
+                    // Validation (can still fail if object was mutated after construction)
+                    bool valid;
+                    try
+                    {
+                        valid = v.AreValid();
+                    }
+                    catch
+                    {
+                        valid = false;
+                    }
+
+                    if (!valid)
+                    {
+                        notes.Add($"Dropped invalid variant {v.SimpleString()}");
+                        if (removeInvalidVariants) continue; else kept.Add(v);
+                        continue;
+                    }
+
+                    // Prune variant-specific modifications dictionary (mutable) if present
+                    if (v.OneBasedModifications != null && v.OneBasedModifications.Count > 0)
+                    {
+                        int delta = (v.VariantSequence?.Length ?? 0) - (v.OriginalSequence?.Length ?? 0);
+                        int maxAllowedPos = prot.BaseSequence.Length + Math.Max(0, delta);
+
+                        var toRemove = new List<int>();
+                        foreach (var kv in v.OneBasedModifications)
+                        {
+                            int pos = kv.Key;
+                            if (pos < 1 || pos > maxAllowedPos)
+                            {
+                                toRemove.Add(pos);
+                                continue;
+                            }
+                            bool deletionOrStop = string.IsNullOrEmpty(v.VariantSequence) || (v.VariantSequence?.Contains('*') ?? false);
+                            if (deletionOrStop && pos >= v.OneBasedBeginPosition)
+                            {
+                                toRemove.Add(pos);
+                            }
+                        }
+
+                        if (toRemove.Count > 0)
+                        {
+                            foreach (var k in toRemove)
+                            {
+                                v.OneBasedModifications.Remove(k);
+                            }
+                            notes.Add($"Variant {v.SimpleString()} pruned {toRemove.Count} mod site(s)");
+                        }
+                    }
+
+                    kept.Add(v);
+                }
+
+                if (kept.Count != originalCount)
+                {
+                    // Replace list (SequenceVariations is mutable list per interface)
+                    prot.SequenceVariations.Clear();
+                    prot.SequenceVariations.AddRange(kept);
+                    notes.Add($"Sanitized variants: kept {kept.Count}/{originalCount}");
+                }
+
+                // Reconcile AppliedSequenceVariations if present (drop references that no longer exist or became invalid)
+                if (prot.AppliedSequenceVariations != null && prot.AppliedSequenceVariations.Count > 0)
+                {
+                    int beforeApplied = prot.AppliedSequenceVariations.Count;
+                    prot.AppliedSequenceVariations.RemoveAll(v => v == null || !kept.Contains(v));
+                    if (prot.AppliedSequenceVariations.Count != beforeApplied)
+                    {
+                        notes.Add($"Pruned applied variant refs: {beforeApplied - prot.AppliedSequenceVariations.Count} removed");
+                    }
+                }
+
+                foreach (var n in notes)
+                {
+                    // TBioPolymerType is only constrained to IHasSequenceVariants (no Accession there).
+                    // Use direct Accession if the object implements IBioPolymer; otherwise fall back to ConsensusVariant.Accession.
+                    string acc = (prot as IBioPolymer)?.Accession
+                                 ?? prot.ConsensusVariant?.Accession
+                                 ?? "<no_accession>";
+                    yield return $"[{acc}] {n}";
+                }
+            }
+        }
+
+        /// <summary>
+        /// Convenience overload for a single protein / biopolymer.
+        /// </summary>
+        public static IEnumerable<string> SanitizeVariantData<TBioPolymerType>(TBioPolymerType polymer, bool removeInvalidVariants = true)
+            where TBioPolymerType : IHasSequenceVariants
+        {
+            return SanitizeVariantData(new[] { polymer }, removeInvalidVariants);
+        }
+
+        // New: always preserves AppliedSequenceVariations on constructed variants
+        private static TBioPolymerType BuildVariant<TBioPolymerType>(
+            TBioPolymerType original,
+            string variantBaseSequence,
+            IEnumerable<SequenceVariation> appliedSequenceVariants,
+            IEnumerable<TruncationProduct> applicableTruncationProducts,
+            IDictionary<int, List<Modification>> promotedMods,
+            string sampleNameForVariants)
+            where TBioPolymerType : IHasSequenceVariants
+        {
+            return original.CreateVariant(
+                variantBaseSequence,
+                original,
+                appliedSequenceVariants ?? Array.Empty<SequenceVariation>(),
+                applicableTruncationProducts ?? Array.Empty<TruncationProduct>(),
+                promotedMods ?? new Dictionary<int, List<Modification>>(),
+                sampleNameForVariants);
         }
     }
 }

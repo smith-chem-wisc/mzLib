@@ -89,7 +89,7 @@ namespace Test.DatabaseTests
                 oneBasedModifications: new Dictionary<int, List<Modification>> { { 1, new List<Modification> { new Modification("mod", null, "type", null, motif, "Anywhere.", null, 10, null, null, null, null, null, null) } } }
                 );
 
-            List<Protein> merged = ProteinDbLoader.Merge(new List<Protein> { p, p2 }).ToList();
+            List<Protein> merged = ProteinDbLoader.CollapseDuplicateProteinsByAccessionAndBaseSequence(new List<Protein> { p, p2 }).ToList();
             Assert.AreEqual(1, merged.Count);
             Assert.AreEqual(1, merged.First().DatabaseReferences.Count());
             Assert.AreEqual(1, merged.First().GeneNames.Count());
@@ -104,7 +104,8 @@ namespace Test.DatabaseTests
         public static void XmlTest()
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"),
-                true, DecoyType.Reverse, UniProtPtms, false, null, out var un, 1, 0);
+                true, DecoyType.Reverse, UniProtPtms, false, null, out var un,
+                maxThreads: 1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -125,7 +126,7 @@ namespace Test.DatabaseTests
             Assert.AreEqual(64, ok[0].SequenceVariations.First().OneBasedEndPosition);
             Assert.AreEqual(103 - 64 + 2, ok[1].SequenceVariations.First().OneBasedBeginPosition);
             Assert.AreEqual(103 - 64 + 2, ok[1].SequenceVariations.First().OneBasedEndPosition);
-            Assert.AreNotEqual(ok[0].SequenceVariations.First().Description, ok[1].SequenceVariations.First().Description); //decoys and target variations don't have the same desc.
+            Assert.AreNotEqual(ok[0].SequenceVariations.First().VariantCallFormatData, ok[1].SequenceVariations.First().VariantCallFormatData); //decoys and target variations don't have the same desc.
             Assert.AreEqual("Homo sapiens", ok[1].Organism);
         }
 
@@ -133,7 +134,8 @@ namespace Test.DatabaseTests
         public static void DisulfideXmlTest()
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"),
-                true, DecoyType.Reverse, UniProtPtms, false, null, out Dictionary<string, Modification> un);
+                true, DecoyType.Reverse, UniProtPtms, false, null, out Dictionary<string, Modification> un,
+                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -160,7 +162,8 @@ namespace Test.DatabaseTests
         public static void XmlTest_2entry()
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"),
-                true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
+                true, DecoyType.Reverse, UniProtPtms, false, null, out var un,
+                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             // proteolysis products check
             Assert.True(ok.All(p => p.TruncationProducts.All(d => d.OneBasedBeginPosition == null || d.OneBasedBeginPosition > 0)));
@@ -182,9 +185,10 @@ namespace Test.DatabaseTests
         public static void XmlGzTest()
         {
             string directory = Path.Combine(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests"));
-            
+
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(directory, @"xml.xml.gz"),
-                true, DecoyType.Reverse, UniProtPtms, false, null, out var un, 1, 0);
+                true, DecoyType.Reverse, UniProtPtms, false, null, out var un,
+                maxThreads: 1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.AreEqual('M', ok[0][0]);
             Assert.AreEqual('M', ok[1][0]);
@@ -218,7 +222,8 @@ namespace Test.DatabaseTests
         public static void XmlFunkySequenceTest()
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fake_h4.xml"),
-                true, DecoyType.Reverse, UniProtPtms, false, null, out var un, 1, 0);
+                true, DecoyType.Reverse, UniProtPtms, false, null, out var un,
+                maxThreads: 1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.AreEqual("S", ok[0].BaseSequence.Substring(0, 1));
             Assert.AreEqual("G", ok[1].BaseSequence.Substring(0, 1));
@@ -231,7 +236,8 @@ namespace Test.DatabaseTests
         public static void XmlModifiedStartTest()
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"modified_start.xml"),
-                true, DecoyType.Reverse, UniProtPtms, false, null, out var un);
+                true, DecoyType.Reverse, UniProtPtms, false, null, out var un,
+                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.AreEqual("M", ok[0].BaseSequence.Substring(0, 1)); //the original protein sequence in the original order starts with 'M'
             Assert.AreEqual("M", ok[1].BaseSequence.Substring(0, 1)); //the decoy protein sequence in the reverse order from the original still starts with 'M'
@@ -304,7 +310,8 @@ namespace Test.DatabaseTests
             };
 
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"), true, DecoyType.Reverse, UniProtPtms.Concat(nice), false,
-                new List<string>(), out Dictionary<string, Modification> un);
+                new List<string>(), out Dictionary<string, Modification> un,
+                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.True(ok[0].OneBasedPossibleLocalizedModifications.Any(kv => kv.Value.Count > 1));
 
@@ -329,7 +336,8 @@ namespace Test.DatabaseTests
             Assert.That(nice[0].ValidModification);
 
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml.xml"), true, DecoyType.Reverse, nice, false,
-                new[] { excludeString }, out Dictionary<string, Modification> un);
+                new[] { excludeString }, out Dictionary<string, Modification> un,
+                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             List<string> modTypes = new List<string>();
             foreach (KeyValuePair<int, List<Modification>> entry in ok2[0].OneBasedPossibleLocalizedModifications)
@@ -344,7 +352,7 @@ namespace Test.DatabaseTests
         public static void CompareOxidationWithAndWithoutCf()
         {
             string aString =
-                //These next lines CANNOT be tabbed over becaue the leading characters mess up the reading.
+//These next lines CANNOT be tabbed over becaue the leading characters mess up the reading.
 @"ID   Methionine (R)-sulfoxide
 AC   PTM-0480
 FT   MOD_RES
@@ -380,7 +388,8 @@ CF   O1
         {
             var nice = new List<Modification>();
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), true, DecoyType.Reverse, nice, false,
-                new string[] { "exclude_me" }, out Dictionary<string, Modification> un);
+                new string[] { "exclude_me" }, out Dictionary<string, Modification> un,
+                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
             Assert.AreEqual("MNCYNELQYLSCISTCCQDVIGRKQRAVELALTQLDGPSGGLELQEVQPDEVERRSKPTYFFGREGCVLYLAEVLHPGCLHQKVFAQTPKPEWLALLALLPLFHVLLA", ok2[1].BaseSequence);
@@ -403,7 +412,8 @@ CF   O1
         {
             var nice = new List<Modification>();
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), true, DecoyType.Reverse, nice, false,
-                new string[] { "exclude_me" }, out Dictionary<string, Modification> un, decoyIdentifier: "rev");
+                new string[] { "exclude_me" }, out Dictionary<string, Modification> un,
+                maxThreads: -1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1, decoyIdentifier: "rev");
 
             foreach (var protein in proteins)
             {
@@ -420,8 +430,8 @@ CF   O1
 
                 foreach (var variant in protein.AppliedSequenceVariations)
                 {
-                    Assert.That(variant.Description, Does.StartWith("rev"));
-                    Assert.That(variant.Description, Does.Not.StartWith("DECOY"));
+                    Assert.That(variant.VariantCallFormatData, Does.StartWith("rev"));
+                    Assert.That(variant.VariantCallFormatData, Does.Not.StartWith("DECOY"));
                 }
 
                 foreach (var bond in protein.DisulfideBonds)
@@ -443,7 +453,8 @@ CF   O1
         {
             //sequence, disulfides
             var ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"), true, DecoyType.Slide, UniProtPtms, false,
-                new string[] { "exclude_me" }, out Dictionary<string, Modification> un, 1, 0);
+                new string[] { "exclude_me" }, out Dictionary<string, Modification> un,
+                maxThreads: 1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.AreEqual("MALLVHFLPLLALLALWEPKPTQAFVKQHLCGPHLVEALYLVCGERGFFYTPKSRREVEDPQVEQLELGGSPGDLQTLALEVARQKRGIVDQCCTSICSLYQLENYCN", ok2[0].BaseSequence);
             Assert.AreEqual("MTKAEVLQLLAGLHLVHALYAVLGVRFFPYLPLSARWVPDPQQEFLKLHGCPPDLQELLLLVCREKGGFVTQKCRSECELPQVEQYENGCSNGLLYTSAIETACQDRI", ok2[1].BaseSequence);
@@ -467,7 +478,8 @@ CF   O1
 
             //sequence variants, modifications
             ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"O43653.xml"), true, DecoyType.Slide, UniProtPtms, false,
-    new string[] { "exclude_me" }, out un, 1, 0);
+                new string[] { "exclude_me" }, out un,
+                maxThreads: 1, maxSequenceVariantsPerIsoform: 4, minAlleleDepth: 1, totalConsensusPlusVariantIsoforms: 1);
 
             Assert.AreEqual(ok2[1].OneBasedPossibleLocalizedModifications.First().Key, 13);
             var decoyVariants = ok2[1].SequenceVariations.ToList();
@@ -496,6 +508,99 @@ CF   O1
 
             Assert.AreEqual("MSGRGKGGKGLGKGGAKRHRKVLRDNIQGITKPAIRRLARRGGVKRISGLIYEETRGVLKVFLENVIRDAVTYTEHAKRKTVTAMDVVYALKRQGRTLYGFGG", prots[0].BaseSequence);
             Assert.AreEqual("MVRRRNAQGIGKGAGRKLRRSGGVGRGSKLLYKEGRKVHKKFLEDVIRGATTPTIHRKAKRVGAKDIVGAIKEQTRGLLGVGLGNFIYDTVGYRELAYRVTMT", prots[1].BaseSequence);
+        }
+        [Test]
+        public static void LoadProteinXML_LegacyOverload_ForwardsParameters_AndMatchesCanonical()
+        {
+            // This test validates the obsolete legacy overload forwards parameters to the canonical
+            // LoadProteinXML correctly:
+            // - maxHeterozygousVariants -> totalConsensusPlusVariantIsoforms
+            // - minVariantDepth         -> minAlleleDepth
+            // - maxSequenceVariantsPerIsoform is fixed to 1 in the legacy shim (single-variant isoforms)
+            //
+            // We use small.xml (contains 6 variants) and check two scenarios:
+            // 1) maxHeterozygousVariants = 1   → base only (no applied-variant isoforms)
+            // 2) maxHeterozygousVariants = 7   → base + 6 single-variant isoforms (total 7)
+
+            string xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "small.xml");
+
+            // Scenario 1: legacy with maxHeterozygousVariants = 1 → base only
+            var legacy1 = ProteinDbLoader.LoadProteinXML(
+                filename: xmlPath,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: UniProtPtms ?? Enumerable.Empty<Modification>(),
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var unknownLegacy1,
+                maxThreads: -1,
+                maxHeterozygousVariants: 1,  // maps to totalConsensusPlusVariantIsoforms
+                minVariantDepth: 0,          // maps to minAlleleDepth
+                addTruncations: false);
+
+            // Canonical equivalent of scenario 1
+            var canonical1 = ProteinDbLoader.LoadProteinXML(
+                proteinDbLocation: xmlPath,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: UniProtPtms ?? Enumerable.Empty<Modification>(),
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var unknownCanonical1,
+                maxThreads: -1,
+                maxSequenceVariantsPerIsoform: 1, // legacy shim sets this
+                minAlleleDepth: 0,
+                totalConsensusPlusVariantIsoforms: 1,    // same as legacy maxHeterozygousVariants
+                addTruncations: false);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(unknownLegacy1.Count, Is.EqualTo(unknownCanonical1.Count), "Unknown modification counts mismatch (scenario 1).");
+                Assert.That(legacy1.Count, Is.EqualTo(canonical1.Count), "Legacy vs canonical count mismatch (scenario 1).");
+                Assert.That(legacy1.Count, Is.EqualTo(1), "Expected base-only when maxHeterozygousVariants == 1.");
+                Assert.That(legacy1[0].Accession, Is.EqualTo(canonical1[0].Accession));
+                Assert.That(legacy1[0].BaseSequence, Is.EqualTo(canonical1[0].BaseSequence));
+            });
+
+            // Scenario 2: legacy with maxHeterozygousVariants = 7 → base + 6 singles (total 7)
+            var legacy2 = ProteinDbLoader.LoadProteinXML(
+                filename: xmlPath,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: UniProtPtms ?? Enumerable.Empty<Modification>(),
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var unknownLegacy2,
+                maxThreads: -1,
+                maxHeterozygousVariants: 7, // allow base + 6 single-variant isoforms
+                minVariantDepth: 0,
+                addTruncations: false);
+
+            var canonical2 = ProteinDbLoader.LoadProteinXML(
+                proteinDbLocation: xmlPath,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: UniProtPtms ?? Enumerable.Empty<Modification>(),
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var unknownCanonical2,
+                maxThreads: -1,
+                maxSequenceVariantsPerIsoform: 1, // legacy shim sets this
+                minAlleleDepth: 0,
+                totalConsensusPlusVariantIsoforms: 7,
+                addTruncations: false);
+
+            // Compare counts and the set of (Accession, BaseSequence) pairs to avoid order sensitivity
+            var legacySet = new HashSet<(string acc, string seq)>(legacy2.Select(p => (p.Accession, p.BaseSequence)));
+            var canonicalSet = new HashSet<(string acc, string seq)>(canonical2.Select(p => (p.Accession, p.BaseSequence)));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(unknownLegacy2.Count, Is.EqualTo(unknownCanonical2.Count), "Unknown modification counts mismatch (scenario 2).");
+                Assert.That(legacy2.Count, Is.EqualTo(canonical2.Count), "Legacy vs canonical count mismatch (scenario 2).");
+                Assert.That(legacy2.Count, Is.EqualTo(7), "Expected base + 6 single-variant isoforms (total 7).");
+                Assert.That(legacySet.SetEquals(canonicalSet), Is.True, "Legacy vs canonical entries differ (scenario 2).");
+            });
         }
     }
 }

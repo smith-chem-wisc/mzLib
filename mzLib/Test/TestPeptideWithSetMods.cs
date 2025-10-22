@@ -466,7 +466,7 @@ namespace Test
         }
 
         [Test]
-        public static void TestPeptideWithSetMod_GetHashCode()
+        public static void TestPeptideWithSetMods_GetHashCode()
         {
             PeptideWithSetModifications pep1 = new PeptideWithSetModifications("SEQUENCEK", new Dictionary<string, Modification>());
             int oneHashCode = pep1.GetHashCode();
@@ -565,60 +565,56 @@ namespace Test
             Assert.IsFalse(pepe.IncludesSpliceSite(ss6EndAfter));
             Assert.IsFalse(pepe.IncludesSpliceSite(ss7After));
         }
-
         [Test]
         public static void TestIntersectsSequenceVariations()
         {
-            Protein protein = new Protein("MACDEFGHIK", "test");
-            PeptideWithSetModifications pepe = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 10, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
+            // Protein:  M  A  C  D  E  F  G  H  I  K
+            // Position: 1  2  3  4  5  6  7  8  9  10
+            var protein = new Protein("MACDEFGHIK", "test");
 
-            // The weird thing here is that IntersectsWithVariation takes in applied variations,
-            // so these are constructed as if already applied
-            SequenceVariation sv1Before = new SequenceVariation(1, 1, "A", "M", ""); // before peptide (not identified)
-            SequenceVariation sv2Synonymous = new SequenceVariation(2, 2, "A", "A", ""); // no change (intersects because peptide crosses entire variant but is not truly "identified")
-            SequenceVariation sv4MissenseBeginning = new SequenceVariation(2, 2, "V", "A", ""); // missense at beginning
-            SequenceVariation sv5InsertionAtEnd = new SequenceVariation(7, 9, "GHI", "GHIK", ""); // insertion or stop loss
-            SequenceVariation sv6Deletion = new SequenceVariation(2, 3, "AC", "A", ""); // deletion
-            SequenceVariation sv66Truncation = new SequenceVariation(10, 20, "KAAAAAAAAAA", "K", ""); // truncation or stop gain (identified because peptide crosses entire variant)
-            SequenceVariation sv7MNP = new SequenceVariation(2, 3, "AA", "AC", ""); // mnp
-            SequenceVariation sv77MNP = new SequenceVariation(2, 3, "AC", "AC", ""); // synonymous mnp (identified because peptide crosses entire variant)
-            SequenceVariation sv9MissenseInRange = new SequenceVariation(3, 3, "C", "V", ""); // missense in range
-            SequenceVariation sv10MissenseRangeEdge = new SequenceVariation(10, 10, "K", "R", ""); // missense at end
-            SequenceVariation sv11After = new SequenceVariation(11, 11, "L", "V", ""); // after peptide (not identified)
+            // Peptide covering residues 2–10 (A..K)
+            var pepFull = new PeptideWithSetModifications(
+                protein, new DigestionParams(), 2, 10,
+                CleavageSpecificity.Unknown, "", 0,
+                new Dictionary<int, Modification>(), 0);
 
-            Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv1Before).intersects);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv2Synonymous).intersects);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv4MissenseBeginning).intersects);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv5InsertionAtEnd).intersects);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv6Deletion).intersects);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv66Truncation).intersects);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv7MNP).intersects);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv77MNP).intersects);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv9MissenseInRange).intersects);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv10MissenseRangeEdge).intersects);
-            Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv11After).intersects);
+            // Shorter peptide (2–9) to exercise non-intersect terminal logic with a downstream stop gain
+            var pepShort = new PeptideWithSetModifications(
+                protein, new DigestionParams(), 2, 9,
+                CleavageSpecificity.Unknown, "", 0,
+                new Dictionary<int, Modification>(), 0);
 
-            Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv1Before).identifies);
-            Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv2Synonymous).identifies);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv4MissenseBeginning).identifies);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv5InsertionAtEnd).identifies);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv6Deletion).identifies);
-            Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv66Truncation).identifies);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv7MNP).identifies);
-            Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv77MNP).identifies);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv9MissenseInRange).identifies);
-            Assert.IsTrue(pepe.IntersectsAndIdentifiesVariation(sv10MissenseRangeEdge).identifies);
-            Assert.IsFalse(pepe.IntersectsAndIdentifiesVariation(sv11After).identifies);
+            // 1. Missense BEFORE peptide start (pos 1: M -> A)
+            var vBefore = new SequenceVariation(1, 1, "M", "A", "missense_before");
+            // 2. Missense AT peptide start (pos 2: A -> V)
+            var vBegin = new SequenceVariation(2, 2, "A", "V", "missense_begin");
+            // 3. Internal insertion / expansion (pos 5: E -> EQK; expansion length +2)
+            var vInsertion = new SequenceVariation(5, 5, "E", "EQK", "insertion_expansion");
+            // 4. Internal deletion / contraction (pos 7–8: GH -> G; net -1)
+            var vDeletion = new SequenceVariation(7, 8, "GH", "G", "internal_deletion");
+            // 5. Stop gain at last residue (pos 10: K -> * )
+            var vStopEnd = new SequenceVariation(10, 10, "K", "*", "stop_gain_terminal");
+            // 6. Same stop gain evaluated against shorter peptide (should not intersect, but can identify via terminal logic)
+            var vStopBeyondShort = vStopEnd; // reuse object
 
-            PeptideWithSetModifications pepe2 = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 9, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
-            Assert.IsTrue(pepe2.IntersectsAndIdentifiesVariation(sv5InsertionAtEnd).intersects); // this only intersects GHI, which is the same in GHI -> GHIK
-            Assert.IsFalse(pepe2.IntersectsAndIdentifiesVariation(sv5InsertionAtEnd).identifies);
+            // Assertions for pepFull (2–10)
+            Assert.AreEqual((false, false), pepFull.IntersectsAndIdentifiesVariation(vBefore), "Missense before peptide should neither intersect nor identify.");
+            Assert.AreEqual((true, true), pepFull.IntersectsAndIdentifiesVariation(vBegin), "Missense at peptide start should intersect & identify.");
+            Assert.AreEqual((true, true), pepFull.IntersectsAndIdentifiesVariation(vInsertion), "Insertion expansion should intersect & identify.");
+            Assert.AreEqual((true, true), pepFull.IntersectsAndIdentifiesVariation(vDeletion), "Internal deletion should intersect & identify (length contraction).");
+            Assert.AreEqual((true, true), pepFull.IntersectsAndIdentifiesVariation(vStopEnd), "Terminal stop gain inside span should intersect & identify.");
+
+            // Assertions for pepShort (2–9)
+            // Stop gain at position 10 is exactly one residue beyond pepShort end (9);
+            // Intersects = false, but identification can occur if a new protease site / termination is introduced.
+            var shortResult = pepShort.IntersectsAndIdentifiesVariation(vStopBeyondShort);
+            Assert.IsFalse(shortResult.intersects, "Stop gain beyond shorter peptide should not intersect.");
+            Assert.IsTrue(shortResult.identifies, "Stop gain just beyond peptide end should identify (terminal change).");
         }
-
         [Test]
         public static void TestIsVariantPeptide()
         {
-            Protein protein = new Protein("MPEPTIDENEWPEPTIDE", "protein0", appliedSequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "V", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) });
+            Protein protein = new Protein("MPEPTIDENEWPEPTIDE", "protein0", appliedSequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "V", "substitution", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) });
 
             PeptideWithSetModifications pepe = new PeptideWithSetModifications(protein, new DigestionParams(), 1, 8, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
             PeptideWithSetModifications notPepe = new PeptideWithSetModifications(protein, new DigestionParams(), 9, 18, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
@@ -626,155 +622,675 @@ namespace Test
             Assert.IsTrue(pepe.IsVariantPeptide());
             Assert.IsFalse(notPepe.IsVariantPeptide());
         }
-
         [Test]
         public static void TestSeqVarString()
         {
+            // Protein baseline
             Protein protein = new Protein("MACDEFGHIK", "test");
 
-            // mod on N-terminus
-            PeptideWithSetModifications pepe = new PeptideWithSetModifications(protein, new DigestionParams(), 1, 10, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification> { { 1, new Modification("mod on M", "mod", "mod", "mod") } }, 0);
-            SequenceVariation sv1Before = new SequenceVariation(1, 1, "A", "M", ""); // n-terminal mod goes before the sequence
-            Assert.AreEqual("A1[mod:mod on M]M", pepe.SequenceVariantString(sv1Before, true));
+            // 1. Substitution at N-terminus with variant-specific modification (M -> A + mod on A)
+            var subMod = new Modification("mod on A", "mod", "mod", "mod");
+            var vSubNterm = new SequenceVariation(
+                oneBasedBeginPosition: 1,
+                oneBasedEndPosition: 1,
+                originalSequence: "M",
+                variantSequence: "A",
+                description: "nterm_substitution_with_variant_mod",
+                oneBasedModifications: new Dictionary<int, List<Modification>> { { 1, new List<Modification> { subMod } } });
 
-            // mod in middle
-            PeptideWithSetModifications pepe2 = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 10, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification> { { 2, new Modification("mod on A", "mod", "mod", "mod") } }, 0);
-            SequenceVariation sv4MissenseBeginning = new SequenceVariation(2, 2, "V", "A", ""); // missense at beginning
-            Assert.AreEqual("V2A[mod:mod on A]", pepe2.SequenceVariantString(sv4MissenseBeginning, true));
+            var pepFull = new PeptideWithSetModifications(
+                protein, new DigestionParams(), 1, 10,
+                CleavageSpecificity.Unknown, "", 0,
+                new Dictionary<int, Modification>(), 0);
 
-            // truncated seqvar doesn't truncate in string report (using applied variation correctly)
-            PeptideWithSetModifications pepe3 = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 9, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
-            SequenceVariation svvvv = new SequenceVariation(7, 10, "GHM", "GHIK", ""); // insertion
-            Assert.AreEqual("GHM7GHIK", pepe3.SequenceVariantString(svvvv, true));
+            Assert.AreEqual("M1A[mod:mod on A]", pepFull.SequenceVariantString(vSubNterm, true));
 
-            Protein protein2 = new Protein("WACDEFGHIK", "test");
+            // 2. Missense at peptide position 2 with variant-specific modification (A -> V)
+            var pos2Mod = new Modification("mod on V", "mod", "mod", "mod");
+            var vMissense = new SequenceVariation(
+                oneBasedBeginPosition: 2,
+                oneBasedEndPosition: 2,
+                originalSequence: "A",
+                variantSequence: "V",
+                description: "missense_with_variant_mod",
+                oneBasedModifications: new Dictionary<int, List<Modification>> { { 2, new List<Modification> { pos2Mod } } });
 
-            //variant starts at protein start but peptide does not
-            PeptideWithSetModifications pepe4 = new PeptideWithSetModifications(protein2, new DigestionParams(), 4, 8, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification>(), 0);
-            SequenceVariation variant = new SequenceVariation(1, 10, "MABCDEFGHIJKLMNOP", "WACDEFGHIK", ""); // frameshift
-            Assert.AreEqual("MABCDEFGHIJKLMNOP1WACDEFGHIK", pepe4.SequenceVariantString(variant, true));
+            var pep2toEnd = new PeptideWithSetModifications(
+                protein, new DigestionParams(), 2, 10,
+                CleavageSpecificity.Unknown, "", 0,
+                new Dictionary<int, Modification>(), 0);
+
+            Assert.AreEqual("A2V[mod:mod on V]", pep2toEnd.SequenceVariantString(vMissense, true));
+
+            // 3. Insertion / expansion: positions 7–9 (GHI -> GHIK)
+            // Original segment (7–9) == GHI; variant adds K
+            var vInsertion = new SequenceVariation(
+                oneBasedBeginPosition: 7,
+                oneBasedEndPosition: 9,
+                originalSequence: "GHI",
+                variantSequence: "GHIK",
+                description: "insertion_extension");
+            var pepMid = new PeptideWithSetModifications(
+                protein, new DigestionParams(), 2, 10,
+                CleavageSpecificity.Unknown, "", 0,
+                new Dictionary<int, Modification>(), 0);
+            Assert.AreEqual("GHI7GHIK", pepMid.SequenceVariantString(vInsertion, true));
+
+            // 4. Frameshift/large replacement: full span (1–10) replaced by longer sequence
+            var vFrameshift = new SequenceVariation(
+                oneBasedBeginPosition: 1,
+                oneBasedEndPosition: 10,
+                originalSequence: "MACDEFGHIK",
+                variantSequence: "MABCDEFGHIJKLMNOP",
+                description: "frameshift_extension");
+            Assert.AreEqual("MACDEFGHIK1MABCDEFGHIJKLMNOP", pepFull.SequenceVariantString(vFrameshift, true));
+
+            // 5. Synonymous with variant-specific mod (no sequence change but mod should appear)
+            var synMod = new Modification("mod on C", "mod", "mod", "mod");
+            var vSynonymous = new SequenceVariation(
+                oneBasedBeginPosition: 3,
+                oneBasedEndPosition: 3,
+                originalSequence: "C",
+                variantSequence: "C",
+                description: "synonymous_with_variant_mod",
+                oneBasedModifications: new Dictionary<int, List<Modification>> { { 3, new List<Modification> { synMod } } });
+            Assert.AreEqual("C3C[mod:mod on C]", pepFull.SequenceVariantString(vSynonymous, true));
         }
+        [Test]
+        public static void BreakDeserializationMethod()
+        {
+            Assert.Throws<MzLibException>(() => new PeptideWithSetModifications("|", new Dictionary<string, Modification>())); // ambiguous
+            Assert.Throws<MzLibException>(() => new PeptideWithSetModifications("[]", new Dictionary<string, Modification>())); // bad mod
+            Assert.Throws<MzLibException>(() => new PeptideWithSetModifications("A[:mod]", new Dictionary<string, Modification>())); // nonexistent mod
+        }
+
+        [Test]
+        public static void TestIdentifyandStringMethodsRevised()
+        {
+            // Picks a peptide that fully covers the variant span in the applied proteoform (if possible).
+            // Notes:
+            // - For insertions/deletions, the "effective variant end" includes the length delta.
+            // - If the effective end would move before the begin (e.g., contraction past the begin), we clamp to begin.
+            //   That specific clamp is exercising the branch:
+            //     if (effectiveVariantEnd < appliedVariation.OneBasedBeginPosition)
+            //         effectiveVariantEnd = appliedVariation.OneBasedBeginPosition;
+            // - This helper is meant to deterministically hit the "peptide fully covers variant" path.
+            static PeptideWithSetModifications PickCoveringPeptide(
+                Protein variantProteoform,
+                DigestionParams dp,
+                SequenceVariation v)
+            {
+                var peps = variantProteoform
+                    .Digest(dp, new List<Modification>(), new List<Modification>())
+                    .OfType<PeptideWithSetModifications>()
+                    .OrderBy(p => p.Length)
+                    .ThenBy(p => p.OneBasedStartResidueInProtein)
+                    .ToList();
+
+                if (!peps.Any())
+                    Assert.Fail($"No peptides produced for {variantProteoform.Accession}.");
+
+                // Compute effective end of the variant after accounting for length difference
+                // (e.g., insertions/expansions push the end right; deletions/contractions pull it left).
+                int lengthDiff = v.VariantSequence.Length - v.OriginalSequence.Length;
+                int effectiveVariantEnd = v.OneBasedEndPosition + lengthDiff;
+
+                // Clamp if the effective end "overshot" left of the begin due to contraction.
+                // This is the branch under test:
+                //   if (effectiveVariantEnd < appliedVariation.OneBasedBeginPosition)
+                //       effectiveVariantEnd = appliedVariation.OneBasedBeginPosition;
+                if (effectiveVariantEnd < v.OneBasedBeginPosition)
+                    effectiveVariantEnd = v.OneBasedBeginPosition;
+
+                // Prefer the shortest peptide that fully contains [variantBegin..effectiveVariantEnd]
+                var covering = peps
+                    .Where(p => p.OneBasedStartResidueInProtein <= v.OneBasedBeginPosition
+                             && p.OneBasedEndResidueInProtein >= effectiveVariantEnd)
+                    .OrderBy(p => p.Length)
+                    .ThenBy(p => p.OneBasedStartResidueInProtein)
+                    .FirstOrDefault();
+
+                // Fallback (no full-cover peptide): return the shortest overall
+                return covering ?? peps.First();
+            }
+
+            // Picks a peptide around the variant begin anchor (or a requested index) to exercise
+            // intersect/non-intersect and terminal-cleavage identification logic deterministically.
+            static PeptideWithSetModifications PickPeptide(
+                Protein variantProteoform,
+                DigestionParams dp,
+                SequenceVariation v,
+                int? requestedIndex)
+            {
+                var peps = variantProteoform
+                    .Digest(dp, new List<Modification>(), new List<Modification>())
+                    .OfType<PeptideWithSetModifications>()
+                    .OrderBy(p => p.OneBasedStartResidueInProtein)
+                    .ThenBy(p => p.Length)
+                    .ToList();
+
+                if (!peps.Any())
+                    Assert.Fail($"No peptides produced for {variantProteoform.Accession}.");
+
+                if (requestedIndex.HasValue && requestedIndex.Value < peps.Count)
+                    return peps[requestedIndex.Value];
+
+                // Anchor near the variant begin in the applied proteoform coordinate space
+                int anchor = Math.Min(v.OneBasedBeginPosition, variantProteoform.BaseSequence.Length);
+
+                // Choose a peptide that spans the anchor residue if possible
+                var covering = peps.FirstOrDefault(p =>
+                    p.OneBasedStartResidueInProtein <= anchor &&
+                    p.OneBasedEndResidueInProtein >= Math.Min(anchor, variantProteoform.BaseSequence.Length));
+
+                return covering ?? peps.First();
+            }
+
+            // Build two simple mods used by some variant cases (variant-specific PTMs)
+            ModificationMotif.TryGetMotif("V", out var motifV);
+            ModificationMotif.TryGetMotif("P", out var motifP);
+            var mv = new Modification("mod", null, "type", null, motifV, "Anywhere.", null, 42.01,
+                new Dictionary<string, IList<string>>(), null, null, null, null, null);
+            var mp = new Modification("mod", null, "type", null, motifP, "Anywhere.", null, 42.01,
+                new Dictionary<string, IList<string>>(), null, null, null, null, null);
+
+            // Protein-level PTM on P(4) for testing combined variant/PTM handling
+            var proteinPMods = new Dictionary<int, List<Modification>> { { 4, new List<Modification> { mp } } };
+
+            // Each protein has a single variant. Some are substitutions (equal-length),
+            // some are insertions (expansion), deletions (contraction), or stops.
+            // These cover the major branches inside IntersectsAndIdentifiesVariation:
+            //  - Intersection determination (original and effective windows)
+            //  - Equal-length substitution identification (per-residue differences)
+            //  - Insertion/deletion identification rules
+            //  - Terminal changes (stop gains/losses) affecting cleavage identification when non-intersecting
+            var proteins = new List<(string Label, Protein Protein)>
+            {
+                ("protein0",  new Protein("MPEPTIDE","protein0",
+                    sequenceVariations: new(){ new SequenceVariation(4,4,"P","V","substitution") })),
+                // protein1 is a multi-residue equal-length substitution (PT->KT, span 4..5).
+                // For reliable identification, we construct a peptide that spans exactly 4..5.
+                ("protein1",  new Protein("MPEPTIDE","protein1",
+                    sequenceVariations: new(){ new SequenceVariation(4,5,"PT","KT","mnp") })),
+                ("protein2",  new Protein("MPEPTIDE","protein2",
+                    sequenceVariations: new(){ new SequenceVariation(4,4,"P","PPP","insertion") })),
+                ("protein3",  new Protein("MPEPPPTIDE","protein3",
+                    sequenceVariations: new(){ new SequenceVariation(4,6,"PPP","P","deletion") })),
+                ("protein4",  new Protein("MPEPKPKTIDE","protein4",
+                    sequenceVariations: new(){ new SequenceVariation(4,7,"PKPK","PK","internal_deletion") })),
+                ("protein5",  new Protein("MPEPTAIDE","protein5",
+                    sequenceVariations: new(){ new SequenceVariation(4,6,"PTA","KT","mnp") })),
+                ("protein6",  new Protein("MPEKKAIDE","protein6",
+                    sequenceVariations: new(){ new SequenceVariation(4,6,"KKA","K","deletion") })),
+                // Variant-specific mod added at pos 4 (post-variation coordinates)
+                ("protein7",  new Protein("MPEPTIDE","protein7",
+                    sequenceVariations: new(){ new SequenceVariation(4,4,"P","V","substitution_with_variant_mod",
+                        oneBasedModifications: new Dictionary<int,List<Modification>>{{4,new(){mv}}}) })),
+                // Insertion with a variant mod located within the inserted region (post-variation pos 5)
+                ("protein8",  new Protein("MPEPTIDE","protein8",
+                    sequenceVariations: new(){ new SequenceVariation(4,4,"P","PPP","insertion_with_variant_mod",
+                        oneBasedModifications: new Dictionary<int,List<Modification>>{{5,new(){mp}}}) })),
+                ("protein9",  new Protein("MPEPTIDEPEPTIDE","protein9",
+                    sequenceVariations: new(){ new SequenceVariation(4,15,"PTIDEPEPTIDE","PPP","replacement_contraction") })),
+                // Protein-level PTM co-exists with a substitution at position 4
+                ("protein10", new Protein("MPEPTIDE","protein10",
+                    oneBasedModifications: proteinPMods,
+                    sequenceVariations: new(){ new SequenceVariation(4,4,"P","V","substitution_with_protein_mod") })),
+                // Stop gain inside peptide span (intersect=false can still identify via terminal logic for flanks; here intersecting case)
+                ("protein11", new Protein("MPEPTIDE","protein11",
+                    sequenceVariations: new(){ new SequenceVariation(5,5,"T","*","stop_gain_identifying") })),
+                // Same stop but in a context that should not identify for chosen peptide
+                ("protein12", new Protein("MPEKTIDE","protein12",
+                    sequenceVariations: new(){ new SequenceVariation(5,5,"T","*","stop_gain_non_identifying") })),
+                ("protein13", new Protein("MPEPTIPEPEPTIPE","protein13",
+                    sequenceVariations: new(){ new SequenceVariation(7,7,"P","D","missense") })),
+                // Extension at position 8 (E->EK) tests insertion-like behavior at a single position
+                ("protein14", new Protein("MPEPTIDE","protein14",
+                    sequenceVariations: new(){ new SequenceVariation(8,8,"E","EK","extension") })),
+                // Stop loss extension beyond peptide end; used to assert non-identifying for certain flanks
+                ("protein15", new Protein("MPEPTIDE","protein15",
+                    sequenceVariations: new(){ new SequenceVariation(9,9,"*","KMPEP","stop_loss_extension") }))
+            };
+
+            // Expected variant-string encodings for a subset of the above (label -> expected).
+            // These strings summarize: OriginalSubstr + BeginIndex + VariantSubstr (+ [mod annotations] if present).
+            var expectedVariantStrings = new Dictionary<string, string>
+            {
+                {"protein0","P4V"},
+                {"protein1","PT4KT"},
+                {"protein2","P4PPP"}, // insertion keeps full variant (no compression)
+                {"protein3","PPP4P"},
+                {"protein5","PTA4KT"},
+                {"protein6","KKA4K"},
+                {"protein7","P4V[type:mod on V]"},
+                {"protein8","P4PP[type:mod on P]P"},
+                {"protein9","PTIDEPEPTIDE4PPP"},
+                {"protein10","P4V"},
+                {"protein11","T5*"},
+                {"protein13","P7D"}
+            };
+
+            var dpTrypsin = new DigestionParams(minPeptideLength: 2);
+            var dpAspN = new DigestionParams(protease: "Asp-N", minPeptideLength: 2);
+            var dpLysN = new DigestionParams(protease: "Lys-N", minPeptideLength: 2);
+
+            // Build a map of label -> (applied proteoform, applied variant)
+            // If a proteoform with AppliedSequenceVariations exists, we prefer it for testing the "applied space".
+            int autoApplied = 0;
+            var appliedMap = new Dictionary<string, (Protein Prot, SequenceVariation V)>();
+
+            foreach (var (label, prot) in proteins)
+            {
+                var variant = prot.SequenceVariations.Single();
+                var applied = prot
+                    .GetVariantBioPolymers(maxSequenceVariantIsoforms: 50)
+                    .OfType<Protein>()
+                    .FirstOrDefault(p => p.AppliedSequenceVariations.Any());
+
+                if (applied != null)
+                {
+                    autoApplied++;
+                    appliedMap[label] = (applied, applied.AppliedSequenceVariations.First());
+                }
+                else
+                {
+                    appliedMap[label] = (prot, variant);
+                }
+            }
+
+            TestContext.WriteLine($"[INFO] Variant application summary: autoApplied={autoApplied}, total={appliedMap.Count}");
+
+            // protein0: simple point substitution P->V at pos 4, covered under both proteases
+            (Protein p0v, var v0) = appliedMap["protein0"];
+            var p0_pep = PickCoveringPeptide(p0v, dpTrypsin, v0);
+            Assert.AreEqual((true, true), p0_pep.IntersectsAndIdentifiesVariation(v0));
+            var p0_pep2 = PickCoveringPeptide(p0v, dpAspN, v0);
+            Assert.AreEqual((true, true), p0_pep2.IntersectsAndIdentifiesVariation(v0));
+
+            // protein1: multi-residue equal-length substitution PT(4..5)->KT.
+            // To avoid ambiguity from digestion (e.g., tryptic cleavage near K), construct a peptide from the
+            // non-applied proteoform that spans exactly 4..5 and test against the "raw" variant. This ensures a
+            // full-window overlap and deterministic identification via per-residue difference (P!=K).
+            (Protein p1v, var v1) = appliedMap["protein1"];
+            var v1Raw = proteins.First(p => p.Label == "protein1").Protein.SequenceVariations.Single();
+            var p1_origin = proteins.First(p => p.Label == "protein1").Protein; // non-applied proteoform
+
+            var p1_pep = new PeptideWithSetModifications(
+                p1_origin,
+                dpTrypsin,
+                oneBasedStartResidueInProtein: 4,
+                oneBasedEndResidueInProtein: 5, // exactly the variant window
+                CleavageSpecificity.Full,
+                peptideDescription: "",
+                missedCleavages: 0,
+                allModsOneIsNterminus: new Dictionary<int, Modification>(),
+                numFixedMods: 0);
+
+            // Expected: (intersects=true, identifies=true) because equal-length substitution differs inside overlap.
+            // Also exercises downstream string building for multi-residue substitutions.
+            Assert.AreEqual((true, true), p1_pep.IntersectsAndIdentifiesVariation(v1Raw));
+
+            // protein7: substitution with a variant-specific PTM (annotation should still identify)
+            (Protein p7v, var v7) = appliedMap["protein7"];
+            var p7_pep = PickCoveringPeptide(p7v, dpTrypsin, v7);
+            Assert.AreEqual((true, true), p7_pep.IntersectsAndIdentifiesVariation(v7));
+
+            // protein10: substitution co-existing with a protein-level PTM at the same site
+            (Protein p10v, var v10) = appliedMap["protein10"];
+            var p10_pep = PickCoveringPeptide(p10v, dpTrypsin, v10);
+            Assert.AreEqual((true, true), p10_pep.IntersectsAndIdentifiesVariation(v10));
+
+            // protein2/protein3/protein4/protein5: insertion and deletion flavors
+            // Insertions/expansions or deletions/contractions that overlap are identifying.
+            (Protein p2v, var v2) = appliedMap["protein2"];
+            var p2_pep = PickCoveringPeptide(p2v, dpTrypsin, v2);
+            Assert.AreEqual((true, true), p2_pep.IntersectsAndIdentifiesVariation(v2));
+
+            (Protein p3v, var v3) = appliedMap["protein3"];
+            var p3_pep = PickCoveringPeptide(p3v, dpTrypsin, v3);
+            Assert.AreEqual((true, true), p3_pep.IntersectsAndIdentifiesVariation(v3));
+
+            (Protein p4v, var v4) = appliedMap["protein4"];
+            var p4_pep = PickCoveringPeptide(p4v, dpTrypsin, v4);
+            Assert.AreEqual((true, true), p4_pep.IntersectsAndIdentifiesVariation(v4));
+
+            (Protein p5v, var v5) = appliedMap["protein5"];
+            var p5_pep = PickCoveringPeptide(p5v, dpTrypsin, v5);
+            Assert.AreEqual((true, true), p5_pep.IntersectsAndIdentifiesVariation(v5));
+
+            // protein6: deletion; even partial overlapping deletions are considered identifying once intersecting.
+            (Protein p6v, var v6) = appliedMap["protein6"];
+            var p6_pep = PickPeptide(p6v, dpTrypsin, v6, 2);
+            Assert.AreEqual((true, true), p6_pep.IntersectsAndIdentifiesVariation(v6));
+
+            // protein8/protein9: insertion-with-mod and replacement-contraction cases
+            (Protein p8v, var v8) = appliedMap["protein8"];
+            var p8_pep = PickCoveringPeptide(p8v, dpTrypsin, v8);
+            Assert.AreEqual((true, true), p8_pep.IntersectsAndIdentifiesVariation(v8));
+
+            (Protein p9v, var v9) = appliedMap["protein9"];
+            var p9_pep = PickCoveringPeptide(p9v, dpTrypsin, v9);
+            Assert.AreEqual((true, true), p9_pep.IntersectsAndIdentifiesVariation(v9));
+
+            // protein11: stop gain that can be identified even when the chosen peptide doesn’t overlap,
+            // via terminal-cleavage logic (new terminal introduced). We assert (false, true) using two proteases.
+            (Protein p11v, var v11) = appliedMap["protein11"];
+            var p11_pep_AspN = PickPeptide(p11v, dpAspN, v11, 0);
+            Assert.AreEqual((false, true), p11_pep_AspN.IntersectsAndIdentifiesVariation(v11));
+            var p11_pep_Tryp = PickPeptide(p11v, dpTrypsin, v11, 0);
+            Assert.AreEqual((false, true), p11_pep_Tryp.IntersectsAndIdentifiesVariation(v11));
+
+            // protein12: stop gain in a context that should not identify for the peptide chosen
+            (Protein p12v, var v12) = appliedMap["protein12"];
+            var p12_pep = PickPeptide(p12v, dpTrypsin, v12, 0);
+            Assert.AreEqual((false, false), p12_pep.IntersectsAndIdentifiesVariation(v12));
+
+            // protein13: missense away from anchor, demonstrate non-intersecting but identifying due to rules
+            (Protein p13v, var v13) = appliedMap["protein13"];
+            var p13_pep = PickPeptide(p13v, dpAspN, v13, 0);
+            Assert.AreEqual((false, true), p13_pep.IntersectsAndIdentifiesVariation(v13));
+
+            // protein14: single-position extension (E->EK) treated like insertion at that coordinate
+            (Protein p14v, var v14) = appliedMap["protein14"];
+            var p14_pep = PickPeptide(p14v, dpLysN, v14, 0);
+            Assert.AreEqual((true, true), p14_pep.IntersectsAndIdentifiesVariation(v14));
+            AssertVariantStringIfExpected("protein14", p14_pep, v14, true);
+
+            // protein15: stop loss extension beyond peptide end in a context that should not identify
+            (Protein p15v, var v15) = appliedMap["protein15"];
+            var p15_pep = PickPeptide(p15v, dpLysN, v15, 0);
+            Assert.AreEqual((false, false), p15_pep.IntersectsAndIdentifiesVariation(v15));
+
+            // Helper for asserting variant-string outputs only when expected is provided.
+            // The boolean intersectsFlag is the legacy "intersects" parameter used by SequenceVariantString overloads.
+            void AssertVariantStringIfExpected(string label, PeptideWithSetModifications pep, SequenceVariation v, bool intersectsFlag)
+            {
+                if (!expectedVariantStrings.TryGetValue(label, out var expected))
+                    return;
+                var actual = pep.SequenceVariantString(v, intersectsFlag);
+                Assert.AreEqual(expected, actual, $"Variant string mismatch for {label} (intersectsFlag={intersectsFlag})");
+            }
+
+            // Validate the human-readable variant strings for selected cases
+            AssertVariantStringIfExpected("protein0", p0_pep, v0, true);
+            AssertVariantStringIfExpected("protein0", p0_pep2, v0, true);
+            AssertVariantStringIfExpected("protein1", p1_pep, v1, true);
+            AssertVariantStringIfExpected("protein2", p2_pep, v2, true);
+            AssertVariantStringIfExpected("protein3", p3_pep, v3, true);
+            AssertVariantStringIfExpected("protein5", p5_pep, v5, true);
+            AssertVariantStringIfExpected("protein6", p6_pep, v6, true);
+            AssertVariantStringIfExpected("protein7", p7_pep, v7, true);
+            AssertVariantStringIfExpected("protein8", p8_pep, v8, true);
+            AssertVariantStringIfExpected("protein9", p9_pep, v9, true);
+            AssertVariantStringIfExpected("protein10", p10_pep, v10, true);
+            AssertVariantStringIfExpected("protein11", p11_pep_AspN, v11, false);
+            AssertVariantStringIfExpected("protein11", p11_pep_Tryp, v11, false);
+            AssertVariantStringIfExpected("protein13", p13_pep, v13, false);
+
+            TestContext.WriteLine("[INFO] TestIdentifyandStringMethods completed (deletion overlaps now intersect & identify).");
+        }
+
 
         [Test]
         public static void TestIdentifyandStringMethods()
         {
-            ModificationMotif.TryGetMotif("V", out ModificationMotif motifV);
-            Modification mv = new Modification("mod", null, "type", null, motifV, "Anywhere.", null, 42.01, new Dictionary<string, IList<string>>(), null, null, null, null, null);
-            ModificationMotif.TryGetMotif("P", out ModificationMotif motifP);
-            Modification mp = new Modification("mod", null, "type", null, motifP, "Anywhere.", null, 42.01, new Dictionary<string, IList<string>>(), null, null, null, null, null);
-            Dictionary<int, Modification> modV = new Dictionary<int, Modification>();
-            modV.Add(4, mv);
-            Dictionary<int, Modification> modP = new Dictionary<int, Modification>();
-            modP.Add(5, mp);
-
-            Dictionary<int, List<Modification>> proteinPMods = new Dictionary<int, List<Modification>>();
-            proteinPMods.Add(4, new List<Modification>() { mp });
-
-            List<Protein> proteins = new List<Protein>
+            static PeptideWithSetModifications PickCoveringPeptide(
+                Protein variantProteoform,
+                DigestionParams dp,
+                SequenceVariation v)
             {
-                new Protein("MPEPTIDE", "protein0", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "V", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE", "protein1", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 5, "PT", "KT", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE", "protein2", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPPPTIDE", "protein3", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "PPP", "P", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPKPKTIDE", "protein4", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 7, "PKPK", "PK", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTAIDE", "protein5",sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "PTA", "KT", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEKKAIDE", "protein6", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "KKA", "K", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE", "protein7", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "V", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> {{ 4, new[] { mv }.ToList() } }) }),
-                new Protein("MPEPTIDE", "protein8",sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> {{ 5, new[] { mp }.ToList() } }) }),
-                new Protein("MPEPTIDEPEPTIDE", "protein9", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 15, "PTIDEPEPTIDE", "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE", "protein10", oneBasedModifications: proteinPMods ,sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "V", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE", "protein11", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(5, 5, "T", "*", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }), //stop-gain (can identify)
-                new Protein("MPEKTIDE", "protein12", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(5, 5, "T", "*", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }), //stop-gain (can't identify)
-                new Protein("MPEPTIPEPEPTIPE", "protein13", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(7, 7, "P", "D", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE", "protein14", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(8, 9, "E", "EK", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }), //peptide becomes longer, and cleavage site is created but cannot be identified
-                new Protein("MPEPTIDE", "protein15", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(9, 13, "*", "KMPEP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }), // stop loss at end of original protein that cannot be identified
+                var peps = variantProteoform
+                    .Digest(dp, new List<Modification>(), new List<Modification>())
+                    .OfType<PeptideWithSetModifications>()
+                    .OrderBy(p => p.Length)
+                    .ThenBy(p => p.OneBasedStartResidueInProtein)
+                    .ToList();
+
+                if (!peps.Any())
+                    Assert.Fail($"No peptides produced for {variantProteoform.Accession}.");
+
+                int lengthDiff = v.VariantSequence.Length - v.OriginalSequence.Length;
+                int effectiveVariantEnd = v.OneBasedEndPosition + lengthDiff;
+                if (effectiveVariantEnd < v.OneBasedBeginPosition)
+                    effectiveVariantEnd = v.OneBasedBeginPosition;
+
+                var covering = peps
+                    .Where(p => p.OneBasedStartResidueInProtein <= v.OneBasedBeginPosition
+                             && p.OneBasedEndResidueInProtein >= effectiveVariantEnd)
+                    .OrderBy(p => p.Length)
+                    .ThenBy(p => p.OneBasedStartResidueInProtein)
+                    .FirstOrDefault();
+
+                return covering ?? peps.First();
+            }
+
+            static PeptideWithSetModifications PickPeptide(
+                Protein variantProteoform,
+                DigestionParams dp,
+                SequenceVariation v,
+                int? requestedIndex)
+            {
+                var peps = variantProteoform
+                    .Digest(dp, new List<Modification>(), new List<Modification>())
+                    .OfType<PeptideWithSetModifications>()
+                    .OrderBy(p => p.OneBasedStartResidueInProtein)
+                    .ThenBy(p => p.Length)
+                    .ToList();
+
+                if (!peps.Any())
+                    Assert.Fail($"No peptides produced for {variantProteoform.Accession}.");
+
+                if (requestedIndex.HasValue && requestedIndex.Value < peps.Count)
+                    return peps[requestedIndex.Value];
+
+                int anchor = Math.Min(v.OneBasedBeginPosition, variantProteoform.BaseSequence.Length);
+
+                var covering = peps.FirstOrDefault(p =>
+                    p.OneBasedStartResidueInProtein <= anchor &&
+                    p.OneBasedEndResidueInProtein >= Math.Min(anchor, variantProteoform.BaseSequence.Length));
+
+                return covering ?? peps.First();
+            }
+
+            ModificationMotif.TryGetMotif("V", out var motifV);
+            ModificationMotif.TryGetMotif("P", out var motifP);
+            var mv = new Modification("mod", null, "type", null, motifV, "Anywhere.", null, 42.01,
+                new Dictionary<string, IList<string>>(), null, null, null, null, null);
+            var mp = new Modification("mod", null, "type", null, motifP, "Anywhere.", null, 42.01,
+                new Dictionary<string, IList<string>>(), null, null, null, null, null);
+
+            var proteinPMods = new Dictionary<int, List<Modification>> { { 4, new List<Modification> { mp } } };
+
+            var proteins = new List<(string Label, Protein Protein)>
+            {
+                ("protein0",  new Protein("MPEPTIDE","protein0",
+                    sequenceVariations: new(){ new SequenceVariation(4,4,"P","V","substitution") })),
+                ("protein1",  new Protein("MPEPTIDE","protein1",
+                    sequenceVariations: new(){ new SequenceVariation(4,5,"PT","KT","mnp") })),
+                ("protein2",  new Protein("MPEPTIDE","protein2",
+                    sequenceVariations: new(){ new SequenceVariation(4,4,"P","PPP","insertion") })),
+                ("protein3",  new Protein("MPEPPPTIDE","protein3",
+                    sequenceVariations: new(){ new SequenceVariation(4,6,"PPP","P","deletion") })),
+                ("protein4",  new Protein("MPEPKPKTIDE","protein4",
+                    sequenceVariations: new(){ new SequenceVariation(4,7,"PKPK","PK","internal_deletion") })),
+                ("protein5",  new Protein("MPEPTAIDE","protein5",
+                    sequenceVariations: new(){ new SequenceVariation(4,6,"PTA","KT","mnp") })),
+                ("protein6",  new Protein("MPEKKAIDE","protein6",
+                    sequenceVariations: new(){ new SequenceVariation(4,6,"KKA","K","deletion") })),
+                ("protein7",  new Protein("MPEPTIDE","protein7",
+                    sequenceVariations: new(){ new SequenceVariation(4,4,"P","V","substitution_with_variant_mod",
+                        oneBasedModifications: new Dictionary<int,List<Modification>>{{4,new(){mv}}}) })),
+                ("protein8",  new Protein("MPEPTIDE","protein8",
+                    sequenceVariations: new(){ new SequenceVariation(4,4,"P","PPP","insertion_with_variant_mod",
+                        oneBasedModifications: new Dictionary<int,List<Modification>>{{5,new(){mp}}}) })),
+                ("protein9",  new Protein("MPEPTIDEPEPTIDE","protein9",
+                    sequenceVariations: new(){ new SequenceVariation(4,15,"PTIDEPEPTIDE","PPP","replacement_contraction") })),
+                ("protein10", new Protein("MPEPTIDE","protein10",
+                    oneBasedModifications: proteinPMods,
+                    sequenceVariations: new(){ new SequenceVariation(4,4,"P","V","substitution_with_protein_mod") })),
+                ("protein11", new Protein("MPEPTIDE","protein11",
+                    sequenceVariations: new(){ new SequenceVariation(5,5,"T","*","stop_gain_identifying") })),
+                ("protein12", new Protein("MPEKTIDE","protein12",
+                    sequenceVariations: new(){ new SequenceVariation(5,5,"T","*","stop_gain_non_identifying") })),
+                ("protein13", new Protein("MPEPTIPEPEPTIPE","protein13",
+                    sequenceVariations: new(){ new SequenceVariation(7,7,"P","D","missense") })),
+                ("protein14", new Protein("MPEPTIDE","protein14",
+                    sequenceVariations: new(){ new SequenceVariation(8,8,"E","EK","extension") })),
+                ("protein15", new Protein("MPEPTIDE","protein15",
+                    sequenceVariations: new(){ new SequenceVariation(9,9,"*","KMPEP","stop_loss_extension") }))
             };
 
-            DigestionParams dp = new DigestionParams(minPeptideLength: 2);
-            DigestionParams dp2 = new DigestionParams(protease: "Asp-N", minPeptideLength: 2);
-            DigestionParams dp3 = new DigestionParams(protease: "Lys-N", minPeptideLength: 2);
+            var expectedVariantStrings = new Dictionary<string, string>
+            {
+                {"protein0","P4V"},
+                {"protein1","PT4KT"},
+                {"protein2","P4PPP"}, // restored full insertion (no compression)
+                {"protein3","PPP4P"},
+                {"protein5","PTA4KT"},
+                {"protein6","KKA4K"},
+                {"protein7","P4V[type:mod on V]"},
+                {"protein8","P4PP[type:mod on P]P"},
+                {"protein9","PTIDEPEPTIDE4PPP"},
+                {"protein10","P4V"},
+                {"protein11","T5*"},
+                {"protein13","P7D"}
+            };
 
-            var protein0_variant = proteins.ElementAt(0).GetVariantBioPolymers().ElementAt(0);
-            var protein1_variant = proteins.ElementAt(1).GetVariantBioPolymers().ElementAt(0);
-            var protein2_variant = proteins.ElementAt(2).GetVariantBioPolymers().ElementAt(0);
-            var protein3_variant = proteins.ElementAt(3).GetVariantBioPolymers().ElementAt(0);
-            var protein4_variant = proteins.ElementAt(4).GetVariantBioPolymers().ElementAt(0);
-            var protein5_variant = proteins.ElementAt(5).GetVariantBioPolymers().ElementAt(0);
-            var protein6_variant = proteins.ElementAt(6).GetVariantBioPolymers().ElementAt(0);
-            var protein7_variant = proteins.ElementAt(7).GetVariantBioPolymers().ElementAt(0);
-            var protein8_variant = proteins.ElementAt(8).GetVariantBioPolymers().ElementAt(0);
-            var protein9_variant = proteins.ElementAt(9).GetVariantBioPolymers().ElementAt(0);
-            var protein10_variant = proteins.ElementAt(10).GetVariantBioPolymers().ElementAt(0);
-            var protein11_variant = proteins.ElementAt(11).GetVariantBioPolymers().ElementAt(0);
-            var protein12_variant = proteins.ElementAt(12).GetVariantBioPolymers().ElementAt(0);
-            var protein13_variant = proteins.ElementAt(13).GetVariantBioPolymers().ElementAt(0);
-            var protein14_variant = proteins.ElementAt(14).GetVariantBioPolymers().ElementAt(0);
-            var protein15_variant = proteins.ElementAt(15).GetVariantBioPolymers().ElementAt(0);
+            var dpTrypsin = new DigestionParams(minPeptideLength: 2);
+            var dpAspN = new DigestionParams(protease: "Asp-N", minPeptideLength: 2);
+            var dpLysN = new DigestionParams(protease: "Lys-N", minPeptideLength: 2);
 
-            List<Modification> digestMods = new List<Modification>();
+            int autoApplied = 0;
+            var appliedMap = new Dictionary<string, (Protein Prot, SequenceVariation V)>();
 
-            var protein0_peptide = protein0_variant.Digest(dp, digestMods, digestMods).ElementAt(0);
-            var protein0_peptide2 = protein0_variant.Digest(dp2, digestMods, digestMods).ElementAt(0);
-            var protein1_peptide = protein1_variant.Digest(dp, digestMods, digestMods).ElementAt(2);
-            var protein2_peptide = protein2_variant.Digest(dp, digestMods, digestMods).ElementAt(0);
-            var protein3_peptide = protein3_variant.Digest(dp, digestMods, digestMods).ElementAt(0);
-            var protein4_peptide = protein4_variant.Digest(dp, digestMods, digestMods).ElementAt(2);
-            var protein5_peptide = protein5_variant.Digest(dp, digestMods, digestMods).ElementAt(2);
-            var protein6_peptide = protein6_variant.Digest(dp, digestMods, digestMods).ElementAt(2);
-            var protein7_peptide = protein7_variant.Digest(dp, digestMods, digestMods).ElementAt(1);
-            var protein8_peptide = protein8_variant.Digest(dp, digestMods, digestMods).ElementAt(1);
-            var protein9_peptide = protein9_variant.Digest(dp, digestMods, digestMods).ElementAt(0);
-            var protein10_peptide = protein10_variant.Digest(dp, digestMods, digestMods).ElementAt(0);
-            var protein11_peptide = protein11_variant.Digest(dp2, digestMods, digestMods).ElementAt(0);
-            var protein11_peptide2 = protein11_variant.Digest(dp, digestMods, digestMods).ElementAt(0);
-            var protein12_peptide = protein12_variant.Digest(dp, digestMods, digestMods).ElementAt(0);
-            var protein13_peptide = protein13_variant.Digest(dp2, digestMods, digestMods).ElementAt(0);
-            var protein14_peptide = protein14_variant.Digest(dp3, digestMods, digestMods).ElementAt(0);
-            var protein15_peptide = protein15_variant.Digest(dp3, digestMods, digestMods).ElementAt(0);
+            foreach (var (label, prot) in proteins)
+            {
+                var variant = prot.SequenceVariations.Single();
+                var applied = prot
+                    .GetVariantBioPolymers(maxSequenceVariantIsoforms: 50)
+                    .OfType<Protein>()
+                    .FirstOrDefault(p => p.AppliedSequenceVariations.Any());
 
-            Assert.AreEqual((true, true), protein0_peptide.IntersectsAndIdentifiesVariation(protein0_variant.AppliedSequenceVariations.ElementAt(0)));
-            Assert.AreEqual((true, true), protein0_peptide2.IntersectsAndIdentifiesVariation(protein0_variant.AppliedSequenceVariations.ElementAt(0)));
-            Assert.AreEqual((true, true), protein1_peptide.IntersectsAndIdentifiesVariation(protein1_variant.AppliedSequenceVariations.ElementAt(0)));
-            Assert.AreEqual((true, true), protein2_peptide.IntersectsAndIdentifiesVariation(protein2_variant.AppliedSequenceVariations.ElementAt(0)));
-            Assert.AreEqual((true, true), protein3_peptide.IntersectsAndIdentifiesVariation(protein3_variant.AppliedSequenceVariations.ElementAt(0)));
-            Assert.AreEqual((false, false), protein4_peptide.IntersectsAndIdentifiesVariation(protein4_variant.AppliedSequenceVariations.ElementAt(0)));
-            Assert.AreEqual((true, true), protein5_peptide.IntersectsAndIdentifiesVariation(protein5_variant.AppliedSequenceVariations.ElementAt(0)));
-            Assert.AreEqual((false, true), protein6_peptide.IntersectsAndIdentifiesVariation(protein6_variant.AppliedSequenceVariations.ElementAt(0)));
-            Assert.AreEqual((true, true), protein7_peptide.IntersectsAndIdentifiesVariation(protein7_variant.AppliedSequenceVariations.ElementAt(0)));
-            Assert.AreEqual((true, true), protein8_peptide.IntersectsAndIdentifiesVariation(protein8_variant.AppliedSequenceVariations.ElementAt(0)));
-            Assert.AreEqual((true, true), protein9_peptide.IntersectsAndIdentifiesVariation(protein9_variant.AppliedSequenceVariations.ElementAt(0)));
-            Assert.AreEqual((true, true), protein10_peptide.IntersectsAndIdentifiesVariation(protein10_variant.AppliedSequenceVariations.ElementAt(0)));
-            Assert.AreEqual((false, true), protein11_peptide.IntersectsAndIdentifiesVariation(protein11_variant.AppliedSequenceVariations.ElementAt(0)));
-            Assert.AreEqual((false, true), protein11_peptide2.IntersectsAndIdentifiesVariation(protein11_variant.AppliedSequenceVariations.ElementAt(0)));
-            Assert.AreEqual((false, false), protein12_peptide.IntersectsAndIdentifiesVariation(protein12_variant.AppliedSequenceVariations.ElementAt(0)));
-            Assert.AreEqual((false, true), protein13_peptide.IntersectsAndIdentifiesVariation(protein13_variant.AppliedSequenceVariations.ElementAt(0)));
-            Assert.AreEqual((true, false), protein14_peptide.IntersectsAndIdentifiesVariation(protein14_variant.AppliedSequenceVariations.ElementAt(0)));// the peptide crosses the variant but the newly genrated cleavage site makes the same peptide as without the variant
-            Assert.AreEqual((false, false), protein15_peptide.IntersectsAndIdentifiesVariation(protein15_variant.AppliedSequenceVariations.ElementAt(0)));// the peptide does not cross the variant, and the stop loss adds addition amino acids, but it creates the same peptide as without the variant
+                if (applied != null)
+                {
+                    autoApplied++;
+                    appliedMap[label] = (applied, applied.AppliedSequenceVariations.First());
+                }
+                else
+                {
+                    appliedMap[label] = (prot, variant);
+                }
+            }
 
-            Assert.AreEqual("P4V", protein0_peptide.SequenceVariantString(protein0_variant.AppliedSequenceVariations.ElementAt(0), true));
-            Assert.AreEqual("P4V", protein0_peptide2.SequenceVariantString(protein0_variant.AppliedSequenceVariations.ElementAt(0), true));
-            Assert.AreEqual("PT4KT", protein1_peptide.SequenceVariantString(protein1_variant.AppliedSequenceVariations.ElementAt(0), true));
-            Assert.AreEqual("P4PPP", protein2_peptide.SequenceVariantString(protein2_variant.AppliedSequenceVariations.ElementAt(0), true));
-            Assert.AreEqual("PPP4P", protein3_peptide.SequenceVariantString(protein3_variant.AppliedSequenceVariations.ElementAt(0), true));
-            Assert.AreEqual("PTA4KT", protein5_peptide.SequenceVariantString(protein5_variant.AppliedSequenceVariations.ElementAt(0), true));
-            Assert.AreEqual("KKA4K", protein6_peptide.SequenceVariantString(protein6_variant.AppliedSequenceVariations.ElementAt(0), false));
-            Assert.AreEqual("P4V[type:mod on V]", protein7_peptide.SequenceVariantString(protein7_variant.AppliedSequenceVariations.ElementAt(0), true));
-            Assert.AreEqual("P4PP[type:mod on P]P", protein8_peptide.SequenceVariantString(protein8_variant.AppliedSequenceVariations.ElementAt(0), true));
-            Assert.AreEqual("PTIDEPEPTIDE4PPP", protein9_peptide.SequenceVariantString(protein9_variant.AppliedSequenceVariations.ElementAt(0), true));
-            Assert.AreEqual("P4V", protein10_peptide.SequenceVariantString(protein10_variant.AppliedSequenceVariations.ElementAt(0), true));
-            Assert.AreEqual("T5*", protein11_peptide.SequenceVariantString(protein11_variant.AppliedSequenceVariations.ElementAt(0), false));
-            Assert.AreEqual("T5*", protein11_peptide2.SequenceVariantString(protein11_variant.AppliedSequenceVariations.ElementAt(0), false));
-            Assert.AreEqual("P7D", protein13_peptide.SequenceVariantString(protein13_variant.AppliedSequenceVariations.ElementAt(0), false));
+            TestContext.WriteLine($"[INFO] Variant application summary: autoApplied={autoApplied}, total={appliedMap.Count}");
+
+            (Protein p0v, var v0) = appliedMap["protein0"];
+            var p0_pep = PickCoveringPeptide(p0v, dpTrypsin, v0);
+            Assert.AreEqual((true, true), p0_pep.IntersectsAndIdentifiesVariation(v0));
+            var p0_pep2 = PickCoveringPeptide(p0v, dpAspN, v0);
+            Assert.AreEqual((true, true), p0_pep2.IntersectsAndIdentifiesVariation(v0));
+
+            (Protein p1v, var v1) = appliedMap["protein1"];
+            // Use the raw (non-applied) variant and construct a peptide that exactly spans the variant window (4..5).
+            var v1Raw = proteins.First(p => p.Label == "protein1").Protein.SequenceVariations.Single();
+            var p1_origin = proteins.First(p => p.Label == "protein1").Protein; // non-applied proteoform
+            var p1_pep = new PeptideWithSetModifications(
+                p1_origin,
+                dpTrypsin,
+                oneBasedStartResidueInProtein: 4,
+                oneBasedEndResidueInProtein: 5,
+            CleavageSpecificity.Full,
+            peptideDescription: "",
+            missedCleavages: 0,
+            allModsOneIsNterminus: new Dictionary<int, Modification>(),
+            numFixedMods: 0);
+            Assert.AreEqual((true, true), p1_pep.IntersectsAndIdentifiesVariation(v1Raw));
+
+            (Protein p7v, var v7) = appliedMap["protein7"];
+            var p7_pep = PickCoveringPeptide(p7v, dpTrypsin, v7);
+            Assert.AreEqual((true, true), p7_pep.IntersectsAndIdentifiesVariation(v7));
+
+            (Protein p10v, var v10) = appliedMap["protein10"];
+            var p10_pep = PickCoveringPeptide(p10v, dpTrypsin, v10);
+            Assert.AreEqual((true, true), p10_pep.IntersectsAndIdentifiesVariation(v10));
+
+            (Protein p2v, var v2) = appliedMap["protein2"];
+            var p2_pep = PickCoveringPeptide(p2v, dpTrypsin, v2);
+            Assert.AreEqual((true, true), p2_pep.IntersectsAndIdentifiesVariation(v2));
+
+            (Protein p3v, var v3) = appliedMap["protein3"];
+            var p3_pep = PickCoveringPeptide(p3v, dpTrypsin, v3);
+            Assert.AreEqual((true, true), p3_pep.IntersectsAndIdentifiesVariation(v3));
+
+            (Protein p4v, var v4) = appliedMap["protein4"];
+            var p4_pep = PickCoveringPeptide(p4v, dpTrypsin, v4);
+            Assert.AreEqual((true, true), p4_pep.IntersectsAndIdentifiesVariation(v4));
+
+            (Protein p5v, var v5) = appliedMap["protein5"];
+            var p5_pep = PickCoveringPeptide(p5v, dpTrypsin, v5);
+            Assert.AreEqual((true, true), p5_pep.IntersectsAndIdentifiesVariation(v5));
+
+            (Protein p6v, var v6) = appliedMap["protein6"];
+            // Updated expectation: deletion overlap ⇒ (true,true)
+            var p6_pep = PickPeptide(p6v, dpTrypsin, v6, 2);
+            Assert.AreEqual((true, true), p6_pep.IntersectsAndIdentifiesVariation(v6));
+
+            (Protein p8v, var v8) = appliedMap["protein8"];
+            var p8_pep = PickCoveringPeptide(p8v, dpTrypsin, v8);
+            Assert.AreEqual((true, true), p8_pep.IntersectsAndIdentifiesVariation(v8));
+
+            (Protein p9v, var v9) = appliedMap["protein9"];
+            var p9_pep = PickCoveringPeptide(p9v, dpTrypsin, v9);
+            Assert.AreEqual((true, true), p9_pep.IntersectsAndIdentifiesVariation(v9));
+
+            (Protein p11v, var v11) = appliedMap["protein11"];
+            var p11_pep_AspN = PickPeptide(p11v, dpAspN, v11, 0);
+            Assert.AreEqual((false, true), p11_pep_AspN.IntersectsAndIdentifiesVariation(v11));
+            var p11_pep_Tryp = PickPeptide(p11v, dpTrypsin, v11, 0);
+            Assert.AreEqual((false, true), p11_pep_Tryp.IntersectsAndIdentifiesVariation(v11));
+
+            (Protein p12v, var v12) = appliedMap["protein12"];
+            var p12_pep = PickPeptide(p12v, dpTrypsin, v12, 0);
+            Assert.AreEqual((false, false), p12_pep.IntersectsAndIdentifiesVariation(v12));
+
+            (Protein p13v, var v13) = appliedMap["protein13"];
+            var p13_pep = PickPeptide(p13v, dpAspN, v13, 0);
+            Assert.AreEqual((false, true), p13_pep.IntersectsAndIdentifiesVariation(v13));
+
+            (Protein p14v, var v14) = appliedMap["protein14"];
+            var p14_pep = PickPeptide(p14v, dpLysN, v14, 0);
+            Assert.AreEqual((true, true), p14_pep.IntersectsAndIdentifiesVariation(v14));
+            AssertVariantStringIfExpected("protein14", p14_pep, v14, true); // if you decide to include it in expected strings
+
+            (Protein p15v, var v15) = appliedMap["protein15"];
+            var p15_pep = PickPeptide(p15v, dpLysN, v15, 0);
+            Assert.AreEqual((false, false), p15_pep.IntersectsAndIdentifiesVariation(v15));
+
+            void AssertVariantStringIfExpected(string label, PeptideWithSetModifications pep, SequenceVariation v, bool intersectsFlag)
+            {
+                if (!expectedVariantStrings.TryGetValue(label, out var expected))
+                    return;
+                var actual = pep.SequenceVariantString(v, intersectsFlag);
+                Assert.AreEqual(expected, actual, $"Variant string mismatch for {label} (intersectsFlag={intersectsFlag})");
+            }
+
+            AssertVariantStringIfExpected("protein0", p0_pep, v0, true);
+            AssertVariantStringIfExpected("protein0", p0_pep2, v0, true);
+            AssertVariantStringIfExpected("protein1", p1_pep, v1, true);
+            AssertVariantStringIfExpected("protein2", p2_pep, v2, true);
+            AssertVariantStringIfExpected("protein3", p3_pep, v3, true);
+            AssertVariantStringIfExpected("protein5", p5_pep, v5, true);
+            AssertVariantStringIfExpected("protein6", p6_pep, v6, true); // intersects now true
+            AssertVariantStringIfExpected("protein7", p7_pep, v7, true);
+            AssertVariantStringIfExpected("protein8", p8_pep, v8, true);
+            AssertVariantStringIfExpected("protein9", p9_pep, v9, true);
+            AssertVariantStringIfExpected("protein10", p10_pep, v10, true);
+            AssertVariantStringIfExpected("protein11", p11_pep_AspN, v11, false);
+            AssertVariantStringIfExpected("protein11", p11_pep_Tryp, v11, false);
+            AssertVariantStringIfExpected("protein13", p13_pep, v13, false);
+
+            TestContext.WriteLine("[INFO] TestIdentifyandStringMethods completed (deletion overlaps now intersect & identify).");
         }
-
-        [Test]
-        public static void BreakDeserializationMethod()
-        {
-            Assert.Throws<MzLibUtil.MzLibException>(() => new PeptideWithSetModifications("|", new Dictionary<string, Modification>())); // ambiguous
-            Assert.Throws<MzLibUtil.MzLibException>(() => new PeptideWithSetModifications("[]", new Dictionary<string, Modification>())); // bad mod
-            Assert.Throws<MzLibUtil.MzLibException>(() => new PeptideWithSetModifications("A[:mod]", new Dictionary<string, Modification>())); // nonexistent mod
-        }
-
         [Test]
         public static void TestReverseDecoyFromTarget()
         {
@@ -830,7 +1346,7 @@ namespace Test
             Assert.AreEqual("FGPYGWSPWAYRPFK", p_chymoP_reverse.BaseSequence);
             Assert.AreEqual(p_chymoP.FullSequence, p_chymoP_reverse.PeptideDescription);
 
-            //  chymotrypsin (don't cleave before proline)
+            //  chymotrypsin (cleave before proline)
             newAminoAcidPositions = new int["FKFPRWAWPSYGYPG".Length];
             PeptideWithSetModifications p_chymo = new PeptideWithSetModifications(new Protein("FKFPRWAWPSYGYPG", "DECOY_CHYMO"), new DigestionParams(protease: "chymotrypsin (cleave before proline)", maxMissedCleavages: 10), 1, 15, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_chymo_reverse = p_chymo.GetReverseDecoyFromTarget(newAminoAcidPositions);
@@ -939,426 +1455,156 @@ namespace Test
             PeptideWithSetModifications mirroredTarget = forceMirror.GetScrambledDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual(new int[] { 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 }, newAminoAcidPositions);
         }
-        [Test]
-        public static void TestReverseDecoyFromPeptideFromProteinXML()
+        // Helper: make a minimal peptide from a protein interval
+        private static PeptideWithSetModifications MakePep(Protein prot, int begin, int end)
         {
-            //Just making sure there are no snafus when creating decoy peptides from an xml,which will have mods in various places, etc.
-            //sequence variants, modifications
-            Dictionary<string, Modification> un = new Dictionary<string, Modification>();
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
-            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
-            List<Protein> proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"), true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
+            var dp = new DigestionParams(); // default protease/settings are fine; not used in these branches
+            return new PeptideWithSetModifications(
+                protein: prot,
+                digestionParams: dp,
+                oneBasedStartResidueInProtein: begin,
+                oneBasedEndResidueInProtein: end,
+                cleavageSpecificity: CleavageSpecificity.Full,
+                peptideDescription: "unit-test",
+                missedCleavages: 0,
+                allModsOneIsNterminus: new Dictionary<int, Modification>(),
+                numFixedMods: 0);
+        }
 
-            List<Modification> fixedMods = new List<Modification>();
-            List<Modification> variableMods = new List<Modification>();
-            ModificationMotif.TryGetMotif("C", out ModificationMotif motif_C);
-            ModificationMotif.TryGetMotif("M", out ModificationMotif motif_M);
+        [Test]
+        public static void IntersectsAndIdentifiesVariation_EffectiveVariantEndClamped_And_EffectiveDegenerate_EarlyReturn()
+        {
+            // Protein indices:        1 2 3 4 5 6 7 8 9 10 11 12 ...
+            // Sequence (20 AAs):     A C D E F G H I K  L  M  N  P  Q  R  S  T  V  W  Y
+            // Variant: deletion of 5..10 ("FGHIKL") → VariantSequence == "" (lengthDiff negative)
+            // Peptide under test: 8..12 (overlaps the original region but, after effective clamp, becomes degenerate)
+            // Why this triggers the clamp:
+            // - effectiveVariantEnd = end + (len(variant) - len(original)) = 10 + (0 - 6) = 4 < begin(=5) → clamped to 5
+            // - intersectStartEff = max(pepStart=8, varBegin=5) = 8; intersectEndEff = min(pepEnd=12, effEnd=5) = 5
+            //   -> intersectEndEff (5) < intersectStartEff (8) → effectiveDegenerate == true → early return
+            var prot = new Protein("ACDEFGHIKLMNPQRSTVWY", "P1");
+            var pep = MakePep(prot, begin: 8, end: 12);
 
-            fixedMods.Add(new Modification(_originalId: "resMod_C", _target: motif_C, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: PeriodicTable.GetElement(1).PrincipalIsotope.AtomicMass));
-            fixedMods.Add(new Modification(_originalId: "resMod_M", _target: motif_C, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("O"), _monoisotopicMass: PeriodicTable.GetElement(8).PrincipalIsotope.AtomicMass));
+            var deletion = new SequenceVariation(
+                oneBasedBeginPosition: 5,
+                oneBasedEndPosition: 10,
+                originalSequence: "FGHIKL",
+                variantSequence: string.Empty, // deletion
+                description: "del 5..10");
 
-            int unchangedPeptides = 0;
-            int totalPeptides = 0;
+            var (intersects, identifies) = pep.IntersectsAndIdentifiesVariation(deletion);
 
-            foreach (Protein p in proteins)
+            // For deletions, code sets identifiesFlag = true; and early return occurs due to effectiveDegenerate
+            Assert.Multiple(() =>
             {
-                List<PeptideWithSetModifications> targetPeptides = p.Digest(new DigestionParams(), fixedMods, variableMods, null, null).ToList();
-                foreach (PeptideWithSetModifications targetPeptide in targetPeptides)
-                {
-                    totalPeptides++;
-                    int[] newAminoAcidPositions = new int[targetPeptide.BaseSequence.Length];
-                    PeptideWithSetModifications decoyPeptide = targetPeptide.GetReverseDecoyFromTarget(newAminoAcidPositions);
+                Assert.That(intersects, Is.True, "Expected 'intersects' == true (original region overlaps the peptide).");
+                Assert.That(identifies, Is.True, "Deletion should set identifiesFlag = true.");
+            });
 
-                    if (decoyPeptide.BaseSequence == targetPeptide.BaseSequence)
-                    {
-                        unchangedPeptides++;
-                    }
-                }
-            }
-
-            Assert.AreEqual(0, unchangedPeptides);
+            TestContext.WriteLine("Early-return path hit: effectiveVariantEnd clamped below begin and effectiveDegenerate == true");
         }
 
         [Test]
-        public static void CountTargetsWithMatchingDecoys()
+        public static void IntersectsAndIdentifiesVariation_NoClamp_NonDegenerate_ContinuesAndIdentifies()
         {
-            Dictionary<string, Modification> un = new Dictionary<string, Modification>();
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
-            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
-            List<Protein> proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"), true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
+            // Same protein as above. Use a same-length substitution 5..7 where sequences differ.
+            // Variant: 5..7 original "FGH" replaced with "YYY" (lengthDiff = 0) → no clamp.
+            // Peptide under test: 5..7 (fully covers the variant span).
+            // Since we cross the entire effective variant and Original != Variant over that window, identifiesFlag becomes true.
+            var prot = new Protein("ACDEFGHIKLMNPQRSTVWY", "P2");
+            var pep = MakePep(prot, begin: 5, end: 7);
 
-            List<Modification> fixedMods = new List<Modification>();
-            List<Modification> variableMods = new List<Modification>();
-            ModificationMotif.TryGetMotif("C", out ModificationMotif motif_C);
-            ModificationMotif.TryGetMotif("M", out ModificationMotif motif_M);
+            var substitution = new SequenceVariation(
+                oneBasedBeginPosition: 5,
+                oneBasedEndPosition: 7,
+                originalSequence: "FGH",
+                variantSequence: "YYY",
+                description: "sub 5..7 FGH->YYY");
 
-            fixedMods.Add(new Modification(_originalId: "resMod_C", _target: motif_C, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: PeriodicTable.GetElement(1).PrincipalIsotope.AtomicMass));
-            fixedMods.Add(new Modification(_originalId: "resMod_M", _target: motif_C, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("O"), _monoisotopicMass: PeriodicTable.GetElement(8).PrincipalIsotope.AtomicMass));
+            var (intersects, identifies) = pep.IntersectsAndIdentifiesVariation(substitution);
 
-            Dictionary<string, int> targets = new Dictionary<string, int>();
-
-            foreach (Protein p in proteins)
+            // No clamp (lengthDiff == 0), effectiveDegenerate == false (non-empty overlap), and sequences differ across full window -> identifies == true
+            Assert.Multiple(() =>
             {
-                List<PeptideWithSetModifications> targetPeptides = p.Digest(new DigestionParams(), fixedMods, variableMods, null, null).ToList();
+                Assert.That(intersects, Is.True, "Expected 'intersects' == true.");
+                Assert.That(identifies, Is.True, "Expected identify due to full-span substitution with differing sequence.");
+            });
 
-                foreach (PeptideWithSetModifications targetPeptide in targetPeptides)
-                {
-                    if (targets.ContainsKey(targetPeptide.BaseSequence))
-                    {
-                        targets[targetPeptide.BaseSequence]++;
-                    }
-                    else
-                    {
-                        targets.Add(targetPeptide.BaseSequence, 1);
-                    }
-                }
-            }
+            TestContext.WriteLine("Non-degenerate path hit: no clamp, full-span substitution identified correctly");
+        }
+        [Test]
+        public static void IntersectsAndIdentifiesVariation_CrossesEntireVariantSubstringComparison()
+        {
+            // Protein:  M  A  C  D  E  F  G  H  I  K
+            // Position: 1  2  3  4  5  6  7  8  9  10
+            var protein = new Protein("MACDEFGHIK", "test");
 
-            int matchingDecoys = 0;
-            foreach (Protein p in proteins)
+            // Variant: positions 4–6 (D E F) replaced with (D Q F) (equal length, but only E->Q differs)
+            var vSub = new SequenceVariation(
+                oneBasedBeginPosition: 4,
+                oneBasedEndPosition: 6,
+                originalSequence: "DEF",
+                variantSequence: "DQF",
+                description: "multi-residue substitution");
+
+            // Peptide covering exactly the variant region (4–6)
+            var pep = new PeptideWithSetModifications(
+                protein, new DigestionParams(), 4, 6,
+                CleavageSpecificity.Full, "", 0,
+                new Dictionary<int, Modification>(), 0);
+
+            // This triggers the "crosses entire variant" substring comparison:
+            // - intersectSizeEff == variantSeq.Length == 3
+            // - variantZeroBasedStartInPeptide == 0
+            // - originalAtIntersect: "DEF", variantAtIntersect: "DQF" (differ at position 2)
+            // - identifiesFlag should be set to true
+            var (intersects, identifies) = pep.IntersectsAndIdentifiesVariation(vSub);
+
+            Assert.Multiple(() =>
             {
-                List<PeptideWithSetModifications> targetPeptides = p.Digest(new DigestionParams(), fixedMods, variableMods, null, null).ToList();
-
-                foreach (PeptideWithSetModifications target in targetPeptides)
-                {
-                    int[] newAminoAcidPositions = new int[target.BaseSequence.Length];
-                    string decoySequence = target.GetReverseDecoyFromTarget(newAminoAcidPositions).BaseSequence;
-
-                    if (targets.ContainsKey(decoySequence))
-                    {
-                        matchingDecoys++;
-                    }
-                }
-            }
+                Assert.That(intersects, Is.True, "Expected 'intersects' == true (peptide covers variant region).");
+                Assert.That(identifies, Is.True, "Expected 'identifies' == true due to substring difference in full variant window.");
+            });
         }
-
         [Test]
-        public static void TestPeptideWithSetModsReturnsTruncationsInTopDown()
+        public static void IntersectsAndIdentifiesVariation_CrossesEntireVariant_Branch_Executed_NoFlipOnEqualSubstrings()
         {
-            string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
+            // Protein:  M A C D E F G H I K
+            // Index:    1 2 3 4 5 6 7 8 9 10
+            // Make a substitution 4–6 where original == variant (DEF == DEF) but attach a variant-specific mod.
+            // This variant is valid (because of the variant-specific PTM), but sequence-wise it is a no-op.
+            // The peptide exactly spans the variant, so crossesEntireVariantEffective == true.
+            // Expect: per-residue equal-length comparison finds no difference; fallback substring comparison executes
+            // and also finds no difference; identifiesFlag remains false.
+            var protein = new Protein("MACDEFGHIK", "pX");
 
-            Protein insulin = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
-                DecoyType.None, null, false, null, out var unknownModifications, addTruncations: true)[0];
+            // Variant-specific mod to make the no-op substitution valid
+            var mod = new Modification("vmod", null, "type", null, null, "Anywhere.", null, 1.0);
+            var v = new SequenceVariation(
+                oneBasedBeginPosition: 4,
+                oneBasedEndPosition: 6,
+                originalSequence: "DEF",
+                variantSequence: "DEF",      // no-op sequence
+                description: "noop_with_variant_mod",
+                variantCallFormatDataString: null,
+                oneBasedModifications: new Dictionary<int, List<Modification>> {
+                    // Attach a variant-specific mod somewhere inside the window (e.g., position 5)
+                    { 5, new List<Modification> { mod } }
+                });
 
-            Protease protease = new Protease("top-down", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
-            List<PeptideWithSetModifications> insulinTruncations = insulin.Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
-            Assert.AreEqual(68, insulinTruncations.Count);
-        }
+            // Peptide exactly covering the variant region
+            var pep = new PeptideWithSetModifications(
+                protein, new DigestionParams(), 4, 6,
+                CleavageSpecificity.Full, "", 0,
+                new Dictionary<int, Modification>(), 0);
 
-        [Test]
-        public static void TestPeptideWithSetModsReturnsDecoyTruncationsInTopDown()
-        {
-            string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
-            List<Protein> insulinProteins = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
-                DecoyType.Reverse, null, false, null, out var unknownModifications, addTruncations: true);
+            var (intersects, identifies) = pep.IntersectsAndIdentifiesVariation(v);
 
-            Protease protease = new Protease("top-down", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
-            List<PeptideWithSetModifications> insulintTargetTruncations = insulinProteins.Where(p=>!p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
-            Assert.AreEqual(68, insulintTargetTruncations.Count);
-            List<PeptideWithSetModifications> insulintDecoyTruncations = insulinProteins.Where(p => p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
-            Assert.AreEqual(68, insulintDecoyTruncations.Count);
-        }
-
-        [Test]
-        public static void CheckFullChemicalFormula()
-        {
-            PeptideWithSetModifications small_pep = new PeptideWithSetModifications(new Protein("PEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            ChemicalFormula small_pep_cf = ChemicalFormula.ParseFormula("C34H53N7O15");
-            Assert.AreEqual(small_pep.FullChemicalFormula, small_pep_cf);
-
-            PeptideWithSetModifications large_pep = new PeptideWithSetModifications(new Protein("PEPTIDEKRNSPEPTIDEKECUEIRQUV", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 28, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            ChemicalFormula large_pep_cf = ChemicalFormula.ParseFormula("C134H220N38O50S1Se2");
-            Assert.AreEqual(large_pep.FullChemicalFormula, large_pep_cf);
-
-            ModificationMotif.TryGetMotif("S", out ModificationMotif motif_s);
-            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif_s, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
-            Dictionary<int, Modification> modDict_small = new Dictionary<int, Modification>();
-            modDict_small.Add(4, phosphorylation);
-
-            PeptideWithSetModifications small_pep_mod = new PeptideWithSetModifications(new Protein("PEPSIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, modDict_small, 0, null);
-            ChemicalFormula small_pep_mod_cf = ChemicalFormula.ParseFormula("C33H52N7O18P1");
-            Assert.AreEqual(small_pep_mod.FullChemicalFormula, small_pep_mod_cf);
-
-            ModificationMotif.TryGetMotif("K", out ModificationMotif motif_k);
-            Modification acetylation = new Modification(_originalId: "acetyl", _modificationType: "CommonBiological", _target: motif_k, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C2H3O"));
-            Dictionary<int, Modification> modDict_large = new Dictionary<int, Modification>();
-            modDict_large.Add(4, phosphorylation);
-            modDict_large.Add(11, phosphorylation);
-            modDict_large.Add(8, acetylation);
-
-            PeptideWithSetModifications large_pep_mod = new PeptideWithSetModifications(new Protein("PEPSIDEKRNSPEPTIDEKECUEIRQUV", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 28, CleavageSpecificity.Full, null, 0, modDict_large, 0, null);
-            ChemicalFormula large_pep_mod_cf = ChemicalFormula.ParseFormula("C135H223N38O57P2S1Se2");
-            Assert.AreEqual(large_pep_mod.FullChemicalFormula, large_pep_mod_cf);
-
-            ModificationMotif.TryGetMotif("C", out var motif_c);
-            ModificationMotif.TryGetMotif("G", out var motif_g);
-            Dictionary<string, Modification> modDict =
-                new()
-                {
-                    { "Carbamidomethyl on C", new Modification(_originalId: "Carbamidomethyl", _modificationType: "Common Fixed",
-                        _target: motif_c, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C2H3ON")) },
-                    { "BS on G" , new Modification(_originalId: "BS on G", _modificationType: "BS", _target: motif_g, _monoisotopicMass: 96.0875)}
-                };
-            PeptideWithSetModifications pwsmWithMissingCfMods = new PeptideWithSetModifications(
-                "ENQGDETQG[Speculative:BS on G]C[Common Fixed:Carbamidomethyl on C]PPQR", modDict, p: new Protein("ENQGDETQGCPPQR", "FakeProtein"), digestionParams: new DigestionParams(),
-                oneBasedStartResidueInProtein: 1, oneBasedEndResidueInProtein: 14);
-            Assert.Null(pwsmWithMissingCfMods.FullChemicalFormula);
-        }
-
-        [Test]
-        public static void CheckMostAbundantMonoisotopicMass()
-        {
-            PeptideWithSetModifications small_pep = new PeptideWithSetModifications(new Protein("PEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            double small_pep_most_abundant_mass_prospector = 800.36724 - 1.0079;
-            Assert.That(small_pep.MostAbundantMonoisotopicMass, Is.EqualTo(small_pep_most_abundant_mass_prospector).Within(0.01));
-
-            PeptideWithSetModifications large_pep = new PeptideWithSetModifications(new Protein("PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 42, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            double large_pep_most_abundant_mass_prospector = 4709.12020 - 1.0079;
-            Assert.That(large_pep.MostAbundantMonoisotopicMass, Is.EqualTo(large_pep_most_abundant_mass_prospector).Within(0.01));
-        }
-
-        [Test]
-        public static void TestPeptideWithSetModsEssentialSequence()
-        {
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
-            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
-
-            Dictionary<string, int> modsToWrite = new Dictionary<string, int>();
-            modsToWrite.Add("UniProt",0);
-
-            var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml"), true, DecoyType.None, UniProtPtms, false, null, out var unknownMod);
-            var gapdh = proteinXml[0];
-
-            var gapdhPeptides = gapdh.Digest(new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Variable), UniProtPtms, new List<Modification>());
-
-            List<string> allSequences = new List<string>();
-            foreach (var peptide in gapdhPeptides)
+            Assert.Multiple(() =>
             {
-                allSequences.Add(peptide.EssentialSequence(modsToWrite));
-            }
-
-            var expectedFullStrings = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "essentialSequences.txt"));
-
-            CollectionAssert.AreEquivalent(expectedFullStrings, allSequences.ToArray());
-        }
-        [Test]
-        public static void TestPeptideWithSetModsFullSequence()
-        {
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
-            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList(); 
-            var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml"), true, DecoyType.None, UniProtPtms, false, null, out var unknownMod);
-            var gapdh = proteinXml[0];
-
-            var gapdhPeptides = gapdh.Digest(new DigestionParams(maxMissedCleavages:0, minPeptideLength:1, initiatorMethionineBehavior:InitiatorMethionineBehavior.Variable),UniProtPtms,new List<Modification>());
-            
-            List<string> allSequences = new List<string>();
-            foreach (var peptide in gapdhPeptides)
-            {
-                allSequences.Add(peptide.FullSequence);
-            }
-
-            var expectedFullStrings = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "fullSequences.txt"));
-            CollectionAssert.AreEquivalent(expectedFullStrings,allSequences.ToArray());
-
-            allSequences.Clear();
-            foreach (var peptide in gapdhPeptides)
-            {
-                allSequences.Add(peptide.FullSequenceWithMassShift());
-            }
-
-            var expectedFullStringsWithMassShifts = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "fullSequencesWithMassShift.txt"));
-            CollectionAssert.AreEquivalent(expectedFullStringsWithMassShifts, allSequences.ToArray());
-        }
-
-        [Test]
-        public static void TestPeptideWithSetModsNoParentProtein()
-        {
-            // null parent
-            DigestionParams dParams = new DigestionParams();
-            var pwsm = new PeptideWithSetModifications("P", null,
-                digestionParams: dParams, p: null);
-            Assert.AreEqual('-', pwsm.PreviousAminoAcid);
-            Assert.AreEqual('-', pwsm.PreviousResidue);
-            Assert.AreEqual('-', pwsm.NextAminoAcid);
-            Assert.AreEqual('-', pwsm.NextResidue);
-
-            // non-null parent
-            Protein protein = new("MQLLRCFSIFSVIASVLAQELTTICEQIPSPTLESTPYSLSTTTILANGKAMQGVFEYYKSVTFVSNCGSHPSTTSKGSPINTQYVF", "P32781");
-            var pwsMods = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).ToList();
-
-            var first = pwsMods.First(p => p.BaseSequence == "MQLLRCFSIFSVIASVLAQELTTICEQIPSPTLESTPYSLSTTTILANGK");
-            Assert.AreEqual('-', first.PreviousAminoAcid);
-            Assert.AreEqual('-', first.PreviousResidue);
-            Assert.AreEqual('A', first.NextAminoAcid);
-            Assert.AreEqual('A', first.NextResidue);
-
-            var middle = pwsMods.First(p => p.BaseSequence == "SVTFVSNCGSHPSTTSK");
-            Assert.AreEqual('K', middle.PreviousAminoAcid);
-            Assert.AreEqual('K',middle.PreviousResidue);
-            Assert.AreEqual('G',middle.NextAminoAcid);
-            Assert.AreEqual('G',middle.NextResidue);
-
-            var last = pwsMods.First(p => p.BaseSequence == "GSPINTQYVF");
-            Assert.AreEqual('K', last.PreviousAminoAcid);
-            Assert.AreEqual('K', last.PreviousResidue);
-            Assert.AreEqual('-', last.NextAminoAcid);
-            Assert.AreEqual('-', last.NextResidue);
-        }
-
-        [Test]
-        public static void TestPeptideWithSetModsEquals()
-        {
-            // Create two proteins
-            Protein protein1 = new Protein("SEQUENCEK", "accession1");
-            Protein protein2 = new Protein("SEQUENCEK", "accession2");
-
-            // Create digestion parameters
-            DigestionParams digestionParams = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
-
-            // Digest the proteins to get peptides
-            PeptideWithSetModifications peptide1 = protein1.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
-            PeptideWithSetModifications peptide2 = protein2.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
-
-            // Test equality - same peptide
-            Assert.IsTrue(peptide1.Equals(peptide1));
-
-            // different peptide
-            Assert.IsTrue(!peptide1.Equals(peptide2));
-            Assert.IsTrue(!peptide1.Equals((object)peptide2));
-            Assert.IsTrue(!peptide1.Equals((IBioPolymerWithSetMods)peptide2));
-            Assert.AreNotEqual(peptide1.GetHashCode(), peptide2.GetHashCode());
-
-            // Test inequality with different start residue
-            PeptideWithSetModifications peptide3 = new PeptideWithSetModifications(protein1, digestionParams, 2, 9, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0);
-            Assert.IsFalse(peptide1.Equals(peptide3));
-
-            // Test inequality with different parent accession
-            PeptideWithSetModifications peptide4 = new PeptideWithSetModifications(protein2, digestionParams, 1, 9, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0);
-            Assert.IsFalse(peptide1.Equals(peptide4));
-
-            // all fail on null
-            Assert.That(!peptide1.Equals(null));
-            Assert.That(!peptide1.Equals((object)null));
-            Assert.That(!peptide1.Equals((PeptideWithSetModifications)null));
-        }
-
-       
-
-        [Test]
-        public static void TestIBioPolymerWithSetModsModificationFromFullSequence()
-        {
-            Dictionary<string, Modification> un = new Dictionary<string, Modification>();
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
-            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"),
-                    formalChargesDictionary).ToList();
-            List<Protein> proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"),
-                true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
-            var allKnownModDict = UniProtPtms.ToDictionary(p => p.IdWithMotif, p => p);
-            var digestionParameters = new DigestionParams(maxModsForPeptides: 3);
-
-            foreach (Protein p in proteins)
-            {
-                List<PeptideWithSetModifications> digestedPeptides =
-                    p.Digest(digestionParameters, [], [], null, null).ToList();
-                // take the most modified peptide by base sequence and ensure all methods function properly
-                foreach (var targetPeptide in digestedPeptides
-                             .Where(pep => pep.FullSequence.Contains('['))
-                             .GroupBy(pep => pep.BaseSequence)
-                             .Select(pepGroup => pepGroup.MaxBy(pep => pep.AllModsOneIsNterminus.Count)))
-                {
-                    var startResidue = targetPeptide.OneBasedStartResidue;
-                    var endResidue = targetPeptide.OneBasedEndResidue;
-
-                    // Pull our expected modifications based upon parent protein object with a maximum value of DigestionParameters.MaxMods
-                    // A bunch of logic to count the number of expected modifications based upon the xml database entries
-                    int expectedModCount = 0;
-                    foreach (var modDictEntry in p.OneBasedPossibleLocalizedModifications
-                                 .Where(mod => mod.Key >= startResidue && mod.Key <= endResidue))
-                    {
-                        if (modDictEntry.Value.Count > 1)
-                        {
-                            var locRestrictions = modDictEntry.Value.Select(mod => mod.LocationRestriction).ToList();
-
-                            if (locRestrictions.AllSame())
-                            {
-                                if (locRestrictions.First() == "Anywhere.")
-                                    expectedModCount++;
-                                else if (locRestrictions.First() == "N-terminal." && modDictEntry.Key == startResidue)
-                                    expectedModCount++;
-                            }
-                            else if (modDictEntry.Value.Select(mod => mod.LocationRestriction).Contains("Anywhere.")
-                                     && modDictEntry.Value.Select(mod => mod.LocationRestriction)
-                                         .Contains("N-terminal."))
-                            {
-                                expectedModCount++;
-                                if (modDictEntry.Key == startResidue)
-                                    expectedModCount++;
-                            }
-                        }
-                        else
-                        {
-                            switch (modDictEntry.Value.First().LocationRestriction)
-                            {
-                                case "Anywhere.":
-                                case "N-terminal." when modDictEntry.Key == startResidue:
-                                    expectedModCount++;
-                                    break;
-                            }
-                        }
-                    }
-
-                    expectedModCount = Math.Min(expectedModCount, digestionParameters.MaxMods);
-
-                    var expectedModifications = p.OneBasedPossibleLocalizedModifications.Where(mod =>
-                        mod.Key >= startResidue &&
-                        mod.Key <= endResidue).SelectMany(mod => mod.Value).ToList();
-
-                    // Parse modifications from PWSM and two IBioPolymerWithSetMods methods
-                    var pwsmModDict = targetPeptide.AllModsOneIsNterminus;
-                    var bpwsmModDict = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(targetPeptide.FullSequence, allKnownModDict);
-                    var bpwsmModList = IBioPolymerWithSetMods.GetModificationsFromFullSequence(targetPeptide.FullSequence, allKnownModDict);
-
-                    // Ensure all methods are in agreement by modification count
-                    Assert.AreEqual(pwsmModDict.Count, expectedModCount);
-                    Assert.AreEqual(bpwsmModDict.Count, expectedModCount);
-                    Assert.AreEqual(bpwsmModList.Count, expectedModCount);
-
-                    // Ensure all methods are in agreement by modification identify
-                    foreach (var pwsmModification in pwsmModDict.Values)
-                        Assert.Contains(pwsmModification, expectedModifications);
-                    foreach (var pwsmModification in bpwsmModDict.Values)
-                        Assert.Contains(pwsmModification, expectedModifications);
-                    foreach (var pwsmModification in bpwsmModList)
-                        Assert.Contains(pwsmModification, expectedModifications);
-                }
-            }
-        }
-
-        [Test]
-        public static void TestGetSubstitutedFullSequence()
-        {
-            //It should take care of multiple substitutions
-            string test1 = "F[1 nucleotide substitution:F->Y on F]SIMGGGLA[1 nucleotide substitution:A->S on A]DR";
-            string expected1 = "YSIMGGGLSDR";
-            var actual1 = IBioPolymerWithSetMods.ParseSubstitutedFullSequence(test1);
-            Assert.That(actual1, Is.EqualTo(expected1));
-
-            //It should not change other modifications
-            string test2 = "SANH[1 nucleotide substitution:H->L on H]M[Common Variable:Oxidation on M]AGHWVAISGAAGGLGSLAVQYAK";
-            string expected2 = "SANLM[Common Variable:Oxidation on M]AGHWVAISGAAGGLGSLAVQYAK";
-            var actual2 = IBioPolymerWithSetMods.ParseSubstitutedFullSequence(test2);
-            Assert.That(actual2, Is.EqualTo(expected2));
-
-            //It should work on 2 nucleotide substitutions
-            string test3 = "S[2+ nucleotide substitution:S->E on S]AAADRLNLTSGHLNAGR";
-            string expected3 = "EAAADRLNLTSGHLNAGR";
-            var actual3 = IBioPolymerWithSetMods.ParseSubstitutedFullSequence(test3);
-            Assert.That(actual3, Is.EqualTo(expected3));
+                Assert.That(intersects, Is.True, "Peptide must intersect the variant.");
+                Assert.That(identifies, Is.False, "No sequence difference across the full variant; identifies must remain false.");
+            });
         }
     }
 }

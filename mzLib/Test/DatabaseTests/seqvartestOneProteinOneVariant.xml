@@ -1,0 +1,91 @@
+<?xml version='1.0' encoding='utf-8'?>
+<uniprot xmlns="http://uniprot.org/uniprot" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://uniprot.org/uniprot http://www.uniprot.org/support/docs/uniprot.xsd">
+  <entry dataset="Swiss-Prot" created="1995-02-01" modified="2016-01-20" version="128">
+    <accession>P40467</accession>
+    <accession>D6VVF7</accession>
+    <accession>Q45U13</accession>
+    <name>ASG1_YEAST</name>
+    <protein>
+      <recommendedName>
+        <fullName>Activator of stress genes 1</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">ASG1</name>
+      <name type="ordered locus">YIL130W</name>
+    </gene>
+    <organism>
+      <name type="scientific">Saccharomyces cerevisiae (strain ATCC 204508 / S288c)</name>
+      <name type="common">Baker's yeast</name>
+      <dbReference type="NCBI Taxonomy" id="559292"/>
+      <lineage>
+        <taxon>Eukaryota</taxon>
+        <taxon>Fungi</taxon>
+        <taxon>Dikarya</taxon>
+        <taxon>Ascomycota</taxon>
+        <taxon>Saccharomycotina</taxon>
+        <taxon>Saccharomycetes</taxon>
+        <taxon>Saccharomycetales</taxon>
+        <taxon>Saccharomycetaceae</taxon>
+        <taxon>Saccharomyces</taxon>
+      </lineage>
+    </organism>
+    
+    <proteinExistence type="evidence at protein level"/>
+    <keyword id="KW-0181">Complete proteome</keyword>
+    <keyword id="KW-0238">DNA-binding</keyword>
+    <keyword id="KW-0479">Metal-binding</keyword>
+    <keyword id="KW-0539">Nucleus</keyword>
+    <keyword id="KW-0597">Phosphoprotein</keyword>
+    <keyword id="KW-1185">Reference proteome</keyword>
+    <keyword id="KW-0346">Stress response</keyword>
+    <keyword id="KW-0804">Transcription</keyword>
+    <keyword id="KW-0805">Transcription regulation</keyword>
+    <keyword id="KW-0862">Zinc</keyword>
+    
+    <feature type="modified residue" description="Phosphoserine; by ATM or ATR" evidence="2">
+      <location>
+        <position position="166"/>
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine" evidence="3">
+      <location>
+        <position position="186"/>
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine" evidence="1 2 3">
+      <location>
+        <position position="963"/>
+      </location>
+    </feature>
+    <feature type="sequence variant" description="In strain: SK1." evidence="8">
+      <original>MPEQA</original>
+      <variation>MP</variation>
+      <location>
+        <begin position="1"/>
+        <end position="5"/>
+      </location>
+    </feature>
+    
+    <sequence length="964" mass="108781" checksum="AD5ABE59E4B022CC" modified="1995-02-01" version="1">
+      MPEQAQQGEQSVKRRRVTRACDECRKKKVKCDGQQPCIHCTVYSYECTYKKPTKRTQNSG
+      NSGVLTLGNVTTGPSSSTVVAAAASNPNKLLSNIKTERAILPGASTIPASNNPSKPRKYK
+      TKSTRLQSKIDRYKQIFDEVFPQLPDIDNLDIPVFLQIFHNFKRDSQSFLDDTVKEYTLI
+      VNDSSSPIQPVLSSNSKNSTPDEFLPNMKSDSNSASSNREQDSVDTYSNIPVGREIKIIL
+      PPKAIALQFVKSTWEHCCVLLRFYHRPSFIRQLDELYETDPNNYTSKQMQFLPLCYAAIA
+      VGALFSKSIVSNDSSREKFLQDEGYKYFIAARKLIDITNARDLNSIQAILMLIIFLQCSA
+      RLSTCYTYIGVAMRSALRAGFHRKLSPNSGFSPIEIEMRKRLFYTIYKLDVYINAMLGLP
+      RSISPDDFDQTLPLDLSDENITEVAYLPENQHSVLSSTGISNEHTKLFLILNEIISELYP
+      IKKTSNIISHETVTSLELKLRNWLDSLPKELIPNAENIDPEYERANRLLHLSFLHVQIIL
+      YRPFIHYLSRNMNAENVDPLCYRRARNSIAVARTVIKLAKEMVSNNLLTGSYWYACYTIF
+      YSVAGLLFYIHEAQLPDKDSAREYYDILKDAETGRSVLIQLKDSSMAASRTYNLLNQIFE
+      KLNSKTIQLTALHSSPSNESAFLVTNNSSALKPHLGDSLQPPVFFSSQDTKNSFSLAKSE
+      ESTNDYAMANYLNNTPISENPLNEAQQQDQVSQGTTNMSNERDPNNFLSIDIRLDNNGQS
+      NILDATDDVFIRNDGDIPTNSAFDFSSSKSNASNNSNPDTINNNYNNVSGKNNNNNNITN
+      NSNNNHNNNNNDNNNNNNNNNNNNNNNNNSGNSSNNNNNNNNNKNNNDFGIKIDNNSPSY
+      EGFPQLQIPLSQDNLNIEDKEEMSPNIEIKNEQNMTDSNDILGVFDQLDAQLFGKYLPLN
+      YPSE
+    </sequence>
+  </entry>
+  
+  </uniprot>
