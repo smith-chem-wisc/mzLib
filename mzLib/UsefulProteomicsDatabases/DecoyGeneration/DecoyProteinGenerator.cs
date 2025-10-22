@@ -9,8 +9,20 @@ using Omics;
 
 namespace UsefulProteomicsDatabases
 {
+    /// <summary>
+    /// Provides static methods for generating decoy protein sequences using various strategies (e.g., reverse, slide).
+    /// Decoy proteins are used for false discovery rate estimation in proteomics workflows.
+    /// </summary>
     public static class DecoyProteinGenerator
     {
+        /// <summary>
+        /// Generates decoy proteins from a list of target proteins using the specified decoy generation strategy.
+        /// </summary>
+        /// <param name="proteins">List of target proteins to generate decoys from.</param>
+        /// <param name="decoyType">Type of decoy generation strategy to use.</param>
+        /// <param name="maxThreads">Maximum number of threads to use for parallel processing. Default is -1 (no limit).</param>
+        /// <param name="decoyIdentifier">String to prepend to decoy protein accessions and annotations. Default is "DECOY".</param>
+        /// <returns>List of generated decoy proteins.</returns>
         public static List<Protein> GenerateDecoys(List<Protein> proteins, DecoyType decoyType, int maxThreads = -1, string decoyIdentifier = "DECOY")
         {
             return decoyType switch
@@ -22,6 +34,14 @@ namespace UsefulProteomicsDatabases
             };
         }
 
+        /// <summary>
+        /// Generates decoy proteins by reversing the sequence of each target protein, optionally preserving the initiator methionine.
+        /// Also reverses associated annotations and modifications.
+        /// </summary>
+        /// <param name="proteins">List of target proteins to generate decoys from.</param>
+        /// <param name="maxThreads">Maximum number of threads to use for parallel processing.</param>
+        /// <param name="decoyIdentifier">String to prepend to decoy protein accessions and annotations.</param>
+        /// <returns>List of reverse-sequence decoy proteins.</returns>
         private static List<Protein> GenerateReverseDecoys(List<Protein> proteins, int maxThreads = -1, string decoyIdentifier = "DECOY")
         {
             List<Protein> decoyProteins = new();
@@ -161,6 +181,13 @@ namespace UsefulProteomicsDatabases
             return decoyProteins.OrderBy(p => p.Accession).ToList();
         }
 
+        /// <summary>
+        /// Generates a mapping from original sequence positions to their positions in the reversed sequence.
+        /// Handles special logic if the sequence starts with methionine.
+        /// </summary>
+        /// <param name="sequence">Protein sequence to map.</param>
+        /// <param name="startsWithM">Indicates if the sequence starts with methionine.</param>
+        /// <returns>Array mapping original 1-based positions to reversed positions.</returns>
         private static int[] GeneratePositionMapping(string sequence, bool startsWithM)
         {
             int length = sequence.Length;
@@ -183,7 +210,12 @@ namespace UsefulProteomicsDatabases
             return map;
         }
 
-        // Shared helper to produce a decoy-specific VCF tag (ensures inequality vs target)
+        /// <summary>
+        /// Builds a decoy-specific VCF (Variant Call Format) tag for a sequence variation, ensuring it differs from the target.
+        /// </summary>
+        /// <param name="decoyIdentifier">String to identify the decoy.</param>
+        /// <param name="src">Source sequence variation.</param>
+        /// <returns>Decoy-specific VCF tag string.</returns>
         private static string BuildDecoyVcfTag(string decoyIdentifier, SequenceVariation src)
         {
             string baseTag = $"{decoyIdentifier} VARIANT";
@@ -201,6 +233,14 @@ namespace UsefulProteomicsDatabases
             return string.IsNullOrWhiteSpace(raw) ? baseTag : $"{baseTag}: {raw}";
         }
 
+        /// <summary>
+        /// Remaps sequence variations from the target protein to the decoy protein using a position mapping.
+        /// Updates variant-specific modifications and VCF tags for the decoy.
+        /// </summary>
+        /// <param name="positionMapping">Mapping from original to decoy sequence positions.</param>
+        /// <param name="originalVariations">List of original sequence variations.</param>
+        /// <param name="decoyIdentifier">String to identify the decoy.</param>
+        /// <returns>List of remapped sequence variations for the decoy.</returns>
         private static List<SequenceVariation> CreateMappedSequenceVariations(
             int[] positionMapping,
             List<SequenceVariation> originalVariations,
@@ -247,6 +287,12 @@ namespace UsefulProteomicsDatabases
             return result;
         }
 
+        /// <summary>
+        /// Reverses the positions of possible localized modifications for a protein, accounting for initiator methionine if present.
+        /// </summary>
+        /// <param name="protein">Protein whose modifications are to be reversed.</param>
+        /// <param name="startsWithM">Indicates if the sequence starts with methionine.</param>
+        /// <returns>Dictionary mapping new positions to lists of modifications.</returns>
         private static Dictionary<int, List<Modification>> GetReversedModifications(Protein protein, bool startsWithM)
         {
             var reversed = new Dictionary<int, List<Modification>>(protein.OneBasedPossibleLocalizedModifications.Count);
@@ -271,6 +317,14 @@ namespace UsefulProteomicsDatabases
             return reversed;
         }
 
+        /// <summary>
+        /// Generates decoy proteins by sliding the sequence of each target protein by a fixed number of positions.
+        /// Modifications and annotations are adjusted accordingly.
+        /// </summary>
+        /// <param name="proteins">List of target proteins to generate decoys from.</param>
+        /// <param name="maxThreads">Maximum number of threads to use for parallel processing.</param>
+        /// <param name="decoyIdentifier">String to prepend to decoy protein accessions and annotations.</param>
+        /// <returns>List of slide-sequence decoy proteins.</returns>
         private static List<Protein> GenerateSlideDecoys(List<Protein> proteins, int maxThreads = -1, string decoyIdentifier = "DECOY")
         {
             List<Protein> decoyProteins = new();
@@ -385,6 +439,16 @@ namespace UsefulProteomicsDatabases
             return decoyProteins.OrderBy(p => p.Accession).ToList();
         }
 
+        /// <summary>
+        /// Slides the sequence of a protein and its modifications by a specified number of positions.
+        /// Handles initiator methionine logic and updates modification positions.
+        /// </summary>
+        /// <param name="sequenceArraySlided">Array to store the slided sequence.</param>
+        /// <param name="sequenceArrayUnslided">Original sequence array.</param>
+        /// <param name="initiatorMethionine">Indicates if the sequence starts with methionine.</param>
+        /// <param name="numSlides">Number of positions to slide the sequence.</param>
+        /// <param name="protein">Protein whose sequence and modifications are being slided.</param>
+        /// <returns>Dictionary mapping new positions to lists of modifications after sliding.</returns>
         private static Dictionary<int, List<Modification>> SlideProteinSequenceWithMods(char[] sequenceArraySlided, char[] sequenceArrayUnslided, bool initiatorMethionine, int numSlides, Protein protein)
         {
             int startIndex = initiatorMethionine ? 1 : 0;
@@ -410,6 +474,15 @@ namespace UsefulProteomicsDatabases
             return decoyMods;
         }
 
+        /// <summary>
+        /// Calculates the original index in the unslided sequence for a given index in the slided sequence.
+        /// Handles initiator methionine and sequence wrapping logic.
+        /// </summary>
+        /// <param name="i">Index in the slided sequence.</param>
+        /// <param name="numSlides">Number of positions the sequence was slided.</param>
+        /// <param name="sequenceLength">Length of the sequence.</param>
+        /// <param name="methioninePresent">Indicates if the sequence starts with methionine.</param>
+        /// <returns>Corresponding index in the original sequence.</returns>
         private static int GetOldSlidedIndex(int i, int numSlides, int sequenceLength, bool methioninePresent)
         {
             if (sequenceLength <= 1 || (i == 0 && methioninePresent))
@@ -437,6 +510,15 @@ namespace UsefulProteomicsDatabases
             }
         }
 
+        /// <summary>
+        /// Calculates the new index in the slided sequence for a given index in the original sequence.
+        /// Handles initiator methionine and sequence wrapping logic.
+        /// </summary>
+        /// <param name="i">Index in the original sequence.</param>
+        /// <param name="numSlides">Number of positions to slide the sequence.</param>
+        /// <param name="sequenceLength">Length of the sequence.</param>
+        /// <param name="methioninePresent">Indicates if the sequence starts with methionine.</param>
+        /// <returns>Corresponding index in the slided sequence.</returns>
         private static int GetNewSlidedIndex(int i, int numSlides, int sequenceLength, bool methioninePresent)
         {
             if (sequenceLength <= 1 || (i == 0 && methioninePresent))
