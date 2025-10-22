@@ -704,23 +704,37 @@ namespace Proteomics.ProteolyticDigestion
                 int variantZeroBasedStartInPeptide = intersectOneBasedStart - appliedVariation.OneBasedBeginPosition;
                 bool origSeqIsShort = appliedVariation.OriginalSequence.Length - variantZeroBasedStartInPeptide < intersectSize;
                 bool origSeqIsLong = appliedVariation.OriginalSequence.Length > intersectSize && OneBasedEndResidueInProtein > intersectOneBasedEnd;
+
                 if (origSeqIsShort || origSeqIsLong)
                 {
-                    identifies = true;
+                    return (true, true);
                 }
-                else
-                {
-                    // crosses the entire variant sequence (needed to identify truncations and certain deletions, like KAAAAAAAAA -> K, but also catches synonymous variations A -> A)
-                    bool crossesEntireVariant = intersectSize == appliedVariation.VariantSequence.Length;
 
-                    if (crossesEntireVariant == true)
+                // NEW: deterministically identify equal-length substitutions when any overlapped residue differs
+                if (lengthDiff == 0 && intersectSize > 0
+                                    && variantZeroBasedStartInPeptide >= 0
+                                    && appliedVariation.OriginalSequence.Length >= variantZeroBasedStartInPeptide + intersectSize
+                                    && appliedVariation.VariantSequence.Length >= variantZeroBasedStartInPeptide + intersectSize)
+                {
+                    for (int i = 0; i < intersectSize; i++)
                     {
-                        // is the variant sequence intersecting the peptide different than the original sequence?
-                        string originalAtIntersect = appliedVariation.OriginalSequence.Substring(intersectOneBasedStart - appliedVariation.OneBasedBeginPosition, intersectSize);
-                        string variantAtIntersect = appliedVariation.VariantSequence.Substring(intersectOneBasedStart - appliedVariation.OneBasedBeginPosition, intersectSize);
-                        identifies = originalAtIntersect != variantAtIntersect;
+                        if (appliedVariation.OriginalSequence[variantZeroBasedStartInPeptide + i]
+                            != appliedVariation.VariantSequence[variantZeroBasedStartInPeptide + i])
+                        {
+                            return (true, true);
+                        }
                     }
                 }
+
+                bool crossesEntireVariant = intersectSize == appliedVariation.VariantSequence.Length;
+                if (crossesEntireVariant == true)
+                {
+                    string originalAtIntersect = appliedVariation.OriginalSequence.Substring(variantZeroBasedStartInPeptide, intersectSize);
+                    string variantAtIntersect = appliedVariation.VariantSequence.Substring(variantZeroBasedStartInPeptide, intersectSize);
+                    return (true, originalAtIntersect != variantAtIntersect);
+                }
+
+                return (true, false);
             }
             //checks to see if the variant causes a cleavage event creating the peptide. This is how a variant can be identified without intersecting
             //with the peptide itself
