@@ -13,18 +13,38 @@ namespace Omics.BioPolymer
         private static readonly Regex HGVSProteinRegex = new Regex(@"(p\.)([A-Z][a-z][a-z])(\d+)([A-Z][a-z][a-z])");
 
         // All public getters: ensure they are always initialized (never left unassigned).
+        /// <summary>
+        /// Original SnpEff annotation string.
+        /// </summary>
         public string Annotation { get; }
         public string Allele { get; } = string.Empty;
         public string[] Effects { get; } = Array.Empty<string>();
         public string PutativeImpact { get; } = string.Empty;
         public string GeneName { get; } = string.Empty;
         public string GeneID { get; } = string.Empty;
+
+        /// <summary>
+        /// It looks like these are sometimes domains, like the ones annotated in UniProt,
+        /// Otherwise, this tends to just be "transcript"
+        ///
+        /// Some examples:
+        /// sequence_feature: can be initiator-methionine:Removed ... maybe not too helpful for proteomics, since this is assumed
+        /// sequence_feature: helix:combinatorial_evidence_used_in_manual_assertion
+        /// sequence_feature: nucleotide-phosphate-binding-region:ATP
+        /// sequence_feature: domain:EGF-like_2
+        /// sequence_feature: transmembrane-region:Transmembrane_region
+        /// sequence_feature: topological-domain:Extracellular
+        /// sequence_feature: modified-residue:phosphoserine
+        /// </summary>
         public string FeatureType { get; } = string.Empty;
+        /// <summary>
+        /// Always seems to be the transcriptID
+        /// </summary>
         public string FeatureID { get; } = string.Empty;
         public string TranscriptBiotype { get; } = string.Empty;
         public int ExonIntronRank { get; }
         public int ExonIntronTotal { get; }
-        public string HGVSNotationDnaLevel { get; } = string.Empty;
+        public string HGVSNotationDnaLevel { get; } = string.Empty;// kind of bad for ins and del because they notation aligns to most 3' coordinate, rather than leftmost
         public string HGVSNotationProteinLevel { get; } = string.Empty;
         public int OneBasedTranscriptCDNAPosition { get; }
         public int TranscriptCDNALength { get; }
@@ -32,6 +52,18 @@ namespace Omics.BioPolymer
         public int CodingDomainSequenceLengthIncludingStopCodon { get; }
         public int OneBasedProteinPosition { get; }
         public int ProteinLength { get; }
+        /// <summary>
+        /// up/downstream: distance to first / last codon
+        /// intergenic: distance to closest gene
+        /// exonic: distance to closest intron boundary (+ is upstream, - is downstream)
+        /// intronic: distance to closest exon boundary (+ is upstream, - is downstream)
+        /// motif: distance to first base in MOTIF
+        /// miRNA: distance to first base in miRNA
+        /// splice_site: distance to exon-intron boundary
+        /// splice_region: distance to exon-intron boundary
+        /// chip seq peak: distance to summit or peak center
+        /// histone mark/state: distance to summit or peak center
+        /// </summary>
         public int DistanceToFeature { get; }
         public string[] Warnings { get; } = Array.Empty<string>();
 
@@ -146,8 +178,8 @@ namespace Omics.BioPolymer
         //    "exon_loss_variant",
         //    "frameshift_variant",
         //    "rare_amino_acid_variant",
-        //    "splice_acceptor_variant",
-        //    "splice_donor_variant",
+        //    "splice_acceptor_variant", // often with intron_variant, sometimes with splice_donor_variant
+        //    "splice_donor_variant", // often with intron_variant, sometimes with splice_acceptor_variant
         //    "start_lost",
         //    "stop_gained",
         //    "stop_lost",
@@ -156,19 +188,19 @@ namespace Omics.BioPolymer
 
         //private string[] ModeratePutativeImpactEffects = new string[]
         //{
-        //    "3_prime_UTR_truncation", "exon_loss",
-        //    "5_prime_UTR_truncation", "exon_loss_variant",
-        //    "coding_sequence_variant",
+        //    "3_prime_UTR_truncation", "exon_loss", // appear together
+        //    "5_prime_UTR_truncation", "exon_loss_variant", // appear together
+        //    "coding_sequence_variant", // not seen much? Probably because missense is used more often.
         //    "conservative_inframe_insertion",
         //    "conservative_inframe_deletion",
         //    "disruptive_inframe_deletion",
         //    "disruptive_inframe_insertion",
-        //    "inframe_deletion",
-        //    "inframe_insertion",
+        //    "inframe_deletion",// not common, in favor of more specific terms above
+        //    "inframe_insertion",// not common, in favor of more specific terms above
         //    "missense_variant",
-        //    "regulatory_region_ablation",
-        //    "splice_region_variant",
-        //    "TFBS_ablation",
+        //    "regulatory_region_ablation", // not common?
+        //    "splice_region_variant", // often combined with intron_variant and non_coding_transcript_exon_variant
+        //    "TFBS_ablation", // not common?
         //};
 
         private string[] NonSynonymousVariations = new string[]
@@ -183,8 +215,8 @@ namespace Omics.BioPolymer
             "conservative_inframe_deletion",
             "disruptive_inframe_deletion",
             "disruptive_inframe_insertion",
-            "inframe_deletion",
-            "inframe_insertion",
+            "inframe_deletion", // not common, in favor of more specific terms above
+            "inframe_insertion", // not common, in favor of more specific terms above
             "missense_variant",
         };
 
@@ -195,8 +227,8 @@ namespace Omics.BioPolymer
         //    "5_prime_UTR_premature_start_codon_gain_variant",
         //    "initiator_codon_variant",
         //    "splice_region_variant",
-        //    "start_retained",
-        //    "stop_retained_variant",
+        //    "start_retained", // not used in human, with only one canonical start codon
+        //    "stop_retained_variant", // fairly common
         //    "synonymous_variant",
         //    "sequence_feature"
         //};
@@ -238,8 +270,14 @@ namespace Omics.BioPolymer
             "WARNING_TRANSCRIPT_NO_START_CODON"
         };
 
+
         /// <summary>
-        /// SnpEff warning descriptions (abridged reference).
+        /// It looks like WARNING_TRANSCRIPT_INCOMPLETE, WARNING_TRANSCRIPT_MULTIPLE_STOP_CODONS,
+        /// WARNING_TRANSCRIPT_NO_STOP_CODON, and WARNING_TRANSCRIPT_NO_START_CODON are relevant to this program.
+        ///
+        /// These are the ones that I shouldn't be translating.
+        ///
+        /// Could also be used for error messages regarding certain transcripts.
         /// </summary>
         public Dictionary<string, string> SnpEffWarningDescriptions = new Dictionary<string, string>
         {

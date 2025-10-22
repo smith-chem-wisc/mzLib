@@ -252,6 +252,15 @@ namespace UsefulProteomicsDatabases
             return UniProtSequenceAttributes.FragmentType.unspecified;
         }
 
+        /// <summary>
+        /// Computes the monoisotopic mass of a protein or nucleic acid sequence without modifications.
+        /// If the input sequence is null or empty, returns 0.
+        /// Internally, constructs a <see cref="PeptideWithSetModifications"/> using the provided sequence and an empty modification dictionary,
+        /// then returns the rounded monoisotopic mass as an integer.
+        /// This method is used to populate sequence attributes such as mass during XML parsing.
+        /// </summary>
+        /// <param name="sequence">The amino acid or nucleic acid sequence for which to compute the mass.</param>
+        /// <returns>The monoisotopic mass of the sequence, rounded to the nearest integer, or 0 if the sequence is empty.</returns>
         private static int ComputeSequenceMass(string sequence)
         {
             if (string.IsNullOrEmpty(sequence))
@@ -392,7 +401,7 @@ namespace UsefulProteomicsDatabases
             {
                 Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
 
-                // NEW: prune any sequence variants whose coordinates exceed the now-known sequence length
+                //prune any sequence variants whose coordinates exceed the known sequence length
                 PruneOutOfRangeSequenceVariants();
 
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
