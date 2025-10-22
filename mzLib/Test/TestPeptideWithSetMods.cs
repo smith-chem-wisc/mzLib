@@ -1532,5 +1532,79 @@ namespace Test
 
             TestContext.WriteLine("Non-degenerate path hit: no clamp, full-span substitution identified correctly");
         }
+        [Test]
+        public static void IntersectsAndIdentifiesVariation_CrossesEntireVariantSubstringComparison()
+        {
+            // Protein:  M  A  C  D  E  F  G  H  I  K
+            // Position: 1  2  3  4  5  6  7  8  9  10
+            var protein = new Protein("MACDEFGHIK", "test");
+
+            // Variant: positions 4–6 (D E F) replaced with (D Q F) (equal length, but only E->Q differs)
+            var vSub = new SequenceVariation(
+                oneBasedBeginPosition: 4,
+                oneBasedEndPosition: 6,
+                originalSequence: "DEF",
+                variantSequence: "DQF",
+                description: "multi-residue substitution");
+
+            // Peptide covering exactly the variant region (4–6)
+            var pep = new PeptideWithSetModifications(
+                protein, new DigestionParams(), 4, 6,
+                CleavageSpecificity.Full, "", 0,
+                new Dictionary<int, Modification>(), 0);
+
+            // This triggers the "crosses entire variant" substring comparison:
+            // - intersectSizeEff == variantSeq.Length == 3
+            // - variantZeroBasedStartInPeptide == 0
+            // - originalAtIntersect: "DEF", variantAtIntersect: "DQF" (differ at position 2)
+            // - identifiesFlag should be set to true
+            var (intersects, identifies) = pep.IntersectsAndIdentifiesVariation(vSub);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(intersects, Is.True, "Expected 'intersects' == true (peptide covers variant region).");
+                Assert.That(identifies, Is.True, "Expected 'identifies' == true due to substring difference in full variant window.");
+            });
+        }
+        [Test]
+        public static void IntersectsAndIdentifiesVariation_CrossesEntireVariant_Branch_Executed_NoFlipOnEqualSubstrings()
+        {
+            // Protein:  M A C D E F G H I K
+            // Index:    1 2 3 4 5 6 7 8 9 10
+            // Make a substitution 4–6 where original == variant (DEF == DEF) but attach a variant-specific mod.
+            // This variant is valid (because of the variant-specific PTM), but sequence-wise it is a no-op.
+            // The peptide exactly spans the variant, so crossesEntireVariantEffective == true.
+            // Expect: per-residue equal-length comparison finds no difference; fallback substring comparison executes
+            // and also finds no difference; identifiesFlag remains false.
+            var protein = new Protein("MACDEFGHIK", "pX");
+
+            // Variant-specific mod to make the no-op substitution valid
+            var mod = new Modification("vmod", null, "type", null, null, "Anywhere.", null, 1.0);
+            var v = new SequenceVariation(
+                oneBasedBeginPosition: 4,
+                oneBasedEndPosition: 6,
+                originalSequence: "DEF",
+                variantSequence: "DEF",      // no-op sequence
+                description: "noop_with_variant_mod",
+                variantCallFormatDataString: null,
+                oneBasedModifications: new Dictionary<int, List<Modification>> {
+                    // Attach a variant-specific mod somewhere inside the window (e.g., position 5)
+                    { 5, new List<Modification> { mod } }
+                });
+
+            // Peptide exactly covering the variant region
+            var pep = new PeptideWithSetModifications(
+                protein, new DigestionParams(), 4, 6,
+                CleavageSpecificity.Full, "", 0,
+                new Dictionary<int, Modification>(), 0);
+
+            var (intersects, identifies) = pep.IntersectsAndIdentifiesVariation(v);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(intersects, Is.True, "Peptide must intersect the variant.");
+                Assert.That(identifies, Is.False, "No sequence difference across the full variant; identifies must remain false.");
+            });
+        }
     }
 }
