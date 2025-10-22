@@ -8,6 +8,17 @@ using Omics.BioPolymer;
 
 namespace UsefulProteomicsDatabases
 {
+    /// <summary>
+    /// Generates decoy nucleic acid sequences from a list of input sequences using the specified decoy generation strategy.
+    /// Supports multiple decoy types (e.g., reverse, slide, shuffle) and applies the chosen method to each input.
+    /// The resulting decoys are annotated with the provided identifier and can be generated in parallel.
+    /// </summary>
+    /// <typeparam name="T">Type implementing <see cref="INucleicAcid"/> to be decoyed.</typeparam>
+    /// <param name="nucleicAcids">List of input nucleic acid sequences to generate decoys from.</param>
+    /// <param name="decoyType">Decoy generation strategy to use (e.g., Reverse, Slide, Shuffle).</param>
+    /// <param name="maxThreads">Maximum number of threads for parallel processing. Default is -1 (no limit).</param>
+    /// <param name="decoyIdentifier">String to annotate decoy sequences. Default is "DECOY".</param>
+    /// <returns>List of generated decoy nucleic acid sequences.</returns>
     public static class RnaDecoyGenerator
     {
         public static List<T> GenerateDecoys<T>(List<T> nucleicAcids, DecoyType decoyType, int maxThreads = -1, string decoyIdentifier = "DECOY") where T : INucleicAcid
