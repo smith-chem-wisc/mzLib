@@ -435,7 +435,7 @@ namespace UsefulProteomicsDatabases
                 errors.Add("Error: No proteins could be read from the database: " + proteinDbLocation);
             }
             decoys.AddRange(DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier));
-            var toRetrun = generateTargets ? targets.Concat(decoys).ToList() : decoys;
+            var toRetrun = generateTargets ? targets.Concat(decoys) : decoys;
             return CollapseDuplicateProteinsByAccessionAndBaseSequence(toRetrun).ToList();
         }
 
