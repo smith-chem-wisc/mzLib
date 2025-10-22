@@ -206,7 +206,7 @@ namespace UsefulProteomicsDatabases
                     {
                         writer.WriteStartElement("feature");
                         writer.WriteAttributeString("type", "sequence variant");
-                        writer.WriteAttributeString("description", hm.CallFormat.ToString());
+                        writer.WriteAttributeString("description", hm.Description.ToString());
                         writer.WriteStartElement("original");
                         writer.WriteString(hm.OriginalSequence);
                         writer.WriteEndElement(); // original
@@ -252,7 +252,7 @@ namespace UsefulProteomicsDatabases
                     //{
                     //    writer.WriteStartElement("feature");
                     //    writer.WriteAttributeString("type", "splice site");
-                    //    writer.WriteAttributeString("description", hm.CallFormat);
+                    //    writer.WriteAttributeString("description", hm.Description);
                     //    writer.WriteStartElement("location");
                     //    if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
                     //    {
@@ -464,7 +464,7 @@ namespace UsefulProteomicsDatabases
                     {
                         writer.WriteStartElement("feature");
                         writer.WriteAttributeString("type", "sequence variant");
-                        writer.WriteAttributeString("description", hm.CallFormat.ToString());
+                        writer.WriteAttributeString("description", hm.Description.ToString());
                         writer.WriteStartElement("original");
                         writer.WriteString(hm.OriginalSequence);
                         writer.WriteEndElement(); // original

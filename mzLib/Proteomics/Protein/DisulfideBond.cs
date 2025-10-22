@@ -25,7 +25,7 @@
         public int OneBasedEndPosition { get; set; }
 
         /// <summary>
-        /// CallFormat of this variation (optional)
+        /// Description of this variation (optional)
         /// </summary>
         public string Description { get; set; }
 

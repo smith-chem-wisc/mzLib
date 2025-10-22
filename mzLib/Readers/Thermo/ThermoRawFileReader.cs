@@ -306,7 +306,7 @@ namespace Readers
                     HcdEnergy = values[i];
                 }
 
-                if (labels[i].StartsWith("Scan CallFormat", StringComparison.Ordinal))
+                if (labels[i].StartsWith("Scan Description", StringComparison.Ordinal))
                 {
                     scanDescript = values[i].TrimEnd();
                 }

@@ -25,7 +25,7 @@ namespace Test.FlashLFQ
         [Test]
         public static void TestIsobaricPeptideGroup()
         {
-            // CallFormat: Test the IsobaricPeptideGroup class
+            // Description: Test the IsobaricPeptideGroup class
             // In this testing, we will create a new IsobaricPeptideGroup and check the properties
             List<Identification> ids = new List<Identification>
             {
@@ -126,7 +126,7 @@ namespace Test.FlashLFQ
         [Test]
         public static void TestGetTargeMz_case1()
         {
-            // CallFormat: Test the GetTargetMz function in FlashLfqEngine
+            // Description: Test the GetTargetMz function in FlashLfqEngine
             // In this testing, we will check the isobaricPeptideGroup and targetMzs output
             // All three ids are isobaric peptides with the same monoisotopic mass, so they should be grouped together and generate only 5 target m/z values
 
@@ -189,7 +189,7 @@ namespace Test.FlashLFQ
         [Test]
         public static void TestGetTargeMz_case2()
         {
-            // CallFormat: Test the GetTargetMz function in FlashLfqEngine
+            // Description: Test the GetTargetMz function in FlashLfqEngine
             // In this testing, we will check the isobaricPeptideGroup and targetMzs output
             // All three ids are isobaric peptides with the different monoisotopic mass, so they should be grouped together and generate 15(3*5) target m/z values
 
@@ -253,7 +253,7 @@ namespace Test.FlashLFQ
         [Test]
         public static void TestIndexPeakPrune()
         {
-            // CallFormat: Test the peak indexing engine pruning function
+            // Description: Test the peak indexing engine pruning function
             // In this test, we will create the targetMzs from the ids to prune the indexPeaks.
             // After pruning, the index engine should only keep the peaks with the target m/z values.
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
@@ -329,7 +329,7 @@ namespace Test.FlashLFQ
         [Test]
         public static void TestLinearSpline()
         {
-            //CallFormat: Test the linear spline interpolation and differentiation
+            //Description: Test the linear spline interpolation and differentiation
             //The testing model is a linear function y = 100x, where x is the time point and y is the intensity
             //The slope will be 100 and the second derivative will be 0
 
@@ -361,7 +361,7 @@ namespace Test.FlashLFQ
         [Test]
         public static void TestPeakAlignment()
         {
-            //CallFormat: Test the peak alignment function
+            //Description: Test the peak alignment function
             //The testing model is a triangle peak with the Apex.
             //The Apex of three peaks are 3, 3.1, 2.9 min
             //The time shift should be 0.1 min for the peak2 and -0.1 min for the peak3
@@ -410,7 +410,7 @@ namespace Test.FlashLFQ
         [Test]
         public static void TestBuildSmoothedCubicSpline_LessPoint()
         {
-            //CallFormat: Test the cubic spline interpolation
+            //Description: Test the cubic spline interpolation
             //The testing model has less than 5 points that cannot build the cubic spline
             //The cubic spline should be null
 
@@ -531,7 +531,7 @@ namespace Test.FlashLFQ
         [Test]
         public static void TestXICGroup_RtDict()
         {
-            //CallFormat: Test the peakAlignment function in the XICGroup
+            //Description: Test the peakAlignment function in the XICGroup
             //The testing has three normal distribution XIC peaks.
             //The Apex of three peaks are 3, 3.1, 2.9 min
             //The time shift should be 0.1 min for the peak2 and -0.1 min for the peak3
@@ -582,7 +582,7 @@ namespace Test.FlashLFQ
         [Test]
         public static void TestXICGroup_IdList()
         {
-            //CallFormat: Test the IdList in the XICGroup
+            //Description: Test the IdList in the XICGroup
             //The testing model has three XICs, one of this XIC has no Id, then it borrows one Id from the first XIC
             //If the Id is borrowed, the Id will not be added into the IdList
             //The IdList should contain the Ids from the first and the third XIC
@@ -617,7 +617,7 @@ namespace Test.FlashLFQ
         [Test]
         public static void TestXICGroup_Tracking()
         {
-            //CallFormat: Test the peak tracking function in the XICGroup
+            //Description: Test the peak tracking function in the XICGroup
             //The testing has three normal distribution XIC peaks.
             //The Apex of three peaks are 20, 23, 17 min
             //The time shift should be +3 min for the peak2 and -3 min for the peak3
@@ -688,7 +688,7 @@ namespace Test.FlashLFQ
         [Test]
         public static void TestCombinedSearching()
         {
-            //CallFormat: Test the IsoTracker in the FlashLFQ, checking items include the peak tracking and the peak output
+            //Description: Test the IsoTracker in the FlashLFQ, checking items include the peak tracking and the peak output
             //There are three XIC included isobaric peaks that with 3 min gap.
 
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
@@ -796,7 +796,7 @@ namespace Test.FlashLFQ
         [Test]
         public static void TestPeakOutput()
         {
-            //CallFormat: Test the IsoTracker in the FlashLFQ, checking items include the peak tracking and the peak output
+            //Description: Test the IsoTracker in the FlashLFQ, checking items include the peak tracking and the peak output
             //There are three XIC included isobaric peaks that with 3 min gap.
 
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
@@ -931,7 +931,7 @@ namespace Test.FlashLFQ
         [Test]
         public static void TestIsoSequence_Ambiguous()
         {
-            //CallFormat: Test the IsoTracker in the FlashLFQ, checking the algorithm can correctly recognize the IsoID
+            //Description: Test the IsoTracker in the FlashLFQ, checking the algorithm can correctly recognize the IsoID
             //IsoID: DIVENY[Common Variable:Oxidation on M]FMR   should be the same as DIVENYFM[Common Variable:Oxidation on M]R
 
             //Try to turn on the MBR and Isotracker at the same time
@@ -1066,7 +1066,7 @@ namespace Test.FlashLFQ
         [Test]
         public static void TestIsoSequence_MonoIsotopicMassTolerance()
         {
-            //CallFormat: Test the IsoTracker in the FlashLFQ, checking the algorithm can correctly recognize the IsoID
+            //Description: Test the IsoTracker in the FlashLFQ, checking the algorithm can correctly recognize the IsoID
             //IsoID: DIVENY[Common Variable:Oxidation on M]FMR   should be the same as DIVENYFM[Common Variable:Oxidation on M]R
             //The Monoisotopic mass are 1201.5436, 1201.5437, 1201.5438, they should be recognized as the same IsoID
 
@@ -1491,7 +1491,7 @@ namespace Test.FlashLFQ
         [Test]
         public static void TestRun_SearchingTarget()
         {
-            //CallFormat: we will upload a motifList for IsoTracker
+            //Description: we will upload a motifList for IsoTracker
             //Only peptide with motif on N can be searched
             //In this case, only one kind of peptide can be searched: baseSequence PEPNINEN -> PEPN[Mod]INEN, PEPNIN[Mod]EN, PEPNINEN[Mod]
             // Run 1 with PEPNIN[Mod]EN, PEPNINEN[Mod]
@@ -1615,7 +1615,7 @@ namespace Test.FlashLFQ
         [Test]
         public static void TestRun_IDChecking()
         {
-            //CallFormat: we will turn on the IDchecking for IsoTracker
+            //Description: we will turn on the IDchecking for IsoTracker
             //Only when one XIC with more than one id, we do the searching
             //In this case, run 1 has 4 ids (pepA_1, pepA_2, pepB_1, pepC_1)
             //run 2 has 3 ids (pepA_1, pepB_1, pepC_1)

@@ -79,7 +79,7 @@ namespace Readers
         [Name("Gene")]
         public string Gene { get; set; }
 
-        [Name("Protein CallFormat")]
+        [Name("Protein Description")]
         public string ProteinDescription { get; set; }
 
         [Name("Mapped Genes")]

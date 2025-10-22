@@ -87,7 +87,7 @@ namespace UsefulProteomicsDatabases
                             var reverseModKey = indexMapping[modKvp.Key];
                             reverseModificationsForVariation.Add(reverseModKey, modKvp.Value);
                         }
-                        reverseAppliedVariations.Add(new SequenceVariation(reverseBegin, reverseEnd, variation.OriginalSequence, variation.VariantSequence, variation.CallFormat.Description, reverseModificationsForVariation));
+                        reverseAppliedVariations.Add(new SequenceVariation(reverseBegin, reverseEnd, variation.OriginalSequence, variation.VariantSequence, variation.Description.Description, reverseModificationsForVariation));
                     }
 
                     // Reverse Applied Variants
@@ -101,7 +101,7 @@ namespace UsefulProteomicsDatabases
                             var reverseModKey = indexMapping[modKvp.Key];
                             reverseModificationsForVariation.Add(reverseModKey, modKvp.Value);
                         }
-                        reverseVariations.Add(new SequenceVariation(reverseBegin, reverseEnd, variation.OriginalSequence, variation.VariantSequence, variation.CallFormat.Description, reverseModificationsForVariation));
+                        reverseVariations.Add(new SequenceVariation(reverseBegin, reverseEnd, variation.OriginalSequence, variation.VariantSequence, variation.Description.Description, reverseModificationsForVariation));
                     }
 
                     // Reverse Truncations

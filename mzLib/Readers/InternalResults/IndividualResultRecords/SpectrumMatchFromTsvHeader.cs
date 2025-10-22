@@ -46,7 +46,7 @@
         public const string SpliceSites = "Splice Sites";
         public const string Contaminant = "Contaminant";
         public const string Decoy = "Decoy";
-        public const string Description = "CallFormat";
+        public const string Description = "Description";
         public const string StartAndEndResiduesInFullSequence = "Start and End Residues In Full Sequence";
         public const string PreviousResidue = "Previous Residue";
         public const string NextResidue = "Next Residue";
@@ -78,7 +78,7 @@
         public const string PeptideMonoMass = "Peptide Monoisotopic Mass";
         public const string ProteinAccession = "Protein Accession";
         public const string ProteinName = "Protein Name";
-        public const string PeptideDescription = "Peptide CallFormat";
+        public const string PeptideDescription = "Peptide Description";
         public const string StartAndEndResiduesInProtein = "Start and End Residues In Protein";
         public const string PreviousAminoAcid = "Previous Amino Acid";
         public const string NextAminoAcid = "Next Amino Acid";
