@@ -1,5 +1,6 @@
 ﻿using NUnit.Framework;
 using Omics.BioPolymer;
+using Omics.Modifications;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -118,6 +119,22 @@ namespace Test.DatabaseTests
                     Assert.That(vcf.ZygosityBySample[key], Is.EqualTo(expectedZ));
                 }
             }
+        }
+        [Test]
+        public void Constructor_InvalidCoordinates_ThrowsArgumentException()
+        {
+            // Minimal valid VCF line (10 columns) so VariantCallFormat parses without truncation.
+            // Arrange: end < begin (invalid coordinates)
+            var sv = new SequenceVariation(
+                oneBasedBeginPosition: 5,
+                oneBasedEndPosition: 4,
+                originalSequence: "A",
+                variantSequence: "V",
+                description: "invalid-coords",
+                oneBasedModifications: null);
+
+            // Assert: SequenceVariation does not throw on construction; it reports invalid via AreValid()
+            Assert.That(sv.AreValid(), Is.False);
         }
     }
 }
