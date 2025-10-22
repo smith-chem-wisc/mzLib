@@ -57,16 +57,18 @@ namespace Readers
                     var line = lines[i];
                     try
                     {
+                        // If we are reading an AllPSMs file, we have both glyco and non-glyco results, must split based upon line content
+                        bool lineIsGlyco = fileIsGlyco && ResultIsGlyco(parsedHeader, line);
+
                         T result = type switch
                         {
                             SupportedFileType.osmtsv => (T)(SpectrumMatchFromTsv)new OsmFromTsv(line, Split, parsedHeader),
-                            // If we are reading an AllPSMs file, we have both glyco and non-glyco results, must split based upon line content
-                            _ when fileIsGlyco && ResultIsGlyco(parsedHeader, line) => (T)(SpectrumMatchFromTsv)new GlycoPsmFromTsv(line, Split, parsedHeader),
+                            _ when lineIsGlyco => (T)(SpectrumMatchFromTsv)new GlycoPsmFromTsv(line, Split, parsedHeader),
                             _ => (T)(SpectrumMatchFromTsv)new PsmFromTsv(line, Split, parsedHeader)
                         };
                         psmsArray[i - 1] = result; // -1 to align with result array (excluding header)
                     }
-                    catch (Exception e)
+                    catch (Exception)
                     {
                         warningsBag.Add("Could not read line: " + (i + 1)); // plus one to account for header line
                     }
