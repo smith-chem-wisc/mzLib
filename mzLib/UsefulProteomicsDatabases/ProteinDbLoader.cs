@@ -407,14 +407,7 @@ namespace UsefulProteomicsDatabases
                         }
                         else
                         {
-                            if (protein.IsDecoy)
-                            {
-                                decoys.Add(protein);
-                            }
-                            else
-                            {
-                                targets.Add(protein);
-                            }
+                            targets.Add(protein);
                         }
 
                         accession = null;
@@ -443,98 +436,98 @@ namespace UsefulProteomicsDatabases
             }
             decoys.AddRange(DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier));
             var toRetrun = generateTargets ? targets.Concat(decoys).ToList() : decoys;
-            return MergeProteins(toRetrun).ToList();
+            return CollapseDuplicateProteinsByAccessionAndBaseSequence(toRetrun).ToList();
         }
 
-        /// <summary>
-        /// Merge proteins that have the same accession, sequence, and contaminant designation.
-        /// </summary>
-        // inside MergeProteins(IEnumerable<Protein> mergeThese)
-        public static IEnumerable<Protein> MergeProteins(IEnumerable<Protein> mergeThese)
-        {
-            Dictionary<Tuple<string, string, bool, bool>, List<Protein>> proteinsByAccessionSequenceContaminant = new Dictionary<Tuple<string, string, bool, bool>, List<Protein>>();
-            foreach (Protein p in mergeThese)
-            {
-                Tuple<string, string, bool, bool> key = new Tuple<string, string, bool, bool>(p.Accession, p.BaseSequence, p.IsContaminant, p.IsDecoy);
-                if (!proteinsByAccessionSequenceContaminant.TryGetValue(key, out List<Protein> bundled))
-                {
-                    proteinsByAccessionSequenceContaminant.Add(key, new List<Protein> { p });
-                }
-                else
-                {
-                    bundled.Add(p);
-                }
-            }
+        ///// <summary>
+        ///// Merge proteins that have the same accession, sequence, and contaminant designation.
+        ///// </summary>
+        //// inside MergeProteins(IEnumerable<Protein> mergeThese)
+        //public static IEnumerable<Protein> MergeProteins(IEnumerable<Protein> mergeThese)
+        //{
+        //    Dictionary<Tuple<string, string, bool, bool>, List<Protein>> proteinsByAccessionSequenceContaminant = new Dictionary<Tuple<string, string, bool, bool>, List<Protein>>();
+        //    foreach (Protein p in mergeThese)
+        //    {
+        //        Tuple<string, string, bool, bool> key = new Tuple<string, string, bool, bool>(p.Accession, p.BaseSequence, p.IsContaminant, p.IsDecoy);
+        //        if (!proteinsByAccessionSequenceContaminant.TryGetValue(key, out List<Protein> bundled))
+        //        {
+        //            proteinsByAccessionSequenceContaminant.Add(key, new List<Protein> { p });
+        //        }
+        //        else
+        //        {
+        //            bundled.Add(p);
+        //        }
+        //    }
 
-            foreach (KeyValuePair<Tuple<string, string, bool, bool>, List<Protein>> proteins in proteinsByAccessionSequenceContaminant)
-            {
-                if (proteins.Value.Count == 1)
-                {
-                    yield return proteins.Value[0];
-                    continue;
-                }
+        //    foreach (KeyValuePair<Tuple<string, string, bool, bool>, List<Protein>> proteins in proteinsByAccessionSequenceContaminant)
+        //    {
+        //        if (proteins.Value.Count == 1)
+        //        {
+        //            yield return proteins.Value[0];
+        //            continue;
+        //        }
 
-                HashSet<string> datasets = new HashSet<string>(proteins.Value.Select(p => p.DatasetEntryTag));
-                HashSet<string> createds = new HashSet<string>(proteins.Value.Select(p => p.CreatedEntryTag));
-                HashSet<string> modifieds = new HashSet<string>(proteins.Value.Select(p => p.ModifiedEntryTag));
-                HashSet<string> versions = new HashSet<string>(proteins.Value.Select(p => p.VersionEntryTag));
-                HashSet<string> xmlnses = new HashSet<string>(proteins.Value.Select(p => p.XmlnsEntryTag));
-                HashSet<string> names = new HashSet<string>(proteins.Value.Select(p => p.Name));
-                HashSet<string> fullnames = new HashSet<string>(proteins.Value.Select(p => p.FullName));
-                HashSet<string> descriptions = new HashSet<string>(proteins.Value.Select(p => p.FullDescription));
-                HashSet<Tuple<string, string>> genenames = new HashSet<Tuple<string, string>>(proteins.Value.SelectMany(p => p.GeneNames));
-                HashSet<TruncationProduct> proteolysis = new HashSet<TruncationProduct>(proteins.Value.SelectMany(p => p.TruncationProducts));
-                HashSet<SequenceVariation> variants = new HashSet<SequenceVariation>(proteins.Value.SelectMany(p => p.SequenceVariations));
-                HashSet<DatabaseReference> references = new HashSet<DatabaseReference>(proteins.Value.SelectMany(p => p.DatabaseReferences));
-                HashSet<DisulfideBond> bonds = new HashSet<DisulfideBond>(proteins.Value.SelectMany(p => p.DisulfideBonds));
-                HashSet<SpliceSite> splices = new HashSet<SpliceSite>(proteins.Value.SelectMany(p => p.SpliceSites));
-                // Preserve organism and database file path from any member (they should match for merged entries)
-                string organism = proteins.Value.FirstOrDefault()?.Organism;
-                string dbFilePath = proteins.Value.FirstOrDefault()?.DatabaseFilePath;
+        //        HashSet<string> datasets = new HashSet<string>(proteins.Value.Select(p => p.DatasetEntryTag));
+        //        HashSet<string> createds = new HashSet<string>(proteins.Value.Select(p => p.CreatedEntryTag));
+        //        HashSet<string> modifieds = new HashSet<string>(proteins.Value.Select(p => p.ModifiedEntryTag));
+        //        HashSet<string> versions = new HashSet<string>(proteins.Value.Select(p => p.VersionEntryTag));
+        //        HashSet<string> xmlnses = new HashSet<string>(proteins.Value.Select(p => p.XmlnsEntryTag));
+        //        HashSet<string> names = new HashSet<string>(proteins.Value.Select(p => p.Name));
+        //        HashSet<string> fullnames = new HashSet<string>(proteins.Value.Select(p => p.FullName));
+        //        HashSet<string> descriptions = new HashSet<string>(proteins.Value.Select(p => p.FullDescription));
+        //        HashSet<Tuple<string, string>> genenames = new HashSet<Tuple<string, string>>(proteins.Value.SelectMany(p => p.GeneNames));
+        //        HashSet<TruncationProduct> proteolysis = new HashSet<TruncationProduct>(proteins.Value.SelectMany(p => p.TruncationProducts));
+        //        HashSet<SequenceVariation> variants = new HashSet<SequenceVariation>(proteins.Value.SelectMany(p => p.SequenceVariations));
+        //        HashSet<DatabaseReference> references = new HashSet<DatabaseReference>(proteins.Value.SelectMany(p => p.DatabaseReferences));
+        //        HashSet<DisulfideBond> bonds = new HashSet<DisulfideBond>(proteins.Value.SelectMany(p => p.DisulfideBonds));
+        //        HashSet<SpliceSite> splices = new HashSet<SpliceSite>(proteins.Value.SelectMany(p => p.SpliceSites));
+        //        // Preserve organism and database file path from any member (they should match for merged entries)
+        //        string organism = proteins.Value.FirstOrDefault()?.Organism;
+        //        string dbFilePath = proteins.Value.FirstOrDefault()?.DatabaseFilePath;
 
-                Dictionary<int, HashSet<Modification>> mod_dict = new Dictionary<int, HashSet<Modification>>();
-                foreach (KeyValuePair<int, List<Modification>> nice in proteins.Value.SelectMany(p => p.OneBasedPossibleLocalizedModifications).ToList())
-                {
-                    if (!mod_dict.TryGetValue(nice.Key, out HashSet<Modification> val))
-                    {
-                        val = new HashSet<Modification>(nice.Value);
-                        mod_dict.Add(nice.Key, val);
-                    }
-                    else
-                    {
-                        foreach (Modification mod in nice.Value)
-                        {
-                            val.Add(mod);
-                        }
-                    }
-                }
-                Dictionary<int, List<Modification>> mod_dict2 = mod_dict.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
+        //        Dictionary<int, HashSet<Modification>> mod_dict = new Dictionary<int, HashSet<Modification>>();
+        //        foreach (KeyValuePair<int, List<Modification>> nice in proteins.Value.SelectMany(p => p.OneBasedPossibleLocalizedModifications).ToList())
+        //        {
+        //            if (!mod_dict.TryGetValue(nice.Key, out HashSet<Modification> val))
+        //            {
+        //                val = new HashSet<Modification>(nice.Value);
+        //                mod_dict.Add(nice.Key, val);
+        //            }
+        //            else
+        //            {
+        //                foreach (Modification mod in nice.Value)
+        //                {
+        //                    val.Add(mod);
+        //                }
+        //            }
+        //        }
+        //        Dictionary<int, List<Modification>> mod_dict2 = mod_dict.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
 
-                // TODO: Handle applied variants. 
-                yield return new Protein(
-                    proteins.Key.Item2,
-                    proteins.Key.Item1,
-                    organism: organism, // keep organism
-                    isContaminant: proteins.Key.Item3,
-                    isDecoy: proteins.Key.Item4,
-                    geneNames: genenames.ToList(),
-                    oneBasedModifications: mod_dict2,
-                    proteolysisProducts: proteolysis.ToList(),
-                    name: names.FirstOrDefault(),
-                    fullName: fullnames.FirstOrDefault(),
-                    databaseReferences: references.ToList(),
-                    disulfideBonds: bonds.ToList(),
-                    sequenceVariations: variants.ToList(),
-                    spliceSites: splices.ToList(),
-                    databaseFilePath: dbFilePath, // keep original source path
-                    dataset: datasets.FirstOrDefault(),
-                    created: createds.FirstOrDefault(),
-                    modified: modifieds.FirstOrDefault(),
-                    version: versions.FirstOrDefault(),
-                    xmlns: xmlnses.FirstOrDefault()
-                );
-            }
-        }
+        //        // TODO: Handle applied variants. 
+        //        yield return new Protein(
+        //            proteins.Key.Item2,
+        //            proteins.Key.Item1,
+        //            organism: organism, // keep organism
+        //            isContaminant: proteins.Key.Item3,
+        //            isDecoy: proteins.Key.Item4,
+        //            geneNames: genenames.ToList(),
+        //            oneBasedModifications: mod_dict2,
+        //            proteolysisProducts: proteolysis.ToList(),
+        //            name: names.FirstOrDefault(),
+        //            fullName: fullnames.FirstOrDefault(),
+        //            databaseReferences: references.ToList(),
+        //            disulfideBonds: bonds.ToList(),
+        //            sequenceVariations: variants.ToList(),
+        //            spliceSites: splices.ToList(),
+        //            databaseFilePath: dbFilePath, // keep original source path
+        //            dataset: datasets.FirstOrDefault(),
+        //            created: createds.FirstOrDefault(),
+        //            modified: modifieds.FirstOrDefault(),
+        //            version: versions.FirstOrDefault(),
+        //            xmlns: xmlnses.FirstOrDefault()
+        //        );
+        //    }
+        //}
         /// <summary>
         /// Finds groups of proteins that share the same accession and base sequence.
         /// Intended to identify cases where an applied-variant entry appears twice
@@ -555,7 +548,7 @@ namespace UsefulProteomicsDatabases
         /// - Merges candidate SequenceVariations and AppliedSequenceVariations (deduplicated).
         /// Other metadata is retained from the chosen representative.
         /// </summary>
-        internal static List<Protein> CollapseDuplicateProteinsByAccessionAndBaseSequence(IEnumerable<Protein> proteins)
+        public static List<Protein> CollapseDuplicateProteinsByAccessionAndBaseSequence(IEnumerable<Protein> proteins)
         {
             if (proteins is null) throw new ArgumentNullException(nameof(proteins));
 

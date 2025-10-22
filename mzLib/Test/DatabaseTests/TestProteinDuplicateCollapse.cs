@@ -97,8 +97,9 @@ namespace Test.DatabaseTests
 
         private static T InvokeInternalStatic<T>(Type type, string method, params object[] args)
         {
-            var mi = type.GetMethod(method, BindingFlags.NonPublic | BindingFlags.Static);
-            Assert.That(mi, Is.Not.Null, $"Internal method {type.Name}.{method} not found.");
+            // Search both public and non-public static methods so tests remain stable if visibility changes.
+            var mi = type.GetMethod(method, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(mi, Is.Not.Null, $"Method {type.Name}.{method} not found (public/non-public static).");
             return (T)mi.Invoke(null, args);
         }
         [Test]
