@@ -7,7 +7,6 @@ namespace Omics.BioPolymer
 {
     /// <summary>
     /// Specifications are described here: http://snpeff.sourceforge.net/VCFannotationformat_v1.0.pdf
-    /// Robustified to tolerate truncated or minimal ANN strings (e.g. ANN=X|Y).
     /// </summary>
     public class SnpEffAnnotation
     {
@@ -139,6 +138,8 @@ namespace Omics.BioPolymer
             // For now, keep defaults (0 / '\0').
         }
 
+        //NOTE: The following arrays are retained for reference, but not currently used.
+
         //private string[] HighPutativeImpactEffects = new string[]
         //{
         //    "chromosome_number_variation",
@@ -186,6 +187,8 @@ namespace Omics.BioPolymer
             "inframe_insertion",
             "missense_variant",
         };
+
+        //NOTE: The following arrays are retained for reference, but not currently used.
 
         //private string[] LowPutativeImpactEffects = new string[]
         //{

@@ -871,7 +871,18 @@ namespace Test
             Assert.AreEqual((true, true), p10_pep.IntersectsAndIdentifiesVariation(v10));
 
             (Protein p1v, var v1) = appliedMap["protein1"];
-            var p1_pep = PickCoveringPeptide(p1v, dpTrypsin, v1);
+            // Force a deterministic peptide that spans the entire variant (4..5) and extends beyond it (..6),
+            // which must identify the substitution (PT -> KT).
+            var p1_pep = new PeptideWithSetModifications(
+                p1v,                      // applied-variant protein
+                dpTrypsin,                // digestion params (not used by Intersects logic)
+                oneBasedStartResidueInProtein: 4,
+                oneBasedEndResidueInProtein: Math.Min(p1v.Length, 6),
+                CleavageSpecificity.Full,
+                peptideDescription: "",
+                missedCleavages: 0,
+                allModsOneIsNterminus: new Dictionary<int, Modification>(),
+                numFixedMods: 0);
             Assert.AreEqual((true, true), p1_pep.IntersectsAndIdentifiesVariation(v1));
 
             (Protein p2v, var v2) = appliedMap["protein2"];
