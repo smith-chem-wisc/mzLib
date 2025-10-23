@@ -503,6 +503,12 @@ namespace UsefulProteomicsDatabases
             return result;
         }
 
+        // Add near the top-level of the class
+        private static bool LooksLikeVcfString(string s) =>
+            !string.IsNullOrWhiteSpace(s)
+            && (s.Contains('\t') || s.Contains("\\t"))
+            && (s.Contains("GT:") || s.Contains(":GT:") || s.Contains(" ANN=") || s.Contains("\tANN="));
+
         /// <summary>
         /// Finish parsing a subfeature element
         /// </summary>
@@ -585,8 +591,9 @@ namespace UsefulProteomicsDatabases
                 {
                     ParseAnnotatedMods(OneBasedVariantModifications, modTypesToExclude, unknownModifications, AnnotatedVariantMods);
 
-                    // NOTE: We can NOT validate coordinate vs sequence length here because sequence is usually parsed later.
-                    // Validation is deferred to PruneOutOfRangeSequenceVariants() during ParseEntryEndElement.
+                    // Prepare description + optional VCF line
+                    string desc = FeatureDescription ?? string.Empty;
+                    string? vcf = LooksLikeVcfString(desc) ? desc : null;
 
                     if (OneBasedBeginPosition != null && OneBasedEndPosition != null)
                     {
@@ -596,20 +603,21 @@ namespace UsefulProteomicsDatabases
                                 (int)OneBasedEndPosition,
                                 OriginalValue,
                                 VariationValue,
-                                FeatureDescription,
-                                //variantCallFormatDataString: null,
-                                oneBasedModifications: OneBasedVariantModifications));
+                                desc,
+                                vcf,
+                                OneBasedVariantModifications));
                     }
                     else if (OneBasedFeaturePosition >= 1)
                     {
+                        // Single-position form maps to [pos, pos] if original is null, handled by ctor
                         SequenceVariations.Add(
                             new SequenceVariation(
                                 OneBasedFeaturePosition,
                                 OriginalValue,
                                 VariationValue,
-                                FeatureDescription,
-                                //variantCallFormatDataString: null,
-                                oneBasedModifications: OneBasedVariantModifications));
+                                desc,
+                                vcf,
+                                OneBasedVariantModifications));
                     }
 
                     AnnotatedVariantMods = new List<(int, string)>();

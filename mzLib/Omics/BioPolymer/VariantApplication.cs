@@ -1,4 +1,7 @@
-﻿using MzLibUtil;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using MzLibUtil;
 using Omics.BioPolymer;
 using Omics.Modifications;
 
@@ -263,7 +266,11 @@ namespace Omics.BioPolymer
             // adjust indices
             List<TruncationProduct> adjustedProteolysisProducts = AdjustTruncationProductIndices(variantGettingApplied, variantSequence, protein, protein.TruncationProducts);
             Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variantGettingApplied, variantSequence, protein);
-            List<SequenceVariation> adjustedAppliedVariations = AdjustSequenceVariationIndices(variantGettingApplied, variantSequence, appliedVariations);
+            List<SequenceVariation> adjustedAppliedVariations = AdjustSequenceVariationIndices(
+                variantGettingApplied,
+                variantAfterApplication,
+                variantSequence,
+                appliedVariations);
 
             return protein.CreateVariant(variantSequence, protein, adjustedAppliedVariations, adjustedProteolysisProducts, adjustedModifications, individual);
         }
@@ -271,7 +278,11 @@ namespace Omics.BioPolymer
         /// <summary>
         /// Adjusts the indices of sequence variations due to applying a single additional variant
         /// </summary>
-        private static List<SequenceVariation> AdjustSequenceVariationIndices(SequenceVariation variantGettingApplied, string variantAppliedProteinSequence, IEnumerable<SequenceVariation> alreadyAppliedVariations)
+        private static List<SequenceVariation> AdjustSequenceVariationIndices(
+            SequenceVariation variantGettingApplied,
+            SequenceVariation newlyAppliedVariant,
+            string variantAppliedProteinSequence,
+            IEnumerable<SequenceVariation> alreadyAppliedVariations)
         {
             List<SequenceVariation> variations = new List<SequenceVariation>();
             if (alreadyAppliedVariations == null) { return variations; }
@@ -282,7 +293,9 @@ namespace Omics.BioPolymer
                     .Where(applied => applied.OneBasedEndPosition < v.OneBasedBeginPosition)
                     .Sum(applied => applied.VariantSequence.Length - applied.OriginalSequence.Length);
 
-                if (ReferenceEquals(v, variantGettingApplied) || v.OneBasedEndPosition - addedIdx < variantGettingApplied.OneBasedBeginPosition)
+                // Skip adjusting the variant we just applied
+                if (ReferenceEquals(v, newlyAppliedVariant)
+                    || v.OneBasedEndPosition - addedIdx < variantGettingApplied.OneBasedBeginPosition)
                 {
                     variations.Add(v);
                 }
@@ -304,7 +317,7 @@ namespace Omics.BioPolymer
                         end = variantAppliedProteinSequence.Length; // shortened by a stop gain
                     }
 
-                    // MINIMAL FIX: keep v.Description (string) and preserve VCF object
+                    // Preserve description + VCF
                     variations.Add(new SequenceVariation(
                         begin,
                         end,
@@ -444,7 +457,7 @@ namespace Omics.BioPolymer
         /// starting with the fewest single variations and up to the specified maximum number of combinations.
         /// </summary>
         /// <typeparam name="TBioPolymerType">The type of the biopolymer object.</typeparam>
-        /// <param name="baseBioPolymer">The base biopolymer object to apply variations to.</param>
+        /// <param name="baseBioPolyMer">The base biopolymer object to apply variations to.</param>
         /// <param name="variations">List of SequenceVariation objects to combine and apply. Assumed not null or empty.</param>
         /// <param name="maxCombinations">Maximum number of combinations to return.</param>
         /// <returns>
@@ -589,5 +602,65 @@ namespace Omics.BioPolymer
             !string.IsNullOrWhiteSpace(s)
             && (s.Contains('\t') || s.Contains("\\t"))
             && (s.Contains("GT:") || s.Contains(":GT:") || s.Contains(" ANN=") || s.Contains("\tANN="));
+
+        // Computes the applied (proteoform) span for a variant given any previously-applied variants.
+        // In your tests there’s only one variant per proteoform, so deltaBefore = 0.
+        private static (int begin, int end) ComputeAppliedSpan(SequenceVariation sv, IReadOnlyList<SequenceVariation> appliedBefore)
+        {
+            int deltaBefore = 0;
+
+            if (appliedBefore != null && appliedBefore.Count > 0)
+            {
+                // If you ever apply multiple variants to a single proteoform, this maps consensus→proteoform.
+                // Only variants strictly before this one shift its start.
+                foreach (var prev in appliedBefore.Where(p => p.OneBasedBeginPosition < sv.OneBasedBeginPosition))
+                {
+                    int prevOrigLen = prev.OriginalSequence?.Length ?? 0;
+                    int prevVarLen  = prev.VariantSequence?.Length ?? 0;
+                    deltaBefore += (prevVarLen - prevOrigLen);
+                }
+            }
+
+            int begin = sv.OneBasedBeginPosition + deltaBefore;
+            int varLen = sv.VariantSequence?.Length ?? 0; // insertions/deletions handled naturally
+            int end = Math.Max(begin, begin + varLen - 1);
+
+            return (begin, end);
+        }
+
+        // Call this inside your single-variant apply routine, right where you add the applied SequenceVariation to the result.
+        private static SequenceVariation MakeAppliedSequenceVariation(SequenceVariation source, IReadOnlyList<SequenceVariation> appliedBefore)
+        {
+            var (begin, end) = ComputeAppliedSpan(source, appliedBefore);
+
+            // Preserve VCF when present; fall back to Description otherwise.
+            string vcf = source.VariantCallFormatData?.Description;
+            string desc = source.Description ?? string.Empty;
+
+            return new SequenceVariation(
+                begin,
+                end,
+                source.OriginalSequence,
+                source.VariantSequence,
+                desc,
+                vcf,
+                source.OneBasedModifications);
+        }
+
+        // Example: if your code looks like this inside ApplySingleVariant or equivalent:
+        // var appliedSoFar = new List<SequenceVariation>();
+        // var appliedSv = MakeAppliedSequenceVariation(currentSv, appliedSoFar);
+        // appliedSoFar.Add(appliedSv);
+        // then construct the new proteoform Protein using appliedSv in its AppliedSequenceVariations.
+
+        // In ApplyAllVariantCombinations, if you chain multiple variants:
+        // var appliedSoFar = new List<SequenceVariation>();
+        // foreach (var sv in combo)
+        // {
+        //     result = ApplySingleVariant(sv, result, accessionSuffix);
+        //     var appliedSv = MakeAppliedSequenceVariation(sv, appliedSoFar);
+        //     appliedSoFar.Add(appliedSv);
+        //     // ensure 'result' exposes appliedSoFar as its AppliedSequenceVariations
+        // }
     }
 }

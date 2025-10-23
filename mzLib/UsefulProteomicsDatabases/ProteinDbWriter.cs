@@ -464,13 +464,22 @@ namespace UsefulProteomicsDatabases
                     {
                         writer.WriteStartElement("feature");
                         writer.WriteAttributeString("type", "sequence variant");
-                        writer.WriteAttributeString("description", hm.Description.ToString());
+
+                        // Use VCF (if present) or fall back to the original free-text description
+                        string descToWrite = hm.SearchableAnnotation;
+                        if (!string.IsNullOrEmpty(descToWrite))
+                        {
+                            writer.WriteAttributeString("description", descToWrite);
+                        }
+
                         writer.WriteStartElement("original");
                         writer.WriteString(hm.OriginalSequence);
                         writer.WriteEndElement(); // original
+
                         writer.WriteStartElement("variation");
                         writer.WriteString(hm.VariantSequence);
                         writer.WriteEndElement(); // variation
+
                         writer.WriteStartElement("location");
                         if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
                         {
@@ -487,6 +496,7 @@ namespace UsefulProteomicsDatabases
                             writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
                             writer.WriteEndElement();
                         }
+
                         foreach (var hmm in GetModsForThisBioPolymer(protein, hm, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
                         {
                             foreach (var modId in hmm.Value.OrderBy(mod => mod))
@@ -502,6 +512,7 @@ namespace UsefulProteomicsDatabases
                                 writer.WriteEndElement();
                             }
                         }
+
                         writer.WriteEndElement(); // location
                         writer.WriteEndElement(); // feature
                     }

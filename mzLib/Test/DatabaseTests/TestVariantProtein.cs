@@ -379,7 +379,6 @@ namespace Test.DatabaseTests
                 int baseOnly = expanded.Count(ep => !ep.AppliedSequenceVariations.Any());
                 int variantApplied = expanded.Count(ep => ep.AppliedSequenceVariations.Any());
                 TestContext.WriteLine($"    Expansion count={expanded.Count} BaseOnly={baseOnly} VariantApplied={variantApplied}");
-                // detail each expansion
                 for (int j = 0; j < expanded.Count; j++)
                 {
                     var ep = expanded[j];
@@ -423,7 +422,6 @@ namespace Test.DatabaseTests
             int l3VariantApplied = proteinsWithAppliedVariants3.Count(x => x.AppliedSequenceVariations.Any());
             TestContext.WriteLine($"[Roundtrip] L3 BaseOnly={l3BaseOnly} VariantApplied={l3VariantApplied}");
 
-            // Group L3 by consensus accession to see if ref+alt are being emitted per input
             var l3Groups = proteinsWithAppliedVariants3.GroupBy(p => p.ConsensusVariant?.Accession ?? "(null)").ToList();
             foreach (var g in l3Groups)
             {
@@ -432,7 +430,6 @@ namespace Test.DatabaseTests
                                       $"Alt={g.Count(p => p.AppliedSequenceVariations.Any())}");
             }
 
-            // Detail each L3 entry
             for (int idx = 0; idx < proteinsWithAppliedVariants3.Count; idx++)
             {
                 var p3 = proteinsWithAppliedVariants3[idx];
@@ -444,11 +441,54 @@ namespace Test.DatabaseTests
                 TestContext.WriteLine($"[Roundtrip] L3[{idx}] {kind} Acc={p3.Accession} From={p3.ConsensusVariant?.Accession} Len={p3.Length} AppliedCount={applied.Count} Applied={appliedSummary}");
             }
 
-            // Also check for duplicate sequences in L3 (helps spot ref+alt per source)
-            var l3SeqGroups = proteinsWithAppliedVariants3.GroupBy(p => p.BaseSequence).Select(g => (seq: g.Key, count: g.Count())).OrderByDescending(x => x.count).ToList();
-            foreach (var (seq, count) in l3SeqGroups.Where(x => x.count > 1))
+            // ——— COORDINATE AUDIT: compare original vs applied positions with computed diff regions
+            static (int refStart, int refEnd, int altStart, int altEnd) DiffSpan(string refSeq, string altSeq)
             {
-                TestContext.WriteLine($"[Roundtrip] Duplicate sequence observed x{count}: '{seq}'");
+                int p = 0;
+                int maxPrefix = Math.Min(refSeq.Length, altSeq.Length);
+                while (p < maxPrefix && refSeq[p] == altSeq[p]) p++;
+
+                int s = 0;
+                int maxSuffix = Math.Min(refSeq.Length - p, altSeq.Length - p);
+                while (s < maxSuffix && refSeq[refSeq.Length - 1 - s] == altSeq[altSeq.Length - 1 - s]) s++;
+
+                int refStart = p + 1; // 1-based
+                int refEnd = refSeq.Length - s;
+                int altStart = p + 1; // 1-based
+                int altEnd = altSeq.Length - s;
+                if (refStart > refEnd) { refStart = refEnd = p; } // no diff (shouldn’t happen here)
+                if (altStart > altEnd) { altStart = altEnd = p; }
+                return (refStart, refEnd, altStart, altEnd);
+            }
+
+            for (int k = 0; k < proteinsWithAppliedVariants.Count; k++)
+            {
+                var ep = proteinsWithAppliedVariants[k];
+                var svIn = proteinsWithSeqVars[k].SequenceVariations.Single();
+                var svOut = ep.AppliedSequenceVariations.Single();
+
+                string refSeq = ep.ConsensusVariant.BaseSequence;
+                string altSeq = ep.BaseSequence;
+
+                var (refStart, refEnd, altStart, altEnd) = DiffSpan(refSeq, altSeq);
+
+                TestContext.WriteLine(
+                    $"[Audit k={k}] RefLen={refSeq.Length} AltLen={altSeq.Length} " +
+                    $"InputSV=[{svIn.OneBasedBeginPosition}-{svIn.OneBasedEndPosition}] '{svIn.OriginalSequence}'→'{svIn.VariantSequence}' " +
+                    $"AppliedSV=[{svOut.OneBasedBeginPosition}-{svOut.OneBasedEndPosition}] '{svOut.OriginalSequence}'→'{svOut.VariantSequence}' " +
+                    $"DiffSpan Ref=[{refStart}-{refEnd}] Alt=[{altStart}-{altEnd}]");
+
+                // Show local 1-based windows (±2) around input vs applied begin sites
+                int win = 2;
+                int inBeg = svIn.OneBasedBeginPosition;
+                int apBeg = svOut.OneBasedBeginPosition;
+
+                string refWinIn = refSeq.Substring(Math.Max(0, inBeg - 1 - win), Math.Min(refSeq.Length - Math.Max(0, inBeg - 1 - win), 1 + 2 * win));
+                string refWinAp = refSeq.Substring(Math.Max(0, apBeg - 1 - win), Math.Min(refSeq.Length - Math.Max(0, apBeg - 1 - win), 1 + 2 * win));
+                string altWinAp = altSeq.Substring(Math.Max(0, apBeg - 1 - win), Math.Min(altSeq.Length - Math.Max(0, apBeg - 1 - win), 1 + 2 * win));
+
+                TestContext.WriteLine($"[Audit k={k}] Around InputBegin={inBeg} RefWin='{refWinIn}'");
+                TestContext.WriteLine($"[Audit k={k}] Around AppliedBegin={apBeg} RefWin='{refWinAp}' AltWin='{altWinAp}'");
             }
 
             // Convenience: aggregate all three lists to run the same assertions over them.
@@ -552,8 +592,13 @@ namespace Test.DatabaseTests
                 new Protein("MPEPTIDE", "protein2", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 5, "PT", "KT", "", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
                 new Protein("MPEPTIDE", "protein3", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", "", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
                 new Protein("MPEPPPTIDE", "protein4", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "PPP", "P", "", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE", "protein5", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", "", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> {{ 5, new[] { mp }.ToList() } }) }),
-             };
+                new Protein("MPEPTIDE", "protein5",
+                    sequenceVariations: new List<SequenceVariation> {
+                        new SequenceVariation(4, 4, "P", "PPP","",
+                            @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30",
+                            new Dictionary<int, List<Modification>> {{ 5, new[] { mp }.ToList() } })
+                    }),
+            };
             var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList();
             var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList(); // should be stable
             string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
