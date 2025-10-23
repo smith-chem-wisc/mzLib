@@ -1180,7 +1180,7 @@ namespace Test.DatabaseTests
             Assert.That("DECOY_P04406", Is.EqualTo(proteins[4].Accession));
             Assert.That("DECOY_P04406_A315G", Is.EqualTo(proteins[5].Accession));
             Assert.That("DECOY_P04406_K86N", Is.EqualTo(proteins[6].Accession));
-            Assert.That("DECOY_P04406_K86N_A315G", Is.EqualTo(proteins[7].Accession));
+            Assert.That("DECOY_P04406_K86N_A315G", Is.EqualTo(proteins[7].Accession)); 
         }
         [Test]
         public static void ProteinVariantsReadAsModificationsWrittenAsVariants()
