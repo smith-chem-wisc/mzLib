@@ -1164,23 +1164,142 @@ namespace Test.DatabaseTests
             Assert.That(newProtein.SequenceVariations.Count, Is.EqualTo(totalSequenceVariations + 1)); //This number increases by 1 because we added a sequence variation that was discovered as a modification
             Assert.AreEqual(0,newProtein.OneBasedPossibleLocalizedModifications.Count); //This number should be 0 because we converted the modification to a sequence variation
         }
-
         [Test]
         public static void TestThatProteinVariantsAreGeneratedDuringRead()
         {
+            // Purpose of this test:
+            // - Load a small, known XML (humanGAPDH.xml) that contains:
+            //     • a single target (reference) protein entry with two annotated sequence variations
+            //     • and instruct the loader to generate reverse decoys alongside the targets.
+            // - Validate that variant-expansion during read produces:
+            //     • 4 target proteins: reference-only + each single-variant-applied + both-variants-applied
+            //     • 4 decoys mirroring the same structure (reference-only + variants) but using decoy accessions
+            // - Confirm accessions, variant counts, decoy flags, and basic invariants about applied vs. consensus variants.
+
+            // Database file name (relative to the DatabaseTests directory)
             string databaseName = "humanGAPDH.xml";
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
-                DecoyType.Reverse, null, false, null, out var unknownModifications, 1, 99);
-            Assert.AreEqual(8, proteins.Count); // 4 target + 4 decoy
-            Assert.AreEqual(2, proteins[0].SequenceVariations.Count()); // these sequence variations were in the original
+
+            // Load the XML, asking for decoys (__Reverse__) and allowing up to 99 heterozygous combinations (not limiting here).
+            // Parameters:
+            //   - generateTargets: true        → read target entries
+            //   - decoyType: Reverse           → generate reverse-sequence decoys for each target
+            //   - allKnownModifications: null  → not needed in this test
+            //   - isContaminant: false         → not contaminant
+            //   - modTypesToExclude: null      → include all
+            //   - unknownModifications: out _  → capture but not used here
+            //   - minAlleleDepth: 1            → include all annotated variants (no depth filter)
+            //   - maxHeterozygousVariants: 99 → ensure combinatorics not curtailed
+            var proteins = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName),
+                generateTargets: true,
+                decoyType: DecoyType.Reverse,
+                allKnownModifications: null,
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var unknownModifications,
+                minAlleleDepth: 1,
+                maxHeterozygousVariants: 99);
+
+            // Expect 8 proteins total:
+            //   - 4 targets (reference + 2 single-variant proteoforms + 1 double-variant proteoform)
+            //   - 4 decoys mirroring the above set
+            Assert.AreEqual(8, proteins.Count, "Expected: 4 target + 4 decoy entries.");
+
+            // The first target entry is the consensus (reference-only) protein. It should carry two annotated sequence variations
+            // in its entry (not applied to the consensus), i.e., the XML encodes 2 unique variants for GAPDH.
+            Assert.AreEqual(2, proteins[0].SequenceVariations.Count(), "Reference entry should list exactly two annotated sequence variations.");
+
+            // Accessions for targets are expected to be:
+            //   [0] reference-only (no suffix)
+            //   [1] A22G applied
+            //   [2] K251N applied
+            //   [3] K251N and A22G applied (order in name is stable and deterministic)
             Assert.That("P04406", Is.EqualTo(proteins[0].Accession));
             Assert.That("P04406_A22G", Is.EqualTo(proteins[1].Accession));
             Assert.That("P04406_K251N", Is.EqualTo(proteins[2].Accession));
             Assert.That("P04406_K251N_A22G", Is.EqualTo(proteins[3].Accession));
+
+            // Accessions for decoys mirror the same shape, but prefixed with "DECOY_".
+            // Note that the positions encoded in the decoy names reflect reverse-decoy coordinate transforms:
+            //   A22G (target) becomes A315G (decoy), and K251N (target) becomes K86N (decoy).
             Assert.That("DECOY_P04406", Is.EqualTo(proteins[4].Accession));
             Assert.That("DECOY_P04406_A315G", Is.EqualTo(proteins[5].Accession));
             Assert.That("DECOY_P04406_K86N", Is.EqualTo(proteins[6].Accession));
-            Assert.That("DECOY_P04406_K86N_A315G", Is.EqualTo(proteins[7].Accession)); 
+            Assert.That("DECOY_P04406_K86N_A315G", Is.EqualTo(proteins[7].Accession));
+
+            // ——— Additional explicit validations to capture the entire behavior ———
+
+            // Targets first, then decoys (ordering guarantee used throughout this test).
+            Assert.IsTrue(proteins.Take(4).All(p => !p.IsDecoy), "First 4 entries must be targets.");
+            Assert.IsTrue(proteins.Skip(4).All(p => p.IsDecoy), "Last 4 entries must be decoys.");
+
+            // Reference entries (target[0] and decoy[4]) should not have variants applied to the BaseSequence.
+            Assert.AreEqual(0, proteins[0].AppliedSequenceVariations.Count(), "Target reference entry must have no applied variants.");
+            Assert.AreEqual(0, proteins[4].AppliedSequenceVariations.Count(), "Decoy reference entry must have no applied variants.");
+
+            // The next two target entries each carry exactly one applied variant.
+            Assert.AreEqual(1, proteins[1].AppliedSequenceVariations.Count(), "Target A22G should have exactly one applied variant.");
+            Assert.AreEqual(1, proteins[2].AppliedSequenceVariations.Count(), "Target K251N should have exactly one applied variant.");
+
+            // The fourth target entry carries both variants applied.
+            Assert.AreEqual(2, proteins[3].AppliedSequenceVariations.Count(), "Target double-variant should have exactly two applied variants.");
+
+            // Decoys mirror the above shape: [5] one variant, [6] one variant, [7] two variants.
+            Assert.AreEqual(1, proteins[5].AppliedSequenceVariations.Count(), "Decoy A315G should have exactly one applied variant.");
+            Assert.AreEqual(1, proteins[6].AppliedSequenceVariations.Count(), "Decoy K86N should have exactly one applied variant.");
+            Assert.AreEqual(2, proteins[7].AppliedSequenceVariations.Count(), "Decoy double-variant should have exactly two applied variants.");
+
+            // Reference accessions act as consensus for their variant-applied proteoforms:
+            // targets[1..3] should point back to targets[0], decoys[5..7] back to decoys[4].
+            Assert.AreEqual(proteins[0].Accession, proteins[1].ConsensusVariant.Accession, "Variant targets must share the same consensus accession.");
+            Assert.AreEqual(proteins[0].Accession, proteins[2].ConsensusVariant.Accession);
+            Assert.AreEqual(proteins[0].Accession, proteins[3].ConsensusVariant.Accession);
+            Assert.AreEqual(proteins[4].Accession, proteins[5].ConsensusVariant.Accession, "Variant decoys must share the same consensus accession.");
+            Assert.AreEqual(proteins[4].Accession, proteins[6].ConsensusVariant.Accession);
+            Assert.AreEqual(proteins[4].Accession, proteins[7].ConsensusVariant.Accession);
+
+            // By construction:
+            // - Reference entries (no applied variants) keep BaseSequence identical to their own ConsensusVariant.BaseSequence.
+            // - Variant entries (>=1 applied) must differ in BaseSequence from their ConsensusVariant.BaseSequence.
+            static bool SequenceEqualsConsensus(Protein p) => p.BaseSequence == p.ConsensusVariant.BaseSequence;
+            Assert.IsTrue(SequenceEqualsConsensus(proteins[0]), "Target reference: BaseSequence must equal ConsensusVariant.BaseSequence.");
+            Assert.IsTrue(SequenceEqualsConsensus(proteins[4]), "Decoy reference: BaseSequence must equal ConsensusVariant.BaseSequence.");
+            Assert.IsTrue(proteins[1].BaseSequence != proteins[1].ConsensusVariant.BaseSequence, "A22G should differ from consensus.");
+            Assert.IsTrue(proteins[2].BaseSequence != proteins[2].ConsensusVariant.BaseSequence, "K251N should differ from consensus.");
+            Assert.IsTrue(proteins[3].BaseSequence != proteins[3].ConsensusVariant.BaseSequence, "Double-variant should differ from consensus.");
+            Assert.IsTrue(proteins[5].BaseSequence != proteins[5].ConsensusVariant.BaseSequence, "Decoy A315G should differ from consensus.");
+            Assert.IsTrue(proteins[6].BaseSequence != proteins[6].ConsensusVariant.BaseSequence, "Decoy K86N should differ from consensus.");
+            Assert.IsTrue(proteins[7].BaseSequence != proteins[7].ConsensusVariant.BaseSequence, "Decoy double-variant should differ from consensus.");
+
+            // Validate the simple-string encodings of the applied variants for targets:
+            //   A22G   → "A22G"
+            //   K251N  → "K251N"
+            // The double-variant entry should contain both of those simple strings (order-insensitive check).
+            Assert.That(proteins[1].AppliedSequenceVariations.Single().SimpleString(), Is.EqualTo("A22G"));
+            Assert.That(proteins[2].AppliedSequenceVariations.Single().SimpleString(), Is.EqualTo("K251N"));
+            var targetDouble = proteins[3].AppliedSequenceVariations.Select(v => v.SimpleString()).OrderBy(s => s).ToArray();
+            Assert.That(targetDouble, Is.EqualTo(new[] { "A22G", "K251N" }.OrderBy(s => s).ToArray()));
+
+            // Validate the simple-string encodings of applied variants for decoys:
+            //   A22G(target) → A315G(decoy)
+            //   K251N(target) → K86N(decoy)
+            // Again, confirm both are present on the double-variant decoy entry (order-insensitive).
+            Assert.That(proteins[5].AppliedSequenceVariations.Single().SimpleString(), Is.EqualTo("A315G"));
+            Assert.That(proteins[6].AppliedSequenceVariations.Single().SimpleString(), Is.EqualTo("K86N"));
+            var decoyDouble = proteins[7].AppliedSequenceVariations.Select(v => v.SimpleString()).OrderBy(s => s).ToArray();
+            Assert.That(decoyDouble, Is.EqualTo(new[] { "A315G", "K86N" }.OrderBy(s => s).ToArray()));
+
+            // Optional diagnostics to aid future debugging and to document the read-time expansion.
+            TestContext.WriteLine($"Loaded {proteins.Count} proteins from {databaseName}.");
+            for (int i = 0; i < proteins.Count; i++)
+            {
+                var p = proteins[i];
+                string kind = p.IsDecoy ? "DECOY" : "TARGET";
+                string appliedStr = p.AppliedSequenceVariations.Any()
+                    ? string.Join(",", p.AppliedSequenceVariations.Select(v => v.SimpleString()))
+                    : "(none)";
+                TestContext.WriteLine($"[{i}] {kind} Acc={p.Accession} Consensus={p.ConsensusVariant?.Accession} AppliedCount={p.AppliedSequenceVariations.Count()} Applied={appliedStr}");
+            }
         }
         [Test]
         public static void ProteinVariantsReadAsModificationsWrittenAsVariants()
