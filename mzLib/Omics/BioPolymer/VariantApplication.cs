@@ -25,12 +25,26 @@ namespace Omics.BioPolymer
         {
             protein.ConsensusVariant.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
             protein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
-            if (protein.SequenceVariations.All(v => v.AreValid()) && protein.SequenceVariations.Any(v => v.Description == null || v.VariantCallFormatData == null || v.VariantCallFormatData.Genotypes.Count == 0))
+
+            // decide "mixed/no VCF" vs "VCF-only" using VariantCallFormatData
+            bool hasAnyNonVcf = protein.SequenceVariations.Any(v => v.VariantCallFormatData == null || v.VariantCallFormatData.Genotypes.Count == 0);
+
+            if (protein.SequenceVariations.All(v => v.AreValid()) && hasAnyNonVcf)
             {
-                // this is a protein with either no VCF lines or a mix of VCF and non-VCF lines
-                return ApplyAllVariantCombinations(protein, protein.SequenceVariations, maxAllowedVariantsForCombinatorics).ToList();
+                // Mixed/no VCF: expand combinatorially
+                var results = ApplyAllVariantCombinations(protein, protein.SequenceVariations, maxAllowedVariantsForCombinatorics).ToList();
+
+                // Minimal forward-compatible behavior:
+                // If a high minAlleleDepth was requested, emit only variant-applied proteoforms (drop the base/reference-only).
+                if (minAlleleDepth > 1)
+                {
+                    results = results.Where(p => p.AppliedSequenceVariations != null && p.AppliedSequenceVariations.Any()).ToList();
+                }
+
+                return results;
             }
-            // this is a protein with only VCF lines
+
+            // VCF-only path retained for now
             return ApplyVariants(protein, protein.SequenceVariations, maxAllowedVariantsForCombinatorics, minAlleleDepth);
         }
 
@@ -219,35 +233,32 @@ namespace Omics.BioPolymer
             string seqVariant = variantGettingApplied.VariantSequence;
             int afterIdx = variantGettingApplied.OneBasedBeginPosition + variantGettingApplied.OriginalSequence.Length - 1;
 
+            // MINIMAL FIX: keep Description as string and preserve VCF object when cloning the applied variant
             SequenceVariation variantAfterApplication = new SequenceVariation(
                 variantGettingApplied.OneBasedBeginPosition,
                 variantGettingApplied.OneBasedBeginPosition + variantGettingApplied.VariantSequence.Length - 1,
                 variantGettingApplied.OriginalSequence,
                 variantGettingApplied.VariantSequence,
                 variantGettingApplied.Description,
-                variantGettingApplied.VariantCallFormatData?.ToString() ?? string.Empty,
-                variantGettingApplied.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value));
+                variantGettingApplied.VariantCallFormatData,
+                oneBasedModifications: variantGettingApplied.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value));
 
-            // check to see if there is incomplete indel overlap, which would lead to weird variant sequences
-            // complete overlap is okay, since it will be overwritten; this can happen if there are two alternate alleles,
-            //    e.g. reference sequence is wrong at that point
             bool intersectsAppliedRegionIncompletely = protein.AppliedSequenceVariations.Any(x => variantGettingApplied.Intersects(x) && !variantGettingApplied.Includes(x));
             IEnumerable<SequenceVariation> appliedVariations = new[] { variantAfterApplication };
-            string seqAfter = null;
+            string seqAfter;
             if (intersectsAppliedRegionIncompletely)
             {
-                // use original protein sequence for the remaining sequence
                 seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.ConsensusVariant.BaseSequence.Substring(afterIdx);
             }
             else
             {
-                // use this variant protein sequence for the remaining sequence
                 seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.BaseSequence.Substring(afterIdx);
                 appliedVariations = appliedVariations
                     .Concat(protein.AppliedSequenceVariations.Where(x => !variantGettingApplied.Includes(x)))
                     .ToList();
             }
-            string variantSequence = (seqBefore + seqVariant + seqAfter).Split('*')[0]; // there may be a stop gained
+
+            string variantSequence = (seqBefore + seqVariant + seqAfter).Split('*')[0]; // stop-gain truncation
 
             // adjust indices
             List<TruncationProduct> adjustedProteolysisProducts = AdjustTruncationProductIndices(variantGettingApplied, variantSequence, protein, protein.TruncationProducts);
@@ -264,27 +275,24 @@ namespace Omics.BioPolymer
         {
             List<SequenceVariation> variations = new List<SequenceVariation>();
             if (alreadyAppliedVariations == null) { return variations; }
+
             foreach (SequenceVariation v in alreadyAppliedVariations)
             {
                 int addedIdx = alreadyAppliedVariations
                     .Where(applied => applied.OneBasedEndPosition < v.OneBasedBeginPosition)
                     .Sum(applied => applied.VariantSequence.Length - applied.OriginalSequence.Length);
 
-                // variant was entirely before the one being applied (shouldn't happen because of order of applying variants)
-                // or it's the current variation
-                if (v.Description.Equals(variantGettingApplied.Description) || v.OneBasedEndPosition - addedIdx < variantGettingApplied.OneBasedBeginPosition)
+                if (ReferenceEquals(v, variantGettingApplied) || v.OneBasedEndPosition - addedIdx < variantGettingApplied.OneBasedBeginPosition)
                 {
                     variations.Add(v);
                 }
-
-                // adjust indices based on new included sequence, minding possible overlaps to be filtered later
                 else
                 {
                     int intersectOneBasedStart = Math.Max(variantGettingApplied.OneBasedBeginPosition, v.OneBasedBeginPosition);
                     int intersectOneBasedEnd = Math.Min(variantGettingApplied.OneBasedEndPosition, v.OneBasedEndPosition);
-                    int overlap = intersectOneBasedEnd < intersectOneBasedStart ? 0 : // no overlap
-                        intersectOneBasedEnd - intersectOneBasedStart + 1; // there's some overlap
+                    int overlap = intersectOneBasedEnd < intersectOneBasedStart ? 0 : intersectOneBasedEnd - intersectOneBasedStart + 1;
                     int sequenceLengthChange = variantGettingApplied.VariantSequence.Length - variantGettingApplied.OriginalSequence.Length;
+
                     int begin = v.OneBasedBeginPosition + sequenceLengthChange - overlap;
                     if (begin > variantAppliedProteinSequence.Length)
                     {
@@ -293,16 +301,18 @@ namespace Omics.BioPolymer
                     int end = v.OneBasedEndPosition + sequenceLengthChange - overlap;
                     if (end > variantAppliedProteinSequence.Length)
                     {
-                        end = variantAppliedProteinSequence.Length; // end shortened by a stop gain
+                        end = variantAppliedProteinSequence.Length; // shortened by a stop gain
                     }
+
+                    // MINIMAL FIX: keep v.Description (string) and preserve VCF object
                     variations.Add(new SequenceVariation(
                         begin,
                         end,
                         v.OriginalSequence,
                         v.VariantSequence,
                         v.Description,
-                        v.VariantCallFormatData.ToString(),
-                        v.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value)));
+                        v.VariantCallFormatData,
+                        oneBasedModifications: v.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value)));
                 }
             }
             return variations;
