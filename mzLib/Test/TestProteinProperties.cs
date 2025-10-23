@@ -43,14 +43,14 @@ namespace Test
         [Test]
         public void TestHashAndEqualsSequenceVariation()
         {
-            SequenceVariation sv1 = new SequenceVariation(1, "MAA", "MAA", "description", new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("mod") }.ToList() } });
-            SequenceVariation sv2 = new SequenceVariation(1, "MAA", "MAA", "description", new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("mod") }.ToList() } });
-            SequenceVariation sv22 = new SequenceVariation(1, "MAA", "MAA", "description", new Dictionary<int, List<Modification>> { { 3, new[] { new Modification("mod") }.ToList() } });
-            SequenceVariation sv222 = new SequenceVariation(1, "MAA", "MAA", "description", new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("another") }.ToList() } });
-            SequenceVariation sv3 = new SequenceVariation(1, "MAA", "MAA", "description", null);
-            SequenceVariation sv4 = new SequenceVariation(1, "MAA", "MAA", null, new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("mod") }.ToList() } });
-            SequenceVariation sv5 = new SequenceVariation(1, null, null, "description", new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("mod") }.ToList() } });
-            SequenceVariation sv6 = new SequenceVariation(2, "MAA", "MAA", "description", new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("mod") }.ToList() } });
+            SequenceVariation sv1 = new SequenceVariation(1, "MAA", "MAA", "", "description", new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("mod") }.ToList() } });
+            SequenceVariation sv2 = new SequenceVariation(1, "MAA", "MAA", "", "description", new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("mod") }.ToList() } });
+            SequenceVariation sv22 = new SequenceVariation(1, "MAA", "MAA", "", "description", new Dictionary<int, List<Modification>> { { 3, new[] { new Modification("mod") }.ToList() } });
+            SequenceVariation sv222 = new SequenceVariation(1, "MAA", "MAA", "", "description", new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("another") }.ToList() } });
+            SequenceVariation sv3 = new SequenceVariation(1, "MAA", "MAA", "", "description", null);
+            SequenceVariation sv4 = new SequenceVariation(1, "MAA", "MAA","", null, new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("mod") }.ToList() } });
+            SequenceVariation sv5 = new SequenceVariation(1, null, null, "", "description", new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("mod") }.ToList() } });
+            SequenceVariation sv6 = new SequenceVariation(2, "MAA", "MAA", "", "description", new Dictionary<int, List<Modification>> { { 2, new[] { new Modification("mod") }.ToList() } });
             Assert.AreEqual(sv1, sv2);
             Assert.AreNotEqual(sv1, sv22);
             Assert.AreNotEqual(sv1, sv222);
@@ -92,7 +92,7 @@ namespace Test
             Protein protein2 = new Protein("MPEPTIDE", "protein2",
                 appliedSequenceVariations: new List<SequenceVariation>
                 {
-                    new SequenceVariation(4, 4, "P", "PPP",
+                    new SequenceVariation(4, 4, "P", "PPP","",
                         @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30",
                         new Dictionary<int, List<Modification>> { { mtModLocationInVariant, new[] { mt }.ToList() } })
                 });

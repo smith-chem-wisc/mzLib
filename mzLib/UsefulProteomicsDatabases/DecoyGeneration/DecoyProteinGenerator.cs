@@ -239,34 +239,34 @@ namespace UsefulProteomicsDatabases
                     decoyVariations.Add(new SequenceVariation(sv.OneBasedBeginPosition,
                         reversedSequence.Substring(sv.OneBasedBeginPosition - 1, sv.OneBasedEndPosition - sv.OneBasedBeginPosition + 1),
                         new string(variationArray).Substring(1, variationArray.Length - 1) + variationArray[0],
-                        $"{decoyIdentifier} VARIANT: " + sv.Description, decoyVariantModifications));
+                        $"{decoyIdentifier} VARIANT: " + sv.Description, sv.VariantCallFormatData?.ToString() ?? string.Empty, decoyVariantModifications));
                 }
                 // start loss, so the variant is at the end
                 else if (startLoss)
                 {
-                    decoyVariations.Add(new SequenceVariation(protein.BaseSequence.Length - sv.OneBasedEndPosition + 2, protein.BaseSequence.Length, new string(originalArray).Substring(0, originalArray.Length - 1), new string(variationArray), $"{decoyIdentifier} VARIANT: " + sv.Description, decoyVariantModifications));
+                    decoyVariations.Add(new SequenceVariation(protein.BaseSequence.Length - sv.OneBasedEndPosition + 2, protein.BaseSequence.Length, new string(originalArray).Substring(0, originalArray.Length - 1), new string(variationArray), $"{decoyIdentifier} VARIANT: " + sv.Description, sv.VariantCallFormatData?.ToString() ?? string.Empty, decoyVariantModifications));
                 }
                 // both start with M, but there's more
                 else if (sv.VariantSequence.StartsWith("M", StringComparison.Ordinal) && sv.OneBasedBeginPosition == 1 && (sv.OriginalSequence.Length > 1 || sv.VariantSequence.Length > 1))
                 {
                     string original = new string(originalArray).Substring(0, originalArray.Length - 1);
                     string variant = new string(variationArray).Substring(0, variationArray.Length - 1);
-                    decoyVariations.Add(new SequenceVariation(protein.BaseSequence.Length - sv.OneBasedEndPosition + 2, protein.BaseSequence.Length, original, variant, $"{decoyIdentifier} VARIANT: " + sv.Description, decoyVariantModifications));
+                    decoyVariations.Add(new SequenceVariation(protein.BaseSequence.Length - sv.OneBasedEndPosition + 2, protein.BaseSequence.Length, original, variant, $"{decoyIdentifier} VARIANT: " + sv.Description, sv.VariantCallFormatData.ToString(), decoyVariantModifications));
                 }
                 // gained an initiating methionine
                 else if (sv.VariantSequence.StartsWith("M", StringComparison.Ordinal) && sv.OneBasedBeginPosition == 1)
                 {
-                    decoyVariations.Add(new SequenceVariation(1, 1, new string(originalArray), new string(variationArray), $"{decoyIdentifier} VARIANT: " + sv.Description, decoyVariantModifications));
+                    decoyVariations.Add(new SequenceVariation(1, 1, new string(originalArray), new string(variationArray), $"{decoyIdentifier} VARIANT: " + sv.Description, sv.VariantCallFormatData.ToString(), decoyVariantModifications));
                 }
                 // starting methionine, but no variations on it
                 else if (startsWithM)
                 {
-                    decoyVariations.Add(new SequenceVariation(protein.BaseSequence.Length - sv.OneBasedEndPosition + 2, protein.BaseSequence.Length - sv.OneBasedBeginPosition + 2, new string(originalArray), new string(variationArray), $"{decoyIdentifier} VARIANT: " + sv.Description, decoyVariantModifications));
+                    decoyVariations.Add(new SequenceVariation(protein.BaseSequence.Length - sv.OneBasedEndPosition + 2, protein.BaseSequence.Length - sv.OneBasedBeginPosition + 2, new string(originalArray), new string(variationArray), $"{decoyIdentifier} VARIANT: " + sv.Description, sv.VariantCallFormatData?.ToString() ?? string.Empty, decoyVariantModifications));
                 }
                 // no starting methionine
                 else
                 {
-                    decoyVariations.Add(new SequenceVariation(protein.BaseSequence.Length - sv.OneBasedEndPosition + 1, protein.BaseSequence.Length - sv.OneBasedBeginPosition + 1, new string(originalArray), new string(variationArray), $"{decoyIdentifier} VARIANT: " + sv.Description, decoyVariantModifications));
+                    decoyVariations.Add(new SequenceVariation(protein.BaseSequence.Length - sv.OneBasedEndPosition + 1, protein.BaseSequence.Length - sv.OneBasedBeginPosition + 1, new string(originalArray), new string(variationArray), $"{decoyIdentifier} VARIANT: " + sv.Description, sv.VariantCallFormatData?.ToString() ?? string.Empty, decoyVariantModifications));
                 }
             }
             return decoyVariations;
