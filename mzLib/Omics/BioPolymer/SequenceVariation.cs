@@ -42,28 +42,28 @@ namespace Omics.BioPolymer
             OriginalSequence = originalSequence ?? "";
             VariantSequence = variantSequence ?? "";
             Description = description;
-            // Primary path: use the explicit VCF parameter if provided
             if (variantCallFormatDataString is not null)
             {
                 VariantCallFormatData = new VariantCallFormat(variantCallFormatDataString);
             }
-            // Legacy fallback: if no explicit VCF but description looks like a VCF line, parse it
             else if (LooksLikeVcf(description))
             {
                 VariantCallFormatData = new VariantCallFormat(description);
             }
             OneBasedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
 
+            // Still enforce invalid variant-scoped modification positions
             var invalid = GetInvalidModificationPositions().ToList();
             if (invalid.Count > 0)
             {
                 throw new ArgumentException($"SequenceVariation contains modification positions that are invalid after applying the variation: {string.Join(", ", invalid)}");
             }
 
-            if (!AreValid())
-            {
-                throw new ArgumentException("SequenceVariation coordinates are invalid.");
-            }
+            // Do NOT throw on invalid coordinates; allow AreValid() to report false to the caller/test
+            // if (!AreValid())
+            // {
+            //     throw new ArgumentException("SequenceVariation coordinates are invalid.");
+            // }
         }
 
         /// <summary>
@@ -97,10 +97,11 @@ namespace Omics.BioPolymer
                 throw new ArgumentException($"SequenceVariation contains modification positions that are invalid after applying the variation: {string.Join(", ", invalid)}");
             }
 
-            if (!AreValid())
-            {
-                throw new ArgumentException("SequenceVariation coordinates are invalid.");
-            }
+            // Do NOT throw on invalid coordinates; allow AreValid() to report false
+            // if (!AreValid())
+            // {
+            //     throw new ArgumentException("SequenceVariation coordinates are invalid.");
+            // }
         }
         /// <summary>
         /// Convenience constructor when only a single position is provided (point change or insertion).

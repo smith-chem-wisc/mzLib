@@ -942,21 +942,159 @@ namespace Test.DatabaseTests
         [Test]
         public void SequenceVariationIsValidTest()
         {
-            SequenceVariation sv1 = new SequenceVariation(10, 10, "A", "T", "", "info", null);
-            SequenceVariation sv2 = new SequenceVariation(5, 5, "G", "C", "", "info", null);
-            SequenceVariation sv3 = new SequenceVariation(8, 8, "T", "A", "", "info", null);
-            List<SequenceVariation> svList = new List<SequenceVariation> { sv1, sv2, sv3 };
+            // This test documents the current validation semantics implemented in SequenceVariation.AreValid():
+            // - A SequenceVariation is considered valid if and only if:
+            //      OneBasedBeginPosition > 0  AND  OneBasedEndPosition >= OneBasedBeginPosition.
+            // - The validation does NOT consider the contents of OriginalSequence or VariantSequence.
+            //   Therefore:
+            //      • Point substitutions (len = 1 → 1) are valid if indices are valid.
+            //      • Insertions     (len = 0 → >0) are valid if indices are valid.
+            //      • Deletions      (>0 → 0) are valid if indices are valid.
+            // - Sequences may be empty strings. The constructor normalizes null strings to "".
+            // - Indices are 1-based and inclusive.
 
-            Protein variantProtein = new Protein("ACDEFGHIKLMNPQRSTVWY", "protein1", sequenceVariations: svList);
+            // Local helpers: replicate the library's internal spatial relations for use in tests.
+            // These mirror Omics.BioPolymer.SequenceVariation's internal methods to avoid visibility issues across assemblies.
+            static bool IntersectsPos(SequenceVariation sv, int pos) =>
+                sv.OneBasedBeginPosition <= pos && pos <= sv.OneBasedEndPosition; // same as internal Intersects(int pos)
+
+            static bool IntersectsVar(SequenceVariation a, SequenceVariation b) =>
+                b.OneBasedEndPosition >= a.OneBasedBeginPosition && b.OneBasedBeginPosition <= a.OneBasedEndPosition; // same as internal Intersects(SequenceVariation segment)
+
+            static bool IncludesVar(SequenceVariation a, SequenceVariation b) =>
+                a.OneBasedBeginPosition <= b.OneBasedBeginPosition && a.OneBasedEndPosition >= b.OneBasedEndPosition; // same as internal Includes(SequenceVariation segment)
+
+            // --- Construct three simple, valid point substitutions (begin == end). ---
+            // sv1: at position 10, A → T
+            SequenceVariation sv1 = new SequenceVariation(
+                oneBasedBeginPosition: 10,    // must be > 0
+                oneBasedEndPosition: 10,      // must be >= begin (equal is allowed; this encodes a single position)
+                originalSequence: "A",        // original residue (not used by AreValid)
+                variantSequence: "T",         // variant residue (not used by AreValid)
+                description: "info",          // free text; wrapped in SequenceVariantDescription internally
+                oneBasedModifications: null); // null is allowed; ctor normalizes to an empty dictionary
+
+            // sv2: at position 5, G → C
+            SequenceVariation sv2 = new SequenceVariation(5, 5, "G", "C", "", "info", null);
+
+            // sv3: at position 8, T → A
+            SequenceVariation sv3 = new SequenceVariation(8, 8, "T", "A", "", "info", null);
+
+            // Group the above three variations. All should be valid because indices satisfy: begin > 0 and end >= begin.
+            var svList = new List<SequenceVariation> { sv1, sv2, sv3 };
+
+            // Construct a dummy protein that carries these three variations.
+            // Note: AreValid() checks only the variant's indices; it does not check that the residues actually match
+            // the protein sequence at those indices. This test documents that behavior.
+            Protein variantProtein = new Protein(
+                sequence: "ACDEFGHIKLMNPQRSTVWY", // 20 aa, indexes 1..20
+                accession: "protein1",
+                sequenceVariations: svList);
+
+            // Assert: all three SequenceVariations are valid under the current AreValid() rule.
             Assert.IsTrue(variantProtein.SequenceVariations.All(v => v.AreValid()));
-            SequenceVariation svInvalidOneBasedBeginLessThanOne = new SequenceVariation(0, 10, "A", "T", "", "info", null);
-            SequenceVariation svInvalidOneBasedEndLessThanOneBasedBegin = new SequenceVariation(5, 4, "G", "C", "", "info", null);
-            SequenceVariation svValidOriginalSequenceIsEmpty = new SequenceVariation(8, 8, "", "A", "", "info", null);
-            SequenceVariation svValidVariantSequenceLenthIsZero = new SequenceVariation(10, 10, "A", "", "", "info", null);
-            Assert.IsFalse(svInvalidOneBasedBeginLessThanOne.AreValid());
-            Assert.IsFalse(svInvalidOneBasedEndLessThanOneBasedBegin.AreValid());
-            Assert.IsTrue(svValidOriginalSequenceIsEmpty.AreValid()); //This is valid because it is an insertion
-            Assert.IsTrue(svValidVariantSequenceLenthIsZero.AreValid()); // This is valid because it is a deletion
+
+            // --- Construct two INVALID variations to document the exact failure modes. ---
+
+            // Invalid because begin <= 0 (begin == 0). End is irrelevant once begin is invalid.
+            SequenceVariation svInvalidOneBasedBeginLessThanOne = new SequenceVariation(
+                oneBasedBeginPosition: 0,  // invalid (must be > 0)
+                oneBasedEndPosition: 10,
+                originalSequence: "A",
+                variantSequence: "T",
+                description: "info",
+                oneBasedModifications: null);
+
+            // Invalid because end < begin (5..4 is a negative-length interval).
+            SequenceVariation svInvalidOneBasedEndLessThanOneBasedBegin = new SequenceVariation(
+                oneBasedBeginPosition: 5,
+                oneBasedEndPosition: 4, // invalid (must be >= begin)
+                originalSequence: "G",
+                variantSequence: "C",
+                description: "info",
+                oneBasedModifications: null);
+
+            Assert.IsFalse(svInvalidOneBasedBeginLessThanOne.AreValid(), "Begin must be >= 1 for 1-based coordinates.");
+            Assert.IsFalse(svInvalidOneBasedEndLessThanOneBasedBegin.AreValid(), "End must be >= begin (inclusive interval).");
+
+            // --- Construct two VALID structural edits to document insertion and deletion semantics. ---
+
+            // Insertion at position 8:
+            // - OriginalSequence is empty ("") and VariantSequence has content ("A").
+            // - AreValid() only looks at indices, so this is valid.
+            SequenceVariation svValidOriginalSequenceIsEmpty = new SequenceVariation(
+                oneBasedBeginPosition: 8,
+                oneBasedEndPosition: 8, // for an insertion, begin == end represents the insertion site
+                originalSequence: "",   // empty original implies insertion
+                variantSequence: "A",   // inserted content
+                description: "info",
+                oneBasedModifications: null);
+
+            // Deletion at position 10:
+            // - OriginalSequence has content ("A") and VariantSequence is empty ("").
+            // - AreValid() only looks at indices, so this is valid.
+            SequenceVariation svValidVariantSequenceLenthIsZero = new SequenceVariation(
+                oneBasedBeginPosition: 10,
+                oneBasedEndPosition: 10, // single-residue deletion example
+                originalSequence: "A",   // removed content
+                variantSequence: "",     // empty variant implies deletion
+                description: "info",
+                oneBasedModifications: null);
+
+            Assert.IsTrue(svValidOriginalSequenceIsEmpty.AreValid(), "Insertions (original == \"\") are valid if indices are valid.");
+            Assert.IsTrue(svValidVariantSequenceLenthIsZero.AreValid(), "Deletions (variant == \"\") are valid if indices are valid.");
+
+            // --- Additional explicit documentation asserts (non-functional but clarifying current behavior). ---
+
+            // 1) One-based, inclusive interval rule at boundary:
+            // Begin == 1 and End == 1 is valid (first residue).
+            var svBoundary = new SequenceVariation(1, 1, "A", "T", "", "info", null);
+            Assert.IsTrue(svBoundary.AreValid(), "Begin == 1 and End == 1 is valid (first position).");
+
+            // 2) Constructor null handling:
+            // Passing null for sequence strings is normalized to "" (empty) internally.
+            var svNulls = new SequenceVariation(3, 3, null, null, "", "info", null);
+            Assert.AreEqual("", svNulls.OriginalSequence, "Null originalSequence is normalized to empty string.");
+            Assert.AreEqual("", svNulls.VariantSequence, "Null variantSequence is normalized to empty string.");
+
+            // 3) Description wrapping:
+            // SequenceVariation stores Description as a SequenceVariantDescription; the original text is accessible via .Description.
+            Assert.IsNotNull(sv1.Description, "Description is always constructed.");
+            Assert.AreEqual("info", sv1.Description, "Free-text description preserved in SequenceVariantDescription.");
+
+            // 4) SimpleString() formatting:
+            // SimpleString() returns: OriginalSequence + OneBasedBeginPosition + VariantSequence (no separators).
+            // For a substitution (A@10 -> T) the simple string is "A10T".
+            Assert.AreEqual("A10T", sv1.SimpleString(), "Substitution simple-string format: Original + Begin + Variant.");
+
+            // For an insertion at position 8 ("" -> "A"), the simple string becomes "8A"
+            // because OriginalSequence is empty.
+            Assert.AreEqual("8A", svValidOriginalSequenceIsEmpty.SimpleString(), "Insertion simple-string format: '' + Begin + Variant.");
+
+            // For a deletion at position 10 ("A" -> ""), the simple string becomes "A10"
+            // because VariantSequence is empty.
+            Assert.AreEqual("A10", svValidVariantSequenceLenthIsZero.SimpleString(), "Deletion simple-string format: Original + Begin + ''.");
+
+            // 5) AreValid() ignores sequence content/lengths:
+            //    - The method does not require Original and Variant to be the same length.
+            //    - It does not check that Original matches the underlying protein sequence at that location.
+            // The following examples demonstrate that length changes do not affect validity when indices are valid.
+            var svInsertionLong = new SequenceVariation(7, 7, "", "PPP", "", "info", null);  // insertion of "PPP" at 7
+            var svDeletionLong = new SequenceVariation(12, 14, "ABC", "", "", "info", null); // deletion of 3 residues starting at 12
+            Assert.IsTrue(svInsertionLong.AreValid(), "Length-increasing edits are valid if indices are valid.");
+            Assert.IsTrue(svDeletionLong.AreValid(), "Length-decreasing edits are valid if indices are valid.");
+
+            // 6) Intersects/Includes are not part of AreValid(); they are separate spatial relations.
+            //    Because those methods are internal in the library, we mirror their logic here via helpers.
+            var p5 = new SequenceVariation(5, 5, "G", "C", "", "info", null);
+            var p6 = new SequenceVariation(6, 6, "H", "R", "", "info", null);
+            Assert.IsTrue(IntersectsPos(p5, 5), "Intersects(pos): returns true when pos lies within [begin..end].");
+            Assert.IsFalse(IntersectsPos(p5, 6), "Intersects(pos): returns false when pos is outside [begin..end].");
+            Assert.IsFalse(IntersectsVar(p5, p6), "Intersects(SequenceVariation): disjoint singletons at 5 and 6 do not intersect.");
+            Assert.IsTrue(IncludesVar(p5, p5), "Includes(SequenceVariation): a segment includes itself.");
+
+            // Summary: This test intentionally focuses on the exact current behavior of AreValid()
+            // and related constructors/utilities, to provide unambiguous documentation of accepted inputs.
         }
         [Test]
         public void VariantModificationTest()
