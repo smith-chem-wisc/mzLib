@@ -26,7 +26,7 @@ namespace Omics.BioPolymer
         public static List<TBioPolymerType> GetVariantBioPolymers<TBioPolymerType>(this TBioPolymerType protein, int maxAllowedVariantsForCombinatorics = 4, int minAlleleDepth = 1)
             where TBioPolymerType : IHasSequenceVariants
         {
-            protein.ConsensusVariant.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
+            protein.ConsensusVariant.ConvertNucleotideSubstitutionModificationsToSequenceVariants(); 
             protein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
 
             // decide "mixed/no VCF" vs "VCF-only" using VariantCallFormatData
