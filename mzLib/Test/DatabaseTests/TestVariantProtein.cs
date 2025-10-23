@@ -405,28 +405,159 @@ namespace Test.DatabaseTests
         [Test]
         public static void StopGained()
         {
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGained.xml"), true,
-                DecoyType.None, null, false, null, out var unknownModifications);
+            // Load a protein that contains a stop-gained sequence variation.
+            // With default settings (minAlleleDepth default), the loader emits both:
+            // - a reference (consensus) protein (no variant applied),
+            // - and a variant-applied protein (truncated at the stop site).
+            var proteins = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGained.xml"),
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: null,
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var unknownModifications);
+
+            // Expect both reference and truncated variant proteins to be present.
             Assert.AreEqual(2, proteins.Count);
+
+            // Reference protein should report exactly one sequence variation in the entry
+            // (the stop-gained annotation), even though it is not applied to the consensus.
             Assert.AreEqual(1, proteins[0].SequenceVariations.Count()); // some redundant
             Assert.AreEqual(1, proteins[0].SequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
+
+            // On the consensus (reference) protein, no variations are applied by default,
+            // so the reference sequence remains intact.
             Assert.AreEqual(0, proteins[0].AppliedSequenceVariations.Count()); // some redundant
             Assert.AreEqual(0, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
+
+            // The second protein should be the variant-applied one (stop-gained),
+            // so it should have exactly one applied variation (the truncating stop-gained).
             Assert.AreEqual(1, proteins[1].AppliedSequenceVariations.Count()); // some redundant
             Assert.AreEqual(1, proteins[1].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
+
+            // The reference protein retains its original full length.
             Assert.AreEqual(191, proteins[0].Length);
+
+            // The reference residue at position 161 is 'Q' (which becomes a stop in the variant).
             Assert.AreEqual('Q', proteins[0][161 - 1]);
+
+            // The variant-applied (stop-gained) protein is truncated to length 160,
+            // i.e., everything at and after the stop is removed.
             Assert.AreEqual(161 - 1, proteins[1].Length);
+
+            // Sanity: the reference and the variant-applied protein should differ in length.
             Assert.AreNotEqual(proteins[0].Length, proteins[1].Length);
 
-            proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGained.xml"), true,
-                DecoyType.None, null, false, null, out unknownModifications, minAlleleDepth: 400);
+            // Now re-load the same input but require very high minimum allele depth.
+            // This threshold will cause only the deeply-supported stop-gained variant to be returned.
+            proteins = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGained.xml"),
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: null,
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out unknownModifications,
+                minAlleleDepth: 400);
+
+            // Only the variant-applied protein passes the depth filter, so only one protein remains.
             Assert.AreEqual(1, proteins.Count);
+
+            // That remaining protein must have the stop-gained variation applied.
             Assert.AreEqual(1, proteins[0].AppliedSequenceVariations.Count()); // some redundant
             Assert.AreEqual(1, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
+
+            // It must still be truncated at the stop site (length 160).
             Assert.AreEqual(161 - 1, proteins[0].Length);
         }
+        [Test]
+        public static void StopGained_TruncationIsPrefixAndNoOutOfBoundsAnnotations()
+        {
+            var proteins = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGained.xml"),
+                true, DecoyType.None, null, false, null, out var _);
 
+            Assert.AreEqual(2, proteins.Count);
+            var reference = proteins[0];
+            var truncated = proteins[1];
+
+            // The truncated sequence must be a prefix of the reference,
+            // i.e., identical up to the truncation point.
+            Assert.That(reference.BaseSequence.StartsWith(truncated.BaseSequence));
+
+            // Any possible localized modifications must not point past the truncation boundary.
+            Assert.That(truncated.OneBasedPossibleLocalizedModifications
+                .All(kv => kv.Key >= 1 && kv.Key <= truncated.Length));
+
+            // Any proteolysis products (if present) must not reference indices outside the sequence.
+            Assert.That(truncated.TruncationProducts.All(tp =>
+                (!tp.OneBasedBeginPosition.HasValue || (tp.OneBasedBeginPosition.Value >= 1 && tp.OneBasedBeginPosition.Value <= truncated.Length)) &&
+                (!tp.OneBasedEndPosition.HasValue || (tp.OneBasedEndPosition.Value >= 1 && tp.OneBasedEndPosition.Value <= truncated.Length))));
+
+            // The applied stop-gained variation often encodes a '*' in the variant sequence.
+            // If present, that indicates stop; the actual sequence is cut at the stop.
+            if (truncated.AppliedSequenceVariations.Any())
+            {
+                Assert.That(truncated.AppliedSequenceVariations.Single().VariantSequence.EndsWith("*") ||
+                            !truncated.AppliedSequenceVariations.Single().VariantSequence.Contains("*"));
+            }
+        }
+
+        [Test]
+        public static void StopGained_NoPeptidesCrossTruncationSite()
+        {
+            var proteins = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGained.xml"),
+                true, DecoyType.None, null, false, null, out var _);
+
+            Assert.AreEqual(2, proteins.Count);
+            var reference = proteins[0];
+            var truncated = proteins[1];
+
+            // Peptides from the truncated protein must not reference indices past the truncation boundary.
+            var dp = new DigestionParams();
+            var variantPeps = truncated.Digest(dp, null, null).ToList();
+            Assert.That(variantPeps.All(p => p.OneBasedEndResidueInProtein <= truncated.Length));
+
+            // Any peptide in the reference that extends past the truncation boundary cannot exist in the variant.
+            var refPeps = reference.Digest(dp, null, null).ToList();
+            var refCrossing = refPeps.Where(p => p.OneBasedEndResidueInProtein > truncated.Length).ToList();
+            var variantPepWindows = new HashSet<(int start, int end)>(variantPeps.Select(p => (p.OneBasedStartResidueInProtein, p.OneBasedEndResidueInProtein)));
+            Assert.That(refCrossing.All(p => !variantPepWindows.Contains((p.OneBasedStartResidueInProtein, p.OneBasedEndResidueInProtein))));
+        }
+
+        [Test]
+        public static void StopGained_RoundTripSerializationPreservesTruncation()
+        {
+            var proteins = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGained.xml"),
+                true, DecoyType.None, null, false, null, out var _);
+
+            Assert.AreEqual(2, proteins.Count);
+            var tempPath = Path.Combine(TestContext.CurrentContext.TestDirectory, $"StopGained_roundtrip_{Guid.NewGuid()}.xml");
+
+            try
+            {
+                // Persist both proteins (reference + variant) and reload.
+                ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteins, tempPath);
+                var roundtrip = ProteinDbLoader.LoadProteinXML(tempPath, true, DecoyType.None, null, false, null, out var __);
+
+                // Round-trip preserves count and the truncation boundary for the variant-applied protein.
+                Assert.AreEqual(2, roundtrip.Count);
+                Assert.AreEqual(proteins[0].Length, roundtrip[0].Length);
+                Assert.AreEqual(proteins[1].Length, roundtrip[1].Length);
+                Assert.AreEqual(proteins[1].AppliedSequenceVariations.Count(), roundtrip[1].AppliedSequenceVariations.Count());
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.SetAttributes(tempPath, FileAttributes.Normal);
+                    File.Delete(tempPath);
+                }
+            }
+        }
         [Test]
         public static void StopGainedDecoysAndDigestion()
         {
