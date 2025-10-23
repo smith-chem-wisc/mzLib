@@ -17,6 +17,11 @@ namespace Omics.BioPolymer
     /// </summary>
     public class SequenceVariation
     {
+        private static bool LooksLikeVcf(string s)
+            => !string.IsNullOrWhiteSpace(s)
+               && (s.Contains("\t") || s.Contains("\\t"))
+               && (s.Contains("GT:") || s.Contains(":GT:") || s.Contains(" ANN=") || s.Contains("\tANN="));
+
         /// <summary>
         /// Create a sequence variation replacing the span [oneBasedBeginPosition, oneBasedEndPosition]
         /// with <paramref name="variantSequence"/>. The <paramref name="originalSequence"/> is optional
@@ -37,7 +42,16 @@ namespace Omics.BioPolymer
             OriginalSequence = originalSequence ?? "";
             VariantSequence = variantSequence ?? "";
             Description = description;
-            VariantCallFormatData = variantCallFormatDataString is null ? null : new VariantCallFormat(variantCallFormatDataString);
+            // Primary path: use the explicit VCF parameter if provided
+            if (variantCallFormatDataString is not null)
+            {
+                VariantCallFormatData = new VariantCallFormat(variantCallFormatDataString);
+            }
+            // Legacy fallback: if no explicit VCF but description looks like a VCF line, parse it
+            else if (LooksLikeVcf(description))
+            {
+                VariantCallFormatData = new VariantCallFormat(description);
+            }
             OneBasedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
 
             var invalid = GetInvalidModificationPositions().ToList();

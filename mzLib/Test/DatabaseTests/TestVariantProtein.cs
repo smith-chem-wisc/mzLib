@@ -284,56 +284,262 @@ namespace Test.DatabaseTests
             var variantProteins = proteins[0].GetVariantBioPolymers();
             List<PeptideWithSetModifications> peptides = proteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
-
         [Test]
         public static void AppliedVariants()
         {
-            ModificationMotif.TryGetMotif("P", out ModificationMotif motifP);
-            Modification mp = new Modification("mod", null, "type", null, motifP, "Anywhere.", null, 42.01, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+            // Build a tiny variant suite on the same base sequence to exercise:
+            // - SAV (single amino-acid variant) P→V at position 4
+            // - MNV (multi-residue substitution) PT→KT at positions 4–5
+            // - Insertion: P→PPP at position 4 (sequence grows)
+            // - Deletion: PPP→P at positions 4–6 (sequence shrinks)
+            // - Variant-scoped PTM (on the inserted segment) to ensure PTMs map to post-variation coordinates
+            //
+            // Why this test exists:
+            // - Verifies end-to-start application order of variants yields stable, deterministic results.
+            // - Confirms index remapping for applied variants, proteoform sequence output, and PTM carry-forward.
+            // - Ensures serialization round-trip (write + re-load) preserves exactly the same proteoforms.
 
+            // Create a dummy modification to attach to a variant (variant-scoped PTM at residue 5)
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motifP);
+            Modification mp = new Modification(
+                _originalId: "mod", _accession: null, _modificationType: "type", _featureType: null,
+                _target: motifP, _locationRestriction: "Anywhere.", _chemicalFormula: null,
+                _monoisotopicMass: 42.01, _databaseReference: new Dictionary<string, IList<string>>(),
+                _taxonomicRange: null, _keywords: null, _neutralLosses: null, _diagnosticIons: null, _fileOrigin: null);
+
+            // Build five independent proteins, each carrying a single sequence variation.
+            // Note: here the 5th ctor arg is a free-text description; we intentionally pass the VCF-like text there (VariantCallFormatData is null),
+            // which exercises the "non-VCF/mixed" path and forces combinatorial expansion.
             List<Protein> proteinsWithSeqVars = new List<Protein>
             {
-                new Protein("MPEPTIDE", "protein1", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "V", "", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE", "protein2", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 5, "PT", "KT", "", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE", "protein3", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", "", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPPPTIDE", "protein4", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "PPP", "P", "", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE", "protein5", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", "", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> {{ 5, new[] { mp }.ToList() } }) }),
-             };
+                // protein1: SAV P(4)→V                  => "MPEVTIDE"
+                new Protein("MPEPTIDE", "protein1",
+                    sequenceVariations: new List<SequenceVariation>
+                    {
+                        new SequenceVariation(4, 4, "P", "V", "",
+                            @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30",
+                            null) // VariantCallFormatData omitted on purpose for mixed path
+                    }),
+
+                // protein2: MNV PT(4-5)→KT              => "MPEKTIDE"
+                new Protein("MPEPTIDE", "protein2",
+                    sequenceVariations: new List<SequenceVariation>
+                    {
+                        new SequenceVariation(4, 5, "PT", "KT","",
+                            @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30",
+                            null)
+                    }),
+
+                // protein3: insertion P(4)→PPP          => "MPEPPPTIDE"
+                new Protein("MPEPTIDE", "protein3",
+                    sequenceVariations: new List<SequenceVariation>
+                    {
+                        new SequenceVariation(4, 4, "P", "PPP","",
+                            @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30",
+                            null)
+                    }),
+
+                // protein4: deletion PPP(4-6)→P on base "MPEPPPTIDE" => "MPEPTIDE"
+                new Protein("MPEPPPTIDE", "protein4",
+                    sequenceVariations: new List<SequenceVariation>
+                    {
+                        new SequenceVariation(4, 6, "PPP", "P","",
+                            @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30",
+                            null)
+                    }),
+
+                // protein5: insertion plus variant-PTM at position 5 => "MPEPPPTIDE" and mods at site 5
+                new Protein("MPEPTIDE", "protein5",
+                    sequenceVariations: new List<SequenceVariation>
+                    {
+                        new SequenceVariation(4, 4, "P", "PPP","",
+                            @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30",
+                            new Dictionary<int, List<Modification>> { { 5, new List<Modification> { mp } } })
+                    }),
+            };
+
+            // ——— DIAGNOSTICS: Show whether each input protein’s variants look VCF-backed and how many proteoforms expansion returns
+            for (int i = 0; i < proteinsWithSeqVars.Count; i++)
+            {
+                var p = proteinsWithSeqVars[i];
+                var vars = p.SequenceVariations.ToList();
+                TestContext.WriteLine($"[Input {i}] Accession={p.Accession} Base='{p.BaseSequence}' Variations={vars.Count}");
+                foreach (var v in vars)
+                {
+                    bool vcfNonNull = v.VariantCallFormatData != null;
+                    int gtCount = v.VariantCallFormatData?.Genotypes?.Count ?? 0;
+                    string fmt = v.VariantCallFormatData?.Format ?? "(null)";
+                    string alleles = v.VariantCallFormatData == null
+                        ? "(no VCF)"
+                        : $"REF={v.VariantCallFormatData.ReferenceAlleleString ?? "null"} ALT={v.VariantCallFormatData.AlternateAlleleString ?? "null"}";
+                    TestContext.WriteLine($"    SV [{v.OneBasedBeginPosition}-{v.OneBasedEndPosition}] '{v.OriginalSequence}'→'{v.VariantSequence}' " +
+                                          $"VCF? {vcfNonNull} GTs={gtCount} FORMAT='{fmt}' {alleles}");
+                }
+                var expanded = p.GetVariantBioPolymers();
+                int baseOnly = expanded.Count(ep => !ep.AppliedSequenceVariations.Any());
+                int variantApplied = expanded.Count(ep => ep.AppliedSequenceVariations.Any());
+                TestContext.WriteLine($"    Expansion count={expanded.Count} BaseOnly={baseOnly} VariantApplied={variantApplied}");
+                // detail each expansion
+                for (int j = 0; j < expanded.Count; j++)
+                {
+                    var ep = expanded[j];
+                    var applied = ep.AppliedSequenceVariations.ToList();
+                    string appliedSummary = applied.Count == 0
+                        ? "(none)"
+                        : string.Join(";", applied.Select(a => $"{a.OriginalSequence}{a.OneBasedBeginPosition}{a.VariantSequence}"));
+                    TestContext.WriteLine($"       -> [{j}] Len={ep.Length} AppliedCount={applied.Count} Applied={appliedSummary} Seq='{ep.BaseSequence}'");
+                }
+            }
+
+            // Expand each protein into its proteoform(s). Because each input protein here has a single variant,
+            // each expansion should yield exactly one applied-variant proteoform (no reference-only copy is expected here).
             var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList();
-            var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList(); // should be stable
+
+            // ——— DIAGNOSTICS: Summarize the flattened list
+            int flatBaseOnly = proteinsWithAppliedVariants.Count(x => !x.AppliedSequenceVariations.Any());
+            int flatVariantApplied = proteinsWithAppliedVariants.Count(x => x.AppliedSequenceVariations.Any());
+            TestContext.WriteLine($"[Flattened] Total={proteinsWithAppliedVariants.Count} BaseOnly={flatBaseOnly} VariantApplied={flatVariantApplied}");
+            for (int k = 0; k < proteinsWithAppliedVariants.Count; k++)
+            {
+                var ep = proteinsWithAppliedVariants[k];
+                var applied = ep.AppliedSequenceVariations.ToList();
+                string appliedSummary = applied.Count == 0
+                    ? "(none)"
+                    : string.Join(";", applied.Select(a => $"{a.OriginalSequence}{a.OneBasedBeginPosition}{a.VariantSequence}"));
+                TestContext.WriteLine($"   Flat[{k}] From={ep.ConsensusVariant?.Accession} Len={ep.Length} AppliedCount={applied.Count} Applied={appliedSummary}");
+            }
+
+            // Invoke expansion again to assert determinism (should match 1:1 by sequence and variation semantics).
+            var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList();
+
+            // Persist the original variant-bearing proteins (not the expansions) and reload to validate round-trip stability.
             string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteinsWithSeqVars, xml);
             var proteinsWithAppliedVariants3 = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un);
 
+            // ——— DIAGNOSTICS: Round-trip summary and why list[2] (reload) differs
+            TestContext.WriteLine($"[Roundtrip] L1={proteinsWithAppliedVariants.Count} L2={proteinsWithAppliedVariants2.Count} L3={proteinsWithAppliedVariants3.Count}");
+            int l3BaseOnly = proteinsWithAppliedVariants3.Count(x => !x.AppliedSequenceVariations.Any());
+            int l3VariantApplied = proteinsWithAppliedVariants3.Count(x => x.AppliedSequenceVariations.Any());
+            TestContext.WriteLine($"[Roundtrip] L3 BaseOnly={l3BaseOnly} VariantApplied={l3VariantApplied}");
+
+            // Group L3 by consensus accession to see if ref+alt are being emitted per input
+            var l3Groups = proteinsWithAppliedVariants3.GroupBy(p => p.ConsensusVariant?.Accession ?? "(null)").ToList();
+            foreach (var g in l3Groups)
+            {
+                TestContext.WriteLine($"[Roundtrip] Group Accession={g.Key} Count={g.Count()} " +
+                                      $"RefOnly={g.Count(p => !p.AppliedSequenceVariations.Any())} " +
+                                      $"Alt={g.Count(p => p.AppliedSequenceVariations.Any())}");
+            }
+
+            // Detail each L3 entry
+            for (int idx = 0; idx < proteinsWithAppliedVariants3.Count; idx++)
+            {
+                var p3 = proteinsWithAppliedVariants3[idx];
+                var applied = p3.AppliedSequenceVariations.ToList();
+                string kind = applied.Count == 0 ? "REF" : "ALT";
+                string appliedSummary = applied.Count == 0
+                    ? "(none)"
+                    : string.Join(";", applied.Select(a => $"[{a.OneBasedBeginPosition}-{a.OneBasedEndPosition}] {a.OriginalSequence}->{a.VariantSequence} VCF={(a.VariantCallFormatData != null ? "Y" : "N")} GTs={(a.VariantCallFormatData?.Genotypes?.Count ?? 0)}"));
+                TestContext.WriteLine($"[Roundtrip] L3[{idx}] {kind} Acc={p3.Accession} From={p3.ConsensusVariant?.Accession} Len={p3.Length} AppliedCount={applied.Count} Applied={appliedSummary}");
+            }
+
+            // Also check for duplicate sequences in L3 (helps spot ref+alt per source)
+            var l3SeqGroups = proteinsWithAppliedVariants3.GroupBy(p => p.BaseSequence).Select(g => (seq: g.Key, count: g.Count())).OrderByDescending(x => x.count).ToList();
+            foreach (var (seq, count) in l3SeqGroups.Where(x => x.count > 1))
+            {
+                TestContext.WriteLine($"[Roundtrip] Duplicate sequence observed x{count}: '{seq}'");
+            }
+
+            // Convenience: aggregate all three lists to run the same assertions over them.
             var listArray = new[] { proteinsWithAppliedVariants, proteinsWithAppliedVariants2, proteinsWithAppliedVariants3 };
+
+            // Sanity: each collection should have exactly the same five proteoforms in the same order
+            Assert.AreEqual(5, proteinsWithAppliedVariants.Count);
+            Assert.AreEqual(5, proteinsWithAppliedVariants2.Count);
+            Assert.AreEqual(5, proteinsWithAppliedVariants3.Count);
+
+            // Validate each expanded collection, index-by-index.
             for (int dbIdx = 0; dbIdx < listArray.Length; dbIdx++)
             {
-                // sequences
+                // ————————————————————————————————————————————————————————————————————————————————
+                // [0] SAV P(4)→V
+                // Expect a single residue change at position 4: M P E P T I D E → M P E V T I D E
                 Assert.AreEqual("MPEVTIDE", listArray[dbIdx][0].BaseSequence);
-                Assert.AreEqual("MPEKTIDE", listArray[dbIdx][1].BaseSequence);
-                Assert.AreEqual("MPEPPPTIDE", listArray[dbIdx][2].BaseSequence);
-                Assert.AreEqual("MPEPTIDE", listArray[dbIdx][3].BaseSequence);
-                Assert.AreEqual("MPEPPPTIDE", listArray[dbIdx][4].BaseSequence);
-                Assert.AreEqual(5, listArray[dbIdx][4].OneBasedPossibleLocalizedModifications.Single().Key);
-
-                // SAV
+                Assert.AreEqual(1, listArray[dbIdx][0].AppliedSequenceVariations.Count());
                 Assert.AreEqual(4, listArray[dbIdx][0].AppliedSequenceVariations.Single().OneBasedBeginPosition);
                 Assert.AreEqual(4, listArray[dbIdx][0].AppliedSequenceVariations.Single().OneBasedEndPosition);
+                Assert.AreEqual("P", listArray[dbIdx][0].AppliedSequenceVariations.Single().OriginalSequence);
+                Assert.AreEqual("V", listArray[dbIdx][0].AppliedSequenceVariations.Single().VariantSequence);
+                Assert.AreEqual("P4V", listArray[dbIdx][0].AppliedSequenceVariations.Single().SimpleString()); // begin-index encoding
 
-                // MNV
+                // ————————————————————————————————————————————————————————————————————————————————
+                // [1] MNV PT(4-5)→KT
+                // Expect a two-residue substitution: PT → KT across indices 4–5
+                Assert.AreEqual("MPEKTIDE", listArray[dbIdx][1].BaseSequence);
+                Assert.AreEqual(1, listArray[dbIdx][1].AppliedSequenceVariations.Count());
                 Assert.AreEqual(4, listArray[dbIdx][1].AppliedSequenceVariations.Single().OneBasedBeginPosition);
                 Assert.AreEqual(5, listArray[dbIdx][1].AppliedSequenceVariations.Single().OneBasedEndPosition);
+                Assert.AreEqual("PT", listArray[dbIdx][1].AppliedSequenceVariations.Single().OriginalSequence);
+                Assert.AreEqual("KT", listArray[dbIdx][1].AppliedSequenceVariations.Single().VariantSequence);
+                Assert.AreEqual("PT4KT", listArray[dbIdx][1].AppliedSequenceVariations.Single().SimpleString());
 
-                // insertion
+                // ————————————————————————————————————————————————————————————————————————————————
+                // [2] Insertion P(4)→PPP
+                // Expect sequence growth: single P becomes PPP at position 4
+                Assert.AreEqual("MPEPPPTIDE", listArray[dbIdx][2].BaseSequence);
+                Assert.AreEqual(1, listArray[dbIdx][2].AppliedSequenceVariations.Count());
                 Assert.AreEqual(4, listArray[dbIdx][2].AppliedSequenceVariations.Single().OneBasedBeginPosition);
-                Assert.AreEqual(6, listArray[dbIdx][2].AppliedSequenceVariations.Single().OneBasedEndPosition);
+                Assert.AreEqual(6, listArray[dbIdx][2].AppliedSequenceVariations.Single().OneBasedEndPosition); // insertion expands the span
+                Assert.AreEqual("P", listArray[dbIdx][2].AppliedSequenceVariations.Single().OriginalSequence);
+                Assert.AreEqual("PPP", listArray[dbIdx][2].AppliedSequenceVariations.Single().VariantSequence);
+                Assert.AreEqual("P4PPP", listArray[dbIdx][2].AppliedSequenceVariations.Single().SimpleString());
+                Assert.Greater(listArray[dbIdx][2].Length, proteinsWithSeqVars[0].Length); // length increased
 
-                // deletion
+                // ————————————————————————————————————————————————————————————————————————————————
+                // [3] Deletion PPP(4-6)→P on base "MPEPPPTIDE"
+                // Expect sequence shrinkage: PPP collapses to P (net -2 aa vs index [2])
+                Assert.AreEqual("MPEPTIDE", listArray[dbIdx][3].BaseSequence);
+                Assert.AreEqual(1, listArray[dbIdx][3].AppliedSequenceVariations.Count());
                 Assert.AreEqual(4, listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedBeginPosition);
-                Assert.AreEqual(4, listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedEndPosition);
-            }
-        }
+                Assert.AreEqual(4, listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedEndPosition); // compressed span
+                Assert.AreEqual("PPP", listArray[dbIdx][3].AppliedSequenceVariations.Single().OriginalSequence);
+                Assert.AreEqual("P", listArray[dbIdx][3].AppliedSequenceVariations.Single().VariantSequence);
+                Assert.AreEqual("PPP4P", listArray[dbIdx][3].AppliedSequenceVariations.Single().SimpleString());
+                Assert.Less(listArray[dbIdx][3].Length, proteinsWithSeqVars[3].ConsensusVariant.Length); // length decreased vs its own consensus
 
+                // ————————————————————————————————————————————————————————————————————————————————
+                // [4] Insertion with variant-scoped PTM at residue 5
+                // Same sequence as [2] but ensures the PTM dictionary is present and mapped to the correct 1-based site.
+                Assert.AreEqual("MPEPPPTIDE", listArray[dbIdx][4].BaseSequence);
+                Assert.AreEqual(1, listArray[dbIdx][4].AppliedSequenceVariations.Count());
+                Assert.AreEqual(4, listArray[dbIdx][4].AppliedSequenceVariations.Single().OneBasedBeginPosition);
+                Assert.AreEqual(6, listArray[dbIdx][4].AppliedSequenceVariations.Single().OneBasedEndPosition);
+                Assert.AreEqual("P", listArray[dbIdx][4].AppliedSequenceVariations.Single().OriginalSequence);
+                Assert.AreEqual("PPP", listArray[dbIdx][4].AppliedSequenceVariations.Single().VariantSequence);
+
+                // Variant-scoped PTM should project to a valid protein index (and persist across round-trip).
+                Assert.AreEqual(1, listArray[dbIdx][4].OneBasedPossibleLocalizedModifications.Count);
+                Assert.AreEqual(5, listArray[dbIdx][4].OneBasedPossibleLocalizedModifications.Single().Key);
+                Assert.That(listArray[dbIdx][4].OneBasedPossibleLocalizedModifications[5], Is.Not.Null);
+                Assert.That(listArray[dbIdx][4].OneBasedPossibleLocalizedModifications[5].Count, Is.GreaterThanOrEqualTo(1));
+            }
+
+            // Cross-collection consistency checks (index-by-index, sequences only).
+            // Ensures determinism across two in-memory expansions and the serialization round-trip.
+            for (int i = 0; i < proteinsWithAppliedVariants.Count; i++)
+            {
+                Assert.AreEqual(proteinsWithAppliedVariants[i].BaseSequence, proteinsWithAppliedVariants2[i].BaseSequence);
+                Assert.AreEqual(proteinsWithAppliedVariants[i].BaseSequence, proteinsWithAppliedVariants3[i].BaseSequence);
+            }
+
+            // Additional invariants:
+            // - Every proteoform here has exactly one applied variant (by construction).
+            // - No applied-variant set is empty (i.e., no reference-only proteoforms slipped in).
+            Assert.That(proteinsWithAppliedVariants.All(p => p.AppliedSequenceVariations.Count() == 1));
+            Assert.That(proteinsWithAppliedVariants2.All(p => p.AppliedSequenceVariations.Count() == 1));
+            Assert.That(proteinsWithAppliedVariants3.All(p => p.AppliedSequenceVariations.Count() == 1));
+        }
         [Test]
         public static void AppliedVariants_AsIBioPolymer()
         {

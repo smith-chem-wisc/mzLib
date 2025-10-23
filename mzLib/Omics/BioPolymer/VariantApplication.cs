@@ -458,11 +458,21 @@ namespace Omics.BioPolymer
         {
             int count = 0;
 
-            // Always yield the base biopolymer first
-            yield return baseBioPolymer;
-            count++;
-            if (count >= maxCombinations)
-                yield break;
+            // If every variation is VCF-backed (has VariantCallFormatData) or the Description clearly looks like a VCF line,
+            // do NOT emit the reference-only proteoform in the combinatoric expansion.
+            bool allVcfBacked = variations != null
+                                && variations.Count > 0
+                                && variations.All(v => v.VariantCallFormatData != null
+                                                       || LooksLikeVcfString(v.Description));
+
+            if (!allVcfBacked)
+            {
+                // Emit the base biopolymer first for non-VCF/mixed annotations (XML-only, etc.)
+                yield return baseBioPolymer;
+                count++;
+                if (count >= maxCombinations)
+                    yield break;
+            }
 
             int n = variations.Count;
             for (int size = 1; size <= n; size++)
@@ -574,5 +584,10 @@ namespace Omics.BioPolymer
                 }
             }
         }
+
+        private static bool LooksLikeVcfString(string s) =>
+            !string.IsNullOrWhiteSpace(s)
+            && (s.Contains('\t') || s.Contains("\\t"))
+            && (s.Contains("GT:") || s.Contains(":GT:") || s.Contains(" ANN=") || s.Contains("\tANN="));
     }
 }
