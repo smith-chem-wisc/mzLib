@@ -8,7 +8,6 @@ using Omics.BioPolymer;
 using Omics.Modifications;
 using Transcriptomics;
 using UsefulProteomicsDatabases.Transcriptomics;
-using System.Data;
 using Proteomics.ProteolyticDigestion;
 
 namespace UsefulProteomicsDatabases
@@ -53,10 +52,27 @@ namespace UsefulProteomicsDatabases
         public UniProtSequenceAttributes SequenceAttributes { get; set; } = null; // this is used to store the sequence attributes from the <sequence> element, if present
         private List<(int, string)> AnnotatedMods = new List<(int position, string originalModificationID)>();
         private List<(int, string)> AnnotatedVariantMods = new List<(int position, string originalModificationID)>();
+        // Captured isoform/sequence identifier from <location sequence="...">
+        private string LocationSequenceId;
 
         /// <summary>
-        /// Start parsing a protein XML element
+        /// Finalizes the parsing of a protein XML entry and constructs a <see cref="Protein"/> object.
+        /// This method is called when the end of an &lt;entry&gt; element is reached during XML parsing.
+        /// It sanitizes the sequence, prunes out-of-range sequence variants, resolves and attaches modifications,
+        /// and aggregates all parsed data (such as gene names, proteolysis products, sequence variations, disulfide bonds, and splice sites)
+        /// into a new <see cref="Protein"/> instance.
+        /// After construction, the internal state is cleared to prepare for the next entry.
         /// </summary>
+        /// <param name="xml">The <see cref="XmlReader"/> positioned at the end of the &lt;entry&gt; element.</param>
+        /// <param name="isContaminant">Indicates whether the protein is a contaminant.</param>
+        /// <param name="proteinDbLocation">The file path or identifier of the protein database source.</param>
+        /// <param name="modTypesToExclude">A collection of modification types to exclude from the protein.</param>
+        /// <param name="unknownModifications">A dictionary to collect modifications that could not be resolved.</param>
+        /// <param name="decoyIdentifier">A string used to identify decoy proteins (default: "DECOY").</param>
+        /// <returns>
+        /// A constructed <see cref="Protein"/> object containing all parsed and resolved information,
+        /// or <c>null</c> if the entry is incomplete.
+        /// </returns>
         public void ParseElement(string elementName, XmlReader xml)
         {
             int outValue;
@@ -137,7 +153,9 @@ namespace UsefulProteomicsDatabases
                     PropertyTypes.Add(xml.GetAttribute("type"));
                     PropertyValues.Add(xml.GetAttribute("value"));
                     break;
-
+                case "location":
+                    LocationSequenceId = xml.GetAttribute("sequence");
+                    break;
                 case "position":
                     OneBasedFeaturePosition = int.Parse(xml.GetAttribute("position"));
                     break;
