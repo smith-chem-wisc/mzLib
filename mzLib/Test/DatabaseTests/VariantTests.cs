@@ -80,11 +80,6 @@ namespace Test.DatabaseTests
 
                     // Expected GT tokens
                     string[] expectedGtTokens = gtPart.Split(new[] { '/', '|' }, StringSplitOptions.RemoveEmptyEntries);
-                    if (gtPart.Contains('.') && expectedGtTokens.Length == 1 &&
-                        (gtPart == "./." || gtPart == ".|." || gtPart == ".|1" || gtPart == "0|." || gtPart == "0/."))
-                    {
-                        expectedGtTokens = new[] { ".", "." };
-                    }
 
                     Assert.That(vcf.Genotypes.ContainsKey(key));
                     var parsedGt = vcf.Genotypes[key];
