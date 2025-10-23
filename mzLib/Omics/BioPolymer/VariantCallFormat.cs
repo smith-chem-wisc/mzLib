@@ -165,8 +165,8 @@ namespace Omics.BioPolymer
             AlternateAlleleString = vcfFields[4];
             Info = new SnpEffAnnotation(vcfFields[7]);
 
-            AlleleIndex = Info.Allele == null
-                ? -1
+            AlleleIndex = Info.Allele == null 
+                ? -1 
                 : AlternateAlleleString.Split(',').ToList().IndexOf(Info.Allele) + 1; // returns 1 - based index for ALT alleles, 0 if not found, -1 if Info.Allele is null
 
             // Format column tokens describe how to split each sample column
