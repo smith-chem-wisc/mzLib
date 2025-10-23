@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 
 namespace Omics.BioPolymer
 {
@@ -164,9 +165,9 @@ namespace Omics.BioPolymer
             AlternateAlleleString = vcfFields[4];
             Info = new SnpEffAnnotation(vcfFields[7]);
 
-            AlleleIndex = Info.Allele == null 
-                ? -1 
-                : AlternateAlleleString.Split(',').ToList().IndexOf(Info.Allele) + 1; // reference is zero
+            AlleleIndex = Info.Allele == null
+                ? -1
+                : AlternateAlleleString.Split(',').ToList().IndexOf(Info.Allele) + 1; // returns 1 - based index for ALT alleles, 0 if not found, -1 if Info.Allele is null
 
             // Format column tokens describe how to split each sample column
             Format = vcfFields[8];
@@ -185,7 +186,7 @@ namespace Omics.BioPolymer
 
                 // GT: split on '/' or '|' – separators removed intentionally.
                 string[] gt = genotypeFields.TryGetValue("GT", out var gtString)
-                    ? gtString.Split(new[] { '/', '|' }, StringSplitOptions.RemoveEmptyEntries)
+                    ? gtString.Split(new[] { '/', '|' }) // if this is bugged, try adding ",StringSplitOptions.RemoveEmptyEntries" after { '/', '|' }
                     : Array.Empty<string>();
 
                 // Skip invalid or empty GT
