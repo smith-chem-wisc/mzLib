@@ -14,14 +14,13 @@ namespace Omics.BioPolymer
         /// <param name="originalSequence"></param>
         /// <param name="variantSequence"></param>
         /// <param name="oneBasedModifications"></param>
-        public SequenceVariation(int oneBasedBeginPosition, int oneBasedEndPosition, string originalSequence, string variantSequence, string description, string? variantCallFormatDataString = null, Dictionary<int, List<Modification>>? oneBasedModifications = null)
+        public SequenceVariation(int oneBasedBeginPosition, int oneBasedEndPosition, string originalSequence, string variantSequence, string description, Dictionary<int, List<Modification>>? oneBasedModifications = null)
         {
             OneBasedBeginPosition = oneBasedBeginPosition;
             OneBasedEndPosition = oneBasedEndPosition;
             OriginalSequence = originalSequence ?? "";
             VariantSequence = variantSequence ?? "";
             Description = new VariantCallFormat(description);
-            VariantCallFormatData = variantCallFormatDataString is null ? null : new VariantCallFormat(variantCallFormatDataString);
             OneBasedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
         }
 
@@ -34,8 +33,8 @@ namespace Omics.BioPolymer
         /// <param name="variantSequence"></param>
         /// <param name="description"></param>
         /// <param name="oneBasedModifications"></param>
-        public SequenceVariation(int oneBasedPosition, string originalSequence, string variantSequence, string description, string? variantCallFormatDataString = null, Dictionary<int, List<Modification>>? oneBasedModifications = null)
-            : this(oneBasedPosition, originalSequence == null ? oneBasedPosition : oneBasedPosition + originalSequence.Length - 1, originalSequence, variantSequence, description,  variantCallFormatDataString = null, oneBasedModifications)
+        public SequenceVariation(int oneBasedPosition, string originalSequence, string variantSequence, string description, Dictionary<int, List<Modification>>? oneBasedModifications = null)
+            : this(oneBasedPosition, originalSequence == null ? oneBasedPosition : oneBasedPosition + originalSequence.Length - 1, originalSequence, variantSequence, description, oneBasedModifications)
         { }
 
         /// <summary>

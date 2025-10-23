@@ -597,7 +597,7 @@ namespace UsefulProteomicsDatabases
                                 OriginalValue,
                                 VariationValue,
                                 FeatureDescription,
-                                variantCallFormatDataString: null,
+                                //variantCallFormatDataString: null,
                                 oneBasedModifications: OneBasedVariantModifications));
                     }
                     else if (OneBasedFeaturePosition >= 1)
@@ -608,7 +608,7 @@ namespace UsefulProteomicsDatabases
                                 OriginalValue,
                                 VariationValue,
                                 FeatureDescription,
-                                variantCallFormatDataString: null,
+                                //variantCallFormatDataString: null,
                                 oneBasedModifications: OneBasedVariantModifications));
                     }
 
