@@ -99,7 +99,7 @@ namespace Test.DatabaseTests
 
                     Assert.That(vcf.AlleleDepths.ContainsKey(key));
                     var parsedAd = vcf.AlleleDepths[key] ?? Array.Empty<string>();
-                    if (!(parsedAd.Length == 0 && expectedAdTokens.Length == 1 && expectedAdTokens[0] == "."))
+                    if (parsedAd.Length != 0 || expectedAdTokens.Length != 1 || expectedAdTokens[0] != ".")
                     {
                         Assert.That(parsedAd, Is.EqualTo(expectedAdTokens));
                     }

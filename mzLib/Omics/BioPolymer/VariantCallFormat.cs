@@ -149,7 +149,7 @@ namespace Omics.BioPolymer
             // normalize them to actual tabs for parsing only. Leave Description intact.
             string parseLine = NormalizeTabsForParsing(description);
 
-            // Parse description into
+            // Parse description into VCF fields
             string[] vcfFields = parseLine.Split('\t');
             if (vcfFields.Length < 10)
             {
