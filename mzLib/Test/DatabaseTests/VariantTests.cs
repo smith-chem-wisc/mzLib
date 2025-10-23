@@ -1,12 +1,8 @@
 ﻿using NUnit.Framework;
 using Omics.BioPolymer;
-using Omics.Modifications;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Test.DatabaseTests
 {
