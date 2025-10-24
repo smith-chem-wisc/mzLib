@@ -101,6 +101,36 @@ namespace UsefulProteomicsDatabases
                     // Truncation expansion is handled later by the loader for both targets and decoys.
                     decoyPP.Add(new TruncationProduct(pp.OneBasedBeginPosition, pp.OneBasedEndPosition, pp.Type));
                 }
+                // After creating the decoy Protein (with reversed sequence):
+                // var decoy = new Protein(original, reversedSequence);
+                if (decoyPP != null && decoyPP.Count > 0)
+                {
+                    int L = reversedSequence.Length;
+
+                    // Mirror all annotated proteolysis products from target to match the reversed sequence coordinates
+                    decoyPP = decoyPP
+                        .Select(tp =>
+                        {
+                            int? b = tp.OneBasedBeginPosition;
+                            int? e = tp.OneBasedEndPosition;
+
+                            int? mb = (b.HasValue && e.HasValue) ? L - e.Value + 1 : b; // if one side is null, keep it null
+                            int? me = (b.HasValue && e.HasValue) ? L - b.Value + 1 : e;
+
+                            // Keep type/description; if not available as a property, use a neutral label
+                            string type = "decoy_mirror";
+                            try
+                            {
+                                // If your TruncationProduct exposes a type/description property, prefer that:
+                                // type = tp.Type ?? "decoy_mirror";
+                                // or: type = tp.Description ?? "decoy_mirror";
+                            }
+                            catch { /* fallback */ }
+
+                            return new TruncationProduct(mb, me, type);
+                        })
+                        .ToList();
+                }
 
                 List<DisulfideBond> decoyDisulfides = new List<DisulfideBond>();
                 foreach (DisulfideBond disulfideBond in protein.DisulfideBonds)
