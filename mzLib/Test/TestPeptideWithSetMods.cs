@@ -1150,6 +1150,78 @@ namespace Test
                 .Digest(dp, new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true)
                 .ToList();
 
+
+
+
+            // Explicitly list and verify all 68 truncations by coordinates to aid future debugging.
+            // We build two "expected" sets from the target truncations:
+            //  - mirroredExpected: each target (start,end) mapped to the decoy's reversed coordinates (s' = L - e + 1, e' = L - s + 1)
+            //  - sameExpected:     same (start,end) pairs as target (useful if truncations are generated independently on decoys)
+            // We then compare the actual decoy (start,end) pairs to both expected sets. If neither matches,
+            // we produce a detailed diff listing which truncations are missing/extra. This makes failures actionable.
+            int L = decoyProtein.Length;
+
+            // Canonicalize to "start-end" strings for readable diffs
+            var actualDecoyPairs = insulintDecoyTruncations
+                .Select(p => (p.OneBasedStartResidueInProtein, p.OneBasedEndResidueInProtein))
+                .OrderBy(p => p.OneBasedStartResidueInProtein).ThenBy(p => p.OneBasedEndResidueInProtein)
+                .Select(p => $"{p.OneBasedStartResidueInProtein}-{p.OneBasedEndResidueInProtein}")
+                .ToList();
+
+            var mirroredExpectedPairs = insulintTargetTruncations
+                .Select(t => (L - t.OneBasedEndResidueInProtein + 1, L - t.OneBasedStartResidueInProtein + 1))
+                .OrderBy(p => p.Item1).ThenBy(p => p.Item2)
+                .Select(p => $"{p.Item1}-{p.Item2}")
+                .ToList();
+
+            var sameExpectedPairs = insulintTargetTruncations
+                .Select(t => (t.OneBasedStartResidueInProtein, t.OneBasedEndResidueInProtein))
+                .OrderBy(p => p.OneBasedStartResidueInProtein).ThenBy(p => p.OneBasedEndResidueInProtein)
+                .Select(p => $"{p.OneBasedStartResidueInProtein}-{p.OneBasedEndResidueInProtein}")
+                .ToList();
+
+            // Fast equality checks
+            bool matchesMirrored = mirroredExpectedPairs.SequenceEqual(actualDecoyPairs);
+            bool matchesSame = sameExpectedPairs.SequenceEqual(actualDecoyPairs);
+
+            if (!matchesMirrored && !matchesSame)
+            {
+                // Compute diffs for both hypotheses to show exactly which truncations are missing or extra
+                var actualSet = new HashSet<string>(actualDecoyPairs);
+
+                var mirroredSet = new HashSet<string>(mirroredExpectedPairs);
+                var missingFromActual_Mirrored = mirroredSet.Except(actualSet).OrderBy(s => s).ToList();
+                var extraInActual_Mirrored = actualSet.Except(mirroredSet).OrderBy(s => s).ToList();
+
+                var sameSet = new HashSet<string>(sameExpectedPairs);
+                var missingFromActual_Same = sameSet.Except(actualSet).OrderBy(s => s).ToList();
+                var extraInActual_Same = actualSet.Except(sameSet).OrderBy(s => s).ToList();
+
+                // Provide a comprehensive failure message including the explicit 68 expected truncations
+                // and the 68 actual truncations for easy manual comparison
+                var msg = $@"
+                    Decoy truncations do not match either expected layout.
+
+                    Target length: {L}
+                    Count(Target) = {insulintTargetTruncations.Count}, Count(Decoy) = {insulintDecoyTruncations.Count}
+
+                    Expected (mirrored from target -> decoy coordinates) [total {mirroredExpectedPairs.Count}]:
+                    {string.Join(", ", mirroredExpectedPairs)}
+
+                    Expected (same coordinates as target) [total {sameExpectedPairs.Count}]:
+                    {string.Join(", ", sameExpectedPairs)}
+
+                    Actual decoy (start-end) [total {actualDecoyPairs.Count}]:
+                    {string.Join(", ", actualDecoyPairs)}
+
+                    Missing (vs mirrored): {string.Join(", ", missingFromActual_Mirrored.DefaultIfEmpty("<none>"))}
+                    Extra    (vs mirrored): {string.Join(", ", extraInActual_Mirrored.DefaultIfEmpty("<none>"))}
+
+                    Missing (vs same): {string.Join(", ", missingFromActual_Same.DefaultIfEmpty("<none>"))}
+                    Extra    (vs same): {string.Join(", ", extraInActual_Same.DefaultIfEmpty("<none>"))}
+                    ";
+                Assert.Fail(msg);
+            }
             // Parity check: decoy should have the same number of enumerated truncations.
             Assert.AreEqual(68, insulintDecoyTruncations.Count, "Unexpected number of decoy truncation proteoforms.");
 
