@@ -1279,23 +1279,141 @@ namespace Test.DatabaseTests
             Assert.That(newProtein.SequenceVariations.Count, Is.EqualTo(totalSequenceVariations + 1)); //This number increases by 1 because we added a sequence variation that was discovered as a modification
             Assert.AreEqual(0,newProtein.OneBasedPossibleLocalizedModifications.Count); //This number should be 0 because we converted the modification to a sequence variation
         }
-
+        /// <summary>
+        /// PURPOSE
+        /// Ensures that variant proteins are automatically generated during XML read, both for targets and reverse decoys.
+        /// The database "humanGAPDH.xml" encodes two single-nucleotide substitutions on the target protein P04406:
+        /// - A22G
+        /// - K251N
+        ///
+        /// EXPECTATIONS
+        /// - Loader emits all combinatorial target variants derived from those two changes:
+        ///   [0] Reference (no variants applied)                         → Accession "P04406"
+        ///   [1] Single variant A22G                                     → Accession "P04406_A22G"
+        ///   [2] Single variant K251N                                    → Accession "P04406_K251N"
+        ///   [3] Double variant K251N + A22G (combined)                  → Accession "P04406_K251N_A22G"
+        /// - With DecoyType.Reverse, a matching set of 4 reverse decoys is produced with mirrored coordinates:
+        ///   [4] Decoy of reference                                      → "DECOY_P04406"
+        ///   [5] Decoy with mirrored A22G (mapped to site 315)           → "DECOY_P04406_A315G"
+        ///   [6] Decoy with mirrored K251N (mapped to site 86)           → "DECOY_P04406_K86N"
+        ///   [7] Decoy with both mirrored variants                       → "DECOY_P04406_K86N_A315G"
+        ///
+        /// WHY THIS MATTERS
+        /// - Validates that the reader expands sequence variation definitions into concrete variant proteins.
+        /// - Verifies decoy generation mirrors variant coordinates appropriately and preserves ordering.
+        /// - Guards against regressions in accession naming, variant application counts, and decoy parity.
+        ///
+        /// PARAMETERS PASSED TO LOADER
+        /// - generateTargets: true        → emit target proteins
+        /// - decoyType: Reverse           → also emit reverse decoys
+        /// - allKnownModifications: UniProtPtms → resolve any UniProt-annotated PTMs so no "unknown" mods remain
+        /// - isContaminant: false
+        /// - modTypesToExclude: null
+        /// - out unknownModifications     → capture any unrecognized mods (should be empty when UniProtPtms is provided)
+        /// - minAlleleDepth: 1            → do not filter out these low-depth test variants
+        /// - maxHeterozygousVariants: 99  → allow generating all combinations from the two sites (up to 2^2)
+        /// </summary>
         [Test]
         public static void TestThatProteinVariantsAreGeneratedDuringRead()
         {
+            // Arrange: load a target with two site-specific variants and request reverse decoys as well.
+            // IMPORTANT: Provide UniProtPtms so annotations in humanGAPDH.xml resolve and do not end up in unknownModifications.
             string databaseName = "humanGAPDH.xml";
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
-                DecoyType.Reverse, null, false, null, out var unknownModifications, 1, 99);
-            Assert.AreEqual(8, proteins.Count); // 4 target + 4 decoy
-            Assert.AreEqual(2, proteins[0].SequenceVariations.Count()); // these sequence variations were in the original
-            Assert.That("P04406", Is.EqualTo(proteins[0].Accession));
-            Assert.That("P04406_A22G", Is.EqualTo(proteins[1].Accession));
-            Assert.That("P04406_K251N", Is.EqualTo(proteins[2].Accession));
-            Assert.That("P04406_K251N_A22G", Is.EqualTo(proteins[3].Accession));
-            Assert.That("DECOY_P04406", Is.EqualTo(proteins[4].Accession));
-            Assert.That("DECOY_P04406_A315G", Is.EqualTo(proteins[5].Accession));
-            Assert.That("DECOY_P04406_K86N", Is.EqualTo(proteins[6].Accession));
-            Assert.That("DECOY_P04406_K86N_A315G", Is.EqualTo(proteins[7].Accession));
+            var proteins = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName),
+                generateTargets: true,
+                decoyType: DecoyType.Reverse,
+                allKnownModifications: UniProtPtms, // CHANGED: was null; supplying known PTMs prevents unknownModifications from being populated
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var unknownModifications,
+                minAlleleDepth: 1,
+                maxHeterozygousVariants: 99);
+
+            // Basic shape: 4 targets + 4 reverse decoys in a deterministic order.
+            Assert.AreEqual(8, proteins.Count, "Expected 4 targets and 4 decoys in a fixed order");
+
+            // Targets/decoys split and flags should be consistent and easy to reason about.
+            Assert.AreEqual(4, proteins.Count(p => !p.IsDecoy), "First half should be targets");
+            Assert.AreEqual(4, proteins.Count(p => p.IsDecoy), "Second half should be decoys");
+            for (int i = 0; i < 4; i++)
+            {
+                Assert.IsFalse(proteins[i].IsDecoy, $"Index {i} should be a target");
+                Assert.IsTrue(proteins[i + 4].IsDecoy, $"Index {i + 4} should be a decoy");
+            }
+
+            // The reference target (index 0) carries two possible sequence variations in its metadata.
+            // This documents the test input and ensures the reader surfaced them.
+            Assert.AreEqual(2, proteins[0].SequenceVariations.Count(), "Reference should advertise exactly two possible sequence variations");
+
+            // Accessions must match exact, canonical variant labeling and order for both targets and decoys.
+            Assert.That("P04406", Is.EqualTo(proteins[0].Accession), "Reference target accession mismatch");
+            Assert.That("P04406_A22G", Is.EqualTo(proteins[1].Accession), "Single-variant (A22G) target accession mismatch");
+            Assert.That("P04406_K251N", Is.EqualTo(proteins[2].Accession), "Single-variant (K251N) target accession mismatch");
+            Assert.That("P04406_K251N_A22G", Is.EqualTo(proteins[3].Accession), "Double-variant target accession mismatch");
+
+            Assert.That("DECOY_P04406", Is.EqualTo(proteins[4].Accession), "Reference decoy accession mismatch");
+            Assert.That("DECOY_P04406_A315G", Is.EqualTo(proteins[5].Accession), "Decoy accession for mirrored A22G mismatch");
+            Assert.That("DECOY_P04406_K86N", Is.EqualTo(proteins[6].Accession), "Decoy accession for mirrored K251N mismatch");
+            Assert.That("DECOY_P04406_K86N_A315G", Is.EqualTo(proteins[7].Accession), "Decoy accession for double-variant mismatch");
+
+            // Sanity: accessions are non-empty and unique (avoid accidental duplication/shuffling).
+            Assert.That(proteins.All(p => !string.IsNullOrWhiteSpace(p.Accession)), "All proteins must have non-empty accessions");
+            Assert.AreEqual(proteins.Count, proteins.Select(p => p.Accession).Distinct().Count(), "Accessions must be unique");
+
+            // Each decoy should be length-equal to its corresponding target, but usually sequence-different (reverse).
+            for (int i = 0; i < 4; i++)
+            {
+                Assert.AreEqual(proteins[i].Length, proteins[i + 4].Length, $"Target/decoy length should match for index {i}");
+                Assert.AreNotEqual(proteins[i].BaseSequence, proteins[i + 4].BaseSequence, $"Decoy sequence should differ from its target for index {i}");
+            }
+
+            // Applied variant counts (how many variations were actually realized in this protein instance):
+            // Targets:    [0] ref=0, [1] A22G=1, [2] K251N=1, [3] both=2
+            // Decoys:     [4] ref=0, [5] A315G=1, [6] K86N=1, [7] both=2
+            int[] expectedAppliedCounts = { 0, 1, 1, 2, 0, 1, 1, 2 };
+            for (int i = 0; i < proteins.Count; i++)
+            {
+                Assert.AreEqual(expectedAppliedCounts[i], proteins[i].AppliedSequenceVariations.Count(),
+                    $"Applied variant count mismatch at index {i} ({proteins[i].Accession})");
+            }
+
+            // The specific applied-variant labels should match accessions:
+            // - For targets: "A22G" and/or "K251N"
+            // - For decoys:  mirrored positions → "A315G" and/or "K86N"
+            static HashSet<string> AppliedLabels(Protein p) =>
+                new HashSet<string>(p.AppliedSequenceVariations.Select(v => v.SimpleString()));
+
+            // Targets (indices 0..3)
+            Assert.That(AppliedLabels(proteins[0]).SetEquals(Array.Empty<string>()), "Reference target should have no applied variants");
+            Assert.That(AppliedLabels(proteins[1]).SetEquals(new[] { "A22G" }), "Single-variant target must be exactly A22G");
+            Assert.That(AppliedLabels(proteins[2]).SetEquals(new[] { "K251N" }), "Single-variant target must be exactly K251N");
+            Assert.That(AppliedLabels(proteins[3]).SetEquals(new[] { "A22G", "K251N" }), "Double-variant target should have A22G and K251N");
+
+            // Decoys (indices 4..7) have mirrored coordinates (due to reverse decoying).
+            Assert.That(AppliedLabels(proteins[4]).SetEquals(Array.Empty<string>()), "Reference decoy should have no applied variants");
+            Assert.That(AppliedLabels(proteins[5]).SetEquals(new[] { "A315G" }), "Single-variant decoy must be exactly A315G (mirror of A22G)");
+            Assert.That(AppliedLabels(proteins[6]).SetEquals(new[] { "K86N" }), "Single-variant decoy must be exactly K86N (mirror of K251N)");
+            Assert.That(AppliedLabels(proteins[7]).SetEquals(new[] { "A315G", "K86N" }), "Double-variant decoy should have A315G and K86N");
+
+            // Parity check: each target and its decoy should carry the same number of applied variations.
+            for (int i = 0; i < 4; i++)
+            {
+                Assert.AreEqual(
+                    proteins[i].AppliedSequenceVariations.Count(),
+                    proteins[i + 4].AppliedSequenceVariations.Count(),
+                    $"Applied variant count should match between target and decoy at index {i}");
+            }
+
+            // With UniProtPtms supplied, no unknown modifications should be reported.
+            if (unknownModifications != null && unknownModifications.Count > 0)
+            {
+                // Extra diagnostics to ease debugging in case of future schema/content changes.
+                TestContext.WriteLine("Unknown modifications reported by loader:");
+                foreach (var um in unknownModifications)
+                    TestContext.WriteLine($" - {um}");
+            }
+            Assert.That(unknownModifications == null || unknownModifications.Count == 0, "No unknown modifications expected from this input");
         }
         [Test]
         public static void ProteinVariantsReadAsModificationsWrittenAsVariants()
