@@ -25,7 +25,7 @@ namespace Omics.BioPolymer
         {
             protein.ConsensusVariant.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
             protein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
-            if (protein.SequenceVariations.All(v => v.AreValid()) && protein.SequenceVariations.Any(v => v.Description == null || v.Description.Genotypes.Count == 0))
+            if (protein.SequenceVariations.All(v => v.AreValid()) && protein.SequenceVariations.Any(v => v.VariantCallFormatDataString == null || v.VariantCallFormatDataString.Genotypes.Count == 0))
             {
                 // this is a protein with either no VCF lines or a mix of VCF and non-VCF lines
                 return ApplyAllVariantCombinations(protein, protein.SequenceVariations, maxAllowedVariantsForCombinatorics).ToList();
@@ -100,7 +100,7 @@ namespace Omics.BioPolymer
             List<SequenceVariation> uniqueEffectsToApply = sequenceVariations
                 .GroupBy(v => v.SimpleString())
                 .Select(x => x.First())
-                .Where(v => v.Description.Genotypes.Count > 0) // this is a VCF line
+                .Where(v => v.VariantCallFormatDataString.Genotypes.Count > 0) // this is a VCF line
                 .OrderByDescending(v => v.OneBasedBeginPosition) // apply variants at the end of the protein sequence first
                 .ToList();
 
@@ -112,7 +112,7 @@ namespace Omics.BioPolymer
                 return new List<TBioPolymerType> { proteinCopy };
             }
 
-            HashSet<string> individuals = new HashSet<string>(uniqueEffectsToApply.SelectMany(v => v.Description.Genotypes.Keys));
+            HashSet<string> individuals = new HashSet<string>(uniqueEffectsToApply.SelectMany(v => v.VariantCallFormatDataString.Genotypes.Keys));
             List<TBioPolymerType> variantProteins = new();
             List<TBioPolymerType> newVariantProteins = new();
             // loop through genotypes for each sample/individual (e.g. tumor and normal)
@@ -121,17 +121,17 @@ namespace Omics.BioPolymer
                 newVariantProteins.Clear();
                 newVariantProteins.Add(proteinCopy);
 
-                bool tooManyHeterozygousVariants = uniqueEffectsToApply.Count(v => v.Description.Heterozygous[individual]) > maxAllowedVariantsForCombinitorics;
+                bool tooManyHeterozygousVariants = uniqueEffectsToApply.Count(v => v.VariantCallFormatDataString.Heterozygous[individual]) > maxAllowedVariantsForCombinitorics;
                 foreach (var variant in uniqueEffectsToApply)
                 {
-                    bool variantAlleleIsInTheGenotype = variant.Description.Genotypes[individual].Contains(variant.Description.AlleleIndex.ToString()); // should catch the case where it's -1 if the INFO isn't from SnpEff
+                    bool variantAlleleIsInTheGenotype = variant.VariantCallFormatDataString.Genotypes[individual].Contains(variant.VariantCallFormatDataString.AlleleIndex.ToString()); // should catch the case where it's -1 if the INFO isn't from SnpEff
                     if (!variantAlleleIsInTheGenotype)
                     {
                         continue;
                     }
-                    bool isHomozygousAlternate = variant.Description.Homozygous[individual] && variant.Description.Genotypes[individual].All(d => d == variant.Description.AlleleIndex.ToString()); // note this isn't a great test for homozygosity, since the genotype could be 1/2 and this would still return true. But currently, alleles 1 and 2 will be included as separate variants, so this is fine for now.
-                    bool isDeepReferenceAllele = int.TryParse(variant.Description.AlleleDepths[individual][0], out int depthRef) && depthRef >= minAlleleDepth;
-                    bool isDeepAlternateAllele = int.TryParse(variant.Description.AlleleDepths[individual][variant.Description.AlleleIndex], out int depthAlt) && depthAlt >= minAlleleDepth;
+                    bool isHomozygousAlternate = variant.VariantCallFormatDataString.Homozygous[individual] && variant.VariantCallFormatDataString.Genotypes[individual].All(d => d == variant.VariantCallFormatDataString.AlleleIndex.ToString()); // note this isn't a great test for homozygosity, since the genotype could be 1/2 and this would still return true. But currently, alleles 1 and 2 will be included as separate variants, so this is fine for now.
+                    bool isDeepReferenceAllele = int.TryParse(variant.VariantCallFormatDataString.AlleleDepths[individual][0], out int depthRef) && depthRef >= minAlleleDepth;
+                    bool isDeepAlternateAllele = int.TryParse(variant.VariantCallFormatDataString.AlleleDepths[individual][variant.VariantCallFormatDataString.AlleleIndex], out int depthAlt) && depthAlt >= minAlleleDepth;
 
                     // homozygous alternate
                     if (isHomozygousAlternate && isDeepAlternateAllele)
@@ -141,7 +141,7 @@ namespace Omics.BioPolymer
 
                     // heterozygous basic
                     // first protein with variants contains all homozygous variation, second contains all variations
-                    else if (variant.Description.Heterozygous[individual] && tooManyHeterozygousVariants)
+                    else if (variant.VariantCallFormatDataString.Heterozygous[individual] && tooManyHeterozygousVariants)
                     {
                         if (isDeepAlternateAllele && isDeepReferenceAllele)
                         {
@@ -170,7 +170,7 @@ namespace Omics.BioPolymer
                     }
 
                     // heterozygous combinitorics
-                    else if (variant.Description.Heterozygous[individual] && isDeepAlternateAllele && !tooManyHeterozygousVariants)
+                    else if (variant.VariantCallFormatDataString.Heterozygous[individual] && isDeepAlternateAllele && !tooManyHeterozygousVariants)
                     {
                         List<TBioPolymerType> combinitoricProteins = new();
 
@@ -179,7 +179,7 @@ namespace Omics.BioPolymer
                             if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0 && isDeepReferenceAllele)
                             {
                                 // keep reference allele
-                                if (variant.Description.Genotypes[individual].Contains("0"))
+                                if (variant.VariantCallFormatDataString.Genotypes[individual].Contains("0"))
                                 {
                                     combinitoricProteins.Add(ppp);
                                 }
@@ -191,7 +191,7 @@ namespace Omics.BioPolymer
                             {
                                 combinitoricProteins.Add(ApplySingleVariant(variant, ppp, individual));
                             }
-                            else if (variant.Description.Genotypes[individual].Contains("0"))
+                            else if (variant.VariantCallFormatDataString.Genotypes[individual].Contains("0"))
                             {
                                 combinitoricProteins.Add(ppp);
                             }
@@ -224,7 +224,7 @@ namespace Omics.BioPolymer
                 variantGettingApplied.OneBasedBeginPosition + variantGettingApplied.VariantSequence.Length - 1,
                 variantGettingApplied.OriginalSequence,
                 variantGettingApplied.VariantSequence,
-                variantGettingApplied.Description.Description,
+                variantGettingApplied.VariantCallFormatDataString.Description,
                 variantGettingApplied.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value));
 
             // check to see if there is incomplete indel overlap, which would lead to weird variant sequences
@@ -271,7 +271,7 @@ namespace Omics.BioPolymer
 
                 // variant was entirely before the one being applied (shouldn't happen because of order of applying variants)
                 // or it's the current variation
-                if (v.Description.Equals(variantGettingApplied.Description) || v.OneBasedEndPosition - addedIdx < variantGettingApplied.OneBasedBeginPosition)
+                if (v.VariantCallFormatDataString.Equals(variantGettingApplied.VariantCallFormatDataString) || v.OneBasedEndPosition - addedIdx < variantGettingApplied.OneBasedBeginPosition)
                 {
                     variations.Add(v);
                 }
@@ -299,7 +299,7 @@ namespace Omics.BioPolymer
                         end,
                         v.OriginalSequence,
                         v.VariantSequence,
-                        v.Description.Description,
+                        v.VariantCallFormatDataString.Description,
                         v.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value)));
                 }
             }
@@ -425,7 +425,7 @@ namespace Omics.BioPolymer
         /// </summary>
         public static string CombineDescriptions(IEnumerable<SequenceVariation>? variations)
         {
-            return variations.IsNullOrEmpty() ? "" : string.Join(", variant:", variations.Select(d => d.Description));
+            return variations.IsNullOrEmpty() ? "" : string.Join(", variant:", variations.Select(d => d.VariantCallFormatDataString));
         }
         /// <summary>
         /// Applies all possible combinations of the provided SequenceVariation list to the base TBioPolymerType object,

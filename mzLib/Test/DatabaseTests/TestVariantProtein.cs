@@ -116,7 +116,7 @@ namespace Test.DatabaseTests
             {
                 Assert.AreEqual(s.OriginalSequence, decoy.BaseSequence.Substring(s.OneBasedBeginPosition - 1, s.OneBasedEndPosition - s.OneBasedBeginPosition + 1));
             }
-            Assert.AreNotEqual(target.SequenceVariations.First().Description, decoy.SequenceVariations.First().Description); //decoys and target variations don't have the same desc.
+            Assert.AreNotEqual(target.SequenceVariations.First().VariantCallFormatDataString, decoy.SequenceVariations.First().VariantCallFormatDataString); //decoys and target variations don't have the same desc.
 
             List<PeptideWithSetModifications> peptides = ok.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
@@ -987,7 +987,7 @@ namespace Test.DatabaseTests
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SeqVarSymbolWeirdness.xml");
             List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
             Assert.AreEqual(12, variantProteins.First().ConsensusVariant.SequenceVariations.Count());
-            Assert.AreEqual(2, variantProteins.First().ConsensusVariant.SequenceVariations.Count(v => v.Description.Heterozygous.Any(kv => kv.Value)));
+            Assert.AreEqual(2, variantProteins.First().ConsensusVariant.SequenceVariations.Count(v => v.VariantCallFormatDataString.Heterozygous.Any(kv => kv.Value)));
 
             Assert.AreEqual(1, variantProteins.Count); // Should be 2^2 from combinitorics of heterozygous, but the giant indels overwrite them
             Assert.AreEqual(0, variantProteins.Where(v => v.BaseSequence == variantProteins.First().ConsensusVariant.BaseSequence).Count()); // Homozygous variations are included
