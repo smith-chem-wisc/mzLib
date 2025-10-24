@@ -26,23 +26,43 @@ namespace Omics.BioPolymer
             VariantCallFormatDataString = new VariantCallFormat(variantCallFormatStringRepresentation);
             OneBasedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
         }
-        /// <summary>
-        /// For longer sequence variations, where a range of sequence is replaced. Point mutations should be specified with the same begin and end positions.
-        /// </summary>
-        /// <param name="oneBasedBeginPosition"></param>
-        /// <param name="oneBasedEndPosition"></param>
-        /// <param name="originalSequence"></param>
-        /// <param name="variantSequence"></param>
-        /// <param name="oneBasedModifications"></param>
         public SequenceVariation(int oneBasedBeginPosition, int oneBasedEndPosition, string originalSequence, string variantSequence, string description, Dictionary<int, List<Modification>>? oneBasedModifications = null)
         {
             OneBasedBeginPosition = oneBasedBeginPosition;
             OneBasedEndPosition = oneBasedEndPosition;
             OriginalSequence = originalSequence ?? "";
             VariantSequence = variantSequence ?? "";
-            VariantCallFormatDataString = new VariantCallFormat(description);
+
+            if (LooksLikeVcf(description))
+            {
+                Description = "VCF Data";
+                VariantCallFormatDataString = new VariantCallFormat(description);
+            }
+            else
+            {
+                Description = description;
+                VariantCallFormatDataString = null;
+            }
             OneBasedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
         }
+
+        ///// <summary>
+        ///// For longer sequence variations, where a range of sequence is replaced. Point mutations should be specified with the same begin and end positions.
+        ///// </summary>
+        ///// <param name="oneBasedBeginPosition"></param>
+        ///// <param name="oneBasedEndPosition"></param>
+        ///// <param name="originalSequence"></param>
+        ///// <param name="variantSequence"></param>
+        ///// <param name="oneBasedModifications"></param>
+        //public SequenceVariation(int oneBasedBeginPosition, int oneBasedEndPosition, string originalSequence, string variantSequence, string description, Dictionary<int, List<Modification>>? oneBasedModifications = null)
+        //{
+        //    OneBasedBeginPosition = oneBasedBeginPosition;
+        //    OneBasedEndPosition = oneBasedEndPosition;
+        //    OriginalSequence = originalSequence ?? "";
+        //    VariantSequence = variantSequence ?? "";
+        //    VariantCallFormatDataString = new VariantCallFormat(description);
+        //    OneBasedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
+        //}
 
         /// <summary>
         /// For variations with only position information (not begin and end).
@@ -184,5 +204,9 @@ namespace Omics.BioPolymer
         {
             return OneBasedBeginPosition > 0 && OneBasedEndPosition >= OneBasedBeginPosition;
         }
+        private static bool LooksLikeVcf(string s)
+            => !string.IsNullOrWhiteSpace(s)
+               && (s.Contains("\t") || s.Contains("\\t"))
+               && (s.Contains("GT:") || s.Contains(":GT:") || s.Contains(" ANN=") || s.Contains("\tANN="));
     }
 }
