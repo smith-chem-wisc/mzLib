@@ -52,37 +52,50 @@ namespace UsefulProteomicsDatabases
         private static List<Modification> protein_xml_modlist_general = new List<Modification>();
 
         /// <summary>
-        /// Load a mzLibProteinDb or UniProt XML file. Protein modifications may be specified before the protein entries (mzLibProteinDb format).
-        /// If so, this modification list can be acquired with GetPtmListFromProteinXml after using this method.
-        /// They may also be read in separately from a ptmlist text file, and then input as allKnownModifications.
-        /// If protein modifications are specified both in the mzLibProteinDb XML file and in allKnownModifications, they are collapsed into a HashSet of Modifications before generating Protein entries.
+        /// Load a mzLibProteinDb or UniProt XML file.
+        /// IMPORTANT: Truncations (top-down proteoforms) are now added AFTER decoy generation
+        /// and applied to BOTH targets and decoys when addTruncations == true. This ensures that
+        /// - each protein (target/decoy) derives its own consistent set of truncations from its own sequence
+        /// - target/decoy parity for top-down truncation enumeration (e.g., insulin = 68 each)
+        /// - we do not mirror “synthetic” truncations from target to reversed decoy coordinates, which loses entries
         /// </summary>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
             int maxHeterozygousVariants = 4, int minAlleleDepth = 1, bool addTruncations = false, string decoyIdentifier = "DECOY")
         {
+            // NOTE:
+            // This loader used to call AddTruncations() inside the XML read loop (per-protein).
+            // That caused problems for decoys because decoys are generated AFTER reading targets,
+            // so decoys did not receive AddTruncations() (or received mirrored truncations),
+            // producing fewer top-down truncation proteoforms (e.g., 65 or 54 instead of 68).
+            //
+            // Fix:
+            // 1) Read all targets (do NOT add truncations while streaming XML).
+            // 2) Generate decoys from the raw targets.
+            // 3) If addTruncations == true, call AddTruncations() on BOTH targets and decoys.
+            // This yields symmetric, sequence-derived truncations and restores expected parity.
+
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
             modTypesToExclude = modTypesToExclude ?? new List<string>();
 
-            //Dictionary<string, IList<Modification>> modsDictionary = new Dictionary<string, IList<Modification>>();
             if (prespecified.Count > 0 || allKnownModifications.Count() > 0)
             {
-                //modsDictionary = GetModificationDict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
                 IdToPossibleMods = GetModificationDict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
                 IdWithMotifToMod = GetModificationDictWithMotifs(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
             }
+
             List<Protein> targets = new List<Protein>();
             List<Protein> decoys = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
 
             string newProteinDbLocation = proteinDbLocation;
 
-            //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
+            // Decompress .gz to temp before reading for robust streaming
             if (proteinDbLocation.EndsWith(".gz"))
             {
-                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation),"temp.xml");
+                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation), "temp.xml");
                 using var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
                 using FileStream outputFileStream = File.Create(newProteinDbLocation);
                 using var decompressor = new GZipStream(stream, CompressionMode.Decompress);
@@ -92,7 +105,6 @@ namespace UsefulProteomicsDatabases
             using (var uniprotXmlFileStream = new FileStream(newProteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 Regex substituteWhitespace = new Regex(@"\s+");
-
                 ProteinXmlEntry block = new ProteinXmlEntry();
 
                 using (XmlReader xml = XmlReader.Create(uniprotXmlFileStream))
@@ -103,20 +115,20 @@ namespace UsefulProteomicsDatabases
                         {
                             block.ParseElement(xml.Name, xml);
                         }
+
                         if (xml.NodeType == XmlNodeType.EndElement || xml.IsEmptyElement)
                         {
                             Protein newProtein = block.ParseEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, proteinDbLocation);
                             if (newProtein != null)
                             {
-                                //If we have read any modifications that are nucleotide substitutions, convert them to sequence variants here:
+                                // Convert any “nucleotide substitution” modifications into sequence variations
                                 if (newProtein.OneBasedPossibleLocalizedModifications.Any(m => m.Value.Any(mt => mt.ModificationType.Contains("nucleotide substitution"))))
                                 {
                                     newProtein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
                                 }
-                                if (addTruncations)
-                                {
-                                    newProtein.AddTruncations();
-                                }
+
+                                // CRITICAL CHANGE: Do NOT call AddTruncations() here.
+                                // We will add truncations consistently to both targets and decoys after decoy generation.
 
                                 if (newProtein.IsDecoy)
                                 {
@@ -128,7 +140,6 @@ namespace UsefulProteomicsDatabases
                                 }
                             }
                         }
-
                     }
                 }
             }
@@ -138,7 +149,24 @@ namespace UsefulProteomicsDatabases
                 File.Delete(newProteinDbLocation);
             }
 
+            // Generate decoys from raw targets (no truncations added yet)
             decoys.AddRange(DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier));
+
+            // Add truncations SYMMETRICALLY if requested: apply to both targets and decoys NOW
+            if (addTruncations)
+            {
+                foreach (var p in targets)
+                {
+                    p.AddTruncations();
+                }
+
+                foreach (var p in decoys)
+                {
+                    p.AddTruncations();
+                }
+            }
+
+            // Expand variants (if any) and merge
             IEnumerable<Protein> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
             var toReturn = proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth));
             return Merge(toReturn).ToList();
@@ -208,7 +236,7 @@ namespace UsefulProteomicsDatabases
             string name = null;
             string fullName = null;
             string organism = null;
-            List<Tuple<string, string>> geneName = new List<Tuple<string, string>>();
+            List<Tuple<string, string>> geneName = new List<Tuple<string, String>>();
             errors = new List<string>();
             Regex substituteWhitespace = new Regex(@"\s+");
 
