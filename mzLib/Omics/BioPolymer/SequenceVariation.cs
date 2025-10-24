@@ -112,23 +112,24 @@ namespace Omics.BioPolymer
         {
             SequenceVariation s = obj as SequenceVariation;
             return s != null
-                && OneBasedBeginPosition == s.OneBasedBeginPosition
-                && OneBasedEndPosition == s.OneBasedEndPosition
-                && (s.OriginalSequence == null && OriginalSequence == null || OriginalSequence.Equals(s.OriginalSequence))
-                && (s.VariantSequence == null && VariantSequence == null || VariantSequence.Equals(s.VariantSequence))
-                && (s.VariantCallFormatDataString == null && VariantCallFormatDataString == null || VariantCallFormatDataString.Equals(s.VariantCallFormatDataString))
-                && (s.OneBasedModifications == null && OneBasedModifications == null ||
-                    s.OneBasedModifications.Keys.ToList().SequenceEqual(OneBasedModifications.Keys.ToList())
-                    && s.OneBasedModifications.Values.SelectMany(m => m).ToList().SequenceEqual(OneBasedModifications.Values.SelectMany(m => m).ToList()));
+                   && OneBasedBeginPosition == s.OneBasedBeginPosition
+                   && OneBasedEndPosition == s.OneBasedEndPosition
+                   && (s.OriginalSequence == null && OriginalSequence == null || OriginalSequence.Equals(s.OriginalSequence))
+                   && (s.VariantSequence == null && VariantSequence == null || VariantSequence.Equals(s.VariantSequence))
+                   && ((s.VariantCallFormatDataString == null && VariantCallFormatDataString == null)
+                       || (VariantCallFormatDataString != null && VariantCallFormatDataString.Equals(s.VariantCallFormatDataString)))
+                   && (s.OneBasedModifications == null && OneBasedModifications == null ||
+                       s.OneBasedModifications.Keys.ToList().SequenceEqual(OneBasedModifications.Keys.ToList())
+                       && s.OneBasedModifications.Values.SelectMany(m => m).ToList().SequenceEqual(OneBasedModifications.Values.SelectMany(m => m).ToList()));
         }
 
         public override int GetHashCode()
         {
             return OneBasedBeginPosition.GetHashCode()
-                ^ OneBasedEndPosition.GetHashCode()
-                ^ OriginalSequence.GetHashCode() // null handled in constructor
-                ^ VariantSequence.GetHashCode() // null handled in constructor
-                ^ VariantCallFormatDataString.GetHashCode(); // always constructed in constructor
+                   ^ OneBasedEndPosition.GetHashCode()
+                   ^ OriginalSequence.GetHashCode() // null handled in constructor
+                   ^ VariantSequence.GetHashCode() // null handled in constructor
+                   ^ (VariantCallFormatDataString?.GetHashCode() ?? Description.GetHashCode()); // fallback to non-null Description
         }
 
         /// <summary>
