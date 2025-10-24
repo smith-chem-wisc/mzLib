@@ -262,6 +262,9 @@
     <None Update="DatabaseTests\test_ensembl.pep.all.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DatabaseTests\truncationsExpected.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\uniprot_aifm1.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
