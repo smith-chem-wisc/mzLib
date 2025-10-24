@@ -621,6 +621,14 @@ namespace Proteomics
 #if DEBUG
             LogTrunc($"BEGIN AddTruncationsToExistingProteolysisProducts B={fullProteinOneBasedBegin},E={fullProteinOneBasedEnd}");
 #endif
+            // Defensive: ensure begin <= end
+            if (fullProteinOneBasedBegin > fullProteinOneBasedEnd)
+            {
+                int tmp = fullProteinOneBasedBegin;
+                fullProteinOneBasedBegin = fullProteinOneBasedEnd;
+                fullProteinOneBasedEnd = tmp;
+            }
+
             bool sequenceContainsNterminus = (fullProteinOneBasedBegin == 1);
 
             // Helper: ensure all C-term deltas 1..lengthOfProteolysis are present for "begin"
