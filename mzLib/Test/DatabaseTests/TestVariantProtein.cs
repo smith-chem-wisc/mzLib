@@ -664,32 +664,110 @@ namespace Test.DatabaseTests
                 proteins[0].CreateVariant(proteins[0].BaseSequence, rna, [], [], new Dictionary<int, List<Modification>>(), "");
             });
         }
-
         [Test]
         public static void StopGained()
         {
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGained.xml"), true,
-                DecoyType.None, null, false, null, out var unknownModifications);
-            Assert.AreEqual(2, proteins.Count);
-            Assert.AreEqual(1, proteins[0].SequenceVariations.Count()); // some redundant
-            Assert.AreEqual(1, proteins[0].SequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
-            Assert.AreEqual(0, proteins[0].AppliedSequenceVariations.Count()); // some redundant
-            Assert.AreEqual(0, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
-            Assert.AreEqual(1, proteins[1].AppliedSequenceVariations.Count()); // some redundant
-            Assert.AreEqual(1, proteins[1].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
-            Assert.AreEqual(191, proteins[0].Length);
-            Assert.AreEqual('Q', proteins[0][161 - 1]);
-            Assert.AreEqual(161 - 1, proteins[1].Length);
-            Assert.AreNotEqual(proteins[0].Length, proteins[1].Length);
+            // PURPOSE
+            // This test validates correct handling of a stop-gained sequence variation (creation of a premature stop codon).
+            // Verifies two scenarios:
+            // 1) Default variant depth filtering: both reference (no variant applied) and alternate (stop-gained applied) proteins are emitted.
+            // 2) High min-allele-depth threshold: only the stop-gained (applied) protein is retained.
+            //
+            // EXPECTATIONS SUMMARY (based on the StopGained.xml test data):
+            // - Two proteins are initially produced (reference + variant-applied):
+            //   [0] Reference protein:
+            //       * 1 sequence variation present in metadata, but 0 applied (reference form).
+            //       * BaseSequence length = 191.
+            //       * Residue at one-based position 161 equals 'Q' (so zero-based index 160 is 'Q').
+            //   [1] Variant-applied protein (stop-gained):
+            //       * Exactly 1 applied variation.
+            //       * BaseSequence length truncated to 161 - 1 = 160 (stop codon at 161 shortens the sequence).
+            //       * The sequence is exactly the prefix of the reference up to length 160.
+            //       * No '*' appears in the resulting BaseSequence (the stop codon is not a literal character in the sequence).
+            //       * The applied variant's VariantSequence ends with '*'.
+            //       * The applied variant one-based begin (and end) position is 161.
+            //
+            // - With minAlleleDepth: 400
+            //   * Only the variant-applied protein is returned.
+            //   * It retains the same applied-variation and truncated length expectations.
 
-            proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGained.xml"), true,
-                DecoyType.None, null, false, null, out unknownModifications, minAlleleDepth: 400);
-            Assert.AreEqual(1, proteins.Count);
-            Assert.AreEqual(1, proteins[0].AppliedSequenceVariations.Count()); // some redundant
-            Assert.AreEqual(1, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
-            Assert.AreEqual(161 - 1, proteins[0].Length);
+            // Load the proteins with default filtering
+            var proteins = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGained.xml"),
+                true,               // generateTargets
+                DecoyType.None,     // decoyType
+                null,               // allKnownModifications
+                false,              // isContaminant
+                null,               // modTypesToExclude
+                out var unknownModifications);
+
+            // Sanity: Decoys are not requested
+            Assert.IsTrue(proteins.All(p => !p.IsDecoy), "No decoys expected when using DecoyType.None");
+
+            // Expect exactly two proteins: reference (no applied variant) and stop-gained (applied)
+            Assert.AreEqual(2, proteins.Count, "Expected reference and stop-gained variant proteins");
+            // Reference protein metadata: one possible sequence variation in the record
+            Assert.AreEqual(1, proteins[0].SequenceVariations.Count(), "Reference metadata should contain one sequence variation");
+            Assert.AreEqual(1, proteins[0].SequenceVariations.Select(v => v.SimpleString()).Distinct().Count(), "Reference metadata should contain exactly one unique sequence variation");
+            // Reference should have zero applied variations (reference form retained)
+            Assert.AreEqual(0, proteins[0].AppliedSequenceVariations.Count(), "Reference protein should not have an applied sequence variation");
+            Assert.AreEqual(0, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count(), "Reference applied variations should be zero");
+
+            // Variant-applied protein: applied variation present and unique
+            Assert.AreEqual(1, proteins[1].AppliedSequenceVariations.Count(), "Variant protein should have exactly one applied variation");
+            Assert.AreEqual(1, proteins[1].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count(), "Variant protein applied variations should be unique");
+
+            // Reference length and residue checks around the stop site
+            Assert.AreEqual(191, proteins[0].Length, "Reference protein length should match source data");
+            Assert.AreEqual('Q', proteins[0][161 - 1], "Reference residue at 161 should be 'Q' prior to stop-gain");
+
+            // Variant length must be truncated by the stop at position 161 → length becomes 160
+            Assert.AreEqual(161 - 1, proteins[1].Length, "Variant protein length should be truncated to 160 due to stop at 161");
+
+            // The variant BaseSequence must be exactly the prefix of the reference up to the stop position - 1
+            string reference = proteins[0].BaseSequence;
+            string variant = proteins[1].BaseSequence;
+            Assert.IsTrue(reference.StartsWith(variant), "Variant sequence must be a prefix of the reference sequence");
+            Assert.AreEqual(reference.Substring(0, 161 - 1), variant, "Variant sequence must equal reference[0..159]");
+
+            // Ensure we did not write literal '*' into the protein sequence; stop codon is represented by truncation instead
+            Assert.AreEqual(-1, variant.IndexOf('*'), "Variant BaseSequence should not contain a literal '*'");
+
+            // Verify applied-variant details for the stop-gained protein
+            var applied = proteins[1].AppliedSequenceVariations.Single();
+            Assert.IsTrue(applied.VariantSequence.EndsWith("*"), "Stop-gained variant must end with '*'");
+            Assert.AreEqual(161, applied.OneBasedBeginPosition, "Stop-gained begins at residue 161");
+            Assert.AreEqual(161, applied.OneBasedEndPosition, "Stop-gained ends at residue 161 (single residue change)");
+
+            // The two forms must differ in sequence length (as a sanity check)
+            Assert.AreNotEqual(proteins[0].Length, proteins[1].Length, "Reference and variant proteins should differ in length");
+
+            // Now require a higher min-allele-depth; expect only the variant-applied protein retained
+            proteins = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGained.xml"),
+                true,               // generateTargets
+                DecoyType.None,     // decoyType
+                null,               // allKnownModifications
+                false,              // isContaminant
+                null,               // modTypesToExclude
+                out unknownModifications,
+                minAlleleDepth: 400);
+
+            // Only the stop-gained, variant-applied form is retained under a strict depth threshold
+            Assert.AreEqual(1, proteins.Count, "High min-allele-depth should retain only the variant-applied protein");
+            Assert.AreEqual(1, proteins[0].AppliedSequenceVariations.Count(), "Variant-applied protein should still have one applied variation");
+            Assert.AreEqual(1, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count(), "Variant-applied unique variation should be retained");
+            Assert.AreEqual(161 - 1, proteins[0].Length, "Variant-applied protein length should remain truncated to 160");
+
+            // Confirm stability: the single protein from the depth-filtered load matches the previously observed variant sequence
+            Assert.AreEqual(variant, proteins[0].BaseSequence, "Depth-filtered variant sequence should match previously observed variant");
+
+            // Re-check applied-variant semantics after filtering for completeness
+            var appliedAfterFilter = proteins[0].AppliedSequenceVariations.Single();
+            Assert.IsTrue(appliedAfterFilter.VariantSequence.EndsWith("*"), "Stop-gained variant must end with '*' (after filtering)");
+            Assert.AreEqual(161, appliedAfterFilter.OneBasedBeginPosition, "Stop-gained begins at residue 161 (after filtering)");
+            Assert.AreEqual(161, appliedAfterFilter.OneBasedEndPosition, "Stop-gained ends at residue 161 (after filtering)");
         }
-
         [Test]
         public static void StopGainedDecoysAndDigestion()
         {
