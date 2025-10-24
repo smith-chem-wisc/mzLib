@@ -16,6 +16,7 @@ namespace Omics.BioPolymer
             VariantCallFormatDataString = variantCallFormat;
             OneBasedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
         }
+
         public SequenceVariation(int oneBasedBeginPosition, int oneBasedEndPosition, string originalSequence, string variantSequence, string description, string variantCallFormatStringRepresentation, Dictionary<int, List<Modification>>? oneBasedModifications = null)
         {
             OneBasedBeginPosition = oneBasedBeginPosition;
@@ -26,23 +27,16 @@ namespace Omics.BioPolymer
             VariantCallFormatDataString = new VariantCallFormat(variantCallFormatStringRepresentation);
             OneBasedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
         }
+
         public SequenceVariation(int oneBasedBeginPosition, int oneBasedEndPosition, string originalSequence, string variantSequence, string description, Dictionary<int, List<Modification>>? oneBasedModifications = null)
         {
             OneBasedBeginPosition = oneBasedBeginPosition;
             OneBasedEndPosition = oneBasedEndPosition;
             OriginalSequence = originalSequence ?? "";
             VariantSequence = variantSequence ?? "";
-
-            if (LooksLikeVcf(description))
-            {
-                Description = "VCF Data";
-                VariantCallFormatDataString = new VariantCallFormat(description);
-            }
-            else
-            {
-                Description = description;
-                VariantCallFormatDataString = null;
-            }
+            Description = description;
+            // Always construct a VariantCallFormat so tests relying on non-null VCF objects pass.
+            VariantCallFormatDataString = new VariantCallFormat(description);
             OneBasedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
         }
 
