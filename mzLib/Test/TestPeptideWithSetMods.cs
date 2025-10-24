@@ -1077,6 +1077,10 @@ namespace Test
         private static (int same, int mirrored, List<string> mismatches) CompareAnchorsSameVsMirrored(Protein target, Protein decoy)
         {
             int L = decoy.Length;
+            bool startsWithM = decoy.BaseSequence.StartsWith("M", StringComparison.Ordinal);
+
+            int Map(int p) => startsWithM ? (p == 1 ? 1 : L - p + 2) : (L - p + 1);
+
             var tgt = (target.TruncationProducts ?? new List<TruncationProduct>())
                 .Where(tp => tp.OneBasedBeginPosition.HasValue && tp.OneBasedEndPosition.HasValue)
                 .Select(tp => (b: tp.OneBasedBeginPosition!.Value, e: tp.OneBasedEndPosition!.Value))
@@ -1091,7 +1095,7 @@ namespace Test
             var mismatches = new List<string>();
             foreach (var a in tgt)
             {
-                var mirror = (b: L - a.e + 1, e: L - a.b + 1);
+                var mirror = (b: Map(a.e), e: Map(a.b));
                 bool hasSame = dec.Contains((a.b, a.e));
                 bool hasMirror = dec.Contains((mirror.b, mirror.e));
                 if (hasSame) same++;
@@ -1100,6 +1104,7 @@ namespace Test
             }
             return (same, mirrored, mismatches);
         }
+
         [Test]
         public static void TestPeptideWithSetModsReturnsDecoyTruncationsInTopDown()
         {
@@ -1210,6 +1215,8 @@ namespace Test
             // After printing TARGET/DECOY anchors summary, add a focused diff on 106:
             {
                 var Ldec = decoyProtein.Length;
+                bool decStartsWithM = decoyProtein.BaseSequence.StartsWith("M", StringComparison.Ordinal);
+                int Map(int p) => decStartsWithM ? (p == 1 ? 1 : Ldec - p + 2) : (Ldec - p + 1);
 
                 var tgtPairs = (targetProtein.TruncationProducts ?? new List<TruncationProduct>())
                     .Where(tp => tp.OneBasedBeginPosition.HasValue && tp.OneBasedEndPosition.HasValue)
@@ -1228,7 +1235,7 @@ namespace Test
 
                 if (missing106.Count > 0)
                 {
-                    var mirrors = missing106.Select(p => (mb: Ldec - p.e + 1, me: Ldec - p.b + 1)).ToList();
+                    var mirrors = missing106.Select(p => (mb: Map(p.e), me: Map(p.b))).ToList();
                     TestContext.WriteLine("Missing decoy anchors with end=106: {0}",
                         string.Join(", ", missing106.Select(x => $"{x.b}-{x.e}")));
                     TestContext.WriteLine("Their mirrors present? {0}",

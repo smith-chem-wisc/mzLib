@@ -113,24 +113,22 @@ namespace UsefulProteomicsDatabases
                         int p = pos.Value;
 
                         if (startsWithM)
-                        {
-                            // Initiator methionine retained at position 1
-                            return p == 1 ? 1 : L - p + 2;
-                        }
+                            return p == 1 ? 1 : L - p + 2; // retain M at 1, shift others by +2
                         else
-                        {
                             return L - p + 1;
-                        }
                     }
 
                     decoyPP = decoyPP
                         .Select(tp =>
                         {
-                            // Mirror: begin' = map(end), end' = map(begin)
-                            int? mb = (tp.OneBasedBeginPosition.HasValue && tp.OneBasedEndPosition.HasValue) ? MapPos(tp.OneBasedEndPosition) : tp.OneBasedBeginPosition;
-                            int? me = (tp.OneBasedBeginPosition.HasValue && tp.OneBasedEndPosition.HasValue) ? MapPos(tp.OneBasedBeginPosition) : tp.OneBasedEndPosition;
+                            int? mb = (tp.OneBasedBeginPosition.HasValue && tp.OneBasedEndPosition.HasValue)
+                                ? MapPos(tp.OneBasedEndPosition)  // begin' = map(end)
+                                : tp.OneBasedBeginPosition;
+                            int? me = (tp.OneBasedBeginPosition.HasValue && tp.OneBasedEndPosition.HasValue)
+                                ? MapPos(tp.OneBasedBeginPosition) // end'   = map(begin)
+                                : tp.OneBasedEndPosition;
 
-                            // Keep a safe type label (filter in AddTruncations excludes "truncation" and "full-length proteoform")
+                            // keep a safe label, avoiding "truncation" filter keywords
                             string type = string.IsNullOrWhiteSpace(tp.Type) ? "decoy_mirror" : $"{decoyIdentifier} {tp.Type}";
                             return new TruncationProduct(mb, me, type);
                         })
