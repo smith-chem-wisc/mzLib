@@ -1105,6 +1105,46 @@ namespace Test
         {
             string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
 
+            // Enable internal truncation logger
+            // Replace direct field assignment with the setter
+            Protein.SetTruncationLogger((label, prot, tps) =>
+            {
+               var L = prot.Length;
+                var byBegin = tps.Where(tp => tp.OneBasedBeginPosition.HasValue && tp.OneBasedEndPosition.HasValue)
+                    .GroupBy(tp => tp.OneBasedBeginPosition!.Value)
+                    .OrderBy(g => g.Key)
+                    .ToDictionary(g => g.Key, g => g.Select(tp => tp.OneBasedEndPosition!.Value).OrderBy(e => e).ToList());
+
+                // Offsets from C-term (d = L - end) without ambiguous LINQ
+                var offsetsMap = new SortedDictionary<int, int>();
+                foreach (var tp in tps)
+                {
+                    var e = tp.OneBasedEndPosition;
+                    if (!e.HasValue) continue;
+
+                    int d = L - e.Value;
+                    if (d < 0 || d > 10) continue;
+
+                    if (offsetsMap.TryGetValue(d, out var cnt))
+                        offsetsMap[d] = cnt + 1;
+                    else
+                        offsetsMap[d] = 1;
+                }
+                var offsets = offsetsMap.Select(kvp => $"{kvp.Key}=>{kvp.Value}").ToArray();
+
+                // Summaries
+                TestContext.WriteLine("[{0}] {1} {2}", prot.IsDecoy ? "DECOY" : "TARGET", prot.Accession, label);
+                TestContext.WriteLine("  Count={0}, L={1}, StartsWithM={2}", tps.Count, L, prot.BaseSequence.StartsWith("M"));
+                // Key begins we care about
+                foreach (var b in byBegin.Keys.Where(k => k <= 7 || (k >= 90 && k <= 95) || k == 25).OrderBy(k => k))
+                {
+                    var ends = string.Join(", ", byBegin[b].Where(e => e >= L - 10)); // near C-term
+                    var has106 = byBegin[b].Contains(106);
+                    TestContext.WriteLine("  Begin {0}: ends>= {1}: {2} | has106={3}", b, L - 10, ends, has106);
+                }
+                TestContext.WriteLine("  Offsets d=(L-end) frequencies (0..10): {0}", string.Join("; ", offsets));
+            });
+
             // Load target + reverse decoy with truncation expansion
             List<Protein> insulinProteins = ProteinDbLoader.LoadProteinXML(
                 xmlDatabase,
@@ -1161,6 +1201,45 @@ namespace Test
                 .Digest(dp, new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true)
                 .ToList();
             Assert.AreEqual(68, insulintTargetTruncations.Count, "Unexpected number of target truncation proteoforms.");
+
+
+            // Context on pre-expanded anchors (optional; harmless to keep)
+            TestContext.Out.WriteLine(SummarizeProteolysis(targetProtein, "TARGET anchors"));
+            TestContext.Out.WriteLine(SummarizeProteolysis(decoyProtein, "DECOY anchors"));
+
+            // After printing TARGET/DECOY anchors summary, add a focused diff on 106:
+            {
+                var Ldec = decoyProtein.Length;
+
+                var tgtPairs = (targetProtein.TruncationProducts ?? new List<TruncationProduct>())
+                    .Where(tp => tp.OneBasedBeginPosition.HasValue && tp.OneBasedEndPosition.HasValue)
+                    .Select(tp => (b: tp.OneBasedBeginPosition!.Value, e: tp.OneBasedEndPosition!.Value))
+                    .ToHashSet();
+
+                var decPairs = (decoyProtein.TruncationProducts ?? new List<TruncationProduct>())
+                    .Where(tp => tp.OneBasedBeginPosition.HasValue && tp.OneBasedEndPosition.HasValue)
+                    .Select(tp => (b: tp.OneBasedBeginPosition!.Value, e: tp.OneBasedEndPosition!.Value))
+                    .ToHashSet();
+
+                // What target anchors with end=106 are missing on decoy?
+                var missing106 = tgtPairs.Where(p => p.e == 106 && !decPairs.Contains(p))
+                    .OrderBy(p => p.b)
+                    .ToList();
+
+                if (missing106.Count > 0)
+                {
+                    var mirrors = missing106.Select(p => (mb: Ldec - p.e + 1, me: Ldec - p.b + 1)).ToList();
+                    TestContext.WriteLine("Missing decoy anchors with end=106: {0}",
+                        string.Join(", ", missing106.Select(x => $"{x.b}-{x.e}")));
+                    TestContext.WriteLine("Their mirrors present? {0}",
+                        string.Join(", ", mirrors.Select(m => decPairs.Contains(m) ? $"{m.mb}-{m.me}:yes" : $"{m.mb}-{m.me}:no")));
+                }
+            }
+
+            // Existing mapping summary follows
+            (sameCnt, mirroredCnt, mism) = CompareAnchorsSameVsMirrored(targetProtein, decoyProtein);
+            TestContext.Out.WriteLine($"Anchor mapping vs decoy: same={sameCnt}, mirrored={mirroredCnt}, unmatched={mism.Count}");
+
 
             // Sanity checks on target
             Assert.IsTrue(insulintTargetTruncations.All(p => p.DigestionParams.DigestionAgent.Name == protease.Name));

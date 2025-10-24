@@ -1,4 +1,5 @@
-﻿using Proteomics.ProteolyticDigestion;
+﻿using System.Diagnostics;
+using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -617,6 +618,9 @@ namespace Proteomics
         /// </summary>
         public void AddTruncationsToExistingProteolysisProducts(int fullProteinOneBasedBegin, int fullProteinOneBasedEnd, bool addNterminalDigestionTruncations, bool addCterminalDigestionTruncations, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
         {
+#if DEBUG
+            LogTrunc($"BEGIN AddTruncationsToExistingProteolysisProducts B={fullProteinOneBasedBegin},E={fullProteinOneBasedEnd}");
+#endif
             bool sequenceContainsNterminus = (fullProteinOneBasedBegin == 1);
 
             // Helper: ensure all C-term deltas 1..lengthOfProteolysis are present for "begin"
@@ -626,10 +630,9 @@ namespace Proteomics
                 for (int d = 1; d <= lengthOfProteolysis; d++)
                 {
                     int newEnd = fullProteinOneBasedEnd - d;
-                    int len = newEnd - begin + 1;
-                    if (len < minProductBaseSequenceLength) break;
-
-                    if (!_proteolysisProducts.Any(tp => tp.OneBasedBeginPosition == begin && tp.OneBasedEndPosition == newEnd))
+                    int length = newEnd - begin + 1;
+                    if (length < minProductBaseSequenceLength) break;
+                    if (!_proteolysisProducts.Any(p => p.OneBasedBeginPosition == begin && p.OneBasedEndPosition == newEnd))
                     {
                         _proteolysisProducts.Add(new TruncationProduct(begin, newEnd, proteolyisisProductName));
                     }
@@ -641,15 +644,28 @@ namespace Proteomics
                 // N-term
                 if (addNterminalDigestionTruncations)
                 {
+#if DEBUG
+                    LogTrunc("Pre N-term");
+#endif
                     if (BaseSequence.StartsWith("M", StringComparison.Ordinal))
+                    {
                         AddNterminalTruncations(lengthOfProteolysis + 1, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
+                    }
                     else
+                    {
                         AddNterminalTruncations(lengthOfProteolysis, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
+                    }
+#if DEBUG
+                    LogTrunc("Post N-term");
+#endif
                 }
 
                 // C-term
                 if (addCterminalDigestionTruncations)
                 {
+#if DEBUG
+                    LogTrunc("Pre C-term");
+#endif
                     if (BaseSequence.StartsWith("M", StringComparison.Ordinal))
                     {
                         // without initiator Met
@@ -658,10 +674,17 @@ namespace Proteomics
                     // with initiator Met
                     AddCterminalTruncations(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin, minProductBaseSequenceLength, proteolyisisProductName);
 
-                    // Normalize expected C-term deltas for intact-proteoform begins
+#if DEBUG
+                    LogTrunc("Post C-term (pre-normalize)");
+#endif
                     EnsureAllCtermDeltasForBegin(fullProteinOneBasedBegin);
                     if (BaseSequence.StartsWith("M", StringComparison.Ordinal))
+                    {
                         EnsureAllCtermDeltasForBegin(fullProteinOneBasedBegin + 1);
+                    }
+#if DEBUG
+                    LogTrunc("Post C-term normalize");
+#endif
                 }
             }
             else
@@ -669,19 +692,35 @@ namespace Proteomics
                 // no N-term present in this segment
                 if (addCterminalDigestionTruncations)
                 {
+#if DEBUG
+                    LogTrunc("Pre C-term (no N-term segment)");
+#endif
                     AddCterminalTruncations(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin, minProductBaseSequenceLength, proteolyisisProductName);
+#if DEBUG
+                    LogTrunc("Post C-term (pre-normalize, no N-term segment)");
+#endif
                     EnsureAllCtermDeltasForBegin(fullProteinOneBasedBegin);
+#if DEBUG
+                    LogTrunc("Post C-term normalize (no N-term segment)");
+#endif
                 }
                 if (addNterminalDigestionTruncations)
                 {
+#if DEBUG
+                    LogTrunc("Pre N-term (no N-term segment)");
+#endif
                     AddNterminalTruncations(lengthOfProteolysis, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
+#if DEBUG
+                    LogTrunc("Post N-term (no N-term segment)");
+#endif
                 }
             }
+#if DEBUG
+            LogTrunc("END AddTruncationsToExistingProteolysisProducts");
+#endif
         }
 
-        /// <summary>
-        /// Returns of list of proteoforms with the specified number of C-terminal amino acid truncations subject to minimum length criteria
-        /// </summary>
+        // Ensure AddCterminalTruncations has only ONE definition and uses the simple loop:
         private void AddCterminalTruncations(int lengthOfProteolysis, int fullProteinOneBasedEnd, int fullProteinOneBasedBegin, int minProductBaseSequenceLength, string proteolyisisProductName)
         {
             for (int i = 1; i <= lengthOfProteolysis; i++)
@@ -692,8 +731,13 @@ namespace Proteomics
                 {
                     _proteolysisProducts.Add(new TruncationProduct(fullProteinOneBasedBegin, newEnd, proteolyisisProductName));
                 }
+                else
+                {
+                    break;
+                }
             }
         }
+
         /// <summary>
         /// Returns of list of proteoforms with the specified number of N-terminal amino acid truncations subject to minimum length criteria
         /// </summary>
@@ -877,5 +921,16 @@ namespace Proteomics
         {
             return this.Accession.ToString();
         }
+        // Add this public setter inside class Protein
+        public static void SetTruncationLogger(Action<string, Protein, IReadOnlyList<TruncationProduct>>? logger)
+        {
+            TruncationLogger = logger;
+        }
+#if DEBUG
+        internal static Action<string, Protein, IReadOnlyList<TruncationProduct>>? TruncationLogger;
+        [Conditional("DEBUG")]
+        private void LogTrunc(string label) =>
+            TruncationLogger?.Invoke(label, this, (_proteolysisProducts ?? new List<TruncationProduct>()).ToList());
+#endif
     }
 }
