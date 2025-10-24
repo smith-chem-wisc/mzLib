@@ -169,7 +169,6 @@ namespace UsefulProteomicsDatabases
             var toReturn = proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth));
             return Merge(toReturn).ToList();
         }
-
         /// <summary>
         /// Get the modification entries specified in a mzLibProteinDb XML file (.xml or .xml.gz).
         /// </summary>
@@ -204,7 +203,7 @@ namespace UsefulProteomicsDatabases
                                 }
                                 else if (xml.Name == "entry")
                                 {
-                                    //if we are up to entry fields in the protein database, then there no more prespecified modifications to read and we
+                                    //ifwe are up to entry fields in the protein database, then there no more prespecified modifications to read and we
                                     //can begin processing all the lines we have read.
                                     //This block of code does not process information in any of the entries.
                                     protein_xml_modlist_general = storedKnownModificationsBuilder.Length <= 0 ?

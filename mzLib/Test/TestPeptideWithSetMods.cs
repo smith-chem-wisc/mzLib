@@ -1094,6 +1094,9 @@ namespace Test
             Assert.AreNotEqual(targetProtein.BaseSequence, decoyProtein.BaseSequence,
                 "Reverse decoy sequence should differ from the target sequence.");
 
+
+
+
             // Define a "top-down" protease with no cleavage motifs.
             // This acts as a label to instruct the digestion engine to enumerate truncation products
             // (not motif-based enzymatic cleavage).
@@ -1144,6 +1147,15 @@ namespace Test
                 "Expected at least one N-terminal truncation for target.");
             Assert.IsTrue(insulintTargetTruncations.Any(p => p.OneBasedEndResidueInProtein < targetProtein.Length),
                 "Expected at least one C-terminal truncation for target.");
+
+            // Temporary diagnostic (place just after selecting targetProtein/decoyProtein)
+            var decoyEnds = decoyProtein.TruncationProducts?
+                .Select(tp => tp.OneBasedEndPosition)
+                .Where(e => e.HasValue)
+                .Select(e => e.Value)
+                .ToList() ?? new List<int>();
+            Assert.That(decoyEnds.Contains(106), "Decoy is missing the annotated proteolysis product that ends at 106.");
+
 
             // Repeat truncation enumeration for the decoy protein with identical parameters.
             List<PeptideWithSetModifications> insulintDecoyTruncations = decoyProtein
