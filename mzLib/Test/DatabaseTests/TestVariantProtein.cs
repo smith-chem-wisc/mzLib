@@ -936,6 +936,7 @@ namespace Test.DatabaseTests
             // Assert.AreEqual(targetPeps.Sum(p => p.Length), decoyPeps.Sum(p => p.Length));
             // Assert.AreEqual(targetPeps.Count, decoyPeps.Count);
         }
+
         [Test]
         public static void MultipleAlternateAlleles()
         {
@@ -1056,21 +1057,159 @@ namespace Test.DatabaseTests
         [Test]
         public void SequenceVariationIsValidTest()
         {
-            SequenceVariation sv1 = new SequenceVariation(10, 10, "A", "T", "info", null);
-            SequenceVariation sv2 = new SequenceVariation(5, 5, "G", "C", "info", null);
-            SequenceVariation sv3 = new SequenceVariation(8, 8, "T", "A", "info", null);
-            List<SequenceVariation> svList = new List<SequenceVariation> { sv1, sv2, sv3 };
+            // PURPOSE
+            // Validate the minimal, position-only "validity" rules implemented by SequenceVariation.AreValid():
+            //   AreValid() == (OneBasedBeginPosition > 0) && (OneBasedEndPosition >= OneBasedBeginPosition)
+            //
+            // We cover:
+            // 1) Explicit begin/end ctor with typical point mutations → valid.
+            // 2) Explicit begin/end ctor with invalid positions → invalid.
+            // 3) Explicit begin/end ctor representing insertion/deletion edge-cases → valid as long as positions are valid.
+            // 4) One-position convenience ctor behavior for different originalSequence values (null, "", length > 0).
+            //    - This ctor derives end as: end = (original == null) ? begin : begin + original.Length - 1.
+            //    - Therefore, empty originalSequence "" makes end = begin - 1 → invalid by design.
+            // 5) Content fields (Original/Variant) and OneBasedModifications do NOT affect AreValid(), only positions do.
+            // 6) Optional sanity checks on derived fields (SimpleString and computed end position).
 
+            // -----------------------------
+            // 1) Valid: explicit begin/end point mutations (begin == end, begin > 0)
+            // -----------------------------
+            SequenceVariation sv1 = new SequenceVariation(
+                oneBasedBeginPosition: 10, oneBasedEndPosition: 10,
+                originalSequence: "A", variantSequence: "T",
+                description: "info", oneBasedModifications: null);
+            SequenceVariation sv2 = new SequenceVariation(
+                oneBasedBeginPosition: 5, oneBasedEndPosition: 5,
+                originalSequence: "G", variantSequence: "C",
+                description: "info", oneBasedModifications: null);
+            SequenceVariation sv3 = new SequenceVariation(
+                oneBasedBeginPosition: 8, oneBasedEndPosition: 8,
+                originalSequence: "T", variantSequence: "A",
+                description: "info", oneBasedModifications: null);
+
+            // A protein can carry multiple variations; positions alone determine validity.
+            List<SequenceVariation> svList = new List<SequenceVariation> { sv1, sv2, sv3 };
             Protein variantProtein = new Protein("ACDEFGHIKLMNPQRSTVWY", "protein1", sequenceVariations: svList);
-            Assert.IsTrue(variantProtein.SequenceVariations.All(v => v.AreValid()));
-            SequenceVariation svInvalidOneBasedBeginLessThanOne = new SequenceVariation(0, 10, "A", "T", "info", null);
-            SequenceVariation svInvalidOneBasedEndLessThanOneBasedBegin = new SequenceVariation(5, 4, "G", "C", "info", null);
-            SequenceVariation svValidOriginalSequenceIsEmpty = new SequenceVariation(8, 8, "", "A", "info", null);
-            SequenceVariation svValidVariantSequenceLenthIsZero = new SequenceVariation(10, 10, "A", "", "info", null);
-            Assert.IsFalse(svInvalidOneBasedBeginLessThanOne.AreValid());
-            Assert.IsFalse(svInvalidOneBasedEndLessThanOneBasedBegin.AreValid());
-            Assert.IsTrue(svValidOriginalSequenceIsEmpty.AreValid()); //This is valid because it is an insertion
-            Assert.IsTrue(svValidVariantSequenceLenthIsZero.AreValid()); // This is valid because it is a deletion
+
+            // Expectation: all three above are valid (begin > 0 and end == begin).
+            Assert.IsTrue(variantProtein.SequenceVariations.All(v => v.AreValid()), "All explicit point mutations with valid positions should be valid");
+
+            // -----------------------------
+            // 2) Invalid: begin < 1 and end < begin
+            // -----------------------------
+            SequenceVariation svInvalidOneBasedBeginLessThanOne = new SequenceVariation(
+                oneBasedBeginPosition: 0, oneBasedEndPosition: 10,
+                originalSequence: "A", variantSequence: "T",
+                description: "info", oneBasedModifications: null);
+            Assert.IsFalse(svInvalidOneBasedBeginLessThanOne.AreValid(), "Begin position must be >= 1");
+
+            SequenceVariation svInvalidOneBasedEndLessThanOneBasedBegin = new SequenceVariation(
+                oneBasedBeginPosition: 5, oneBasedEndPosition: 4,
+                originalSequence: "G", variantSequence: "C",
+                description: "info", oneBasedModifications: null);
+            Assert.IsFalse(svInvalidOneBasedEndLessThanOneBasedBegin.AreValid(), "End position cannot be less than begin position");
+
+            // -----------------------------
+            // 3) Explicit begin/end edge-cases: insertion and deletion modeled by content only
+            //    NOTE: AreValid ignores Original/Variant content; only positions matter.
+            // -----------------------------
+            // Insertion-like (explicit): original is empty (""), variant has content.
+            // Valid because we explicitly supply begin == end (positions are valid).
+            SequenceVariation svValidOriginalSequenceIsEmpty = new SequenceVariation(
+                oneBasedBeginPosition: 8, oneBasedEndPosition: 8,
+                originalSequence: "", variantSequence: "A",
+                description: "info", oneBasedModifications: null);
+            Assert.IsTrue(svValidOriginalSequenceIsEmpty.AreValid(), "Explicit insertion with valid positions should be considered valid");
+
+            // Deletion-like (explicit): variant is empty (""), original has content, positions still valid.
+            SequenceVariation svValidVariantSequenceLengthIsZero = new SequenceVariation(
+                oneBasedBeginPosition: 10, oneBasedEndPosition: 10,
+                originalSequence: "A", variantSequence: "",
+                description: "info", oneBasedModifications: null);
+            Assert.IsTrue(svValidVariantSequenceLengthIsZero.AreValid(), "Explicit deletion with valid positions should be considered valid");
+
+            // -----------------------------
+            // 4) One-position convenience ctor behavior for originalSequence values
+            //    ctor: SequenceVariation(int oneBasedPosition, string originalSequence, string variantSequence, string description, ...)
+            //    end is computed as:
+            //      - if original == null  → end = begin
+            //      - else                  → end = begin + original.Length - 1
+            // -----------------------------
+
+            // 4a) originalSequence has length 1 → end == begin (valid)
+            var svPosCtorLength1 = new SequenceVariation(
+                oneBasedPosition: 15,
+                originalSequence: "K",
+                variantSequence: "R",
+                description: "pos-ctor length 1");
+            Assert.AreEqual(15, svPosCtorLength1.OneBasedBeginPosition);
+            Assert.AreEqual(15, svPosCtorLength1.OneBasedEndPosition, "With original length 1, end should equal begin");
+            Assert.IsTrue(svPosCtorLength1.AreValid(), "Single-site variation via position ctor should be valid");
+
+            // 4b) originalSequence has length > 1 → end == begin + len - 1 (valid)
+            var svPosCtorLength3 = new SequenceVariation(
+                oneBasedPosition: 20,
+                originalSequence: "PEP",   // len = 3
+                variantSequence: "AAA",    // content irrelevant to AreValid
+                description: "pos-ctor length 3");
+            Assert.AreEqual(20, svPosCtorLength3.OneBasedBeginPosition);
+            Assert.AreEqual(22, svPosCtorLength3.OneBasedEndPosition, "End should be begin + original.Length - 1");
+            Assert.IsTrue(svPosCtorLength3.AreValid(), "Multi-length replacement with valid positions should be valid");
+
+            // 4c) originalSequence == null → end = begin (valid)
+            var svPosCtorNullOriginal = new SequenceVariation(
+                oneBasedPosition: 30,
+                originalSequence: null,    // special case handled in ctor: end = begin
+                variantSequence: "A",
+                description: "pos-ctor null original");
+            Assert.AreEqual(30, svPosCtorNullOriginal.OneBasedBeginPosition);
+            Assert.AreEqual(30, svPosCtorNullOriginal.OneBasedEndPosition, "Null original should set end = begin");
+            Assert.IsTrue(svPosCtorNullOriginal.AreValid(), "Null original via position ctor is treated as length 1 (valid)");
+
+            // 4d) originalSequence == "" (empty) → end = begin - 1 (invalid by design)
+            //     This models an insertion if you rely solely on the position ctor, but produces end < begin → invalid.
+            //     For insertions, prefer the explicit begin/end ctor with valid positions (see 3).
+            var svPosCtorEmptyOriginal = new SequenceVariation(
+                oneBasedPosition: 40,
+                originalSequence: "",      // empty → end = 39
+                variantSequence: "A",
+                description: "pos-ctor empty original");
+            Assert.AreEqual(40, svPosCtorEmptyOriginal.OneBasedBeginPosition);
+            Assert.AreEqual(39, svPosCtorEmptyOriginal.OneBasedEndPosition, "Empty original sets end = begin - 1");
+            Assert.IsFalse(svPosCtorEmptyOriginal.AreValid(), "Position ctor with empty original is invalid (end < begin)");
+
+            // -----------------------------
+            // 5) Validity is position-only; content and mods do not change AreValid()
+            //     - VariantSequence null is normalized to "" in the ctor.
+            //     - OneBasedModifications is stored but ignored by AreValid().
+            // -----------------------------
+            var mods = new Dictionary<int, List<Modification>>
+            {
+                { 1, new List<Modification>() } // empty mod list at a site; still ignored by AreValid
+            };
+            var svContentIrrelevant = new SequenceVariation(
+                oneBasedBeginPosition: 3, oneBasedEndPosition: 3,
+                originalSequence: "M", variantSequence: null, // becomes ""
+                description: "mods/variant null test", oneBasedModifications: mods);
+            Assert.IsTrue(svContentIrrelevant.AreValid(), "Null variant and/or mods should not affect positional validity");
+            Assert.AreEqual("", svContentIrrelevant.VariantSequence, "Null VariantSequence is normalized to empty string");
+
+            // -----------------------------
+            // 6) Sanity: SimpleString format and positive bounds at the edge of sequence
+            // -----------------------------
+            var svSimple = new SequenceVariation(
+                oneBasedBeginPosition: 1, oneBasedEndPosition: 1,
+                originalSequence: "A", variantSequence: "V",
+                description: "simple");
+            // SimpleString = Original + Begin + Variant (no delimiter)
+            Assert.AreEqual("A1V", svSimple.SimpleString(), "SimpleString should concatenate original + begin + variant");
+
+            // Additional guard: begin == 1 is valid if end >= begin
+            var svAtStart = new SequenceVariation(
+                oneBasedBeginPosition: 1, oneBasedEndPosition: 2,
+                originalSequence: "MA", variantSequence: "MV",
+                description: "range at start");
+            Assert.IsTrue(svAtStart.AreValid(), "Ranges that start at 1 are valid provided end >= begin");
         }
         [Test]
         public void VariantModificationTest()
