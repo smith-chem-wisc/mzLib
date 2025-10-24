@@ -441,7 +441,7 @@ namespace UsefulProteomicsDatabases
                 Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
 
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
-                //prune any sequence variants whose coordinates exceed the known sequence length
+                // Prune any sequence variants whose coordinates exceed the known sequence length
                 PruneOutOfRangeSequenceVariants();
                 if (Accession.StartsWith(decoyIdentifier))
                 {
@@ -488,7 +488,7 @@ namespace UsefulProteomicsDatabases
                 // sanitize the sequence to replace unexpected characters with X (unknown amino acid)
                 // sometimes strange characters get added by RNA sequencing software, etc.
                 Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
-                //prune any sequence variants whose coordinates exceed the known sequence length
+                // Prune any sequence variants whose coordinates exceed the known sequence length
                 PruneOutOfRangeSequenceVariants();
                 if (Accession.StartsWith(decoyIdentifier))
                 {
@@ -585,7 +585,7 @@ namespace UsefulProteomicsDatabases
                 {
                     ParseAnnotatedMods(OneBasedVariantModifications, modTypesToExclude, unknownModifications, AnnotatedVariantMods);
 
-                    // NOTE: We can NOT validate coordinate vs sequence length here because sequence is usually parsed later.
+                    // NOTE: We cannot validate coordinate vs sequence length here because sequence is usually parsed later.
                     // Validation is deferred to PruneOutOfRangeSequenceVariants() during ParseEntryEndElement.
 
                     if (OneBasedBeginPosition != null && OneBasedEndPosition != null)
@@ -597,7 +597,6 @@ namespace UsefulProteomicsDatabases
                                 OriginalValue,
                                 VariationValue,
                                 FeatureDescription,
-                                //variantCallFormatDataString: null,
                                 oneBasedModifications: OneBasedVariantModifications));
                     }
                     else if (OneBasedFeaturePosition >= 1)
@@ -608,7 +607,6 @@ namespace UsefulProteomicsDatabases
                                 OriginalValue,
                                 VariationValue,
                                 FeatureDescription,
-                                //variantCallFormatDataString: null,
                                 oneBasedModifications: OneBasedVariantModifications));
                     }
 
