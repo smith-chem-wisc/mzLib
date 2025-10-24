@@ -101,9 +101,9 @@ namespace UsefulProteomicsDatabases
                     decoyPP.Add(new TruncationProduct(pp.OneBasedBeginPosition, pp.OneBasedEndPosition, pp.Type));
                 }
 
-                // Mirror annotated proteolysis products to reversed-sequence coordinates,
-                // honoring initiator methionine retention (M at position 1 stays at 1)
-                // and ensure begin <= end after mapping.
+                // Mirror annotated proteolysis products to reversed-sequence coordinates.
+                // IMPORTANT: Do NOT apply initiator-M retention for proteolysis product coordinates;
+                // use a plain reversal to preserve anchor parity and counts.
                 if (decoyPP.Count > 0)
                 {
                     int L = reversedSequence.Length;
@@ -112,30 +112,29 @@ namespace UsefulProteomicsDatabases
                     {
                         if (!pos.HasValue) return pos;
                         int p = pos.Value;
-                        if (startsWithM)
-                            return p == 1 ? 1 : L - p + 2; // retain initiator M at 1
-                        else
-                            return L - p + 1;
+                        return L - p + 1; // simple reverse; no M-retention for proteolysis products
                     }
 
                     decoyPP = decoyPP
                         .Select(tp =>
                         {
                             // Mirror: begin' = map(end), end' = map(begin)
-                            int? a = (tp.OneBasedBeginPosition.HasValue && tp.OneBasedEndPosition.HasValue) ? MapPos(tp.OneBasedEndPosition) : tp.OneBasedBeginPosition;
-                            int? b = (tp.OneBasedBeginPosition.HasValue && tp.OneBasedEndPosition.HasValue) ? MapPos(tp.OneBasedBeginPosition) : tp.OneBasedEndPosition;
+                            int? a = (tp.OneBasedBeginPosition.HasValue && tp.OneBasedEndPosition.HasValue)
+                                ? MapPos(tp.OneBasedEndPosition)
+                                : tp.OneBasedBeginPosition;
+                            int? b = (tp.OneBasedBeginPosition.HasValue && tp.OneBasedEndPosition.HasValue)
+                                ? MapPos(tp.OneBasedBeginPosition)
+                                : tp.OneBasedEndPosition;
 
                             int? mb = a;
                             int? me = b;
                             if (mb.HasValue && me.HasValue && mb.Value > me.Value)
                             {
-                                // normalize to ascending coordinates
-                                int tmp = mb.Value;
-                                mb = me;
-                                me = tmp;
+                                // normalize to ascending range
+                                (mb, me) = (me, mb);
                             }
 
-                            // Keep a safe, non-filtered label (AddTruncations filters away strings containing "truncation" or "full-length proteoform")
+                            // prefix with decoy identifier but avoid filtering keywords ("truncation"/"full-length proteoform")
                             string type = string.IsNullOrWhiteSpace(tp.Type) ? "decoy_mirror" : $"{decoyIdentifier} {tp.Type}";
                             return new TruncationProduct(mb, me, type);
                         })
