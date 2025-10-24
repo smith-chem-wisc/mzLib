@@ -1,20 +1,21 @@
-﻿using System;
+﻿using Chemistry;
+using MassSpectrometry;
+using NUnit.Framework;
+using NUnit.Framework.Legacy;
+using Omics;
+using Omics.BioPolymer;
+using Omics.Modifications;
+using Proteomics;
+using Proteomics.ProteolyticDigestion;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using NUnit.Framework;
-using Omics.BioPolymer;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using Omics.Modifications;
-using Proteomics;
-using Proteomics.ProteolyticDigestion;
-using UsefulProteomicsDatabases;
-using Stopwatch = System.Diagnostics.Stopwatch;
-using Omics;
 using Transcriptomics;
-using MassSpectrometry;
-using Chemistry;
+using UsefulProteomicsDatabases;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test.DatabaseTests
 {
@@ -284,56 +285,187 @@ namespace Test.DatabaseTests
             var variantProteins = proteins[0].GetVariantBioPolymers();
             List<PeptideWithSetModifications> peptides = proteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
-
         [Test]
         public static void AppliedVariants()
         {
-            ModificationMotif.TryGetMotif("P", out ModificationMotif motifP);
-            Modification mp = new Modification("mod", null, "type", null, motifP, "Anywhere.", null, 42.01, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+            // This test verifies that applying sequence variations (SAV, MNV, insertion, deletion)
+            // produces the correct variant protein sequences, maps variant coordinates correctly,
+            // preserves per-variant metadata (AppliedSequenceVariations), and remains stable across:
+            // - repeated in-memory application,
+            // - round-tripping through XML (write → read).
+            //
+            // Additionally, it verifies that a modification attached to a variant (protein5)
+            // is persisted and localized at the expected one-based position after application
+            // and after XML reload.
 
+            // Define a simple P-specific modification used later to validate that modifications
+            // attached to a variant are preserved and localized correctly after applying variants
+            // and XML round-tripping.
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motifP);
+            Modification mp = new Modification(
+                _originalId: "mod",
+                _accession: null,
+                _modificationType: "type",
+                _featureType: null,
+                _target: motifP,
+                _locationRestriction: "Anywhere.",
+                _chemicalFormula: null,
+                _monoisotopicMass: 42.01,
+                _databaseReference: new Dictionary<string, IList<string>>(),
+                _taxonomicRange: null,
+                _keywords: null,
+                _neutralLosses: null,
+                _diagnosticIons: null,
+                _fileOrigin: null);
+
+            // Prepare five proteins that each have one sequence variation:
+            // 1) protein1: Single Amino-acid Variant (SAV) P→V at position 4 (4..4)
+            // 2) protein2: Multi-Nucleotide Variant (MNV) PT→KT spanning positions 4..5
+            // 3) protein3: Insertion-like replacement: P→PPP at position 4 (longer variant)
+            // 4) protein4: Deletion-like replacement: PPP→P spanning 4..6 (shorter variant)
+            // 5) protein5: Same as (3) but with a modification attached at one-based index 5
+            //    to verify mod persistence/localization through variant application and XML.
             List<Protein> proteinsWithSeqVars = new List<Protein>
             {
-                new Protein("MPEPTIDE", "protein1", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "V", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE", "protein2", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 5, "PT", "KT", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE", "protein3", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPPPTIDE", "protein4", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "PPP", "P", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE", "protein5", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P", "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> {{ 5, new[] { mp }.ToList() } }) }),
-             };
+                new Protein("MPEPTIDE", "protein1",
+                    sequenceVariations: new List<SequenceVariation>
+                    {
+                        // SAV: P(4) -> V(4)
+                        new SequenceVariation(4, 4, "P", "V",
+                            @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null)
+                    }),
+                new Protein("MPEPTIDE", "protein2",
+                    sequenceVariations: new List<SequenceVariation>
+                    {
+                        // MNV: PT(4..5) -> KT(4..5)
+                        new SequenceVariation(4, 5, "PT", "KT",
+                            @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null)
+                    }),
+                new Protein("MPEPTIDE", "protein3",
+                    sequenceVariations: new List<SequenceVariation>
+                    {
+                        // Insertion-like: P(4) -> PPP(4..6) (length +2)
+                        new SequenceVariation(4, 4, "P", "PPP",
+                            @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null)
+                    }),
+                new Protein("MPEPPPTIDE", "protein4",
+                    sequenceVariations: new List<SequenceVariation>
+                    {
+                        // Deletion-like: PPP(4..6) -> P(4) (length -2)
+                        new SequenceVariation(4, 6, "PPP", "P",
+                            @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null)
+                    }),
+                new Protein("MPEPTIDE", "protein5",
+                    sequenceVariations: new List<SequenceVariation>
+                    {
+                        // Insertion-like with a downstream mod to verify mod localization at 5
+                        new SequenceVariation(4, 4, "P", "PPP",
+                            @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30",
+                            new Dictionary<int, List<Modification>> { { 5, new[] { mp }.ToList() } })
+                    }),
+            };
+
+            // Apply variants in memory twice; the output should be stable and identical.
             var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList();
             var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList(); // should be stable
+
+            // Round-trip through XML: write the variant-bearing proteins (targets only) and read back.
+            // This ensures that variant application and metadata survive I/O and result identically.
             string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteinsWithSeqVars, xml);
             var proteinsWithAppliedVariants3 = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un);
 
+            // Compare across all three sources:
+            // - [0]: in-memory 1
+            // - [1]: in-memory 2 (should match [0])
+            // - [2]: XML reload (should match [0] and [1])
             var listArray = new[] { proteinsWithAppliedVariants, proteinsWithAppliedVariants2, proteinsWithAppliedVariants3 };
+
+            // Assert we always get exactly five variant proteins in the same order
+            // (SAV, MNV, insertion, deletion, insertion+mod).
+            Assert.AreEqual(5, proteinsWithAppliedVariants.Count, "Expected 5 applied variants (in-memory #1).");
+            Assert.AreEqual(5, proteinsWithAppliedVariants2.Count, "Expected 5 applied variants (in-memory #2).");
+            Assert.AreEqual(5, proteinsWithAppliedVariants3.Count, "Expected 5 applied variants (XML reload).");
+
+            // The expected sequences for each of the five applied variants, in order:
+            // 0: "MPEVTIDE"  (SAV at 4: P->V)
+            // 1: "MPEKTIDE"  (MNV at 4..5: PT->KT)
+            // 2: "MPEPPPTIDE" (Insertion-like at 4: P->PPP; length +2)
+            // 3: "MPEPTIDE"  (Deletion-like at 4..6: PPP->P; length -2 from "MPEPPPTIDE")
+            // 4: "MPEPPPTIDE" (Insertion-like with mod at 5)
             for (int dbIdx = 0; dbIdx < listArray.Length; dbIdx++)
             {
                 // sequences
-                Assert.AreEqual("MPEVTIDE", listArray[dbIdx][0].BaseSequence);
-                Assert.AreEqual("MPEKTIDE", listArray[dbIdx][1].BaseSequence);
-                Assert.AreEqual("MPEPPPTIDE", listArray[dbIdx][2].BaseSequence);
-                Assert.AreEqual("MPEPTIDE", listArray[dbIdx][3].BaseSequence);
-                Assert.AreEqual("MPEPPPTIDE", listArray[dbIdx][4].BaseSequence);
-                Assert.AreEqual(5, listArray[dbIdx][4].OneBasedPossibleLocalizedModifications.Single().Key);
+                Assert.AreEqual("MPEVTIDE", listArray[dbIdx][0].BaseSequence, $"[{dbIdx}] SAV sequence mismatch");
+                Assert.AreEqual("MPEKTIDE", listArray[dbIdx][1].BaseSequence, $"[{dbIdx}] MNV sequence mismatch");
+                Assert.AreEqual("MPEPPPTIDE", listArray[dbIdx][2].BaseSequence, $"[{dbIdx}] insertion sequence mismatch");
+                Assert.AreEqual("MPEPTIDE", listArray[dbIdx][3].BaseSequence, $"[{dbIdx}] deletion sequence mismatch");
+                Assert.AreEqual("MPEPPPTIDE", listArray[dbIdx][4].BaseSequence, $"[{dbIdx}] insertion+mod sequence mismatch");
 
+                // Confirm the modification attached to protein5 survives application and XML round-trip
+                Assert.AreEqual(1, listArray[dbIdx][4].OneBasedPossibleLocalizedModifications.Count, $"[{dbIdx}] Expected exactly 1 mod on the insertion+mod variant");
+                Assert.AreEqual(5, listArray[dbIdx][4].OneBasedPossibleLocalizedModifications.Single().Key, $"[{dbIdx}] Mod should localize to one-based position 5");
+                // Sanity: ensure the residue under the mod is indeed P
+                Assert.AreEqual('P', listArray[dbIdx][4].BaseSequence[5 - 1], $"[{dbIdx}] Residue at mod position should be 'P'");
+
+                // SAV expectations: single-residue change; length unchanged; position 4 is 'V'
+                Assert.AreEqual(8, listArray[dbIdx][0].BaseSequence.Length, $"[{dbIdx}] SAV length should be unchanged");
+                Assert.AreEqual(4, listArray[dbIdx][0].AppliedSequenceVariations.Single().OneBasedBeginPosition, $"[{dbIdx}] SAV begin mismatch");
+                Assert.AreEqual(4, listArray[dbIdx][0].AppliedSequenceVariations.Single().OneBasedEndPosition, $"[{dbIdx}] SAV end mismatch");
+                Assert.AreEqual("P", listArray[dbIdx][0].AppliedSequenceVariations.Single().OriginalSequence, $"[{dbIdx}] SAV original should be 'P'");
+                Assert.AreEqual("V", listArray[dbIdx][0].AppliedSequenceVariations.Single().VariantSequence, $"[{dbIdx}] SAV variant should be 'V'");
+                Assert.AreEqual('V', listArray[dbIdx][0].BaseSequence[4 - 1], $"[{dbIdx}] SAV residue at 4 should be 'V'");
+
+                // MNV expectations: multi-residue change; length unchanged; positions 4..5 become "KT"
+                Assert.AreEqual(8, listArray[dbIdx][1].BaseSequence.Length, $"[{dbIdx}] MNV length should be unchanged");
+                Assert.AreEqual(4, listArray[dbIdx][1].AppliedSequenceVariations.Single().OneBasedBeginPosition, $"[{dbIdx}] MNV begin mismatch");
+                Assert.AreEqual(5, listArray[dbIdx][1].AppliedSequenceVariations.Single().OneBasedEndPosition, $"[{dbIdx}] MNV end mismatch");
+                Assert.AreEqual("PT", listArray[dbIdx][1].AppliedSequenceVariations.Single().OriginalSequence, $"[{dbIdx}] MNV original should be 'PT'");
+                Assert.AreEqual("KT", listArray[dbIdx][1].AppliedSequenceVariations.Single().VariantSequence, $"[{dbIdx}] MNV variant should be 'KT'");
+                Assert.AreEqual("KT", listArray[dbIdx][1].BaseSequence.Substring(4 - 1, 2), $"[{dbIdx}] MNV residues 4..5 should be 'KT'");
+
+                // insertion expectations: length grows by +2; positions 4..6 are "PPP"
+                Assert.AreEqual(10, listArray[dbIdx][2].BaseSequence.Length, $"[{dbIdx}] insertion length should be 8 + 2 = 10");
+                Assert.AreEqual(4, listArray[dbIdx][2].AppliedSequenceVariations.Single().OneBasedBeginPosition, $"[{dbIdx}] insertion begin mismatch");
+                Assert.AreEqual(6, listArray[dbIdx][2].AppliedSequenceVariations.Single().OneBasedEndPosition, $"[{dbIdx}] insertion end mismatch");
+                Assert.AreEqual("P", listArray[dbIdx][2].AppliedSequenceVariations.Single().OriginalSequence, $"[{dbIdx}] insertion original should be 'P'");
+                Assert.AreEqual("PPP", listArray[dbIdx][2].AppliedSequenceVariations.Single().VariantSequence, $"[{dbIdx}] insertion variant should be 'PPP'");
+                Assert.AreEqual("PPP", listArray[dbIdx][2].BaseSequence.Substring(4 - 1, 3), $"[{dbIdx}] insertion residues 4..6 should be 'PPP'");
+
+                // deletion expectations: length shrinks by -2 relative to the starting "MPEPPPTIDE" (10 → 8)
+                // and positions collapse so that sequence returns to "MPEPTIDE".
+                Assert.AreEqual(8, listArray[dbIdx][3].BaseSequence.Length, $"[{dbIdx}] deletion length should be 10 - 2 = 8");
+                Assert.AreEqual(4, listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedBeginPosition, $"[{dbIdx}] deletion begin mismatch");
+                Assert.AreEqual(4, listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedEndPosition, $"[{dbIdx}] deletion end mismatch (post-collapse)");
+                Assert.AreEqual("PPP", listArray[dbIdx][3].AppliedSequenceVariations.Single().OriginalSequence, $"[{dbIdx}] deletion original should be 'PPP'");
+                Assert.AreEqual("P", listArray[dbIdx][3].AppliedSequenceVariations.Single().VariantSequence, $"[{dbIdx}] deletion variant should be 'P'");
+
+                // For completeness, also assert the summarized begin/end expectations that the original test verified.
                 // SAV
                 Assert.AreEqual(4, listArray[dbIdx][0].AppliedSequenceVariations.Single().OneBasedBeginPosition);
                 Assert.AreEqual(4, listArray[dbIdx][0].AppliedSequenceVariations.Single().OneBasedEndPosition);
-
                 // MNV
                 Assert.AreEqual(4, listArray[dbIdx][1].AppliedSequenceVariations.Single().OneBasedBeginPosition);
                 Assert.AreEqual(5, listArray[dbIdx][1].AppliedSequenceVariations.Single().OneBasedEndPosition);
-
                 // insertion
                 Assert.AreEqual(4, listArray[dbIdx][2].AppliedSequenceVariations.Single().OneBasedBeginPosition);
                 Assert.AreEqual(6, listArray[dbIdx][2].AppliedSequenceVariations.Single().OneBasedEndPosition);
-
                 // deletion
                 Assert.AreEqual(4, listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedBeginPosition);
                 Assert.AreEqual(4, listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedEndPosition);
             }
-        }
 
+            // Ensure exact stability across the three sources:
+            // - All sequences in in-memory #1 equal in-memory #2 and XML reload.
+            CollectionAssert.AreEqual(
+                proteinsWithAppliedVariants.Select(p => p.BaseSequence).ToList(),
+                proteinsWithAppliedVariants2.Select(p => p.BaseSequence).ToList(),
+                "In-memory application should be stable across repeated calls");
+            CollectionAssert.AreEqual(
+                proteinsWithAppliedVariants.Select(p => p.BaseSequence).ToList(),
+                proteinsWithAppliedVariants3.Select(p => p.BaseSequence).ToList(),
+                "XML round-trip should preserve variant-applied sequences in the same order");
+        }
         [Test]
         public static void AppliedVariants_AsIBioPolymer()
         {
