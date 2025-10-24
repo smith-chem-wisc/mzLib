@@ -110,10 +110,5 @@ namespace Omics.BioPolymer
         {
             return OneBasedBeginPosition > 0 && OneBasedEndPosition >= OneBasedBeginPosition;
         }
-
-        private static bool LooksLikeVcf(string s)
-            => !string.IsNullOrWhiteSpace(s)
-               && (s.Contains("\t") || s.Contains("\\t"))
-               && (s.Contains("GT:") || s.Contains(":GT:") || s.Contains(" ANN=") || s.Contains("\tANN="));
     }
 }

@@ -342,7 +342,7 @@ namespace Omics.BioPolymer
 
         public static string CombineDescriptions(IEnumerable<SequenceVariation>? variations)
         {
-            return variations.IsNullOrEmpty() ? "" : string.Join(", variant:", variations.Select(d => d.VariantCallFormatDataString));
+            return variations.IsNullOrEmpty() ? "" : string.Join(", variant:", variations.Select(d => d.VariantCallFormatDataString?.Description ?? d.Description));
         }
 
         public static IEnumerable<TBioPolymerType> ApplyAllVariantCombinations<TBioPolymerType>(
