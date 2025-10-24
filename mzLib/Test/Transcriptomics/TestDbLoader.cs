@@ -164,7 +164,6 @@ namespace Test.Transcriptomics
             var rna = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifedFastaPath, true, DecoyType.None, false, out var errors)
                 .Cast<IBioPolymer>().ToList();
             Assert.That(errors.Count, Is.EqualTo(0));
-
             var modString = "ID   Methylation\r\nMT   Biological\r\nPP   Anywhere.\r\nTG   G\r\nCF   C1H2\r\n" + @"//";
             var methylG = PtmListLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).First();
 
