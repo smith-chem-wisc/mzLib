@@ -115,20 +115,19 @@ namespace UsefulProteomicsDatabases
                         {
                             block.ParseElement(xml.Name, xml);
                         }
-
                         if (xml.NodeType == XmlNodeType.EndElement || xml.IsEmptyElement)
                         {
                             Protein newProtein = block.ParseEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, proteinDbLocation);
                             if (newProtein != null)
                             {
-                                // Convert any “nucleotide substitution” modifications into sequence variations
+                                // Convert target-encoded nucleotide substitutions to seq vars
                                 if (newProtein.OneBasedPossibleLocalizedModifications.Any(m => m.Value.Any(mt => mt.ModificationType.Contains("nucleotide substitution"))))
                                 {
                                     newProtein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
                                 }
 
-                                // CRITICAL CHANGE: Do NOT call AddTruncations() here.
-                                // We will add truncations consistently to both targets and decoys after decoy generation.
+                                // IMPORTANT: Do NOT call AddTruncations here. We will apply it later
+                                // to BOTH targets and decoys to ensure parity.
 
                                 if (newProtein.IsDecoy)
                                 {
@@ -149,24 +148,23 @@ namespace UsefulProteomicsDatabases
                 File.Delete(newProteinDbLocation);
             }
 
-            // Generate decoys from raw targets (no truncations added yet)
+            // Generate decoys from raw targets
             decoys.AddRange(DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier));
 
-            // Add truncations SYMMETRICALLY if requested: apply to both targets and decoys NOW
+            // Now, if requested, add truncations to BOTH targets and decoys
             if (addTruncations)
             {
                 foreach (var p in targets)
                 {
                     p.AddTruncations();
                 }
-
                 foreach (var p in decoys)
                 {
                     p.AddTruncations();
                 }
             }
 
-            // Expand variants (if any) and merge
+            // Expand variants and return
             IEnumerable<Protein> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
             var toReturn = proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth));
             return Merge(toReturn).ToList();
