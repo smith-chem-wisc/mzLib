@@ -97,36 +97,41 @@ namespace UsefulProteomicsDatabases
                 List<TruncationProduct> decoyPP = new List<TruncationProduct>();
                 foreach (TruncationProduct pp in protein.TruncationProducts)
                 {
-                    // Copy annotated proteolysis products verbatim (same begin, same end, same type).
-                    // Truncation expansion is handled later by the loader for both targets and decoys.
+                    // Copy annotated proteolysis products; coordinates will be mirrored below
                     decoyPP.Add(new TruncationProduct(pp.OneBasedBeginPosition, pp.OneBasedEndPosition, pp.Type));
                 }
-                // After creating the decoy Protein (with reversed sequence):
-                // var decoy = new Protein(original, reversedSequence);
-                if (decoyPP != null && decoyPP.Count > 0)
+
+                // Mirror annotated proteolysis products to reversed-sequence coordinates,
+                // honoring initiator methionine retention (M at position 1 stays at 1)
+                if (decoyPP.Count > 0)
                 {
                     int L = reversedSequence.Length;
 
-                    // Mirror all annotated proteolysis products from target to match the reversed sequence coordinates
+                    int? MapPos(int? pos)
+                    {
+                        if (!pos.HasValue) return pos;
+                        int p = pos.Value;
+
+                        if (startsWithM)
+                        {
+                            // Initiator methionine retained at position 1
+                            return p == 1 ? 1 : L - p + 2;
+                        }
+                        else
+                        {
+                            return L - p + 1;
+                        }
+                    }
+
                     decoyPP = decoyPP
                         .Select(tp =>
                         {
-                            int? b = tp.OneBasedBeginPosition;
-                            int? e = tp.OneBasedEndPosition;
+                            // Mirror: begin' = map(end), end' = map(begin)
+                            int? mb = (tp.OneBasedBeginPosition.HasValue && tp.OneBasedEndPosition.HasValue) ? MapPos(tp.OneBasedEndPosition) : tp.OneBasedBeginPosition;
+                            int? me = (tp.OneBasedBeginPosition.HasValue && tp.OneBasedEndPosition.HasValue) ? MapPos(tp.OneBasedBeginPosition) : tp.OneBasedEndPosition;
 
-                            int? mb = (b.HasValue && e.HasValue) ? L - e.Value + 1 : b; // if one side is null, keep it null
-                            int? me = (b.HasValue && e.HasValue) ? L - b.Value + 1 : e;
-
-                            // Keep type/description; if not available as a property, use a neutral label
-                            string type = "decoy_mirror";
-                            try
-                            {
-                                // If your TruncationProduct exposes a type/description property, prefer that:
-                                // type = tp.Type ?? "decoy_mirror";
-                                // or: type = tp.Description ?? "decoy_mirror";
-                            }
-                            catch { /* fallback */ }
-
+                            // Keep a safe type label (filter in AddTruncations excludes "truncation" and "full-length proteoform")
+                            string type = string.IsNullOrWhiteSpace(tp.Type) ? "decoy_mirror" : $"{decoyIdentifier} {tp.Type}";
                             return new TruncationProduct(mb, me, type);
                         })
                         .ToList();
