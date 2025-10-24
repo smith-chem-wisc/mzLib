@@ -619,78 +619,59 @@ namespace Proteomics
         {
             bool sequenceContainsNterminus = (fullProteinOneBasedBegin == 1);
 
-            if (sequenceContainsNterminus)
+            // Helper: ensure all C-term deltas 1..lengthOfProteolysis are present for "begin"
+            void EnsureAllCtermDeltasForBegin(int begin)
             {
-                // Digest N-terminus
-                if (addNterminalDigestionTruncations)
+                if (begin < 1) return;
+                for (int d = 1; d <= lengthOfProteolysis; d++)
                 {
-                    if (BaseSequence.Substring(0, 1) == "M")
-                    {
-                        AddNterminalTruncations(lengthOfProteolysis + 1, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
-                    }
-                    else
-                    {
-                        AddNterminalTruncations(lengthOfProteolysis, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
-                    }
-                }
+                    int newEnd = fullProteinOneBasedEnd - d;
+                    int len = newEnd - begin + 1;
+                    if (len < minProductBaseSequenceLength) break;
 
-                // Digest C-terminus -- not effected by variable N-terminus behavior
-                if (addCterminalDigestionTruncations)
-                {
-                    // if first residue is M, then we have to add c-terminal markers for both with and without the M
-                    if (BaseSequence.Substring(0, 1) == "M")
+                    if (!_proteolysisProducts.Any(tp => tp.OneBasedBeginPosition == begin && tp.OneBasedEndPosition == newEnd))
                     {
-                        // add sequences WITHOUT methionine
-                        AddCterminalTruncations(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin + 1, minProductBaseSequenceLength, proteolyisisProductName);
-                    }
-                    // add sequences with methionine
-                    AddCterminalTruncations(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin, minProductBaseSequenceLength, proteolyisisProductName);
-
-                    // Normalize: ensure all C-terminal deltas 1..lengthOfProteolysis exist for intact-proteoform starts
-                    // This guards against rare gaps (e.g., end=fullEnd-4) observed on decoy paths.
-                    void EnsureAllCtermDeltasForBegin(int begin)
-                    {
-                        if (begin < 1) return;
-                        for (int d = 1; d <= lengthOfProteolysis; d++)
-                        {
-                            int newEnd = fullProteinOneBasedEnd - d;
-                            int length = newEnd - begin + 1;
-                            if (length < minProductBaseSequenceLength) break;
-                            if (!_proteolysisProducts.Any(p => p.OneBasedBeginPosition == begin && p.OneBasedEndPosition == newEnd))
-                            {
-                                _proteolysisProducts.Add(new TruncationProduct(begin, newEnd, proteolyisisProductName));
-                            }
-                        }
-                    }
-
-                    EnsureAllCtermDeltasForBegin(fullProteinOneBasedBegin);
-                    if (BaseSequence.StartsWith("M", StringComparison.Ordinal))
-                    {
-                        EnsureAllCtermDeltasForBegin(fullProteinOneBasedBegin + 1);
+                        _proteolysisProducts.Add(new TruncationProduct(begin, newEnd, proteolyisisProductName));
                     }
                 }
             }
-            else // sequence does not contain N-terminus
+
+            if (sequenceContainsNterminus)
             {
-                // Digest C-terminus
+                // N-term
+                if (addNterminalDigestionTruncations)
+                {
+                    if (BaseSequence.StartsWith("M", StringComparison.Ordinal))
+                        AddNterminalTruncations(lengthOfProteolysis + 1, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
+                    else
+                        AddNterminalTruncations(lengthOfProteolysis, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
+                }
+
+                // C-term
+                if (addCterminalDigestionTruncations)
+                {
+                    if (BaseSequence.StartsWith("M", StringComparison.Ordinal))
+                    {
+                        // without initiator Met
+                        AddCterminalTruncations(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin + 1, minProductBaseSequenceLength, proteolyisisProductName);
+                    }
+                    // with initiator Met
+                    AddCterminalTruncations(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin, minProductBaseSequenceLength, proteolyisisProductName);
+
+                    // Normalize expected C-term deltas for intact-proteoform begins
+                    EnsureAllCtermDeltasForBegin(fullProteinOneBasedBegin);
+                    if (BaseSequence.StartsWith("M", StringComparison.Ordinal))
+                        EnsureAllCtermDeltasForBegin(fullProteinOneBasedBegin + 1);
+                }
+            }
+            else
+            {
+                // no N-term present in this segment
                 if (addCterminalDigestionTruncations)
                 {
                     AddCterminalTruncations(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin, minProductBaseSequenceLength, proteolyisisProductName);
-
-                    // Normalize for non-N-term sequences as well
-                    for (int d = 1; d <= lengthOfProteolysis; d++)
-                    {
-                        int newEnd = fullProteinOneBasedEnd - d;
-                        int length = newEnd - fullProteinOneBasedBegin + 1;
-                        if (length < minProductBaseSequenceLength) break;
-                        if (!_proteolysisProducts.Any(p => p.OneBasedBeginPosition == fullProteinOneBasedBegin && p.OneBasedEndPosition == newEnd))
-                        {
-                            _proteolysisProducts.Add(new TruncationProduct(fullProteinOneBasedBegin, newEnd, proteolyisisProductName));
-                        }
-                    }
+                    EnsureAllCtermDeltasForBegin(fullProteinOneBasedBegin);
                 }
-
-                // Digest N-terminus
                 if (addNterminalDigestionTruncations)
                 {
                     AddNterminalTruncations(lengthOfProteolysis, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
