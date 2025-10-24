@@ -1415,36 +1415,158 @@ namespace Test.DatabaseTests
             }
             Assert.That(unknownModifications == null || unknownModifications.Count == 0, "No unknown modifications expected from this input");
         }
+
         [Test]
         public static void ProteinVariantsReadAsModificationsWrittenAsVariants()
         {
+            // PURPOSE
+            // This test verifies the I/O pipeline that converts "nucleotide substitution" modifications
+            // embedded in an input protein XML into canonical "sequence variant" features when read,
+            // and persists them back out as proper <feature type="sequence variant"> entries when written.
+            //
+            // WHY
+            // - Some sources (e.g., GPTMD discovery) encode AA substitutions as modifications with
+            //   ModificationType = "1 nucleotide substitution". Internally, we want these represented
+            //   as SequenceVariations, not remaining as generic modifications.
+            // - On read: these substitution mods must be removed from the protein’s modifications collections
+            //   and turned into SequenceVariations.
+            // - On write: they must be serialized as sequence variant features with a standardized description
+            //   ("Putative GPTMD Substitution") and NOT re-serialized as modifications.
+            //
+            // EXPECTATIONS SUMMARY
+            // - Input file has 57 lines that contain "1 nucleotide substitution" (source encoding as mods).
+            // - After LoadProteinXML:
+            //     * We get exactly 9 proteins (DecoyType.None).
+            //     * Total SequenceVariations across all proteins = 194.
+            //     * Total OneBasedPossibleLocalizedModifications count across all proteins = 0
+            //       (i.e., all substitution mods became sequence variations).
+            //     * No unknown modifications should remain.
+            //     * No applied variants are expected (metadata only; we are not expanding combinatorics here).
+            // - After WriteXmlDatabase then re-load:
+            //     * Count and totals remain the same (9 proteins; 194 total sequence variations; 0 mods).
+            //     * The output file contains:
+            //         - Exactly 194 lines with feature type="sequence variant".
+            //         - Exactly 194 lines with "Putative GPTMD Substitution".
+            //         - Exactly 0 lines with "1 nucleotide substitution" (proved that mods were not serialized).
+            //
+            // NOTE
+            // - We keep DecoyType.None to avoid expanding the protein list.
+            // - We use minAlleleDepth = 1 and maxHeterozygousVariants = 0 to avoid variant-proteoform expansion.
+
+            // Arrange: locate the source database that encodes nucleotide substitutions as modifications
             string databaseName = "nucleotideVariantsAsModifications.xml";
+            string inputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName);
+            Assert.That(File.Exists(inputPath), Is.True, "Input database file must exist for this test");
 
-            Assert.That(File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName)).Count(l => l.Contains("1 nucleotide substitution")), Is.EqualTo(57));
+            // Sanity: confirm the source encodes substitutions as modifications in the raw XML
+            // (57 lines that mention "1 nucleotide substitution" in the file).
+            var inputLines = File.ReadAllLines(inputPath);
+            int inputSubstitutionModLines = inputLines.Count(l => l.Contains("1 nucleotide substitution"));
+            Assert.That(inputSubstitutionModLines, Is.EqualTo(57), "Source XML should contain 57 substitution-mod lines");
 
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
-                DecoyType.None, null, false, null, out var unknownModifications, 1, 0);
-            Assert.AreEqual(9, proteins.Count); // 1 target
-            Assert.AreEqual(194, proteins.Select(v=>v.SequenceVariations.Count).Sum()); // there are no sequence variations in the original proteins
-            Assert.AreEqual(0, proteins.Select(m => m.OneBasedPossibleLocalizedModifications.Sum(list=>list.Value.Count)).Sum()); // there are 194 sequence variants as modifications in the original proteins
+            // Optional sanity: the source should not already be in sequence-variant form
+            int inputSeqVarFeatureLines = inputLines.Count(l => l.Contains("feature type=\"sequence variant\""));
+            Assert.That(inputSeqVarFeatureLines, Is.EqualTo(0), "Source XML should not already encode sequence variants");
 
+            // Act: read the database. Expect conversion to SequenceVariations and removal from modifications
+            var proteins = ProteinDbLoader.LoadProteinXML(
+                inputPath,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: null,
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var unknownModifications,
+                minAlleleDepth: 1,
+                maxHeterozygousVariants: 0);
+
+            // Assert: no decoys requested, so all should be targets
+            Assert.That(proteins.All(p => !p.IsDecoy), "All proteins should be targets when DecoyType.None is used");
+
+            // Assert: exactly 9 proteins
+            Assert.AreEqual(9, proteins.Count, "Expected exactly 9 proteins from the input");
+
+            // Assert: the loader converted all substitution modifications into proper SequenceVariations
+            // and removed them from OneBasedPossibleLocalizedModifications
+            int totalSequenceVariations = proteins.Sum(p => p.SequenceVariations.Count);
+            int totalPossibleLocalizedMods = proteins.Sum(p => p.OneBasedPossibleLocalizedModifications.Values.Sum(v => v.Count));
+            Assert.AreEqual(194, totalSequenceVariations, "Total number of sequence variations after load must be 194");
+            Assert.AreEqual(0, totalPossibleLocalizedMods, "All substitution modifications should have been converted; none should remain as mods");
+
+            // FIX: Safely log unknown modifications (Dictionary<string, Modification>), if any appear unexpectedly.
+            if (unknownModifications != null && unknownModifications.Count > 0)
+            {
+                TestContext.WriteLine("Unknown modifications encountered during read (unexpected):");
+                foreach (var kvp in unknownModifications)
+                {
+                    var mod = kvp.Value;
+                    var id = mod?.OriginalId ?? "<null>";
+                    var type = mod?.ModificationType ?? "<null>";
+                    TestContext.WriteLine($" - key={kvp.Key}, id={id}, type={type}");
+                }
+            }
+            Assert.That(unknownModifications == null || unknownModifications.Count == 0, "No unknown modifications should remain after conversion");
+
+            // Assert: No applied variants expected in this test (we are validating representation, not expansion)
+            int totalAppliedVariants = proteins.Sum(p => p.AppliedSequenceVariations.Count());
+            Assert.That(totalAppliedVariants, Is.EqualTo(0), "No applied variants expected; variants are metadata here");
+
+            // Assert: None of the proteins should carry "1 nucleotide substitution" as OriginalNonVariantModifications anymore
+            int residualSubstitutionMods =
+                proteins.Sum(p => p.OriginalNonVariantModifications.Values.Sum(list => list.Count(m => m.ModificationType == "1 nucleotide substitution")));
+            Assert.That(residualSubstitutionMods, Is.EqualTo(0), "No '1 nucleotide substitution' mods should remain in OriginalNonVariantModifications");
+
+            // Persist the converted representation and read it back; this file should contain only sequence-variant features
             string tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
             Directory.CreateDirectory(tempDir);
             string tempFile = Path.Combine(tempDir, "xmlWithSequenceVariantsAndNoModifications.txt");
 
-            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteins.Where(p => !p.IsDecoy).ToList(), tempFile);
-            proteins = ProteinDbLoader.LoadProteinXML(tempFile, true,
-                DecoyType.None, null, false, null, out unknownModifications, 1, 0);
-            Assert.AreEqual(9, proteins.Count); // 1 target
-            Assert.AreEqual(194, proteins.Select(v => v.SequenceVariations.Count).Sum()); // there are 194 sequence variations in the revised proteins
-            Assert.AreEqual(0, proteins.Select(m => m.OneBasedPossibleLocalizedModifications.Sum(list => list.Value.Count)).Sum()); // there are 0 sequence variants as modifications in the original proteins
-            
-            Assert.That(File.ReadAllLines(tempFile).Count(l => l.Contains("feature type=\"sequence variant\"")), Is.EqualTo(194));
-            Assert.That(File.ReadAllLines(tempFile).Count(l => l.Contains("Putative GPTMD Substitution")), Is.EqualTo(194));
-            Assert.That(File.ReadAllLines(tempFile).Count(l => l.Contains("1 nucleotide substitution")), Is.EqualTo(0));
-            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
-        }
+            try
+            {
+                // Write only the targets (all are targets here). Expect the writer to emit sequence variant features.
+                ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteins.Where(p => !p.IsDecoy).ToList(), tempFile);
 
+                // Inspect the written file contents directly for ground truth
+                var writtenLines = File.ReadAllLines(tempFile);
+                int writtenSeqVarFeatures = writtenLines.Count(l => l.Contains("feature type=\"sequence variant\""));
+                int writtenPutativeGptmd = writtenLines.Count(l => l.Contains("Putative GPTMD Substitution"));
+                int writtenSubstitutionMods = writtenLines.Count(l => l.Contains("1 nucleotide substitution"));
+
+                // Assert: writer produced only sequence variants (not substitution mods)
+                Assert.That(writtenSeqVarFeatures, Is.EqualTo(194), "All 194 substitutions must be serialized as sequence variant features");
+                Assert.That(writtenPutativeGptmd, Is.EqualTo(194), "All 194 variants should have the standardized description label");
+                Assert.That(writtenSubstitutionMods, Is.EqualTo(0), "No '1 nucleotide substitution' strings should remain in the written XML");
+
+                // Re-load the written file to confirm round-trip stability
+                proteins = ProteinDbLoader.LoadProteinXML(
+                    tempFile,
+                    generateTargets: true,
+                    decoyType: DecoyType.None,
+                    allKnownModifications: null,
+                    isContaminant: false,
+                    modTypesToExclude: null,
+                    unknownModifications: out unknownModifications,
+                    minAlleleDepth: 1,
+                    maxHeterozygousVariants: 0);
+
+                // Assert: the round-tripped representation is identical in shape and counts
+                Assert.AreEqual(9, proteins.Count, "Round-trip must preserve protein count");
+                Assert.AreEqual(194, proteins.Sum(v => v.SequenceVariations.Count), "Round-trip must preserve total number of sequence variations");
+                Assert.AreEqual(0, proteins.Sum(m => m.OneBasedPossibleLocalizedModifications.Values.Sum(list => list.Count)),
+                    "Round-trip must preserve the fact that no substitution mods remain");
+                Assert.That(unknownModifications == null || unknownModifications.Count == 0, "Round-trip should not introduce unknown modifications");
+                Assert.That(proteins.Sum(p => p.AppliedSequenceVariations.Count()), Is.EqualTo(0), "Round-trip should not apply any variants");
+            }
+            finally
+            {
+                // Cleanup test artifacts
+                if (Directory.Exists(tempDir))
+                {
+                    try { File.SetAttributes(tempFile, FileAttributes.Normal); } catch { /* ignore */ }
+                    Directory.Delete(tempDir, true);
+                }
+            }
+        }
         [Test]
         public void Constructor_ParsesDescriptionCorrectly()
         {
