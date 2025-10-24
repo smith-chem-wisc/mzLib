@@ -1103,23 +1103,9 @@ namespace Test
         [Test]
         public static void TestPeptideWithSetModsReturnsDecoyTruncationsInTopDown()
         {
-            // This test verifies that when:
-            //  - proteins are loaded with Reverse decoys (DecoyType.Reverse)
-            //  - and truncation products are added at load time (addTruncations: true),
-            // the top-down truncation enumeration produces identical counts and distributions
-            // for both the target and decoy versions of the same protein.
-            //
-            // In short: reversing the protein (to create a decoy) must not change the set size
-            // of enumerated top-down truncation proteoforms.
-
-            // Build path to the human insulin XML database in the test directory.
-            // Using TestContext ensures this resolves correctly across environments (IDE/CI).
             string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
 
-            // Load proteins from XML, asking the loader to:
-            //  - produce Reverse decoys (so we get both a target and a decoy protein)
-            //  - add truncation products (so top-down enumeration can yield truncations)
-            // We don't provide additional PTMs (null), and we keep all proteins (no filters).
+            // Load target + reverse decoy with truncation expansion
             List<Protein> insulinProteins = ProteinDbLoader.LoadProteinXML(
                 xmlDatabase,
                 generateTargets: true,
@@ -1130,64 +1116,16 @@ namespace Test
                 out var unknownModifications,
                 addTruncations: true);
 
-            // Sanity: ensure one target and one decoy protein are present in the load results.
-            Assert.IsTrue(insulinProteins.Any(p => !p.IsDecoy), "Target protein not found in loaded proteins.");
-            Assert.IsTrue(insulinProteins.Any(p => p.IsDecoy), "Decoy protein not found in loaded proteins.");
-
-            // Extract one target and one decoy protein (insulin sequence and its reverse).
-            // Use First(...) instead of Single(...) because the XML may contain multiple target/decoy entries.
-            // The test only needs a valid target/decoy pair, not uniqueness at the file level.
             var targetProtein = insulinProteins.First(p => !p.IsDecoy);
             var decoyProtein = insulinProteins.First(p => p.IsDecoy);
 
+            // Sanity
+            Assert.IsFalse(targetProtein.IsDecoy);
+            Assert.IsTrue(decoyProtein.IsDecoy);
+            Assert.AreEqual(targetProtein.BaseSequence.Length, decoyProtein.BaseSequence.Length);
+            Assert.AreNotEqual(targetProtein.BaseSequence, decoyProtein.BaseSequence);
 
-
-            // Immediately after var targetProtein / var decoyProtein assignments:
-
-            // 1) Show residues at the tail (to spot any sequence-content rule)
-            string Tail(string seq, int n) => new string(seq.Skip(Math.Max(0, seq.Length - n)).ToArray());
-            TestContext.Out.WriteLine($"Target tail: {Tail(targetProtein.BaseSequence, 12)}");
-            TestContext.Out.WriteLine($"Decoy  tail: {Tail(decoyProtein.BaseSequence, 12)}");
-
-            // 2) Enumerate expected C-terminal ends from each original anchor and diff vs actual (pre-digest)
-            static List<(int b, int e)> EndsFromAnchor((int b, int e) anchor, int lengthOfProteolysis = 5)
-            {
-                var list = new List<(int b, int e)>(lengthOfProteolysis + 1);
-                for (int d = 0; d <= lengthOfProteolysis; d++)
-                    list.Add((anchor.b, anchor.e - d));
-                return list;
-            }
-
-            var annotated = (decoyProtein.TruncationProducts ?? new List<TruncationProduct>())
-                .Where(tp => tp.OneBasedBeginPosition.HasValue && tp.OneBasedEndPosition.HasValue)
-                .Select(tp => (b: tp.OneBasedBeginPosition!.Value, e: tp.OneBasedEndPosition!.Value))
-                .ToList();
-
-            var actualEnds = (decoyProtein.TruncationProducts ?? new List<TruncationProduct>())
-                .Where(tp => tp.OneBasedEndPosition.HasValue)
-                .Select(tp => tp.OneBasedEndPosition!.Value)
-                .ToHashSet();
-
-            var expectedEndsFromAnnotated = annotated
-                .SelectMany(a => EndsFromAnchor(a))
-                .Where(x => x.e >= 1) // safety
-                .ToList();
-
-            var missingCterm106 = expectedEndsFromAnnotated.Where(x => x.e == 106).ToList();
-            TestContext.Out.WriteLine($"Decoy expected C-term 106 candidates: {string.Join(", ", missingCterm106.Select(x => $"{x.b}-{x.e}"))}");
-            TestContext.Out.WriteLine($"Decoy actually has end=106? {actualEnds.Contains(106)}");
-
-
-
-            // Reverse decoys should preserve length but differ in sequence.
-            Assert.IsFalse(targetProtein.IsDecoy, "Target protein incorrectly marked as decoy.");
-            Assert.IsTrue(decoyProtein.IsDecoy, "Decoy protein not marked as decoy.");
-            Assert.AreEqual(targetProtein.BaseSequence.Length, decoyProtein.BaseSequence.Length,
-                "Reverse decoy must have the same sequence length as the target.");
-            Assert.AreNotEqual(targetProtein.BaseSequence, decoyProtein.BaseSequence,
-                "Reverse decoy sequence should differ from the target sequence.");
-
-            // Quick context on anchors present before digestion
+            // Context on pre-expanded anchors (optional; harmless to keep)
             TestContext.Out.WriteLine(SummarizeProteolysis(targetProtein, "TARGET anchors"));
             TestContext.Out.WriteLine(SummarizeProteolysis(decoyProtein, "DECOY anchors"));
 
@@ -1198,9 +1136,7 @@ namespace Test
                 TestContext.Out.WriteLine($"First 10 unmatched target anchors: {string.Join(", ", mism.Take(10))}");
             }
 
-            // Optional control: reload without truncation expansion to inspect only annotated anchors
-            // Comment in temporarily when needed
-            
+            // Control: annotated only (no expansion)
             {
                 var noExpand = ProteinDbLoader.LoadProteinXML(
                     xmlDatabase, true, DecoyType.Reverse,
@@ -1216,188 +1152,61 @@ namespace Test
                 var (same0, mirrored0, mism0) = CompareAnchorsSameVsMirrored(tgt0, dec0);
                 TestContext.Out.WriteLine($"(no expansion) same={same0}, mirrored={mirrored0}, unmatched={mism0.Count}");
             }
-            
 
-
-            // Define a "top-down" protease with no cleavage motifs.
-            // This acts as a label to instruct the digestion engine to enumerate truncation products
-            // (not motif-based enzymatic cleavage).
-            Protease protease = new Protease("top-down", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
-
-            // Shared digestion parameters: use the "top-down" protease and enable top-down truncation enumeration.
+            // Enumerate truncations via digestion
+            var protease = new Protease("top-down", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
             var dp = new DigestionParams(protease: protease.Name);
 
-            // Enumerate top-down truncation proteoforms for the target protein:
-            //  - No fixed/variable mods provided; this isolates truncation behavior.
-            //  - topDownTruncationSearch: true enables truncation enumeration from precomputed products.
-            List<PeptideWithSetModifications> insulintTargetTruncations = targetProtein
+            var insulintTargetTruncations = targetProtein
                 .Digest(dp, new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true)
                 .ToList();
-
-            // Contract check: insulin (with addTruncations) should yield exactly 68 truncation proteoforms.
             Assert.AreEqual(68, insulintTargetTruncations.Count, "Unexpected number of target truncation proteoforms.");
 
-            // Sanity checks on target truncations:
-            //  - Produced by the configured top-down protease
-            //  - Refer back to a non-decoy protein
-            //  - Truncation coordinates in-bounds and consistent with BaseSequence length
-            //  - Uniqueness of (start,end) pairs
-            //  - Includes the intact proteoform and at least one N- and C-terminal truncation
-            Assert.IsTrue(insulintTargetTruncations.All(p => p.DigestionParams.DigestionAgent.Name == protease.Name),
-                "All target truncations should be produced by the top-down protease.");
-            Assert.IsTrue(insulintTargetTruncations.All(p => !p.Protein.IsDecoy),
-                "Target truncations should reference a non-decoy protein.");
+            // Sanity checks on target
+            Assert.IsTrue(insulintTargetTruncations.All(p => p.DigestionParams.DigestionAgent.Name == protease.Name));
+            Assert.IsTrue(insulintTargetTruncations.All(p => !p.Protein.IsDecoy));
             Assert.IsTrue(insulintTargetTruncations.All(p =>
-                    p.OneBasedStartResidueInProtein >= 1 &&
-                    p.OneBasedEndResidueInProtein <= targetProtein.Length &&
-                    p.OneBasedStartResidueInProtein <= p.OneBasedEndResidueInProtein),
-                "Target truncation coordinates must be within protein bounds and well-ordered.");
+                p.OneBasedStartResidueInProtein >= 1 &&
+                p.OneBasedEndResidueInProtein <= targetProtein.Length &&
+                p.OneBasedStartResidueInProtein <= p.OneBasedEndResidueInProtein));
             Assert.IsTrue(insulintTargetTruncations.All(p =>
-                    p.BaseSequence.Length == p.OneBasedEndResidueInProtein - p.OneBasedStartResidueInProtein + 1),
-                "BaseSequence length must match (end - start + 1) for target truncations.");
+                p.BaseSequence.Length == p.OneBasedEndResidueInProtein - p.OneBasedStartResidueInProtein + 1));
             Assert.AreEqual(
                 insulintTargetTruncations.Count,
                 insulintTargetTruncations
                     .Select(p => (p.OneBasedStartResidueInProtein, p.OneBasedEndResidueInProtein))
                     .Distinct()
-                    .Count(),
-                "Each target truncation (start,end) pair should be unique.");
+                    .Count());
             Assert.IsTrue(insulintTargetTruncations.Any(p => p.OneBasedStartResidueInProtein == 1 &&
-                                                             p.OneBasedEndResidueInProtein == targetProtein.Length),
-                "The intact target proteoform should be present among truncations.");
-            Assert.IsTrue(insulintTargetTruncations.Any(p => p.OneBasedStartResidueInProtein > 1),
-                "Expected at least one N-terminal truncation for target.");
-            Assert.IsTrue(insulintTargetTruncations.Any(p => p.OneBasedEndResidueInProtein < targetProtein.Length),
-                "Expected at least one C-terminal truncation for target.");
+                                                             p.OneBasedEndResidueInProtein == targetProtein.Length));
+            Assert.IsTrue(insulintTargetTruncations.Any(p => p.OneBasedStartResidueInProtein > 1));
+            Assert.IsTrue(insulintTargetTruncations.Any(p => p.OneBasedEndResidueInProtein < targetProtein.Length));
 
-
-
-            // Temporary patch before decoy digest
-            decoyProtein.TruncationProducts.Add(new TruncationProduct(1, 106, "patch"));
-            decoyProtein.TruncationProducts.Add(new TruncationProduct(2, 106, "patch"));
-            decoyProtein.TruncationProducts.Add(new TruncationProduct(90, 106, "patch"));
-
-
-            // Temporary diagnostic (place just after selecting targetProtein/decoyProtein)
-            var decoyEnds = decoyProtein.TruncationProducts?
-                .Select(tp => tp.OneBasedEndPosition)
-                .Where(e => e.HasValue)
-                .Select(e => e.Value)
-                .ToList() ?? new List<int>();
-
-
-            // If the 106 anchor is missing, print helpful tails and fail early (pre-digest)
-            if (!decoyEnds.Contains(106))
-            {
-                TestContext.Out.WriteLine(SummarizeProteolysis(decoyProtein, "DECOY anchors (pre-digest)"));
-                var endsTail = string.Join(", ", decoyEnds.Where(e => e >= decoyProtein.Length - 10));
-                var allEnds = string.Join(", ", decoyEnds.TakeLast(Math.Min(50, decoyEnds.Count)));
-                Assert.Fail($"Decoy missing end=106.\nEnds tail (>= {decoyProtein.Length - 10}): {endsTail}\nLast ends: {allEnds}");
-            }
-
-            // Repeat truncation enumeration for the decoy protein with identical parameters.
-            List<PeptideWithSetModifications> insulintDecoyTruncations = decoyProtein
+            // Decoy enumeration
+            var insulintDecoyTruncations = decoyProtein
                 .Digest(dp, new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true)
                 .ToList();
-
-                // Explicitly list and verify all 68 truncations by coordinates to aid future debugging.
-                // We build two "expected" sets from the target truncations:
-                //  - mirroredExpected: each target (start,end) mapped to the decoy's reversed coordinates (s' = L - e + 1, e' = L - s + 1)
-                //  - sameExpected:     same (start,end) pairs as target (useful if truncations are generated independently on decoys)
-                // We then compare the actual decoy (start,end) pairs to both expected sets. If neither matches,
-                // we produce a detailed diff listing which truncations are missing/extra. This makes failures actionable.
-                int L = decoyProtein.Length;
-
-            // Canonicalize to "start-end" strings for readable diffs
-            var actualDecoyPairs = insulintDecoyTruncations
-                .Select(p => (p.OneBasedStartResidueInProtein, p.OneBasedEndResidueInProtein))
-                .OrderBy(p => p.OneBasedStartResidueInProtein).ThenBy(p => p.OneBasedEndResidueInProtein)
-                .Select(p => $"{p.OneBasedStartResidueInProtein}-{p.OneBasedEndResidueInProtein}")
-                .ToList();
-
-            var mirroredExpectedPairs = insulintTargetTruncations
-                .Select(t => (L - t.OneBasedEndResidueInProtein + 1, L - t.OneBasedStartResidueInProtein + 1))
-                .OrderBy(p => p.Item1).ThenBy(p => p.Item2)
-                .Select(p => $"{p.Item1}-{p.Item2}")
-                .ToList();
-
-            var sameExpectedPairs = insulintTargetTruncations
-                .Select(t => (t.OneBasedStartResidueInProtein, t.OneBasedEndResidueInProtein))
-                .OrderBy(p => p.OneBasedStartResidueInProtein).ThenBy(p => p.OneBasedEndResidueInProtein)
-                .Select(p => $"{p.OneBasedStartResidueInProtein}-{p.OneBasedEndResidueInProtein}")
-                .ToList();
-
-            // Fast equality checks
-            bool matchesMirrored = mirroredExpectedPairs.SequenceEqual(actualDecoyPairs);
-            bool matchesSame = sameExpectedPairs.SequenceEqual(actualDecoyPairs);
-
-            if (!matchesMirrored && !matchesSame)
-            {
-                // Compute diffs for both hypotheses to show exactly which truncations are missing or extra
-                var actualSet = new HashSet<string>(actualDecoyPairs);
-
-                var mirroredSet = new HashSet<string>(mirroredExpectedPairs);
-                var missingFromActual_Mirrored = mirroredSet.Except(actualSet).OrderBy(s => s).ToList();
-                var extraInActual_Mirrored = actualSet.Except(mirroredSet).OrderBy(s => s).ToList();
-
-                var sameSet = new HashSet<string>(sameExpectedPairs);
-                var missingFromActual_Same = sameSet.Except(actualSet).OrderBy(s => s).ToList();
-                var extraInActual_Same = actualSet.Except(sameSet).OrderBy(s => s).ToList();
-
-                // Provide a comprehensive failure message including the explicit 68 expected truncations
-                // and the 68 actual truncations for easy manual comparison
-                var msg = $@"
-                    Decoy truncations do not match either expected layout.
-
-                    Target length: {L}
-                    Count(Target) = {insulintTargetTruncations.Count}, Count(Decoy) = {insulintDecoyTruncations.Count}
-
-                    Expected (mirrored from target -> decoy coordinates) [total {mirroredExpectedPairs.Count}]:
-                    {string.Join(", ", mirroredExpectedPairs)}
-
-                    Expected (same coordinates as target) [total {sameExpectedPairs.Count}]:
-                    {string.Join(", ", sameExpectedPairs)}
-
-                    Actual decoy (start-end) [total {actualDecoyPairs.Count}]:
-                    {string.Join(", ", actualDecoyPairs)}
-
-                    Missing (vs mirrored): {string.Join(", ", missingFromActual_Mirrored.DefaultIfEmpty("<none>"))}
-                    Extra    (vs mirrored): {string.Join(", ", extraInActual_Mirrored.DefaultIfEmpty("<none>"))}
-
-                    Missing (vs same): {string.Join(", ", missingFromActual_Same.DefaultIfEmpty("<none>"))}
-                    Extra    (vs same): {string.Join(", ", extraInActual_Same.DefaultIfEmpty("<none>"))}
-                    ";
-                Assert.Fail(msg);
-            }
-            // Parity check: decoy should have the same number of enumerated truncations.
             Assert.AreEqual(68, insulintDecoyTruncations.Count, "Unexpected number of decoy truncation proteoforms.");
 
-            // Sanity checks on decoy truncations analogous to the target checks.
-            Assert.IsTrue(insulintDecoyTruncations.All(p => p.DigestionParams.DigestionAgent.Name == protease.Name),
-                "All decoy truncations should be produced by the top-down protease.");
-            Assert.IsTrue(insulintDecoyTruncations.All(p => p.Protein.IsDecoy),
-                "Decoy truncations should reference a decoy protein.");
+            // Sanity checks on decoy
+            Assert.IsTrue(insulintDecoyTruncations.All(p => p.DigestionParams.DigestionAgent.Name == protease.Name));
+            Assert.IsTrue(insulintDecoyTruncations.All(p => p.Protein.IsDecoy));
             Assert.IsTrue(insulintDecoyTruncations.All(p =>
-                    p.OneBasedStartResidueInProtein >= 1 &&
-                    p.OneBasedEndResidueInProtein <= decoyProtein.Length &&
-                    p.OneBasedStartResidueInProtein <= p.OneBasedEndResidueInProtein),
-                "Decoy truncation coordinates must be within protein bounds and well-ordered.");
+                p.OneBasedStartResidueInProtein >= 1 &&
+                p.OneBasedEndResidueInProtein <= decoyProtein.Length &&
+                p.OneBasedStartResidueInProtein <= p.OneBasedEndResidueInProtein));
             Assert.IsTrue(insulintDecoyTruncations.All(p =>
-                    p.BaseSequence.Length == p.OneBasedEndResidueInProtein - p.OneBasedStartResidueInProtein + 1),
-                "BaseSequence length must match (end - start + 1) for decoy truncations.");
+                p.BaseSequence.Length == p.OneBasedEndResidueInProtein - p.OneBasedStartResidueInProtein + 1));
             Assert.AreEqual(
                 insulintDecoyTruncations.Count,
                 insulintDecoyTruncations
                     .Select(p => (p.OneBasedStartResidueInProtein, p.OneBasedEndResidueInProtein))
                     .Distinct()
-                    .Count(),
-                "Each decoy truncation (start,end) pair should be unique.");
+                    .Count());
             Assert.IsTrue(insulintDecoyTruncations.Any(p => p.OneBasedStartResidueInProtein == 1 &&
-                                                            p.OneBasedEndResidueInProtein == decoyProtein.Length),
-                "The intact decoy proteoform should be present among truncations.");
+                                                            p.OneBasedEndResidueInProtein == decoyProtein.Length));
 
-            // Stronger parity check: the distribution of truncation lengths should match between
-            // target and decoy. This confirms that reversing the sequence preserves truncation topology.
+            // Length distribution parity
             var targetLengthCounts = insulintTargetTruncations
                 .GroupBy(p => p.Length)
                 .ToDictionary(g => g.Key, g => g.Count());
@@ -1405,11 +1214,7 @@ namespace Test
                 .GroupBy(p => p.Length)
                 .ToDictionary(g => g.Key, g => g.Count());
 
-            // The set of length bins (keys) should be identical.
-            CollectionAssert.AreEquivalent(targetLengthCounts.Keys, decoyLengthCounts.Keys,
-                "Truncation length bins should match between target and decoy.");
-
-            // Each length bin should have the same count in target and decoy.
+            CollectionAssert.AreEquivalent(targetLengthCounts.Keys, decoyLengthCounts.Keys);
             foreach (var kvp in targetLengthCounts)
             {
                 Assert.AreEqual(kvp.Value, decoyLengthCounts[kvp.Key],

@@ -615,14 +615,13 @@ namespace Proteomics
         /// Protein XML files contain annotated proteolysis products for many proteins (e.g. signal peptides, chain peptides).
         /// This method adds N- and C-terminal truncations to these products.
         /// </summary>
-
         public void AddTruncationsToExistingProteolysisProducts(int fullProteinOneBasedBegin, int fullProteinOneBasedEnd, bool addNterminalDigestionTruncations, bool addCterminalDigestionTruncations, int minProductBaseSequenceLength, int lengthOfProteolysis, string proteolyisisProductName)
         {
             bool sequenceContainsNterminus = (fullProteinOneBasedBegin == 1);
 
             if (sequenceContainsNterminus)
             {
-                //Digest N-terminus
+                // Digest N-terminus
                 if (addNterminalDigestionTruncations)
                 {
                     if (BaseSequence.Substring(0, 1) == "M")
@@ -634,34 +633,71 @@ namespace Proteomics
                         AddNterminalTruncations(lengthOfProteolysis, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
                     }
                 }
-                //Digest C-terminus -- not effected by variable N-terminus behavior
+
+                // Digest C-terminus -- not effected by variable N-terminus behavior
                 if (addCterminalDigestionTruncations)
                 {
                     // if first residue is M, then we have to add c-terminal markers for both with and without the M
                     if (BaseSequence.Substring(0, 1) == "M")
                     {
-                        //add sequences WITHOUT methionine
+                        // add sequences WITHOUT methionine
                         AddCterminalTruncations(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin + 1, minProductBaseSequenceLength, proteolyisisProductName);
                     }
-                    //add sequences with methionine
+                    // add sequences with methionine
                     AddCterminalTruncations(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin, minProductBaseSequenceLength, proteolyisisProductName);
+
+                    // Normalize: ensure all C-terminal deltas 1..lengthOfProteolysis exist for intact-proteoform starts
+                    // This guards against rare gaps (e.g., end=fullEnd-4) observed on decoy paths.
+                    void EnsureAllCtermDeltasForBegin(int begin)
+                    {
+                        if (begin < 1) return;
+                        for (int d = 1; d <= lengthOfProteolysis; d++)
+                        {
+                            int newEnd = fullProteinOneBasedEnd - d;
+                            int length = newEnd - begin + 1;
+                            if (length < minProductBaseSequenceLength) break;
+                            if (!_proteolysisProducts.Any(p => p.OneBasedBeginPosition == begin && p.OneBasedEndPosition == newEnd))
+                            {
+                                _proteolysisProducts.Add(new TruncationProduct(begin, newEnd, proteolyisisProductName));
+                            }
+                        }
+                    }
+
+                    EnsureAllCtermDeltasForBegin(fullProteinOneBasedBegin);
+                    if (BaseSequence.StartsWith("M", StringComparison.Ordinal))
+                    {
+                        EnsureAllCtermDeltasForBegin(fullProteinOneBasedBegin + 1);
+                    }
                 }
             }
             else // sequence does not contain N-terminus
             {
-                //Digest C-terminus
+                // Digest C-terminus
                 if (addCterminalDigestionTruncations)
                 {
                     AddCterminalTruncations(lengthOfProteolysis, fullProteinOneBasedEnd, fullProteinOneBasedBegin, minProductBaseSequenceLength, proteolyisisProductName);
+
+                    // Normalize for non-N-term sequences as well
+                    for (int d = 1; d <= lengthOfProteolysis; d++)
+                    {
+                        int newEnd = fullProteinOneBasedEnd - d;
+                        int length = newEnd - fullProteinOneBasedBegin + 1;
+                        if (length < minProductBaseSequenceLength) break;
+                        if (!_proteolysisProducts.Any(p => p.OneBasedBeginPosition == fullProteinOneBasedBegin && p.OneBasedEndPosition == newEnd))
+                        {
+                            _proteolysisProducts.Add(new TruncationProduct(fullProteinOneBasedBegin, newEnd, proteolyisisProductName));
+                        }
+                    }
                 }
 
-                //Digest N-terminus
+                // Digest N-terminus
                 if (addNterminalDigestionTruncations)
                 {
                     AddNterminalTruncations(lengthOfProteolysis, fullProteinOneBasedBegin, fullProteinOneBasedEnd, minProductBaseSequenceLength, proteolyisisProductName);
                 }
             }
         }
+
         /// <summary>
         /// Returns of list of proteoforms with the specified number of C-terminal amino acid truncations subject to minimum length criteria
         /// </summary>
