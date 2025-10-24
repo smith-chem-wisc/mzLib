@@ -856,16 +856,86 @@ namespace Test.DatabaseTests
         [Test]
         public static void StopGainedDecoysAndDigestion()
         {
-            // test decoys and digestion
-            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGain.xml"), true,
-                DecoyType.Reverse, null, false, null, out var unknownModifications, minAlleleDepth: 400);
-            Assert.AreEqual(2, proteins.Count);
-            var targetPeps = proteins[0].Digest(new DigestionParams(), null, null).ToList();
-            var decoyPeps = proteins[1].Digest(new DigestionParams(), null, null).ToList();
-            //Assert.AreEqual(targetPeps.Sum(p => p.Length), decoyPeps.Sum(p => p.Length));
-            //Assert.AreEqual(targetPeps.Count, decoyPeps.Count);
-        }
+            // PURPOSE
+            // This test ensures that:
+            // 1) Reverse decoys are generated for a stop-gained (truncated) target protein.
+            // 2) The target and its decoy digest into peptides without referencing residues outside their sequence bounds.
+            // 3) Basic invariants hold for decoy generation (count/order/length/decoy flag).
+            //
+            // CONTEXT
+            // - Database: "StopGain.xml" contains a target protein with a stop-gained variant that truncates the sequence.
+            // - Decoys: Generated using DecoyType.Reverse (sequence reversal-based decoys).
+            // - minAlleleDepth: 400 ensures the stop-gained variant is applied (truncated target).
+            //
+            // EXPECTATIONS
+            // - Exactly 2 proteins are returned: [0] target (non-decoy) + [1] decoy (IsDecoy = true).
+            // - Target and decoy lengths are equal (reverse decoys preserve length).
+            // - Both target and decoy produce peptides via digestion.
+            // - No peptide references indices outside its parent protein's 1..Length range.
+            // - Accessions reflect decoy generation (decoy starts with the default "DECOY_").
+            // - If variant(s) are present, their counts match between target and decoy.
 
+            // Arrange: Load a variant-applied protein set and reverse decoy pair from StopGain.xml.
+            // Using a strict minAlleleDepth applies the stop-gained variant to the target.
+            var proteins = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGain.xml"),
+                true,                 // generateTargets
+                DecoyType.Reverse,    // generate reverse-sequence decoys
+                null,                 // allKnownModifications
+                false,                // isContaminant
+                null,                 // modTypesToExclude
+                out var unknownModifications,
+                minAlleleDepth: 400); // force applying the stop-gained variant
+
+            // Assert: We expect exactly two proteins: target then its decoy.
+            Assert.AreEqual(2, proteins.Count, "Expected 1 target + 1 decoy");
+            Assert.IsFalse(proteins[0].IsDecoy, "First protein should be the target (non-decoy)");
+            Assert.IsTrue(proteins[1].IsDecoy, "Second protein should be the decoy");
+            Assert.That(proteins[1].Accession.StartsWith("DECOY_"), "Decoy accession should start with the default decoy identifier");
+
+            // Assert: Reverse decoys should preserve sequence length.
+            Assert.AreEqual(proteins[0].Length, proteins[1].Length, "Target and decoy should have identical lengths");
+            // In general, target and decoy sequences should not be byte-identical.
+            Assert.AreNotEqual(proteins[0].BaseSequence, proteins[1].BaseSequence, "Decoy sequence should differ from target sequence");
+
+            // If the stop-gained variant is applied to the target, the decoy should carry a corresponding variant count.
+            // We do not enforce exact mapping positions here, only that counts match if any are present.
+            if (proteins[0].AppliedSequenceVariations.Any() || proteins[1].AppliedSequenceVariations.Any())
+            {
+                Assert.AreEqual(
+                    proteins[0].AppliedSequenceVariations.Count(),
+                    proteins[1].AppliedSequenceVariations.Count(),
+                    "Target and decoy should carry the same number of applied sequence variations");
+            }
+
+            // Act: Digest both target and decoy using default digestion parameters (typically trypsin-like rules).
+            var dp = new DigestionParams();
+            var targetPeps = proteins[0].Digest(dp, null, null).ToList();
+            var decoyPeps = proteins[1].Digest(dp, null, null).ToList();
+
+            // Assert: Both should yield peptides.
+            Assert.That(targetPeps.Count > 0, "Target digestion should produce peptides");
+            Assert.That(decoyPeps.Count > 0, "Decoy digestion should produce peptides");
+
+            // Assert: No peptide references residues outside the corresponding protein bounds.
+            Assert.That(targetPeps.All(p =>
+                p.OneBasedStartResidueInProtein >= 1 &&
+                p.OneBasedEndResidueInProtein <= proteins[0].Length),
+                "All target peptides must fall within target bounds");
+
+            Assert.That(decoyPeps.All(p =>
+                p.OneBasedStartResidueInProtein >= 1 &&
+                p.OneBasedEndResidueInProtein <= proteins[1].Length),
+                "All decoy peptides must fall within decoy bounds");
+
+            // Note:
+            // We intentionally do NOT assert the number of peptides or the sum of peptide lengths to be equal between
+            // target and decoy. Even with reverse decoys, tryptic cleavage context differs and may alter cleavage patterns.
+            // The commented lines below are often too strict and can fail legitimately:
+            //
+            // Assert.AreEqual(targetPeps.Sum(p => p.Length), decoyPeps.Sum(p => p.Length));
+            // Assert.AreEqual(targetPeps.Count, decoyPeps.Count);
+        }
         [Test]
         public static void MultipleAlternateAlleles()
         {
