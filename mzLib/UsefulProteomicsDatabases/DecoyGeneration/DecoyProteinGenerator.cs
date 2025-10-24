@@ -97,15 +97,9 @@ namespace UsefulProteomicsDatabases
                 List<TruncationProduct> decoyPP = new List<TruncationProduct>();
                 foreach (TruncationProduct pp in protein.TruncationProducts)
                 {
-                    // maintain lengths and approx position
-                    if (startsWithM)
-                    {
-                        decoyPP.Add(new TruncationProduct(pp.OneBasedBeginPosition, pp.OneBasedEndPosition, $"{decoyIdentifier} {pp.Type}"));
-                    }
-                    else
-                    {
-                        decoyPP.Add(new TruncationProduct(protein.BaseSequence.Length - pp.OneBasedEndPosition + 1, protein.BaseSequence.Length - pp.OneBasedBeginPosition + 1, $"{decoyIdentifier} {pp.Type}"));
-                    }
+                    // Copy annotated proteolysis products verbatim (same begin, same end, same type).
+                    // Truncation expansion is handled later by the loader for both targets and decoys.
+                    decoyPP.Add(new TruncationProduct(pp.OneBasedBeginPosition, pp.OneBasedEndPosition, pp.Type));
                 }
 
                 List<DisulfideBond> decoyDisulfides = new List<DisulfideBond>();
@@ -170,6 +164,7 @@ namespace UsefulProteomicsDatabases
                     decoyDisulfides,
                     spliceSites,
                     protein.DatabaseFilePath,
+                    addTruncations: false, // loader will call AddTruncations() on both targets and decoys
                     dataset: protein.DatasetEntryTag,
                     created: protein.CreatedEntryTag,
                     modified: protein.ModifiedEntryTag,
