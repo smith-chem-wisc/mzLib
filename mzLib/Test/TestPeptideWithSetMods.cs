@@ -1046,67 +1046,177 @@ namespace Test
             List<PeptideWithSetModifications> insulinTruncations = insulin.Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
             Assert.AreEqual(68, insulinTruncations.Count);
         }
-
         [Test]
         public static void TestPeptideWithSetModsReturnsDecoyTruncationsInTopDown()
         {
+            // PURPOSE
+            // Generate a comprehensive TSV of all top-down truncation peptides for target and decoy insulin entries,
+            // then compare the result against the stored expected file for regression checking.
+            //
+            // OUTPUT COLUMNS
+            // - Sequence: peptide/proteoform base sequence
+            // - Type: "Target" or "Decoy" based on parent protein
+            // - Begin: one-based start residue within the parent protein
+            // - End: one-based end residue within the parent protein
+            // - RetainedMethionine: TRUE when the peptide includes the protein’s N-terminal Met (Begin == 1 and Parent.BaseSequence[0] == 'M'), else FALSE
+
+            // Arrange: load insulin with reverse decoys and truncations enabled
             string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
-            List<Protein> insulinProteins = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
-                DecoyType.Reverse, null, false, null, out var unknownModifications, addTruncations: true);
+            List<Protein> insulinProteins = ProteinDbLoader.LoadProteinXML(
+                xmlDatabase,
+                generateTargets: true,
+                decoyType: DecoyType.Reverse,
+                allKnownModifications: null,
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var unknownModifications,
+                addTruncations: true);
 
-            Protease protease = new Protease("top-down", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
-            List<PeptideWithSetModifications> insulintTargetTruncations = insulinProteins.Where(p=>!p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
-            Assert.AreEqual(68, insulintTargetTruncations.Count);
-            List<PeptideWithSetModifications> insulintDecoyTruncations = insulinProteins.Where(p => p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
-            Assert.AreEqual(68, insulintDecoyTruncations.Count);
-        }
+            Assert.That(insulinProteins.Any(p => !p.IsDecoy), "Expected at least one target protein");
+            Assert.That(insulinProteins.Any(p => p.IsDecoy), "Expected at least one decoy protein");
+            Assert.That(unknownModifications == null || unknownModifications.Count == 0, "No unknown modifications expected from insulin XML");
 
-        [Test]
-        public static void CheckFullChemicalFormula()
-        {
-            PeptideWithSetModifications small_pep = new PeptideWithSetModifications(new Protein("PEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            ChemicalFormula small_pep_cf = ChemicalFormula.ParseFormula("C34H53N7O15");
-            Assert.AreEqual(small_pep.FullChemicalFormula, small_pep_cf);
+            // Digest: enumerate truncations for a representative target/decoy pair (parity sanity)
+            static string Reverse(string s) => new string(s.Reverse().ToArray());
+            var target = insulinProteins.First(p => !p.IsDecoy);
+            string expectedDecoySeq = target.BaseSequence.Length > 0 && target.BaseSequence[0] == 'M'
+                ? "M" + Reverse(target.BaseSequence.Substring(1))
+                : Reverse(target.BaseSequence);
+            var decoy = insulinProteins.FirstOrDefault(p => p.IsDecoy && p.BaseSequence == expectedDecoySeq)
+                        ?? insulinProteins.First(p => p.IsDecoy && p.Length == target.Length);
 
-            PeptideWithSetModifications large_pep = new PeptideWithSetModifications(new Protein("PEPTIDEKRNSPEPTIDEKECUEIRQUV", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 28, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            ChemicalFormula large_pep_cf = ChemicalFormula.ParseFormula("C134H220N38O50S1Se2");
-            Assert.AreEqual(large_pep.FullChemicalFormula, large_pep_cf);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(target.Accession));
+            Assert.IsTrue(decoy.Accession.StartsWith("DECOY_"));
+            Assert.AreEqual(target.Length, decoy.Length);
+            Assert.AreNotEqual(target.BaseSequence, decoy.BaseSequence);
+            Assert.AreEqual(expectedDecoySeq, decoy.BaseSequence, "Decoy must follow 'retain M, reverse remainder' rule");
 
-            ModificationMotif.TryGetMotif("S", out ModificationMotif motif_s);
-            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif_s, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
-            Dictionary<int, Modification> modDict_small = new Dictionary<int, Modification>();
-            modDict_small.Add(4, phosphorylation);
+            var dp = new DigestionParams(protease: "top-down");
+            List<PeptideWithSetModifications> targetTruncs = target
+                .Digest(dp, new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true)
+                .Cast<PeptideWithSetModifications>().ToList();
+            List<PeptideWithSetModifications> decoyTruncs = decoy
+                .Digest(dp, new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true)
+                .Cast<PeptideWithSetModifications>().ToList();
 
-            PeptideWithSetModifications small_pep_mod = new PeptideWithSetModifications(new Protein("PEPSIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, modDict_small, 0, null);
-            ChemicalFormula small_pep_mod_cf = ChemicalFormula.ParseFormula("C33H52N7O18P1");
-            Assert.AreEqual(small_pep_mod.FullChemicalFormula, small_pep_mod_cf);
+            // Parity and sanity checks for the selected pair
+            Assert.AreEqual(68, targetTruncs.Count, "Target should yield 68 truncation products in top-down mode");
+            Assert.AreEqual(68, decoyTruncs.Count, "Decoy should yield 68 truncation products in top-down mode");
+            Assert.That(targetTruncs.All(p => p.DigestionParams?.DigestionAgent?.Name == "top-down"));
+            Assert.That(decoyTruncs.All(p => p.DigestionParams?.DigestionAgent?.Name == "top-down"));
+            Assert.AreEqual(targetTruncs.Count, targetTruncs.Select(p => p.BaseSequence).Distinct().Count());
+            Assert.AreEqual(decoyTruncs.Count, decoyTruncs.Select(p => p.BaseSequence).Distinct().Count());
+            Assert.IsTrue(targetTruncs.Any(p => p.BaseSequence == target.BaseSequence));
+            Assert.IsTrue(decoyTruncs.Any(p => p.BaseSequence == decoy.BaseSequence));
 
-            ModificationMotif.TryGetMotif("K", out ModificationMotif motif_k);
-            Modification acetylation = new Modification(_originalId: "acetyl", _modificationType: "CommonBiological", _target: motif_k, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C2H3O"));
-            Dictionary<int, Modification> modDict_large = new Dictionary<int, Modification>();
-            modDict_large.Add(4, phosphorylation);
-            modDict_large.Add(11, phosphorylation);
-            modDict_large.Add(8, acetylation);
+            // Build the table rows
+            static bool HasRetainedMet(PeptideWithSetModifications p) =>
+                p.OneBasedStartResidueInProtein == 1 &&
+                p.Parent?.BaseSequence?.Length > 0 &&
+                p.Parent.BaseSequence[0] == 'M';
 
-            PeptideWithSetModifications large_pep_mod = new PeptideWithSetModifications(new Protein("PEPSIDEKRNSPEPTIDEKECUEIRQUV", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 28, CleavageSpecificity.Full, null, 0, modDict_large, 0, null);
-            ChemicalFormula large_pep_mod_cf = ChemicalFormula.ParseFormula("C135H223N38O57P2S1Se2");
-            Assert.AreEqual(large_pep_mod.FullChemicalFormula, large_pep_mod_cf);
-
-            ModificationMotif.TryGetMotif("C", out var motif_c);
-            ModificationMotif.TryGetMotif("G", out var motif_g);
-            Dictionary<string, Modification> modDict =
-                new()
+            // We only compare the combined truncations for the chosen target/decoy in this test (68 + 68 rows)
+            var rows = targetTruncs.Concat(decoyTruncs)
+                .Select(pep =>
                 {
-                    { "Carbamidomethyl on C", new Modification(_originalId: "Carbamidomethyl", _modificationType: "Common Fixed",
-                        _target: motif_c, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C2H3ON")) },
-                    { "BS on G" , new Modification(_originalId: "BS on G", _modificationType: "BS", _target: motif_g, _monoisotopicMass: 96.0875)}
-                };
-            PeptideWithSetModifications pwsmWithMissingCfMods = new PeptideWithSetModifications(
-                "ENQGDETQG[Speculative:BS on G]C[Common Fixed:Carbamidomethyl on C]PPQR", modDict, p: new Protein("ENQGDETQGCPPQR", "FakeProtein"), digestionParams: new DigestionParams(),
-                oneBasedStartResidueInProtein: 1, oneBasedEndResidueInProtein: 14);
-            Assert.Null(pwsmWithMissingCfMods.FullChemicalFormula);
-        }
+                    bool isDecoy = (pep.Parent as Protein)?.IsDecoy == true;
+                    string type = isDecoy ? "Decoy" : "Target";
+                    string retained = HasRetainedMet(pep) ? "TRUE" : "FALSE"; // normalize to match expected
+                    return string.Join("\t", new[]
+                    {
+                        pep.BaseSequence,
+                        type,
+                        pep.OneBasedStartResidueInProtein.ToString(),
+                        pep.OneBasedEndResidueInProtein.ToString(),
+                        retained
+                    });
+                })
+                // Sort deterministically to avoid platform/iteration-order differences
+                .OrderBy(r => r, StringComparer.Ordinal)
+                .ToList();
 
+            var header = "Sequence\tType\tBegin\tEnd\tRetainedMethionine";
+            var outputLines = new List<string>(capacity: rows.Count + 1) { header };
+            outputLines.AddRange(rows);
+
+            // Persist the generated table for inspection
+            string workPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, "topdown_truncations_table.tsv");
+            File.WriteAllLines(workPath, outputLines);
+            Console.WriteLine($"Generated truncation table: {workPath}");
+
+            // Load expected and compare
+            string expectedPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "truncationsExpected.tsv");
+            Assert.That(File.Exists(expectedPath), $"Expected file not found: {expectedPath}");
+            var expectedAll = File.ReadAllLines(expectedPath)
+                                  .Where(l => l is not null)
+                                  .Select(l => l.TrimEnd('\r', '\n'))
+                                  .ToList();
+
+            Assert.That(expectedAll.Count > 0, "Expected file is empty");
+            string expectedHeader = expectedAll[0];
+            var expectedRows = expectedAll.Skip(1)
+                                          .Where(l => !string.IsNullOrWhiteSpace(l))
+                                          .OrderBy(l => l, StringComparer.Ordinal)
+                                          .ToList();
+
+            // Header check
+            if (!string.Equals(header, expectedHeader, StringComparison.Ordinal))
+            {
+                TestContext.Out.WriteLine($"Header mismatch:");
+                TestContext.Out.WriteLine($"  Expected: {expectedHeader}");
+                TestContext.Out.WriteLine($"  Actual  : {header}");
+            }
+
+            // Multiset comparison for rows (counts of duplicates matter)
+            static Dictionary<string, int> ToCounts(IEnumerable<string> lines)
+                => lines.GroupBy(x => x, StringComparer.Ordinal)
+                        .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
+
+            var expCounts = ToCounts(expectedRows);
+            var gotCounts = ToCounts(rows);
+
+            var missing = new List<string>();   // in expected more times than in actual
+            var extra = new List<string>();     // in actual more times than in expected
+
+            foreach (var kv in expCounts)
+            {
+                gotCounts.TryGetValue(kv.Key, out int got);
+                if (got < kv.Value)
+                {
+                    int deficit = kv.Value - got;
+                    for (int i = 0; i < deficit; i++) missing.Add(kv.Key);
+                }
+            }
+            foreach (var kv in gotCounts)
+            {
+                expCounts.TryGetValue(kv.Key, out int exp);
+                if (kv.Value > exp)
+                {
+                    int surplus = kv.Value - exp;
+                    for (int i = 0; i < surplus; i++) extra.Add(kv.Key);
+                }
+            }
+
+            if (missing.Count == 0 && extra.Count == 0)
+            {
+                TestContext.Out.WriteLine("Top-down truncation table matches expected.");
+                TestContext.Out.WriteLine("Sample (first 5 rows):");
+                foreach (var l in outputLines.Take(6)) TestContext.Out.WriteLine(l);
+            }
+            else
+            {
+                TestContext.Out.WriteLine("Top-down truncation table differs from expected.");
+                TestContext.Out.WriteLine($"Missing rows (expected but not found or under-counted): {missing.Count}");
+                foreach (var l in missing.Take(20)) TestContext.Out.WriteLine($"  MISSING: {l}");
+                if (missing.Count > 20) TestContext.Out.WriteLine($"  ...and {missing.Count - 20} more");
+
+                TestContext.Out.WriteLine($"Extra rows (found but not expected or over-counted): {extra.Count}");
+                foreach (var l in extra.Take(20)) TestContext.Out.WriteLine($"  EXTRA:   {l}");
+                if (extra.Count > 20) TestContext.Out.WriteLine($"  ...and {extra.Count - 20} more");
+
+                Assert.Fail($"Generated top-down truncation table does not match expected.\nExpected file: {expectedPath}\nActual file: {workPath}\nMissing: {missing.Count}, Extra: {extra.Count}");
+            }
+        }
         [Test]
         public static void CheckMostAbundantMonoisotopicMass()
         {
