@@ -52,15 +52,36 @@ namespace UsefulProteomicsDatabases
         private static List<Modification> protein_xml_modlist_general = new List<Modification>();
 
         /// <summary>
-        /// Load a mzLibProteinDb or UniProt XML file. Protein modifications may be specified before the protein entries (mzLibProteinDb format).
-        /// If so, this modification list can be acquired with GetPtmListFromProteinXml after using this method.
-        /// They may also be read in separately from a ptmlist text file, and then input as allKnownModifications.
-        /// If protein modifications are specified both in the mzLibProteinDb XML file and in allKnownModifications, they are collapsed into a HashSet of Modifications before generating Protein entries.
+        /// Primary XML protein-database loader that reads an mzLibProteinDb or UniProt XML (optionally gzipped),
+        /// merges any prespecified modifications in the file with user-supplied modifications, and produces a
+        /// list of concrete <see cref="Protein"/> objects with optional variant expansion and truncations.
+        /// /// 
+        /// Key behavior and new/changed parameters:
+        /// - Reads prespecified modification entries via <see cref="GetPtmListFromProteinXml"/> and merges them
+        ///   with <paramref name="allKnownModifications"/>; the merged sets populate the global lookup dictionaries
+        ///   <c>IdToPossibleMods</c> and <c>IdWithMotifToMod</c>.
+        /// - Supports compressed XML (.gz) by decompressing to a temporary file before streaming.
+        /// - Converts annotation-style nucleotide-substitution modifications into real sequence variants using
+        ///   <see cref="Omics.BioPolymer.VariantApplication.ConvertNucleotideSubstitutionModificationsToSequenceVariants"/>.
+        /// - Optionally adds truncation products when <paramref name="addTruncations"/> is true.
+        /// - Generates decoy entries using <see cref="DecoyProteinGenerator.GenerateDecoys"/> (controlled by
+        ///   <paramref name="generateTargets"/>, <paramref name="decoyType"/>, <paramref name="maxThreads"/>, and <paramref name="decoyIdentifier"/>).
+        /// - Expands each protein into concrete consensus and variant isoforms by calling
+        ///   <see cref="Omics.BioPolymer.VariantApplication.GetConsensusAndVariantBioPolymers"/>, using:
+        ///     - <paramref name="consensusPlusVariantIsoforms"/> to limit the total isoforms returned (includes the consensus),
+        ///     - <paramref name="minAlleleDepth"/> as the minimum allele depth (AD) required for genotype-aware variant application,
+        ///     - <paramref name="maxVariantsPerIsoform"/> as an explicit per-isoform combinatoric cap to control explosion.
+        /// - Returns merged, de-duplicated proteins via <see cref="Merge(IEnumerable{Protein})"/>.
+        /// 
+        /// The method reports any unknown modifications via the <paramref name="unknownModifications"/> out parameter.
+        /// This overload is the preferred, modern entry point for XML loading and variant-aware expansion; older callers
+        /// that supply shorthand parameters (for example <c>maxHeterozygousVariants</c>) should use the maintained legacy wrapper
+        /// which delegates to this overload.
         /// </summary>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
-            int maxHeterozygousVariants = 4, int minAlleleDepth = 1, bool addTruncations = false, string decoyIdentifier = "DECOY")
+            int consensusPlusVariantIsoforms = 1, int minAlleleDepth = 0, int maxVariantsPerIsoform = 0, bool addTruncations = false, string decoyIdentifier = "DECOY")
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
@@ -82,7 +103,7 @@ namespace UsefulProteomicsDatabases
             //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
             if (proteinDbLocation.EndsWith(".gz"))
             {
-                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation),"temp.xml");
+                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation), "temp.xml");
                 using var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
                 using FileStream outputFileStream = File.Create(newProteinDbLocation);
                 using var decompressor = new GZipStream(stream, CompressionMode.Decompress);
@@ -138,8 +159,24 @@ namespace UsefulProteomicsDatabases
 
             decoys.AddRange(DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier));
             IEnumerable<Protein> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
-            var toReturn = proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth));
+            var toReturn = proteinsToExpand.SelectMany(p => p.GetConsensusAndVariantBioPolymers(consensusPlusVariantIsoforms, minAlleleDepth, maxVariantsPerIsoform));
             return Merge(toReturn).ToList();
+        }
+        /// <summary>
+        /// LEGACY: Backward-compatible wrapper for older callers that accepts <paramref name="maxHeterozygousVariants"/> and related
+        /// shorthand parameters and delegates to the primary <see cref="LoadProteinXML(string,bool,DecoyType,System.Collections.Generic.IEnumerable{Omics.Modifications.Modification},bool,System.Collections.Generic.IEnumerable{string},out System.Collections.Generic.Dictionary{string,Omics.Modifications.Modification},int,int,int,int,bool,string)"/>
+        /// overload which exposes the newer, explicitly named combinatorics parameters (for example <c>consensusPlusVariantIsoforms</c> and
+        /// <c>maxVariantsPerIsoform</c>). Retained for backward compatibility; prefer calling the primary overload with explicit
+        /// combinatorics parameters in new code. This wrapper may be removed in a future release.
+        /// </summary>
+        [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
+        public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
+            bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
+            int maxHeterozygousVariants = 4, int minAlleleDepth = 1, bool addTruncations = false, string decoyIdentifier = "DECOY")
+        {
+            int maxVariantsPerIsoform = 0;
+            return LoadProteinXML(proteinDbLocation, generateTargets, decoyType, allKnownModifications, isContaminant, modTypesToExclude, out unknownModifications, maxThreads, maxHeterozygousVariants, 
+                minAlleleDepth, maxVariantsPerIsoform, addTruncations, decoyIdentifier);
         }
 
         /// <summary>
