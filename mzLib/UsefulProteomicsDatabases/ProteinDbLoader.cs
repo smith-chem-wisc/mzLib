@@ -167,13 +167,15 @@ namespace UsefulProteomicsDatabases
         /// <c>maxVariantsPerIsoform</c>). Retained for backward compatibility; prefer calling the primary overload with explicit
         /// combinatorics parameters in new code. This wrapper may be removed in a future release.
         /// </summary>
+        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+        [Obsolete("LEGACY: Use the overload that accepts explicit combinatorics parameters (consensusPlusVariantIsoforms, maxVariantsPerIsoform, etc.). This wrapper is retained for backward compatibility and may be removed in a future release.", false)]
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
             int maxHeterozygousVariants = 4, int minAlleleDepth = 1, bool addTruncations = false, string decoyIdentifier = "DECOY")
         {
             int maxVariantsPerIsoform = 0;
-            return LoadProteinXML(proteinDbLocation, generateTargets, decoyType, allKnownModifications, isContaminant, modTypesToExclude, out unknownModifications, maxThreads, maxHeterozygousVariants, 
+            return LoadProteinXML(proteinDbLocation, generateTargets, decoyType, allKnownModifications, isContaminant, modTypesToExclude, out unknownModifications, maxThreads, maxHeterozygousVariants,
                 minAlleleDepth, maxVariantsPerIsoform, addTruncations, decoyIdentifier);
         }
 
