@@ -307,13 +307,83 @@ namespace Omics.BioPolymer
         }
 
         /// <summary>
-        /// Validates positional consistency: begin must be &gt; 0 and end must be &gt;= begin.
-        /// This does not validate string/length consistency between <see cref="OriginalSequence"/> and <see cref="VariantSequence"/>.
+        /// Validates this variation.
+        /// Rules:
+        /// 1. Coordinates must be sensible (begin >= 1 and end >= begin).
+        /// 2. Variation must represent a meaningful change:
+        ///    - Either the sequence actually changes (insertion, deletion, substitution, stop, frameshift),
+        ///    - OR there are variant-specific modifications.
+        ///    A “no-op” (OriginalSequence == VariantSequence with no variant-specific mods) is invalid.
+        /// 3. If variant-specific modifications exist, they must not violate positional constraints
+        ///    (see <see cref="GetInvalidModificationPositions"/>).
         /// </summary>
-        /// <returns>True if positions are valid; otherwise false.</returns>
         public bool AreValid()
         {
-            return OneBasedBeginPosition > 0 && OneBasedEndPosition >= OneBasedBeginPosition;
+            if (OneBasedBeginPosition <= 0 || OneBasedEndPosition < OneBasedBeginPosition)
+            {
+                return false;
+            }
+
+            bool noSequenceChange = string.Equals(OriginalSequence ?? string.Empty,
+                                                  VariantSequence ?? string.Empty,
+                                                  StringComparison.Ordinal);
+
+            bool hasMods = OneBasedModifications != null && OneBasedModifications.Count > 0;
+
+            if (noSequenceChange && !hasMods)
+            {
+                return false;
+            }
+
+            if (!hasMods)
+            {
+                return true;
+            }
+
+            return !GetInvalidModificationPositions().Any();
+        }
+        /// <summary>
+        /// Yields modification positions deemed invalid under the current edit semantics.
+        /// </summary>
+        private IEnumerable<int> GetInvalidModificationPositions()
+        {
+            if (OneBasedModifications == null || OneBasedModifications.Count == 0)
+            {
+                yield break;
+            }
+
+            bool isTermination = VariantSequence == "*" || VariantSequence.Length == 0;
+
+            if (isTermination)
+            {
+                foreach (var kvp in OneBasedModifications)
+                {
+                    if (kvp.Key >= OneBasedBeginPosition)
+                    {
+                        yield return kvp.Key;
+                    }
+                }
+                yield break;
+            }
+
+            int newSpanEnd = OneBasedBeginPosition + VariantSequence.Length - 1;
+
+            foreach (var kvp in OneBasedModifications)
+            {
+                int pos = kvp.Key;
+                if (pos <= 0)
+                {
+                    yield return pos;
+                    continue;
+                }
+
+                if (pos >= OneBasedBeginPosition
+                    && pos <= OneBasedEndPosition
+                    && pos > newSpanEnd)
+                {
+                    yield return pos;
+                }
+            }
         }
     }
 }
