@@ -115,24 +115,25 @@ namespace FlashLFQ.IsoTracker
         }
 
         /// <summary>
-        /// calculate the retention time shift among the reference. Then store the value in the RtShift property.
+        /// Calculate the retention time shift among the reference. Then store the value in the RtShift property.
         /// </summary>
         /// <param name="xicToAlign"> The reference XIC</param>
         /// <param name="resolution"> The number of the timePoint for X-correlation </param>
         /// <returns> The retention to shift to align to the reference </returns>
-        public double AlignXICs(XIC referenceXIC, int resolution = 1000)
+        public double AlignXICs(XIC referenceXIC, int resolution = 600)
         {
             var referSpline = referenceXIC.LinearSpline;
             var toAlignSpline = this.LinearSpline;
 
-            double timegap = (Ms1Peaks.Last().RetentionTime - Ms1Peaks[0].RetentionTime) / (Ms1Peaks.Count - 1);
+            // Timegap is the average time that elapses between each MS1 scan
+            double timegap = (Ms1Peaks[^1].RetentionTime - Ms1Peaks[0].RetentionTime) / (Ms1Peaks[^1].ZeroBasedScanIndex - Ms1Peaks[0].ZeroBasedScanIndex);
             double initialTime = Ms1Peaks[0].RetentionTime - 5.0 * timegap; //after the padding, the first peak move ahead 5 timegap
-            double FinalTime = Ms1Peaks.Last().RetentionTime + 5.0 * timegap; //after the padding, the last peak move back 5 timegap
+            double FinalTime = Ms1Peaks[^1].RetentionTime + 5.0 * timegap; //after the padding, the last peak move back 5 timegap
             double time = initialTime;
 
             // Create two intensity arrays of the reference and target XICs by interpolating the time point. 
             // The number of timePoints depend on the resolution.
-            // If the resolution is 1000, the timePoint is 1/1000 = 0.001s.
+            // If the resolution is 600, the timePoint is 60/600 = 0.1s.
             Complex[] reference = new Complex[(int)((FinalTime - initialTime) * resolution + 2)];
             Complex[] toAlign = new Complex[(int)((FinalTime - initialTime) * resolution + 2)];
             int index = 0;

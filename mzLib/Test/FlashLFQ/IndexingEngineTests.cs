@@ -486,5 +486,105 @@ namespace Test.FlashLFQ
             var massIndexingEngine = MassIndexingEngine.InitializeMassIndexingEngine(scans.ToArray(), deconParameters);
             Assert.That(massIndexingEngine, Is.Null);
         }
+
+        [Test]
+        public static void TestGetXicFromScanRange()
+        {
+            // Setup test data - similar pattern to TestXicStops test
+            string fileToWrite = "scanRangeTest.mzML";
+            string peptide = "PEPTIDE";
+            double intensity = 1e6;
+
+            MsDataScan[] scans = new MsDataScan[10];
+            double[] intensityMultipliers = { 1, 3, 0, 0, 3, 5, 10, 5, 3, 1 };
+            ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(peptide).GetChemicalFormula();
+            IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
+
+            // Create spectra with peptide peaks absent in scans 2 and 3
+            for (int s = 0; s < scans.Length; s++)
+            {
+                double[] mz = dist.Masses.Select(v => v.ToMz(1)).ToArray();
+                double[] intensities = dist.Intensities.Select(v => v * intensity * intensityMultipliers[s]).ToArray();
+
+                // Scans 2 and 3 don't have the target peak
+                if (s == 2 || s == 3)
+                {
+                    mz = dist.Masses.Select(v => v.ToMz(2)).ToArray();
+                }
+
+                MzSpectrum spectrum = intensityMultipliers[s] == 0 
+                    ? new MzSpectrum(new double[] { }, new double[] { }, false)
+                    :  new MzSpectrum(mz, intensities, false);
+
+
+                scans[s] = new MsDataScan(massSpectrum: spectrum, oneBasedScanNumber: s + 1, msnOrder: 1, isCentroid: true,
+                    polarity: Polarity.Positive, retentionTime: 1.0 + s / 10.0, scanWindowRange: new MzRange(400, 1600), scanFilter: "f",
+                    mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensities.Sum(), injectionTime: 1.0, noiseData: null, nativeId: "scan=" + (s + 1));
+            }
+
+            // Write the .mzML
+            Readers.MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scans),
+                Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), false);
+
+            // Initialize indexing engine
+            SpectraFileInfo file1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite), "", 0, 0, 0);
+            PeakIndexingEngine indexEngine = PeakIndexingEngine.InitializeIndexingEngine(file1);
+
+            // Test 1: Basic scan range functionality
+            var xic1 = indexEngine.GetXicFromScanRange(0, 9, dist.Masses.First().ToMz(1), new PpmTolerance(20));
+            Assert.That(xic1.Count, Is.EqualTo(8), "Should find peaks in all scans except 2 and 3");
+
+            // Test 2: Partial scan range at start
+            var xic2 = indexEngine.GetXicFromScanRange(0, 4, dist.Masses.First().ToMz(1), new PpmTolerance(20));
+            Assert.That(xic2.Count, Is.EqualTo(3), "Should find peaks in scans 0, 1, and 4 only");
+
+            // Test 3: Partial scan range at end
+            var xic3 = indexEngine.GetXicFromScanRange(5, 9, dist.Masses.First().ToMz(1), new PpmTolerance(20));
+            Assert.That(xic3.Count, Is.EqualTo(5), "Should find peaks in scans 5-9");
+
+            // Test 4: Scan range that contains no peaks of interest
+            var xic4 = indexEngine.GetXicFromScanRange(2, 3, dist.Masses.First().ToMz(1), new PpmTolerance(20));
+            Assert.That(xic4.Count, Is.EqualTo(0), "Should find no peaks in scans 2-3");
+
+            // Test 5: Single scan 
+            var xic5 = indexEngine.GetXicFromScanRange(6, 6, dist.Masses.First().ToMz(1), new PpmTolerance(20));
+            Assert.That(xic5.Count, Is.EqualTo(1), "Should find exactly one peak in scan 6");
+            Assert.That(xic5.First().ZeroBasedScanIndex, Is.EqualTo(6), "Peak should be from scan 6");
+
+            // Test 6: Ensuring scan order is preserved
+            var xic6 = indexEngine.GetXicFromScanRange(4, 8, dist.Masses.First().ToMz(1), new PpmTolerance(20));
+            for (int i = 1; i < xic6.Count; i++)
+            {
+                Assert.That(xic6[i].ZeroBasedScanIndex, Is.GreaterThan(xic6[i - 1].ZeroBasedScanIndex),
+                    "Peaks should be ordered by scan index");
+            }
+
+            // Test 7: Compare with GetXicByScanIndex for the same range
+            var xicComparison = indexEngine.GetXicByScanIndex(dist.Masses.First().ToMz(1), 6, new PpmTolerance(20), 1);
+            var xic7 = indexEngine.GetXicFromScanRange(4, 9, dist.Masses.First().ToMz(1), new PpmTolerance(20));
+
+            Assert.That(xic7.Count, Is.EqualTo(6), "Should find peaks in scans 4-9");
+
+            // Check the peak counts match between methods for the same effective range
+            Assert.That(xicComparison.Count, Is.EqualTo(xic7.Count),
+                "GetXicByScanIndex and GetXicFromScanRange should find the same number of peaks");
+
+            // Test 8: Out of range indices should throw ArgumentOutOfRangeException
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                indexEngine.GetXicFromScanRange(-1, 5, dist.Masses.First().ToMz(1), new PpmTolerance(20)));
+
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                indexEngine.GetXicFromScanRange(0, 10, dist.Masses.First().ToMz(1), new PpmTolerance(20)));
+
+            // Clean up
+            try
+            {
+                File.Delete(Path.Combine(TestContext.CurrentContext.TestDirectory, fileToWrite));
+            }
+            catch
+            {
+                // Ignore deletion errors
+            }
+        }
     }
 }
