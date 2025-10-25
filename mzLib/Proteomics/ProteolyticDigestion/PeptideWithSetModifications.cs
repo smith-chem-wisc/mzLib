@@ -820,47 +820,86 @@ namespace Proteomics.ProteolyticDigestion
 
             return (intersects, identifies);
         }
+        public string SequenceVariantString(SequenceVariation applied)
+        {
+            // ORIGINAL + position + FULL VARIANT (no flanks)
+            // Variant-specific modifications rendered inline at their 1-based global positions
+            var sbVariant = new StringBuilder(applied.VariantSequence.Length * 2);
+            var variantMods = applied.OneBasedModifications; // may be null
+
+            for (int i = 0; i < applied.VariantSequence.Length; i++)
+            {
+                char vr = applied.VariantSequence[i];
+                sbVariant.Append(vr);
+
+                if (variantMods != null)
+                {
+                    int globalVariantPos = applied.OneBasedBeginPosition + i;
+                    if (variantMods.TryGetValue(globalVariantPos, out var modsHere) && modsHere != null)
+                    {
+                        foreach (var m in modsHere)
+                        {
+                            sbVariant.Append('[')
+                                     .Append(m.ModificationType)
+                                     .Append(':')
+                                     .Append(m.IdWithMotif)
+                                     .Append(']');
+                        }
+                    }
+                }
+            }
+
+            return $"{applied.OriginalSequence}{applied.OneBasedBeginPosition}{sbVariant}";
+        }
 
         /// <summary>
-        /// Makes the string representing a detected sequence variation, including any modifications on a variant amino acid.
-        /// takes in the variant as well as the bool value of wheter the peptid eintersects the variant. (this allows for identified
-        /// variants that cause the cleavage site for the peptide.
+        /// BACKWARD COMPATIBILITY ONLY.
+        /// The 'intersects' parameter is ignored. Use SequenceVariantString(SequenceVariation) instead.
         /// </summary>
-        /// <param name="p"></param>
-        /// <param name="d"></param>
-        /// <returns></returns>
-        public string SequenceVariantString(SequenceVariation applied, bool intersects)
-        {
-            if (intersects == true)
-            {
-                bool startAtNTerm = applied.OneBasedBeginPosition == 1 && OneBasedStartResidueInProtein == 1;
-                bool onlyPeptideStartAtNTerm = OneBasedStartResidueInProtein == 1 && applied.OneBasedBeginPosition != 1;
-                int modResidueScale = 0;
-                if (startAtNTerm)
-                {
-                    modResidueScale = 1;
-                }
-                else if (onlyPeptideStartAtNTerm)
-                {
-                    modResidueScale = 2;
-                }
-                else
-                {
-                    modResidueScale = 3;
-                }
-                int lengthDiff = applied.VariantSequence.Length - applied.OriginalSequence.Length;
-                var modsOnVariantOneIsNTerm = AllModsOneIsNterminus
-                    .Where(kv => kv.Key == 1 && applied.OneBasedBeginPosition == 1 || applied.OneBasedBeginPosition <= kv.Key - 2 + OneBasedStartResidueInProtein && kv.Key - 2 + OneBasedStartResidueInProtein <= applied.OneBasedEndPosition)
-                    .ToDictionary(kv => kv.Key - applied.OneBasedBeginPosition + (modResidueScale), kv => kv.Value);
-                PeptideWithSetModifications variantWithAnyMods = new PeptideWithSetModifications(Protein, DigestionParams, applied.OneBasedBeginPosition == 1 ? applied.OneBasedBeginPosition : applied.OneBasedBeginPosition - 1, applied.OneBasedEndPosition, CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, modsOnVariantOneIsNTerm, NumFixedMods);
-                return $"{applied.OriginalSequence}{applied.OneBasedBeginPosition}{variantWithAnyMods.FullSequence.Substring(applied.OneBasedBeginPosition == 1 ? 0 : 1)}";
-            }
-            //if the variant caused a cleavage site leading the the peptide sequence (variant does not intersect but is identified)
-            else
-            {
-                return $"{applied.OriginalSequence}{ applied.OneBasedBeginPosition}{applied.VariantSequence}";
-            }
-        }
+        [Obsolete("intersects parameter is unused. Call SequenceVariantString(SequenceVariation) without the second argument.")]
+        public string SequenceVariantString(SequenceVariation applied, bool intersects) =>
+            SequenceVariantString(applied);
+
+        ///// <summary>
+        ///// Makes the string representing a detected sequence variation, including any modifications on a variant amino acid.
+        ///// takes in the variant as well as the bool value of wheter the peptid eintersects the variant. (this allows for identified
+        ///// variants that cause the cleavage site for the peptide.
+        ///// </summary>
+        ///// <param name="p"></param>
+        ///// <param name="d"></param>
+        ///// <returns></returns>
+        //public string SequenceVariantString(SequenceVariation applied, bool intersects)
+        //{
+        //    if (intersects == true)
+        //    {
+        //        bool startAtNTerm = applied.OneBasedBeginPosition == 1 && OneBasedStartResidueInProtein == 1;
+        //        bool onlyPeptideStartAtNTerm = OneBasedStartResidueInProtein == 1 && applied.OneBasedBeginPosition != 1;
+        //        int modResidueScale = 0;
+        //        if (startAtNTerm)
+        //        {
+        //            modResidueScale = 1;
+        //        }
+        //        else if (onlyPeptideStartAtNTerm)
+        //        {
+        //            modResidueScale = 2;
+        //        }
+        //        else
+        //        {
+        //            modResidueScale = 3;
+        //        }
+        //        int lengthDiff = applied.VariantSequence.Length - applied.OriginalSequence.Length;
+        //        var modsOnVariantOneIsNTerm = AllModsOneIsNterminus
+        //            .Where(kv => kv.Key == 1 && applied.OneBasedBeginPosition == 1 || applied.OneBasedBeginPosition <= kv.Key - 2 + OneBasedStartResidueInProtein && kv.Key - 2 + OneBasedStartResidueInProtein <= applied.OneBasedEndPosition)
+        //            .ToDictionary(kv => kv.Key - applied.OneBasedBeginPosition + (modResidueScale), kv => kv.Value);
+        //        PeptideWithSetModifications variantWithAnyMods = new PeptideWithSetModifications(Protein, DigestionParams, applied.OneBasedBeginPosition == 1 ? applied.OneBasedBeginPosition : applied.OneBasedBeginPosition - 1, applied.OneBasedEndPosition, CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, modsOnVariantOneIsNTerm, NumFixedMods);
+        //        return $"{applied.OriginalSequence}{applied.OneBasedBeginPosition}{variantWithAnyMods.FullSequence.Substring(applied.OneBasedBeginPosition == 1 ? 0 : 1)}";
+        //    }
+        //    //if the variant caused a cleavage site leading the the peptide sequence (variant does not intersect but is identified)
+        //    else
+        //    {
+        //        return $"{applied.OriginalSequence}{ applied.OneBasedBeginPosition}{applied.VariantSequence}";
+        //    }
+        //}
 
         /// <summary>
         /// Takes an individual peptideWithSetModifications and determines if applied variations from the protein are found within its length
