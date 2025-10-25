@@ -160,24 +160,6 @@ namespace UsefulProteomicsDatabases
             var toReturn = proteinsToExpand.SelectMany(p => p.GetConsensusAndVariantBioPolymers(consensusPlusVariantIsoforms, minAlleleDepth, maxVariantsPerIsoform));
             return Merge(toReturn).ToList();
         }
-        /// <summary>
-        /// LEGACY: Backward-compatible wrapper for older callers that accepts <paramref name="maxHeterozygousVariants"/> and related
-        /// shorthand parameters and delegates to the primary <see cref="LoadProteinXML(string,bool,DecoyType,System.Collections.Generic.IEnumerable{Omics.Modifications.Modification},bool,System.Collections.Generic.IEnumerable{string},out System.Collections.Generic.Dictionary{string,Omics.Modifications.Modification},int,int,int,int,bool,string)"/>
-        /// overload which exposes the newer, explicitly named combinatorics parameters (for example <c>consensusPlusVariantIsoforms</c> and
-        /// <c>maxVariantsPerIsoform</c>). Retained for backward compatibility; prefer calling the primary overload with explicit
-        /// combinatorics parameters in new code. This wrapper may be removed in a future release.
-        /// </summary>
-        [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        [Obsolete("LEGACY: Use the overload that accepts explicit combinatorics parameters (consensusPlusVariantIsoforms, maxVariantsPerIsoform, etc.). This wrapper is retained for backward compatibility and may be removed in a future release.", false)]
-        [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
-        public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
-            bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
-            int maxHeterozygousVariants = 4, int minAlleleDepth = 1, bool addTruncations = false, string decoyIdentifier = "DECOY")
-        {
-            int maxVariantsPerIsoform = 0;
-            return LoadProteinXML(proteinDbLocation, generateTargets, decoyType, allKnownModifications, isContaminant, modTypesToExclude, out unknownModifications, maxThreads, maxHeterozygousVariants,
-                minAlleleDepth, maxVariantsPerIsoform, addTruncations, decoyIdentifier);
-        }
 
         /// <summary>
         /// Get the modification entries specified in a mzLibProteinDb XML file (.xml or .xml.gz).

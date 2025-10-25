@@ -1025,7 +1025,11 @@ namespace Test.DatabaseTests
         public void IndelDecoyError()
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IndelDecoy.xml");
-            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un);
+
+            int maxHeterozygousVariants = 4;
+            int minAlleleDepth = 1;
+
+            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un, consensusPlusVariantIsoforms: maxHeterozygousVariants, minAlleleDepth: minAlleleDepth);
             Assert.AreEqual(8, variantProteins.Count);
             var indelProtein = variantProteins[2];
             Assert.AreNotEqual(indelProtein.AppliedSequenceVariations.Single().OriginalSequence.Length, indelProtein.AppliedSequenceVariations.Single().VariantSequence.Length);
@@ -1215,7 +1219,9 @@ namespace Test.DatabaseTests
         public void VariantModificationTest()
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "VariantModsGPTMD.xml");
-            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un);
+            int maxHeterozygousVariants = 4;
+            int minAlleleDepth = 1;
+            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un, consensusPlusVariantIsoforms: maxHeterozygousVariants, minAlleleDepth: minAlleleDepth);
             List<Protein> targets = variantProteins.Where(p => p.IsDecoy == false).ToList();
             List<Protein> variantTargets = targets.Where(p => p.AppliedSequenceVariations.Count >= 1).ToList();
             List<Protein> decoys = variantProteins.Where(p => p.IsDecoy == true).ToList();
@@ -1328,7 +1334,7 @@ namespace Test.DatabaseTests
                 modTypesToExclude: null,
                 unknownModifications: out var unknownModifications,
                 minAlleleDepth: 1,
-                maxHeterozygousVariants: 99);
+                consensusPlusVariantIsoforms: 99);
 
             // Basic shape: 4 targets + 4 reverse decoys in a deterministic order.
             Assert.AreEqual(8, proteins.Count, "Expected 4 targets and 4 decoys in a fixed order");
@@ -1478,7 +1484,7 @@ namespace Test.DatabaseTests
                 modTypesToExclude: null,
                 unknownModifications: out var unknownModifications,
                 minAlleleDepth: 1,
-                maxHeterozygousVariants: 0);
+                consensusPlusVariantIsoforms: 0);
 
             // Assert: no decoys requested, so all should be targets
             Assert.That(proteins.All(p => !p.IsDecoy), "All proteins should be targets when DecoyType.None is used");
@@ -1547,7 +1553,7 @@ namespace Test.DatabaseTests
                     modTypesToExclude: null,
                     unknownModifications: out unknownModifications,
                     minAlleleDepth: 1,
-                    maxHeterozygousVariants: 0);
+                    consensusPlusVariantIsoforms: 0);
 
                 // Assert: the round-tripped representation is identical in shape and counts
                 Assert.AreEqual(9, proteins.Count, "Round-trip must preserve protein count");
