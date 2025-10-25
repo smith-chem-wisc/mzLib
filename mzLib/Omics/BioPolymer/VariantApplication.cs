@@ -1,5 +1,4 @@
 ﻿using MzLibUtil;
-using Omics.BioPolymer;
 using Omics.Modifications;
 
 namespace Omics.BioPolymer
