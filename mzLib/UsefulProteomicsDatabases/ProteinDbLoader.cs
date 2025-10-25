@@ -87,10 +87,8 @@ namespace UsefulProteomicsDatabases
             allKnownModifications = allKnownModifications ?? new List<Modification>();
             modTypesToExclude = modTypesToExclude ?? new List<string>();
 
-            //Dictionary<string, IList<Modification>> modsDictionary = new Dictionary<string, IList<Modification>>();
             if (prespecified.Count > 0 || allKnownModifications.Count() > 0)
             {
-                //modsDictionary = GetModificationDict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
                 IdToPossibleMods = GetModificationDict(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
                 IdWithMotifToMod = GetModificationDictWithMotifs(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
             }
