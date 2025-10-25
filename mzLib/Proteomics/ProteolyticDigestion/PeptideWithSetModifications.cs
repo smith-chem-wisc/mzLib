@@ -823,27 +823,90 @@ namespace Proteomics.ProteolyticDigestion
         public string SequenceVariantString(SequenceVariation applied)
         {
             // ORIGINAL + position + FULL VARIANT (no flanks)
-            // Variant-specific modifications rendered inline at their 1-based global positions
-            var sbVariant = new StringBuilder(applied.VariantSequence.Length * 2);
+            // Render variant-borne modifications (applied.OneBasedModifications) and,
+            // when this peptide intersects the variant, render peptide-local modifications
+            // that fall within the variant span (including the special N-term key = 1).
+            var sbVariant = new StringBuilder(applied.VariantSequence.Length * 3);
             var variantMods = applied.OneBasedModifications; // may be null
+
+            // Determine whether this peptide intersects the variant (only need the boolean)
+            bool intersects = this.IntersectsAndIdentifiesVariation(applied).intersects;
+
+            // Avoid duplicate rendering of the same mod (same type + id)
+            var appendedModKeys = new HashSet<string>(StringComparer.Ordinal);
 
             for (int i = 0; i < applied.VariantSequence.Length; i++)
             {
                 char vr = applied.VariantSequence[i];
                 sbVariant.Append(vr);
 
-                if (variantMods != null)
+                int globalVariantPos = applied.OneBasedBeginPosition + i;
+
+                // 1) Variant-borne modifications at this global position
+                if (variantMods != null && variantMods.TryGetValue(globalVariantPos, out var modsHere) && modsHere != null)
                 {
-                    int globalVariantPos = applied.OneBasedBeginPosition + i;
-                    if (variantMods.TryGetValue(globalVariantPos, out var modsHere) && modsHere != null)
+                    foreach (var m in modsHere)
                     {
-                        foreach (var m in modsHere)
+                        string modKey = $"{m.ModificationType}:{m.IdWithMotif}";
+                        if (!appendedModKeys.Contains(modKey))
                         {
                             sbVariant.Append('[')
                                      .Append(m.ModificationType)
                                      .Append(':')
                                      .Append(m.IdWithMotif)
                                      .Append(']');
+                            appendedModKeys.Add(modKey);
+                        }
+                    }
+                }
+
+                // 2) If peptide intersects the variant, include peptide-local modifications that map to this global position.
+                if (intersects && AllModsOneIsNterminus != null && AllModsOneIsNterminus.Count > 0)
+                {
+                    // N-terminal peptide mod maps to key 1 and should be applied when the variant position equals peptide start
+                    if (globalVariantPos == OneBasedStartResidueInProtein && AllModsOneIsNterminus.TryGetValue(1, out var ntermMod))
+                    {
+                        string modKey = $"{ntermMod.ModificationType}:{ntermMod.IdWithMotif}";
+                        if (!appendedModKeys.Contains(modKey))
+                        {
+                            sbVariant.Append('[')
+                                     .Append(ntermMod.ModificationType)
+                                     .Append(':')
+                                     .Append(ntermMod.IdWithMotif)
+                                     .Append(']');
+                            appendedModKeys.Add(modKey);
+                        }
+                    }
+
+                    // Side-chain mapping:
+                    // peptideKey = (globalPos - peptideStart) + 2  (1 => N-term, 2..Len+1 => residues, Len+2 => C-term)
+                    int peptideKey = (globalVariantPos - OneBasedStartResidueInProtein) + 2;
+                    if (peptideKey >= 2 && peptideKey <= BaseSequence.Length + 1 && AllModsOneIsNterminus.TryGetValue(peptideKey, out var sideMod))
+                    {
+                        string modKey = $"{sideMod.ModificationType}:{sideMod.IdWithMotif}";
+                        if (!appendedModKeys.Contains(modKey))
+                        {
+                            sbVariant.Append('[')
+                                     .Append(sideMod.ModificationType)
+                                     .Append(':')
+                                     .Append(sideMod.IdWithMotif)
+                                     .Append(']');
+                            appendedModKeys.Add(modKey);
+                        }
+                    }
+
+                    // If the variant covers the peptide C-term position, include peptide C-term mods as well
+                    if (globalVariantPos == OneBasedEndResidueInProtein && AllModsOneIsNterminus.TryGetValue(BaseSequence.Length + 2, out var ctermMod))
+                    {
+                        string modKey = $"{ctermMod.ModificationType}:{ctermMod.IdWithMotif}";
+                        if (!appendedModKeys.Contains(modKey))
+                        {
+                            sbVariant.Append('[')
+                                     .Append(ctermMod.ModificationType)
+                                     .Append(':')
+                                     .Append(ctermMod.IdWithMotif)
+                                     .Append(']');
+                            appendedModKeys.Add(modKey);
                         }
                     }
                 }

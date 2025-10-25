@@ -626,7 +626,6 @@ namespace Test
             Assert.IsTrue(pepe.IsVariantPeptide());
             Assert.IsFalse(notPepe.IsVariantPeptide());
         }
-
         [Test]
         public static void TestSeqVarString()
         {
@@ -635,7 +634,7 @@ namespace Test
             // mod on N-terminus
             PeptideWithSetModifications pepe = new PeptideWithSetModifications(protein, new DigestionParams(), 1, 10, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification> { { 1, new Modification("mod on M", "mod", "mod", "mod") } }, 0);
             SequenceVariation sv1Before = new SequenceVariation(1, 1, "A", "M", ""); // n-terminal mod goes before the sequence
-            Assert.AreEqual("A1[mod:mod on M]M", pepe.SequenceVariantString(sv1Before, true));
+            Assert.AreEqual("A1M[mod:mod on M]", pepe.SequenceVariantString(sv1Before, true));
 
             // mod in middle
             PeptideWithSetModifications pepe2 = new PeptideWithSetModifications(protein, new DigestionParams(), 2, 10, CleavageSpecificity.Unknown, "", 0, new Dictionary<int, Modification> { { 2, new Modification("mod on A", "mod", "mod", "mod") } }, 0);
