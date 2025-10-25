@@ -13,8 +13,14 @@ namespace Omics.BioPolymer
     /// </summary>
     public static class VariantApplication
     {
-
-        public static List<TBioPolymerType> GetVariantBioPolymers<TBioPolymerType>(this TBioPolymerType protein, int consensusPlusVariantIsoforms = 1, int minAlleleDepth = 0, int maxVariantsPerIsoform = 0)
+        /// <summary>
+        /// Expand a base biopolymer into concrete consensus and variant isoforms by materializing substitution-style annotations
+        /// and either applying a bounded combinatorial expansion when genotype data is absent or performing genotype- and
+        /// allele-depth-aware variant application. The <paramref name="consensusPlusVariantIsoforms"/> parameter limits the
+        /// number of isoforms returned (including the consensus); <paramref name="minAlleleDepth"/> sets the minimum AD required
+        /// to consider an allele; <paramref name="maxVariantsPerIsoform"/> is reserved for per-isoform combinatoric caps.
+        /// </summary>
+        public static List<TBioPolymerType> GetConsensusAndVariantBioPolymers<TBioPolymerType>(this TBioPolymerType protein, int consensusPlusVariantIsoforms = 1, int minAlleleDepth = 0, int maxVariantsPerIsoform = 0)
             where TBioPolymerType : IHasSequenceVariants
         {
             // Materialize any substitution-like annotations into concrete sequence variants on both the consensus and the instance
@@ -32,35 +38,17 @@ namespace Omics.BioPolymer
         }
 
         /// <summary>
-        /// Builds concrete variant biopolymers from a base entity.
-        /// If any known variation lacks genotype information (no VCF or empty genotypes), a safe combinatorial expansion is used (bounded by <paramref name="maxAllowedVariantsForCombinatorics"/>).
-        /// Otherwise, variants are applied in a genotype/allele-depth-aware manner via <see cref="ApplyVariants{TBioPolymerType}(TBioPolymerType, IEnumerable{SequenceVariation}, int, int)"/>.
+        /// LEGACY: Expand a base biopolymer into consensus and variant isoforms by materializing substitution-style annotations
+        /// and then either performing a bounded combinatorial expansion when genotype data is absent or running a
+        /// genotype- and allele-depth-aware variant application. The <paramref name="consensusPlusVariantIsoforms"/>
+        /// parameter caps the total isoforms returned (including the consensus). This method is retained for backward
+        /// compatibility and may be removed in a future release — prefer <see cref="GetVariantBioPolymers{TBioPolymerType}"/>
+        /// or newer variant-expansion APIs.
         /// </summary>
-        /// <typeparam name="TBioPolymerType">A biopolymer type that supports sequence variants.</typeparam>
-        /// <param name="protein">The base biopolymer to expand into variant instances.</param>
-        /// <param name="maxAllowedVariantsForCombinatorics">
-        /// Maximum number of variants to consider when creating combinations for genotype-less scenarios.
-        /// This caps explosion in <see cref="ApplyAllVariantCombinations{TBioPolymerType}(TBioPolymerType, System.Collections.Generic.List{SequenceVariation}, int)"/>.
-        /// </param>
-        /// <param name="minAlleleDepth">
-        /// Minimum AD (Allele Depth) per sample required for an allele (reference or alternate) to be considered "deep" enough to participate in genotype-aware application.
-        /// </param>
-        /// <returns>A list of concrete variants derived from <paramref name="protein"/>.</returns>
         public static List<TBioPolymerType> GetVariantBioPolymers<TBioPolymerType>(this TBioPolymerType protein, int maxAllowedVariantsForCombinatorics = 4, int minAlleleDepth = 1)
             where TBioPolymerType : IHasSequenceVariants
         {
-            // Materialize any substitution-like annotations into concrete sequence variants on both the consensus and the instance
-            protein.ConsensusVariant.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
-            protein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
-
-            // If all variants are positionally valid and any is missing VCF/genotype data, fall back to bounded combinatorial application
-            if (protein.SequenceVariations.All(v => v.AreValid()) && protein.SequenceVariations.Any(v => v.VariantCallFormatDataString == null || v.VariantCallFormatDataString.Genotypes.Count == 0))
-            {
-                return ApplyAllVariantCombinations(protein, protein.SequenceVariations, maxAllowedVariantsForCombinatorics).ToList();
-            }
-
-            // Otherwise, do genotype/allele-depth-aware application with combinatorics limited for heterozygous sites
-            return ApplyVariants(protein, protein.SequenceVariations, maxAllowedVariantsForCombinitorics: maxAllowedVariantsForCombinatorics, minAlleleDepth);
+            return GetConsensusAndVariantBioPolymers(protein, consensusPlusVariantIsoforms: maxAllowedVariantsForCombinatorics, minAlleleDepth: minAlleleDepth, maxVariantsPerIsoform: 0);
         }
 
         /// <summary>
