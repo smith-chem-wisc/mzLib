@@ -306,7 +306,7 @@ public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets,
         public static List<RNA> LoadRnaXML(string rnaDbLocation, bool generateTargets, DecoyType decoyType,
             bool isContaminant, IEnumerable<Modification> allKnownModifications,
             IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications,
-            int maxHeterozygousVariants = 4, int minAlleleDepth = 1,
+            int consensusPlusVariantIsoforms = 1, int minAlleleDepth = 0, int maxVariantsPerIsoform = 0,
             int maxThreads = 1, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
             string decoyIdentifier = "DECOY")
         {
@@ -371,7 +371,7 @@ public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets,
 
             decoys.AddRange(RnaDecoyGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier));
             IEnumerable<RNA> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
-            var toReturn = proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth));
+            var toReturn = proteinsToExpand.SelectMany(p => p.GetConsensusAndVariantBioPolymers(consensusPlusVariantIsoforms, minAlleleDepth, maxVariantsPerIsoform));
             return Merge(toReturn).ToList();
         }
 
