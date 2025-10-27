@@ -67,8 +67,13 @@ namespace Omics.BioPolymer
         {
             int count = 0; // number of variants yielded so far
 
-            yield return baseBioPolymer;
-            count++;
+            // Always yield the base biopolymer first. Unless minAlleleDepth > 0, in which case we skip it.
+            if (minAlleleDepth == 0)
+            {
+                yield return baseBioPolymer;
+                count++;
+            }
+            
             if (count >= consensusPlusVariantIsoforms)
                 yield break;
 
@@ -109,39 +114,50 @@ namespace Omics.BioPolymer
                 .ToList();
         }
         /// <summary>
-        /// Generates all possible k-sized combinations (order-independent, no repetition) of the input <see cref="SequenceVariation"/> list.
-        /// Each yielded value is a distinct <see cref="List{SequenceVariation}"/> representing one combination.
+        /// Returns all unique, order-independent combinations of the input variants for sizes 1..maxVariantsPerIsoform.
+        /// Duplicates by effect are prevented via a canonical key built from each variant's SimpleString.
         /// </summary>
-        /// <param name="variations">The list of candidate sequence variations to combine.</param>
-        /// <param name="maxVariantsPerIsoform">The size of each combination (k).</param>
-        /// <returns>
-        /// An <see cref="IEnumerable{List{SequenceVariation}}"/> containing all k-combinations of the input list.
-        /// </returns>
+        /// <param name="variations">Candidate variations (ideally already valid and de-duplicated by effect).</param>
+        /// <param name="maxVariantsPerIsoform">Maximum combination size (k). Yields sizes 1..k.</param>
+        /// <returns>All unique combinations as lists of SequenceVariation.</returns>
         private static IEnumerable<List<SequenceVariation>> GetAllCombinationsOneToMax(List<SequenceVariation> variations, int maxVariantsPerIsoform)
         {
-            int n = variations.Count;
-            if (maxVariantsPerIsoform > n || maxVariantsPerIsoform <= 0)
+            int n = variations?.Count ?? 0;
+            if (n == 0 || maxVariantsPerIsoform <= 0)
                 yield break;
 
-            var indices = new int[maxVariantsPerIsoform];
-            for (int i = 0; i < maxVariantsPerIsoform; i++) indices[i] = i;
+            int kMax = Math.Min(maxVariantsPerIsoform, n);
 
-            while (true)
+            // Ensures global uniqueness across all sizes (order-independent)
+            HashSet<string> seen = new();
+
+            for (int k = 1; k <= kMax; k++)
             {
-                // Yield the current combination as a List<SequenceVariation>
-                var combo = new List<SequenceVariation>(maxVariantsPerIsoform);
-                for (int i = 0; i < maxVariantsPerIsoform; i++)
-                    combo.Add(variations[indices[i]]);
-                yield return combo;
+                var indices = new int[k];
+                for (int i = 0; i < k; i++) indices[i] = i;
 
-                // Find the rightmost index to increment
-                int pos = maxVariantsPerIsoform - 1;
-                while (pos >= 0 && indices[pos] == n - maxVariantsPerIsoform + pos)
-                    pos--;
-                if (pos < 0) break;
-                indices[pos]++;
-                for (int i = pos + 1; i < maxVariantsPerIsoform; i++)
-                    indices[i] = indices[i - 1] + 1;
+                while (true)
+                {
+                    // Build current k-combination
+                    var combo = new List<SequenceVariation>(k);
+                    for (int i = 0; i < k; i++)
+                        combo.Add(variations[indices[i]]);
+
+                    // Canonical, order-independent key using SimpleString()
+                    string key = string.Join("|", combo.Select(v => v.SimpleString()).OrderBy(s => s));
+                    if (seen.Add(key))
+                        yield return combo;
+
+                    // Advance to next lexicographic combination
+                    int pos = k - 1;
+                    while (pos >= 0 && indices[pos] == n - k + pos)
+                        pos--;
+                    if (pos < 0) break;
+
+                    indices[pos]++;
+                    for (int i = pos + 1; i < k; i++)
+                        indices[i] = indices[i - 1] + 1;
+                }
             }
         }
         /// <summary>
@@ -301,6 +317,10 @@ namespace Omics.BioPolymer
                         }
                         newVariantProteins = combinitoricProteins;
                     }
+                }
+                if (newVariantProteins.Count > 1)
+                {
+                    newVariantProteins.RemoveAt(0);
                 }
                 variantProteins.AddRange(newVariantProteins);
             }

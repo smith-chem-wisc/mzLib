@@ -704,7 +704,10 @@ namespace Test.DatabaseTests
                 null,               // allKnownModifications
                 false,              // isContaminant
                 null,               // modTypesToExclude
-                out var unknownModifications);
+                out var unknownModifications,
+                consensusPlusVariantIsoforms: 2,
+                minAlleleDepth: 0,
+                maxVariantsPerIsoform: 1);
 
             // Sanity: Decoys are not requested
             Assert.IsTrue(proteins.All(p => !p.IsDecoy), "No decoys expected when using DecoyType.None");
@@ -756,7 +759,9 @@ namespace Test.DatabaseTests
                 false,              // isContaminant
                 null,               // modTypesToExclude
                 out unknownModifications,
-                minAlleleDepth: 400);
+                consensusPlusVariantIsoforms: 2,
+                minAlleleDepth: 400,
+                maxVariantsPerIsoform: 1);
 
             // Only the stop-gained, variant-applied form is retained under a strict depth threshold
             Assert.AreEqual(1, proteins.Count, "High min-allele-depth should retain only the variant-applied protein");
@@ -1226,7 +1231,11 @@ namespace Test.DatabaseTests
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "VariantModsGPTMD.xml");
             int maxHeterozygousVariants = 4;
             int minAlleleDepth = 1;
-            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un, consensusPlusVariantIsoforms: maxHeterozygousVariants, minAlleleDepth: minAlleleDepth);
+            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un, 
+                consensusPlusVariantIsoforms: 100,
+                maxVariantsPerIsoform: 10)
+                .Where(v=>v.AppliedSequenceVariations.Count > 0)
+                .ToList();
             List<Protein> targets = variantProteins.Where(p => p.IsDecoy == false).ToList();
             List<Protein> variantTargets = targets.Where(p => p.AppliedSequenceVariations.Count >= 1).ToList();
             List<Protein> decoys = variantProteins.Where(p => p.IsDecoy == true).ToList();
