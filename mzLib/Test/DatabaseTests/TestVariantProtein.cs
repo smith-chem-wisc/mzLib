@@ -59,7 +59,12 @@ namespace Test.DatabaseTests
         public void VariantXml()
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "SeqVar.xml");
-            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un);
+            List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un,
+                consensusPlusVariantIsoforms: 10,
+                minAlleleDepth: 0,
+                maxVariantsPerIsoform:1)
+                .Where(v=>v.AppliedSequenceVariations.Count > 0)
+                .ToList();
 
             Assert.AreEqual(5, variantProteins.First().ConsensusVariant.SequenceVariations.Count());
             Assert.AreEqual(1, variantProteins.Count); // there is only one unique amino acid change

@@ -27,14 +27,12 @@ namespace Omics.BioPolymer
             protein.ConsensusVariant.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
             protein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
 
-            // If all variants are positionally valid and any is missing VCF/genotype data, fall back to bounded combinatorial application
-            if (protein.SequenceVariations.All(v => v.AreValid()) && protein.SequenceVariations.Any(v => v.VariantCallFormatDataString == null || v.VariantCallFormatDataString.Genotypes.Count == 0))
-            {
-                return ApplyAllVariantCombinations(protein, protein.SequenceVariations, consensusPlusVariantIsoforms).ToList();
-            }
+            // We will no longer treat VCF- and non-VCF-carrying variants differently in terms of application strategy.
+            // Step one will be to generate all positionally valid variant combinations.
+            // Then we will apply those combinations in a genotype-aware manner when possible,
+            // Filtering of valid variants and combinations will occur during creation of the combinations.
 
-            // Otherwise, do genotype/allele-depth-aware application with combinatorics limited for heterozygous sites
-            return ApplyVariants(protein, protein.SequenceVariations, maxAllowedVariantsForCombinitorics: consensusPlusVariantIsoforms, minAlleleDepth);
+            return ApplyAllVariantCombinations(protein, protein.SequenceVariations, consensusPlusVariantIsoforms, minAlleleDepth, maxVariantsPerIsoform).ToList();
         }
 
         /// <summary>
@@ -50,7 +48,102 @@ namespace Omics.BioPolymer
         {
             return GetConsensusAndVariantBioPolymers(protein, consensusPlusVariantIsoforms: maxAllowedVariantsForCombinatorics, minAlleleDepth: minAlleleDepth, maxVariantsPerIsoform: 0);
         }
+        /// <summary>
+        /// Applies all combinations of the provided variations to the base biopolymer up to a maximum number of yielded results.
+        /// The base (no-variant) biopolymer is yielded first, followed by combinations in increasing size.
+        /// </summary>
+        /// <typeparam name="TBioPolymerType">A biopolymer type that supports sequence variants.</typeparam>
+        /// <param name="baseBioPolymer">The starting biopolymer (no variations applied).</param>
+        /// <param name="variations">Candidate variations to combine.</param>
+        /// <param name="maxCombinations">Maximum number of variants (including the base) to yield to bound combinatorial growth.</param>
+        /// <returns>An enumerable of applied-variant biopolymers.</returns>
+        public static IEnumerable<TBioPolymerType> ApplyAllVariantCombinations<TBioPolymerType>(
+            TBioPolymerType baseBioPolymer,
+            List<SequenceVariation> variations,
+            int consensusPlusVariantIsoforms = 1,
+            int minAlleleDepth = 0,
+            int maxVariantsPerIsoform = 0)
+            where TBioPolymerType : IHasSequenceVariants
+        {
+            int count = 0; // number of variants yielded so far
 
+            yield return baseBioPolymer;
+            count++;
+            if (count >= consensusPlusVariantIsoforms)
+                yield break;
+
+            foreach (var combo in GetAllCombinationsOneToMax(GetAllValidVariantsOrderedByPosition(variations), maxVariantsPerIsoform))
+            {
+                var results = ApplyVariants(baseBioPolymer, combo, minAlleleDepth);
+                // Normally, results will have only one biopolymer. However, VCF might have multiple individuals,
+                // So we will get one combo for each individual.
+                if (results != null)
+                {
+                    foreach (var result in results)
+                    {
+                        if (count >= consensusPlusVariantIsoforms)
+                            yield break;
+                        yield return result;
+                        count++;
+                    }
+                }
+            }
+        }
+        /// <summary>
+        /// Returns an enumeration of valid, unique <see cref="SequenceVariation"/> objects from the input collection,
+        /// ordered by descending <see cref="SequenceVariation.OneBasedBeginPosition"/>.
+        /// Variants are filtered for validity and deduplicated using their <see cref="SequenceVariation.SimpleString"/> representation.
+        /// </summary>
+        /// <param name="variations">The input collection of candidate sequence variations.</param>
+        /// <returns>
+        /// An <see cref="IEnumerable{SequenceVariation}"/> of valid, deduplicated, and position-ordered sequence variants.
+        /// </returns>
+        private static List<SequenceVariation> GetAllValidVariantsOrderedByPosition(
+            List<SequenceVariation> variations)
+        {
+            return variations
+                .Where(v => v.AreValid())
+                .GroupBy(v => v.SimpleString())
+                .Select(x => x.First())
+                .OrderByDescending(v => v.OneBasedBeginPosition)
+                .ToList();
+        }
+        /// <summary>
+        /// Generates all possible k-sized combinations (order-independent, no repetition) of the input <see cref="SequenceVariation"/> list.
+        /// Each yielded value is a distinct <see cref="List{SequenceVariation}"/> representing one combination.
+        /// </summary>
+        /// <param name="variations">The list of candidate sequence variations to combine.</param>
+        /// <param name="maxVariantsPerIsoform">The size of each combination (k).</param>
+        /// <returns>
+        /// An <see cref="IEnumerable{List{SequenceVariation}}"/> containing all k-combinations of the input list.
+        /// </returns>
+        private static IEnumerable<List<SequenceVariation>> GetAllCombinationsOneToMax(List<SequenceVariation> variations, int maxVariantsPerIsoform)
+        {
+            int n = variations.Count;
+            if (maxVariantsPerIsoform > n || maxVariantsPerIsoform <= 0)
+                yield break;
+
+            var indices = new int[maxVariantsPerIsoform];
+            for (int i = 0; i < maxVariantsPerIsoform; i++) indices[i] = i;
+
+            while (true)
+            {
+                // Yield the current combination as a List<SequenceVariation>
+                var combo = new List<SequenceVariation>(maxVariantsPerIsoform);
+                for (int i = 0; i < maxVariantsPerIsoform; i++)
+                    combo.Add(variations[indices[i]]);
+                yield return combo;
+
+                // Find the rightmost index to increment
+                int pos = maxVariantsPerIsoform - 1;
+                while (pos >= 0 && indices[pos] == n - maxVariantsPerIsoform + pos)
+                    pos--;
+                if (pos < 0) break;
+                indices[pos]++;
+                for (int i = pos + 1; i < maxVariantsPerIsoform; i++)
+                    indices[i] = indices[i - 1] + 1;
+            }
+        }
         /// <summary>
         /// Produces a name with an appended variant tag built from applied variation descriptions.
         /// If both <paramref name="name"/> and <paramref name="appliedVariations"/> are effectively empty, returns null.
@@ -123,24 +216,12 @@ namespace Omics.BioPolymer
         /// </param>
         /// <param name="minAlleleDepth">Minimum AD (Allele Depth) per sample for an allele to be considered in application.</param>
         /// <returns>A list of concrete variant biopolymers across all individuals encoded in the VCF payloads.</returns>
-        public static List<TBioPolymerType> ApplyVariants<TBioPolymerType>(TBioPolymerType protein, IEnumerable<SequenceVariation> sequenceVariations, int maxAllowedVariantsForCombinitorics, int minAlleleDepth)
+        public static List<TBioPolymerType> ApplyVariants<TBioPolymerType>(TBioPolymerType protein, IEnumerable<SequenceVariation> uniqueEffectsToApply, int minAlleleDepth = 0)
             where TBioPolymerType : IHasSequenceVariants
         {
-            // Remove duplicate effects (by SimpleString), require variants with genotype data, apply from higher to lower positions
-            List<SequenceVariation> uniqueEffectsToApply = sequenceVariations
-                .GroupBy(v => v.SimpleString())
-                .Select(x => x.First())
-                .Where(v => v.VariantCallFormatDataString.Genotypes.Count > 0)
-                .OrderByDescending(v => v.OneBasedBeginPosition)
-                .ToList();
 
             // A shallow "base" variant to branch from (no applied variants yet)
             TBioPolymerType proteinCopy = protein.CreateVariant(protein.BaseSequence, protein, null, protein.TruncationProducts, protein.OneBasedPossibleLocalizedModifications, null);
-
-            if (uniqueEffectsToApply.Count == 0)
-            {
-                return new List<TBioPolymerType> { proteinCopy };
-            }
 
             // All per-sample identifiers present in the VCF objects
             HashSet<string> individuals = new HashSet<string>(uniqueEffectsToApply.SelectMany(v => v.VariantCallFormatDataString.Genotypes.Keys));
@@ -153,7 +234,7 @@ namespace Omics.BioPolymer
                 newVariantProteins.Add(proteinCopy);
 
                 // Whether to limit combinatorial branching for this individual
-                bool tooManyHeterozygousVariants = uniqueEffectsToApply.Count(v => v.VariantCallFormatDataString.Heterozygous[individual]) > maxAllowedVariantsForCombinitorics;
+                bool tooManyHeterozygousVariants = false;
 
                 foreach (var variant in uniqueEffectsToApply)
                 {
@@ -179,17 +260,17 @@ namespace Omics.BioPolymer
                         // Limit branching: either keep ref, take alt, or update second branch if already present
                         if (isDeepAlternateAllele && isDeepReferenceAllele)
                         {
-                            if (newVariantProteins.Count == 1 && maxAllowedVariantsForCombinitorics > 0)
+                            if (newVariantProteins.Count == 1)
                             {
                                 TBioPolymerType variantProtein = ApplySingleVariant(variant, newVariantProteins[0], individual);
                                 newVariantProteins.Add(variantProtein);
                             }
-                            else if (maxAllowedVariantsForCombinitorics > 0)
+                            else
                             {
                                 newVariantProteins[1] = ApplySingleVariant(variant, newVariantProteins[1], individual);
                             }
                         }
-                        else if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0)
+                        else if (isDeepAlternateAllele)
                         {
                             newVariantProteins = newVariantProteins.Select(p => ApplySingleVariant(variant, p, individual)).ToList();
                         }
@@ -201,7 +282,7 @@ namespace Omics.BioPolymer
 
                         foreach (var ppp in newVariantProteins)
                         {
-                            if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0 && isDeepReferenceAllele)
+                            if (isDeepAlternateAllele && isDeepReferenceAllele)
                             {
                                 if (variant.VariantCallFormatDataString.Genotypes[individual].Contains("0"))
                                 {
@@ -209,7 +290,7 @@ namespace Omics.BioPolymer
                                 }
                                 combinitoricProteins.Add(ApplySingleVariant(variant, ppp, individual)); // alternate branch
                             }
-                            else if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0)
+                            else if (isDeepAlternateAllele)
                             {
                                 combinitoricProteins.Add(ApplySingleVariant(variant, ppp, individual));
                             }
@@ -507,80 +588,9 @@ namespace Omics.BioPolymer
             return variations.IsNullOrEmpty() ? "" : string.Join(", variant:", variations.Select(d => d.VariantCallFormatDataString?.Description ?? d.Description));
         }
 
-        /// <summary>
-        /// Applies all combinations of the provided variations to the base biopolymer up to a maximum number of yielded results.
-        /// The base (no-variant) biopolymer is yielded first, followed by combinations in increasing size.
-        /// </summary>
-        /// <typeparam name="TBioPolymerType">A biopolymer type that supports sequence variants.</typeparam>
-        /// <param name="baseBioPolymer">The starting biopolymer (no variations applied).</param>
-        /// <param name="variations">Candidate variations to combine.</param>
-        /// <param name="maxCombinations">Maximum number of variants (including the base) to yield to bound combinatorial growth.</param>
-        /// <returns>An enumerable of applied-variant biopolymers.</returns>
-        public static IEnumerable<TBioPolymerType> ApplyAllVariantCombinations<TBioPolymerType>(
-            TBioPolymerType baseBioPolymer,
-            List<SequenceVariation> variations,
-            int maxCombinations)
-            where TBioPolymerType : IHasSequenceVariants
-        {
-            int count = 0; // number of variants yielded so far
 
-            yield return baseBioPolymer;
-            count++;
-            if (count >= maxCombinations)
-                yield break;
 
-            int n = variations.Count; // total variation count
-            for (int size = 1; size <= n; size++)
-            {
-                foreach (var combo in GetCombinations(variations, size))
-                {
-                    var result = baseBioPolymer; // start from base and apply this combination in order
-                    foreach (var variant in combo)
-                    {
-                        result = ApplySingleVariant(variant, result, string.Empty);
-                    }
-                    if (result != null)
-                    {
-                        yield return result;
-                        count++;
-                        if (count >= maxCombinations)
-                            yield break;
-                    }
-                }
-            }
-        }
 
-        /// <summary>
-        /// Generates all k-combinations (order-independent, no repetition) of the given list.
-        /// This is a standard lexicographic index-based combinator that yields increasing index tuples.
-        /// </summary>
-        /// <param name="variations">Source list to combine.</param>
-        /// <param name="size">Combination size k (0 &lt; k &lt;= n).</param>
-        /// <returns>An enumerable of read-only lists containing the selected variations.</returns>
-        private static IEnumerable<IList<SequenceVariation>> GetCombinations(List<SequenceVariation> variations, int size)
-        {
-            int n = variations.Count;
-            var indices = new int[size];
-            for (int i = 0; i < size; i++) indices[i] = i; // initial 0..k-1
-
-            while (true)
-            {
-                // Materialize current combination
-                var combo = new List<SequenceVariation>(size);
-                for (int i = 0; i < size; i++)
-                    combo.Add(variations[indices[i]]);
-                yield return combo;
-
-                // Advance to next lexicographic combination
-                int pos = size - 1;
-                while (pos >= 0 && indices[pos] == n - size + pos)
-                    pos--;
-                if (pos < 0) break;
-                indices[pos]++;
-                for (int i = pos + 1; i < size; i++)
-                    indices[i] = indices[i - 1] + 1;
-            }
-        }
 
         /// <summary>
         /// Scans localized modifications for "nucleotide substitution" annotations of the form "X-&gt;Y" and converts them
