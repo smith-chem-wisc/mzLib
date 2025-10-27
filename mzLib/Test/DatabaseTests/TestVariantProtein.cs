@@ -576,6 +576,127 @@ namespace Test.DatabaseTests
             Assert.IsTrue(svValidOriginalSequenceIsEmpty.AreValid()); //This is valid because it is an insertion
             Assert.IsTrue(svValidVariantSequenceLenthIsZero.AreValid()); // This is valid because it is a deletion
         }
+        // <summary>
+        // In this unit test, you will not get the base protein because the variant in your VCF is homozygous ALT (GT=1/1) with sufficient depth,
+        // and the loader always expands VCF-only entries via ApplyVariants. The maxHeterozygousVariants parameter only limits heterozygous combinatorics; it does not prevent applying homozygous variants.
+        // What happens in your path
+        //  •	LoadProteinXML always expands proteins by calling GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth).
+        //  •	If a protein has only VCF-style sequence variations, GetVariantBioPolymers routes to ApplyVariants.
+        //  •	In ApplyVariants, a homozygous ALT with depth ≥ minAlleleDepth results in replacing the base with the variant:
+        //  •	isHomozygousAlternate == true and isDeepAlternateAllele == true → newVariantProteins = ApplySingleVariant(...), i.e., base is not retained.
+        //  •	maxHeterozygousVariants only affects heterozygous logic.It does nothing for homozygous ALT variants.
+        // Why your specific test applies the variant Your vcfstring is GT= 1 / 1 with AD = 0,15 (ALT depth 15). With the default minAlleleDepth=1 (you didn’t override it),
+        // ApplyVariants treats this as homozygous ALT with sufficient depth and applies it, returning only the variant protein.
+        // </summary>
+        [Test]
+        public void VcfProteinWithModOnDeepHomozygousVariant()
+        {
+            string vcfstring =
+                "8\t98089650\t.\tG\tT\t488.77\t.\tANN=T|missense_variant|MODERATE|ERICH5|ENSG00000177459|transcript|ENST00000318528.7|protein_coding|2/3|c.633G&gt;T|p.Lys211Asn|992/1761|633/1125|211/374||\tGT:AD:DP:GQ:PL\t1/1:0,15:15:45:517,45,0";
+
+            // Example VCF line with snpEff annotation:
+            // 8	98089650	.	G	T	488.77	.	ANN=T|missense_variant|MODERATE|ERICH5|ENSG00000177459|transcript|ENST00000318528.7|protein_coding|2/3|c.633G>T|p.Lys211Asn|992/1761|633/1125|211/374||	GT:AD:DP:GQ:PL	1/1:0,15:15:45:517,45,0
+            //
+            // --- VCF Standard Columns ---
+            // CHROM (8)         → Chromosome 8
+            // POS (98089650)    → 1-based position of the variant (98,089,650)
+            // ID (.)            → No variant identifier
+            // REF (G)           → Reference allele is G
+            // ALT (T)           → Alternate allele is T
+            // QUAL (488.77)     → Variant call quality score
+            // FILTER (.)        → No filter applied
+            //
+            // --- INFO Column ---
+            // INFO (ANN=...) holds snpEff annotation data.
+            // ANN format is:
+            //   Allele | Effect | Impact | Gene_Name | Gene_ID | Feature_Type | Feature_ID |
+            //   Transcript_Biotype | Rank | HGVS.c | HGVS.p | cDNA_pos/cDNA_len |
+            //   CDS_pos/CDS_len | AA_pos/AA_len | Distance | Errors/Warnings
+            //
+            // In this case: ANN=T|missense_variant|MODERATE|ERICH5|ENSG00000177459|transcript|ENST00000318528.7|protein_coding|2/3|c.633G>T|p.Lys211Asn|992/1761|633/1125|211/374||
+            //   - Allele = T
+            //   - Effect = missense_variant (amino acid change)
+            //   - Impact = MODERATE
+            //   - Gene_Name = ERICH5
+            //   - Gene_ID = ENSG00000177459
+            //   - Feature_Type = transcript
+            //   - Feature_ID = ENST00000318528.7
+            //   - Transcript_Biotype = protein_coding
+            //   - Rank = 2/3
+            //   - HGVS.c = c.633G>T (cDNA change)
+            //   - HGVS.p = p.Lys211Asn (protein change: Lysine 211 to Asparagine)
+            //   - cDNA_pos/cDNA_len = 992/1761
+            //   - CDS_pos/CDS_len = 633/1125
+            //   - AA_pos/AA_len = 211/374
+            //   - Distance, Errors/Warnings = empty
+            //
+            // --- FORMAT Column ---
+            // FORMAT (GT:AD:DP:GQ:PL) defines how to read the sample column(s):
+            //   GT → Genotype (1/1 = homozygous alternate)
+            //   AD → Allele depth (0 reads for REF, 15 for ALT)
+            //   DP → Read depth (15 reads at this site)
+            //   GQ → Genotype quality (45)
+            //   PL → Phred-scaled genotype likelihoods (517,45,0)
+            //
+            // --- SAMPLE Column ---
+            // Sample entry: 1/1:0,15:15:45:517,45,0
+            //   GT = 1/1 → Homozygous ALT genotype (both alleles = T)
+            //   AD = 0,15 → 0 reads for REF (G), 15 reads for ALT (T)
+            //   DP = 15   → Total coverage at this site = 15 reads
+            //   GQ = 45   → Genotype quality
+            //   PL = 517,45,0 → Genotype likelihoods
+            //
+            // --- Overall Summary ---
+            // Variant at chr8:98089650 changes G → T.
+            // The sample is homozygous for the ALT allele (T).
+            // The variant causes a missense mutation in ERICH5 (Lys211Asn).
+            // Variant passed filters, with moderate predicted impact.
+
+            string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "oneVcfProteinWithModsOnVariant.xml");
+            List<Protein> proteinsNoDecoys = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un,
+                maxHeterozygousVariants: 0);
+            // What: Ensure only one proteoform was created.
+            // Expect: 1.
+            // Why: The VCF contains a single homozygous ALT (GT=1/1) with sufficient depth, so the loader applies the variant and does not retain a separate base proteoform (DecoyType.None, maxHeterozygousVariants=0).
+            Assert.AreEqual(1, proteinsNoDecoys.Count);
+
+            // What: Verify the returned proteoform is the variant with the expected accession suffix.
+            // Expect: At least one protein has accession "Q6P6B1_K211N".
+            // Why: Variant accessions are formed by appending the applied variant’s SimpleString (K211N) to the base accession (VariantApplication.GetAccession).
+            Assert.That(proteinsNoDecoys.Any(a => a.Accession == "Q6P6B1_K211N"));
+
+            // What: Confirm the unmodified base accession is not present as its own proteoform.
+            // Expect: No protein has accession "Q6P6B1".
+            // Why: For homozygous ALT with depth >= minAlleleDepth, only the variant proteoform is emitted; the base (reference) proteoform is not included.
+            Assert.That(proteinsNoDecoys.Any(a => a.Accession == "Q6P6B1"), Is.False);
+
+            // What: The ConsensusVariant (reference) is still tracked for the proteoform.
+            // Expect: At least one protein references a ConsensusVariant with accession "Q6P6B1".
+            // Why: ConsensusVariant points to the original/reference protein, even when the returned proteoform is a variant.
+            Assert.That(proteinsNoDecoys.Any(a => a.ConsensusVariant.Accession == "Q6P6B1"));
+
+            // What: Check the number of distinct positions with possible localized modifications on the variant proteoform.
+            // Expect: 7.
+            // Why: OneBasedPossibleLocalizedModifications is a dictionary keyed by 1-based residue index; Values.Count equals the number of distinct modified positions after variant application and index adjustments.
+            Assert.AreEqual(7, proteinsNoDecoys.First().OneBasedPossibleLocalizedModifications.Values.Count);
+
+            // What: Verify that, on the variant proteoform, there are no remaining unapplied database sequence variants.
+            // Expect: 0.
+            // Why: Applied variants are removed from SequenceVariations during variant construction, and this case has only the single VCF-driven variant applied.
+            Assert.AreEqual(0, proteinsNoDecoys.First().SequenceVariations.Count);
+
+            // What: Confirm exactly one sequence variant was applied to produce this proteoform.
+            // Expect: 1.
+            // Why: The input specifies a single homozygous variant (K211N), so exactly one applied variation is recorded.
+            Assert.AreEqual(1, proteinsNoDecoys.First().AppliedSequenceVariations.Count);
+
+            // What: Verify the total number of modifications annotated on the applied variant region.
+            // Expect: 2.
+            // Why: AppliedSequenceVariations.First().OneBasedModifications is a dictionary of position -> list of modifications on the variant region.
+            // In this case there is one key (position) with two modifications; summing the list counts across all keys yields 2.
+            Assert.AreEqual(2, proteinsNoDecoys.First().AppliedSequenceVariations.First().OneBasedModifications.Values.Sum(v => v.Count));
+        }
+
         [Test]
         public void VariantModificationTest()
         {
@@ -585,9 +706,9 @@ namespace Test.DatabaseTests
             List<Protein> variantTargets = targets.Where(p => p.AppliedSequenceVariations.Count >= 1).ToList();
             List<Protein> decoys = variantProteins.Where(p => p.IsDecoy == true).ToList();
             List<Protein> variantDecoys = decoys.Where(p => p.AppliedSequenceVariations.Count >= 1).ToList();
-            bool homozygousVariant = targets.Select(p => p.Accession).Contains("Q6P6B1");           
+            bool homozygousVariant = targets.Select(p => p.Accession).Contains("Q6P6B1");
 
-            var variantMods = targets.SelectMany(p => p.AppliedSequenceVariations.Where(x=>x.OneBasedModifications.Count>= 1)).ToList();
+            var variantMods = targets.SelectMany(p => p.AppliedSequenceVariations.Where(x => x.OneBasedModifications.Count >= 1)).ToList();
             var decoyMods = decoys.SelectMany(p => p.AppliedSequenceVariations.Where(x => x.OneBasedModifications.Count >= 1)).ToList();
             var negativeResidues = decoyMods.SelectMany(x => x.OneBasedModifications.Where(w => w.Key < 0)).ToList();
             bool namingWrong = targets.Select(p => p.Accession).Contains("Q8N865_H300R_A158T_H300R");
@@ -603,7 +724,6 @@ namespace Test.DatabaseTests
             Assert.AreEqual(2, variantMods.Count);
             Assert.AreEqual(2, decoyMods.Count);
             Assert.AreEqual(0, negativeResidues.Count);
-
         }
         [Test]
         public void WriteProteinXmlWithVariantsDiscoveredAsModifications2()

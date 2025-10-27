@@ -73,8 +73,16 @@ namespace Transcriptomics
             if (original is not RNA rna)
                 throw new ArgumentException("The original nucleic acid must be RNA to create an RNA variant.");
 
-            var variantRNA = new RNA(variantBaseSequence, rna, appliedSequenceVariants, 
+            var variantRNA = new RNA(variantBaseSequence, rna, appliedSequenceVariants,
                 applicableTruncationProducts, oneBasedModifications, sampleNameForVariants);
+
+            // Remove any applied variants from the list of (unapplied) database sequence variations
+            if (appliedSequenceVariants != null)
+            {
+                var appliedSimple = new HashSet<string>(appliedSequenceVariants.Select(v => v.SimpleString()));
+                variantRNA.SequenceVariations.RemoveAll(sv => appliedSimple.Contains(sv.SimpleString()));
+            }
+
             return (TBioPolymerType)(IHasSequenceVariants)variantRNA;
         }
 

@@ -603,8 +603,16 @@ namespace Proteomics
             if (original is not Protein originalProtein)
                 throw new ArgumentException("The original BioPolymer must be Protein to create a protein variant");
 
-            var variantProtein =  new Protein(variantBaseSequence, originalProtein, appliedSequenceVariants, 
+            var variantProtein = new Protein(variantBaseSequence, originalProtein, appliedSequenceVariants,
                 applicableProteolysisProducts, oneBasedModifications, sampleNameForVariants);
+
+            // Remove any applied variants from the list of (unapplied) database sequence variations
+            if (appliedSequenceVariants != null)
+            {
+                var appliedSimple = new HashSet<string>(appliedSequenceVariants.Select(v => v.SimpleString()));
+                variantProtein.SequenceVariations.RemoveAll(sv => appliedSimple.Contains(sv.SimpleString()));
+            }
+
             return (TBioPolymerType)(IHasSequenceVariants)variantProtein;
         }
         #endregion

@@ -43,6 +43,9 @@
     <None Update="DatabaseTests\nucleotideVariantsAsModifications.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DatabaseTests\oneVcfProteinWithModsOnVariant.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\proteinEntryLipidMoietyBindingRegion.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
