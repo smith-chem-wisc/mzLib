@@ -133,19 +133,19 @@ namespace Test.DatabaseTests
             Assert.AreEqual(modIdx, target.OneBasedPossibleLocalizedModifications.Single().Key);
             Assert.AreEqual(1, target.AppliedSequenceVariations.Count());
             Assert.AreEqual(modIdx, target.AppliedSequenceVariations.Single().OneBasedBeginPosition);
-            Assert.AreEqual(1, target.SequenceVariations.Count());
-            Assert.AreEqual(modIdx, target.SequenceVariations.Single().OneBasedBeginPosition);
-            Assert.AreEqual(1, target.SequenceVariations.Single().OneBasedModifications.Count);
-            Assert.AreEqual(modIdx, target.SequenceVariations.Single().OneBasedModifications.Single().Key); //PEP[mod]TID, MEP[mod]TID
+            Assert.AreEqual(0, target.SequenceVariations.Count());
+            Assert.AreEqual(modIdx, target.AppliedSequenceVariations.Single().OneBasedBeginPosition);
+            Assert.AreEqual(1, target.AppliedSequenceVariations.Single().OneBasedModifications.Count);
+            Assert.AreEqual(modIdx, target.AppliedSequenceVariations.Single().OneBasedModifications.Single().Key); //PEP[mod]TID, MEP[mod]TID
             var decoy = proteins[1];
             Assert.AreEqual(1, decoy.OneBasedPossibleLocalizedModifications.Count);
             Assert.AreEqual(reversedModIdx, decoy.OneBasedPossibleLocalizedModifications.Single().Key); //DITP[mod]EP, MDITP[mod]E
             Assert.AreEqual(1, decoy.AppliedSequenceVariations.Count());
             Assert.AreEqual(reversedModIdx, decoy.AppliedSequenceVariations.Single().OneBasedBeginPosition);
-            Assert.AreEqual(1, decoy.SequenceVariations.Count());
-            Assert.AreEqual(reversedModIdx, decoy.SequenceVariations.Single().OneBasedBeginPosition);
-            Assert.AreEqual(1, decoy.SequenceVariations.Single().OneBasedModifications.Count);
-            Assert.AreEqual(reversedModIdx, decoy.SequenceVariations.Single().OneBasedModifications.Single().Key);
+            Assert.AreEqual(0, decoy.SequenceVariations.Count());
+            Assert.AreEqual(reversedModIdx, decoy.AppliedSequenceVariations.Single().OneBasedBeginPosition);
+            Assert.AreEqual(1, decoy.AppliedSequenceVariations.Single().OneBasedModifications.Count);
+            Assert.AreEqual(reversedModIdx, decoy.AppliedSequenceVariations.Single().OneBasedModifications.Single().Key);
 
             string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
@@ -156,19 +156,19 @@ namespace Test.DatabaseTests
             Assert.AreEqual(modIdx, target.OneBasedPossibleLocalizedModifications.Single().Key);
             Assert.AreEqual(1, target.AppliedSequenceVariations.Count());
             Assert.AreEqual(modIdx, target.AppliedSequenceVariations.Single().OneBasedBeginPosition);
-            Assert.AreEqual(1, target.SequenceVariations.Count());
-            Assert.AreEqual(modIdx, target.SequenceVariations.Single().OneBasedBeginPosition);
-            Assert.AreEqual(1, target.SequenceVariations.Single().OneBasedModifications.Count);
-            Assert.AreEqual(modIdx, target.SequenceVariations.Single().OneBasedModifications.Single().Key);
+            Assert.AreEqual(0, target.SequenceVariations.Count());
+            Assert.AreEqual(modIdx, target.AppliedSequenceVariations.Single().OneBasedBeginPosition);
+            Assert.AreEqual(1, target.AppliedSequenceVariations.Single().OneBasedModifications.Count);
+            Assert.AreEqual(modIdx, target.AppliedSequenceVariations.Single().OneBasedModifications.Single().Key);
             decoy = proteins[1];
             Assert.AreEqual(1, decoy.OneBasedPossibleLocalizedModifications.Count);
             Assert.AreEqual(reversedModIdx, decoy.OneBasedPossibleLocalizedModifications.Single().Key);
             Assert.AreEqual(1, decoy.AppliedSequenceVariations.Count());
             Assert.AreEqual(reversedModIdx, decoy.AppliedSequenceVariations.Single().OneBasedBeginPosition);
-            Assert.AreEqual(1, decoy.SequenceVariations.Count());
-            Assert.AreEqual(reversedModIdx, decoy.SequenceVariations.Single().OneBasedBeginPosition);
-            Assert.AreEqual(1, decoy.SequenceVariations.Single().OneBasedModifications.Count);
-            Assert.AreEqual(reversedModIdx, decoy.SequenceVariations.Single().OneBasedModifications.Single().Key);
+            Assert.AreEqual(0, decoy.SequenceVariations.Count());
+            Assert.AreEqual(reversedModIdx, decoy.AppliedSequenceVariations.Single().OneBasedBeginPosition);
+            Assert.AreEqual(1, decoy.AppliedSequenceVariations.Single().OneBasedModifications.Count);
+            Assert.AreEqual(reversedModIdx, decoy.AppliedSequenceVariations.Single().OneBasedModifications.Single().Key);
         }
 
         [TestCase("ranges1.xml", 1, 2, 5, 6)] // without starting methionine
@@ -269,15 +269,37 @@ namespace Test.DatabaseTests
         }
 
         [Test]
-        [TestCase("HomozygousHLA.xml", 1, 18)]
-        [TestCase("HomozygousHLA.xml", 10, 17)]
-        public static void HomozygousVariantsAtVariedDepths(string filename, int minVariantDepth, int appliedCount)
+        public static void HomozygousVariantsDepthOne()
         {
+            string filename = "HomozygousHLA.xml"; 
+            int minVariantDepth = 1; 
+            int appliedCount = 18;
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", filename), true,
                 DecoyType.None, null, false, null, out var unknownModifications, minAlleleDepth: minVariantDepth);
             Assert.AreEqual(1, proteins.Count);
-            Assert.AreEqual(18, proteins[0].SequenceVariations.Count()); // some redundant
-            Assert.AreEqual(18, proteins[0].SequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
+            //all sequence variants are applied and therefore removed from the SequenceVariations list
+            Assert.AreEqual(0, proteins[0].SequenceVariations.Count()); // some redundant
+
+            Assert.AreEqual(appliedCount, proteins[0].AppliedSequenceVariations.Count()); // some redundant
+            Assert.AreEqual(appliedCount, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
+            Assert.AreEqual(1, proteins[0].GetVariantBioPolymers().Count);
+            var variantProteins = proteins[0].GetVariantBioPolymers();
+            List<PeptideWithSetModifications> peptides = proteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
+        }
+
+        [Test]
+
+        public static void HomozygousVariantsDepth17()
+        {
+            string filename = "HomozygousHLA.xml";
+            int minVariantDepth = 10;
+            int appliedCount = 17;
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", filename), true,
+                DecoyType.None, null, false, null, out var unknownModifications, minAlleleDepth: minVariantDepth);
+            Assert.AreEqual(1, proteins.Count);
+            // 17 of 18 sequence variants are applied and therefore removed from the SequenceVariations list leaving 1 behind
+            Assert.AreEqual(1, proteins[0].SequenceVariations.Count()); // some redundant
+            Assert.AreEqual(1, proteins[0].SequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
             Assert.AreEqual(appliedCount, proteins[0].AppliedSequenceVariations.Count()); // some redundant
             Assert.AreEqual(appliedCount, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
             Assert.AreEqual(1, proteins[0].GetVariantBioPolymers().Count);
