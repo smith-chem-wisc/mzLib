@@ -26,6 +26,7 @@ namespace MzLibUtil
     public static class ClassExtensions
     {
         public static readonly string ModificationPattern = @"-?\[(.+?)(?<!\[I+)\]";
+        public static readonly string ProteinSplitPattern = @";|\|";
 
         /// <summary>
         /// Applies a boxcar smoothing algorithm to the input data.
@@ -303,6 +304,11 @@ namespace MzLibUtil
             // next regex is used in the event that multiple modifications are on a missed cleavage Lysine (K)
             Regex regexSpecialChar = new(specialCharacter);
             fullSeq = regexSpecialChar.Replace(fullSeq, replacement);
+        }
+
+        public static string[] SplitProteinAccessions(this string proteinGroupName)
+        {
+            return Regex.Split(proteinGroupName, ProteinSplitPattern);
         }
     }
 }

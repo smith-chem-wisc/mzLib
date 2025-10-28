@@ -12,20 +12,40 @@ namespace MzLibUtil.PositionFrequencyAnalysis
         public HashSet<string> FullSequences { get; set; }
         public string BaseSequence { get; set; }
         public QuantifiedProtein ParentProtein { get; set; }
-        public int OneBasedStartIndexInProtein { get; set; }
+        public int ZeroBasedStartIndexInProtein { get; set; }
+
+        /// <summary>
+        /// Dictionary mapping zero-based amino acid positions in the peptide to dictionaries of
+        /// modification IDs and their corresponding QuantifiedModification objects. This property 
+        /// stores ALL of the modifications observed for this peptide across all full sequences.
+        /// </summary>
         public Dictionary<int, Dictionary<string, QuantifiedModification>> ModifiedAminoAcidPositions { get; set; }
         public double Intensity { get; set; }
 
-        public QuantifiedPeptide(string fullSequence, int oneBasedStartIndexInProtein = -1, double intensity = 0, string modPattern = null)
+        /// <summary>
+        /// Constructor for a QuantifiedPeptide object. The base sequence and modifications are parsed from the full sequence.
+        /// </summary>
+        /// <param name="fullSequence"></param>
+        /// <param name="zeroBasedStartIndexInProtein"></param>
+        /// <param name="intensity"></param>
+        /// <param name="modPattern"></param>
+        public QuantifiedPeptide(string fullSequence, int zeroBasedStartIndexInProtein = -1, double intensity = 0, string modPattern = null)
         {
             ModifiedAminoAcidPositions = new Dictionary<int, Dictionary<string, QuantifiedModification>>();
-            OneBasedStartIndexInProtein = oneBasedStartIndexInProtein; // -1 means that the position in the protein is unknown
+            ZeroBasedStartIndexInProtein = zeroBasedStartIndexInProtein; // -1 means that the position in the protein is unknown
             Intensity = intensity;
             FullSequences = new HashSet<string> { fullSequence };
             _SetBaseSequence(fullSequence, modPattern);
             _SetModifications(fullSequence, intensity);
         }
 
+        /// <summary>
+        /// Adds a new full sequence to the peptide, updating modifications and intensity accordingly.
+        /// </summary>
+        /// <param name="fullSeq"></param>
+        /// <param name="intensity"></param>
+        /// <param name="modPattern"></param>
+        /// <exception cref="Exception"></exception>
         public void AddFullSequence(string fullSeq, double intensity = 0, string modPattern = null)
         {
             if (BaseSequence.Equals(fullSeq.GetBaseSequenceFromFullSequence()))
@@ -40,6 +60,11 @@ namespace MzLibUtil.PositionFrequencyAnalysis
             }
         }
 
+        /// <summary>
+        /// Merges another QuantifiedPeptide object into this one, combining their full sequences and intensities.
+        /// </summary>
+        /// <param name="peptideToMerge"></param>
+        /// <exception cref="Exception"></exception>
         public void MergePeptide(QuantifiedPeptide peptideToMerge)
         {
             if (peptideToMerge == null || peptideToMerge.BaseSequence != BaseSequence)
@@ -70,8 +95,7 @@ namespace MzLibUtil.PositionFrequencyAnalysis
 
                     if (!ModifiedAminoAcidPositions[modpos].ContainsKey(mod))
                     {
-                        var modLocalization = modpos == 0 ? "N-terminus" : modpos == BaseSequence.Length + 1 ? "C-terminus" : BaseSequence[modpos - 1].ToString();
-                        ModifiedAminoAcidPositions[modpos][mod] = new QuantifiedModification(mod, modpos, modLocalization: modLocalization, intensity: 0);
+                        ModifiedAminoAcidPositions[modpos][mod] = new QuantifiedModification(mod, modpos, intensity: 0);
                     }
                     ModifiedAminoAcidPositions[modpos][mod].Intensity += intensity;
 
@@ -85,6 +109,12 @@ namespace MzLibUtil.PositionFrequencyAnalysis
             BaseSequence = fullSeq.GetBaseSequenceFromFullSequence(modPattern: modPattern);
         }
 
+        /// <summary>
+        /// Returns the modification stoichiometry for this peptide as a dictionary mapping
+        /// zero-based amino acid positions in the peptide to dictionaries of modification IDs and their corresponding
+        /// QuantifiedModification objects with normalized intensities (i.e., divided by the total peptide intensity).
+        /// </summary>
+        /// <returns></returns>
         public Dictionary<int, Dictionary<string, QuantifiedModification>> GetModStoichiometryForPeptide()
         {
             var aaModsStoichiometry = ModifiedAminoAcidPositions;
