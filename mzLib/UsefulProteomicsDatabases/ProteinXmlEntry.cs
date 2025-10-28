@@ -410,12 +410,12 @@ namespace UsefulProteomicsDatabases
         /// This method is called when the end of an &lt;entry&gt; element is reached during XML parsing.
         /// It performs several key tasks:
         /// <list type="bullet">
-        ///   <item>Sanitizes the parsed sequence (e.g., replacing invalid amino acids with 'X').</item>
-        ///   <item>Prunes any sequence variants whose coordinates exceed the sequence length.</item>
-        ///   <item>Resolves and attaches all annotated modifications, excluding those of specified types or unknowns.</item>
-        ///   <item>Determines if the protein is a decoy based on the accession and decoy identifier.</item>
-        ///   <item>Aggregates all parsed data (gene names, proteolysis products, sequence variations, disulfide bonds, splice sites, database references, and sequence attributes) into a new <see cref="Protein"/> instance.</item>
-        ///   <item>Clears the internal state of the <see cref="ProteinXmlEntry"/> to prepare for parsing the next entry.</item>
+        ///   <item> Sanitizes the parsed sequence (e.g., replacing invalid amino acids with 'X').</item>
+        ///   <item> Prunes any sequence variants whose coordinates exceed the sequence length.</item>
+        ///   <item> Resolves and attaches all annotated modifications, excluding those of specified types or unknowns.</item>
+        ///   <item> Determines if the protein is a decoy based on the accession and decoy identifier.</item>
+        ///   <item> Aggregates all parsed data (gene names, proteolysis products, sequence variations, disulfide bonds, splice sites, database references, and sequence attributes) into a new <see cref="Protein"/> instance.</item>
+        ///   <item> Clears the internal state of the <see cref="ProteinXmlEntry"/> to prepare for parsing the next entry.</item>
         /// </list>
         /// If either the accession or sequence is missing, returns <c>null</c>.
         /// </summary>
