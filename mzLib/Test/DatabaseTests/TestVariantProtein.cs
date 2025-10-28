@@ -616,18 +616,18 @@ namespace Test.DatabaseTests
             Assert.IsTrue(svValidOriginalSequenceIsEmpty.AreValid()); //This is valid because it is an insertion
             Assert.IsTrue(svValidVariantSequenceLenthIsZero.AreValid()); // This is valid because it is a deletion
         }
-        // <summary>
-        // In this unit test, you will not get the base protein because the variant in your VCF is homozygous ALT (GT=1/1) with sufficient depth,
-        // and the loader always expands VCF-only entries via ApplyVariants. The maxHeterozygousVariants parameter only limits heterozygous combinatorics; it does not prevent applying homozygous variants.
-        // What happens in your path
-        //  •	LoadProteinXML always expands proteins by calling GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth).
-        //  •	If a protein has only VCF-style sequence variations, GetVariantBioPolymers routes to ApplyVariants.
-        //  •	In ApplyVariants, a homozygous ALT with depth ≥ minAlleleDepth results in replacing the base with the variant:
-        //  •	isHomozygousAlternate == true and isDeepAlternateAllele == true → newVariantProteins = ApplySingleVariant(...), i.e., base is not retained.
-        //  •	maxHeterozygousVariants only affects heterozygous logic.It does nothing for homozygous ALT variants.
-        // Why your specific test applies the variant Your vcfstring is GT= 1 / 1 with AD = 0,15 (ALT depth 15). With the default minAlleleDepth=1 (you didn’t override it),
-        // ApplyVariants treats this as homozygous ALT with sufficient depth and applies it, returning only the variant protein.
-        // </summary>
+        /// <summary>
+        /// In this unit test, you will not get the base protein because the variant in your VCF is homozygous ALT (GT=1/1) with sufficient depth,
+        /// and the loader always expands VCF-only entries via ApplyVariants. The maxHeterozygousVariants parameter only limits heterozygous combinatorics; it does not prevent applying homozygous variants.
+        /// What happens in your path
+        ///  •	LoadProteinXML always expands proteins by calling GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth).
+        ///  •	If a protein has only VCF-style sequence variations, GetVariantBioPolymers routes to ApplyVariants.
+        ///  •	In ApplyVariants, a homozygous ALT with depth ≥ minAlleleDepth results in replacing the base with the variant:
+        ///  •	isHomozygousAlternate == true and isDeepAlternateAllele == true → newVariantProteins = ApplySingleVariant(...), i.e., base is not retained.
+        ///  •	maxHeterozygousVariants only affects heterozygous logic.It does nothing for homozygous ALT variants.
+        /// Why your specific test applies the variant Your vcfstring is GT= 1 / 1 with AD = 0,15 (ALT depth 15). With the default minAlleleDepth=1 (you didn’t override it),
+        /// ApplyVariants treats this as homozygous ALT with sufficient depth and applies it, returning only the variant protein.
+        /// </summary>
         [Test]
         public void VcfProteinWithModOnDeepHomozygousVariant()
         {
