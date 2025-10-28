@@ -735,6 +735,16 @@ namespace Test.DatabaseTests
             // Why: AppliedSequenceVariations.First().OneBasedModifications is a dictionary of position -> list of modifications on the variant region.
             // In this case there is one key (position) with two modifications; summing the list counts across all keys yields 2.
             Assert.AreEqual(2, proteinsNoDecoys.First().AppliedSequenceVariations.First().OneBasedModifications.Values.Sum(v => v.Count));
+
+            // Additional checks on the ConsensusVariant for completeness
+            var consensusProtein = proteinsNoDecoys.First().ConsensusVariant;
+            var consensusSequenceVariants = consensusProtein.SequenceVariations;
+            Assert.That(1, Is.EqualTo(consensusSequenceVariants.Count));
+            Assert.That(211, Is.EqualTo(consensusSequenceVariants.First().OneBasedBeginPosition));
+            var consensusAppliedVariants = consensusProtein.AppliedSequenceVariations;
+            Assert.That(0, Is.EqualTo(consensusAppliedVariants.Count));
+            var consensusModifications = consensusProtein.OneBasedPossibleLocalizedModifications;
+            Assert.That(6, Is.EqualTo(consensusModifications.Count));
         }
 
         [Test]
