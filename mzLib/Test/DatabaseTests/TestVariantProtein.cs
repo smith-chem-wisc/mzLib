@@ -940,6 +940,15 @@ namespace Test.DatabaseTests
             var adValues = svd.AlleleDepths[adKey];
             Assert.AreEqual(new[] { "30", "30" }, adValues);
         }
+        /// <summary>
+        /// The humanGAPDH.xml test file contains one protein with two separate amino acid substitution variants.
+        /// When loaded with ProteinDbLoader.LoadProteinXML with variant expansion enabled,
+        /// the resulting protein entries reflect these variants appropriately.
+        /// There are four total proteins: the consensus (no variants), each single variant applied separately, and both variants applied.
+        /// Writing this list of four proteins back to XML results in an XML file that contains one Protein entry that is exactly the same as the original.
+        /// There are no entries for the variant proteins because the writer does not currently serialize applied variants as separate proteins.
+        /// Loading in this XML again results in the same four proteins as the original load. One consensus and three variant-applied proteoforms.
+        /// </summary>
         [Test]
         public static void TestProteinVariantsRoundTrip()
         {
