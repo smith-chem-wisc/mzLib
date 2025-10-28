@@ -1045,13 +1045,21 @@ namespace Test.DatabaseTests
             }
 
         }
+        /// <summary>
+        /// The humanGAPDH.xml test file contains one protein with two separate amino acid substitution variants.
+        /// When loaded with ProteinDbLoader.LoadProteinXML with variant expansion enabled,
+        /// the resulting protein entries reflect these variants appropriately.
+        /// There are four total proteins: the consensus (no variants), each single variant applied separately, and both variants applied.
+        /// In this test we add a modification to the consensus protein to ensure that modifications survive the round trip as well.
+        /// Writing this list of four proteins back to XML results in an XML file that contains one Protein entry that is exactly the same as the original.
+        /// There are no entries for the variant proteins because the writer does not currently serialize applied variants as separate proteins.
+        /// Loading in this XML again results in the same four proteins as the original load. One consensus and three variant-applied proteoforms.
+        /// </summary>
         [Test]
         public static void TestProteinVariantsAddModsRoundTrip()
         {
             ModificationMotif.TryGetMotif("M", out ModificationMotif motifM);
             Modification mm = new Modification("mod", null, "type", null, motifM, "Anywhere.", null, 16, new Dictionary<string, IList<string>>(), null, null, null, null, null);
-
-
 
 
             string databaseName = "humanGAPDH.xml";
@@ -1062,6 +1070,8 @@ namespace Test.DatabaseTests
             Assert.That(2, Is.EqualTo(consensusProtein.SequenceVariations.Count));
             Assert.That(0, Is.EqualTo(consensusProtein.AppliedSequenceVariations.Count));
             Assert.That(0, Is.EqualTo(consensusProtein.OneBasedPossibleLocalizedModifications.Keys.Count));
+
+            // Add a modification to the consensus protein to test that mods survive the round trip
             consensusProtein.OneBasedPossibleLocalizedModifications.Add(1, new List<Modification>(){mm});
             Assert.That(1, Is.EqualTo(consensusProtein.OneBasedPossibleLocalizedModifications.Keys.Count));
 
@@ -1130,7 +1140,9 @@ namespace Test.DatabaseTests
                     Assert.That(rt.BaseSequence, Is.EqualTo(orig.BaseSequence), $"BaseSequence mismatch for {rt.Accession}");
                     Assert.That(rt.SequenceVariations.Count, Is.EqualTo(orig.SequenceVariations.Count), $"SequenceVariations count mismatch for {rt.Accession}");
                     Assert.That(rt.AppliedSequenceVariations.Count, Is.EqualTo(orig.AppliedSequenceVariations.Count), $"AppliedSequenceVariations count mismatch for {rt.Accession}");
-                    Assert.That(rt.OneBasedPossibleLocalizedModifications.Keys.Count, Is.EqualTo(orig.OneBasedPossibleLocalizedModifications.Keys.Count), $"Mods count mismatch for {rt.Accession}");
+
+                    // We added a mod to the consensus protein in a position that will be contained in all variant proteins as well
+                    Assert.That(rt.OneBasedPossibleLocalizedModifications.Keys.Count, Is.EqualTo(1), $"Mods count mismatch for {rt.Accession}");
 
                     // Spot-check variant identity if applied variants exist
                     if (orig.AppliedSequenceVariations.Count > 0)
@@ -1151,6 +1163,126 @@ namespace Test.DatabaseTests
             }
 
         }
+        /// <summary>
+        /// The humanGAPDH.xml test file contains one protein with two separate amino acid substitution variants.
+        /// When loaded with ProteinDbLoader.LoadProteinXML with variant expansion enabled,
+        /// the resulting protein entries reflect these variants appropriately.
+        /// There are four total proteins: the consensus (no variants), each single variant applied separately, and both variants applied.
+        /// In this test we add a modification to a variant protein but on a position shared by all proteins
+        /// Writing this list of four proteins back to XML results in an XML file that contains one Protein entry that is exactly the same as the original.
+        /// There are no entries for the variant proteins because the writer does not currently serialize applied variants as separate proteins.
+        /// Loading in this XML again results in the same four proteins as the original load. One consensus and three variant-applied proteoforms.
+        /// </summary>
+        [Test]
+        public static void TestProteinVariantsAddModsToVariantOnSharedAminoAcidRoundTrip()
+        {
+            ModificationMotif.TryGetMotif("M", out ModificationMotif motifM);
+            Modification mm = new Modification("mod", null, "type", null, motifM, "Anywhere.", null, 16, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+
+
+            string databaseName = "humanGAPDH.xml";
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
+                DecoyType.None, null, false, null, out var unknownModifications, 1, 99);
+            Assert.AreEqual(4, proteins.Count); // 4 target
+            var consensusProtein = proteins[0];
+            Assert.That(2, Is.EqualTo(consensusProtein.SequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(consensusProtein.AppliedSequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(consensusProtein.OneBasedPossibleLocalizedModifications.Keys.Count));
+
+
+            var A22G_Protein = proteins[1];
+            Assert.That(1, Is.EqualTo(A22G_Protein.SequenceVariations.Count));
+            Assert.That(1, Is.EqualTo(A22G_Protein.AppliedSequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(A22G_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+
+            // Add a modification to the consensus protein to test that mods survive the round trip
+            A22G_Protein.OneBasedPossibleLocalizedModifications.Add(1, new List<Modification>() { mm });
+            Assert.That(1, Is.EqualTo(A22G_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+
+            var K251N_Protein = proteins[2];
+            Assert.That(1, Is.EqualTo(K251N_Protein.SequenceVariations.Count));
+            Assert.That(1, Is.EqualTo(K251N_Protein.AppliedSequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(K251N_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+            var K251N_A22G_Protein = proteins[3];
+            Assert.That(0, Is.EqualTo(K251N_A22G_Protein.SequenceVariations.Count));
+            Assert.That(2, Is.EqualTo(K251N_A22G_Protein.AppliedSequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(K251N_A22G_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+
+            // Write the non-decoy proteins to a temporary XML database
+            string tempDir = Path.Combine(Path.GetTempPath(), $"mzLib_roundtrip_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(tempDir);
+            string tempFile = Path.Combine(tempDir, "roundtrip_proteins.xml");
+
+            ProteinDbWriter.WriteXmlDatabase(
+                new Dictionary<string, HashSet<Tuple<int, Modification>>>(), // no fixed mods to embed
+                proteins,
+                tempFile);
+
+            // Count ProteinXmlEntry nodes directly from the XML (namespace- and case-insensitive)
+            var xdoc = System.Xml.Linq.XDocument.Load(tempFile);
+            int proteinXmlEntryCount = xdoc
+                .Descendants()
+                .Count(e => string.Equals(e.Name.LocalName, "protein", StringComparison.OrdinalIgnoreCase));
+            TestContext.WriteLine($"ProteinXmlEntry count in XML: {proteinXmlEntryCount}");
+
+            // Expect the XML to contain one entry per written protein
+            // Mysteriously there is only one written protein.....
+            Assert.That(proteinXmlEntryCount, Is.EqualTo(1));
+
+            // Read the database back in
+            var roundTripped = ProteinDbLoader.LoadProteinXML(
+                tempFile,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: null,
+                isContaminant: false,
+                modTypesToExclude: null,
+                out var unknownMods2,
+                minAlleleDepth: 1,
+                maxHeterozygousVariants: 99);
+
+            try
+            {
+                // Basic shape checks
+                Assert.That(roundTripped.Count, Is.EqualTo(proteins.Count));
+
+                // Ensure accessions match 1:1
+                var originalAccs = proteins.Select(p => p.Accession).OrderBy(a => a).ToList();
+                var rtAccs = roundTripped.Select(p => p.Accession).OrderBy(a => a).ToList();
+                Assert.That(rtAccs, Is.EqualTo(originalAccs));
+
+                // Validate per-proteoform annotations survived round-trip
+                foreach (var rt in roundTripped)
+                {
+                    var orig = proteins.Single(p => p.Accession == rt.Accession);
+
+                    Assert.That(rt.BaseSequence, Is.EqualTo(orig.BaseSequence), $"BaseSequence mismatch for {rt.Accession}");
+                    Assert.That(rt.SequenceVariations.Count, Is.EqualTo(orig.SequenceVariations.Count), $"SequenceVariations count mismatch for {rt.Accession}");
+                    Assert.That(rt.AppliedSequenceVariations.Count, Is.EqualTo(orig.AppliedSequenceVariations.Count), $"AppliedSequenceVariations count mismatch for {rt.Accession}");
+
+                    // We added a mod to the consensus protein in a position that will be contained in all variant proteins as well
+                    Assert.That(rt.OneBasedPossibleLocalizedModifications.Keys.Count, Is.EqualTo(1), $"Mods count mismatch for {rt.Accession}");
+
+                    // Spot-check variant identity if applied variants exist
+                    if (orig.AppliedSequenceVariations.Count > 0)
+                    {
+                        var origSimple = orig.AppliedSequenceVariations.Select(v => v.SimpleString()).OrderBy(s => s).ToArray();
+                        var rtSimple = rt.AppliedSequenceVariations.Select(v => v.SimpleString()).OrderBy(s => s).ToArray();
+                        Assert.That(rtSimple, Is.EqualTo(origSimple), $"Applied variant set mismatch for {rt.Accession}");
+                    }
+                }
+            }
+            finally
+            {
+                // Cleanup
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, recursive: true); } catch { /* ignore */ }
+                }
+            }
+
+        }
+
         [Test]
         public static void TestProteinVariantsAddModsToVariantRoundTrip()
         {
