@@ -494,13 +494,17 @@ public class TestVariantOligo
         }
     }
 
-    [Test]
     public void TwoTruncationsAndSequenceVariant_DbLoading()
     {
         string dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "TruncationAndVariantMods.xml");
         List<RNA> rna = RnaDbLoader.LoadRnaXML(dbPath, true, DecoyType.Reverse, false, AllKnownMods, [], out var unknownModifications);
 
-        Assert.That(rna.All(p => p.SequenceVariations.Count == 1));
+        // With new behavior:
+        // - RNAs with applied variants should have 0 unapplied SequenceVariations
+        // - RNAs without applied variants should retain the 1 DB SequenceVariation
+        Assert.That(rna.Where(p => p.AppliedSequenceVariations.Count > 0).All(p => p.SequenceVariations.Count == 0));
+        Assert.That(rna.Where(p => p.AppliedSequenceVariations.Count == 0).All(p => p.SequenceVariations.Count == 1));
+
         Assert.That(rna.All(p => p.OriginalNonVariantModifications.Count == 2));
 
         List<RNA> targets = rna.Where(p => p.IsDecoy == false).ToList();
@@ -533,7 +537,10 @@ public class TestVariantOligo
         List<RNA> rna = RnaDbLoader.LoadRnaXML(dbPath, true, DecoyType.Reverse, false, AllKnownMods, [], out var unknownModifications);
         RnaDigestionParams digestionParams = new RnaDigestionParams("RNase T1", missedCleavages, 2);
 
-        Assert.That(rna.All(p => p.SequenceVariations.Count == 1));
+        // New behavior consistent with DbLoading test above
+        Assert.That(rna.Where(p => p.AppliedSequenceVariations.Count > 0).All(p => p.SequenceVariations.Count == 0));
+        Assert.That(rna.Where(p => p.AppliedSequenceVariations.Count == 0).All(p => p.SequenceVariations.Count == 1));
+
         Assert.That(rna.All(p => p.OriginalNonVariantModifications.Count == 2));
         Assert.That(rna.All(p => p.TruncationProducts.Count == 2));
 
