@@ -48,7 +48,7 @@ public class TestVariantOligo
             minAlleleDepth: 1000);
 
         Assert.That(1, Is.EqualTo(variantProteins.Count));
-        Assert.That(0, Is.EqualTo(variantProteins.Count(a=>a.AppliedSequenceVariations.Count > 0)));
+        Assert.That(0, Is.EqualTo(variantProteins.Count(a => a.AppliedSequenceVariations.Count > 0)));
 
         variantProteins = RnaDbLoader.LoadRnaXML(file, true, DecoyType.None, false, AllKnownMods, [], out _,
             maxHeterozygousVariants: 10,
