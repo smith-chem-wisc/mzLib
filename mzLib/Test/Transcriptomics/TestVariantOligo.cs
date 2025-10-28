@@ -325,7 +325,14 @@ public class TestVariantOligo
         var protein = new Protein("PEPTIDE", "accession");
         NUnit.Framework.Assert.Throws<ArgumentException>(() =>
         {
-            rnas[0].CreateVariant(rnas[0].BaseSequence, protein, [], [], new Dictionary<int, List<Modification>>(), "");
+            rnas[0].CreateVariant(
+                rnas[0].BaseSequence,
+                protein,
+                [],   // sequenceVariants
+                [],   // appliedSequenceVariants
+                [],   // applicableTruncationProducts
+                new Dictionary<int, List<Modification>>(), // mods
+                "");  // sampleNameForVariants
         });
     }
 
@@ -402,7 +409,13 @@ public class TestVariantOligo
         // One of the mod residues is removed by the variant. 
         string dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "VariantModsGPTMD.xml");
         List<RNA> rna = RnaDbLoader.LoadRnaXML(dbPath, true, DecoyType.Reverse, false, AllKnownMods, [], out var unknownModifications);
-        Assert.That(rna.All(p => p.SequenceVariations.Count == 1));
+
+        List<RNA> rnaWithAppliedVariants = rna.Where(p => p.AppliedSequenceVariations.Count > 0).ToList();
+        
+        List<RNA> rnaWithoutAppliedVariants = rna.Where(p => p.AppliedSequenceVariations.Count == 0).ToList();
+
+        Assert.That(rnaWithoutAppliedVariants.All(p => p.SequenceVariations.Count == 1));
+        Assert.That(rnaWithAppliedVariants.All(p => p.SequenceVariations.Count == 0));
 
         List<RNA> targets = rna.Where(p => p.IsDecoy == false).ToList();
         RNA variantTarget = targets.First(p => p.AppliedSequenceVariations.Count >= 1);

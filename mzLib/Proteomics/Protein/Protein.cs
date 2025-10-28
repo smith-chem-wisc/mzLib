@@ -133,8 +133,13 @@ namespace Proteomics
         /// <param name="applicableProteolysisProducts"></param>
         /// <param name="oneBasedModifications"></param>
         /// <param name="sampleNameForVariants"></param>
-        public Protein(string variantBaseSequence, Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations,
-            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+        public Protein(string variantBaseSequence,
+            Protein protein,
+            IEnumerable<SequenceVariation>? sequenceVariations,
+            IEnumerable<SequenceVariation>? appliedSequenceVariations,
+            IEnumerable<TruncationProduct> applicableProteolysisProducts,
+            IDictionary<int, List<Modification>> oneBasedModifications,
+            string sampleNameForVariants)
             : this(
                   variantBaseSequence,
                   VariantApplication.GetAccession(protein, appliedSequenceVariations),
@@ -143,11 +148,11 @@ namespace Proteomics
                   oneBasedModifications: oneBasedModifications != null ? oneBasedModifications.ToDictionary(x => x.Key, x => x.Value) : new Dictionary<int, List<Modification>>(),
                   proteolysisProducts: new List<TruncationProduct>(applicableProteolysisProducts ?? new List<TruncationProduct>()),
                   name: VariantApplication.GetVariantName(protein.Name, appliedSequenceVariations),
-                  fullName: VariantApplication.GetVariantName(protein.FullName, appliedSequenceVariations), 
+                  fullName: VariantApplication.GetVariantName(protein.FullName, appliedSequenceVariations),
                   isDecoy: protein.IsDecoy,
                   isContaminant: protein.IsContaminant,
                   databaseReferences: new List<DatabaseReference>(protein.DatabaseReferences),
-                  sequenceVariations: new List<SequenceVariation>(protein.SequenceVariations),
+                  sequenceVariations: new List<SequenceVariation>(sequenceVariations ?? protein.SequenceVariations),
                   disulfideBonds: new List<DisulfideBond>(protein.DisulfideBonds),
                   spliceSites: new List<SpliceSite>(protein.SpliceSites),
                   databaseFilePath: protein.DatabaseFilePath,
@@ -596,18 +601,30 @@ namespace Proteomics
         /// </summary>
         public IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; }
 
-        public TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original, IEnumerable<SequenceVariation> appliedSequenceVariants,
-            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+        public TBioPolymerType CreateVariant<TBioPolymerType>(
+            string variantBaseSequence,
+            TBioPolymerType original,
+            IEnumerable<SequenceVariation>? sequenceVariants,
+            IEnumerable<SequenceVariation>? appliedSequenceVariants,
+            IEnumerable<TruncationProduct> applicableProteolysisProducts,
+            IDictionary<int, List<Modification>> oneBasedModifications,
+            string sampleNameForVariants)
             where TBioPolymerType : IHasSequenceVariants
         {
             if (original is not Protein originalProtein)
                 throw new ArgumentException("The original BioPolymer must be Protein to create a protein variant");
 
-            var variantProtein = new Protein(variantBaseSequence, originalProtein, appliedSequenceVariants,
-                applicableProteolysisProducts, oneBasedModifications, sampleNameForVariants);
+            var variantProtein = new Protein(
+                variantBaseSequence,
+                originalProtein,
+                sequenceVariants ?? originalProtein.SequenceVariations,
+                appliedSequenceVariants,
+                applicableProteolysisProducts,
+                oneBasedModifications,
+                sampleNameForVariants);
 
             // Remove any applied variants from the list of (unapplied) database sequence variations
-            if (appliedSequenceVariants != null)
+            if (appliedSequenceVariants != null && appliedSequenceVariants.Any())
             {
                 var appliedSimple = new HashSet<string>(appliedSequenceVariants.Select(v => v.SimpleString()));
                 variantProtein.SequenceVariations.RemoveAll(sv => appliedSimple.Contains(sv.SimpleString()));

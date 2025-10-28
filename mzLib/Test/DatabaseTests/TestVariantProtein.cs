@@ -50,7 +50,17 @@ namespace Test.DatabaseTests
         public static void VariantProtein()
         {
             Protein p = new Protein("MAAA", "accession");
-            Protein v = new Protein("MAVA", p, new[] { new SequenceVariation(3, "A", "V", "desc", null) }, null, null, null);
+
+            // New ctor: (variantBaseSequence, protein, sequenceVariants, appliedSequenceVariants, proteolysisProducts, mods, sampleName)
+            Protein v = new Protein(
+                "MAVA",
+                p,
+                p.SequenceVariations, // DB variants (empty in this test)
+                new[] { new SequenceVariation(3, "A", "V", "desc", null) }, // applied
+                null,
+                null,
+                null);
+
             Assert.AreEqual(p, v.ConsensusVariant);
         }
 
@@ -420,7 +430,15 @@ namespace Test.DatabaseTests
             var rna = new RNA("GUACUGACU");
             NUnit.Framework.Assert.Throws<ArgumentException>(() =>
             {
-                proteins[0].CreateVariant(proteins[0].BaseSequence, rna, [], [], new Dictionary<int, List<Modification>>(), "");
+                // New signature requires sequenceVariants and applicableTruncationProducts
+                proteins[0].CreateVariant(
+                    proteins[0].BaseSequence,
+                    rna,
+                    [],  // sequenceVariants
+                    [],  // appliedSequenceVariants
+                    [],  // applicableTruncationProducts
+                    new Dictionary<int, List<Modification>>(),
+                    "");
             });
         }
 

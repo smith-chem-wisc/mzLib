@@ -47,13 +47,19 @@ public interface IHasSequenceVariants
     /// </summary>
     List<TruncationProduct> TruncationProducts { get; }
 
-    
+
     /// <summary>
-    /// Used to construct a new variant of the same type as the original and is called in <see cref="VariantApplication"/>
+    /// Constructs a new variant biopolymer instance from the original, applying the specified sequence variants and modifications.
+    /// The method sets both the full set of database sequence variants and the subset of applied variants, ensuring that only unapplied variants remain in the SequenceVariations list,
+    /// while applied variants are tracked in AppliedSequenceVariations. This enables accurate representation of both the original and variant-specific annotations.
     /// </summary>
-    /// <remarks>The generic structure enables proteins to produce proteins and RNA to produce RNA</remarks>
-    /// <returns></returns>
-    TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original, IEnumerable<SequenceVariation> appliedSequenceVariants,
-        IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+    TBioPolymerType CreateVariant<TBioPolymerType>(
+        string variantBaseSequence,
+        TBioPolymerType original,
+        IEnumerable<SequenceVariation>? sequenceVariants,              // NEW: pass DB variants explicitly
+        IEnumerable<SequenceVariation>? appliedSequenceVariants,
+        IEnumerable<TruncationProduct> applicableProteolysisProducts,
+        IDictionary<int, List<Modification>> oneBasedModifications,
+        string sampleNameForVariants)
         where TBioPolymerType : IHasSequenceVariants;
 }

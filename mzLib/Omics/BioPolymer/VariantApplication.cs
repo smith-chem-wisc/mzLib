@@ -104,13 +104,23 @@ namespace Omics.BioPolymer
                 .OrderByDescending(v => v.OneBasedBeginPosition) // apply variants at the end of the protein sequence first
                 .ToList();
 
-            TBioPolymerType proteinCopy = protein.CreateVariant(protein.BaseSequence, protein, null, protein.TruncationProducts, protein.OneBasedPossibleLocalizedModifications, null);
-
-            // If there aren't any variants to apply, just return the base protein
+            // If there aren't any variants to apply, just return the original as-is
             if (uniqueEffectsToApply.Count == 0)
             {
-                return new List<TBioPolymerType> { proteinCopy };
+                return new List<TBioPolymerType> { protein };
             }
+
+            // Start from a normalized copy whose “unapplied” list is the DB list.
+            TBioPolymerType proteinCopy = protein.CreateVariant(
+                protein.BaseSequence,
+                protein,
+                protein.SequenceVariations,            // pass DB variants
+                null,                                  // none applied yet
+                protein.TruncationProducts,
+                protein.OneBasedPossibleLocalizedModifications,
+                null);
+
+
 
             HashSet<string> individuals = new HashSet<string>(uniqueEffectsToApply.SelectMany(v => v.Description.Genotypes.Keys));
             List<TBioPolymerType> variantProteins = new();
@@ -253,7 +263,15 @@ namespace Omics.BioPolymer
             Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variantGettingApplied, variantSequence, protein);
             List<SequenceVariation> adjustedAppliedVariations = AdjustSequenceVariationIndices(variantGettingApplied, variantSequence, appliedVariations);
 
-            return protein.CreateVariant(variantSequence, protein, adjustedAppliedVariations, adjustedProteolysisProducts, adjustedModifications, individual);
+            // Pass BOTH lists: current DB list (possibly already filtered on the interim proteoform) + newly applied
+            return protein.CreateVariant(
+                variantSequence,
+                protein,
+                protein.SequenceVariations,           // carry forward the current “unapplied” list
+                adjustedAppliedVariations,
+                adjustedProteolysisProducts,
+                adjustedModifications,
+                individual);
         }
 
         /// <summary>
