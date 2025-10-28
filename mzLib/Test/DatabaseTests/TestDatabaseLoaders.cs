@@ -237,7 +237,7 @@ namespace Test.DatabaseTests
             var uniprotLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist.txt");
             Loaders.UpdateUniprot(uniprotLocation);
             Loaders.UpdateUniprot(uniprotLocation);
-        }
+        } 
 
         [Test]
         public void FilesEqualHash()

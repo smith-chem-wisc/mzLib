@@ -108,6 +108,9 @@ namespace UsefulProteomicsDatabases
                             Protein newProtein = block.ParseEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, proteinDbLocation);
                             if (newProtein != null)
                             {
+                                //If we have read any modifications that are nucleotide substitutions, convert them to sequence variants here:
+                                newProtein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
+
                                 if (addTruncations)
                                 {
                                     newProtein.AddTruncations();
