@@ -480,25 +480,29 @@ namespace Test.DatabaseTests
         public static void MultipleAlternateAlleles()
         {
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "MultipleAlternateAlleles.xml"), true,
-                DecoyType.None, null, false, null, out var unknownModifications);
+                DecoyType.None, null, false, null, out var unknownModifications, maxHeterozygousVariants: 99);
             Assert.AreEqual(2, proteins.Count);
-            Assert.AreEqual(2, proteins[0].SequenceVariations.Count()); // some redundant
-            Assert.AreEqual(2, proteins[0].SequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
 
-            Assert.IsTrue(proteins[0].SequenceVariations.All(v => v.OneBasedBeginPosition == 63)); // there are two alternate alleles (1 and 2), but only 2 is in the genotype, so only that's applied
-            Assert.AreEqual(1, proteins[1].AppliedSequenceVariations.Count()); // some redundant
-            Assert.AreEqual(1, proteins[1].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
-            Assert.AreEqual(72, proteins[0].Length);
-            Assert.AreEqual(72, proteins[1].Length);
-            Assert.AreEqual('K', proteins[0][63 - 1]);
-            Assert.AreEqual('R', proteins[1][63 - 1]);
+            var p0 = proteins.Where(a=>a.Accession == "ENST00000383750").First();
+            var p1 = proteins.Where(a=>a.Accession == "ENST00000383750_K63R").First();
+
+            Assert.AreEqual(2, p0.SequenceVariations.Count()); // some redundant
+            Assert.AreEqual(2, p0.SequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
+
+            Assert.IsTrue(p0.SequenceVariations.All(v => v.OneBasedBeginPosition == 63)); // there are two alternate alleles (1 and 2), but only 2 is in the genotype, so only that's applied
+            Assert.AreEqual(1, p1.AppliedSequenceVariations.Count()); // some redundant
+            Assert.AreEqual(1, p1.AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
+            Assert.AreEqual(72, p0.Length);
+            Assert.AreEqual(72, p1.Length);
+            Assert.AreEqual('K', p0[63 - 1]);
+            Assert.AreEqual('R', p1[63 - 1]);
 
             proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "MultipleAlternateAlleles.xml"), true,
                 DecoyType.None, null, false, null, out unknownModifications, minAlleleDepth: 10);
             Assert.AreEqual(1, proteins.Count);
-            Assert.AreEqual(0, proteins[0].AppliedSequenceVariations.Count()); // some redundant
-            Assert.AreEqual(0, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
-            Assert.AreEqual('K', proteins[0][63 - 1]); // reference only
+            Assert.AreEqual(0, p0.AppliedSequenceVariations.Count()); // some redundant
+            Assert.AreEqual(0, p0.AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
+            Assert.AreEqual('K', p0[63 - 1]); // reference only
         }
 
         [Test]
