@@ -55,7 +55,6 @@ namespace Test.DatabaseTests
             Protein v = new Protein(
                 "MAVA",
                 p,
-                p.SequenceVariations, // DB variants (empty in this test)
                 new[] { new SequenceVariation(3, "A", "V", "desc", null) }, // applied
                 null,
                 null,
@@ -434,7 +433,6 @@ namespace Test.DatabaseTests
                 proteins[0].CreateVariant(
                     proteins[0].BaseSequence,
                     rna,
-                    [],  // sequenceVariants
                     [],  // appliedSequenceVariants
                     [],  // applicableTruncationProducts
                     new Dictionary<int, List<Modification>>(),

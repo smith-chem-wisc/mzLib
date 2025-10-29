@@ -362,7 +362,6 @@ public class TestVariantOligo
             rnas[0].CreateVariant(
                 rnas[0].BaseSequence,
                 protein,
-                [],   // sequenceVariants
                 [],   // appliedSequenceVariants
                 [],   // applicableTruncationProducts
                 new Dictionary<int, List<Modification>>(), // mods

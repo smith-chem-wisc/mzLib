@@ -56,10 +56,10 @@ public interface IHasSequenceVariants
     TBioPolymerType CreateVariant<TBioPolymerType>(
         string variantBaseSequence,
         TBioPolymerType original,
-        IEnumerable<SequenceVariation>? sequenceVariants,              // NEW: pass DB variants explicitly
-        IEnumerable<SequenceVariation>? appliedSequenceVariants,
+        IEnumerable<SequenceVariation> appliedSequenceVariants,
         IEnumerable<TruncationProduct> applicableProteolysisProducts,
-        IDictionary<int, List<Modification>> oneBasedModifications,
+        IDictionary<int,
+            List<Modification>> oneBasedModifications,
         string sampleNameForVariants)
-        where TBioPolymerType : IHasSequenceVariants;
+    where TBioPolymerType : IHasSequenceVariants;
 }

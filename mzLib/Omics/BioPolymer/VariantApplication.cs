@@ -1,4 +1,5 @@
-﻿using MzLibUtil;
+﻿using System.Linq;
+using MzLibUtil;
 using Omics.BioPolymer;
 using Omics.Modifications;
 
@@ -101,7 +102,10 @@ namespace Omics.BioPolymer
                 .GroupBy(v => v.SimpleString())
                 .Select(x => x.First())
                 .Where(v => v.Description.Genotypes.Count > 0) // this is a VCF line
-                .OrderByDescending(v => v.OneBasedBeginPosition) // apply variants at the end of the protein sequence first
+                .OrderBy(v => v.OneBasedBeginPosition)
+                .ThenBy(v => v.OneBasedEndPosition)
+                .ThenBy(v => v.OriginalSequence ?? string.Empty)
+                .ThenBy(v => v.VariantSequence ?? string.Empty) // apply variants at the end of the protein sequence first
                 .ToList();
 
             // If there aren't any variants to apply, just return the original as-is
@@ -114,7 +118,6 @@ namespace Omics.BioPolymer
             TBioPolymerType proteinCopy = protein.CreateVariant(
                 protein.BaseSequence,
                 protein,
-                protein.SequenceVariations,            // pass DB variants
                 null,                                  // none applied yet
                 protein.TruncationProducts,
                 protein.OneBasedPossibleLocalizedModifications,
@@ -267,7 +270,6 @@ namespace Omics.BioPolymer
             return protein.CreateVariant(
                 variantSequence,
                 protein,
-                protein.SequenceVariations,           // carry forward the current “unapplied” list
                 adjustedAppliedVariations,
                 adjustedProteolysisProducts,
                 adjustedModifications,
@@ -431,13 +433,14 @@ namespace Omics.BioPolymer
         }
 
         /// <summary>
-        /// Provides a deterministic ordering for variant-based naming/IDs.
+        /// Deterministic ordering for variant-based naming/IDs to avoid order-of-application artifacts.
         /// </summary>
         private static IEnumerable<SequenceVariation> OrderForNaming(IEnumerable<SequenceVariation> variations) =>
             variations
                 .OrderBy(v => v.OneBasedBeginPosition)
                 .ThenBy(v => v.OneBasedEndPosition)
-                .ThenBy(v => v.SimpleString()); // tie-breaker for identical coordinates
+                .ThenBy(v => v.OriginalSequence ?? string.Empty)
+                .ThenBy(v => v.VariantSequence ?? string.Empty);
 
         /// <summary>
         /// Format string to append to accession
@@ -456,7 +459,7 @@ namespace Omics.BioPolymer
         {
             return variations.IsNullOrEmpty()
                 ? ""
-                : string.Join(", variant:", OrderForNaming(variations!).Select(d => d.Description));
+                : string.Join(", variant:", OrderForNaming(variations!).Select(v => v.Description));
         }
         /// <summary>
         /// Applies all possible combinations of the provided SequenceVariation list to the base TBioPolymerType object,
@@ -482,7 +485,13 @@ namespace Omics.BioPolymer
             count++;
             if (count >= maxCombinations)
                 yield break;
-
+            // Sort variations to ensure deterministic combination order
+            variations = variations
+                .OrderBy(v => v.OneBasedBeginPosition)
+                .ThenBy(v => v.OneBasedEndPosition)
+                .ThenBy(v => v.OriginalSequence ?? string.Empty)
+                .ThenBy(v => v.VariantSequence ?? string.Empty)
+                .ToList();
             int n = variations.Count;
             for (int size = 1; size <= n; size++)
             {

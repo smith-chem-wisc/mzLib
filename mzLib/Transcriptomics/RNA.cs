@@ -5,6 +5,7 @@ using MzLibUtil;
 using Omics;
 using Omics.BioPolymer;
 using Omics.Modifications;
+using System.Security.Cryptography;
 
 namespace Transcriptomics
 {
@@ -42,26 +43,16 @@ namespace Transcriptomics
         /// <summary>
         /// For creating a variant of an existing nucleic acid. Filters out modifications that do not match their nucleotide target site.
         /// </summary>
-        // NEW: canonical constructor that accepts sequenceVariants explicitly
-        public RNA(string variantBaseSequence,
-            NucleicAcid original,
-            IEnumerable<SequenceVariation>? sequenceVariants,
-            IEnumerable<SequenceVariation>? appliedSequenceVariants,
-            IEnumerable<TruncationProduct>? applicableTruncationProducts,
-            IDictionary<int, List<Modification>> oneBasedModifications,
-            string sampleNameForVariants)
-            : this(variantBaseSequence,
-                VariantApplication.GetAccession(original, appliedSequenceVariants),
+        public RNA(string variantBaseSequence, NucleicAcid original, IEnumerable<SequenceVariation>? appliedSequenceVariants,
+            IEnumerable<TruncationProduct>? applicableTruncationProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            : this(variantBaseSequence, VariantApplication.GetAccession(original, appliedSequenceVariants),
                 oneBasedModifications,
                 original.FivePrimeTerminus, original.ThreePrimeTerminus,
                 VariantApplication.GetVariantName(original.Name, appliedSequenceVariants),
                 original.Organism, original.DatabaseFilePath, original.IsContaminant,
                 original.IsDecoy, original.GeneNames, original.AdditionalDatabaseFields,
-                [.. (applicableTruncationProducts ?? new List<TruncationProduct>())],
-                // COPY: do not alias the DB list
-                [.. (sequenceVariants ?? original.SequenceVariations ?? new List<SequenceVariation>())],
-                [.. (appliedSequenceVariants ?? new List<SequenceVariation>())],
-                sampleNameForVariants,
+                [.. applicableTruncationProducts ?? new List<TruncationProduct>()], original.SequenceVariations,
+                [.. appliedSequenceVariants ?? new List<SequenceVariation>()], sampleNameForVariants,
                 VariantApplication.GetVariantName(original.FullName, appliedSequenceVariants))
         {
             ConsensusVariant = original.ConsensusVariant;
@@ -69,16 +60,7 @@ namespace Transcriptomics
             AppliedSequenceVariations = (appliedSequenceVariants ?? new List<SequenceVariation>()).ToList();
             SampleNameForVariants = sampleNameForVariants;
         }
-        // Back-compat overload (kept for existing call sites)
-        public RNA(string variantBaseSequence,
-            NucleicAcid original,
-            IEnumerable<SequenceVariation>? appliedSequenceVariants,
-            IEnumerable<TruncationProduct>? applicableTruncationProducts,
-            IDictionary<int, List<Modification>> oneBasedModifications,
-            string sampleNameForVariants)
-            : this(variantBaseSequence, original, original.SequenceVariations, appliedSequenceVariants, applicableTruncationProducts, oneBasedModifications, sampleNameForVariants)
-        {
-        }
+
         public override IBioPolymer CloneWithNewSequenceAndMods(string newBaseSequence, IDictionary<int, List<Modification>>? newMods = null)
         {
             // Create a new rna with the new base sequence and modifications
@@ -86,35 +68,15 @@ namespace Transcriptomics
             return newRna;
         }
 
-        public override TBioPolymerType CreateVariant<TBioPolymerType>(
-            string variantBaseSequence,
-            TBioPolymerType original,
-            IEnumerable<SequenceVariation>? sequenceVariants,
-            IEnumerable<SequenceVariation>? appliedSequenceVariants,
-            IEnumerable<TruncationProduct> applicableTruncationProducts,
-            IDictionary<int, List<Modification>> oneBasedModifications,
-            string sampleNameForVariants)
+        public override TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original, IEnumerable<SequenceVariation> appliedSequenceVariants,
+            IEnumerable<TruncationProduct> applicableTruncationProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
         {
-            if (original is not RNA originalRna)
+            if (original is not RNA rna)
                 throw new ArgumentException("The original nucleic acid must be RNA to create an RNA variant.");
 
-            var variant = new RNA(
-                variantBaseSequence,
-                originalRna,
-                sequenceVariants,
-                appliedSequenceVariants,
-                applicableTruncationProducts,
-                oneBasedModifications,
-                sampleNameForVariants);
-
-            // Remove only actually-applied variants from the VARIANT’s copy
-            if (appliedSequenceVariants != null && appliedSequenceVariants.Any())
-            {
-                var appliedSimple = new HashSet<string>(appliedSequenceVariants.Select(v => v.SimpleString()));
-                variant.SequenceVariations.RemoveAll(sv => appliedSimple.Contains(sv.SimpleString()));
-            }
-
-            return (TBioPolymerType)(IHasSequenceVariants)variant;
+            var variantRNA = new RNA(variantBaseSequence, rna, appliedSequenceVariants,
+                applicableTruncationProducts, oneBasedModifications, sampleNameForVariants);
+            return (TBioPolymerType)(IHasSequenceVariants)variantRNA;
         }
 
         public bool Equals(RNA? other)
