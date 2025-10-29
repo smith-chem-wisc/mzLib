@@ -94,7 +94,7 @@ namespace Omics.BioPolymer
         /// <summary>
         /// Applies multiple variant changes to a protein sequence
         /// </summary>
-        public static List<TBioPolymerType> ApplyVariants<TBioPolymerType>(TBioPolymerType protein, IEnumerable<SequenceVariation> sequenceVariations, int maxAllowedVariantsForCombinitorics, int minAlleleDepth)
+        public static List<TBioPolymerType> ApplyVariants<TBioPolymerType>(TBioPolymerType protein, IEnumerable<SequenceVariation> sequenceVariations, int maxAllowedVariantsForCombinatorics, int minAlleleDepth)
             where TBioPolymerType : IHasSequenceVariants
         {
             List<SequenceVariation> uniqueEffectsToApply = sequenceVariations
@@ -131,7 +131,7 @@ namespace Omics.BioPolymer
                 newVariantProteins.Clear();
                 newVariantProteins.Add(proteinCopy);
 
-                bool tooManyHeterozygousVariants = uniqueEffectsToApply.Count(v => v.Description.Heterozygous[individual]) > maxAllowedVariantsForCombinitorics;
+                bool tooManyHeterozygousVariants = uniqueEffectsToApply.Count(v => v.Description.Heterozygous[individual]) > maxAllowedVariantsForCombinatorics;
                 foreach (var variant in uniqueEffectsToApply)
                 {
                     bool variantAlleleIsInTheGenotype = variant.Description.Genotypes[individual].Contains(variant.Description.AlleleIndex.ToString()); // should catch the case where it's -1 if the INFO isn't from SnpEff
@@ -155,12 +155,12 @@ namespace Omics.BioPolymer
                     {
                         if (isDeepAlternateAllele && isDeepReferenceAllele)
                         {
-                            if (newVariantProteins.Count == 1 && maxAllowedVariantsForCombinitorics > 0)
+                            if (newVariantProteins.Count == 1 && maxAllowedVariantsForCombinatorics > 0)
                             {
                                 TBioPolymerType variantProtein = ApplySingleVariant(variant, newVariantProteins[0], individual);
                                 newVariantProteins.Add(variantProtein);
                             }
-                            else if (maxAllowedVariantsForCombinitorics > 0)
+                            else if (maxAllowedVariantsForCombinatorics > 0)
                             {
                                 newVariantProteins[1] = ApplySingleVariant(variant, newVariantProteins[1], individual);
                             }
@@ -169,7 +169,7 @@ namespace Omics.BioPolymer
                                 // no heterozygous variants
                             }
                         }
-                        else if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0)
+                        else if (isDeepAlternateAllele && maxAllowedVariantsForCombinatorics > 0)
                         {
                             newVariantProteins = newVariantProteins.Select(p => ApplySingleVariant(variant, p, individual)).ToList();
                         }
@@ -186,7 +186,7 @@ namespace Omics.BioPolymer
 
                         foreach (var ppp in newVariantProteins)
                         {
-                            if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0 && isDeepReferenceAllele)
+                            if (isDeepAlternateAllele && maxAllowedVariantsForCombinatorics > 0 && isDeepReferenceAllele)
                             {
                                 // keep reference allele
                                 if (variant.Description.Genotypes[individual].Contains("0"))
@@ -197,7 +197,7 @@ namespace Omics.BioPolymer
                                 // alternate allele (replace all, since in heterozygous with two alternates, both alternates are included)
                                 combinitoricProteins.Add(ApplySingleVariant(variant, ppp, individual));
                             }
-                            else if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0)
+                            else if (isDeepAlternateAllele && maxAllowedVariantsForCombinatorics > 0)
                             {
                                 combinitoricProteins.Add(ApplySingleVariant(variant, ppp, individual));
                             }
@@ -431,11 +431,22 @@ namespace Omics.BioPolymer
         }
 
         /// <summary>
+        /// Provides a deterministic ordering for variant-based naming/IDs.
+        /// </summary>
+        private static IEnumerable<SequenceVariation> OrderForNaming(IEnumerable<SequenceVariation> variations) =>
+            variations
+                .OrderBy(v => v.OneBasedBeginPosition)
+                .ThenBy(v => v.OneBasedEndPosition)
+                .ThenBy(v => v.SimpleString()); // tie-breaker for identical coordinates
+
+        /// <summary>
         /// Format string to append to accession
         /// </summary>
         private static string CombineSimpleStrings(IEnumerable<SequenceVariation>? variations)
         {
-            return variations.IsNullOrEmpty() ? "" : string.Join("_", variations.Select(v => v.SimpleString()));
+            return variations.IsNullOrEmpty()
+                ? ""
+                : string.Join("_", OrderForNaming(variations!).Select(v => v.SimpleString()));
         }
 
         /// <summary>
@@ -443,7 +454,9 @@ namespace Omics.BioPolymer
         /// </summary>
         public static string CombineDescriptions(IEnumerable<SequenceVariation>? variations)
         {
-            return variations.IsNullOrEmpty() ? "" : string.Join(", variant:", variations.Select(d => d.Description));
+            return variations.IsNullOrEmpty()
+                ? ""
+                : string.Join(", variant:", OrderForNaming(variations!).Select(d => d.Description));
         }
         /// <summary>
         /// Applies all possible combinations of the provided SequenceVariation list to the base TBioPolymerType object,
