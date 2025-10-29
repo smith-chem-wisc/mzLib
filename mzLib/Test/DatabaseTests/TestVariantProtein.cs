@@ -566,12 +566,12 @@ namespace Test.DatabaseTests
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IndelDecoy.xml");
             List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un);
             Assert.AreEqual(8, variantProteins.Count);
-            var indelProtein = variantProteins[2];
+            var indelProtein = variantProteins.Where(p=>p.Accession == "ENST00000529487_K781EEK" && !p.IsDecoy).First();
             Assert.AreNotEqual(indelProtein.AppliedSequenceVariations.Single().OriginalSequence.Length, indelProtein.AppliedSequenceVariations.Single().VariantSequence.Length);
-            Assert.AreNotEqual(indelProtein.ConsensusVariant.Length, variantProteins[2].Length);
-            var decoyIndelProtein = variantProteins[5];
+            Assert.AreNotEqual(indelProtein.ConsensusVariant.BaseSequence.Length, indelProtein.BaseSequence.Length);
+            var decoyIndelProtein = variantProteins.Where(p => p.Accession == "DECOY_ENST00000529487_K922KEE" && p.IsDecoy).First();
             Assert.AreNotEqual(decoyIndelProtein.AppliedSequenceVariations.Single().OriginalSequence.Length, decoyIndelProtein.AppliedSequenceVariations.Single().VariantSequence.Length);
-            Assert.AreNotEqual(decoyIndelProtein.ConsensusVariant.Length, variantProteins[2].Length);
+            Assert.AreNotEqual(decoyIndelProtein.ConsensusVariant.BaseSequence.Length, decoyIndelProtein.BaseSequence.Length);
             Assert.AreEqual(indelProtein.Length - indelProtein.AppliedSequenceVariations.Single().OneBasedBeginPosition, decoyIndelProtein.AppliedSequenceVariations.Single().OneBasedBeginPosition);
             var variantSeq = indelProtein.AppliedSequenceVariations.Single().VariantSequence.ToCharArray();
             Array.Reverse(variantSeq);
