@@ -136,7 +136,7 @@ namespace Omics.BioPolymer
             foreach (string individual in individuals)
             {
                 newVariantProteins.Clear();
-                newVariantProteins.Add(proteinCopy);
+                newVariantProteins.Add(proteinCopy); //this protein copy has an empty list of sequence variants
 
                 bool tooManyHeterozygousVariants = uniqueEffectsToApply.Count(v => v.Description.Heterozygous[individual]) > maxAllowedVariantsForCombinatorics;
                 foreach (var variant in uniqueEffectsToApply)
