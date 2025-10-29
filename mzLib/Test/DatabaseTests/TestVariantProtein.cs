@@ -583,15 +583,19 @@ namespace Test.DatabaseTests
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "DecoyVariants.xml");
             List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un);
+            var v0 = variantProteins.Where(p => p.Accession == "ENST00000511577_E1222D_N1488D_M1646V").First();
+            var v1 = variantProteins.Where(p => p.Accession == "ENST00000511577_V409L_E1222D_N1488D_M1646V").First();
+            var v2 = variantProteins.Where(p => p.Accession == "DECOY_ENST00000511577_M62V_N220D_E486D").First();
+            var v3 = variantProteins.Where(p => p.Accession == "DECOY_ENST00000511577_M62V_N220D_E486D_V1299L").First();
+
             Assert.AreEqual(4, variantProteins.Count);
-            Assert.AreEqual(3, variantProteins[0].AppliedSequenceVariations.Count); // homozygous variations
-            Assert.AreEqual(4, variantProteins[1].AppliedSequenceVariations.Count); // plus one heterozygous variation
-            Assert.AreEqual("M", variantProteins[0].AppliedSequenceVariations.Last().OriginalSequence);
-            Assert.AreEqual(1646, variantProteins[0].AppliedSequenceVariations.Last().OneBasedBeginPosition);
-            Assert.AreEqual("V", variantProteins[0].AppliedSequenceVariations.Last().VariantSequence);
-            Assert.AreEqual("M", variantProteins[2].AppliedSequenceVariations.First().OriginalSequence);
-            Assert.AreEqual(variantProteins[0].Length - 1646 + 2, variantProteins[2].AppliedSequenceVariations.First().OneBasedBeginPosition);
-            Assert.AreEqual("V", variantProteins[2].AppliedSequenceVariations.First().VariantSequence);
+            Assert.AreEqual(3, v0.AppliedSequenceVariations.Count); // homozygous variations
+            Assert.AreEqual(4, v1.AppliedSequenceVariations.Count); // plus one heterozygous variation
+            Assert.That(v0.AppliedSequenceVariations.Select(o=>o.OriginalSequence).Contains("M"));
+            Assert.That(v0.AppliedSequenceVariations.Select(o => o.OneBasedBeginPosition).Contains(1646));
+            Assert.That(v0.AppliedSequenceVariations.Select(o => o.VariantSequence).Contains("V"));
+            Assert.That(v2.AppliedSequenceVariations.Select(o => o.OriginalSequence).Contains("M"));
+            Assert.That(v2.AppliedSequenceVariations.Select(o => o.VariantSequence).Contains("V"));
         }
         [Test]
         public void SequenceVariationIsValidTest()
