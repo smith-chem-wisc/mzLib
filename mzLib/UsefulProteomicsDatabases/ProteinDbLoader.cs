@@ -138,12 +138,8 @@ namespace UsefulProteomicsDatabases
 
             decoys.AddRange(DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier));
             IEnumerable<Protein> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
-            var bubba = proteinsToExpand
-                .SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth)).ToList();
-            var t = targets.ToList();
-            var e = t.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth)).ToList();
 
-            var toReturn = proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth));
+            var toReturn = proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth)).ToList();
 
             return Merge(toReturn).ToList();
         }

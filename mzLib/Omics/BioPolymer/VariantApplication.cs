@@ -102,17 +102,13 @@ namespace Omics.BioPolymer
                 .GroupBy(v => v.SimpleString())
                 .Select(x => x.First())
                 .Where(v => v.Description.Genotypes.Count > 0) // this is a VCF line
+                // Lock in the ordering in an attempt to get them applied in the same order, which will result in a consistent name.
                 .OrderBy(v => v.OneBasedBeginPosition)
                 .ThenBy(v => v.OneBasedEndPosition)
                 .ThenBy(v => v.OriginalSequence ?? string.Empty)
                 .ThenBy(v => v.VariantSequence ?? string.Empty) // apply variants at the end of the protein sequence first
                 .ToList();
 
-            // If there aren't any variants to apply, just return the original as-is
-            if (uniqueEffectsToApply.Count == 0)
-            {
-                return new List<TBioPolymerType> { protein };
-            }
 
             // Start from a normalized copy whose “unapplied” list is the DB list.
             TBioPolymerType proteinCopy = protein.CreateVariant(
@@ -122,6 +118,14 @@ namespace Omics.BioPolymer
                 protein.TruncationProducts,
                 protein.OneBasedPossibleLocalizedModifications,
                 null);
+
+            // If there aren't any variants to apply, just return the original as-is
+            if (uniqueEffectsToApply.Count == 0)
+            {
+                return new List<TBioPolymerType> { proteinCopy };
+            }
+
+
 
 
 
@@ -268,11 +272,11 @@ namespace Omics.BioPolymer
 
             // Pass BOTH lists: current DB list (possibly already filtered on the interim proteoform) + newly applied
             return protein.CreateVariant(
-                variantSequence,
-                protein,
-                adjustedAppliedVariations,
-                adjustedProteolysisProducts,
-                adjustedModifications,
+                variantSequence, 
+                protein, 
+                adjustedAppliedVariations, 
+                adjustedProteolysisProducts, 
+                adjustedModifications, 
                 individual);
         }
 
@@ -492,19 +496,29 @@ namespace Omics.BioPolymer
                 .ThenBy(v => v.OriginalSequence ?? string.Empty)
                 .ThenBy(v => v.VariantSequence ?? string.Empty)
                 .ToList();
+
+
+
             int n = variations.Count;
             for (int size = 1; size <= n; size++)
             {
                 foreach (var combo in GetCombinations(variations, size))
                 {
-                    var result = baseBioPolymer;
+                    // Start from a normalized copy whose “unapplied” list is the DB list.
+                    TBioPolymerType proteinCopy = baseBioPolymer.CreateVariant(
+                        baseBioPolymer.BaseSequence,
+                        baseBioPolymer,
+                        null,                                  // none applied yet
+                        baseBioPolymer.TruncationProducts,
+                        baseBioPolymer.OneBasedPossibleLocalizedModifications,
+                        null);
                     foreach (var variant in combo)
                     {
-                        result = ApplySingleVariant(variant, result, string.Empty);
+                        proteinCopy = ApplySingleVariant(variant, proteinCopy, string.Empty);
                     }
-                    if (result != null)
+                    if (proteinCopy != null)
                     {
-                        yield return result;
+                        yield return proteinCopy;
                         count++;
                         if (count >= maxCombinations)
                             yield break;

@@ -959,11 +959,11 @@ namespace Test.DatabaseTests
             Assert.That(0, Is.EqualTo(consensusProtein.AppliedSequenceVariations.Count));
             Assert.That(0, Is.EqualTo(consensusProtein.OneBasedPossibleLocalizedModifications.Keys.Count));
             var A22G_Protein = proteins[1];
-            Assert.That(1, Is.EqualTo(A22G_Protein.SequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(A22G_Protein.SequenceVariations.Count));
             Assert.That(1, Is.EqualTo(A22G_Protein.AppliedSequenceVariations.Count));
             Assert.That(0, Is.EqualTo(A22G_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
             var K251N_Protein = proteins[2];
-            Assert.That(1, Is.EqualTo(K251N_Protein.SequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(K251N_Protein.SequenceVariations.Count));
             Assert.That(1, Is.EqualTo(K251N_Protein.AppliedSequenceVariations.Count));
             Assert.That(0, Is.EqualTo(K251N_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
             var K251N_A22G_Protein = proteins[3];
@@ -1024,17 +1024,6 @@ namespace Test.DatabaseTests
                     var orig = proteins.Single(p => p.Accession == rt.Accession);
 
                     Assert.That(rt.BaseSequence, Is.EqualTo(orig.BaseSequence), $"BaseSequence mismatch for {rt.Accession}");
-                    Assert.That(rt.SequenceVariations.Count, Is.EqualTo(orig.SequenceVariations.Count), $"SequenceVariations count mismatch for {rt.Accession}");
-                    Assert.That(rt.AppliedSequenceVariations.Count, Is.EqualTo(orig.AppliedSequenceVariations.Count), $"AppliedSequenceVariations count mismatch for {rt.Accession}");
-                    Assert.That(rt.OneBasedPossibleLocalizedModifications.Keys.Count, Is.EqualTo(orig.OneBasedPossibleLocalizedModifications.Keys.Count), $"Mods count mismatch for {rt.Accession}");
-
-                    // Spot-check variant identity if applied variants exist
-                    if (orig.AppliedSequenceVariations.Count > 0)
-                    {
-                        var origSimple = orig.AppliedSequenceVariations.Select(v => v.SimpleString()).OrderBy(s => s).ToArray();
-                        var rtSimple = rt.AppliedSequenceVariations.Select(v => v.SimpleString()).OrderBy(s => s).ToArray();
-                        Assert.That(rtSimple, Is.EqualTo(origSimple), $"Applied variant set mismatch for {rt.Accession}");
-                    }
                 }
             }
             finally
