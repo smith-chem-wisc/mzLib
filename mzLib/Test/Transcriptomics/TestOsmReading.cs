@@ -7,6 +7,8 @@ using System.IO;
 using System.Linq;
 using Omics.Fragmentation.Oligo;
 using Chemistry;
+using Transcriptomics;
+using Transcriptomics.Digestion;
 
 namespace Test.Transcriptomics;
 
@@ -45,8 +47,8 @@ public class TestOsmReading
     [Test]
     public static void LoadsWithoutCrashing_OsmSpecific()
     {
-        List<string> errors = [];
-        List<OsmFromTsv> results = [];
+        List<string> errors = new();
+        List<OsmFromTsv> results = new();
         Assert.DoesNotThrow(() => results = SpectrumMatchTsvReader.ReadOsmTsv(OsmFilePath, out errors));
         Assert.That(errors.Count, Is.EqualTo(0));
         Assert.That(results.Count, Is.EqualTo(6));
@@ -55,8 +57,8 @@ public class TestOsmReading
     [Test]
     public static void LoadsWithoutCrashing_Generic()
     {
-        List<string> errors = [];
-        List<SpectrumMatchFromTsv> results = [];
+        List<string> errors = new();
+        List<SpectrumMatchFromTsv> results = new();
         Assert.DoesNotThrow(() => results = SpectrumMatchTsvReader.ReadTsv<SpectrumMatchFromTsv>(OsmFilePath, out errors));
         Assert.That(errors.Count, Is.EqualTo(0));
         Assert.That(results.Count, Is.EqualTo(6));
@@ -77,7 +79,7 @@ public class TestOsmReading
         FragmentationTerminus terminus
     )
     {
-        List<string> errors = [];
+        List<string> errors = new();
         var results = SpectrumMatchTsvReader.ReadOsmTsv(OsmFilePath, out errors);
 
         Assert.That(results.Count, Is.GreaterThan(0), "No results loaded from OSM TSV file.");
@@ -103,4 +105,196 @@ public class TestOsmReading
         Assert.That(Math.Round(ion.NeutralTheoreticalProduct.NeutralLoss, 2), Is.EqualTo(neutralLoss).Within(0.01), $"NeutralLoss not set correctly for {annotation}.");
         Assert.That(ion.NeutralTheoreticalProduct.Terminus, Is.EqualTo(terminus), $"Terminus not set correctly for {annotation}.");
     }  
+
+    [Test]
+    public static void TerminusProperties_AssignedCorrectly_WhenPreviousAndNextResiduesAreTerminal()
+    {
+        // Test that FivePrimeTerminus and ThreePrimeTerminus are correctly assigned based on PreviousResidue/NextResidue
+        List<string> errors = new();
+        var results = SpectrumMatchTsvReader.ReadOsmTsv(OsmFilePath, out errors);
+
+        Assert.That(results.Count, Is.GreaterThan(0), "No results loaded from OSM TSV file.");
+
+        foreach (var result in results)
+        {
+            // FivePrimeTerminus: if PreviousResidue == "-" => NucleicAcid.DefaultFivePrimeTerminus, else Rnase.DefaultFivePrimeTerminus
+            string actualFive = result.FivePrimeTerminus.ThisChemicalFormula.Formula;
+            string expectedFive = result.PreviousResidue == "-"
+                ? NucleicAcid.DefaultFivePrimeTerminus.Formula
+                : Rnase.DefaultFivePrimeTerminus.ThisChemicalFormula.Formula;
+            Assert.That(actualFive, Is.EqualTo(expectedFive), 
+                $"FivePrimeTerminus mismatch for scan {result.Ms2ScanNumber}. Expected: {expectedFive}, Got: {actualFive}");
+
+            // ThreePrimeTerminus: if NextResidue == "-" => NucleicAcid.DefaultThreePrimeTerminus, else Rnase.DefaultThreePrimeTerminus
+            string actualThree = result.ThreePrimeTerminus.ThisChemicalFormula.Formula;
+            string expectedThree = result.NextResidue == "-"
+                ? NucleicAcid.DefaultThreePrimeTerminus.Formula
+                : Rnase.DefaultThreePrimeTerminus.ThisChemicalFormula.Formula;
+            Assert.That(actualThree, Is.EqualTo(expectedThree), 
+                $"ThreePrimeTerminus mismatch for scan {result.Ms2ScanNumber}. Expected: {expectedThree}, Got: {actualThree}");
+        }
+    }
+
+    [Test]
+    public static void TerminusProperties_NotNull_ForAllResults()
+    {
+        // Ensure terminus properties are always set and never null
+        List<string> errors = new();
+        var results = SpectrumMatchTsvReader.ReadOsmTsv(OsmFilePath, out errors);
+
+        Assert.That(results.Count, Is.GreaterThan(0));
+
+        foreach (var result in results)
+        {
+            Assert.That(result.FivePrimeTerminus, Is.Not.Null, 
+                $"FivePrimeTerminus is null for scan {result.Ms2ScanNumber}");
+            Assert.That(result.ThreePrimeTerminus, Is.Not.Null, 
+                $"ThreePrimeTerminus is null for scan {result.Ms2ScanNumber}");
+            Assert.That(result.FivePrimeTerminus.ThisChemicalFormula, Is.Not.Null,
+                $"FivePrimeTerminus.ThisChemicalFormula is null for scan {result.Ms2ScanNumber}");
+            Assert.That(result.ThreePrimeTerminus.ThisChemicalFormula, Is.Not.Null,
+                $"ThreePrimeTerminus.ThisChemicalFormula is null for scan {result.Ms2ScanNumber}");
+        }
+    }
+
+    [Test]
+    public static void DisambiguatingConstructor_PreservesTerminusProperties()
+    {
+        // Test the disambiguating constructor (OsmFromTsv(OsmFromTsv osm, string fullSequence, ...))
+        List<string> errors = new();
+        var results = SpectrumMatchTsvReader.ReadOsmTsv(OsmFilePath, out errors);
+        var originalOsm = results.First();
+
+        // Test 1: Constructor without explicit terminus parameters (should copy from original)
+        var clonedOsm = new OsmFromTsv(originalOsm, originalOsm.FullSequence);
+        
+        Assert.That(clonedOsm.FivePrimeTerminus.ThisChemicalFormula.Formula, 
+            Is.EqualTo(originalOsm.FivePrimeTerminus.ThisChemicalFormula.Formula),
+            "Cloned OSM should preserve FivePrimeTerminus when not explicitly provided");
+        Assert.That(clonedOsm.ThreePrimeTerminus.ThisChemicalFormula.Formula, 
+            Is.EqualTo(originalOsm.ThreePrimeTerminus.ThisChemicalFormula.Formula),
+            "Cloned OSM should preserve ThreePrimeTerminus when not explicitly provided");
+    }
+
+    [Test]
+    public static void DisambiguatingConstructor_OverridesTerminusProperties_WhenProvided()
+    {
+        // Test the disambiguating constructor with explicit terminus parameters
+        List<string> errors = new();
+        var results = SpectrumMatchTsvReader.ReadOsmTsv(OsmFilePath, out errors);
+        var originalOsm = results.First();
+
+        // Create custom terminus formulas
+        var customFivePrime = ChemicalFormula.ParseFormula("H2O");
+        var customThreePrime = ChemicalFormula.ParseFormula("PO4");
+
+        // Test 2: Constructor with explicit terminus parameters (should override original)
+        var customOsm = new OsmFromTsv(originalOsm, originalOsm.FullSequence, 
+            fivePrimeTerm: customFivePrime, threePrimeTerm: customThreePrime);
+        
+        Assert.That(customOsm.FivePrimeTerminus.ThisChemicalFormula.Formula, 
+            Is.EqualTo(customFivePrime.Formula),
+            "Custom FivePrimeTerminus should override original");
+        Assert.That(customOsm.ThreePrimeTerminus.ThisChemicalFormula.Formula, 
+            Is.EqualTo(customThreePrime.Formula),
+            "Custom ThreePrimeTerminus should override original");
+    }
+
+    [Test]
+    public static void OsmFromTsvFile_LoadsCorrectly()
+    {
+        // Test loading via OsmFromTsvFile
+        var osmFile = new OsmFromTsvFile(OsmFilePath);
+        osmFile.LoadResults();
+
+        Assert.That(osmFile.Results, Is.Not.Null);
+        Assert.That(osmFile.Results.Count, Is.EqualTo(6));
+        Assert.That(osmFile.FileType, Is.EqualTo(SupportedFileType.osmtsv));
+
+        // Verify terminus properties are set for all results
+        foreach (var result in osmFile.Results)
+        {
+            Assert.That(result.FivePrimeTerminus, Is.Not.Null);
+            Assert.That(result.ThreePrimeTerminus, Is.Not.Null);
+        }
+    }
+
+    [Test]
+    public static void TerminusProperties_MatchExpectedFormulas()
+    {
+        // Verify the specific chemical formulas match expected values
+        List<string> errors = new();
+        var results = SpectrumMatchTsvReader.ReadOsmTsv(OsmFilePath, out errors);
+
+        // Expected formulas from the static properties
+        string expectedNucleicAcidFivePrime = "O-3P-1";  // NucleicAcid.DefaultFivePrimeTerminus
+        string expectedNucleicAcidThreePrime = "OH";      // NucleicAcid.DefaultThreePrimeTerminus
+        string expectedRnaseFivePrime = "O-3P-1";         // Rnase.DefaultFivePrimeTerminus
+        string expectedRnaseThreePrime = "H2O4P";         // Rnase.DefaultThreePrimeTerminus
+
+        foreach (var result in results)
+        {
+            if (result.PreviousResidue == "-")
+            {
+                Assert.That(result.FivePrimeTerminus.ThisChemicalFormula.Formula, 
+                    Is.EqualTo(expectedNucleicAcidFivePrime),
+                    $"Terminal oligo (PreviousResidue='-') should have NucleicAcid.DefaultFivePrimeTerminus for scan {result.Ms2ScanNumber}");
+            }
+            else
+            {
+                Assert.That(result.FivePrimeTerminus.ThisChemicalFormula.Formula, 
+                    Is.EqualTo(expectedRnaseFivePrime),
+                    $"Internal oligo (PreviousResidue!='-') should have Rnase.DefaultFivePrimeTerminus for scan {result.Ms2ScanNumber}");
+            }
+
+            if (result.NextResidue == "-")
+            {
+                Assert.That(result.ThreePrimeTerminus.ThisChemicalFormula.Formula, 
+                    Is.EqualTo(expectedNucleicAcidThreePrime),
+                    $"Terminal oligo (NextResidue='-') should have NucleicAcid.DefaultThreePrimeTerminus for scan {result.Ms2ScanNumber}");
+            }
+            else
+            {
+                Assert.That(result.ThreePrimeTerminus.ThisChemicalFormula.Formula, 
+                    Is.EqualTo(expectedRnaseThreePrime),
+                    $"Internal oligo (NextResidue!='-') should have Rnase.DefaultThreePrimeTerminus for scan {result.Ms2ScanNumber}");
+            }
+        }
+    }
+
+    [Test]
+    public static void SpectrumMatchTsvReader_ParsesTerminusHeadersCorrectly()
+    {
+        // Verify that SpectrumMatchTsvReader.ParseHeader correctly identifies terminus columns
+        string testHeader = "File Name\tScan Number\tFull Sequence\t5'-Terminus\t3'-Terminus\tPrevious Residue\tNext Residue";
+        var parsedHeader = SpectrumMatchTsvReader.ParseHeader(testHeader);
+
+        Assert.That(parsedHeader.ContainsKey(SpectrumMatchFromTsvHeader.FivePrimeTerminus), Is.True,
+            "ParseHeader should recognize 5'-Terminus column");
+        Assert.That(parsedHeader.ContainsKey(SpectrumMatchFromTsvHeader.ThreePrimeTerminus), Is.True,
+            "ParseHeader should recognize 3'-Terminus column");
+        
+        Assert.That(parsedHeader[SpectrumMatchFromTsvHeader.FivePrimeTerminus], Is.EqualTo(3),
+            "5'-Terminus should be at index 3");
+        Assert.That(parsedHeader[SpectrumMatchFromTsvHeader.ThreePrimeTerminus], Is.EqualTo(4),
+            "3'-Terminus should be at index 4");
+    }
+
+    [Test]
+    public static void SpectrumMatchTsvReader_HandlesAbsentTerminusHeaders()
+    {
+        // Verify that ParseHeader handles missing terminus columns correctly
+        string testHeader = "File Name\tScan Number\tFull Sequence\tPrevious Residue\tNext Residue";
+        var parsedHeader = SpectrumMatchTsvReader.ParseHeader(testHeader);
+
+        Assert.That(parsedHeader.ContainsKey(SpectrumMatchFromTsvHeader.FivePrimeTerminus), Is.True,
+            "ParseHeader should include FivePrimeTerminus key even when column absent");
+        Assert.That(parsedHeader.ContainsKey(SpectrumMatchFromTsvHeader.ThreePrimeTerminus), Is.True,
+            "ParseHeader should include ThreePrimeTerminus key even when column absent");
+        
+        Assert.That(parsedHeader[SpectrumMatchFromTsvHeader.FivePrimeTerminus], Is.EqualTo(-1),
+            "Missing 5'-Terminus column should have index -1");
+        Assert.That(parsedHeader[SpectrumMatchFromTsvHeader.ThreePrimeTerminus], Is.EqualTo(-1),
+            "Missing 3'-Terminus column should have index -1");
+    }
 }
