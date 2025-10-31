@@ -317,4 +317,102 @@ public class TestOsmReading
         Assert.That(parsedHeader[SpectrumMatchFromTsvHeader.ThreePrimeTerminus], Is.EqualTo(-1),
             "Missing 3'-Terminus column should have index -1");
     }
+
+    [Test]
+    public static void OSM_ParsesTerminusCorrectly_NotInOsmFile_FullTranscript()
+    {
+        var osmLines = File.ReadAllLines(OsmFilePath);
+        var header = osmLines[0];
+        var parsedHeader = SpectrumMatchTsvReader.ParseHeader(header);
+        var firstDataLine = osmLines[1];
+        var spl = firstDataLine.Split('\t').Select(p => p.Trim('\"')).ToArray();
+
+        // Ensure prev and next residues match a full transcript
+        spl[parsedHeader[SpectrumMatchFromTsvHeader.PreviousResidue]] = "-";
+        spl[parsedHeader[SpectrumMatchFromTsvHeader.NextResidue]] = "-";
+        firstDataLine = string.Join("\t", spl);
+
+        var osm = new OsmFromTsv(firstDataLine, ['\t'], parsedHeader);
+        Assert.That(osm.ThreePrimeTerminus, Is.EqualTo(NucleicAcid.DefaultThreePrimeTerminus), 
+            "Full transcript should have NucleicAcid.DefaultThreePrimeTerminus");
+        Assert.That(osm.FivePrimeTerminus, Is.EqualTo(NucleicAcid.DefaultFivePrimeTerminus),
+            "Full transcript should have NucleicAcid.DefaultFivePrimeTerminus");
+    }
+
+    [Test]
+    public static void OSM_ParsesTerminusCorrectly_NotInOsmFile_TerminalOligo()
+    {
+        var osmLines = File.ReadAllLines(OsmFilePath);
+        var header = osmLines[0];
+        var parsedHeader = SpectrumMatchTsvReader.ParseHeader(header);
+        var firstDataLine = osmLines[1];
+        var spl = firstDataLine.Split('\t').Select(p => p.Trim('\"')).ToArray();
+
+        // Ensure prev and next residues match a 5'-terminal oligo
+        spl[parsedHeader[SpectrumMatchFromTsvHeader.PreviousResidue]] = "-";
+        spl[parsedHeader[SpectrumMatchFromTsvHeader.NextResidue]] = "A";
+        firstDataLine = string.Join("\t", spl);
+
+        var osm = new OsmFromTsv(firstDataLine, ['\t'], parsedHeader);
+        Assert.That(osm.FivePrimeTerminus, Is.EqualTo(NucleicAcid.DefaultFivePrimeTerminus),
+            "5'-terminal oligo should have NucleicAcid.DefaultFivePrimeTerminus");
+        Assert.That(osm.ThreePrimeTerminus, Is.EqualTo(Rnase.DefaultThreePrimeTerminus),
+            "5'-terminal oligo should have Rnase.DefaultThreePrimeTerminus");
+
+        // ensure prev and next residues match a 3'-terminal oligo
+        spl[parsedHeader[SpectrumMatchFromTsvHeader.PreviousResidue]] = "U";
+        spl[parsedHeader[SpectrumMatchFromTsvHeader.NextResidue]] = "-";
+        firstDataLine = string.Join("\t", spl);
+
+        osm = new OsmFromTsv(firstDataLine, ['\t'], parsedHeader);
+        Assert.That(osm.FivePrimeTerminus, Is.EqualTo(Rnase.DefaultFivePrimeTerminus),
+            "5'-terminal oligo should have Rnase.DefaultFivePrimeTerminus");
+        Assert.That(osm.ThreePrimeTerminus, Is.EqualTo(NucleicAcid.DefaultThreePrimeTerminus),
+            "3'-terminal oligo should have NucleicAcid.DefaultThreePrimeTerminus");
+    }
+
+    [Test]
+    public static void OSM_ParsesTerminusCorrectly_NotInOsmFile_InternalOligo()
+    {
+        var osmLines = File.ReadAllLines(OsmFilePath);
+        var header = osmLines[0];
+        var parsedHeader = SpectrumMatchTsvReader.ParseHeader(header);
+        var firstDataLine = osmLines[1];
+        var spl = firstDataLine.Split('\t').Select(p => p.Trim('\"')).ToArray();
+
+        // Ensure prev and next residues match a internal oligo
+        spl[parsedHeader[SpectrumMatchFromTsvHeader.PreviousResidue]] = "U";
+        spl[parsedHeader[SpectrumMatchFromTsvHeader.NextResidue]] = "A";
+        firstDataLine = string.Join("\t", spl);
+
+        var osm = new OsmFromTsv(firstDataLine, ['\t'], parsedHeader);
+        Assert.That(osm.ThreePrimeTerminus, Is.EqualTo(Rnase.DefaultThreePrimeTerminus),
+            "Internal oligo should have Rnase.DefaultThreePrimeTerminus");
+        Assert.That(osm.FivePrimeTerminus, Is.EqualTo(Rnase.DefaultFivePrimeTerminus),
+            "Internal oligo should have Rnase.DefaultFivePrimeTerminus");
+    }
+
+    [Test]
+    public static void OSM_ParsesTerminusCorrectly_InOsmFile_CustomFormulas()
+    {
+        var osmLines = File.ReadAllLines(OsmFilePath);
+        var header = osmLines[0] + "\t5'-Terminus\t3'-Terminus";
+        var parsedHeader = SpectrumMatchTsvReader.ParseHeader(header);
+
+        Assert.That(parsedHeader.ContainsKey(SpectrumMatchFromTsvHeader.FivePrimeTerminus), Is.True,
+            "ParseHeader should recognize 5'-Terminus column");
+        Assert.That(parsedHeader.ContainsKey(SpectrumMatchFromTsvHeader.ThreePrimeTerminus), Is.True,
+            "ParseHeader should recognize 3'-Terminus column");
+
+        var dummyFivePrime = ChemicalFormula.ParseFormula("Cr2N7O2");
+        var dummyThreePrime = ChemicalFormula.ParseFormula("Y3Ir2Dy6");
+
+        var firstDataLine = osmLines[1] + $"\t\"{dummyFivePrime.Formula}\"\t\"{dummyThreePrime.Formula}\"";
+
+        var osm = new OsmFromTsv(firstDataLine, ['\t'], parsedHeader);
+        Assert.That(osm.FivePrimeTerminus.ThisChemicalFormula.Formula, Is.EqualTo(dummyFivePrime.Formula),
+            "Custom 5'-Terminus formula not parsed correctly.");
+        Assert.That(osm.ThreePrimeTerminus.ThisChemicalFormula.Formula, Is.EqualTo(dummyThreePrime.Formula),
+            "Custom 3'-Terminus formula not parsed correctly.");
+    }
 }

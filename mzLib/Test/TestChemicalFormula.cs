@@ -423,7 +423,7 @@ namespace Test
         {
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
             IHasChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2H3NO");
-            Assert.AreEqual(formulaA, formulaB);
+            Assert.IsTrue(formulaA.Equals(formulaB));
         }
 
         [Test]
@@ -431,7 +431,7 @@ namespace Test
         {
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
             IHasChemicalFormula formulaB = ChemicalFormula.ParseFormula("H3NOC2");
-            Assert.AreEqual(formulaA, formulaB);
+            Assert.IsTrue(formulaA.Equals(formulaB));
         }
 
         [Test]
@@ -439,7 +439,7 @@ namespace Test
         {
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
             IHasChemicalFormula formulaB = ChemicalFormula.ParseFormula("C{12}2H3NO");
-            Assert.AreNotEqual(formulaA, formulaB);
+            Assert.IsFalse(formulaA.Equals(formulaB));
         }
 
         [Test]

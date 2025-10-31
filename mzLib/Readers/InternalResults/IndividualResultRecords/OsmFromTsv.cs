@@ -7,8 +7,8 @@ namespace Readers
 {
     public class OsmFromTsv : SpectrumMatchFromTsv
     {
-        public IHasChemicalFormula? FivePrimeTerminus { get; set; }
-        public IHasChemicalFormula? ThreePrimeTerminus { get; set; }
+        public IHasChemicalFormula FivePrimeTerminus { get; set; }
+        public IHasChemicalFormula ThreePrimeTerminus { get; set; }
 
         public OsmFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader)
             : base(line, split, parsedHeader)
