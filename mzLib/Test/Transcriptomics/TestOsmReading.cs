@@ -220,6 +220,26 @@ public class TestOsmReading
     }
 
     [Test]
+    public static void TerminalCapFormulasAreConsistent()
+    {
+        string expectedNucleicAcidFivePrime = "O-3P-1";
+        Assert.That(NucleicAcid.DefaultFivePrimeTerminus.Formula, Is.EqualTo(expectedNucleicAcidFivePrime),
+            "NucleicAcid.DefaultFivePrimeTerminus formula has changed unexpectedly.");
+
+        string expectedNucleicAcidThreePrime = "HO";
+        Assert.That(NucleicAcid.DefaultThreePrimeTerminus.Formula, Is.EqualTo(expectedNucleicAcidThreePrime),
+            "NucleicAcid.DefaultThreePrimeTerminus formula has changed unexpectedly.");
+
+        string expectedRnaseFivePrime = "O-3P-1";
+        Assert.That(Rnase.DefaultFivePrimeTerminus.ThisChemicalFormula.Formula, Is.EqualTo(expectedRnaseFivePrime),
+            "Rnase.DefaultFivePrimeTerminus formula has changed unexpectedly.");
+
+        string expectedRnaseThreePrime = "H2O4P";
+        Assert.That(Rnase.DefaultThreePrimeTerminus.ThisChemicalFormula.Formula, Is.EqualTo(expectedRnaseThreePrime),
+            "Rnase.DefaultThreePrimeTerminus formula has changed unexpectedly.");
+    }
+
+    [Test]
     public static void TerminusProperties_MatchExpectedFormulas()
     {
         // Verify the specific chemical formulas match expected values
@@ -227,35 +247,35 @@ public class TestOsmReading
         var results = SpectrumMatchTsvReader.ReadOsmTsv(OsmFilePath, out errors);
 
         // Expected formulas from the static properties
-        string expectedNucleicAcidFivePrime = "O-3P-1";  // NucleicAcid.DefaultFivePrimeTerminus
-        string expectedNucleicAcidThreePrime = "OH";      // NucleicAcid.DefaultThreePrimeTerminus
-        string expectedRnaseFivePrime = "O-3P-1";         // Rnase.DefaultFivePrimeTerminus
-        string expectedRnaseThreePrime = "H2O4P";         // Rnase.DefaultThreePrimeTerminus
+        IHasChemicalFormula expectedNucleicAcidFivePrime = NucleicAcid.DefaultFivePrimeTerminus;
+        IHasChemicalFormula expectedNucleicAcidThreePrime = NucleicAcid.DefaultThreePrimeTerminus;
+        IHasChemicalFormula expectedRnaseFivePrime = Rnase.DefaultFivePrimeTerminus;
+        IHasChemicalFormula expectedRnaseThreePrime = Rnase.DefaultThreePrimeTerminus;
 
         foreach (var result in results)
         {
             if (result.PreviousResidue == "-")
             {
-                Assert.That(result.FivePrimeTerminus.ThisChemicalFormula.Formula, 
+                Assert.That(result.FivePrimeTerminus.ThisChemicalFormula, 
                     Is.EqualTo(expectedNucleicAcidFivePrime),
                     $"Terminal oligo (PreviousResidue='-') should have NucleicAcid.DefaultFivePrimeTerminus for scan {result.Ms2ScanNumber}");
             }
             else
             {
-                Assert.That(result.FivePrimeTerminus.ThisChemicalFormula.Formula, 
+                Assert.That(result.FivePrimeTerminus.ThisChemicalFormula, 
                     Is.EqualTo(expectedRnaseFivePrime),
                     $"Internal oligo (PreviousResidue!='-') should have Rnase.DefaultFivePrimeTerminus for scan {result.Ms2ScanNumber}");
             }
 
             if (result.NextResidue == "-")
             {
-                Assert.That(result.ThreePrimeTerminus.ThisChemicalFormula.Formula, 
+                Assert.That(result.ThreePrimeTerminus.ThisChemicalFormula, 
                     Is.EqualTo(expectedNucleicAcidThreePrime),
                     $"Terminal oligo (NextResidue='-') should have NucleicAcid.DefaultThreePrimeTerminus for scan {result.Ms2ScanNumber}");
             }
             else
             {
-                Assert.That(result.ThreePrimeTerminus.ThisChemicalFormula.Formula, 
+                Assert.That(result.ThreePrimeTerminus.ThisChemicalFormula, 
                     Is.EqualTo(expectedRnaseThreePrime),
                     $"Internal oligo (NextResidue!='-') should have Rnase.DefaultThreePrimeTerminus for scan {result.Ms2ScanNumber}");
             }
