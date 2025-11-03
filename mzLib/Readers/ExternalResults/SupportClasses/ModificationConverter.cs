@@ -101,7 +101,11 @@ public static class ModificationConverter
                     {
                         try
                         {
-                            char modifiedResidue = baseSequence[currentModificationLocation - 2];
+                            char modifiedResidue;
+                            if (currentModificationLocation - 2 < 0) // N-Terminal
+                                modifiedResidue = 'X';
+                            else
+                                modifiedResidue = baseSequence[currentModificationLocation - 2];
                             mod = GetClosestMod(modString, modifiedResidue);
                         }
                         catch (Exception e)
