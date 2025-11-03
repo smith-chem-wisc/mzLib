@@ -164,7 +164,6 @@ namespace Test.Transcriptomics
             var rna = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifedFastaPath, true, DecoyType.None, false, out var errors)
                 .Cast<IBioPolymer>().ToList();
             Assert.That(errors.Count, Is.EqualTo(0));
-
             var modString = "ID   Methylation\r\nMT   Biological\r\nPP   Anywhere.\r\nTG   G\r\nCF   C1H2\r\n" + @"//";
             var methylG = PtmListLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).First();
 
@@ -332,5 +331,70 @@ namespace Test.Transcriptomics
             Assert.That(first.AdditionalDatabaseFields!["Chromosome"], Is.EqualTo("1"));
         }
 
+        [Test]
+        public static void DecoyWritingLoading_Fasta()
+        {
+            var oligos = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifedFastaPath, true, DecoyType.Reverse, true, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            int targetCount = oligos.Count(p => !p.IsDecoy);
+            int decoyCount = oligos.Count(p => p.IsDecoy);
+            Assert.That(targetCount, Is.EqualTo(5));
+            Assert.That(decoyCount, Is.EqualTo(5));
+
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"Transcriptomics/TestData/ModomicsUnmodifiedTrimmed_decoy.fasta");
+            
+            ProteinDbWriter.WriteFastaDatabase(oligos, fastapath);
+            var readIn = RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.None, false, out var errors2);
+            Assert.That(errors2.Count, Is.EqualTo(0));
+
+            int readInTargetCount = readIn.Count(p => !p.IsDecoy);
+            int readInDecoyCount = readIn.Count(p => p.IsDecoy);
+            Assert.That(readInTargetCount, Is.EqualTo(5));
+            Assert.That(readInDecoyCount, Is.EqualTo(5));
+
+
+            var readInWithDecoyGeneration = RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.Reverse, false, out var errors3);
+            Assert.That(errors3.Count, Is.EqualTo(0));
+            readInTargetCount = readInWithDecoyGeneration.Count(p => !p.IsDecoy);
+            readInDecoyCount = readInWithDecoyGeneration.Count(p => p.IsDecoy);
+            Assert.That(readInTargetCount, Is.EqualTo(5));
+            Assert.That(readInDecoyCount, Is.EqualTo(5));
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void DecoyWritingLoading_Xml()
+        {
+            var oligos = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifedFastaPath, true, DecoyType.Reverse, true, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            int targetCount = oligos.Count(p => !p.IsDecoy);
+            int decoyCount = oligos.Count(p => p.IsDecoy);
+            Assert.That(targetCount, Is.EqualTo(5));
+            Assert.That(decoyCount, Is.EqualTo(5));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"Transcriptomics/TestData/ModomicsUnmodifiedTrimmed_decoy.xml");
+
+            ProteinDbWriter.WriteXmlDatabase([], oligos, xmlPath);
+            var readIn = RnaDbLoader.LoadRnaXML(xmlPath, true, DecoyType.None, false, new List<Modification>(), new List<string>(), out var errors2);
+            Assert.That(errors2.Count, Is.EqualTo(0));
+
+            int readInTargetCount = readIn.Count(p => !p.IsDecoy);
+            int readInDecoyCount = readIn.Count(p => p.IsDecoy);
+            Assert.That(readInTargetCount, Is.EqualTo(5));
+            Assert.That(readInDecoyCount, Is.EqualTo(5));
+
+
+            var readInWithDecoyGeneration = RnaDbLoader.LoadRnaXML(xmlPath, true, DecoyType.Reverse, false, new List<Modification>(), new List<string>(), out var errors3);
+            Assert.That(errors3.Count, Is.EqualTo(0));
+            readInTargetCount = readInWithDecoyGeneration.Count(p => !p.IsDecoy);
+            readInDecoyCount = readInWithDecoyGeneration.Count(p => p.IsDecoy);
+            Assert.That(readInTargetCount, Is.EqualTo(5));
+            Assert.That(readInDecoyCount, Is.EqualTo(5));
+
+            File.Delete(xmlPath);
+        }
     }
 }

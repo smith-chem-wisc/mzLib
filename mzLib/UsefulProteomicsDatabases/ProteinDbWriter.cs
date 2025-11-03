@@ -16,7 +16,7 @@ namespace UsefulProteomicsDatabases
 {
 
     /// <summary>
-    /// Provides methods for writing protein and nucleic acid databases to XML and FASTA formats.
+    /// Provides methods for writing rna and nucleic acid databases to XML and FASTA formats.
     /// Did not rename to DbWriter to ensure compatibility with the original UsefulProteomicsDatabases namespace.
     /// </summary>
     public class ProteinDbWriter
@@ -50,7 +50,7 @@ namespace UsefulProteomicsDatabases
         {
             additionalModsToAddToNucleicAcids = additionalModsToAddToNucleicAcids ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
-            // write nonvariant rna (for cases where variants aren't applied, this just gets the protein itself)
+            // write nonvariant rna (for cases where variants aren't applied, this just gets the rna itself)
             var nonVariantRna = nucleicAcidList.Select(p => p.ConsensusVariant).Distinct().ToList();
 
             var xmlWriterSettings = new XmlWriterSettings
@@ -175,7 +175,7 @@ namespace UsefulProteomicsDatabases
                         writer.WriteStartElement("begin");
 
                         //TODO: handle proteolysis products with null begin position
-                        //see protein writer for example. 
+                        //see rna writer for example. 
 
                         writer.WriteAttributeString("position", proteolysisProduct.OneBasedBeginPosition.ToString());
                         writer.WriteEndElement();
@@ -287,7 +287,7 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// Writes a protein database in mzLibProteinDb format, with additional modifications from the AdditionalModsToAddToProteins list.
+        /// Writes a rna database in mzLibProteinDb format, with additional modifications from the AdditionalModsToAddToProteins list.
         /// </summary>
         /// <param name="additionalModsToAddToProteins"></param>
         /// <param name="proteinList"></param>
@@ -297,7 +297,7 @@ namespace UsefulProteomicsDatabases
         {
             additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
-            // write nonvariant proteins (for cases where variants aren't applied, this just gets the protein itself)
+            // write nonvariant proteins (for cases where variants aren't applied, this just gets the rna itself)
             var nonVariantProteins = proteinList.Select(p => p.ConsensusVariant).Distinct().ToList();
 
             var xmlWriterSettings = new XmlWriterSettings
@@ -593,6 +593,22 @@ namespace UsefulProteomicsDatabases
                     string header = delimeter == " " ? protein.GetEnsemblFastaHeader() : protein.GetUniProtFastaHeader();
                     writer.WriteLine(">" + header);
                     writer.WriteLine(protein.BaseSequence);
+                }
+            }
+        }
+
+        public static void WriteFastaDatabase(List<RNA> rnaList, string outputFileName)
+        {
+            using (StreamWriter writer = new StreamWriter(outputFileName))
+            {
+                foreach (RNA rna in rnaList)
+                {
+                    var n = rna.GeneNames.FirstOrDefault();
+                    string geneName = n == null ? "" : n.Item2;
+
+
+                    writer.WriteLine(">mz|{0}|{1} {2} OS={3} GN={4}", rna.Accession, rna.Name, rna.FullName, rna.Organism, geneName);
+                    writer.WriteLine(rna.BaseSequence);
                 }
             }
         }
