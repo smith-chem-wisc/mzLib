@@ -106,11 +106,11 @@ namespace MzLibUtil.PositionFrequencyAnalysis
                         {
                             mod.ProteinPositionZeroIsNTerminus = modPositionInProtein;
 
-                            if (!ModifiedAminoAcidPositionsInProtein[modPositionInProtein].ContainsKey(mod.IdWithMotif))
+                            if (!ModifiedAminoAcidPositionsInProtein[modPositionInProtein].ContainsKey(mod.Name))
                             {
-                                ModifiedAminoAcidPositionsInProtein[modPositionInProtein][mod.IdWithMotif] = new QuantifiedModification(mod.IdWithMotif, mod.PeptidePositionZeroIsNTerminus, modPositionInProtein, null, 0);
+                                ModifiedAminoAcidPositionsInProtein[modPositionInProtein][mod.Name] = new QuantifiedModification(mod.Name, mod.PeptidePositionZeroIsNTerminus, modPositionInProtein, 0);
                             }
-                            ModifiedAminoAcidPositionsInProtein[modPositionInProtein][mod.IdWithMotif].Intensity += mod.Intensity;
+                            ModifiedAminoAcidPositionsInProtein[modPositionInProtein][mod.Name].Intensity += mod.Intensity;
                         }
                     }
                 }
@@ -144,7 +144,7 @@ namespace MzLibUtil.PositionFrequencyAnalysis
                 foreach (var mod in ModifiedAminoAcidPositionsInProtein[modpos].Values)
                 {
                     double modFraction = mod.Intensity / totalPositionIntensity;
-                    aaModsStoichiometry[modpos].Add(mod.IdWithMotif, modFraction);
+                    aaModsStoichiometry[modpos].Add(mod.Name, modFraction);
                 }
             }
             return aaModsStoichiometry;

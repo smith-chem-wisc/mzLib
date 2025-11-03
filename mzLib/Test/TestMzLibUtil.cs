@@ -174,12 +174,11 @@ namespace Test
         [Test]
         public void TestQuantifiedModification()
         {
-            var quantmod = new QuantifiedModification(idWithMotif: "TestMod: ModX on AAY", positionInPeptide: 1, positionInProtein: 2, intensity: 10);
-            Assert.AreEqual(quantmod.IdWithMotif, "TestMod: ModX on AAY");
+            var quantmod = new QuantifiedModification(name: "TestMod: ModX on AAY", positionInPeptide: 1, positionInProtein: 2, intensity: 10);
+            Assert.AreEqual(quantmod.Name, "TestMod: ModX on AAY");
             Assert.AreEqual(quantmod.PeptidePositionZeroIsNTerminus, 1);
             Assert.AreEqual(quantmod.ProteinPositionZeroIsNTerminus, 2);
             Assert.AreEqual(quantmod.Intensity, 10);
-            Assert.AreEqual(quantmod.ModificationLocalization, "Unknown");
         }
 
         [Test]
@@ -194,9 +193,9 @@ namespace Test
             Assert.That(peptide1.ModifiedAminoAcidPositions.ContainsKey(0));
             Assert.That(peptide1.ModifiedAminoAcidPositions.ContainsKey(1));
             Assert.That(peptide1.ModifiedAminoAcidPositions.ContainsKey(2));
-            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[0].First().Value.IdWithMotif, "UniProt: N - palmitoyl glycine on G");
-            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[1].First().Value.IdWithMotif, "UniProt: N - methylglycine on G");
-            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[2].First().Value.IdWithMotif, "UniProt: O - linked(Hex) hydroxylysine on K");
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[0].First().Value.Name, "UniProt: N - palmitoyl glycine on G");
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[1].First().Value.Name, "UniProt: N - methylglycine on G");
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[2].First().Value.Name, "UniProt: O - linked(Hex) hydroxylysine on K");
             Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[0].First().Value.Intensity, 1);
             Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[1].First().Value.Intensity, 1);
             Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[2].First().Value.Intensity, 1);
@@ -328,15 +327,16 @@ namespace Test
                                                                     { "TESTPROT2", "AKAAAAAGK" },
                                                                     { "TESTPROT3", "AKGK"} };
             var intensities = new List<double> { 1, 5 };
-            var sequenceInputs = new List<(string, List<string>, double)> { };
+            var sequenceInputs = new List<QuantifiedPeptideRecord> { };
             for (int i = 0; i < 2; i++)
             {
-                sequenceInputs.Add((fullSequences[i], proteinGroups, intensities[i]));
+                QuantifiedPeptideRecord record = new QuantifiedPeptideRecord(fullSequences[i], proteinGroups.ToHashSet(), intensities[i]);
+                sequenceInputs.Add(record);
             }
-            sequenceInputs.Add(("AAAA", new List<string> { "TESTPROT1|TESTPROT2" }, 10));
+            sequenceInputs.Add(new QuantifiedPeptideRecord("AAAA", new HashSet<string> { "TESTPROT1|TESTPROT2" }, 10));
 
             var quant = new PositionFrequencyAnalysis();
-            quant.SetUpQuantificationObjectsFromFullSequences(sequenceInputs, proteinSequences);
+            quant.SetUpQuantificationFromQuantifiedPeptideRecords(sequenceInputs, proteinSequences);
             Assert.AreEqual(quant.ProteinGroups.Count, 2);
             Assert.That(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins.Keys.Contains("TESTPROT1"));
             Assert.That(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins.Keys.Contains("TESTPROT2"));
