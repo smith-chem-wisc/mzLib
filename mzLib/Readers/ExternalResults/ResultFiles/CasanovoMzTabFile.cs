@@ -62,15 +62,17 @@ public class CasanovoMzTabFile : ResultFile<CasanovoMzTabRecord>, IResultFile
         LoadModificationInformation = loadModInformation;
     }
 
+    public CasanovoMzTabFile() : this(true) { }
+
     /// <summary>
     /// Stores all header lines (MTD) as read from the file.
     /// </summary>
-    public List<string> HeaderLines { get; private set; } = new();
+    public List<string> HeaderLines { get; } = new();
 
     /// <summary>
     /// Maps ms_run indices (e.g., ms_run[1]) to file paths.
     /// </summary>
-    public Dictionary<string, string> MsRunDictionary { get; private set; } = new();
+    public Dictionary<string, string> MsRunDictionary { get; } = new();
 
     public override void LoadResults()
     {
