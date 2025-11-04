@@ -28,14 +28,13 @@ namespace MzLibUtil.PositionFrequencyAnalysis
         /// <param name="fullSequence"></param>
         /// <param name="zeroBasedStartIndexInProtein"></param>
         /// <param name="intensity"></param>
-        /// <param name="modPattern"></param>
-        public QuantifiedPeptide(string fullSequence, int zeroBasedStartIndexInProtein = -1, double intensity = 0, string modPattern = null)
+        public QuantifiedPeptide(string fullSequence, int zeroBasedStartIndexInProtein = -1, double intensity = 0)
         {
             ModifiedAminoAcidPositions = new Dictionary<int, Dictionary<string, QuantifiedModification>>();
             ZeroBasedStartIndexInProtein = zeroBasedStartIndexInProtein; // -1 means that the position in the protein is unknown
             Intensity = intensity;
             FullSequences = new HashSet<string> { fullSequence };
-            _SetBaseSequence(fullSequence, modPattern);
+            _SetBaseSequence(fullSequence);
             _SetModifications(fullSequence, intensity);
         }
 
@@ -46,13 +45,13 @@ namespace MzLibUtil.PositionFrequencyAnalysis
         /// <param name="intensity"></param>
         /// <param name="modPattern"></param>
         /// <exception cref="Exception"></exception>
-        public void AddFullSequence(string fullSeq, double intensity = 0, string modPattern = null)
+        public void AddFullSequence(string fullSeq, double intensity = 0)
         {
             if (BaseSequence.Equals(fullSeq.GetBaseSequenceFromFullSequence()))
             {
                 FullSequences.Add(fullSeq);
                 Intensity += intensity;
-                _SetModifications(fullSeq, intensity); // updating the intensity is done here
+                _SetModifications(fullSeq, intensity);
             }
             else
             {
@@ -71,12 +70,28 @@ namespace MzLibUtil.PositionFrequencyAnalysis
             {
                 throw new Exception("The base sequence of the peptide being added does not match the base sequence of this peptide.");
             }
-            foreach (var fullSeq in peptideToMerge.FullSequences)
-            {
-                FullSequences.Add(fullSeq);
-                _SetModifications(fullSeq, peptideToMerge.Intensity); // updating the intensity is done here
-            }
+
             Intensity += peptideToMerge.Intensity;
+            FullSequences.UnionWith(peptideToMerge.FullSequences);
+
+            foreach (var modposToMerge in peptideToMerge.ModifiedAminoAcidPositions.Keys)
+            {
+                if (!ModifiedAminoAcidPositions.ContainsKey(modposToMerge))
+                {
+                    ModifiedAminoAcidPositions[modposToMerge] = new Dictionary<string, QuantifiedModification>();
+                }
+
+                foreach (var mod in peptideToMerge.ModifiedAminoAcidPositions[modposToMerge].Keys)
+                {
+                    var modToMerge = peptideToMerge.ModifiedAminoAcidPositions[modposToMerge][mod];
+                    if (!ModifiedAminoAcidPositions[modposToMerge].ContainsKey(mod))
+                    {
+                        ModifiedAminoAcidPositions[modposToMerge][mod] = new QuantifiedModification(modToMerge.Name, modToMerge.PeptidePositionZeroIsNTerminus, ZeroBasedStartIndexInProtein, 0);
+                    }
+
+                    ModifiedAminoAcidPositions[modposToMerge][mod].Intensity += modToMerge.Intensity;
+                }
+            }
         }
 
         private void _SetModifications(string fullSeq, double intensity = 0)
@@ -95,18 +110,17 @@ namespace MzLibUtil.PositionFrequencyAnalysis
 
                     if (!ModifiedAminoAcidPositions[modpos].ContainsKey(mod))
                     {
-                        ModifiedAminoAcidPositions[modpos][mod] = new QuantifiedModification(mod, modpos, intensity: 0);
+                        ModifiedAminoAcidPositions[modpos][mod] = new QuantifiedModification(mod, modpos, ZeroBasedStartIndexInProtein, 0);
                     }
-                    ModifiedAminoAcidPositions[modpos][mod].Intensity += intensity;
 
-                    // Maybe should update/pass position in protein from here, too.
+                    ModifiedAminoAcidPositions[modpos][mod].Intensity += intensity;
                 }
             }
         }
 
-        private void _SetBaseSequence(string fullSeq, string modPattern)
+        private void _SetBaseSequence(string fullSeq)
         {
-            BaseSequence = fullSeq.GetBaseSequenceFromFullSequence(modPattern: modPattern);
+            BaseSequence = fullSeq.GetBaseSequenceFromFullSequence();
         }
 
         /// <summary>

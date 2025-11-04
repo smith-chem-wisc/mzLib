@@ -15,9 +15,14 @@ namespace MzLibUtil.PositionFrequencyAnalysis
         /// format "ProteinA;ProteinB", "ProteinA|ProteinB", or "ProteinA;ProteinB|ProteinC".
         /// </summary>
         public string Name { get; set; }
+
+        public string GeneName { get; set; }
+        public string Organism { get; set; }
+
         /// <summary>
         /// Dictionary mapping protein accessions to their corresponding QuantifiedProtein objects.
         /// </summary>
+
         public Dictionary<string, QuantifiedProtein> Proteins { get; set; }
 
         /// <summary>
