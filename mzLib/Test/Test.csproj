@@ -274,6 +274,9 @@
     <None Update="DatabaseTests\VariantModsGPTMD.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DatabaseTests\vcf_comprehensive_examples.vcf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\Working_86.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
