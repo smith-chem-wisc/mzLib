@@ -749,7 +749,7 @@ namespace Test.DatabaseTests
 
 
             // Act
-            var svd = new SequenceVariantDescription(description);
+            var svd = new VariantCallFormat(description);
 
             // Assert
             Assert.AreEqual(description, svd.Description);
