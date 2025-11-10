@@ -116,5 +116,9 @@
         public const string AllPotentialGlycanLocalization = "All Potential Glycan Localizations";
         public const string AllSiteSpecificLocalizationProbability = "All SiteSpecific Localization Probability";
         public const string LocalizationScore = "Localization Score";
+
+        // Oligo
+        public const string FivePrimeTerminus = "5'-Terminus";
+        public const string ThreePrimeTerminus = "3'-Terminus";
     }
 }
