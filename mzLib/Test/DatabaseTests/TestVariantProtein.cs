@@ -486,7 +486,7 @@ namespace Test.DatabaseTests
             var p0 = proteins.Where(a=>a.Accession == "ENST00000383750").First();
             var p1 = proteins.Where(a=>a.Accession == "ENST00000383750_K63R").First();
 
-            Assert.AreEqual(2, p0.SequenceVariations.Count()); // some redundant
+            Assert.AreEqual(2, p0.SequenceVariations.Count()); // consensus protein has two sequence variants but only 1 is in the genotype so that is the only one that will be applied
             Assert.AreEqual(2, p0.SequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
 
             Assert.IsTrue(p0.SequenceVariations.All(v => v.OneBasedBeginPosition == 63)); // there are two alternate alleles (1 and 2), but only 2 is in the genotype, so only that's applied
@@ -1367,6 +1367,5 @@ namespace Test.DatabaseTests
             }
 
         }
-        
     }
 }

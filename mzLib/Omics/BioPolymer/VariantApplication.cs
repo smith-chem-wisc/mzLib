@@ -198,7 +198,28 @@ namespace Omics.BioPolymer
                                 // keep reference allele
                                 if (variant.Description.Genotypes[individual].Contains("0"))
                                 {
-                                    combinitoricProteins.Add(ppp);
+                                    
+                                    
+                                    
+                                    
+                                    
+                                    
+                                    
+                                    
+                                    
+                                    
+                                    //changed from ppp to protein to keep sequence variants....
+                                    combinitoricProteins.Add(protein);
+
+
+
+
+
+
+
+
+
+
                                 }
 
                                 // alternate allele (replace all, since in heterozygous with two alternates, both alternates are included)
