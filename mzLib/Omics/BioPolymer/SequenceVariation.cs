@@ -62,10 +62,6 @@ namespace Omics.BioPolymer
         /// </summary>
         public VariantCallFormat Description { get; }
 
-        /// <summary>Optional multi-sample VCF record describing the variant (can be null or collapsed).</summary>
-        public VariantCallFormat? VariantCallFormatData { get; }
-        [Obsolete("Use VariantCallFormatData for structured data or Description/SearchableAnnotation for text.")]
-        public VariantCallFormat? LegacyVariantDescription => VariantCallFormatData;
         /// <summary>
         /// Modifications specifically for this variant
         /// </summary>
