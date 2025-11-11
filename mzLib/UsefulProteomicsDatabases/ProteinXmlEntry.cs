@@ -597,10 +597,9 @@ namespace UsefulProteomicsDatabases
                                 FeatureDescription,
                                 oneBasedModifications: OneBasedVariantModifications));
                     }
-
-                    AnnotatedVariantMods = new List<(int, string)>();
-                    OneBasedVariantModifications = new Dictionary<int, List<Modification>>();
                 }
+                AnnotatedVariantMods = new List<(int, string)>();
+                OneBasedVariantModifications = new Dictionary<int, List<Modification>>();
             }
             else if (FeatureType == "disulfide bond")
             {
