@@ -727,19 +727,16 @@ namespace UsefulProteomicsDatabases
                 else if (ProteinDbLoader.IdToPossibleMods.TryGetValue(annotatedId, out IList<Modification> mods)
                          || RnaDbLoader.IdToPossibleMods.TryGetValue(annotatedId, out mods))
                 {
-                    foreach (Modification mod in mods)
+                    var mod = mods.FirstOrDefault(m => !modTypesToExclude.Contains(m.ModificationType));
+                    if (mod != null)
                     {
-                        if (!modTypesToExclude.Contains(mod.ModificationType))
+                        if (destination.TryGetValue(annotatedModLocation, out var listOfModsAtThisLocation))
                         {
-                            if (destination.TryGetValue(annotatedModLocation, out var listOfModsAtThisLocation))
-                            {
-                                listOfModsAtThisLocation.Add(mod);
-                            }
-                            else
-                            {
-                                destination.Add(annotatedModLocation, new List<Modification> { mod });
-                            }
-                            break;
+                            listOfModsAtThisLocation.Add(mod);
+                        }
+                        else
+                        {
+                            destination.Add(annotatedModLocation, new List<Modification> { mod });
                         }
                     }
                 }
