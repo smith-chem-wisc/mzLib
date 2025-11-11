@@ -318,5 +318,24 @@ namespace Test.FileReadingTests
             var ethcdScan = spectra.GetOneBasedScan(6);
             Assert.That(ethcdScan.DissociationType == DissociationType.EThcD);
         }
+
+        [Test]
+        public static void TestCompensationVoltageReading()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
+                "TestCompensationVoltageReading.raw");
+            var spectra = MsDataFileReader.GetDataFile(filePath);
+            spectra.LoadAllStaticData();
+            var availableCvValues = spectra
+                .GetAllScansList()
+                .Select(i => i.CompensationVoltage)
+                .Distinct()
+                .OrderByDescending(i => i)
+                .ToArray();
+            double?[] expected =  new double?[] {-45d, -60d}; 
+
+        Assert.AreEqual(expected, availableCvValues); 
+
+        }
     }
 }
