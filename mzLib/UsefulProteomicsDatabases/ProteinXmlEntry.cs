@@ -773,10 +773,6 @@ namespace UsefulProteomicsDatabases
             int removed = SequenceVariations.RemoveAll(v =>
                 v.OneBasedBeginPosition > len || v.OneBasedEndPosition > len);
 
-            if (removed > 0)
-            {
-                Trace.TraceWarning($"Pruned {removed} out-of-range sequence variant(s) for accession {Accession} (protein length {len}).");
-            }
         }
     }
 }
