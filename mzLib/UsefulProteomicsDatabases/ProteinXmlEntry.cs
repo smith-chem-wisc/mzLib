@@ -75,7 +75,7 @@ namespace UsefulProteomicsDatabases
         /// or <c>null</c> if the entry is incomplete.
         /// </returns>
         public void ParseElement(string elementName, XmlReader xml)
-        {
+        { 
             int outValue;
             switch (elementName)
             {
