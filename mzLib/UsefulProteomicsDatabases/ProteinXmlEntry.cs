@@ -757,7 +757,7 @@ namespace UsefulProteomicsDatabases
                 return;
 
             int len = Sequence.Length;
-            int removed = SequenceVariations.RemoveAll(v =>
+            SequenceVariations.RemoveAll(v =>
                 v.OneBasedBeginPosition > len || v.OneBasedEndPosition > len);
 
         }
