@@ -135,7 +135,6 @@ namespace Test.DatabaseTests
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"outOfRangeVariant.xml"),
                 true, DecoyType.None, UniProtPtms, false, null, out var un, 1, 0);
 
-
             Assert.AreEqual("P04406", ok[0].Accession);
             Assert.AreEqual(1, ok[0].SequenceVariations.Count());
 
