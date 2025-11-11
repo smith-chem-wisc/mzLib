@@ -33,7 +33,7 @@ namespace Chemistry
     /// Formula can change!!! If isotopes or elements are changed.
     /// </summary>
     [Serializable]
-    public sealed class ChemicalFormula : IEquatable<ChemicalFormula>, IHasChemicalFormula
+    public sealed class ChemicalFormula : IEquatable<ChemicalFormula>, IEquatable<IHasChemicalFormula>, IHasChemicalFormula
     {
         // Main data stores, the isotopes and elements
 
@@ -486,6 +486,8 @@ namespace Chemistry
                 return false;
             return true;
         }
+
+        public bool Equals(IHasChemicalFormula other) => Equals(other?.ThisChemicalFormula);
 
         /// <summary>
         /// Produces the Hill Notation of the chemical formula

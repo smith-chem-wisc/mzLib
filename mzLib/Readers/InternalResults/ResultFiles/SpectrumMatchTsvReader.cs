@@ -215,7 +215,7 @@ namespace Readers
             parsedHeader.Add(SpectrumMatchFromTsvHeader.ParentIonsLabel, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.ParentIonsLabel));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime));
 
-
+            // Glyco
             parsedHeader.Add(SpectrumMatchFromTsvHeader.GlycanMass, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.GlycanMass));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.GlycanStructure, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.GlycanStructure));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.GlycanComposition, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.GlycanComposition));
@@ -247,6 +247,11 @@ namespace Readers
             {
                 parsedHeader[SpectrumMatchFromTsvHeader.AllSiteSpecificLocalizationProbability] = Array.IndexOf(spl, "AllSiteSpecificLocalizationProbability");
             }
+
+            // Oligo
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.FivePrimeTerminus, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.FivePrimeTerminus));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.ThreePrimeTerminus, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.ThreePrimeTerminus));
+
             return parsedHeader;
         }
     
