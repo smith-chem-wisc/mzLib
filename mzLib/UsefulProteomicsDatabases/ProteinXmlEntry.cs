@@ -748,6 +748,9 @@ namespace UsefulProteomicsDatabases
                 }
             }
         }
+        /// <summary>
+        /// Filters out sequence variants whose begin or end positions exceed the sequence length.
+        /// </summary>
         private void PruneOutOfRangeSequenceVariants()
         {
             if (string.IsNullOrEmpty(Sequence) || SequenceVariations.Count == 0)
