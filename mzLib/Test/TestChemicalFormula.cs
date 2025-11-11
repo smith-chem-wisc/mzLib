@@ -374,10 +374,40 @@ namespace Test
         }
 
         [Test]
-        public static void FormulaEquality()
+        public static void FormulaEquality_AreEqual_SameReference()
         {
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
             Assert.AreEqual(formulaA, formulaA);
+        }
+
+        [Test]
+        public static void FormulaEquality_AreEqual_DifferentReference()
+        {
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2H3NO");
+            Assert.AreEqual(formulaA, formulaB);
+        }
+
+        [Test]
+        public static void FormulaEquality_Rearranged()
+        {
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            ChemicalFormula formulaB = ChemicalFormula.ParseFormula("H3NOC2");
+            Assert.AreEqual(formulaA, formulaB);
+        }
+
+        [Test]
+        public static void FormulaEquality_null()
+        {
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            Assert.AreNotEqual(formulaA, null);
+        }
+
+        [Test]
+        public static void FormulaEquality_OtherType()
+        {
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            Assert.AreNotEqual(formulaA, "C2H3NO");
         }
 
         [Test]
@@ -386,6 +416,30 @@ namespace Test
             ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
             ChemicalFormula formulaB = ChemicalFormula.ParseFormula("C{12}2H3NO");
             Assert.AreNotEqual(formulaA, formulaB);
+        }
+
+        [Test]
+        public static void FormulaEquality_AreEqual_DifferentReference_Interface()
+        {
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            IHasChemicalFormula formulaB = ChemicalFormula.ParseFormula("C2H3NO");
+            Assert.IsTrue(formulaA.Equals(formulaB));
+        }
+
+        [Test]
+        public static void FormulaEquality_Rearranged_Interface()
+        {
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            IHasChemicalFormula formulaB = ChemicalFormula.ParseFormula("H3NOC2");
+            Assert.IsTrue(formulaA.Equals(formulaB));
+        }
+
+        [Test]
+        public static void FormulaAlmostEquality_Interface()
+        {
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C2H3NO");
+            IHasChemicalFormula formulaB = ChemicalFormula.ParseFormula("C{12}2H3NO");
+            Assert.IsFalse(formulaA.Equals(formulaB));
         }
 
         [Test]
