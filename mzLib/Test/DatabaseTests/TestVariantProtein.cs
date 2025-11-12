@@ -1562,7 +1562,9 @@ namespace Test.DatabaseTests
                 // Cleanup test artifacts
                 if (Directory.Exists(tempDir))
                 {
-                    try { File.SetAttributes(tempFile, FileAttributes.Normal); } catch { /* ignore */ }
+                    try { File.SetAttributes(tempFile, FileAttributes.Normal); }
+                    catch (IOException) { /* ignore */ }
+                    catch (UnauthorizedAccessException) { /* ignore */ }
                     Directory.Delete(tempDir, true);
                 }
             }
