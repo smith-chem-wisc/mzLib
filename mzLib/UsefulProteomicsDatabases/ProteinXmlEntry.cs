@@ -61,7 +61,7 @@ namespace UsefulProteomicsDatabases
         /// This method is called for each start element during XML parsing and accumulates data for later construction of a Protein instance.
         /// </summary>
         public void ParseElement(string elementName, XmlReader xml)
-        { 
+        {
             int outValue;
             switch (elementName)
             {
