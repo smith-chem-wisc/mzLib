@@ -118,7 +118,7 @@ namespace Test.DatabaseTests
             }
             Assert.AreNotEqual(target.SequenceVariations.First().VariantCallFormatDataString, decoy.SequenceVariations.First().VariantCallFormatDataString); //decoys and target variations don't have the same desc.
 
-            List<PeptideWithSetModifications> peptides = ok.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
+            // Removed unused assignment to peptides.
         }
 
         [Test]
