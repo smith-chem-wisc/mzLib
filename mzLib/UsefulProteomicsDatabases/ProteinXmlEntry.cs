@@ -55,25 +55,11 @@ namespace UsefulProteomicsDatabases
         private List<(int, string)> AnnotatedVariantMods = new List<(int position, string originalModificationID)>();
         // Captured isoform/sequence identifier from <location sequence="...">
         private string LocationSequenceId;
-
         /// <summary>
-        /// Finalizes the parsing of a protein XML entry and constructs a <see cref="Protein"/> object.
-        /// This method is called when the end of an &lt;entry&gt; element is reached during XML parsing.
-        /// It sanitizes the sequence, prunes out-of-range sequence variants, resolves and attaches modifications,
-        /// and aggregates all parsed data (such as gene names, proteolysis products, sequence variations, disulfide bonds, and splice sites)
-        /// into a new <see cref="Protein"/> instance.
-        /// After construction, the internal state is cleared to prepare for the next entry.
+        /// Parses a single XML element from a protein database entry and updates the internal state of the ProteinXmlEntry object.
+        /// Handles metadata, sequence, features, gene names, organism, and references by reading attributes and content from the XmlReader.
+        /// This method is called for each start element during XML parsing and accumulates data for later construction of a Protein instance.
         /// </summary>
-        /// <param name="xml">The <see cref="XmlReader"/> positioned at the end of the &lt;entry&gt; element.</param>
-        /// <param name="isContaminant">Indicates whether the protein is a contaminant.</param>
-        /// <param name="proteinDbLocation">The file path or identifier of the protein database source.</param>
-        /// <param name="modTypesToExclude">A collection of modification types to exclude from the protein.</param>
-        /// <param name="unknownModifications">A dictionary to collect modifications that could not be resolved.</param>
-        /// <param name="decoyIdentifier">A string used to identify decoy proteins (default: "DECOY").</param>
-        /// <returns>
-        /// A constructed <see cref="Protein"/> object containing all parsed and resolved information,
-        /// or <c>null</c> if the entry is incomplete.
-        /// </returns>
         public void ParseElement(string elementName, XmlReader xml)
         {
             int outValue;
@@ -304,14 +290,17 @@ namespace UsefulProteomicsDatabases
             return (int)Math.Round(new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>()).MonoisotopicMass);
         }
         /// <summary>
-        /// Handles the end of an XML element during protein database parsing, updating the internal state or finalizing objects as needed.
-        /// Depending on the element name, this method processes and stores feature, subfeature, database reference, gene, and organism information,
-        /// or, if the end of an &lt;entry&gt; element is reached, constructs and returns a fully populated <see cref="Protein"/> object.
-        /// For &lt;feature&gt; and &lt;subfeature&gt; elements, it attaches modifications or proteolytic products.
-        /// For &lt;dbReference&gt;, it records database cross-references.
-        /// For &lt;gene&gt; and &lt;organism&gt;, it updates parsing state flags.
-        /// For &lt;entry&gt;, it aggregates all parsed data, resolves modifications, and returns a new <see cref="Protein"/> instance,
-        /// clearing the internal state for the next entry.
+        /// Handles the end of an XML element during protein database parsing and updates the internal state or finalizes objects as needed.
+        /// Depending on the element name, this method processes and stores feature, subfeature, database reference, gene, and organism information.
+        /// When the end of an <entry> element is reached, it finalizes the parsing of the protein entry by:
+        ///   - Sanitizing the sequence (replacing invalid amino acids with 'X').
+        ///   - Pruning sequence variants whose coordinates exceed the sequence length.
+        ///   - Resolving and attaching all annotated modifications, excluding specified types or unknowns.
+        ///   - Determining if the protein is a decoy based on the accession and decoy identifier.
+        ///   - Aggregating all parsed data (gene names, proteolysis products, sequence variations, disulfide bonds, splice sites, database references, and sequence attributes)
+        ///     into a new <see cref="Protein"/> instance.
+        ///   - Clearing the internal state to prepare for the next entry.
+        /// Returns a constructed <see cref="Protein"/> object if the end of an <entry> element is reached and all required data is present; otherwise, returns <c>null</c>.
         /// </summary>
         /// <param name="xml">The <see cref="XmlReader"/> positioned at the end of the current XML element.</param>
         /// <param name="modTypesToExclude">A collection of modification types to exclude from the protein.</param>
@@ -320,8 +309,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="proteinDbLocation">The file path or identifier of the protein database source.</param>
         /// <param name="decoyIdentifier">A string used to identify decoy proteins (default: "DECOY").</param>
         /// <returns>
-        /// A constructed <see cref="Protein"/> object if the end of an &lt;entry&gt; element is reached and all required data is present;
-        /// otherwise, <c>null</c>.
+        /// A constructed <see cref="Protein"/> object if the end of an <entry> element is reached and all required data is present; otherwise, <c>null</c>.
         /// </returns>
         public Protein ParseEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications,
             bool isContaminant, string proteinDbLocation, string decoyIdentifier = "DECOY")
@@ -410,12 +398,12 @@ namespace UsefulProteomicsDatabases
         /// This method is called when the end of an &lt;entry&gt; element is reached during XML parsing.
         /// It performs several key tasks:
         /// <list type="bullet">
-        ///   <item>Sanitizes the parsed sequence (e.g., replacing invalid amino acids with 'X').</item>
-        ///   <item>Prunes any sequence variants whose coordinates exceed the sequence length.</item>
-        ///   <item>Resolves and attaches all annotated modifications, excluding those of specified types or unknowns.</item>
-        ///   <item>Determines if the protein is a decoy based on the accession and decoy identifier.</item>
-        ///   <item>Aggregates all parsed data (gene names, proteolysis products, sequence variations, disulfide bonds, splice sites, database references, and sequence attributes) into a new <see cref="Protein"/> instance.</item>
-        ///   <item>Clears the internal state of the <see cref="ProteinXmlEntry"/> to prepare for parsing the next entry.</item>
+        ///   <item> Sanitizes the parsed sequence (e.g., replacing invalid amino acids with 'X').</item>
+        ///   <item> Prunes any sequence variants whose coordinates exceed the sequence length.</item>
+        ///   <item> Resolves and attaches all annotated modifications, excluding those of specified types or unknowns.</item>
+        ///   <item> Determines if the protein is a decoy based on the accession and decoy identifier.</item>
+        ///   <item> Aggregates all parsed data (gene names, proteolysis products, sequence variations, disulfide bonds, splice sites, database references, and sequence attributes) into a new <see cref="Protein"/> instance.</item>
+        ///   <item> Clears the internal state of the <see cref="ProteinXmlEntry"/> to prepare for parsing the next entry.</item>
         /// </list>
         /// If either the accession or sequence is missing, returns <c>null</c>.
         /// </summary>
@@ -441,7 +429,7 @@ namespace UsefulProteomicsDatabases
                 Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
 
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
-                //prune any sequence variants whose coordinates exceed the known sequence length
+                // Prune any sequence variants whose coordinates exceed the known sequence length
                 PruneOutOfRangeSequenceVariants();
                 if (Accession.StartsWith(decoyIdentifier))
                 {
@@ -488,7 +476,7 @@ namespace UsefulProteomicsDatabases
                 // sanitize the sequence to replace unexpected characters with X (unknown amino acid)
                 // sometimes strange characters get added by RNA sequencing software, etc.
                 Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
-                //prune any sequence variants whose coordinates exceed the known sequence length
+                // Prune any sequence variants whose coordinates exceed the known sequence length
                 PruneOutOfRangeSequenceVariants();
                 if (Accession.StartsWith(decoyIdentifier))
                 {
@@ -585,7 +573,7 @@ namespace UsefulProteomicsDatabases
                 {
                     ParseAnnotatedMods(OneBasedVariantModifications, modTypesToExclude, unknownModifications, AnnotatedVariantMods);
 
-                    // NOTE: We can NOT validate coordinate vs sequence length here because sequence is usually parsed later.
+                    // NOTE: We cannot validate coordinate vs sequence length here because sequence is usually parsed later.
                     // Validation is deferred to PruneOutOfRangeSequenceVariants() during ParseEntryEndElement.
 
                     if (OneBasedBeginPosition != null && OneBasedEndPosition != null)
@@ -597,7 +585,6 @@ namespace UsefulProteomicsDatabases
                                 OriginalValue,
                                 VariationValue,
                                 FeatureDescription,
-                                //variantCallFormatDataString: null,
                                 oneBasedModifications: OneBasedVariantModifications));
                     }
                     else if (OneBasedFeaturePosition >= 1)
@@ -608,13 +595,11 @@ namespace UsefulProteomicsDatabases
                                 OriginalValue,
                                 VariationValue,
                                 FeatureDescription,
-                                //variantCallFormatDataString: null,
                                 oneBasedModifications: OneBasedVariantModifications));
                     }
-
-                    AnnotatedVariantMods = new List<(int, string)>();
-                    OneBasedVariantModifications = new Dictionary<int, List<Modification>>();
                 }
+                AnnotatedVariantMods = new List<(int, string)>();
+                OneBasedVariantModifications = new Dictionary<int, List<Modification>>();
             }
             else if (FeatureType == "disulfide bond")
             {
@@ -741,19 +726,16 @@ namespace UsefulProteomicsDatabases
                 else if (ProteinDbLoader.IdToPossibleMods.TryGetValue(annotatedId, out IList<Modification> mods)
                          || RnaDbLoader.IdToPossibleMods.TryGetValue(annotatedId, out mods))
                 {
-                    foreach (Modification mod in mods)
+                    var mod = mods.FirstOrDefault(m => !modTypesToExclude.Contains(m.ModificationType));
+                    if (mod != null)
                     {
-                        if (!modTypesToExclude.Contains(mod.ModificationType))
+                        if (destination.TryGetValue(annotatedModLocation, out var listOfModsAtThisLocation))
                         {
-                            if (destination.TryGetValue(annotatedModLocation, out var listOfModsAtThisLocation))
-                            {
-                                listOfModsAtThisLocation.Add(mod);
-                            }
-                            else
-                            {
-                                destination.Add(annotatedModLocation, new List<Modification> { mod });
-                            }
-                            break;
+                            listOfModsAtThisLocation.Add(mod);
+                        }
+                        else
+                        {
+                            destination.Add(annotatedModLocation, new List<Modification> { mod });
                         }
                     }
                 }
@@ -766,19 +748,17 @@ namespace UsefulProteomicsDatabases
                 }
             }
         }
+        /// <summary>
+        /// Filters out sequence variants whose begin or end positions exceed the sequence length.
+        /// </summary>
         private void PruneOutOfRangeSequenceVariants()
         {
             if (string.IsNullOrEmpty(Sequence) || SequenceVariations.Count == 0)
                 return;
 
             int len = Sequence.Length;
-            int removed = SequenceVariations.RemoveAll(v =>
+            SequenceVariations.RemoveAll(v =>
                 v.OneBasedBeginPosition > len || v.OneBasedEndPosition > len);
-
-            if (removed > 0)
-            {
-                Trace.TraceWarning($"Pruned {removed} out-of-range sequence variant(s) for accession {Accession} (protein length {len}).");
-            }
         }
     }
 }

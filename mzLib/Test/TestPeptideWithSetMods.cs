@@ -1047,7 +1047,7 @@ namespace Test
             Assert.AreEqual(68, insulinTruncations.Count);
         }
         [Test]
-        public static void TestPeptideWithSetModsReturnsDecoyTruncationsInTopDown()
+        public static void TestTopDownTruncationTableMatchesExpected()
         {
             // PURPOSE
             // Generate a comprehensive TSV of all top-down truncation peptides for target and decoy insulin entries,
