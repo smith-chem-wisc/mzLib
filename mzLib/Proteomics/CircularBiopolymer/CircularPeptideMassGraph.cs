@@ -5,15 +5,6 @@ using System.Numerics;
 
 namespace Proteomics.CircularBiopolymer
 {
-    /// <summary>
-    /// Order-agnostic, mass-labeled, compositional graph for circular peptides.
-    /// Nodes represent residue compositions (multisets) rather than ordered sequences.
-    /// An edge connects a composition of length L to all compositions of length L+1
-    /// obtainable by adding exactly one residue (i.e., all possible parents).
-    ///
-    /// This captures all permutations in a single network. Traversal can then be
-    /// performed from matched fragment masses upward to rank likely parents.
-    /// </summary>
     public sealed class CircularPeptideMassGraph
     {
         public sealed class AminoAcid
@@ -62,23 +53,17 @@ namespace Proteomics.CircularBiopolymer
 
         public IReadOnlyCollection<CompositionNode> Nodes => _nodes.Values;
 
-        /// <summary>
-        /// Build nodes for all compositions (with repetition) of length 1..maxLength.
-        /// Connect each node to its length+1 parents by adding one residue.
-        /// </summary>
         public void Build(int maxLength)
         {
             if (maxLength < 1) throw new ArgumentOutOfRangeException(nameof(maxLength), "maxLength must be >= 1.");
-
             var counts = _alphabet.ToDictionary(a => a.Symbol, _ => 0);
 
-            // Seed all leaves (length 1) and recursively expand upward.
             foreach (var aa in _alphabet)
             {
                 counts[aa.Symbol] = 1;
                 var leaf = GetOrCreate(counts);
                 ExpandFrom(leaf, counts, currentLength: 1, maxLength);
-                counts[aa.Symbol] = 0; // backtrack
+                counts[aa.Symbol] = 0;
             }
         }
 
@@ -90,10 +75,7 @@ namespace Proteomics.CircularBiopolymer
 
             int length = counts.Values.Sum();
             double mass = counts.Sum(kv => kv.Value * _aaBySymbol[kv.Key].MonoisotopicMass);
-
-            var snapshot = counts
-                .Where(kv => kv.Value > 0)
-                .ToDictionary(kv => kv.Key, kv => kv.Value);
+            var snapshot = counts.Where(kv => kv.Value > 0).ToDictionary(kv => kv.Key, kv => kv.Value);
 
             var node = new CompositionNode(key, length, mass, snapshot);
             _nodes.Add(key, node);
@@ -108,20 +90,16 @@ namespace Proteomics.CircularBiopolymer
             foreach (var aa in _alphabet)
             {
                 counts[aa.Symbol]++;
-
                 var parent = GetOrCreate(counts);
                 if (child.Parents.Add(parent))
                     parent.Children.Add(child);
-
                 ExpandFrom(parent, counts, currentLength + 1, maxLength);
-
-                counts[aa.Symbol]--; // backtrack
+                counts[aa.Symbol]--;
             }
         }
 
         private static string CanonicalKey(Dictionary<char, int> counts)
         {
-            // Sort by residue symbol; omit zero counts; format e.g. A2C1G1
             return string.Concat(counts
                 .Where(kv => kv.Value > 0)
                 .OrderBy(kv => kv.Key)
@@ -130,9 +108,8 @@ namespace Proteomics.CircularBiopolymer
 
         private sealed class Coverage
         {
-            public int Mask;                // bitmask: which peaks are explained by any descendant
+            public int Mask;
             public double[] BestErrorPerPeak;
-
             public Coverage(int k)
             {
                 Mask = 0;
@@ -143,83 +120,100 @@ namespace Proteomics.CircularBiopolymer
         private static int PopCount(int x) => BitOperations.PopCount((uint)x);
 
         /// <summary>
-        /// Given a set of peaks (fragment masses) and a tolerance, rank likely parent compositions at the target length.
-        /// Strategy:
-        /// - For each peak, find all nodes within tolerance and recursively propagate a coverage bit up to all ancestors.
-        /// - Each ancestor collects a mask of matched peaks and best mass error per peak.
-        /// Ranking: by explained peak count (desc), then total error (asc), then mass (asc).
-        ///
-        /// Note: peaks that do not match any node within tolerance can be ignored as noise by setting
-        /// ignorePeaksNotInGraph=true (default). When enabled, non-matching peaks do not penalize candidates.
+        /// Fast composition-level predicate from motifs:
+        /// requires each residue's count in the composition to be at least
+        /// the maximum count it appears in any single motif (lower bound).
+        /// Example: motifs ["ACG", "AGG"] ? A?1, C?1, G?2.
         /// </summary>
-        /// <param name="peaks">Observed fragment masses.</param>
-        /// <param name="toleranceDa">Absolute tolerance in Daltons for mass matching.</param>
-        /// <param name="targetParentLength">Length at which to consider parents (typically the top length you built).</param>
-        /// <param name="topK">Max number of results to return.</param>
-        /// <param name="ignorePeaksNotInGraph">If true, peaks that do not match any node are treated as noise and ignored.</param>
+        public static Func<CompositionNode, bool> MustCoverMotifResidueCounts(params string[] motifs)
+        {
+            if (motifs == null || motifs.Length == 0)
+                return _ => true;
+
+            var required = new Dictionary<char, int>();
+            foreach (var motif in motifs.Where(m => !string.IsNullOrWhiteSpace(m)))
+            {
+                var local = new Dictionary<char, int>();
+                foreach (char c in motif)
+                {
+                    local.TryGetValue(c, out int v);
+                    local[c] = v + 1;
+                }
+                foreach (var kv in local)
+                {
+                    if (!required.TryGetValue(kv.Key, out int cur) || kv.Value > cur)
+                        required[kv.Key] = kv.Value;
+                }
+            }
+            if (required.Count == 0) return _ => true;
+
+            return node =>
+            {
+                foreach (var kv in required)
+                {
+                    if (!node.Counts.TryGetValue(kv.Key, out int have) || have < kv.Value)
+                        return false;
+                }
+                return true;
+            };
+        }
+
+        /// <summary>
+        /// Original ranking API (kept for compatibility).
+        /// </summary>
         public IReadOnlyList<(CompositionNode node, int explainedCount, double totalError)>
-            RankParentsByCoverage(double[] peaks, double toleranceDa, int targetParentLength, int topK = 5, bool ignorePeaksNotInGraph = true)
+            RankParentsByCoverage(double[] peaks, double toleranceDa, int targetParentLength, int topK = 5)
+        {
+            return RankParentsByCoverage(peaks, toleranceDa, targetParentLength, topK, candidateFilter: null);
+        }
+
+        /// <summary>
+        /// Rank parents at target length. Optionally apply a candidate-node predicate to prune the search space
+        /// (e.g., motif-based filter). Peaks that do not match any node naturally do not contribute to coverage.
+        /// </summary>
+        public IReadOnlyList<(CompositionNode node, int explainedCount, double totalError)>
+            RankParentsByCoverage(double[] peaks,
+                                  double toleranceDa,
+                                  int targetParentLength,
+                                  int topK,
+                                  Func<CompositionNode, bool> candidateFilter)
         {
             if (peaks == null || peaks.Length == 0) throw new ArgumentException("Provide at least one peak.", nameof(peaks));
             if (toleranceDa <= 0) throw new ArgumentOutOfRangeException(nameof(toleranceDa), "Tolerance must be positive.");
             if (!_nodes.Any()) throw new InvalidOperationException("Graph is empty; call Build() first.");
 
-            // Optionally filter out peaks that have no match anywhere in the graph (noise)
-            var nodeList = _nodes.Values.ToList();
             int K = peaks.Length;
-            int[] matchableIdx = Enumerable.Range(0, K)
-                .Where(i => nodeList.Any(n => Math.Abs(n.Mass - peaks[i]) <= toleranceDa))
-                .ToArray();
-
-            double[] workPeaks = peaks;
-            int[] indexMap = null; // maps workPeaks index -> original peak index (unused outside scoring)
-            if (ignorePeaksNotInGraph && matchableIdx.Length < K)
-            {
-                workPeaks = matchableIdx.Select(i => peaks[i]).ToArray();
-                indexMap = matchableIdx;
-            }
-
-            int W = workPeaks.Length;
-            if (W == 0)
-            {
-                // Nothing to explain (all noise); return empty
-                return Array.Empty<(CompositionNode node, int explainedCount, double totalError)>();
-            }
-
             var coverage = new Dictionary<CompositionNode, Coverage>();
+
             Coverage GetCov(CompositionNode n)
             {
                 if (!coverage.TryGetValue(n, out var c))
-                    coverage[n] = c = new Coverage(W);
+                    coverage[n] = c = new Coverage(K);
                 return c;
             }
 
-            // Seed: for each work-peak, match nodes and propagate upward
-            for (int j = 0; j < W; j++)
+            // Seed: for each peak, match nodes and propagate upward
+            foreach (var (peak, idx) in peaks.Select((p, i) => (p, i)))
             {
-                double peak = workPeaks[j];
-                foreach (var match in nodeList)
+                foreach (var match in _nodes.Values)
                 {
                     double err = Math.Abs(match.Mass - peak);
                     if (err <= toleranceDa)
-                    {
-                        PropagateUp(match, j, err, GetCov);
-                    }
+                        PropagateUp(match, idx, err, GetCov);
                 }
             }
 
-            // Assemble candidate parents at the requested length
+            // Assemble and (optionally) filter candidate parents
             var candidates = coverage
                 .Where(kv => kv.Key.Length == targetParentLength)
+                .Where(kv => candidateFilter == null || candidateFilter(kv.Key))
                 .Select(kv =>
                 {
                     int explained = PopCount(kv.Value.Mask);
                     double totalErr = 0.0;
-                    for (int i = 0; i < W; i++)
-                    {
+                    for (int i = 0; i < K; i++)
                         if (((kv.Value.Mask >> i) & 1) == 1)
                             totalErr += kv.Value.BestErrorPerPeak[i];
-                    }
                     return (node: kv.Key, explainedCount: explained, totalError: totalErr);
                 })
                 .OrderByDescending(r => r.explainedCount)
@@ -230,18 +224,16 @@ namespace Proteomics.CircularBiopolymer
 
             return candidates;
 
-            void PropagateUp(CompositionNode node, int workPeakIndex, double error, Func<CompositionNode, Coverage> covFactory)
+            void PropagateUp(CompositionNode node, int peakIndex, double error, Func<CompositionNode, Coverage> covFactory)
             {
                 var cov = covFactory(node);
-                // Only propagate if we improve the best error for this peak at this node
-                if (error + 1e-12 >= cov.BestErrorPerPeak[workPeakIndex])
-                    return;
+                if (error + 1e-12 >= cov.BestErrorPerPeak[peakIndex]) return;
 
-                cov.BestErrorPerPeak[workPeakIndex] = error;
-                cov.Mask |= (1 << workPeakIndex);
+                cov.BestErrorPerPeak[peakIndex] = error;
+                cov.Mask |= (1 << peakIndex);
 
                 foreach (var parent in node.Parents)
-                    PropagateUp(parent, workPeakIndex, error, covFactory);
+                    PropagateUp(parent, peakIndex, error, covFactory);
             }
         }
     }

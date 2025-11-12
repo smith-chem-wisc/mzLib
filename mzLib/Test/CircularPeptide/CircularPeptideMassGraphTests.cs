@@ -12,7 +12,6 @@ namespace Test.CircularPeptide
         [Test]
         public void Build_CompositionGraph_ForFourResidues_UptoLen4()
         {
-            // Example alphabet (monoisotopic masses in Da)
             var alphabet = new[]
             {
                 new CircularPeptideMassGraph.AminoAcid('A', 71.03711),
@@ -24,16 +23,12 @@ namespace Test.CircularPeptide
             var graph = new CircularPeptideMassGraph(alphabet);
             graph.Build(maxLength: 4);
 
-            // Number of compositions with repetition for n=4 residues:
-            // Sum over L=1..4 of C(n+L-1, L) = C(4,1)+C(5,2)+C(6,3)+C(7,4) = 4+10+20+35 = 69
             Assert.That(graph.Nodes.Count, Is.EqualTo(69), "Unexpected node count for compositions up to length 4.");
 
-            // Leaf 'A1' must have 4 parents at length 2: A2, A1C1, A1G1, A1V1
             var leafA = graph.Nodes.Single(n => n.Key == "A1");
             var parentKeys = leafA.Parents.Select(p => p.Key).OrderBy(k => k).ToArray();
             Assert.That(parentKeys, Is.EquivalentTo(new[] { "A1C1", "A1G1", "A1V1", "A2" }));
 
-            // Balanced top node 'A1C1G1V1' exists and has no parents (top layer)
             var top = graph.Nodes.Single(n => n.Key == "A1C1G1V1");
             Assert.Multiple(() =>
             {
@@ -56,13 +51,7 @@ namespace Test.CircularPeptide
             var graph = new CircularPeptideMassGraph(alphabet);
             graph.Build(maxLength: 4);
 
-            // Construct four peaks derived from the balanced composition {A,C,G,V}
-            // e.g., fragments: A, C, A+G, C+V
-            double a = 71.03711;
-            double c = 103.00919;
-            double v = 99.06841;
-            double g = 57.02146;
-
+            double a = 71.03711, c = 103.00919, v = 99.06841, g = 57.02146;
             var peaks = new[] { a, c, a + g, c + v };
 
             var ranked = graph.RankParentsByCoverage(peaks, toleranceDa: 0.01, targetParentLength: 4, topK: 3);
@@ -73,8 +62,8 @@ namespace Test.CircularPeptide
             Assert.Multiple(() =>
             {
                 Assert.That(best.node.Key, Is.EqualTo("A1C1G1V1"), "Expected balanced composition to rank first.");
-                Assert.That(best.explainedCount, Is.EqualTo(4), "All four peaks should be explained by descendants.");
-                Assert.That(best.totalError, Is.LessThanOrEqualTo(4 * 0.01 + 1e-9), "Total error should be consistent with tolerance.");
+                Assert.That(best.explainedCount, Is.EqualTo(4));
+                Assert.That(best.totalError, Is.LessThanOrEqualTo(4 * 0.01 + 1e-9));
             });
         }
 
@@ -92,20 +81,109 @@ namespace Test.CircularPeptide
             var graph = new CircularPeptideMassGraph(alphabet);
             graph.Build(maxLength: 4);
 
-            // Same four informative peaks, plus a noise mass that does not match any node
             double a = 71.03711, c = 103.00919, v = 99.06841, g = 57.02146;
             var peaksWithNoise = new[] { a, c, a + g, c + v, 12.34567 };
 
-            var ranked = graph.RankParentsByCoverage(peaksWithNoise, toleranceDa: 0.01, targetParentLength: 4, topK: 3 /* default ignore noise */);
+            var ranked = graph.RankParentsByCoverage(peaksWithNoise, toleranceDa: 0.01, targetParentLength: 4, topK: 3);
             Assert.That(ranked.Count, Is.GreaterThan(0));
 
             var best = ranked[0];
             Assert.Multiple(() =>
             {
                 Assert.That(best.node.Key, Is.EqualTo("A1C1G1V1"));
-                // Noise is ignored; we still explain 4 informative peaks
                 Assert.That(best.explainedCount, Is.EqualTo(4));
             });
+        }
+
+        // Faster randomized test: 5 trials of 5-mers with 5 distinct residues
+        [Test]
+        public void RecoverFiveDistinctFiveMers_RandomizedSingletonPeaks()
+        {
+            var alphabet = new[]
+            {
+                new CircularPeptideMassGraph.AminoAcid('A', 71.03711),
+                new CircularPeptideMassGraph.AminoAcid('C', 103.00919),
+                new CircularPeptideMassGraph.AminoAcid('D', 115.02694),
+                new CircularPeptideMassGraph.AminoAcid('E', 129.04259),
+                new CircularPeptideMassGraph.AminoAcid('G', 57.02146),
+            };
+
+            var graph = new CircularPeptideMassGraph(alphabet);
+            graph.Build(maxLength: 5);
+
+            string expectedKey = string.Concat(alphabet.OrderBy(a => a.Symbol).Select(a => $"{a.Symbol}1"));
+
+            var rnd = new Random(12345);
+            const int trials = 5;
+            const double tolDa = 0.01;
+
+            for (int t = 0; t < trials; t++)
+            {
+                var permuted = alphabet.OrderBy(_ => rnd.Next()).ToArray();
+                var peaks = permuted.Select(a => a.MonoisotopicMass).ToArray();
+
+                var ranked = graph.RankParentsByCoverage(peaks, toleranceDa: tolDa, targetParentLength: 5, topK: 1);
+                Assert.That(ranked.Count, Is.GreaterThan(0), "No parent candidates ranked.");
+                var best = ranked[0];
+
+                Assert.Multiple(() =>
+                {
+                    Assert.That(best.node.Key, Is.EqualTo(expectedKey));
+                    Assert.That(best.explainedCount, Is.EqualTo(5));
+                    Assert.That(best.totalError, Is.LessThanOrEqualTo(5 * tolDa + 1e-9));
+                });
+            }
+        }
+
+        [Test]
+        public void RankParents_WithMotifCompositionFilter_PrunesCandidates_Positive()
+        {
+            var alphabet = new[]
+            {
+                new CircularPeptideMassGraph.AminoAcid('A', 71.03711),
+                new CircularPeptideMassGraph.AminoAcid('C', 103.00919),
+                new CircularPeptideMassGraph.AminoAcid('D', 115.02694),
+                new CircularPeptideMassGraph.AminoAcid('E', 129.04259),
+                new CircularPeptideMassGraph.AminoAcid('G', 57.02146),
+            };
+
+            var graph = new CircularPeptideMassGraph(alphabet);
+            graph.Build(maxLength: 5);
+
+            // Peaks from balanced A1C1D1E1G1
+            var peaks = alphabet.Select(a => a.MonoisotopicMass).ToArray();
+
+            // Motifs require A,G,C,D to be present (E optional). Balanced passes the filter.
+            var filter = CircularPeptideMassGraph.MustCoverMotifResidueCounts("AG", "CD");
+
+            var ranked = graph.RankParentsByCoverage(peaks, toleranceDa: 0.01, targetParentLength: 5, topK: 3, candidateFilter: filter);
+            Assert.That(ranked.Count, Is.GreaterThan(0));
+            Assert.That(ranked[0].node.Key, Is.EqualTo("A1C1D1E1G1"));
+        }
+
+        [Test]
+        public void RankParents_WithMotifCompositionFilter_RejectsImpossible()
+        {
+            var alphabet = new[]
+            {
+                new CircularPeptideMassGraph.AminoAcid('A', 71.03711),
+                new CircularPeptideMassGraph.AminoAcid('C', 103.00919),
+                new CircularPeptideMassGraph.AminoAcid('D', 115.02694),
+                new CircularPeptideMassGraph.AminoAcid('E', 129.04259),
+                new CircularPeptideMassGraph.AminoAcid('G', 57.02146),
+            };
+
+            var graph = new CircularPeptideMassGraph(alphabet);
+            graph.Build(maxLength: 5);
+
+            // Balanced peaks A1C1D1E1G1
+            var peaks = alphabet.Select(a => a.MonoisotopicMass).ToArray();
+
+            // Require G>=2 AND the presence of A,C,D,E. At length=5 this is impossible, so zero candidates should pass.
+            var filter = CircularPeptideMassGraph.MustCoverMotifResidueCounts("GG", "ACDE");
+
+            var ranked = graph.RankParentsByCoverage(peaks, toleranceDa: 0.01, targetParentLength: 5, topK: 10, candidateFilter: filter);
+            Assert.That(ranked.Count, Is.EqualTo(0), "No candidate should pass a G>=2 + ACDE requirement for a balanced 5-mer.");
         }
     }
 }
