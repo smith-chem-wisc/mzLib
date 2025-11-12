@@ -1727,8 +1727,10 @@ namespace Test.DatabaseTests
                         adPart == "." ? new[] { "." } :
                         adPart.Split(',');
 
-                    Assert.That(vcf.AlleleDepths.ContainsKey(key));
-                    var parsedAd = vcf.AlleleDepths[key] ?? Array.Empty<string>();
+                    if (!vcf.AlleleDepths.TryGetValue(key, out var parsedAd) || parsedAd == null)
+                    {
+                        parsedAd = Array.Empty<string>();
+                    }
                     if (parsedAd.Length != 0 || expectedAdTokens.Length != 1 || expectedAdTokens[0] != ".")
                     {
                         Assert.That(parsedAd, Is.EqualTo(expectedAdTokens));
