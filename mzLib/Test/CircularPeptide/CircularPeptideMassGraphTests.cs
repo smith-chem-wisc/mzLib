@@ -185,5 +185,61 @@ namespace Test.CircularPeptide
             var ranked = graph.RankParentsByCoverage(peaks, toleranceDa: 0.01, targetParentLength: 5, topK: 10, candidateFilter: filter);
             Assert.That(ranked.Count, Is.EqualTo(0), "No candidate should pass a G>=2 + ACDE requirement for a balanced 5-mer.");
         }
+        [Test, Category("Slow")]
+        public void FindSpecificTenMer_WithTwoMotifs_ReducesCandidatesAndFindsParent()
+        {
+            // Alphabet of 10 distinct residues with unique monoisotopic masses
+            var alphabet = new[]
+            {
+                new CircularPeptideMassGraph.AminoAcid('A', 71.03711),
+                new CircularPeptideMassGraph.AminoAcid('C', 103.00919),
+                new CircularPeptideMassGraph.AminoAcid('D', 115.02694),
+                new CircularPeptideMassGraph.AminoAcid('E', 129.04259),
+                new CircularPeptideMassGraph.AminoAcid('F', 147.06841),
+                new CircularPeptideMassGraph.AminoAcid('G', 57.02146),
+                new CircularPeptideMassGraph.AminoAcid('H', 137.05891),
+                new CircularPeptideMassGraph.AminoAcid('K', 128.09496),
+                new CircularPeptideMassGraph.AminoAcid('M', 131.04049),
+                new CircularPeptideMassGraph.AminoAcid('Y', 163.06333),
+            };
+
+            var graph = new CircularPeptideMassGraph(alphabet);
+
+            // IMPORTANT: Build the full graph (do NOT prune at build time).
+            // Build-time pruning with motif lower-bounds removes early-length nodes (e.g., length-1 leaves).
+            // Since we seed coverage from singleton peaks, we must keep length-1 nodes available.
+            graph.Build(maxLength: 10);
+
+            // Target is the 10-mer containing each residue exactly once.
+            string expectedKey = string.Concat(alphabet
+                .OrderBy(a => a.Symbol)
+                .Select(a => $"{a.Symbol}1"));
+
+            // Provide singleton peaks (one per residue).
+            var peaks = alphabet.Select(a => a.MonoisotopicMass).ToArray();
+
+            // Apply motif pruning at ranking time (cheap and keeps leaves intact).
+            // Two separate 4-mers lower-bound the composition space.
+            var motifFilter = CircularPeptideMassGraph.MustCoverMotifResidueCounts("ACDG", "EFHM");
+
+            const double tolDa = 0.01;
+
+            var ranked = graph.RankParentsByCoverage(
+                peaks,
+                toleranceDa: tolDa,
+                targetParentLength: 10,
+                topK: 3,
+                candidateFilter: motifFilter);
+
+            Assert.That(ranked.Count, Is.GreaterThan(0), "No candidates after motif pruning.");
+            var best = ranked[0];
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(best.node.Key, Is.EqualTo(expectedKey));
+                Assert.That(best.explainedCount, Is.EqualTo(10));
+                Assert.That(best.totalError, Is.LessThanOrEqualTo(10 * tolDa + 1e-9));
+            });
+        }
     }
 }
