@@ -46,6 +46,24 @@ namespace Test.DatabaseTests
         {
             Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
         }
+        [Test]
+        public static void SequenceVariantConstructorTest()
+        {
+            int oneBasedBeginPosition = 3;
+            int oneBasedEndPosition = 3;
+            string originalSequence = "A";
+            string variantSequence = "V";
+            string description = "desc";
+            string variantCallFormatStringRepresntation = null;
+            Dictionary<int, List<Modification>> oneBasedModifications = null;
+
+            SequenceVariation sv = new SequenceVariation(oneBasedBeginPosition, oneBasedEndPosition, originalSequence, variantSequence, description, variantCallFormatStringRepresntation, oneBasedModifications);
+            Assert.AreEqual(oneBasedBeginPosition, sv.OneBasedBeginPosition);
+            Assert.AreEqual(oneBasedEndPosition, sv.OneBasedEndPosition);
+            Assert.AreEqual(originalSequence, sv.OriginalSequence);
+            Assert.AreEqual(variantSequence, sv.VariantSequence);
+            Assert.AreEqual(description, sv.Description);
+        }
 
         [Test]
         public static void VariantProtein()
