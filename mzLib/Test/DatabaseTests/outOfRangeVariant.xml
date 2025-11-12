@@ -58,6 +58,26 @@
 <position position="346"/>
 </location>
 </feature>
+
+	<!-- Applies: sequence equals acc-1 -->
+	<feature type="sequence variant" id="VAR_MATCH_ACC_MINUS_1" description="Applies: sequence equals acc-1">
+		<original>G</original>
+		<variation>C</variation>
+		<location sequence="P04406-1">
+			<position position="2"/>
+		</location>
+	</feature>
+
+	<!-- Does not apply: different isoform -->
+	<feature type="sequence variant" id="VAR_DOES_NOT_APPLY" description="Does not apply: sequence is a different isoform">
+		<original>G</original>
+		<variation>C</variation>
+		<location sequence="P04406-2">
+			<position position="2"/>
+		</location>
+	</feature>
+	
+	
 <sequence length="335" mass="36053" checksum="C9C135E8AE3E8744" modified="2007-01-23" version="3">
 MGKVKVGVNGFGRIGRLVTRAAFNSGKVDIVAINDPFIDLNYMVYMFQYDSTHGKFHGTVKAENGKLVINGNPITIFQERDPSKIKWGDAGAEYVVESTGVFTTMEKAGAHLQGGAKRVIISAPSADAPMFVMGVNHEKYDNSLKIISNASCTTNCLAPLAKVIHDNFGIVEGLMTTVHAITATQKTVDGPSGKLWRDGRGALQNIIPASTGAAKAVGKVIPELNGKLTGMAFRVPTANVSVVDLTCRLEKPAKYDDIKKVVKQASEGPLKGILGYTEHQVVSSDFNSDTHSSTFDAGAGIALNDHFVKLISWYDNEFGYSNRVVDLMAHMASKE
 </sequence>
