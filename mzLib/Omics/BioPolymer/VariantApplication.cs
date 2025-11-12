@@ -243,29 +243,15 @@ namespace Omics.BioPolymer
             int afterIdx = variantGettingApplied.OneBasedBeginPosition + variantGettingApplied.OriginalSequence.Length - 1;
 
             // Reify a "post-application" variation object pinned to the inserted length
-            SequenceVariation variantAfterApplication;
             var vcf = variantGettingApplied.VariantCallFormatDataString;
-            if (vcf != null)
-            {
-                variantAfterApplication = new SequenceVariation(
-                    variantGettingApplied.OneBasedBeginPosition,
-                    variantGettingApplied.OneBasedBeginPosition + variantGettingApplied.VariantSequence.Length - 1,
-                    variantGettingApplied.OriginalSequence,
-                    variantGettingApplied.VariantSequence,
-                    vcf.Description,
-                    vcf,
-                    variantGettingApplied.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value));
-            }
-            else
-            {
-                variantAfterApplication = new SequenceVariation(
-                    variantGettingApplied.OneBasedBeginPosition,
-                    variantGettingApplied.OneBasedBeginPosition + variantGettingApplied.VariantSequence.Length - 1,
-                    variantGettingApplied.OriginalSequence,
-                    variantGettingApplied.VariantSequence,
-                    variantGettingApplied.Description,
-                    variantGettingApplied.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value));
-            }
+            SequenceVariation variantAfterApplication = new SequenceVariation(
+                variantGettingApplied.OneBasedBeginPosition,
+                variantGettingApplied.OneBasedBeginPosition + variantGettingApplied.VariantSequence.Length - 1,
+                variantGettingApplied.OriginalSequence,
+                variantGettingApplied.VariantSequence,
+                vcf != null ? vcf.Description : variantGettingApplied.Description,
+                vcf,
+                variantGettingApplied.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value));
 
             // If an already-applied variation partially overlaps the current edit, use the consensus tail to avoid index corruption
             bool intersectsAppliedRegionIncompletely =
