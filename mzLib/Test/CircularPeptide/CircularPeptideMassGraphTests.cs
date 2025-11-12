@@ -77,5 +77,35 @@ namespace Test.CircularPeptide
                 Assert.That(best.totalError, Is.LessThanOrEqualTo(4 * 0.01 + 1e-9), "Total error should be consistent with tolerance.");
             });
         }
+
+        [Test]
+        public void RankParents_IgnoresNoisePeaks_ByDefault()
+        {
+            var alphabet = new[]
+            {
+                new CircularPeptideMassGraph.AminoAcid('A', 71.03711),
+                new CircularPeptideMassGraph.AminoAcid('C', 103.00919),
+                new CircularPeptideMassGraph.AminoAcid('V', 99.06841),
+                new CircularPeptideMassGraph.AminoAcid('G', 57.02146),
+            };
+
+            var graph = new CircularPeptideMassGraph(alphabet);
+            graph.Build(maxLength: 4);
+
+            // Same four informative peaks, plus a noise mass that does not match any node
+            double a = 71.03711, c = 103.00919, v = 99.06841, g = 57.02146;
+            var peaksWithNoise = new[] { a, c, a + g, c + v, 12.34567 };
+
+            var ranked = graph.RankParentsByCoverage(peaksWithNoise, toleranceDa: 0.01, targetParentLength: 4, topK: 3 /* default ignore noise */);
+            Assert.That(ranked.Count, Is.GreaterThan(0));
+
+            var best = ranked[0];
+            Assert.Multiple(() =>
+            {
+                Assert.That(best.node.Key, Is.EqualTo("A1C1G1V1"));
+                // Noise is ignored; we still explain 4 informative peaks
+                Assert.That(best.explainedCount, Is.EqualTo(4));
+            });
+        }
     }
 }
