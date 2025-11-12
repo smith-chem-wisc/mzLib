@@ -63,6 +63,62 @@ namespace Test.DatabaseTests
             Assert.AreEqual(originalSequence, sv.OriginalSequence);
             Assert.AreEqual(variantSequence, sv.VariantSequence);
             Assert.AreEqual(description, sv.Description);
+
+            // Intersects(int pos): inclusive bounds for a point variant at position 3
+            var intersectsPos = typeof(SequenceVariation).GetMethod(
+                "Intersects",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+                binder: null,
+                types: new[] { typeof(int) },
+                modifiers: null);
+
+            Assert.IsNotNull(intersectsPos, "Could not find internal Intersects(int) via reflection");
+            Assert.IsTrue((bool)intersectsPos.Invoke(sv, new object[] { 3 }), "Position at begin/end should intersect");
+            Assert.IsFalse((bool)intersectsPos.Invoke(sv, new object[] { 2 }), "Position before begin should not intersect");
+            Assert.IsFalse((bool)intersectsPos.Invoke(sv, new object[] { 4 }), "Position after end should not intersect");
+
+            // Intersects(TruncationProduct): inclusive overlap checks
+            var intersectsTrunc = typeof(SequenceVariation).GetMethod(
+                "Intersects",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+                binder: null,
+                types: new[] { typeof(TruncationProduct) },
+                modifiers: null);
+
+            Assert.IsNotNull(intersectsTrunc, "Could not find internal Intersects(TruncationProduct) via reflection");
+
+            // Create truncation products around the variant [3..3]
+            var tpExact = new TruncationProduct(3, 3, "chain");   // exact overlap
+            var tpLeftTouch = new TruncationProduct(2, 3, "chain"); // touches at left boundary
+            var tpRightTouch = new TruncationProduct(3, 4, "chain"); // touches at right boundary
+            var tpBefore = new TruncationProduct(1, 2, "chain");   // strictly before
+            var tpAfter = new TruncationProduct(4, 5, "chain");    // strictly after
+
+            Assert.IsTrue((bool)intersectsTrunc.Invoke(sv, new object[] { tpExact }), "Exact-range truncation should intersect");
+            Assert.IsTrue((bool)intersectsTrunc.Invoke(sv, new object[] { tpLeftTouch }), "Left-boundary touch should intersect");
+            Assert.IsTrue((bool)intersectsTrunc.Invoke(sv, new object[] { tpRightTouch }), "Right-boundary touch should intersect");
+            Assert.IsFalse((bool)intersectsTrunc.Invoke(sv, new object[] { tpBefore }), "Non-overlapping (before) should not intersect");
+            Assert.IsFalse((bool)intersectsTrunc.Invoke(sv, new object[] { tpAfter }), "Non-overlapping (after) should not intersect");
+
+            // Also verify with a range variant [5..7]
+            var svRange = new SequenceVariation(5, 7, "ABC", "XYZ", "range-desc", (Dictionary<int, List<Modification>>)null);
+
+            Assert.IsTrue((bool)intersectsPos.Invoke(svRange, new object[] { 5 }), "Begin of range should intersect");
+            Assert.IsTrue((bool)intersectsPos.Invoke(svRange, new object[] { 7 }), "End of range should intersect");
+            Assert.IsFalse((bool)intersectsPos.Invoke(svRange, new object[] { 4 }), "Position before range should not intersect");
+            Assert.IsFalse((bool)intersectsPos.Invoke(svRange, new object[] { 8 }), "Position after range should not intersect");
+
+            var tpOverlapLeft = new TruncationProduct(1, 5, "chain");  // overlaps at begin
+            var tpOverlapRight = new TruncationProduct(7, 10, "chain"); // overlaps at end
+            var tpInside = new TruncationProduct(6, 6, "chain");       // strictly inside
+            var tpOutside = new TruncationProduct(1, 4, "chain");      // strictly outside (left)
+            var tpOutside2 = new TruncationProduct(8, 12, "chain");    // strictly outside (right)
+
+            Assert.IsTrue((bool)intersectsTrunc.Invoke(svRange, new object[] { tpOverlapLeft }), "Overlap at begin should intersect");
+            Assert.IsTrue((bool)intersectsTrunc.Invoke(svRange, new object[] { tpOverlapRight }), "Overlap at end should intersect");
+            Assert.IsTrue((bool)intersectsTrunc.Invoke(svRange, new object[] { tpInside }), "Truncation inside range should intersect");
+            Assert.IsFalse((bool)intersectsTrunc.Invoke(svRange, new object[] { tpOutside }), "Non-overlapping (left) should not intersect");
+            Assert.IsFalse((bool)intersectsTrunc.Invoke(svRange, new object[] { tpOutside2 }), "Non-overlapping (right) should not intersect");
         }
 
         [Test]
