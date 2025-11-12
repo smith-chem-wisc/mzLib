@@ -283,7 +283,6 @@ namespace Test.DatabaseTests
             Assert.AreEqual(appliedCount, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
             Assert.AreEqual(1, proteins[0].GetVariantBioPolymers().Count);
             var variantProteins = proteins[0].GetVariantBioPolymers();
-            List<PeptideWithSetModifications> peptides = proteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
         [Test]
         public static void AppliedVariants()
