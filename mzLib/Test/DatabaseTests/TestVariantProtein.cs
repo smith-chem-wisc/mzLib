@@ -592,6 +592,100 @@ namespace Test.DatabaseTests
             });
         }
         [Test]
+        public void AdjustSequenceVariationIndices_Private_ContinueWhenBeginBeyondNewLength()
+        {
+            // PURPOSE: Hit the `continue;` when begin > variantAppliedProteinSequence.Length.
+            // We call the private method via reflection with a stop-gained edit that truncates the sequence.
+
+            // New variant that introduces a stop at position 5: "T" -> "T*"
+            var stopAt5 = new SequenceVariation(
+                oneBasedBeginPosition: 5,
+                oneBasedEndPosition: 5,
+                originalSequence: "T",
+                variantSequence: "T*",
+                description: "STOP_AT_5",
+                oneBasedModifications: null);
+
+            // The sequence after applying "T*" at position 5 would truncate to length 5 ("MPEPT")
+            string variantAppliedSequence = "MPEPT";
+
+            // A previously-applied variation AFTER the stop site: [7..8] "DE" -> "KK"
+            // After the stop, its rebased begin will be > new length (5) and should be dropped by `continue;`.
+            var priorTailEdit = new SequenceVariation(
+                oneBasedBeginPosition: 7,
+                oneBasedEndPosition: 8,
+                originalSequence: "DE",
+                variantSequence: "KK",
+                description: "TAIL_DE_to_KK",
+                oneBasedModifications: null);
+
+            var method = typeof(VariantApplication).GetMethod(
+                "AdjustSequenceVariationIndices",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+
+            Assert.IsNotNull(method, "Could not reflect AdjustSequenceVariationIndices");
+
+            var adjusted = (List<SequenceVariation>)method.Invoke(
+                null, new object[] { stopAt5, variantAppliedSequence, new List<SequenceVariation> { priorTailEdit } });
+
+            // The prior edit is dropped (continue;) because its rebased begin exceeds the new sequence length.
+            Assert.That(adjusted, Is.Empty, "Expected the prior tail edit to be skipped via the 'continue;' branch");
+        }
+
+        [Test]
+        public void AdjustSequenceVariationIndices_Private_EndIsCappedToNewLength()
+        {
+            // PURPOSE: Hit the `end = variantAppliedProteinSequence.Length;` cap.
+            // We call the private method via reflection using a stop at 7 that truncates length to 7,
+            // and a prior edit that overlaps at 7..8 so its end is pushed past new length and then capped.
+
+            // New variant introduces a stop at position 7: "D" -> "D*"
+            var stopAt7 = new SequenceVariation(
+                oneBasedBeginPosition: 7,
+                oneBasedEndPosition: 7,
+                originalSequence: "D",
+                variantSequence: "D*",
+                description: "STOP_AT_7",
+                oneBasedModifications: null);
+
+            // After applying "D*" at pos 7, the resulting sequence truncates to length 7 ("MPEPTID")
+            string variantAppliedSequence = "MPEPTID";
+
+            // A previously-applied edit that overlaps at [7..8]: "DE" -> "KK"
+            // Rebase math (delta = +1 for "D*" vs "D", overlap = 1) gives:
+            //   begin = 7 + 1 - 1 = 7  (<= new length)
+            //   end   = 8 + 1 - 1 = 8  (> new length 7) → should be capped to 7.
+            var priorOverlap = new SequenceVariation(
+                oneBasedBeginPosition: 7,
+                oneBasedEndPosition: 8,
+                originalSequence: "DE",
+                variantSequence: "KK",
+                description: "OVERLAP_7_8_DE_to_KK",
+                oneBasedModifications: null);
+
+            var method = typeof(VariantApplication).GetMethod(
+                "AdjustSequenceVariationIndices",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
+
+            Assert.IsNotNull(method, "Could not reflect AdjustSequenceVariationIndices");
+
+            var adjusted = (List<SequenceVariation>)method.Invoke(
+                null, new object[] { stopAt7, variantAppliedSequence, new List<SequenceVariation> { priorOverlap } });
+
+            // We expect exactly one adjusted variation with end capped to the new sequence length (7).
+            Assert.That(adjusted.Count, Is.EqualTo(1), "Expected one adjusted variation");
+            var rebased = adjusted[0];
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(rebased.OneBasedBeginPosition, Is.EqualTo(7));
+                Assert.That(rebased.OneBasedEndPosition, Is.EqualTo(7), "End should be capped to variantAppliedProteinSequence.Length");
+                Assert.That(rebased.OriginalSequence, Is.EqualTo("DE"));
+                Assert.That(rebased.VariantSequence, Is.EqualTo("KK"));
+                Assert.That(rebased.Description, Is.EqualTo("OVERLAP_7_8_DE_to_KK"));
+            });
+        }
+        [Test]
         public static void AppliedVariants_AsIBioPolymer()
         {
             // PURPOSE
