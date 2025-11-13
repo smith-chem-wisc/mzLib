@@ -138,7 +138,9 @@ namespace UsefulProteomicsDatabases
 
             decoys.AddRange(DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier));
             IEnumerable<Protein> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
-            var toReturn = proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth));
+
+            var toReturn = proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth)).ToList();
+
             return Merge(toReturn).ToList();
         }
 
@@ -363,10 +365,11 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         public static IEnumerable<Protein> Merge(IEnumerable<Protein> mergeThese)
         {
-            Dictionary<Tuple<string, string, bool, bool>, List<Protein>> proteinsByAccessionSequenceContaminant = new Dictionary<Tuple<string, string, bool, bool>, List<Protein>>();
+            Dictionary<(string Accession, string BaseSequence, bool IsContaminant, bool IsDecoy), List<Protein>> proteinsByAccessionSequenceContaminant
+                = new Dictionary<(string Accession, string BaseSequence, bool IsContaminant, bool IsDecoy), List<Protein>>();
             foreach (Protein p in mergeThese)
             {
-                Tuple<string, string, bool, bool> key = new Tuple<string, string, bool, bool>(p.Accession, p.BaseSequence, p.IsContaminant, p.IsDecoy);
+                var key = (Accession: p.Accession, BaseSequence: p.BaseSequence, IsContaminant: p.IsContaminant, IsDecoy: p.IsDecoy);
                 if (!proteinsByAccessionSequenceContaminant.TryGetValue(key, out List<Protein> bundled))
                 {
                     proteinsByAccessionSequenceContaminant.Add(key, new List<Protein> { p });
@@ -377,7 +380,7 @@ namespace UsefulProteomicsDatabases
                 }
             }
 
-            foreach (KeyValuePair<Tuple<string, string, bool, bool>, List<Protein>> proteins in proteinsByAccessionSequenceContaminant)
+            foreach (var proteins in proteinsByAccessionSequenceContaminant)
             {
                 if (proteins.Value.Count == 1)
                 {
@@ -385,20 +388,27 @@ namespace UsefulProteomicsDatabases
                     continue;
                 }
 
-                HashSet<string> datasets = new HashSet<string>(proteins.Value.Select(p => p.DatasetEntryTag));
-                HashSet<string> createds = new HashSet<string>(proteins.Value.Select(p => p.CreatedEntryTag));
-                HashSet<string> modifieds = new HashSet<string>(proteins.Value.Select(p => p.ModifiedEntryTag));
-                HashSet<string> versions = new HashSet<string>(proteins.Value.Select(p => p.VersionEntryTag));
-                HashSet<string> xmlnses = new HashSet<string>(proteins.Value.Select(p => p.XmlnsEntryTag));
+                string organism = proteins.Value.Select(p => p.Organism).FirstOrDefault(o => !string.IsNullOrEmpty(o)) ?? "Unknown";
+
                 HashSet<string> names = new HashSet<string>(proteins.Value.Select(p => p.Name));
                 HashSet<string> fullnames = new HashSet<string>(proteins.Value.Select(p => p.FullName));
                 HashSet<string> descriptions = new HashSet<string>(proteins.Value.Select(p => p.FullDescription));
                 HashSet<Tuple<string, string>> genenames = new HashSet<Tuple<string, string>>(proteins.Value.SelectMany(p => p.GeneNames));
                 HashSet<TruncationProduct> proteolysis = new HashSet<TruncationProduct>(proteins.Value.SelectMany(p => p.TruncationProducts));
                 HashSet<SequenceVariation> variants = new HashSet<SequenceVariation>(proteins.Value.SelectMany(p => p.SequenceVariations));
+                HashSet<SequenceVariation> appliedVariants = new HashSet<SequenceVariation>(proteins.Value.SelectMany(p => p.AppliedSequenceVariations));
                 HashSet<DatabaseReference> references = new HashSet<DatabaseReference>(proteins.Value.SelectMany(p => p.DatabaseReferences));
                 HashSet<DisulfideBond> bonds = new HashSet<DisulfideBond>(proteins.Value.SelectMany(p => p.DisulfideBonds));
                 HashSet<SpliceSite> splices = new HashSet<SpliceSite>(proteins.Value.SelectMany(p => p.SpliceSites));
+                HashSet<string> databaseFilePaths = new HashSet<string>(proteins.Value.Select(p => p.DatabaseFilePath));
+                bool addTruncations = false;
+                HashSet<string> datasets = new HashSet<string>(proteins.Value.Select(p => p.DatasetEntryTag));
+                HashSet<string> createds = new HashSet<string>(proteins.Value.Select(p => p.CreatedEntryTag));
+                HashSet<string> modifieds = new HashSet<string>(proteins.Value.Select(p => p.ModifiedEntryTag));
+                HashSet<string> versions = new HashSet<string>(proteins.Value.Select(p => p.VersionEntryTag));
+                HashSet<string> xmlnses = new HashSet<string>(proteins.Value.Select(p => p.XmlnsEntryTag));
+                HashSet<UniProtSequenceAttributes> uniProtSequenceAttributes = new HashSet<UniProtSequenceAttributes>(proteins.Value.Select(p => p.UniProtSequenceAttributes));
+
 
                 Dictionary<int, HashSet<Modification>> mod_dict = new Dictionary<int, HashSet<Modification>>();
                 foreach (KeyValuePair<int, List<Modification>> nice in proteins.Value.SelectMany(p => p.OneBasedPossibleLocalizedModifications).ToList())
@@ -417,28 +427,35 @@ namespace UsefulProteomicsDatabases
                 }
                 Dictionary<int, List<Modification>> mod_dict2 = mod_dict.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
 
-                // TODO: Handle applied variants. 
-                yield return new Protein(
+                // TODO: Handle applied variants.
 
-                    proteins.Key.Item2,
-                    proteins.Key.Item1,
-                    isContaminant: proteins.Key.Item3,
-                    isDecoy: proteins.Key.Item4,
-                    geneNames: genenames.ToList(),
-                    oneBasedModifications: mod_dict2,
-                    proteolysisProducts: proteolysis.ToList(),
-                    name: names.FirstOrDefault(),
-                    fullName: fullnames.FirstOrDefault(),
-                    databaseReferences: references.ToList(),
-                    disulfideBonds: bonds.ToList(),
-                    sequenceVariations: variants.ToList(),
-                    spliceSites: splices.ToList(),
-                    dataset: datasets.FirstOrDefault(),
-                    created: createds.FirstOrDefault(),
-                    modified: modifieds.FirstOrDefault(),
-                    version: versions.FirstOrDefault(),
-                    xmlns: xmlnses.FirstOrDefault()
-                    );
+
+
+                yield return new Protein(
+                    proteins.Key.BaseSequence, 
+                    proteins.Key.Accession, 
+                    organism, 
+                    genenames.ToList(), 
+                    mod_dict2, 
+                    proteolysis.ToList(),
+                    names.First(), 
+                    fullnames.First(),
+                    proteins.Key.IsDecoy, 
+                    proteins.Key.IsContaminant, 
+                    references.ToList(), 
+                    variants.ToList(), 
+                    appliedVariants.ToList(),
+                    "sampleNameForVariants",
+                    bonds.ToList(), 
+                    splices.ToList(),
+                    databaseFilePaths.First(),
+                    addTruncations,
+                    datasets.First(),
+                    createds.First(),
+                    modifieds.First(),
+                    versions.First(),
+                    xmlnses.First(),
+                    uniProtSequenceAttributes.First());
             }
         }
 

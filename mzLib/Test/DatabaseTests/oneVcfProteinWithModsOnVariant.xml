@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<mzLibProteinDb>
+  <modification>ID   Ammonia loss on N
+MT   Common Artifact
+TG   N
+PP   Anywhere.
+CF   H-3N-1
+MM   -17.026549101
+
+//</modification>
+  <modification>ID   Hydroxylation on K
+MT   Common Biological
+TG   K
+PP   Anywhere.
+CF   O
+MM   15.99491462
+
+//</modification>
+  <modification>ID   Hydroxylation on N
+MT   Common Biological
+TG   N
+PP   Anywhere.
+CF   O
+MM   15.99491462
+
+//</modification>
+  <modification>ID   Hydroxylation on P
+MT   Common Biological
+TG   P
+PP   Anywhere.
+CF   O
+MM   15.99491462
+DI   HCD:170.060123533
+
+//</modification>
+  <modification>ID   Phosphoserine on S
+AC   PTM-0253
+MT   UniProt
+FT   MOD_RES
+TG   S
+PP   Anywhere.
+CF   HO3P
+MM   79.966331
+DR   PSI-MOD; MOD:00046
+DR   RESID; AA0037
+TR   Archaea; taxId:2157 (Archaea)
+TR   Bacteria; taxId:2 (Bacteria)
+TR   Eukaryota; taxId:2759 (Eukaryota)
+TR   Viruses; taxId:10239 (Viruses)
+KW   Phosphoprotein
+//</modification>
+  <entry>
+    <accession>Q6P6B1</accession>
+    <name>ENST00000318528</name>
+    <protein>
+      <recommendedName>
+        <fullName>Glutamate-rich protein 5</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">ERICH5</name>
+      <name type="synonym">C8orf47</name>
+      <name type="primary">ERICH5</name>
+      <name type="accession">ENSG00000177459</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <feature type="chain">
+      <location>
+        <begin position="1" />
+        <end position="374" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Phosphoserine on S">
+      <location>
+        <position position="169" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Hydroxylation on P">
+      <location>
+        <position position="187" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Hydroxylation on N">
+      <location>
+        <position position="193" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Ammonia loss on N">
+      <location>
+        <position position="193" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Hydroxylation on P">
+      <location>
+        <position position="205" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Hydroxylation on P">
+      <location>
+        <position position="216" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Hydroxylation on K">
+      <location>
+        <position position="223" />
+      </location>
+    </feature>
+    <feature type="sequence variant" description="8\t98089650\t.\tG\tT\t488.77\t.\tANN=T|missense_variant|MODERATE|ERICH5|ENSG00000177459|transcript|ENST00000318528.7|protein_coding|2/3|c.633G&gt;T|p.Lys211Asn|992/1761|633/1125|211/374||\tGT:AD:DP:GQ:PL\t1/1:0,15:15:45:517,45,0">
+      <original>K</original>
+      <variation>N</variation>
+      <location>
+        <position position="211" />
+        <subfeature type="modified residue" description="Hydroxylation on N">
+          <location>
+            <subposition subposition="211" />
+          </location>
+        </subfeature>
+        <subfeature type="modified residue" description="Ammonia loss on N">
+          <location>
+            <subposition subposition="211" />
+          </location>
+        </subfeature>
+      </location>
+    </feature>
+    <feature type="splice site" description="8\t+\t98064669\t98064726\t98089075\t98090028">
+      <location>
+        <position position="20" />
+      </location>
+    </feature>
+    <feature type="splice site" description="8\t+\t98089075\t98090028\t98093220\t98093332">
+      <location>
+        <position position="338" />
+      </location>
+    </feature>
+    <sequence length="374">MGCSSSALNKAGDSSRFPSVTSNEHFSTAEESESCFAQPKPHALGRESTVDGNVQRESRPPLQKLKVSAEPTANGVKPLQEQPLAKDVAPGRDATDQSGSTEKTQPGEGLEESGPPQPGGKEDAPAAEGKKKDAGAGTEAESLKGNAEAQPLGPEAKGQPLQAAVEKDSLRAVEVTENPQTAAEMKPLGTTENVLTLQIAGELQPQGTVGKDEQAPLLETISKENESPEILEGSQFVETAEEQQLQATLGKEEQPQLLERIPKENVTPEVLDRSQLVEKPVMNDPFHKTPEGPGNMEQIQPEGIVGSMEHPARNVEAGAYVEMIRNIHTNEEDQRIEGETGEKVETDMENEKVSEGAETKEEETGEVVDLSAAT</sequence>
+  </entry>
+</mzLibProteinDb>
+
+

@@ -50,7 +50,16 @@ namespace Test.DatabaseTests
         public static void VariantProtein()
         {
             Protein p = new Protein("MAAA", "accession");
-            Protein v = new Protein("MAVA", p, new[] { new SequenceVariation(3, "A", "V", "desc", null) }, null, null, null);
+
+            // New ctor: (variantBaseSequence, protein, sequenceVariants, appliedSequenceVariants, proteolysisProducts, mods, sampleName)
+            Protein v = new Protein(
+                "MAVA",
+                p,
+                new[] { new SequenceVariation(3, "A", "V", "desc", null) }, // applied
+                null,
+                null,
+                null);
+
             Assert.AreEqual(p, v.ConsensusVariant);
         }
 
@@ -133,19 +142,19 @@ namespace Test.DatabaseTests
             Assert.AreEqual(modIdx, target.OneBasedPossibleLocalizedModifications.Single().Key);
             Assert.AreEqual(1, target.AppliedSequenceVariations.Count());
             Assert.AreEqual(modIdx, target.AppliedSequenceVariations.Single().OneBasedBeginPosition);
-            Assert.AreEqual(1, target.SequenceVariations.Count());
-            Assert.AreEqual(modIdx, target.SequenceVariations.Single().OneBasedBeginPosition);
-            Assert.AreEqual(1, target.SequenceVariations.Single().OneBasedModifications.Count);
-            Assert.AreEqual(modIdx, target.SequenceVariations.Single().OneBasedModifications.Single().Key); //PEP[mod]TID, MEP[mod]TID
+            Assert.AreEqual(0, target.SequenceVariations.Count());
+            Assert.AreEqual(modIdx, target.AppliedSequenceVariations.Single().OneBasedBeginPosition);
+            Assert.AreEqual(1, target.AppliedSequenceVariations.Single().OneBasedModifications.Count);
+            Assert.AreEqual(modIdx, target.AppliedSequenceVariations.Single().OneBasedModifications.Single().Key); //PEP[mod]TID, MEP[mod]TID
             var decoy = proteins[1];
             Assert.AreEqual(1, decoy.OneBasedPossibleLocalizedModifications.Count);
             Assert.AreEqual(reversedModIdx, decoy.OneBasedPossibleLocalizedModifications.Single().Key); //DITP[mod]EP, MDITP[mod]E
             Assert.AreEqual(1, decoy.AppliedSequenceVariations.Count());
             Assert.AreEqual(reversedModIdx, decoy.AppliedSequenceVariations.Single().OneBasedBeginPosition);
-            Assert.AreEqual(1, decoy.SequenceVariations.Count());
-            Assert.AreEqual(reversedModIdx, decoy.SequenceVariations.Single().OneBasedBeginPosition);
-            Assert.AreEqual(1, decoy.SequenceVariations.Single().OneBasedModifications.Count);
-            Assert.AreEqual(reversedModIdx, decoy.SequenceVariations.Single().OneBasedModifications.Single().Key);
+            Assert.AreEqual(0, decoy.SequenceVariations.Count());
+            Assert.AreEqual(reversedModIdx, decoy.AppliedSequenceVariations.Single().OneBasedBeginPosition);
+            Assert.AreEqual(1, decoy.AppliedSequenceVariations.Single().OneBasedModifications.Count);
+            Assert.AreEqual(reversedModIdx, decoy.AppliedSequenceVariations.Single().OneBasedModifications.Single().Key);
 
             string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteins.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", rewriteDbName));
@@ -156,19 +165,19 @@ namespace Test.DatabaseTests
             Assert.AreEqual(modIdx, target.OneBasedPossibleLocalizedModifications.Single().Key);
             Assert.AreEqual(1, target.AppliedSequenceVariations.Count());
             Assert.AreEqual(modIdx, target.AppliedSequenceVariations.Single().OneBasedBeginPosition);
-            Assert.AreEqual(1, target.SequenceVariations.Count());
-            Assert.AreEqual(modIdx, target.SequenceVariations.Single().OneBasedBeginPosition);
-            Assert.AreEqual(1, target.SequenceVariations.Single().OneBasedModifications.Count);
-            Assert.AreEqual(modIdx, target.SequenceVariations.Single().OneBasedModifications.Single().Key);
+            Assert.AreEqual(0, target.SequenceVariations.Count());
+            Assert.AreEqual(modIdx, target.AppliedSequenceVariations.Single().OneBasedBeginPosition);
+            Assert.AreEqual(1, target.AppliedSequenceVariations.Single().OneBasedModifications.Count);
+            Assert.AreEqual(modIdx, target.AppliedSequenceVariations.Single().OneBasedModifications.Single().Key);
             decoy = proteins[1];
             Assert.AreEqual(1, decoy.OneBasedPossibleLocalizedModifications.Count);
             Assert.AreEqual(reversedModIdx, decoy.OneBasedPossibleLocalizedModifications.Single().Key);
             Assert.AreEqual(1, decoy.AppliedSequenceVariations.Count());
             Assert.AreEqual(reversedModIdx, decoy.AppliedSequenceVariations.Single().OneBasedBeginPosition);
-            Assert.AreEqual(1, decoy.SequenceVariations.Count());
-            Assert.AreEqual(reversedModIdx, decoy.SequenceVariations.Single().OneBasedBeginPosition);
-            Assert.AreEqual(1, decoy.SequenceVariations.Single().OneBasedModifications.Count);
-            Assert.AreEqual(reversedModIdx, decoy.SequenceVariations.Single().OneBasedModifications.Single().Key);
+            Assert.AreEqual(0, decoy.SequenceVariations.Count());
+            Assert.AreEqual(reversedModIdx, decoy.AppliedSequenceVariations.Single().OneBasedBeginPosition);
+            Assert.AreEqual(1, decoy.AppliedSequenceVariations.Single().OneBasedModifications.Count);
+            Assert.AreEqual(reversedModIdx, decoy.AppliedSequenceVariations.Single().OneBasedModifications.Single().Key);
         }
 
         [TestCase("ranges1.xml", 1, 2, 5, 6)] // without starting methionine
@@ -269,20 +278,40 @@ namespace Test.DatabaseTests
         }
 
         [Test]
-        [TestCase("HomozygousHLA.xml", 1, 18)]
-        [TestCase("HomozygousHLA.xml", 10, 17)]
-        public static void HomozygousVariantsAtVariedDepths(string filename, int minVariantDepth, int appliedCount)
+        public static void HomozygousVariantsDepthOne()
         {
+            string filename = "HomozygousHLA.xml"; 
+            int minVariantDepth = 1; 
+            int appliedCount = 18;
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", filename), true,
                 DecoyType.None, null, false, null, out var unknownModifications, minAlleleDepth: minVariantDepth);
             Assert.AreEqual(1, proteins.Count);
-            Assert.AreEqual(18, proteins[0].SequenceVariations.Count()); // some redundant
-            Assert.AreEqual(18, proteins[0].SequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
+            //all sequence variants are applied and therefore removed from the SequenceVariations list
+            Assert.AreEqual(0, proteins[0].SequenceVariations.Count()); // some redundant
+
             Assert.AreEqual(appliedCount, proteins[0].AppliedSequenceVariations.Count()); // some redundant
             Assert.AreEqual(appliedCount, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
             Assert.AreEqual(1, proteins[0].GetVariantBioPolymers().Count);
             var variantProteins = proteins[0].GetVariantBioPolymers();
             List<PeptideWithSetModifications> peptides = proteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
+        }
+
+        [Test]
+
+        public static void HomozygousVariantsDepth17()
+        {
+            string filename = "HomozygousHLA.xml";
+            int minVariantDepth = 10;
+            int appliedCount = 17;
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", filename), true,
+                DecoyType.None, null, false, null, out var unknownModifications, minAlleleDepth: minVariantDepth);
+            Assert.AreEqual(1, proteins.Count);
+            // 17 of 18 sequence variants are applied and therefore removed from the SequenceVariations list leaving 1 behind
+            // but since we no longer keep unused sequence variants in proteins with applied variants, this should be 0
+            Assert.AreEqual(0, proteins[0].SequenceVariations.Count()); // some redundant
+            Assert.AreEqual(appliedCount, proteins[0].AppliedSequenceVariations.Count()); // some redundant
+            Assert.AreEqual(appliedCount, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
+            Assert.AreEqual(1, proteins[0].GetVariantBioPolymers().Count);
         }
 
         [Test]
@@ -398,7 +427,14 @@ namespace Test.DatabaseTests
             var rna = new RNA("GUACUGACU");
             NUnit.Framework.Assert.Throws<ArgumentException>(() =>
             {
-                proteins[0].CreateVariant(proteins[0].BaseSequence, rna, [], [], new Dictionary<int, List<Modification>>(), "");
+                // New signature requires sequenceVariants and applicableTruncationProducts
+                proteins[0].CreateVariant(
+                    proteins[0].BaseSequence,
+                    rna,
+                    [],  // appliedSequenceVariants
+                    [],  // applicableTruncationProducts
+                    new Dictionary<int, List<Modification>>(),
+                    "");
             });
         }
 
@@ -444,25 +480,29 @@ namespace Test.DatabaseTests
         public static void MultipleAlternateAlleles()
         {
             var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "MultipleAlternateAlleles.xml"), true,
-                DecoyType.None, null, false, null, out var unknownModifications);
+                DecoyType.None, null, false, null, out var unknownModifications, maxHeterozygousVariants: 99);
             Assert.AreEqual(2, proteins.Count);
-            Assert.AreEqual(2, proteins[0].SequenceVariations.Count()); // some redundant
-            Assert.AreEqual(2, proteins[0].SequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
 
-            Assert.IsTrue(proteins[0].SequenceVariations.All(v => v.OneBasedBeginPosition == 63)); // there are two alternate alleles (1 and 2), but only 2 is in the genotype, so only that's applied
-            Assert.AreEqual(1, proteins[1].AppliedSequenceVariations.Count()); // some redundant
-            Assert.AreEqual(1, proteins[1].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
-            Assert.AreEqual(72, proteins[0].Length);
-            Assert.AreEqual(72, proteins[1].Length);
-            Assert.AreEqual('K', proteins[0][63 - 1]);
-            Assert.AreEqual('R', proteins[1][63 - 1]);
+            var p0 = proteins.Where(a=>a.Accession == "ENST00000383750").First();
+            var p1 = proteins.Where(a=>a.Accession == "ENST00000383750_K63R").First();
+
+            Assert.AreEqual(2, p0.SequenceVariations.Count()); // consensus protein has two sequence variants but only 1 is in the genotype so that is the only one that will be applied
+            Assert.AreEqual(2, p0.SequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
+
+            Assert.IsTrue(p0.SequenceVariations.All(v => v.OneBasedBeginPosition == 63)); // there are two alternate alleles (1 and 2), but only 2 is in the genotype, so only that's applied
+            Assert.AreEqual(1, p1.AppliedSequenceVariations.Count()); // some redundant
+            Assert.AreEqual(1, p1.AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
+            Assert.AreEqual(72, p0.Length);
+            Assert.AreEqual(72, p1.Length);
+            Assert.AreEqual('K', p0[63 - 1]);
+            Assert.AreEqual('R', p1[63 - 1]);
 
             proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "MultipleAlternateAlleles.xml"), true,
                 DecoyType.None, null, false, null, out unknownModifications, minAlleleDepth: 10);
             Assert.AreEqual(1, proteins.Count);
-            Assert.AreEqual(0, proteins[0].AppliedSequenceVariations.Count()); // some redundant
-            Assert.AreEqual(0, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
-            Assert.AreEqual('K', proteins[0][63 - 1]); // reference only
+            Assert.AreEqual(0, p0.AppliedSequenceVariations.Count()); // some redundant
+            Assert.AreEqual(0, p0.AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
+            Assert.AreEqual('K', p0[63 - 1]); // reference only
         }
 
         [Test]
@@ -530,12 +570,12 @@ namespace Test.DatabaseTests
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "IndelDecoy.xml");
             List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un);
             Assert.AreEqual(8, variantProteins.Count);
-            var indelProtein = variantProteins[2];
+            var indelProtein = variantProteins.Where(p=>p.Accession == "ENST00000529487_K781EEK" && !p.IsDecoy).First();
             Assert.AreNotEqual(indelProtein.AppliedSequenceVariations.Single().OriginalSequence.Length, indelProtein.AppliedSequenceVariations.Single().VariantSequence.Length);
-            Assert.AreNotEqual(indelProtein.ConsensusVariant.Length, variantProteins[2].Length);
-            var decoyIndelProtein = variantProteins[5];
+            Assert.AreNotEqual(indelProtein.ConsensusVariant.BaseSequence.Length, indelProtein.BaseSequence.Length);
+            var decoyIndelProtein = variantProteins.Where(p => p.Accession == "DECOY_ENST00000529487_K922KEE" && p.IsDecoy).First();
             Assert.AreNotEqual(decoyIndelProtein.AppliedSequenceVariations.Single().OriginalSequence.Length, decoyIndelProtein.AppliedSequenceVariations.Single().VariantSequence.Length);
-            Assert.AreNotEqual(decoyIndelProtein.ConsensusVariant.Length, variantProteins[2].Length);
+            Assert.AreNotEqual(decoyIndelProtein.ConsensusVariant.BaseSequence.Length, decoyIndelProtein.BaseSequence.Length);
             Assert.AreEqual(indelProtein.Length - indelProtein.AppliedSequenceVariations.Single().OneBasedBeginPosition, decoyIndelProtein.AppliedSequenceVariations.Single().OneBasedBeginPosition);
             var variantSeq = indelProtein.AppliedSequenceVariations.Single().VariantSequence.ToCharArray();
             Array.Reverse(variantSeq);
@@ -547,15 +587,19 @@ namespace Test.DatabaseTests
         {
             string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "DecoyVariants.xml");
             List<Protein> variantProteins = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.Reverse, null, false, null, out var un);
+            var v0 = variantProteins.Where(p => p.Accession == "ENST00000511577_E1222D_N1488D_M1646V").First();
+            var v1 = variantProteins.Where(p => p.Accession == "ENST00000511577_V409L_E1222D_N1488D_M1646V").First();
+            var v2 = variantProteins.Where(p => p.Accession == "DECOY_ENST00000511577_M62V_N220D_E486D").First();
+            var v3 = variantProteins.Where(p => p.Accession == "DECOY_ENST00000511577_M62V_N220D_E486D_V1299L").First();
+
             Assert.AreEqual(4, variantProteins.Count);
-            Assert.AreEqual(3, variantProteins[0].AppliedSequenceVariations.Count); // homozygous variations
-            Assert.AreEqual(4, variantProteins[1].AppliedSequenceVariations.Count); // plus one heterozygous variation
-            Assert.AreEqual("M", variantProteins[0].AppliedSequenceVariations.Last().OriginalSequence);
-            Assert.AreEqual(1646, variantProteins[0].AppliedSequenceVariations.Last().OneBasedBeginPosition);
-            Assert.AreEqual("V", variantProteins[0].AppliedSequenceVariations.Last().VariantSequence);
-            Assert.AreEqual("M", variantProteins[2].AppliedSequenceVariations.First().OriginalSequence);
-            Assert.AreEqual(variantProteins[0].Length - 1646 + 2, variantProteins[2].AppliedSequenceVariations.First().OneBasedBeginPosition);
-            Assert.AreEqual("V", variantProteins[2].AppliedSequenceVariations.First().VariantSequence);
+            Assert.AreEqual(3, v0.AppliedSequenceVariations.Count); // homozygous variations
+            Assert.AreEqual(4, v1.AppliedSequenceVariations.Count); // plus one heterozygous variation
+            Assert.That(v0.AppliedSequenceVariations.Select(o=>o.OriginalSequence).Contains("M"));
+            Assert.That(v0.AppliedSequenceVariations.Select(o => o.OneBasedBeginPosition).Contains(1646));
+            Assert.That(v0.AppliedSequenceVariations.Select(o => o.VariantSequence).Contains("V"));
+            Assert.That(v2.AppliedSequenceVariations.Select(o => o.OriginalSequence).Contains("M"));
+            Assert.That(v2.AppliedSequenceVariations.Select(o => o.VariantSequence).Contains("V"));
         }
         [Test]
         public void SequenceVariationIsValidTest()
@@ -576,6 +620,137 @@ namespace Test.DatabaseTests
             Assert.IsTrue(svValidOriginalSequenceIsEmpty.AreValid()); //This is valid because it is an insertion
             Assert.IsTrue(svValidVariantSequenceLenthIsZero.AreValid()); // This is valid because it is a deletion
         }
+        /// <summary>
+        /// In this unit test, you will not get the base protein because the variant in your VCF is homozygous ALT (GT=1/1) with sufficient depth,
+        /// and the loader always expands VCF-only entries via ApplyVariants. The maxHeterozygousVariants parameter only limits heterozygous combinatorics; it does not prevent applying homozygous variants.
+        /// What happens in your path
+        ///  •	LoadProteinXML always expands proteins by calling GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth).
+        ///  •	If a protein has only VCF-style sequence variations, GetVariantBioPolymers routes to ApplyVariants.
+        ///  •	In ApplyVariants, a homozygous ALT with depth ≥ minAlleleDepth results in replacing the base with the variant:
+        ///  •	isHomozygousAlternate == true and isDeepAlternateAllele == true → newVariantProteins = ApplySingleVariant(...), i.e., base is not retained.
+        ///  •	maxHeterozygousVariants only affects heterozygous logic.It does nothing for homozygous ALT variants.
+        /// Why your specific test applies the variant Your vcfstring is GT= 1 / 1 with AD = 0,15 (ALT depth 15). With the default minAlleleDepth=1 (you didn’t override it),
+        /// ApplyVariants treats this as homozygous ALT with sufficient depth and applies it, returning only the variant protein.
+        /// </summary>
+        [Test]
+        public void VcfProteinWithModOnDeepHomozygousVariant()
+        {
+            string vcfstring =
+                "8\t98089650\t.\tG\tT\t488.77\t.\tANN=T|missense_variant|MODERATE|ERICH5|ENSG00000177459|transcript|ENST00000318528.7|protein_coding|2/3|c.633G&gt;T|p.Lys211Asn|992/1761|633/1125|211/374||\tGT:AD:DP:GQ:PL\t1/1:0,15:15:45:517,45,0";
+
+            // Example VCF line with snpEff annotation:
+            // 8	98089650	.	G	T	488.77	.	ANN=T|missense_variant|MODERATE|ERICH5|ENSG00000177459|transcript|ENST00000318528.7|protein_coding|2/3|c.633G>T|p.Lys211Asn|992/1761|633/1125|211/374||	GT:AD:DP:GQ:PL	1/1:0,15:15:45:517,45,0
+            //
+            // --- VCF Standard Columns ---
+            // CHROM (8)         → Chromosome 8
+            // POS (98089650)    → 1-based position of the variant (98,089,650)
+            // ID (.)            → No variant identifier
+            // REF (G)           → Reference allele is G
+            // ALT (T)           → Alternate allele is T
+            // QUAL (488.77)     → Variant call quality score
+            // FILTER (.)        → No filter applied
+            //
+            // --- INFO Column ---
+            // INFO (ANN=...) holds snpEff annotation data.
+            // ANN format is:
+            //   Allele | Effect | Impact | Gene_Name | Gene_ID | Feature_Type | Feature_ID |
+            //   Transcript_Biotype | Rank | HGVS.c | HGVS.p | cDNA_pos/cDNA_len |
+            //   CDS_pos/CDS_len | AA_pos/AA_len | Distance | Errors/Warnings
+            //
+            // In this case: ANN=T|missense_variant|MODERATE|ERICH5|ENSG00000177459|transcript|ENST00000318528.7|protein_coding|2/3|c.633G>T|p.Lys211Asn|992/1761|633/1125|211/374||
+            //   - Allele = T
+            //   - Effect = missense_variant (amino acid change)
+            //   - Impact = MODERATE
+            //   - Gene_Name = ERICH5
+            //   - Gene_ID = ENSG00000177459
+            //   - Feature_Type = transcript
+            //   - Feature_ID = ENST00000318528.7
+            //   - Transcript_Biotype = protein_coding
+            //   - Rank = 2/3
+            //   - HGVS.c = c.633G>T (cDNA change)
+            //   - HGVS.p = p.Lys211Asn (protein change: Lysine 211 to Asparagine)
+            //   - cDNA_pos/cDNA_len = 992/1761
+            //   - CDS_pos/CDS_len = 633/1125
+            //   - AA_pos/AA_len = 211/374
+            //   - Distance, Errors/Warnings = empty
+            //
+            // --- FORMAT Column ---
+            // FORMAT (GT:AD:DP:GQ:PL) defines how to read the sample column(s):
+            //   GT → Genotype (1/1 = homozygous alternate)
+            //   AD → Allele depth (0 reads for REF, 15 for ALT)
+            //   DP → Read depth (15 reads at this site)
+            //   GQ → Genotype quality (45)
+            //   PL → Phred-scaled genotype likelihoods (517,45,0)
+            //
+            // --- SAMPLE Column ---
+            // Sample entry: 1/1:0,15:15:45:517,45,0
+            //   GT = 1/1 → Homozygous ALT genotype (both alleles = T)
+            //   AD = 0,15 → 0 reads for REF (G), 15 reads for ALT (T)
+            //   DP = 15   → Total coverage at this site = 15 reads
+            //   GQ = 45   → Genotype quality
+            //   PL = 517,45,0 → Genotype likelihoods
+            //
+            // --- Overall Summary ---
+            // Variant at chr8:98089650 changes G → T.
+            // The sample is homozygous for the ALT allele (T).
+            // The variant causes a missense mutation in ERICH5 (Lys211Asn).
+            // Variant passed filters, with moderate predicted impact.
+
+            string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "oneVcfProteinWithModsOnVariant.xml");
+            List<Protein> proteinsNoDecoys = ProteinDbLoader.LoadProteinXML(file, true, DecoyType.None, null, false, null, out var un,
+                maxHeterozygousVariants: 0);
+            // What: Ensure only one proteoform was created.
+            // Expect: 1.
+            // Why: The VCF contains a single homozygous ALT (GT=1/1) with sufficient depth, so the loader applies the variant and does not retain a separate base proteoform (DecoyType.None, maxHeterozygousVariants=0).
+            Assert.AreEqual(1, proteinsNoDecoys.Count);
+
+            // What: Verify the returned proteoform is the variant with the expected accession suffix.
+            // Expect: At least one protein has accession "Q6P6B1_K211N".
+            // Why: Variant accessions are formed by appending the applied variant’s SimpleString (K211N) to the base accession (VariantApplication.GetAccession).
+            Assert.That(proteinsNoDecoys.Any(a => a.Accession == "Q6P6B1_K211N"));
+
+            // What: Confirm the unmodified base accession is not present as its own proteoform.
+            // Expect: No protein has accession "Q6P6B1".
+            // Why: For homozygous ALT with depth >= minAlleleDepth, only the variant proteoform is emitted; the base (reference) proteoform is not included.
+            Assert.That(proteinsNoDecoys.Any(a => a.Accession == "Q6P6B1"), Is.False);
+
+            // What: The ConsensusVariant (reference) is still tracked for the proteoform.
+            // Expect: At least one protein references a ConsensusVariant with accession "Q6P6B1".
+            // Why: ConsensusVariant points to the original/reference protein, even when the returned proteoform is a variant.
+            Assert.That(proteinsNoDecoys.Any(a => a.ConsensusVariant.Accession == "Q6P6B1"));
+
+            // What: Check the number of distinct positions with possible localized modifications on the variant proteoform.
+            // Expect: 7.
+            // Why: OneBasedPossibleLocalizedModifications is a dictionary keyed by 1-based residue index; Values.Count equals the number of distinct modified positions after variant application and index adjustments.
+            Assert.AreEqual(7, proteinsNoDecoys.First().OneBasedPossibleLocalizedModifications.Values.Count);
+
+            // What: Verify that, on the variant proteoform, there are no remaining unapplied database sequence variants.
+            // Expect: 0.
+            // Why: Applied variants are removed from SequenceVariations during variant construction, and this case has only the single VCF-driven variant applied.
+            Assert.AreEqual(0, proteinsNoDecoys.First().SequenceVariations.Count);
+
+            // What: Confirm exactly one sequence variant was applied to produce this proteoform.
+            // Expect: 1.
+            // Why: The input specifies a single homozygous variant (K211N), so exactly one applied variation is recorded.
+            Assert.AreEqual(1, proteinsNoDecoys.First().AppliedSequenceVariations.Count);
+
+            // What: Verify the total number of modifications annotated on the applied variant region.
+            // Expect: 2.
+            // Why: AppliedSequenceVariations.First().OneBasedModifications is a dictionary of position -> list of modifications on the variant region.
+            // In this case there is one key (position) with two modifications; summing the list counts across all keys yields 2.
+            Assert.AreEqual(2, proteinsNoDecoys.First().AppliedSequenceVariations.First().OneBasedModifications.Values.Sum(v => v.Count));
+
+            // Additional checks on the ConsensusVariant for completeness
+            var consensusProtein = proteinsNoDecoys.First().ConsensusVariant;
+            var consensusSequenceVariants = consensusProtein.SequenceVariations;
+            Assert.That(1, Is.EqualTo(consensusSequenceVariants.Count));
+            Assert.That(211, Is.EqualTo(consensusSequenceVariants.First().OneBasedBeginPosition));
+            var consensusAppliedVariants = consensusProtein.AppliedSequenceVariations;
+            Assert.That(0, Is.EqualTo(consensusAppliedVariants.Count));
+            var consensusModifications = consensusProtein.OneBasedPossibleLocalizedModifications;
+            Assert.That(6, Is.EqualTo(consensusModifications.Count));
+        }
+
         [Test]
         public void VariantModificationTest()
         {
@@ -585,9 +760,9 @@ namespace Test.DatabaseTests
             List<Protein> variantTargets = targets.Where(p => p.AppliedSequenceVariations.Count >= 1).ToList();
             List<Protein> decoys = variantProteins.Where(p => p.IsDecoy == true).ToList();
             List<Protein> variantDecoys = decoys.Where(p => p.AppliedSequenceVariations.Count >= 1).ToList();
-            bool homozygousVariant = targets.Select(p => p.Accession).Contains("Q6P6B1");           
+            bool homozygousVariant = targets.Select(p => p.Accession).Contains("Q6P6B1");
 
-            var variantMods = targets.SelectMany(p => p.AppliedSequenceVariations.Where(x=>x.OneBasedModifications.Count>= 1)).ToList();
+            var variantMods = targets.SelectMany(p => p.AppliedSequenceVariations.Where(x => x.OneBasedModifications.Count >= 1)).ToList();
             var decoyMods = decoys.SelectMany(p => p.AppliedSequenceVariations.Where(x => x.OneBasedModifications.Count >= 1)).ToList();
             var negativeResidues = decoyMods.SelectMany(x => x.OneBasedModifications.Where(w => w.Key < 0)).ToList();
             bool namingWrong = targets.Select(p => p.Accession).Contains("Q8N865_H300R_A158T_H300R");
@@ -603,7 +778,6 @@ namespace Test.DatabaseTests
             Assert.AreEqual(2, variantMods.Count);
             Assert.AreEqual(2, decoyMods.Count);
             Assert.AreEqual(0, negativeResidues.Count);
-
         }
         [Test]
         public void WriteProteinXmlWithVariantsDiscoveredAsModifications2()
@@ -769,6 +943,429 @@ namespace Test.DatabaseTests
             Assert.AreEqual("0", adKey);
             var adValues = svd.AlleleDepths[adKey];
             Assert.AreEqual(new[] { "30", "30" }, adValues);
+        }
+        /// <summary>
+        /// The humanGAPDH.xml test file contains one protein with two separate amino acid substitution variants.
+        /// When loaded with ProteinDbLoader.LoadProteinXML with variant expansion enabled,
+        /// the resulting protein entries reflect these variants appropriately.
+        /// There are four total proteins: the consensus (no variants), each single variant applied separately, and both variants applied.
+        /// Writing this list of four proteins back to XML results in an XML file that contains one Protein entry that is exactly the same as the original.
+        /// There are no entries for the variant proteins because the writer does not currently serialize applied variants as separate proteins.
+        /// Loading in this XML again results in the same four proteins as the original load. One consensus and three variant-applied proteoforms.
+        /// </summary>
+        [Test]
+        public static void TestProteinVariantsRoundTrip()
+        {
+            string databaseName = "humanGAPDH.xml";
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
+                DecoyType.None, null, false, null, out var unknownModifications, 1, 99);
+            Assert.AreEqual(4, proteins.Count); // 4 target
+            var consensusProtein = proteins[0];
+            Assert.That(2, Is.EqualTo(consensusProtein.SequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(consensusProtein.AppliedSequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(consensusProtein.OneBasedPossibleLocalizedModifications.Keys.Count));
+            var A22G_Protein = proteins[1];
+            Assert.That(0, Is.EqualTo(A22G_Protein.SequenceVariations.Count));
+            Assert.That(1, Is.EqualTo(A22G_Protein.AppliedSequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(A22G_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+            var K251N_Protein = proteins[2];
+            Assert.That(0, Is.EqualTo(K251N_Protein.SequenceVariations.Count));
+            Assert.That(1, Is.EqualTo(K251N_Protein.AppliedSequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(K251N_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+            var K251N_A22G_Protein = proteins[3];
+            Assert.That(0, Is.EqualTo(K251N_A22G_Protein.SequenceVariations.Count));
+            Assert.That(2, Is.EqualTo(K251N_A22G_Protein.AppliedSequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(K251N_A22G_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+
+            // Write the non-decoy proteins to a temporary XML database
+            string tempDir = Path.Combine(Path.GetTempPath(), $"mzLib_roundtrip_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(tempDir);
+            string tempFile = Path.Combine(tempDir, "roundtrip_proteins.xml");
+
+            ProteinDbWriter.WriteXmlDatabase(
+                new Dictionary<string, HashSet<Tuple<int, Modification>>>(), // no fixed mods to embed
+                proteins,
+                tempFile);
+
+            // Count ProteinXmlEntry nodes directly from the XML (namespace- and case-insensitive)
+            var xdoc = System.Xml.Linq.XDocument.Load(tempFile);
+            int proteinXmlEntryCount = xdoc
+                .Descendants()
+                .Count(e => string.Equals(e.Name.LocalName, "protein", StringComparison.OrdinalIgnoreCase));
+            int countOfConsensusProteins = proteins.Select(p => p.ConsensusVariant).Distinct().Count();
+            int countOfProteinsWithAppliedVariants = proteins.Where(p => p.AppliedSequenceVariations.Count > 0).Distinct().Count();
+            TestContext.WriteLine($"ProteinXmlEntry count in XML: {proteinXmlEntryCount}");
+
+            // Expect the XML to contain one entry per written protein
+            // Mysteriously there is only one written protein.....
+            Assert.That(proteinXmlEntryCount, Is.EqualTo(countOfConsensusProteins + countOfProteinsWithAppliedVariants));
+
+            // Read the database back in
+            var roundTripped = ProteinDbLoader.LoadProteinXML(
+                tempFile,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: null,
+                isContaminant: false,
+                modTypesToExclude: null,
+                out var unknownMods2,
+                minAlleleDepth: 1,
+                maxHeterozygousVariants: 99);
+
+            try
+            {
+                // Even though we are applying variants all over again, we should end up with the same total number of proteins
+                // This is because the variants generated by the consensus protein with sequence variations produce the same set of proteins
+                // as those with applied variants. In other words, the duplicates get collapsed.
+                Assert.That(roundTripped.Count, Is.EqualTo(countOfConsensusProteins + countOfProteinsWithAppliedVariants));
+
+                // Ensure accessions match 1:1
+                var originalAccs = proteins.Select(p => p.Accession).OrderBy(a => a).ToList();
+                var rtAccs = roundTripped.Select(p => p.Accession).OrderBy(a => a).ToList();
+                Assert.That(rtAccs, Is.EqualTo(originalAccs));
+
+                // Validate per-proteoform annotations survived round-trip
+                foreach (var rt in roundTripped)
+                {
+                    var orig = proteins.Single(p => p.Accession == rt.Accession);
+
+                    Assert.That(rt.BaseSequence, Is.EqualTo(orig.BaseSequence), $"BaseSequence mismatch for {rt.Accession}");
+                }
+            }
+            finally
+            {
+                // Cleanup
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, recursive: true); } catch { /* ignore */ }
+                }
+            }
+
+        }
+        /// <summary>
+        /// The humanGAPDH.xml test file contains one protein with two separate amino acid substitution variants.
+        /// When loaded with ProteinDbLoader.LoadProteinXML with variant expansion enabled,
+        /// the resulting protein entries reflect these variants appropriately.
+        /// There are four total proteins: the consensus (no variants), each single variant applied separately, and both variants applied.
+        /// In this test we add a modification to the consensus protein to ensure that modifications survive the round trip as well.
+        /// Writing this list of four proteins back to XML results in an XML file that contains one Protein entry that is exactly the same as the original.
+        /// There are no entries for the variant proteins because the writer does not currently serialize applied variants as separate proteins.
+        /// Loading in this XML again results in the same four proteins as the original load. One consensus and three variant-applied proteoforms.
+        /// </summary>
+        [Test]
+        public static void TestProteinVariantsAddModToConsensusRoundTrip()
+        {
+            ModificationMotif.TryGetMotif("M", out ModificationMotif motifM);
+            Modification mm = new Modification("mod", null, "type", null, motifM, "Anywhere.", null, 16, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+            
+            string databaseName = "humanGAPDH.xml";
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
+                DecoyType.None, null, false, null, out var unknownModifications, 1, 99);
+            Assert.AreEqual(4, proteins.Count); // 4 target
+            var consensusProtein = proteins[0];
+            Assert.That(2, Is.EqualTo(consensusProtein.SequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(consensusProtein.AppliedSequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(consensusProtein.OneBasedPossibleLocalizedModifications.Keys.Count));
+
+            // Add a modification to the consensus protein to test that mods survive the round trip
+            consensusProtein.OneBasedPossibleLocalizedModifications.Add(1, new List<Modification>() { mm });
+            Assert.That(1, Is.EqualTo(consensusProtein.OneBasedPossibleLocalizedModifications.Keys.Count));
+
+            var A22G_Protein = proteins[1];
+            Assert.That(0, Is.EqualTo(A22G_Protein.SequenceVariations.Count));
+            Assert.That(1, Is.EqualTo(A22G_Protein.AppliedSequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(A22G_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+            var K251N_Protein = proteins[2];
+            Assert.That(0, Is.EqualTo(K251N_Protein.SequenceVariations.Count));
+            Assert.That(1, Is.EqualTo(K251N_Protein.AppliedSequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(K251N_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+            var K251N_A22G_Protein = proteins[3];
+            Assert.That(0, Is.EqualTo(K251N_A22G_Protein.SequenceVariations.Count));
+            Assert.That(2, Is.EqualTo(K251N_A22G_Protein.AppliedSequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(K251N_A22G_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+
+            // Write the non-decoy proteins to a temporary XML database
+            string tempDir = Path.Combine(Path.GetTempPath(), $"mzLib_roundtrip_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(tempDir);
+            string tempFile = Path.Combine(tempDir, "roundtrip_proteins.xml");
+
+            ProteinDbWriter.WriteXmlDatabase(
+                new Dictionary<string, HashSet<Tuple<int, Modification>>>(), // no fixed mods to embed
+                proteins,
+                tempFile);
+
+            // Count ProteinXmlEntry nodes directly from the XML (namespace- and case-insensitive)
+            var xdoc = System.Xml.Linq.XDocument.Load(tempFile);
+            int proteinXmlEntryCount = xdoc
+                .Descendants()
+                .Count(e => string.Equals(e.Name.LocalName, "protein", StringComparison.OrdinalIgnoreCase));
+            int countOfConsensusProteins = proteins.Select(p => p.ConsensusVariant).Distinct().Count();
+            int countOfProteinsWithAppliedVariants = proteins.Where(p => p.AppliedSequenceVariations.Count > 0).Distinct().Count();
+            TestContext.WriteLine($"ProteinXmlEntry count in XML: {proteinXmlEntryCount}");
+
+            // Expect the XML to contain one entry per written protein
+            // Mysteriously there is only one written protein.....
+            Assert.That(proteinXmlEntryCount, Is.EqualTo(countOfConsensusProteins + countOfProteinsWithAppliedVariants));
+
+            // Read the database back in
+            var roundTripped = ProteinDbLoader.LoadProteinXML(
+                tempFile,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: null,
+                isContaminant: false,
+                modTypesToExclude: null,
+                out var unknownMods2,
+                minAlleleDepth: 1,
+                maxHeterozygousVariants: 99);
+
+            try
+            {
+                // Even though we are applying variants all over again, we should end up with the same total number of proteins
+                // This is because the variants generated by the consensus protein with sequence variations produce the same set of proteins
+                // as those with applied variants. In other words, the duplicates get collapsed.
+                Assert.That(roundTripped.Count, Is.EqualTo(countOfConsensusProteins + countOfProteinsWithAppliedVariants));
+
+                // Ensure accessions match 1:1
+                var originalAccs = proteins.Select(p => p.Accession).OrderBy(a => a).ToList();
+                var rtAccs = roundTripped.Select(p => p.Accession).OrderBy(a => a).ToList();
+                Assert.That(rtAccs, Is.EqualTo(originalAccs));
+
+                // Validate per-proteoform annotations survived round-trip
+                foreach (var rt in roundTripped)
+                {
+                    var orig = proteins.Single(p => p.Accession == rt.Accession);
+
+                    Assert.That(rt.BaseSequence, Is.EqualTo(orig.BaseSequence), $"BaseSequence mismatch for {rt.Accession}");
+                    Assert.That(rt.OneBasedPossibleLocalizedModifications.Keys.Count == 1);
+                }
+            }
+            finally
+            {
+                // Cleanup
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, recursive: true); } catch { /* ignore */ }
+                }
+            }
+
+        }
+        [Test]
+        public static void TestProteinVariantsAddModToConsensusInVariantPositionRoundTrip()
+        {
+            ModificationMotif.TryGetMotif("A", out ModificationMotif motifM);
+            Modification ma = new Modification("mod", null, "type", null, motifM, "Anywhere.", null, 16, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+
+            string databaseName = "humanGAPDH.xml";
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
+                DecoyType.None, null, false, null, out var unknownModifications, 1, 99);
+            Assert.AreEqual(4, proteins.Count); // 4 target
+            var consensusProtein = proteins[0];
+            Assert.That(2, Is.EqualTo(consensusProtein.SequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(consensusProtein.AppliedSequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(consensusProtein.OneBasedPossibleLocalizedModifications.Keys.Count));
+
+            // Add a modification to the consensus protein to test that mods survive the round trip
+            consensusProtein.OneBasedPossibleLocalizedModifications.Add(22, new List<Modification>() { ma });
+            Assert.That(1, Is.EqualTo(consensusProtein.OneBasedPossibleLocalizedModifications.Keys.Count));
+
+            var A22G_Protein = proteins[1];
+            Assert.That(0, Is.EqualTo(A22G_Protein.SequenceVariations.Count));
+            Assert.That(1, Is.EqualTo(A22G_Protein.AppliedSequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(A22G_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+            var K251N_Protein = proteins[2];
+            Assert.That(0, Is.EqualTo(K251N_Protein.SequenceVariations.Count));
+            Assert.That(1, Is.EqualTo(K251N_Protein.AppliedSequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(K251N_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+            var K251N_A22G_Protein = proteins[3];
+            Assert.That(0, Is.EqualTo(K251N_A22G_Protein.SequenceVariations.Count));
+            Assert.That(2, Is.EqualTo(K251N_A22G_Protein.AppliedSequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(K251N_A22G_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+
+            // Write the non-decoy proteins to a temporary XML database
+            string tempDir = Path.Combine(Path.GetTempPath(), $"mzLib_roundtrip_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(tempDir);
+            string tempFile = Path.Combine(tempDir, "roundtrip_proteins.xml");
+
+            ProteinDbWriter.WriteXmlDatabase(
+                new Dictionary<string, HashSet<Tuple<int, Modification>>>(), // no fixed mods to embed
+                proteins,
+                tempFile);
+
+            // Count ProteinXmlEntry nodes directly from the XML (namespace- and case-insensitive)
+            var xdoc = System.Xml.Linq.XDocument.Load(tempFile);
+            int proteinXmlEntryCount = xdoc
+                .Descendants()
+                .Count(e => string.Equals(e.Name.LocalName, "protein", StringComparison.OrdinalIgnoreCase));
+            int countOfConsensusProteins = proteins.Select(p => p.ConsensusVariant).Distinct().Count();
+            int countOfProteinsWithAppliedVariants = proteins.Where(p => p.AppliedSequenceVariations.Count > 0).Distinct().Count();
+            TestContext.WriteLine($"ProteinXmlEntry count in XML: {proteinXmlEntryCount}");
+
+            // Expect the XML to contain one entry per written protein
+            // Mysteriously there is only one written protein.....
+            Assert.That(proteinXmlEntryCount, Is.EqualTo(countOfConsensusProteins + countOfProteinsWithAppliedVariants));
+
+            // Read the database back in
+            var roundTripped = ProteinDbLoader.LoadProteinXML(
+                tempFile,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: null,
+                isContaminant: false,
+                modTypesToExclude: null,
+                out var unknownMods2,
+                minAlleleDepth: 1,
+                maxHeterozygousVariants: 99);
+
+            try
+            {
+                // Even though we are applying variants all over again, we should end up with the same total number of proteins
+                // This is because the variants generated by the consensus protein with sequence variations produce the same set of proteins
+                // as those with applied variants. In other words, the duplicates get collapsed.
+                Assert.That(roundTripped.Count, Is.EqualTo(countOfConsensusProteins + countOfProteinsWithAppliedVariants));
+
+                // Ensure accessions match 1:1
+                var originalAccs = proteins.Select(p => p.Accession).OrderBy(a => a).ToList();
+                var rtAccs = roundTripped.Select(p => p.Accession).OrderBy(a => a).ToList();
+                Assert.That(rtAccs, Is.EqualTo(originalAccs));
+
+                consensusProtein = roundTripped[0];
+                Assert.That(2, Is.EqualTo(consensusProtein.SequenceVariations.Count));
+                Assert.That(0, Is.EqualTo(consensusProtein.AppliedSequenceVariations.Count));
+                Assert.That(1, Is.EqualTo(consensusProtein.OneBasedPossibleLocalizedModifications.Keys.Count));
+
+                A22G_Protein = roundTripped[1];
+                Assert.That(0, Is.EqualTo(A22G_Protein.SequenceVariations.Count));
+                Assert.That(1, Is.EqualTo(A22G_Protein.AppliedSequenceVariations.Count));
+                Assert.That(0, Is.EqualTo(A22G_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+                K251N_Protein = roundTripped[2];
+                Assert.That(0, Is.EqualTo(K251N_Protein.SequenceVariations.Count));
+                Assert.That(1, Is.EqualTo(K251N_Protein.AppliedSequenceVariations.Count));
+                Assert.That(1, Is.EqualTo(K251N_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+                K251N_A22G_Protein = roundTripped[3];
+                Assert.That(0, Is.EqualTo(K251N_A22G_Protein.SequenceVariations.Count));
+                Assert.That(2, Is.EqualTo(K251N_A22G_Protein.AppliedSequenceVariations.Count));
+                Assert.That(0, Is.EqualTo(K251N_A22G_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+            }
+            finally
+            {
+                // Cleanup
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, recursive: true); } catch { /* ignore */ }
+                }
+            }
+
+        }
+        [Test]
+        public static void TestProteinVariantsAddModToVariantInVariantPositionRoundTrip()
+        {
+            ModificationMotif.TryGetMotif("G", out ModificationMotif motifM);
+            Modification mg = new Modification("mod", null, "type", null, motifM, "Anywhere.", null, 16, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+
+            string databaseName = "humanGAPDH.xml";
+            var proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", databaseName), true,
+                DecoyType.None, null, false, null, out var unknownModifications, 1, 99);
+            Assert.AreEqual(4, proteins.Count); // 4 target
+            var consensusProtein = proteins[0];
+            Assert.That(2, Is.EqualTo(consensusProtein.SequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(consensusProtein.AppliedSequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(consensusProtein.OneBasedPossibleLocalizedModifications.Keys.Count));
+
+
+            var A22G_Protein = proteins[1];
+            Assert.That(0, Is.EqualTo(A22G_Protein.SequenceVariations.Count));
+            Assert.That(1, Is.EqualTo(A22G_Protein.AppliedSequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(A22G_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+
+
+            // Add a modification to the consensus protein to test that mods survive the round trip
+            A22G_Protein.OneBasedPossibleLocalizedModifications.Add(22, new List<Modification>() { mg });
+            Assert.That(1, Is.EqualTo(A22G_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+
+            var K251N_Protein = proteins[2];
+            Assert.That(0, Is.EqualTo(K251N_Protein.SequenceVariations.Count));
+            Assert.That(1, Is.EqualTo(K251N_Protein.AppliedSequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(K251N_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+            var K251N_A22G_Protein = proteins[3];
+            Assert.That(0, Is.EqualTo(K251N_A22G_Protein.SequenceVariations.Count));
+            Assert.That(2, Is.EqualTo(K251N_A22G_Protein.AppliedSequenceVariations.Count));
+            Assert.That(0, Is.EqualTo(K251N_A22G_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+
+            // Write the non-decoy proteins to a temporary XML database
+            string tempDir = Path.Combine(Path.GetTempPath(), $"mzLib_roundtrip_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(tempDir);
+            string tempFile = Path.Combine(tempDir, "roundtrip_proteins.xml");
+
+            ProteinDbWriter.WriteXmlDatabase(
+                new Dictionary<string, HashSet<Tuple<int, Modification>>>(), // no fixed mods to embed
+                proteins,
+                tempFile);
+
+            // Count ProteinXmlEntry nodes directly from the XML (namespace- and case-insensitive)
+            var xdoc = System.Xml.Linq.XDocument.Load(tempFile);
+            int proteinXmlEntryCount = xdoc
+                .Descendants()
+                .Count(e => string.Equals(e.Name.LocalName, "protein", StringComparison.OrdinalIgnoreCase));
+            int countOfConsensusProteins = proteins.Select(p => p.ConsensusVariant).Distinct().Count();
+            int countOfProteinsWithAppliedVariants = proteins.Where(p => p.AppliedSequenceVariations.Count > 0).Distinct().Count();
+            TestContext.WriteLine($"ProteinXmlEntry count in XML: {proteinXmlEntryCount}");
+
+            // Expect the XML to contain one entry per written protein
+            // Mysteriously there is only one written protein.....
+            Assert.That(proteinXmlEntryCount, Is.EqualTo(countOfConsensusProteins + countOfProteinsWithAppliedVariants));
+
+            // Read the database back in
+            var roundTripped = ProteinDbLoader.LoadProteinXML(
+                tempFile,
+                generateTargets: true,
+                decoyType: DecoyType.None,
+                allKnownModifications: null,
+                isContaminant: false,
+                modTypesToExclude: null,
+                out var unknownMods2,
+                minAlleleDepth: 1,
+                maxHeterozygousVariants: 99);
+
+            try
+            {
+                // Even though we are applying variants all over again, we should end up with the same total number of proteins
+                // This is because the variants generated by the consensus protein with sequence variations produce the same set of proteins
+                // as those with applied variants. In other words, the duplicates get collapsed.
+                Assert.That(roundTripped.Count, Is.EqualTo(countOfConsensusProteins + countOfProteinsWithAppliedVariants));
+
+                // Ensure accessions match 1:1
+                var originalAccs = proteins.Select(p => p.Accession).OrderBy(a => a).ToList();
+                var rtAccs = roundTripped.Select(p => p.Accession).OrderBy(a => a).ToList();
+                Assert.That(rtAccs, Is.EqualTo(originalAccs));
+
+                consensusProtein = roundTripped[0];
+                Assert.That(2, Is.EqualTo(consensusProtein.SequenceVariations.Count));
+                Assert.That(0, Is.EqualTo(consensusProtein.AppliedSequenceVariations.Count));
+                Assert.That(0, Is.EqualTo(consensusProtein.OneBasedPossibleLocalizedModifications.Keys.Count));
+
+                A22G_Protein = roundTripped[1];
+                Assert.That(0, Is.EqualTo(A22G_Protein.SequenceVariations.Count));
+                Assert.That(1, Is.EqualTo(A22G_Protein.AppliedSequenceVariations.Count));
+                Assert.That(1, Is.EqualTo(A22G_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+                K251N_Protein = roundTripped[2];
+                Assert.That(0, Is.EqualTo(K251N_Protein.SequenceVariations.Count));
+                Assert.That(1, Is.EqualTo(K251N_Protein.AppliedSequenceVariations.Count));
+                Assert.That(0, Is.EqualTo(K251N_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+                K251N_A22G_Protein = roundTripped[3];
+                Assert.That(0, Is.EqualTo(K251N_A22G_Protein.SequenceVariations.Count));
+                Assert.That(2, Is.EqualTo(K251N_A22G_Protein.AppliedSequenceVariations.Count));
+                Assert.That(0, Is.EqualTo(K251N_A22G_Protein.OneBasedPossibleLocalizedModifications.Keys.Count));
+            }
+            finally
+            {
+                // Cleanup
+                if (Directory.Exists(tempDir))
+                {
+                    try { Directory.Delete(tempDir, recursive: true); } catch { /* ignore */ }
+                }
+            }
+
         }
     }
 }

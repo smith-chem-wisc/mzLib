@@ -35,23 +35,38 @@ public class TestVariantOligo
         RNA v = new RNA("CAUA", p, new[] { new SequenceVariation(3, "A", "U", "desc", null) }, null, null, null);
         Assert.That(v.ConsensusVariant, Is.EqualTo(p));
     }
-
+    /// <summary>
+    /// This is an interesting test case. The RNA XML contains one entry.
+    /// The entry has 5 sequence variations, but they are perfectly identical
+    /// I guess the correct behavior is to only apply the variant once, since applying it multiple times does nothing
+    /// </summary>
     [Test]
     public void VariantXml()
     {
         string file = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "SeqVar.xml");
-        List<RNA> variantProteins = RnaDbLoader.LoadRnaXML(file, true, DecoyType.None, false, AllKnownMods, [], out _);
+        List<RNA> variantProteins = RnaDbLoader.LoadRnaXML(file, true, DecoyType.None, false, AllKnownMods, [], out _,
+            minAlleleDepth: 1000);
 
-        Assert.That(variantProteins.First().ConsensusVariant.SequenceVariations.Count(), Is.EqualTo(5));
-        Assert.That(variantProteins.Count, Is.EqualTo(1)); // there is only one unique amino acid change
+        Assert.That(1, Is.EqualTo(variantProteins.Count));
+        Assert.That(0, Is.EqualTo(variantProteins.Count(a => a.AppliedSequenceVariations.Count > 0)));
+
+        variantProteins = RnaDbLoader.LoadRnaXML(file, true, DecoyType.None, false, AllKnownMods, [], out _,
+            maxHeterozygousVariants: 10,
+            minAlleleDepth: 0);
+
+        Assert.That(1, Is.EqualTo(variantProteins.Count));
+        Assert.That(1, Is.EqualTo(variantProteins.Count(a => a.AppliedSequenceVariations.Count > 0)));
+
         Assert.That(variantProteins.First().ConsensusVariant.BaseSequence, Is.Not.EqualTo(variantProteins.First().BaseSequence));
         Assert.That(variantProteins.First().ConsensusVariant.BaseSequence[116], Is.EqualTo('C'));
         Assert.That(variantProteins.First().BaseSequence[116], Is.EqualTo('G'));
+
         Assert.That(variantProteins.First().ConsensusVariant.Name, Is.Not.EqualTo(variantProteins.First().Name));
         Assert.That(variantProteins.First().ConsensusVariant.FullName, Is.Not.EqualTo(variantProteins.First().FullName));
         Assert.That(variantProteins.First().ConsensusVariant.Accession, Is.Not.EqualTo(variantProteins.First().Accession));
 
         List<OligoWithSetMods> oligos = variantProteins.SelectMany(vp => vp.Digest(new RnaDigestionParams(), null, null)).ToList();
+        Assert.That(44, Is.EqualTo(oligos.Count));
     }
 
     [Test]
@@ -67,19 +82,19 @@ public class TestVariantOligo
         Assert.That(target.OneBasedPossibleLocalizedModifications.Single().Key, Is.EqualTo(modIdx));
         Assert.That(target.AppliedSequenceVariations.Count(), Is.EqualTo(1));
         Assert.That(target.AppliedSequenceVariations.Single().OneBasedBeginPosition, Is.EqualTo(modIdx));
-        Assert.That(target.SequenceVariations.Count(), Is.EqualTo(1));
-        Assert.That(target.SequenceVariations.Single().OneBasedBeginPosition, Is.EqualTo(modIdx));
-        Assert.That(target.SequenceVariations.Single().OneBasedModifications.Count, Is.EqualTo(1));
-        Assert.That(target.SequenceVariations.Single().OneBasedModifications.Single().Key, Is.EqualTo(modIdx)); //PEP[mod]TID, MEP[mod]TID
+        Assert.That(target.SequenceVariations.Count(), Is.EqualTo(0));
+        Assert.That(target.AppliedSequenceVariations.Single().OneBasedBeginPosition, Is.EqualTo(modIdx));
+        Assert.That(target.AppliedSequenceVariations.Single().OneBasedModifications.Count, Is.EqualTo(1));
+        Assert.That(target.AppliedSequenceVariations.Single().OneBasedModifications.Single().Key, Is.EqualTo(modIdx)); //PEP[mod]TID, MEP[mod]TID
         var decoy = rna[1];
         Assert.That(decoy.OneBasedPossibleLocalizedModifications.Count, Is.EqualTo(1));
         Assert.That(decoy.OneBasedPossibleLocalizedModifications.Single().Key, Is.EqualTo(reversedModIdx)); //DITP[mod]EP, MDITP[mod]E
         Assert.That(decoy.AppliedSequenceVariations.Count(), Is.EqualTo(1));
         Assert.That(decoy.AppliedSequenceVariations.Single().OneBasedBeginPosition, Is.EqualTo(reversedModIdx));
-        Assert.That(decoy.SequenceVariations.Count(), Is.EqualTo(1));
-        Assert.That(decoy.SequenceVariations.Single().OneBasedBeginPosition, Is.EqualTo(reversedModIdx));
-        Assert.That(decoy.SequenceVariations.Single().OneBasedModifications.Count, Is.EqualTo(1));
-        Assert.That(decoy.SequenceVariations.Single().OneBasedModifications.Single().Key, Is.EqualTo(reversedModIdx));
+        Assert.That(decoy.SequenceVariations.Count(), Is.EqualTo(0));
+        Assert.That(decoy.AppliedSequenceVariations.Single().OneBasedBeginPosition, Is.EqualTo(reversedModIdx));
+        Assert.That(decoy.AppliedSequenceVariations.Single().OneBasedModifications.Count, Is.EqualTo(1));
+        Assert.That(decoy.AppliedSequenceVariations.Single().OneBasedModifications.Single().Key, Is.EqualTo(reversedModIdx));
 
         string rewriteDbName = $"{Path.GetFileNameWithoutExtension(databaseName)}rewrite.xml";
         ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), rna.Where(p => !p.IsDecoy).ToList(), Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", rewriteDbName));
@@ -90,19 +105,19 @@ public class TestVariantOligo
         Assert.That(target.OneBasedPossibleLocalizedModifications.Single().Key, Is.EqualTo(modIdx));
         Assert.That(target.AppliedSequenceVariations.Count(), Is.EqualTo(1));
         Assert.That(target.AppliedSequenceVariations.Single().OneBasedBeginPosition, Is.EqualTo(modIdx));
-        Assert.That(target.SequenceVariations.Count(), Is.EqualTo(1));
-        Assert.That(target.SequenceVariations.Single().OneBasedBeginPosition, Is.EqualTo(modIdx));
-        Assert.That(target.SequenceVariations.Single().OneBasedModifications.Count, Is.EqualTo(1));
-        Assert.That(target.SequenceVariations.Single().OneBasedModifications.Single().Key, Is.EqualTo(modIdx));
+        Assert.That(target.SequenceVariations.Count(), Is.EqualTo(0));
+        Assert.That(target.AppliedSequenceVariations.Single().OneBasedBeginPosition, Is.EqualTo(modIdx));
+        Assert.That(target.AppliedSequenceVariations.Single().OneBasedModifications.Count, Is.EqualTo(1));
+        Assert.That(target.AppliedSequenceVariations.Single().OneBasedModifications.Single().Key, Is.EqualTo(modIdx));
         decoy = rna[1];
         Assert.That(decoy.OneBasedPossibleLocalizedModifications.Count, Is.EqualTo(1));
         Assert.That(decoy.OneBasedPossibleLocalizedModifications.Single().Key, Is.EqualTo(reversedModIdx));
         Assert.That(decoy.AppliedSequenceVariations.Count(), Is.EqualTo(1));
         Assert.That(decoy.AppliedSequenceVariations.Single().OneBasedBeginPosition, Is.EqualTo(reversedModIdx));
-        Assert.That(decoy.SequenceVariations.Count(), Is.EqualTo(1));
-        Assert.That(decoy.SequenceVariations.Single().OneBasedBeginPosition, Is.EqualTo(reversedModIdx));
-        Assert.That(decoy.SequenceVariations.Single().OneBasedModifications.Count, Is.EqualTo(1));
-        Assert.That(decoy.SequenceVariations.Single().OneBasedModifications.Single().Key, Is.EqualTo(reversedModIdx));
+        Assert.That(decoy.SequenceVariations.Count(), Is.EqualTo(0));
+        Assert.That(decoy.AppliedSequenceVariations.Single().OneBasedBeginPosition, Is.EqualTo(reversedModIdx));
+        Assert.That(decoy.AppliedSequenceVariations.Single().OneBasedModifications.Count, Is.EqualTo(1));
+        Assert.That(decoy.AppliedSequenceVariations.Single().OneBasedModifications.Single().Key, Is.EqualTo(reversedModIdx));
     }
 
     [TestCase("ranges1.xml", 1, 2, 5, 6)] // trunc excludes natural 3'
@@ -135,17 +150,51 @@ public class TestVariantOligo
     }
 
     [Test]
-    [TestCase("HomozygousHLA.xml", 1, 18)]
-    [TestCase("HomozygousHLA.xml", 10, 17)]
-    public static void HomozygousVariantsAtVariedDepths(string filename, int minVariantDepth, int appliedCount)
+    public static void HomozygousVariantsAtDepth1()
     {
+        string filename = "HomozygousHLA.xml";
+        int minVariantDepth = 1;
+        int appliedCount = 18;
+
         string dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", filename);
         var rna = RnaDbLoader.LoadRnaXML(dbPath, true, DecoyType.None, false, AllKnownMods, [], out var unknownModifications, minAlleleDepth: minVariantDepth);
+
         Assert.That(rna.Count, Is.EqualTo(1));
-        Assert.That(rna[0].SequenceVariations.Count(), Is.EqualTo(18)); // some redundant
-        Assert.That(rna[0].SequenceVariations.Select(v => v.SimpleString()).Distinct().Count(), Is.EqualTo(18)); // unique changes
-        Assert.That(rna[0].AppliedSequenceVariations.Count(), Is.EqualTo(appliedCount)); // some redundant
-        Assert.That(rna[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count(), Is.EqualTo(appliedCount)); // unique changes
+
+        // All variants applied => none left in SequenceVariations on the variant
+        Assert.That(rna[0].SequenceVariations.Count(), Is.EqualTo(0));
+        Assert.That(rna[0].AppliedSequenceVariations.Count(), Is.EqualTo(appliedCount));
+        Assert.That(rna[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count(), Is.EqualTo(appliedCount));
+
+        // Optional: DB annotations still live on the consensus/reference
+        Assert.That(rna[0].ConsensusVariant.SequenceVariations.Count, Is.EqualTo(18));
+
+        Assert.That(rna[0].GetVariantBioPolymers().Count, Is.EqualTo(1));
+        var variantProteins = rna[0].GetVariantBioPolymers();
+        List<OligoWithSetMods> peptides = rna.SelectMany(vp => vp.Digest(new RnaDigestionParams(), null, null)).ToList();
+    }
+
+    [Test]
+    public static void HomozygousVariantsAtDepth10()
+    {
+        string filename = "HomozygousHLA.xml";
+        int minVariantDepth = 10;
+        int appliedCount = 17;
+
+        string dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", filename);
+        var rna = RnaDbLoader.LoadRnaXML(dbPath, true, DecoyType.None, false, AllKnownMods, [], out var unknownModifications, minAlleleDepth: minVariantDepth);
+
+        Assert.That(rna.Count, Is.EqualTo(1));
+
+        // 17 applied => 1 unapplied remains in SequenceVariations on the variant
+        Assert.That(rna[0].SequenceVariations.Count(), Is.EqualTo(1));
+        Assert.That(rna[0].SequenceVariations.Select(v => v.SimpleString()).Distinct().Count(), Is.EqualTo(1));
+        Assert.That(rna[0].AppliedSequenceVariations.Count(), Is.EqualTo(appliedCount));
+        Assert.That(rna[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count(), Is.EqualTo(appliedCount));
+
+        // Optional: consensus still has all DB annotations
+        Assert.That(rna[0].ConsensusVariant.SequenceVariations.Count, Is.EqualTo(18));
+
         Assert.That(rna[0].GetVariantBioPolymers().Count, Is.EqualTo(1));
         var variantProteins = rna[0].GetVariantBioPolymers();
         List<OligoWithSetMods> peptides = rna.SelectMany(vp => vp.Digest(new RnaDigestionParams(), null, null)).ToList();
@@ -310,7 +359,13 @@ public class TestVariantOligo
         var protein = new Protein("PEPTIDE", "accession");
         NUnit.Framework.Assert.Throws<ArgumentException>(() =>
         {
-            rnas[0].CreateVariant(rnas[0].BaseSequence, protein, [], [], new Dictionary<int, List<Modification>>(), "");
+            rnas[0].CreateVariant(
+                rnas[0].BaseSequence,
+                protein,
+                [],   // appliedSequenceVariants
+                [],   // applicableTruncationProducts
+                new Dictionary<int, List<Modification>>(), // mods
+                "");  // sampleNameForVariants
         });
     }
 
@@ -387,7 +442,13 @@ public class TestVariantOligo
         // One of the mod residues is removed by the variant. 
         string dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "VariantModsGPTMD.xml");
         List<RNA> rna = RnaDbLoader.LoadRnaXML(dbPath, true, DecoyType.Reverse, false, AllKnownMods, [], out var unknownModifications);
-        Assert.That(rna.All(p => p.SequenceVariations.Count == 1));
+
+        List<RNA> rnaWithAppliedVariants = rna.Where(p => p.AppliedSequenceVariations.Count > 0).ToList();
+        
+        List<RNA> rnaWithoutAppliedVariants = rna.Where(p => p.AppliedSequenceVariations.Count == 0).ToList();
+
+        Assert.That(rnaWithoutAppliedVariants.All(p => p.SequenceVariations.Count == 1));
+        Assert.That(rnaWithAppliedVariants.All(p => p.SequenceVariations.Count == 0));
 
         List<RNA> targets = rna.Where(p => p.IsDecoy == false).ToList();
         RNA variantTarget = targets.First(p => p.AppliedSequenceVariations.Count >= 1);
@@ -432,13 +493,17 @@ public class TestVariantOligo
         }
     }
 
-    [Test]
     public void TwoTruncationsAndSequenceVariant_DbLoading()
     {
         string dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "TruncationAndVariantMods.xml");
         List<RNA> rna = RnaDbLoader.LoadRnaXML(dbPath, true, DecoyType.Reverse, false, AllKnownMods, [], out var unknownModifications);
 
-        Assert.That(rna.All(p => p.SequenceVariations.Count == 1));
+        // With new behavior:
+        // - RNAs with applied variants should have 0 unapplied SequenceVariations
+        // - RNAs without applied variants should retain the 1 DB SequenceVariation
+        Assert.That(rna.Where(p => p.AppliedSequenceVariations.Count > 0).All(p => p.SequenceVariations.Count == 0));
+        Assert.That(rna.Where(p => p.AppliedSequenceVariations.Count == 0).All(p => p.SequenceVariations.Count == 1));
+
         Assert.That(rna.All(p => p.OriginalNonVariantModifications.Count == 2));
 
         List<RNA> targets = rna.Where(p => p.IsDecoy == false).ToList();
@@ -471,7 +536,10 @@ public class TestVariantOligo
         List<RNA> rna = RnaDbLoader.LoadRnaXML(dbPath, true, DecoyType.Reverse, false, AllKnownMods, [], out var unknownModifications);
         RnaDigestionParams digestionParams = new RnaDigestionParams("RNase T1", missedCleavages, 2);
 
-        Assert.That(rna.All(p => p.SequenceVariations.Count == 1));
+        // New behavior consistent with DbLoading test above
+        Assert.That(rna.Where(p => p.AppliedSequenceVariations.Count > 0).All(p => p.SequenceVariations.Count == 0));
+        Assert.That(rna.Where(p => p.AppliedSequenceVariations.Count == 0).All(p => p.SequenceVariations.Count == 1));
+
         Assert.That(rna.All(p => p.OriginalNonVariantModifications.Count == 2));
         Assert.That(rna.All(p => p.TruncationProducts.Count == 2));
 

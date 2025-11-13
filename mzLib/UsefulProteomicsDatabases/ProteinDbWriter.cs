@@ -297,8 +297,16 @@ namespace UsefulProteomicsDatabases
         {
             additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
-            // write nonvariant proteins (for cases where variants aren't applied, this just gets the rna itself)
-            var nonVariantProteins = proteinList.Select(p => p.ConsensusVariant).Distinct().ToList();
+            // create the list of distinct consensus proteins.
+            var proteinsToWrite = proteinList
+                .Select(p => p.ConsensusVariant)
+                .Distinct()
+                .ToList();
+            // add any proteins with applied variants
+            proteinsToWrite = proteinsToWrite
+                .Concat(proteinList.Where(p => p.AppliedSequenceVariations.Count > 0))
+                .Distinct()
+                .ToList();
 
             var xmlWriterSettings = new XmlWriterSettings
             {
@@ -314,7 +322,7 @@ namespace UsefulProteomicsDatabases
                 writer.WriteStartElement("mzLibProteinDb");
 
                 List<Modification> myModificationList = new List<Modification>();
-                foreach (Protein p in nonVariantProteins)
+                foreach (Protein p in proteinsToWrite)
                 {
                     foreach (KeyValuePair<int, List<Modification>> entry in p.OneBasedPossibleLocalizedModifications)
                     {
@@ -323,13 +331,13 @@ namespace UsefulProteomicsDatabases
                 }
 
                 HashSet<Modification> allRelevantModifications = new HashSet<Modification>(
-                    nonVariantProteins
+                    proteinsToWrite
                         .SelectMany(p => p.SequenceVariations
                             .SelectMany(sv => sv.OneBasedModifications)
                             .Concat(p.OneBasedPossibleLocalizedModifications)
                             .SelectMany(kv => kv.Value))
                         .Concat(additionalModsToAddToProteins
-                            .Where(kv => nonVariantProteins
+                            .Where(kv => proteinsToWrite
                                 .SelectMany(p => p.SequenceVariations
                                     .Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession }))
                                 .Contains(kv.Key))
@@ -342,7 +350,7 @@ namespace UsefulProteomicsDatabases
                     writer.WriteEndElement();
                 }
 
-                foreach (Protein protein in nonVariantProteins)
+                foreach (Protein protein in proteinsToWrite)
                 {
                     writer.WriteStartElement("entry", "http://uniprot.org/uniprot");
                     writer.WriteAttributeString("dataset", protein.DatasetEntryTag);

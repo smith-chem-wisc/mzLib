@@ -133,30 +133,35 @@ namespace Proteomics
         /// <param name="applicableProteolysisProducts"></param>
         /// <param name="oneBasedModifications"></param>
         /// <param name="sampleNameForVariants"></param>
-        public Protein(string variantBaseSequence, Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations,
-            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+        public Protein(
+            string variantBaseSequence, 
+            Protein protein, 
+            IEnumerable<SequenceVariation> appliedSequenceVariations,
+            IEnumerable<TruncationProduct> applicableProteolysisProducts, 
+            IDictionary<int, List<Modification>> oneBasedModifications, 
+            string sampleNameForVariants)
             : this(
-                  variantBaseSequence,
-                  VariantApplication.GetAccession(protein, appliedSequenceVariations),
-                  organism: protein.Organism,
-                  geneNames: new List<Tuple<string, string>>(protein.GeneNames),
-                  oneBasedModifications: oneBasedModifications != null ? oneBasedModifications.ToDictionary(x => x.Key, x => x.Value) : new Dictionary<int, List<Modification>>(),
-                  proteolysisProducts: new List<TruncationProduct>(applicableProteolysisProducts ?? new List<TruncationProduct>()),
-                  name: VariantApplication.GetVariantName(protein.Name, appliedSequenceVariations),
-                  fullName: VariantApplication.GetVariantName(protein.FullName, appliedSequenceVariations), 
-                  isDecoy: protein.IsDecoy,
-                  isContaminant: protein.IsContaminant,
-                  databaseReferences: new List<DatabaseReference>(protein.DatabaseReferences),
-                  sequenceVariations: new List<SequenceVariation>(protein.SequenceVariations),
-                  disulfideBonds: new List<DisulfideBond>(protein.DisulfideBonds),
-                  spliceSites: new List<SpliceSite>(protein.SpliceSites),
-                  databaseFilePath: protein.DatabaseFilePath,
-                  dataset: protein.DatasetEntryTag,
-                  created: protein.CreatedEntryTag,
-                  modified: protein.ModifiedEntryTag,
-                  version: protein.VersionEntryTag,
-                  xmlns: protein.XmlnsEntryTag,
-                  uniProtSequenceAttributes: protein.UniProtSequenceAttributes)
+                variantBaseSequence,
+                VariantApplication.GetAccession(protein, appliedSequenceVariations),
+                organism: protein.Organism,
+                geneNames: new List<Tuple<string, string>>(protein.GeneNames),
+                oneBasedModifications: oneBasedModifications != null ? oneBasedModifications.ToDictionary(x => x.Key, x => x.Value) : new Dictionary<int, List<Modification>>(),
+                proteolysisProducts: new List<TruncationProduct>(applicableProteolysisProducts ?? new List<TruncationProduct>()),
+                name: VariantApplication.GetVariantName(protein.Name, appliedSequenceVariations),
+                fullName: VariantApplication.GetVariantName(protein.FullName, appliedSequenceVariations),
+                isDecoy: protein.IsDecoy,
+                isContaminant: protein.IsContaminant,
+                databaseReferences: new List<DatabaseReference>(protein.DatabaseReferences),
+                sequenceVariations: null, //not sure if this is new but we don't want to populate sequence variations when we are creating a variant protein
+                disulfideBonds: new List<DisulfideBond>(protein.DisulfideBonds),
+                spliceSites: new List<SpliceSite>(protein.SpliceSites),
+                databaseFilePath: protein.DatabaseFilePath,
+                dataset: protein.DatasetEntryTag,
+                created: protein.CreatedEntryTag,
+                modified: protein.ModifiedEntryTag,
+                version: protein.VersionEntryTag,
+                xmlns: protein.XmlnsEntryTag,
+                uniProtSequenceAttributes: protein.UniProtSequenceAttributes)
         {
             NonVariantProtein = protein.ConsensusVariant as Protein;
             OriginalNonVariantModifications = ConsensusVariant.OriginalNonVariantModifications;
@@ -603,8 +608,9 @@ namespace Proteomics
             if (original is not Protein originalProtein)
                 throw new ArgumentException("The original BioPolymer must be Protein to create a protein variant");
 
-            var variantProtein =  new Protein(variantBaseSequence, originalProtein, appliedSequenceVariants, 
+            var variantProtein = new Protein(variantBaseSequence, originalProtein, appliedSequenceVariants,
                 applicableProteolysisProducts, oneBasedModifications, sampleNameForVariants);
+
             return (TBioPolymerType)(IHasSequenceVariants)variantProtein;
         }
         #endregion

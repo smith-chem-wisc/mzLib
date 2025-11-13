@@ -1,4 +1,5 @@
-﻿using MzLibUtil;
+﻿using System.Linq;
+using MzLibUtil;
 using Omics.BioPolymer;
 using Omics.Modifications;
 
@@ -94,23 +95,39 @@ namespace Omics.BioPolymer
         /// <summary>
         /// Applies multiple variant changes to a protein sequence
         /// </summary>
-        public static List<TBioPolymerType> ApplyVariants<TBioPolymerType>(TBioPolymerType protein, IEnumerable<SequenceVariation> sequenceVariations, int maxAllowedVariantsForCombinitorics, int minAlleleDepth)
+        public static List<TBioPolymerType> ApplyVariants<TBioPolymerType>(TBioPolymerType protein, IEnumerable<SequenceVariation> sequenceVariations, int maxAllowedVariantsForCombinatorics, int minAlleleDepth)
             where TBioPolymerType : IHasSequenceVariants
         {
             List<SequenceVariation> uniqueEffectsToApply = sequenceVariations
                 .GroupBy(v => v.SimpleString())
                 .Select(x => x.First())
                 .Where(v => v.Description.Genotypes.Count > 0) // this is a VCF line
-                .OrderByDescending(v => v.OneBasedBeginPosition) // apply variants at the end of the protein sequence first
+                // Lock in the ordering in an attempt to get them applied in the same order, which will result in a consistent name.
+                .OrderBy(v => v.OneBasedBeginPosition)
+                .ThenBy(v => v.OneBasedEndPosition)
+                .ThenBy(v => v.OriginalSequence ?? string.Empty)
+                .ThenBy(v => v.VariantSequence ?? string.Empty) // apply variants at the end of the protein sequence first
                 .ToList();
 
-            TBioPolymerType proteinCopy = protein.CreateVariant(protein.BaseSequence, protein, null, protein.TruncationProducts, protein.OneBasedPossibleLocalizedModifications, null);
 
-            // If there aren't any variants to apply, just return the base protein
+            // Start from a normalized copy whose “unapplied” list is the DB list.
+            TBioPolymerType proteinCopy = protein.CreateVariant(
+                protein.BaseSequence,
+                protein,
+                null,                                  // none applied yet
+                protein.TruncationProducts,
+                protein.OneBasedPossibleLocalizedModifications,
+                null);
+
+            // If there aren't any variants to apply, just return the original as-is
             if (uniqueEffectsToApply.Count == 0)
             {
                 return new List<TBioPolymerType> { proteinCopy };
             }
+
+
+
+
 
             HashSet<string> individuals = new HashSet<string>(uniqueEffectsToApply.SelectMany(v => v.Description.Genotypes.Keys));
             List<TBioPolymerType> variantProteins = new();
@@ -119,9 +136,9 @@ namespace Omics.BioPolymer
             foreach (string individual in individuals)
             {
                 newVariantProteins.Clear();
-                newVariantProteins.Add(proteinCopy);
+                newVariantProteins.Add(proteinCopy); //this protein copy has an empty list of sequence variants
 
-                bool tooManyHeterozygousVariants = uniqueEffectsToApply.Count(v => v.Description.Heterozygous[individual]) > maxAllowedVariantsForCombinitorics;
+                bool tooManyHeterozygousVariants = uniqueEffectsToApply.Count(v => v.Description.Heterozygous[individual]) > maxAllowedVariantsForCombinatorics;
                 foreach (var variant in uniqueEffectsToApply)
                 {
                     bool variantAlleleIsInTheGenotype = variant.Description.Genotypes[individual].Contains(variant.Description.AlleleIndex.ToString()); // should catch the case where it's -1 if the INFO isn't from SnpEff
@@ -145,12 +162,12 @@ namespace Omics.BioPolymer
                     {
                         if (isDeepAlternateAllele && isDeepReferenceAllele)
                         {
-                            if (newVariantProteins.Count == 1 && maxAllowedVariantsForCombinitorics > 0)
+                            if (newVariantProteins.Count == 1 && maxAllowedVariantsForCombinatorics > 0)
                             {
                                 TBioPolymerType variantProtein = ApplySingleVariant(variant, newVariantProteins[0], individual);
                                 newVariantProteins.Add(variantProtein);
                             }
-                            else if (maxAllowedVariantsForCombinitorics > 0)
+                            else if (maxAllowedVariantsForCombinatorics > 0)
                             {
                                 newVariantProteins[1] = ApplySingleVariant(variant, newVariantProteins[1], individual);
                             }
@@ -159,7 +176,7 @@ namespace Omics.BioPolymer
                                 // no heterozygous variants
                             }
                         }
-                        else if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0)
+                        else if (isDeepAlternateAllele && maxAllowedVariantsForCombinatorics > 0)
                         {
                             newVariantProteins = newVariantProteins.Select(p => ApplySingleVariant(variant, p, individual)).ToList();
                         }
@@ -176,18 +193,39 @@ namespace Omics.BioPolymer
 
                         foreach (var ppp in newVariantProteins)
                         {
-                            if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0 && isDeepReferenceAllele)
+                            if (isDeepAlternateAllele && maxAllowedVariantsForCombinatorics > 0 && isDeepReferenceAllele)
                             {
                                 // keep reference allele
                                 if (variant.Description.Genotypes[individual].Contains("0"))
                                 {
-                                    combinitoricProteins.Add(ppp);
+                                    
+                                    
+                                    
+                                    
+                                    
+                                    
+                                    
+                                    
+                                    
+                                    
+                                    //changed from ppp to protein to keep sequence variants....
+                                    combinitoricProteins.Add(protein);
+
+
+
+
+
+
+
+
+
+
                                 }
 
                                 // alternate allele (replace all, since in heterozygous with two alternates, both alternates are included)
                                 combinitoricProteins.Add(ApplySingleVariant(variant, ppp, individual));
                             }
-                            else if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0)
+                            else if (isDeepAlternateAllele && maxAllowedVariantsForCombinatorics > 0)
                             {
                                 combinitoricProteins.Add(ApplySingleVariant(variant, ppp, individual));
                             }
@@ -253,7 +291,14 @@ namespace Omics.BioPolymer
             Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variantGettingApplied, variantSequence, protein);
             List<SequenceVariation> adjustedAppliedVariations = AdjustSequenceVariationIndices(variantGettingApplied, variantSequence, appliedVariations);
 
-            return protein.CreateVariant(variantSequence, protein, adjustedAppliedVariations, adjustedProteolysisProducts, adjustedModifications, individual);
+            // Pass BOTH lists: current DB list (possibly already filtered on the interim proteoform) + newly applied
+            return protein.CreateVariant(
+                variantSequence, 
+                protein, 
+                adjustedAppliedVariations, 
+                adjustedProteolysisProducts, 
+                adjustedModifications, 
+                individual);
         }
 
         /// <summary>
@@ -413,11 +458,23 @@ namespace Omics.BioPolymer
         }
 
         /// <summary>
+        /// Deterministic ordering for variant-based naming/IDs to avoid order-of-application artifacts.
+        /// </summary>
+        private static IEnumerable<SequenceVariation> OrderForNaming(IEnumerable<SequenceVariation> variations) =>
+            variations
+                .OrderBy(v => v.OneBasedBeginPosition)
+                .ThenBy(v => v.OneBasedEndPosition)
+                .ThenBy(v => v.OriginalSequence ?? string.Empty)
+                .ThenBy(v => v.VariantSequence ?? string.Empty);
+
+        /// <summary>
         /// Format string to append to accession
         /// </summary>
         private static string CombineSimpleStrings(IEnumerable<SequenceVariation>? variations)
         {
-            return variations.IsNullOrEmpty() ? "" : string.Join("_", variations.Select(v => v.SimpleString()));
+            return variations.IsNullOrEmpty()
+                ? ""
+                : string.Join("_", OrderForNaming(variations!).Select(v => v.SimpleString()));
         }
 
         /// <summary>
@@ -425,7 +482,9 @@ namespace Omics.BioPolymer
         /// </summary>
         public static string CombineDescriptions(IEnumerable<SequenceVariation>? variations)
         {
-            return variations.IsNullOrEmpty() ? "" : string.Join(", variant:", variations.Select(d => d.Description));
+            return variations.IsNullOrEmpty()
+                ? ""
+                : string.Join(", variant:", OrderForNaming(variations!).Select(v => v.Description));
         }
         /// <summary>
         /// Applies all possible combinations of the provided SequenceVariation list to the base TBioPolymerType object,
@@ -451,20 +510,36 @@ namespace Omics.BioPolymer
             count++;
             if (count >= maxCombinations)
                 yield break;
+            // Sort variations to ensure deterministic combination order
+            variations = variations
+                .OrderBy(v => v.OneBasedBeginPosition)
+                .ThenBy(v => v.OneBasedEndPosition)
+                .ThenBy(v => v.OriginalSequence ?? string.Empty)
+                .ThenBy(v => v.VariantSequence ?? string.Empty)
+                .ToList();
+
+
 
             int n = variations.Count;
             for (int size = 1; size <= n; size++)
             {
                 foreach (var combo in GetCombinations(variations, size))
                 {
-                    var result = baseBioPolymer;
+                    // Start from a normalized copy whose “unapplied” list is the DB list.
+                    TBioPolymerType proteinCopy = baseBioPolymer.CreateVariant(
+                        baseBioPolymer.BaseSequence,
+                        baseBioPolymer,
+                        null,                                  // none applied yet
+                        baseBioPolymer.TruncationProducts,
+                        baseBioPolymer.OneBasedPossibleLocalizedModifications,
+                        null);
                     foreach (var variant in combo)
                     {
-                        result = ApplySingleVariant(variant, result, string.Empty);
+                        proteinCopy = ApplySingleVariant(variant, proteinCopy, string.Empty);
                     }
-                    if (result != null)
+                    if (proteinCopy != null)
                     {
-                        yield return result;
+                        yield return proteinCopy;
                         count++;
                         if (count >= maxCombinations)
                             yield break;

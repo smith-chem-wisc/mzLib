@@ -5,6 +5,7 @@ using MzLibUtil;
 using Omics;
 using Omics.BioPolymer;
 using Omics.Modifications;
+using System.Security.Cryptography;
 
 namespace Transcriptomics
 {
@@ -38,21 +39,21 @@ namespace Transcriptomics
                 truncationProducts, sequenceVariations, appliedSequenceVariations, sampleNameForVariants, fullName)
         {
         }
-        
+
         /// <summary>
         /// For creating a variant of an existing nucleic acid. Filters out modifications that do not match their nucleotide target site.
         /// </summary>
         public RNA(string variantBaseSequence, NucleicAcid original, IEnumerable<SequenceVariation>? appliedSequenceVariants,
             IEnumerable<TruncationProduct>? applicableTruncationProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
-            : this(variantBaseSequence, VariantApplication.GetAccession(original, appliedSequenceVariants), 
-                  oneBasedModifications,
-                  original.FivePrimeTerminus, original.ThreePrimeTerminus,
-                  VariantApplication.GetVariantName(original.Name, appliedSequenceVariants), 
-                  original.Organism, original.DatabaseFilePath, original.IsContaminant, 
-                  original.IsDecoy, original.GeneNames, original.AdditionalDatabaseFields,
-                  [..applicableTruncationProducts ?? new List<TruncationProduct>()], original.SequenceVariations, 
-                  [..appliedSequenceVariants ?? new List<SequenceVariation>()], sampleNameForVariants, 
-                  VariantApplication.GetVariantName(original.FullName, appliedSequenceVariants))
+            : this(variantBaseSequence, VariantApplication.GetAccession(original, appliedSequenceVariants),
+                oneBasedModifications,
+                original.FivePrimeTerminus, original.ThreePrimeTerminus,
+                VariantApplication.GetVariantName(original.Name, appliedSequenceVariants),
+                original.Organism, original.DatabaseFilePath, original.IsContaminant,
+                original.IsDecoy, original.GeneNames, original.AdditionalDatabaseFields,
+                [.. applicableTruncationProducts ?? new List<TruncationProduct>()], original.SequenceVariations,
+                [.. appliedSequenceVariants ?? new List<SequenceVariation>()], sampleNameForVariants,
+                VariantApplication.GetVariantName(original.FullName, appliedSequenceVariants))
         {
             ConsensusVariant = original.ConsensusVariant;
             OriginalNonVariantModifications = ConsensusVariant.OriginalNonVariantModifications;
@@ -73,7 +74,7 @@ namespace Transcriptomics
             if (original is not RNA rna)
                 throw new ArgumentException("The original nucleic acid must be RNA to create an RNA variant.");
 
-            var variantRNA = new RNA(variantBaseSequence, rna, appliedSequenceVariants, 
+            var variantRNA = new RNA(variantBaseSequence, rna, appliedSequenceVariants,
                 applicableTruncationProducts, oneBasedModifications, sampleNameForVariants);
             return (TBioPolymerType)(IHasSequenceVariants)variantRNA;
         }
