@@ -54,10 +54,10 @@ namespace Test.DatabaseTests
             string originalSequence = "A";
             string variantSequence = "V";
             string description = "desc";
-            string variantCallFormatStringRepresntation = null;
+            string variantCallFormatStringRepresentation = null;
             Dictionary<int, List<Modification>> oneBasedModifications = null;
 
-            SequenceVariation sv = new SequenceVariation(oneBasedBeginPosition, oneBasedEndPosition, originalSequence, variantSequence, description, variantCallFormatStringRepresntation, oneBasedModifications);
+            SequenceVariation sv = new SequenceVariation(oneBasedBeginPosition, oneBasedEndPosition, originalSequence, variantSequence, description, variantCallFormatStringRepresentation, oneBasedModifications);
             Assert.AreEqual(oneBasedBeginPosition, sv.OneBasedBeginPosition);
             Assert.AreEqual(oneBasedEndPosition, sv.OneBasedEndPosition);
             Assert.AreEqual(originalSequence, sv.OriginalSequence);
