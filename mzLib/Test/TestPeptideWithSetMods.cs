@@ -1048,7 +1048,7 @@ namespace Test
         }
 
         [Test]
-        public static void TestPeptideWithSetModsReturnsDecoyTruncationsInTopDown()
+        public static void TestTopDownTruncationTableMatchesExpected()
         {
             string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
             List<Protein> insulinProteins = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
