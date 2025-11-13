@@ -1,4 +1,5 @@
 ﻿using MzLibUtil;
+using Readers.ExternalResults.ResultFiles;
 
 namespace Readers
 {
@@ -31,7 +32,8 @@ namespace Readers
         CruxResult,
         ExperimentAnnotation,
         BrukerD,
-        BrukerTimsTof
+        BrukerTimsTof,
+        CasanovoMzTab
     }
 
     public static class SupportedFileTypeExtensions
@@ -74,6 +76,7 @@ namespace Readers
                 SupportedFileType.MsPathFinderTAllResults => "_IcTDA.tsv",
                 SupportedFileType.CruxResult => ".txt",
                 SupportedFileType.ExperimentAnnotation => "experiment_annotation.tsv",
+                SupportedFileType.CasanovoMzTab => ".mztab",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -167,6 +170,18 @@ namespace Readers
                         return SupportedFileType.Ms2Align;
                     throw new MzLibException("MsAlign file type not supported, must end with _msX.msalign where X is 1 or 2");
 
+                case ".mztab":
+                    using (var reader = new StreamReader(filePath))
+                    {
+                        for (int i = 0; i < 5 && !reader.EndOfStream; i++)
+                        {
+                            var line = reader.ReadLine();
+                            if (line != null && line.Contains("casanovo", StringComparison.InvariantCultureIgnoreCase))
+                                return SupportedFileType.CasanovoMzTab;
+                        }
+                    }
+                    throw new MzLibException("MzTab file type not supported");
+
                 default:
                     throw new MzLibException("File type not supported");
             }
@@ -211,6 +226,7 @@ namespace Readers
                 SupportedFileType.BrukerTimsTof => typeof(MsDataFileToResultFileAdapter),
                 SupportedFileType.Ms1Align => typeof(MsDataFileToResultFileAdapter),
                 SupportedFileType.Ms2Align => typeof(MsDataFileToResultFileAdapter),
+                SupportedFileType.CasanovoMzTab => typeof(CasanovoMzTabFile),
                 _ => throw new MzLibException("File type not supported")
             };
         }
