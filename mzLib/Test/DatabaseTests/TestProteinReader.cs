@@ -130,6 +130,16 @@ namespace Test.DatabaseTests
         }
 
         [Test]
+        public static void FilterOutOfRangeVariantAndVariantsForMultipleIsoforms()
+        {
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"outOfRangeVariant.xml"),
+                true, DecoyType.None, UniProtPtms, false, null, out var un, 1, 0);
+
+            Assert.AreEqual("P04406", ok[0].Accession);
+            Assert.AreEqual(2, ok[0].SequenceVariations.Count());
+
+        }
+        [Test]
         public static void DisulfideXmlTest()
         {
             var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"disulfidetests.xml"),
@@ -486,7 +496,6 @@ CF   O1
             Assert.AreEqual("MSGRGKGGKGLGKGGAKRHRKVLRDNIQGITKPAIRRLARRGGVKRISGLIYEETRGVLKVFLENVIRDAVTYTEHAKRKTVTAMDVVYALKRQGRTLYGFGG", prots[0].BaseSequence);
             Assert.AreEqual("MGGFGYLTRGQRKLAYVVDMATVTKRKAHETYTVADRIVNELFVKLVGRTEEYILGSIRKVGGRRALRRIAPKTIGQINDRLVKRHRKAGGKGLGKGGKGRGS", prots[1].BaseSequence);
         }
-
         [Test]
         public static void TestSlideDecoyFasta()
         {
