@@ -539,6 +539,59 @@ namespace Test.DatabaseTests
                 "XML round-trip should preserve variant-applied sequences in the same order");
         }
         [Test]
+        public void AdjustSequenceVariationIndices_NullVcf_RebasesPriorVariation()
+        {
+            // Base protein (real Protein, real SequenceVariation)
+            var protein = new Protein("MPEPTIDE", "prot1");
+
+            // Prior applied variation with VCF = null (explicit ctor with VariantCallFormat = null)
+            // Change PT(4..5) -> KT
+            VariantCallFormat vcfNull = null;
+            var priorNullVcf = new SequenceVariation(
+                4, 5,
+                originalSequence: "PT",
+                variantSequence: "KT",
+                description: "NULL_VCF_PTtoKT",
+                variantCallFormat: vcfNull,
+                oneBasedModifications: null);
+
+            // New variation with a VCF string; overlaps at position 5 (T->A)
+            // This triggers AdjustSequenceVariationIndices for the prior variation.
+            string vcfLine = @"1\t50000000\t.\tT\tA\t.\tPASS\tANN=A||||||||||||||||\tGT:AD:DP\t1/1:30,30:30";
+            var newWithVcf = new SequenceVariation(
+                5, 5,
+                originalSequence: "T",
+                variantSequence: "A",
+                description: "T5A",
+                variantCallFormatStringRepresentation: vcfLine,
+                oneBasedModifications: null);
+
+            // Apply both in order using the public combinatorics entrypoint (exercises ApplySingleVariant -> AdjustSequenceVariationIndices)
+            var variations = new System.Collections.Generic.List<SequenceVariation> { priorNullVcf, newWithVcf };
+            var variants = VariantApplication.ApplyAllVariantCombinations(protein, variations, maxCombinations: 10).ToList();
+
+            // Find the variant with both edits applied; expected sequence after both is MPEKAIDE
+            var both = variants.FirstOrDefault(v => v.BaseSequence == "MPEKAIDE");
+            Assert.IsNotNull(both, "Variant with both edits was not produced");
+
+            // Should have two applied variations
+            Assert.That(both.AppliedSequenceVariations.Count, Is.EqualTo(2));
+
+            // The prior (null-VCF) variation should be re-based via the 'else' branch that uses the description overload.
+            var rebased = both.AppliedSequenceVariations.FirstOrDefault(sv => sv.Description == "NULL_VCF_PTtoKT");
+            Assert.IsNotNull(rebased, "Re-based prior (null-VCF) variation not found in applied list");
+            Assert.Multiple(() =>
+            {
+                // Current implementation re-bases the earlier [4..5] PT->KT across the overlapping T5->A
+                // to coordinates [2..3] (inclusive) in the updated coordinate system.
+                Assert.That(rebased.OneBasedBeginPosition, Is.EqualTo(2));
+                Assert.That(rebased.OneBasedEndPosition, Is.EqualTo(3));
+                Assert.That(rebased.OriginalSequence, Is.EqualTo("PT"));
+                Assert.That(rebased.VariantSequence, Is.EqualTo("KT"));
+                Assert.That(rebased.Description, Is.EqualTo("NULL_VCF_PTtoKT"));
+            });
+        }
+        [Test]
         public static void AppliedVariants_AsIBioPolymer()
         {
             // PURPOSE
