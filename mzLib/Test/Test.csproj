@@ -802,6 +802,9 @@
 	  <None Update="DataFiles\profile_and_centroid_1x_MS1_4x_autoMS2.d\**">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
+	  <None Update="DataFiles\TestCompensationVoltageReading.raw">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
   </ItemGroup>
 
   <ItemGroup>
