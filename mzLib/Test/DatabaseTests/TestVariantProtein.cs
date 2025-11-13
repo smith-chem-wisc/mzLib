@@ -1938,8 +1938,7 @@ namespace Test.DatabaseTests
                         expectedGtTokens = new[] { ".", "." };
                     }
 
-                    Assert.That(vcf.Genotypes.ContainsKey(key));
-                    var parsedGt = vcf.Genotypes[key];
+                    Assert.That(vcf.Genotypes.TryGetValue(key, out var parsedGt));
                     Assert.That(parsedGt, Is.EqualTo(expectedGtTokens));
 
                     // Expected AD tokens
