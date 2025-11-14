@@ -50,6 +50,7 @@
     <!--net8.0 target-->
     <file src="BayesianEstimation\bin\x64\Release\net8.0\BayesianEstimation.dll" target="lib\net8.0" />
     <file src="Chemistry\bin\x64\Release\net8.0\Chemistry.dll" target="lib\net8.0" />
+    <file src="Chromatography\bin\x64\Release\net8.0\Chromatography.dll" target="lib\net8.0" />
     <file src="FlashLFQ\bin\x64\Release\net8.0\FlashLFQ.dll" target="lib\net8.0" />
     <file src="MassSpectrometry\bin\x64\Release\net8.0\MassSpectrometry.dll" target="lib\net8.0" />
     <file src="MassSpectrometry\bin\x64\Release\net8.0\isodeclib.dll" target="lib\net8.0" />
@@ -80,6 +81,7 @@
     <file src="mzPlot\bin\x64\Release\net8.0-windows\mzPlot.dll" target="lib\net8.0-windows7.0" />
     <file src="BayesianEstimation\bin\x64\Release\net8.0\BayesianEstimation.dll" target="lib\net8.0-windows7.0" />
     <file src="Chemistry\bin\x64\Release\net8.0\Chemistry.dll" target="lib\net8.0-windows7.0" />
+    <file src="Chromatography\bin\x64\Release\net8.0\Chromatography.dll" target="lib\net8.0-windows7.0" />
     <file src="FlashLFQ\bin\x64\Release\net8.0\FlashLFQ.dll" target="lib\net8.0-windows7.0" />
     <file src="MassSpectrometry\bin\x64\Release\net8.0\MassSpectrometry.dll" target="lib\net8.0-windows7.0" />
     <file src="MassSpectrometry\bin\x64\Release\net8.0\isodeclib.dll" target="lib\net8.0-windows7.0" />
