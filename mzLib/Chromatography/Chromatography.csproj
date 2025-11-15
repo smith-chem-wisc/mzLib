@@ -7,11 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="RetentionTimePrediction\Chronologer_20220601193755_TorchSharp.dat" />
+    <None Remove="RetentionTimePrediction\Chronologer\Chronologer_20220601193755_TorchSharp.dat" />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="RetentionTimePrediction\Chronologer_20220601193755_TorchSharp.dat">
+    <EmbeddedResource Include="RetentionTimePrediction\Chronologer\Chronologer_20220601193755_TorchSharp.dat">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>
   </ItemGroup>
@@ -19,6 +19,10 @@
   <ItemGroup>
     <PackageReference Include="libtorch-cpu" Version="2.5.1" />
     <PackageReference Include="TorchSharp" Version="0.105.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="RetentionTimePrediction\CZE\" />
   </ItemGroup>
 
 </Project>
