@@ -15,6 +15,10 @@ namespace Chromatography.RetentionTimePrediction
         {
             ModHandlingMode = modHandlingMode;
         }
+        /// <summary>
+        /// Gets the separation type this predictor is designed for
+        /// </summary>
+        public virtual SeparationType SeparationType => SeparationType.HPLC;
 
         public abstract string PredictorName { get; }
         public abstract bool RequiresModificationChecking { get; }

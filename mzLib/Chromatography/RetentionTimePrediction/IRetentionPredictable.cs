@@ -18,6 +18,12 @@ namespace Chromatography.RetentionTimePrediction
         string FullSequence { get; }
 
         /// <summary>
+        /// Gets the monoisotopic mass of the peptide.
+        /// Required for CZE electrophoretic mobility predictions.
+        /// </summary>
+        double MonoisotopicMass { get; }
+
+        /// <summary>
         /// Builds a sequence string with mass shifts for modifications.
         /// Format: "PEPTIDE[+15.995]K[+42.011]" or "PEPTIDE[-17.026]K"
         /// This is used by predictors that work with mass-based representations (e.g., Chronologer).

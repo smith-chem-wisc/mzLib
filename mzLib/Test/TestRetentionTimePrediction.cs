@@ -685,7 +685,7 @@ namespace Test
         [Test]
         public void CZE_RetentionTime_Test()
         {
-            CZE testCZE = new CZE(1, 1);
+            CZERetentionTimePredictor testCZE = new CZERetentionTimePredictor(Chromatography.RetentionTimePrediction.Util.IncompatibleModHandlingMode.UsePrimarySequence, 1, 1);
 
             double expElutionTime = 1;
             double expMu = Math.Round(testCZE.ExperimentalElectrophoreticMobility(expElutionTime), 0);
@@ -698,7 +698,7 @@ namespace Test
                 var peptide = new PeptideWithSetModifications((string)_peptidesCZE[i, 0], new Dictionary<string, Modification>());
                 object obj = _peptidesCZE[i, 1];
                 double expected = (double)_peptidesCZE[i, 1];
-                double actual = CZE.PredictedElectrophoreticMobility(peptide.BaseSequence, peptide.MonoisotopicMass);
+                double actual = CZECalculations.PredictedElectrophoreticMobility(peptide.BaseSequence, peptide.MonoisotopicMass);
 
                 // Round the returned value to match the values presented
                 // in the supporting information of the SSRCalc 3 publication.

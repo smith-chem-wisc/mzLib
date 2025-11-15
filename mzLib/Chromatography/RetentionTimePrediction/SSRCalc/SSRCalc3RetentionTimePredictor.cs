@@ -11,7 +11,8 @@ namespace Chromatography.RetentionTimePrediction.SSRCalc
         private readonly SSRCalc3 _calculator;
 
         public override string PredictorName => "SSRCalc3";
-        
+        public override SeparationType SeparationType => SeparationType.HPLC;
+
         // SSRCalc3 doesn't use modifications, so no checking needed
         public override bool RequiresModificationChecking => false;
 

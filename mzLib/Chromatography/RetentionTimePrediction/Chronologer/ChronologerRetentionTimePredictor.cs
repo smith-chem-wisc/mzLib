@@ -13,6 +13,8 @@ namespace Chromatography.RetentionTimePrediction.Chronologer
 
         public override string PredictorName => "Chronologer";
         public override bool RequiresModificationChecking => true;
+        public override SeparationType SeparationType => SeparationType.HPLC;
+
 
         /// <summary>
         /// Initializes a new Chronologer predictor with default weights.
