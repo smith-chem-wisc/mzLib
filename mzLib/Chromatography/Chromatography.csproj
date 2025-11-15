@@ -21,8 +21,4 @@
     <PackageReference Include="TorchSharp" Version="0.105.1" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="RetentionTimePrediction\CZE\" />
-  </ItemGroup>
-
 </Project>

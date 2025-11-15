@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Proteomics.RetentionTimePrediction
+namespace Chromatography.RetentionTimePrediction.CZE
 {
     /// <summary>
     /// This class will return theoretical retention times, hydrobphobicites, electrophoretic mobilities and etc. for peptides.
@@ -52,7 +52,7 @@ namespace Proteomics.RetentionTimePrediction
         {
             if (ColumnLength >= 0)
             {
-                return (ColumnLength * 1e9) / (60 * VoltsPerMeter *electrophoreticMobility);
+                return ColumnLength * 1e9 / (60 * VoltsPerMeter *electrophoreticMobility);
             }
             else
             {
@@ -94,7 +94,7 @@ namespace Proteomics.RetentionTimePrediction
         private static double PredictedCharge(string peptideSequence)
         {
             string substitutedString = peptideSequence.Replace("R", "").Replace("K", "").Replace("H", "").ToString();
-            return (1d + (peptideSequence.Length - substitutedString.Length));
+            return 1d + (peptideSequence.Length - substitutedString.Length);
         }
 
         /// <summary>

@@ -1,11 +1,13 @@
 ﻿using NUnit.Framework;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Proteomics.ProteolyticDigestion;
-using Proteomics.RetentionTimePrediction;
 using System;
 using System.Collections.Generic;
+using Chromatography;
+using Chromatography.RetentionTimePrediction.SSRCalc;
 using Omics.Modifications;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using Chromatography.RetentionTimePrediction.CZE;
 
 namespace Test
 {
@@ -624,7 +626,7 @@ namespace Test
             {
                 var peptide = new PeptideWithSetModifications((string)_peptides300A[i, 0], new Dictionary<string, Modification>());
                 double expected = (double)_peptides300A[i, 1];
-                double actual = calc.ScoreSequence(peptide);
+                double actual = calc.ScoreSequence(peptide.BaseSequence);
 
                 // Round the returned value to match the values presented
                 // in the supporting information of the SSRCalc 3 publication.
@@ -656,7 +658,7 @@ namespace Test
                 var peptide = new PeptideWithSetModifications((string)_peptides100A[i, 0], new Dictionary<string, Modification>());
                 object obj = _peptides100A[i, 1];
                 double expected = (double)_peptides100A[i, 1];
-                double actual = calc.ScoreSequence(peptide);
+                double actual = calc.ScoreSequence(peptide.BaseSequence);
                 double actualString = calc.ScoreSequence(peptide.BaseSequence);
 
                 // Round the returned value to match the values presented
