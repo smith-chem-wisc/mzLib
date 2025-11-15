@@ -11,13 +11,15 @@ using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Fragmentation.Peptide;
 using Omics.Modifications;
+using Chromatography.RetentionTimePrediction;
 
 namespace Proteomics.ProteolyticDigestion
 {
     [Serializable]
-    public class PeptideWithSetModifications : ProteolyticPeptide, IBioPolymerWithSetMods, IEquatable<PeptideWithSetModifications>
+    public class PeptideWithSetModifications : ProteolyticPeptide, IBioPolymerWithSetMods, IRetentionPredictable,  IEquatable<PeptideWithSetModifications>
     {
         public string FullSequence { get; init; } //sequence with modifications
+
         public int NumFixedMods { get; }
         // Parameter to store the full sequence of the corresponding Target or Decoy peptide
         // If the peptide in question is a decoy, this pairs it to the target it was generated from
@@ -208,6 +210,9 @@ namespace Proteomics.ProteolyticDigestion
                 return _sequenceWithChemicalFormulas;
             }
         }
+
+        // Call the Extension method of IBioPolymerWithSetMods to get the sequence with mass shifts
+        public string GetSequenceWithMassShifts() => this.FullSequenceWithMassShift(); 
 
         public IBioPolymer Parent => Protein;
 
