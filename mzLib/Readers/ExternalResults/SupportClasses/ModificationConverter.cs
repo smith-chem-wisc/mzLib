@@ -1,6 +1,7 @@
 ﻿using Omics.Modifications;
 using System.Collections.Concurrent;
 using System.Reflection;
+using Omics;
 using UsefulProteomicsDatabases;
 
 namespace Readers;
@@ -13,6 +14,7 @@ public static class ModificationConverter
     private static readonly ConcurrentDictionary<(string, char), Modification> _modificationCache;
 
     internal static List<Modification> AllKnownMods;
+    internal static Dictionary<string, Modification> AllModsKnown;
 
     static ModificationConverter()
     {
@@ -35,9 +37,113 @@ public static class ModificationConverter
         var modsTextMods = PtmListLoader.ReadModsFromFile(new StreamReader(modsTextStream), formalChargeDict, out _);
 
         AllKnownMods = unimodMods.Concat(uniprotMods).Concat(modsTextMods).ToList();
+        AllModsKnown = AllKnownMods
+            .DistinctBy(m => (m.ModificationType, m.IdWithMotif))
+            .ToDictionary(m => $"{m.ModificationType}:{ m.IdWithMotif }");
     }
 
     #endregion
+
+
+    public static Dictionary<int, Modification> GetModificationDictionaryFromFullSequence(string fullSequence,
+    Dictionary<string, Modification>? allModsKnown = null)
+    {
+        var allModsOneIsNterminus = new Dictionary<int, Modification>();
+        allModsKnown ??= AllModsKnown;
+        var baseSequence =  IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(fullSequence);
+        int currentModStart = 0;
+        int currentModificationLocation = 1;
+        bool currentlyReadingMod = false;
+        int bracketCount = 0;
+
+        for (int r = 0; r < fullSequence.Length; r++)
+        {
+            char c = fullSequence[r];
+            if (c == '[')
+            {
+                currentlyReadingMod = true;
+                if (bracketCount == 0)
+                {
+                    currentModStart = r + 1;
+                }
+                bracketCount++;
+            }
+            else if (c == ']')
+            {
+                string modId = null;
+                bracketCount--;
+                if (bracketCount == 0)
+                {
+                    Modification? mod = null;
+                    Exception? toThrow = null;
+                    string modString = fullSequence.Substring(currentModStart, r - currentModStart);
+                    try
+                    {
+                        //remove the beginning section (e.g. "Fixed", "Variable", "Uniprot")
+                        int splitIndex = modString.IndexOf(':');
+                        string modType = modString.Substring(0, splitIndex);
+                        modId = modString.Substring(splitIndex + 1, modString.Length - splitIndex - 1);
+
+                        if (!allModsKnown.TryGetValue(modId, out mod))
+                        {
+                            toThrow = new MzLibUtil.MzLibException(
+                                "Could not find modification while reading string: " + fullSequence);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        toThrow = new MzLibUtil.MzLibException(
+                            "Error while trying to parse string into peptide: " + e.Message, e);
+                    }
+
+                    // Not standard MM format
+                    if (mod == null && toThrow != null)
+                    {
+                        try
+                        {
+                            char modifiedResidue;
+                            if (currentModificationLocation - 2 < 0) // N-Terminal
+                                modifiedResidue = 'X';
+                            else
+                                modifiedResidue = baseSequence[currentModificationLocation - 2];
+                            mod = GetClosestMod(modString, modifiedResidue);
+                        }
+                        catch (Exception e)
+                        {
+                            toThrow = new MzLibUtil.MzLibException(
+                                "Could not find modification while reading string: " + fullSequence +
+                                Environment.NewLine + "Also could not find closest match for modification: " + modId +
+                                Environment.NewLine + e.Message, e);
+                        }
+                    }
+
+                    if (mod == null)
+                    {
+                        throw toThrow!;
+                    }
+
+                    // Set the C-terminus modification index to its OneIsNTerminus Index.
+                    // Checks if the location restriction for the mod contains C-terminal' (for protein and peptide BioPolymer objects)
+                    // or '3'-terminal' (for nucleic acid BioPolymer objects) and if we are at the last residue of the full sequence.
+                    if ((mod.LocationRestriction.Contains("C-terminal.") || mod.LocationRestriction.Contains("3'-terminal.") && r == fullSequence.Length - 1))
+                    {
+                        currentModificationLocation = baseSequence.Length + 2;
+                    }
+
+                    allModsOneIsNterminus.Add(currentModificationLocation, mod);
+                    currentlyReadingMod = false;
+                }
+            }
+            else if (!currentlyReadingMod && c != '-')
+            {
+                currentModificationLocation++;
+            }
+            //else do nothing
+        }
+
+        return allModsOneIsNterminus;
+    }
+
 
     /// <summary>
     /// Gets the closest modification from the list of all known modifications that matches the given localized modification.

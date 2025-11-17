@@ -7,6 +7,7 @@ using Omics.Fragmentation.Peptide;
 using Omics.SpectrumMatch;
 using System.Collections.Generic;
 using MzLibUtil;
+using Omics.Modifications;
 
 namespace Readers
 {
@@ -65,6 +66,7 @@ namespace Readers
 
         #region IQuantifiableRecord Properties and Methods
         public string FileName => FileNameWithoutExtension;
+        public int OneBasedScanNumber => Ms2ScanNumber;
         public string BaseSequence => BaseSeq;
         public int ChargeState => PrecursorCharge;
         public bool IsDecoy => DecoyContamTarget.Contains('D');

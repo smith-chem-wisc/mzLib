@@ -24,5 +24,8 @@
 
         // Quantification
         FlashLFQ,
+
+        // Other
+        Casanovo,
     }
 }

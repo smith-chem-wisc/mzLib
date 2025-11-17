@@ -43,6 +43,9 @@
     <None Update="DatabaseTests\nucleotideVariantsAsModifications.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DatabaseTests\outOfRangeVariant.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\proteinEntryLipidMoietyBindingRegion.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -329,6 +332,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\timsTOF_snippet_Corrupted.d\analysis.tdf_bin">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\ExternalFileTypes\Casanovo_5.0.0.mztab">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\DinoSnippet.features.tsv">
@@ -795,6 +801,9 @@
 	  </None>
 	  <None Update="DataFiles\profile_and_centroid_1x_MS1_4x_autoMS2.d\**">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
+	  <None Update="DataFiles\TestCompensationVoltageReading.raw">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
   </ItemGroup>
 
