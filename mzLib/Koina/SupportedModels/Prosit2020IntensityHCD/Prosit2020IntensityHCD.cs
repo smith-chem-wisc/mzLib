@@ -26,10 +26,11 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
         public List<int> CollisionEnergies;
         public List<LibrarySpectrum> PredictedSpectra;
         public List<double?> RetentionTimes;
+        public double MinIntensityFilter; // Tolerance for intensity filtering of predicted peaks
 
 
         public SpectralLibrary PredictedSpectralLibrary { get; internal set; }
-        public Prosit2020IntensityHCD(List<string> peptideSequences, List<int> precursorCharges, List<int> collisionEnergies, List<double?> retentionTimes)
+        public Prosit2020IntensityHCD(List<string> peptideSequences, List<int> precursorCharges, List<int> collisionEnergies, List<double?> retentionTimes, double? minIntensityFilter=null)
         {
             // Ensure that the inputs meet the model requirements.
             for (int i = 0; i < peptideSequences.Count; i++)
@@ -37,10 +38,10 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
                 var peptide = peptideSequences[i];
                 var charge = precursorCharges[i];
                 var energy = collisionEnergies[i];
-                if (!(peptide.Length <= MaxPeptideLength)
-                    && !AllowedPrecursorCharges.Contains(charge))
+                if ((peptide.Length > MaxPeptideLength)
+                    || !AllowedPrecursorCharges.Contains(charge))
                 {
-                    throw new ArgumentException($"Input at index {i} does not meet model requirements: Peptide Length = {peptide.Length}, Precursor Charge = {charge}");
+                    throw new ArgumentException($"Input at index {i} does not meet model requirements: Peptide {peptide} has length={peptide.Length}, and precursor charge={charge}.");
                 }
             }
 
@@ -50,6 +51,7 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
             BatchSize = PeptideSequences.Count;
             PredictedSpectralLibrary = new();
             RetentionTimes = retentionTimes;
+            MinIntensityFilter = minIntensityFilter ?? 1e-4;
         }
 
         // Construct from a list of LibrarySpectrum objects
@@ -133,7 +135,7 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
 
                 for (int j = i * NumberOfPredictedIons; j < (i + 1) * NumberOfPredictedIons; j++)
                 {
-                    if (outputMZs[j] == -1 || outputIntensities[j] == -1)
+                    if (outputMZs[j] == -1 || outputIntensities[j] < MinIntensityFilter)
                     {
                         // Skip ions with invalid m/z. The model uses -1 to indicate impossible ions.
                         continue;
