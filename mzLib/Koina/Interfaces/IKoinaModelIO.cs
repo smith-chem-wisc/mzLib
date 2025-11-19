@@ -11,6 +11,6 @@ namespace Koina.Interfaces
         public string ModelName { get; }
         public int BatchSize { get; }
         public Dictionary<string, object> ToRequest(string? requestID = null);
-        public void RunInference();
+        public Task RunInferenceAsync();
     }
 }

@@ -1,4 +1,5 @@
-﻿using Koina.Client;
+﻿using Chemistry;
+using Koina.Client;
 using Koina.Interfaces;
 using MassSpectrometry;
 using NUnit.Framework;
@@ -13,21 +14,22 @@ using static System.Net.WebRequestMethods;
 
 namespace Koina.SupportedModels.Prosit2020IntensityHCD
 {
-    public class Prosit2020IntensityHCD: IKoinaModelIO
+    public class Prosit2020IntensityHCD : IKoinaModelIO
     {
         public string ModelName { get; } = "Prosit_2020_intensity_HCD";
         public readonly int MaxPeptideLength = 30;
-        public readonly HashSet<int> AllowedPrecursorCharges = new() { 1, 2, 3, 4, 5, 6};
+        public readonly HashSet<int> AllowedPrecursorCharges = new() { 1, 2, 3, 4, 5, 6 };
         public readonly int NumberOfPredictedIons = 174;
         public int BatchSize { get; private set; }
         public List<string> PeptideSequences;
         public List<int> PrecursorCharges;
         public List<int> CollisionEnergies;
         public List<LibrarySpectrum> PredictedSpectra;
+        public List<double?> RetentionTimes;
 
 
         public SpectralLibrary PredictedSpectralLibrary { get; internal set; }
-        public Prosit2020IntensityHCD(List<string> peptideSequences, List<int> precursorCharges, List<int> collisionEnergies)
+        public Prosit2020IntensityHCD(List<string> peptideSequences, List<int> precursorCharges, List<int> collisionEnergies, List<double?> retentionTimes)
         {
             // Ensure that the inputs meet the model requirements.
             for (int i = 0; i < peptideSequences.Count; i++)
@@ -35,7 +37,7 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
                 var peptide = peptideSequences[i];
                 var charge = precursorCharges[i];
                 var energy = collisionEnergies[i];
-                if (!(peptide.Length <= MaxPeptideLength) 
+                if (!(peptide.Length <= MaxPeptideLength)
                     && !AllowedPrecursorCharges.Contains(charge))
                 {
                     throw new ArgumentException($"Input at index {i} does not meet model requirements: Peptide Length = {peptide.Length}, Precursor Charge = {charge}");
@@ -47,6 +49,19 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
             CollisionEnergies = collisionEnergies;
             BatchSize = PeptideSequences.Count;
             PredictedSpectralLibrary = new();
+            RetentionTimes = retentionTimes;
+        }
+
+        // Construct from a list of LibrarySpectrum objects
+        public Prosit2020IntensityHCD(List<LibrarySpectrum> spectralLibrary)
+        {
+            throw new NotImplementedException();
+        }
+
+        // Construct from a a spectral library file path
+        public Prosit2020IntensityHCD(string filePath)
+        {
+            throw new NotImplementedException();
         }
 
         public Dictionary<string, object> ToRequest(string? requestID = null)
@@ -81,19 +96,28 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
             return request;
         }
 
-        public async void RunInference()
+        public async Task RunInferenceAsync()
         {
             var _http = new HTTP();
 
             var response = await _http.InferenceRequest(ModelName, ToRequest());
-            _ResponseToSpectralLibrary(response);
+            _ResponseToLibrarySpectra(response);
         }
 
-        private void _ResponseToSpectralLibrary(string response)
+        private void _ResponseToLibrarySpectra(string response)
         {
             PredictedSpectra = new List<LibrarySpectrum>();
-            var deserializedResponse = Newtonsoft.Json.JsonConvert.DeserializeObject<ResponseJSONStruct>(response); 
-            var shape = deserializedResponse.Outputs[0].Shape; // Assuming all outputs have the same batch size
+            var deserializedResponse = Newtonsoft.Json.JsonConvert.DeserializeObject<ResponseJSONStruct>(response);
+
+            if (deserializedResponse == null)
+            {
+                throw new Exception("Failed to deserialize response from Koina.");
+            }
+
+            var shape = deserializedResponse.Outputs[0].Shape; // Assuming all outputs have the same batch size. True for this model.
+            string[] outputIonAnnotations = deserializedResponse.Outputs[0].Data.Select(d => (string)d);
+            double[] outputMZs = deserializedResponse.Outputs[1].Data.Select(d => double.Parse(String.Join("", d)));
+            double[] outputIntensities = deserializedResponse.Outputs[2].Data.Select(d => double.Parse(String.Join("", d)));
 
             // Create Peptide objects from sequences to facilitate mass calculations
             List<Peptide> peptides = new List<Peptide>();
@@ -106,17 +130,19 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
             for (int i = 0; i < BatchSize; i++)
             {
                 List<MatchedFragmentIon> fragmentIons = new();
-                List<string> outputIonAnnotations = deserializedResponse.Outputs[0].Data.Select(d => d.ToString()).ToList();
-                List<double> outputMZs = deserializedResponse.Outputs[1].Data.Select(d => double.Parse(d.ToString())).ToList();
-                List<double> outputIntensities = deserializedResponse.Outputs[2].Data.Select(d => double.Parse(d.ToString())).ToList();
 
-                
-                for (int j = i*NumberOfPredictedIons; j < (i+1)*NumberOfPredictedIons; j++)
+                for (int j = i * NumberOfPredictedIons; j < (i + 1) * NumberOfPredictedIons; j++)
                 {
+                    if (outputMZs[j] == -1 || outputIntensities[j] == -1)
+                    {
+                        // Skip ions with invalid m/z. The model uses -1 to indicate impossible ions.
+                        continue;
+                    }
+
                     var annotation = outputIonAnnotations[j];
                     // Parse the annotation to get ion type, number and charge from something like 'b5+1'
-                    var ionType = annotation.First(); // 'b' or 'y'
-                    var ionNumber = annotation.SubSequence(1, annotation.IndexOf('+')).ToString();
+                    var ionType = annotation.First().ToString(); // 'b' or 'y'
+                    var fragmentNumber = int.Parse(String.Join("", annotation.SubSequence(1, annotation.IndexOf('+') - 1)));
                     var ionCharge = int.Parse(annotation.Last().ToString());
 
                     // Create a new MatchedFragmentIon for each output
@@ -125,9 +151,9 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
                         neutralTheoreticalProduct: new Product
                         (
                             productType: Enum.Parse<ProductType>(ionType),
-                            terminus: ionType == 'b' ? FragmentationTerminus.N : FragmentationTerminus.C,
+                            terminus: ionType == "b" ? FragmentationTerminus.N : FragmentationTerminus.C,
                             neutralMass: 0, // Placeholder, would need to calculate theoretical mass
-                            fragmentNumber: int.Parse(ionNumber.ToString()),
+                            fragmentNumber: fragmentNumber,
                             residuePosition: 0, // Placeholder, would need to calculate position
                             neutralLoss: 0 // Placeholder, would need to calculate neutral loss if any
 
@@ -143,13 +169,21 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
                 var spectrum = new LibrarySpectrum
                 (
                     sequence: peptides[i].BaseSequence,
-                    precursorMz: peptides[i].MonoisotopicMass / PrecursorCharges[i],
+                    precursorMz: peptides[i].ToMz(PrecursorCharges[i]),
                     chargeState: PrecursorCharges[i],
-                    peaks: fragmentIons
+                    peaks: fragmentIons,
+                    rt: RetentionTimes[i]
                 );
 
                 PredictedSpectra.Add(spectrum);
             }
+        }
+
+        public void SavePredictedSpectralLibrary(string filePath)
+        {
+            var spectralLibrary = new SpectralLibrary();
+            spectralLibrary.Results = PredictedSpectra;
+            spectralLibrary.WriteResults(filePath);
         }
     }
 }

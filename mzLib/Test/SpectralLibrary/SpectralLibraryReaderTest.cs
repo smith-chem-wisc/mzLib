@@ -14,6 +14,8 @@ using NUnit.Framework.Legacy;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
+using Koina;
+using MathNet.Numerics.Distributions;
 
 namespace Test
 {
@@ -121,27 +123,59 @@ namespace Test
         }
 
         [Test]
-        public static void TestKoina()
+        public static async Task TestKoinaProsit2020IntensityHCDModel()
         {
-            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\myPrositLib.msp");
+            var experPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\myPrositLib.msp");
+            var predPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\koinaTestOutput.msp");
+            if (File.Exists(predPath))
+            {
+                File.Delete(predPath);
+            }
 
-            var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { path });
+            var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { experPath });
             var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
             string pattern = @"\[.*\]";
 
             var peptides = librarySpectra.Select(p => Regex.Replace(p.Sequence, pattern, "")).ToList();
             var charges = librarySpectra.Select(p => p.ChargeState).ToList();
-            var energies = new List<int> { 50, 50, 50, 50, 50 };
+            var energies = new List<int> { 35, 35, 35, 35, 35};
+            var retentionTimes = librarySpectra.Select(p => p.RetentionTime).ToList();
 
-            var modelHandler = new Koina.SupportedModels.Prosit2020IntensityHCD.Prosit2020IntensityHCD(peptides, charges, energies);
+            var modelHandler = new Koina.SupportedModels.Prosit2020IntensityHCD.Prosit2020IntensityHCD(peptides, charges, energies, retentionTimes);
 
-            modelHandler.RunInference();
+            await modelHandler.RunInferenceAsync();
             var predictedSpectra = modelHandler.PredictedSpectra;
+            modelHandler.SavePredictedSpectralLibrary(predPath);
 
-            // NEED TO FINISH TEST
-            Assert.That(false == true); // placeholder to mark test as incomplete
+            // Test that the predicted spectrum that was saved matches the predicted spectra in memory
+            var spectralLibraryTest = new SpectralLibrary(new List<string> { predPath });
+            var spectralLibrary = spectralLibraryTest.GetAllLibrarySpectra().ToList();
+            Assert.That(peptides.Count == spectralLibrary.Count);
 
+            var sortedPredictedSpectra = predictedSpectra.OrderBy(p => p.Sequence).ThenBy(p => p.ChargeState).ToList();
+            var sortedSavedSpectra = spectralLibrary.OrderBy(p => p.Sequence).ThenBy(p => p.ChargeState).ToList();
+            for (int i = 0; i < peptides.Count; i++)
+            {
+                var inMemorySpectrum = sortedPredictedSpectra[i];
+                var savedSpectrum = sortedSavedSpectra[i];
+                Assert.That(inMemorySpectrum.Sequence == savedSpectrum.Sequence);
+                Assert.That(inMemorySpectrum.ChargeState == savedSpectrum.ChargeState);
+                Assert.That(inMemorySpectrum.MatchedFragmentIons.Count == savedSpectrum.MatchedFragmentIons.Count);
+                for (int j = 0; j < inMemorySpectrum.MatchedFragmentIons.Count; j++)
+                {
+                    var inMemoryFrag = inMemorySpectrum.MatchedFragmentIons[j];
+                    var savedFrag = savedSpectrum.MatchedFragmentIons[j];
+                    Assert.That(inMemoryFrag.Mz == savedFrag.Mz);
+                    Assert.That(inMemoryFrag.Intensity == savedFrag.Intensity);
+                    Assert.That(inMemoryFrag.NeutralTheoreticalProduct.ProductType == savedFrag.NeutralTheoreticalProduct.ProductType);
+                    Assert.That(inMemoryFrag.NeutralTheoreticalProduct.FragmentNumber == savedFrag.NeutralTheoreticalProduct.FragmentNumber);
+                    Assert.That(inMemoryFrag.Charge == savedFrag.Charge);
+                }
+            }
 
+            testLibraryWithoutDecoy.CloseConnections();
+            spectralLibraryTest.CloseConnections();
+            File.Delete(predPath);
         }
 
         [Test]
