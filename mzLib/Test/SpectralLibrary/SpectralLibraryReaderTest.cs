@@ -11,6 +11,9 @@ using Readers;
 using Readers.SpectralLibrary;
 using Omics.SpectrumMatch;
 using NUnit.Framework.Legacy;
+using System.Threading.Tasks;
+using System.Text.RegularExpressions;
+using Newtonsoft.Json;
 
 namespace Test
 {
@@ -115,6 +118,30 @@ namespace Test
 
             testLibraryWithoutDecoy.CloseConnections();
             File.Delete(writtenPath);
+        }
+
+        [Test]
+        public static void TestKoina()
+        {
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\myPrositLib.msp");
+
+            var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { path });
+            var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
+            string pattern = @"\[.*\]";
+
+            var peptides = librarySpectra.Select(p => Regex.Replace(p.Sequence, pattern, "")).ToList();
+            var charges = librarySpectra.Select(p => p.ChargeState).ToList();
+            var energies = new List<int> { 50, 50, 50, 50, 50 };
+
+            var modelHandler = new Koina.SupportedModels.Prosit2020IntensityHCD.Prosit2020IntensityHCD(peptides, charges, energies);
+
+            modelHandler.RunInference();
+            var predictedSpectra = modelHandler.PredictedSpectra;
+
+            // NEED TO FINISH TEST
+            Assert.That(false == true); // placeholder to mark test as incomplete
+
+
         }
 
         [Test]
