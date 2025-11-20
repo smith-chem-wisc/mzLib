@@ -16,9 +16,9 @@ namespace Koina.Client
         public static readonly string _ModelsURL = "https://koina.wilhelmlab.org:443/v2/models/";
         public readonly HttpClient Client;
 
-        public HTTP()
+        public HTTP(int timeoutInMinutes = 1)
         {
-            Client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+            Client = new HttpClient { Timeout = TimeSpan.FromMinutes(timeoutInMinutes) };
         }
 
         public async Task<string> InferenceRequest(string modelName, Dictionary<string, object> request)
