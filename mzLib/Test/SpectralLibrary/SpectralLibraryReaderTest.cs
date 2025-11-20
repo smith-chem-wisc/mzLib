@@ -133,12 +133,12 @@ namespace Test
             }
 
             var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { experPath });
-            var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
+            var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().Where(p => p.ChargeState<=6 && p.Sequence.Length <= 30 && p.Sequence.Length>1).Take(2500).DistinctBy(p=>p.Sequence).ToList();
             string pattern = @"\[.*\]";
 
             var peptides = librarySpectra.Select(p => Regex.Replace(p.Sequence, pattern, "")).ToList();
             var charges = librarySpectra.Select(p => p.ChargeState).ToList();
-            var energies = new List<int> { 35, 35, 35, 35, 35};
+            var energies = librarySpectra.Select(p => 30).ToList();
             var retentionTimes = librarySpectra.Select(p => p.RetentionTime).ToList();
 
             var modelHandler = new Koina.SupportedModels.Prosit2020IntensityHCD.Prosit2020IntensityHCD(peptides, charges, energies, retentionTimes);
@@ -161,12 +161,20 @@ namespace Test
                 Assert.That(inMemorySpectrum.Sequence == savedSpectrum.Sequence);
                 Assert.That(inMemorySpectrum.ChargeState == savedSpectrum.ChargeState);
                 Assert.That(inMemorySpectrum.MatchedFragmentIons.Count == savedSpectrum.MatchedFragmentIons.Count);
+
+                var sortedInMemoryFrags = inMemorySpectrum.MatchedFragmentIons.OrderBy(p => p.Mz).ToList();
+                var sortedSavedFrags = savedSpectrum.MatchedFragmentIons.OrderBy(p => p.Mz).ToList();
+                
+                // Get max intensity for normalization
+                double maxInMemoryIntensity = sortedInMemoryFrags.Max(f => f.Intensity);
+                
                 for (int j = 0; j < inMemorySpectrum.MatchedFragmentIons.Count; j++)
                 {
-                    var inMemoryFrag = inMemorySpectrum.MatchedFragmentIons[j];
-                    var savedFrag = savedSpectrum.MatchedFragmentIons[j];
+                    var inMemoryFrag = sortedInMemoryFrags[j];
+                    var savedFrag = sortedSavedFrags[j];
                     Assert.That(inMemoryFrag.Mz == savedFrag.Mz);
-                    Assert.That(inMemoryFrag.Intensity == savedFrag.Intensity);
+                    // Compare normalized intensities since saved library normalizes to max intensity
+                    Assert.That((inMemoryFrag.Intensity / maxInMemoryIntensity) == savedFrag.Intensity);
                     Assert.That(inMemoryFrag.NeutralTheoreticalProduct.ProductType == savedFrag.NeutralTheoreticalProduct.ProductType);
                     Assert.That(inMemoryFrag.NeutralTheoreticalProduct.FragmentNumber == savedFrag.NeutralTheoreticalProduct.FragmentNumber);
                     Assert.That(inMemoryFrag.Charge == savedFrag.Charge);

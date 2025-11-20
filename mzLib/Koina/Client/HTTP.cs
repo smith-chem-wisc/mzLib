@@ -23,26 +23,21 @@ namespace Koina.Client
 
         public async Task<string> InferenceRequest(string modelName, Dictionary<string, object> request)
         {
-            try
+            var json = JsonConvert.SerializeObject(request);
+            using var content = new StringContent(json, Encoding.UTF8, "application/json");
+            using var response = await Client.PostAsync($"{_ModelsURL}{modelName}/infer", content);
+
+            if (!response.IsSuccessStatusCode)
             {
-                TestConnection();
-
-                var json = JsonConvert.SerializeObject(request);
-                using var response = await Client.PostAsync($"{_ModelsURL}{modelName}/infer", new StringContent(json, Encoding.UTF8, "application/json"));
-
-                string payload = await response.Content.ReadAsStringAsync();
-
-                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-                {
-                    throw new HttpRequestException($"404 Not Found for {modelName}. Body:\n{payload}");
-                }
-                response.EnsureSuccessStatusCode();
-                return payload;
+                var errorContent = await response.Content.ReadAsStringAsync();
+                throw new HttpRequestException(
+                    $"Request failed with status {(int)response.StatusCode} {response.ReasonPhrase}: {errorContent}");
             }
-            catch (Exception ex)
-            {
-                throw new HttpRequestException("Inference request failed: " + ex.Message);
-            }
+
+            // Stream instead of buffering
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var reader = new StreamReader(stream);
+            return await reader.ReadToEndAsync(); // No buffer limit
         }
 
         public void TestConnection()

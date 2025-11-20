@@ -9,8 +9,8 @@ namespace Koina.Interfaces
     internal interface IKoinaModelIO
     {
         public string ModelName { get; }
-        public int BatchSize { get; }
-        public Dictionary<string, object> ToRequest(string? requestID = null);
+        public int MaxBatchSize { get; }
+        public List<Dictionary<string, object>> ToBatchedRequests();
         public Task RunInferenceAsync();
     }
 }
