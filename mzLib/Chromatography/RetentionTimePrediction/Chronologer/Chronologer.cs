@@ -12,7 +12,6 @@ namespace Chromatography.RetentionTimePrediction.Chronologer
     /// </summary>
     internal sealed class Chronologer : torch.nn.Module<torch.Tensor, torch.Tensor>, IDisposable
     {
-        private const string DefaultWeightsFileName = @"RetentionTimePrediction\Chronologer\Chronologer_20220601193755_TorchSharp.dat";
         private bool _disposed;
 
         /// <summary>
@@ -27,7 +26,9 @@ namespace Chromatography.RetentionTimePrediction.Chronologer
         {
             if (weightsPath == null)
             {
-                using var resourceStream = Assembly.GetAssembly(typeof(Chronologer))!.GetManifestResourceStream(DefaultWeightsFileName);
+                // Locate embedded weights file
+                var info = Assembly.GetExecutingAssembly().GetName();
+                using var resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"{info.Name}.RetentionTimePrediction.Chronologer.Chronologer_20220601193755_TorchSharp.dat");
                 
                 if (resourceStream == null)
                 {
