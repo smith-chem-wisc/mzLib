@@ -123,7 +123,7 @@ namespace Test
         }
 
         [Test]
-        public static async Task TestKoinaProsit2020IntensityHCDModel()
+        public static async Task TestKoinaProsit2020IntensityHCDModelWritesReadableSpectralLibrary()
         {
             var experPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\myPrositLib.msp");
             var predPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\koinaTestOutput.msp");
@@ -135,15 +135,14 @@ namespace Test
             var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { experPath });
             string aminoacids = @"ACDEFGHIKLMNPQRSTVWY";
             var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra()
-                .Where(p => p.ChargeState < 6 && p.Sequence.Length < 30 && p.Sequence.Length > 1 && p.Sequence.ToHashSet().IsSubsetOf(aminoacids.ToHashSet()))
-                .Take(1100).ToList();
+                .Where(p => p.ChargeState < 6 && p.Sequence.Length < 30 && p.Sequence.Length > 1 && p.Sequence.ToHashSet().IsSubsetOf(aminoacids.ToHashSet())).ToList();
 
             var peptides = librarySpectra.Select(p => p.Sequence).ToList();
             var charges = librarySpectra.Select(p => p.ChargeState).ToList();
             var energies = librarySpectra.Select(p => 35).ToList();
             var retentionTimes = librarySpectra.Select(p => p.RetentionTime ).ToList();
 
-            var modelHandler = new Koina.SupportedModels.Prosit2020IntensityHCD.Prosit2020IntensityHCD(peptides, charges, energies, retentionTimes, minIntensityFilter: 1e-6);
+            var modelHandler = new Koina.SupportedModels.Prosit2020IntensityHCD.Prosit2020IntensityHCD(peptides, charges, energies, retentionTimes, out var warnings, minIntensityFilter: 1e-6);
 
             await modelHandler.RunInferenceAsync();
             var predictedSpectra = modelHandler.PredictedSpectra;

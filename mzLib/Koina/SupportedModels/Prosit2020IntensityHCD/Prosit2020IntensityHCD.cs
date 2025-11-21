@@ -1,16 +1,15 @@
 ﻿using Chemistry;
+using Easy.Common.Extensions;
 using Koina.Client;
 using Koina.Interfaces;
-using MassSpectrometry;
-using NUnit.Framework;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
 using Proteomics.AminoAcidPolymer;
-using Proteomics.ProteolyticDigestion;
 using Readers.SpectralLibrary;
-using System.Threading.Tasks.Dataflow;
+using System.ComponentModel;
 using TopDownProteomics;
-using static System.Net.WebRequestMethods;
+using System.Text.RegularExpressions;
+using MathNet.Numerics.Financial;
 
 namespace Koina.SupportedModels.Prosit2020IntensityHCD
 {
@@ -22,41 +21,69 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
         public readonly int MaxPeptideLength = 30;
         public readonly HashSet<int> AllowedPrecursorCharges = new() { 1, 2, 3, 4, 5, 6 };
         public readonly int NumberOfPredictedFragmentIons = 174;
-        public List<string> PeptideSequences;
-        public List<int> PrecursorCharges;
-        public List<int> CollisionEnergies;
-        public List<LibrarySpectrum> PredictedSpectra;
-        public List<double?> RetentionTimes;
+        public int BatchSize { get; private set; }
+        public List<string> PeptideSequences = new();
+        public List<int> PrecursorCharges = new();
+        public List<int> CollisionEnergies = new();
+        public List<double?> RetentionTimes = new();
+        public List<LibrarySpectrum> PredictedSpectra = new();
         public double MinIntensityFilter; // Tolerance for intensity filtering of predicted peaks
-        public SpectralLibrary PredictedSpectralLibrary { get; internal set; }
 
 
-        public Prosit2020IntensityHCD(List<string> peptideSequences, List<int> precursorCharges, List<int> collisionEnergies, List<double?> retentionTimes, double? minIntensityFilter=null)
+        public Prosit2020IntensityHCD(List<string> peptideSequences, List<int> precursorCharges, List<int> collisionEnergies, List<double?> retentionTimes, out WarningException? warnings, double? minIntensityFilter=null)
         {
-            var spectrumNameValidationList = new List<string>();
+            // Fatal Conditions
+            if (peptideSequences.Count != precursorCharges.Count
+                || peptideSequences.Count != collisionEnergies.Count
+                || peptideSequences.Count != retentionTimes.Count)
+            {
+                throw new ArgumentException("Input lists must have the same length.");
+            }
+
             // Ensure that the inputs meet the model requirements.
+            List<string> invalidArguments = new();
             for (int i = 0; i < peptideSequences.Count; i++)
             {
                 var peptide = peptideSequences[i];
                 var charge = precursorCharges[i];
                 var energy = collisionEnergies[i];
-                if ((peptide.Length > MaxPeptideLength)
-                    || !AllowedPrecursorCharges.Contains(charge))
+                var retentionTime = retentionTimes[i];
+
+                // Warning conditions
+                if (peptide.Length > MaxPeptideLength ||
+                    peptide.Length == 0 ||
+                    !HasValidModifications(peptide) ||
+                    !IsValidSequence(peptide) ||
+                    !AllowedPrecursorCharges.Contains(charge) ||
+                    energy <= 0
+                    )
                 {
-                    throw new ArgumentException($"Input at index {i} does not meet model requirements: Peptide {peptide} has length={peptide.Length}, and precursor charge={charge}.");
+                    invalidArguments.Add($"Index {i}: Peptide '{peptide}' (Length: {peptide.Length}), Charge: {charge}, Collision Energy: {energy}");
                 }
-                if (spectrumNameValidationList.Contains($"{peptide}\\{charge}"))
+                else
                 {
-                    throw new ArgumentException($"Input at index {i} is a duplicate: Peptide {peptide} with precursor charge={charge}.");
+                    PeptideSequences.Add(ConvertToPrositModificationFormat(peptide));
+                    PrecursorCharges.Add(charge);
+                    CollisionEnergies.Add(energy);
+                    RetentionTimes.Add(retentionTime);
                 }
-                spectrumNameValidationList.Add($"{peptide}\\{charge}");
             }
 
-            PeptideSequences = peptideSequences;
-            PrecursorCharges = precursorCharges;
-            CollisionEnergies = collisionEnergies;
-            PredictedSpectralLibrary = new();
-            RetentionTimes = retentionTimes;
+            warnings = null;
+            if (invalidArguments.Count > 0)
+            {
+                string warningMessage = "The following input entries are invalid and will be skipped:\n"
+                    + string.Join("\n", invalidArguments)
+                    + "\nModel Requirements:\n"
+                    + $"- Peptide length <= {MaxPeptideLength}\n"
+                    + "- Peptide sequence is not empty\n"
+                    + "- Peptide has valid modifications\n"
+                    + $"- Precursor charge in [{string.Join(", ", AllowedPrecursorCharges)}]\n"
+                    + "- Collision energy > 0\n"
+                    + "- Retention time is null or >= 0";
+                warnings = new WarningException(warningMessage);
+            }
+
             MinIntensityFilter = minIntensityFilter ?? 1e-4;
         }
 
@@ -202,7 +229,7 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
                     PredictedSpectra.Add(spectrum);
                 }
             }
-            var unique = PredictedSpectra.DistinctBy(p => p.Name ).ToList();
+            var unique = PredictedSpectra.DistinctBy(p => p.Name).ToList();
             if (unique.Count != PredictedSpectra.Count)
             {
                 throw new Exception($"Duplicate spectra found in predictions. Reduced from {PredictedSpectra.Count} to {unique.Count} unique spectra.");
@@ -215,6 +242,68 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
             var spectralLibrary = new SpectralLibrary();
             spectralLibrary.Results = PredictedSpectra;
             spectralLibrary.WriteResults(filePath);
+        }
+
+
+        internal bool HasValidModifications(string sequence)
+        {
+            var modPattern = @"\[[^\]]+\]";
+            var validModifications = new Dictionary<string, string>
+            {
+                {"[Common Variable:Oxidation on M]", "[UNIMOD:35]"},
+                {"[Common Fixed:Carbamidomethyl on C]", "[UNIMOD:4]"}
+            };
+
+            var matches = Regex.Matches(sequence, modPattern);
+            if (matches.Count == 0)
+            {
+                return true; // No modifications, valid
+            }
+            else
+            {
+                foreach (Match match in matches)
+                {
+                    if (!validModifications.ContainsKey(match.Value))
+                    {
+                        return false; // Invalid modification found
+                    }
+                }
+                return true; // All modifications are valid
+            }
+        }
+
+        internal bool IsValidSequence(string sequence)
+        {
+            var modPattern = @"\[[^\]]+\]";
+            var aminoAcidPattern = @"^[ACDEFGHIKLMNPQRSTVWY]+$";
+            var baseSequence = Regex.Replace(sequence, modPattern, "");
+            if (Regex.IsMatch(baseSequence, aminoAcidPattern) &&
+                baseSequence.Length <= MaxPeptideLength)
+            {
+                return true; // Valid sequence
+            }
+            else
+            {
+                return false; // Invalid characters found
+            }
+        }
+
+        internal string ConvertToPrositModificationFormat(string sequence)
+        {
+            var validModifications = new Dictionary<string, string>
+            {
+                {"[Common Variable:Oxidation on M]", "[UNIMOD:35]"},
+                {"[Common Fixed:Carbamidomethyl on C]", "[UNIMOD:4]"}
+            };
+            foreach (var mod in validModifications)
+            {
+                sequence = sequence.Replace(mod.Key, mod.Value);
+            }
+
+            // Carbamidomethylate all Cysteines if not already modified
+            sequence = Regex.Replace(sequence, @"C(?!\[UNIMOD:4\])", "C[UNIMOD:4]");
+
+            return sequence;
         }
     }
 }
