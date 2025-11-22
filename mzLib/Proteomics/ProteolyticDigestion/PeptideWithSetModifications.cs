@@ -212,7 +212,8 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         // Call the Extension method of IBioPolymerWithSetMods to get the sequence with mass shifts
-        public string GetSequenceWithMassShifts() => this.FullSequenceWithMassShift(); 
+        private string? _fullSequenceWithMassShifts;
+        public string FullSequenceWithMassShifts => _fullSequenceWithMassShifts ??= this.FullSequenceWithMassShift();
 
         public IBioPolymer Parent => Protein;
 

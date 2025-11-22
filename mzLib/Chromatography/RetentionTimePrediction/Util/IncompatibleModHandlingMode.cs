@@ -32,17 +32,17 @@ public enum IncompatibleModHandlingMode
 /// </summary>
 public class IncompatibleModificationException : Exception
 {
-    public string PeptideSequence { get; }
-    public IReadOnlyList<string> IncompatibleModifications { get; }
+    public string PeptideFullSequence { get; }
+    public string WorkingSequence { get; }
 
     public IncompatibleModificationException(
-        string peptideSequence,
-        IReadOnlyList<string> incompatibleMods,
+        string peptideFullSequence,
+        string workingSequence,
         string predictorName)
-        : base($"Peptide '{peptideSequence}' contains {incompatibleMods.Count} modification(s) " +
-               $"incompatible with {predictorName}: {string.Join(", ", incompatibleMods)}")
+        : base($"Peptide '{peptideFullSequence}' contains incompatible modification(s) " +
+               $"sequence was converted to {workingSequence} before {predictorName} gave up")
     {
-        PeptideSequence = peptideSequence;
-        IncompatibleModifications = incompatibleMods;
+        PeptideFullSequence = peptideFullSequence;
+        WorkingSequence = workingSequence;
     }
 }

@@ -29,6 +29,6 @@ namespace Chromatography.RetentionTimePrediction
         /// This is used by predictors that work with mass-based representations (e.g., Chronologer).
         /// </summary>
         /// <returns>Sequence with mass shift annotations, or null if not applicable</returns>
-        string? GetSequenceWithMassShifts();
+        string FullSequenceWithMassShifts { get; }
     }
 }
