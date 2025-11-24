@@ -4,6 +4,8 @@ namespace Chromatography.RetentionTimePrediction;
 
 public abstract class RetentionTimePredictor : IRetentionTimePredictor
 {
+    protected static readonly char[] CanonicalAminoAcids = "ACDEFGHIKLMNPQRSTVWY".ToCharArray();
+
     /// <summary>
     /// Name/identifier for this predictor (e.g., "SSRCalc3", "Chronologer")
     /// </summary>
@@ -34,8 +36,16 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor
         string? sequenceToPredict = GetFormattedSequence(peptide, out failureReason);
         if (sequenceToPredict == null)
             return null;
+        try
+        {
 
-        return PredictCore(peptide, sequenceToPredict);
+            return PredictCore(peptide, sequenceToPredict);
+        }
+        catch (Exception)
+        {
+            failureReason = RetentionTimeFailureReason.PredictionError;
+            return null;
+        }
     }
 
     /// <summary>

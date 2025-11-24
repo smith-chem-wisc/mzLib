@@ -42,7 +42,8 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDispos
 
     protected override bool ValidateBasicConstraints(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason)
     {
-        if (peptide.BaseSequence.Contains('U'))
+        var baseSequence = peptide.BaseSequence;
+        if (baseSequence.Any(aa => Array.IndexOf(CanonicalAminoAcids, aa) == -1))
         {
             failureReason = RetentionTimeFailureReason.InvalidAminoAcid;
             return false;
