@@ -21,4 +21,8 @@
     <PackageReference Include="TorchSharp" Version="0.105.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
+  </ItemGroup>
+
 </Project>

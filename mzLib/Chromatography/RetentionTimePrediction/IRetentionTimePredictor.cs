@@ -12,6 +12,11 @@ public interface IRetentionTimePredictor
     string PredictorName { get; }
 
     /// <summary>
+    /// Gets the separation type this predictor is designed for
+    /// </summary>
+    SeparationType SeparationType { get; }
+
+    /// <summary>
     /// Predicts retention time for a given peptide.
     /// Returns null if prediction cannot be made.
     /// </summary>

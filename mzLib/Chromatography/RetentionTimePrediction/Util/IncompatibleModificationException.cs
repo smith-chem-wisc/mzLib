@@ -1,9 +1,11 @@
+using MzLibUtil;
+
 namespace Chromatography.RetentionTimePrediction.Util;
 
 /// <summary>
 /// Exception thrown when incompatible modifications are encountered with ThrowException mode
 /// </summary>
-public class IncompatibleModificationException : Exception
+public class IncompatibleModificationException : MzLibException
 {
     public string PeptideFullSequence { get; }
     public string WorkingSequence { get; }
