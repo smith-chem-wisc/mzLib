@@ -137,9 +137,9 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDispos
                 }
                 return sb.ToString();
 
-            // Use base sequence without modifications
+            // Use base sequence without modifications with default termini
             case IncompatibleModHandlingMode.UsePrimarySequence:
-                return peptide.BaseSequence;
+                return $"-{peptide.BaseSequence}_";
 
             case IncompatibleModHandlingMode.ThrowException:
             default:

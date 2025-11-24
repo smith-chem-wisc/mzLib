@@ -30,6 +30,9 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor
 
     public double? PredictRetentionTime(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason)
     {
+        if (peptide == null)
+            throw new ArgumentNullException(nameof(peptide));
+
         if (!ValidateBasicConstraints(peptide, out failureReason))
             return null;
 
