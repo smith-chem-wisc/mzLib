@@ -146,7 +146,7 @@ namespace Omics.BioPolymer
             Description = description;
 
             // Back-compat: if no real tabs are present but literal "\t" sequences are,
-            // normalize them to actual tabs for parsing only. Leave Description intact.
+            // normalize them to actual tabs for parsing only. Leave VariantCallFormatDataString intact.
             string parseLine = NormalizeTabsForParsing(description);
 
             // Parse description into VCF fields
