@@ -14,6 +14,15 @@ namespace IsobaricQuant
             var o = ChannelShifts(n);
             var p = ApplyChannelShifts(m, n);
         }
+        private void Process(List<(int peptideFullSequenceHash, int[] reporterIntensities)> myInput)
+        {
+            var k = PeptideIntensitiesByPlexAndFile(myInput);
+            var l = PeptideIntensitiesAggregated(k, AggregateType.SumTopN);
+            var m = RemoveLowIntensities(l);
+            var n = ChannelMedians(m);
+            var o = ChannelShifts(n);
+            var p = ApplyChannelShifts(m, n);
+        }
         /// <summary>
         /// This could be the input of values from PSMs of a single file. On the input side, the peptideFullSequenceHash is exactly that and it may be 
         /// duplicated in the list of psmReporterValues. This is psm level data. So, there should be one copy of each peptideFullSequenceHash for each
