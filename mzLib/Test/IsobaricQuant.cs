@@ -1,10 +1,13 @@
-﻿using System;
+﻿using IsobaricQuant;
+using NUnit.Framework;
+using Readers;
+using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using IsobaricQuant;
-using NUnit.Framework;
 
 namespace Test
 {
@@ -56,6 +59,114 @@ namespace Test
             inputList.Add(input2);
             IsobaricQuantEngine ibq2 = new IsobaricQuantEngine(inputList);
             var o8 = ibq2.Process(aggregateType: IsobaricQuantEngine.AggregateType.SumTopN);
+        }
+        [Test]
+        public void ProcessPsms()
+        {
+            string psmFilePath = @"E:\Projects\Mann_11cell_lines\A549\A549_1\2025-12-02-13-52-34\Task1-SearchTask\AllPSMs.psmtsv";
+            List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFilePath, out var warnings);
+            var input = new List<(int peptideFullSequenceHash, int[] reporterIntensities)>();
+            int counter = 0;
+            foreach (var psm in parsedPsms)
+            {
+                input.Add((peptideFullSequenceHash: psm.FullSequence.GetHashCode(), reporterIntensities: RandomIntegerArray(6, 50, 100)));
+                counter++;
+                if (counter >= 20000)
+                {
+                    break;
+                }
+            }
+            var inputList = new List<List<(int peptideFullSequenceHash, int[] reporterIntensities)>> { input };
+            IsobaricQuantEngine ibq = new IsobaricQuantEngine(inputList);
+            var o1 = ibq.Process(aggregateType: IsobaricQuantEngine.AggregateType.SumTopN);
+            
+            psmFilePath = @"E:\Projects\Mann_11cell_lines\A549\A549_1\2025-12-02-13-54-13\Task1-SearchTask\AllPSMs.psmtsv";
+            parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFilePath, out warnings);
+            input = new List<(int peptideFullSequenceHash, int[] reporterIntensities)>();
+            counter = 0;
+            foreach (var psm in parsedPsms)
+            {
+                input.Add((peptideFullSequenceHash: psm.FullSequence.GetHashCode(), reporterIntensities: RandomIntegerArray(6, 50, 100)));
+                counter++;
+                if (counter >= 20000)
+                {
+                    break;
+                }
+            }
+            inputList = new List<List<(int peptideFullSequenceHash, int[] reporterIntensities)>> { input };
+            var ibq2 = new IsobaricQuantEngine(inputList);
+            var o2 = ibq.Process(aggregateType: IsobaricQuantEngine.AggregateType.SumTopN);
+            int[] newChannelLabels1 = new int[]
+            {
+                "A549_1".GetHashCode(),
+                "A549_2".GetHashCode(),
+                "A549_3".GetHashCode(),
+                "A549_4".GetHashCode(),
+                "A549_5".GetHashCode(),
+                "A549_6".GetHashCode()
+            };
+            var r1 = ibq.ReplaceChannelIndexBySampleKey(o1, newChannelLabels1);
+            var r2 = ibq2.ReplaceChannelIndexBySampleKey(o2, newChannelLabels1);
+            var g = ibq.GlobalResults(new List<ConcurrentDictionary<int, ConcurrentDictionary<int, int>>> { r1, r2 });
+        }
+        [Test]
+        public void ProcessProteinPsms()
+        {
+            string psmFilePath = @"E:\Projects\Mann_11cell_lines\A549\A549_1\2025-12-02-13-52-34\Task1-SearchTask\AllPSMs.psmtsv";
+            List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFilePath, out var warnings);
+            var input = new List<(int peptideFullSequenceHash, int[] reporterIntensities)>();
+            int counter = 0;
+            foreach (var psm in parsedPsms)
+            {
+                input.Add((peptideFullSequenceHash: psm.ProteinAccession.GetHashCode(), reporterIntensities: RandomIntegerArray(6, 50, 100)));
+                counter++;
+                if (counter >= 20000)
+                {
+                    break;
+                }
+            }
+            var inputList = new List<List<(int peptideFullSequenceHash, int[] reporterIntensities)>> { input };
+            IsobaricQuantEngine ibq = new IsobaricQuantEngine(inputList);
+            var o1 = ibq.Process(aggregateType: IsobaricQuantEngine.AggregateType.SumTopN);
+
+            psmFilePath = @"E:\Projects\Mann_11cell_lines\A549\A549_1\2025-12-02-13-54-13\Task1-SearchTask\AllPSMs.psmtsv";
+            parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFilePath, out warnings);
+            input = new List<(int peptideFullSequenceHash, int[] reporterIntensities)>();
+            counter = 0;
+            foreach (var psm in parsedPsms)
+            {
+                input.Add((peptideFullSequenceHash: psm.ProteinAccession.GetHashCode(), reporterIntensities: RandomIntegerArray(6, 50, 100)));
+                counter++;
+                if (counter >= 20000)
+                {
+                    break;
+                }
+            }
+            inputList = new List<List<(int peptideFullSequenceHash, int[] reporterIntensities)>> { input };
+            var ibq2 = new IsobaricQuantEngine(inputList);
+            var o2 = ibq.Process(aggregateType: IsobaricQuantEngine.AggregateType.SumTopN);
+            int[] newChannelLabels1 = new int[]
+            {
+                "A549_1".GetHashCode(),
+                "A549_2".GetHashCode(),
+                "A549_3".GetHashCode(),
+                "A549_4".GetHashCode(),
+                "A549_5".GetHashCode(),
+                "A549_6".GetHashCode()
+            };
+            var r1 = ibq.ReplaceChannelIndexBySampleKey(o1, newChannelLabels1);
+            var r2 = ibq2.ReplaceChannelIndexBySampleKey(o2, newChannelLabels1);
+            var g = ibq.GlobalResults(new List<ConcurrentDictionary<int, ConcurrentDictionary<int, int>>> { r1, r2 });
+        }
+        public int[] RandomIntegerArray(int length, int minValue, int maxValue)
+        {
+            Random rand = new Random();
+            int[] array = new int[length];
+            for (int i = 0; i < length; i++)
+            {
+                array[i] = rand.Next(minValue, maxValue);
+            }
+            return array;
         }
     }
 }

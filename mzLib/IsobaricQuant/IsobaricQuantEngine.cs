@@ -6,10 +6,18 @@ namespace IsobaricQuant
 {
     public class IsobaricQuantEngine
     {
-        private List<(int peptideFullSequenceHash, int[] reporterIntensities)> theInput;
+        private List<(int peptideFullSequenceOrProteinHash, int[] reporterIntensities)> theInput;
         
-
-        public IsobaricQuantEngine(List<List<(int peptideFullSequenceHash, int[] reporterIntensities)>> myFractionInput)
+        /// <summary>
+        /// Input could be psms from a single file
+        /// Input could be psms from all fractions in a plex
+        /// Input could be psms from all technical replicates
+        /// Input could be psms from all fractions and technical replicates
+        /// Input could be the output of a previous "Process" where the peptide full sequence hash is replace by the protein hash. In this way
+        /// all psms/peptides from a protein could be grouped or aggregated.
+        /// </summary>
+        /// <param name="myFractionInput"></param>
+        public IsobaricQuantEngine(List<List<(int peptideFullSequenceOrProteinHash, int[] reporterIntensities)>> myFractionInput)
         {
             theInput = CollectPsmsFromFractions(myFractionInput);
         }
@@ -32,10 +40,117 @@ namespace IsobaricQuant
             else return m;
         }
 
-        //public IsobaricQuantResults Run()
-        //{
-        //    Process();
-        //}
+        public ConcurrentDictionary<int, ConcurrentDictionary<int, int>> ReplaceChannelIndexBySampleKey(ConcurrentDictionary<int, ConcurrentDictionary<int, int>> myinput, int[] newChannelLabel)
+        {
+            if (myinput == null || myinput.IsEmpty)
+                return myinput ?? new ConcurrentDictionary<int, ConcurrentDictionary<int, int>>();
+            if (newChannelLabel == null || newChannelLabel.Length == 0)
+                return myinput;
+
+            var remapped = new ConcurrentDictionary<int, ConcurrentDictionary<int, int>>();
+
+            // Distinct newChannelLabel values => no collisions; we can assign directly.
+            Parallel.ForEach(myinput, outer =>
+            {
+                var originalChannels = outer.Value;
+                var targetChannels = new ConcurrentDictionary<int, int>();
+
+                foreach (var kv in originalChannels)
+                {
+                    int oldKey = kv.Key;
+                    if ((uint)oldKey >= (uint)newChannelLabel.Length)
+                        continue;
+
+                    int newKey = newChannelLabel[oldKey];
+                    targetChannels[newKey] = kv.Value; // direct set; no need to combine
+                }
+
+                remapped[outer.Key] = targetChannels;
+            });
+
+            return remapped;
+        }
+
+        /// <summary>
+        /// The first key will be a peptide or protein hash. The value is a dictionary where the key is the sample identification hash and the
+        /// list of values are the individual measurements. This could be values from biological replicates.
+        /// Aggregates and intersects results from multiple sources, producing a dictionary of common outer keys mapped
+        /// to their common channel keys and associated value lists.
+        /// </summary>
+        /// <remarks>If no common outer keys or channel keys exist across all sources, the returned
+        /// dictionary will be empty. The method is thread-safe and uses parallel processing to improve performance when
+        /// aggregating results.</remarks>
+        /// <param name="allResults">A list of concurrent dictionaries, each mapping outer keys to inner dictionaries of channel keys and integer
+        /// values. Each entry represents results from a single source. Cannot be null.</param>
+        /// <returns>A concurrent dictionary containing only those outer keys present in all sources. Each outer key maps to a
+        /// dictionary of channel keys that are also common to all sources, with each channel key associated with a list
+        /// of values collected from each source.</returns>
+        public ConcurrentDictionary<int, ConcurrentDictionary<int, List<int>>> GlobalResults(List<ConcurrentDictionary<int, ConcurrentDictionary<int, int>>> allResults)
+        {
+            var output = new ConcurrentDictionary<int, ConcurrentDictionary<int, List<int>>>();
+
+            // Fast exits
+            if (allResults == null || allResults.Count == 0)
+                return output;
+
+            // Remove null/empty dictionaries
+            var sources = allResults.Where(d => d != null && !d.IsEmpty).ToList();
+            if (sources.Count == 0)
+                return output;
+
+            // Compute intersection of outer keys (peptide/protein IDs) across all sources
+            var commonOuter = new HashSet<int>(sources[0].Keys);
+            for (int i = 1; i < sources.Count && commonOuter.Count > 0; i++)
+            {
+                commonOuter.IntersectWith(sources[i].Keys);
+            }
+            if (commonOuter.Count == 0)
+                return output;
+
+            // Parallelize over common outer keys
+            Parallel.ForEach(commonOuter, outerKey =>
+            {
+                // Gather inner dictionaries for this outerKey from all sources
+                var inners = new List<ConcurrentDictionary<int, int>>(sources.Count);
+                for (int i = 0; i < sources.Count; i++)
+                {
+                    // All sources must contain the outerKey (by construction), but be defensive
+                    if (sources[i].TryGetValue(outerKey, out var inner))
+                        inners.Add(inner);
+                    else
+                        return; // missing in this source; skip this outerKey
+                }
+
+                // Compute intersection of channel keys across all inners
+                var commonChannels = new HashSet<int>(inners[0].Keys);
+                for (int i = 1; i < inners.Count && commonChannels.Count > 0; i++)
+                {
+                    commonChannels.IntersectWith(inners[i].Keys);
+                }
+                if (commonChannels.Count == 0)
+                    return;
+
+                var perChannelLists = new ConcurrentDictionary<int, List<int>>();
+
+                // For each common channel, collect values from all sources into a list
+                foreach (int ch in commonChannels)
+                {
+                    // Collect values in order of sources (order not guaranteed to matter)
+                    var list = new List<int>(inners.Count);
+                    for (int i = 0; i < inners.Count; i++)
+                    {
+                        // Defensively TryGetValue; intersection guarantees presence
+                        if (inners[i].TryGetValue(ch, out int val))
+                            list.Add(val);
+                    }
+                    perChannelLists[ch] = list;
+                }
+
+                output[outerKey] = perChannelLists;
+            });
+
+            return output;
+        }
 
         /// <summary>
         /// This could be the input of values from PSMs of a single file. On the input side, the peptideFullSequenceHash is exactly that and it may be 
