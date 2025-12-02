@@ -1,28 +1,42 @@
 ﻿using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace IsobaricQuant
 {
     public class IsobaricQuantEngine
     {
-        public IsobaricQuantEngine()
+        private List<(int peptideFullSequenceHash, int[] reporterIntensities)> theInput;
+        
+
+        public IsobaricQuantEngine(List<List<(int peptideFullSequenceHash, int[] reporterIntensities)>> myFractionInput)
         {
-            var k = PeptideIntensitiesByPlexAndFile(new List<(int peptideFullSequenceHash, int[] reporterIntensities)>());
-            var l = PeptideIntensitiesAggregated(k, AggregateType.SumTopN);
-            var m = RemoveLowIntensities(l);
-            var n = ChannelMedians(m);
-            var o = ChannelShifts(n);
-            var p = ApplyChannelShifts(m, n);
+            theInput = CollectPsmsFromFractions(myFractionInput);
         }
-        private void Process(List<(int peptideFullSequenceHash, int[] reporterIntensities)> myInput)
+        public ConcurrentDictionary<int, ConcurrentDictionary<int, int>> Process(AggregateType aggregateType, int topN = int.MaxValue, double lowFraction = 0.05, bool normalize = true, int? referenceChannel = null)
         {
-            var k = PeptideIntensitiesByPlexAndFile(myInput);
-            var l = PeptideIntensitiesAggregated(k, AggregateType.SumTopN);
-            var m = RemoveLowIntensities(l);
-            var n = ChannelMedians(m);
-            var o = ChannelShifts(n);
-            var p = ApplyChannelShifts(m, n);
+            var k = GroupAllRawPsmChannelIntensities(theInput);
+            var l = CombineGroupedPsmIntensitiesToSingleValue(k, aggregateType, topN);
+            var m = RemoveLowIntensityPsms(l, lowFraction);
+            if (normalize)
+            {
+                if (referenceChannel == null)
+                {
+                    var n = DetermineChannelMedians(m);
+                    var o = ComputeChannelShifts(n);
+                    return ApplyChannelShifts(m, o);
+                }
+
+                return SubtractReferenceChannel(m, referenceChannel);
+            }
+            else return m;
         }
+
+        //public IsobaricQuantResults Run()
+        //{
+        //    Process();
+        //}
+
         /// <summary>
         /// This could be the input of values from PSMs of a single file. On the input side, the peptideFullSequenceHash is exactly that and it may be 
         /// duplicated in the list of psmReporterValues. This is psm level data. So, there should be one copy of each peptideFullSequenceHash for each
@@ -32,7 +46,7 @@ namespace IsobaricQuant
         /// </summary>
         /// <param name="psmReporterValues"></param>
         /// <returns></returns>
-        private ConcurrentDictionary<int, ConcurrentDictionary<int, ConcurrentBag<int>>> PeptideIntensitiesByPlexAndFile(List<(int peptideFullSequenceHash, int[] reporterIntensities)> psmReporterValues)
+        private ConcurrentDictionary<int, ConcurrentDictionary<int, ConcurrentBag<int>>> GroupAllRawPsmChannelIntensities(List<(int peptideFullSequenceHash, int[] reporterIntensities)> psmReporterValues)
         {
             var myOut = new ConcurrentDictionary<int, ConcurrentDictionary<int, ConcurrentBag<int>>>();
 
@@ -81,7 +95,7 @@ namespace IsobaricQuant
         /// other aggregation types. Must be greater than 0 to have an effect.</param>
         /// <returns>A concurrent dictionary mapping each peptide identifier to a dictionary of aggregated intensity values by
         /// channel. If the input is null or empty, returns an empty dictionary.</returns>
-        private ConcurrentDictionary<int, ConcurrentDictionary<int, int>> PeptideIntensitiesAggregated(ConcurrentDictionary<int, ConcurrentDictionary<int, ConcurrentBag<int>>> peptideIntensitiesByPlexAndFile, AggregateType aggregateType, int topN = int.MaxValue)
+        private ConcurrentDictionary<int, ConcurrentDictionary<int, int>> CombineGroupedPsmIntensitiesToSingleValue(ConcurrentDictionary<int, ConcurrentDictionary<int, ConcurrentBag<int>>> peptideIntensitiesByPlexAndFile, AggregateType aggregateType, int topN = int.MaxValue)
         {
             var myOut = new ConcurrentDictionary<int, ConcurrentDictionary<int, int>>();
             if (peptideIntensitiesByPlexAndFile == null || peptideIntensitiesByPlexAndFile.IsEmpty)
@@ -241,7 +255,7 @@ namespace IsobaricQuant
         /// Complexity: O(P + N log k) time, O(N) memory; P = total channel entries enumerated, N = peptide count.
         /// Ties at the cutoff are resolved by heap ordering (not stable across differing input orders).
         /// </remarks>
-        private ConcurrentDictionary<int, ConcurrentDictionary<int, int>> RemoveLowIntensities(ConcurrentDictionary<int, ConcurrentDictionary<int, int>> peptideIntensitiesAggregated, double fraction = 0.05)
+        private ConcurrentDictionary<int, ConcurrentDictionary<int, int>> RemoveLowIntensityPsms(ConcurrentDictionary<int, ConcurrentDictionary<int, int>> peptideIntensitiesAggregated, double fraction = 0.05)
         {
             // Fast exits
             if (peptideIntensitiesAggregated == null || peptideIntensitiesAggregated.IsEmpty)
@@ -324,7 +338,7 @@ namespace IsobaricQuant
             }
             return myOut;
         }
-        private int[] ChannelMedians(ConcurrentDictionary<int, ConcurrentDictionary<int, int>> rawValues)
+        private int[] DetermineChannelMedians(ConcurrentDictionary<int, ConcurrentDictionary<int, int>> rawValues)
         {
             // Handle null/empty input
             if (rawValues == null || rawValues.IsEmpty)
@@ -414,7 +428,7 @@ namespace IsobaricQuant
         /// The operation preserves integer arithmetic (no rounding issues).
         /// Time: O(C log C) due to sort (C = channel count, small); Space: O(C) for the copy.
         /// </remarks>
-        private int[] ChannelShifts(int[] channelMedians)
+        private int[] ComputeChannelShifts(int[] channelMedians)
         {
             // Null or empty -> nothing to shift
             if (channelMedians == null || channelMedians.Length == 0)
@@ -493,7 +507,110 @@ namespace IsobaricQuant
 
             return rawIntensities;
         }
-        private enum AggregateType
+
+        private ConcurrentDictionary<int, ConcurrentDictionary<int, int>> SubtractReferenceChannel(ConcurrentDictionary<int, ConcurrentDictionary<int, int>> m, int? referenceChannel)
+        {
+            // Validate inputs
+            if (m == null || m.IsEmpty)
+                return m ?? new ConcurrentDictionary<int, ConcurrentDictionary<int, int>>();
+            if (referenceChannel is null || referenceChannel < 0)
+                return m;
+
+            int refCh = referenceChannel.Value;
+
+            // Parallelize across peptides; subtract the per-peptide reference-channel value from all its channels
+            Parallel.ForEach(m, peptideEntry =>
+            {
+                var channels = peptideEntry.Value;
+
+                // Try get the reference value for this peptide; if missing, skip subtraction for this peptide
+                if (!channels.TryGetValue(refCh, out int refValue))
+                    return;
+
+                if (refValue == 0)
+                    return; // nothing to change
+
+                // Subtract with overflow protection
+                foreach (var kv in channels)
+                {
+                    int channel = kv.Key;
+                    int val = kv.Value;
+
+                    long diff = (long)val - refValue;
+                    int newVal = diff > int.MaxValue
+                        ? int.MaxValue
+                        : diff < int.MinValue
+                            ? int.MinValue
+                            : (int)diff;
+
+                    channels[channel] = newVal;
+                }
+            });
+
+            return m;
+        }
+        private List<(int peptideFullSequenceHash, int[] reporterIntensities)> CollectPsmsFromFractions(List<List<(int peptideFullSequenceHash, int[] reporterIntensities)>> myFractionInput)
+        {
+            // Fast exits
+            if (myFractionInput == null || myFractionInput.Count == 0)
+            {
+                new List<(int peptideFullSequenceHash, int[] reporterIntensities)>();
+            }
+
+            // Determine expected channel count from the first valid entry (for consistency)
+            int? expectedChannels = null;
+            for (int i = 0; i < myFractionInput.Count && expectedChannels is null; i++)
+            {
+                var frac = myFractionInput[i];
+                if (frac == null) continue;
+                for (int j = 0; j < frac.Count; j++)
+                {
+                    var arr = frac[j].reporterIntensities;
+                    if (arr != null)
+                    {
+                        expectedChannels = arr.Length;
+                        break;
+                    }
+                }
+            }
+
+            // If no valid arrays were found, result is empty
+            if (expectedChannels is null)
+            {
+                return new List<(int peptideFullSequenceHash, int[] reporterIntensities)>(0);
+            }
+
+            // Collect in a thread-safe sink, then materialize to List at the end
+            var sink = new ConcurrentBag<(int peptideFullSequenceHash, int[] reporterIntensities)>();
+
+            // Parallelize across fractions for maximum throughput
+            Parallel.ForEach(myFractionInput, fraction =>
+            {
+                if (fraction == null || fraction.Count == 0)
+                    return;
+
+                // Iterate fraction entries; filter fast
+                for (int idx = 0; idx < fraction.Count; idx++)
+                {
+                    var entry = fraction[idx];
+                    var arr = entry.reporterIntensities;
+                    if (arr == null || arr.Length != expectedChannels.Value)
+                        continue; // skip malformed/inconsistent entries
+
+                    // Add to sink (ConcurrentBag is lock-free for adds)
+                    sink.Add(entry);
+                }
+            });
+
+            // Materialize result; pre-size list to avoid reallocations
+            theInput = new List<(int peptideFullSequenceHash, int[] reporterIntensities)>(sink.Count);
+            foreach (var tuple in sink)
+            {
+                theInput.Add(tuple);
+            }
+            return theInput;
+        }
+        public enum AggregateType
         {
             SumTopN,
             Max,
