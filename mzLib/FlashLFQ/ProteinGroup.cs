@@ -4,7 +4,7 @@ using System.Text;
 
 namespace FlashLFQ
 {
-    public class ProteinGroup
+    public class ProteinGroup : IQuantifiableProteinGroup
     {
         public readonly string ProteinGroupName;
         public readonly string GeneName;
@@ -110,6 +110,30 @@ namespace FlashLFQ
         public override int GetHashCode()
         {
             return ProteinGroupName.GetHashCode();
+        }
+
+        // Explicit interface implementation for IQuantifiableProteinGroup
+        string IQuantifiableProteinGroup.ProteinGroupName => ProteinGroupName;
+
+        double IQuantifiableProteinGroup.GetIntensity(IQuantifiableSpectraFile fileInfo)
+        {
+            if (fileInfo is SpectraFileInfo spectraFileInfo)
+            {
+                return GetIntensity(spectraFileInfo);
+            }
+            throw new System.ArgumentException("File info must be of type SpectraFileInfo");
+        }
+
+        void IQuantifiableProteinGroup.SetIntensity(IQuantifiableSpectraFile fileInfo, double intensity)
+        {
+            if (fileInfo is SpectraFileInfo spectraFileInfo)
+            {
+                SetIntensity(spectraFileInfo, intensity);
+            }
+            else
+            {
+                throw new System.ArgumentException("File info must be of type SpectraFileInfo");
+            }
         }
     }
 }
