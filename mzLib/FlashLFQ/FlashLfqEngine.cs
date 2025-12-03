@@ -1480,7 +1480,7 @@ namespace FlashLFQ
 
                 // There are two parts to this score. We're summing the PEPs of peaks derived from target peptides. For peaks derived from decoy peptides,
                 // We do the double decoy things where we count decoyPeptidePeaks - doubleDecoypeaks
-                tempQs.Add(Math.Round(EstimateFdr(doubleDecoyCount, decoyPeptideCount, decoyPeakCount, totalPeakCount), 6));
+                tempQs.Add(Math.Round(EstimateFdr(doubleDecoys, decoyPeptides, decoyPeaks, totalPeaks), 6));
             }
 
             // Set the q-value for each peak
@@ -2221,7 +2221,7 @@ namespace FlashLFQ
 
             // Create IsobaricPeptideGroup objects for each group
             var isoGroups = grouped
-                .Select(g => new IsobaricPeptideGroup(g.Key.BaseSequence, g.Key.MonoisoticMassGroup,g.ToList()))
+                .Select(g => new IsobaricPeptideGroup(g.Key.BaseSequence, g.Key.MonoisotopicMassGroup,g.ToList()))
                 .ToList();
 
             return isoGroups;
