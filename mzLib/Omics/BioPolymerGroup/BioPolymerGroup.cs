@@ -50,7 +50,6 @@ namespace Omics.BioPolymerGroup
         private string UniqueBioPolymerWithSetModsOutput;
         private string SharedBioPolymerWithSetModsOutput;
         // Ctors
-        public BioPolymerGroup() { }
 
         public BioPolymerGroup(HashSet<IBioPolymer> biopolymers, HashSet<IBioPolymerWithSetMods> biopolymerWithSetMods,
             HashSet<IBioPolymerWithSetMods> uniqueBioPolymerWithSetMods)
