@@ -1,5 +1,4 @@
 ﻿using MassSpectrometry;
-using MassSpectrometry;
 using MzLibUtil;
 using Omics.Modifications;
 using System.Text;
@@ -44,7 +43,10 @@ namespace Omics.BioPolymerGroup
 
         // Convenience views
         public List<IBioPolymer> ListOfBioPolymersOrderedByAccession { get; private set; }
-
+        // Neccessary External Values
+        public int MaxLengthOfOutput { get; set; } = int.MaxValue;
+        public AnalyteType AnalyteType { get; set; } = AnalyteType.Peptide;
+        // Local collections
         private string UniqueBioPolymerWithSetModsOutput;
         private string SharedBioPolymerWithSetModsOutput;
         // Ctors
@@ -86,8 +88,7 @@ namespace Omics.BioPolymerGroup
                 }
             }
         }
-        // neccessary External Values
-        public int MaxLengthOfOutput { get; set; } = int.MaxValue;
+
 
         // Equality by group identity (name + decoy/contaminant flags)
         private static string CanonicalBioPolymerKey(HashSet<IBioPolymer> biopolymers) =>
@@ -205,7 +206,7 @@ namespace Omics.BioPolymerGroup
             {
                 try
                 {
-                    if (GlobalVariables.AnalyteType == AnalyteType.Oligo)
+                    if (AnalyteType == AnalyteType.Oligo)
                         masses.Add(new OligoWithSetMods(sequence, GlobalVariables.AllRnaModsKnownDictionary).MonoisotopicMass);
                     else
                         masses.Add(new Proteomics.AminoAcidPolymer.BioPolymerWithSetMod(sequence).MonoisotopicMass);
@@ -609,6 +610,18 @@ namespace Omics.BioPolymerGroup
 
             BioPolymerGroupName = string.Join("|", ListOfBioPolymersOrderedByAccession.Select(p => p.Accession));
         }
+        /// <summary>
+        /// Constructs a new BioPolymerGroup instance containing only the data associated with the specified file path,
+        /// optionally filtered by SILAC labels.
+        /// </summary>
+        /// <remarks>The returned BioPolymerGroup includes only the subset of data relevant to the
+        /// provided file path. If the file is not present in the quantification files or intensity data, the
+        /// corresponding properties in the returned group may be null or empty.</remarks>
+        /// <param name="fullFilePath">The full file path identifying the source file for which to construct the subset BioPolymerGroup. Must match
+        /// the file path used in the spectral matches.</param>
+        /// <param name="silacLabels">An optional list of SILAC labels to filter the data. If null, no SILAC label filtering is applied.</param>
+        /// <returns>A BioPolymerGroup containing only the bio-polymers, modifications, and spectral matches associated with the
+        /// specified file. Returns an empty group if no data matches the file path.</returns>
         public BioPolymerGroup ConstructSubsetBioPolymerGroup(string fullFilePath, List<SilacLabel> silacLabels = null)
         {
             var allPsmsForThisFile =
@@ -631,35 +644,7 @@ namespace Omics.BioPolymerGroup
             {
                 spectraFileInfo = FilesForQuantification.Where(p => p.FullFilePathWithExtension == fullFilePath)
                     .FirstOrDefault();
-                //check that file name wasn't changed (can occur in SILAC searches)
-                if (!silacLabels.IsNullOrEmpty() && spectraFileInfo == null)
-                {
-                    foreach (SilacLabel label in silacLabels)
-                    {
-                        string fakeFilePath = SilacConversions
-                            .GetHeavyFileInfo(new SpectraFileInfo(fullFilePath, "", 0, 0, 0), label)
-                            .FullFilePathWithExtension;
-                        spectraFileInfo = FilesForQuantification.Where(p => p.FullFilePathWithExtension == fakeFilePath)
-                            .FirstOrDefault();
-                        if (spectraFileInfo != null)
-                        {
-                            break;
-                        }
-                    }
-
-                    //if still no hits, might be SILAC turnover
-                    if (spectraFileInfo == null)
-                    {
-                        string filepathWithoutExtension = Path.Combine(Path.GetDirectoryName(fullFilePath),
-                            Path.GetFileNameWithoutExtension(fullFilePath));
-                        string extension = Path.GetExtension(fullFilePath);
-                        string fakeFilePath = filepathWithoutExtension + SilacConversions.ORIGINAL_TURNOVER_LABEL_NAME +
-                                              extension;
-                        spectraFileInfo = FilesForQuantification.Where(p => p.FullFilePathWithExtension == fakeFilePath)
-                            .FirstOrDefault();
-                    }
-                }
-
+                //TODO: handle anything necessary for SILAC inside MetaMorpheus because we are missing lots of that ifrastructure in mzLib
                 subsetPg.FilesForQuantification = new List<SpectraFileInfo> { spectraFileInfo };
             }
 
