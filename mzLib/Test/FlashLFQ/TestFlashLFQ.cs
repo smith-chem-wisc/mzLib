@@ -1771,7 +1771,7 @@ namespace Test.FlashLFQ
         [Test]
         public static void TestAmbiguousFraction()
         {
-            //these two have the same filename.....but are different fractions
+            //these two have the same filename...but are different fractions
             SpectraFileInfo fraction1 = new SpectraFileInfo("", "", 0, 0, fraction: 0);
             SpectraFileInfo fraction2 = new SpectraFileInfo("", "", 0, 0, fraction: 1);
             
