@@ -38,8 +38,8 @@ public static class ModificationConverter
 
         AllKnownMods = unimodMods.Concat(uniprotMods).Concat(modsTextMods).ToList();
         AllModsKnown = AllKnownMods
-            .DistinctBy(m => (m.ModificationType, m.IdWithMotif))
-            .ToDictionary(m => $"{m.ModificationType}:{ m.IdWithMotif }");
+            .DistinctBy(m => m.IdWithMotif)
+            .ToDictionary(m => m.IdWithMotif);
     }
 
     #endregion
@@ -79,10 +79,9 @@ public static class ModificationConverter
                     string modString = fullSequence.Substring(currentModStart, r - currentModStart);
                     try
                     {
-                        //remove the beginning section (e.g. "Fixed", "Variable", "Uniprot")
+                        //remove the beginning section (e.g. "Fixed", "Variable", "Uniprot") if present
                         int splitIndex = modString.IndexOf(':');
-                        string modType = modString.Substring(0, splitIndex);
-                        modId = modString.Substring(splitIndex + 1, modString.Length - splitIndex - 1);
+                        modId = splitIndex > 0 ? modString.Substring(splitIndex + 1, modString.Length - splitIndex - 1) : modString;
 
                         if (!allModsKnown.TryGetValue(modId, out mod))
                         {

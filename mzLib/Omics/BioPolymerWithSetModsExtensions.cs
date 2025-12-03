@@ -21,7 +21,10 @@ public static class BioPolymerWithSetModsExtensions
         // modification on peptide N-terminus
         if (withSetMods.AllModsOneIsNterminus.TryGetValue(1, out Modification? mod))
         {
-            subsequence.Append($"[{mod.MonoisotopicMass.RoundedDouble(6)}]");
+            if (mod.MonoisotopicMass > 0)
+                subsequence.Append($"[+{mod.MonoisotopicMass.RoundedDouble(6)}]");
+            else
+                subsequence.Append($"[{mod.MonoisotopicMass.RoundedDouble(6)}]");
         }
 
         for (int r = 0; r < withSetMods.Length; r++)
