@@ -2,7 +2,8 @@
 
 namespace FlashLFQ
 {
-    public class SpectraFileInfo
+    // Temporary shim; remove after all call sites are updated.
+    public class SpectraFileInfo : MassSpectrometry.SpectraFileInfo
     {
         /// <summary>
         /// The path to the data file (e.g., a .raw file) with the extension
@@ -22,28 +23,8 @@ namespace FlashLFQ
         public int Fraction { get; set; }
 
         public SpectraFileInfo(string fullFilePathWithExtension, string condition, int biorep, int techrep, int fraction)
+            : base(fullFilePathWithExtension, condition, biorep, techrep, fraction)
         {
-            this.FullFilePathWithExtension = fullFilePathWithExtension;
-            this.FilenameWithoutExtension = System.IO.Path.GetFileNameWithoutExtension(this.FullFilePathWithExtension);
-            this.Condition = condition;
-            this.BiologicalReplicate = biorep;
-            this.TechnicalReplicate = techrep;
-            this.Fraction = fraction;
-        }
-
-        // files are considered the same if the absolute file path is the same
-        public override bool Equals(object obj)
-        {
-            return base.Equals(obj) && ((SpectraFileInfo)obj).FullFilePathWithExtension.Equals(this.FullFilePathWithExtension);
-        }
-
-        public override int GetHashCode()
-        {
-            return FullFilePathWithExtension.GetHashCode();
-        }
-        public override string ToString()
-        {
-            return Path.GetFileName(FullFilePathWithExtension);
         }
     }
 }
