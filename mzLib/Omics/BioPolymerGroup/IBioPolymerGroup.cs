@@ -11,59 +11,63 @@ namespace Omics.BioPolymerGroup
 {
     internal interface IBioPolymerGroup : IEquatable<IBioPolymerGroup>
     {
-        public bool IsDecoy { get; }
+        bool IsDecoy { get; }
 
-        public bool IsContaminant { get; }
+        bool IsContaminant { get; }
 
-        //public List<SpectraFileInfo> FilesForQuantification { get; set; }
+        //List<SpectraFileInfo> FilesForQuantification { get; set; }
 
-        public HashSet<IBioPolymer> Biopolymers { get; set; }
+        HashSet<IBioPolymer> BioPolymers { get; set; }
 
-        public string BiopolymerGroupName { get; }
+        string BioPolymerGroupName { get; }
 
-        public double BiopolymerGroupScore { get; set; }
+        double BioPolymerGroupScore { get; set; }
 
-        public HashSet<IBioPolymerWithSetMods> AllPeptides { get; set; }
+        HashSet<IBioPolymerWithSetMods> AllBioPolymerWithSetMods { get; set; }
 
-        public HashSet<IBioPolymerWithSetMods> UniquePeptides { get; set; }
+        HashSet<IBioPolymerWithSetMods> UniqueBioPolymerWithSetMods { get; set; }
 
-        //public HashSet<SpectralMatch> AllPsmsBelowOnePercentFDR { get; set; }
+        //HashSet<SpectralMatch> AllPsmsBelowOnePercentFDR { get; set; }
 
-        public List<double> SequenceCoverageFraction { get; }
+        List<double> SequenceCoverageFraction { get; }
 
-        public List<string> SequenceCoverageDisplayList { get; }
+        List<string> SequenceCoverageDisplayList { get; }
 
-        public List<string> SequenceCoverageDisplayListWithMods { get; }
+        List<string> SequenceCoverageDisplayListWithMods { get; }
 
-        public List<string> FragmentSequenceCoverageDisplayList { get; }
+        List<string> FragmentSequenceCoverageDisplayList { get; }
 
-        public double QValue { get; set; }
+        double QValue { get; set; }
 
-        public double BestPeptideQValue { get; set; }
+        double BestBiopolymerWithSetModQValue { get; set; }
 
-        public double BestPeptideScore { get; set; }
+        double BestBioPolymerWithSetModScore { get; set; }
 
-        public int CumulativeTarget { get; set; }
+        int CumulativeTarget { get; set; }
 
-        public int CumulativeDecoy { get; set; }
+        int CumulativeDecoy { get; set; }
 
-        public bool DisplayModsOnPeptides { get; set; }
+        bool DisplayModsOnBioPolymerWithSetMods { get; set; }
 
-        public List<string> ModsInfo { get; }
+        List<string> ModsInfo { get; }
 
-        //public Dictionary<SpectraFileInfo, double> IntensitiesByFile { get; set; }
+        //Dictionary<SpectraFileInfo, double> IntensitiesByFile { get; set; }
 
-        public List<IBioPolymer> ListOfBiopolymersOrderedByAccession { get; }
-
-        public string UniquePeptidesOutput { get; }
-        public string SharedPeptidesOutput { get; }
+        List<IBioPolymer> ListOfBioPolymersOrderedByAccession { get; }
 
         bool IEquatable<IBioPolymerGroup>.Equals(IBioPolymerGroup? other)
         {
             if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;
             if (other.GetType() != GetType()) return false;
-            return BiopolymerGroupName == other.BiopolymerGroupName;
+            return BioPolymerGroupName == other.BioPolymerGroupName;
         }
+
+        string GetTabSeparatedHeader();
+        string ToString();
+        double Score();
+        //CalculateSequenceCoverage();
+        //MergeWith(IBioPolymerGroup otherBioPolymerGroup);
+        BioPolymerGroup ConstructSubsetProteinGroup(string fullFilePath, List<SilacLabel> silacLabels = null);
     }
 }
