@@ -2,9 +2,6 @@
 using MassSpectrometry;
 using MzLibUtil;
 using Omics.Modifications;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 
 namespace Omics.BioPolymerGroup
@@ -589,7 +586,7 @@ namespace Omics.BioPolymerGroup
 
             BioPolymerGroupName = string.Join("|", ListOfBioPolymersOrderedByAccession.Select(p => p.Accession));
         }
-        public BioPolymerGroup ConstructSubsetProteinGroup(string fullFilePath, List<SilacLabel> silacLabels = null)
+        public BioPolymerGroup ConstructSubsetBioPolymerGroup(string fullFilePath, List<SilacLabel> silacLabels = null)
         {
             var allPsmsForThisFile =
                 new HashSet<SpectralMatch>(

@@ -65,9 +65,9 @@ namespace Omics.BioPolymerGroup
 
         string GetTabSeparatedHeader();
         string ToString();
-        double Score();
-        //CalculateSequenceCoverage();
-        //MergeWith(IBioPolymerGroup otherBioPolymerGroup);
-        BioPolymerGroup ConstructSubsetProteinGroup(string fullFilePath, List<SilacLabel> silacLabels = null);
+        void Score();
+        void CalculateSequenceCoverage();
+        void MergeWith(IBioPolymerGroup otherBioPolymerGroup);
+        BioPolymerGroup ConstructSubsetBioPolymerGroup(string fullFilePath, List<SilacLabel> silacLabels = null);
     }
 }
