@@ -1,4 +1,4 @@
-﻿using FlashLFQ;
+﻿using MassSpectrometry;
 using MassSpectrometry;
 using MzLibUtil;
 using Omics.Modifications;
@@ -17,11 +17,14 @@ namespace Omics.BioPolymerGroup
         public string BioPolymerGroupName { get; private set; } = string.Empty;
         public double BioPolymerGroupScore { get; private set; }
         public List<SpectraFileInfo> FilesForQuantification { get; set; }
+        public Dictionary<SpectraFileInfo, double> IntensitiesByFile { get; set; }
 
         // BioPolymerWithSetMods
         public HashSet<IBioPolymerWithSetMods> AllBioPolymerWithSetMods { get; set; } = new();
         public HashSet<IBioPolymerWithSetMods> UniqueBioPolymerWithSetMods { get; set; } = new();
+        public double BestBiopolymerWithSetsModQValue { get; set; }
 
+        public double BestBioPolymerWithSetsModScore { get; set; }
         // Coverage and display
         public List<double> SequenceCoverageFraction { get; } = new();
         public List<string> SequenceCoverageDisplayList { get; } = new();
@@ -40,28 +43,48 @@ namespace Omics.BioPolymerGroup
         public List<string> ModsInfo { get; } = new();
 
         // Convenience views
-        public List<IBioPolymer> ListOfBioPolymersOrderedByAccession { get; private set; } =
-            BioPolymers.OrderBy(b => b.Accession, StringComparer.Ordinal).ToList();
+        public List<IBioPolymer> ListOfBioPolymersOrderedByAccession { get; private set; }
 
-        public string UniqueBioPolymerWithSetModsOutput =>
-            FormatBioPolymerWithSetModOutput(UniqueBioPolymerWithSetMods);
-
-        public string SharedBioPolymerWithSetModsOutput =>
-            FormatBioPolymerWithSetModOutput(AllBioPolymerWithSetMods.Except(UniqueBioPolymerWithSetMods).ToHashSet());
-
+        private string UniqueBioPolymerWithSetModsOutput;
+        private string SharedBioPolymerWithSetModsOutput;
         // Ctors
         public BioPolymerGroup() { }
 
-        public BioPolymerGroup(
-            string groupName,
-            IEnumerable<IBioPolymer>? biopolymers = null,
-            bool isDecoy = false,
-            bool isContaminant = false)
+        public BioPolymerGroup(HashSet<IBioPolymer> biopolymers, HashSet<IBioPolymerWithSetMods> biopolymerWithSetMods,
+            HashSet<IBioPolymerWithSetMods> uniqueBioPolymerWithSetMods)
         {
-            BioPolymerGroupName = groupName ?? string.Empty;
-            if (biopolymers != null) BioPolymers = new HashSet<IBioPolymer>(biopolymers);
-            IsDecoy = isDecoy;
-            IsContaminant = isContaminant;
+            BioPolymers = biopolymers;
+            ListOfBioPolymersOrderedByAccession = BioPolymers.OrderBy(p => p.Accession).ToList();
+            BioPolymerGroupName = string.Join("|", ListOfBioPolymersOrderedByAccession.Select(p => p.Accession));
+            AllBioPolymerWithSetMods = biopolymerWithSetMods;
+            UniqueBioPolymerWithSetMods = uniqueBioPolymerWithSetMods;
+            //AllPsmsBelowOnePercentFDR = new HashSet<SpectralMatch>();
+            SequenceCoverageFraction = new List<double>();
+            SequenceCoverageDisplayList = new List<string>();
+            SequenceCoverageDisplayListWithMods = new List<string>();
+            FragmentSequenceCoverageDisplayList = new List<string>();
+            BioPolymerGroupScore = 0;
+            BestBioPolymerWithSetsModScore = 0;
+            QValue = 0;
+            IsDecoy = false;
+            IsContaminant = false;
+            ModsInfo = new List<string>();
+
+            // if any of the proteins in the protein group are decoys, the protein group is a decoy
+            foreach (var protein in biopolymers)
+            {
+                if (protein.IsDecoy)
+                {
+                    IsDecoy = true;
+                    break;
+                }
+
+                if (protein.IsContaminant)
+                {
+                    IsContaminant = true;
+                    break;
+                }
+            }
         }
         // neccessary External Values
         public int MaxLengthOfOutput { get; set; } = int.MaxValue;
@@ -651,6 +674,55 @@ namespace Omics.BioPolymerGroup
             }
 
             return subsetPg;
+        }
+        //Get unique and identified peptides for output
+        //Convert the output if it's a SILAC experiment
+        public void GetIdentifiedBioPolymerWithSetModsOutput(List<SilacLabel> labels)
+        {
+            var SharedBioPolymerWithSetMods = AllBioPolymerWithSetMods.Except(UniqueBioPolymerWithSetMods);
+            if (labels == null)
+            {
+                //TODO add unit test with displaymodsonpeptides
+                if (!DisplayModsOnBioPolymerWithSetMods)
+                {
+                    UniqueBioPolymerWithSetModsOutput =
+                        GlobalVariables.CheckLengthOfOutput(string.Join("|",
+                            UniqueBioPolymerWithSetMods.Select(p => p.BaseSequence).Distinct()));
+                    SharedBioPolymerWithSetModsOutput =
+                        GlobalVariables.CheckLengthOfOutput(string.Join("|",
+                            SharedBioPolymerWithSetMods.Select(p => p.BaseSequence).Distinct()));
+                }
+                else
+                {
+                    UniqueBioPolymerWithSetModsOutput =
+                        GlobalVariables.CheckLengthOfOutput(string.Join("|",
+                            UniqueBioPolymerWithSetMods.Select(p => p.FullSequence).Distinct()));
+                    SharedBioPolymerWithSetModsOutput =
+                        GlobalVariables.CheckLengthOfOutput(string.Join("|",
+                            SharedBioPolymerWithSetMods.Select(p => p.FullSequence).Distinct()));
+                }
+            }
+            else
+            {
+                if (!DisplayModsOnBioPolymerWithSetMods)
+                {
+                    UniqueBioPolymerWithSetModsOutput = GlobalVariables.CheckLengthOfOutput(string.Join("|",
+                        UniqueBioPolymerWithSetMods.Select(p =>
+                            SilacConversions.GetAmbiguousLightSequence(p.BaseSequence, labels, true)).Distinct()));
+                    SharedBioPolymerWithSetModsOutput = GlobalVariables.CheckLengthOfOutput(string.Join("|",
+                        SharedBioPolymerWithSetMods.Select(p =>
+                            SilacConversions.GetAmbiguousLightSequence(p.BaseSequence, labels, true)).Distinct()));
+                }
+                else
+                {
+                    UniqueBioPolymerWithSetModsOutput = GlobalVariables.CheckLengthOfOutput(string.Join("|",
+                        UniqueBioPolymerWithSetMods.Select(p =>
+                            SilacConversions.GetAmbiguousLightSequence(p.FullSequence, labels, false)).Distinct()));
+                    SharedBioPolymerWithSetModsOutput = GlobalVariables.CheckLengthOfOutput(string.Join("|",
+                        SharedBioPolymerWithSetMods.Select(p =>
+                            SilacConversions.GetAmbiguousLightSequence(p.FullSequence, labels, false)).Distinct()));
+                }
+            }
         }
     }
 }

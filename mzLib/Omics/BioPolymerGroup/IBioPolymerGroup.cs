@@ -1,11 +1,5 @@
 ﻿using MassSpectrometry;
-using MzLibUtil;
 using Omics.Modifications;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Omics.BioPolymerGroup
 {
@@ -15,7 +9,7 @@ namespace Omics.BioPolymerGroup
 
         bool IsContaminant { get; }
 
-        //List<SpectraFileInfo> FilesForQuantification { get; set; }
+        List<SpectraFileInfo> FilesForQuantification { get; set; }
 
         HashSet<IBioPolymer> BioPolymers { get; set; }
 
@@ -39,9 +33,9 @@ namespace Omics.BioPolymerGroup
 
         double QValue { get; set; }
 
-        double BestBiopolymerWithSetModQValue { get; set; }
+        double BestBiopolymerWithSetsModQValue { get; set; }
 
-        double BestBioPolymerWithSetModScore { get; set; }
+        double BestBioPolymerWithSetsModScore { get; set; }
 
         int CumulativeTarget { get; set; }
 
@@ -51,7 +45,7 @@ namespace Omics.BioPolymerGroup
 
         List<string> ModsInfo { get; }
 
-        //Dictionary<SpectraFileInfo, double> IntensitiesByFile { get; set; }
+        Dictionary<SpectraFileInfo, double> IntensitiesByFile { get; set; }
 
         List<IBioPolymer> ListOfBioPolymersOrderedByAccession { get; }
 
@@ -67,7 +61,7 @@ namespace Omics.BioPolymerGroup
         string ToString();
         void Score();
         void CalculateSequenceCoverage();
-        void MergeWith(IBioPolymerGroup otherBioPolymerGroup);
+        void MergeWith(BioPolymerGroup otherBioPolymerGroup);
         BioPolymerGroup ConstructSubsetBioPolymerGroup(string fullFilePath, List<SilacLabel> silacLabels = null);
     }
 }
