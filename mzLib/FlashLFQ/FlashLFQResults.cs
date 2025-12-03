@@ -1,7 +1,9 @@
-﻿using System;
+﻿using FlashLFQ.IsoTracker;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using FlashLFQ.IsoTracker;
+using System.Text;
 
 namespace FlashLFQ
 {
@@ -55,6 +57,136 @@ namespace FlashLFQ
                         ProteinGroups.Add(proteinGroup.ProteinGroupName, proteinGroup);
                     }
                 }
+            }
+        }
+
+        public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput, bool silent)
+        {
+            if (!silent)
+            {
+                Console.WriteLine("Writing output...");
+            }
+
+            if (peaksOutputPath != null)
+            {
+                using (StreamWriter output = new StreamWriter(peaksOutputPath))
+                {
+                    output.WriteLine(ChromatographicPeak.TabSeparatedHeader);
+
+                    foreach (var peak in Peaks.SelectMany(p => p.Value)
+                        .OrderBy(p => p.SpectraFileInfo.FilenameWithoutExtension)
+                        .ThenByDescending(p => p.Intensity))
+                    {
+                        output.WriteLine(peak.ToString());
+                    }
+                }
+            }
+
+            if (modPeptideOutputPath != null)
+            {
+                using (StreamWriter output = new StreamWriter(modPeptideOutputPath))
+                {
+                    if (IsoTracker)
+                    {
+                        output.WriteLine(Peptide.TabSeparatedHeader_IsoTracker(SpectraFiles));
+                        // we want to output with same iso group index followed by peak order.
+                        foreach (var peptide in PeptideModifiedSequences
+                                     .OrderBy(p => p.Value.IsoGroupIndex ?? int.MaxValue)
+                                     .ThenBy(p => p.Value.PeakOrder ?? int.MinValue))
+                        {
+                            output.WriteLine(peptide.Value.ToString(SpectraFiles, IsoTracker));
+                        }
+                    }
+                    else
+                    {
+                        output.WriteLine(Peptide.TabSeparatedHeader(SpectraFiles));
+                        foreach (var peptide in PeptideModifiedSequences.OrderBy(p => p.Key))
+                        {
+                            output.WriteLine(peptide.Value.ToString(SpectraFiles, IsoTracker));
+                        }
+                    }
+                }
+            }
+
+            if (proteinOutputPath != null)
+            {
+                using (StreamWriter output = new StreamWriter(proteinOutputPath))
+                {
+                    output.WriteLine(ProteinGroup.TabSeparatedHeader(SpectraFiles));
+
+                    foreach (var protein in ProteinGroups.OrderBy(p => p.Key))
+                    {
+                        output.WriteLine(protein.Value.ToString(SpectraFiles));
+                    }
+                }
+            }
+
+            if (bayesianProteinQuantOutput != null)
+            {
+                StringBuilder header = new StringBuilder();
+                StringBuilder[] proteinStringBuilders = new StringBuilder[ProteinGroups.Count];
+
+                for (int i = 0; i < proteinStringBuilders.Length; i++)
+                {
+                    proteinStringBuilders[i] = new StringBuilder();
+                }
+
+                using (StreamWriter output = new StreamWriter(bayesianProteinQuantOutput))
+                {
+                    if (!ProteinGroups.Any())
+                    {
+                        return;
+                    }
+
+                    var firstProteinQuantResults = ProteinGroups.First().Value.ConditionToQuantificationResults;
+
+                    if (!firstProteinQuantResults.Any())
+                    {
+                        return;
+                    }
+
+                    string tabSepHeader = null;
+
+                    if (firstProteinQuantResults.First().Value is PairedProteinQuantResult)
+                    {
+                        tabSepHeader = PairedProteinQuantResult.TabSeparatedHeader();
+                    }
+                    else
+                    {
+                        tabSepHeader = UnpairedProteinQuantResult.TabSeparatedHeader();
+                    }
+
+                    foreach (var condition in firstProteinQuantResults.Keys)
+                    {
+                        header.Append(tabSepHeader);
+
+                        int p = 0;
+
+                        // sort by protein false discovery rate, then by number of measurements
+                        foreach (var protein in ProteinGroups
+                            .OrderByDescending(v => v.Value.ConditionToQuantificationResults[condition].IsStatisticallyValid)
+                            .ThenByDescending(v => v.Value.ConditionToQuantificationResults[condition].BayesFactor)
+                            .ThenByDescending(v => v.Value.ConditionToQuantificationResults[condition].Peptides.Count))
+                        {
+                            proteinStringBuilders[p].Append(
+                                protein.Value.ConditionToQuantificationResults[condition].ToString());
+
+                            p++;
+                        }
+                    }
+
+                    output.WriteLine(header);
+
+                    foreach (var proteinStringBuilder in proteinStringBuilders)
+                    {
+                        output.WriteLine(proteinStringBuilder);
+                    }
+                }
+            }
+
+            if (!silent)
+            {
+                Console.WriteLine("Finished writing output");
             }
         }
 

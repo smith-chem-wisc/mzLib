@@ -251,7 +251,7 @@ namespace FlashLFQ
         /// Technically, this is weighted mean polish and not median polish, but it gives similar results 
         /// while being more robust to issues arising from missing values.
         /// </summary>
-        private void MedianPolish(double[][] table, int maxIterations, double improvementCutoff)
+        public static void MedianPolish(double[][] table, int maxIterations = 10, double improvementCutoff = 0.0001)
         {
             // Subtract overall effect
             List<double> allValues = table.SelectMany(p => p.Where(p => !double.IsNaN(p) && p != 0)).ToList();
