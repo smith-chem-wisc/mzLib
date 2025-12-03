@@ -1557,9 +1557,8 @@ namespace FlashLFQ
             int peakfindingMassIndex = (int)Math.Round(identification.PeakfindingMass - identification.MonoisotopicMass, 0);
             List<IIndexedPeak> isotopologuePeaks = new List<IIndexedPeak>();
 
-            // For each peak in the XIC, we consider the possibility that there was an off-by-one or missed monoisotopic mass
-            // error in peak assignment / deconvolution. The -1 key in this dictionary corresponds to a negative off-by-one, the 
-            // +1 key corresponds to a positive off-by-one, and the 0 key corresponds to accurate assignment/deconvolution.
+            // error in peak assignment / deconvolution. The -1 key in this dictionary corresponds to a negative off-by-one error, the 
+            // +1 key corresponds to a positive off-by-one error, and the 0 key corresponds to accurate assignment/deconvolution.
             var massShiftToIsotopePeaks = new Dictionary<int, List<(double expIntensity, double theorIntensity, double theorMass)>>
             {
                 { -1, new List<(double, double, double)>() },

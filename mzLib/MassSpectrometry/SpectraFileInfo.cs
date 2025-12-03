@@ -3,8 +3,21 @@ using System.IO;
 
 namespace MassSpectrometry
 {
-    // Immutable value object representing a spectra file and its sample metadata.
-    public sealed class SpectraFileInfo
+
+    /// <summary>
+    /// Uniquely identified by the combination of full file path, condition, biological replicate,
+    /// technical replicate, and fraction. Used as a stable key across results, indexes, and normalization.
+    /// Properties:
+    /// - FullFilePathWithExtension: absolute path to the data file.
+    /// - FilenameWithoutExtension: file name sans extension (derived).
+    /// - Condition: sample group/condition label (e.g., Control/Treatment).
+    /// - BiologicalReplicate: replicate identifier within a condition.
+    /// - TechnicalReplicate: replicate identifier for repeated instrument injections/runs.
+    /// - Fraction: fraction identifier for fractionated samples.
+    /// Equality and hashing include all identity components to safely distinguish multiple entries
+    /// that may share the same file path but differ by replicate/fraction.
+    /// </summary>
+    public class SpectraFileInfo
     {
         /// <summary>
         /// The path to the data file (e.g., a .raw file) with the extension.
@@ -21,8 +34,22 @@ namespace MassSpectrometry
         /// </summary>
         public string Condition { get; }
 
+        /// <summary>
+        /// Biological replicate identifier within a condition. Distinguishes different biological samples
+        /// prepared under the same condition (e.g., patient or culture replicate).
+        /// </summary>
         public int BiologicalReplicate { get; }
+
+        /// <summary>
+        /// Technical replicate identifier for repeated measurements of the same biological sample
+        /// (e.g., multiple injections or instrument runs of the same preparation).
+        /// </summary>
         public int TechnicalReplicate { get; }
+
+        /// <summary>
+        /// Fraction identifier for fractionated workflows. Indicates which fraction of the sample
+        /// this file corresponds to (e.g., off-line fractionation or on-line fraction bins).
+        /// </summary>
         public int Fraction { get; }
 
         public SpectraFileInfo(string fullFilePathWithExtension, string condition, int biorep, int techrep, int fraction)
