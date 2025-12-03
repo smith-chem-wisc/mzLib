@@ -2,7 +2,7 @@
 
 namespace FlashLFQ
 {
-    public class SpectraFileInfo
+    public class SpectraFileInfo : IQuantifiableSpectraFile
     {
         /// <summary>
         /// The path to the data file (e.g., a .raw file) with the extension

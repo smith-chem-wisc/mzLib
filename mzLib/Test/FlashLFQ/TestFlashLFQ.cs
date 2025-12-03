@@ -1407,7 +1407,7 @@ namespace Test.FlashLFQ
         [Test, TestCaseSource("MedianPolishTestCases")]
         public static void TestMedianPolishWithIntensity(double[][] intensityArray, double[] expectedRowEffects, double[] expectedColumnEffects, double expectedOverallEffect)
         {
-            FlashLfqResults.MedianPolish(intensityArray);
+            MedianPolishProteinQuantificationStrategy<Peptide, ProteinGroup, SpectraFileInfo>.MedianPolish(intensityArray);
             var rowEffects = intensityArray.Select(p => p[0]).Skip(1).ToArray();
             var columnEffects = intensityArray[0].Skip(1).ToArray();
             var overallEffect = intensityArray[0][0];
@@ -1428,7 +1428,7 @@ namespace Test.FlashLFQ
                 new double[] { 0, 7, 8 } 
             };
 
-            FlashLfqResults.MedianPolish(array2D);
+            MedianPolishProteinQuantificationStrategy<Peptide, ProteinGroup, SpectraFileInfo>.MedianPolish(array2D);
             var rowEffects = array2D.Select(p => p[0]).Skip(1).ToArray();
             var columnEffects = array2D[0].Skip(1).ToArray();
             var overallEffect = array2D[0][0];

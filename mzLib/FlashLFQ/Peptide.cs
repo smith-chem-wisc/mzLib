@@ -4,7 +4,7 @@ using System.Text;
 
 namespace FlashLFQ
 {
-    public class Peptide
+    public class Peptide : IQuantifiablePeptide
     {
         public readonly string Sequence;
         public readonly string BaseSequence;
@@ -289,5 +289,30 @@ namespace FlashLFQ
         {
             return Intensities.Values.Any(p => p > 0) && DetectionTypes.Values.Any(p => p != DetectionType.MSMSAmbiguousPeakfinding);
         }
+
+        // Explicit interface implementations for IQuantifiablePeptide
+        string IQuantifiablePeptide.Sequence => Sequence;
+        bool IQuantifiablePeptide.UseForProteinQuant => UseForProteinQuant;
+        IEnumerable<IQuantifiableProteinGroup> IQuantifiablePeptide.ProteinGroups => ProteinGroups.Cast<IQuantifiableProteinGroup>();
+
+        double IQuantifiablePeptide.GetIntensity(IQuantifiableSpectraFile fileInfo)
+        {
+            if (fileInfo is SpectraFileInfo spectraFileInfo)
+            {
+                return GetIntensity(spectraFileInfo);
+            }
+            throw new System.ArgumentException("File info must be of type SpectraFileInfo");
+        }
+
+        DetectionType IQuantifiablePeptide.GetDetectionType(IQuantifiableSpectraFile fileInfo)
+        {
+            if (fileInfo is SpectraFileInfo spectraFileInfo)
+            {
+                return GetDetectionType(spectraFileInfo);
+            }
+            throw new System.ArgumentException("File info must be of type SpectraFileInfo");
+        }
+
+        bool IQuantifiablePeptide.UnambiguousPeptideQuant() => UnambiguousPeptideQuant();
     }
 }
