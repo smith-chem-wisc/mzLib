@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 
 namespace MassSpectrometry
@@ -26,24 +27,35 @@ namespace MassSpectrometry
 
         public SpectraFileInfo(string fullFilePathWithExtension, string condition, int biorep, int techrep, int fraction)
         {
-            FullFilePathWithExtension = fullFilePathWithExtension;
+            FullFilePathWithExtension = fullFilePathWithExtension ?? string.Empty;
             FilenameWithoutExtension = Path.GetFileNameWithoutExtension(FullFilePathWithExtension);
-            Condition = condition;
+            Condition = condition ?? string.Empty;
             BiologicalReplicate = biorep;
             TechnicalReplicate = techrep;
             Fraction = fraction;
         }
 
-        // Files are considered the same if the absolute file path is the same.
+        // Files are considered the same if all identity components are equal. Previously we used only filename. 
+        // But, there is no rule about having multiple SpectraFileInfo objects with the same filename.
         public override bool Equals(object? obj)
         {
-            return obj is SpectraFileInfo other &&
-                   string.Equals(other.FullFilePathWithExtension, FullFilePathWithExtension, System.StringComparison.Ordinal);
+            if (obj is not SpectraFileInfo other) return false;
+
+            return string.Equals(FullFilePathWithExtension, other.FullFilePathWithExtension, StringComparison.Ordinal)
+                && string.Equals(Condition, other.Condition, StringComparison.Ordinal)
+                && BiologicalReplicate == other.BiologicalReplicate
+                && TechnicalReplicate == other.TechnicalReplicate
+                && Fraction == other.Fraction;
         }
 
         public override int GetHashCode()
         {
-            return FullFilePathWithExtension?.GetHashCode() ?? 0;
+            return HashCode.Combine(
+                StringComparer.Ordinal.GetHashCode(FullFilePathWithExtension ?? string.Empty),
+                StringComparer.Ordinal.GetHashCode(Condition ?? string.Empty),
+                BiologicalReplicate,
+                TechnicalReplicate,
+                Fraction);
         }
 
         public override string ToString()
