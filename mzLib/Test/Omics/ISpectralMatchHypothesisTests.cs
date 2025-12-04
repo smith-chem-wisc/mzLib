@@ -14,25 +14,25 @@ namespace Test.Omics
     // Only members required by the unit test are implemented with simple defaults.
     internal class TestBioPolymerWithSetMods : IBioPolymerWithSetMods
     {
-        public string BaseSequence { get; init; }
-        public string FullSequence { get; init; }
+        public string BaseSequence { get; }
+        public string FullSequence { get; }
 
         // Name difference in production code: IBioPolymerWithSetMods exposes MostAbundantMonoisotopicMass,
         // while IHasMass (via IHasChemicalFormula) requires MonoisotopicMass. Provide both.
-        public double MostAbundantMonoisotopicMass { get; init; }
+        public double MostAbundantMonoisotopicMass { get; }
         public double MonoisotopicMass => MostAbundantMonoisotopicMass;
 
         // Minimal ChemicalFormula implementation for tests
         public ChemicalFormula ThisChemicalFormula => new ChemicalFormula();
 
         public string SequenceWithChemicalFormulas => FullSequence;
-        public int OneBasedStartResidue { get; init; } = 1;
-        public int OneBasedEndResidue { get; init; } = 1;
-        public int MissedCleavages { get; init; } = 0;
-        public string Description { get; init; } = string.Empty;
+        public int OneBasedStartResidue { get; } = 1;
+        public int OneBasedEndResidue { get; } = 1;
+        public int MissedCleavages { get; } = 0;
+        public string Description { get; } = string.Empty;
         public CleavageSpecificity CleavageSpecificityForFdrCategory { get; set; } = CleavageSpecificity.Full;
-        public char PreviousResidue { get; init; } = '-';
-        public char NextResidue { get; init; } = '-';
+        public char PreviousResidue { get; } = '-';
+        public char NextResidue { get; } = '-';
         public IDigestionParams DigestionParams => throw new NotImplementedException();
         public Dictionary<int, Modification> AllModsOneIsNterminus => new();
         public int NumMods => 0;

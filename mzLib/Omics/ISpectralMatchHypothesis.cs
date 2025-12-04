@@ -14,7 +14,7 @@ namespace Omics
         /// Numeric score for the hypothesis. Higher values typically indicate better confidence.
         /// Callers should document whether higher-is-better semantics apply.
         /// </summary>
-        double Score { get; init; }
+        double Score { get; }
 
         /// <summary>
         /// The specific biopolymer (peptide/proteoform/oligo) with localized set modifications
@@ -35,7 +35,7 @@ namespace Omics
         /// <summary>
         /// Optional per-notch q-value or other localized confidence metric. Null when not available.
         /// </summary>
-        double? QValueNotch { get; init; }
+        double? QValueNotch { get; }
 
         /// <summary>
         /// Determines whether this hypothesis is equal to <paramref name="other"/>.
@@ -46,11 +46,5 @@ namespace Omics
         /// <returns>true if equivalent; otherwise false.</returns>
         bool Equals(ISpectralMatchHypothesis? other);
 
-        /// <summary>
-        /// Produce a stable hash code consistent with <see cref="Equals(ISpectralMatchHypothesis{})"/>.
-        /// The hash code should be based on the same identity components used by Equals.
-        /// </summary>
-        /// <returns>Hash code for this hypothesis.</returns>
-        int GetHashCode();
     }
 }

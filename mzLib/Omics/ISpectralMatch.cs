@@ -19,33 +19,33 @@ namespace Omics
         /// Implementations may normalize this value (for example to an empty string) but should
         /// document how equality / hashing treats file path differences.
         /// </summary>
-        string FullFilePath { get; init; }
+        string FullFilePath { get; }
 
         /// <summary>
         /// Full modified sequence in the source reader's format (includes modification annotations).
         /// This should be the canonical, reader-provided representation of the identified sequence.
         /// </summary>
-        string FullSequence { get; init; }
+        string FullSequence { get; }
 
         /// <summary>
         /// Base sequence (no modifications). Use this for sequence-based grouping and comparisons
         /// when modification detail is not relevant.
         /// </summary>
-        string BaseSequence { get; init; }
+        string BaseSequence { get; }
 
         /// <summary>
         /// Collection of best-matching hypotheses (candidate biopolymers with set modifications)
         /// produced by the search/assignment step. Implementations should populate this list in
         /// descending confidence order or document the ordering semantics.
         /// </summary>
-        List<ISpectralMatchHypothesis> BestMatchingBioPolymersWithSetMods { get; init; }
+        List<ISpectralMatchHypothesis> BestMatchingBioPolymersWithSetMods { get; }
 
         /// <summary>
         /// Numeric score for this spectral match. Semantics (higher-is-better or lower-is-better)
         /// should be documented by the implementer; most callers expect higher scores to indicate
         /// better matches.
         /// </summary>
-        double Score { get; init; }
+        double Score { get; }
 
         /// <summary>
         /// Compare this match to another. Implementations should return:
@@ -56,13 +56,9 @@ namespace Omics
         /// (for example by file/scan or sequence) to provide a stable ordering.
         /// This method corresponds to IComparable&lt;ISpectralMatch&gt;.CompareTo.
         /// </summary>
-        int CompareTo();
+        /// <param name="other">Other spectral match to compare against (may be null).</param>
+        /// <returns>Positive if this &gt; other, zero if equal, negative if this &lt; other.</returns>
+        int CompareTo(ISpectralMatch? other);
 
-        /// <summary>
-        /// Return a hash code suitable for use in dictionaries and hash sets. Implementations should
-        /// compute a stable hash based on the identity of the match (for example file + scan + sequence
-        /// + charge) so that equal matches produce equal hash codes.
-        /// </summary>
-        int GetHashCode();
     }
 }
