@@ -136,10 +136,6 @@ namespace Test.Omics
             return string.Compare(FullFilePath, other.FullFilePath, StringComparison.Ordinal);
         }
 
-        // Parameterless CompareTo declared on the interface (kept for compatibility).
-        // Return positive value to indicate "this" is greater than unspecified.
-        public int CompareTo() => 1;
-
         public override bool Equals(object? obj)
         {
             var o = obj as ISpectralMatch;
