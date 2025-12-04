@@ -44,8 +44,8 @@ namespace Omics.BioPolymerGroup
         // Convenience views
         public List<IBioPolymer> ListOfBioPolymersOrderedByAccession { get; private set; }
         // Neccessary External Values
-        public int MaxLengthOfOutput { get; set; } = int.MaxValue;
-        public AnalyteType AnalyteType { get; set; } = AnalyteType.Peptide;
+        public static int MaxLengthOfOutput { get; set; } = int.MaxValue;
+        public static AnalyteType AnalyteType { get; set; } = AnalyteType.Peptide;
         // Local collections
         private string UniqueBioPolymerWithSetModsOutput;
         private string SharedBioPolymerWithSetModsOutput;
