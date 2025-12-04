@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using MassSpectrometry;
 using FlashLFQ.IsoTracker;
 
 namespace FlashLFQ
