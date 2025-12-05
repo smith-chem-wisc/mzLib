@@ -82,7 +82,8 @@ namespace Test.Omics
     /// 1) Score descending (higher preferred),
     /// 2) FullFilePath ascending (ordinal),
     /// 3) FullSequence ascending (ordinal),
-    /// 4) BaseSequence ascending (ordinal).
+    /// 4) BaseSequence ascending (ordinal),
+    /// 5) ScanNumber ascending.
     /// </summary>
     internal class TestSpectralMatch : ISpectralMatch
     {
@@ -92,17 +93,20 @@ namespace Test.Omics
         public string FullSequence { get; }
         public string BaseSequence { get; }
         public double Score { get; }
+        public int ScanNumber { get; }
 
         /// <summary>
         /// Construct a test spectral match.
         /// The identified collection is defensively copied; passing null creates an empty set.
+        /// ScanNumber defaults to 0 if not provided.
         /// </summary>
-        public TestSpectralMatch(string filePath, string fullSequence, string baseSequence, double score = 0, IEnumerable<IBioPolymerWithSetMods>? identified = null)
+        public TestSpectralMatch(string filePath, string fullSequence, string baseSequence, double score = 0, int scanNumber = 0, IEnumerable<IBioPolymerWithSetMods>? identified = null)
         {
             FullFilePath = filePath ?? string.Empty;
             FullSequence = fullSequence ?? string.Empty;
             BaseSequence = baseSequence ?? string.Empty;
             Score = score;
+            ScanNumber = scanNumber;
             // defensive copy to prevent external mutation
             _identified = identified?.ToList() ?? new List<IBioPolymerWithSetMods>();
         }
@@ -114,7 +118,7 @@ namespace Test.Omics
 
             // Primary: Score (higher is better) -> descending order
             int scoreCmp = Score.CompareTo(other.Score);
-            if (scoreCmp != 0) return scoreCmp; // return positive when this.Score > other.Score
+            if (scoreCmp != 0) return scoreCmp; // positive when this.Score > other.Score
 
             // Tie-breakers: ascending order (ordinal)
             int fileCmp = string.Compare(FullFilePath ?? string.Empty, other.FullFilePath ?? string.Empty, StringComparison.Ordinal);
@@ -125,6 +129,10 @@ namespace Test.Omics
 
             int baseSeqCmp = string.Compare(BaseSequence ?? string.Empty, other.BaseSequence ?? string.Empty, StringComparison.Ordinal);
             if (baseSeqCmp != 0) return baseSeqCmp;
+
+            // Final tie-breaker: scan number ascending
+            int scanCmp = ScanNumber.CompareTo(other.ScanNumber);
+            if (scanCmp != 0) return scanCmp;
 
             return 0;
         }
@@ -144,7 +152,8 @@ namespace Test.Omics
             return string.Equals(FullFilePath, o.FullFilePath, StringComparison.Ordinal)
                 && string.Equals(FullSequence, o.FullSequence, StringComparison.Ordinal)
                 && string.Equals(BaseSequence, o.BaseSequence, StringComparison.Ordinal)
-                && Score.Equals(o.Score);
+                && Score.Equals(o.Score)
+                && ScanNumber == o.ScanNumber;
         }
 
         public override int GetHashCode()
@@ -152,7 +161,8 @@ namespace Test.Omics
                 StringComparer.Ordinal.GetHashCode(FullFilePath ?? string.Empty),
                 StringComparer.Ordinal.GetHashCode(FullSequence ?? string.Empty),
                 StringComparer.Ordinal.GetHashCode(BaseSequence ?? string.Empty),
-                Score);
+                Score,
+                ScanNumber);
     }
 
     [TestFixture]
@@ -160,12 +170,13 @@ namespace Test.Omics
     {
         /// <summary>
         /// Higher score should sort as greater than lower score.
+        /// CompareTo returns a positive value when this.Score &gt; other.Score (higher score is preferred).
         /// </summary>
         [Test]
         public void CompareByScore_HigherScoreIsGreater()
         {
-            var a = new TestSpectralMatch("file1", "PEPTIDE", "PEPTIDE", score: 100);
-            var b = new TestSpectralMatch("file1", "PEPTIDE", "PEPTIDE", score: 50);
+            var a = new TestSpectralMatch("file1", "PEPTIDE", "PEPTIDE", score: 100, scanNumber: 1);
+            var b = new TestSpectralMatch("file1", "PEPTIDE", "PEPTIDE", score: 50, scanNumber: 1);
 
             Assert.That(a.CompareTo(b), Is.GreaterThan(0));
             Assert.That(b.CompareTo(a), Is.LessThan(0));
@@ -177,8 +188,8 @@ namespace Test.Omics
         [Test]
         public void TieBreakByFullFilePath_UsesFullFilePath()
         {
-            var a = new TestSpectralMatch("a/file", "SEQ", "BASE", score: 100);
-            var b = new TestSpectralMatch("b/file", "SEQ", "BASE", score: 100);
+            var a = new TestSpectralMatch("a/file", "SEQ", "BASE", score: 100, scanNumber: 1);
+            var b = new TestSpectralMatch("b/file", "SEQ", "BASE", score: 100, scanNumber: 1);
 
             // "a" comes before "b" -> a < b
             Assert.That(a.CompareTo(b), Is.LessThan(0));
@@ -191,8 +202,8 @@ namespace Test.Omics
         [Test]
         public void TieBreakByFullSequence_UsesFullSequence()
         {
-            var a = new TestSpectralMatch("file", "AAA", "BASE", score: 100);
-            var b = new TestSpectralMatch("file", "BBB", "BASE", score: 100);
+            var a = new TestSpectralMatch("file", "AAA", "BASE", score: 100, scanNumber: 1);
+            var b = new TestSpectralMatch("file", "BBB", "BASE", score: 100, scanNumber: 1);
 
             Assert.That(a.CompareTo(b), Is.LessThan(0));
         }
@@ -203,19 +214,32 @@ namespace Test.Omics
         [Test]
         public void TieBreakByBaseSequence_UsesBaseSequence()
         {
-            var a = new TestSpectralMatch("file", "SEQ", "AAA", score: 100);
-            var b = new TestSpectralMatch("file", "SEQ", "BBB", score: 100);
+            var a = new TestSpectralMatch("file", "SEQ", "AAA", score: 100, scanNumber: 1);
+            var b = new TestSpectralMatch("file", "SEQ", "BBB", score: 100, scanNumber: 1);
 
             Assert.That(a.CompareTo(b), Is.LessThan(0));
         }
 
         /// <summary>
-        /// CompareTo with null should return positive (this > null).
+        /// When all above tie, ScanNumber is used as final tie-breaker (ascending).
+        /// </summary>
+        [Test]
+        public void TieBreakByScanNumber_UsesScanNumber()
+        {
+            var a = new TestSpectralMatch("file", "SEQ", "BASE", score: 100, scanNumber: 5);
+            var b = new TestSpectralMatch("file", "SEQ", "BASE", score: 100, scanNumber: 10);
+
+            Assert.That(a.CompareTo(b), Is.LessThan(0));
+            Assert.That(b.CompareTo(a), Is.GreaterThan(0));
+        }
+
+        /// <summary>
+        /// CompareTo with null should return positive (this &gt; null).
         /// </summary>
         [Test]
         public void CompareTo_Null_ReturnsPositive()
         {
-            var a = new TestSpectralMatch("file", "SEQ", "BASE", score: 1);
+            var a = new TestSpectralMatch("file", "SEQ", "BASE", score: 1, scanNumber: 1);
             Assert.That(a.CompareTo(null), Is.GreaterThan(0));
         }
 
@@ -225,22 +249,36 @@ namespace Test.Omics
         [Test]
         public void CompareTo_EqualObjects_ReturnsZero()
         {
-            var a = new TestSpectralMatch("file", "SEQ", "BASE", score: 10);
-            var b = new TestSpectralMatch("file", "SEQ", "BASE", score: 10);
+            var a = new TestSpectralMatch("file", "SEQ", "BASE", score: 10, scanNumber: 2);
+            var b = new TestSpectralMatch("file", "SEQ", "BASE", score: 10, scanNumber: 2);
             Assert.That(a.CompareTo(b), Is.EqualTo(0));
         }
 
         /// <summary>
         /// Equals and GetHashCode behave consistently for two objects that share the same visible identity.
+        /// ScanNumber is part of equality semantics in the test implementation.
         /// </summary>
         [Test]
         public void HashAndEquals_EqualProperties_ProduceEqualHash()
         {
-            var a = new TestSpectralMatch("path", "PEPTIDE", "PEPTIDE", score: 42);
-            var b = new TestSpectralMatch("path", "PEPTIDE", "PEPTIDE", score: 42);
+            var a = new TestSpectralMatch("path", "PEPTIDE", "PEPTIDE", score: 42, scanNumber: 7);
+            var b = new TestSpectralMatch("path", "PEPTIDE", "PEPTIDE", score: 42, scanNumber: 7);
 
             Assert.That(a.Equals(b), Is.True);
             Assert.That(a.GetHashCode(), Is.EqualTo(b.GetHashCode()));
+        }
+
+        /// <summary>
+        /// Additional equality check: differing scan numbers make objects not equal.
+        /// </summary>
+        [Test]
+        public void DifferentScanNumbers_AreNotEqual()
+        {
+            var a = new TestSpectralMatch("path", "PEP", "PEP", score: 5, scanNumber: 1);
+            var b = new TestSpectralMatch("path", "PEP", "PEP", score: 5, scanNumber: 2);
+
+            Assert.That(a.Equals(b), Is.False);
+            Assert.That(a.GetHashCode(), Is.Not.EqualTo(b.GetHashCode()));
         }
 
         /// <summary>
@@ -252,7 +290,7 @@ namespace Test.Omics
         {
             var polymer1 = new SimpleBioPolymerWithSetMods("PEP1", "PEP1");
             var polymer2 = new SimpleBioPolymerWithSetMods("PEP2", "PEP2");
-            var match = new TestSpectralMatch("f", "PEP1", "PEP1", score: 10, identified: new[] { polymer1, polymer2 });
+            var match = new TestSpectralMatch("f", "PEP1", "PEP1", score: 10, scanNumber: 1, identified: new[] { polymer1, polymer2 });
 
             var identified = match.GetIdentifiedBioPolymersWithSetMods().ToList();
             Assert.That(identified.Count, Is.EqualTo(2));
@@ -266,7 +304,7 @@ namespace Test.Omics
         [Test]
         public void GetIdentifiedBioPolymersWithSetMods_EmptyWhenNone()
         {
-            var match = new TestSpectralMatch("f", "X", "X", score: 0, identified: null);
+            var match = new TestSpectralMatch("f", "X", "X", score: 0, scanNumber: 1, identified: null);
             var identified = match.GetIdentifiedBioPolymersWithSetMods();
             Assert.That(identified, Is.Not.Null);
             Assert.That(identified, Is.Empty);
@@ -283,7 +321,7 @@ namespace Test.Omics
             {
                 new SimpleBioPolymerWithSetMods("A","A")
             };
-            var match = new TestSpectralMatch("f", "A", "A", score: 1, identified: source);
+            var match = new TestSpectralMatch("f", "A", "A", score: 1, scanNumber: 1, identified: source);
 
             // mutate source after construction
             source.Add(new SimpleBioPolymerWithSetMods("B", "B"));
@@ -301,7 +339,7 @@ namespace Test.Omics
         public void GetIdentifiedBioPolymersWithSetMods_ReturnsReadOnlyCollection()
         {
             var polymer1 = new SimpleBioPolymerWithSetMods("P1", "P1");
-            var match = new TestSpectralMatch("f", "P1", "P1", score: 1, identified: new[] { polymer1 });
+            var match = new TestSpectralMatch("f", "P1", "P1", score: 1, scanNumber: 1, identified: new[] { polymer1 });
 
             var coll = match.GetIdentifiedBioPolymersWithSetMods() as IList<IBioPolymerWithSetMods>;
             Assert.That(coll, Is.Not.Null, "Implementation should expose an IList wrapper (read-only).");
@@ -321,7 +359,7 @@ namespace Test.Omics
             var identifiedList = new List<IBioPolymerWithSetMods?> { null, polymer };
 
             // Create match with the test list (constructor makes a defensive copy)
-            var match = new TestSpectralMatch("f", "Z", "Z", score: 1, identified: identifiedList);
+            var match = new TestSpectralMatch("f", "Z", "Z", score: 1, scanNumber: 1, identified: identifiedList);
 
             // Act - call the method under test and materialize the results
             var identified = match.GetIdentifiedBioPolymersWithSetMods().ToList();
