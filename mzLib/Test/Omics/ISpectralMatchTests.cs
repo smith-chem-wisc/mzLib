@@ -114,7 +114,7 @@ namespace Test.Omics
 
             // Primary: Score (higher is better) -> descending order
             int scoreCmp = Score.CompareTo(other.Score);
-            if (scoreCmp != 0) return scoreCmp > 0 ? 1 : -1;
+            if (scoreCmp != 0) return scoreCmp; // return positive when this.Score > other.Score
 
             // Tie-breakers: ascending order (ordinal)
             int fileCmp = string.Compare(FullFilePath ?? string.Empty, other.FullFilePath ?? string.Empty, StringComparison.Ordinal);
@@ -143,13 +143,16 @@ namespace Test.Omics
             if (o == null) return false;
             return string.Equals(FullFilePath, o.FullFilePath, StringComparison.Ordinal)
                 && string.Equals(FullSequence, o.FullSequence, StringComparison.Ordinal)
+                && string.Equals(BaseSequence, o.BaseSequence, StringComparison.Ordinal)
                 && Score.Equals(o.Score);
         }
 
         public override int GetHashCode()
-            => HashCode.Combine(StringComparer.Ordinal.GetHashCode(FullFilePath ?? string.Empty),
-                                StringComparer.Ordinal.GetHashCode(FullSequence ?? string.Empty),
-                                Score);
+            => HashCode.Combine(
+                StringComparer.Ordinal.GetHashCode(FullFilePath ?? string.Empty),
+                StringComparer.Ordinal.GetHashCode(FullSequence ?? string.Empty),
+                StringComparer.Ordinal.GetHashCode(BaseSequence ?? string.Empty),
+                Score);
     }
 
     [TestFixture]
@@ -245,7 +248,7 @@ namespace Test.Omics
         /// Ensures order is preserved.
         /// </summary>
         [Test]
-        public void GetIdentifiedBioPolymersWithSetMods_ReturnsProvidedBiopolymersWithSetMods()
+        public void GetIdentifiedBioPolymers_ReturnsProvidedBiopolymers()
         {
             var polymer1 = new SimpleBioPolymerWithSetMods("PEP1", "PEP1");
             var polymer2 = new SimpleBioPolymerWithSetMods("PEP2", "PEP2");
@@ -317,9 +320,8 @@ namespace Test.Omics
                 null,
                 new SimpleBioPolymerWithSetMods("Z","Z")
             };
-            // explicitly include null in the identified list by casting
-            var match = new TestSpectralMatch("f", "Z", "Z", score: 1, identified: identifiedList.Cast<IBioPolymerWithSetMods?>().Select(x => x as IBioPolymerWithSetMods));
-
+            // explicitly include null in the identified list
+            var match = new TestSpectralMatch("f", "Z", "Z", score: 1, identified: identifiedList);
             var identified = match.GetIdentifiedBioPolymersWithSetMods().ToList();
             Assert.That(identified.Count, Is.EqualTo(2));
             Assert.That(identified[0], Is.Null);

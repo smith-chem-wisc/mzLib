@@ -60,7 +60,7 @@ namespace Omics
 
             // Primary: Score (higher is better) -> descending order
             int scoreCmp = Score.CompareTo(other.Score);
-            if (scoreCmp != 0) return scoreCmp > 0 ? 1 : -1;
+            if (scoreCmp != 0) return scoreCmp;
 
             // Tie-breakers: ascending order (ordinal)
             int fileCmp = string.Compare(FullFilePath ?? string.Empty, other.FullFilePath ?? string.Empty, StringComparison.Ordinal);
