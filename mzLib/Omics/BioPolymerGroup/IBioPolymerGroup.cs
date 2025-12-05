@@ -26,6 +26,7 @@ namespace Omics.BioPolymerGroup
         /// <summary>
         /// List of files that contribute quantification data for this group.
         /// The type depends on the quantification strategy (label-free vs. isobaric).
+        /// Files for quantification also doesn't make sense for TMT/iTRAQ since those are channel-based, but is kept for interface consistency.
         /// </summary>
         List<TFileInfo> FilesForQuantification { get; set; }
 
