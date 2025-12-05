@@ -93,7 +93,7 @@ namespace Test.Omics
         public string FullSequence { get; }
         public string BaseSequence { get; }
         public double Score { get; }
-        public int ScanNumber { get; }
+        public int OneBasedScanNumber { get; }
 
         /// <summary>
         /// Construct a test spectral match.
@@ -106,7 +106,7 @@ namespace Test.Omics
             FullSequence = fullSequence ?? string.Empty;
             BaseSequence = baseSequence ?? string.Empty;
             Score = score;
-            ScanNumber = scanNumber;
+            OneBasedScanNumber = scanNumber;
             // defensive copy to prevent external mutation
             _identified = identified?.ToList() ?? new List<IBioPolymerWithSetMods>();
         }
@@ -131,7 +131,7 @@ namespace Test.Omics
             if (baseSeqCmp != 0) return baseSeqCmp;
 
             // Final tie-breaker: scan number ascending
-            int scanCmp = ScanNumber.CompareTo(other.ScanNumber);
+            int scanCmp = OneBasedScanNumber.CompareTo(other.OneBasedScanNumber);
             if (scanCmp != 0) return scanCmp;
 
             return 0;
@@ -153,7 +153,7 @@ namespace Test.Omics
                 && string.Equals(FullSequence, o.FullSequence, StringComparison.Ordinal)
                 && string.Equals(BaseSequence, o.BaseSequence, StringComparison.Ordinal)
                 && Score.Equals(o.Score)
-                && ScanNumber == o.ScanNumber;
+                && OneBasedScanNumber == o.OneBasedScanNumber;
         }
 
         public override int GetHashCode()
@@ -162,7 +162,7 @@ namespace Test.Omics
                 StringComparer.Ordinal.GetHashCode(FullSequence ?? string.Empty),
                 StringComparer.Ordinal.GetHashCode(BaseSequence ?? string.Empty),
                 Score,
-                ScanNumber);
+                OneBasedScanNumber);
     }
 
     [TestFixture]

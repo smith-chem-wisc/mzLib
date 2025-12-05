@@ -35,7 +35,7 @@ namespace Omics
         /// The scan number associated with this identification.
         /// Convention is one-based indexing; implementers should document the indexing they use.
         /// </summary>
-        int ScanNumber { get; }
+        int OneBasedScanNumber { get; }
 
         /// <summary>
         /// Numeric score for the match. Most implementations use a higher-is-better convention; callers
@@ -55,7 +55,7 @@ namespace Omics
         /// 2) <see cref="FullFilePath"/> ascending (ordinal),
         /// 3) <see cref="FullSequence"/> ascending (ordinal),
         /// 4) <see cref="BaseSequence"/> ascending (ordinal),
-        /// 5) <see cref="ScanNumber"/> ascending.
+        /// 5) <see cref="OneBasedScanNumber"/> ascending.
         /// Implementers may override to provide different tie-breaking semantics.
         /// </summary>
         /// <param name="other">Other spectral match to compare against (may be null).</param>
@@ -79,7 +79,7 @@ namespace Omics
             if (baseSeqCmp != 0) return baseSeqCmp;
 
             // Final tie-breaker: scan number ascending
-            int scanCmp = ScanNumber.CompareTo(other.ScanNumber);
+            int scanCmp = OneBasedScanNumber.CompareTo(other.OneBasedScanNumber);
             if (scanCmp != 0) return scanCmp;
 
             return 0;
