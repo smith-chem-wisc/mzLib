@@ -45,5 +45,44 @@ namespace Test.Omics
             Assert.That(fileInfo.Annotations[0].Condition, Is.EqualTo("Control"));
             Assert.That(fileInfo.Annotations[0].BiologicalReplicate, Is.EqualTo(1));
         }
+
+        [Test]
+        public void TwoObjects_WithSameFilePath_AreEqual()
+        {
+            var a = new IsobaricQuantFileInfo("path/to/file.raw", "TMT10", 1, 1, new List<IsobaricQuantPlexAnnotation>());
+            var b = new IsobaricQuantFileInfo("path/to/file.raw", "TMT11", 2, 2, new List<IsobaricQuantPlexAnnotation>());
+
+            Assert.That(a.Equals(b), Is.True, "Instances with identical FullFilePathWithExtension should be equal.");
+            Assert.That(b.Equals(a), Is.True);
+        }
+
+        [Test]
+        public void Objects_WithDifferentFilePaths_AreNotEqual()
+        {
+            var a = new IsobaricQuantFileInfo("path/to/fileA.raw", "TMT10", 1, 1, new List<IsobaricQuantPlexAnnotation>());
+            var b = new IsobaricQuantFileInfo("path/to/fileB.raw", "TMT10", 1, 1, new List<IsobaricQuantPlexAnnotation>());
+
+            Assert.That(a.Equals(b), Is.False, "Instances with different FullFilePathWithExtension should not be equal.");
+            Assert.That(b.Equals(a), Is.False);
+        }
+
+        [Test]
+        public void GetHashCode_ReturnsSameValue_ForEqualObjects()
+        {
+            var a = new IsobaricQuantFileInfo("same/path/file.raw", "TMT10", 1, 1, new List<IsobaricQuantPlexAnnotation>());
+            var b = new IsobaricQuantFileInfo("same/path/file.raw", "TMTpro16", 2, 3, new List<IsobaricQuantPlexAnnotation>());
+
+            Assert.That(a.Equals(b), Is.True);
+            Assert.That(a.GetHashCode(), Is.EqualTo(b.GetHashCode()));
+        }
+
+        [Test]
+        public void ToString_ReturnsFileNamePortion()
+        {
+            var filePath = @"C:\data\experiments\SampleQuantFile.raw";
+            var fi = new IsobaricQuantFileInfo(filePath, "TMT10", 1, 1, new List<IsobaricQuantPlexAnnotation>());
+
+            Assert.That(fi.ToString(), Is.EqualTo("SampleQuantFile.raw"));
+        }
     }
 }

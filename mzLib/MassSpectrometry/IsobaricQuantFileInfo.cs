@@ -23,7 +23,7 @@ namespace MassSpectrometry
         /// <param name="annotations">Ordered list of channel annotations for the file's plex. May be null or empty.</param>
         public IsobaricQuantFileInfo(string fullFilePathWithExtension, string plex, int fraction, int technicalReplicate, IReadOnlyList<IsobaricQuantPlexAnnotation> annotations)
         {
-            FullFilePathWithExtension = fullFilePathWithExtension;
+            FullFilePathWithExtension = fullFilePathWithExtension ?? string.Empty;
             Plex = plex ?? string.Empty;
             Fraction = fraction;
             TechnicalReplicate = technicalReplicate;
