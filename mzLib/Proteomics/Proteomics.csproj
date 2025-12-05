@@ -9,6 +9,10 @@
     <DebugType>full</DebugType>
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
+  
+  <ItemGroup>
+    <Compile Remove="Protein\ProteinGroup.cs" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
@@ -26,6 +30,10 @@
 
   <ItemGroup>
     <Folder Include="Fragmentation\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Protein\ProteinGroup.cs" />
   </ItemGroup>
 
   <ItemGroup>
