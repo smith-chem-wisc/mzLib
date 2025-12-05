@@ -17,7 +17,7 @@ namespace MassSpectrometry
     /// Equality and hashing include all identity components to safely distinguish multiple entries
     /// that may share the same file path but differ by replicate/fraction.
     /// </summary>
-    public class SpectraFileInfo
+    public class SpectraFileInfo : ISampleInfo
     {
         /// <summary>
         /// The path to the data file (e.g., a .raw file) with the extension.
@@ -29,28 +29,20 @@ namespace MassSpectrometry
         /// </summary>
         public string FilenameWithoutExtension { get; }
 
-        /// <summary>
-        /// The condition of the sample (e.g., "Control" or "Treatment").
-        /// </summary>
+        /// <inheritdoc />
         public string Condition { get; }
 
-        /// <summary>
-        /// Biological replicate identifier within a condition. Distinguishes different biological samples
-        /// prepared under the same condition (e.g., patient or culture replicate).
-        /// </summary>
+        /// <inheritdoc />
         public int BiologicalReplicate { get; }
 
-        /// <summary>
-        /// Technical replicate identifier for repeated measurements of the same biological sample
-        /// (e.g., multiple injections or instrument runs of the same preparation).
-        /// </summary>
+        /// <inheritdoc />
         public int TechnicalReplicate { get; }
 
-        /// <summary>
-        /// Fraction identifier for fractionated workflows. Indicates which fraction of the sample
-        /// this file corresponds to (e.g., off-line fractionation or on-line fraction bins).
-        /// </summary>
+        /// <inheritdoc />
         public int Fraction { get; }
+
+        /// <inheritdoc />
+        public string DisplayName => FilenameWithoutExtension;
 
         public SpectraFileInfo(string fullFilePathWithExtension, string condition, int biorep, int techrep, int fraction)
         {

@@ -8,10 +8,10 @@ namespace Omics.BioPolymerGroup
     /// A biopolymer group represents a collection of related biopolymers (e.g., proteins, oligonucleotides)
     /// that share peptides/fragments and are grouped together for quantification and statistical analysis.
     /// </summary>
-    /// <typeparam name="TFileInfo">The file identifier type used to key intensity values
-    /// (e.g., <see cref="SpectraFileInfo"/> for label-free, <see cref="IsobaricQuantFileInfo"/> for isobaric).</typeparam>
-    internal interface IBioPolymerGroup<TFileInfo> : IEquatable<IBioPolymerGroup<TFileInfo>>
-        where TFileInfo : notnull
+    /// <typeparam name="TSampleInfo">The file identifier type used to key intensity values
+    /// (e.g., <see cref="SpectraFileInfo"/> for label-free, <see cref="MassSpectrometry.IIsobaricQuantSampleInfo"/> for isobaric).</typeparam>
+    internal interface IBioPolymerGroup<TSampleInfo> : IEquatable<IBioPolymerGroup<TSampleInfo>>
+        where TSampleInfo : notnull
     {
         /// <summary>
         /// True if this group contains only decoy biopolymers, used for FDR estimation.
@@ -26,9 +26,8 @@ namespace Omics.BioPolymerGroup
         /// <summary>
         /// List of files that contribute quantification data for this group.
         /// The type depends on the quantification strategy (label-free vs. isobaric).
-        /// Files for quantification also doesn't make sense for TMT/iTRAQ since those are channel-based, but is kept for interface consistency.
         /// </summary>
-        List<TFileInfo> FilesForQuantification { get; set; }
+        List<TSampleInfo> FilesForQuantification { get; set; }
 
         /// <summary>
         /// Set of all biopolymers (e.g., proteins, RNA sequences) that belong to this group.
@@ -89,9 +88,8 @@ namespace Omics.BioPolymerGroup
         /// <summary>
         /// Dictionary mapping file identifiers to measured intensity values for this group.
         /// Each file maps to a single intensity value representing the quantification for that file.
-        /// IntensitiesByFile doesn't make sense for TMT/iTRAQ since those are channel-based, but is kept for interface consistency.
         /// </summary>
-        Dictionary<TFileInfo, double> IntensitiesByFile { get; set; }
+        Dictionary<TSampleInfo, double> IntensitiesByFile { get; set; }
 
         /// <summary>
         /// All biopolymers in this group ordered alphabetically by accession.
@@ -103,7 +101,7 @@ namespace Omics.BioPolymerGroup
         /// Default equality implementation based on <see cref="BioPolymerGroupName"/>.
         /// Two groups are equal if they have the same name.
         /// </summary>
-        bool IEquatable<IBioPolymerGroup<TFileInfo>>.Equals(IBioPolymerGroup<TFileInfo>? other)
+        bool IEquatable<IBioPolymerGroup<TSampleInfo>>.Equals(IBioPolymerGroup<TSampleInfo>? other)
         {
             if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;
@@ -131,7 +129,7 @@ namespace Omics.BioPolymerGroup
         /// Used when groups are determined to represent the same biological entity.
         /// </summary>
         /// <param name="otherBioPolymerGroup">The group to merge into this one.</param>
-        void MergeWith(IBioPolymerGroup<TFileInfo> otherBioPolymerGroup);
+        void MergeWith(IBioPolymerGroup<TSampleInfo> otherBioPolymerGroup);
 
         /// <summary>
         /// Creates a new biopolymer group containing only data from a specific file.
@@ -140,7 +138,7 @@ namespace Omics.BioPolymerGroup
         /// <param name="fullFilePath">The full path to the file to subset by.</param>
         /// <param name="silacLabels">Optional SILAC labels to apply during subsetting.</param>
         /// <returns>A new group containing only data from the specified file.</returns>
-        IBioPolymerGroup<TFileInfo> ConstructSubsetBioPolymerGroup(string fullFilePath, List<SilacLabel> silacLabels = null);
+        IBioPolymerGroup<TSampleInfo> ConstructSubsetBioPolymerGroup(string fullFilePath, List<SilacLabel> silacLabels = null);
     }
 
     /// <summary>
@@ -151,7 +149,7 @@ namespace Omics.BioPolymerGroup
 
     /// <summary>
     /// Convenience interface for isobaric (TMT/iTRAQ) quantification biopolymer groups.
-    /// Uses <see cref="IsobaricQuantFileInfo"/> as the file key.
+    /// Uses <see cref="MassSpectrometry.IIsobaricQuantSampleInfo"/> as the sample key.
     /// </summary>
-    internal interface IIsobaricBioPolymerGroup : IBioPolymerGroup<IsobaricQuantFileInfo> { }
+    internal interface IIsobaricBioPolymerGroup : IBioPolymerGroup<IIsobaricQuantSampleInfo> { }
 }
