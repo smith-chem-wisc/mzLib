@@ -4,15 +4,13 @@ using Omics.Modifications;
 namespace Omics.BioPolymerGroup
 {
     /// <summary>
-    /// Generic interface for biopolymer groups that allows different quantification strategies.
+    /// Interface for biopolymer groups that allows different file identifier types for quantification.
     /// A biopolymer group represents a collection of related biopolymers (e.g., proteins, oligonucleotides)
     /// that share peptides/fragments and are grouped together for quantification and statistical analysis.
     /// </summary>
     /// <typeparam name="TFileInfo">The file identifier type used to key intensity values
     /// (e.g., <see cref="SpectraFileInfo"/> for label-free, <see cref="IsobaricQuantFileInfo"/> for isobaric).</typeparam>
-    /// <typeparam name="TIntensity">The intensity value type
-    /// (e.g., <see cref="double"/> for label-free single values, <see cref="double"/>[] for isobaric channel arrays).</typeparam>
-    internal interface IBioPolymerGroup<TFileInfo, TIntensity> : IEquatable<IBioPolymerGroup<TFileInfo, TIntensity>>
+    internal interface IBioPolymerGroup<TFileInfo> : IEquatable<IBioPolymerGroup<TFileInfo>>
         where TFileInfo : notnull
     {
         /// <summary>
@@ -89,10 +87,10 @@ namespace Omics.BioPolymerGroup
 
         /// <summary>
         /// Dictionary mapping file identifiers to measured intensity values for this group.
-        /// For label-free quantification, values are single doubles.
-        /// For isobaric quantification (TMT/iTRAQ), values are arrays of channel intensities.
+        /// Each file maps to a single intensity value representing the quantification for that file.
+        /// IntensitiesByFile doesn't make sense for TMT/iTRAQ since those are channel-based, but is kept for interface consistency.
         /// </summary>
-        Dictionary<TFileInfo, TIntensity> IntensitiesByFile { get; set; }
+        Dictionary<TFileInfo, double> IntensitiesByFile { get; set; }
 
         /// <summary>
         /// All biopolymers in this group ordered alphabetically by accession.
@@ -104,7 +102,7 @@ namespace Omics.BioPolymerGroup
         /// Default equality implementation based on <see cref="BioPolymerGroupName"/>.
         /// Two groups are equal if they have the same name.
         /// </summary>
-        bool IEquatable<IBioPolymerGroup<TFileInfo, TIntensity>>.Equals(IBioPolymerGroup<TFileInfo, TIntensity>? other)
+        bool IEquatable<IBioPolymerGroup<TFileInfo>>.Equals(IBioPolymerGroup<TFileInfo>? other)
         {
             if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;
@@ -132,7 +130,7 @@ namespace Omics.BioPolymerGroup
         /// Used when groups are determined to represent the same biological entity.
         /// </summary>
         /// <param name="otherBioPolymerGroup">The group to merge into this one.</param>
-        void MergeWith(IBioPolymerGroup<TFileInfo, TIntensity> otherBioPolymerGroup);
+        void MergeWith(IBioPolymerGroup<TFileInfo> otherBioPolymerGroup);
 
         /// <summary>
         /// Creates a new biopolymer group containing only data from a specific file.
@@ -141,18 +139,18 @@ namespace Omics.BioPolymerGroup
         /// <param name="fullFilePath">The full path to the file to subset by.</param>
         /// <param name="silacLabels">Optional SILAC labels to apply during subsetting.</param>
         /// <returns>A new group containing only data from the specified file.</returns>
-        IBioPolymerGroup<TFileInfo, TIntensity> ConstructSubsetBioPolymerGroup(string fullFilePath, List<SilacLabel> silacLabels = null);
+        IBioPolymerGroup<TFileInfo> ConstructSubsetBioPolymerGroup(string fullFilePath, List<SilacLabel> silacLabels = null);
     }
 
     /// <summary>
     /// Convenience interface for label-free quantification biopolymer groups.
-    /// Uses <see cref="SpectraFileInfo"/> as the file key and <see cref="double"/> for single intensity values.
+    /// Uses <see cref="SpectraFileInfo"/> as the file key.
     /// </summary>
-    internal interface ILabelFreeBioPolymerGroup : IBioPolymerGroup<SpectraFileInfo, double> { }
+    internal interface ILabelFreeBioPolymerGroup : IBioPolymerGroup<SpectraFileInfo> { }
 
     /// <summary>
     /// Convenience interface for isobaric (TMT/iTRAQ) quantification biopolymer groups.
-    /// Uses <see cref="IsobaricQuantFileInfo"/> as the file key and <see cref="double"/>[] for per-channel intensities.
+    /// Uses <see cref="IsobaricQuantFileInfo"/> as the file key.
     /// </summary>
-    internal interface IIsobaricBioPolymerGroup : IBioPolymerGroup<IsobaricQuantFileInfo, double[]> { }
+    internal interface IIsobaricBioPolymerGroup : IBioPolymerGroup<IsobaricQuantFileInfo> { }
 }
