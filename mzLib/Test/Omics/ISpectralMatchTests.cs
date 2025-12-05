@@ -78,6 +78,11 @@ namespace Test.Omics
     /// Concrete test implementation of <see cref="ISpectralMatch"/>.
     /// Stores an internal, defensive copy of identified biopolymers and exposes them
     /// via <see cref="GetIdentifiedBioPolymersWithSetMods"/> as a read-only collection.
+    /// Implements CompareTo ordering:
+    /// 1) Score descending (higher preferred),
+    /// 2) FullFilePath ascending (ordinal),
+    /// 3) FullSequence ascending (ordinal),
+    /// 4) BaseSequence ascending (ordinal).
     /// </summary>
     internal class TestSpectralMatch : ISpectralMatch
     {
@@ -106,12 +111,22 @@ namespace Test.Omics
         public int CompareTo(ISpectralMatch? other)
         {
             if (other is null) return 1;
-            // Order by Score descending (higher is better), then by FullSequence, then file path to make ordering stable.
+
+            // Primary: Score (higher is better) -> descending order
             int scoreCmp = Score.CompareTo(other.Score);
             if (scoreCmp != 0) return scoreCmp > 0 ? 1 : -1;
-            int seqCmp = string.Compare(FullSequence, other.FullSequence, StringComparison.Ordinal);
-            if (seqCmp != 0) return seqCmp;
-            return string.Compare(FullFilePath, other.FullFilePath, StringComparison.Ordinal);
+
+            // Tie-breakers: ascending order (ordinal)
+            int fileCmp = string.Compare(FullFilePath ?? string.Empty, other.FullFilePath ?? string.Empty, StringComparison.Ordinal);
+            if (fileCmp != 0) return fileCmp;
+
+            int fullSeqCmp = string.Compare(FullSequence ?? string.Empty, other.FullSequence ?? string.Empty, StringComparison.Ordinal);
+            if (fullSeqCmp != 0) return fullSeqCmp;
+
+            int baseSeqCmp = string.Compare(BaseSequence ?? string.Empty, other.BaseSequence ?? string.Empty, StringComparison.Ordinal);
+            if (baseSeqCmp != 0) return baseSeqCmp;
+
+            return 0;
         }
 
         /// <summary>
@@ -154,16 +169,62 @@ namespace Test.Omics
         }
 
         /// <summary>
-        /// When scores tie, FullSequence is used as a deterministic tiebreaker.
+        /// When scores tie, FullFilePath is used as the first deterministic tiebreaker (ascending).
         /// </summary>
         [Test]
-        public void TieBreakBySequence_UsesFullSequence()
+        public void TieBreakByFullFilePath_UsesFullFilePath()
         {
-            var a = new TestSpectralMatch("file1", "AAA", "AAA", score: 100);
-            var b = new TestSpectralMatch("file1", "BBB", "BBB", score: 100);
+            var a = new TestSpectralMatch("a/file", "SEQ", "BASE", score: 100);
+            var b = new TestSpectralMatch("b/file", "SEQ", "BASE", score: 100);
 
-            Assert.That(string.Compare(a.FullSequence, b.FullSequence, StringComparison.Ordinal), Is.LessThan(0));
+            // "a" comes before "b" -> a < b
             Assert.That(a.CompareTo(b), Is.LessThan(0));
+            Assert.That(b.CompareTo(a), Is.GreaterThan(0));
+        }
+
+        /// <summary>
+        /// When score and file tie, FullSequence is used as the next tiebreaker (ascending).
+        /// </summary>
+        [Test]
+        public void TieBreakByFullSequence_UsesFullSequence()
+        {
+            var a = new TestSpectralMatch("file", "AAA", "BASE", score: 100);
+            var b = new TestSpectralMatch("file", "BBB", "BASE", score: 100);
+
+            Assert.That(a.CompareTo(b), Is.LessThan(0));
+        }
+
+        /// <summary>
+        /// When score, file and full-sequence tie, BaseSequence is used as final tiebreaker (ascending).
+        /// </summary>
+        [Test]
+        public void TieBreakByBaseSequence_UsesBaseSequence()
+        {
+            var a = new TestSpectralMatch("file", "SEQ", "AAA", score: 100);
+            var b = new TestSpectralMatch("file", "SEQ", "BBB", score: 100);
+
+            Assert.That(a.CompareTo(b), Is.LessThan(0));
+        }
+
+        /// <summary>
+        /// CompareTo with null should return positive (this > null).
+        /// </summary>
+        [Test]
+        public void CompareTo_Null_ReturnsPositive()
+        {
+            var a = new TestSpectralMatch("file", "SEQ", "BASE", score: 1);
+            Assert.That(a.CompareTo(null), Is.GreaterThan(0));
+        }
+
+        /// <summary>
+        /// Two objects with identical ordering-relevant fields compare equal (CompareTo == 0).
+        /// </summary>
+        [Test]
+        public void CompareTo_EqualObjects_ReturnsZero()
+        {
+            var a = new TestSpectralMatch("file", "SEQ", "BASE", score: 10);
+            var b = new TestSpectralMatch("file", "SEQ", "BASE", score: 10);
+            Assert.That(a.CompareTo(b), Is.EqualTo(0));
         }
 
         /// <summary>
@@ -251,21 +312,18 @@ namespace Test.Omics
         [Test]
         public void GetIdentifiedBioPolymersWithSetMods_PreservesNullEntries()
         {
-            var source = new List<IBioPolymerWithSetMods?>
+            var identifiedList = new List<IBioPolymerWithSetMods?>
             {
                 null,
                 new SimpleBioPolymerWithSetMods("Z","Z")
             };
-            var identifiedList = new List<IBioPolymerWithSetMods>
-            {
-                null,
-                new SimpleBioPolymerWithSetMods("Z","Z")
-            };
-            // explicitly include null in the identified list
-            var match = new TestSpectralMatch("f", "Z", "Z", score: 1, identified: identifiedList);
-            Assert.That(identifiedList.Count, Is.EqualTo(2));
-            Assert.That(identifiedList[0], Is.Null);
-            Assert.That(identifiedList[1]?.BaseSequence, Is.EqualTo("Z"));
+            // explicitly include null in the identified list by casting
+            var match = new TestSpectralMatch("f", "Z", "Z", score: 1, identified: identifiedList.Cast<IBioPolymerWithSetMods?>().Select(x => x as IBioPolymerWithSetMods));
+
+            var identified = match.GetIdentifiedBioPolymersWithSetMods().ToList();
+            Assert.That(identified.Count, Is.EqualTo(2));
+            Assert.That(identified[0], Is.Null);
+            Assert.That(identified[1]?.BaseSequence, Is.EqualTo("Z"));
         }
     }
 }

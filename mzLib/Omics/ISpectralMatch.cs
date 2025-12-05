@@ -45,12 +45,35 @@ namespace Omics
         /// - return a positive value when this match is greater than <paramref name="other"/>,
         /// - return zero when they are considered equal,
         /// - return a negative value when this match is less than <paramref name="other"/>.
-        /// Typical implementations order by <see cref="Score"/> (higher => greater) and then apply
-        /// deterministic tie-breakers (for example file/scan, sequence) to provide a stable ordering.
+        /// The default implementation orders by:
+        /// 1) <see cref="Score"/> descending (higher scores are considered greater),
+        /// 2) <see cref="FullFilePath"/> ascending (ordinal),
+        /// 3) <see cref="FullSequence"/> ascending (ordinal),
+        /// 4) <see cref="BaseSequence"/> ascending (ordinal).
+        /// Implementers may override to provide different tie-breaking semantics.
         /// </summary>
         /// <param name="other">Other spectral match to compare against (may be null).</param>
         /// <returns>Positive if this &gt; other, zero if equal, negative if this &lt; other.</returns>
-        int CompareTo(ISpectralMatch? other);
+        int CompareTo(ISpectralMatch? other)
+        {
+            if (other is null) return 1;
+
+            // Primary: Score (higher is better) -> descending order
+            int scoreCmp = Score.CompareTo(other.Score);
+            if (scoreCmp != 0) return scoreCmp > 0 ? 1 : -1;
+
+            // Tie-breakers: ascending order (ordinal)
+            int fileCmp = string.Compare(FullFilePath ?? string.Empty, other.FullFilePath ?? string.Empty, StringComparison.Ordinal);
+            if (fileCmp != 0) return fileCmp;
+
+            int fullSeqCmp = string.Compare(FullSequence ?? string.Empty, other.FullSequence ?? string.Empty, StringComparison.Ordinal);
+            if (fullSeqCmp != 0) return fullSeqCmp;
+
+            int baseSeqCmp = string.Compare(BaseSequence ?? string.Empty, other.BaseSequence ?? string.Empty, StringComparison.Ordinal);
+            if (baseSeqCmp != 0) return baseSeqCmp;
+
+            return 0;
+        }
 
         /// <summary>
         /// Returns the set (zero or more) of identified biopolymer objects (for example peptides or proteoforms
