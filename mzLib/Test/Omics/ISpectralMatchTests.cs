@@ -7,44 +7,11 @@ using Omics.Fragmentation;
 using Omics.Modifications;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Test.Omics
 {
-    // Minimal test-only implementation of ISpectralMatchHypothesis used by the ISpectralMatch test.
-    internal class SimpleSpectralMatchHypothesis : ISpectralMatchHypothesis
-    {
-        public double Score { get; init; }
-        public IBioPolymerWithSetMods SpecificBioPolymer { get; init; }
-        public bool IsDecoy { get; init; }
-        public string FullSequence { get; init; }
-        public double? QValueNotch { get; init; }
-
-        public SimpleSpectralMatchHypothesis(string fullSequence, IBioPolymerWithSetMods bio, double score = 0, bool isDecoy = false, double? q = null)
-        {
-            FullSequence = fullSequence;
-            SpecificBioPolymer = bio;
-            Score = score;
-            IsDecoy = isDecoy;
-            QValueNotch = q;
-        }
-
-        public bool Equals(ISpectralMatchHypothesis? other)
-        {
-            if (other is null) return false;
-            return string.Equals(FullSequence, other.FullSequence, StringComparison.Ordinal)
-                   && (SpecificBioPolymer?.Equals(other.SpecificBioPolymer) ?? other.SpecificBioPolymer is null)
-                   && IsDecoy == other.IsDecoy;
-        }
-
-        public override bool Equals(object? obj) => Equals(obj as ISpectralMatchHypothesis);
-
-        public override int GetHashCode()
-            => HashCode.Combine(StringComparer.Ordinal.GetHashCode(FullSequence ?? string.Empty),
-                                SpecificBioPolymer?.GetHashCode() ?? 0,
-                                IsDecoy);
-    }
-
-    // Minimal test-only implementation of IBioPolymerWithSetMods required by the hypotheses above.
+    // Minimal test-only implementation of IBioPolymerWithSetMods required by the tests.
     internal class SimpleBioPolymerWithSetMods : IBioPolymerWithSetMods
     {
         public string BaseSequence { get; init; }
@@ -107,21 +74,32 @@ namespace Test.Omics
                                 StringComparer.Ordinal.GetHashCode(FullSequence ?? string.Empty));
     }
 
-    // Concrete test implementation of ISpectralMatch
+    /// <summary>
+    /// Concrete test implementation of <see cref="ISpectralMatch"/>.
+    /// Stores an internal, defensive copy of identified biopolymers and exposes them
+    /// via <see cref="GetIdentifiedBioPolymersWithSetMods"/> as a read-only collection.
+    /// </summary>
     internal class TestSpectralMatch : ISpectralMatch
     {
+        private readonly List<IBioPolymerWithSetMods> _identified;
+
         public string FullFilePath { get; init; }
         public string FullSequence { get; init; }
         public string BaseSequence { get; init; }
-        public List<ISpectralMatchHypothesis> BestMatchingBioPolymersWithSetMods { get; init; } = new();
         public double Score { get; init; }
 
-        public TestSpectralMatch(string filePath, string fullSequence, string baseSequence, double score = 0)
+        /// <summary>
+        /// Construct a test spectral match.
+        /// The identified collection is defensively copied; passing null creates an empty set.
+        /// </summary>
+        public TestSpectralMatch(string filePath, string fullSequence, string baseSequence, double score = 0, IEnumerable<IBioPolymerWithSetMods>? identified = null)
         {
             FullFilePath = filePath ?? string.Empty;
             FullSequence = fullSequence ?? string.Empty;
             BaseSequence = baseSequence ?? string.Empty;
             Score = score;
+            // defensive copy to prevent external mutation
+            _identified = identified?.ToList() ?? new List<IBioPolymerWithSetMods>();
         }
 
         // IComparable<ISpectralMatch>.CompareTo implementation
@@ -136,6 +114,14 @@ namespace Test.Omics
             return string.Compare(FullFilePath, other.FullFilePath, StringComparison.Ordinal);
         }
 
+        /// <summary>
+        /// Return the identified biopolymer objects for this match.
+        /// Returns a read-only snapshot; callers cannot modify the internal collection.
+        /// May return zero items; null entries in the original input are preserved.
+        /// </summary>
+        public IEnumerable<IBioPolymerWithSetMods> GetIdentifiedBioPolymersWithSetMods()
+            => _identified.AsReadOnly();
+
         public override bool Equals(object? obj)
         {
             var o = obj as ISpectralMatch;
@@ -149,12 +135,14 @@ namespace Test.Omics
             => HashCode.Combine(StringComparer.Ordinal.GetHashCode(FullFilePath ?? string.Empty),
                                 StringComparer.Ordinal.GetHashCode(FullSequence ?? string.Empty),
                                 Score);
-
     }
 
     [TestFixture]
     internal class ISpectralMatchTests
     {
+        /// <summary>
+        /// Higher score should sort as greater than lower score.
+        /// </summary>
         [Test]
         public void CompareByScore_HigherScoreIsGreater()
         {
@@ -165,6 +153,9 @@ namespace Test.Omics
             Assert.That(b.CompareTo(a), Is.LessThan(0));
         }
 
+        /// <summary>
+        /// When scores tie, FullSequence is used as a deterministic tiebreaker.
+        /// </summary>
         [Test]
         public void TieBreakBySequence_UsesFullSequence()
         {
@@ -175,6 +166,9 @@ namespace Test.Omics
             Assert.That(a.CompareTo(b), Is.LessThan(0));
         }
 
+        /// <summary>
+        /// Equals and GetHashCode behave consistently for two objects that share the same visible identity.
+        /// </summary>
         [Test]
         public void HashAndEquals_EqualProperties_ProduceEqualHash()
         {
@@ -185,18 +179,90 @@ namespace Test.Omics
             Assert.That(a.GetHashCode(), Is.EqualTo(b.GetHashCode()));
         }
 
+        /// <summary>
+        /// Verify that GetIdentifiedBioPolymersWithSetMods returns the biopolymers provided at construction.
+        /// Ensures order is preserved.
+        /// </summary>
         [Test]
-        public void BestMatchingHypotheses_CanBePopulatedAndRead()
+        public void GetIdentifiedBioPolymers_ReturnsProvidedBiopolymers()
         {
-            var polymer = new SimpleBioPolymerWithSetMods("PEP", "PEP");
-            var hyp = new SimpleSpectralMatchHypothesis("PEP", polymer, score: 10);
-            var match = new TestSpectralMatch("f", "PEP", "PEP", score: 10)
-            {
-                BestMatchingBioPolymersWithSetMods = new List<ISpectralMatchHypothesis> { hyp }
-            };
+            var polymer1 = new SimpleBioPolymerWithSetMods("PEP1", "PEP1");
+            var polymer2 = new SimpleBioPolymerWithSetMods("PEP2", "PEP2");
+            var match = new TestSpectralMatch("f", "PEP1", "PEP1", score: 10, identified: new[] { polymer1, polymer2 });
 
-            Assert.That(match.BestMatchingBioPolymersWithSetMods.Count, Is.EqualTo(1));
-            Assert.That(match.BestMatchingBioPolymersWithSetMods[0].FullSequence, Is.EqualTo("PEP"));
+            var identified = match.GetIdentifiedBioPolymersWithSetMods().ToList();
+            Assert.That(identified.Count, Is.EqualTo(2));
+            Assert.That(identified[0].BaseSequence, Is.EqualTo("PEP1"));
+            Assert.That(identified[1].BaseSequence, Is.EqualTo("PEP2"));
+        }
+
+        /// <summary>
+        /// When no identified biopolymers were provided, method returns an empty enumeration (not null).
+        /// </summary>
+        [Test]
+        public void GetIdentifiedBioPolymers_EmptyWhenNone()
+        {
+            var match = new TestSpectralMatch("f", "X", "X", score: 0, identified: null);
+            var identified = match.GetIdentifiedBioPolymersWithSetMods();
+            Assert.That(identified, Is.Not.Null);
+            Assert.That(identified, Is.Empty);
+        }
+
+        /// <summary>
+        /// The implementation defensively copies the input list: mutating the original source after
+        /// construction does not affect the match's returned collection.
+        /// </summary>
+        [Test]
+        public void GetIdentifiedBioPolymers_DefensiveCopy_OriginalMutated()
+        {
+            var source = new List<IBioPolymerWithSetMods>
+            {
+                new SimpleBioPolymerWithSetMods("A","A")
+            };
+            var match = new TestSpectralMatch("f", "A", "A", score: 1, identified: source);
+
+            // mutate source after construction
+            source.Add(new SimpleBioPolymerWithSetMods("B", "B"));
+
+            var identified = match.GetIdentifiedBioPolymersWithSetMods().ToList();
+            // match should have only the original snapshot (one element)
+            Assert.That(identified.Count, Is.EqualTo(1));
+            Assert.That(identified[0].BaseSequence, Is.EqualTo("A"));
+        }
+
+        /// <summary>
+        /// Returned collection is read-only: attempts to modify it through the IList interface throw.
+        /// </summary>
+        [Test]
+        public void GetIdentifiedBioPolymers_ReturnsReadOnlyCollection()
+        {
+            var polymer1 = new SimpleBioPolymerWithSetMods("P1", "P1");
+            var match = new TestSpectralMatch("f", "P1", "P1", score: 1, identified: new[] { polymer1 });
+
+            var coll = match.GetIdentifiedBioPolymersWithSetMods() as IList<IBioPolymerWithSetMods>;
+            Assert.That(coll, Is.Not.Null, "Implementation should expose an IList wrapper (read-only).");
+            Assert.Throws<NotSupportedException>(() => coll.Add(new SimpleBioPolymerWithSetMods("X", "X")));
+        }
+
+        /// <summary>
+        /// Null entries provided in the identified list are preserved in the returned enumeration.
+        /// This test documents the current behavior; callers should avoid nulls in production.
+        /// </summary>
+        [Test]
+        public void GetIdentifiedBioPolymers_PreservesNullEntries()
+        {
+            var source = new List<IBioPolymerWithSetMods?>
+            {
+                null,
+                new SimpleBioPolymerWithSetMods("Z","Z")
+            };
+            // cast to non-nullable interface type for constructor (we intentionally include a null)
+            var match = new TestSpectralMatch("f", "Z", "Z", score: 1, identified: source.Cast<IBioPolymerWithSetMods?>().Select(x => x as IBioPolymerWithSetMods));
+
+            var identified = match.GetIdentifiedBioPolymersWithSetMods().ToList();
+            Assert.That(identified.Count, Is.EqualTo(2));
+            Assert.That(identified[0], Is.Null);
+            Assert.That(identified[1]?.BaseSequence, Is.EqualTo("Z"));
         }
     }
 }
