@@ -21,27 +21,13 @@ namespace Omics.BioPolymerGroup
 
         HashSet<IBioPolymerWithSetMods> UniqueBioPolymerWithSetMods { get; set; }
 
-        //HashSet<SpectralMatch> AllPsmsBelowOnePercentFDR { get; set; }
-
-        List<double> SequenceCoverageFraction { get; }
-
-        List<string> SequenceCoverageDisplayList { get; }
-
-        List<string> SequenceCoverageDisplayListWithMods { get; }
-
-        List<string> FragmentSequenceCoverageDisplayList { get; }
+        HashSet<ISpectralMatch> AllPsmsBelowOnePercentFDR { get; set; }
 
         double QValue { get; set; }
 
         double BestBiopolymerWithSetsModQValue { get; set; }
 
         double BestBioPolymerWithSetsModScore { get; set; }
-
-        int CumulativeTarget { get; set; }
-
-        int CumulativeDecoy { get; set; }
-
-        bool DisplayModsOnBioPolymerWithSetMods { get; set; }
 
         List<string> ModsInfo { get; }
 
@@ -60,8 +46,7 @@ namespace Omics.BioPolymerGroup
         string GetTabSeparatedHeader();
         string ToString();
         void Score();
-        void CalculateSequenceCoverage();
-        void MergeWith(BioPolymerGroup otherBioPolymerGroup);
-        BioPolymerGroup ConstructSubsetBioPolymerGroup(string fullFilePath, List<SilacLabel> silacLabels = null);
+        void MergeWith(IBioPolymerGroup otherBioPolymerGroup);
+        IBioPolymerGroup ConstructSubsetBioPolymerGroup(string fullFilePath, List<SilacLabel> silacLabels = null);
     }
 }
