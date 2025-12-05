@@ -10,29 +10,57 @@ namespace MassSpectrometry
     /// Instances encapsulate the file identity (path, plex, fraction, technical replicate) and an
     /// ordered, read-only set of per-channel annotations used for mapping reporter channels to samples.
     /// Designed as a small immutable value object for use as a dictionary key or in result tables.
+    /// Note: file path identity is compared using a normalized (canonical) representation computed
+    /// with <see cref="Path.GetFullPath(string)"/> when possible; if the provided path is null or empty
+    /// it is normalized to an empty string.
     /// </summary>
-    public class IsobaricQuantFileInfo
+    public class IsobaricQuantFileInfo : IEquatable<IsobaricQuantFileInfo>
     {
+        private readonly string _canonicalFullFilePathWithExtension;
+
         /// <summary>
         /// Create a new instance describing a single isobaric quantification file.
         /// </summary>
-        /// <param name="fullFilePathWithExtension">Absolute or relative path to the spectra/quant file including extension.</param>
+        /// <param name="fullFilePathWithExtension">Absolute or relative path to the spectra/quant file including extension.
+        /// If null or empty, it will be normalized to empty string.</param>
         /// <param name="plex">The plex identifier (for example "TMT10" or "TMTpro16"). Null is normalized to an empty string.</param>
         /// <param name="fraction">Fraction index (1-based) for fractionated experiments.</param>
         /// <param name="technicalReplicate">Technical replicate index (1-based) for repeated injections/runs.</param>
         /// <param name="annotations">Ordered list of channel annotations for the file's plex. May be null or empty.</param>
         public IsobaricQuantFileInfo(string fullFilePathWithExtension, string plex, int fraction, int technicalReplicate, IReadOnlyList<IsobaricQuantPlexAnnotation> annotations)
         {
+            // Normalize visible properties
             FullFilePathWithExtension = fullFilePathWithExtension ?? string.Empty;
             Plex = plex ?? string.Empty;
             Fraction = fraction;
             TechnicalReplicate = technicalReplicate;
             Annotations = annotations ?? Array.Empty<IsobaricQuantPlexAnnotation>();
+
+            // Compute a canonical path for identity comparisons.
+            // Use Path.GetFullPath to resolve relative segments and normalize separators where possible.
+            // If GetFullPath throws (invalid path characters etc.), fall back to the original (normalized) string.
+            if (string.IsNullOrEmpty(FullFilePathWithExtension))
+            {
+                _canonicalFullFilePathWithExtension = string.Empty;
+            }
+            else
+            {
+                try
+                {
+                    _canonicalFullFilePathWithExtension = Path.GetFullPath(FullFilePathWithExtension);
+                }
+                catch
+                {
+                    // Keep the original string if canonicalization fails
+                    _canonicalFullFilePathWithExtension = FullFilePathWithExtension;
+                }
+            }
         }
 
         /// <summary>
         /// Absolute or relative path to the data file (for example a .raw or .mzML), including extension.
-        /// This property forms the primary identity component used by <see cref="Equals(object)"/> and <see cref="GetHashCode"/>.
+        /// This property stores the original (normalized-null) input. For identity comparisons the
+        /// canonicalized path computed at construction time is used.
         /// </summary>
         public string FullFilePathWithExtension { get; }
 
@@ -59,24 +87,71 @@ namespace MassSpectrometry
         public IReadOnlyList<IsobaricQuantPlexAnnotation> Annotations { get; } // All tags for this file's plex
 
         /// <summary>
-        /// Equality compares the canonical file path. Two <see cref="IsobaricQuantFileInfo"/>
-        /// instances are considered equal when their <see cref="FullFilePathWithExtension"/>
-        /// strings are equal (ordinal comparison).
+        /// Equality compares the canonical identity of the file info.
+        /// Two <see cref="IsobaricQuantFileInfo"/> instances are considered equal when all of the following match:
+        /// - canonicalized <see cref="FullFilePathWithExtension"/> (ordinal comparison),
+        /// - <see cref="Plex"/> (ordinal comparison),
+        /// - <see cref="Fraction"/>, 
+        /// - <see cref="TechnicalReplicate"/>.
+        /// Canonicalization uses <see cref="Path.GetFullPath(string)"/> where possible; if canonicalization
+        /// failed during construction, the original path string is used.
         /// </summary>
         /// <param name="obj">Object to compare.</param>
-        /// <returns>True when <paramref name="obj"/> is an <see cref="IsobaricQuantFileInfo"/> with the same file path; otherwise false.</returns>
+        /// <returns>
+        /// True when <paramref name="obj"/> is an <see cref="IsobaricQuantFileInfo"/> with the same
+        /// canonical file path, plex, fraction and technical replicate; otherwise false.
+        /// </returns>
         public override bool Equals(object obj)
         {
-            return obj is IsobaricQuantFileInfo other && FullFilePathWithExtension.Equals(other.FullFilePathWithExtension);
+            return Equals(obj as IsobaricQuantFileInfo);
         }
 
         /// <summary>
-        /// Returns a stable hash code derived from <see cref="FullFilePathWithExtension"/> using ordinal string hashing.
+        /// Type-safe equality comparison. See <see cref="Equals(object)"/>.
+        /// </summary>
+        /// <param name="other">Other instance to compare (may be null).</param>
+        /// <returns>True when identity components match; otherwise false.</returns>
+        public bool Equals(IsobaricQuantFileInfo other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+
+            return StringComparer.Ordinal.Equals(_canonicalFullFilePathWithExtension ?? string.Empty, other._canonicalFullFilePathWithExtension ?? string.Empty)
+                && StringComparer.Ordinal.Equals(Plex ?? string.Empty, other.Plex ?? string.Empty)
+                && Fraction == other.Fraction
+                && TechnicalReplicate == other.TechnicalReplicate;
+        }
+
+        /// <summary>
+        /// Returns a stable hash code derived from the identity components used by <see cref="Equals(object)"/>.
+        /// The hash is computed from:
+        /// - canonicalized <see cref="FullFilePathWithExtension"/> (ordinal),
+        /// - <see cref="Plex"/> (ordinal),
+        /// - <see cref="Fraction"/>,
+        /// - <see cref="TechnicalReplicate"/>.
         /// </summary>
         /// <returns>Hash code for the file identity.</returns>
         public override int GetHashCode()
         {
-            return StringComparer.Ordinal.GetHashCode(FullFilePathWithExtension ?? string.Empty);
+            int h1 = StringComparer.Ordinal.GetHashCode(_canonicalFullFilePathWithExtension ?? string.Empty);
+            int h2 = StringComparer.Ordinal.GetHashCode(Plex ?? string.Empty);
+            return HashCode.Combine(h1, h2, Fraction, TechnicalReplicate);
+        }
+
+        /// <summary>
+        /// Equality operator overload to match value semantics.
+        /// </summary>
+        public static bool operator ==(IsobaricQuantFileInfo left, IsobaricQuantFileInfo right)
+        {
+            return Equals(left, right);
+        }
+
+        /// <summary>
+        /// Inequality operator overload to match value semantics.
+        /// </summary>
+        public static bool operator !=(IsobaricQuantFileInfo left, IsobaricQuantFileInfo right)
+        {
+            return !Equals(left, right);
         }
 
         /// <summary>
@@ -99,21 +174,21 @@ namespace MassSpectrometry
         /// <summary>
         /// Reporter tag identifier (for example "126", "127N", "128C" or reader-specific tag label).
         /// </summary>
-        public string Tag { get; set; } = "";
+        public string Tag { get; init; } = "";
 
         /// <summary>
         /// Human-readable sample name associated with this reporter channel.
         /// </summary>
-        public string SampleName { get; set; } = "";
+        public string SampleName { get; init; } = "";
 
         /// <summary>
         /// Experimental condition or group for this reporter channel (for example "Control" or "Treatment").
         /// </summary>
-        public string Condition { get; set; } = "";
+        public string Condition { get; init; } = "";
 
         /// <summary>
         /// Biological replicate index for this channel (1-based). Zero or negative indicates 'not set'.
         /// </summary>
-        public int BiologicalReplicate { get; set; }
+        public int BiologicalReplicate { get; init; }
     }
 }
