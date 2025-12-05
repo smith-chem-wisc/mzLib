@@ -7,8 +7,8 @@ namespace Omics
     /// Represents a single spectrum-to-sequence identification (PSM) produced by a reader or search engine.
     /// Implementations provide identifying sequence strings, a numeric confidence score, the originating
     /// file identifier, and access to the biopolymer objects (peptides/proteoforms) that were assigned to
-    /// the spectrum.  Implementers must provide consistent comparison and hashing semantics so matches can
-    /// be ordered and used as dictionary/set keys.
+    /// the spectrum. Implementations must provide a consistent comparison implementation so matches can
+    /// be ordered when needed.
     /// </summary>
     public interface ISpectralMatch : IComparable<ISpectralMatch>
     {

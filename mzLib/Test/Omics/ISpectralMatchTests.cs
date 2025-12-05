@@ -310,21 +310,32 @@ namespace Test.Omics
 
         /// <summary>
         /// Null entries provided in the identified list are preserved in the returned enumeration.
-        /// This test documents the current behavior; callers should avoid nulls in production.
+        /// This test verifies that behavior by asserting the first returned element is null
+        /// and that a subsequent element matches the expected polymer.
         /// </summary>
         [Test]
         public void GetIdentifiedBioPolymersWithSetMods_PreservesNullEntries()
         {
-            var identifiedList = new List<IBioPolymerWithSetMods?>
-            {
-                null,
-                new SimpleBioPolymerWithSetMods("Z","Z")
-            };
-            // explicitly include null in the identified list
+            // Arrange: create a source list containing a null entry and a real biopolymer
+            var polymer = new SimpleBioPolymerWithSetMods("Z", "Z");
+            var identifiedList = new List<IBioPolymerWithSetMods?> { null, polymer };
+
+            // Create match with the test list (constructor makes a defensive copy)
             var match = new TestSpectralMatch("f", "Z", "Z", score: 1, identified: identifiedList);
+
+            // Act - call the method under test and materialize the results
             var identified = match.GetIdentifiedBioPolymersWithSetMods().ToList();
+
+            // Assert - use NUnit collection constraints and Matches predicate:
+            // - exactly one null element
+            // - exactly one element matching the predicate (BaseSequence == "Z")
+            Assert.That(identified, Has.Exactly(1).Null, "Expected exactly one null entry in the identified collection.");
+            Assert.That(identified, Has.Exactly(1).Matches<IBioPolymerWithSetMods>(p => p != null && p.BaseSequence == "Z"),
+                "Expected exactly one identified biopolymer with BaseSequence == \"Z\".");
+
+            // Positional verification: first element must be null and second must be the polymer
             Assert.That(identified.Count, Is.EqualTo(2));
-            Assert.That(identified[0], Is.Null);
+            Assert.That(identified[0], Is.Null, "The first returned element should be the preserved null entry.");
             Assert.That(identified[1]?.BaseSequence, Is.EqualTo("Z"));
         }
     }
