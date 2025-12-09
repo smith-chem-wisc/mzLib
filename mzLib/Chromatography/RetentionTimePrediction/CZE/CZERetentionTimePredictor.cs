@@ -16,15 +16,6 @@ public class CZERetentionTimePredictor : RetentionTimePredictor
 
     public override string PredictorName => "CZE";
     public override SeparationType SeparationType => SeparationType.CZE;
- 
-    /// <summary>
-    /// Initializes a new CZE predictor with default parameters (100cm column, 300kV/m)
-    /// </summary>
-    public CZERetentionTimePredictor(
-        IncompatibleModHandlingMode modHandlingMode = IncompatibleModHandlingMode.UsePrimarySequence)
-        : this(modHandlingMode, columnLengthMeters: 1.0, voltsPerMeter: 300000)
-    {
-    }
 
     /// <summary>
     /// Initializes a new CZE predictor with custom instrument parameters
@@ -33,9 +24,9 @@ public class CZERetentionTimePredictor : RetentionTimePredictor
     /// <param name="columnLengthMeters">Total capillary length in meters (default: 1.0m)</param>
     /// <param name="voltsPerMeter">Applied voltage gradient in V/m (default: 300,000 V/m)</param>
     public CZERetentionTimePredictor(
-        IncompatibleModHandlingMode modHandlingMode,
-        double columnLengthMeters,
-        double voltsPerMeter)
+        IncompatibleModHandlingMode modHandlingMode = IncompatibleModHandlingMode.UsePrimarySequence,
+        double columnLengthMeters = 1.0,
+        double voltsPerMeter = 300000)
         : base(modHandlingMode)
     {
         if (columnLengthMeters <= 0)

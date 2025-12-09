@@ -17,22 +17,12 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDispos
     public override string PredictorName => "Chronologer";
     public override SeparationType SeparationType => SeparationType.HPLC;
 
-
-    /// <summary>
-    /// Initializes a new Chronologer predictor with default weights.
-    /// </summary>
-    public ChronologerRetentionTimePredictor(
-        IncompatibleModHandlingMode modHandlingMode = IncompatibleModHandlingMode.RemoveIncompatibleMods)
-        : this(modHandlingMode, weightsPath: null)
-    {
-    }
-
     /// <summary>
     /// Initializes a new Chronologer predictor with custom weights file.
     /// </summary>
     public ChronologerRetentionTimePredictor(
-        IncompatibleModHandlingMode modHandlingMode,
-        string? weightsPath)
+        IncompatibleModHandlingMode modHandlingMode = IncompatibleModHandlingMode.RemoveIncompatibleMods,
+        string? weightsPath = null)
         : base(modHandlingMode)
     {
         _model = weightsPath != null
