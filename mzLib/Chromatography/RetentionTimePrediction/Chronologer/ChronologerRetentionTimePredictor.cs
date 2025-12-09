@@ -1,4 +1,5 @@
 using Chromatography.RetentionTimePrediction.Util;
+using MzLibUtil;
 using System.Text.RegularExpressions;
 using TorchSharp;
 using static TorchSharp.torch;
@@ -74,6 +75,8 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDispos
         }
     }
 
+
+    private static char[] _modIdentifiers = ['[', ']'];
     public override string? GetFormattedSequence(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason)
     {
         failureReason = null;
@@ -95,7 +98,7 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDispos
 
         // At this point we have replaced everything that is chronologer compatible with its chronologer dictionary representation. 
         // If we have any more [] in the full sequence, it means there are incompatible modifications.
-        if (!workingSequence.Contains('[') && !workingSequence.Contains(']')) 
+        if (workingSequence.IndexOfAny(_modIdentifiers) >= 0) 
             return workingSequence;
 
         switch (ModHandlingMode)
