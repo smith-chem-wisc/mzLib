@@ -65,7 +65,30 @@ namespace MassSpectrometry
             Fraction = fraction;
             TechnicalReplicate = techrep;
         }
+        /// <summary>
+        /// Determines whether two <see cref="SpectraFileInfo"/> instances are equal.
+        /// Two samples are equal if they have the same <see cref="PlexId"/> and <see cref="ChannelLabel"/>.
+        /// </summary>
+        /// <param name="left">The first instance to compare.</param>
+        /// <param name="right">The second instance to compare.</param>
+        /// <returns>True if both instances are equal or both are null; otherwise false.</returns>
+        public static bool operator ==(SpectraFileInfo? left, SpectraFileInfo? right)
+        {
+            if (left is null) return right is null;
+            return left.Equals(right);
+        }
 
+        /// <summary>
+        /// Determines whether two <see cref="SpectraFileInfo"/> instances are not equal.
+        /// Two samples are not equal if they differ in <see cref="PlexId"/> or <see cref="ChannelLabel"/>.
+        /// </summary>
+        /// <param name="left">The first instance to compare.</param>
+        /// <param name="right">The second instance to compare.</param>
+        /// <returns>True if the instances are not equal; otherwise false.</returns>
+        public static bool operator !=(SpectraFileInfo? left, SpectraFileInfo? right)
+        {
+            return !(left == right);
+        }
         /// <summary>
         /// Determines whether the specified <see cref="SpectraFileInfo"/> is equal to this instance.
         /// Two instances are equal if they have the same file path, condition, biological replicate,
@@ -162,27 +185,32 @@ namespace MassSpectrometry
             // Non-null comes before null
             if (other is null) return -1;
 
-            // Check for equality returns 0 if equal.
-            if (Equals(other)) return 0;
+            if (other is SpectraFileInfo specInfo) 
+            {
+                // Check for equality returns 0 if equal.
+                if (Equals(other)) return 0;
 
-            // Compare by FullFilePathWithExtension (A before B)
-            int comparison = string.Compare(FullFilePathWithExtension ?? string.Empty, other.FullFilePathWithExtension ?? string.Empty, StringComparison.Ordinal);
-            if (comparison != 0) return comparison;
+                // Compare by FullFilePathWithExtension (A before B)
+                int comparison = string.Compare(FullFilePathWithExtension ?? string.Empty, other.FullFilePathWithExtension ?? string.Empty, StringComparison.Ordinal);
+                if (comparison != 0) return comparison;
 
-            // Compare by Condition (A before B)
-            comparison = string.Compare(Condition ?? string.Empty, other.Condition ?? string.Empty, StringComparison.Ordinal);
-            if (comparison != 0) return comparison;
+                // Compare by Condition (A before B)
+                comparison = string.Compare(Condition ?? string.Empty, other.Condition ?? string.Empty, StringComparison.Ordinal);
+                if (comparison != 0) return comparison;
 
-            // Compare by BiologicalReplicate (1 before 2)
-            comparison = BiologicalReplicate.CompareTo(other.BiologicalReplicate);
-            if (comparison != 0) return comparison;
+                // Compare by BiologicalReplicate (1 before 2)
+                comparison = BiologicalReplicate.CompareTo(other.BiologicalReplicate);
+                if (comparison != 0) return comparison;
 
-            // Compare by Fraction (1 before 2)
-            comparison = Fraction.CompareTo(other.Fraction);
-            if (comparison != 0) return comparison;
+                // Compare by Fraction (1 before 2)
+                comparison = Fraction.CompareTo(other.Fraction);
+                if (comparison != 0) return comparison;
 
-            // Compare by TechnicalReplicate (1 before 2)
-            return TechnicalReplicate.CompareTo(other.TechnicalReplicate);
+                // Compare by TechnicalReplicate (1 before 2)
+                return TechnicalReplicate.CompareTo(other.TechnicalReplicate);
+            }
+
+            return 1; 
         }
     }
 }
