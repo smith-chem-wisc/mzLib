@@ -8,7 +8,6 @@ using Omics.BioPolymerGroup;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
-using Readers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -954,19 +953,19 @@ namespace Test.Omics
     /// <summary>
     /// Minimal test implementation of ISpectralMatch for unit tests.
     /// </summary>
-    internal class TestSpectralMatch : ISpectralMatch
+    internal class TestOmicsSpectralMatch : ISpectralMatch
     {
         public string FullFilePath { get; init; } = string.Empty;
         public string FullSequence { get; init; } = string.Empty;
         public string BaseSequence { get; init; } = string.Empty;
         public double Score { get; init; }
-        public int ScanNumber { get; init; }
+        public int OneBasedScanNumber { get; init; }
 
         public int CompareTo(ISpectralMatch? other)
         {
             if (other is null) return 1;
             int cmp = Score.CompareTo(other.Score);
-            return cmp != 0 ? cmp : ScanNumber.CompareTo(other.ScanNumber);
+            return cmp != 0 ? cmp : OneBasedScanNumber.CompareTo(other.OneBasedScanNumber);
         }
 
         public IEnumerable<IBioPolymerWithSetMods> GetIdentifiedBioPolymersWithSetMods() => new List<IBioPolymerWithSetMods>();
