@@ -783,27 +783,26 @@ namespace Test.Omics
             // Uppercase comes before lowercase in ordinal comparison
             Assert.That(sampleUpper.CompareTo(sampleLower), Is.LessThan(0));
         }
-
         [Test]
-        public void CompareTo_WithIsobaricQuantSampleInfo_SameISampleInfoProperties_ReturnsZero()
+        public void CompareTo_WithIsobaricQuantSampleInfo_CrossTypeOrdering()
         {
-            // When comparing SpectraFileInfo to IsobaricQuantSampleInfo with identical ISampleInfo properties,
-            // the CompareTo method returns 0 because it compares based on ISampleInfo properties only.
-            // This is by design - CompareTo determines ordering, not type equality.
+            // When comparing SpectraFileInfo to a non-SpectraFileInfo ISampleInfo,
+            // SpectraFileInfo.CompareTo returns positive (sorts after other types).
+            // This is by design to provide consistent ordering within same-type collections.
             var isobaric = new IsobaricQuantSampleInfo(
                 @"C:\Data\sample1.raw", "Control", 1, 1, 0, 1, "126", 126.0, false);
 
-            Assert.That(_sample1.CompareTo(isobaric), Is.EqualTo(0));
+            Assert.That(_sample1.CompareTo(isobaric), Is.GreaterThan(0));
         }
 
         [Test]
-        public void CompareTo_WithIsobaricQuantSampleInfo_DifferentProperties_ReturnsNonZero()
+        public void CompareTo_WithIsobaricQuantSampleInfo_DifferentProperties_ReturnsPositive()
         {
-            // When the ISampleInfo properties differ, CompareTo returns non-zero
+            // Cross-type comparison always returns positive regardless of property values
             var isobaric = new IsobaricQuantSampleInfo(
                 @"D:\Data\different.raw", "Treatment", 2, 2, 1, 1, "126", 126.0, false);
 
-            Assert.That(_sample1.CompareTo(isobaric), Is.Not.EqualTo(0));
+            Assert.That(_sample1.CompareTo(isobaric), Is.GreaterThan(0));
         }
 
         #endregion

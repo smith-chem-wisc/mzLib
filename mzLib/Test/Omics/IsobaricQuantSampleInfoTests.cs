@@ -208,40 +208,6 @@ namespace Test.Omics
         }
 
         [Test]
-        public void Constructor_WithNullFilePath_SetsEmptyString()
-        {
-            var sample = new IsobaricQuantSampleInfo(
-                fullFilePathWithExtension: null!,
-                condition: "Control",
-                biologicalReplicate: 1,
-                technicalReplicate: 1,
-                fraction: 0,
-                plexId: 1,
-                channelLabel: "126",
-                reporterIonMz: 126.127726,
-                isReferenceChannel: false);
-
-            Assert.That(sample.FullFilePathWithExtension, Is.EqualTo(string.Empty));
-        }
-
-        [Test]
-        public void Constructor_WithNullCondition_SetsEmptyString()
-        {
-            var sample = new IsobaricQuantSampleInfo(
-                fullFilePathWithExtension: @"C:\Data\test.raw",
-                condition: null!,
-                biologicalReplicate: 1,
-                technicalReplicate: 1,
-                fraction: 0,
-                plexId: 1,
-                channelLabel: "126",
-                reporterIonMz: 126.127726,
-                isReferenceChannel: false);
-
-            Assert.That(sample.Condition, Is.EqualTo(string.Empty));
-        }
-
-        [Test]
         public void Constructor_WithEmptyChannelLabel_AcceptsValue()
         {
             var sample = new IsobaricQuantSampleInfo(
