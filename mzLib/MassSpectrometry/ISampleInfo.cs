@@ -13,7 +13,7 @@ namespace MassSpectrometry
         /// </summary>
         string FullFilePathWithExtension { get; }
         /// <summary>
-        /// Display name for the sample (used in headers and reports).
+        /// "The condition of the sample (e.g., 'Control' or 'Treatment')") and IsobaricQuantSampleInfo (as "The condition or experimental group this sample belongs to"). 
         /// </summary>
         string Condition { get; }
 
