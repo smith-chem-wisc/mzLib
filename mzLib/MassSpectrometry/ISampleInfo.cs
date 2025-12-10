@@ -13,7 +13,7 @@ namespace MassSpectrometry
         /// </summary>
         string FullFilePathWithExtension { get; }
         /// <summary>
-        /// "The condition of the sample (e.g., 'Control' or 'Treatment')") and IsobaricQuantSampleInfo (as "The condition or experimental group this sample belongs to"). 
+        /// The condition or experimental group this sample belongs to (e.g., "Control" or "Treatment").
         /// </summary>
         string Condition { get; }
 

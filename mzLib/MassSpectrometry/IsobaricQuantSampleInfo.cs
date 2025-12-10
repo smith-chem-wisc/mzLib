@@ -76,7 +76,7 @@ namespace MassSpectrometry
         /// A numeric identifier derived from <see cref="PlexId"/> and <see cref="ChannelLabel"/>.
         /// Computed at construction time for efficient lookups and comparisons.
         /// </summary>
-        public int SampleIdentifier { get; private set; }
+        public int SampleIdentifier { get; }
 
         /// <summary>
         /// Creates a new <see cref="IsobaricQuantSampleInfo"/> instance with the specified parameters.

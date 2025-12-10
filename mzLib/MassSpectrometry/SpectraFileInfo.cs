@@ -58,9 +58,9 @@ namespace MassSpectrometry
         /// <param name="fraction">The fraction identifier (0 if not fractionated).</param>
         public SpectraFileInfo(string fullFilePathWithExtension, string condition, int biorep, int techrep, int fraction)
         {
-            FullFilePathWithExtension = fullFilePathWithExtension ?? string.Empty;
+            FullFilePathWithExtension = fullFilePathWithExtension;
             FilenameWithoutExtension = Path.GetFileNameWithoutExtension(FullFilePathWithExtension);
-            Condition = condition ?? string.Empty;
+            Condition = condition;
             BiologicalReplicate = biorep;
             Fraction = fraction;
             TechnicalReplicate = techrep;
