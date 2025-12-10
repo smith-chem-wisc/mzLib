@@ -34,5 +34,17 @@ namespace MassSpectrometry
         /// (e.g., pooled reference in TMT experiments).
         /// </summary>
         bool IsReferenceChannel { get; }
+
+        /// <summary>
+        /// Default equality implementation based on <see cref="ChannelLabel"/> and <see cref="PlexId"/>.
+        /// Two samples are equal if they represent the same channel in the same plex.
+        /// </summary>
+        bool IEquatable<IIsobaricQuantSampleInfo>.Equals(IIsobaricQuantSampleInfo? other)
+        {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return string.Equals(ChannelLabel, other.ChannelLabel, StringComparison.Ordinal)
+                && PlexId == other.PlexId;
+        }
     }
 }
