@@ -107,6 +107,30 @@ namespace MassSpectrometry
                 && PlexId == other.PlexId;
         }
 
+        public bool Equals(ISampleInfo other)
+        {
+            if (other is IsobaricQuantSampleInfo otherIsobaric)
+            {
+                return Equals(otherIsobaric);
+            }
+            return false;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(null, obj)) return false;
+            if (obj is IsobaricQuantSampleInfo otherIsobaric)
+            {
+                return Equals(otherIsobaric);
+            }
+            else if (obj is ISampleInfo otherSampleInfo)
+            {
+                return Equals(otherSampleInfo);
+            }
+
+            return false;
+        }
+
         /// <summary>
         /// Returns a hash code based on <see cref="ChannelLabel"/> and <see cref="PlexId"/>.
         /// </summary>
@@ -126,5 +150,18 @@ namespace MassSpectrometry
         {
             return $"Plex{PlexId}_{ChannelLabel}";
         }
+
+        public int CompareTo(ISampleInfo other)
+        {
+            if (other is null) return -1;
+            if (other is IsobaricQuantSampleInfo otherIsobaric)
+            {
+                int plexComparison = PlexId.CompareTo(otherIsobaric.PlexId);
+                if (plexComparison != 0) return plexComparison;
+                return string.Compare(ChannelLabel, otherIsobaric.ChannelLabel, StringComparison.Ordinal);
+            }
+                    return 1;
+        }
+
     }
 }
