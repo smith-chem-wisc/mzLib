@@ -82,10 +82,10 @@ namespace MassSpectrometry
             double reporterIonMz,
             bool isReferenceChannel)
         {
-            ChannelLabel = channelLabel ?? throw new ArgumentNullException(nameof(channelLabel));
+            ChannelLabel = channelLabel;
             PlexId = plexId;
-            FullFilePathWithExtension = fullFilePathWithExtension ?? string.Empty;
-            Condition = condition ?? string.Empty;
+            FullFilePathWithExtension = fullFilePathWithExtension;
+            Condition = condition;
             BiologicalReplicate = biologicalReplicate;
             TechnicalReplicate = technicalReplicate;
             Fraction = fraction;
