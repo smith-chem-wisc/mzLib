@@ -1,5 +1,9 @@
 ﻿using MassSpectrometry;
 using Omics;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace Proteomics.ProteinGroup
@@ -280,7 +284,7 @@ namespace Proteomics.ProteinGroup
                         if ((conditionsUndefined && unfractionated) || silacExperimentalDesign)
                         {
                             // Use the display name as the intensity header
-                            sb.Append("Intensity_" + firstSample.DisplayName + "\t");
+                            sb.Append("Intensity_" + firstSample.SampleIdentifier + "\t");
                         }
                         else
                         {
