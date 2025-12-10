@@ -3,20 +3,16 @@
 namespace MassSpectrometry
 {
     /// <summary>
-    /// Concrete implementation of <see cref="IIsobaricQuantSampleInfo"/>.
     /// Represents sample information for isobaric (TMT/iTRAQ) quantification.
+    /// Extends <see cref="ISampleInfo"/> with isobaric-specific properties such as
+    /// channel label, reporter ion m/z, and plex identifier.
     /// </summary>
-    public class IsobaricQuantSampleInfo : IIsobaricQuantSampleInfo
+    public class IsobaricQuantSampleInfo : ISampleInfo, IEquatable<IsobaricQuantSampleInfo>
     {
         /// <summary>
         /// Full path or identifier for the source file. May be empty for non-file-based samples.
         /// </summary>
         public string FullFilePathWithExtension { get; }
-
-        /// <summary>
-        /// Display name for the sample (used in headers and reports).
-        /// </summary>
-        public string SampleIdentifier { get; }
 
         /// <summary>
         /// The condition or experimental group this sample belongs to.
@@ -67,7 +63,6 @@ namespace MassSpectrometry
         /// Creates a new isobaric quantification sample info.
         /// </summary>
         /// <param name="fullFilePathWithExtension">Full path to the source file.</param>
-        /// <param name="sampleIdentifier">Display name for the sample.</param>
         /// <param name="condition">The condition or experimental group.</param>
         /// <param name="biologicalReplicate">Biological replicate identifier.</param>
         /// <param name="technicalReplicate">Technical replicate identifier.</param>
@@ -78,7 +73,6 @@ namespace MassSpectrometry
         /// <param name="isReferenceChannel">True if this is a reference/normalization channel.</param>
         public IsobaricQuantSampleInfo(
             string fullFilePathWithExtension,
-            string sampleIdentifier,
             string condition,
             int biologicalReplicate,
             int technicalReplicate,
@@ -88,40 +82,29 @@ namespace MassSpectrometry
             double reporterIonMz,
             bool isReferenceChannel)
         {
+            ChannelLabel = channelLabel ?? throw new ArgumentNullException(nameof(channelLabel));
+            PlexId = plexId;
             FullFilePathWithExtension = fullFilePathWithExtension ?? string.Empty;
-            SampleIdentifier = sampleIdentifier ?? string.Empty;
             Condition = condition ?? string.Empty;
             BiologicalReplicate = biologicalReplicate;
             TechnicalReplicate = technicalReplicate;
             Fraction = fraction;
-            PlexId = plexId;
-            ChannelLabel = channelLabel ?? throw new ArgumentNullException(nameof(channelLabel));
             ReporterIonMz = reporterIonMz;
             IsReferenceChannel = isReferenceChannel;
         }
 
         /// <summary>
-        /// Determines whether the specified <see cref="IIsobaricQuantSampleInfo"/> is equal to this instance.
-        /// Two samples are equal if they have the same channel label and plex ID.
+        /// Determines whether the specified <see cref="IsobaricQuantSampleInfo"/> is equal to this instance.
+        /// Two samples are equal if they have the same <see cref="ChannelLabel"/> and <see cref="PlexId"/>.
         /// </summary>
         /// <param name="other">The other sample info to compare.</param>
         /// <returns>True if equal; otherwise false.</returns>
-        public bool Equals(IIsobaricQuantSampleInfo? other)
+        public bool Equals(IsobaricQuantSampleInfo? other)
         {
             if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;
             return string.Equals(ChannelLabel, other.ChannelLabel, StringComparison.Ordinal)
                 && PlexId == other.PlexId;
-        }
-
-        /// <summary>
-        /// Determines whether the specified object is equal to this instance.
-        /// </summary>
-        /// <param name="obj">The object to compare.</param>
-        /// <returns>True if equal; otherwise false.</returns>
-        public override bool Equals(object? obj)
-        {
-            return Equals(obj as IIsobaricQuantSampleInfo);
         }
 
         /// <summary>
@@ -131,17 +114,17 @@ namespace MassSpectrometry
         public override int GetHashCode()
         {
             return HashCode.Combine(
-                StringComparer.Ordinal.GetHashCode(ChannelLabel ?? string.Empty),
+                StringComparer.Ordinal.GetHashCode(ChannelLabel),
                 PlexId);
         }
 
         /// <summary>
-        /// Returns a string representation of this sample info.
+        /// Returns a string representation of this sample in the format "Plex{PlexId}_{ChannelLabel}".
         /// </summary>
-        /// <returns>The sample identifier.</returns>
+        /// <returns>A display string for this sample.</returns>
         public override string ToString()
         {
-            return SampleIdentifier;
+            return $"Plex{PlexId}_{ChannelLabel}";
         }
     }
 }

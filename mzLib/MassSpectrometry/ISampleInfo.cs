@@ -13,10 +13,6 @@
         /// <summary>
         /// Display name for the sample (used in headers and reports).
         /// </summary>
-        string SampleIdentifier { get; }
-        /// <summary>
-        /// The condition or experimental group this sample belongs to.
-        /// </summary>
         string Condition { get; }
 
         /// <summary>

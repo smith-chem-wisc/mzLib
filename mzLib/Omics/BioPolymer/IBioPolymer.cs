@@ -77,10 +77,4 @@ namespace Omics
             return validModDictionary;
         }
     }
-    public enum AnalyteType
-    {
-        Peptide,
-        Proteoform,
-        Oligo
-    }
 }
