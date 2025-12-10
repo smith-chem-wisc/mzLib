@@ -101,7 +101,7 @@ namespace MassSpectrometry
             double reporterIonMz,
             bool isReferenceChannel)
         {
-            ChannelLabel = channelLabel);
+            ChannelLabel = channelLabel;
             PlexId = plexId;
             FullFilePathWithExtension = fullFilePathWithExtension;
             Condition = condition;
