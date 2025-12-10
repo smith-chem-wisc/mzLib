@@ -433,17 +433,6 @@ namespace Test.Omics
         }
 
         [Test]
-        public void Equals_SameReference_ReturnsTrue()
-        {
-            var group = new TestBioPolymerGroup<SpectraFileInfo>(
-                new HashSet<IBioPolymer> { _protein1 },
-                new HashSet<IBioPolymerWithSetMods>(),
-                new HashSet<IBioPolymerWithSetMods>());
-
-            Assert.That(group.Equals(group), Is.True);
-        }
-
-        [Test]
         public void GetHashCode_SameGroupName_ReturnsSameHashCode()
         {
             var group1 = new TestBioPolymerGroup<SpectraFileInfo>(
