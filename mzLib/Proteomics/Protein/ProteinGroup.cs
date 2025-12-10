@@ -1,12 +1,13 @@
 ﻿using MassSpectrometry;
 using Omics;
+using Omics.Modifications;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
 
-namespace Proteomics.ProteinGroup
+namespace Proteomics
 {
     /// <summary>
     /// Represents a group of proteins that share peptides and are grouped together
@@ -81,12 +82,12 @@ namespace Proteomics.ProteinGroup
         /// <summary>
         /// Gets all proteins in this group ordered alphabetically by accession.
         /// </summary>
-        public List<IBioPolymer> ListOfProteinsOrderedByAccession { get; }
+        public List<IBioPolymer> ListOfProteinsOrderedByAccession { get; private set; }
 
         /// <summary>
         /// Gets the protein group name, derived from the accessions of all proteins in the group.
         /// </summary>
-        public string ProteinGroupName { get; }
+        public string ProteinGroupName { get; private set; }
 
         /// <summary>
         /// Gets all peptides with set modifications in this group.
@@ -502,9 +503,10 @@ namespace Proteomics.ProteinGroup
                 // null BaseSequence means that the amino acid sequence is ambiguous; do not use these to calculate sequence coverage
                 if (psm.BaseSequence != null)
                 {
-                    psm.GetAminoAcidCoverage();
+                    //TODO: add support for GetAminoAcidCoverage to ISpectralMatch
+                    //psm.GetAminoAcidCoverage();
 
-                    foreach (var peptide in psm.BestMatchingBioPolymersWithSetMods.Select(psm => psm.SpecificBioPolymer).DistinctBy(pep => pep.FullSequence))
+                    foreach (var peptide in psm.GetIdentifiedBioPolymersWithSetMods().DistinctBy(pep => pep.FullSequence))
                     {
                         // might be unambiguous but also shared; make sure this protein group contains this peptide+protein combo
                         if (Proteins.Contains(peptide.Parent))
@@ -526,42 +528,42 @@ namespace Proteomics.ProteinGroup
             //loop through proteins
             foreach (IBioPolymer protein in ListOfProteinsOrderedByAccession)
             {
-                //create a hash set for storing covered one-based residue numbers of protein
-                HashSet<int> coveredResiduesInProteinOneBased = new();
+                ////create a hash set for storing covered one-based residue numbers of protein
+                //HashSet<int> coveredResiduesInProteinOneBased = new();
 
-                //loop through PSMs
-                foreach (SpectralMatch psm in AllPsmsBelowOnePercentFDR.Where(psm => psm.BaseSequence != null))
-                {
-                    //Calculate the covered bases within the psm. This is one based numbering for the peptide only
-                    psm.GetAminoAcidCoverage();
-                    if (psm.FragmentCoveragePositionInPeptide == null) continue;
-                    //loop through each peptide within the psm
-                    IEnumerable<IBioPolymerWithSetMods> pwsms = psm.BestMatchingBioPolymersWithSetMods.Select(p => p.SpecificBioPolymer)
-                        .Where(p => p.Parent.Accession == protein.Accession);
-                    foreach (var pwsm in pwsms)
-                    {
-                        //create a hashset to store the covered residues for the peptide, converted to the corresponding indices of the protein
-                        HashSet<int> coveredResiduesInPeptide = new();
-                        //add the peptide start position within the protein to each covered index of the psm
-                        foreach (var position in psm.FragmentCoveragePositionInPeptide)
-                        {
-                            coveredResiduesInPeptide.Add(position + pwsm.OneBasedStartResidue -
-                                                         1); //subtract one because these are both one based
-                        }
+                ////loop through PSMs
+                //foreach (ISpectralMatch psm in AllPsmsBelowOnePercentFDR.Where(psm => psm.BaseSequence != null))
+                //{
+                //    //Calculate the covered bases within the psm. This is one based numbering for the peptide only
+                //    psm.GetAminoAcidCoverage();
+                //    if (psm.FragmentCoveragePositionInPeptide == null) continue;
+                //    //loop through each peptide within the psm
+                //    IEnumerable<IBioPolymerWithSetMods> pwsms = psm.BestMatchingBioPolymersWithSetMods.Select(p => p.SpecificBioPolymer)
+                //        .Where(p => p.Parent.Accession == protein.Accession);
+                //    foreach (var pwsm in pwsms)
+                //    {
+                //        //create a hashset to store the covered residues for the peptide, converted to the corresponding indices of the protein
+                //        HashSet<int> coveredResiduesInPeptide = new();
+                //        //add the peptide start position within the protein to each covered index of the psm
+                //        foreach (var position in psm.FragmentCoveragePositionInPeptide)
+                //        {
+                //            coveredResiduesInPeptide.Add(position + pwsm.OneBasedStartResidue -
+                //                                         1); //subtract one because these are both one based
+                //        }
 
-                        //Add the peptide specific positions, to the overall hashset for the protein
-                        coveredResiduesInProteinOneBased.UnionWith(coveredResiduesInPeptide);
-                    }
-                }
+                //        //Add the peptide specific positions, to the overall hashset for the protein
+                //        coveredResiduesInProteinOneBased.UnionWith(coveredResiduesInPeptide);
+                //    }
+                //}
 
-                // create upper/lowercase string
-                char[] fragmentCoverageArray = protein.BaseSequence.ToLower().ToCharArray();
-                foreach (var residue in coveredResiduesInProteinOneBased)
-                {
-                    fragmentCoverageArray[residue - 1] = char.ToUpper(fragmentCoverageArray[residue - 1]);
-                }
+                //// create upper/lowercase string
+                //char[] fragmentCoverageArray = protein.BaseSequence.ToLower().ToCharArray();
+                //foreach (var residue in coveredResiduesInProteinOneBased)
+                //{
+                //    fragmentCoverageArray[residue - 1] = char.ToUpper(fragmentCoverageArray[residue - 1]);
+                //}
 
-                FragmentSequenceCoverageDisplayList.Add(new string(fragmentCoverageArray));
+                //FragmentSequenceCoverageDisplayList.Add(new string(fragmentCoverageArray));
             }
 
             //Calculates the coverage at the peptide level... if a peptide is present all of the AAs in the peptide are covered
@@ -727,7 +729,7 @@ namespace Proteomics.ProteinGroup
                 }
             }
         }
-        public void MergeProteinGroupWith(ProteinGroup other)
+        public void MergeProteinGroupWith(ProteinGroup<TSampleInfo> other)
         {
             this.Proteins.UnionWith(other.Proteins);
             this.AllPeptides.UnionWith(other.AllPeptides);
@@ -739,73 +741,55 @@ namespace Proteomics.ProteinGroup
 
             ProteinGroupName = string.Join("|", ListOfProteinsOrderedByAccession.Select(p => p.Accession));
         }
-        public ProteinGroup ConstructSubsetProteinGroup(string fullFilePath, List<SilacLabel> silacLabels = null)
+        public ProteinGroup<TSampleInfo> ConstructSubsetProteinGroup(string fullFilePath, List<SilacLabel> silacLabels = null)
         {
             var allPsmsForThisFile =
-                new HashSet<SpectralMatch>(
+                new HashSet<ISpectralMatch>(
                     AllPsmsBelowOnePercentFDR.Where(p => p.FullFilePath.Equals(fullFilePath)));
             var allPeptidesForThisFile =
                 new HashSet<IBioPolymerWithSetMods>(
-                    allPsmsForThisFile.SelectMany(p => p.BestMatchingBioPolymersWithSetMods.Select(v => v.SpecificBioPolymer)));
+                    allPsmsForThisFile.SelectMany(p => p.GetIdentifiedBioPolymersWithSetMods()));
             var allUniquePeptidesForThisFile =
                 new HashSet<IBioPolymerWithSetMods>(UniquePeptides.Intersect(allPeptidesForThisFile));
 
-            ProteinGroup subsetPg = new ProteinGroup(Proteins, allPeptidesForThisFile, allUniquePeptidesForThisFile)
+            ProteinGroup<TSampleInfo> subsetPg = new ProteinGroup<TSampleInfo>(Proteins, allPeptidesForThisFile, allUniquePeptidesForThisFile)
             {
                 AllPsmsBelowOnePercentFDR = allPsmsForThisFile,
                 DisplayModsOnPeptides = DisplayModsOnPeptides
             };
 
-            SpectraFileInfo spectraFileInfo = null;
+            TSampleInfo? spectraFileInfo = default;
             if (FilesForQuantification != null)
             {
                 spectraFileInfo = FilesForQuantification.Where(p => p.FullFilePathWithExtension == fullFilePath)
                     .FirstOrDefault();
-                //check that file name wasn't changed (can occur in SILAC searches)
-                if (!silacLabels.IsNullOrEmpty() && spectraFileInfo == null)
+
+                if (spectraFileInfo != null)
                 {
-                    foreach (SilacLabel label in silacLabels)
-                    {
-                        string fakeFilePath = SilacConversions
-                            .GetHeavyFileInfo(new SpectraFileInfo(fullFilePath, "", 0, 0, 0), label)
-                            .FullFilePathWithExtension;
-                        spectraFileInfo = FilesForQuantification.Where(p => p.FullFilePathWithExtension == fakeFilePath)
-                            .FirstOrDefault();
-                        if (spectraFileInfo != null)
-                        {
-                            break;
-                        }
-                    }
-
-                    //if still no hits, might be SILAC turnover
-                    if (spectraFileInfo == null)
-                    {
-                        string filepathWithoutExtension = Path.Combine(Path.GetDirectoryName(fullFilePath),
-                            Path.GetFileNameWithoutExtension(fullFilePath));
-                        string extension = Path.GetExtension(fullFilePath);
-                        string fakeFilePath = filepathWithoutExtension + SilacConversions.ORIGINAL_TURNOVER_LABEL_NAME +
-                                              extension;
-                        spectraFileInfo = FilesForQuantification.Where(p => p.FullFilePathWithExtension == fakeFilePath)
-                            .FirstOrDefault();
-                    }
+                    subsetPg.FilesForQuantification = new List<TSampleInfo> { spectraFileInfo };
                 }
-
-                subsetPg.FilesForQuantification = new List<SpectraFileInfo> { spectraFileInfo };
             }
 
-            if (IntensitiesByFile == null)
+            if (IntensitiesByFile == null || spectraFileInfo == null)
             {
-                subsetPg.IntensitiesByFile = null;
+                subsetPg.IntensitiesByFile = new Dictionary<TSampleInfo, double>();
             }
             else
             {
-                subsetPg.IntensitiesByFile = new Dictionary<SpectraFileInfo, double>
-                    { { spectraFileInfo, IntensitiesByFile[spectraFileInfo] } };
+                if (IntensitiesByFile.TryGetValue(spectraFileInfo, out var intensity))
+                {
+                    subsetPg.IntensitiesByFile = new Dictionary<TSampleInfo, double>
+                        { { spectraFileInfo, intensity } };
+                }
+                else
+                {
+                    subsetPg.IntensitiesByFile = new Dictionary<TSampleInfo, double>();
+                }
             }
 
             return subsetPg;
         }
-        public bool Equals(ProteinGroup grp)
+        public bool Equals(ProteinGroup<TSampleInfo> grp)
         {
             //Check for null and compare run-time types.
             if (grp == null)
