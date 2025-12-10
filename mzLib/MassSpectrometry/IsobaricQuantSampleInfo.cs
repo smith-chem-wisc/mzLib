@@ -59,6 +59,8 @@ namespace MassSpectrometry
         /// </summary>
         public bool IsReferenceChannel { get; }
 
+        public int SampleIdentifier { get; private set; }
+
         /// <summary>
         /// Creates a new isobaric quantification sample info.
         /// </summary>
@@ -91,6 +93,9 @@ namespace MassSpectrometry
             Fraction = fraction;
             ReporterIonMz = reporterIonMz;
             IsReferenceChannel = isReferenceChannel;
+            SampleIdentifier = HashCode.Combine(
+                PlexId,
+                StringComparer.Ordinal.GetHashCode(ChannelLabel));
         }
 
         /// <summary>
