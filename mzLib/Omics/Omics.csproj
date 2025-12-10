@@ -16,8 +16,4 @@
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <InternalsVisibleTo Include="Test" />
-  </ItemGroup>
-
 </Project>

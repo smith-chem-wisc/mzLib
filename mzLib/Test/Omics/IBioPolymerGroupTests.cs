@@ -181,7 +181,7 @@ namespace Test.Omics
                 new HashSet<IBioPolymerWithSetMods>(), new HashSet<IBioPolymerWithSetMods>());
 
             Assert.That(group.QValue, Is.EqualTo(double.MaxValue));
-            Assert.That(group.BestBiopolymerWithSetsModQValue, Is.EqualTo(double.MaxValue));
+            Assert.That(group.BestBioPolymerWithSetsModQValue, Is.EqualTo(double.MaxValue));
             Assert.That(group.BestBioPolymerWithSetsModScore, Is.EqualTo(0));
             Assert.That(group.BioPolymerGroupScore, Is.EqualTo(0));
             Assert.That(group.FilesForQuantification, Is.Empty);
@@ -344,7 +344,7 @@ namespace Test.Omics
                 new HashSet<IBioPolymerWithSetMods>())
             {
                 BestBioPolymerWithSetsModScore = 50.0,
-                BestBiopolymerWithSetsModQValue = 0.05
+                BestBioPolymerWithSetsModQValue = 0.05
             };
 
             var group2 = new TestBioPolymerGroup<SpectraFileInfo>(
@@ -353,13 +353,13 @@ namespace Test.Omics
                 new HashSet<IBioPolymerWithSetMods>())
             {
                 BestBioPolymerWithSetsModScore = 100.0,
-                BestBiopolymerWithSetsModQValue = 0.01
+                BestBioPolymerWithSetsModQValue = 0.01
             };
 
             group1.MergeWith(group2);
 
             Assert.That(group1.BestBioPolymerWithSetsModScore, Is.EqualTo(100.0));
-            Assert.That(group1.BestBiopolymerWithSetsModQValue, Is.EqualTo(0.01));
+            Assert.That(group1.BestBioPolymerWithSetsModQValue, Is.EqualTo(0.01));
         }
 
         [Test]
@@ -590,14 +590,14 @@ namespace Test.Omics
                 new HashSet<IBioPolymerWithSetMods>())
             {
                 QValue = 0.01,
-                BestBiopolymerWithSetsModQValue = 0.005,
+                BestBioPolymerWithSetsModQValue = 0.005,
                 BestBioPolymerWithSetsModScore = 100.0
             };
 
             var subset = group.ConstructSubsetBioPolymerGroup("path/to/file.mzML");
 
             Assert.That(subset.QValue, Is.EqualTo(0.01));
-            Assert.That(subset.BestBiopolymerWithSetsModQValue, Is.EqualTo(0.005));
+            Assert.That(subset.BestBioPolymerWithSetsModQValue, Is.EqualTo(0.005));
             Assert.That(subset.BestBioPolymerWithSetsModScore, Is.EqualTo(100.0));
         }
 
@@ -667,7 +667,7 @@ namespace Test.Omics
             FilesForQuantification = new List<TSampleInfo>();
             IntensitiesByFile = new Dictionary<TSampleInfo, double>();
             QValue = double.MaxValue;
-            BestBiopolymerWithSetsModQValue = double.MaxValue;
+            BestBioPolymerWithSetsModQValue = double.MaxValue;
             BestBioPolymerWithSetsModScore = 0;
             BioPolymerGroupScore = 0;
         }
@@ -682,7 +682,7 @@ namespace Test.Omics
         public HashSet<IBioPolymerWithSetMods> UniqueBioPolymerWithSetMods { get; set; }
         public HashSet<ISpectralMatch> AllPsmsBelowOnePercentFDR { get; set; }
         public double QValue { get; set; }
-        public double BestBiopolymerWithSetsModQValue { get; set; }
+        public double BestBioPolymerWithSetsModQValue { get; set; }
         public double BestBioPolymerWithSetsModScore { get; set; }
 
         public List<string> ModsInfo
@@ -749,7 +749,7 @@ namespace Test.Omics
                 BioPolymerGroupScore.ToString("F4"),
                 QValue.ToString("F4"),
                 BestBioPolymerWithSetsModScore.ToString("F4"),
-                BestBiopolymerWithSetsModQValue.ToString("F4"),
+                BestBioPolymerWithSetsModQValue.ToString("F4"),
                 string.Join(";", ModsInfo)
             };
 
@@ -791,8 +791,8 @@ namespace Test.Omics
             if (otherBioPolymerGroup.BestBioPolymerWithSetsModScore > BestBioPolymerWithSetsModScore)
                 BestBioPolymerWithSetsModScore = otherBioPolymerGroup.BestBioPolymerWithSetsModScore;
 
-            if (otherBioPolymerGroup.BestBiopolymerWithSetsModQValue < BestBiopolymerWithSetsModQValue)
-                BestBiopolymerWithSetsModQValue = otherBioPolymerGroup.BestBiopolymerWithSetsModQValue;
+            if (otherBioPolymerGroup.BestBioPolymerWithSetsModQValue < BestBioPolymerWithSetsModQValue)
+                BestBioPolymerWithSetsModQValue = otherBioPolymerGroup.BestBioPolymerWithSetsModQValue;
 
             _listOfBioPolymersOrderedByAccession = null;
             Score();
@@ -824,7 +824,7 @@ namespace Test.Omics
                 subsetUniqueBpwsm)
             {
                 QValue = QValue,
-                BestBiopolymerWithSetsModQValue = BestBiopolymerWithSetsModQValue,
+                BestBioPolymerWithSetsModQValue = BestBioPolymerWithSetsModQValue,
                 BestBioPolymerWithSetsModScore = BestBioPolymerWithSetsModScore,
                 AllPsmsBelowOnePercentFDR = subsetPsms
             };

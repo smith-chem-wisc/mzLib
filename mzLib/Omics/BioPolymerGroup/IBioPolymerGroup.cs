@@ -9,7 +9,7 @@ namespace Omics.BioPolymerGroup
     /// that share peptides/fragments and are grouped together for quantification and statistical analysis.
     /// </summary>
     /// <typeparam name="TSampleInfo">The file identifier type used to key intensity values
-    /// (e.g., <see cref="SpectraFileInfo"/> for label-free, <see cref="MassSpectrometry.IIsobaricQuantSampleInfo"/> for isobaric).</typeparam>
+    /// (e.g., <see cref="SpectraFileInfo"/> for label-free, <see cref="IIsobaricQuantSampleInfo"/> for isobaric).</typeparam>
     internal interface IBioPolymerGroup<TSampleInfo> : IEquatable<IBioPolymerGroup<TSampleInfo>>
         where TSampleInfo : notnull
     {
@@ -24,7 +24,7 @@ namespace Omics.BioPolymerGroup
         bool IsContaminant { get; }
 
         /// <summary>
-        /// List of files that contribute quantification data for this group.
+        /// List of files or samples that contribute quantification data for this group.
         /// The type depends on the quantification strategy (label-free vs. isobaric).
         /// </summary>
         List<TSampleInfo> FilesForQuantification { get; set; }
@@ -47,7 +47,7 @@ namespace Omics.BioPolymerGroup
         double BioPolymerGroupScore { get; set; }
 
         /// <summary>
-        /// All unique biopolymer sequences with set modifications identified in this group,
+        /// All biopolymer sequences with set modifications identified in this group,
         /// including those shared with other groups.
         /// </summary>
         HashSet<IBioPolymerWithSetMods> AllBioPolymerWithSetMods { get; set; }
@@ -72,7 +72,7 @@ namespace Omics.BioPolymerGroup
         /// <summary>
         /// The best (lowest) q-value among all biopolymers with set modifications in this group.
         /// </summary>
-        double BestBiopolymerWithSetsModQValue { get; set; }
+        double BestBioPolymerWithSetsModQValue { get; set; }
 
         /// <summary>
         /// The best (highest) score among all biopolymers with set modifications in this group.
@@ -86,8 +86,8 @@ namespace Omics.BioPolymerGroup
         List<string> ModsInfo { get; }
 
         /// <summary>
-        /// Dictionary mapping file identifiers to measured intensity values for this group.
-        /// Each file maps to a single intensity value representing the quantification for that file.
+        /// Dictionary mapping sample identifiers to measured intensity values for this group.
+        /// Each sample maps to a single intensity value representing the quantification for that sample.
         /// </summary>
         Dictionary<TSampleInfo, double> IntensitiesByFile { get; set; }
 
@@ -149,7 +149,7 @@ namespace Omics.BioPolymerGroup
 
     /// <summary>
     /// Convenience interface for isobaric (TMT/iTRAQ) quantification biopolymer groups.
-    /// Uses <see cref="MassSpectrometry.IIsobaricQuantSampleInfo"/> as the sample key.
+    /// Uses <see cref="IIsobaricQuantSampleInfo"/> as the sample key.
     /// </summary>
     internal interface IIsobaricBioPolymerGroup : IBioPolymerGroup<IIsobaricQuantSampleInfo> { }
 }

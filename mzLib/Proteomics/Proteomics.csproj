@@ -9,11 +9,9 @@
     <DebugType>full</DebugType>
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
-  
   <ItemGroup>
     <Compile Remove="Protein\ProteinGroup.cs" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
@@ -31,11 +29,7 @@
   <ItemGroup>
     <Folder Include="Fragmentation\" />
   </ItemGroup>
-
-  <ItemGroup>
-    <None Include="Protein\ProteinGroup.cs" />
-  </ItemGroup>
-
+  
   <ItemGroup>
     <PackageReference Include="CsvHelper" Version="32.0.3" />
   </ItemGroup>
