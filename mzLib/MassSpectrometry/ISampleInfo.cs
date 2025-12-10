@@ -7,6 +7,14 @@
     public interface ISampleInfo
     {
         /// <summary>
+        /// Full path or identifier for the source file. May be empty for non-file-based samples.
+        /// </summary>
+        string FullFilePathWithExtension { get; }
+        /// <summary>
+        /// Display name for the sample (used in headers and reports).
+        /// </summary>
+        string SampleIdentifier { get; }
+        /// <summary>
         /// The condition or experimental group this sample belongs to.
         /// </summary>
         string Condition { get; }
@@ -25,15 +33,5 @@
         /// Fraction identifier for fractionated workflows. Returns 0 if not applicable.
         /// </summary>
         int Fraction { get; }
-
-        /// <summary>
-        /// Display name for the sample (used in headers and reports).
-        /// </summary>
-        string DisplayName { get; }
-
-        /// <summary>
-        /// Full path or identifier for the source file. May be empty for non-file-based samples.
-        /// </summary>
-        string FullFilePathWithExtension { get; }
     }
 }

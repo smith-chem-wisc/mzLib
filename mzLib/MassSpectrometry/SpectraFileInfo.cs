@@ -42,7 +42,7 @@ namespace MassSpectrometry
         public int Fraction { get; }
 
         /// <inheritdoc />
-        public string DisplayName => FilenameWithoutExtension;
+        public string SampleIdentifier => FilenameWithoutExtension;
 
         public SpectraFileInfo(string fullFilePathWithExtension, string condition, int biorep, int techrep, int fraction)
         {
