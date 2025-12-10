@@ -1,5 +1,5 @@
+using Chromatography.RetentionTimePrediction;
 using NUnit.Framework;
-using Chromatography.RetentionTimePrediction.Util;
 
 namespace Test.RetentionTimePrediction
 {

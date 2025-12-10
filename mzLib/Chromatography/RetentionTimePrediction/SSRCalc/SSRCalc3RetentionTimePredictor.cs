@@ -1,5 +1,3 @@
-using Chromatography.RetentionTimePrediction.Util;
-
 namespace Chromatography.RetentionTimePrediction.SSRCalc;
 
 /// <summary>

@@ -1,6 +1,6 @@
 using MzLibUtil;
 
-namespace Chromatography.RetentionTimePrediction.Util;
+namespace Chromatography.RetentionTimePrediction;
 
 /// <summary>
 /// Exception thrown when incompatible modifications are encountered with ThrowException mode

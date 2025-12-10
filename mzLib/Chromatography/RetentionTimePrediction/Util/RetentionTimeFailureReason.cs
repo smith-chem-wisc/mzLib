@@ -1,4 +1,4 @@
-﻿namespace Chromatography.RetentionTimePrediction.Util;
+﻿namespace Chromatography.RetentionTimePrediction;
 
 public enum RetentionTimeFailureReason
 {

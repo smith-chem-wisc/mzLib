@@ -685,7 +685,7 @@ namespace Test
         [Test]
         public void CZE_RetentionTime_Test()
         {
-            CZERetentionTimePredictor testCZE = new CZERetentionTimePredictor(Chromatography.RetentionTimePrediction.Util.IncompatibleModHandlingMode.UsePrimarySequence, 1, 1);
+            CZERetentionTimePredictor testCZE = new CZERetentionTimePredictor(Chromatography.RetentionTimePrediction.IncompatibleModHandlingMode.UsePrimarySequence, 1, 1);
 
             double expElutionTime = 1;
             double expMu = Math.Round(testCZE.ExperimentalElectrophoreticMobility(expElutionTime), 0);

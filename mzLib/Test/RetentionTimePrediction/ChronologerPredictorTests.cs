@@ -1,7 +1,6 @@
 using NUnit.Framework;
 using Chromatography.RetentionTimePrediction;
 using Chromatography.RetentionTimePrediction.Chronologer;
-using Chromatography.RetentionTimePrediction.Util;
 using Proteomics.ProteolyticDigestion;
 using Omics.Modifications;
 using System.Collections.Generic;

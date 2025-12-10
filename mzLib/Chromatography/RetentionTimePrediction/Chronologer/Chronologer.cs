@@ -21,7 +21,7 @@ internal sealed class Chronologer : torch.nn.Module<torch.Tensor, torch.Tensor>,
     /// </summary>
     /// <param name="weightsPath">Path to the pre-trained weights file</param>
     /// <param name="evalMode">If true, sets model to evaluation mode (default: true)</param>
-    public Chronologer(string weightsPath = null, bool evalMode = true)
+    public Chronologer(string? weightsPath = null, bool evalMode = true)
         : base(nameof(Chronologer))
     {
         if (weightsPath == null)

@@ -1,6 +1,4 @@
-﻿using Chromatography.RetentionTimePrediction.Util;
-
-namespace Chromatography.RetentionTimePrediction;
+﻿namespace Chromatography.RetentionTimePrediction;
 
 public abstract class RetentionTimePredictor : IRetentionTimePredictor
 {

@@ -1,4 +1,4 @@
-namespace Chromatography.RetentionTimePrediction.Util;
+namespace Chromatography.RetentionTimePrediction;
 
 /// <summary>
 /// Mode for handling incompatible modifications during RT prediction.
