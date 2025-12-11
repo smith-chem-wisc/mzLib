@@ -16,7 +16,6 @@
 // License along with UsefulProteomicsDatabases. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
-using Omics.Modifications;
 using Proteomics;
 using System;
 using System.Collections.Generic;
@@ -29,10 +28,10 @@ using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Xml;
 using System.Xml.Serialization;
-using TopDownProteomics.IO.Obo;
+using Omics.Modifications;
 using UsefulProteomicsDatabases.Generated;
+using TopDownProteomics.IO.Obo;
 
 namespace UsefulProteomicsDatabases
 {
@@ -145,7 +144,7 @@ namespace UsefulProteomicsDatabases
         public static IEnumerable<OboTerm> ReadPsiModFile(string psiModOboLocation)
         {
             OboParser oboParser = new();
-            return oboParser.Parse(psiModOboLocation); 
+            return oboParser.Parse(psiModOboLocation);
         }
 
         public static Dictionary<string, int> GetFormalChargesDictionary(obo psiModDeserialized)
@@ -158,14 +157,14 @@ namespace UsefulProteomicsDatabases
 
         public static string GetFormalChargeString(this OboTagValuePair tvPair)
         {
-            return GetStringFromOboTagValuePairValue(tvPair, pattern: @"[\d](?:\+|\-)"); 
+            return GetStringFromOboTagValuePairValue(tvPair, pattern: @"[\d](?:\+|\-)");
         }
 
-        private static string GetStringFromOboTagValuePairValue(OboTagValuePair oboTerms, 
+        private static string GetStringFromOboTagValuePairValue(OboTagValuePair oboTerms,
             string pattern)
         {
-            var matchGroup = Regex.Match(oboTerms.Value, pattern); 
-            return matchGroup.Groups[0].Value; 
+            var matchGroup = Regex.Match(oboTerms.Value, pattern);
+            return matchGroup.Groups[0].Value;
         }
 
         public static Dictionary<string, int> GetFormalChargesDictionary(IEnumerable<OboTerm> terms)
@@ -213,17 +212,9 @@ namespace UsefulProteomicsDatabases
             {
                 UpdatePsiMod(psimodLocation);
             }
-
-            var settings = new XmlReaderSettings
-            {
-                DtdProcessing = DtdProcessing.Parse,
-                MaxCharactersFromEntities = 1024
-            };
-
             using (FileStream stream = new FileStream(psimodLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
-            using (XmlReader reader = XmlReader.Create(stream, settings))
             {
-                return psimodSerializer.Deserialize(reader) as Generated.obo;
+                return psimodSerializer.Deserialize(stream) as Generated.obo;
             }
         }
 
@@ -289,11 +280,11 @@ namespace UsefulProteomicsDatabases
 
         private static void DownloadPsiMod(string psimodLocation)
         {
-            DownloadContent(@"https://github.com/smith-chem-wisc/psi-mod-CV/blob/master/PSI-MOD.obo.xml", psimodLocation + ".temp");
+            DownloadContent(@"https://github.com/smith-chem-wisc/psi-mod-CV/blob/master/PSI-MOD.obo.xml?raw=true", psimodLocation + ".temp");
         }
         private static void DownloadPsiModObo(string psiModOboLocation)
         {
-            DownloadContent(@"https://github.com/HUPO-PSI/psi-mod-CV/blob/master/PSI-MOD.obo", psiModOboLocation + ".temp");
+            DownloadContent(@"https://github.com/HUPO-PSI/psi-mod-CV/blob/master/PSI-MOD.obo?raw=true", psiModOboLocation + ".temp");
         }
         private static void DownloadUnimod(string unimodLocation)
         {
