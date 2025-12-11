@@ -289,11 +289,11 @@ namespace UsefulProteomicsDatabases
 
         private static void DownloadPsiMod(string psimodLocation)
         {
-            DownloadContent(@"https://github.com/smith-chem-wisc/psi-mod-CV/blob/master/PSI-MOD.obo.xml?raw=true", psimodLocation + ".temp");
+            DownloadContent(@"https://github.com/smith-chem-wisc/psi-mod-CV/blob/master/PSI-MOD.obo.xml", psimodLocation + ".temp");
         }
         private static void DownloadPsiModObo(string psiModOboLocation)
         {
-            DownloadContent(@"https://github.com/HUPO-PSI/psi-mod-CV/blob/master/PSI-MOD.obo?raw=true", psiModOboLocation + ".temp");
+            DownloadContent(@"https://github.com/HUPO-PSI/psi-mod-CV/blob/master/PSI-MOD.obo", psiModOboLocation + ".temp");
         }
         private static void DownloadUnimod(string unimodLocation)
         {
