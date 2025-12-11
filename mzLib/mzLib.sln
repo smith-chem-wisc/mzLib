@@ -142,6 +142,7 @@ Global
 		{C654973D-28BA-41DA-9793-A1203D2F3B54}.Debug|x64.ActiveCfg = Debug|x64
 		{C654973D-28BA-41DA-9793-A1203D2F3B54}.Debug|x64.Build.0 = Debug|x64
 		{C654973D-28BA-41DA-9793-A1203D2F3B54}.Release|x64.ActiveCfg = Release|x64
+		{C654973D-28BA-41DA-9793-A1203D2F3B54}.Release|x64.Build.0 = Release|x64
 		{C654973D-28BA-41DA-9793-A1203D2F3B54}.TestAndRelease|x64.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
@@ -149,7 +150,5 @@ Global
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6E405BAE-2EA1-4C12-B3B4-4B15A23ACD2E}
-	EndGlobalSection
-EndGlobal
 	EndGlobalSection
 EndGlobal
