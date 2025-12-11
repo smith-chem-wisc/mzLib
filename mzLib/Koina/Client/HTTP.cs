@@ -1,13 +1,5 @@
-﻿using Koina.SupportedModels;
-using Newtonsoft.Json;
-using NUnit.Framework;
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Net.Http.Json;
+﻿using Newtonsoft.Json;
 using System.Text;
-using System.Threading.Tasks;
-using static System.Net.WebRequestMethods;
 
 namespace Koina.Client
 {
@@ -42,19 +34,12 @@ namespace Koina.Client
 
         public void TestConnection()
         {
-            try
+            using var head = new HttpRequestMessage(HttpMethod.Head, "https://koina.wilhelmlab.org/");
+            using var headResp = Client.Send(head);
+            if (!headResp.IsSuccessStatusCode &&
+                headResp.StatusCode != System.Net.HttpStatusCode.MethodNotAllowed)
             {
-                using var head = new HttpRequestMessage(HttpMethod.Head, "https://koina.wilhelmlab.org/");
-                using var headResp = Client.Send(head);
-                if (!headResp.IsSuccessStatusCode &&
-                    headResp.StatusCode != System.Net.HttpStatusCode.MethodNotAllowed)
-                {
-                    Assert.Inconclusive($"Koina unreachable: {(int)headResp.StatusCode} {headResp.ReasonPhrase}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Assert.Inconclusive("Network not available: " + ex.Message);
+                throw new HttpRequestException($"Koina unreachable: {(int)headResp.StatusCode} {headResp.ReasonPhrase}");
             }
         }
     }

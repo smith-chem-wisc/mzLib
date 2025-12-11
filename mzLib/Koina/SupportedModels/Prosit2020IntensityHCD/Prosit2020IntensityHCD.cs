@@ -1,15 +1,15 @@
 ﻿using Chemistry;
-using Easy.Common.Extensions;
 using Koina.Client;
 using Koina.Interfaces;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
+using Omics.Modifications;
+using Proteomics.ProteolyticDigestion;
 using Proteomics.AminoAcidPolymer;
 using Readers.SpectralLibrary;
 using System.ComponentModel;
 using TopDownProteomics;
 using System.Text.RegularExpressions;
-using MathNet.Numerics.Financial;
 
 namespace Koina.SupportedModels.Prosit2020IntensityHCD
 {
@@ -17,11 +17,19 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
     {
         public string ModelName => "Prosit_2020_intensity_HCD";
         public int MaxBatchSize => 1000;
-
         public readonly int MaxPeptideLength = 30;
         public readonly HashSet<int> AllowedPrecursorCharges = new() { 1, 2, 3, 4, 5, 6 };
         public readonly int NumberOfPredictedFragmentIons = 174;
-        public int BatchSize { get; private set; }
+        public readonly Dictionary<string, string> ValidModificationUnimodMapping = new()
+        {
+            {"[Common Variable:Oxidation on M]", "[UNIMOD:35]"},
+            {"[Common Fixed:Carbamidomethyl on C]", "[UNIMOD:4]"}
+        };
+        public readonly Dictionary<string, double> ValidModificationsMonoisotopicMasses = new()
+        {
+            {"[Common Variable:Oxidation on M]", 15.994915 },
+            {"[Common Fixed:Carbamidomethyl on C]", 57.021464 }
+        };
         public List<string> PeptideSequences = new();
         public List<int> PrecursorCharges = new();
         public List<int> CollisionEnergies = new();
@@ -32,10 +40,10 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
 
         public Prosit2020IntensityHCD(List<string> peptideSequences, List<int> precursorCharges, List<int> collisionEnergies, List<double?> retentionTimes, out WarningException? warnings, double? minIntensityFilter=null)
         {
-            // Fatal Conditions
+            // Verify input lists are of the same length
             if (peptideSequences.Count != precursorCharges.Count
-                || peptideSequences.Count != collisionEnergies.Count
-                || peptideSequences.Count != retentionTimes.Count)
+                || precursorCharges.Count != collisionEnergies.Count
+                || collisionEnergies.Count != retentionTimes.Count)
             {
                 throw new ArgumentException("Input lists must have the same length.");
             }
@@ -49,10 +57,8 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
                 var energy = collisionEnergies[i];
                 var retentionTime = retentionTimes[i];
 
-                // Warning conditions
-                if (peptide.Length > MaxPeptideLength ||
-                    peptide.Length == 0 ||
-                    !HasValidModifications(peptide) ||
+                // Skip invalid peptides
+                if (!HasValidModifications(peptide) ||
                     !IsValidSequence(peptide) ||
                     !AllowedPrecursorCharges.Contains(charge) ||
                     energy <= 0
@@ -115,7 +121,7 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
             {
                 var request = new Dictionary<string, object>
                 {
-                    { "id", $"Batch{i}_" + Guid.NewGuid().ToString() },
+                    { "id", $"Batch{i}_" + Guid.NewGuid()},
                     { "inputs", new List<object>
                         {
                             new {
@@ -179,14 +185,18 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
                 for (int precursorIndex = 0; precursorIndex < currentBatchSize; precursorIndex++)
                 {
                     int linearIndexBatchOffset = batchIndex * MaxBatchSize;
-                    var peptide = new Peptide(PeptideSequences[linearIndexBatchOffset + precursorIndex]);
+                    var peptide = new Peptide(
+                        ConvertToMzLibModificationFormatWithMassesOnly(
+                            ConvertToMzLibModificationFormat(PeptideSequences[linearIndexBatchOffset + precursorIndex])
+                            )
+                        );
                     List<MatchedFragmentIon> fragmentIons = new();
 
                     for (int fragmentIndex = precursorIndex * NumberOfPredictedFragmentIons; fragmentIndex < (precursorIndex + 1) * NumberOfPredictedFragmentIons; fragmentIndex++)
                     {
                         if (outputMZs[fragmentIndex] == -1 || outputIntensities[fragmentIndex] < MinIntensityFilter)
                         {
-                            // Skip ions with invalid m/z. The model uses -1 to indicate impossible ions.
+                            // Skip impossible ions and peaks with near zero intensity. The model uses -1 to indicate impossible ions.
                             continue;
                         }
 
@@ -219,7 +229,7 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
 
                     var spectrum = new LibrarySpectrum
                     (
-                        sequence: peptide.BaseSequence,
+                        sequence: PeptideSequences[linearIndexBatchOffset + precursorIndex],
                         precursorMz: peptide.ToMz(PrecursorCharges[linearIndexBatchOffset + precursorIndex]),
                         chargeState: PrecursorCharges[linearIndexBatchOffset + precursorIndex],
                         peaks: fragmentIons,
@@ -248,11 +258,6 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
         internal bool HasValidModifications(string sequence)
         {
             var modPattern = @"\[[^\]]+\]";
-            var validModifications = new Dictionary<string, string>
-            {
-                {"[Common Variable:Oxidation on M]", "[UNIMOD:35]"},
-                {"[Common Fixed:Carbamidomethyl on C]", "[UNIMOD:4]"}
-            };
 
             var matches = Regex.Matches(sequence, modPattern);
             if (matches.Count == 0)
@@ -263,7 +268,7 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
             {
                 foreach (Match match in matches)
                 {
-                    if (!validModifications.ContainsKey(match.Value))
+                    if (!ValidModificationUnimodMapping.ContainsKey(match.Value))
                     {
                         return false; // Invalid modification found
                     }
@@ -290,12 +295,7 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
 
         internal string ConvertToPrositModificationFormat(string sequence)
         {
-            var validModifications = new Dictionary<string, string>
-            {
-                {"[Common Variable:Oxidation on M]", "[UNIMOD:35]"},
-                {"[Common Fixed:Carbamidomethyl on C]", "[UNIMOD:4]"}
-            };
-            foreach (var mod in validModifications)
+            foreach (var mod in ValidModificationUnimodMapping)
             {
                 sequence = sequence.Replace(mod.Key, mod.Value);
             }
@@ -303,6 +303,24 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
             // Carbamidomethylate all Cysteines if not already modified
             sequence = Regex.Replace(sequence, @"C(?!\[UNIMOD:4\])", "C[UNIMOD:4]");
 
+            return sequence;
+        }
+
+        internal string ConvertToMzLibModificationFormat(string sequence)
+        {
+            foreach (var mod in ValidModificationUnimodMapping)
+            {
+                sequence = sequence.Replace(mod.Value, mod.Key);
+            }
+            return sequence;
+        }
+
+        internal string ConvertToMzLibModificationFormatWithMassesOnly(string sequence)
+        {
+            foreach (var mod in ValidModificationsMonoisotopicMasses)
+            {
+                sequence = sequence.Replace(mod.Key, $"[{mod.Value.ToString("F6")}]");
+            }
             return sequence;
         }
     }
