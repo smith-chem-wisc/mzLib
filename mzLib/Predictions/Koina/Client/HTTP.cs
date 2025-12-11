@@ -1,7 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System.Text;
 
-namespace Koina.Client
+namespace Predictions.Koina.Client
 {
     public class HTTP
     {

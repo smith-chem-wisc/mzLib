@@ -1,11 +1,6 @@
 ﻿using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace Koina.SupportedModels.Prosit2020IntensityHCD
+namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
 {
     public class ResponseJSONStruct
     {
@@ -22,6 +17,6 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
         public Dictionary<string, object> Parameters { get; set; }
 
         [JsonProperty("outputs")]
-        public List<Koina.SupportedModels.Prosit2020IntensityHCD.OutputJSONStruct> Outputs { get; set; }
+        public List<OutputJSONStruct> Outputs { get; set; }
     }
 }

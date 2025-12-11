@@ -4,10 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.IO;
-using System.Windows.Media;
-using Easy.Common.Extensions;
 using System;
 using System.ComponentModel;
+using Predictions.Koina.SupportedModels.Prosit2020IntensityHCD;
 
 namespace Test
 {
@@ -33,7 +32,7 @@ namespace Test
             var energies = librarySpectra.Select(p => 35).ToList();
             var retentionTimes = librarySpectra.Select(p => p.RetentionTime).ToList();
 
-            var modelHandler = new Koina.SupportedModels.Prosit2020IntensityHCD.Prosit2020IntensityHCD(peptides, charges, energies, retentionTimes, out var warnings, minIntensityFilter: 1e-6);
+            var modelHandler = new Prosit2020IntensityHCD(peptides, charges, energies, retentionTimes, out var warnings, minIntensityFilter: 1e-6);
 
             await modelHandler.RunInferenceAsync();
             var predictedSpectra = modelHandler.PredictedSpectra;
@@ -91,23 +90,23 @@ namespace Test
             // Mismatched lengths
             var mismatchedCharges = new List<int> { 2 };
             Assert.Throws<System.ArgumentException>(() =>
-                new Koina.SupportedModels.Prosit2020IntensityHCD.Prosit2020IntensityHCD(validPeptides, mismatchedCharges, validEnergies, validRetentionTimes, out var _));
+                new Prosit2020IntensityHCD(validPeptides, mismatchedCharges, validEnergies, validRetentionTimes, out var _));
 
             // Invalid charge state
             var invalidCharges = new List<int> { 7, 2 };
-            var model = new Koina.SupportedModels.Prosit2020IntensityHCD.Prosit2020IntensityHCD(validPeptides, invalidCharges, validEnergies, validRetentionTimes, out warning);
+            var model = new Prosit2020IntensityHCD(validPeptides, invalidCharges, validEnergies, validRetentionTimes, out warning);
             Assert.That(warning, Is.Not.Null);
             Assert.That(model.PeptideSequences.Count == 1);
 
             // Invalid peptide sequences (too long, too short)
             var invalidPeptides = new List<string> { "PEPTIDAAAAAAAAAAAAAAAAAAAAAAAAA", "" };
-            model = new Koina.SupportedModels.Prosit2020IntensityHCD.Prosit2020IntensityHCD(invalidPeptides, validCharges, validEnergies, validRetentionTimes, out warning);
+            model = new Prosit2020IntensityHCD(invalidPeptides, validCharges, validEnergies, validRetentionTimes, out warning);
             Assert.That(warning, Is.Not.Null);
             Assert.That(model.PeptideSequences.Count == 0);
 
             // Valid peptide with modifications (length > 30 with mods, but valid without mods)
             var peptidesWithMods = new List<string> { "M[Common Variable:Oxidation on M]PEPTIDEC[Common Fixed:Carbamidomethyl on C]A", "LMNPQRSTVWY" };
-            model = new Koina.SupportedModels.Prosit2020IntensityHCD.Prosit2020IntensityHCD(peptidesWithMods, validCharges, validEnergies, validRetentionTimes, out warning);
+            model = new Prosit2020IntensityHCD(peptidesWithMods, validCharges, validEnergies, validRetentionTimes, out warning);
             Assert.That(warning, Is.Null);
             Assert.That(model.PeptideSequences.Count == 2);
         }
@@ -134,7 +133,7 @@ namespace Test
                     retentionTimes.Add(0);
                 }
             }
-            var modelHandler = new Koina.SupportedModels.Prosit2020IntensityHCD.Prosit2020IntensityHCD(peptides, charges, energies, retentionTimes, out var warnings);
+            var modelHandler = new Prosit2020IntensityHCD(peptides, charges, energies, retentionTimes, out var warnings);
             Assert.DoesNotThrowAsync(async () => await modelHandler.RunInferenceAsync());
             Assert.That(modelHandler.PredictedSpectra.Count == numberOfSequences);
         }

@@ -1,6 +1,6 @@
 ﻿using Chemistry;
-using Koina.Client;
-using Koina.Interfaces;
+using Predictions.Koina.Client;
+using Predictions.Koina.Interfaces;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
 using Omics.Modifications;
@@ -11,7 +11,7 @@ using System.ComponentModel;
 using TopDownProteomics;
 using System.Text.RegularExpressions;
 
-namespace Koina.SupportedModels.Prosit2020IntensityHCD
+namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
 {
     public class Prosit2020IntensityHCD : IKoinaModelIO
     {
@@ -176,6 +176,11 @@ namespace Koina.SupportedModels.Prosit2020IntensityHCD
             for (int batchIndex = 0; batchIndex < numBatches; batchIndex++)
             {
                 var responseBatch = deserializedResponses[batchIndex];
+                if (responseBatch == null || responseBatch.Outputs.Count != 3)
+                {
+                    throw new Exception($"API response is not in the expected format. Expected 3 outputs, got {responseBatch?.Outputs.Count}.");
+                }
+
                 var currentBatchSize = responseBatch.Outputs[0].Shape[0];
                 string[] outputIonAnnotations = responseBatch.Outputs[0].Data.Select(d => (string)d);
                 double[] outputMZs = responseBatch.Outputs[1].Data.Select(d => double.Parse(String.Join("", d)));
