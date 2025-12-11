@@ -16,6 +16,7 @@
 // License along with UsefulProteomicsDatabases. If not, see <http://www.gnu.org/licenses/>.
 
 using Chemistry;
+using Omics.Modifications;
 using Proteomics;
 using System;
 using System.Collections.Generic;
@@ -28,10 +29,10 @@ using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml;
 using System.Xml.Serialization;
-using Omics.Modifications;
-using UsefulProteomicsDatabases.Generated;
 using TopDownProteomics.IO.Obo;
+using UsefulProteomicsDatabases.Generated;
 
 namespace UsefulProteomicsDatabases
 {
@@ -212,9 +213,17 @@ namespace UsefulProteomicsDatabases
             {
                 UpdatePsiMod(psimodLocation);
             }
-            using (FileStream stream = new FileStream(psimodLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
+
+            var settings = new XmlReaderSettings
             {
-                return psimodSerializer.Deserialize(stream) as Generated.obo;
+                DtdProcessing = DtdProcessing.Parse,
+                MaxCharactersFromEntities = 1024
+            };
+
+            using (FileStream stream = new FileStream(psimodLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (XmlReader reader = XmlReader.Create(stream, settings))
+            {
+                return psimodSerializer.Deserialize(reader) as Generated.obo;
             }
         }
 

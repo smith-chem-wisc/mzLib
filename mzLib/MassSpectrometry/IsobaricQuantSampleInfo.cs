@@ -76,7 +76,7 @@ namespace MassSpectrometry
         /// A numeric identifier derived from <see cref="PlexId"/> and <see cref="ChannelLabel"/>.
         /// Computed at construction time for efficient lookups and comparisons.
         /// </summary>
-        public int SampleIdentifier { get; }
+        public int UniqueIdentifier { get; }
 
         /// <summary>
         /// Creates a new <see cref="IsobaricQuantSampleInfo"/> instance with the specified parameters.
@@ -110,8 +110,8 @@ namespace MassSpectrometry
             Fraction = fraction;
             ReporterIonMz = reporterIonMz;
             IsReferenceChannel = isReferenceChannel;
-            SampleIdentifier = HashCode.Combine(
-                PlexId,
+            UniqueIdentifier = HashCode.Combine(
+                FullFilePathWithExtension,
                 StringComparer.Ordinal.GetHashCode(ChannelLabel));
         }
 
@@ -154,7 +154,7 @@ namespace MassSpectrometry
         {
             if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;
-            return PlexId == other.PlexId
+            return string.Equals(FullFilePathWithExtension, other.FullFilePathWithExtension, StringComparison.Ordinal)
                 && string.Equals(ChannelLabel, other.ChannelLabel, StringComparison.Ordinal);
         }
 
@@ -204,7 +204,7 @@ namespace MassSpectrometry
         public override int GetHashCode()
         {
             return HashCode.Combine(
-                PlexId,
+                StringComparer.Ordinal.GetHashCode(FullFilePathWithExtension ?? string.Empty),
                 StringComparer.Ordinal.GetHashCode(ChannelLabel));
         }
 

@@ -296,7 +296,7 @@ namespace Test.Omics
                 @"C:\b.raw", "B", 2, 2, 1, 1, "126", 127.0, true);
 
             // Same PlexId and ChannelLabel should produce same SampleIdentifier
-            Assert.That(sample1.SampleIdentifier, Is.EqualTo(sample2.SampleIdentifier));
+            Assert.That(sample1.UniqueIdentifier, Is.EqualTo(sample2.UniqueIdentifier));
         }
 
         [Test]
@@ -307,7 +307,7 @@ namespace Test.Omics
             var sample2 = new IsobaricQuantSampleInfo(
                 @"C:\a.raw", "A", 1, 1, 0, 2, "126", 126.0, false);
 
-            Assert.That(sample1.SampleIdentifier, Is.Not.EqualTo(sample2.SampleIdentifier));
+            Assert.That(sample1.UniqueIdentifier, Is.Not.EqualTo(sample2.UniqueIdentifier));
         }
 
         [Test]
@@ -318,7 +318,7 @@ namespace Test.Omics
             var sample2 = new IsobaricQuantSampleInfo(
                 @"C:\a.raw", "A", 1, 1, 0, 1, "127N", 126.0, false);
 
-            Assert.That(sample1.SampleIdentifier, Is.Not.EqualTo(sample2.SampleIdentifier));
+            Assert.That(sample1.UniqueIdentifier, Is.Not.EqualTo(sample2.UniqueIdentifier));
         }
 
         [Test]
@@ -691,7 +691,7 @@ namespace Test.Omics
         public void GetHashCode_MatchesSampleIdentifier()
         {
             // SampleIdentifier is computed the same way as GetHashCode
-            Assert.That(_sample1.GetHashCode(), Is.EqualTo(_sample1.SampleIdentifier));
+            Assert.That(_sample1.GetHashCode(), Is.EqualTo(_sample1.UniqueIdentifier));
         }
 
         [Test]
