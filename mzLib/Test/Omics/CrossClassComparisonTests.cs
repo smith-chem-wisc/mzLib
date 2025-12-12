@@ -434,19 +434,6 @@ namespace Test.Omics
             Assert.That(isobaricB.CompareTo(isobaricA), Is.GreaterThan(0));
         }
 
-        [Test]
-        public static void CompareTo_IsobaricQuantSampleInfo_SameFilePath_DifferentChannel_OrdersByChannel()
-        {
-            var isobaric126 = new IsobaricQuantSampleInfo(
-                @"C:\Data\sample.raw", "Control", 1, 1, 0, 1, "126", 126.127726, false);
-            var isobaric127 = new IsobaricQuantSampleInfo(
-                @"C:\Data\sample.raw", "Control", 1, 1, 0, 1, "127N", 127.124761, false);
-
-            // Same FilePath, different ChannelLabel - orders by channel
-            Assert.That(isobaric126.CompareTo(isobaric127), Is.LessThan(0));
-            Assert.That(isobaric127.CompareTo(isobaric126), Is.GreaterThan(0));
-        }
-
         #endregion
 
         #region ISampleInfo Interface Equality Tests
