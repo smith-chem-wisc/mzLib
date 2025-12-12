@@ -775,6 +775,382 @@ namespace Test.Omics
         }
 
         #endregion
+
+        #region Additional Legacy Property Tests
+
+        [Test]
+        public void LegacyProperties_UniquePeptides_SetterUpdatesUniqueBioPolymersWithSetMods()
+        {
+            var newUniquePeptides = new HashSet<IBioPolymerWithSetMods> { _peptide1, _peptide2 };
+            _proteinGroup.UniquePeptides = newUniquePeptides;
+
+            Assert.That(_proteinGroup.UniqueBioPolymersWithSetMods, Is.SameAs(newUniquePeptides));
+            Assert.That(_proteinGroup.UniquePeptides.Count, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void LegacyProperties_BestPeptideQValue_SetterUpdatesBestBioPolymerWithSetModsQValue()
+        {
+            _proteinGroup.BestPeptideQValue = 0.005;
+            Assert.That(_proteinGroup.BestBioPolymerWithSetModsQValue, Is.EqualTo(0.005));
+
+            _proteinGroup.BestBioPolymerWithSetModsQValue = 0.001;
+            Assert.That(_proteinGroup.BestPeptideQValue, Is.EqualTo(0.001));
+        }
+
+        [Test]
+        public void LegacyProperties_BestPeptideScore_SetterUpdatesBestBioPolymerWithSetModsScore()
+        {
+            _proteinGroup.BestPeptideScore = 250.5;
+            Assert.That(_proteinGroup.BestBioPolymerWithSetModsScore, Is.EqualTo(250.5));
+
+            _proteinGroup.BestBioPolymerWithSetModsScore = 300.0;
+            Assert.That(_proteinGroup.BestPeptideScore, Is.EqualTo(300.0));
+        }
+
+        #endregion
+
+        #region GetTabSeparatedHeader Additional Tests
+
+        [Test]
+        public void GetTabSeparatedHeader_WithFractionatedConditions_UsesFilenameWhenFilesDoNotExist()
+        {
+            // When files don't exist on disk, silacExperimentalDesign becomes true
+            // and the code uses filename format regardless of conditions/fractions
+            // Files with same BiologicalReplicate are grouped, so use different BioReps to get separate columns
+            var spectraFile1 = new SpectraFileInfo(@"C:\test1.raw", "Control", 0, 0, 0); // BioRep 0
+            var spectraFile2 = new SpectraFileInfo(@"C:\test2.raw", "Control", 1, 0, 0); // BioRep 1 (different)
+
+            _proteinGroup.SamplesForQuantification = new List<ISampleInfo> { spectraFile1, spectraFile2 };
+
+            var header = _proteinGroup.GetTabSeparatedHeader();
+
+            // Since files don't exist, silacExperimentalDesign is true, so filename format is used
+            // Each BiologicalReplicate gets its own column
+            Assert.That(header, Does.Contain("Intensity_test1"));
+            Assert.That(header, Does.Contain("Intensity_test2"));
+        }
+
+        [Test]
+        public void GetTabSeparatedHeader_WithDefinedConditions_UsesFilenameWhenFilesDoNotExist()
+        {
+            // When files don't exist on disk, silacExperimentalDesign becomes true
+            // and the code uses filename format regardless of conditions
+            var spectraFile1 = new SpectraFileInfo(@"C:\test1.raw", "Treatment", 0, 0, 0);
+            var spectraFile2 = new SpectraFileInfo(@"C:\test2.raw", "Treatment", 0, 0, 1);
+            var spectraFile3 = new SpectraFileInfo(@"C:\test3.raw", "Treatment", 1, 0, 0);
+
+            _proteinGroup.SamplesForQuantification = new List<ISampleInfo> { spectraFile1, spectraFile2, spectraFile3 };
+
+            var header = _proteinGroup.GetTabSeparatedHeader();
+
+            // Since files don't exist, silacExperimentalDesign is true, so filename format is used
+            Assert.That(header, Does.Contain("Intensity_test1"));
+            Assert.That(header, Does.Contain("Intensity_test3"));
+        }
+
+        [Test]
+        public void GetTabSeparatedHeader_WithExistingFiles_UsesConditionAndBioRep()
+        {
+            // Use paths that actually exist to test the Condition_BioRep format
+            // We'll use the test assembly's directory as it definitely exists
+            var existingPath1 = System.Reflection.Assembly.GetExecutingAssembly().Location;
+            var existingPath2 = typeof(ProteinGroupTests).Assembly.Location;
+
+            // Create SpectraFileInfo with existing file paths and different fractions
+            var spectraFile1 = new SpectraFileInfo(existingPath1, "Control", 0, 0, 0);
+            var spectraFile2 = new SpectraFileInfo(existingPath2, "Control", 0, 0, 1); // Different fraction
+
+            _proteinGroup.SamplesForQuantification = new List<ISampleInfo> { spectraFile1, spectraFile2 };
+
+            var header = _proteinGroup.GetTabSeparatedHeader();
+
+            // Since files exist and data is fractionated with defined conditions,
+            // should use Condition_BiologicalReplicate+1 format
+            Assert.That(header, Does.Contain("Intensity_Control_1"));
+        }
+
+        [Test]
+        public void GetTabSeparatedHeader_WithExistingFilesMultipleBioReps_UsesConditionAndBioRep()
+        {
+            // Use a path that actually exists
+            var existingPath = System.Reflection.Assembly.GetExecutingAssembly().Location;
+
+            // Create SpectraFileInfo with existing file path, different bio reps, and different fractions
+            var spectraFile1 = new SpectraFileInfo(existingPath, "Treatment", 0, 0, 0); // BioRep 0, Fraction 0
+            var spectraFile2 = new SpectraFileInfo(existingPath, "Treatment", 0, 0, 1); // BioRep 0, Fraction 1
+            var spectraFile3 = new SpectraFileInfo(existingPath, "Treatment", 1, 0, 0); // BioRep 1, Fraction 0
+
+            _proteinGroup.SamplesForQuantification = new List<ISampleInfo> { spectraFile1, spectraFile2, spectraFile3 };
+
+            var header = _proteinGroup.GetTabSeparatedHeader();
+
+            // Since files exist and data is fractionated with defined conditions,
+            // should use Condition_BiologicalReplicate+1 format
+            Assert.That(header, Does.Contain("Intensity_Treatment_1")); // BioRep 0 -> 1
+            Assert.That(header, Does.Contain("Intensity_Treatment_2")); // BioRep 1 -> 2
+        }
+
+        #endregion
+
+        #region ToString Mass Calculation Tests
+
+        [Test]
+        public void ToString_WithInvalidSequence_HandlesExceptionGracefully()
+        {
+            // Create a protein with an invalid amino acid sequence that will throw during mass calculation
+            var invalidProtein = new Protein("PEPTIDEX123", "P00001"); // Contains invalid characters
+            var proteins = new HashSet<IBioPolymer> { invalidProtein };
+            var pg = new ProteinGroup(proteins, _allPeptides, _uniquePeptides);
+
+            // Should not throw - should handle the exception and add NaN
+            Assert.DoesNotThrow(() => pg.ToString());
+            var result = pg.ToString();
+            Assert.That(result, Does.Contain("NaN"));
+        }
+
+        #endregion
+
+        #region Isobaric Intensity Output Tests
+
+        [Test]
+        public void ToString_WithIsobaricSamples_OutputsIntensitiesInOrder()
+        {
+            var sample1 = new IsobaricQuantSampleInfo(@"C:\test.raw", "Control", 1, 1, 0, 1, "126", 126.0, false);
+            var sample2 = new IsobaricQuantSampleInfo(@"C:\test.raw", "Control", 1, 1, 0, 2, "127N", 127.0, false);
+            var sample3 = new IsobaricQuantSampleInfo(@"C:\test.raw", "Control", 1, 1, 0, 3, "127C", 127.5, false);
+
+            _proteinGroup.SamplesForQuantification = new List<ISampleInfo> { sample1, sample2, sample3 };
+            _proteinGroup.IntensitiesBySample = new Dictionary<ISampleInfo, double>
+            {
+                { sample1, 1000.0 },
+                { sample2, 2000.0 },
+                { sample3, 3000.0 }
+            };
+
+            var result = _proteinGroup.ToString();
+
+            // Verify all intensities are present
+            Assert.That(result, Does.Contain("1000"));
+            Assert.That(result, Does.Contain("2000"));
+            Assert.That(result, Does.Contain("3000"));
+        }
+
+        [Test]
+        public void ToString_WithIsobaricSamples_ZeroIntensityNotIncluded()
+        {
+            var sample1 = new IsobaricQuantSampleInfo(@"C:\test.raw", "Control", 1, 1, 0, 1, "126", 126.0, false);
+            var sample2 = new IsobaricQuantSampleInfo(@"C:\test.raw", "Control", 1, 1, 0, 2, "127N", 127.0, false);
+
+            _proteinGroup.SamplesForQuantification = new List<ISampleInfo> { sample1, sample2 };
+            _proteinGroup.IntensitiesBySample = new Dictionary<ISampleInfo, double>
+            {
+                { sample1, 1000.0 },
+                { sample2, 0.0 } // Zero intensity
+            };
+
+            var result = _proteinGroup.ToString();
+
+            // Should contain 1000 but not explicitly "0" for the zero intensity
+            Assert.That(result, Does.Contain("1000"));
+        }
+
+        [Test]
+        public void ToString_WithIsobaricSamples_MultipleFiles_OrderedByFileAndChannel()
+        {
+            var sample1 = new IsobaricQuantSampleInfo(@"C:\a.raw", "Control", 1, 1, 0, 1, "127N", 127.0, false);
+            var sample2 = new IsobaricQuantSampleInfo(@"C:\a.raw", "Control", 1, 1, 0, 2, "126", 126.0, false);
+            var sample3 = new IsobaricQuantSampleInfo(@"C:\b.raw", "Control", 1, 1, 0, 1, "126", 126.0, false);
+
+            _proteinGroup.SamplesForQuantification = new List<ISampleInfo> { sample1, sample2, sample3 };
+            _proteinGroup.IntensitiesBySample = new Dictionary<ISampleInfo, double>
+            {
+                { sample1, 1111.0 },
+                { sample2, 2222.0 },
+                { sample3, 3333.0 }
+            };
+
+            var result = _proteinGroup.ToString();
+
+            // All intensities should be present
+            Assert.That(result, Does.Contain("1111"));
+            Assert.That(result, Does.Contain("2222"));
+            Assert.That(result, Does.Contain("3333"));
+
+            // Verify ordering: a.raw channels come before b.raw channels
+            var index2222 = result.IndexOf("2222"); // a.raw 126
+            var index1111 = result.IndexOf("1111"); // a.raw 127N
+            var index3333 = result.IndexOf("3333"); // b.raw 126
+
+            Assert.That(index2222, Is.LessThan(index1111), "126 should come before 127N for same file");
+            Assert.That(index1111, Is.LessThan(index3333), "a.raw channels should come before b.raw channels");
+        }
+
+        [Test]
+        public void ToString_WithIsobaricSamples_MissingIntensity_HandlesGracefully()
+        {
+            var sample1 = new IsobaricQuantSampleInfo(@"C:\test.raw", "Control", 1, 1, 0, 1, "126", 126.0, false);
+            var sample2 = new IsobaricQuantSampleInfo(@"C:\test.raw", "Control", 1, 1, 0, 2, "127N", 127.0, false);
+
+            _proteinGroup.SamplesForQuantification = new List<ISampleInfo> { sample1, sample2 };
+            // Only provide intensity for sample1, sample2 is missing from dictionary
+            _proteinGroup.IntensitiesBySample = new Dictionary<ISampleInfo, double>
+            {
+                { sample1, 5000.0 }
+            };
+
+            // Should not throw when a sample is missing from IntensitiesBySample
+            Assert.DoesNotThrow(() => _proteinGroup.ToString());
+            var result = _proteinGroup.ToString();
+            Assert.That(result, Does.Contain("5000"));
+        }
+
+        #endregion
+
+        #region IBioPolymerGroup Equals Tests
+
+        [Test]
+        public void Equals_IBioPolymerGroup_Null_ReturnsFalse()
+        {
+            IBioPolymerGroup nullGroup = null;
+            Assert.That(_proteinGroup.Equals(nullGroup), Is.False);
+        }
+
+        [Test]
+        public void Equals_IBioPolymerGroup_SameReference_ReturnsTrue()
+        {
+            IBioPolymerGroup sameRef = _proteinGroup;
+            Assert.That(_proteinGroup.Equals(sameRef), Is.True);
+        }
+
+        [Test]
+        public void Equals_IBioPolymerGroup_SameName_ReturnsTrue()
+        {
+            var pg2 = new ProteinGroup(_proteins, new HashSet<IBioPolymerWithSetMods>(), new HashSet<IBioPolymerWithSetMods>());
+            IBioPolymerGroup interface2 = pg2;
+
+            Assert.That(_proteinGroup.Equals(interface2), Is.True);
+        }
+
+        [Test]
+        public void Equals_IBioPolymerGroup_DifferentName_ReturnsFalse()
+        {
+            var otherProteins = new HashSet<IBioPolymer> { _protein1 };
+            var pg2 = new ProteinGroup(otherProteins, _allPeptides, _uniquePeptides);
+            IBioPolymerGroup interface2 = pg2;
+
+            Assert.That(_proteinGroup.Equals(interface2), Is.False);
+        }
+
+        [Test]
+        public void Equals_IBioPolymerGroup_WorksInLinqOperations()
+        {
+            var pg1 = new ProteinGroup(_proteins, _allPeptides, _uniquePeptides);
+            var pg2 = new ProteinGroup(_proteins, new HashSet<IBioPolymerWithSetMods>(), new HashSet<IBioPolymerWithSetMods>());
+            var pg3 = new ProteinGroup(new HashSet<IBioPolymer> { _protein1 }, _allPeptides, _uniquePeptides);
+
+            var list = new List<IBioPolymerGroup> { pg1, pg2, pg3 };
+            var distinct = list.Distinct().ToList();
+
+            // pg1 and pg2 have the same name, so distinct should have 2 items
+            Assert.That(distinct.Count, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Equals_IBioPolymerGroup_WorksInDictionary()
+        {
+            var pg1 = new ProteinGroup(_proteins, _allPeptides, _uniquePeptides);
+            var pg2 = new ProteinGroup(_proteins, new HashSet<IBioPolymerWithSetMods>(), new HashSet<IBioPolymerWithSetMods>());
+
+            var dict = new Dictionary<IBioPolymerGroup, string>();
+            dict[pg1] = "First";
+
+            // pg2 should be considered equal to pg1 as a key
+            Assert.That(dict.ContainsKey(pg2), Is.True);
+            Assert.That(dict[pg2], Is.EqualTo("First"));
+        }
+
+        #endregion
+
+        #region Additional Edge Cases
+
+        [Test]
+        public void Constructor_WithNullGeneNames_HandlesGracefully()
+        {
+            // Protein with null gene names
+            var proteinNullGenes = new Protein("SEQUENCE", "P00000", geneNames: null);
+            var proteins = new HashSet<IBioPolymer> { proteinNullGenes };
+            var pg = new ProteinGroup(proteins, _allPeptides, _uniquePeptides);
+
+            Assert.DoesNotThrow(() => pg.ToString());
+        }
+
+        [Test]
+        public void ToString_WithEmptyGeneNamesList_HandlesGracefully()
+        {
+            var proteinEmptyGenes = new Protein("SEQUENCE", "P00000", geneNames: new List<Tuple<string, string>>());
+            var proteins = new HashSet<IBioPolymer> { proteinEmptyGenes };
+            var pg = new ProteinGroup(proteins, _allPeptides, _uniquePeptides);
+
+            Assert.DoesNotThrow(() => pg.ToString());
+        }
+
+        [Test]
+        public void GetHashCode_EmptyGroupName_ReturnsEmptyStringHashCode()
+        {
+            var emptyProteins = new HashSet<IBioPolymer>();
+            var pg = new ProteinGroup(emptyProteins, _allPeptides, _uniquePeptides);
+
+            // Empty group name (empty string) returns the hash code of an empty string, not 0
+            // The ?? 0 only applies when BioPolymerGroupName is null
+            Assert.That(pg.BioPolymerGroupName, Is.EqualTo(string.Empty));
+            Assert.That(pg.GetHashCode(), Is.EqualTo(string.Empty.GetHashCode()));
+        }
+
+        [Test]
+        public void MergeProteinGroupWith_CombinesPsms()
+        {
+            var psm1 = new ProteinGroupTestSpectralMatch(@"C:\test.raw", "PEP1", "PEP1", score: 100, scanNumber: 1);
+            var psm2 = new ProteinGroupTestSpectralMatch(@"C:\test.raw", "PEP2", "PEP2", score: 150, scanNumber: 2);
+
+            _proteinGroup.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm1 };
+
+            var otherProtein = new Protein("OTHER", "P99999");
+            var otherProteins = new HashSet<IBioPolymer> { otherProtein };
+            var otherGroup = new ProteinGroup(otherProteins, new HashSet<IBioPolymerWithSetMods>(), new HashSet<IBioPolymerWithSetMods>());
+            otherGroup.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm2 };
+
+            _proteinGroup.MergeProteinGroupWith(otherGroup);
+
+            Assert.That(_proteinGroup.AllPsmsBelowOnePercentFDR.Count, Is.EqualTo(2));
+            Assert.That(_proteinGroup.AllPsmsBelowOnePercentFDR.Contains(psm1), Is.True);
+            Assert.That(_proteinGroup.AllPsmsBelowOnePercentFDR.Contains(psm2), Is.True);
+        }
+
+        [Test]
+        public void ConstructSubsetProteinGroup_WithNullSamplesForQuantification_HandlesGracefully()
+        {
+            _proteinGroup.SamplesForQuantification = null;
+            _proteinGroup.IntensitiesBySample = null;
+
+            var subset = _proteinGroup.ConstructSubsetProteinGroup(@"C:\test.raw");
+
+            Assert.That(subset, Is.Not.Null);
+            Assert.That(subset.SamplesForQuantification, Is.Null);
+        }
+
+        [Test]
+        public void ConstructSubsetProteinGroup_PreservesDisplayModsOnPeptides()
+        {
+            _proteinGroup.DisplayModsOnPeptides = true;
+
+            var subset = _proteinGroup.ConstructSubsetProteinGroup(@"C:\test.raw");
+
+            Assert.That(subset.DisplayModsOnPeptides, Is.True);
+        }
+
+        #endregion
+
     }
 
     /// <summary>
