@@ -234,15 +234,28 @@ namespace MassSpectrometry
             // Non-null comes before null
             if (other is null) return -1;
 
-            if (other is IsobaricQuantSampleInfo otherIsobaric)
-            {
-                // Compare by FullFilePathWithExtension first
-                int filePathComparison = string.Compare(FullFilePathWithExtension, otherIsobaric.FullFilePathWithExtension, StringComparison.Ordinal);
-                if (filePathComparison != 0) return filePathComparison;
+            // Check for equality returns 0 if equal.
+            if (Equals(other)) return 0;
 
-                // Compare by ChannelLabel (A before B)
-                return string.Compare(ChannelLabel, otherIsobaric.ChannelLabel, StringComparison.Ordinal);
-            }
+            // Compare by Condition (A before B)
+            int comparison = string.Compare(Condition ?? string.Empty, other.Condition ?? string.Empty, StringComparison.Ordinal);
+            if (comparison != 0) return comparison;
+
+            // Compare by BiologicalReplicate (1 before 2)
+            comparison = BiologicalReplicate.CompareTo(other.BiologicalReplicate);
+            if (comparison != 0) return comparison;
+
+            // Compare by Fraction (1 before 2)
+            comparison = Fraction.CompareTo(other.Fraction);
+            if (comparison != 0) return comparison;
+
+            // Compare by TechnicalReplicate (1 before 2)
+            comparison = TechnicalReplicate.CompareTo(other.TechnicalReplicate);
+            if (comparison != 0) return comparison;
+
+            // Compare by FullFilePathWithExtension (A before B)
+            comparison = string.Compare(FullFilePathWithExtension ?? string.Empty, other.FullFilePathWithExtension ?? string.Empty, StringComparison.Ordinal);
+            if (comparison != 0) return comparison;
 
             // Isobaric samples sort after other sample types
             return 1;

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Linq;
 using MassSpectrometry;
 using NUnit.Framework;
@@ -150,19 +149,20 @@ namespace Test.Omics
         }
 
         [Test]
-        public void Constructor_WithNullFilePath_SetsNullValues()
+        public void Constructor_WithNullFilePath_SetsEmptyValues()
         {
-            // In .NET 8, Path.GetFileNameWithoutExtension(null) returns null, not an exception
+            // Constructor now converts null to empty string
             var sample = new SpectraFileInfo(null!, "Control", 1, 1, 0);
-            Assert.That(sample.FullFilePathWithExtension, Is.Null);
-            Assert.That(sample.FilenameWithoutExtension, Is.Null);
+            Assert.That(sample.FullFilePathWithExtension, Is.EqualTo(string.Empty));
+            Assert.That(sample.FilenameWithoutExtension, Is.EqualTo(string.Empty));
         }
 
         [Test]
-        public void Constructor_WithNullCondition_SetsNullCondition()
+        public void Constructor_WithNullCondition_SetsEmptyCondition()
         {
+            // Constructor now converts null to empty string
             var sample = new SpectraFileInfo(@"C:\Data\sample.raw", null!, 1, 1, 0);
-            Assert.That(sample.Condition, Is.Null);
+            Assert.That(sample.Condition, Is.EqualTo(string.Empty));
         }
 
         [Test]
@@ -486,6 +486,7 @@ namespace Test.Omics
         [Test]
         public void GetHashCode_NullCondition_ProducesValidHashCode()
         {
+            // Constructor converts null to empty string
             var sample = new SpectraFileInfo(@"C:\Data\sample.raw", null!, 1, 1, 0);
             var hash = sample.GetHashCode();
             Assert.That(hash, Is.TypeOf<int>());
@@ -586,6 +587,7 @@ namespace Test.Omics
         [Test]
         public void CompareTo_DifferentFilePath_AscendingOrder()
         {
+            // FilePath is now last in comparison order, so need same Condition/BioRep/Fraction/TechRep
             var sampleA = new SpectraFileInfo(@"A:\file.raw", "Control", 1, 1, 0);
             var sampleB = new SpectraFileInfo(@"B:\file.raw", "Control", 1, 1, 0);
             var sampleZ = new SpectraFileInfo(@"Z:\file.raw", "Control", 1, 1, 0);
@@ -644,48 +646,50 @@ namespace Test.Omics
         }
 
         [Test]
-        public void CompareTo_ComparisonPriority_FilePathFirst()
+        public void CompareTo_ComparisonPriority_ConditionFirst()
         {
-            var sampleAZZZ = new SpectraFileInfo(@"A:\file.raw", "Zeta", 99, 99, 99);
-            var sampleBAAA = new SpectraFileInfo(@"B:\file.raw", "Alpha", 1, 1, 0);
-
-            Assert.That(sampleAZZZ.CompareTo(sampleBAAA), Is.LessThan(0));
-        }
-
-        [Test]
-        public void CompareTo_ComparisonPriority_ConditionSecond()
-        {
-            var sampleAlpha = new SpectraFileInfo(@"C:\file.raw", "Alpha", 99, 99, 99);
-            var sampleBeta = new SpectraFileInfo(@"C:\file.raw", "Beta", 1, 1, 0);
+            // Condition is now first in comparison order
+            var sampleAlpha = new SpectraFileInfo(@"Z:\file.raw", "Alpha", 99, 99, 99);
+            var sampleBeta = new SpectraFileInfo(@"A:\file.raw", "Beta", 1, 1, 0);
 
             Assert.That(sampleAlpha.CompareTo(sampleBeta), Is.LessThan(0));
         }
 
         [Test]
-        public void CompareTo_ComparisonPriority_BioRepThird()
+        public void CompareTo_ComparisonPriority_BioRepSecond()
         {
-            var sample1 = new SpectraFileInfo(@"C:\file.raw", "Control", 1, 99, 99);
-            var sample2 = new SpectraFileInfo(@"C:\file.raw", "Control", 2, 1, 0);
+            var sample1 = new SpectraFileInfo(@"Z:\file.raw", "Control", 1, 99, 99);
+            var sample2 = new SpectraFileInfo(@"A:\file.raw", "Control", 2, 1, 0);
 
             Assert.That(sample1.CompareTo(sample2), Is.LessThan(0));
         }
 
         [Test]
-        public void CompareTo_ComparisonPriority_FractionFourth()
+        public void CompareTo_ComparisonPriority_FractionThird()
         {
-            var sample0 = new SpectraFileInfo(@"C:\file.raw", "Control", 1, 99, 0);
-            var sample1 = new SpectraFileInfo(@"C:\file.raw", "Control", 1, 1, 1);
+            var sample0 = new SpectraFileInfo(@"Z:\file.raw", "Control", 1, 99, 0);
+            var sample1 = new SpectraFileInfo(@"A:\file.raw", "Control", 1, 1, 1);
 
             Assert.That(sample0.CompareTo(sample1), Is.LessThan(0));
         }
 
         [Test]
-        public void CompareTo_ComparisonPriority_TechRepLast()
+        public void CompareTo_ComparisonPriority_TechRepFourth()
         {
-            var sample1 = new SpectraFileInfo(@"C:\file.raw", "Control", 1, 1, 0);
-            var sample2 = new SpectraFileInfo(@"C:\file.raw", "Control", 1, 2, 0);
+            var sample1 = new SpectraFileInfo(@"Z:\file.raw", "Control", 1, 1, 0);
+            var sample2 = new SpectraFileInfo(@"A:\file.raw", "Control", 1, 2, 0);
 
             Assert.That(sample1.CompareTo(sample2), Is.LessThan(0));
+        }
+
+        [Test]
+        public void CompareTo_ComparisonPriority_FilePathLast()
+        {
+            // FilePath is now last in comparison order
+            var sampleA = new SpectraFileInfo(@"A:\file.raw", "Control", 1, 1, 0);
+            var sampleZ = new SpectraFileInfo(@"Z:\file.raw", "Control", 1, 1, 0);
+
+            Assert.That(sampleA.CompareTo(sampleZ), Is.LessThan(0));
         }
 
         [Test]
@@ -712,32 +716,42 @@ namespace Test.Omics
         [Test]
         public void CompareTo_Sorting_ProducesCorrectOrder()
         {
+            // New order: Condition → BioRep → Fraction → TechRep → FilePath
             var samples = new List<SpectraFileInfo>
             {
-                new(@"C:\file.raw", "Control", 2, 1, 0),
-                new(@"C:\file.raw", "Control", 1, 2, 0),
-                new(@"C:\file.raw", "Control", 1, 1, 1),
-                new(@"C:\file.raw", "Control", 1, 1, 0),
-                new(@"B:\file.raw", "Control", 1, 1, 0),
-                new(@"A:\file.raw", "Control", 1, 1, 0),
+                new(@"C:\file.raw", "Control", 2, 1, 0),      // Control, BioRep 2
+                new(@"C:\file.raw", "Control", 1, 2, 0),      // Control, BioRep 1, Fraction 0, TechRep 2
+                new(@"C:\file.raw", "Control", 1, 1, 1),      // Control, BioRep 1, Fraction 1, TechRep 1
+                new(@"C:\file.raw", "Control", 1, 1, 0),      // Control, BioRep 1, Fraction 0, TechRep 1
+                new(@"B:\file.raw", "Control", 1, 1, 0),      // Control, BioRep 1, Fraction 0, TechRep 1, Path B
+                new(@"A:\file.raw", "Control", 1, 1, 0),      // Control, BioRep 1, Fraction 0, TechRep 1, Path A
             };
 
             samples.Sort((a, b) => a.CompareTo(b));
 
+            // Expected order: All have same Condition (Control)
+            // BioRep 1 comes before BioRep 2
+            // Within BioRep 1: Fraction 0 before Fraction 1
+            // Within Fraction 0: TechRep 1 before TechRep 2
+            // Within TechRep 1: Path A before Path B before Path C
             Assert.That(samples[0].FullFilePathWithExtension, Is.EqualTo(@"A:\file.raw"));
             Assert.That(samples[1].FullFilePathWithExtension, Is.EqualTo(@"B:\file.raw"));
-            Assert.That(samples[2].BiologicalReplicate, Is.EqualTo(1));
+            Assert.That(samples[2].FullFilePathWithExtension, Is.EqualTo(@"C:\file.raw"));
             Assert.That(samples[2].Fraction, Is.EqualTo(0));
             Assert.That(samples[2].TechnicalReplicate, Is.EqualTo(1));
-            Assert.That(samples[5].BiologicalReplicate, Is.EqualTo(2));
+            Assert.That(samples[3].TechnicalReplicate, Is.EqualTo(2)); // TechRep 2 (still Fraction 0)
+            Assert.That(samples[3].Fraction, Is.EqualTo(0));
+            Assert.That(samples[4].Fraction, Is.EqualTo(1)); // Fraction 1
+            Assert.That(samples[5].BiologicalReplicate, Is.EqualTo(2)); // BioRep 2
         }
 
         [Test]
         public void CompareTo_IsTransitive()
         {
-            var a = new SpectraFileInfo(@"A:\file.raw", "Alpha", 1, 1, 0);
-            var b = new SpectraFileInfo(@"B:\file.raw", "Beta", 2, 2, 1);
-            var c = new SpectraFileInfo(@"C:\file.raw", "Gamma", 3, 3, 2);
+            // With new order: Condition first
+            var a = new SpectraFileInfo(@"C:\file.raw", "Alpha", 1, 1, 0);
+            var b = new SpectraFileInfo(@"C:\file.raw", "Beta", 1, 1, 0);
+            var c = new SpectraFileInfo(@"C:\file.raw", "Gamma", 1, 1, 0);
 
             Assert.That(a.CompareTo(b), Is.LessThan(0));
             Assert.That(b.CompareTo(c), Is.LessThan(0));
@@ -747,8 +761,8 @@ namespace Test.Omics
         [Test]
         public void CompareTo_IsAntiSymmetric()
         {
-            var a = new SpectraFileInfo(@"A:\file.raw", "Control", 1, 1, 0);
-            var b = new SpectraFileInfo(@"B:\file.raw", "Control", 1, 1, 0);
+            var a = new SpectraFileInfo(@"C:\file.raw", "Alpha", 1, 1, 0);
+            var b = new SpectraFileInfo(@"C:\file.raw", "Beta", 1, 1, 0);
 
             var aToB = a.CompareTo(b);
             var bToA = b.CompareTo(a);
@@ -783,6 +797,7 @@ namespace Test.Omics
             // Uppercase comes before lowercase in ordinal comparison
             Assert.That(sampleUpper.CompareTo(sampleLower), Is.LessThan(0));
         }
+
         [Test]
         public void CompareTo_WithIsobaricQuantSampleInfo_CrossTypeOrdering()
         {
@@ -946,6 +961,14 @@ namespace Test.Omics
             Assert.That(sampleRaw.Equals(sampleMzML), Is.False); // Different FullFilePathWithExtension
         }
 
+        [Test]
+        public void EdgeCase_NullConditionAndFilePath_BothConvertedToEmpty()
+        {
+            var sample = new SpectraFileInfo(null!, null!, 1, 1, 0);
+            Assert.That(sample.FullFilePathWithExtension, Is.EqualTo(string.Empty));
+            Assert.That(sample.Condition, Is.EqualTo(string.Empty));
+        }
+
         #endregion
 
         #region Cross-Type Comparison Tests
@@ -988,6 +1011,7 @@ namespace Test.Omics
         }
 
         #endregion
+
         #region Inequality Operator (!=) Tests
 
         [Test]
