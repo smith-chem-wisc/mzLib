@@ -548,8 +548,8 @@ namespace Test.Omics
             };
 
             // sample2 should find the same entry as sample1
-            Assert.That(dict.ContainsKey(sample2));
-            Assert.That(dict[sample2], Is.EqualTo("Value1"));
+            Assert.That(dict.TryGetValue(sample2, out var value));
+            Assert.That(value, Is.EqualTo("Value1"));
         }
 
         [Test]
@@ -564,8 +564,8 @@ namespace Test.Omics
             };
 
             // sample2 has same FullFilePathWithExtension and ChannelLabel, should find same entry
-            Assert.That(dict.ContainsKey(sample2));
-            Assert.That(dict[sample2], Is.EqualTo("Value1"));
+            Assert.That(dict.TryGetValue(sample2, out var value));
+            Assert.That(value, Is.EqualTo("Value1"));
         }
 
         [Test]

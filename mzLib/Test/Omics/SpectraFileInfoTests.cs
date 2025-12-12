@@ -988,5 +988,116 @@ namespace Test.Omics
         }
 
         #endregion
+        #region Inequality Operator (!=) Tests
+
+        [Test]
+        public void InequalityOperator_DifferentValues_ReturnsTrue()
+        {
+            Assert.That(_sample1 != _sample2, Is.True);
+        }
+
+        [Test]
+        public void InequalityOperator_IdenticalValues_ReturnsFalse()
+        {
+            Assert.That(_sample1 != _sampleIdenticalToSample1, Is.False);
+        }
+
+        [Test]
+        public void InequalityOperator_SameReference_ReturnsFalse()
+        {
+            var sample = _sample1;
+            Assert.That(_sample1 != sample, Is.False);
+        }
+
+        [Test]
+        public void InequalityOperator_BothNull_ReturnsFalse()
+        {
+            SpectraFileInfo? left = null;
+            SpectraFileInfo? right = null;
+            Assert.That(left != right, Is.False);
+        }
+
+        [Test]
+        public void InequalityOperator_LeftNull_ReturnsTrue()
+        {
+            SpectraFileInfo? left = null;
+            Assert.That(left != _sample1, Is.True);
+        }
+
+        [Test]
+        public void InequalityOperator_RightNull_ReturnsTrue()
+        {
+            SpectraFileInfo? right = null;
+            Assert.That(_sample1 != right, Is.True);
+        }
+
+        [Test]
+        public void InequalityOperator_DifferentFilePath_ReturnsTrue()
+        {
+            Assert.That(_sample1 != _sampleDifferentFilePath, Is.True);
+        }
+
+        [Test]
+        public void InequalityOperator_DifferentCondition_ReturnsTrue()
+        {
+            Assert.That(_sample1 != _sampleDifferentCondition, Is.True);
+        }
+
+        [Test]
+        public void InequalityOperator_DifferentBiologicalReplicate_ReturnsTrue()
+        {
+            Assert.That(_sample1 != _sampleDifferentBioRep, Is.True);
+        }
+
+        [Test]
+        public void InequalityOperator_DifferentTechnicalReplicate_ReturnsTrue()
+        {
+            Assert.That(_sample1 != _sampleDifferentTechRep, Is.True);
+        }
+
+        [Test]
+        public void InequalityOperator_DifferentFraction_ReturnsTrue()
+        {
+            Assert.That(_sample1 != _sampleDifferentFraction, Is.True);
+        }
+
+        [Test]
+        public void InequalityOperator_CaseSensitiveFilePath_ReturnsTrue()
+        {
+            var sampleLower = new SpectraFileInfo(@"c:\data\sample.raw", "Control", 1, 1, 0);
+            var sampleUpper = new SpectraFileInfo(@"C:\Data\SAMPLE.raw", "Control", 1, 1, 0);
+            Assert.That(sampleLower != sampleUpper, Is.True);
+        }
+
+        [Test]
+        public void InequalityOperator_CaseSensitiveCondition_ReturnsTrue()
+        {
+            var sampleLower = new SpectraFileInfo(@"C:\Data\sample.raw", "control", 1, 1, 0);
+            var sampleUpper = new SpectraFileInfo(@"C:\Data\sample.raw", "Control", 1, 1, 0);
+            Assert.That(sampleLower != sampleUpper, Is.True);
+        }
+
+        [Test]
+        public void InequalityOperator_EmptyStrings_BothEmpty_ReturnsFalse()
+        {
+            var sample1 = new SpectraFileInfo(string.Empty, string.Empty, 0, 0, 0);
+            var sample2 = new SpectraFileInfo(string.Empty, string.Empty, 0, 0, 0);
+            Assert.That(sample1 != sample2, Is.False);
+        }
+
+        [Test]
+        public void InequalityOperator_IsConsistentWithEquals()
+        {
+            // != should always be the opposite of ==
+            Assert.That(_sample1 != _sample2, Is.EqualTo(!_sample1.Equals(_sample2)));
+            Assert.That(_sample1 != _sampleIdenticalToSample1, Is.EqualTo(!_sample1.Equals(_sampleIdenticalToSample1)));
+            Assert.That(_sample1 != _sampleDifferentFilePath, Is.EqualTo(!_sample1.Equals(_sampleDifferentFilePath)));
+            Assert.That(_sample1 != _sampleDifferentCondition, Is.EqualTo(!_sample1.Equals(_sampleDifferentCondition)));
+            Assert.That(_sample1 != _sampleDifferentBioRep, Is.EqualTo(!_sample1.Equals(_sampleDifferentBioRep)));
+            Assert.That(_sample1 != _sampleDifferentTechRep, Is.EqualTo(!_sample1.Equals(_sampleDifferentTechRep)));
+            Assert.That(_sample1 != _sampleDifferentFraction, Is.EqualTo(!_sample1.Equals(_sampleDifferentFraction)));
+        }
+
+        #endregion
     }
 }

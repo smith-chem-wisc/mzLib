@@ -67,7 +67,7 @@ namespace MassSpectrometry
         }
         /// <summary>
         /// Determines whether two <see cref="SpectraFileInfo"/> instances are equal.
-        /// Two samples are equal if they have the same <see cref="PlexId"/> and <see cref="ChannelLabel"/>.
+        /// Two samples are equal if they have the same <see cref="FullFilePathWithExtension"/> and <see cref="ChannelLabel"/>.
         /// </summary>
         /// <param name="left">The first instance to compare.</param>
         /// <param name="right">The second instance to compare.</param>
@@ -80,7 +80,7 @@ namespace MassSpectrometry
 
         /// <summary>
         /// Determines whether two <see cref="SpectraFileInfo"/> instances are not equal.
-        /// Two samples are not equal if they differ in <see cref="PlexId"/> or <see cref="ChannelLabel"/>.
+        /// Two samples are not equal if they differ in <see cref="FullFilePathWithExtension"/> or <see cref="ChannelLabel"/>.
         /// </summary>
         /// <param name="left">The first instance to compare.</param>
         /// <param name="right">The second instance to compare.</param>
@@ -185,7 +185,7 @@ namespace MassSpectrometry
             // Non-null comes before null
             if (other is null) return -1;
 
-            if (other is SpectraFileInfo specInfo) 
+            if (other is SpectraFileInfo) 
             {
                 // Check for equality returns 0 if equal.
                 if (Equals(other)) return 0;

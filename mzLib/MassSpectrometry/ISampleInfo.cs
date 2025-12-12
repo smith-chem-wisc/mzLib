@@ -12,6 +12,7 @@ namespace MassSpectrometry
         /// Full path or identifier for the source file. May be empty for non-file-based samples.
         /// </summary>
         string FullFilePathWithExtension { get; }
+
         /// <summary>
         /// The condition or experimental group this sample belongs to (e.g., "Control" or "Treatment").
         /// </summary>

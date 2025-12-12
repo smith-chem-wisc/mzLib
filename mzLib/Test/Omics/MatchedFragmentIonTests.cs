@@ -9,7 +9,7 @@ namespace Test.Omics
     public class MatchedFragmentIonTests
     {
         [Test]
-        public void TestMatchedFragmentIonConstructor() 
+        public void TestMatchedFragmentIonConstructor()
         {
             var product = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
             var ion = new MatchedFragmentIon(product, 101.0, 200.0, 1);
