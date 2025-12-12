@@ -4,14 +4,11 @@ using Omics.Modifications;
 namespace Omics.BioPolymerGroup
 {
     /// <summary>
-    /// Interface for biopolymer groups that allows different file identifier types for quantification.
+    /// Interface for biopolymer groups that supports both label-free and isobaric quantification.
     /// A biopolymer group represents a collection of related biopolymers (e.g., proteins, oligonucleotides)
     /// that share peptides/fragments and are grouped together for quantification and statistical analysis.
     /// </summary>
-    /// <typeparam name="TSampleInfo">The file identifier type used to key intensity values
-    /// (e.g., <see cref="SpectraFileInfo"/> for label-free, <see cref="IsobaricQuantSampleInfo"/> for isobaric).</typeparam>
-    internal interface IBioPolymerGroup<TSampleInfo> : IEquatable<IBioPolymerGroup<TSampleInfo>>
-        where TSampleInfo : notnull
+    public interface IBioPolymerGroup : IEquatable<IBioPolymerGroup>
     {
         /// <summary>
         /// True if this group contains only decoy biopolymers, used for FDR estimation.
@@ -25,9 +22,9 @@ namespace Omics.BioPolymerGroup
 
         /// <summary>
         /// List of files or samples that contribute quantification data for this group.
-        /// The type depends on the quantification strategy (label-free vs. isobaric).
+        /// Supports both SpectraFileInfo (label-free) and IsobaricQuantSampleInfo (TMT/iTRAQ).
         /// </summary>
-        List<TSampleInfo> FilesForQuantification { get; set; }
+        List<ISampleInfo> SamplesForQuantification { get; set; }
 
         /// <summary>
         /// Set of all biopolymers (e.g., proteins, RNA sequences) that belong to this group.
@@ -50,13 +47,13 @@ namespace Omics.BioPolymerGroup
         /// All biopolymer sequences with set modifications identified in this group,
         /// including those shared with other groups.
         /// </summary>
-        HashSet<IBioPolymerWithSetMods> AllBioPolymerWithSetMods { get; set; }
+        HashSet<IBioPolymerWithSetMods> AllBioPolymersWithSetMods { get; set; }
 
         /// <summary>
         /// Biopolymer sequences with set modifications that are unique to this group
         /// (not shared with any other biopolymer group).
         /// </summary>
-        HashSet<IBioPolymerWithSetMods> UniqueBioPolymerWithSetMods { get; set; }
+        HashSet<IBioPolymerWithSetMods> UniqueBioPolymersWithSetMods { get; set; }
 
         /// <summary>
         /// All peptide-spectrum matches (PSMs) for this group that pass the 1% FDR threshold.
@@ -72,12 +69,12 @@ namespace Omics.BioPolymerGroup
         /// <summary>
         /// The best (lowest) q-value among all biopolymers with set modifications in this group.
         /// </summary>
-        double BestBioPolymerWithSetsModQValue { get; set; }
+        double BestBioPolymerWithSetModsQValue { get; set; }
 
         /// <summary>
         /// The best (highest) score among all biopolymers with set modifications in this group.
         /// </summary>
-        double BestBioPolymerWithSetsModScore { get; set; }
+        double BestBioPolymerWithSetModsScore { get; set; }
 
         /// <summary>
         /// Summary information about modifications present on members of this group.
@@ -87,9 +84,9 @@ namespace Omics.BioPolymerGroup
 
         /// <summary>
         /// Dictionary mapping sample identifiers to measured intensity values for this group.
-        /// Each sample maps to a single intensity value representing the quantification for that sample.
+        /// Supports both SpectraFileInfo and IsobaricQuantSampleInfo as keys.
         /// </summary>
-        Dictionary<TSampleInfo, double> IntensitiesByFile { get; set; }
+        Dictionary<ISampleInfo, double> IntensitiesBySample { get; set; }
 
         /// <summary>
         /// All biopolymers in this group ordered alphabetically by accession.
@@ -98,26 +95,9 @@ namespace Omics.BioPolymerGroup
         List<IBioPolymer> ListOfBioPolymersOrderedByAccession { get; }
 
         /// <summary>
-        /// Default equality implementation based on <see cref="BioPolymerGroupName"/>.
-        /// Two groups are equal if they have the same name.
-        /// </summary>
-        bool IEquatable<IBioPolymerGroup<TSampleInfo>>.Equals(IBioPolymerGroup<TSampleInfo>? other)
-        {
-            if (other is null) return false;
-            if (ReferenceEquals(this, other)) return true;
-            if (other.GetType() != GetType()) return false;
-            return BioPolymerGroupName == other.BioPolymerGroupName;
-        }
-
-        /// <summary>
         /// Returns a tab-separated header line for output files, matching the format of <see cref="ToString"/>.
         /// </summary>
         string GetTabSeparatedHeader();
-
-        /// <summary>
-        /// Returns a tab-separated string representation of this group for output files.
-        /// </summary>
-        string ToString();
 
         /// <summary>
         /// Computes or updates the <see cref="BioPolymerGroupScore"/> based on member PSMs and peptides.
@@ -129,7 +109,7 @@ namespace Omics.BioPolymerGroup
         /// Used when groups are determined to represent the same biological entity.
         /// </summary>
         /// <param name="otherBioPolymerGroup">The group to merge into this one.</param>
-        void MergeWith(IBioPolymerGroup<TSampleInfo> otherBioPolymerGroup);
+        void MergeWith(IBioPolymerGroup otherBioPolymerGroup);
 
         /// <summary>
         /// Creates a new biopolymer group containing only data from a specific file.
@@ -138,18 +118,6 @@ namespace Omics.BioPolymerGroup
         /// <param name="fullFilePath">The full path to the file to subset by.</param>
         /// <param name="silacLabels">Optional SILAC labels to apply during subset creation.</param>
         /// <returns>A new group containing only data from the specified file.</returns>
-        IBioPolymerGroup<TSampleInfo> ConstructSubsetBioPolymerGroup(string fullFilePath, List<SilacLabel> silacLabels = null);
+        IBioPolymerGroup ConstructSubsetBioPolymerGroup(string fullFilePath, List<SilacLabel>? silacLabels = null);
     }
-
-    /// <summary>
-    /// Convenience interface for label-free quantification biopolymer groups.
-    /// Uses <see cref="SpectraFileInfo"/> as the file key.
-    /// </summary>
-    internal interface ILabelFreeBioPolymerGroup : IBioPolymerGroup<SpectraFileInfo> { }
-
-    /// <summary>
-    /// Convenience interface for isobaric (TMT/iTRAQ) quantification biopolymer groups.
-    /// Uses <see cref="IsobaricQuantSampleInfo"/> as the sample key.
-    /// </summary>
-    internal interface IIsobaricBioPolymerGroup : IBioPolymerGroup<IsobaricQuantSampleInfo> { }
 }
