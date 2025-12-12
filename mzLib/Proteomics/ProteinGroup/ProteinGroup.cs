@@ -496,7 +496,7 @@ namespace Proteomics.ProteinGroup
                     AllPsmsBelowOnePercentFDR.Where(p => p.FullFilePath.Equals(fullFilePath)));
             var allPeptidesForThisFile =
                 new HashSet<IBioPolymerWithSetMods>(
-                    allPsmsForThisFile.SelectMany(p => p.BestMatchingBioPolymersWithSetMods.Select(v => v.SpecificBioPolymer)));
+                    allPsmsForThisFile.SelectMany(p => p.GetIdentifiedBioPolymersWithSetMods()));
             var allUniquePeptidesForThisFile =
                 new HashSet<IBioPolymerWithSetMods>(UniqueBioPolymersWithSetMods.Intersect(allPeptidesForThisFile));
 
