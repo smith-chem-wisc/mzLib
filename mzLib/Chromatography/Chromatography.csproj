@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+	<Platforms>x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="RetentionTimePrediction\Chronologer\Chronologer_20220601193755_TorchSharp.dat" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="RetentionTimePrediction\Chronologer\Chronologer_20220601193755_TorchSharp.dat">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="libtorch-cpu" Version="2.5.1" />
+    <PackageReference Include="TorchSharp" Version="0.105.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
+  </ItemGroup>
+
+</Project>
