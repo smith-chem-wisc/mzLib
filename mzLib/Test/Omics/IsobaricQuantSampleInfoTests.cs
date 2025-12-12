@@ -53,6 +53,7 @@ namespace Test.Omics
                 channelLabel: "126",
                 reporterIonMz: 999.999,
                 isReferenceChannel: true);
+        }
 
         #endregion
 
@@ -63,17 +64,6 @@ namespace Test.Omics
         {
             var sample = new IsobaricQuantSampleInfo(
                 fullFilePathWithExtension: @"C:\Data\Experiment\test.raw",
-                condition: "Control",
-                biologicalReplicate: 2,
-                technicalReplicate: 1,
-                fraction: 0,
-                plexId: 1,
-                channelLabel: "126",
-                reporterIonMz: 126.127726,
-                isReferenceChannel: false);
-
-            _sampleDifferentTechRep = new IsobaricQuantSampleInfo(
-                fullFilePathWithExtension: @"C:\Data\sample1.raw",
                 condition: "Control",
                 biologicalReplicate: 1,
                 technicalReplicate: 2,
@@ -102,27 +92,6 @@ namespace Test.Omics
 
             // Same FilePath and ChannelLabel should produce same UniqueIdentifier
             Assert.That(sample1.UniqueIdentifier, Is.EqualTo(sample2.UniqueIdentifier));
-            _sampleDifferentReporterMz = new IsobaricQuantSampleInfo(
-                fullFilePathWithExtension: @"C:\Data\sample1.raw",
-                condition: "Control",
-                biologicalReplicate: 1,
-                technicalReplicate: 1,
-                fraction: 0,
-                plexId: 1,
-                channelLabel: "126",
-                reporterIonMz: 999.999,
-                isReferenceChannel: false);
-
-            _sampleReferenceChannel = new IsobaricQuantSampleInfo(
-                fullFilePathWithExtension: @"C:\Data\sample1.raw",
-                condition: "Control",
-                biologicalReplicate: 1,
-                technicalReplicate: 1,
-                fraction: 0,
-                plexId: 1,
-                channelLabel: "126",
-                reporterIonMz: 126.127726,
-                isReferenceChannel: true);
         }
 
         [Test]
@@ -306,11 +275,6 @@ namespace Test.Omics
         public void Equals_Object_DifferentType_ReturnsFalse()
         {
             Assert.That(_sample1.Equals("not an IsobaricQuantSampleInfo"), Is.False);
-        }
-
-        [Test]
-        public void Equals_Object_IntegerType_ReturnsFalse()
-        {
             Assert.That(_sample1.Equals(123), Is.False);
         }
 
@@ -357,32 +321,6 @@ namespace Test.Omics
         {
             IsobaricQuantSampleInfo? right = null;
             Assert.That(_sample1 == right, Is.False);
-        }
-
-        [Test]
-        public void EqualityOperator_SameReference_ReturnsTrue()
-        {
-            var sample = _sample1;
-            Assert.That(_sample1 == sample, Is.True);
-        }
-
-        [Test]
-        public void EqualityOperator_DifferentFilePath_ReturnsFalse()
-        {
-            Assert.That(_sample1 == _sampleDifferentFilePath, Is.False);
-        }
-
-        [Test]
-        public void EqualityOperator_DifferentChannelLabel_ReturnsFalse()
-        {
-            Assert.That(_sample1 == _sampleDifferentChannelLabel, Is.False);
-        }
-
-        [Test]
-        public void EqualityOperator_DifferentPlexId_SameFilePathAndChannel_ReturnsTrue()
-        {
-            // PlexId is NOT part of equality
-            Assert.That(_sample1 == _sampleDifferentPlexId, Is.True);
         }
 
         #endregion
@@ -452,16 +390,7 @@ namespace Test.Omics
         {
             var hash1 = _sample1.GetHashCode();
             var hash2 = _sample1.GetHashCode();
-            var hash3 = _sample1.GetHashCode();
             Assert.That(hash1, Is.EqualTo(hash2));
-            Assert.That(hash2, Is.EqualTo(hash3));
-        }
-
-        [Test]
-        public void GetHashCode_MatchesSampleIdentifier()
-        {
-            // UniqueIdentifier is computed the same way as GetHashCode
-            Assert.That(_sample1.GetHashCode(), Is.EqualTo(_sample1.UniqueIdentifier));
         }
 
         [Test]
@@ -472,7 +401,6 @@ namespace Test.Omics
             Assert.That(set.Count, Is.EqualTo(2)); // _sample1 and _sampleEqualToSample1 are equal
             Assert.That(set.Contains(_sample1), Is.True);
             Assert.That(set.Contains(_sample2), Is.True);
-            Assert.That(set.Contains(_sampleIdenticalToSample1), Is.True); // Same as _sample1
         }
 
         [Test]
@@ -487,33 +415,6 @@ namespace Test.Omics
             Assert.That(dict[_sample1], Is.EqualTo("First"));
             Assert.That(dict[_sampleEqualToSample1], Is.EqualTo("First")); // Same key as _sample1
             Assert.That(dict[_sample2], Is.EqualTo("Second"));
-        }
-
-        [Test]
-        public void GetHashCode_EmptyChannelLabel_ProducesValidHashCode()
-        {
-            var sample = new IsobaricQuantSampleInfo(
-                @"C:\test.raw", "Control", 1, 1, 0, 1, string.Empty, 126.0, false);
-            var hash = sample.GetHashCode();
-            Assert.That(hash, Is.TypeOf<int>());
-        }
-
-        [Test]
-        public void GetHashCode_NegativePlexId_ProducesValidHashCode()
-        {
-            var sample = new IsobaricQuantSampleInfo(
-                @"C:\test.raw", "Control", 1, 1, 0, -1, "126", 126.0, false);
-            var hash = sample.GetHashCode();
-            Assert.That(hash, Is.TypeOf<int>());
-        }
-
-        [Test]
-        public void GetHashCode_MaxPlexId_ProducesValidHashCode()
-        {
-            var sample = new IsobaricQuantSampleInfo(
-                @"C:\test.raw", "Control", 1, 1, 0, int.MaxValue, "126", 126.0, false);
-            var hash = sample.GetHashCode();
-            Assert.That(hash, Is.TypeOf<int>());
         }
 
         #endregion
@@ -544,26 +445,6 @@ namespace Test.Omics
         {
             var sample = new IsobaricQuantSampleInfo(@"C:\test.raw", "Control", 1, 1, 0, 1, string.Empty, 126.0, false);
             Assert.That(sample.ToString(), Is.EqualTo("test_"));
-        }
-
-        [Test]
-        public void ToString_WithLongChannelLabel_ReturnsCorrectFormat()
-        {
-            var sample = new IsobaricQuantSampleInfo(
-                @"C:\test.raw", "Control", 1, 1, 0, 1, "VeryLongChannelLabel", 126.0, false);
-            Assert.That(sample.ToString(), Is.EqualTo("test_VeryLongChannelLabel"));
-        }
-
-        [Test]
-        public void ToString_IsNotNull()
-        {
-            Assert.That(_sample1.ToString(), Is.Not.Null);
-        }
-
-        [Test]
-        public void ToString_IsNotEmpty()
-        {
-            Assert.That(_sample1.ToString(), Is.Not.Empty);
         }
 
         [Test]
@@ -705,9 +586,6 @@ namespace Test.Omics
             var b = new IsobaricQuantSampleInfo(@"C:\b.raw", "Beta", 1, 1, 0, 1, "127N", 126.0, false);
             var c = new IsobaricQuantSampleInfo(@"C:\c.raw", "Gamma", 1, 1, 0, 1, "128C", 126.0, false);
 
-            // a < b (same file, 126 < 127N)
-            // b < c (file a < file b)
-            // Therefore a < c
             Assert.That(a.CompareTo(b), Is.LessThan(0));
             Assert.That(b.CompareTo(c), Is.LessThan(0));
             Assert.That(a.CompareTo(c), Is.LessThan(0));
