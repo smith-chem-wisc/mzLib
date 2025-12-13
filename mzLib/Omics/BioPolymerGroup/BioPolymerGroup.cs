@@ -353,17 +353,11 @@ namespace Omics.BioPolymerGroup
 			List<double> masses = new List<double>();
 			foreach (var sequence in sequences)
 			{
-				try
-				{
-					// Calculate mass based on sequence
-					// Note: This uses peptide calculation as a fallback; specific biopolymer types
-					// may want to override this with their own mass calculation
-					masses.Add(new Proteomics.AminoAcidPolymer.Peptide(sequence).MonoisotopicMass);
-				}
-				catch (Exception)
-				{
-					masses.Add(double.NaN);
-				}
+				// Get mass from any IBioPolymerWithSetMods that has this base sequence
+				var bioPolymerWithMods = AllBioPolymersWithSetMods
+					.FirstOrDefault(bpws => bpws.BaseSequence == sequence);
+
+				masses.Add(bioPolymerWithMods?.MonoisotopicMass ?? double.NaN);
 			}
 
 			sb.Append(TruncateString(string.Join("|", masses)));
