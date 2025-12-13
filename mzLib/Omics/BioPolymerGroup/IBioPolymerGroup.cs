@@ -100,11 +100,6 @@ namespace Omics.BioPolymerGroup
         string GetTabSeparatedHeader();
 
         /// <summary>
-        /// Computes or updates the <see cref="BioPolymerGroupScore"/> based on member PSMs and peptides.
-        /// </summary>
-        void Score();
-
-        /// <summary>
         /// Merges another biopolymer group into this one, combining their members, PSMs, and intensities.
         /// Used when groups are determined to represent the same biological entity.
         /// </summary>
