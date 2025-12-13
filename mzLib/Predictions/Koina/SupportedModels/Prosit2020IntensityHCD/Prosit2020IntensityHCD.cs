@@ -20,25 +20,27 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
         public readonly int MaxPeptideLength = 30;
         public readonly HashSet<int> AllowedPrecursorCharges = new() { 1, 2, 3, 4, 5, 6 };
         public readonly int NumberOfPredictedFragmentIons = 174;
-        public readonly Dictionary<string, string> ValidModificationUnimodMapping = new()
+        public readonly static Dictionary<string, string> ValidModificationUnimodMapping = new()
         {
             {"[Common Variable:Oxidation on M]", "[UNIMOD:35]"},
             {"[Common Fixed:Carbamidomethyl on C]", "[UNIMOD:4]"}
         };
-        public readonly Dictionary<string, double> ValidModificationsMonoisotopicMasses = new()
+        public readonly static Dictionary<string, double> ValidModificationsMonoisotopicMasses = new()
         {
             {"[Common Variable:Oxidation on M]", 15.994915 },
             {"[Common Fixed:Carbamidomethyl on C]", 57.021464 }
         };
-        public List<string> PeptideSequences = new();
-        public List<int> PrecursorCharges = new();
-        public List<int> CollisionEnergies = new();
-        public List<double?> RetentionTimes = new();
+        public static string ModificationPattern = @"\[[^\]]+\]";
+        public static string CanonicalAminoAcidPattern = @"^[ACDEFGHIKLMNPQRSTVWY]+$";
+        public readonly List<string> PeptideSequences = new();
+        public readonly List<int> PrecursorCharges = new();
+        public readonly List<int> CollisionEnergies = new();
+        public readonly List<double?> RetentionTimes = new();
         public List<LibrarySpectrum> PredictedSpectra = new();
         public double MinIntensityFilter; // Tolerance for intensity filtering of predicted peaks
 
 
-        public Prosit2020IntensityHCD(List<string> peptideSequences, List<int> precursorCharges, List<int> collisionEnergies, List<double?> retentionTimes, out WarningException? warnings, double? minIntensityFilter=null)
+        public Prosit2020IntensityHCD(List<string> peptideSequences, List<int> precursorCharges, List<int> collisionEnergies, List<double?> retentionTimes, out WarningException? warnings, double minIntensityFilter=1e-4)
         {
             // Verify input lists are of the same length
             if (peptideSequences.Count != precursorCharges.Count
@@ -90,7 +92,7 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
                 warnings = new WarningException(warningMessage);
             }
 
-            MinIntensityFilter = minIntensityFilter ?? 1e-4;
+            MinIntensityFilter = minIntensityFilter;
         }
 
 
@@ -262,9 +264,7 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
 
         internal bool HasValidModifications(string sequence)
         {
-            var modPattern = @"\[[^\]]+\]";
-
-            var matches = Regex.Matches(sequence, modPattern);
+            var matches = Regex.Matches(sequence, ModificationPattern);
             if (matches.Count == 0)
             {
                 return true; // No modifications, valid
@@ -284,10 +284,8 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
 
         internal bool IsValidSequence(string sequence)
         {
-            var modPattern = @"\[[^\]]+\]";
-            var aminoAcidPattern = @"^[ACDEFGHIKLMNPQRSTVWY]+$";
-            var baseSequence = Regex.Replace(sequence, modPattern, "");
-            if (Regex.IsMatch(baseSequence, aminoAcidPattern) &&
+            var baseSequence = Regex.Replace(sequence, ModificationPattern, "");
+            if (Regex.IsMatch(baseSequence, CanonicalAminoAcidPattern) &&
                 baseSequence.Length <= MaxPeptideLength)
             {
                 return true; // Valid sequence
