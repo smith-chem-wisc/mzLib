@@ -643,16 +643,18 @@ namespace Test.Omics
             Assert.That(sample1.CompareTo(sample10), Is.LessThan(0));
         }
 
-        [Test]
-        public void CompareTo_ComparisonPriority_FilePathFirst()
-        {
-            var sampleAZZZ = new SpectraFileInfo(@"A:\file.raw", "Zeta", 99, 99, 99);
-            var sampleBAAA = new SpectraFileInfo(@"B:\file.raw", "Alpha", 1, 1, 0);
+		[Test]
+		public void CompareTo_ComparisonPriority_ConditionFirst()
+		{
+			var sampleZeta = new SpectraFileInfo(@"A:\file.raw", "Zeta", 1, 1, 0);
+			var sampleAlpha = new SpectraFileInfo(@"Z:\file.raw", "Alpha", 99, 99, 99);
 
-            Assert.That(sampleAZZZ.CompareTo(sampleBAAA), Is.LessThan(0));
-        }
+			// Alpha comes before Zeta alphabetically (Condition is compared first)
+			Assert.That(sampleZeta.CompareTo(sampleAlpha), Is.GreaterThan(0));
+			Assert.That(sampleAlpha.CompareTo(sampleZeta), Is.LessThan(0));
+		}
 
-        [Test]
+		[Test]
         public void CompareTo_ComparisonPriority_ConditionSecond()
         {
             var sampleAlpha = new SpectraFileInfo(@"C:\file.raw", "Alpha", 99, 99, 99);

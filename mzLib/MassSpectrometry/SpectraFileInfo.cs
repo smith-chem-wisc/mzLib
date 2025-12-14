@@ -190,12 +190,8 @@ namespace MassSpectrometry
                 // Check for equality returns 0 if equal.
                 if (Equals(other)) return 0;
 
-                // Compare by FullFilePathWithExtension (A before B)
-                int comparison = string.Compare(FullFilePathWithExtension ?? string.Empty, other.FullFilePathWithExtension ?? string.Empty, StringComparison.Ordinal);
-                if (comparison != 0) return comparison;
-
                 // Compare by Condition (A before B)
-                comparison = string.Compare(Condition ?? string.Empty, other.Condition ?? string.Empty, StringComparison.Ordinal);
+                int comparison = string.Compare(Condition ?? string.Empty, other.Condition ?? string.Empty, StringComparison.Ordinal);
                 if (comparison != 0) return comparison;
 
                 // Compare by BiologicalReplicate (1 before 2)
@@ -207,8 +203,11 @@ namespace MassSpectrometry
                 if (comparison != 0) return comparison;
 
                 // Compare by TechnicalReplicate (1 before 2)
-                return TechnicalReplicate.CompareTo(other.TechnicalReplicate);
-            }
+                comparison = TechnicalReplicate.CompareTo(other.TechnicalReplicate);
+				if (comparison != 0) return comparison;
+
+                return string.Compare(FullFilePathWithExtension ?? string.Empty, other.FullFilePathWithExtension ?? string.Empty, StringComparison.Ordinal);
+			}
 
             return 1; 
         }
