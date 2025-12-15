@@ -43,8 +43,8 @@
         double Score { get; }
 
         /// <summary>
-        /// Positions in the peptide (one-based) that are covered by fragment ions.
-        /// Populated by <see cref="GetAminoAcidCoverage"/> when fragment coverage data is available.
+        /// Positions in the biopolymer sequence (one-based) that are covered by fragment ions.
+        /// Populated by <see cref="GetSequenceCoverage"/> when fragment coverage data is available.
         /// May be null if coverage has not been calculated or is not available.
         /// </summary>
         HashSet<int>? FragmentCoveragePositionInPeptide { get; }
@@ -59,11 +59,12 @@
         IEnumerable<IBioPolymerWithSetMods> GetIdentifiedBioPolymersWithSetMods();
 
         /// <summary>
-        /// Calculates amino acid coverage from fragment ions for this spectral match.
+        /// Calculates sequence coverage from fragment ions for this spectral match.
         /// Populates <see cref="FragmentCoveragePositionInPeptide"/> with one-based positions
-        /// of amino acids that are covered by matched fragment ions.
+        /// of residues that are covered by matched fragment ions.
+        /// Works for any biopolymer type (proteins, nucleic acids, etc.).
         /// Implementations without fragment ion data may leave the property null or empty.
         /// </summary>
-        void GetAminoAcidCoverage();
+        void GetSequenceCoverage();
     }
 }

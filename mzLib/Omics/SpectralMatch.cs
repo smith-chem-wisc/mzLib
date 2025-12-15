@@ -58,21 +58,21 @@
         public double Score { get; }
 
         /// <summary>
-        /// Positions in the peptide (one-based) that are covered by fragment ions.
-        /// Populated by <see cref="GetAminoAcidCoverage"/> when fragment coverage data is available.
+        /// Positions in the biopolymer sequence (one-based) that are covered by fragment ions.
+        /// Populated by <see cref="GetSequenceCoverage"/> when fragment coverage data is available.
         /// May be null if coverage has not been calculated or is not available.
         /// </summary>
         public HashSet<int>? FragmentCoveragePositionInPeptide { get; protected set; }
 
         /// <summary>
-        /// N-terminal (or 5' for nucleic acids) fragment amino acid positions (one-based).
-        /// Derived classes should populate this before calling <see cref="GetAminoAcidCoverage"/>.
+        /// N-terminal (or 5' for nucleic acids) fragment positions (one-based).
+        /// Derived classes should populate this before calling <see cref="GetSequenceCoverage"/>.
         /// </summary>
         protected List<int>? NTerminalFragmentPositions { get; set; }
 
         /// <summary>
-        /// C-terminal (or 3' for nucleic acids) fragment amino acid positions (one-based).
-        /// Derived classes should populate this before calling <see cref="GetAminoAcidCoverage"/>.
+        /// C-terminal (or 3' for nucleic acids) fragment positions (one-based).
+        /// Derived classes should populate this before calling <see cref="GetSequenceCoverage"/>.
         /// </summary>
         protected List<int>? CTerminalFragmentPositions { get; set; }
 
@@ -88,15 +88,16 @@
         }
 
         /// <summary>
-        /// Calculates amino acid coverage from fragment ions for this spectral match.
+        /// Calculates sequence coverage from fragment ions for this spectral match.
         /// Populates <see cref="FragmentCoveragePositionInPeptide"/> with one-based positions
-        /// of amino acids that are covered by matched fragment ions.
+        /// of residues that are covered by matched fragment ions.
+        /// Works for any biopolymer type (proteins, nucleic acids, etc.).
         /// 
         /// Derived classes should populate <see cref="NTerminalFragmentPositions"/> and 
         /// <see cref="CTerminalFragmentPositions"/> before calling this method, or override
         /// this method entirely to provide custom coverage calculation.
         /// </summary>
-        public virtual void GetAminoAcidCoverage()
+        public virtual void GetSequenceCoverage()
         {
             if (string.IsNullOrEmpty(BaseSequence))
             {
@@ -111,44 +112,44 @@
                 return;
             }
 
-            var fragmentCoveredAminoAcids = new HashSet<int>();
+            var fragmentCoveredResidues = new HashSet<int>();
 
             // Process N-terminal fragments (or 5' for nucleic acids)
             if (nTermPositions.Any())
             {
                 var sortedNTerm = nTermPositions.OrderBy(x => x).ToList();
 
-                // If the final N-terminal fragment is present, last AA is covered
+                // If the final N-terminal fragment is present, last residue is covered
                 if (sortedNTerm.Contains(BaseSequence.Length - 1))
                 {
-                    fragmentCoveredAminoAcids.Add(BaseSequence.Length);
+                    fragmentCoveredResidues.Add(BaseSequence.Length);
                 }
 
-                // If the first N-terminal fragment is present, first AA is covered
+                // If the first N-terminal fragment is present, first residue is covered
                 if (sortedNTerm.Contains(1))
                 {
-                    fragmentCoveredAminoAcids.Add(1);
+                    fragmentCoveredResidues.Add(1);
                 }
 
-                // Check all amino acids except for the last one in the list
+                // Check all positions except for the last one in the list
                 for (int i = 0; i < sortedNTerm.Count - 1; i++)
                 {
-                    // Sequential AA positions mean the second one is covered
+                    // Sequential positions mean the second one is covered
                     if (sortedNTerm[i + 1] - sortedNTerm[i] == 1)
                     {
-                        fragmentCoveredAminoAcids.Add(sortedNTerm[i + 1]);
+                        fragmentCoveredResidues.Add(sortedNTerm[i + 1]);
                     }
 
                     // Check if position is covered from both directions (inclusive)
                     if (cTermPositions.Contains(sortedNTerm[i + 1]))
                     {
-                        fragmentCoveredAminoAcids.Add(sortedNTerm[i + 1]);
+                        fragmentCoveredResidues.Add(sortedNTerm[i + 1]);
                     }
 
                     // Check if position is covered from both directions (exclusive)
                     if (cTermPositions.Contains(sortedNTerm[i + 1] + 2))
                     {
-                        fragmentCoveredAminoAcids.Add(sortedNTerm[i + 1] + 1);
+                        fragmentCoveredResidues.Add(sortedNTerm[i + 1] + 1);
                     }
                 }
             }
@@ -158,35 +159,35 @@
             {
                 var sortedCTerm = cTermPositions.OrderBy(x => x).ToList();
 
-                // If the second AA position is present, first AA is covered
+                // If the second position is present, first residue is covered
                 if (sortedCTerm.Contains(2))
                 {
-                    fragmentCoveredAminoAcids.Add(1);
+                    fragmentCoveredResidues.Add(1);
                 }
 
-                // If the last AA position is present, final AA is covered
+                // If the last position is present, final residue is covered
                 if (sortedCTerm.Contains(BaseSequence.Length))
                 {
-                    fragmentCoveredAminoAcids.Add(BaseSequence.Length);
+                    fragmentCoveredResidues.Add(BaseSequence.Length);
                 }
 
-                // Check all amino acids except for the last one in the list
+                // Check all positions except for the last one in the list
                 for (int i = 0; i < sortedCTerm.Count - 1; i++)
                 {
-                    // Sequential AA positions mean the first one is covered
+                    // Sequential positions mean the first one is covered
                     if (sortedCTerm[i + 1] - sortedCTerm[i] == 1)
                     {
-                        fragmentCoveredAminoAcids.Add(sortedCTerm[i]);
+                        fragmentCoveredResidues.Add(sortedCTerm[i]);
                     }
                 }
             }
 
-            FragmentCoveragePositionInPeptide = fragmentCoveredAminoAcids;
+            FragmentCoveragePositionInPeptide = fragmentCoveredResidues;
         }
 
         /// <summary>
         /// Sets the fragment positions for coverage calculation.
-        /// Call this method before <see cref="GetAminoAcidCoverage"/> to provide fragment data.
+        /// Call this method before <see cref="GetSequenceCoverage"/> to provide fragment data.
         /// </summary>
         /// <param name="nTerminalPositions">One-based positions of N-terminal (or 5') fragments.</param>
         /// <param name="cTerminalPositions">One-based positions of C-terminal (or 3') fragments.</param>
