@@ -96,6 +96,22 @@ namespace Test.Omics
         public int OneBasedScanNumber { get; }
 
         /// <summary>
+        /// Positions in the peptide (one-based) that are covered by fragment ions.
+        /// Populated by <see cref="GetAminoAcidCoverage"/> when fragment coverage data is available.
+        /// </summary>
+        public HashSet<int>? FragmentCoveragePositionInPeptide { get; private set; }
+
+        /// <summary>
+        /// N-terminal fragment positions for testing. Set before calling GetAminoAcidCoverage.
+        /// </summary>
+        public List<int>? NTerminalFragmentPositions { get; set; }
+
+        /// <summary>
+        /// C-terminal fragment positions for testing. Set before calling GetAminoAcidCoverage.
+        /// </summary>
+        public List<int>? CTerminalFragmentPositions { get; set; }
+
+        /// <summary>
         /// Construct a test spectral match.
         /// The identified collection is defensively copied; passing null creates an empty set.
         /// ScanNumber defaults to 0 if not provided.
@@ -144,6 +160,88 @@ namespace Test.Omics
         /// </summary>
         public IEnumerable<IBioPolymerWithSetMods> GetIdentifiedBioPolymersWithSetMods()
             => _identified.AsReadOnly();
+
+        /// <summary>
+        /// Calculates amino acid coverage from fragment ions for this spectral match.
+        /// Uses NTerminalFragmentPositions and CTerminalFragmentPositions to determine coverage.
+        /// </summary>
+        public void GetAminoAcidCoverage()
+        {
+            if (string.IsNullOrEmpty(BaseSequence))
+            {
+                return;
+            }
+
+            var nTermPositions = NTerminalFragmentPositions ?? new List<int>();
+            var cTermPositions = CTerminalFragmentPositions ?? new List<int>();
+
+            if (!nTermPositions.Any() && !cTermPositions.Any())
+            {
+                return;
+            }
+
+            var fragmentCoveredAminoAcids = new HashSet<int>();
+
+            // Process N-terminal fragments
+            if (nTermPositions.Any())
+            {
+                var sortedNTerm = nTermPositions.OrderBy(x => x).ToList();
+
+                if (sortedNTerm.Contains(BaseSequence.Length - 1))
+                {
+                    fragmentCoveredAminoAcids.Add(BaseSequence.Length);
+                }
+
+                if (sortedNTerm.Contains(1))
+                {
+                    fragmentCoveredAminoAcids.Add(1);
+                }
+
+                for (int i = 0; i < sortedNTerm.Count - 1; i++)
+                {
+                    if (sortedNTerm[i + 1] - sortedNTerm[i] == 1)
+                    {
+                        fragmentCoveredAminoAcids.Add(sortedNTerm[i + 1]);
+                    }
+
+                    if (cTermPositions.Contains(sortedNTerm[i + 1]))
+                    {
+                        fragmentCoveredAminoAcids.Add(sortedNTerm[i + 1]);
+                    }
+
+                    if (cTermPositions.Contains(sortedNTerm[i + 1] + 2))
+                    {
+                        fragmentCoveredAminoAcids.Add(sortedNTerm[i + 1] + 1);
+                    }
+                }
+            }
+
+            // Process C-terminal fragments
+            if (cTermPositions.Any())
+            {
+                var sortedCTerm = cTermPositions.OrderBy(x => x).ToList();
+
+                if (sortedCTerm.Contains(2))
+                {
+                    fragmentCoveredAminoAcids.Add(1);
+                }
+
+                if (sortedCTerm.Contains(BaseSequence.Length))
+                {
+                    fragmentCoveredAminoAcids.Add(BaseSequence.Length);
+                }
+
+                for (int i = 0; i < sortedCTerm.Count - 1; i++)
+                {
+                    if (sortedCTerm[i + 1] - sortedCTerm[i] == 1)
+                    {
+                        fragmentCoveredAminoAcids.Add(sortedCTerm[i]);
+                    }
+                }
+            }
+
+            FragmentCoveragePositionInPeptide = fragmentCoveredAminoAcids;
+        }
 
         public override bool Equals(object? obj)
         {
@@ -376,5 +474,120 @@ namespace Test.Omics
             Assert.That(identified[0], Is.Null, "The first returned element should be the preserved null entry.");
             Assert.That(identified[1]?.BaseSequence, Is.EqualTo("Z"));
         }
+
+        #region GetAminoAcidCoverage Tests
+
+        /// <summary>
+        /// GetAminoAcidCoverage returns null when no fragment positions are set.
+        /// </summary>
+        [Test]
+        public void GetAminoAcidCoverage_NoFragments_ReturnsNull()
+        {
+            var match = new TestSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            match.GetAminoAcidCoverage();
+            Assert.That(match.FragmentCoveragePositionInPeptide, Is.Null);
+        }
+
+        /// <summary>
+        /// GetAminoAcidCoverage returns null for empty base sequence.
+        /// </summary>
+        [Test]
+        public void GetAminoAcidCoverage_EmptySequence_ReturnsNull()
+        {
+            var match = new TestSpectralMatch("f", "", "", score: 1, scanNumber: 1);
+            match.NTerminalFragmentPositions = new List<int> { 1, 2 };
+            match.GetAminoAcidCoverage();
+            Assert.That(match.FragmentCoveragePositionInPeptide, Is.Null);
+        }
+
+        /// <summary>
+        /// Sequential N-terminal fragments cover the second position.
+        /// </summary>
+        [Test]
+        public void GetAminoAcidCoverage_SequentialNTermFragments_CoversSecondPosition()
+        {
+            var match = new TestSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            match.NTerminalFragmentPositions = new List<int> { 1, 2 };
+            match.GetAminoAcidCoverage();
+
+            Assert.That(match.FragmentCoveragePositionInPeptide, Is.Not.Null);
+            Assert.That(match.FragmentCoveragePositionInPeptide, Contains.Item(1)); // First position covered by b1
+            Assert.That(match.FragmentCoveragePositionInPeptide, Contains.Item(2)); // Sequential coverage
+        }
+
+        /// <summary>
+        /// Sequential C-terminal fragments cover the first position.
+        /// </summary>
+        [Test]
+        public void GetAminoAcidCoverage_SequentialCTermFragments_CoversFirstPosition()
+        {
+            var match = new TestSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            match.CTerminalFragmentPositions = new List<int> { 2, 3 };
+            match.GetAminoAcidCoverage();
+
+            Assert.That(match.FragmentCoveragePositionInPeptide, Is.Not.Null);
+            Assert.That(match.FragmentCoveragePositionInPeptide, Contains.Item(1)); // y2 covers first AA
+            Assert.That(match.FragmentCoveragePositionInPeptide, Contains.Item(2)); // Sequential coverage
+        }
+
+        /// <summary>
+        /// C-terminal fragment at position 2 covers the first amino acid.
+        /// </summary>
+        [Test]
+        public void GetAminoAcidCoverage_CTermAtPosition2_CoversFirstAA()
+        {
+            var match = new TestSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            match.CTerminalFragmentPositions = new List<int> { 2 };
+            match.GetAminoAcidCoverage();
+
+            Assert.That(match.FragmentCoveragePositionInPeptide, Is.Not.Null);
+            Assert.That(match.FragmentCoveragePositionInPeptide, Contains.Item(1));
+        }
+
+        /// <summary>
+        /// N-terminal fragment at the last position covers the last amino acid.
+        /// </summary>
+        [Test]
+        public void GetAminoAcidCoverage_NTermAtLastPosition_CoversLastAA()
+        {
+            var match = new TestSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            // BaseSequence.Length is 7, so last N-term position is 6 (Length - 1)
+            match.NTerminalFragmentPositions = new List<int> { 6 };
+            match.GetAminoAcidCoverage();
+
+            Assert.That(match.FragmentCoveragePositionInPeptide, Is.Not.Null);
+            Assert.That(match.FragmentCoveragePositionInPeptide, Contains.Item(7)); // Last AA covered
+        }
+
+        /// <summary>
+        /// C-terminal fragment at the last position covers the last amino acid.
+        /// </summary>
+        [Test]
+        public void GetAminoAcidCoverage_CTermAtLastPosition_CoversLastAA()
+        {
+            var match = new TestSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            match.CTerminalFragmentPositions = new List<int> { 7 }; // Position equals sequence length
+            match.GetAminoAcidCoverage();
+
+            Assert.That(match.FragmentCoveragePositionInPeptide, Is.Not.Null);
+            Assert.That(match.FragmentCoveragePositionInPeptide, Contains.Item(7));
+        }
+
+        /// <summary>
+        /// Coverage from both N and C terminal fragments at the same position.
+        /// </summary>
+        [Test]
+        public void GetAminoAcidCoverage_BothTerminiAtSamePosition_CoversPosition()
+        {
+            var match = new TestSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            match.NTerminalFragmentPositions = new List<int> { 1, 3 };
+            match.CTerminalFragmentPositions = new List<int> { 3 };
+            match.GetAminoAcidCoverage();
+
+            Assert.That(match.FragmentCoveragePositionInPeptide, Is.Not.Null);
+            Assert.That(match.FragmentCoveragePositionInPeptide, Contains.Item(3));
+        }
+
+        #endregion
     }
 }
