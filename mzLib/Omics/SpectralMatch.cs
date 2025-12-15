@@ -5,7 +5,7 @@
     /// This concrete implementation of <see cref="ISpectralMatch"/> provides basic storage
     /// and comparison for spectral match data produced by search engines or readers.
     /// </summary>
-    public class SpectralMatch : ISpectralMatch, IEquatable<SpectralMatch>
+    public class SpectralMatch : ISpectralMatch, IHasSequenceCoverageFromFragments, IEquatable<SpectralMatch>
     {
         /// <summary>
         /// Creates a new spectral match with the specified properties.
@@ -87,16 +87,12 @@
             return _identifiedBioPolymers;
         }
 
-        /// <summary>
-        /// Calculates sequence coverage from fragment ions for this spectral match.
-        /// Populates <see cref="FragmentCoveragePositionInPeptide"/> with one-based positions
-        /// of residues that are covered by matched fragment ions.
-        /// Works for any biopolymer type (proteins, nucleic acids, etc.).
-        /// 
+        /// <inheritdoc />
+        /// <remarks>
         /// Derived classes should populate <see cref="NTerminalFragmentPositions"/> and 
         /// <see cref="CTerminalFragmentPositions"/> before calling this method, or override
         /// this method entirely to provide custom coverage calculation.
-        /// </summary>
+        /// </remarks>
         public virtual void GetSequenceCoverage()
         {
             if (string.IsNullOrEmpty(BaseSequence))
@@ -183,6 +179,16 @@
             }
 
             FragmentCoveragePositionInPeptide = fragmentCoveredResidues;
+        }
+
+        /// <inheritdoc cref="IHasSequenceCoverageFromFragments.CompareTo"/>
+        public int CompareTo(IHasSequenceCoverageFromFragments? other)
+        {
+            if (other is ISpectralMatch spectralMatch)
+            {
+                return CompareTo(spectralMatch);
+            }
+            return other is null ? -1 : 0;
         }
 
         /// <summary>
