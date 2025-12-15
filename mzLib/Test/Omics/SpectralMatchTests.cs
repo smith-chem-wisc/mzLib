@@ -113,6 +113,8 @@ namespace Test.Omics
         /// </summary>
         private class NonSpectralMatchCoverageProvider : IHasSequenceCoverageFromFragments
         {
+            public HashSet<int>? FragmentCoveragePositionInPeptide { get; private set; }
+
             public void GetSequenceCoverage() { }
 
             public int CompareTo(IHasSequenceCoverageFromFragments? other) => 0;

@@ -614,13 +614,14 @@ namespace Omics.BioPolymerGroup
 
                 foreach (var psm in AllPsmsBelowOnePercentFDR.Where(p => p.BaseSequence != null))
                 {
-                    // Request amino acid coverage calculation from the PSM if it supports it
-                    if (psm is IHasSequenceCoverageFromFragments coverageProvider)
-                    {
-                        coverageProvider.GetSequenceCoverage();
-                    }
+                    // Only process PSMs that support fragment coverage
+                    if (psm is not IHasSequenceCoverageFromFragments coverageProvider)
+                        continue;
 
-                    if (psm.FragmentCoveragePositionInPeptide == null)
+                    // Request amino acid coverage calculation from the PSM
+                    coverageProvider.GetSequenceCoverage();
+
+                    if (coverageProvider.FragmentCoveragePositionInPeptide == null)
                         continue;
 
                     // Get sequences from this PSM that belong to this biopolymer
@@ -630,7 +631,7 @@ namespace Omics.BioPolymerGroup
                     foreach (var sequence in sequencesForThisBioPolymer)
                     {
                         // Convert peptide positions to protein positions
-                        foreach (var position in psm.FragmentCoveragePositionInPeptide)
+                        foreach (var position in coverageProvider.FragmentCoveragePositionInPeptide)
                         {
                             // Both are one-based, so subtract 1 to convert correctly
                             int proteinPosition = position + sequence.OneBasedStartResidue - 1;
