@@ -5,7 +5,7 @@
     /// This concrete implementation of <see cref="ISpectralMatch"/> provides basic storage
     /// and comparison for spectral match data produced by search engines or readers.
     /// </summary>
-    public class SpectralMatch : ISpectralMatch, IHasSequenceCoverageFromFragments, IEquatable<SpectralMatch>
+    public class SpectralMatchWithSequenceCoverage : ISpectralMatch, IHasSequenceCoverageFromFragments, IEquatable<SpectralMatchWithSequenceCoverage>
     {
         /// <summary>
         /// Creates a new spectral match with the specified properties.
@@ -16,7 +16,7 @@
         /// <param name="fullSequence">The full modified sequence string.</param>
         /// <param name="baseSequence">The unmodified base sequence.</param>
         /// <param name="identifiedBioPolymers">The biopolymers identified for this match.</param>
-        public SpectralMatch(
+        public SpectralMatchWithSequenceCoverage(
             string fullFilePath,
             int oneBasedScanNumber,
             double score,
@@ -248,7 +248,7 @@
         /// Determines whether this spectral match equals another.
         /// Two matches are equal if they have the same FullFilePath, OneBasedScanNumber, and FullSequence.
         /// </summary>
-        public bool Equals(SpectralMatch? other)
+        public bool Equals(SpectralMatchWithSequenceCoverage? other)
         {
             if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;
@@ -260,7 +260,7 @@
 
         public override bool Equals(object? obj)
         {
-            if (obj is SpectralMatch sm) return Equals(sm);
+            if (obj is SpectralMatchWithSequenceCoverage sm) return Equals(sm);
             return false;
         }
 
@@ -274,13 +274,13 @@
             return $"Scan {OneBasedScanNumber}: {FullSequence} (Score: {Score:F2})";
         }
 
-        public static bool operator ==(SpectralMatch? left, SpectralMatch? right)
+        public static bool operator ==(SpectralMatchWithSequenceCoverage? left, SpectralMatchWithSequenceCoverage? right)
         {
             if (left is null) return right is null;
             return left.Equals(right);
         }
 
-        public static bool operator !=(SpectralMatch? left, SpectralMatch? right)
+        public static bool operator !=(SpectralMatchWithSequenceCoverage? left, SpectralMatchWithSequenceCoverage? right)
         {
             return !(left == right);
         }

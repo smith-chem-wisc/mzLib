@@ -78,7 +78,7 @@ namespace Test.Omics
         /// <summary>
         /// Derived SpectralMatch for testing protected members.
         /// </summary>
-        private class TestableSpectralMatch : SpectralMatch
+        private class TestableSpectralMatch : SpectralMatchWithSequenceCoverage
         {
             public TestableSpectralMatch(
                 string fullFilePath,
@@ -127,7 +127,7 @@ namespace Test.Omics
         [Test]
         public void Constructor_WithValidParameters_SetsAllProperties()
         {
-            var match = new SpectralMatch("path/to/file.mzML", 42, 100.5, "PEP[Phospho]TIDE", "PEPTIDE");
+            var match = new SpectralMatchWithSequenceCoverage("path/to/file.mzML", 42, 100.5, "PEP[Phospho]TIDE", "PEPTIDE");
 
             Assert.That(match.FullFilePath, Is.EqualTo("path/to/file.mzML"));
             Assert.That(match.OneBasedScanNumber, Is.EqualTo(42));
@@ -139,7 +139,7 @@ namespace Test.Omics
         [Test]
         public void Constructor_WithNullFilePath_SetsEmptyString()
         {
-            var match = new SpectralMatch(null!, 1, 10.0, "SEQ", "SEQ");
+            var match = new SpectralMatchWithSequenceCoverage(null!, 1, 10.0, "SEQ", "SEQ");
 
             Assert.That(match.FullFilePath, Is.EqualTo(string.Empty));
         }
@@ -147,7 +147,7 @@ namespace Test.Omics
         [Test]
         public void Constructor_WithNullFullSequence_SetsEmptyString()
         {
-            var match = new SpectralMatch("file", 1, 10.0, null!, "SEQ");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, null!, "SEQ");
 
             Assert.That(match.FullSequence, Is.EqualTo(string.Empty));
         }
@@ -155,7 +155,7 @@ namespace Test.Omics
         [Test]
         public void Constructor_WithNullBaseSequence_SetsEmptyString()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "SEQ", null!);
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "SEQ", null!);
 
             Assert.That(match.BaseSequence, Is.EqualTo(string.Empty));
         }
@@ -165,7 +165,7 @@ namespace Test.Omics
         {
             var polymer1 = new TestBioPolymerWithSetMods("ABC", "ABC");
             var polymer2 = new TestBioPolymerWithSetMods("DEF", "DEF");
-            var match = new SpectralMatch("file", 1, 10.0, "ABC", "ABC", new[] { polymer1, polymer2 });
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "ABC", "ABC", new[] { polymer1, polymer2 });
 
             var identified = match.GetIdentifiedBioPolymersWithSetMods().ToList();
 
@@ -177,7 +177,7 @@ namespace Test.Omics
         [Test]
         public void Constructor_WithNullBioPolymers_CreatesEmptyList()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "SEQ", "SEQ", null);
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "SEQ", "SEQ", null);
 
             var identified = match.GetIdentifiedBioPolymersWithSetMods();
 
@@ -192,7 +192,7 @@ namespace Test.Omics
             {
                 new TestBioPolymerWithSetMods("A", "A")
             };
-            var match = new SpectralMatch("file", 1, 10.0, "A", "A", source);
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "A", "A", source);
 
             // Mutate original list after construction
             source.Add(new TestBioPolymerWithSetMods("B", "B"));
@@ -212,7 +212,7 @@ namespace Test.Omics
             var polymers = Enumerable.Range(1, 5)
                 .Select(i => new TestBioPolymerWithSetMods($"SEQ{i}", $"SEQ{i}"))
                 .ToList();
-            var match = new SpectralMatch("file", 1, 10.0, "SEQ1", "SEQ1", polymers);
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "SEQ1", "SEQ1", polymers);
 
             var identified = match.GetIdentifiedBioPolymersWithSetMods().ToList();
 
@@ -232,7 +232,7 @@ namespace Test.Omics
                 new TestBioPolymerWithSetMods("APPLE", "APPLE"),
                 new TestBioPolymerWithSetMods("MANGO", "MANGO")
             };
-            var match = new SpectralMatch("file", 1, 10.0, "SEQ", "SEQ", polymers);
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "SEQ", "SEQ", polymers);
 
             var identified = match.GetIdentifiedBioPolymersWithSetMods().ToList();
 
@@ -248,7 +248,7 @@ namespace Test.Omics
         [Test]
         public void AddIdentifiedBioPolymer_AddsToCollection()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "SEQ", "SEQ");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "SEQ", "SEQ");
             var polymer = new TestBioPolymerWithSetMods("NEW", "NEW");
 
             match.AddIdentifiedBioPolymer(polymer);
@@ -261,7 +261,7 @@ namespace Test.Omics
         [Test]
         public void AddIdentifiedBioPolymer_WithNull_DoesNotAdd()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "SEQ", "SEQ");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "SEQ", "SEQ");
 
             match.AddIdentifiedBioPolymer(null!);
 
@@ -272,7 +272,7 @@ namespace Test.Omics
         [Test]
         public void AddIdentifiedBioPolymer_MultipleCalls_AddsAll()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "SEQ", "SEQ");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "SEQ", "SEQ");
 
             match.AddIdentifiedBioPolymer(new TestBioPolymerWithSetMods("A", "A"));
             match.AddIdentifiedBioPolymer(new TestBioPolymerWithSetMods("B", "B"));
@@ -289,7 +289,7 @@ namespace Test.Omics
         [Test]
         public void AddIdentifiedBioPolymers_AddsAllToCollection()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "SEQ", "SEQ");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "SEQ", "SEQ");
             var polymers = new[]
             {
                 new TestBioPolymerWithSetMods("A", "A"),
@@ -305,7 +305,7 @@ namespace Test.Omics
         [Test]
         public void AddIdentifiedBioPolymers_WithNull_DoesNothing()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "SEQ", "SEQ");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "SEQ", "SEQ");
 
             match.AddIdentifiedBioPolymers(null!);
 
@@ -316,7 +316,7 @@ namespace Test.Omics
         [Test]
         public void AddIdentifiedBioPolymers_FiltersOutNullEntries()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "SEQ", "SEQ");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "SEQ", "SEQ");
             var polymers = new IBioPolymerWithSetMods?[]
             {
                 new TestBioPolymerWithSetMods("A", "A"),
@@ -339,7 +339,7 @@ namespace Test.Omics
         [Test]
         public void SetFragmentPositions_SetsPositionsForCoverageCalculation()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
 
             match.SetFragmentPositions(new List<int> { 1, 2 }, new List<int> { 6, 7 });
             match.GetSequenceCoverage();
@@ -350,7 +350,7 @@ namespace Test.Omics
         [Test]
         public void SetFragmentPositions_WithNulls_ClearsPositions()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
 
             match.SetFragmentPositions(null, null);
             match.GetSequenceCoverage();
@@ -365,7 +365,7 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_EmptyBaseSequence_ReturnsNull()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "", "");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "", "");
             match.SetFragmentPositions(new List<int> { 1, 2 }, null);
 
             match.GetSequenceCoverage();
@@ -376,7 +376,7 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_NoFragmentPositions_ReturnsNull()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
 
             match.GetSequenceCoverage();
 
@@ -386,7 +386,7 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_SequentialNTermFragments_CoversResidues()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
             match.SetFragmentPositions(new List<int> { 1, 2, 3 }, null);
 
             match.GetSequenceCoverage();
@@ -400,7 +400,7 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_SequentialCTermFragments_CoversResidues()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
             match.SetFragmentPositions(null, new List<int> { 2, 3, 4 });
 
             match.GetSequenceCoverage();
@@ -414,7 +414,7 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_NTermAtLastPosition_CoversLastResidue()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
             // PEPTIDE has 7 characters, so last N-term position is 6 (Length - 1)
             match.SetFragmentPositions(new List<int> { 6 }, null);
 
@@ -427,7 +427,7 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_CTermAtLastPosition_CoversLastResidue()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
             match.SetFragmentPositions(null, new List<int> { 7 });
 
             match.GetSequenceCoverage();
@@ -439,7 +439,7 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_BothTerminiCoverage_CombinesResults()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
             match.SetFragmentPositions(new List<int> { 1, 2 }, new List<int> { 6, 7 });
 
             match.GetSequenceCoverage();
@@ -453,7 +453,7 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_OverlappingTermini_CoversPosition()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
             match.SetFragmentPositions(new List<int> { 1, 3 }, new List<int> { 3 });
 
             match.GetSequenceCoverage();
@@ -465,7 +465,7 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_CalledMultipleTimes_UpdatesResult()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
 
             // First call with some positions
             match.SetFragmentPositions(new List<int> { 1 }, null);
@@ -487,8 +487,8 @@ namespace Test.Omics
         [Test]
         public void CompareTo_ISpectralMatch_HigherScore_ReturnsNegative()
         {
-            var higher = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            var lower = new SpectralMatch("file", 1, 50.0, "SEQ", "SEQ");
+            var higher = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ");
+            var lower = new SpectralMatchWithSequenceCoverage("file", 1, 50.0, "SEQ", "SEQ");
 
             // Higher score should come first (descending), so higher.CompareTo(lower) < 0
             Assert.That(higher.CompareTo((ISpectralMatch)lower), Is.LessThan(0));
@@ -498,8 +498,8 @@ namespace Test.Omics
         [Test]
         public void CompareTo_ISpectralMatch_EqualScore_ComparesFilePath()
         {
-            var a = new SpectralMatch("a_file", 1, 100.0, "SEQ", "SEQ");
-            var b = new SpectralMatch("b_file", 1, 100.0, "SEQ", "SEQ");
+            var a = new SpectralMatchWithSequenceCoverage("a_file", 1, 100.0, "SEQ", "SEQ");
+            var b = new SpectralMatchWithSequenceCoverage("b_file", 1, 100.0, "SEQ", "SEQ");
 
             Assert.That(a.CompareTo((ISpectralMatch)b), Is.LessThan(0));
             Assert.That(b.CompareTo((ISpectralMatch)a), Is.GreaterThan(0));
@@ -508,8 +508,8 @@ namespace Test.Omics
         [Test]
         public void CompareTo_ISpectralMatch_EqualScoreAndPath_ComparesScanNumber()
         {
-            var scan5 = new SpectralMatch("file", 5, 100.0, "SEQ", "SEQ");
-            var scan10 = new SpectralMatch("file", 10, 100.0, "SEQ", "SEQ");
+            var scan5 = new SpectralMatchWithSequenceCoverage("file", 5, 100.0, "SEQ", "SEQ");
+            var scan10 = new SpectralMatchWithSequenceCoverage("file", 10, 100.0, "SEQ", "SEQ");
 
             Assert.That(scan5.CompareTo((ISpectralMatch)scan10), Is.LessThan(0));
             Assert.That(scan10.CompareTo((ISpectralMatch)scan5), Is.GreaterThan(0));
@@ -518,7 +518,7 @@ namespace Test.Omics
         [Test]
         public void CompareTo_ISpectralMatch_Null_ReturnsNegative()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "SEQ", "SEQ");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "SEQ", "SEQ");
 
             Assert.That(match.CompareTo((ISpectralMatch?)null), Is.LessThan(0));
         }
@@ -526,8 +526,8 @@ namespace Test.Omics
         [Test]
         public void CompareTo_ISpectralMatch_EqualMatches_ReturnsZero()
         {
-            var a = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            var b = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
+            var a = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ");
+            var b = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ");
 
             Assert.That(a.CompareTo((ISpectralMatch)b), Is.EqualTo(0));
         }
@@ -539,8 +539,8 @@ namespace Test.Omics
         [Test]
         public void CompareTo_IHasSequenceCoverageFromFragments_WithSpectralMatch_DelegatesToISpectralMatch()
         {
-            var higher = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            var lower = new SpectralMatch("file", 1, 50.0, "SEQ", "SEQ");
+            var higher = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ");
+            var lower = new SpectralMatchWithSequenceCoverage("file", 1, 50.0, "SEQ", "SEQ");
 
             // When comparing SpectralMatch objects via the interface, should use ISpectralMatch comparison
             Assert.That(higher.CompareTo((IHasSequenceCoverageFromFragments)lower), Is.LessThan(0));
@@ -550,7 +550,7 @@ namespace Test.Omics
         [Test]
         public void CompareTo_IHasSequenceCoverageFromFragments_Null_ReturnsNegative()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "SEQ", "SEQ");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "SEQ", "SEQ");
 
             Assert.That(match.CompareTo((IHasSequenceCoverageFromFragments?)null), Is.LessThan(0));
         }
@@ -558,7 +558,7 @@ namespace Test.Omics
         [Test]
         public void CompareTo_IHasSequenceCoverageFromFragments_NonSpectralMatch_ReturnsZero()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "SEQ", "SEQ");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "SEQ", "SEQ");
             var nonSpectralMatch = new NonSpectralMatchCoverageProvider();
 
             // When comparing with a non-ISpectralMatch implementation, should return 0
@@ -568,8 +568,8 @@ namespace Test.Omics
         [Test]
         public void CompareTo_IHasSequenceCoverageFromFragments_EqualSpectralMatches_ReturnsZero()
         {
-            var a = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            var b = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
+            var a = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ");
+            var b = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ");
 
             Assert.That(a.CompareTo((IHasSequenceCoverageFromFragments)b), Is.EqualTo(0));
         }
@@ -581,7 +581,7 @@ namespace Test.Omics
         [Test]
         public void SpectralMatch_ImplementsIHasSequenceCoverageFromFragments()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "SEQ", "SEQ");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "SEQ", "SEQ");
 
             Assert.That(match, Is.InstanceOf<IHasSequenceCoverageFromFragments>());
         }
@@ -589,7 +589,7 @@ namespace Test.Omics
         [Test]
         public void IHasSequenceCoverageFromFragments_GetSequenceCoverage_CanBeCalledViaInterface()
         {
-            IHasSequenceCoverageFromFragments match = new SpectralMatch("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
+            IHasSequenceCoverageFromFragments match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
 
             // Should not throw
             Assert.DoesNotThrow(() => match.GetSequenceCoverage());
@@ -600,18 +600,18 @@ namespace Test.Omics
         {
             var matches = new List<IHasSequenceCoverageFromFragments>
                 {
-                    new SpectralMatch("file", 1, 50.0, "SEQ", "SEQ"),
-                    new SpectralMatch("file", 2, 100.0, "SEQ", "SEQ"),
-                    new SpectralMatch("file", 3, 75.0, "SEQ", "SEQ")
+                    new SpectralMatchWithSequenceCoverage("file", 1, 50.0, "SEQ", "SEQ"),
+                    new SpectralMatchWithSequenceCoverage("file", 2, 100.0, "SEQ", "SEQ"),
+                    new SpectralMatchWithSequenceCoverage("file", 3, 75.0, "SEQ", "SEQ")
                 };
 
             // Sort using the ISpectralMatch comparison since all items are SpectralMatch
             matches.Sort((x, y) => ((ISpectralMatch)x).CompareTo((ISpectralMatch)y));
 
             // Higher scores should come first (as SpectralMatch implements descending score order)
-            Assert.That(((SpectralMatch)matches[0]).Score, Is.EqualTo(100.0));
-            Assert.That(((SpectralMatch)matches[1]).Score, Is.EqualTo(75.0));
-            Assert.That(((SpectralMatch)matches[2]).Score, Is.EqualTo(50.0));
+            Assert.That(((SpectralMatchWithSequenceCoverage)matches[0]).Score, Is.EqualTo(100.0));
+            Assert.That(((SpectralMatchWithSequenceCoverage)matches[1]).Score, Is.EqualTo(75.0));
+            Assert.That(((SpectralMatchWithSequenceCoverage)matches[2]).Score, Is.EqualTo(50.0));
         }
 
 
@@ -622,8 +622,8 @@ namespace Test.Omics
         [Test]
         public void Equals_SameProperties_ReturnsTrue()
         {
-            var a = new SpectralMatch("file", 42, 100.0, "PEP[Mod]TIDE", "PEPTIDE");
-            var b = new SpectralMatch("file", 42, 100.0, "PEP[Mod]TIDE", "PEPTIDE");
+            var a = new SpectralMatchWithSequenceCoverage("file", 42, 100.0, "PEP[Mod]TIDE", "PEPTIDE");
+            var b = new SpectralMatchWithSequenceCoverage("file", 42, 100.0, "PEP[Mod]TIDE", "PEPTIDE");
 
             Assert.That(a.Equals(b), Is.True);
             Assert.That(b.Equals(a), Is.True);
@@ -632,8 +632,8 @@ namespace Test.Omics
         [Test]
         public void Equals_DifferentFilePath_ReturnsFalse()
         {
-            var a = new SpectralMatch("file1", 1, 100.0, "SEQ", "SEQ");
-            var b = new SpectralMatch("file2", 1, 100.0, "SEQ", "SEQ");
+            var a = new SpectralMatchWithSequenceCoverage("file1", 1, 100.0, "SEQ", "SEQ");
+            var b = new SpectralMatchWithSequenceCoverage("file2", 1, 100.0, "SEQ", "SEQ");
 
             Assert.That(a.Equals(b), Is.False);
         }
@@ -641,8 +641,8 @@ namespace Test.Omics
         [Test]
         public void Equals_DifferentScanNumber_ReturnsFalse()
         {
-            var a = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            var b = new SpectralMatch("file", 2, 100.0, "SEQ", "SEQ");
+            var a = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ");
+            var b = new SpectralMatchWithSequenceCoverage("file", 2, 100.0, "SEQ", "SEQ");
 
             Assert.That(a.Equals(b), Is.False);
         }
@@ -650,8 +650,8 @@ namespace Test.Omics
         [Test]
         public void Equals_DifferentFullSequence_ReturnsFalse()
         {
-            var a = new SpectralMatch("file", 1, 100.0, "SEQ1", "SEQ");
-            var b = new SpectralMatch("file", 1, 100.0, "SEQ2", "SEQ");
+            var a = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ1", "SEQ");
+            var b = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ2", "SEQ");
 
             Assert.That(a.Equals(b), Is.False);
         }
@@ -660,8 +660,8 @@ namespace Test.Omics
         public void Equals_DifferentScore_StillReturnsTrue()
         {
             // Score is not part of equality
-            var a = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            var b = new SpectralMatch("file", 1, 50.0, "SEQ", "SEQ");
+            var a = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ");
+            var b = new SpectralMatchWithSequenceCoverage("file", 1, 50.0, "SEQ", "SEQ");
 
             Assert.That(a.Equals(b), Is.True);
         }
@@ -669,7 +669,7 @@ namespace Test.Omics
         [Test]
         public void Equals_Null_ReturnsFalse()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "SEQ", "SEQ");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "SEQ", "SEQ");
 
             Assert.That(match.Equals(null), Is.False);
         }
@@ -677,7 +677,7 @@ namespace Test.Omics
         [Test]
         public void Equals_SameReference_ReturnsTrue()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "SEQ", "SEQ");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "SEQ", "SEQ");
 
             Assert.That(match.Equals(match), Is.True);
         }
@@ -685,8 +685,8 @@ namespace Test.Omics
         [Test]
         public void Equals_Object_WorksCorrectly()
         {
-            var a = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            var b = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
+            var a = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ");
+            var b = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ");
             object boxed = b;
 
             Assert.That(a.Equals(boxed), Is.True);
@@ -695,7 +695,7 @@ namespace Test.Omics
         [Test]
         public void Equals_NonSpectralMatchObject_ReturnsFalse()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "SEQ", "SEQ");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "SEQ", "SEQ");
 
             Assert.That(match.Equals("not a spectral match"), Is.False);
             Assert.That(match.Equals(42), Is.False);
@@ -708,8 +708,8 @@ namespace Test.Omics
         [Test]
         public void GetHashCode_EqualObjects_ProduceSameHash()
         {
-            var a = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            var b = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
+            var a = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ");
+            var b = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ");
 
             Assert.That(a.GetHashCode(), Is.EqualTo(b.GetHashCode()));
         }
@@ -717,8 +717,8 @@ namespace Test.Omics
         [Test]
         public void GetHashCode_DifferentFilePath_ProducesDifferentHash()
         {
-            var a = new SpectralMatch("file1", 1, 100.0, "SEQ", "SEQ");
-            var b = new SpectralMatch("file2", 1, 100.0, "SEQ", "SEQ");
+            var a = new SpectralMatchWithSequenceCoverage("file1", 1, 100.0, "SEQ", "SEQ");
+            var b = new SpectralMatchWithSequenceCoverage("file2", 1, 100.0, "SEQ", "SEQ");
 
             Assert.That(a.GetHashCode(), Is.Not.EqualTo(b.GetHashCode()));
         }
@@ -726,8 +726,8 @@ namespace Test.Omics
         [Test]
         public void GetHashCode_DifferentScanNumber_ProducesDifferentHash()
         {
-            var a = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            var b = new SpectralMatch("file", 2, 100.0, "SEQ", "SEQ");
+            var a = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ");
+            var b = new SpectralMatchWithSequenceCoverage("file", 2, 100.0, "SEQ", "SEQ");
 
             Assert.That(a.GetHashCode(), Is.Not.EqualTo(b.GetHashCode()));
         }
@@ -735,8 +735,8 @@ namespace Test.Omics
         [Test]
         public void GetHashCode_DifferentFullSequence_ProducesDifferentHash()
         {
-            var a = new SpectralMatch("file", 1, 100.0, "SEQ1", "SEQ");
-            var b = new SpectralMatch("file", 1, 100.0, "SEQ2", "SEQ");
+            var a = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ1", "SEQ");
+            var b = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ2", "SEQ");
 
             Assert.That(a.GetHashCode(), Is.Not.EqualTo(b.GetHashCode()));
         }
@@ -744,7 +744,7 @@ namespace Test.Omics
         [Test]
         public void GetHashCode_ConsistentAcrossCalls()
         {
-            var match = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ");
 
             var hash1 = match.GetHashCode();
             var hash2 = match.GetHashCode();
@@ -759,8 +759,8 @@ namespace Test.Omics
         [Test]
         public void EqualityOperator_EqualObjects_ReturnsTrue()
         {
-            var a = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            var b = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
+            var a = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ");
+            var b = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ");
 
             Assert.That(a == b, Is.True);
         }
@@ -768,8 +768,8 @@ namespace Test.Omics
         [Test]
         public void EqualityOperator_DifferentObjects_ReturnsFalse()
         {
-            var a = new SpectralMatch("file1", 1, 100.0, "SEQ", "SEQ");
-            var b = new SpectralMatch("file2", 1, 100.0, "SEQ", "SEQ");
+            var a = new SpectralMatchWithSequenceCoverage("file1", 1, 100.0, "SEQ", "SEQ");
+            var b = new SpectralMatchWithSequenceCoverage("file2", 1, 100.0, "SEQ", "SEQ");
 
             Assert.That(a == b, Is.False);
         }
@@ -777,8 +777,8 @@ namespace Test.Omics
         [Test]
         public void EqualityOperator_BothNull_ReturnsTrue()
         {
-            SpectralMatch? a = null;
-            SpectralMatch? b = null;
+            SpectralMatchWithSequenceCoverage? a = null;
+            SpectralMatchWithSequenceCoverage? b = null;
 
             Assert.That(a == b, Is.True);
         }
@@ -786,8 +786,8 @@ namespace Test.Omics
         [Test]
         public void EqualityOperator_OneNull_ReturnsFalse()
         {
-            var a = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            SpectralMatch? b = null;
+            var a = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ");
+            SpectralMatchWithSequenceCoverage? b = null;
 
             Assert.That(a == b, Is.False);
             Assert.That(b == a, Is.False);
@@ -796,8 +796,8 @@ namespace Test.Omics
         [Test]
         public void InequalityOperator_DifferentObjects_ReturnsTrue()
         {
-            var a = new SpectralMatch("file1", 1, 100.0, "SEQ", "SEQ");
-            var b = new SpectralMatch("file2", 1, 100.0, "SEQ", "SEQ");
+            var a = new SpectralMatchWithSequenceCoverage("file1", 1, 100.0, "SEQ", "SEQ");
+            var b = new SpectralMatchWithSequenceCoverage("file2", 1, 100.0, "SEQ", "SEQ");
 
             Assert.That(a != b, Is.True);
         }
@@ -805,8 +805,8 @@ namespace Test.Omics
         [Test]
         public void InequalityOperator_EqualObjects_ReturnsFalse()
         {
-            var a = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            var b = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
+            var a = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ");
+            var b = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ");
 
             Assert.That(a != b, Is.False);
         }
@@ -818,7 +818,7 @@ namespace Test.Omics
         [Test]
         public void ToString_ReturnsFormattedString()
         {
-            var match = new SpectralMatch("file", 42, 123.456, "PEP[Mod]TIDE", "PEPTIDE");
+            var match = new SpectralMatchWithSequenceCoverage("file", 42, 123.456, "PEP[Mod]TIDE", "PEPTIDE");
 
             var result = match.ToString();
 
@@ -830,7 +830,7 @@ namespace Test.Omics
         [Test]
         public void ToString_Format_MatchesExpected()
         {
-            var match = new SpectralMatch("file", 1, 100.00, "SEQ", "SEQ");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 100.00, "SEQ", "SEQ");
 
             var result = match.ToString();
 
@@ -844,7 +844,7 @@ namespace Test.Omics
         [Test]
         public void FragmentCoveragePositionInPeptide_InitiallyNull()
         {
-            var match = new SpectralMatch("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
+            var match = new SpectralMatchWithSequenceCoverage("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
 
             Assert.That(match.FragmentCoveragePositionInPeptide, Is.Null);
         }
@@ -857,7 +857,7 @@ namespace Test.Omics
         public void FullWorkflow_CreateAddCoverageCompare()
         {
             // Create match
-            var match = new SpectralMatch("test.mzML", 100, 85.5, "PEP[Phospho]TIDE", "PEPTIDE");
+            var match = new SpectralMatchWithSequenceCoverage("test.mzML", 100, 85.5, "PEP[Phospho]TIDE", "PEPTIDE");
 
             // Add biopolymers
             match.AddIdentifiedBioPolymer(new TestBioPolymerWithSetMods("PEPTIDE", "PEP[Phospho]TIDE", 800.0));
@@ -878,11 +878,11 @@ namespace Test.Omics
         [Test]
         public void HashSetBehavior_WorksCorrectly()
         {
-            var match1 = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            var match2 = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ"); // Equal to match1
-            var match3 = new SpectralMatch("file", 2, 100.0, "SEQ", "SEQ"); // Different scan
+            var match1 = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ");
+            var match2 = new SpectralMatchWithSequenceCoverage("file", 1, 100.0, "SEQ", "SEQ"); // Equal to match1
+            var match3 = new SpectralMatchWithSequenceCoverage("file", 2, 100.0, "SEQ", "SEQ"); // Different scan
 
-            var hashSet = new HashSet<SpectralMatch> { match1, match2, match3 };
+            var hashSet = new HashSet<SpectralMatchWithSequenceCoverage> { match1, match2, match3 };
 
             Assert.That(hashSet.Count, Is.EqualTo(2)); // match1 and match2 are equal
             Assert.That(hashSet.Contains(match1), Is.True);
@@ -893,11 +893,11 @@ namespace Test.Omics
         [Test]
         public void SortingBehavior_OrdersByScoreDescending()
         {
-            var matches = new List<SpectralMatch>
+            var matches = new List<SpectralMatchWithSequenceCoverage>
             {
-                new SpectralMatch("file", 1, 50.0, "SEQ", "SEQ"),
-                new SpectralMatch("file", 2, 100.0, "SEQ", "SEQ"),
-                new SpectralMatch("file", 3, 75.0, "SEQ", "SEQ")
+                new SpectralMatchWithSequenceCoverage("file", 1, 50.0, "SEQ", "SEQ"),
+                new SpectralMatchWithSequenceCoverage("file", 2, 100.0, "SEQ", "SEQ"),
+                new SpectralMatchWithSequenceCoverage("file", 3, 75.0, "SEQ", "SEQ")
             };
 
             matches.Sort();
