@@ -558,17 +558,268 @@ namespace Omics.BioPolymerGroup
 			return subsetGroup;
 		}
 
-		#endregion
+        /// <summary>
+        /// Calculates sequence coverage for all biopolymers in this group.
+        /// Populates SequenceCoverageFraction, SequenceCoverageDisplayList, 
+        /// SequenceCoverageDisplayListWithMods, FragmentSequenceCoverageDisplayList, and ModsInfo.
+        /// Coverage is calculated at both peptide-level (all residues in identified peptides) 
+        /// and fragment-level (residues covered by fragment ions).
+        /// </summary>
+        public void CalculateSequenceCoverage()
+        {
+            // Maps biopolymers to their identified sequences with unambiguous base sequences
+            var bioPolymersWithUnambiguousSequences = new Dictionary<IBioPolymer, List<IBioPolymerWithSetMods>>();
+            // Maps biopolymers to sequences with successfully localized modifications
+            var bioPolymersWithLocalizedMods = new Dictionary<IBioPolymer, List<IBioPolymerWithSetMods>>();
 
-		#region Equality
+            foreach (var bioPolymer in BioPolymers)
+            {
+                bioPolymersWithUnambiguousSequences.Add(bioPolymer, new List<IBioPolymerWithSetMods>());
+                bioPolymersWithLocalizedMods.Add(bioPolymer, new List<IBioPolymerWithSetMods>());
+            }
 
-		/// <summary>
-		/// Determines whether this biopolymer group equals another based on group name.
-		/// Two groups are considered equal if they have the same BioPolymerGroupName.
-		/// </summary>
-		/// <param name="other">The other biopolymer group to compare.</param>
-		/// <returns>True if the groups have the same name; otherwise, false.</returns>
-		public bool Equals(IBioPolymerGroup? other)
+            // Collect sequences from PSMs with unambiguous identifications
+            foreach (var psm in AllPsmsBelowOnePercentFDR)
+            {
+                // null BaseSequence means the sequence is ambiguous; skip these
+                if (psm.BaseSequence == null)
+                    continue;
+
+                // Request amino acid coverage calculation from the PSM
+                psm.GetAminoAcidCoverage();
+
+                foreach (var sequence in psm.GetIdentifiedBioPolymersWithSetMods().DistinctBy(p => p.FullSequence))
+                {
+                    // Ensure this biopolymer belongs to this group
+                    if (!BioPolymers.Contains(sequence.Parent))
+                        continue;
+
+                    bioPolymersWithUnambiguousSequences[sequence.Parent].Add(sequence);
+
+                    // null FullSequence means mods were not localized; don't include in mods display
+                    if (sequence.FullSequence != null)
+                    {
+                        bioPolymersWithLocalizedMods[sequence.Parent].Add(sequence);
+                    }
+                }
+            }
+
+            // Calculate fragment-level sequence coverage (amino acid level based on fragment ions)
+            foreach (var bioPolymer in ListOfBioPolymersOrderedByAccession)
+            {
+                var coveredResiduesOneBased = new HashSet<int>();
+
+                foreach (var psm in AllPsmsBelowOnePercentFDR.Where(p => p.BaseSequence != null))
+                {
+                    psm.GetAminoAcidCoverage();
+
+                    if (psm.FragmentCoveragePositionInPeptide == null)
+                        continue;
+
+                    // Get sequences from this PSM that belong to this biopolymer
+                    var sequencesForThisBioPolymer = psm.GetIdentifiedBioPolymersWithSetMods()
+                        .Where(p => p.Parent.Accession == bioPolymer.Accession);
+
+                    foreach (var sequence in sequencesForThisBioPolymer)
+                    {
+                        // Convert peptide positions to protein positions
+                        foreach (var position in psm.FragmentCoveragePositionInPeptide)
+                        {
+                            // Both are one-based, so subtract 1 to convert correctly
+                            int proteinPosition = position + sequence.OneBasedStartResidue - 1;
+                            coveredResiduesOneBased.Add(proteinPosition);
+                        }
+                    }
+                }
+
+                // Build display string: uppercase = covered, lowercase = not covered
+                char[] fragmentCoverageArray = bioPolymer.BaseSequence.ToLower().ToCharArray();
+                foreach (var residue in coveredResiduesOneBased)
+                {
+                    if (residue >= 1 && residue <= fragmentCoverageArray.Length)
+                    {
+                        fragmentCoverageArray[residue - 1] = char.ToUpper(fragmentCoverageArray[residue - 1]);
+                    }
+                }
+
+                FragmentSequenceCoverageDisplayList.Add(new string(fragmentCoverageArray));
+            }
+
+            // Calculate peptide-level sequence coverage (all residues in identified peptides are covered)
+            foreach (var bioPolymer in ListOfBioPolymersOrderedByAccession)
+            {
+                var coveredResiduesOneBased = new HashSet<int>();
+
+                // Mark all residues within each identified peptide as covered
+                foreach (var sequence in bioPolymersWithUnambiguousSequences[bioPolymer])
+                {
+                    for (int i = sequence.OneBasedStartResidue; i <= sequence.OneBasedEndResidue; i++)
+                    {
+                        coveredResiduesOneBased.Add(i);
+                    }
+                }
+
+                // Calculate coverage fraction
+                double coverageFraction = (double)coveredResiduesOneBased.Count / bioPolymer.Length;
+                SequenceCoverageFraction.Add(coverageFraction);
+
+                // Build display string: uppercase = covered, lowercase = not covered
+                char[] coverageArray = bioPolymer.BaseSequence.ToLower().ToCharArray();
+                foreach (var residueLocation in coveredResiduesOneBased)
+                {
+                    if (residueLocation >= 1 && residueLocation <= coverageArray.Length)
+                    {
+                        coverageArray[residueLocation - 1] = char.ToUpper(coverageArray[residueLocation - 1]);
+                    }
+                }
+
+                string sequenceCoverageDisplay = new string(coverageArray);
+                SequenceCoverageDisplayList.Add(sequenceCoverageDisplay);
+
+                // Build coverage display with modifications
+                var modsOnThisBioPolymer = new HashSet<KeyValuePair<int, Modification>>();
+
+                foreach (var sequence in bioPolymersWithLocalizedMods[bioPolymer])
+                {
+                    foreach (var mod in sequence.AllModsOneIsNterminus)
+                    {
+                        // Skip peptide terminal mods and common variable/fixed mods
+                        if (mod.Value.ModificationType.Contains("PeptideTermMod") ||
+                            mod.Value.ModificationType.Contains("Common Variable") ||
+                            mod.Value.ModificationType.Contains("Common Fixed"))
+                        {
+                            continue;
+                        }
+
+                        int proteinPosition = sequence.OneBasedStartResidue + mod.Key - 2;
+                        modsOnThisBioPolymer.Add(new KeyValuePair<int, Modification>(proteinPosition, mod.Value));
+                    }
+                }
+
+                // Insert modification annotations into sequence coverage display
+                string sequenceCoverageWithMods = sequenceCoverageDisplay;
+                var orderedMods = modsOnThisBioPolymer.OrderBy(p => p.Key).ToList();
+
+                foreach (var mod in orderedMods)
+                {
+                    if (mod.Value.LocationRestriction.Equals("N-terminal."))
+                    {
+                        sequenceCoverageWithMods = $"[{mod.Value.IdWithMotif}]-" + sequenceCoverageWithMods;
+                    }
+                    else if (mod.Value.LocationRestriction.Equals("Anywhere."))
+                    {
+                        int insertIndex = sequenceCoverageWithMods.Length - (bioPolymer.Length - mod.Key);
+                        if (insertIndex >= 0 && insertIndex <= sequenceCoverageWithMods.Length)
+                        {
+                            sequenceCoverageWithMods = sequenceCoverageWithMods.Insert(insertIndex, $"[{mod.Value.IdWithMotif}]");
+                        }
+                    }
+                    else if (mod.Value.LocationRestriction.Equals("C-terminal."))
+                    {
+                        sequenceCoverageWithMods = sequenceCoverageWithMods + $"-[{mod.Value.IdWithMotif}]";
+                    }
+                }
+
+                SequenceCoverageDisplayListWithMods.Add(sequenceCoverageWithMods);
+
+                // Calculate modification occupancy statistics
+                if (!modsOnThisBioPolymer.Any())
+                    continue;
+
+                var modCounts = new List<int>();      // Count of modified peptides at each position
+                var totalCounts = new List<int>();    // Count of all peptides covering each position
+                var modPositions = new List<(int index, string modName)>();
+
+                foreach (var sequence in bioPolymersWithLocalizedMods[bioPolymer])
+                {
+                    foreach (var mod in sequence.AllModsOneIsNterminus)
+                    {
+                        if (mod.Value.ModificationType.Contains("Common Variable") ||
+                            mod.Value.ModificationType.Contains("Common Fixed") ||
+                            mod.Value.LocationRestriction.Equals("NPep") ||
+                            mod.Value.LocationRestriction.Equals("PepC"))
+                        {
+                            continue;
+                        }
+
+                        int indexInProtein;
+                        if (mod.Value.LocationRestriction.Equals("N-terminal."))
+                        {
+                            indexInProtein = 1;
+                        }
+                        else if (mod.Value.LocationRestriction.Equals("Anywhere."))
+                        {
+                            indexInProtein = sequence.OneBasedStartResidue + mod.Key - 2;
+                        }
+                        else if (mod.Value.LocationRestriction.Equals("C-terminal."))
+                        {
+                            indexInProtein = bioPolymer.Length;
+                        }
+                        else
+                        {
+                            // Skip peptide terminal mods
+                            continue;
+                        }
+
+                        var modKey = (indexInProtein, mod.Value.IdWithMotif);
+
+                        if (modPositions.Contains(modKey))
+                        {
+                            modCounts[modPositions.IndexOf(modKey)]++;
+                        }
+                        else
+                        {
+                            modPositions.Add(modKey);
+
+                            // Count total peptides covering this position
+                            int peptidesAtPosition = 0;
+                            foreach (var seq in bioPolymersWithLocalizedMods[bioPolymer])
+                            {
+                                int rangeStart = seq.OneBasedStartResidue - (indexInProtein == 1 ? 1 : 0);
+                                if (indexInProtein >= rangeStart && indexInProtein <= seq.OneBasedEndResidue)
+                                {
+                                    peptidesAtPosition++;
+                                }
+                            }
+
+                            totalCounts.Add(peptidesAtPosition);
+                            modCounts.Add(1);
+                        }
+                    }
+                }
+
+                // Build modification info string
+                var modStrings = new List<(int position, string info)>();
+                for (int i = 0; i < modCounts.Count; i++)
+                {
+                    string position = modPositions[i].index.ToString();
+                    string modName = modPositions[i].modName;
+                    string occupancy = ((double)modCounts[i] / totalCounts[i]).ToString("F2");
+                    string fractionalOccupancy = $"{modCounts[i]}/{totalCounts[i]}";
+                    string modString = $"#aa{position}[{modName},info:occupancy={occupancy}({fractionalOccupancy})]";
+                    modStrings.Add((modPositions[i].index, modString));
+                }
+
+                string modInfoString = string.Join(";", modStrings.OrderBy(x => x.position).Select(x => x.info));
+
+                if (!string.IsNullOrEmpty(modInfoString))
+                {
+                    ModsInfo.Add(modInfoString);
+                }
+            }
+        }
+
+        #endregion
+
+        #region Equality
+
+        /// <summary>
+        /// Determines whether this biopolymer group equals another based on group name.
+        /// Two groups are considered equal if they have the same BioPolymerGroupName.
+        /// </summary>
+        /// <param name="other">The other biopolymer group to compare.</param>
+        /// <returns>True if the groups have the same name; otherwise, false.</returns>
+        public bool Equals(IBioPolymerGroup? other)
 		{
 			if (other is null) return false;
 			if (ReferenceEquals(this, other)) return true;
