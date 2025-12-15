@@ -1,6 +1,4 @@
-﻿
-
-namespace Omics
+﻿namespace Omics
 {
     /// <summary>
     /// Represents a single spectrum-to-sequence identification (PSM) produced by a reader or search engine.
@@ -45,6 +43,13 @@ namespace Omics
         double Score { get; }
 
         /// <summary>
+        /// Positions in the peptide (one-based) that are covered by fragment ions.
+        /// Populated by <see cref="GetAminoAcidCoverage"/> when fragment coverage data is available.
+        /// May be null if coverage has not been calculated or is not available.
+        /// </summary>
+        HashSet<int>? FragmentCoveragePositionInPeptide { get; }
+
+        /// <summary>
         /// Returns the set (zero or more) of identified biopolymer objects (for example peptides or proteoforms
         /// with localized set modifications) associated with this spectral match. Implementations should return
         /// a stable enumeration (do not mutate the underlying collection while callers iterate) and document
@@ -52,5 +57,13 @@ namespace Omics
         /// </summary>
         /// <returns>An enumerable of identified <see cref="IBioPolymerWithSetMods"/> instances; may be empty but not null.</returns>
         IEnumerable<IBioPolymerWithSetMods> GetIdentifiedBioPolymersWithSetMods();
+
+        /// <summary>
+        /// Calculates amino acid coverage from fragment ions for this spectral match.
+        /// Populates <see cref="FragmentCoveragePositionInPeptide"/> with one-based positions
+        /// of amino acids that are covered by matched fragment ions.
+        /// Implementations without fragment ion data may leave the property null or empty.
+        /// </summary>
+        void GetAminoAcidCoverage();
     }
 }

@@ -64,6 +64,18 @@
         /// </summary>
         public HashSet<int>? FragmentCoveragePositionInPeptide { get; protected set; }
 
+        /// <summary>
+        /// N-terminal (or 5' for nucleic acids) fragment amino acid positions (one-based).
+        /// Derived classes should populate this before calling <see cref="GetAminoAcidCoverage"/>.
+        /// </summary>
+        protected List<int>? NTerminalFragmentPositions { get; set; }
+
+        /// <summary>
+        /// C-terminal (or 3' for nucleic acids) fragment amino acid positions (one-based).
+        /// Derived classes should populate this before calling <see cref="GetAminoAcidCoverage"/>.
+        /// </summary>
+        protected List<int>? CTerminalFragmentPositions { get; set; }
+
         private readonly List<IBioPolymerWithSetMods> _identifiedBioPolymers;
 
         /// <summary>
@@ -77,14 +89,111 @@
 
         /// <summary>
         /// Calculates amino acid coverage from fragment ions for this spectral match.
-        /// Derived classes can override this to provide actual fragment coverage calculation.
-        /// The base implementation does nothing; override in derived classes that have access to fragment data.
+        /// Populates <see cref="FragmentCoveragePositionInPeptide"/> with one-based positions
+        /// of amino acids that are covered by matched fragment ions.
+        /// 
+        /// Derived classes should populate <see cref="NTerminalFragmentPositions"/> and 
+        /// <see cref="CTerminalFragmentPositions"/> before calling this method, or override
+        /// this method entirely to provide custom coverage calculation.
         /// </summary>
         public virtual void GetAminoAcidCoverage()
         {
-            // Base implementation does nothing.
-            // Derived classes with access to fragment ion data should override this
-            // to populate FragmentCoveragePositionInPeptide.
+            if (string.IsNullOrEmpty(BaseSequence))
+            {
+                return;
+            }
+
+            var nTermPositions = NTerminalFragmentPositions ?? new List<int>();
+            var cTermPositions = CTerminalFragmentPositions ?? new List<int>();
+
+            if (!nTermPositions.Any() && !cTermPositions.Any())
+            {
+                return;
+            }
+
+            var fragmentCoveredAminoAcids = new HashSet<int>();
+
+            // Process N-terminal fragments (or 5' for nucleic acids)
+            if (nTermPositions.Any())
+            {
+                var sortedNTerm = nTermPositions.OrderBy(x => x).ToList();
+
+                // If the final N-terminal fragment is present, last AA is covered
+                if (sortedNTerm.Contains(BaseSequence.Length - 1))
+                {
+                    fragmentCoveredAminoAcids.Add(BaseSequence.Length);
+                }
+
+                // If the first N-terminal fragment is present, first AA is covered
+                if (sortedNTerm.Contains(1))
+                {
+                    fragmentCoveredAminoAcids.Add(1);
+                }
+
+                // Check all amino acids except for the last one in the list
+                for (int i = 0; i < sortedNTerm.Count - 1; i++)
+                {
+                    // Sequential AA positions mean the second one is covered
+                    if (sortedNTerm[i + 1] - sortedNTerm[i] == 1)
+                    {
+                        fragmentCoveredAminoAcids.Add(sortedNTerm[i + 1]);
+                    }
+
+                    // Check if position is covered from both directions (inclusive)
+                    if (cTermPositions.Contains(sortedNTerm[i + 1]))
+                    {
+                        fragmentCoveredAminoAcids.Add(sortedNTerm[i + 1]);
+                    }
+
+                    // Check if position is covered from both directions (exclusive)
+                    if (cTermPositions.Contains(sortedNTerm[i + 1] + 2))
+                    {
+                        fragmentCoveredAminoAcids.Add(sortedNTerm[i + 1] + 1);
+                    }
+                }
+            }
+
+            // Process C-terminal fragments (or 3' for nucleic acids)
+            if (cTermPositions.Any())
+            {
+                var sortedCTerm = cTermPositions.OrderBy(x => x).ToList();
+
+                // If the second AA position is present, first AA is covered
+                if (sortedCTerm.Contains(2))
+                {
+                    fragmentCoveredAminoAcids.Add(1);
+                }
+
+                // If the last AA position is present, final AA is covered
+                if (sortedCTerm.Contains(BaseSequence.Length))
+                {
+                    fragmentCoveredAminoAcids.Add(BaseSequence.Length);
+                }
+
+                // Check all amino acids except for the last one in the list
+                for (int i = 0; i < sortedCTerm.Count - 1; i++)
+                {
+                    // Sequential AA positions mean the first one is covered
+                    if (sortedCTerm[i + 1] - sortedCTerm[i] == 1)
+                    {
+                        fragmentCoveredAminoAcids.Add(sortedCTerm[i]);
+                    }
+                }
+            }
+
+            FragmentCoveragePositionInPeptide = fragmentCoveredAminoAcids;
+        }
+
+        /// <summary>
+        /// Sets the fragment positions for coverage calculation.
+        /// Call this method before <see cref="GetAminoAcidCoverage"/> to provide fragment data.
+        /// </summary>
+        /// <param name="nTerminalPositions">One-based positions of N-terminal (or 5') fragments.</param>
+        /// <param name="cTerminalPositions">One-based positions of C-terminal (or 3') fragments.</param>
+        public void SetFragmentPositions(IEnumerable<int>? nTerminalPositions, IEnumerable<int>? cTerminalPositions)
+        {
+            NTerminalFragmentPositions = nTerminalPositions?.ToList();
+            CTerminalFragmentPositions = cTerminalPositions?.ToList();
         }
 
         /// <summary>
@@ -115,24 +224,16 @@
         /// Compares this spectral match to another for ordering purposes.
         /// Comparison is by Score (descending), then by FullFilePath, then by OneBasedScanNumber.
         /// </summary>
-        /// <param name="other">The other spectral match to compare to.</param>
-        /// <returns>
-        /// A negative value if this instance precedes <paramref name="other"/>;
-        /// zero if they are equal; a positive value if this instance follows <paramref name="other"/>.
-        /// </returns>
         public int CompareTo(ISpectralMatch? other)
         {
             if (other is null) return -1;
 
-            // Higher score comes first (descending order)
             int scoreComparison = other.Score.CompareTo(Score);
             if (scoreComparison != 0) return scoreComparison;
 
-            // Then by file path (ascending)
             int fileComparison = string.Compare(FullFilePath, other.FullFilePath, StringComparison.Ordinal);
             if (fileComparison != 0) return fileComparison;
 
-            // Then by scan number (ascending)
             return OneBasedScanNumber.CompareTo(other.OneBasedScanNumber);
         }
 
@@ -140,8 +241,6 @@
         /// Determines whether this spectral match equals another.
         /// Two matches are equal if they have the same FullFilePath, OneBasedScanNumber, and FullSequence.
         /// </summary>
-        /// <param name="other">The other spectral match to compare.</param>
-        /// <returns>True if the matches are equal; otherwise false.</returns>
         public bool Equals(SpectralMatch? other)
         {
             if (other is null) return false;
@@ -152,47 +251,28 @@
                 && string.Equals(FullSequence, other.FullSequence, StringComparison.Ordinal);
         }
 
-        /// <summary>
-        /// Determines whether this spectral match equals another object.
-        /// </summary>
-        /// <param name="obj">The object to compare.</param>
-        /// <returns>True if the objects are equal; otherwise false.</returns>
         public override bool Equals(object? obj)
         {
             if (obj is SpectralMatch sm) return Equals(sm);
             return false;
         }
 
-        /// <summary>
-        /// Returns a hash code based on FullFilePath, OneBasedScanNumber, and FullSequence.
-        /// </summary>
-        /// <returns>A hash code for this instance.</returns>
         public override int GetHashCode()
         {
             return HashCode.Combine(FullFilePath, OneBasedScanNumber, FullSequence);
         }
 
-        /// <summary>
-        /// Returns a string representation of this spectral match.
-        /// </summary>
-        /// <returns>A string in the format "Scan {ScanNumber}: {FullSequence} (Score: {Score})".</returns>
         public override string ToString()
         {
             return $"Scan {OneBasedScanNumber}: {FullSequence} (Score: {Score:F2})";
         }
 
-        /// <summary>
-        /// Determines whether two spectral matches are equal.
-        /// </summary>
         public static bool operator ==(SpectralMatch? left, SpectralMatch? right)
         {
             if (left is null) return right is null;
             return left.Equals(right);
         }
 
-        /// <summary>
-        /// Determines whether two spectral matches are not equal.
-        /// </summary>
         public static bool operator !=(SpectralMatch? left, SpectralMatch? right)
         {
             return !(left == right);
