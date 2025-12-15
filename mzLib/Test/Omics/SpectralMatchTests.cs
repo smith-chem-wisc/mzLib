@@ -108,6 +108,16 @@ namespace Test.Omics
             }
         }
 
+        /// <summary>
+        /// Non-SpectralMatch implementation of IHasSequenceCoverageFromFragments for testing interface comparison.
+        /// </summary>
+        private class NonSpectralMatchCoverageProvider : IHasSequenceCoverageFromFragments
+        {
+            public void GetSequenceCoverage() { }
+
+            public int CompareTo(IHasSequenceCoverageFromFragments? other) => 0;
+        }
+
         #endregion
 
         #region Constructor Tests
@@ -470,55 +480,138 @@ namespace Test.Omics
 
         #endregion
 
-        #region CompareTo Tests
+        #region CompareTo ISpectralMatch Tests
 
         [Test]
-        public void CompareTo_HigherScore_ReturnsNegative()
+        public void CompareTo_ISpectralMatch_HigherScore_ReturnsNegative()
         {
             var higher = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
             var lower = new SpectralMatch("file", 1, 50.0, "SEQ", "SEQ");
 
             // Higher score should come first (descending), so higher.CompareTo(lower) < 0
-            Assert.That(higher.CompareTo(lower), Is.LessThan(0));
-            Assert.That(lower.CompareTo(higher), Is.GreaterThan(0));
+            Assert.That(higher.CompareTo((ISpectralMatch)lower), Is.LessThan(0));
+            Assert.That(lower.CompareTo((ISpectralMatch)higher), Is.GreaterThan(0));
         }
 
         [Test]
-        public void CompareTo_EqualScore_ComparesFilePath()
+        public void CompareTo_ISpectralMatch_EqualScore_ComparesFilePath()
         {
             var a = new SpectralMatch("a_file", 1, 100.0, "SEQ", "SEQ");
             var b = new SpectralMatch("b_file", 1, 100.0, "SEQ", "SEQ");
 
-            Assert.That(a.CompareTo(b), Is.LessThan(0));
-            Assert.That(b.CompareTo(a), Is.GreaterThan(0));
+            Assert.That(a.CompareTo((ISpectralMatch)b), Is.LessThan(0));
+            Assert.That(b.CompareTo((ISpectralMatch)a), Is.GreaterThan(0));
         }
 
         [Test]
-        public void CompareTo_EqualScoreAndPath_ComparesScanNumber()
+        public void CompareTo_ISpectralMatch_EqualScoreAndPath_ComparesScanNumber()
         {
             var scan5 = new SpectralMatch("file", 5, 100.0, "SEQ", "SEQ");
             var scan10 = new SpectralMatch("file", 10, 100.0, "SEQ", "SEQ");
 
-            Assert.That(scan5.CompareTo(scan10), Is.LessThan(0));
-            Assert.That(scan10.CompareTo(scan5), Is.GreaterThan(0));
+            Assert.That(scan5.CompareTo((ISpectralMatch)scan10), Is.LessThan(0));
+            Assert.That(scan10.CompareTo((ISpectralMatch)scan5), Is.GreaterThan(0));
         }
 
         [Test]
-        public void CompareTo_Null_ReturnsNegative()
+        public void CompareTo_ISpectralMatch_Null_ReturnsNegative()
         {
             var match = new SpectralMatch("file", 1, 10.0, "SEQ", "SEQ");
 
-            Assert.That(match.CompareTo(null), Is.LessThan(0));
+            Assert.That(match.CompareTo((ISpectralMatch?)null), Is.LessThan(0));
         }
 
         [Test]
-        public void CompareTo_EqualMatches_ReturnsZero()
+        public void CompareTo_ISpectralMatch_EqualMatches_ReturnsZero()
         {
             var a = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
             var b = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
 
-            Assert.That(a.CompareTo(b), Is.EqualTo(0));
+            Assert.That(a.CompareTo((ISpectralMatch)b), Is.EqualTo(0));
         }
+
+        #endregion
+
+        #region CompareTo IHasSequenceCoverageFromFragments Tests
+
+        [Test]
+        public void CompareTo_IHasSequenceCoverageFromFragments_WithSpectralMatch_DelegatesToISpectralMatch()
+        {
+            var higher = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
+            var lower = new SpectralMatch("file", 1, 50.0, "SEQ", "SEQ");
+
+            // When comparing SpectralMatch objects via the interface, should use ISpectralMatch comparison
+            Assert.That(higher.CompareTo((IHasSequenceCoverageFromFragments)lower), Is.LessThan(0));
+            Assert.That(lower.CompareTo((IHasSequenceCoverageFromFragments)higher), Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void CompareTo_IHasSequenceCoverageFromFragments_Null_ReturnsNegative()
+        {
+            var match = new SpectralMatch("file", 1, 10.0, "SEQ", "SEQ");
+
+            Assert.That(match.CompareTo((IHasSequenceCoverageFromFragments?)null), Is.LessThan(0));
+        }
+
+        [Test]
+        public void CompareTo_IHasSequenceCoverageFromFragments_NonSpectralMatch_ReturnsZero()
+        {
+            var match = new SpectralMatch("file", 1, 10.0, "SEQ", "SEQ");
+            var nonSpectralMatch = new NonSpectralMatchCoverageProvider();
+
+            // When comparing with a non-ISpectralMatch implementation, should return 0
+            Assert.That(match.CompareTo(nonSpectralMatch), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void CompareTo_IHasSequenceCoverageFromFragments_EqualSpectralMatches_ReturnsZero()
+        {
+            var a = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
+            var b = new SpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
+
+            Assert.That(a.CompareTo((IHasSequenceCoverageFromFragments)b), Is.EqualTo(0));
+        }
+
+        #endregion
+
+        #region IHasSequenceCoverageFromFragments Interface Tests
+
+        [Test]
+        public void SpectralMatch_ImplementsIHasSequenceCoverageFromFragments()
+        {
+            var match = new SpectralMatch("file", 1, 10.0, "SEQ", "SEQ");
+
+            Assert.That(match, Is.InstanceOf<IHasSequenceCoverageFromFragments>());
+        }
+
+        [Test]
+        public void IHasSequenceCoverageFromFragments_GetSequenceCoverage_CanBeCalledViaInterface()
+        {
+            IHasSequenceCoverageFromFragments match = new SpectralMatch("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
+
+            // Should not throw
+            Assert.DoesNotThrow(() => match.GetSequenceCoverage());
+        }
+
+        [Test]
+        public void IHasSequenceCoverageFromFragments_Sorting_WorksCorrectly()
+        {
+            var matches = new List<IHasSequenceCoverageFromFragments>
+                {
+                    new SpectralMatch("file", 1, 50.0, "SEQ", "SEQ"),
+                    new SpectralMatch("file", 2, 100.0, "SEQ", "SEQ"),
+                    new SpectralMatch("file", 3, 75.0, "SEQ", "SEQ")
+                };
+
+            // Sort using the ISpectralMatch comparison since all items are SpectralMatch
+            matches.Sort((x, y) => ((ISpectralMatch)x).CompareTo((ISpectralMatch)y));
+
+            // Higher scores should come first (as SpectralMatch implements descending score order)
+            Assert.That(((SpectralMatch)matches[0]).Score, Is.EqualTo(100.0));
+            Assert.That(((SpectralMatch)matches[1]).Score, Is.EqualTo(75.0));
+            Assert.That(((SpectralMatch)matches[2]).Score, Is.EqualTo(50.0));
+        }
+
 
         #endregion
 

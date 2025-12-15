@@ -171,8 +171,9 @@ namespace Test.Omics
 
         /// <summary>
         /// Test implementation of ISpectralMatch for sequence coverage tests.
+        /// Also implements IHasSequenceCoverageFromFragments to support fragment coverage calculation.
         /// </summary>
-        private class CoverageSpectralMatch : ISpectralMatch
+        private class CoverageSpectralMatch : ISpectralMatch, IHasSequenceCoverageFromFragments
         {
             private readonly List<IBioPolymerWithSetMods> _identified;
 
@@ -265,8 +266,16 @@ namespace Test.Omics
                 if (scoreCmp != 0) return scoreCmp;
                 return OneBasedScanNumber.CompareTo(other.OneBasedScanNumber);
             }
-        }
 
+            public int CompareTo(IHasSequenceCoverageFromFragments? other)
+            {
+                if (other is ISpectralMatch spectralMatch)
+                {
+                    return CompareTo(spectralMatch);
+                }
+                return other is null ? 1 : 0;
+            }
+        }
         #endregion
         #region Basic Functionality Tests
 

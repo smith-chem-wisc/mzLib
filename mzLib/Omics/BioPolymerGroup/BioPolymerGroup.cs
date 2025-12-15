@@ -585,8 +585,11 @@ namespace Omics.BioPolymerGroup
                 if (psm.BaseSequence == null)
                     continue;
 
-                // Request amino acid coverage calculation from the PSM
-                psm.GetSequenceCoverage();
+                // Request amino acid coverage calculation from the PSM if it supports it
+                if (psm is IHasSequenceCoverageFromFragments coverageProvider)
+                {
+                    coverageProvider.GetSequenceCoverage();
+                }
 
                 foreach (var sequence in psm.GetIdentifiedBioPolymersWithSetMods().DistinctBy(p => p.FullSequence))
                 {
@@ -611,7 +614,11 @@ namespace Omics.BioPolymerGroup
 
                 foreach (var psm in AllPsmsBelowOnePercentFDR.Where(p => p.BaseSequence != null))
                 {
-                    psm.GetSequenceCoverage();
+                    // Request amino acid coverage calculation from the PSM if it supports it
+                    if (psm is IHasSequenceCoverageFromFragments coverageProvider)
+                    {
+                        coverageProvider.GetSequenceCoverage();
+                    }
 
                     if (psm.FragmentCoveragePositionInPeptide == null)
                         continue;
