@@ -5,26 +5,40 @@ using System.Text;
 
 namespace Omics.BioPolymerGroup
 {
-	/// <summary>
-	/// Represents a group of related biopolymers (e.g., proteins, RNA sequences) that share identified sequences/fragments.
-	/// Provides quantification, scoring, and output formatting for the group.
-	/// This is a generic implementation of IBioPolymerGroup suitable for any biopolymer type.
-	/// </summary>
-	public class BioPolymerGroup : IBioPolymerGroup
-	{
-		/// <summary>
-		/// Maximum length for string fields in output. Strings longer than this will be truncated.
-		/// Set to 0 or negative to disable truncation.
-		/// </summary>
-		public static int MaxStringLength { get; set; } = 32000;
+    /// <summary>
+    /// Represents a group of related biopolymers (e.g., proteins, RNA sequences) that share 
+    /// identified peptide or oligonucleotide sequences. Groups are formed during protein/gene 
+    /// inference when multiple biopolymers cannot be distinguished based on the identified sequences.
+    /// 
+    /// This class provides:
+    /// <list type="bullet">
+    ///   <item><description>Sequence coverage calculation at both peptide-level and fragment-level</description></item>
+    ///   <item><description>Quantification support for label-free (spectral counting) and isobaric (TMT/iTRAQ) methods</description></item>
+    ///   <item><description>Modification occupancy statistics</description></item>
+    ///   <item><description>FDR calculation support via cumulative target/decoy counting</description></item>
+    ///   <item><description>Tab-separated output formatting for results files</description></item>
+    /// </list>
+    /// 
+    /// Fragment-level coverage is only calculated when PSMs implement <see cref="IHasSequenceCoverageFromFragments"/>.
+    /// </summary>
+    public class BioPolymerGroup : IBioPolymerGroup
+    {
+        /// <summary>
+        /// Maximum length for string fields in output. Strings exceeding this length will be truncated.
+        /// Set to 0 or negative to disable truncation. Default is 32000 characters.
+        /// </summary>
+        public static int MaxStringLength { get; set; } = 32000;
 
-		/// <summary>
-		/// Creates a new biopolymer group from the specified biopolymers and identified sequences.
-		/// </summary>
-		/// <param name="bioPolymers">Set of biopolymers (e.g., proteins, RNA) that belong to this group.</param>
-		/// <param name="bioPolymersWithSetMods">All identified sequences with modifications for this group.</param>
-		/// <param name="uniqueBioPolymersWithSetMods">Sequences with modifications unique to this group (not shared with other groups).</param>
-		public BioPolymerGroup(HashSet<IBioPolymer> bioPolymers, HashSet<IBioPolymerWithSetMods> bioPolymersWithSetMods,
+        /// <summary>
+        /// Creates a new biopolymer group from the specified biopolymers and identified sequences.
+        /// </summary>
+        /// <param name="bioPolymers">Set of biopolymers (e.g., proteins, RNA) that belong to this group.
+        /// These are typically indistinguishable based on the identified sequences.</param>
+        /// <param name="bioPolymersWithSetMods">All identified sequences with modifications for this group,
+        /// including sequences shared with other groups.</param>
+        /// <param name="uniqueBioPolymersWithSetMods">Sequences with modifications that are unique to this group
+        /// and not shared with any other biopolymer group.</param>
+        public BioPolymerGroup(HashSet<IBioPolymer> bioPolymers, HashSet<IBioPolymerWithSetMods> bioPolymersWithSetMods,
 			HashSet<IBioPolymerWithSetMods> uniqueBioPolymersWithSetMods)
 		{
 			BioPolymers = bioPolymers;
@@ -112,16 +126,17 @@ namespace Omics.BioPolymerGroup
 		/// </summary>
 		public HashSet<IBioPolymerWithSetMods> UniqueBioPolymersWithSetMods { get; set; }
 
-		/// <summary>
-		/// All peptide-spectrum matches (PSMs) for this group that pass the 1% FDR threshold.
-		/// </summary>
-		public HashSet<ISpectralMatch> AllPsmsBelowOnePercentFDR { get; set; }
+        /// <summary>
+        /// All peptide-spectrum matches (PSMs) for this group that pass the 1% FDR threshold.
+        /// Must be populated before calling <see cref="CalculateSequenceCoverage"/> or <see cref="Score"/>.
+        /// </summary>
+        public HashSet<ISpectralMatch> AllPsmsBelowOnePercentFDR { get; set; }
 
-		/// <summary>
-		/// The q-value (FDR-adjusted p-value) for this biopolymer group.
-		/// Lower values indicate higher confidence in the identification.
-		/// </summary>
-		public double QValue { get; set; }
+        /// <summary>
+        /// The q-value (FDR-adjusted p-value) for this biopolymer group.
+        /// Lower values indicate higher confidence in the identification.
+        /// </summary>
+        public double QValue { get; set; }
 
 		/// <summary>
 		/// The best (lowest) q-value among all biopolymers with set modifications in this group.
@@ -151,21 +166,30 @@ namespace Omics.BioPolymerGroup
 		/// </summary>
 		public List<IBioPolymer> ListOfBioPolymersOrderedByAccession { get; private set; }
 
-		#endregion
+        #endregion
 
-		#region Additional Properties
-
+        #region Additional Properties
+        
 		/// <summary>
-		/// Sequence coverage fraction for each biopolymer in the group, ordered by accession.
-		/// Each value represents the fraction of the biopolymer sequence covered by identified fragments.
-		/// </summary>
-		public List<double> SequenceCoverageFraction { get; private set; }
+        /// Visual representation of fragment-level sequence coverage for each biopolymer, ordered by accession.
+        /// Uppercase letters indicate residues covered by matched fragment ions; lowercase indicates uncovered.
+        /// Populated by <see cref="CalculateSequenceCoverage"/>. Will show all lowercase if PSMs do not 
+        /// implement <see cref="IHasSequenceCoverageFromFragments"/>.
+        /// </summary>
+        public List<string> FragmentSequenceCoverageDisplayList { get; private set; }
 
-		/// <summary>
-		/// Visual representation of sequence coverage for each biopolymer in the group.
-		/// Typically shows identified regions with special characters or formatting.
-		/// </summary>
-		public List<string> SequenceCoverageDisplayList { get; private set; }
+        /// <summary>
+        /// Sequence coverage fraction for each biopolymer in the group, ordered by accession.
+        /// Each value (0.0 to 1.0) represents the fraction of residues covered by identified peptides.
+        /// Populated by <see cref="CalculateSequenceCoverage"/>.
+        /// </summary>
+        public List<double> SequenceCoverageFraction { get; private set; }
+
+        /// <summary>
+        /// Visual representation of sequence coverage for each biopolymer in the group.
+        /// Typically shows identified regions with special characters or formatting.
+        /// </summary>
+        public List<string> SequenceCoverageDisplayList { get; private set; }
 
 		/// <summary>
 		/// Visual representation of sequence coverage including modification information.
@@ -173,11 +197,6 @@ namespace Omics.BioPolymerGroup
 		/// </summary>
 		public List<string> SequenceCoverageDisplayListWithMods { get; private set; }
 
-		/// <summary>
-		/// Visual representation of fragment-level sequence coverage.
-		/// Shows coverage from fragment ion identifications (e.g., b/y ions for peptides).
-		/// </summary>
-		public List<string> FragmentSequenceCoverageDisplayList { get; private set; }
 
 		/// <summary>
 		/// Cumulative count of target (non-decoy) groups up to and including this one,
@@ -559,12 +578,24 @@ namespace Omics.BioPolymerGroup
 		}
 
         /// <summary>
-        /// Calculates sequence coverage for all biopolymers in this group.
-        /// Populates SequenceCoverageFraction, SequenceCoverageDisplayList, 
-        /// SequenceCoverageDisplayListWithMods, FragmentSequenceCoverageDisplayList, and ModsInfo.
-        /// Coverage is calculated at both peptide-level (all residues in identified peptides) 
-        /// and fragment-level (residues covered by fragment ions).
+        /// Calculates sequence coverage for all biopolymers in this group at two levels:
+        /// <list type="number">
+        ///   <item><description><b>Peptide-level coverage:</b> All residues within identified peptide boundaries 
+        ///   are considered covered. Populates <see cref="SequenceCoverageFraction"/>, 
+        ///   <see cref="SequenceCoverageDisplayList"/>, and <see cref="SequenceCoverageDisplayListWithMods"/>.</description></item>
+        ///   <item><description><b>Fragment-level coverage:</b> Only residues with supporting fragment ion evidence 
+        ///   are considered covered. Requires PSMs to implement <see cref="IHasSequenceCoverageFromFragments"/>.
+        ///   Populates <see cref="FragmentSequenceCoverageDisplayList"/>.</description></item>
+        /// </list>
+        /// 
+        /// Display strings use uppercase letters for covered residues and lowercase for uncovered residues.
+        /// Also calculates modification occupancy statistics and populates <see cref="ModsInfo"/>.
         /// </summary>
+        /// <remarks>
+        /// This method should be called after <see cref="AllPsmsBelowOnePercentFDR"/> has been populated.
+        /// If PSMs do not implement <see cref="IHasSequenceCoverageFromFragments"/>, fragment-level coverage
+        /// will show all residues as uncovered (all lowercase).
+        /// </remarks>
         public void CalculateSequenceCoverage()
         {
             // Maps biopolymers to their identified sequences with unambiguous base sequences
