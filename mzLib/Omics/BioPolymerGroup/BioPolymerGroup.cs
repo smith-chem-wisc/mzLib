@@ -25,8 +25,16 @@ namespace Omics.BioPolymerGroup
     {
         /// <summary>
         /// Maximum length for string fields in output. Strings exceeding this length will be truncated.
-        /// Set to 0 or negative to disable truncation. Default is 32000 characters.
+        /// 
+        /// Default is 32,000 characters, which is slightly below Excel's cell limit of 32,767 characters.
+        /// This ensures output files can be opened in Excel without data truncation or corruption.
+        /// Set to 0 or negative to disable truncation (useful for programmatic processing where 
+        /// Excel compatibility is not required).
         /// </summary>
+        /// <remarks>
+        /// Excel specification: A cell can contain up to 32,767 characters.
+        /// See: https://support.microsoft.com/en-us/office/excel-specifications-and-limits
+        /// </remarks>
         public static int MaxStringLength { get; set; } = 32000;
 
         /// <summary>
@@ -504,23 +512,29 @@ namespace Omics.BioPolymerGroup
 			return sb.ToString();
 		}
 
-		/// <summary>
-		/// Calculates and updates the BioPolymerGroupScore based on PSM scores.
-		/// The score is computed as the sum of the best score for each unique base sequence.
-		/// </summary>
-		public void Score()
-		{
-			BioPolymerGroupScore = AllPsmsBelowOnePercentFDR.GroupBy(p => p.BaseSequence)
-				.Select(p => p.Select(x => x.Score).Max()).Sum();
-		}
+        /// <summary>
+        /// Calculates and updates <see cref="BioPolymerGroupScore"/> based on PSM scores.
+        /// Delegates to <see cref="BioPolymerGroupExtensions.Score"/> which computes the score
+        /// as the sum of the best (highest) score for each unique base sequence among 
+        /// <see cref="AllPsmsBelowOnePercentFDR"/>.
+        /// </summary>
+        /// <remarks>
+        /// This method should be called after <see cref="AllPsmsBelowOnePercentFDR"/> has been populated.
+        /// If the collection is empty, <see cref="BioPolymerGroupScore"/> will be set to 0.
+        /// </remarks>
+        /// <seealso cref="BioPolymerGroupExtensions.Score"/>
+        public void Score()
+        {
+            BioPolymerGroupExtensions.Score(this);
+        }
 
-		/// <summary>
-		/// Merges another biopolymer group into this one, combining their members, PSMs, and scores.
-		/// Used when groups are determined to represent the same biological entity.
-		/// The other group's score is reset to 0 after merging.
-		/// </summary>
-		/// <param name="otherBioPolymerGroup">The group to merge into this one.</param>
-		public void MergeWith(IBioPolymerGroup otherBioPolymerGroup)
+        /// <summary>
+        /// Merges another biopolymer group into this one, combining their members, PSMs, and scores.
+        /// Used when groups are determined to represent the same biological entity.
+        /// The other group's score is reset to 0 after merging.
+        /// </summary>
+        /// <param name="otherBioPolymerGroup">The group to merge into this one.</param>
+        public void MergeWith(IBioPolymerGroup otherBioPolymerGroup)
 		{
 			this.BioPolymers.UnionWith(otherBioPolymerGroup.BioPolymers);
 			this.AllBioPolymersWithSetMods.UnionWith(otherBioPolymerGroup.AllBioPolymersWithSetMods);
