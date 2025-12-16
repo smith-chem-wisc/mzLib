@@ -578,18 +578,24 @@ namespace Omics.BioPolymerGroup
                 bioPolymersWithLocalizedMods.Add(bioPolymer, new List<IBioPolymerWithSetMods>());
             }
 
+            // Check once if PSMs support fragment coverage calculation
+            bool supportsFragmentCoverage = AllPsmsBelowOnePercentFDR.FirstOrDefault() is IHasSequenceCoverageFromFragments;
+
+            // If fragment coverage is supported, calculate it for all PSMs upfront
+            if (supportsFragmentCoverage)
+            {
+                foreach (var psm in AllPsmsBelowOnePercentFDR.Where(p => p.BaseSequence != null))
+                {
+                    ((IHasSequenceCoverageFromFragments)psm).GetSequenceCoverage();
+                }
+            }
+
             // Collect sequences from PSMs with unambiguous identifications
             foreach (var psm in AllPsmsBelowOnePercentFDR)
             {
                 // null BaseSequence means the sequence is ambiguous; skip these
                 if (psm.BaseSequence == null)
                     continue;
-
-                // Request amino acid coverage calculation from the PSM if it supports it
-                if (psm is IHasSequenceCoverageFromFragments coverageProvider)
-                {
-                    coverageProvider.GetSequenceCoverage();
-                }
 
                 foreach (var sequence in psm.GetIdentifiedBioPolymersWithSetMods().DistinctBy(p => p.FullSequence))
                 {
@@ -612,30 +618,29 @@ namespace Omics.BioPolymerGroup
             {
                 var coveredResiduesOneBased = new HashSet<int>();
 
-                foreach (var psm in AllPsmsBelowOnePercentFDR.Where(p => p.BaseSequence != null))
+                // Only process fragment coverage if PSMs support it
+                if (supportsFragmentCoverage)
                 {
-                    // Only process PSMs that support fragment coverage
-                    if (psm is not IHasSequenceCoverageFromFragments coverageProvider)
-                        continue;
-
-                    // Request amino acid coverage calculation from the PSM
-                    coverageProvider.GetSequenceCoverage();
-
-                    if (coverageProvider.FragmentCoveragePositionInPeptide == null)
-                        continue;
-
-                    // Get sequences from this PSM that belong to this biopolymer
-                    var sequencesForThisBioPolymer = psm.GetIdentifiedBioPolymersWithSetMods()
-                        .Where(p => p.Parent.Accession == bioPolymer.Accession);
-
-                    foreach (var sequence in sequencesForThisBioPolymer)
+                    foreach (var psm in AllPsmsBelowOnePercentFDR.Where(p => p.BaseSequence != null))
                     {
-                        // Convert peptide positions to protein positions
-                        foreach (var position in coverageProvider.FragmentCoveragePositionInPeptide)
+                        var coverageProvider = (IHasSequenceCoverageFromFragments)psm;
+
+                        if (coverageProvider.FragmentCoveragePositionInPeptide == null)
+                            continue;
+
+                        // Get sequences from this PSM that belong to this biopolymer
+                        var sequencesForThisBioPolymer = psm.GetIdentifiedBioPolymersWithSetMods()
+                            .Where(p => p.Parent.Accession == bioPolymer.Accession);
+
+                        foreach (var sequence in sequencesForThisBioPolymer)
                         {
-                            // Both are one-based, so subtract 1 to convert correctly
-                            int proteinPosition = position + sequence.OneBasedStartResidue - 1;
-                            coveredResiduesOneBased.Add(proteinPosition);
+                            // Convert peptide positions to protein positions
+                            foreach (var position in coverageProvider.FragmentCoveragePositionInPeptide)
+                            {
+                                // Both are one-based, so subtract 1 to convert correctly
+                                int proteinPosition = position + sequence.OneBasedStartResidue - 1;
+                                coveredResiduesOneBased.Add(proteinPosition);
+                            }
                         }
                     }
                 }
