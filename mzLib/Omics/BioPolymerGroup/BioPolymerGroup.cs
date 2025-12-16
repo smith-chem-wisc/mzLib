@@ -668,7 +668,9 @@ namespace Omics.BioPolymerGroup
                             // Convert peptide positions to protein positions
                             foreach (var position in coverageProvider.FragmentCoveragePositionInPeptide)
                             {
-                                // Both are one-based, so subtract 1 to convert correctly
+                                // Convert a one-based peptide position to a one-based protein position
+                                // by adding the peptide's starting residue in the protein and subtracting 1.
+                                // This accounts for the peptide's offset within the protein sequence.
                                 int proteinPosition = position + sequence.OneBasedStartResidue - 1;
                                 coveredResiduesOneBased.Add(proteinPosition);
                             }
