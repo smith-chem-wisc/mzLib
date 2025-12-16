@@ -10,7 +10,7 @@
     /// residues that have fragment evidence on both sides. This works for any biopolymer type
     /// (peptides use b/y ions, nucleic acids use 5'/3' fragments).
     /// </summary>
-    public class SpectralMatchWithSequenceCoverage : ISpectralMatch, IHasSequenceCoverageFromFragments, IEquatable<SpectralMatchWithSequenceCoverage>
+    public class SpectralMatchWithFragmentData : ISpectralMatch, IHasSequenceCoverageFromFragments, IEquatable<SpectralMatchWithFragmentData>
     {
         /// <summary>
         /// Creates a new spectral match with the specified properties.
@@ -21,7 +21,7 @@
         /// <param name="fullSequence">The full modified sequence string with modification annotations. Null values are converted to empty string.</param>
         /// <param name="baseSequence">The unmodified base sequence. Null values are converted to empty string.</param>
         /// <param name="identifiedBioPolymers">Optional biopolymers identified for this match. A defensive copy is made.</param>
-        public SpectralMatchWithSequenceCoverage(
+        public SpectralMatchWithFragmentData(
             string fullFilePath,
             int oneBasedScanNumber,
             double score,
@@ -255,7 +255,7 @@
         /// Determines equality based on FullFilePath, OneBasedScanNumber, and FullSequence.
         /// Score is intentionally excluded from equality comparison.
         /// </summary>
-        public bool Equals(SpectralMatchWithSequenceCoverage? other)
+        public bool Equals(SpectralMatchWithFragmentData? other)
         {
             if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;
@@ -268,7 +268,7 @@
         /// <inheritdoc/>
         public override bool Equals(object? obj)
         {
-            if (obj is SpectralMatchWithSequenceCoverage sm) return Equals(sm);
+            if (obj is SpectralMatchWithFragmentData sm) return Equals(sm);
             return false;
         }
 
@@ -289,7 +289,7 @@
         /// <summary>
         /// Equality operator. Two matches are equal if they have the same FullFilePath, OneBasedScanNumber, and FullSequence.
         /// </summary>
-        public static bool operator ==(SpectralMatchWithSequenceCoverage? left, SpectralMatchWithSequenceCoverage? right)
+        public static bool operator ==(SpectralMatchWithFragmentData? left, SpectralMatchWithFragmentData? right)
         {
             if (left is null) return right is null;
             return left.Equals(right);
@@ -298,7 +298,7 @@
         /// <summary>
         /// Inequality operator.
         /// </summary>
-        public static bool operator !=(SpectralMatchWithSequenceCoverage? left, SpectralMatchWithSequenceCoverage? right)
+        public static bool operator !=(SpectralMatchWithFragmentData? left, SpectralMatchWithFragmentData? right)
         {
             return !(left == right);
         }
