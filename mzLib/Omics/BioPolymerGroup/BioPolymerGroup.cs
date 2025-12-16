@@ -737,6 +737,8 @@ namespace Omics.BioPolymerGroup
                             continue;
                         }
 
+                        // Convert from AllModsOneIsNterminus indexing (where 1 is N-terminus) to protein position.
+                        // Subtracting 2 aligns the peptide-local modification position to the protein sequence.
                         int proteinPosition = sequence.OneBasedStartResidue + mod.Key - 2;
                         modsOnThisBioPolymer.Add(new KeyValuePair<int, Modification>(proteinPosition, mod.Value));
                     }
