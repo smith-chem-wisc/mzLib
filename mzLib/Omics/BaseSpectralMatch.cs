@@ -10,8 +10,10 @@
     /// residues that have fragment evidence on both sides. This works for any biopolymer type
     /// (peptides use b/y ions, nucleic acids use 5'/3' fragments).
     /// </summary>
-    public class SpectralMatchWithFragmentData : ISpectralMatch, IHasSequenceCoverageFromFragments, IEquatable<SpectralMatchWithFragmentData>
+    public class BaseSpectralMatch : ISpectralMatch, IHasSequenceCoverageFromFragments, IEquatable<BaseSpectralMatch>
     {
+        private readonly List<IBioPolymerWithSetMods> _identifiedBioPolymers;
+
         /// <summary>
         /// Creates a new spectral match with the specified properties.
         /// </summary>
@@ -21,7 +23,7 @@
         /// <param name="fullSequence">The full modified sequence string with modification annotations. Null values are converted to empty string.</param>
         /// <param name="baseSequence">The unmodified base sequence. Null values are converted to empty string.</param>
         /// <param name="identifiedBioPolymers">Optional biopolymers identified for this match. A defensive copy is made.</param>
-        public SpectralMatchWithFragmentData(
+        public BaseSpectralMatch(
             string fullFilePath,
             int oneBasedScanNumber,
             double score,
@@ -37,44 +39,89 @@
             _identifiedBioPolymers = identifiedBioPolymers?.ToList() ?? new List<IBioPolymerWithSetMods>();
         }
 
+        #region ISpectralMatch Properties
+
+        /// <summary>
+        /// The file path or identifier for the source spectra file.
+        /// Used to associate this match with its originating data file.
+        /// </summary>
         /// <inheritdoc cref="ISpectralMatch.FullFilePath"/>
         public string FullFilePath { get; }
 
+        /// <summary>
+        /// The full modified sequence string with modification annotations.
+        /// For peptides, this includes bracket notation for modifications (e.g., "PEP[Phospho]TIDE").
+        /// For nucleic acids, this includes modification annotations in the appropriate format.
+        /// </summary>
         /// <inheritdoc cref="ISpectralMatch.FullSequence"/>
         public string FullSequence { get; }
 
+        /// <summary>
+        /// The unmodified base sequence containing only the residue letters.
+        /// For peptides, this is the amino acid sequence without any modification annotations.
+        /// For nucleic acids, this is the nucleotide sequence.
+        /// </summary>
         /// <inheritdoc cref="ISpectralMatch.BaseSequence"/>
         public string BaseSequence { get; }
 
+        /// <summary>
+        /// The one-based scan number for this identification.
+        /// This corresponds to the scan index in the source spectra file (first scan = 1).
+        /// </summary>
         /// <inheritdoc cref="ISpectralMatch.OneBasedScanNumber"/>
         public int OneBasedScanNumber { get; }
 
+        /// <summary>
+        /// The numeric score for this match. Higher values indicate better matches by convention.
+        /// The specific scoring algorithm and scale depend on the search engine used.
+        /// </summary>
         /// <inheritdoc cref="ISpectralMatch.Score"/>
         public double Score { get; }
 
+        #endregion
+
+        #region IHasSequenceCoverageFromFragments Properties
+
+        /// <summary>
+        /// One-based positions of residues covered by matched fragment ions.
+        /// Null until <see cref="GetSequenceCoverage(IEnumerable{int}, IEnumerable{int})"/> is called.
+        /// A residue is considered covered if it has fragment evidence from sequential ions
+        /// or from both N-terminal and C-terminal directions.
+        /// </summary>
         /// <inheritdoc cref="IHasSequenceCoverageFromFragments.FragmentCoveragePositionInPeptide"/>
         public HashSet<int>? FragmentCoveragePositionInPeptide { get; protected set; }
 
-        /// <summary>
-        /// N-terminal fragment positions (one-based). For peptides, these correspond to b-ion positions.
-        /// For nucleic acids, these correspond to 5' fragment positions.
-        /// Set via <see cref="SetFragmentPositions"/> before calling <see cref="GetSequenceCoverage"/>.
-        /// </summary>
-        protected List<int>? NTerminalFragmentPositions { get; set; }
+        #endregion
+
+        #region Methods
 
         /// <summary>
-        /// C-terminal fragment positions (one-based). For peptides, these correspond to y-ion positions.
-        /// For nucleic acids, these correspond to 3' fragment positions.
-        /// Set via <see cref="SetFragmentPositions"/> before calling <see cref="GetSequenceCoverage"/>.
+        /// Returns the biopolymers (peptides, oligonucleotides, etc.) identified for this spectral match.
+        /// For ambiguous matches, this may return multiple candidates.
+        /// The returned enumerable is a snapshot of the current identifications.
         /// </summary>
-        protected List<int>? CTerminalFragmentPositions { get; set; }
-
-        private readonly List<IBioPolymerWithSetMods> _identifiedBioPolymers;
-
+        /// <returns>An enumerable of identified biopolymers with their modifications.</returns>
         /// <inheritdoc cref="ISpectralMatch.GetIdentifiedBioPolymersWithSetMods"/>
         public IEnumerable<IBioPolymerWithSetMods> GetIdentifiedBioPolymersWithSetMods()
         {
             return _identifiedBioPolymers;
+        }
+
+        /// <summary>
+        /// Calculates which residues are covered by fragment ions and populates 
+        /// <see cref="FragmentCoveragePositionInPeptide"/> with their one-based positions.
+        /// This parameterless overload does nothing - use <see cref="GetSequenceCoverage(IEnumerable{int}, IEnumerable{int})"/>
+        /// or override in derived classes that have access to fragment ion data.
+        /// </summary>
+        /// <remarks>
+        /// This method exists to satisfy the <see cref="IHasSequenceCoverageFromFragments"/> interface.
+        /// Derived classes that store matched fragment ions should override this method to extract
+        /// fragment positions and delegate to <see cref="GetSequenceCoverage(IEnumerable{int}, IEnumerable{int})"/>.
+        /// </remarks>
+        public virtual void GetSequenceCoverage()
+        {
+            // Base implementation does nothing - derived classes or callers should use
+            // the overload that accepts fragment positions, or override this method
         }
 
         /// <summary>
@@ -89,20 +136,22 @@
         ///   <item><description>It is the first or last residue with appropriate terminal fragment</description></item>
         /// </list>
         /// </summary>
+        /// <param name="nTerminalPositions">One-based positions of N-terminal fragments (b-ions for peptides, 5' for nucleic acids). Null is treated as empty.</param>
+        /// <param name="cTerminalPositions">One-based positions of C-terminal fragments (y-ions for peptides, 3' for nucleic acids). Null is treated as empty.</param>
         /// <remarks>
-        /// Call <see cref="SetFragmentPositions"/> before this method to provide fragment data.
-        /// If no fragment positions are set, <see cref="FragmentCoveragePositionInPeptide"/> remains null.
-        /// This method can be called multiple times; each call recalculates coverage from the current fragment positions.
+        /// This method can be called multiple times; each call recalculates coverage from the provided fragment positions.
+        /// If <see cref="BaseSequence"/> is null or empty, this method returns without modifying coverage.
+        /// If both position lists are empty, this method returns without modifying coverage.
         /// </remarks>
-        public virtual void GetSequenceCoverage()
+        public void GetSequenceCoverage(IEnumerable<int>? nTerminalPositions, IEnumerable<int>? cTerminalPositions)
         {
             if (string.IsNullOrEmpty(BaseSequence))
             {
                 return;
             }
 
-            var nTermPositions = NTerminalFragmentPositions ?? new List<int>();
-            var cTermPositions = CTerminalFragmentPositions ?? new List<int>();
+            var nTermPositions = nTerminalPositions?.ToList() ?? new List<int>();
+            var cTermPositions = cTerminalPositions?.ToList() ?? new List<int>();
 
             if (!nTermPositions.Any() && !cTermPositions.Any())
             {
@@ -183,35 +232,10 @@
         }
 
         /// <summary>
-        /// Compares to another <see cref="IHasSequenceCoverageFromFragments"/>.
-        /// If the other object also implements <see cref="ISpectralMatch"/>, delegates to 
-        /// <see cref="CompareTo(ISpectralMatch)"/>. Otherwise returns 0 (equal) or -1 if other is null.
-        /// </summary>
-        public int CompareTo(IHasSequenceCoverageFromFragments? other)
-        {
-            if (other is ISpectralMatch spectralMatch)
-            {
-                return CompareTo(spectralMatch);
-            }
-            return other is null ? -1 : 0;
-        }
-
-        /// <summary>
-        /// Sets the fragment positions used by <see cref="GetSequenceCoverage"/> to calculate coverage.
-        /// </summary>
-        /// <param name="nTerminalPositions">One-based positions of N-terminal fragments (b-ions for peptides, 5' for nucleic acids).</param>
-        /// <param name="cTerminalPositions">One-based positions of C-terminal fragments (y-ions for peptides, 3' for nucleic acids).</param>
-        public void SetFragmentPositions(IEnumerable<int>? nTerminalPositions, IEnumerable<int>? cTerminalPositions)
-        {
-            NTerminalFragmentPositions = nTerminalPositions?.ToList();
-            CTerminalFragmentPositions = cTerminalPositions?.ToList();
-        }
-
-        /// <summary>
         /// Adds a biopolymer to the list of identified biopolymers for this match.
-        /// Null values are ignored.
+        /// Use this method when additional biopolymer candidates are identified after construction.
         /// </summary>
-        /// <param name="bioPolymer">The biopolymer to add.</param>
+        /// <param name="bioPolymer">The biopolymer to add. Null values are ignored.</param>
         public void AddIdentifiedBioPolymer(IBioPolymerWithSetMods bioPolymer)
         {
             if (bioPolymer != null)
@@ -222,9 +246,9 @@
 
         /// <summary>
         /// Adds multiple biopolymers to the list of identified biopolymers for this match.
-        /// Null entries in the collection are filtered out.
+        /// Use this method when additional biopolymer candidates are identified after construction.
         /// </summary>
-        /// <param name="bioPolymers">The biopolymers to add.</param>
+        /// <param name="bioPolymers">The biopolymers to add. Null entries in the collection are filtered out.</param>
         public void AddIdentifiedBioPolymers(IEnumerable<IBioPolymerWithSetMods> bioPolymers)
         {
             if (bioPolymers != null)
@@ -233,10 +257,16 @@
             }
         }
 
+        #endregion
+
+        #region IComparable Implementation
+
         /// <summary>
         /// Compares this spectral match to another for ordering purposes.
         /// Orders by Score (descending), then FullFilePath (ascending), then OneBasedScanNumber (ascending).
+        /// This ordering ensures higher-scoring matches appear first, with ties broken deterministically.
         /// </summary>
+        /// <param name="other">The other spectral match to compare to.</param>
         /// <returns>Negative if this should sort before other; positive if after; zero if equal.</returns>
         public int CompareTo(ISpectralMatch? other)
         {
@@ -252,10 +282,33 @@
         }
 
         /// <summary>
-        /// Determines equality based on FullFilePath, OneBasedScanNumber, and FullSequence.
-        /// Score is intentionally excluded from equality comparison.
+        /// Compares to another <see cref="IHasSequenceCoverageFromFragments"/>.
+        /// If the other object also implements <see cref="ISpectralMatch"/>, delegates to 
+        /// <see cref="CompareTo(ISpectralMatch)"/>. Otherwise returns 0 (equal) or -1 if other is null.
         /// </summary>
-        public bool Equals(SpectralMatchWithFragmentData? other)
+        /// <param name="other">The other object to compare to.</param>
+        /// <returns>Comparison result for ordering.</returns>
+        public int CompareTo(IHasSequenceCoverageFromFragments? other)
+        {
+            if (other is ISpectralMatch spectralMatch)
+            {
+                return CompareTo(spectralMatch);
+            }
+            return other is null ? -1 : 0;
+        }
+
+        #endregion
+
+        #region Equality Implementation
+
+        /// <summary>
+        /// Determines equality based on FullFilePath, OneBasedScanNumber, and FullSequence.
+        /// Score is intentionally excluded from equality comparison to allow different scoring
+        /// methods to identify the same underlying match.
+        /// </summary>
+        /// <param name="other">The other spectral match to compare.</param>
+        /// <returns>True if the matches represent the same identification; otherwise false.</returns>
+        public bool Equals(BaseSpectralMatch? other)
         {
             if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;
@@ -265,31 +318,34 @@
                 && string.Equals(FullSequence, other.FullSequence, StringComparison.Ordinal);
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Determines equality with another object.
+        /// Only returns true for <see cref="BaseSpectralMatch"/> instances
+        /// that match on FullFilePath, OneBasedScanNumber, and FullSequence.
+        /// </summary>
+        /// <param name="obj">The object to compare.</param>
+        /// <returns>True if equal; otherwise false.</returns>
         public override bool Equals(object? obj)
         {
-            if (obj is SpectralMatchWithFragmentData sm) return Equals(sm);
+            if (obj is BaseSpectralMatch sm) return Equals(sm);
             return false;
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Returns a hash code based on FullFilePath, OneBasedScanNumber, and FullSequence.
+        /// Consistent with <see cref="Equals(BaseSpectralMatch)"/> implementation.
+        /// </summary>
+        /// <returns>A hash code for this instance.</returns>
         public override int GetHashCode()
         {
             return HashCode.Combine(FullFilePath, OneBasedScanNumber, FullSequence);
         }
 
         /// <summary>
-        /// Returns a human-readable string representation: "Scan {number}: {sequence} (Score: {score})".
+        /// Equality operator. Two matches are equal if they have the same FullFilePath, 
+        /// OneBasedScanNumber, and FullSequence.
         /// </summary>
-        public override string ToString()
-        {
-            return $"Scan {OneBasedScanNumber}: {FullSequence} (Score: {Score:F2})";
-        }
-
-        /// <summary>
-        /// Equality operator. Two matches are equal if they have the same FullFilePath, OneBasedScanNumber, and FullSequence.
-        /// </summary>
-        public static bool operator ==(SpectralMatchWithFragmentData? left, SpectralMatchWithFragmentData? right)
+        public static bool operator ==(BaseSpectralMatch? left, BaseSpectralMatch? right)
         {
             if (left is null) return right is null;
             return left.Equals(right);
@@ -298,9 +354,25 @@
         /// <summary>
         /// Inequality operator.
         /// </summary>
-        public static bool operator !=(SpectralMatchWithFragmentData? left, SpectralMatchWithFragmentData? right)
+        public static bool operator !=(BaseSpectralMatch? left, BaseSpectralMatch? right)
         {
             return !(left == right);
         }
+
+        #endregion
+
+        #region Object Overrides
+
+        /// <summary>
+        /// Returns a human-readable string representation of this spectral match.
+        /// Format: "Scan {number}: {sequence} (Score: {score:F2})"
+        /// </summary>
+        /// <returns>A string representation suitable for debugging and logging.</returns>
+        public override string ToString()
+        {
+            return $"Scan {OneBasedScanNumber}: {FullSequence} (Score: {Score:F2})";
+        }
+
+        #endregion
     }
 }
