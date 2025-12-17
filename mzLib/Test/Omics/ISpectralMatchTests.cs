@@ -5,9 +5,11 @@ using Omics;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
+using Omics.SpectralMatch;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using static Test.Omics.BioPolymerGroupSequenceCoverageTests;
 
 namespace Test.Omics
 {
@@ -74,196 +76,6 @@ namespace Test.Omics
                                 StringComparer.Ordinal.GetHashCode(FullSequence ?? string.Empty));
     }
 
-    /// <summary>
-    /// Concrete test implementation of <see cref="ISpectralMatch"/>.
-    /// Stores an internal, defensive copy of identified biopolymers and exposes them
-    /// via <see cref="GetIdentifiedBioPolymersWithSetMods"/> as a read-only collection.
-    /// Implements CompareTo ordering:
-    /// 1) Score descending (higher preferred),
-    /// 2) FullFilePath ascending (ordinal),
-    /// 3) FullSequence ascending (ordinal),
-    /// 4) BaseSequence ascending (ordinal),
-    /// 5) ScanNumber ascending.
-    /// </summary>
-    internal class TestSpectralMatch : ISpectralMatch
-    {
-        private readonly List<IBioPolymerWithSetMods> _identified;
-
-        public string FullFilePath { get; }
-        public string FullSequence { get; }
-        public string BaseSequence { get; }
-        public double Score { get; }
-        public int OneBasedScanNumber { get; }
-
-        /// <summary>
-        /// Positions in the biopolymer sequence (one-based) that are covered by fragment ions.
-        /// Populated by <see cref="GetSequenceCoverage"/> when fragment coverage data is available.
-        /// </summary>
-        public HashSet<int>? FragmentCoveragePositionInPeptide { get; private set; }
-
-        /// <summary>
-        /// N-terminal (or 5') fragment positions for testing. Set before calling GetSequenceCoverage.
-        /// </summary>
-        public List<int>? NTerminalFragmentPositions { get; set; }
-
-        /// <summary>
-        /// C-terminal (or 3') fragment positions for testing. Set before calling GetSequenceCoverage.
-        /// </summary>
-        public List<int>? CTerminalFragmentPositions { get; set; }
-
-        /// <summary>
-        /// Construct a test spectral match.
-        /// The identified collection is defensively copied; passing null creates an empty set.
-        /// ScanNumber defaults to 0 if not provided.
-        /// </summary>
-        public TestSpectralMatch(string filePath, string fullSequence, string baseSequence, double score = 0, int scanNumber = 0, IEnumerable<IBioPolymerWithSetMods>? identified = null)
-        {
-            FullFilePath = filePath ?? string.Empty;
-            FullSequence = fullSequence ?? string.Empty;
-            BaseSequence = baseSequence ?? string.Empty;
-            Score = score;
-            OneBasedScanNumber = scanNumber;
-            // defensive copy to prevent external mutation
-            _identified = identified?.ToList() ?? new List<IBioPolymerWithSetMods>();
-        }
-
-        // IComparable<ISpectralMatch>.CompareTo implementation
-        public int CompareTo(ISpectralMatch? other)
-        {
-            if (other is null) return 1;
-
-            // Primary: Score (higher is better) -> descending order
-            int scoreCmp = Score.CompareTo(other.Score);
-            if (scoreCmp != 0) return scoreCmp; // positive when this.Score > other.Score
-
-            // Tie-breakers: ascending order (ordinal)
-            int fileCmp = string.Compare(FullFilePath ?? string.Empty, other.FullFilePath ?? string.Empty, StringComparison.Ordinal);
-            if (fileCmp != 0) return fileCmp;
-
-            int fullSeqCmp = string.Compare(FullSequence ?? string.Empty, other.FullSequence ?? string.Empty, StringComparison.Ordinal);
-            if (fullSeqCmp != 0) return fullSeqCmp;
-
-            int baseSeqCmp = string.Compare(BaseSequence ?? string.Empty, other.BaseSequence ?? string.Empty, StringComparison.Ordinal);
-            if (baseSeqCmp != 0) return baseSeqCmp;
-
-            // Final tie-breaker: scan number ascending
-            int scanCmp = OneBasedScanNumber.CompareTo(other.OneBasedScanNumber);
-            if (scanCmp != 0) return scanCmp;
-
-            return 0;
-        }
-
-        /// <summary>
-        /// Return the identified biopolymer objects for this match.
-        /// Returns a read-only snapshot; callers cannot modify the internal collection.
-        /// May return zero items; null entries in the original input are preserved.
-        /// </summary>
-        public IEnumerable<IBioPolymerWithSetMods> GetIdentifiedBioPolymersWithSetMods()
-            => _identified.AsReadOnly();
-
-        /// <summary>
-        /// Calculates sequence coverage from fragment ions for this spectral match.
-        /// Uses NTerminalFragmentPositions and CTerminalFragmentPositions to determine coverage.
-        /// Works for any biopolymer type (proteins, nucleic acids, etc.).
-        /// </summary>
-        public void GetSequenceCoverage()
-        {
-            if (string.IsNullOrEmpty(BaseSequence))
-            {
-                return;
-            }
-
-            var nTermPositions = NTerminalFragmentPositions ?? new List<int>();
-            var cTermPositions = CTerminalFragmentPositions ?? new List<int>();
-
-            if (!nTermPositions.Any() && !cTermPositions.Any())
-            {
-                return;
-            }
-
-            var fragmentCoveredResidues = new HashSet<int>();
-
-            // Process N-terminal (or 5') fragments
-            if (nTermPositions.Any())
-            {
-                var sortedNTerm = nTermPositions.OrderBy(x => x).ToList();
-
-                if (sortedNTerm.Contains(BaseSequence.Length - 1))
-                {
-                    fragmentCoveredResidues.Add(BaseSequence.Length);
-                }
-
-                if (sortedNTerm.Contains(1))
-                {
-                    fragmentCoveredResidues.Add(1);
-                }
-
-                for (int i = 0; i < sortedNTerm.Count - 1; i++)
-                {
-                    if (sortedNTerm[i + 1] - sortedNTerm[i] == 1)
-                    {
-                        fragmentCoveredResidues.Add(sortedNTerm[i + 1]);
-                    }
-
-                    if (cTermPositions.Contains(sortedNTerm[i + 1]))
-                    {
-                        fragmentCoveredResidues.Add(sortedNTerm[i + 1]);
-                    }
-
-                    if (cTermPositions.Contains(sortedNTerm[i + 1] + 2))
-                    {
-                        fragmentCoveredResidues.Add(sortedNTerm[i + 1] + 1);
-                    }
-                }
-            }
-
-            // Process C-terminal (or 3') fragments
-            if (cTermPositions.Any())
-            {
-                var sortedCTerm = cTermPositions.OrderBy(x => x).ToList();
-
-                if (sortedCTerm.Contains(2))
-                {
-                    fragmentCoveredResidues.Add(1);
-                }
-
-                if (sortedCTerm.Contains(BaseSequence.Length))
-                {
-                    fragmentCoveredResidues.Add(BaseSequence.Length);
-                }
-
-                for (int i = 0; i < sortedCTerm.Count - 1; i++)
-                {
-                    if (sortedCTerm[i + 1] - sortedCTerm[i] == 1)
-                    {
-                        fragmentCoveredResidues.Add(sortedCTerm[i]);
-                    }
-                }
-            }
-
-            FragmentCoveragePositionInPeptide = fragmentCoveredResidues;
-        }
-
-        public override bool Equals(object? obj)
-        {
-            var o = obj as ISpectralMatch;
-            if (o == null) return false;
-            return string.Equals(FullFilePath, o.FullFilePath, StringComparison.Ordinal)
-                && string.Equals(FullSequence, o.FullSequence, StringComparison.Ordinal)
-                && string.Equals(BaseSequence, o.BaseSequence, StringComparison.Ordinal)
-                && Score.Equals(o.Score)
-                && OneBasedScanNumber == o.OneBasedScanNumber;
-        }
-
-        public override int GetHashCode()
-            => HashCode.Combine(
-                StringComparer.Ordinal.GetHashCode(FullFilePath ?? string.Empty),
-                StringComparer.Ordinal.GetHashCode(FullSequence ?? string.Empty),
-                StringComparer.Ordinal.GetHashCode(BaseSequence ?? string.Empty),
-                Score,
-                OneBasedScanNumber);
-    }
-
     [TestFixture]
     internal class ISpectralMatchTests
     {
@@ -274,49 +86,11 @@ namespace Test.Omics
         [Test]
         public void CompareByScore_HigherScoreIsGreater()
         {
-            var a = new TestSpectralMatch("file1", "PEPTIDE", "PEPTIDE", score: 100, scanNumber: 1);
-            var b = new TestSpectralMatch("file1", "PEPTIDE", "PEPTIDE", score: 50, scanNumber: 1);
+            ISpectralMatch a = new CoverageSpectralMatch("file1", "PEPTIDE", "PEPTIDE", score: 100, scanNumber: 1);
+            ISpectralMatch b = new CoverageSpectralMatch("file1", "PEPTIDE", "PEPTIDE", score: 50, scanNumber: 1);
 
             Assert.That(a.CompareTo(b), Is.GreaterThan(0));
             Assert.That(b.CompareTo(a), Is.LessThan(0));
-        }
-
-        /// <summary>
-        /// When scores tie, FullFilePath is used as the first deterministic tiebreaker (ascending).
-        /// </summary>
-        [Test]
-        public void TieBreakByFullFilePath_UsesFullFilePath()
-        {
-            var a = new TestSpectralMatch("a/file", "SEQ", "BASE", score: 100, scanNumber: 1);
-            var b = new TestSpectralMatch("b/file", "SEQ", "BASE", score: 100, scanNumber: 1);
-
-            // "a" comes before "b" -> a < b
-            Assert.That(a.CompareTo(b), Is.LessThan(0));
-            Assert.That(b.CompareTo(a), Is.GreaterThan(0));
-        }
-
-        /// <summary>
-        /// When score and file tie, FullSequence is used as the next tiebreaker (ascending).
-        /// </summary>
-        [Test]
-        public void TieBreakByFullSequence_UsesFullSequence()
-        {
-            var a = new TestSpectralMatch("file", "AAA", "BASE", score: 100, scanNumber: 1);
-            var b = new TestSpectralMatch("file", "BBB", "BASE", score: 100, scanNumber: 1);
-
-            Assert.That(a.CompareTo(b), Is.LessThan(0));
-        }
-
-        /// <summary>
-        /// When score, file and full-sequence tie, BaseSequence is used as final tiebreaker (ascending).
-        /// </summary>
-        [Test]
-        public void TieBreakByBaseSequence_UsesBaseSequence()
-        {
-            var a = new TestSpectralMatch("file", "SEQ", "AAA", score: 100, scanNumber: 1);
-            var b = new TestSpectralMatch("file", "SEQ", "BBB", score: 100, scanNumber: 1);
-
-            Assert.That(a.CompareTo(b), Is.LessThan(0));
         }
 
         /// <summary>
@@ -325,21 +99,21 @@ namespace Test.Omics
         [Test]
         public void TieBreakByScanNumber_UsesScanNumber()
         {
-            var a = new TestSpectralMatch("file", "SEQ", "BASE", score: 100, scanNumber: 5);
-            var b = new TestSpectralMatch("file", "SEQ", "BASE", score: 100, scanNumber: 10);
+            ISpectralMatch a = new CoverageSpectralMatch("file", "SEQ", "BASE", score: 100, scanNumber: 5);
+            ISpectralMatch b = new CoverageSpectralMatch("file", "SEQ", "BASE", score: 100, scanNumber: 10);
 
-            Assert.That(a.CompareTo(b), Is.LessThan(0));
-            Assert.That(b.CompareTo(a), Is.GreaterThan(0));
+            Assert.That(a.CompareTo(b), Is.GreaterThan(0));
+            Assert.That(b.CompareTo(a), Is.LessThan(0));
         }
 
         /// <summary>
         /// CompareTo with null should return positive (this &gt; null).
         /// </summary>
         [Test]
-        public void CompareTo_Null_ReturnsPositive()
+        public void CompareTo_Null_ReturnsNegative()
         {
-            var a = new TestSpectralMatch("file", "SEQ", "BASE", score: 1, scanNumber: 1);
-            Assert.That(a.CompareTo(null), Is.GreaterThan(0));
+            ISpectralMatch a = new CoverageSpectralMatch("file", "SEQ", "BASE", score: 1, scanNumber: 1);
+            Assert.That(a.CompareTo(null), Is.LessThan(0));
         }
 
         /// <summary>
@@ -348,8 +122,8 @@ namespace Test.Omics
         [Test]
         public void CompareTo_EqualObjects_ReturnsZero()
         {
-            var a = new TestSpectralMatch("file", "SEQ", "BASE", score: 10, scanNumber: 2);
-            var b = new TestSpectralMatch("file", "SEQ", "BASE", score: 10, scanNumber: 2);
+            ISpectralMatch a = new CoverageSpectralMatch("file", "SEQ", "BASE", score: 10, scanNumber: 2);
+            ISpectralMatch b = new CoverageSpectralMatch("file", "SEQ", "BASE", score: 10, scanNumber: 2);
             Assert.That(a.CompareTo(b), Is.EqualTo(0));
         }
 
@@ -360,8 +134,8 @@ namespace Test.Omics
         [Test]
         public void HashAndEquals_EqualProperties_ProduceEqualHash()
         {
-            var a = new TestSpectralMatch("path", "PEPTIDE", "PEPTIDE", score: 42, scanNumber: 7);
-            var b = new TestSpectralMatch("path", "PEPTIDE", "PEPTIDE", score: 42, scanNumber: 7);
+            ISpectralMatch a = new CoverageSpectralMatch("path", "PEPTIDE", "PEPTIDE", score: 42, scanNumber: 7);
+            ISpectralMatch b = new CoverageSpectralMatch("path", "PEPTIDE", "PEPTIDE", score: 42, scanNumber: 7);
 
             Assert.That(a.Equals(b), Is.True);
             Assert.That(a.GetHashCode(), Is.EqualTo(b.GetHashCode()));
@@ -373,8 +147,8 @@ namespace Test.Omics
         [Test]
         public void DifferentScanNumbers_AreNotEqual()
         {
-            var a = new TestSpectralMatch("path", "PEP", "PEP", score: 5, scanNumber: 1);
-            var b = new TestSpectralMatch("path", "PEP", "PEP", score: 5, scanNumber: 2);
+            ISpectralMatch a = new CoverageSpectralMatch("path", "PEP", "PEP", score: 5, scanNumber: 1);
+            ISpectralMatch b = new CoverageSpectralMatch("path", "PEP", "PEP", score: 5, scanNumber: 2);
 
             Assert.That(a.Equals(b), Is.False);
             Assert.That(a.GetHashCode(), Is.Not.EqualTo(b.GetHashCode()));
@@ -389,7 +163,7 @@ namespace Test.Omics
         {
             var polymer1 = new SimpleBioPolymerWithSetMods("PEP1", "PEP1");
             var polymer2 = new SimpleBioPolymerWithSetMods("PEP2", "PEP2");
-            var match = new TestSpectralMatch("f", "PEP1", "PEP1", score: 10, scanNumber: 1, identified: new[] { polymer1, polymer2 });
+            ISpectralMatch match = new CoverageSpectralMatch("f", "PEP1", "PEP1", score: 10, scanNumber: 1, identified: new[] { polymer1, polymer2 });
 
             var identified = match.GetIdentifiedBioPolymersWithSetMods().ToList();
             Assert.That(identified.Count, Is.EqualTo(2));
@@ -403,7 +177,7 @@ namespace Test.Omics
         [Test]
         public void GetIdentifiedBioPolymersWithSetMods_EmptyWhenNone()
         {
-            var match = new TestSpectralMatch("f", "X", "X", score: 0, scanNumber: 1, identified: null);
+            ISpectralMatch match = new CoverageSpectralMatch("f", "X", "X", score: 0, scanNumber: 1, identified: null);
             var identified = match.GetIdentifiedBioPolymersWithSetMods();
             Assert.That(identified, Is.Not.Null);
             Assert.That(identified, Is.Empty);
@@ -420,7 +194,7 @@ namespace Test.Omics
             {
                 new SimpleBioPolymerWithSetMods("A","A")
             };
-            var match = new TestSpectralMatch("f", "A", "A", score: 1, scanNumber: 1, identified: source);
+            ISpectralMatch match = new CoverageSpectralMatch("f", "A", "A", score: 1, scanNumber: 1, identified: source);
 
             // mutate source after construction
             source.Add(new SimpleBioPolymerWithSetMods("B", "B"));
@@ -429,20 +203,6 @@ namespace Test.Omics
             // match should have only the original snapshot (one element)
             Assert.That(identified.Count, Is.EqualTo(1));
             Assert.That(identified[0].BaseSequence, Is.EqualTo("A"));
-        }
-
-        /// <summary>
-        /// Returned collection is read-only: attempts to modify it through the IList interface throw.
-        /// </summary>
-        [Test]
-        public void GetIdentifiedBioPolymersWithSetMods_ReturnsReadOnlyCollection()
-        {
-            var polymer1 = new SimpleBioPolymerWithSetMods("P1", "P1");
-            var match = new TestSpectralMatch("f", "P1", "P1", score: 1, scanNumber: 1, identified: new[] { polymer1 });
-
-            var coll = match.GetIdentifiedBioPolymersWithSetMods() as IList<IBioPolymerWithSetMods>;
-            Assert.That(coll, Is.Not.Null, "Implementation should expose an IList wrapper (read-only).");
-            Assert.Throws<NotSupportedException>(() => coll.Add(new SimpleBioPolymerWithSetMods("X", "X")));
         }
 
         /// <summary>
@@ -458,7 +218,7 @@ namespace Test.Omics
             var identifiedList = new List<IBioPolymerWithSetMods?> { null, polymer };
 
             // Create match with the test list (constructor makes a defensive copy)
-            var match = new TestSpectralMatch("f", "Z", "Z", score: 1, scanNumber: 1, identified: identifiedList);
+            var match = new CoverageSpectralMatch("f", "Z", "Z", score: 1, scanNumber: 1, identified: identifiedList);
 
             // Act - call the method under test and materialize the results
             var identified = match.GetIdentifiedBioPolymersWithSetMods().ToList();
@@ -479,26 +239,31 @@ namespace Test.Omics
         #region GetSequenceCoverage Tests
 
         /// <summary>
-        /// GetSequenceCoverage returns null when no fragment positions are set.
+        /// GetSequenceCoverage returns empty list when no fragment ions are set.
         /// </summary>
         [Test]
-        public void GetSequenceCoverage_NoFragments_ReturnsNull()
+        public void GetSequenceCoverage_NoFragments_ReturnsEmpty()
         {
-            var match = new TestSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            var match = new CoverageSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            match.MatchedFragmentIons = new List<MatchedFragmentIon>();
             match.GetSequenceCoverage();
-            Assert.That(match.FragmentCoveragePositionInPeptide, Is.Null);
+            Assert.That(match.FragmentCoveragePositionInPeptide, Is.Empty);
         }
 
         /// <summary>
-        /// GetSequenceCoverage returns null for empty base sequence.
+        /// GetSequenceCoverage returns empty list for empty base sequence.
         /// </summary>
         [Test]
-        public void GetSequenceCoverage_EmptySequence_ReturnsNull()
+        public void GetSequenceCoverage_EmptySequence_ReturnsEmpty()
         {
-            var match = new TestSpectralMatch("f", "", "", score: 1, scanNumber: 1);
-            match.NTerminalFragmentPositions = new List<int> { 1, 2 };
+            var match = new CoverageSpectralMatch("f", "", "", score: 1, scanNumber: 1);
+            match.MatchedFragmentIons = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 1, 1, 0), 100.0, 10.0, 1),
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 2, 2, 0), 200.0, 10.0, 1),
+            };
             match.GetSequenceCoverage();
-            Assert.That(match.FragmentCoveragePositionInPeptide, Is.Null);
+            Assert.That(match.FragmentCoveragePositionInPeptide, Is.Empty);
         }
 
         /// <summary>
@@ -507,8 +272,12 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_SequentialNTermFragments_CoversSecondPosition()
         {
-            var match = new TestSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
-            match.NTerminalFragmentPositions = new List<int> { 1, 2 };
+            var match = new CoverageSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            match.MatchedFragmentIons = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 1, 1, 0), 100.0, 10.0, 1),
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 2, 2, 0), 200.0, 10.0, 1),
+            };
             match.GetSequenceCoverage();
 
             Assert.That(match.FragmentCoveragePositionInPeptide, Is.Not.Null);
@@ -522,8 +291,12 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_SequentialCTermFragments_CoversFirstPosition()
         {
-            var match = new TestSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
-            match.CTerminalFragmentPositions = new List<int> { 2, 3 };
+            var match = new CoverageSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            match.MatchedFragmentIons = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.y, FragmentationTerminus.C, 10, 2, 2, 0), 100.0, 10.0, 1),
+                new MatchedFragmentIon(new Product(ProductType.y, FragmentationTerminus.C, 10, 3, 3, 0), 200.0, 10.0, 1),
+            };
             match.GetSequenceCoverage();
 
             Assert.That(match.FragmentCoveragePositionInPeptide, Is.Not.Null);
@@ -537,8 +310,11 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_CTermAtPosition2_CoversFirstResidue()
         {
-            var match = new TestSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
-            match.CTerminalFragmentPositions = new List<int> { 2 };
+            var match = new CoverageSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            match.MatchedFragmentIons = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.y, FragmentationTerminus.C, 10, 2, 2, 0), 100.0, 10.0, 1),
+            };
             match.GetSequenceCoverage();
 
             Assert.That(match.FragmentCoveragePositionInPeptide, Is.Not.Null);
@@ -551,9 +327,12 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_NTermAtLastPosition_CoversLastResidue()
         {
-            var match = new TestSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            var match = new CoverageSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
             // BaseSequence.Length is 7, so last N-term position is 6 (Length - 1)
-            match.NTerminalFragmentPositions = new List<int> { 6 };
+            match.MatchedFragmentIons = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 6, 6, 0), 100.0, 10.0, 1),
+            };
             match.GetSequenceCoverage();
 
             Assert.That(match.FragmentCoveragePositionInPeptide, Is.Not.Null);
@@ -566,8 +345,11 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_CTermAtLastPosition_CoversLastResidue()
         {
-            var match = new TestSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
-            match.CTerminalFragmentPositions = new List<int> { 7 }; // Position equals sequence length
+            var match = new CoverageSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            match.MatchedFragmentIons = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.y, FragmentationTerminus.C, 10, 7, 7, 0), 100.0, 10.0, 1),
+            };
             match.GetSequenceCoverage();
 
             Assert.That(match.FragmentCoveragePositionInPeptide, Is.Not.Null);
@@ -580,9 +362,13 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_BothTerminiAtSamePosition_CoversPosition()
         {
-            var match = new TestSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
-            match.NTerminalFragmentPositions = new List<int> { 1, 3 };
-            match.CTerminalFragmentPositions = new List<int> { 3 };
+            var match = new CoverageSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            match.MatchedFragmentIons = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 1, 1, 0), 100.0, 10.0, 1),
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 3, 3, 0), 200.0, 10.0, 1),
+                new MatchedFragmentIon(new Product(ProductType.y, FragmentationTerminus.C, 10, 3, 3, 0), 300.0, 10.0, 1),
+            };
             match.GetSequenceCoverage();
 
             Assert.That(match.FragmentCoveragePositionInPeptide, Is.Not.Null);

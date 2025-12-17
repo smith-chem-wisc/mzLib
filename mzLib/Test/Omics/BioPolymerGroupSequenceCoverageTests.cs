@@ -7,6 +7,7 @@ using Omics.BioPolymerGroup;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
+using Omics.SpectralMatch;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -173,108 +174,21 @@ namespace Test.Omics
         /// Test implementation of ISpectralMatch for sequence coverage tests.
         /// Also implements IHasSequenceCoverageFromFragments to support fragment coverage calculation.
         /// </summary>
-        private class CoverageSpectralMatch : ISpectralMatch, IHasSequenceCoverageFromFragments
+        public class CoverageSpectralMatch : BaseSpectralMatch
         {
             private readonly List<IBioPolymerWithSetMods> _identified;
-
-            public string FullFilePath { get; }
-            public string FullSequence { get; }
-            public string BaseSequence { get; }
-            public double Score { get; }
-            public int OneBasedScanNumber { get; }
-            public HashSet<int>? FragmentCoveragePositionInPeptide { get; private set; }
-
-            public List<int>? NTerminalFragmentPositions { get; set; }
-            public List<int>? CTerminalFragmentPositions { get; set; }
-
             public CoverageSpectralMatch(
                 string filePath,
                 string fullSequence,
                 string baseSequence,
                 double score,
                 int scanNumber,
-                IEnumerable<IBioPolymerWithSetMods>? identified = null)
+                IEnumerable<IBioPolymerWithSetMods>? identified = null) : base(filePath, scanNumber, score, fullSequence, baseSequence)
             {
-                FullFilePath = filePath ?? string.Empty;
-                FullSequence = fullSequence ?? string.Empty;
-                BaseSequence = baseSequence ?? string.Empty;
-                Score = score;
-                OneBasedScanNumber = scanNumber;
-                _identified = identified?.ToList() ?? new List<IBioPolymerWithSetMods>();
+                _identified = identified != null ? [..identified] : [];
             }
 
-            public IEnumerable<IBioPolymerWithSetMods> GetIdentifiedBioPolymersWithSetMods() => _identified;
-
-            public void GetSequenceCoverage()
-            {
-                if (string.IsNullOrEmpty(BaseSequence)) return;
-
-                var nTermPositions = NTerminalFragmentPositions ?? new List<int>();
-                var cTermPositions = CTerminalFragmentPositions ?? new List<int>();
-
-                if (!nTermPositions.Any() && !cTermPositions.Any()) return;
-
-                var fragmentCoveredResidues = new HashSet<int>();
-
-                if (nTermPositions.Any())
-                {
-                    var sortedNTerm = nTermPositions.OrderBy(x => x).ToList();
-
-                    if (sortedNTerm.Contains(BaseSequence.Length - 1))
-                        fragmentCoveredResidues.Add(BaseSequence.Length);
-
-                    if (sortedNTerm.Contains(1))
-                        fragmentCoveredResidues.Add(1);
-
-                    for (int i = 0; i < sortedNTerm.Count - 1; i++)
-                    {
-                        if (sortedNTerm[i + 1] - sortedNTerm[i] == 1)
-                            fragmentCoveredResidues.Add(sortedNTerm[i + 1]);
-
-                        if (cTermPositions.Contains(sortedNTerm[i + 1]))
-                            fragmentCoveredResidues.Add(sortedNTerm[i + 1]);
-
-                        if (cTermPositions.Contains(sortedNTerm[i + 1] + 2))
-                            fragmentCoveredResidues.Add(sortedNTerm[i + 1] + 1);
-                    }
-                }
-
-                if (cTermPositions.Any())
-                {
-                    var sortedCTerm = cTermPositions.OrderBy(x => x).ToList();
-
-                    if (sortedCTerm.Contains(2))
-                        fragmentCoveredResidues.Add(1);
-
-                    if (sortedCTerm.Contains(BaseSequence.Length))
-                        fragmentCoveredResidues.Add(BaseSequence.Length);
-
-                    for (int i = 0; i < sortedCTerm.Count - 1; i++)
-                    {
-                        if (sortedCTerm[i + 1] - sortedCTerm[i] == 1)
-                            fragmentCoveredResidues.Add(sortedCTerm[i]);
-                    }
-                }
-
-                FragmentCoveragePositionInPeptide = fragmentCoveredResidues;
-            }
-
-            public int CompareTo(ISpectralMatch? other)
-            {
-                if (other is null) return 1;
-                int scoreCmp = Score.CompareTo(other.Score);
-                if (scoreCmp != 0) return scoreCmp;
-                return OneBasedScanNumber.CompareTo(other.OneBasedScanNumber);
-            }
-
-            public int CompareTo(IHasSequenceCoverageFromFragments? other)
-            {
-                if (other is ISpectralMatch spectralMatch)
-                {
-                    return CompareTo(spectralMatch);
-                }
-                return other is null ? 1 : 0;
-            }
+            public override IEnumerable<IBioPolymerWithSetMods> GetIdentifiedBioPolymersWithSetMods() => _identified;
         }
 
         #endregion
@@ -537,7 +451,14 @@ namespace Test.Omics
             var uniqueSequences = new HashSet<IBioPolymerWithSetMods> { peptide };
 
             var psm = new CoverageSpectralMatch("test.raw", "DEFGH", "DEFGH", 100, 1, new[] { peptide });
-            psm.NTerminalFragmentPositions = new List<int> { 1, 2, 3 };
+            psm.MatchedFragmentIons = new List<MatchedFragmentIon>
+            {
+                // Fragments that cover positions 1, 2, and 3 of the peptide (D, E, F)
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 1, 1, 0), 100.0, 10.0, 1),
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 2, 2, 0), 200.0, 10.0, 1),
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 3, 3, 0), 300.0, 10.0, 1),
+            };
+
 
             var group = new BioPolymerGroup(bioPolymers, sequences, uniqueSequences);
             group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };

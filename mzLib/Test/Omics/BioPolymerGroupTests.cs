@@ -7,6 +7,7 @@ using Omics.BioPolymerGroup;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
+using Omics.SpectralMatch;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using System;
@@ -183,9 +184,9 @@ namespace Test.Omics
 		[Test]
 		public void Score_WithPsms_SumsBestScorePerBaseSequence()
 		{
-			var psm1 = new TestSpectralMatch(@"C:\test.raw", "ACGT", "ACGT", score: 100, scanNumber: 1);
-			var psm2 = new TestSpectralMatch(@"C:\test.raw", "ACGT", "ACGT", score: 150, scanNumber: 2);
-			var psm3 = new TestSpectralMatch(@"C:\test.raw", "TGCA", "TGCA", score: 200, scanNumber: 3);
+			var psm1 = new BioPolymerGroupSequenceCoverageTests.CoverageSpectralMatch(@"C:\test.raw", "ACGT", "ACGT", score: 100, scanNumber: 1);
+			var psm2 = new BioPolymerGroupSequenceCoverageTests.CoverageSpectralMatch(@"C:\test.raw", "ACGT", "ACGT", score: 150, scanNumber: 2);
+			var psm3 = new BioPolymerGroupSequenceCoverageTests.CoverageSpectralMatch(@"C:\test.raw", "TGCA", "TGCA", score: 200, scanNumber: 3);
 
 			_bioPolymerGroup.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm1, psm2, psm3 };
 			_bioPolymerGroup.Score();
@@ -197,9 +198,9 @@ namespace Test.Omics
 		[Test]
 		public void Score_WithMultipleSequencesSameBase_UsesMaxScore()
 		{
-			var psm1 = new TestSpectralMatch(@"C:\test.raw", "ACGT", "ACGT", score: 50, scanNumber: 1);
-			var psm2 = new TestSpectralMatch(@"C:\test.raw", "ACGT", "ACGT", score: 75, scanNumber: 2);
-			var psm3 = new TestSpectralMatch(@"C:\test.raw", "ACGT", "ACGT", score: 100, scanNumber: 3);
+			var psm1 = new BioPolymerGroupSequenceCoverageTests.CoverageSpectralMatch(@"C:\test.raw", "ACGT", "ACGT", score: 50, scanNumber: 1);
+			var psm2 = new BioPolymerGroupSequenceCoverageTests.CoverageSpectralMatch(@"C:\test.raw", "ACGT", "ACGT", score: 75, scanNumber: 2);
+			var psm3 = new BioPolymerGroupSequenceCoverageTests.CoverageSpectralMatch(@"C:\test.raw", "ACGT", "ACGT", score: 100, scanNumber: 3);
 
 			_bioPolymerGroup.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm1, psm2, psm3 };
 			_bioPolymerGroup.Score();
@@ -248,8 +249,8 @@ namespace Test.Omics
 		[Test]
 		public void MergeWith_CombinesPsms()
 		{
-			var psm1 = new TestSpectralMatch(@"C:\test.raw", "SEQ1", "SEQ1", score: 100, scanNumber: 1);
-			var psm2 = new TestSpectralMatch(@"C:\test.raw", "SEQ2", "SEQ2", score: 150, scanNumber: 2);
+			var psm1 = new BioPolymerGroupSequenceCoverageTests.CoverageSpectralMatch(@"C:\test.raw", "SEQ1", "SEQ1", score: 100, scanNumber: 1);
+			var psm2 = new BioPolymerGroupSequenceCoverageTests.CoverageSpectralMatch(@"C:\test.raw", "SEQ2", "SEQ2", score: 150, scanNumber: 2);
 
 			_bioPolymerGroup.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm1 };
 
@@ -834,8 +835,8 @@ namespace Test.Omics
 				{ file2, 2000.0 }
 			};
 
-			var psm1 = new TestSpectralMatch(@"C:\test1.raw", "SEQ", "SEQ", score: 100, scanNumber: 1);
-			var psm2 = new TestSpectralMatch(@"C:\test2.raw", "SEQ", "SEQ", score: 100, scanNumber: 2);
+			var psm1 = new BioPolymerGroupSequenceCoverageTests.CoverageSpectralMatch(@"C:\test1.raw", "SEQ", "SEQ", score: 100, scanNumber: 1, [new TestBioPolymerWithSetMods("SEQ", "SEQ")]);
+			var psm2 = new BioPolymerGroupSequenceCoverageTests.CoverageSpectralMatch(@"C:\test2.raw", "SEQ", "SEQ", score: 100, scanNumber: 2, [new TestBioPolymerWithSetMods("SEQ", "SEQ")]);
 			_bioPolymerGroup.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm1, psm2 };
 
 			var subset = _bioPolymerGroup.ConstructSubsetBioPolymerGroup(@"C:\test1.raw");

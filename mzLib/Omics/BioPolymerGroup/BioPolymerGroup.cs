@@ -1,6 +1,7 @@
 ﻿using Easy.Common.Extensions;
 using MassSpectrometry;
 using Omics.Modifications;
+using Omics.SpectralMatch;
 using System.Text;
 
 namespace Omics.BioPolymerGroup

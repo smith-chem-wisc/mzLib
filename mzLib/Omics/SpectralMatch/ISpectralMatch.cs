@@ -1,4 +1,4 @@
-﻿namespace Omics
+﻿namespace Omics.SpectralMatch
 {
     /// <summary>
     /// Represents a single spectrum-to-sequence identification (PSM) produced by a reader or search engine.
@@ -9,7 +9,7 @@
     /// </summary>
     public interface ISpectralMatch : IComparable<ISpectralMatch>
     {
-        /// <summary>
+      /// <summary>
         /// The (absolute or relative) file path or file identifier for the spectra file that produced this match.
         /// Implementations may normalize this value (for example to an empty string) but should document whether
         /// comparisons treat path differences (case or separators) specially.
@@ -36,11 +36,19 @@
         int OneBasedScanNumber { get; }
 
         /// <summary>
-        /// Numeric score for the match. Most implementations use a higher-is-better convention; callers
+        /// Numeric score for the match. Most implementations use a higher-is-better convention; callersBestMatchingBioPolymersWithSetMods
         /// should consult the implementer documentation if a different convention is used.
         /// The score is used for ranking, filtering and tie-breaking in comparison.
         /// </summary>
         double Score { get; }
+
+        /// <summary>
+        /// An array containing the intensities for the spectral match
+        /// If no quantification wasn't performed, this will be null
+        ///     if Multiple Reporter Ions are present, the order of intensities should match the order of the reporter ions
+        ///     If LFQ was performed, this will be a single element array with the intensity value
+        /// </summary>
+        public double[]? Intensities { get; }
 
         /// <summary>
         /// Returns the set (zero or more) of identified biopolymer objects (for example peptides or proteoforms

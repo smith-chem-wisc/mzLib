@@ -6,6 +6,7 @@ using Omics.BioPolymerGroup;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
+using Omics.SpectralMatch;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -407,7 +408,7 @@ namespace Test.Omics
             var sequences = new HashSet<IBioPolymerWithSetMods> { peptide };
             var uniqueSequences = new HashSet<IBioPolymerWithSetMods> { peptide };
 
-            var psm = new TestSpectralMatch(@"C:\test.raw", "ACDEF", "ACDEF", 100, 1, new[] { peptide });
+            var psm = new BioPolymerGroupSequenceCoverageTests.CoverageSpectralMatch(@"C:\test.raw", "ACDEF", "ACDEF", 100, 1, new[] { peptide });
 
             var group = new BioPolymerGroup(bioPolymers, sequences, uniqueSequences);
             group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
@@ -434,7 +435,7 @@ namespace Test.Omics
             var sequences = new HashSet<IBioPolymerWithSetMods> { peptide };
             var uniqueSequences = new HashSet<IBioPolymerWithSetMods> { peptide };
 
-            var psm = new TestSpectralMatch(@"C:\test.raw", "ACDEF", "ACDEF", 100, 1, new[] { peptide });
+            var psm = new BioPolymerGroupSequenceCoverageTests.CoverageSpectralMatch(@"C:\test.raw", "ACDEF", "ACDEF", 100, 1, new[] { peptide });
 
             var group = new BioPolymerGroup(bioPolymers, sequences, uniqueSequences);
             group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
@@ -642,39 +643,6 @@ namespace Test.Omics
         public override int GetHashCode()
         {
             return HashCode.Combine(BaseSequence, FullSequence);
-        }
-    }
-
-    /// <summary>
-    /// Extended test implementation of ISpectralMatch that returns identified sequences.
-    /// </summary>
-    internal class TestSpectralMatchWithIdentified : ISpectralMatch
-    {
-        private readonly List<IBioPolymerWithSetMods> _identified;
-
-        public string FullFilePath { get; }
-        public string FullSequence { get; }
-        public string BaseSequence { get; }
-        public double Score { get; }
-        public int OneBasedScanNumber { get; }
-
-        public TestSpectralMatchWithIdentified(string filePath, string fullSequence, string baseSequence,
-            double score, int scanNumber, IEnumerable<IBioPolymerWithSetMods> identified = null)
-        {
-            FullFilePath = filePath;
-            FullSequence = fullSequence;
-            BaseSequence = baseSequence;
-            Score = score;
-            OneBasedScanNumber = scanNumber;
-            _identified = identified?.ToList() ?? new List<IBioPolymerWithSetMods>();
-        }
-
-        public IEnumerable<IBioPolymerWithSetMods> GetIdentifiedBioPolymersWithSetMods() => _identified;
-
-        public int CompareTo(ISpectralMatch? other)
-        {
-            if (other is null) return 1;
-            return Score.CompareTo(other.Score);
         }
     }
 
