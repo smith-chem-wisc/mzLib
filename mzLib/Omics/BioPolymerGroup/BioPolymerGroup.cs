@@ -47,470 +47,427 @@ namespace Omics.BioPolymerGroup
         /// <param name="uniqueBioPolymersWithSetMods">Sequences with modifications that are unique to this group
         /// and not shared with any other biopolymer group.</param>
         public BioPolymerGroup(HashSet<IBioPolymer> bioPolymers, HashSet<IBioPolymerWithSetMods> bioPolymersWithSetMods,
-			HashSet<IBioPolymerWithSetMods> uniqueBioPolymersWithSetMods)
-		{
-			BioPolymers = bioPolymers;
-			ListOfBioPolymersOrderedByAccession = BioPolymers.OrderBy(p => p.Accession).ToList();
-			BioPolymerGroupName = string.Join("|", ListOfBioPolymersOrderedByAccession.Select(p => p.Accession));
-			AllBioPolymersWithSetMods = bioPolymersWithSetMods;
-			UniqueBioPolymersWithSetMods = uniqueBioPolymersWithSetMods;
-			AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch>();
-			SequenceCoverageFraction = new List<double>();
-			SequenceCoverageDisplayList = new List<string>();
-			SequenceCoverageDisplayListWithMods = new List<string>();
-			FragmentSequenceCoverageDisplayList = new List<string>();
-			BioPolymerGroupScore = 0;
-			BestBioPolymerWithSetModsScore = 0;
-			QValue = 0;
-			IsDecoy = false;
-			IsContaminant = false;
-			ModsInfo = new List<string>();
+            HashSet<IBioPolymerWithSetMods> uniqueBioPolymersWithSetMods)
+        {
+            BioPolymers = bioPolymers;
+            ListOfBioPolymersOrderedByAccession = BioPolymers.OrderBy(p => p.Accession).ToList();
+            BioPolymerGroupName = string.Join("|", ListOfBioPolymersOrderedByAccession.Select(p => p.Accession));
+            AllBioPolymersWithSetMods = bioPolymersWithSetMods;
+            UniqueBioPolymersWithSetMods = uniqueBioPolymersWithSetMods;
+            AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch>();
+            BioPolymerGroupScore = 0;
+            BestBioPolymerWithSetModsScore = 0;
+            QValue = 0;
+            IsDecoy = false;
+            IsContaminant = false;
+            ModsInfo = new List<string>();
 
-			// if any of the biopolymers in the group are decoys, the group is a decoy
-			foreach (var bioPolymer in bioPolymers)
-			{
-				if (bioPolymer.IsDecoy)
-				{
-					IsDecoy = true;
-				}
+            // if any of the biopolymers in the group are decoys, the group is a decoy
+            foreach (var bioPolymer in bioPolymers)
+            {
+                if (bioPolymer.IsDecoy)
+                {
+                    IsDecoy = true;
+                }
 
-				if (bioPolymer.IsContaminant)
-				{
-					IsContaminant = true;
-				}
+                if (bioPolymer.IsContaminant)
+                {
+                    IsContaminant = true;
+                }
 
-				// If both are true, we can break early
-				if (IsDecoy && IsContaminant)
-				{
-					break;
-				}
-			}
-		}
+                // If both are true, we can break early
+                if (IsDecoy && IsContaminant)
+                {
+                    break;
+                }
+            }
+        }
 
-		#region IBioPolymerGroup Implementation
+        #region IBioPolymerGroup Implementation
 
-		/// <summary>
-		/// True if this group contains only decoy biopolymers, used for FDR estimation.
-		/// </summary>
-		public bool IsDecoy { get; }
+        /// <summary>
+        /// True if this group contains any decoy biopolymers, used for FDR estimation.
+        /// </summary>
+        public bool IsDecoy { get; }
 
-		/// <summary>
-		/// True if this group contains biopolymers marked as contaminants.
-		/// </summary>
-		public bool IsContaminant { get; }
+        /// <summary>
+        /// True if this group contains any biopolymers marked as contaminants.
+        /// </summary>
+        public bool IsContaminant { get; }
 
-		/// <summary>
-		/// List of samples that contribute quantification data for this group.
-		/// Supports both SpectraFileInfo (label-free) and IsobaricQuantSampleInfo (TMT/iTRAQ).
-		/// </summary>
-		public List<ISampleInfo> SamplesForQuantification { get; set; }
+        /// <summary>
+        /// List of samples that contribute quantification data for this group.
+        /// Supports both <see cref="SpectraFileInfo"/> (label-free) and <see cref="IsobaricQuantSampleInfo"/> (TMT/iTRAQ).
+        /// </summary>
+        public List<ISampleInfo> SamplesForQuantification { get; set; }
 
-		/// <summary>
-		/// Set of all biopolymers (e.g., proteins, RNA sequences) that belong to this group.
-		/// </summary>
-		public HashSet<IBioPolymer> BioPolymers { get; set; }
+        /// <summary>
+        /// Set of all biopolymers (e.g., proteins, RNA sequences) that belong to this group.
+        /// These biopolymers are indistinguishable based on the identified sequences.
+        /// </summary>
+        public HashSet<IBioPolymer> BioPolymers { get; set; }
 
-		/// <summary>
-		/// Display name for the biopolymer group, derived from the accessions of member biopolymers.
-		/// Used as the primary identity key for equality comparisons.
-		/// </summary>
-		public string BioPolymerGroupName { get; private set; }
+        /// <summary>
+        /// Display name for the biopolymer group, derived from the pipe-delimited accessions of member biopolymers.
+        /// Used as the primary identity key for equality comparisons via <see cref="IEquatable{T}"/>.
+        /// </summary>
+        public string BioPolymerGroupName { get; private set; }
 
-		/// <summary>
-		/// Aggregated score for the group, computed from member PSMs.
-		/// Higher scores typically indicate higher confidence in the identification.
-		/// </summary>
-		public double BioPolymerGroupScore { get; set; }
+        /// <summary>
+        /// Aggregated confidence score for the group. Higher values indicate higher confidence.
+        /// 
+        /// Computed by <see cref="BioPolymerGroupExtensions.Score"/> as the sum of the best (highest) 
+        /// score for each unique base sequence among the PSMs in <see cref="AllPsmsBelowOnePercentFDR"/>.
+        /// This ensures each unique peptide/oligonucleotide contributes only its best-scoring identification.
+        /// </summary>
+        /// <seealso cref="BioPolymerGroupExtensions.Score"/>
+        public double BioPolymerGroupScore { get; set; }
 
-		/// <summary>
-		/// All biopolymer sequences with set modifications identified in this group,
-		/// including those shared with other groups.
-		/// </summary>
-		public HashSet<IBioPolymerWithSetMods> AllBioPolymersWithSetMods { get; set; }
+        /// <summary>
+        /// All biopolymer sequences with set modifications identified in this group,
+        /// including those shared with other biopolymer groups.
+        /// </summary>
+        public HashSet<IBioPolymerWithSetMods> AllBioPolymersWithSetMods { get; set; }
 
-		/// <summary>
-		/// Biopolymer sequences with set modifications that are unique to this group
-		/// (not shared with any other biopolymer group).
-		/// </summary>
-		public HashSet<IBioPolymerWithSetMods> UniqueBioPolymersWithSetMods { get; set; }
+        /// <summary>
+        /// Biopolymer sequences with set modifications that are unique to this group
+        /// (not shared with any other biopolymer group). Used for protein inference.
+        /// </summary>
+        public HashSet<IBioPolymerWithSetMods> UniqueBioPolymersWithSetMods { get; set; }
 
         /// <summary>
         /// All peptide-spectrum matches (PSMs) for this group that pass the 1% FDR threshold.
         /// Must be populated before calling <see cref="CalculateSequenceCoverage"/> or <see cref="Score"/>.
+        /// Used for scoring, coverage calculation, and quantification.
         /// </summary>
         public HashSet<ISpectralMatch> AllPsmsBelowOnePercentFDR { get; set; }
 
         /// <summary>
-        /// The q-value (FDR-adjusted p-value) for this biopolymer group.
-        /// Lower values indicate higher confidence in the identification.
+        /// The q-value for this biopolymer group, representing the minimum FDR at which 
+        /// this group would be accepted. Lower values indicate higher confidence (0.01 = 1% FDR).
         /// </summary>
         public double QValue { get; set; }
 
-		/// <summary>
-		/// The best (lowest) q-value among all biopolymers with set modifications in this group.
-		/// </summary>
-		public double BestBioPolymerWithSetModsQValue { get; set; }
+        /// <summary>
+        /// The best (lowest) q-value among all biopolymers with set modifications in this group.
+        /// </summary>
+        public double BestBioPolymerWithSetModsQValue { get; set; }
 
-		/// <summary>
-		/// The best (highest) score among all biopolymers with set modifications in this group.
-		/// </summary>
-		public double BestBioPolymerWithSetModsScore { get; set; }
+        /// <summary>
+        /// The best (highest) score among all biopolymers with set modifications in this group.
+        /// </summary>
+        public double BestBioPolymerWithSetModsScore { get; set; }
 
-		/// <summary>
-		/// Summary information about modifications present on members of this group.
-		/// Each string typically describes a modification type and its frequency or location.
-		/// </summary>
-		public List<string> ModsInfo { get; private set; }
+        /// <summary>
+        /// Modification occupancy information for this group. Each string describes a modification 
+        /// at a specific position with its occupancy fraction (e.g., how often the site is modified).
+        /// Format: #aa{position}[{modName},info:occupancy={fraction}({count}/{total})]
+        /// Populated by <see cref="CalculateSequenceCoverage"/>.
+        /// </summary>
+        public List<string> ModsInfo { get; private set; }
 
-		/// <summary>
-		/// Dictionary mapping sample identifiers to measured intensity values for this group.
-		/// Supports both SpectraFileInfo (label-free) and IsobaricQuantSampleInfo (TMT/iTRAQ) as keys.
-		/// </summary>
-		public Dictionary<ISampleInfo, double> IntensitiesBySample { get; set; }
+        /// <summary>
+        /// Dictionary mapping sample identifiers to measured intensity values for this group.
+        /// Supports both <see cref="SpectraFileInfo"/> (label-free) and <see cref="IsobaricQuantSampleInfo"/> (TMT/iTRAQ) as keys.
+        /// </summary>
+        public Dictionary<ISampleInfo, double> IntensitiesBySample { get; set; }
 
-		/// <summary>
-		/// All biopolymers in this group ordered alphabetically by accession.
-		/// Provides a stable, deterministic ordering for output and comparison.
-		/// </summary>
-		public List<IBioPolymer> ListOfBioPolymersOrderedByAccession { get; private set; }
+        /// <summary>
+        /// All biopolymers in this group ordered alphabetically by accession.
+        /// Provides a stable, deterministic ordering for output and comparison.
+        /// </summary>
+        public List<IBioPolymer> ListOfBioPolymersOrderedByAccession { get; private set; }
 
         #endregion
 
         #region Additional Properties
-        
-		/// <summary>
-        /// Visual representation of fragment-level sequence coverage for each biopolymer, ordered by accession.
-        /// Uppercase letters indicate residues covered by matched fragment ions; lowercase indicates uncovered.
-        /// Populated by <see cref="CalculateSequenceCoverage"/>. Will show all lowercase if PSMs do not 
-        /// implement <see cref="IHasSequenceCoverageFromFragments"/>.
-        /// </summary>
-        public List<string> FragmentSequenceCoverageDisplayList { get; private set; }
 
         /// <summary>
-        /// Sequence coverage fraction for each biopolymer in the group, ordered by accession.
-        /// Each value (0.0 to 1.0) represents the fraction of residues covered by identified peptides.
-        /// Populated by <see cref="CalculateSequenceCoverage"/>.
+        /// Cumulative count of target (non-decoy) groups up to and including this one,
+        /// when ordered by score descending. Used for FDR calculation via target-decoy approach.
         /// </summary>
-        public List<double> SequenceCoverageFraction { get; private set; }
+        public int CumulativeTarget { get; set; }
 
         /// <summary>
-        /// Visual representation of sequence coverage for each biopolymer in the group.
-        /// Typically shows identified regions with special characters or formatting.
+        /// Cumulative count of decoy groups up to and including this one,
+        /// when ordered by score descending. Used for FDR calculation via target-decoy approach.
         /// </summary>
-        public List<string> SequenceCoverageDisplayList { get; private set; }
+        public int CumulativeDecoy { get; set; }
 
-		/// <summary>
-		/// Visual representation of sequence coverage including modification information.
-		/// Shows both coverage and locations of identified modifications.
-		/// </summary>
-		public List<string> SequenceCoverageDisplayListWithMods { get; private set; }
+        /// <summary>
+        /// Controls whether modifications are displayed in sequence output.
+        /// If true, <see cref="IBioPolymerWithSetMods.FullSequence"/> is used (includes modification annotations).
+        /// If false, <see cref="IBioPolymerWithSetMods.BaseSequence"/> is used (unmodified sequence only).
+        /// </summary>
+        public bool DisplayModsOnPeptides { get; set; }
 
+        /// <summary>
+        /// Cached sequence coverage results from <see cref="CalculateSequenceCoverage"/>.
+        /// Null until coverage is calculated. Invalidated when <see cref="MergeWith"/> is called.
+        /// </summary>
+        private SequenceCoverageResult? _coverageResult;
 
-		/// <summary>
-		/// Cumulative count of target (non-decoy) groups up to and including this one,
-		/// ordered by score. Used for FDR calculation.
-		/// </summary>
-		public int CumulativeTarget { get; set; }
+        #endregion
 
-		/// <summary>
-		/// Cumulative count of decoy groups up to and including this one,
-		/// ordered by score. Used for FDR calculation.
-		/// </summary>
-		public int CumulativeDecoy { get; set; }
+        #region Methods
 
-		/// <summary>
-		/// If true, modifications will be displayed in sequence output.
-		/// If false, only base sequences will be shown.
-		/// </summary>
-		public bool DisplayModsOnPeptides { get; set; }
+        /// <summary>
+        /// Returns a tab-separated header line for output files, matching the format of <see cref="ToString"/>.
+        /// Header includes columns for biopolymer information, quantification, and statistical metrics.
+        /// </summary>
+        /// <returns>Tab-separated header string suitable for TSV file output.</returns>
+        public string GetTabSeparatedHeader()
+        {
+            var sb = new StringBuilder();
+            sb.Append("BioPolymer Accession" + '\t');
+            sb.Append("Gene" + '\t');
+            sb.Append("Organism" + '\t');
+            sb.Append("BioPolymer Full Name" + '\t');
+            sb.Append("BioPolymer Unmodified Mass" + '\t');
+            sb.Append("Number of BioPolymers in Group" + '\t');
+            sb.Append("Unique Sequences" + '\t');
+            sb.Append("Shared Sequences" + '\t');
+            sb.Append("Number of Sequences" + '\t');
+            sb.Append("Number of Unique Sequences" + '\t');
+            sb.Append("Sequence Coverage Fraction" + '\t');
+            sb.Append("Sequence Coverage" + '\t');
+            sb.Append("Sequence Coverage with Mods" + '\t');
+            sb.Append("Fragment Sequence Coverage" + '\t');
+            sb.Append("Modification Info List" + "\t");
 
-		/// <summary>
-		/// Cached string representation of unique sequences for this group.
-		/// Populated by GetIdentifiedSequencesOutput method.
-		/// </summary>
-		private string UniqueSequencesOutput;
+            if (SamplesForQuantification != null)
+            {
+                var spectraFiles = SamplesForQuantification.OfType<SpectraFileInfo>().ToList();
+                var isobaricSamples = SamplesForQuantification.OfType<IsobaricQuantSampleInfo>().ToList();
 
-		/// <summary>
-		/// Cached string representation of sequences shared with other groups.
-		/// Populated by GetIdentifiedSequencesOutput method.
-		/// </summary>
-		private string SharedSequencesOutput;
+                if (spectraFiles.Any())
+                {
+                    // Label-free header generation
+                    bool unfractionated = spectraFiles.Select(p => p.Fraction).Distinct().Count() == 1;
+                    bool conditionsUndefined = spectraFiles.All(p => string.IsNullOrEmpty(p.Condition));
+                    bool silacExperimentalDesign = spectraFiles.Any(p => !File.Exists(p.FullFilePathWithExtension));
 
-		#endregion
+                    foreach (var sampleGroup in spectraFiles.GroupBy(p => p.Condition))
+                    {
+                        foreach (var sample in sampleGroup.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
+                        {
+                            if ((conditionsUndefined && unfractionated) || silacExperimentalDesign)
+                            {
+                                sb.Append("Intensity_" + sample.First().FilenameWithoutExtension + "\t");
+                            }
+                            else
+                            {
+                                sb.Append("Intensity_" + sample.First().Condition + "_" +
+                                          (sample.First().BiologicalReplicate + 1) + "\t");
+                            }
+                        }
+                    }
+                }
+                else if (isobaricSamples.Any())
+                {
+                    // Isobaric header generation - group by file, then by channel
+                    foreach (var fileGroup in isobaricSamples.GroupBy(p => p.FullFilePathWithExtension).OrderBy(g => g.Key))
+                    {
+                        foreach (var sample in fileGroup.OrderBy(p => p.ChannelLabel))
+                        {
+                            sb.Append($"Intensity_{Path.GetFileNameWithoutExtension(sample.FullFilePathWithExtension)}_{sample.ChannelLabel}\t");
+                        }
+                    }
+                }
+            }
 
-		#region Methods
+            sb.Append("Number of PSMs" + '\t');
+            sb.Append("BioPolymer Decoy/Contaminant/Target" + '\t');
+            sb.Append("BioPolymer Cumulative Target" + '\t');
+            sb.Append("BioPolymer Cumulative Decoy" + '\t');
+            sb.Append("BioPolymer QValue" + '\t');
+            sb.Append("Best Sequence Score" + '\t');
+            sb.Append("Best Sequence Notch QValue");
+            return sb.ToString();
+        }
 
-		/// <summary>
-		/// Prepares output strings for unique and shared sequences identified in this group.
-		/// Populates UniqueSequencesOutput and SharedSequencesOutput properties.
-		/// </summary>
-		/// <param name="labels">Optional SILAC labels for quantification. If provided, sequences will be grouped by label.</param>
-		public void GetIdentifiedSequencesOutput(List<SilacLabel> labels)
-		{
-			var sharedSequences = AllBioPolymersWithSetMods.Except(UniqueBioPolymersWithSetMods);
+        /// <summary>
+        /// Returns a tab-separated string representation of this biopolymer group,
+        /// including all identification, quantification, and statistical information.
+        /// Format matches the header returned by <see cref="GetTabSeparatedHeader"/>.
+        /// </summary>
+        /// <returns>Tab-separated string suitable for TSV file output.</returns>
+        public override string ToString()
+        {
+            var sb = new StringBuilder();
 
-			if (labels != null)
-			{
-				// SILAC handling could be implemented here if needed
-				// For now, using base implementation
-			}
+            sb.Append(BioPolymerGroupName);
+            sb.Append("\t");
 
-			if (!DisplayModsOnPeptides)
-			{
-				UniqueSequencesOutput =
-					TruncateString(string.Join("|",
-						UniqueBioPolymersWithSetMods.Select(p => p.BaseSequence).Distinct()));
-				SharedSequencesOutput =
-					TruncateString(string.Join("|",
-						sharedSequences.Select(p => p.BaseSequence).Distinct()));
-			}
-			else
-			{
-				UniqueSequencesOutput =
-					TruncateString(string.Join("|",
-						UniqueBioPolymersWithSetMods.Select(p => p.FullSequence).Distinct()));
-				SharedSequencesOutput =
-					TruncateString(string.Join("|",
-						sharedSequences.Select(p => p.FullSequence).Distinct()));
-			}
-		}
+            sb.Append(TruncateString(string.Join("|",
+                ListOfBioPolymersOrderedByAccession.Select(p => p.GeneNames.Select(x => x.Item2).FirstOrDefault()))));
+            sb.Append("\t");
 
-		/// <summary>
-		/// Returns a tab-separated header line for output files, matching the format of ToString.
-		/// Header includes columns for biopolymer information, quantification, and statistical metrics.
-		/// </summary>
-		/// <returns>Tab-separated header string suitable for TSV file output.</returns>
-		public string GetTabSeparatedHeader()
-		{
-			var sb = new StringBuilder();
-			sb.Append("BioPolymer Accession" + '\t');
-			sb.Append("Gene" + '\t');
-			sb.Append("Organism" + '\t');
-			sb.Append("BioPolymer Full Name" + '\t');
-			sb.Append("BioPolymer Unmodified Mass" + '\t');
-			sb.Append("Number of BioPolymers in Group" + '\t');
-			sb.Append("Unique Sequences" + '\t');
-			sb.Append("Shared Sequences" + '\t');
-			sb.Append("Number of Sequences" + '\t');
-			sb.Append("Number of Unique Sequences" + '\t');
-			sb.Append("Sequence Coverage Fraction" + '\t');
-			sb.Append("Sequence Coverage" + '\t');
-			sb.Append("Sequence Coverage with Mods" + '\t');
-			sb.Append("Fragment Sequence Coverage" + '\t');
-			sb.Append("Modification Info List" + "\t");
+            sb.Append(TruncateString(string.Join("|",
+                ListOfBioPolymersOrderedByAccession.Select(p => p.Organism).Distinct())));
+            sb.Append("\t");
 
-			if (SamplesForQuantification != null)
-			{
-				// Check if we have label-free (SpectraFileInfo) or isobaric (IsobaricQuantSampleInfo) samples
-				var spectraFiles = SamplesForQuantification.OfType<SpectraFileInfo>().ToList();
-				var isobaricSamples = SamplesForQuantification.OfType<IsobaricQuantSampleInfo>().ToList();
+            sb.Append(TruncateString(string.Join("|",
+                ListOfBioPolymersOrderedByAccession.Select(p => p.FullName).Distinct())));
+            sb.Append("\t");
 
-				if (spectraFiles.Any())
-				{
-					// Label-free header generation
-					bool unfractionated = spectraFiles.Select(p => p.Fraction).Distinct().Count() == 1;
-					bool conditionsUndefined = spectraFiles.All(p => string.IsNullOrEmpty(p.Condition));
-					bool silacExperimentalDesign = spectraFiles.Any(p => !File.Exists(p.FullFilePathWithExtension));
+            var sequences = ListOfBioPolymersOrderedByAccession.Select(p => p.BaseSequence).Distinct();
+            List<double> masses = new List<double>();
+            foreach (var sequence in sequences)
+            {
+                var bioPolymerWithMods = AllBioPolymersWithSetMods
+                    .FirstOrDefault(bpws => bpws.BaseSequence == sequence);
+                masses.Add(bioPolymerWithMods?.MonoisotopicMass ?? double.NaN);
+            }
 
-					foreach (var sampleGroup in spectraFiles.GroupBy(p => p.Condition))
-					{
-						foreach (var sample in sampleGroup.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
-						{
-							if ((conditionsUndefined && unfractionated) || silacExperimentalDesign)
-							{
-								sb.Append("Intensity_" + sample.First().FilenameWithoutExtension + "\t");
-							}
-							else
-							{
-								sb.Append("Intensity_" + sample.First().Condition + "_" +
-										  (sample.First().BiologicalReplicate + 1) + "\t");
-							}
-						}
-					}
-				}
-				else if (isobaricSamples.Any())
-				{
-					// Isobaric header generation - group by file, then by channel
-					foreach (var fileGroup in isobaricSamples.GroupBy(p => p.FullFilePathWithExtension).OrderBy(g => g.Key))
-					{
-						foreach (var sample in fileGroup.OrderBy(p => p.ChannelLabel))
-						{
-							sb.Append($"Intensity_{Path.GetFileNameWithoutExtension(sample.FullFilePathWithExtension)}_{sample.ChannelLabel}\t");
-						}
-					}
-				}
-			}
+            sb.Append(TruncateString(string.Join("|", masses)));
+            sb.Append("\t");
 
-			sb.Append("Number of PSMs" + '\t');
-			sb.Append("BioPolymer Decoy/Contaminant/Target" + '\t');
-			sb.Append("BioPolymer Cumulative Target" + '\t');
-			sb.Append("BioPolymer Cumulative Decoy" + '\t');
-			sb.Append("BioPolymer QValue" + '\t');
-			sb.Append("Best Sequence Score" + '\t');
-			sb.Append("Best Sequence Notch QValue");
-			return sb.ToString();
-		}
+            sb.Append("" + BioPolymers.Count);
+            sb.Append("\t");
 
-		/// <summary>
-		/// Returns a tab-separated string representation of this biopolymer group,
-		/// including all identification, quantification, and statistical information.
-		/// Format matches the header returned by GetTabSeparatedHeader.
-		/// </summary>
-		/// <returns>Tab-separated string suitable for TSV file output.</returns>
-		public override string ToString()
-		{
-			var sb = new StringBuilder();
+            // Compute unique and shared sequences directly
+            var (uniqueSeqOutput, sharedSeqOutput) = GetIdentifiedSequencesOutput();
+            sb.Append(TruncateString(uniqueSeqOutput));
+            sb.Append("\t");
+            sb.Append(TruncateString(sharedSeqOutput));
+            sb.Append("\t");
 
-			sb.Append(BioPolymerGroupName);
-			sb.Append("\t");
+            if (!DisplayModsOnPeptides)
+            {
+                sb.Append("" + AllBioPolymersWithSetMods.Select(p => p.BaseSequence).Distinct().Count());
+            }
+            else
+            {
+                sb.Append("" + AllBioPolymersWithSetMods.Select(p => p.FullSequence).Distinct().Count());
+            }
+            sb.Append("\t");
 
-			sb.Append(TruncateString(string.Join("|",
-				ListOfBioPolymersOrderedByAccession.Select(p => p.GeneNames.Select(x => x.Item2).FirstOrDefault()))));
-			sb.Append("\t");
+            if (!DisplayModsOnPeptides)
+            {
+                sb.Append("" + UniqueBioPolymersWithSetMods.Select(p => p.BaseSequence).Distinct().Count());
+            }
+            else
+            {
+                sb.Append("" + UniqueBioPolymersWithSetMods.Select(p => p.FullSequence).Distinct().Count());
+            }
+            sb.Append("\t");
 
-			sb.Append(TruncateString(string.Join("|",
-				ListOfBioPolymersOrderedByAccession.Select(p => p.Organism).Distinct())));
-			sb.Append("\t");
+            // Use cached coverage results (empty if not yet calculated)
+            var coverage = _coverageResult ?? new SequenceCoverageResult();
 
-			sb.Append(TruncateString(string.Join("|",
-				ListOfBioPolymersOrderedByAccession.Select(p => p.FullName).Distinct())));
-			sb.Append("\t");
+            sb.Append(TruncateString(string.Join("|",
+                coverage.SequenceCoverageFraction.Select(p => string.Format("{0:0.#####}", p)))));
+            sb.Append("\t");
 
-			var sequences = ListOfBioPolymersOrderedByAccession.Select(p => p.BaseSequence).Distinct();
-			List<double> masses = new List<double>();
-			foreach (var sequence in sequences)
-			{
-				// Get mass from any IBioPolymerWithSetMods that has this base sequence
-				var bioPolymerWithMods = AllBioPolymersWithSetMods
-					.FirstOrDefault(bpws => bpws.BaseSequence == sequence);
+            sb.Append(TruncateString(string.Join("|", coverage.SequenceCoverageDisplayList)));
+            sb.Append("\t");
 
-				masses.Add(bioPolymerWithMods?.MonoisotopicMass ?? double.NaN);
-			}
+            sb.Append(TruncateString(string.Join("|", coverage.SequenceCoverageDisplayListWithMods)));
+            sb.Append("\t");
 
-			sb.Append(TruncateString(string.Join("|", masses)));
-			sb.Append("\t");
+            sb.Append(TruncateString(string.Join("|", coverage.FragmentSequenceCoverageDisplayList)));
+            sb.Append("\t");
 
-			sb.Append("" + BioPolymers.Count);
-			sb.Append("\t");
+            sb.Append(TruncateString(string.Join("|", ModsInfo)));
+            sb.Append("\t");
 
-			if (UniqueSequencesOutput != null)
-			{
-				sb.Append(TruncateString(UniqueSequencesOutput));
-			}
-			sb.Append("\t");
+            // Output intensities
+            if (IntensitiesBySample != null && SamplesForQuantification != null)
+            {
+                var spectraFiles = SamplesForQuantification.OfType<SpectraFileInfo>().ToList();
+                var isobaricSamples = SamplesForQuantification.OfType<IsobaricQuantSampleInfo>().ToList();
 
-			if (SharedSequencesOutput != null)
-			{
-				sb.Append(TruncateString(SharedSequencesOutput));
-			}
-			sb.Append("\t");
+                if (spectraFiles.Any())
+                {
+                    // Label-free intensity output
+                    foreach (var sampleGroup in spectraFiles.GroupBy(p => p.Condition))
+                    {
+                        foreach (var sample in sampleGroup.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
+                        {
+                            double summedIntensity = sample.Sum(file =>
+                                IntensitiesBySample.TryGetValue(file, out var intensity) ? intensity : 0);
 
-			if (!DisplayModsOnPeptides)
-			{
-				sb.Append("" + AllBioPolymersWithSetMods.Select(p => p.BaseSequence).Distinct().Count());
-			}
-			else
-			{
-				sb.Append("" + AllBioPolymersWithSetMods.Select(p => p.FullSequence).Distinct().Count());
-			}
-			sb.Append("\t");
+                            if (summedIntensity > 0)
+                            {
+                                sb.Append(summedIntensity);
+                            }
+                            sb.Append("\t");
+                        }
+                    }
+                }
+                else if (isobaricSamples.Any())
+                {
+                    // Isobaric intensity output
+                    foreach (var fileGroup in isobaricSamples.GroupBy(p => p.FullFilePathWithExtension).OrderBy(g => g.Key))
+                    {
+                        foreach (var sample in fileGroup.OrderBy(p => p.ChannelLabel))
+                        {
+                            if (IntensitiesBySample.TryGetValue(sample, out var intensity) && intensity > 0)
+                            {
+                                sb.Append(intensity);
+                            }
+                            sb.Append("\t");
+                        }
+                    }
+                }
+            }
 
-			if (!DisplayModsOnPeptides)
-			{
-				sb.Append("" + UniqueBioPolymersWithSetMods.Select(p => p.BaseSequence).Distinct().Count());
-			}
-			else
-			{
-				sb.Append("" + UniqueBioPolymersWithSetMods.Select(p => p.FullSequence).Distinct().Count());
-			}
-			sb.Append("\t");
+            sb.Append("" + AllPsmsBelowOnePercentFDR.Count);
+            sb.Append("\t");
 
-			sb.Append(TruncateString(string.Join("|",
-				SequenceCoverageFraction.Select(p => string.Format("{0:0.#####}", p)))));
-			sb.Append("\t");
+            if (IsDecoy)
+            {
+                sb.Append("D");
+            }
+            else if (IsContaminant)
+            {
+                sb.Append("C");
+            }
+            else
+            {
+                sb.Append("T");
+            }
 
-			sb.Append(TruncateString(string.Join("|", SequenceCoverageDisplayList)));
-			sb.Append("\t");
+            sb.Append("\t");
+            sb.Append(CumulativeTarget);
+            sb.Append("\t");
+            sb.Append(CumulativeDecoy);
+            sb.Append("\t");
+            sb.Append(QValue);
+            sb.Append("\t");
+            sb.Append(BestBioPolymerWithSetModsScore);
+            sb.Append("\t");
+            sb.Append(BestBioPolymerWithSetModsQValue);
 
-			sb.Append(TruncateString(string.Join("|", SequenceCoverageDisplayListWithMods)));
-			sb.Append("\t");
+            return sb.ToString();
+        }
 
-			sb.Append(TruncateString(string.Join("|", FragmentSequenceCoverageDisplayList)));
-			sb.Append("\t");
+        /// <summary>
+        /// Computes pipe-delimited output strings for unique and shared sequences identified in this group.
+        /// Uses <see cref="DisplayModsOnPeptides"/> to determine whether to include modification annotations.
+        /// </summary>
+        /// <returns>Tuple of (uniqueSequences, sharedSequences) pipe-delimited output strings.</returns>
+        private (string UniqueSequences, string SharedSequences) GetIdentifiedSequencesOutput()
+        {
+            var sharedSequences = AllBioPolymersWithSetMods.Except(UniqueBioPolymersWithSetMods);
 
-			sb.Append(TruncateString(string.Join("|", ModsInfo)));
-			sb.Append("\t");
+            string uniqueOutput;
+            string sharedOutput;
 
-			// Output intensities
-			if (IntensitiesBySample != null && SamplesForQuantification != null)
-			{
-				var spectraFiles = SamplesForQuantification.OfType<SpectraFileInfo>().ToList();
-				var isobaricSamples = SamplesForQuantification.OfType<IsobaricQuantSampleInfo>().ToList();
+            if (!DisplayModsOnPeptides)
+            {
+                uniqueOutput = string.Join("|", UniqueBioPolymersWithSetMods.Select(p => p.BaseSequence).Distinct());
+                sharedOutput = string.Join("|", sharedSequences.Select(p => p.BaseSequence).Distinct());
+            }
+            else
+            {
+                uniqueOutput = string.Join("|", UniqueBioPolymersWithSetMods.Select(p => p.FullSequence).Distinct());
+                sharedOutput = string.Join("|", sharedSequences.Select(p => p.FullSequence).Distinct());
+            }
 
-				if (spectraFiles.Any())
-				{
-					// Label-free intensity output
-					foreach (var sampleGroup in spectraFiles.GroupBy(p => p.Condition))
-					{
-						foreach (var sample in sampleGroup.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
-						{
-							double summedIntensity = sample.Sum(file =>
-								IntensitiesBySample.TryGetValue(file, out var intensity) ? intensity : 0);
-
-							if (summedIntensity > 0)
-							{
-								sb.Append(summedIntensity);
-							}
-							sb.Append("\t");
-						}
-					}
-				}
-				else if (isobaricSamples.Any())
-				{
-					// Isobaric intensity output
-					foreach (var fileGroup in isobaricSamples.GroupBy(p => p.FullFilePathWithExtension).OrderBy(g => g.Key))
-					{
-						foreach (var sample in fileGroup.OrderBy(p => p.ChannelLabel))
-						{
-							if (IntensitiesBySample.TryGetValue(sample, out var intensity) && intensity > 0)
-							{
-								sb.Append(intensity);
-							}
-							sb.Append("\t");
-						}
-					}
-				}
-			}
-
-			sb.Append("" + AllPsmsBelowOnePercentFDR.Count);
-			sb.Append("\t");
-
-			if (IsDecoy)
-			{
-				sb.Append("D");
-			}
-			else if (IsContaminant)
-			{
-				sb.Append("C");
-			}
-			else
-			{
-				sb.Append("T");
-			}
-
-			sb.Append("\t");
-			sb.Append(CumulativeTarget);
-			sb.Append("\t");
-			sb.Append(CumulativeDecoy);
-			sb.Append("\t");
-			sb.Append(QValue);
-			sb.Append("\t");
-			sb.Append(BestBioPolymerWithSetModsScore);
-			sb.Append("\t");
-			sb.Append(BestBioPolymerWithSetModsQValue);
-
-			return sb.ToString();
-		}
+            return (uniqueOutput, sharedOutput);
+        }
 
         /// <summary>
         /// Calculates and updates <see cref="BioPolymerGroupScore"/> based on PSM scores.
@@ -529,77 +486,89 @@ namespace Omics.BioPolymerGroup
         }
 
         /// <summary>
-        /// Merges another biopolymer group into this one, combining their members, PSMs, and scores.
+        /// Merges another biopolymer group into this one, combining their members, PSMs, and sequences.
         /// Used when groups are determined to represent the same biological entity.
         /// The other group's score is reset to 0 after merging.
         /// </summary>
         /// <param name="otherBioPolymerGroup">The group to merge into this one.</param>
+        /// <remarks>
+        /// After merging:
+        /// <list type="bullet">
+        ///   <item><description><see cref="BioPolymers"/> contains the union of both groups' biopolymers</description></item>
+        ///   <item><description><see cref="AllBioPolymersWithSetMods"/> contains the union of both groups' sequences</description></item>
+        ///   <item><description><see cref="UniqueBioPolymersWithSetMods"/> contains the union of both groups' unique sequences</description></item>
+        ///   <item><description><see cref="AllPsmsBelowOnePercentFDR"/> contains the union of both groups' PSMs</description></item>
+        ///   <item><description><see cref="ListOfBioPolymersOrderedByAccession"/> and <see cref="BioPolymerGroupName"/> are recalculated</description></item>
+        ///   <item><description>Cached coverage results are invalidated</description></item>
+        /// </list>
+        /// </remarks>
         public void MergeWith(IBioPolymerGroup otherBioPolymerGroup)
-		{
-			this.BioPolymers.UnionWith(otherBioPolymerGroup.BioPolymers);
-			this.AllBioPolymersWithSetMods.UnionWith(otherBioPolymerGroup.AllBioPolymersWithSetMods);
-			this.UniqueBioPolymersWithSetMods.UnionWith(otherBioPolymerGroup.UniqueBioPolymersWithSetMods);
-			this.AllPsmsBelowOnePercentFDR.UnionWith(otherBioPolymerGroup.AllPsmsBelowOnePercentFDR);
-			otherBioPolymerGroup.BioPolymerGroupScore = 0;
+        {
+            this.BioPolymers.UnionWith(otherBioPolymerGroup.BioPolymers);
+            this.AllBioPolymersWithSetMods.UnionWith(otherBioPolymerGroup.AllBioPolymersWithSetMods);
+            this.UniqueBioPolymersWithSetMods.UnionWith(otherBioPolymerGroup.UniqueBioPolymersWithSetMods);
+            this.AllPsmsBelowOnePercentFDR.UnionWith(otherBioPolymerGroup.AllPsmsBelowOnePercentFDR);
+            otherBioPolymerGroup.BioPolymerGroupScore = 0;
 
-			ListOfBioPolymersOrderedByAccession = BioPolymers.OrderBy(p => p.Accession).ToList();
-			BioPolymerGroupName = string.Join("|", ListOfBioPolymersOrderedByAccession.Select(p => p.Accession));
-		}
+            ListOfBioPolymersOrderedByAccession = BioPolymers.OrderBy(p => p.Accession).ToList();
+            BioPolymerGroupName = string.Join("|", ListOfBioPolymersOrderedByAccession.Select(p => p.Accession));
 
-		/// <summary>
-		/// Creates a new biopolymer group containing only data from a specific file.
-		/// The subset group will have the same biopolymers but filtered PSMs, sequences, and intensities.
-		/// Used for per-file analysis and output.
-		/// </summary>
-		/// <param name="fullFilePath">The full path to the file to subset by.</param>
-		/// <param name="silacLabels">Optional SILAC labels to apply during subset creation.</param>
-		/// <returns>A new BioPolymerGroup containing only data from the specified file.</returns>
-		public IBioPolymerGroup ConstructSubsetBioPolymerGroup(string fullFilePath, List<SilacLabel>? silacLabels = null)
-		{
-			var allPsmsForThisFile =
-				new HashSet<ISpectralMatch>(
-					AllPsmsBelowOnePercentFDR.Where(p => p.FullFilePath.Equals(fullFilePath)));
-			var allSequencesForThisFile =
-				new HashSet<IBioPolymerWithSetMods>(
-					allPsmsForThisFile.SelectMany(p => p.GetIdentifiedBioPolymersWithSetMods()));
-			var allUniqueSequencesForThisFile =
-				new HashSet<IBioPolymerWithSetMods>(UniqueBioPolymersWithSetMods.Intersect(allSequencesForThisFile));
+            // Invalidate cached coverage since PSMs changed
+            _coverageResult = null;
+        }
 
-			BioPolymerGroup subsetGroup = new BioPolymerGroup(BioPolymers, allSequencesForThisFile, allUniqueSequencesForThisFile)
-			{
-				AllPsmsBelowOnePercentFDR = allPsmsForThisFile,
-				DisplayModsOnPeptides = DisplayModsOnPeptides
-			};
+        /// <summary>
+        /// Creates a new biopolymer group containing only data from a specific spectra file.
+        /// The subset group will have the same biopolymers but filtered PSMs, sequences, and intensities.
+        /// Used for per-file analysis and output.
+        /// </summary>
+        /// <param name="fullFilePath">The full path to the spectra file to filter by.</param>
+        /// <param name="silacLabels">Optional SILAC labels to apply during subset creation.</param>
+        /// <returns>A new <see cref="BioPolymerGroup"/> containing only data from the specified file.</returns>
+        public IBioPolymerGroup ConstructSubsetBioPolymerGroup(string fullFilePath, List<SilacLabel>? silacLabels = null)
+        {
+            var allPsmsForThisFile =
+                new HashSet<ISpectralMatch>(
+                    AllPsmsBelowOnePercentFDR.Where(p => p.FullFilePath.Equals(fullFilePath)));
+            var allSequencesForThisFile =
+                new HashSet<IBioPolymerWithSetMods>(
+                    allPsmsForThisFile.SelectMany(p => p.GetIdentifiedBioPolymersWithSetMods()));
+            var allUniqueSequencesForThisFile =
+                new HashSet<IBioPolymerWithSetMods>(UniqueBioPolymersWithSetMods.Intersect(allSequencesForThisFile));
 
-			if (SamplesForQuantification != null)
-			{
-				// Find matching sample(s) for this file path
-				var matchingSamples = SamplesForQuantification
-					.Where(p => p.FullFilePathWithExtension == fullFilePath)
-					.ToList();
+            BioPolymerGroup subsetGroup = new BioPolymerGroup(BioPolymers, allSequencesForThisFile, allUniqueSequencesForThisFile)
+            {
+                AllPsmsBelowOnePercentFDR = allPsmsForThisFile,
+                DisplayModsOnPeptides = DisplayModsOnPeptides
+            };
 
-				subsetGroup.SamplesForQuantification = matchingSamples;
+            if (SamplesForQuantification != null)
+            {
+                // Find matching sample(s) for this file path
+                var matchingSamples = SamplesForQuantification
+                    .Where(p => p.FullFilePathWithExtension == fullFilePath)
+                    .ToList();
 
-				if (IntensitiesBySample != null)
-				{
-					subsetGroup.IntensitiesBySample = IntensitiesBySample
-						.Where(kvp => matchingSamples.Contains(kvp.Key))
-						.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-				}
-			}
+                subsetGroup.SamplesForQuantification = matchingSamples;
 
-			return subsetGroup;
-		}
+                if (IntensitiesBySample != null)
+                {
+                    subsetGroup.IntensitiesBySample = IntensitiesBySample
+                        .Where(kvp => matchingSamples.Contains(kvp.Key))
+                        .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+                }
+            }
+
+            return subsetGroup;
+        }
 
         /// <summary>
         /// Calculates sequence coverage for all biopolymers in this group at two levels:
         /// <list type="number">
         ///   <item><description><b>Peptide-level coverage:</b> All residues within identified peptide boundaries 
-        ///   are considered covered. Populates <see cref="SequenceCoverageFraction"/>, 
-        ///   <see cref="SequenceCoverageDisplayList"/>, and <see cref="SequenceCoverageDisplayListWithMods"/>.</description></item>
+        ///   are considered covered. Results cached in <see cref="_coverageResult"/>.</description></item>
         ///   <item><description><b>Fragment-level coverage:</b> Only residues with supporting fragment ion evidence 
-        ///   are considered covered. Requires PSMs to implement <see cref="IHasSequenceCoverageFromFragments"/>.
-        ///   Populates <see cref="FragmentSequenceCoverageDisplayList"/>.</description></item>
+        ///   are considered covered. Requires PSMs to implement <see cref="IHasSequenceCoverageFromFragments"/>.</description></item>
         /// </list>
         /// 
         /// Display strings use uppercase letters for covered residues and lowercase for uncovered residues.
@@ -609,9 +578,13 @@ namespace Omics.BioPolymerGroup
         /// This method should be called after <see cref="AllPsmsBelowOnePercentFDR"/> has been populated.
         /// If PSMs do not implement <see cref="IHasSequenceCoverageFromFragments"/>, fragment-level coverage
         /// will show all residues as uncovered (all lowercase).
+        /// Results are cached and used by <see cref="ToString"/> for output formatting.
         /// </remarks>
         public void CalculateSequenceCoverage()
         {
+            var result = new SequenceCoverageResult();
+            ModsInfo = new List<string>();
+
             // Maps biopolymers to their identified sequences with unambiguous base sequences
             var bioPolymersWithUnambiguousSequences = new Dictionary<IBioPolymer, List<IBioPolymerWithSetMods>>();
             // Maps biopolymers to sequences with successfully localized modifications
@@ -702,7 +675,7 @@ namespace Omics.BioPolymerGroup
                     }
                 }
 
-                FragmentSequenceCoverageDisplayList.Add(new string(fragmentCoverageArray));
+                result.FragmentSequenceCoverageDisplayList.Add(new string(fragmentCoverageArray));
             }
 
             // Calculate peptide-level sequence coverage (all residues in identified peptides are covered)
@@ -721,7 +694,7 @@ namespace Omics.BioPolymerGroup
 
                 // Calculate coverage fraction
                 double coverageFraction = (double)coveredResiduesOneBased.Count / bioPolymer.Length;
-                SequenceCoverageFraction.Add(coverageFraction);
+                result.SequenceCoverageFraction.Add(coverageFraction);
 
                 // Build display string: uppercase = covered, lowercase = not covered
                 char[] coverageArray = bioPolymer.BaseSequence.ToLower().ToCharArray();
@@ -734,7 +707,7 @@ namespace Omics.BioPolymerGroup
                 }
 
                 string sequenceCoverageDisplay = new string(coverageArray);
-                SequenceCoverageDisplayList.Add(sequenceCoverageDisplay);
+                result.SequenceCoverageDisplayList.Add(sequenceCoverageDisplay);
 
                 // Build coverage display with modifications
                 var modsOnThisBioPolymer = new HashSet<KeyValuePair<int, Modification>>();
@@ -782,92 +755,106 @@ namespace Omics.BioPolymerGroup
                     }
                 }
 
-                SequenceCoverageDisplayListWithMods.Add(sequenceCoverageWithMods);
+                result.SequenceCoverageDisplayListWithMods.Add(sequenceCoverageWithMods);
 
                 // Calculate modification occupancy statistics
-                if (!modsOnThisBioPolymer.Any())
-                    continue;
-
-                var modCounts = new List<int>();      // Count of modified peptides at each position
-                var totalCounts = new List<int>();    // Count of all peptides covering each position
-                var modPositions = new List<(int index, string modName)>();
-
-                foreach (var sequence in bioPolymersWithLocalizedMods[bioPolymer])
+                if (modsOnThisBioPolymer.Any())
                 {
-                    foreach (var mod in sequence.AllModsOneIsNterminus)
+                    CalculateModificationOccupancy(bioPolymer, bioPolymersWithLocalizedMods[bioPolymer]);
+                }
+            }
+
+            _coverageResult = result;
+        }
+
+        /// <summary>
+        /// Calculates modification occupancy statistics for a biopolymer and adds them to <see cref="ModsInfo"/>.
+        /// Occupancy is calculated as the fraction of peptides covering each modification site that contain the modification.
+        /// </summary>
+        /// <param name="bioPolymer">The biopolymer to calculate modification occupancy for.</param>
+        /// <param name="localizedSequences">Sequences with localized modifications mapping to this biopolymer.</param>
+        private void CalculateModificationOccupancy(IBioPolymer bioPolymer, List<IBioPolymerWithSetMods> localizedSequences)
+        {
+            var modCounts = new List<int>();      // Count of modified peptides at each position
+            var totalCounts = new List<int>();    // Count of all peptides covering each position
+            var modPositions = new List<(int index, string modName)>();
+
+            foreach (var sequence in localizedSequences)
+            {
+                foreach (var mod in sequence.AllModsOneIsNterminus)
+                {
+                    // Skip common variable/fixed mods and peptide terminal mods
+                    if (mod.Value.ModificationType.Contains("Common Variable") ||
+                        mod.Value.ModificationType.Contains("Common Fixed") ||
+                        mod.Value.LocationRestriction.Equals("NPep") ||
+                        mod.Value.LocationRestriction.Equals("PepC"))
                     {
-                        if (mod.Value.ModificationType.Contains("Common Variable") ||
-                            mod.Value.ModificationType.Contains("Common Fixed") ||
-                            mod.Value.LocationRestriction.Equals("NPep") ||
-                            mod.Value.LocationRestriction.Equals("PepC"))
-                        {
-                            continue;
-                        }
+                        continue;
+                    }
 
-                        int indexInProtein;
-                        if (mod.Value.LocationRestriction.Equals("N-terminal."))
-                        {
-                            indexInProtein = 1;
-                        }
-                        else if (mod.Value.LocationRestriction.Equals("Anywhere."))
-                        {
-                            indexInProtein = sequence.OneBasedStartResidue + mod.Key - 2;
-                        }
-                        else if (mod.Value.LocationRestriction.Equals("C-terminal."))
-                        {
-                            indexInProtein = bioPolymer.Length;
-                        }
-                        else
-                        {
-                            // Skip peptide terminal mods
-                            continue;
-                        }
+                    int indexInProtein;
+                    if (mod.Value.LocationRestriction.Equals("N-terminal."))
+                    {
+                        indexInProtein = 1;
+                    }
+                    else if (mod.Value.LocationRestriction.Equals("Anywhere."))
+                    {
+                        indexInProtein = sequence.OneBasedStartResidue + mod.Key - 2;
+                    }
+                    else if (mod.Value.LocationRestriction.Equals("C-terminal."))
+                    {
+                        indexInProtein = bioPolymer.Length;
+                    }
+                    else
+                    {
+                        // Skip unrecognized location restrictions
+                        continue;
+                    }
 
-                        var modKey = (indexInProtein, mod.Value.IdWithMotif);
+                    var modKey = (indexInProtein, mod.Value.IdWithMotif);
 
-                        if (modPositions.Contains(modKey))
-                        {
-                            modCounts[modPositions.IndexOf(modKey)]++;
-                        }
-                        else
-                        {
-                            modPositions.Add(modKey);
+                    if (modPositions.Contains(modKey))
+                    {
+                        modCounts[modPositions.IndexOf(modKey)]++;
+                    }
+                    else
+                    {
+                        modPositions.Add(modKey);
 
-                            // Count total peptides covering this position
-                            int peptidesAtPosition = 0;
-                            foreach (var seq in bioPolymersWithLocalizedMods[bioPolymer])
+                        // Count total peptides covering this position
+                        int peptidesAtPosition = 0;
+                        foreach (var seq in localizedSequences)
+                        {
+                            int rangeStart = seq.OneBasedStartResidue - (indexInProtein == 1 ? 1 : 0);
+                            if (indexInProtein >= rangeStart && indexInProtein <= seq.OneBasedEndResidue)
                             {
-                                int rangeStart = seq.OneBasedStartResidue - (indexInProtein == 1 ? 1 : 0);
-                                if (indexInProtein >= rangeStart && indexInProtein <= seq.OneBasedEndResidue)
-                                {
-                                    peptidesAtPosition++;
-                                }
+                                peptidesAtPosition++;
                             }
-
-                            totalCounts.Add(peptidesAtPosition);
-                            modCounts.Add(1);
                         }
+
+                        totalCounts.Add(peptidesAtPosition);
+                        modCounts.Add(1);
                     }
                 }
+            }
 
-                // Build modification info string
-                var modStrings = new List<(int position, string info)>();
-                for (int i = 0; i < modCounts.Count; i++)
-                {
-                    string position = modPositions[i].index.ToString();
-                    string modName = modPositions[i].modName;
-                    string occupancy = ((double)modCounts[i] / totalCounts[i]).ToString("F2");
-                    string fractionalOccupancy = $"{modCounts[i]}/{totalCounts[i]}";
-                    string modString = $"#aa{position}[{modName},info:occupancy={occupancy}({fractionalOccupancy})]";
-                    modStrings.Add((modPositions[i].index, modString));
-                }
+            // Build modification info string
+            var modStrings = new List<(int position, string info)>();
+            for (int i = 0; i < modCounts.Count; i++)
+            {
+                string position = modPositions[i].index.ToString();
+                string modName = modPositions[i].modName;
+                string occupancy = ((double)modCounts[i] / totalCounts[i]).ToString("F2");
+                string fractionalOccupancy = $"{modCounts[i]}/{totalCounts[i]}";
+                string modString = $"#aa{position}[{modName},info:occupancy={occupancy}({fractionalOccupancy})]";
+                modStrings.Add((modPositions[i].index, modString));
+            }
 
-                string modInfoString = string.Join(";", modStrings.OrderBy(x => x.position).Select(x => x.info));
+            string modInfoString = string.Join(";", modStrings.OrderBy(x => x.position).Select(x => x.info));
 
-                if (!string.IsNullOrEmpty(modInfoString))
-                {
-                    ModsInfo.Add(modInfoString);
-                }
+            if (!string.IsNullOrEmpty(modInfoString))
+            {
+                ModsInfo.Add(modInfoString);
             }
         }
 
@@ -877,60 +864,92 @@ namespace Omics.BioPolymerGroup
 
         /// <summary>
         /// Determines whether this biopolymer group equals another based on group name.
-        /// Two groups are considered equal if they have the same BioPolymerGroupName.
+        /// Two groups are considered equal if they have the same <see cref="BioPolymerGroupName"/>.
         /// </summary>
         /// <param name="other">The other biopolymer group to compare.</param>
         /// <returns>True if the groups have the same name; otherwise, false.</returns>
         public bool Equals(IBioPolymerGroup? other)
-		{
-			if (other is null) return false;
-			if (ReferenceEquals(this, other)) return true;
-			return BioPolymerGroupName == other.BioPolymerGroupName;
-		}
+        {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return BioPolymerGroupName == other.BioPolymerGroupName;
+        }
 
-		/// <summary>
-		/// Determines whether this biopolymer group equals another object.
-		/// Supports comparison with both IBioPolymerGroup and BioPolymerGroup types.
-		/// </summary>
-		/// <param name="obj">The object to compare.</param>
-		/// <returns>True if the objects are equal; otherwise, false.</returns>
-		public override bool Equals(object? obj)
-		{
-			if (obj is BioPolymerGroup bg) return Equals(bg);
-			if (obj is IBioPolymerGroup ibg) return Equals(ibg);
-			return false;
-		}
+        /// <summary>
+        /// Determines whether this biopolymer group equals another object.
+        /// Supports comparison with both <see cref="IBioPolymerGroup"/> and <see cref="BioPolymerGroup"/> types.
+        /// </summary>
+        /// <param name="obj">The object to compare.</param>
+        /// <returns>True if the objects are equal; otherwise, false.</returns>
+        public override bool Equals(object? obj)
+        {
+            if (obj is BioPolymerGroup bg) return Equals(bg);
+            if (obj is IBioPolymerGroup ibg) return Equals(ibg);
+            return false;
+        }
 
-		/// <summary>
-		/// Returns a hash code for this biopolymer group based on the group name.
-		/// </summary>
-		/// <returns>Hash code integer.</returns>
-		public override int GetHashCode()
-		{
-			return BioPolymerGroupName?.GetHashCode() ?? 0;
-		}
+        /// <summary>
+        /// Returns a hash code for this biopolymer group based on <see cref="BioPolymerGroupName"/>.
+        /// </summary>
+        /// <returns>Hash code integer.</returns>
+        public override int GetHashCode()
+        {
+            return BioPolymerGroupName?.GetHashCode() ?? 0;
+        }
 
-		#endregion
+        #endregion
 
-		#region Private Helpers
+        #region Private Helpers
 
-		/// <summary>
-		/// Truncates a string to MaxStringLength if it exceeds that length.
-		/// Returns empty string if input is null or empty.
-		/// </summary>
-		/// <param name="input">The string to truncate.</param>
-		/// <returns>Truncated string or original if within limits.</returns>
-		private static string TruncateString(string? input)
-		{
-			if (string.IsNullOrEmpty(input))
-				return string.Empty;
+        /// <summary>
+        /// Truncates a string to <see cref="MaxStringLength"/> if it exceeds that length.
+        /// Used to ensure output compatibility with Excel's cell character limits.
+        /// </summary>
+        /// <param name="input">The string to truncate.</param>
+        /// <returns>Truncated string, original string if within limits, or empty string if input is null/empty.</returns>
+        private static string TruncateString(string? input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return string.Empty;
 
-			if (MaxStringLength <= 0 || input.Length <= MaxStringLength)
-				return input;
+            if (MaxStringLength <= 0 || input.Length <= MaxStringLength)
+                return input;
 
-			return input.Substring(0, MaxStringLength);
-		}
+            return input.Substring(0, MaxStringLength);
+        }
 
-		#endregion
-	}
+        /// <summary>
+        /// Holds cached sequence coverage calculation results from <see cref="CalculateSequenceCoverage"/>.
+        /// Encapsulates the various coverage display lists to avoid storing them as separate class properties.
+        /// </summary>
+        private sealed class SequenceCoverageResult
+        {
+            /// <summary>
+            /// Sequence coverage fraction for each biopolymer in the group, ordered by accession.
+            /// Each value (0.0 to 1.0) represents the fraction of residues covered by identified peptides.
+            /// </summary>
+            public List<double> SequenceCoverageFraction { get; } = new();
+
+            /// <summary>
+            /// Visual representation of sequence coverage for each biopolymer in the group, ordered by accession.
+            /// Uppercase letters indicate covered residues; lowercase indicates uncovered residues.
+            /// </summary>
+            public List<string> SequenceCoverageDisplayList { get; } = new();
+
+            /// <summary>
+            /// Visual representation of sequence coverage including modification annotations, ordered by accession.
+            /// Modifications are shown as [ModName] inserted at the appropriate position.
+            /// </summary>
+            public List<string> SequenceCoverageDisplayListWithMods { get; } = new();
+
+            /// <summary>
+            /// Visual representation of fragment-level sequence coverage for each biopolymer, ordered by accession.
+            /// Uppercase letters indicate residues covered by matched fragment ions; lowercase indicates uncovered.
+            /// Will show all lowercase if PSMs do not implement <see cref="IHasSequenceCoverageFromFragments"/>.
+            /// </summary>
+            public List<string> FragmentSequenceCoverageDisplayList { get; } = new();
+        }
+
+        #endregion
+    }
 }
