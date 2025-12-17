@@ -1,5 +1,6 @@
 ﻿using Chemistry;
 using MassSpectrometry;
+using MassSpectrometry.ExperimentalDesign;
 using NUnit.Framework;
 using Omics;
 using Omics.BioPolymer;

@@ -43,6 +43,12 @@
         double Score { get; }
 
         /// <summary>
+        /// Defines the quantitative values associated with this PSM. For label-free, this should have one entry that is populated by FlashLFQ.
+        /// For isobaric quant (e.g., TMT) the array should have one entry per channel.
+        /// </summary>
+        double[]? QuantValues { get; }
+
+        /// <summary>
         /// Returns the set (zero or more) of identified biopolymer objects (for example peptides or proteoforms
         /// with localized set modifications) associated with this spectral match. Implementations should return
         /// a stable enumeration (do not mutate the underlying collection while callers iterate) and document
@@ -50,5 +56,6 @@
         /// </summary>
         /// <returns>An enumerable of identified <see cref="IBioPolymerWithSetMods"/> instances; may be empty but not null.</returns>
         IEnumerable<IBioPolymerWithSetMods> GetIdentifiedBioPolymersWithSetMods();
+
     }
 }
