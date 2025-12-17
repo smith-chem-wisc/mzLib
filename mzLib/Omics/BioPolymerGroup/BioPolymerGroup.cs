@@ -303,13 +303,8 @@ namespace Omics.BioPolymerGroup
             sb.Append("\t");
 
             var sequences = ListOfBioPolymersOrderedByAccession.Select(p => p.BaseSequence).Distinct();
-            List<double> masses = new List<double>();
-            foreach (var sequence in sequences)
-            {
-                var bioPolymerWithMods = AllBioPolymersWithSetMods
-                    .FirstOrDefault(bpws => bpws.BaseSequence == sequence);
-                masses.Add(bioPolymerWithMods?.MonoisotopicMass ?? double.NaN);
-            }
+            var masses = sequences.Select(sequence =>
+                AllBioPolymersWithSetMods.FirstOrDefault(bpws => bpws.BaseSequence == sequence)?.MonoisotopicMass ?? double.NaN);
 
             sb.Append(TruncateString(string.Join("|", masses)));
             sb.Append("\t");
@@ -599,18 +594,12 @@ namespace Omics.BioPolymerGroup
             }
 
             // Collect sequences from PSMs with unambiguous identifications
-            foreach (var psm in AllPsmsBelowOnePercentFDR)
+            foreach (var psm in AllPsmsBelowOnePercentFDR.Where(p => p.BaseSequence != null))
             {
-                // null BaseSequence means the sequence is ambiguous; skip these
-                if (psm.BaseSequence == null)
-                    continue;
-
-                foreach (var sequence in psm.GetIdentifiedBioPolymersWithSetMods().DistinctBy(p => p.FullSequence))
+                foreach (var sequence in psm.GetIdentifiedBioPolymersWithSetMods()
+                    .DistinctBy(p => p.FullSequence)
+                    .Where(s => BioPolymers.Contains(s.Parent)))
                 {
-                    // Ensure this biopolymer belongs to this group
-                    if (!BioPolymers.Contains(sequence.Parent))
-                        continue;
-
                     bioPolymersWithUnambiguousSequences[sequence.Parent].Add(sequence);
 
                     // null FullSequence means mods were not localized; don't include in mods display
@@ -657,12 +646,9 @@ namespace Omics.BioPolymerGroup
 
                 // Build display string: uppercase = covered, lowercase = not covered
                 char[] fragmentCoverageArray = bioPolymer.BaseSequence.ToLower().ToCharArray();
-                foreach (var residue in coveredResiduesOneBased)
+                foreach (var residue in coveredResiduesOneBased.Where(r => r >= 1 && r <= fragmentCoverageArray.Length))
                 {
-                    if (residue >= 1 && residue <= fragmentCoverageArray.Length)
-                    {
-                        fragmentCoverageArray[residue - 1] = char.ToUpper(fragmentCoverageArray[residue - 1]);
-                    }
+                    fragmentCoverageArray[residue - 1] = char.ToUpper(fragmentCoverageArray[residue - 1]);
                 }
 
                 result.FragmentSequenceCoverageDisplayList.Add(new string(fragmentCoverageArray));
@@ -688,12 +674,9 @@ namespace Omics.BioPolymerGroup
 
                 // Build display string: uppercase = covered, lowercase = not covered
                 char[] coverageArray = bioPolymer.BaseSequence.ToLower().ToCharArray();
-                foreach (var residueLocation in coveredResiduesOneBased)
+                foreach (var residueLocation in coveredResiduesOneBased.Where(r => r >= 1 && r <= coverageArray.Length))
                 {
-                    if (residueLocation >= 1 && residueLocation <= coverageArray.Length)
-                    {
-                        coverageArray[residueLocation - 1] = char.ToUpper(coverageArray[residueLocation - 1]);
-                    }
+                    coverageArray[residueLocation - 1] = char.ToUpper(coverageArray[residueLocation - 1]);
                 }
 
                 string sequenceCoverageDisplay = new string(coverageArray);
@@ -722,30 +705,37 @@ namespace Omics.BioPolymerGroup
                 }
 
                 // Insert modification annotations into sequence coverage display
-                string sequenceCoverageWithMods = sequenceCoverageDisplay;
+                var sequenceCoverageWithModsBuilder = new StringBuilder(sequenceCoverageDisplay);
                 var orderedMods = modsOnThisBioPolymer.OrderBy(p => p.Key).ToList();
+
+                // Track offset as we insert modifications (each insertion shifts subsequent positions)
+                int insertionOffset = 0;
 
                 foreach (var mod in orderedMods)
                 {
                     if (mod.Value.LocationRestriction.Equals("N-terminal."))
                     {
-                        sequenceCoverageWithMods = $"[{mod.Value.IdWithMotif}]-" + sequenceCoverageWithMods;
+                        string prefix = $"[{mod.Value.IdWithMotif}]-";
+                        sequenceCoverageWithModsBuilder.Insert(0, prefix);
+                        insertionOffset += prefix.Length;
                     }
                     else if (mod.Value.LocationRestriction.Equals("Anywhere."))
                     {
-                        int insertIndex = sequenceCoverageWithMods.Length - (bioPolymer.Length - mod.Key);
-                        if (insertIndex >= 0 && insertIndex <= sequenceCoverageWithMods.Length)
+                        int baseInsertIndex = sequenceCoverageDisplay.Length - (bioPolymer.Length - mod.Key);
+                        if (baseInsertIndex >= 0 && baseInsertIndex <= sequenceCoverageDisplay.Length)
                         {
-                            sequenceCoverageWithMods = sequenceCoverageWithMods.Insert(insertIndex, $"[{mod.Value.IdWithMotif}]");
+                            string modAnnotation = $"[{mod.Value.IdWithMotif}]";
+                            sequenceCoverageWithModsBuilder.Insert(baseInsertIndex + insertionOffset, modAnnotation);
+                            insertionOffset += modAnnotation.Length;
                         }
                     }
                     else if (mod.Value.LocationRestriction.Equals("C-terminal."))
                     {
-                        sequenceCoverageWithMods = sequenceCoverageWithMods + $"-[{mod.Value.IdWithMotif}]";
+                        sequenceCoverageWithModsBuilder.Append($"-[{mod.Value.IdWithMotif}]");
                     }
                 }
 
-                result.SequenceCoverageDisplayListWithMods.Add(sequenceCoverageWithMods);
+                result.SequenceCoverageDisplayListWithMods.Add(sequenceCoverageWithModsBuilder.ToString());
 
                 // Calculate modification occupancy statistics
                 if (modsOnThisBioPolymer.Any())
