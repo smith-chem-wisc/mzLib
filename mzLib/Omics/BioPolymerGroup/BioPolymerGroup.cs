@@ -60,7 +60,6 @@ namespace Omics.BioPolymerGroup
             QValue = 0;
             IsDecoy = false;
             IsContaminant = false;
-            ModsInfo = new List<string>();
 
             // if any of the biopolymers in the group are decoys, the group is a decoy
             foreach (var bioPolymer in bioPolymers)
@@ -157,14 +156,6 @@ namespace Omics.BioPolymerGroup
         /// The best (highest) score among all biopolymers with set modifications in this group.
         /// </summary>
         public double BestBioPolymerWithSetModsScore { get; set; }
-
-        /// <summary>
-        /// Modification occupancy information for this group. Each string describes a modification 
-        /// at a specific position with its occupancy fraction (e.g., how often the site is modified).
-        /// Format: #aa{position}[{modName},info:occupancy={fraction}({count}/{total})]
-        /// Populated by <see cref="CalculateSequenceCoverage"/>.
-        /// </summary>
-        public List<string> ModsInfo { get; private set; }
 
         /// <summary>
         /// Dictionary mapping sample identifiers to measured intensity values for this group.
@@ -369,7 +360,7 @@ namespace Omics.BioPolymerGroup
             sb.Append(TruncateString(string.Join("|", coverage.FragmentSequenceCoverageDisplayList)));
             sb.Append("\t");
 
-            sb.Append(TruncateString(string.Join("|", ModsInfo)));
+            sb.Append(TruncateString(string.Join("|", coverage.ModsInfo)));
             sb.Append("\t");
 
             // Output intensities
@@ -572,7 +563,7 @@ namespace Omics.BioPolymerGroup
         /// </list>
         /// 
         /// Display strings use uppercase letters for covered residues and lowercase for uncovered residues.
-        /// Also calculates modification occupancy statistics and populates <see cref="ModsInfo"/>.
+        /// Also calculates modification occupancy statistics and populates <see cref="SequenceCoverageResult.ModsInfo"/>.
         /// </summary>
         /// <remarks>
         /// This method should be called after <see cref="AllPsmsBelowOnePercentFDR"/> has been populated.
@@ -583,7 +574,6 @@ namespace Omics.BioPolymerGroup
         public void CalculateSequenceCoverage()
         {
             var result = new SequenceCoverageResult();
-            ModsInfo = new List<string>();
 
             // Maps biopolymers to their identified sequences with unambiguous base sequences
             var bioPolymersWithUnambiguousSequences = new Dictionary<IBioPolymer, List<IBioPolymerWithSetMods>>();
@@ -760,7 +750,7 @@ namespace Omics.BioPolymerGroup
                 // Calculate modification occupancy statistics
                 if (modsOnThisBioPolymer.Any())
                 {
-                    CalculateModificationOccupancy(bioPolymer, bioPolymersWithLocalizedMods[bioPolymer]);
+                    CalculateModificationOccupancy(bioPolymer, bioPolymersWithLocalizedMods[bioPolymer], result);
                 }
             }
 
@@ -768,12 +758,13 @@ namespace Omics.BioPolymerGroup
         }
 
         /// <summary>
-        /// Calculates modification occupancy statistics for a biopolymer and adds them to <see cref="ModsInfo"/>.
+        /// Calculates modification occupancy statistics for a biopolymer and adds them to <see cref="SequenceCoverageResult.ModsInfo"/>.
         /// Occupancy is calculated as the fraction of peptides covering each modification site that contain the modification.
         /// </summary>
         /// <param name="bioPolymer">The biopolymer to calculate modification occupancy for.</param>
         /// <param name="localizedSequences">Sequences with localized modifications mapping to this biopolymer.</param>
-        private void CalculateModificationOccupancy(IBioPolymer bioPolymer, List<IBioPolymerWithSetMods> localizedSequences)
+        /// <param name="result">The result object to populate with modification info.</param>
+        private void CalculateModificationOccupancy(IBioPolymer bioPolymer, List<IBioPolymerWithSetMods> localizedSequences, SequenceCoverageResult result)
         {
             var modCounts = new List<int>();      // Count of modified peptides at each position
             var totalCounts = new List<int>();    // Count of all peptides covering each position
@@ -854,7 +845,7 @@ namespace Omics.BioPolymerGroup
 
             if (!string.IsNullOrEmpty(modInfoString))
             {
-                ModsInfo.Add(modInfoString);
+                result.ModsInfo.Add(modInfoString);
             }
         }
 
@@ -922,7 +913,7 @@ namespace Omics.BioPolymerGroup
         /// Holds cached sequence coverage calculation results from <see cref="CalculateSequenceCoverage"/>.
         /// Encapsulates the various coverage display lists to avoid storing them as separate class properties.
         /// </summary>
-        private sealed class SequenceCoverageResult
+        public sealed class SequenceCoverageResult
         {
             /// <summary>
             /// Sequence coverage fraction for each biopolymer in the group, ordered by accession.
@@ -948,6 +939,13 @@ namespace Omics.BioPolymerGroup
             /// Will show all lowercase if PSMs do not implement <see cref="IHasSequenceCoverageFromFragments"/>.
             /// </summary>
             public List<string> FragmentSequenceCoverageDisplayList { get; } = new();
+
+            /// <summary>
+            /// Modification occupancy information for this group. Each string describes a modification 
+            /// at a specific position with its occupancy fraction (e.g., how often the site is modified).
+            /// Format: #aa{position}[{modName},info:occupancy={fraction}({count}/{total})]
+            /// </summary>
+            public List<string> ModsInfo { get; } = new();
         }
 
         #endregion

@@ -88,7 +88,6 @@ namespace Test.Omics
 			Assert.That(bg.IsContaminant, Is.False);
 			Assert.That(bg.AllPsmsBelowOnePercentFDR, Is.Not.Null);
 			Assert.That(bg.AllPsmsBelowOnePercentFDR.Count, Is.EqualTo(0));
-			Assert.That(bg.ModsInfo, Is.Not.Null);
 		}
 
 		[Test]

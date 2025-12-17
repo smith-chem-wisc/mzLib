@@ -86,12 +86,6 @@ namespace Omics.BioPolymerGroup
         double BestBioPolymerWithSetModsScore { get; set; }
 
         /// <summary>
-        /// Modification occupancy information for this group. Each string describes a modification 
-        /// at a specific position with its occupancy fraction (e.g., how often the site is modified).
-        /// </summary>
-        List<string> ModsInfo { get; }
-
-        /// <summary>
         /// Measured intensity values for this group, keyed by sample.
         /// Supports both <see cref="SpectraFileInfo"/> and <see cref="IsobaricQuantSampleInfo"/> as keys.
         /// </summary>
