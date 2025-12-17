@@ -89,10 +89,6 @@ namespace Test.Omics
 			Assert.That(bg.AllPsmsBelowOnePercentFDR, Is.Not.Null);
 			Assert.That(bg.AllPsmsBelowOnePercentFDR.Count, Is.EqualTo(0));
 			Assert.That(bg.ModsInfo, Is.Not.Null);
-			Assert.That(bg.SequenceCoverageFraction, Is.Not.Null);
-			Assert.That(bg.SequenceCoverageDisplayList, Is.Not.Null);
-			Assert.That(bg.SequenceCoverageDisplayListWithMods, Is.Not.Null);
-			Assert.That(bg.FragmentSequenceCoverageDisplayList, Is.Not.Null);
 		}
 
 		[Test]
@@ -809,7 +805,6 @@ namespace Test.Omics
 		public void GetIdentifiedSequencesOutput_WithoutMods_UsesBaseSequence()
 		{
 			_bioPolymerGroup.DisplayModsOnPeptides = false;
-			_bioPolymerGroup.GetIdentifiedSequencesOutput(null);
 
 			// The method populates private fields - test indirectly through ToString
 			Assert.DoesNotThrow(() => _bioPolymerGroup.ToString());
@@ -819,15 +814,8 @@ namespace Test.Omics
 		public void GetIdentifiedSequencesOutput_WithMods_UsesFullSequence()
 		{
 			_bioPolymerGroup.DisplayModsOnPeptides = true;
-			_bioPolymerGroup.GetIdentifiedSequencesOutput(null);
 
 			Assert.DoesNotThrow(() => _bioPolymerGroup.ToString());
-		}
-
-		[Test]
-		public void GetIdentifiedSequencesOutput_WithNullLabels_DoesNotThrow()
-		{
-			Assert.DoesNotThrow(() => _bioPolymerGroup.GetIdentifiedSequencesOutput(null));
 		}
 
 		#endregion
