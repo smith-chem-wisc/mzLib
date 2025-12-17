@@ -14,8 +14,8 @@
         /// Constructor for a QuantifiedModification object.
         /// </summary>
         /// <param name="name">Full name of the modification, in the format "MODTYPE: MODID on MOTIF" </param>
-        /// <param name="positionInPeptide">Zero-based postion in the peptide.</param>
-        /// <param name="positionInProtein">Zero-based postion in the peptide's parent protein.</param>
+        /// <param name="positionInPeptide">Zero-based position in the peptide.</param>
+        /// <param name="positionInProtein">Zero-based position in the peptide's parent protein.</param>
         /// <param name="intensity"></param>
         public QuantifiedModification(string name, int positionInPeptide, int? positionInProtein = null, double intensity = 0)
         {
