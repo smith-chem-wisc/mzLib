@@ -658,6 +658,8 @@ namespace Test.Omics
         public double Score { get; }
         public int OneBasedScanNumber { get; }
 
+        public double[]? QuantValues { get; set; }
+
         public TestSpectralMatchWithIdentified(string filePath, string fullSequence, string baseSequence,
             double score, int scanNumber, IEnumerable<IBioPolymerWithSetMods> identified = null)
         {

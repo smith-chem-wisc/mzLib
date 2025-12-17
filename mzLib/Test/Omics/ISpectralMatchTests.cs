@@ -94,6 +94,7 @@ namespace Test.Omics
         public string BaseSequence { get; }
         public double Score { get; }
         public int OneBasedScanNumber { get; }
+        public double[]? QuantValues { get; set; }
 
         /// <summary>
         /// Positions in the biopolymer sequence (one-based) that are covered by fragment ions.

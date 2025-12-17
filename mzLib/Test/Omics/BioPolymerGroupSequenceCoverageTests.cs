@@ -188,6 +188,8 @@ namespace Test.Omics
             public List<int>? NTerminalFragmentPositions { get; set; }
             public List<int>? CTerminalFragmentPositions { get; set; }
 
+            public double[]? QuantValues => null;
+
             public CoverageSpectralMatch(
                 string filePath,
                 string fullSequence,

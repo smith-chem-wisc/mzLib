@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using MassSpectrometry.ExperimentalDesign;
+using MassSpectrometry;
 using NUnit.Framework;
 
 namespace Test.Omics

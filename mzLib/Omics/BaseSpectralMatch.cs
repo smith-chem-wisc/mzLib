@@ -78,6 +78,8 @@
         /// <inheritdoc cref="ISpectralMatch.Score"/>
         public double Score { get; }
 
+        public double[]? QuantValues { get; set; }
+
         #endregion
 
         #region IHasSequenceCoverageFromFragments Properties
