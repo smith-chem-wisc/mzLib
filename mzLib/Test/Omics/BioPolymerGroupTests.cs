@@ -131,22 +131,24 @@ namespace Test.Omics
             public char PreviousResidue => '-';
             public char NextResidue => '-';
             public IDigestionParams DigestionParams => null!;
-            public Dictionary<int, Modification> AllModsOneIsNterminus { get; } = new();
-            public int NumMods => 0;
+            public Dictionary<int, Modification> AllModsOneIsNterminus { get; }
+            public int NumMods => AllModsOneIsNterminus?.Count ?? 0;
             public int NumFixedMods => 0;
-            public int NumVariableMods => 0;
+            public int NumVariableMods => NumMods;
             public int Length => BaseSequence.Length;
             public IBioPolymer Parent { get; }
             public ChemicalFormula ThisChemicalFormula => new();
             public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
-            public TestBioPolymerWithSetMods(string baseSequence, string fullSequence, IBioPolymer parent = null)
+            public TestBioPolymerWithSetMods(string baseSequence, string fullSequence, IBioPolymer parent = null,
+                int startResidue = 1, int endResidue = 0, Dictionary<int, Modification> mods = null)
             {
                 BaseSequence = baseSequence;
                 FullSequence = fullSequence;
                 Parent = parent;
-                OneBasedStartResidue = 1;
-                OneBasedEndResidue = baseSequence.Length;
+                OneBasedStartResidue = startResidue;
+                OneBasedEndResidue = endResidue > 0 ? endResidue : startResidue + baseSequence.Length - 1;
+                AllModsOneIsNterminus = mods ?? new Dictionary<int, Modification>();
             }
 
             public void Fragment(DissociationType d, FragmentationTerminus t, List<Product> p, FragmentationParams? f = null) { }
@@ -174,6 +176,8 @@ namespace Test.Omics
                 Score = score;
                 OneBasedScanNumber = scanNumber;
             }
+
+            public void AddIdentifiedBioPolymer(IBioPolymerWithSetMods peptide) => _identified.Add(peptide);
 
             public IEnumerable<IBioPolymerWithSetMods> GetIdentifiedBioPolymersWithSetMods() => _identified;
             public int CompareTo(ISpectralMatch? other) => other is null ? 1 : other.Score.CompareTo(Score);
@@ -515,5 +519,317 @@ namespace Test.Omics
         }
 
         #endregion
+
+        #region Header Generation Tests
+
+        /// <summary>
+        /// Verifies label-free header uses filename format when files don't exist (SILAC design path).
+        /// Critical: Header format must match intensity column order for correct data parsing.
+        /// Note: When files don't exist, the code treats it as SILAC experimental design and uses filename.
+        /// </summary>
+        [Test]
+        public void GetTabSeparatedHeader_LabelFree_WithConditions_UsesFilenameWhenFilesDoNotExist()
+        {
+            // Files that don't exist trigger SILAC experimental design path, which uses filename
+            // Different bioreps ensure separate columns
+            var file1 = new SpectraFileInfo(@"C:\test1.raw", "Control", 0, 1, 0);
+            var file2 = new SpectraFileInfo(@"C:\test2.raw", "Treatment", 1, 1, 0);
+
+            _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { file1, file2 };
+
+            var header = _bioPolymerGroup.GetTabSeparatedHeader();
+
+            // When files don't exist, falls back to filename format
+            Assert.That(header, Does.Contain("Intensity_test1"));
+            Assert.That(header, Does.Contain("Intensity_test2"));
+        }
+
+        /// <summary>
+        /// Verifies label-free header uses filename when conditions are undefined and unfractionated.
+        /// Critical: Ensures correct fallback behavior for simple experimental designs.
+        /// </summary>
+        [Test]
+        public void GetTabSeparatedHeader_LabelFree_UndefinedConditions_UsesFilename()
+        {
+            // Use different biological replicates so they generate separate columns
+            // Constructor: SpectraFileInfo(path, condition, biorep, techrep, fraction)
+            var file1 = new SpectraFileInfo(@"C:\sample_A.raw", "", 0, 1, 0);  // biorep=0
+            var file2 = new SpectraFileInfo(@"C:\sample_B.raw", "", 1, 1, 0);  // biorep=1
+
+            _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { file1, file2 };
+
+            var header = _bioPolymerGroup.GetTabSeparatedHeader();
+
+            Assert.That(header, Does.Contain("Intensity_sample_A"));
+            Assert.That(header, Does.Contain("Intensity_sample_B"));
+        }
+
+        /// <summary>
+        /// Verifies isobaric header groups channels by file and orders by channel label.
+        /// Critical: Channel order in header must match intensity column order for TMT/iTRAQ data.
+        /// </summary>
+        [Test]
+        public void GetTabSeparatedHeader_Isobaric_GroupsByFileAndOrdersByChannel()
+        {
+            var sample126 = new IsobaricQuantSampleInfo(@"C:\fileA.raw", "Control", 1, 1, 0, 1, "126", 126.0, false);
+            var sample127 = new IsobaricQuantSampleInfo(@"C:\fileA.raw", "Control", 1, 1, 0, 1, "127N", 127.0, false);
+            var sample128 = new IsobaricQuantSampleInfo(@"C:\fileB.raw", "Control", 1, 1, 0, 1, "128C", 128.0, false);
+
+            _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { sample127, sample126, sample128 };
+
+            var header = _bioPolymerGroup.GetTabSeparatedHeader();
+
+            // Channels should be ordered by file path first, then by channel label
+            var index126 = header.IndexOf("fileA_126");
+            var index127 = header.IndexOf("fileA_127N");
+            var index128 = header.IndexOf("fileB_128C");
+
+            Assert.That(index126, Is.LessThan(index127), "126 should come before 127N within same file");
+            Assert.That(index127, Is.LessThan(index128), "fileA channels should come before fileB channels");
+        }
+
+        #endregion
+
+        #region Modification Display in Coverage Tests
+
+        /// <summary>
+        /// Verifies N-terminal modifications are displayed with prefix format [ModName]-.
+        /// Critical: N-terminal mod annotation format is required for correct sequence interpretation.
+        /// </summary>
+        [Test]
+        public void CalculateSequenceCoverage_NTerminalMod_DisplaysWithPrefixFormat()
+        {
+            var bioPolymer = new TestBioPolymer("PEPTIDE", "P00001");
+
+            // Create modification with N-terminal location restriction
+            ModificationMotif.TryGetMotif("P", out var motif);
+            var nTermMod = new Modification(
+                _originalId: "Acetyl",
+                _modificationType: "ProteinTermMod",
+                _locationRestriction: "N-terminal.",
+                _target: motif,
+                _monoisotopicMass: 42.0);
+
+            var modsDict = new Dictionary<int, Modification> { { 1, nTermMod } };
+            var peptide = new TestBioPolymerWithSetMods("PEPTIDE", "[Acetyl on P]-PEPTIDE", bioPolymer, 1, 7, modsDict);
+
+            var group = new BioPolymerGroup(
+                new HashSet<IBioPolymer> { bioPolymer },
+                new HashSet<IBioPolymerWithSetMods> { peptide },
+                new HashSet<IBioPolymerWithSetMods> { peptide });
+
+            var psm = new TestSpectralMatch(@"C:\test.raw", "PEPTIDE", "[Acetyl on P]-PEPTIDE", 100, 1);
+            psm.AddIdentifiedBioPolymer(peptide);
+            group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
+
+            group.CalculateSequenceCoverage();
+
+            var output = group.ToString();
+            // N-terminal mods should appear as [ModName]- prefix
+            Assert.That(output, Does.Contain("[Acetyl on P]-"));
+        }
+
+        /// <summary>
+        /// Verifies C-terminal modifications are displayed with suffix format -[ModName].
+        /// Critical: C-terminal mod annotation format is required for correct sequence interpretation.
+        /// </summary>
+        [Test]
+        public void CalculateSequenceCoverage_CTerminalMod_DisplaysWithSuffixFormat()
+        {
+            var bioPolymer = new TestBioPolymer("PEPTIDE", "P00001");
+
+            ModificationMotif.TryGetMotif("E", out var motif);
+            var cTermMod = new Modification(
+                _originalId: "Amidated",
+                _modificationType: "ProteinTermMod",
+                _locationRestriction: "C-terminal.",
+                _target: motif,
+                _monoisotopicMass: -0.98);
+
+            var modsDict = new Dictionary<int, Modification> { { 8, cTermMod } }; // Position after last residue
+            var peptide = new TestBioPolymerWithSetMods("PEPTIDE", "PEPTIDE-[Amidated on E]", bioPolymer, 1, 7, modsDict);
+
+            var group = new BioPolymerGroup(
+                new HashSet<IBioPolymer> { bioPolymer },
+                new HashSet<IBioPolymerWithSetMods> { peptide },
+                new HashSet<IBioPolymerWithSetMods> { peptide });
+
+            var psm = new TestSpectralMatch(@"C:\test.raw", "PEPTIDE", "PEPTIDE-[Amidated on E]", 100, 1);
+            psm.AddIdentifiedBioPolymer(peptide);
+            group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
+
+            group.CalculateSequenceCoverage();
+
+            var output = group.ToString();
+            // C-terminal mods should appear as -[ModName] suffix
+            Assert.That(output, Does.Contain("-[Amidated on E]"));
+        }
+
+        #endregion
+
+        #region Modification Occupancy Tests
+
+        /// <summary>
+        /// Verifies modification occupancy is calculated correctly for N-terminal modifications.
+        /// Critical: N-terminal occupancy must use position 1 in protein coordinates.
+        /// </summary>
+        [Test]
+        public void CalculateModificationOccupancy_NTerminalMod_UsesPosition1()
+        {
+            var bioPolymer = new TestBioPolymer("MPEPTIDE", "P00001");
+
+            ModificationMotif.TryGetMotif("M", out var motif);
+            var nTermMod = new Modification(
+                _originalId: "Acetyl",
+                _modificationType: "ProteinTermMod",
+                _locationRestriction: "N-terminal.",
+                _target: motif,
+                _monoisotopicMass: 42.0);
+
+            var modsDict = new Dictionary<int, Modification> { { 1, nTermMod } };
+            var peptide = new TestBioPolymerWithSetMods("MPEPTIDE", "[Acetyl on M]-MPEPTIDE", bioPolymer, 1, 8, modsDict);
+
+            var group = new BioPolymerGroup(
+                new HashSet<IBioPolymer> { bioPolymer },
+                new HashSet<IBioPolymerWithSetMods> { peptide },
+                new HashSet<IBioPolymerWithSetMods> { peptide });
+
+            var psm = new TestSpectralMatch(@"C:\test.raw", "MPEPTIDE", "[Acetyl on M]-MPEPTIDE", 100, 1);
+            psm.AddIdentifiedBioPolymer(peptide);
+            group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
+
+            group.CalculateSequenceCoverage();
+
+            var output = group.ToString();
+            // N-terminal mod occupancy should report position as aa1
+            Assert.That(output, Does.Contain("#aa1["));
+            Assert.That(output, Does.Contain("occupancy=1.00(1/1)"));
+        }
+
+        /// <summary>
+        /// Verifies modification occupancy is calculated correctly for C-terminal modifications.
+        /// Critical: C-terminal occupancy must use protein length as position.
+        /// </summary>
+        [Test]
+        public void CalculateModificationOccupancy_CTerminalMod_UsesProteinLength()
+        {
+            var bioPolymer = new TestBioPolymer("PEPTIDEK", "P00001"); // Length = 8
+
+            ModificationMotif.TryGetMotif("K", out var motif);
+            var cTermMod = new Modification(
+                _originalId: "Amidated",
+                _modificationType: "ProteinTermMod",
+                _locationRestriction: "C-terminal.",
+                _target: motif,
+                _monoisotopicMass: -0.98);
+
+            var modsDict = new Dictionary<int, Modification> { { 9, cTermMod } };
+            var peptide = new TestBioPolymerWithSetMods("PEPTIDEK", "PEPTIDEK-[Amidated on K]", bioPolymer, 1, 8, modsDict);
+
+            var group = new BioPolymerGroup(
+                new HashSet<IBioPolymer> { bioPolymer },
+                new HashSet<IBioPolymerWithSetMods> { peptide },
+                new HashSet<IBioPolymerWithSetMods> { peptide });
+
+            var psm = new TestSpectralMatch(@"C:\test.raw", "PEPTIDEK", "PEPTIDEK-[Amidated on K]", 100, 1);
+            psm.AddIdentifiedBioPolymer(peptide);
+            group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
+
+            group.CalculateSequenceCoverage();
+
+            var output = group.ToString();
+            // C-terminal mod occupancy should report position as aa8 (protein length)
+            Assert.That(output, Does.Contain("#aa8["));
+            Assert.That(output, Does.Contain("occupancy=1.00(1/1)"));
+        }
+
+        /// <summary>
+        /// Verifies unrecognized location restrictions are skipped in occupancy calculation.
+        /// Critical: Prevents crashes from unexpected modification location types.
+        /// </summary>
+        [Test]
+        public void CalculateModificationOccupancy_UnrecognizedLocationRestriction_IsSkipped()
+        {
+            var bioPolymer = new TestBioPolymer("PEPTIDE", "P00001");
+
+            ModificationMotif.TryGetMotif("P", out var motif);
+            var unknownMod = new Modification(
+                _originalId: "UnknownMod",
+                _modificationType: "Unknown",
+                _locationRestriction: "SomeUnknownLocation",
+                _target: motif,
+                _monoisotopicMass: 10.0);
+
+            var modsDict = new Dictionary<int, Modification> { { 2, unknownMod } };
+            var peptide = new TestBioPolymerWithSetMods("PEPTIDE", "P[UnknownMod]EPTIDE", bioPolymer, 1, 7, modsDict);
+
+            var group = new BioPolymerGroup(
+                new HashSet<IBioPolymer> { bioPolymer },
+                new HashSet<IBioPolymerWithSetMods> { peptide },
+                new HashSet<IBioPolymerWithSetMods> { peptide });
+
+            var psm = new TestSpectralMatch(@"C:\test.raw", "PEPTIDE", "P[UnknownMod]EPTIDE", 100, 1);
+            psm.AddIdentifiedBioPolymer(peptide);
+            group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
+
+            // Should not throw
+            Assert.DoesNotThrow(() => group.CalculateSequenceCoverage());
+
+            var output = group.ToString();
+            // Unknown location restriction mods should not appear in occupancy info
+            Assert.That(output, Does.Not.Contain("UnknownMod"));
+        }
+
+        #endregion
+
+        #region Equals(object) Tests
+
+        /// <summary>
+        /// Verifies Equals(object) correctly handles BioPolymerGroup type.
+        /// Critical: Required for correct behavior in non-generic collections.
+        /// </summary>
+        [Test]
+        public void Equals_Object_BioPolymerGroupType_ComparesCorrectly()
+        {
+            var bg1 = new BioPolymerGroup(_bioPolymers, _allSequences, _uniqueSequences);
+            var bg2 = new BioPolymerGroup(_bioPolymers, new HashSet<IBioPolymerWithSetMods>(), new HashSet<IBioPolymerWithSetMods>());
+            object boxedBg2 = bg2;
+
+            Assert.That(bg1.Equals(boxedBg2), Is.True);
+        }
+
+        /// <summary>
+        /// Verifies Equals(object) correctly handles IBioPolymerGroup interface type.
+        /// Critical: Supports polymorphic equality comparisons.
+        /// </summary>
+        [Test]
+        public void Equals_Object_IBioPolymerGroupType_ComparesCorrectly()
+        {
+            var bg1 = new BioPolymerGroup(_bioPolymers, _allSequences, _uniqueSequences);
+            IBioPolymerGroup ibg = new BioPolymerGroup(_bioPolymers, new HashSet<IBioPolymerWithSetMods>(), new HashSet<IBioPolymerWithSetMods>());
+            object boxedIbg = ibg;
+
+            Assert.That(bg1.Equals(boxedIbg), Is.True);
+        }
+
+        /// <summary>
+        /// Verifies Equals(object) returns false for non-BioPolymerGroup types.
+        /// Critical: Prevents incorrect equality with unrelated types.
+        /// </summary>
+        [Test]
+        public void Equals_Object_UnrelatedType_ReturnsFalse()
+        {
+            var bg = new BioPolymerGroup(_bioPolymers, _allSequences, _uniqueSequences);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(bg.Equals("string"), Is.False);
+                Assert.That(bg.Equals(123), Is.False);
+                Assert.That(bg.Equals(new List<string>()), Is.False);
+            });
+        }
+
+        #endregion
+
     }
 }
