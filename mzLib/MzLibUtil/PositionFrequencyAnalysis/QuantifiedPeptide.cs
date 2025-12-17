@@ -131,14 +131,25 @@ namespace MzLibUtil.PositionFrequencyAnalysis
         /// <returns></returns>
         public Dictionary<int, Dictionary<string, QuantifiedModification>> GetModStoichiometryForPeptide()
         {
-            var aaModsStoichiometry = ModifiedAminoAcidPositions;
+            // Create a deep copy of the ModifiedAminoAcidPositions dictionary with normalized intensities
+            var aaModsStoichiometry = new Dictionary<int, Dictionary<string, QuantifiedModification>>();
 
-            foreach (var modpos in aaModsStoichiometry)
+            foreach (var modpos in ModifiedAminoAcidPositions)
             {
-                foreach (var mod in modpos.Value.Values)
+                var modDict = new Dictionary<string, QuantifiedModification>();
+                foreach (var modKvp in modpos.Value)
                 {
-                    mod.Intensity /= Intensity;
+                    var originalMod = modKvp.Value;
+                    // Create a new QuantifiedModification with normalized intensity
+                    var normalizedMod = new QuantifiedModification(
+                        originalMod.ModificationId,
+                        originalMod.Position,
+                        originalMod.ZeroBasedStartIndexInProtein,
+                        Intensity != 0 ? originalMod.Intensity / Intensity : 0
+                    );
+                    modDict[modKvp.Key] = normalizedMod;
                 }
+                aaModsStoichiometry[modpos.Key] = modDict;
             }
             return aaModsStoichiometry;
         }

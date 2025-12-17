@@ -33,7 +33,7 @@ namespace MzLibUtil.PositionFrequencyAnalysis
             proteins = proteins ?? new Dictionary<string, QuantifiedProtein>();
             string splitPattern = @";|\|";
             var proteinAccessions = Regex.Split(name, splitPattern);
-            if (proteinAccessions.Length == proteins.Count && proteinAccessions.OrderBy(x => x).SequenceEqual(proteins.Keys.OrderBy(x => x)) || proteins.IsNullOrEmpty())
+            if ((proteinAccessions.Length == proteins.Count && proteinAccessions.OrderBy(x => x).SequenceEqual(proteins.Keys.OrderBy(x => x))) || proteins.IsNullOrEmpty())
             {
                 Name = name;
                 Proteins = proteins ?? new Dictionary<string, QuantifiedProtein>();
