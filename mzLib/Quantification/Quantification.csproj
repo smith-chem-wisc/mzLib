@@ -11,4 +11,9 @@
     <Folder Include="Strategies\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
+    <ProjectReference Include="..\Omics\Omics.csproj" />
+  </ItemGroup>
+
 </Project>
