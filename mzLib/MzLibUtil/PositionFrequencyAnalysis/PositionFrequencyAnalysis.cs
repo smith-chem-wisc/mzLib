@@ -44,22 +44,23 @@ namespace MzLibUtil.PositionFrequencyAnalysis
                         if (!proteinGroup.Proteins.ContainsKey(proteinName))
                         {
                             proteinGroup.Proteins[proteinName] = new QuantifiedProtein(proteinName);
-                            if (proteinSequences.IsNotNullOrEmpty() && proteinSequences.ContainsKey(proteinName))
+                            if (proteinSequences.IsNotNullOrEmpty() && proteinSequences.TryGetValue(proteinName, out var sequence))
                             {
-                                proteinGroup.Proteins[proteinName].Sequence = proteinSequences[proteinName];
+                                proteinGroup.Proteins[proteinName].Sequence = sequence;
                             }
                         }
                         var protein = proteinGroup.Proteins[proteinName];
 
-                        // If the peptide's base sequence has not been seen, add it to the protein's dictionary
-                        if (!protein.Peptides.ContainsKey(peptide.BaseSequence))
+                        // If the peptide's base sequence has not been seen, add it to the protein's dictionary; otherwise, update the existing entry
+                        if (!protein.Peptides.TryGetValue(peptide.BaseSequence, out var quantifiedPeptide))
                         {
-                            protein.Peptides[peptide.BaseSequence] = new QuantifiedPeptide(peptide.FullSequence, intensity: peptide.Intensity);
+                            quantifiedPeptide = new QuantifiedPeptide(peptide.FullSequence, intensity: peptide.Intensity);
+                            protein.Peptides[peptide.BaseSequence] = quantifiedPeptide;
                         }
                         else
                         {
                             // If the peptide's base sequence has been seen, add the new full sequence to the existing peptide
-                            protein.Peptides[peptide.BaseSequence].AddFullSequence(peptide.FullSequence, intensity: peptide.Intensity);
+                            quantifiedPeptide.AddFullSequence(peptide.FullSequence, intensity: peptide.Intensity);
                         }
                     }
                 }
