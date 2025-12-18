@@ -9,8 +9,8 @@ namespace Quantification
 {
     public class QuantificationParameters
     {
-        public NormalizationStrategyType NormalizationStrategy { get; set; }
-        public RollUpStrategyType RollUpStrategy { get; set; }
+        public INormalizationStrategy NormalizationStrategy { get; set; }
+        public IRollUpStrategy RollUpStrategy { get; set; }
         public string OutputDirectory { get; set; }
 
         /// <summary>

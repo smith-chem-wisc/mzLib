@@ -48,4 +48,26 @@ namespace Quantification.Interfaces
         /// <param name="proteins"></param>
         public ProteinMatrix RollUpPeptides(PeptideMatrix peptides, List<IBioPolymerGroup> proteins);
     }
+
+    public abstract class RollUpStrategyBase : IRollUpStrategy
+    {
+        public abstract string Name { get; }
+        public abstract PeptideMatrix RollUpSpectralMatches(IExperimentalDesign experimentalDesign, List<ISpectralMatch> spectralMatches, List<IBioPolymerWithSetMods> peptides);
+        public abstract ProteinMatrix RollUpPeptides(PeptideMatrix peptides, List<IBioPolymerGroup> proteins);
+
+        public List<ISampleInfo> GetOrderedSampleInfos(IExperimentalDesign experimentalDesign, List<ISpectralMatch> spectralMatches)
+        {
+            var fileNames = spectralMatches
+                .Select(sm => Path.GetFileName(sm.FullFilePath))
+                .Distinct()
+                .Order()
+                .ToList();
+
+            var samples = fileNames
+                .SelectMany(fn => experimentalDesign.FileNameSampleInfoDictionary[fn])
+                .ToList();
+
+            return samples;
+        }
+    }
 }

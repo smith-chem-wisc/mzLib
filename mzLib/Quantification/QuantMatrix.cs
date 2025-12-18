@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -18,8 +19,8 @@ namespace Quantification
     /// <typeparam name="T"></typeparam>
     public class QuantMatrix<T> where T : IEquatable<T>
     {
-        internal List<T> RowKeys { get; }
-        internal List<ISampleInfo> ColumnKeys { get; }
+        internal ImmutableList<T> RowKeys { get; }
+        internal ImmutableList<ISampleInfo> ColumnKeys { get; }
         internal IExperimentalDesign ExperimentalDesign { get; }
         internal DenseMatrix Matrix { get; }
 
@@ -31,22 +32,56 @@ namespace Quantification
         /// <param name="rowKeys"></param>
         /// <param name="columnKeys"></param>
         public QuantMatrix(
-            List<T> rowKeys,
-            List<ISampleInfo> columnKeys,
+            ICollection<T> rowKeys,
+            ICollection<ISampleInfo> columnKeys,
             IExperimentalDesign experimentalDesign)
         {
-            RowKeys = rowKeys;
-            ColumnKeys = columnKeys;
+            RowKeys = rowKeys.ToImmutableList();
+            ColumnKeys = columnKeys.ToImmutableList();
             Matrix = new DenseMatrix(RowKeys.Count, ColumnKeys.Count);
             ExperimentalDesign = experimentalDesign;
         }
+
+        public void SetRow(T rowKey, double[] values)
+        {
+            int rowIndex = RowKeys.IndexOf(rowKey);
+            if (rowIndex == -1)
+            {
+                throw new ArgumentException("Row key not found in matrix.");
+            }
+            if (values.Length != ColumnKeys.Count)
+            {
+                throw new ArgumentException("Values array length does not match number of columns.");
+            }
+            for (int colIndex = 0; colIndex < ColumnKeys.Count; colIndex++)
+            {
+                Matrix[rowIndex, colIndex] = values[colIndex];
+            }
+        }
+
+        public void SetColumn(ISampleInfo columnKey, double[] values)
+        {
+            int colIndex = ColumnKeys.IndexOf(columnKey);
+            if (colIndex == -1)
+            {
+                throw new ArgumentException("Column key not found in matrix.");
+            }
+            if (values.Length != RowKeys.Count)
+            {
+                throw new ArgumentException("Values array length does not match number of rows.");
+            }
+            for (int rowIndex = 0; rowIndex < RowKeys.Count; rowIndex++)
+            {
+                Matrix[rowIndex, colIndex] = values[rowIndex];
+            }
+        }   
     }
 
     public class PeptideMatrix : QuantMatrix<IBioPolymerWithSetMods>
     {
         public PeptideMatrix(
-            List<IBioPolymerWithSetMods> rowKeys,
-            List<ISampleInfo> columnKeys,
+            ICollection<IBioPolymerWithSetMods> rowKeys,
+            ICollection<ISampleInfo> columnKeys,
             IExperimentalDesign experimentalDesign = null) 
             : base(rowKeys, columnKeys, experimentalDesign)
         {
@@ -56,8 +91,8 @@ namespace Quantification
     public class ProteinMatrix : QuantMatrix<IBioPolymerGroup>
     {
         public ProteinMatrix(
-            List<IBioPolymerGroup> rowKeys,
-            List<ISampleInfo> columnKeys,
+            ICollection<IBioPolymerGroup> rowKeys,
+            ICollection<ISampleInfo> columnKeys,
             IExperimentalDesign experimentalDesign = null) 
             : base(rowKeys, columnKeys, experimentalDesign)
         {
