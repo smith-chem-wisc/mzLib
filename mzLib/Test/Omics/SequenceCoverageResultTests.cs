@@ -1,12 +1,9 @@
 ﻿using NUnit.Framework;
 using Omics.BioPolymerGroup;
-using Omics.Digestion;
-using Omics.Fragmentation;
-using Omics.Modifications;
 using Omics.SpectralMatch;
-using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using Omics;
 
 namespace Test.Omics
 {
@@ -73,8 +70,6 @@ namespace Test.Omics
 
             Assert.That(result.SequenceCoverageFraction.Count, Is.EqualTo(3));
         }
-
-        #endregion
 
         #region SequenceCoverageDisplayList Tests
 
@@ -344,7 +339,7 @@ namespace Test.Omics
         public void SequenceCoverageResult_UsedByBioPolymerGroupToString()
         {
             // Create a minimal BioPolymerGroup setup
-            var bioPolymer = new TestBioPolymer("ACDEFGHIK", "P00001");
+            var bioPolymer = new MockBioPolymer("ACDEFGHIK", "P00001");
             var bioPolymers = new HashSet<IBioPolymer> { bioPolymer };
             var sequences = new HashSet<IBioPolymerWithSetMods>();
             var uniqueSequences = new HashSet<IBioPolymerWithSetMods>();
@@ -366,14 +361,14 @@ namespace Test.Omics
         [Test]
         public void SequenceCoverageResult_PopulatedByCalculateSequenceCoverage()
         {
-            var bioPolymer = new TestBioPolymer("ACDEFGHIK", "P00001");
-            var peptide = new CoverageBioPolymerWithSetMods("ACDEF", "ACDEF", parent: bioPolymer, startResidue: 1, endResidue: 5);
+            var bioPolymer = new MockBioPolymer("ACDEFGHIK", "P00001");
+            var peptide = new MockBioPolymerWithSetMods("ACDEF", "ACDEF", parent: bioPolymer, startResidue: 1, endResidue: 5);
 
             var bioPolymers = new HashSet<IBioPolymer> { bioPolymer };
             var sequences = new HashSet<IBioPolymerWithSetMods> { peptide };
             var uniqueSequences = new HashSet<IBioPolymerWithSetMods> { peptide };
 
-            var psm = new BioPolymerGroupSequenceCoverageTests.CoverageSpectralMatch(@"C:\test.raw", "ACDEF", "ACDEF", 100, 1, new[] { peptide });
+            var psm = new MockSpectralMatch(@"C:\test.raw", "ACDEF", "ACDEF", 100, 1, new[] { peptide });
 
             var group = new BioPolymerGroup(bioPolymers, sequences, uniqueSequences);
             group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
@@ -393,14 +388,14 @@ namespace Test.Omics
         [Test]
         public void SequenceCoverageResult_ReplacedOnMultipleCalculations()
         {
-            var bioPolymer = new TestBioPolymer("ACDEFGHIK", "P00001");
-            var peptide = new CoverageBioPolymerWithSetMods("ACDEF", "ACDEF", parent: bioPolymer, startResidue: 1, endResidue: 5);
+            var bioPolymer = new MockBioPolymer("ACDEFGHIK", "P00001");
+            var peptide = new MockBioPolymerWithSetMods("ACDEF", "ACDEF", parent: bioPolymer, startResidue: 1, endResidue: 5);
 
             var bioPolymers = new HashSet<IBioPolymer> { bioPolymer };
             var sequences = new HashSet<IBioPolymerWithSetMods> { peptide };
             var uniqueSequences = new HashSet<IBioPolymerWithSetMods> { peptide };
 
-            var psm = new BioPolymerGroupSequenceCoverageTests.CoverageSpectralMatch(@"C:\test.raw", "ACDEF", "ACDEF", 100, 1, new[] { peptide });
+            var psm = new MockSpectralMatch(@"C:\test.raw", "ACDEF", "ACDEF", 100, 1, new[] { peptide });
 
             var group = new BioPolymerGroup(bioPolymers, sequences, uniqueSequences);
             group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
@@ -524,92 +519,4 @@ namespace Test.Omics
 
         #endregion
     }
-
-    #region Additional Test Helper Classes
-
-    /// <summary>
-    /// Extended test implementation of IBioPolymerWithSetMods that supports Parent property.
-    /// Used specifically for SequenceCoverageResult tests.
-    /// </summary>
-    internal class CoverageBioPolymerWithSetMods : IBioPolymerWithSetMods
-    {
-        public string BaseSequence { get; }
-        public string FullSequence { get; }
-        public double MostAbundantMonoisotopicMass { get; }
-        public string SequenceWithChemicalFormulas { get; }
-        public int OneBasedStartResidue { get; }
-        public int OneBasedEndResidue { get; }
-        public int MissedCleavages { get; }
-        public string Description { get; }
-        public CleavageSpecificity CleavageSpecificityForFdrCategory { get; set; }
-        public char PreviousResidue { get; }
-        public char NextResidue { get; }
-        public IDigestionParams DigestionParams { get; }
-        public Dictionary<int, Modification> AllModsOneIsNterminus { get; }
-        public int NumMods { get; }
-        public int NumFixedMods { get; }
-        public int NumVariableMods { get; }
-        public int Length => BaseSequence.Length;
-        public IBioPolymer Parent { get; }
-        public ChemicalFormula ThisChemicalFormula { get; }
-        public double MonoisotopicMass { get; }
-
-        public CoverageBioPolymerWithSetMods(string baseSequence, string fullSequence,
-            double mass = 0, int startResidue = 1, int endResidue = 0, IBioPolymer parent = null)
-        {
-            BaseSequence = baseSequence;
-            FullSequence = fullSequence;
-            MostAbundantMonoisotopicMass = mass;
-            MonoisotopicMass = mass;
-            SequenceWithChemicalFormulas = baseSequence;
-            OneBasedStartResidue = startResidue;
-            OneBasedEndResidue = endResidue > 0 ? endResidue : startResidue + baseSequence.Length - 1;
-            MissedCleavages = 0;
-            Description = "Test";
-            CleavageSpecificityForFdrCategory = CleavageSpecificity.Full;
-            PreviousResidue = '-';
-            NextResidue = '-';
-            DigestionParams = null;
-            AllModsOneIsNterminus = new Dictionary<int, Modification>();
-            NumMods = 0;
-            NumFixedMods = 0;
-            NumVariableMods = 0;
-            Parent = parent;
-            ThisChemicalFormula = new ChemicalFormula();
-        }
-
-        public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus,
-            List<Product> products, FragmentationParams? fragmentationParams = null)
-        {
-        }
-
-        public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments,
-            List<Product> products, FragmentationParams? fragmentationParams = null)
-        {
-        }
-
-        public IBioPolymerWithSetMods Localize(int indexOfMass, double massToLocalize)
-        {
-            return this;
-        }
-
-        public bool Equals(IBioPolymerWithSetMods? other)
-        {
-            if (other is null) return false;
-            if (ReferenceEquals(this, other)) return true;
-            return BaseSequence == other.BaseSequence && FullSequence == other.FullSequence;
-        }
-
-        public override bool Equals(object? obj)
-        {
-            return obj is IBioPolymerWithSetMods other && Equals(other);
-        }
-
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(BaseSequence, FullSequence);
-        }
-    }
-
-    #endregion
 }

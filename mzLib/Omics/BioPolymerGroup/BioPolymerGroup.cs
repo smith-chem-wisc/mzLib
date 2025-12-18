@@ -198,7 +198,15 @@ namespace Omics.BioPolymerGroup
         /// Null until coverage is calculated. Invalidated when <see cref="MergeWith"/> is called.
         /// </summary>
         private SequenceCoverageResult? _coverageResult;
-
+        public SequenceCoverageResult CoverageResult
+        {
+            get
+            {
+                if (_coverageResult is null)
+                    CalculateSequenceCoverage();
+                return _coverageResult!;
+            }
+        }
         #endregion
 
         #region Methods

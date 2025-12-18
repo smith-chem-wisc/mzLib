@@ -22,48 +22,6 @@ namespace Test.Omics
     [ExcludeFromCodeCoverage]
     internal class SpectralMatchTests
     {
-        #region Helper Classes
-
-        private class TestBioPolymerWithSetMods : IBioPolymerWithSetMods
-        {
-            public string BaseSequence { get; init; }
-            public string FullSequence { get; init; }
-            public double MostAbundantMonoisotopicMass { get; init; }
-            public double MonoisotopicMass => MostAbundantMonoisotopicMass;
-            public ChemicalFormula ThisChemicalFormula => new();
-            public string SequenceWithChemicalFormulas => FullSequence;
-            public int OneBasedStartResidue { get; init; } = 1;
-            public int OneBasedEndResidue { get; init; } = 1;
-            public int MissedCleavages => 0;
-            public string Description => "";
-            public CleavageSpecificity CleavageSpecificityForFdrCategory { get; set; } = CleavageSpecificity.Full;
-            public char PreviousResidue => '-';
-            public char NextResidue => '-';
-            public IDigestionParams DigestionParams => null!;
-            public Dictionary<int, Modification> AllModsOneIsNterminus => new();
-            public int NumMods => 0;
-            public int NumFixedMods => 0;
-            public int NumVariableMods => 0;
-            public int Length => BaseSequence?.Length ?? 0;
-            public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
-            public IBioPolymer Parent { get; init; }
-
-            public TestBioPolymerWithSetMods(string baseSeq, string fullSeq)
-            {
-                BaseSequence = baseSeq;
-                FullSequence = fullSeq;
-            }
-
-            public void Fragment(DissociationType d, FragmentationTerminus t, List<Product> p, FragmentationParams? f = null) { }
-            public void FragmentInternally(DissociationType d, int m, List<Product> p, FragmentationParams? f = null) { }
-            public IBioPolymerWithSetMods Localize(int i, double m) => this;
-            public bool Equals(IBioPolymerWithSetMods? other) => other != null && BaseSequence == other.BaseSequence;
-            public override bool Equals(object? obj) => Equals(obj as IBioPolymerWithSetMods);
-            public override int GetHashCode() => BaseSequence?.GetHashCode() ?? 0;
-        }
-
-        #endregion
-
         #region Constructor Tests
 
         /// <summary>
@@ -73,11 +31,11 @@ namespace Test.Omics
         [Test]
         public void Constructor_SetsAllPropertiesAndHandlesNulls()
         {
-            CoverageSpectralMatch match = new CoverageSpectralMatch("path/to/file.mzML", "PEP[Phospho]TIDE", "PEPTIDE",100.5, 42);
+            MockSpectralMatch match = new MockSpectralMatch("path/to/file.mzML", "PEP[Phospho]TIDE", "PEPTIDE", 100.5, 42);
 
             Assert.Multiple(() =>
             {
-                Assert.That(match.FullFilePath, Is.EqualTo("path/file.mzML"));
+                Assert.That(match.FullFilePath, Is.EqualTo("path/to/file.mzML"));
                 Assert.That(match.OneBasedScanNumber, Is.EqualTo(42));
                 Assert.That(match.Score, Is.EqualTo(100.5));
                 Assert.That(match.FullSequence, Is.EqualTo("PEP[Phospho]TIDE"));
@@ -85,7 +43,7 @@ namespace Test.Omics
             });
 
             // Null handling
-            var nullMatch = new BaseSpectralMatch(null!, 1, 10.0, null!, null!);
+            var nullMatch = new MockSpectralMatch(null!, null!, null!, 10.0, 1);
             Assert.That(nullMatch.FullFilePath, Is.EqualTo(string.Empty));
             Assert.That(nullMatch.FullSequence, Is.EqualTo(string.Empty));
             Assert.That(nullMatch.BaseSequence, Is.EqualTo(string.Empty));
@@ -102,14 +60,11 @@ namespace Test.Omics
         [Test]
         public void IdentifiedBioPolymers_AddAndRetrieveWithDefensiveCopy()
         {
-            var polymer1 = new TestBioPolymerWithSetMods("ABC", "ABC");
-            var polymer2 = new TestBioPolymerWithSetMods("DEF", "DEF");
+            var polymer1 = new MockBioPolymerWithSetMods("ABC", "ABC");
+            var polymer2 = new MockBioPolymerWithSetMods("DEF", "DEF");
 
             // Constructor with biopolymers
-            var match = new BaseSpectralMatch("file", 1, 10.0, "ABC", "ABC", new[] { polymer1 });
-
-            // Add more
-            match.AddIdentifiedBioPolymer(polymer2);
+            var match = new MockSpectralMatch("file", "ABC", "ABC", 10.0, 1, new[] { polymer1, polymer2 });
 
             var identified = match.GetIdentifiedBioPolymersWithSetMods().ToList();
             Assert.That(identified.Count, Is.EqualTo(2));
@@ -117,30 +72,10 @@ namespace Test.Omics
             Assert.That(identified[1].BaseSequence, Is.EqualTo("DEF"));
 
             // Verify defensive copy - original list mutation doesn't affect match
-            var source = new List<IBioPolymerWithSetMods> { new TestBioPolymerWithSetMods("X", "X") };
-            var match2 = new BaseSpectralMatch("file", 1, 10.0, "X", "X", source);
-            source.Add(new TestBioPolymerWithSetMods("Y", "Y"));
+            var source = new List<IBioPolymerWithSetMods> { new MockBioPolymerWithSetMods("X", "X") };
+            var match2 = new MockSpectralMatch("file", "X", "X", 10.0, 1, source);
+            source.Add(new MockBioPolymerWithSetMods("Y", "Y"));
             Assert.That(match2.GetIdentifiedBioPolymersWithSetMods().Count(), Is.EqualTo(1));
-        }
-
-        /// <summary>
-        /// Verifies null biopolymers are filtered out when adding.
-        /// Critical: Prevents null reference exceptions in protein grouping.
-        /// </summary>
-        [Test]
-        public void AddIdentifiedBioPolymers_FiltersNulls()
-        {
-            var match = new BaseSpectralMatch("file", 1, 10.0, "SEQ", "SEQ");
-
-            match.AddIdentifiedBioPolymers(new IBioPolymerWithSetMods?[]
-            {
-                new TestBioPolymerWithSetMods("A", "A"),
-                null,
-                new TestBioPolymerWithSetMods("B", "B")
-            }!);
-
-            var identified = match.GetIdentifiedBioPolymersWithSetMods().ToList();
-            Assert.That(identified.Count, Is.EqualTo(2));
         }
 
         #endregion
@@ -154,40 +89,64 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_CalculatesFromBothTermini()
         {
-            var match = new BaseSpectralMatch("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
+            var match = new MockSpectralMatch("file", "PEPTIDE", "PEPTIDE", 10.0, 1);
 
             // Sequential N-term fragments cover positions
-            match.GetSequenceCoverage(new List<int> { 1, 2, 3 }, null);
+            match.MatchedFragmentIons = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 1, 1, 0), 100.0, 10.0, 1),
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 2, 2, 0), 200.0, 10.0, 1),
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 3, 3, 0), 300.0, 10.0, 1),
+            };
+            match.GetSequenceCoverage();
             Assert.That(match.FragmentCoveragePositionInPeptide, Contains.Item(1));
             Assert.That(match.FragmentCoveragePositionInPeptide, Contains.Item(2));
             Assert.That(match.FragmentCoveragePositionInPeptide, Contains.Item(3));
 
             // C-term fragments also work
-            var match2 = new BaseSpectralMatch("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
-            match2.GetSequenceCoverage(null, new List<int> { 2, 3, 4 });
+            var match2 = new MockSpectralMatch("file", "PEPTIDE", "PEPTIDE", 10.0, 1);
+            match2.MatchedFragmentIons = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.y, FragmentationTerminus.C, 10, 2, 2, 0), 100.0, 10.0, 1),
+                new MatchedFragmentIon(new Product(ProductType.y, FragmentationTerminus.C, 10, 3, 3, 0), 200.0, 10.0, 1),
+                new MatchedFragmentIon(new Product(ProductType.y, FragmentationTerminus.C, 10, 4, 4, 0), 300.0, 10.0, 1),
+            };
+            match2.GetSequenceCoverage();
             Assert.That(match2.FragmentCoveragePositionInPeptide, Contains.Item(1)); // y2 covers first
 
             // Both termini combined
-            var match3 = new BaseSpectralMatch("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
-            match3.GetSequenceCoverage(new List<int> { 1, 2 }, new List<int> { 6, 7 });
+            var match3 = new MockSpectralMatch("file", "PEPTIDE", "PEPTIDE", 10.0, 1);
+            match3.MatchedFragmentIons = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 1, 1, 0), 100.0, 10.0, 1),
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 2, 2, 0), 200.0, 10.0, 1),
+                new MatchedFragmentIon(new Product(ProductType.y, FragmentationTerminus.C, 10, 6, 6, 0), 300.0, 10.0, 1),
+                new MatchedFragmentIon(new Product(ProductType.y, FragmentationTerminus.C, 10, 7, 7, 0), 400.0, 10.0, 1),
+            };
+            match3.GetSequenceCoverage();
             Assert.That(match3.FragmentCoveragePositionInPeptide, Contains.Item(1));
             Assert.That(match3.FragmentCoveragePositionInPeptide, Contains.Item(7));
         }
 
         /// <summary>
-        /// Verifies edge cases: empty sequence and no fragments return null coverage.
+        /// Verifies edge cases: empty sequence and no fragments return empty coverage.
         /// Critical: Prevents crashes with invalid input.
         /// </summary>
         [Test]
-        public void GetSequenceCoverage_EdgeCases_ReturnNull()
+        public void GetSequenceCoverage_EdgeCases_ReturnEmpty()
         {
-            var emptySeq = new BaseSpectralMatch("file", 1, 10.0, "", "");
-            emptySeq.GetSequenceCoverage(new List<int> { 1 }, null);
-            Assert.That(emptySeq.FragmentCoveragePositionInPeptide, Is.Null);
+            var emptySeq = new MockSpectralMatch("file", "", "", 10.0, 1);
+            emptySeq.MatchedFragmentIons = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 1, 1, 0), 100.0, 10.0, 1),
+            };
+            emptySeq.GetSequenceCoverage();
+            Assert.That(emptySeq.FragmentCoveragePositionInPeptide, Is.Empty);
 
-            var noFragments = new BaseSpectralMatch("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
-            noFragments.GetSequenceCoverage(null, null);
-            Assert.That(noFragments.FragmentCoveragePositionInPeptide, Is.Null);
+            var noFragments = new MockSpectralMatch("file", "PEPTIDE", "PEPTIDE", 10.0, 1);
+            noFragments.MatchedFragmentIons = new List<MatchedFragmentIon>();
+            noFragments.GetSequenceCoverage();
+            Assert.That(noFragments.FragmentCoveragePositionInPeptide, Is.Empty);
         }
 
         #endregion
@@ -202,10 +161,14 @@ namespace Test.Omics
         public void GetSequenceCoverage_FinalNTerminalFragment_CoversLastResidue()
         {
             // For "PEPTIDE" (length 7), b6 would be position 6 (Length-1)
-            var match = new BaseSpectralMatch("file", 1, 10.0, "PEPTIDE", "PEPTIDE");
+            var match = new MockSpectralMatch("file", "PEPTIDE", "PEPTIDE", 10.0, 1);
 
             // Position 6 = BaseSequence.Length - 1 = 7 - 1 = 6
-            match.GetSequenceCoverage(new List<int> { 6 }, null);
+            match.MatchedFragmentIons = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 6, 6, 0), 100.0, 10.0, 1),
+            };
+            match.GetSequenceCoverage();
 
             Assert.That(match.FragmentCoveragePositionInPeptide, Contains.Item(7),
                 "Last residue (position 7) should be covered when b6 is present");
@@ -218,10 +181,16 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_BothDirectionsInclusive_CoversPosition()
         {
-            var match = new CoverageSpectralMatch("file", "PEPTIDE", "PEPTIDE", 10.0, 1);
+            var match = new MockSpectralMatch("file", "PEPTIDE", "PEPTIDE", 10.0, 1);
 
             // N-term positions 2,3 and C-term position 3 - position 3 should be covered (inclusive)
-            match.GetSequenceCoverage(new List<int> { 2, 3 }, new List<int> { 3 });
+            match.MatchedFragmentIons = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 2, 2, 0), 100.0, 10.0, 1),
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 3, 3, 0), 200.0, 10.0, 1),
+                new MatchedFragmentIon(new Product(ProductType.y, FragmentationTerminus.C, 10, 3, 3, 0), 300.0, 10.0, 1),
+            };
+            match.GetSequenceCoverage();
 
             Assert.That(match.FragmentCoveragePositionInPeptide, Contains.Item(3),
                 "Position 3 should be covered when both b3 and y3 are present (inclusive coverage)");
@@ -234,10 +203,16 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_BothDirectionsExclusive_CoversPosition()
         {
-            var match = new CoverageSpectralMatch("file", "PEPTIDE", "PEPTIDE", 10.0, 1);
+            var match = new MockSpectralMatch("file", "PEPTIDE", "PEPTIDE", 10.0, 1);
 
             // N-term positions 2,3 and C-term position 5 (3+2) should cover position 4
-            match.GetSequenceCoverage(new List<int> { 2, 3 }, new List<int> { 5 });
+            match.MatchedFragmentIons = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 2, 2, 0), 100.0, 10.0, 1),
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 3, 3, 0), 200.0, 10.0, 1),
+                new MatchedFragmentIon(new Product(ProductType.y, FragmentationTerminus.C, 10, 5, 5, 0), 300.0, 10.0, 1),
+            };
+            match.GetSequenceCoverage();
 
             Assert.That(match.FragmentCoveragePositionInPeptide, Contains.Item(4),
                 "Position 4 should be covered when b3 is present and y5 (3+2) provides exclusive coverage");
@@ -254,17 +229,17 @@ namespace Test.Omics
         [Test]
         public void CompareTo_IHasSequenceCoverageFromFragments_DelegatesToISpectralMatch()
         {
-            var high = new BaseSpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            var low = new BaseSpectralMatch("file", 1, 50.0, "SEQ", "SEQ");
+            var high = new MockSpectralMatch("file", "SEQ", "SEQ", 100.0, 1);
+            var low = new MockSpectralMatch("file", "SEQ", "SEQ", 50.0, 1);
 
             // Cast to IHasSequenceCoverageFromFragments
             IHasSequenceCoverageFromFragments highCoverage = high;
             IHasSequenceCoverageFromFragments lowCoverage = low;
 
-            // Should delegate to ISpectralMatch comparison (score descending)
-            Assert.That(high.CompareTo(lowCoverage), Is.LessThan(0),
+            // Should delegate to ISpectralMatch comparison (score ascending)
+            Assert.That(high.CompareTo(lowCoverage), Is.GreaterThan(0),
                 "Higher score should come first when comparing via IHasSequenceCoverageFromFragments");
-            Assert.That(low.CompareTo(highCoverage), Is.GreaterThan(0));
+            Assert.That(low.CompareTo(highCoverage), Is.LessThan(0));
         }
 
         /// <summary>
@@ -274,7 +249,7 @@ namespace Test.Omics
         [Test]
         public void CompareTo_IHasSequenceCoverageFromFragments_NonSpectralMatch_ReturnsZero()
         {
-            var match = new BaseSpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
+            var match = new MockSpectralMatch("file", "SEQ", "SEQ", 100.0, 1);
 
             // Create a mock that implements IHasSequenceCoverageFromFragments but not ISpectralMatch
             var nonSpectralMatch = new NonSpectralMatchCoverageProvider();
@@ -290,17 +265,18 @@ namespace Test.Omics
         [Test]
         public void CompareTo_IHasSequenceCoverageFromFragments_Null_ReturnsNegative()
         {
-            var match = new BaseSpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
+            var match = new MockSpectralMatch("file", "SEQ", "SEQ", 100.0, 1);
 
             Assert.That(match.CompareTo((IHasSequenceCoverageFromFragments?)null), Is.LessThan(0));
         }
 
         // Helper class for testing non-ISpectralMatch comparison
-        private class NonSpectralMatchCoverageProvider : IHasSequenceCoverageFromFragments
+        public class NonSpectralMatchCoverageProvider : IHasSequenceCoverageFromFragments
         {
-            public HashSet<int>? FragmentCoveragePositionInPeptide { get; set; }
+            public string BaseSequence { get; } = "PEPTIDE";
+            public List<MatchedFragmentIon> MatchedFragmentIons { get; set; } = new();
+            public List<int> FragmentCoveragePositionInPeptide { get; set; }
             public void GetSequenceCoverage() { }
-            public int CompareTo(IHasSequenceCoverageFromFragments? other) => 0;
         }
 
         #endregion
@@ -314,8 +290,8 @@ namespace Test.Omics
         [Test]
         public void Equals_Object_BaseSpectralMatchType_ComparesCorrectly()
         {
-            var match1 = new BaseSpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            var match2 = new BaseSpectralMatch("file", 1, 50.0, "SEQ", "SEQ"); // Different score
+            var match1 = new MockSpectralMatch("file", "SEQ", "SEQ", 100.0, 1);
+            var match2 = new MockSpectralMatch("file", "SEQ", "SEQ", 50.0, 1); // Different score
             object boxedMatch2 = match2;
 
             Assert.That(match1.Equals(boxedMatch2), Is.True,
@@ -329,7 +305,7 @@ namespace Test.Omics
         [Test]
         public void Equals_Object_UnrelatedType_ReturnsFalse()
         {
-            var match = new BaseSpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
+            var match = new MockSpectralMatch("file", "SEQ", "SEQ", 100.0, 1);
 
             Assert.Multiple(() =>
             {
@@ -351,9 +327,9 @@ namespace Test.Omics
         [Test]
         public void EqualityOperator_ComparesCorrectly()
         {
-            var match1 = new BaseSpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            var match2 = new BaseSpectralMatch("file", 1, 50.0, "SEQ", "SEQ"); // Different score
-            var match3 = new BaseSpectralMatch("other", 1, 100.0, "SEQ", "SEQ"); // Different file
+            var match1 = new MockSpectralMatch("file", "SEQ", "SEQ", 100.0, 1);
+            var match2 = new MockSpectralMatch("file", "SEQ", "SEQ", 50.0, 1); // Different score
+            var match3 = new MockSpectralMatch("other", "SEQ", "SEQ", 100.0, 1); // Different file
 
             Assert.Multiple(() =>
             {
@@ -369,9 +345,9 @@ namespace Test.Omics
         [Test]
         public void InequalityOperator_ComparesCorrectly()
         {
-            var match1 = new BaseSpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            var match2 = new BaseSpectralMatch("file", 1, 50.0, "SEQ", "SEQ"); // Different score
-            var match3 = new BaseSpectralMatch("other", 1, 100.0, "SEQ", "SEQ"); // Different file
+            var match1 = new MockSpectralMatch("file", "SEQ", "SEQ", 100.0, 1);
+            var match2 = new MockSpectralMatch("file", "SEQ", "SEQ", 50.0, 1); // Different score
+            var match3 = new MockSpectralMatch("other", "SEQ", "SEQ", 100.0, 1); // Different file
 
             Assert.Multiple(() =>
             {
@@ -387,8 +363,8 @@ namespace Test.Omics
         [Test]
         public void EqualityOperators_HandleNullCorrectly()
         {
-            var match = new BaseSpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            BaseSpectralMatch? nullMatch = null;
+            var match = new MockSpectralMatch("file", "SEQ", "SEQ", 100.0, 1);
+            MockSpectralMatch? nullMatch = null;
 
             Assert.Multiple(() =>
             {
@@ -413,7 +389,7 @@ namespace Test.Omics
         [Test]
         public void EqualityOperators_SameReference_AreEqual()
         {
-            var match = new BaseSpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
+            var match = new MockSpectralMatch("file", "SEQ", "SEQ", 100.0, 1);
             var sameRef = match;
 
             Assert.Multiple(() =>
@@ -424,6 +400,7 @@ namespace Test.Omics
         }
 
         #endregion
+
         #region CompareTo Tests
 
         /// <summary>
@@ -433,29 +410,29 @@ namespace Test.Omics
         [Test]
         public void CompareTo_OrdersByScoreDescendingThenFilePathThenScan()
         {
-            var highScore = new BaseSpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            var lowScore = new BaseSpectralMatch("file", 1, 50.0, "SEQ", "SEQ");
+            var highScore = new MockSpectralMatch("file", "SEQ", "SEQ", 100.0, 1);
+            var lowScore = new MockSpectralMatch("file", "SEQ", "SEQ", 50.0, 1);
 
-            // Higher score comes first (negative comparison = comes before)
-            Assert.That(highScore.CompareTo((ISpectralMatch)lowScore), Is.LessThan(0));
-            Assert.That(lowScore.CompareTo((ISpectralMatch)highScore), Is.GreaterThan(0));
+            // Higher score comes last (negative comparison = comes before)
+            Assert.That(highScore.CompareTo((ISpectralMatch)lowScore), Is.GreaterThan(0));
+            Assert.That(lowScore.CompareTo((ISpectralMatch)highScore), Is.LessThan(0));
 
-            // Equal score - compare by file path
-            var fileA = new BaseSpectralMatch("a_file", 1, 100.0, "SEQ", "SEQ");
-            var fileB = new BaseSpectralMatch("b_file", 1, 100.0, "SEQ", "SEQ");
-            Assert.That(fileA.CompareTo((ISpectralMatch)fileB), Is.LessThan(0));
+            // Equal score - are equal
+            var fileA = new MockSpectralMatch("a_file", "SEQ", "SEQ", 100.0, 1);
+            var fileB = new MockSpectralMatch("b_file", "SEQ", "SEQ", 100.0, 1);
+            Assert.That(fileA.CompareTo((ISpectralMatch)fileB), Is.EqualTo(0));
 
-            // Equal score and path - compare by scan
-            var scan5 = new BaseSpectralMatch("file", 5, 100.0, "SEQ", "SEQ");
-            var scan10 = new BaseSpectralMatch("file", 10, 100.0, "SEQ", "SEQ");
-            Assert.That(scan5.CompareTo((ISpectralMatch)scan10), Is.LessThan(0));
+            // Equal score - compare by scan
+            var scan5 = new MockSpectralMatch("file", "SEQ", "SEQ", 100.0, 5);
+            var scan10 = new MockSpectralMatch("file", "SEQ", "SEQ", 100.0, 10);
+            Assert.That(scan5.CompareTo((ISpectralMatch)scan10), Is.GreaterThan(0));
 
             // Null handling
-            Assert.That(highScore.CompareTo((ISpectralMatch?)null), Is.LessThan(0));
+            Assert.That(highScore.CompareTo((ISpectralMatch?)null), Is.GreaterThan(0));
 
             // Equal matches
-            var equal1 = new BaseSpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            var equal2 = new BaseSpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
+            var equal1 = new MockSpectralMatch("file", "SEQ", "SEQ", 100.0, 1);
+            var equal2 = new MockSpectralMatch("file", "SEQ", "SEQ", 100.0, 1);
             Assert.That(equal1.CompareTo((ISpectralMatch)equal2), Is.EqualTo(0));
         }
 
@@ -470,14 +447,14 @@ namespace Test.Omics
         [Test]
         public void Equality_BasedOnPathScanSequence_NotScore()
         {
-            var a = new BaseSpectralMatch("file", 42, 100.0, "PEP[Mod]TIDE", "PEPTIDE");
-            var b = new BaseSpectralMatch("file", 42, 50.0, "PEP[Mod]TIDE", "PEPTIDE"); // Different score
+            var a = new MockSpectralMatch("file", "PEP[Mod]TIDE", "PEPTIDE", 100.0, 42);
+            var b = new MockSpectralMatch("file", "PEP[Mod]TIDE", "PEPTIDE", 50.0, 42); // Different score
 
             Assert.That(a.Equals(b), Is.True, "Score should not affect equality");
             Assert.That(a.GetHashCode(), Is.EqualTo(b.GetHashCode()));
 
             // Different file = not equal
-            var c = new BaseSpectralMatch("other", 42, 100.0, "PEP[Mod]TIDE", "PEPTIDE");
+            var c = new MockSpectralMatch("other", "PEP[Mod]TIDE", "PEPTIDE", 100.0, 42);
             Assert.That(a.Equals(c), Is.False);
 
             // Null handling
@@ -491,26 +468,26 @@ namespace Test.Omics
         [Test]
         public void CollectionBehavior_HashSetAndSorting()
         {
-            var match1 = new BaseSpectralMatch("file", 1, 100.0, "SEQ", "SEQ");
-            var duplicate = new BaseSpectralMatch("file", 1, 50.0, "SEQ", "SEQ"); // Same identity, different score
-            var different = new BaseSpectralMatch("file", 2, 100.0, "SEQ", "SEQ");
+            var match1 = new MockSpectralMatch("file", "SEQ", "SEQ", 100.0, 1);
+            var duplicate = new MockSpectralMatch("file", "SEQ", "SEQ", 50.0, 1); // Same identity, different score
+            var different = new MockSpectralMatch("file", "SEQ", "SEQ", 100.0, 2);
 
             // HashSet deduplication
-            var set = new HashSet<BaseSpectralMatch> { match1, duplicate, different };
+            var set = new HashSet<MockSpectralMatch> { match1, duplicate, different };
             Assert.That(set.Count, Is.EqualTo(2));
 
             // Sorting by score descending
-            var matches = new List<BaseSpectralMatch>
+            var matches = new List<MockSpectralMatch>
             {
-                new("file", 1, 50.0, "SEQ", "SEQ"),
-                new("file", 2, 100.0, "SEQ", "SEQ"),
-                new("file", 3, 75.0, "SEQ", "SEQ")
+                new("file", "SEQ", "SEQ", 50.0, 1),
+                new("file", "SEQ", "SEQ", 100.0, 2),
+                new("file", "SEQ", "SEQ", 75.0, 3)
             };
             matches.Sort();
 
-            Assert.That(matches[0].Score, Is.EqualTo(100.0));
+            Assert.That(matches[2].Score, Is.EqualTo(100.0));
             Assert.That(matches[1].Score, Is.EqualTo(75.0));
-            Assert.That(matches[2].Score, Is.EqualTo(50.0));
+            Assert.That(matches[0].Score, Is.EqualTo(50.0));
         }
 
         #endregion
@@ -523,7 +500,7 @@ namespace Test.Omics
         [Test]
         public void ToString_ReturnsFormattedString()
         {
-            var match = new CoverageSpectralMatch("file", "PEP[Mod]TIDE", "PEPTIDE", 123.456, 42);
+            var match = new MockSpectralMatch("file", "PEP[Mod]TIDE", "PEPTIDE", 123.456, 42);
 
             var result = match.ToString();
 

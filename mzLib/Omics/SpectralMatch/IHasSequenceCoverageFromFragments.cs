@@ -16,7 +16,7 @@ public interface IHasSequenceCoverageFromFragments
     /// Populated by <see cref="GetSequenceCoverage"/> when fragment coverage data is available.
     /// Returns null if coverage has not been calculated or no fragment data is available.
     /// </summary>
-    public List<int> FragmentCoveragePositionInPeptide { get; internal set; }
+    public List<int> FragmentCoveragePositionInPeptide { get; protected set; }
     /// <summary>
     /// Calculates sequence coverage from fragment ions and populates 
     /// <see cref="FragmentCoveragePositionInPeptide"/> with one-based positions

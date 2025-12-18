@@ -120,14 +120,14 @@ namespace Omics.SpectralMatch
 
         /// <summary>
         /// Compares this spectral match to another for ordering purposes.
-        /// Orders by Score (descending), then FullFilePath (ascending), then OneBasedScanNumber (ascending).
-        /// This ordering ensures higher-scoring matches appear first, with ties broken deterministically.
+        /// Orders by Score (ascending), then OneBasedScanNumber (descending).
+        /// This ordering ensures higher-scoring matches appear last, with ties broken deterministically.
         /// </summary>
         /// <param name="other">The other spectral match to compare to.</param>
         /// <returns>Negative if this should sort before other; positive if after; zero if equal.</returns>
         public int CompareTo(ISpectralMatch? other)
         {
-            if (other is null) return -1;
+            if (other is null) return 1;
 
             if (Math.Abs(this.Score - other.Score) > ToleranceForScoreDifferentiation)
                 return this.Score.CompareTo(other.Score);

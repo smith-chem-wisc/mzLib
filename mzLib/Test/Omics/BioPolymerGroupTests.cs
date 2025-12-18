@@ -1,15 +1,9 @@
-﻿using Chemistry;
-using MassSpectrometry;
+﻿using MassSpectrometry;
 using NUnit.Framework;
 using Omics;
-using Omics.BioPolymer;
 using Omics.BioPolymerGroup;
-using Omics.Digestion;
-using Omics.Fragmentation;
 using Omics.Modifications;
 using Omics.SpectralMatch;
-using Proteomics;
-using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -27,12 +21,12 @@ namespace Test.Omics
     {
         #region Test Data and Setup
 
-        private TestBioPolymer _bioPolymer1;
-        private TestBioPolymer _bioPolymer2;
-        private TestBioPolymer _decoyBioPolymer;
-        private TestBioPolymer _contaminantBioPolymer;
-        private TestBioPolymerWithSetMods _sequence1;
-        private TestBioPolymerWithSetMods _uniqueSequence;
+        private MockBioPolymer _bioPolymer1;
+        private MockBioPolymer _bioPolymer2;
+        private MockBioPolymer _decoyBioPolymer;
+        private MockBioPolymer _contaminantBioPolymer;
+        private MockBioPolymerWithSetMods _sequence1;
+        private MockBioPolymerWithSetMods _uniqueSequence;
         private HashSet<IBioPolymer> _bioPolymers;
         private HashSet<IBioPolymerWithSetMods> _allSequences;
         private HashSet<IBioPolymerWithSetMods> _uniqueSequences;
@@ -41,149 +35,25 @@ namespace Test.Omics
         [SetUp]
         public void Setup()
         {
-            _bioPolymer1 = new TestBioPolymer("ACGTACGT", "BP12345",
+            _bioPolymer1 = new MockBioPolymer("ACGTACGT", "BP12345",
                 organism: "Homo sapiens",
                 geneNames: new List<Tuple<string, string>> { new("primary", "GENE1") });
 
-            _bioPolymer2 = new TestBioPolymer("TGCATGCA", "BP67890",
+            _bioPolymer2 = new MockBioPolymer("TGCATGCA", "BP67890",
                 organism: "Homo sapiens",
                 geneNames: new List<Tuple<string, string>> { new("primary", "GENE2") });
 
-            _decoyBioPolymer = new TestBioPolymer("DECOYSEQ", "DECOY_BP12345", isDecoy: true);
-            _contaminantBioPolymer = new TestBioPolymer("CONTAMINANT", "CONT_BP99999", isContaminant: true);
+            _decoyBioPolymer = new MockBioPolymer("DECOYSEQ", "DECOY_BP12345", true, false);
+            _contaminantBioPolymer = new MockBioPolymer("CONTAMINANT", "CONT_BP99999", false, true);
 
-            _sequence1 = new TestBioPolymerWithSetMods("ACGT", "ACGT");
-            _uniqueSequence = new TestBioPolymerWithSetMods("UNIQUE", "UNIQUE");
+            _sequence1 = new MockBioPolymerWithSetMods("ACGT", "ACGT");
+            _uniqueSequence = new MockBioPolymerWithSetMods("UNIQUE", "UNIQUE");
 
             _bioPolymers = new HashSet<IBioPolymer> { _bioPolymer1, _bioPolymer2 };
             _allSequences = new HashSet<IBioPolymerWithSetMods> { _sequence1, _uniqueSequence };
             _uniqueSequences = new HashSet<IBioPolymerWithSetMods> { _uniqueSequence };
 
             _bioPolymerGroup = new BioPolymerGroup(_bioPolymers, _allSequences, _uniqueSequences);
-        }
-
-        #endregion
-
-        #region Helper Classes
-
-        private class TestBioPolymer : IBioPolymer
-        {
-            public string BaseSequence { get; }
-            public string Accession { get; }
-            public string Organism { get; }
-            public string Name { get; }
-            public string FullName { get; }
-            public List<Tuple<string, string>> GeneNames { get; }
-            public bool IsDecoy { get; }
-            public bool IsContaminant { get; }
-            public string DatabaseFilePath { get; } = "";
-            public int Length => BaseSequence.Length;
-            public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; } = new Dictionary<int, List<Modification>>();
-            public string SampleNameForVariants { get; set; } = "";
-            public IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; } = new Dictionary<int, List<Modification>>();
-            public IBioPolymer ConsensusVariant => this;
-            public List<SequenceVariation> AppliedSequenceVariations { get; } = new();
-            public List<SequenceVariation> SequenceVariations { get; } = new();
-            public List<TruncationProduct> TruncationProducts { get; } = new();
-
-            public TestBioPolymer(string sequence, string accession,
-                string organism = "", string name = "", string fullName = "",
-                List<Tuple<string, string>> geneNames = null,
-                bool isDecoy = false, bool isContaminant = false)
-            {
-                BaseSequence = sequence;
-                Accession = accession;
-                Organism = organism;
-                Name = name;
-                FullName = fullName;
-                GeneNames = geneNames ?? new List<Tuple<string, string>>();
-                IsDecoy = isDecoy;
-                IsContaminant = isContaminant;
-            }
-
-            public IEnumerable<IBioPolymerWithSetMods> Digest(IDigestionParams digestionParams,
-                List<Modification> allKnownFixedModifications, List<Modification> variableModifications,
-                List<SilacLabel>? silacLabels = null, (SilacLabel, SilacLabel)? turnoverLabels = null,
-                bool topDownTruncationSearch = false) => Enumerable.Empty<IBioPolymerWithSetMods>();
-
-            public IBioPolymer CloneWithNewSequenceAndMods(string newBaseSequence, IDictionary<int, List<Modification>>? newMods)
-                => new TestBioPolymer(newBaseSequence, Accession, Organism, Name, FullName, GeneNames, IsDecoy, IsContaminant);
-
-            public TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original,
-                IEnumerable<SequenceVariation> appliedSequenceVariants, IEnumerable<TruncationProduct> applicableProteolysisProducts,
-                IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
-                where TBioPolymerType : IHasSequenceVariants => original;
-
-            public bool Equals(IBioPolymer? other) => other != null && Accession == other.Accession && BaseSequence == other.BaseSequence;
-            public override bool Equals(object? obj) => obj is IBioPolymer other && Equals(other);
-            public override int GetHashCode() => HashCode.Combine(Accession, BaseSequence);
-        }
-
-        private class TestBioPolymerWithSetMods : IBioPolymerWithSetMods
-        {
-            public string BaseSequence { get; }
-            public string FullSequence { get; }
-            public double MostAbundantMonoisotopicMass { get; } = 0;
-            public double MonoisotopicMass { get; } = 0;
-            public string SequenceWithChemicalFormulas => BaseSequence;
-            public int OneBasedStartResidue { get; }
-            public int OneBasedEndResidue { get; }
-            public int MissedCleavages => 0;
-            public string Description => "";
-            public CleavageSpecificity CleavageSpecificityForFdrCategory { get; set; } = CleavageSpecificity.Full;
-            public char PreviousResidue => '-';
-            public char NextResidue => '-';
-            public IDigestionParams DigestionParams => null!;
-            public Dictionary<int, Modification> AllModsOneIsNterminus { get; }
-            public int NumMods => AllModsOneIsNterminus?.Count ?? 0;
-            public int NumFixedMods => 0;
-            public int NumVariableMods => NumMods;
-            public int Length => BaseSequence.Length;
-            public IBioPolymer Parent { get; }
-            public ChemicalFormula ThisChemicalFormula => new();
-            public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
-
-            public TestBioPolymerWithSetMods(string baseSequence, string fullSequence, IBioPolymer parent = null,
-                int startResidue = 1, int endResidue = 0, Dictionary<int, Modification> mods = null)
-            {
-                BaseSequence = baseSequence;
-                FullSequence = fullSequence;
-                Parent = parent;
-                OneBasedStartResidue = startResidue;
-                OneBasedEndResidue = endResidue > 0 ? endResidue : startResidue + baseSequence.Length - 1;
-                AllModsOneIsNterminus = mods ?? new Dictionary<int, Modification>();
-            }
-
-            public void Fragment(DissociationType d, FragmentationTerminus t, List<Product> p, FragmentationParams? f = null) { }
-            public void FragmentInternally(DissociationType d, int m, List<Product> p, FragmentationParams? f = null) { }
-            public IBioPolymerWithSetMods Localize(int i, double m) => this;
-            public bool Equals(IBioPolymerWithSetMods? other) => other != null && BaseSequence == other.BaseSequence;
-            public override bool Equals(object? obj) => obj is IBioPolymerWithSetMods other && Equals(other);
-            public override int GetHashCode() => BaseSequence.GetHashCode();
-        }
-
-        private class TestSpectralMatch : ISpectralMatch
-        {
-            private readonly List<IBioPolymerWithSetMods> _identified = new();
-            public string FullFilePath { get; }
-            public string FullSequence { get; }
-            public string BaseSequence { get; }
-            public double Score { get; }
-            public int OneBasedScanNumber { get; }
-
-            public TestSpectralMatch(string filePath, string baseSequence, string fullSequence, double score, int scanNumber)
-            {
-                FullFilePath = filePath;
-                BaseSequence = baseSequence;
-                FullSequence = fullSequence;
-                Score = score;
-                OneBasedScanNumber = scanNumber;
-            }
-
-            public void AddIdentifiedBioPolymer(IBioPolymerWithSetMods peptide) => _identified.Add(peptide);
-
-            public IEnumerable<IBioPolymerWithSetMods> GetIdentifiedBioPolymersWithSetMods() => _identified;
-            public int CompareTo(ISpectralMatch? other) => other is null ? 1 : other.Score.CompareTo(Score);
         }
 
         #endregion
@@ -250,9 +120,9 @@ namespace Test.Omics
 		[Test]
 		public void Score_WithPsms_SumsBestScorePerBaseSequence()
 		{
-			var psm1 = new BioPolymerGroupSequenceCoverageTests.CoverageSpectralMatch(@"C:\test.raw", "ACGT", "ACGT", score: 100, scanNumber: 1);
-			var psm2 = new BioPolymerGroupSequenceCoverageTests.CoverageSpectralMatch(@"C:\test.raw", "ACGT", "ACGT", score: 150, scanNumber: 2);
-			var psm3 = new BioPolymerGroupSequenceCoverageTests.CoverageSpectralMatch(@"C:\test.raw", "TGCA", "TGCA", score: 200, scanNumber: 3);
+			var psm1 = new MockSpectralMatch(@"C:\test.raw", "ACGT", "ACGT", score: 100, scanNumber: 1);
+			var psm2 = new MockSpectralMatch(@"C:\test.raw", "ACGT", "ACGT", score: 150, scanNumber: 2);
+			var psm3 = new MockSpectralMatch(@"C:\test.raw", "TGCA", "TGCA", score: 200, scanNumber: 3);
 
             _bioPolymerGroup.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm1, psm2, psm3 };
             _bioPolymerGroup.Score();
@@ -263,14 +133,14 @@ namespace Test.Omics
 		[Test]
 		public void Score_WithMultipleSequencesSameBase_UsesMaxScore()
 		{
-			var psm1 = new BioPolymerGroupSequenceCoverageTests.CoverageSpectralMatch(@"C:\test.raw", "ACGT", "ACGT", score: 50, scanNumber: 1);
-			var psm2 = new BioPolymerGroupSequenceCoverageTests.CoverageSpectralMatch(@"C:\test.raw", "ACGT", "ACGT", score: 75, scanNumber: 2);
-			var psm3 = new BioPolymerGroupSequenceCoverageTests.CoverageSpectralMatch(@"C:\test.raw", "ACGT", "ACGT", score: 100, scanNumber: 3);
+			var psm1 = new MockSpectralMatch(@"C:\test.raw", "ACGT", "ACGT", score: 50, scanNumber: 1);
+			var psm2 = new MockSpectralMatch(@"C:\test.raw", "ACGT", "ACGT", score: 75, scanNumber: 2);
+			var psm3 = new MockSpectralMatch(@"C:\test.raw", "ACGT", "ACGT", score: 100, scanNumber: 3);
 
 			_bioPolymerGroup.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm1, psm2, psm3 };
 			_bioPolymerGroup.Score();
 
-            Assert.That(_bioPolymerGroup.BioPolymerGroupScore, Is.EqualTo(0));
+            Assert.That(_bioPolymerGroup.BioPolymerGroupScore, Is.EqualTo(100));
         }
 
         #endregion
@@ -284,9 +154,9 @@ namespace Test.Omics
         [Test]
         public void MergeWith_CombinesAllCollectionsAndUpdatesName()
         {
-            var otherBioPolymer = new TestBioPolymer("MERGESEQ", "A00001");
-            var otherSequence = new TestBioPolymerWithSetMods("MERGED", "MERGED");
-            var otherPsm = new TestSpectralMatch(@"C:\test.raw", "SEQ", "SEQ", score: 50, scanNumber: 1);
+            var otherBioPolymer = new MockBioPolymer("MERGESEQ", "A00001");
+            var otherSequence = new MockBioPolymerWithSetMods("MERGED", "MERGED");
+            var otherPsm = new MockSpectralMatch(@"C:\test.raw", "SEQ", "SEQ", score: 50, scanNumber: 1);
 
             var otherGroup = new BioPolymerGroup(
                 new HashSet<IBioPolymer> { otherBioPolymer },
@@ -359,8 +229,8 @@ namespace Test.Omics
         {
             var file1 = new SpectraFileInfo(@"C:\test1.raw", "Control", 1, 1, 0);
             var file2 = new SpectraFileInfo(@"C:\test2.raw", "Control", 1, 1, 0);
-            var psm1 = new TestSpectralMatch(@"C:\test1.raw", "SEQ", "SEQ", score: 100, scanNumber: 1);
-            var psm2 = new TestSpectralMatch(@"C:\test2.raw", "SEQ", "SEQ", score: 100, scanNumber: 2);
+            var psm1 = new MockSpectralMatch(@"C:\test1.raw", "SEQ", "SEQ", score: 100, scanNumber: 1);
+            var psm2 = new MockSpectralMatch(@"C:\test2.raw", "SEQ", "SEQ", score: 100, scanNumber: 2);
 
             _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { file1, file2 };
             _bioPolymerGroup.IntensitiesBySample = new Dictionary<ISampleInfo, double>
@@ -490,7 +360,7 @@ namespace Test.Omics
         public void ToString_TruncatesLongStrings()
         {
             var longName = new string('A', 50000);
-            var bioPolymer = new TestBioPolymer("SEQ", "BP00001", fullName: longName);
+            var bioPolymer = new MockBioPolymer("SEQ", "BP00001", fullName: longName);
             var bg = new BioPolymerGroup(new HashSet<IBioPolymer> { bioPolymer }, _allSequences, _uniqueSequences);
 
             var result = bg.ToString();
@@ -594,7 +464,7 @@ namespace Test.Omics
         [Test]
         public void CalculateSequenceCoverage_NTerminalMod_DisplaysWithPrefixFormat()
         {
-            var bioPolymer = new TestBioPolymer("PEPTIDE", "P00001");
+            var bioPolymer = new MockBioPolymer("PEPTIDE", "P00001");
 
             // Create modification with N-terminal location restriction
             ModificationMotif.TryGetMotif("P", out var motif);
@@ -606,15 +476,14 @@ namespace Test.Omics
                 _monoisotopicMass: 42.0);
 
             var modsDict = new Dictionary<int, Modification> { { 1, nTermMod } };
-            var peptide = new TestBioPolymerWithSetMods("PEPTIDE", "[Acetyl on P]-PEPTIDE", bioPolymer, 1, 7, modsDict);
+            var peptide = new MockBioPolymerWithSetMods("PEPTIDE", "[Acetyl on P]-PEPTIDE", bioPolymer, 1, 7, modsDict);
 
             var group = new BioPolymerGroup(
                 new HashSet<IBioPolymer> { bioPolymer },
                 new HashSet<IBioPolymerWithSetMods> { peptide },
                 new HashSet<IBioPolymerWithSetMods> { peptide });
 
-            var psm = new TestSpectralMatch(@"C:\test.raw", "PEPTIDE", "[Acetyl on P]-PEPTIDE", 100, 1);
-            psm.AddIdentifiedBioPolymer(peptide);
+            var psm = new MockSpectralMatch(@"C:\test.raw", "PEPTIDE", "[Acetyl on P]-PEPTIDE", 100, 1, [peptide]);
             group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
 
             group.CalculateSequenceCoverage();
@@ -631,7 +500,7 @@ namespace Test.Omics
         [Test]
         public void CalculateSequenceCoverage_CTerminalMod_DisplaysWithSuffixFormat()
         {
-            var bioPolymer = new TestBioPolymer("PEPTIDE", "P00001");
+            var bioPolymer = new MockBioPolymer("PEPTIDE", "P00001");
 
             ModificationMotif.TryGetMotif("E", out var motif);
             var cTermMod = new Modification(
@@ -642,15 +511,14 @@ namespace Test.Omics
                 _monoisotopicMass: -0.98);
 
             var modsDict = new Dictionary<int, Modification> { { 8, cTermMod } }; // Position after last residue
-            var peptide = new TestBioPolymerWithSetMods("PEPTIDE", "PEPTIDE-[Amidated on E]", bioPolymer, 1, 7, modsDict);
+            var peptide = new MockBioPolymerWithSetMods("PEPTIDE", "PEPTIDE-[Amidated on E]", bioPolymer, 1, 7, modsDict);
 
             var group = new BioPolymerGroup(
                 new HashSet<IBioPolymer> { bioPolymer },
                 new HashSet<IBioPolymerWithSetMods> { peptide },
                 new HashSet<IBioPolymerWithSetMods> { peptide });
 
-            var psm = new TestSpectralMatch(@"C:\test.raw", "PEPTIDE", "PEPTIDE-[Amidated on E]", 100, 1);
-            psm.AddIdentifiedBioPolymer(peptide);
+            var psm = new MockSpectralMatch(@"C:\test.raw", "PEPTIDE", "PEPTIDE-[Amidated on E]", 100, 1, [peptide]);
             group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
 
             group.CalculateSequenceCoverage();
@@ -671,7 +539,7 @@ namespace Test.Omics
         [Test]
         public void CalculateModificationOccupancy_NTerminalMod_UsesPosition1()
         {
-            var bioPolymer = new TestBioPolymer("MPEPTIDE", "P00001");
+            var bioPolymer = new MockBioPolymer("MPEPTIDE", "P00001");
 
             ModificationMotif.TryGetMotif("M", out var motif);
             var nTermMod = new Modification(
@@ -682,15 +550,14 @@ namespace Test.Omics
                 _monoisotopicMass: 42.0);
 
             var modsDict = new Dictionary<int, Modification> { { 1, nTermMod } };
-            var peptide = new TestBioPolymerWithSetMods("MPEPTIDE", "[Acetyl on M]-MPEPTIDE", bioPolymer, 1, 8, modsDict);
+            var peptide = new MockBioPolymerWithSetMods("MPEPTIDE", "[Acetyl on M]-MPEPTIDE", bioPolymer, 1, 8, modsDict);
 
             var group = new BioPolymerGroup(
                 new HashSet<IBioPolymer> { bioPolymer },
                 new HashSet<IBioPolymerWithSetMods> { peptide },
                 new HashSet<IBioPolymerWithSetMods> { peptide });
 
-            var psm = new TestSpectralMatch(@"C:\test.raw", "MPEPTIDE", "[Acetyl on M]-MPEPTIDE", 100, 1);
-            psm.AddIdentifiedBioPolymer(peptide);
+            var psm = new MockSpectralMatch(@"C:\test.raw", "MPEPTIDE", "[Acetyl on M]-MPEPTIDE", 100, 1, [peptide]);
             group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
 
             group.CalculateSequenceCoverage();
@@ -708,7 +575,7 @@ namespace Test.Omics
         [Test]
         public void CalculateModificationOccupancy_CTerminalMod_UsesProteinLength()
         {
-            var bioPolymer = new TestBioPolymer("PEPTIDEK", "P00001"); // Length = 8
+            var bioPolymer = new MockBioPolymer("PEPTIDEK", "P00001"); // Length = 8
 
             ModificationMotif.TryGetMotif("K", out var motif);
             var cTermMod = new Modification(
@@ -719,15 +586,14 @@ namespace Test.Omics
                 _monoisotopicMass: -0.98);
 
             var modsDict = new Dictionary<int, Modification> { { 9, cTermMod } };
-            var peptide = new TestBioPolymerWithSetMods("PEPTIDEK", "PEPTIDEK-[Amidated on K]", bioPolymer, 1, 8, modsDict);
+            var peptide = new MockBioPolymerWithSetMods("PEPTIDEK", "PEPTIDEK-[Amidated on K]", bioPolymer, 1, 8, modsDict);
 
             var group = new BioPolymerGroup(
                 new HashSet<IBioPolymer> { bioPolymer },
                 new HashSet<IBioPolymerWithSetMods> { peptide },
                 new HashSet<IBioPolymerWithSetMods> { peptide });
 
-            var psm = new TestSpectralMatch(@"C:\test.raw", "PEPTIDEK", "PEPTIDEK-[Amidated on K]", 100, 1);
-            psm.AddIdentifiedBioPolymer(peptide);
+            var psm = new MockSpectralMatch(@"C:\test.raw", "PEPTIDEK", "PEPTIDEK-[Amidated on K]", 100, 1, [peptide]);
             group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
 
             group.CalculateSequenceCoverage();
@@ -745,7 +611,7 @@ namespace Test.Omics
         [Test]
         public void CalculateModificationOccupancy_UnrecognizedLocationRestriction_IsSkipped()
         {
-            var bioPolymer = new TestBioPolymer("PEPTIDE", "P00001");
+            var bioPolymer = new MockBioPolymer("PEPTIDE", "P00001");
 
             ModificationMotif.TryGetMotif("P", out var motif);
             var unknownMod = new Modification(
@@ -756,15 +622,14 @@ namespace Test.Omics
                 _monoisotopicMass: 10.0);
 
             var modsDict = new Dictionary<int, Modification> { { 2, unknownMod } };
-            var peptide = new TestBioPolymerWithSetMods("PEPTIDE", "P[UnknownMod]EPTIDE", bioPolymer, 1, 7, modsDict);
+            var peptide = new MockBioPolymerWithSetMods("PEPTIDE", "P[UnknownMod]EPTIDE", bioPolymer, 1, 7, modsDict);
 
             var group = new BioPolymerGroup(
                 new HashSet<IBioPolymer> { bioPolymer },
                 new HashSet<IBioPolymerWithSetMods> { peptide },
                 new HashSet<IBioPolymerWithSetMods> { peptide });
 
-            var psm = new TestSpectralMatch(@"C:\test.raw", "PEPTIDE", "P[UnknownMod]EPTIDE", 100, 1);
-            psm.AddIdentifiedBioPolymer(peptide);
+            var psm = new MockSpectralMatch(@"C:\test.raw", "PEPTIDE", "P[UnknownMod]EPTIDE", 100, 1, [peptide]);
             group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
 
             // Should not throw

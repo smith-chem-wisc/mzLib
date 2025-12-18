@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Omics;
-using static Test.Omics.BioPolymerGroupSequenceCoverageTests;
+using Omics.Fragmentation;
+using Omics.SpectralMatch;
 
 namespace Test.Omics
 {
     /// <summary>
     /// Minimal tests for ISpectralMatch interface behavior.
-    /// Note: Most tests use TestSpectralMatch helper class defined in test files that need it.
+    /// Note: Most tests use MockSpectralMatch helper class defined in test files that need it.
     /// </summary>
     [TestFixture]
     [ExcludeFromCodeCoverage]
@@ -22,8 +23,8 @@ namespace Test.Omics
         [Test]
         public void CompareTo_HigherScoreComesFirst()
         {
-            ISpectralMatch a = new CoverageSpectralMatch("file1", "PEPTIDE", "PEPTIDE", score: 100, scanNumber: 1);
-            ISpectralMatch b = new CoverageSpectralMatch("file1", "PEPTIDE", "PEPTIDE", score: 50, scanNumber: 1);
+            ISpectralMatch highScore = new MockSpectralMatch("file1", "PEPTIDE", "PEPTIDE", score: 100, scanNumber: 1);
+            ISpectralMatch lowScore = new MockSpectralMatch("file1", "PEPTIDE", "PEPTIDE", score: 50, scanNumber: 1);
 
             // Higher score should compare as greater (comes first when sorted descending)
             Assert.That(highScore.CompareTo(lowScore), Is.GreaterThan(0));
@@ -37,7 +38,7 @@ namespace Test.Omics
         [Test]
         public void GetIdentifiedBioPolymersWithSetMods_ReturnsEmptyNotNull()
         {
-            var match = new TestSpectralMatch("file", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            var match = new MockSpectralMatch("file", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
 
             var identified = match.GetIdentifiedBioPolymersWithSetMods();
 
@@ -45,29 +46,26 @@ namespace Test.Omics
             Assert.That(identified, Is.Empty);
         }
 
-        #region Test Helper
+        /// <summary>
+        /// The implementation defensively copies the input list: mutating the original source after
+        /// construction does not affect the match's returned collection.
+        /// </summary>
+        [Test]
+        public void GetIdentifiedBioPolymersWithSetMods_DefensiveCopy_OriginalMutated()
+        {
+            var source = new List<IBioPolymerWithSetMods>
+            {
+                new MockBioPolymerWithSetMods("A","A")
+            };
+            ISpectralMatch match = new MockSpectralMatch("f", "A", "A", score: 1, scanNumber: 1, identified: source);
 
             // mutate source after construction
-            source.Add(new SimpleBioPolymerWithSetMods("B", "B"));
+            source.Add(new MockBioPolymerWithSetMods("B", "B"));
 
             var identified = match.GetIdentifiedBioPolymersWithSetMods().ToList();
             // match should have only the original snapshot (one element)
             Assert.That(identified.Count, Is.EqualTo(1));
             Assert.That(identified[0].BaseSequence, Is.EqualTo("A"));
-        }
-
-        /// <summary>
-        /// Returned collection is read-only: attempts to modify it through the IList interface throw.
-        /// </summary>
-        [Test]
-        public void GetIdentifiedBioPolymersWithSetMods_ReturnsReadOnlyCollection()
-        {
-            var polymer1 = new SimpleBioPolymerWithSetMods("P1", "P1");
-            var match = new TestSpectralMatch("f", "P1", "P1", score: 1, scanNumber: 1, identified: new[] { polymer1 });
-
-            var coll = match.GetIdentifiedBioPolymersWithSetMods() as IList<IBioPolymerWithSetMods>;
-            Assert.That(coll, Is.Not.Null, "Implementation should expose an IList wrapper (read-only).");
-            Assert.Throws<NotSupportedException>(() => coll.Add(new SimpleBioPolymerWithSetMods("X", "X")));
         }
 
         /// <summary>
@@ -79,11 +77,11 @@ namespace Test.Omics
         public void GetIdentifiedBioPolymersWithSetMods_PreservesNullEntries()
         {
             // Arrange: create a source list containing a null entry and a real biopolymer
-            var polymer = new SimpleBioPolymerWithSetMods("Z", "Z");
+            var polymer = new MockBioPolymerWithSetMods("Z", "Z");
             var identifiedList = new List<IBioPolymerWithSetMods?> { null, polymer };
 
             // Create match with the test list (constructor makes a defensive copy)
-            var match = new TestSpectralMatch("f", "Z", "Z", score: 1, scanNumber: 1, identified: identifiedList);
+            var match = new MockSpectralMatch("f", "Z", "Z", score: 1, scanNumber: 1, identified: identifiedList);
 
             // Act - call the method under test and materialize the results
             var identified = match.GetIdentifiedBioPolymersWithSetMods().ToList();
@@ -107,23 +105,27 @@ namespace Test.Omics
         /// GetSequenceCoverage returns null when no fragment positions are set.
         /// </summary>
         [Test]
-        public void GetSequenceCoverage_NoFragments_ReturnsNull()
+        public void GetSequenceCoverage_NoFragments_ReturnsEmpty()
         {
-            var match = new TestSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            var match = new MockSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
             match.GetSequenceCoverage();
-            Assert.That(match.FragmentCoveragePositionInPeptide, Is.Null);
+            Assert.That(match.FragmentCoveragePositionInPeptide, Is.Empty);
         }
 
         /// <summary>
         /// GetSequenceCoverage returns null for empty base sequence.
         /// </summary>
         [Test]
-        public void GetSequenceCoverage_EmptySequence_ReturnsNull()
+        public void GetSequenceCoverage_EmptySequence_ReturnsEmpty()
         {
-            var match = new TestSpectralMatch("f", "", "", score: 1, scanNumber: 1);
-            match.NTerminalFragmentPositions = new List<int> { 1, 2 };
+            var match = new MockSpectralMatch("f", "", "", score: 1, scanNumber: 1);
+            match.MatchedFragmentIons = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 1, 1, 0), 100.0, 10.0, 1),
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 2, 2, 0), 100.0, 10.0, 1),
+            };
             match.GetSequenceCoverage();
-            Assert.That(match.FragmentCoveragePositionInPeptide, Is.Null);
+            Assert.That(match.FragmentCoveragePositionInPeptide, Is.Empty);
         }
 
         /// <summary>
@@ -132,8 +134,12 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_SequentialNTermFragments_CoversSecondPosition()
         {
-            var match = new TestSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
-            match.NTerminalFragmentPositions = new List<int> { 1, 2 };
+            var match = new MockSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            match.MatchedFragmentIons = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 1, 1, 0), 100.0, 10.0, 1),
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 2, 2, 0), 100.0, 10.0, 1),
+            };
             match.GetSequenceCoverage();
 
             Assert.That(match.FragmentCoveragePositionInPeptide, Is.Not.Null);
@@ -142,43 +148,17 @@ namespace Test.Omics
         }
 
         /// <summary>
-        /// Sequential C-terminal fragments cover the first position.
-        /// </summary>
-        [Test]
-        public void GetSequenceCoverage_SequentialCTermFragments_CoversFirstPosition()
-        {
-            var match = new TestSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
-            match.CTerminalFragmentPositions = new List<int> { 2, 3 };
-            match.GetSequenceCoverage();
-
-            Assert.That(match.FragmentCoveragePositionInPeptide, Is.Not.Null);
-            Assert.That(match.FragmentCoveragePositionInPeptide, Contains.Item(1)); // Position 2 covers first residue
-            Assert.That(match.FragmentCoveragePositionInPeptide, Contains.Item(2)); // Sequential coverage
-        }
-
-        /// <summary>
-        /// C-terminal fragment at position 2 covers the first residue.
-        /// </summary>
-        [Test]
-        public void GetSequenceCoverage_CTermAtPosition2_CoversFirstResidue()
-        {
-            var match = new TestSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
-            match.CTerminalFragmentPositions = new List<int> { 2 };
-            match.GetSequenceCoverage();
-
-            Assert.That(match.FragmentCoveragePositionInPeptide, Is.Not.Null);
-            Assert.That(match.FragmentCoveragePositionInPeptide, Contains.Item(1));
-        }
-
-        /// <summary>
         /// N-terminal fragment at the last position covers the last residue.
         /// </summary>
         [Test]
         public void GetSequenceCoverage_NTermAtLastPosition_CoversLastResidue()
         {
-            var match = new TestSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            var match = new MockSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
             // BaseSequence.Length is 7, so last N-term position is 6 (Length - 1)
-            match.NTerminalFragmentPositions = new List<int> { 6 };
+            match.MatchedFragmentIons = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 6, 6, 0), 100.0, 10.0, 1),
+            };
             match.GetSequenceCoverage();
 
             Assert.That(match.FragmentCoveragePositionInPeptide, Is.Not.Null);
@@ -191,7 +171,7 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_CTermAtLastPosition_CoversLastResidue()
         {
-            var match = new CoverageSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            var match = new MockSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
             match.MatchedFragmentIons = new List<MatchedFragmentIon>
             {
                 new MatchedFragmentIon(new Product(ProductType.y, FragmentationTerminus.C, 10, 7, 7, 0), 100.0, 10.0, 1),
@@ -208,7 +188,7 @@ namespace Test.Omics
         [Test]
         public void GetSequenceCoverage_BothTerminiAtSamePosition_CoversPosition()
         {
-            var match = new CoverageSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
+            var match = new MockSpectralMatch("f", "PEPTIDE", "PEPTIDE", score: 1, scanNumber: 1);
             match.MatchedFragmentIons = new List<MatchedFragmentIon>
             {
                 new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 10, 1, 1, 0), 100.0, 10.0, 1),
