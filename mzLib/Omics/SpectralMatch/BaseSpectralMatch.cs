@@ -51,6 +51,12 @@ namespace Omics.SpectralMatch
         /// <inheritdoc cref="ISpectralMatch.FullFilePath"/>
         public string FullFilePath { get; protected set; }
 
+        /// <inheritdoc cref="ISpectralMatch.IsDecoy"/>
+        public bool IsDecoy { get; protected set; }
+
+        /// <inheritdoc cref="ISpectralMatch.Accession"/>
+        public string Accession { get; protected set; }
+
         /// <summary>
         /// The full modified sequence string with modification annotations.
         /// For peptides, this includes bracket notation for modifications (e.g., "PEP[Phospho]TIDE").
