@@ -9,14 +9,14 @@ namespace Omics.SpectralMatch;
 /// </summary>
 public interface IHasSequenceCoverageFromFragments
 {
-    public string BaseSequence { get; }
-    public List<MatchedFragmentIon> MatchedFragmentIons { get; protected set; }
+    string BaseSequence { get; }
+    List<MatchedFragmentIon> MatchedFragmentIons { get; protected set; }
     /// <summary>
     /// Positions in the biopolymer sequence (one-based) that are covered by fragment ions.
     /// Populated by <see cref="GetSequenceCoverage"/> when fragment coverage data is available.
     /// Returns null if coverage has not been calculated or no fragment data is available.
     /// </summary>
-    public List<int> FragmentCoveragePositionInPeptide { get; protected set; }
+    List<int> FragmentCoveragePositionInPeptide { get; protected set; }
     /// <summary>
     /// Calculates sequence coverage from fragment ions and populates 
     /// <see cref="FragmentCoveragePositionInPeptide"/> with one-based positions
@@ -30,7 +30,7 @@ public interface IHasSequenceCoverageFromFragments
     /// This method may be called multiple times; implementations should 
     /// recalculate or return cached results as appropriate.
     /// </summary>
-    public void GetSequenceCoverage();
+    void GetSequenceCoverage();
 }
 
 public static class HasSequenceCoverageFromFragmentsExtensions

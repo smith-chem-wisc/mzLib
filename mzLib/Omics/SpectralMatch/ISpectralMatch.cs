@@ -24,7 +24,8 @@ public interface ISpectralMatch : IComparable<ISpectralMatch>
     /// <summary>
     /// The accession (unique identifier) of the identification
     /// </summary>
-    public string Accession { get; }
+    string Accession { get; }
+
     /// <summary>
     /// The full modified sequence string in the reader/search format (includes modification annotations).
     /// This is the canonical representation produced by the parser/search and should be used when
