@@ -1,13 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using MassSpectrometry;
 using MathNet.Numerics.LinearAlgebra.Double;
 using Omics;
 using Omics.BioPolymerGroup;
+
+
+// Make the internals visible to the Test project
+[assembly: InternalsVisibleTo("Test")]
 
 namespace Quantification
 {
@@ -15,6 +15,11 @@ namespace Quantification
     /// <summary>
     /// The QuantMatrix class represents a matrix structure for quantification data.
     /// It uses the MathNet.Numerics library to handle matrix operations.
+    /// The DenseMatrix class from MathNet.Numerics is used to store the quantification values.
+    /// This enables really efficient numerical computations and manipulations of the quantification data.
+    /// (NOTE: This may or may not be true: The MathNet.Numerics claims that it uses hardware acceleration, but it's mostly
+    /// designed for 3D matrices, like those you would encounter when working with computer graphics. It's likely that the DenseMatrix
+    /// is slower than some other implementations for small datasets, but becomes more efficient with larger datasets. We'll need to benchmark this later to be sure.)
     /// </summary>
     /// <typeparam name="T"></typeparam>
     public class QuantMatrix<T> where T : IEquatable<T>
@@ -57,6 +62,21 @@ namespace Quantification
             {
                 Matrix[rowIndex, colIndex] = values[colIndex];
             }
+        }
+
+        public double[] GetRow(T rowKey)
+        {
+            int rowIndex = RowKeys.IndexOf(rowKey);
+            if (rowIndex == -1)
+            {
+                throw new ArgumentException("Row key not found in matrix.");
+            }
+            double[] values = new double[ColumnKeys.Count];
+            for (int colIndex = 0; colIndex < ColumnKeys.Count; colIndex++)
+            {
+                values[colIndex] = Matrix[rowIndex, colIndex];
+            }
+            return values;
         }
 
         public void SetColumn(ISampleInfo columnKey, double[] values)
