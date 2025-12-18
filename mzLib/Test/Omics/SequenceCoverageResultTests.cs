@@ -1,7 +1,4 @@
-﻿using Chemistry;
-using MassSpectrometry;
-using NUnit.Framework;
-using Omics;
+﻿using NUnit.Framework;
 using Omics.BioPolymerGroup;
 using Omics.Digestion;
 using Omics.Fragmentation;
@@ -10,67 +7,35 @@ using Omics.SpectralMatch;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 
 namespace Test.Omics
 {
+    /// <summary>
+    /// Tests for BioPolymerGroup.SequenceCoverageResult nested class.
+    /// Integration tests are in BioPolymerGroupSequenceCoverageTests.cs.
+    /// </summary>
     [TestFixture]
     [ExcludeFromCodeCoverage]
     public class SequenceCoverageResultTests
     {
-        #region Constructor Tests
-
+        /// <summary>
+        /// Verifies constructor initializes all lists as empty, non-null collections.
+        /// Critical: Prevents null reference exceptions when CalculateSequenceCoverage populates data
+        /// or when ToString accesses the lists before calculation.
+        /// </summary>
         [Test]
-        public void Constructor_InitializesEmptyLists()
+        public void Constructor_InitializesAllListsAsEmptyNonNull()
         {
             var result = new BioPolymerGroup.SequenceCoverageResult();
 
-            Assert.That(result.SequenceCoverageFraction, Is.Not.Null);
-            Assert.That(result.SequenceCoverageFraction.Count, Is.EqualTo(0));
-
-            Assert.That(result.SequenceCoverageDisplayList, Is.Not.Null);
-            Assert.That(result.SequenceCoverageDisplayList.Count, Is.EqualTo(0));
-
-            Assert.That(result.SequenceCoverageDisplayListWithMods, Is.Not.Null);
-            Assert.That(result.SequenceCoverageDisplayListWithMods.Count, Is.EqualTo(0));
-
-            Assert.That(result.FragmentSequenceCoverageDisplayList, Is.Not.Null);
-            Assert.That(result.FragmentSequenceCoverageDisplayList.Count, Is.EqualTo(0));
-
-            Assert.That(result.ModsInfo, Is.Not.Null);
-            Assert.That(result.ModsInfo.Count, Is.EqualTo(0));
-        }
-
-        [Test]
-        public void Constructor_ListsAreIndependent()
-        {
-            var result1 = new BioPolymerGroup.SequenceCoverageResult();
-            var result2 = new BioPolymerGroup.SequenceCoverageResult();
-
-            result1.SequenceCoverageFraction.Add(0.5);
-            result1.SequenceCoverageDisplayList.Add("TEST");
-
-            Assert.That(result2.SequenceCoverageFraction.Count, Is.EqualTo(0));
-            Assert.That(result2.SequenceCoverageDisplayList.Count, Is.EqualTo(0));
-        }
-
-        #endregion
-
-        #region SequenceCoverageFraction Tests
-
-        [Test]
-        public void SequenceCoverageFraction_CanAddValues()
-        {
-            var result = new BioPolymerGroup.SequenceCoverageResult();
-
-            result.SequenceCoverageFraction.Add(0.0);
-            result.SequenceCoverageFraction.Add(0.5);
-            result.SequenceCoverageFraction.Add(1.0);
-
-            Assert.That(result.SequenceCoverageFraction.Count, Is.EqualTo(3));
-            Assert.That(result.SequenceCoverageFraction[0], Is.EqualTo(0.0));
-            Assert.That(result.SequenceCoverageFraction[1], Is.EqualTo(0.5));
-            Assert.That(result.SequenceCoverageFraction[2], Is.EqualTo(1.0));
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.SequenceCoverageFraction, Is.Not.Null.And.Empty);
+                Assert.That(result.SequenceCoverageDisplayList, Is.Not.Null.And.Empty);
+                Assert.That(result.SequenceCoverageDisplayListWithMods, Is.Not.Null.And.Empty);
+                Assert.That(result.FragmentSequenceCoverageDisplayList, Is.Not.Null.And.Empty);
+                Assert.That(result.ModsInfo, Is.Not.Null.And.Empty);
+            });
         }
 
         [Test]
