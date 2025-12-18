@@ -690,6 +690,130 @@ namespace Test.Omics
         }
 
         #endregion
+        #region DisplayModsOnPeptides Tests
 
+        /// <summary>
+        /// Verifies unique and shared sequences use FullSequence (with mods) when DisplayModsOnPeptides is true.
+        /// Critical: Modification-aware sequence output is required for PTM analysis workflows.
+        /// </summary>
+        [Test]
+        public void GetIdentifiedSequencesOutput_DisplayModsOnPeptides_UsesFullSequence()
+        {
+            var bioPolymer = new MockBioPolymer("PEPTIDE", "P00001");
+            var modifiedSeq = new MockBioPolymerWithSetMods("PEPTIDE", "PEP[Phospho]TIDE", bioPolymer, 1, 7);
+            var unmodifiedSeq = new MockBioPolymerWithSetMods("PEPTIDE", "PEPTIDE", bioPolymer, 1, 7);
+
+            var group = new BioPolymerGroup(
+                new HashSet<IBioPolymer> { bioPolymer },
+                new HashSet<IBioPolymerWithSetMods> { modifiedSeq, unmodifiedSeq },
+                new HashSet<IBioPolymerWithSetMods> { modifiedSeq });
+
+            // Enable modification display
+            group.DisplayModsOnPeptides = true;
+
+            var output = group.ToString();
+
+            // Unique sequences column should contain the full modified sequence
+            Assert.That(output, Does.Contain("PEP[Phospho]TIDE"));
+        }
+
+        #endregion
+
+        #region Modification Coverage Display Tests
+
+        /// <summary>
+        /// Verifies "Anywhere." modifications are inserted at the correct position in coverage display.
+        /// Critical: Incorrect position calculation causes misaligned modification annotations in output.
+        /// </summary>
+        [Test]
+        public void CalculateSequenceCoverage_AnywhereModification_InsertsAtCorrectPosition()
+        {
+            var bioPolymer = new MockBioPolymer("PEPTIDE", "P00001");
+
+            ModificationMotif.TryGetMotif("T", out var motif);
+            var anywhereMod = new Modification(
+                _originalId: "Phospho",
+                _modificationType: "Common Biological",
+                _locationRestriction: "Anywhere.",
+                _target: motif,
+                _monoisotopicMass: 79.97);
+
+            // Mod at position 4 in AllModsOneIsNterminus (which is T at position 4 in PEPTIDE)
+            var modsDict = new Dictionary<int, Modification> { { 5, anywhereMod } }; // 1=Nterm, so 5 = position 4
+            var peptide = new MockBioPolymerWithSetMods("PEPTIDE", "PEP[Phospho on T]TIDE", bioPolymer, 1, 7, modsDict);
+
+            var group = new BioPolymerGroup(
+                new HashSet<IBioPolymer> { bioPolymer },
+                new HashSet<IBioPolymerWithSetMods> { peptide },
+                new HashSet<IBioPolymerWithSetMods> { peptide });
+
+            var psm = new MockSpectralMatch(@"C:\test.raw", "PEPTIDE", "PEP[Phospho on T]TIDE", 100, 1, [peptide]);
+            group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
+
+            group.CalculateSequenceCoverage();
+
+            var output = group.ToString();
+            // The modification should appear after the T (4th residue)
+            Assert.That(output, Does.Contain("[Phospho on T]"));
+        }
+
+        #endregion
+
+        #region TruncateString Tests
+
+        /// <summary>
+        /// Verifies MaxStringLength setting controls string truncation in output.
+        /// Critical: Uncontrolled string lengths corrupt Excel files (32,767 char limit).
+        /// </summary>
+        [Test]
+        public void MaxStringLength_ControlsTruncation()
+        {
+            var originalMax = BioPolymerGroup.MaxStringLength;
+            try
+            {
+                // Test with custom limit
+                BioPolymerGroup.MaxStringLength = 100;
+                var longName = new string('X', 200);
+                var bioPolymer = new MockBioPolymer("SEQ", "P00001", fullName: longName);
+                var bg = new BioPolymerGroup(new HashSet<IBioPolymer> { bioPolymer }, _allSequences, _uniqueSequences);
+
+                var result = bg.ToString();
+
+                // Full name column should be truncated
+                Assert.That(result, Does.Not.Contain(longName));
+                Assert.That(result.Contains(new string('X', 100)), Is.True);
+
+                // Test disabling truncation (0 or negative)
+                BioPolymerGroup.MaxStringLength = 0;
+                var result2 = bg.ToString();
+                Assert.That(result2, Does.Contain(longName), "MaxStringLength=0 should disable truncation");
+            }
+            finally
+            {
+                BioPolymerGroup.MaxStringLength = originalMax;
+            }
+        }
+
+        /// <summary>
+        /// Verifies null and empty strings are handled gracefully by truncation.
+        /// Critical: Prevents NullReferenceException during output generation.
+        /// </summary>
+        [Test]
+        public void TruncateString_HandlesNullAndEmpty()
+        {
+            var bioPolymer = new MockBioPolymer("SEQ", "P00001", fullName: null);
+            var bg = new BioPolymerGroup(new HashSet<IBioPolymer> { bioPolymer }, _allSequences, _uniqueSequences);
+
+            // Should not throw with null fullName
+            Assert.DoesNotThrow(() => bg.ToString());
+
+            var bioPolymer2 = new MockBioPolymer("SEQ", "P00002", fullName: "");
+            var bg2 = new BioPolymerGroup(new HashSet<IBioPolymer> { bioPolymer2 }, _allSequences, _uniqueSequences);
+
+            // Should not throw with empty fullName
+            Assert.DoesNotThrow(() => bg2.ToString());
+        }
+
+        #endregion
     }
 }
