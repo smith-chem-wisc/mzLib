@@ -10,5 +10,7 @@ namespace Quantification
     {
 
         // TODO: Define what the quant results should contain
+        public QuantificationResults() { }
+        public string Summary { get; internal set; }
     }
 }

@@ -4,6 +4,7 @@ using Quantification.Interfaces;
 using Quantification.Strategies;
 using System;
 using MassSpectrometry;
+using MzLibUtil;
 
 namespace Quantification;
 
@@ -35,18 +36,78 @@ public sealed class QuantificationEngine
         BioPolymerGroups = bioPolymerGroups;
     }
 
+    /// <summary>
+    /// Checks Engine state for validity before running quantification.
+    /// </summary>
+    /// <param name="badResults"> Return quant results with descriptive Summary if problem was encountered; null otherwise</param>
+    /// <returns> True if engine can be ran succesfully, false otherwise </returns>
+    internal bool ValidateEngine(out QuantificationResults badResults)
+    {
+        badResults = null;
+        if (ExperimentalDesign == null)
+        {
+            badResults = new QuantificationResults
+            {
+                Summary = "QuantificationEngine Error: Experimental design is null."
+            };
+            return false;
+        }
+        if(SpectralMatches.IsNullOrEmpty())
+        {
+            badResults = new QuantificationResults
+            {
+                Summary = "QuantificationEngine Error: No spectral matches provided for quantification."
+            };
+            return false;
+        }
+        if(ModifiedBioPolymers.IsNullOrEmpty())
+        {
+            badResults = new QuantificationResults
+            {
+                Summary = "QuantificationEngine Error: No modified biopolymers (peptides) provided for quantification."
+            };
+            return false;
+        }
+        if(BioPolymerGroups.IsNullOrEmpty())
+        {
+            badResults = new QuantificationResults
+            {
+                Summary = "QuantificationEngine Error: No biopolymer groups (proteins) provided for quantification."
+            };
+            return false;
+        }
+        try { GetNormalizationStrategy(NormalizationStrategyType); }
+        catch (NotImplementedException e)
+        {
+            badResults = new QuantificationResults
+            {
+                Summary = $"QuantificationEngine Error: {e.Message}"
+            };
+            return false;
+        }
+        try { GetRollUpStrategy(RollUpStrategy); }
+        catch (NotImplementedException e)
+        {
+            badResults = new QuantificationResults
+            {
+                Summary = $"QuantificationEngine Error: {e.Message}"
+            };
+            return false;
+        }
+        return true;
+    }
+       
+
     public QuantificationResults Run()
     {
-        //Guard.NotNull(context, nameof(context));
-        //Guard.NotNull(parameters, nameof(parameters));
-        //Guard.NotNullOrWhiteSpace(parameters.OutputDirectory, nameof(parameters.OutputDirectory));
-
-        //var raw = context.RawSnapshot
-        //          ?? _rawProvider?.BuildRawSnapshot(context.Mode, context.SpectralMatches, context.ExperimentalDesign, parameters)
-        //          ?? throw new InvalidOperationException("No RawSnapshot provided and no IRawPsmQuantProvider configured.");
+        // 0) Validate engine state
+        if(!ValidateEngine(out QuantificationResults badResults))
+        {
+            return badResults;
+        }
 
         // 1) Write immutable raw snapshot
-        if(Parameters.WriteRawInformation)
+        if (Parameters.WriteRawInformation)
             QuantificationWriter.WriteRawData(SpectralMatches, Parameters.OutputDirectory);
 
         // 2) Create our normalization and roll-up strategies
