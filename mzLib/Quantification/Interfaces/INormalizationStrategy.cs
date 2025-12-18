@@ -9,7 +9,18 @@ using Omics.BioPolymerGroup;
 
 namespace Quantification.Interfaces
 {
-    internal interface INormalizationStrategy
+    public enum NormalizationStrategyType
+    {
+        None,
+        Median,
+        Quantile,
+        VarianceStabilization
+    }
+
+    /// <summary>
+    /// Normalization is responsible for normalizing data, and then modifying the IntensitiesBySample dictionary in each IBioPolymerWithSetMods or IBioPolymerGroup in place.
+    /// </summary>
+    public interface INormalizationStrategy
     {
         string Name { get; }
 
@@ -17,13 +28,13 @@ namespace Quantification.Interfaces
         /// Normalize peptide intensities in place by modifying the IntensitiesBySample dictionary in each IBioPolymerWithSetMods.
         /// </summary>
         /// <param name="peptides"></param>
-        public void NormalizePeptideIntensities(List<IBioPolymerWithSetMods> peptides);
+        PeptideMatrix NormalizePeptideIntensities(PeptideMatrix peptideMatrix, List<IBioPolymerWithSetMods> peptides);
 
         /// <summary>
         /// Normalize protein intensities in place by modifying the IntensitiesBySample dictionary in each IBioPolymerGroup.
         /// </summary>
         /// <param name="proteins"></param>
-        public void NormalizeProteinIntensities(List<IBioPolymerGroup> proteins);
+        ProteinMatrix NormalizeProteinIntensities(ProteinMatrix proteinMatrix, List<IBioPolymerGroup> proteins);
     }
 
 }

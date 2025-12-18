@@ -6,10 +6,28 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Omics.BioPolymerGroup;
+using System.Numerics;
 
 namespace Quantification.Interfaces
 {
-    internal interface IRollUpStrategy
+    
+    public enum RollUpStrategyType
+    {
+        /// <summary>
+        /// Simple summation of intensities.
+        /// </summary>
+        Sum,
+        /// <summary>
+        /// Median of intensities.
+        /// </summary>
+        Median,
+        /// <summary>
+        /// Weighted average based on spectral quality.
+        /// </summary>
+        WeightedAverage
+    }
+
+    public interface IRollUpStrategy
     {
         string Name { get; }
 
@@ -20,7 +38,7 @@ namespace Quantification.Interfaces
         /// <param name="experimentalDesign"></param>
         /// <param name="spectralMatches"></param>
         /// <param name="peptides"></param>
-        public void RollUpSpectralMatches(IExperimentalDesign experimentalDesign, List<ISpectralMatch> spectralMatches, List<IBioPolymerWithSetMods> peptides);
+        public PeptideMatrix  RollUpSpectralMatches(IExperimentalDesign experimentalDesign, List<ISpectralMatch> spectralMatches, List<IBioPolymerWithSetMods> peptides);
 
         /// <summary>
         /// Takes in a list of peptides, then rolls up the quantification values to the protein level.
@@ -28,6 +46,6 @@ namespace Quantification.Interfaces
         /// </summary>
         /// <param name="peptides"></param>
         /// <param name="proteins"></param>
-        public void RollUpPeptides(List<IBioPolymerWithSetMods> peptides, List<IBioPolymerGroup> proteins);
+        public ProteinMatrix RollUpPeptides(PeptideMatrix peptides, List<IBioPolymerGroup> proteins);
     }
 }
