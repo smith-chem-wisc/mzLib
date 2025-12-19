@@ -98,5 +98,7 @@ namespace MzLibUtil
         /// <param name="theoretical">The theoretical value</param>
         /// <returns>Returns true if the value is within this tolerance  </returns>
         public abstract bool Within(double experimental, double theoretical);
+
+        public abstract Tolerance UpdateTolerance(double newValue);
     }
 }

@@ -13,7 +13,7 @@ namespace MzLibUtil
     {
         private readonly double[] AcceptableSortedMassShifts;
         public const double NotchStep = 1.00335483810; //C13MinusC12 = 1.00335483810
-        public PpmTolerance PpmTolerance { get; init; }
+        public PpmTolerance PpmTolerance { get; private set; }
 
         public PpmToleranceWithNotch(double value, int positiveNotch, int negativeNotch)
             : base(value)
@@ -56,6 +56,12 @@ namespace MzLibUtil
                 }
             }
             return false;
+        }
+
+        public override Tolerance UpdateTolerance(double newValue)
+        {
+            this.PpmTolerance = new PpmTolerance(newValue);
+            return this;
         }
     }
 }

@@ -60,5 +60,10 @@ namespace MzLibUtil
         {
             return Math.Abs((experimental - theoretical) / theoretical * 1e6) <= Value;
         }
+
+        public override Tolerance UpdateTolerance(double newValue)
+        {
+            return new PpmTolerance(newValue);    
+        }
     }
 }

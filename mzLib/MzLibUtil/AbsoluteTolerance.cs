@@ -59,5 +59,10 @@ namespace MzLibUtil
         {
             return Math.Abs(experimental - theoretical) <= Value;
         }
+
+        public override Tolerance UpdateTolerance(double newValue)
+        {
+            return new AbsoluteTolerance(newValue);
+        }
     }
 }
