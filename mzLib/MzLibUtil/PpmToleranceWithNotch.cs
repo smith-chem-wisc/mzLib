@@ -31,6 +31,13 @@ namespace MzLibUtil
             PpmTolerance = new PpmTolerance(value);
         }
 
+        public PpmToleranceWithNotch(double value, IEnumerable<double> acceptableSortedMassShifts)
+            : base(value)
+        {
+            AcceptableSortedMassShifts = acceptableSortedMassShifts.OrderBy(p => p).ToArray();
+            PpmTolerance = new PpmTolerance(value);
+        }
+
         public override double GetMaximumValue(double mean)
         {
             return (PpmTolerance.GetMaximumValue(AcceptableSortedMassShifts[AcceptableSortedMassShifts.Length - 1] + mean));
@@ -60,8 +67,7 @@ namespace MzLibUtil
 
         public override Tolerance UpdateTolerance(double newValue)
         {
-            this.PpmTolerance = new PpmTolerance(newValue);
-            return this;
+            return new PpmToleranceWithNotch(newValue, AcceptableSortedMassShifts);
         }
     }
 }
