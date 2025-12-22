@@ -19,12 +19,12 @@ namespace Quantification
             throw new NotImplementedException();
         }
 
-        public static void WritePeptideMatrix(PeptideMatrix peptideMatrix, string outputDirectory)
+        public static void WritePeptideMatrix(QuantMatrix<IBioPolymerWithSetMods> peptideMatrix, string outputDirectory)
         {
             throw new NotImplementedException();
         }
 
-        public static void WriteProteinGroupMatrix(ProteinMatrix proteinMatrix, string outputDirectory)
+        public static void WriteProteinGroupMatrix(QuantMatrix<IBioPolymerGroup> proteinMatrix, string outputDirectory)
         {
             throw new NotImplementedException();
         }

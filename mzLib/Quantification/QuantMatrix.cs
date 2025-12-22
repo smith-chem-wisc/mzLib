@@ -79,6 +79,20 @@ namespace Quantification
             return values;
         }
 
+        public double[] GetRow(int rowIndex)
+        {
+            if (rowIndex < 0 || rowIndex >= RowKeys.Count)
+            {
+                throw new ArgumentOutOfRangeException("Row index is out of range.");
+            }
+            double[] values = new double[ColumnKeys.Count];
+            for (int colIndex = 0; colIndex < ColumnKeys.Count; colIndex++)
+            {
+                values[colIndex] = Matrix[rowIndex, colIndex];
+            }
+            return values;
+        }
+
         public void SetColumn(ISampleInfo columnKey, double[] values)
         {
             int colIndex = ColumnKeys.IndexOf(columnKey);
@@ -119,9 +133,9 @@ namespace Quantification
         }
     }   
 
-    public class PsmMatrix : QuantMatrix<ISpectralMatch>
+    public class SpectralMatchMatrix : QuantMatrix<ISpectralMatch>
     {
-        public PsmMatrix(
+        public SpectralMatchMatrix(
             ICollection<ISpectralMatch> rowKeys,
             ICollection<ISampleInfo> columnKeys,
             IExperimentalDesign experimentalDesign = null) 

@@ -9,9 +9,13 @@ namespace Quantification
 {
     public class QuantificationParameters
     {
-        public INormalizationStrategy NormalizationStrategy { get; set; }
-        public IRollUpStrategy RollUpStrategy { get; set; }
+        public INormalizationStrategy SpectralMatchNormalizationStrategy { get; set; }
+        public INormalizationStrategy PeptideNormalizationStrategy { get; set; }
+        public INormalizationStrategy ProteinNormalizationStrategy { get; set; }
+        public IRollUpStrategy SpectralMatchToPeptideRollUpStrategy { get; set; }
+        public IRollUpStrategy PeptideToProteinRollUpStrategy { get; set; }
         public string OutputDirectory { get; set; }
+        public bool UseSharedPeptidesForProteinQuant { get; set; } = false;
 
         /// <summary>
         /// If true, the quantification engine will write raw quantification information to disk.

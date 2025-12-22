@@ -42,31 +42,5 @@ namespace Quantification.Interfaces
         public QuantMatrix<THigh> RollUp<TLow, THigh>(QuantMatrix<TLow> matrix, Dictionary<THigh, List<int>> map) 
             where TLow : IEquatable<TLow>
             where THigh: IEquatable<THigh>;
-
-        ///// <summary>
-        ///// Takes in a list of spectral matches, then rolls up the quantification values to the peptide level.
-        ///// The rolled-up values are written to the IntensitiesBySample dictionary in IBioPolymerWithSetMods.
-        ///// </summary>
-        ///// <param name="experimentalDesign"></param>
-        ///// <param name="spectralMatches"></param>
-        ///// <param name="peptides"></param>
-        //public PeptideMatrix  RollUpSpectralMatches(IExperimentalDesign experimentalDesign, List<ISpectralMatch> spectralMatches, List<IBioPolymerWithSetMods> peptides);
-
-        ///// <summary>
-        ///// Takes in a list of peptides, then rolls up the quantification values to the protein level.
-        ///// Rolled-up values are written to the IntensitiesBySample dictionary in IBioPolymerGroup.
-        ///// </summary>
-        ///// <param name="peptides"></param>
-        ///// <param name="proteins"></param>
-        //public ProteinMatrix RollUpPeptides(PeptideMatrix peptides, List<IBioPolymerGroup> proteins);
-    }
-
-    public abstract class RollUpStrategyBase : IRollUpStrategy
-    {
-        public abstract string Name { get; }
-        public abstract PeptideMatrix RollUpSpectralMatches(IExperimentalDesign experimentalDesign, List<ISpectralMatch> spectralMatches, List<IBioPolymerWithSetMods> peptides);
-        public abstract ProteinMatrix RollUpPeptides(PeptideMatrix peptides, List<IBioPolymerGroup> proteins);
-
-
     }
 }
