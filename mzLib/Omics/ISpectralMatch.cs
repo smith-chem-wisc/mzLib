@@ -7,7 +7,7 @@
     /// the spectrum. Implementations must provide a consistent comparison implementation so matches can
     /// be ordered when needed.
     /// </summary>
-    public interface ISpectralMatch : IComparable<ISpectralMatch>
+    public interface ISpectralMatch : IComparable<ISpectralMatch>, IEquatable<ISpectralMatch>
     {
         /// <summary>
         /// The (absolute or relative) file path or file identifier for the spectra file that produced this match.

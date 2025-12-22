@@ -9,32 +9,28 @@ using Omics.BioPolymerGroup;
 
 namespace Quantification.Interfaces
 {
-    public enum NormalizationStrategyType
-    {
-        None,
-        Median,
-        Quantile,
-        VarianceStabilization
-    }
+
 
     /// <summary>
-    /// Normalization is responsible for normalizing data, and then modifying the IntensitiesBySample dictionary in each IBioPolymerWithSetMods or IBioPolymerGroup in place.
+    /// Takes in a QuantMatrix and outputs a new QuantMatrix with normalized values. 
+    /// Normalization does not change the dimensions of the matrix.
+    /// Normalization generally operates on columns (samples) of the matrix, comparing one sample/channel to another.
+    /// Strategies to implement include:
+    /// Median, Mean, Quantile, None, Log Fold Change (see FlashLFQ), etc.
     /// </summary>
     public interface INormalizationStrategy
     {
         string Name { get; }
 
         /// <summary>
-        /// Normalize peptide intensities in place by modifying the IntensitiesBySample dictionary in each IBioPolymerWithSetMods.
+        /// Normalize intensities in any type of QuantMatrix.
+        /// Creates a new matrix with the same structure but normalized values.
         /// </summary>
-        /// <param name="peptides"></param>
-        PeptideMatrix NormalizePeptideIntensities(PeptideMatrix peptideMatrix, List<IBioPolymerWithSetMods> peptides);
+        /// <typeparam name="T">The type of entity in the matrix (e.g., IBioPolymerWithSetMods, IBioPolymerGroup, ISpectralMatch)</typeparam>
+        /// <param name="quantMatrix">The matrix to normalize</param>
+        /// <returns>A new normalized QuantMatrix of the same type</returns>
+        QuantMatrix<T> NormalizeIntensities<T>(QuantMatrix<T> quantMatrix) where T : IEquatable<T>;
 
-        /// <summary>
-        /// Normalize protein intensities in place by modifying the IntensitiesBySample dictionary in each IBioPolymerGroup.
-        /// </summary>
-        /// <param name="proteins"></param>
-        ProteinMatrix NormalizeProteinIntensities(ProteinMatrix proteinMatrix, List<IBioPolymerGroup> proteins);
     }
 
 }

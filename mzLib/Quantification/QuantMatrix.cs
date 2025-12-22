@@ -118,4 +118,15 @@ namespace Quantification
         {
         }
     }   
+
+    public class PsmMatrix : QuantMatrix<ISpectralMatch>
+    {
+        public PsmMatrix(
+            ICollection<ISpectralMatch> rowKeys,
+            ICollection<ISampleInfo> columnKeys,
+            IExperimentalDesign experimentalDesign = null) 
+            : base(rowKeys, columnKeys, experimentalDesign)
+        {
+        }
+    }
 }

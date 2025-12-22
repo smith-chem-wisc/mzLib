@@ -2,11 +2,6 @@
 using Omics;
 using Omics.BioPolymerGroup;
 using Quantification.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Quantification.Strategies
 {
@@ -15,6 +10,13 @@ namespace Quantification.Strategies
         public abstract string Name { get; }
         public abstract PeptideMatrix RollUpSpectralMatches(IExperimentalDesign experimentalDesign, List<ISpectralMatch> spectralMatches, List<IBioPolymerWithSetMods> peptides);
         public abstract ProteinMatrix RollUpPeptides(PeptideMatrix peptides, List<IBioPolymerGroup> proteins);
+
+
+        // Can get more generic
+        // What we need is a function to group lower level entities (spectral matches or peptides) by higher level entities (peptides or proteins)
+        // Then, a function that takes in a group of lower level entities and outputs a rolled up value for the higher level entity
+        // Basically, will take in a pxn matrix and output a qxn matrix where q <= p
+
 
         /// <summary>
         /// Orders first by file name (alphabetically), then by sample info for each file

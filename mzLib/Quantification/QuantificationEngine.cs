@@ -9,7 +9,20 @@ using MzLibUtil;
 namespace Quantification;
 
 /// <summary>
-/// Orchestrates: (raw snapshot) -> write raw -> normalize -> rollups -> optional writes.
+/// A quantification engine that performs the following steps:
+/// 0) Writes raw information snapshot (if enabled)
+/// 1) Pivot: Covert the raw info (long, one row for every PSM) to a wide QuantMatrix 
+/// 2) Normalize the Psm Matrix
+/// 3) Roll up to peptides
+///     3a) Map the PSMs to peptides, creating a Dictionary<IBioPolymerWithSetMods, List<int>> Map mapping peptides to the indices of their PSMs in the QuantMatrix
+///     3b) Roll-up. The roll-up strategy will take in a QuantMatrix of PSMs and the > map, and output a Peptide QuantMatrix
+/// 4) Normalize the peptide matrix
+/// 5) 
+/// 5) Roll up to proteins
+///     5a) Map the peptides to proteins, creating a Dictionary<IBioPolymerGroup, List<int>> Map mapping proteins to the indices of their peptides in the QuantMatrix
+///     5b) Roll-up. The roll-up strategy will take in a QuantMatrix of peptides and the map, and output a Protein QuantMatrix
+/// 6) Normalize the protein matrix
+/// normalize -> rollups -> optional writes.
 /// Does not depend on MetaMorpheus; MetaMorpheus supplies the objects.
 /// </summary>
 public sealed class QuantificationEngine
@@ -111,16 +124,16 @@ public sealed class QuantificationEngine
             QuantificationWriter.WriteRawData(SpectralMatches, Parameters.OutputDirectory);
 
         // 2) Roll up to peptides
-        var peptideMatrixRaw = RollUpStrategy.RollUpSpectralMatches(ExperimentalDesign, SpectralMatches, ModifiedBioPolymers);
+        var peptideMatrix = RollUpStrategy.RollUpSpectralMatches(ExperimentalDesign, SpectralMatches, ModifiedBioPolymers);
 
         // 3) Normalize peptide matrix 
-        var peptideMatrixNorm = NormalizationStrategy.NormalizePeptideIntensities(peptideMatrixRaw, ModifiedBioPolymers);
+        var peptideMatrixNorm = NormalizationStrategy.NormalizePeptideIntensities(peptideMatrix, ModifiedBioPolymers);
 
         // 4) Roll up to protein groups
-        var proteinMatrixRaw = RollUpStrategy.RollUpPeptides(peptideMatrixNorm, BioPolymerGroups);
+        var proteinMatrix = RollUpStrategy.RollUpPeptides(peptideMatrixNorm, BioPolymerGroups);
 
         // 5) Normalize protein group matrix
-        var proteinMatrixNorm = NormalizationStrategy.NormalizeProteinIntensities(proteinMatrixRaw, BioPolymerGroups);
+        var proteinMatrixNorm = NormalizationStrategy.NormalizeProteinIntensities(proteinMatrix, BioPolymerGroups);
 
         // 6) Write results (If enabled)
         if(Parameters.WritePeptideInformation)
@@ -133,4 +146,26 @@ public sealed class QuantificationEngine
             Summary = "Quantification completed successfully."
         };
     }
+
+    public QuantMatrix<IBioPolymerWithSetMods> Pivot(List<ISpectralMatch> spectralMatches, IExperimentalDesign experimentalDesign)
+    {
+        var sampleInfos = GetOrderedSampleInfos(experimentalDesign, spectralMatches, out var filePathToArrayPositionDict);
+    }
+
+    public static List<ISampleInfo> GetOrderedSampleInfos(IExperimentalDesign experimentalDesign, List<ISpectralMatch> spectralMatches)
+    {
+        var fileNames = spectralMatches
+            .Select(sm => Path.GetFileName(sm.FullFilePath))
+            .Distinct()
+            .Order()
+            .ToList();
+
+        var samples = fileNames
+            .SelectMany(fn => experimentalDesign.FileNameSampleInfoDictionary[fn])
+            .ToList();
+
+        return samples;
+    }
+
+    
 }
