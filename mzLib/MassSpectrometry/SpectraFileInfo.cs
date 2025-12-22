@@ -1,3 +1,4 @@
+using MassSpectrometry.ExperimentalDesign;
 using System;
 using System.IO;
 
@@ -58,12 +59,12 @@ namespace MassSpectrometry
         /// <param name="fraction">The fraction identifier (0 if not fractionated).</param>
         public SpectraFileInfo(string fullFilePathWithExtension, string condition, int biorep, int techrep, int fraction)
         {
-            FullFilePathWithExtension = fullFilePathWithExtension ?? string.Empty;
+            FullFilePathWithExtension = fullFilePathWithExtension;
             FilenameWithoutExtension = Path.GetFileNameWithoutExtension(FullFilePathWithExtension);
-            Condition = condition ?? string.Empty;
+            Condition = condition;
             BiologicalReplicate = biorep;
-            TechnicalReplicate = techrep;
             Fraction = fraction;
+            TechnicalReplicate = techrep;
         }
         /// <summary>
         /// Determines whether two <see cref="SpectraFileInfo"/> instances are equal.
@@ -203,12 +204,11 @@ namespace MassSpectrometry
                 if (comparison != 0) return comparison;
 
                 // Compare by TechnicalReplicate (1 before 2)
-                comparison =  TechnicalReplicate.CompareTo(other.TechnicalReplicate);
-                if (comparison != 0) return comparison;
+                comparison = TechnicalReplicate.CompareTo(other.TechnicalReplicate);
+				if (comparison != 0) return comparison;
 
-                // Compare by FullFilePathWithExtension (A before B)
                 return string.Compare(FullFilePathWithExtension ?? string.Empty, other.FullFilePathWithExtension ?? string.Empty, StringComparison.Ordinal);
-            }
+			}
 
             return 1; 
         }

@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 
-namespace MassSpectrometry
+namespace MassSpectrometry.ExperimentalDesign
 {
     /// <summary>
     /// Represents sample information for isobaric (TMT/iTRAQ) quantification.
@@ -122,7 +122,7 @@ namespace MassSpectrometry
         /// <param name="left">The first instance to compare.</param>
         /// <param name="right">The second instance to compare.</param>
         /// <returns>True if both instances are equal or both are null; otherwise false.</returns>
-        public static bool operator ==(IsobaricQuantSampleInfo? left, IsobaricQuantSampleInfo? right)
+        public static bool operator ==(IsobaricQuantSampleInfo left, IsobaricQuantSampleInfo right)
         {
             if (left is null) return right is null;
             return left.Equals(right);
@@ -135,7 +135,7 @@ namespace MassSpectrometry
         /// <param name="left">The first instance to compare.</param>
         /// <param name="right">The second instance to compare.</param>
         /// <returns>True if the instances are not equal; otherwise false.</returns>
-        public static bool operator !=(IsobaricQuantSampleInfo? left, IsobaricQuantSampleInfo? right)
+        public static bool operator !=(IsobaricQuantSampleInfo left, IsobaricQuantSampleInfo right)
         {
             return !(left == right);
         }
@@ -146,7 +146,7 @@ namespace MassSpectrometry
         /// </summary>
         /// <param name="other">The other <see cref="IsobaricQuantSampleInfo"/> to compare.</param>
         /// <returns>True if <see cref="FullFilePathWithExtension"/> and <see cref="ChannelLabel"/> are equal; otherwise false.</returns>
-        public bool Equals(IsobaricQuantSampleInfo? other)
+        public bool Equals(IsobaricQuantSampleInfo other)
         {
             if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;
@@ -161,7 +161,7 @@ namespace MassSpectrometry
         /// </summary>
         /// <param name="other">The other <see cref="ISampleInfo"/> to compare.</param>
         /// <returns>True if equal; otherwise false.</returns>
-        public bool Equals(ISampleInfo? other)
+        public bool Equals(ISampleInfo other)
         {
             if (other is IsobaricQuantSampleInfo otherIsobaric)
             {
@@ -172,13 +172,13 @@ namespace MassSpectrometry
 
         /// <summary>
         /// Determines whether the specified object is equal to this instance.
-        /// Delegates to the typed <see cref="Equals(IsobaricQuantSampleInfo?)"/> method
+        /// Delegates to the typed <see cref="Equals(IsobaricQuantSampleInfo)"/> method
         /// to ensure consistent equality semantics for both typed and untyped comparisons.
         /// </summary>
         /// <param name="obj">The object to compare.</param>
         /// <returns>True if the object is an <see cref="IsobaricQuantSampleInfo"/> or <see cref="ISampleInfo"/>
         /// with matching <see cref="FullFilePathWithExtension"/> and <see cref="ChannelLabel"/>; otherwise false.</returns>
-        public override bool Equals(object? obj)
+        public override bool Equals(object obj)
         {
             if (obj is null) return false;
             if (obj is IsobaricQuantSampleInfo otherIsobaric)
@@ -194,7 +194,7 @@ namespace MassSpectrometry
 
         /// <summary>
         /// Returns a hash code based on <see cref="FullFilePathWithExtension"/> and <see cref="ChannelLabel"/>,
-        /// consistent with the equality comparison used in <see cref="Equals(IsobaricQuantSampleInfo?)"/>.
+        /// consistent with the equality comparison used in <see cref="Equals(IsobaricQuantSampleInfo)"/>.
         /// </summary>
         /// <returns>A hash code for this instance.</returns>
         public override int GetHashCode()
@@ -229,7 +229,7 @@ namespace MassSpectrometry
         /// A negative value if this instance precedes <paramref name="other"/>;
         /// zero if they are equal; a positive value if this instance follows <paramref name="other"/>.
         /// </returns>
-        public int CompareTo(ISampleInfo? other)
+        public int CompareTo(ISampleInfo other)
         {
             // Non-null comes before null
             if (other is null) return -1;

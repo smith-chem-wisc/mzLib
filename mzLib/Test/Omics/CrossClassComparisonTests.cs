@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using MassSpectrometry;
+using MassSpectrometry.ExperimentalDesign;
 using NUnit.Framework;
 
 namespace Test.Omics
@@ -432,6 +433,22 @@ namespace Test.Omics
             // Different FilePath - orders by file path
             Assert.That(isobaricA.CompareTo(isobaricB), Is.LessThan(0));
             Assert.That(isobaricB.CompareTo(isobaricA), Is.GreaterThan(0));
+        }
+
+        [Test]
+        public static void CompareTo_IsobaricQuantSampleInfo_SameFilePath_DifferentChannel_ReturnsPositive()
+        {
+            // CompareTo does NOT compare by ChannelLabel - it only uses Equals check
+            // When FilePath and all other comparison properties are the same but ChannelLabel differs,
+            // Equals returns false and comparison falls through to return 1
+            var isobaric126 = new IsobaricQuantSampleInfo(
+                @"C:\Data\sample.raw", "Control", 1, 1, 0, 1, "126", 126.127726, false);
+            var isobaric127 = new IsobaricQuantSampleInfo(
+                @"C:\Data\sample.raw", "Control", 1, 1, 0, 1, "127N", 127.124761, false);
+
+            // Both return positive (1) because they're not equal and all comparison properties match
+            Assert.That(isobaric126.CompareTo(isobaric127), Is.GreaterThan(0));
+            Assert.That(isobaric127.CompareTo(isobaric126), Is.GreaterThan(0));
         }
 
         #endregion
