@@ -10,7 +10,7 @@
     /// residues that have fragment evidence on both sides. This works for any biopolymer type
     /// (peptides use b/y ions, nucleic acids use 5'/3' fragments).
     /// </summary>
-    public class BaseSpectralMatch : ISpectralMatch, IHasSequenceCoverageFromFragments, IEquatable<BaseSpectralMatch>
+    public class BaseSpectralMatch : ISpectralMatch, IHasSequenceCoverageFromFragments, IEquatable<ISpectralMatch>
     {
         private readonly List<IBioPolymerWithSetMods> _identifiedBioPolymers;
 
@@ -331,6 +331,11 @@
         {
             if (obj is BaseSpectralMatch sm) return Equals(sm);
             return false;
+        }
+
+        public bool Equals(ISpectralMatch? other)
+        {
+            return Equals(other);
         }
 
         /// <summary>

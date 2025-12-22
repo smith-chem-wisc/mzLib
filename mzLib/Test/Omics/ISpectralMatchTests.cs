@@ -162,6 +162,11 @@ namespace Test.Omics
         public IEnumerable<IBioPolymerWithSetMods> GetIdentifiedBioPolymersWithSetMods()
             => _identified.AsReadOnly();
 
+        public bool Equals(ISpectralMatch? other)
+        {
+            return ReferenceEquals(this, other);
+        }
+
         /// <summary>
         /// Calculates sequence coverage from fragment ions for this spectral match.
         /// Uses NTerminalFragmentPositions and CTerminalFragmentPositions to determine coverage.

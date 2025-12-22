@@ -1,31 +1,28 @@
 ﻿using Omics;
 using Omics.BioPolymerGroup;
-using Quantification.Interfaces;
-using Quantification.Strategies;
-using System;
 using MassSpectrometry;
 using MzLibUtil;
 
 namespace Quantification;
 
 /// <summary>
-/// A quantification engine that performs the following steps:
-/// 0) Writes raw information snapshot (if enabled)
-/// 1) Pivot: Covert the raw info (long, one row for every PSM) to a wide QuantMatrix 
-/// 2) Normalize the Psm Matrix
-/// 3) Roll up to peptides
-///     3a) Map the PSMs to peptides, creating a Dictionary<IBioPolymerWithSetMods, List<int>> Map mapping peptides to the indices of their PSMs in the QuantMatrix
-///     3b) Roll-up. The roll-up strategy will take in a QuantMatrix of PSMs and the > map, and output a Peptide QuantMatrix
-/// 4) Normalize the peptide matrix
-/// 5) 
+/// A quantification engine that performs the following main (numbered) and ancillary steps:
+/// * Pivot: Covert the raw info (long, one row for every PSM) to a wide QuantMatrix 
+/// * Writes raw information snapshot (if enabled)
+/// 1) Normalize the SpectralMatch Matrix
+/// 2) Roll up to peptides
+///     2a) Map the PSMs to peptides, creating a Dictionary<IBioPolymerWithSetMods, List<int>> Map mapping peptides to the indices of their PSMs in the QuantMatrix
+///     2b) Roll-up. The roll-up strategy will take in a QuantMatrix of PSMs and the > map, and output a Peptide QuantMatrix
+/// 3) Normalize the peptide matrix
+/// 4) Collapse the peptide matrix, combining fractions and technical replicates
+/// * Writes peptide information (if enabled)
 /// 5) Roll up to proteins
 ///     5a) Map the peptides to proteins, creating a Dictionary<IBioPolymerGroup, List<int>> Map mapping proteins to the indices of their peptides in the QuantMatrix
 ///     5b) Roll-up. The roll-up strategy will take in a QuantMatrix of peptides and the map, and output a Protein QuantMatrix
 /// 6) Normalize the protein matrix
-/// normalize -> rollups -> optional writes.
-/// Does not depend on MetaMorpheus; MetaMorpheus supplies the objects.
+/// * Writes protein information (if enabled)
 /// </summary>
-public sealed class QuantificationEngine
+public class QuantificationEngine
 {
     public QuantificationParameters Parameters { get; init; }
     public IExperimentalDesign ExperimentalDesign { get; init; }
@@ -98,37 +95,43 @@ public sealed class QuantificationEngine
             return badResults;
         }
 
-        // 1) Write immutable raw snapshot
+        // Create a matrix from the spectral matches by converting from long format (one row per PSM) to wide format (QuantMatrix)
+        var psmMatrix = Pivot(SpectralMatches, ExperimentalDesign);
+
+        // Write immutable raw snapshot 
+        // TODO: Make this happen asynchronously
         if (Parameters.WriteRawInformation)
             QuantificationWriter.WriteRawData(SpectralMatches, Parameters.OutputDirectory);
 
-        // 2) Pivot: Convert long format (one row per PSM) to wide format (QuantMatrix)
-        var psmMatrix = Pivot(SpectralMatches, ExperimentalDesign);
-
-        // 3) Normalize PSM matrix
+        // 1) Normalize PSM matrix
         var psmMatrixNorm = Parameters.SpectralMatchNormalizationStrategy.NormalizeIntensities(psmMatrix);
 
-        // 4) Roll up to peptides
-        var peptideMap = GetPsmToPeptideMap(psmMatrixNorm);
+        // 2) Roll up to peptides
+        var peptideMap = GetPsmToPeptideMap(psmMatrixNorm, ModifiedBioPolymers);
         var peptideMatrix = Parameters.SpectralMatchToPeptideRollUpStrategy
             .RollUp(psmMatrixNorm, peptideMap);
 
-        // 5) Normalize peptide matrix 
+        // 3) Normalize peptide matrix 
         var peptideMatrixNorm = Parameters.PeptideNormalizationStrategy.NormalizeIntensities(peptideMatrix);
 
-        // 6) Roll up to protein groups
+        // 4) Collapse the peptide matrix to combine fractions and technical replicates
+        peptideMatrixNorm = Parameters.CollapseStrategy.CollapseSamples(peptideMatrixNorm);
+
+        // Write peptide results (If enabled)
+        if(Parameters.WritePeptideInformation) // TODO: Make this happen asynchronously
+            QuantificationWriter.WritePeptideMatrix(peptideMatrixNorm, Parameters.OutputDirectory);
+
+        // 5) Roll up to protein groups
         var proteinMap = Parameters.UseSharedPeptidesForProteinQuant ?
             GetAllPeptideToProteinMap(peptideMatrixNorm) :
-            GetUniquePeptideToProteinMap(peptideMatrixNorm);
+            GetUniquePeptideToProteinMap(peptideMatrixNorm, BioPolymerGroups);
         var proteinMatrix = Parameters.PeptideToProteinRollUpStrategy
             .RollUp(peptideMatrixNorm, proteinMap);
 
-        // 7) Normalize protein group matrix
+        // 6) Normalize protein group matrix
         var proteinMatrixNorm = Parameters.ProteinNormalizationStrategy.NormalizeIntensities(proteinMatrix);
 
-        // 8) Write results (If enabled)
-        if(Parameters.WritePeptideInformation)
-            QuantificationWriter.WritePeptideMatrix(peptideMatrixNorm, Parameters.OutputDirectory);
+        // 8) Write protein results (If enabled)
         if(Parameters.WriteProteinInformation)
             QuantificationWriter.WriteProteinGroupMatrix(proteinMatrixNorm, Parameters.OutputDirectory);
 
@@ -138,7 +141,20 @@ public sealed class QuantificationEngine
         };
     }
 
-    public SpectralMatchMatrix Pivot(List<ISpectralMatch> spectralMatches, IExperimentalDesign experimentalDesign)
+    /// <summary>
+    /// Creates a pivoted matrix of quantified spectral matches, organizing intensity values according to the specified
+    /// experimental design.
+    /// </summary>
+    /// <remarks>Only spectral matches with non-null quantification values are included in the resulting
+    /// matrix. The order of samples and the mapping of files to matrix columns are determined by the experimental
+    /// design. This method is typically used to prepare data for downstream quantitative analysis.</remarks>
+    /// <param name="spectralMatches">A list of spectral matches to be included in the matrix. Each match must
+    /// have quantification values for inclusion.</param>
+    /// <param name="experimentalDesign">The experimental design that defines how samples and files are mapped to matrix columns.</param>
+    /// <returns>A SpectralMatchMatrix containing the quantified intensity values for each spectral match,
+    /// arranged according to the experimental design.</returns>
+    /// <exception cref="KeyNotFoundException">Thrown if a spectral match references a file path that is not present in the experimental design mapping.</exception>
+    public static SpectralMatchMatrix Pivot(List<ISpectralMatch> spectralMatches, IExperimentalDesign experimentalDesign)
     {
         var sampleInfos = GetOrderedSampleInfos(experimentalDesign, spectralMatches, out var filePathToArrayPositionDict);
 
@@ -168,7 +184,7 @@ public sealed class QuantificationEngine
             for (var i = 0; i < arrayPositions.Count; i++)
             {
                  var arrayPosition = arrayPositions[i];
-                 intensities[arrayPosition] += spectralMatch.QuantValues[i];
+                 intensities[arrayPosition] = spectralMatch.QuantValues[i];
             }
             // Copy the summed intensities to the matrix
             smMatrix.SetRow(spectralMatch, intensities);
@@ -183,7 +199,7 @@ public sealed class QuantificationEngine
     /// <param name="spectralMatches"></param>
     /// <param name="filePathToArrayPositionDict"> Dictionary mapping file paths to their corresponding zero-indexed array positions in the ordered sample list </param>
     /// <returns>A list of ISampleInfo objects. This list can be used designate columns in a QuantMatrix object </returns>
-    public List<ISampleInfo> GetOrderedSampleInfos(IExperimentalDesign experimentalDesign, List<ISpectralMatch> spectralMatches,
+    public static List<ISampleInfo> GetOrderedSampleInfos(IExperimentalDesign experimentalDesign, List<ISpectralMatch> spectralMatches,
         out Dictionary<string, List<int>> filePathToArrayPositionDict)
     {
         // Start by ordering the file paths alphabetically        
@@ -215,16 +231,31 @@ public sealed class QuantificationEngine
         return orderedSamples;
     }
 
-    public Dictionary<IBioPolymerWithSetMods, List<int>> GetPsmToPeptideMap(QuantMatrix<ISpectralMatch> psmMatrix)
+    /// <summary>
+    /// Creates a mapping from each specified modified biopolymer to a list of indices that identify the position of corresponding
+    /// spectral matches in the smMatrix
+    /// </summary>
+    /// <remarks>The mapping assumes that each PM in the matrix is associated with a single, unambiguous
+    /// modified biopolymer. Biopolymers not present in the input list are ignored.</remarks>
+    /// <param name="smMatrix">The matrix containing spectrum matches to be mapped to their corresponding modified bioPolymer.</param>
+    /// <param name="modifiedBioPolymers">The list of modified bioPolymers for which to generate the mapping.
+    /// Only SMs corresponding to these bioPolymers are included in the result.</param>
+    /// <returns>A dictionary mapping each modified bioPolymer in the input list to a list of indices of PSMs in the matrix that
+    /// are associated with it. If a bioPolymer has no corresponding PSMs, its list will be empty.</returns>
+    public static Dictionary<IBioPolymerWithSetMods, List<int>> GetPsmToPeptideMap(QuantMatrix<ISpectralMatch> smMatrix, List<IBioPolymerWithSetMods> modifiedBioPolymers)
     {
         var peptideToPsmMap = new Dictionary<IBioPolymerWithSetMods, List<int>>();
-        for (int i = 0; i < psmMatrix.RowKeys.Count; i++)
+        foreach (var bp in modifiedBioPolymers)
         {
-            var sm = psmMatrix.RowKeys[i];
+            peptideToPsmMap[bp] = new List<int>();
+        }
+        for (int i = 0; i < smMatrix.RowKeys.Count; i++)
+        {
+            var sm = smMatrix.RowKeys[i];
             var peptide = sm.GetIdentifiedBioPolymersWithSetMods().First(); // Assumes unambiguous mapping
             if (!peptideToPsmMap.ContainsKey(peptide))
             {
-                peptideToPsmMap[peptide] = new List<int>();
+                continue;
             }
             peptideToPsmMap[peptide].Add(i);
         }
@@ -242,12 +273,12 @@ public sealed class QuantificationEngine
     /// <returns>A dictionary that maps each protein group to a list of integer indices. Each list contains the row indices in
     /// the peptide matrix for peptides uniquely assigned to the corresponding protein group. If a protein group has no
     /// assigned peptides, its list will be empty.</returns>
-    public Dictionary<IBioPolymerGroup, List<int>> GetUniquePeptideToProteinMap(QuantMatrix<IBioPolymerWithSetMods> peptideMatrix)
+    public static Dictionary<IBioPolymerGroup, List<int>> GetUniquePeptideToProteinMap(QuantMatrix<IBioPolymerWithSetMods> peptideMatrix, List<IBioPolymerGroup> bioPolymerGroups)
     {
         var proteinToPeptideMap = new Dictionary<IBioPolymerGroup, List<int>>();
         
         // Initialize empty lists for each protein group
-        foreach (var protein in BioPolymerGroups)
+        foreach (var protein in bioPolymerGroups)
         {
             proteinToPeptideMap[protein] = new List<int>();
         }
@@ -255,7 +286,7 @@ public sealed class QuantificationEngine
         // Create a dictionary that maps each unique peptide to its corresponding protein group
         // Each peptide belongs to exactly one protein group (though it may be shared across proteins within that group)
         var peptideToProteinMap = new Dictionary<IBioPolymerWithSetMods, IBioPolymerGroup>();
-        foreach (var proteinGroup in BioPolymerGroups)
+        foreach (var proteinGroup in bioPolymerGroups)
         {
             foreach (var peptide in proteinGroup.UniqueBioPolymersWithSetMods)
             {
@@ -278,7 +309,7 @@ public sealed class QuantificationEngine
         return proteinToPeptideMap;
     }
 
-    // TODO: Implement this method to include all peptides (not just unique ones) in the mapping
+    // TODO: Implement this method to that include all peptides (shared and unique) in the mapping
     public Dictionary<IBioPolymerGroup, List<int>> GetAllPeptideToProteinMap(
         QuantMatrix<IBioPolymerWithSetMods> peptideMatrix)
     {

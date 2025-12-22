@@ -15,7 +15,7 @@ namespace Quantification.Interfaces
     /// higher level of type THigh (e.g., peptides or proteins).
     /// This is a row-wise operation that reduces the number of rows in the matrix.
     /// Incoming matrix has dimensions (p x s) where p = number of lower-level entities (TLow) and s = number of samples.
-    /// Outgoing matrix has dimensions (P x s) where P = number of higher-level entities (THigh) and s = number of samples.
+    /// Outgoing matrix has dimensions (P x s) where P = number of higher-level entities (THigh), P <= p, and s = number of samples.
     /// Roll-up requires two things
     ///  1) A Quant Matrix 
     ///  2) A mapping from higher-level entities to the indices of their corresponding lower-level entities. 

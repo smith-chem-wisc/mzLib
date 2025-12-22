@@ -122,7 +122,10 @@ namespace Test.Quantification
 
             // Execute
             var rollUp = new SumRollUp();
-            PeptideMatrix result = rollUp.RollUpSpectralMatches(expDesign, spectralMatches, peptides);
+            var smMatrix = QuantificationEngine.Pivot(spectralMatches, expDesign);
+            var map = QuantificationEngine.GetPsmToPeptideMap(smMatrix, peptides);
+
+            var result = rollUp.RollUp(smMatrix, map);
 
             // Assert that the SampleInfoArray was assembled correctly
             Assert.That(result.ColumnKeys.Count, Is.EqualTo(6)); // 2 files x 3 channels each = 6 columns

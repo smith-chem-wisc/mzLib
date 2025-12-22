@@ -11,22 +11,12 @@ namespace Quantification.Strategies
 {
     public class NoNormalization : INormalizationStrategy
     {
-        public NoNormalization()
-        {
-        }
-
         public string Name => "No Normalization";
 
-        public PeptideMatrix NormalizePeptideIntensities(PeptideMatrix peptideMatrix, List<IBioPolymerWithSetMods> peptides)
+        public QuantMatrix<T> NormalizeIntensities<T>(QuantMatrix<T> quantMatrix) where T : IEquatable<T>
         {
-            //TODO: Populate the IntensitiesBySample dictionaries in each peptide in place without changing the values.
-            return peptideMatrix;
-        }
-
-        public ProteinMatrix NormalizeProteinIntensities(ProteinMatrix proteinMatrix, List<IBioPolymerGroup> proteins)
-        {
-            //TODO: Populate the IntensitiesBySample dictionaries in each protein in place without changing the values.
-            return proteinMatrix;
+            // Return the input matrix as is, without any normalization
+            return quantMatrix;
         }
     }
 }
