@@ -270,6 +270,11 @@ namespace Test.Omics
                 return OneBasedScanNumber.CompareTo(other.OneBasedScanNumber);
             }
 
+            public bool Equals(ISpectralMatch match)
+            {
+                return ReferenceEquals(this, match);
+            }
+
             public int CompareTo(IHasSequenceCoverageFromFragments? other)
             {
                 if (other is ISpectralMatch spectralMatch)

@@ -678,6 +678,11 @@ namespace Test.Omics
             if (other is null) return 1;
             return Score.CompareTo(other.Score);
         }
+
+        public bool Equals(ISpectralMatch match)
+        {
+            return ReferenceEquals(this, match);
+        }
     }
 
     #endregion
