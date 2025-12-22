@@ -142,6 +142,62 @@ public class QuantificationEngine
     }
 
     /// <summary>
+    /// This is only for testing until the writers are up and running. Returns the protein matrix
+    /// </summary>
+    /// <returns></returns>
+    /// <exception cref="MzLibException"></exception>
+    internal QuantMatrix<IBioPolymerGroup> RunAndReturnProteinMatrix()
+    {
+        // 0) Validate engine state
+        if (!ValidateEngine(out QuantificationResults badResults))
+        {
+            throw new MzLibException("I don't know what went wrong here");
+        }
+
+        // Create a matrix from the spectral matches by converting from long format (one row per PSM) to wide format (QuantMatrix)
+        var psmMatrix = Pivot(SpectralMatches, ExperimentalDesign);
+
+        // Write immutable raw snapshot 
+        // TODO: Make this happen asynchronously
+        if (Parameters.WriteRawInformation)
+            QuantificationWriter.WriteRawData(SpectralMatches, Parameters.OutputDirectory);
+
+        // 1) Normalize PSM matrix
+        var psmMatrixNorm = Parameters.SpectralMatchNormalizationStrategy.NormalizeIntensities(psmMatrix);
+
+        // 2) Roll up to peptides
+        var peptideMap = GetPsmToPeptideMap(psmMatrixNorm, ModifiedBioPolymers);
+        var peptideMatrix = Parameters.SpectralMatchToPeptideRollUpStrategy
+            .RollUp(psmMatrixNorm, peptideMap);
+
+        // 3) Normalize peptide matrix 
+        var peptideMatrixNorm = Parameters.PeptideNormalizationStrategy.NormalizeIntensities(peptideMatrix);
+
+        // 4) Collapse the peptide matrix to combine fractions and technical replicates
+        peptideMatrixNorm = Parameters.CollapseStrategy.CollapseSamples(peptideMatrixNorm);
+
+        // Write peptide results (If enabled)
+        if (Parameters.WritePeptideInformation) // TODO: Make this happen asynchronously
+            QuantificationWriter.WritePeptideMatrix(peptideMatrixNorm, Parameters.OutputDirectory);
+
+        // 5) Roll up to protein groups
+        var proteinMap = Parameters.UseSharedPeptidesForProteinQuant ?
+            GetAllPeptideToProteinMap(peptideMatrixNorm) :
+            GetUniquePeptideToProteinMap(peptideMatrixNorm, BioPolymerGroups);
+        var proteinMatrix = Parameters.PeptideToProteinRollUpStrategy
+            .RollUp(peptideMatrixNorm, proteinMap);
+
+        // 6) Normalize protein group matrix
+        var proteinMatrixNorm = Parameters.ProteinNormalizationStrategy.NormalizeIntensities(proteinMatrix);
+
+        // 8) Write protein results (If enabled)
+        if (Parameters.WriteProteinInformation)
+            QuantificationWriter.WriteProteinGroupMatrix(proteinMatrixNorm, Parameters.OutputDirectory);
+
+        return proteinMatrixNorm;
+    }
+
+    /// <summary>
     /// Creates a pivoted matrix of quantified spectral matches, organizing intensity values according to the specified
     /// experimental design.
     /// </summary>

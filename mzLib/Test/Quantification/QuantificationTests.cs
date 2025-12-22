@@ -459,6 +459,200 @@ namespace Test.Quantification
             }
         }
 
+        [Test]
+        public void RunAndReturnProteinMatrix_VariablePeptidesAndPSMs_QuantifiesCorrectly()
+        {
+            // Arrange - Create 1 file with 2 channels for simpler intensity tracking
+            string file1 = "file1.raw";
+            var file1Samples = new ISampleInfo[]
+            {
+                new IsobaricQuantSampleInfo(file1, "Control", 0, 0, 0, 0, "126", 126.0, false),
+                new IsobaricQuantSampleInfo(file1, "Treatment", 0, 0, 0, 0, "127N", 127.1, false)
+            };
+
+            var expDesign = new TestExperimentalDesign(new Dictionary<string, ISampleInfo[]>
+            {
+                { file1, file1Samples }
+            });
+
+            // Create 4 proteins with variable peptide counts (0, 1, 2, 4 unique peptides)
+            var protein1 = new Protein("ABCDEFGHIJK", "P1"); // Will have peptides (empty protein group)
+            var protein2 = new Protein("LMNOPQR", "P2"); // Will have 1 unique peptide
+            var protein3 = new Protein("STUVWXYZ", "P3"); // Will have 2 unique peptides
+            var protein4 = new Protein("AAAABBBBCCCCDDDD", "P4"); // Will have 4 unique peptides
+
+            // Manually create peptides to control the exact number
+            var p2_peptide1 = new PeptideWithSetModifications(protein2, null, 1, 7, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0); // LMNOPQR
+
+            var p3_peptide1 = new PeptideWithSetModifications(protein3, null, 1, 4, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0); // STUV
+            var p3_peptide2 = new PeptideWithSetModifications(protein3, null, 5, 8, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0); // WXYZ
+
+            var p4_peptide1 = new PeptideWithSetModifications(protein4, null, 1, 4, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0); // AAAA
+            var p4_peptide2 = new PeptideWithSetModifications(protein4, null, 5, 8, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0); // BBBB
+            var p4_peptide3 = new PeptideWithSetModifications(protein4, null, 9, 12, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0); // CCCC
+            var p4_peptide4 = new PeptideWithSetModifications(protein4, null, 13, 16, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0); // DDDD
+
+            // Create protein groups
+            var proteinGroup1 = new BioPolymerGroup(
+                new HashSet<IBioPolymer> { protein1 },
+                new HashSet<IBioPolymerWithSetMods>(), // 0 peptides
+                new HashSet<IBioPolymerWithSetMods>());
+
+            var proteinGroup2 = new BioPolymerGroup(
+                new HashSet<IBioPolymer> { protein2 },
+                new HashSet<IBioPolymerWithSetMods> { p2_peptide1 }, // 1 peptide
+                new HashSet<IBioPolymerWithSetMods> { p2_peptide1 });
+
+            var proteinGroup3 = new BioPolymerGroup(
+                new HashSet<IBioPolymer> { protein3 },
+                new HashSet<IBioPolymerWithSetMods> { p3_peptide1, p3_peptide2 }, // 2 peptides
+                new HashSet<IBioPolymerWithSetMods> { p3_peptide1, p3_peptide2 });
+
+            var proteinGroup4 = new BioPolymerGroup(
+                new HashSet<IBioPolymer> { protein4 },
+                new HashSet<IBioPolymerWithSetMods> { p4_peptide1, p4_peptide2, p4_peptide3, p4_peptide4 }, // 4 peptides (unique + shared)
+                new HashSet<IBioPolymerWithSetMods> { p4_peptide2, p4_peptide3, p4_peptide4 }); // 3 unique peptides
+
+            var proteinGroups = new List<IBioPolymerGroup> { proteinGroup1, proteinGroup2, proteinGroup3, proteinGroup4 };
+
+            // All peptides except those from protein1
+            var allPeptides = new List<IBioPolymerWithSetMods>
+            {
+                p2_peptide1, p3_peptide1, p3_peptide2, p4_peptide1, p4_peptide2, p4_peptide3, p4_peptide4
+            };
+
+            // Create spectral matches with variable PSM counts per peptide
+            var spectralMatches = new List<ISpectralMatch>();
+
+            // P2 peptide 1: 1 PSM with intensities [100, 200]
+            spectralMatches.Add(new BaseSpectralMatch(file1, 1, 100.0, p2_peptide1.FullSequence, p2_peptide1.BaseSequence, new[] { p2_peptide1 })
+            {
+                QuantValues = new double[] { 100.0, 200.0 }
+            });
+
+            // P3 peptide 1: 2 PSMs with intensities [50, 100] and [50, 100] = sum [100, 200]
+            spectralMatches.Add(new BaseSpectralMatch(file1, 2, 95.0, p3_peptide1.FullSequence, p3_peptide1.BaseSequence, new[] { p3_peptide1 })
+            {
+                QuantValues = new double[] { 50.0, 100.0 }
+            });
+            spectralMatches.Add(new BaseSpectralMatch(file1, 3, 95.0, p3_peptide1.FullSequence, p3_peptide1.BaseSequence, new[] { p3_peptide1 })
+            {
+                QuantValues = new double[] { 50.0, 100.0 }
+            });
+
+            // P3 peptide 2: 3 PSMs with intensities [30, 60], [30, 60], [40, 80] = sum [100, 200]
+            spectralMatches.Add(new BaseSpectralMatch(file1, 4, 90.0, p3_peptide2.FullSequence, p3_peptide2.BaseSequence, new[] { p3_peptide2 })
+            {
+                QuantValues = new double[] { 30.0, 60.0 }
+            });
+            spectralMatches.Add(new BaseSpectralMatch(file1, 5, 90.0, p3_peptide2.FullSequence, p3_peptide2.BaseSequence, new[] { p3_peptide2 })
+            {
+                QuantValues = new double[] { 30.0, 60.0 }
+            });
+            spectralMatches.Add(new BaseSpectralMatch(file1, 6, 90.0, p3_peptide2.FullSequence, p3_peptide2.BaseSequence, new[] { p3_peptide2 })
+            {
+                QuantValues = new double[] { 40.0, 80.0 }
+            });
+
+            // P4 peptide 1: 1 PSM [25, 50] (This one is non-unique, and the intensities shouldn't be included in the final protein quant)
+            spectralMatches.Add(new BaseSpectralMatch(file1, 7, 85.0, p4_peptide1.FullSequence, p4_peptide1.BaseSequence, new[] { p4_peptide1 })
+            {
+                QuantValues = new double[] { 25.0, 50.0 } // Should be ignored
+            });
+
+            // P4 peptide 2: 2 PSMs [25, 50] and [25, 50] = sum [50, 100]
+            spectralMatches.Add(new BaseSpectralMatch(file1, 8, 85.0, p4_peptide2.FullSequence, p4_peptide2.BaseSequence, new[] { p4_peptide2 })
+            {
+                QuantValues = new double[] { 25.0, 50.0 }
+            });
+            spectralMatches.Add(new BaseSpectralMatch(file1, 9, 85.0, p4_peptide2.FullSequence, p4_peptide2.BaseSequence, new[] { p4_peptide2 })
+            {
+                QuantValues = new double[] { 25.0, 50.0 }
+            });
+
+            // P4 peptide 3: 3 PSMs [10, 20], [10, 20], [5, 10] = sum [25, 50]
+            spectralMatches.Add(new BaseSpectralMatch(file1, 10, 80.0, p4_peptide3.FullSequence, p4_peptide3.BaseSequence, new[] { p4_peptide3 })
+            {
+                QuantValues = new double[] { 10.0, 20.0 }
+            });
+            spectralMatches.Add(new BaseSpectralMatch(file1, 11, 80.0, p4_peptide3.FullSequence, p4_peptide3.BaseSequence, new[] { p4_peptide3 })
+            {
+                QuantValues = new double[] { 10.0, 20.0 }
+            });
+            spectralMatches.Add(new BaseSpectralMatch(file1, 12, 80.0, p4_peptide3.FullSequence, p4_peptide3.BaseSequence, new[] { p4_peptide3 })
+            {
+                QuantValues = new double[] { 5.0, 10.0 }
+            });
+
+            // P4 peptide 4: 4 PSMs [10, 20] each = sum [40, 80]
+            spectralMatches.Add(new BaseSpectralMatch(file1, 13, 75.0, p4_peptide4.FullSequence, p4_peptide4.BaseSequence, new[] { p4_peptide4 })
+            {
+                QuantValues = new double[] { 10.0, 20.0 }
+            });
+            spectralMatches.Add(new BaseSpectralMatch(file1, 14, 75.0, p4_peptide4.FullSequence, p4_peptide4.BaseSequence, new[] { p4_peptide4 })
+            {
+                QuantValues = new double[] { 10.0, 20.0 }
+            });
+            spectralMatches.Add(new BaseSpectralMatch(file1, 15, 75.0, p4_peptide4.FullSequence, p4_peptide4.BaseSequence, new[] { p4_peptide4 })
+            {
+                QuantValues = new double[] { 10.0, 20.0 }
+            });
+            spectralMatches.Add(new BaseSpectralMatch(file1, 16, 75.0, p4_peptide4.FullSequence, p4_peptide4.BaseSequence, new[] { p4_peptide4 })
+            {
+                QuantValues = new double[] { 10.0, 20.0 }
+            });
+
+            // Add an orphaned spectral match (not in allPeptides list)
+            var orphanPeptide = new PeptideWithSetModifications(protein1, null, 1, 5, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0);
+            spectralMatches.Add(new BaseSpectralMatch(file1, 17, 70.0, orphanPeptide.FullSequence, orphanPeptide.BaseSequence, new[] { orphanPeptide })
+            {
+                QuantValues = new double[] { 999.0, 999.0 } // Should be ignored
+            });
+
+            var parameters = QuantificationParameters.GetSimpleParameters();
+            parameters.WriteRawInformation = false;
+            parameters.WritePeptideInformation = false;
+            parameters.WriteProteinInformation = false;
+
+            var engine = new QuantificationEngine(
+                parameters,
+                expDesign,
+                spectralMatches,
+                allPeptides,
+                proteinGroups);
+
+            // Act
+            var proteinMatrix = engine.RunAndReturnProteinMatrix();
+
+            // Assert
+            Assert.That(proteinMatrix, Is.Not.Null);
+            Assert.That(proteinMatrix.RowKeys.Count, Is.EqualTo(4));
+            Assert.That(proteinMatrix.ColumnKeys.Count, Is.EqualTo(2)); // 2 channels
+
+            // Verify protein 1 (0 peptides) has 0 intensity
+            var p1Row = proteinMatrix.GetRow(proteinGroup1);
+            Assert.That(p1Row[0], Is.EqualTo(0.0)); // Channel 1
+            Assert.That(p1Row[1], Is.EqualTo(0.0)); // Channel 2
+
+            // Verify protein 2 (1 peptide, 1 PSM): [100, 200]
+            var p2Row = proteinMatrix.GetRow(proteinGroup2);
+            Assert.That(p2Row[0], Is.EqualTo(100.0)); // Channel 1
+            Assert.That(p2Row[1], Is.EqualTo(200.0)); // Channel 2
+
+            // Verify protein 3 (2 peptides): peptide1[100, 200] + peptide2[100, 200] = [200, 400]
+            var p3Row = proteinMatrix.GetRow(proteinGroup3);
+            Assert.That(p3Row[0], Is.EqualTo(200.0)); // Channel 1
+            Assert.That(p3Row[1], Is.EqualTo(400.0)); // Channel 2
+
+            // Verify protein 4 (3 unique peptides): [25, 50]*0 + [50, 100] + [25, 50] + [40, 80] = [115, 230]
+            var p4Row = proteinMatrix.GetRow(proteinGroup4);
+            Assert.That(p4Row[0], Is.EqualTo(115.0)); // Channel 1
+            Assert.That(p4Row[1], Is.EqualTo(230.0)); // Channel 2
+
+            // Verify the orphaned PSM was not included in any protein quantification
+            // (already verified by checking specific protein intensities match expected values)
+        }
+
         #endregion
 
         private class TestExperimentalDesign : IExperimentalDesign
