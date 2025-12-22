@@ -335,7 +335,8 @@
 
         public bool Equals(ISpectralMatch? other)
         {
-            return Equals(other);
+            if (other is BaseSpectralMatch sm) return Equals(sm);
+            return false;
         }
 
         /// <summary>
