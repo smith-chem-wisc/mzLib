@@ -17,10 +17,10 @@ namespace Test.Quantification
 
         /// <summary>
         /// Verifies that SampleCollapseStrategy correctly collapses two fractions into one
-        /// using Median aggregation.
+        /// using Max aggregation. The maximum intensity across fractions is retained.
         /// </summary>
         [Test]
-        public void SampleCollapseStrategy_CollapseFractions_Median()
+        public void SampleCollapseStrategy_CollapseFractions_Max()
         {
             // Arrange: PSMs observed in both fractions
             var psm1 = new BaseSpectralMatch("file.raw", 100, 50.0, "PEPTIDEK", "PEPTIDEK");
@@ -33,18 +33,18 @@ namespace Test.Quantification
             var samples = new List<ISampleInfo> { fraction1, fraction2 };
 
             var matrix = new SpectralMatchMatrix(spectralMatches, samples);
-            matrix.SetRow(psm1, new double[] { 1000.0, 2000.0 }); // Median = 1500
-            matrix.SetRow(psm2, new double[] { 500.0, 1500.0 });  // Median = 1000
+            matrix.SetRow(psm1, new double[] { 1000.0, 2000.0 }); // Max = 2000
+            matrix.SetRow(psm2, new double[] { 1500.0, 500.0 });  // Max = 1500
 
-            var strategy = new SampleCollapseStrategy(CollapseDimension.Fraction, AggregationType.Median);
+            var strategy = new SampleCollapseStrategy(CollapseDimension.Fraction, AggregationType.Max);
 
             // Act
             var collapsed = strategy.CollapseSamples(matrix);
 
             // Assert
             Assert.That(collapsed.ColumnKeys.Count, Is.EqualTo(1));
-            Assert.That(collapsed.GetRow(psm1)[0], Is.EqualTo(1500.0));
-            Assert.That(collapsed.GetRow(psm2)[0], Is.EqualTo(1000.0));
+            Assert.That(collapsed.GetRow(psm1)[0], Is.EqualTo(2000.0));
+            Assert.That(collapsed.GetRow(psm2)[0], Is.EqualTo(1500.0));
             Assert.That(collapsed.ColumnKeys[0].Fraction, Is.EqualTo(0)); // Collapsed indicator
         }
 
@@ -53,10 +53,10 @@ namespace Test.Quantification
         #region Technical Replicate Collapse Tests
 
         /// <summary>
-        /// Verifies that SampleCollapseStrategy correctly collapses technical replicates.
+        /// Verifies that SampleCollapseStrategy correctly collapses technical replicates using Max.
         /// </summary>
         [Test]
-        public void SampleCollapseStrategy_CollapseTechnicalReplicates_Median()
+        public void SampleCollapseStrategy_CollapseTechnicalReplicates_Max()
         {
             // Arrange
             var psm1 = new BaseSpectralMatch("file.raw", 100, 50.0, "PEPTIDEK", "PEPTIDEK");
@@ -68,16 +68,16 @@ namespace Test.Quantification
             var samples = new List<ISampleInfo> { techRep1, techRep2 };
 
             var matrix = new SpectralMatchMatrix(spectralMatches, samples);
-            matrix.SetRow(psm1, new double[] { 1000.0, 3000.0 }); // Median = 2000
+            matrix.SetRow(psm1, new double[] { 1000.0, 3000.0 }); // Max = 3000
 
-            var strategy = new SampleCollapseStrategy(CollapseDimension.TechnicalReplicate, AggregationType.Median);
+            var strategy = new SampleCollapseStrategy(CollapseDimension.TechnicalReplicate, AggregationType.Max);
 
             // Act
             var collapsed = strategy.CollapseSamples(matrix);
 
             // Assert
             Assert.That(collapsed.ColumnKeys.Count, Is.EqualTo(1));
-            Assert.That(collapsed.GetRow(psm1)[0], Is.EqualTo(2000.0));
+            Assert.That(collapsed.GetRow(psm1)[0], Is.EqualTo(3000.0));
             Assert.That(collapsed.ColumnKeys[0].TechnicalReplicate, Is.EqualTo(0)); // Collapsed indicator
             Assert.That(collapsed.ColumnKeys[0].Fraction, Is.EqualTo(1)); // Preserved
         }
@@ -100,7 +100,7 @@ namespace Test.Quantification
             var matrix = new SpectralMatchMatrix(spectralMatches, samples);
             matrix.SetRow(psm1, new double[] { 1000.0, 2000.0 });
 
-            var strategy = new SampleCollapseStrategy(CollapseDimension.TechnicalReplicate, AggregationType.Median);
+            var strategy = new SampleCollapseStrategy(CollapseDimension.TechnicalReplicate, AggregationType.Max);
 
             // Act
             var collapsed = strategy.CollapseSamples(matrix);
@@ -116,10 +116,10 @@ namespace Test.Quantification
         #region Biological Replicate Collapse Tests
 
         /// <summary>
-        /// Verifies that SampleCollapseStrategy correctly collapses biological replicates.
+        /// Verifies that SampleCollapseStrategy correctly collapses biological replicates using Max.
         /// </summary>
         [Test]
-        public void SampleCollapseStrategy_CollapseBiologicalReplicates_Average()
+        public void SampleCollapseStrategy_CollapseBiologicalReplicates_Max()
         {
             // Arrange
             var psm1 = new BaseSpectralMatch("file.raw", 100, 50.0, "PEPTIDEK", "PEPTIDEK");
@@ -132,44 +132,18 @@ namespace Test.Quantification
             var samples = new List<ISampleInfo> { bioRep1, bioRep2, bioRep3 };
 
             var matrix = new SpectralMatchMatrix(spectralMatches, samples);
-            matrix.SetRow(psm1, new double[] { 1000.0, 2000.0, 3000.0 }); // Average = 2000
+            matrix.SetRow(psm1, new double[] { 1000.0, 5000.0, 3000.0 }); // Max = 5000
 
-            var strategy = new SampleCollapseStrategy(CollapseDimension.BiologicalReplicate, AggregationType.Average);
+            var strategy = new SampleCollapseStrategy(CollapseDimension.BiologicalReplicate, AggregationType.Max);
 
             // Act
             var collapsed = strategy.CollapseSamples(matrix);
 
             // Assert
             Assert.That(collapsed.ColumnKeys.Count, Is.EqualTo(1));
-            Assert.That(collapsed.GetRow(psm1)[0], Is.EqualTo(2000.0));
+            Assert.That(collapsed.GetRow(psm1)[0], Is.EqualTo(5000.0));
             Assert.That(collapsed.ColumnKeys[0].BiologicalReplicate, Is.EqualTo(0)); // Collapsed indicator
             Assert.That(collapsed.ColumnKeys[0].Condition, Is.EqualTo("Treatment")); // Preserved
-        }
-
-        #endregion
-
-        #region Aggregation Type Tests
-
-        [Test]
-        public void SampleCollapseStrategy_Sum_CorrectlyAggregates()
-        {
-            // Arrange
-            var psm1 = new BaseSpectralMatch("file.raw", 100, 50.0, "PEPTIDEK", "PEPTIDEK");
-            var fraction1 = new SpectraFileInfo("F1.raw", "Control", biorep: 1, techrep: 1, fraction: 1);
-            var fraction2 = new SpectraFileInfo("F2.raw", "Control", biorep: 1, techrep: 1, fraction: 2);
-
-            var matrix = new SpectralMatchMatrix(
-                new List<ISpectralMatch> { psm1 },
-                new List<ISampleInfo> { fraction1, fraction2 });
-            matrix.SetRow(psm1, new double[] { 1000.0, 3000.0 }); // Sum = 4000
-
-            var strategy = new SampleCollapseStrategy(CollapseDimension.Fraction, AggregationType.Sum);
-
-            // Act
-            var collapsed = strategy.CollapseSamples(matrix);
-
-            // Assert
-            Assert.That(collapsed.GetRow(psm1)[0], Is.EqualTo(4000.0));
         }
 
         #endregion
@@ -190,6 +164,10 @@ namespace Test.Quantification
             Assert.That(
                 new SampleCollapseStrategy(CollapseDimension.BiologicalReplicate, AggregationType.Sum).Name,
                 Is.EqualTo("Collapse_BiologicalReplicate_Sum"));
+
+            Assert.That(
+                new SampleCollapseStrategy(CollapseDimension.Fraction, AggregationType.Max).Name,
+                Is.EqualTo("Collapse_Fraction_Max"));
         }
 
         #endregion

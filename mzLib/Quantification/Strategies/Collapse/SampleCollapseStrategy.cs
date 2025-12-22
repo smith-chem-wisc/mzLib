@@ -12,7 +12,8 @@ namespace Quantification
     {
         Median,
         Average,
-        Sum
+        Sum,
+        Max
     }
 
     /// <summary>
@@ -139,6 +140,7 @@ namespace Quantification
                 AggregationType.Median => values.Median(),
                 AggregationType.Average => values.Average(),
                 AggregationType.Sum => values.Sum(),
+                AggregationType.Max => values.Max(),
                 _ => throw new ArgumentOutOfRangeException(nameof(Aggregation))
             };
         }
