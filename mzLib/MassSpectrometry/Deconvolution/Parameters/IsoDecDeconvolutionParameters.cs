@@ -190,7 +190,7 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
     public IsoDecDeconvolutionParameters(
         Polarity polarity = Polarity.Positive,
         int phaseRes = 8,
-        bool reportMultipleMonoisos = true,
+        bool reportMultipleMonoisos = false,
         float cssThreshold = (float)0.7,
         float matchTolerance = (float)5,
         int maxShift = 3,
