@@ -130,7 +130,7 @@ namespace Test.FileReadingTests
         public void Test_ModificationConverter_GetClosestMod_And_ParseFullSequence()
         {
             // GetClosestMod picks Oxidation on M
-            var oxM = ModificationConverter.GetClosestMod("Oxidation", 'M');
+            var oxM = ModificationConverter.GetClosestMod("Oxidation", 'M', null);
             Assert.That(oxM.IdWithMotif, Does.Contain("Oxidation"));
             Assert.That(oxM.IdWithMotif, Does.Contain(" on M"));
             Assert.That(oxM.MonoisotopicMass ?? 15.9949, Is.EqualTo(15.9949).Within(0.01));

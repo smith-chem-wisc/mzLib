@@ -1,7 +1,7 @@
-﻿using Omics.Modifications;
+﻿using Omics;
+using Omics.Modifications;
 using System.Collections.Concurrent;
 using System.Reflection;
-using Omics;
 using UsefulProteomicsDatabases;
 
 namespace Readers;
@@ -11,14 +11,20 @@ public static class ModificationConverter
     #region All Known Mods for MetaMorpheus - Use this to check for known mods to compare against 
 
     // Cache of previously successful modification conversions to reduce the number of times the same modification is converted
-    private static readonly ConcurrentDictionary<(string, char), Modification> _modificationCache;
+    private static readonly ConcurrentDictionary<(string, char), Modification> ModificationCache;
+    private static readonly ConcurrentDictionary<(string, char), Modification> NameConversionModificationCache;
 
-    internal static List<Modification> AllKnownMods;
-    internal static Dictionary<string, Modification> AllModsKnown;
+    public static List<Modification> AllKnownMods { get; }
+    public static Dictionary<string, Modification> AllModsKnown { get; }
+
+    // Separate lists for different mod types
+    private static List<Modification> _uniprotMods;
+    private static List<Modification> _metamorpheusMods;
 
     static ModificationConverter()
     {
-        _modificationCache = new ConcurrentDictionary<(string, char), Modification>();
+        ModificationCache = new ConcurrentDictionary<(string, char), Modification>();
+        NameConversionModificationCache = new ConcurrentDictionary<(string, char), Modification>();
 
         var info = Assembly.GetExecutingAssembly().GetName();
         var name = info.Name;
@@ -31,12 +37,18 @@ public static class ModificationConverter
         var formalChargeDict = Loaders.GetFormalChargesDictionary(psiModObo);
 
         var uniprotStream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"{name}.Resources.ptmlist.txt");
-        var uniprotMods = PtmListLoader.ReadModsFromFile(new StreamReader(uniprotStream), formalChargeDict, out _);
+        var uniprotPtms = PtmListLoader.ReadModsFromFile(new StreamReader(uniprotStream), formalChargeDict, out _).ToList();
 
         var modsTextStream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"{name}.Resources.Mods.txt");
-        var modsTextMods = PtmListLoader.ReadModsFromFile(new StreamReader(modsTextStream), formalChargeDict, out _);
+        var modsTextMods = PtmListLoader.ReadModsFromFile(new StreamReader(modsTextStream), formalChargeDict, out _).ToList();
 
-        AllKnownMods = unimodMods.Concat(uniprotMods).Concat(modsTextMods).ToList();
+        // Store UniProt mods separately (they have ModificationType == "UniProt")
+        _uniprotMods = uniprotPtms.Where(m => m.ModificationType == "UniProt").ToList();
+
+        // MetaMorpheus mods are everything else
+        _metamorpheusMods = modsTextMods;
+
+        AllKnownMods = unimodMods.Concat(uniprotPtms).Concat(modsTextMods).ToList();
         AllModsKnown = AllKnownMods
             .DistinctBy(m => m.IdWithMotif)
             .ToDictionary(m => m.IdWithMotif);
@@ -105,7 +117,7 @@ public static class ModificationConverter
                                 modifiedResidue = 'X';
                             else
                                 modifiedResidue = baseSequence[currentModificationLocation - 2];
-                            mod = GetClosestMod(modString, modifiedResidue);
+                            mod = GetClosestMod(modString, modifiedResidue, ModificationNamingConvention.MetaMorpheus);
                         }
                         catch (Exception e)
                         {
@@ -145,6 +157,109 @@ public static class ModificationConverter
 
 
     /// <summary>
+    /// Gets the closest modification from the list of all known modifications that matches the given localized modification,
+    /// with a preference for the specified naming convention
+    /// </summary>
+    public static Modification GetClosestMod(string name, char modifiedResidue, 
+        ModificationNamingConvention convention = ModificationNamingConvention.MetaMorpheus)
+    {
+        var modsToSearch = GetModsByNamingConvention(convention);
+
+        return GetClosestMod(name, modifiedResidue, modsToSearch);
+    }
+
+    /// <summary>
+    /// Converts a modification to the specified naming convention.
+    /// If a direct match is found, returns it. Otherwise, finds the closest match based on:
+    /// 1. Matching residue (motif)
+    /// 2. Matching chemical formula or monoisotopic mass
+    /// 3. Name similarity
+    /// </summary>
+    public static Modification ConvertToNamingConvention(Modification sourceMod, 
+        ModificationNamingConvention targetConvention)
+    {
+        if (sourceMod == null)
+            throw new ArgumentNullException(nameof(sourceMod));
+
+        var cacheKey = (sourceMod.IdWithMotif, sourceMod.Target.ToString()[0]);
+        // if we have done this conversion before, just return it. 
+        if (NameConversionModificationCache.TryGetValue(cacheKey, out var cachedModification))
+        {
+            return cachedModification;
+        }
+
+        var targetMods = GetModsByNamingConvention(targetConvention);
+
+        // Try to find exact match by IdWithMotif first
+        var exactMatch = targetMods.FirstOrDefault(m => m.IdWithMotif == sourceMod.IdWithMotif);
+        if (exactMatch != null)
+        {
+            NameConversionModificationCache.AddOrUpdate(cacheKey, exactMatch, (_, _) => exactMatch);
+            return exactMatch;
+        }
+
+        // Get the residue from the source mod
+        char residue = sourceMod.Target?.ToString().FirstOrDefault() ?? 'X';
+
+        // Filter by matching residue/motif
+        var motifMatches = targetMods
+            .Where(m => m.Target != null && 
+                       (m.Target.ToString() == residue.ToString() || 
+                        m.Target.ToString() == "X" || 
+                        residue == 'X'))
+            .ToList();
+
+        if (!motifMatches.Any())
+            motifMatches = targetMods.ToList(); // Fall back to all mods if no motif matches
+
+        // Filter by chemical formula or mass
+        var formulaAndMotifMatches = motifMatches
+            .Where(m => AreChemicallyEquivalent(sourceMod, m))
+            .ToList();
+
+        if (formulaAndMotifMatches.Any())
+        {
+            // If we have chemical matches, use name similarity as tiebreaker
+            var toReturn =  formulaAndMotifMatches
+                .OrderByDescending(m => GetOverlapScore(sourceMod.OriginalId, m.OriginalId))
+                .ThenBy(m => m.IdWithMotif.Length)
+                .First();
+            NameConversionModificationCache.AddOrUpdate(cacheKey, toReturn, (_, _) => toReturn);
+            return toReturn;
+        }
+
+        // If no chemical matches, fall back to name similarity among motif matches
+        var toReturn2 = motifMatches
+            .OrderByDescending(m => GetOverlapScore(sourceMod.OriginalId, m.OriginalId))
+            .ThenBy(m => Math.Abs((m.MonoisotopicMass ?? 0) - (sourceMod.MonoisotopicMass ?? 0)))
+            .ThenBy(m => m.IdWithMotif.Length)
+            .First();
+        NameConversionModificationCache.AddOrUpdate(cacheKey, toReturn2, (_, _) => toReturn2);
+        return toReturn2;
+    }
+
+    /// <summary>
+    /// Checks if two modifications are chemically equivalent based on chemical formula or monoisotopic mass
+    /// </summary>
+    private static bool AreChemicallyEquivalent(Modification mod1, Modification mod2)
+    {
+        // Check chemical formula first (more precise)
+        if (mod1.ChemicalFormula != null && mod2.ChemicalFormula != null)
+        {
+            return mod1.ChemicalFormula.Equals(mod2.ChemicalFormula);
+        }
+
+        // Fall back to monoisotopic mass comparison with tolerance
+        if (mod1.MonoisotopicMass.HasValue && mod2.MonoisotopicMass.HasValue)
+        {
+            const double massToleranceDa = 0.01; // 10 mDa tolerance
+            return Math.Abs(mod1.MonoisotopicMass.Value - mod2.MonoisotopicMass.Value) < massToleranceDa;
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Gets the closest modification from the list of all known modifications that matches the given localized modification.
     /// </summary>
     public static Modification GetClosestMod(string name, char modifiedResidue, IList<Modification>? allKnownMods = null)
@@ -152,7 +267,7 @@ public static class ModificationConverter
         allKnownMods ??= AllKnownMods;
         var cacheKey = (name, modifiedResidue);
         // if we have done this conversion before, just return it. 
-        if (_modificationCache.TryGetValue(cacheKey, out var cachedModification))
+        if (ModificationCache.TryGetValue(cacheKey, out var cachedModification))
         {
             return cachedModification;
         }
@@ -204,7 +319,7 @@ public static class ModificationConverter
         if (cachedModification == null)
             throw new KeyNotFoundException($"Could not find a modification that matches {name} on {modifiedResidue}");
 
-        _modificationCache[cacheKey] = cachedModification;
+        ModificationCache[cacheKey] = cachedModification;
         return cachedModification;
     }
 
@@ -231,5 +346,68 @@ public static class ModificationConverter
             }
         }
         return overlapScore;
+    }
+
+    private static List<Modification> GetModsByNamingConvention(ModificationNamingConvention convention)
+    {
+        return convention switch
+        {
+            ModificationNamingConvention.MetaMorpheus => _metamorpheusMods,
+            ModificationNamingConvention.UniProt => _uniprotMods,
+            ModificationNamingConvention.Mixed => AllKnownMods,
+            _ => AllKnownMods,
+        };
+    }
+
+    public static void ConvertMods(this IBioPolymerWithSetMods withSetMods, ModificationNamingConvention targetConvention)
+    {
+        foreach (var kvp in withSetMods.AllModsOneIsNterminus)
+        {
+            var convertedMod = ConvertToNamingConvention(kvp.Value, targetConvention);
+            withSetMods.AllModsOneIsNterminus[kvp.Key] = convertedMod;
+        }
+    }
+
+    public static void ConvertMods(this IBioPolymer bioPolymer, ModificationNamingConvention targetConvention)
+    {
+        foreach (var kvp in bioPolymer.OneBasedPossibleLocalizedModifications)
+        {
+            for (var index = 0; index < kvp.Value.Count; index++)
+            {
+                var mod = kvp.Value[index];
+                var convertedMod = ConvertToNamingConvention(mod, targetConvention);
+                kvp.Value[index] = convertedMod;
+            }
+        }
+
+        foreach (var kvp in bioPolymer.OriginalNonVariantModifications)
+        {
+            for (var index = 0; index < kvp.Value.Count; index++)
+            {
+                var mod = kvp.Value[index];
+                var convertedMod = ConvertToNamingConvention(mod, targetConvention);
+                kvp.Value[index] = convertedMod;
+            }
+        }
+
+        foreach (var kvp in bioPolymer.SequenceVariations.SelectMany(variant => variant.OneBasedModifications))
+        {
+            for (var index = 0; index < kvp.Value.Count; index++)
+            {
+                var mod = kvp.Value[index];
+                var convertedMod = ConvertToNamingConvention(mod, targetConvention);
+                kvp.Value[index] = convertedMod;
+            }
+        }
+
+        foreach (var kvp in bioPolymer.AppliedSequenceVariations.SelectMany(variant => variant.OneBasedModifications))
+        {
+            for (var index = 0; index < kvp.Value.Count; index++)
+            {
+                var mod = kvp.Value[index];
+                var convertedMod = ConvertToNamingConvention(mod, targetConvention);
+                kvp.Value[index] = convertedMod;
+            }
+        }
     }
 }
