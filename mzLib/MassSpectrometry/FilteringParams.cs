@@ -21,7 +21,7 @@ namespace MassSpectrometry
     public class FilteringParams : IFilteringParams
     {
         //Num: the number of windows used to filer; testSize: for comparing the amount of topN is used on
-        public FilteringParams(int? numberOfPeaksToKeepPerWindow = null, double? minimumAllowedIntensityRatioToBasePeak = null, double? windowWidthThomsons = 0, int? numberOfWindows = 0, bool normalizePeaksAcrossAllWindows = false, bool applyTrimmingToMs1 = true, bool applyTrimmingToMsMs = true)
+        public FilteringParams(int? numberOfPeaksToKeepPerWindow = null, double? minimumAllowedIntensityRatioToBasePeak = null, double? windowWidthThomsons = 0, int? numberOfWindows = 0, bool normalizePeaksAcrossAllWindows = false, bool applyTrimmingToMs1 = true, bool applyTrimmingToMsMs = true, bool applyTrimmingToMsN = true)
         {
             NumberOfPeaksToKeepPerWindow = numberOfPeaksToKeepPerWindow;
             MinimumAllowedIntensityRatioToBasePeakM = minimumAllowedIntensityRatioToBasePeak;
@@ -46,6 +46,7 @@ namespace MassSpectrometry
             NormalizePeaksAcrossAllWindows = normalizePeaksAcrossAllWindows;
             ApplyTrimmingToMs1 = applyTrimmingToMs1;
             ApplyTrimmingToMsMs = applyTrimmingToMsMs;
+            ApplyTrimmingToMsN = applyTrimmingToMsN;
         }
 
         public double? MinimumAllowedIntensityRatioToBasePeakM { get; }
@@ -55,5 +56,6 @@ namespace MassSpectrometry
         public bool NormalizePeaksAcrossAllWindows { get; }
         public bool ApplyTrimmingToMs1 { get; }
         public bool ApplyTrimmingToMsMs { get; }
+        public bool ApplyTrimmingToMsN { get; }
     }
 }
