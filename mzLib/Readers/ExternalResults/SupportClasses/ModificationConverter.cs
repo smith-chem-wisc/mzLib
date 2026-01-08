@@ -1,8 +1,14 @@
-﻿using Omics;
+﻿using Chemistry;
+using Omics;
 using Omics.Modifications;
+using Proteomics.AminoAcidPolymer;
+using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Reflection;
+using System.Security.Policy;
 using UsefulProteomicsDatabases;
+using static TorchSharp.torch.optim.lr_scheduler.impl.CyclicLR;
 
 namespace Readers;
 
@@ -12,7 +18,6 @@ public static class ModificationConverter
 
     // Cache of previously successful modification conversions to reduce the number of times the same modification is converted
     private static readonly ConcurrentDictionary<(string, char), Modification> ModificationCache;
-    private static readonly ConcurrentDictionary<(string, char), Modification> NameConversionModificationCache;
 
     public static List<Modification> AllKnownMods { get; }
     public static Dictionary<string, Modification> AllModsKnown { get; }
@@ -24,7 +29,6 @@ public static class ModificationConverter
     static ModificationConverter()
     {
         ModificationCache = new ConcurrentDictionary<(string, char), Modification>();
-        NameConversionModificationCache = new ConcurrentDictionary<(string, char), Modification>();
 
         var info = Assembly.GetExecutingAssembly().GetName();
         var name = info.Name;
@@ -56,9 +60,7 @@ public static class ModificationConverter
 
     #endregion
 
-
-    public static Dictionary<int, Modification> GetModificationDictionaryFromFullSequence(string fullSequence,
-    Dictionary<string, Modification>? allModsKnown = null)
+    public static Dictionary<int, Modification> GetModificationDictionaryFromFullSequence(string fullSequence, Dictionary<string, Modification>? allModsKnown = null)
     {
         var allModsOneIsNterminus = new Dictionary<int, Modification>();
         allModsKnown ??= AllModsKnown;
@@ -117,7 +119,7 @@ public static class ModificationConverter
                                 modifiedResidue = 'X';
                             else
                                 modifiedResidue = baseSequence[currentModificationLocation - 2];
-                            mod = GetClosestMod(modString, modifiedResidue, ModificationNamingConvention.MetaMorpheus);
+                            mod = GetClosestMod(modString, modifiedResidue);
                         }
                         catch (Exception e)
                         {
@@ -160,109 +162,29 @@ public static class ModificationConverter
     /// Gets the closest modification from the list of all known modifications that matches the given localized modification,
     /// with a preference for the specified naming convention
     /// </summary>
-    public static Modification GetClosestMod(string name, char modifiedResidue, 
-        ModificationNamingConvention convention = ModificationNamingConvention.MetaMorpheus)
+    public static Modification? GetClosestMod(Modification mod, char modifiedResidue, ModificationNamingConvention convention = ModificationNamingConvention.MetaMorpheus, IHasChemicalFormula? chemicalFormula = null)
     {
         var modsToSearch = GetModsByNamingConvention(convention);
 
-        return GetClosestMod(name, modifiedResidue, modsToSearch);
-    }
+        if (modsToSearch.Contains(mod))
+            return mod;
 
-    /// <summary>
-    /// Converts a modification to the specified naming convention.
-    /// If a direct match is found, returns it. Otherwise, finds the closest match based on:
-    /// 1. Matching residue (motif)
-    /// 2. Matching chemical formula or monoisotopic mass
-    /// 3. Name similarity
-    /// </summary>
-    public static Modification ConvertToNamingConvention(Modification sourceMod, 
-        ModificationNamingConvention targetConvention)
-    {
-        if (sourceMod == null)
-            throw new ArgumentNullException(nameof(sourceMod));
-
-        var cacheKey = (sourceMod.IdWithMotif, sourceMod.Target.ToString()[0]);
-        // if we have done this conversion before, just return it. 
-        if (NameConversionModificationCache.TryGetValue(cacheKey, out var cachedModification))
+        try
         {
-            return cachedModification;
+            return GetClosestMod(mod.OriginalId, modifiedResidue, modsToSearch, chemicalFormula);
+        }
+        catch (KeyNotFoundException e) 
+        { 
+            
         }
 
-        var targetMods = GetModsByNamingConvention(targetConvention);
-
-        // Try to find exact match by IdWithMotif first
-        var exactMatch = targetMods.FirstOrDefault(m => m.IdWithMotif == sourceMod.IdWithMotif);
-        if (exactMatch != null)
-        {
-            NameConversionModificationCache.AddOrUpdate(cacheKey, exactMatch, (_, _) => exactMatch);
-            return exactMatch;
-        }
-
-        // Get the residue from the source mod
-        char residue = sourceMod.Target?.ToString().FirstOrDefault() ?? 'X';
-
-        // Filter by matching residue/motif
-        var motifMatches = targetMods
-            .Where(m => m.Target != null && 
-                       (m.Target.ToString() == residue.ToString() || 
-                        m.Target.ToString() == "X" || 
-                        residue == 'X'))
-            .ToList();
-
-        if (!motifMatches.Any())
-            motifMatches = targetMods.ToList(); // Fall back to all mods if no motif matches
-
-        // Filter by chemical formula or mass
-        var formulaAndMotifMatches = motifMatches
-            .Where(m => AreChemicallyEquivalent(sourceMod, m))
-            .ToList();
-
-        if (formulaAndMotifMatches.Any())
-        {
-            // If we have chemical matches, use name similarity as tiebreaker
-            var toReturn =  formulaAndMotifMatches
-                .OrderByDescending(m => GetOverlapScore(sourceMod.OriginalId, m.OriginalId))
-                .ThenBy(m => m.IdWithMotif.Length)
-                .First();
-            NameConversionModificationCache.AddOrUpdate(cacheKey, toReturn, (_, _) => toReturn);
-            return toReturn;
-        }
-
-        // If no chemical matches, fall back to name similarity among motif matches
-        var toReturn2 = motifMatches
-            .OrderByDescending(m => GetOverlapScore(sourceMod.OriginalId, m.OriginalId))
-            .ThenBy(m => Math.Abs((m.MonoisotopicMass ?? 0) - (sourceMod.MonoisotopicMass ?? 0)))
-            .ThenBy(m => m.IdWithMotif.Length)
-            .First();
-        NameConversionModificationCache.AddOrUpdate(cacheKey, toReturn2, (_, _) => toReturn2);
-        return toReturn2;
-    }
-
-    /// <summary>
-    /// Checks if two modifications are chemically equivalent based on chemical formula or monoisotopic mass
-    /// </summary>
-    private static bool AreChemicallyEquivalent(Modification mod1, Modification mod2)
-    {
-        // Check chemical formula first (more precise)
-        if (mod1.ChemicalFormula != null && mod2.ChemicalFormula != null)
-        {
-            return mod1.ChemicalFormula.Equals(mod2.ChemicalFormula);
-        }
-
-        // Fall back to monoisotopic mass comparison with tolerance
-        if (mod1.MonoisotopicMass.HasValue && mod2.MonoisotopicMass.HasValue)
-        {
-            const double massToleranceDa = 0.01; // 10 mDa tolerance
-            return Math.Abs(mod1.MonoisotopicMass.Value - mod2.MonoisotopicMass.Value) < massToleranceDa;
-        }
-
-        return false;
+        return null;
     }
 
     /// <summary>
     /// Gets the closest modification from the list of all known modifications that matches the given localized modification.
     /// </summary>
-    public static Modification GetClosestMod(string name, char modifiedResidue, IList<Modification>? allKnownMods = null)
+    public static Modification GetClosestMod(string name, char modifiedResidue, IList<Modification>? allKnownMods = null, IHasChemicalFormula? chemicalFormula = null)
     {
         allKnownMods ??= AllKnownMods;
         var cacheKey = (name, modifiedResidue);
@@ -272,10 +194,15 @@ public static class ModificationConverter
             return cachedModification;
         }
 
+        if (chemicalFormula != null)
+            allKnownMods = allKnownMods.Where(mod => mod.ChemicalFormula.Equals(chemicalFormula.ThisChemicalFormula)).ToList();
+
         // get rid of this annoying -L- suffix that is added to some mods in UniProt
         var trimmedName = name.Split(new[] { "-L-" }, StringSplitOptions.None)[0];
-
         var nameContaining = allKnownMods.Where(p => p.IdWithMotif.Contains(trimmedName)).ToHashSet();
+        if (nameContaining.Count == 0 && trimmedName.Contains("ation"))
+            nameContaining = allKnownMods.Where(p => p.IdWithMotif.Contains(trimmedName.Replace("ation", ""))).ToHashSet();
+
         var motifMatching = allKnownMods.Where(p => p.IdWithMotif.Contains($" on {modifiedResidue}") || p.IdWithMotif.Contains(" on X")).ToHashSet();
 
         var goodMatches = nameContaining.Intersect(motifMatching).ToList();
@@ -308,7 +235,13 @@ public static class ModificationConverter
             // None matched by name and motif, Calculate overlap score by substring overlap of al possible matches. 
             // and select the modification with the highest score, better matching residue, then shortest mod name in case of tie
             case < 1:
-                cachedModification = nameContaining.Union(motifMatching)
+                var candidates = nameContaining.Union(motifMatching).ToList();
+                if (!candidates.Any())
+                {
+                    throw new KeyNotFoundException($"Could not find a modification that matches {name} on {modifiedResidue}");
+                }
+                
+                cachedModification = candidates
                     .OrderByDescending(mod => GetOverlapScore(mod.IdWithMotif, trimmedName))
                     .ThenByDescending(p => p.Target.ToString() == modifiedResidue.ToString())
                     .ThenByDescending(p => p.ModificationType.Length)
@@ -363,8 +296,25 @@ public static class ModificationConverter
     {
         foreach (var kvp in withSetMods.AllModsOneIsNterminus)
         {
-            var convertedMod = ConvertToNamingConvention(kvp.Value, targetConvention);
-            withSetMods.AllModsOneIsNterminus[kvp.Key] = convertedMod;
+            char residue;
+
+            // N-Terminal
+            if (kvp.Key == 1)
+                residue = withSetMods.BaseSequence[0];
+            // C-Terminal
+            else if (kvp.Key == withSetMods.Length + 2)
+                residue = withSetMods.BaseSequence[withSetMods.Length - 1];
+            else
+                residue = withSetMods.BaseSequence[kvp.Key - 2];
+
+            var convertedMod = GetClosestMod(kvp.Value, residue, targetConvention);
+
+            if (convertedMod is null)
+                withSetMods.AllModsOneIsNterminus.Remove(kvp.Key);
+            else if (convertedMod.ChemicalFormula.Equals(kvp.Value.ChemicalFormula))
+                withSetMods.AllModsOneIsNterminus[kvp.Key] = convertedMod;
+            else
+                Debugger.Break();
         }
     }
 
@@ -372,41 +322,155 @@ public static class ModificationConverter
     {
         foreach (var kvp in bioPolymer.OneBasedPossibleLocalizedModifications)
         {
+            char residue;
+
+            // N-Terminal
+            if (kvp.Key == 1)
+                residue = bioPolymer.BaseSequence[0];
+            // C-Terminal
+            else if (kvp.Key == bioPolymer.Length + 2)
+                residue = bioPolymer.BaseSequence[bioPolymer.Length - 1];
+            else
+                residue = bioPolymer.BaseSequence[kvp.Key - 1];
+
             for (var index = 0; index < kvp.Value.Count; index++)
             {
                 var mod = kvp.Value[index];
-                var convertedMod = ConvertToNamingConvention(mod, targetConvention);
-                kvp.Value[index] = convertedMod;
+
+                var convertedMod = GetClosestMod(mod, residue, targetConvention, mod.ChemicalFormula);
+
+                if (convertedMod is null)
+                {
+                    bioPolymer.OneBasedPossibleLocalizedModifications[kvp.Key].RemoveAt(index);
+                    if (bioPolymer.OneBasedPossibleLocalizedModifications[kvp.Key].Count == 0)
+                        bioPolymer.OneBasedPossibleLocalizedModifications.Remove(kvp.Key);
+                }
+                else if (convertedMod.Equals(mod) && convertedMod.FeatureType != "UniProt")
+                    Debugger.Break();
+                else if (convertedMod.ChemicalFormula.Equals(mod.ChemicalFormula))
+                    kvp.Value[index] = convertedMod;
+                else
+                    Debugger.Break();
             }
         }
 
         foreach (var kvp in bioPolymer.OriginalNonVariantModifications)
         {
+            char residue;
+
+            // N-Terminal
+            if (kvp.Key == 1)
+                residue = bioPolymer.BaseSequence[0];
+            // C-Terminal
+            else if (kvp.Key == bioPolymer.Length + 2)
+                residue = bioPolymer.BaseSequence[bioPolymer.Length - 1];
+            else
+                residue = bioPolymer.BaseSequence[kvp.Key - 1];
+
             for (var index = 0; index < kvp.Value.Count; index++)
             {
                 var mod = kvp.Value[index];
-                var convertedMod = ConvertToNamingConvention(mod, targetConvention);
-                kvp.Value[index] = convertedMod;
+                var convertedMod = GetClosestMod(mod, residue, targetConvention, mod.ChemicalFormula);
+
+                if (convertedMod is null)
+                {
+                    bioPolymer.OriginalNonVariantModifications[kvp.Key].RemoveAt(index);
+                    if (bioPolymer.OriginalNonVariantModifications[kvp.Key].Count == 0)
+                        bioPolymer.OriginalNonVariantModifications.Remove(kvp.Key);
+                }
+                else if (convertedMod.ChemicalFormula.Equals(mod.ChemicalFormula))
+                    kvp.Value[index] = convertedMod;
+                else
+                    Debugger.Break();
             }
         }
 
-        foreach (var kvp in bioPolymer.SequenceVariations.SelectMany(variant => variant.OneBasedModifications))
+        // Convert mods in SequenceVariations
+        // Note: SequenceVariation.OneBasedModifications are indexed relative to the variant sequence, not the protein
+        foreach (var variant in bioPolymer.SequenceVariations)
         {
-            for (var index = 0; index < kvp.Value.Count; index++)
+            foreach (var kvp in variant.OneBasedModifications)
             {
-                var mod = kvp.Value[index];
-                var convertedMod = ConvertToNamingConvention(mod, targetConvention);
-                kvp.Value[index] = convertedMod;
+                for (var index = 0; index < kvp.Value.Count; index++)
+                {
+                    var mod = kvp.Value[index];
+                    char residue;
+
+                    // Determine residue from the variant sequence
+                    // Keys in variant.OneBasedModifications are relative to the variant sequence
+                    if (string.IsNullOrEmpty(variant.VariantSequence))
+                    {
+                        // If no variant sequence, use 'X' as unknown
+                        residue = 'X';
+                    }
+                    else if (kvp.Key == 1 && variant.VariantSequence.Length > 0)
+                    {
+                        // First position in variant
+                        residue = variant.VariantSequence[0];
+                    }
+                    else if (kvp.Key <= variant.VariantSequence.Length)
+                    {
+                        // Internal position in variant (convert from 1-based to 0-based)
+                        residue = variant.VariantSequence[kvp.Key - 1];
+                    }
+                    else
+                    {
+                        // Position beyond variant sequence
+                        residue = 'X';
+                    }
+
+                    var convertedMod = GetClosestMod(mod, residue, targetConvention, mod.ChemicalFormula);
+                    if (convertedMod is null)
+                        kvp.Value.RemoveAt(index);
+                    else if (convertedMod.ChemicalFormula.Equals(mod.ChemicalFormula))
+                        kvp.Value[index] = convertedMod;
+                    else
+                        Debugger.Break();
+                }
             }
         }
 
-        foreach (var kvp in bioPolymer.AppliedSequenceVariations.SelectMany(variant => variant.OneBasedModifications))
+        // Convert mods in AppliedSequenceVariations
+        foreach (var variant in bioPolymer.AppliedSequenceVariations)
         {
-            for (var index = 0; index < kvp.Value.Count; index++)
+            foreach (var kvp in variant.OneBasedModifications)
             {
-                var mod = kvp.Value[index];
-                var convertedMod = ConvertToNamingConvention(mod, targetConvention);
-                kvp.Value[index] = convertedMod;
+                for (var index = 0; index < kvp.Value.Count; index++)
+                {
+                    var mod = kvp.Value[index];
+                    char residue;
+
+                    // Determine residue from the variant sequence
+                    // Keys in variant.OneBasedModifications are relative to the variant sequence
+                    if (string.IsNullOrEmpty(variant.VariantSequence))
+                    {
+                        // If no variant sequence, use 'X' as unknown
+                        residue = 'X';
+                    }
+                    else if (kvp.Key == 1 && variant.VariantSequence.Length > 0)
+                    {
+                        // First position in variant
+                        residue = variant.VariantSequence[0];
+                    }
+                    else if (kvp.Key <= variant.VariantSequence.Length)
+                    {
+                        // Internal position in variant (convert from 1-based to 0-based)
+                        residue = variant.VariantSequence[kvp.Key - 1];
+                    }
+                    else
+                    {
+                        // Position beyond variant sequence
+                        residue = 'X';
+                    }
+
+                    var convertedMod = GetClosestMod(mod, residue, targetConvention, mod.ChemicalFormula);
+                    if (convertedMod is null)
+                        kvp.Value.RemoveAt(index);
+                    else if (convertedMod.ChemicalFormula.Equals(mod.ChemicalFormula))
+                        kvp.Value[index] = convertedMod;
+                    else
+                        Debugger.Break();
+                }
             }
         }
     }

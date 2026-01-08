@@ -112,7 +112,7 @@ namespace Readers
                 var location = int.Parse(modSplits[1]);
 
                 var modifiedResidue = location == 0 ? 'X' : BaseSequence[location - 1];
-                var mmMod = ModificationConverter.GetClosestMod(name, modifiedResidue, ModificationNamingConvention.MetaMorpheus);
+                var mmMod = ModificationConverter.GetClosestMod(name, modifiedResidue);
 
                 mods.Add(location+1, mmMod);
             }

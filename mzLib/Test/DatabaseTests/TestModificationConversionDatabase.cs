@@ -565,5 +565,34 @@ namespace Test.DatabaseTests
             Assert.DoesNotThrow(() => protein.ConvertMods(ModificationNamingConvention.UniProt));
             Assert.DoesNotThrow(() => protein.ConvertMods(ModificationNamingConvention.MetaMorpheus));
         }
+
+        [Test]
+        public static void Dummy()
+        {
+            string inPath = @"B:\Users\Nic\SharedWithMe\ClaireMulti_PrunedDB\1-5-25-DBs";
+
+            foreach (var db in Directory.GetFiles(inPath, "*.xml"))
+            {
+                var inProteins = ProteinDbLoader.LoadProteinXML(
+                    db,
+                    true,
+                    DecoyType.None,
+                    new List<Modification>(),
+                    false,
+                    new List<string>(),
+                    out var unknownMods);
+                
+                foreach (var prot in inProteins)
+                {
+                    prot.ConvertMods(ModificationNamingConvention.UniProt);
+                }
+
+                string outPath = Path.Combine(Path.GetDirectoryName(db)!, Path.GetFileNameWithoutExtension(db) + "_uniprot.xml");
+                ProteinDbWriter.WriteXmlDatabase(
+                    new Dictionary<string, HashSet<System.Tuple<int, Modification>>>(),
+                    inProteins,
+                    outPath);
+            }
+        }
     }
 }
