@@ -1727,22 +1727,25 @@ namespace Test.FileReadingTests
         public static void TestPeakTrimmingMs3()
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "MS3_TMT11_Mouse_snip.mzML");
-            FilteringParams filterMs3 = new FilteringParams(10, 0.01, 1, null, false, false, true, true);
+            FilteringParams filterMs3 = new FilteringParams(1, 0.01, 1, null, false, false, true, true);
             var reader = MsDataFileReader.GetDataFile(filePath);
             var orginalMs2Scans = reader.GetAllScansList().Where(b => b.MsnOrder == 2).ToArray();
             var orginalMs3Scans = reader.GetAllScansList().Where(b => b.MsnOrder == 3).ToArray();
-            
+
+            //load data with and without peak trimming for ms3 scans    
             reader.LoadAllStaticData(filterMs3, 1);
             var ms3ScansWithFilter = reader.GetAllScansList().Where(b => b.MsnOrder == 3).ToList();
-            FilteringParams filterMs2ButNotMs3 = new FilteringParams(10, 0.01, 1, null, false, false, true, false);
+            FilteringParams filterMs2ButNotMs3 = new FilteringParams(1, 0.01, 1, null, false, false, true, false);
             reader.LoadAllStaticData(filterMs2ButNotMs3, 1);
+            var ms2ScansNoFilter = reader.GetAllScansList().Where(b => b.MsnOrder == 2).ToList();
             var ms3ScansNoFilter = reader.GetAllScansList().Where(b => b.MsnOrder == 3).ToList();
 
+            //verify that peak trimming is done on ms3 scans only when specified
             Assert.That(Enumerable.Range(0, orginalMs3Scans.Length).Any(i => ms3ScansWithFilter[i].MassSpectrum.Size < orginalMs3Scans[i].MassSpectrum.Size));
-            for (int i = 0; i < orginalMs3Scans.Length; i++)
-            {
-                Assert.That(ms3ScansNoFilter[i].MassSpectrum.XArray.Length == orginalMs3Scans[i].MassSpectrum.XArray.Length);
-            }
+            Assert.That(Enumerable.Range(0, orginalMs3Scans.Length).All(i => ms3ScansNoFilter[i].MassSpectrum.Size == orginalMs3Scans[i].MassSpectrum.Size));
+
+            //but ms2 scans are still filtered when it should be
+            Assert.That(Enumerable.Range(0, orginalMs2Scans.Length).Any(i => ms2ScansNoFilter[i].MassSpectrum.Size < orginalMs2Scans[i].MassSpectrum.Size));
         }
 
         private MzSpectrum CreateMS2spectrum(IEnumerable<Fragment> fragments, int v1, int v2)
