@@ -166,6 +166,33 @@ namespace Test
 
             File.Delete(testFile);
         }
+        /// <summary>
+        /// Tests that protease definitions with only required fields (Name, Motif, Specificity) 
+        /// are parsed correctly, with optional fields defaulting to empty strings.
+        /// </summary>
+        [Test]
+        public static void LoadProteaseDictionary_MinimalFields_DefaultsOptionalFieldsToEmpty()
+        {
+            string testFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_minimal_fields.tsv");
+            string[] lines =
+            {
+                "Name\tMotif\tSpecificity\tPSI-MS Accession\tPSI-MS Name\tCleavage Modification",
+                "MinimalProtease\tK|\tfull"  // Only 3 required fields, no optional fields
+            };
+            File.WriteAllLines(testFile, lines);
+
+            var dictionary = ProteaseDictionary.LoadProteaseDictionary(testFile);
+
+            Assert.That(dictionary.ContainsKey("MinimalProtease"), Is.True);
+            var protease = dictionary["MinimalProtease"];
+            Assert.That(protease.Name, Is.EqualTo("MinimalProtease"));
+            Assert.That(protease.CleavageSpecificity, Is.EqualTo(CleavageSpecificity.Full));
+            Assert.That(protease.PsiMsAccessionNumber, Is.EqualTo(string.Empty));
+            Assert.That(protease.PsiMsName, Is.EqualTo(string.Empty));
+            Assert.That(protease.CleavageMod, Is.Null);
+
+            File.Delete(testFile);
+        }
         [Test]
         public static void TestGoodPeptide()
         {
