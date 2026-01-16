@@ -69,7 +69,7 @@ Glu-C (with asp)	"E|,D|"	full
 Lys-C (don't cleave before proline)	K[P]|	full	MS:1001309	Lys-C	
 Lys-N	|K	full			
 semi-trypsin	"K[P]|,R[P]|"	semi	MS:1001313	Trypsin	
-trypsin	"K[P]|,R[P]|"	full	MS:1001313	Trypsin	
+trypsin (don't cleave before proline)	"K[P]|,R[P]|"	full	MS:1001313	Trypsin	
 tryptophan oxidation	W|	full			
 non-specific	X|	full	MS:1001956	unspecific cleavage	
 top-down		none	MS:1001955	no cleavage	
