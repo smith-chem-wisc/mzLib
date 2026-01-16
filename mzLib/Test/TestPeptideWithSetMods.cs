@@ -839,7 +839,7 @@ namespace Test
 
             //  elastase cleave after A, V, S, G, L, I,
             newAminoAcidPositions = new int["KAYVPSRGHLDIN".Length];
-            PeptideWithSetModifications p_elastase = new PeptideWithSetModifications(new Protein("KAYVPSRGHLDIN", "DECOY_ELASTASE"), new DigestionParams(protease: "elastase (don't cleave before proline)"), 1, 13, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications p_elastase = new PeptideWithSetModifications(new Protein("KAYVPSRGHLDIN", "DECOY_ELASTASE"), new DigestionParams(protease: "elastase (don't cleave before proline)"), 1, 13, CleavageSpecificity.Semi, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_elastase_reverse = p_elastase.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("NADHRSPGVLYIK", p_elastase_reverse.BaseSequence);
 

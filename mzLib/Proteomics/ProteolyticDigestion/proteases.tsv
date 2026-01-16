@@ -6,9 +6,9 @@
 # COLUMN DEFINITIONS (tab-separated):
 # ----------------------------------------------------------------------------
 # 1. Name                    - Unique identifier for the protease
-# 2. Sequences Inducing Cleavage - Motif syntax defining where cleavage occurs (see below)
-# 3. Cleavage Specificity    - One of: full, semi, none, SingleN, SingleC
-# 4. PSI-MS Accession Number - Standard identifier (e.g., MS:1001313)
+# 2. Motif                   - Cleavage motif syntax defining where cleavage occurs (see below)
+# 3. Specificity             - One of: full, semi, none, SingleN, SingleC
+# 4. PSI-MS Accession        - Standard identifier (e.g., MS:1001313)
 # 5. PSI-MS Name             - Standard name from PSI-MS ontology
 # 6. Cleavage Modification   - Name of modification applied at cleavage site (optional)
 #
@@ -77,7 +77,7 @@ singleN		SingleN	MS:1001957	single cleavage
 singleC		SingleC	MS:1001958	single cleavage	
 peptidomics		none		no cleavage	
 collagenase	GPX|GPX	full			
-StcE-trypsin	"TX|T,TX|S,SX|T,SX|S,K|,R|"	full		StcE/Trpsin	
+StcE-trypsin	"TX|T,TX|S,SX|T,SX|S,K|,R|"	full		StcE/Trypsin	
 CNBr_old	M|	full	MS:1001307	CNBr	
 CNBr_N	|M	full	MS:1001307	CNBr	Test on M
 ProAlanase	"P|,A|"	full			

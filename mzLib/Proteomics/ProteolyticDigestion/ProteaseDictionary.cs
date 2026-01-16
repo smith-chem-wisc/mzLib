@@ -28,7 +28,7 @@ namespace Proteomics.ProteolyticDigestion
         /// <returns>Dictionary of protease name to Protease object.</returns>
         public static Dictionary<string, Protease> LoadProteaseDictionary(List<Modification> proteaseMods)
         {
-            var assembly = Assembly.GetExecutingAssembly();
+            var assembly = typeof(ProteaseDictionary).Assembly;
 
             using (var stream = assembly.GetManifestResourceStream(EmbeddedResourceName))
             {
@@ -81,12 +81,18 @@ namespace Proteomics.ProteolyticDigestion
                 }
 
                 string[] fields = line.Split('\t');
+                
+                if (fields.Length < 3)
+                {
+                    throw new MzLibException($"Protease definition line has insufficient fields (expected at least 3, got {fields.Length}): {line}");
+                }
+
                 string name = fields[0];
                 List<DigestionMotif> motifList = DigestionMotif.ParseDigestionMotifsFromString(fields[1]);
                 var cleavageSpecificity = (CleavageSpecificity)Enum.Parse(typeof(CleavageSpecificity), fields[2], true);
-                string psiMsAccessionNumber = fields[3];
-                string psiMsName = fields[4];
-                string proteaseModDetails = fields[5]; // name of the modification associated with proteolytic cleavage
+                string psiMsAccessionNumber = fields.Length > 3 ? fields[3] : string.Empty;
+                string psiMsName = fields.Length > 4 ? fields[4] : string.Empty;
+                string proteaseModDetails = fields.Length > 5 ? fields[5] : string.Empty;
 
                 Protease protease = CreateProtease(
                     name, motifList, cleavageSpecificity, psiMsAccessionNumber, psiMsName,
@@ -126,7 +132,7 @@ namespace Proteomics.ProteolyticDigestion
                     return new Protease(name, cleavageSpecificity, psiMsAccessionNumber, psiMsName, motifList, proteaseModification);
                 }
 
-                // Modification was specified but not found - throw after adding the protease without the mod
+                // Modification was specified but not found in the provided list
                 throw new MzLibException($"{proteaseModDetails} is not a valid modification");
             }
 
