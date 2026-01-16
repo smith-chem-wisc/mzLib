@@ -1,8 +1,12 @@
 ﻿using Chemistry;
 using MassSpectrometry;
+using MzLibUtil;
 using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
+using Omics;
+using Omics.BioPolymer;
+using Omics.Digestion;
+using Omics.Fragmentation;
+using Omics.Modifications;
 using Proteomics;
 using Proteomics.AminoAcidPolymer;
 using Proteomics.ProteolyticDigestion;
@@ -10,15 +14,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Omics.Digestion;
-using Omics.Fragmentation;
-using Omics.Modifications;
+using System.Reflection;
 using UsefulProteomicsDatabases;
 using static Chemistry.PeriodicTable;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
-using MzLibUtil;
-using Omics.BioPolymer;
-using Omics;
 
 namespace Test
 {
@@ -98,12 +99,10 @@ namespace Test
             Assert.AreNotEqual(null, protease3.CleavageMod);
             Assert.AreEqual("M", protease3.CleavageMod.Target.ToString());
 
-
             Assert.AreNotEqual(peps3[0].MonoisotopicMass, peps3[1].MonoisotopicMass);
 
             Assert.AreEqual(882.39707781799996, peps3[1].MonoisotopicMass);
             Assert.AreEqual(930.400449121, peps3[0].MonoisotopicMass);
-
 
             Assert.AreEqual(null, protease2.CleavageMod);
             Assert.AreNotEqual(null, protease1.CleavageMod);
@@ -118,10 +117,39 @@ namespace Test
 
             Assert.AreEqual(882.39707781799996, peps1[0].MonoisotopicMass);
             Assert.AreEqual(930.400449121, peps1[1].MonoisotopicMass);
-
-            
         }
-       
+        /// <summary>
+        /// Tests for ProteaseDictionary embedded resource loading.
+        /// Verifies that the proteases.tsv file is correctly embedded and can be loaded.
+        /// </summary>
+        [Test]
+        public static void LoadProteaseDictionary_FromEmbeddedResource_LoadsSuccessfully()
+        {
+            // Act - reload from embedded resource
+            var dictionary = ProteaseDictionary.LoadProteaseDictionary(proteaseMods: null);
+
+            // Assert - verify the embedded resource was found and parsed correctly
+            Assert.That(dictionary, Is.Not.Null);
+            Assert.That(dictionary.Count, Is.GreaterThan(0));
+
+            // Verify a few well-known proteases exist with expected properties
+            Assert.That(dictionary.ContainsKey("trypsin (don't cleave before proline)"), Is.True);
+            Assert.That(dictionary["trypsin (don't cleave before proline)"].CleavageSpecificity, Is.EqualTo(CleavageSpecificity.Full));
+            Assert.That(dictionary["trypsin (don't cleave before proline)"].DigestionMotifs.Count, Is.EqualTo(2)); // K[P]| and R[P]|
+        }
+        /// <summary>
+        /// Tests that accessing embedded resources works via the Assembly.GetManifestResourceStream pattern.
+        /// This verifies the resource naming convention matches what's expected.
+        /// </summary>
+        [Test]
+        public static void LoadProteaseDictionary_EmbeddedResourceName_MatchesExpectedPattern()
+        {
+            var assembly = Assembly.GetAssembly(typeof(ProteaseDictionary));
+            var resourceNames = assembly.GetManifestResourceNames();
+
+            // Verify the proteases.tsv resource exists with expected naming pattern
+            Assert.That(resourceNames, Contains.Item("Proteomics.ProteolyticDigestion.proteases.tsv"));
+        }
         [Test]
         public static void TestGoodPeptide()
         {
