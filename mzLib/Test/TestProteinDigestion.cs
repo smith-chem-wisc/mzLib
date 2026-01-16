@@ -119,6 +119,25 @@ namespace Test
             Assert.AreEqual(930.400449121, peps1[1].MonoisotopicMass);
         }
         /// <summary>
+        /// Tests that the embedded proteases.tsv resource exists and can be loaded.
+        /// If the resource name is wrong or the file isn't embedded, this test will fail.
+        /// </summary>
+        [Test]
+        public static void LoadProteaseDictionary_EmbeddedResource_ExistsAndLoads()
+        {
+            // Verify the embedded resource exists with the expected name
+            var assembly = Assembly.GetAssembly(typeof(ProteaseDictionary));
+            var resourceNames = assembly.GetManifestResourceNames();
+
+            Assert.That(resourceNames, Contains.Item("Proteomics.ProteolyticDigestion.proteases.tsv"),
+                $"Expected embedded resource not found. Available resources: {string.Join(", ", resourceNames)}");
+
+            // Verify it loads successfully
+            var dictionary = ProteaseDictionary.LoadProteaseDictionary(proteaseMods: null);
+            Assert.That(dictionary, Is.Not.Null);
+            Assert.That(dictionary.Count, Is.GreaterThan(0));
+        }
+        /// <summary>
         /// Tests for ProteaseDictionary embedded resource loading.
         /// Verifies that the proteases.tsv file is correctly embedded and can be loaded.
         /// </summary>
