@@ -42,6 +42,8 @@ namespace Proteomics.ProteolyticDigestion
                 using (var reader = new StreamReader(stream))
                 {
                     string fileContent = reader.ReadToEnd();
+                    // RemoveEmptyEntries skips blank lines and lines with only whitespace,
+                    // which is the desired behavior for TSV parsing
                     string[] lines = fileContent.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
                     return ParseProteaseLines(lines, proteaseMods);
                 }
@@ -75,24 +77,41 @@ namespace Proteomics.ProteolyticDigestion
             foreach (string line in lines)
             {
                 // Skip empty lines, comment lines, and the header line
-                if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#") || line.StartsWith("Name\t"))
+                // Trim to handle potential BOM or leading/trailing whitespace
+                string trimmedLine = line.Trim().TrimStart('\uFEFF'); // \uFEFF is the UTF-8 BOM character
+                
+                if (string.IsNullOrWhiteSpace(trimmedLine) || 
+                    trimmedLine.StartsWith("#") || 
+                    trimmedLine.StartsWith("Name\t", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
 
-                string[] fields = line.Split('\t');
+                string[] fields = trimmedLine.Split('\t');
                 
                 if (fields.Length < 3)
                 {
                     throw new MzLibException($"Protease definition line has insufficient fields (expected at least 3, got {fields.Length}): {line}");
                 }
 
-                string name = fields[0];
-                List<DigestionMotif> motifList = DigestionMotif.ParseDigestionMotifsFromString(fields[1]);
-                var cleavageSpecificity = (CleavageSpecificity)Enum.Parse(typeof(CleavageSpecificity), fields[2], true);
-                string psiMsAccessionNumber = fields.Length > 3 ? fields[3] : string.Empty;
-                string psiMsName = fields.Length > 4 ? fields[4] : string.Empty;
-                string proteaseModDetails = fields.Length > 5 ? fields[5] : string.Empty;
+                // Expected TSV columns (see proteases.tsv header for full documentation):
+                // [0] Name                  - Required: Unique protease identifier
+                // [1] Motif                 - Required: Cleavage motif syntax (e.g., "K[P]|,R[P]|")
+                // [2] Specificity           - Required: full, semi, none, SingleN, or SingleC
+                // [3] PSI-MS Accession      - Optional: Standard identifier (e.g., MS:1001313)
+                // [4] PSI-MS Name           - Optional: Standard name from PSI-MS ontology
+                // [5] Cleavage Modification - Optional: Modification applied at cleavage site
+                
+                // Trim each field to handle whitespace and ensure empty fields are truly empty
+                string name = fields[0].Trim();
+                string motifField = fields[1].Trim();
+                string specificityField = fields[2].Trim();
+                string psiMsAccessionNumber = fields.Length > 3 ? fields[3].Trim() : string.Empty;
+                string psiMsName = fields.Length > 4 ? fields[4].Trim() : string.Empty;
+                string proteaseModDetails = fields.Length > 5 ? fields[5].Trim() : string.Empty;
+
+                List<DigestionMotif> motifList = DigestionMotif.ParseDigestionMotifsFromString(motifField);
+                var cleavageSpecificity = (CleavageSpecificity)Enum.Parse(typeof(CleavageSpecificity), specificityField, true);
 
                 Protease protease = CreateProtease(
                     name, motifList, cleavageSpecificity, psiMsAccessionNumber, psiMsName,

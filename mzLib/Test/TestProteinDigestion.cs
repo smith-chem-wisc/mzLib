@@ -119,55 +119,52 @@ namespace Test
             Assert.AreEqual(930.400449121, peps1[1].MonoisotopicMass);
         }
         /// <summary>
-        /// Tests that the embedded proteases.tsv resource exists and can be loaded.
-        /// If the resource name is wrong or the file isn't embedded, this test will fail.
+        /// Tests that the embedded proteases.tsv resource exists, has the correct naming pattern,
+        /// and can be loaded successfully with expected protease definitions.
         /// </summary>
         [Test]
         public static void LoadProteaseDictionary_EmbeddedResource_ExistsAndLoads()
         {
-            // Verify the embedded resource exists with the expected name
+            // Verify the embedded resource exists with the expected naming pattern
             var assembly = Assembly.GetAssembly(typeof(ProteaseDictionary));
             var resourceNames = assembly.GetManifestResourceNames();
-
             Assert.That(resourceNames, Contains.Item("Proteomics.ProteolyticDigestion.proteases.tsv"),
                 $"Expected embedded resource not found. Available resources: {string.Join(", ", resourceNames)}");
 
-            // Verify it loads successfully
+            // Verify it loads successfully and contains expected proteases
             var dictionary = ProteaseDictionary.LoadProteaseDictionary(proteaseMods: null);
             Assert.That(dictionary, Is.Not.Null);
             Assert.That(dictionary.Count, Is.GreaterThan(0));
-        }
-        /// <summary>
-        /// Tests for ProteaseDictionary embedded resource loading.
-        /// Verifies that the proteases.tsv file is correctly embedded and can be loaded.
-        /// </summary>
-        [Test]
-        public static void LoadProteaseDictionary_FromEmbeddedResource_LoadsSuccessfully()
-        {
-            // Act - reload from embedded resource
-            var dictionary = ProteaseDictionary.LoadProteaseDictionary(proteaseMods: null);
 
-            // Assert - verify the embedded resource was found and parsed correctly
-            Assert.That(dictionary, Is.Not.Null);
-            Assert.That(dictionary.Count, Is.GreaterThan(0));
-
-            // Verify a few well-known proteases exist with expected properties
+            // Verify well-known proteases exist with expected properties
             Assert.That(dictionary.ContainsKey("trypsin (don't cleave before proline)"), Is.True);
             Assert.That(dictionary["trypsin (don't cleave before proline)"].CleavageSpecificity, Is.EqualTo(CleavageSpecificity.Full));
             Assert.That(dictionary["trypsin (don't cleave before proline)"].DigestionMotifs.Count, Is.EqualTo(2)); // K[P]| and R[P]|
         }
         /// <summary>
-        /// Tests that accessing embedded resources works via the Assembly.GetManifestResourceStream pattern.
-        /// This verifies the resource naming convention matches what's expected.
+        /// Tests that loading a protease definition with insufficient fields throws an appropriate exception.
+        /// The parser requires at least 3 fields: Name, Motif, and Specificity.
         /// </summary>
         [Test]
-        public static void LoadProteaseDictionary_EmbeddedResourceName_MatchesExpectedPattern()
+        public static void LoadProteaseDictionary_InsufficientFields_ThrowsWithHelpfulMessage()
         {
-            var assembly = Assembly.GetAssembly(typeof(ProteaseDictionary));
-            var resourceNames = assembly.GetManifestResourceNames();
+            string testFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_insufficient_fields.tsv");
+            string[] lines =
+            {
+                "Name\tMotif\tSpecificity\tPSI-MS Accession\tPSI-MS Name\tCleavage Modification",
+                "ValidProtease\tK|\tfull\t\t\t",
+                "InvalidProtease\tK|"  // Missing Specificity field - only 2 columns
+            };
+            File.WriteAllLines(testFile, lines);
 
-            // Verify the proteases.tsv resource exists with expected naming pattern
-            Assert.That(resourceNames, Contains.Item("Proteomics.ProteolyticDigestion.proteases.tsv"));
+            var exception = Assert.Throws<MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(testFile));
+
+            Assert.That(exception.Message, Does.Contain("insufficient fields"));
+            Assert.That(exception.Message, Does.Contain("expected at least 3"));
+            Assert.That(exception.Message, Does.Contain("got 2"));
+            Assert.That(exception.Message, Does.Contain("InvalidProtease"));
+
+            File.Delete(testFile);
         }
         [Test]
         public static void TestGoodPeptide()
