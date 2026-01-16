@@ -7,7 +7,6 @@ elastase (don't cleave before proline)	"A[P]|,V[P]|,S[P]|,G[P]|,L[P]|,I[P]|"			s
 Glu-C	E|			full					
 Glu-C (with asp)	"E|,D|"			full					
 Lys-C (don't cleave before proline)	K[P]|			full	MS:1001309	Lys-C	(?<=K)(?!P)		
-Lys-C (cleave before proline)	K|			full	MS:1001310	Lys-C/P	(?<=K)		
 Lys-N	|K			full					
 semi-trypsin	"K[P]|,R[P]|"			semi	MS:1001313	Trypsin	(?<=[KR])(?!P)	
 trypsin	"K[P]|,R[P]|"			full	MS:1001313	Trypsin	(?<=[KR])(?!P)	
