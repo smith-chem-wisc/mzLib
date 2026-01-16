@@ -43,7 +43,7 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     string fileContent = reader.ReadToEnd();
                     string[] lines = fileContent.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                    return ParseProteaseLines(lines.Skip(1).ToArray(), proteaseMods);
+                    return ParseProteaseLines(lines, proteaseMods);
                 }
             }
         }
@@ -57,14 +57,15 @@ namespace Proteomics.ProteolyticDigestion
         public static Dictionary<string, Protease> LoadProteaseDictionary(string path, List<Modification> proteaseMods = null)
         {
             string[] myLines = File.ReadAllLines(path);
-            myLines = myLines.Skip(1).ToArray();
             return ParseProteaseLines(myLines, proteaseMods);
         }
 
         /// <summary>
         /// Parses protease definitions from TSV-formatted lines.
+        /// Lines starting with '#' are treated as comments and skipped.
+        /// The header line (starting with "Name") is also skipped.
         /// </summary>
-        /// <param name="lines">Lines from the proteases file (header already skipped).</param>
+        /// <param name="lines">Lines from the proteases file.</param>
         /// <param name="proteaseMods">Optional list of modifications to apply to proteases that require them.</param>
         /// <returns>Dictionary of protease name to Protease object.</returns>
         private static Dictionary<string, Protease> ParseProteaseLines(string[] lines, List<Modification> proteaseMods)
@@ -73,18 +74,19 @@ namespace Proteomics.ProteolyticDigestion
 
             foreach (string line in lines)
             {
-                if (string.IsNullOrWhiteSpace(line))
+                // Skip empty lines, comment lines, and the header line
+                if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#") || line.StartsWith("Name\t"))
                 {
-                    continue; // skip empty lines
+                    continue;
                 }
 
                 string[] fields = line.Split('\t');
                 string name = fields[0];
                 List<DigestionMotif> motifList = DigestionMotif.ParseDigestionMotifsFromString(fields[1]);
-                var cleavageSpecificity = (CleavageSpecificity)Enum.Parse(typeof(CleavageSpecificity), fields[4], true);
-                string psiMsAccessionNumber = fields[5];
-                string psiMsName = fields[6];
-                string proteaseModDetails = fields[8]; // name of the modification associated with proteolytic cleavage
+                var cleavageSpecificity = (CleavageSpecificity)Enum.Parse(typeof(CleavageSpecificity), fields[2], true);
+                string psiMsAccessionNumber = fields[3];
+                string psiMsName = fields[4];
+                string proteaseModDetails = fields[5]; // name of the modification associated with proteolytic cleavage
 
                 Protease protease = CreateProtease(
                     name, motifList, cleavageSpecificity, psiMsAccessionNumber, psiMsName,

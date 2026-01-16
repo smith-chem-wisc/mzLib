@@ -1,4 +1,5 @@
-Name	Sequences Inducing Cleavage	Sequences Preventing Cleavage	Cleavage Terminus	Cleavage Specificity	PSI-MS Accession Number	PSI-MS Name	Site Regular Expression	Cleavage Mass Shifts	Notes
-Test2	M|			full	MS:1001307	CNBr	(?<=M)			
-Test2	|M			full	MS:1001307	CNBr	(?<=M)	Test on M
+Name	Motif	Specificity	PSI-MS Accession	PSI-MS Name	Cleavage Modification
+Test2	M|	full	MS:1001307	CNBr	
+Test2	|M	full	MS:1001307	CNBr	Test on M
+
 

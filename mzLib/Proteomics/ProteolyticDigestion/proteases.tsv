@@ -1,23 +1,83 @@
-Name	Sequences Inducing Cleavage	Sequences Preventing Cleavage	Cleavage Terminus	Cleavage Specificity	PSI-MS Accession Number	PSI-MS Name	Site Regular Expression	Cleavage Mass Shifts	Notes
-Arg-C	R|			full	MS:1001303	Arg-C	(?<=R)(?!P)		
-Asp-N	|D			full	MS:1001304	Asp-N	(?=[BD])		
-chymotrypsin (don't cleave before proline)	"F[P]|,W[P]|,Y[P]|,L[P]|"			full	MS:1001306	Chymotrypsin	(?<=[FYWL])(?!P)		
-CNBr	M|			full	MS:1001307	CNBr	(?<=M)	Homoserine lactone on M	
-elastase (don't cleave before proline)	"A[P]|,V[P]|,S[P]|,G[P]|,L[P]|,I[P]|"			semi		Elastase	(?<=[AVSGLI])(?!P)		
-Glu-C	E|			full					
-Glu-C (with asp)	"E|,D|"			full					
-Lys-C (don't cleave before proline)	K[P]|			full	MS:1001309	Lys-C	(?<=K)(?!P)		
-Lys-N	|K			full					
-semi-trypsin	"K[P]|,R[P]|"			semi	MS:1001313	Trypsin	(?<=[KR])(?!P)	
-trypsin	"K[P]|,R[P]|"			full	MS:1001313	Trypsin	(?<=[KR])(?!P)	
-tryptophan oxidation	W|			full					
-non-specific	X|			full	MS:1001956	unspecific cleavage			
-top-down				none	MS:1001955	no cleavage			
-singleN				SingleN	MS:1001957	single cleavage			
-singleC				SingleC	MS:1001958	single cleavage			
-peptidomics				none		no cleavage			
-collagenase	GPX|GPX			full					
-StcE-trypsin	"TX|T,TX|S,SX|T,SX|S,K|,R|"			full		StcE/Trpsin			
-CNBr_old	M|			full	MS:1001307	CNBr	(?<=M)		
-CNBr_N	|M			full	MS:1001307	CNBr	(?<=M)	Test on M	
-ProAlanase	"P|,A|"			full					
+# ============================================================================
+# PROTEASE DEFINITIONS FILE
+# ============================================================================
+# Lines starting with '#' are comments and will be ignored by the parser.
+#
+# COLUMN DEFINITIONS (tab-separated):
+# ----------------------------------------------------------------------------
+# 1. Name                    - Unique identifier for the protease
+# 2. Sequences Inducing Cleavage - Motif syntax defining where cleavage occurs (see below)
+# 3. Cleavage Specificity    - One of: full, semi, none, SingleN, SingleC
+# 4. PSI-MS Accession Number - Standard identifier (e.g., MS:1001313)
+# 5. PSI-MS Name             - Standard name from PSI-MS ontology
+# 6. Cleavage Modification   - Name of modification applied at cleavage site (optional)
+#
+# ============================================================================
+# MOTIF SYNTAX GUIDE
+# ============================================================================
+# The motif syntax uses a simple pattern language:
+#
+# BASIC ELEMENTS:
+#   |     = Cleavage point (where the peptide bond is cut)
+#   X     = Any amino acid (wildcard)
+#   A-Z   = Specific amino acid (single letter code)
+#   B     = Aspartate (D) or Asparagine (N)
+#   J     = Isoleucine (I) or Leucine (L)
+#   Z     = Glutamate (E) or Glutamine (Q)
+#
+# POSITION RELATIVE TO CLEAVAGE:
+#   K|    = Cleave AFTER lysine (C-terminal cleavage)
+#   |K    = Cleave BEFORE lysine (N-terminal cleavage)
+#   
+# PREVENTING CLEAVAGE (square brackets):
+#   K[P]| = Cleave after K, UNLESS followed by P
+#          (prevents cleavage when P is C-terminal to K)
+#
+# MULTIPLE MOTIFS (comma-separated):
+#   "K[P]|,R[P]|" = Cleave after K or R, unless followed by P
+#
+# WILDCARD EXCLUSIONS (curly braces):
+#   GPX{P}|GPX{P} = Match GPX|GPX pattern, but X cannot be P
+#
+# ============================================================================
+# EXAMPLES
+# ============================================================================
+# Trypsin:     "K[P]|,R[P]|"  - Cleaves after K or R, not before P
+# Asp-N:       |D             - Cleaves before D (N-terminal to D)
+# Lys-C:       K[P]|          - Cleaves after K, not before P
+# Non-specific: X|            - Cleaves after any residue
+# Top-down:    (empty)        - No cleavage (intact protein)
+#
+# ============================================================================
+# CLEAVAGE SPECIFICITY VALUES
+# ============================================================================
+# full    - Both termini must match cleavage rules
+# semi    - Only one terminus must match cleavage rules
+# none    - No enzymatic cleavage (top-down, peptidomics)
+# SingleN - Single cleavage, N-terminal fragments only
+# SingleC - Single cleavage, C-terminal fragments only
+#
+# ============================================================================
+Name	Motif	Specificity	PSI-MS Accession	PSI-MS Name	Cleavage Modification
+Arg-C	R|	full	MS:1001303	Arg-C	
+Asp-N	|D	full	MS:1001304	Asp-N	
+chymotrypsin (don't cleave before proline)	"F[P]|,W[P]|,Y[P]|,L[P]|"	full	MS:1001306	Chymotrypsin	
+CNBr	M|	full	MS:1001307	CNBr	Homoserine lactone on M
+elastase (don't cleave before proline)	"A[P]|,V[P]|,S[P]|,G[P]|,L[P]|,I[P]|"	semi		Elastase	
+Glu-C	E|	full			
+Glu-C (with asp)	"E|,D|"	full			
+Lys-C (don't cleave before proline)	K[P]|	full	MS:1001309	Lys-C	
+Lys-N	|K	full			
+semi-trypsin	"K[P]|,R[P]|"	semi	MS:1001313	Trypsin	
+trypsin	"K[P]|,R[P]|"	full	MS:1001313	Trypsin	
+tryptophan oxidation	W|	full			
+non-specific	X|	full	MS:1001956	unspecific cleavage	
+top-down		none	MS:1001955	no cleavage	
+singleN		SingleN	MS:1001957	single cleavage	
+singleC		SingleC	MS:1001958	single cleavage	
+peptidomics		none		no cleavage	
+collagenase	GPX|GPX	full			
+StcE-trypsin	"TX|T,TX|S,SX|T,SX|S,K|,R|"	full		StcE/Trpsin	
+CNBr_old	M|	full	MS:1001307	CNBr	
+CNBr_N	|M	full	MS:1001307	CNBr	Test on M
+ProAlanase	"P|,A|"	full			
