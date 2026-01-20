@@ -894,7 +894,7 @@ namespace Test
         {
             // Arrange - capture initial state
             int initialProteaseCount = ProteaseDictionary.Dictionary.Count;
-            var originalTrypsin = ProteaseDictionary.Dictionary["trypsin"];
+            var originalTrypsin = ProteaseDictionary.Dictionary["trypsin|P"];
             Assert.That(originalTrypsin.DigestionMotifs.Count, Is.EqualTo(2)); // K[P]| and R[P]|
 
             // Create a custom protease file that:
@@ -918,9 +918,9 @@ namespace Test
                 Assert.That(addedOrUpdated.Count, Is.EqualTo(2));
                 Assert.That(addedOrUpdated, Contains.Item("trypsin"));
                 Assert.That(addedOrUpdated, Contains.Item("MyLabProtease"));
-                Assert.That(ProteaseDictionary.Dictionary.Count, Is.EqualTo(initialProteaseCount + 1)); // One new protease added
+                Assert.That(ProteaseDictionary.Dictionary.Count, Is.EqualTo(initialProteaseCount + 2)); // Two new proteases added (trypsin without |P, and MyLabProtease)
 
-                // Verify the overwritten trypsin now has different behavior (no proline exclusion in motif)
+                // Verify the new trypsin (without proline exclusion) was added
                 var customTrypsin = ProteaseDictionary.Dictionary["trypsin"];
                 Assert.That(customTrypsin.DigestionMotifs.Count, Is.EqualTo(2));
                 // The custom trypsin motifs should NOT have preventing cleavage for proline
@@ -958,9 +958,10 @@ namespace Test
                 // Assert - verify reset worked
                 Assert.That(ProteaseDictionary.Dictionary.Count, Is.EqualTo(initialProteaseCount));
                 Assert.That(ProteaseDictionary.Dictionary.ContainsKey("MyLabProtease"), Is.False);
+                Assert.That(ProteaseDictionary.Dictionary.ContainsKey("trypsin"), Is.False); // Custom trypsin should be gone
 
-                // Verify trypsin is back to original behavior with proline restriction
-                var restoredTrypsin = ProteaseDictionary.Dictionary["trypsin"];
+                // Verify trypsin|P is back to original behavior with proline restriction
+                var restoredTrypsin = ProteaseDictionary.Dictionary["trypsin|P"];
                 Assert.That(restoredTrypsin.DigestionMotifs.Any(m => m.PreventingCleavage == "P"), Is.True);
             }
             finally

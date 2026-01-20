@@ -69,7 +69,7 @@ namespace Test
         public static void TestBasicProtease2()
         {
             var empty = new List<Modification>();
-            DigestionParams myDigestionParams = new DigestionParams("Lys-C", minPeptideLength: 1, maxMissedCleavages: 0);
+            DigestionParams myDigestionParams = new DigestionParams("Lys-C|P", minPeptideLength: 1, maxMissedCleavages: 0);
             // create a protein
             Protein myProtein = new Protein("MKPKPKPMKA", "myAccession");
             // digest it into peptides
