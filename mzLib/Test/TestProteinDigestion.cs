@@ -894,7 +894,7 @@ namespace Test
         {
             // Arrange - capture initial state
             int initialProteaseCount = ProteaseDictionary.Dictionary.Count;
-            var originalTrypsin = ProteaseDictionary.Dictionary["trypsin (don't cleave before proline)"];
+            var originalTrypsin = ProteaseDictionary.Dictionary["trypsin"];
             Assert.That(originalTrypsin.DigestionMotifs.Count, Is.EqualTo(2)); // K[P]| and R[P]|
 
             // Create a custom protease file that:
@@ -904,7 +904,7 @@ namespace Test
             string[] lines =
             {
                 "Name\tMotif\tSpecificity\tPSI-MS Accession\tPSI-MS Name\tCleavage Modification",
-                "trypsin (don't cleave before proline)\t\"K|,R|\"\tfull\tMS:1001313\tTrypsin\t",  // Override: removes proline restriction
+                "trypsin\t\"K|,R|\"\tfull\tMS:1001313\tTrypsin\t",  // Override: removes proline restriction
                 "MyLabProtease\tE|\tfull\t\tCustom Glu-C variant\t"  // New: cleaves after glutamate
             };
                     File.WriteAllLines(customProteaseFile, lines);
@@ -916,12 +916,12 @@ namespace Test
 
                 // Assert - verify merge results
                 Assert.That(addedOrUpdated.Count, Is.EqualTo(2));
-                Assert.That(addedOrUpdated, Contains.Item("trypsin (don't cleave before proline)"));
+                Assert.That(addedOrUpdated, Contains.Item("trypsin"));
                 Assert.That(addedOrUpdated, Contains.Item("MyLabProtease"));
                 Assert.That(ProteaseDictionary.Dictionary.Count, Is.EqualTo(initialProteaseCount + 1)); // One new protease added
 
                 // Verify the overwritten trypsin now has different behavior (no proline exclusion in motif)
-                var customTrypsin = ProteaseDictionary.Dictionary["trypsin (don't cleave before proline)"];
+                var customTrypsin = ProteaseDictionary.Dictionary["trypsin"];
                 Assert.That(customTrypsin.DigestionMotifs.Count, Is.EqualTo(2));
                 // The custom trypsin motifs should NOT have preventing cleavage for proline
                 Assert.That(customTrypsin.DigestionMotifs.All(m => string.IsNullOrEmpty(m.PreventingCleavage)), Is.True);
@@ -937,7 +937,7 @@ namespace Test
 
                 // Custom trypsin should now cleave before proline (KP and RP)
                 var customTrypsinParams = new DigestionParams(
-                    protease: "trypsin (don't cleave before proline)",
+                    protease: "trypsin",
                     maxMissedCleavages: 0,
                     minPeptideLength: 1);
                 var customDigest = protein.Digest(customTrypsinParams, new List<Modification>(), new List<Modification>()).ToList();
@@ -960,7 +960,7 @@ namespace Test
                 Assert.That(ProteaseDictionary.Dictionary.ContainsKey("MyLabProtease"), Is.False);
 
                 // Verify trypsin is back to original behavior with proline restriction
-                var restoredTrypsin = ProteaseDictionary.Dictionary["trypsin (don't cleave before proline)"];
+                var restoredTrypsin = ProteaseDictionary.Dictionary["trypsin"];
                 Assert.That(restoredTrypsin.DigestionMotifs.Any(m => m.PreventingCleavage == "P"), Is.True);
             }
             finally

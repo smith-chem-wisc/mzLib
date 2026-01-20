@@ -30,9 +30,9 @@
 # ----------------------------------------------------------------------------
 # Name	Motif	Specificity	PSI-MS Accession	PSI-MS Name	Cleavage Modification
 # MyCustomProtease	"K|,R|"	full			
-# trypsin (don't cleave before proline)	"K|,R|"	full	MS:1001313	Trypsin	
+# trypsin	"K|,R|"	full	MS:1001313	Trypsin	
 # ----------------------------------------------------------------------------
-# The first line adds a new protease; the second overrides the built-in trypsin
+# The first line adds a new protease; the second overrides the built-in trypsin (removes proline restriction)
 #
 # ============================================================================
 # MOTIF SYNTAX GUIDE
@@ -80,18 +80,20 @@
 # SingleC - Single cleavage, C-terminal fragments only
 #
 # ============================================================================
+# PROTEASE DEFINITIONS
+# ============================================================================
 Name	Motif	Specificity	PSI-MS Accession	PSI-MS Name	Cleavage Modification
 Arg-C	R|	full	MS:1001303	Arg-C	
 Asp-N	|D	full	MS:1001304	Asp-N	
-chymotrypsin (don't cleave before proline)	"F[P]|,W[P]|,Y[P]|,L[P]|"	full	MS:1001306	Chymotrypsin	
+chymotrypsin	"F[P]|,W[P]|,Y[P]|,L[P]|"	full	MS:1001306	Chymotrypsin	
 CNBr	M|	full	MS:1001307	CNBr	Homoserine lactone on M
-elastase (don't cleave before proline)	"A[P]|,V[P]|,S[P]|,G[P]|,L[P]|,I[P]|"	semi		Elastase	
+elastase	"A[P]|,V[P]|,S[P]|,G[P]|,L[P]|,I[P]|"	semi		Elastase	
 Glu-C	E|	full			
 Glu-C (with asp)	"E|,D|"	full			
-Lys-C (don't cleave before proline)	K[P]|	full	MS:1001309	Lys-C	
+Lys-C	K[P]|	full	MS:1001309	Lys-C	
 Lys-N	|K	full			
 semi-trypsin	"K[P]|,R[P]|"	semi	MS:1001313	Trypsin	
-trypsin (don't cleave before proline)	"K[P]|,R[P]|"	full	MS:1001313	Trypsin	
+trypsin	"K[P]|,R[P]|"	full	MS:1001313	Trypsin	
 tryptophan oxidation	W|	full			
 non-specific	X|	full	MS:1001956	unspecific cleavage	
 top-down		none	MS:1001955	no cleavage	
