@@ -9,6 +9,51 @@ using Omics.Modifications;
 
 namespace Proteomics.ProteolyticDigestion
 {
+    /// <summary>
+    /// Provides a centralized dictionary of proteases used for protein digestion.
+    /// 
+    /// <para><b>Embedded Resource Architecture:</b></para>
+    /// <para>
+    /// This class loads its default protease definitions from an embedded resource (proteases.tsv) 
+    /// compiled directly into the assembly. An embedded resource is a file that becomes part of the 
+    /// compiled DLL/assembly at build time, rather than existing as a separate file on disk.
+    /// </para>
+    /// 
+    /// <para><b>Benefits of Embedded Resources:</b></para>
+    /// <list type="bullet">
+    ///   <item><description><b>Deployment simplicity:</b> No need to distribute or manage separate data files; 
+    ///   the protease definitions travel with the assembly.</description></item>
+    ///   <item><description><b>Version consistency:</b> Protease definitions are always matched to the library 
+    ///   version, preventing mismatches between code and data.</description></item>
+    ///   <item><description><b>Path independence:</b> Works regardless of where the application is installed 
+    ///   or the current working directory.</description></item>
+    ///   <item><description><b>Tamper resistance:</b> Users cannot accidentally modify or delete the default 
+    ///   protease definitions.</description></item>
+    /// </list>
+    /// 
+    /// <para><b>Potential Limitations:</b></para>
+    /// <list type="bullet">
+    ///   <item><description><b>Requires rebuild to modify defaults:</b> Changing the default proteases requires 
+    ///   recompiling the library.</description></item>
+    ///   <item><description><b>Memory usage:</b> The resource is loaded into memory (though proteases.tsv is small, 
+    ///   this is negligible).</description></item>
+    /// </list>
+    /// 
+    /// <para><b>Custom Protease Support:</b></para>
+    /// <para>
+    /// While defaults come from the embedded resource, this class fully supports user-defined custom proteases 
+    /// via <see cref="LoadAndMergeCustomProteases"/>. Users can:
+    /// </para>
+    /// <list type="bullet">
+    ///   <item><description>Add new proteases not in the default set</description></item>
+    ///   <item><description>Override built-in protease definitions with custom cleavage rules</description></item>
+    ///   <item><description>Reset to defaults at any time via <see cref="ResetToDefaults"/></description></item>
+    /// </list>
+    /// <para>
+    /// This design provides reliable defaults out-of-the-box while maintaining full flexibility for 
+    /// specialized research needs.
+    /// </para>
+    /// </summary>
     public static class ProteaseDictionary
     {
         private const string EmbeddedResourceName = "Proteomics.ProteolyticDigestion.proteases.tsv";
