@@ -13,6 +13,28 @@
 # 6. Cleavage Modification   - Name of modification applied at cleavage site (optional)
 #
 # ============================================================================
+# CUSTOM PROTEASES
+# ============================================================================
+# To add custom proteases or override built-in definitions:
+#
+# 1. Create a TSV file with the same column format as this file
+# 2. Call ProteaseDictionary.LoadAndMergeCustomProteases(path)
+#
+# Merge rules:
+#   - If a protease name matches an existing entry, it will be OVERWRITTEN
+#   - If a protease name is new, it will be ADDED to the dictionary
+#
+# To reset to defaults: ProteaseDictionary.ResetToDefaults()
+#
+# Example custom proteases file:
+# ----------------------------------------------------------------------------
+# Name	Motif	Specificity	PSI-MS Accession	PSI-MS Name	Cleavage Modification
+# MyCustomProtease	"K|,R|"	full			
+# trypsin (don't cleave before proline)	"K|,R|"	full	MS:1001313	Trypsin	
+# ----------------------------------------------------------------------------
+# The first line adds a new protease; the second overrides the built-in trypsin
+#
+# ============================================================================
 # MOTIF SYNTAX GUIDE
 # ============================================================================
 # The motif syntax uses a simple pattern language:

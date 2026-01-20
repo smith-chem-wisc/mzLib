@@ -52,6 +52,8 @@ namespace Proteomics.ProteolyticDigestion
 
         /// <summary>
         /// Loads proteases from an external file path. Useful for loading custom user-defined proteases.
+        /// Returns a new dictionary containing only the proteases from the specified file.
+        /// To merge with the main dictionary, use <see cref="LoadAndMergeCustomProteases"/>.
         /// </summary>
         /// <param name="path">Path to the proteases.tsv file.</param>
         /// <param name="proteaseMods">Optional list of modifications to apply to proteases that require them.</param>
@@ -60,6 +62,52 @@ namespace Proteomics.ProteolyticDigestion
         {
             string[] myLines = File.ReadAllLines(path);
             return ParseProteaseLines(myLines, proteaseMods);
+        }
+
+        /// <summary>
+        /// Loads custom proteases from a file and merges them into the main <see cref="Dictionary"/>.
+        /// 
+        /// Merge rules:
+        /// - If a protease name already exists in the main dictionary, it will be overwritten with the custom definition
+        /// - If a protease name is new, it will be added to the main dictionary
+        /// 
+        /// This allows users to:
+        /// 1. Override built-in protease definitions with custom cleavage rules
+        /// 2. Add entirely new proteases not included in the default set
+        /// </summary>
+        /// <param name="path">Path to the custom proteases.tsv file.</param>
+        /// <param name="proteaseMods">Optional list of modifications to apply to proteases that require them.</param>
+        /// <returns>List of protease names that were added or updated.</returns>
+        public static List<string> LoadAndMergeCustomProteases(string path, List<Modification> proteaseMods = null)
+        {
+            var customProteases = LoadProteaseDictionary(path, proteaseMods);
+            var addedOrUpdated = new List<string>();
+
+            foreach (var kvp in customProteases)
+            {
+                if (Dictionary.ContainsKey(kvp.Key))
+                {
+                    // Overwrite existing protease
+                    Dictionary[kvp.Key] = kvp.Value;
+                }
+                else
+                {
+                    // Add new protease
+                    Dictionary.Add(kvp.Key, kvp.Value);
+                }
+                addedOrUpdated.Add(kvp.Key);
+            }
+
+            return addedOrUpdated;
+        }
+
+        /// <summary>
+        /// Resets the dictionary to the default embedded proteases, discarding any custom additions.
+        /// </summary>
+        /// <param name="proteaseMods">Optional list of modifications to apply to proteases that require them.</param>
+        public static void ResetToDefaults(List<Modification> proteaseMods = null)
+        {
+            Dictionary = LoadProteaseDictionary(proteaseMods);
         }
 
         /// <summary>
