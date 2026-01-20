@@ -827,7 +827,7 @@ namespace Test
         [Test]
         public void TestNonSpecificOverride()
         {
-            string trypsin = "trypsin (don't cleave before proline)";
+            string trypsin = "trypsin|P";
             DigestionParams digestionParams = new DigestionParams(trypsin);
             Assert.AreEqual(digestionParams.Protease.Name, trypsin);
 

@@ -137,9 +137,9 @@ namespace Test
             Assert.That(dictionary.Count, Is.GreaterThan(0));
 
             // Verify well-known proteases exist with expected properties
-            Assert.That(dictionary.ContainsKey("trypsin (don't cleave before proline)"), Is.True);
-            Assert.That(dictionary["trypsin (don't cleave before proline)"].CleavageSpecificity, Is.EqualTo(CleavageSpecificity.Full));
-            Assert.That(dictionary["trypsin (don't cleave before proline)"].DigestionMotifs.Count, Is.EqualTo(2)); // K[P]| and R[P]|
+            Assert.That(dictionary.ContainsKey("trypsin|P"), Is.True);
+            Assert.That(dictionary["trypsin|P"].CleavageSpecificity, Is.EqualTo(CleavageSpecificity.Full));
+            Assert.That(dictionary["trypsin|P"].DigestionMotifs.Count, Is.EqualTo(2)); // K[P]| and R[P]|
         }
         /// <summary>
         /// Tests that loading a protease definition with insufficient fields throws an appropriate exception.
@@ -469,13 +469,13 @@ namespace Test
         {
             var prot = new Protein("MNNNKQQQQMNNNKQQQQ", null);
 
-            DigestionParams digestionParams = new DigestionParams("trypsin (don't cleave before proline)", maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            DigestionParams digestionParams = new DigestionParams("trypsin|P", maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var ye = prot.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
-            digestionParams = new DigestionParams("trypsin (don't cleave before proline)", maxMissedCleavages: 0, minPeptideLength: 5, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            digestionParams = new DigestionParams("trypsin|P", maxMissedCleavages: 0, minPeptideLength: 5, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var ye1 = prot.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
-            digestionParams = new DigestionParams("trypsin (don't cleave before proline)", maxMissedCleavages: 0, minPeptideLength: 1, maxPeptideLength: 5, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            digestionParams = new DigestionParams("trypsin|P", maxMissedCleavages: 0, minPeptideLength: 1, maxPeptideLength: 5, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var ye2 = prot.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
-            digestionParams = new DigestionParams("trypsin (don't cleave before proline)", maxMissedCleavages: 0, minPeptideLength: 5, maxPeptideLength: 8, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            digestionParams = new DigestionParams("trypsin|P", maxMissedCleavages: 0, minPeptideLength: 5, maxPeptideLength: 8, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var ye3 = prot.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
             Assert.AreEqual(3, ye.Count);
             Assert.AreEqual(2, ye1.Count);
@@ -514,7 +514,7 @@ namespace Test
         [Test]
         public static void TestDigestionOfSameProteinFromDifferentXmls()
         {
-            DigestionParams digestionParams = new DigestionParams("trypsin (don't cleave before proline)", maxMissedCleavages: 2, minPeptideLength: 7, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            DigestionParams digestionParams = new DigestionParams("trypsin|P", maxMissedCleavages: 2, minPeptideLength: 7, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             ModificationMotif.TryGetMotif("C", out ModificationMotif motif);
             Modification carbamidomethylOnC = new Modification(_originalId: "Carbamidomethyl on C", _modificationType: "Common Fixed", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C2H3NO"));
             var fixedModifications = new List<Modification> { carbamidomethylOnC };
@@ -896,18 +896,21 @@ namespace Test
             int initialProteaseCount = ProteaseDictionary.Dictionary.Count;
             var originalTrypsin = ProteaseDictionary.Dictionary["trypsin|P"];
             Assert.That(originalTrypsin.DigestionMotifs.Count, Is.EqualTo(2)); // K[P]| and R[P]|
+            // Verify original trypsin|P cleaves after K and R (not before P)
+            Assert.That(originalTrypsin.DigestionMotifs.Any(m => m.InducingCleavage == "K"), Is.True);
+            Assert.That(originalTrypsin.DigestionMotifs.Any(m => m.InducingCleavage == "R"), Is.True);
 
             // Create a custom protease file that:
-            // 1. Overrides trypsin to cleave after K and R WITHOUT the proline restriction
+            // 1. Overrides trypsin|P with a completely different (nonsense) cleavage rule: cleave after L unless followed by P
             // 2. Adds a completely new custom protease
             string customProteaseFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_custom_proteases.tsv");
             string[] lines =
             {
                 "Name\tMotif\tSpecificity\tPSI-MS Accession\tPSI-MS Name\tCleavage Modification",
-                "trypsin\t\"K|,R|\"\tfull\tMS:1001313\tTrypsin\t",  // Override: removes proline restriction
+                "trypsin|P\tL[P]|\tfull\tMS:1001313\tTrypsin\t",  // Override: change from K[P]|,R[P]| to L[P]| (nonsense rule for testing)
                 "MyLabProtease\tE|\tfull\t\tCustom Glu-C variant\t"  // New: cleaves after glutamate
             };
-                    File.WriteAllLines(customProteaseFile, lines);
+            File.WriteAllLines(customProteaseFile, lines);
 
             try
             {
@@ -916,15 +919,15 @@ namespace Test
 
                 // Assert - verify merge results
                 Assert.That(addedOrUpdated.Count, Is.EqualTo(2));
-                Assert.That(addedOrUpdated, Contains.Item("trypsin"));
+                Assert.That(addedOrUpdated, Contains.Item("trypsin|P"));
                 Assert.That(addedOrUpdated, Contains.Item("MyLabProtease"));
-                Assert.That(ProteaseDictionary.Dictionary.Count, Is.EqualTo(initialProteaseCount + 2)); // Two new proteases added (trypsin without |P, and MyLabProtease)
+                Assert.That(ProteaseDictionary.Dictionary.Count, Is.EqualTo(initialProteaseCount + 1)); // Only one new protease added (MyLabProtease); trypsin|P was overwritten
 
-                // Verify the new trypsin (without proline exclusion) was added
-                var customTrypsin = ProteaseDictionary.Dictionary["trypsin"];
-                Assert.That(customTrypsin.DigestionMotifs.Count, Is.EqualTo(2));
-                // The custom trypsin motifs should NOT have preventing cleavage for proline
-                Assert.That(customTrypsin.DigestionMotifs.All(m => string.IsNullOrEmpty(m.PreventingCleavage)), Is.True);
+                // Verify trypsin|P was overwritten with the new L[P]| motif
+                var customTrypsin = ProteaseDictionary.Dictionary["trypsin|P"];
+                Assert.That(customTrypsin.DigestionMotifs.Count, Is.EqualTo(1)); // Now only L[P]|
+                Assert.That(customTrypsin.DigestionMotifs[0].InducingCleavage, Is.EqualTo("L"));
+                Assert.That(customTrypsin.DigestionMotifs[0].PreventingCleavage, Is.EqualTo("P"));
 
                 // Verify new protease was added
                 Assert.That(ProteaseDictionary.Dictionary.ContainsKey("MyLabProtease"), Is.True);
@@ -933,16 +936,20 @@ namespace Test
                 Assert.That(myLabProtease.DigestionMotifs[0].InducingCleavage, Is.EqualTo("E"));
 
                 // Verify custom proteases work for digestion
-                var protein = new Protein("PEPTIDEKPEPTIDER", null);
+                // Protein with L's for testing the overwritten trypsin|P
+                // Note: L at position 8 is followed by 'E' (not P), so cleavage will occur there
+                var protein = new Protein("PEPTIDELEPEPTIDER", null);
 
-                // Custom trypsin should now cleave before proline (KP and RP)
+                // Custom trypsin|P should now cleave after L (unless followed by P)
                 var customTrypsinParams = new DigestionParams(
-                    protease: "trypsin",
+                    protease: "trypsin|P",
                     maxMissedCleavages: 0,
                     minPeptideLength: 1);
                 var customDigest = protein.Digest(customTrypsinParams, new List<Modification>(), new List<Modification>()).ToList();
-                // With proline restriction removed, should cleave at K and R even before P
-                Assert.That(customDigest.Count, Is.EqualTo(2)); // PEPTIDEK, PEPTIDER
+                // Should cleave after L at position 8 (L is followed by E, not P), producing: PEPTIDEL, EPEPTIDER
+                Assert.That(customDigest.Count, Is.EqualTo(2));
+                Assert.That(customDigest[0].BaseSequence, Is.EqualTo("PEPTIDEL"));
+                Assert.That(customDigest[1].BaseSequence, Is.EqualTo("EPEPTIDER"));
 
                 // New protease should work
                 var myLabParams = new DigestionParams(
@@ -950,7 +957,7 @@ namespace Test
                     maxMissedCleavages: 0,
                     minPeptideLength: 1);
                 var myLabDigest = protein.Digest(myLabParams, new List<Modification>(), new List<Modification>()).ToList();
-                Assert.That(myLabDigest.Count, Is.EqualTo(5)); // PE, PTIDE, KPE, PTIDE, R (cleaves after each E)
+                Assert.That(myLabDigest.Count, Is.EqualTo(6)); // PE, PTIDE, LE, PE, PTIDE, R (cleaves after each E)
 
                 // Act - reset to defaults
                 ProteaseDictionary.ResetToDefaults();
@@ -958,11 +965,12 @@ namespace Test
                 // Assert - verify reset worked
                 Assert.That(ProteaseDictionary.Dictionary.Count, Is.EqualTo(initialProteaseCount));
                 Assert.That(ProteaseDictionary.Dictionary.ContainsKey("MyLabProtease"), Is.False);
-                Assert.That(ProteaseDictionary.Dictionary.ContainsKey("trypsin"), Is.False); // Custom trypsin should be gone
 
-                // Verify trypsin|P is back to original behavior with proline restriction
+                // Verify trypsin|P is back to original behavior (K[P]| and R[P]}
                 var restoredTrypsin = ProteaseDictionary.Dictionary["trypsin|P"];
-                Assert.That(restoredTrypsin.DigestionMotifs.Any(m => m.PreventingCleavage == "P"), Is.True);
+                Assert.That(restoredTrypsin.DigestionMotifs.Count, Is.EqualTo(2));
+                Assert.That(restoredTrypsin.DigestionMotifs.Any(m => m.InducingCleavage == "K"), Is.True);
+                Assert.That(restoredTrypsin.DigestionMotifs.Any(m => m.InducingCleavage == "R"), Is.True);
             }
             finally
             {

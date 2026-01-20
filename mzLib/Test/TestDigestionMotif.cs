@@ -178,7 +178,7 @@ namespace Test
         public static void TestEndSequenceCTerm()
         {
             var empty = new List<Modification>();
-            DigestionParams myDigestionParams = new DigestionParams("chymotrypsin (don't cleave before proline)", minPeptideLength: 1, maxMissedCleavages: 0);
+            DigestionParams myDigestionParams = new DigestionParams("chymotrypsin|P", minPeptideLength: 1, maxMissedCleavages: 0);
             // create a protein
             Protein myProtein = new Protein("AASFPWDJSSMF", "myAccession");
             // digest it into peptides
@@ -571,8 +571,8 @@ namespace Test
             //check that there are no duplicates
             Assert.IsTrue(pwsms.Count == hashset.Count);
             //Speedy semi specific test
-            DigestionParams speedySemiN = new DigestionParams("trypsin (don't cleave before proline)", 10, 29, 30, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, FragmentationTerminus.N);
-            DigestionParams speedySemiC = new DigestionParams("trypsin (don't cleave before proline)", 10, 29, 30, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, FragmentationTerminus.C);
+            DigestionParams speedySemiN = new DigestionParams("trypsin|P", 10, 29, 30, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, FragmentationTerminus.N);
+            DigestionParams speedySemiC = new DigestionParams("trypsin|P", 10, 29, 30, 1024, InitiatorMethionineBehavior.Retain, 2, CleavageSpecificity.Semi, FragmentationTerminus.C);
             List<PeptideWithSetModifications> pwsmsN = humanInsulin.Digest(speedySemiN, null, null).ToList();
             List<PeptideWithSetModifications> pwsmsC = humanInsulin.Digest(speedySemiC, null, null).ToList();
             Assert.IsTrue(pwsmsN.Count == 7);
@@ -609,8 +609,8 @@ namespace Test
         [Test]
         public void Equals_SameName_ReturnsTrue()
         {
-            var agent1 = ProteaseDictionary.Dictionary["trypsin (don't cleave before proline)"];
-            var agent2 = ProteaseDictionary.Dictionary["trypsin (don't cleave before proline)"];
+            var agent1 = ProteaseDictionary.Dictionary["trypsin|P"];
+            var agent2 = ProteaseDictionary.Dictionary["trypsin|P"];
 
             Assert.That(agent1.Equals(agent2), Is.True);
         }
@@ -618,7 +618,7 @@ namespace Test
         [Test]
         public void Equals_DifferentName_ReturnsFalse()
         {
-            var agent1 = ProteaseDictionary.Dictionary["trypsin (don't cleave before proline)"];
+            var agent1 = ProteaseDictionary.Dictionary["trypsin|P"];
             var agent2 = ProteaseDictionary.Dictionary["Arg-C"];
 
             Assert.That(agent1.Equals(agent2), Is.False);
@@ -627,8 +627,8 @@ namespace Test
         [Test]
         public void GetHashCode_SameName_ReturnsSameHashCode()
         {
-            var agent1 = ProteaseDictionary.Dictionary["trypsin (don't cleave before proline)"];
-            var agent2 = ProteaseDictionary.Dictionary["trypsin (don't cleave before proline)"];
+            var agent1 = ProteaseDictionary.Dictionary["trypsin|P"];
+            var agent2 = ProteaseDictionary.Dictionary["trypsin|P"];
 
             Assert.That(agent1.GetHashCode(), Is.EqualTo(agent2.GetHashCode()));
         }
@@ -636,7 +636,7 @@ namespace Test
         [Test]
         public void GetHashCode_DifferentName_ReturnsDifferentHashCode()
         {
-            var agent1 = ProteaseDictionary.Dictionary["trypsin (don't cleave before proline)"];
+            var agent1 = ProteaseDictionary.Dictionary["trypsin|P"];
             var agent2 = ProteaseDictionary.Dictionary["Arg-C"];
 
             Assert.That(agent1.GetHashCode(), Is.Not.EqualTo(agent2.GetHashCode()));

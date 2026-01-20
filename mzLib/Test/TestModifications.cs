@@ -401,7 +401,7 @@ namespace Test
             Modification mod = new Modification(_originalId: "oxidation", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("O1"), _locationRestriction: "Anywhere.");
             List<Modification> modlist = new List<Modification> { mod };
             DigestionParams digestionParams = new DigestionParams(
-                protease: "trypsin (don't cleave before proline)",
+                protease: "trypsin|P",
                 maxMissedCleavages: 0,
                 minPeptideLength: 1,
                 initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
@@ -459,7 +459,7 @@ namespace Test
             Modification mod = new Modification(_originalId: "phospho", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: new Dictionary<DissociationType, List<double>> { { DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3 O4 P1").MonoisotopicMass } } }, _locationRestriction: "Anywhere.");
             List<Modification> modlist = new List<Modification> { mod };
             DigestionParams digestionParams = new DigestionParams(
-                protease: "trypsin (don't cleave before proline)",
+                protease: "trypsin|P",
                 maxMissedCleavages: 0,
                 minPeptideLength: 1,
                 initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
@@ -495,7 +495,7 @@ namespace Test
             List<Modification> modlisttwo = new List<Modification> { modtwo };
 
             DigestionParams digestionParams = new DigestionParams(
-                protease: "trypsin (don't cleave before proline)",
+                protease: "trypsin|P",
                 maxMissedCleavages: 0,
                 minPeptideLength: 1,
                 initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
@@ -530,7 +530,7 @@ namespace Test
             Modification mod = new Modification(_originalId: "phospho", _modificationType: "testModType", _target: motif, _chemicalFormula: ChemicalFormula.ParseFormula("H1 O3 P1"), _neutralLosses: myNeutralLosses, _locationRestriction: "Anywhere.");
             List<Modification> modlist = new List<Modification> { mod };
             DigestionParams digestionParams = new DigestionParams(
-                protease: "trypsin (don't cleave before proline)",
+                protease: "trypsin|P",
                 maxMissedCleavages: 0,
                 minPeptideLength: 1,
                 initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);

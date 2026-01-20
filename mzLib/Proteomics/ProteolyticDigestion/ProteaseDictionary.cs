@@ -207,6 +207,25 @@ namespace Proteomics.ProteolyticDigestion
                 string name = GetFieldValue(fields, columnIndices, nameAliases);
                 string motifField = GetFieldValue(fields, columnIndices, motifAliases);
                 string specificityField = GetFieldValue(fields, columnIndices, specificityAliases);
+
+                // Validate that required fields are present
+                // Calculate minimum required columns based on header indices
+                int minRequiredColumns = 0;
+                foreach (var alias in nameAliases.Concat(motifAliases).Concat(specificityAliases))
+                {
+                    if (columnIndices.TryGetValue(alias, out int idx))
+                    {
+                        minRequiredColumns = Math.Max(minRequiredColumns, idx + 1);
+                    }
+                }
+
+                if (fields.Length < minRequiredColumns || string.IsNullOrWhiteSpace(specificityField))
+                {
+                    throw new MzLibException(
+                        $"Line has insufficient fields for protease '{name}': expected at least 3 required columns (Name, Motif, Specificity), got {fields.Length}. " +
+                        $"Please ensure the line contains values for all required fields.");
+                }
+
                 string psiMsAccessionNumber = GetFieldValue(fields, columnIndices, psiMsAccessionAliases);
                 string psiMsName = GetFieldValue(fields, columnIndices, psiMsNameAliases);
                 string proteaseModDetails = GetFieldValue(fields, columnIndices, cleavageModAliases);
