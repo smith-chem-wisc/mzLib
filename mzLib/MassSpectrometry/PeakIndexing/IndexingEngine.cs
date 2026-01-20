@@ -195,10 +195,10 @@ namespace MassSpectrometry
         /// A generic method performing peak tracing for all the peaks in an indexingEngine and trying to find all XICs.
         /// <param name="cutPeakDiscriminationFactor"> The discrimination factor to determine if a peak should be cut if we are doing peak cutting </param>
         /// <returns> A list of ExtractedIonChromatogram objects representing all XICs that can be found in an indexingEngine </returns>
-        public virtual List<ExtractedIonChromatogram> GetAllXics(Tolerance peakFindingTolerance, int maxMissedScanAllowed, double maxRTRange, int numPeakThreshold, double? cutPeakDiscriminationFactor = null)
+        public virtual List<ExtractedIonChromatogram> GetAllXics(Tolerance peakFindingTolerance, int maxMissedScanAllowed, double maxRTRange, int numPeakThreshold, out Dictionary<IIndexedPeak, ExtractedIonChromatogram> matchedPeaks, double? cutPeakDiscriminationFactor = null)
         {
             var xics = new List<ExtractedIonChromatogram>();
-            var matchedPeaks = new Dictionary<IIndexedPeak, ExtractedIonChromatogram>();
+            matchedPeaks = new Dictionary<IIndexedPeak, ExtractedIonChromatogram>();
             var sortedPeaks = IndexedPeaks.Where(v => v != null).SelectMany(peaks => peaks).OrderByDescending(p => p.Intensity).ToList();
             foreach (var peak in sortedPeaks)
             {
