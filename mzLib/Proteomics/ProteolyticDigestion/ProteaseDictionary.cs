@@ -65,7 +65,8 @@ namespace Proteomics.ProteolyticDigestion
         /// <summary>
         /// Parses protease definitions from TSV-formatted lines.
         /// Lines starting with '#' are treated as comments and skipped.
-        /// The header line (starting with "Name") is also skipped.
+        /// The header line is parsed to determine column positions.
+        /// Supports both old and new column name formats for backward compatibility.
         /// </summary>
         /// <param name="lines">Lines from the proteases file.</param>
         /// <param name="proteaseMods">Optional list of modifications to apply to proteases that require them.</param>
@@ -73,42 +74,49 @@ namespace Proteomics.ProteolyticDigestion
         private static Dictionary<string, Protease> ParseProteaseLines(string[] lines, List<Modification> proteaseMods)
         {
             Dictionary<string, Protease> dict = new Dictionary<string, Protease>();
+            Dictionary<string, int> columnIndices = null;
+
+            // Column name aliases for backward compatibility (first name is the canonical name)
+            // Old format used longer, more descriptive names; new format uses shorter names
+            string[] nameAliases = { "name" };
+            string[] motifAliases = { "motif", "sequences inducing cleavage" };
+            string[] specificityAliases = { "specificity", "cleavage specificity" };
+            string[] psiMsAccessionAliases = { "psi-ms accession", "psi-ms accession number" };
+            string[] psiMsNameAliases = { "psi-ms name" };
+            string[] cleavageModAliases = { "cleavage modification", "cleavage mass shifts" };
 
             foreach (string line in lines)
             {
-                // Skip empty lines, comment lines, and the header line
                 // Trim to handle potential BOM or leading/trailing whitespace
                 string trimmedLine = line.Trim().TrimStart('\uFEFF'); // \uFEFF is the UTF-8 BOM character
                 
-                if (string.IsNullOrWhiteSpace(trimmedLine) || 
-                    trimmedLine.StartsWith("#") || 
-                    trimmedLine.StartsWith("Name\t", StringComparison.OrdinalIgnoreCase))
+                // Skip empty lines and comment lines
+                if (string.IsNullOrWhiteSpace(trimmedLine) || trimmedLine.StartsWith("#"))
                 {
                     continue;
                 }
 
                 string[] fields = trimmedLine.Split('\t');
-                
-                if (fields.Length < 3)
+
+                // Check if this is the header line (first non-comment, non-empty line should be header)
+                if (columnIndices == null)
                 {
-                    throw new MzLibException($"Protease definition line has insufficient fields (expected at least 3, got {fields.Length}): {line}");
+                    columnIndices = ParseHeaderLine(fields);
+                    
+                    // Validate required columns exist (using any of their aliases)
+                    ValidateRequiredColumn(columnIndices, "Name", nameAliases);
+                    ValidateRequiredColumn(columnIndices, "Motif", motifAliases);
+                    ValidateRequiredColumn(columnIndices, "Specificity", specificityAliases);
+                    continue;
                 }
 
-                // Expected TSV columns (see proteases.tsv header for full documentation):
-                // [0] Name                  - Required: Unique protease identifier
-                // [1] Motif                 - Required: Cleavage motif syntax (e.g., "K[P]|,R[P]|")
-                // [2] Specificity           - Required: full, semi, none, SingleN, or SingleC
-                // [3] PSI-MS Accession      - Optional: Standard identifier (e.g., MS:1001313)
-                // [4] PSI-MS Name           - Optional: Standard name from PSI-MS ontology
-                // [5] Cleavage Modification - Optional: Modification applied at cleavage site
-                
-                // Trim each field to handle whitespace and ensure empty fields are truly empty
-                string name = fields[0].Trim();
-                string motifField = fields[1].Trim();
-                string specificityField = fields[2].Trim();
-                string psiMsAccessionNumber = fields.Length > 3 ? fields[3].Trim() : string.Empty;
-                string psiMsName = fields.Length > 4 ? fields[4].Trim() : string.Empty;
-                string proteaseModDetails = fields.Length > 5 ? fields[5].Trim() : string.Empty;
+                // Parse data line using column indices from header
+                string name = GetFieldValue(fields, columnIndices, nameAliases);
+                string motifField = GetFieldValue(fields, columnIndices, motifAliases);
+                string specificityField = GetFieldValue(fields, columnIndices, specificityAliases);
+                string psiMsAccessionNumber = GetFieldValue(fields, columnIndices, psiMsAccessionAliases);
+                string psiMsName = GetFieldValue(fields, columnIndices, psiMsNameAliases);
+                string proteaseModDetails = GetFieldValue(fields, columnIndices, cleavageModAliases);
 
                 List<DigestionMotif> motifList = DigestionMotif.ParseDigestionMotifsFromString(motifField);
                 var cleavageSpecificity = (CleavageSpecificity)Enum.Parse(typeof(CleavageSpecificity), specificityField, true);
@@ -125,7 +133,60 @@ namespace Proteomics.ProteolyticDigestion
                 dict.Add(protease.Name, protease);
             }
 
+            if (columnIndices == null)
+            {
+                throw new MzLibException("Protease file contains no header line. Expected columns: Name, Motif, Specificity");
+            }
+
             return dict;
+        }
+
+        /// <summary>
+        /// Parses the header line and returns a dictionary mapping column names (lowercase) to their indices.
+        /// </summary>
+        private static Dictionary<string, int> ParseHeaderLine(string[] headerFields)
+        {
+            var columnIndices = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+            for (int i = 0; i < headerFields.Length; i++)
+            {
+                string columnName = headerFields[i].Trim().ToLowerInvariant();
+                if (!string.IsNullOrEmpty(columnName))
+                {
+                    columnIndices[columnName] = i;
+                }
+            }
+
+            return columnIndices;
+        }
+
+        /// <summary>
+        /// Validates that at least one of the column name aliases exists in the header.
+        /// </summary>
+        private static void ValidateRequiredColumn(Dictionary<string, int> columnIndices, string displayName, string[] aliases)
+        {
+            if (!aliases.Any(alias => columnIndices.ContainsKey(alias)))
+            {
+                throw new MzLibException(
+                    $"Protease file header is missing required column '{displayName}'. " +
+                    $"Expected one of: {string.Join(", ", aliases)}. " +
+                    $"Found columns: {string.Join(", ", columnIndices.Keys)}");
+            }
+        }
+
+        /// <summary>
+        /// Gets a field value by trying multiple column name aliases, returning empty string if none exist.
+        /// </summary>
+        private static string GetFieldValue(string[] fields, Dictionary<string, int> columnIndices, string[] columnAliases)
+        {
+            foreach (string alias in columnAliases)
+            {
+                if (columnIndices.TryGetValue(alias, out int index) && index < fields.Length)
+                {
+                    return fields[index].Trim();
+                }
+            }
+            return string.Empty;
         }
 
         /// <summary>
