@@ -147,6 +147,18 @@ namespace Omics.Modifications
             return code;
         }
 
+        public string ToString(ModificationNamingConvention convention)
+        {
+            var stringRepresentation = ToString();
+            switch (convention)
+            {
+                case ModificationNamingConvention.UniProt:
+                    return stringRepresentation.Replace($"ID   " + IdWithMotif, "ID   " + OriginalId);
+                default:
+                    return stringRepresentation;
+            }
+        }
+
         public override string ToString()
         {
             StringBuilder sb = new StringBuilder();

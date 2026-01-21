@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using Easy.Common.Extensions;
 using Omics;
 using Omics.Modifications;
 using Proteomics.AminoAcidPolymer;
@@ -48,6 +49,9 @@ public static class ModificationConverter
 
         // Store UniProt mods separately (they have ModificationType == "UniProt")
         _uniprotMods = uniprotPtms.Where(m => m.ModificationType == "UniProt").ToList();
+        ModificationCache[("Methylation", 'H')] = _uniprotMods.First(p => p.OriginalId.Equals("Methylhistidine"));
+        ModificationCache[("Methylation", 'K')] = _uniprotMods.First(p => p.OriginalId.Equals("N6-methyllysine"));
+        ModificationCache[("Methylation", 'R')] = _uniprotMods.First(p => p.OriginalId.Equals("Omega-N-methylarginine"));
 
         // MetaMorpheus mods are everything else
         _metamorpheusMods = modsTextMods;
@@ -157,6 +161,20 @@ public static class ModificationConverter
         return allModsOneIsNterminus;
     }
 
+    public static List<(string, string)> ExtractCache(ModificationNamingConvention convention = ModificationNamingConvention.Mixed)
+    {
+        List<(string, string)> modConversions = new();
+        foreach (var conversion in ModificationCache)
+        {
+            var input = $"{conversion.Key.Item1} on {conversion.Key.Item2}"
+            ;
+            var output = convention is ModificationNamingConvention.UniProt
+                ? conversion.Value.OriginalId
+                : conversion.Value.IdWithMotif;
+            modConversions.Add((input, output));
+        }
+        return modConversions;
+    }
 
     /// <summary>
     /// Gets the closest modification from the list of all known modifications that matches the given localized modification,
@@ -344,8 +362,9 @@ public static class ModificationConverter
                     bioPolymer.OneBasedPossibleLocalizedModifications[kvp.Key].RemoveAt(index);
                     if (bioPolymer.OneBasedPossibleLocalizedModifications[kvp.Key].Count == 0)
                         bioPolymer.OneBasedPossibleLocalizedModifications.Remove(kvp.Key);
+                    index--;
                 }
-                else if (convertedMod.Equals(mod) && convertedMod.FeatureType != "UniProt")
+                else if (convertedMod.Equals(mod) && convertedMod.ModificationType != "UniProt")
                     Debugger.Break();
                 else if (convertedMod.ChemicalFormula.Equals(mod.ChemicalFormula))
                     kvp.Value[index] = convertedMod;
@@ -377,6 +396,7 @@ public static class ModificationConverter
                     bioPolymer.OriginalNonVariantModifications[kvp.Key].RemoveAt(index);
                     if (bioPolymer.OriginalNonVariantModifications[kvp.Key].Count == 0)
                         bioPolymer.OriginalNonVariantModifications.Remove(kvp.Key);
+                    index--;
                 }
                 else if (convertedMod.ChemicalFormula.Equals(mod.ChemicalFormula))
                     kvp.Value[index] = convertedMod;
@@ -421,7 +441,10 @@ public static class ModificationConverter
 
                     var convertedMod = GetClosestMod(mod, residue, targetConvention, mod.ChemicalFormula);
                     if (convertedMod is null)
+                    {
                         kvp.Value.RemoveAt(index);
+                        index--;
+                    }
                     else if (convertedMod.ChemicalFormula.Equals(mod.ChemicalFormula))
                         kvp.Value[index] = convertedMod;
                     else
@@ -465,7 +488,10 @@ public static class ModificationConverter
 
                     var convertedMod = GetClosestMod(mod, residue, targetConvention, mod.ChemicalFormula);
                     if (convertedMod is null)
+                    {
                         kvp.Value.RemoveAt(index);
+                        index--;
+                    }
                     else if (convertedMod.ChemicalFormula.Equals(mod.ChemicalFormula))
                         kvp.Value[index] = convertedMod;
                     else
@@ -473,5 +499,9 @@ public static class ModificationConverter
                 }
             }
         }
+
+        // If this is not the consensus variant, also convert the consensus. 
+        if (bioPolymer.ConsensusVariant is not null && !ReferenceEquals(bioPolymer, bioPolymer.ConsensusVariant))
+            bioPolymer.ConsensusVariant.ConvertMods(targetConvention);
     }
 }

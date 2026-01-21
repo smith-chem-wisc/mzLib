@@ -1,13 +1,14 @@
-using NUnit.Framework;
-using Omics.Modifications;
 using Chemistry;
+using NUnit.Framework;
+using Omics.BioPolymer;
+using Omics.Modifications;
 using Proteomics;
-using UsefulProteomicsDatabases;
+using Readers;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Readers;
-using Omics.BioPolymer;
+using UsefulProteomicsDatabases;
 
 namespace Test.DatabaseTests
 {
@@ -587,12 +588,19 @@ namespace Test.DatabaseTests
                     prot.ConvertMods(ModificationNamingConvention.UniProt);
                 }
 
+                var oneBased = inProteins.SelectMany(p => p.OneBasedPossibleLocalizedModifications.Values).SelectMany(m => m).Distinct().ToList();
+                var original = inProteins.SelectMany(p => p.OriginalNonVariantModifications.Values).SelectMany(m => m).Distinct().ToList();
+                var seqVars = inProteins.SelectMany(p => p.SequenceVariations.SelectMany(p => p.OneBasedModifications.Values).SelectMany(m => m)).Distinct().ToList();
+                var appliedVars = inProteins.SelectMany(p => p.AppliedSequenceVariations.SelectMany(p => p.OneBasedModifications.Values).SelectMany(m => m)).Distinct().ToList();
+
                 string outPath = Path.Combine(Path.GetDirectoryName(db)!, Path.GetFileNameWithoutExtension(db) + "_uniprot.xml");
                 ProteinDbWriter.WriteXmlDatabase(
                     new Dictionary<string, HashSet<System.Tuple<int, Modification>>>(),
                     inProteins,
-                    outPath);
+                    outPath, namingConvention: ModificationNamingConvention.UniProt);
             }
+
+            var cache = ModificationConverter.ExtractCache(ModificationNamingConvention.UniProt);
         }
     }
 }
