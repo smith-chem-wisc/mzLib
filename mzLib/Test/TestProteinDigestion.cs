@@ -98,7 +98,6 @@ namespace Test
 
             Assert.AreNotEqual(null, protease3.CleavageMod);
             Assert.AreEqual("M", protease3.CleavageMod.Target.ToString());
-
             Assert.AreNotEqual(peps3[0].MonoisotopicMass, peps3[1].MonoisotopicMass);
 
             Assert.AreEqual(882.39707781799996, peps3[1].MonoisotopicMass);
