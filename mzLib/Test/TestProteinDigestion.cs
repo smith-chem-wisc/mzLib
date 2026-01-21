@@ -67,7 +67,7 @@ namespace Test
             NUnit.Framework.Assert.That(File.Exists(path));
 
             var proteaseDict = ProteaseDictionary.LoadProteaseDictionary(path, proteaseMods);
-            ProteaseDictionary.Dictionary = ProteaseDictionary.LoadProteaseDictionary(proteaseMods);
+            ProteaseDictionary.ResetToDefaults(proteaseMods);
             var protease1 = proteaseDict["CNBr"];
             DigestionParams digestionParams1 = new DigestionParams(
                 protease: protease1.Name,
@@ -131,8 +131,9 @@ namespace Test
             Assert.That(resourceNames, Contains.Item("Proteomics.ProteolyticDigestion.proteases.tsv"),
                 $"Expected embedded resource not found. Available resources: {string.Join(", ", resourceNames)}");
 
-            // Verify it loads successfully and contains expected proteases
-            var dictionary = ProteaseDictionary.LoadProteaseDictionary(proteaseMods: null);
+            // Verify it loads successfully and contains expected proteases via ResetToDefaults
+            ProteaseDictionary.ResetToDefaults();
+            var dictionary = ProteaseDictionary.Dictionary;
             Assert.That(dictionary, Is.Not.Null);
             Assert.That(dictionary.Count, Is.GreaterThan(0));
 

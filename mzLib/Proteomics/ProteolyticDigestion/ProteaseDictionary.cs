@@ -71,7 +71,7 @@ namespace Proteomics.ProteolyticDigestion
         /// </summary>
         /// <param name="proteaseMods">Optional list of modifications to apply to proteases that require them.</param>
         /// <returns>Dictionary of protease name to Protease object.</returns>
-        public static Dictionary<string, Protease> LoadProteaseDictionary(List<Modification> proteaseMods)
+        private static Dictionary<string, Protease> LoadProteaseDictionary(List<Modification> proteaseMods)
         {
             var assembly = typeof(ProteaseDictionary).Assembly;
 

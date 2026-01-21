@@ -1,11 +1,83 @@
-Name	Sequences Inducing Cleavage	Sequences Preventing Cleavage	Cleavage Terminus	Cleavage Specificity	Site Regular Expression	Cleavage Mass Shifts	Notes
-RNase T1	G|			full			
-RNase T2	"G|,C|,A|,U|"			full			
-RNase A	"C|,U|"			full			
-top-down				none			
-RNase 1	"G|,C|,A|,U|"			full			
-RNase PhyM	"A|,U|"			full			
-RNase U2	"G|,A|"			full		
-Cusativin	C|			full
-RNase_MC1	"|U"			full
-colicin_E5	"G|U"			full			colicin E5 cuts after G (or Q) followed by U
+# ============================================================================
+# RNASE DEFINITIONS FILE
+# ============================================================================
+# Lines starting with '#' are comments and will be ignored by the parser.
+#
+# COLUMN DEFINITIONS (tab-separated):
+# ----------------------------------------------------------------------------
+# 1. Name                    - Unique identifier for the RNase
+# 2. Motif                   - Cleavage motif syntax defining where cleavage occurs (see below)
+# 3. Specificity             - One of: full, semi, none, SingleN, SingleC
+#
+# ============================================================================
+# CUSTOM RNASES
+# ============================================================================
+# To add custom RNases or override built-in definitions:
+#
+# 1. Create a TSV file with the same column format as this file
+# 2. Call RnaseDictionary.LoadAndMergeCustomRnases(path)
+#
+# Merge rules:
+#   - If an RNase name matches an existing entry, it will be OVERWRITTEN
+#   - If an RNase name is new, it will be ADDED to the dictionary
+#
+# To reset to defaults: RnaseDictionary.ResetToDefaults()
+#
+# Example custom RNases file:
+# ----------------------------------------------------------------------------
+# Name	Motif	Specificity
+# MyCustomRNase	"A|,G|"	full
+# ----------------------------------------------------------------------------
+#
+# ============================================================================
+# MOTIF SYNTAX GUIDE
+# ============================================================================
+# The motif syntax uses a simple pattern language:
+#
+# BASIC ELEMENTS:
+#   |     = Cleavage point (where the phosphodiester bond is cut)
+#   X     = Any nucleotide (wildcard)
+#   A,C,G,U = Specific nucleotide (single letter code)
+#
+# POSITION RELATIVE TO CLEAVAGE:
+#   G|    = Cleave AFTER guanine (3' cleavage)
+#   |U    = Cleave BEFORE uracil (5' cleavage)
+#   
+# PREVENTING CLEAVAGE (square brackets):
+#   G[C]| = Cleave after G, UNLESS followed by C
+#          (prevents cleavage when C is 3' to G)
+#
+# MULTIPLE MOTIFS (comma-separated):
+#   "G|,A|" = Cleave after G or A
+#
+# ============================================================================
+# EXAMPLES
+# ============================================================================
+# RNase T1:  G|           - Cleaves after G (guanosine-specific)
+# RNase A:   "C|,U|"      - Cleaves after C or U (pyrimidine-specific)
+# RNase T2:  "G|,C|,A|,U|" - Cleaves after any nucleotide
+# Top-down:  (empty)      - No cleavage (intact RNA)
+#
+# ============================================================================
+# CLEAVAGE SPECIFICITY VALUES
+# ============================================================================
+# full    - Both termini must match cleavage rules
+# semi    - Only one terminus must match cleavage rules
+# none    - No enzymatic cleavage (top-down, RNA-seq)
+# SingleN - Single cleavage, 5' fragments only
+# SingleC - Single cleavage, 3' fragments only
+#
+# ============================================================================
+# RNASE DEFINITIONS
+# ============================================================================
+Name	Motif	Specificity
+RNase T1	G|	full
+RNase T2	"G|,C|,A|,U|"	full
+RNase A	"C|,U|"	full
+top-down		none
+RNase 1	"G|,C|,A|,U|"	full
+RNase PhyM	"A|,U|"	full
+RNase U2	"G|,A|"	full
+Cusativin	C|	full
+RNase_MC1	"|U"	full
+colicin_E5	"G|U"	full
