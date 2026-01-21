@@ -65,7 +65,7 @@ namespace MzLibUtil
             return false;
         }
 
-        public override Tolerance UpdateTolerance(double newValue)
+        public override Tolerance CreateNewTolerance(double newValue)
         {
             return new PpmToleranceWithNotch(newValue, AcceptableSortedMassShifts);
         }

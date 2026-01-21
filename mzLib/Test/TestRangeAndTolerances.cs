@@ -463,15 +463,15 @@ namespace Test
         public void UpdateToleranceTest()
         {
             var tol = new PpmTolerance(10);
-            var updatedTol = tol.UpdateTolerance(20);
+            var updatedTol = tol.CreateNewTolerance(20);
             Assert.AreEqual(20, updatedTol.Value);
 
             var absTol = new AbsoluteTolerance(5);
-            var updatedAbsTol = absTol.UpdateTolerance(15);
+            var updatedAbsTol = absTol.CreateNewTolerance(15);
             Assert.AreEqual(15, updatedAbsTol.Value);
 
             var tolWithNotch = new PpmToleranceWithNotch(10, 2, 1);
-            var updatedTolWithNotch = tolWithNotch.UpdateTolerance(25);
+            var updatedTolWithNotch = tolWithNotch.CreateNewTolerance(25);
             Assert.AreEqual(25, updatedTolWithNotch.Value);
         }
     }

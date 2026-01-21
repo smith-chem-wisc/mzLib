@@ -99,6 +99,11 @@ namespace MzLibUtil
         /// <returns>Returns true if the value is within this tolerance  </returns>
         public abstract bool Within(double experimental, double theoretical);
 
-        public abstract Tolerance UpdateTolerance(double newValue);
+        /// <summary>
+        /// Create a new tolerance of the same type with a different value based on the existing one
+        /// </summary>
+        /// <param name="newValue">The new tolerance value</param>
+        /// <returns></returns>
+        public abstract Tolerance CreateNewTolerance(double newValue);
     }
 }
