@@ -142,6 +142,91 @@ namespace Test
             Assert.That(dictionary["trypsin|P"].CleavageSpecificity, Is.EqualTo(CleavageSpecificity.Full));
             Assert.That(dictionary["trypsin|P"].DigestionMotifs.Count, Is.EqualTo(2)); // K[P]| and R[P]|
         }
+
+        /// <summary>
+        /// Tests backward compatibility for old-style protease names.
+        /// Names like "chymotrypsin (don't cleave before proline)" should automatically
+        /// resolve to "chymotrypsin|P".
+        /// </summary>
+        [Test]
+        public static void GetProtease_OldStyleName_ResolvesToNewFormat()
+        {
+            // Reset to defaults to ensure clean state
+            ProteaseDictionary.ResetToDefaults();
+
+            // Test various old-style naming patterns
+            var testCases = new[]
+            {
+                ("chymotrypsin (don't cleave before proline)", "chymotrypsin|P"),
+                ("trypsin (don't cleave before proline)", "trypsin|P"),
+                ("Lys-C (don't cleave before proline)", "Lys-C|P"),
+            };
+
+            foreach (var (oldName, expectedNewName) in testCases)
+            {
+                // Verify normalization
+                string normalizedName = ProteaseDictionary.NormalizeProteaseName(oldName);
+                Assert.That(normalizedName, Is.EqualTo(expectedNewName), 
+                    $"Failed to normalize '{oldName}' to '{expectedNewName}'");
+
+                // Verify GetProtease works with old name
+                var protease = ProteaseDictionary.GetProtease(oldName);
+                Assert.That(protease, Is.Not.Null, $"GetProtease failed for '{oldName}'");
+                Assert.That(protease.Name, Is.EqualTo(expectedNewName), 
+                    $"GetProtease returned wrong protease for '{oldName}'");
+
+                // Verify TryGetProtease works with old name
+                bool found = ProteaseDictionary.TryGetProtease(oldName, out var protease2);
+                Assert.That(found, Is.True, $"TryGetProtease failed for '{oldName}'");
+                Assert.That(protease2.Name, Is.EqualTo(expectedNewName));
+            }
+        }
+
+        /// <summary>
+        /// Tests that GetProtease still works with exact new-style names.
+        /// </summary>
+        [Test]
+        public static void GetProtease_NewStyleName_WorksDirectly()
+        {
+            ProteaseDictionary.ResetToDefaults();
+
+            var protease = ProteaseDictionary.GetProtease("trypsin|P");
+            Assert.That(protease, Is.Not.Null);
+            Assert.That(protease.Name, Is.EqualTo("trypsin|P"));
+
+            bool found = ProteaseDictionary.TryGetProtease("chymotrypsin|P", out var protease2);
+            Assert.That(found, Is.True);
+            Assert.That(protease2.Name, Is.EqualTo("chymotrypsin|P"));
+        }
+
+        /// <summary>
+        /// Tests that GetProtease throws appropriate exception for unknown protease.
+        /// </summary>
+        [Test]
+        public static void GetProtease_UnknownProtease_ThrowsKeyNotFoundException()
+        {
+            ProteaseDictionary.ResetToDefaults();
+
+            Assert.Throws<KeyNotFoundException>(() => ProteaseDictionary.GetProtease("nonexistent protease"));
+            
+            bool found = ProteaseDictionary.TryGetProtease("nonexistent protease", out var protease);
+            Assert.That(found, Is.False);
+            Assert.That(protease, Is.Null);
+        }
+
+        /// <summary>
+        /// Tests that NormalizeProteaseName returns the original name when no pattern matches.
+        /// </summary>
+        [Test]
+        public static void NormalizeProteaseName_NoMatch_ReturnsOriginal()
+        {
+            Assert.That(ProteaseDictionary.NormalizeProteaseName("trypsin"), Is.EqualTo("trypsin"));
+            Assert.That(ProteaseDictionary.NormalizeProteaseName("trypsin|P"), Is.EqualTo("trypsin|P"));
+            Assert.That(ProteaseDictionary.NormalizeProteaseName("custom protease"), Is.EqualTo("custom protease"));
+            Assert.That(ProteaseDictionary.NormalizeProteaseName(""), Is.EqualTo(""));
+            Assert.That(ProteaseDictionary.NormalizeProteaseName(null), Is.Null);
+        }
+
         /// <summary>
         /// Tests that loading a protease definition with insufficient fields throws an appropriate exception.
         /// The parser requires at least 3 fields: Name, Motif, and Specificity.

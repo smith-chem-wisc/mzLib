@@ -143,6 +143,7 @@ namespace Proteomics.ProteolyticDigestion
                 addedOrUpdated.Add(kvp.Key);
             }
 
+
             return addedOrUpdated;
         }
 
@@ -153,6 +154,101 @@ namespace Proteomics.ProteolyticDigestion
         public static void ResetToDefaults(List<Modification> proteaseMods = null)
         {
             Dictionary = LoadProteaseDictionary(proteaseMods);
+        }
+
+        /// <summary>
+        /// Gets a protease by name, with backward compatibility for old naming conventions.
+        /// Old names like "chymotrypsin (don't cleave before proline)" are automatically 
+        /// converted to the new format "chymotrypsin|P".
+        /// </summary>
+        /// <param name="name">The protease name (old or new format).</param>
+        /// <returns>The Protease object.</returns>
+        /// <exception cref="KeyNotFoundException">Thrown when the protease is not found after normalization.</exception>
+        public static Protease GetProtease(string name)
+        {
+            // Try exact match first
+            if (Dictionary.TryGetValue(name, out var protease))
+            {
+                return protease;
+            }
+
+            // Try normalizing old-style name
+            string normalizedName = NormalizeProteaseName(name);
+            if (normalizedName != name && Dictionary.TryGetValue(normalizedName, out protease))
+            {
+                return protease;
+            }
+
+            throw new KeyNotFoundException($"Protease '{name}' not found in dictionary. " +
+                $"If using an old-style name, ensure it follows the pattern 'name (don't cleave before proline)' " +
+                $"which maps to 'name|P'.");
+        }
+
+        /// <summary>
+        /// Tries to get a protease by name, with backward compatibility for old naming conventions.
+        /// Old names like "chymotrypsin (don't cleave before proline)" are automatically 
+        /// converted to the new format "chymotrypsin|P".
+        /// </summary>
+        /// <param name="name">The protease name (old or new format).</param>
+        /// <param name="protease">When successful, contains the Protease object; otherwise null.</param>
+        /// <returns>True if the protease was found; otherwise false.</returns>
+        public static bool TryGetProtease(string name, out Protease protease)
+        {
+            // Try exact match first
+            if (Dictionary.TryGetValue(name, out protease))
+            {
+                return true;
+            }
+
+            // Try normalizing old-style name
+            string normalizedName = NormalizeProteaseName(name);
+            if (normalizedName != name && Dictionary.TryGetValue(normalizedName, out protease))
+            {
+                return true;
+            }
+
+            protease = null;
+            return false;
+        }
+
+        /// <summary>
+        /// Normalizes old-style protease names to the new format.
+        /// <para>
+        /// Converts patterns like:
+        /// <list type="bullet">
+        ///   <item><description>"chymotrypsin (don't cleave before proline)" → "chymotrypsin|P"</description></item>
+        ///   <item><description>"Lys-C (don't cleave before proline)" → "Lys-C|P"</description></item>
+        /// </list>
+        /// </para>
+        /// The "|P" suffix indicates the protease has a proline restriction (won't cleave when 
+        /// the next residue is proline).
+        /// </summary>
+        /// <param name="name">The protease name to normalize.</param>
+        /// <returns>The normalized protease name, or the original name if no pattern matched.</returns>
+        public static string NormalizeProteaseName(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return name;
+
+            // Common old-style patterns that indicate proline restriction (case-insensitive)
+            // These all map to the "|P" suffix in the new naming convention
+            string[] prolineRestrictionPatterns =
+            {
+                " (don't cleave before proline)",
+            };
+
+            foreach (var pattern in prolineRestrictionPatterns)
+            {
+                int index = name.IndexOf(pattern, StringComparison.OrdinalIgnoreCase);
+                if (index >= 0)
+                {
+                    // Remove the pattern and trim, then add |P
+                    string baseName = name.Substring(0, index).Trim();
+                    return baseName + "|P";
+                }
+            }
+
+            return name;
         }
 
         /// <summary>
