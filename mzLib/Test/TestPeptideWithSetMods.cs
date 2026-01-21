@@ -49,7 +49,7 @@ namespace Test
         {
             Protein myProtein = new Protein("SEQUENCEK", "accession");
 
-            DigestionParams digest1 = new DigestionParams(protease: "trypsin|P", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            DigestionParams digest1 = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             DigestionParams digest2 = new DigestionParams(protease: "Lys-C|P", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
 
             PeptideWithSetModifications pep1 = myProtein.Digest(digest1, new List<Modification>(), new List<Modification>()).First();
@@ -81,8 +81,8 @@ namespace Test
         public static void TestSemiFewCleavages()
         {
             Protein protein = new("MQLLRCFSIFSVIASVLAQELTTICEQIPSPTLESTPYSLSTTTILANGKAMQGVFEYYKSVTFVSNCGSHPSTTSKGSPINTQYVF", "P32781");
-            DigestionParams nParams = new("trypsin|P", 2, 7, 50, searchModeType: CleavageSpecificity.Semi, fragmentationTerminus: FragmentationTerminus.N);
-            DigestionParams cParams = new("trypsin|P", 2, 7, 50, searchModeType: CleavageSpecificity.Semi, fragmentationTerminus: FragmentationTerminus.C);
+            DigestionParams nParams = new("trypsin", 2, 7, 50, searchModeType: CleavageSpecificity.Semi, fragmentationTerminus: FragmentationTerminus.N);
+            DigestionParams cParams = new("trypsin", 2, 7, 50, searchModeType: CleavageSpecificity.Semi, fragmentationTerminus: FragmentationTerminus.C);
 
             //Unit test is not crashing
             protein.Digest(nParams, null, null).ToList();
@@ -101,7 +101,7 @@ namespace Test
             Protein protein3 = new Protein("MQFSTVASVAFVALANFVAAESAAAISQITDGQIQATTTATTEATTTAAPSSTVETVSPSSTETISQQTENGAAKAAVGMGAGALAAAAMLL", "P43497", proteolysisProducts: proteolysisProducts);
             protein3.Digest(nParams, null, null).ToList();
             protein3.Digest(cParams, null, null).ToList();
-            cParams = new DigestionParams("trypsin|P", 0, 7, 9, searchModeType: CleavageSpecificity.Semi, fragmentationTerminus: FragmentationTerminus.C, initiatorMethionineBehavior: InitiatorMethionineBehavior.Cleave);
+            cParams = new DigestionParams("trypsin", 0, 7, 9, searchModeType: CleavageSpecificity.Semi, fragmentationTerminus: FragmentationTerminus.C, initiatorMethionineBehavior: InitiatorMethionineBehavior.Cleave);
             protein3.Digest(cParams, null, null).ToList();
 
             //classic
@@ -370,8 +370,8 @@ namespace Test
             Protein tinyProteinWithoutCleavages = new Protein("ACDEFGHILMNPQST", "tinier");
             Protein bigProteinWithStretchOfNoCleavages = new Protein("ACDREFGHIKLMNPQRSTGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGACDREFGHIKLMNPQRST", "big");
 
-            DigestionParams dpN = new DigestionParams("trypsin|P", 1, 5, 20, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.N);
-            DigestionParams dpC = new DigestionParams("trypsin|P", 1, 5, 20, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.C);
+            DigestionParams dpN = new DigestionParams("trypsin", 1, 5, 20, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.N);
+            DigestionParams dpC = new DigestionParams("trypsin", 1, 5, 20, searchModeType: CleavageSpecificity.None, fragmentationTerminus: FragmentationTerminus.C);
             List<Modification> empty = new List<Modification>();
 
             //SingleN tests
@@ -476,7 +476,7 @@ namespace Test
 
             Protein myProtein = new Protein("SEQUENCEK", "accession");
 
-            DigestionParams digest1 = new DigestionParams(protease: "trypsin|P", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            DigestionParams digest1 = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
 
             PeptideWithSetModifications pep2 = myProtein.Digest(digest1, new List<Modification>(), new List<Modification>()).First();
 
@@ -858,7 +858,7 @@ namespace Test
             // Tyrpsin -- Reverse Decoy is identical so get mirror
             Dictionary<int, Modification> VTIRTVR_modsDictionary = new Dictionary<int, Modification> { { 1, nTermAcet }, { 3, phosphorylation } };
             newAminoAcidPositions = new int["VTIRTVR".Length];
-            PeptideWithSetModifications p_tryp = new PeptideWithSetModifications(new Protein("VTIRTVR", "DECOY_TRYP"), new DigestionParams(protease: "trypsin|P"), 1, 7, CleavageSpecificity.Full, null, 0, VTIRTVR_modsDictionary, 0, null);
+            PeptideWithSetModifications p_tryp = new PeptideWithSetModifications(new Protein("VTIRTVR", "DECOY_TRYP"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, VTIRTVR_modsDictionary, 0, null);
             PeptideWithSetModifications p_tryp_reverse = p_tryp.GetReverseDecoyFromTarget(newAminoAcidPositions);
             // Hash code corresponding to the target sequence, should be PairedTargetDecoyHash for reverse
             string mirrorTarget = p_tryp.FullSequence;
@@ -1057,11 +1057,11 @@ namespace Test
         [Test]
         public static void CheckFullChemicalFormula()
         {
-            PeptideWithSetModifications small_pep = new PeptideWithSetModifications(new Protein("PEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin|P"), 1, 7, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications small_pep = new PeptideWithSetModifications(new Protein("PEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             ChemicalFormula small_pep_cf = ChemicalFormula.ParseFormula("C34H53N7O15");
             Assert.AreEqual(small_pep.FullChemicalFormula, small_pep_cf);
 
-            PeptideWithSetModifications large_pep = new PeptideWithSetModifications(new Protein("PEPTIDEKRNSPEPTIDEKECUEIRQUV", "ACCESSION"), new DigestionParams(protease: "trypsin|P"), 1, 28, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications large_pep = new PeptideWithSetModifications(new Protein("PEPTIDEKRNSPEPTIDEKECUEIRQUV", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 28, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             ChemicalFormula large_pep_cf = ChemicalFormula.ParseFormula("C134H220N38O50S1Se2");
             Assert.AreEqual(large_pep.FullChemicalFormula, large_pep_cf);
 
@@ -1070,7 +1070,7 @@ namespace Test
             Dictionary<int, Modification> modDict_small = new Dictionary<int, Modification>();
             modDict_small.Add(4, phosphorylation);
 
-            PeptideWithSetModifications small_pep_mod = new PeptideWithSetModifications(new Protein("PEPSIDE", "ACCESSION"), new DigestionParams(protease: "trypsin|P"), 1, 7, CleavageSpecificity.Full, null, 0, modDict_small, 0, null);
+            PeptideWithSetModifications small_pep_mod = new PeptideWithSetModifications(new Protein("PEPSIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, modDict_small, 0, null);
             ChemicalFormula small_pep_mod_cf = ChemicalFormula.ParseFormula("C33H52N7O18P1");
             Assert.AreEqual(small_pep_mod.FullChemicalFormula, small_pep_mod_cf);
 
@@ -1081,7 +1081,7 @@ namespace Test
             modDict_large.Add(11, phosphorylation);
             modDict_large.Add(8, acetylation);
 
-            PeptideWithSetModifications large_pep_mod = new PeptideWithSetModifications(new Protein("PEPSIDEKRNSPEPTIDEKECUEIRQUV", "ACCESSION"), new DigestionParams(protease: "trypsin|P"), 1, 28, CleavageSpecificity.Full, null, 0, modDict_large, 0, null);
+            PeptideWithSetModifications large_pep_mod = new PeptideWithSetModifications(new Protein("PEPSIDEKRNSPEPTIDEKECUEIRQUV", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 28, CleavageSpecificity.Full, null, 0, modDict_large, 0, null);
             ChemicalFormula large_pep_mod_cf = ChemicalFormula.ParseFormula("C135H223N38O57P2S1Se2");
             Assert.AreEqual(large_pep_mod.FullChemicalFormula, large_pep_mod_cf);
 
@@ -1103,11 +1103,11 @@ namespace Test
         [Test]
         public static void CheckMostAbundantMonoisotopicMass()
         {
-            PeptideWithSetModifications small_pep = new PeptideWithSetModifications(new Protein("PEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin|P"), 1, 7, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications small_pep = new PeptideWithSetModifications(new Protein("PEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             double small_pep_most_abundant_mass_prospector = 800.36724 - 1.0079;
             Assert.That(small_pep.MostAbundantMonoisotopicMass, Is.EqualTo(small_pep_most_abundant_mass_prospector).Within(0.01));
 
-            PeptideWithSetModifications large_pep = new PeptideWithSetModifications(new Protein("PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin|P"), 1, 42, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications large_pep = new PeptideWithSetModifications(new Protein("PEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDEPEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 42, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             double large_pep_most_abundant_mass_prospector = 4709.12020 - 1.0079;
             Assert.That(large_pep.MostAbundantMonoisotopicMass, Is.EqualTo(large_pep_most_abundant_mass_prospector).Within(0.01));
         }
@@ -1210,7 +1210,7 @@ namespace Test
             Protein protein2 = new Protein("SEQUENCEK", "accession2");
 
             // Create digestion parameters
-            DigestionParams digestionParams = new DigestionParams(protease: "trypsin|P", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            DigestionParams digestionParams = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
 
             // Digest the proteins to get peptides
             PeptideWithSetModifications peptide1 = protein1.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
