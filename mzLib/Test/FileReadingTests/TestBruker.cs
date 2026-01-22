@@ -104,6 +104,23 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void TestDynamicConnection_AfterStaticLoading()
+        {
+            MsDataFile brukerReader = MsDataFileReader.GetDataFile(_centroidPath);
+            brukerReader.LoadAllStaticData();
+            brukerReader.InitiateDynamicConnection();
+            var scan = brukerReader.GetOneBasedScanFromDynamicConnection(2);
+
+            Assert.That(scan.Polarity == Polarity.Positive);
+            Assert.That(scan.DissociationType == DissociationType.CID);
+            Assert.That(scan.TotalIonCurrent == 346d);
+            Assert.That(scan.NativeId == "scan=2");
+            Assert.That(scan.SelectedIonMZ, Is.EqualTo(721.86865).Within(0.001));
+            Assert.That(scan.MsnOrder == 2);
+            Assert.That(scan.IsCentroid);
+        }
+
+        [Test]
         public void TestDynamicConnectionToAllScans()
         {
             MsDataFile brukerReader = MsDataFileReader.GetDataFile(_centroidPath);

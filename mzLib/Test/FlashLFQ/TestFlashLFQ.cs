@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Test.FileReadingTests;
+using MassSpectrometry;
 using UsefulProteomicsDatabases;
 using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
 using Stopwatch = System.Diagnostics.Stopwatch;
@@ -1532,7 +1533,8 @@ namespace Test.FlashLFQ
 
             // the "requireMsmsIdInCondition" field requires that at least one MS/MS identification from a protein
             // has to be observed in a condition for match-between-runs
-            f1r1.Condition = "b";
+
+            f1r1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ", "TestData", @"f1r1_sliced_mbr.raw"), "b", 0, 0, 0);
             engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: true, maxThreads: 5);
             results = engine.Run();
             var proteinsObservedInF1 = ids.Where(id => !id.IsDecoy).Where(p => p.FileInfo == f1r1).SelectMany(p => p.ProteinGroups).Distinct().ToList();
@@ -1769,8 +1771,10 @@ namespace Test.FlashLFQ
         [Test]
         public static void TestAmbiguousFraction()
         {
+            //these two have the same filename...but are different fractions
             SpectraFileInfo fraction1 = new SpectraFileInfo("", "", 0, 0, fraction: 0);
             SpectraFileInfo fraction2 = new SpectraFileInfo("", "", 0, 0, fraction: 1);
+            
             Identification id1 = new Identification(fraction1, "peptide1", "peptide1", 0, 0, 0, new List<ProteinGroup>());
 
             Identification id2 = new Identification(fraction2, "peptide1", "peptide1", 0, 0, 0, new List<ProteinGroup>());

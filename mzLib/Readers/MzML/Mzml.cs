@@ -21,6 +21,7 @@ using MzLibUtil;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO.Compression;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -308,8 +309,10 @@ namespace Readers
         /// </summary>
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
         {
-            MsDataScan scan = null;
+            if (CheckIfScansLoaded() && oneBasedScanNumber <= Scans.Length)
+                return GetOneBasedScan(oneBasedScanNumber);
 
+            MsDataScan scan = null;
             lock (DynamicReadingLock)
             {
                 if (ScanNumberToByteOffset.TryGetValue(oneBasedScanNumber, out long byteOffset))

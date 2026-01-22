@@ -20,8 +20,8 @@ namespace Omics.BioPolymer
             OneBasedEndPosition = oneBasedEndPosition;
             OriginalSequence = originalSequence ?? "";
             VariantSequence = variantSequence ?? "";
-            Description = new SequenceVariantDescription(description);
-            OneBasedModifications = oneBasedModifications ?? [];
+            Description = new VariantCallFormat(description);
+            OneBasedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
         }
 
         /// <summary>
@@ -60,7 +60,7 @@ namespace Omics.BioPolymer
         /// <summary>
         /// Description of this variation (optional)
         /// </summary>
-        public SequenceVariantDescription Description { get; }
+        public VariantCallFormat Description { get; }
 
         /// <summary>
         /// Modifications specifically for this variant

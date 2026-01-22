@@ -7,6 +7,7 @@ using Omics.Fragmentation.Peptide;
 using Omics.SpectrumMatch;
 using System.Collections.Generic;
 using MzLibUtil;
+using Omics.Modifications;
 
 namespace Readers
 {
@@ -65,6 +66,7 @@ namespace Readers
 
         #region IQuantifiableRecord Properties and Methods
         public string FileName => FileNameWithoutExtension;
+        public int OneBasedScanNumber => Ms2ScanNumber;
         public string BaseSequence => BaseSeq;
         public int ChargeState => PrecursorCharge;
         public bool IsDecoy => DecoyContamTarget.Contains('D');
@@ -323,6 +325,29 @@ namespace Readers
                 for (int index = 0; index < peakMzs.Count; index++)
                 {
                     string peak = peakMzs[index];
+
+                    // Matches M, optional digits (to be stripped), optional custom loss, charge, m/z
+                    // Examples matched: M15+1, M+1, M-P+1, M-P+1, M-A-P-H20-2, etc.
+                    var mIonMatch = Regex.Match(peak, @"^(M)(\d*)([\w\-]*)([+-]\d+):([\d\.]+)$");
+                    if (mIonMatch.Success)
+                    {
+                        // mIonMatch.Groups[1]: "M"
+                        // mIonMatch.Groups[2]: digits after M (to be ignored)
+                        // mIonMatch.Groups[3]: custom annotation (e.g., "-P", "-A-P-H20", or empty)
+                        // mIonMatch.Groups[4]: charge (with sign)
+                        // mIonMatch.Groups[5]: m/z
+
+                        string customAnnotation = mIonMatch.Groups[3].Value; // e.g., "-P", "-A-P-H20", or ""
+                        int charge = int.Parse(mIonMatch.Groups[4].Value, CultureInfo.InvariantCulture);
+                        double mZ = double.Parse(mIonMatch.Groups[5].Value, CultureInfo.InvariantCulture);
+                        double intens = ExtractNumber(peakIntensities[index], 2);
+
+                        double neutralMass = mZ.ToMass(charge);
+                        var product = new CustomMProduct(customAnnotation, neutralMass);
+                        matchedIons.Add(new MatchedFragmentIonWithCache(product, mZ, intens, charge));
+                        continue;
+                    }
+
                     // Regex: IonTypeAndNumber (with optional neutral loss), charge (+/-), m/z
                     // Examples:
                     //   y1+1:147.11267
@@ -499,24 +524,7 @@ namespace Readers
             }
             return variantCrossingIons;
         }
-        public static List<Tuple<int, string, double>> ReadLocalizedGlycan(string localizedGlycan)
-        {
-            List<Tuple<int, string, double>> tuples = new List<Tuple<int, string, double>>();
-            if (localizedGlycan == null)
-            {
-                return tuples;
-            }
-            var lgs = localizedGlycan.Split(new string[] { "[", "]" }, StringSplitOptions.RemoveEmptyEntries);
-            foreach (var lg in lgs)
-            {
-                var g = lg.Split(',', StringSplitOptions.RemoveEmptyEntries);
 
-                Tuple<int, string, double> tuple = new Tuple<int, string, double>(int.Parse(g[0], CultureInfo.InvariantCulture), g[1], double.Parse(g[2], CultureInfo.InvariantCulture));
-                tuples.Add(tuple);
-            }
-
-            return tuples;
-        }
 
         public override string ToString()
         {

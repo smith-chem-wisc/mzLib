@@ -46,10 +46,10 @@ namespace Omics
         IBioPolymer Parent { get; }
 
         public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus,
-            List<Product> products);
+            List<Product> products, FragmentationParams? fragmentationParams = null);
 
         public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments,
-            List<Product> products);
+            List<Product> products, FragmentationParams? fragmentationParams = null);
 
         /// <summary>
         /// Outputs a duplicate IBioPolymerWithSetMods with a localized mass shift, replacing a modification when present
@@ -125,11 +125,10 @@ namespace Omics
                     {
                         try
                         {
-                            //remove the beginning section (e.g. "Fixed", "Variable", "Uniprot")
+                            //remove the beginning section (e.g. "Fixed", "Variable", "Uniprot") if present
                             string modString = fullSequence.Substring(currentModStart, r - currentModStart);
                             int splitIndex = modString.IndexOf(':');
-                            string modType = modString.Substring(0, splitIndex);
-                            modId = modString.Substring(splitIndex + 1, modString.Length - splitIndex - 1);
+                            modId = splitIndex > 0 ? modString.Substring(splitIndex + 1, modString.Length - splitIndex - 1) : modString;
                         }
                         catch (Exception e)
                         {
@@ -142,7 +141,10 @@ namespace Omics
                             throw new MzLibUtil.MzLibException(
                                 "Could not find modification while reading string: " + fullSequence);
                         }
-                        if (mod.LocationRestriction.Contains("C-terminal.") && r == fullSequence.Length - 1)
+                        // Set the C-terminus modification index to its OneIsNTerminus Index.
+                        // Checks if the location restriction for the mod contains C-terminal' (for protein and peptide BioPolymer objects)
+                        // or '3'-terminal' (for nucleic acid BioPolymer objects) and if we are at the last residue of the full sequence.
+                        if ((mod.LocationRestriction.Contains("C-terminal.") || mod.LocationRestriction.Contains("3'-terminal.") && r == fullSequence.Length - 1))
                         {
                             currentModificationLocation = baseSequence.Length + 2;
                         }
@@ -150,7 +152,7 @@ namespace Omics
                         currentlyReadingMod = false;
                     }
                 }
-                else if (!currentlyReadingMod)
+                else if (!currentlyReadingMod && c!='-')
                 {
                     currentModificationLocation++;
                 }

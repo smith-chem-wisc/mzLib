@@ -6,7 +6,7 @@ using Chemistry;
 
 namespace MassSpectrometry
 {
-    public class IsotopicEnvelope : IHasMass
+    public class IsotopicEnvelope : IHasMass, IEquatable<IsotopicEnvelope>
     {
         public readonly List<(double mz, double intensity)> Peaks;
         public double MonoisotopicMass { get; private set; }
@@ -87,6 +87,51 @@ namespace MassSpectrometry
         public void SetMedianMonoisotopicMass(List<double> monoisotopicMassPredictions)
         {
             MonoisotopicMass = monoisotopicMassPredictions.Median();
+        }
+
+        public bool Equals(IsotopicEnvelope other)
+        {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+            if (Charge != other.Charge || Peaks.Count != other.Peaks.Count) return false;
+            if (Math.Abs(TotalIntensity - other.TotalIntensity) >= 0.001) return false;
+            if (Math.Abs(MonoisotopicMass - other.MonoisotopicMass) >= 0.001) return false;
+            if (Math.Abs(MostAbundantObservedIsotopicMass - other.MostAbundantObservedIsotopicMass) >= 0.001) return false;
+
+            for (int i = 0; i < Peaks.Count; i++)
+            {
+                var p1 = Peaks[i];
+                var p2 = other.Peaks[i];
+                if (Math.Abs(p1.mz - p2.mz) >= 0.001 || Math.Abs(p1.intensity - p2.intensity) >= 0.001)
+                    return false;
+            }
+            return true;
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (obj is null) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != GetType()) return false;
+            return Equals((IsotopicEnvelope)obj);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = 17;
+                foreach (var peak in Peaks)
+                {
+                    hash = hash * 23 + peak.mz.GetHashCode();
+                    hash = hash * 23 + peak.intensity.GetHashCode();
+                }
+                hash = hash * 23 + Charge.GetHashCode();
+                hash = hash * 23 + TotalIntensity.GetHashCode();
+                hash = hash * 23 + MonoisotopicMass.GetHashCode();
+                hash = hash * 23 + MostAbundantObservedIsotopicMass.GetHashCode();
+                return hash;
+            }
         }
     }
 }
