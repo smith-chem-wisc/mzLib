@@ -22,7 +22,7 @@ namespace Test.Transcriptomics
     public class TestDigestion
     {
         public record RnaDigestionTestCase(string BaseSequence, string Enzyme, int MissedCleavages, int MinLength,
-            int MaxLength, int DigestionProductCount,
+            int MaxLength, int DigestionProductCount, 
             double[] MonoMasses, string[] Sequences);
 
         public static IEnumerable<RnaDigestionTestCase> GetTestCases()
