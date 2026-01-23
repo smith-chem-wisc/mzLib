@@ -1,6 +1,6 @@
 ﻿namespace Predictions.Koina.Interfaces
 {
-    internal interface IKoinaModelIO
+    public interface IKoinaModelIO
     {
         public string ModelName { get; }
         public int MaxBatchSize { get; }

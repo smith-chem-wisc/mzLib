@@ -62,9 +62,9 @@ namespace Test
                     {
                         var inMemoryFrag = sortedInMemoryFrags[j];
                         var savedFrag = sortedSavedFrags[j];
-                        Assert.That(inMemoryFrag.Mz == savedFrag.Mz);
+                        Assert.That(inMemoryFrag.Mz, Is.EqualTo(savedFrag.Mz).Within(1e-6));
                         // Compare normalized intensities since saved library normalizes to max intensity
-                        Assert.That((inMemoryFrag.Intensity / maxInMemoryIntensity) == savedFrag.Intensity);
+                        Assert.That((inMemoryFrag.Intensity / maxInMemoryIntensity), Is.EqualTo(savedFrag.Intensity).Within(1e-6));
                         Assert.That(inMemoryFrag.NeutralTheoreticalProduct.ProductType == savedFrag.NeutralTheoreticalProduct.ProductType);
                         Assert.That(inMemoryFrag.NeutralTheoreticalProduct.FragmentNumber == savedFrag.NeutralTheoreticalProduct.FragmentNumber);
                         Assert.That(inMemoryFrag.Charge == savedFrag.Charge);

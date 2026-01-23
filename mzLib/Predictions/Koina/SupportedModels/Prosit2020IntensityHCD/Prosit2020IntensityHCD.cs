@@ -1,14 +1,12 @@
 ﻿using Chemistry;
-using Predictions.Koina.Client;
-using Predictions.Koina.Interfaces;
+using MzLibUtil;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
-using Omics.Modifications;
-using Proteomics.ProteolyticDigestion;
+using Predictions.Koina.Client;
+using Predictions.Koina.Interfaces;
 using Proteomics.AminoAcidPolymer;
 using Readers.SpectralLibrary;
 using System.ComponentModel;
-using TopDownProteomics;
 using System.Text.RegularExpressions;
 
 namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
@@ -39,7 +37,16 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
         public List<LibrarySpectrum> PredictedSpectra = new();
         public double MinIntensityFilter; // Tolerance for intensity filtering of predicted peaks
 
-
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="peptideSequences"></param>
+        /// <param name="precursorCharges"></param>
+        /// <param name="collisionEnergies"></param>
+        /// <param name="retentionTimes"></param>
+        /// <param name="warnings"></param>
+        /// <param name="minIntensityFilter"></param>
+        /// <exception cref="ArgumentException"></exception>
         public Prosit2020IntensityHCD(List<string> peptideSequences, List<int> precursorCharges, List<int> collisionEnergies, List<double?> retentionTimes, out WarningException? warnings, double minIntensityFilter=1e-4)
         {
             // Verify input lists are of the same length
@@ -88,7 +95,7 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
                     + "- Peptide has valid modifications\n"
                     + $"- Precursor charge in [{string.Join(", ", AllowedPrecursorCharges)}]\n"
                     + "- Collision energy > 0\n"
-                    + "- Retention time is null or >= 0";
+                    + "- Retention time is null or >= 0 (for Spectrum Library only)";
                 warnings = new WarningException(warningMessage);
             }
 
@@ -156,21 +163,21 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
 
         public async Task RunInferenceAsync()
         {
-            var _http = new HTTP(timeoutInMinutes: (int)(PeptideSequences.Count/MaxBatchSize) * 2 + 1); // Typically a full batch takes about a minute. Setting it to double that for safety.
+            var _http = new HTTP(timeoutInMinutes: (int)(PeptideSequences.Count/MaxBatchSize) * 2 + 2); // Typically a full batch takes about a minute. Setting it to double that for safety.
 
             var responses = await Task.WhenAll(ToBatchedRequests().Select(request => _http.InferenceRequest(ModelName, request)));
-            _ResponseToLibrarySpectra(responses);
-            _http.Client.Dispose();
+            ResponseToLibrarySpectra(responses);
+            _http.Dispose();
         }
 
 
-        private void _ResponseToLibrarySpectra(string[] responses)
+        private void ResponseToLibrarySpectra(string[] responses)
         {
             PredictedSpectra = new List<LibrarySpectrum>();
             var deserializedResponses = responses.Select(response => Newtonsoft.Json.JsonConvert.DeserializeObject<ResponseJSONStruct>(response)).ToList();
             var numBatches = deserializedResponses.Count;
 
-            if (deserializedResponses == null)
+            if (deserializedResponses.IsNullOrEmpty())
             {
                 throw new Exception("Failed to deserialize response from Koina.");
             }
@@ -184,9 +191,9 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
                 }
 
                 var currentBatchSize = responseBatch.Outputs[0].Shape[0];
-                string[] outputIonAnnotations = responseBatch.Outputs[0].Data.Select(d => (string)d);
-                double[] outputMZs = responseBatch.Outputs[1].Data.Select(d => double.Parse(String.Join("", d)));
-                double[] outputIntensities = responseBatch.Outputs[2].Data.Select(d => double.Parse(String.Join("", d)));
+                string[] outputIonAnnotations = responseBatch.Outputs[0].Data.Select(d => (string)d).ToArray();
+                double[] outputMZs = responseBatch.Outputs[1].Data.Select(d => Convert.ToDouble(d)).ToArray();
+                double[] outputIntensities = responseBatch.Outputs[2].Data.Select(d => Convert.ToDouble(d)).ToArray();
 
                 // Iterate through each batch/peptide to construct a LibrarySpectrum
                 for (int precursorIndex = 0; precursorIndex < currentBatchSize; precursorIndex++)
@@ -210,8 +217,9 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
                         var annotation = outputIonAnnotations[fragmentIndex];
                         // Parse the annotation to get ion type, number and charge from something like 'b5+1'
                         var ionType = annotation.First().ToString(); // 'b' or 'y'
-                        var fragmentNumber = int.Parse(String.Join("", annotation.SubSequence(1, annotation.IndexOf('+') - 1)));
-                        var fragmentIonCharge = int.Parse(annotation.Last().ToString());
+                        var plusIndex = annotation.IndexOf('+');
+                        var fragmentNumber = int.Parse(annotation.Substring(1, plusIndex - 1));
+                        var fragmentIonCharge = int.Parse(annotation.Substring(plusIndex + 1));
 
                         // Create a new MatchedFragmentIon for each output
                         var fragmentIon = new MatchedFragmentIon
@@ -220,11 +228,13 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
                             (
                                 productType: Enum.Parse<ProductType>(ionType),
                                 terminus: ionType == "b" ? FragmentationTerminus.N : FragmentationTerminus.C,
-                                neutralMass: 0, // Placeholder, would need to calculate theoretical mass
+                                // neutralMass is not directly provided by Prosit, and it is not necessary here. If needed, 
+                                // compute it from the peptide sequence and fragment information as shown below.
+                                // neutralMass: peptide.Fragment(Enum.Parse<FragmentTypes>(ionType), fragmentNumber).First().MonoisotopicMass,
+                                neutralMass: 0.0, // Placeholder, not used in this context
                                 fragmentNumber: fragmentNumber,
-                                residuePosition: 0, // Placeholder, would need to calculate position
-                                neutralLoss: 0 // Placeholder, would need to calculate neutral loss if any
-
+                                residuePosition: fragmentNumber, // For b / y ions, the fragment number corresponds to the residue count from the respective terminus.
+                                neutralLoss: 0 // Prosit annotations like "b5+1" do not encode neutral losses, so we explicitly assume no loss as placeholder.
                             ),
                             experMz: outputMZs[fragmentIndex],
                             experIntensity: outputIntensities[fragmentIndex],
@@ -249,7 +259,7 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
             var unique = PredictedSpectra.DistinctBy(p => p.Name).ToList();
             if (unique.Count != PredictedSpectra.Count)
             {
-                throw new Exception($"Duplicate spectra found in predictions. Reduced from {PredictedSpectra.Count} to {unique.Count} unique spectra.");
+                throw new WarningException($"Duplicate spectra found in predictions. Reduced from {PredictedSpectra.Count} predicted spectra to {unique.Count} unique spectra.");
             }
         }
 
@@ -269,33 +279,24 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
             {
                 return true; // No modifications, valid
             }
-            else
-            {
-                foreach (Match match in matches)
-                {
-                    if (!ValidModificationUnimodMapping.ContainsKey(match.Value))
-                    {
-                        return false; // Invalid modification found
-                    }
-                }
-                return true; // All modifications are valid
-            }
+            
+            return matches.Where(m => !ValidModificationUnimodMapping.ContainsKey(m.Value)).Count() == 0;
         }
 
         internal bool IsValidSequence(string sequence)
         {
             var baseSequence = Regex.Replace(sequence, ModificationPattern, "");
-            if (Regex.IsMatch(baseSequence, CanonicalAminoAcidPattern) &&
-                baseSequence.Length <= MaxPeptideLength)
-            {
-                return true; // Valid sequence
-            }
-            else
-            {
-                return false; // Invalid characters found
-            }
+            return (Regex.IsMatch(baseSequence, CanonicalAminoAcidPattern) &&
+                baseSequence.Length <= MaxPeptideLength);
         }
 
+        /// <summary>
+        /// Converts a peptide sequence from the mzLib modification format to the Prosit UNIMOD format.
+        /// By default, all unmodified cysteines are carbamidomethylated (UNIMOD:4) to match the expectations
+        /// of the Prosit 2020 HCD intensity model.
+        /// </summary>
+        /// <param name="sequence">Peptide sequence in mzLib modification format.</param>
+        /// <returns>The sequence converted to Prosit UNIMOD format with cysteines carbamidomethylated.</returns>
         internal string ConvertToPrositModificationFormat(string sequence)
         {
             foreach (var mod in ValidModificationUnimodMapping)
