@@ -165,9 +165,15 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
         {
             var _http = new HTTP(timeoutInMinutes: (int)(PeptideSequences.Count/MaxBatchSize) * 2 + 2); // Typically a full batch takes about a minute. Setting it to double that for safety.
 
-            var responses = await Task.WhenAll(ToBatchedRequests().Select(request => _http.InferenceRequest(ModelName, request)));
-            ResponseToLibrarySpectra(responses);
-            _http.Dispose();
+            try
+            {
+                var responses = await Task.WhenAll(ToBatchedRequests().Select(request => _http.InferenceRequest(ModelName, request)));
+                ResponseToLibrarySpectra(responses);
+            }
+            finally
+            {
+                _http.Dispose();
+            }
         }
 
 
