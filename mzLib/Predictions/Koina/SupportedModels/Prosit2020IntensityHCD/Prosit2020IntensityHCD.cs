@@ -38,14 +38,27 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
         public double MinIntensityFilter; // Tolerance for intensity filtering of predicted peaks
 
         /// <summary>
+        /// Client for the Prosit 2020 HCD Intensity Model 
+        /// Model details: https://koina.wilhelmlab.org/docs#post-/Prosit_2020_intensity_HCD/infer
+        /// It is expected that all of the input lists are of the same length.
+        /// Designed to perform optimally with large input lists, rather than requesting predictions per peptide.
+        /// Large inputs are automatically batched into smaller requests to the Koina server, and a single
+        /// HTTP client is used for all requests to improve performance. If the requests are made for each individual 
+        /// peptide for large amounts of peptides, socket exhaustion may occur.
+        /// 
+        /// If any of the input entries are invalid, they will be skipped and a WarningException will be returned.
+        /// If the inputs are all invalid or empty, no predictions will be made.
+        /// 
+        /// All cysteines will be carbamidomethylated as per model input requirements.
+        /// The valid modifications are carbamidomethylation on C and oxidation on M.
         /// 
         /// </summary>
-        /// <param name="peptideSequences"></param>
-        /// <param name="precursorCharges"></param>
-        /// <param name="collisionEnergies"></param>
-        /// <param name="retentionTimes"></param>
-        /// <param name="warnings"></param>
-        /// <param name="minIntensityFilter"></param>
+        /// <param name="peptideSequences">Peptide sequences with valid modifications for fragment intensity predictions.</param>
+        /// <param name="precursorCharges">Precursor charge states. Valid charge states are 1-6.</param>
+        /// <param name="collisionEnergies">HCD collision energies. The model performs best for collision energies 20, 23, 25, 28, 30, and 35.</param>
+        /// <param name="retentionTimes">Retention time for the peptide. This is used for LibrarySpectrum creation.</param>
+        /// <param name="warnings">String message with the peptides omitted from predictions. These peptides are filtered out based on model input requirements. </param>
+        /// <param name="minIntensityFilter">This is the intensity filter for fragment ions kept and included in the library spectrum.</param>
         /// <exception cref="ArgumentException"></exception>
         public Prosit2020IntensityHCD(List<string> peptideSequences, List<int> precursorCharges, List<int> collisionEnergies, List<double?> retentionTimes, out WarningException? warnings, double minIntensityFilter=1e-4)
         {
@@ -55,6 +68,12 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
                 || collisionEnergies.Count != retentionTimes.Count)
             {
                 throw new ArgumentException("Input lists must have the same length.");
+            }
+
+            if (peptideSequences.Count == 0)
+            {
+                warnings = new WarningException("Inputs were empty. No predictions will be made.");
+                return;
             }
 
             // Ensure that the inputs meet the model requirements.
@@ -180,6 +199,11 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
         private void ResponseToLibrarySpectra(string[] responses)
         {
             PredictedSpectra = new List<LibrarySpectrum>();
+            if (PeptideSequences.Count == 0)
+            {
+                return; // No predictions to process
+            }
+
             var deserializedResponses = responses.Select(response => Newtonsoft.Json.JsonConvert.DeserializeObject<ResponseJSONStruct>(response)).ToList();
             var numBatches = deserializedResponses.Count;
 
@@ -293,7 +317,8 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
         {
             var baseSequence = Regex.Replace(sequence, ModificationPattern, "");
             return (Regex.IsMatch(baseSequence, CanonicalAminoAcidPattern) &&
-                baseSequence.Length <= MaxPeptideLength);
+                baseSequence.Length <= MaxPeptideLength &&
+                baseSequence.Length >= 2);
         }
 
         /// <summary>
