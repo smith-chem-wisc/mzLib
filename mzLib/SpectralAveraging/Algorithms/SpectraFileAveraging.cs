@@ -149,7 +149,13 @@ public static class SpectraFileAveraging
             centralScan.IsolationWidth,
             centralScan.DissociationType,
             centralScan.OneBasedPrecursorScanNumber,
-            centralScan.SelectedIonMonoisotopicGuessIntensity);
+            centralScan.SelectedIonMonoisotopicGuessMz,
+            centralScan.HcdEnergy,
+            centralScan.ScanDescription,
+            centralScan.CompensationVoltage
+            );
+
+
         var newNativeId =
             averagedScan.NativeId.Replace(averagedScan.NativeId.Split("=").Last(), centralScan.OneBasedScanNumber.ToString());
         averagedScan.SetNativeID(newNativeId);
