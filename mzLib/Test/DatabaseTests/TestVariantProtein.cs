@@ -46,6 +46,13 @@ namespace Test.DatabaseTests
         {
             Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
         }
+        /// <summary>
+        /// CRITICAL: Tests the SequenceVariation constructor and Intersects methods.
+        /// Validates that variant position/sequence properties are correctly stored and that
+        /// the Intersects logic correctly determines overlap with positions and TruncationProducts.
+        /// This is foundational - incorrect intersection logic would cause variants to be
+        /// incorrectly included/excluded during proteolysis product filtering.
+        /// </summary>
         [Test]
         public static void SequenceVariantConstructorTest()
         {
@@ -121,6 +128,11 @@ namespace Test.DatabaseTests
             Assert.IsFalse((bool)intersectsTrunc.Invoke(svRange, new object[] { tpOutside2 }), "Non-overlapping (right) should not intersect");
         }
 
+        /// <summary>
+        /// CRITICAL: Tests basic variant protein creation with ConsensusVariant reference.
+        /// Verifies that a variant protein correctly maintains a reference to its parent
+        /// (consensus) protein, which is essential for tracking variant origins.
+        /// </summary>
         [Test]
         public static void VariantProtein()
         {
@@ -129,6 +141,12 @@ namespace Test.DatabaseTests
             Assert.AreEqual(p, v.ConsensusVariant);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests loading variant proteins from XML database files.
+        /// Validates that sequence variations are correctly parsed from XML, that variant
+        /// proteins have different sequences than their consensus, and that metadata
+        /// (Name, FullName, Accession) is properly differentiated. Essential for XML I/O.
+        /// </summary>
         [Test]
         public void VariantXml()
         {
@@ -147,6 +165,13 @@ namespace Test.DatabaseTests
             List<PeptideWithSetModifications> peptides = variantProteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
 
+        /// <summary>
+        /// CRITICAL: Tests sequence variation handling with reverse decoys.
+        /// Validates that target and decoy variants have matching counts, that variant
+        /// positions are correctly mirrored for decoys (accounting for methionine retention),
+        /// and that OriginalSequence matches the actual protein subsequence at variant positions.
+        /// Essential for FDR-controlled variant peptide identification.
+        /// </summary>
         [Test]
         public static void SeqVarXmlTest()
         {
@@ -195,6 +220,12 @@ namespace Test.DatabaseTests
             // Removed unused assignment to peptides.
         }
 
+        /// <summary>
+        /// CRITICAL: Tests loading sequence variations that carry modifications.
+        /// Validates that modifications attached to variants are correctly positioned in both
+        /// target and decoy proteins, and survive XML round-trip. This is essential for
+        /// searching modified variant peptides (e.g., phosphorylation on a variant residue).
+        /// </summary>
         [Test]
         [TestCase("oblm1.xml", 1, 1)] // mod on starting methionine
         [TestCase("oblm2.xml", 3, 4)] // without starting methionine
@@ -246,6 +277,12 @@ namespace Test.DatabaseTests
             Assert.AreEqual(reversedModIdx, decoy.SequenceVariations.Single().OneBasedModifications.Single().Key);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests that proteolysis product (truncation) positions are correctly
+        /// mirrored when generating reverse decoys. Ensures decoy truncation products
+        /// correspond to valid sequence regions and survive XML round-trip.
+        /// Essential for accurate FDR estimation with truncated protein forms.
+        /// </summary>
         [TestCase("ranges1.xml", 1, 2, 5, 6)] // without starting methionine
         [TestCase("ranges2.xml", 1, 1, 5, 5)] // with starting methionine
         public static void ReverseDecoyProteolysisProducts(string databaseName, int beginIdx, int reversedBeginIdx, int endIdx, int reversedEndIdx)
@@ -275,6 +312,12 @@ namespace Test.DatabaseTests
             Assert.AreEqual(reversedEndIdx, decoy.TruncationProducts.Single().OneBasedEndPosition);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests that disulfide bond positions are correctly mirrored when
+        /// generating reverse decoys. Disulfide bonds constrain protein structure and
+        /// must be accurately represented in decoys for mass calculations.
+        /// Essential for correct decoy generation with structural constraints.
+        /// </summary>
         [TestCase("bonds1.xml", 2, 3, "DICPCP", 4, 5)] // without starting methionine
         [TestCase("bonds2.xml", 2, 4, "MDICPC", 4, 6)] // with starting methionine
         public static void ReverseDecoyDisulfideBonds(string databaseName, int beginIdx, int reversedBeginIdx, string reversedSequence, int endIdx, int reversedEndIdx)
@@ -305,6 +348,12 @@ namespace Test.DatabaseTests
             Assert.AreEqual(reversedEndIdx, decoy.DisulfideBonds.Single().OneBasedEndPosition);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests that splice site positions are correctly mirrored when
+        /// generating reverse decoys. Covers various scenarios: ranges, sites, and
+        /// positions at protein start with/without initiating methionine.
+        /// Essential for accurate splice variant representation in decoys.
+        /// </summary>
         [Test]
         [TestCase("splices1.xml", 2, 4, 3, 5)] // range without starting methionine
         [TestCase("splices2.xml", 2, 5, 3, 6)] // range with starting methionine
@@ -343,6 +392,12 @@ namespace Test.DatabaseTests
             List<PeptideWithSetModifications> peptides = proteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
 
+        /// <summary>
+        /// CRITICAL: Tests variant filtering based on allele depth thresholds.
+        /// Validates that minAlleleDepth parameter correctly filters out low-confidence
+        /// variants while retaining high-confidence ones. Essential for quality-controlled
+        /// variant protein database generation from VCF data.
+        /// </summary>
         [Test]
         [TestCase("HomozygousHLA.xml", 1, 18)]
         [TestCase("HomozygousHLA.xml", 10, 17)]
@@ -538,6 +593,12 @@ namespace Test.DatabaseTests
                 proteinsWithAppliedVariants3.Select(p => p.BaseSequence).ToList(),
                 "XML round-trip should preserve variant-applied sequences in the same order");
         }
+        /// <summary>
+        /// EDGE CASE: Tests rebasing of prior variations when VCF is null.
+        /// Validates the 'else' branch in AdjustSequenceVariationIndices that handles
+        /// variations without VCF data. While an edge case, this prevents null reference
+        /// exceptions when processing mixed variant sources.
+        /// </summary>
         [Test]
         public void AdjustSequenceVariationIndices_NullVcf_RebasesPriorVariation()
         {
@@ -591,6 +652,12 @@ namespace Test.DatabaseTests
                 Assert.That(rebased.Description, Is.EqualTo("NULL_VCF_PTtoKT"));
             });
         }
+        /// <summary>
+        /// EDGE CASE: Tests the 'continue' branch when a variant's rebased position
+        /// exceeds the truncated sequence length (e.g., after stop-gained).
+        /// Ensures out-of-bounds variants are safely skipped rather than causing
+        /// index errors. Important for stop-gained variant handling.
+        /// </summary>
         [Test]
         public void AdjustSequenceVariationIndices_Private_ContinueWhenBeginBeyondNewLength()
         {
@@ -632,6 +699,11 @@ namespace Test.DatabaseTests
             Assert.That(adjusted, Is.Empty, "Expected the prior tail edit to be skipped via the 'continue;' branch");
         }
 
+        /// <summary>
+        /// EDGE CASE: Tests that variant end positions are capped to sequence length
+        /// when truncation occurs. Prevents out-of-bounds indices after stop-gained
+        /// variants truncate the protein. Important boundary condition handling.
+        /// </summary>
         [Test]
         public void AdjustSequenceVariationIndices_Private_EndIsCappedToNewLength()
         {
@@ -685,192 +757,12 @@ namespace Test.DatabaseTests
                 Assert.That(rebased.Description, Is.EqualTo("OVERLAP_7_8_DE_to_KK"));
             });
         }
-        [Test]
-        public static void AppliedVariants_AsIBioPolymer()
-        {
-            // PURPOSE
-            // This test mirrors "AppliedVariants" but exercises the IBioPolymer interface path.
-            // It validates, in detail:
-            // 1) Correct application of four variant types (SAV, MNV, insertion, deletion) to produce expected sequences.
-            // 2) Correct coordinates (begin/end), original/variant strings in AppliedSequenceVariations after application.
-            // 3) Stability of results across:
-            //    - repeated in-memory variant application,
-            //    - XML round-trip (write → read).
-            // 4) Modification propagation and localization for a variant carrying a downstream mod.
-            // 5) Distinguishing two variants with identical sequences by their modification state (index 2 vs 4).
-            //
-            // EXPECTATIONS SUMMARY
-            // - Variant sequences (in order): "MPEVTIDE", "MPEKTIDE", "MPEPPPTIDE", "MPEPTIDE", "MPEPPPTIDE".
-            // - AppliedSequenceVariations:
-            //   SAV       (idx 0): begin=4, end=4, original="P",   variant="V",   len=8
-            //   MNV       (idx 1): begin=4, end=5, original="PT",  variant="KT",  len=8
-            //   Insertion (idx 2): begin=4, end=6, original="P",   variant="PPP", len=10
-            //   Deletion  (idx 3): begin=4, end=4, original="PPP", variant="P",   len=8
-            //   Insert+Mod(idx 4): same sequence as insertion, plus exactly one mod at one-based index 5 targeting a 'P'.
-            //
-            // NOTE: Lists [0], [1], [2] below represent:
-            //   [0] in-memory application (first call)
-            //   [1] in-memory application (second call, should be identical/stable)
-            //   [2] XML round-trip results, must match [0] and [1]
-
-            // Arrange: create a P-specific modification used to test propagation and localization
-            ModificationMotif.TryGetMotif("P", out ModificationMotif motifP);
-            Modification mp = new Modification(
-                _originalId: "mod",
-                _accession: null,
-                _modificationType: "type",
-                _featureType: null,
-                _target: motifP,
-                _locationRestriction: "Anywhere.",
-                _chemicalFormula: null,
-                _monoisotopicMass: 42.01,
-                _databaseReference: new Dictionary<string, IList<string>>(),
-                _taxonomicRange: null,
-                _keywords: null,
-                _neutralLosses: null,
-                _diagnosticIons: null,
-                _fileOrigin: null);
-
-            // Arrange: build five proteins (as IBioPolymer) with one sequence variation each
-            // 1) SAV P(4)->V
-            // 2) MNV PT(4..5)->KT
-            // 3) Insertion-like P(4)->PPP(4..6)
-            // 4) Deletion-like PPP(4..6)->P(4) on a longer starting sequence
-            // 5) Insertion-like with a downstream mod at one-based index 5
-            List<IBioPolymer> proteinsWithSeqVars = new List<IBioPolymer>
-            {
-                new Protein("MPEPTIDE",   "protein1", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P",   "V",   @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE",   "protein2", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 5, "PT",  "KT",  @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE",   "protein3", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P",   "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPPPTIDE", "protein4", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 6, "PPP", "P",   @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", null) }),
-                new Protein("MPEPTIDE",   "protein5", sequenceVariations: new List<SequenceVariation> { new SequenceVariation(4, 4, "P",   "PPP", @"1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30", new Dictionary<int, List<Modification>> { { 5, new[] { mp }.ToList() } }) }),
-             };
-
-            // Act: apply variants in-memory twice (should be identical/stable)
-            var proteinsWithAppliedVariants = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList();
-            var proteinsWithAppliedVariants2 = proteinsWithSeqVars.SelectMany(p => p.GetVariantBioPolymers()).ToList();
-
-            // Act: write to XML and load back; results should match in-memory outputs
-            string xml = Path.Combine(TestContext.CurrentContext.TestDirectory, "AppliedVariants.xml");
-            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteinsWithSeqVars, xml);
-            var proteinsWithAppliedVariants3 = ProteinDbLoader.LoadProteinXML(xml, true, DecoyType.None, null, false, null, out var un);
-
-            // Group lists for uniform validation loops
-            var listArray = new List<IBioPolymer>[]
-            {
-                proteinsWithAppliedVariants,
-                proteinsWithAppliedVariants2,
-                proteinsWithAppliedVariants3.Cast<IBioPolymer>().ToList()
-            };
-
-            // Assert: each expansion produces exactly 5 variant biopolymers, in the same, predictable order
-            Assert.AreEqual(5, proteinsWithAppliedVariants.Count, "Expected 5 variants (in-memory 1)");
-            Assert.AreEqual(5, proteinsWithAppliedVariants2.Count, "Expected 5 variants (in-memory 2)");
-            Assert.AreEqual(5, proteinsWithAppliedVariants3.Count, "Expected 5 variants (XML reload)");
-
-            // Assert: stability across the three sources (same sequences, same order)
-            CollectionAssert.AreEqual(
-                proteinsWithAppliedVariants.Select(p => p.BaseSequence).ToList(),
-                proteinsWithAppliedVariants2.Select(p => p.BaseSequence).ToList(),
-                "In-memory application should be stable across repeated calls");
-            CollectionAssert.AreEqual(
-                proteinsWithAppliedVariants.Select(p => p.BaseSequence).ToList(),
-                proteinsWithAppliedVariants3.Select(p => p.BaseSequence).ToList(),
-                "XML round-trip should preserve variant-applied sequences in the same order");
-
-            // Assert: for all variants we expect exactly one applied sequence variation
-            foreach (var variants in listArray)
-            {
-                Assert.AreEqual(1, variants[0].AppliedSequenceVariations.Count, "SAV must have exactly one applied variant");
-                Assert.AreEqual(1, variants[1].AppliedSequenceVariations.Count, "MNV must have exactly one applied variant");
-                Assert.AreEqual(1, variants[2].AppliedSequenceVariations.Count, "Insertion must have exactly one applied variant");
-                Assert.AreEqual(1, variants[3].AppliedSequenceVariations.Count, "Deletion must have exactly one applied variant");
-                Assert.AreEqual(1, variants[4].AppliedSequenceVariations.Count, "Insertion+Mod must have exactly one applied variant");
-            }
-
-            // Per-list validation of sequence, coordinates, and (where appropriate) residue checks and mod checks
-            for (int dbIdx = 0; dbIdx < listArray.Length; dbIdx++)
-            {
-                // Assert: expected sequences in fixed order
-                Assert.AreEqual("MPEVTIDE", listArray[dbIdx][0].BaseSequence, $"[{dbIdx}] SAV sequence mismatch");
-                Assert.AreEqual("MPEKTIDE", listArray[dbIdx][1].BaseSequence, $"[{dbIdx}] MNV sequence mismatch");
-                Assert.AreEqual("MPEPPPTIDE", listArray[dbIdx][2].BaseSequence, $"[{dbIdx}] insertion sequence mismatch");
-                Assert.AreEqual("MPEPTIDE", listArray[dbIdx][3].BaseSequence, $"[{dbIdx}] deletion sequence mismatch");
-                Assert.AreEqual("MPEPPPTIDE", listArray[dbIdx][4].BaseSequence, $"[{dbIdx}] insertion+mod sequence mismatch");
-
-                // Assert: lengths (sanity for ins/del)
-                Assert.AreEqual(8, listArray[dbIdx][0].BaseSequence.Length, $"[{dbIdx}] SAV length should be unchanged");
-                Assert.AreEqual(8, listArray[dbIdx][1].BaseSequence.Length, $"[{dbIdx}] MNV length should be unchanged");
-                Assert.AreEqual(10, listArray[dbIdx][2].BaseSequence.Length, $"[{dbIdx}] insertion length should be 8 + 2 = 10");
-                Assert.AreEqual(8, listArray[dbIdx][3].BaseSequence.Length, $"[{dbIdx}] deletion length should be 10 - 2 = 8");
-                Assert.AreEqual(10, listArray[dbIdx][4].BaseSequence.Length, $"[{dbIdx}] insertion+mod length should be 10");
-
-                // SAV assertions: P(4)->V
-                var sav = listArray[dbIdx][0].AppliedSequenceVariations.Single();
-                Assert.AreEqual(4, sav.OneBasedBeginPosition, $"[{dbIdx}] SAV begin");
-                Assert.AreEqual(4, sav.OneBasedEndPosition, $"[{dbIdx}] SAV end");
-                Assert.AreEqual("P", sav.OriginalSequence, $"[{dbIdx}] SAV original");
-                Assert.AreEqual("V", sav.VariantSequence, $"[{dbIdx}] SAV variant");
-                Assert.AreEqual('V', listArray[dbIdx][0].BaseSequence[3], $"[{dbIdx}] SAV residue at 4 must be 'V'");
-
-                // MNV assertions: PT(4..5)->KT
-                var mnv = listArray[dbIdx][1].AppliedSequenceVariations.Single();
-                Assert.AreEqual(4, mnv.OneBasedBeginPosition, $"[{dbIdx}] MNV begin");
-                Assert.AreEqual(5, mnv.OneBasedEndPosition, $"[{dbIdx}] MNV end");
-                Assert.AreEqual("PT", mnv.OriginalSequence, $"[{dbIdx}] MNV original");
-                Assert.AreEqual("KT", mnv.VariantSequence, $"[{dbIdx}] MNV variant");
-                Assert.AreEqual("KT", listArray[dbIdx][1].BaseSequence.Substring(3, 2), $"[{dbIdx}] MNV residues 4..5 must be 'KT'");
-
-                // Insertion-like assertions: P(4)->PPP(4..6)
-                var ins = listArray[dbIdx][2].AppliedSequenceVariations.Single();
-                Assert.AreEqual(4, ins.OneBasedBeginPosition, $"[{dbIdx}] insertion begin");
-                Assert.AreEqual(6, ins.OneBasedEndPosition, $"[{dbIdx}] insertion end");
-                Assert.AreEqual("P", ins.OriginalSequence, $"[{dbIdx}] insertion original");
-                Assert.AreEqual("PPP", ins.VariantSequence, $"[{dbIdx}] insertion variant");
-                Assert.AreEqual("PPP", listArray[dbIdx][2].BaseSequence.Substring(3, 3), $"[{dbIdx}] insertion residues 4..6 must be 'PPP'");
-
-                // Deletion-like assertions: PPP(4..6)->P(4) (collapses back to MPEPTIDE)
-                var del = listArray[dbIdx][3].AppliedSequenceVariations.Single();
-                Assert.AreEqual(4, del.OneBasedBeginPosition, $"[{dbIdx}] deletion begin");
-                Assert.AreEqual(4, del.OneBasedEndPosition, $"[{dbIdx}] deletion end (post-collapse)");
-                Assert.AreEqual("PPP", del.OriginalSequence, $"[{dbIdx}] deletion original");
-                Assert.AreEqual("P", del.VariantSequence, $"[{dbIdx}] deletion variant");
-
-                // Insertion + Modification assertions: identical sequence to insertion, plus one mod at pos 5
-                var insMod = listArray[dbIdx][4].AppliedSequenceVariations.Single();
-                Assert.AreEqual(4, insMod.OneBasedBeginPosition, $"[{dbIdx}] insertion+mod begin");
-                Assert.AreEqual(6, insMod.OneBasedEndPosition, $"[{dbIdx}] insertion+mod end");
-                Assert.AreEqual("P", insMod.OriginalSequence, $"[{dbIdx}] insertion+mod original");
-                Assert.AreEqual("PPP", insMod.VariantSequence, $"[{dbIdx}] insertion+mod variant");
-
-                // Mods: Only the "insertion+mod" variant (index 4) carries a mod; all others should have none
-                // Confirm the variant 4 has exactly one mod at one-based position 5, and the residue at 5 is 'P' (motif).
-                if (dbIdx == 0 || dbIdx == 1 || dbIdx == 2) // only assert detailed mod state once per path for clarity
-                {
-                    // Index 2 (plain insertion) must have no mods
-                    Assert.AreEqual(0, listArray[dbIdx][2].OneBasedPossibleLocalizedModifications.Count, $"[{dbIdx}] insertion should have no mods");
-
-                    // Index 4 (insertion+mod) must have exactly one mod at site 5, targeting a P residue
-                    Assert.AreEqual(1, listArray[dbIdx][4].OneBasedPossibleLocalizedModifications.Count, $"[{dbIdx}] insertion+mod should have exactly one site with mods");
-                    Assert.AreEqual(5, listArray[dbIdx][4].OneBasedPossibleLocalizedModifications.Single().Key, $"[{dbIdx}] insertion+mod site should be one-based index 5");
-                    Assert.AreEqual('P', listArray[dbIdx][4].BaseSequence[5 - 1], $"[{dbIdx}] insertion+mod residue at site 5 must be 'P' (motif)");
-
-                    // All other variants should have zero possible localized mods
-                    Assert.AreEqual(0, listArray[dbIdx][0].OneBasedPossibleLocalizedModifications.Count, $"[{dbIdx}] SAV should have no mods");
-                    Assert.AreEqual(0, listArray[dbIdx][1].OneBasedPossibleLocalizedModifications.Count, $"[{dbIdx}] MNV should have no mods");
-                    Assert.AreEqual(0, listArray[dbIdx][3].OneBasedPossibleLocalizedModifications.Count, $"[{dbIdx}] deletion should have no mods");
-                }
-            }
-
-            // Additional cross-list checks:
-            // - The two "MPEPPPTIDE" variants (indices 2 and 4) should be sequence-identical, but differ by modification presence.
-            for (int dbIdx = 0; dbIdx < listArray.Length; dbIdx++)
-            {
-                Assert.AreEqual(listArray[dbIdx][2].BaseSequence, listArray[dbIdx][4].BaseSequence, $"[{dbIdx}] insertion and insertion+mod sequences must match");
-                Assert.AreEqual(0, listArray[dbIdx][2].OneBasedPossibleLocalizedModifications.Count, $"[{dbIdx}] insertion should remain unmodified");
-                Assert.AreEqual(1, listArray[dbIdx][4].OneBasedPossibleLocalizedModifications.Count, $"[{dbIdx}] insertion+mod should remain modified");
-            }
-        }
+        
+        /// <summary>
+        /// EDGE CASE: Tests that attempting to create a protein variant from RNA
+        /// throws ArgumentException. Validates type safety between Protein and RNA.
+        /// Defensive test for API misuse prevention.
+        /// </summary>
         [Test]
         public static void CrashOnCreateVariantFromRNA()
         {
@@ -883,6 +775,12 @@ namespace Test.DatabaseTests
                 proteins[0].CreateVariant(proteins[0].BaseSequence, rna, [], [], new Dictionary<int, List<Modification>>(), "");
             });
         }
+        /// <summary>
+        /// CRITICAL: Tests stop-gained (premature stop codon) variant handling.
+        /// Validates that stop-gained variants correctly truncate protein sequences,
+        /// that the '*' symbol is not literally included in the sequence, and that
+        /// minAlleleDepth filtering works correctly. Essential for nonsense variant handling.
+        /// </summary>
         [Test]
         public static void StopGained()
         {
@@ -987,6 +885,12 @@ namespace Test.DatabaseTests
             Assert.AreEqual(161, appliedAfterFilter.OneBasedBeginPosition, "Stop-gained begins at residue 161 (after filtering)");
             Assert.AreEqual(161, appliedAfterFilter.OneBasedEndPosition, "Stop-gained ends at residue 161 (after filtering)");
         }
+        /// <summary>
+        /// EDGE CASE: Tests boundary conditions for stop-gained truncation.
+        /// Validates that truncated sequence is a prefix of reference, that modifications
+        /// and proteolysis products don't exceed truncation boundary. Important guard
+        /// against out-of-bounds annotation errors.
+        /// </summary>
         [Test]
         public static void StopGained_TruncationIsPrefixAndNoOutOfBoundsAnnotations()
         {
@@ -1019,6 +923,11 @@ namespace Test.DatabaseTests
                             !truncated.AppliedSequenceVariations.Single().VariantSequence.Contains("*"));
             }
         }
+        /// <summary>
+        /// CRITICAL: Tests XML round-trip for stop-gained truncated proteins.
+        /// Validates that truncation length and applied variations survive write/read.
+        /// Essential for database persistence of truncated variants.
+        /// </summary>
         [Test]
         public static void StopGained_RoundTripSerializationPreservesTruncation()
         {
@@ -1050,6 +959,12 @@ namespace Test.DatabaseTests
                 }
             }
         }
+        /// <summary>
+        /// CRITICAL: Tests that peptides from truncated proteins don't cross truncation.
+        /// Validates that digestion respects protein boundaries and that peptides
+        /// crossing the truncation site in reference don't appear in truncated variant.
+        /// Essential for correct peptide generation from truncated proteins.
+        /// </summary>
         [Test]
         public static void StopGained_NoPeptidesCrossTruncationSite()
         {
@@ -1072,6 +987,12 @@ namespace Test.DatabaseTests
             var variantPepWindows = new HashSet<(int start, int end)>(variantPeps.Select(p => (p.OneBasedStartResidueInProtein, p.OneBasedEndResidueInProtein)));
             Assert.That(refCrossing.All(p => !variantPepWindows.Contains((p.OneBasedStartResidueInProtein, p.OneBasedEndResidueInProtein))));
         }
+        /// <summary>
+        /// CRITICAL: Tests decoy generation and digestion for stop-gained variants.
+        /// Validates that truncated proteins produce valid decoys, that peptides
+        /// don't reference out-of-bounds positions, and that target/decoy lengths match.
+        /// Essential for FDR control with truncated protein variants.
+        /// </summary>
         [Test]
         public static void StopGainedDecoysAndDigestion()
         {
@@ -1156,6 +1077,12 @@ namespace Test.DatabaseTests
             // Assert.AreEqual(targetPeps.Count, decoyPeps.Count);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests handling of VCF entries with multiple alternate alleles.
+        /// Validates that only the allele specified in the genotype is applied,
+        /// and that minAlleleDepth filtering works correctly with multi-allelic sites.
+        /// Essential for correct interpretation of complex VCF genotypes.
+        /// </summary>
         [Test]
         public static void MultipleAlternateAlleles()
         {
@@ -1181,6 +1108,12 @@ namespace Test.DatabaseTests
             Assert.AreEqual('K', proteins[0][63 - 1]); // reference only
         }
 
+        /// <summary>
+        /// CRITICAL: Tests handling of frameshift variants with multiple alternate alleles.
+        /// Validates that frameshift variants correctly alter protein length and that
+        /// the correct alternate allele is applied based on genotype. Essential for
+        /// accurate frameshift protein sequence generation.
+        /// </summary>
         [Test]
         public static void MultipleAlternateFrameshifts()
         {
@@ -1200,6 +1133,11 @@ namespace Test.DatabaseTests
             Assert.AreEqual(873 - 403 + 11, proteins[1].Length);
         }
 
+        /// <summary>
+        /// EDGE CASE: Tests handling of unusual/special symbols in variant XML.
+        /// Validates heterozygous variant detection and that giant indels correctly
+        /// overwrite other variants. Lower priority edge case for unusual input data.
+        /// </summary>
         [Test]
         public void VariantSymbolWeirdnessXml()
         {
@@ -1217,6 +1155,11 @@ namespace Test.DatabaseTests
             List<PeptideWithSetModifications> peptides = variantProteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
 
+        /// <summary>
+        /// EDGE CASE: Tests handling of heterozygous variants producing both reference
+        /// and alternate protein forms. Validates correct sequence at variant position
+        /// and proper naming differentiation. Lower priority edge case.
+        /// </summary>
         [Test]
         public void VariantSymbolWeirdness2Xml()
         {
@@ -1240,6 +1183,12 @@ namespace Test.DatabaseTests
             List<PeptideWithSetModifications> peptides = variantProteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
 
+        /// <summary>
+        /// CRITICAL: Tests indel (insertion/deletion) handling in decoy generation.
+        /// Validates that indel variants with different original/variant lengths are
+        /// correctly reversed in decoys, and that variant positions and sequences
+        /// are properly mirrored. Essential for FDR-controlled indel identification.
+        /// </summary>
         [Test]
         public void IndelDecoyError()
         {
@@ -1258,6 +1207,12 @@ namespace Test.DatabaseTests
             Assert.AreEqual(new string(variantSeq), decoyIndelProtein.AppliedSequenceVariations.Single().VariantSequence);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests that multiple applied sequence variations (including indels)
+        /// are correctly handled in decoy generation. Validates variant counts,
+        /// positions, and sequences for both homozygous and heterozygous variants.
+        /// Essential for complex multi-variant protein handling.
+        /// </summary>
         [Test]
         public void IndelDecoyVariants()
         {
@@ -1273,6 +1228,12 @@ namespace Test.DatabaseTests
             Assert.AreEqual(variantProteins[0].Length - 1646 + 2, variantProteins[2].AppliedSequenceVariations.First().OneBasedBeginPosition);
             Assert.AreEqual("V", variantProteins[2].AppliedSequenceVariations.First().VariantSequence);
         }
+        /// <summary>
+        /// CRITICAL: Tests the AreValid() validation logic for SequenceVariation.
+        /// Comprehensively covers valid/invalid position combinations, different
+        /// constructor behaviors, and edge cases with null/empty sequences.
+        /// Essential for validating variant data integrity.
+        /// </summary>
         [Test]
         public void SequenceVariationIsValidTest()
         {
@@ -1430,6 +1391,12 @@ namespace Test.DatabaseTests
                 description: "range at start");
             Assert.IsTrue(svAtStart.AreValid(), "Ranges that start at 1 are valid provided end >= begin");
         }
+        /// <summary>
+        /// CRITICAL: Tests variant proteins with GPTMD-discovered modifications.
+        /// Validates correct protein counts, variant naming conventions, modification
+        /// positioning (including checking for negative residue indices), and that
+        /// homozygous variants are handled correctly. Essential for GPTMD integration.
+        /// </summary>
         [Test]
         public void VariantModificationTest()
         {
@@ -1459,6 +1426,12 @@ namespace Test.DatabaseTests
             Assert.AreEqual(0, negativeResidues.Count);
 
         }
+        /// <summary>
+        /// CRITICAL: Tests conversion of nucleotide substitution modifications to
+        /// sequence variations. Validates that modifications with type "1 nucleotide
+        /// substitution" are correctly converted to SequenceVariations and removed
+        /// from the modifications collection. Essential for GPTMD variant discovery.
+        /// </summary>
         [Test]
         public void WriteProteinXmlWithVariantsDiscoveredAsModifications2()
         {
@@ -1788,6 +1761,12 @@ namespace Test.DatabaseTests
                 }
             }
         }
+        /// <summary>
+        /// CRITICAL: Tests VCF (Variant Call Format) line parsing.
+        /// Validates correct extraction of reference allele, alternate allele, INFO,
+        /// FORMAT, genotypes, allele depths, and zygosity from VCF strings.
+        /// Essential for reading genomic variant data from VCF files.
+        /// </summary>
         [Test]
         public void Constructor_ParsesDescriptionCorrectly()
         {
@@ -1866,6 +1845,11 @@ namespace Test.DatabaseTests
             var adValues = svd.AlleleDepths[adKey];
             Assert.AreEqual(new[] { "30", "30" }, adValues);
         }
+        /// <summary>
+        /// CRITICAL: Comprehensive VCF parsing test using real-world examples.
+        /// Tests multiple samples, various genotype patterns (homozygous, heterozygous,
+        /// missing calls), and allele depth parsing. Essential for robust VCF support.
+        /// </summary>
         [Test]
         public void ParseComprehensiveVcfExamples()
         {
@@ -1973,6 +1957,11 @@ namespace Test.DatabaseTests
                 }
             }
         }
+        /// <summary>
+        /// EDGE CASE: Tests that SequenceVariation with invalid coordinates (end < begin)
+        /// reports invalid via AreValid() without throwing. Validates graceful handling
+        /// of malformed variant data.
+        /// </summary>
         [Test]
         public void Constructor_InvalidCoordinates_ThrowsArgumentException()
         {
@@ -2055,6 +2044,12 @@ namespace Test.DatabaseTests
                 null);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests comprehensive conversion of nucleotide substitution mods to variants.
+        /// Validates that valid substitutions are converted, malformed ones are ignored,
+        /// unrelated mods are preserved, and positions are correctly mapped.
+        /// Essential for GPTMD integration and mod-to-variant conversion.
+        /// </summary>
         [Test]
         public void ConvertNucleotideSubstitutionModificationsToSequenceVariants_Comprehensive()
         {
