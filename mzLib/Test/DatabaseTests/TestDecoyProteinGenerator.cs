@@ -42,6 +42,13 @@ namespace Test.DatabaseTests
             return dict;
         }
 
+        /// <summary>
+        /// CRITICAL: Tests the stop-gain modification mapping branch (DecoyProteinGenerator.cs lines 199-202).
+        /// Stop-gain variants (ending with '*') require special handling to preserve decoy length consistency.
+        /// Without this test, stop-gain modifications could be incorrectly mapped, causing decoy peptides
+        /// to have different lengths than their target counterparts, breaking FDR calculations.
+        /// Verifies: (1) original key is preserved, (2) default reverse mapping also applies.
+        /// </summary>
         [Test]
         public void ReverseSequenceVariations_StopsGain_KeepsOriginalKey_AndAddsDefaultReverse()
         {
@@ -66,6 +73,13 @@ namespace Test.DatabaseTests
             Assert.That(decoy.OneBasedModifications.Count, Is.EqualTo(2));
         }
 
+        /// <summary>
+        /// CRITICAL: Tests the methionine-retention modification mapping branch (lines 204-207).
+        /// When the protein starts with 'M', the first residue is retained during reversal to maintain
+        /// biological plausibility (initiating methionine). Modifications at positions > 1 must use
+        /// the formula: variantSeqLength - key + 2. Without this test, modifications on proteins with
+        /// initiating methionine could be mapped to wrong positions, corrupting decoy modification sites.
+        /// </summary>
         [Test]
         public void ReverseSequenceVariations_StartsWithM_KeyGreaterThanOne_UsesPlusTwoFormula()
         {
@@ -81,6 +95,13 @@ namespace Test.DatabaseTests
             Assert.That(decoy.OneBasedModifications.Keys.Single(), Is.EqualTo(7));
         }
 
+        /// <summary>
+        /// CRITICAL: Tests the "modification on starting methionine" branch (lines 209-212).
+        /// When a variant introduces a methionine at position 1, modifications at that position
+        /// must remain at position 1 (since M is retained at the N-terminus during reversal).
+        /// This ensures N-terminal modifications on initiating methionines are correctly preserved
+        /// in decoy proteins, which is essential for matching N-terminal modification searches.
+        /// </summary>
         [Test]
         public void ReverseSequenceVariations_ModOnStartingMethionine_VariantStartsWithM_MapsToOne()
         {
@@ -94,6 +115,13 @@ namespace Test.DatabaseTests
             Assert.That(decoy.OneBasedModifications.Keys.Single(), Is.EqualTo(1));
         }
 
+        /// <summary>
+        /// CRITICAL: Tests the "modification on starting non-methionine" branch (lines 214-217).
+        /// When the variant does NOT start with 'M' but has a modification at position 1, the
+        /// modification should map to the protein's C-terminus (protein.Length) after reversal.
+        /// This is essential for correct placement of what was originally an N-terminal modification
+        /// when the sequence is reversed without methionine retention.
+        /// </summary>
         [Test]
         public void ReverseSequenceVariations_ModOnStart_NonMethionine_MapsToProteinLength()
         {
@@ -107,6 +135,13 @@ namespace Test.DatabaseTests
             Assert.That(decoy.OneBasedModifications.Keys.Single(), Is.EqualTo(protein.BaseSequence.Length));
         }
 
+        /// <summary>
+        /// CRITICAL: Tests the default modification mapping branch (lines 218-221).
+        /// This is the most common case: protein doesn't start with M, modification key > 1.
+        /// Uses formula: variantSeqLength - key + 1. This branch handles the majority of
+        /// modification mappings and must be correct for standard decoy generation to work.
+        /// An error here would affect most decoy proteins in a typical database search.
+        /// </summary>
         [Test]
         public void ReverseSequenceVariations_DefaultElse_UsesPlusOneFormula()
         {
@@ -122,6 +157,13 @@ namespace Test.DatabaseTests
             Assert.That(decoy.OneBasedModifications.Keys.Single(), Is.EqualTo(6));
         }
 
+        /// <summary>
+        /// CRITICAL: Tests the stop-gain sequence reversal branch (lines 237-243).
+        /// Stop-gain variants (premature stop codons) require special handling: positions are
+        /// preserved and the variant sequence is rotated (not simply reversed). This ensures
+        /// decoy proteins with stop-gain variants maintain the same effective length as targets,
+        /// which is crucial for accurate mass calculations and peptide identification.
+        /// </summary>
         [Test]
         public void ReverseSequenceVariations_StopGain_BuildsSegmentAndRotatedVariant()
         {
@@ -144,6 +186,13 @@ namespace Test.DatabaseTests
             StringAssert.StartsWith("TEST VARIANT:", decoy.Description);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests the start-loss sequence reversal branch (lines 245-248).
+        /// Start-loss occurs when the original sequence begins with 'M' but the variant does not
+        /// (e.g., frameshift removing initiating methionine). The variant must be placed at the
+        /// C-terminus of the decoy. This test ensures correct handling of variants that affect
+        /// protein translation initiation, which are biologically significant mutations.
+        /// </summary>
         [Test]
         public void ReverseSequenceVariations_StartLoss_VariantAtEndOfDecoy()
         {
@@ -163,6 +212,13 @@ namespace Test.DatabaseTests
             Assert.That(decoy.VariantSequence, Is.EqualTo("A"));
         }
 
+        /// <summary>
+        /// CRITICAL: Tests the "both start with M, but longer" branch (lines 250-255).
+        /// When both original and variant sequences start with 'M' and have length > 1, the
+        /// reversed sequences must trim the last character (which was the 'M' before reversal)
+        /// to avoid duplicating the retained N-terminal methionine. Without this test, decoys
+        /// could have incorrect sequence lengths or duplicated methionines.
+        /// </summary>
         [Test]
         public void ReverseSequenceVariations_BothStartWithM_ButLonger_TrimsLastChar()
         {
@@ -182,6 +238,13 @@ namespace Test.DatabaseTests
             Assert.That(decoy.VariantSequence, Is.EqualTo("I"));
         }
 
+        /// <summary>
+        /// CRITICAL: Tests the "gained initiating methionine" branch (lines 257-260).
+        /// When a variant introduces a new initiating methionine at position 1 (single residue),
+        /// it must stay at position 1 in the decoy. This handles the case of variants that add
+        /// an alternative translation start site. Incorrect handling would misplace important
+        /// N-terminal variants that affect protein expression and localization.
+        /// </summary>
         [Test]
         public void ReverseSequenceVariations_GainedInitiatingMethionine_AtPos1()
         {
@@ -198,6 +261,13 @@ namespace Test.DatabaseTests
             Assert.That(decoy.VariantSequence, Is.EqualTo("M"));
         }
 
+        /// <summary>
+        /// CRITICAL: Tests the "protein starts with M, variation elsewhere" branch (lines 262-265).
+        /// When the protein has an initiating methionine but the variant is at a different position,
+        /// the reversal must account for methionine retention using the +2 offset formula.
+        /// This is the common case for missense mutations in proteins with standard initiation,
+        /// making it essential for accurate decoy generation in most proteomics experiments.
+        /// </summary>
         [Test]
         public void ReverseSequenceVariations_ProteinStartsWithM_NoVariationOnStart()
         {
@@ -217,6 +287,13 @@ namespace Test.DatabaseTests
             Assert.That(decoy.VariantSequence, Is.EqualTo("V"));
         }
 
+        /// <summary>
+        /// CRITICAL: Tests the default sequence reversal branch (lines 267-270).
+        /// When the protein does NOT start with 'M' (e.g., after signal peptide cleavage or
+        /// non-canonical start), standard reversal with +1 offset is used. This is the fallback
+        /// case covering proteins without retained initiating methionine and must correctly
+        /// reverse variant positions to maintain search accuracy.
+        /// </summary>
         [Test]
         public void ReverseSequenceVariations_NoStartingMethionine_DefaultElseBranch()
         {
