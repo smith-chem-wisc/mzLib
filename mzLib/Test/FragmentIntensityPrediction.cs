@@ -71,6 +71,10 @@ namespace Test
                     }
                 }
             }
+            catch
+            {
+                Assert.Fail("Test failed somewhere in the try statement.");
+            }
             finally
             {
                 testLibraryWithoutDecoy?.CloseConnections();
