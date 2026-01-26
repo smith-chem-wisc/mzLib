@@ -6,11 +6,11 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using NUnit.Framework.Legacy;
+using MassSpectrometry;
 using Omics.Fragmentation;
 using Readers;
 using MzLibUtil;
 using FlashLFQ;
-using NUnit.Framework.Interfaces;
 
 namespace Test.FileReadingTests
 {
