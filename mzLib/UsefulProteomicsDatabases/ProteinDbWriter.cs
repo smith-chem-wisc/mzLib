@@ -27,6 +27,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="additionalModsToAddToProteins">A dictionary of additional modifications to add to proteins.</param>
         /// <param name="bioPolymerList">A list of RNA sequences to be written to the database.</param>
         /// <param name="outputFileName">The name of the output XML file.</param>
+        /// <param name="namingConvention">The naming convention to use for modifications: Uniprot will change all mods to uniprot mods, remove the Mod section at the top, and change the top and bottom output tags to ensure smooth loading into ProteomeDiscoverer.</param>
         /// <returns>A dictionary of new modification residue entries.</returns>
         public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, List<IBioPolymer> bioPolymerList, string outputFileName, bool updateTimeStamp = false, ModificationNamingConvention namingConvention = ModificationNamingConvention.Mixed)
         {
@@ -331,7 +332,8 @@ namespace UsefulProteomicsDatabases
             using (XmlWriter writer = XmlWriter.Create(outputFileName, xmlWriterSettings))
             {
                 writer.WriteStartDocument();
-                writer.WriteStartElement("mzLibProteinDb");
+                string startElement = namingConvention == ModificationNamingConvention.UniProt ? "uniprot" : "mzLibProteinDb";
+                writer.WriteStartElement(startElement);
 
                 List<Modification> myModificationList = new List<Modification>();
                 foreach (Protein p in nonVariantProteins)
@@ -368,6 +370,9 @@ namespace UsefulProteomicsDatabases
 
                 foreach (Protein protein in nonVariantProteins)
                 {
+                    //if (namingConvention == ModificationNamingConvention.UniProt)
+                    //    protein.ConvertMods(namingConvention);
+
                     writer.WriteStartElement("entry", "http://uniprot.org/uniprot");
                     writer.WriteAttributeString("dataset", protein.DatasetEntryTag);
                     writer.WriteAttributeString("created", protein.CreatedEntryTag);

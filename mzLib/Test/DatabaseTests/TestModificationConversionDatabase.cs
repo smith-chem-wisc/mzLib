@@ -571,9 +571,13 @@ namespace Test.DatabaseTests
         public static void Dummy()
         {
             string inPath = @"B:\Users\Nic\SharedWithMe\ClaireMulti_PrunedDB\1-5-25-DBs";
+            string db = @"B:\Users\Nic\SharedWithMe\ClaireMulti_PrunedDB\1-5-25-DBs\uniprotkb_taxonomy_id_9606_AND_reviewed_2025_11_22-HIV_WTJB474_updated_JustGag-JustPolGPTMDproteinPruned-noCitCarbox.xml";
 
-            foreach (var db in Directory.GetFiles(inPath, "*.xml"))
-            {
+            //foreach (var db in Directory.GetFiles(inPath, "*.xml"))
+            //{
+                //if (db.EndsWith("_uniprot.xml")) 
+                //    continue;
+
                 var inProteins = ProteinDbLoader.LoadProteinXML(
                     db,
                     true,
@@ -598,7 +602,7 @@ namespace Test.DatabaseTests
                     new Dictionary<string, HashSet<System.Tuple<int, Modification>>>(),
                     inProteins,
                     outPath, namingConvention: ModificationNamingConvention.UniProt);
-            }
+            //}
 
             var cache = ModificationConverter.ExtractCache(ModificationNamingConvention.UniProt);
         }
