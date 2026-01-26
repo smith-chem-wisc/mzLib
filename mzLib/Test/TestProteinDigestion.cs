@@ -244,9 +244,8 @@ namespace Test
 
             var exception = Assert.Throws<MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(testFile));
 
-            Assert.That(exception.Message, Does.Contain("insufficient fields"));
-            Assert.That(exception.Message, Does.Contain("expected at least 3"));
-            Assert.That(exception.Message, Does.Contain("got 2"));
+            Assert.That(exception.Message, Does.Contain("has only 2 field(s)"));
+            Assert.That(exception.Message, Does.Contain("extend to column 3"));
             Assert.That(exception.Message, Does.Contain("InvalidProtease"));
 
             File.Delete(testFile);
@@ -1051,7 +1050,7 @@ namespace Test
                 Assert.That(ProteaseDictionary.Dictionary.Count, Is.EqualTo(initialProteaseCount));
                 Assert.That(ProteaseDictionary.Dictionary.ContainsKey("MyLabProtease"), Is.False);
 
-                // Verify trypsin|P is back to original behavior (K[P]| and R[P]}
+                // Verify trypsin|P is back to original behavior (K[P]| and R[P]|)
                 var restoredTrypsin = ProteaseDictionary.Dictionary["trypsin|P"];
                 Assert.That(restoredTrypsin.DigestionMotifs.Count, Is.EqualTo(2));
                 Assert.That(restoredTrypsin.DigestionMotifs.Any(m => m.InducingCleavage == "K"), Is.True);

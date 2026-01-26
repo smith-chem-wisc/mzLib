@@ -266,6 +266,7 @@ namespace Transcriptomics.Digestion
         /// </summary>
         private static string GetFieldValue(string[] fields, Dictionary<string, int> columnIndices, string[] columnAliases)
         {
+            // Return the value for the first alias that exists in columnIndices with a valid index
             foreach (string alias in columnAliases)
             {
                 if (columnIndices.TryGetValue(alias, out int index) && index < fields.Length)

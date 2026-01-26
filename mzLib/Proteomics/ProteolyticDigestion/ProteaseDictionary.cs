@@ -304,22 +304,26 @@ namespace Proteomics.ProteolyticDigestion
                 string motifField = GetFieldValue(fields, columnIndices, motifAliases);
                 string specificityField = GetFieldValue(fields, columnIndices, specificityAliases);
 
-                // Validate that required fields are present
-                // Calculate minimum required columns based on header indices
-                int minRequiredColumns = 0;
-                foreach (var alias in nameAliases.Concat(motifAliases).Concat(specificityAliases))
-                {
-                    if (columnIndices.TryGetValue(alias, out int idx))
-                    {
-                        minRequiredColumns = Math.Max(minRequiredColumns, idx + 1);
-                    }
-                }
+                // Calculate minimum required field count based on the highest column index of required columns
+                int minRequiredColumns = nameAliases.Concat(motifAliases).Concat(specificityAliases)
+                    .Select(alias => columnIndices.TryGetValue(alias, out int idx) ? idx + 1 : 0)
+                    .Max();
 
-                if (fields.Length < minRequiredColumns || string.IsNullOrWhiteSpace(specificityField))
+                // Check if we have enough fields to read all required columns
+                if (fields.Length < minRequiredColumns)
                 {
                     throw new MzLibException(
-                        $"Line has insufficient fields for protease '{name}': expected at least 3 required columns (Name, Motif, Specificity), got {fields.Length}. " +
-                        $"Please ensure the line contains values for all required fields.");
+                        $"Line for protease '{name}' has only {fields.Length} field(s), but the required columns " +
+                        $"(Name, Motif, Specificity) extend to column {minRequiredColumns}. " +
+                        $"Please ensure the line has enough tab-separated values.");
+                }
+
+                // Check if required fields have values
+                if (string.IsNullOrWhiteSpace(specificityField))
+                {
+                    throw new MzLibException(
+                        $"Line for protease '{name}' is missing a value for the required 'Specificity' column. " +
+                        $"Please ensure all required fields (Name, Motif, Specificity) have values.");
                 }
 
                 string psiMsAccessionNumber = GetFieldValue(fields, columnIndices, psiMsAccessionAliases);
@@ -387,6 +391,7 @@ namespace Proteomics.ProteolyticDigestion
         /// </summary>
         private static string GetFieldValue(string[] fields, Dictionary<string, int> columnIndices, string[] columnAliases)
         {
+            // Return the value for the first alias that exists in columnIndices with a valid index
             foreach (string alias in columnAliases)
             {
                 if (columnIndices.TryGetValue(alias, out int index) && index < fields.Length)
