@@ -36,11 +36,12 @@ public interface IHasSequenceCoverageFromFragments
 public static class HasSequenceCoverageFromFragmentsExtensions
 {
     /// <summary>
-    /// Calculates the percentage of the sequence covered by fragment ions.
-    /// Returns null if coverage has not been calculated or no fragment data is available.
+    /// Calculates the one-based positions of residues in the sequence that are covered by fragment ions.
+    /// Coverage is determined by identifying residues that have fragments on both sides
+    /// (N-terminal and C-terminal for peptides, or 5' and 3' for nucleic acids).
     /// </summary>
     /// <param name="obj">The object implementing IHasSequenceCoverageFromFragments</param>
-    /// <returns>Percentage of sequence covered by fragments, or null if not available</returns>
+    /// <returns>A sorted list of one-based positions covered by fragments, or an empty list if no coverage data is available</returns>
     public static List<int> GetSequenceCoverage(this IHasSequenceCoverageFromFragments obj)
     {
         if (string.IsNullOrEmpty(obj.BaseSequence) || !obj.MatchedFragmentIons.Any()) 
