@@ -24,22 +24,27 @@ namespace Omics.SpectralMatch
         /// <param name="score">The numeric score for this match (higher is better by convention).</param>
         /// <param name="fullSequence">The full modified sequence string with modification annotations. Null values are converted to empty string.</param>
         /// <param name="baseSequence">The unmodified base sequence. Null values are converted to empty string.</param>
-        /// <param name="matchedIons"></param>
+        /// <param name="matchedIons">The matched fragment ions for this identification.</param>
+        /// <param name="accession">The accession identifier for the matched biopolymer. Null values are converted to empty string.</param>
+        /// <param name="isDecoy">Whether this match is to a decoy sequence.</param>
         protected BaseSpectralMatch(
             string fullFilePath,
             int oneBasedScanNumber,
             double score,
             string fullSequence,
             string baseSequence,
-            List<MatchedFragmentIon>? matchedIons = null)
+            List<MatchedFragmentIon>? matchedIons = null,
+            string? accession = null,
+            bool isDecoy = false)
         {
             FullFilePath = fullFilePath ?? string.Empty;
             OneBasedScanNumber = oneBasedScanNumber;
             Score = score;
             FullSequence = fullSequence ?? string.Empty;
             BaseSequence = baseSequence ?? string.Empty;
-
             MatchedFragmentIons = matchedIons ?? new List<MatchedFragmentIon>();
+            Accession = accession ?? string.Empty;
+            IsDecoy = isDecoy;
         }
 
         #region ISpectralMatch Implementation

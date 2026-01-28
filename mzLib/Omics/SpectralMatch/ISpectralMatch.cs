@@ -46,7 +46,7 @@ public interface ISpectralMatch : IComparable<ISpectralMatch>
     int OneBasedScanNumber { get; }
 
     /// <summary>
-    /// Numeric score for the match. Most implementations use a higher-is-better convention; callersBestMatchingBioPolymersWithSetMods
+    /// Numeric score for the match. Most implementations use a higher-is-better convention; callers
     /// should consult the implementer documentation if a different convention is used.
     /// The score is used for ranking, filtering and tie-breaking in comparison.
     /// </summary>
@@ -54,7 +54,7 @@ public interface ISpectralMatch : IComparable<ISpectralMatch>
 
     /// <summary>
     /// An array containing the intensities for the spectral match
-    /// If no quantification wasn't performed, this will be null
+    /// If no quantification was performed, this will be null
     ///     if Multiple Reporter Ions are present, the order of intensities should match the order of the reporter ions
     ///     If LFQ was performed, this will be a single element array with the intensity value
     /// </summary>
