@@ -499,8 +499,6 @@ public static class ModificationLoader
     /// </summary>
     public static IEnumerable<Modification> ReadModsFromUnimod(Stream unimodXml)
     {
-        // Note: This requires the Generated.unimod_t type to be accessible
-        // We may need to make it internal in UsefulProteomicsDatabases or move it to Omics
         var unimodSerializer = new XmlSerializer(typeof(unimod_t));
         var deserialized = unimodSerializer.Deserialize(unimodXml) as unimod_t;
         return ReadModsFromUnimodDeserialized(deserialized);

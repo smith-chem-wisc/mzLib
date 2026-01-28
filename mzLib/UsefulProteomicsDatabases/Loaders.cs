@@ -32,6 +32,8 @@ using System.Xml.Serialization;
 using Omics.Modifications;
 using UsefulProteomicsDatabases.Generated;
 using TopDownProteomics.IO.Obo;
+using Omics.Modifications.IO;
+using obo = Omics.Modifications.IO.obo;
 
 namespace UsefulProteomicsDatabases
 {
@@ -147,13 +149,7 @@ namespace UsefulProteomicsDatabases
             return oboParser.Parse(psiModOboLocation); 
         }
 
-        public static Dictionary<string, int> GetFormalChargesDictionary(obo psiModDeserialized)
-        {
-            var modsWithFormalCharges = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>()
-                .Where(b => b.xref_analog != null && b.xref_analog.Any(c => c.dbname.Equals("FormalCharge")));
-            Regex digitsOnly = new(@"[^\d]");
-            return modsWithFormalCharges.ToDictionary(b => "PSI-MOD; " + b.id, b => int.Parse(digitsOnly.Replace(b.xref_analog.First(c => c.dbname.Equals("FormalCharge")).name, "")));
-        }
+        public static Dictionary<string, int> GetFormalChargesDictionary(obo psiModDeserialized) => ModificationLoader.GetFormalChargesDictionary(psiModDeserialized);
 
         public static string GetFormalChargeString(this OboTagValuePair tvPair)
         {
@@ -202,26 +198,20 @@ namespace UsefulProteomicsDatabases
             {
                 UpdateUnimod(unimodLocation);
             }
-            return UnimodLoader.ReadMods(unimodLocation);
+            return ModificationLoader.ReadModsFromUnimod(unimodLocation);
         }
 
-        public static Generated.obo LoadPsiMod(string psimodLocation)
+        public static obo LoadPsiMod(string psimodLocation)
         {
-            var psimodSerializer = new XmlSerializer(typeof(Generated.obo));
+            var psimodSerializer = new XmlSerializer(typeof(obo));
             if (!File.Exists(psimodLocation))
             {
                 UpdatePsiMod(psimodLocation);
             }
             using (FileStream stream = new FileStream(psimodLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
-                return psimodSerializer.Deserialize(stream) as Generated.obo;
+                return ModificationLoader.LoadPsiMod(stream);
             }
-        }
-
-        internal static Generated.obo LoadPsiMod(Stream stream)
-        {
-            var psimodSerializer = new XmlSerializer(typeof(Generated.obo));
-            return psimodSerializer.Deserialize(stream) as Generated.obo;
         }
 
         public static IEnumerable<Modification> LoadUniprot(string uniprotLocation, Dictionary<string, int> formalChargesDictionary)
@@ -230,7 +220,7 @@ namespace UsefulProteomicsDatabases
             {
                 UpdateUniprot(uniprotLocation);
             }
-            return PtmListLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary, out var _).OfType<Modification>();
+            return ModificationLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary, out var _).OfType<Modification>();
         }
 
         /// <summary>
