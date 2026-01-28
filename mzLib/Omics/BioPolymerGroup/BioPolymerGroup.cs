@@ -114,13 +114,12 @@ namespace Omics.BioPolymerGroup
         public string BioPolymerGroupName { get; private set; }
 
         /// <summary>
-        /// Aggregated confidence score for the group. Higher values indicate higher confidence.
-        /// 
-        /// Computed by <see cref="BioPolymerGroupExtensions.Score"/> as the sum of the best (highest) 
-        /// score for each unique base sequence among the PSMs in <see cref="AllPsmsBelowOnePercentFDR"/>.
-        /// This ensures each unique peptide/oligonucleotide contributes only its best-scoring identification.
+        /// Aggregated confidence score for the group, used internally for protein grouping optimization.
+        /// Computed by <see cref="Score"/> as the sum of the best (highest) score for each unique 
+        /// base sequence among the PSMs in <see cref="AllPsmsBelowOnePercentFDR"/>.
+        /// Higher values indicate higher confidence. NOT used for protein FDR calculations.
         /// </summary>
-        /// <seealso cref="BioPolymerGroupExtensions.Score"/>
+        /// <seealso cref="Score"/>
         public double BioPolymerGroupScore { get; set; }
 
         /// <summary>
@@ -466,18 +465,24 @@ namespace Omics.BioPolymerGroup
 
         /// <summary>
         /// Calculates and updates <see cref="BioPolymerGroupScore"/> based on PSM scores.
-        /// Delegates to <see cref="BioPolymerGroupExtensions.Score"/> which computes the score
-        /// as the sum of the best (highest) score for each unique base sequence among 
-        /// <see cref="AllPsmsBelowOnePercentFDR"/>.
+        /// 
+        /// The score is computed as the sum of the best (highest) score for each unique base sequence
+        /// among <see cref="AllPsmsBelowOnePercentFDR"/>. This ensures each unique peptide/oligonucleotide
+        /// contributes only its best-scoring identification to the group score.
         /// </summary>
         /// <remarks>
+        /// This method is used internally for protein grouping optimization and is NOT used for 
+        /// protein FDR calculations.
+        /// 
         /// This method should be called after <see cref="AllPsmsBelowOnePercentFDR"/> has been populated.
         /// If the collection is empty, <see cref="BioPolymerGroupScore"/> will be set to 0.
         /// </remarks>
-        /// <seealso cref="BioPolymerGroupExtensions.Score"/>
         public void Score()
         {
-            BioPolymerGroupExtensions.Score(this);
+            BioPolymerGroupScore = AllPsmsBelowOnePercentFDR
+                .GroupBy(p => p.BaseSequence)
+                .Select(p => p.Select(x => x.Score).Max())
+                .Sum();
         }
 
         /// <summary>
