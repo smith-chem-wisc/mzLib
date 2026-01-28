@@ -1,8 +1,6 @@
 ﻿using Omics.Modifications;
 using System.Collections.Concurrent;
-using System.Reflection;
 using Omics;
-using UsefulProteomicsDatabases;
 
 namespace Readers;
 
@@ -13,33 +11,12 @@ public static class ModificationConverter
     // Cache of previously successful modification conversions to reduce the number of times the same modification is converted
     private static readonly ConcurrentDictionary<(string, char), Modification> _modificationCache;
 
-    internal static List<Modification> AllKnownMods;
-    internal static Dictionary<string, Modification> AllModsKnown;
+    internal static List<Modification> AllKnownMods => Mods.AllKnownMods;
+    internal static Dictionary<string, Modification> AllModsKnown => Mods.AllModsKnown;
 
     static ModificationConverter()
     {
         _modificationCache = new ConcurrentDictionary<(string, char), Modification>();
-
-        var info = Assembly.GetExecutingAssembly().GetName();
-        var name = info.Name;
-
-        var unimodStream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"{name}.Resources.unimod.xml");
-        var unimodMods = UnimodLoader.ReadMods(unimodStream);
-
-        var psiModStream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"{name}.Resources.PSI-MOD.obo.xml");
-        var psiModObo = Loaders.LoadPsiMod(psiModStream);
-        var formalChargeDict = Loaders.GetFormalChargesDictionary(psiModObo);
-
-        var uniprotStream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"{name}.Resources.ptmlist.txt");
-        var uniprotMods = PtmListLoader.ReadModsFromFile(new StreamReader(uniprotStream), formalChargeDict, out _);
-
-        var modsTextStream = Assembly.GetExecutingAssembly().GetManifestResourceStream($"{name}.Resources.Mods.txt");
-        var modsTextMods = PtmListLoader.ReadModsFromFile(new StreamReader(modsTextStream), formalChargeDict, out _);
-
-        AllKnownMods = unimodMods.Concat(uniprotMods).Concat(modsTextMods).ToList();
-        AllModsKnown = AllKnownMods
-            .DistinctBy(m => m.IdWithMotif)
-            .ToDictionary(m => m.IdWithMotif);
     }
 
     #endregion
