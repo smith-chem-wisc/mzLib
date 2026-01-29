@@ -67,6 +67,17 @@
 # SingleN - Single cleavage, 5' fragments only
 # SingleC - Single cleavage, 3' fragments only
 #
+# SingleN/SingleC Example:
+# Given a sequence "ACGUGCA", single cleavage produces ladder fragments:
+#
+#   SingleN (keeps 5' end):         SingleC (keeps 3' end):
+#   A                               CGUGCA
+#   AC                              GUGCA
+#   ACG                             UGCA
+#   ACGU                            GCA
+#   ACGUG                           CA
+#   ACGUGC                          A
+#
 # ============================================================================
 # RNASE DEFINITIONS
 # ============================================================================
