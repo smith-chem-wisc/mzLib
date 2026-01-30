@@ -9,27 +9,27 @@ using Readers.SpectralLibrary;
 using System.ComponentModel;
 using System.Text.RegularExpressions;
 
-namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
+namespace Predictions.Koina.SupportedModels
 {
     public class Prosit2020IntensityHCD : IKoinaModelIO
     {
         public string ModelName => "Prosit_2020_intensity_HCD";
         public int MaxBatchSize => 1000;
-        public readonly int MaxPeptideLength = 30;
-        public readonly HashSet<int> AllowedPrecursorCharges = new() { 1, 2, 3, 4, 5, 6 };
-        public readonly int NumberOfPredictedFragmentIons = 174;
-        public readonly static Dictionary<string, string> ValidModificationUnimodMapping = new()
+        public int MaxPeptideLength => 30;
+        public HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
+        public int NumberOfPredictedFragmentIons => 174;
+        public Dictionary<string, string> ValidModificationUnimodMapping => new()
         {
             {"[Common Variable:Oxidation on M]", "[UNIMOD:35]"},
             {"[Common Fixed:Carbamidomethyl on C]", "[UNIMOD:4]"}
         };
-        public readonly static Dictionary<string, double> ValidModificationsMonoisotopicMasses = new()
+        public Dictionary<string, double> ValidModificationsMonoisotopicMasses => new()
         {
             {"[Common Variable:Oxidation on M]", 15.994915 },
             {"[Common Fixed:Carbamidomethyl on C]", 57.021464 }
         };
-        public static string ModificationPattern = @"\[[^\]]+\]";
-        public static string CanonicalAminoAcidPattern = @"^[ACDEFGHIKLMNPQRSTVWY]+$";
+        public string ModificationPattern => @"\[[^\]]+\]";
+        public string CanonicalAminoAcidPattern => @"^[ACDEFGHIKLMNPQRSTVWY]+$";
         public readonly List<string> PeptideSequences = new();
         public readonly List<int> PrecursorCharges = new();
         public readonly List<int> CollisionEnergies = new();
@@ -182,7 +182,7 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
 
         public async Task RunInferenceAsync()
         {
-            var _http = new HTTP(timeoutInMinutes: (int)(PeptideSequences.Count/MaxBatchSize) * 2 + 2); // Typically a full batch takes about a minute. Setting it to double that for safety.
+            var _http = new HTTP(timeoutInMinutes: PeptideSequences.Count/MaxBatchSize * 2 + 2); // Typically a full batch takes about a minute. Setting it to double that for safety.
 
             try
             {
@@ -198,7 +198,6 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
 
         private void ResponseToLibrarySpectra(string[] responses)
         {
-            PredictedSpectra = new List<LibrarySpectrum>();
             if (PeptideSequences.Count == 0)
             {
                 return; // No predictions to process
@@ -207,9 +206,9 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
             var deserializedResponses = responses.Select(response => Newtonsoft.Json.JsonConvert.DeserializeObject<ResponseJSONStruct>(response)).ToList();
             var numBatches = deserializedResponses.Count;
 
-            if (deserializedResponses.IsNullOrEmpty())
+            if (deserializedResponses.IsNullOrEmpty() || deserializedResponses.Any(r => r == null))
             {
-                throw new Exception("Failed to deserialize response from Koina.");
+                throw new Exception("Something went wrong during deserialization of responses.");
             }
 
             for (int batchIndex = 0; batchIndex < numBatches; batchIndex++)
@@ -302,7 +301,7 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
         }
 
 
-        internal bool HasValidModifications(string sequence)
+        public bool HasValidModifications(string sequence)
         {
             var matches = Regex.Matches(sequence, ModificationPattern);
             if (matches.Count == 0)
@@ -313,12 +312,11 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
             return matches.Where(m => !ValidModificationUnimodMapping.ContainsKey(m.Value)).Count() == 0;
         }
 
-        internal bool IsValidSequence(string sequence)
+        public bool IsValidSequence(string sequence)
         {
             var baseSequence = Regex.Replace(sequence, ModificationPattern, "");
-            return (Regex.IsMatch(baseSequence, CanonicalAminoAcidPattern) &&
-                baseSequence.Length <= MaxPeptideLength &&
-                baseSequence.Length >= 2);
+            return Regex.IsMatch(baseSequence, CanonicalAminoAcidPattern) 
+                && baseSequence.Length <= MaxPeptideLength;
         }
 
         /// <summary>
@@ -336,9 +334,7 @@ namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
             }
 
             // Carbamidomethylate all Cysteines if not already modified
-            sequence = Regex.Replace(sequence, @"C(?!\[UNIMOD:4\])", "C[UNIMOD:4]");
-
-            return sequence;
+            return Regex.Replace(sequence, @"C(?!\[UNIMOD:4\])", "C[UNIMOD:4]");
         }
 
         internal string ConvertToMzLibModificationFormat(string sequence)

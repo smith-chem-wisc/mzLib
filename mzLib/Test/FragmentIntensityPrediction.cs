@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.IO;
 using System;
 using System.ComponentModel;
-using Predictions.Koina.SupportedModels.Prosit2020IntensityHCD;
+using Predictions.Koina.SupportedModels;
 
 namespace Test
 {
@@ -234,8 +234,8 @@ namespace Test
             Assert.That(warningMax, Is.Null,
                 "Maximum length peptide should not produce a warning");
 
-            // Test invalid length (1 amino acid)
-            var tooShortPeptide = "K";
+            // Test invalid length (0 amino acid)
+            var tooShortPeptide = "";
             var modelTooShort = new Prosit2020IntensityHCD(
                 new List<string> { tooShortPeptide },
                 new List<int> { charge },
@@ -244,7 +244,7 @@ namespace Test
                 out var warningTooShort);
 
             Assert.That(modelTooShort.PeptideSequences.Count, Is.EqualTo(0),
-                "Peptide with 1 amino acid should be invalid");
+                "Peptide with 0 amino acids should be invalid");
             Assert.That(warningTooShort, Is.Not.Null,
                 "Too short peptide should produce a warning");
 
