@@ -1,7 +1,7 @@
 ﻿using Easy.Common.Extensions;
 using MzLibUtil;
-using Predictions.Koina.Client;
-using Predictions.Koina.Interfaces;
+using PredictionClients.Koina.Client;
+using PredictionClients.Koina.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -11,7 +11,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 
-namespace Predictions.Koina.SupportedModels
+namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
 {
     public class Prosit2019iRT : IKoinaModelIO
     {

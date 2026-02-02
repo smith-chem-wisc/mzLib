@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace Predictions.Koina.Client
+namespace PredictionClients.Koina.Client
 {
     public class OutputJSONStruct
     {

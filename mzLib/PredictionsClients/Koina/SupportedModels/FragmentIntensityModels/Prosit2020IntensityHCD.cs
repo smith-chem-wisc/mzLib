@@ -1,39 +1,37 @@
 ﻿using Chemistry;
-using MzLibUtil;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
-using Predictions.Koina.Client;
-using Predictions.Koina.Interfaces;
 using Proteomics.AminoAcidPolymer;
 using Readers.SpectralLibrary;
 using System.ComponentModel;
 using System.Text.RegularExpressions;
+using PredictionClients.Koina.AbstractClasses;
 
-namespace Predictions.Koina.SupportedModels
+namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
 {
-    public class Prosit2020IntensityHCD : IKoinaModelIO
+    public class Prosit2020IntensityHCD : FragmentIntensityModel
     {
-        public string ModelName => "Prosit_2020_intensity_HCD";
-        public int MaxBatchSize => 1000;
-        public int MaxPeptideLength => 30;
+        public override string ModelName => "Prosit_2020_intensity_HCD";
+        public override int MaxBatchSize => 1000;
+        public override int MaxPeptideLength => 30;
+        public override int MinPeptideLength => 7;
         public HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
         public int NumberOfPredictedFragmentIons => 174;
-        public Dictionary<string, string> ValidModificationUnimodMapping => new()
+        public override Dictionary<string, string> ValidModificationUnimodMapping => new()
         {
             {"[Common Variable:Oxidation on M]", "[UNIMOD:35]"},
             {"[Common Fixed:Carbamidomethyl on C]", "[UNIMOD:4]"}
         };
-        public Dictionary<string, double> ValidModificationsMonoisotopicMasses => new()
+        public override Dictionary<string, double> ValidModificationsMonoisotopicMasses => new()
         {
             {"[Common Variable:Oxidation on M]", 15.994915 },
             {"[Common Fixed:Carbamidomethyl on C]", 57.021464 }
         };
-        public string ModificationPattern => @"\[[^\]]+\]";
-        public string CanonicalAminoAcidPattern => @"^[ACDEFGHIKLMNPQRSTVWY]+$";
-        public readonly List<string> PeptideSequences = new();
-        public readonly List<int> PrecursorCharges = new();
-        public readonly List<int> CollisionEnergies = new();
-        public readonly List<double?> RetentionTimes = new();
+        public override List<string> PeptideSequences { get; } = new();
+        public override List<int> PrecursorCharges { get; } = new();
+        public List<int> CollisionEnergies { get; } = new();
+        public List<double?> RetentionTimes { get; } = new();
+        public override List<PeptideFragmentIntensityPrediction> Predictions { get; } = new();
         public List<LibrarySpectrum> PredictedSpectra = new();
         public double MinIntensityFilter; // Tolerance for intensity filtering of predicted peaks
 
@@ -87,7 +85,7 @@ namespace Predictions.Koina.SupportedModels
 
                 // Skip invalid peptides
                 if (!HasValidModifications(peptide) ||
-                    !IsValidSequence(peptide) ||
+                    !IsValidPeptideSequence(peptide) ||
                     !AllowedPrecursorCharges.Contains(charge) ||
                     energy <= 0
                     )
@@ -136,7 +134,7 @@ namespace Predictions.Koina.SupportedModels
         }
 
 
-        public List< Dictionary<string, object> > ToBatchedRequests()
+        public override List< Dictionary<string, object> > ToBatchedRequests()
         {
 
             var batchedPeptides = PeptideSequences.Chunk(MaxBatchSize).ToList();
@@ -180,110 +178,73 @@ namespace Predictions.Koina.SupportedModels
         }
 
 
-        public async Task RunInferenceAsync()
+
+        private void PredictionsToLibrarySpectra()
         {
-            var _http = new HTTP(timeoutInMinutes: PeptideSequences.Count/MaxBatchSize * 2 + 2); // Typically a full batch takes about a minute. Setting it to double that for safety.
-
-            try
-            {
-                var responses = await Task.WhenAll(ToBatchedRequests().Select(request => _http.InferenceRequest(ModelName, request)));
-                ResponseToLibrarySpectra(responses);
-            }
-            finally
-            {
-                _http.Dispose();
-            }
-        }
-
-
-        private void ResponseToLibrarySpectra(string[] responses)
-        {
-            if (PeptideSequences.Count == 0)
+            if (Predictions.Count == 0)
             {
                 return; // No predictions to process
             }
 
-            var deserializedResponses = responses.Select(response => Newtonsoft.Json.JsonConvert.DeserializeObject<ResponseJSONStruct>(response)).ToList();
-            var numBatches = deserializedResponses.Count;
-
-            if (deserializedResponses.IsNullOrEmpty() || deserializedResponses.Any(r => r == null))
+            for (int predictionIndex = 0; predictionIndex < Predictions.Count; predictionIndex++)
             {
-                throw new Exception("Something went wrong during deserialization of responses.");
-            }
-
-            for (int batchIndex = 0; batchIndex < numBatches; batchIndex++)
-            {
-                var responseBatch = deserializedResponses[batchIndex];
-                if (responseBatch == null || responseBatch.Outputs.Count != 3)
-                {
-                    throw new Exception($"API response is not in the expected format. Expected 3 outputs, got {responseBatch?.Outputs.Count}.");
-                }
-
-                var currentBatchSize = responseBatch.Outputs[0].Shape[0];
-                string[] outputIonAnnotations = responseBatch.Outputs[0].Data.Select(d => (string)d).ToArray();
-                double[] outputMZs = responseBatch.Outputs[1].Data.Select(d => Convert.ToDouble(d)).ToArray();
-                double[] outputIntensities = responseBatch.Outputs[2].Data.Select(d => Convert.ToDouble(d)).ToArray();
-
-                // Iterate through each batch/peptide to construct a LibrarySpectrum
-                for (int precursorIndex = 0; precursorIndex < currentBatchSize; precursorIndex++)
-                {
-                    int linearIndexBatchOffset = batchIndex * MaxBatchSize;
-                    var peptide = new Peptide(
-                        ConvertToMzLibModificationFormatWithMassesOnly(
-                            ConvertToMzLibModificationFormat(PeptideSequences[linearIndexBatchOffset + precursorIndex])
-                            )
-                        );
-                    List<MatchedFragmentIon> fragmentIons = new();
-
-                    for (int fragmentIndex = precursorIndex * NumberOfPredictedFragmentIons; fragmentIndex < (precursorIndex + 1) * NumberOfPredictedFragmentIons; fragmentIndex++)
-                    {
-                        if (outputMZs[fragmentIndex] == -1 || outputIntensities[fragmentIndex] < MinIntensityFilter)
-                        {
-                            // Skip impossible ions and peaks with near zero intensity. The model uses -1 to indicate impossible ions.
-                            continue;
-                        }
-
-                        var annotation = outputIonAnnotations[fragmentIndex];
-                        // Parse the annotation to get ion type, number and charge from something like 'b5+1'
-                        var ionType = annotation.First().ToString(); // 'b' or 'y'
-                        var plusIndex = annotation.IndexOf('+');
-                        var fragmentNumber = int.Parse(annotation.Substring(1, plusIndex - 1));
-                        var fragmentIonCharge = int.Parse(annotation.Substring(plusIndex + 1));
-
-                        // Create a new MatchedFragmentIon for each output
-                        var fragmentIon = new MatchedFragmentIon
-                        (
-                            neutralTheoreticalProduct: new Product
-                            (
-                                productType: Enum.Parse<ProductType>(ionType),
-                                terminus: ionType == "b" ? FragmentationTerminus.N : FragmentationTerminus.C,
-                                // neutralMass is not directly provided by Prosit, and it is not necessary here. If needed, 
-                                // compute it from the peptide sequence and fragment information as shown below.
-                                // neutralMass: peptide.Fragment(Enum.Parse<FragmentTypes>(ionType), fragmentNumber).First().MonoisotopicMass,
-                                neutralMass: 0.0, // Placeholder, not used in this context
-                                fragmentNumber: fragmentNumber,
-                                residuePosition: fragmentNumber, // For b / y ions, the fragment number corresponds to the residue count from the respective terminus.
-                                neutralLoss: 0 // Prosit annotations like "b5+1" do not encode neutral losses, so we explicitly assume no loss as placeholder.
-                            ),
-                            experMz: outputMZs[fragmentIndex],
-                            experIntensity: outputIntensities[fragmentIndex],
-                            charge: fragmentIonCharge
-                        );
-
-                        fragmentIons.Add(fragmentIon);
-                    }
-
-                    var spectrum = new LibrarySpectrum
-                    (
-                        sequence: PeptideSequences[linearIndexBatchOffset + precursorIndex],
-                        precursorMz: peptide.ToMz(PrecursorCharges[linearIndexBatchOffset + precursorIndex]),
-                        chargeState: PrecursorCharges[linearIndexBatchOffset + precursorIndex],
-                        peaks: fragmentIons,
-                        rt: RetentionTimes[linearIndexBatchOffset + precursorIndex]
+                var prediction = Predictions[predictionIndex];
+                
+                var peptide = new Peptide(
+                    ConvertToMzLibModificationFormatWithMassesOnly(
+                        ConvertToMzLibModificationFormat(prediction.PeptideSequence)
+                        )
                     );
 
-                    PredictedSpectra.Add(spectrum);
+                List<MatchedFragmentIon> fragmentIons = new();
+                for (int fragmentIndex = 0; fragmentIndex < prediction.FragmentAnnotations.Count; fragmentIndex++ )
+                {
+                    if (prediction.FragmentIntensities[fragmentIndex] == -1 || prediction.FragmentIntensities[fragmentIndex] < MinIntensityFilter)
+                    {
+                        // Skip impossible ions and peaks with near zero intensity. The model uses -1 to indicate impossible ions.
+                        continue;
+                    }
+
+                    var annotation = prediction.FragmentAnnotations[fragmentIndex];
+                    // Parse the annotation to get ion type, number and charge from something like 'b5+1'
+                    var ionType = annotation.First().ToString(); // 'b' or 'y'
+                    var plusIndex = annotation.IndexOf('+');
+                    var fragmentNumber = int.Parse(annotation.Substring(1, plusIndex - 1));
+                    var fragmentIonCharge = int.Parse(annotation.Substring(plusIndex + 1));
+
+                    // Create a new MatchedFragmentIon for each output
+                    var fragmentIon = new MatchedFragmentIon
+                    (
+                        neutralTheoreticalProduct: new Product
+                        (
+                            productType: Enum.Parse<ProductType>(ionType),
+                            terminus: ionType == "b" ? FragmentationTerminus.N : FragmentationTerminus.C,
+                            // neutralMass is not directly provided by Prosit, and it is not necessary here. If needed, 
+                            // compute it from the peptide sequence and fragment information as shown below.
+                            // neutralMass: peptide.Fragment(Enum.Parse<FragmentTypes>(ionType), fragmentNumber).First().MonoisotopicMass,
+                            neutralMass: 0.0, // Placeholder, not used in this context
+                            fragmentNumber: fragmentNumber,
+                            residuePosition: fragmentNumber, // For b / y ions, the fragment number corresponds to the residue count from the respective terminus.
+                            neutralLoss: 0 // Prosit annotations like "b5+1" do not encode neutral losses, so we explicitly assume no loss as placeholder.
+                        ),
+                        experMz: prediction.FragmentMZs[fragmentIndex],
+                        experIntensity: prediction.FragmentIntensities[fragmentIndex],
+                        charge: fragmentIonCharge
+                    );
+
+                    fragmentIons.Add(fragmentIon);
                 }
+
+                var spectrum = new LibrarySpectrum
+                (
+                    sequence: prediction.PeptideSequence,
+                    precursorMz: peptide.ToMz(PrecursorCharges[predictionIndex]),
+                    chargeState: PrecursorCharges[predictionIndex],
+                    peaks: fragmentIons,
+                    rt: RetentionTimes[predictionIndex]
+                );
+
+                PredictedSpectra.Add(spectrum);
             }
             var unique = PredictedSpectra.DistinctBy(p => p.Name).ToList();
             if (unique.Count != PredictedSpectra.Count)
@@ -298,25 +259,6 @@ namespace Predictions.Koina.SupportedModels
             var spectralLibrary = new SpectralLibrary();
             spectralLibrary.Results = PredictedSpectra;
             spectralLibrary.WriteResults(filePath);
-        }
-
-
-        public bool HasValidModifications(string sequence)
-        {
-            var matches = Regex.Matches(sequence, ModificationPattern);
-            if (matches.Count == 0)
-            {
-                return true; // No modifications, valid
-            }
-            
-            return matches.Where(m => !ValidModificationUnimodMapping.ContainsKey(m.Value)).Count() == 0;
-        }
-
-        public bool IsValidSequence(string sequence)
-        {
-            var baseSequence = Regex.Replace(sequence, ModificationPattern, "");
-            return Regex.IsMatch(baseSequence, CanonicalAminoAcidPattern) 
-                && baseSequence.Length <= MaxPeptideLength;
         }
 
         /// <summary>

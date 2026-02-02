@@ -1,12 +1,11 @@
 ﻿using MzLibUtil;
-using Omics.SpectrumMatch;
-using Predictions.Koina.Interfaces;
+using PredictionClients.Koina.Interfaces;
 using System.ComponentModel;
 using System.Text;
 using System.Text.RegularExpressions;
-using Predictions.Koina.Client;
+using PredictionClients.Koina.Client;
 
-namespace Predictions.Koina.SupportedModels
+namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
 {
     public class Prosit2020iRTTMT : IKoinaModelIO
     {

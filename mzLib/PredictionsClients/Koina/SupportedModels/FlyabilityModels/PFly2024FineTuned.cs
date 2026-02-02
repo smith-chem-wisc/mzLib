@@ -1,16 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Predictions.Koina.Interfaces;
-using Predictions.Koina.Client;
+﻿using PredictionClients.Koina.Client;
+using PredictionClients.Koina.Interfaces;
 using Easy.Common.Extensions;
 using MzLibUtil;
 using System.Text.RegularExpressions;
 using System.ComponentModel;
 
-namespace Predictions.Koina.SupportedModels
+
+namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
 {
     public class PFly2024FineTuned : IKoinaModelIO
     {

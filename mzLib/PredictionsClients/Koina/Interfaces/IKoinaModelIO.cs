@@ -1,4 +1,4 @@
-﻿namespace Predictions.Koina.Interfaces
+﻿namespace PredictionClients.Koina.Interfaces
 {
     public interface IKoinaModelIO
     {

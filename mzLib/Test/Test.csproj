@@ -27,7 +27,7 @@
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
     <ProjectReference Include="..\Chromatography\Chromatography.csproj" />
     <ProjectReference Include="..\FlashLFQ\FlashLFQ.csproj" />
-    <ProjectReference Include="..\Predictions\Predictions.csproj" />
+    <ProjectReference Include="..\PredictionClients\PredictionClients.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
     <ProjectReference Include="..\MzIdentML\MzIdentML.csproj" />
     <ProjectReference Include="..\Omics\Omics.csproj" />
@@ -815,6 +815,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="KoinaTests\FragmentIntensityPrediction\" />
+	<Folder Include="KoinaTests\FlyabilityPrediction\" />
+    <Folder Include="KoinaTests\RetentionTimePrediction\" />
     <Folder Include="TestData\" />
   </ItemGroup>
 

@@ -6,11 +6,11 @@ using System.Threading.Tasks;
 using System.IO;
 using System;
 using System.ComponentModel;
-using Predictions.Koina.SupportedModels;
+using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 
-namespace Test
+namespace Test.KoinaTests.FragmentIntensityPrediction
 {
-    public class FragmentIntensityPrediction
+    public class Koina_Prosit2020IntensityHCD
     {
         [Test]
         public static async Task TestKoinaProsit2020IntensityHCDModelWritesReadableSpectralLibrary()
@@ -64,7 +64,7 @@ namespace Test
                         var savedFrag = sortedSavedFrags[j];
                         Assert.That(inMemoryFrag.Mz, Is.EqualTo(savedFrag.Mz).Within(1e-6));
                         // Compare normalized intensities since saved library normalizes to max intensity
-                        Assert.That((inMemoryFrag.Intensity / maxInMemoryIntensity), Is.EqualTo(savedFrag.Intensity).Within(1e-6));
+                        Assert.That(inMemoryFrag.Intensity / maxInMemoryIntensity, Is.EqualTo(savedFrag.Intensity).Within(1e-6));
                         Assert.That(inMemoryFrag.NeutralTheoreticalProduct.ProductType == savedFrag.NeutralTheoreticalProduct.ProductType);
                         Assert.That(inMemoryFrag.NeutralTheoreticalProduct.FragmentNumber == savedFrag.NeutralTheoreticalProduct.FragmentNumber);
                         Assert.That(inMemoryFrag.Charge == savedFrag.Charge);
@@ -116,7 +116,7 @@ namespace Test
 
             // Mismatched lengths
             var mismatchedCharges = new List<int> { 2 };
-            Assert.Throws<System.ArgumentException>(() =>
+            Assert.Throws<ArgumentException>(() =>
                 new Prosit2020IntensityHCD(validPeptides, mismatchedCharges, validEnergies, validRetentionTimes, out var _));
         }
 
