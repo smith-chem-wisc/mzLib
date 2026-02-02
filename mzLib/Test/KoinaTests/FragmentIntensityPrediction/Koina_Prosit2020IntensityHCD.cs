@@ -71,10 +71,6 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
                     }
                 }
             }
-            catch
-            {
-                Assert.Fail("Test failed somewhere in the try statement.");
-            }
             finally
             {
                 testLibraryWithoutDecoy?.CloseConnections();
@@ -402,6 +398,7 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
 
             var model = new Prosit2020IntensityHCD(peptides, charges, energies, retentionTimes, out var warning);
             await model.RunInferenceAsync();
+            model.GenerateLibrarySpectraFromPredictions();
 
             Assert.That(model.PredictedSpectra.Count, Is.EqualTo(2),
                 "Should have predictions for both peptides");
@@ -454,7 +451,7 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
             }
             var modelHandler = new Prosit2020IntensityHCD(peptides, charges, energies, retentionTimes, out var warnings);
             Assert.DoesNotThrowAsync(async () => await modelHandler.RunInferenceAsync());
-            Assert.That(modelHandler.PredictedSpectra.Count == numberOfSequences);
+            Assert.That(modelHandler.Predictions.Count == numberOfSequences);
         }
     }
 }

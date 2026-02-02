@@ -1,10 +1,5 @@
-﻿using Chemistry;
-using Omics.Fragmentation;
-using Omics.SpectrumMatch;
-using Proteomics.AminoAcidPolymer;
-using Readers.SpectralLibrary;
+﻿using Omics.SpectrumMatch;
 using System.ComponentModel;
-using System.Text.RegularExpressions;
 using PredictionClients.Koina.AbstractClasses;
 
 namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
@@ -14,7 +9,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override string ModelName => "Prosit_2020_intensity_HCD";
         public override int MaxBatchSize => 1000;
         public override int MaxPeptideLength => 30;
-        public override int MinPeptideLength => 7;
+        public override int MinPeptideLength => 1;
         public HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
         public int NumberOfPredictedFragmentIons => 174;
         public override Dictionary<string, string> ValidModificationUnimodMapping => new()
@@ -30,10 +25,10 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override List<string> PeptideSequences { get; } = new();
         public override List<int> PrecursorCharges { get; } = new();
         public List<int> CollisionEnergies { get; } = new();
-        public List<double?> RetentionTimes { get; } = new();
-        public override List<PeptideFragmentIntensityPrediction> Predictions { get; } = new();
-        public List<LibrarySpectrum> PredictedSpectra = new();
-        public double MinIntensityFilter; // Tolerance for intensity filtering of predicted peaks
+        public override List<double?> RetentionTimes { get; } = new();
+        public override List<PeptideFragmentIntensityPrediction> Predictions { get; protected set; } = new();
+        public override List<LibrarySpectrum> PredictedSpectra { get; protected set; } = new();
+        public override double MinIntensityFilter { get; protected set; } = 1e-4;
 
         /// <summary>
         /// Client for the Prosit 2020 HCD Intensity Model 
@@ -175,126 +170,6 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
             }
 
             return batchedRequests;
-        }
-
-
-
-        private void PredictionsToLibrarySpectra()
-        {
-            if (Predictions.Count == 0)
-            {
-                return; // No predictions to process
-            }
-
-            for (int predictionIndex = 0; predictionIndex < Predictions.Count; predictionIndex++)
-            {
-                var prediction = Predictions[predictionIndex];
-                
-                var peptide = new Peptide(
-                    ConvertToMzLibModificationFormatWithMassesOnly(
-                        ConvertToMzLibModificationFormat(prediction.PeptideSequence)
-                        )
-                    );
-
-                List<MatchedFragmentIon> fragmentIons = new();
-                for (int fragmentIndex = 0; fragmentIndex < prediction.FragmentAnnotations.Count; fragmentIndex++ )
-                {
-                    if (prediction.FragmentIntensities[fragmentIndex] == -1 || prediction.FragmentIntensities[fragmentIndex] < MinIntensityFilter)
-                    {
-                        // Skip impossible ions and peaks with near zero intensity. The model uses -1 to indicate impossible ions.
-                        continue;
-                    }
-
-                    var annotation = prediction.FragmentAnnotations[fragmentIndex];
-                    // Parse the annotation to get ion type, number and charge from something like 'b5+1'
-                    var ionType = annotation.First().ToString(); // 'b' or 'y'
-                    var plusIndex = annotation.IndexOf('+');
-                    var fragmentNumber = int.Parse(annotation.Substring(1, plusIndex - 1));
-                    var fragmentIonCharge = int.Parse(annotation.Substring(plusIndex + 1));
-
-                    // Create a new MatchedFragmentIon for each output
-                    var fragmentIon = new MatchedFragmentIon
-                    (
-                        neutralTheoreticalProduct: new Product
-                        (
-                            productType: Enum.Parse<ProductType>(ionType),
-                            terminus: ionType == "b" ? FragmentationTerminus.N : FragmentationTerminus.C,
-                            // neutralMass is not directly provided by Prosit, and it is not necessary here. If needed, 
-                            // compute it from the peptide sequence and fragment information as shown below.
-                            // neutralMass: peptide.Fragment(Enum.Parse<FragmentTypes>(ionType), fragmentNumber).First().MonoisotopicMass,
-                            neutralMass: 0.0, // Placeholder, not used in this context
-                            fragmentNumber: fragmentNumber,
-                            residuePosition: fragmentNumber, // For b / y ions, the fragment number corresponds to the residue count from the respective terminus.
-                            neutralLoss: 0 // Prosit annotations like "b5+1" do not encode neutral losses, so we explicitly assume no loss as placeholder.
-                        ),
-                        experMz: prediction.FragmentMZs[fragmentIndex],
-                        experIntensity: prediction.FragmentIntensities[fragmentIndex],
-                        charge: fragmentIonCharge
-                    );
-
-                    fragmentIons.Add(fragmentIon);
-                }
-
-                var spectrum = new LibrarySpectrum
-                (
-                    sequence: prediction.PeptideSequence,
-                    precursorMz: peptide.ToMz(PrecursorCharges[predictionIndex]),
-                    chargeState: PrecursorCharges[predictionIndex],
-                    peaks: fragmentIons,
-                    rt: RetentionTimes[predictionIndex]
-                );
-
-                PredictedSpectra.Add(spectrum);
-            }
-            var unique = PredictedSpectra.DistinctBy(p => p.Name).ToList();
-            if (unique.Count != PredictedSpectra.Count)
-            {
-                throw new WarningException($"Duplicate spectra found in predictions. Reduced from {PredictedSpectra.Count} predicted spectra to {unique.Count} unique spectra.");
-            }
-        }
-
-
-        public void SavePredictedSpectralLibrary(string filePath)
-        {
-            var spectralLibrary = new SpectralLibrary();
-            spectralLibrary.Results = PredictedSpectra;
-            spectralLibrary.WriteResults(filePath);
-        }
-
-        /// <summary>
-        /// Converts a peptide sequence from the mzLib modification format to the Prosit UNIMOD format.
-        /// By default, all unmodified cysteines are carbamidomethylated (UNIMOD:4) to match the expectations
-        /// of the Prosit 2020 HCD intensity model.
-        /// </summary>
-        /// <param name="sequence">Peptide sequence in mzLib modification format.</param>
-        /// <returns>The sequence converted to Prosit UNIMOD format with cysteines carbamidomethylated.</returns>
-        internal string ConvertToPrositModificationFormat(string sequence)
-        {
-            foreach (var mod in ValidModificationUnimodMapping)
-            {
-                sequence = sequence.Replace(mod.Key, mod.Value);
-            }
-
-            // Carbamidomethylate all Cysteines if not already modified
-            return Regex.Replace(sequence, @"C(?!\[UNIMOD:4\])", "C[UNIMOD:4]");
-        }
-
-        internal string ConvertToMzLibModificationFormat(string sequence)
-        {
-            foreach (var mod in ValidModificationUnimodMapping)
-            {
-                sequence = sequence.Replace(mod.Value, mod.Key);
-            }
-            return sequence;
-        }
-
-        internal string ConvertToMzLibModificationFormatWithMassesOnly(string sequence)
-        {
-            foreach (var mod in ValidModificationsMonoisotopicMasses)
-            {
-                sequence = sequence.Replace(mod.Key, $"[{mod.Value.ToString("F6")}]");
-            }
-            return sequence;
         }
     }
 }
