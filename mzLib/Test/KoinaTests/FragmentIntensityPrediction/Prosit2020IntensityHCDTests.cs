@@ -10,7 +10,9 @@ using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 
 namespace Test.KoinaTests.FragmentIntensityPrediction
 {
-    public class Koina_Prosit2020IntensityHCD
+    [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
+    public class Prosit2020IntensityHCDTests
     {
         [Test]
         public static async Task TestKoinaProsit2020IntensityHCDModelWritesReadableSpectralLibrary()

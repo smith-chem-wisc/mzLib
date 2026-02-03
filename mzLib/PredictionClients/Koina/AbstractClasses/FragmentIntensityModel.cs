@@ -36,7 +36,7 @@ namespace PredictionClients.Koina.AbstractClasses
         public virtual List<LibrarySpectrum> PredictedSpectra { get; protected set; } = new();
 
 
-        public abstract List<Dictionary<string, object>> ToBatchedRequests();
+        protected abstract List<Dictionary<string, object>> ToBatchedRequests();
 
         public virtual async Task RunInferenceAsync()
         {
@@ -53,7 +53,7 @@ namespace PredictionClients.Koina.AbstractClasses
             }
         }
 
-        public virtual void ResponseToPredictions(string[] responses)
+        protected virtual void ResponseToPredictions(string[] responses)
         {
             if (PeptideSequences.Count == 0)
             {
@@ -108,7 +108,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         /// <param name="sequence"></param>
         /// <returns></returns>
-        public virtual bool IsValidPeptideSequence(string sequence)
+        protected virtual bool IsValidPeptideSequence(string sequence)
         {
             var baseSequence = Regex.Replace(sequence, ModificationPattern, "");
             return Regex.IsMatch(baseSequence, CanonicalAminoAcidPattern)
@@ -121,7 +121,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         /// <param name="sequence"></param>
         /// <returns></returns>
-        public virtual bool HasValidModifications(string sequence)
+        protected virtual bool HasValidModifications(string sequence)
         {
             var matches = Regex.Matches(sequence, ModificationPattern);
             foreach (Match match in matches)

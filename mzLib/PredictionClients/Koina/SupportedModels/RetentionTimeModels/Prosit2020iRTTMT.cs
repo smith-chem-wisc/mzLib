@@ -1,7 +1,9 @@
 ﻿using MzLibUtil;
 using PredictionClients.Koina.AbstractClasses;
 using System.ComponentModel;
+using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
 {
@@ -70,7 +72,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
                 warnings = new WarningException(sb.ToString());
             }
         }
-        public override List<Dictionary<string, object>> ToBatchedRequests()
+        protected override List<Dictionary<string, object>> ToBatchedRequests()
         {
             var batchedPeptides = PeptideSequences.Chunk(MaxBatchSize).ToList();
             var batchedRequests = new List<Dictionary<string, object>>();
@@ -93,6 +95,16 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
                 batchedRequests.Add(request);
             }
             return batchedRequests;
+        }
+
+        protected override bool HasValidModifications(string sequence)
+        {
+            var matches = Regex.Matches(sequence, ModificationPattern);
+            var nTermMod = matches.FirstOrDefault(m => m.Index == 0)?.Value ?? string.Empty;
+            var firstModIsValid = ValidModificationUnimodMapping.TryGetValue(nTermMod, out nTermMod);
+
+            return matches.All(m => ValidModificationUnimodMapping.ContainsKey(m.Value))
+                && firstModIsValid;
         }
     }
 }

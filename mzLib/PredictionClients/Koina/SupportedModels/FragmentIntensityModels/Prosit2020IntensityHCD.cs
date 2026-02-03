@@ -121,15 +121,13 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
             throw new NotImplementedException();
         }
 
-
         // Construct from a a spectral library file path
         public Prosit2020IntensityHCD(string filePath)
         {
             throw new NotImplementedException();
         }
 
-
-        public override List< Dictionary<string, object> > ToBatchedRequests()
+        protected override List< Dictionary<string, object> > ToBatchedRequests()
         {
 
             var batchedPeptides = PeptideSequences.Chunk(MaxBatchSize).ToList();

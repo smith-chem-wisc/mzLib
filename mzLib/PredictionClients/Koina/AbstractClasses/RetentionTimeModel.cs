@@ -30,7 +30,7 @@ namespace PredictionClients.Koina.AbstractClasses
         public abstract List<string> PeptideSequences { get; }
         public abstract List<PeptideRTPrediction> Predictions { get; protected set; }
 
-        public abstract List<Dictionary<string, object>> ToBatchedRequests();
+        protected abstract List<Dictionary<string, object>> ToBatchedRequests();
 
         public virtual async Task RunInferenceAsync()
         {
@@ -47,7 +47,7 @@ namespace PredictionClients.Koina.AbstractClasses
             }
         }
 
-        public virtual void ResponseToPredictions(string[] responses)
+        protected virtual void ResponseToPredictions(string[] responses)
         {
             if (PeptideSequences.Count == 0)
             {
@@ -75,7 +75,7 @@ namespace PredictionClients.Koina.AbstractClasses
                 .ToList();
         }
 
-        public virtual bool HasValidModifications(string sequence)
+        protected virtual bool HasValidModifications(string sequence)
         {
             var matches = Regex.Matches(sequence, ModificationPattern);
             if (matches.Count == 0)
@@ -86,7 +86,7 @@ namespace PredictionClients.Koina.AbstractClasses
             return matches.Where(m => !ValidModificationUnimodMapping.ContainsKey(m.Value)).Count() == 0;
         }
 
-        public virtual bool IsValidSequence(string sequence)
+        protected virtual bool IsValidSequence(string sequence)
         {
             var baseSequence = Regex.Replace(sequence, ModificationPattern, "");
             return Regex.IsMatch(baseSequence, CanonicalAminoAcidPattern)
@@ -100,7 +100,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         /// <param name="sequence">Peptide sequence in mzLib modification format.</param>
         /// <returns>The sequence converted to Prosit UNIMOD format with cysteines carbamidomethylated.</returns>
-        public virtual string ConvertToPrositModificationFormat(string sequence)
+        protected virtual string ConvertToPrositModificationFormat(string sequence)
         {
             foreach (var mod in ValidModificationUnimodMapping)
             {

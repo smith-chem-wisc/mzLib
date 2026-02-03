@@ -57,7 +57,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
             }
         }
 
-        public override List<Dictionary<string, object>> ToBatchedRequests()
+        protected override List<Dictionary<string, object>> ToBatchedRequests()
         {
             var batchedPeptides = PeptideSequences.Chunk(MaxBatchSize).ToList();
             var batchedRequests = new List<Dictionary<string, object>>();

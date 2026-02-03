@@ -816,7 +816,6 @@
 
   <ItemGroup>
 	<Folder Include="KoinaTests\FlyabilityPrediction\" />
-    <Folder Include="KoinaTests\RetentionTimePrediction\" />
     <Folder Include="TestData\" />
   </ItemGroup>
 
