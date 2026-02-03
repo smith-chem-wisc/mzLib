@@ -130,18 +130,14 @@ namespace PredictionClients.Koina.AbstractClasses
         /// <exception cref="Exception">Thrown when API responses cannot be deserialized or processed</exception>
         public virtual async Task RunInferenceAsync()
         {
-            // Dynamic timeout: ~1 minute per batch + 2 minute buffer for network/processing overhead
-            var _http = new HTTP(timeoutInMinutes: PeptideSequences.Count / MaxBatchSize * 2 + 2);
-
-            try
-            {
-                var responses = await Task.WhenAll(ToBatchedRequests().Select(request => _http.InferenceRequest(ModelName, request)));
-                ResponseToPredictions(responses);
-            }
-            finally
-            {
-                _http.Dispose(); // Ensure HTTP client is properly disposed
-            }
+            // Dynamic timeout: ~2 minutes per batch + 2 minute buffer for network/processing overhead. Typically a 
+            // batch takes less than a minute. 
+            int numBatches = (int)Math.Ceiling((double)PeptideSequences.Count / MaxBatchSize);
+            using var _http = new HTTP(timeoutInMinutes: numBatches * 2 + 2);
+            
+            var responses = await Task.WhenAll(ToBatchedRequests().Select(request => _http.InferenceRequest(ModelName, request)));
+            ResponseToPredictions(responses);
+            
         }
 
         /// <summary>
@@ -220,7 +216,7 @@ namespace PredictionClients.Koina.AbstractClasses
             }
 
             // Check if any modifications are not in the valid mapping
-            return matches.Where(m => !ValidModificationUnimodMapping.ContainsKey(m.Value)).Count() == 0;
+            return matches.All(m => ValidModificationUnimodMapping.ContainsKey(m.Value));
         }
 
         /// <summary>

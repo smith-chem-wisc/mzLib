@@ -256,7 +256,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
 
             // Extract N-terminal modification for special validation (TMT labeling often requires N-terminal tags)
             var nTermMod = matches.FirstOrDefault(m => m.Index == 0)?.Value ?? string.Empty;
-            var firstModIsValid = ValidModificationUnimodMapping.TryGetValue(nTermMod, out nTermMod);
+            var firstModIsValid = ValidModificationUnimodMapping.TryGetValue(nTermMod, out var _);
 
             // Validate all modifications are in the supported mapping AND N-terminal mod is valid
             return matches.All(m => ValidModificationUnimodMapping.ContainsKey(m.Value))

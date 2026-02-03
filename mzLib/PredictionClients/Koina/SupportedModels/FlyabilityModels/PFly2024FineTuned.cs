@@ -87,7 +87,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
         /// List of validated peptide sequences for detectability prediction.
         /// Contains sequences that passed validation for length and amino acid composition.
         /// </summary>
-        public readonly List<string> PeptideSequences = new();
+        public List<string> PeptideSequences { get; } = new();
         /// <summary>
         /// Collection of detectability prediction results after inference completion.
         /// Each prediction contains probability scores for all four detectability classes.
@@ -148,14 +148,9 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
             }
 
             // Generate warning message for invalid sequences if any were found
-            if (invalidSequences.Count > 0)
-            {
-                warnings = new WarningException($"The following peptide sequences were invalid and will be skipped: {string.Join(", ", invalidSequences)}");
-            }
-            else
-            {
-                warnings = null;
-            }
+            warnings = invalidSequences.Count > 0
+                ? new WarningException($"The following peptide sequences were invalid and will be skipped: {string.Join(", ", invalidSequences)}")
+                : null;
         }
 
         /// <summary>
@@ -207,17 +202,14 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
         }
         public async Task RunInferenceAsync()
         {
-            var _http = new HTTP(timeoutInMinutes: PeptideSequences.Count / MaxBatchSize * 2 + 2); // Typically a full batch takes about a minute. Setting it to double that for safety.
-
-            try
-            {
-                var responses = await Task.WhenAll(ToBatchedRequests().Select(request => _http.InferenceRequest(ModelName, request)));
-                ResponseToPredictions(responses);
-            }
-            finally
-            {
-                _http.Dispose();
-            }
+            // Dynamic timeout: ~2 minutes per batch + 2 minute buffer for network/processing overhead. Typically a 
+            // batch takes less than a minute. 
+            int numBatches = (int)Math.Ceiling((double)PeptideSequences.Count / MaxBatchSize);
+            using var _http = new HTTP(timeoutInMinutes: numBatches * 2 + 2);
+            
+            var responses = await Task.WhenAll(ToBatchedRequests().Select(request => _http.InferenceRequest(ModelName, request)));
+            ResponseToPredictions(responses);
+            
         }
 
         /// <summary>

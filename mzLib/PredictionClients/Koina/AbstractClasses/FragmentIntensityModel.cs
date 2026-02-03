@@ -104,17 +104,13 @@ namespace PredictionClients.Koina.AbstractClasses
         /// <exception cref="Exception">Thrown when API responses cannot be deserialized or have unexpected format</exception>
         public virtual async Task RunInferenceAsync()
         {
-            var _http = new HTTP(timeoutInMinutes: PeptideSequences.Count / MaxBatchSize * 2 + 2); // Typically a full batch takes about a minute. Setting it to double that for safety.
+            // Dynamic timeout: ~2 minutes per batch + 2 minute buffer for network/processing overhead. Typically a 
+            // batch takes less than a minute. 
+            int numBatches = (int)Math.Ceiling((double)PeptideSequences.Count / MaxBatchSize);
+            using var _http = new HTTP(timeoutInMinutes: numBatches * 2 + 2);
 
-            try
-            {
-                var responses = await Task.WhenAll(ToBatchedRequests().Select(request => _http.InferenceRequest(ModelName, request)));
-                ResponseToPredictions(responses);
-            }
-            finally
-            {
-                _http.Dispose();
-            }
+            var responses = await Task.WhenAll(ToBatchedRequests().Select(request => _http.InferenceRequest(ModelName, request)));
+            ResponseToPredictions(responses);
         }
 
         /// <summary>
@@ -193,14 +189,7 @@ namespace PredictionClients.Koina.AbstractClasses
         protected virtual bool HasValidModifications(string sequence)
         {
             var matches = Regex.Matches(sequence, ModificationPattern);
-            foreach (Match match in matches)
-            {
-                if (!ValidModificationUnimodMapping.ContainsKey(match.Value))
-                {
-                    return false;
-                }
-            }
-            return true;
+            return matches.All(m => ValidModificationUnimodMapping.ContainsKey(m.Value));
         }
         #endregion
 
@@ -283,7 +272,7 @@ namespace PredictionClients.Koina.AbstractClasses
                 List<MatchedFragmentIon> fragmentIons = new();
                 for (int fragmentIndex = 0; fragmentIndex < prediction.FragmentAnnotations.Count; fragmentIndex++)
                 {
-                    if (prediction.FragmentIntensities[fragmentIndex] == -1 || prediction.FragmentIntensities[fragmentIndex] < MinIntensityFilter)
+                    if ((int)prediction.FragmentIntensities[fragmentIndex] == -1 || prediction.FragmentIntensities[fragmentIndex] < MinIntensityFilter)
                     {
                         // Skip impossible ions and peaks with near zero intensity. The model uses -1 to indicate impossible ions.
                         continue;

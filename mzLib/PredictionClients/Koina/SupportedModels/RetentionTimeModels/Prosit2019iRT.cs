@@ -17,7 +17,6 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
     /// - Processes up to 1000 peptides per batch
     /// - Predicts indexed retention time (iRT) values for relative comparison
     /// - Supports carbamidomethylation on cysteine and oxidation on methionine
-    /// - Automatically carbamidomethylates unmodified cysteines for model compatibility
     /// 
     /// iRT values provide relative retention time measurements that are independent of 
     /// chromatographic conditions, enabling cross-laboratory comparison of retention times.
