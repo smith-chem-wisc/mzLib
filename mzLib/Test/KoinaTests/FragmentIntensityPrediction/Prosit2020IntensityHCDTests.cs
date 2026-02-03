@@ -8,7 +8,7 @@ using System;
 using System.ComponentModel;
 using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 
-namespace Test.KoinaTests.FragmentIntensityPrediction
+namespace Test.KoinaTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]

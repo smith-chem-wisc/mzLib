@@ -5,53 +5,8 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 
-namespace Test.KoinaTests.RetentionTimePrediction
+namespace Test.KoinaTests
 {
-    /// <summary>
-    /// Test suite for the Prosit2020iRTTMT retention time prediction model.
-    /// 
-    /// This test class validates the functionality of the Prosit2020iRTTMT model, which predicts
-    /// indexed retention times (iRT) for TMT/iTRAQ/SILAC-labeled peptide sequences using the 
-    /// Prosit 2020 neural network model via the Koina inference server.
-    /// 
-    /// CRITICAL REQUIREMENT: The Prosit2020iRTTMT model REQUIRES all peptide sequences to have
-    /// an N-terminal modification (TMT6plex, TMTpro, iTRAQ4plex, or iTRAQ8plex). Sequences 
-    /// without N-terminal modifications will be rejected.
-    /// 
-    /// The Prosit2020iRTTMT model:
-    /// - REQUIRES N-terminal TMT/iTRAQ modifications on all sequences
-    /// - Accepts optional side-chain modifications (TMT/iTRAQ on K, SILAC on K/R)
-    /// - Automatically carbamidomethylates all unmodified cysteines
-    /// - Supports sequences up to 30 amino acids in length
-    /// - Processes sequences in batches of up to 1000 peptides
-    /// - Returns indexed retention time predictions (iRT scale)
-    /// 
-    /// Supported Modifications:
-    /// REQUIRED (N-terminal):
-    /// - TMT6plex on N-terminus (UNIMOD:737)-
-    /// - TMTpro on N-terminus (UNIMOD:2016)-
-    /// - iTRAQ4plex on N-terminus (UNIMOD:214)-
-    /// - iTRAQ8plex on N-terminus (UNIMOD:730)-
-    /// 
-    /// OPTIONAL (Side-chain):
-    /// - Oxidation on M (UNIMOD:35)
-    /// - Carbamidomethyl on C (UNIMOD:4) - auto-applied
-    /// - SILAC Heavy K (UNIMOD:259)
-    /// - SILAC Heavy R (UNIMOD:267)
-    /// - TMT6plex on K (UNIMOD:737)
-    /// - TMTpro on K (UNIMOD:2016)
-    /// - iTRAQ4plex on K (UNIMOD:214)
-    /// - iTRAQ8plex on K (UNIMOD:730)
-    /// 
-    /// Test Coverage:
-    /// 1. N-terminal Modification Requirement
-    /// 2. Constructor and Input Validation
-    /// 3. TMT/iTRAQ/SILAC Modification Handling
-    /// 4. Complex Modification Combinations
-    /// 5. Sequence Validation
-    /// 6. Batch Processing
-    /// 7. Model Properties
-    /// </summary>
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class Prosit2020iRTTMTTests

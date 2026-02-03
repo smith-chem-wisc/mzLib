@@ -8,6 +8,14 @@ using System.ComponentModel;
 
 namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
 {
+    public record PeptideDetectabilityPrediction(
+        string PeptideSequence, 
+        double NotDetectable,
+        double LowDetectability,
+        double IntermediateDetectability,
+        double HighDetectability
+    );
+
     public class PFly2024FineTuned : IKoinaModelIO
     {
         public string ModelName => "pfly_2024_fine_tuned";
@@ -19,7 +27,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
         public string ModificationPattern => @"\[[^\]]+\]";
 
         public readonly List<string> PeptideSequences = new();
-        public List<List<double>> DetectabilityProbabilityTable = new();
+        public List<PeptideDetectabilityPrediction> Predictions = new();
         public PFly2024FineTuned(List<string> peptideSequences, out WarningException warnings)
         {
             if (peptideSequences.IsNullOrEmpty())
@@ -52,7 +60,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
             }
         }
 
-        public List<Dictionary<string, object>> ToBatchedRequests()
+        protected List<Dictionary<string, object>> ToBatchedRequests()
         {
             var batchedPeptides = PeptideSequences.Chunk(MaxBatchSize).ToList();
             var batchedRequests = new List<Dictionary<string, object>>();
@@ -83,14 +91,14 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
             try
             {
                 var responses = await Task.WhenAll(ToBatchedRequests().Select(request => _http.InferenceRequest(ModelName, request)));
-                ResponseToDetectabilityProbabilityTable(responses);
+                ResponseToPredictions(responses);
             }
             finally
             {
                 _http.Dispose();
             }
         }
-        public void ResponseToDetectabilityProbabilityTable(string[] responses)
+        protected void ResponseToPredictions(string[] responses)
         {
             if (PeptideSequences.Count == 0)
             {
@@ -104,12 +112,20 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
                 throw new Exception("Something went wrong during deserialization of responses.");
             }
 
-            DetectabilityProbabilityTable = deserializedResponses.Select(batch => batch!.Outputs[0].Data)
-                .Chunk(NumberOfDetectabilityClasses)
-                .Select(classProbabilities => classProbabilities.Select(d=>Convert.ToDouble(d)).ToList())
-                .ToList();
+            var detectabilityPredictions = deserializedResponses.SelectMany(batch => batch!.Outputs[0].Data.Chunk(NumberOfDetectabilityClasses)).ToList();
+            for (int i = 0; i < PeptideSequences.Count; i++)
+            {
+                var probs = detectabilityPredictions[i];
+                Predictions.Add(new PeptideDetectabilityPrediction(
+                    PeptideSequences[i],
+                    Convert.ToDouble(probs[0]),
+                    Convert.ToDouble(probs[1]),
+                    Convert.ToDouble(probs[2]),
+                    Convert.ToDouble(probs[3])
+                ));
+            }
         }
-        public bool IsValidPeptideSequence(string sequence)
+        protected bool IsValidPeptideSequence(string sequence)
         {
             var unmodifiedSequence = Regex.Replace(sequence, ModificationPattern, string.Empty);
             if (unmodifiedSequence.Length > MaxPeptideLength)
