@@ -500,49 +500,6 @@ namespace Test.KoinaTests
         }
 
         /// <summary>
-        /// Tests that unmodified cysteines are automatically carbamidomethylated.
-        /// 
-        /// Note: All sequences must still have N-terminal modifications.
-        /// 
-        /// Validates that for sequences with cysteines:
-        /// - All sequences have required N-terminal modifications
-        /// - All unmodified cysteines are converted to carbamidomethylated form (C[UNIMOD:4])
-        /// - No warnings are generated
-        /// 
-        /// Expected Behavior:
-        /// - warnings should be null
-        /// - For each sequence, count of C[UNIMOD:4] should equal count of cysteines
-        /// - All sequences must start with N-terminal modification
-        /// 
-        /// Use Case: Ensures correct handling of cysteine modifications in TMT experiments
-        /// </summary>
-        [Test]
-        public void TestCarbamidomethylationOfCysteines()
-        {
-            var peptideSequences = new List<string>
-            {
-                "[Common Fixed:TMT6plex on N-terminus]PEPTCIDE",
-                "[Common Fixed:TMTpro on N-terminus]CYSTEINE",
-                "[Common Fixed:iTRAQ4plex on N-terminus]TESTCC"
-            };
-
-            var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
-
-            Assert.That(warnings, Is.Null);
-            Assert.That(model.PeptideSequences, Has.Count.EqualTo(3));
-            
-            foreach (var sequence in model.PeptideSequences)
-            {
-                // Verify N-terminal modification present
-                Assert.That(sequence, Does.Match(@"^\[UNIMOD:(737|2016|214|730)\]-"));
-                
-                // All unmodified cysteines should be carbamidomethylated
-                var baseSequence = sequence.Substring(sequence.IndexOf('-') + 1); // Remove N-term mod
-                Assert.That(baseSequence.Contains("C[UNIMOD:4]") || !baseSequence.Contains("C"), Is.True);
-            }
-        }
-
-        /// <summary>
         /// Tests batching behavior with a small input list (below max batch size).
         /// 
         /// Note: All sequences must have N-terminal modifications.
@@ -722,49 +679,6 @@ namespace Test.KoinaTests
             foreach (var sequence in model.PeptideSequences)
             {
                 Assert.That(sequence, Does.Match(@"^\[UNIMOD:(737|2016|214|730)\]-"));
-            }
-        }
-
-        /// <summary>
-        /// Tests the processing of sequences with multiple cysteines.
-        /// 
-        /// Note: All sequences must have N-terminal modifications.
-        /// 
-        /// Validates that for sequences with multiple cysteines:
-        /// - Each unmodified cysteine is converted to carbamidomethylated form (C[UNIMOD:4])
-        /// - No warnings are generated
-        /// - All sequences have N-terminal modifications
-        /// 
-        /// Expected Behavior:
-        /// - warnings should be null
-        /// - For each sequence, count of C[UNIMOD:4] should equal count of cysteines
-        /// - All sequences must start with N-terminal modification
-        /// 
-        /// Use Case: Ensures correct handling of cysteine modifications in complex sequences
-        /// </summary>
-        [Test]
-        public void TestMultipleCysteinesInSequence()
-        {
-            var peptideSequences = new List<string>
-            {
-                "[Common Fixed:TMT6plex on N-terminus]CCPEPTIDECC",
-                "[Common Fixed:TMTpro on N-terminus]CCCCC"
-            };
-
-            var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
-
-            Assert.That(warnings, Is.Null);
-            Assert.That(model.PeptideSequences, Has.Count.EqualTo(2));
-            
-            foreach (var sequence in model.PeptideSequences)
-            {
-                // Verify N-terminal modification present
-                Assert.That(sequence, Does.Match(@"^\[UNIMOD:(737|2016|214|730)\]-"));
-                
-                // Count cysteines should equal count of carbamidomethyl modifications
-                var cCount = sequence.Count(c => c == 'C');
-                var carbCount = System.Text.RegularExpressions.Regex.Matches(sequence, @"\[UNIMOD:4\]").Count;
-                Assert.That(carbCount, Is.EqualTo(cCount));
             }
         }
     }

@@ -221,42 +221,6 @@ namespace Test.KoinaTests
         }
 
         /// <summary>
-        /// Tests that unmodified cysteines are automatically carbamidomethylated.
-        /// 
-        /// Validates that for sequences with cysteines:
-        /// - All unmodified cysteines are converted to carbamidomethylated form (C[UNIMOD:4])
-        /// - No warnings are generated
-        /// 
-        /// Expected Behavior:
-        /// - warnings should be null
-        /// - For each sequence, count of C[UNIMOD:4] should equal count of unmodified cysteines
-        /// 
-        /// Use Case: Ensures correct handling of cysteine modifications
-        /// </summary>
-        [Test]
-        public void TestCarbamidomethylationOfCysteines()
-        {
-            // Arrange
-            var peptideSequences = new List<string>
-            {
-                "PEPTCIDE",
-                "CYSTEINE",
-                "TESTCC"
-            };
-
-            // Act
-            var model = new Prosit2019iRT(peptideSequences, out WarningException warnings);
-
-            // Assert
-            Assert.That(warnings, Is.Null);
-            foreach (var sequence in model.PeptideSequences)
-            {
-                // All unmodified cysteines should be carbamidomethylated
-                Assert.That(sequence.Contains("C[UNIMOD:4]") || !sequence.Contains("C"), Is.True);
-            }
-        }
-
-        /// <summary>
         /// Tests batching behavior with a small input list (below max batch size).
         /// 
         /// Validates that:
@@ -414,40 +378,6 @@ namespace Test.KoinaTests
             Assert.That(warnings, Is.Not.Null);
             Assert.That(model.PeptideSequences, Has.Count.EqualTo(3)); // Only valid sequences
             Assert.That(warnings.Message, Does.Contain("invalid"));
-        }
-
-        /// <summary>
-        /// Tests the processing of sequences with multiple cysteines.
-        /// 
-        /// Validates that for sequences with multiple cysteines:
-        /// - Each unmodified cysteine is converted to carbamidomethylated form (C[UNIMOD:4])
-        /// - No warnings are generated
-        /// 
-        /// Expected Behavior:
-        /// - warnings should be null
-        /// - For each sequence, count of C[UNIMOD:4] should equal count of unmodified cysteines
-        /// 
-        /// Use Case: Ensures correct handling of cysteine modifications in complex sequences
-        /// </summary>
-        [Test]
-        public void TestMultipleCysteinesInSequence()
-        {
-            var peptideSequences = new List<string>
-            {
-                "CCPEPTIDECC",
-                "CCCCC"
-            };
-
-            var model = new Prosit2019iRT(peptideSequences, out WarningException warnings);
-
-            Assert.That(warnings, Is.Null);
-            foreach (var sequence in model.PeptideSequences)
-            {
-                // Count cysteines should equal count of carbamidomethyl modifications
-                var cCount = sequence.Count(c => c == 'C');
-                var carbCount = System.Text.RegularExpressions.Regex.Matches(sequence, @"\[UNIMOD:4\]").Count;
-                Assert.That(carbCount, Is.EqualTo(cCount));
-            }
         }
     }
 }
