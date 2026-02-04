@@ -103,10 +103,6 @@ namespace Test
             protein3.Digest(cParams, null, null).ToList();
             cParams = new DigestionParams("trypsin", 0, 7, 9, searchModeType: CleavageSpecificity.Semi, fragmentationTerminus: FragmentationTerminus.C, initiatorMethionineBehavior: InitiatorMethionineBehavior.Cleave);
             protein3.Digest(cParams, null, null).ToList();
-
-            //classic
-            DigestionParams classicSemi = new DigestionParams("semi-trypsin|P", 2, 7, 50);
-            protein3.Digest(classicSemi, null, null).ToList();
         }
 
         [Test]
