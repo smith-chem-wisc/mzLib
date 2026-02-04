@@ -259,15 +259,18 @@ namespace Test.KoinaTests
 
             foreach (var prediction in model.Predictions)
             {
+                // Checks that probabilities can be accessed by name
                 Assert.That(prediction.PeptideSequence, Is.Not.Null.And.Not.Empty);
-                Assert.That(prediction.NotDetectable, Is.InRange(0.0, 1.0), "NotDetectable probability should be 0-1");
-                Assert.That(prediction.LowDetectability, Is.InRange(0.0, 1.0), "LowDetectability probability should be 0-1");
-                Assert.That(prediction.IntermediateDetectability, Is.InRange(0.0, 1.0), "IntermediateDetectability probability should be 0-1");
-                Assert.That(prediction.HighDetectability, Is.InRange(0.0, 1.0), "HighDetectability probability should be 0-1");
+                Assert.That(prediction.DetectabilityProbabilities.NotDetectable, Is.InRange(0.0, 1.0), "NotDetectable probability should be 0-1");
+                Assert.That(prediction.DetectabilityProbabilities.LowDetectability, Is.InRange(0.0, 1.0), "LowDetectability probability should be 0-1");
+                Assert.That(prediction.DetectabilityProbabilities.IntermediateDetectability, Is.InRange(0.0, 1.0), "IntermediateDetectability probability should be 0-1");
+                Assert.That(prediction.DetectabilityProbabilities.HighDetectability, Is.InRange(0.0, 1.0), "HighDetectability probability should be 0-1");
 
                 // Sum of probabilities should be approximately 1
-                double sum = prediction.NotDetectable + prediction.LowDetectability +
-                             prediction.IntermediateDetectability + prediction.HighDetectability;
+                double sum = prediction.DetectabilityProbabilities.NotDetectable +
+                             prediction.DetectabilityProbabilities.LowDetectability +
+                             prediction.DetectabilityProbabilities.IntermediateDetectability +
+                             prediction.DetectabilityProbabilities.HighDetectability;
                 Assert.That(sum, Is.EqualTo(1.0).Within(0.01), "Sum of detectability probabilities should be approximately 1");
             }
         }

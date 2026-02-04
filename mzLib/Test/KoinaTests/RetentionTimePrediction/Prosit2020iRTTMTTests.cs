@@ -1,4 +1,6 @@
-﻿using NUnit.Framework;
+﻿using Easy.Common.Extensions;
+using MzLibUtil;
+using NUnit.Framework;
 using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
 using System;
 using System.Collections.Generic;
@@ -11,6 +13,25 @@ namespace Test.KoinaTests
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class Prosit2020iRTTMTTests
     {
+        [Test]
+        public void TestPeptideRTPrediction()
+        {
+            var peptideSequences = new List<string>
+            {
+                "[Common Fixed:TMT6plex on N-terminus]PEPTIDE",
+                "[Common Fixed:TMTpro on N-terminus]SEQENS",
+                "[Common Fixed:iTRAQ4plex on N-terminus]TESTING"
+            };
+            var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
+            Assert.DoesNotThrowAsync(async () => await model.RunInferenceAsync());
+            Assert.That(model.Predictions, Has.Count.EqualTo(3));
+            Assert.That(model.Predictions.All(p => p.IsIndexed));
+            Assert.That(model.Predictions.All(p => p.PredictedRetentionTime.IsFinite()));
+            Assert.That(model.Predictions[0].FullSequence == "[UNIMOD:737]-PEPTIDE");
+            Assert.That(model.Predictions[1].FullSequence == "[UNIMOD:2016]-SEQENS");
+            Assert.That(model.Predictions[2].FullSequence == "[UNIMOD:214]-TESTING");
+        }
+
         /// <summary>
         /// Tests the constructor with valid peptide sequences that have required N-terminal modifications.
         /// 
@@ -113,7 +134,7 @@ namespace Test.KoinaTests
         /// Use Case: Defensive programming - ensures graceful handling of empty inputs
         /// </summary>
         [Test]
-        public void TestConstructorWithEmptyPeptides()
+        public void TestConstructorAndInferenceWithEmptyPeptides()
         {
             var peptideSequences = new List<string>();
 
@@ -122,6 +143,8 @@ namespace Test.KoinaTests
             Assert.That(warnings, Is.Not.Null);
             Assert.That(warnings.Message, Does.Contain("Inputs were empty"));
             Assert.That(model.PeptideSequences, Is.Empty);
+            Assert.DoesNotThrowAsync(async () => await model.RunInferenceAsync());
+            Assert.That(model.Predictions, Is.Empty);
         }
 
         /// <summary>

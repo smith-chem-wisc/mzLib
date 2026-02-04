@@ -13,20 +13,21 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
     /// Contains the original sequence and probability scores across four detectability categories.
     /// </summary>
     /// <param name="PeptideSequence">The peptide sequence used for detectability prediction</param>
-    /// <param name="NotDetectable">Probability score (0-1) that the peptide is not detectable by MS</param>
-    /// <param name="LowDetectability">Probability score (0-1) that the peptide has low detectability</param>
-    /// <param name="IntermediateDetectability">Probability score (0-1) that the peptide has intermediate detectability</param>
-    /// <param name="HighDetectability">Probability score (0-1) that the peptide has high detectability</param>
+    /// <param name="DetectabilityClasses"> Tuple of probability scores for each detectability class:
+    ///     Not Detectable 
+    ///     Low Detectability
+    ///     Intermediate Detectability
+    ///     High Detectability
     /// <remarks>
     /// The four probability scores sum to 1.0, representing a complete probability distribution
     /// across detectability classes. Higher scores indicate greater likelihood for that class.
     /// </remarks>
     public record PeptideDetectabilityPrediction(
         string PeptideSequence,
-        double NotDetectable,
-        double LowDetectability,
-        double IntermediateDetectability,
-        double HighDetectability
+        (double NotDetectable,
+         double LowDetectability,
+         double IntermediateDetectability,
+         double HighDetectability) DetectabilityProbabilities
     );
 
     /// <summary>
@@ -260,14 +261,15 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
             // Create prediction objects with probability scores for each detectability class
             for (int i = 0; i < PeptideSequences.Count; i++)
             {
-                var probs = detectabilityPredictions[i];
+                var peptideFlyabilityClassProbs = detectabilityPredictions[i].Select(p => (double)p).ToList();
                 Predictions.Add(new PeptideDetectabilityPrediction(
-                    PeptideSequences[i],               // Original sequence
-                    Convert.ToDouble(probs[0]),        // Not Detectable probability
-                    Convert.ToDouble(probs[1]),        // Low Detectability probability
-                    Convert.ToDouble(probs[2]),        // Intermediate Detectability probability
-                    Convert.ToDouble(probs[3])         // High Detectability probability
-                ));
+                    PeptideSequences[i],
+                    (
+                        NotDetectable: peptideFlyabilityClassProbs[0],
+                        LowDetectability: peptideFlyabilityClassProbs[1],
+                        IntermediateDetectability: peptideFlyabilityClassProbs[2],
+                        HighDetectability: peptideFlyabilityClassProbs[3]
+                )));
             }
         }
 
