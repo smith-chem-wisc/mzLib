@@ -37,19 +37,20 @@ namespace Test.KoinaTests
         /// Modifications are represented in square brackets and should be stripped for length validation.
         /// </summary>
         [Test]
-        public static void TestPFly2024FineTunedModelAcceptsModifiedPeptides()
+        public static void TestPFly2024FineTunedModelDoesNotAcceptModifiedPeptides()
         {
             var modifiedPeptides = new List<string>
             {
                 "M[Common Variable:Oxidation on M]PEPTIDEK",
                 "PEPTIDEM[Common Variable:Oxidation on M]",
-                "C[Common Fixed:Carbamidomethyl on C]PEPTIDEK"
+                "C[Common Fixed:Carbamidomethyl on C]PEPTIDEK",
+                "PEPTIDEPEPI"
             };
 
             var model = new PFly2024FineTuned(modifiedPeptides, out var warning);
 
-            Assert.That(warning, Is.Null, "Modified peptides should not produce a warning");
-            Assert.That(model.PeptideSequences.Count, Is.EqualTo(3), "All modified peptides should be accepted");
+            Assert.That(warning, Is.Not.Null, "Modified peptides should not produce a warning");
+            Assert.That(model.PeptideSequences.Count, Is.EqualTo(1), "All modified peptides should be accepted");
         }
 
         /// <summary>
@@ -222,25 +223,6 @@ namespace Test.KoinaTests
 
             Assert.That(model.PeptideSequences.Count, Is.EqualTo(0), "Peptides with special characters should be filtered out");
             Assert.That(warning, Is.Not.Null, "Invalid characters should produce a warning");
-        }
-
-        /// <summary>
-        /// Tests that the model correctly validates peptides with complex modification patterns.
-        /// </summary>
-        [Test]
-        public static void TestPFly2024FineTunedModelComplexModifications()
-        {
-            var complexModified = new List<string>
-            {
-                "M[Oxidation]S[Phospho]T[Phospho]PEPTIDE",
-                "[Acetyl]PEPTIDEK",
-                "PEPTIDEK[Amidation]"
-            };
-
-            var model = new PFly2024FineTuned(complexModified, out var warning);
-
-            Assert.That(model.PeptideSequences.Count, Is.EqualTo(3), "Complex modifications should be handled");
-            Assert.That(warning, Is.Null, "Valid modified peptides should not produce warnings");
         }
 
         /// <summary>

@@ -2,10 +2,8 @@
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
 using PredictionClients.Koina.Client;
-using PredictionClients.Koina.Interfaces;
 using Readers.SpectralLibrary;
 using System.ComponentModel;
-using System.Text.RegularExpressions;
 using Chemistry;
 using Proteomics.AminoAcidPolymer;
 
@@ -41,22 +39,12 @@ namespace PredictionClients.Koina.AbstractClasses
     /// In most cases, users will only need to implement a constructor to properly set up the model parameters
     /// and a ToBatchedRequests method to batch requests according to the specific model's input format.
     /// </summary>
-    public abstract class FragmentIntensityModel : IKoinaModelIO
+    public abstract class FragmentIntensityModel : KoinaModelBase
     {
-        #region Model Metadata from Koina
-        public abstract string ModelName { get; }
-        public abstract int MaxBatchSize { get; }
-        #endregion
 
-        #region Input Constraints
-        /// <summary>Maximum allowed peptide length (amino acids) for the model</summary>
-        public abstract int MaxPeptideLength { get; }
-        /// <summary>Minimum allowed peptide length (amino acids) for the model</summary>
-        public abstract int MinPeptideLength { get; }
+        #region Additional Model Constraints
         /// <summary>Set of precursor charge states supported by the model (e.g., {2, 3, 4})</summary>
         public abstract HashSet<int> AllowedPrecursorCharges { get; }
-        /// <summary>Maps mzLib modification format to UNIMOD format (e.g., "[Common Fixed:Carbamidomethyl on C]" -> "[UNIMOD:4]")</summary>
-        public virtual Dictionary<string, string> ValidModificationUnimodMapping { get; protected set; } = new();
         /// <summary>
         /// Maps mzLib modification format to monoisotopic mass differences for mass-only conversions. 
         /// The monoisotopic masses should be obtained from the UNIMOD database for accuracy (https://www.unimod.org/).
@@ -67,21 +55,11 @@ namespace PredictionClients.Koina.AbstractClasses
         #endregion
 
         #region Validation Patterns and Filters
-        /// <summary>Regex pattern matching valid canonical amino acid sequences (default: 20 standard amino acids)</summary>
-        public virtual string CanonicalAminoAcidPattern { get; protected set; } = @"^[ACDEFGHIKLMNPQRSTVWY]+$";
-        /// <summary>
-        /// Regex pattern for detecting modifications in peptide sequences (default: matches content within square brackets)
-        /// ex. "PEC[Common Fixed:Carbamidomethyl on C]TIDE"
-        /// </summary>
-        public virtual string ModificationPattern { get; protected set; } = @"\[[^\]]+\]";
         /// <summary>Minimum intensity threshold for including predicted fragments in spectral library generation</summary>
         public virtual double MinIntensityFilter { get; protected set; } = 1e-6;
         #endregion
 
         #region Input Data
-        // These two inputs are shared across all fragment intensity models.
-        // Other models may require additional inputs, which should be implemented in the derived classes.
-        public abstract List<string> PeptideSequences { get; }
         public abstract List<int> PrecursorCharges { get; }
 
         // Retention times are not used for fragment intensity prediction. They are useful for library spectrum generation.
@@ -96,16 +74,6 @@ namespace PredictionClients.Koina.AbstractClasses
         #endregion
 
         #region Querying Methods for the Koina API
-        /// <summary>
-        /// Converts input data into batched requests formatted for the specific model's API endpoint.
-        /// Each batch should not exceed MaxBatchSize peptides and must include all required model inputs.
-        /// </summary>
-        /// <returns>List of request dictionaries, each containing a batch of model inputs</returns>
-        /// <remarks>
-        /// Implementation should handle model-specific input formatting and ensure proper batching
-        /// based on the model's constraints and API requirements.
-        /// </remarks>
-        protected abstract List<Dictionary<string, object>> ToBatchedRequests();
 
         /// <summary>
         /// Executes fragment intensity prediction by sending batched requests to the Koina API.
@@ -113,7 +81,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         /// <returns>Task representing the asynchronous inference operation</returns>
         /// <exception cref="Exception">Thrown when API responses cannot be deserialized or have unexpected format</exception>
-        public virtual async Task RunInferenceAsync()
+        public override async Task RunInferenceAsync()
         {
             // Dynamic timeout: ~2 minutes per batch + 2 minute buffer for network/processing overhead. Typically a 
             // batch takes less than a minute. 
@@ -130,7 +98,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         /// <param name="responses">Array of JSON response strings from Koina API</param>
         /// <exception cref="Exception">Thrown when responses are malformed or contain unexpected number of outputs</exception>
-        protected virtual void ResponseToPredictions(string[] responses)
+        protected override void ResponseToPredictions(string[] responses)
         {
             if (PeptideSequences.Count == 0)
             {
@@ -184,61 +152,9 @@ namespace PredictionClients.Koina.AbstractClasses
                 }
             }
         }
-
-        /// <summary>
-        /// Validates that a peptide sequence meets model constraints for length and amino acid composition.
-        /// Strips modifications before validation to check only the base sequence.
-        /// </summary>
-        /// <param name="sequence">Peptide sequence with potential modifications</param>
-        /// <returns>True if sequence is valid for the model; otherwise false</returns>
-        protected virtual bool IsValidPeptideSequence(string sequence)
-        {
-            var baseSequence = Regex.Replace(sequence, ModificationPattern, "");
-            return Regex.IsMatch(baseSequence, CanonicalAminoAcidPattern)
-                && baseSequence.Length <= MaxPeptideLength
-                && baseSequence.Length >= MinPeptideLength;
-        }
-
-        /// <summary>
-        /// Checks if all modifications in a sequence are supported by the model.
-        /// Base implementation only allows sequences without modifications.
-        /// </summary>
-        /// <param name="sequence">Peptide sequence with potential modifications</param>
-        /// <returns>True if all modifications are valid; otherwise false</returns>
-        protected virtual bool HasValidModifications(string sequence)
-        {
-            var matches = Regex.Matches(sequence, ModificationPattern);
-            return matches.All(m => ValidModificationUnimodMapping.ContainsKey(m.Value));
-        }
         #endregion
 
         #region Full Sequence Modification Conversion Methods
-        /// <summary>
-        /// Converts a peptide sequence from the mzLib modification format to the UNIMOD format.
-        /// Example: "[Common Fixed:Carbamidomethyl on C]" becomes "[UNIMOD:4]"
-        /// </summary>
-        /// <param name="sequence">Peptide sequence in mzLib modification format.</param>
-        protected virtual string ConvertMzLibModificationsToUnimod(string sequence)
-        {
-            foreach (var mod in ValidModificationUnimodMapping)
-            {
-                sequence = sequence.Replace(mod.Key, mod.Value);
-            }
-            return sequence;
-        }
-
-        /// <summary>
-        /// Converts peptide sequence from UNIMOD format back to mzLib modification format.
-        /// Inverse operation of ConvertMzLibModificationsToUnimod.
-        /// </summary>
-        protected virtual string ConvertUnimodToMzLibModifications(string sequence)
-        {
-            foreach (var mod in ValidModificationUnimodMapping)
-            {
-                sequence = sequence.Replace(mod.Value, mod.Key);
-            }
-            return sequence;
-        }
 
         /// <summary>
         /// Converts mzLib modifications to mass-only format with 6 decimal precision.

@@ -125,7 +125,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
 
                 // Skip invalid peptides
                 if (!HasValidModifications(peptide) ||
-                    !IsValidPeptideSequence(peptide) ||
+                    !IsValidSequence(peptide) ||
                     !AllowedPrecursorCharges.Contains(charge) ||
                     energy <= 0
                     )
