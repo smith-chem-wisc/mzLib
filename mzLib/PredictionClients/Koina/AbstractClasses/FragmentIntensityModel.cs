@@ -80,7 +80,9 @@ namespace PredictionClients.Koina.AbstractClasses
         #endregion
 
         #region Output Data
+        // Predictions are the main output of fragment intensity models.
         public abstract List<PeptideFragmentIntensityPrediction> Predictions { get; protected set; }
+        // Generated library spectra from predictions output.
         public virtual List<LibrarySpectrum> PredictedSpectra { get; protected set; } = new();
         #endregion
 
