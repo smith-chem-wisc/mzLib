@@ -39,7 +39,8 @@ namespace Omics.BioPolymer
             // If all variants are positionally valid and any is missing VCF/genotype data, fall back to bounded combinatorial application
             if (protein.SequenceVariations.All(v => v.AreValid()) && protein.SequenceVariations.Any(v => v.VariantCallFormatDataString == null || v.VariantCallFormatDataString.Genotypes.Count == 0))
             {
-                return ApplyAllVariantCombinations(protein, protein.SequenceVariations, maxAllowedVariantsForCombinatorics).ToList();
+                // this is a protein with either no VCF lines or a mix of VCF and non-VCF lines
+                return ApplyAllVariantCombinations(protein, protein.SequenceVariations, maxAllowedVariantsForCombinatorics).ToList(); 
             }
 
             // Otherwise, do genotype/allele-depth-aware application with combinatorics limited for heterozygous sites
