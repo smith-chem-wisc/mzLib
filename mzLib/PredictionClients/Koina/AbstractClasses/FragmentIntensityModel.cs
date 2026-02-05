@@ -15,12 +15,13 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Represents the prediction results for a single peptide, containing fragment annotations,
     /// m/z values, and predicted intensities from a fragment intensity model.
     /// </summary>
-    /// <param name="PeptideSequence">The peptide sequence (with modifications in UNIMOD format)</param>
+    /// <param name="FullSequence">The peptide sequence (with modifications in UNIMOD format)</param>
     /// <param name="FragmentAnnotations">Fragment ion annotations (e.g., "b5+1", "y3+2")</param>
     /// <param name="FragmentMZs">Theoretical m/z values for each fragment ion</param>
     /// <param name="FragmentIntensities">Predicted relative intensities (0-1 scale, -1 indicates impossible ions)</param>
     public record PeptideFragmentIntensityPrediction(
-        string PeptideSequence,
+        string FullSequence,
+        int PrecursorCharge,
         List<string> FragmentAnnotations,
         List<double> FragmentMZs,
         List<double> FragmentIntensities
@@ -56,14 +57,22 @@ namespace PredictionClients.Koina.AbstractClasses
         public abstract HashSet<int> AllowedPrecursorCharges { get; }
         /// <summary>Maps mzLib modification format to UNIMOD format (e.g., "[Common Fixed:Carbamidomethyl on C]" -> "[UNIMOD:4]")</summary>
         public virtual Dictionary<string, string> ValidModificationUnimodMapping { get; protected set; } = new();
-        /// <summary>Maps mzLib modification format to monoisotopic mass differences for mass-only conversions</summary>
+        /// <summary>
+        /// Maps mzLib modification format to monoisotopic mass differences for mass-only conversions. 
+        /// The monoisotopic masses should be obtained from the UNIMOD database for accuracy (https://www.unimod.org/).
+        /// While UNIMOD monoisotopic masses already account for net mass effects (such as loss of H+ for Na+ mod),
+        /// this is something that should be kept in mind when adding custom modifications.
+        /// </summary>
         public virtual Dictionary<string, double> ValidModificationsMonoisotopicMasses { get; protected set; } = new();
         #endregion
 
         #region Validation Patterns and Filters
         /// <summary>Regex pattern matching valid canonical amino acid sequences (default: 20 standard amino acids)</summary>
         public virtual string CanonicalAminoAcidPattern { get; protected set; } = @"^[ACDEFGHIKLMNPQRSTVWY]+$";
-        /// <summary>Regex pattern for detecting modifications in peptide sequences (default: matches content within square brackets)</summary>
+        /// <summary>
+        /// Regex pattern for detecting modifications in peptide sequences (default: matches content within square brackets)
+        /// ex. "PEC[Common Fixed:Carbamidomethyl on C]TIDE"
+        /// </summary>
         public virtual string ModificationPattern { get; protected set; } = @"\[[^\]]+\]";
         /// <summary>Minimum intensity threshold for including predicted fragments in spectral library generation</summary>
         public virtual double MinIntensityFilter { get; protected set; } = 1e-6;
@@ -125,6 +134,7 @@ namespace PredictionClients.Koina.AbstractClasses
         {
             if (PeptideSequences.Count == 0)
             {
+                Predictions = new List<PeptideFragmentIntensityPrediction>();
                 return;
             }
             var deserializedResponses = responses.Select(response => Newtonsoft.Json.JsonConvert.DeserializeObject<ResponseJSONStruct>(response)).ToList();
@@ -136,10 +146,16 @@ namespace PredictionClients.Koina.AbstractClasses
             for (int batchIndex = 0; batchIndex < numBatches; batchIndex++)
             {
                 var response = deserializedResponses[batchIndex];
+
+                /// Each response is excpected to have an outputs list with
+                /// 1) Fragment Annotations
+                /// 2) Fragment MZs
+                /// 3) Fragment Intensities
                 if (response == null || response.Outputs.Count != 3)
                 {
                     throw new Exception($"API response is not in the expected format. Expected 3 outputs, got {response?.Outputs.Count}.");
                 }
+
                 var outputAnnotations = response.Outputs[0].Data;
                 var outputMZs = response.Outputs[1].Data;
                 var outputIntensities = response.Outputs[2].Data;
@@ -160,6 +176,7 @@ namespace PredictionClients.Koina.AbstractClasses
                     }
                     Predictions.Add(new PeptideFragmentIntensityPrediction(
                         peptideSequence,
+                        PrecursorCharges[batchIndex * MaxBatchSize + i],
                         fragmentIons,
                         fragmentMZs,
                         predictedIntensities
@@ -267,7 +284,7 @@ namespace PredictionClients.Koina.AbstractClasses
 
                 var peptide = new Peptide(
                     ConvertMzLibModificationsToMassesOnly(
-                        ConvertUnimodToMzLibModifications(prediction.PeptideSequence)
+                        ConvertUnimodToMzLibModifications(prediction.FullSequence)
                         )
                     );
 
@@ -312,9 +329,9 @@ namespace PredictionClients.Koina.AbstractClasses
 
                 var spectrum = new LibrarySpectrum
                 (
-                    sequence: prediction.PeptideSequence,
-                    precursorMz: peptide.ToMz(PrecursorCharges[predictionIndex]),
-                    chargeState: PrecursorCharges[predictionIndex],
+                    sequence: prediction.FullSequence,
+                    precursorMz: peptide.ToMz(prediction.PrecursorCharge),
+                    chargeState: prediction.PrecursorCharge,
                     peaks: fragmentIons,
                     rt: RetentionTimes[predictionIndex]
                 );

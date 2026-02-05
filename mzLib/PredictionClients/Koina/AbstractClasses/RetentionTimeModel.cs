@@ -9,11 +9,11 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Represents a retention time prediction result for a single peptide sequence.
     /// Contains the original sequence, predicted retention time, and indexing information.
     /// </summary>
-    /// <param name="PeptideSequence">The peptide sequence used for prediction (in UNIMOD format)</param>
+    /// <param name="FullSequence">The peptide sequence used for prediction (in UNIMOD format)</param>
     /// <param name="PredictedRetentionTime">Predicted retention time value (units depend on model - typically minutes or indexed RT)</param>
     /// <param name="IsIndexed">True if the model predicts indexed retention time (iRT); false for absolute retention time</param>
     public record PeptideRTPrediction(
-        string PeptideSequence,
+        string FullSequence,
         double PredictedRetentionTime,
         bool IsIndexed
     );
@@ -156,6 +156,7 @@ namespace PredictionClients.Koina.AbstractClasses
         {
             if (PeptideSequences.Count == 0)
             {
+                Predictions = new List<PeptideRTPrediction>();
                 return; // No input sequences to process
             }
 
@@ -180,7 +181,7 @@ namespace PredictionClients.Koina.AbstractClasses
             // Create prediction objects with sequence-to-prediction mapping
             Predictions = PeptideSequences
                 .Select((seq, index) => new PeptideRTPrediction(
-                    PeptideSequence: seq,
+                    FullSequence: seq,
                     PredictedRetentionTime: Convert.ToDouble(rtOutputs[index]),
                     IsIndexed: IsIndexedRetentionTimeModel
                 ))
