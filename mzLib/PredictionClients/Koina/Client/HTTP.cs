@@ -1,7 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System.Text;
 
-namespace Predictions.Koina.Client
+namespace PredictionClients.Koina.Client
 {
     public class HTTP: IDisposable
     {

@@ -6,11 +6,13 @@ using System.Threading.Tasks;
 using System.IO;
 using System;
 using System.ComponentModel;
-using Predictions.Koina.SupportedModels.Prosit2020IntensityHCD;
+using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 
-namespace Test
+namespace Test.KoinaTests
 {
-    public class FragmentIntensityPrediction
+    [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
+    public class Prosit2020IntensityHCDTests
     {
         [Test]
         public static async Task TestKoinaProsit2020IntensityHCDModelWritesReadableSpectralLibrary()
@@ -35,7 +37,7 @@ namespace Test
 
                 await modelHandler.RunInferenceAsync();
                 var predictedSpectra = modelHandler.PredictedSpectra;
-                modelHandler.SavePredictedSpectralLibrary(predPath);
+                modelHandler.SavePredictedSpectralLibrary(predPath, out var duplicatesWarning);
 
                 // Test that the predicted spectrum that was saved matches the predicted spectra in memory
                 spectralLibraryTest = new SpectralLibrary(new List<string> { predPath });
@@ -64,16 +66,12 @@ namespace Test
                         var savedFrag = sortedSavedFrags[j];
                         Assert.That(inMemoryFrag.Mz, Is.EqualTo(savedFrag.Mz).Within(1e-6));
                         // Compare normalized intensities since saved library normalizes to max intensity
-                        Assert.That((inMemoryFrag.Intensity / maxInMemoryIntensity), Is.EqualTo(savedFrag.Intensity).Within(1e-6));
+                        Assert.That(inMemoryFrag.Intensity / maxInMemoryIntensity, Is.EqualTo(savedFrag.Intensity).Within(1e-6));
                         Assert.That(inMemoryFrag.NeutralTheoreticalProduct.ProductType == savedFrag.NeutralTheoreticalProduct.ProductType);
                         Assert.That(inMemoryFrag.NeutralTheoreticalProduct.FragmentNumber == savedFrag.NeutralTheoreticalProduct.FragmentNumber);
                         Assert.That(inMemoryFrag.Charge == savedFrag.Charge);
                     }
                 }
-            }
-            catch
-            {
-                Assert.Fail("Test failed somewhere in the try statement.");
             }
             finally
             {
@@ -116,7 +114,7 @@ namespace Test
 
             // Mismatched lengths
             var mismatchedCharges = new List<int> { 2 };
-            Assert.Throws<System.ArgumentException>(() =>
+            Assert.Throws<ArgumentException>(() =>
                 new Prosit2020IntensityHCD(validPeptides, mismatchedCharges, validEnergies, validRetentionTimes, out var _));
         }
 
@@ -234,8 +232,8 @@ namespace Test
             Assert.That(warningMax, Is.Null,
                 "Maximum length peptide should not produce a warning");
 
-            // Test invalid length (1 amino acid)
-            var tooShortPeptide = "K";
+            // Test invalid length (0 amino acid)
+            var tooShortPeptide = "";
             var modelTooShort = new Prosit2020IntensityHCD(
                 new List<string> { tooShortPeptide },
                 new List<int> { charge },
@@ -244,7 +242,7 @@ namespace Test
                 out var warningTooShort);
 
             Assert.That(modelTooShort.PeptideSequences.Count, Is.EqualTo(0),
-                "Peptide with 1 amino acid should be invalid");
+                "Peptide with 0 amino acids should be invalid");
             Assert.That(warningTooShort, Is.Not.Null,
                 "Too short peptide should produce a warning");
 
@@ -402,9 +400,12 @@ namespace Test
 
             var model = new Prosit2020IntensityHCD(peptides, charges, energies, retentionTimes, out var warning);
             await model.RunInferenceAsync();
+            model.GenerateLibrarySpectraFromPredictions(out var duplicatesWarning);
 
             Assert.That(model.PredictedSpectra.Count, Is.EqualTo(2),
                 "Should have predictions for both peptides");
+            Assert.That(duplicatesWarning, Is.Null,
+                "Duplicate spectra warning should be null when no duplicates are present"); 
 
             foreach (var spectrum in model.PredictedSpectra)
             {
@@ -431,6 +432,22 @@ namespace Test
         }
 
         [Test]
+        public async Task TestKoinaProsit2020IntensityHCDModelFiltersDuplicatePeptidesFromSpectralLibrary()
+        {
+            var peptides = new List<string> { "PEPTIDEK", "PEPTIDEK", "ELVISLIVESK" };
+            var charges = new List<int> { 2, 2, 2 };
+            var energies = new List<int> { 35, 35, 35 };
+            var retentionTimes = new List<double?> { 100.0, 100.0, 200.0 };
+            var model = new Prosit2020IntensityHCD(peptides, charges, energies, retentionTimes, out var warning);
+            await model.RunInferenceAsync();
+            model.GenerateLibrarySpectraFromPredictions(out var duplicatesWarning);
+            Assert.That(model.PredictedSpectra.Count, Is.EqualTo(2),
+                "Duplicate peptide should be filtered out, resulting in 2 unique spectra");
+            Assert.That(duplicatesWarning, Is.Not.Null,
+                "Duplicate spectra warning should be generated when duplicates are present");
+        }
+
+        [Test]
         public static void TestKoinaProsit2020IntensityHCDModelRequestBatching()
         {
             var aminoacids = "ACDEFGHIKLMNPQRSTVWY".ToArray();
@@ -454,7 +471,7 @@ namespace Test
             }
             var modelHandler = new Prosit2020IntensityHCD(peptides, charges, energies, retentionTimes, out var warnings);
             Assert.DoesNotThrowAsync(async () => await modelHandler.RunInferenceAsync());
-            Assert.That(modelHandler.PredictedSpectra.Count == numberOfSequences);
+            Assert.That(modelHandler.Predictions.Count == numberOfSequences);
         }
     }
 }
