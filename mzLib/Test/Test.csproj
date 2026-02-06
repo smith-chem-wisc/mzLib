@@ -312,6 +312,9 @@
     <None Update="DataFiles\BinGenerationTest.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\MS3_TMT11_Mouse_snip.mzML">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DataFiles\SmallCalibratible_Yeast.mzID">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
