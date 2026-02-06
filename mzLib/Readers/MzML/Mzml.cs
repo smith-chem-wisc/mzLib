@@ -638,7 +638,7 @@ namespace Readers
 
                                         // peak filtering
                                         if (filterParams != null && intensities.Length > 0 &&
-                                            ((filterParams.ApplyTrimmingToMs1 && msOrder.Value == 1) || (filterParams.ApplyTrimmingToMsMs && msOrder.Value > 1)))
+                                            ((filterParams.ApplyTrimmingToMs1 && msOrder.Value == 1) || (filterParams.ApplyTrimmingToMsMs && msOrder.Value == 2) || (filterParams.ApplyTrimmingToMsN && msOrder.Value > 2)))
                                         {
                                             WindowModeHelper.Run(ref intensities, ref mzs, filterParams, scanLowerLimit, scanUpperLimit);
                                         }
@@ -884,7 +884,7 @@ namespace Readers
                 Array.Sort(masses, intensities);
             }
 
-            if (filterParams != null && intensities.Length > 0 && ((filterParams.ApplyTrimmingToMs1 && msOrder.Value == 1) || (filterParams.ApplyTrimmingToMsMs && msOrder.Value > 1)))
+            if (filterParams != null && intensities.Length > 0 && ((filterParams.ApplyTrimmingToMs1 && msOrder.Value == 1) || (filterParams.ApplyTrimmingToMsMs && msOrder.Value == 2) || (filterParams.ApplyTrimmingToMsN && msOrder.Value > 2)))
             {
                 WindowModeHelper.Run(ref intensities, ref masses, filterParams, low, high);
             }

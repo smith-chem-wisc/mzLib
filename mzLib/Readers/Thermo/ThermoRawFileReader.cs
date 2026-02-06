@@ -464,7 +464,7 @@ namespace Readers
             if (filterParams != null
                 && xArray.Length > 0
                 && (filterParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue || filterParams.NumberOfPeaksToKeepPerWindow.HasValue)
-                && ((filterParams.ApplyTrimmingToMs1 && scanOrder == 1) || (filterParams.ApplyTrimmingToMsMs && scanOrder > 1)))
+                && ((filterParams.ApplyTrimmingToMs1 && scanOrder == 1) || (filterParams.ApplyTrimmingToMsMs && scanOrder == 2) || (filterParams.ApplyTrimmingToMsN && scanOrder > 2)))
             {
                 var count = xArray.Length;
 
