@@ -4,69 +4,216 @@ using Omics.Modifications;
 
 namespace Omics.BioPolymer
 {
+    /// <summary>
+    /// Represents a contiguous sequence variation on a 1-based, inclusive coordinate system.
+    /// A variation spans <see cref="OneBasedBeginPosition"/>.. <see cref="OneBasedEndPosition"/> in the parent sequence,
+    /// replaces the <see cref="OriginalSequence"/> (which may be empty for an insertion) with <see cref="VariantSequence"/>
+    /// (which may be empty for a deletion), and can optionally carry site-specific <see cref="OneBasedModifications"/>.
+    /// When available, a parsed <see cref="VariantCallFormat"/> is attached via <see cref="VariantCallFormatDataString"/>.
+    /// 
+    /// Typical interpretations:
+    /// - Substitution: non-empty <see cref="OriginalSequence"/> and non-empty <see cref="VariantSequence"/> of equal length.
+    /// - Insertion: empty <see cref="OriginalSequence"/> and non-empty <see cref="VariantSequence"/>.
+    /// - Deletion: non-empty <see cref="OriginalSequence"/> and empty <see cref="VariantSequence"/>.
+    /// </summary>
     public class SequenceVariation
     {
         /// <summary>
-        /// For longer sequence variations, where a range of sequence is replaced. Point mutations should be specified with the same begin and end positions.
+        /// Create a variation with an explicit VCF object.
         /// </summary>
-        /// <param name="oneBasedBeginPosition"></param>
-        /// <param name="oneBasedEndPosition"></param>
-        /// <param name="originalSequence"></param>
-        /// <param name="variantSequence"></param>
-        /// <param name="oneBasedModifications"></param>
+        /// <param name="oneBasedBeginPosition">
+        /// 1-based, inclusive start position in the parent sequence where the variation begins.
+        /// Must be &gt;= 1. See <see cref="AreValid"/> for validity conditions.
+        /// </param>
+        /// <param name="oneBasedEndPosition">
+        /// 1-based, inclusive end position in the parent sequence where the variation ends.
+        /// Must satisfy <c>oneBasedEndPosition &gt;= oneBasedBeginPosition</c>.
+        /// </param>
+        /// <param name="originalSequence">
+        /// Reference subsequence being replaced. Null is coerced to an empty string.
+        /// Empty string typically indicates an insertion at <paramref name="oneBasedBeginPosition"/>.
+        /// </param>
+        /// <param name="variantSequence">
+        /// Alternate subsequence to insert in place of <paramref name="originalSequence"/>.
+        /// Null is coerced to an empty string. Empty string typically indicates a deletion.
+        /// </param>
+        /// <param name="description">
+        /// Free-form description of the variation. Often the original VCF line or human-readable note.
+        /// </param>
+        /// <param name="variantCallFormat">
+        /// Parsed VCF wrapper for the originating record. Used for downstream analysis of genotype/allele metadata.
+        /// </param>
+        /// <param name="oneBasedModifications">
+        /// Optional mapping from absolute 1-based residue positions to one or more <see cref="Modification"/> objects
+        /// applied at that position (in the same coordinate system as <paramref name="oneBasedBeginPosition"/>/<paramref name="oneBasedEndPosition"/>).
+        /// If null, an empty dictionary is created.
+        /// </param>
+        public SequenceVariation(int oneBasedBeginPosition, int oneBasedEndPosition, string originalSequence, string variantSequence, string description, VariantCallFormat variantCallFormat, Dictionary<int, List<Modification>>? oneBasedModifications = null)
+        {
+            OneBasedBeginPosition = oneBasedBeginPosition;
+            OneBasedEndPosition = oneBasedEndPosition;
+            OriginalSequence = originalSequence ?? "";
+            VariantSequence = variantSequence ?? "";
+            Description = description;
+            VariantCallFormatDataString = variantCallFormat;
+            OneBasedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
+        }
+
+        /// <summary>
+        /// Create a variation by providing a raw VCF line (string representation) which will be parsed into a <see cref="VariantCallFormat"/>.
+        /// </summary>
+        /// <param name="oneBasedBeginPosition">
+        /// 1-based, inclusive start position in the parent sequence where the variation begins.
+        /// Must be &gt;= 1. See <see cref="AreValid"/> for validity conditions.
+        /// </param>
+        /// <param name="oneBasedEndPosition">
+        /// 1-based, inclusive end position in the parent sequence where the variation ends.
+        /// Must satisfy <c>oneBasedEndPosition &gt;= oneBasedBeginPosition</c>.
+        /// </param>
+        /// <param name="originalSequence">
+        /// Reference subsequence being replaced. Null is coerced to an empty string.
+        /// Empty string typically indicates an insertion at <paramref name="oneBasedBeginPosition"/>.
+        /// </param>
+        /// <param name="variantSequence">
+        /// Alternate subsequence to insert in place of <paramref name="originalSequence"/>.
+        /// Null is coerced to an empty string. Empty string typically indicates a deletion.
+        /// </param>
+        /// <param name="description">
+        /// Free-form description of the variation. Often the original VCF line or human-readable note.
+        /// </param>
+        /// <param name="variantCallFormatStringRepresentation">
+        /// Raw VCF record (a single, tab-delimited line). It is parsed into <see cref="VariantCallFormatDataString"/>.
+        /// </param>
+        /// <param name="oneBasedModifications">
+        /// Optional mapping from absolute 1-based residue positions to one or more <see cref="Modification"/> objects
+        /// applied at that position (in the same coordinate system as <paramref name="oneBasedBeginPosition"/>/<paramref name="oneBasedEndPosition"/>).
+        /// If null, an empty dictionary is created.
+        /// </param>
+        public SequenceVariation(int oneBasedBeginPosition, int oneBasedEndPosition, string originalSequence, string variantSequence, string description, string variantCallFormatStringRepresentation, Dictionary<int, List<Modification>>? oneBasedModifications = null)
+        {
+            OneBasedBeginPosition = oneBasedBeginPosition;
+            OneBasedEndPosition = oneBasedEndPosition;
+            OriginalSequence = originalSequence ?? "";
+            VariantSequence = variantSequence ?? "";
+            Description = description;
+            VariantCallFormatDataString = new VariantCallFormat(variantCallFormatStringRepresentation);
+            OneBasedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
+        }
+
+        /// <summary>
+        /// Create a variation without a separate VCF string; a <see cref="VariantCallFormat"/> is still constructed
+        /// from <paramref name="description"/> to maintain a non-null object for tests and downstream consumers.
+        /// </summary>
+        /// <param name="oneBasedBeginPosition">
+        /// 1-based, inclusive start position in the parent sequence where the variation begins.
+        /// Must be &gt;= 1. See <see cref="AreValid"/> for validity conditions.
+        /// </param>
+        /// <param name="oneBasedEndPosition">
+        /// 1-based, inclusive end position in the parent sequence where the variation ends.
+        /// Must satisfy <c>oneBasedEndPosition &gt;= oneBasedBeginPosition</c>.
+        /// </param>
+        /// <param name="originalSequence">
+        /// Reference subsequence being replaced. Null is coerced to an empty string.
+        /// Empty string typically indicates an insertion at <paramref name="oneBasedBeginPosition"/>.
+        /// </param>
+        /// <param name="variantSequence">
+        /// Alternate subsequence to insert in place of <paramref name="originalSequence"/>.
+        /// Null is coerced to an empty string. Empty string typically indicates a deletion.
+        /// </param>
+        /// <param name="description">
+        /// Free-form description of the variation. Also used to initialize <see cref="VariantCallFormatDataString"/>.
+        /// </param>
+        /// <param name="oneBasedModifications">
+        /// Optional mapping from absolute 1-based residue positions to one or more <see cref="Modification"/> objects
+        /// applied at that position (in the same coordinate system as <paramref name="oneBasedBeginPosition"/>/<paramref name="oneBasedEndPosition"/>).
+        /// If null, an empty dictionary is created.
+        /// </param>
         public SequenceVariation(int oneBasedBeginPosition, int oneBasedEndPosition, string originalSequence, string variantSequence, string description, Dictionary<int, List<Modification>>? oneBasedModifications = null)
         {
             OneBasedBeginPosition = oneBasedBeginPosition;
             OneBasedEndPosition = oneBasedEndPosition;
             OriginalSequence = originalSequence ?? "";
             VariantSequence = variantSequence ?? "";
-            Description = new VariantCallFormat(description);
+            Description = description;
+            // Always construct a VariantCallFormat so tests relying on non-null VCF objects pass.
+            VariantCallFormatDataString = new VariantCallFormat(description);
             OneBasedModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
         }
 
         /// <summary>
-        /// For variations with only position information (not begin and end).
-        /// Sets the end to the end of the original protein sequence to which this variation applies.
+        /// Convenience constructor for single-position variations. The end position is inferred from
+        /// <paramref name="oneBasedPosition"/> and the length of <paramref name="originalSequence"/>:
+        /// <c>end = position + length(originalSequence) - 1</c> (or <c>end = position</c> if <paramref name="originalSequence"/> is null).
         /// </summary>
-        /// <param name="oneBasedPosition"></param>
-        /// <param name="originalSequence"></param>
-        /// <param name="variantSequence"></param>
-        /// <param name="description"></param>
-        /// <param name="oneBasedModifications"></param>
+        /// <param name="oneBasedPosition">
+        /// 1-based, inclusive position of the variation start. Used to infer <see cref="OneBasedEndPosition"/>.
+        /// </param>
+        /// <param name="originalSequence">
+        /// Reference subsequence being replaced. If null, treated as empty for end-position inference.
+        /// </param>
+        /// <param name="variantSequence">
+        /// Alternate subsequence to insert in place of <paramref name="originalSequence"/>. May be empty for deletions.
+        /// </param>
+        /// <param name="description">
+        /// Free-form description of the variation. Also used to initialize <see cref="VariantCallFormatDataString"/>.
+        /// </param>
+        /// <param name="oneBasedModifications">
+        /// Optional mapping from absolute 1-based residue positions to one or more <see cref="Modification"/> objects
+        /// applied at that position. If null, an empty dictionary is created.
+        /// </param>
         public SequenceVariation(int oneBasedPosition, string originalSequence, string variantSequence, string description, Dictionary<int, List<Modification>>? oneBasedModifications = null)
             : this(oneBasedPosition, originalSequence == null ? oneBasedPosition : oneBasedPosition + originalSequence.Length - 1, originalSequence, variantSequence, description, oneBasedModifications)
         { }
 
         /// <summary>
-        /// Beginning position of original sequence to be replaced
+        /// 1-based, inclusive start position of this variation within the parent sequence.
         /// </summary>
         public int OneBasedBeginPosition { get; }
 
         /// <summary>
-        /// End position of original sequence to be replaced
+        /// 1-based, inclusive end position of this variation within the parent sequence.
+        /// For single-site variations with non-null <see cref="OriginalSequence"/>, this is
+        /// <c>OneBasedBeginPosition + OriginalSequence.Length - 1</c>.
         /// </summary>
         public int OneBasedEndPosition { get; }
 
         /// <summary>
-        /// Original sequence information (optional)
+        /// The reference subsequence replaced by this variation. Empty string implies an insertion.
         /// </summary>
         public string OriginalSequence { get; }
 
         /// <summary>
-        /// Variant sequence information (required)
+        /// The alternate subsequence inserted by this variation. Empty string implies a deletion.
         /// </summary>
         public string VariantSequence { get; }
 
         /// <summary>
-        /// Description of this variation (optional)
+        /// Free-form description of the variation. Often the raw VCF line or a human-readable summary.
         /// </summary>
-        public VariantCallFormat Description { get; }
+        public string Description { get; }
 
         /// <summary>
-        /// Modifications specifically for this variant
+        /// Optional parsed VCF wrapper providing structured access to the originating VCF record.
+        /// May be null in some construction paths; in the provided constructors it is initialized.
+        /// </summary>
+        public VariantCallFormat? VariantCallFormatDataString { get; }
+
+        /// <summary>
+        /// Mapping from absolute 1-based residue positions to a list of <see cref="Modification"/> objects
+        /// to apply at each position. Never null; defaults to an empty dictionary.
         /// </summary>
         public Dictionary<int, List<Modification>> OneBasedModifications { get; }
 
+        /// <summary>
+        /// Determines value equality with another object.
+        /// Two <see cref="SequenceVariation"/> objects are equal when:
+        /// - Begin and end positions are equal
+        /// - Original and variant sequences are equal (nulls treated as equal only if both are null)
+        /// - <see cref="VariantCallFormatDataString"/> are both null or equal
+        /// - <see cref="OneBasedModifications"/> have identical key sets and identical flattened modification lists (sequence-equal)
+        /// </summary>
+        /// <param name="obj">Object to compare against.</param>
+        /// <returns>True if equal by the criteria above; otherwise false.</returns>
         public override bool Equals(object obj)
         {
             SequenceVariation s = obj as SequenceVariation;
@@ -75,90 +222,95 @@ namespace Omics.BioPolymer
                 && OneBasedEndPosition == s.OneBasedEndPosition
                 && (s.OriginalSequence == null && OriginalSequence == null || OriginalSequence.Equals(s.OriginalSequence))
                 && (s.VariantSequence == null && VariantSequence == null || VariantSequence.Equals(s.VariantSequence))
-                && (s.Description == null && Description == null || Description.Equals(s.Description))
+                && ((s.VariantCallFormatDataString == null && VariantCallFormatDataString == null)
+                    || (VariantCallFormatDataString != null && VariantCallFormatDataString.Equals(s.VariantCallFormatDataString)))
                 && (s.OneBasedModifications == null && OneBasedModifications == null ||
                     s.OneBasedModifications.Keys.ToList().SequenceEqual(OneBasedModifications.Keys.ToList())
                     && s.OneBasedModifications.Values.SelectMany(m => m).ToList().SequenceEqual(OneBasedModifications.Values.SelectMany(m => m).ToList()));
         }
 
+        /// <summary>
+        /// Computes a hash code from begin/end positions, sequences, and the VCF wrapper (if present).
+        /// </summary>
+        /// <returns>A hash code suitable for hash-based collections.</returns>
         public override int GetHashCode()
         {
             return OneBasedBeginPosition.GetHashCode()
                 ^ OneBasedEndPosition.GetHashCode()
-                ^ OriginalSequence.GetHashCode() // null handled in constructor
-                ^ VariantSequence.GetHashCode() // null handled in constructor
-                ^ Description.GetHashCode(); // always constructed in constructor
+                ^ OriginalSequence.GetHashCode()
+                ^ VariantSequence.GetHashCode()
+                ^ (VariantCallFormatDataString?.GetHashCode() ?? 0);
         }
 
         /// <summary>
-        /// Returns a simple string represantation of this amino acid change
+        /// Produces a compact, human-readable representation: <c>{OriginalSequence}{OneBasedBeginPosition}{VariantSequence}</c>.
+        /// Example: substitution A-&gt;T at position 12 yields <c>"A12T"</c>.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>The compact representation string.</returns>
         public string SimpleString()
         {
             return OriginalSequence + OneBasedBeginPosition.ToString() + VariantSequence;
         }
 
         /// <summary>
-        /// Determines whether this interval overlaps the queried interval
+        /// Tests whether the current variation intersects (overlaps) another variation in coordinate space.
+        /// Intersection is inclusive: any shared position in the 1-based, inclusive ranges is considered overlap.
         /// </summary>
-        /// <param name="segment"></param>
-        /// <returns></returns>
+        /// <param name="segment">The other <see cref="SequenceVariation"/> to test.</param>
+        /// <returns>True if the ranges overlap; otherwise false.</returns>
         internal bool Intersects(SequenceVariation segment)
         {
             return segment.OneBasedEndPosition >= OneBasedBeginPosition && segment.OneBasedBeginPosition <= OneBasedEndPosition;
         }
 
         /// <summary>
-        /// Determines whether this interval overlaps the queried interval
+        /// Tests whether the current variation intersects (overlaps) a truncation product range.
+        /// Intersection is inclusive: any shared position in the 1-based, inclusive ranges is considered overlap.
         /// </summary>
-        /// <param name="segment"></param>
-        /// <returns></returns>
+        /// <param name="segment">The <see cref="TruncationProduct"/> segment to test.</param>
+        /// <returns>True if the ranges overlap; otherwise false.</returns>
         internal bool Intersects(TruncationProduct segment)
         {
             return segment.OneBasedEndPosition >= OneBasedBeginPosition && segment.OneBasedBeginPosition <= OneBasedEndPosition;
         }
 
         /// <summary>
-        /// Determines whether this interval overlaps the queried position
+        /// Tests whether the current variation intersects a single 1-based position.
         /// </summary>
-        /// <param name="pos"></param>
-        /// <returns></returns>
+        /// <param name="pos">A 1-based, inclusive position in the parent sequence.</param>
+        /// <returns>True if <paramref name="pos"/> lies within the variation’s range; otherwise false.</returns>
         internal bool Intersects(int pos)
         {
             return OneBasedBeginPosition <= pos && pos <= OneBasedEndPosition;
         }
 
         /// <summary>
-        /// Determines whether this interval includes the queried interval
+        /// Tests whether the current variation fully includes another variation’s range.
+        /// Inclusion is inclusive on both ends.
         /// </summary>
-        /// <param name="segment"></param>
-        /// <returns></returns>
+        /// <param name="segment">The other <see cref="SequenceVariation"/> to test.</param>
+        /// <returns>True if the current range fully contains <paramref name="segment"/>; otherwise false.</returns>
         internal bool Includes(SequenceVariation segment)
         {
             return OneBasedBeginPosition <= segment.OneBasedBeginPosition && OneBasedEndPosition >= segment.OneBasedEndPosition;
         }
-        // Commented out by AVC on 4/5/23. Unused and untested in current code base,
-        // but can't rule out that it could be useful in the future.  
-        /// <summary>
-        /// Determines whether this interval includes the queried interval
-        /// </summary>
-        /// <param name="segment"></param>
-        /// <returns></returns>
-        // internal bool Includes(TruncationProduct segment)
-        // {
-        //     return OneBasedBeginPosition <= segment.OneBasedBeginPosition && OneBasedEndPosition >= segment.OneBasedEndPosition;
-        // }
 
         /// <summary>
-        /// Determines whether this interval overlaps the queried position
+        /// Tests whether the current variation includes a single 1-based position.
+        /// Inclusion is inclusive on both ends.
         /// </summary>
-        /// <param name="pos"></param>
-        /// <returns></returns>
+        /// <param name="pos">A 1-based, inclusive position in the parent sequence.</param>
+        /// <returns>True if <paramref name="pos"/> lies within the variation’s range; otherwise false.</returns>
         internal bool Includes(int pos)
         {
             return OneBasedBeginPosition <= pos && pos <= OneBasedEndPosition;
         }
+
+        /// <summary>
+        /// Validates positional consistency: begin must be &gt; 0 and end must be &gt;= begin.
+        /// This does not validate string/length consistency between <see cref="OriginalSequence"/> and <see cref="VariantSequence"/>.
+        /// </summary>
+        /// <returns>True if positions are valid; otherwise false.</returns>
         public bool AreValid()
         {
             return OneBasedBeginPosition > 0 && OneBasedEndPosition >= OneBasedBeginPosition;
