@@ -6,6 +6,7 @@ using Readers.SpectralLibrary;
 using System.ComponentModel;
 using Chemistry;
 using Proteomics.AminoAcidPolymer;
+using System.Net.Http.Headers;
 
 namespace PredictionClients.Koina.AbstractClasses
 {
@@ -186,9 +187,10 @@ namespace PredictionClients.Koina.AbstractClasses
         /// 4. Builds LibrarySpectrum with precursor information and fragment data
         /// 5. Validates uniqueness of generated spectra by name
         /// </remarks>
-        /// <exception cref="WarningException">Thrown when duplicate spectra are detected in predictions</exception>
-        public void GenerateLibrarySpectraFromPredictions()
+        /// <exception cref="WarningException">Recorded in the out parameter when duplicate spectra are detected in predictions</exception>
+        public void GenerateLibrarySpectraFromPredictions(out WarningException? warning)
         {
+            warning = null;
             if (Predictions.Count == 0)
             {
                 return; // No predictions to process
@@ -257,7 +259,8 @@ namespace PredictionClients.Koina.AbstractClasses
             var unique = PredictedSpectra.DistinctBy(p => p.Name).ToList();
             if (unique.Count != PredictedSpectra.Count)
             {
-                throw new WarningException($"Duplicate spectra found in predictions. Reduced from {PredictedSpectra.Count} predicted spectra to {unique.Count} unique spectra.");
+                PredictedSpectra = unique;
+                warning = new WarningException($"Duplicate spectra found in predictions. Reduced from {PredictedSpectra.Count} predicted spectra to {unique.Count} unique spectra.");
             }
         }
 
@@ -270,12 +273,13 @@ namespace PredictionClients.Koina.AbstractClasses
         /// Usage:
         /// model.SavePredictedSpectralLibrary("predicted_library.msp");
         /// </example>
-        public void SavePredictedSpectralLibrary(string filePath)
+        public void SavePredictedSpectralLibrary(string filePath, out WarningException? warning)
         {
+            warning = null;
             var spectralLibrary = new SpectralLibrary();
             if (PredictedSpectra.Count == 0)
             {
-                GenerateLibrarySpectraFromPredictions();
+                GenerateLibrarySpectraFromPredictions(out warning);
             }
             spectralLibrary.Results = PredictedSpectra;
             spectralLibrary.WriteResults(filePath);
