@@ -8,7 +8,7 @@ namespace Omics.Modifications
     /// Represents a modification
     /// Mods.txt format was taken from https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/docs/ptmlist.txt
     /// </summary>
-    public class Modification : IComparable<Modification>
+    public class Modification : IComparable<Modification>, IHasChemicalFormula
     {
         public string IdWithMotif { get; protected set; }
         public string OriginalId { get; protected set; }
@@ -18,18 +18,12 @@ namespace Omics.Modifications
         public ModificationMotif Target { get; protected set; }
         public string LocationRestriction { get; protected set; }
         public ChemicalFormula ChemicalFormula { get; protected set; }
-        private double? monoisotopicMass = null;
+        private readonly double? _monoisotopicMass = null;
 
         public double? MonoisotopicMass
         {
-            get
-            {
-                return ClassExtensions.RoundedDouble(monoisotopicMass);
-            }
-            private set
-            {
-                monoisotopicMass = value;
-            }
+            get => _monoisotopicMass.RoundedDouble();
+            private init => _monoisotopicMass = value;
         }
 
         public Dictionary<string, IList<string>> DatabaseReference { get; protected set; }
@@ -313,5 +307,9 @@ namespace Omics.Modifications
 
             return Nullable.Compare(this.MonoisotopicMass, other.MonoisotopicMass);
         }
+
+        // IHasChemicalFormula Implementations. 
+        double IHasMass.MonoisotopicMass => MonoisotopicMass.Value;
+        public ChemicalFormula ThisChemicalFormula => this.ChemicalFormula;
     }
 }
