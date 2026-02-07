@@ -62,7 +62,9 @@ namespace Readers
         private const string _retentionTime = "MS:1000016";
         private const string _ionInjectionTime = "MS:1000927";
         private const string _mzArray = "MS:1000514";
-        private const string _intensityArray = "MS:1000515";
+        private const string _intensityArray = "MS:1000515"; 
+        private const string _compensationVoltage = "MS:1001581"; // FAIMS compensation voltage
+
         private static readonly Regex MZAnalyzerTypeRegex = new Regex(@"^[a-zA-Z]*", RegexOptions.Compiled);
 
         public static readonly Dictionary<string, Polarity> PolarityDictionary = new Dictionary<string, Polarity>
@@ -354,7 +356,8 @@ namespace Readers
                         string scanFilter = null;
                         MZAnalyzerType mzAnalyzerType = MZAnalyzerType.Unknown;
                         double tic = 0;
-                        double? injTime = null;
+                        double? injTime = null; 
+                        double? compensationVoltage = null;
                         double[,] noiseData = null; // TODO: read this
                         double? selectedIonMz = null;
                         int? selectedCharge = null;
@@ -452,6 +455,11 @@ namespace Readers
                                         // ion injection time
                                         case "MS:1000927":
                                             injTime = double.Parse(xmlReader["value"]);
+                                            break;
+
+                                        // FAIMS compensation voltage
+                                        case "MS:1001581":
+                                            compensationVoltage = double.Parse(xmlReader["value"]);
                                             break;
 
                                         // scan lower limit
@@ -651,7 +659,8 @@ namespace Readers
                                         scan = new MsDataScan(spectrum, oneBasedScanNumber, msOrder.Value, isCentroid.Value, polarity,
                                             retentionTime, range, scanFilter, mzAnalyzerType, tic, injTime, noiseData,
                                             nativeId, selectedIonMz, selectedCharge, selectedIonIntensity, isolationMz, isolationWidth,
-                                            dissociationType, oneBasedPrecursorScanNumber, selectedIonMonoisotopicGuessMz);
+                                            dissociationType, oneBasedPrecursorScanNumber, selectedIonMonoisotopicGuessMz,
+                                            compensationVoltage: compensationVoltage);
 
                                         return scan;
                                     }
@@ -771,6 +780,7 @@ namespace Readers
             double rtInMinutes = double.NaN;
             string scanFilter = null;
             double? injectionTime = null;
+            double? compensationVoltage = null;
             int oneBasedScanNumber = oneBasedIndex;
             if (_mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].scanList.scan[0].cvParam != null)
             {
@@ -787,6 +797,10 @@ namespace Readers
                     if (cv.accession.Equals(_filterString))
                     {
                         scanFilter = cv.value;
+                    }
+                    if (cv.accession.Equals(_compensationVoltage))
+                    {
+                        compensationVoltage = double.Parse(cv.value, CultureInfo.InvariantCulture);
                     }
                     if (cv.accession.Equals(_ionInjectionTime))
                     {
@@ -816,7 +830,8 @@ namespace Readers
                     tic,
                     injectionTime,
                     null,
-                    nativeId);
+                    nativeId, 
+                    compensationVoltage: compensationVoltage);
 
             double[] masses = new double[0];
             double[] intensities = new double[0];
@@ -907,7 +922,8 @@ namespace Readers
                     tic,
                     injectionTime,
                     null,
-                    nativeId);
+                    nativeId,
+                    compensationVoltage: compensationVoltage);
             }
 
             double selectedIonMz = double.NaN;
@@ -1023,7 +1039,8 @@ namespace Readers
                 lowIsolation + highIsolation,
                 dissociationType,
                 precursorScanNumber,
-                monoisotopicMz
+                monoisotopicMz,
+                compensationVoltage: compensationVoltage
                 );
         }
 

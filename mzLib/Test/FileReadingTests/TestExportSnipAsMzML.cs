@@ -2,6 +2,7 @@ using System.IO;
 using System.Linq;
 using MassSpectrometry;
 using NUnit.Framework;
+using NUnit.Framework.Legacy;
 using Readers;
 
 namespace Test.FileReadingTests
@@ -71,6 +72,33 @@ namespace Test.FileReadingTests
             }
 
             File.Delete(outPath);
+        }
+
+        [Test]
+        public void TestFaimsSnipping()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "AveragingTests", "TestData", "FAIMS_snip_10665-11578.mzML");
+
+            var file = MsDataFileReader.GetDataFile(filePath).LoadAllStaticData();
+            Assert.That(file.Scans.Select(p => p.CompensationVoltage), Is.All.Not.Null);
+
+            var snip = file.ExportSnipAsMzML(1, 103);
+            Assert.That(File.Exists(snip));
+
+            var readIn = MsDataFileReader.GetDataFile(snip).LoadAllStaticData();
+            Assert.That(readIn.Scans.Select(p => p.CompensationVoltage), Is.All.Not.Null);
+
+            for (int i = 0; i < readIn.Scans.Length; i++)
+            {
+                var originalScan = file[i];
+                var readInScan = readIn[i];
+
+                Assert.That(originalScan.OneBasedScanNumber, Is.EqualTo(readInScan.OneBasedScanNumber));
+                Assert.That(originalScan.OneBasedPrecursorScanNumber, Is.EqualTo(readInScan.OneBasedPrecursorScanNumber));
+                Assert.That(originalScan.CompensationVoltage, Is.EqualTo(readInScan.CompensationVoltage));                
+            }
+
+            File.Delete(snip);
         }
     }
 }
