@@ -30,7 +30,7 @@ namespace Test.DatabaseTests
         {
             // === INPUT FILE PATHS ===
             string observedFile1 = @"E:\Projects\ProteoformLists\MM-AllProteoforms.psmtsv";
-            string observedFile2 = @"E:\Projects\ProteoformLists\ProteomeDiscovererProteoforms.csv";
+            string observedFile2 = @"E:\Projects\ProteoformLists\ProteomeDiscoverer-10-Qvalue.csv";
             string observedFile3 = @"E:\Projects\ProteoformLists\toppic.tsv";
 
             string xmlDatabase1 = @"E:\Projects\ProteoformLists\TrEMBLonlyPrune.xml";
