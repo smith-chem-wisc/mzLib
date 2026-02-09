@@ -168,7 +168,7 @@ namespace Readers
                 {
                     sArray = sArray[1].Split(' ');
                     precursorMz = Convert.ToDouble(sArray[0], CultureInfo.InvariantCulture);
-                    if (sArray.Length > 2)
+                    if (sArray.Length > 1)
                         precursorIntensity = Convert.ToDouble(sArray[1], CultureInfo.InvariantCulture);
                 }
                 else if (line.StartsWith("CHARGE"))
@@ -235,8 +235,8 @@ namespace Readers
             return new MsDataScan(spectrum, scanNumber, 2, true,
                 charge > 0 ? Polarity.Positive : Polarity.Negative,
                 rtInMinutes, scanRange, null, MZAnalyzerType.Unknown,
-                intensities.Sum(), 0, null, null, precursorMz, charge, 
-                null, precursorMz, null,  DissociationType.Unknown, 
+                intensities.Sum(), 0, null, null, precursorMz, charge,
+                precursorIntensity, precursorMz, null, DissociationType.Unknown,
                 null, precursorMz);
         }
 
