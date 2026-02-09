@@ -86,7 +86,8 @@ namespace Readers
 
             // IF we have faims, we need to ensure all MS2's have their MS1's 
             // This means removing all MS2's between the first two MS1's
-            if (scansToKeep.Where(p => p.MsnOrder == 1).All(scan => scan.CompensationVoltage != null && scan.MzAnalyzer == MZAnalyzerType.Orbitrap))
+            var ms1Scans = scansToKeep.Where(p => p.MsnOrder == 1).ToList();
+            if (ms1Scans.Count >= 2 && ms1Scans.All(scan => scan is { CompensationVoltage: not null, MzAnalyzer: MZAnalyzerType.Orbitrap }))
             {
                 int start = scansToKeep.FindIndex(p => p.MsnOrder == 1);
                 int end = scansToKeep.IndexOf(scansToKeep.Where(p => p.MsnOrder == 1).Skip(1).First());

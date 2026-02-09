@@ -115,6 +115,7 @@ public static class SpectraFileAveraging
                 averagedScans.Add(averagedScan);
                 scansToProcess.RemoveAt(0);
             }
+            scansToProcess.Clear();
         }
         
         // add all scans that did not get averaged

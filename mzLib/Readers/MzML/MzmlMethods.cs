@@ -738,7 +738,7 @@ namespace Readers
                     {
                         name = "FAIMS compensation voltage",
                         accession = "MS:1001581",
-                        value = myMsDataFile.GetOneBasedScan(i).CompensationVoltage.Value.ToString(CultureInfo.InvariantCulture),
+                        value = myMsDataFile.GetOneBasedScan(i).CompensationVoltage?.ToString(CultureInfo.InvariantCulture),
                         cvRef = "MS",
                         unitName = "volt",
                         unitAccession = "UO:0000218",

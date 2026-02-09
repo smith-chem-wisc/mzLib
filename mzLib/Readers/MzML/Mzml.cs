@@ -62,7 +62,14 @@ namespace Readers
         private const string _retentionTime = "MS:1000016";
         private const string _ionInjectionTime = "MS:1000927";
         private const string _mzArray = "MS:1000514";
-        private const string _intensityArray = "MS:1000515"; 
+        private const string _intensityArray = "MS:1000515";
+
+        /// <summary>
+        /// HUPO-PSI Information: 
+        /// name: FAIMS compensation voltage
+        /// def: "The DC potential applied to the asymmetric waveform in FAIMS that compensates for the difference between high and low field mobility of an ion." [PSI: MS]
+        /// synonym: "FAIMS CV" EXACT[]
+        /// </summary>
         private const string _compensationVoltage = "MS:1001581"; // FAIMS compensation voltage
 
         private static readonly Regex MZAnalyzerTypeRegex = new Regex(@"^[a-zA-Z]*", RegexOptions.Compiled);
