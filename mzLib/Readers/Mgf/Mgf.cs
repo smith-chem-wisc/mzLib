@@ -143,7 +143,7 @@ namespace Readers
             List<double> intensities = new List<double>();
             int charge = 2; //default when unknown
             double precursorMz = 0;
-            double precursorIntensity = 0; //default when unknown
+            double? precursorIntensity = null; //default when unknown
             double rtInMinutes = double.NaN; //default when unknown
 
             int oldScanNumber = scanNumbersAlreadyObserved.Count > 0 ? scanNumbersAlreadyObserved.Max() : 0;
