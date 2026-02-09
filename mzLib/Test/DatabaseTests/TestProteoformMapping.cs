@@ -35,6 +35,7 @@ namespace Test.DatabaseTests
 
             string xmlDatabase1 = @"E:\Projects\ProteoformLists\TrEMBLonlyPrune.xml";
             string xmlDatabase2 = @"E:\Projects\ProteoformLists\uniprotkb_9606_reviewed-HIV_WTJB474_updated_JustGag-JustPolGPTMDproteinPruned-noCitCarbox-notrunc.xml";
+            string fastaDatabase = @"E:\Projects\ProteoformLists\Human-HIV-Gag-Gagpol-contaminant.fasta"; 
 
             string outputPath = @"E:\Projects\ProteoformLists\output.txt";
             _logPath = @"E:\Projects\ProteoformLists\mapping_log.txt";
@@ -68,6 +69,7 @@ namespace Test.DatabaseTests
                 Log($"observedFile3: {observedFile3} - Exists: {File.Exists(observedFile3)}");
                 Log($"xmlDatabase1: {xmlDatabase1} - Exists: {File.Exists(xmlDatabase1)}");
                 Log($"xmlDatabase2: {xmlDatabase2} - Exists: {File.Exists(xmlDatabase2)}");
+                Log($"fastaDatabase: {fastaDatabase} - Exists: {File.Exists(fastaDatabase)}");
 
                 // === LOAD PROTEIN DATABASES ===
                 Log("\n=== LOADING PROTEIN DATABASES ===");
@@ -100,6 +102,30 @@ namespace Test.DatabaseTests
                     catch (Exception ex)
                     {
                         Log($"ERROR loading {xmlDatabase2}: {ex.Message}");
+                    }
+                }
+
+
+                // Load FASTA database
+                if (File.Exists(fastaDatabase))
+                {
+                    try
+                    {
+                        var proteinsFasta = ProteinDbLoader.LoadProteinFasta(
+                            fastaDatabase,
+                            generateTargets: true,
+                            decoyType: DecoyType.None,
+                            isContaminant: false,
+                            out var fastaErrors);
+                        allProteins.AddRange(proteinsFasta);
+                        Log($"Loaded {proteinsFasta.Count} proteins from {Path.GetFileName(fastaDatabase)}");
+
+                        if (fastaErrors.Any())
+                            Log($"  FASTA loading warnings: {string.Join("; ", fastaErrors.Take(5))}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"ERROR loading {fastaDatabase}: {ex.Message}");
                     }
                 }
 
