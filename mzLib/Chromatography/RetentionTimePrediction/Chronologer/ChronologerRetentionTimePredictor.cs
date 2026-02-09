@@ -10,7 +10,10 @@ namespace Chromatography.RetentionTimePrediction.Chronologer;
 /// </summary>
 public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDisposable
 {
-    private readonly Chronologer _model;
+    private readonly Chronologer? _model;
+    private readonly object _modelLock = new(); 
+    private bool _disposed;
+
     protected override int MaxSequenceLength => 50;
     private int EncodedLength => MaxSequenceLength + 2; // +2 for N/C termini tokens
     public override string PredictorName => "Chronologer";
@@ -43,6 +46,9 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDispos
 
     protected override double? PredictCore(IRetentionPredictable peptide, string? formattedSequence = null)
     {
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(ChronologerRetentionTimePredictor));
+
         // Get formatted sequence if not provided
         formattedSequence ??= GetFormattedSequence(peptide, out RetentionTimeFailureReason? failureReason);
         if (formattedSequence == null)
@@ -64,8 +70,21 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDispos
         // Predict retention time
         try
         {
-            var prediction = _model.Predict(sequenceTensor);
-            return prediction[0].ToDouble();
+            Tensor prediction;
+
+            lock (_modelLock)
+            {
+                prediction = _model.Predict(sequenceTensor);
+            }
+            
+            try
+            {
+                return prediction[0].ToDouble();
+            }
+            finally
+            {
+                prediction?.Dispose();
+            }
         }
         finally
         {
@@ -216,6 +235,10 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDispos
 
     public void Dispose()
     {
-        _model.Dispose();
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        _model?.Dispose();
     }
 }
