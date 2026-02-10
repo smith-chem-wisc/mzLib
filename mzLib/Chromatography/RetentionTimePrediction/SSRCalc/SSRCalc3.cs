@@ -1,5 +1,4 @@
 ﻿using System.Text;
-using System.Text.RegularExpressions;
 
 namespace Chromatography.RetentionTimePrediction.SSRCalc;
 
@@ -30,11 +29,7 @@ namespace Chromatography.RetentionTimePrediction.SSRCalc;
 
 public class SSRCalc3
 {
-    /* Lookup table data.  These are translations of the .h table in C which is a    */
-    /* translation of the ReadParmFile perl routine.  This does not read a parameter */
-    /* file; it makes static initializers for the parameter data.                    */
-
-    public const String VERSION = "Krokhin,3.0"; // Not L10N
+    public const String VERSION = "Krokhin,3.0";
 
     private static readonly CLUSTCOMB_List CLUSTCOMB = new CLUSTCOMB_List();
     private static readonly Dictionary<string, double> HlxScore4 = new Dictionary<string, double>();
@@ -52,13 +47,6 @@ public class SSRCalc3
 
     static SSRCalc3()
     {
-
-        /*
-          Translator1 note:  For the Java version we are prepending and appending 0s to the "pick" (key) column.  This
-          is done dynamically and repeatedly in the perl code.  As far as I can tell, pick is never used
-          without the surrounding 0s.
-        */
-
         // ReSharper disable NonLocalizedString
         CLUSTCOMB.Add("0110", 0.3);
         CLUSTCOMB.Add("0150", 0.4);
@@ -381,51 +369,25 @@ public class SSRCalc3
         HlxScore6.Add("ZZUUZZ", 0.75);
         // ReSharper restore NonLocalizedString
 
-        // populate eMap
-        for (int i = 0; i < EMap.Length; i++)
-        {
-            EMap[i] = -1; //default
-        }
-        EMap['K'] = 0;
-        EMap['R'] = 1;
-        EMap['H'] = 2;
-        EMap['D'] = 3;
-        EMap['E'] = 4;
-        EMap['C'] = 5;
-        EMap['Y'] = 6;
+        for (int i = 0; i < EMap.Length; i++) EMap[i] = -1;
+        EMap['K'] = 0; EMap['R'] = 1; EMap['H'] = 2; EMap['D'] = 3; EMap['E'] = 4; EMap['C'] = 5; EMap['Y'] = 6;
     }
 
     public enum Column { A300, A100 }
-
     public AAParams[] AAPARAMS = new AAParams[128];
 
     public SSRCalc3(string name, Column column)
     {
         Name = name;
-
         AAParams NULLPARAM = new AAParams(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-        for (int i = 0; i < AAPARAMS.Length; i++)
-        {
-            AAPARAMS[i] = NULLPARAM;
-        }
-
-        switch (column)
-        {
-            case Column.A300:
-                A300Column();
-                break;
-            case Column.A100:
-                A100Column();
-                break;
-        }
+        for (int i = 0; i < AAPARAMS.Length; i++) AAPARAMS[i] = NULLPARAM;
+        switch (column) { case Column.A300: A300Column(); break; case Column.A100: A100Column(); break; }
     }
 
     public string Name { get; private set; }
 
     private void A300Column()
     {
-        // a                        |   Weights for reg peptide       |  weights for short peptide      |       |         | iso-elec vals    | heli2
-        // a                        | RC  | RC1  | RC2  | RN   | RN-1 | RCs  | RC1s | RC2s | RNs  |RN-1s|  krh  |  mass   | Ctrm| Ntrm| pk1  | bsc| cmu
         AAPARAMS['A'] = new AAParams(01.10, 00.35, 00.50, 00.80, -0.10, 00.80, -0.30, 00.10, 00.80, -0.50, 00.00, 071.0370, 3.55, 7.59, 00.00, 1.0, 1.2);
         AAPARAMS['C'] = new AAParams(00.45, 00.90, 00.20, -0.80, -0.50, 00.50, 00.40, 00.00, -0.80, -0.50, 00.00, 103.0090, 3.55, 7.50, 00.00, 0.0, 1.0);
         AAPARAMS['D'] = new AAParams(00.15, 00.50, 00.40, -0.50, -0.50, 00.30, 00.30, 00.70, -0.50, -0.50, 00.00, 115.0270, 4.55, 7.50, 04.05, 0.0, 1.1);
@@ -446,17 +408,13 @@ public class SSRCalc3
         AAPARAMS['V'] = new AAParams(05.00, 02.90, 03.40, 05.00, 04.20, 05.10, 02.70, 03.40, 05.00, 04.20, -0.30, 099.0680, 3.55, 7.44, 00.00, 1.4, 1.2);
         AAPARAMS['W'] = new AAParams(12.25, 11.10, 11.80, 11.00, 12.10, 12.40, 11.60, 11.80, 11.00, 12.10, 00.15, 186.0790, 3.55, 7.50, 00.00, 1.6, 1.0);
         AAPARAMS['Y'] = new AAParams(04.85, 03.70, 04.50, 04.00, 04.40, 05.10, 04.20, 04.50, 04.00, 04.40, -0.20, 163.0630, 3.55, 7.50, 10.00, 0.2, 1.0);
-
-        AAPARAMS['B'] = new AAParams(00.15, 00.50, 00.40, -0.50, -0.50, 00.30, 00.30, 00.70, -0.50, -0.50, 00.00, 115.0270, 4.55, 7.50, 04.05, 0.0, 1.1); //?
-        AAPARAMS['X'] = new AAParams(00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 000.0000, 0.00, 0.00, 00.00, 0.0, 1.0); //?
-        AAPARAMS['Z'] = new AAParams(00.95, 01.00, 00.00, 00.00, -0.10, 00.50, 00.10, 00.00, 00.00, -0.10, 00.00, 129.0430, 4.75, 7.70, 04.45, 0.0, 1.1); //?
+        AAPARAMS['B'] = new AAParams(00.15, 00.50, 00.40, -0.50, -0.50, 00.30, 00.30, 00.70, -0.50, -0.50, 00.00, 115.0270, 4.55, 7.50, 04.05, 0.0, 1.1);
+        AAPARAMS['X'] = new AAParams(00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 000.0000, 0.00, 0.00, 00.00, 0.0, 1.0);
+        AAPARAMS['Z'] = new AAParams(00.95, 01.00, 00.00, 00.00, -0.10, 00.50, 00.10, 00.00, 00.00, -0.10, 00.00, 129.0430, 4.75, 7.70, 04.45, 0.0, 1.1);
     }
 
-    // Note: The 100 A version is not yet verified.
     private void A100Column()
     {
-        // a                        |   Weights for reg peptide       |  weights for short peptide      |       |         | iso-elec vals    | heli2
-        // a                        | RC  | RC1  | RC2  | RN   | RN-1 | RCs  | RC1s | RC2s | RNs  |RN-1s|  krh  |  mass   | Ctrm| Ntrm| pk1  | bsc| cmu
         AAPARAMS['A'] = new AAParams(01.02, -0.35, 00.35, 01.02, -0.20, 00.50, -0.05, 00.10, 00.50, -0.30, 00.00, 071.0370, 3.55, 7.59, 00.00, 1.0, 1.2);
         AAPARAMS['C'] = new AAParams(00.10, 00.40, 00.20, 00.10, -0.40, 00.60, 00.60, 01.00, 00.60, -0.50, 00.00, 103.0090, 3.55, 7.50, 00.00, 0.0, 1.0);
         AAPARAMS['D'] = new AAParams(00.15, 00.90, 00.60, 00.15, -0.40, 00.60, 00.30, 00.20, 00.60, -0.50, 00.00, 115.0270, 4.55, 7.50, 04.05, 0.0, 1.1);
@@ -477,18 +435,10 @@ public class SSRCalc3
         AAPARAMS['V'] = new AAParams(04.68, 02.10, 03.40, 04.68, 03.90, 04.40, 02.10, 03.00, 04.40, 04.40, -0.30, 099.0680, 3.55, 7.44, 00.00, 1.4, 1.2);
         AAPARAMS['W'] = new AAParams(13.35, 11.50, 11.80, 13.35, 13.00, 13.90, 11.80, 13.00, 13.90, 12.90, 00.15, 186.0790, 3.55, 7.50, 00.00, 1.6, 1.0);
         AAPARAMS['Y'] = new AAParams(05.35, 04.30, 05.10, 05.35, 05.00, 05.70, 05.00, 05.40, 05.70, 05.30, -0.20, 163.0630, 3.55, 7.50, 10.00, 0.2, 1.0);
-
-        AAPARAMS['B'] = new AAParams(00.15, 00.50, 00.40, -0.50, -0.50, 00.30, 00.30, 00.70, -0.50, -0.50, 00.00, 115.0270, 4.55, 7.50, 04.05, 0.0, 1.1); //?
-        AAPARAMS['X'] = new AAParams(00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 000.0000, 0.00, 0.00, 00.00, 0.0, 1.0); //?
-        AAPARAMS['Z'] = new AAParams(00.95, 01.00, 00.00, 00.00, -0.10, 00.50, 00.10, 00.00, 00.00, -0.10, 00.00, 129.0430, 4.75, 7.70, 04.45, 0.0, 1.1); //?
+        AAPARAMS['B'] = new AAParams(00.15, 00.50, 00.40, -0.50, -0.50, 00.30, 00.30, 00.70, -0.50, -0.50, 00.00, 115.0270, 4.55, 7.50, 04.05, 0.0, 1.1);
+        AAPARAMS['X'] = new AAParams(00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 000.0000, 0.00, 0.00, 00.00, 0.0, 1.0);
+        AAPARAMS['Z'] = new AAParams(00.95, 01.00, 00.00, 00.00, -0.10, 00.50, 00.10, 00.00, 00.00, -0.10, 00.00, 129.0430, 4.75, 7.70, 04.45, 0.0, 1.1);
     }
-
-    // control variables, 0 means leaving them ON, 1 means turning them OFF
-    // Translator1 note:  Some day these may be turned into options.  For the
-    //    time being they are unchanging, and the tests for them in each function
-    //    are superfluous and absurd.
-    // Translator2 note:  To avoid warnings on unreachable code, these were changed
-    //    to auto-implemented properties, which means they can now be set.
 
     public int NOELECTRIC { get; set; }
     public int NOCLUSTER { get; set; }
@@ -498,172 +448,79 @@ public class SSRCalc3
     public int NOHELIX2 { get; set; }
     public int NOEHEL { get; set; }
 
-    //Translator1 note:  This constant controls whether "bugs" in the original
-    //perl code are maintained.  A conversation with the developers has revealed
-    //that the constant data in the static initialization blocks has been "tuned"
-    //to the algorithm in its undebugged state.  In other words, using a correct
-    //algorithm would invalidate the results.
     private const bool DUPLICATE_ORIGINAL_CODE = true;
-    //Translator1 note:  Some code is supposed to be executed only when
-    // $SSRCVERSION==3.  SSRCVERSION was commented out in my version of the perl
-    // code.  This may need some reworking.  Speaking with the developers, it
-    // was determined that it ought not to have been commented out.  So --
-    // ALGORITHM_VERSION may be used to choose the older or newer code
     private const int ALGORITHM_VERSION = 3;
-
-    // Length Scaling length limits and scaling factors
     private const int LPLim = 20;
     private const int SPLim = 8;
     private const double LPSFac = 0.0270;
     private const double SPSFac = -0.055;
-
-    // UnDigested (missed cuts) scaling Factors
-    private const double UDF21 = 0.0, UDF22 = 0.0;    // rightmost
-    private const double UDF31 = 1.0, UDF32 = 0.0;    // inside string
-
-    // total correction values, 20..30 / 30..40 / 40..50 /50..500
+    private const double UDF21 = 0.0, UDF22 = 0.0;
+    private const double UDF31 = 1.0, UDF32 = 0.0;
     private const double SUMSCALE1 = 0.27, SUMSCALE2 = 0.33, SUMSCALE3 = 0.38, SUMSCALE4 = 0.447;
-
-    // clusterness scaling: i.e. weight to give cluster correction.
     private const double KSCALE = 0.4;
-
-    // isoelectric scaling factors
-    private const double Z01 = -0.03, Z02 = 0.60, NDELTAWT = 0.8;   // negative delta values
-    private const double Z03 = 0.00, Z04 = 0.00, PDELTAWT = 1.0;   // positive delta values
-
-    // proline chain scores
+    private const double Z01 = -0.03, Z02 = 0.60, NDELTAWT = 0.8;
+    private const double Z03 = 0.00, Z04 = 0.00, PDELTAWT = 1.0;
     private const double PPSCORE = 1.2, PPPSCORE = 3.5, PPPPSCORE = 5.0;
-
-    // helix scaling factors
     private const double HELIX1SCALE = 1.6, HELIX2SCALE = 0.255;
+    private const int HISC = 0;
+    private const int GSC = 1;
 
-    /// <summary>
-    /// No such thing as an unkown score for this calculator.  ScoreSequence
-    /// always returns a value.
-    /// </summary>
-    public double UnknownScore
-    {
-        get { return 0; }
-    }
+    public double UnknownScore => 0;
 
     public double ScoreSequence(string baseSequence)
     {
-        var seq = baseSequence; //PTMs are not yet implemented
+        var seq = baseSequence;
         double tsum3 = 0.0;
-        int i;
-
-        // Core summation
-
         int sze = seq.Length;
-        if (sze < 4)                          // peptide is too short ot have any retention
-        {
-            return tsum3;
-        }
-        if (sze < 10)                         // short peptides use short peptide retention weights
-        {
-            tsum3 =
-               AAPARAMS[seq[0]].RC1S +        // Sum weights for 1st
-               AAPARAMS[seq[1]].RC2S +        // second,
-               AAPARAMS[seq[sze - 1]].RCNS +    // ultimate
-               AAPARAMS[seq[sze - 2]].RCN2S;    // and penultimate aa
+        if (sze < 4) return tsum3;
 
-            for (i = 2; i < sze - 2; i++)            // add weights for aa's in the middle
-            {
-                tsum3 += AAPARAMS[seq[i]].RCS;
-            }
-        }
-        else                                  // longer peptides use regular retention weights
+        if (sze < 10)
         {
-            tsum3 =
-               AAPARAMS[seq[0]].RC1 +         // Sum weights for 1st
-               AAPARAMS[seq[1]].RC2 +         // second,
-               AAPARAMS[seq[sze - 1]].RCN +     // ultimate
-               AAPARAMS[seq[sze - 2]].RCN2;     // and penultimate aa
-
-            for (i = 2; i < sze - 2; i++)            // add weights for aa's in the middle
-            {
-                tsum3 += AAPARAMS[seq[i]].RC;
-            }
+            tsum3 = AAPARAMS[seq[0]].RC1S + AAPARAMS[seq[1]].RC2S + AAPARAMS[seq[sze - 1]].RCNS + AAPARAMS[seq[sze - 2]].RCN2S;
+            for (int i = 2; i < sze - 2; i++) tsum3 += AAPARAMS[seq[i]].RCS;
         }
-        //_log.debug("Core = "+tsum3);
+        else
+        {
+            tsum3 = AAPARAMS[seq[0]].RC1 + AAPARAMS[seq[1]].RC2 + AAPARAMS[seq[sze - 1]].RCN + AAPARAMS[seq[sze - 2]].RCN2;
+            for (int i = 2; i < sze - 2; i++) tsum3 += AAPARAMS[seq[i]].RC;
+        }
 
-        // 1- smallness - adjust based on tsum score of peptides shorter than 20 aa's.
         tsum3 += Smallness(sze, tsum3);
-        //_log.debug("smallness = "+tsum3);
-        // 2- undigested parts
         tsum3 -= Undigested(seq);
-        //_log.debug("undigested = "+tsum3);
-        // 3- clusterness # NB:weighting of v1 is now done in subrtn.
         tsum3 -= Clusterness(seq);
-        //_log.debug("clusterness = "+tsum3);
-        // 4- proline fix
         tsum3 -= Proline(seq);
-        //_log.debug("proline = "+tsum3);
-        // 5- length scaling correction
         tsum3 *= Length_scale(sze);
-        //_log.debug("length_scale = "+tsum3);
-        // 6- total sum correction
         if (tsum3 >= 20 && tsum3 < 30) tsum3 -= ((tsum3 - 18) * SUMSCALE1);
         if (tsum3 >= 30 && tsum3 < 40) tsum3 -= ((tsum3 - 18) * SUMSCALE2);
         if (tsum3 >= 40 && tsum3 < 50) tsum3 -= ((tsum3 - 18) * SUMSCALE3);
         if (tsum3 >= 50) tsum3 -= ((tsum3 - 18) * SUMSCALE4);
-        //_log.debug("total sum = "+tsum3);
-        // 7- isoelectric change
         tsum3 += NewIso(seq, tsum3);
-        //_log.debug("isoelectric = "+tsum3);
-        // 8- helicity corrections  #NB: HELIX#SCALE-ing is now done in subrtn.
         tsum3 += Helicity1(seq);
-        //_log.debug("helicity1 = "+tsum3);
         tsum3 += Helicity2(seq);
-        //_log.debug("helicity2 = "+tsum3);
         tsum3 += Helectric(seq);
-        //_log.debug("helectric = "+tsum3);
         return tsum3;
     }
 
     private double Smallness(int sqlen, double tsum)
     {
-        if (NOSMALL == 1)
-        {
-            return 0.0;
-        }
-        if (sqlen < 20 && (tsum / sqlen) < 0.9)
-        {
-            return 3.5 * (0.9 - (tsum / sqlen));
-        }
-        if (sqlen < 15 && (tsum / sqlen) > 2.8)
-        {
-            return 2.6 * ((tsum / sqlen) - 2.8);
-        }
+        if (NOSMALL == 1) return 0.0;
+        if (sqlen < 20 && (tsum / sqlen) < 0.9) return 3.5 * (0.9 - (tsum / sqlen));
+        if (sqlen < 15 && (tsum / sqlen) > 2.8) return 2.6 * ((tsum / sqlen) - 2.8);
         return 0.0;
     }
 
-    private double Undigested(String sq)
+    private double Undigested(string sq)
     {
-        if (NODIGEST == 1)
-            return 0.0;
-
+        if (NODIGEST == 1) return 0.0;
         char op1, op2;
-
         int xx = sq.Length - 1;
         char re = sq[xx];
         double csum = 0.0;
-
-        // rightmost
         if (re == 'R' || re == 'K' || re == 'H')
         {
-            op1 = sq[xx - 1];                          // left by 1
-            op2 = sq[xx - 2];                          // left by 2
+            op1 = sq[xx - 1]; op2 = sq[xx - 2];
             csum = UDF21 * AAPARAMS[op1].UndKRH + UDF22 * AAPARAMS[op2].UndKRH;
         }
-        // scan through string, starting at second and ending two before left
-        //    --Translator1 note:
-        //      the perl code does not jibe with the comment above, and will probably need repair
-        //      possibly dd should start out as 2, not 0; and should loop to xx-2, not xx.
-
-        //      Negative indices on the perl substr function make substrings offset from right
-        //      (instead of left) end of string.  The perl loop gets negative indices.  This may be a
-        //      a problem.
         for (int dd = 0; dd < xx; dd++)
         {
             re = sq[dd];
@@ -671,636 +528,251 @@ public class SSRCalc3
             {
                 char op3, op4;
                 op1 = op2 = op3 = op4 = '\0';
-                if (dd - 1 >= 0 && dd - 1 <= xx)
-                    op1 = sq[dd - 1];    //left by 1
-                if (dd - 2 >= 0 && dd - 2 <= xx)
-                    op2 = sq[dd - 2];    //left by 2
-                                         // ReSharper disable ConditionIsAlwaysTrueOrFalse
+                if (dd - 1 >= 0 && dd - 1 <= xx) op1 = sq[dd - 1];
+                if (dd - 2 >= 0 && dd - 2 <= xx) op2 = sq[dd - 2];
                 if (DUPLICATE_ORIGINAL_CODE)
-                // ReSharper restore ConditionIsAlwaysTrueOrFalse
                 {
-                    if (dd - 1 < 0 && (-(dd - 1)) <= xx)
-                        op1 = sq[xx + (dd - 1) + 1];
-                    if (dd - 2 < 0 && (-(dd - 2)) <= xx)
-                        op2 = sq[xx + (dd - 2) + 1];
+                    if (dd - 1 < 0 && (-(dd - 1)) <= xx) op1 = sq[xx + (dd - 1) + 1];
+                    if (dd - 2 < 0 && (-(dd - 2)) <= xx) op2 = sq[xx + (dd - 2) + 1];
                 }
-                if (dd + 1 >= 0 && dd + 1 <= xx)
-                    op3 = sq[dd + 1];    //right by 1
-                if (dd + 2 >= 0 && dd + 2 <= xx)
-                    op4 = sq[dd + 2];    //right by 2;
-
-                csum = csum +
-                    (UDF31 * (AAPARAMS[op1].UndKRH + AAPARAMS[op3].UndKRH)) +
-                    (UDF32 * (AAPARAMS[op2].UndKRH + AAPARAMS[op4].UndKRH));
+                if (dd + 1 >= 0 && dd + 1 <= xx) op3 = sq[dd + 1];
+                if (dd + 2 >= 0 && dd + 2 <= xx) op4 = sq[dd + 2];
+                csum += (UDF31 * (AAPARAMS[op1].UndKRH + AAPARAMS[op3].UndKRH)) + (UDF32 * (AAPARAMS[op2].UndKRH + AAPARAMS[op4].UndKRH));
             }
         }
         return csum;
     }
 
-    // ============================================================
-    // compute clusterness of a string - v 2,3 algorithm
-    // code W,L,I as 5 (version 3) or W,L,I,F as 5 (version 2)
-    // code A,M,Y,V as 1
-    // code all others as 0
-
-    private double Clusterness(String sq)
+    private double Clusterness(string sq)
     {
-        if (NOCLUSTER == 1)
-            return 0.0;
-
-        // Build encoded string directly on the stack - no heap allocations!
+        if (NOCLUSTER == 1) return 0.0;
         Span<char> cc = stackalloc char[sq.Length + 2];
-        cc[0] = '0';
-        cc[^1] = '0'; // Last position
-
-        // Encode amino acids to cluster codes in a single pass
-        for (int i = 0; i < sq.Length; i++)
-        {
-            cc[i + 1] = EncodeClusterChar(sq[i]);
-        }
-
+        cc[0] = '0'; cc[^1] = '0';
+        for (int i = 0; i < sq.Length; i++) cc[i + 1] = EncodeClusterChar(sq[i]);
         double score = 0.0;
-
-        // Count pattern occurrences using Span-based search
         foreach (var pair in CLUSTCOMB)
         {
             int occurs = CountPatternOccurrences(cc, pair.Key);
-            if (occurs > 0)
-            {
-                score += pair.Value * occurs;
-            }
+            if (occurs > 0) score += pair.Value * occurs;
         }
         return score * KSCALE;
     }
 
-    /// <summary>
-    /// Encodes a single amino acid character to its cluster code.
-    /// L, I, W -> '5' (hydrophobic)
-    /// A, M, Y, V -> '1' (moderately hydrophobic)
-    /// All others -> '0'
-    /// </summary>
-    private static char EncodeClusterChar(char aa)
+    private static char EncodeClusterChar(char aa) => aa switch
     {
-        return aa switch
-        {
-            'L' or 'I' or 'W' => '5',
-            'A' or 'M' or 'Y' or 'V' => '1',
-            _ => '0'
-        };
-    }
+        'L' or 'I' or 'W' => '5',
+        'A' or 'M' or 'Y' or 'V' => '1',
+        _ => '0'
+    };
 
-    /// <summary>
-    /// Counts non-overlapping occurrences of a pattern in a Span.
-    /// </summary>
     private static int CountPatternOccurrences(ReadOnlySpan<char> text, string pattern)
     {
-        int count = 0;
-        int index = 0;
+        int count = 0, index = 0;
         while (index <= text.Length - pattern.Length)
         {
             int found = text.Slice(index).IndexOf(pattern.AsSpan(), StringComparison.Ordinal);
             if (found < 0) break;
-            count++;
-            index += found + pattern.Length;
+            count++; index += found + pattern.Length;
         }
         return count;
     }
 
-    // ============================================================
-    //  process based on proline - v 2,3 algorithm
-    private static double Proline(String sq)
-    {
-        if (sq.Contains("PPPP")) // Not L10N
-        {
-            return PPPPSCORE;
-        }
-        else if (sq.Contains("PPP")) // Not L10N
-        {
-            return PPPSCORE;
-        }
-        else if (sq.Contains("PP")) // Not L10N
-        {
-            return PPSCORE;
-        }
-        else
-        {
-            return 0.0;
-        }
-    }
+    private static double Proline(string sq) =>
+        sq.Contains("PPPP") ? PPPPSCORE : sq.Contains("PPP") ? PPPSCORE : sq.Contains("PP") ? PPSCORE : 0.0;
 
-    // ============================================================
-    //  scaling based on length - v 1,2,3 algorithms
-    private static double Length_scale(int sqlen)
-    {
-        if (sqlen < SPLim)
-        {
-            return 1.0 + SPSFac * (SPLim - sqlen);
-        }
-        else if ( sqlen > LPLim)
-        {
-            return 1.0 / (1.0 + LPSFac * (sqlen - LPLim));
-        }
-        else
-        {
-            return 1.0;
-        }
-    }
+    private static double Length_scale(int sqlen) =>
+        sqlen < SPLim ? 1.0 + SPSFac * (SPLim - sqlen) : sqlen > LPLim ? 1.0 / (1.0 + LPSFac * (sqlen - LPLim)) : 1.0;
 
-    // ============================================================
-    // compute partial charge - v 2,3 algorithms
-    private static double Partial_charge(double pK, double pH)
-    {
-        double cr = Math.Pow(10.0, (pK - pH));
-        return cr / (cr + 1.0);
-    }
+    private static double Partial_charge(double pK, double pH) { double cr = Math.Pow(10.0, pK - pH); return cr / (cr + 1.0); }
 
-    // ============================================================
-    //    - v 2,3 algorithms
-    private double Electric(String sq)
+    private double Electric(string sq)
     {
         int[] aaCNT = { 0, 0, 0, 0, 0, 0, 0 };
-
-        // Translator1 Note: this is commented out in the perl source
-        // if (NOELECTRIC == 1) { return 1.0; }
-
-        // get c and n terminus acids
         int ss = sq.Length;
-        char s1 = sq[0];
-        char s2 = sq[ss - 1];
-        double pk0 = AAPARAMS[s1].CT;
-        double pk1 = AAPARAMS[s2].NT;
-
-        // count them up
-        for (int i = 0; i < ss; i++)
-        {
-            int index = EMap[sq[i]];
-            if (index >= 0)
-            {
-                aaCNT[index]++;
-            }
-        }
-
-        // cycle through pH values looking for closest to zero
-        // coarse pass
-        double best = 0.0; double min = 100000; const double step1 = 0.3;
-
-        for (double z = 0.01; z <= 14.0; z = z + step1)
-        {
-            double check = CalcR(z, pk0, pk1, aaCNT);
-            if (check < 0)
-                check = 0 - check;
-            if (check < min)
-            {
-                min = check;
-                best = z;
-            }
-        }
-
-        double best1 = best;
-
-        // fine pass
-        min = 100000;
-        for (double z = best1 - step1; z <= best1 + step1; z = z + 0.01)
-        {
-            double check = CalcR(z, pk0, pk1, aaCNT);
-            if (check < 0)
-                check = 0 - check;
-            if (check < min)
-            {
-                min = check;
-                best = z;
-            }
-        }
+        double pk0 = AAPARAMS[sq[0]].CT, pk1 = AAPARAMS[sq[ss - 1]].NT;
+        for (int i = 0; i < ss; i++) { int idx = EMap[sq[i]]; if (idx >= 0) aaCNT[idx]++; }
+        double best = 0.0, min = 100000; const double step1 = 0.3;
+        for (double z = 0.01; z <= 14.0; z += step1) { double check = Math.Abs(CalcR(z, pk0, pk1, aaCNT)); if (check < min) { min = check; best = z; } }
+        double best1 = best; min = 100000;
+        for (double z = best1 - step1; z <= best1 + step1; z += 0.01) { double check = Math.Abs(CalcR(z, pk0, pk1, aaCNT)); if (check < min) { min = check; best = z; } }
         return best;
     }
 
-    // ============================================================
-    // compute R - v 2,3 algorithms
-    private double CalcR(double pH, double PK0, double PK1, int[] CNTref)
-    {
-        double cr0 =
-                                 Partial_charge(PK0, pH)                    // n terminus
-           + CNTref[EMap['K']] * Partial_charge(AAPARAMS['K'].PK, pH)  // lys // Not L10N
-           + CNTref[EMap['R']] * Partial_charge(AAPARAMS['R'].PK, pH)  // arg // Not L10N 
-           + CNTref[EMap['H']] * Partial_charge(AAPARAMS['H'].PK, pH)  // his // Not L10N
-           - CNTref[EMap['D']] * Partial_charge(pH, AAPARAMS['D'].PK)  // asp // Not L10N
-           - CNTref[EMap['E']] * Partial_charge(pH, AAPARAMS['E'].PK)  // glu // Not L10N
-           - CNTref[EMap['Y']] * Partial_charge(pH, AAPARAMS['Y'].PK)  // try // Not L10N
-           - Partial_charge(pH, PK1); // c terminus
-                                       /*
-                                       // The following was taken out of the formula for R
-                                       //  - $CNTref->{C} * _partial_charge( $pH,      $PK{C} )    // cys
-                                       */
-        return cr0;
-    }
+    private double CalcR(double pH, double PK0, double PK1, int[] CNTref) =>
+        Partial_charge(PK0, pH) + CNTref[0] * Partial_charge(AAPARAMS['K'].PK, pH) + CNTref[1] * Partial_charge(AAPARAMS['R'].PK, pH) + CNTref[2] * Partial_charge(AAPARAMS['H'].PK, pH)
+        - CNTref[3] * Partial_charge(pH, AAPARAMS['D'].PK) - CNTref[4] * Partial_charge(pH, AAPARAMS['E'].PK) - CNTref[5] * Partial_charge(pH, AAPARAMS['Y'].PK) - Partial_charge(pH, PK1);
 
     private double NewIso(string sq, double tsum)
     {
-        if (NOELECTRIC == 1)
-            return 0.0;
-
-        // compute mass
-        double mass = 0.0;
-        foreach (char cf1 in sq)
-        {
-            mass += AAPARAMS[cf1].AMASS;
-        }
-        // compute isoelectric value
-        double pi1 = Electric(sq);
-        double lmass = 1.8014 * Math.Log(mass);
-
-        // make mass correction
-        double delta1 = pi1 - 19.107 + lmass;
-        //apply corrected value as scaling factor
-
-        double corr01 = 0.0;
-        if (delta1 < 0.0)
-        {
-            corr01 = (tsum * Z01 + Z02) * NDELTAWT * delta1;
-        }
-        else if (delta1 > 0.0)
-        {
-            corr01 = (tsum * Z03 + Z04) * PDELTAWT * delta1;
-        }
-        return corr01;
+        if (NOELECTRIC == 1) return 0.0;
+        double mass = 0.0; foreach (char c in sq) mass += AAPARAMS[c].AMASS;
+        double pi1 = Electric(sq), lmass = 1.8014 * Math.Log(mass), delta1 = pi1 - 19.107 + lmass;
+        return delta1 < 0.0 ? (tsum * Z01 + Z02) * NDELTAWT * delta1 : delta1 > 0.0 ? (tsum * Z03 + Z04) * PDELTAWT * delta1 : 0.0;
     }
 
-    // ============================================================
-    // called by helicity1  - v 3 algorithm
     private static double Heli1TermAdj(string ss1, int ix2, int sqlen)
     {
         int where = 0;
-
-        for (int i = 0; i < ss1.Length; i++)
-        {
-            char m = ss1[i];
-            if (m == 'O' || m == 'U')
-            {
-                where = i;
-                // Suppress unreachable code warning
-#pragma warning disable 162
-                // ReSharper disable ConditionIsAlwaysTrueOrFalse
-                if (!DUPLICATE_ORIGINAL_CODE)
-                    // ReSharper restore ConditionIsAlwaysTrueOrFalse
-                    // ReSharper disable HeuristicUnreachableCode
-                    break;
-                // ReSharper restore HeuristicUnreachableCode
-#pragma warning restore 162
-            }
-        }
-
+        for (int i = 0; i < ss1.Length; i++) { char m = ss1[i]; if (m == 'O' || m == 'U') { where = i; if (!DUPLICATE_ORIGINAL_CODE) break; } }
         where += ix2;
-
-        if (where < 2) { return 0.20; }
-        if (where < 3) { return 0.25; }
-        if (where < 4) { return 0.45; }
-
-        if (where > sqlen - 3) { return 0.2; }
-        if (where > sqlen - 4) { return 0.75; }
-        if (where > sqlen - 5) { return 0.65; }
-
+        if (where < 2) return 0.20; if (where < 3) return 0.25; if (where < 4) return 0.45;
+        if (where > sqlen - 3) return 0.2; if (where > sqlen - 4) return 0.75; if (where > sqlen - 5) return 0.65;
         return 1.0;
     }
 
-    // ============================================================
-    // helicity1 adjust for short helices or sections - v 3 algorithm
-    //
     private double Helicity1(string sq)
     {
-        if (NOHELIX1 == 1)
-            return 0.0;
-
+        if (NOHELIX1 == 1) return 0.0;
         int sqlen = sq.Length;
-        
-        // Build encoded string in a single pass - replaces 5 ReplaceAAs calls
         Span<char> hcSpan = sqlen <= 128 ? stackalloc char[sqlen] : new char[sqlen];
-        for (int j = 0; j < sqlen; j++)
-        {
-            hcSpan[j] = EncodeHelicity1Char(sq[j]);
-        }
+        for (int j = 0; j < sqlen; j++) hcSpan[j] = EncodeHelicity1Char(sq[j]);
         string hc = new string(hcSpan);
-
         double sum = 0.0;
-
         for (int i = 0; i < sqlen - 3; i++)
         {
-            double sc6 = 0.0, sc5 = 0.0, sc4 = 0.0;
-
-            // Check 6-character pattern
-            if (i + 6 <= sqlen)
-            {
-                var hc6 = hc.AsSpan(i, 6);
-                if (HlxScore6.TryGetValue(hc6.ToString(), out sc6) && sc6 > 0)
-                {
-                    sum += sc6 * Heli1TermAdj(hc6, i, sqlen);
-                    i++;
-                    continue;
-                }
-            }
-
-            // Check 5-character pattern
-            if (i + 5 <= sqlen)
-            {
-                var hc5 = hc.AsSpan(i, 5);
-                if (HlxScore5.TryGetValue(hc5.ToString(), out sc5) && sc5 > 0)
-                {
-                    sum += sc5 * Heli1TermAdj(hc5, i, sqlen);
-                    i++;
-                    continue;
-                }
-            }
-
-            // Check 4-character pattern
-            if (i + 4 <= sqlen)
-            {
-                var hc4 = hc.AsSpan(i, 4);
-                if (HlxScore4.TryGetValue(hc4.ToString(), out sc4) && sc4 > 0)
-                {
-                    sum += sc4 * Heli1TermAdj(hc4, i, sqlen);
-                    i++;
-                }
-            }
+            if (i + 6 <= sqlen && HlxScore6.TryGetValue(hc.Substring(i, 6), out double sc6) && sc6 > 0) { sum += sc6 * Heli1TermAdj(hc.Substring(i, 6), i, sqlen); i++; continue; }
+            if (i + 5 <= sqlen && HlxScore5.TryGetValue(hc.Substring(i, 5), out double sc5) && sc5 > 0) { sum += sc5 * Heli1TermAdj(hc.Substring(i, 5), i, sqlen); i++; continue; }
+            if (i + 4 <= sqlen && HlxScore4.TryGetValue(hc.Substring(i, 4), out double sc4) && sc4 > 0) { sum += sc4 * Heli1TermAdj(hc.Substring(i, 4), i, sqlen); i++; }
         }
         return HELIX1SCALE * sum;
     }
 
-    /// <summary>
-    /// Encodes a single amino acid for helicity1 calculation.
-    /// Order matters - earlier rules take precedence.
-    /// </summary>
-    private static char EncodeHelicity1Char(char aa)
+    private static char EncodeHelicity1Char(char aa) => aa switch
     {
-        return aa switch
+        'P' or 'H' or 'R' or 'K' => 'z',
+        'W' or 'F' or 'I' or 'L' => 'X',
+        'Y' or 'M' or 'V' or 'A' => 'Z',
+        'D' or 'E' => 'O',
+        'G' or 'S' or 'C' or 'N' or 'Q' or 'T' => 'U',
+        _ => aa
+    };
+
+    private double EvalH2pattern(string pattern, string testsq, int posn, char etype)
+    {
+        char f01 = pattern[0];
+        double prod1 = AAPARAMS[f01].H2BASCORE;
+        const int OFF1 = 2; int acount = 1; char far1 = '\0', far2 = '\0';
+        char testAAl = testsq[OFF1 + posn], testAAr = testsq[OFF1 + posn + 2];
+        string testsqCopy = testsq.Substring(OFF1 + posn + 1);
+        double mult = Connector(f01, testAAl, testAAr, "--", far1, far2);
+        prod1 *= mult; if (etype == '*') prod1 *= 25.0; if (mult == 0.0) return 0.0;
+        for (int i = 1; i < pattern.Length - 2; i += 3)
         {
-            'P' or 'H' or 'R' or 'K' => 'z',  // First: these become 'z' (won't match patterns)
-            'W' or 'F' or 'I' or 'L' => 'X',  // Hydrophobic
-            'Y' or 'M' or 'V' or 'A' => 'Z',  // Moderately hydrophobic
-            'D' or 'E' => 'O',                 // Acidic
-            'G' or 'S' or 'C' or 'N' or 'Q' or 'T' => 'U',  // Remaining polar/small
-            _ => aa  // Keep as-is (shouldn't happen with standard AAs)
-        };
+            string fpart = pattern.Substring(i, 2);
+            char gpart = (i + 2) < pattern.Length ? pattern[i + 2] : '\0';
+            double s3 = AAPARAMS[gpart].H2BASCORE;
+            int iss = 0;
+            if (fpart == "--") { iss = 0; far1 = '\0'; far2 = '\0'; }
+            if (fpart == "<-") { iss = 1; far1 = testsqCopy[i + 1]; far2 = '\0'; }
+            if (fpart == "->") { iss = -1; far1 = '\0'; far2 = testsqCopy[i + 3]; }
+            testAAl = testsqCopy[i + 1 + iss]; testAAr = testsqCopy[i + 3 + iss];
+            mult = Connector(gpart, testAAl, testAAr, fpart, far1, far2);
+            if (etype == '*' && (mult != 0.0 || acount < 3)) prod1 = prod1 * 25.0 * s3 * mult;
+            if (etype == '+') prod1 = prod1 + s3 * mult;
+            if (mult == 0.0) return prod1;
+            acount++;
+        }
+        return prod1;
     }
 
-    /// <summary>
-    /// Overload for Span input to avoid allocations in Heli1TermAdj.
-    /// </summary>
-    private static double Heli1TermAdj(ReadOnlySpan<char> ss1, int ix2, int sqlen)
+    private double Connector(char acid, char lp, char rp, string ct, char far1, char far2)
     {
-        int where = 0;
+        double mult = 1.0;
+        if (ct.Contains("<-")) mult *= 0.2; if (ct.Contains("->")) mult *= 0.1;
+        mult *= AAPARAMS[lp].H2CMULT; if (lp != rp) mult *= AAPARAMS[rp].H2CMULT;
+        if (acid == 'A' || acid == 'Y' || acid == 'V' || acid == 'M')
+        { if (lp == 'P' || lp == 'G' || rp == 'P' || rp == 'G') mult = 0.0; if (ct.Contains("->") || ct.Contains("<-")) mult = 0.0; }
+        if (acid == 'L' || acid == 'W' || acid == 'F' || acid == 'I')
+        { if (((lp == 'P' || lp == 'G') || (rp == 'P' || rp == 'G')) && !ct.Contains("--")) mult = 0.0; if (((far1 == 'P' || far1 == 'G') || (far2 == 'P' || far2 == 'G')) && (ct.Contains("<-") || ct.Contains("->"))) mult = 0.0; }
+        return mult;
+    }
 
-        for (int i = 0; i < ss1.Length; i++)
+    private double[] Heli2Calc(string sq)
+    {
+        double[] ret = new double[2];
+        if (sq.Length < 11) { ret[HISC] = 0.0; ret[GSC] = 0.0; return ret; }
+        string prechop = sq, sqCopy = sq.Substring(2, sq.Length - 4);
+        string pass1 = sqCopy.ReplaceAAs("WFILYMVA", "1").ReplaceAAs("GSPCNKQHRTDE", "0");
+        string best = ""; double hiscore = 0.0; int best_pos = 0;
+        for (int i = 0; i < pass1.Length; i++)
         {
-            char m = ss1[i];
-            if (m == 'O' || m == 'U')
+            if (pass1[i] == '1')
             {
-                where = i;
-#pragma warning disable 162
-                if (!DUPLICATE_ORIGINAL_CODE)
-                    break;
-#pragma warning restore 162
+                string lc = pass1.Substring(i), sq2 = sqCopy.Substring(i), pat = ""; int zap = 0, subt = 0;
+                while (zap <= 50 && subt < 2)
+                {
+                    char f1 = zap >= 0 && zap < lc.Length ? lc[zap] : '0';
+                    char f2 = zap - 1 >= 0 && zap - 1 < lc.Length ? lc[zap - 1] : '0';
+                    char f3 = zap + 1 >= 0 && zap + 1 < lc.Length ? lc[zap + 1] : '0';
+                    if (f1 == '1') { if (zap > 0) pat += "--"; pat += sq2.Substring(zap, 1); }
+                    else if (f2 == '1' && f1 == '0') { subt++; if (subt < 2) { pat += "->"; pat += sq2.Substring(zap - 1, 1); } }
+                    else if (f3 == '1' && f1 == '0') { subt++; if (subt < 2) { pat += "<-"; pat += sq2.Substring(zap + 1, 1); } }
+                    if (f1 == '0' && f2 == '0' && f3 == '0') zap = 1000;
+                    zap += 3;
+                }
+                if (pat.Length > 4) { double skore = EvalH2pattern(pat, prechop, i - 1, '*'); if (skore >= hiscore) { hiscore = skore; best = pat; best_pos = i; } }
             }
         }
-
-        where += ix2;
-
-        if (where < 2) { return 0.20; }
-        if (where < 3) { return 0.25; }
-        if (where < 4) { return 0.45; }
-
-        if (where > sqlen - 3) { return 0.2; }
-        if (where > sqlen - 4) { return 0.75; }
-        if (where > sqlen - 5) { return 0.65; }
-
-        return 1.0;
+        if (hiscore > 0.0) { hiscore = EvalH2pattern(best, prechop, best_pos - 1, '+'); ret[HISC] = hiscore; ret[GSC] = hiscore; return ret; }
+        ret[HISC] = 0.0; ret[GSC] = 0.0; return ret;
     }
 
-    // ============================================================
-    // helicity2 adjust for long helices - v 3 algorithm
     private double Helicity2(string sq)
     {
-        if (NOHELIX2 == 1)
-            return 0.0;
+        if (NOHELIX2 == 1) return 0.0;
         string Bksq = sq.Backwards();
-        double[] fhg = Heli2Calc(sq);
-        double FwHiscor = fhg[HISC];
-        double FwGscor = fhg[GSC];
-        double[] rhg = Heli2Calc(Bksq);
-        double BkHiscor = rhg[HISC];
-        double BkGscor = rhg[GSC];
-        double h2FwBk = BkGscor > FwGscor ? BkHiscor : FwHiscor;
-        double lenMult = 0.0;
-        if (sq.Length > 30)
-        {
-            lenMult = 1;
-        }
-        double NoPMult = 0.75;
-        if (sq.Contains("P")) // Not L10N
-            NoPMult = 0.0;
-        double h2mult = 1.0 + lenMult + NoPMult;
-        return HELIX2SCALE * h2mult * h2FwBk;
+        double[] fhg = Heli2Calc(sq), rhg = Heli2Calc(Bksq);
+        double h2FwBk = rhg[GSC] > fhg[GSC] ? rhg[HISC] : fhg[HISC];
+        double lenMult = sq.Length > 30 ? 1 : 0, NoPMult = sq.Contains("P") ? 0.0 : 0.75;
+        return HELIX2SCALE * (1.0 + lenMult + NoPMult) * h2FwBk;
     }
 
-    private double Helectric(String sq)
+    private double Helectric(string sq)
     {
-        if (NOEHEL == 1 || sq.Length > 14 || sq.Length < 4)
-            return 0.0;
+        if (NOEHEL == 1 || sq.Length > 14 || sq.Length < 4) return 0.0;
         string mpart = sq.Substring(sq.Length - 4);
-
-        if (mpart[0] == 'D' || mpart[0] == 'E') // Not L10N
+        if (mpart[0] == 'D' || mpart[0] == 'E')
         {
             mpart = mpart.Substring(1, 2);
-            if (mpart.ContainsAA("PGKRH")) // Not L10N
-                return 0.0;
-            mpart = mpart.ReplaceAAs("LI", "X"); // Not L10N
-            mpart = mpart.ReplaceAAs("AVYFWM", "Z"); // Not L10N
-            mpart = mpart.ReplaceAAs("GSPCNKQHRTDE", "U"); // Not L10N
-
-            switch (mpart)
-            {
-                // ReSharper disable NonLocalizedString
-                case "XX": return 1.0;
-                case "ZX": return 0.5;
-                case "XZ": return 0.5;
-                case "ZZ": return 0.4;
-                case "XU": return 0.4;
-                case "UX": return 0.4;
-                case "ZU": return 0.2;
-                case "UZ": return 0.2;
-                    // ReSharper restore NonLocalizedString
-            }
+            if (mpart.ContainsAA("PGKRH")) return 0.0;
+            mpart = mpart.ReplaceAAs("LI", "X").ReplaceAAs("AVYFWM", "Z").ReplaceAAs("GSPCNKQHRTDE", "U");
+            return mpart switch { "XX" => 1.0, "ZX" => 0.5, "XZ" => 0.5, "ZZ" => 0.4, "XU" => 0.4, "UX" => 0.4, "ZU" => 0.2, "UZ" => 0.2, _ => 0 };
         }
         return 0;
     }
 
     public class AAParams
     {
-        //Retention Factors
         public double RC { get; private set; }
         public double RC1 { get; private set; }
         public double RC2 { get; private set; }
         public double RCN { get; private set; }
         public double RCN2 { get; private set; }
-        //Short peptide retention factors
         public double RCS { get; private set; }
         public double RC1S { get; private set; }
         public double RC2S { get; private set; }
         public double RCNS { get; private set; }
         public double RCN2S { get; private set; }
-
-        public double UndKRH { get; private set; } //Factors for aa's near undigested KRH
-        public double AMASS { get; private set; }  //aa masses in Daltons
-                                                   //isoelectric factors
+        public double UndKRH { get; private set; }
+        public double AMASS { get; private set; }
         public double CT { get; private set; }
         public double NT { get; private set; }
         public double PK { get; private set; }
-        //helicity2 bascore & connector multiplier
         public double H2BASCORE { get; private set; }
         public double H2CMULT { get; private set; }
-
-        public AAParams(
-           double rc, double rc1, double rc2, double rcn, double rcn2,
-           double rcs, double rc1s, double rc2s, double rcns, double rcn2s,
-           double undkrh, double amass,
-           double ct, double nt, double pk,
-           double h2bascore, double h2cmult
-        )
-        {
-            RC = rc;
-            RC1 = rc1;
-            RC2 = rc2;
-            RCN = rcn;
-            RCN2 = rcn2;
-            RCS = rcs;
-            RC1S = rc1s;
-            RC2S = rc2s;
-            RCNS = rcns;
-            RCN2S = rcn2s;
-            UndKRH = undkrh;
-            AMASS = amass;
-            CT = ct;
-            NT = nt;
-            PK = pk;
-            H2BASCORE = h2bascore;
-            H2CMULT = h2cmult;
-        }
+        public AAParams(double rc, double rc1, double rc2, double rcn, double rcn2, double rcs, double rc1s, double rc2s, double rcns, double rcn2s, double undkrh, double amass, double ct, double nt, double pk, double h2bascore, double h2cmult)
+        { RC = rc; RC1 = rc1; RC2 = rc2; RCN = rcn; RCN2 = rcn2; RCS = rcs; RC1S = rc1s; RC2S = rc2s; RCNS = rcns; RCN2S = rcn2s; UndKRH = undkrh; AMASS = amass; CT = ct; NT = nt; PK = pk; H2BASCORE = h2bascore; H2CMULT = h2cmult; }
     }
-    /*
-     * Translator2 note: The code for the Isoparams array was found in
-     *      the Java version, but never used.  Refering to the Perl
-     *      version showed that the only place these values were used
-     *      was in the electric_scale() function, which in turn was never
-     *      used.  Both the array and function are included here for
-     *      completeness, but commented out, since they are never used.
-     *
-    private class Isoparams
-    {
-        public double emin { get; private set; }
-        public double emax { get; private set; }
-        public double eK { get; private set; }
-
-        public Isoparams(double EMIN, double EMAX, double EK)
-        {
-            emin = EMIN; emax = EMAX; eK = EK;
-        }
-    }
-
-    private static readonly Isoparams[] ISOPARAMS = new[]
-    {
-        new Isoparams(3.8, 4.0, 0.880),
-        new Isoparams(4.0, 4.2, 0.900),
-        new Isoparams(4.2, 4.4, 0.920),
-        new Isoparams(4.4, 4.6, 0.940),
-        new Isoparams(4.6, 4.8, 0.960),
-        new Isoparams(4.8, 5.0, 0.980),
-        new Isoparams(5.0, 6.0, 0.990),
-        new Isoparams(6.0, 7.0, 0.995),
-        new Isoparams(7.0, 8.0, 1.005),
-        new Isoparams(8.0, 9.0, 1.010),
-        new Isoparams(9.0, 9.2, 1.020),
-        new Isoparams(9.2, 9.4, 1.030),
-        new Isoparams(9.4, 9.6, 1.040),
-        new Isoparams(9.6, 9.8, 1.060),
-        new Isoparams(9.8, 10.0, 1.080)
-    };
-
-    // convert electric to scaler - v 2,3 algorithms
-    private static double electric_scale(double v)
-    {
-        double best=1.0;
-
-        // Translator2 Note: this is commented out in the perl source
-        // if (NOELECTRIC==1) { return 1.0; }
-
-        foreach (Isoparams p in ISOPARAMS)
-        {
-            if (v > p.emin && v < p.emax)
-                best= p.eK;
-        }
-
-        return best;            
-    }
-    */
 }
 
 internal static class HelpersLocal
 {
-    /// <summary>
-    /// Replace amino acids in a sequence string with some other value.
-    /// </summary>
-    /// <param name="s">The sequence string with AAs in uppercase</param>
-    /// <param name="aas">The amino acid characters, or A-Z for all, to replace</param>
-    /// <param name="newValue">The value to use as a replacement</param>
-    /// <returns>Modified string with specified AAs replaced</returns>
     public static string ReplaceAAs(this IEnumerable<char> s, string aas, string newValue)
     {
-        StringBuilder sb = new StringBuilder();
-        bool allAAs = (aas == "A-Z"); // Not L10N
-        foreach (char c in s)
-        {
-            if (!allAAs && aas.IndexOf(c) != -1)
-            {
-                sb.Append(newValue);
-            }
-            else if (allAAs && char.IsLetter(c) && char.IsUpper(c))
-            {
-                sb.Append(newValue);
-            }
-            else
-            {
-                sb.Append(c);
-            }
-        }
-
+        StringBuilder sb = new(); bool allAAs = aas == "A-Z";
+        foreach (char c in s) { if (!allAAs && aas.IndexOf(c) != -1) sb.Append(newValue); else if (allAAs && char.IsLetter(c) && char.IsUpper(c)) sb.Append(newValue); else sb.Append(c); }
         return sb.ToString();
     }
-
-    /// <summary>
-    /// Inspects a sequence of amino acids, and returns true if it contains
-    /// any of the designated amino acid characters.
-    /// </summary>
-    /// <param name="s">Amino acid sequence</param>
-    /// <param name="aas">List of characters to search for</param>
-    /// <returns>True if any of the amino acid characters are found</returns>
-    public static bool ContainsAA(this IEnumerable<char> s, string aas)
-    {
-        foreach (char c in s)
-        {
-            if (aas.IndexOf(c) != -1)
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public static string Backwards(this IEnumerable<char> s)
-    {
-        StringBuilder sb = new StringBuilder();
-        foreach (char c in s.Reverse())
-        {
-            sb.Append(c);
-        }
-        return sb.ToString();
-    }
+    public static bool ContainsAA(this IEnumerable<char> s, string aas) { foreach (char c in s) if (aas.IndexOf(c) != -1) return true; return false; }
+    public static string Backwards(this IEnumerable<char> s) { StringBuilder sb = new(); foreach (char c in s.Reverse()) sb.Append(c); return sb.ToString(); }
 }
-
