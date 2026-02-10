@@ -10,7 +10,7 @@ namespace Chromatography.RetentionTimePrediction.Chronologer;
 /// </summary>
 public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDisposable
 {
-    private readonly Chronologer? _model;
+    private readonly Chronologer _model;
     private readonly object _modelLock = new(); 
     private bool _disposed;
 
@@ -65,30 +65,14 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDispos
         }
 
         // Output shape: [1, MaxPepLen+2], dtype int64
-        Tensor sequenceTensor = tensor(ids, dtype: ScalarType.Int64).reshape(1, EncodedLength);
+        using Tensor sequenceTensor = tensor(ids, dtype: ScalarType.Int64).reshape(1, EncodedLength);
 
-        // Predict retention time
-        try
-        {
-            Tensor prediction;
 
-            lock (_modelLock)
-            {
-                prediction = _model.Predict(sequenceTensor);
-            }
-            
-            try
-            {
-                return prediction[0].ToDouble();
-            }
-            finally
-            {
-                prediction?.Dispose();
-            }
-        }
-        finally
+        // Predict retention time - keep both prediction AND disposal inside lock
+        lock (_modelLock)
         {
-            sequenceTensor?.Dispose();
+            using Tensor prediction = _model.Predict(sequenceTensor);
+            return prediction[0].ToDouble();
         }
     }
 
