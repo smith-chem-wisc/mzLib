@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using PredictionClients.Koina.SupportedModels.FlyabilityModels;
+using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
 
 namespace Test.KoinaTests
 {
@@ -349,6 +350,32 @@ namespace Test.KoinaTests
             Assert.That(System.Text.RegularExpressions.Regex.IsMatch("[Common Variable:Oxidation on M]", modificationPattern));
             Assert.That(!System.Text.RegularExpressions.Regex.IsMatch("[", modificationPattern));
             Assert.That(!System.Text.RegularExpressions.Regex.IsMatch("]", modificationPattern));
+        }
+
+        [Test]
+        public static async Task TestModelIsDisposedProperly()
+        {
+            var peptides = new List<string> { "PEPTIDE", "PEPTIDEK" };
+
+            // Disposed after use/inference
+            var model = new PFly2024FineTuned(peptides, out var warning);
+            Assert.That(warning, Is.Null,
+                "Warning should not be generated for valid peptides");
+            await model.RunInferenceAsync();
+            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.RunInferenceAsync(),
+                "1Running inference on a disposed model should throw ObjectDisposedException");
+
+            // Results should still be accessible after disposal
+            Assert.That(model.Predictions.Count, Is.EqualTo(2),
+                "Predicted spectra should still be accessible after model is disposed");
+
+            // Disposed on command
+            model = new PFly2024FineTuned(peptides, out warning);
+            Assert.That(warning, Is.Null,
+                "Warning should not be generated for valid peptides");
+            model.Dispose();
+            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.RunInferenceAsync(),
+                "2Running inference on a disposed model should throw ObjectDisposedException");
         }
     }
 }

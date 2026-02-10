@@ -87,6 +87,10 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
         /// <exception cref="Exception">Thrown when API responses cannot be deserialized or processed</exception>
         public override async Task RunInferenceAsync()
         {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(RetentionTimeModel), "Cannot run inference on a disposed model instance. The model is meant to be used only on initialized peptides. The results are still accessible.");
+            }
             // Dynamic timeout: ~2 minutes per batch + 2 minute buffer for network/processing overhead. Typically a 
             // batch takes less than a minute. 
             int numBatches = (int)Math.Ceiling((double)PeptideSequences.Count / MaxBatchSize);
@@ -94,6 +98,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
 
             var responses = await Task.WhenAll(ToBatchedRequests().Select(request => _http.InferenceRequest(ModelName, request)));
             ResponseToPredictions(responses);
+            Dispose();
         }
 
         /// <summary>

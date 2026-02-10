@@ -6,7 +6,6 @@ using Readers.SpectralLibrary;
 using System.ComponentModel;
 using Chemistry;
 using Proteomics.AminoAcidPolymer;
-using System.Net.Http.Headers;
 
 namespace PredictionClients.Koina.AbstractClasses
 {
@@ -65,6 +64,7 @@ namespace PredictionClients.Koina.AbstractClasses
 
         // Retention times are not used for fragment intensity prediction. They are useful for library spectrum generation.
         public abstract List<double?> RetentionTimes { get; }
+        public abstract string? SpectralLibrarySavePath { get; }
         #endregion
 
         #region Output Data
@@ -74,6 +74,7 @@ namespace PredictionClients.Koina.AbstractClasses
         public virtual List<LibrarySpectrum> PredictedSpectra { get; protected set; } = new();
         #endregion
 
+
         #region Querying Methods for the Koina API
 
         /// <summary>
@@ -82,8 +83,12 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         /// <returns>Task representing the asynchronous inference operation</returns>
         /// <exception cref="Exception">Thrown when API responses cannot be deserialized or have unexpected format</exception>
-        public override async Task RunInferenceAsync()
+        public override async Task<WarningException?> RunInferenceAsync()
         {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(FragmentIntensityModel), "Cannot run inference on a disposed model instance. The model is meant to be used only on initialized peptides. The results are still accessible.");
+            }
             // Dynamic timeout: ~2 minutes per batch + 2 minute buffer for network/processing overhead. Typically a 
             // batch takes less than a minute. 
             int numBatches = (int)Math.Ceiling((double)PeptideSequences.Count / MaxBatchSize);
@@ -91,6 +96,17 @@ namespace PredictionClients.Koina.AbstractClasses
 
             var responses = await Task.WhenAll(ToBatchedRequests().Select(request => _http.InferenceRequest(ModelName, request)));
             ResponseToPredictions(responses);
+            WarningException? warning = null;
+            if (SpectralLibrarySavePath is not null)
+            {
+                SavePredictedSpectralLibrary(SpectralLibrarySavePath, out warning);
+            }
+            else
+            {
+                GenerateLibrarySpectraFromPredictions(out warning);
+            }
+            Dispose();
+            return warning;
         }
 
         /// <summary>
@@ -188,7 +204,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// 5. Validates uniqueness of generated spectra by name
         /// </remarks>
         /// <exception cref="WarningException">Recorded in the out parameter when duplicate spectra are detected in predictions</exception>
-        public void GenerateLibrarySpectraFromPredictions(out WarningException? warning)
+        protected void GenerateLibrarySpectraFromPredictions(out WarningException? warning)
         {
             warning = null;
             if (Predictions.Count == 0)
@@ -273,7 +289,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// Usage:
         /// model.SavePredictedSpectralLibrary("predicted_library.msp");
         /// </example>
-        public void SavePredictedSpectralLibrary(string filePath, out WarningException? warning)
+        protected void SavePredictedSpectralLibrary(string filePath, out WarningException? warning)
         {
             warning = null;
             var spectralLibrary = new SpectralLibrary();

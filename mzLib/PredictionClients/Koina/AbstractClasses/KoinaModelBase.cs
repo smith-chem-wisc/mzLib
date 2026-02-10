@@ -2,7 +2,7 @@
 
 namespace PredictionClients.Koina.AbstractClasses
 {
-    public abstract class KoinaModelBase
+    public abstract class KoinaModelBase: IDisposable
     {
         #region Model Metadata
         /// <summary>
@@ -45,7 +45,9 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         public virtual string ModificationPattern => @"\[[^\]]+\]";
         #endregion
-        
+
+        protected bool _disposed = false;
+
         /// <summary>
         /// Gets the list of peptide sequences to be predicted.
         /// All models must provide this list.
@@ -173,7 +175,13 @@ namespace PredictionClients.Koina.AbstractClasses
             return sequence;
         }
         #endregion
-
-
+        public void Dispose()
+        {
+            if (!_disposed)
+            {
+                // Dispose of any resources if necessary.
+                _disposed = true;
+            }
+        }
     }
 }

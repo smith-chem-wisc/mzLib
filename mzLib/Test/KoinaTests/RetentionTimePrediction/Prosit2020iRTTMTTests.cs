@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Test.KoinaTests
 {
@@ -703,6 +704,32 @@ namespace Test.KoinaTests
             {
                 Assert.That(sequence, Does.Match(@"^\[UNIMOD:(737|2016|214|730)\]-"));
             }
+        }
+
+        [Test]
+        public static async Task TestModelIsDisposedProperly()
+        {
+            var peptides = new List<string> { "[Common Fixed:TMTpro on N-terminus]PEPTIDE", "[Common Fixed:TMTpro on N-terminus]PEPTIDEK" };
+
+            // Disposed after use/inference
+            var model = new Prosit2020iRTTMT(peptides, out var warning);
+            Assert.That(warning, Is.Null,
+                "Warning should not be generated for valid peptides");
+            await model.RunInferenceAsync();
+            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.RunInferenceAsync(),
+                "1Running inference on a disposed model should throw ObjectDisposedException");
+
+            // Results should still be accessible after disposal
+            Assert.That(model.Predictions.Count, Is.EqualTo(2),
+                "Predicted spectra should still be accessible after model is disposed");
+
+            // Disposed on command
+            model = new Prosit2020iRTTMT(peptides, out warning);
+            Assert.That(warning, Is.Null,
+                "Warning should not be generated for valid peptides");
+            model.Dispose();
+            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.RunInferenceAsync(),
+                "2Running inference on a disposed model should throw ObjectDisposedException");
         }
     }
 }

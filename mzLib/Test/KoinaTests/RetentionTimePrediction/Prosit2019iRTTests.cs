@@ -1,9 +1,11 @@
 ﻿using NUnit.Framework;
+using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Test.KoinaTests
 {
@@ -378,6 +380,32 @@ namespace Test.KoinaTests
             Assert.That(warnings, Is.Not.Null);
             Assert.That(model.PeptideSequences, Has.Count.EqualTo(3)); // Only valid sequences
             Assert.That(warnings.Message, Does.Contain("invalid"));
+        }
+
+        [Test]
+        public static async Task TestModelIsDisposedProperly()
+        {
+            var peptides = new List<string> { "PEPTIDE", "PEPTIDEK" };
+
+            // Disposed after use/inference
+            var model = new Prosit2019iRT(peptides, out var warning);
+            Assert.That(warning, Is.Null,
+                "Warning should not be generated for valid peptides");
+            await model.RunInferenceAsync();
+            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.RunInferenceAsync(),
+                "1Running inference on a disposed model should throw ObjectDisposedException");
+
+            // Results should still be accessible after disposal
+            Assert.That(model.Predictions.Count, Is.EqualTo(2),
+                "Predicted spectra should still be accessible after model is disposed");
+
+            // Disposed on command
+            model = new Prosit2019iRT(peptides, out warning);
+            Assert.That(warning, Is.Null,
+                "Warning should not be generated for valid peptides");
+            model.Dispose();
+            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.RunInferenceAsync(),
+                "2Running inference on a disposed model should throw ObjectDisposedException");
         }
     }
 }

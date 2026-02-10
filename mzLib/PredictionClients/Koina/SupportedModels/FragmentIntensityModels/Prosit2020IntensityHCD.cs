@@ -52,6 +52,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override List<double?> RetentionTimes { get; } = new();
         public override List<PeptideFragmentIntensityPrediction> Predictions { get; protected set; } = new();
         public override List<LibrarySpectrum> PredictedSpectra { get; protected set; } = new();
+        public override string? SpectralLibrarySavePath { get; } = null;
         /// <summary>
         /// Minimum intensity threshold for fragment ions to be included in spectral library generation.
         /// </summary>
@@ -98,7 +99,8 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         /// if (warnings != null) Console.WriteLine(warnings.Message);
         /// </code>
         /// </example>
-        public Prosit2020IntensityHCD(List<string> peptideSequences, List<int> precursorCharges, List<int> collisionEnergies, List<double?> retentionTimes, out WarningException? warnings, double minIntensityFilter = 1e-4)
+        public Prosit2020IntensityHCD(List<string> peptideSequences, List<int> precursorCharges, List<int> collisionEnergies, List<double?> retentionTimes, out WarningException? warnings, 
+            string? spectralLibrarySavePath = null, double minIntensityFilter = 1e-4)
         {
             // Verify input lists are of the same length
             if (peptideSequences.Count != precursorCharges.Count
@@ -157,6 +159,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
             }
 
             MinIntensityFilter = minIntensityFilter;
+            SpectralLibrarySavePath = spectralLibrarySavePath;
         }
 
 
