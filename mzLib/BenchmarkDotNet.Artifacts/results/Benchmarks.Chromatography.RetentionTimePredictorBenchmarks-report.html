@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Benchmarks.Chromatography.RetentionTimePredictorBenchmarks-20260210-132412</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.14.0, Windows 11 (10.0.26100.7623)
+AMD Ryzen Threadripper PRO 5975WX 32-Cores, 1 CPU, 64 logical and 32 physical cores
+.NET SDK 10.0.102
+  [Host]   : .NET 8.0.23 (8.0.2325.60607), X64 RyuJIT AVX2
+  ShortRun : .NET 8.0.23 (8.0.2325.60607), X64 RyuJIT AVX2
+</code></pre>
+<pre><code>Job=ShortRun  IterationCount=5  LaunchCount=1  
+WarmupCount=3  
+</code></pre>
+
+<table>
+<thead><tr><th>Method       </th><th>PeptideCount</th><th>Mean </th><th>Error</th><th>StdDev</th><th>Ratio</th><th>RatioSD</th><th>Gen0</th><th>Allocated</th><th>Alloc Ratio</th>
+</tr>
+</thead><tbody><tr><td>SSRCalc3_PredictAll</td><td>10</td><td>100.6 &mu;s</td><td>0.76 &mu;s</td><td>0.20 &mu;s</td><td>baseline</td><td></td><td>1.4648</td><td>25.67 KB</td><td></td>
+</tr><tr><td>SSRCalc3_PredictAll</td><td>100</td><td>1,008.7 &mu;s</td><td>12.14 &mu;s</td><td>1.88 &mu;s</td><td>baseline</td><td></td><td>15.6250</td><td>256.72 KB</td><td></td>
+</tr><tr><td>SSRCalc3_PredictAll</td><td>1000</td><td>10,110.3 &mu;s</td><td>99.03 &mu;s</td><td>15.33 &mu;s</td><td>baseline</td><td></td><td>156.2500</td><td>2567.2 KB</td><td></td>
+</tr></tbody></table>
+</body>
+</html>

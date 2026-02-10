@@ -15,6 +15,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\Chromatography\Chromatography.csproj" />
+		<ProjectReference Include="..\Proteomics\Proteomics.csproj" />
 	</ItemGroup>
 
 </Project>
