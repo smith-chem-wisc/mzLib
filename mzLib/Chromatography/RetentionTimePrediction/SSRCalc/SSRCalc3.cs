@@ -42,11 +42,11 @@ public class SSRCalc3
     private static readonly Dictionary<string, double> HlxScore6 = new Dictionary<string, double>();
     private static readonly int[] EMap = new int[128];
 
-    private sealed class CLUSTCOMB_List : List<KeyValuePair<Regex, double>>
+    private sealed class CLUSTCOMB_List : List<KeyValuePair<string, double>>
     {
         public void Add(string pattern, double value)
         {
-            Add(new KeyValuePair<Regex, double>(new Regex(pattern), value));
+            Add(new KeyValuePair<string, double>(pattern, value));
         }
     }
 
@@ -699,8 +699,8 @@ public class SSRCalc3
 
     // ============================================================
     // compute clusterness of a string - v 2,3 algorithm
-    // code W,L,F,I as 5
-    // code M,Y,V as 1
+    // code W,L,I as 5 (version 3) or W,L,I,F as 5 (version 2)
+    // code A,M,Y,V as 1
     // code all others as 0
 
     private double Clusterness(String sq)
@@ -708,50 +708,62 @@ public class SSRCalc3
         if (NOCLUSTER == 1)
             return 0.0;
 
-        string cc = "0" + sq + "0"; // Not L10N
-                                    // ReSharper disable ConditionIsAlwaysTrueOrFalse
-        if (ALGORITHM_VERSION == 3)
-        // ReSharper restore ConditionIsAlwaysTrueOrFalse
+        // Build encoded string directly on the stack - no heap allocations!
+        Span<char> cc = stackalloc char[sq.Length + 2];
+        cc[0] = '0';
+        cc[^1] = '0'; // Last position
+
+        // Encode amino acids to cluster codes in a single pass
+        for (int i = 0; i < sq.Length; i++)
         {
-            cc = cc.ReplaceAAs("LIW", "5"); // Not L10N
-            cc = cc.ReplaceAAs("AMYV", "1"); // Not L10N
-            cc = cc.ReplaceAAs("A-Z", "0"); // Not L10N
+            cc[i + 1] = EncodeClusterChar(sq[i]);
         }
-        else
-        // Suppress the unreachable code warning
-#pragma warning disable 162
-        // ReSharper disable HeuristicUnreachableCode
-        {
-            cc = cc.ReplaceAAs("LIWF", "5"); // Not L10N
-            cc = cc.ReplaceAAs("MYV", "1"); // Not L10N
-            cc = cc.ReplaceAAs("A-Z", "0"); // Not L10N
-        }
-        // ReSharper restore HeuristicUnreachableCode
-#pragma warning restore 162
 
         double score = 0.0;
-        //
-        // Translator1 note:  check on true meaning of the algorithm that defines 'occurs'
-        // Should an encoded aa string such as 015101510 match pick "01510" once or twice?
-        // The perl code seems to match once.  0151001510 would match twice.
 
+        // Count pattern occurrences using Span-based search
         foreach (var pair in CLUSTCOMB)
         {
-            int occurs = 0;
-            Match m = pair.Key.Match(cc);
-            while (m.Success)
-            {
-                occurs++;
-                m = m.NextMatch();
-            }
+            int occurs = CountPatternOccurrences(cc, pair.Key);
             if (occurs > 0)
             {
-                double sk = pair.Value;
-                double addit = sk * occurs;
-                score += addit;
+                score += pair.Value * occurs;
             }
         }
         return score * KSCALE;
+    }
+
+    /// <summary>
+    /// Encodes a single amino acid character to its cluster code.
+    /// L, I, W -> '5' (hydrophobic)
+    /// A, M, Y, V -> '1' (moderately hydrophobic)
+    /// All others -> '0'
+    /// </summary>
+    private static char EncodeClusterChar(char aa)
+    {
+        return aa switch
+        {
+            'L' or 'I' or 'W' => '5',
+            'A' or 'M' or 'Y' or 'V' => '1',
+            _ => '0'
+        };
+    }
+
+    /// <summary>
+    /// Counts non-overlapping occurrences of a pattern in a Span.
+    /// </summary>
+    private static int CountPatternOccurrences(ReadOnlySpan<char> text, string pattern)
+    {
+        int count = 0;
+        int index = 0;
+        while (index <= text.Length - pattern.Length)
+        {
+            int found = text.Slice(index).IndexOf(pattern.AsSpan(), StringComparison.Ordinal);
+            if (found < 0) break;
+            count++;
+            index += found + pattern.Length;
+        }
+        return count;
     }
 
     // ============================================================
@@ -784,7 +796,7 @@ public class SSRCalc3
         {
             return 1.0 + SPSFac * (SPLim - sqlen);
         }
-        else if (sqlen > LPLim)
+        else if ( sqlen > LPLim)
         {
             return 1.0 / (1.0 + LPSFac * (sqlen - LPLim));
         }
@@ -958,289 +970,108 @@ public class SSRCalc3
         if (NOHELIX1 == 1)
             return 0.0;
 
-        string hc = sq; //helicity coded sq
-
-        /* Translator1 note:  notice lowercase 'z'.  This never appears in any patterns to which this
-           string is compared, and will never match any helicity patterns.
-        */
-        hc = hc.ReplaceAAs("PHRK", "z"); // Not L10N
-        hc = hc.ReplaceAAs("WFIL", "X"); // Not L10N
-        hc = hc.ReplaceAAs("YMVA", "Z"); // Not L10N
-        hc = hc.ReplaceAAs("DE", "O"); // Not L10N
-        hc = hc.ReplaceAAs("GSPCNKQHRT", "U"); // Not L10N
+        int sqlen = sq.Length;
+        
+        // Build encoded string in a single pass - replaces 5 ReplaceAAs calls
+        Span<char> hcSpan = sqlen <= 128 ? stackalloc char[sqlen] : new char[sqlen];
+        for (int j = 0; j < sqlen; j++)
+        {
+            hcSpan[j] = EncodeHelicity1Char(sq[j]);
+        }
+        string hc = new string(hcSpan);
 
         double sum = 0.0;
-        int sqlen = hc.Length;
-
-        // Translator1 note: this loop should be reviewed carefully
 
         for (int i = 0; i < sqlen - 3; i++)
         {
-            string hc4 = string.Empty, hc5 = string.Empty, hc6 = string.Empty;
-            double sc4 = 0.0, sc5 = 0.0, sc6 = 0.0;
+            double sc6 = 0.0, sc5 = 0.0, sc4 = 0.0;
 
-            if (hc.Substring(i).Length >= 6)
+            // Check 6-character pattern
+            if (i + 6 <= sqlen)
             {
-                hc6 = hc.Substring(i, 6);
-                sc6 = 0.0;
-                if (HlxScore6.ContainsKey(hc6))
+                var hc6 = hc.AsSpan(i, 6);
+                if (HlxScore6.TryGetValue(hc6.ToString(), out sc6) && sc6 > 0)
                 {
-                    sc6 = HlxScore6[hc6];
+                    sum += sc6 * Heli1TermAdj(hc6, i, sqlen);
+                    i++;
+                    continue;
                 }
             }
-            if (sc6 > 0)
-            {
-                double trmAdj6 = Heli1TermAdj(hc6, i, sqlen);
-                sum += (sc6 * trmAdj6);
-                i = i + 1; //??
-                continue;
-            }
 
-            if (hc.Substring(i).Length >= 5)
+            // Check 5-character pattern
+            if (i + 5 <= sqlen)
             {
-                hc5 = hc.Substring(i, 5);
-                sc5 = 0.0;
-                if (HlxScore5.ContainsKey(hc5))
+                var hc5 = hc.AsSpan(i, 5);
+                if (HlxScore5.TryGetValue(hc5.ToString(), out sc5) && sc5 > 0)
                 {
-                    sc5 = HlxScore5[hc5];
+                    sum += sc5 * Heli1TermAdj(hc5, i, sqlen);
+                    i++;
+                    continue;
                 }
             }
-            if (sc5 > 0)
-            {
-                double trmAdj5 = Heli1TermAdj(hc5, i, sqlen);
-                sum += (sc5 * trmAdj5);
-                i = i + 1; //??
-                continue;
-            }
 
-            if (hc.Substring(i).Length >= 4)
+            // Check 4-character pattern
+            if (i + 4 <= sqlen)
             {
-                hc4 = hc.Substring(i, 4);
-                sc4 = 0.0;
-                if (HlxScore4.ContainsKey(hc4))
+                var hc4 = hc.AsSpan(i, 4);
+                if (HlxScore4.TryGetValue(hc4.ToString(), out sc4) && sc4 > 0)
                 {
-                    sc4 = HlxScore4[hc4];
+                    sum += sc4 * Heli1TermAdj(hc4, i, sqlen);
+                    i++;
                 }
-            }
-            if (sc4 > 0)
-            {
-                double trmAdj4 = Heli1TermAdj(hc4, i, sqlen);
-                sum += (sc4 * trmAdj4);
-                i = i + 1; //??
             }
         }
         return HELIX1SCALE * sum;
     }
 
-    // ============================================================
-    // called by heli2calc  - v 3 algorithm
-    private double EvalH2pattern(String pattern, String testsq, int posn, char etype)
+    /// <summary>
+    /// Encodes a single amino acid for helicity1 calculation.
+    /// Order matters - earlier rules take precedence.
+    /// </summary>
+    private static char EncodeHelicity1Char(char aa)
     {
-        char f01 = pattern[0];
-        double prod1 = AAPARAMS[f01].H2BASCORE;
-        int iss = 0;
-        const int OFF1 = 2;
-        int acount = 1;
-        char far1 = '\0';
-        char far2 = '\0';
-
-        char testAAl = testsq[OFF1 + posn];
-        char testAAr = testsq[OFF1 + posn + 2];
-        string testsqCopy = testsq.Substring(OFF1 + posn + 1);
-        double mult = Connector(f01, testAAl, testAAr, "--", far1, far2); // Not L10N
-        prod1 = prod1 * mult;
-        if (etype == '*') // Not L10N
-            prod1 = prod1 * 25.0;
-        if (mult == 0.0)
+        return aa switch
         {
-            return 0.0;
-        }
-        for (int i = 1; i < pattern.Length - 2; i = i + 3)
-        {
-            string fpart = pattern.Substring(i, 2);
-            char gpart = (i + 2) < pattern.Length ? pattern[i + 2] : '\0'; // Not L10N
-            double s3 = AAPARAMS[gpart].H2BASCORE;
-            if (fpart.Equals("--")) // Not L10N
-            {
-                iss = 0; far1 = '\0'; far2 = '\0'; // Not L10N
-            }
-            if (fpart.Equals("<-")) // Not L10N
-            {
-                iss = 1; far1 = testsqCopy[i + 1]; far2 = '\0'; // Not L10N
-            }
-            if (fpart.Equals("->")) // Not L10N
-            {
-                iss = -1; far1 = '\0'; far2 = testsqCopy[i + 3]; // Not L10N
-            }
-
-            testAAl = testsqCopy[i + 1 + iss];
-            testAAr = testsqCopy[i + 3 + iss];
-
-            mult = Connector(gpart, testAAl, testAAr, fpart, far1, far2);
-
-            if (etype == '*') // Not L10N
-            {
-                if (mult != 0.0 || acount < 3)
-                {
-                    prod1 = prod1 * 25.0 * s3 * mult;
-                }
-            }
-
-            if (etype == '+') // Not L10N
-            {
-                prod1 = prod1 + s3 * mult;
-            }
-
-            if (mult == 0.0)
-            {
-                return prod1;
-            }
-
-            acount++;
-        }
-        return prod1;
+            'P' or 'H' or 'R' or 'K' => 'z',  // First: these become 'z' (won't match patterns)
+            'W' or 'F' or 'I' or 'L' => 'X',  // Hydrophobic
+            'Y' or 'M' or 'V' or 'A' => 'Z',  // Moderately hydrophobic
+            'D' or 'E' => 'O',                 // Acidic
+            'G' or 'S' or 'C' or 'N' or 'Q' or 'T' => 'U',  // Remaining polar/small
+            _ => aa  // Keep as-is (shouldn't happen with standard AAs)
+        };
     }
 
-    // ============================================================
-    // called by evalH2pattern  - v 3 algorithm
-    private double Connector(char acid, char lp, char rp, String ct, char far1, char far2)
+    /// <summary>
+    /// Overload for Span input to avoid allocations in Heli1TermAdj.
+    /// </summary>
+    private static double Heli1TermAdj(ReadOnlySpan<char> ss1, int ix2, int sqlen)
     {
-        double mult = 1.0;
+        int where = 0;
 
-        if (ct.Contains("<-")) { mult *= 0.2; } // Not L10N
-        if (ct.Contains("->")) { mult *= 0.1; } // Not L10N
-
-        mult *= AAPARAMS[lp].H2CMULT;
-        if (lp != rp) mult *= AAPARAMS[rp].H2CMULT;
-
-        if (acid == 'A' || acid == 'Y' || acid == 'V' || acid == 'M') // Not L10N
+        for (int i = 0; i < ss1.Length; i++)
         {
-            if (lp == 'P' || lp == 'G' || rp == 'P' || rp == 'G') mult = 0.0; // Not L10N
-            if (ct.Contains("->") || ct.Contains("<-")) mult = 0.0; // Not L10N
-        }
-
-        if (acid == 'L' || acid == 'W' || acid == 'F' || acid == 'I') // Not L10N
-        {
-            if (((lp == 'P' || lp == 'G') || (rp == 'P' || rp == 'G')) && (!ct.Contains("--"))) mult = 0.0; // Not L10N
-            if (((far1 == 'P' || far1 == 'G') || (far2 == 'P' || far2 == 'G')) && (ct.Contains("<-") || ct.Contains("->"))) mult = 0.0; // Not L10N
-        }
-        return mult;
-    }
-
-    private const int HISC = 0;
-    private const int GSC = 1;
-
-    // ============================================================
-    // called by helicity2  - v 3 algorithm
-    private double[] Heli2Calc(String sq)
-    {
-        // Translator1 note: in the original perl and translated C, this function
-        // was void and returned values through double pointer arguments. Like this:
-        //
-        // void  heli2Calc(char *sq, double *hisc, double *gsc)
-        //
-
-        double[] ret = new double[2];
-        string traps; //not my()'ed in perl source
-        string best = string.Empty;
-        const int llim = 50;
-        double hiscore = 0.0;
-        int best_pos = 0;
-
-        if (sq.Length < 11)
-        {
-            ret[HISC] = 0.0;
-            ret[GSC] = 0.0;
-            return ret;
-        }
-
-        string prechop = sq;
-        string sqCopy = sq.Substring(2, sq.Length - 4);
-
-        string pass1 = sqCopy.ReplaceAAs("WFILYMVA", "1"); // Not L10N
-        pass1 = pass1.ReplaceAAs("GSPCNKQHRTDE", "0"); // Not L10N
-
-        for (int i = 0; i < pass1.Length; i++)
-        {
-            char m = pass1[i];
-            if (m == '1') // Not L10N
+            char m = ss1[i];
+            if (m == 'O' || m == 'U')
             {
-                string lc = pass1.Substring(i);
-                string sq2 = sqCopy.Substring(i);
-                string pat = string.Empty;
-                int zap = 0;
-                int subt = 0;
-
-                while (zap <= llim && subt < 2)
-                {
-                    char f1 = (zap < 0 || zap >= lc.Length ? '0' : lc[zap]);
-                    char f2 = (zap - 1 < 0 || zap - 1 >= lc.Length ? '0' : lc[zap - 1]); // Not L10N
-                    char f3 = (zap + 1 < 0 || zap + 1 >= lc.Length ? '0' : lc[zap + 1]); // Not L10N
-
-                    if (f1 == '1') // Not L10N
-                    {
-                        if (zap > 0)
-                            pat += "--"; // Not L10N
-                        pat += sq2.Substring(zap, 1);
-                    }
-                    else
-                    {
-                        if (f2 == '1' && f1 == '0') // Not L10N
-                        {
-                            subt++;
-                            if (subt < 2)
-                            {
-                                pat += "->"; // Not L10N
-                                pat += sq2.Substring(zap - 1, 1);
-                            }
-                        }
-                        else
-                        {
-                            if (f3 == '1' && f1 == '0') // Not L10N
-                            {
-                                subt++;
-                                if (subt < 2)
-                                {
-                                    pat += "<-"; // Not L10N
-                                    pat += sq2.Substring(zap + 1, 1);
-                                }
-                            }
-                        }
-                    }
-
-                    if (f1 == '0' && f2 == '0' && f3 == '0') // Not L10N
-                        zap = 1000;
-                    zap += 3;
-                }
-
-                if (pat.Length > 4)
-                {
-                    traps = prechop;
-                    double skore = EvalH2pattern(pat, traps, i - 1, '*'); // Not L10N
-                    if (skore >= hiscore)
-                    {
-                        hiscore = skore;
-                        best = pat;
-                        best_pos = i;
-                    }
-                }
+                where = i;
+#pragma warning disable 162
+                if (!DUPLICATE_ORIGINAL_CODE)
+                    break;
+#pragma warning restore 162
             }
         }
 
-        if (hiscore > 0.0)
-        {
-            double gscore = hiscore; //not my()'ed in perl source
-            traps = prechop;
-            hiscore = EvalH2pattern(best, traps, best_pos - 1, '+'); // Not L10N
+        where += ix2;
 
-            ret[HISC] = hiscore;
-            ret[GSC] = gscore;
-            return ret;
-        }
+        if (where < 2) { return 0.20; }
+        if (where < 3) { return 0.25; }
+        if (where < 4) { return 0.45; }
 
-        ret[HISC] = 0.0;
-        ret[GSC] = 0.0;
-        return ret;
+        if (where > sqlen - 3) { return 0.2; }
+        if (where > sqlen - 4) { return 0.75; }
+        if (where > sqlen - 5) { return 0.65; }
+
+        return 1.0;
     }
 
     // ============================================================

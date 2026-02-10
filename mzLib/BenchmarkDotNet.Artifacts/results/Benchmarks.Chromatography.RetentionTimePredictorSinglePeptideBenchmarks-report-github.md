@@ -12,5 +12,5 @@ WarmupCount=3
 ```
 | Method                | Mean     | Error    | StdDev   | Ratio        | RatioSD | Gen0   | Allocated | Alloc Ratio |
 |---------------------- |---------:|---------:|---------:|-------------:|--------:|-------:|----------:|------------:|
-| SSRCalc3_ShortPeptide | 18.95 μs | 0.122 μs | 0.032 μs |     baseline |         | 0.1526 |    2.5 KB |             |
-| SSRCalc3_LongPeptide  | 28.08 μs | 0.233 μs | 0.060 μs | 1.48x slower |   0.00x | 1.6174 |  26.71 KB | 10.68x more |
+| SSRCalc3_ShortPeptide | 16.30 μs | 0.077 μs | 0.020 μs |     baseline |         | 0.0916 |   1.95 KB |             |
+| SSRCalc3_LongPeptide  | 24.60 μs | 0.178 μs | 0.046 μs | 1.51x slower |   0.00x | 1.4954 |  24.56 KB | 12.63x more |
