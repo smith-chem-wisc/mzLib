@@ -2,41 +2,62 @@
 
 namespace Chromatography.RetentionTimePrediction.SSRCalc;
 
-/**
-/*
-/* reference, O. V. Krokhin, R. Craig, V. Spicer, W. Ens, K. G. Standing, R. C. Beavis, J. A. Wilkins
-/* An improved model for prediction of retention times of tryptic peptides in ion-pair reverse-phase HPLC:
-/* its application to protein peptide mapping by off-line HPLC-MALDI MS
-/* Molecular and Cellular Proteomics 2004 Sep;3(9):908-19.
-/* URL, http://hs2.proteome.ca/SSRCalc/SSRCalc.html
-/*
-/*
-/* These subroutines are based on web version SSRCalculator of the Copyright holder listed as in the following:
-/*
-/* Version 3.0   2005.02.28
-/* Copyright (c) 2005 John Wilkins
-/* Sequence Specific Retention Calculator
-/* Authors: Oleg Krokhin, Vic Spicer, John Cortens
- */
-
-/* Translated from perl to C, Ted Holzman FHCRC, 6/2006  */
-/* Retranslated from C to Java, Ted Holzman FHCRC 7/2006 */
-/* Translated from Java to C#, Brendan MacLean UW 10/2008 */
-/* NB: This is a version 0.1 direct translation.
-/*     An attempt has been made to keep function names, variable names, and algorithms
-/*     as close as possible to the original perl.
- */
-
+/// <summary>
+/// SSRCalc3 (Sequence Specific Retention Calculator, Version 3.0)
+/// 
+/// Predicts reverse-phase HPLC retention times for tryptic peptides based on
+/// amino acid sequence composition and structural features.
+/// 
+/// Reference:
+/// O. V. Krokhin, R. Craig, V. Spicer, W. Ens, K. G. Standing, R. C. Beavis, J. A. Wilkins
+/// "An improved model for prediction of retention times of tryptic peptides in ion-pair reverse-phase HPLC:
+/// its application to protein peptide mapping by off-line HPLC-MALDI MS"
+/// Molecular and Cellular Proteomics 2004 Sep;3(9):908-19.
+/// URL: http://hs2.proteome.ca/SSRCalc/SSRCalc.html
+/// 
+/// Translation history:
+/// - Original Perl implementation by Oleg Krokhin, Vic Spicer, John Cortens (2005)
+/// - Perl → C by Ted Holzman, FHCRC (6/2006)
+/// - C → Java by Ted Holzman, FHCRC (7/2006)
+/// - Java → C# by Brendan MacLean, UW (10/2008)
+/// 
+/// Note: Function names, variable names, and algorithms are kept close to the original Perl
+/// implementation for traceability and validation purposes.
+/// </summary>
 public class SSRCalc3
 {
+    /// <summary>Algorithm version identifier for output/logging purposes.</summary>
     public const String VERSION = "Krokhin,3.0";
 
+    #region Static Lookup Tables
+
+    /// <summary>
+    /// Hydrophobic cluster patterns and their associated retention time contributions.
+    /// Clusters of hydrophobic amino acids (encoded as '1' or '5') increase retention.
+    /// Pattern format: '0' = non-hydrophobic, '1' = moderately hydrophobic (A,M,Y,V), '5' = strongly hydrophobic (L,I,W)
+    /// </summary>
     private static readonly CLUSTCOMB_List CLUSTCOMB = new CLUSTCOMB_List();
+
+    /// <summary>Helicity pattern scores for 4-residue motifs (α-helix propensity).</summary>
     private static readonly Dictionary<string, double> HlxScore4 = new Dictionary<string, double>();
+
+    /// <summary>Helicity pattern scores for 5-residue motifs (α-helix propensity).</summary>
     private static readonly Dictionary<string, double> HlxScore5 = new Dictionary<string, double>();
+
+    /// <summary>Helicity pattern scores for 6-residue motifs (α-helix propensity).</summary>
     private static readonly Dictionary<string, double> HlxScore6 = new Dictionary<string, double>();
+
+    /// <summary>
+    /// Maps amino acid characters to indices for electric charge calculation.
+    /// Indices: K=0, R=1, H=2, D=3, E=4, C=5, Y=6
+    /// Value of -1 indicates the amino acid doesn't contribute to charge calculation.
+    /// </summary>
     private static readonly int[] EMap = new int[128];
 
+    /// <summary>
+    /// Helper class for storing cluster patterns as key-value pairs.
+    /// Extends List to allow convenient Add(pattern, value) syntax.
+    /// </summary>
     private sealed class CLUSTCOMB_List : List<KeyValuePair<string, double>>
     {
         public void Add(string pattern, double value)
@@ -45,13 +66,24 @@ public class SSRCalc3
         }
     }
 
+    /// <summary>
+    /// Static constructor initializes all lookup tables with empirically-derived values
+    /// from the original SSRCalc algorithm.
+    /// </summary>
     static SSRCalc3()
     {
+        // Initialize hydrophobic cluster patterns
+        // Format: pattern string → retention time contribution
+        // '0' = polar/charged, '1' = moderately hydrophobic, '5' = strongly hydrophobic
         // ReSharper disable NonLocalizedString
+
+        // 4-character cluster patterns (smallest clusters)
         CLUSTCOMB.Add("0110", 0.3);
         CLUSTCOMB.Add("0150", 0.4);
         CLUSTCOMB.Add("0510", 0.4);
         CLUSTCOMB.Add("0550", 1.3);
+
+        // 5-character cluster patterns
         CLUSTCOMB.Add("01110", 0.5);
         CLUSTCOMB.Add("01150", 0.7);
         CLUSTCOMB.Add("01510", 0.7);
@@ -60,6 +92,8 @@ public class SSRCalc3
         CLUSTCOMB.Add("05150", 2.1);
         CLUSTCOMB.Add("05510", 2.1);
         CLUSTCOMB.Add("05550", 2.8);
+
+        // 6-character cluster patterns
         CLUSTCOMB.Add("011110", 0.7);
         CLUSTCOMB.Add("011150", 0.9);
         CLUSTCOMB.Add("011510", 0.9);
@@ -76,6 +110,8 @@ public class SSRCalc3
         CLUSTCOMB.Add("055150", 3.0);
         CLUSTCOMB.Add("055510", 3.0);
         CLUSTCOMB.Add("055550", 3.5);
+
+        // 7-character cluster patterns
         CLUSTCOMB.Add("0111110", 0.9);
         CLUSTCOMB.Add("0111150", 1.0);
         CLUSTCOMB.Add("0111510", 1.0);
@@ -108,6 +144,8 @@ public class SSRCalc3
         CLUSTCOMB.Add("0555150", 3.6);
         CLUSTCOMB.Add("0555510", 3.6);
         CLUSTCOMB.Add("0555550", 4.0);
+
+        // 8-character cluster patterns (largest clusters)
         CLUSTCOMB.Add("01111110", 1.1);
         CLUSTCOMB.Add("01111150", 1.7);
         CLUSTCOMB.Add("01111510", 1.7);
@@ -173,6 +211,11 @@ public class SSRCalc3
         CLUSTCOMB.Add("05555510", 4.1);
         CLUSTCOMB.Add("05555550", 4.5);
 
+        // Initialize helicity scoring tables
+        // Encoding: X = strongly hydrophobic (W,F,I,L), Z = moderately hydrophobic (Y,M,V,A)
+        //           O = acidic (D,E), U = polar/small (G,S,C,N,Q,T), z = basic/Pro (P,H,R,K)
+
+        // 4-residue helical motifs
         HlxScore4.Add("XXUX", 0.8);
         HlxScore4.Add("XZOX", 0.8);
         HlxScore4.Add("XUXX", 0.8);
@@ -206,6 +249,7 @@ public class SSRCalc3
         HlxScore4.Add("XXUZ", 0.2);
         HlxScore4.Add("ZUZZ", 0.2);
 
+        // 5-residue helical motifs (higher scores for amphipathic patterns)
         HlxScore5.Add("XXOXX", 3.75);
         HlxScore5.Add("XXOXZ", 3.75);
         HlxScore5.Add("XXOZX", 3.75);
@@ -303,6 +347,7 @@ public class SSRCalc3
         HlxScore5.Add("XUUZZ", 0.6);
         HlxScore5.Add("ZUUZZ", 0.6);
 
+        // 6-residue helical motifs
         HlxScore6.Add("XXOOXX", 3.0);
         HlxScore6.Add("XXOOXZ", 3.0);
         HlxScore6.Add("ZXOOXX", 3.0);
@@ -369,26 +414,58 @@ public class SSRCalc3
         HlxScore6.Add("ZZUUZZ", 0.75);
         // ReSharper restore NonLocalizedString
 
+        // Initialize the amino acid → electric charge index map
+        // -1 indicates the amino acid doesn't participate in charge calculations
         for (int i = 0; i < EMap.Length; i++)
         {
             EMap[i] = -1;
         }
 
-        EMap['K'] = 0;
-        EMap['R'] = 1;
-        EMap['H'] = 2;
-        EMap['D'] = 3;
-        EMap['E'] = 4;
-        EMap['C'] = 5;
-        EMap['Y'] = 6;
+        // Assign indices for charged/titratable amino acids
+        EMap['K'] = 0;  // Lysine (basic, positive charge)
+        EMap['R'] = 1;  // Arginine (basic, positive charge)
+        EMap['H'] = 2;  // Histidine (basic, can be positive)
+        EMap['D'] = 3;  // Aspartate (acidic, negative charge)
+        EMap['E'] = 4;  // Glutamate (acidic, negative charge)
+        EMap['C'] = 5;  // Cysteine (thiol, can ionize)
+        EMap['Y'] = 6;  // Tyrosine (phenolic OH, can ionize)
     }
 
-    public enum Column { A300, A100 }
+    #endregion
+
+    #region Column Types and Parameters
+
+    /// <summary>
+    /// Supported HPLC column types. Different columns have different retention characteristics.
+    /// </summary>
+    public enum Column
+    {
+        /// <summary>300Å pore size column - typically used for larger peptides/proteins.</summary>
+        A300,
+        /// <summary>100Å pore size column - typically used for smaller peptides.</summary>
+        A100
+    }
+
+    /// <summary>
+    /// Amino acid-specific retention parameters for each position and context.
+    /// Array indexed by ASCII character code for efficient lookup.
+    /// </summary>
     public AAParams[] AAPARAMS = new AAParams[128];
 
+    #endregion
+
+    #region Constructor
+
+    /// <summary>
+    /// Initializes a new SSRCalc3 predictor for the specified column type.
+    /// </summary>
+    /// <param name="name">Descriptive name for this predictor instance.</param>
+    /// <param name="column">The HPLC column type (affects retention coefficients).</param>
     public SSRCalc3(string name, Column column)
     {
         Name = name;
+
+        // Initialize all amino acid positions with null parameters
         AAParams NULLPARAM = new AAParams(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
         for (int i = 0; i < AAPARAMS.Length; i++)
@@ -396,6 +473,7 @@ public class SSRCalc3
             AAPARAMS[i] = NULLPARAM;
         }
 
+        // Load column-specific retention coefficients
         switch (column)
         {
             case Column.A300:
@@ -407,10 +485,23 @@ public class SSRCalc3
         }
     }
 
+    /// <summary>Gets the descriptive name for this predictor.</summary>
     public string Name { get; private set; }
 
+    #endregion
+
+    #region Column-Specific Parameter Initialization
+
+    /// <summary>
+    /// Initializes amino acid parameters for 300Å pore size column.
+    /// Parameters represent empirically-derived retention coefficients for each amino acid
+    /// at different sequence positions (N-terminal, C-terminal, internal) and peptide sizes.
+    /// </summary>
     private void A300Column()
     {
+        // Format: AAParams(RC, RC1, RC2, RCN, RCN2, RCS, RC1S, RC2S, RCNS, RCN2S, UndKRH, AMASS, CT, NT, PK, H2BASCORE, H2CMULT)
+        // RC = internal retention coefficient, RC1/RC2 = N-terminal positions 1/2
+        // RCN/RCN2 = C-terminal positions, *S variants for short peptides (<10 aa)
         AAPARAMS['A'] = new AAParams(01.10, 00.35, 00.50, 00.80, -0.10, 00.80, -0.30, 00.10, 00.80, -0.50, 00.00, 071.0370, 3.55, 7.59, 00.00, 1.0, 1.2);
         AAPARAMS['C'] = new AAParams(00.45, 00.90, 00.20, -0.80, -0.50, 00.50, 00.40, 00.00, -0.80, -0.50, 00.00, 103.0090, 3.55, 7.50, 00.00, 0.0, 1.0);
         AAPARAMS['D'] = new AAParams(00.15, 00.50, 00.40, -0.50, -0.50, 00.30, 00.30, 00.70, -0.50, -0.50, 00.00, 115.0270, 4.55, 7.50, 04.05, 0.0, 1.1);
@@ -431,13 +522,19 @@ public class SSRCalc3
         AAPARAMS['V'] = new AAParams(05.00, 02.90, 03.40, 05.00, 04.20, 05.10, 02.70, 03.40, 05.00, 04.20, -0.30, 099.0680, 3.55, 7.44, 00.00, 1.4, 1.2);
         AAPARAMS['W'] = new AAParams(12.25, 11.10, 11.80, 11.00, 12.10, 12.40, 11.60, 11.80, 11.00, 12.10, 00.15, 186.0790, 3.55, 7.50, 00.00, 1.6, 1.0);
         AAPARAMS['Y'] = new AAParams(04.85, 03.70, 04.50, 04.00, 04.40, 05.10, 04.20, 04.50, 04.00, 04.40, -0.20, 163.0630, 3.55, 7.50, 10.00, 0.2, 1.0);
+        // Ambiguous amino acids (B = D/N, X = unknown, Z = E/Q)
         AAPARAMS['B'] = new AAParams(00.15, 00.50, 00.40, -0.50, -0.50, 00.30, 00.30, 00.70, -0.50, -0.50, 00.00, 115.0270, 4.55, 7.50, 04.05, 0.0, 1.1);
         AAPARAMS['X'] = new AAParams(00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 00.00, 000.0000, 0.00, 0.00, 00.00, 0.0, 1.0);
         AAPARAMS['Z'] = new AAParams(00.95, 01.00, 00.00, 00.00, -0.10, 00.50, 00.10, 00.00, 00.00, -0.10, 00.00, 129.0430, 4.75, 7.70, 04.45, 0.0, 1.1);
     }
 
+    /// <summary>
+    /// Initializes amino acid parameters for 100Å pore size column.
+    /// Smaller pore sizes have different selectivity for peptides.
+    /// </summary>
     private void A100Column()
     {
+        // Same parameter structure as A300Column but with different coefficients
         AAPARAMS['A'] = new AAParams(01.02, -0.35, 00.35, 01.02, -0.20, 00.50, -0.05, 00.10, 00.50, -0.30, 00.00, 071.0370, 3.55, 7.59, 00.00, 1.0, 1.2);
         AAPARAMS['C'] = new AAParams(00.10, 00.40, 00.20, 00.10, -0.40, 00.60, 00.60, 01.00, 00.60, -0.50, 00.00, 103.0090, 3.55, 7.50, 00.00, 0.0, 1.0);
         AAPARAMS['D'] = new AAParams(00.15, 00.90, 00.60, 00.15, -0.40, 00.60, 00.30, 00.20, 00.60, -0.50, 00.00, 115.0270, 4.55, 7.50, 04.05, 0.0, 1.1);
@@ -463,90 +560,225 @@ public class SSRCalc3
         AAPARAMS['Z'] = new AAParams(00.95, 01.00, 00.00, 00.00, -0.10, 00.50, 00.10, 00.00, 00.00, -0.10, 00.00, 129.0430, 4.75, 7.70, 04.45, 0.0, 1.1);
     }
 
+    #endregion
+
+    #region Feature Flags (for disabling specific scoring components)
+
+    /// <summary>Set to 1 to disable electric/isoelectric point corrections.</summary>
     public int NOELECTRIC { get; set; }
+
+    /// <summary>Set to 1 to disable hydrophobic clustering effects.</summary>
     public int NOCLUSTER { get; set; }
+
+    /// <summary>Set to 1 to disable undigested (missed cleavage) effects.</summary>
     public int NODIGEST { get; set; }
+
+    /// <summary>Set to 1 to disable small peptide adjustments.</summary>
     public int NOSMALL { get; set; }
+
+    /// <summary>Set to 1 to disable helicity scoring method 1.</summary>
     public int NOHELIX1 { get; set; }
+
+    /// <summary>Set to 1 to disable helicity scoring method 2.</summary>
     public int NOHELIX2 { get; set; }
+
+    /// <summary>Set to 1 to disable C-terminal helix-electric effects.</summary>
     public int NOEHEL { get; set; }
 
+    #endregion
+
+    #region Algorithm Constants
+
+    /// <summary>When true, replicates quirks from the original Perl implementation for backwards compatibility.</summary>
     private const bool DUPLICATE_ORIGINAL_CODE = true;
-    //Speaking with the developers, it
-    // was determined that it ought not to have been commented out.  So --
-    // ALGORITHM_VERSION may be used to choose the older or newer code
+
+    /// <summary>Algorithm version number (used for version-specific code paths).</summary>
     private const int ALGORITHM_VERSION = 3;
+
+    // Length-dependent scaling parameters
+    /// <summary>Long peptide limit - peptides longer than this get scaled down.</summary>
     private const int LPLim = 20;
+    /// <summary>Short peptide limit - peptides shorter than this get scaled up.</summary>
     private const int SPLim = 8;
+    /// <summary>Long peptide scaling factor.</summary>
     private const double LPSFac = 0.0270;
+    /// <summary>Short peptide scaling factor.</summary>
     private const double SPSFac = -0.055;
-    private const double UDF21 = 0.0, UDF22 = 0.0;
-    private const double UDF31 = 1.0, UDF32 = 0.0;
-    private const double SUMSCALE1 = 0.27, SUMSCALE2 = 0.33, SUMSCALE3 = 0.38, SUMSCALE4 = 0.447;
+
+    // Undigested peptide factors (missed cleavage correction)
+    /// <summary>Undigested factor for position-1 relative to cleavage site.</summary>
+    private const double UDF21 = 0.0;
+    /// <summary>Undigested factor for position-2 relative to cleavage site.</summary>
+    private const double UDF22 = 0.0;
+    /// <summary>Undigested factor for adjacent positions to internal K/R/H.</summary>
+    private const double UDF31 = 1.0;
+    /// <summary>Undigested factor for positions ±2 from internal K/R/H.</summary>
+    private const double UDF32 = 0.0;
+
+    // High-retention scaling factors (compress very hydrophobic peptides)
+    /// <summary>Scaling factor for peptides with sum 20-30.</summary>
+    private const double SUMSCALE1 = 0.27;
+    /// <summary>Scaling factor for peptides with sum 30-40.</summary>
+    private const double SUMSCALE2 = 0.33;
+    /// <summary>Scaling factor for peptides with sum 40-50.</summary>
+    private const double SUMSCALE3 = 0.38;
+    /// <summary>Scaling factor for peptides with sum ≥50.</summary>
+    private const double SUMSCALE4 = 0.447;
+
+    /// <summary>Cluster score scaling factor.</summary>
     private const double KSCALE = 0.4;
-    private const double Z01 = -0.03, Z02 = 0.60, NDELTAWT = 0.8;
-    private const double Z03 = 0.00, Z04 = 0.00, PDELTAWT = 1.0;
-    private const double PPSCORE = 1.2, PPPSCORE = 3.5, PPPPSCORE = 5.0;
-    private const double HELIX1SCALE = 1.6, HELIX2SCALE = 0.255;
+
+    // Isoelectric point correction factors
+    /// <summary>Negative delta weight slope.</summary>
+    private const double Z01 = -0.03;
+    /// <summary>Negative delta weight intercept.</summary>
+    private const double Z02 = 0.60;
+    /// <summary>Negative delta weight multiplier.</summary>
+    private const double NDELTAWT = 0.8;
+    /// <summary>Positive delta weight slope (set to 0 = no effect).</summary>
+    private const double Z03 = 0.00;
+    /// <summary>Positive delta weight intercept (set to 0 = no effect).</summary>
+    private const double Z04 = 0.00;
+    /// <summary>Positive delta weight multiplier.</summary>
+    private const double PDELTAWT = 1.0;
+
+    // Proline repeat penalties
+    /// <summary>Score penalty for PP (di-proline).</summary>
+    private const double PPSCORE = 1.2;
+    /// <summary>Score penalty for PPP (tri-proline).</summary>
+    private const double PPPSCORE = 3.5;
+    /// <summary>Score penalty for PPPP (tetra-proline).</summary>
+    private const double PPPPSCORE = 5.0;
+
+    // Helicity scaling factors
+    /// <summary>Helicity method 1 score multiplier.</summary>
+    private const double HELIX1SCALE = 1.6;
+    /// <summary>Helicity method 2 score multiplier.</summary>
+    private const double HELIX2SCALE = 0.255;
+
+    // Heli2Calc return array indices
+    /// <summary>Index for HISC (helicity sum score) in Heli2Calc return array.</summary>
     private const int HISC = 0;
+    /// <summary>Index for GSC (geometric score) in Heli2Calc return array.</summary>
     private const int GSC = 1;
 
+    #endregion
+
+    #region Public Interface
+
+    /// <summary>
+    /// Returns the score for unknown/unrecognized amino acids (always 0).
+    /// </summary>
     public double UnknownScore => 0;
 
+    /// <summary>
+    /// Calculates the predicted retention time score for a peptide sequence.
+    /// Higher scores indicate longer predicted retention times.
+    /// </summary>
+    /// <param name="baseSequence">The amino acid sequence (single-letter codes, uppercase).</param>
+    /// <returns>
+    /// Predicted retention time score. Typical values range from ~0 to ~50,
+    /// with most tryptic peptides falling between 10-40.
+    /// </returns>
     public double ScoreSequence(string baseSequence)
     {
         var seq = baseSequence;
         double tsum3 = 0.0;
         int sze = seq.Length;
+
+        // Peptides shorter than 4 residues cannot be reliably scored
         if (sze < 4) return tsum3;
 
+        // Calculate base retention coefficient sum
+        // Use different coefficients for short (<10 aa) vs longer peptides
         if (sze < 10)
         {
-            tsum3 = AAPARAMS[seq[0]].RC1S + AAPARAMS[seq[1]].RC2S + AAPARAMS[seq[sze - 1]].RCNS + AAPARAMS[seq[sze - 2]].RCN2S;
-            for (int i = 2; i < sze - 2; i++) tsum3 += AAPARAMS[seq[i]].RCS;
+            // Short peptide: use *S (short) coefficients
+            tsum3 = AAPARAMS[seq[0]].RC1S + AAPARAMS[seq[1]].RC2S +
+                    AAPARAMS[seq[sze - 1]].RCNS + AAPARAMS[seq[sze - 2]].RCN2S;
+            for (int i = 2; i < sze - 2; i++)
+                tsum3 += AAPARAMS[seq[i]].RCS;
         }
         else
         {
-            tsum3 = AAPARAMS[seq[0]].RC1 + AAPARAMS[seq[1]].RC2 + AAPARAMS[seq[sze - 1]].RCN + AAPARAMS[seq[sze - 2]].RCN2;
-            for (int i = 2; i < sze - 2; i++) tsum3 += AAPARAMS[seq[i]].RC;
+            // Longer peptide: use standard coefficients
+            tsum3 = AAPARAMS[seq[0]].RC1 + AAPARAMS[seq[1]].RC2 +
+                    AAPARAMS[seq[sze - 1]].RCN + AAPARAMS[seq[sze - 2]].RCN2;
+            for (int i = 2; i < sze - 2; i++)
+                tsum3 += AAPARAMS[seq[i]].RC;
         }
 
-        tsum3 += Smallness(sze, tsum3);
-        tsum3 -= Undigested(seq);
-        tsum3 -= Clusterness(seq);
-        tsum3 -= Proline(seq);
-        tsum3 *= Length_scale(sze);
+        // Apply correction factors
+        tsum3 += Smallness(sze, tsum3);      // Adjust for very small peptides
+        tsum3 -= Undigested(seq);             // Missed cleavage penalty
+        tsum3 -= Clusterness(seq);            // Hydrophobic cluster adjustment
+        tsum3 -= Proline(seq);                // Proline repeat penalty
+        tsum3 *= Length_scale(sze);           // Length-dependent scaling
+
+        // Compress very high retention scores (non-linear response at high hydrophobicity)
         if (tsum3 >= 20 && tsum3 < 30) tsum3 -= ((tsum3 - 18) * SUMSCALE1);
         if (tsum3 >= 30 && tsum3 < 40) tsum3 -= ((tsum3 - 18) * SUMSCALE2);
         if (tsum3 >= 40 && tsum3 < 50) tsum3 -= ((tsum3 - 18) * SUMSCALE3);
         if (tsum3 >= 50) tsum3 -= ((tsum3 - 18) * SUMSCALE4);
-        tsum3 += NewIso(seq, tsum3);
-        tsum3 += Helicity1(seq);
-        tsum3 += Helicity2(seq);
-        tsum3 += Helectric(seq);
+
+        // Add structural/electronic corrections
+        tsum3 += NewIso(seq, tsum3);          // Isoelectric point correction
+        tsum3 += Helicity1(seq);              // Amphipathic helix contribution
+        tsum3 += Helicity2(seq);              // Secondary helix contribution
+        tsum3 += Helectric(seq);              // C-terminal acidic helix effect
+
         return tsum3;
     }
 
+    #endregion
+
+    #region Scoring Components
+
+    /// <summary>
+    /// Calculates adjustment for very small peptides with extreme hydrophobicity ratios.
+    /// </summary>
+    /// <param name="sqlen">Peptide length.</param>
+    /// <param name="tsum">Current retention score sum.</param>
+    /// <returns>Adjustment value (can be positive or negative).</returns>
     private double Smallness(int sqlen, double tsum)
     {
         if (NOSMALL == 1) return 0.0;
-        if (sqlen < 20 && (tsum / sqlen) < 0.9) return 3.5 * (0.9 - (tsum / sqlen));
-        if (sqlen < 15 && (tsum / sqlen) > 2.8) return 2.6 * ((tsum / sqlen) - 2.8);
+
+        // Low hydrophobicity ratio for small peptides
+        if (sqlen < 20 && (tsum / sqlen) < 0.9)
+            return 3.5 * (0.9 - (tsum / sqlen));
+
+        // High hydrophobicity ratio for very small peptides
+        if (sqlen < 15 && (tsum / sqlen) > 2.8)
+            return 2.6 * ((tsum / sqlen) - 2.8);
+
         return 0.0;
     }
 
+    /// <summary>
+    /// Calculates penalty for undigested (missed cleavage) peptides.
+    /// Tryptic peptides with internal K/R/H residues have reduced retention.
+    /// </summary>
+    /// <param name="sq">Peptide sequence.</param>
+    /// <returns>Penalty score (subtracted from total).</returns>
     private double Undigested(string sq)
     {
         if (NODIGEST == 1) return 0.0;
+
         char op1, op2;
         int xx = sq.Length - 1;
         char re = sq[xx];
         double csum = 0.0;
+
+        // Check C-terminal residue (expected cleavage site)
         if (re == 'R' || re == 'K' || re == 'H')
         {
-            op1 = sq[xx - 1]; op2 = sq[xx - 2];
+            op1 = sq[xx - 1];
+            op2 = sq[xx - 2];
             csum = UDF21 * AAPARAMS[op1].UndKRH + UDF22 * AAPARAMS[op2].UndKRH;
         }
+
+        // Check internal K/R/H residues (missed cleavages)
         for (int dd = 0; dd < xx; dd++)
         {
             re = sq[dd];
@@ -554,44 +786,73 @@ public class SSRCalc3
             {
                 char op3, op4;
                 op1 = op2 = op3 = op4 = '\0';
+
+                // Get flanking residues with boundary checking
                 if (dd - 1 >= 0 && dd - 1 <= xx) op1 = sq[dd - 1];
                 if (dd - 2 >= 0 && dd - 2 <= xx) op2 = sq[dd - 2];
+
+                // Original Perl code had wrapping behavior at N-terminus
                 if (DUPLICATE_ORIGINAL_CODE)
                 {
                     if (dd - 1 < 0 && (-(dd - 1)) <= xx) op1 = sq[xx + (dd - 1) + 1];
                     if (dd - 2 < 0 && (-(dd - 2)) <= xx) op2 = sq[xx + (dd - 2) + 1];
                 }
+
                 if (dd + 1 >= 0 && dd + 1 <= xx) op3 = sq[dd + 1];
                 if (dd + 2 >= 0 && dd + 2 <= xx) op4 = sq[dd + 2];
-                csum += (UDF31 * (AAPARAMS[op1].UndKRH + AAPARAMS[op3].UndKRH)) + (UDF32 * (AAPARAMS[op2].UndKRH + AAPARAMS[op4].UndKRH));
+
+                csum += (UDF31 * (AAPARAMS[op1].UndKRH + AAPARAMS[op3].UndKRH)) +
+                        (UDF32 * (AAPARAMS[op2].UndKRH + AAPARAMS[op4].UndKRH));
             }
         }
         return csum;
     }
 
+    /// <summary>
+    /// Calculates retention contribution from hydrophobic amino acid clusters.
+    /// Consecutive hydrophobic residues interact to increase retention beyond
+    /// the sum of individual contributions.
+    /// </summary>
+    /// <param name="sq">Peptide sequence.</param>
+    /// <returns>Cluster score (subtracted from total as it's already factored into base scores).</returns>
     private double Clusterness(string sq)
     {
         if (NOCLUSTER == 1) return 0.0;
+
+        // Encode sequence as cluster pattern (padded with '0' at ends)
         int bufferSize = sq.Length + 2;
         Span<char> cc = bufferSize <= 128 ? stackalloc char[bufferSize] : new char[bufferSize];
-        cc[0] = '0'; cc[^1] = '0';
-        for (int i = 0; i < sq.Length; i++) cc[i + 1] = EncodeClusterChar(sq[i]);
+        cc[0] = '0';
+        cc[^1] = '0';
+        for (int i = 0; i < sq.Length; i++)
+            cc[i + 1] = EncodeClusterChar(sq[i]);
+
+        // Sum scores for all matching cluster patterns
         double score = 0.0;
         foreach (var pair in CLUSTCOMB)
         {
             int occurs = CountPatternOccurrences(cc, pair.Key);
-            if (occurs > 0) score += pair.Value * occurs;
+            if (occurs > 0)
+                score += pair.Value * occurs;
         }
         return score * KSCALE;
     }
 
+    /// <summary>
+    /// Encodes an amino acid for cluster pattern matching.
+    /// </summary>
+    /// <param name="aa">Amino acid single-letter code.</param>
+    /// <returns>'5' for strongly hydrophobic (L,I,W), '1' for moderately hydrophobic (A,M,Y,V), '0' otherwise.</returns>
     private static char EncodeClusterChar(char aa) => aa switch
     {
-        'L' or 'I' or 'W' => '5',
-        'A' or 'M' or 'Y' or 'V' => '1',
-        _ => '0'
+        'L' or 'I' or 'W' => '5',       // Strongly hydrophobic
+        'A' or 'M' or 'Y' or 'V' => '1', // Moderately hydrophobic
+        _ => '0'                          // Polar, charged, or small
     };
 
+    /// <summary>
+    /// Counts non-overlapping occurrences of a pattern in text.
+    /// </summary>
     private static int CountPatternOccurrences(ReadOnlySpan<char> text, string pattern)
     {
         int count = 0, index = 0;
@@ -599,101 +860,216 @@ public class SSRCalc3
         {
             int found = text.Slice(index).IndexOf(pattern.AsSpan(), StringComparison.Ordinal);
             if (found < 0) break;
-            count++; index += found + pattern.Length;
+            count++;
+            index += found + pattern.Length;
         }
         return count;
     }
 
+    /// <summary>
+    /// Calculates penalty for consecutive proline residues.
+    /// Proline restricts backbone flexibility and affects retention.
+    /// </summary>
+    /// <param name="sq">Peptide sequence.</param>
+    /// <returns>Proline penalty score.</returns>
     private static double Proline(string sq) =>
-        sq.Contains("PPPP") ? PPPPSCORE : sq.Contains("PPP") ? PPPSCORE : sq.Contains("PP") ? PPSCORE : 0.0;
+        sq.Contains("PPPP") ? PPPPSCORE :
+        sq.Contains("PPP") ? PPPSCORE :
+        sq.Contains("PP") ? PPSCORE : 0.0;
 
+    /// <summary>
+    /// Calculates length-dependent scaling factor.
+    /// Very short peptides have reduced retention; very long peptides saturate.
+    /// </summary>
+    /// <param name="sqlen">Peptide length.</param>
+    /// <returns>Scaling multiplier (typically close to 1.0).</returns>
     private static double Length_scale(int sqlen) =>
-        sqlen < SPLim ? 1.0 + SPSFac * (SPLim - sqlen) : sqlen > LPLim ? 1.0 / (1.0 + LPSFac * (sqlen - LPLim)) : 1.0;
+        sqlen < SPLim ? 1.0 + SPSFac * (SPLim - sqlen) :    // Short peptides
+        sqlen > LPLim ? 1.0 / (1.0 + LPSFac * (sqlen - LPLim)) : // Long peptides
+        1.0;  // Normal range
 
-    private static double Partial_charge(double pK, double pH) { double cr = Math.Pow(10.0, pK - pH); return cr / (cr + 1.0); }
+    /// <summary>
+    /// Calculates partial charge at a given pH for Henderson-Hasselbalch equation.
+    /// </summary>
+    /// <param name="pK">pKa of the ionizable group.</param>
+    /// <param name="pH">Solution pH.</param>
+    /// <returns>Fractional charge (0-1).</returns>
+    private static double Partial_charge(double pK, double pH)
+    {
+        double cr = Math.Pow(10.0, pK - pH);
+        return cr / (cr + 1.0);
+    }
 
+    /// <summary>
+    /// Calculates the isoelectric point (pI) of a peptide by finding the pH
+    /// where net charge equals zero.
+    /// </summary>
+    /// <param name="sq">Peptide sequence.</param>
+    /// <returns>Estimated isoelectric point (pH units).</returns>
     private double Electric(string sq)
     {
+        // Count charged amino acids
         int[] aaCNT = { 0, 0, 0, 0, 0, 0, 0 };
         int ss = sq.Length;
-        double pk0 = AAPARAMS[sq[0]].CT, pk1 = AAPARAMS[sq[ss - 1]].NT;
-        for (int i = 0; i < ss; i++) { int idx = EMap[sq[i]]; if (idx >= 0) aaCNT[idx]++; }
-        double best = 0.0, min = 100000; const double step1 = 0.3;
-        for (double z = 0.01; z <= 14.0; z += step1) { double check = Math.Abs(CalcR(z, pk0, pk1, aaCNT)); if (check < min) { min = check; best = z; } }
-        double best1 = best; min = 100000;
-        for (double z = best1 - step1; z <= best1 + step1; z += 0.01) { double check = Math.Abs(CalcR(z, pk0, pk1, aaCNT)); if (check < min) { min = check; best = z; } }
+        double pk0 = AAPARAMS[sq[0]].CT;        // N-terminal pKa
+        double pk1 = AAPARAMS[sq[ss - 1]].NT;   // C-terminal pKa
+
+        for (int i = 0; i < ss; i++)
+        {
+            int idx = EMap[sq[i]];
+            if (idx >= 0) aaCNT[idx]++;
+        }
+
+        // Coarse search for pI (0.3 pH unit steps)
+        double best = 0.0, min = 100000;
+        const double step1 = 0.3;
+        for (double z = 0.01; z <= 14.0; z += step1)
+        {
+            double check = Math.Abs(CalcR(z, pk0, pk1, aaCNT));
+            if (check < min) { min = check; best = z; }
+        }
+
+        // Fine search around the coarse estimate (0.01 pH unit steps)
+        double best1 = best;
+        min = 100000;
+        for (double z = best1 - step1; z <= best1 + step1; z += 0.01)
+        {
+            double check = Math.Abs(CalcR(z, pk0, pk1, aaCNT));
+            if (check < min) { min = check; best = z; }
+        }
+
         return best;
     }
 
+    /// <summary>
+    /// Calculates net charge at a given pH using Henderson-Hasselbalch equation.
+    /// </summary>
+    /// <param name="pH">Solution pH.</param>
+    /// <param name="PK0">N-terminal pKa.</param>
+    /// <param name="PK1">C-terminal pKa.</param>
+    /// <param name="CNTref">Array of amino acid counts by type.</param>
+    /// <returns>Net charge at the given pH.</returns>
     private double CalcR(double pH, double PK0, double PK1, int[] CNTref) =>
-        Partial_charge(PK0, pH)
-        + CNTref[EMap['K']] * Partial_charge(AAPARAMS['K'].PK, pH)
-        + CNTref[EMap['R']] * Partial_charge(AAPARAMS['R'].PK, pH)
-        + CNTref[EMap['H']] * Partial_charge(AAPARAMS['H'].PK, pH)
-        - CNTref[EMap['D']] * Partial_charge(pH, AAPARAMS['D'].PK)
-        - CNTref[EMap['E']] * Partial_charge(pH, AAPARAMS['E'].PK)
-        - CNTref[EMap['Y']] * Partial_charge(pH, AAPARAMS['Y'].PK)
-        - Partial_charge(pH, PK1);
+        Partial_charge(PK0, pH)                                          // N-terminus (positive)
+        + CNTref[EMap['K']] * Partial_charge(AAPARAMS['K'].PK, pH)       // Lysine (positive)
+        + CNTref[EMap['R']] * Partial_charge(AAPARAMS['R'].PK, pH)       // Arginine (positive)
+        + CNTref[EMap['H']] * Partial_charge(AAPARAMS['H'].PK, pH)       // Histidine (positive)
+        - CNTref[EMap['D']] * Partial_charge(pH, AAPARAMS['D'].PK)       // Aspartate (negative)
+        - CNTref[EMap['E']] * Partial_charge(pH, AAPARAMS['E'].PK)       // Glutamate (negative)
+        - CNTref[EMap['Y']] * Partial_charge(pH, AAPARAMS['Y'].PK)       // Tyrosine (negative)
+        - Partial_charge(pH, PK1);                                        // C-terminus (negative)
 
+    /// <summary>
+    /// Calculates isoelectric point correction based on peptide mass and pI.
+    /// Peptides with pI below the expected mass-pI relationship elute earlier.
+    /// </summary>
+    /// <param name="sq">Peptide sequence.</param>
+    /// <param name="tsum">Current retention score.</param>
+    /// <returns>pI-based correction to retention score.</returns>
     private double NewIso(string sq, double tsum)
     {
         if (NOELECTRIC == 1)
             return 0.0;
 
+        // Calculate peptide mass
         double mass = 0.0;
         foreach (char c in sq)
         {
             mass += AAPARAMS[c].AMASS;
         }
 
+        // Calculate deviation from expected pI-mass relationship
         double pi1 = Electric(sq);
         double lmass = 1.8014 * Math.Log(mass);
         double delta1 = pi1 - 19.107 + lmass;
 
+        // Apply correction based on deviation direction
         if (delta1 < 0.0)
         {
+            // Acidic peptides (lower pI than expected) elute earlier
             return (tsum * Z01 + Z02) * NDELTAWT * delta1;
         }
         else if (delta1 > 0.0)
         {
-            // Note: Currently returns 0 because Z03 = Z04 = 0.0
-            // This is intentional per the original SSRCalc algorithm
+            // Basic peptides - correction disabled in current algorithm (Z03 = Z04 = 0)
+            // This is intentional per the original SSRCalc design
             return (tsum * Z03 + Z04) * PDELTAWT * delta1;
         }
 
         return 0.0;
     }
 
+    /// <summary>
+    /// Calculates position-dependent adjustment for helical patterns near termini.
+    /// Helices near the ends of peptides have reduced impact on retention.
+    /// </summary>
+    /// <param name="ss1">Encoded helix pattern string.</param>
+    /// <param name="ix2">Starting position of pattern in sequence.</param>
+    /// <param name="sqlen">Total peptide length.</param>
+    /// <returns>Adjustment factor (0.2 to 1.0).</returns>
     private static double Heli1TermAdj(string ss1, int ix2, int sqlen)
     {
+        // Find the hydrophobic core position in the pattern
         int where = 0;
-        for (int i = 0; i < ss1.Length; i++) { char m = ss1[i]; if (m == 'O' || m == 'U') { where = i; if (!DUPLICATE_ORIGINAL_CODE) break; } }
+        for (int i = 0; i < ss1.Length; i++)
+        {
+            char m = ss1[i];
+            if (m == 'O' || m == 'U')
+            {
+                where = i;
+                if (!DUPLICATE_ORIGINAL_CODE) break;
+            }
+        }
         where += ix2;
-        if (where < 2) return 0.20; if (where < 3) return 0.25; if (where < 4) return 0.45;
-        if (where > sqlen - 3) return 0.2; if (where > sqlen - 4) return 0.75; if (where > sqlen - 5) return 0.65;
+
+        // Apply position-dependent scaling (reduced effect near termini)
+        if (where < 2) return 0.20;
+        if (where < 3) return 0.25;
+        if (where < 4) return 0.45;
+        if (where > sqlen - 3) return 0.2;
+        if (where > sqlen - 4) return 0.75;
+        if (where > sqlen - 5) return 0.65;
+
         return 1.0;
     }
 
+    /// <summary>
+    /// Calculates retention contribution from amphipathic α-helix patterns (method 1).
+    /// Amphipathic helices have hydrophobic residues on one face and polar residues
+    /// on the opposite face, which increases interaction with the hydrophobic stationary phase.
+    /// </summary>
+    /// <param name="sq">Peptide sequence.</param>
+    /// <returns>Helicity score contribution.</returns>
     private double Helicity1(string sq)
     {
         if (NOHELIX1 == 1) return 0.0;
+
         int sqlen = sq.Length;
+
+        // Encode sequence for helix pattern matching
         Span<char> hcSpan = sqlen <= 128 ? stackalloc char[sqlen] : new char[sqlen];
-        for (int j = 0; j < sqlen; j++) hcSpan[j] = EncodeHelicity1Char(sq[j]);
+        for (int j = 0; j < sqlen; j++)
+            hcSpan[j] = EncodeHelicity1Char(sq[j]);
         string hc = new string(hcSpan);
+
         double sum = 0.0;
+
+        // Scan for helical motifs (prioritize longer patterns)
         for (int i = 0; i < sqlen - 3; i++)
         {
+            // Try 6-residue patterns first (most significant)
             if (i + 6 <= sqlen)
             {
                 string sub6 = hc.Substring(i, 6);
                 if (HlxScore6.TryGetValue(sub6, out double sc6) && sc6 > 0)
                 {
                     sum += sc6 * Heli1TermAdj(sub6, i, sqlen);
-                    i++;
+                    i++;  // Skip one position to avoid double-counting
                     continue;
                 }
             }
+
+            // Try 5-residue patterns
             if (i + 5 <= sqlen)
             {
                 string sub5 = hc.Substring(i, 5);
@@ -704,6 +1080,8 @@ public class SSRCalc3
                     continue;
                 }
             }
+
+            // Try 4-residue patterns (least significant)
             if (i + 4 <= sqlen)
             {
                 string sub4 = hc.Substring(i, 4);
@@ -714,153 +1092,368 @@ public class SSRCalc3
                 }
             }
         }
+
         return HELIX1SCALE * sum;
     }
 
+    /// <summary>
+    /// Encodes an amino acid for helicity pattern matching.
+    /// </summary>
+    /// <param name="aa">Amino acid single-letter code.</param>
+    /// <returns>Encoded character representing the amino acid class.</returns>
     private static char EncodeHelicity1Char(char aa) => aa switch
     {
-        'P' or 'H' or 'R' or 'K' => 'z',
-        'W' or 'F' or 'I' or 'L' => 'X',
-        'Y' or 'M' or 'V' or 'A' => 'Z',
-        'D' or 'E' => 'O',
-        'G' or 'S' or 'C' or 'N' or 'Q' or 'T' => 'U',
+        'P' or 'H' or 'R' or 'K' => 'z',              // Helix breakers / basic
+        'W' or 'F' or 'I' or 'L' => 'X',              // Strongly hydrophobic
+        'Y' or 'M' or 'V' or 'A' => 'Z',              // Moderately hydrophobic
+        'D' or 'E' => 'O',                             // Acidic (helix-compatible)
+        'G' or 'S' or 'C' or 'N' or 'Q' or 'T' => 'U', // Polar / flexible
         _ => aa
     };
 
+    /// <summary>
+    /// Evaluates a helicity-2 pattern string against a test sequence.
+    /// Used by Heli2Calc to score potential amphipathic helix regions.
+    /// </summary>
+    /// <param name="pattern">Pattern string (amino acids with connectors).</param>
+    /// <param name="testsq">Full peptide sequence.</param>
+    /// <param name="posn">Position offset in the sequence.</param>
+    /// <param name="etype">Evaluation type: '*' for multiplicative, '+' for additive.</param>
+    /// <returns>Pattern score.</returns>
     private double EvalH2pattern(string pattern, string testsq, int posn, char etype)
     {
         char f01 = pattern[0];
         double prod1 = AAPARAMS[f01].H2BASCORE;
-        const int OFF1 = 2; int acount = 1; char far1 = '\0', far2 = '\0';
-        char testAAl = testsq[OFF1 + posn], testAAr = testsq[OFF1 + posn + 2];
+        const int OFF1 = 2;
+        int acount = 1;
+        char far1 = '\0', far2 = '\0';
+
+        char testAAl = testsq[OFF1 + posn];
+        char testAAr = testsq[OFF1 + posn + 2];
         string testsqCopy = testsq.Substring(OFF1 + posn + 1);
+
         double mult = Connector(f01, testAAl, testAAr, "--", far1, far2);
-        prod1 *= mult; if (etype == '*') prod1 *= 25.0; if (mult <= 0.0) return 0.0;
+        prod1 *= mult;
+        if (etype == '*') prod1 *= 25.0;
+        if (mult <= 0.0) return 0.0;
+
+        // Process remaining pattern segments
         for (int i = 1; i < pattern.Length - 2; i += 3)
         {
-            string fpart = pattern.Substring(i, 2);
-            char gpart = (i + 2) < pattern.Length ? pattern[i + 2] : '\0';
+            string fpart = pattern.Substring(i, 2);  // Connector type
+            char gpart = (i + 2) < pattern.Length ? pattern[i + 2] : '\0';  // Next amino acid
             double s3 = AAPARAMS[gpart].H2BASCORE;
+
             int iss = 0;
             if (fpart == "--") { iss = 0; far1 = '\0'; far2 = '\0'; }
             if (fpart == "<-") { iss = 1; far1 = testsqCopy[i + 1]; far2 = '\0'; }
             if (fpart == "->") { iss = -1; far1 = '\0'; far2 = testsqCopy[i + 3]; }
-            testAAl = testsqCopy[i + 1 + iss]; testAAr = testsqCopy[i + 3 + iss];
+
+            testAAl = testsqCopy[i + 1 + iss];
+            testAAr = testsqCopy[i + 3 + iss];
             mult = Connector(gpart, testAAl, testAAr, fpart, far1, far2);
-            if (etype == '*' && (mult > 0.0 || acount < 3)) prod1 = prod1 * 25.0 * s3 * mult;
-            if (etype == '+') prod1 = prod1 + s3 * mult;
-            if (mult <= 0.0) return prod1;
+
+            if (etype == '*' && (mult > 0.0 || acount < 3))
+                prod1 = prod1 * 25.0 * s3 * mult;
+            if (etype == '+')
+                prod1 = prod1 + s3 * mult;
+            if (mult <= 0.0)
+                return prod1;
+
             acount++;
         }
         return prod1;
     }
 
+    /// <summary>
+    /// Calculates connection multiplier for helix-2 pattern evaluation.
+    /// Determines how well amino acids connect in a potential helix based on
+    /// the flanking residues and connector type.
+    /// </summary>
+    /// <param name="acid">Central amino acid.</param>
+    /// <param name="lp">Left-flanking amino acid.</param>
+    /// <param name="rp">Right-flanking amino acid.</param>
+    /// <param name="ct">Connector type ("--", "<-", or "->").</param>
+    /// <param name="far1">Far-left amino acid for offset patterns.</param>
+    /// <param name="far2">Far-right amino acid for offset patterns.</param>
+    /// <returns>Connection multiplier (0 = incompatible, >0 = compatible).</returns>
     private double Connector(char acid, char lp, char rp, string ct, char far1, char far2)
     {
         double mult = 1.0;
-        if (ct.Contains("<-")) mult *= 0.2; if (ct.Contains("->")) mult *= 0.1;
-        mult *= AAPARAMS[lp].H2CMULT; if (lp != rp) mult *= AAPARAMS[rp].H2CMULT;
+
+        // Apply connector-type penalties
+        if (ct.Contains("<-")) mult *= 0.2;
+        if (ct.Contains("->")) mult *= 0.1;
+
+        // Apply flanking residue multipliers
+        mult *= AAPARAMS[lp].H2CMULT;
+        if (lp != rp) mult *= AAPARAMS[rp].H2CMULT;
+
+        // Helix-breaking rules for moderately hydrophobic residues
         if (acid == 'A' || acid == 'Y' || acid == 'V' || acid == 'M')
-        { if (lp == 'P' || lp == 'G' || rp == 'P' || rp == 'G') mult = 0.0; if (ct.Contains("->") || ct.Contains("<-")) mult = 0.0; }
+        {
+            if (lp == 'P' || lp == 'G' || rp == 'P' || rp == 'G') mult = 0.0;
+            if (ct.Contains("->") || ct.Contains("<-")) mult = 0.0;
+        }
+
+        // Helix-breaking rules for strongly hydrophobic residues
         if (acid == 'L' || acid == 'W' || acid == 'F' || acid == 'I')
-        { if (((lp == 'P' || lp == 'G') || (rp == 'P' || rp == 'G')) && !ct.Contains("--")) mult = 0.0; if (((far1 == 'P' || far1 == 'G') || (far2 == 'P' || far2 == 'G')) && (ct.Contains("<-") || ct.Contains("->"))) mult = 0.0; }
+        {
+            if (((lp == 'P' || lp == 'G') || (rp == 'P' || rp == 'G')) && !ct.Contains("--"))
+                mult = 0.0;
+            if (((far1 == 'P' || far1 == 'G') || (far2 == 'P' || far2 == 'G')) &&
+                (ct.Contains("<-") || ct.Contains("->")))
+                mult = 0.0;
+        }
+
         return mult;
     }
 
+    /// <summary>
+    /// Performs helix-2 calculation to find the best amphipathic helix pattern.
+    /// Returns both the additive (HISC) and multiplicative (GSC) scores.
+    /// </summary>
+    /// <param name="sq">Peptide sequence.</param>
+    /// <returns>Array with [HISC, GSC] scores.</returns>
     private double[] Heli2Calc(string sq)
     {
         double[] ret = new double[2];
-        if (sq.Length < 11) { ret[HISC] = 0.0; ret[GSC] = 0.0; return ret; }
-        string prechop = sq, sqCopy = sq.Substring(2, sq.Length - 4);
+
+        // Minimum length for helix detection
+        if (sq.Length < 11)
+        {
+            ret[HISC] = 0.0;
+            ret[GSC] = 0.0;
+            return ret;
+        }
+
+        string prechop = sq;
+        string sqCopy = sq.Substring(2, sq.Length - 4);  // Trim 2 from each end
+
+        // Encode sequence: '1' = hydrophobic, '0' = polar/charged
         string pass1 = sqCopy.ReplaceAAs("WFILYMVA", "1").ReplaceAAs("GSPCNKQHRTDE", "0");
-        string best = ""; double hiscore = 0.0; int best_pos = 0;
+
+        string best = "";
+        double hiscore = 0.0;
+        int best_pos = 0;
+
+        // Search for hydrophobic starting points
         for (int i = 0; i < pass1.Length; i++)
         {
             if (pass1[i] == '1')
             {
-                string lc = pass1.Substring(i), sq2 = sqCopy.Substring(i);
+                string lc = pass1.Substring(i);
+                string sq2 = sqCopy.Substring(i);
                 StringBuilder patBuilder = new();
+
                 int zap = 0, subt = 0;
+
+                // Build pattern by following hydrophobic residues with connectors
                 while (zap <= 50 && subt < 2)
                 {
                     char f1 = zap >= 0 && zap < lc.Length ? lc[zap] : '0';
                     char f2 = zap - 1 >= 0 && zap - 1 < lc.Length ? lc[zap - 1] : '0';
                     char f3 = zap + 1 >= 0 && zap + 1 < lc.Length ? lc[zap + 1] : '0';
-                    if (f1 == '1') { if (zap > 0) patBuilder.Append("--"); patBuilder.Append(sq2[zap]); }
-                    else if (f2 == '1' && f1 == '0') { subt++; if (subt < 2) { patBuilder.Append("->"); patBuilder.Append(sq2[zap - 1]); } }
-                    else if (f3 == '1' && f1 == '0') { subt++; if (subt < 2) { patBuilder.Append("<-"); patBuilder.Append(sq2[zap + 1]); } }
-                    if (f1 == '0' && f2 == '0' && f3 == '0') zap = 1000;
+
+                    if (f1 == '1')
+                    {
+                        if (zap > 0) patBuilder.Append("--");
+                        patBuilder.Append(sq2[zap]);
+                    }
+                    else if (f2 == '1' && f1 == '0')
+                    {
+                        subt++;
+                        if (subt < 2) { patBuilder.Append("->"); patBuilder.Append(sq2[zap - 1]); }
+                    }
+                    else if (f3 == '1' && f1 == '0')
+                    {
+                        subt++;
+                        if (subt < 2) { patBuilder.Append("<-"); patBuilder.Append(sq2[zap + 1]); }
+                    }
+
+                    if (f1 == '0' && f2 == '0' && f3 == '0') zap = 1000;  // End pattern
                     zap += 3;
                 }
+
+                // Evaluate pattern if sufficiently long
                 if (patBuilder.Length > 4)
                 {
                     string pat = patBuilder.ToString();
                     double skore = EvalH2pattern(pat, prechop, i - 1, '*');
-                    if (skore >= hiscore) { hiscore = skore; best = pat; best_pos = i; }
+                    if (skore >= hiscore)
+                    {
+                        hiscore = skore;
+                        best = pat;
+                        best_pos = i;
+                    }
                 }
             }
         }
+
+        // If a good pattern was found, calculate both score types
         if (hiscore > 0.0)
         {
-            double gscore = hiscore;  // Preserve '*' score for GSC (used in forward/backward comparison)
+            double gscore = hiscore;  // Preserve '*' score for GSC (forward/backward comparison)
             hiscore = EvalH2pattern(best, prechop, best_pos - 1, '+');  // '+' score for HISC
             ret[HISC] = hiscore;
             ret[GSC] = gscore;
             return ret;
         }
-        ret[HISC] = 0.0; ret[GSC] = 0.0; return ret;
+
+        ret[HISC] = 0.0;
+        ret[GSC] = 0.0;
+        return ret;
     }
 
+    /// <summary>
+    /// Calculates helix-2 contribution by evaluating both forward and reverse sequences.
+    /// The better-scoring direction is used, with adjustments for length and proline content.
+    /// </summary>
+    /// <param name="sq">Peptide sequence.</param>
+    /// <returns>Helicity-2 score contribution.</returns>
     private double Helicity2(string sq)
     {
         if (NOHELIX2 == 1) return 0.0;
+
+        // Evaluate both directions (helix can point either way)
         string Bksq = sq.Backwards();
-        double[] fhg = Heli2Calc(sq), rhg = Heli2Calc(Bksq);
+        double[] fhg = Heli2Calc(sq);
+        double[] rhg = Heli2Calc(Bksq);
+
+        // Use the HISC from whichever direction has higher GSC
         double h2FwBk = rhg[GSC] > fhg[GSC] ? rhg[HISC] : fhg[HISC];
-        double lenMult = sq.Length > 30 ? 1 : 0, NoPMult = sq.Contains('P') ? 0.0 : 0.75;
+
+        // Apply modifiers for length and proline content
+        double lenMult = sq.Length > 30 ? 1 : 0;        // Long peptides get bonus
+        double NoPMult = sq.Contains('P') ? 0.0 : 0.75; // Proline disrupts helices
+
         return HELIX2SCALE * (1.0 + lenMult + NoPMult) * h2FwBk;
     }
 
+    /// <summary>
+    /// Calculates C-terminal acidic helix contribution.
+    /// Acidic residues (D/E) near the C-terminus can form favorable interactions
+    /// with the stationary phase if flanked by hydrophobic residues.
+    /// </summary>
+    /// <param name="sq">Peptide sequence.</param>
+    /// <returns>C-terminal helix-electric score.</returns>
     private double Helectric(string sq)
     {
+        // Only applies to short peptides with appropriate C-terminus
         if (NOEHEL == 1 || sq.Length > 14 || sq.Length < 4) return 0.0;
-        string mpart = sq.Substring(sq.Length - 4);
+
+        string mpart = sq.Substring(sq.Length - 4);  // Last 4 residues
+
+        // Must start with D or E
         if (mpart[0] == 'D' || mpart[0] == 'E')
         {
-            mpart = mpart.Substring(1, 2);
+            mpart = mpart.Substring(1, 2);  // Middle two residues
+
+            // Incompatible with Pro, Gly, or basic residues
             if (mpart.ContainsAA("PGKRH")) return 0.0;
-            mpart = mpart.ReplaceAAs("LI", "X").ReplaceAAs("AVYFWM", "Z").ReplaceAAs("GSPCNKQHRTDE", "U");
-            return mpart switch { "XX" => 1.0, "ZX" => 0.5, "XZ" => 0.5, "ZZ" => 0.4, "XU" => 0.4, "UX" => 0.4, "ZU" => 0.2, "UZ" => 0.2, _ => 0 };
+
+            // Encode hydrophobicity pattern
+            mpart = mpart
+                .ReplaceAAs("LI", "X")           // Strongly hydrophobic
+                .ReplaceAAs("AVYFWM", "Z")       // Moderately hydrophobic
+                .ReplaceAAs("GSPCNKQHRTDE", "U"); // Polar/charged
+
+            // Score based on hydrophobicity pattern
+            return mpart switch
+            {
+                "XX" => 1.0,   // Both strongly hydrophobic
+                "ZX" => 0.5,   // Mixed
+                "XZ" => 0.5,   // Mixed
+                "ZZ" => 0.4,   // Both moderately hydrophobic
+                "XU" => 0.4,   // Strong + polar
+                "UX" => 0.4,   // Polar + strong
+                "ZU" => 0.2,   // Moderate + polar
+                "UZ" => 0.2,   // Polar + moderate
+                _ => 0         // Other patterns
+            };
         }
         return 0;
     }
 
+    #endregion
+
+    #region Nested Types
+
+    /// <summary>
+    /// Contains all retention-related parameters for a single amino acid.
+    /// </summary>
     public class AAParams
     {
+        // Position-dependent retention coefficients (long peptides ≥10 aa)
+        /// <summary>Internal position retention coefficient.</summary>
         public double RC { get; private set; }
+        /// <summary>Position 1 (N-terminal) retention coefficient.</summary>
         public double RC1 { get; private set; }
+        /// <summary>Position 2 retention coefficient.</summary>
         public double RC2 { get; private set; }
+        /// <summary>C-terminal position retention coefficient.</summary>
         public double RCN { get; private set; }
+        /// <summary>Position N-1 (penultimate) retention coefficient.</summary>
         public double RCN2 { get; private set; }
+
+        // Position-dependent retention coefficients (short peptides <10 aa)
+        /// <summary>Internal position retention coefficient (short peptides).</summary>
         public double RCS { get; private set; }
+        /// <summary>Position 1 retention coefficient (short peptides).</summary>
         public double RC1S { get; private set; }
+        /// <summary>Position 2 retention coefficient (short peptides).</summary>
         public double RC2S { get; private set; }
+        /// <summary>C-terminal retention coefficient (short peptides).</summary>
         public double RCNS { get; private set; }
+        /// <summary>Position N-1 retention coefficient (short peptides).</summary>
         public double RCN2S { get; private set; }
+
+        // Other parameters
+        /// <summary>Undigested peptide factor for K/R/H context.</summary>
         public double UndKRH { get; private set; }
+        /// <summary>Amino acid average mass (monoisotopic).</summary>
         public double AMASS { get; private set; }
+        /// <summary>C-terminal group pKa.</summary>
         public double CT { get; private set; }
+        /// <summary>N-terminal group pKa.</summary>
         public double NT { get; private set; }
+        /// <summary>Side chain pKa (0 if not ionizable).</summary>
         public double PK { get; private set; }
+        /// <summary>Helix-2 base score contribution.</summary>
         public double H2BASCORE { get; private set; }
+        /// <summary>Helix-2 connection multiplier.</summary>
         public double H2CMULT { get; private set; }
-        public AAParams(double rc, double rc1, double rc2, double rcn, double rcn2, double rcs, double rc1s, double rc2s, double rcns, double rcn2s, double undkrh, double amass, double ct, double nt, double pk, double h2bascore, double h2cmult)
-        { RC = rc; RC1 = rc1; RC2 = rc2; RCN = rcn; RCN2 = rcn2; RCS = rcs; RC1S = rc1s; RC2S = rc2s; RCNS = rcns; RCN2S = rcn2s; UndKRH = undkrh; AMASS = amass; CT = ct; NT = nt; PK = pk; H2BASCORE = h2bascore; H2CMULT = h2cmult; }
+
+        /// <summary>
+        /// Initializes amino acid parameters with all retention coefficients.
+        /// </summary>
+        public AAParams(double rc, double rc1, double rc2, double rcn, double rcn2,
+                       double rcs, double rc1s, double rc2s, double rcns, double rcn2s,
+                       double undkrh, double amass, double ct, double nt, double pk,
+                       double h2bascore, double h2cmult)
+        {
+            RC = rc; RC1 = rc1; RC2 = rc2; RCN = rcn; RCN2 = rcn2;
+            RCS = rcs; RC1S = rc1s; RC2S = rc2s; RCNS = rcns; RCN2S = rcn2s;
+            UndKRH = undkrh; AMASS = amass; CT = ct; NT = nt; PK = pk;
+            H2BASCORE = h2bascore; H2CMULT = h2cmult;
+        }
     }
+
+    #endregion
 }
 
+/// <summary>
+/// Extension methods for string manipulation used in SSRCalc calculations.
+/// </summary>
 internal static class HelpersLocal
 {
+    /// <summary>
+    /// Replaces all occurrences of specified amino acids with a new value.
+    /// </summary>
+    /// <param name="s">Input sequence.</param>
+    /// <param name="aas">Amino acids to replace (or "A-Z" for all uppercase letters).</param>
+    /// <param name="newValue">Replacement string.</param>
+    /// <returns>Modified sequence with replacements.</returns>
     public static string ReplaceAAs(this IEnumerable<char> s, string aas, string newValue)
     {
         StringBuilder sb = new();
@@ -884,13 +1477,13 @@ internal static class HelpersLocal
 
         return sb.ToString();
     }
+
     /// <summary>
-    /// Inspects a sequence of amino acids, and returns true if it contains
-    /// any of the designated amino acid characters.
+    /// Checks if a sequence contains any of the specified amino acid characters.
     /// </summary>
-    /// <param name="s">Amino acid sequence</param>
-    /// <param name="aas">List of characters to search for</param>
-    /// <returns>True if any of the amino acid characters are found</returns>
+    /// <param name="s">Amino acid sequence.</param>
+    /// <param name="aas">Characters to search for.</param>
+    /// <returns>True if any of the amino acid characters are found.</returns>
     public static bool ContainsAA(this IEnumerable<char> s, string aas)
     {
         ReadOnlySpan<char> aasSpan = aas.AsSpan();
@@ -902,6 +1495,11 @@ internal static class HelpersLocal
         return false;
     }
 
+    /// <summary>
+    /// Returns the sequence in reverse order.
+    /// </summary>
+    /// <param name="s">Input sequence.</param>
+    /// <returns>Reversed sequence.</returns>
     public static string Backwards(this IEnumerable<char> s)
     {
         StringBuilder sb = new();
