@@ -369,8 +369,18 @@ public class SSRCalc3
         HlxScore6.Add("ZZUUZZ", 0.75);
         // ReSharper restore NonLocalizedString
 
-        for (int i = 0; i < EMap.Length; i++) EMap[i] = -1;
-        EMap['K'] = 0; EMap['R'] = 1; EMap['H'] = 2; EMap['D'] = 3; EMap['E'] = 4; EMap['C'] = 5; EMap['Y'] = 6;
+        for (int i = 0; i < EMap.Length; i++)
+        {
+            EMap[i] = -1;
+        }
+
+        EMap['K'] = 0;
+        EMap['R'] = 1;
+        EMap['H'] = 2;
+        EMap['D'] = 3;
+        EMap['E'] = 4;
+        EMap['C'] = 5;
+        EMap['Y'] = 6;
     }
 
     public enum Column { A300, A100 }
@@ -624,10 +634,31 @@ public class SSRCalc3
 
     private double NewIso(string sq, double tsum)
     {
-        if (NOELECTRIC == 1) return 0.0;
-        double mass = 0.0; foreach (char c in sq) mass += AAPARAMS[c].AMASS;
-        double pi1 = Electric(sq), lmass = 1.8014 * Math.Log(mass), delta1 = pi1 - 19.107 + lmass;
-        return delta1 < 0.0 ? (tsum * Z01 + Z02) * NDELTAWT * delta1 : delta1 > 0.0 ? (tsum * Z03 + Z04) * PDELTAWT * delta1 : 0.0;
+        if (NOELECTRIC == 1)
+            return 0.0;
+
+        double mass = 0.0;
+        foreach (char c in sq)
+        {
+            mass += AAPARAMS[c].AMASS;
+        }
+
+        double pi1 = Electric(sq);
+        double lmass = 1.8014 * Math.Log(mass);
+        double delta1 = pi1 - 19.107 + lmass;
+
+        if (delta1 < 0.0)
+        {
+            return (tsum * Z01 + Z02) * NDELTAWT * delta1;
+        }
+        else if (delta1 > 0.0)
+        {
+            // Note: Currently returns 0 because Z03 = Z04 = 0.0
+            // This is intentional per the original SSRCalc algorithm
+            return (tsum * Z03 + Z04) * PDELTAWT * delta1;
+        }
+
+        return 0.0;
     }
 
     private static double Heli1TermAdj(string ss1, int ix2, int sqlen)
@@ -650,11 +681,9 @@ public class SSRCalc3
         double sum = 0.0;
         for (int i = 0; i < sqlen - 3; i++)
         {
-            string sub6 = null, sub5 = null, sub4 = null;
-
             if (i + 6 <= sqlen)
             {
-                sub6 = hc.Substring(i, 6);
+                string sub6 = hc.Substring(i, 6);
                 if (HlxScore6.TryGetValue(sub6, out double sc6) && sc6 > 0)
                 {
                     sum += sc6 * Heli1TermAdj(sub6, i, sqlen);
@@ -664,7 +693,7 @@ public class SSRCalc3
             }
             if (i + 5 <= sqlen)
             {
-                sub5 = hc.Substring(i, 5);
+                string sub5 = hc.Substring(i, 5);
                 if (HlxScore5.TryGetValue(sub5, out double sc5) && sc5 > 0)
                 {
                     sum += sc5 * Heli1TermAdj(sub5, i, sqlen);
@@ -674,7 +703,7 @@ public class SSRCalc3
             }
             if (i + 4 <= sqlen)
             {
-                sub4 = hc.Substring(i, 4);
+                string sub4 = hc.Substring(i, 4);
                 if (HlxScore4.TryGetValue(sub4, out double sc4) && sc4 > 0)
                 {
                     sum += sc4 * Heli1TermAdj(sub4, i, sqlen);
