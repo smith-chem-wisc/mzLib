@@ -636,11 +636,8 @@ namespace Test
                 // 0.005000000000002558.
                 double actualRound = Math.Round((float)actual, 2);
 
-                // Extra conditional added to improve debugging of issues.
-                if (Math.Abs(expected - actual) > 0.01)
-                {
-                    Assert.AreEqual(expected, actualRound, "Peptide {0}", peptide);
-                }
+                // Compare rounded values to avoid silent mismatches
+                Assert.AreEqual(expected, actualRound, 0.005, "Peptide {0}", peptide);
             }
         }
 
@@ -656,10 +653,8 @@ namespace Test
             for (int i = 0; i < _peptides100A.GetLength(0); i++)
             {
                 var peptide = new PeptideWithSetModifications((string)_peptides100A[i, 0], new Dictionary<string, Modification>());
-                object obj = _peptides100A[i, 1];
                 double expected = (double)_peptides100A[i, 1];
                 double actual = calc.ScoreSequence(peptide.BaseSequence);
-                double actualString = calc.ScoreSequence(peptide.BaseSequence);
 
                 // Round the returned value to match the values presented
                 // in the supporting information of the SSRCalc 3 publication.
@@ -668,14 +663,9 @@ namespace Test
                 // instead of 12.81.  When diffed with 12.81 the result was
                 // 0.005000000000002558.
                 double actualRound = Math.Round((float)actual, 2);
-                double actualStringRound = Math.Round((float)actualString, 2);
 
-                // Extra conditional added to improve debugging of issues.
-                if (Math.Abs(expected - actual) > 0.01)
-                {
-                    Assert.AreEqual(expected, actualRound, "Peptide {0}", peptide);
-                    Assert.AreEqual(expected, actualStringRound, "Peptide {0}", peptide);
-                }
+                // Compare rounded values to avoid silent mismatches
+                Assert.AreEqual(expected, actualRound, 0.005, "Peptide {0}", peptide);
             }
         }
 

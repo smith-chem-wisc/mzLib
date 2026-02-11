@@ -380,8 +380,21 @@ public class SSRCalc3
     {
         Name = name;
         AAParams NULLPARAM = new AAParams(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-        for (int i = 0; i < AAPARAMS.Length; i++) AAPARAMS[i] = NULLPARAM;
-        switch (column) { case Column.A300: A300Column(); break; case Column.A100: A100Column(); break; }
+
+        for (int i = 0; i < AAPARAMS.Length; i++)
+        {
+            AAPARAMS[i] = NULLPARAM;
+        }
+
+        switch (column)
+        {
+            case Column.A300:
+                A300Column();
+                break;
+            case Column.A100:
+                A100Column();
+                break;
+        }
     }
 
     public string Name { get; private set; }
@@ -546,7 +559,8 @@ public class SSRCalc3
     private double Clusterness(string sq)
     {
         if (NOCLUSTER == 1) return 0.0;
-        Span<char> cc = stackalloc char[sq.Length + 2];
+        int bufferSize = sq.Length + 2;
+        Span<char> cc = bufferSize <= 128 ? stackalloc char[bufferSize] : new char[bufferSize];
         cc[0] = '0'; cc[^1] = '0';
         for (int i = 0; i < sq.Length; i++) cc[i + 1] = EncodeClusterChar(sq[i]);
         double score = 0.0;
@@ -771,7 +785,7 @@ public class SSRCalc3
         string Bksq = sq.Backwards();
         double[] fhg = Heli2Calc(sq), rhg = Heli2Calc(Bksq);
         double h2FwBk = rhg[GSC] > fhg[GSC] ? rhg[HISC] : fhg[HISC];
-        double lenMult = sq.Length > 30 ? 1 : 0, NoPMult = sq.Contains("P") ? 0.0 : 0.75;
+        double lenMult = sq.Length > 30 ? 1 : 0, NoPMult = sq.Contains('P') ? 0.0 : 0.75;
         return HELIX2SCALE * (1.0 + lenMult + NoPMult) * h2FwBk;
     }
 
@@ -817,10 +831,28 @@ internal static class HelpersLocal
 {
     public static string ReplaceAAs(this IEnumerable<char> s, string aas, string newValue)
     {
-        StringBuilder sb = new(); bool allAAs = aas == "A-Z";
-        foreach (char c in s) { if (!allAAs && aas.IndexOf(c) != -1) sb.Append(newValue); else if (allAAs && char.IsLetter(c) && char.IsUpper(c)) sb.Append(newValue); else sb.Append(c); }
+        StringBuilder sb = new();
+        bool allAAs = aas == "A-Z";
+
+        foreach (char c in s)
+        {
+            if (!allAAs && aas.IndexOf(c) != -1)
+            {
+                sb.Append(newValue);
+            }
+            else if (allAAs && char.IsLetter(c) && char.IsUpper(c))
+            {
+                sb.Append(newValue);
+            }
+            else
+            {
+                sb.Append(c);
+            }
+        }
+
         return sb.ToString();
     }
+
     public static bool ContainsAA(this IEnumerable<char> s, string aas)
     {
         ReadOnlySpan<char> aasSpan = aas.AsSpan();
@@ -831,5 +863,14 @@ internal static class HelpersLocal
         }
         return false;
     }
-    public static string Backwards(this IEnumerable<char> s) { StringBuilder sb = new(); foreach (char c in s.Reverse()) sb.Append(c); return sb.ToString(); }
+
+    public static string Backwards(this IEnumerable<char> s)
+    {
+        StringBuilder sb = new();
+        foreach (char c in s.Reverse())
+        {
+            sb.Append(c);
+        }
+        return sb.ToString();
+    }
 }
