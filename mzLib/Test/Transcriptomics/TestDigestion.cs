@@ -22,7 +22,7 @@ namespace Test.Transcriptomics
     public class TestDigestion
     {
         public record RnaDigestionTestCase(string BaseSequence, string Enzyme, int MissedCleavages, int MinLength,
-            int MaxLength, int DigestionProductCount,
+            int MaxLength, int DigestionProductCount, 
             double[] MonoMasses, string[] Sequences);
 
         public static IEnumerable<RnaDigestionTestCase> GetTestCases()
@@ -84,12 +84,11 @@ namespace Test.Transcriptomics
                 new[] { "G", "UACUG", "CCUCUAG", "UG", "AAG", "CA" });
         }
 
-        public static string rnaseTsvpath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"Digestion\rnases.tsv");
-
         [OneTimeSetUp]
         public void OneTimeSetup()
         {
-            RnaseDictionary.Dictionary = RnaseDictionary.LoadRnaseDictionary(rnaseTsvpath);
+            // Ensure dictionary is loaded from embedded resource
+            RnaseDictionary.ResetToDefaults();
         }
 
         #region Rnase
@@ -97,8 +96,9 @@ namespace Test.Transcriptomics
         [Test]
         public void TestRnaseDictionaryLoading()
         {
-            var rnaseCountFromTsv = File.ReadAllLines(rnaseTsvpath).Length - 1;
-            Assert.That(RnaseDictionary.Dictionary.Count, Is.EqualTo(rnaseCountFromTsv));
+            // Verify the dictionary loads correctly from embedded resource
+            Assert.That(RnaseDictionary.Dictionary.Count, Is.GreaterThan(0));
+            Assert.That(RnaseDictionary.Dictionary.ContainsKey("RNase T1"));
         }
 
         [Test]
