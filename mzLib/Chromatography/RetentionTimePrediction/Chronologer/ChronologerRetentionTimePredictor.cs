@@ -11,6 +11,9 @@ namespace Chromatography.RetentionTimePrediction.Chronologer;
 public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDisposable
 {
     private readonly Chronologer _model;
+    private readonly object _modelLock = new(); 
+    private bool _disposed;
+
     protected override int MaxSequenceLength => 50;
     private int EncodedLength => MaxSequenceLength + 2; // +2 for N/C termini tokens
     public override string PredictorName => "Chronologer";
@@ -43,6 +46,9 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDispos
 
     protected override double? PredictCore(IRetentionPredictable peptide, string? formattedSequence = null)
     {
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(ChronologerRetentionTimePredictor));
+
         // Get formatted sequence if not provided
         formattedSequence ??= GetFormattedSequence(peptide, out RetentionTimeFailureReason? failureReason);
         if (formattedSequence == null)
@@ -59,17 +65,14 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDispos
         }
 
         // Output shape: [1, MaxPepLen+2], dtype int64
-        Tensor sequenceTensor = tensor(ids, dtype: ScalarType.Int64).reshape(1, EncodedLength);
+        using Tensor sequenceTensor = tensor(ids, dtype: ScalarType.Int64).reshape(1, EncodedLength);
 
-        // Predict retention time
-        try
+
+        // Predict retention time - keep both prediction AND disposal inside lock
+        lock (_modelLock)
         {
-            var prediction = _model.Predict(sequenceTensor);
+            using Tensor prediction = _model.Predict(sequenceTensor);
             return prediction[0].ToDouble();
-        }
-        finally
-        {
-            sequenceTensor?.Dispose();
         }
     }
 
@@ -216,6 +219,10 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDispos
 
     public void Dispose()
     {
-        _model.Dispose();
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        _model?.Dispose();
     }
 }
