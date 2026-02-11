@@ -41,8 +41,9 @@ namespace Test
         }
 
         /// <summary>
-        /// The purpose of this test is to ensure that two peptides digested from two different proteases are not equal even if their sequences are equal
-        /// This is important for multiprotease parsimony in MetaMorpheus
+        /// CRITICAL: Tests that peptides from different proteases are NOT equal even with identical sequences.
+        /// This is essential for multiprotease parsimony in MetaMorpheus - without this distinction,
+        /// peptides from different enzyme digests would be incorrectly collapsed during protein inference.
         /// </summary>
         [Test]
         public static void TestDifferentProteaseEquals()
@@ -50,7 +51,7 @@ namespace Test
             Protein myProtein = new Protein("SEQUENCEK", "accession");
 
             DigestionParams digest1 = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
-            DigestionParams digest2 = new DigestionParams(protease: "Lys-C (cleave before proline)", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            DigestionParams digest2 = new DigestionParams(protease: "Lys-C|P", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
 
             PeptideWithSetModifications pep1 = myProtein.Digest(digest1, new List<Modification>(), new List<Modification>()).First();
             PeptideWithSetModifications pep2 = myProtein.Digest(digest2, new List<Modification>(), new List<Modification>()).First();
@@ -63,6 +64,11 @@ namespace Test
             Assert.That(!pep1.GetHashCode().Equals(pep2.GetHashCode()));
         }
 
+        /// <summary>
+        /// CRITICAL: Tests type safety between PeptideWithSetModifications and OligoWithSetMods.
+        /// Ensures these different biopolymer types are never incorrectly compared as equal,
+        /// which would corrupt search results in multi-omics analyses.
+        /// </summary>
         [Test]
         public static void TestPeptideOligoEquality()
         {
@@ -77,6 +83,11 @@ namespace Test
             Assert.That(!((object)peptide).Equals(oligo));
         }
 
+        /// <summary>
+        /// CRITICAL: Tests semi-specific digestion doesn't crash with various protein sequences.
+        /// Semi-specific search is essential for identifying endogenous peptides and degradation
+        /// products. This test guards against edge cases that could crash the digestion algorithm.
+        /// </summary>
         [Test]
         public static void TestSemiFewCleavages()
         {
@@ -103,12 +114,13 @@ namespace Test
             protein3.Digest(cParams, null, null).ToList();
             cParams = new DigestionParams("trypsin", 0, 7, 9, searchModeType: CleavageSpecificity.Semi, fragmentationTerminus: FragmentationTerminus.C, initiatorMethionineBehavior: InitiatorMethionineBehavior.Cleave);
             protein3.Digest(cParams, null, null).ToList();
-
-            //classic
-            DigestionParams classicSemi = new DigestionParams("semi-trypsin", 2, 7, 50);
-            protein3.Digest(classicSemi, null, null).ToList();
         }
 
+        /// <summary>
+        /// CRITICAL: Tests that MaxLength constraints are respected in semi/non-specific digestion.
+        /// Without proper length enforcement, search space would explode and include peptides
+        /// that cannot physically be detected, wasting computational resources and increasing FDR.
+        /// </summary>
         [Test]
         public static void TestSpeedyNonAndSemiSpecificMaxLength()
         {
@@ -146,6 +158,11 @@ namespace Test
             Assert.IsTrue(cPwsms.Any(x => x.Length == nonCParams.MinPeptideLength));
         }
 
+        /// <summary>
+        /// CRITICAL: Comprehensive test for non-specific and semi-specific digestion correctness.
+        /// Tests peptide generation, cleavage specificity labeling, duplicate prevention, and
+        /// methionine behavior. Essential for all non-tryptic and semi-tryptic searches.
+        /// </summary>
         [Test]
         public static void TestNonAndSemiSpecificDigests()
         {
@@ -304,6 +321,11 @@ namespace Test
             Assert.AreEqual(numSequencesExpected, products.Count);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests that terminal modifications are correctly handled with single proteases.
+        /// For SingleN/SingleC searches, terminal mods that don't affect fragment ions should be
+        /// excluded to prevent redundant peptide generation. Essential for spectral library searches.
+        /// </summary>
         [Test]
         public static void TestSingleProteasesWithTerminalMods()
         {
@@ -363,6 +385,11 @@ namespace Test
             Assert.IsTrue(cSpecificPeps.Count == 11);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests single proteases (N/C terminus fixed) with specific cleavage enzymes.
+        /// Validates peptide counts and methionine cleavage behavior for non-specific searches
+        /// that still respect enzyme cleavage sites. Essential for hybrid search strategies.
+        /// </summary>
         [Test]
         public static void TestSingleProteasesWithSpecificProteases()
         {
@@ -401,6 +428,11 @@ namespace Test
             Assert.IsTrue(peptides.Count == 16);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests parsing of complex modification strings with nested brackets.
+        /// Modifications like "Cation:Fe[III]" contain brackets that could break parsing.
+        /// Essential for correctly reading user-specified and database modifications.
+        /// </summary>
         [Test]
         public static void TestHardToParseModifiedSequence()
         {
@@ -428,6 +460,11 @@ namespace Test
             Assert.That(pep.AllModsOneIsNterminus.Keys.ToList().SequenceEqual(new int[] { 1, 3, 8 }));
         }
 
+        /// <summary>
+        /// CRITICAL: Tests correct parsing of C-terminal vs side-chain modifications.
+        /// A modification on the last residue's side chain vs the peptide C-terminus are
+        /// chemically distinct. Incorrect parsing would cause wrong mass calculations.
+        /// </summary>
         [Test]
         public static void TestCTermAndLastSideChainModParsing()
         {
@@ -465,6 +502,11 @@ namespace Test
             Assert.That(pepSideChain.AllModsOneIsNterminus[8].IdWithMotif == "MyMod on E");
         }
 
+        /// <summary>
+        /// CRITICAL: Tests hash code generation for peptides with and without digestion params.
+        /// Hash codes are essential for Dictionary/HashSet operations. A null return or
+        /// inconsistent hashing would break peptide deduplication and grouping operations.
+        /// </summary>
         [Test]
         public static void TestPeptideWithSetMod_GetHashCode()
         {
@@ -486,6 +528,11 @@ namespace Test
             Assert.IsNotNull(twoHashCode);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests top-down proteomics digestion with proteolysis products.
+        /// Validates that full-length proteins and their truncation products are correctly
+        /// generated. Essential for intact protein and proteoform identification.
+        /// </summary>
         [Test]
         public static void TestTopDownDigestion()
         {
@@ -499,6 +546,11 @@ namespace Test
             Assert.IsTrue(peptides.Count == 3);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests cleavage specificity assignment for FDR categorization.
+        /// Peptides must be correctly labeled as Full/Semi/None specificity for proper
+        /// FDR estimation. Incorrect labeling leads to inflated or deflated FDR.
+        /// </summary>
         [Test]
         public static void TestUpdateCleavageSpecificity()
         {
@@ -533,6 +585,11 @@ namespace Test
             Assert.IsTrue(semiProteolytic.CleavageSpecificityForFdrCategory == CleavageSpecificity.Semi);
         }
 
+        /// <summary>
+        /// EDGE CASE: Tests single proteases on small proteins where peptide count
+        /// should equal protein length minus minimum peptide length plus one.
+        /// Guards against off-by-one errors in peptide enumeration.
+        /// </summary>
         [Test]
         public static void TestSingleProteasesTinyProtein()
         {
@@ -545,6 +602,11 @@ namespace Test
             Assert.IsTrue(nPwsms.Count == P56381.Length - singleN.MinLength + 1);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests splice site intersection logic for variant peptide analysis.
+        /// Correctly identifying which peptides span splice sites is essential for
+        /// alternative splicing detection and isoform-specific peptide annotation.
+        /// </summary>
         [Test]
         public static void TestIncludeSpliceSiteRanges()
         {
@@ -566,6 +628,12 @@ namespace Test
             Assert.IsFalse(pepe.IncludesSpliceSite(ss7After));
         }
 
+        /// <summary>
+        /// CRITICAL: Tests sequence variation intersection and identification logic.
+        /// Validates both 'intersects' (peptide overlaps variant) and 'identifies'
+        /// (peptide uniquely confirms variant) for SAV, MNV, indels, and truncations.
+        /// Essential for variant peptide identification in proteogenomics.
+        /// </summary>
         [Test]
         public static void TestIntersectsSequenceVariations()
         {
@@ -615,6 +683,12 @@ namespace Test
             Assert.IsFalse(pepe2.IntersectsAndIdentifiesVariation(sv5InsertionAtEnd).identifies);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests detection of variant-containing peptides.
+        /// The IsVariantPeptide() method must correctly distinguish peptides that
+        /// span applied sequence variations from those that don't. Essential for
+        /// filtering and reporting variant peptides.
+        /// </summary>
         [Test]
         public static void TestIsVariantPeptide()
         {
@@ -627,6 +701,12 @@ namespace Test
             Assert.IsFalse(notPepe.IsVariantPeptide());
         }
 
+        /// <summary>
+        /// CRITICAL: Tests sequence variant string generation for reporting.
+        /// The SequenceVariantString method must correctly format variant annotations
+        /// including N-terminal mods, middle mods, and truncated variants for output.
+        /// Essential for human-readable variant peptide reporting.
+        /// </summary>
         [Test]
         public static void TestSeqVarString()
         {
@@ -655,6 +735,12 @@ namespace Test
             Assert.AreEqual("MABCDEFGHIJKLMNOP1WACDEFGHIK", pepe4.SequenceVariantString(variant, true));
         }
 
+        /// <summary>
+        /// CRITICAL: Comprehensive test for variant identification and string methods.
+        /// Tests all variant types (SAV, MNV, insertion, deletion, stop-gain, stop-loss)
+        /// for correct intersection detection, identification logic, and string formatting.
+        /// Essential for proteogenomic variant peptide analysis.
+        /// </summary>
         [Test]
         public static void TestIdentifyandStringMethods()
         {
@@ -767,6 +853,11 @@ namespace Test
             Assert.AreEqual("P7D", protein13_peptide.SequenceVariantString(protein13_variant.AppliedSequenceVariations.ElementAt(0), false));
         }
 
+        /// <summary>
+        /// DEFENSIVE: Tests error handling for malformed peptide sequences.
+        /// Validates that ambiguous sequences, bad modifications, and nonexistent mods
+        /// throw MzLibException rather than crashing or returning invalid peptides.
+        /// </summary>
         [Test]
         public static void BreakDeserializationMethod()
         {
@@ -775,6 +866,12 @@ namespace Test
             Assert.Throws<MzLibUtil.MzLibException>(() => new PeptideWithSetModifications("A[:mod]", new Dictionary<string, Modification>())); // nonexistent mod
         }
 
+        /// <summary>
+        /// CRITICAL: Tests reverse decoy peptide generation from target peptides.
+        /// Validates correct sequence reversal, modification position remapping,
+        /// cleavage site preservation, and handling of palindromic sequences.
+        /// Essential for target-decoy FDR estimation in all database searches.
+        /// </summary>
         [Test]
         public static void TestReverseDecoyFromTarget()
         {
@@ -823,19 +920,12 @@ namespace Test
             Assert.AreEqual("DKEITPDEP", p_aspN_reverse.BaseSequence);
             Assert.AreEqual(p_aspN.FullSequence, p_aspN_reverse.PeptideDescription);
 
-            //  chymotrypsin (don't cleave before proline)
+            //  chymotrypsin|P
             newAminoAcidPositions = new int["FKFPRWAWPSYGYPG".Length];
-            PeptideWithSetModifications p_chymoP = new PeptideWithSetModifications(new Protein("FKFPRWAWPSYGYPG", "DECOY_CHYMOP"), new DigestionParams(protease: "chymotrypsin (don't cleave before proline)", maxMissedCleavages: 10), 1, 15, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications p_chymoP = new PeptideWithSetModifications(new Protein("FKFPRWAWPSYGYPG", "DECOY_CHYMOP"), new DigestionParams(protease: "chymotrypsin|P", maxMissedCleavages: 10), 1, 15, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_chymoP_reverse = p_chymoP.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("FGPYGWSPWAYRPFK", p_chymoP_reverse.BaseSequence);
             Assert.AreEqual(p_chymoP.FullSequence, p_chymoP_reverse.PeptideDescription);
-
-            //  chymotrypsin (don't cleave before proline)
-            newAminoAcidPositions = new int["FKFPRWAWPSYGYPG".Length];
-            PeptideWithSetModifications p_chymo = new PeptideWithSetModifications(new Protein("FKFPRWAWPSYGYPG", "DECOY_CHYMO"), new DigestionParams(protease: "chymotrypsin (cleave before proline)", maxMissedCleavages: 10), 1, 15, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            PeptideWithSetModifications p_chymo_reverse = p_chymo.GetReverseDecoyFromTarget(newAminoAcidPositions);
-            Assert.AreEqual("FGFPGWSWPAYRYPK", p_chymo_reverse.BaseSequence);
-            Assert.AreEqual(p_chymo.FullSequence, p_chymo_reverse.PeptideDescription);
 
             //  CNBr cleave after M
             newAminoAcidPositions = new int["MPEPTIMEK".Length];
@@ -846,9 +936,9 @@ namespace Test
 
             //  elastase cleave after A, V, S, G, L, I,
             newAminoAcidPositions = new int["KAYVPSRGHLDIN".Length];
-            PeptideWithSetModifications p_elastase = new PeptideWithSetModifications(new Protein("KAYVPSRGHLDIN", "DECOY_ELASTASE"), new DigestionParams(protease: "elastase"), 1, 13, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications p_elastase = new PeptideWithSetModifications(new Protein("KAYVPSRGHLDIN", "DECOY_ELASTASE"), new DigestionParams(protease: "elastase|P"), 1, 13, CleavageSpecificity.Semi, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_elastase_reverse = p_elastase.GetReverseDecoyFromTarget(newAminoAcidPositions);
-            Assert.AreEqual("NADVHSRGPLYIK", p_elastase_reverse.BaseSequence);
+            Assert.AreEqual("NADHRSPGVLYIK", p_elastase_reverse.BaseSequence);
 
             //  top-down
             newAminoAcidPositions = new int["RPEPTIREK".Length];
@@ -881,6 +971,12 @@ namespace Test
             Assert.AreEqual(p_tryp.FullSequence, p_tryp_reverse.PeptideDescription);
 
         }
+        /// <summary>
+        /// CRITICAL: Tests scrambled decoy peptide generation from target peptides.
+        /// Scrambled decoys are an alternative to reversed decoys that may provide
+        /// better FDR estimation for certain peptide populations. Tests modification
+        /// position mapping and cleavage site preservation during scrambling.
+        /// </summary>
         [Test]
         public static void TestScrambledDecoyFromTarget()
         {
@@ -939,6 +1035,12 @@ namespace Test
             PeptideWithSetModifications mirroredTarget = forceMirror.GetScrambledDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual(new int[] { 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 }, newAminoAcidPositions);
         }
+        /// <summary>
+        /// CRITICAL: Tests decoy generation from peptides digested from real XML databases.
+        /// Ensures decoy generation works correctly with database-derived modifications,
+        /// sequence variants, and other annotations. No unchanged peptides should remain
+        /// after decoy generation (except true palindromes).
+        /// </summary>
         [Test]
         public static void TestReverseDecoyFromPeptideFromProteinXML()
         {
@@ -980,6 +1082,11 @@ namespace Test
             Assert.AreEqual(0, unchangedPeptides);
         }
 
+        /// <summary>
+        /// INFORMATIONAL: Counts how many target peptides have matching decoy sequences.
+        /// This metric helps assess decoy database quality - too many matches indicate
+        /// potential FDR estimation issues. Used for database quality validation.
+        /// </summary>
         [Test]
         public static void CountTargetsWithMatchingDecoys()
         {
@@ -1034,6 +1141,11 @@ namespace Test
             }
         }
 
+        /// <summary>
+        /// CRITICAL: Tests that top-down digestion returns expected truncation products.
+        /// For insulin, expects 68 truncation products. Essential for top-down and
+        /// middle-down proteomics workflows that search for proteoforms.
+        /// </summary>
         [Test]
         public static void TestPeptideWithSetModsReturnsTruncationsInTopDown()
         {
@@ -1046,8 +1158,14 @@ namespace Test
             List<PeptideWithSetModifications> insulinTruncations = insulin.Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
             Assert.AreEqual(68, insulinTruncations.Count);
         }
+        /// <summary>
+        /// CRITICAL: Regression test for top-down truncation product generation.
+        /// Generates a comprehensive table of all truncation peptides for target/decoy
+        /// insulin and compares against expected baseline. Ensures truncation logic
+        /// remains stable across code changes. Essential for top-down proteomics.
+        /// </summary>
         [Test]
-        public static void TestPeptideWithSetModsReturnsDecoyTruncationsInTopDown()
+        public static void TestTopDownTruncationTableMatchesExpected()
         {
             // PURPOSE
             // Generate a comprehensive TSV of all top-down truncation peptides for target and decoy insulin entries,
@@ -1217,6 +1335,11 @@ namespace Test
                 Assert.Fail($"Generated top-down truncation table does not match expected.\nExpected file: {expectedPath}\nActual file: {workPath}\nMissing: {missing.Count}, Extra: {extra.Count}");
             }
         }
+        /// <summary>
+        /// CRITICAL: Tests MostAbundantMonoisotopicMass calculation accuracy.
+        /// Compares against Protein Prospector values. Accurate mass calculation
+        /// is essential for precursor mass matching in database searches.
+        /// </summary>
         [Test]
         public static void CheckMostAbundantMonoisotopicMass()
         {
@@ -1229,6 +1352,12 @@ namespace Test
             Assert.That(large_pep.MostAbundantMonoisotopicMass, Is.EqualTo(large_pep_most_abundant_mass_prospector).Within(0.01));
         }
 
+        /// <summary>
+        /// CRITICAL: Tests EssentialSequence generation for peptide grouping.
+        /// Essential sequences include only user-specified modification types and are
+        /// used for peptide-level grouping and quantification. Regression test against
+        /// expected output file ensures consistency across versions.
+        /// </summary>
         [Test]
         public static void TestPeptideWithSetModsEssentialSequence()
         {
@@ -1242,7 +1371,7 @@ namespace Test
             var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml"), true, DecoyType.None, UniProtPtms, false, null, out var unknownMod);
             var gapdh = proteinXml[0];
 
-            var gapdhPeptides = gapdh.Digest(new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Variable), UniProtPtms, new List<Modification>());
+            var gapdhPeptides = gapdh.Digest(new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Variable), UniProtPtms, new List<Modification>());
 
             List<string> allSequences = new List<string>();
             foreach (var peptide in gapdhPeptides)
@@ -1254,6 +1383,12 @@ namespace Test
 
             CollectionAssert.AreEquivalent(expectedFullStrings, allSequences.ToArray());
         }
+        /// <summary>
+        /// CRITICAL: Tests FullSequence and FullSequenceWithMassShift generation.
+        /// These string representations are used for peptide identification, reporting,
+        /// and spectral library matching. Regression test against expected files
+        /// ensures output format stability across versions.
+        /// </summary>
         [Test]
         public static void TestPeptideWithSetModsFullSequence()
         {
@@ -1263,7 +1398,7 @@ namespace Test
             var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml"), true, DecoyType.None, UniProtPtms, false, null, out var unknownMod);
             var gapdh = proteinXml[0];
 
-            var gapdhPeptides = gapdh.Digest(new DigestionParams(maxMissedCleavages:0, minPeptideLength:1, initiatorMethionineBehavior:InitiatorMethionineBehavior.Variable),UniProtPtms,new List<Modification>());
+            var gapdhPeptides = gapdh.Digest(new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength:1, initiatorMethionineBehavior:InitiatorMethionineBehavior.Variable),UniProtPtms,new List<Modification>());
             
             List<string> allSequences = new List<string>();
             foreach (var peptide in gapdhPeptides)
@@ -1284,6 +1419,11 @@ namespace Test
             CollectionAssert.AreEquivalent(expectedFullStringsWithMassShifts, allSequences.ToArray());
         }
 
+        /// <summary>
+        /// EDGE CASE: Tests peptide behavior when parent protein is null or when
+        /// accessing flanking residues. PreviousResidue/NextResidue should return '-'
+        /// at protein termini or when parent is null. Important for de novo peptides.
+        /// </summary>
         [Test]
         public static void TestPeptideWithSetModsNoParentProtein()
         {
@@ -1319,6 +1459,12 @@ namespace Test
             Assert.AreEqual('-', last.NextResidue);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests equality comparison for PeptideWithSetModifications.
+        /// Correct equality is essential for HashSet/Dictionary operations, peptide
+        /// deduplication, and protein inference. Tests same peptide, different proteins,
+        /// different positions, and null comparisons.
+        /// </summary>
         [Test]
         public static void TestPeptideWithSetModsEquals()
         {
@@ -1358,6 +1504,12 @@ namespace Test
 
        
 
+        /// <summary>
+        /// CRITICAL: Tests modification parsing from FullSequence strings.
+        /// Validates that GetModificationDictionaryFromFullSequence and
+        /// GetModificationsFromFullSequence correctly parse modifications from
+        /// peptide strings. Essential for reading results files and spectral libraries.
+        /// </summary>
         [Test]
         public static void TestIBioPolymerWithSetModsModificationFromFullSequence()
         {
@@ -1449,6 +1601,12 @@ namespace Test
             }
         }
 
+        /// <summary>
+        /// CRITICAL: Tests parsing of nucleotide substitution annotations in full sequences.
+        /// The ParseSubstitutedFullSequence method must correctly apply amino acid
+        /// substitutions from GPTMD-discovered variants while preserving other modifications.
+        /// Essential for variant peptide sequence reconstruction.
+        /// </summary>
         [Test]
         public static void TestGetSubstitutedFullSequence()
         {

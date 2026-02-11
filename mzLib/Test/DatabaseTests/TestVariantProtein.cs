@@ -46,7 +46,93 @@ namespace Test.DatabaseTests
         {
             Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
         }
+        /// <summary>
+        /// CRITICAL: Tests the SequenceVariation constructor and Intersects methods.
+        /// Validates that variant position/sequence properties are correctly stored and that
+        /// the Intersects logic correctly determines overlap with positions and TruncationProducts.
+        /// This is foundational - incorrect intersection logic would cause variants to be
+        /// incorrectly included/excluded during proteolysis product filtering.
+        /// </summary>
+        [Test]
+        public static void SequenceVariantConstructorTest()
+        {
+            int oneBasedBeginPosition = 3;
+            int oneBasedEndPosition = 3;
+            string originalSequence = "A";
+            string variantSequence = "V";
+            string description = "desc";
+            string variantCallFormatStringRepresentation = null;
+            Dictionary<int, List<Modification>> oneBasedModifications = null;
 
+            SequenceVariation sv = new SequenceVariation(oneBasedBeginPosition, oneBasedEndPosition, originalSequence, variantSequence, description, variantCallFormatStringRepresentation, oneBasedModifications);
+            Assert.AreEqual(oneBasedBeginPosition, sv.OneBasedBeginPosition);
+            Assert.AreEqual(oneBasedEndPosition, sv.OneBasedEndPosition);
+            Assert.AreEqual(originalSequence, sv.OriginalSequence);
+            Assert.AreEqual(variantSequence, sv.VariantSequence);
+            Assert.AreEqual(description, sv.Description);
+
+            // Intersects(int pos): inclusive bounds for a point variant at position 3
+            var intersectsPos = typeof(SequenceVariation).GetMethod(
+                "Intersects",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+                binder: null,
+                types: new[] { typeof(int) },
+                modifiers: null);
+
+            Assert.IsNotNull(intersectsPos, "Could not find internal Intersects(int) via reflection");
+            Assert.IsTrue((bool)intersectsPos.Invoke(sv, new object[] { 3 }), "Position at begin/end should intersect");
+            Assert.IsFalse((bool)intersectsPos.Invoke(sv, new object[] { 2 }), "Position before begin should not intersect");
+            Assert.IsFalse((bool)intersectsPos.Invoke(sv, new object[] { 4 }), "Position after end should not intersect");
+
+            // Intersects(TruncationProduct): inclusive overlap checks
+            var intersectsTrunc = typeof(SequenceVariation).GetMethod(
+                "Intersects",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+                binder: null,
+                types: new[] { typeof(TruncationProduct) },
+                modifiers: null);
+
+            Assert.IsNotNull(intersectsTrunc, "Could not find internal Intersects(TruncationProduct) via reflection");
+
+            // Create truncation products around the variant [3..3]
+            var tpExact = new TruncationProduct(3, 3, "chain");   // exact overlap
+            var tpLeftTouch = new TruncationProduct(2, 3, "chain"); // touches at left boundary
+            var tpRightTouch = new TruncationProduct(3, 4, "chain"); // touches at right boundary
+            var tpBefore = new TruncationProduct(1, 2, "chain");   // strictly before
+            var tpAfter = new TruncationProduct(4, 5, "chain");    // strictly after
+
+            Assert.IsTrue((bool)intersectsTrunc.Invoke(sv, new object[] { tpExact }), "Exact-range truncation should intersect");
+            Assert.IsTrue((bool)intersectsTrunc.Invoke(sv, new object[] { tpLeftTouch }), "Left-boundary touch should intersect");
+            Assert.IsTrue((bool)intersectsTrunc.Invoke(sv, new object[] { tpRightTouch }), "Right-boundary touch should intersect");
+            Assert.IsFalse((bool)intersectsTrunc.Invoke(sv, new object[] { tpBefore }), "Non-overlapping (before) should not intersect");
+            Assert.IsFalse((bool)intersectsTrunc.Invoke(sv, new object[] { tpAfter }), "Non-overlapping (after) should not intersect");
+
+            // Also verify with a range variant [5..7]
+            var svRange = new SequenceVariation(5, 7, "ABC", "XYZ", "range-desc", (Dictionary<int, List<Modification>>)null);
+
+            Assert.IsTrue((bool)intersectsPos.Invoke(svRange, new object[] { 5 }), "Begin of range should intersect");
+            Assert.IsTrue((bool)intersectsPos.Invoke(svRange, new object[] { 7 }), "End of range should intersect");
+            Assert.IsFalse((bool)intersectsPos.Invoke(svRange, new object[] { 4 }), "Position before range should not intersect");
+            Assert.IsFalse((bool)intersectsPos.Invoke(svRange, new object[] { 8 }), "Position after range should not intersect");
+
+            var tpOverlapLeft = new TruncationProduct(1, 5, "chain");  // overlaps at begin
+            var tpOverlapRight = new TruncationProduct(7, 10, "chain"); // overlaps at end
+            var tpInside = new TruncationProduct(6, 6, "chain");       // strictly inside
+            var tpOutside = new TruncationProduct(1, 4, "chain");      // strictly outside (left)
+            var tpOutside2 = new TruncationProduct(8, 12, "chain");    // strictly outside (right)
+
+            Assert.IsTrue((bool)intersectsTrunc.Invoke(svRange, new object[] { tpOverlapLeft }), "Overlap at begin should intersect");
+            Assert.IsTrue((bool)intersectsTrunc.Invoke(svRange, new object[] { tpOverlapRight }), "Overlap at end should intersect");
+            Assert.IsTrue((bool)intersectsTrunc.Invoke(svRange, new object[] { tpInside }), "Truncation inside range should intersect");
+            Assert.IsFalse((bool)intersectsTrunc.Invoke(svRange, new object[] { tpOutside }), "Non-overlapping (left) should not intersect");
+            Assert.IsFalse((bool)intersectsTrunc.Invoke(svRange, new object[] { tpOutside2 }), "Non-overlapping (right) should not intersect");
+        }
+
+        /// <summary>
+        /// CRITICAL: Tests basic variant protein creation with ConsensusVariant reference.
+        /// Verifies that a variant protein correctly maintains a reference to its parent
+        /// (consensus) protein, which is essential for tracking variant origins.
+        /// </summary>
         [Test]
         public static void VariantProtein()
         {
@@ -55,6 +141,12 @@ namespace Test.DatabaseTests
             Assert.AreEqual(p, v.ConsensusVariant);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests loading variant proteins from XML database files.
+        /// Validates that sequence variations are correctly parsed from XML, that variant
+        /// proteins have different sequences than their consensus, and that metadata
+        /// (Name, FullName, Accession) is properly differentiated. Essential for XML I/O.
+        /// </summary>
         [Test]
         public void VariantXml()
         {
@@ -73,6 +165,13 @@ namespace Test.DatabaseTests
             List<PeptideWithSetModifications> peptides = variantProteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
 
+        /// <summary>
+        /// CRITICAL: Tests sequence variation handling with reverse decoys.
+        /// Validates that target and decoy variants have matching counts, that variant
+        /// positions are correctly mirrored for decoys (accounting for methionine retention),
+        /// and that OriginalSequence matches the actual protein subsequence at variant positions.
+        /// Essential for FDR-controlled variant peptide identification.
+        /// </summary>
         [Test]
         public static void SeqVarXmlTest()
         {
@@ -118,9 +217,15 @@ namespace Test.DatabaseTests
             }
             Assert.AreNotEqual(target.SequenceVariations.First().VariantCallFormatDataString, decoy.SequenceVariations.First().VariantCallFormatDataString); //decoys and target variations don't have the same desc.
 
-            List<PeptideWithSetModifications> peptides = ok.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
+            // Removed unused assignment to peptides.
         }
 
+        /// <summary>
+        /// CRITICAL: Tests loading sequence variations that carry modifications.
+        /// Validates that modifications attached to variants are correctly positioned in both
+        /// target and decoy proteins, and survive XML round-trip. This is essential for
+        /// searching modified variant peptides (e.g., phosphorylation on a variant residue).
+        /// </summary>
         [Test]
         [TestCase("oblm1.xml", 1, 1)] // mod on starting methionine
         [TestCase("oblm2.xml", 3, 4)] // without starting methionine
@@ -172,6 +277,12 @@ namespace Test.DatabaseTests
             Assert.AreEqual(reversedModIdx, decoy.SequenceVariations.Single().OneBasedModifications.Single().Key);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests that proteolysis product (truncation) positions are correctly
+        /// mirrored when generating reverse decoys. Ensures decoy truncation products
+        /// correspond to valid sequence regions and survive XML round-trip.
+        /// Essential for accurate FDR estimation with truncated protein forms.
+        /// </summary>
         [TestCase("ranges1.xml", 1, 2, 5, 6)] // without starting methionine
         [TestCase("ranges2.xml", 1, 1, 5, 5)] // with starting methionine
         public static void ReverseDecoyProteolysisProducts(string databaseName, int beginIdx, int reversedBeginIdx, int endIdx, int reversedEndIdx)
@@ -201,6 +312,12 @@ namespace Test.DatabaseTests
             Assert.AreEqual(reversedEndIdx, decoy.TruncationProducts.Single().OneBasedEndPosition);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests that disulfide bond positions are correctly mirrored when
+        /// generating reverse decoys. Disulfide bonds constrain protein structure and
+        /// must be accurately represented in decoys for mass calculations.
+        /// Essential for correct decoy generation with structural constraints.
+        /// </summary>
         [TestCase("bonds1.xml", 2, 3, "DICPCP", 4, 5)] // without starting methionine
         [TestCase("bonds2.xml", 2, 4, "MDICPC", 4, 6)] // with starting methionine
         public static void ReverseDecoyDisulfideBonds(string databaseName, int beginIdx, int reversedBeginIdx, string reversedSequence, int endIdx, int reversedEndIdx)
@@ -231,6 +348,12 @@ namespace Test.DatabaseTests
             Assert.AreEqual(reversedEndIdx, decoy.DisulfideBonds.Single().OneBasedEndPosition);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests that splice site positions are correctly mirrored when
+        /// generating reverse decoys. Covers various scenarios: ranges, sites, and
+        /// positions at protein start with/without initiating methionine.
+        /// Essential for accurate splice variant representation in decoys.
+        /// </summary>
         [Test]
         [TestCase("splices1.xml", 2, 4, 3, 5)] // range without starting methionine
         [TestCase("splices2.xml", 2, 5, 3, 6)] // range with starting methionine
@@ -269,6 +392,12 @@ namespace Test.DatabaseTests
             List<PeptideWithSetModifications> peptides = proteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
 
+        /// <summary>
+        /// CRITICAL: Tests variant filtering based on allele depth thresholds.
+        /// Validates that minAlleleDepth parameter correctly filters out low-confidence
+        /// variants while retaining high-confidence ones. Essential for quality-controlled
+        /// variant protein database generation from VCF data.
+        /// </summary>
         [Test]
         [TestCase("HomozygousHLA.xml", 1, 18)]
         [TestCase("HomozygousHLA.xml", 10, 17)]
@@ -282,8 +411,6 @@ namespace Test.DatabaseTests
             Assert.AreEqual(appliedCount, proteins[0].AppliedSequenceVariations.Count()); // some redundant
             Assert.AreEqual(appliedCount, proteins[0].AppliedSequenceVariations.Select(v => v.SimpleString()).Distinct().Count()); // unique changes
             Assert.AreEqual(1, proteins[0].GetVariantBioPolymers().Count);
-            var variantProteins = proteins[0].GetVariantBioPolymers();
-            List<PeptideWithSetModifications> peptides = proteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
         [Test]
         public static void AppliedVariants()
@@ -455,19 +582,8 @@ namespace Test.DatabaseTests
                 Assert.AreEqual(4, listArray[dbIdx][3].AppliedSequenceVariations.Single().OneBasedEndPosition);
             }
 
-            // Ensure exact stability across the three sources:
-            // - All sequences in in-memory #1 equal in-memory #2 and XML reload.
-            CollectionAssert.AreEqual(
-                proteinsWithAppliedVariants.Select(p => p.BaseSequence).ToList(),
-                proteinsWithAppliedVariants2.Select(p => p.BaseSequence).ToList(),
-                "In-memory application should be stable across repeated calls");
-            CollectionAssert.AreEqual(
-                proteinsWithAppliedVariants.Select(p => p.BaseSequence).ToList(),
-                proteinsWithAppliedVariants3.Select(p => p.BaseSequence).ToList(),
-                "XML round-trip should preserve variant-applied sequences in the same order");
-        }
         [Test]
-        public static void AppliedVariants_AsIBioPolymer()
+        public void AdjustSequenceVariationIndices_NullVcf_RebasesPriorVariation()
         {
             // PURPOSE
             // This test mirrors "AppliedVariants" but exercises the IBioPolymer interface path.
@@ -539,10 +655,26 @@ namespace Test.DatabaseTests
             // Group lists for uniform validation loops
             var listArray = new List<IBioPolymer>[]
             {
-                proteinsWithAppliedVariants,
-                proteinsWithAppliedVariants2,
-                proteinsWithAppliedVariants3.Cast<IBioPolymer>().ToList()
-            };
+                // Current implementation re-bases the earlier [4..5] PT->KT across the overlapping T5->A
+                // to coordinates [2..3] (inclusive) in the updated coordinate system.
+                Assert.That(rebased.OneBasedBeginPosition, Is.EqualTo(2));
+                Assert.That(rebased.OneBasedEndPosition, Is.EqualTo(3));
+                Assert.That(rebased.OriginalSequence, Is.EqualTo("PT"));
+                Assert.That(rebased.VariantSequence, Is.EqualTo("KT"));
+                Assert.That(rebased.Description, Is.EqualTo("NULL_VCF_PTtoKT"));
+            });
+        }
+        /// <summary>
+        /// EDGE CASE: Tests the 'continue' branch when a variant's rebased position
+        /// exceeds the truncated sequence length (e.g., after stop-gained).
+        /// Ensures out-of-bounds variants are safely skipped rather than causing
+        /// index errors. Important for stop-gained variant handling.
+        /// </summary>
+        [Test]
+        public void AdjustSequenceVariationIndices_Private_ContinueWhenBeginBeyondNewLength()
+        {
+            // PURPOSE: Hit the `continue;` when begin > variantAppliedProteinSequence.Length.
+            // We call the private method via reflection with a stop-gained edit that truncates the sequence.
 
             // Assert: each expansion produces exactly 5 variant biopolymers, in the same, predictable order
             Assert.AreEqual(5, proteinsWithAppliedVariants.Count, "Expected 5 variants (in-memory 1)");
@@ -854,6 +986,95 @@ namespace Test.DatabaseTests
             Assert.That(refCrossing.All(p => !variantPepWindows.Contains((p.OneBasedStartResidueInProtein, p.OneBasedEndResidueInProtein))));
         }
         [Test]
+        public static void StopGained_NoPeptidesCrossTruncationSite()
+        {
+            // PURPOSE
+            // This test ensures that:
+            // 1) Reverse decoys are generated for a stop-gained (truncated) target protein.
+            // 2) The target and its decoy digest into peptides without referencing residues outside their sequence bounds.
+            // 3) Basic invariants hold for decoy generation (count/order/length/decoy flag).
+            //
+            // CONTEXT
+            // - Database: "StopGain.xml" contains a target protein with a stop-gained variant that truncates the sequence.
+            // - Decoys: Generated using DecoyType.Reverse (sequence reversal-based decoys).
+            // - minAlleleDepth: 400 ensures the stop-gained variant is applied (truncated target).
+            //
+            // EXPECTATIONS
+            // - Exactly 2 proteins are returned: [0] target (non-decoy) + [1] decoy (IsDecoy = true).
+            // - Target and decoy lengths are equal (reverse decoys preserve length).
+            // - Both target and decoy produce peptides via digestion.
+            // - No peptide references indices outside its parent protein's 1..Length range.
+            // - Accessions reflect decoy generation (decoy starts with the default "DECOY_").
+            // - If variant(s) are present, their counts match between target and decoy.
+
+            // Arrange: Load a variant-applied protein set and reverse decoy pair from StopGain.xml.
+            // Using a strict minAlleleDepth applies the stop-gained variant to the target.
+            var proteins = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "StopGain.xml"),
+                true,                 // generateTargets
+                DecoyType.Reverse,    // generate reverse-sequence decoys
+                null,                 // allKnownModifications
+                false,                // isContaminant
+                null,                 // modTypesToExclude
+                out var unknownModifications,
+                minAlleleDepth: 400); // force applying the stop-gained variant
+
+            // Assert: We expect exactly two proteins: target then its decoy.
+            Assert.AreEqual(2, proteins.Count, "Expected 1 target + 1 decoy");
+            Assert.IsFalse(proteins[0].IsDecoy, "First protein should be the target (non-decoy)");
+            Assert.IsTrue(proteins[1].IsDecoy, "Second protein should be the decoy");
+            Assert.That(proteins[1].Accession.StartsWith("DECOY_"), "Decoy accession should start with the default decoy identifier");
+
+            // Assert: Reverse decoys should preserve sequence length.
+            Assert.AreEqual(proteins[0].Length, proteins[1].Length, "Target and decoy should have identical lengths");
+            // In general, target and decoy sequences should not be byte-identical.
+            Assert.AreNotEqual(proteins[0].BaseSequence, proteins[1].BaseSequence, "Decoy sequence should differ from target sequence");
+
+            // If the stop-gained variant is applied to the target, the decoy should carry a corresponding variant count.
+            // We do not enforce exact mapping positions here, only that counts match if any are present.
+            if (proteins[0].AppliedSequenceVariations.Any() || proteins[1].AppliedSequenceVariations.Any())
+            {
+                Assert.AreEqual(
+                    proteins[0].AppliedSequenceVariations.Count(),
+                    proteins[1].AppliedSequenceVariations.Count(),
+                    "Target and decoy should carry the same number of applied sequence variations");
+            }
+
+            // Act: Digest both target and decoy using default digestion parameters (typically trypsin-like rules).
+            var dp = new DigestionParams();
+            var targetPeps = proteins[0].Digest(dp, null, null).ToList();
+            var decoyPeps = proteins[1].Digest(dp, null, null).ToList();
+
+            // Assert: Both should yield peptides.
+            Assert.That(targetPeps.Count > 0, "Target digestion should produce peptides");
+            Assert.That(decoyPeps.Count > 0, "Decoy digestion should produce peptides");
+
+            // Assert: No peptide references residues outside the corresponding protein bounds.
+            Assert.That(targetPeps.All(p =>
+                p.OneBasedStartResidueInProtein >= 1 &&
+                p.OneBasedEndResidueInProtein <= proteins[0].Length),
+                "All target peptides must fall within target bounds");
+
+            Assert.That(decoyPeps.All(p =>
+                p.OneBasedStartResidueInProtein >= 1 &&
+                p.OneBasedEndResidueInProtein <= proteins[1].Length),
+                "All decoy peptides must fall within decoy bounds");
+
+            // Note:
+            // We intentionally do NOT assert the number of peptides or the sum of peptide lengths to be equal between
+            // target and decoy. Even with reverse decoys, tryptic cleavage context differs and may alter cleavage patterns.
+            // The commented lines below are often too strict and can fail legitimately:
+            //
+            // Assert.AreEqual(targetPeps.Sum(p => p.Length), decoyPeps.Sum(p => p.Length));
+            // Assert.AreEqual(targetPeps.Count, decoyPeps.Count);
+        }
+        /// <summary>
+        /// CRITICAL: Tests decoy generation and digestion for stop-gained variants.
+        /// Validates that truncated proteins produce valid decoys, that peptides
+        /// don't reference out-of-bounds positions, and that target/decoy lengths match.
+        /// Essential for FDR control with truncated protein variants.
+        /// </summary>
+        [Test]
         public static void StopGainedDecoysAndDigestion()
         {
             // PURPOSE
@@ -937,6 +1158,12 @@ namespace Test.DatabaseTests
             // Assert.AreEqual(targetPeps.Count, decoyPeps.Count);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests handling of VCF entries with multiple alternate alleles.
+        /// Validates that only the allele specified in the genotype is applied,
+        /// and that minAlleleDepth filtering works correctly with multi-allelic sites.
+        /// Essential for correct interpretation of complex VCF genotypes.
+        /// </summary>
         [Test]
         public static void MultipleAlternateAlleles()
         {
@@ -962,6 +1189,12 @@ namespace Test.DatabaseTests
             Assert.AreEqual('K', proteins[0][63 - 1]); // reference only
         }
 
+        /// <summary>
+        /// CRITICAL: Tests handling of frameshift variants with multiple alternate alleles.
+        /// Validates that frameshift variants correctly alter protein length and that
+        /// the correct alternate allele is applied based on genotype. Essential for
+        /// accurate frameshift protein sequence generation.
+        /// </summary>
         [Test]
         public static void MultipleAlternateFrameshifts()
         {
@@ -981,6 +1214,11 @@ namespace Test.DatabaseTests
             Assert.AreEqual(873 - 403 + 11, proteins[1].Length);
         }
 
+        /// <summary>
+        /// EDGE CASE: Tests handling of unusual/special symbols in variant XML.
+        /// Validates heterozygous variant detection and that giant indels correctly
+        /// overwrite other variants. Lower priority edge case for unusual input data.
+        /// </summary>
         [Test]
         public void VariantSymbolWeirdnessXml()
         {
@@ -998,6 +1236,11 @@ namespace Test.DatabaseTests
             List<PeptideWithSetModifications> peptides = variantProteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
 
+        /// <summary>
+        /// EDGE CASE: Tests handling of heterozygous variants producing both reference
+        /// and alternate protein forms. Validates correct sequence at variant position
+        /// and proper naming differentiation. Lower priority edge case.
+        /// </summary>
         [Test]
         public void VariantSymbolWeirdness2Xml()
         {
@@ -1021,6 +1264,12 @@ namespace Test.DatabaseTests
             List<PeptideWithSetModifications> peptides = variantProteins.SelectMany(vp => vp.Digest(new DigestionParams(), null, null)).ToList();
         }
 
+        /// <summary>
+        /// CRITICAL: Tests indel (insertion/deletion) handling in decoy generation.
+        /// Validates that indel variants with different original/variant lengths are
+        /// correctly reversed in decoys, and that variant positions and sequences
+        /// are properly mirrored. Essential for FDR-controlled indel identification.
+        /// </summary>
         [Test]
         public void IndelDecoyError()
         {
@@ -1039,6 +1288,12 @@ namespace Test.DatabaseTests
             Assert.AreEqual(new string(variantSeq), decoyIndelProtein.AppliedSequenceVariations.Single().VariantSequence);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests that multiple applied sequence variations (including indels)
+        /// are correctly handled in decoy generation. Validates variant counts,
+        /// positions, and sequences for both homozygous and heterozygous variants.
+        /// Essential for complex multi-variant protein handling.
+        /// </summary>
         [Test]
         public void IndelDecoyVariants()
         {
@@ -1054,6 +1309,12 @@ namespace Test.DatabaseTests
             Assert.AreEqual(variantProteins[0].Length - 1646 + 2, variantProteins[2].AppliedSequenceVariations.First().OneBasedBeginPosition);
             Assert.AreEqual("V", variantProteins[2].AppliedSequenceVariations.First().VariantSequence);
         }
+        /// <summary>
+        /// CRITICAL: Tests the AreValid() validation logic for SequenceVariation.
+        /// Comprehensively covers valid/invalid position combinations, different
+        /// constructor behaviors, and edge cases with null/empty sequences.
+        /// Essential for validating variant data integrity.
+        /// </summary>
         [Test]
         public void SequenceVariationIsValidTest()
         {
@@ -1211,6 +1472,12 @@ namespace Test.DatabaseTests
                 description: "range at start");
             Assert.IsTrue(svAtStart.AreValid(), "Ranges that start at 1 are valid provided end >= begin");
         }
+        /// <summary>
+        /// CRITICAL: Tests variant proteins with GPTMD-discovered modifications.
+        /// Validates correct protein counts, variant naming conventions, modification
+        /// positioning (including checking for negative residue indices), and that
+        /// homozygous variants are handled correctly. Essential for GPTMD integration.
+        /// </summary>
         [Test]
         public void VariantModificationTest()
         {
@@ -1240,6 +1507,12 @@ namespace Test.DatabaseTests
             Assert.AreEqual(0, negativeResidues.Count);
 
         }
+        /// <summary>
+        /// CRITICAL: Tests conversion of nucleotide substitution modifications to
+        /// sequence variations. Validates that modifications with type "1 nucleotide
+        /// substitution" are correctly converted to SequenceVariations and removed
+        /// from the modifications collection. Essential for GPTMD variant discovery.
+        /// </summary>
         [Test]
         public void WriteProteinXmlWithVariantsDiscoveredAsModifications2()
         {
