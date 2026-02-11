@@ -27,12 +27,13 @@ namespace UsefulProteomicsDatabases
         /// <param name="additionalModsToAddToProteins">A dictionary of additional modifications to add to proteins.</param>
         /// <param name="bioPolymerList">A list of RNA sequences to be written to the database.</param>
         /// <param name="outputFileName">The name of the output XML file.</param>
+        /// <param name="namingConvention">The naming convention to use for modifications: Uniprot will change all mods to uniprot mods, remove the Mod section at the top, and change the top and bottom output tags to ensure smooth loading into ProteomeDiscoverer.</param>
         /// <returns>A dictionary of new modification residue entries.</returns>
-        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, List<IBioPolymer> bioPolymerList, string outputFileName)
+        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, List<IBioPolymer> bioPolymerList, string outputFileName, bool updateTimeStamp = false, ModificationNamingConvention namingConvention = ModificationNamingConvention.Mixed)
         {
             return bioPolymerList.Any(p => p is Protein)
-                ? WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<Protein>().ToList(), outputFileName)
-                : WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<RNA>().ToList(), outputFileName);
+                ? WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<Protein>().ToList(), outputFileName, updateTimeStamp, namingConvention)
+                : WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<RNA>().ToList(), outputFileName, updateTimeStamp, namingConvention);
         }
 
         /// <summary>
@@ -46,7 +47,7 @@ namespace UsefulProteomicsDatabases
         /// Several chunks of code are commented out. These are blocks that are intended to be implmented in the future, but
         /// are not necessary for the bare bones implementation of Transcriptomics
         /// </remarks>
-        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToNucleicAcids, List<RNA> nucleicAcidList, string outputFileName, bool updateTimeStamp = false)
+        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToNucleicAcids, List<RNA> nucleicAcidList, string outputFileName, bool updateTimeStamp = false, ModificationNamingConvention namingConvention = ModificationNamingConvention.Mixed)
         {
             additionalModsToAddToNucleicAcids = additionalModsToAddToNucleicAcids ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
@@ -75,23 +76,39 @@ namespace UsefulProteomicsDatabases
                 }
 
                 // get modifications from nucleic acid list and concatenate the modifications discovered in GPTMDictionary
-                HashSet<Modification> allRelevantModifications = new HashSet<Modification>(
+                // Extract modifications from sequence variations
+                HashSet<Modification> modsFromSequenceVariations = new HashSet<Modification>(
                     nonVariantRna
                         .SelectMany(p => p.SequenceVariations
-                            .SelectMany(sv => sv.OneBasedModifications)
-                            .Concat(p.OneBasedPossibleLocalizedModifications)
-                            .SelectMany(kv => kv.Value))
-                        .Concat(additionalModsToAddToNucleicAcids
-                            .Where(kv => nonVariantRna
-                                .SelectMany(p => p.SequenceVariations
-                                    .Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession }))
-                                .Contains(kv.Key))
-                            .SelectMany(kv => kv.Value.Select(v => v.Item2))));
+                            .SelectMany(sv => sv.OneBasedModifications.Values
+                                .SelectMany(modList => modList))));
+
+                // Extract modifications from possible localized modifications
+                HashSet<Modification> modsFromLocalizedMods = new HashSet<Modification>(
+                    nonVariantRna
+                        .SelectMany(p => p.OneBasedPossibleLocalizedModifications.Values
+                            .SelectMany(modList => modList)));
+
+                // Extract modifications from additional mods dictionary
+                HashSet<Modification> modsFromAdditionalMods = new HashSet<Modification>(
+                    additionalModsToAddToNucleicAcids
+                        .Where(kv => nonVariantRna
+                            .SelectMany(p => p.SequenceVariations
+                                .Select(sv => VariantApplication.GetAccession(p, new[] { sv }))
+                                .Concat(new[] { p.Accession }))
+                        .Contains(kv.Key))
+                    .SelectMany(kv => kv.Value.Select(v => v.Item2)));
+
+                // Combine all modifications
+                HashSet<Modification> allRelevantModifications = new HashSet<Modification>(
+                    modsFromSequenceVariations
+                        .Concat(modsFromLocalizedMods)
+                        .Concat(modsFromAdditionalMods));
 
                 foreach (Modification mod in allRelevantModifications.OrderBy(m => m.IdWithMotif))
                 {
                     writer.WriteStartElement("modification");
-                    writer.WriteString(mod.ToString() + Environment.NewLine + "//");
+                    writer.WriteString(mod.ToString(namingConvention) + Environment.NewLine + "//");
                     writer.WriteEndElement();
                 }
 
@@ -293,12 +310,16 @@ namespace UsefulProteomicsDatabases
         /// <param name="proteinList"></param>
         /// <param name="outputFileName"></param>
         /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
-        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, List<Protein> proteinList, string outputFileName, bool updateTimeStamp = false)
+        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, List<Protein> proteinList, string outputFileName, bool updateTimeStamp = false, ModificationNamingConvention namingConvention = ModificationNamingConvention.Mixed)
         {
             additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
             // write nonvariant proteins (for cases where variants aren't applied, this just gets the rna itself)
             var nonVariantProteins = proteinList.Select(p => p.ConsensusVariant).Distinct().ToList();
+
+            //TODO: Figure out the best spot for those extension methods. 
+            //if (namingConvention != ModificationNamingConvention.Mixed)
+            //    nonVariantProteins.ForEach(prot => prot.ConvertMods(namingConvention));
 
             var xmlWriterSettings = new XmlWriterSettings
             {
@@ -311,7 +332,8 @@ namespace UsefulProteomicsDatabases
             using (XmlWriter writer = XmlWriter.Create(outputFileName, xmlWriterSettings))
             {
                 writer.WriteStartDocument();
-                writer.WriteStartElement("mzLibProteinDb");
+                string startElement = namingConvention == ModificationNamingConvention.UniProt ? "uniprot" : "mzLibProteinDb";
+                writer.WriteStartElement(startElement);
 
                 List<Modification> myModificationList = new List<Modification>();
                 foreach (Protein p in nonVariantProteins)
@@ -324,9 +346,9 @@ namespace UsefulProteomicsDatabases
 
                 HashSet<Modification> allRelevantModifications = new HashSet<Modification>(
                     nonVariantProteins
-                        .SelectMany(p => p.SequenceVariations
+                        .SelectMany(prot => prot.SequenceVariations
                             .SelectMany(sv => sv.OneBasedModifications)
-                            .Concat(p.OneBasedPossibleLocalizedModifications)
+                            .Concat(prot.OneBasedPossibleLocalizedModifications)
                             .SelectMany(kv => kv.Value))
                         .Concat(additionalModsToAddToProteins
                             .Where(kv => nonVariantProteins
@@ -335,15 +357,22 @@ namespace UsefulProteomicsDatabases
                                 .Contains(kv.Key))
                             .SelectMany(kv => kv.Value.Select(v => v.Item2))));
 
-                foreach (Modification mod in allRelevantModifications.OrderBy(m => m.IdWithMotif))
+
+                if (namingConvention != ModificationNamingConvention.UniProt)
                 {
-                    writer.WriteStartElement("modification");
-                    writer.WriteString(mod.ToString() + Environment.NewLine + "//");
-                    writer.WriteEndElement();
+                    foreach (Modification mod in allRelevantModifications.OrderBy(m => m.IdWithMotif))
+                    {
+                        writer.WriteStartElement("modification");
+                        writer.WriteString(mod.ToString(namingConvention) + Environment.NewLine + "//");
+                        writer.WriteEndElement();
+                    }
                 }
 
                 foreach (Protein protein in nonVariantProteins)
                 {
+                    //if (namingConvention == ModificationNamingConvention.UniProt)
+                    //    protein.ConvertMods(namingConvention);
+
                     writer.WriteStartElement("entry", "http://uniprot.org/uniprot");
                     writer.WriteAttributeString("dataset", protein.DatasetEntryTag);
                     writer.WriteAttributeString("created", protein.CreatedEntryTag);
@@ -447,9 +476,13 @@ namespace UsefulProteomicsDatabases
                     {
                         foreach (var modId in positionModKvp.Value.OrderBy(mod => mod))
                         {
+                            var modDescriptor = namingConvention == ModificationNamingConvention.UniProt
+                                ? modId.Split(" on ")[0]
+                                : modId;
+
                             writer.WriteStartElement("feature");
                             writer.WriteAttributeString("type", "modified residue");
-                            writer.WriteAttributeString("description", modId);
+                            writer.WriteAttributeString("description", modDescriptor);
                             writer.WriteStartElement("location");
                             writer.WriteStartElement("position");
                             writer.WriteAttributeString("position", positionModKvp.Key.ToString(CultureInfo.InvariantCulture));
@@ -491,9 +524,12 @@ namespace UsefulProteomicsDatabases
                         {
                             foreach (var modId in hmm.Value.OrderBy(mod => mod))
                             {
+                                var modDescriptor = namingConvention == ModificationNamingConvention.UniProt
+                                    ? modId.Split(" on ")[0]
+                                    : modId;
                                 writer.WriteStartElement("subfeature");
                                 writer.WriteAttributeString("type", "modified residue");
-                                writer.WriteAttributeString("description", modId);
+                                writer.WriteAttributeString("description", modDescriptor);
                                 writer.WriteStartElement("location");
                                 writer.WriteStartElement("subposition");
                                 writer.WriteAttributeString("subposition", hmm.Key.ToString(CultureInfo.InvariantCulture));
