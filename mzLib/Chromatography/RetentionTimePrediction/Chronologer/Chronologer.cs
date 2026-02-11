@@ -8,7 +8,7 @@ namespace Chromatography.RetentionTimePrediction.Chronologer;
 /// Chronologer deep learning model for retention time prediction.
 /// Wraps TorchSharp neural network with pre-trained weights from the paper
 /// "Deep learning from harmonized peptide libraries enables retention time prediction of diverse post
-/// translational modifications" (https://github.com/searlelab/chronologer).
+/// translational modifications" (https://github.com/searlelab/chronologer). 
 /// </summary>
 internal sealed class Chronologer : torch.nn.Module<torch.Tensor, torch.Tensor>, IDisposable
 {
