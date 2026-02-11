@@ -599,8 +599,14 @@ public class SSRCalc3
     }
 
     private double CalcR(double pH, double PK0, double PK1, int[] CNTref) =>
-        Partial_charge(PK0, pH) + CNTref[0] * Partial_charge(AAPARAMS['K'].PK, pH) + CNTref[1] * Partial_charge(AAPARAMS['R'].PK, pH) + CNTref[2] * Partial_charge(AAPARAMS['H'].PK, pH)
-        - CNTref[3] * Partial_charge(pH, AAPARAMS['D'].PK) - CNTref[4] * Partial_charge(pH, AAPARAMS['E'].PK) - CNTref[5] * Partial_charge(pH, AAPARAMS['Y'].PK) - Partial_charge(pH, PK1);
+        Partial_charge(PK0, pH)
+        + CNTref[EMap['K']] * Partial_charge(AAPARAMS['K'].PK, pH)
+        + CNTref[EMap['R']] * Partial_charge(AAPARAMS['R'].PK, pH)
+        + CNTref[EMap['H']] * Partial_charge(AAPARAMS['H'].PK, pH)
+        - CNTref[EMap['D']] * Partial_charge(pH, AAPARAMS['D'].PK)
+        - CNTref[EMap['E']] * Partial_charge(pH, AAPARAMS['E'].PK)
+        - CNTref[EMap['Y']] * Partial_charge(pH, AAPARAMS['Y'].PK)
+        - Partial_charge(pH, PK1);
 
     private double NewIso(string sq, double tsum)
     {
@@ -683,7 +689,7 @@ public class SSRCalc3
         char testAAl = testsq[OFF1 + posn], testAAr = testsq[OFF1 + posn + 2];
         string testsqCopy = testsq.Substring(OFF1 + posn + 1);
         double mult = Connector(f01, testAAl, testAAr, "--", far1, far2);
-        prod1 *= mult; if (etype == '*') prod1 *= 25.0; if (mult == 0.0) return 0.0;
+        prod1 *= mult; if (etype == '*') prod1 *= 25.0; if (mult <= 0.0) return 0.0;
         for (int i = 1; i < pattern.Length - 2; i += 3)
         {
             string fpart = pattern.Substring(i, 2);
@@ -695,9 +701,9 @@ public class SSRCalc3
             if (fpart == "->") { iss = -1; far1 = '\0'; far2 = testsqCopy[i + 3]; }
             testAAl = testsqCopy[i + 1 + iss]; testAAr = testsqCopy[i + 3 + iss];
             mult = Connector(gpart, testAAl, testAAr, fpart, far1, far2);
-            if (etype == '*' && (mult != 0.0 || acount < 3)) prod1 = prod1 * 25.0 * s3 * mult;
+            if (etype == '*' && (mult > 0.0 || acount < 3)) prod1 = prod1 * 25.0 * s3 * mult;
             if (etype == '+') prod1 = prod1 + s3 * mult;
-            if (mult == 0.0) return prod1;
+            if (mult <= 0.0) return prod1;
             acount++;
         }
         return prod1;
@@ -726,22 +732,36 @@ public class SSRCalc3
         {
             if (pass1[i] == '1')
             {
-                string lc = pass1.Substring(i), sq2 = sqCopy.Substring(i), pat = ""; int zap = 0, subt = 0;
+                string lc = pass1.Substring(i), sq2 = sqCopy.Substring(i);
+                StringBuilder patBuilder = new();
+                int zap = 0, subt = 0;
                 while (zap <= 50 && subt < 2)
                 {
                     char f1 = zap >= 0 && zap < lc.Length ? lc[zap] : '0';
                     char f2 = zap - 1 >= 0 && zap - 1 < lc.Length ? lc[zap - 1] : '0';
                     char f3 = zap + 1 >= 0 && zap + 1 < lc.Length ? lc[zap + 1] : '0';
-                    if (f1 == '1') { if (zap > 0) pat += "--"; pat += sq2.Substring(zap, 1); }
-                    else if (f2 == '1' && f1 == '0') { subt++; if (subt < 2) { pat += "->"; pat += sq2.Substring(zap - 1, 1); } }
-                    else if (f3 == '1' && f1 == '0') { subt++; if (subt < 2) { pat += "<-"; pat += sq2.Substring(zap + 1, 1); } }
+                    if (f1 == '1') { if (zap > 0) patBuilder.Append("--"); patBuilder.Append(sq2[zap]); }
+                    else if (f2 == '1' && f1 == '0') { subt++; if (subt < 2) { patBuilder.Append("->"); patBuilder.Append(sq2[zap - 1]); } }
+                    else if (f3 == '1' && f1 == '0') { subt++; if (subt < 2) { patBuilder.Append("<-"); patBuilder.Append(sq2[zap + 1]); } }
                     if (f1 == '0' && f2 == '0' && f3 == '0') zap = 1000;
                     zap += 3;
                 }
-                if (pat.Length > 4) { double skore = EvalH2pattern(pat, prechop, i - 1, '*'); if (skore >= hiscore) { hiscore = skore; best = pat; best_pos = i; } }
+                if (patBuilder.Length > 4)
+                {
+                    string pat = patBuilder.ToString();
+                    double skore = EvalH2pattern(pat, prechop, i - 1, '*');
+                    if (skore >= hiscore) { hiscore = skore; best = pat; best_pos = i; }
+                }
             }
         }
-        if (hiscore > 0.0) { hiscore = EvalH2pattern(best, prechop, best_pos - 1, '+'); ret[HISC] = hiscore; ret[GSC] = hiscore; return ret; }
+        if (hiscore > 0.0)
+        {
+            double gscore = hiscore;  // Preserve '*' score for GSC (used in forward/backward comparison)
+            hiscore = EvalH2pattern(best, prechop, best_pos - 1, '+');  // '+' score for HISC
+            ret[HISC] = hiscore;
+            ret[GSC] = gscore;
+            return ret;
+        }
         ret[HISC] = 0.0; ret[GSC] = 0.0; return ret;
     }
 
@@ -801,6 +821,15 @@ internal static class HelpersLocal
         foreach (char c in s) { if (!allAAs && aas.IndexOf(c) != -1) sb.Append(newValue); else if (allAAs && char.IsLetter(c) && char.IsUpper(c)) sb.Append(newValue); else sb.Append(c); }
         return sb.ToString();
     }
-    public static bool ContainsAA(this IEnumerable<char> s, string aas) { foreach (char c in s) if (aas.IndexOf(c) != -1) return true; return false; }
+    public static bool ContainsAA(this IEnumerable<char> s, string aas)
+    {
+        ReadOnlySpan<char> aasSpan = aas.AsSpan();
+        foreach (char c in s)
+        {
+            if (aasSpan.Contains(c))
+                return true;
+        }
+        return false;
+    }
     public static string Backwards(this IEnumerable<char> s) { StringBuilder sb = new(); foreach (char c in s.Reverse()) sb.Append(c); return sb.ToString(); }
 }
