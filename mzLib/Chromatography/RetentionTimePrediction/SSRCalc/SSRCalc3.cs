@@ -472,6 +472,9 @@ public class SSRCalc3
     public int NOEHEL { get; set; }
 
     private const bool DUPLICATE_ORIGINAL_CODE = true;
+    //Speaking with the developers, it
+    // was determined that it ought not to have been commented out.  So --
+    // ALGORITHM_VERSION may be used to choose the older or newer code
     private const int ALGORITHM_VERSION = 3;
     private const int LPLim = 20;
     private const int SPLim = 8;
@@ -881,7 +884,13 @@ internal static class HelpersLocal
 
         return sb.ToString();
     }
-
+    /// <summary>
+    /// Inspects a sequence of amino acids, and returns true if it contains
+    /// any of the designated amino acid characters.
+    /// </summary>
+    /// <param name="s">Amino acid sequence</param>
+    /// <param name="aas">List of characters to search for</param>
+    /// <returns>True if any of the amino acid characters are found</returns>
     public static bool ContainsAA(this IEnumerable<char> s, string aas)
     {
         ReadOnlySpan<char> aasSpan = aas.AsSpan();
