@@ -85,6 +85,7 @@ namespace PredictionClients.Koina.AbstractClasses
             var responses = await Task.WhenAll(ToBatchedRequests().Select(request => _http.InferenceRequest(ModelName, request)));
             ResponseToPredictions(responses);
             Dispose();
+            return null; // No warnings to return for RT prediction
         }
 
         /// <summary>

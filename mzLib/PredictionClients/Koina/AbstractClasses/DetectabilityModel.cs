@@ -1,5 +1,6 @@
 ﻿using PredictionClients.Koina.Client;
 using Easy.Common.Extensions;
+using System.ComponentModel;
 using MzLibUtil;
 using PredictionClients.Koina.AbstractClasses;
 
@@ -85,7 +86,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
         /// 4. Ensures proper resource cleanup regardless of success/failure
         /// </remarks>
         /// <exception cref="Exception">Thrown when API responses cannot be deserialized or processed</exception>
-        public override async Task RunInferenceAsync()
+        public override async Task<WarningException?> RunInferenceAsync()
         {
             if (_disposed)
             {
@@ -99,6 +100,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
             var responses = await Task.WhenAll(ToBatchedRequests().Select(request => _http.InferenceRequest(ModelName, request)));
             ResponseToPredictions(responses);
             Dispose();
+            return null; // No warnings to return for detectability prediction
         }
 
         /// <summary>
