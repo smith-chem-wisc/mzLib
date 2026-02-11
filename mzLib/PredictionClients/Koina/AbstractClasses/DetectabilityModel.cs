@@ -73,7 +73,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
         public abstract List<PeptideDetectabilityPrediction> Predictions { get; protected set; }
 
         /// <summary>
-        /// Executes retention time prediction by sending batched requests to the Koina API.
+        /// Executes peptide detectability prediction by sending batched requests to the Koina API.
         /// Handles HTTP client lifecycle, request batching, and response parsing automatically.
         /// </summary>
         /// <returns>Task representing the asynchronous inference operation</returns>
@@ -89,7 +89,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
         {
             if (_disposed)
             {
-                throw new ObjectDisposedException(nameof(RetentionTimeModel), "Cannot run inference on a disposed model instance. The model is meant to be used only on initialized peptides. The results are still accessible.");
+                throw new ObjectDisposedException(nameof(DetectabilityModel), "Cannot run inference on a disposed model instance. The model is meant to be used only on initialized peptides. The results are still accessible.");
             }
             // Dynamic timeout: ~2 minutes per batch + 2 minute buffer for network/processing overhead. Typically a 
             // batch takes less than a minute. 

@@ -203,8 +203,8 @@ namespace Test.KoinaTests
             var energy = 35;
             double? retentionTime = 100.0;
 
-            // Test minimum valid length (2 amino acids)
-            var minLengthPeptide = "KR";
+            // Test minimum valid length (1 amino acids)
+            var minLengthPeptide = "K";
             var modelMin = new Prosit2020IntensityHCD(
                 new List<string> { minLengthPeptide },
                 new List<int> { charge },
@@ -213,7 +213,7 @@ namespace Test.KoinaTests
                 out var warningMin);
 
             Assert.That(modelMin.PeptideSequences.Count, Is.EqualTo(1),
-                "Peptide with 2 amino acids should be valid");
+                "Single amino acid should be valid");
             Assert.That(warningMin, Is.Null,
                 "Minimum length peptide should not produce a warning");
 

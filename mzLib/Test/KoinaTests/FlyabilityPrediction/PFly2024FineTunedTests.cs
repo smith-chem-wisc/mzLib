@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using PredictionClients.Koina.SupportedModels.FlyabilityModels;
-using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
 
 namespace Test.KoinaTests
 {
@@ -50,8 +49,8 @@ namespace Test.KoinaTests
 
             var model = new PFly2024FineTuned(modifiedPeptides, out var warning);
 
-            Assert.That(warning, Is.Not.Null, "Modified peptides should not produce a warning");
-            Assert.That(model.PeptideSequences.Count, Is.EqualTo(1), "All modified peptides should be accepted");
+            Assert.That(warning, Is.Not.Null, "Modified peptides should produce a warning");
+            Assert.That(model.PeptideSequences.Count, Is.EqualTo(1), "Only the unmodified peptide (\"PEPTIDEPEPI\") should be accepted");
         }
 
         /// <summary>

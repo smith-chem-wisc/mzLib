@@ -1,7 +1,6 @@
 ﻿using MzLibUtil;
 using PredictionClients.Koina.AbstractClasses;
 using System.ComponentModel;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -256,7 +255,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
 
             // Extract N-terminal modification for special validation (TMT labeling often requires N-terminal tags)
             // nTermMod will be empty string if no N-terminal mod found in the sequence
-            // firstModISValid checks if the N-terminal modification is in the valid mapping
+            // firstModIsValid checks if the N-terminal modification is in the valid mapping
             var nTermMod = matches.FirstOrDefault(m => m.Index == 0)?.Value ?? string.Empty;
             var firstModIsValid = ValidModificationUnimodMapping.TryGetValue(nTermMod, out var _);
 

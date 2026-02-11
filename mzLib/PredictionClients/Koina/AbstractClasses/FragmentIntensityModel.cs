@@ -232,6 +232,15 @@ namespace PredictionClients.Koina.AbstractClasses
                     }
 
                     var annotation = prediction.FragmentAnnotations[fragmentIndex];
+
+                    // This check is to ensure that the annotation contains the expected format (e.g., "b5+1") before attempting to parse it.
+                    // The API WILL always contain it in the expected format, but this is a safeguard against any malformed annotations that could cause exceptions during parsing.
+                    if (annotation == null || !annotation.Contains('+'))
+                    {
+                        // Skip malformed annotations that do not contain expected ion type and charge information.
+                        continue;
+                    }
+
                     // Parse the annotation to get ion type, number and charge from something like 'b5+1'
                     var ionType = annotation.First().ToString(); // 'b' or 'y'
                     var plusIndex = annotation.IndexOf('+');
@@ -275,8 +284,8 @@ namespace PredictionClients.Koina.AbstractClasses
             var unique = PredictedSpectra.DistinctBy(p => p.Name).ToList();
             if (unique.Count != PredictedSpectra.Count)
             {
-                PredictedSpectra = unique;
                 warning = new WarningException($"Duplicate spectra found in predictions. Reduced from {PredictedSpectra.Count} predicted spectra to {unique.Count} unique spectra.");
+                PredictedSpectra = unique;
             }
         }
 
