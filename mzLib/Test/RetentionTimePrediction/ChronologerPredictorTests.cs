@@ -1,3 +1,4 @@
+using System;
 using NUnit.Framework;
 using Chromatography.RetentionTimePrediction;
 using Chromatography.RetentionTimePrediction.Chronologer;
@@ -6,6 +7,10 @@ using Omics.Modifications;
 using System.Collections.Generic;
 using Chromatography;
 using Readers;
+using System.Collections.Concurrent;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Test.RetentionTimePrediction
 {
@@ -448,6 +453,96 @@ namespace Test.RetentionTimePrediction
             
             Assert.DoesNotThrow(() => predictor.Dispose());
             Assert.DoesNotThrow(() => predictor.Dispose()); // Second dispose should not throw
+        }
+
+        [Test]
+        public void PredictRetentionTime_AfterDispose_ThrowsObjectDisposedException()
+        {
+            var predictor = new ChronologerRetentionTimePredictor();
+            var peptide = new PeptideWithSetModifications("PEPTIDE", new Dictionary<string, Modification>());
+            
+            predictor.Dispose();
+            
+            Assert.That(predictor.PredictRetentionTime(peptide, out var failureReason), Is.Null);
+
+            var method = predictor.GetType().GetMethod("PredictCore" , System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            Exception e = null;
+            try
+            {
+                method!.Invoke(predictor, new object[] { peptide, null });
+            }
+            catch (Exception ex)
+            {
+                e = ex;
+            }
+
+            if (e == null)
+            {
+                Assert.Fail("Expected an exception when calling PredictCore after disposal, but no exception was thrown.");
+            }
+            else
+            {
+                Assert.That(e.InnerException, Is.TypeOf<ObjectDisposedException>());
+                Assert.That(e.InnerException.Message, Does.Contain("Chronologer"));
+            }
+        }
+
+        #endregion
+
+        #region Thread Safety Tests
+
+        [Test]
+        public void PredictRetentionTime_ConcurrentCalls_WithLocking_ReturnsConsistentResults()
+        {
+            using var predictor = new ChronologerRetentionTimePredictor();
+            var peptide = new PeptideWithSetModifications("PEPTIDE", new Dictionary<string, Modification>());
+            
+            var results = new ConcurrentBag<double?>();
+            var tasks = Enumerable.Range(0, 10).Select(_ => Task.Run(() =>
+            {
+                var result = predictor.PredictRetentionTime(peptide, out var _);
+                results.Add(result);
+            })).ToArray();
+
+            Task.WaitAll(tasks);
+
+            Assert.That(results, Has.Count.EqualTo(10));
+            Assert.That(results.All(r => r.HasValue), Is.True);
+            Assert.That(results.Distinct().Count(), Is.EqualTo(1)); // All results should be identical
+        }
+
+        [Test]
+        public void PredictRetentionTime_ConcurrentDifferentPeptides_WithLocking_Succeeds()
+        {
+            using var predictor = new ChronologerRetentionTimePredictor();
+            var peptides = new[]
+            {
+                new PeptideWithSetModifications("PEPTIDE", new Dictionary<string, Modification>()),
+                new PeptideWithSetModifications("PEEPPTIDE", new Dictionary<string, Modification>()),
+                new PeptideWithSetModifications("TIDEPEPTIDE", new Dictionary<string, Modification>())
+            };
+
+            var results = new ConcurrentBag<(string sequence, double? rt)>();
+            var tasks = Enumerable.Range(0, 30).Select(i => Task.Run(() =>
+            {
+                var peptide = peptides[i % 3];
+                var result = predictor.PredictRetentionTime(peptide, out _);
+                results.Add((peptide.BaseSequence, result));
+            })).ToArray();
+
+            Task.WaitAll(tasks);
+
+            Assert.That(results, Has.Count.EqualTo(30));
+            Assert.That(results.All(r => r.rt.HasValue), Is.True);
+            
+            // Verify same peptide always gives same result
+            var groupedResults = results.GroupBy(r => r.sequence);
+            foreach (var group in groupedResults)
+            {
+                var distinctRts = group.Select(r => r.rt).Distinct().Count();
+                Assert.That(distinctRts, Is.EqualTo(1), $"Peptide {group.Key} had inconsistent results");
+            }
         }
 
         #endregion
