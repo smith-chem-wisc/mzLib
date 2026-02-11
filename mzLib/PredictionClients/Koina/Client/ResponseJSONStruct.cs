@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace Predictions.Koina.SupportedModels.Prosit2020IntensityHCD
+namespace PredictionClients.Koina.Client
 {
     public class ResponseJSONStruct
     {
