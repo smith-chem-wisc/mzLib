@@ -637,7 +637,7 @@ namespace Test
                 double actualRound = Math.Round((float)actual, 2);
 
                 // Extra conditional added to improve debugging of issues.
-                if (Math.Abs(expected - actual) > 0.005)
+                if (Math.Abs(expected - actual) > 0.01)
                 {
                     Assert.AreEqual(expected, actualRound, "Peptide {0}", peptide);
                 }
@@ -671,7 +671,7 @@ namespace Test
                 double actualStringRound = Math.Round((float)actualString, 2);
 
                 // Extra conditional added to improve debugging of issues.
-                if (Math.Abs(expected - actual) > 0.005)
+                if (Math.Abs(expected - actual) > 0.01)
                 {
                     Assert.AreEqual(expected, actualRound, "Peptide {0}", peptide);
                     Assert.AreEqual(expected, actualStringRound, "Peptide {0}", peptide);

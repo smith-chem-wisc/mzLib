@@ -630,9 +630,37 @@ public class SSRCalc3
         double sum = 0.0;
         for (int i = 0; i < sqlen - 3; i++)
         {
-            if (i + 6 <= sqlen && HlxScore6.TryGetValue(hc.Substring(i, 6), out double sc6) && sc6 > 0) { sum += sc6 * Heli1TermAdj(hc.Substring(i, 6), i, sqlen); i++; continue; }
-            if (i + 5 <= sqlen && HlxScore5.TryGetValue(hc.Substring(i, 5), out double sc5) && sc5 > 0) { sum += sc5 * Heli1TermAdj(hc.Substring(i, 5), i, sqlen); i++; continue; }
-            if (i + 4 <= sqlen && HlxScore4.TryGetValue(hc.Substring(i, 4), out double sc4) && sc4 > 0) { sum += sc4 * Heli1TermAdj(hc.Substring(i, 4), i, sqlen); i++; }
+            string sub6 = null, sub5 = null, sub4 = null;
+
+            if (i + 6 <= sqlen)
+            {
+                sub6 = hc.Substring(i, 6);
+                if (HlxScore6.TryGetValue(sub6, out double sc6) && sc6 > 0)
+                {
+                    sum += sc6 * Heli1TermAdj(sub6, i, sqlen);
+                    i++;
+                    continue;
+                }
+            }
+            if (i + 5 <= sqlen)
+            {
+                sub5 = hc.Substring(i, 5);
+                if (HlxScore5.TryGetValue(sub5, out double sc5) && sc5 > 0)
+                {
+                    sum += sc5 * Heli1TermAdj(sub5, i, sqlen);
+                    i++;
+                    continue;
+                }
+            }
+            if (i + 4 <= sqlen)
+            {
+                sub4 = hc.Substring(i, 4);
+                if (HlxScore4.TryGetValue(sub4, out double sc4) && sc4 > 0)
+                {
+                    sum += sc4 * Heli1TermAdj(sub4, i, sqlen);
+                    i++;
+                }
+            }
         }
         return HELIX1SCALE * sum;
     }
