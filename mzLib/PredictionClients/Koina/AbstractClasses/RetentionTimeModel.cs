@@ -1,5 +1,6 @@
 ﻿using PredictionClients.Koina.Client;
 using MzLibUtil;
+using System.ComponentModel;
 
 namespace PredictionClients.Koina.AbstractClasses
 {
@@ -71,7 +72,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// 4. Ensures proper resource cleanup regardless of success/failure
         /// </remarks>
         /// <exception cref="Exception">Thrown when API responses cannot be deserialized or processed</exception>
-        public override async Task RunInferenceAsync()
+        public override async Task<WarningException?> RunInferenceAsync()
         {
             if (_disposed)
             {
