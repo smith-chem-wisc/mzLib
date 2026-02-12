@@ -80,8 +80,8 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
         /// <returns>Task representing the asynchronous inference operation</returns>
         /// <remarks>
         /// Process flow:
-        /// 1. Creates HTTP client with dynamic timeout based on input size
-        /// 2. Sends all batched requests concurrently using Task.WhenAll
+        /// 1. Creates HTTP client with realistic timeout based on actual processing time
+        /// 2. Uses throttled batch processing for large datasets to avoid overwhelming the server
         /// 3. Processes responses and populates Predictions collection
         /// 4. Ensures proper resource cleanup regardless of success/failure
         /// </remarks>
@@ -92,13 +92,61 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
             {
                 throw new ObjectDisposedException(nameof(DetectabilityModel), "Cannot run inference on a disposed model instance. The model is meant to be used only on initialized peptides. The results are still accessible.");
             }
-            // Dynamic timeout: ~2 minutes per batch + 2 minute buffer for network/processing overhead. Typically a 
-            // batch takes less than a minute. 
-            int numBatches = (int)Math.Ceiling((double)PeptideSequences.Count / MaxBatchSize);
-            using var _http = new HTTP(timeoutInMinutes: numBatches * 2 + 2);
 
-            var responses = await Task.WhenAll(ToBatchedRequests().Select(request => _http.InferenceRequest(ModelName, request)));
-            ResponseToPredictions(responses);
+            int numBatches = (int)Math.Ceiling((double)PeptideSequences.Count / MaxBatchSize);
+
+            // Realistic timeout calculation: 0.07s per batch + 2min buffer for network overhead
+            // Typically takes ~0.052s per batch, but we add some buffer
+            // Cap at reasonable maximum to prevent extremely long timeouts
+            int estimatedTimeSeconds = (int)(numBatches * 0.07) + 120; // 0.07s per batch + 2min buffer
+            int timeoutMinutes = Math.Max(2, Math.Min(estimatedTimeSeconds / 60 + 1, 30)); // Between 2-30 minutes
+
+            using var _http = new HTTP(timeoutInMinutes: timeoutMinutes);
+
+            var batchedRequests = ToBatchedRequests();
+            var responses = new List<string>();
+
+            // For large datasets (>500 batches), use throttled processing to avoid 504 errors
+            if (numBatches > 500)
+            {
+                Console.WriteLine($"Processing {PeptideSequences.Count:N0} peptides in {numBatches:N0} batches with throttling...");
+                Console.WriteLine($"Estimated completion time: {TimeSpan.FromSeconds(numBatches * 0.05 + 60):mm\\:ss}");
+
+                // Process in chunks of 100 concurrent batches
+                const int maxConcurrentBatches = 100;
+                const int delayBetweenChunks = 200; // 200ms delay between chunks
+
+                for (int i = 0; i < batchedRequests.Count; i += maxConcurrentBatches)
+                {
+                    var chunk = batchedRequests.Skip(i).Take(maxConcurrentBatches);
+                    var chunkResponses = await Task.WhenAll(
+                        chunk.Select(request => _http.InferenceRequest(ModelName, request))
+                    );
+
+                    responses.AddRange(chunkResponses);
+
+                    // Progress reporting every 1000 batches
+                    if ((i + maxConcurrentBatches) % 1000 == 0 || i + maxConcurrentBatches >= batchedRequests.Count)
+                    {
+                        int processed = Math.Min(i + maxConcurrentBatches, numBatches);
+                        Console.WriteLine($"Processed {processed:N0}/{numBatches:N0} batches ({(double)processed / numBatches:P1})");
+                    }
+
+                    // Small delay between chunks to avoid overwhelming the server
+                    if (i + maxConcurrentBatches < batchedRequests.Count)
+                    {
+                        await Task.Delay(delayBetweenChunks);
+                    }
+                }
+            }
+            else
+            {
+                // For smaller datasets, process all batches concurrently
+                var responses_array = await Task.WhenAll(batchedRequests.Select(request => _http.InferenceRequest(ModelName, request)));
+                responses.AddRange(responses_array);
+            }
+
+            ResponseToPredictions(responses.ToArray());
             Dispose();
             return null; // No warnings to return for detectability prediction
         }
