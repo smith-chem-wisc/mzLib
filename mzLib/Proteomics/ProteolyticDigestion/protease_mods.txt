@@ -1,0 +1,23 @@
+﻿Protease Modification List
+# ============================================================================
+# PROTEASE CLEAVAGE MODIFICATIONS
+# ============================================================================
+# This file contains modifications that are applied at protease cleavage sites.
+# These modifications are embedded with mzLib to ensure proteases that require
+# cleavage modifications (like CNBr) work out-of-the-box without external
+# modification files.
+#
+# Format follows the standard mzLib modification format.
+# ============================================================================
+ID   Homoserine lactone on M
+TG   M
+PP   Peptide C-terminal.
+MT   Protease
+CF   C-1 H-4 S-1
+//
+ID   Test on M
+TG   M
+PP   Peptide N-terminal.
+MT   Protease
+CF   C-1 H-4 S-1
+//
