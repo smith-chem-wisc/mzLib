@@ -56,31 +56,195 @@ namespace Proteomics.ProteolyticDigestion
     /// </summary>
     public static class ProteaseDictionary
     {
-        private const string EmbeddedResourceName = "Proteomics.ProteolyticDigestion.proteases.tsv";
+        private const string EmbeddedProteaseResourceName = "Proteomics.ProteolyticDigestion.proteases.tsv";
+        private const string EmbeddedProteaseModsResourceName = "Proteomics.ProteolyticDigestion.protease_mods.txt";
 
         static ProteaseDictionary()
         {
-            // Load from embedded resource (no protease modifications in static initialization)
-            Dictionary = LoadProteaseDictionary(proteaseMods: null);
+            // Load from embedded resources with embedded modifications
+            // This ensures proteases with cleavage modifications (like CNBr) work out-of-the-box
+            Dictionary = LoadProteaseDictionaryWithEmbeddedMods();
         }
 
         public static Dictionary<string, Protease> Dictionary { get; set; }
+
+        #region Embedded Resource Loading
+
+        /// <summary>
+        /// Loads the protease dictionary using embedded resources for both proteases and their modifications.
+        /// This is the recommended method for applications that want to use mzLib's default proteases
+        /// without providing their own modification definitions.
+        /// </summary>
+        /// <returns>Dictionary of protease name to Protease object, with all embedded modifications applied.</returns>
+        public static Dictionary<string, Protease> LoadProteaseDictionaryWithEmbeddedMods()
+        {
+            var embeddedMods = LoadEmbeddedProteaseMods();
+            return LoadProteaseDictionaryFromEmbeddedResource(embeddedMods);
+        }
+
+        /// <summary>
+        /// Loads protease-specific modifications from the embedded resource (protease_mods.txt).
+        /// These are modifications that are applied at cleavage sites (e.g., Homoserine lactone for CNBr).
+        /// </summary>
+        /// <returns>
+        /// List of modifications defined in the embedded protease_mods.txt resource.
+        /// Returns an empty list if the resource is not found or cannot be parsed.
+        /// </returns>
+        public static List<Modification> LoadEmbeddedProteaseMods()
+        {
+            var assembly = typeof(ProteaseDictionary).Assembly;
+
+            using (var stream = assembly.GetManifestResourceStream(EmbeddedProteaseModsResourceName))
+            {
+                if (stream == null)
+                {
+                    // Return empty list if the embedded mods file doesn't exist
+                    // This allows backward compatibility with assemblies that don't have the file
+                    return new List<Modification>();
+                }
+
+                using (var reader = new StreamReader(stream))
+                {
+                    string fileContent = reader.ReadToEnd();
+                    return ParseModificationsFromString(fileContent);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Parses modifications from a string in the standard mzLib modification format.
+        /// This is a simplified parser for the protease modifications embedded resource.
+        /// </summary>
+        /// <param name="content">The modification file content as a string.</param>
+        /// <returns>List of parsed Modification objects.</returns>
+        private static List<Modification> ParseModificationsFromString(string content)
+        {
+            var modifications = new List<Modification>();
+
+            // Split by modification entry delimiter
+            var entries = content.Split(new[] { "//" }, StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var entry in entries)
+            {
+                var lines = entry.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+                string id = null;
+                string target = null;
+                string locationRestriction = null;
+                string modificationType = null;
+                Chemistry.ChemicalFormula chemicalFormula = null;
+                double? monoisotopicMass = null;
+                Dictionary<string, IList<string>> databaseReference = null;
+
+                foreach (var line in lines)
+                {
+                    // Skip comments and empty lines
+                    if (string.IsNullOrWhiteSpace(line) || line.TrimStart().StartsWith("#"))
+                        continue;
+
+                    if (line.Length < 5)
+                        continue;
+
+                    string key = line.Substring(0, 2).Trim();
+                    string value = line.Length > 5 ? line.Substring(5).Trim() : string.Empty;
+
+                    switch (key)
+                    {
+                        case "ID":
+                            id = value;
+                            break;
+                        case "TG":
+                            target = value.TrimEnd('.');
+                            break;
+                        case "PP":
+                            locationRestriction = value;
+                            break;
+                        case "MT":
+                            modificationType = value;
+                            break;
+                        case "CF":
+                            try
+                            {
+                                chemicalFormula = Chemistry.ChemicalFormula.ParseFormula(value.Replace(" ", string.Empty));
+                            }
+                            catch
+                            {
+                                // Skip invalid formulas
+                            }
+                            break;
+                        case "MM":
+                            if (double.TryParse(value, System.Globalization.NumberStyles.Any,
+                                System.Globalization.CultureInfo.InvariantCulture, out double mm))
+                            {
+                                monoisotopicMass = mm;
+                            }
+                            break;
+                        case "DR":
+                            var splitDR = value.TrimEnd('.').Split(new[] { "; " }, StringSplitOptions.None);
+                            if (splitDR.Length >= 2)
+                            {
+                                databaseReference ??= new Dictionary<string, IList<string>>();
+                                if (databaseReference.TryGetValue(splitDR[0], out var existingList))
+                                {
+                                    existingList.Add(splitDR[1]);
+                                }
+                                else
+                                {
+                                    databaseReference.Add(splitDR[0], new List<string> { splitDR[1] });
+                                }
+                            }
+                            break;
+                    }
+                }
+
+                // Create the modification if we have at least an ID
+                if (!string.IsNullOrEmpty(id))
+                {
+                    ModificationMotif motif = null;
+                    if (!string.IsNullOrEmpty(target))
+                    {
+                        ModificationMotif.TryGetMotif(target, out motif);
+                    }
+
+                    var mod = new Modification(
+                        _originalId: id,
+                        _accession: null,
+                        _modificationType: modificationType ?? "Protease",
+                        _featureType: null,
+                        _target: motif,
+                        _locationRestriction: locationRestriction,
+                        _chemicalFormula: chemicalFormula,
+                        _monoisotopicMass: monoisotopicMass,
+                        _databaseReference: databaseReference,
+                        _taxonomicRange: null,
+                        _keywords: null,
+                        _neutralLosses: null,
+                        _diagnosticIons: null,
+                        _fileOrigin: "Embedded:protease_mods.txt"
+                    );
+
+                    modifications.Add(mod);
+                }
+            }
+
+            return modifications;
+        }
 
         /// <summary>
         /// Loads the default proteases from the embedded resource.
         /// </summary>
         /// <param name="proteaseMods">Optional list of modifications to apply to proteases that require them.</param>
         /// <returns>Dictionary of protease name to Protease object.</returns>
-        private static Dictionary<string, Protease> LoadProteaseDictionary(List<Modification> proteaseMods)
+        private static Dictionary<string, Protease> LoadProteaseDictionaryFromEmbeddedResource(List<Modification> proteaseMods)
         {
             var assembly = typeof(ProteaseDictionary).Assembly;
 
-            using (var stream = assembly.GetManifestResourceStream(EmbeddedResourceName))
+            using (var stream = assembly.GetManifestResourceStream(EmbeddedProteaseResourceName))
             {
                 if (stream == null)
                 {
                     throw new MzLibException(
-                        $"Could not find embedded resource '{EmbeddedResourceName}'. " +
+                        $"Could not find embedded resource '{EmbeddedProteaseResourceName}'. " +
                         $"Available resources: {string.Join(", ", assembly.GetManifestResourceNames())}");
                 }
 
@@ -94,6 +258,10 @@ namespace Proteomics.ProteolyticDigestion
                 }
             }
         }
+
+        #endregion
+
+        #region External File Loading
 
         /// <summary>
         /// Loads proteases from an external file path. Useful for loading custom user-defined proteases.
@@ -143,18 +311,32 @@ namespace Proteomics.ProteolyticDigestion
                 addedOrUpdated.Add(kvp.Key);
             }
 
-
             return addedOrUpdated;
         }
 
         /// <summary>
         /// Resets the dictionary to the default embedded proteases, discarding any custom additions.
+        /// Uses embedded modifications by default.
         /// </summary>
-        /// <param name="proteaseMods">Optional list of modifications to apply to proteases that require them.</param>
+        /// <param name="proteaseMods">
+        /// Optional list of modifications to apply to proteases that require them.
+        /// If null, embedded modifications will be used.
+        /// </param>
         public static void ResetToDefaults(List<Modification> proteaseMods = null)
         {
-            Dictionary = LoadProteaseDictionary(proteaseMods);
+            if (proteaseMods == null)
+            {
+                // Use embedded modifications
+                Dictionary = LoadProteaseDictionaryWithEmbeddedMods();
+            }
+            else
+            {
+                // Use provided modifications
+                Dictionary = LoadProteaseDictionaryFromEmbeddedResource(proteaseMods);
+            }
         }
+
+        #endregion
 
         /// <summary>
         /// Gets a protease by name, with backward compatibility for old naming conventions.
