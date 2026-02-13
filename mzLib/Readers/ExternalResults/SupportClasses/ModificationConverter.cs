@@ -12,7 +12,7 @@ public static class ModificationConverter
     private static readonly ConcurrentDictionary<(string, char), Modification> _modificationCache;
 
     internal static List<Modification> AllKnownMods => Mods.AllKnownMods;
-    internal static Dictionary<string, Modification> AllModsKnown => Mods.AllModsKnown;
+    internal static Dictionary<string, Modification> AllModsKnown => Mods.AllModsKnownDictionary;
 
     static ModificationConverter()
     {

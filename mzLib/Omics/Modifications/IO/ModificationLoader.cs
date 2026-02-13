@@ -652,10 +652,8 @@ public static class ModificationLoader
     /// </summary>
     public static obo LoadPsiMod(string psimodLocation)
     {
-        using (FileStream stream = new FileStream(psimodLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
-        {
-            return LoadPsiMod(stream);
-        }
+        using FileStream stream = new FileStream(psimodLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
+        return LoadPsiMod(stream);
     }
 
     /// <summary>

@@ -30,10 +30,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
 using Omics.Modifications;
-using UsefulProteomicsDatabases.Generated;
 using TopDownProteomics.IO.Obo;
 using Omics.Modifications.IO;
-using obo = Omics.Modifications.IO.obo;
 
 namespace UsefulProteomicsDatabases
 {
@@ -195,32 +193,22 @@ namespace UsefulProteomicsDatabases
         public static IEnumerable<Modification> LoadUnimod(string unimodLocation)
         {
             if (!File.Exists(unimodLocation))
-            {
                 UpdateUnimod(unimodLocation);
-            }
             return ModificationLoader.ReadModsFromUnimod(unimodLocation);
         }
 
         public static obo LoadPsiMod(string psimodLocation)
         {
-            var psimodSerializer = new XmlSerializer(typeof(obo));
             if (!File.Exists(psimodLocation))
-            {
                 UpdatePsiMod(psimodLocation);
-            }
-            using (FileStream stream = new FileStream(psimodLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
-            {
-                return ModificationLoader.LoadPsiMod(stream);
-            }
+            return ModificationLoader.LoadPsiMod(psimodLocation);
         }
 
         public static IEnumerable<Modification> LoadUniprot(string uniprotLocation, Dictionary<string, int> formalChargesDictionary)
         {
             if (!File.Exists(uniprotLocation))
-            {
                 UpdateUniprot(uniprotLocation);
-            }
-            return ModificationLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary, out var _).OfType<Modification>();
+            return ModificationLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary, out var _);
         }
 
         /// <summary>

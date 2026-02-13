@@ -22,11 +22,11 @@ public static class ModificationTest
     {
         List<ModificationTestCase> testCases =
         [
-            new (Mods.AllKnownProteinMods["DVFQQQTGG (SUMO-2/3 Site human) on D"], ModificationNamingConvention.MetaMorpheus, true),
-            new (Mods.AllKnownProteinMods["Phosphorylation on T"], ModificationNamingConvention.MetaMorpheus, true),
-            new (Mods.AllKnownRnaMods["MethoxyEthoxylation on G"], ModificationNamingConvention.MetaMorpheus_Rna, false),
-            new (Mods.AllKnownProteinMods["(3S)-3-hydroxyaspartate on D"], ModificationNamingConvention.UniProt, true),
-            new (Mods.AllKnownProteinMods["ICAT-D:2H(8) on C"], ModificationNamingConvention.Unimod, true),
+            new (Mods.AllKnownProteinModsDictionary["DVFQQQTGG (SUMO-2/3 Site human) on D"], ModificationNamingConvention.MetaMorpheus, true),
+            new (Mods.AllKnownProteinModsDictionary["Phosphorylation on T"], ModificationNamingConvention.MetaMorpheus, true),
+            new (Mods.AllKnownRnaModsDictionary["MethoxyEthoxylation on G"], ModificationNamingConvention.MetaMorpheus_Rna, false),
+            new (Mods.AllKnownProteinModsDictionary["(3S)-3-hydroxyaspartate on D"], ModificationNamingConvention.UniProt, true),
+            new (Mods.AllKnownProteinModsDictionary["ICAT-D:2H(8) on C"], ModificationNamingConvention.Unimod, true),
         ];
 
         return testCases;
@@ -168,8 +168,8 @@ public static class ModificationTest
         }
 
 
-        bool hasProteinMod = Mods.AllKnownProteinMods.Values.Any(m => mods.Contains(m));
-        bool hasRnaMod = Mods.AllKnownRnaMods.Values.Any(m => mods.Contains(m));
+        bool hasProteinMod = Mods.AllKnownProteinModsDictionary.Values.Any(m => mods.Contains(m));
+        bool hasRnaMod = Mods.AllKnownRnaModsDictionary.Values.Any(m => mods.Contains(m));
 
         Assert.That(hasProteinMod, Is.True, "Expected at least one protein modification.");
         Assert.That(hasRnaMod, Is.True, "Expected at least one RNA modification.");

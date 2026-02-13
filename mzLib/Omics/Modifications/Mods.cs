@@ -14,31 +14,40 @@ public enum ModificationNamingConvention
 
 public static class Mods
 {
-    private static readonly Lazy<Dictionary<string, Modification>> _allKnownProteinMods;
-    private static readonly Lazy<List<Modification>> _allProteinModsList;
-
-    private static readonly Lazy<Dictionary<string, Modification>> _allKnownRnaMods;
-    private static readonly Lazy<List<Modification>> _allRnaModsList;
-
     private static readonly object _cacheLock = new object();
 
     public static Dictionary<ModificationNamingConvention, List<Modification>> ModsByConvention { get; private set; }
 
     static Mods()
     {
-        _allKnownProteinMods = new Lazy<Dictionary<string, Modification>>(LoadAllProteinModifications);
-        _allProteinModsList = new Lazy<List<Modification>>(() => _allKnownProteinMods.Value.Values.ToList());
-        _allKnownRnaMods = new Lazy<Dictionary<string, Modification>>(LoadAllRnaModifications);
-        _allRnaModsList = new Lazy<List<Modification>>(() => _allKnownRnaMods.Value.Values.ToList());
-
         MetaMorpheusModifications = new List<Modification>();
         UnimodModifications = new List<Modification>();
         UniprotModifications = new List<Modification>();
+        LoadAllProteinModifications();
+        AllProteinModsList = UnimodModifications.Concat(UniprotModifications).Concat(MetaMorpheusModifications).ToList();
+        AllKnownProteinModsDictionary = AllProteinModsList
+            .DistinctBy(m => m.IdWithMotif)
+            .ToDictionary(m => m.IdWithMotif);
+
+        MetaMorpheusRnaModifications = new List<Modification>();
+        LoadAllRnaModifications();
+        AllRnaModsList = MetaMorpheusRnaModifications.ToList();
+        AllKnownRnaModsDictionary = AllRnaModsList
+            .DistinctBy(m => m.IdWithMotif)
+            .ToDictionary(m => m.IdWithMotif);
+
+        // Combine protein and RNA mods, with Protein mods taking precedence in case of conflicts
+        AllModsKnownDictionary = new Dictionary<string, Modification>(AllKnownRnaModsDictionary);
+        foreach (var kvp in AllKnownProteinModsDictionary)
+        {
+            AllModsKnownDictionary[kvp.Key] = kvp.Value;
+        }
+        AllKnownMods = AllModsKnownDictionary.Values.ToList();
 
         ModsByConvention = new Dictionary<ModificationNamingConvention, List<Modification>>
         {
             { ModificationNamingConvention.MetaMorpheus, MetaMorpheusModifications},
-            { ModificationNamingConvention.MetaMorpheus_Rna, AllRnaModsList },
+            { ModificationNamingConvention.MetaMorpheus_Rna, MetaMorpheusRnaModifications },
             { ModificationNamingConvention.UniProt, UniprotModifications},
             { ModificationNamingConvention.Unimod, UnimodModifications },
             { ModificationNamingConvention.Mixed, AllKnownMods }
@@ -46,53 +55,45 @@ public static class Mods
     }
 
     #region Public Properties
+    public static List<Modification> UniprotModifications { get; }
+    public static List<Modification> MetaMorpheusModifications { get; }
+    public static List<Modification> UnimodModifications { get; }
 
     /// <summary>
     /// All known protein modifications indexed by IdWithMotif
     /// </summary>
-    public static Dictionary<string, Modification> AllKnownProteinMods => _allKnownProteinMods.Value;
+    public static Dictionary<string, Modification> AllKnownProteinModsDictionary { get; }
 
     /// <summary>
     /// All known protein modifications as a list
     /// </summary>
-    public static List<Modification> AllProteinModsList => _allProteinModsList.Value;
+    public static List<Modification> AllProteinModsList { get; }
+
+
+
+    public static List<Modification> MetaMorpheusRnaModifications { get; }
 
     /// <summary>
     /// All known RNA modifications indexed by IdWithMotif
     /// </summary>
-    public static Dictionary<string, Modification> AllKnownRnaMods => _allKnownRnaMods.Value;
+    public static Dictionary<string, Modification> AllKnownRnaModsDictionary { get; }
 
     /// <summary>
     /// All known RNA modifications as a list
     /// </summary>
-    public static List<Modification> AllRnaModsList => _allRnaModsList.Value;
+    public static List<Modification> AllRnaModsList { get;  }
 
     /// <summary>
     /// Combined list of all known modifications (protein + RNA)
     /// </summary>
-    public static List<Modification> AllKnownMods =>
-        AllProteinModsList.Concat(AllRnaModsList).ToList();
+    public static List<Modification> AllKnownMods { get; }
 
     /// <summary>
     /// Combined dictionary of all known modifications (protein + RNA)
     /// RNA mods take precedence in case of conflicts
     /// </summary>
-    public static Dictionary<string, Modification> AllModsKnown
-    {
-        get
-        {
-            var combined = new Dictionary<string, Modification>(AllKnownProteinMods);
-            foreach (var kvp in AllKnownRnaMods)
-            {
-                combined[kvp.Key] = kvp.Value;
-            }
-            return combined;
-        }
-    }
+    public static Dictionary<string, Modification> AllModsKnownDictionary { get; }
 
-    public static List<Modification> UniprotModifications { get; private set; }
-    public static List<Modification> MetaMorpheusModifications { get; private set; }
-    public static List<Modification> UnimodModifications { get; private set; }
 
     #endregion
 
@@ -101,9 +102,8 @@ public static class Mods
     /// <summary>
     /// Loads Protein modifications from embedded resources and custom sources
     /// </summary>
-    private static Dictionary<string, Modification> LoadAllProteinModifications()
+    private static void LoadAllProteinModifications()
     {
-        var allMods = new Dictionary<string, Modification>();
         var assembly = Assembly.GetExecutingAssembly();
         var assemblyName = assembly.GetName().Name;
 
@@ -114,10 +114,7 @@ public static class Mods
     
             UnimodModifications.Clear();
             var unimodMods = ModificationLoader.ReadModsFromUnimod(unimodStream!).ToList();
-
-            UnimodModifications.AddRange(unimodMods);
-            AddModsToDictionary(allMods, unimodMods, "Unimod");
-      
+            UnimodModifications.AddRange(unimodMods);      
 
             // 2. Load PSI-MOD and get formal charges
             var psiModStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.PSI-MOD.obo.xml");
@@ -133,10 +130,7 @@ public static class Mods
             using var uniProtReader = new StreamReader(uniprotStream!);
             var uniprotMods = ModificationLoader.ReadModsFromFile(uniProtReader, formalChargeDict,
                 out _).ToList();
-
             UniprotModifications.AddRange(uniprotMods);
-            AddModsToDictionary(allMods, uniprotMods, "UniProt");
-
 
             // 4. Load custom Mods.txt
             var modsTextStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.Mods.txt");
@@ -145,27 +139,21 @@ public static class Mods
             using var modTextReader = new StreamReader(modsTextStream!);
             var modsTextMods = ModificationLoader.ReadModsFromFile(modTextReader, formalChargeDict,
                 out _).ToList();
-
             MetaMorpheusModifications.AddRange(modsTextMods);
-            AddModsToDictionary(allMods, modsTextMods, "MetaMorpheus ModsText");
-
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error loading protein modifications: {ex.Message}");
             throw new InvalidOperationException("Failed to load protein modifications from embedded resources", ex);
         }
-
-        return allMods;
     }
 
 
     /// <summary>
     /// Loads RNA modifications from embedded resources and custom sources
     /// </summary>
-    private static Dictionary<string, Modification> LoadAllRnaModifications()
+    private static void LoadAllRnaModifications()
     {
-        var allMods = new Dictionary<string, Modification>();
         var assembly = Assembly.GetExecutingAssembly();
         var assemblyName = assembly.GetName().Name;
 
@@ -175,43 +163,18 @@ public static class Mods
             // For now, this is a placeholder for future RNA mod sources
             var rnaModsStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.RnaMods.txt");
 
+            MetaMorpheusRnaModifications.Clear();
             using var rnaModsReader = new StreamReader(rnaModsStream!);
             var rnaMods = ModificationLoader.ReadModsFromFile(rnaModsReader,
                 new Dictionary<string, int>(), out _);
-            AddModsToDictionary(allMods, rnaMods, "RNA");
-
+            MetaMorpheusRnaModifications.AddRange(rnaMods);
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error loading RNA modifications: {ex.Message}");
             // Don't throw - RNA mods are optional
         }
-
-        return allMods;
     }
-
-    /// <summary>
-    /// Helper method to add modifications to dictionary, handling duplicates
-    /// </summary>
-    private static void AddModsToDictionary(Dictionary<string, Modification> dict,
-        IEnumerable<Modification> mods, string source)
-    {
-        foreach (var mod in mods)
-        {
-            if (!dict.ContainsKey(mod.IdWithMotif))
-            {
-                dict[mod.IdWithMotif] = mod;
-            }
-            else
-            {
-                // Log duplicate but prefer the first one loaded
-                System.Diagnostics.Debug.WriteLine(
-                    $"Duplicate modification from {source}: {mod.IdWithMotif}");
-            }
-        }
-    }
-
-
 
     #endregion
 
@@ -227,23 +190,23 @@ public static class Mods
 
         if (searchProteinMods && !searchRnaMods)
         {
-            if (AllKnownProteinMods.TryGetValue(id, out var mod))
+            if (AllKnownProteinModsDictionary.TryGetValue(id, out var mod))
                 return mod;
-            return AllProteinModsList.FirstOrDefault(m => m.IdWithMotif == id || m.OriginalId == id);
+            return AllProteinModsList.FirstOrDefault(m => m.IdWithMotif == id);
         }
 
         if (!searchProteinMods && searchRnaMods)
         {
-            if (AllKnownRnaMods.TryGetValue(id, out var mod))
+            if (AllKnownRnaModsDictionary.TryGetValue(id, out var mod))
                 return mod;
-            return AllRnaModsList.FirstOrDefault(m => m.IdWithMotif == id || m.OriginalId == id);
+            return AllRnaModsList.FirstOrDefault(m => m.IdWithMotif == id);
         }
 
         // Search both
-        if (AllModsKnown.TryGetValue(id, out var foundMod))
+        if (AllModsKnownDictionary.TryGetValue(id, out var foundMod))
             return foundMod;
 
-        return AllKnownMods.FirstOrDefault(m => m.IdWithMotif == id || m.OriginalId == id);
+        return AllKnownMods.FirstOrDefault(m => m.IdWithMotif == id);
     }
 
     public static Modification? GetModification(string id, ModificationNamingConvention convention)
@@ -279,11 +242,11 @@ public static class Mods
         {
             if (isRnaMod)
             {
-                AllKnownRnaMods[modification.IdWithMotif] = modification;
+                AllKnownRnaModsDictionary[modification.IdWithMotif] = modification;
             }
             else
             {
-                AllKnownProteinMods[modification.IdWithMotif] = modification;
+                AllKnownProteinModsDictionary[modification.IdWithMotif] = modification;
             }
         }
     }

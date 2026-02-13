@@ -28,6 +28,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Omics.Modifications.IO;
 using UsefulProteomicsDatabases;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
@@ -284,7 +285,7 @@ namespace Test.DatabaseTests
         }
 
         [Test]
-        public void FilesLoading() //delete mzLib\Test\bin\x64\Debug to update your local unimod list
+        public void FilesLoading() //delete mzLib\Test\bin\x64\Debug to update your local UniMod list
         {
             string uniModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables2.xml");
             string psiModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml");
@@ -292,7 +293,7 @@ namespace Test.DatabaseTests
 
             // UniModPTMs
             var unimodMods = Loaders.LoadUnimod(uniModPath).ToList();
-            Assert.Greater(unimodMods.Count, 2700); // Unimod PTM list may be updated at some point, causing the unit test to fail
+            Assert.Greater(unimodMods.Count, 2700); // UniMod PTM list may be updated at some point, causing the unit test to fail
 
             List<Modification> myList = unimodMods.Where(m => m.OriginalId.Equals("HexNAc(2)")).ToList();
 
@@ -315,11 +316,11 @@ namespace Test.DatabaseTests
             var psiModDeserialized = Loaders.LoadPsiMod(psiModPath);
 
             // N6,N6,N6-trimethyllysine
-            var trimethylLysine = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().First(b => b.id.Equals("MOD:00083"));
+            var trimethylLysine = psiModDeserialized.Items.OfType<oboTerm>().First(b => b.id.Equals("MOD:00083"));
             Assert.AreEqual("1+", trimethylLysine.xref_analog.First(b => b.dbname.Equals("FormalCharge")).name);
 
             // Phosphoserine
-            Assert.IsFalse(psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().First(b => b.id.Equals("MOD:00046")).xref_analog.Any(b => b.dbname.Equals("FormalCharge")));
+            Assert.IsFalse(psiModDeserialized.Items.OfType<oboTerm>().First(b => b.id.Equals("MOD:00046")).xref_analog.Any(b => b.dbname.Equals("FormalCharge")));
 
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
 
