@@ -292,7 +292,7 @@ namespace Test.DatabaseTests
 
             // UniModPTMs
             var unimodMods = Loaders.LoadUnimod(uniModPath).ToList();
-            Assert.Greater(unimodMods.Count, 2700); // UniMod PTM list may be updated at some point, causing the unit test to fail
+            Assert.Greater(unimodMods.Count, 2700); // Unimod PTM list may be updated at some point, causing the unit test to fail
 
             List<Modification> myList = unimodMods.Where(m => m.OriginalId.Equals("HexNAc(2)")).ToList();
 
@@ -327,7 +327,7 @@ namespace Test.DatabaseTests
             var uniprotPtms = Loaders.LoadUniprot(uniProtPath, formalChargesDictionary).ToList();
             Assert.LessOrEqual(300, uniprotPtms.Count()); // UniProt PTM list may be updated at some point, causing the unit test to fail
 
-            // write UniProt and UniMod PTMs to a file
+            // write UniProt and Unimod PTMs to a file
             using (StreamWriter w = new StreamWriter(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")))
             {
                 foreach (var nice in uniprotPtms)

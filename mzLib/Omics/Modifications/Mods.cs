@@ -3,14 +3,26 @@ using System.Reflection;
 
 namespace Omics.Modifications;
 
+public enum ModificationNamingConvention
+{
+    MetaMorpheus, 
+    MetaMorpheus_Rna, 
+    UniProt, 
+    Unimod,
+    Mixed
+}
+
 public static class Mods
 {
     private static readonly Lazy<Dictionary<string, Modification>> _allKnownProteinMods;
     private static readonly Lazy<List<Modification>> _allProteinModsList;
+
     private static readonly Lazy<Dictionary<string, Modification>> _allKnownRnaMods;
     private static readonly Lazy<List<Modification>> _allRnaModsList;
 
     private static readonly object _cacheLock = new object();
+
+    public static Dictionary<ModificationNamingConvention, List<Modification>> ModsByConvention { get; private set; }
 
     static Mods()
     {
@@ -18,6 +30,19 @@ public static class Mods
         _allProteinModsList = new Lazy<List<Modification>>(() => _allKnownProteinMods.Value.Values.ToList());
         _allKnownRnaMods = new Lazy<Dictionary<string, Modification>>(LoadAllRnaModifications);
         _allRnaModsList = new Lazy<List<Modification>>(() => _allKnownRnaMods.Value.Values.ToList());
+
+        MetaMorpheusModifications = new List<Modification>();
+        UnimodModifications = new List<Modification>();
+        UniprotModifications = new List<Modification>();
+
+        ModsByConvention = new Dictionary<ModificationNamingConvention, List<Modification>>
+        {
+            { ModificationNamingConvention.MetaMorpheus, MetaMorpheusModifications},
+            { ModificationNamingConvention.MetaMorpheus_Rna, AllRnaModsList },
+            { ModificationNamingConvention.UniProt, UniprotModifications},
+            { ModificationNamingConvention.Unimod, UnimodModifications },
+            { ModificationNamingConvention.Mixed, AllKnownMods }
+        };
     }
 
     #region Public Properties
@@ -65,6 +90,10 @@ public static class Mods
         }
     }
 
+    public static List<Modification> UniprotModifications { get; private set; }
+    public static List<Modification> MetaMorpheusModifications { get; private set; }
+    public static List<Modification> UnimodModifications { get; private set; }
+
     #endregion
 
     #region Loading Methods
@@ -82,55 +111,44 @@ public static class Mods
         {
             // 1. Load Unimod
             var unimodStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.unimod.xml");
-            if (unimodStream != null)
-            {
-                var unimodMods = ModificationLoader.ReadModsFromUnimod(unimodStream);
-                AddModsToDictionary(allMods, unimodMods, "Unimod");
-            }
+    
+            UnimodModifications.Clear();
+            var unimodMods = ModificationLoader.ReadModsFromUnimod(unimodStream!).ToList();
+
+            UnimodModifications.AddRange(unimodMods);
+            AddModsToDictionary(allMods, unimodMods, "Unimod");
+      
 
             // 2. Load PSI-MOD and get formal charges
-            Dictionary<string, int> formalChargeDict = new Dictionary<string, int>();
             var psiModStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.PSI-MOD.obo.xml");
-            if (psiModStream != null)
-            {
-                var psiModObo = ModificationLoader.LoadPsiMod(psiModStream);
-                formalChargeDict = ModificationLoader.GetFormalChargesDictionary(psiModObo);
-            }
+
+            var psiModObo = ModificationLoader.LoadPsiMod(psiModStream!);
+            Dictionary<string, int>  formalChargeDict = ModificationLoader.GetFormalChargesDictionary(psiModObo);
+   
 
             // 3. Load UniProt ptmlist
             var uniprotStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.ptmlist.txt");
-            if (uniprotStream != null)
-            {
-                using (var reader = new StreamReader(uniprotStream))
-                {
-                    var uniprotMods = ModificationLoader.ReadModsFromFile(reader, formalChargeDict,
-                        out var filteredWarnings);
-                    AddModsToDictionary(allMods, uniprotMods, "UniProt");
 
-                    // Optionally log filtered mods
-                    foreach (var (mod, warning) in filteredWarnings)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Filtered UniProt mod: {warning}");
-                    }
-                }
-            }
+            UniprotModifications.Clear();
+            using var uniProtReader = new StreamReader(uniprotStream!);
+            var uniprotMods = ModificationLoader.ReadModsFromFile(uniProtReader, formalChargeDict,
+                out _).ToList();
+
+            UniprotModifications.AddRange(uniprotMods);
+            AddModsToDictionary(allMods, uniprotMods, "UniProt");
+
 
             // 4. Load custom Mods.txt
             var modsTextStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.Mods.txt");
-            if (modsTextStream != null)
-            {
-                using (var reader = new StreamReader(modsTextStream))
-                {
-                    var modsTextMods = ModificationLoader.ReadModsFromFile(reader, formalChargeDict,
-                        out var filteredWarnings);
-                    AddModsToDictionary(allMods, modsTextMods, "Custom");
 
-                    foreach (var (mod, warning) in filteredWarnings)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Filtered custom mod: {warning}");
-                    }
-                }
-            }
+            MetaMorpheusModifications.Clear();
+            using var modTextReader = new StreamReader(modsTextStream!);
+            var modsTextMods = ModificationLoader.ReadModsFromFile(modTextReader, formalChargeDict,
+                out _).ToList();
+
+            MetaMorpheusModifications.AddRange(modsTextMods);
+            AddModsToDictionary(allMods, modsTextMods, "MetaMorpheus ModsText");
+
         }
         catch (Exception ex)
         {
@@ -156,15 +174,12 @@ public static class Mods
             // Load RNA-specific mods if we have a resource for them
             // For now, this is a placeholder for future RNA mod sources
             var rnaModsStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.RnaMods.txt");
-            if (rnaModsStream != null)
-            {
-                using (var reader = new StreamReader(rnaModsStream))
-                {
-                    var rnaMods = ModificationLoader.ReadModsFromFile(reader,
-                        new Dictionary<string, int>(), out var filteredWarnings);
-                    AddModsToDictionary(allMods, rnaMods, "RNA");
-                }
-            }
+
+            using var rnaModsReader = new StreamReader(rnaModsStream!);
+            var rnaMods = ModificationLoader.ReadModsFromFile(rnaModsReader,
+                new Dictionary<string, int>(), out _);
+            AddModsToDictionary(allMods, rnaMods, "RNA");
+
         }
         catch (Exception ex)
         {
@@ -205,27 +220,39 @@ public static class Mods
     /// <summary>
     /// Gets a modification by IdWithMotif or OriginalId
     /// </summary>
-    public static Modification GetModification(string id, bool proteinOnly = false, bool rnaOnly = false)
+    public static Modification? GetModification(string id, bool searchProteinMods = true, bool searchRnaMods = true)
     {
-        if (proteinOnly)
+        if (!searchProteinMods && !searchRnaMods)
+            throw new ArgumentException("At least one of searchProteinMods or searchRnaMods must be true.");
+
+        if (searchProteinMods && !searchRnaMods)
         {
             if (AllKnownProteinMods.TryGetValue(id, out var mod))
                 return mod;
-            return AllProteinModsList.FirstOrDefault(m => m.OriginalId == id);
+            return AllProteinModsList.FirstOrDefault(m => m.IdWithMotif == id || m.OriginalId == id);
         }
 
-        if (rnaOnly)
+        if (!searchProteinMods && searchRnaMods)
         {
             if (AllKnownRnaMods.TryGetValue(id, out var mod))
                 return mod;
-            return AllRnaModsList.FirstOrDefault(m => m.OriginalId == id);
+            return AllRnaModsList.FirstOrDefault(m => m.IdWithMotif == id || m.OriginalId == id);
         }
 
         // Search both
         if (AllModsKnown.TryGetValue(id, out var foundMod))
             return foundMod;
 
-        return AllKnownMods.FirstOrDefault(m => m.OriginalId == id);
+        return AllKnownMods.FirstOrDefault(m => m.IdWithMotif == id || m.OriginalId == id);
+    }
+
+    public static Modification? GetModification(string id, ModificationNamingConvention convention)
+    {
+        if (ModsByConvention.TryGetValue(convention, out var mods))
+        {
+            return mods.FirstOrDefault(m => m.IdWithMotif == id || m.OriginalId == id);
+        }
+        return null;
     }
 
     /// <summary>
@@ -258,29 +285,6 @@ public static class Mods
             {
                 AllKnownProteinMods[modification.IdWithMotif] = modification;
             }
-        }
-    }
-
-    /// <summary>
-    /// Reloads all modifications from embedded resources
-    /// Warning: This will clear any runtime-added modifications
-    /// </summary>
-    public static void ReloadModifications()
-    {
-        lock (_cacheLock)
-        {
-            // Force lazy re-initialization
-            var lazyType = typeof(Lazy<Dictionary<string, Modification>>);
-            var valueField = lazyType.GetField("m_value", BindingFlags.Instance | BindingFlags.NonPublic);
-
-            valueField?.SetValue(_allKnownProteinMods, null);
-            valueField?.SetValue(_allKnownRnaMods, null);
-
-            var listLazyType = typeof(Lazy<List<Modification>>);
-            var listValueField = listLazyType.GetField("m_value", BindingFlags.Instance | BindingFlags.NonPublic);
-
-            listValueField?.SetValue(_allProteinModsList, null);
-            listValueField?.SetValue(_allRnaModsList, null);
         }
     }
 
