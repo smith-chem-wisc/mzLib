@@ -285,7 +285,7 @@ namespace Test.DatabaseTests
         }
 
         [Test]
-        public void FilesLoading() //delete mzLib\Test\bin\x64\Debug to update your local UniMod list
+        public void FilesLoading() //delete mzLib\Test\bin\x64\Debug to update your local unimod list
         {
             string uniModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables2.xml");
             string psiModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml");
@@ -328,7 +328,7 @@ namespace Test.DatabaseTests
             var uniprotPtms = Loaders.LoadUniprot(uniProtPath, formalChargesDictionary).ToList();
             Assert.LessOrEqual(300, uniprotPtms.Count()); // UniProt PTM list may be updated at some point, causing the unit test to fail
 
-            // write UniProt and Unimod PTMs to a file
+            // write UniProt and unimod PTMs to a file
             using (StreamWriter w = new StreamWriter(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt")))
             {
                 foreach (var nice in uniprotPtms)

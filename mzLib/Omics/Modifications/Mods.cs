@@ -37,12 +37,12 @@ public static class Mods
             .ToDictionary(m => m.IdWithMotif);
 
         // Combine protein and RNA mods, with Protein mods taking precedence in case of conflicts
+        AllKnownMods = AllProteinModsList.Concat(AllRnaModsList).ToList();
         AllModsKnownDictionary = new Dictionary<string, Modification>(AllKnownRnaModsDictionary);
         foreach (var kvp in AllKnownProteinModsDictionary)
         {
             AllModsKnownDictionary[kvp.Key] = kvp.Value;
         }
-        AllKnownMods = AllModsKnownDictionary.Values.ToList();
 
         ModsByConvention = new Dictionary<ModificationNamingConvention, List<Modification>>
         {
@@ -55,9 +55,9 @@ public static class Mods
     }
 
     #region Public Properties
-    public static List<Modification> UniprotModifications { get; }
-    public static List<Modification> MetaMorpheusModifications { get; }
-    public static List<Modification> UnimodModifications { get; }
+    public static List<Modification> UniprotModifications { get; private set; }
+    public static List<Modification> MetaMorpheusModifications { get; private set; }
+    public static List<Modification> UnimodModifications { get; private set; }
 
     /// <summary>
     /// All known protein modifications indexed by IdWithMotif
@@ -71,7 +71,7 @@ public static class Mods
 
 
 
-    public static List<Modification> MetaMorpheusRnaModifications { get; }
+    public static List<Modification> MetaMorpheusRnaModifications { get; private set; }
 
     /// <summary>
     /// All known RNA modifications indexed by IdWithMotif
@@ -112,9 +112,7 @@ public static class Mods
             // 1. Load Unimod
             var unimodStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.unimod.xml");
     
-            UnimodModifications.Clear();
-            var unimodMods = ModificationLoader.ReadModsFromUnimod(unimodStream!).ToList();
-            UnimodModifications.AddRange(unimodMods);      
+            UnimodModifications = ModificationLoader.ReadModsFromUnimod(unimodStream!).ToList();   
 
             // 2. Load PSI-MOD and get formal charges
             var psiModStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.PSI-MOD.obo.xml");
@@ -125,21 +123,15 @@ public static class Mods
 
             // 3. Load UniProt ptmlist
             var uniprotStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.ptmlist.txt");
-
-            UniprotModifications.Clear();
             using var uniProtReader = new StreamReader(uniprotStream!);
-            var uniprotMods = ModificationLoader.ReadModsFromFile(uniProtReader, formalChargeDict,
+            UniprotModifications = ModificationLoader.ReadModsFromFile(uniProtReader, formalChargeDict,
                 out _).ToList();
-            UniprotModifications.AddRange(uniprotMods);
 
             // 4. Load custom Mods.txt
             var modsTextStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.Mods.txt");
-
-            MetaMorpheusModifications.Clear();
             using var modTextReader = new StreamReader(modsTextStream!);
-            var modsTextMods = ModificationLoader.ReadModsFromFile(modTextReader, formalChargeDict,
+            MetaMorpheusModifications = ModificationLoader.ReadModsFromFile(modTextReader, formalChargeDict,
                 out _).ToList();
-            MetaMorpheusModifications.AddRange(modsTextMods);
         }
         catch (Exception ex)
         {
@@ -163,11 +155,9 @@ public static class Mods
             // For now, this is a placeholder for future RNA mod sources
             var rnaModsStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.RnaMods.txt");
 
-            MetaMorpheusRnaModifications.Clear();
             using var rnaModsReader = new StreamReader(rnaModsStream!);
-            var rnaMods = ModificationLoader.ReadModsFromFile(rnaModsReader,
-                new Dictionary<string, int>(), out _);
-            MetaMorpheusRnaModifications.AddRange(rnaMods);
+            MetaMorpheusRnaModifications = ModificationLoader.ReadModsFromFile(rnaModsReader,
+                new Dictionary<string, int>(), out _).ToList();
         }
         catch (Exception ex)
         {

@@ -11,8 +11,8 @@ public static class ModificationConverter
     // Cache of previously successful modification conversions to reduce the number of times the same modification is converted
     private static readonly ConcurrentDictionary<(string, char), Modification> _modificationCache;
 
-    internal static List<Modification> AllKnownMods => Mods.AllKnownMods;
-    internal static Dictionary<string, Modification> AllModsKnown => Mods.AllModsKnownDictionary;
+    internal static List<Modification> AllKnownMods => Mods.AllProteinModsList;
+    internal static Dictionary<string, Modification> AllModsKnown => Mods.AllKnownProteinModsDictionary;
 
     static ModificationConverter()
     {
