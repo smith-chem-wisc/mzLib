@@ -4,7 +4,6 @@ using NUnit.Framework;
 using Omics.Modifications;
 using System.Collections.Generic;
 using System.Linq;
-using static TorchSharp.torch.optim.lr_scheduler.impl.CyclicLR;
 
 namespace Test.Omics;
 
@@ -65,12 +64,19 @@ public static class ModificationTest
     [Test]
     public static void MetaMorpheusModsAreNotUniprotOrUnimod()
     {
-        var mods = Mods.MetaMorpheusModifications;
+        var mods = Mods.MetaMorpheusProteinModifications;
         foreach (var mod in mods)
         {
             Assert.That(mod.ModificationType, Is.Not.EqualTo("UniProt"));
             Assert.That(mod.ModificationType, Is.Not.EqualTo("Unimod"));
         }
+    }
+
+    [Test]
+    public static void GetModification_Nonsense()
+    {
+        var mod = Mods.GetModification("This modification does not exist");
+        Assert.That(mod, Is.Null, "Expected null to be returned for a non-existent modification.");
     }
 
     [Test]

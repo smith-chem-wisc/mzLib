@@ -40,16 +40,6 @@ public static class ModificationLoader
     };
 
     /// <summary>
-    /// Read a list of modifications from a text file.
-    /// </summary>
-    /// <param name="ptmListLocation"></param>
-    /// <returns></returns>
-    public static IEnumerable<Modification> ReadModsFromFile(string ptmListLocation, out List<(Modification, string)> filteredModificationsWithWarnings)
-    {
-        return ReadModsFromFile(ptmListLocation, new Dictionary<string, int>(), out filteredModificationsWithWarnings).OrderBy(b => b.IdWithMotif);
-    }
-
-    /// <summary>
     /// Reads a list of modifications from a text file.
     /// </summary>
     /// <param name="ptmListLocation"></param>
@@ -96,44 +86,6 @@ public static class ModificationLoader
             }
         }
 
-        return acceptedModifications;
-    }
-
-    /// <summary>
-    /// Reads a list of modifications from a string representation of a ptmlist text file.
-    /// </summary>
-    /// <param name="storedModifications"></param>
-    /// <returns></returns>
-    public static IEnumerable<Modification> ReadModsFromString(string storedModifications, out List<(Modification, string)> filteredModificationsWithWarnings)
-    {
-        List<Modification> acceptedModifications = new List<Modification>();
-        filteredModificationsWithWarnings = new List<(Modification filteredMod, string warningString)>();
-        using (StringReader uniprot_mods = new StringReader(storedModifications))
-        {
-            List<string> modification_specification = new List<string>();
-
-            while (uniprot_mods.Peek() != -1)
-            {
-                string line = uniprot_mods.ReadLine();
-                modification_specification.Add(line);
-                if (line.StartsWith("//"))
-                {
-                    foreach (var mod in ReadMod(null, modification_specification, new Dictionary<string, int>()))
-                    {
-                        // Filter out the modifications that don't meet validation
-                        if (mod.ValidModification)
-                        {
-                            acceptedModifications.Add(mod);
-                        }
-                        else
-                        {
-                            filteredModificationsWithWarnings.Add((mod, mod.ModificationErrorsToString()));
-                        }
-                    }
-                    modification_specification = new List<string>();
-                }
-            }
-        }
         return acceptedModifications;
     }
 
@@ -350,47 +302,6 @@ public static class ModificationLoader
     }
 
     /// <summary>
-    /// Parse dissociation type string
-    /// </summary>
-    /// <param name="modType"></param>
-    /// <returns></returns>
-    public static DissociationType? ModDissociationType(string modType)
-    {
-        switch (modType)
-        {
-            case "Any":
-                return DissociationType.AnyActivationType;
-
-            case "CID":
-                return DissociationType.CID;
-
-            case "MPD":
-                return DissociationType.IRMPD;
-
-            case "ECD":
-                return DissociationType.ECD;
-
-            case "PQD":
-                return DissociationType.PQD;
-
-            case "ETD":
-                return DissociationType.ETD;
-
-            case "HCD":
-                return DissociationType.HCD;
-
-            case "EThcD":
-                return DissociationType.EThcD;
-
-            case "Custom":
-                return DissociationType.Custom;
-
-            default:
-                return null;
-        }
-    }
-
-    /// <summary>
     /// Parse diagnostic ion and neutral loss strings
     /// </summary>
     /// <param name="oneEntry"></param>
@@ -427,7 +338,11 @@ public static class ModificationLoader
                 }
                 else if (entryKeyValue.Length == 2)  // an entry with two values is assumed to have a dissociation type and a neutral loss formula or mass
                 {
-                    DissociationType? dt = ModDissociationType(entryKeyValue[0]);
+                    DissociationType? dt = Enum.TryParse(entryKeyValue[0], true, out DissociationType parsedDt) ? parsedDt : null;
+
+                    if (dt is null && entryKeyValue[0].Equals("MPD", StringComparison.InvariantCultureIgnoreCase))
+                        dt = DissociationType.IRMPD;
+
                     if (dt != null)
                     {
                         //try // see if dictionary already contains key AnyActivationType

@@ -20,11 +20,11 @@ public static class Mods
 
     static Mods()
     {
-        MetaMorpheusModifications = new List<Modification>();
+        MetaMorpheusProteinModifications = new List<Modification>();
         UnimodModifications = new List<Modification>();
         UniprotModifications = new List<Modification>();
         LoadAllProteinModifications();
-        AllProteinModsList = UnimodModifications.Concat(UniprotModifications).Concat(MetaMorpheusModifications).ToList();
+        AllProteinModsList = UnimodModifications.Concat(UniprotModifications).Concat(MetaMorpheusProteinModifications).ToList();
         AllKnownProteinModsDictionary = AllProteinModsList
             .DistinctBy(m => m.IdWithMotif)
             .ToDictionary(m => m.IdWithMotif);
@@ -46,7 +46,7 @@ public static class Mods
 
         ModsByConvention = new Dictionary<ModificationNamingConvention, List<Modification>>
         {
-            { ModificationNamingConvention.MetaMorpheus, MetaMorpheusModifications},
+            { ModificationNamingConvention.MetaMorpheus, MetaMorpheusProteinModifications},
             { ModificationNamingConvention.MetaMorpheus_Rna, MetaMorpheusRnaModifications },
             { ModificationNamingConvention.UniProt, UniprotModifications},
             { ModificationNamingConvention.Unimod, UnimodModifications },
@@ -56,7 +56,7 @@ public static class Mods
 
     #region Public Properties
     public static List<Modification> UniprotModifications { get; private set; }
-    public static List<Modification> MetaMorpheusModifications { get; private set; }
+    public static List<Modification> MetaMorpheusProteinModifications { get; private set; }
     public static List<Modification> UnimodModifications { get; private set; }
 
     /// <summary>
@@ -107,37 +107,29 @@ public static class Mods
         var assembly = Assembly.GetExecutingAssembly();
         var assemblyName = assembly.GetName().Name;
 
-        try
-        {
-            // 1. Load Unimod
-            var unimodStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.unimod.xml");
+        // 1. Load Unimod
+        var unimodStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.unimod.xml");
     
-            UnimodModifications = ModificationLoader.ReadModsFromUnimod(unimodStream!).ToList();   
+        UnimodModifications = ModificationLoader.ReadModsFromUnimod(unimodStream!).ToList();   
 
-            // 2. Load PSI-MOD and get formal charges
-            var psiModStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.PSI-MOD.obo.xml");
+        // 2. Load PSI-MOD and get formal charges
+        var psiModStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.PSI-MOD.obo.xml");
 
-            var psiModObo = ModificationLoader.LoadPsiMod(psiModStream!);
-            Dictionary<string, int>  formalChargeDict = ModificationLoader.GetFormalChargesDictionary(psiModObo);
+        var psiModObo = ModificationLoader.LoadPsiMod(psiModStream!);
+        Dictionary<string, int>  formalChargeDict = ModificationLoader.GetFormalChargesDictionary(psiModObo);
    
 
-            // 3. Load UniProt ptmlist
-            var uniprotStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.ptmlist.txt");
-            using var uniProtReader = new StreamReader(uniprotStream!);
-            UniprotModifications = ModificationLoader.ReadModsFromFile(uniProtReader, formalChargeDict,
-                out _).ToList();
+        // 3. Load UniProt ptmlist
+        var uniprotStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.ptmlist.txt");
+        using var uniProtReader = new StreamReader(uniprotStream!);
+        UniprotModifications = ModificationLoader.ReadModsFromFile(uniProtReader, formalChargeDict,
+            out _).ToList();
 
-            // 4. Load custom Mods.txt
-            var modsTextStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.Mods.txt");
-            using var modTextReader = new StreamReader(modsTextStream!);
-            MetaMorpheusModifications = ModificationLoader.ReadModsFromFile(modTextReader, formalChargeDict,
-                out _).ToList();
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Error loading protein modifications: {ex.Message}");
-            throw new InvalidOperationException("Failed to load protein modifications from embedded resources", ex);
-        }
+        // 4. Load custom Mods.txt
+        var modsTextStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.Mods.txt");
+        using var modTextReader = new StreamReader(modsTextStream!);
+        MetaMorpheusProteinModifications = ModificationLoader.ReadModsFromFile(modTextReader, formalChargeDict,
+            out _).ToList();
     }
 
 
@@ -148,22 +140,10 @@ public static class Mods
     {
         var assembly = Assembly.GetExecutingAssembly();
         var assemblyName = assembly.GetName().Name;
+        var rnaModsStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.RnaMods.txt");
 
-        try
-        {
-            // Load RNA-specific mods if we have a resource for them
-            // For now, this is a placeholder for future RNA mod sources
-            var rnaModsStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.RnaMods.txt");
-
-            using var rnaModsReader = new StreamReader(rnaModsStream!);
-            MetaMorpheusRnaModifications = ModificationLoader.ReadModsFromFile(rnaModsReader,
-                new Dictionary<string, int>(), out _).ToList();
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Error loading RNA modifications: {ex.Message}");
-            // Don't throw - RNA mods are optional
-        }
+        using var rnaModsReader = new StreamReader(rnaModsStream!);
+        MetaMorpheusRnaModifications = ModificationLoader.ReadModsFromFile(rnaModsReader, new Dictionary<string, int>(), out _).ToList();
     }
 
     #endregion
