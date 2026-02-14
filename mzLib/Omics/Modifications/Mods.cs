@@ -20,16 +20,12 @@ public static class Mods
 
     static Mods()
     {
-        MetaMorpheusProteinModifications = new List<Modification>();
-        UnimodModifications = new List<Modification>();
-        UniprotModifications = new List<Modification>();
         LoadAllProteinModifications();
         AllProteinModsList = UnimodModifications.Concat(UniprotModifications).Concat(MetaMorpheusProteinModifications).ToList();
         AllKnownProteinModsDictionary = AllProteinModsList
             .DistinctBy(m => m.IdWithMotif)
             .ToDictionary(m => m.IdWithMotif);
 
-        MetaMorpheusRnaModifications = new List<Modification>();
         LoadAllRnaModifications();
         AllRnaModsList = MetaMorpheusRnaModifications.ToList();
         AllKnownRnaModsDictionary = AllRnaModsList
@@ -55,9 +51,9 @@ public static class Mods
     }
 
     #region Public Properties
-    public static List<Modification> UniprotModifications { get; private set; }
-    public static List<Modification> MetaMorpheusProteinModifications { get; private set; }
-    public static List<Modification> UnimodModifications { get; private set; }
+    public static List<Modification> UniprotModifications { get; private set; } = [];
+    public static List<Modification> MetaMorpheusProteinModifications { get; private set; } = [];
+    public static List<Modification> UnimodModifications { get; private set; } = [];
 
     /// <summary>
     /// All known protein modifications indexed by IdWithMotif
@@ -71,7 +67,7 @@ public static class Mods
 
 
 
-    public static List<Modification> MetaMorpheusRnaModifications { get; private set; }
+    public static List<Modification> MetaMorpheusRnaModifications { get; private set; } = [];
 
     /// <summary>
     /// All known RNA modifications indexed by IdWithMotif
@@ -90,7 +86,7 @@ public static class Mods
 
     /// <summary>
     /// Combined dictionary of all known modifications (protein + RNA)
-    /// RNA mods take precedence in case of conflicts
+    /// Protein mods take precedence in case of conflicts
     /// </summary>
     public static Dictionary<string, Modification> AllModsKnownDictionary { get; }
 
@@ -131,7 +127,6 @@ public static class Mods
         MetaMorpheusProteinModifications = ModificationLoader.ReadModsFromFile(modTextReader, formalChargeDict,
             out _).ToList();
     }
-
 
     /// <summary>
     /// Loads RNA modifications from embedded resources and custom sources
