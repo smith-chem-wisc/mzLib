@@ -1,7 +1,6 @@
 ﻿using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
-using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -10,7 +9,12 @@ using System.Linq;
 using Omics.Modifications;
 
 namespace UsefulProteomicsDatabases
-{
+{    
+    /// <summary>
+    /// Legacy wrapper for backwards compatibility
+    /// All functionality moved to Omics.Modifications.ModificationLoader
+    /// </summary>
+    [Obsolete("Use Omics.Modifications.ModificationLoader instead.")]
     public static class PtmListLoader
     {
         private static readonly Dictionary<string, char> AminoAcidCodes;
