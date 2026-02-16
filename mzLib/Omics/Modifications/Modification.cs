@@ -78,7 +78,7 @@ namespace Omics.Modifications
                     this.IdWithMotif = _originalId + " on " + _target.ToString();
                     this.OriginalId = _originalId;
                 }
-                else
+                else 
                 {
                     this.OriginalId = _originalId;
                 }
@@ -119,6 +119,10 @@ namespace Omics.Modifications
                 case "Oligo 5'-terminal.":
                     return _locationRestriction;
 
+                case "Protein Core.":
+                case "Protein core.":
+                    return "Anywhere.";
+
                 default:
                     return "Unassigned.";
             }
@@ -139,7 +143,20 @@ namespace Omics.Modifications
         {
             string id = IdWithMotif ?? OriginalId ?? string.Empty;
             string mt = ModificationType ?? string.Empty;
-            return id.GetHashCode() ^ mt.GetHashCode();
+            var code =  id.GetHashCode() ^ mt.GetHashCode();
+            return code;
+        }
+
+        public string ToString(ModificationNamingConvention convention)
+        {
+            var stringRepresentation = ToString();
+            switch (convention)
+            {
+                case ModificationNamingConvention.UniProt:
+                    return stringRepresentation.Replace($"ID   " + IdWithMotif, "ID   " + OriginalId);
+                default:
+                    return stringRepresentation;
+            }
         }
 
         public override string ToString()
