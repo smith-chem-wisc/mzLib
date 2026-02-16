@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Xml.Serialization;
 using Omics.Modifications;
-using UsefulProteomicsDatabases.Generated;
+using Omics.Modifications.IO;
 
 namespace UsefulProteomicsDatabases
 {

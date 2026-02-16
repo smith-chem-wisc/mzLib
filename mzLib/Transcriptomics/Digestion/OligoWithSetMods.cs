@@ -35,7 +35,7 @@ namespace Transcriptomics.Digestion
             FullSequence = this.DetermineFullSequence();
         }
 
-        public OligoWithSetMods(string sequence, Dictionary<string, Modification> allKnownMods, int numFixedMods = 0,
+        public OligoWithSetMods(string sequence, Dictionary<string, Modification>? allKnownMods = null, int numFixedMods = 0,
             RnaDigestionParams digestionParams = null, NucleicAcid n = null, int oneBaseStartResidue = 1, int oneBasedEndResidue = 0,
              int missedCleavages = 0, CleavageSpecificity cleavageSpecificity = CleavageSpecificity.Full, string description = null,
             IHasChemicalFormula? fivePrimeTerminus = null, IHasChemicalFormula? threePrimeTerminus = null)
@@ -48,7 +48,7 @@ namespace Transcriptomics.Digestion
             }
 
             _baseSequence = IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(sequence);
-            _allModsOneIsNterminus = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(sequence, allKnownMods);
+            _allModsOneIsNterminus = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(sequence, allKnownMods ?? Mods.AllKnownRnaModsDictionary);
             FullSequence = _allModsOneIsNterminus.ContainsKey(_baseSequence.Length + 2) 
                 ? this.DetermineFullSequence() 
                 : sequence;
