@@ -35,7 +35,7 @@ namespace Test.KoinaTests
 
                 var modelHandler = new Prosit2020IntensityHCD(peptides, charges, energies, retentionTimes, out var warnings, predPath, minIntensityFilter: 1e-6);
 
-                WarningException? duplicatesWarning = await modelHandler.RunInferenceAsync();
+                WarningException? duplicatesWarning = await modelHandler.PredictAsync();
                 var predictedSpectra = modelHandler.PredictedSpectra;
 
                 // Test that the predicted spectrum that was saved matches the predicted spectra in memory
@@ -134,7 +134,7 @@ namespace Test.KoinaTests
 
             Assert.That(model.PeptideSequences.Count, Is.EqualTo(0));
             Assert.That(warning, Is.Not.Null);
-            Assert.DoesNotThrowAsync(async () => await model.RunInferenceAsync());
+            Assert.DoesNotThrowAsync(async () => await model.PredictAsync());
             Assert.That(model.PredictedSpectra.Count == 0);
         }
 
@@ -398,7 +398,7 @@ namespace Test.KoinaTests
             var retentionTimes = new List<double?> { 100.0, 200.0 };
 
             var model = new Prosit2020IntensityHCD(peptides, charges, energies, retentionTimes, out var warning);
-            WarningException? duplicatesWarning = await model.RunInferenceAsync();
+            WarningException? duplicatesWarning = await model.PredictAsync();
 
             Assert.That(model.PredictedSpectra.Count, Is.EqualTo(2),
                 "Should have predictions for both peptides");
@@ -437,7 +437,7 @@ namespace Test.KoinaTests
             var energies = new List<int> { 35, 35, 35 };
             var retentionTimes = new List<double?> { 100.0, 100.0, 200.0 };
             var model = new Prosit2020IntensityHCD(peptides, charges, energies, retentionTimes, out var warning);
-            WarningException? duplicatesWarning = await model.RunInferenceAsync();
+            WarningException? duplicatesWarning = await model.PredictAsync();
             Assert.That(model.PredictedSpectra.Count, Is.EqualTo(2),
                 "Duplicate peptide should be filtered out, resulting in 2 unique spectra");
             Assert.That(duplicatesWarning, Is.Not.Null,
@@ -467,7 +467,7 @@ namespace Test.KoinaTests
                 }
             }
             var modelHandler = new Prosit2020IntensityHCD(peptides, charges, energies, retentionTimes, out var warnings);
-            Assert.DoesNotThrowAsync(async () => await modelHandler.RunInferenceAsync());
+            Assert.DoesNotThrowAsync(async () => await modelHandler.PredictAsync());
             Assert.That(modelHandler.Predictions.Count == numberOfSequences);
         }
 
@@ -483,10 +483,10 @@ namespace Test.KoinaTests
             var model = new Prosit2020IntensityHCD(peptides, charges, energies, retentionTimes, out var warning);
             Assert.That(warning, Is.Null,
                 "Warning should not be generated for valid peptides");
-            var duplicatesWarning = await model.RunInferenceAsync();
+            var duplicatesWarning = await model.PredictAsync();
             Assert.That(duplicatesWarning, Is.Null,
                 "Duplicate warning should be null when no duplicates are present");
-            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.RunInferenceAsync(),
+            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.PredictAsync(),
                 "Running inference on a disposed model should throw ObjectDisposedException");
 
             // Results should still be accessible after disposal
@@ -498,7 +498,7 @@ namespace Test.KoinaTests
             Assert.That(warning, Is.Null,
                 "Warning should not be generated for valid peptides");
             model.Dispose();
-            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.RunInferenceAsync(),
+            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.PredictAsync(),
                 "Running inference on a disposed model should throw ObjectDisposedException");
         }
     }

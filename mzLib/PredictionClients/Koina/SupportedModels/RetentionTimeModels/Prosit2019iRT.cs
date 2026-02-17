@@ -101,7 +101,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         ///     Console.WriteLine(warnings.Message);
         /// }
         /// 
-        /// await model.RunInferenceAsync();
+        /// await model.PredictAsync();
         /// foreach (var prediction in model.Predictions)
         /// {
         ///     Console.WriteLine($"Sequence: {prediction.PeptideSequence}, iRT: {prediction.PredictedRetentionTime}");

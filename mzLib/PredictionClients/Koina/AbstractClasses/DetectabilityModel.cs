@@ -86,7 +86,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
         /// 4. Ensures proper resource cleanup regardless of success/failure
         /// </remarks>
         /// <exception cref="Exception">Thrown when API responses cannot be deserialized or processed</exception>
-        public override async Task<WarningException?> RunInferenceAsync()
+        public override async Task<WarningException?> PredictAsync()
         {
             if (_disposed)
             {

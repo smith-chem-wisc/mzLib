@@ -144,7 +144,7 @@ namespace Test.KoinaTests
             Assert.That(model.PeptideSequences.Count, Is.EqualTo(0), "Empty input should result in no peptides");
             Assert.That(warning, Is.Not.Null, "Empty input should produce a warning");
             Assert.That(warning.Message, Does.Contain("empty"), "Warning should mention empty inputs");
-            Assert.DoesNotThrowAsync(async () => await model.RunInferenceAsync(), "Empty model should not throw on inference");
+            Assert.DoesNotThrowAsync(async () => await model.PredictAsync(), "Empty model should not throw on inference");
             Assert.That(model.Predictions.Count, Is.EqualTo(0), "No predictions for empty input");
         }
 
@@ -235,7 +235,7 @@ namespace Test.KoinaTests
             var peptides = new List<string> { "PEPTIDEK", "VALIDSEQK" };
             var model = new PFly2024FineTuned(peptides, out var warning);
 
-            await model.RunInferenceAsync();
+            await model.PredictAsync();
 
             Assert.That(model.Predictions.Count, Is.EqualTo(2), "Should have predictions for both peptides");
 
@@ -281,7 +281,7 @@ namespace Test.KoinaTests
             var model = new PFly2024FineTuned(peptides, out var warning);
 
             Assert.That(model.PeptideSequences.Count, Is.EqualTo(numberOfSequences));
-            Assert.DoesNotThrowAsync(async () => await model.RunInferenceAsync());
+            Assert.DoesNotThrowAsync(async () => await model.PredictAsync());
         }
 
         /// <summary>
@@ -309,7 +309,7 @@ namespace Test.KoinaTests
             var peptides = new List<string> { "AAAAAA", "CCCCCC", "GGGGGG", "TTTTTT" };
             var model = new PFly2024FineTuned(peptides, out var warning);
 
-            await model.RunInferenceAsync();
+            await model.PredictAsync();
 
             Assert.That(model.Predictions.Count, Is.EqualTo(4));
             Assert.That(model.Predictions[0].PeptideSequence, Is.EqualTo("AAAAAA"));
@@ -360,8 +360,8 @@ namespace Test.KoinaTests
             var model = new PFly2024FineTuned(peptides, out var warning);
             Assert.That(warning, Is.Null,
                 "Warning should not be generated for valid peptides");
-            await model.RunInferenceAsync();
-            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.RunInferenceAsync(),
+            await model.PredictAsync();
+            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.PredictAsync(),
                 "1Running inference on a disposed model should throw ObjectDisposedException");
 
             // Results should still be accessible after disposal
@@ -373,7 +373,7 @@ namespace Test.KoinaTests
             Assert.That(warning, Is.Null,
                 "Warning should not be generated for valid peptides");
             model.Dispose();
-            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.RunInferenceAsync(),
+            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.PredictAsync(),
                 "2Running inference on a disposed model should throw ObjectDisposedException");
         }
     }

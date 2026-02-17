@@ -242,7 +242,7 @@ namespace Test.KoinaTests
         {
             var peptideSequences = new List<string> { "PEPTIDE", "SEQENS", "TESTING" };
             var model = new Prosit2019iRT(peptideSequences, out WarningException warnings);
-            Assert.DoesNotThrowAsync(async () => await model.RunInferenceAsync());
+            Assert.DoesNotThrowAsync(async () => await model.PredictAsync());
             Assert.That(model.Predictions, Has.Count.EqualTo(3));
         }
 
@@ -276,7 +276,7 @@ namespace Test.KoinaTests
             }
 
             var model = new Prosit2019iRT(peptides, out WarningException warnings);
-            Assert.DoesNotThrowAsync(async () => await model.RunInferenceAsync());
+            Assert.DoesNotThrowAsync(async () => await model.PredictAsync());
             Assert.That(model.Predictions, Has.Count.EqualTo(numberOfSequences));
         }
 
@@ -299,7 +299,7 @@ namespace Test.KoinaTests
                 peptideSequences.Add("PEPTIDE");
             }
             var model = new Prosit2019iRT(peptideSequences, out WarningException warnings);
-            Assert.DoesNotThrowAsync(async () => await model.RunInferenceAsync());
+            Assert.DoesNotThrowAsync(async () => await model.PredictAsync());
             Assert.That(model.Predictions, Has.Count.EqualTo(1000));
         }
 
@@ -391,8 +391,8 @@ namespace Test.KoinaTests
             var model = new Prosit2019iRT(peptides, out var warning);
             Assert.That(warning, Is.Null,
                 "Warning should not be generated for valid peptides");
-            await model.RunInferenceAsync();
-            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.RunInferenceAsync(),
+            await model.PredictAsync();
+            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.PredictAsync(),
                 "1Running inference on a disposed model should throw ObjectDisposedException");
 
             // Results should still be accessible after disposal
@@ -404,7 +404,7 @@ namespace Test.KoinaTests
             Assert.That(warning, Is.Null,
                 "Warning should not be generated for valid peptides");
             model.Dispose();
-            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.RunInferenceAsync(),
+            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.PredictAsync(),
                 "2Running inference on a disposed model should throw ObjectDisposedException");
         }
     }

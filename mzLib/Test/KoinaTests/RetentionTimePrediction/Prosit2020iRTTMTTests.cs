@@ -24,7 +24,7 @@ namespace Test.KoinaTests
                 "[Common Fixed:iTRAQ4plex on N-terminus]TESTING"
             };
             var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
-            Assert.DoesNotThrowAsync(async () => await model.RunInferenceAsync());
+            Assert.DoesNotThrowAsync(async () => await model.PredictAsync());
             Assert.That(model.Predictions, Has.Count.EqualTo(3));
             Assert.That(model.Predictions.All(p => p.IsIndexed));
             Assert.That(model.Predictions.All(p => p.PredictedRetentionTime.IsFinite()));
@@ -144,7 +144,7 @@ namespace Test.KoinaTests
             Assert.That(warnings, Is.Not.Null);
             Assert.That(warnings.Message, Does.Contain("Inputs were empty"));
             Assert.That(model.PeptideSequences, Is.Empty);
-            Assert.DoesNotThrowAsync(async () => await model.RunInferenceAsync());
+            Assert.DoesNotThrowAsync(async () => await model.PredictAsync());
             Assert.That(model.Predictions, Is.Empty);
         }
 
@@ -550,7 +550,7 @@ namespace Test.KoinaTests
                 "[Common Fixed:iTRAQ4plex on N-terminus]TESTING" 
             };
             var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
-            Assert.DoesNotThrowAsync(async () => await model.RunInferenceAsync());
+            Assert.DoesNotThrowAsync(async () => await model.PredictAsync());
             Assert.That(model.Predictions, Has.Count.EqualTo(3));
         }
 
@@ -587,7 +587,7 @@ namespace Test.KoinaTests
             }
 
             var model = new Prosit2020iRTTMT(peptides, out WarningException warnings);
-            Assert.DoesNotThrowAsync(async () => await model.RunInferenceAsync());
+            Assert.DoesNotThrowAsync(async () => await model.PredictAsync());
             Assert.That(model.Predictions, Has.Count.EqualTo(numberOfSequences));
         }
 
@@ -611,7 +611,7 @@ namespace Test.KoinaTests
                 peptideSequences.Add("[Common Fixed:TMT6plex on N-terminus]PEPTIDE");
             }
             var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
-            Assert.DoesNotThrowAsync(async () => await model.RunInferenceAsync());
+            Assert.DoesNotThrowAsync(async () => await model.PredictAsync());
             Assert.That(model.Predictions, Has.Count.EqualTo(1000));
         }
 
@@ -715,8 +715,8 @@ namespace Test.KoinaTests
             var model = new Prosit2020iRTTMT(peptides, out var warning);
             Assert.That(warning, Is.Null,
                 "Warning should not be generated for valid peptides");
-            await model.RunInferenceAsync();
-            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.RunInferenceAsync(),
+            await model.PredictAsync();
+            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.PredictAsync(),
                 "1Running inference on a disposed model should throw ObjectDisposedException");
 
             // Results should still be accessible after disposal
@@ -728,7 +728,7 @@ namespace Test.KoinaTests
             Assert.That(warning, Is.Null,
                 "Warning should not be generated for valid peptides");
             model.Dispose();
-            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.RunInferenceAsync(),
+            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.PredictAsync(),
                 "2Running inference on a disposed model should throw ObjectDisposedException");
         }
     }
