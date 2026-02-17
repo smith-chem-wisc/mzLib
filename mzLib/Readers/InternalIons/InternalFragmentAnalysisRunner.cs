@@ -17,11 +17,13 @@ namespace Readers.InternalIons
         /// <param name="psmTsvPath">Path to MetaMorpheus PSM TSV file.</param>
         /// <param name="rawFileFolder">Folder containing raw spectra files (.raw, .mzML).</param>
         /// <param name="outputDirectory">Directory for output files.</param>
+        /// <param name="defaultCollisionEnergy">Default collision energy to use if scan metadata is unavailable.</param>
         /// <returns>List of extracted internal fragment ions.</returns>
         public static List<InternalFragmentIon> Run(
             string psmTsvPath,
             string rawFileFolder,
-            string outputDirectory)
+            string outputDirectory,
+            double defaultCollisionEnergy = double.NaN)
         {
             // Validate inputs
             if (!File.Exists(psmTsvPath))
@@ -49,7 +51,8 @@ namespace Readers.InternalIons
                 if (!msDataFiles.TryGetValue(fileName, out var msDataFile))
                     continue;
 
-                var internalIons = InternalFragmentFeatureExtractor.ExtractFromPsms(filePsms, msDataFile);
+                var internalIons = InternalFragmentFeatureExtractor.ExtractFromPsms(
+                    filePsms, msDataFile, defaultCollisionEnergy);
                 allInternalIons.AddRange(internalIons);
             }
 

@@ -19,9 +19,14 @@ namespace Readers.InternalIons
         /// <summary>
         /// Extracts InternalFragmentIon objects from a list of PSMs.
         /// </summary>
+        /// <param name="psms">List of PSMs to process.</param>
+        /// <param name="msDataFile">The raw data file containing the spectra.</param>
+        /// <param name="defaultCollisionEnergy">Default collision energy to use if scan metadata is unavailable.</param>
+        /// <returns>List of extracted InternalFragmentIon objects.</returns>
         public static List<InternalFragmentIon> ExtractFromPsms(
             List<PsmFromTsv> psms,
-            MsDataFile msDataFile)
+            MsDataFile msDataFile,
+            double defaultCollisionEnergy = double.NaN)
         {
             if (psms == null || psms.Count == 0)
                 return new List<InternalFragmentIon>();
@@ -49,9 +54,16 @@ namespace Readers.InternalIons
                 if (scanLookup.TryGetValue(psm.Ms2ScanNumber, out var foundScan))
                     scan = foundScan;
 
+                // Try to get collision energy from scan metadata, fall back to default
                 double collisionEnergy = double.NaN;
                 if (scan?.HcdEnergy != null && TryParseCollisionEnergy(scan.HcdEnergy, out double ce))
+                {
                     collisionEnergy = ce;
+                }
+                else
+                {
+                    collisionEnergy = defaultCollisionEnergy;
+                }
 
                 // Extract all internal fragments for this PSM
                 var psmInternalFragments = new List<InternalFragmentIon>();
@@ -153,7 +165,7 @@ namespace Readers.InternalIons
                 IsDecoy = psm.DecoyContamTarget?.Contains('D') ?? false,
                 SourceFile = psm.FileNameWithoutExtension ?? string.Empty,
                 ScanNumber = psm.Ms2ScanNumber.ToString(),
-                IsIsobaricAmbiguous = false // Will be set in post-processing
+                IsIsobaricAmbiguous = false
             };
         }
 

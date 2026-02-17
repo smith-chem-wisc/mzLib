@@ -18,6 +18,7 @@ namespace Test.InternalIons
         private const string DefaultPsmTsvPath = @"FILL_IN";
         private const string DefaultRawFileFolder = @"FILL_IN";
         private const string DefaultOutputDirectory = @"FILL_IN";
+        private const double DefaultCollisionEnergy = 42.0;
 
         private static readonly char[] StandardAminoAcids =
             { 'A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y' };
@@ -35,6 +36,7 @@ namespace Test.InternalIons
             Console.WriteLine($"PSM TSV:          {psmTsvPath}");
             Console.WriteLine($"Raw File Folder:  {rawFileFolder}");
             Console.WriteLine($"Output Directory: {outputDirectory}");
+            Console.WriteLine($"Default CE:       {DefaultCollisionEnergy}");
             Console.WriteLine();
 
             try
@@ -48,7 +50,7 @@ namespace Test.InternalIons
 
                 var psms = Step1_LoadPsms(psmTsvPath);
                 var msDataFiles = Step2_LoadRawFiles(rawFileFolder, psms);
-                var internalIons = Step3_ExtractInternalFragments(psms, msDataFiles);
+                var internalIons = Step3_ExtractInternalFragments(psms, msDataFiles, DefaultCollisionEnergy);
                 string outputPath = Step4_WriteOutputTsv(internalIons, outputDirectory);
                 Step5_RoundTripValidation(internalIons, outputPath);
                 Step6_AminoAcidTerminusEnrichment(internalIons);
@@ -152,15 +154,21 @@ namespace Test.InternalIons
         }
 
         private static List<InternalFragmentIon> Step3_ExtractInternalFragments(
-            List<PsmFromTsv> psms, Dictionary<string, MsDataFile> msDataFiles)
+            List<PsmFromTsv> psms,
+            Dictionary<string, MsDataFile> msDataFiles,
+            double defaultCollisionEnergy)
         {
             Console.WriteLine("=== STEP 3: Extract Internal Fragment Features ===");
+            Console.WriteLine($"Using default collision energy: {defaultCollisionEnergy} (if scan metadata unavailable)");
+            Console.WriteLine();
+
             var allIons = new List<InternalFragmentIon>();
 
             foreach (var group in psms.GroupBy(p => p.FileNameWithoutExtension))
             {
                 if (!msDataFiles.TryGetValue(group.Key, out var file)) continue;
-                var ions = InternalFragmentFeatureExtractor.ExtractFromPsms(group.ToList(), file);
+                var ions = InternalFragmentFeatureExtractor.ExtractFromPsms(
+                    group.ToList(), file, defaultCollisionEnergy);
                 allIons.AddRange(ions);
                 if (ions.Count > 0)
                     Console.WriteLine($"  {group.Key}: {ions.Count:N0} internal ions");
@@ -170,6 +178,18 @@ namespace Test.InternalIons
 
             if (allIons.Count > 0)
             {
+                // Report collision energy source
+                int fromMetadata = allIons.Count(i => !double.IsNaN(i.CollisionEnergy) && i.CollisionEnergy != defaultCollisionEnergy);
+                int fromDefault = allIons.Count(i => i.CollisionEnergy == defaultCollisionEnergy);
+                int stillNaN = allIons.Count(i => double.IsNaN(i.CollisionEnergy));
+
+                Console.WriteLine();
+                Console.WriteLine("Collision Energy Source:");
+                Console.WriteLine($"  From scan metadata: {fromMetadata:N0}");
+                Console.WriteLine($"  From default ({defaultCollisionEnergy}): {fromDefault:N0}");
+                Console.WriteLine($"  Still NaN: {stillNaN:N0}");
+                Console.WriteLine();
+
                 int proline = allIons.Count(i => i.HasProlineAtEitherTerminus);
                 int aspartate = allIons.Count(i => i.HasAspartateAtEitherTerminus);
                 Console.WriteLine($"With Proline terminus: {proline:N0} ({100.0 * proline / allIons.Count:F1}%)");
@@ -284,7 +304,6 @@ namespace Test.InternalIons
             Console.WriteLine($"Fraction of all ions: {ambiguousFraction:P2}");
             Console.WriteLine();
 
-            // Find the most common isobaric mass values
             var ambiguousIons = ions.Where(i => i.IsIsobaricAmbiguous).ToList();
             if (ambiguousIons.Count > 0)
             {
@@ -318,14 +337,12 @@ namespace Test.InternalIons
                 return;
             }
 
-            // Compute background frequency
             string allSeq = string.Concat(ions.Select(i => i.InternalSequence));
             int totalChars = allSeq.Length;
             var bgFreq = StandardAminoAcids.ToDictionary(
                 aa => aa,
                 aa => totalChars > 0 ? (double)allSeq.Count(c => c == aa) / totalChars : 0);
 
-            // Count occurrences at each position
             var internalNTermCount = StandardAminoAcids.ToDictionary(aa => aa, _ => 0);
             var internalCTermCount = StandardAminoAcids.ToDictionary(aa => aa, _ => 0);
             var flankingNTermCount = StandardAminoAcids.ToDictionary(aa => aa, _ => 0);
@@ -333,7 +350,6 @@ namespace Test.InternalIons
 
             foreach (var ion in ions)
             {
-                // Internal termini
                 if (!string.IsNullOrEmpty(ion.InternalSequence))
                 {
                     char intN = ion.InternalNTerminalAA;
@@ -342,7 +358,6 @@ namespace Test.InternalIons
                     if (internalCTermCount.ContainsKey(intC)) internalCTermCount[intC]++;
                 }
 
-                // Flanking residues
                 if (flankingNTermCount.ContainsKey(ion.NTerminalFlankingResidue))
                     flankingNTermCount[ion.NTerminalFlankingResidue]++;
                 if (flankingCTermCount.ContainsKey(ion.CTerminalFlankingResidue))
@@ -359,7 +374,6 @@ namespace Test.InternalIons
             Console.WriteLine("| AA | IntN-Term  | IntC-Term  | FlankN     | FlankC     |");
             Console.WriteLine("+----+------------+------------+------------+------------+");
 
-            // Build enrichment data and sort by internal N-term enrichment
             var enrichmentData = StandardAminoAcids.Select(aa =>
             {
                 double bg = bgFreq[aa];
