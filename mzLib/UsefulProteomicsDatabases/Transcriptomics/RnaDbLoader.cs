@@ -1,16 +1,17 @@
-﻿using Omics.Modifications;
+﻿using Chemistry;
+using Omics.BioPolymer;
+using Omics.Modifications;
+using Proteomics;
 using System;
 using System.Collections.Generic;
-using System.IO.Compression;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml;
-using Chemistry;
 using Transcriptomics;
-using Omics.BioPolymer;
 
 namespace UsefulProteomicsDatabases.Transcriptomics
 {
@@ -20,6 +21,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
         Ensembl,
         NcbiRefSeq,
         NcbiAssembly,
+        MzLib,
         Unknown,
     }
 
@@ -49,6 +51,8 @@ namespace UsefulProteomicsDatabases.Transcriptomics
         {
             if (line.StartsWith(">id"))
                 return RnaFastaHeaderType.Modomics;
+            if (line.StartsWith(">mz"))
+                return RnaFastaHeaderType.MzLib;
             if (line.StartsWith(">ENST"))
                 return RnaFastaHeaderType.Ensembl;
             if (_ncbiAssemblyHeaderRegex.IsMatch(line))
@@ -110,22 +114,34 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                 { "Chromosome", new FastaHeaderFieldRegex("Chromosome", @"\[chromosome=([^\]]+)\]", 0, 1) },
             };
 
-        #endregion
+        public static readonly Dictionary<string, FastaHeaderFieldRegex> MzLibRegexes =
+            new()
+            {
+                // >mz|{0}|{1} {2} OS={3} GN={4}
+                //  0: Accession, 1: Name, 2: FullName, 3: Organism, 4: GeneName
+                { "Accession", new FastaHeaderFieldRegex("Accession", @"^>mz\|([^|]+)\|", 0, 1) },
+                { "Name", new FastaHeaderFieldRegex("Name", @"^>mz\|[^|]+\|([^\s]+)", 0, 1) },
+                { "FullName", new FastaHeaderFieldRegex("FullName", @"^>mz\|[^|]+\|[^\s]+ ([^O]+) OS=", 0, 1) },
+                { "Organism", new FastaHeaderFieldRegex("Organism", @"OS=([^ ]+)", 0, 1) },
+                { "Gene", new FastaHeaderFieldRegex("Gene", @"GN=([^\s]*)", 0, 1) },
+            };
 
-        /// <summary>
-        /// Loads an RNA file from the specified location, optionally generating decoys and adding error tracking
-        /// </summary>
-        /// <param name="rnaDbLocation">The file path to the RNA FASTA database</param>
-        /// <param name="generateTargets">Flag indicating whether to generate targets or not</param>
-        /// <param name="decoyType">The type of decoy generation to apply</param>
-        /// <param name="isContaminant">Indicates if the RNA sequence is a contaminant</param>
-        /// <param name="errors">Outputs any errors encountered during the process</param>
-        /// <param name="fivePrimeTerm">An optional 5' prime chemical modification term</param>
-        /// <param name="threePrimeTerm">An optional 3' prime chemical modification term</param>
-        /// <returns>A list of RNA sequences loaded from the FASTA database</returns>
-        /// <exception cref="MzLibUtil.MzLibException">Thrown if the FASTA header format is unknown or other issues occur during loading.</exception>
+    #endregion
 
-        public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets, DecoyType decoyType,
+/// <summary>
+/// Loads an RNA file from the specified location, optionally generating decoys and adding error tracking
+/// </summary>
+/// <param name="rnaDbLocation">The file path to the RNA FASTA database</param>
+/// <param name="generateTargets">Flag indicating whether to generate targets or not</param>
+/// <param name="decoyType">The type of decoy generation to apply</param>
+/// <param name="isContaminant">Indicates if the RNA sequence is a contaminant</param>
+/// <param name="errors">Outputs any errors encountered during the process</param>
+/// <param name="fivePrimeTerm">An optional 5' prime chemical modification term</param>
+/// <param name="threePrimeTerm">An optional 3' prime chemical modification term</param>
+/// <returns>A list of RNA sequences loaded from the FASTA database</returns>
+/// <exception cref="MzLibUtil.MzLibException">Thrown if the FASTA header format is unknown or other issues occur during loading.</exception>
+
+public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets, DecoyType decoyType,
             bool isContaminant, out List<string> errors, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null, 
             int maxThreads = 1, string decoyIdentifier = "DECOY")
         {
@@ -133,6 +149,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
             SequenceTransformationOnRead sequenceTransformation = SequenceTransformationOnRead.None;
             errors = new List<string>();
             List<RNA> targets = new List<RNA>();
+            List<RNA> decoys = new List<RNA>();
             string identifierHeader = null;
 
             string name = null;
@@ -191,6 +208,10 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                                     identifierHeader = "Accession";
                                     sequenceTransformation = SequenceTransformationOnRead.ConvertAllTtoU;
                                     break;
+                                case RnaFastaHeaderType.MzLib:
+                                    regexes = MzLibRegexes;
+                                    identifierHeader = "Accession";
+                                    break;
                                 default:
                                     throw new MzLibUtil.MzLibException("Unknown fasta header format: " + line);
                             }
@@ -230,10 +251,13 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
                         var sequence = SanitizeAndTransform(sb.ToString(), sequenceTransformation);
 
+                        bool isDecoy = identifier.StartsWith(decoyIdentifier);
                         RNA rna = new RNA(sequence, identifier,
-                            null, fivePrimeTerminus: fivePrimeTerm, threePrimeTerminus: threePrimeTerm, name: name, organism: organism, databaseFilePath: rnaDbLocation, isContaminant: isContaminant, isDecoy: false, geneNames: geneNames, databaseAdditionalFields: additonalDatabaseFields);
+                            null, fivePrimeTerminus: fivePrimeTerm, threePrimeTerminus: threePrimeTerm, name: name, organism: organism, databaseFilePath: rnaDbLocation, isContaminant: isContaminant, isDecoy: isDecoy, geneNames: geneNames, databaseAdditionalFields: additonalDatabaseFields);
                         if (rna.Length == 0)
                             errors.Add("Line" + line + ", Rna length of 0: " + rna.Name + "was skipped from database: " + rnaDbLocation);
+                        else if (rna.IsDecoy)
+                            decoys.Add(rna);
                         else
                             targets.Add(rna);
 
@@ -256,9 +280,9 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
             if (!targets.Any())
                 errors.Add("No targets were loaded from database: " + rnaDbLocation);
-
-            List<RNA> decoys = RnaDecoyGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier);
-            return generateTargets ? targets.Concat(decoys).ToList() : decoys;
+            decoys.AddRange(RnaDecoyGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier));
+            var toReturn = generateTargets ? targets.Concat(decoys) : decoys;
+            return Merge(toReturn).ToList();
         }
 
 
@@ -297,6 +321,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                 IdWithMotifToMod = ProteinDbLoader.GetModificationDictWithMotifs(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
             }
             List<RNA> targets = new List<RNA>();
+            List<RNA> decoys = new List<RNA>();
             unknownModifications = new Dictionary<string, Modification>();
 
             string newProteinDbLocation = rnaDbLocation;
@@ -327,10 +352,13 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                         }
                         if (xml.NodeType == XmlNodeType.EndElement || xml.IsEmptyElement)
                         {
-                            RNA newProtein = block.ParseRnaEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, rnaDbLocation);
+                            RNA newProtein = block.ParseRnaEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, rnaDbLocation, decoyIdentifier);
                             if (newProtein != null)
                             {
-                                targets.Add(newProtein);
+                                if (newProtein.IsDecoy)
+                                    decoys.Add(newProtein);
+                                else
+                                    targets.Add(newProtein);
                             }
                         }
                     }
@@ -341,11 +369,87 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                 File.Delete(newProteinDbLocation);
             }
 
-            List<RNA> decoys = RnaDecoyGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier);
+            decoys.AddRange(RnaDecoyGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier));
             IEnumerable<RNA> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
-            return proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth)).ToList();
+            var toReturn = proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth));
+            return Merge(toReturn).ToList();
         }
 
+        public static IEnumerable<RNA> Merge(IEnumerable<RNA> mergeThese)
+        {
+            Dictionary<Tuple<string, string, bool, bool>, List<RNA>> rnaByAccessionAndDbOrigin = new();
+            foreach (RNA p in mergeThese)
+            {
+                Tuple<string, string, bool, bool> key = new Tuple<string, string, bool, bool>(p.Accession, p.BaseSequence, p.IsContaminant, p.IsDecoy);
+                if (!rnaByAccessionAndDbOrigin.TryGetValue(key, out List<RNA> bundled))
+                {
+                    rnaByAccessionAndDbOrigin.Add(key, new List<RNA> { p });
+                }
+                else
+                {
+                    bundled.Add(p);
+                }
+            }
+
+            foreach (KeyValuePair<Tuple<string, string, bool, bool>, List<RNA>> rnas in rnaByAccessionAndDbOrigin)
+            {
+                if (rnas.Value.Count == 1)
+                {
+                    yield return rnas.Value[0];
+                    continue;
+                }
+
+                HashSet<string> additionalDatabaseFieldKeys = new();
+                HashSet<IHasChemicalFormula> threePrimes = new(rnas.Value.Select(r => r.ThreePrimeTerminus));
+                HashSet<IHasChemicalFormula> fivePrimes = new(rnas.Value.Select(r => r.FivePrimeTerminus));
+                HashSet<string> names = new(rnas.Value.Select(r => r.Name));
+                HashSet<string> fullnames = new(rnas.Value.Select(r => r.FullName));
+                HashSet<Tuple<string, string>> genenames = new(rnas.Value.SelectMany(r => r.GeneNames));
+                HashSet<TruncationProduct> truncations = new(rnas.Value.SelectMany(r => r.TruncationProducts));
+                HashSet<SequenceVariation> variants = new(rnas.Value.SelectMany(r => r.SequenceVariations));
+                Dictionary<int, HashSet<Modification>> modDict = new();
+
+                foreach (var r in rnas.Value)
+                {
+                    if (r.AdditionalDatabaseFields != null)
+                        foreach (var k in r.AdditionalDatabaseFields.Keys)
+                            additionalDatabaseFieldKeys.Add(k);
+
+                    foreach (var kv in r.OneBasedPossibleLocalizedModifications)
+                    {
+                        if (!modDict.TryGetValue(kv.Key, out var val))
+                            modDict.Add(kv.Key, new HashSet<Modification>(kv.Value));
+                        else
+                            foreach (var mod in kv.Value)
+                                val.Add(mod);
+                    }
+                }
+
+                Dictionary<int, List<Modification>> modDict2 = modDict.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
+
+                static string FirstOrDefaultOrEmpty(HashSet<string> set) => set.Count > 0 ? set.First() : "";
+
+                var firstNa = rnas.Value[0];
+
+                // TODO: Handle applied variants. 
+                yield return new RNA(
+                    rnas.Key.Item2,
+                    rnas.Key.Item1,
+                    isContaminant: rnas.Key.Item3,
+                    isDecoy: rnas.Key.Item4,
+                    oneBasedPossibleModifications: modDict2,
+                    truncationProducts: truncations.ToList(),
+                    name: names.FirstOrDefault(),
+                    fullName: fullnames.FirstOrDefault(),
+                    databaseAdditionalFields: additionalDatabaseFieldKeys.ToDictionary(k => k, k => firstNa.AdditionalDatabaseFields != null && firstNa.AdditionalDatabaseFields.ContainsKey(k) ? firstNa.AdditionalDatabaseFields[k] : ""),
+                    sequenceVariations: variants.ToList(),
+                    geneNames: genenames.ToList(),
+                    organism: firstNa.Organism,
+                    fivePrimeTerminus: fivePrimes.Count == 1 ? fivePrimes.First() : NucleicAcid.DefaultFivePrimeTerminus,
+                    threePrimeTerminus: threePrimes.Count == 1 ? threePrimes.First() : NucleicAcid.DefaultThreePrimeTerminus
+                );
+            }
+        }
 
         // TODO: Some oligo databases may have the reverse strand, this is currently not handled yet and this code assumes we are always reading in the strand to search against. 
         public static string SanitizeAndTransform(string rawSequence, SequenceTransformationOnRead sequenceTransformation)

@@ -82,6 +82,9 @@ namespace Readers
 
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int scanNumber, IFilteringParams filterParams = null)
         {
+            if (CheckIfScansLoaded() && scanNumber <= IndexedScans.Length)
+                return GetOneBasedScan(scanNumber);
+
             lock (DynamicReadingLock)
             {
                 if (_streamReader == null)
@@ -140,6 +143,7 @@ namespace Readers
             List<double> intensities = new List<double>();
             int charge = 2; //default when unknown
             double precursorMz = 0;
+            double? precursorIntensity = null; //default when unknown
             double rtInMinutes = double.NaN; //default when unknown
 
             int oldScanNumber = scanNumbersAlreadyObserved.Count > 0 ? scanNumbersAlreadyObserved.Max() : 0;
@@ -164,6 +168,8 @@ namespace Readers
                 {
                     sArray = sArray[1].Split(' ');
                     precursorMz = Convert.ToDouble(sArray[0], CultureInfo.InvariantCulture);
+                    if (sArray.Length > 1)
+                        precursorIntensity = Convert.ToDouble(sArray[1], CultureInfo.InvariantCulture);
                 }
                 else if (line.StartsWith("CHARGE"))
                 {
@@ -229,8 +235,8 @@ namespace Readers
             return new MsDataScan(spectrum, scanNumber, 2, true,
                 charge > 0 ? Polarity.Positive : Polarity.Negative,
                 rtInMinutes, scanRange, null, MZAnalyzerType.Unknown,
-                intensities.Sum(), 0, null, null, precursorMz, charge, 
-                null, precursorMz, null,  DissociationType.Unknown, 
+                intensities.Sum(), 0, null, null, precursorMz, charge,
+                precursorIntensity, precursorMz, null, DissociationType.Unknown,
                 null, precursorMz);
         }
 

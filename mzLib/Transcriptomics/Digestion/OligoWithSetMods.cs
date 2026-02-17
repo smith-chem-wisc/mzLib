@@ -35,7 +35,7 @@ namespace Transcriptomics.Digestion
             FullSequence = this.DetermineFullSequence();
         }
 
-        public OligoWithSetMods(string sequence, Dictionary<string, Modification> allKnownMods, int numFixedMods = 0,
+        public OligoWithSetMods(string sequence, Dictionary<string, Modification>? allKnownMods = null, int numFixedMods = 0,
             RnaDigestionParams digestionParams = null, NucleicAcid n = null, int oneBaseStartResidue = 1, int oneBasedEndResidue = 0,
              int missedCleavages = 0, CleavageSpecificity cleavageSpecificity = CleavageSpecificity.Full, string description = null,
             IHasChemicalFormula? fivePrimeTerminus = null, IHasChemicalFormula? threePrimeTerminus = null)
@@ -47,9 +47,11 @@ namespace Transcriptomics.Digestion
                 throw new MzLibUtil.MzLibException("Ambiguous oligo cannot be parsed from string: " + sequence);
             }
 
-            FullSequence = sequence;
             _baseSequence = IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(sequence);
-            _allModsOneIsNterminus = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(sequence, allKnownMods);
+            _allModsOneIsNterminus = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(sequence, allKnownMods ?? Mods.AllKnownRnaModsDictionary);
+            FullSequence = _allModsOneIsNterminus.ContainsKey(_baseSequence.Length + 2) 
+                ? this.DetermineFullSequence() 
+                : sequence;
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams;
             Description = description;
@@ -186,9 +188,10 @@ namespace Transcriptomics.Digestion
         /// The "products" parameter is filled with these fragments.
         /// </summary>
         public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus,
-            List<Product> products)
+            List<Product> products, FragmentationParams? fragmentationParams = null)
         {
             products.Clear();
+            fragmentationParams ??= RnaFragmentationParams.Default;
 
             List<ProductType> fivePrimeProductTypes =
                 dissociationType.GetRnaTerminusSpecificProductTypesFromDissociation(FragmentationTerminus.FivePrime);
@@ -211,8 +214,8 @@ namespace Transcriptomics.Digestion
             }
 
             // intact product ion
-            if (fragmentationTerminus is FragmentationTerminus.Both or FragmentationTerminus.None)
-                products.AddRange(GetNeutralFragments(ProductType.M, sequence));
+            if (fragmentationParams.GenerateMIon && fragmentationTerminus is FragmentationTerminus.Both or FragmentationTerminus.None)
+                products.AddRange(this.GetMIons(fragmentationParams));
 
             if (calculateFivePrime)
                 foreach (var type in fivePrimeProductTypes)
@@ -290,7 +293,7 @@ namespace Transcriptomics.Digestion
         /// The "minLengthOfFragments" parameter is the minimum number of nucleic acids for an internal fragment to be included
         /// </summary>
         public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments,
-            List<Product> products)
+            List<Product> products, FragmentationParams? fragmentationParams = null)
         {
             throw new NotImplementedException();
         }
@@ -304,12 +307,6 @@ namespace Transcriptomics.Digestion
         public IEnumerable<Product> GetNeutralFragments(ProductType type, Nucleotide[]? sequence = null)
         {
             sequence ??= (Parent as NucleicAcid)!.NucleicAcidArray[(OneBasedStartResidue - 1)..OneBasedEndResidue];
-
-            if (type is ProductType.M)
-            {
-                yield return new Product(type, FragmentationTerminus.None, MonoisotopicMass, 0, 0, 0);
-                yield break;
-            }
 
             // determine mass of piece remaining after fragmentation
             double monoMass = type.GetRnaMassShiftFromProductType();

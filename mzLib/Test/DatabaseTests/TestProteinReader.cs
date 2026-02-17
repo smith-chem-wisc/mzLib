@@ -89,7 +89,7 @@ namespace Test.DatabaseTests
                 oneBasedModifications: new Dictionary<int, List<Modification>> { { 1, new List<Modification> { new Modification("mod", null, "type", null, motif, "Anywhere.", null, 10, null, null, null, null, null, null) } } }
                 );
 
-            List<Protein> merged = ProteinDbLoader.MergeProteins(new List<Protein> { p, p2 }).ToList();
+            List<Protein> merged = ProteinDbLoader.Merge(new List<Protein> { p, p2 }).ToList();
             Assert.AreEqual(1, merged.Count);
             Assert.AreEqual(1, merged.First().DatabaseReferences.Count());
             Assert.AreEqual(1, merged.First().GeneNames.Count());
@@ -125,10 +125,20 @@ namespace Test.DatabaseTests
             Assert.AreEqual(64, ok[0].SequenceVariations.First().OneBasedEndPosition);
             Assert.AreEqual(103 - 64 + 2, ok[1].SequenceVariations.First().OneBasedBeginPosition);
             Assert.AreEqual(103 - 64 + 2, ok[1].SequenceVariations.First().OneBasedEndPosition);
-            Assert.AreNotEqual(ok[0].SequenceVariations.First().Description, ok[1].SequenceVariations.First().Description); //decoys and target variations don't have the same desc.
+            Assert.AreNotEqual(ok[0].SequenceVariations.First().VariantCallFormatDataString, ok[1].SequenceVariations.First().VariantCallFormatDataString); //decoys and target variations don't have the same desc.
             Assert.AreEqual("Homo sapiens", ok[1].Organism);
         }
 
+        [Test]
+        public static void FilterOutOfRangeVariantAndVariantsForMultipleIsoforms()
+        {
+            var ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"outOfRangeVariant.xml"),
+                true, DecoyType.None, UniProtPtms, false, null, out var un, 1, 0);
+
+            Assert.AreEqual("P04406", ok[0].Accession);
+            Assert.AreEqual(2, ok[0].SequenceVariations.Count());
+
+        }
         [Test]
         public static void DisulfideXmlTest()
         {
@@ -420,8 +430,8 @@ CF   O1
 
                 foreach (var variant in protein.AppliedSequenceVariations)
                 {
-                    Assert.That(variant.Description, Does.StartWith("rev"));
-                    Assert.That(variant.Description, Does.Not.StartWith("DECOY"));
+                    Assert.That(variant.VariantCallFormatDataString, Does.StartWith("rev"));
+                    Assert.That(variant.VariantCallFormatDataString, Does.Not.StartWith("DECOY"));
                 }
 
                 foreach (var bond in protein.DisulfideBonds)
@@ -486,7 +496,6 @@ CF   O1
             Assert.AreEqual("MSGRGKGGKGLGKGGAKRHRKVLRDNIQGITKPAIRRLARRGGVKRISGLIYEETRGVLKVFLENVIRDAVTYTEHAKRKTVTAMDVVYALKRQGRTLYGFGG", prots[0].BaseSequence);
             Assert.AreEqual("MGGFGYLTRGQRKLAYVVDMATVTKRKAHETYTVADRIVNELFVKLVGRTEEYILGSIRKVGGRRALRRIAPKTIGQINDRLVKRHRKAGGKGLGKGGKGRGS", prots[1].BaseSequence);
         }
-
         [Test]
         public static void TestSlideDecoyFasta()
         {

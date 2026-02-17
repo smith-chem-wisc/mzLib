@@ -1,15 +1,15 @@
-﻿using Proteomics;
+﻿using Omics.BioPolymer;
+using Omics.Modifications;
+using Proteomics;
+using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Xml;
-using Omics.BioPolymer;
-using Omics.Modifications;
 using Transcriptomics;
 using UsefulProteomicsDatabases.Transcriptomics;
-using System.Data;
-using Proteomics.ProteolyticDigestion;
 
 namespace UsefulProteomicsDatabases
 {
@@ -53,9 +53,12 @@ namespace UsefulProteomicsDatabases
         public UniProtSequenceAttributes SequenceAttributes { get; set; } = null; // this is used to store the sequence attributes from the <sequence> element, if present
         private List<(int, string)> AnnotatedMods = new List<(int position, string originalModificationID)>();
         private List<(int, string)> AnnotatedVariantMods = new List<(int position, string originalModificationID)>();
-
+        // Captured isoform/sequence identifier from <location sequence="...">
+        private string LocationSequenceId;
         /// <summary>
-        /// Start parsing a protein XML element
+        /// Parses a single XML element from a protein database entry and updates the internal state of the ProteinXmlEntry object.
+        /// Handles metadata, sequence, features, gene names, organism, and references by reading attributes and content from the XmlReader.
+        /// This method is called for each start element during XML parsing and accumulates data for later construction of a Protein instance.
         /// </summary>
         public void ParseElement(string elementName, XmlReader xml)
         {
@@ -137,7 +140,9 @@ namespace UsefulProteomicsDatabases
                     PropertyTypes.Add(xml.GetAttribute("type"));
                     PropertyValues.Add(xml.GetAttribute("value"));
                     break;
-
+                case "location":
+                    LocationSequenceId = xml.GetAttribute("sequence");
+                    break;
                 case "position":
                     OneBasedFeaturePosition = int.Parse(xml.GetAttribute("position"));
                     break;
@@ -161,9 +166,12 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// Parses the attributes of the current <entry> element from the provided XmlReader.
-        /// Extracts and stores the values for dataset, created, modified, version, and xmlns attributes.
+        /// Parses and stores key metadata attributes from the current &lt;entry&gt; element in the XML.
+        /// This includes dataset, creation date, modification date, version, and XML namespace information.
+        /// The extracted values are assigned to the corresponding properties of the <see cref="ProteinXmlEntry"/> instance.
+        /// This method is typically called when the parser encounters the start of a protein entry in a UniProt or similar XML file.
         /// </summary>
+        /// <param name="xml">The <see cref="XmlReader"/> positioned at the &lt;entry&gt; element whose attributes are to be read.</param>
         private void ParseEntryAttributes(XmlReader xml)
         {
             DatasetEntryTag = xml.GetAttribute("dataset");
@@ -268,10 +276,12 @@ namespace UsefulProteomicsDatabases
             return UniProtSequenceAttributes.FragmentType.unspecified;
         }
 
-        // Helper method to compute the monoisotopic mass of a sequence.
         /// <summary>
-        /// Computes the monoisotopic mass of the given sequence.
-        /// Returns 0 if the sequence is empty.
+        /// Computes the monoisotopic mass of a protein or nucleic acid sequence without modifications.
+        /// If the input sequence is null or empty, returns 0.
+        /// Internally, constructs a <see cref="PeptideWithSetModifications"/> using the provided sequence and an empty modification dictionary,
+        /// then returns the rounded monoisotopic mass as an integer.
+        /// This method is used to populate sequence attributes such as mass during XML parsing.
         /// </summary>
         private static int ComputeSequenceMass(string sequence)
         {
@@ -280,10 +290,29 @@ namespace UsefulProteomicsDatabases
             return (int)Math.Round(new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>()).MonoisotopicMass);
         }
         /// <summary>
-        /// Finish parsing at the end of an element
+        /// Handles the end of an XML element during protein database parsing and updates the internal state or finalizes objects as needed.
+        /// Depending on the element name, this method processes and stores feature, subfeature, database reference, gene, and organism information.
+        /// When the end of an <entry> element is reached, it finalizes the parsing of the protein entry by:
+        ///   - Sanitizing the sequence (replacing invalid amino acids with 'X').
+        ///   - Pruning sequence variants whose coordinates exceed the sequence length.
+        ///   - Resolving and attaching all annotated modifications, excluding specified types or unknowns.
+        ///   - Determining if the protein is a decoy based on the accession and decoy identifier.
+        ///   - Aggregating all parsed data (gene names, proteolysis products, sequence variations, disulfide bonds, splice sites, database references, and sequence attributes)
+        ///     into a new <see cref="Protein"/> instance.
+        ///   - Clearing the internal state to prepare for the next entry.
+        /// Returns a constructed <see cref="Protein"/> object if the end of an <entry> element is reached and all required data is present; otherwise, returns <c>null</c>.
         /// </summary>
+        /// <param name="xml">The <see cref="XmlReader"/> positioned at the end of the current XML element.</param>
+        /// <param name="modTypesToExclude">A collection of modification types to exclude from the protein.</param>
+        /// <param name="unknownModifications">A dictionary to collect modifications that could not be resolved.</param>
+        /// <param name="isContaminant">Indicates whether the protein is a contaminant.</param>
+        /// <param name="proteinDbLocation">The file path or identifier of the protein database source.</param>
+        /// <param name="decoyIdentifier">A string used to identify decoy proteins (default: "DECOY").</param>
+        /// <returns>
+        /// A constructed <see cref="Protein"/> object if the end of an <entry> element is reached and all required data is present; otherwise, <c>null</c>.
+        /// </returns>
         public Protein ParseEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications,
-            bool isContaminant, string proteinDbLocation)
+            bool isContaminant, string proteinDbLocation, string decoyIdentifier = "DECOY")
         {
             Protein protein = null;
             if (xml.Name == "feature")
@@ -308,14 +337,33 @@ namespace UsefulProteomicsDatabases
             }
             else if (xml.Name == "entry")
             {
-                protein = ParseEntryEndElement(xml, isContaminant, proteinDbLocation, modTypesToExclude, unknownModifications);
+                protein = ParseEntryEndElement(xml, isContaminant, proteinDbLocation, modTypesToExclude, unknownModifications, decoyIdentifier);
             }
             return protein;
         }
-
+        /// <summary>
+        /// Handles the end of an XML element during RNA database parsing, updating the internal state or finalizing objects as needed.
+        /// Depending on the element name, this method processes and stores feature, subfeature, and database reference information,
+        /// or, if the end of an &lt;entry&gt; element is reached, constructs and returns a fully populated <see cref="RNA"/> object.
+        /// For &lt;feature&gt; and &lt;subfeature&gt; elements, it attaches modifications or truncation products.
+        /// For &lt;dbReference&gt;, it records database cross-references.
+        /// For &lt;gene&gt; and &lt;organism&gt;, it updates parsing state flags.
+        /// For &lt;entry&gt;, it aggregates all parsed data, resolves modifications, and returns a new <see cref="RNA"/> instance,
+        /// clearing the internal state for the next entry.
+        /// </summary>
+        /// <param name="xml">The <see cref="XmlReader"/> positioned at the end of the current XML element.</param>
+        /// <param name="modTypesToExclude">A collection of modification types to exclude from the RNA.</param>
+        /// <param name="unknownModifications">A dictionary to collect modifications that could not be resolved.</param>
+        /// <param name="isContaminant">Indicates whether the RNA is a contaminant.</param>
+        /// <param name="rnaDbLocation">The file path or identifier of the RNA database source.</param>
+        /// <param name="decoyIdentifier">A string used to identify decoy RNAs (default: "DECOY").</param>
+        /// <returns>
+        /// A constructed <see cref="RNA"/> object if the end of an &lt;entry&gt; element is reached and all required data is present;
+        /// otherwise, <c>null</c>.
+        /// </returns>
         internal RNA ParseRnaEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude,
             Dictionary<string, Modification> unknownModifications,
-            bool isContaminant, string rnaDbLocation)
+            bool isContaminant, string rnaDbLocation, string decoyIdentifier = "DECOY")
         {
             RNA result = null;
             if (xml.Name == "feature")
@@ -340,17 +388,40 @@ namespace UsefulProteomicsDatabases
             }
             else if (xml.Name == "entry")
             {
-                result = ParseRnaEntryEndElement(xml, isContaminant, rnaDbLocation, modTypesToExclude, unknownModifications);
+                result = ParseRnaEntryEndElement(xml, isContaminant, rnaDbLocation, modTypesToExclude, unknownModifications, decoyIdentifier);
             }
             return result;
         }
 
         /// <summary>
-        /// Finish parsing an entry
+        /// Finalizes the parsing of a protein XML entry and constructs a <see cref="Protein"/> object from the accumulated data.
+        /// This method is called when the end of an &lt;entry&gt; element is reached during XML parsing.
+        /// It performs several key tasks:
+        /// <list type="bullet">
+        ///   <item> Sanitizes the parsed sequence (e.g., replacing invalid amino acids with 'X').</item>
+        ///   <item> Prunes any sequence variants whose coordinates exceed the sequence length.</item>
+        ///   <item> Resolves and attaches all annotated modifications, excluding those of specified types or unknowns.</item>
+        ///   <item> Determines if the protein is a decoy based on the accession and decoy identifier.</item>
+        ///   <item> Aggregates all parsed data (gene names, proteolysis products, sequence variations, disulfide bonds, splice sites, database references, and sequence attributes) into a new <see cref="Protein"/> instance.</item>
+        ///   <item> Clears the internal state of the <see cref="ProteinXmlEntry"/> to prepare for parsing the next entry.</item>
+        /// </list>
+        /// If either the accession or sequence is missing, returns <c>null</c>.
         /// </summary>
-        public Protein ParseEntryEndElement(XmlReader xml, bool isContaminant, string proteinDbLocation, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
+        /// <param name="xml">The <see cref="XmlReader"/> positioned at the end of the &lt;entry&gt; element.</param>
+        /// <param name="isContaminant">Indicates whether the protein is a contaminant.</param>
+        /// <param name="proteinDbLocation">The file path or identifier of the protein database source.</param>
+        /// <param name="modTypesToExclude">A collection of modification types to exclude from the protein.</param>
+        /// <param name="unknownModifications">A dictionary to collect modifications that could not be resolved.</param>
+        /// <param name="decoyIdentifier">A string used to identify decoy proteins (default: "DECOY").</param>
+        /// <returns>
+        /// A constructed <see cref="Protein"/> object containing all parsed and resolved information,
+        /// or <c>null</c> if the entry is incomplete.
+        /// </returns>
+
+        public Protein ParseEntryEndElement(XmlReader xml, bool isContaminant, string proteinDbLocation, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications, string decoyIdentifier = "DECOY")
         {
             Protein result = null;
+            bool isDecoy = false;
             if (Accession != null && Sequence != null)
             {
                 // sanitize the sequence to replace unexpected characters with X (unknown amino acid)
@@ -358,27 +429,63 @@ namespace UsefulProteomicsDatabases
                 Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
 
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
+                // Prune any sequence variants whose coordinates exceed the known sequence length
+                PruneOutOfRangeSequenceVariants();
+                if (Accession.StartsWith(decoyIdentifier))
+                {
+                    isDecoy = true;
+                }
                 result = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
-                    false, isContaminant, DatabaseReferences, SequenceVariations, null, null, DisulfideBonds, SpliceSites, proteinDbLocation,
+                    isDecoy, isContaminant, DatabaseReferences, SequenceVariations, null, null, DisulfideBonds, SpliceSites, proteinDbLocation,
                     false, DatasetEntryTag, DatabaseCreatedEntryTag, DatabaseModifiedEntryTag, DatabaseVersionEntryTag, XmlnsEntryTag, SequenceAttributes);
             }
             Clear();
             return result;
         }
-
+        /// <summary>
+        /// Finalizes the parsing of an RNA XML entry and constructs an <see cref="RNA"/> object from the accumulated data.
+        /// This method is called when the end of an &lt;entry&gt; element is reached during XML parsing for RNA records.
+        /// It performs several key tasks:
+        /// <list type="bullet">
+        ///   <item>Sanitizes the parsed sequence (e.g., replacing invalid characters with 'X').</item>
+        ///   <item>Prunes any sequence variants whose coordinates exceed the sequence length.</item>
+        ///   <item>Resolves and attaches all annotated modifications, excluding those of specified types or unknowns.</item>
+        ///   <item>Determines if the RNA is a decoy based on the accession and decoy identifier.</item>
+        ///   <item>Aggregates all parsed data (gene names, proteolysis products, sequence variations, and other metadata) into a new <see cref="RNA"/> instance.</item>
+        ///   <item>Clears the internal state of the <see cref="ProteinXmlEntry"/> to prepare for parsing the next entry.</item>
+        /// </list>
+        /// If either the accession or sequence is missing, returns <c>null</c>.
+        /// </summary>
+        /// <param name="xml">The <see cref="XmlReader"/> positioned at the end of the &lt;entry&gt; element.</param>
+        /// <param name="isContaminant">Indicates whether the RNA is a contaminant.</param>
+        /// <param name="rnaDbLocation">The file path or identifier of the RNA database source.</param>
+        /// <param name="modTypesToExclude">A collection of modification types to exclude from the RNA.</param>
+        /// <param name="unknownModifications">A dictionary to collect modifications that could not be resolved.</param>
+        /// <param name="decoyIdentifier">A string used to identify decoy RNAs (default: "DECOY").</param>
+        /// <returns>
+        /// A constructed <see cref="RNA"/> object containing all parsed and resolved information,
+        /// or <c>null</c> if the entry is incomplete.
+        /// </returns>
         internal RNA ParseRnaEntryEndElement(XmlReader xml, bool isContaminant, string rnaDbLocation,
-            IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
+            IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications, string decoyIdentifier = "DECOY")
         {
             RNA result = null;
+            bool isDecoy = false;
             if (Accession != null && Sequence != null)
             {
                 // sanitize the sequence to replace unexpected characters with X (unknown amino acid)
                 // sometimes strange characters get added by RNA sequencing software, etc.
                 Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
+                // Prune any sequence variants whose coordinates exceed the known sequence length
+                PruneOutOfRangeSequenceVariants();
+                if (Accession.StartsWith(decoyIdentifier))
+                {
+                    isDecoy = true;
+                }
 
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
                 result = new RNA(Sequence, Accession, OneBasedModifications, null, null, Name, Organism, rnaDbLocation,
-                    isContaminant, false, GeneNames, [], ProteolysisProducts, SequenceVariations, null, null, FullName);
+                    isContaminant, isDecoy, GeneNames, [], ProteolysisProducts, SequenceVariations, null, null, FullName);
             }
             Clear();
             return result;
@@ -397,8 +504,19 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// Finish parsing a feature element
+        /// Processes the end of a &lt;feature&gt; element during XML parsing and updates the internal state with the parsed feature information.
+        /// Depending on the feature type, this method:
+        /// <list type="bullet">
+        ///   <item>Adds modification annotations for "modified residue" and "lipid moiety-binding region" features.</item>
+        ///   <item>Creates and adds <see cref="TruncationProduct"/> objects for proteolytic features such as "peptide", "propeptide", "chain", and "signal peptide".</item>
+        ///   <item>Handles "sequence variant" features by creating <see cref="SequenceVariation"/> objects, including variant-specific modifications, and ensures they apply to the correct sequence or isoform.</item>
+        ///   <item>Creates and adds <see cref="DisulfideBond"/> or <see cref="SpliceSite"/> objects for their respective feature types, using available position information.</item>
+        /// </list>
+        /// After processing, resets feature-related state variables to prepare for the next feature.
         /// </summary>
+        /// <param name="xml">The <see cref="XmlReader"/> positioned at the end of the &lt;feature&gt; element.</param>
+        /// <param name="modTypesToExclude">A collection of modification types to exclude from the protein.</param>
+        /// <param name="unknownModifications">A dictionary to collect modifications that could not be resolved.</param>
         public void ParseFeatureEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications)
         {
             if (FeatureType == "modified residue")
@@ -435,21 +553,50 @@ namespace UsefulProteomicsDatabases
                     }
                     else
                     {
-                        type += ("null-null");
+                        type += "null-null";
                     }
                 }
                 ProteolysisProducts.Add(new TruncationProduct(OneBasedBeginPosition, OneBasedEndPosition, type));
             }
-            else if (FeatureType == "sequence variant" && VariationValue != null && VariationValue != "") // Only keep if there is variant sequence information and position information
+            else if (FeatureType == "sequence variant" && VariationValue != null && VariationValue != "")
             {
-                ParseAnnotatedMods(OneBasedVariantModifications, modTypesToExclude, unknownModifications, AnnotatedVariantMods);
-                if (OneBasedBeginPosition != null && OneBasedEndPosition != null)
+                bool appliesToThisSequence = true;
+                if (!string.IsNullOrEmpty(LocationSequenceId))
                 {
-                    SequenceVariations.Add(new SequenceVariation((int)OneBasedBeginPosition, (int)OneBasedEndPosition, OriginalValue, VariationValue, FeatureDescription, OneBasedVariantModifications));
+                    string acc = Accession ?? "";
+                    appliesToThisSequence =
+                        LocationSequenceId.Equals(acc, StringComparison.OrdinalIgnoreCase)
+                        || (!string.IsNullOrEmpty(acc) && LocationSequenceId.Equals($"{acc}-1", StringComparison.OrdinalIgnoreCase));
                 }
-                else if (OneBasedFeaturePosition >= 1)
+
+                if (appliesToThisSequence)
                 {
-                    SequenceVariations.Add(new SequenceVariation(OneBasedFeaturePosition, OriginalValue, VariationValue, FeatureDescription, OneBasedVariantModifications));
+                    ParseAnnotatedMods(OneBasedVariantModifications, modTypesToExclude, unknownModifications, AnnotatedVariantMods);
+
+                    // NOTE: We cannot validate coordinate vs sequence length here because sequence is usually parsed later.
+                    // Validation is deferred to PruneOutOfRangeSequenceVariants() during ParseEntryEndElement.
+
+                    if (OneBasedBeginPosition != null && OneBasedEndPosition != null)
+                    {
+                        SequenceVariations.Add(
+                            new SequenceVariation(
+                                (int)OneBasedBeginPosition,
+                                (int)OneBasedEndPosition,
+                                OriginalValue,
+                                VariationValue,
+                                FeatureDescription,
+                                oneBasedModifications: OneBasedVariantModifications));
+                    }
+                    else if (OneBasedFeaturePosition >= 1)
+                    {
+                        SequenceVariations.Add(
+                            new SequenceVariation(
+                                OneBasedFeaturePosition,
+                                OriginalValue,
+                                VariationValue,
+                                FeatureDescription,
+                                oneBasedModifications: OneBasedVariantModifications));
+                    }
                 }
                 AnnotatedVariantMods = new List<(int, string)>();
                 OneBasedVariantModifications = new Dictionary<int, List<Modification>>();
@@ -481,64 +628,7 @@ namespace UsefulProteomicsDatabases
             OneBasedFeaturePosition = -1;
             OriginalValue = "";
             VariationValue = "";
-        }
-
-        private static void ParseAnnotatedMods(Dictionary<int, List<Modification>> destination, IEnumerable<string> modTypesToExclude,
-            Dictionary<string, Modification> unknownModifications, List<(int, string)> annotatedMods)
-        {
-            foreach (var annotatedMod in annotatedMods)
-            {
-                string annotatedId = annotatedMod.Item2;
-                int annotatedModLocation = annotatedMod.Item1;
-
-                if (ProteinDbLoader.IdWithMotifToMod.TryGetValue(annotatedId, out Modification foundMod)
-                    || RnaDbLoader.IdWithMotifToMod.TryGetValue(annotatedId, out foundMod))
-                {
-                    // if the list of known mods contains this IdWithMotif
-                    if (!modTypesToExclude.Contains(foundMod.ModificationType))
-                    {
-                        if (destination.TryGetValue(annotatedModLocation, out var listOfModsAtThisLocation))
-                        {
-                            listOfModsAtThisLocation.Add(foundMod);
-                        }
-                        else
-                        {
-                            destination.Add(annotatedModLocation, new List<Modification> { foundMod });
-                        }
-                    }
-                    // else - the mod ID was found but the motif didn't fit the annotated location
-                }
-
-                // no known mod - try looking it up in the dictionary of mods without motif appended
-                else if (ProteinDbLoader.IdToPossibleMods.TryGetValue(annotatedId, out IList<Modification> mods)
-                         || RnaDbLoader.IdToPossibleMods.TryGetValue(annotatedId, out mods))
-                {
-                    foreach (Modification mod in mods)
-                    {
-                        if (!modTypesToExclude.Contains(mod.ModificationType))
-                        {
-                            if (destination.TryGetValue(annotatedModLocation, out var listOfModsAtThisLocation))
-                            {
-                                listOfModsAtThisLocation.Add(mod);
-                            }
-                            else
-                            {
-                                destination.Add(annotatedModLocation, new List<Modification> { mod });
-                            }
-                            break;
-                        }
-                    }
-                }
-                else
-                {
-                    // could not find the annotated mod's ID in our list of known mods - it's an unknown mod
-                    // I don't think this really does anything...
-                    if (!unknownModifications.ContainsKey(annotatedId))
-                    {
-                        unknownModifications.Add(annotatedId, new Modification(annotatedId));
-                    }
-                }
-            }
+            LocationSequenceId = null;
         }
 
         /// <summary>
@@ -594,6 +684,81 @@ namespace UsefulProteomicsDatabases
             GeneNames = new List<Tuple<string, string>>();
             ReadingGene = false;
             ReadingOrganism = false;
+            LocationSequenceId = null;
+            AnnotatedVariantMods = new List<(int, string)>();
+            OneBasedVariantModifications = new Dictionary<int, List<Modification>>();
+        }
+        /// <summary>
+        /// Resolves and attaches annotated modifications to the specified destination dictionary based on parsed feature or variant annotations.
+        /// For each annotated modification, attempts to look up the modification by its identifier (with motif) in both protein and RNA modification dictionaries.
+        /// If found and not excluded by <paramref name="modTypesToExclude"/>, the modification is added to the destination at the specified position.
+        /// If not found by identifier, attempts to resolve the modification by possible matches (without motif) and adds the first non-excluded match.
+        /// If no match is found, records the modification as unknown in <paramref name="unknownModifications"/> to avoid repeated warnings.
+        /// This method is used to populate the protein or variant modification dictionaries during XML parsing.
+        /// </summary>
+        /// <param name="destination">Dictionary mapping one-based positions to lists of modifications to be populated.</param>
+        /// <param name="modTypesToExclude">A collection of modification types to exclude from assignment.</param>
+        /// <param name="unknownModifications">A dictionary to collect modifications that could not be resolved by identifier or type.</param>
+        /// <param name="annotatedMods">List of (position, modification identifier) tuples parsed from XML features or subfeatures.</param>
+        private static void ParseAnnotatedMods(
+            Dictionary<int, List<Modification>> destination,
+            IEnumerable<string> modTypesToExclude,
+            Dictionary<string, Modification> unknownModifications,
+            List<(int position, string originalModificationID)> annotatedMods)
+        {
+            foreach (var (annotatedModLocation, annotatedId) in annotatedMods)
+            {
+                if (ProteinDbLoader.IdWithMotifToMod.TryGetValue(annotatedId, out Modification foundMod)
+                    || RnaDbLoader.IdWithMotifToMod.TryGetValue(annotatedId, out foundMod))
+                {
+                    if (!modTypesToExclude.Contains(foundMod.ModificationType))
+                    {
+                        if (destination.TryGetValue(annotatedModLocation, out var listOfModsAtThisLocation))
+                        {
+                            listOfModsAtThisLocation.Add(foundMod);
+                        }
+                        else
+                        {
+                            destination.Add(annotatedModLocation, new List<Modification> { foundMod });
+                        }
+                    }
+                }
+                else if (ProteinDbLoader.IdToPossibleMods.TryGetValue(annotatedId, out IList<Modification> mods)
+                         || RnaDbLoader.IdToPossibleMods.TryGetValue(annotatedId, out mods))
+                {
+                    var mod = mods.FirstOrDefault(m => !modTypesToExclude.Contains(m.ModificationType));
+                    if (mod != null)
+                    {
+                        if (destination.TryGetValue(annotatedModLocation, out var listOfModsAtThisLocation))
+                        {
+                            listOfModsAtThisLocation.Add(mod);
+                        }
+                        else
+                        {
+                            destination.Add(annotatedModLocation, new List<Modification> { mod });
+                        }
+                    }
+                }
+                else
+                {
+                    if (!unknownModifications.ContainsKey(annotatedId))
+                    {
+                        unknownModifications.Add(annotatedId, new Modification(annotatedId));
+                    }
+                }
+            }
+        }
+        /// <summary>
+        /// Filters out sequence variants whose begin or end positions exceed the sequence length.
+        /// </summary>
+        private void PruneOutOfRangeSequenceVariants()
+        {
+            if (string.IsNullOrEmpty(Sequence) || SequenceVariations.Count == 0)
+                return;
+
+            int len = Sequence.Length;
+            SequenceVariations.RemoveAll(v =>
+                v.OneBasedBeginPosition > len || v.OneBasedEndPosition > len);
         }
     }
 }

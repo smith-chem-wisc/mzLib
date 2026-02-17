@@ -200,5 +200,30 @@ namespace Test.Transcriptomics
                 Assert.That(product.NeutralMass, Is.GreaterThan(0), "Product neutral mass should be positive.");
             }
         }
+
+        [Test]
+        public static void TestThreePrimeTermAndLastSideChainModParsing()
+        {
+            string fullSequence = "GUACUAG[Mod:MyMod on G]-[Oligo3PrimeTermMod:My3PrimeTermMod on G]";
+
+            ModificationMotif.TryGetMotif("G", out var motif);
+
+            Modification mod = new Modification(_originalId: "MyMod", _modificationType: "Mod",
+                _monoisotopicMass: 1, _locationRestriction: "Anywhere.", _target: motif);
+
+            Modification cTermMod = new Modification(_originalId: "My3PrimeTermMod", _modificationType: "Oligo3PrimeTermMod",
+                _monoisotopicMass: 1, _locationRestriction: "Oligo 3'-terminal.", _target: motif);
+
+            Dictionary<string, Modification> mods = new Dictionary<string, Modification>
+            {
+                { "MyMod on G", mod },
+                { "My3PrimeTermMod on G", cTermMod }
+            };
+
+            var oligo = new OligoWithSetMods(fullSequence, mods);
+
+            Assert.That(oligo.AllModsOneIsNterminus.Count == 2);
+            Assert.That(oligo.AllModsOneIsNterminus.Keys.SequenceEqual(new int[] { 8, 9 }));
+        }
     }
 }

@@ -18,9 +18,7 @@
 
 using MzLibUtil;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
 
 namespace MassSpectrometry
@@ -49,7 +47,8 @@ namespace MassSpectrometry
             int? oneBasedPrecursorScanNumber = null, 
             double? selectedIonMonoisotopicGuessMz = null, 
             string hcdEnergy = null,
-            string scanDescription = null)
+            string scanDescription = null, 
+            double? compensationVoltage = null)
         {
             OneBasedScanNumber = oneBasedScanNumber;
             MsnOrder = msnOrder;
@@ -73,6 +72,7 @@ namespace MassSpectrometry
             SelectedIonMonoisotopicGuessMz = selectedIonMonoisotopicGuessMz;
             HcdEnergy = hcdEnergy;
             ScanDescription = scanDescription;
+            CompensationVoltage = compensationVoltage; 
 
             // Ensure the charge of the selected ion matches the polarity of the scan 
             SelectedIonChargeStateGuess = Polarity switch
@@ -132,6 +132,7 @@ namespace MassSpectrometry
                 return isolationRange;
             }
         }
+        public double? CompensationVoltage { get; private set; }
 
         public override string ToString()
         {

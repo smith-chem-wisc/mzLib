@@ -161,6 +161,9 @@ namespace Readers
         /// </summary>
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
         {
+            if (CheckIfScansLoaded() && oneBasedScanNumber <= Scans.Length)
+                return GetOneBasedScan(oneBasedScanNumber);
+
             var dymConnection = RawFileReaderAdapter.FileFactory(FilePath);
             dymConnection.SelectInstrument(Device.MS, 1);
 
@@ -248,6 +251,7 @@ namespace Readers
             double? isolationMz = null;
             string HcdEnergy = null;
             string scanDescript = null;
+            double? compensationVoltage = null; 
             ActivationType activationType = ActivationType.Any; // thermo enum
             DissociationType dissociationType = DissociationType.Unknown; // mzLib enum
 
@@ -262,6 +266,10 @@ namespace Readers
                     ionInjectionTime = double.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
                         (double?)null :
                         double.Parse(values[i], CultureInfo.InvariantCulture);
+                }
+                if (labels[i].StartsWith("FAIMS CV", StringComparison.Ordinal))
+                {
+                    compensationVoltage = double.Parse(values[i]); 
                 }
 
                 if (msOrder < 2)
@@ -375,6 +383,8 @@ namespace Readers
                     }
                 }
             }
+            
+            
 
             return new MsDataScan(
                 massSpectrum: spectrum,
@@ -399,7 +409,8 @@ namespace Readers
                 oneBasedPrecursorScanNumber: precursorScanNumber,
                 selectedIonMonoisotopicGuessMz: precursorSelectedMonoisotopicIonMz,
                 hcdEnergy: HcdEnergy,
-                scanDescription: scanDescript);
+                scanDescription: scanDescript, 
+                compensationVoltage: compensationVoltage);
         }
 
         private static MzSpectrum GetSpectrum(IRawDataPlus rawFile, IFilteringParams filterParams,
@@ -453,7 +464,7 @@ namespace Readers
             if (filterParams != null
                 && xArray.Length > 0
                 && (filterParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue || filterParams.NumberOfPeaksToKeepPerWindow.HasValue)
-                && ((filterParams.ApplyTrimmingToMs1 && scanOrder == 1) || (filterParams.ApplyTrimmingToMsMs && scanOrder > 1)))
+                && ((filterParams.ApplyTrimmingToMs1 && scanOrder == 1) || (filterParams.ApplyTrimmingToMsMs && scanOrder == 2) || (filterParams.ApplyTrimmingToMsN && scanOrder > 2)))
             {
                 var count = xArray.Length;
 

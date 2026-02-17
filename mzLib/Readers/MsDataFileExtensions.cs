@@ -47,7 +47,7 @@ namespace Readers
         /// <summary>
         /// Creates a snip of the data file, starting at the first ms1 after the start originalScan until the end originalScan. 
         /// </summary>
-        public static void ExportSnipAsMzML(this MsDataFile originalFile, int startScan, int endScan)
+        public static string ExportSnipAsMzML(this MsDataFile originalFile, int startScan, int endScan)
         {
             var filePath = originalFile.FilePath;
             if (originalFile.Scans is null)
@@ -84,21 +84,51 @@ namespace Readers
             // Replace this line
             // int scanNumberAdjustment = scansToKeep[0].OneBasedScanNumber - startScan;
 
+            // IF we have faims, we need to ensure all MS2's have their MS1's 
+            // This means removing all MS2's between the first two MS1's
+            var ms1Scans = scansToKeep.Where(p => p.MsnOrder == 1).ToList();
+            if (ms1Scans.Count >= 2 && ms1Scans.All(scan => scan is { CompensationVoltage: not null, MzAnalyzer: MZAnalyzerType.Orbitrap }))
+            {
+                int start = scansToKeep.FindIndex(p => p.MsnOrder == 1);
+                int end = scansToKeep.IndexOf(scansToKeep.Where(p => p.MsnOrder == 1).Skip(1).First());
+
+                var scansToKeepAfterFaimsCheck = new List<MsDataScan>(scansToKeep.Count - (end - start - 1));
+                for (int i = 0; i < scansToKeep.Count; i++)
+                {
+                    if (i <= start || i >= end)
+                        scansToKeepAfterFaimsCheck.Add(scansToKeep[i]);
+                }
+                scansToKeep = scansToKeepAfterFaimsCheck;
+            }
+
+
             // With this line to ensure the first scan is always 1
             int scanNumberAdjustment = scansToKeep[0].OneBasedScanNumber - 1;
             var originalScanNumbers = new List<(int oneBasedScanNumber, int? oneBasedPrecursorScanNumber)>(scansToKeep.Count);
             var scanNumberMap = new Dictionary<int, int>(scansToKeep.Count * 2);
             var scanLookup = new Dictionary<int, MsDataScan>(scansToKeep.Count);
+
+            int previousScanNumber = scansToKeep[0].OneBasedScanNumber - 1;
             foreach (var scan in scansToKeep)
             {
-                scanLookup[scan.OneBasedScanNumber] = scan;
-                originalScanNumbers.Add((scan.OneBasedScanNumber, scan.OneBasedPrecursorScanNumber));
+                int scanNumber = scan.OneBasedScanNumber;
+                int? precursorScanNumber = scan.OneBasedPrecursorScanNumber;
 
-                scanNumberMap.TryAdd(scan.OneBasedScanNumber, scan.OneBasedScanNumber - scanNumberAdjustment);
-                if (scan.OneBasedPrecursorScanNumber.HasValue)
+                int scanNumberDelta = scanNumber - previousScanNumber;
+                if (scanNumberDelta != 1)
+                    scanNumberAdjustment += scanNumberDelta - 1;
+
+
+                scanLookup[scanNumber] = scan;
+                originalScanNumbers.Add((scanNumber, precursorScanNumber));
+                scanNumberMap.TryAdd(scanNumber, scanNumber - scanNumberAdjustment);
+
+                if (precursorScanNumber is not null)
                 {
-                    scanNumberMap.TryAdd(scan.OneBasedPrecursorScanNumber.Value, scan.OneBasedPrecursorScanNumber.Value - scanNumberAdjustment);
+                    scanNumberMap.TryAdd(precursorScanNumber.Value, precursorScanNumber.Value - scanNumberAdjustment);
                 }
+
+                previousScanNumber = scanNumber;
             }
 
             var scansForTheNewFile = new List<MsDataScan>(scansToKeep.Count);
@@ -133,7 +163,9 @@ namespace Readers
                     originalScan.DissociationType,
                     newPrecursorScanNumber,
                     originalScan.SelectedIonMonoisotopicGuessMz,
-                    originalScan.HcdEnergy
+                    originalScan.HcdEnergy,
+                    originalScan.ScanDescription,
+                    originalScan.CompensationVoltage
                 );
                 scansForTheNewFile.Add(newDataScan);
             }
@@ -152,6 +184,7 @@ namespace Readers
 
             var dataFile = new GenericMsDataFile(scansForTheNewFile.ToArray(), sourceFile);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(dataFile, outPath, false);
+            return outPath;
         }
     }
 }
