@@ -274,9 +274,9 @@ namespace Test.InternalIons
         public void RunInternalFragmentAnalysis()
         {
             InternalFragmentAnalysisRunnerTests.RunAll(
-                psmTsvPath: @"C:\path\to\AllPSMs.psmtsv",
-                rawFileFolder: @"C:\path\to\raw\files",
-                outputDirectory: @"C:\path\to\output"
+                psmTsvPath: @"F:\JurakatMultiprotease\2026-02-17-16-40-42\Task1-SearchTask\AllPeptides.psmtsv",
+                rawFileFolder: @"F:\JurakatMultiprotease",
+                outputDirectory: @"E:\Projects\internalIons\mzLibReportsForClaude"
             );
         }
     }
