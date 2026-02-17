@@ -53,17 +53,48 @@ namespace Readers.InternalIons
                 if (scan?.HcdEnergy != null && TryParseCollisionEnergy(scan.HcdEnergy, out double ce))
                     collisionEnergy = ce;
 
+                // Extract all internal fragments for this PSM
+                var psmInternalFragments = new List<InternalFragmentIon>();
+
                 foreach (var ion in internalIons)
                 {
                     var internalFragment = ExtractSingleInternalFragment(
                         psm, ion, basePeakIntensity, collisionEnergy, scan);
 
                     if (internalFragment != null)
-                        results.Add(internalFragment);
+                        psmInternalFragments.Add(internalFragment);
                 }
+
+                // Post-process: Mark isobaric ambiguous ions
+                MarkIsobaricAmbiguousIons(psmInternalFragments);
+
+                results.AddRange(psmInternalFragments);
             }
 
             return results;
+        }
+
+        /// <summary>
+        /// Groups ions by theoretical mass (rounded to 4 decimal places) and marks
+        /// any group with more than one ion as isobaric ambiguous.
+        /// </summary>
+        private static void MarkIsobaricAmbiguousIons(List<InternalFragmentIon> ions)
+        {
+            if (ions.Count <= 1)
+                return;
+
+            var massGroups = ions.GroupBy(ion => Math.Round(ion.TheoreticalMass, 4));
+
+            foreach (var group in massGroups)
+            {
+                if (group.Count() > 1)
+                {
+                    foreach (var ion in group)
+                    {
+                        ion.IsIsobaricAmbiguous = true;
+                    }
+                }
+            }
         }
 
         private static bool TryParseCollisionEnergy(string hcdEnergy, out double collisionEnergy)
@@ -121,7 +152,8 @@ namespace Readers.InternalIons
                 CTerminalFlankingResidue = cTermFlank,
                 IsDecoy = psm.DecoyContamTarget?.Contains('D') ?? false,
                 SourceFile = psm.FileNameWithoutExtension ?? string.Empty,
-                ScanNumber = psm.Ms2ScanNumber.ToString()
+                ScanNumber = psm.Ms2ScanNumber.ToString(),
+                IsIsobaricAmbiguous = false // Will be set in post-processing
             };
         }
 

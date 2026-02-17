@@ -15,7 +15,6 @@ namespace Test.InternalIons
     /// </summary>
     public static class InternalFragmentAnalysisRunnerTests
     {
-        // Fill these in with your local test data paths
         private const string DefaultPsmTsvPath = @"FILL_IN";
         private const string DefaultRawFileFolder = @"FILL_IN";
         private const string DefaultOutputDirectory = @"FILL_IN";
@@ -53,6 +52,8 @@ namespace Test.InternalIons
                 string outputPath = Step4_WriteOutputTsv(internalIons, outputDirectory);
                 Step5_RoundTripValidation(internalIons, outputPath);
                 Step6_AminoAcidTerminusEnrichment(internalIons);
+                Step7_IsobaricAmbiguityReport(internalIons);
+                Step8_ExtendedTerminusEnrichment(internalIons);
 
                 Console.WriteLine();
                 Console.WriteLine("==================================================================");
@@ -230,6 +231,7 @@ namespace Test.InternalIons
             if (ions.Count == 0)
             {
                 Console.WriteLine("Skipping (no ions)");
+                Console.WriteLine();
                 return;
             }
 
@@ -262,6 +264,129 @@ namespace Test.InternalIons
             }
             Console.WriteLine("+----+----------+----------+------------+-------+");
             Console.WriteLine("*** = Enrichment > 1.5");
+            Console.WriteLine();
+        }
+
+        private static void Step7_IsobaricAmbiguityReport(List<InternalFragmentIon> ions)
+        {
+            Console.WriteLine("=== STEP 7: Isobaric Ambiguity Report ===");
+            if (ions.Count == 0)
+            {
+                Console.WriteLine("Skipping (no ions)");
+                Console.WriteLine();
+                return;
+            }
+
+            int ambiguousCount = ions.Count(i => i.IsIsobaricAmbiguous);
+            double ambiguousFraction = (double)ambiguousCount / ions.Count;
+
+            Console.WriteLine($"Total ions flagged as isobaric ambiguous: {ambiguousCount:N0}");
+            Console.WriteLine($"Fraction of all ions: {ambiguousFraction:P2}");
+            Console.WriteLine();
+
+            // Find the most common isobaric mass values
+            var ambiguousIons = ions.Where(i => i.IsIsobaricAmbiguous).ToList();
+            if (ambiguousIons.Count > 0)
+            {
+                var massGroups = ambiguousIons
+                    .GroupBy(i => Math.Round(i.TheoreticalMass, 4))
+                    .Select(g => (Mass: g.Key, Count: g.Count()))
+                    .OrderByDescending(x => x.Count)
+                    .Take(5)
+                    .ToList();
+
+                Console.WriteLine("Top 5 most common isobaric mass values:");
+                Console.WriteLine("+----------------+-------+");
+                Console.WriteLine("| Mass (Da)      | Count |");
+                Console.WriteLine("+----------------+-------+");
+                foreach (var (mass, count) in massGroups)
+                {
+                    Console.WriteLine($"| {mass,14:F4} | {count,5} |");
+                }
+                Console.WriteLine("+----------------+-------+");
+            }
+            Console.WriteLine();
+        }
+
+        private static void Step8_ExtendedTerminusEnrichment(List<InternalFragmentIon> ions)
+        {
+            Console.WriteLine("=== STEP 8: Extended Terminus Enrichment Table ===");
+            if (ions.Count == 0)
+            {
+                Console.WriteLine("Skipping (no ions)");
+                Console.WriteLine();
+                return;
+            }
+
+            // Compute background frequency
+            string allSeq = string.Concat(ions.Select(i => i.InternalSequence));
+            int totalChars = allSeq.Length;
+            var bgFreq = StandardAminoAcids.ToDictionary(
+                aa => aa,
+                aa => totalChars > 0 ? (double)allSeq.Count(c => c == aa) / totalChars : 0);
+
+            // Count occurrences at each position
+            var internalNTermCount = StandardAminoAcids.ToDictionary(aa => aa, _ => 0);
+            var internalCTermCount = StandardAminoAcids.ToDictionary(aa => aa, _ => 0);
+            var flankingNTermCount = StandardAminoAcids.ToDictionary(aa => aa, _ => 0);
+            var flankingCTermCount = StandardAminoAcids.ToDictionary(aa => aa, _ => 0);
+
+            foreach (var ion in ions)
+            {
+                // Internal termini
+                if (!string.IsNullOrEmpty(ion.InternalSequence))
+                {
+                    char intN = ion.InternalNTerminalAA;
+                    char intC = ion.InternalCTerminalAA;
+                    if (internalNTermCount.ContainsKey(intN)) internalNTermCount[intN]++;
+                    if (internalCTermCount.ContainsKey(intC)) internalCTermCount[intC]++;
+                }
+
+                // Flanking residues
+                if (flankingNTermCount.ContainsKey(ion.NTerminalFlankingResidue))
+                    flankingNTermCount[ion.NTerminalFlankingResidue]++;
+                if (flankingCTermCount.ContainsKey(ion.CTerminalFlankingResidue))
+                    flankingCTermCount[ion.CTerminalFlankingResidue]++;
+            }
+
+            int totalIons = ions.Count;
+
+            Console.WriteLine("Enrichment = Observed Frequency / Background Frequency");
+            Console.WriteLine("*** = Enrichment > 1.5 (over-represented)");
+            Console.WriteLine("--- = Enrichment < 0.67 (under-represented)");
+            Console.WriteLine();
+            Console.WriteLine("+----+------------+------------+------------+------------+");
+            Console.WriteLine("| AA | IntN-Term  | IntC-Term  | FlankN     | FlankC     |");
+            Console.WriteLine("+----+------------+------------+------------+------------+");
+
+            // Build enrichment data and sort by internal N-term enrichment
+            var enrichmentData = StandardAminoAcids.Select(aa =>
+            {
+                double bg = bgFreq[aa];
+                double intNEnrich = bg > 0 ? (internalNTermCount[aa] / (double)totalIons) / bg : 0;
+                double intCEnrich = bg > 0 ? (internalCTermCount[aa] / (double)totalIons) / bg : 0;
+                double flankNEnrich = bg > 0 ? (flankingNTermCount[aa] / (double)totalIons) / bg : 0;
+                double flankCEnrich = bg > 0 ? (flankingCTermCount[aa] / (double)totalIons) / bg : 0;
+                return (aa, intNEnrich, intCEnrich, flankNEnrich, flankCEnrich);
+            })
+            .OrderByDescending(x => x.intNEnrich)
+            .ToList();
+
+            foreach (var (aa, intN, intC, flankN, flankC) in enrichmentData)
+            {
+                string intNFlag = intN > 1.5 ? "***" : intN < 0.67 ? "---" : "   ";
+                string intCFlag = intC > 1.5 ? "***" : intC < 0.67 ? "---" : "   ";
+                string flankNFlag = flankN > 1.5 ? "***" : flankN < 0.67 ? "---" : "   ";
+                string flankCFlag = flankC > 1.5 ? "***" : flankC < 0.67 ? "---" : "   ";
+
+                Console.WriteLine($"|  {aa} | {intN,6:F3}{intNFlag} | {intC,6:F3}{intCFlag} | {flankN,6:F3}{flankNFlag} | {flankC,6:F3}{flankCFlag} |");
+            }
+
+            Console.WriteLine("+----+------------+------------+------------+------------+");
+            Console.WriteLine();
+            Console.WriteLine("Interpretation:");
+            Console.WriteLine("  IntN-Term/IntC-Term: Where fragmentation OCCURRED (internal fragment termini)");
+            Console.WriteLine("  FlankN/FlankC: Residues ADJACENT to the cleavage site (bond lability hypothesis)");
             Console.WriteLine();
         }
     }
