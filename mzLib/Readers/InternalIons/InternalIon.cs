@@ -43,6 +43,23 @@ namespace Readers.InternalIons
         public string SourceFile { get; set; } = string.Empty;
         public string ScanNumber { get; set; } = string.Empty;
 
+        /// <summary>
+        /// True if this ion shares a theoretical mass (to 4 decimal places) with another internal ion in the same PSM.
+        /// </summary>
+        public bool IsIsobaricAmbiguous { get; set; }
+
+        /// <summary>
+        /// First amino acid of the internal fragment sequence.
+        /// </summary>
+        public char InternalNTerminalAA =>
+            string.IsNullOrEmpty(InternalSequence) ? '-' : InternalSequence[0];
+
+        /// <summary>
+        /// Last amino acid of the internal fragment sequence.
+        /// </summary>
+        public char InternalCTerminalAA =>
+            string.IsNullOrEmpty(InternalSequence) ? '-' : InternalSequence[^1];
+
         public static string[] GetHeaderNames() => new[]
         {
             nameof(PeptideSequence), nameof(InternalSequence), nameof(StartResidue), nameof(EndResidue),
@@ -50,7 +67,8 @@ namespace Readers.InternalIons
             nameof(MassErrorPpm), nameof(NormalizedIntensity), nameof(LocalIntensityRank), nameof(PrecursorCharge),
             nameof(CollisionEnergy), nameof(PeptidePEP), nameof(PeptideScore), nameof(HasProlineAtEitherTerminus),
             nameof(HasAspartateAtEitherTerminus), nameof(NTerminalFlankingResidue), nameof(CTerminalFlankingResidue),
-            nameof(NumberOfBasicResidues), nameof(IsDecoy), nameof(SourceFile), nameof(ScanNumber)
+            nameof(NumberOfBasicResidues), nameof(IsDecoy), nameof(SourceFile), nameof(ScanNumber),
+            nameof(IsIsobaricAmbiguous), nameof(InternalNTerminalAA), nameof(InternalCTerminalAA)
         };
 
         public string[] GetValues() => new[]
@@ -68,7 +86,8 @@ namespace Readers.InternalIons
             PeptideScore.ToString("G17", CultureInfo.InvariantCulture),
             HasProlineAtEitherTerminus.ToString(), HasAspartateAtEitherTerminus.ToString(),
             NTerminalFlankingResidue.ToString(), CTerminalFlankingResidue.ToString(),
-            NumberOfBasicResidues.ToString(), IsDecoy.ToString(), SourceFile, ScanNumber
+            NumberOfBasicResidues.ToString(), IsDecoy.ToString(), SourceFile, ScanNumber,
+            IsIsobaricAmbiguous.ToString(), InternalNTerminalAA.ToString(), InternalCTerminalAA.ToString()
         };
     }
 }
