@@ -43,43 +43,19 @@ namespace Readers.InternalIons
         public string SourceFile { get; set; } = string.Empty;
         public string ScanNumber { get; set; } = string.Empty;
 
-        /// <summary>
-        /// True if this ion shares a theoretical mass (to 4 decimal places) with another internal ion in the same PSM.
-        /// </summary>
         public bool IsIsobaricAmbiguous { get; set; }
 
-        /// <summary>
-        /// First amino acid of the internal fragment sequence.
-        /// </summary>
         public char InternalNTerminalAA =>
             string.IsNullOrEmpty(InternalSequence) ? '-' : InternalSequence[0];
 
-        /// <summary>
-        /// Last amino acid of the internal fragment sequence.
-        /// </summary>
         public char InternalCTerminalAA =>
             string.IsNullOrEmpty(InternalSequence) ? '-' : InternalSequence[^1];
 
-        /// <summary>
-        /// The complete modified peptide sequence string from the PSM.
-        /// </summary>
         public string FullModifiedSequence { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Semicolon-delimited list of modifications whose positions fall within
-        /// [StartResidue, EndResidue] inclusive.
-        /// </summary>
         public string ModificationsInInternalFragment { get; set; } = string.Empty;
 
-        /// <summary>
-        /// True if ModificationsInInternalFragment is non-empty.
-        /// </summary>
         public bool HasModifiedResidue => !string.IsNullOrEmpty(ModificationsInInternalFragment);
 
-        /// <summary>
-        /// Intensity-conditioned quality filter:
-        /// True if (|MassErrorPpm| &lt; 5.0) OR (|MassErrorPpm| &lt; 15.0 AND NormalizedIntensity &gt; 0.10)
-        /// </summary>
         public bool PassesMassAccuracyFilter
         {
             get
@@ -92,6 +68,34 @@ namespace Readers.InternalIons
             }
         }
 
+        // ========== B/Y TERMINAL ION CORRELATION FEATURES ==========
+
+        /// <summary>
+        /// Normalized intensity of b_(StartResidue-1) ion; 0.0 if not observed.
+        /// </summary>
+        public double BIonIntensityAtNTerm { get; set; }
+
+        /// <summary>
+        /// Normalized intensity of y_(PeptideLength-EndResidue) ion; 0.0 if not observed.
+        /// </summary>
+        public double YIonIntensityAtCTerm { get; set; }
+
+        /// <summary>
+        /// True if b_(StartResidue-1) ion was matched.
+        /// </summary>
+        public bool HasMatchedBIonAtNTerm { get; set; }
+
+        /// <summary>
+        /// True if y_(PeptideLength-EndResidue) ion was matched.
+        /// </summary>
+        public bool HasMatchedYIonAtCTerm { get; set; }
+
+        /// <summary>
+        /// BIonIntensityAtNTerm * YIonIntensityAtCTerm.
+        /// Captures multiplicative amplification when BOTH termini are favorable cleavage sites.
+        /// </summary>
+        public double BYProductScore { get; set; }
+
         public static string[] GetHeaderNames() => new[]
         {
             nameof(PeptideSequence), nameof(InternalSequence), nameof(StartResidue), nameof(EndResidue),
@@ -102,7 +106,9 @@ namespace Readers.InternalIons
             nameof(NumberOfBasicResidues), nameof(IsDecoy), nameof(SourceFile), nameof(ScanNumber),
             nameof(IsIsobaricAmbiguous), nameof(InternalNTerminalAA), nameof(InternalCTerminalAA),
             nameof(FullModifiedSequence), nameof(ModificationsInInternalFragment), nameof(HasModifiedResidue),
-            nameof(PassesMassAccuracyFilter)
+            nameof(PassesMassAccuracyFilter),
+            nameof(BIonIntensityAtNTerm), nameof(YIonIntensityAtCTerm),
+            nameof(HasMatchedBIonAtNTerm), nameof(HasMatchedYIonAtCTerm), nameof(BYProductScore)
         };
 
         public string[] GetValues() => new[]
@@ -123,7 +129,11 @@ namespace Readers.InternalIons
             NumberOfBasicResidues.ToString(), IsDecoy.ToString(), SourceFile, ScanNumber,
             IsIsobaricAmbiguous.ToString(), InternalNTerminalAA.ToString(), InternalCTerminalAA.ToString(),
             FullModifiedSequence, ModificationsInInternalFragment, HasModifiedResidue.ToString(),
-            PassesMassAccuracyFilter.ToString()
+            PassesMassAccuracyFilter.ToString(),
+            BIonIntensityAtNTerm.ToString("G17", CultureInfo.InvariantCulture),
+            YIonIntensityAtCTerm.ToString("G17", CultureInfo.InvariantCulture),
+            HasMatchedBIonAtNTerm.ToString(), HasMatchedYIonAtCTerm.ToString(),
+            BYProductScore.ToString("G17", CultureInfo.InvariantCulture)
         };
     }
 }

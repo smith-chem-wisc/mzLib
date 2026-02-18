@@ -5,9 +5,6 @@ using System.IO;
 
 namespace Readers.InternalIons
 {
-    /// <summary>
-    /// Handles reading and writing InternalFragmentIon data to/from TSV files.
-    /// </summary>
     public static class InternalFragmentTsvWriter
     {
         private const char Delimiter = '\t';
@@ -91,9 +88,12 @@ namespace Readers.InternalIons
                 ScanNumber = GetValue(values, columnMap, nameof(InternalFragmentIon.ScanNumber)),
                 IsIsobaricAmbiguous = ParseBool(GetValue(values, columnMap, nameof(InternalFragmentIon.IsIsobaricAmbiguous))),
                 FullModifiedSequence = GetValue(values, columnMap, nameof(InternalFragmentIon.FullModifiedSequence)),
-                ModificationsInInternalFragment = GetValue(values, columnMap, nameof(InternalFragmentIon.ModificationsInInternalFragment))
-                // Note: PassesMassAccuracyFilter, HasModifiedResidue, InternalNTerminalAA, InternalCTerminalAA 
-                // are computed properties and don't need to be read back
+                ModificationsInInternalFragment = GetValue(values, columnMap, nameof(InternalFragmentIon.ModificationsInInternalFragment)),
+                BIonIntensityAtNTerm = ParseDouble(GetValue(values, columnMap, nameof(InternalFragmentIon.BIonIntensityAtNTerm))),
+                YIonIntensityAtCTerm = ParseDouble(GetValue(values, columnMap, nameof(InternalFragmentIon.YIonIntensityAtCTerm))),
+                HasMatchedBIonAtNTerm = ParseBool(GetValue(values, columnMap, nameof(InternalFragmentIon.HasMatchedBIonAtNTerm))),
+                HasMatchedYIonAtCTerm = ParseBool(GetValue(values, columnMap, nameof(InternalFragmentIon.HasMatchedYIonAtCTerm))),
+                BYProductScore = ParseDouble(GetValue(values, columnMap, nameof(InternalFragmentIon.BYProductScore)))
             };
         }
 
@@ -104,28 +104,21 @@ namespace Readers.InternalIons
             return values[idx];
         }
 
-        private static int ParseInt(string value)
-        {
-            return int.TryParse(value, out int result) ? result : 0;
-        }
+        private static int ParseInt(string value) =>
+            int.TryParse(value, out int result) ? result : 0;
 
         private static double ParseDouble(string value)
         {
             if (string.Equals(value, "NaN", StringComparison.OrdinalIgnoreCase))
                 return double.NaN;
             return double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out double result)
-                ? result
-                : double.NaN;
+                ? result : double.NaN;
         }
 
-        private static char ParseChar(string value)
-        {
-            return string.IsNullOrEmpty(value) ? '-' : value[0];
-        }
+        private static char ParseChar(string value) =>
+            string.IsNullOrEmpty(value) ? '-' : value[0];
 
-        private static bool ParseBool(string value)
-        {
-            return bool.TryParse(value, out bool result) && result;
-        }
+        private static bool ParseBool(string value) =>
+            bool.TryParse(value, out bool result) && result;
     }
 }

@@ -8,21 +8,13 @@ using System.Text.RegularExpressions;
 
 namespace Readers.InternalIons
 {
-    /// <summary>
-    /// Extracts internal fragment ion features from PSMs for downstream analysis.
-    /// </summary>
     public static class InternalFragmentFeatureExtractor
     {
         private static readonly Regex InternalFragmentRegex = new(@"[yb]I[yb]\[(\d+)-(\d+)\]",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-        // Regex to match modifications like [Common Fixed:Carbamidomethyl on C] or [Oxidation on M]
-        private static readonly Regex ModificationRegex = new(@"\[([^\]]+)\]",
-            RegexOptions.Compiled);
+        private static bool _warnedAboutMissingMatchedIons = false;
 
-        /// <summary>
-        /// Extracts InternalFragmentIon objects from a list of PSMs.
-        /// </summary>
         public static List<InternalFragmentIon> ExtractFromPsms(
             List<PsmFromTsv> psms,
             MsDataFile msDataFile,
@@ -64,9 +56,14 @@ namespace Readers.InternalIons
                     collisionEnergy = defaultCollisionEnergy;
                 }
 
-                // Parse modifications from the full sequence once per PSM
                 string fullModifiedSequence = psm.FullSequence ?? string.Empty;
                 var modificationsByPosition = ParseModificationPositions(fullModifiedSequence);
+                string baseSequence = psm.BaseSeq ?? psm.FullSequence ?? string.Empty;
+                int peptideLength = baseSequence.Length;
+
+                // Build lookup for b and y ions
+                var bIonLookup = BuildTerminalIonLookup(psm.MatchedIons, "b", basePeakIntensity);
+                var yIonLookup = BuildTerminalIonLookup(psm.MatchedIons, "y", basePeakIntensity);
 
                 var psmInternalFragments = new List<InternalFragmentIon>();
 
@@ -74,7 +71,8 @@ namespace Readers.InternalIons
                 {
                     var internalFragment = ExtractSingleInternalFragment(
                         psm, ion, basePeakIntensity, collisionEnergy, scan,
-                        fullModifiedSequence, modificationsByPosition);
+                        fullModifiedSequence, modificationsByPosition,
+                        peptideLength, bIonLookup, yIonLookup);
 
                     if (internalFragment != null)
                         psmInternalFragments.Add(internalFragment);
@@ -88,9 +86,56 @@ namespace Readers.InternalIons
         }
 
         /// <summary>
-        /// Parses a full modified sequence and returns a dictionary mapping
-        /// one-based residue position to modification description.
+        /// Builds a lookup dictionary for terminal (b or y) ions.
+        /// Key: ion number, Value: normalized intensity (max across charge states).
         /// </summary>
+        private static Dictionary<int, double> BuildTerminalIonLookup(
+            List<MatchedFragmentIon> matchedIons,
+            string ionType,
+            double basePeakIntensity)
+        {
+            var lookup = new Dictionary<int, double>();
+
+            foreach (var ion in matchedIons)
+            {
+                if (ion.IsInternalFragment)
+                    continue;
+
+                var product = ion.NeutralTheoreticalProduct;
+                if (product == null)
+                    continue;
+
+                // Check if this is the target ion type
+                string annotation = ion.Annotation ?? string.Empty;
+                bool isTargetType = false;
+
+                if (ionType == "b" && (product.ProductType == ProductType.b ||
+                    annotation.StartsWith("b", StringComparison.OrdinalIgnoreCase)))
+                {
+                    isTargetType = true;
+                }
+                else if (ionType == "y" && (product.ProductType == ProductType.y ||
+                    annotation.StartsWith("y", StringComparison.OrdinalIgnoreCase)))
+                {
+                    isTargetType = true;
+                }
+
+                if (!isTargetType)
+                    continue;
+
+                int ionNumber = product.FragmentNumber;
+                double normalizedIntensity = ion.Intensity / basePeakIntensity;
+
+                // Keep the maximum intensity for this ion number (across charge states)
+                if (!lookup.ContainsKey(ionNumber) || lookup[ionNumber] < normalizedIntensity)
+                {
+                    lookup[ionNumber] = normalizedIntensity;
+                }
+            }
+
+            return lookup;
+        }
+
         private static Dictionary<int, string> ParseModificationPositions(string fullModifiedSequence)
         {
             var mods = new Dictionary<int, string>();
@@ -106,12 +151,10 @@ namespace Readers.InternalIons
 
                 if (c == '[')
                 {
-                    // Find the closing bracket
                     int closeBracket = fullModifiedSequence.IndexOf(']', i);
                     if (closeBracket > i)
                     {
                         string modContent = fullModifiedSequence.Substring(i + 1, closeBracket - i - 1);
-                        // Associate with the previous residue position
                         if (residuePosition > 0)
                         {
                             mods[residuePosition] = modContent;
@@ -137,9 +180,6 @@ namespace Readers.InternalIons
             return mods;
         }
 
-        /// <summary>
-        /// Gets modifications within the specified residue range and formats them.
-        /// </summary>
         private static string GetModificationsInRange(
             Dictionary<int, string> modificationsByPosition,
             int startResidue,
@@ -190,7 +230,10 @@ namespace Readers.InternalIons
             double collisionEnergy,
             MsDataScan? scan,
             string fullModifiedSequence,
-            Dictionary<int, string> modificationsByPosition)
+            Dictionary<int, string> modificationsByPosition,
+            int peptideLength,
+            Dictionary<int, double> bIonLookup,
+            Dictionary<int, double> yIonLookup)
         {
             string baseSequence = psm.BaseSeq ?? psm.FullSequence ?? string.Empty;
 
@@ -212,8 +255,33 @@ namespace Readers.InternalIons
                 ? baseSequence[endResidue]
                 : '-';
 
-            // Get modifications within the internal fragment range
             string modsInFragment = GetModificationsInRange(modificationsByPosition, startResidue, endResidue);
+
+            // ========== B/Y ION CORRELATION ==========
+            // For internal fragment at positions [startResidue, endResidue]:
+            // - The N-terminal cleavage produces b_(startResidue-1)
+            // - The C-terminal cleavage produces y_(peptideLength - endResidue)
+
+            int bIonNumber = startResidue - 1;
+            int yIonNumber = peptideLength - endResidue;
+
+            double bIonIntensity = 0.0;
+            bool hasMatchedB = false;
+            if (bIonNumber > 0 && bIonLookup.TryGetValue(bIonNumber, out double bInt))
+            {
+                bIonIntensity = bInt;
+                hasMatchedB = true;
+            }
+
+            double yIonIntensity = 0.0;
+            bool hasMatchedY = false;
+            if (yIonNumber > 0 && yIonLookup.TryGetValue(yIonNumber, out double yInt))
+            {
+                yIonIntensity = yInt;
+                hasMatchedY = true;
+            }
+
+            double byProductScore = bIonIntensity * yIonIntensity;
 
             return new InternalFragmentIon
             {
@@ -236,7 +304,12 @@ namespace Readers.InternalIons
                 ScanNumber = psm.Ms2ScanNumber.ToString(),
                 IsIsobaricAmbiguous = false,
                 FullModifiedSequence = fullModifiedSequence,
-                ModificationsInInternalFragment = modsInFragment
+                ModificationsInInternalFragment = modsInFragment,
+                BIonIntensityAtNTerm = bIonIntensity,
+                YIonIntensityAtCTerm = yIonIntensity,
+                HasMatchedBIonAtNTerm = hasMatchedB,
+                HasMatchedYIonAtCTerm = hasMatchedY,
+                BYProductScore = byProductScore
             };
         }
 
