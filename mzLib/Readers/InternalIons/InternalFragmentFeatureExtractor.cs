@@ -31,12 +31,11 @@ namespace Readers.InternalIons
                 double basePeakIntensity = psm.MatchedIons.Max(ion => ion.Intensity);
                 if (basePeakIntensity <= 0) basePeakIntensity = 1.0;
 
-                // Get TIC for normalization
-                double tic = psm.TotalIonCurrent;
-                if (tic <= 0) tic = psm.MatchedIons.Sum(ion => ion.Intensity); // Fallback
-
                 MsDataScan? scan = null;
                 if (scanLookup.TryGetValue(psm.Ms2ScanNumber, out var foundScan)) scan = foundScan;
+
+                // Get TIC from scan, or compute from matched ions as fallback
+                double tic = GetTotalIonCurrent(scan, psm.MatchedIons);
 
                 double collisionEnergy = double.NaN;
                 if (scan?.HcdEnergy != null && TryParseCollisionEnergy(scan.HcdEnergy, out double ce))
@@ -70,6 +69,24 @@ namespace Readers.InternalIons
             }
 
             return results;
+        }
+
+        /// <summary>
+        /// Gets TIC from scan metadata, or computes from matched ions as fallback.
+        /// </summary>
+        private static double GetTotalIonCurrent(MsDataScan? scan, List<MatchedFragmentIon> matchedIons)
+        {
+            // Try to get TIC from scan metadata first
+            if (scan?.TotalIonCurrent > 0)
+                return scan.TotalIonCurrent;
+
+            // Try to compute from raw spectrum if available
+            if (scan?.MassSpectrum?.YArray != null && scan.MassSpectrum.YArray.Length > 0)
+                return scan.MassSpectrum.YArray.Sum();
+
+            // Fallback: sum of matched ion intensities (underestimates true TIC)
+            double matchedSum = matchedIons.Sum(ion => ion.Intensity);
+            return matchedSum > 0 ? matchedSum : 1.0;
         }
 
         private static Dictionary<int, double> BuildTerminalIonLookupTic(
@@ -134,7 +151,6 @@ namespace Readers.InternalIons
 
             string modsInFragment = GetModificationsInRange(modificationsByPosition, startResidue, endResidue);
 
-            // B/Y ion correlation (TIC-normalized)
             int bIonNumber = startResidue - 1;
             int yIonNumber = peptideLength - endResidue;
 
@@ -159,11 +175,7 @@ namespace Readers.InternalIons
             double maxTerminalIonIntensity = Math.Max(bIonIntensity, yIonIntensity);
             bool hasBothTerminalIons = hasMatchedB && hasMatchedY;
 
-            // Basic residue spans
-            // B-ion span: residues 1 through (startResidue-1), i.e., indices 0 to startResidue-2
             int basicInBSpan = startResidue > 1 ? CountBasicResidues(baseSequence, 0, startResidue - 2) : 0;
-
-            // Y-ion span: residues (endResidue+1) through peptideLength, i.e., indices endResidue to peptideLength-1
             int basicInYSpan = endResidue < peptideLength ? CountBasicResidues(baseSequence, endResidue, peptideLength - 1) : 0;
 
             return new InternalFragmentIon
@@ -229,11 +241,9 @@ namespace Readers.InternalIons
             return mods;
         }
 
-        private static string GetModificationsInRange(Dictionary<int, string> mods, int start, int end)
-        {
-            return string.Join("; ", mods.Where(kvp => kvp.Key >= start && kvp.Key <= end)
+        private static string GetModificationsInRange(Dictionary<int, string> mods, int start, int end) =>
+            string.Join("; ", mods.Where(kvp => kvp.Key >= start && kvp.Key <= end)
                 .OrderBy(kvp => kvp.Key).Select(kvp => $"{kvp.Value} at position {kvp.Key}"));
-        }
 
         private static void MarkIsobaricAmbiguousIons(List<InternalFragmentIon> ions)
         {
