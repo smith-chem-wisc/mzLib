@@ -40,7 +40,7 @@ public class BackboneModification : Modification
         return sb.ToString();
     }
 
-    private static (ProductType, ProductType)[] _forbiddenPairs = 
+    private static readonly (ProductType, ProductType)[] _forbiddenPairs = 
         [
             (ProductType.a, ProductType.w), 
             (ProductType.b, ProductType.x), 
