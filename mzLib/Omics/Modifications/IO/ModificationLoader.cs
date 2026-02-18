@@ -1,6 +1,7 @@
 ﻿using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
+using Omics.Fragmentation;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Xml.Serialization;
@@ -112,6 +113,7 @@ public static class ModificationLoader
         Dictionary<DissociationType, List<double>> _neutralLosses = null;
         Dictionary<DissociationType, List<double>> _diagnosticIons = null;
         string _fileOrigin = ptmListLocation;
+        HashSet<ProductType>? _backboneProductTypes = null;
 
         foreach (string line in specification)
         {
@@ -245,6 +247,31 @@ public static class ModificationLoader
                         _modificationType = modValue;
                         break;
 
+                    case "BM": // ⭐ Backbone Modification (affects fragment masses)
+                        if (string.IsNullOrWhiteSpace(modValue))
+                            break;
+
+                        // Parse: "b,c,d,x,y,z" or "b,c,d,x,y,z"
+                        string[] parts = modValue.Split(':');
+                        string[] fragmentTypeStrings = parts[0].Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+                        // Parse fragment types
+                        _backboneProductTypes = new HashSet<ProductType>();
+                        foreach (string typeString in fragmentTypeStrings)
+                        {
+                            string trimmed = typeString.Trim();
+                            if (Enum.TryParse(trimmed, true, out ProductType productType))
+                            {
+                                _backboneProductTypes.Add(productType);
+
+                                foreach (var prodType in productType.GetFragmentFamilyMembers())
+                                {
+                                    _backboneProductTypes.Add(prodType);
+                                }
+                            }
+                        }
+                        break;
+
                     case "//":
                         if (_target == null || _target.Count == 0) //This happens for FT=CROSSLINK modifications. We ignore these for now.
                         {
@@ -262,7 +289,16 @@ public static class ModificationLoader
                             {
                                 _monoisotopicMass = AdjustMonoIsotopicMassForFormalCharge(_monoisotopicMass, _chemicalFormula, _databaseReference, formalChargesDictionary);
                             }
-                            yield return new Modification(_id, _accession, _modificationType, _featureType, motif, _locationRestriction, _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
+
+                            if (_backboneProductTypes is { Count: > 0 })
+                            {
+                                yield return new BackboneModification(_id, _accession, _modificationType, _featureType, motif, _locationRestriction, _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin, _backboneProductTypes.ToArray());
+                            }
+                            else
+                            {
+
+                                yield return new Modification(_id, _accession, _modificationType, _featureType, motif, _locationRestriction, _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
+                            }
                         }
                         break;
 

@@ -318,9 +318,11 @@ namespace Transcriptomics.Digestion
 
             // determine mass of each polymer component that is contained within the fragment and add to fragment
             bool first = true; //set first to true to hand the terminus mod first
-            for (int i = 0; i <= BaseSequence.Length - 1; i++)
+            for (int fragmentNumber = 0; fragmentNumber <= BaseSequence.Length - 1; fragmentNumber++)
             {
-                int naIndex = isThreePrimeTerminal ? Length - i : i - 1;
+                int naIndex = isThreePrimeTerminal ? Length - fragmentNumber : fragmentNumber - 1;
+                int residuePosition = isThreePrimeTerminal ? BaseSequence.Length - fragmentNumber : fragmentNumber;
+
                 if (first)
                 {
                     first = false; //set to false so only handled once
@@ -328,27 +330,42 @@ namespace Transcriptomics.Digestion
                 }
                 monoMass += sequence[naIndex].MonoisotopicMass;
 
-                if (i < 1)
+                if (fragmentNumber < 1)
                     continue;
 
-                // add side-chain mod
-                if (AllModsOneIsNterminus.TryGetValue(naIndex + 2, out Modification mod))
+                // add side-chain mod only (at current position)
+                if (AllModsOneIsNterminus.TryGetValue(naIndex + 2, out Modification? mod) && mod is not BackboneModification)
                 {
                     monoMass += mod.MonoisotopicMass ?? 0;
                 }
 
-                var previousNucleotide = sequence[naIndex];
+                // Add backbone modifications (pre-calculated)
+                // For 3' fragments (w/x/y/z), the modification should be checked differently
+                // w3 should check the mod at position 3, not position 4
+                double? backboneMassShift = null;
+                if (AllModsOneIsNterminus.TryGetValue(residuePosition + 1, out mod) && mod is BackboneModification bm)
+                {
+                    if (Array.BinarySearch(bm.ProductsContainingModMass, type) >= 0)
+                        monoMass += mod.MonoisotopicMass ?? 0;
+                    else
+                        backboneMassShift = mod.MonoisotopicMass;
+                }
 
+                // Handle Base Loss fragment series mass correction. 
                 double neutralLoss = 0;
-                if (type.ToString().Contains("Base"))
+                var previousNucleotide = sequence[naIndex];
+                if (type.IsBaseLoss())
                 {
                     neutralLoss = previousNucleotide.BaseChemicalFormula.MonoisotopicMass;
                 }
 
                 yield return new Product(type,
                     isThreePrimeTerminal ? FragmentationTerminus.ThreePrime : FragmentationTerminus.FivePrime,
-                    monoMass - neutralLoss, i,
-                    isThreePrimeTerminal ? BaseSequence.Length - i : i, 0, null, 0);
+                    monoMass - neutralLoss, fragmentNumber,
+                    residuePosition, 0, null, 0);
+
+                if (backboneMassShift != null)
+                    monoMass += backboneMassShift.Value; // add the backbone mass shift back for the next iteration if it was not added to this fragment 
             }
         }
 
