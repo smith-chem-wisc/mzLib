@@ -312,7 +312,7 @@ namespace Test
         [Test]
         public static void Test_GetTheoreticalFragments_cumulativeLoss_mixPandO()
         {
-            Protein p = new Protein("NPNNSN", "accession");
+            Protein p = new Protein("NPNNSNPN", "accession");
             ModificationMotif.TryGetMotif("P", out ModificationMotif motif_P);
             ModificationMotif.TryGetMotif("S", out ModificationMotif motif_S);
             Dictionary<DissociationType, List<double>> _neutralLosses_P = new Dictionary<DissociationType, List<double>>() { };
@@ -332,7 +332,7 @@ namespace Test
             HashSet<string> expectedNTerminalMassesLabels = new HashSet<string>
             {
                 "b2-97.98", "b3-97.98", "b4-97.98", "b5-97.98","b5-15.99", "b5-113.97",
-                "y2-15.99", "y3-15.99", "y3-15.99", "y4-15.99","y5-15.99","y5-97.98", "y5-113.97",
+                "y2-15.99", "y3-15.99", "y4-15.99","y5-15.99","y5-97.98", "y5-113.97",
             };
             Assert.IsTrue(expectedNTerminalMassesLabels.All(label => nTerminalMassesLabels.Contains(label)));
         }

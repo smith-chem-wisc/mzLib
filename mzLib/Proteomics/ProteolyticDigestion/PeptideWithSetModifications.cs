@@ -264,7 +264,7 @@ namespace Proteomics.ProteolyticDigestion
             // inefficient memory usage and thus frequent garbage collection. 
             // TODO: If you can think of a way to remove these collections and still maintain correct 
             // fragmentation, please do so.
-            List<double> nTermNeutralLosses = null; //allow the duplicated mod in the same fragment
+            List<double> nTermNeutralLosses = null; //List used to preserve multiplicity of neutral losses (e.g. two phosphorylation sites on the same fragment would generate two losses of 98 Da, and we would want to see both of those losses represented in the products)
             List<double> cTermNeutralLosses = null;
 
             // n-terminus mod
@@ -362,8 +362,7 @@ namespace Proteomics.ProteolyticDigestion
                         
                         if (nTermNeutralLosses != null)
                         {
-                            double cumulativeLoss = 0; // the cumulative loss is used to generate the sum of the sequentially neutral losses
-                            foreach (double neutralLoss in nTermNeutralLosses.Distinct()) // distinct() is used to avoid duplicating the same neutral loss from multiple mods
+                            foreach (double neutralLoss in nTermNeutralLosses.Distinct()) // Distinct() generates single-loss products for each unique loss value; cumulative losses are generated in the subsequent loop
                             {
                                 products.Add(new Product(
                                     nTermProductTypes[i],
@@ -374,6 +373,7 @@ namespace Proteomics.ProteolyticDigestion
                                     neutralLoss));
                             }
 
+                            double cumulativeLoss = 0; // the cumulative loss is used to generate the sum of the sequentially neutral losses
                             foreach (double neutralLoss in nTermNeutralLosses) 
                             {
                                 if (cumulativeLoss != 0)
