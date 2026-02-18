@@ -192,6 +192,10 @@ namespace Transcriptomics.Digestion
         {
             products.Clear();
             fragmentationParams ??= RnaFragmentationParams.Default;
+            bool modsCanSuppressBaseLossIons = fragmentationParams is RnaFragmentationParams
+            {
+                ModificationsCanSuppressBaseLossIons: true
+            };
 
             List<ProductType> fivePrimeProductTypes =
                 dissociationType.GetRnaTerminusSpecificProductTypesFromDissociation(FragmentationTerminus.FivePrime);
@@ -219,11 +223,11 @@ namespace Transcriptomics.Digestion
 
             if (calculateFivePrime)
                 foreach (var type in fivePrimeProductTypes)
-                    products.AddRange(GetNeutralFragments(type, sequence));
+                    products.AddRange(GetNeutralFragments(type, sequence, modsCanSuppressBaseLossIons));
 
             if (calculateThreePrime)
                 foreach (var type in threePrimeProductTypes)
-                    products.AddRange(GetNeutralFragments(type, sequence));
+                    products.AddRange(GetNeutralFragments(type, sequence, modsCanSuppressBaseLossIons));
         }
 
         #region IEquatable
@@ -304,7 +308,7 @@ namespace Transcriptomics.Digestion
         /// <param name="type">product type to get neutral fragments from</param>
         /// <param name="sequence">Sequence to generate fragments from, will be calculated from the parent if left null</param>
         /// <returns></returns>
-        public IEnumerable<Product> GetNeutralFragments(ProductType type, Nucleotide[]? sequence = null)
+        public IEnumerable<Product> GetNeutralFragments(ProductType type, Nucleotide[]? sequence = null, bool modsCanSuppressBaseLossIons = false)
         {
             sequence ??= (Parent as NucleicAcid)!.NucleicAcidArray[(OneBasedStartResidue - 1)..OneBasedEndResidue];
 
@@ -334,21 +338,21 @@ namespace Transcriptomics.Digestion
                     continue;
 
                 // add side-chain mod only (at current position)
-                if (AllModsOneIsNterminus.TryGetValue(naIndex + 2, out Modification? mod) && mod is not BackboneModification)
+                double? backboneMassShift = null;
+                if (AllModsOneIsNterminus.TryGetValue(naIndex + 2, out Modification? sideChainMod))
                 {
-                    monoMass += mod.MonoisotopicMass ?? 0;
+                    monoMass += sideChainMod.MonoisotopicMass ?? 0;
                 }
 
                 // Add backbone modifications (pre-calculated)
                 // For 3' fragments (w/x/y/z), the modification should be checked differently
                 // w3 should check the mod at position 3, not position 4
-                double? backboneMassShift = null;
-                if (AllModsOneIsNterminus.TryGetValue(residuePosition + 1, out mod) && mod is BackboneModification bm)
+                if (AllModsOneIsNterminus.TryGetValue(residuePosition + 1, out Modification? mod) && mod is BackboneModification bm)
                 {
                     if (Array.BinarySearch(bm.ProductsContainingModMass, type) >= 0)
-                        monoMass += mod.MonoisotopicMass ?? 0;
+                        monoMass += bm.MonoisotopicMass ?? 0;
                     else
-                        backboneMassShift = mod.MonoisotopicMass;
+                        backboneMassShift = bm.MonoisotopicMass;
                 }
 
                 // Handle Base Loss fragment series mass correction. 
@@ -357,6 +361,34 @@ namespace Transcriptomics.Digestion
                 if (type.IsBaseLoss())
                 {
                     neutralLoss = previousNucleotide.BaseChemicalFormula.MonoisotopicMass;
+                    var generateBaseLossIon = true;
+
+                    if (sideChainMod is BaseModification baseMod)
+                    {
+                        switch (baseMod.BaseLossType)
+                        {
+                            case BaseLossBehavior.Suppressed when modsCanSuppressBaseLossIons:
+                                generateBaseLossIon = false; // Don't generate base-loss ion
+                                break;
+
+                            case BaseLossBehavior.Suppressed:
+                            case BaseLossBehavior.Modified:
+                                // Add modification mass to base loss
+                                if (baseMod.BaseLossModification != null)
+                                {
+                                    neutralLoss += baseMod.BaseLossModification?.MonoisotopicMass ?? 0;
+                                }
+                                break;
+
+                            case BaseLossBehavior.Default:
+                            default:
+                                // Normal base loss
+                                break;
+                        }
+                    }
+
+                    if (!generateBaseLossIon)
+                        continue;
                 }
 
                 yield return new Product(type,

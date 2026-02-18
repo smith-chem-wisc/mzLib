@@ -5,6 +5,8 @@ namespace Transcriptomics;
 
 public class RnaFragmentationParams : FragmentationParams
 {
+    public bool ModificationsCanSuppressBaseLossIons { get; set; } = false;
+
     static RnaFragmentationParams()
     {
         Default = new();
