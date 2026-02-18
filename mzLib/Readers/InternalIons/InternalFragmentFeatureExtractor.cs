@@ -13,8 +13,6 @@ namespace Readers.InternalIons
         private static readonly Regex InternalFragmentRegex = new(@"[yb]I[yb]\[(\d+)-(\d+)\]",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-        private static bool _warnedAboutMissingMatchedIons = false;
-
         public static List<InternalFragmentIon> ExtractFromPsms(
             List<PsmFromTsv> psms,
             MsDataFile msDataFile,
@@ -48,20 +46,15 @@ namespace Readers.InternalIons
 
                 double collisionEnergy = double.NaN;
                 if (scan?.HcdEnergy != null && TryParseCollisionEnergy(scan.HcdEnergy, out double ce))
-                {
                     collisionEnergy = ce;
-                }
                 else
-                {
                     collisionEnergy = defaultCollisionEnergy;
-                }
 
                 string fullModifiedSequence = psm.FullSequence ?? string.Empty;
                 var modificationsByPosition = ParseModificationPositions(fullModifiedSequence);
                 string baseSequence = psm.BaseSeq ?? psm.FullSequence ?? string.Empty;
                 int peptideLength = baseSequence.Length;
 
-                // Build lookup for b and y ions
                 var bIonLookup = BuildTerminalIonLookup(psm.MatchedIons, "b", basePeakIntensity);
                 var yIonLookup = BuildTerminalIonLookup(psm.MatchedIons, "y", basePeakIntensity);
 
@@ -85,10 +78,6 @@ namespace Readers.InternalIons
             return results;
         }
 
-        /// <summary>
-        /// Builds a lookup dictionary for terminal (b or y) ions.
-        /// Key: ion number, Value: normalized intensity (max across charge states).
-        /// </summary>
         private static Dictionary<int, double> BuildTerminalIonLookup(
             List<MatchedFragmentIon> matchedIons,
             string ionType,
@@ -98,39 +87,28 @@ namespace Readers.InternalIons
 
             foreach (var ion in matchedIons)
             {
-                if (ion.IsInternalFragment)
-                    continue;
+                if (ion.IsInternalFragment) continue;
 
                 var product = ion.NeutralTheoreticalProduct;
-                if (product == null)
-                    continue;
+                if (product == null) continue;
 
-                // Check if this is the target ion type
                 string annotation = ion.Annotation ?? string.Empty;
                 bool isTargetType = false;
 
                 if (ionType == "b" && (product.ProductType == ProductType.b ||
                     annotation.StartsWith("b", StringComparison.OrdinalIgnoreCase)))
-                {
                     isTargetType = true;
-                }
                 else if (ionType == "y" && (product.ProductType == ProductType.y ||
                     annotation.StartsWith("y", StringComparison.OrdinalIgnoreCase)))
-                {
                     isTargetType = true;
-                }
 
-                if (!isTargetType)
-                    continue;
+                if (!isTargetType) continue;
 
                 int ionNumber = product.FragmentNumber;
                 double normalizedIntensity = ion.Intensity / basePeakIntensity;
 
-                // Keep the maximum intensity for this ion number (across charge states)
                 if (!lookup.ContainsKey(ionNumber) || lookup[ionNumber] < normalizedIntensity)
-                {
                     lookup[ionNumber] = normalizedIntensity;
-                }
             }
 
             return lookup;
@@ -139,8 +117,7 @@ namespace Readers.InternalIons
         private static Dictionary<int, string> ParseModificationPositions(string fullModifiedSequence)
         {
             var mods = new Dictionary<int, string>();
-            if (string.IsNullOrEmpty(fullModifiedSequence))
-                return mods;
+            if (string.IsNullOrEmpty(fullModifiedSequence)) return mods;
 
             int residuePosition = 0;
             int i = 0;
@@ -148,77 +125,53 @@ namespace Readers.InternalIons
             while (i < fullModifiedSequence.Length)
             {
                 char c = fullModifiedSequence[i];
-
                 if (c == '[')
                 {
                     int closeBracket = fullModifiedSequence.IndexOf(']', i);
                     if (closeBracket > i)
                     {
                         string modContent = fullModifiedSequence.Substring(i + 1, closeBracket - i - 1);
-                        if (residuePosition > 0)
-                        {
-                            mods[residuePosition] = modContent;
-                        }
+                        if (residuePosition > 0) mods[residuePosition] = modContent;
                         i = closeBracket + 1;
                     }
-                    else
-                    {
-                        i++;
-                    }
+                    else i++;
                 }
                 else if (char.IsLetter(c) && char.IsUpper(c))
                 {
                     residuePosition++;
                     i++;
                 }
-                else
-                {
-                    i++;
-                }
+                else i++;
             }
-
             return mods;
         }
 
-        private static string GetModificationsInRange(
-            Dictionary<int, string> modificationsByPosition,
-            int startResidue,
-            int endResidue)
+        private static string GetModificationsInRange(Dictionary<int, string> modificationsByPosition, int startResidue, int endResidue)
         {
             var modsInRange = modificationsByPosition
                 .Where(kvp => kvp.Key >= startResidue && kvp.Key <= endResidue)
                 .OrderBy(kvp => kvp.Key)
                 .Select(kvp => $"{kvp.Value} at position {kvp.Key}")
                 .ToList();
-
             return string.Join("; ", modsInRange);
         }
 
         private static void MarkIsobaricAmbiguousIons(List<InternalFragmentIon> ions)
         {
-            if (ions.Count <= 1)
-                return;
-
+            if (ions.Count <= 1) return;
             var massGroups = ions.GroupBy(ion => Math.Round(ion.TheoreticalMass, 4));
-
             foreach (var group in massGroups)
             {
                 if (group.Count() > 1)
-                {
                     foreach (var ion in group)
-                    {
                         ion.IsIsobaricAmbiguous = true;
-                    }
-                }
             }
         }
 
         private static bool TryParseCollisionEnergy(string hcdEnergy, out double collisionEnergy)
         {
             collisionEnergy = double.NaN;
-            if (string.IsNullOrWhiteSpace(hcdEnergy))
-                return false;
-
+            if (string.IsNullOrWhiteSpace(hcdEnergy)) return false;
             string cleaned = hcdEnergy.Replace("@", "").Replace("HCD", "").Replace("hcd", "").Trim();
             return double.TryParse(cleaned, out collisionEnergy);
         }
@@ -248,20 +201,12 @@ namespace Readers.InternalIons
             double theoreticalMass = product.NeutralMass;
             double localRank = CalculateLocalIntensityRank(scan, ion.Mz, ion.Intensity);
 
-            char nTermFlank = startResidue > 1
-                ? baseSequence[startResidue - 2]
-                : '-';
-            char cTermFlank = endResidue < baseSequence.Length
-                ? baseSequence[endResidue]
-                : '-';
+            char nTermFlank = startResidue > 1 ? baseSequence[startResidue - 2] : '-';
+            char cTermFlank = endResidue < baseSequence.Length ? baseSequence[endResidue] : '-';
 
             string modsInFragment = GetModificationsInRange(modificationsByPosition, startResidue, endResidue);
 
-            // ========== B/Y ION CORRELATION ==========
-            // For internal fragment at positions [startResidue, endResidue]:
-            // - The N-terminal cleavage produces b_(startResidue-1)
-            // - The C-terminal cleavage produces y_(peptideLength - endResidue)
-
+            // B/Y ion correlation
             int bIonNumber = startResidue - 1;
             int yIonNumber = peptideLength - endResidue;
 
@@ -282,6 +227,11 @@ namespace Readers.InternalIons
             }
 
             double byProductScore = bIonIntensity * yIonIntensity;
+
+            // Step 11 features
+            int distanceFromCTerm = peptideLength - endResidue;
+            double maxTerminalIonIntensity = Math.Max(bIonIntensity, yIonIntensity);
+            bool hasBothTerminalIons = hasMatchedB && hasMatchedY;
 
             return new InternalFragmentIon
             {
@@ -309,20 +259,20 @@ namespace Readers.InternalIons
                 YIonIntensityAtCTerm = yIonIntensity,
                 HasMatchedBIonAtNTerm = hasMatchedB,
                 HasMatchedYIonAtCTerm = hasMatchedY,
-                BYProductScore = byProductScore
+                BYProductScore = byProductScore,
+                DistanceFromCTerm = distanceFromCTerm,
+                MaxTerminalIonIntensity = maxTerminalIonIntensity,
+                HasBothTerminalIons = hasBothTerminalIons
             };
         }
 
         private static (string internalSequence, int startResidue, int endResidue) ParseInternalFragmentFromProduct(
-            Product product,
-            string peptideSequence,
-            string annotation)
+            Product product, string peptideSequence, string annotation)
         {
             if (product != null && product.IsInternalFragment)
             {
                 int start = product.FragmentNumber;
                 int end = product.SecondaryFragmentNumber;
-
                 if (start > 0 && end > 0 && start <= end && end <= peptideSequence.Length)
                 {
                     string subseq = peptideSequence.Substring(start - 1, end - start + 1);
@@ -341,53 +291,36 @@ namespace Readers.InternalIons
                     return (subseq, startPos, endPos);
                 }
             }
-
             return (string.Empty, 0, 0);
         }
 
         private static double CalculateLocalIntensityRank(MsDataScan? scan, double targetMz, double targetIntensity)
         {
-            if (scan?.MassSpectrum == null)
-                return double.NaN;
+            if (scan?.MassSpectrum == null) return double.NaN;
 
             double windowSize = 100.0;
-            double minMz = targetMz - windowSize;
-            double maxMz = targetMz + windowSize;
-
             var spectrum = scan.MassSpectrum;
             var mzArray = spectrum.XArray;
             var intensityArray = spectrum.YArray;
 
-            if (mzArray == null || intensityArray == null || mzArray.Length == 0)
-                return double.NaN;
+            if (mzArray == null || intensityArray == null || mzArray.Length == 0) return double.NaN;
 
             int higherCount = 0;
-
             for (int i = 0; i < mzArray.Length; i++)
             {
-                if (mzArray[i] >= minMz && mzArray[i] <= maxMz)
-                {
-                    if (intensityArray[i] > targetIntensity)
-                        higherCount++;
-                }
+                if (mzArray[i] >= targetMz - windowSize && mzArray[i] <= targetMz + windowSize)
+                    if (intensityArray[i] > targetIntensity) higherCount++;
             }
-
             return higherCount + 1;
         }
 
         private static Dictionary<int, MsDataScan> BuildScanLookup(MsDataFile msDataFile)
         {
             var lookup = new Dictionary<int, MsDataScan>();
-
-            if (msDataFile?.GetAllScansList() == null)
-                return lookup;
-
+            if (msDataFile?.GetAllScansList() == null) return lookup;
             foreach (var scan in msDataFile.GetAllScansList())
-            {
                 if (scan != null && !lookup.ContainsKey(scan.OneBasedScanNumber))
                     lookup[scan.OneBasedScanNumber] = scan;
-            }
-
             return lookup;
         }
     }

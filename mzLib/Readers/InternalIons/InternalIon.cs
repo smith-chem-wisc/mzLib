@@ -62,7 +62,6 @@ namespace Readers.InternalIons
             {
                 if (double.IsNaN(MassErrorPpm))
                     return false;
-
                 double absMassError = System.Math.Abs(MassErrorPpm);
                 return (absMassError < 5.0) || (absMassError < 15.0 && NormalizedIntensity > 0.10);
             }
@@ -70,31 +69,30 @@ namespace Readers.InternalIons
 
         // ========== B/Y TERMINAL ION CORRELATION FEATURES ==========
 
-        /// <summary>
-        /// Normalized intensity of b_(StartResidue-1) ion; 0.0 if not observed.
-        /// </summary>
         public double BIonIntensityAtNTerm { get; set; }
-
-        /// <summary>
-        /// Normalized intensity of y_(PeptideLength-EndResidue) ion; 0.0 if not observed.
-        /// </summary>
         public double YIonIntensityAtCTerm { get; set; }
-
-        /// <summary>
-        /// True if b_(StartResidue-1) ion was matched.
-        /// </summary>
         public bool HasMatchedBIonAtNTerm { get; set; }
-
-        /// <summary>
-        /// True if y_(PeptideLength-EndResidue) ion was matched.
-        /// </summary>
         public bool HasMatchedYIonAtCTerm { get; set; }
+        public double BYProductScore { get; set; }
+
+        // ========== STEP 11 FEATURES ==========
 
         /// <summary>
-        /// BIonIntensityAtNTerm * YIonIntensityAtCTerm.
-        /// Captures multiplicative amplification when BOTH termini are favorable cleavage sites.
+        /// Distance from C-terminus: PeptideLength - EndResidue.
+        /// 0 means the fragment ends at the last residue before the C-terminal cleavage site.
         /// </summary>
-        public double BYProductScore { get; set; }
+        public int DistanceFromCTerm { get; set; }
+
+        /// <summary>
+        /// Max(BIonIntensityAtNTerm, YIonIntensityAtCTerm).
+        /// Captures the strongest terminal ion signal regardless of direction.
+        /// </summary>
+        public double MaxTerminalIonIntensity { get; set; }
+
+        /// <summary>
+        /// True if both b and y terminal ions are matched.
+        /// </summary>
+        public bool HasBothTerminalIons { get; set; }
 
         public static string[] GetHeaderNames() => new[]
         {
@@ -108,7 +106,8 @@ namespace Readers.InternalIons
             nameof(FullModifiedSequence), nameof(ModificationsInInternalFragment), nameof(HasModifiedResidue),
             nameof(PassesMassAccuracyFilter),
             nameof(BIonIntensityAtNTerm), nameof(YIonIntensityAtCTerm),
-            nameof(HasMatchedBIonAtNTerm), nameof(HasMatchedYIonAtCTerm), nameof(BYProductScore)
+            nameof(HasMatchedBIonAtNTerm), nameof(HasMatchedYIonAtCTerm), nameof(BYProductScore),
+            nameof(DistanceFromCTerm), nameof(MaxTerminalIonIntensity), nameof(HasBothTerminalIons)
         };
 
         public string[] GetValues() => new[]
@@ -133,7 +132,10 @@ namespace Readers.InternalIons
             BIonIntensityAtNTerm.ToString("G17", CultureInfo.InvariantCulture),
             YIonIntensityAtCTerm.ToString("G17", CultureInfo.InvariantCulture),
             HasMatchedBIonAtNTerm.ToString(), HasMatchedYIonAtCTerm.ToString(),
-            BYProductScore.ToString("G17", CultureInfo.InvariantCulture)
+            BYProductScore.ToString("G17", CultureInfo.InvariantCulture),
+            DistanceFromCTerm.ToString(),
+            MaxTerminalIonIntensity.ToString("G17", CultureInfo.InvariantCulture),
+            HasBothTerminalIons.ToString()
         };
     }
 }

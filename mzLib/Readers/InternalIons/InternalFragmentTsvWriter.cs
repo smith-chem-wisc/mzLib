@@ -11,61 +11,44 @@ namespace Readers.InternalIons
 
         public static void WriteToTsv(List<InternalFragmentIon> ions, string outputPath)
         {
-            if (ions == null)
-                throw new ArgumentNullException(nameof(ions));
+            if (ions == null) throw new ArgumentNullException(nameof(ions));
             if (string.IsNullOrWhiteSpace(outputPath))
                 throw new ArgumentException("Output path cannot be null or empty.", nameof(outputPath));
 
             using var writer = new StreamWriter(outputPath);
             writer.WriteLine(string.Join(Delimiter, InternalFragmentIon.GetHeaderNames()));
-
             foreach (var ion in ions)
-            {
                 writer.WriteLine(string.Join(Delimiter, ion.GetValues()));
-            }
         }
 
         public static List<InternalFragmentIon> ReadFromTsv(string path)
         {
-            if (!File.Exists(path))
-                throw new FileNotFoundException($"File not found: {path}");
+            if (!File.Exists(path)) throw new FileNotFoundException($"File not found: {path}");
 
             var results = new List<InternalFragmentIon>();
             var lines = File.ReadAllLines(path);
-
-            if (lines.Length == 0)
-                return results;
+            if (lines.Length == 0) return results;
 
             var headerColumns = lines[0].Split(Delimiter);
             var columnMap = new Dictionary<string, int>();
             for (int i = 0; i < headerColumns.Length; i++)
-            {
                 columnMap[headerColumns[i]] = i;
-            }
 
             for (int lineIdx = 1; lineIdx < lines.Length; lineIdx++)
             {
                 var values = lines[lineIdx].Split(Delimiter);
-                if (values.Length == 0)
-                    continue;
-
+                if (values.Length == 0) continue;
                 try
                 {
                     var ion = ParseInternalFragmentIon(values, columnMap);
                     results.Add(ion);
                 }
-                catch
-                {
-                    continue;
-                }
+                catch { continue; }
             }
-
             return results;
         }
 
-        private static InternalFragmentIon ParseInternalFragmentIon(
-            string[] values,
-            Dictionary<string, int> columnMap)
+        private static InternalFragmentIon ParseInternalFragmentIon(string[] values, Dictionary<string, int> columnMap)
         {
             return new InternalFragmentIon
             {
@@ -93,32 +76,25 @@ namespace Readers.InternalIons
                 YIonIntensityAtCTerm = ParseDouble(GetValue(values, columnMap, nameof(InternalFragmentIon.YIonIntensityAtCTerm))),
                 HasMatchedBIonAtNTerm = ParseBool(GetValue(values, columnMap, nameof(InternalFragmentIon.HasMatchedBIonAtNTerm))),
                 HasMatchedYIonAtCTerm = ParseBool(GetValue(values, columnMap, nameof(InternalFragmentIon.HasMatchedYIonAtCTerm))),
-                BYProductScore = ParseDouble(GetValue(values, columnMap, nameof(InternalFragmentIon.BYProductScore)))
+                BYProductScore = ParseDouble(GetValue(values, columnMap, nameof(InternalFragmentIon.BYProductScore))),
+                DistanceFromCTerm = ParseInt(GetValue(values, columnMap, nameof(InternalFragmentIon.DistanceFromCTerm))),
+                MaxTerminalIonIntensity = ParseDouble(GetValue(values, columnMap, nameof(InternalFragmentIon.MaxTerminalIonIntensity))),
+                HasBothTerminalIons = ParseBool(GetValue(values, columnMap, nameof(InternalFragmentIon.HasBothTerminalIons)))
             };
         }
 
-        private static string GetValue(string[] values, Dictionary<string, int> columnMap, string columnName)
-        {
-            if (!columnMap.TryGetValue(columnName, out int idx) || idx >= values.Length)
-                return string.Empty;
-            return values[idx];
-        }
+        private static string GetValue(string[] values, Dictionary<string, int> columnMap, string columnName) =>
+            columnMap.TryGetValue(columnName, out int idx) && idx < values.Length ? values[idx] : string.Empty;
 
-        private static int ParseInt(string value) =>
-            int.TryParse(value, out int result) ? result : 0;
+        private static int ParseInt(string value) => int.TryParse(value, out int result) ? result : 0;
 
         private static double ParseDouble(string value)
         {
-            if (string.Equals(value, "NaN", StringComparison.OrdinalIgnoreCase))
-                return double.NaN;
-            return double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out double result)
-                ? result : double.NaN;
+            if (string.Equals(value, "NaN", StringComparison.OrdinalIgnoreCase)) return double.NaN;
+            return double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out double result) ? result : double.NaN;
         }
 
-        private static char ParseChar(string value) =>
-            string.IsNullOrEmpty(value) ? '-' : value[0];
-
-        private static bool ParseBool(string value) =>
-            bool.TryParse(value, out bool result) && result;
+        private static char ParseChar(string value) => string.IsNullOrEmpty(value) ? '-' : value[0];
+        private static bool ParseBool(string value) => bool.TryParse(value, out bool result) && result;
     }
 }
