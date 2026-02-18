@@ -92,8 +92,8 @@ namespace PredictionClients.Koina.AbstractClasses
 
         #region Caches to optimize performance
         // Caches to optimize performance by avoiding redundant computations during sequence validation and modification conversions.
-        protected Dictionary<FragmentIntensityPredictionInput, PeptideFragmentIntensityPrediction> PredictionCache { get; set; } = new();
-        protected Dictionary<FragmentIntensityPredictionInput, LibrarySpectrum> LibrarySpectrumCache { get; set; } = new();
+        public Dictionary<FragmentIntensityPredictionInput, PeptideFragmentIntensityPrediction> PredictionCache { get; protected set; } = new();
+        public Dictionary<FragmentIntensityPredictionInput, LibrarySpectrum> LibrarySpectrumCache { get; protected set; } = new();
         #endregion
 
 
@@ -192,6 +192,125 @@ namespace PredictionClients.Koina.AbstractClasses
         }
         #endregion
 
-        
+        #region Spectral Library Generation
+        /// <summary>
+        /// Transforms prediction results into LibrarySpectrum objects suitable for spectral library creation.
+        /// Filters out impossible ions (intensity = -1) and low-intensity fragments below MinIntensityFilter.
+        /// Parses fragment annotations (e.g., "b5+1") to extract ion type, fragment number, and charge state.
+        /// </summary>
+        /// <remarks>
+        /// The conversion process:
+        /// 1. Converts sequence format: UNIMOD -> mzLib -> mass-only for Peptide object creation
+        /// 2. Parses each fragment annotation to determine ion properties
+        /// 3. Creates MatchedFragmentIon objects with experimental m/z and predicted intensities
+        /// 4. Builds LibrarySpectrum with precursor information and fragment data
+        /// 5. Validates uniqueness of generated spectra by name
+        /// </remarks>
+        /// <exception cref="WarningException">Recorded in the out parameter when duplicate spectra are detected in predictions</exception>
+        protected List<LibrarySpectrum> GenerateLibrarySpectraFromPredictions(double[] alignedRetentionTimes, out WarningException? warning, string? filepath=null)
+        {
+            warning = null;
+            if (Predictions.Count == 0)
+            {
+                return new List<LibrarySpectrum>(); // No predictions to process
+            }
+
+            if (Predictions.Count != alignedRetentionTimes.Length)
+            {
+                throw new ArgumentException("The number of predictions must match the number of aligned retention times.");
+            }
+
+            var predictedSpectra = new List<LibrarySpectrum>();
+            for (int predictionIndex = 0; predictionIndex < Predictions.Count; predictionIndex++)
+            {
+                var prediction = Predictions[predictionIndex];
+
+                var peptide = new Peptide(
+                    ConvertMzLibModificationsToMassesOnly(
+                        ConvertUnimodToMzLibModifications(prediction.FullSequence)
+                        )
+                    );
+
+                List<MatchedFragmentIon> fragmentIons = new();
+                for (int fragmentIndex = 0; fragmentIndex < prediction.FragmentAnnotations.Count; fragmentIndex++)
+                {
+                    if ((int)prediction.FragmentIntensities[fragmentIndex] == -1 || prediction.FragmentIntensities[fragmentIndex] < MinIntensityFilter)
+                    {
+                        // Skip impossible ions and peaks with near zero intensity. The model uses -1 to indicate impossible ions.
+                        continue;
+                    }
+
+                    var annotation = prediction.FragmentAnnotations[fragmentIndex];
+
+                    // This check is to ensure that the annotation contains the expected format (e.g., "b5+1") before attempting to parse it.
+                    // The API WILL always contain it in the expected format, but this is a safeguard against any malformed annotations that could cause exceptions during parsing.
+                    if (annotation == null || !annotation.Contains('+'))
+                    {
+                        // Skip malformed annotations that do not contain expected ion type and charge information.
+                        continue;
+                    }
+
+                    // Parse the annotation to get ion type, number and charge from something like 'b5+1'
+                    var ionType = annotation.First().ToString(); // 'b' or 'y'
+                    var plusIndex = annotation.IndexOf('+');
+                    var fragmentNumber = int.Parse(annotation.Substring(1, plusIndex - 1));
+                    var fragmentIonCharge = int.Parse(annotation.Substring(plusIndex + 1));
+
+                    // Create a new MatchedFragmentIon for each output
+                    var fragmentIon = new MatchedFragmentIon
+                    (
+                        neutralTheoreticalProduct: new Product
+                        (
+                            productType: Enum.Parse<ProductType>(ionType),
+                            terminus: ionType == "b" ? FragmentationTerminus.N : FragmentationTerminus.C,
+                            // neutralMass is not directly provided by models, and it is not necessary here. If needed, 
+                            // compute it from the peptide sequence and fragment information as shown below.
+                            // neutralMass: peptide.Fragment(Enum.Parse<FragmentTypes>(ionType), fragmentNumber).First().MonoisotopicMass,
+                            neutralMass: 0.0, // Placeholder, not used in this context
+                            fragmentNumber: fragmentNumber,
+                            residuePosition: fragmentNumber, // For b / y ions, the fragment number corresponds to the residue count from the respective terminus.
+                            neutralLoss: 0 // Annotations like "b5+1" do not encode neutral losses, so we explicitly assume no loss as placeholder.
+                        ),
+                        experMz: prediction.FragmentMZs[fragmentIndex],
+                        experIntensity: prediction.FragmentIntensities[fragmentIndex],
+                        charge: fragmentIonCharge
+                    );
+
+                    fragmentIons.Add(fragmentIon);
+                }
+
+                var spectrum = new LibrarySpectrum
+                (
+                    sequence: prediction.FullSequence,
+                    precursorMz: peptide.ToMz(prediction.PrecursorCharge),
+                    chargeState: prediction.PrecursorCharge,
+                    peaks: fragmentIons,
+                    rt: alignedRetentionTimes[predictionIndex]
+                );
+
+                predictedSpectra.Add(spectrum);
+            }
+            var warningString = $"Generated {predictedSpectra.Count} spectra from predictions.\n";
+            var unique = predictedSpectra.DistinctBy(p => p.Name).ToList();
+            if (unique.Count != predictedSpectra.Count)
+            {
+                warning = new WarningException($"Duplicate spectra found in predictions. Reduced from {predictedSpectra.Count} predicted spectra to {unique.Count} unique spectra.");
+                predictedSpectra = unique;
+            }
+
+            if (filepath == null)
+            {
+                warningString += "No file path provided for spectral library output. Generated spectra will not be saved to disk.\n";
+            }
+            else
+            {
+                var spectralLibrary = new SpectralLibrary();
+                spectralLibrary.Results = predictedSpectra;
+                spectralLibrary.WriteResults(filepath);
+            }
+
+            return predictedSpectra;
+        }
+        #endregion
     }
 }
