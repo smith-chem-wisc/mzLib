@@ -247,7 +247,7 @@ public static class ModificationLoader
                         _modificationType = modValue;
                         break;
 
-                    case "BM": // ⭐ Backbone Modification (affects fragment masses)
+                    case "BM": // Backbone Modification (affects fragment masses)
                         if (string.IsNullOrWhiteSpace(modValue))
                             break;
 

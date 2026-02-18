@@ -19,7 +19,7 @@ public static class Modifications
         // PP   Anywhere.
         // MT   Common Variable
         // CF   SO-1
-        // BM   w,x,c,d                 # ⭐ Affects these fragment types
+        // BM   w,x,c,d  
         // 
 
         var mod = Mods.AllRnaModsList.FirstOrDefault(m => m is BackboneModification);
