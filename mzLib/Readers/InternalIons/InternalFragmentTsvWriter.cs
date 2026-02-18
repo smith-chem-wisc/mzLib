@@ -76,7 +76,10 @@ namespace Readers.InternalIons
                 MaxTerminalIonIntensity = Dbl(Get(v, m, nameof(InternalFragmentIon.MaxTerminalIonIntensity))),
                 HasBothTerminalIons = Bool(Get(v, m, nameof(InternalFragmentIon.HasBothTerminalIons))),
                 BasicResiduesInBIonSpan = Int(Get(v, m, nameof(InternalFragmentIon.BasicResiduesInBIonSpan))),
-                BasicResiduesInYIonSpan = Int(Get(v, m, nameof(InternalFragmentIon.BasicResiduesInYIonSpan)))
+                BasicResiduesInYIonSpan = Int(Get(v, m, nameof(InternalFragmentIon.BasicResiduesInYIonSpan))),
+                IsProlineAtInternalNTerminus = Bool(Get(v, m, nameof(InternalFragmentIon.IsProlineAtInternalNTerminus))),
+                IsTerminalRescue = Bool(Get(v, m, nameof(InternalFragmentIon.IsTerminalRescue))),
+                NTerminalFlankingHydrophobicity = Dbl(Get(v, m, nameof(InternalFragmentIon.NTerminalFlankingHydrophobicity)))
             };
         }
 
@@ -86,6 +89,6 @@ namespace Readers.InternalIons
         private static double Dbl(string s) => s.Equals("NaN", StringComparison.OrdinalIgnoreCase) ? double.NaN :
             double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out double r) ? r : double.NaN;
         private static char Chr(string s) => string.IsNullOrEmpty(s) ? '-' : s[0];
-        private static bool Bool(string s) => bool.TryParse(s, out bool r) && r;
+        private static bool Bool(string s) => s.Equals("TRUE", StringComparison.OrdinalIgnoreCase) || s == "1";
     }
 }

@@ -13,6 +13,15 @@ namespace Readers.InternalIons
         private static readonly Regex InternalFragmentRegex = new(@"[yb]I[yb]\[(\d+)-(\d+)\]",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+        private static readonly Dictionary<char, double> KyteDoolittle = new()
+        {
+            {'I',  4.5}, {'V',  4.2}, {'L',  3.8}, {'F',  2.8},
+            {'C',  2.5}, {'M',  1.9}, {'A',  1.8}, {'G', -0.4},
+            {'W', -0.9}, {'T', -0.7}, {'S', -0.8}, {'Y', -1.3},
+            {'P', -1.6}, {'H', -3.2}, {'D', -3.5}, {'N', -3.5},
+            {'E', -3.5}, {'Q', -3.5}, {'K', -3.9}, {'R', -4.5}
+        };
+
         public static List<InternalFragmentIon> ExtractFromPsms(
             List<PsmFromTsv> psms, MsDataFile msDataFile, double defaultCollisionEnergy = double.NaN)
         {
@@ -34,7 +43,6 @@ namespace Readers.InternalIons
                 MsDataScan? scan = null;
                 if (scanLookup.TryGetValue(psm.Ms2ScanNumber, out var foundScan)) scan = foundScan;
 
-                // Get TIC from scan, or compute from matched ions as fallback
                 double tic = GetTotalIonCurrent(scan, psm.MatchedIons);
 
                 double collisionEnergy = double.NaN;
@@ -48,7 +56,6 @@ namespace Readers.InternalIons
                 string baseSequence = psm.BaseSeq ?? psm.FullSequence ?? string.Empty;
                 int peptideLength = baseSequence.Length;
 
-                // Build TIC-normalized terminal ion lookups
                 var bIonLookup = BuildTerminalIonLookupTic(psm.MatchedIons, "b", tic);
                 var yIonLookup = BuildTerminalIonLookupTic(psm.MatchedIons, "y", tic);
 
@@ -71,20 +78,11 @@ namespace Readers.InternalIons
             return results;
         }
 
-        /// <summary>
-        /// Gets TIC from scan metadata, or computes from matched ions as fallback.
-        /// </summary>
         private static double GetTotalIonCurrent(MsDataScan? scan, List<MatchedFragmentIon> matchedIons)
         {
-            // Try to get TIC from scan metadata first
-            if (scan?.TotalIonCurrent > 0)
-                return scan.TotalIonCurrent;
-
-            // Try to compute from raw spectrum if available
+            if (scan?.TotalIonCurrent > 0) return scan.TotalIonCurrent;
             if (scan?.MassSpectrum?.YArray != null && scan.MassSpectrum.YArray.Length > 0)
                 return scan.MassSpectrum.YArray.Sum();
-
-            // Fallback: sum of matched ion intensities (underestimates true TIC)
             double matchedSum = matchedIons.Sum(ion => ion.Intensity);
             return matchedSum > 0 ? matchedSum : 1.0;
         }
@@ -178,6 +176,11 @@ namespace Readers.InternalIons
             int basicInBSpan = startResidue > 1 ? CountBasicResidues(baseSequence, 0, startResidue - 2) : 0;
             int basicInYSpan = endResidue < peptideLength ? CountBasicResidues(baseSequence, endResidue, peptideLength - 1) : 0;
 
+            // New scorer features
+            bool isProlineAtInternalNTerm = !string.IsNullOrEmpty(internalSequence) && internalSequence[0] == 'P';
+            bool isTerminalRescue = distanceFromCTerm <= 3;
+            double nTermFlankHydrophobicity = KyteDoolittle.TryGetValue(nTermFlank, out double hScore) ? hScore : 0.0;
+
             return new InternalFragmentIon
             {
                 PeptideSequence = baseSequence,
@@ -211,7 +214,10 @@ namespace Readers.InternalIons
                 MaxTerminalIonIntensity = maxTerminalIonIntensity,
                 HasBothTerminalIons = hasBothTerminalIons,
                 BasicResiduesInBIonSpan = basicInBSpan,
-                BasicResiduesInYIonSpan = basicInYSpan
+                BasicResiduesInYIonSpan = basicInYSpan,
+                IsProlineAtInternalNTerminus = isProlineAtInternalNTerm,
+                IsTerminalRescue = isTerminalRescue,
+                NTerminalFlankingHydrophobicity = nTermFlankHydrophobicity
             };
         }
 

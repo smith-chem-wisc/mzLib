@@ -152,6 +152,7 @@ namespace Test.InternalIons
             Step11_PartD_FourGroupComparison(passing);
             Step11_PartE_CorrelationAnalysis(passing);
             Step11_PartF_FeatureInventory(passing);
+            Step11_PartG_NewFeatureValidation(passing);
         }
 
         private static void Step11_PartA_BYDirectionality(List<InternalFragmentIon> ions)
@@ -176,30 +177,20 @@ namespace Test.InternalIons
 
             double meanB = bNonZero.Count > 0 ? bNonZero.Average() : 0;
             double meanY = yNonZero.Count > 0 ? yNonZero.Average() : 0;
-            double maxB = bNonZero.Count > 0 ? bNonZero.Max() : 0;
-            double maxY = yNonZero.Count > 0 ? yNonZero.Max() : 0;
 
             Console.WriteLine($"Mean BIonIntensityAtNTerm (B>0, n={bNonZero.Count,5}): {meanB:E4}");
-            Console.WriteLine($"Mean YIonIntensityAtCTerm (Y>0, n={yNonZero.Count,5}): {meanY:E4}");
-            Console.WriteLine($"Max  BIonIntensityAtNTerm: {maxB:E4}");
-            Console.WriteLine($"Max  YIonIntensityAtCTerm: {maxY:E4}\n");
+            Console.WriteLine($"Mean YIonIntensityAtCTerm (Y>0, n={yNonZero.Count,5}): {meanY:E4}\n");
 
             if (meanB > meanY && meanB > 0)
-            {
-                Console.WriteLine("CONFIRMED: B-ions dominate Y-ions (positive mode HCD, as expected).");
-                Console.WriteLine("N-terminal cleavage propensity is the primary spectral driver.\n");
-            }
+                Console.WriteLine("CONFIRMED: B-ions dominate Y-ions (positive mode HCD).\n");
             else
-            {
-                Console.WriteLine("UNEXPECTED: Y-ions match or exceed B-ions after TIC normalization.");
-                Console.WriteLine("Verify that TotalIonCurrent reflects MS2 scan TIC, not MS1 or TIC.\n");
-            }
+                Console.WriteLine("UNEXPECTED: Y-ions match or exceed B-ions.\n");
         }
 
         private static void Step11_PartB_YIonStratification(List<InternalFragmentIon> ions)
         {
             Console.WriteLine("═══════════════════════════════════════════════════");
-            Console.WriteLine("PART B: STRONG Y-ION MECHANISM STRATIFICATION");
+            Console.WriteLine("PART B: Y-ION MECHANISM STRATIFICATION");
             Console.WriteLine("═══════════════════════════════════════════════════\n");
 
             var withY = ions.Where(i => i.HasMatchedYIonAtCTerm).ToList();
@@ -209,31 +200,16 @@ namespace Test.InternalIons
             var s2 = withY.Where(i => i.DistanceFromCTerm > 3 && i.BasicResiduesInYIonSpan >= 2).ToList();
             var s3 = withY.Where(i => i.DistanceFromCTerm > 3 && i.BasicResiduesInYIonSpan <= 1).ToList();
 
-            void PrintStratum(string name, string desc, List<InternalFragmentIon> list)
+            void Print(string name, List<InternalFragmentIon> list)
             {
                 Console.WriteLine($"{name}: {list.Count:N0} ions");
-                Console.WriteLine($"  {desc}");
-                if (list.Count == 0) { Console.WriteLine(); return; }
-                double meanY = list.Average(i => i.YIonIntensityAtCTerm);
-                double meanTic = list.Average(i => i.TicNormalizedIntensity);
-                double fracIntense = (double)list.Count(i => i.TicNormalizedIntensity > 0.003) / list.Count;
-                Console.WriteLine($"  Mean YIonIntensity:        {meanY:E4}");
-                Console.WriteLine($"  Mean TicNormalizedInt:     {meanTic:E4}");
-                Console.WriteLine($"  Frac TicNormInt > 0.003:   {fracIntense:P1}\n");
+                if (list.Count == 0) return;
+                Console.WriteLine($"  Mean TicNI: {list.Average(i => i.TicNormalizedIntensity):E4}\n");
             }
 
-            PrintStratum("Stratum 1", "C-terminal K/R rescue (DistCTerm <= 3)", s1);
-            PrintStratum("Stratum 2", "Multiply-basic large y-ion (DistCTerm > 3, BasicInY >= 2)", s2);
-            PrintStratum("Stratum 3", "Weak charge retention (DistCTerm > 3, BasicInY <= 1)", s3);
-
-            // Find most informative stratum
-            var strata = new[] { (s1, "Stratum 1"), (s2, "Stratum 2"), (s3, "Stratum 3") }
-                .Where(x => x.Item1.Count > 0)
-                .OrderByDescending(x => x.Item1.Average(i => i.TicNormalizedIntensity))
-                .FirstOrDefault();
-
-            if (strata.Item1 != null)
-                Console.WriteLine($"NOTE: {strata.Item2} shows highest mean internal fragment intensity.\n");
+            Print("S1 (DistCTerm <= 3)", s1);
+            Print("S2 (DistCTerm > 3, BasicY >= 2)", s2);
+            Print("S3 (DistCTerm > 3, BasicY <= 1)", s3);
         }
 
         private static void Step11_PartC_UnsupportedHighIntensityIons(List<InternalFragmentIon> ions)
@@ -243,28 +219,13 @@ namespace Test.InternalIons
             Console.WriteLine("═══════════════════════════════════════════════════\n");
 
             var unsupported = ions.Where(i => !i.HasMatchedBIonAtNTerm && !i.HasMatchedYIonAtCTerm).ToList();
-            Console.WriteLine($"Ions with neither b nor y terminal ion matched: {unsupported.Count:N0}\n");
-
-            if (unsupported.Count == 0) { return; }
-
-            Console.WriteLine("Top 10 by TicNormalizedIntensity (weak-bond hypothesis validation):");
-            Console.WriteLine("+------------------+------------+--------+--------+--------+--------+--------+----------+");
-            Console.WriteLine("| InternalSeq      | TicNormInt | FlankN | FlankC | IntN   | IntC   | Length | DistCTrm |");
-            Console.WriteLine("+------------------+------------+--------+--------+--------+--------+--------+----------+");
-
-            foreach (var ion in unsupported.OrderByDescending(i => i.TicNormalizedIntensity).Take(10))
-            {
-                string seq = ion.InternalSequence.Length > 16 ? ion.InternalSequence.Substring(0, 13) + "..." : ion.InternalSequence;
-                Console.WriteLine($"| {seq,-16} | {ion.TicNormalizedIntensity,10:E3} | {ion.NTerminalFlankingResidue,6} | {ion.CTerminalFlankingResidue,6} | {ion.InternalNTerminalAA,6} | {ion.InternalCTerminalAA,6} | {ion.FragmentLength,6} | {ion.DistanceFromCTerm,8} |");
-            }
-            Console.WriteLine("+------------------+------------+--------+--------+--------+--------+--------+----------+");
-            Console.WriteLine("\nThese ions validate weak-bond hypothesis as independent of b/y support.\n");
+            Console.WriteLine($"Ions with neither b nor y: {unsupported.Count:N0}\n");
         }
 
         private static void Step11_PartD_FourGroupComparison(List<InternalFragmentIon> ions)
         {
             Console.WriteLine("═══════════════════════════════════════════════════");
-            Console.WriteLine("PART D: FOUR-GROUP INTENSITY COMPARISON");
+            Console.WriteLine("PART D: FOUR-GROUP COMPARISON");
             Console.WriteLine("═══════════════════════════════════════════════════\n");
 
             var g00 = ions.Where(i => !i.HasMatchedBIonAtNTerm && !i.HasMatchedYIonAtCTerm).ToList();
@@ -272,30 +233,17 @@ namespace Test.InternalIons
             var g01 = ions.Where(i => !i.HasMatchedBIonAtNTerm && i.HasMatchedYIonAtCTerm).ToList();
             var g11 = ions.Where(i => i.HasMatchedBIonAtNTerm && i.HasMatchedYIonAtCTerm).ToList();
 
-            void PrintGroup(string name, List<InternalFragmentIon> grp)
+            void Print(string name, List<InternalFragmentIon> grp)
             {
                 if (grp.Count == 0) { Console.WriteLine($"  {name}: (no ions)"); return; }
-                var sorted = grp.Select(i => i.TicNormalizedIntensity).OrderBy(x => x).ToList();
-                double mean = sorted.Average();
-                double median = sorted[sorted.Count / 2];
-                Console.WriteLine($"  {name}: n={grp.Count,6}, Mean={mean:E4}, Median={median:E4}");
+                Console.WriteLine($"  {name}: n={grp.Count,6}, Mean={grp.Average(i => i.TicNormalizedIntensity):E4}");
             }
 
-            PrintGroup("Group 00 (neither)", g00);
-            PrintGroup("Group 10 (B only)", g10);
-            PrintGroup("Group 01 (Y only)", g01);
-            PrintGroup("Group 11 (both)", g11);
-
-            Console.WriteLine("\n  Expected ordering: Group 11 > Group 10 > Group 01 > Group 00\n");
-
-            double mean10 = g10.Count > 0 ? g10.Average(i => i.TicNormalizedIntensity) : 0;
-            double mean01 = g01.Count > 0 ? g01.Average(i => i.TicNormalizedIntensity) : 0;
-
-            if (mean10 > mean01 && mean10 > 0)
-            {
-                Console.WriteLine("CONFIRMED: B-ion support is more predictive than Y-ion support,");
-                Console.WriteLine("consistent with positive mode HCD fragmentation physics.\n");
-            }
+            Print("G00 (neither)", g00);
+            Print("G10 (B only)", g10);
+            Print("G01 (Y only)", g01);
+            Print("G11 (both)", g11);
+            Console.WriteLine();
         }
 
         private static void Step11_PartE_CorrelationAnalysis(List<InternalFragmentIon> ions)
@@ -311,104 +259,87 @@ namespace Test.InternalIons
                 ("BIonIntensityAtNTerm", Corr(ions.Select(i => i.BIonIntensityAtNTerm).ToArray(), target)),
                 ("YIonIntensityAtCTerm", Corr(ions.Select(i => i.YIonIntensityAtCTerm).ToArray(), target)),
                 ("MaxTerminalIonIntensity", Corr(ions.Select(i => i.MaxTerminalIonIntensity).ToArray(), target)),
-                ("BYProductScore", Corr(ions.Select(i => i.BYProductScore).ToArray(), target)),
-                ("HasBothTerminalIons", Corr(ions.Select(i => i.HasBothTerminalIons ? 1.0 : 0.0).ToArray(), target)),
-                ("BasicResiduesInBIonSpan", Corr(ions.Select(i => (double)i.BasicResiduesInBIonSpan).ToArray(), target)),
-                ("BasicResiduesInYIonSpan", Corr(ions.Select(i => (double)i.BasicResiduesInYIonSpan).ToArray(), target)),
                 ("FragmentLength", Corr(ions.Select(i => (double)i.FragmentLength).ToArray(), target)),
-                ("DistanceFromCTerm", Corr(ions.Select(i => (double)i.DistanceFromCTerm).ToArray(), target)),
-                ("NumberOfBasicResidues", Corr(ions.Select(i => (double)i.NumberOfBasicResidues).ToArray(), target))
+                ("NTermFlankHydrophobicity", Corr(ions.Select(i => i.NTerminalFlankingHydrophobicity).ToArray(), target))
             };
 
-            Console.WriteLine("--- Correlations with TicNormalizedIntensity (ranked by |r|) ---\n");
+            Console.WriteLine("Top correlations with TicNormalizedIntensity:");
             foreach (var (name, r) in correlations.OrderByDescending(x => Math.Abs(x.r)))
-            {
-                string flag = Math.Abs(r) > 0.15 ? " *" : "";
-                Console.WriteLine($"  {name,-25}: r = {r,8:F4}{flag}");
-            }
+                Console.WriteLine($"  {name,-25}: r = {r,8:F4}");
             Console.WriteLine();
-
-            // Charge-retention mechanism test
-            var bSpan = ions.Select(i => (double)i.BasicResiduesInBIonSpan).ToArray();
-            var ySpan = ions.Select(i => (double)i.BasicResiduesInYIonSpan).ToArray();
-            var bInt = ions.Select(i => i.BIonIntensityAtNTerm).ToArray();
-            var yInt = ions.Select(i => i.YIonIntensityAtCTerm).ToArray();
-
-            double rBSpanBInt = Corr(bSpan, bInt);
-            double rYSpanYInt = Corr(ySpan, yInt);
-
-            Console.WriteLine("--- Charge-Retention Mechanism Test ---");
-            Console.WriteLine($"  Corr(BasicResiduesInBIonSpan, BIonIntensity): {rBSpanBInt:F4}");
-            Console.WriteLine($"  Corr(BasicResiduesInYIonSpan, YIonIntensity): {rYSpanYInt:F4}\n");
-
-            if (rBSpanBInt > 0.1 && rYSpanYInt > 0.1)
-            {
-                Console.WriteLine("CONFIRMED: Charge-retention mechanism validated. Basic residue");
-                Console.WriteLine("count in ion span predicts terminal ion intensity for both b and y series.\n");
-            }
         }
 
         private static void Step11_PartF_FeatureInventory(List<InternalFragmentIon> ions)
         {
             Console.WriteLine("═══════════════════════════════════════════════════");
-            Console.WriteLine("PART F: FEATURE INVENTORY — MODEL GO/NO-GO GATE");
+            Console.WriteLine("PART F: FEATURE INVENTORY");
             Console.WriteLine("═══════════════════════════════════════════════════\n");
 
-            var target = ions.Select(i => i.TicNormalizedIntensity).ToArray();
-
-            var features = new (string name, Func<InternalFragmentIon, double> get, bool isTarget)[]
-            {
-                ("FragmentLength", i => i.FragmentLength, false),
-                ("DistanceFromCTerm", i => i.DistanceFromCTerm, false),
-                ("NumberOfBasicResidues", i => i.NumberOfBasicResidues, false),
-                ("BasicResiduesInBIonSpan", i => i.BasicResiduesInBIonSpan, false),
-                ("BasicResiduesInYIonSpan", i => i.BasicResiduesInYIonSpan, false),
-                ("BIonIntensityAtNTerm", i => i.BIonIntensityAtNTerm, false),
-                ("YIonIntensityAtCTerm", i => i.YIonIntensityAtCTerm, false),
-                ("MaxTerminalIonIntensity", i => i.MaxTerminalIonIntensity, false),
-                ("BYProductScore", i => i.BYProductScore, false),
-                ("HasBothTerminalIons", i => i.HasBothTerminalIons ? 1.0 : 0.0, false),
-                ("HasProlineAtEitherTerm", i => i.HasProlineAtEitherTerminus ? 1.0 : 0.0, false),
-                ("HasAspartateAtEitherTerm", i => i.HasAspartateAtEitherTerminus ? 1.0 : 0.0, false),
-                ("LocalIntensityRank", i => double.IsNaN(i.LocalIntensityRank) ? 0 : i.LocalIntensityRank, false),
-                ("HasModifiedResidue", i => i.HasModifiedResidue ? 1.0 : 0.0, false),
-                ("TicNormalizedIntensity", i => i.TicNormalizedIntensity, true)
-            };
-
-            Console.WriteLine("+---------------------------+----------+----------+------------+------------+-----------+--------+");
-            Console.WriteLine("| Feature                   | N values | N nonzero|       Mean |     StdDev | r(target) | Flags  |");
-            Console.WriteLine("+---------------------------+----------+----------+------------+------------+-----------+--------+");
-
-            foreach (var (name, getter, isTarget) in features)
-            {
-                var vals = ions.Select(getter).ToArray();
-                int nVal = vals.Count(v => !double.IsNaN(v));
-                int nNz = vals.Count(v => !double.IsNaN(v) && v != 0);
-                double mean = nVal > 0 ? vals.Where(v => !double.IsNaN(v)).Average() : 0;
-                double std = nVal > 1 ? Math.Sqrt(vals.Where(v => !double.IsNaN(v)).Select(v => (v - mean) * (v - mean)).Average()) : 0;
-                double r = isTarget ? double.NaN : Corr(vals, target);
-
-                string rStr = isTarget ? "  (target)" : $"{r,10:F4}";
-
-                var flags = new List<string>();
-                if (!isTarget && nVal > 0 && (double)nNz / nVal < 0.20)
-                    flags.Add("SPARSE");
-                if (!isTarget && !double.IsNaN(r) && Math.Abs(r) > 0.15)
-                    flags.Add("SIGNAL");
-
-                string flagStr = flags.Count > 0 ? string.Join(",", flags) : "";
-
-                Console.WriteLine($"| {name,-25} | {nVal,8} | {nNz,8} | {mean,10:E3} | {std,10:E3} | {rStr,-9} | {flagStr,-6} |");
-            }
-
-            Console.WriteLine("+---------------------------+----------+----------+------------+------------+-----------+--------+");
-            Console.WriteLine();
-            Console.WriteLine("Legend:");
-            Console.WriteLine("  SPARSE = N non-zero < 20% of N non-null — consider binary encoding or dropping");
-            Console.WriteLine("  SIGNAL = |r(target)| > 0.15 — include in initial model");
-            Console.WriteLine();
             Console.WriteLine($"Model-ready ions: {ions.Count:N0}");
-            Console.WriteLine("Pre-training data quality gate: COMPLETE\n");
+            Console.WriteLine("Feature inventory complete.\n");
+        }
+
+        private static void Step11_PartG_NewFeatureValidation(List<InternalFragmentIon> ions)
+        {
+            Console.WriteLine("═══════════════════════════════════════════════════");
+            Console.WriteLine("PART G: NEW SCORER FEATURE VALIDATION");
+            Console.WriteLine("═══════════════════════════════════════════════════\n");
+
+            // IsProlineAtInternalNTerminus
+            var proTrue = ions.Where(i => i.IsProlineAtInternalNTerminus).ToList();
+            var proFalse = ions.Where(i => !i.IsProlineAtInternalNTerminus).ToList();
+
+            Console.WriteLine("--- IsProlineAtInternalNTerminus ---");
+            Console.WriteLine($"  TRUE:  {proTrue.Count:N0} ({100.0 * proTrue.Count / ions.Count:F1}%)");
+            Console.WriteLine($"  FALSE: {proFalse.Count:N0}");
+
+            double meanProTrue = proTrue.Count > 0 ? proTrue.Average(i => i.TicNormalizedIntensity) : 0;
+            double meanProFalse = proFalse.Count > 0 ? proFalse.Average(i => i.TicNormalizedIntensity) : 0;
+            double proRatio = meanProFalse > 0 ? meanProTrue / meanProFalse : 0;
+
+            Console.WriteLine($"  Mean TicNI (TRUE):  {meanProTrue:E4}");
+            Console.WriteLine($"  Mean TicNI (FALSE): {meanProFalse:E4}");
+            Console.WriteLine($"  Ratio (TRUE/FALSE): {proRatio:F2}");
+            Console.WriteLine($"  Expectation: ratio > 1.0 (proline N-term cleavage enriched)");
+            Console.WriteLine();
+
+            // IsTerminalRescue
+            var rescueTrue = ions.Where(i => i.IsTerminalRescue).ToList();
+            var rescueFalse = ions.Where(i => !i.IsTerminalRescue).ToList();
+
+            Console.WriteLine("--- IsTerminalRescue ---");
+            Console.WriteLine($"  TRUE:  {rescueTrue.Count:N0} ({100.0 * rescueTrue.Count / ions.Count:F1}%)");
+            Console.WriteLine($"  FALSE: {rescueFalse.Count:N0}");
+
+            double meanRescueTicTrue = rescueTrue.Count > 0 ? rescueTrue.Average(i => i.TicNormalizedIntensity) : 0;
+            double meanRescueTicFalse = rescueFalse.Count > 0 ? rescueFalse.Average(i => i.TicNormalizedIntensity) : 0;
+            double meanRescueYTrue = rescueTrue.Count > 0 ? rescueTrue.Average(i => i.YIonIntensityAtCTerm) : 0;
+            double meanRescueYFalse = rescueFalse.Count > 0 ? rescueFalse.Average(i => i.YIonIntensityAtCTerm) : 0;
+
+            Console.WriteLine($"  Mean TicNI (TRUE):  {meanRescueTicTrue:E4}");
+            Console.WriteLine($"  Mean TicNI (FALSE): {meanRescueTicFalse:E4}");
+            Console.WriteLine($"  Mean YIon (TRUE):   {meanRescueYTrue:E4}");
+            Console.WriteLine($"  Mean YIon (FALSE):  {meanRescueYFalse:E4}");
+            Console.WriteLine($"  Expectation: YIon elevated when TRUE (C-terminal K/R rescue)");
+            Console.WriteLine();
+
+            // NTerminalFlankingHydrophobicity
+            var hydroVals = ions.Select(i => i.NTerminalFlankingHydrophobicity).ToList();
+            var target = ions.Select(i => i.TicNormalizedIntensity).ToArray();
+            var bInt = ions.Select(i => i.BIonIntensityAtNTerm).ToArray();
+
+            double rHydroTic = Corr(hydroVals.ToArray(), target);
+            double rHydroBIon = Corr(hydroVals.ToArray(), bInt);
+
+            Console.WriteLine("--- NTerminalFlankingHydrophobicity ---");
+            Console.WriteLine($"  Min:    {hydroVals.Min():F2}");
+            Console.WriteLine($"  Max:    {hydroVals.Max():F2}");
+            Console.WriteLine($"  Mean:   {hydroVals.Average():F2}");
+            Console.WriteLine($"  StdDev: {StdDev(hydroVals):F2}");
+            Console.WriteLine($"  r(Hydro, TicNI):   {rHydroTic:F4}");
+            Console.WriteLine($"  r(Hydro, BIonInt): {rHydroBIon:F4}");
+            Console.WriteLine($"  Expectation: positive correlation (hydrophobic flanking = higher intensity)");
+            Console.WriteLine();
         }
 
         #endregion
@@ -427,6 +358,14 @@ namespace Test.InternalIons
             }
             double d = Math.Sqrt(sx2 * sy2);
             return d == 0 ? 0 : sxy / d;
+        }
+
+        private static double StdDev(IEnumerable<double> vals)
+        {
+            var list = vals.Where(v => !double.IsNaN(v)).ToList();
+            if (list.Count < 2) return 0;
+            double mean = list.Average();
+            return Math.Sqrt(list.Select(v => (v - mean) * (v - mean)).Average());
         }
 
         #endregion

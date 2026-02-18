@@ -18,20 +18,8 @@ namespace Readers.InternalIons
         public double MassError => ObservedMass - TheoreticalMass;
         public double MassErrorPpm => TheoreticalMass != 0 ? (MassError / TheoreticalMass) * 1e6 : double.NaN;
 
-        /// <summary>
-        /// Base-peak normalized intensity (ion intensity / max intensity in spectrum).
-        /// </summary>
         public double NormalizedIntensity { get; set; }
-
-        /// <summary>
-        /// TIC-normalized intensity (ion intensity / TotalIonCurrent).
-        /// Use this for cross-scan comparable intensities and model training.
-        /// </summary>
         public double TicNormalizedIntensity { get; set; }
-
-        /// <summary>
-        /// Total ion current of the MS2 scan. Stored for audit.
-        /// </summary>
         public double TotalIonCurrent { get; set; }
 
         public double LocalIntensityRank { get; set; }
@@ -77,7 +65,8 @@ namespace Readers.InternalIons
             }
         }
 
-        // B/Y terminal ion features (TIC-normalized)
+        // ========== B/Y TERMINAL ION FEATURES ==========
+
         public double BIonIntensityAtNTerm { get; set; }
         public double YIonIntensityAtCTerm { get; set; }
         public bool HasMatchedBIonAtNTerm { get; set; }
@@ -88,17 +77,32 @@ namespace Readers.InternalIons
         public double MaxTerminalIonIntensity { get; set; }
         public bool HasBothTerminalIons { get; set; }
 
-        /// <summary>
-        /// Count of K, R, H in residues 1 through (StartResidue-1).
-        /// Models charge-retention capacity of the corresponding b-ion.
-        /// </summary>
         public int BasicResiduesInBIonSpan { get; set; }
+        public int BasicResiduesInYIonSpan { get; set; }
+
+        // ========== NEW SCORER FEATURES ==========
 
         /// <summary>
-        /// Count of K, R, H in residues (EndResidue+1) through PeptideLength.
-        /// Models charge-retention capacity of the corresponding y-ion.
+        /// True if the first residue of the internal fragment is proline.
+        /// Proline's cyclic side chain creates unusual backbone rigidity;
+        /// cleavage N-terminal to proline is strongly enriched (2.10x observed, 29% intensity premium).
         /// </summary>
-        public int BasicResiduesInYIonSpan { get; set; }
+        public bool IsProlineAtInternalNTerminus { get; set; }
+
+        /// <summary>
+        /// True if DistanceFromCTerm &lt;= 3. Flags the C-terminal basic residue rescue artifact:
+        /// for LysC peptides the terminal K rescues nearby y-ions regardless of intrinsic bond lability.
+        /// For Trypsin the same applies to K and R. Encodes a protease-specific digestion artifact
+        /// explicitly so the model can learn it as a pattern rather than absorbing it into other features.
+        /// </summary>
+        public bool IsTerminalRescue { get; set; }
+
+        /// <summary>
+        /// Kyte-Doolittle hydrophobicity score of the residue immediately N-terminal to the internal fragment.
+        /// The enrichment table shows I (1.81x), V (1.58x), L (1.53x) at this position, all strongly hydrophobic.
+        /// A continuous score captures this gradient better than 20 one-hot dummies and has a direct physical interpretation.
+        /// </summary>
+        public double NTerminalFlankingHydrophobicity { get; set; }
 
         public static string[] GetHeaderNames() => new[]
         {
@@ -114,7 +118,8 @@ namespace Readers.InternalIons
             nameof(BIonIntensityAtNTerm), nameof(YIonIntensityAtCTerm), nameof(HasMatchedBIonAtNTerm),
             nameof(HasMatchedYIonAtCTerm), nameof(BYProductScore), nameof(DistanceFromCTerm),
             nameof(MaxTerminalIonIntensity), nameof(HasBothTerminalIons),
-            nameof(BasicResiduesInBIonSpan), nameof(BasicResiduesInYIonSpan)
+            nameof(BasicResiduesInBIonSpan), nameof(BasicResiduesInYIonSpan),
+            nameof(IsProlineAtInternalNTerminus), nameof(IsTerminalRescue), nameof(NTerminalFlankingHydrophobicity)
         };
 
         public string[] GetValues() => new[]
@@ -145,7 +150,9 @@ namespace Readers.InternalIons
             DistanceFromCTerm.ToString(),
             MaxTerminalIonIntensity.ToString("G17", CultureInfo.InvariantCulture),
             HasBothTerminalIons.ToString(),
-            BasicResiduesInBIonSpan.ToString(), BasicResiduesInYIonSpan.ToString()
+            BasicResiduesInBIonSpan.ToString(), BasicResiduesInYIonSpan.ToString(),
+            IsProlineAtInternalNTerminus.ToString(), IsTerminalRescue.ToString(),
+            NTerminalFlankingHydrophobicity.ToString("G17", CultureInfo.InvariantCulture)
         };
     }
 }
