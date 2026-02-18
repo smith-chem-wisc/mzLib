@@ -24,77 +24,68 @@ namespace Readers.InternalIons
         public static List<InternalFragmentIon> ReadFromTsv(string path)
         {
             if (!File.Exists(path)) throw new FileNotFoundException($"File not found: {path}");
-
             var results = new List<InternalFragmentIon>();
             var lines = File.ReadAllLines(path);
             if (lines.Length == 0) return results;
 
-            var headerColumns = lines[0].Split(Delimiter);
             var columnMap = new Dictionary<string, int>();
-            for (int i = 0; i < headerColumns.Length; i++)
-                columnMap[headerColumns[i]] = i;
+            var headers = lines[0].Split(Delimiter);
+            for (int i = 0; i < headers.Length; i++) columnMap[headers[i]] = i;
 
-            for (int lineIdx = 1; lineIdx < lines.Length; lineIdx++)
+            for (int idx = 1; idx < lines.Length; idx++)
             {
-                var values = lines[lineIdx].Split(Delimiter);
-                if (values.Length == 0) continue;
-                try
-                {
-                    var ion = ParseInternalFragmentIon(values, columnMap);
-                    results.Add(ion);
-                }
-                catch { continue; }
+                var vals = lines[idx].Split(Delimiter);
+                if (vals.Length == 0) continue;
+                try { results.Add(Parse(vals, columnMap)); } catch { }
             }
             return results;
         }
 
-        private static InternalFragmentIon ParseInternalFragmentIon(string[] values, Dictionary<string, int> columnMap)
+        private static InternalFragmentIon Parse(string[] v, Dictionary<string, int> m)
         {
             return new InternalFragmentIon
             {
-                PeptideSequence = GetValue(values, columnMap, nameof(InternalFragmentIon.PeptideSequence)),
-                InternalSequence = GetValue(values, columnMap, nameof(InternalFragmentIon.InternalSequence)),
-                StartResidue = ParseInt(GetValue(values, columnMap, nameof(InternalFragmentIon.StartResidue))),
-                EndResidue = ParseInt(GetValue(values, columnMap, nameof(InternalFragmentIon.EndResidue))),
-                TheoreticalMass = ParseDouble(GetValue(values, columnMap, nameof(InternalFragmentIon.TheoreticalMass))),
-                ObservedMass = ParseDouble(GetValue(values, columnMap, nameof(InternalFragmentIon.ObservedMass))),
-                NormalizedIntensity = ParseDouble(GetValue(values, columnMap, nameof(InternalFragmentIon.NormalizedIntensity))),
-                LocalIntensityRank = ParseDouble(GetValue(values, columnMap, nameof(InternalFragmentIon.LocalIntensityRank))),
-                PrecursorCharge = ParseInt(GetValue(values, columnMap, nameof(InternalFragmentIon.PrecursorCharge))),
-                CollisionEnergy = ParseDouble(GetValue(values, columnMap, nameof(InternalFragmentIon.CollisionEnergy))),
-                PeptidePEP = ParseDouble(GetValue(values, columnMap, nameof(InternalFragmentIon.PeptidePEP))),
-                PeptideScore = ParseDouble(GetValue(values, columnMap, nameof(InternalFragmentIon.PeptideScore))),
-                NTerminalFlankingResidue = ParseChar(GetValue(values, columnMap, nameof(InternalFragmentIon.NTerminalFlankingResidue))),
-                CTerminalFlankingResidue = ParseChar(GetValue(values, columnMap, nameof(InternalFragmentIon.CTerminalFlankingResidue))),
-                IsDecoy = ParseBool(GetValue(values, columnMap, nameof(InternalFragmentIon.IsDecoy))),
-                SourceFile = GetValue(values, columnMap, nameof(InternalFragmentIon.SourceFile)),
-                ScanNumber = GetValue(values, columnMap, nameof(InternalFragmentIon.ScanNumber)),
-                IsIsobaricAmbiguous = ParseBool(GetValue(values, columnMap, nameof(InternalFragmentIon.IsIsobaricAmbiguous))),
-                FullModifiedSequence = GetValue(values, columnMap, nameof(InternalFragmentIon.FullModifiedSequence)),
-                ModificationsInInternalFragment = GetValue(values, columnMap, nameof(InternalFragmentIon.ModificationsInInternalFragment)),
-                BIonIntensityAtNTerm = ParseDouble(GetValue(values, columnMap, nameof(InternalFragmentIon.BIonIntensityAtNTerm))),
-                YIonIntensityAtCTerm = ParseDouble(GetValue(values, columnMap, nameof(InternalFragmentIon.YIonIntensityAtCTerm))),
-                HasMatchedBIonAtNTerm = ParseBool(GetValue(values, columnMap, nameof(InternalFragmentIon.HasMatchedBIonAtNTerm))),
-                HasMatchedYIonAtCTerm = ParseBool(GetValue(values, columnMap, nameof(InternalFragmentIon.HasMatchedYIonAtCTerm))),
-                BYProductScore = ParseDouble(GetValue(values, columnMap, nameof(InternalFragmentIon.BYProductScore))),
-                DistanceFromCTerm = ParseInt(GetValue(values, columnMap, nameof(InternalFragmentIon.DistanceFromCTerm))),
-                MaxTerminalIonIntensity = ParseDouble(GetValue(values, columnMap, nameof(InternalFragmentIon.MaxTerminalIonIntensity))),
-                HasBothTerminalIons = ParseBool(GetValue(values, columnMap, nameof(InternalFragmentIon.HasBothTerminalIons)))
+                PeptideSequence = Get(v, m, nameof(InternalFragmentIon.PeptideSequence)),
+                InternalSequence = Get(v, m, nameof(InternalFragmentIon.InternalSequence)),
+                StartResidue = Int(Get(v, m, nameof(InternalFragmentIon.StartResidue))),
+                EndResidue = Int(Get(v, m, nameof(InternalFragmentIon.EndResidue))),
+                TheoreticalMass = Dbl(Get(v, m, nameof(InternalFragmentIon.TheoreticalMass))),
+                ObservedMass = Dbl(Get(v, m, nameof(InternalFragmentIon.ObservedMass))),
+                NormalizedIntensity = Dbl(Get(v, m, nameof(InternalFragmentIon.NormalizedIntensity))),
+                TicNormalizedIntensity = Dbl(Get(v, m, nameof(InternalFragmentIon.TicNormalizedIntensity))),
+                TotalIonCurrent = Dbl(Get(v, m, nameof(InternalFragmentIon.TotalIonCurrent))),
+                LocalIntensityRank = Dbl(Get(v, m, nameof(InternalFragmentIon.LocalIntensityRank))),
+                PrecursorCharge = Int(Get(v, m, nameof(InternalFragmentIon.PrecursorCharge))),
+                CollisionEnergy = Dbl(Get(v, m, nameof(InternalFragmentIon.CollisionEnergy))),
+                PeptidePEP = Dbl(Get(v, m, nameof(InternalFragmentIon.PeptidePEP))),
+                PeptideScore = Dbl(Get(v, m, nameof(InternalFragmentIon.PeptideScore))),
+                NTerminalFlankingResidue = Chr(Get(v, m, nameof(InternalFragmentIon.NTerminalFlankingResidue))),
+                CTerminalFlankingResidue = Chr(Get(v, m, nameof(InternalFragmentIon.CTerminalFlankingResidue))),
+                IsDecoy = Bool(Get(v, m, nameof(InternalFragmentIon.IsDecoy))),
+                SourceFile = Get(v, m, nameof(InternalFragmentIon.SourceFile)),
+                ScanNumber = Get(v, m, nameof(InternalFragmentIon.ScanNumber)),
+                IsIsobaricAmbiguous = Bool(Get(v, m, nameof(InternalFragmentIon.IsIsobaricAmbiguous))),
+                FullModifiedSequence = Get(v, m, nameof(InternalFragmentIon.FullModifiedSequence)),
+                ModificationsInInternalFragment = Get(v, m, nameof(InternalFragmentIon.ModificationsInInternalFragment)),
+                BIonIntensityAtNTerm = Dbl(Get(v, m, nameof(InternalFragmentIon.BIonIntensityAtNTerm))),
+                YIonIntensityAtCTerm = Dbl(Get(v, m, nameof(InternalFragmentIon.YIonIntensityAtCTerm))),
+                HasMatchedBIonAtNTerm = Bool(Get(v, m, nameof(InternalFragmentIon.HasMatchedBIonAtNTerm))),
+                HasMatchedYIonAtCTerm = Bool(Get(v, m, nameof(InternalFragmentIon.HasMatchedYIonAtCTerm))),
+                BYProductScore = Dbl(Get(v, m, nameof(InternalFragmentIon.BYProductScore))),
+                DistanceFromCTerm = Int(Get(v, m, nameof(InternalFragmentIon.DistanceFromCTerm))),
+                MaxTerminalIonIntensity = Dbl(Get(v, m, nameof(InternalFragmentIon.MaxTerminalIonIntensity))),
+                HasBothTerminalIons = Bool(Get(v, m, nameof(InternalFragmentIon.HasBothTerminalIons))),
+                BasicResiduesInBIonSpan = Int(Get(v, m, nameof(InternalFragmentIon.BasicResiduesInBIonSpan))),
+                BasicResiduesInYIonSpan = Int(Get(v, m, nameof(InternalFragmentIon.BasicResiduesInYIonSpan)))
             };
         }
 
-        private static string GetValue(string[] values, Dictionary<string, int> columnMap, string columnName) =>
-            columnMap.TryGetValue(columnName, out int idx) && idx < values.Length ? values[idx] : string.Empty;
-
-        private static int ParseInt(string value) => int.TryParse(value, out int result) ? result : 0;
-
-        private static double ParseDouble(string value)
-        {
-            if (string.Equals(value, "NaN", StringComparison.OrdinalIgnoreCase)) return double.NaN;
-            return double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out double result) ? result : double.NaN;
-        }
-
-        private static char ParseChar(string value) => string.IsNullOrEmpty(value) ? '-' : value[0];
-        private static bool ParseBool(string value) => bool.TryParse(value, out bool result) && result;
+        private static string Get(string[] v, Dictionary<string, int> m, string col) =>
+            m.TryGetValue(col, out int i) && i < v.Length ? v[i] : "";
+        private static int Int(string s) => int.TryParse(s, out int r) ? r : 0;
+        private static double Dbl(string s) => s.Equals("NaN", StringComparison.OrdinalIgnoreCase) ? double.NaN :
+            double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out double r) ? r : double.NaN;
+        private static char Chr(string s) => string.IsNullOrEmpty(s) ? '-' : s[0];
+        private static bool Bool(string s) => bool.TryParse(s, out bool r) && r;
     }
 }
