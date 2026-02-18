@@ -1,4 +1,5 @@
-﻿using MassSpectrometry;
+﻿using Chemistry;
+using MassSpectrometry;
 using NUnit.Framework;
 using Readers;
 using Readers.InternalIons;
@@ -6,13 +7,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace Test.InternalIons
 {
-    /// <summary>
-    /// Integration harness for testing internal fragment ion extraction and analysis.
-    /// Call RunAll() manually from any test or scratch runner.
-    /// </summary>
     public static class InternalFragmentAnalysisRunnerTests
     {
         private const string DefaultPsmTsvPath = @"FILL_IN";
@@ -24,6 +22,35 @@ namespace Test.InternalIons
             { 'A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y' };
 
         private static readonly string[] SupportedExtensions = { ".raw", ".mzml", ".mgf" };
+
+        // Standard amino acid masses (monoisotopic)
+        private static readonly Dictionary<char, double> AminoAcidMasses = new()
+        {
+            {'A', 71.03711}, {'C', 103.00919}, {'D', 115.02694}, {'E', 129.04259},
+            {'F', 147.06841}, {'G', 57.02146}, {'H', 137.05891}, {'I', 113.08406},
+            {'K', 128.09496}, {'L', 113.08406}, {'M', 131.04049}, {'N', 114.04293},
+            {'P', 97.05276}, {'Q', 128.05858}, {'R', 156.10111}, {'S', 87.03203},
+            {'T', 101.04768}, {'V', 99.06841}, {'W', 186.07931}, {'Y', 163.06333}
+        };
+
+        // Common modification masses
+        private static readonly Dictionary<string, double> ModificationMasses = new(StringComparer.OrdinalIgnoreCase)
+        {
+            {"Carbamidomethyl", 57.02146},
+            {"Carbamidomethyl on C", 57.02146},
+            {"Common Fixed:Carbamidomethyl on C", 57.02146},
+            {"Oxidation", 15.99491},
+            {"Oxidation on M", 15.99491},
+            {"Common Variable:Oxidation on M", 15.99491},
+            {"Phospho", 79.96633},
+            {"Phosphorylation", 79.96633},
+            {"Acetyl", 42.01056},
+            {"Acetylation", 42.01056},
+            {"Deamidation", 0.98402},
+            {"Deamidated", 0.98402},
+            {"Methyl", 14.01565},
+            {"Methylation", 14.01565}
+        };
 
         public static void RunAll() => RunAll(DefaultPsmTsvPath, DefaultRawFileFolder, DefaultOutputDirectory);
 
@@ -56,6 +83,7 @@ namespace Test.InternalIons
                 Step6_AminoAcidTerminusEnrichment(internalIons);
                 Step7_IsobaricAmbiguityReport(internalIons);
                 Step8_ExtendedTerminusEnrichment(internalIons);
+                Step9_ModificationAwareMassAccuracyAudit(internalIons);
 
                 Console.WriteLine();
                 Console.WriteLine("==================================================================");
@@ -178,7 +206,6 @@ namespace Test.InternalIons
 
             if (allIons.Count > 0)
             {
-                // Report collision energy source
                 int fromMetadata = allIons.Count(i => !double.IsNaN(i.CollisionEnergy) && i.CollisionEnergy != defaultCollisionEnergy);
                 int fromDefault = allIons.Count(i => i.CollisionEnergy == defaultCollisionEnergy);
                 int stillNaN = allIons.Count(i => double.IsNaN(i.CollisionEnergy));
@@ -402,6 +429,198 @@ namespace Test.InternalIons
             Console.WriteLine("  IntN-Term/IntC-Term: Where fragmentation OCCURRED (internal fragment termini)");
             Console.WriteLine("  FlankN/FlankC: Residues ADJACENT to the cleavage site (bond lability hypothesis)");
             Console.WriteLine();
+        }
+
+        private static void Step9_ModificationAwareMassAccuracyAudit(List<InternalFragmentIon> ions)
+        {
+            Console.WriteLine("=== STEP 9: Modification-Aware Mass Accuracy Audit ===");
+            if (ions.Count == 0)
+            {
+                Console.WriteLine("Skipping (no ions)");
+                Console.WriteLine();
+                return;
+            }
+
+            // Split by modification status
+            var modifiedIons = ions.Where(i => i.HasModifiedResidue).ToList();
+            var unmodifiedIons = ions.Where(i => !i.HasModifiedResidue).ToList();
+
+            Console.WriteLine($"Ions with modifications: {modifiedIons.Count:N0}");
+            Console.WriteLine($"Ions without modifications: {unmodifiedIons.Count:N0}");
+            Console.WriteLine();
+
+            // Modified ions statistics
+            if (modifiedIons.Count > 0)
+            {
+                var modErrors = modifiedIons.Select(i => i.MassErrorPpm).Where(e => !double.IsNaN(e)).ToList();
+                if (modErrors.Count > 0)
+                {
+                    double mean = modErrors.Average();
+                    double std = Math.Sqrt(modErrors.Select(e => Math.Pow(e - mean, 2)).Average());
+                    Console.WriteLine($"Modified ions - MassErrorPpm: Mean={mean:F4}, StdDev={std:F4}");
+                }
+            }
+
+            // Unmodified ions statistics
+            if (unmodifiedIons.Count > 0)
+            {
+                var unmodErrors = unmodifiedIons.Select(i => i.MassErrorPpm).Where(e => !double.IsNaN(e)).ToList();
+                if (unmodErrors.Count > 0)
+                {
+                    double mean = unmodErrors.Average();
+                    double std = Math.Sqrt(unmodErrors.Select(e => Math.Pow(e - mean, 2)).Average());
+                    Console.WriteLine($"Unmodified ions - MassErrorPpm: Mean={mean:F4}, StdDev={std:F4}");
+                }
+            }
+            Console.WriteLine();
+
+            // Breakdown by modification type
+            if (modifiedIons.Count > 0)
+            {
+                Console.WriteLine("Mass error breakdown by modification type:");
+                Console.WriteLine("+--------------------------------------------------+-------+------------+");
+                Console.WriteLine("| Modification                                     | Count | Mean ppm   |");
+                Console.WriteLine("+--------------------------------------------------+-------+------------+");
+
+                var modGroups = modifiedIons
+                    .GroupBy(i => ExtractModificationType(i.ModificationsInInternalFragment))
+                    .Select(g =>
+                    {
+                        var errors = g.Select(i => i.MassErrorPpm).Where(e => !double.IsNaN(e)).ToList();
+                        double meanErr = errors.Count > 0 ? errors.Average() : double.NaN;
+                        return (ModType: g.Key, Count: g.Count(), MeanError: meanErr);
+                    })
+                    .OrderByDescending(x => x.Count)
+                    .Take(10);
+
+                foreach (var (modType, count, meanErr) in modGroups)
+                {
+                    string modDisplay = modType.Length > 48 ? modType.Substring(0, 45) + "..." : modType;
+                    string meanStr = double.IsNaN(meanErr) ? "N/A" : $"{meanErr:F4}";
+                    Console.WriteLine($"| {modDisplay,-48} | {count,5} | {meanStr,10} |");
+                }
+                Console.WriteLine("+--------------------------------------------------+-------+------------+");
+                Console.WriteLine();
+            }
+
+            // Top 10 worst mass errors
+            Console.WriteLine("Top 10 ions with largest absolute MassErrorPpm:");
+            Console.WriteLine("+------------------+--------------------------------------------------+-------+-------+--------------------------------------------------+");
+            Console.WriteLine("| InternalSeq      | FullModifiedSequence                             | Start | End   | ModificationsInFragment                          |");
+            Console.WriteLine("+------------------+--------------------------------------------------+-------+-------+--------------------------------------------------+");
+
+            var worstErrors = ions
+                .Where(i => !double.IsNaN(i.MassErrorPpm))
+                .OrderByDescending(i => Math.Abs(i.MassErrorPpm))
+                .Take(10);
+
+            foreach (var ion in worstErrors)
+            {
+                string intSeq = ion.InternalSequence.Length > 16 ? ion.InternalSequence.Substring(0, 13) + "..." : ion.InternalSequence;
+                string fullMod = ion.FullModifiedSequence.Length > 48 ? ion.FullModifiedSequence.Substring(0, 45) + "..." : ion.FullModifiedSequence;
+                string mods = ion.ModificationsInInternalFragment.Length > 48 ? ion.ModificationsInInternalFragment.Substring(0, 45) + "..." : ion.ModificationsInInternalFragment;
+                Console.WriteLine($"| {intSeq,-16} | {fullMod,-48} | {ion.StartResidue,5} | {ion.EndResidue,5} | {mods,-48} |");
+            }
+            Console.WriteLine("+------------------+--------------------------------------------------+-------+-------+--------------------------------------------------+");
+            Console.WriteLine();
+
+            Console.WriteLine("Continued - Mass details:");
+            Console.WriteLine("+------------------+------------------+------------------+------------------+");
+            Console.WriteLine("| TheoreticalMass  | ObservedMass     | MassError (Da)   | MassErrorPpm     |");
+            Console.WriteLine("+------------------+------------------+------------------+------------------+");
+
+            foreach (var ion in worstErrors)
+            {
+                Console.WriteLine($"| {ion.TheoreticalMass,16:F6} | {ion.ObservedMass,16:F6} | {ion.MassError,16:F6} | {ion.MassErrorPpm,16:F4} |");
+            }
+            Console.WriteLine("+------------------+------------------+------------------+------------------+");
+            Console.WriteLine();
+
+            // Mass calculation recheck
+            Console.WriteLine("Mass calculation recheck for modified ions:");
+            var massErrors = new List<(InternalFragmentIon ion, double recomputed, double diff)>();
+
+            foreach (var ion in modifiedIons)
+            {
+                double recomputedMass = RecomputeTheoreticalMass(ion);
+                double diff = Math.Abs(recomputedMass - ion.TheoreticalMass);
+
+                if (diff > 0.002)
+                {
+                    massErrors.Add((ion, recomputedMass, diff));
+                }
+            }
+
+            if (massErrors.Count == 0)
+            {
+                Console.WriteLine("No mass calculation errors detected (all recomputed masses within 0.002 Da).");
+            }
+            else
+            {
+                Console.WriteLine($"Found {massErrors.Count} ions with mass calculation discrepancies > 0.002 Da:");
+                Console.WriteLine("+------------------+------------------+------------------+------------------+");
+                Console.WriteLine("| InternalSeq      | StoredMass       | RecomputedMass   | Difference (Da)  |");
+                Console.WriteLine("+------------------+------------------+------------------+------------------+");
+
+                foreach (var (ion, recomputed, diff) in massErrors.Take(20))
+                {
+                    string intSeq = ion.InternalSequence.Length > 16 ? ion.InternalSequence.Substring(0, 13) + "..." : ion.InternalSequence;
+                    Console.WriteLine($"| {intSeq,-16} | {ion.TheoreticalMass,16:F6} | {recomputed,16:F6} | {diff,16:F6} |");
+                }
+                Console.WriteLine("+------------------+------------------+------------------+------------------+");
+            }
+            Console.WriteLine();
+        }
+
+        private static string ExtractModificationType(string modificationsInFragment)
+        {
+            if (string.IsNullOrEmpty(modificationsInFragment))
+                return "(none)";
+
+            // Extract just the modification name without position
+            var match = Regex.Match(modificationsInFragment, @"^([^@]+?)(?:\s+at\s+position\s+\d+)?(?:;|$)");
+            return match.Success ? match.Groups[1].Value.Trim() : modificationsInFragment.Split(';')[0].Trim();
+        }
+
+        private static double RecomputeTheoreticalMass(InternalFragmentIon ion)
+        {
+            // Start with sum of amino acid masses
+            double mass = 0;
+            foreach (char aa in ion.InternalSequence)
+            {
+                if (AminoAcidMasses.TryGetValue(aa, out double aaMass))
+                    mass += aaMass;
+            }
+
+            // Add water (for internal fragment: need to consider terminus masses)
+            // Internal fragments typically have H on N-term and OH on C-term
+            mass += 18.01056; // H2O
+
+            // Add modification masses
+            if (!string.IsNullOrEmpty(ion.ModificationsInInternalFragment))
+            {
+                var modParts = ion.ModificationsInInternalFragment.Split(';', StringSplitOptions.RemoveEmptyEntries);
+                foreach (var modPart in modParts)
+                {
+                    string modName = modPart.Trim();
+                    // Remove "at position X" suffix
+                    int atPos = modName.IndexOf(" at position", StringComparison.OrdinalIgnoreCase);
+                    if (atPos > 0)
+                        modName = modName.Substring(0, atPos).Trim();
+
+                    // Look up modification mass
+                    foreach (var kvp in ModificationMasses)
+                    {
+                        if (modName.Contains(kvp.Key, StringComparison.OrdinalIgnoreCase))
+                        {
+                            mass += kvp.Value;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            return mass;
         }
     }
 

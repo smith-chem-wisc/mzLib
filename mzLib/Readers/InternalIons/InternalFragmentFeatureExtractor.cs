@@ -16,13 +16,13 @@ namespace Readers.InternalIons
         private static readonly Regex InternalFragmentRegex = new(@"[yb]I[yb]\[(\d+)-(\d+)\]",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+        // Regex to match modifications like [Common Fixed:Carbamidomethyl on C] or [Oxidation on M]
+        private static readonly Regex ModificationRegex = new(@"\[([^\]]+)\]",
+            RegexOptions.Compiled);
+
         /// <summary>
         /// Extracts InternalFragmentIon objects from a list of PSMs.
         /// </summary>
-        /// <param name="psms">List of PSMs to process.</param>
-        /// <param name="msDataFile">The raw data file containing the spectra.</param>
-        /// <param name="defaultCollisionEnergy">Default collision energy to use if scan metadata is unavailable.</param>
-        /// <returns>List of extracted InternalFragmentIon objects.</returns>
         public static List<InternalFragmentIon> ExtractFromPsms(
             List<PsmFromTsv> psms,
             MsDataFile msDataFile,
@@ -54,7 +54,6 @@ namespace Readers.InternalIons
                 if (scanLookup.TryGetValue(psm.Ms2ScanNumber, out var foundScan))
                     scan = foundScan;
 
-                // Try to get collision energy from scan metadata, fall back to default
                 double collisionEnergy = double.NaN;
                 if (scan?.HcdEnergy != null && TryParseCollisionEnergy(scan.HcdEnergy, out double ce))
                 {
@@ -65,21 +64,23 @@ namespace Readers.InternalIons
                     collisionEnergy = defaultCollisionEnergy;
                 }
 
-                // Extract all internal fragments for this PSM
+                // Parse modifications from the full sequence once per PSM
+                string fullModifiedSequence = psm.FullSequence ?? string.Empty;
+                var modificationsByPosition = ParseModificationPositions(fullModifiedSequence);
+
                 var psmInternalFragments = new List<InternalFragmentIon>();
 
                 foreach (var ion in internalIons)
                 {
                     var internalFragment = ExtractSingleInternalFragment(
-                        psm, ion, basePeakIntensity, collisionEnergy, scan);
+                        psm, ion, basePeakIntensity, collisionEnergy, scan,
+                        fullModifiedSequence, modificationsByPosition);
 
                     if (internalFragment != null)
                         psmInternalFragments.Add(internalFragment);
                 }
 
-                // Post-process: Mark isobaric ambiguous ions
                 MarkIsobaricAmbiguousIons(psmInternalFragments);
-
                 results.AddRange(psmInternalFragments);
             }
 
@@ -87,9 +88,72 @@ namespace Readers.InternalIons
         }
 
         /// <summary>
-        /// Groups ions by theoretical mass (rounded to 4 decimal places) and marks
-        /// any group with more than one ion as isobaric ambiguous.
+        /// Parses a full modified sequence and returns a dictionary mapping
+        /// one-based residue position to modification description.
         /// </summary>
+        private static Dictionary<int, string> ParseModificationPositions(string fullModifiedSequence)
+        {
+            var mods = new Dictionary<int, string>();
+            if (string.IsNullOrEmpty(fullModifiedSequence))
+                return mods;
+
+            int residuePosition = 0;
+            int i = 0;
+
+            while (i < fullModifiedSequence.Length)
+            {
+                char c = fullModifiedSequence[i];
+
+                if (c == '[')
+                {
+                    // Find the closing bracket
+                    int closeBracket = fullModifiedSequence.IndexOf(']', i);
+                    if (closeBracket > i)
+                    {
+                        string modContent = fullModifiedSequence.Substring(i + 1, closeBracket - i - 1);
+                        // Associate with the previous residue position
+                        if (residuePosition > 0)
+                        {
+                            mods[residuePosition] = modContent;
+                        }
+                        i = closeBracket + 1;
+                    }
+                    else
+                    {
+                        i++;
+                    }
+                }
+                else if (char.IsLetter(c) && char.IsUpper(c))
+                {
+                    residuePosition++;
+                    i++;
+                }
+                else
+                {
+                    i++;
+                }
+            }
+
+            return mods;
+        }
+
+        /// <summary>
+        /// Gets modifications within the specified residue range and formats them.
+        /// </summary>
+        private static string GetModificationsInRange(
+            Dictionary<int, string> modificationsByPosition,
+            int startResidue,
+            int endResidue)
+        {
+            var modsInRange = modificationsByPosition
+                .Where(kvp => kvp.Key >= startResidue && kvp.Key <= endResidue)
+                .OrderBy(kvp => kvp.Key)
+                .Select(kvp => $"{kvp.Value} at position {kvp.Key}")
+                .ToList();
+
+            return string.Join("; ", modsInRange);
+        }
+
         private static void MarkIsobaricAmbiguousIons(List<InternalFragmentIon> ions)
         {
             if (ions.Count <= 1)
@@ -124,7 +188,9 @@ namespace Readers.InternalIons
             MatchedFragmentIon ion,
             double basePeakIntensity,
             double collisionEnergy,
-            MsDataScan? scan)
+            MsDataScan? scan,
+            string fullModifiedSequence,
+            Dictionary<int, string> modificationsByPosition)
         {
             string baseSequence = psm.BaseSeq ?? psm.FullSequence ?? string.Empty;
 
@@ -146,6 +212,9 @@ namespace Readers.InternalIons
                 ? baseSequence[endResidue]
                 : '-';
 
+            // Get modifications within the internal fragment range
+            string modsInFragment = GetModificationsInRange(modificationsByPosition, startResidue, endResidue);
+
             return new InternalFragmentIon
             {
                 PeptideSequence = baseSequence,
@@ -165,7 +234,9 @@ namespace Readers.InternalIons
                 IsDecoy = psm.DecoyContamTarget?.Contains('D') ?? false,
                 SourceFile = psm.FileNameWithoutExtension ?? string.Empty,
                 ScanNumber = psm.Ms2ScanNumber.ToString(),
-                IsIsobaricAmbiguous = false
+                IsIsobaricAmbiguous = false,
+                FullModifiedSequence = fullModifiedSequence,
+                ModificationsInInternalFragment = modsInFragment
             };
         }
 

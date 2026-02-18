@@ -60,6 +60,24 @@ namespace Readers.InternalIons
         public char InternalCTerminalAA =>
             string.IsNullOrEmpty(InternalSequence) ? '-' : InternalSequence[^1];
 
+        /// <summary>
+        /// The complete modified peptide sequence string from the PSM
+        /// (e.g., "PEPTC[Common Fixed:Carbamidomethyl on C]IDE").
+        /// </summary>
+        public string FullModifiedSequence { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Semicolon-delimited list of modifications whose positions fall within
+        /// [StartResidue, EndResidue] inclusive (e.g., "Carbamidomethyl on C at position 5").
+        /// Empty string if no modifications are present.
+        /// </summary>
+        public string ModificationsInInternalFragment { get; set; } = string.Empty;
+
+        /// <summary>
+        /// True if ModificationsInInternalFragment is non-empty.
+        /// </summary>
+        public bool HasModifiedResidue => !string.IsNullOrEmpty(ModificationsInInternalFragment);
+
         public static string[] GetHeaderNames() => new[]
         {
             nameof(PeptideSequence), nameof(InternalSequence), nameof(StartResidue), nameof(EndResidue),
@@ -68,7 +86,8 @@ namespace Readers.InternalIons
             nameof(CollisionEnergy), nameof(PeptidePEP), nameof(PeptideScore), nameof(HasProlineAtEitherTerminus),
             nameof(HasAspartateAtEitherTerminus), nameof(NTerminalFlankingResidue), nameof(CTerminalFlankingResidue),
             nameof(NumberOfBasicResidues), nameof(IsDecoy), nameof(SourceFile), nameof(ScanNumber),
-            nameof(IsIsobaricAmbiguous), nameof(InternalNTerminalAA), nameof(InternalCTerminalAA)
+            nameof(IsIsobaricAmbiguous), nameof(InternalNTerminalAA), nameof(InternalCTerminalAA),
+            nameof(FullModifiedSequence), nameof(ModificationsInInternalFragment), nameof(HasModifiedResidue)
         };
 
         public string[] GetValues() => new[]
@@ -87,7 +106,8 @@ namespace Readers.InternalIons
             HasProlineAtEitherTerminus.ToString(), HasAspartateAtEitherTerminus.ToString(),
             NTerminalFlankingResidue.ToString(), CTerminalFlankingResidue.ToString(),
             NumberOfBasicResidues.ToString(), IsDecoy.ToString(), SourceFile, ScanNumber,
-            IsIsobaricAmbiguous.ToString(), InternalNTerminalAA.ToString(), InternalCTerminalAA.ToString()
+            IsIsobaricAmbiguous.ToString(), InternalNTerminalAA.ToString(), InternalCTerminalAA.ToString(),
+            FullModifiedSequence, ModificationsInInternalFragment, HasModifiedResidue.ToString()
         };
     }
 }

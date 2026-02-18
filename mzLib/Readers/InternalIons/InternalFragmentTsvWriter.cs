@@ -12,9 +12,6 @@ namespace Readers.InternalIons
     {
         private const char Delimiter = '\t';
 
-        /// <summary>
-        /// Writes a list of InternalFragmentIon objects to a TSV file.
-        /// </summary>
         public static void WriteToTsv(List<InternalFragmentIon> ions, string outputPath)
         {
             if (ions == null)
@@ -31,9 +28,6 @@ namespace Readers.InternalIons
             }
         }
 
-        /// <summary>
-        /// Reads InternalFragmentIon objects from a TSV file.
-        /// </summary>
         public static List<InternalFragmentIon> ReadFromTsv(string path)
         {
             if (!File.Exists(path))
@@ -65,7 +59,6 @@ namespace Readers.InternalIons
                 }
                 catch
                 {
-                    // Skip malformed lines
                     continue;
                 }
             }
@@ -95,7 +88,10 @@ namespace Readers.InternalIons
                 CTerminalFlankingResidue = ParseChar(GetValue(values, columnMap, nameof(InternalFragmentIon.CTerminalFlankingResidue))),
                 IsDecoy = ParseBool(GetValue(values, columnMap, nameof(InternalFragmentIon.IsDecoy))),
                 SourceFile = GetValue(values, columnMap, nameof(InternalFragmentIon.SourceFile)),
-                ScanNumber = GetValue(values, columnMap, nameof(InternalFragmentIon.ScanNumber))
+                ScanNumber = GetValue(values, columnMap, nameof(InternalFragmentIon.ScanNumber)),
+                IsIsobaricAmbiguous = ParseBool(GetValue(values, columnMap, nameof(InternalFragmentIon.IsIsobaricAmbiguous))),
+                FullModifiedSequence = GetValue(values, columnMap, nameof(InternalFragmentIon.FullModifiedSequence)),
+                ModificationsInInternalFragment = GetValue(values, columnMap, nameof(InternalFragmentIon.ModificationsInInternalFragment))
             };
         }
 
