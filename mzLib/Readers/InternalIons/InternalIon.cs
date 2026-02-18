@@ -61,15 +61,13 @@ namespace Readers.InternalIons
             string.IsNullOrEmpty(InternalSequence) ? '-' : InternalSequence[^1];
 
         /// <summary>
-        /// The complete modified peptide sequence string from the PSM
-        /// (e.g., "PEPTC[Common Fixed:Carbamidomethyl on C]IDE").
+        /// The complete modified peptide sequence string from the PSM.
         /// </summary>
         public string FullModifiedSequence { get; set; } = string.Empty;
 
         /// <summary>
         /// Semicolon-delimited list of modifications whose positions fall within
-        /// [StartResidue, EndResidue] inclusive (e.g., "Carbamidomethyl on C at position 5").
-        /// Empty string if no modifications are present.
+        /// [StartResidue, EndResidue] inclusive.
         /// </summary>
         public string ModificationsInInternalFragment { get; set; } = string.Empty;
 
@@ -77,6 +75,22 @@ namespace Readers.InternalIons
         /// True if ModificationsInInternalFragment is non-empty.
         /// </summary>
         public bool HasModifiedResidue => !string.IsNullOrEmpty(ModificationsInInternalFragment);
+
+        /// <summary>
+        /// Intensity-conditioned quality filter:
+        /// True if (|MassErrorPpm| &lt; 5.0) OR (|MassErrorPpm| &lt; 15.0 AND NormalizedIntensity &gt; 0.10)
+        /// </summary>
+        public bool PassesMassAccuracyFilter
+        {
+            get
+            {
+                if (double.IsNaN(MassErrorPpm))
+                    return false;
+
+                double absMassError = System.Math.Abs(MassErrorPpm);
+                return (absMassError < 5.0) || (absMassError < 15.0 && NormalizedIntensity > 0.10);
+            }
+        }
 
         public static string[] GetHeaderNames() => new[]
         {
@@ -87,7 +101,8 @@ namespace Readers.InternalIons
             nameof(HasAspartateAtEitherTerminus), nameof(NTerminalFlankingResidue), nameof(CTerminalFlankingResidue),
             nameof(NumberOfBasicResidues), nameof(IsDecoy), nameof(SourceFile), nameof(ScanNumber),
             nameof(IsIsobaricAmbiguous), nameof(InternalNTerminalAA), nameof(InternalCTerminalAA),
-            nameof(FullModifiedSequence), nameof(ModificationsInInternalFragment), nameof(HasModifiedResidue)
+            nameof(FullModifiedSequence), nameof(ModificationsInInternalFragment), nameof(HasModifiedResidue),
+            nameof(PassesMassAccuracyFilter)
         };
 
         public string[] GetValues() => new[]
@@ -107,7 +122,8 @@ namespace Readers.InternalIons
             NTerminalFlankingResidue.ToString(), CTerminalFlankingResidue.ToString(),
             NumberOfBasicResidues.ToString(), IsDecoy.ToString(), SourceFile, ScanNumber,
             IsIsobaricAmbiguous.ToString(), InternalNTerminalAA.ToString(), InternalCTerminalAA.ToString(),
-            FullModifiedSequence, ModificationsInInternalFragment, HasModifiedResidue.ToString()
+            FullModifiedSequence, ModificationsInInternalFragment, HasModifiedResidue.ToString(),
+            PassesMassAccuracyFilter.ToString()
         };
     }
 }

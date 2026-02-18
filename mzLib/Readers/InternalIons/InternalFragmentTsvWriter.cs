@@ -49,7 +49,7 @@ namespace Readers.InternalIons
             for (int lineIdx = 1; lineIdx < lines.Length; lineIdx++)
             {
                 var values = lines[lineIdx].Split(Delimiter);
-                if (values.Length < columnMap.Count)
+                if (values.Length == 0)
                     continue;
 
                 try
@@ -92,6 +92,8 @@ namespace Readers.InternalIons
                 IsIsobaricAmbiguous = ParseBool(GetValue(values, columnMap, nameof(InternalFragmentIon.IsIsobaricAmbiguous))),
                 FullModifiedSequence = GetValue(values, columnMap, nameof(InternalFragmentIon.FullModifiedSequence)),
                 ModificationsInInternalFragment = GetValue(values, columnMap, nameof(InternalFragmentIon.ModificationsInInternalFragment))
+                // Note: PassesMassAccuracyFilter, HasModifiedResidue, InternalNTerminalAA, InternalCTerminalAA 
+                // are computed properties and don't need to be read back
             };
         }
 
