@@ -5,6 +5,8 @@ using NUnit.Framework;
 using Omics.Fragmentation;
 using Transcriptomics.Digestion;
 
+namespace Test.Transcriptomics;
+
 public class BackboneFragmentationTestCase
 {
     public string UnmodifiedSequence { get; }

@@ -347,6 +347,18 @@ namespace Transcriptomics.Digestion
 
                 if (first)
                 {
+                    // Add 3'-term mod if present
+                    if (isThreePrimeTerminal && AllModsOneIsNterminus.TryGetValue(BaseSequence.Length + 2, out Modification? threePrimeMod))
+                    {
+                            monoMass += threePrimeMod.MonoisotopicMass ?? 0;
+
+                    }
+                    // Add 5'-term mod if present
+                    else if (!isThreePrimeTerminal && AllModsOneIsNterminus.TryGetValue(1, out Modification? fivePrimeMod))
+                    {
+                        monoMass += fivePrimeMod.MonoisotopicMass ?? 0;
+                    }
+
                     first = false; //set to false so only handled once
                     continue;
                 }
