@@ -253,7 +253,7 @@ public static class ModificationLoader
                         if (string.IsNullOrWhiteSpace(modValue))
                             break;
 
-                        // Parse: "b,c,d,x,y,z" or "b,c,d,x,y,z"
+                        // Parse: "b,c,d,x,y,z" - the fragments this mod can be added to 
                         string[] parts = modValue.Split(':');
                         string[] fragmentTypeStrings = parts[0].Split(',', StringSplitOptions.RemoveEmptyEntries);
 

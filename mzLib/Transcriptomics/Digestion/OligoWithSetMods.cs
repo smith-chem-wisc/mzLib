@@ -303,7 +303,7 @@ namespace Transcriptomics.Digestion
         }
 
         /// <summary>
-        /// Calculates all the fragments of the types you specify
+        /// Calculates all fragments of the specified type that can be generated from this oligonucleotide, including any modifications that should be included in those fragments.
         /// </summary>
         /// <param name="type">product type to get neutral fragments from</param>
         /// <param name="sequence">Sequence to generate fragments from, will be calculated from the parent if left null</param>
@@ -320,8 +320,8 @@ namespace Transcriptomics.Digestion
             IHasChemicalFormula terminus = isThreePrimeTerminal ? ThreePrimeTerminus : FivePrimeTerminus;
             monoMass += terminus.MonoisotopicMass;
 
-            // determine mass of each polymer component that is contained within the fragment and add to fragment
-            bool first = true; //set first to true to hand the terminus mod first
+            // determine mass of each polymer component that is contained within the fragment and add to fragment iteratively, starting from the terminus and moving inward until the end of the oligo. 
+            bool first = true; //set first to true to hand the terminus sideChainMod first
             for (int fragmentNumber = 0; fragmentNumber <= BaseSequence.Length - 1; fragmentNumber++)
             {
                 int naIndex = isThreePrimeTerminal ? Length - fragmentNumber : fragmentNumber - 1;
@@ -337,15 +337,13 @@ namespace Transcriptomics.Digestion
                 if (fragmentNumber < 1)
                     continue;
 
-                // add side-chain mod only (at current position)
+                // add side-chain sideChainMod only (at current position)
                 if (AllModsOneIsNterminus.TryGetValue(naIndex + 2, out Modification? sideChainMod) && sideChainMod is not BackboneModification)
                 {
                     monoMass += sideChainMod.MonoisotopicMass ?? 0;
                 }
 
-                // Add backbone modifications (pre-calculated)
-                // For 3' fragments (w/x/y/z), the modification should be checked differently
-                // w3 should check the mod at position 3, not position 4
+                // Add backbone modifications if they are included in the fragment, otherwise add mod mass after this fragment. 
                 double? backboneMassShift = null;
                 if (AllModsOneIsNterminus.TryGetValue(residuePosition + 1, out Modification? mod) && mod is BackboneModification bm)
                 {
