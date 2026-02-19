@@ -338,7 +338,7 @@ namespace Transcriptomics.Digestion
                     continue;
 
                 // add side-chain mod only (at current position)
-                if (AllModsOneIsNterminus.TryGetValue(naIndex + 2, out Modification? sideChainMod))
+                if (AllModsOneIsNterminus.TryGetValue(naIndex + 2, out Modification? sideChainMod) && sideChainMod is not BackboneModification)
                 {
                     monoMass += sideChainMod.MonoisotopicMass ?? 0;
                 }
