@@ -20,24 +20,26 @@ using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
+using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Fragmentation.Peptide;
+using Omics.Modifications;
+using Omics.Modifications;
 using Proteomics;
 using Proteomics.AminoAcidPolymer;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using Omics.Digestion;
-using Omics.Modifications;
-using Stopwatch = System.Diagnostics.Stopwatch;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Transcriptomics;
 using UsefulProteomicsDatabases;
+using static TorchSharp.torch.optim.lr_scheduler.impl.CyclicLR;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
 {
@@ -1319,8 +1321,13 @@ namespace Test
             // Load proteins from the cRAP database with reverse decoys to maximize peptide count
             //var dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml");
 
-            var dbPath = @"C:\Users\Alex\Documents\Proteomes\uniprotkb_Human_AND_model_organism_9606_2025_03_19.xml.gz";
-            var proteins = ProteinDbLoader.LoadProteinXML(dbPath, true, DecoyType.Reverse, null, false, null, out _);
+            var dbPath =
+                @"D:\Kelly_ALS_motor_nueron_dataset\MM1p1p4_GPTMD_Search_Carboxymethyl_Carbamido_2\Task1-GPTMDTask\uniprotkb_Human_AND_model_organism_9606_2025_03_19GPTMD.xml"; //@"C:\Users\Alex\Documents\Proteomes\uniprotkb_Human_AND_model_organism_9606_2025_03_19.xml.gz";
+
+            var loadSw = Stopwatch.StartNew();
+            var proteins = ProteinDbLoader.LoadProteinXML(dbPath, true, DecoyType.Reverse, Mods.AllKnownMods, false, null, out _);
+            loadSw.Stop();
+            var loadElapsed = loadSw.Elapsed;
 
             // Digest all proteins into peptides
             var digestionParams = new DigestionParams();
@@ -1361,6 +1368,7 @@ namespace Test
             var parallelElapsed = sw.Elapsed;
 
             TestContext.Out.WriteLine($"Proteins loaded:          {proteins.Count}");
+            TestContext.Out.WriteLine($"Loading elapsed:          {loadElapsed.TotalSeconds:F3} s");
             TestContext.Out.WriteLine($"Peptides digested:        {peptides.Count}");
             TestContext.Out.WriteLine($"Serial fragment count:    {serialFragmentCount}");
             TestContext.Out.WriteLine($"Serial elapsed:           {serialElapsed.TotalSeconds:F3} s");
