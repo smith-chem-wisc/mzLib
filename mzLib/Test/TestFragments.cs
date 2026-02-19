@@ -272,10 +272,12 @@ namespace Test
             _neutralLosses.Add(DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass});
             Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _neutralLosses: _neutralLosses,_locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
-            var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
+            FragmentationParams fragmentationParams = new FragmentationParams();
+            fragmentationParams.MaxSubsetSize = 2;
 
+            var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
             var theseTheoreticalFragments = new List<Product>();
-            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments);
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments, fragmentationParams);
 
             var nTerminalMassesLabels = theseTheoreticalFragments.Select(f => f.Annotation.ToString()).ToList();
             HashSet<string> expectedNTerminalMassesLabels = new HashSet<string>
@@ -295,10 +297,12 @@ namespace Test
             _neutralLosses.Add(DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass });
             Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _neutralLosses: _neutralLosses, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
-            var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
+            FragmentationParams fragmentationParams = new FragmentationParams();
+            fragmentationParams.MaxSubsetSize = 3;
 
+            var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
             var theseTheoreticalFragments = new List<Product>();
-            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments);
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments, fragmentationParams);
 
             var nTerminalMassesLabels = theseTheoreticalFragments.Select(f => f.Annotation.ToString()).ToList();
             HashSet<string> expectedNTerminalMassesLabels = new HashSet<string>
@@ -323,16 +327,18 @@ namespace Test
             Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif_P, _neutralLosses: _neutralLosses_P, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
             Modification oxidation = new Modification(_originalId: "oxidation", _modificationType: "CommonBiological", _target: motif_S, _neutralLosses: _neutralLosses_O, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("O"));
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
-            var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation, oxidation }, new List<Modification>()).First();
+            FragmentationParams fragmentationParams = new FragmentationParams();
+            fragmentationParams.MaxSubsetSize = 3;
 
+            var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation, oxidation }, new List<Modification>()).First();
             var theseTheoreticalFragments = new List<Product>();
-            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments);
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments, fragmentationParams);
 
             var nTerminalMassesLabels = theseTheoreticalFragments.Select(f => f.Annotation.ToString()).ToList();
             HashSet<string> expectedNTerminalMassesLabels = new HashSet<string>
             {
-                "b2-97.98", "b3-97.98", "b4-97.98", "b5-97.98","b5-15.99", "b5-113.97",
-                "y2-15.99", "y3-15.99", "y4-15.99","y5-15.99","y5-97.98", "y5-113.97",
+                "b2-97.98", "b3-97.98", "b4-97.98", "b5-97.98","b5-15.99", "b5-113.97", "b6-97.98","b6-15.99", "b6-113.97","b7-97.98","b7-15.99", "b7-113.97", "b7-195.95", "b7-211.95",
+                "y2-97.98","y3-97.98","y4-97.98", "y4-15.99","y4-113.97","y5-15.99","y5-97.98", "y5-113.97","y6-15.99","y6-97.98", "y6-113.97","y7-15.99","y7-97.98", "y7-113.97","y7-195.95", "y7-211.95"
             };
             Assert.IsTrue(expectedNTerminalMassesLabels.All(label => nTerminalMassesLabels.Contains(label)));
         }

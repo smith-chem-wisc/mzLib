@@ -1,17 +1,18 @@
 ﻿using Chemistry;
+using Chromatography.RetentionTimePrediction;
 using MassSpectrometry;
-using Proteomics.AminoAcidPolymer;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using Omics;
 using Omics.BioPolymer;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Fragmentation.Peptide;
 using Omics.Modifications;
-using Chromatography.RetentionTimePrediction;
+using Omics.Modifications.IO;
+using Proteomics.AminoAcidPolymer;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 
 namespace Proteomics.ProteolyticDigestion
 {
@@ -264,8 +265,10 @@ namespace Proteomics.ProteolyticDigestion
             // inefficient memory usage and thus frequent garbage collection. 
             // TODO: If you can think of a way to remove these collections and still maintain correct 
             // fragmentation, please do so.
-            List<double> nTermNeutralLosses = null; //List used to preserve multiplicity of neutral losses (e.g. two phosphorylation sites on the same fragment would generate two losses of 98 Da, and we would want to see both of those losses represented in the products)
-            List<double> cTermNeutralLosses = null;
+            //List used to preserve multiplicity of neutral losses (e.g. two phosphorylation sites on the same fragment would generate two losses of 98 Da, and we would want to see both of those losses represented in the products)
+            List<double> cTermNeutralLosses = NeutralLossPool.Get();
+            List<double> nTermNeutralLosses = NeutralLossPool.Get();
+            int maxSubsetSize = fragmentationParams == null? 1 : fragmentationParams.MaxSubsetSize;
 
             // n-terminus mod
             if (calculateNTermFragments)
@@ -362,31 +365,16 @@ namespace Proteomics.ProteolyticDigestion
                         
                         if (nTermNeutralLosses != null)
                         {
-                            foreach (double neutralLoss in nTermNeutralLosses.Distinct()) // Distinct() generates single-loss products for each unique loss value; cumulative losses are generated in the subsequent loop
+                            var distinctNeutralLosses = PowerSet.UniqueSubsetSums(nTermNeutralLosses, maxSubsetSize);
+                            foreach (double distinctionNeturalLoss in distinctNeutralLosses.Skip(1)) 
                             {
                                 products.Add(new Product(
                                     nTermProductTypes[i],
                                     FragmentationTerminus.N,
-                                    nTermMass + massCaps.Item1[i] - neutralLoss,
+                                    nTermMass + massCaps.Item1[i] - distinctionNeturalLoss,
                                     r + 1,
                                     r + 1,
-                                    neutralLoss));
-                            }
-
-                            double cumulativeLoss = 0; // the cumulative loss is used to generate the sum of the sequentially neutral losses
-                            foreach (double neutralLoss in nTermNeutralLosses) 
-                            {
-                                if (cumulativeLoss != 0)
-                                {
-                                    products.Add(new Product(
-                                        nTermProductTypes[i],
-                                        FragmentationTerminus.N,
-                                        nTermMass + massCaps.Item1[i] - neutralLoss - cumulativeLoss,
-                                        r + 1,
-                                        r + 1,
-                                        neutralLoss + cumulativeLoss));
-                                }
-                                cumulativeLoss += neutralLoss;
+                                    distinctionNeturalLoss));
                             }
                         }
                     }
@@ -464,31 +452,16 @@ namespace Proteomics.ProteolyticDigestion
 
                         if (cTermNeutralLosses != null)
                         {
-                            double cumulativeLoss = 0;
-                            foreach (double neutralLoss in cTermNeutralLosses.Distinct())
+                            var distinctNeutralLosses = PowerSet.UniqueSubsetSums(cTermNeutralLosses, maxSubsetSize);
+                            foreach (double distinctNeutralLosse in distinctNeutralLosses.Skip(1))
                             {
                                 products.Add(new Product(
                                     cTermProductTypes[i],
                                     FragmentationTerminus.C,
-                                    cTermMass + massCaps.Item2[i] - neutralLoss,
+                                    cTermMass + massCaps.Item2[i] - distinctNeutralLosse,
                                     r + 1,
                                     BaseSequence.Length - r,
-                                    neutralLoss));
-                            }
-
-                            foreach (double neutralLoss in cTermNeutralLosses)
-                            {
-                                if (cumulativeLoss != 0)
-                                {
-                                    products.Add(new Product(
-                                        cTermProductTypes[i],
-                                        FragmentationTerminus.C,
-                                        cTermMass + massCaps.Item2[i] - neutralLoss - cumulativeLoss,
-                                        r + 1,
-                                        BaseSequence.Length - r,
-                                        neutralLoss + cumulativeLoss));
-                                }
-                                cumulativeLoss += neutralLoss;
+                                    distinctNeutralLosse));
                             }
                         }
                     }
@@ -581,6 +554,9 @@ namespace Proteomics.ProteolyticDigestion
                 // the diagnostic ion is assumed to be annotated in the mod info as the *neutral mass* of the diagnostic ion, not the ionized species
                 products.Add(new Product(ProductType.D, FragmentationTerminus.Both, diagnosticIon, diagnosticIonLabel, 0, 0));
             }
+
+            NeutralLossPool.Return(cTermNeutralLosses);
+            NeutralLossPool.Return(nTermNeutralLosses);
         }
 
         /// <summary>
@@ -1019,17 +995,13 @@ namespace Proteomics.ProteolyticDigestion
         
         private List<double> AddNeutralLossesFromMods(Modification mod, List<double> allNeutralLossesSoFar, DissociationType dissociationType)
         {
-
-            // add neutral losses specific to this dissociation type
-            List<double> addedNL = new List<double>(); // neutral losses to be added from this mod
-
             if (mod != null
                 && mod.NeutralLosses != null
-                && (mod.NeutralLosses.TryGetValue(dissociationType, out List<double> neutralLossesFromMod)))
+                && mod.NeutralLosses.TryGetValue(dissociationType, out List<double> neutralLossesFromMod))
             {
                 foreach (double neutralLoss in neutralLossesFromMod.Where(p => p != 0))
                 {
-                    addedNL.Add(neutralLoss);
+                    allNeutralLossesSoFar.Add(neutralLoss);
                 }
             }
 
@@ -1040,18 +1012,10 @@ namespace Proteomics.ProteolyticDigestion
             {
                 foreach (double neutralLoss in neutralLossesFromMod.Where(p => p != 0))
                 {
-                    addedNL.Add(neutralLoss);
+                    allNeutralLossesSoFar.Add(neutralLoss);
                 }
             }
 
-            if (addedNL.Any())
-            {
-                if (allNeutralLossesSoFar == null)
-                {
-                    allNeutralLossesSoFar = new List<double>(); // initialize if null
-                }
-                allNeutralLossesSoFar.AddRange(addedNL.Distinct()); // avoid duplicates
-            }
             return allNeutralLossesSoFar; // updated list of all neutral losses so far
         }
 
