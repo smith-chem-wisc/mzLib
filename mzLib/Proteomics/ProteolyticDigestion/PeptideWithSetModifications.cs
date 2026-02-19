@@ -1,17 +1,18 @@
 ﻿using Chemistry;
+using Chromatography.RetentionTimePrediction;
 using MassSpectrometry;
-using Proteomics.AminoAcidPolymer;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using MzLibUtil.ObjectPools;
 using Omics;
 using Omics.BioPolymer;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Fragmentation.Peptide;
 using Omics.Modifications;
-using Chromatography.RetentionTimePrediction;
+using Proteomics.AminoAcidPolymer;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 
 namespace Proteomics.ProteolyticDigestion
 {
@@ -264,8 +265,8 @@ namespace Proteomics.ProteolyticDigestion
             // inefficient memory usage and thus frequent garbage collection. 
             // TODO: If you can think of a way to remove these collections and still maintain correct 
             // fragmentation, please do so.
-            HashSet<double> nTermNeutralLosses = null;
-            HashSet<double> cTermNeutralLosses = null;
+            List<double> nTermNeutralLosses = null;
+            List<double> cTermNeutralLosses = null;
 
             // n-terminus mod
             if (calculateNTermFragments)
@@ -985,7 +986,7 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
         
-        private HashSet<double> AddNeutralLossesFromMods(Modification mod, HashSet<double> allNeutralLossesSoFar, DissociationType dissociationType)
+        private List<double> AddNeutralLossesFromMods(Modification mod, List<double> allNeutralLossesSoFar, DissociationType dissociationType)
         {
             // add neutral losses specific to this dissociation type
             if (mod != null
@@ -996,7 +997,7 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     if (allNeutralLossesSoFar == null)
                     {
-                        allNeutralLossesSoFar = new HashSet<double>();
+                        allNeutralLossesSoFar = SingletonDoublePool.Instance.Get();
                     }
 
                     allNeutralLossesSoFar.Add(neutralLoss);
@@ -1012,7 +1013,7 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     if (allNeutralLossesSoFar == null)
                     {
-                        allNeutralLossesSoFar = new HashSet<double>();
+                        allNeutralLossesSoFar = SingletonDoublePool.Instance.Get();
                     }
 
                     allNeutralLossesSoFar.Add(neutralLoss);
