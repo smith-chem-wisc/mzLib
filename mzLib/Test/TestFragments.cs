@@ -33,7 +33,11 @@ using System.Linq;
 using Omics.Digestion;
 using Omics.Modifications;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using Transcriptomics;
+using UsefulProteomicsDatabases;
 
 namespace Test
 {
@@ -1307,6 +1311,65 @@ namespace Test
                 Assert.That(mProducts[i].NeutralMass, Is.EqualTo(expectedMasses[i]).Within(0.01));
                 Assert.That(mProducts[i].Annotation, Is.EqualTo(expectedAnnotations[i]));
             }
+        }
+
+        [Test]
+        public static void Benchmark_ParallelFragmentation()
+        {
+            // Load proteins from the cRAP database with reverse decoys to maximize peptide count
+            //var dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml");
+
+            var dbPath = @"C:\Users\Alex\Documents\Proteomes\uniprotkb_Human_AND_model_organism_9606_2025_03_19.xml.gz";
+            var proteins = ProteinDbLoader.LoadProteinXML(dbPath, true, DecoyType.Reverse, null, false, null, out _);
+
+            // Digest all proteins into peptides
+            var digestionParams = new DigestionParams();
+            var peptides = proteins
+                .SelectMany(p => p.Digest(digestionParams, new List<Modification>(), new List<Modification>()))
+                .ToList();
+
+            // Warm up: trigger JIT compilation and SingletonDoublePool lazy initialization before timing
+            var warmupProducts = new List<Product>();
+            peptides[0].Fragment(DissociationType.HCD, FragmentationTerminus.Both, warmupProducts);
+
+            // Serial benchmark
+            long serialFragmentCount = 0;
+            var serialProducts = new List<Product>();
+            var sw = Stopwatch.StartNew();
+            foreach (var peptide in peptides)
+            {
+                peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, serialProducts);
+                serialFragmentCount += serialProducts.Count;
+            }
+            sw.Stop();
+            var serialElapsed = sw.Elapsed;
+
+            // Parallel benchmark: each thread owns its List<Product> to avoid contention
+            long parallelFragmentCount = 0;
+            sw.Restart();
+            Parallel.ForEach(
+                peptides,
+                () => new List<Product>(),
+                (peptide, _, localProducts) =>
+                {
+                    peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, localProducts);
+                    Interlocked.Add(ref parallelFragmentCount, localProducts.Count);
+                    return localProducts;
+                },
+                _ => { });
+            sw.Stop();
+            var parallelElapsed = sw.Elapsed;
+
+            TestContext.Out.WriteLine($"Proteins loaded:          {proteins.Count}");
+            TestContext.Out.WriteLine($"Peptides digested:        {peptides.Count}");
+            TestContext.Out.WriteLine($"Serial fragment count:    {serialFragmentCount}");
+            TestContext.Out.WriteLine($"Serial elapsed:           {serialElapsed.TotalSeconds:F3} s");
+            TestContext.Out.WriteLine($"Parallel fragment count:  {parallelFragmentCount}");
+            TestContext.Out.WriteLine($"Parallel elapsed:         {parallelElapsed.TotalSeconds:F3} s");
+            TestContext.Out.WriteLine($"Speedup:                  {serialElapsed.TotalSeconds / parallelElapsed.TotalSeconds:F2}x");
+
+            Assert.That(serialFragmentCount, Is.GreaterThan(0));
+            Assert.That(serialFragmentCount, Is.EqualTo(parallelFragmentCount));
         }
     }
 }
