@@ -326,5 +326,88 @@ namespace Test.Transcriptomics
             }
         }
 
+        [Test]
+        public static void TestFragmentation_3PrimeTerminalMod()
+        {
+            string unmodifiedSeq = "GUACUG";
+            string modifiedSeq = "GUACUG-[Digestion Termini:Cyclic Phosphate on X]";
+
+            var unmodifiedOligo = new OligoWithSetMods(unmodifiedSeq);
+            var modifiedOligo = new OligoWithSetMods(modifiedSeq);
+            var modMass = modifiedOligo.AllModsOneIsNterminus.First().Value.MonoisotopicMass.Value;
+
+            List<Product> unmodifiedProducts = new();
+            List<Product> modifiedProducts = new();
+
+            unmodifiedOligo.Fragment(DissociationType.CID, FragmentationTerminus.Both, unmodifiedProducts);
+            modifiedOligo.Fragment(DissociationType.CID, FragmentationTerminus.Both, modifiedProducts);
+
+            Assert.That(modifiedProducts.Count, Is.EqualTo(unmodifiedProducts.Count));
+
+            // All Five Prime products should be unchanged.
+            var unModFivePrime = unmodifiedProducts.Where(p => p.Terminus == FragmentationTerminus.FivePrime).ToList();
+            var modFivePrime = modifiedProducts.Where(p => p.Terminus == FragmentationTerminus.FivePrime).ToList();
+
+            Assert.That(modFivePrime.Count, Is.EqualTo(unModFivePrime.Count));
+            for (int i = 0; i < unModFivePrime.Count; i++)
+            {
+                Assert.That(modFivePrime[i].NeutralMass, Is.EqualTo(unModFivePrime[i].NeutralMass).Within(0.01));
+                Assert.That(modFivePrime[i].Annotation, Is.EqualTo(unModFivePrime[i].Annotation));
+            }
+
+            // All Three Prime products should have the mass of the cyclic phosphate modification (H-2 O-1) added.
+            var unModThreePrime = unmodifiedProducts.Where(p => p.Terminus == FragmentationTerminus.ThreePrime).ToList();
+            var modThreePrime = modifiedProducts.Where(p => p.Terminus == FragmentationTerminus.ThreePrime).ToList();
+
+            Assert.That(modThreePrime.Count, Is.EqualTo(unModThreePrime.Count));
+            for (int i = 0; i < unModThreePrime.Count; i++)
+            {
+                Assert.That(modThreePrime[i].NeutralMass, Is.EqualTo(unModThreePrime[i].NeutralMass + modMass).Within(0.01));
+                Assert.That(modThreePrime[i].Annotation, Is.EqualTo(unModThreePrime[i].Annotation));
+            }
+        }
+
+        [Test]
+        public static void TestFragmentation_5PrimeTerminalMod()
+        {
+            string unmodifiedSeq = "GUACUG";
+            string modifiedSeq = "[Digestion Termini:Terminal Phosphorylation on X]GUACUG";
+
+            var unmodifiedOligo = new OligoWithSetMods(unmodifiedSeq);
+            var modifiedOligo = new OligoWithSetMods(modifiedSeq);
+            var modMass = modifiedOligo.AllModsOneIsNterminus.First().Value.MonoisotopicMass.Value;
+
+            List<Product> unmodifiedProducts = new();
+            List<Product> modifiedProducts = new();
+
+            unmodifiedOligo.Fragment(DissociationType.CID, FragmentationTerminus.Both, unmodifiedProducts);
+            modifiedOligo.Fragment(DissociationType.CID, FragmentationTerminus.Both, modifiedProducts);
+
+            Assert.That(modifiedProducts.Count, Is.EqualTo(unmodifiedProducts.Count));
+
+            // All Three Prime products should be unchanged.
+            var unModThreePrime = unmodifiedProducts.Where(p => p.Terminus == FragmentationTerminus.ThreePrime).ToList();
+            var modThreePrime = modifiedProducts.Where(p => p.Terminus == FragmentationTerminus.ThreePrime).ToList();
+
+            Assert.That(modThreePrime.Count, Is.EqualTo(unModThreePrime.Count));
+            for (int i = 0; i < unModThreePrime.Count; i++)
+            {
+                Assert.That(modThreePrime[i].NeutralMass, Is.EqualTo(unModThreePrime[i].NeutralMass).Within(0.01));
+                Assert.That(modThreePrime[i].Annotation, Is.EqualTo(unModThreePrime[i].Annotation));
+            }
+
+
+
+            // All Five Prime products should have the mass of the terminal phosphorylation modification added.
+            var unModFivePrime = unmodifiedProducts.Where(p => p.Terminus == FragmentationTerminus.FivePrime).ToList();
+            var modFivePrime = modifiedProducts.Where(p => p.Terminus == FragmentationTerminus.FivePrime).ToList();
+
+            Assert.That(modFivePrime.Count, Is.EqualTo(unModFivePrime.Count));
+            for (int i = 0; i < unModFivePrime.Count; i++)
+            {
+                Assert.That(modFivePrime[i].NeutralMass, Is.EqualTo(unModFivePrime[i].NeutralMass + modMass).Within(0.01));
+                Assert.That(modFivePrime[i].Annotation, Is.EqualTo(unModFivePrime[i].Annotation));
+            }
+        }
     }
 }

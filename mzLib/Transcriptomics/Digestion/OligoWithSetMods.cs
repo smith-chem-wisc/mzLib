@@ -324,28 +324,62 @@ namespace Transcriptomics.Digestion
             bool first = true; //set first to true to hand the terminus sideChainMod first
             for (int fragmentNumber = 0; fragmentNumber <= BaseSequence.Length - 1; fragmentNumber++)
             {
-                int naIndex = isThreePrimeTerminal ? Length - fragmentNumber : fragmentNumber - 1;
+                // 0-based array index of nucleotide being added
+                int nucleicAcidIndex = isThreePrimeTerminal ? BaseSequence.Length - fragmentNumber : fragmentNumber - 1;
+
+                // 1-based sequence position (fragment boundary)
                 int residuePosition = isThreePrimeTerminal ? BaseSequence.Length - fragmentNumber : fragmentNumber;
+
+                // Mod at side chain being added. 2-based index for modifications on the current residue in the AllModsOneIsNterminus dictionary. 
+                int sideChainModIndex = nucleicAcidIndex + 2;
+
+                // Mod at the phosphate linkage after (5') or before (3') the current residue being added.
+                int phosphateModIndex = residuePosition + 1;
+
+                //For a2(5' fragment containing A-U):
+                //    •	fragmentNumber = 2
+                //    •	nucleicAcidIndex = 1 → Points to U(0 - based)
+                //    •	residuePosition = 2 → Position 2 in sequence(1 - based)
+                //    •	Side - chain mod lookup: AllModsOneIsNterminus[3] → Mod on U
+                //    •	Backbone mod lookup: AllModsOneIsNterminus[3] → Phosphate between U - G
+                //For w2(3' fragment containing G-C):
+                //    •	fragmentNumber = 2
+                //    •	nucleicAcidIndex = 2 → Points to G(0 - based)
+                //    •	residuePosition = 2 → Position 2 from 3' end
+                //    •	Side - chain mod lookup: AllModsOneIsNterminus[4] → Mod on G
+                //    •	Backbone mod lookup: AllModsOneIsNterminus[3] → Phosphate between U - G
 
                 if (first)
                 {
+                    // Add 3'-term mod if present
+                    if (isThreePrimeTerminal && AllModsOneIsNterminus.TryGetValue(BaseSequence.Length + 2, out Modification? threePrimeMod))
+                    {
+                            monoMass += threePrimeMod.MonoisotopicMass ?? 0;
+
+                    }
+                    // Add 5'-term mod if present
+                    else if (!isThreePrimeTerminal && AllModsOneIsNterminus.TryGetValue(1, out Modification? fivePrimeMod))
+                    {
+                        monoMass += fivePrimeMod.MonoisotopicMass ?? 0;
+                    }
+
                     first = false; //set to false so only handled once
                     continue;
                 }
-                monoMass += sequence[naIndex].MonoisotopicMass;
+                monoMass += sequence[nucleicAcidIndex].MonoisotopicMass;
 
                 if (fragmentNumber < 1)
                     continue;
 
                 // add side-chain sideChainMod only (at current position)
-                if (AllModsOneIsNterminus.TryGetValue(naIndex + 2, out Modification? sideChainMod) && sideChainMod is not BackboneModification)
+                if (AllModsOneIsNterminus.TryGetValue(sideChainModIndex, out Modification? sideChainMod) && sideChainMod is not BackboneModification)
                 {
                     monoMass += sideChainMod.MonoisotopicMass ?? 0;
                 }
 
                 // Add backbone modifications if they are included in the fragment, otherwise add mod mass after this fragment. 
                 double? backboneMassShift = null;
-                if (AllModsOneIsNterminus.TryGetValue(residuePosition + 1, out Modification? mod) && mod is BackboneModification bm)
+                if (AllModsOneIsNterminus.TryGetValue(phosphateModIndex, out Modification? mod) && mod is BackboneModification bm)
                 {
                     if (Array.BinarySearch(bm.ProductsContainingModMass, type) >= 0)
                         monoMass += mod.MonoisotopicMass ?? 0;
@@ -355,7 +389,7 @@ namespace Transcriptomics.Digestion
 
                 // Handle Base Loss fragment series mass correction. 
                 double neutralLoss = 0;
-                var previousNucleotide = sequence[naIndex];
+                var previousNucleotide = sequence[nucleicAcidIndex];
                 if (type.IsBaseLoss())
                 {
                     neutralLoss = previousNucleotide.BaseChemicalFormula.MonoisotopicMass;
