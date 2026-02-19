@@ -338,7 +338,6 @@ namespace Transcriptomics.Digestion
                     continue;
 
                 // add side-chain mod only (at current position)
-                double? backboneMassShift = null;
                 if (AllModsOneIsNterminus.TryGetValue(naIndex + 2, out Modification? sideChainMod))
                 {
                     monoMass += sideChainMod.MonoisotopicMass ?? 0;
@@ -347,12 +346,13 @@ namespace Transcriptomics.Digestion
                 // Add backbone modifications (pre-calculated)
                 // For 3' fragments (w/x/y/z), the modification should be checked differently
                 // w3 should check the mod at position 3, not position 4
+                double? backboneMassShift = null;
                 if (AllModsOneIsNterminus.TryGetValue(residuePosition + 1, out Modification? mod) && mod is BackboneModification bm)
                 {
                     if (Array.BinarySearch(bm.ProductsContainingModMass, type) >= 0)
-                        monoMass += bm.MonoisotopicMass ?? 0;
+                        monoMass += mod.MonoisotopicMass ?? 0;
                     else
-                        backboneMassShift = bm.MonoisotopicMass;
+                        backboneMassShift = mod.MonoisotopicMass;
                 }
 
                 // Handle Base Loss fragment series mass correction. 
