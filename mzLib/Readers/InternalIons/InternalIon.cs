@@ -53,7 +53,8 @@ namespace Readers.InternalIons
 
         public string FullModifiedSequence { get; set; } = string.Empty;
         public string ModificationsInInternalFragment { get; set; } = string.Empty;
-        public bool HasModifiedResidue => !string.IsNullOrEmpty(ModificationsInInternalFragment);
+        public bool HasModifiedResidue => CommonBiologicalModCount > 0 || CommonArtifactModCount > 0 ||
+                                          MetalModCount > 0 || LessCommonModCount > 0;
 
         public bool PassesMassAccuracyFilter
         {
@@ -74,35 +75,39 @@ namespace Readers.InternalIons
         public double BYProductScore { get; set; }
 
         public int DistanceFromCTerm { get; set; }
+
+        /// <summary>
+        /// Length of the full peptide sequence.
+        /// </summary>
+        public int PeptideLength { get; set; }
+
+        /// <summary>
+        /// Relative position of the fragment's C-terminal end within the peptide.
+        /// Computed as DistanceFromCTerm / PeptideLength.
+        /// Range: 0.0 (fragment ends at peptide C-terminus) to ~1.0 (fragment ends near N-terminus).
+        /// </summary>
+        public double RelativeDistanceFromCTerm { get; set; }
+
         public double MaxTerminalIonIntensity { get; set; }
         public bool HasBothTerminalIons { get; set; }
 
         public int BasicResiduesInBIonSpan { get; set; }
         public int BasicResiduesInYIonSpan { get; set; }
 
-        // ========== NEW SCORER FEATURES ==========
+        // ========== SCORER FEATURES ==========
 
-        /// <summary>
-        /// True if the first residue of the internal fragment is proline.
-        /// Proline's cyclic side chain creates unusual backbone rigidity;
-        /// cleavage N-terminal to proline is strongly enriched (2.10x observed, 29% intensity premium).
-        /// </summary>
         public bool IsProlineAtInternalNTerminus { get; set; }
-
-        /// <summary>
-        /// True if DistanceFromCTerm &lt;= 3. Flags the C-terminal basic residue rescue artifact:
-        /// for LysC peptides the terminal K rescues nearby y-ions regardless of intrinsic bond lability.
-        /// For Trypsin the same applies to K and R. Encodes a protease-specific digestion artifact
-        /// explicitly so the model can learn it as a pattern rather than absorbing it into other features.
-        /// </summary>
         public bool IsTerminalRescue { get; set; }
-
-        /// <summary>
-        /// Kyte-Doolittle hydrophobicity score of the residue immediately N-terminal to the internal fragment.
-        /// The enrichment table shows I (1.81x), V (1.58x), L (1.53x) at this position, all strongly hydrophobic.
-        /// A continuous score captures this gradient better than 20 one-hot dummies and has a direct physical interpretation.
-        /// </summary>
         public double NTerminalFlankingHydrophobicity { get; set; }
+
+        // ========== MODIFICATION CATEGORY FEATURES ==========
+
+        public int CommonBiologicalModCount { get; set; }
+        public int CommonArtifactModCount { get; set; }
+        public int MetalModCount { get; set; }
+        public int LessCommonModCount { get; set; }
+        public bool HasPhosphorylation { get; set; }
+        public bool HasMetalOnTerminalAcidic { get; set; }
 
         public static string[] GetHeaderNames() => new[]
         {
@@ -117,9 +122,12 @@ namespace Readers.InternalIons
             nameof(ModificationsInInternalFragment), nameof(HasModifiedResidue), nameof(PassesMassAccuracyFilter),
             nameof(BIonIntensityAtNTerm), nameof(YIonIntensityAtCTerm), nameof(HasMatchedBIonAtNTerm),
             nameof(HasMatchedYIonAtCTerm), nameof(BYProductScore), nameof(DistanceFromCTerm),
+            nameof(PeptideLength), nameof(RelativeDistanceFromCTerm),
             nameof(MaxTerminalIonIntensity), nameof(HasBothTerminalIons),
             nameof(BasicResiduesInBIonSpan), nameof(BasicResiduesInYIonSpan),
-            nameof(IsProlineAtInternalNTerminus), nameof(IsTerminalRescue), nameof(NTerminalFlankingHydrophobicity)
+            nameof(IsProlineAtInternalNTerminus), nameof(IsTerminalRescue), nameof(NTerminalFlankingHydrophobicity),
+            nameof(CommonBiologicalModCount), nameof(CommonArtifactModCount), nameof(MetalModCount),
+            nameof(LessCommonModCount), nameof(HasPhosphorylation), nameof(HasMetalOnTerminalAcidic)
         };
 
         public string[] GetValues() => new[]
@@ -148,11 +156,16 @@ namespace Readers.InternalIons
             HasMatchedBIonAtNTerm.ToString(), HasMatchedYIonAtCTerm.ToString(),
             BYProductScore.ToString("G17", CultureInfo.InvariantCulture),
             DistanceFromCTerm.ToString(),
+            PeptideLength.ToString(),
+            RelativeDistanceFromCTerm.ToString("G17", CultureInfo.InvariantCulture),
             MaxTerminalIonIntensity.ToString("G17", CultureInfo.InvariantCulture),
             HasBothTerminalIons.ToString(),
             BasicResiduesInBIonSpan.ToString(), BasicResiduesInYIonSpan.ToString(),
             IsProlineAtInternalNTerminus.ToString(), IsTerminalRescue.ToString(),
-            NTerminalFlankingHydrophobicity.ToString("G17", CultureInfo.InvariantCulture)
+            NTerminalFlankingHydrophobicity.ToString("G17", CultureInfo.InvariantCulture),
+            CommonBiologicalModCount.ToString(), CommonArtifactModCount.ToString(),
+            MetalModCount.ToString(), LessCommonModCount.ToString(),
+            HasPhosphorylation.ToString(), HasMetalOnTerminalAcidic.ToString()
         };
     }
 }

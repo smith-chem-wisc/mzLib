@@ -240,14 +240,23 @@ namespace Test.InternalIons
                 ("NumberOfBasicResidues", Pearson(_passing.Select(r => (double)I(r, "NumberOfBasicResidues")).ToList(), target)),
                 ("FragmentLength", Pearson(_passing.Select(r => (double)I(r, "FragmentLength")).ToList(), target)),
                 ("DistanceFromCTerm", Pearson(_passing.Select(r => (double)I(r, "DistanceFromCTerm")).ToList(), target)),
+                ("PeptideLength", Pearson(_passing.Select(r => (double)I(r, "PeptideLength")).ToList(), target)),
+                ("RelativeDistanceFromCTerm", Pearson(_passing.Select(r => D(r, "RelativeDistanceFromCTerm")).ToList(), target)),
                 ("LocalIntensityRank_neg", Pearson(_passing.Select(r => -D(r, "LocalIntensityRank")).ToList(), target)),
                 ("HasProlineAtEitherTerm", Pearson(_passing.Select(r => B(r, "HasProlineAtEitherTerminus") ? 1.0 : 0.0).ToList(), target)),
                 ("HasAspartateAtEitherTerm", Pearson(_passing.Select(r => B(r, "HasAspartateAtEitherTerminus") ? 1.0 : 0.0).ToList(), target)),
                 ("HasModifiedResidue", Pearson(_passing.Select(r => B(r, "HasModifiedResidue") ? 1.0 : 0.0).ToList(), target)),
-                // New features
+                // Scorer features
                 ("IsProlineAtInternalNTerm", Pearson(_passing.Select(r => B(r, "IsProlineAtInternalNTerminus") ? 1.0 : 0.0).ToList(), target)),
                 ("IsTerminalRescue", Pearson(_passing.Select(r => B(r, "IsTerminalRescue") ? 1.0 : 0.0).ToList(), target)),
-                ("NTermFlankHydrophobicity", Pearson(_passing.Select(r => D(r, "NTerminalFlankingHydrophobicity")).ToList(), target))
+                ("NTermFlankHydrophobicity", Pearson(_passing.Select(r => D(r, "NTerminalFlankingHydrophobicity")).ToList(), target)),
+                // Modification category features
+                ("CommonBiologicalModCount", Pearson(_passing.Select(r => (double)I(r, "CommonBiologicalModCount")).ToList(), target)),
+                ("CommonArtifactModCount", Pearson(_passing.Select(r => (double)I(r, "CommonArtifactModCount")).ToList(), target)),
+                ("MetalModCount", Pearson(_passing.Select(r => (double)I(r, "MetalModCount")).ToList(), target)),
+                ("LessCommonModCount", Pearson(_passing.Select(r => (double)I(r, "LessCommonModCount")).ToList(), target)),
+                ("HasPhosphorylation", Pearson(_passing.Select(r => B(r, "HasPhosphorylation") ? 1.0 : 0.0).ToList(), target)),
+                ("HasMetalOnTerminalAcidic", Pearson(_passing.Select(r => B(r, "HasMetalOnTerminalAcidic") ? 1.0 : 0.0).ToList(), target))
             };
 
             W("Correlations with TicNormalizedIntensity (ranked by |r|):");
@@ -281,6 +290,8 @@ namespace Test.InternalIons
             {
                 ("FragmentLength", r => I(r, "FragmentLength")),
                 ("DistanceFromCTerm", r => I(r, "DistanceFromCTerm")),
+                ("PeptideLength", r => I(r, "PeptideLength")),
+                ("RelativeDistanceFromCTerm", r => D(r, "RelativeDistanceFromCTerm")),
                 ("NumberOfBasicResidues", r => I(r, "NumberOfBasicResidues")),
                 ("BasicResiduesInBIonSpan", r => I(r, "BasicResiduesInBIonSpan")),
                 ("BasicResiduesInYIonSpan", r => I(r, "BasicResiduesInYIonSpan")),
@@ -296,15 +307,22 @@ namespace Test.InternalIons
                 ("PrecursorCharge", r => I(r, "PrecursorCharge")),
                 ("CollisionEnergy", r => D(r, "CollisionEnergy")),
                 ("PeptidePEP", r => D(r, "PeptidePEP")),
-                // New features
+                // Scorer features
                 ("IsProlineAtInternalNTerm", r => B(r, "IsProlineAtInternalNTerminus") ? 1.0 : 0.0),
                 ("IsTerminalRescue", r => B(r, "IsTerminalRescue") ? 1.0 : 0.0),
-                ("NTermFlankHydrophobicity", r => D(r, "NTerminalFlankingHydrophobicity"))
+                ("NTermFlankHydrophobicity", r => D(r, "NTerminalFlankingHydrophobicity")),
+                // Modification category features
+                ("CommonBiologicalModCount", r => I(r, "CommonBiologicalModCount")),
+                ("CommonArtifactModCount", r => I(r, "CommonArtifactModCount")),
+                ("MetalModCount", r => I(r, "MetalModCount")),
+                ("LessCommonModCount", r => I(r, "LessCommonModCount")),
+                ("HasPhosphorylation", r => B(r, "HasPhosphorylation") ? 1.0 : 0.0),
+                ("HasMetalOnTerminalAcidic", r => B(r, "HasMetalOnTerminalAcidic") ? 1.0 : 0.0)
             };
 
-            W("+---------------------------+--------+--------+-------+----------+----------+--------+");
-            W("| Feature                   | NValid | NNonZ  | %NonZ | r(TicNI) | Flags    |        |");
-            W("+---------------------------+--------+--------+-------+----------+----------+--------+");
+            W("+---------------------------+--------+--------+-------+----------+----------+");
+            W("| Feature                   | NValid | NNonZ  | %NonZ | r(TicNI) | Flags    |");
+            W("+---------------------------+--------+--------+-------+----------+----------+");
 
             foreach (var (name, getter) in features)
             {
@@ -321,10 +339,10 @@ namespace Test.InternalIons
                 string flagStr = flags.Count > 0 ? string.Join(",", flags) : "";
                 string rStr = double.IsNaN(r) ? "NaN" : r.ToString("F4");
 
-                W($"| {name,-25} | {nVal,6} | {nNz,6} | {pctNz,5:F1} | {rStr,8} | {flagStr,-8} |        |");
+                W($"| {name,-25} | {nVal,6} | {nNz,6} | {pctNz,5:F1} | {rStr,8} | {flagStr,-8} |");
             }
 
-            W("+---------------------------+--------+--------+-------+----------+----------+--------+");
+            W("+---------------------------+--------+--------+-------+----------+----------+");
             W();
             _out.Flush();
         }
@@ -360,98 +378,165 @@ namespace Test.InternalIons
             W(new string('=', 60));
             W();
 
-            // --- IsProlineAtInternalNTerminus ---
+            var target = _passing.Select(r => D(r, "TicNormalizedIntensity")).ToList();
+
+            // === IsProlineAtInternalNTerminus ===
             W("--- IsProlineAtInternalNTerminus ---");
             var proTrue = _passing.Where(r => B(r, "IsProlineAtInternalNTerminus")).ToList();
             var proFalse = _passing.Where(r => !B(r, "IsProlineAtInternalNTerminus")).ToList();
 
             W($"  Count TRUE:  {proTrue.Count:N0}");
             W($"  Count FALSE: {proFalse.Count:N0}");
-            W($"  Count Total: {_passing.Count:N0}");
 
             double meanTicProTrue = proTrue.Count > 0 ? proTrue.Average(r => D(r, "TicNormalizedIntensity")) : 0;
             double meanTicProFalse = proFalse.Count > 0 ? proFalse.Average(r => D(r, "TicNormalizedIntensity")) : 0;
             double proRatio = meanTicProFalse > 0 ? meanTicProTrue / meanTicProFalse : 0;
 
             W($"  Mean TicNI: TRUE={meanTicProTrue:E4}, FALSE={meanTicProFalse:E4}, Ratio={proRatio:F2}");
-
-            double meanBProTrue = proTrue.Count > 0 ? proTrue.Average(r => D(r, "BIonIntensityAtNTerm")) : 0;
-            double meanBProFalse = proFalse.Count > 0 ? proFalse.Average(r => D(r, "BIonIntensityAtNTerm")) : 0;
-            double meanYProTrue = proTrue.Count > 0 ? proTrue.Average(r => D(r, "YIonIntensityAtCTerm")) : 0;
-            double meanYProFalse = proFalse.Count > 0 ? proFalse.Average(r => D(r, "YIonIntensityAtCTerm")) : 0;
-
-            W($"  Mean BIonIntensity: TRUE={meanBProTrue:E4}, FALSE={meanBProFalse:E4}");
-            W($"  Mean YIonIntensity: TRUE={meanYProTrue:E4}, FALSE={meanYProFalse:E4}");
-            W("  (Expectation: TicNI ratio > 1.0, proline creates strong N-terminal cleavage)");
+            W("  (Expectation: ratio > 1.0)");
             W();
 
-            // --- IsTerminalRescue ---
+            // === IsTerminalRescue ===
             W("--- IsTerminalRescue ---");
             var rescueTrue = _passing.Where(r => B(r, "IsTerminalRescue")).ToList();
             var rescueFalse = _passing.Where(r => !B(r, "IsTerminalRescue")).ToList();
 
             W($"  Count TRUE:  {rescueTrue.Count:N0}");
             W($"  Count FALSE: {rescueFalse.Count:N0}");
-            W($"  Count Total: {_passing.Count:N0}");
 
-            double meanTicRescueTrue = rescueTrue.Count > 0 ? rescueTrue.Average(r => D(r, "TicNormalizedIntensity")) : 0;
-            double meanTicRescueFalse = rescueFalse.Count > 0 ? rescueFalse.Average(r => D(r, "TicNormalizedIntensity")) : 0;
             double meanYRescueTrue = rescueTrue.Count > 0 ? rescueTrue.Average(r => D(r, "YIonIntensityAtCTerm")) : 0;
             double meanYRescueFalse = rescueFalse.Count > 0 ? rescueFalse.Average(r => D(r, "YIonIntensityAtCTerm")) : 0;
-            double meanBRescueTrue = rescueTrue.Count > 0 ? rescueTrue.Average(r => D(r, "BIonIntensityAtNTerm")) : 0;
-            double meanBRescueFalse = rescueFalse.Count > 0 ? rescueFalse.Average(r => D(r, "BIonIntensityAtNTerm")) : 0;
 
-            W($"  Mean TicNI: TRUE={meanTicRescueTrue:E4}, FALSE={meanTicRescueFalse:E4}");
             W($"  Mean YIonIntensity: TRUE={meanYRescueTrue:E4}, FALSE={meanYRescueFalse:E4}");
-            W($"  Mean BIonIntensity: TRUE={meanBRescueTrue:E4}, FALSE={meanBRescueFalse:E4}");
-            W("  (Expectation: YIon elevated when TRUE due to C-terminal K/R rescue)");
+            W("  (Expectation: YIon elevated when TRUE)");
             W();
 
-            // --- NTerminalFlankingHydrophobicity ---
+            // === NTerminalFlankingHydrophobicity ===
             W("--- NTerminalFlankingHydrophobicity ---");
             var hydroVals = _passing.Select(r => D(r, "NTerminalFlankingHydrophobicity")).Where(v => !double.IsNaN(v)).ToList();
-
-            W($"  Min:    {hydroVals.Min():F2}");
-            W($"  Max:    {hydroVals.Max():F2}");
-            W($"  Mean:   {hydroVals.Average():F2}");
-            W($"  StdDev: {StdDev(hydroVals):F2}");
-
-            var target = _passing.Select(r => D(r, "TicNormalizedIntensity")).ToList();
             var hydroList = _passing.Select(r => D(r, "NTerminalFlankingHydrophobicity")).ToList();
-            var bIntList = _passing.Select(r => D(r, "BIonIntensityAtNTerm")).ToList();
-            var yIntList = _passing.Select(r => D(r, "YIonIntensityAtCTerm")).ToList();
 
-            W($"  r(NTermFlankHydro, TicNI):   {Pearson(hydroList, target):F4}");
-            W($"  r(NTermFlankHydro, BIonInt): {Pearson(hydroList, bIntList):F4}");
-            W($"  r(NTermFlankHydro, YIonInt): {Pearson(hydroList, yIntList):F4}");
+            W($"  Min: {hydroVals.Min():F2}, Max: {hydroVals.Max():F2}, Mean: {hydroVals.Average():F2}");
+            W($"  r(NTermFlankHydro, TicNI): {Pearson(hydroList, target):F4}");
             W();
 
-            // Distribution in 5 bins
-            W("  Hydrophobicity distribution:");
-            var bins = new (double min, double max, string label)[]
-            {
-                (2.5, double.MaxValue, "Very hydrophobic (>= 2.5)"),
-                (1.0, 2.5, "Hydrophobic (1.0 to 2.5)"),
-                (-0.5, 1.0, "Neutral (-0.5 to 1.0)"),
-                (-2.0, -0.5, "Hydrophilic (-2.0 to -0.5)"),
-                (double.MinValue, -2.0, "Very hydrophilic (< -2.0)")
-            };
+            // === RelativeDistanceFromCTerm ===
+            W("--- RelativeDistanceFromCTerm ---");
+            var relDistVals = _passing.Select(r => D(r, "RelativeDistanceFromCTerm")).Where(v => !double.IsNaN(v)).ToList();
+            var relDistList = _passing.Select(r => D(r, "RelativeDistanceFromCTerm")).ToList();
 
-            foreach (var (min, max, label) in bins)
-            {
-                var binRows = _passing.Where(r =>
-                {
-                    double h = D(r, "NTerminalFlankingHydrophobicity");
-                    return h >= min && h < max;
-                }).ToList();
+            W($"  Min: {relDistVals.Min():F3}, Max: {relDistVals.Max():F3}, Mean: {relDistVals.Average():F3}");
+            W($"  r(RelativeDistanceFromCTerm, TicNI): {Pearson(relDistList, target):F4}");
+            W();
 
-                double meanTic = binRows.Count > 0 ? binRows.Average(r => D(r, "TicNormalizedIntensity")) : 0;
-                W($"    {label,-30}: n={binRows.Count,5}, MeanTicNI={meanTic:E4}");
-            }
-            W("  (Expectation: monotonic decrease from very hydrophobic to very hydrophilic)");
+            // === PeptideLength independence check ===
+            W("--- PeptideLength ---");
+            var nearCTerm = _passing.Where(r => I(r, "DistanceFromCTerm") <= 3).ToList();
+            var farCTerm = _passing.Where(r => I(r, "DistanceFromCTerm") > 3).ToList();
+
+            double meanPepLenNear = nearCTerm.Count > 0 ? nearCTerm.Average(r => I(r, "PeptideLength")) : 0;
+            double meanPepLenFar = farCTerm.Count > 0 ? farCTerm.Average(r => I(r, "PeptideLength")) : 0;
+
+            W($"  Mean PeptideLength: DistCTerm<=3 = {meanPepLenNear:F1}, DistCTerm>3 = {meanPepLenFar:F1}");
+            W("  (Confirms peptide length varies independently of terminal proximity)");
+            W();
+
+            // === MODIFICATION CATEGORY FEATURES ===
+            W("--- Modification Category Features ---");
+            W();
+
+            PrintModCountFeature("CommonBiologicalModCount", target);
+            PrintModCountFeature("CommonArtifactModCount", target);
+            PrintModCountFeature("MetalModCount", target);
+            PrintModCountFeature("LessCommonModCount", target);
+
+            // HasPhosphorylation
+            W("--- HasPhosphorylation ---");
+            var phosphoTrue = _passing.Where(r => B(r, "HasPhosphorylation")).ToList();
+            var phosphoFalse = _passing.Where(r => !B(r, "HasPhosphorylation")).ToList();
+
+            W($"  Count TRUE:  {phosphoTrue.Count:N0} ({100.0 * phosphoTrue.Count / _passing.Count:F2}%)");
+            W($"  Count FALSE: {phosphoFalse.Count:N0}");
+
+            double meanTicPhosphoTrue = phosphoTrue.Count > 0 ? phosphoTrue.Average(r => D(r, "TicNormalizedIntensity")) : 0;
+            double meanTicPhosphoFalse = phosphoFalse.Count > 0 ? phosphoFalse.Average(r => D(r, "TicNormalizedIntensity")) : 0;
+            double phosphoRatio = meanTicPhosphoFalse > 0 ? meanTicPhosphoTrue / meanTicPhosphoFalse : 0;
+
+            W($"  Mean TicNI TRUE:  {meanTicPhosphoTrue:E4}");
+            W($"  Mean TicNI FALSE: {meanTicPhosphoFalse:E4}");
+            W($"  Ratio (TRUE/FALSE): {phosphoRatio:F2}");
+            W("  Expected: ratio < 1.0 (phospho neutral loss competes with backbone)");
+            W();
+
+            // HasMetalOnTerminalAcidic
+            W("--- HasMetalOnTerminalAcidic ---");
+            var metalTermTrue = _passing.Where(r => B(r, "HasMetalOnTerminalAcidic")).ToList();
+            var metalTermFalse = _passing.Where(r => !B(r, "HasMetalOnTerminalAcidic")).ToList();
+
+            W($"  Count TRUE:  {metalTermTrue.Count:N0} ({100.0 * metalTermTrue.Count / _passing.Count:F2}%)");
+            W($"  Count FALSE: {metalTermFalse.Count:N0}");
+
+            double meanTicMetalTrue = metalTermTrue.Count > 0 ? metalTermTrue.Average(r => D(r, "TicNormalizedIntensity")) : 0;
+            double meanTicMetalFalse = metalTermFalse.Count > 0 ? metalTermFalse.Average(r => D(r, "TicNormalizedIntensity")) : 0;
+            double metalRatio = meanTicMetalFalse > 0 ? meanTicMetalTrue / meanTicMetalFalse : 0;
+
+            W($"  Mean TicNI TRUE:  {meanTicMetalTrue:E4}");
+            W($"  Mean TicNI FALSE: {meanTicMetalFalse:E4}");
+            W($"  Ratio (TRUE/FALSE): {metalRatio:F2}");
+            W("  (No strong prior expectation - report direction only)");
+            W();
+
+            // === MODIFICATION INTERACTION WITH WEAK-BOND FEATURES ===
+            W("--- Modification Interaction with Weak-Bond Features ---");
+            W();
+
+            var withAsp = _passing.Where(r => B(r, "HasAspartateAtEitherTerminus")).ToList();
+            W($"Among HasAspartateAtEitherTerminus = TRUE: {withAsp.Count:N0} total");
+
+            var aspWithMetal = withAsp.Where(r => I(r, "MetalModCount") >= 1).ToList();
+            var aspNoMetal = withAsp.Where(r => I(r, "MetalModCount") == 0).ToList();
+
+            W($"  With MetalModCount >= 1: {aspWithMetal.Count:N0} ({100.0 * aspWithMetal.Count / Math.Max(withAsp.Count, 1):F1}%)");
+            W($"  With MetalModCount = 0:  {aspNoMetal.Count:N0}");
+
+            double meanTicAspMetal = aspWithMetal.Count > 0 ? aspWithMetal.Average(r => D(r, "TicNormalizedIntensity")) : 0;
+            double meanTicAspNoMetal = aspNoMetal.Count > 0 ? aspNoMetal.Average(r => D(r, "TicNormalizedIntensity")) : 0;
+            double aspMetalRatio = meanTicAspNoMetal > 0 ? meanTicAspMetal / meanTicAspNoMetal : 0;
+
+            W($"  Mean TicNI, MetalModCount=0:  {meanTicAspNoMetal:E4}");
+            W($"  Mean TicNI, MetalModCount>=1: {meanTicAspMetal:E4}");
+            W($"  Ratio: {aspMetalRatio:F2}");
+            W();
+            W("  (Tests whether metal coordination at terminal D/E alters intensity");
+            W("   vs uncoordinated terminal D/E. If ratio != 1.0, metal adducts");
+            W("   interact with HasAspartateAtEitherTerminus.)");
 
             W();
             _out.Flush();
+        }
+
+        private void PrintModCountFeature(string featureName, List<double> target)
+        {
+            W($"--- {featureName} ---");
+
+            var zeroRows = _passing.Where(r => I(r, featureName) == 0).ToList();
+            var nonZeroRows = _passing.Where(r => I(r, featureName) >= 1).ToList();
+
+            W($"  N with count=0:   {zeroRows.Count:N0}");
+            W($"  N with count>=1:  {nonZeroRows.Count:N0} ({100.0 * nonZeroRows.Count / _passing.Count:F1}%)");
+
+            double meanTicZero = zeroRows.Count > 0 ? zeroRows.Average(r => D(r, "TicNormalizedIntensity")) : 0;
+            double meanTicNonZero = nonZeroRows.Count > 0 ? nonZeroRows.Average(r => D(r, "TicNormalizedIntensity")) : 0;
+            double ratio = meanTicZero > 0 ? meanTicNonZero / meanTicZero : 0;
+
+            W($"  Mean TicNI when count=0:  {meanTicZero:E4}");
+            W($"  Mean TicNI when count>=1: {meanTicNonZero:E4}");
+            W($"  Intensity ratio (nonzero/zero): {ratio:F2}");
+
+            var featureVals = _passing.Select(r => (double)I(r, featureName)).ToList();
+            double r_corr = Pearson(featureVals, target);
+            W($"  Pearson r with TicNI: {r_corr:F4}");
+            W();
         }
     }
 }

@@ -379,8 +379,8 @@ namespace Test.InternalIons
         public void RunInternalFragmentAnalysis()
         {
             InternalFragmentAnalysisRunnerTests.RunAll(
-                psmTsvPath: @"F:\JurakatMultiprotease\2026-02-17-16-40-42\Task1-SearchTask\FilteredPeptides.psmtsv",
-                rawFileFolder: @"F:\JurakatMultiprotease",
+                psmTsvPath: @"F:\JurakatMultiprotease\2026-02-19-07-23-50_gluc\Task3-SearchTask\gluCfilteredPeptides.psmtsv",
+                rawFileFolder: @"F:\JurakatMultiprotease\2026-02-19-07-23-50_gluc\Task1-CalibrateTask",
                 outputDirectory: @"E:\Projects\internalIons\mzLibReportsForClaude"
             );
         }

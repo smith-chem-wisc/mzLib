@@ -78,6 +78,65 @@ namespace Readers.InternalIons
             return results;
         }
 
+        private static string GetModCategory(string modString)
+        {
+            int idx = modString.IndexOf(':');
+            return idx > 0 ? modString.Substring(0, idx).Trim() : "Unknown";
+        }
+
+        private static void PopulateModificationCategoryFeatures(InternalFragmentIon ion, string modsInFragment)
+        {
+            if (string.IsNullOrWhiteSpace(modsInFragment))
+            {
+                ion.CommonBiologicalModCount = 0;
+                ion.CommonArtifactModCount = 0;
+                ion.MetalModCount = 0;
+                ion.LessCommonModCount = 0;
+                ion.HasPhosphorylation = false;
+                ion.HasMetalOnTerminalAcidic = false;
+                return;
+            }
+
+            var modList = modsInFragment.Split(';')
+                .Select(m => m.Trim())
+                .Where(m => !string.IsNullOrEmpty(m))
+                .ToList();
+
+            ion.CommonBiologicalModCount = modList.Count(m =>
+                GetModCategory(m).Equals("Common Biological", StringComparison.OrdinalIgnoreCase));
+
+            ion.CommonArtifactModCount = modList.Count(m =>
+                GetModCategory(m).Equals("Common Artifact", StringComparison.OrdinalIgnoreCase));
+
+            ion.MetalModCount = modList.Count(m =>
+                GetModCategory(m).Equals("Metal", StringComparison.OrdinalIgnoreCase));
+
+            ion.LessCommonModCount = modList.Count(m =>
+            {
+                var cat = GetModCategory(m);
+                return cat.Equals("Less Common", StringComparison.OrdinalIgnoreCase)
+                    || cat.Equals("Speculative", StringComparison.OrdinalIgnoreCase);
+            });
+
+            ion.HasPhosphorylation = modList.Any(m =>
+            {
+                int idx = m.IndexOf(':');
+                string name = idx > 0 ? m.Substring(idx + 1).Trim() : m.Trim();
+                return name.StartsWith("Phosphorylation", StringComparison.OrdinalIgnoreCase);
+            });
+
+            ion.HasMetalOnTerminalAcidic = modList.Any(m =>
+            {
+                if (!GetModCategory(m).Equals("Metal", StringComparison.OrdinalIgnoreCase))
+                    return false;
+                bool onD = m.EndsWith("on D", StringComparison.OrdinalIgnoreCase);
+                bool onE = m.EndsWith("on E", StringComparison.OrdinalIgnoreCase);
+                if (!onD && !onE) return false;
+                char target = onD ? 'D' : 'E';
+                return ion.InternalNTerminalAA == target || ion.InternalCTerminalAA == target;
+            });
+        }
+
         private static double GetTotalIonCurrent(MsDataScan? scan, List<MatchedFragmentIon> matchedIons)
         {
             if (scan?.TotalIonCurrent > 0) return scan.TotalIonCurrent;
@@ -176,12 +235,17 @@ namespace Readers.InternalIons
             int basicInBSpan = startResidue > 1 ? CountBasicResidues(baseSequence, 0, startResidue - 2) : 0;
             int basicInYSpan = endResidue < peptideLength ? CountBasicResidues(baseSequence, endResidue, peptideLength - 1) : 0;
 
-            // New scorer features
             bool isProlineAtInternalNTerm = !string.IsNullOrEmpty(internalSequence) && internalSequence[0] == 'P';
             bool isTerminalRescue = distanceFromCTerm <= 3;
             double nTermFlankHydrophobicity = KyteDoolittle.TryGetValue(nTermFlank, out double hScore) ? hScore : 0.0;
 
-            return new InternalFragmentIon
+            // In ExtractSingleInternalFragment method, update the result object creation:
+            // Find the line: DistanceFromCTerm = distanceFromCTerm,
+            // Add after it:
+            //   PeptideLength = peptideLength,
+            //   RelativeDistanceFromCTerm = peptideLength > 0 ? (double)distanceFromCTerm / peptideLength : 0.0,
+
+            var result = new InternalFragmentIon
             {
                 PeptideSequence = baseSequence,
                 InternalSequence = internalSequence,
@@ -211,6 +275,8 @@ namespace Readers.InternalIons
                 HasMatchedYIonAtCTerm = hasMatchedY,
                 BYProductScore = byProductScore,
                 DistanceFromCTerm = distanceFromCTerm,
+                PeptideLength = peptideLength,
+                RelativeDistanceFromCTerm = peptideLength > 0 ? (double)distanceFromCTerm / peptideLength : 0.0,
                 MaxTerminalIonIntensity = maxTerminalIonIntensity,
                 HasBothTerminalIons = hasBothTerminalIons,
                 BasicResiduesInBIonSpan = basicInBSpan,
@@ -219,6 +285,11 @@ namespace Readers.InternalIons
                 IsTerminalRescue = isTerminalRescue,
                 NTerminalFlankingHydrophobicity = nTermFlankHydrophobicity
             };
+
+            // Populate modification category features
+            PopulateModificationCategoryFeatures(result, modsInFragment);
+
+            return result;
         }
 
         #region Helper Methods

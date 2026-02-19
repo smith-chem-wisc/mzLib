@@ -41,6 +41,12 @@ namespace Readers.InternalIons
             return results;
         }
 
+        // In the Parse method, add after:
+        //   DistanceFromCTerm = Int(Get(v, m, nameof(InternalFragmentIon.DistanceFromCTerm))),
+        // These two lines:
+        //   PeptideLength = Int(Get(v, m, nameof(InternalFragmentIon.PeptideLength))),
+        //   RelativeDistanceFromCTerm = Dbl(Get(v, m, nameof(InternalFragmentIon.RelativeDistanceFromCTerm))),
+
         private static InternalFragmentIon Parse(string[] v, Dictionary<string, int> m)
         {
             return new InternalFragmentIon
@@ -73,14 +79,23 @@ namespace Readers.InternalIons
                 HasMatchedYIonAtCTerm = Bool(Get(v, m, nameof(InternalFragmentIon.HasMatchedYIonAtCTerm))),
                 BYProductScore = Dbl(Get(v, m, nameof(InternalFragmentIon.BYProductScore))),
                 DistanceFromCTerm = Int(Get(v, m, nameof(InternalFragmentIon.DistanceFromCTerm))),
+                PeptideLength = Int(Get(v, m, nameof(InternalFragmentIon.PeptideLength))),
+                RelativeDistanceFromCTerm = Dbl(Get(v, m, nameof(InternalFragmentIon.RelativeDistanceFromCTerm))),
                 MaxTerminalIonIntensity = Dbl(Get(v, m, nameof(InternalFragmentIon.MaxTerminalIonIntensity))),
                 HasBothTerminalIons = Bool(Get(v, m, nameof(InternalFragmentIon.HasBothTerminalIons))),
                 BasicResiduesInBIonSpan = Int(Get(v, m, nameof(InternalFragmentIon.BasicResiduesInBIonSpan))),
                 BasicResiduesInYIonSpan = Int(Get(v, m, nameof(InternalFragmentIon.BasicResiduesInYIonSpan))),
                 IsProlineAtInternalNTerminus = Bool(Get(v, m, nameof(InternalFragmentIon.IsProlineAtInternalNTerminus))),
                 IsTerminalRescue = Bool(Get(v, m, nameof(InternalFragmentIon.IsTerminalRescue))),
-                NTerminalFlankingHydrophobicity = Dbl(Get(v, m, nameof(InternalFragmentIon.NTerminalFlankingHydrophobicity)))
+                NTerminalFlankingHydrophobicity = Dbl(Get(v, m, nameof(InternalFragmentIon.NTerminalFlankingHydrophobicity))),
+                CommonBiologicalModCount = Int(Get(v, m, nameof(InternalFragmentIon.CommonBiologicalModCount))),
+                CommonArtifactModCount = Int(Get(v, m, nameof(InternalFragmentIon.CommonArtifactModCount))),
+                MetalModCount = Int(Get(v, m, nameof(InternalFragmentIon.MetalModCount))),
+                LessCommonModCount = Int(Get(v, m, nameof(InternalFragmentIon.LessCommonModCount))),
+                HasPhosphorylation = Bool(Get(v, m, nameof(InternalFragmentIon.HasPhosphorylation))),
+                HasMetalOnTerminalAcidic = Bool(Get(v, m, nameof(InternalFragmentIon.HasMetalOnTerminalAcidic)))
             };
+        
         }
 
         private static string Get(string[] v, Dictionary<string, int> m, string col) =>
