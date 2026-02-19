@@ -1,9 +1,10 @@
 ﻿using Chromatography.RetentionTimePrediction;
+using System.ComponentModel;
 using System.Text.RegularExpressions;
 
 namespace PredictionClients.Koina.AbstractClasses
 {
-    public abstract class KoinaModelBase: IDisposable
+    public abstract class KoinaModelBase <TModelInput, TModelOutput>
     {
         #region Model Metadata
         /// <summary>
@@ -17,7 +18,8 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         public abstract int MaxBatchSize { get; }
 
-        public abstract int MaxNumberOfBatchesPerRequest { get; }
+        public abstract int MaxNumberOfBatchesPerRequest { get; init; }
+        public abstract int ThrottlingDelayInMilliseconds { get; init; }
         #endregion
 
         #region Input Sequence Validation Constraints
@@ -43,20 +45,13 @@ namespace PredictionClients.Koina.AbstractClasses
         /// <summary>
         /// Gets the regex pattern for validating amino acid sequences.
         /// </summary>
-        public virtual string CanonicalAminoAcidPattern => @"^[ACDEFGHIKLMNPQRSTVWY]+$";
+        public virtual string AllowedAminoAcidPattern => @"^[ACDEFGHIKLMNPQRSTVWY]+$";
         
         /// <summary>
         /// Gets the regex pattern for identifying modifications.
         /// </summary>
         public virtual string ModificationPattern => @"\[[^\]]+\]";
         #endregion
-
-        /// <summary>
-        /// Peptides arte temporarily stored in the model instance to allow for batching and asynchronous prediction.
-        /// </summary>
-        protected virtual List<string> PeptideSequences { get; set; } = new();
-
-        protected bool _disposed = false;
 
         #region Required Client Methods for Koina API Interaction
         /// <summary>
@@ -70,10 +65,10 @@ namespace PredictionClients.Koina.AbstractClasses
         /// - Peptide sequences (formatted according to model requirements)
         /// - Model-specific parameters (e.g., charge states, collision energies, NCE values)
         /// - Any additional metadata required by the specific Koina model
-        /// 
+        /// Must ensure that only the validated sequences that meet the model's constraints are included in the batches. 
         /// The total number of sequences across all batches should equal PeptideSequences.Count.
         /// </remarks>
-        protected abstract List<Dictionary<string, object>> ToBatchedRequests();
+        protected abstract List<Dictionary<string, object>> ToBatchedRequests(List<TModelInput> validInputs);
         #endregion
 
         #region Validation and Modification Handling
@@ -81,7 +76,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// Validates a peptide sequence against model constraints for modifications and basic sequence requirements.
         /// Handles incompatible modifications according to the specified ModHandlingMode.
         /// </summary>
-        protected virtual bool ValidateBasicConstraints(string sequence, out string? failureReason)
+        protected virtual string? TryCleanSequence(string sequence, out WarningException? warning)
         {
             switch (ModHandlingMode)
             {
@@ -94,10 +89,12 @@ namespace PredictionClients.Koina.AbstractClasses
                             sequence = sequence.Replace(mod, ""); // Remove incompatible modification
                         }
                     }
+                    warning = new WarningException("Sequence contained incompatible modifications that were removed for prediction. This WILL affect Mz differences between input and predicted fragment ions, if applicable.");
                     break;
 
                 case IncompatibleModHandlingMode.UsePrimarySequence:
                     sequence = Regex.Replace(sequence, ModificationPattern, ""); // Use primary sequence only
+                    warning = new WarningException("Sequence contained incompatible modifications that were removed for prediction. This WILL affect Mz differences between input and predicted fragment ions, if applicable.");
                     break;
 
                 case IncompatibleModHandlingMode.ThrowException:
@@ -110,13 +107,13 @@ namespace PredictionClients.Koina.AbstractClasses
                 case IncompatibleModHandlingMode.ReturnNull:
                     if (!HasValidModifications(sequence))
                     {
-                        failureReason = "Sequence contains unsupported modifications.";
-                        return false;
+                        warning = new WarningException("Sequence contains unsupported modifications.");
+                        return null;
                     }
                     break;
             }
-            failureReason = null;
-            return true;
+            warning = null;
+            return sequence;
         }
 
         /// <summary>
@@ -152,15 +149,15 @@ namespace PredictionClients.Koina.AbstractClasses
         /// <remarks>
         /// Validation criteria:
         /// - Strips modification annotations using ModificationPattern
-        /// - Checks against CanonicalAminoAcidPattern for valid amino acids
+        /// - Checks against AllowedAminoAcidPattern for valid amino acids
         /// - Validates length is within [MinPeptideLength, MaxPeptideLength] range
         /// </remarks>
-        protected virtual bool IsValidSequence(string sequence)
+        protected virtual bool IsValidBaseSequence(string sequence)
         {
             // Remove modification annotations to get base sequence
             var baseSequence = Regex.Replace(sequence, ModificationPattern, "");
 
-            return Regex.IsMatch(baseSequence, CanonicalAminoAcidPattern) // Valid amino acids only
+            return Regex.IsMatch(baseSequence, AllowedAminoAcidPattern) // Valid amino acids only
                 && baseSequence.Length <= MaxPeptideLength                 // Within max length
                 && baseSequence.Length >= MinPeptideLength;                // Above min length (implicit from abstract property)
         }
@@ -207,13 +204,5 @@ namespace PredictionClients.Koina.AbstractClasses
             return sequence;
         }
         #endregion
-        public void Dispose()
-        {
-            if (!_disposed)
-            {
-                // Dispose of any resources if necessary.
-                _disposed = true;
-            }
-        }
     }
 }

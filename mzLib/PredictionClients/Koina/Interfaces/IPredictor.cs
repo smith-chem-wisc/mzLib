@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PredictionClients.Koina.AbstractClasses;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,6 +9,14 @@ namespace PredictionClients.Koina.Interfaces
 {
     public interface IPredictor<TModelInput, TModelOutput>
     {
-        public Task<List<TModelOutput>> PredictAsync(List<TModelInput> inputs);
+        #region Properties
+        List<TModelInput> ModelInputs { get; }
+        bool[] ValidInputsMask { get; }
+        List<TModelOutput> Predictions { get; }
+        #endregion
+
+        #region Methods
+        List<TModelOutput> Predict(List<TModelInput> inputs);
+        #endregion
     }
 }

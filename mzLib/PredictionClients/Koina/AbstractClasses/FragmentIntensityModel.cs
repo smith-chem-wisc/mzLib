@@ -7,6 +7,8 @@ using System.ComponentModel;
 using Chemistry;
 using Proteomics.AminoAcidPolymer;
 using PredictionClients.Koina.Interfaces;
+using System.Data.SQLite;
+using Easy.Common.Extensions;
 
 namespace PredictionClients.Koina.AbstractClasses
 {
@@ -45,7 +47,11 @@ namespace PredictionClients.Koina.AbstractClasses
         int? CollisionEnergy,
         string? InstrumentType,
         string? FragmentationType
-    );
+    )
+    {
+        public string? ValidatedFullSequence { get; set; }
+        public WarningException? Warning { get; set; }
+    }
 
     /// <summary>
     /// Abstract base class for fragment intensity prediction models using the Koina API.
@@ -61,12 +67,15 @@ namespace PredictionClients.Koina.AbstractClasses
     /// In most cases, users will only need to implement a constructor to properly set up the model parameters
     /// and a ToBatchedRequests method to batch requests according to the specific model's input format.
     /// </summary>
-    public abstract class FragmentIntensityModel : KoinaModelBase, IPredictor<FragmentIntensityPredictionInput, PeptideFragmentIntensityPrediction>
+    public abstract class FragmentIntensityModel : KoinaModelBase<FragmentIntensityPredictionInput, PeptideFragmentIntensityPrediction>, IPredictor<FragmentIntensityPredictionInput, PeptideFragmentIntensityPrediction>
     {
 
         #region Additional Model-Type Constraints
         /// <summary>Set of precursor charge states supported by the model (e.g., {2, 3, 4})</summary>
         public abstract HashSet<int> AllowedPrecursorCharges { get; }
+        public virtual HashSet<int> AllowedCollisionEnergies => new HashSet<int>(); 
+        public virtual HashSet<string> AllowedInstrumentTypes => new HashSet<string>();
+        public virtual HashSet<string> AllowedFragmentationTypes => new HashSet<string>();
         /// <summary>
         /// Maps mzLib modification format to monoisotopic mass differences for mass-only conversions. 
         /// The monoisotopic masses should be obtained from the UNIMOD database for accuracy (https://www.unimod.org/).
@@ -86,28 +95,130 @@ namespace PredictionClients.Koina.AbstractClasses
         // Additionally, these properties are recorded for each prediction session to allow for easy access to the original inputs and outputs when batching, response parsing,
         // and spectral library generation. 
 
-        protected List<FragmentIntensityPredictionInput> ModelInputs { get; set; } = new();
-        protected List<PeptideFragmentIntensityPrediction> Predictions { get; set; } = new();
+        /// <summary>
+        /// Inputs provided to the model for the LATEST prediction session. This list is populated during the PredictAsync workflow and is used to keep track of the original 
+        /// input parameters for each prediction, especially when batching is involved. Each FragmentIntensityPredictionInput contains all relevant information (sequence, charge, 
+        /// collision energy, etc.) that was used for that specific prediction. This allows for better traceability and debugging, as well as providing necessary context when 
+        /// generating spectral libraries from the predictions.
+        /// </summary>
+        public List<FragmentIntensityPredictionInput> ModelInputs { get; protected set; } = new();
+        /// <summary>
+        /// Boolean mask indicating which inputs from the original list were valid for prediction after applying model-specific validation criteria.
+        /// This is used for realigning predictions back to the original input list and for filtering out invalid inputs from the prediction results.
+        /// The mask is populated during the PredictAsync workflow after validating each input against the model's constraints (e.g., allowed precursor charges, collision energies, etc.). 
+        /// A value of 'true' at index i indicates that the input at index i in ModelInputs was valid and included in the prediction process, 
+        /// while 'false' indicates that it was filtered out due to incompatibility with the model. 
+        /// This allows for better handling of mixed input lists where some entries may not meet the model's requirements, without losing track of their original positions in the input list.
+        /// </summary>
+        public bool[] ValidInputsMask { get; protected set; } = Array.Empty<bool>();
+        /// <summary>
+        /// Collection of fragment intensity prediction results after inference completion for the LATEST prediction session. Each PeptideFragmentIntensityPrediction contains the original input sequence,
+        /// precursor charge, fragment annotations, m/z values, and predicted intensities for that specific peptide. This list is populated during the PredictAsync workflow after parsing the API responses 
+        /// and realigning the predictions back to the original input list using the ValidInputsMask.
+        /// </summary>
+        public List<PeptideFragmentIntensityPrediction> Predictions { get; protected set; } = new();
         #endregion
-
-        #region Caches to optimize performance
-        // Caches to optimize performance by avoiding redundant computations during sequence validation and modification conversions.
-        public Dictionary<FragmentIntensityPredictionInput, PeptideFragmentIntensityPrediction> PredictionCache { get; protected set; } = new();
-        public Dictionary<FragmentIntensityPredictionInput, LibrarySpectrum> LibrarySpectrumCache { get; protected set; } = new();
-        #endregion
+        // TODO: Implement Caches to optimize performance by avoiding redundant computations during sequence validation and modification conversions.
 
 
         #region Querying Methods for the Koina API
 
         /// <summary>
-        /// Executes the prediction workflow by:
-        /// 1) Validating input sequences against model constraints
-        /// 2) Converting valid sequences into batched request payloads
-        /// 3) Throttle requests sent to the Koina API and receiving responses
-        /// 4) Parsing API responses and creating the predictions objects with model-specific prediction results
+        /// Executes fragment intensity prediction by sending batched requests to the Koina API.
+        /// The method performs the following steps:
+        /// 1. Validates and cleans input sequences according to model constraints, populating the ValidInputsMask to keep track of which inputs are valid for prediction.
+        /// 2. Converts valid inputs into batched request payloads formatted for the specific model using the ToBatchedRequests method.
+        /// 3. Sends batched requests to the Koina API with throttling between batches to avoid overwhelming the server, and processes responses to extract predictions.
+        /// 4. Realigns predictions back to the original input list using the ValidInputsMask, ensuring that the output list corresponds to the original input order and includes placeholders for invalid inputs with appropriate warnings.
         /// </summary>
         /// <returns>Task representing the asynchronous inference operation</returns>
-        public abstract Task<List<PeptideFragmentIntensityPrediction>> PredictAsync(List<FragmentIntensityPredictionInput> modelInputs);
+        protected virtual async Task<List<PeptideFragmentIntensityPrediction>> AsyncThrottledPredictor(List<FragmentIntensityPredictionInput> modelInputs)
+        {
+            #region Input Validation and Cleaning
+            ModelInputs = modelInputs;
+            ValidInputsMask = new bool[ModelInputs.Count];
+            var validInputs = new List<FragmentIntensityPredictionInput>();
+            for (int i = 0; i < ModelInputs.Count; i++)
+            {
+                WarningException? warning = null;
+                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var modHandlingWarning);
+                var validModelParams = ValidateModelSpecificInputs(ModelInputs[i], out var modelParametersWarning);
+                warning = validModelParams ? modHandlingWarning : modelParametersWarning; // If the model parameters are invalid, we prioritize that warning. If the parameters are valid but there was a modification warning, we return that warning instead.
+                if (cleanedSequence != null &&
+                    HasValidModifications(cleanedSequence) &&
+                    IsValidBaseSequence(cleanedSequence) &&
+                    validModelParams)
+                {
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = cleanedSequence, Warning = warning };
+                    ValidInputsMask[i] = true;
+                    validInputs.Add(ModelInputs[i]);
+                }
+                else
+                {
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = null, Warning = warning};
+                    ValidInputsMask[i] = false;
+                }
+            }
+            #endregion
+
+            #region Request Batching, Throttling Setup
+            var batchedRequests = ToBatchedRequests(validInputs);
+            var batchChunks = batchedRequests.Chunk(MaxNumberOfBatchesPerRequest).ToList();
+            int sessionTimeoutInMinutes = batchedRequests.Count * 2 + (int)(ThrottlingDelayInMilliseconds/6000*batchChunks.Count) + 2; // Dynamic timeout: ~2 minutes per batch + throttle time between batches + 2 minute buffer for network/processing overhead.
+            #endregion
+
+            #region Throttled API Requests and Response Processing
+            var predictions = new List<PeptideFragmentIntensityPrediction>();
+            var responses = new string[validInputs.Count];
+            using var _http = new HTTP(timeoutInMinutes: sessionTimeoutInMinutes); // Set a reasonable timeout for each batch chunk
+            for (int i = 0; i < batchChunks.Count; i++)
+            {
+                var batchChunk = batchChunks[i];
+                var responseChunk = await Task.WhenAll(batchChunk.Select(request => _http.InferenceRequest(ModelName, request)));
+                responses.Add(responseChunk);
+                if (i < batchChunks.Count - 1) // No need to throttle after the last batch
+                {
+                    await Task.Delay((int)ThrottlingDelayInMilliseconds);
+                }
+            }
+
+            predictions = ResponseToPredictions(responses, validInputs);
+            #endregion
+
+            #region Realign Predictions to Original Input List
+            // Realign predictions back to the original input list using the ValidInputsMask
+            var realignedPredictions = new List<PeptideFragmentIntensityPrediction>();
+            int predictionIndex = 0;
+            for (int i = 0; i < ValidInputsMask.Length; i++)
+            {
+                if (ValidInputsMask[i])
+                {
+                    realignedPredictions.Add(predictions[predictionIndex]);
+                    predictionIndex++;
+                }
+                else
+                {
+                    // For invalid inputs, we can choose to add a placeholder prediction with a warning, or simply skip them. Here we add a placeholder with a warning for traceability.
+                    realignedPredictions.Add(new PeptideFragmentIntensityPrediction(
+                        FullSequence: ModelInputs[i].FullSequence,
+                        PrecursorCharge: ModelInputs[i].PrecursorCharge,
+                        FragmentAnnotations: new List<string>(),
+                        FragmentMZs: new List<double>(),
+                        FragmentIntensities: new List<double>(),
+                        Warning: ModelInputs[i].Warning ?? new WarningException("Input was invalid and skipped during prediction.")
+                    ));
+                }
+            }
+            #endregion
+
+            Predictions = realignedPredictions;
+            return Predictions;
+        }
+
+        public List<PeptideFragmentIntensityPrediction> Predict(List<FragmentIntensityPredictionInput> modelInputs)
+        {
+            return AsyncThrottledPredictor(modelInputs).GetAwaiter().GetResult();
+        }
 
         /// <summary>
         /// Converts Koina API responses into structured prediction objects.
@@ -117,13 +228,14 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         /// <param name="responses">Array of JSON response strings from Koina API</param>
         /// <exception cref="Exception">Thrown when responses are malformed or contain unexpected number of outputs</exception>
-        protected virtual List<PeptideFragmentIntensityPrediction> ResponseToPredictions(string[] responses)
+        protected virtual List<PeptideFragmentIntensityPrediction> ResponseToPredictions(string[] responses, List<FragmentIntensityPredictionInput> requestInputs)
         {
             var predictions = new List<PeptideFragmentIntensityPrediction>();
-            if (PeptideSequences.Count == 0)
+            if (requestInputs.IsNullOrEmpty())
             {
                 return predictions;
             }
+
             var deserializedResponses = responses.Select(response => Newtonsoft.Json.JsonConvert.DeserializeObject<ResponseJSONStruct>(response)).ToList();
             var numBatches = deserializedResponses.Count;
             if (deserializedResponses.IsNullOrEmpty() || deserializedResponses.Any(r => r == null))
@@ -146,12 +258,12 @@ namespace PredictionClients.Koina.AbstractClasses
                 var outputAnnotations = response.Outputs[0].Data;
                 var outputMZs = response.Outputs[1].Data;
                 var outputIntensities = response.Outputs[2].Data;
-                var batchPeptides = PeptideSequences.Skip(batchIndex * MaxBatchSize).Take(MaxBatchSize).ToList();
+                var batchPeptides = requestInputs.Skip(batchIndex * MaxBatchSize).Take(MaxBatchSize).ToList();
                 // Assuming outputData is structured such that each peptide's data is sequential
                 var fragmentCount = outputAnnotations.Count / batchPeptides.Count;
                 for (int i = 0; i < batchPeptides.Count; i++)
                 {
-                    var peptideSequence = batchPeptides[i];
+                    var peptideSequence = batchPeptides[i].ValidatedFullSequence;
                     var fragmentIons = new List<string>();
                     var fragmentMZs = new List<double>();
                     var predictedIntensities = new List<double>();
@@ -162,7 +274,7 @@ namespace PredictionClients.Koina.AbstractClasses
                         predictedIntensities.Add(Convert.ToDouble(outputIntensities[i * fragmentCount + j]));
                     }
                     predictions.Add(new PeptideFragmentIntensityPrediction(
-                        peptideSequence,
+                        peptideSequence!,
                         ModelInputs[batchIndex * MaxBatchSize + i].PrecursorCharge,
                         fragmentIons,
                         fragmentMZs,
@@ -192,6 +304,39 @@ namespace PredictionClients.Koina.AbstractClasses
         }
         #endregion
 
+        /// <summary>
+        /// Validates the input parameters against the model's specific constraints (e.g., allowed precursor charges, collision energies, instrument types, fragmentation types).
+        /// Returns true if the input is valid for this model, false otherwise. If invalid, a WarningException is provided with details about the incompatibility.
+        /// </summary>
+        /// <param name="input"> FragmentIntensityPredictionInput object containing all relevant input parameters for the model</param>
+        /// <param name="warning"> Output parameter that will contain a WarningException with details if the input is invalid, or null if the input is valid. This allows the calling code to log or handle warnings without throwing exceptions for expected incompatibilities. </param>
+        /// <returns></returns>
+        protected virtual bool ValidateModelSpecificInputs(FragmentIntensityPredictionInput input, out WarningException? warning)
+        {
+            warning = null;
+            if (!AllowedPrecursorCharges.IsNullOrEmpty() && !AllowedPrecursorCharges.Contains(input.PrecursorCharge))
+            {
+                warning = new WarningException($"Precursor charge {input.PrecursorCharge} is not supported by this model.");
+                return false;
+            }
+            if (!AllowedCollisionEnergies.IsNullOrEmpty() && input.CollisionEnergy.HasValue && !AllowedCollisionEnergies.Contains(input.CollisionEnergy.Value))
+            {
+                warning = new WarningException($"Collision energy {input.CollisionEnergy.Value} is not supported by this model.");
+                return false;
+            }
+            if (!AllowedInstrumentTypes.IsNullOrEmpty() && input.InstrumentType != null && !AllowedInstrumentTypes.Contains(input.InstrumentType))
+            {
+                warning = new WarningException($"Instrument type '{input.InstrumentType}' is not supported by this model.");
+                return false;
+            }
+            if (!AllowedFragmentationTypes.IsNullOrEmpty() && input.FragmentationType != null && !AllowedFragmentationTypes.Contains(input.FragmentationType))
+            {
+                warning = new WarningException($"Fragmentation type '{input.FragmentationType}' is not supported by this model.");
+                return false;
+            }
+            return true;
+        }
+
         #region Spectral Library Generation
         /// <summary>
         /// Transforms prediction results into LibrarySpectrum objects suitable for spectral library creation.
@@ -207,7 +352,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// 5. Validates uniqueness of generated spectra by name
         /// </remarks>
         /// <exception cref="WarningException">Recorded in the out parameter when duplicate spectra are detected in predictions</exception>
-        protected List<LibrarySpectrum> GenerateLibrarySpectraFromPredictions(double[] alignedRetentionTimes, out WarningException? warning, string? filepath=null)
+        protected List<LibrarySpectrum> GenerateLibrarySpectraFromPredictions(double[] alignedRetentionTimes, out WarningException? warning, string? filepath=null, double MinIntensityFilter=1e-4)
         {
             warning = null;
             if (Predictions.Count == 0)
