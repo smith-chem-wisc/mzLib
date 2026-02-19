@@ -137,6 +137,21 @@ namespace Test.FileReadingTests
             reader.CloseDynamicConnection();
         }
 
+        [Test]
+        public void ReadsPrecursorIntensityWhenPresent()
+        {
+            //read the mgf file. zero intensity peaks should be eliminated during read
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "withIntensity.mgf");
+
+            var reader = MsDataFileReader.GetDataFile(path);
+            reader.LoadAllStaticData();
+
+            var scans = reader.GetAllScansList();
+            Assert.That(scans.Count, Is.EqualTo(1));
+            Assert.That(scans[0].SelectedIonIntensity, Is.Not.Null);
+            Assert.That(scans[0].SelectedIonIntensity, Is.EqualTo(47641904.0).Within(0.00001));
+        }
+
 
         [Test]
         public static void TestLoadCorruptMgf()
