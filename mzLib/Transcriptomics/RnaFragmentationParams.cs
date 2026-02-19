@@ -3,8 +3,10 @@ using Omics.Fragmentation;
 
 namespace Transcriptomics;
 
-public class RnaFragmentationParams : FragmentationParams
+public class RnaFragmentationParams : IFragmentationParams
 {
+    public bool GenerateMIon { get; set; } = true;
+    public List<MIonLoss> MIonLosses { get; set; } = new();
     public bool ModificationsCanSuppressBaseLossIons { get; set; } = false;
 
     static RnaFragmentationParams()
@@ -88,9 +90,4 @@ public class RnaFragmentationParams : FragmentationParams
     }
 
     public static readonly RnaFragmentationParams Default;
-    public RnaFragmentationParams()
-    {
-        GenerateMIon = true;
-        MIonLosses = new List<MIonLoss>();
-    }
 }

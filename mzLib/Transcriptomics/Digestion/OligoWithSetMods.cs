@@ -188,7 +188,7 @@ namespace Transcriptomics.Digestion
         /// The "products" parameter is filled with these fragments.
         /// </summary>
         public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus,
-            List<Product> products, FragmentationParams? fragmentationParams = null)
+            List<Product> products, IFragmentationParams? fragmentationParams = null)
         {
             products.Clear();
             fragmentationParams ??= RnaFragmentationParams.Default;
@@ -297,7 +297,7 @@ namespace Transcriptomics.Digestion
         /// The "minLengthOfFragments" parameter is the minimum number of nucleic acids for an internal fragment to be included
         /// </summary>
         public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments,
-            List<Product> products, FragmentationParams? fragmentationParams = null)
+            List<Product> products, IFragmentationParams? fragmentationParams = null)
         {
             throw new NotImplementedException();
         }

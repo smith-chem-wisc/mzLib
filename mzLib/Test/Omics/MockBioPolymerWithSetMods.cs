@@ -56,8 +56,8 @@ public class MockBioPolymerWithSetMods : IBioPolymerWithSetMods
         FullSequence = BaseSequence; // Simplified
     }
 
-    public void Fragment(DissociationType d, FragmentationTerminus t, List<Product> p, FragmentationParams? f = null) { }
-    public void FragmentInternally(DissociationType d, int m, List<Product> p, FragmentationParams? f = null) { }
+    public void Fragment(DissociationType d, FragmentationTerminus t, List<Product> p, IFragmentationParams? f = null) { }
+    public void FragmentInternally(DissociationType d, int m, List<Product> p, IFragmentationParams? f = null) { }
     public IBioPolymerWithSetMods Localize(int i, double m) => this;
     public bool Equals(IBioPolymerWithSetMods? other) => other != null && BaseSequence == other.BaseSequence;
     public override bool Equals(object? obj) => obj is IBioPolymerWithSetMods other && Equals(other);

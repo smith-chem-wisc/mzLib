@@ -25,7 +25,7 @@ public static class BaseLossFragmentation
         var modifiedProducts = new List<Product>();
         var modifiedProducts2 = new List<Product>();
 
-        FragmentationParams fragmentationParams = new RnaFragmentationParams
+        IFragmentationParams fragmentationParams = new RnaFragmentationParams
         {
              ModificationsCanSuppressBaseLossIons = true
         };
@@ -53,7 +53,7 @@ public static class BaseLossFragmentation
         var modifiedProducts = new List<Product>();
         var modifiedProducts2 = new List<Product>();
 
-        FragmentationParams fragmentationParams = new RnaFragmentationParams
+        IFragmentationParams fragmentationParams = new RnaFragmentationParams
         {
             ModificationsCanSuppressBaseLossIons = false
         };
