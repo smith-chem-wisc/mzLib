@@ -320,9 +320,30 @@ namespace Transcriptomics.Digestion
             bool first = true; //set first to true to hand the terminus sideChainMod first
             for (int fragmentNumber = 0; fragmentNumber <= BaseSequence.Length - 1; fragmentNumber++)
             {
-                // Tracks the index of the nucleotide that is currently the "last" nucleotide in the fragment as we move inward from the terminus. For example, for a 5' fragment, the first fragment will contain only the first nucleotide and therefore have a nucleic acid index of 0, and the second fragment will contain the first two nucleotides and therefore have a nucleic acid index of 1. For a 3' fragment, the first fragment will contain only the last nucleotide and therefore have a nucleic acid index of Length - 1, and the second fragment will contain the last two nucleotides and therefore have a nucleic acid index of Length - 2.
+                // 0-based array index of nucleotide being added
                 int nucleicAcidIndex = isThreePrimeTerminal ? BaseSequence.Length - fragmentNumber : fragmentNumber - 1;
+
+                // 1-based sequence position (fragment boundary)
                 int residuePosition = isThreePrimeTerminal ? BaseSequence.Length - fragmentNumber : fragmentNumber;
+
+                // Mod at side chain being added. 2-based index for modifications on the current residue in the AllModsOneIsNterminus dictionary. 
+                int sideChainModIndex = nucleicAcidIndex + 2;
+
+                // Mod at the phosphate linkage after (5') or before (3') the current residue being added.
+                int phosphateModIndex = residuePosition + 1;
+
+                //For a2(5' fragment containing A-U):
+                //    •	fragmentNumber = 2
+                //    •	nucleicAcidIndex = 1 → Points to U(0 - based)
+                //    •	residuePosition = 2 → Position 2 in sequence(1 - based)
+                //    •	Side - chain mod lookup: AllModsOneIsNterminus[3] → Mod on U
+                //    •	Backbone mod lookup: AllModsOneIsNterminus[3] → Phosphate between U - G
+                //For w2(3' fragment containing G-C):
+                //    •	fragmentNumber = 2
+                //    •	nucleicAcidIndex = 2 → Points to G(0 - based)
+                //    •	residuePosition = 2 → Position 2 from 3' end
+                //    •	Side - chain mod lookup: AllModsOneIsNterminus[4] → Mod on G
+                //    •	Backbone mod lookup: AllModsOneIsNterminus[3] → Phosphate between U - G
 
                 if (first)
                 {
@@ -335,14 +356,14 @@ namespace Transcriptomics.Digestion
                     continue;
 
                 // add side-chain sideChainMod only (at current position)
-                if (AllModsOneIsNterminus.TryGetValue(nucleicAcidIndex + 2, out Modification? sideChainMod) && sideChainMod is not BackboneModification)
+                if (AllModsOneIsNterminus.TryGetValue(sideChainModIndex, out Modification? sideChainMod) && sideChainMod is not BackboneModification)
                 {
                     monoMass += sideChainMod.MonoisotopicMass ?? 0;
                 }
 
                 // Add backbone modifications if they are included in the fragment, otherwise add mod mass after this fragment. 
                 double? backboneMassShift = null;
-                if (AllModsOneIsNterminus.TryGetValue(residuePosition + 1, out Modification? mod) && mod is BackboneModification bm)
+                if (AllModsOneIsNterminus.TryGetValue(phosphateModIndex, out Modification? mod) && mod is BackboneModification bm)
                 {
                     if (Array.BinarySearch(bm.ProductsContainingModMass, type) >= 0)
                         monoMass += mod.MonoisotopicMass ?? 0;
