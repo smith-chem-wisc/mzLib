@@ -62,7 +62,7 @@ public class BaseModification : Modification
             if (BaseLossModification != null)
             {
                 sb.Append(":");
-                sb.Append(BaseLossModification);
+                sb.Append(BaseLossModification.Formula);
             }
         }
         return sb.ToString();

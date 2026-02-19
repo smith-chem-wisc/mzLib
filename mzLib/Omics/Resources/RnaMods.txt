@@ -79,7 +79,7 @@ TG   A
 PP   Anywhere.
 MT   Biological
 CF   C1 H2
-BL   Modified:C1H2
+BL   Modified
 DR   Unimod; 34.
 //
 ID   2'-O-Methyluridine

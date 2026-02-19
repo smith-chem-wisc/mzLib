@@ -277,8 +277,22 @@ public static class ModificationLoader
                     case "BL": // Base Loss behavior
                         if (string.IsNullOrWhiteSpace(modValue))
                             break;
+                        // Parse optional formula
+                        if (modValue.Contains(':'))
+                        {
+                            string formulaString = modValue.Substring(modValue.IndexOf(':') + 1).Trim();
+                            try
+                            {
+                                _baseLossModificationFormula = ChemicalFormula.ParseFormula(formulaString.Replace(" ", string.Empty));
+                            }
+                            catch (Exception ex)
+                            {
+                                throw new MzLibException($"Invalid base loss formula '{formulaString}' for {_id}: {ex.Message}");
+                            }
+                        }
 
-                        if (modValue.Equals("Suppressed", StringComparison.OrdinalIgnoreCase))
+                        if (modValue.Equals("Suppressed", StringComparison.OrdinalIgnoreCase) ||
+                            modValue.StartsWith("Suppressed:", StringComparison.OrdinalIgnoreCase))
                         {
                             _baseLossType = BaseLossBehavior.Suppressed;
                         }
@@ -286,23 +300,9 @@ public static class ModificationLoader
                                  modValue.StartsWith("Modified:", StringComparison.OrdinalIgnoreCase))
                         {
                             _baseLossType = BaseLossBehavior.Modified;
-
-                            // Parse optional formula
-                            if (modValue.Contains(':'))
+                            if (_baseLossModificationFormula == null)
                             {
-                                string formulaString = modValue.Substring(modValue.IndexOf(':') + 1).Trim();
-                                try
-                                {
-                                    _baseLossModificationFormula = ChemicalFormula.ParseFormula(formulaString.Replace(" ", string.Empty));
-                                }
-                                catch (Exception ex)
-                                {
-                                    throw new MzLibException($"Invalid base loss formula '{formulaString}' for {_id}: {ex.Message}");
-                                }
-                            }
-                            else
-                            {
-                                // Default to using main chemical formula
+                                // If the modification is a modified base loss but no formula is provided, default to the chemical formula of the modification
                                 _baseLossModificationFormula = _chemicalFormula;
                             }
                         }
