@@ -5,8 +5,8 @@ using System.Text;
 namespace Omics.Modifications;
 public enum BaseLossBehavior
 {
-    Default,      // Normal base loss
-    Suppressed,   // No base loss (e.g., 2'-O-methyl)
+    Default,      // Normal base loss - No Mod mass added
+    Suppressed,   // No base loss (e.g., 2'-O-methyl) - behavior can be toggled by FragmentationParams. 
     Modified      // Base loss includes modification (e.g., m6A)
 }
 

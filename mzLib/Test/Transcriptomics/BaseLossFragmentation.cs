@@ -288,47 +288,4 @@ public static class BaseLossFragmentation
         var deltaMass = Math.Abs(dimethylBaseLoss.NeutralMass - nSixBaseLoss.NeutralMass);
         Assert.That(deltaMass, Is.EqualTo(modMass / 2).Within(1E-6));
     }
-
-    [Test]
-    public static void dummy()
-    {
-        var unmodified = new OligoWithSetMods("GUACUG");
-        var twoOMethyl = new OligoWithSetMods("GUA[Biological:2'-O-Methyladenosine on A]CUG");
-        var nSix = new OligoWithSetMods("GUA[Biological:N6-methyladenosine on A]CUG");
-        var dimethyl = new OligoWithSetMods("GUA[Biological:N6,2'-O-dimethyladenosine on A]CUG");
-
-        var unmodifiedProducts = new List<Product>();
-        unmodified.Fragment(DissociationType.CID, FragmentationTerminus.Both, unmodifiedProducts);
-
-        var twoOMethylProducts = new List<Product>();
-        twoOMethyl.Fragment(DissociationType.CID, FragmentationTerminus.Both, twoOMethylProducts);
-
-        var nSixProducts = new List<Product>();
-        nSix.Fragment(DissociationType.CID, FragmentationTerminus.Both, nSixProducts);
-
-        var dimethylProducts = new List<Product>();
-        dimethyl.Fragment(DissociationType.CID, FragmentationTerminus.Both, dimethylProducts);
-
-        for (int i = 0; i < 5; i++)
-        {
-            var unmodBaseLoss = unmodifiedProducts.Where(p => p.ProductType == ProductType.aBaseLoss)
-                .FirstOrDefault(p => p.FragmentNumber == i + 1);
-            var twoOBaseLoss = twoOMethylProducts.Where(p => p.ProductType == ProductType.aBaseLoss)
-                .FirstOrDefault(p => p.FragmentNumber == i + 1);
-            var nSixBaseLoss = nSixProducts.Where(p => p.ProductType == ProductType.aBaseLoss)
-                .FirstOrDefault(p => p.FragmentNumber == i + 1);
-            var dimethylBaseLoss = dimethylProducts.Where(p => p.ProductType == ProductType.aBaseLoss)
-                .FirstOrDefault(p => p.FragmentNumber == i + 1);
-
-            Console.WriteLine($"Fragment {i + 1}:");
-            Console.WriteLine($"Unmodified: {unmodBaseLoss?.NeutralMass}");
-            Console.WriteLine($"Two O-Methyl: {twoOBaseLoss?.NeutralMass}");
-            Console.WriteLine($"N6 Methyl: {nSixBaseLoss?.NeutralMass}");
-            Console.WriteLine($"Dimethyl: {dimethylBaseLoss?.NeutralMass}");
-            Console.WriteLine();
-
-        }
-
-
-    }
 }
