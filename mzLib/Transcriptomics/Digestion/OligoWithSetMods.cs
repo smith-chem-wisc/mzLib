@@ -320,7 +320,8 @@ namespace Transcriptomics.Digestion
             bool first = true; //set first to true to hand the terminus sideChainMod first
             for (int fragmentNumber = 0; fragmentNumber <= BaseSequence.Length - 1; fragmentNumber++)
             {
-                int naIndex = isThreePrimeTerminal ? Length - fragmentNumber : fragmentNumber - 1;
+                // Tracks the index of the nucleotide that is currently the "last" nucleotide in the fragment as we move inward from the terminus. For example, for a 5' fragment, the first fragment will contain only the first nucleotide and therefore have a nucleic acid index of 0, and the second fragment will contain the first two nucleotides and therefore have a nucleic acid index of 1. For a 3' fragment, the first fragment will contain only the last nucleotide and therefore have a nucleic acid index of Length - 1, and the second fragment will contain the last two nucleotides and therefore have a nucleic acid index of Length - 2.
+                int nucleicAcidIndex = isThreePrimeTerminal ? BaseSequence.Length - fragmentNumber : fragmentNumber - 1;
                 int residuePosition = isThreePrimeTerminal ? BaseSequence.Length - fragmentNumber : fragmentNumber;
 
                 if (first)
@@ -328,13 +329,13 @@ namespace Transcriptomics.Digestion
                     first = false; //set to false so only handled once
                     continue;
                 }
-                monoMass += sequence[naIndex].MonoisotopicMass;
+                monoMass += sequence[nucleicAcidIndex].MonoisotopicMass;
 
                 if (fragmentNumber < 1)
                     continue;
 
                 // add side-chain sideChainMod only (at current position)
-                if (AllModsOneIsNterminus.TryGetValue(naIndex + 2, out Modification? sideChainMod) && sideChainMod is not BackboneModification)
+                if (AllModsOneIsNterminus.TryGetValue(nucleicAcidIndex + 2, out Modification? sideChainMod) && sideChainMod is not BackboneModification)
                 {
                     monoMass += sideChainMod.MonoisotopicMass ?? 0;
                 }
@@ -351,7 +352,7 @@ namespace Transcriptomics.Digestion
 
                 // Handle Base Loss fragment series mass correction. 
                 double neutralLoss = 0;
-                var previousNucleotide = sequence[naIndex];
+                var previousNucleotide = sequence[nucleicAcidIndex];
                 if (type.IsBaseLoss())
                 {
                     neutralLoss = previousNucleotide.BaseChemicalFormula.MonoisotopicMass;
