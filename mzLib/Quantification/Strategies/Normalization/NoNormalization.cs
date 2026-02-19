@@ -1,11 +1,4 @@
 ﻿using Quantification.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Omics;
-using Omics.BioPolymerGroup;
 
 namespace Quantification.Strategies
 {

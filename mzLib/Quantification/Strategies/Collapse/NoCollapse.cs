@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Quantification.Interfaces;
+﻿using Quantification.Interfaces;
 
-namespace Quantification.Strategies.Collapse
+namespace Quantification.Strategies
 {
     public class NoCollapse : ICollapseStrategy
     {
