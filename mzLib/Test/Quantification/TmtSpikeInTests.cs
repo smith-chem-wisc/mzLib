@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -11,6 +12,7 @@ using Omics.Modifications;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using Quantification;
+using Quantification.Interfaces;
 using Quantification.Strategies;
 using Test.Quantification.TestHelpers;
 
@@ -553,5 +555,486 @@ public class TmtSpikeInTests
         // (a very loose bound — normalization would tighten this toward 1.0)
         Assert.That(medianFc, Is.InRange(0.3, 3.0),
             $"Median HeLa fold change '1' vs '0.5' was {medianFc:F3}, expected in [0.3, 3.0]");
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Task 10: GlobalMedianNormalization unit test
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Verifies that GlobalMedianNormalization equalizes column medians in log2 space
+    /// and that zero values are preserved unchanged.
+    /// </summary>
+    [Test]
+    public void GlobalMedianNormalization_EqualizesColumnMedians()
+    {
+        // Setup: 2 rows × 3 columns. Before normalization the column medians (in log2 space) differ:
+        //   Col 0: [100, 100] → log2 median = log2(100) ≈ 6.644
+        //   Col 1: [200, 200] → log2 median = log2(200) ≈ 7.644  (global median)
+        //   Col 2: [400, 400] → log2 median = log2(400) ≈ 8.644
+        // Global median of [6.644, 7.644, 8.644] = 7.644
+        // After normalization every column median should equal log2(200).
+        var design = CreateTmtExperimentalDesign(
+            new[] { "file1.raw" },
+            new[] { "126", "127N", "127C" },
+            new[] { "CondA", "CondB", "CondC" },
+            new[] { 1, 1, 1 }, new[] { 1 });
+        var columns = design.FileNameSampleInfoDictionary["file1.raw"];
+
+        var matrix = new QuantMatrix<string>(new[] { "Entity1", "Entity2" }, columns, design);
+        matrix.SetRow("Entity1", new double[] { 100, 200, 400 });
+        matrix.SetRow("Entity2", new double[] { 100, 200, 400 });
+
+        var norm = new GlobalMedianNormalization();
+        var result = norm.NormalizeIntensities(matrix);
+
+        // After normalization all columns should contain [200, 200].
+        Assert.That(result.Matrix[0, 0], Is.EqualTo(200.0).Within(1e-6), "Col0 row0 should be 200");
+        Assert.That(result.Matrix[1, 0], Is.EqualTo(200.0).Within(1e-6), "Col0 row1 should be 200");
+        Assert.That(result.Matrix[0, 1], Is.EqualTo(200.0).Within(1e-6), "Col1 row0 should be unchanged");
+        Assert.That(result.Matrix[1, 1], Is.EqualTo(200.0).Within(1e-6), "Col1 row1 should be unchanged");
+        Assert.That(result.Matrix[0, 2], Is.EqualTo(200.0).Within(1e-6), "Col2 row0 should be 200");
+        Assert.That(result.Matrix[1, 2], Is.EqualTo(200.0).Within(1e-6), "Col2 row1 should be 200");
+
+        // Zeros must remain zero after normalization.
+        var matrixWithZero = new QuantMatrix<string>(new[] { "E1", "E2", "E3" }, columns, design);
+        matrixWithZero.SetRow("E1", new double[] { 100, 0, 400 });
+        matrixWithZero.SetRow("E2", new double[] { 200, 500, 600 });
+        matrixWithZero.SetRow("E3", new double[] { 400, 800, 1600 });
+        var resultWithZero = norm.NormalizeIntensities(matrixWithZero);
+        Assert.That(resultWithZero.Matrix[0, 1], Is.EqualTo(0.0), "Zero should remain zero after normalization");
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Task 11: ReferenceChannelNormalization unit test
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Verifies that ReferenceChannelNormalization converts intensities to ratios relative to
+    /// the mean of the reference channels in the same file.
+    /// </summary>
+    [Test]
+    public void ReferenceChannelNormalization_ConvertsToRatios()
+    {
+        // Setup: 1 file, 3 channels (126=reference, 127N=non-reference, 131N=reference).
+        // Using "Reference" condition name so CreateTmtExperimentalDesign sets IsReferenceChannel=true.
+        var design = CreateTmtExperimentalDesign(
+            new[] { "file1.raw" },
+            new[] { "126", "127N", "131N" },
+            new[] { "Reference", "CondA", "Reference" },
+            new[] { 1, 1, 1 }, new[] { 1 });
+        var columns = design.FileNameSampleInfoDictionary["file1.raw"];
+
+        // Row 0: ref1=100, nonRef=200, ref2=100  → refMean=100, ratio=2.0
+        // Row 1: ref1=200, nonRef=400, ref2=200  → refMean=200, ratio=2.0
+        var matrix = new QuantMatrix<string>(new[] { "Entity1", "Entity2" }, columns, design);
+        matrix.SetRow("Entity1", new double[] { 100, 200, 100 });
+        matrix.SetRow("Entity2", new double[] { 200, 400, 200 });
+
+        var norm = new ReferenceChannelNormalization();
+        var result = norm.NormalizeIntensities(matrix);
+
+        // Reference channels (col 0 and col 2) → 1.0
+        Assert.That(result.Matrix[0, 0], Is.EqualTo(1.0).Within(1e-9), "Entity1 ref ch 126 should be 1.0");
+        Assert.That(result.Matrix[0, 2], Is.EqualTo(1.0).Within(1e-9), "Entity1 ref ch 131N should be 1.0");
+        Assert.That(result.Matrix[1, 0], Is.EqualTo(1.0).Within(1e-9), "Entity2 ref ch 126 should be 1.0");
+        Assert.That(result.Matrix[1, 2], Is.EqualTo(1.0).Within(1e-9), "Entity2 ref ch 131N should be 1.0");
+
+        // Non-reference (col 1): 200/100=2.0, 400/200=2.0
+        Assert.That(result.Matrix[0, 1], Is.EqualTo(2.0).Within(1e-9), "Entity1 non-ref ch 127N should be 2.0");
+        Assert.That(result.Matrix[1, 1], Is.EqualTo(2.0).Within(1e-9), "Entity2 non-ref ch 127N should be 2.0");
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Task 12: MedianRollUp unit test
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Verifies that MedianRollUp computes the per-column median across rolled-up rows,
+    /// correctly ignoring zero values (missing data).
+    /// </summary>
+    [Test]
+    public void MedianRollUp_ComputesMedianPerColumn()
+    {
+        var design = CreateTmtExperimentalDesign(
+            new[] { "file1.raw" },
+            new[] { "126", "127N" },
+            new[] { "CondA", "CondB" },
+            new[] { 1, 1 }, new[] { 1 });
+        var columns = design.FileNameSampleInfoDictionary["file1.raw"];
+
+        // 3 PSM rows → 1 protein, 2 columns
+        var inputMatrix = new QuantMatrix<string>(
+            new[] { "PSM1", "PSM2", "PSM3" }, columns, design);
+        inputMatrix.SetRow("PSM1", new double[] { 100, 200 });
+        inputMatrix.SetRow("PSM2", new double[] { 300, 400 });
+        inputMatrix.SetRow("PSM3", new double[] { 500, 100 });
+
+        var map = new Dictionary<string, List<int>>
+        {
+            { "Protein1", new List<int> { 0, 1, 2 } }
+        };
+
+        var rollUp = new MedianRollUp();
+        var result = rollUp.RollUp(inputMatrix, map);
+
+        // Col 0: median([100, 300, 500]) = 300
+        Assert.That(result.Matrix[0, 0], Is.EqualTo(300.0).Within(1e-6), "Median of [100,300,500] should be 300");
+        // Col 1: median([200, 400, 100]) = sorted [100,200,400] → middle = 200
+        Assert.That(result.Matrix[0, 1], Is.EqualTo(200.0).Within(1e-6), "Median of [200,400,100] should be 200");
+
+        // Test with zeros: zeros are excluded from the median.
+        var inputMatrixWithZeros = new QuantMatrix<string>(
+            new[] { "PSM1", "PSM2", "PSM3" }, columns, design);
+        inputMatrixWithZeros.SetRow("PSM1", new double[] { 100, 0 });
+        inputMatrixWithZeros.SetRow("PSM2", new double[] { 300, 400 });
+        inputMatrixWithZeros.SetRow("PSM3", new double[] { 0, 100 });
+
+        var resultWithZeros = rollUp.RollUp(inputMatrixWithZeros, map);
+
+        // Col 0: non-zero values [100, 300] → median = (100+300)/2 = 200
+        Assert.That(resultWithZeros.Matrix[0, 0], Is.EqualTo(200.0).Within(1e-6), "Median of [100,300] (ignoring zeros) should be 200");
+        // Col 1: non-zero values [400, 100] → sorted [100,400] → median = (100+400)/2 = 250
+        Assert.That(resultWithZeros.Matrix[0, 1], Is.EqualTo(250.0).Within(1e-6), "Median of [400,100] (ignoring zeros) should be 250");
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Task 13: MeanCollapse unit test
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Verifies that MeanCollapse averages technical replicates, producing values on the
+    /// same scale as individual measurements (unlike SumCollapse which produces inflated sums).
+    /// </summary>
+    [Test]
+    public void MeanCollapse_AveragesTechnicalReplicates()
+    {
+        // Same setup as RunTmt_WithSumCollapse_CombinesTechnicalReplicates:
+        // 3 files (tech reps 1, 2, 3), 3 channels, 1 protein with values [100, 200, 300] per file.
+        string file1 = "file1.raw";
+        string file2 = "file2.raw";
+        string file3 = "file3.raw";
+        string[] channels = { "126", "127N", "127C" };
+        string[] conditions = { "Reference", "CondA", "CondB" };
+        int[] bioReps = { 1, 1, 1 };
+        int[] techReps = { 1, 2, 3 };
+
+        var design = CreateTmtExperimentalDesign(
+            new[] { file1, file2, file3 }, channels, conditions, bioReps, techReps);
+
+        var protein1 = new Protein("PEPTIDEK", "P001");
+        var digParams = new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 5);
+        var pep1 = protein1.Digest(digParams, new List<Modification>(), new List<Modification>()).First();
+
+        var allPeptides = new List<IBioPolymerWithSetMods> { pep1 };
+        var group1 = new BioPolymerGroup(
+            new HashSet<IBioPolymer> { protein1 },
+            new HashSet<IBioPolymerWithSetMods> { pep1 },
+            new HashSet<IBioPolymerWithSetMods> { pep1 });
+        var proteinGroups = new List<IBioPolymerGroup> { group1 };
+
+        // Each tech rep contributes identical intensities [100, 200, 300].
+        var sm1 = new BaseSpectralMatch(file1, 1, 100.0, pep1.FullSequence, pep1.BaseSequence, new[] { pep1 })
+            { QuantValues = new double[] { 100, 200, 300 } };
+        var sm2 = new BaseSpectralMatch(file2, 2, 100.0, pep1.FullSequence, pep1.BaseSequence, new[] { pep1 })
+            { QuantValues = new double[] { 100, 200, 300 } };
+        var sm3 = new BaseSpectralMatch(file3, 3, 100.0, pep1.FullSequence, pep1.BaseSequence, new[] { pep1 })
+            { QuantValues = new double[] { 100, 200, 300 } };
+
+        var spectralMatches = new List<ISpectralMatch> { sm1, sm2, sm3 };
+
+        var parameters = new QuantificationParameters
+        {
+            SpectralMatchNormalizationStrategy = new NoNormalization(),
+            SpectralMatchToPeptideRollUpStrategy = new SumRollUp(),
+            PeptideNormalizationStrategy = new NoNormalization(),
+            CollapseStrategy = new MeanCollapse(),
+            PeptideToProteinRollUpStrategy = new SumRollUp(),
+            ProteinNormalizationStrategy = new NoNormalization(),
+            OutputDirectory = string.Empty,
+            UseSharedPeptidesForProteinQuant = false,
+            WriteRawInformation = false,
+            WritePeptideInformation = false,
+            WriteProteinInformation = false
+        };
+
+        var engine = new QuantificationEngine(parameters, design, spectralMatches, allPeptides, proteinGroups);
+        var proteinMatrix = engine.RunTmtAndReturnProteinMatrix();
+
+        // After MeanCollapse, 9 columns (3 files × 3 channels) collapse to 3 groups.
+        Assert.That(proteinMatrix.ColumnKeys.Count, Is.EqualTo(3),
+            "Expected 3 columns after MeanCollapse (Reference_1, CondA_1, CondB_1)");
+
+        // mean(100,100,100)/3 would be sum/3 — but group size=3 so mean = 300/3 = 100
+        var p1Row = proteinMatrix.GetRow(group1);
+        Assert.That(p1Row[0], Is.EqualTo(100.0).Within(1e-6), "Reference_1: mean(100,100,100)=100");
+        Assert.That(p1Row[1], Is.EqualTo(200.0).Within(1e-6), "CondA_1: mean(200,200,200)=200");
+        Assert.That(p1Row[2], Is.EqualTo(300.0).Within(1e-6), "CondB_1: mean(300,300,300)=300");
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Task 9: Pipeline helper + baseline metrics tests
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Loads PSMs from a psmtsv file, configures a QuantificationEngine with the given strategies,
+    /// runs the TMT pipeline, and returns the protein matrix.
+    /// </summary>
+    private static QuantMatrix<IBioPolymerGroup> RunPipelineWithStrategies(
+        string psmtsvPath,
+        INormalizationStrategy psmNorm,
+        IRollUpStrategy psmToPeptideRollUp,
+        INormalizationStrategy peptideNorm,
+        ICollapseStrategy collapse,
+        IRollUpStrategy peptideToProteinRollUp,
+        INormalizationStrategy proteinNorm)
+    {
+        var (spectralMatches, peptides, proteinGroups) =
+            PsmTsvQuantAdapter.BuildQuantificationInputs(psmtsvPath);
+        return RunPipelineWithStrategies(
+            spectralMatches, peptides, proteinGroups,
+            psmNorm, psmToPeptideRollUp, peptideNorm, collapse, peptideToProteinRollUp, proteinNorm);
+    }
+
+    /// <summary>
+    /// Configures a QuantificationEngine with the given strategies using pre-loaded inputs,
+    /// runs the TMT pipeline, and returns the protein matrix. Use this overload to avoid
+    /// re-loading the PSM file for every combination in the strategy evaluation test.
+    /// </summary>
+    private static QuantMatrix<IBioPolymerGroup> RunPipelineWithStrategies(
+        List<ISpectralMatch> spectralMatches,
+        List<IBioPolymerWithSetMods> peptides,
+        List<IBioPolymerGroup> proteinGroups,
+        INormalizationStrategy psmNorm,
+        IRollUpStrategy psmToPeptideRollUp,
+        INormalizationStrategy peptideNorm,
+        ICollapseStrategy collapse,
+        IRollUpStrategy peptideToProteinRollUp,
+        INormalizationStrategy proteinNorm)
+    {
+        var design = new SpikeInExperimentalDesign();
+        var parameters = new QuantificationParameters
+        {
+            SpectralMatchNormalizationStrategy = psmNorm,
+            SpectralMatchToPeptideRollUpStrategy = psmToPeptideRollUp,
+            PeptideNormalizationStrategy = peptideNorm,
+            CollapseStrategy = collapse,
+            PeptideToProteinRollUpStrategy = peptideToProteinRollUp,
+            ProteinNormalizationStrategy = proteinNorm,
+            OutputDirectory = string.Empty,
+            WriteRawInformation = false,
+            WritePeptideInformation = false,
+            WriteProteinInformation = false
+        };
+        var engine = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups);
+        return engine.RunTmtAndReturnProteinMatrix();
+    }
+
+    /// <summary>
+    /// Runs the NoNormalization + SumRollUp + NoCollapse baseline pipeline on UPS spike-in data
+    /// and prints accuracy metrics for all three expected fold change comparisons.
+    /// No assertions are made — this test documents the baseline for strategy comparison.
+    /// </summary>
+    [Test]
+    public void BaselineMetrics_NoNormalization_UPS()
+    {
+        string dataDir = Path.Combine(GetSolutionDir(), "TMT_Spike-In_Info");
+        string upsPsmPath = Path.Combine(dataDir, "UPS_TMT3_Search", "Task1-SearchTask", "AllPSMs.psmtsv");
+        Assert.That(File.Exists(upsPsmPath), Is.True, $"UPS psmtsv not found at: {upsPsmPath}");
+
+        var (spectralMatches, peptides, proteinGroups) =
+            PsmTsvQuantAdapter.BuildQuantificationInputs(upsPsmPath);
+
+        var proteinMatrix = RunPipelineWithStrategies(
+            spectralMatches, peptides, proteinGroups,
+            new NoNormalization(), new SumRollUp(),
+            new NoNormalization(), new NoCollapse(),
+            new SumRollUp(), new NoNormalization());
+
+        var comparisons = new[]
+        {
+            ("1 vs 0.125", "1", "0.125", 8.0),
+            ("1 vs 0.5",   "1", "0.5",   2.0),
+            ("1 vs 0.667", "1", "0.667", 1.5),
+        };
+
+        TestContext.WriteLine("=== Baseline Metrics (NoNormalization + SumRollUp + NoCollapse) ===");
+
+        foreach (var (label, numerator, denominator, expectedFc) in comparisons)
+        {
+            var foldChanges = QuantificationEvaluator.ComputeFoldChanges(proteinMatrix, numerator, denominator)
+                .Select(x => x.foldChange)
+                .ToList();
+
+            if (foldChanges.Count == 0)
+            {
+                TestContext.WriteLine($"\nComparison: {label} (expected FC = {expectedFc}) — no quantifiable proteins");
+                continue;
+            }
+
+            double medianFc  = QuantificationEvaluator.Median(foldChanges);
+            double meanFc    = foldChanges.Average();
+            double mae       = QuantificationEvaluator.MeanAbsoluteError(foldChanges, expectedFc);
+            double maeLog2   = QuantificationEvaluator.MeanAbsoluteLog2Error(foldChanges, expectedFc);
+            double frac2x    = QuantificationEvaluator.FractionWithinFactor(foldChanges, expectedFc, 2.0);
+
+            TestContext.WriteLine($"\nComparison: {label} (expected FC = {expectedFc})");
+            TestContext.WriteLine($"  Proteins quantified: {foldChanges.Count}");
+            TestContext.WriteLine($"  Median FC:           {medianFc:F3}");
+            TestContext.WriteLine($"  Mean FC:             {meanFc:F3}");
+            TestContext.WriteLine($"  MAE:                 {mae:F3}");
+            TestContext.WriteLine($"  MAE(log2):           {maeLog2:F3}");
+            TestContext.WriteLine($"  Fraction within 2x:  {frac2x:F3}");
+        }
+    }
+
+    /// <summary>
+    /// Baseline metrics for HeLa background proteins (expected fold change = 1.0).
+    /// Marked explicit because the HeLa file is large (~1.35M lines, ~90s loading time).
+    /// </summary>
+    [Test, Explicit("Large HeLa file; run explicitly to evaluate background protein stability")]
+    public void BaselineMetrics_NoNormalization_HeLa()
+    {
+        string dataDir = Path.Combine(GetSolutionDir(), "TMT_Spike-In_Info");
+        string helaPsmPath = Path.Combine(dataDir, "TMT3_HeLa_Search", "Task1-SearchTask", "AllPSMs.psmtsv");
+        Assert.That(File.Exists(helaPsmPath), Is.True, $"HeLa psmtsv not found at: {helaPsmPath}");
+
+        var (spectralMatches, peptides, proteinGroups) =
+            PsmTsvQuantAdapter.BuildQuantificationInputs(helaPsmPath);
+
+        var proteinMatrix = RunPipelineWithStrategies(
+            spectralMatches, peptides, proteinGroups,
+            new NoNormalization(), new SumRollUp(),
+            new NoNormalization(), new NoCollapse(),
+            new SumRollUp(), new NoNormalization());
+
+        var foldChanges = QuantificationEvaluator.ComputeFoldChanges(proteinMatrix, "1", "0.5")
+            .Select(x => x.foldChange)
+            .ToList();
+
+        TestContext.WriteLine("=== Baseline Metrics HeLa (NoNormalization + SumRollUp + NoCollapse) ===");
+        TestContext.WriteLine($"Comparison: 1 vs 0.5 (expected FC = 1.0)");
+        TestContext.WriteLine($"  Proteins quantified:   {foldChanges.Count}");
+
+        if (foldChanges.Count > 0)
+        {
+            double medianFc  = QuantificationEvaluator.Median(foldChanges);
+            double mae       = QuantificationEvaluator.MeanAbsoluteError(foldChanges, 1.0);
+            double frac15x   = QuantificationEvaluator.FractionWithinFactor(foldChanges, 1.0, 1.5);
+            double frac2x    = QuantificationEvaluator.FractionWithinFactor(foldChanges, 1.0, 2.0);
+
+            TestContext.WriteLine($"  Median FC:             {medianFc:F3}");
+            TestContext.WriteLine($"  MAE:                   {mae:F3}");
+            TestContext.WriteLine($"  Fraction within 1.5x:  {frac15x:F3}");
+            TestContext.WriteLine($"  Fraction within 2.0x:  {frac2x:F3}");
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Task 14: Combinatorial strategy evaluation
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Evaluates all meaningful combinations of normalization, roll-up, and collapse strategies
+    /// against UPS spike-in data and prints a ranked table sorted by combined MAE(log2).
+    /// PSMs are loaded once to avoid repeated file I/O across the ~48 combinations.
+    /// </summary>
+    [Test]
+    public void StrategyEvaluation_AllCombinations_UPS()
+    {
+        string dataDir = Path.Combine(GetSolutionDir(), "TMT_Spike-In_Info");
+        string upsPsmPath = Path.Combine(dataDir, "UPS_TMT3_Search", "Task1-SearchTask", "AllPSMs.psmtsv");
+        Assert.That(File.Exists(upsPsmPath), Is.True, $"UPS psmtsv not found at: {upsPsmPath}");
+
+        // Load PSMs once; reuse across all strategy combinations.
+        var (spectralMatches, peptides, proteinGroups) =
+            PsmTsvQuantAdapter.BuildQuantificationInputs(upsPsmPath);
+
+        // Strategy options
+        var psmNorms = new INormalizationStrategy[]
+        {
+            new NoNormalization(),
+            new GlobalMedianNormalization(),
+            new ReferenceChannelNormalization()
+        };
+        var rollUps = new IRollUpStrategy[]
+        {
+            new SumRollUp(),
+            new MedianRollUp()
+        };
+        var peptideNorms = new INormalizationStrategy[]
+        {
+            new NoNormalization(),
+            new GlobalMedianNormalization()
+        };
+        var collapses = new ICollapseStrategy[]
+        {
+            new NoCollapse(),
+            new MeanCollapse()
+        };
+        var proteinNorms = new INormalizationStrategy[]
+        {
+            new NoNormalization(),
+            new GlobalMedianNormalization()
+        };
+
+        var results = new List<(string config, double mae_8x, double mae_2x, double medianFc_8x, double medianFc_2x)>();
+
+        foreach (var psmNorm in psmNorms)
+        foreach (var rollUp in rollUps)
+        foreach (var pepNorm in peptideNorms)
+        foreach (var collapse in collapses)
+        foreach (var protNorm in proteinNorms)
+        {
+            string config = $"{psmNorm.Name} | {rollUp.Name} | {pepNorm.Name} | {collapse.Name} | {rollUp.Name} | {protNorm.Name}";
+
+            try
+            {
+                var proteinMatrix = RunPipelineWithStrategies(
+                    spectralMatches, peptides, proteinGroups,
+                    psmNorm, rollUp, pepNorm, collapse, rollUp, protNorm);
+
+                var fc_8x = QuantificationEvaluator.ComputeFoldChanges(proteinMatrix, "1", "0.125")
+                    .Select(x => x.foldChange).ToList();
+                var fc_2x = QuantificationEvaluator.ComputeFoldChanges(proteinMatrix, "1", "0.5")
+                    .Select(x => x.foldChange).ToList();
+
+                if (fc_8x.Count > 0 && fc_2x.Count > 0)
+                {
+                    double mae_8x    = QuantificationEvaluator.MeanAbsoluteLog2Error(fc_8x, 8.0);
+                    double mae_2x    = QuantificationEvaluator.MeanAbsoluteLog2Error(fc_2x, 2.0);
+                    double medFc_8x  = QuantificationEvaluator.Median(fc_8x);
+                    double medFc_2x  = QuantificationEvaluator.Median(fc_2x);
+                    results.Add((config, mae_8x, mae_2x, medFc_8x, medFc_2x));
+                }
+            }
+            catch (Exception ex)
+            {
+                TestContext.WriteLine($"FAILED: {config} → {ex.Message}");
+            }
+        }
+
+        // Sort by combined MAE(log2).
+        results = results.OrderBy(r => r.mae_8x + r.mae_2x).ToList();
+
+        TestContext.WriteLine("=== Strategy Evaluation Results (sorted by combined MAE_log2) ===");
+        TestContext.WriteLine($"{"Rank",-5} {"MAE_log2(8x)",-14} {"MAE_log2(2x)",-14} {"MedFC(8x)",-12} {"MedFC(2x)",-12} Config");
+        TestContext.WriteLine(new string('-', 120));
+
+        for (int i = 0; i < results.Count; i++)
+        {
+            var r = results[i];
+            TestContext.WriteLine($"{i + 1,-5} {r.mae_8x,-14:F3} {r.mae_2x,-14:F3} {r.medianFc_8x,-12:F3} {r.medianFc_2x,-12:F3} {r.config}");
+        }
+
+        Assert.That(results.Count, Is.GreaterThan(0), "No strategy combinations could be evaluated");
+
+        if (results.Count > 1)
+        {
+            double bestScore  = results.First().mae_8x + results.First().mae_2x;
+            double worstScore = results.Last().mae_8x  + results.Last().mae_2x;
+            TestContext.WriteLine($"\nBest combined MAE_log2:  {bestScore:F3}");
+            TestContext.WriteLine($"Worst combined MAE_log2: {worstScore:F3}");
+        }
     }
 }

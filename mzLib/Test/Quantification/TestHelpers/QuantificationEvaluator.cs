@@ -103,4 +103,31 @@ public static class QuantificationEvaluator
             ? (sorted[mid - 1] + sorted[mid]) / 2.0
             : sorted[mid];
     }
+
+    /// <summary>
+    /// Computes the Mean Absolute Error (MAE) between observed and expected fold changes.
+    /// </summary>
+    public static double MeanAbsoluteError(List<double> observed, double expected)
+    {
+        return observed.Average(fc => Math.Abs(fc - expected));
+    }
+
+    /// <summary>
+    /// Computes the Mean Absolute Log2 Error between observed and expected fold changes.
+    /// Log2 space is symmetric: a 2x overestimate and 2x underestimate are equidistant from truth.
+    /// </summary>
+    public static double MeanAbsoluteLog2Error(List<double> observed, double expected)
+    {
+        double expectedLog2 = Math.Log2(expected);
+        return observed.Average(fc => Math.Abs(Math.Log2(fc) - expectedLog2));
+    }
+
+    /// <summary>
+    /// Computes what fraction of observed fold changes are within a tolerance factor of the expected value.
+    /// E.g., tolerance=2.0 means within [expected/2, expected*2].
+    /// </summary>
+    public static double FractionWithinFactor(List<double> observed, double expected, double factor)
+    {
+        return (double)observed.Count(fc => fc >= expected / factor && fc <= expected * factor) / observed.Count;
+    }
 }
