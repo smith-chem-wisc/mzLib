@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using MassSpectrometry;
 using MassSpectrometry.ExperimentalDesign;
@@ -11,6 +12,7 @@ using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using Quantification;
 using Quantification.Strategies;
+using Test.Quantification.TestHelpers;
 
 namespace Test.Quantification;
 
@@ -390,5 +392,166 @@ public class TmtSpikeInTests
         Assert.That(p1Row[0], Is.EqualTo(300.0)); // Reference_1: 100+100+100
         Assert.That(p1Row[1], Is.EqualTo(600.0)); // CondA_1:     200+200+200
         Assert.That(p1Row[2], Is.EqualTo(900.0)); // CondB_1:     300+300+300
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Real SpikeIn-5mix-MS3 integration tests
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Returns the path to the solution root directory (the mzLib/ folder containing
+    /// TMT_Spike-In_Info/) by walking up from the NUnit test output directory until
+    /// the directory containing TMT_Spike-In_Info/ is found. This is robust to
+    /// varying output path depths (Debug vs Release, with or without framework suffix).
+    /// </summary>
+    private static string GetSolutionDir()
+    {
+        var dir = new System.IO.DirectoryInfo(TestContext.CurrentContext.TestDirectory);
+        while (dir != null)
+        {
+            if (System.IO.Directory.Exists(System.IO.Path.Combine(dir.FullName, "TMT_Spike-In_Info")))
+                return dir.FullName;
+            dir = dir.Parent;
+        }
+        throw new System.IO.DirectoryNotFoundException(
+            $"Could not find TMT_Spike-In_Info directory starting from: {TestContext.CurrentContext.TestDirectory}");
+    }
+
+    /// <summary>
+    /// Loads the real UPS spike-in PSM file, runs the full TMT quantification pipeline,
+    /// and performs basic sanity checks on the resulting protein matrix.
+    /// </summary>
+    [Test]
+    public void LoadAndRunSpikeInData_BasicPipeline()
+    {
+        string dataDir = Path.Combine(GetSolutionDir(), "TMT_Spike-In_Info");
+        string upsPsmPath = Path.Combine(dataDir, "UPS_TMT3_Search", "Task1-SearchTask", "AllPSMs.psmtsv");
+        Assert.That(File.Exists(upsPsmPath), Is.True, $"UPS psmtsv not found at: {upsPsmPath}");
+
+        // Build all quantification inputs from the PSM file
+        var (spectralMatches, peptides, proteinGroups) =
+            PsmTsvQuantAdapter.BuildQuantificationInputs(upsPsmPath);
+
+        Assert.That(spectralMatches.Count, Is.GreaterThan(0), "No spectral matches loaded");
+        Assert.That(peptides.Count, Is.GreaterThan(0), "No peptides created");
+        Assert.That(proteinGroups.Count, Is.GreaterThan(0), "No protein groups created");
+
+        var design = new SpikeInExperimentalDesign();
+        var parameters = QuantificationParameters.GetSimpleParameters();
+        parameters.WriteRawInformation = false;
+        parameters.WritePeptideInformation = false;
+        parameters.WriteProteinInformation = false;
+
+        var engine = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups);
+        var proteinMatrix = engine.RunTmtAndReturnProteinMatrix();
+
+        // Basic structure checks
+        Assert.That(proteinMatrix, Is.Not.Null);
+        Assert.That(proteinMatrix.RowKeys.Count, Is.GreaterThan(0), "Protein matrix has no rows");
+
+        // 14 files × 10 channels = 140 columns (with NoCollapse)
+        Assert.That(proteinMatrix.ColumnKeys.Count, Is.EqualTo(140),
+            $"Expected 140 columns (14 files × 10 channels), got {proteinMatrix.ColumnKeys.Count}");
+
+        // At least some non-zero values
+        bool anyNonZero = proteinMatrix.RowKeys
+            .Any(p => proteinMatrix.GetRow(p).Any(v => v > 0));
+        Assert.That(anyNonZero, Is.True, "All protein matrix values are zero");
+    }
+
+    /// <summary>
+    /// Verifies that UPS proteins show fold changes in the correct direction:
+    /// higher-concentration conditions should have higher quantified intensities.
+    /// Uses NoNormalization + SumRollUp, so absolute fold changes may deviate from
+    /// the true values (1.5 / 2.0 / 8.0 etc.), but direction should be preserved.
+    /// </summary>
+    [Test]
+    public void EvaluateFoldChanges_UPSProteins()
+    {
+        string dataDir = Path.Combine(GetSolutionDir(), "TMT_Spike-In_Info");
+        string upsPsmPath = Path.Combine(dataDir, "UPS_TMT3_Search", "Task1-SearchTask", "AllPSMs.psmtsv");
+        Assert.That(File.Exists(upsPsmPath), Is.True, $"UPS psmtsv not found at: {upsPsmPath}");
+
+        var (spectralMatches, peptides, proteinGroups) =
+            PsmTsvQuantAdapter.BuildQuantificationInputs(upsPsmPath);
+
+        var design = new SpikeInExperimentalDesign();
+        var parameters = QuantificationParameters.GetSimpleParameters();
+        parameters.WriteRawInformation = false;
+        parameters.WritePeptideInformation = false;
+        parameters.WriteProteinInformation = false;
+
+        var engine = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups);
+        var proteinMatrix = engine.RunTmtAndReturnProteinMatrix();
+
+        // Compute fold changes across all quantifiable proteins: condition "1" vs "0.125" (expected 8×)
+        var foldChanges_1_vs_0125 = QuantificationEvaluator.ComputeFoldChanges(proteinMatrix, "1", "0.125")
+            .Select(x => x.foldChange)
+            .ToList();
+
+        // Compute fold changes: condition "1" vs "0.5" (expected 2×)
+        var foldChanges_1_vs_0500 = QuantificationEvaluator.ComputeFoldChanges(proteinMatrix, "1", "0.5")
+            .Select(x => x.foldChange)
+            .ToList();
+
+        Assert.That(foldChanges_1_vs_0125.Count, Is.GreaterThan(0),
+            "No proteins had quantifiable intensities in both '1' and '0.125' conditions");
+
+        // Median fold change should be > 1.5 (direction correct; true value is 8.0)
+        // This is a relaxed sanity check — without normalization, ratio compression is expected
+        double median_1_vs_0125 = QuantificationEvaluator.Median(foldChanges_1_vs_0125);
+        Assert.That(median_1_vs_0125, Is.GreaterThan(1.5),
+            $"Median fold change '1' vs '0.125' was {median_1_vs_0125:F2}, expected > 1.5 (true value is 8.0)");
+
+        if (foldChanges_1_vs_0500.Count > 0)
+        {
+            double median_1_vs_0500 = QuantificationEvaluator.Median(foldChanges_1_vs_0500);
+            Assert.That(median_1_vs_0500, Is.GreaterThan(1.0),
+                $"Median fold change '1' vs '0.5' was {median_1_vs_0500:F2}, expected > 1.0 (true value is 2.0)");
+        }
+    }
+
+    /// <summary>
+    /// Verifies that HeLa background proteins show fold changes close to 1.0 across conditions.
+    /// HeLa proteins are present at constant amounts across all channels and should not
+    /// appear differentially abundant. Marked [Explicit] because the HeLa search file is large.
+    /// </summary>
+    [Test, Explicit("Processes large HeLa psmtsv file (~1.35M lines); run explicitly to evaluate background protein stability.")]
+    public void EvaluateFoldChanges_HelaBackground()
+    {
+        string dataDir = Path.Combine(GetSolutionDir(), "TMT_Spike-In_Info");
+        string helaPsmPath = Path.Combine(dataDir, "TMT3_HeLa_Search", "Task1-SearchTask", "AllPSMs.psmtsv");
+        Assert.That(File.Exists(helaPsmPath), Is.True, $"HeLa psmtsv not found at: {helaPsmPath}");
+
+        var (spectralMatches, peptides, proteinGroups) =
+            PsmTsvQuantAdapter.BuildQuantificationInputs(helaPsmPath);
+
+        Assert.That(spectralMatches.Count, Is.GreaterThan(0), "No HeLa spectral matches loaded");
+
+        var design = new SpikeInExperimentalDesign();
+        var parameters = QuantificationParameters.GetSimpleParameters();
+        parameters.WriteRawInformation = false;
+        parameters.WritePeptideInformation = false;
+        parameters.WriteProteinInformation = false;
+
+        var engine = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups);
+        var proteinMatrix = engine.RunTmtAndReturnProteinMatrix();
+
+        Assert.That(proteinMatrix.RowKeys.Count, Is.GreaterThan(0), "HeLa protein matrix is empty");
+
+        // For HeLa background: fold change '1' vs '0.5' should be close to 1.0
+        var foldChanges = QuantificationEvaluator.ComputeFoldChanges(proteinMatrix, "1", "0.5")
+            .Select(x => x.foldChange)
+            .ToList();
+
+        Assert.That(foldChanges.Count, Is.GreaterThan(0),
+            "No HeLa proteins had quantifiable intensities in both '1' and '0.5' conditions");
+
+        double medianFc = QuantificationEvaluator.Median(foldChanges);
+
+        // Without normalization, expect the median HeLa fold change to be between 0.3 and 3.0
+        // (a very loose bound — normalization would tighten this toward 1.0)
+        Assert.That(medianFc, Is.InRange(0.3, 3.0),
+            $"Median HeLa fold change '1' vs '0.5' was {medianFc:F3}, expected in [0.3, 3.0]");
     }
 }
