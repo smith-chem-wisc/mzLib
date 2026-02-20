@@ -1,12 +1,19 @@
-﻿using NUnit.Framework;
+﻿using Microsoft.ML.Data;
+using NUnit.Framework;
+using Omics.Digestion;
 using Omics.Fragmentation;
+using Omics.Modifications;
+using Omics.SpectrumMatch;
 using PredictionClients.LocalModels;
+using Proteomics;
+using Proteomics.ProteolyticDigestion;
 using Readers.SpectralLibrary;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using UsefulProteomicsDatabases;
 using CategoryAttribute = NUnit.Framework.CategoryAttribute;
 
 namespace Test.LocalModelTests
@@ -625,6 +632,89 @@ namespace Test.LocalModelTests
             Assert.That(double.Parse(result, System.Globalization.CultureInfo.InvariantCulture),
                 Is.EqualTo(1.0).Within(1e-4),
                 "Self-comparison spectral angle should be 1.0");
+        }
+
+        // ════════════════════════════════════════════════════════════════════════
+        // 6. Create Library Spectra From protein.xml protein with modifications
+        // ════════════════════════════════════════════════════════════════════════
+
+        [Test, Category("RequiresOnnxModel")]
+        public static async Task CreateLibrarySpectra_FromProteinXmlWithMods_CreatesSpectra()
+        {
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml");
+            var outputpath = Path.Combine(Path.GetTempPath(), $"internalFragmentLibraryFromXmlTest_{Guid.NewGuid()}.msp");
+
+            SpectralLibrary? savedLib = null;
+            try
+            {
+                var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+                Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+                var UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+
+                List<Protein> proteins = ProteinDbLoader.LoadProteinXML(xmlPath, true, DecoyType.None, UniProtPtms, false, new List<string>(), out var un);
+                List<PeptideWithSetModifications> peptides = proteins[0].Digest(new DigestionParams("trypsin", 0, 7, 30,
+                    1024, InitiatorMethionineBehavior.Variable,
+                    2, CleavageSpecificity.Full, FragmentationTerminus.Both), new List<Modification>(), new List<Modification>()).ToList();
+
+                List<string> peptideSequences = peptides.Select(p => p.FullSequence).ToList();
+                List<int> charges = peptides.Select(p => 2).ToList();
+                List<double?> rts = peptides.Select(p => (double?)null).ToList();
+
+                var model = new InternalFragmentIntensityModel(
+                    peptideSequences,
+                    charges,
+                    rts,
+                    out _,
+                    spectralLibrarySavePath: outputpath);
+                await model.RunInferenceAsync();
+
+                Assert.That(model.PredictedSpectra.Count, Is.EqualTo(99),
+                    "Should create 99 spectra from the protein XML input");
+                Assert.That(File.Exists(outputpath), Is.True,
+                    "MSP library file should have been written");
+
+                // Read back the library and verify contents
+                savedLib = new SpectralLibrary(new List<string> { outputpath });
+                List<LibrarySpectrum> librarySpectra = savedLib.GetAllLibrarySpectra().ToList();
+
+                Assert.That(librarySpectra.Count, Is.EqualTo(model.PredictedSpectra.Count),
+                    "Saved library should have same number of spectra as in-memory");
+
+                // Verify all ions are internal fragments
+                foreach (var spectrum in librarySpectra)
+                {
+                    foreach (var ion in spectrum.MatchedFragmentIons)
+                    {
+                        Assert.That(ion.IsInternalFragment, Is.True,
+                            $"Ion in spectrum {spectrum.Sequence} should be an internal fragment");
+                    }
+                }
+
+                // Verify that some spectra contain UniProt modifications
+                var spectraWithMods = librarySpectra.Where(s => s.Sequence.Contains('[')).ToList();
+                Assert.That(spectraWithMods.Count, Is.GreaterThan(0),
+                    "At least some spectra should have UniProt modifications in their sequences");
+
+                TestContext.WriteLine($"Found {spectraWithMods.Count} spectra with modifications out of {librarySpectra.Count} total");
+            }
+            finally
+            {
+                savedLib?.CloseConnections();
+                savedLib = null;
+
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+
+                try
+                {
+                    if (File.Exists(outputpath))
+                        File.Delete(outputpath);
+                }
+                catch (IOException)
+                {
+                    // File still locked - it's in temp folder, will be cleaned eventually
+                }
+            }
         }
     }
 }

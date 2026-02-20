@@ -264,7 +264,11 @@ namespace Readers.SpectralLibrary
 
                         if (indOfRt > 0)
                         {
-                            rt = double.Parse(split[indOfRt + 1], CultureInfo.InvariantCulture);
+                            string rtValue = split[indOfRt + 1];
+                            if (!string.IsNullOrEmpty(rtValue))
+                            {
+                                rt = double.Parse(rtValue, CultureInfo.InvariantCulture);
+                            }
                         }
                     }
 
