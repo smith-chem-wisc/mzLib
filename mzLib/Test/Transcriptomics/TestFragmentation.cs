@@ -335,6 +335,7 @@ namespace Test.Transcriptomics
             var unmodifiedOligo = new OligoWithSetMods(unmodifiedSeq);
             var modifiedOligo = new OligoWithSetMods(modifiedSeq);
             var modMass = modifiedOligo.AllModsOneIsNterminus.First().Value.MonoisotopicMass.Value;
+            Assert.That(modifiedOligo.MonoisotopicMass, Is.EqualTo(unmodifiedOligo.MonoisotopicMass + modMass).Within(0.001));
 
             List<Product> unmodifiedProducts = new();
             List<Product> modifiedProducts = new();
@@ -376,6 +377,7 @@ namespace Test.Transcriptomics
             var unmodifiedOligo = new OligoWithSetMods(unmodifiedSeq);
             var modifiedOligo = new OligoWithSetMods(modifiedSeq);
             var modMass = modifiedOligo.AllModsOneIsNterminus.First().Value.MonoisotopicMass.Value;
+            Assert.That(modifiedOligo.MonoisotopicMass, Is.EqualTo(unmodifiedOligo.MonoisotopicMass + modMass).Within(0.001));
 
             List<Product> unmodifiedProducts = new();
             List<Product> modifiedProducts = new();
