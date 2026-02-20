@@ -716,5 +716,87 @@ namespace Test.LocalModelTests
                 }
             }
         }
+
+        [Test, Category("RequiresOnnxModel")]
+        public static async Task MspRoundTrip_RealPeptidesWithMods_CanBeReadBack()
+        {
+            var outputpath = Path.Combine(Path.GetTempPath(), $"internalFragmentRoundTrip_{Guid.NewGuid()}.msp");
+
+            var peptides = new List<string>
+            {
+                "RPQYSNPPVQGEVMEGADNQGAGEQGR",
+                "TVSLGAGAKDELHIVEAEAMNYEGSPIK",
+                "KLTEESLTSDAANDNHIVAEGVSEESLNR",
+                "TDHPEIGEGKPTPALSEEASSSSIR",
+                "SPPSTGSTYGSSQKEESAASGGAAYTKR",
+                "LADC[Common Fixed:Carbamidomethyl on C]DC[Common Fixed:Carbamidomethyl on C]DGMLDEEEFALAK",
+                "RPQYSNPPVQGEVM[Common Variable:Oxidation on M]EGADNQGAGEQGR"
+            };
+            var charges = new List<int> { 3, 3, 4, 3, 4, 2, 3 };
+            var rts = new List<double?> { 80.81802, 184.82224, 128.73701, 79.85082, 47.21765, 166.79734, 65.71475 };
+
+            SpectralLibrary? savedLib = null;
+            try
+            {
+                var model = new InternalFragmentIntensityModel(
+                    peptides, charges, rts,
+                    out var warnings,
+                    spectralLibrarySavePath: outputpath);
+
+                await model.RunInferenceAsync();
+
+                // Verify library was created
+                Assert.That(File.Exists(outputpath), Is.True, "MSP file should have been written");
+                Assert.That(model.PredictedSpectra.Count, Is.GreaterThan(0), "Should have created at least one spectrum");
+
+                TestContext.WriteLine($"Created {model.PredictedSpectra.Count} spectra from {peptides.Count} input peptides");
+
+                // Read the library back
+                savedLib = new SpectralLibrary(new List<string> { outputpath });
+                var librarySpectra = savedLib.GetAllLibrarySpectra().ToList();
+
+                Assert.That(librarySpectra.Count, Is.EqualTo(model.PredictedSpectra.Count),
+                    "Read-back library should have same number of spectra");
+
+                // Verify all ions are recognized as internal fragments
+                int totalIons = 0;
+                foreach (var spectrum in librarySpectra)
+                {
+                    foreach (var ion in spectrum.MatchedFragmentIons)
+                    {
+                        totalIons++;
+                        Assert.That(ion.IsInternalFragment, Is.True,
+                            $"Ion '{ion.NeutralTheoreticalProduct.Annotation}' in spectrum {spectrum.Sequence} should be internal fragment");
+                        Assert.That(ion.NeutralTheoreticalProduct.SecondaryProductType, Is.Not.Null,
+                            $"Ion should have SecondaryProductType set");
+                        Assert.That(ion.NeutralTheoreticalProduct.SecondaryFragmentNumber, Is.GreaterThan(0),
+                            $"Ion should have SecondaryFragmentNumber > 0");
+                    }
+                }
+
+                TestContext.WriteLine($"Successfully read back {totalIons} internal fragment ions from {librarySpectra.Count} spectra");
+
+                // Verify sequences with modifications are preserved
+                var seqsWithMods = librarySpectra.Where(s => s.Sequence.Contains('[')).Select(s => s.Sequence).ToList();
+                TestContext.WriteLine($"Spectra with modifications: {string.Join(", ", seqsWithMods)}");
+            }
+            finally
+            {
+                savedLib?.CloseConnections();
+                savedLib = null;
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+
+                try
+                {
+                    if (File.Exists(outputpath))
+                        File.Delete(outputpath);
+                }
+                catch (IOException)
+                {
+                    // File in temp folder, will be cleaned eventually
+                }
+            }
+        }
     }
 }

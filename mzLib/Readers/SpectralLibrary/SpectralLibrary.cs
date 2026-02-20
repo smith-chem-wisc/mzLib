@@ -715,6 +715,12 @@ namespace Readers.SpectralLibrary
         {
             string[] split = fragmentIonLine.Split(fragmentSplit, StringSplitOptions.RemoveEmptyEntries);
 
+            // Validate we have enough parts
+            if (split.Length < 3)
+            {
+                throw new MzLibUtil.MzLibException($"Invalid fragment ion line format: '{fragmentIonLine}'");
+            }
+
             // read fragment m/z
             var experMz = double.Parse(split[0], CultureInfo.InvariantCulture);
 
@@ -753,6 +759,16 @@ namespace Readers.SpectralLibrary
             // ── Standard ion: y12^1, b3^2, b17^1-97.976/0ppm etc. ────────────────
             Match regexMatchResult = IonParserRegex.Match(split[2]);
 
+            // Validate that the regex matched and captured the required groups
+            if (!regexMatchResult.Success || 
+                string.IsNullOrEmpty(regexMatchResult.Groups[1].Value) ||
+                string.IsNullOrEmpty(regexMatchResult.Groups[2].Value))
+            {
+                throw new MzLibUtil.MzLibException(
+                    $"Unable to parse fragment ion annotation '{split[2]}' from line: '{fragmentIonLine}'. " +
+                    $"Expected format like 'b3^1/0ppm' or 'bIb[2-5]^1/0ppm'");
+            }
+
             string fragmentType = regexMatchResult.Groups[1].Value;
             int fragmentNumber = int.Parse(regexMatchResult.Groups[2].Value);
             int charge = 1;
@@ -766,13 +782,18 @@ namespace Readers.SpectralLibrary
             if (split[2].Contains("-") && charge > 0)
             {
                 String[] neutralLossInformation = split[2].Split(neutralLossSplit, StringSplitOptions.RemoveEmptyEntries).ToArray();
-                neutralLoss = double.Parse(neutralLossInformation[1]);
+                if (neutralLossInformation.Length > 1 && double.TryParse(neutralLossInformation[1], out double parsedLoss))
+                {
+                    neutralLoss = parsedLoss;
+                }
             }
             if (charge < 0)
             {
                 String[] neutralLossInformation = split[2].Split(neutralLossSplit, StringSplitOptions.RemoveEmptyEntries).ToArray();
-                if (neutralLossInformation.Length > 2)
-                    neutralLoss = double.Parse(neutralLossInformation[2]);
+                if (neutralLossInformation.Length > 2 && double.TryParse(neutralLossInformation[2], out double parsedLoss))
+                {
+                    neutralLoss = parsedLoss;
+                }
             }
 
             ProductType peakProductType = (ProductType)Enum.Parse(typeof(ProductType), fragmentType, true);
