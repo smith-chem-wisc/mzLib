@@ -33,7 +33,7 @@ Only change the **Status** field. Do not edit task descriptions or dependencies.
 | 5 | DONE | `tasks/05-combine-peptide-matrices.md` | Add CombinePeptideMatrices() method | Task 4 |
 | 6 | DONE | `tasks/06-run-tmt-pipeline.md` | Add RunTmt() pipeline method | Tasks 4, 5 |
 | 7 | DONE | `tasks/07-synthetic-tmt-tests.md` | Synthetic data tests for TMT pipeline | Tasks 4, 5, 6 |
-| 8 | TODO | `tasks/08-spike-in-test-harness.md` | Real spike-in data test harness | Tasks 1, 2, 3, 6 |
+| 8 | DONE | `tasks/08-spike-in-test-harness.md` | Real spike-in data test harness | Tasks 1, 2, 3, 6 |
 
 **Recommended execution order**: 1 → 3 → 4 → 5 → 6 → 2 → 7 → 8
 

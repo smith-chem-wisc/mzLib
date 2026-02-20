@@ -111,3 +111,46 @@ This file tracks progress across agent sessions. Each session should append an e
 - Task 8 (Real spike-in data test harness) — depends on re-searched psmtsv files with real TMT reporter ion intensities
 
 **Next session should:** Implement Task 8 once re-searched psmtsv files (with actual TMT reporter ion values) are available. The PsmTsvQuantAdapter from Task 2 is ready to load those files.
+
+---
+
+## 2026-02-20 — Session 3 (Implementation)
+
+**What was done:**
+- Implemented Task 8. All 20 quantification tests pass (6 TmtSpikeIn + 14 existing).
+
+**Bug Fix — `131N` channel name:**
+- The actual psmtsv files use `131N` as the last TMT10 channel name, but `TmtChannelNames` only had `"131"` → `ParseReporterIonColumns` was producing 9 values instead of 10, causing `SetRow` dimension mismatch
+- Added `"131N"` to `TmtChannelNames` after `"131"` in `SpectrumMatchFromTsvHeader.cs`
+- Updated `SpikeInExperimentalDesign.cs` to use `"131N"` as the last channel label
+
+**`PsmTsvQuantAdapter.BuildQuantificationInputs()` (new method):**
+- Groups PSMs by `BaseSeq` → creates one `Protein(BaseSeq, accession)` per unique base sequence
+- Digests each protein with `maxMissedCleavages: 100` to recover the full peptide even if it has internal K/R
+- Calls `AddIdentifiedBioPolymer(peptide)` on each `BaseSpectralMatch` so `GetPsmToPeptideMap` can map PSMs to peptides
+- Groups by first-non-decoy accession → creates one `BioPolymerGroup` per protein
+- Filters: target PSMs only, q-value ≤ 0.01, non-zero QuantValues
+
+**`QuantificationEvaluator.cs` (new helper in `TestHelpers/`):**
+- `GetMeanIntensityByCondition()`: groups columns by `Condition` (skipping reference channels), averages non-zero intensities
+- `CalculateFoldChange()`: numerator/denominator with NaN guards
+- `ComputeFoldChanges()`: loops over all proteins, returns list of (accession, foldChange) pairs
+- `Median()`: returns median of a sequence
+
+**Task 8 Tests (added to `TmtSpikeInTests.cs`):**
+- `LoadAndRunSpikeInData_BasicPipeline`: loads UPS PSMs, runs pipeline, asserts 140 columns + > 0 proteins (38s runtime due to 401k lines in psmtsv)
+- `EvaluateFoldChanges_UPSProteins`: checks median fold change "1" vs "0.125" > 1.5 (true value is 8.0; passes with 39s runtime)
+- `EvaluateFoldChanges_HelaBackground`: `[Explicit]` — processes HeLa file (~1.35M lines), checks median fold change "1" vs "0.5" is in [0.3, 3.0]
+
+**Path resolution fix:**
+- `TestContext.CurrentContext.TestDirectory` resolves to `Test/bin/Debug/net8.0-windows/` (framework subfolder exists even with `AppendTargetFrameworkToOutputPath=false`)
+- Used directory-walking approach (`GetSolutionDir()` walks up until it finds `TMT_Spike-In_Info/`) — robust to any output depth
+
+**Commit:** `852aab68` — "Implement Task 8: Real spike-in data test harness"
+
+**Build/Test status:** Build succeeds (0 errors), 20/20 quantification tests pass. 6 TmtSpikeIn tests pass in ~90s total (2 real-data tests each take ~38s).
+
+**All tasks DONE.** The TMT quantification testing harness is complete:
+- Tasks 1–6: TMT pipeline foundation (reader, adapter, engine methods)
+- Task 7: Synthetic TMT pipeline tests (fast)
+- Task 8: Real SpikeIn-5mix-MS3 integration tests
