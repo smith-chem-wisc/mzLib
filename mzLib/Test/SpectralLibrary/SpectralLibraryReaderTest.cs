@@ -416,7 +416,145 @@ namespace Test
             rereadLibrary.CloseConnections();
             File.Delete(writtenPath);
         }
+        [Test]
+        public static void TestDecoyLibrarySpectraGenerationWithInternalIons()
+        {
+            // Create standard b-ions (target)
+            Product b1 = new Product(ProductType.b, FragmentationTerminus.N, 100, 1, 1, 0);
+            Product b2 = new Product(ProductType.b, FragmentationTerminus.N, 200, 2, 2, 0);
 
+            // Create internal fragment ions (target): bIb[2-5] and bIy[3-6]
+            Product internal1 = new Product(ProductType.b, FragmentationTerminus.None, 300,
+                fragmentNumber: 2, residuePosition: 2, neutralLoss: 0,
+                secondaryProductType: ProductType.b, secondaryFragmentNumber: 5);
+            Product internal2 = new Product(ProductType.b, FragmentationTerminus.None, 400,
+                fragmentNumber: 3, residuePosition: 3, neutralLoss: 0,
+                secondaryProductType: ProductType.y, secondaryFragmentNumber: 6);
+
+            // Verify internal ion setup
+            Assert.That(internal1.IsInternalFragment, Is.True);
+            Assert.That(internal2.IsInternalFragment, Is.True);
+            Assert.That(b1.IsInternalFragment, Is.False);
+
+            // Create matched fragment ions for target spectrum
+            MatchedFragmentIon mfi_b1 = new MatchedFragmentIon(b1, 100, 1000, 1);
+            MatchedFragmentIon mfi_b2 = new MatchedFragmentIon(b2, 200, 2000, 1);
+            MatchedFragmentIon mfi_internal1 = new MatchedFragmentIon(internal1, 300, 3000, 1);
+            MatchedFragmentIon mfi_internal2 = new MatchedFragmentIon(internal2, 400, 4000, 1);
+
+            var targetPeaks = new List<MatchedFragmentIon> { mfi_b1, mfi_b2, mfi_internal1, mfi_internal2 };
+            var targetSpectrum = new LibrarySpectrum("PEPTIDE", 500.0, 2, targetPeaks, 10.0);
+
+            // Create decoy products with different masses but matching ion types
+            Product decoy_b1 = new Product(ProductType.b, FragmentationTerminus.N, 110, 1, 1, 0);
+            Product decoy_b2 = new Product(ProductType.b, FragmentationTerminus.N, 210, 2, 2, 0);
+            Product decoy_internal1 = new Product(ProductType.b, FragmentationTerminus.None, 310,
+                fragmentNumber: 2, residuePosition: 2, neutralLoss: 0,
+                secondaryProductType: ProductType.b, secondaryFragmentNumber: 5);
+            Product decoy_internal2 = new Product(ProductType.b, FragmentationTerminus.None, 410,
+                fragmentNumber: 3, residuePosition: 3, neutralLoss: 0,
+                secondaryProductType: ProductType.y, secondaryFragmentNumber: 6);
+
+            var decoyProducts = new List<Product> { decoy_b1, decoy_b2, decoy_internal1, decoy_internal2 };
+
+            // Generate decoy spectrum
+            var decoySpectrum = LibrarySpectrum.GetDecoyLibrarySpectrumFromTargetByReverse(targetSpectrum, decoyProducts);
+
+            // Should have 4 matched ions
+            Assert.That(decoySpectrum.Count, Is.EqualTo(4), "Should match all 4 ions");
+
+            // Verify standard b-ions are matched correctly
+            var decoy_mfi_b1 = decoySpectrum.FirstOrDefault(m =>
+                m.NeutralTheoreticalProduct.FragmentNumber == 1 && !m.NeutralTheoreticalProduct.IsInternalFragment);
+            Assert.That(decoy_mfi_b1, Is.Not.Null, "Should find decoy b1 ion");
+            Assert.That(decoy_mfi_b1.Intensity, Is.EqualTo(1000), "Should preserve target intensity");
+            Assert.That(decoy_mfi_b1.NeutralTheoreticalProduct.NeutralMass, Is.EqualTo(110), "Should use decoy mass");
+
+            // Verify internal ions are matched correctly
+            var decoy_mfi_internal1 = decoySpectrum.FirstOrDefault(m =>
+                m.NeutralTheoreticalProduct.IsInternalFragment &&
+                m.NeutralTheoreticalProduct.FragmentNumber == 2 &&
+                m.NeutralTheoreticalProduct.SecondaryFragmentNumber == 5);
+            Assert.That(decoy_mfi_internal1, Is.Not.Null, "Should find decoy internal ion bIb[2-5]");
+            Assert.That(decoy_mfi_internal1.Intensity, Is.EqualTo(3000), "Should preserve target intensity");
+            Assert.That(decoy_mfi_internal1.NeutralTheoreticalProduct.SecondaryProductType, Is.EqualTo(ProductType.b));
+
+            var decoy_mfi_internal2 = decoySpectrum.FirstOrDefault(m =>
+                m.NeutralTheoreticalProduct.IsInternalFragment &&
+                m.NeutralTheoreticalProduct.FragmentNumber == 3 &&
+                m.NeutralTheoreticalProduct.SecondaryFragmentNumber == 6);
+            Assert.That(decoy_mfi_internal2, Is.Not.Null, "Should find decoy internal ion bIy[3-6]");
+            Assert.That(decoy_mfi_internal2.Intensity, Is.EqualTo(4000));
+            Assert.That(decoy_mfi_internal2.NeutralTheoreticalProduct.SecondaryProductType, Is.EqualTo(ProductType.y));
+        }
+
+        [Test]
+        public static void TestDecoyLibrarySpectraGenerationInternalIonDoesNotMatchStandardIon()
+        {
+            // Create a standard b2 ion in the target spectrum
+            Product b2_standard = new Product(ProductType.b, FragmentationTerminus.N, 200, 2, 2, 0);
+            MatchedFragmentIon mfi_b2 = new MatchedFragmentIon(b2_standard, 200, 2000, 1);
+
+            var targetPeaks = new List<MatchedFragmentIon> { mfi_b2 };
+            var targetSpectrum = new LibrarySpectrum("PEPTIDE", 500.0, 2, targetPeaks, 10.0);
+
+            // Create a decoy internal ion with FragmentNumber=2 (same as b2)
+            // This should NOT match because one is internal and one is standard
+            Product decoy_internal = new Product(ProductType.b, FragmentationTerminus.None, 250,
+                fragmentNumber: 2, residuePosition: 2, neutralLoss: 0,
+                secondaryProductType: ProductType.b, secondaryFragmentNumber: 5);
+
+            var decoyProducts = new List<Product> { decoy_internal };
+
+            // Generate decoy spectrum
+            var decoySpectrum = LibrarySpectrum.GetDecoyLibrarySpectrumFromTargetByReverse(targetSpectrum, decoyProducts);
+
+            // Should have 0 matches - internal ion should not match standard ion
+            Assert.That(decoySpectrum.Count, Is.EqualTo(0),
+                "Internal ion should NOT match standard ion with same FragmentNumber");
+        }
+
+        [Test]
+        public static void TestDecoyLibrarySpectraGenerationInternalIonRequiresExactMatch()
+        {
+            // Create internal ion bIb[2-5] in target
+            Product internal_target = new Product(ProductType.b, FragmentationTerminus.None, 300,
+                fragmentNumber: 2, residuePosition: 2, neutralLoss: 0,
+                secondaryProductType: ProductType.b, secondaryFragmentNumber: 5);
+            MatchedFragmentIon mfi_internal = new MatchedFragmentIon(internal_target, 300, 3000, 1);
+
+            var targetPeaks = new List<MatchedFragmentIon> { mfi_internal };
+            var targetSpectrum = new LibrarySpectrum("PEPTIDE", 500.0, 2, targetPeaks, 10.0);
+
+            // Create decoy internal ions with different secondary properties
+            // bIb[2-6] - different end position
+            Product decoy_wrongEnd = new Product(ProductType.b, FragmentationTerminus.None, 310,
+                fragmentNumber: 2, residuePosition: 2, neutralLoss: 0,
+                secondaryProductType: ProductType.b, secondaryFragmentNumber: 6);
+
+            // bIy[2-5] - different secondary type
+            Product decoy_wrongType = new Product(ProductType.b, FragmentationTerminus.None, 320,
+                fragmentNumber: 2, residuePosition: 2, neutralLoss: 0,
+                secondaryProductType: ProductType.y, secondaryFragmentNumber: 5);
+
+            // bIb[2-5] - exact match
+            Product decoy_exactMatch = new Product(ProductType.b, FragmentationTerminus.None, 330,
+                fragmentNumber: 2, residuePosition: 2, neutralLoss: 0,
+                secondaryProductType: ProductType.b, secondaryFragmentNumber: 5);
+
+            var decoyProducts = new List<Product> { decoy_wrongEnd, decoy_wrongType, decoy_exactMatch };
+
+            // Generate decoy spectrum
+            var decoySpectrum = LibrarySpectrum.GetDecoyLibrarySpectrumFromTargetByReverse(targetSpectrum, decoyProducts);
+
+            // Should have exactly 1 match - only the exact match
+            Assert.That(decoySpectrum.Count, Is.EqualTo(1),
+                "Should only match internal ion with exact same secondary properties");
+            Assert.That(decoySpectrum[0].NeutralTheoreticalProduct.NeutralMass, Is.EqualTo(330),
+                "Should match the exact match decoy product");
+            Assert.That(decoySpectrum[0].Intensity, Is.EqualTo(3000),
+                "Should preserve target intensity");
+        }
         [Test]
         public static void TestDecoyLibrarySpectraGenerationFunction()
         {
