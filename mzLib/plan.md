@@ -26,12 +26,12 @@ Only change the **Status** field. Do not edit task descriptions or dependencies.
 
 | # | Status | Instruction File | Description | Depends On |
 |---|--------|-----------------|-------------|-----------|
-| 1 | TODO | `tasks/01-parse-tmt-columns.md` | Parse TMT reporter ion columns in SpectrumMatchFromTsv | None |
+| 1 | DONE | `tasks/01-parse-tmt-columns.md` | Parse TMT reporter ion columns in SpectrumMatchFromTsv | None |
 | 2 | TODO | `tasks/02-psm-tsv-adapter.md` | Create adapter: PsmFromTsv → ISpectralMatch | Task 1 |
-| 3 | TODO | `tasks/03-experimental-design.md` | Hardcoded SpikeIn ExperimentalDesign (14 files × 10 channels) | None |
-| 4 | TODO | `tasks/04-pivot-by-file.md` | Add PivotByFile() to QuantificationEngine | None |
-| 5 | TODO | `tasks/05-combine-peptide-matrices.md` | Add CombinePeptideMatrices() method | Task 4 |
-| 6 | TODO | `tasks/06-run-tmt-pipeline.md` | Add RunTmt() pipeline method | Tasks 4, 5 |
+| 3 | DONE | `tasks/03-experimental-design.md` | Hardcoded SpikeIn ExperimentalDesign (14 files × 10 channels) | None |
+| 4 | DONE | `tasks/04-pivot-by-file.md` | Add PivotByFile() to QuantificationEngine | None |
+| 5 | DONE | `tasks/05-combine-peptide-matrices.md` | Add CombinePeptideMatrices() method | Task 4 |
+| 6 | DONE | `tasks/06-run-tmt-pipeline.md` | Add RunTmt() pipeline method | Tasks 4, 5 |
 | 7 | TODO | `tasks/07-synthetic-tmt-tests.md` | Synthetic data tests for TMT pipeline | Tasks 4, 5, 6 |
 | 8 | TODO | `tasks/08-spike-in-test-harness.md` | Real spike-in data test harness | Tasks 1, 2, 3, 6 |
 

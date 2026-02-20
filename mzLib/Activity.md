@@ -36,3 +36,49 @@ This file tracks progress across agent sessions. Each session should append an e
 - Mixture4_01 raw file is missing from the dataset (only 14 of 15 expected files)
 
 **Next session should:** Start with Task 1 (parse TMT columns), Task 3 (experimental design), or Task 4 (PivotByFile) — these have no dependencies.
+
+---
+
+## 2026-02-20 — Session 1 (Implementation)
+
+**What was done:**
+- Implemented Tasks 1, 3, 4, 5, 6 in a single session. All build and pass existing tests.
+
+**Task 1 — Parse TMT reporter ion columns (SpectrumMatchFromTsv):**
+- Added `TmtChannelNames` string array to `SpectrumMatchFromTsvHeader.cs` (TMT10 + TMT16+ channels)
+- Added TMT channel names to `ParseHeader()` in `SpectrumMatchTsvReader.cs` using `parsedHeader[name] = Array.IndexOf(spl, name)`
+- Added `QuantValues` property (`double[]?`) to `SpectrumMatchFromTsv.cs`
+- Added `ParseReporterIonColumns()` static helper that returns `null` if no TMT columns found
+- Called it at the end of the main constructor: `QuantValues = ParseReporterIonColumns(spl, parsedHeader);`
+- Fixed pre-existing build error: removed non-existent `using Quantification.Strategies.Collapse;` from `QuantificationParameters.cs`
+
+**Task 3 — SpikeInExperimentalDesign:**
+- Created `Test/Quantification/TestHelpers/SpikeInExperimentalDesign.cs`
+- Implements `IExperimentalDesign` for the 14-file TMT10 SpikeIn-5mix-MS3 dataset
+- Encodes all channel-to-condition mappings for Mixtures 1–5 (Mixture4_01 is absent from dataset)
+- Dictionary keys are file names WITHOUT extension (no `.raw`), to match `FileNameWithoutExtension` from the reader
+
+**Task 4 — PivotByFile():**
+- Added to `QuantificationEngine.cs` as a `public static` method
+- Groups spectral matches by `FullFilePath`, creates one dense `SpectralMatchMatrix` per file
+- Uses direct positional copy of `QuantValues` into the matrix rows
+
+**Task 5 — CombinePeptideMatrices():**
+- Added to `QuantificationEngine.cs` as a `public static` method
+- Collects union of all peptides (ordered by `FullSequence`) and all columns (ordered by file path then channel)
+- Copies per-file peptide values into correct column offsets in the combined matrix
+
+**Task 6 — RunTmt() and RunTmtAndReturnProteinMatrix():**
+- Both delegate to a private `RunTmtCore(out proteinMatrixNorm)` to avoid code duplication
+- Pipeline: PivotByFile → per-file PSM normalize → per-file PSM-to-peptide roll-up → CombinePeptideMatrices → peptide normalize → collapse → protein roll-up → protein normalize
+
+**Commit:** `b22e2d05` — "Implement Tasks 1, 3, 4, 5, 6: TMT quantification pipeline foundation"
+
+**Build/Test status:** Build succeeds (0 errors), 14/14 quantification tests pass.
+
+**Remaining tasks:**
+- Task 2 (PSM adapter: `PsmFromTsv → ISpectralMatch`) — needed before Task 7 and 8
+- Task 7 (Synthetic data tests for TMT pipeline)
+- Task 8 (Real spike-in data test harness)
+
+**Next session should:** Implement Task 2 (PSM adapter), then Task 7 (synthetic TMT tests). Task 8 depends on re-searched psmtsv files with real TMT reporter ion intensities (data was all-zero in current searches).
