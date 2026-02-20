@@ -28,6 +28,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Omics.Modifications.IO;
 using UsefulProteomicsDatabases;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
@@ -456,11 +457,11 @@ namespace Test.DatabaseTests
             var psiModDeserialized = Loaders.LoadPsiMod(psiModPath);
 
             // N6,N6,N6-trimethyllysine
-            var trimethylLysine = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().First(b => b.id.Equals("MOD:00083"));
+            var trimethylLysine = psiModDeserialized.Items.OfType<oboTerm>().First(b => b.id.Equals("MOD:00083"));
             Assert.AreEqual("1+", trimethylLysine.xref_analog.First(b => b.dbname.Equals("FormalCharge")).name);
 
             // Phosphoserine
-            Assert.IsFalse(psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().First(b => b.id.Equals("MOD:00046")).xref_analog.Any(b => b.dbname.Equals("FormalCharge")));
+            Assert.IsFalse(psiModDeserialized.Items.OfType<oboTerm>().First(b => b.id.Equals("MOD:00046")).xref_analog.Any(b => b.dbname.Equals("FormalCharge")));
 
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
 

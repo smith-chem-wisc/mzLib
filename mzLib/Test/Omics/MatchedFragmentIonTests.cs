@@ -50,6 +50,22 @@ namespace Test.Omics
             Assert.That(cachedIon.IsInternalFragment, Is.True);
         }
 
+        [Test]
+        public void IsDiagnosticIon()
+        {
+            // Product with secondary product type indicates internal fragment
+            var internalProduct = new Product(ProductType.D, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
+            var ion = new MatchedFragmentIon(internalProduct, 101.0, 200.0, 1);
+            Assert.That(ion.IsInternalFragment, Is.False);
+            Assert.That(ion.IsDiagnosticIon, Is.True);
+
+            // Also works with cached variants
+            var cachedProduct = new ProductWithCache(ProductType.D, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
+            var cachedIon = new MatchedFragmentIonWithCache(cachedProduct, 101.0, 200.0, 1); 
+            Assert.That(cachedIon.IsInternalFragment, Is.False);
+            Assert.That(cachedIon.IsDiagnosticIon, Is.True);
+        }
+
         /// <summary>
         /// Verifies MassErrorDa calculates correct mass error in Daltons.
         /// Critical: Mass error is used for match quality assessment and FDR calculations.
