@@ -1,7 +1,6 @@
 ﻿using Chemistry;
 using Chromatography.RetentionTimePrediction;
 using MassSpectrometry;
-using MzLibUtil.ObjectPools;
 using Omics;
 using Omics.BioPolymer;
 using Omics.Digestion;
@@ -13,6 +12,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using MzLibUtil;
+using ClassExtensions = Chemistry.ClassExtensions;
 
 namespace Proteomics.ProteolyticDigestion
 {
@@ -217,6 +218,7 @@ namespace Proteomics.ProteolyticDigestion
         public string FullSequenceWithMassShifts => _fullSequenceWithMassShifts ??= this.FullSequenceWithMassShift();
 
         public IBioPolymer Parent => Protein;
+
 
         /// <summary>
         /// Generates theoretical fragments for given dissociation type for this peptide. 
@@ -549,6 +551,16 @@ namespace Proteomics.ProteolyticDigestion
 
                 // the diagnostic ion is assumed to be annotated in the mod info as the *neutral mass* of the diagnostic ion, not the ionized species
                 products.Add(new Product(ProductType.D, FragmentationTerminus.Both, diagnosticIon, diagnosticIonLabel, 0, 0));
+            }
+
+            // Return the lists we used to the pools to avoid unnecessary memory usage
+            if (cTermNeutralLosses!=null)
+            {
+                NeutralLossListPool.Return(cTermNeutralLosses);
+            }   
+            if (nTermNeutralLosses != null)
+            {
+                NeutralLossListPool.Return(nTermNeutralLosses);
             }
         }
 
@@ -997,7 +1009,7 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     if (allNeutralLossesSoFar == null)
                     {
-                        allNeutralLossesSoFar = SingletonDoublePool.Instance.Get();
+                        allNeutralLossesSoFar = NeutralLossListPool.Get();
                     }
 
                     allNeutralLossesSoFar.Add(neutralLoss);
@@ -1013,7 +1025,7 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     if (allNeutralLossesSoFar == null)
                     {
-                        allNeutralLossesSoFar = SingletonDoublePool.Instance.Get();
+                        allNeutralLossesSoFar = NeutralLossListPool.Get();
                     }
 
                     allNeutralLossesSoFar.Add(neutralLoss);

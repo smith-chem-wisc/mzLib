@@ -1325,7 +1325,7 @@ namespace Test
                 @"D:\Kelly_ALS_motor_nueron_dataset\MM1p1p4_GPTMD_Search_Carboxymethyl_Carbamido_2\Task1-GPTMDTask\uniprotkb_Human_AND_model_organism_9606_2025_03_19GPTMD.xml"; //@"C:\Users\Alex\Documents\Proteomes\uniprotkb_Human_AND_model_organism_9606_2025_03_19.xml.gz";
 
             var loadSw = Stopwatch.StartNew();
-            var proteins = ProteinDbLoader.LoadProteinXML(dbPath, true, DecoyType.Reverse, Mods.AllKnownMods, false, null, out _);
+            var proteins = ProteinDbLoader.LoadProteinXML(dbPath, true, DecoyType.Reverse, Mods.AllKnownMods, false, null, out _, maxHeterozygousVariants: 0);
             loadSw.Stop();
             var loadElapsed = loadSw.Elapsed;
 
