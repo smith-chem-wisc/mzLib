@@ -74,17 +74,28 @@ namespace Omics.SpectrumMatch
             foreach (MatchedFragmentIon matchedIon in MatchedFragmentIons)
             {
                 double intensityFraction = matchedIon.Intensity / maxIntensity;
+                var product = matchedIon.NeutralTheoreticalProduct;
 
                 string neutralLoss = null;
-                if (matchedIon.NeutralTheoreticalProduct.NeutralLoss != 0)
+                if (product.NeutralLoss != 0)
                 {
-                    neutralLoss = "-" + matchedIon.NeutralTheoreticalProduct.NeutralLoss;
+                    neutralLoss = "-" + product.NeutralLoss.ToString("F2", CultureInfo.InvariantCulture);
                 }
 
-                spectrum.Append("\n" + matchedIon.Mz + "\t" + intensityFraction + "\t" + "\"" +
-                    matchedIon.NeutralTheoreticalProduct.ProductType.ToString() +
-                    matchedIon.NeutralTheoreticalProduct.FragmentNumber.ToString() + "^" +
-                    matchedIon.Charge + neutralLoss + "/" + 0 + "ppm" + "\"");
+                string ionAnnotation;
+                if (product.IsInternalFragment)
+                {
+                    // Internal fragment format: bIb[31-34]^1/0ppm
+                    ionAnnotation = $"{product.ProductType}I{product.SecondaryProductType}[{product.FragmentNumber}-{product.SecondaryFragmentNumber}]^{matchedIon.Charge}{neutralLoss}/0ppm";
+                }
+                else
+                {
+                    // Standard ion format: b3^1/0ppm or b3^1-97.98/0ppm
+                    ionAnnotation = $"{product.ProductType}{product.FragmentNumber}^{matchedIon.Charge}{neutralLoss}/0ppm";
+                }
+
+                spectrum.Append("\n" + matchedIon.Mz.ToString(CultureInfo.InvariantCulture) + "\t" +
+                    intensityFraction.ToString(CultureInfo.InvariantCulture) + "\t" + "\"" + ionAnnotation + "\"");
             }
 
             return spectrum.ToString();
