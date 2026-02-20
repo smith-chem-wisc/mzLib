@@ -101,6 +101,23 @@ namespace Omics.SpectrumMatch
             return spectrum.ToString();
         }
 
+        /// <summary>
+        /// Generates a decoy library spectrum from a target spectrum by matching fragment ions.
+        /// For each target ion, finds the corresponding decoy theoretical product with matching properties
+        /// and creates a new matched fragment ion using the decoy's m/z but preserving the target's intensity.
+        /// </summary>
+        /// <remarks>
+        /// Matching logic:
+        /// <list type="bullet">
+        ///   <item><description>Standard ions: Match by ProductType and FragmentNumber</description></item>
+        ///   <item><description>Internal fragment ions: Additionally require matching SecondaryProductType and SecondaryFragmentNumber</description></item>
+        /// </list>
+        /// This prevents false matches between standard and internal ions (e.g., b2 vs bIb[2-5]).
+        /// </remarks>
+        /// <param name="targetSpectrum">The target library spectrum containing matched fragment ions to reverse</param>
+        /// <param name="decoyPeptideTheorProducts">Theoretical products from the decoy peptide sequence</param>
+        /// <returns>A list of matched fragment ions for the decoy spectrum, preserving target intensities with decoy m/z values</returns>
+
         public static List<MatchedFragmentIon> GetDecoyLibrarySpectrumFromTargetByReverse(LibrarySpectrum targetSpectrum, List<Product> decoyPeptideTheorProducts)
         {
             var decoyFragmentIons = new List<MatchedFragmentIon>();
