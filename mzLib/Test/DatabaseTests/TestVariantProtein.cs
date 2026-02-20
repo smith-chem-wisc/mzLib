@@ -594,9 +594,9 @@ namespace Test.DatabaseTests
         /// <summary>
         /// EDGE CASE: Tests rebasing of prior variations when VCF is null.
         /// Validates the 'else' branch in AdjustSequenceVariationIndices that handles
-        /// variations without VCF data. While an edge case, this prevents null reference
-        /// exceptions when processing mixed variant sources.
-        /// NOTE: There appears to be an off-by-one bug where positions are decremented by 1.
+        /// variations without VCF data. This prevents null reference exceptions when
+        /// processing mixed variant sources and ensures positions are correctly preserved
+        /// when combining variants with and without VCF metadata.
         /// </summary>
         [Test]
         public void AdjustSequenceVariationIndices_NullVcf_RebasesPriorVariation()
