@@ -82,3 +82,32 @@ This file tracks progress across agent sessions. Each session should append an e
 - Task 8 (Real spike-in data test harness)
 
 **Next session should:** Implement Task 2 (PSM adapter), then Task 7 (synthetic TMT tests). Task 8 depends on re-searched psmtsv files with real TMT reporter ion intensities (data was all-zero in current searches).
+
+---
+
+## 2026-02-20 — Session 2 (Implementation)
+
+**What was done:**
+- Implemented Tasks 2 and 7. All build and pass (18/18 quantification tests pass).
+
+**Task 2 — PsmTsvQuantAdapter (Test/Quantification/TestHelpers/PsmTsvQuantAdapter.cs):**
+- `LoadSpectralMatches()`: reads `.psmtsv` via `SpectrumMatchTsvReader.ReadPsmTsv`, filters by q-value and target/decoy flag, wraps each record in `BaseSpectralMatch` with `QuantValues` copied from the parsed TMT reporter ion columns (Task 1 work)
+- `GetUniqueAccessions()`: collects unique Accession strings from a psmtsv file
+- Key design choice: `FullFilePath = FileNameWithoutExtension` (no extension) to match `SpikeInExperimentalDesign` dict keys (which also have no extension)
+- Fixed namespace ambiguity: `Readers.ISpectralMatch` and `Omics.ISpectralMatch` both exist; used `using ISpectralMatch = Omics.ISpectralMatch;` alias and fully-qualified `Readers.SpectrumMatchTsvReader`
+
+**Task 7 — TmtSpikeInTests (Test/Quantification/TmtSpikeInTests.cs):**
+- `PivotByFile_CreatesCorrectPerFileMatrices`: creates 2 files × 2 PSMs each, verifies per-file matrix dimensions and exact intensity values; PSMs ordered by FullSequence within each file
+- `CombinePeptideMatrices_MergesCorrectly`: manually constructs per-file PeptideMatrix objects, verifies union of 3 peptides in 6 columns (3 per file), correct values and zeros for missing peptides
+- `RunTmt_FullPipeline_ProducesCorrectProteinMatrix`: end-to-end test with 2 proteins, 2 files, 3 channels, known QuantValues; verifies protein matrix has 2 rows and 6 columns with correct sums
+- `RunTmt_WithSumCollapse_CombinesTechnicalReplicates`: verifies SumCollapse reduces 3 files × 3 channels (9 cols) to 3 collapsed condition columns with summed values
+- Defined `TmtTestExperimentalDesign` private inner class (mirrors `TestExperimentalDesign` pattern from QuantificationTests.cs)
+
+**Commit:** `3872147c` — "Implement Tasks 2 and 7: PsmTsvQuantAdapter and synthetic TMT tests"
+
+**Build/Test status:** Build succeeds (0 errors), 18/18 quantification tests pass (14 existing + 4 new TmtSpikeInTests).
+
+**Remaining tasks:**
+- Task 8 (Real spike-in data test harness) — depends on re-searched psmtsv files with real TMT reporter ion intensities
+
+**Next session should:** Implement Task 8 once re-searched psmtsv files (with actual TMT reporter ion values) are available. The PsmTsvQuantAdapter from Task 2 is ready to load those files.
