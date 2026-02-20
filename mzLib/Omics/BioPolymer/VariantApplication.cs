@@ -493,34 +493,44 @@ namespace Omics.BioPolymer
         /// Applies all combinations of the provided variations to the base biopolymer up to a maximum number of yielded results.
         /// The base (no-variant) biopolymer is yielded first, followed by combinations in increasing size.
         /// </summary>
+        /// <remarks>
+        /// Within each combination, variants are applied in descending position order (highest position first).
+        /// This ensures that insertions or deletions from earlier-applied variants do not invalidate the
+        /// coordinate positions of subsequent variants in the same combination.
+        /// </remarks>
         /// <typeparam name="TBioPolymerType">A biopolymer type that supports sequence variants.</typeparam>
         /// <param name="baseBioPolymer">The starting biopolymer (no variations applied).</param>
         /// <param name="variations">Candidate variations to combine.</param>
         /// <param name="maxCombinations">Maximum number of variants (including the base) to yield to bound combinatorial growth.</param>
         /// <returns>An enumerable of applied-variant biopolymers.</returns>
+
         public static IEnumerable<TBioPolymerType> ApplyAllVariantCombinations<TBioPolymerType>(
             TBioPolymerType baseBioPolymer,
             List<SequenceVariation> variations,
             int maxCombinations)
             where TBioPolymerType : IHasSequenceVariants
         {
-            int count = 0; // number of variants yielded so far
+            int count = 0;
 
             yield return baseBioPolymer;
             count++;
             if (count >= maxCombinations)
                 yield break;
 
-            int n = variations.Count; // total variation count
+            int n = variations.Count;
             for (int size = 1; size <= n; size++)
             {
                 foreach (var combo in GetCombinations(variations, size))
                 {
-                    var result = baseBioPolymer; // start from base and apply this combination in order
-                    foreach (var variant in combo)
+                    var result = baseBioPolymer;
+
+                    // Sort variants by descending position before applying.
+                    // This ensures earlier sequence modifications don't invalidate later variant positions.
+                    foreach (var variant in combo.OrderByDescending(v => v.OneBasedBeginPosition))
                     {
                         result = ApplySingleVariant(variant, result, string.Empty);
                     }
+
                     if (result != null)
                     {
                         yield return result;
