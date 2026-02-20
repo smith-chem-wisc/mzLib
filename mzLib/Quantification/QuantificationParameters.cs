@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Quantification.Strategies;
-using Quantification.Strategies.Collapse;
 
 namespace Quantification
 {

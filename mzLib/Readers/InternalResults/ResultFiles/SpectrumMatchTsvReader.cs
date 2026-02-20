@@ -252,6 +252,12 @@ namespace Readers
             parsedHeader.Add(SpectrumMatchFromTsvHeader.FivePrimeTerminus, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.FivePrimeTerminus));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.ThreePrimeTerminus, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.ThreePrimeTerminus));
 
+            // TMT/Isobaric reporter ion channels
+            foreach (var channelName in SpectrumMatchFromTsvHeader.TmtChannelNames)
+            {
+                parsedHeader[channelName] = Array.IndexOf(spl, channelName);
+            }
+
             return parsedHeader;
         }
     

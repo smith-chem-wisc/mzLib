@@ -64,6 +64,8 @@ namespace Readers
 
         public List<MatchedFragmentIon> VariantCrossingIons { get; protected set; }
 
+        public double[]? QuantValues { get; protected set; }
+
         #region IQuantifiableRecord Properties and Methods
         public string FileName => FileNameWithoutExtension;
         public int OneBasedScanNumber => Ms2ScanNumber;
@@ -182,6 +184,9 @@ namespace Readers
                 : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.SpectralAngle]].Trim(),
                     CultureInfo.InvariantCulture);
             #pragma warning restore CS8601 // Possible null reference assignment.
+
+            // Parse TMT/isobaric reporter ion columns if present
+            QuantValues = ParseReporterIonColumns(spl, parsedHeader);
         }
 
         /// <summary>
@@ -262,6 +267,40 @@ namespace Readers
         /// <summary>
         /// All parsing should take place within the derived class constructurs
         /// </summary>
+
+        /// <summary>
+        /// Detects TMT reporter ion columns in the header and parses their values.
+        /// Returns null if no TMT columns are found.
+        /// </summary>
+        private static double[]? ParseReporterIonColumns(string[] spl, Dictionary<string, int> parsedHeader)
+        {
+            // Find which TMT channels are present in the header, preserving order
+            var presentChannels = new List<(string name, int index)>();
+            foreach (var channelName in SpectrumMatchFromTsvHeader.TmtChannelNames)
+            {
+                if (parsedHeader.TryGetValue(channelName, out int colIndex) && colIndex >= 0 && colIndex < spl.Length)
+                {
+                    presentChannels.Add((channelName, colIndex));
+                }
+            }
+
+            if (presentChannels.Count == 0)
+                return null;
+
+            double[] values = new double[presentChannels.Count];
+            for (int i = 0; i < presentChannels.Count; i++)
+            {
+                if (double.TryParse(spl[presentChannels[i].index].Trim(),
+                    System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out double val))
+                {
+                    values[i] = val;
+                }
+                // else stays 0.0
+            }
+            return values;
+        }
 
         //Used to remove Silac labels for proper annotation
         public static string RemoveParentheses(string baseSequence)

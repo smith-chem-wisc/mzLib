@@ -198,6 +198,81 @@ public class QuantificationEngine
     }
 
     /// <summary>
+    /// Runs the TMT-specific quantification pipeline.
+    /// Processes each file independently (pivot, normalize, roll-up) before combining.
+    /// </summary>
+    public QuantificationResults RunTmt()
+    {
+        if (!ValidateEngine(out QuantificationResults badResults))
+            return badResults;
+
+        RunTmtCore(out _);
+        return new QuantificationResults
+        {
+            Summary = "TMT Quantification completed successfully."
+        };
+    }
+
+    /// <summary>
+    /// Runs the TMT pipeline and returns the final protein matrix for testing/inspection.
+    /// </summary>
+    internal QuantMatrix<IBioPolymerGroup> RunTmtAndReturnProteinMatrix()
+    {
+        if (!ValidateEngine(out QuantificationResults _))
+            throw new MzLibException("QuantificationEngine validation failed.");
+
+        RunTmtCore(out var proteinMatrixNorm);
+        return proteinMatrixNorm;
+    }
+
+    /// <summary>
+    /// Core TMT pipeline: per-file normalization, roll-up, combine, normalize, collapse, protein roll-up.
+    /// </summary>
+    private void RunTmtCore(out QuantMatrix<IBioPolymerGroup> proteinMatrixNorm)
+    {
+        // 1) PivotByFile - one matrix per file
+        var perFileMatrices = PivotByFile(SpectralMatches, ExperimentalDesign);
+
+        // 2) Per-file PSM normalization
+        var perFileNormalized = new Dictionary<string, QuantMatrix<ISpectralMatch>>();
+        foreach (var kvp in perFileMatrices)
+        {
+            perFileNormalized[kvp.Key] = Parameters.SpectralMatchNormalizationStrategy
+                .NormalizeIntensities(kvp.Value);
+        }
+
+        // 3) Per-file roll-up to peptides
+        var perFilePeptideMatrices = new Dictionary<string, QuantMatrix<IBioPolymerWithSetMods>>();
+        foreach (var kvp in perFileNormalized)
+        {
+            var peptideMap = GetPsmToPeptideMap(kvp.Value, ModifiedBioPolymers);
+            perFilePeptideMatrices[kvp.Key] = Parameters.SpectralMatchToPeptideRollUpStrategy
+                .RollUp(kvp.Value, peptideMap);
+        }
+
+        // 4) Combine per-file peptide matrices
+        var combinedPeptideMatrix = CombinePeptideMatrices(perFilePeptideMatrices, ExperimentalDesign);
+
+        // 5) Normalize combined peptide matrix
+        var peptideMatrixNorm = Parameters.PeptideNormalizationStrategy
+            .NormalizeIntensities(combinedPeptideMatrix);
+
+        // 6) Collapse samples (technical replicates, fractions)
+        peptideMatrixNorm = Parameters.CollapseStrategy.CollapseSamples(peptideMatrixNorm);
+
+        // 7) Roll up to proteins
+        var proteinMap = Parameters.UseSharedPeptidesForProteinQuant
+            ? GetAllPeptideToProteinMap(peptideMatrixNorm)
+            : GetUniquePeptideToProteinMap(peptideMatrixNorm, BioPolymerGroups);
+        var proteinMatrix = Parameters.PeptideToProteinRollUpStrategy
+            .RollUp(peptideMatrixNorm, proteinMap);
+
+        // 8) Normalize protein matrix
+        proteinMatrixNorm = Parameters.ProteinNormalizationStrategy
+            .NormalizeIntensities(proteinMatrix);
+    }
+
+    /// <summary>
     /// Creates a pivoted matrix of quantified spectral matches, organizing intensity values according to the specified
     /// experimental design.
     /// </summary>
@@ -246,6 +321,114 @@ public class QuantificationEngine
             smMatrix.SetRow(spectralMatch, intensities);
         }
         return smMatrix;
+    }
+
+    /// <summary>
+    /// Creates one SpectralMatchMatrix per file for TMT/isobaric data.
+    /// Each matrix has rows = PSMs from that file, columns = channels within that file.
+    /// This produces dense matrices (no sparse zeros) suitable for within-file normalization.
+    /// </summary>
+    /// <param name="spectralMatches">All spectral matches across all files</param>
+    /// <param name="experimentalDesign">Maps file names to channel ISampleInfo arrays</param>
+    /// <returns>Dictionary mapping file path to its SpectralMatchMatrix</returns>
+    public static Dictionary<string, SpectralMatchMatrix> PivotByFile(
+        List<ISpectralMatch> spectralMatches,
+        IExperimentalDesign experimentalDesign)
+    {
+        var result = new Dictionary<string, SpectralMatchMatrix>();
+
+        // Filter to spectral matches with non-null QuantValues and group by file path
+        var quantified = spectralMatches
+            .Where(sm => sm.QuantValues != null)
+            .GroupBy(sm => sm.FullFilePath)
+            .OrderBy(g => g.Key);
+
+        foreach (var fileGroup in quantified)
+        {
+            string filePath = fileGroup.Key;
+            string fileName = Path.GetFileName(filePath);
+
+            // Lookup the channel sample infos for this file
+            if (!experimentalDesign.FileNameSampleInfoDictionary.TryGetValue(fileName, out var sampleInfoArray))
+            {
+                throw new KeyNotFoundException(
+                    $"File name '{fileName}' not found in experimental design.");
+            }
+
+            // PSMs ordered by FullSequence for determinism
+            var filePsms = fileGroup.OrderBy(sm => sm.FullSequence).ToList();
+
+            var smMatrix = new SpectralMatchMatrix(filePsms, sampleInfoArray, experimentalDesign);
+
+            // Copy QuantValues directly — positional mapping: QuantValues[i] → column[i]
+            foreach (var sm in filePsms)
+            {
+                smMatrix.SetRow(sm, sm.QuantValues);
+            }
+
+            result[filePath] = smMatrix;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Combines per-file peptide matrices into a single matrix spanning all files.
+    /// Rows = union of all peptides across files.
+    /// Columns = all channels from all files, ordered by file path then channel.
+    /// Values = peptide intensity in that channel, or 0 if the peptide was not observed in that file.
+    /// </summary>
+    /// <param name="perFilePeptideMatrices">Dictionary of file path → peptide matrix for that file</param>
+    /// <param name="experimentalDesign">The experimental design</param>
+    /// <returns>A single PeptideMatrix covering all files and channels</returns>
+    public static PeptideMatrix CombinePeptideMatrices(
+        Dictionary<string, QuantMatrix<IBioPolymerWithSetMods>> perFilePeptideMatrices,
+        IExperimentalDesign experimentalDesign)
+    {
+        // 1. Collect all unique peptides across all per-file matrices, ordered for determinism
+        var allPeptides = perFilePeptideMatrices.Values
+            .SelectMany(m => m.RowKeys)
+            .Distinct()
+            .OrderBy(p => p.FullSequence)
+            .ToList();
+
+        // 2. Collect all column keys ordered by file path (alphabetically), then channel within each file
+        var sortedFilePaths = perFilePeptideMatrices.Keys.OrderBy(fp => fp).ToList();
+        var allColumnKeys = new List<ISampleInfo>();
+        var fileColumnOffsets = new Dictionary<string, int>();
+        foreach (var filePath in sortedFilePaths)
+        {
+            fileColumnOffsets[filePath] = allColumnKeys.Count;
+            allColumnKeys.AddRange(perFilePeptideMatrices[filePath].ColumnKeys);
+        }
+
+        // 3. Create the combined PeptideMatrix
+        var combined = new PeptideMatrix(allPeptides, allColumnKeys, experimentalDesign);
+
+        // 4. For each per-file matrix, copy values into the combined matrix at the correct offset
+        foreach (var filePath in sortedFilePaths)
+        {
+            var fileMatrix = perFilePeptideMatrices[filePath];
+            int colOffset = fileColumnOffsets[filePath];
+            int numFileCols = fileMatrix.ColumnKeys.Count;
+
+            foreach (var peptide in fileMatrix.RowKeys)
+            {
+                double[] fileRow = fileMatrix.GetRow(peptide);
+                int peptideRowIndex = allPeptides.IndexOf(peptide);
+                if (peptideRowIndex < 0) continue;
+
+                // Get or build current combined row for this peptide
+                double[] combinedRow = combined.GetRow(peptideRowIndex);
+                for (int i = 0; i < numFileCols; i++)
+                {
+                    combinedRow[colOffset + i] = fileRow[i];
+                }
+                combined.SetRow(peptide, combinedRow);
+            }
+        }
+
+        return combined;
     }
 
     /// <summary>
