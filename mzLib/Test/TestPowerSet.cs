@@ -9,6 +9,29 @@ namespace Test
 {
     public class TestPowerSet
     {
+        [Test]
+        public void TestPowerSetGeneration_EmptyList()
+        {
+            List<double> numberList = new List<double>();
+            var uniqueSumOfSubsets = PowerSet.UniqueSubsetSums(numberList, 3);
+            List<double> expectedSums = new List<double> { 0.0 };
+            Assert.AreEqual(expectedSums.Count, uniqueSumOfSubsets.Count);
+            Assert.IsTrue(expectedSums.SequenceEqual(uniqueSumOfSubsets));
+        }
+
+        [Test]
+        public void TestPowerSetGenration_StackOverFlow()
+        {
+            List<double> numberList = new List<double> {
+            1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0 };
+            var ex1 = Assert.Throws<ArgumentException>(() => PowerSet.UniqueSubsetSums(numberList, 3));
+            Assert.That(ex1.Message, Is.EqualTo("Input list is too large. Maximum supported size is 15 to avoid excessive memory usage."));
+
+            List<double> numberList_2 = new List<double> {
+            1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0 };
+            var ex2 = Assert.Throws<ArgumentException>(() => PowerSet.UniqueSubsetSums(numberList_2, -3));
+            Assert.That(ex2.Message, Is.EqualTo("Subset size must be non-negative."));
+        }
 
         [Test]
         public void TestPowerSetGeneration_ThreeNumber()

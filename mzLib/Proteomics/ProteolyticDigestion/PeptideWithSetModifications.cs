@@ -7,7 +7,6 @@ using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Fragmentation.Peptide;
 using Omics.Modifications;
-using Omics.Modifications.IO;
 using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
@@ -265,10 +264,10 @@ namespace Proteomics.ProteolyticDigestion
             // inefficient memory usage and thus frequent garbage collection. 
             // TODO: If you can think of a way to remove these collections and still maintain correct 
             // fragmentation, please do so.
-            //List used to preserve multiplicity of neutral losses (e.g. two phosphorylation sites on the same fragment would generate two losses of 98 Da, and we would want to see both of those losses represented in the products)
+            // List used to preserve multiplicity of neutral losses (e.g., two phosphorylation sites on the same fragment would generate two losses of 98 Da.) We want to see both of those losses represented in the products.
             List<double> cTermNeutralLosses = NeutralLossPool.Get();
             List<double> nTermNeutralLosses = NeutralLossPool.Get();
-            int maxSubsetSize = fragmentationParams == null? 1 : fragmentationParams.MaxSubsetSize;
+            int maxSubsetSize = fragmentationParams == null ? 1 : fragmentationParams.MaxSubsetSize;
 
             // n-terminus mod
             if (calculateNTermFragments)
@@ -337,6 +336,8 @@ namespace Proteomics.ProteolyticDigestion
                         goto CTerminusFragments;
                     }
 
+
+                    nTermNeutralLosses = AddNeutralLossesFromMods(mod, nTermNeutralLosses, dissociationType);
                     // generate products
                     for (int i = 0; i < nTermProductTypes.Count; i++)
                     {
@@ -361,20 +362,20 @@ namespace Proteomics.ProteolyticDigestion
                             r + 1,
                             0));
 
-                        nTermNeutralLosses = AddNeutralLossesFromMods(mod, nTermNeutralLosses, dissociationType);
                         
-                        if (nTermNeutralLosses != null)
+                        
+                        if (nTermNeutralLosses.Count > 0)
                         {
                             var distinctNeutralLosses = PowerSet.UniqueSubsetSums(nTermNeutralLosses, maxSubsetSize);
-                            foreach (double distinctionNeturalLoss in distinctNeutralLosses.Skip(1)) 
+                            foreach (double distinctNeutralLoss in distinctNeutralLosses.Skip(1)) 
                             {
                                 products.Add(new Product(
                                     nTermProductTypes[i],
                                     FragmentationTerminus.N,
-                                    nTermMass + massCaps.Item1[i] - distinctionNeturalLoss,
+                                    nTermMass + massCaps.Item1[i] - distinctNeutralLoss,
                                     r + 1,
                                     r + 1,
-                                    distinctionNeturalLoss));
+                                    distinctNeutralLoss));
                             }
                         }
                     }
@@ -416,6 +417,7 @@ namespace Proteomics.ProteolyticDigestion
                         }
                     }
 
+                    cTermNeutralLosses = AddNeutralLossesFromMods(mod, cTermNeutralLosses, dissociationType);
                     // generate products
                     for (int i = 0; i < cTermProductTypes.Count; i++)
                     {
@@ -448,20 +450,19 @@ namespace Proteomics.ProteolyticDigestion
                             BaseSequence.Length - r,
                             0));
 
-                        cTermNeutralLosses = AddNeutralLossesFromMods(mod, cTermNeutralLosses, dissociationType);
 
-                        if (cTermNeutralLosses != null)
+                        if (cTermNeutralLosses.Count > 0)
                         {
                             var distinctNeutralLosses = PowerSet.UniqueSubsetSums(cTermNeutralLosses, maxSubsetSize);
-                            foreach (double distinctNeutralLosse in distinctNeutralLosses.Skip(1))
+                            foreach (double distinctNeutralLoss in distinctNeutralLosses.Skip(1))
                             {
                                 products.Add(new Product(
                                     cTermProductTypes[i],
                                     FragmentationTerminus.C,
-                                    cTermMass + massCaps.Item2[i] - distinctNeutralLosse,
+                                    cTermMass + massCaps.Item2[i] - distinctNeutralLoss,
                                     r + 1,
                                     BaseSequence.Length - r,
-                                    distinctNeutralLosse));
+                                    distinctNeutralLoss));
                             }
                         }
                     }
