@@ -142,14 +142,15 @@ public static class BaseLossFragmentation
     [Test]
     public static void BaseLossDeltaMass_TwoOMethyl_IsCorrectSimple()
     {
-        var nSix = new OligoWithSetMods("GUACUG");
+        var unmodified = new OligoWithSetMods("GUACUG");
         var twoOMethyl = new OligoWithSetMods("GUA[Biological:2'-O-Methyladenosine on A]CUG");
         var modMass = ChemicalFormula.ParseFormula("CH2").MonoisotopicMass;
+        Assert.That(twoOMethyl.MonoisotopicMass, Is.EqualTo(unmodified.MonoisotopicMass + modMass).Within(0.001));
 
         var unmodifiedProducts = new List<Product>();
         var modifiedProducts = new List<Product>();
 
-        nSix.Fragment(DissociationType.CID, FragmentationTerminus.Both, unmodifiedProducts);
+        unmodified.Fragment(DissociationType.CID, FragmentationTerminus.Both, unmodifiedProducts);
         twoOMethyl.Fragment(DissociationType.CID, FragmentationTerminus.Both, modifiedProducts);
 
         var twoOBaseLoss = modifiedProducts.Where(p => p.ProductType == ProductType.aBaseLoss)
@@ -170,6 +171,7 @@ public static class BaseLossFragmentation
         var unmodified = new OligoWithSetMods("GUACUG");
         var nSix = new OligoWithSetMods("GUA[N6-methyladenosine on A]CUG");
         var modMass = ChemicalFormula.ParseFormula("CH2").MonoisotopicMass;
+        Assert.That(nSix.MonoisotopicMass, Is.EqualTo(unmodified.MonoisotopicMass + modMass).Within(0.001));
 
         var unmodifiedProducts = new List<Product>();
         var modifiedProducts = new List<Product>();
@@ -195,6 +197,7 @@ public static class BaseLossFragmentation
         var nSix = new OligoWithSetMods("GUA[Biological:N6-methyladenosine on A]CUG");
         var twoOMethyl = new OligoWithSetMods("GUA[Biological:2'-O-Methyladenosine on A]CUG");
         var modMass = ChemicalFormula.ParseFormula("CH2").MonoisotopicMass;
+        Assert.That(nSix.MonoisotopicMass, Is.EqualTo(twoOMethyl.MonoisotopicMass).Within(0.001));
 
         var unmodifiedProducts = new List<Product>();
         var modifiedProducts = new List<Product>();
@@ -220,6 +223,7 @@ public static class BaseLossFragmentation
         var unmod = new OligoWithSetMods("GUACUG");
         var dimethyl = new OligoWithSetMods("GUA[Biological:N6,2'-O-dimethyladenosine on A]CUG");
         var modMass = ChemicalFormula.ParseFormula("C2H4").MonoisotopicMass;
+        Assert.That(dimethyl.MonoisotopicMass, Is.EqualTo(unmod.MonoisotopicMass + modMass).Within(0.001));
 
         var unmodifiedProducts = new List<Product>();
         var modifiedProducts = new List<Product>();
@@ -245,6 +249,7 @@ public static class BaseLossFragmentation
         var twoOMethyl = new OligoWithSetMods("GUA[Biological:2'-O-Methyladenosine on A]CUG");
         var dimethyl = new OligoWithSetMods("GUA[Biological:N6,2'-O-dimethyladenosine on A]CUG");
         var modMass = ChemicalFormula.ParseFormula("C2H4").MonoisotopicMass;
+        Assert.That(dimethyl.MonoisotopicMass, Is.EqualTo(twoOMethyl.MonoisotopicMass + modMass / 2).Within(0.001));
 
         var unmodifiedProducts = new List<Product>();
         var modifiedProducts = new List<Product>();
@@ -270,6 +275,7 @@ public static class BaseLossFragmentation
         var nSix = new OligoWithSetMods("GUA[Biological:N6-methyladenosine on A]CUG");
         var dimethyl = new OligoWithSetMods("GUA[Biological:N6,2'-O-dimethyladenosine on A]CUG");
         var modMass = ChemicalFormula.ParseFormula("C2H4").MonoisotopicMass;
+        Assert.That(dimethyl.MonoisotopicMass, Is.EqualTo(nSix.MonoisotopicMass + modMass / 2).Within(0.001));
 
         var unmodifiedProducts = new List<Product>();
         var modifiedProducts = new List<Product>();
