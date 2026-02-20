@@ -1,11 +1,12 @@
 ﻿using NUnit.Framework;
+using NUnit.Framework.Legacy;
+using Omics.Fragmentation;
+using Omics.SpectrumMatch;
+using Readers.SpectralLibrary;
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Collections.Generic;
-using Omics.Fragmentation;
-using Readers.SpectralLibrary;
-using Omics.SpectrumMatch;
-using NUnit.Framework.Legacy;
 
 namespace Test
 {
@@ -286,6 +287,47 @@ namespace Test
 
             testLibraryWithoutDecoy.CloseConnections();
             File.Delete(writtenPath);
+        }
+
+        [Test]
+        public static void SpectralLibaryWithInternalIonsReaderTest()
+        {
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\librarySpectrumInternalIons.msp");
+            var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { path });
+            var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
+
+            Assert.That(librarySpectra.Count, Is.EqualTo(1));
+            Assert.That(testLibraryWithoutDecoy.TryGetSpectrum("[Common Biological:Acetylation on X]AGVEEVAASGSHLNGDLDPDDREEGAASTAEEAAK", 3, out var spectrum));
+
+            // Verify some standard ions exist
+            var standardIons = spectrum.MatchedFragmentIons.Where(m => !m.NeutralTheoreticalProduct.IsInternalFragment).ToList();
+            Assert.That(standardIons.Count, Is.GreaterThan(0), "Should have standard b/y ions");
+
+            // Verify internal fragment ions are parsed correctly
+            var internalIons = spectrum.MatchedFragmentIons.Where(m => m.NeutralTheoreticalProduct.IsInternalFragment).ToList();
+            Assert.That(internalIons.Count, Is.GreaterThan(0), "Should have internal fragment ions");
+
+            // Check a specific internal ion: bIb[31-34]^1 at m/z 401.166676
+            var internalIon = internalIons.FirstOrDefault(i =>
+                Math.Abs(i.Mz - 401.166676) < 0.001);
+            Assert.That(internalIon, Is.Not.Null, "Should find internal ion at m/z 401.166676");
+
+            var product = internalIon.NeutralTheoreticalProduct;
+            Assert.That(product.IsInternalFragment, Is.True, "Should be marked as internal fragment");
+            Assert.That(product.ProductType, Is.EqualTo(ProductType.b), "Primary type should be b");
+            Assert.That(product.SecondaryProductType, Is.EqualTo(ProductType.b), "Secondary type should be b");
+            Assert.That(product.FragmentNumber, Is.EqualTo(31), "Start residue should be 31");
+            Assert.That(product.SecondaryFragmentNumber, Is.EqualTo(34), "End residue should be 34");
+            Assert.That(internalIon.Charge, Is.EqualTo(1), "Charge should be 1");
+
+            // Verify another internal ion: bIb[23-27]^1 at m/z 458.188136
+            var internalIon2 = internalIons.FirstOrDefault(i =>
+                Math.Abs(i.Mz - 458.188136) < 0.001);
+            Assert.That(internalIon2, Is.Not.Null);
+            Assert.That(internalIon2.NeutralTheoreticalProduct.FragmentNumber, Is.EqualTo(23));
+            Assert.That(internalIon2.NeutralTheoreticalProduct.SecondaryFragmentNumber, Is.EqualTo(27));
+
+            testLibraryWithoutDecoy.CloseConnections();
         }
 
         [Test]
