@@ -329,6 +329,93 @@ namespace Test
 
             testLibraryWithoutDecoy.CloseConnections();
         }
+        [Test]
+        public static void SpectralLibaryWithInternalIonsWriteReadTest()
+        {
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\librarySpectrumInternalIons.msp");
+            var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { path });
+            var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
+
+            Assert.That(librarySpectra.Count, Is.EqualTo(1));
+            Assert.That(testLibraryWithoutDecoy.TryGetSpectrum("[Common Biological:Acetylation on X]AGVEEVAASGSHLNGDLDPDDREEGAASTAEEAAK", 3, out var spectrum));
+
+            // Count original internal ions
+            var originalInternalIons = spectrum.MatchedFragmentIons
+                .Where(m => m.NeutralTheoreticalProduct.IsInternalFragment).ToList();
+            var originalStandardIons = spectrum.MatchedFragmentIons
+                .Where(m => !m.NeutralTheoreticalProduct.IsInternalFragment).ToList();
+
+            Assert.That(originalInternalIons.Count, Is.GreaterThan(0), "Should have internal fragment ions to test");
+            Assert.That(originalStandardIons.Count, Is.GreaterThan(0), "Should have standard ions to test");
+
+            // Write the library w/ the ToString method
+            var writtenPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\testInternalIonsToString.msp");
+            var str = librarySpectra.SelectMany(p => p.ToString().Split(new char[] { '\n' }));
+            File.WriteAllLines(writtenPath, str);
+
+            testLibraryWithoutDecoy.CloseConnections();
+
+            // Read the written library and verify internal ions are preserved
+            var rereadLibrary = new SpectralLibrary(new List<string> { writtenPath });
+            var rereadSpectra = rereadLibrary.GetAllLibrarySpectra().ToList();
+
+            Assert.That(rereadSpectra.Count, Is.EqualTo(1), "Should have 1 spectrum after round-trip");
+            Assert.That(rereadLibrary.TryGetSpectrum("[Common Biological:Acetylation on X]AGVEEVAASGSHLNGDLDPDDREEGAASTAEEAAK", 3, out var rereadSpectrum));
+
+            // Verify internal ions were preserved
+            var rereadInternalIons = rereadSpectrum.MatchedFragmentIons
+                .Where(m => m.NeutralTheoreticalProduct.IsInternalFragment).ToList();
+            var rereadStandardIons = rereadSpectrum.MatchedFragmentIons
+                .Where(m => !m.NeutralTheoreticalProduct.IsInternalFragment).ToList();
+
+            Assert.That(rereadInternalIons.Count, Is.EqualTo(originalInternalIons.Count),
+                "Internal ion count should be preserved after round-trip");
+            Assert.That(rereadStandardIons.Count, Is.EqualTo(originalStandardIons.Count),
+                "Standard ion count should be preserved after round-trip");
+
+            // Verify specific internal ion properties are preserved: bIb[31-34]^1 at m/z 401.166676
+            var originalIon = originalInternalIons.FirstOrDefault(i => Math.Abs(i.Mz - 401.166676) < 0.001);
+            var rereadIon = rereadInternalIons.FirstOrDefault(i => Math.Abs(i.Mz - 401.166676) < 0.001);
+
+            Assert.That(originalIon, Is.Not.Null, "Should find original internal ion");
+            Assert.That(rereadIon, Is.Not.Null, "Should find re-read internal ion");
+
+            Assert.That(rereadIon.NeutralTheoreticalProduct.IsInternalFragment, Is.True);
+            Assert.That(rereadIon.NeutralTheoreticalProduct.ProductType,
+                Is.EqualTo(originalIon.NeutralTheoreticalProduct.ProductType), "ProductType should match");
+            Assert.That(rereadIon.NeutralTheoreticalProduct.SecondaryProductType,
+                Is.EqualTo(originalIon.NeutralTheoreticalProduct.SecondaryProductType), "SecondaryProductType should match");
+            Assert.That(rereadIon.NeutralTheoreticalProduct.FragmentNumber,
+                Is.EqualTo(originalIon.NeutralTheoreticalProduct.FragmentNumber), "FragmentNumber (start) should match");
+            Assert.That(rereadIon.NeutralTheoreticalProduct.SecondaryFragmentNumber,
+                Is.EqualTo(originalIon.NeutralTheoreticalProduct.SecondaryFragmentNumber), "SecondaryFragmentNumber (end) should match");
+            Assert.That(rereadIon.Charge, Is.EqualTo(originalIon.Charge), "Charge should match");
+
+            // Verify another internal ion: bIb[23-27]^1 at m/z 458.188136
+            var originalIon2 = originalInternalIons.FirstOrDefault(i => Math.Abs(i.Mz - 458.188136) < 0.001);
+            var rereadIon2 = rereadInternalIons.FirstOrDefault(i => Math.Abs(i.Mz - 458.188136) < 0.001);
+
+            Assert.That(originalIon2, Is.Not.Null);
+            Assert.That(rereadIon2, Is.Not.Null);
+            Assert.That(rereadIon2.NeutralTheoreticalProduct.FragmentNumber, Is.EqualTo(23));
+            Assert.That(rereadIon2.NeutralTheoreticalProduct.SecondaryFragmentNumber, Is.EqualTo(27));
+
+            // Verify a standard ion is also preserved correctly
+            var originalStdIon = originalStandardIons.FirstOrDefault(i =>
+                i.NeutralTheoreticalProduct.ProductType == ProductType.b &&
+                i.NeutralTheoreticalProduct.FragmentNumber == 1);
+            var rereadStdIon = rereadStandardIons.FirstOrDefault(i =>
+                i.NeutralTheoreticalProduct.ProductType == ProductType.b &&
+                i.NeutralTheoreticalProduct.FragmentNumber == 1);
+
+            Assert.That(originalStdIon, Is.Not.Null);
+            Assert.That(rereadStdIon, Is.Not.Null);
+            Assert.That(rereadStdIon.NeutralTheoreticalProduct.IsInternalFragment, Is.False);
+            Assert.That(rereadStdIon.Charge, Is.EqualTo(originalStdIon.Charge));
+
+            rereadLibrary.CloseConnections();
+            File.Delete(writtenPath);
+        }
 
         [Test]
         public static void TestDecoyLibrarySpectraGenerationFunction()

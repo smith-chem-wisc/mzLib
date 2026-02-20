@@ -63,10 +63,10 @@ namespace Omics.SpectrumMatch
         {
             StringBuilder spectrum = new StringBuilder();
             spectrum.Append("Name: " + Name);
-            spectrum.Append("\nMW: " + PrecursorMz);
+            spectrum.Append("\nMW: " + PrecursorMz.ToString(CultureInfo.InvariantCulture));
             spectrum.Append("\nComment: ");
-            spectrum.Append("Parent=" + PrecursorMz);
-            spectrum.Append(" RT=" + RetentionTime);
+            spectrum.Append("Parent=" + PrecursorMz.ToString(CultureInfo.InvariantCulture));
+            spectrum.Append(" RT=" + RetentionTime?.ToString(CultureInfo.InvariantCulture));
             spectrum.Append("\nNum peaks: " + MatchedFragmentIons.Count);
 
             double maxIntensity = MatchedFragmentIons.Select(b => b.Intensity).Max();
@@ -79,7 +79,7 @@ namespace Omics.SpectrumMatch
                 string neutralLoss = null;
                 if (product.NeutralLoss != 0)
                 {
-                    neutralLoss = "-" + product.NeutralLoss.ToString("F2", CultureInfo.InvariantCulture);
+                    neutralLoss = "-" + product.NeutralLoss.ToString(CultureInfo.InvariantCulture);
                 }
 
                 string ionAnnotation;
@@ -90,12 +90,12 @@ namespace Omics.SpectrumMatch
                 }
                 else
                 {
-                    // Standard ion format: b3^1/0ppm or b3^1-97.98/0ppm
+                    // Standard ion format: b3^1/0ppm or b3^1-97.976895573/0ppm
                     ionAnnotation = $"{product.ProductType}{product.FragmentNumber}^{matchedIon.Charge}{neutralLoss}/0ppm";
                 }
 
                 spectrum.Append("\n" + matchedIon.Mz.ToString(CultureInfo.InvariantCulture) + "\t" +
-                    intensityFraction.ToString(CultureInfo.InvariantCulture) + "\t" + "\"" + ionAnnotation + "\"");
+                    intensityFraction.ToString(CultureInfo.InvariantCulture) + "\t\"" + ionAnnotation + "\"");
             }
 
             return spectrum.ToString();
