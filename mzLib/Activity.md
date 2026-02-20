@@ -154,3 +154,60 @@ This file tracks progress across agent sessions. Each session should append an e
 - Tasks 1–6: TMT pipeline foundation (reader, adapter, engine methods)
 - Task 7: Synthetic TMT pipeline tests (fast)
 - Task 8: Real SpikeIn-5mix-MS3 integration tests
+
+---
+
+## 2026-02-20 — Session 4 (Strategy Optimization)
+
+**What was done:**
+- Implemented Tasks 9–14 from plan2.md in a single session. All 26 quantification tests pass.
+
+**Task 10 — GlobalMedianNormalization (Quantification/Strategies/Normalization/GlobalMedianNormalization.cs):**
+- Equalizes median log2 intensity across all columns by shifting each column so its median matches the global median
+- Zero values (missing data) excluded from median computation and preserved unchanged
+- Columns with ≤1 positive value are copied as-is (no meaningful shift)
+
+**Task 11 — ReferenceChannelNormalization (Quantification/Strategies/Normalization/ReferenceChannelNormalization.cs):**
+- Divides each channel by the mean of the reference channels (126, 131N) within the same file
+- Reference channels become 1.0; non-reference channels become fold-change-relative-to-reference
+- If both reference channels are zero for a row, all channels for that row/file are zeroed (missing)
+
+**Task 12 — MedianRollUp (Quantification/Strategies/RollUp/MedianRollUp.cs):**
+- Rolls up PSMs→peptides or peptides→proteins using per-column median (instead of sum)
+- Zero values excluded from median; result is 0 if all values are zero
+- More robust to outlier PSMs/peptides than SumRollUp
+
+**Task 13 — MeanCollapse (Quantification/Strategies/Collapse/MeanCollapse.cs):**
+- Collapses technical replicates by averaging (sum / group count) instead of summing
+- Same grouping logic as SumCollapse (Condition + '_' + BiologicalReplicate)
+- Denominator is total group size (treats zero as "observed zero", not missing)
+
+**Task 9 — Baseline Metrics + RunPipelineWithStrategies helper:**
+- Added MAE, MAE(log2), FractionWithinFactor metrics to QuantificationEvaluator.cs
+- Added RunPipelineWithStrategies(path, ...) and RunPipelineWithStrategies(preloaded, ...) helpers to TmtSpikeInTests.cs
+- Added BaselineMetrics_NoNormalization_UPS test (prints metrics, no hard assertions)
+- Added BaselineMetrics_NoNormalization_HeLa test (Explicit, for HeLa background)
+
+**Task 14 — StrategyEvaluation_AllCombinations_UPS:**
+- Tests all 48 strategy combinations (3 psmNorm × 2 rollUp × 2 pepNorm × 2 collapse × 2 protNorm)
+- PSMs loaded once and reused; each pipeline run completes in ~1–2s after loading
+- Full evaluation completes in ~3 minutes
+- Ranked results printed sorted by combined MAE(log2)
+
+**Strategy Evaluation Results (UPS spike-in, SpikeIn-5mix-MS3):**
+- **Best strategy**: No Normalization | Sum Roll-Up | No Normalization | Mean Collapse | Sum Roll-Up | No Normalization
+  - MAE_log2(8x)=1.430, MAE_log2(2x)=0.367, MedFC(8x)=3.154, MedFC(2x)=1.594
+- **Worst strategy**: combined MAE_log2 = 4.157 (protein-level GlobalMedianNormalization hurts accuracy)
+- **Key finding**: ratio compression is severe — median fold change for 8x comparison is only ~3.15 (vs true 8.0)
+  This is a known artifact of TMT-SPS-MS3 co-isolation interference
+- **Normalization effects**: GlobalMedianNormalization at peptide/protein level hurts accuracy by equalizing
+  out the real signal differences; ReferenceChannelNormalization at PSM level provides mild improvement
+- **Collapse**: MeanCollapse slightly outperforms NoCollapse (rank 1 vs rank 2)
+
+**Commit:** `374dcfd5` — "Implement Tasks 9-14: normalization/rollup/collapse strategies + evaluation"
+
+**Build/Test status:** Build succeeds (0 errors), 26/26 quantification tests pass.
+- 14 QuantificationTests (existing)
+- 12 TmtSpikeInTests (6 existing + 6 new: unit tests for each new strategy + baseline + evaluation)
+
+**All tasks in plan2.md are DONE.**
