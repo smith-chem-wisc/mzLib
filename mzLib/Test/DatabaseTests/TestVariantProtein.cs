@@ -591,6 +591,7 @@ namespace Test.DatabaseTests
                 proteinsWithAppliedVariants3.Select(p => p.BaseSequence).ToList(),
                 "XML round-trip should preserve variant-applied sequences in the same order");
         }
+        
         /// <summary>
         /// EDGE CASE: Tests rebasing of prior variations when VCF is null.
         /// Validates the 'else' branch in AdjustSequenceVariationIndices that handles
@@ -599,7 +600,7 @@ namespace Test.DatabaseTests
         /// when combining variants with and without VCF metadata.
         /// </summary>
         [Test]
-        public void AdjustSequenceVariationIndices_NullVcf_RebasesPriorVariation()
+        public void AdjustSequenceVariationIndices_NullVcf_RebasesPriorVariationNew()
         {
             // Base protein: MPEPTIDE (positions 1-8)
             var protein = new Protein("MPEPTIDE", "prot1");
@@ -1588,16 +1589,16 @@ namespace Test.DatabaseTests
                 new HashSet<string>(p.AppliedSequenceVariations.Select(v => v.SimpleString()));
 
             // Targets (indices 0..3)
-            Assert.That(proteins[0].Accession, Is.EqualTo("P04406"), "Reference target accession mismatch");
-            Assert.That(proteins[1].Accession, Is.EqualTo("P04406_A22G"), "Single-variant (A22G) target accession mismatch");
-            Assert.That(proteins[2].Accession, Is.EqualTo("P04406_K251N"), "Single-variant (K251N) target accession mismatch");
-            Assert.That(proteins[3].Accession, Is.EqualTo("P04406_A22G_K251N"), "Double-variant target accession mismatch");
+            Assert.That(AppliedLabels(proteins[0]).SetEquals(Array.Empty<string>()), "Reference target should have no applied variants");
+            Assert.That(AppliedLabels(proteins[1]).SetEquals(new[] { "A22G" }), "Single-variant target must be exactly A22G");
+            Assert.That(AppliedLabels(proteins[2]).SetEquals(new[] { "K251N" }), "Single-variant target must be exactly K251N");
+            Assert.That(AppliedLabels(proteins[3]).SetEquals(new[] { "A22G", "K251N" }), "Double-variant target should have A22G and K251N");
 
             // Decoys (indices 4..7) have mirrored coordinates (due to reverse decoying).
-            Assert.That(proteins[4].Accession, Is.EqualTo("DECOY_P04406"), "Reference decoy accession mismatch");
-            Assert.That(proteins[5].Accession, Is.EqualTo("DECOY_P04406_A315G"), "Decoy accession for mirrored A22G mismatch");
-            Assert.That(proteins[6].Accession, Is.EqualTo("DECOY_P04406_K86N"), "Decoy accession for mirrored K251N mismatch");
-            Assert.That(proteins[7].Accession, Is.EqualTo("DECOY_P04406_K86N_A315G"), "Decoy accession for double-variant mismatch");
+            Assert.That(AppliedLabels(proteins[4]).SetEquals(Array.Empty<string>()), "Reference decoy should have no applied variants");
+            Assert.That(AppliedLabels(proteins[5]).SetEquals(new[] { "A315G" }), "Single-variant decoy must be exactly A315G (mirror of A22G)");
+            Assert.That(AppliedLabels(proteins[6]).SetEquals(new[] { "K86N" }), "Single-variant decoy must be exactly K86N (mirror of K251N)");
+            Assert.That(AppliedLabels(proteins[7]).SetEquals(new[] { "A315G", "K86N" }), "Double-variant decoy should have A315G and K86N");
 
             // Parity check: each target and its decoy should carry the same number of applied variations.
             for (int i = 0; i < 4; i++)
