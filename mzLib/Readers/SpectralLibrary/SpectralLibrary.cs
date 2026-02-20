@@ -1,17 +1,12 @@
 ﻿using Chemistry;
 using MzLibUtil;
 using Omics.Fragmentation;
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Easy.Common.Extensions;
 using Omics.Fragmentation.Peptide;
 using Omics.SpectrumMatch;
-using ThermoFisher.CommonCore.Data.Business;
 
 namespace Readers.SpectralLibrary
 {
@@ -46,6 +41,15 @@ namespace Readers.SpectralLibrary
         private int MaxElementsInBuffer = 10000;
         private Dictionary<string, StreamReader> StreamReaders;
         private static Regex IonParserRegex = new Regex(@"^(\D{1,})(\d{1,})(?:[\^]|$)(-?\d{1,}|$)");
+
+        // Matches internal fragment annotations of the form: bIb[3-6]^1
+        // Group 1: primary ProductType   (e.g. "b")
+        // Group 2: secondary ProductType (e.g. "b")
+        // Group 3: start residue number  (e.g. "3")
+        // Group 4: end residue number    (e.g. "6")
+        // Group 5: fragment charge       (e.g. "1")
+        private static Regex InternalIonParserRegex = new Regex(
+            @"^([a-zA-Z]+)I([a-zA-Z]+)\[(\d+)-(\d+)\]\^(-?\d+)", RegexOptions.Compiled);
 
         private static Dictionary<string, string> PrositToMetaMorpheusModDictionary = new Dictionary<string, string>
         {
@@ -175,7 +179,7 @@ namespace Readers.SpectralLibrary
             if (path.Contains("pdeep"))
             {
                 return ReadLibrarySpectrum_pDeep(reader);
-            } 
+            }
             else if (path.Contains("ms2pip"))
             {
                 return ReadLibrarySpectrum_ms2pip(reader);
@@ -260,7 +264,11 @@ namespace Readers.SpectralLibrary
 
                         if (indOfRt > 0)
                         {
-                            rt = double.Parse(split[indOfRt + 1], CultureInfo.InvariantCulture);
+                            string rtValue = split[indOfRt + 1];
+                            if (!string.IsNullOrEmpty(rtValue))
+                            {
+                                rt = double.Parse(rtValue, CultureInfo.InvariantCulture);
+                            }
                         }
                     }
 
@@ -700,11 +708,18 @@ namespace Readers.SpectralLibrary
 
         /// <summary>
         /// Creates a matched fragment ion from a line in a spectral library. Does not work with P-Deep libraries.
+        /// Handles both standard ions (e.g. "y12^1/0ppm") and internal fragment ions (e.g. "bIb[3-6]^1/0ppm").
         /// </summary>
         public static MatchedFragmentIon ReadFragmentIon(string fragmentIonLine, char[] fragmentSplit,
             char[] neutralLossSplit, string peptideSequence)
         {
             string[] split = fragmentIonLine.Split(fragmentSplit, StringSplitOptions.RemoveEmptyEntries);
+
+            // Validate we have enough parts
+            if (split.Length < 3)
+            {
+                throw new MzLibUtil.MzLibException($"Invalid fragment ion line format: '{fragmentIonLine}'");
+            }
 
             // read fragment m/z
             var experMz = double.Parse(split[0], CultureInfo.InvariantCulture);
@@ -712,46 +727,90 @@ namespace Readers.SpectralLibrary
             // read fragment intensity
             var experIntensity = double.Parse(split[1], CultureInfo.InvariantCulture);
 
-            // read fragment type, number
+            // ── Internal fragment ion: xIy[start-end]^charge ──────────────────────
+            // Annotation format written by GenerateMspLibrary.py:  bIb[3-6]^1
+            //   primary type   = first letter(s) before "I"  (e.g. "b")
+            //   secondary type = letter(s) between "I" and "[" (e.g. "b")
+            //   start residue  = first number inside brackets  (1-indexed)
+            //   end residue    = second number inside brackets (1-indexed)
+            //   charge         = number after "^"
+            Match internalMatch = InternalIonParserRegex.Match(split[2]);
+            if (internalMatch.Success)
+            {
+                var primaryType = (ProductType)Enum.Parse(typeof(ProductType), internalMatch.Groups[1].Value, true);
+                var secondaryType = (ProductType)Enum.Parse(typeof(ProductType), internalMatch.Groups[2].Value, true);
+                int startResidue = int.Parse(internalMatch.Groups[3].Value);
+                int endResidue = int.Parse(internalMatch.Groups[4].Value);
+                int fragmentCharge = int.Parse(internalMatch.Groups[5].Value);
+
+                var product = new Product(
+                    primaryType,
+                    FragmentationTerminus.None,
+                    experMz.ToMass(fragmentCharge),
+                    fragmentNumber: startResidue,
+                    residuePosition: startResidue,
+                    neutralLoss: 0,
+                    secondaryProductType: secondaryType,
+                    secondaryFragmentNumber: endResidue);
+
+                return new MatchedFragmentIon(product, experMz, experIntensity, fragmentCharge);
+            }
+
+            // ── Standard ion: y12^1, b3^2, b17^1-97.976/0ppm etc. ────────────────
             Match regexMatchResult = IonParserRegex.Match(split[2]);
+
+            // Validate that the regex matched and captured the required groups
+            if (!regexMatchResult.Success || 
+                string.IsNullOrEmpty(regexMatchResult.Groups[1].Value) ||
+                string.IsNullOrEmpty(regexMatchResult.Groups[2].Value))
+            {
+                throw new MzLibUtil.MzLibException(
+                    $"Unable to parse fragment ion annotation '{split[2]}' from line: '{fragmentIonLine}'. " +
+                    $"Expected format like 'b3^1/0ppm' or 'bIb[2-5]^1/0ppm'");
+            }
 
             string fragmentType = regexMatchResult.Groups[1].Value;
             int fragmentNumber = int.Parse(regexMatchResult.Groups[2].Value);
-            int fragmentCharge = 1;
+            int charge = 1;
 
             if (regexMatchResult.Groups.Count > 3 && !string.IsNullOrWhiteSpace(regexMatchResult.Groups[3].Value))
             {
-                fragmentCharge = int.Parse(regexMatchResult.Groups[3].Value);
+                charge = int.Parse(regexMatchResult.Groups[3].Value);
             }
 
             double neutralLoss = 0;
-            if (split[2].Contains("-") && fragmentCharge > 0)
+            if (split[2].Contains("-") && charge > 0)
             {
                 String[] neutralLossInformation = split[2].Split(neutralLossSplit, StringSplitOptions.RemoveEmptyEntries).ToArray();
-                neutralLoss = double.Parse(neutralLossInformation[1]);
+                if (neutralLossInformation.Length > 1 && double.TryParse(neutralLossInformation[1], out double parsedLoss))
+                {
+                    neutralLoss = parsedLoss;
+                }
             }
-            if (fragmentCharge < 0)
+            if (charge < 0)
             {
                 String[] neutralLossInformation = split[2].Split(neutralLossSplit, StringSplitOptions.RemoveEmptyEntries).ToArray();
-                if (neutralLossInformation.Length > 2)
-                    neutralLoss = double.Parse(neutralLossInformation[2]);
+                if (neutralLossInformation.Length > 2 && double.TryParse(neutralLossInformation[2], out double parsedLoss))
+                {
+                    neutralLoss = parsedLoss;
+                }
             }
 
             ProductType peakProductType = (ProductType)Enum.Parse(typeof(ProductType), fragmentType, true);
             // Default product for productTypes not contained in the ProductTypeToFragmentationTerminus dictionary (e.g., "M" type ions)
-            Product product = new Product(peakProductType, (FragmentationTerminus)Enum.Parse(typeof(FragmentationTerminus),
+            Product product2 = new Product(peakProductType, (FragmentationTerminus)Enum.Parse(typeof(FragmentationTerminus),
                 "None", true), experMz, fragmentNumber, 0, 0);
 
             if (TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(peakProductType,
                     out var terminus))
             {
                 int peptideLength = peptideSequence.IsNotNullOrEmptyOrWhiteSpace() ? peptideSequence.Length : 25; // Arbitrary default peptide length
-                product = new Product(peakProductType, terminus, experMz.ToMass(fragmentCharge), fragmentNumber,
+                product2 = new Product(peakProductType, terminus, experMz.ToMass(charge), fragmentNumber,
                     residuePosition: terminus == FragmentationTerminus.N ? fragmentNumber : peptideLength - fragmentNumber,
                     neutralLoss);
             }
 
-            return new MatchedFragmentIon(product, experMz, experIntensity, fragmentCharge);
+            return new MatchedFragmentIon(product2, experMz, experIntensity, charge);
         }
 
         private void IndexSpectralLibrary(string path)
@@ -781,7 +840,7 @@ namespace Readers.SpectralLibrary
                     {
                         libraryItem = ReadLibrarySpectrum_pDeep(reader, onlyReadHeader: true);
                     }
-                    else if (path.Contains("ms2pip")) 
+                    else if (path.Contains("ms2pip"))
                     {
                         libraryItem = ReadLibrarySpectrum_ms2pip(reader, onlyReadHeader: true);
                     }

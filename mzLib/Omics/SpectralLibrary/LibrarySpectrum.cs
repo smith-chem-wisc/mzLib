@@ -63,10 +63,10 @@ namespace Omics.SpectrumMatch
         {
             StringBuilder spectrum = new StringBuilder();
             spectrum.Append("Name: " + Name);
-            spectrum.Append("\nMW: " + PrecursorMz);
+            spectrum.Append("\nMW: " + PrecursorMz.ToString(CultureInfo.InvariantCulture));
             spectrum.Append("\nComment: ");
-            spectrum.Append("Parent=" + PrecursorMz);
-            spectrum.Append(" RT=" + RetentionTime);
+            spectrum.Append("Parent=" + PrecursorMz.ToString(CultureInfo.InvariantCulture));
+            spectrum.Append(" RT=" + RetentionTime?.ToString(CultureInfo.InvariantCulture));
             spectrum.Append("\nNum peaks: " + MatchedFragmentIons.Count);
 
             double maxIntensity = MatchedFragmentIons.Select(b => b.Intensity).Max();
@@ -74,23 +74,50 @@ namespace Omics.SpectrumMatch
             foreach (MatchedFragmentIon matchedIon in MatchedFragmentIons)
             {
                 double intensityFraction = matchedIon.Intensity / maxIntensity;
+                var product = matchedIon.NeutralTheoreticalProduct;
 
                 string neutralLoss = null;
-                if (matchedIon.NeutralTheoreticalProduct.NeutralLoss != 0)
+                if (product.NeutralLoss != 0)
                 {
-                    neutralLoss = "-" + matchedIon.NeutralTheoreticalProduct.NeutralLoss;
+                    neutralLoss = "-" + product.NeutralLoss.ToString(CultureInfo.InvariantCulture);
                 }
 
-                spectrum.Append("\n" + matchedIon.Mz + "\t" + intensityFraction + "\t" + "\"" +
-                    matchedIon.NeutralTheoreticalProduct.ProductType.ToString() +
-                    matchedIon.NeutralTheoreticalProduct.FragmentNumber.ToString() + "^" +
-                    matchedIon.Charge + neutralLoss + "/" + 0 + "ppm" + "\"");
+                string ionAnnotation;
+                if (product.IsInternalFragment)
+                {
+                    // Internal fragment format: bIb[31-34]^1/0ppm
+                    ionAnnotation = $"{product.ProductType}I{product.SecondaryProductType}[{product.FragmentNumber}-{product.SecondaryFragmentNumber}]^{matchedIon.Charge}{neutralLoss}/0ppm";
+                }
+                else
+                {
+                    // Standard ion format: b3^1/0ppm or b3^1-97.976895573/0ppm
+                    ionAnnotation = $"{product.ProductType}{product.FragmentNumber}^{matchedIon.Charge}{neutralLoss}/0ppm";
+                }
+
+                spectrum.Append("\n" + matchedIon.Mz.ToString(CultureInfo.InvariantCulture) + "\t" +
+                    intensityFraction.ToString(CultureInfo.InvariantCulture) + "\t\"" + ionAnnotation + "\"");
             }
 
             return spectrum.ToString();
         }
 
-        // For decoy library spectrum generation, we use the predicted m/z value of the decoy sequence and we use the decoy's corresponding target's library spectrum's intensity values as decoy's intensities
+        /// <summary>
+        /// Generates a decoy library spectrum from a target spectrum by matching fragment ions.
+        /// For each target ion, finds the corresponding decoy theoretical product with matching properties
+        /// and creates a new matched fragment ion using the decoy's m/z but preserving the target's intensity.
+        /// </summary>
+        /// <remarks>
+        /// Matching logic:
+        /// <list type="bullet">
+        ///   <item><description>Standard ions: Match by ProductType and FragmentNumber</description></item>
+        ///   <item><description>Internal fragment ions: Additionally require matching SecondaryProductType and SecondaryFragmentNumber</description></item>
+        /// </list>
+        /// This prevents false matches between standard and internal ions (e.g., b2 vs bIb[2-5]).
+        /// </remarks>
+        /// <param name="targetSpectrum">The target library spectrum containing matched fragment ions to reverse</param>
+        /// <param name="decoyPeptideTheorProducts">Theoretical products from the decoy peptide sequence</param>
+        /// <returns>A list of matched fragment ions for the decoy spectrum, preserving target intensities with decoy m/z values</returns>
+
         public static List<MatchedFragmentIon> GetDecoyLibrarySpectrumFromTargetByReverse(LibrarySpectrum targetSpectrum, List<Product> decoyPeptideTheorProducts)
         {
             var decoyFragmentIons = new List<MatchedFragmentIon>();
@@ -98,12 +125,28 @@ namespace Omics.SpectrumMatch
             {
                 foreach (var decoyPeptideTheorIon in decoyPeptideTheorProducts)
                 {
-                    if (targetIon.NeutralTheoreticalProduct.ProductType == decoyPeptideTheorIon.ProductType && targetIon.NeutralTheoreticalProduct.FragmentNumber == decoyPeptideTheorIon.FragmentNumber)
+                    var targetProduct = targetIon.NeutralTheoreticalProduct;
+
+                    // Check primary properties
+                    bool primaryMatch = targetProduct.ProductType == decoyPeptideTheorIon.ProductType
+                        && targetProduct.FragmentNumber == decoyPeptideTheorIon.FragmentNumber;
+
+                    if (!primaryMatch) continue;
+
+                    // For internal fragments, also check secondary properties
+                    if (targetProduct.IsInternalFragment || decoyPeptideTheorIon.IsInternalFragment)
                     {
-                        double decoyFragmentMz = decoyPeptideTheorIon.NeutralMass.ToMz(targetIon.Charge);
-                        Product temProduct = decoyPeptideTheorIon;
-                        decoyFragmentIons.Add(new MatchedFragmentIon(temProduct, decoyFragmentMz, targetIon.Intensity, targetIon.Charge));
+                        // Both must be internal fragments with matching secondary properties
+                        if (targetProduct.IsInternalFragment != decoyPeptideTheorIon.IsInternalFragment)
+                            continue;
+                        if (targetProduct.SecondaryProductType != decoyPeptideTheorIon.SecondaryProductType)
+                            continue;
+                        if (targetProduct.SecondaryFragmentNumber != decoyPeptideTheorIon.SecondaryFragmentNumber)
+                            continue;
                     }
+
+                    double decoyFragmentMz = decoyPeptideTheorIon.NeutralMass.ToMz(targetIon.Charge);
+                    decoyFragmentIons.Add(new MatchedFragmentIon(decoyPeptideTheorIon, decoyFragmentMz, targetIon.Intensity, targetIon.Charge));
                 }
             }
             return decoyFragmentIons;
