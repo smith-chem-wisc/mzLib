@@ -22,6 +22,9 @@ namespace Omics.Fragmentation
         }
 
         public bool IsInternalFragment => NeutralTheoreticalProduct.IsInternalFragment;
+
+        public bool IsDiagnosticIon => NeutralTheoreticalProduct.ProductType == ProductType.D;
+
         public virtual double MassErrorDa => Mz.ToMass(Charge) - NeutralTheoreticalProduct.NeutralMass;
         public virtual double MassErrorPpm => MassErrorDa / NeutralTheoreticalProduct.NeutralMass * 1e6;
         public virtual string Annotation
