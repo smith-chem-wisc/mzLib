@@ -40,7 +40,7 @@ namespace Omics.Modifications
         public string FileOrigin { get; private set; }
         protected const double tolForEquality = 1e-9;
 
-        public bool ValidModification
+        public virtual bool ValidModification
         {
             get
             {
