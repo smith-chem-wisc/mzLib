@@ -25,21 +25,13 @@ namespace Test.LocalModelTests
     /// so they can be excluded in CI environments where the model is not present.
     /// All other tests are pure unit tests that run without any files.
     ///
-    /// ONNX model path — set via the static field or the environment variable
-    /// INTERNAL_FRAGMENT_ONNX_PATH before running the integration tests.
+    /// The ONNX model is resolved via InternalFragmentIntensityModel.DefaultOnnxModelPath,
+    /// which checks embedded resources, then Resources folder, then LocalModels folder.
     /// </summary>
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class InternalFragmentIntensityModelTests
     {
-        // ── ONNX model path ─────────────────────────────────────────────────────
-        // Adjust to your local path, or set the environment variable.
-        private static readonly string OnnxModelPath =
-            Environment.GetEnvironmentVariable("INTERNAL_FRAGMENT_ONNX_PATH")
-            ?? Path.Combine(
-                TestContext.CurrentContext.TestDirectory,
-                @"LocalModels\TestData\InternalFragmentScorer_v3_AllProteases.onnx");
-
         // ── Shared valid inputs ──────────────────────────────────────────────────
         private static readonly List<string> ValidPeptides = new() { "PEPTIDEK", "ELVISLIVESK", "SAMPLER" };
         private static readonly List<int> ValidCharges = new() { 2, 2, 2 };
@@ -54,7 +46,7 @@ namespace Test.LocalModelTests
         {
             var model = new InternalFragmentIntensityModel(
                 ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out var warnings, onnxModelPath: OnnxModelPath);
+                out var warnings);
 
             Assert.That(warnings, Is.Null,
                 "Valid inputs should produce no warning");
@@ -72,7 +64,7 @@ namespace Test.LocalModelTests
             Assert.Throws<ArgumentException>(() =>
                 new InternalFragmentIntensityModel(
                     peptides, charges, rts,
-                    out _, onnxModelPath: OnnxModelPath));
+                    out _));
         }
 
         [Test]
@@ -80,7 +72,7 @@ namespace Test.LocalModelTests
         {
             var model = new InternalFragmentIntensityModel(
                 new List<string>(), new List<int>(), new List<double?>(),
-                out var warnings, onnxModelPath: OnnxModelPath);
+                out var warnings);
 
             Assert.That(warnings, Is.Not.Null,
                 "Empty input should produce a warning");
@@ -96,7 +88,7 @@ namespace Test.LocalModelTests
                     new List<string> { "PEPTIDEK" },
                     new List<int> { charge },
                     new List<double?> { null },
-                    out var warnings, onnxModelPath: OnnxModelPath);
+                    out var warnings);
 
                 Assert.That(model.PeptideSequences.Count, Is.EqualTo(1),
                     $"Charge {charge} should be accepted");
@@ -114,7 +106,7 @@ namespace Test.LocalModelTests
                     new List<string> { "PEPTIDEK" },
                     new List<int> { badCharge },
                     new List<double?> { null },
-                    out var warnings, onnxModelPath: OnnxModelPath);
+                    out var warnings);
 
                 Assert.That(model.PeptideSequences.Count, Is.EqualTo(0),
                     $"Charge {badCharge} should be filtered out");
@@ -131,7 +123,7 @@ namespace Test.LocalModelTests
                 new List<string> { "AAAA" },
                 new List<int> { 2 },
                 new List<double?> { null },
-                out var warnings, onnxModelPath: OnnxModelPath);
+                out var warnings);
 
             Assert.That(model.PeptideSequences.Count, Is.EqualTo(0),
                 "Peptide shorter than MinPeptideLength should be filtered");
@@ -146,7 +138,7 @@ namespace Test.LocalModelTests
                 new List<string> { "AAAAA" },
                 new List<int> { 2 },
                 new List<double?> { null },
-                out var warnings, onnxModelPath: OnnxModelPath);
+                out var warnings);
 
             Assert.That(model.PeptideSequences.Count, Is.EqualTo(1));
             Assert.That(warnings, Is.Null);
@@ -162,7 +154,7 @@ namespace Test.LocalModelTests
                     new List<string> { badSeq },
                     new List<int> { 2 },
                     new List<double?> { null },
-                    out var warnings, onnxModelPath: OnnxModelPath);
+                    out var warnings);
 
                 Assert.That(model.PeptideSequences.Count, Is.EqualTo(0),
                     $"'{badSeq}' with non-canonical AA should be filtered");
@@ -179,7 +171,7 @@ namespace Test.LocalModelTests
 
             var model = new InternalFragmentIntensityModel(
                 peptides, charges, rts,
-                out var warnings, onnxModelPath: OnnxModelPath);
+                out var warnings);
 
             Assert.That(model.PeptideSequences.Count, Is.EqualTo(2),
                 "Only the two valid peptides should be retained");
@@ -196,7 +188,7 @@ namespace Test.LocalModelTests
                 new List<string> { modifiedSeq },
                 new List<int> { 2 },
                 new List<double?> { null },
-                out var warnings, onnxModelPath: OnnxModelPath);
+                out var warnings);
 
             // Bare sequence = "PEPTMIDER" (9 AA) — valid
             Assert.That(model.PeptideSequences.Count, Is.EqualTo(1),
@@ -210,11 +202,22 @@ namespace Test.LocalModelTests
             var rts = new List<double?> { null, null, null };
             var model = new InternalFragmentIntensityModel(
                 ValidPeptides, ValidCharges, rts,
-                out var warnings, onnxModelPath: OnnxModelPath);
+                out var warnings);
 
             Assert.That(model.PeptideSequences.Count, Is.EqualTo(3));
             Assert.That(warnings, Is.Null,
                 "Null retention times should not cause filtering");
+        }
+
+        [Test]
+        public static void DefaultOnnxModelPath_ReturnsValidPath()
+        {
+            var defaultPath = InternalFragmentIntensityModel.DefaultOnnxModelPath;
+
+            Assert.That(defaultPath, Is.Not.Null.And.Not.Empty,
+                "DefaultOnnxModelPath should return a non-empty path");
+            Assert.That(defaultPath, Does.EndWith(InternalFragmentIntensityModel.DefaultModelFileName),
+                "Default path should end with the expected model filename");
         }
 
         // ════════════════════════════════════════════════════════════════════════
@@ -256,12 +259,12 @@ namespace Test.LocalModelTests
         // 3. ONNX INFERENCE  (requires model file — tagged for selective CI runs)
         // ════════════════════════════════════════════════════════════════════════
 
-        [Test, NUnit.Framework.Category("RequiresOnnxModel")]
+        [Test, Category("RequiresOnnxModel")]
         public static async Task RunInferenceAsync_ValidPeptides_PopulatesPredictions()
         {
             var model = new InternalFragmentIntensityModel(
                 ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _, onnxModelPath: OnnxModelPath);
+                out _);
 
             await model.RunInferenceAsync();
 
@@ -282,7 +285,7 @@ namespace Test.LocalModelTests
         {
             var model = new InternalFragmentIntensityModel(
                 ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _, onnxModelPath: OnnxModelPath);
+                out _);
 
             await model.RunInferenceAsync();
 
@@ -307,7 +310,7 @@ namespace Test.LocalModelTests
 
             var model = new InternalFragmentIntensityModel(
                 ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _, onnxModelPath: OnnxModelPath);
+                out _);
 
             await model.RunInferenceAsync();
 
@@ -322,7 +325,7 @@ namespace Test.LocalModelTests
         {
             var model = new InternalFragmentIntensityModel(
                 new List<string>(), new List<int>(), new List<double?>(),
-                out _, onnxModelPath: OnnxModelPath);
+                out _);
 
             Assert.DoesNotThrowAsync(async () => await model.RunInferenceAsync());
             Assert.That(model.PredictedSpectra.Count, Is.EqualTo(0));
@@ -333,7 +336,7 @@ namespace Test.LocalModelTests
         {
             var model = new InternalFragmentIntensityModel(
                 ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _, onnxModelPath: OnnxModelPath);
+                out _);
 
             await model.RunInferenceAsync();
 
@@ -352,7 +355,7 @@ namespace Test.LocalModelTests
         {
             var model = new InternalFragmentIntensityModel(
                 ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _, onnxModelPath: OnnxModelPath);
+                out _);
 
             model.Dispose();
 
@@ -369,7 +372,7 @@ namespace Test.LocalModelTests
         {
             var model = new InternalFragmentIntensityModel(
                 ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _, onnxModelPath: OnnxModelPath);
+                out _);
 
             await model.RunInferenceAsync();
 
@@ -393,7 +396,7 @@ namespace Test.LocalModelTests
         {
             var model = new InternalFragmentIntensityModel(
                 ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _, onnxModelPath: OnnxModelPath);
+                out _);
 
             await model.RunInferenceAsync();
 
@@ -412,7 +415,7 @@ namespace Test.LocalModelTests
             const int maxIons = 5;
             var model = new InternalFragmentIntensityModel(
                 ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _, onnxModelPath: OnnxModelPath,
+                out _,
                 maxInternalIonsPerPeptide: maxIons);
 
             await model.RunInferenceAsync();
@@ -428,7 +431,7 @@ namespace Test.LocalModelTests
             const double minTicNI = 0.005;
             var model = new InternalFragmentIntensityModel(
                 ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _, onnxModelPath: OnnxModelPath,
+                out _,
                 minIntensityFilter: minTicNI);
 
             await model.RunInferenceAsync();
@@ -439,7 +442,7 @@ namespace Test.LocalModelTests
             // than when using the default 0.002 threshold.
             var modelDefault = new InternalFragmentIntensityModel(
                 ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _, onnxModelPath: OnnxModelPath);
+                out _);
             await modelDefault.RunInferenceAsync();
 
             int totalHighThreshold = model.PredictedSpectra.Sum(s => s.MatchedFragmentIons.Count);
@@ -458,7 +461,7 @@ namespace Test.LocalModelTests
 
             var model = new InternalFragmentIntensityModel(
                 duplicatePeptides, duplicateCharges, duplicateRts,
-                out _, onnxModelPath: OnnxModelPath);
+                out _);
 
             var warning = await model.RunInferenceAsync();
 
@@ -474,7 +477,7 @@ namespace Test.LocalModelTests
             // Our model uses b-type internal fragments (double b-type cleavage)
             var model = new InternalFragmentIntensityModel(
                 ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _, onnxModelPath: OnnxModelPath);
+                out _);
 
             await model.RunInferenceAsync();
 
@@ -504,7 +507,7 @@ namespace Test.LocalModelTests
             {
                 var model = new InternalFragmentIntensityModel(
                     ValidPeptides, ValidCharges, ValidRetentionTimes,
-                    out _, onnxModelPath: OnnxModelPath,
+                    out _,
                     spectralLibrarySavePath: outPath);
 
                 await model.RunInferenceAsync();
@@ -576,7 +579,7 @@ namespace Test.LocalModelTests
             {
                 var model = new InternalFragmentIntensityModel(
                     ValidPeptides, ValidCharges, ValidRetentionTimes,
-                    out _, onnxModelPath: OnnxModelPath,
+                    out _,
                     spectralLibrarySavePath: outPath);
 
                 await model.RunInferenceAsync();
@@ -608,7 +611,7 @@ namespace Test.LocalModelTests
                 new List<string> { "PEPTIDEK" },
                 new List<int> { 2 },
                 new List<double?> { null },
-                out _, onnxModelPath: OnnxModelPath);
+                out _);
 
             await model.RunInferenceAsync();
 
