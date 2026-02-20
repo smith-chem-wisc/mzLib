@@ -305,10 +305,16 @@ namespace Omics.BioPolymer
                 int addedIdx = alreadyAppliedVariations
                     .Where(applied => applied.OneBasedEndPosition < v.OneBasedBeginPosition)
                     .Sum(applied => applied.VariantSequence.Length - applied.OriginalSequence.Length);
+                // Check if this variation IS the newly applied variant (handles null VCF case)
+                bool isSameVariant =
+                    (v.VariantCallFormatDataString != null && v.VariantCallFormatDataString.Equals(variantGettingApplied.VariantCallFormatDataString))
+                    || (v.VariantCallFormatDataString == null && variantGettingApplied.VariantCallFormatDataString == null
+                        && v.OriginalSequence == variantGettingApplied.OriginalSequence
+                        && v.VariantSequence == variantGettingApplied.VariantSequence
+                        && v.Description == variantGettingApplied.Description);
 
-                // Either same VCF payload (null-safe) or fully before the new application region after compensating for prior shifts
-                if ((v.VariantCallFormatDataString != null && v.VariantCallFormatDataString.Equals(variantGettingApplied.VariantCallFormatDataString))
-                    || v.OneBasedEndPosition - addedIdx < variantGettingApplied.OneBasedBeginPosition)
+                // Same variant or fully before the new application region
+                if (isSameVariant || v.OneBasedEndPosition - addedIdx < variantGettingApplied.OneBasedBeginPosition)
                 {
                     variations.Add(v);
                 }
@@ -470,12 +476,17 @@ namespace Omics.BioPolymer
 
         /// <summary>
         /// Concatenates the compact representations (<see cref="SequenceVariation.SimpleString"/>) of the provided variations with underscores.
+        /// Variations are sorted by ascending position order to ensure consistent naming regardless of application order.
         /// </summary>
         /// <param name="variations">Variations to stringify; may be null/empty.</param>
         /// <returns>An underscore-joined string or empty string if none.</returns>
         private static string CombineSimpleStrings(IEnumerable<SequenceVariation>? variations)
         {
-            return variations.IsNullOrEmpty() ? "" : string.Join("_", variations.Select(v => v.SimpleString()));
+            return variations.IsNullOrEmpty()
+                ? ""
+                : string.Join("_", variations
+                    .OrderBy(v => v.OneBasedBeginPosition)
+                    .Select(v => v.SimpleString()));
         }
 
         /// <summary>
