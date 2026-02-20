@@ -7,6 +7,7 @@ namespace Omics.Digestion
     {
         protected static readonly DictionaryPool<int, SortedSet<Modification>> DictionaryPool = new();
         protected static readonly DictionaryPool<int, Modification> FixedModDictionaryPool = new(8);
+        protected static readonly ListPool<double> NeutralLossPool = new(16);
 
         protected string _baseSequence;
 
