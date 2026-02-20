@@ -1550,16 +1550,16 @@ namespace Test.DatabaseTests
             Assert.AreEqual(2, proteins[0].SequenceVariations.Count(), "Reference should advertise exactly two possible sequence variations");
 
             // Accessions must match exact, canonical variant labeling and order for both targets and decoys.
-            Assert.That(proteins[0].Accession, Is.EqualTo("P04406"), "Reference target accession mismatch");
-            Assert.That(proteins[1].Accession, Is.EqualTo("P04406_A22G"), "Single-variant (A22G) target accession mismatch");
-            Assert.That(proteins[2].Accession, Is.EqualTo("P04406_K251N"), "Single-variant (K251N) target accession mismatch");
-            Assert.That(proteins[3].Accession, Is.EqualTo("P04406_A22G_K251N"), "Double-variant target accession mismatch");
+            Assert.That("P04406", Is.EqualTo(proteins[0].Accession), "Reference target accession mismatch");
+            Assert.That("P04406_A22G", Is.EqualTo(proteins[1].Accession), "Single-variant (A22G) target accession mismatch");
+            Assert.That("P04406_K251N", Is.EqualTo(proteins[2].Accession), "Single-variant (K251N) target accession mismatch");
+            Assert.That("P04406_A22G_K251N", Is.EqualTo(proteins[3].Accession), "Double-variant target accession mismatch");
 
             // Decoys (indices 4..7) have mirrored coordinates (due to reverse decoying).
-            Assert.That(proteins[4].Accession, Is.EqualTo("DECOY_P04406"), "Reference decoy accession mismatch");
-            Assert.That(proteins[5].Accession, Is.EqualTo("DECOY_P04406_A315G"), "Decoy accession for mirrored A22G mismatch");
-            Assert.That(proteins[6].Accession, Is.EqualTo("DECOY_P04406_K86N"), "Decoy accession for mirrored K251N mismatch");
-            Assert.That(proteins[7].Accession, Is.EqualTo("DECOY_P04406_K86N_A315G"), "Decoy accession for double-variant mismatch");
+            Assert.That("DECOY_P04406", Is.EqualTo(proteins[4].Accession), "Reference decoy accession mismatch");
+            Assert.That("DECOY_P04406_A315G", Is.EqualTo(proteins[5].Accession), "Decoy accession for mirrored A22G mismatch");
+            Assert.That("DECOY_P04406_K86N", Is.EqualTo(proteins[6].Accession), "Decoy accession for mirrored K251N mismatch");
+            Assert.That("DECOY_P04406_K86N_A315G", Is.EqualTo(proteins[7].Accession), "Decoy accession for double-variant mismatch");
 
             // Sanity: accessions are non-empty and unique (avoid accidental duplication/shuffling).
             Assert.That(proteins.All(p => !string.IsNullOrWhiteSpace(p.Accession)), "All proteins must have non-empty accessions");
