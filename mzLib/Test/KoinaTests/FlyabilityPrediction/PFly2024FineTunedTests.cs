@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using PredictionClients.Koina.SupportedModels.FlyabilityModels;
+using BayesianEstimation;
 
 namespace Test.KoinaTests
 {
@@ -25,10 +26,11 @@ namespace Test.KoinaTests
                 "LMNPQRSTVWY" // Another valid sequence
             };
 
-            var model = new PFly2024FineTuned(validPeptides, out var warning);
+            var model = new PFly2024FineTuned();
+            var inputs = validPeptides.Select(p => new DetectabilityPredictionInput(p)).ToList();
+            var outputs = model.Predict(inputs);
 
-            Assert.That(warning, Is.Null, "Valid peptides should not produce a warning");
-            Assert.That(model.PeptideSequences.Count, Is.EqualTo(3), "All valid peptides should be accepted");
+            Assert.That(model.ValidInputsMask.All(x => x), Is.True, "All valid peptides should be accepted");
             Assert.That(model.Predictions.Count, Is.EqualTo(0), "No predictions should exist before running inference");
         }
 
@@ -46,11 +48,11 @@ namespace Test.KoinaTests
                 "C[Common Fixed:Carbamidomethyl on C]PEPTIDEK",
                 "PEPTIDEPEPI"
             };
+            var inputs = modifiedPeptides.Select(p => new DetectabilityPredictionInput(p)).ToList();
 
-            var model = new PFly2024FineTuned(modifiedPeptides, out var warning);
-
-            Assert.That(warning, Is.Not.Null, "Modified peptides should produce a warning");
-            Assert.That(model.PeptideSequences.Count, Is.EqualTo(1), "Only the unmodified peptide (\"PEPTIDEPEPI\") should be accepted");
+            var model = new PFly2024FineTuned();
+            var predictions = model.Predict(inputs);
+            Assert.That(model.ValidInputsMask.First(), Is.True, "Only the unmodified peptide (\"PEPTIDEPEPI\") should be accepted");
         }
 
         /// <summary>
@@ -61,11 +63,11 @@ namespace Test.KoinaTests
         public static void TestPFly2024FineTunedModelPeptideLengthBoundaries()
         {
             // Test maximum valid length (40 amino acids)
-            var maxLengthPeptide = new string('A', 40);
-            var modelMax = new PFly2024FineTuned(new List<string> { maxLengthPeptide }, out var warningMax);
+            var maxLengthPeptide = new List<DetectabilityPredictionInput> { new DetectabilityPredictionInput(new string('A', 40)) };
+            var model = new PFly2024FineTuned();
+            var outputMax = model.Predict(maxLengthPeptide);
 
-            Assert.That(modelMax.PeptideSequences.Count, Is.EqualTo(1), "Peptide with exactly 40 amino acids should be valid");
-            Assert.That(warningMax, Is.Null, "Maximum length peptide should not produce a warning");
+            Assert.That(model.ValidInputsMask.First(), Is.True, "Peptide with exactly 40 amino acids should be valid");
 
             // Test invalid length (41 amino acids)
             var tooLongPeptide = new string('A', 41);

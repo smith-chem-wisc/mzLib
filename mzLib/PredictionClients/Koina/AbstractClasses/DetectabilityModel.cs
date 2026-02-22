@@ -3,31 +3,38 @@ using Easy.Common.Extensions;
 using System.ComponentModel;
 using MzLibUtil;
 using PredictionClients.Koina.AbstractClasses;
-
+using PredictionClients.Koina.Interfaces;
 
 namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
 {
     /// <summary>
-    /// Represents a peptide detectability prediction result with probability scores for each detectability class.
-    /// Contains the original sequence and probability scores across four detectability categories.
+    /// Represents the prediction results for a single peptide, containing detectability probability scores
+    /// for each detectability class from a detectability prediction model.
     /// </summary>
-    /// <param name="PeptideSequence">The peptide sequence used for detectability prediction</param>
-    /// <param name="DetectabilityClasses"> Tuple of probability scores for each detectability class:
-    ///     Not Detectable 
-    ///     Low Detectability
-    ///     Intermediate Detectability
-    ///     High Detectability
-    /// <remarks>
-    /// The four probability scores sum to 1.0, representing a complete probability distribution
-    /// across detectability classes. Higher scores indicate greater likelihood for that class.
-    /// </remarks>
+    /// <param name="FullSequence">The peptide sequence (with modifications in UNIMOD format)</param>
+    /// <param name="DetectabilityProbabilities">Probability scores for each detectability class (Not Detectable, Low, Intermediate, High)</param>
+    /// <param name="Warning">Warning message if any issues occurred during prediction</param>
     public record PeptideDetectabilityPrediction(
-        string PeptideSequence,
+        string FullSequence,
         (double NotDetectable,
          double LowDetectability,
          double IntermediateDetectability,
-         double HighDetectability) DetectabilityProbabilities
+         double HighDetectability) DetectabilityProbabilities,
+        WarningException? Warning = null
     );
+
+    /// <summary>
+    /// Represents the input parameters for detectability prediction models from the Koina API.
+    /// This record captures the input information required for peptide detectability prediction.
+    /// </summary>
+    /// <param name="FullSequence">Peptide sequence with modifications in mzLib format</param>
+    public record DetectabilityPredictionInput(
+        string FullSequence
+    )
+    {
+        public string? ValidatedFullSequence { get; set; }
+        public WarningException? Warning { get; set; }
+    }
 
     /// <summary>
     /// Implementation of the pFly 2024 fine-tuned peptide detectability prediction model.
@@ -55,100 +62,137 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
     /// 
     /// API Documentation: https://koina.wilhelmlab.org/docs#post-/pfly_2024_fine_tuned/infer
     /// </remarks>
-    public abstract class DetectabilityModel : KoinaModelBase
+    public abstract class DetectabilityModel : KoinaModelBase<DetectabilityPredictionInput, PeptideDetectabilityPrediction>, IPredictor<DetectabilityPredictionInput, PeptideDetectabilityPrediction>
     {
+        #region Model-Specific Properties
         /// <summary>
         /// Number of detectability classes predicted by the model.
         /// Fixed at 4 classes: Not Detectable, Low, Intermediate, High.
         /// </summary>
         public abstract int NumberOfDetectabilityClasses { get; }
+
         /// <summary>
         /// Human-readable names for the detectability classes in prediction order.
         /// Corresponds to the probability scores returned by the model.
         /// </summary>
         public abstract List<string> DetectabilityClasses { get; }
+        #endregion
+
+        #region Inputs and Outputs for internal processing
         /// <summary>
-        /// Collection of detectability prediction results after inference completion.
-        /// Each prediction contains probability scores for all four detectability classes.
+        /// Inputs provided to the model for the LATEST prediction session. This list is populated during the prediction workflow 
+        /// and is used to keep track of the original input parameters for each prediction, especially when batching is involved.
         /// </summary>
-        public abstract List<PeptideDetectabilityPrediction> Predictions { get; protected set; }
+        public List<DetectabilityPredictionInput> ModelInputs { get; protected set; } = new();
+
+        /// <summary>
+        /// Boolean mask indicating which inputs from the original list were valid for prediction after applying model-specific validation criteria.
+        /// This is used for realigning predictions back to the original input list and for filtering out invalid inputs from the prediction results.
+        /// </summary>
+        public bool[] ValidInputsMask { get; protected set; } = Array.Empty<bool>();
+
+        /// <summary>
+        /// Collection of detectability prediction results after inference completion for the LATEST prediction session. 
+        /// Each PeptideDetectabilityPrediction contains probability scores for all four detectability classes.
+        /// </summary>
+        public List<PeptideDetectabilityPrediction> Predictions { get; protected set; } = new();
+        #endregion
 
         /// <summary>
         /// Executes peptide detectability prediction by sending batched requests to the Koina API.
-        /// Handles HTTP client lifecycle, request batching, and response parsing automatically.
+        /// The method performs the following steps:
+        /// 1. Validates and cleans input sequences according to model constraints, populating the ValidInputsMask to keep track of which inputs are valid for prediction.
+        /// 2. Converts valid inputs into batched request payloads formatted for the specific model using the ToBatchedRequests method.
+        /// 3. Sends batched requests to the Koina API with throttling between batches to avoid overwhelming the server, and processes responses to extract predictions.
+        /// 4. Realigns predictions back to the original input list using the ValidInputsMask, ensuring that the output list corresponds to the original input order and includes placeholders for invalid inputs with appropriate warnings.
         /// </summary>
         /// <returns>Task representing the asynchronous inference operation</returns>
-        /// <remarks>
-        /// Process flow:
-        /// 1. Creates HTTP client with realistic timeout based on actual processing time
-        /// 2. Uses throttled batch processing for large datasets to avoid overwhelming the server
-        /// 3. Processes responses and populates Predictions collection
-        /// 4. Ensures proper resource cleanup regardless of success/failure
-        /// </remarks>
-        /// <exception cref="Exception">Thrown when API responses cannot be deserialized or processed</exception>
-        public override async Task<WarningException?> PredictAsync()
+        protected virtual async Task<List<PeptideDetectabilityPrediction>> AsyncThrottledPredictor(List<DetectabilityPredictionInput> modelInputs)
         {
-            if (_disposed)
+            #region Input Validation and Cleaning
+            ModelInputs = modelInputs;
+            ValidInputsMask = new bool[ModelInputs.Count];
+            var validInputs = new List<DetectabilityPredictionInput>();
+
+            for (int i = 0; i < ModelInputs.Count; i++)
             {
-                throw new ObjectDisposedException(nameof(DetectabilityModel), "Cannot run inference on a disposed model instance. The model is meant to be used only on initialized peptides. The results are still accessible.");
-            }
+                WarningException? warning = null;
+                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var modHandlingWarning);
+                warning = modHandlingWarning;
 
-            int numBatches = (int)Math.Ceiling((double)PeptideSequences.Count / MaxBatchSize);
-
-            // Realistic timeout calculation: 0.07s per batch + 2min buffer for network overhead
-            // Typically takes ~0.052s per batch, but we add some buffer
-            // Cap at reasonable maximum to prevent extremely long timeouts
-            int estimatedTimeSeconds = (int)(numBatches * 0.07) + 120; // 0.07s per batch + 2min buffer
-            int timeoutMinutes = Math.Max(2, Math.Min(estimatedTimeSeconds / 60 + 1, 30)); // Between 2-30 minutes
-
-            using var _http = new HTTP(timeoutInMinutes: timeoutMinutes);
-
-            var batchedRequests = ToBatchedRequests();
-            var responses = new List<string>();
-
-            // For large datasets (>500 batches), use throttled processing to avoid 504 errors
-            if (numBatches > 500)
-            {
-                Console.WriteLine($"Processing {PeptideSequences.Count:N0} peptides in {numBatches:N0} batches with throttling...");
-                Console.WriteLine($"Estimated completion time: {TimeSpan.FromSeconds(numBatches * 0.05 + 60):mm\\:ss}");
-
-                // Process in chunks of 100 concurrent batches
-                const int maxConcurrentBatches = 100;
-                const int delayBetweenChunks = 200; // 200ms delay between chunks
-
-                for (int i = 0; i < batchedRequests.Count; i += maxConcurrentBatches)
+                if (cleanedSequence != null &&
+                    HasValidModifications(cleanedSequence) &&
+                    IsValidBaseSequence(cleanedSequence))
                 {
-                    var chunk = batchedRequests.Skip(i).Take(maxConcurrentBatches);
-                    var chunkResponses = await Task.WhenAll(
-                        chunk.Select(request => _http.InferenceRequest(ModelName, request))
-                    );
-
-                    responses.AddRange(chunkResponses);
-
-                    // Progress reporting every 1000 batches
-                    if ((i + maxConcurrentBatches) % 1000 == 0 || i + maxConcurrentBatches >= batchedRequests.Count)
-                    {
-                        int processed = Math.Min(i + maxConcurrentBatches, numBatches);
-                        Console.WriteLine($"Processed {processed:N0}/{numBatches:N0} batches ({(double)processed / numBatches:P1})");
-                    }
-
-                    // Small delay between chunks to avoid overwhelming the server
-                    if (i + maxConcurrentBatches < batchedRequests.Count)
-                    {
-                        await Task.Delay(delayBetweenChunks);
-                    }
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = cleanedSequence, Warning = warning };
+                    ValidInputsMask[i] = true;
+                    validInputs.Add(ModelInputs[i]);
+                }
+                else
+                {
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = null, Warning = warning };
+                    ValidInputsMask[i] = false;
                 }
             }
-            else
+            #endregion
+
+            #region Request Batching, Throttling Setup
+            var batchedRequests = ToBatchedRequests(validInputs);
+            var batchChunks = batchedRequests.Chunk(MaxNumberOfBatchesPerRequest).ToList();
+            int sessionTimeoutInMinutes = batchedRequests.Count * 2 + (int)(ThrottlingDelayInMilliseconds / 6000 * batchChunks.Count) + 2; // Dynamic timeout: ~2 minutes per batch + throttle time between batches + 2 minute buffer for network/processing overhead.
+            #endregion
+
+            #region Throttled API Requests and Response Processing
+            var predictions = new List<PeptideDetectabilityPrediction>();
+            var responses = new List<string>();
+            using var _http = new HTTP(timeoutInMinutes: sessionTimeoutInMinutes);
+
+            for (int i = 0; i < batchChunks.Count; i++)
             {
-                // For smaller datasets, process all batches concurrently
-                var responses_array = await Task.WhenAll(batchedRequests.Select(request => _http.InferenceRequest(ModelName, request)));
-                responses.AddRange(responses_array);
+                var batchChunk = batchChunks[i];
+                var responseChunk = await Task.WhenAll(batchChunk.Select(request => _http.InferenceRequest(ModelName, request)));
+                responses.AddRange(responseChunk);
+
+                if (i < batchChunks.Count - 1) // No need to throttle after the last batch
+                {
+                    await Task.Delay(ThrottlingDelayInMilliseconds);
+                }
             }
 
-            ResponseToPredictions(responses.ToArray());
-            Dispose();
-            return null; // No warnings to return for detectability prediction
+            predictions = ResponseToPredictions(responses.ToArray(), validInputs);
+            #endregion
+
+            #region Realign Predictions to Original Input List
+            // Realign predictions back to the original input list using the ValidInputsMask
+            var realignedPredictions = new List<PeptideDetectabilityPrediction>();
+            int predictionIndex = 0;
+
+            for (int i = 0; i < ValidInputsMask.Length; i++)
+            {
+                if (ValidInputsMask[i])
+                {
+                    realignedPredictions.Add(predictions[predictionIndex]);
+                    predictionIndex++;
+                }
+                else
+                {
+                    // For invalid inputs, add a placeholder prediction with a warning
+                    realignedPredictions.Add(new PeptideDetectabilityPrediction(
+                        FullSequence: ModelInputs[i].FullSequence,
+                        DetectabilityProbabilities: (0.0, 0.0, 0.0, 0.0),
+                        Warning: ModelInputs[i].Warning ?? new WarningException("Input was invalid and skipped during prediction.")
+                    ));
+                }
+            }
+            #endregion
+
+            Predictions = realignedPredictions;
+            return Predictions;
+        }
+
+        public List<PeptideDetectabilityPrediction> Predict(List<DetectabilityPredictionInput> modelInputs)
+        {
+            return AsyncThrottledPredictor(modelInputs).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -156,6 +200,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
         /// Expects responses with detectability probability scores for each peptide across 4 classes.
         /// </summary>
         /// <param name="responses">Array of JSON response strings from Koina API</param>
+        /// <param name="requestInputs">List of input parameters that were sent to the API</param>
         /// <exception cref="Exception">
         /// Thrown when:
         /// - Response deserialization fails
@@ -175,11 +220,12 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
         /// - 4 consecutive values per peptide (Not Detectable, Low, Intermediate, High)
         /// - Probability scores should sum to 1.0 for each peptide
         /// </remarks>
-        protected override void ResponseToPredictions(string[] responses)
+        protected virtual List<PeptideDetectabilityPrediction> ResponseToPredictions(string[] responses, List<DetectabilityPredictionInput> requestInputs)
         {
-            if (PeptideSequences.Count == 0)
+            var predictions = new List<PeptideDetectabilityPrediction>();
+            if (requestInputs.IsNullOrEmpty())
             {
-                return; // No input sequences to process
+                return predictions;
             }
 
             // Deserialize all batch responses
@@ -197,20 +243,22 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
                 .ToList();
 
             // Create prediction objects with probability scores for each detectability class
-            for (int i = 0; i < PeptideSequences.Count; i++)
+            for (int i = 0; i < requestInputs.Count; i++)
             {
                 var peptideFlyabilityClassProbs = detectabilityPredictions[i].Select(p => (double)p).ToList();
-                Predictions.Add(new PeptideDetectabilityPrediction(
-                    PeptideSequences[i],
+                predictions.Add(new PeptideDetectabilityPrediction(
+                    requestInputs[i].ValidatedFullSequence!,
                     (
                         NotDetectable: peptideFlyabilityClassProbs[0],
                         LowDetectability: peptideFlyabilityClassProbs[1],
                         IntermediateDetectability: peptideFlyabilityClassProbs[2],
                         HighDetectability: peptideFlyabilityClassProbs[3]
-                )));
+                    ),
+                    Warning: requestInputs[i].Warning
+                ));
             }
-        }
 
-        
+            return predictions;
+        }
     }
 }

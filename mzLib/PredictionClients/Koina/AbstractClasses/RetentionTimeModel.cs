@@ -1,6 +1,8 @@
 ﻿using PredictionClients.Koina.Client;
 using MzLibUtil;
 using System.ComponentModel;
+using PredictionClients.Koina.Interfaces;
+using Easy.Common.Extensions;
 
 namespace PredictionClients.Koina.AbstractClasses
 {
@@ -11,11 +13,26 @@ namespace PredictionClients.Koina.AbstractClasses
     /// <param name="FullSequence">The peptide sequence used for prediction (in UNIMOD format)</param>
     /// <param name="PredictedRetentionTime">Predicted retention time value (units depend on model - typically minutes or indexed RT)</param>
     /// <param name="IsIndexed">True if the model predicts indexed retention time (iRT); false for absolute retention time</param>
+    /// <param name="Warning">Warning message if any issues occurred during prediction</param>
     public record PeptideRTPrediction(
         string FullSequence,
         double PredictedRetentionTime,
-        bool IsIndexed
+        bool IsIndexed,
+        WarningException? Warning = null
     );
+
+    /// <summary>
+    /// Represents the input parameters for retention time prediction models from the Koina API.
+    /// This record captures the input information required for peptide retention time prediction.
+    /// </summary>
+    /// <param name="FullSequence">Peptide sequence with modifications in mzLib format</param>
+    public record RetentionTimePredictionInput(
+        string FullSequence
+    )
+    {
+        public string? ValidatedFullSequence { get; set; }
+        public WarningException? Warning { get; set; }
+    }
 
     /// <summary>
     /// Abstract base class for retention time prediction models using the Koina API.
@@ -39,9 +56,9 @@ namespace PredictionClients.Koina.AbstractClasses
     /// - Request formatting method (ToBatchedRequests)
     /// - Model-specific modification handling if needed
     /// </remarks>
-    public abstract class RetentionTimeModel : KoinaModelBase
+    public abstract class RetentionTimeModel : KoinaModelBase<RetentionTimePredictionInput, PeptideRTPrediction>, IPredictor<RetentionTimePredictionInput, PeptideRTPrediction>
     {
-        #region Model Metadata from Koina
+        #region Model-Specific Properties
         /// <summary>
         /// Indicates whether this model predicts indexed retention time (iRT) or absolute retention time.
         /// True = indexed retention time (relative scale), False = absolute retention time (minutes)
@@ -49,44 +66,122 @@ namespace PredictionClients.Koina.AbstractClasses
         public abstract bool IsIndexedRetentionTimeModel { get; }
         #endregion
 
-        #region Output Data
+        #region Inputs and Outputs for internal processing
         /// <summary>
-        /// Collection of retention time prediction results after inference completion.
+        /// Inputs provided to the model for the LATEST prediction session. This list is populated during the prediction workflow 
+        /// and is used to keep track of the original input parameters for each prediction, especially when batching is involved.
+        /// </summary>
+        public List<RetentionTimePredictionInput> ModelInputs { get; protected set; } = new();
+
+        /// <summary>
+        /// Boolean mask indicating which inputs from the original list were valid for prediction after applying model-specific validation criteria.
+        /// This is used for realigning predictions back to the original input list and for filtering out invalid inputs from the prediction results.
+        /// </summary>
+        public bool[] ValidInputsMask { get; protected set; } = Array.Empty<bool>();
+
+        /// <summary>
+        /// Collection of retention time prediction results after inference completion for the LATEST prediction session.
         /// Each prediction contains the sequence, predicted RT, and indexing information.
         /// </summary>
-        public abstract List<PeptideRTPrediction> Predictions { get; protected set; }
+        public List<PeptideRTPrediction> Predictions { get; protected set; } = new();
         #endregion
-
-        #region Querying Methods for the Koina API
 
         /// <summary>
         /// Executes retention time prediction by sending batched requests to the Koina API.
-        /// Handles HTTP client lifecycle, request batching, and response parsing automatically.
+        /// The method performs the following steps:
+        /// 1. Validates and cleans input sequences according to model constraints, populating the ValidInputsMask to keep track of which inputs are valid for prediction.
+        /// 2. Converts valid inputs into batched request payloads formatted for the specific model using the ToBatchedRequests method.
+        /// 3. Sends batched requests to the Koina API with throttling between batches to avoid overwhelming the server, and processes responses to extract predictions.
+        /// 4. Realigns predictions back to the original input list using the ValidInputsMask, ensuring that the output list corresponds to the original input order and includes placeholders for invalid inputs with appropriate warnings.
         /// </summary>
         /// <returns>Task representing the asynchronous inference operation</returns>
-        /// <remarks>
-        /// Process flow:
-        /// 1. Creates HTTP client with dynamic timeout based on input size
-        /// 2. Sends all batched requests concurrently using Task.WhenAll
-        /// 3. Processes responses and populates Predictions collection
-        /// 4. Ensures proper resource cleanup regardless of success/failure
-        /// </remarks>
-        /// <exception cref="Exception">Thrown when API responses cannot be deserialized or processed</exception>
-        public override async Task<WarningException?> PredictAsync()
+        protected virtual async Task<List<PeptideRTPrediction>> AsyncThrottledPredictor(List<RetentionTimePredictionInput> modelInputs)
         {
-            if (_disposed)
+            #region Input Validation and Cleaning
+            ModelInputs = modelInputs;
+            ValidInputsMask = new bool[ModelInputs.Count];
+            var validInputs = new List<RetentionTimePredictionInput>();
+
+            for (int i = 0; i < ModelInputs.Count; i++)
             {
-                throw new ObjectDisposedException(nameof(RetentionTimeModel), "Cannot run inference on a disposed model instance. The model is meant to be used only on initialized peptides. The results are still accessible.");
+                WarningException? warning = null;
+                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var modHandlingWarning);
+                warning = modHandlingWarning;
+
+                if (cleanedSequence != null &&
+                    HasValidModifications(cleanedSequence) &&
+                    IsValidBaseSequence(cleanedSequence))
+                {
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = cleanedSequence, Warning = warning };
+                    ValidInputsMask[i] = true;
+                    validInputs.Add(ModelInputs[i]);
+                }
+                else
+                {
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = null, Warning = warning };
+                    ValidInputsMask[i] = false;
+                }
             }
-            // Dynamic timeout: ~2 minutes per batch + 2 minute buffer for network/processing overhead. Typically a 
-            // batch takes less than a minute. 
-            int numBatches = (int)Math.Ceiling((double)PeptideSequences.Count / MaxBatchSize);
-            using var _http = new HTTP(timeoutInMinutes: numBatches * 2 + 2);
-            
-            var responses = await Task.WhenAll(ToBatchedRequests().Select(request => _http.InferenceRequest(ModelName, request)));
-            ResponseToPredictions(responses);
-            Dispose();
-            return null; // No warnings to return for RT prediction
+            #endregion
+
+            #region Request Batching, Throttling Setup
+            var batchedRequests = ToBatchedRequests(validInputs);
+            var batchChunks = batchedRequests.Chunk(MaxNumberOfBatchesPerRequest).ToList();
+            int sessionTimeoutInMinutes = batchedRequests.Count * 2 + (int)(ThrottlingDelayInMilliseconds / 6000 * batchChunks.Count) + 2; // Dynamic timeout: ~2 minutes per batch + throttle time between batches + 2 minute buffer for network/processing overhead.
+            #endregion
+
+            #region Throttled API Requests and Response Processing
+            var predictions = new List<PeptideRTPrediction>();
+            var responses = new List<string>();
+            using var _http = new HTTP(timeoutInMinutes: sessionTimeoutInMinutes);
+
+            for (int i = 0; i < batchChunks.Count; i++)
+            {
+                var batchChunk = batchChunks[i];
+                var responseChunk = await Task.WhenAll(batchChunk.Select(request => _http.InferenceRequest(ModelName, request)));
+                responses.AddRange(responseChunk);
+
+                if (i < batchChunks.Count - 1) // No need to throttle after the last batch
+                {
+                    await Task.Delay(ThrottlingDelayInMilliseconds);
+                }
+            }
+
+            predictions = ResponseToPredictions(responses.ToArray(), validInputs);
+            #endregion
+
+            #region Realign Predictions to Original Input List
+            // Realign predictions back to the original input list using the ValidInputsMask
+            var realignedPredictions = new List<PeptideRTPrediction>();
+            int predictionIndex = 0;
+
+            for (int i = 0; i < ValidInputsMask.Length; i++)
+            {
+                if (ValidInputsMask[i])
+                {
+                    realignedPredictions.Add(predictions[predictionIndex]);
+                    predictionIndex++;
+                }
+                else
+                {
+                    // For invalid inputs, add a placeholder prediction with a warning
+                    realignedPredictions.Add(new PeptideRTPrediction(
+                        FullSequence: ModelInputs[i].FullSequence,
+                        PredictedRetentionTime: 0.0,
+                        IsIndexed: IsIndexedRetentionTimeModel,
+                        Warning: ModelInputs[i].Warning ?? new WarningException("Input was invalid and skipped during prediction.")
+                    ));
+                }
+            }
+            #endregion
+
+            Predictions = realignedPredictions;
+            return Predictions;
+        }
+
+        public List<PeptideRTPrediction> Predict(List<RetentionTimePredictionInput> modelInputs)
+        {
+            return AsyncThrottledPredictor(modelInputs).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -94,6 +189,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// Expects responses with a single output containing retention time predictions.
         /// </summary>
         /// <param name="responses">Array of JSON response strings from Koina API</param>
+        /// <param name="requestInputs">List of input parameters that were sent to the API</param>
         /// <exception cref="Exception">
         /// Thrown when:
         /// - Response deserialization fails
@@ -107,12 +203,12 @@ namespace PredictionClients.Koina.AbstractClasses
         /// 3. Validates prediction count matches input sequence count
         /// 4. Creates PeptideRTPrediction objects with sequence mapping
         /// </remarks>
-        protected override void ResponseToPredictions(string[] responses)
+        protected virtual List<PeptideRTPrediction> ResponseToPredictions(string[] responses, List<RetentionTimePredictionInput> requestInputs)
         {
-            if (PeptideSequences.Count == 0)
+            var predictions = new List<PeptideRTPrediction>();
+            if (requestInputs.IsNullOrEmpty())
             {
-                Predictions = new List<PeptideRTPrediction>();
-                return; // No input sequences to process
+                return predictions;
             }
 
             // Deserialize all batch responses
@@ -125,24 +221,27 @@ namespace PredictionClients.Koina.AbstractClasses
             }
 
             // Extract retention time predictions from all batches (flattened)
-            var rtOutputs = deserializedResponses.SelectMany(r => r.Outputs[0].Data).ToList();
+            var rtOutputs = deserializedResponses.SelectMany(r => r!.Outputs[0].Data).ToList();
 
             // Ensure prediction count matches input count
-            if (rtOutputs.Count != PeptideSequences.Count)
+            if (rtOutputs.Count != requestInputs.Count)
             {
                 throw new Exception("The number of predictions does not match the number of input peptides.");
             }
 
             // Create prediction objects with sequence-to-prediction mapping
-            Predictions = PeptideSequences
-                .Select((seq, index) => new PeptideRTPrediction(
-                    FullSequence: seq,
-                    PredictedRetentionTime: Convert.ToDouble(rtOutputs[index]),
-                    IsIndexed: IsIndexedRetentionTimeModel
-                ))
-                .ToList();
-        }
-        #endregion
+            for (int i = 0; i < requestInputs.Count; i++)
+            {
+                predictions.Add(new PeptideRTPrediction(
+                    FullSequence: requestInputs[i].ValidatedFullSequence!,
+                    PredictedRetentionTime: Convert.ToDouble(rtOutputs[i]),
+                    IsIndexed: IsIndexedRetentionTimeModel,
+                    Warning: requestInputs[i].Warning
+                ));
+            }
 
+            return predictions;
+        }
     }
 }
+
