@@ -19,10 +19,4 @@
 	<ProjectReference Include="..\Proteomics\Proteomics.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="LocalModels\InternalFragmentScorer_v3_AllProteases.onnx">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
 </Project>

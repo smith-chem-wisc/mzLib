@@ -1,802 +1,501 @@
-﻿using Microsoft.ML.Data;
-using NUnit.Framework;
-using Omics.Digestion;
+﻿using Chemistry;
+using Microsoft.ML.OnnxRuntime;
+using Microsoft.ML.OnnxRuntime.Tensors;
 using Omics.Fragmentation;
-using Omics.Modifications;
 using Omics.SpectrumMatch;
-using PredictionClients.LocalModels;
-using Proteomics;
-using Proteomics.ProteolyticDigestion;
-using Readers.SpectralLibrary;
+using PredictionClients.Koina.AbstractClasses;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using UsefulProteomicsDatabases;
-using CategoryAttribute = NUnit.Framework.CategoryAttribute;
 
-namespace Test.LocalModelTests
+namespace PredictionClients.LocalModels
 {
     /// <summary>
-    /// Tests for InternalFragmentIntensityModel.
+    /// Local ONNX-based model for predicting internal fragment ion intensities in HCD spectra.
+    /// Mirrors the Koina/Prosit API surface so it can be used as a drop-in replacement
+    /// alongside remote models — same constructor pattern, same output types, same library
+    /// generation pipeline.
     ///
-    /// TEST ORGANISATION
-    /// -----------------
-    /// 1. Constructor / input validation   — matches Prosit test patterns exactly
-    /// 2. Inference (ONNX)                — requires the .onnx file on disk
-    /// 3. Spectral library generation     — in-memory and file round-trips
-    /// 4. Utility methods                 — BareSequence, feature vector
+    /// The model predicts TIC-normalized intensity (TicNI) for internal fragment ion candidates
+    /// derived from double-backbone fragmentation events. It was trained on six proteases
+    /// (LysC, Trypsin, ArgC, GluC, AspN, Chymotrypsin) and is protease-agnostic.
     ///
-    /// Tests that require the ONNX model file are decorated with [Category("RequiresOnnxModel")]
-    /// so they can be excluded in CI environments where the model is not present.
-    /// All other tests are pure unit tests that run without any files.
+    /// USAGE
+    /// -----
+    /// var model = new InternalFragmentIntensityModel(
+    ///     peptideSequences: sequences,
+    ///     precursorCharges: charges,
+    ///     retentionTimes: rts,
+    ///     out var warnings,
+    ///     onnxModelPath: "path/to/model.onnx");
     ///
-    /// The ONNX model is resolved via InternalFragmentIntensityModel.DefaultOnnxModelPath,
-    /// which checks embedded resources, then Resources folder, then LocalModels folder.
+    /// await model.RunInferenceAsync();
+    /// var spectra = model.PredictedSpectra;
+    ///
+    /// MODEL DETAILS (v3, all-protease)
+    /// ----------------------------------
+    /// Input:  float32 [N, 18]
+    /// Output: float32 [N]      — predicted TicNI
+    /// Fragment lengths: 3–9 residues
     /// </summary>
-    [TestFixture]
-    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
-    public class InternalFragmentIntensityModelTests
+    public class InternalFragmentIntensityModel : FragmentIntensityModel
     {
-        // ── Shared valid inputs ──────────────────────────────────────────────────
-        private static readonly List<string> ValidPeptides = new() { "PEPTIDEK", "ELVISLIVESK", "SAMPLER" };
-        private static readonly List<int> ValidCharges = new() { 2, 2, 2 };
-        private static readonly List<double?> ValidRetentionTimes = new() { 100.0, 200.0, 300.0 };
+        #region Model Metadata
 
-        // ════════════════════════════════════════════════════════════════════════
-        // 1. CONSTRUCTOR / INPUT VALIDATION
-        // ════════════════════════════════════════════════════════════════════════
+        public override string ModelName => "InternalFragmentScorer_v3_AllProteases";
+        public override int MaxBatchSize => 50_000;
+        public override int MaxPeptideLength => 100;
+        public override int MinPeptideLength => 5;
 
-        [Test]
-        public static void Constructor_ValidInputs_NoWarning()
+        /// <summary>Default ONNX model filename.</summary>
+        public const string DefaultModelFileName = "InternalFragmentScorer_v3_AllProteases.onnx";
+
+        /// <summary>
+        /// Resolves the default ONNX model path by searching common locations relative to the
+        /// executing assembly.
+        /// </summary>
+        public static string DefaultOnnxModelPath
         {
-            var model = new InternalFragmentIntensityModel(
-                ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out var warnings);
-
-            Assert.That(warnings, Is.Null,
-                "Valid inputs should produce no warning");
-            Assert.That(model.PeptideSequences.Count, Is.EqualTo(3),
-                "All three valid peptides should be accepted");
-        }
-
-        [Test]
-        public static void Constructor_MismatchedListLengths_ThrowsArgumentException()
-        {
-            var peptides = new List<string> { "PEPTIDEK", "ELVISLIVESK" };
-            var charges = new List<int> { 2 };          // wrong length
-            var rts = new List<double?> { 100.0, null };
-
-            Assert.Throws<ArgumentException>(() =>
-                new InternalFragmentIntensityModel(
-                    peptides, charges, rts,
-                    out _));
-        }
-
-        [Test]
-        public static void Constructor_EmptyInput_ReturnsWarning()
-        {
-            var model = new InternalFragmentIntensityModel(
-                new List<string>(), new List<int>(), new List<double?>(),
-                out var warnings);
-
-            Assert.That(warnings, Is.Not.Null,
-                "Empty input should produce a warning");
-            Assert.That(model.PeptideSequences.Count, Is.EqualTo(0));
-        }
-
-        [Test]
-        public static void Constructor_AllValidCharges_NoneFiltered()
-        {
-            foreach (int charge in new[] { 1, 2, 3, 4, 5, 6 })
+            get
             {
-                var model = new InternalFragmentIntensityModel(
-                    new List<string> { "PEPTIDEK" },
-                    new List<int> { charge },
-                    new List<double?> { null },
-                    out var warnings);
+                var assemblyDir = Path.GetDirectoryName(
+                    typeof(InternalFragmentIntensityModel).Assembly.Location) ?? "";
 
-                Assert.That(model.PeptideSequences.Count, Is.EqualTo(1),
-                    $"Charge {charge} should be accepted");
-                Assert.That(warnings, Is.Null,
-                    $"Charge {charge} should not produce a warning");
-            }
-        }
-
-        [Test]
-        public static void Constructor_InvalidCharge_Filtered_WithWarning()
-        {
-            foreach (int badCharge in new[] { 0, -1, 7 })
-            {
-                var model = new InternalFragmentIntensityModel(
-                    new List<string> { "PEPTIDEK" },
-                    new List<int> { badCharge },
-                    new List<double?> { null },
-                    out var warnings);
-
-                Assert.That(model.PeptideSequences.Count, Is.EqualTo(0),
-                    $"Charge {badCharge} should be filtered out");
-                Assert.That(warnings, Is.Not.Null,
-                    $"Charge {badCharge} should produce a warning");
-            }
-        }
-
-        [Test]
-        public static void Constructor_PeptideTooShort_Filtered()
-        {
-            // MinPeptideLength = 5; shorter sequences cannot yield any internal fragment of length 3
-            var model = new InternalFragmentIntensityModel(
-                new List<string> { "AAAA" },
-                new List<int> { 2 },
-                new List<double?> { null },
-                out var warnings);
-
-            Assert.That(model.PeptideSequences.Count, Is.EqualTo(0),
-                "Peptide shorter than MinPeptideLength should be filtered");
-            Assert.That(warnings, Is.Not.Null);
-        }
-
-        [Test]
-        public static void Constructor_PeptideAtMinLength_Accepted()
-        {
-            // MinPeptideLength = 5 — "AAAAA" is exactly at the boundary
-            var model = new InternalFragmentIntensityModel(
-                new List<string> { "AAAAA" },
-                new List<int> { 2 },
-                new List<double?> { null },
-                out var warnings);
-
-            Assert.That(model.PeptideSequences.Count, Is.EqualTo(1));
-            Assert.That(warnings, Is.Null);
-        }
-
-        [Test]
-        public static void Constructor_InvalidAminoAcid_Filtered()
-        {
-            // 'X' (unknown AA), 'B' (Asx), 'Z' (Glx) are not in AaMass
-            foreach (var badSeq in new[] { "PEPTXIDEK", "PEPTBIDEK", "PEPTZIDEK" })
-            {
-                var model = new InternalFragmentIntensityModel(
-                    new List<string> { badSeq },
-                    new List<int> { 2 },
-                    new List<double?> { null },
-                    out var warnings);
-
-                Assert.That(model.PeptideSequences.Count, Is.EqualTo(0),
-                    $"'{badSeq}' with non-canonical AA should be filtered");
-                Assert.That(warnings, Is.Not.Null);
-            }
-        }
-
-        [Test]
-        public static void Constructor_MixedValidAndInvalid_OnlyValidKept()
-        {
-            var peptides = new List<string> { "PEPTIDEK", "PEPTXIDEK", "SAMPLER" };
-            var charges = new List<int> { 2, 2, 2 };
-            var rts = new List<double?> { null, null, null };
-
-            var model = new InternalFragmentIntensityModel(
-                peptides, charges, rts,
-                out var warnings);
-
-            Assert.That(model.PeptideSequences.Count, Is.EqualTo(2),
-                "Only the two valid peptides should be retained");
-            Assert.That(warnings, Is.Not.Null,
-                "Filtered entry should produce a warning");
-        }
-
-        [Test]
-        public static void Constructor_ModifiedSequences_BareSequenceUsedForValidation()
-        {
-            // mzLib modification brackets — stripped before length / AA validation
-            var modifiedSeq = "PEPTM[Common Variable:Oxidation on M]IDER";
-            var model = new InternalFragmentIntensityModel(
-                new List<string> { modifiedSeq },
-                new List<int> { 2 },
-                new List<double?> { null },
-                out var warnings);
-
-            // Bare sequence = "PEPTMIDER" (9 AA) — valid
-            Assert.That(model.PeptideSequences.Count, Is.EqualTo(1),
-                "Modified sequence with valid bare AA sequence should be accepted");
-            Assert.That(warnings, Is.Null);
-        }
-
-        [Test]
-        public static void Constructor_NullRetentionTimes_Accepted()
-        {
-            var rts = new List<double?> { null, null, null };
-            var model = new InternalFragmentIntensityModel(
-                ValidPeptides, ValidCharges, rts,
-                out var warnings);
-
-            Assert.That(model.PeptideSequences.Count, Is.EqualTo(3));
-            Assert.That(warnings, Is.Null,
-                "Null retention times should not cause filtering");
-        }
-
-        [Test]
-        public static void DefaultOnnxModelPath_ReturnsValidPath()
-        {
-            var defaultPath = InternalFragmentIntensityModel.DefaultOnnxModelPath;
-
-            Assert.That(defaultPath, Is.Not.Null.And.Not.Empty,
-                "DefaultOnnxModelPath should return a non-empty path");
-            Assert.That(defaultPath, Does.EndWith(InternalFragmentIntensityModel.DefaultModelFileName),
-                "Default path should end with the expected model filename");
-        }
-
-        // ════════════════════════════════════════════════════════════════════════
-        // 2. UTILITY METHODS
-        // ════════════════════════════════════════════════════════════════════════
-
-        [Test]
-        public static void BareSequence_NoMods_ReturnsIdentical()
-        {
-            Assert.That(InternalFragmentIntensityModel.BareSequence("PEPTIDEK"),
-                Is.EqualTo("PEPTIDEK"));
-        }
-
-        [Test]
-        public static void BareSequence_WithMods_StripsBrackets()
-        {
-            var full = "PEPTM[Common Variable:Oxidation on M]IDER";
-            Assert.That(InternalFragmentIntensityModel.BareSequence(full),
-                Is.EqualTo("PEPTMIDER"));
-        }
-
-        [Test]
-        public static void BareSequence_MultipleMods_AllStripped()
-        {
-            var full = "M[Common Variable:Oxidation on M]PEPTC[Common Fixed:Carbamidomethyl on C]IDE";
-            Assert.That(InternalFragmentIntensityModel.BareSequence(full),
-                Is.EqualTo("MPEPTCIDE"));
-        }
-
-        [Test]
-        public static void BareSequence_NTerminalMod_Stripped()
-        {
-            var full = "[Common Biological:Acetylation on X]SAMPLER";
-            Assert.That(InternalFragmentIntensityModel.BareSequence(full),
-                Is.EqualTo("SAMPLER"));
-        }
-
-        // ════════════════════════════════════════════════════════════════════════
-        // 3. ONNX INFERENCE  (requires model file — tagged for selective CI runs)
-        // ════════════════════════════════════════════════════════════════════════
-
-        [Test, Category("RequiresOnnxModel")]
-        public static async Task RunInferenceAsync_ValidPeptides_PopulatesPredictions()
-        {
-            var model = new InternalFragmentIntensityModel(
-                ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _);
-
-            await model.RunInferenceAsync();
-
-            Assert.That(model.Predictions.Count, Is.EqualTo(3),
-                "Should have one prediction per peptide");
-
-            foreach (var pred in model.Predictions)
-            {
-                Assert.That(pred.FragmentAnnotations.Count, Is.GreaterThan(0),
-                    "Each peptide should have at least one candidate fragment");
-                Assert.That(pred.FragmentAnnotations.Count, Is.EqualTo(pred.FragmentMZs.Count));
-                Assert.That(pred.FragmentAnnotations.Count, Is.EqualTo(pred.FragmentIntensities.Count));
-            }
-        }
-
-        [Test, Category("RequiresOnnxModel")]
-        public static async Task RunInferenceAsync_PredictionValues_AreChemicallyReasonable()
-        {
-            var model = new InternalFragmentIntensityModel(
-                ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _);
-
-            await model.RunInferenceAsync();
-
-            foreach (var pred in model.Predictions)
-            {
-                foreach (var mz in pred.FragmentMZs)
-                    Assert.That(mz, Is.GreaterThan(0).And.LessThan(3000),
-                        "Fragment m/z should be positive and within peptide mass range");
-
-                foreach (var intensity in pred.FragmentIntensities)
-                    Assert.That(intensity, Is.GreaterThanOrEqualTo(0),
-                        "Predicted intensities should be non-negative");
-            }
-        }
-
-        [Test, Category("RequiresOnnxModel")]
-        public static async Task RunInferenceAsync_AnnotationsMatchMzLibFormat()
-        {
-            // All annotation strings must follow "bIb[start-end]+1"
-            var annotRegex = new System.Text.RegularExpressions.Regex(
-                @"^[a-zA-Z]+I[a-zA-Z]+\[\d+-\d+\]\+\d+$");
-
-            var model = new InternalFragmentIntensityModel(
-                ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _);
-
-            await model.RunInferenceAsync();
-
-            foreach (var pred in model.Predictions)
-                foreach (var ann in pred.FragmentAnnotations)
-                    Assert.That(annotRegex.IsMatch(ann), Is.True,
-                        $"Annotation '{ann}' does not match expected bIb[start-end]+1 format");
-        }
-
-        [Test, Category("RequiresOnnxModel")]
-        public static async Task RunInferenceAsync_EmptyInput_ReturnsNoError()
-        {
-            var model = new InternalFragmentIntensityModel(
-                new List<string>(), new List<int>(), new List<double?>(),
-                out _);
-
-            Assert.DoesNotThrowAsync(async () => await model.RunInferenceAsync());
-            Assert.That(model.PredictedSpectra.Count, Is.EqualTo(0));
-        }
-
-        [Test, Category("RequiresOnnxModel")]
-        public static async Task RunInferenceAsync_DisposesAfterInference()
-        {
-            var model = new InternalFragmentIntensityModel(
-                ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _);
-
-            await model.RunInferenceAsync();
-
-            // Second call on disposed model should throw
-            Assert.ThrowsAsync<ObjectDisposedException>(
-                async () => await model.RunInferenceAsync(),
-                "Second RunInferenceAsync call should throw ObjectDisposedException");
-
-            // Results remain accessible after disposal
-            Assert.That(model.PredictedSpectra.Count, Is.GreaterThan(0),
-                "PredictedSpectra should remain accessible after disposal");
-        }
-
-        [Test, Category("RequiresOnnxModel")]
-        public static void RunInferenceAsync_DisposeBeforeInference_ThrowsObjectDisposedException()
-        {
-            var model = new InternalFragmentIntensityModel(
-                ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _);
-
-            model.Dispose();
-
-            Assert.ThrowsAsync<ObjectDisposedException>(
-                async () => await model.RunInferenceAsync());
-        }
-
-        // ════════════════════════════════════════════════════════════════════════
-        // 4. SPECTRAL LIBRARY GENERATION
-        // ════════════════════════════════════════════════════════════════════════
-
-        [Test, Category("RequiresOnnxModel")]
-        public static async Task PredictedSpectra_InternalIonsHaveIsInternalFragmentTrue()
-        {
-            var model = new InternalFragmentIntensityModel(
-                ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _);
-
-            await model.RunInferenceAsync();
-
-            Assert.That(model.PredictedSpectra.Count, Is.GreaterThan(0),
-                "At least one peptide should produce passing internal ions");
-
-            foreach (var spectrum in model.PredictedSpectra)
-            {
-                foreach (var ion in spectrum.MatchedFragmentIons)
+                var candidates = new[]
                 {
-                    Assert.That(ion.IsInternalFragment, Is.True,
-                        "All ions in this model's spectra are internal fragments");
-                    Assert.That(ion.NeutralTheoreticalProduct.SecondaryProductType, Is.Not.Null,
-                        "Internal fragment Product must have a SecondaryProductType");
+                    Path.Combine(assemblyDir, "LocalModels", DefaultModelFileName),
+                    Path.Combine(assemblyDir, DefaultModelFileName),
+                    Path.Combine("LocalModels", DefaultModelFileName),
+                    DefaultModelFileName,
+                };
+
+                foreach (var p in candidates)
+                    if (File.Exists(p)) return Path.GetFullPath(p);
+
+                return Path.GetFullPath(candidates[0]);
+            }
+        }
+
+        /// <summary>Charges 1–6 accepted.</summary>
+        public override HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
+
+        /// <summary>Modifications are stripped before feature computation.</summary>
+        public override Dictionary<string, string> ValidModificationUnimodMapping => new();
+
+        #endregion
+
+        #region Fragment Enumeration Parameters
+
+        public int MinFragmentLength { get; } = 3;
+        public int MaxFragmentLength { get; } = 9;
+
+        public override double MinIntensityFilter { get; protected set; } = 0.002;
+
+        /// <summary>
+        /// Maximum internal fragment ions per peptide in the spectral library.
+        /// Applied after MinIntensityFilter, keeping the top N by predicted TicNI.
+        /// </summary>
+        public int MaxInternalIonsPerPeptide { get; private set; } = 20;
+
+        #endregion
+
+        #region Input/Output Data
+
+        public override List<string> PeptideSequences { get; } = new();
+        public override List<int> PrecursorCharges { get; } = new();
+        public override List<double?> RetentionTimes { get; } = new();
+        public override string? SpectralLibrarySavePath { get; }
+        public override List<PeptideFragmentIntensityPrediction> Predictions { get; protected set; } = new();
+        public override List<LibrarySpectrum> PredictedSpectra { get; protected set; } = new();
+
+        #endregion
+
+        #region Private State
+
+        private readonly string _onnxModelPath;
+        private static readonly Regex _modRegex = new(@"\[[^\]]+\]", RegexOptions.Compiled);
+
+        #endregion
+
+        #region Amino Acid Data
+
+        private static readonly Dictionary<char, double> AaMass = new()
+        {
+            ['A'] = 71.03711,
+            ['R'] = 156.10111,
+            ['N'] = 114.04293,
+            ['D'] = 115.02694,
+            ['C'] = 103.00919,
+            ['E'] = 129.04259,
+            ['Q'] = 128.05858,
+            ['G'] = 57.02146,
+            ['H'] = 137.05891,
+            ['I'] = 113.08406,
+            ['L'] = 113.08406,
+            ['K'] = 128.09496,
+            ['M'] = 131.04049,
+            ['F'] = 147.06841,
+            ['P'] = 97.05276,
+            ['S'] = 87.03203,
+            ['T'] = 101.04768,
+            ['W'] = 186.07931,
+            ['Y'] = 163.06333,
+            ['V'] = 99.06841,
+        };
+
+        private const double Proton = 1.007276;
+        private const double Water = 18.010565;
+
+        private static readonly HashSet<char> BasicResidues = new() { 'K', 'R', 'H' };
+
+        private static readonly Dictionary<char, double> Hydrophobicity = new()
+        {
+            ['A'] = 1.8,
+            ['V'] = 4.2,
+            ['I'] = 4.5,
+            ['L'] = 3.8,
+            ['M'] = 1.9,
+            ['F'] = 2.8,
+            ['W'] = -0.9,
+            ['P'] = -1.6,
+            ['G'] = -0.4,
+            ['S'] = -0.8,
+            ['T'] = -0.7,
+            ['C'] = 2.5,
+            ['Y'] = -1.3,
+            ['H'] = -3.2,
+            ['K'] = -3.9,
+            ['R'] = -4.5,
+            ['E'] = -3.5,
+            ['D'] = -3.5,
+            ['N'] = -3.5,
+            ['Q'] = -3.5,
+        };
+
+        #endregion
+
+        #region Constructors
+
+        /// <summary>
+        /// Convenience constructor — resolves the ONNX model path automatically.
+        /// Use when the model file is deployed alongside the assembly.
+        /// </summary>
+        public InternalFragmentIntensityModel(
+            List<string> peptideSequences,
+            List<int> precursorCharges,
+            List<double?> retentionTimes,
+            out WarningException? warnings,
+            string? spectralLibrarySavePath = null,
+            double minIntensityFilter = 0.002,
+            int maxInternalIonsPerPeptide = 20)
+            : this(peptideSequences, precursorCharges, retentionTimes, out warnings,
+                   DefaultOnnxModelPath, spectralLibrarySavePath,
+                   minIntensityFilter, maxInternalIonsPerPeptide)
+        {
+        }
+
+        /// <summary>
+        /// Full constructor with explicit ONNX model path.
+        /// </summary>
+        public InternalFragmentIntensityModel(
+            List<string> peptideSequences,
+            List<int> precursorCharges,
+            List<double?> retentionTimes,
+            out WarningException? warnings,
+            string onnxModelPath,
+            string? spectralLibrarySavePath = null,
+            double minIntensityFilter = 0.002,
+            int maxInternalIonsPerPeptide = 20)
+        {
+            if (peptideSequences.Count != precursorCharges.Count
+                || precursorCharges.Count != retentionTimes.Count)
+                throw new ArgumentException("Input lists must have the same length.");
+
+            _onnxModelPath = onnxModelPath;
+            SpectralLibrarySavePath = spectralLibrarySavePath;
+            MinIntensityFilter = minIntensityFilter;
+            MaxInternalIonsPerPeptide = maxInternalIonsPerPeptide;
+
+            if (peptideSequences.Count == 0)
+            {
+                warnings = new WarningException("Inputs were empty. No predictions will be made.");
+                return;
+            }
+
+            var invalid = new List<string>();
+            for (int i = 0; i < peptideSequences.Count; i++)
+            {
+                var seq = peptideSequences[i];
+                var charge = precursorCharges[i];
+
+                if (!IsValidSequence(seq) || !AllowedPrecursorCharges.Contains(charge))
+                    invalid.Add($"Index {i}: '{seq}', charge: {charge}");
+                else
+                {
+                    PeptideSequences.Add(seq);
+                    PrecursorCharges.Add(charge);
+                    RetentionTimes.Add(retentionTimes[i]);
                 }
             }
+
+            warnings = invalid.Count > 0
+                ? new WarningException(
+                    "The following entries are invalid and will be skipped:\n"
+                    + string.Join("\n", invalid)
+                    + $"\nRequirements: bare length {MinPeptideLength}–{MaxPeptideLength}, "
+                    + $"charge in [{string.Join(", ", AllowedPrecursorCharges)}]")
+                : null;
         }
 
-        [Test, Category("RequiresOnnxModel")]
-        public static async Task PredictedSpectra_IntensitiesNormalizedToOne()
+        #endregion
+
+        #region Inference
+
+        /// <summary>
+        /// Runs ONNX inference locally (CPU), then generates PredictedSpectra.
+        /// </summary>
+        public override async Task<WarningException?> RunInferenceAsync()
         {
-            var model = new InternalFragmentIntensityModel(
-                ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _);
+            if (_disposed)
+                throw new ObjectDisposedException(nameof(InternalFragmentIntensityModel),
+                    "Cannot run inference on a disposed model instance.");
 
-            await model.RunInferenceAsync();
-
-            foreach (var spectrum in model.PredictedSpectra)
+            if (PeptideSequences.Count == 0)
             {
-                if (spectrum.MatchedFragmentIons.Count == 0) continue;
-                double maxIntensity = spectrum.MatchedFragmentIons.Max(ion => ion.Intensity);
-                Assert.That(maxIntensity, Is.EqualTo(1.0).Within(1e-9),
-                    $"Max intensity in spectrum {spectrum.Name} should be normalized to 1.0");
+                Dispose();
+                return null;
             }
+
+            await Task.Run(RunOnnxInference);
+
+            WarningException? warning;
+            if (SpectralLibrarySavePath is not null)
+                SavePredictedSpectralLibrary(SpectralLibrarySavePath, out warning);
+            else
+                GenerateLibrarySpectraFromPredictions(out warning);
+
+            Dispose();
+            return warning;
         }
 
-        [Test, Category("RequiresOnnxModel")]
-        public static async Task PredictedSpectra_MaxInternalIonsLimitRespected()
+        private void RunOnnxInference()
         {
-            const int maxIons = 5;
-            var model = new InternalFragmentIntensityModel(
-                ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _,
-                maxInternalIonsPerPeptide: maxIons);
+            using var session = new InferenceSession(_onnxModelPath);
 
-            await model.RunInferenceAsync();
+            for (int pepIdx = 0; pepIdx < PeptideSequences.Count; pepIdx++)
+            {
+                var fullSeq = PeptideSequences[pepIdx];
+                var charge = PrecursorCharges[pepIdx];
+                var bare = BareSequence(fullSeq);
+                int n = bare.Length;
 
-            foreach (var spectrum in model.PredictedSpectra)
-                Assert.That(spectrum.MatchedFragmentIons.Count, Is.LessThanOrEqualTo(maxIons),
-                    $"Spectrum {spectrum.Name} exceeds MaxInternalIonsPerPeptide = {maxIons}");
-        }
+                var candidates = new List<(int i, int j, double neutralMass)>();
+                for (int i = 0; i < n; i++)
+                    for (int j = i + MinFragmentLength - 1; j < Math.Min(i + MaxFragmentLength, n); j++)
+                        candidates.Add((i, j, InternalNeutralMass(bare, i, j)));
 
-        [Test, Category("RequiresOnnxModel")]
-        public static async Task PredictedSpectra_MinIntensityFilterRespected()
-        {
-            const double minTicNI = 0.005;
-            var model = new InternalFragmentIntensityModel(
-                ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _,
-                minIntensityFilter: minTicNI);
-
-            await model.RunInferenceAsync();
-
-            // After normalization, intensities are relative within each spectrum.
-            // What we can verify is that the *raw* predicted TicNIs above the threshold
-            // were the ones included — proxy check: all spectra should have fewer ions
-            // than when using the default 0.002 threshold.
-            var modelDefault = new InternalFragmentIntensityModel(
-                ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _);
-            await modelDefault.RunInferenceAsync();
-
-            int totalHighThreshold = model.PredictedSpectra.Sum(s => s.MatchedFragmentIons.Count);
-            int totalDefaultThreshold = modelDefault.PredictedSpectra.Sum(s => s.MatchedFragmentIons.Count);
-
-            Assert.That(totalHighThreshold, Is.LessThanOrEqualTo(totalDefaultThreshold),
-                "Higher MinIntensityFilter should produce fewer ions than default");
-        }
-
-        [Test, Category("RequiresOnnxModel")]
-        public static async Task PredictedSpectra_DuplicatePeptides_DeduplicatedWithWarning()
-        {
-            var duplicatePeptides = new List<string> { "PEPTIDEK", "PEPTIDEK", "SAMPLER" };
-            var duplicateCharges = new List<int> { 2, 2, 2 };
-            var duplicateRts = new List<double?> { 100.0, 100.0, 200.0 };
-
-            var model = new InternalFragmentIntensityModel(
-                duplicatePeptides, duplicateCharges, duplicateRts,
-                out _);
-
-            var warning = await model.RunInferenceAsync();
-
-            Assert.That(model.PredictedSpectra.Count, Is.LessThanOrEqualTo(2),
-                "Duplicate spectra should be deduplicated");
-            Assert.That(warning, Is.Not.Null,
-                "Deduplication should produce a warning");
-        }
-
-        [Test, Category("RequiresOnnxModel")]
-        public static async Task PredictedSpectra_ProductTypeIsB_SecondaryIsB()
-        {
-            // Our model uses b-type internal fragments (double b-type cleavage)
-            var model = new InternalFragmentIntensityModel(
-                ValidPeptides, ValidCharges, ValidRetentionTimes,
-                out _);
-
-            await model.RunInferenceAsync();
-
-            foreach (var spectrum in model.PredictedSpectra)
-                foreach (var ion in spectrum.MatchedFragmentIons)
+                if (candidates.Count == 0)
                 {
-                    Assert.That(ion.NeutralTheoreticalProduct.ProductType, Is.EqualTo(ProductType.b),
-                        "Primary product type should be 'b'");
-                    Assert.That(ion.NeutralTheoreticalProduct.SecondaryProductType, Is.EqualTo(ProductType.b),
-                        "Secondary product type should be 'b'");
-                }
-        }
-
-        // ════════════════════════════════════════════════════════════════════════
-        // 5. MSP ROUND-TRIP (write library → read back → compare)
-        // ════════════════════════════════════════════════════════════════════════
-
-        [Test, Category("RequiresOnnxModel")]
-        public static async Task MspRoundTrip_WrittenLibraryMatchesInMemorySpectra()
-        {
-            var outPath = Path.Combine(
-                TestContext.CurrentContext.TestDirectory,
-                "internalFragmentLibraryTest.msp");
-
-            SpectralLibrary? savedLib = null;
-            try
-            {
-                var model = new InternalFragmentIntensityModel(
-                    ValidPeptides, ValidCharges, ValidRetentionTimes,
-                    out _,
-                    spectralLibrarySavePath: outPath);
-
-                await model.RunInferenceAsync();
-
-                Assert.That(File.Exists(outPath), Is.True, "MSP file should have been written");
-
-                savedLib = new SpectralLibrary(new List<string> { outPath });
-                var savedSpectra = savedLib.GetAllLibrarySpectra().ToList();
-
-                // Same number of spectra
-                Assert.That(savedSpectra.Count, Is.EqualTo(model.PredictedSpectra.Count),
-                    "Saved library should have same number of spectra as in-memory");
-
-                var sortedInMemory = model.PredictedSpectra
-                    .OrderBy(s => s.Sequence).ThenBy(s => s.ChargeState).ToList();
-                var sortedSaved = savedSpectra
-                    .OrderBy(s => s.Sequence).ThenBy(s => s.ChargeState).ToList();
-
-                for (int i = 0; i < sortedInMemory.Count; i++)
-                {
-                    var mem = sortedInMemory[i];
-                    var saved = sortedSaved[i];
-
-                    Assert.That(mem.Sequence, Is.EqualTo(saved.Sequence));
-                    Assert.That(mem.ChargeState, Is.EqualTo(saved.ChargeState));
-                    Assert.That(mem.MatchedFragmentIons.Count,
-                        Is.EqualTo(saved.MatchedFragmentIons.Count),
-                        $"Ion count mismatch for {mem.Name}");
-
-                    var memFrags = mem.MatchedFragmentIons.OrderBy(f => f.Mz).ToList();
-                    var savedFrags = saved.MatchedFragmentIons.OrderBy(f => f.Mz).ToList();
-
-                    for (int j = 0; j < memFrags.Count; j++)
-                    {
-                        Assert.That(memFrags[j].Mz,
-                            Is.EqualTo(savedFrags[j].Mz).Within(1e-4),
-                            "m/z should round-trip within 0.1 mDa");
-                        Assert.That(memFrags[j].Intensity,
-                            Is.EqualTo(savedFrags[j].Intensity).Within(1e-6),
-                            "Normalized intensity should round-trip");
-                        Assert.That(memFrags[j].NeutralTheoreticalProduct.ProductType,
-                            Is.EqualTo(savedFrags[j].NeutralTheoreticalProduct.ProductType),
-                            "ProductType should round-trip through MSP");
-                        Assert.That(memFrags[j].NeutralTheoreticalProduct.FragmentNumber,
-                            Is.EqualTo(savedFrags[j].NeutralTheoreticalProduct.FragmentNumber),
-                            "Start residue (FragmentNumber) should round-trip through MSP");
-                        Assert.That(memFrags[j].NeutralTheoreticalProduct.SecondaryFragmentNumber,
-                            Is.EqualTo(savedFrags[j].NeutralTheoreticalProduct.SecondaryFragmentNumber),
-                            "End residue (SecondaryFragmentNumber) should round-trip through MSP");
-                    }
-                }
-            }
-            finally
-            {
-                savedLib?.CloseConnections();
-                if (File.Exists(outPath)) File.Delete(outPath);
-            }
-        }
-
-        [Test, Category("RequiresOnnxModel")]
-        public static async Task MspRoundTrip_ParsedIonsAreInternalFragments()
-        {
-            var outPath = Path.Combine(
-                TestContext.CurrentContext.TestDirectory,
-                "internalFragmentRoundTripTest.msp");
-
-            SpectralLibrary? savedLib = null;
-            try
-            {
-                var model = new InternalFragmentIntensityModel(
-                    ValidPeptides, ValidCharges, ValidRetentionTimes,
-                    out _,
-                    spectralLibrarySavePath: outPath);
-
-                await model.RunInferenceAsync();
-
-                savedLib = new SpectralLibrary(new List<string> { outPath });
-                foreach (var spectrum in savedLib.GetAllLibrarySpectra())
-                    foreach (var ion in spectrum.MatchedFragmentIons)
-                        Assert.That(ion.IsInternalFragment, Is.True,
-                            $"Ion in saved/re-read library should have IsInternalFragment=true; " +
-                            $"annotation was '{ion.NeutralTheoreticalProduct.Annotation}'");
-            }
-            finally
-            {
-                savedLib?.CloseConnections();
-                if (File.Exists(outPath)) File.Delete(outPath);
-            }
-        }
-
-        // ════════════════════════════════════════════════════════════════════════
-        // 6. SPECTRUM ANGLE SANITY CHECK
-        // ════════════════════════════════════════════════════════════════════════
-
-        [Test, Category("RequiresOnnxModel")]
-        public static async Task SpectralAngle_SameSpectrumWithItself_IsOne()
-        {
-            // A library spectrum compared against its own fragment ions should give
-            // spectral angle = 1.0 (perfect match).
-            var model = new InternalFragmentIntensityModel(
-                new List<string> { "PEPTIDEK" },
-                new List<int> { 2 },
-                new List<double?> { null },
-                out _);
-
-            await model.RunInferenceAsync();
-
-            Assume.That(model.PredictedSpectra.Count, Is.EqualTo(1),
-                "Need at least one spectrum for this test");
-
-            var spectrum = model.PredictedSpectra[0];
-            var result = spectrum.CalculateSpectralAngleOnTheFly(spectrum.MatchedFragmentIons);
-
-            // SpectralContrastAngle of identical spectra = 1.0
-            Assert.That(double.Parse(result, System.Globalization.CultureInfo.InvariantCulture),
-                Is.EqualTo(1.0).Within(1e-4),
-                "Self-comparison spectral angle should be 1.0");
-        }
-
-        // ════════════════════════════════════════════════════════════════════════
-        // 6. Create Library Spectra From protein.xml protein with modifications
-        // ════════════════════════════════════════════════════════════════════════
-
-        [Test, Category("RequiresOnnxModel")]
-        public static async Task CreateLibrarySpectra_FromProteinXmlWithMods_CreatesSpectra()
-        {
-            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml");
-            var outputpath = Path.Combine(Path.GetTempPath(), $"internalFragmentLibraryFromXmlTest_{Guid.NewGuid()}.msp");
-
-            SpectralLibrary? savedLib = null;
-            try
-            {
-                var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
-                Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-                var UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
-
-                List<Protein> proteins = ProteinDbLoader.LoadProteinXML(xmlPath, true, DecoyType.None, UniProtPtms, false, new List<string>(), out var un);
-                List<PeptideWithSetModifications> peptides = proteins[0].Digest(new DigestionParams("trypsin", 0, 7, 30,
-                    1024, InitiatorMethionineBehavior.Variable,
-                    2, CleavageSpecificity.Full, FragmentationTerminus.Both), new List<Modification>(), new List<Modification>()).ToList();
-
-                List<string> peptideSequences = peptides.Select(p => p.FullSequence).ToList();
-                List<int> charges = peptides.Select(p => 2).ToList();
-                List<double?> rts = peptides.Select(p => (double?)null).ToList();
-
-                var model = new InternalFragmentIntensityModel(
-                    peptideSequences,
-                    charges,
-                    rts,
-                    out _,
-                    spectralLibrarySavePath: outputpath);
-                await model.RunInferenceAsync();
-
-                Assert.That(model.PredictedSpectra.Count, Is.EqualTo(99),
-                    "Should create 99 spectra from the protein XML input");
-                Assert.That(File.Exists(outputpath), Is.True,
-                    "MSP library file should have been written");
-
-                // Read back the library and verify contents
-                savedLib = new SpectralLibrary(new List<string> { outputpath });
-                List<LibrarySpectrum> librarySpectra = savedLib.GetAllLibrarySpectra().ToList();
-
-                Assert.That(librarySpectra.Count, Is.EqualTo(model.PredictedSpectra.Count),
-                    "Saved library should have same number of spectra as in-memory");
-
-                // Verify all ions are internal fragments
-                foreach (var spectrum in librarySpectra)
-                {
-                    foreach (var ion in spectrum.MatchedFragmentIons)
-                    {
-                        Assert.That(ion.IsInternalFragment, Is.True,
-                            $"Ion in spectrum {spectrum.Sequence} should be an internal fragment");
-                    }
+                    Predictions.Add(new PeptideFragmentIntensityPrediction(
+                        fullSeq, charge, new(), new(), new()));
+                    continue;
                 }
 
-                // Verify that some spectra contain UniProt modifications
-                var spectraWithMods = librarySpectra.Where(s => s.Sequence.Contains('[')).ToList();
-                Assert.That(spectraWithMods.Count, Is.GreaterThan(0),
-                    "At least some spectra should have UniProt modifications in their sequences");
-
-                TestContext.WriteLine($"Found {spectraWithMods.Count} spectra with modifications out of {librarySpectra.Count} total");
-            }
-            finally
-            {
-                savedLib?.CloseConnections();
-                savedLib = null;
-
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-
-                try
+                var featureData = new float[candidates.Count * 18];
+                for (int c = 0; c < candidates.Count; c++)
                 {
-                    if (File.Exists(outputpath))
-                        File.Delete(outputpath);
+                    var features = ComputeFeatures(bare, candidates[c].i, candidates[c].j, charge);
+                    for (int f = 0; f < 18; f++)
+                        featureData[c * 18 + f] = features[f];
                 }
-                catch (IOException)
+
+                var inputTensor = new DenseTensor<float>(featureData, new[] { candidates.Count, 18 });
+                using var results = session.Run(new[]
                 {
-                    // File still locked - it's in temp folder, will be cleaned eventually
+                    NamedOnnxValue.CreateFromTensor("X", inputTensor)
+                });
+                var predicted = results.First().AsEnumerable<float>().ToArray();
+
+                var annotations = new List<string>(candidates.Count);
+                var mzs = new List<double>(candidates.Count);
+                var intensities = new List<double>(candidates.Count);
+
+                for (int c = 0; c < candidates.Count; c++)
+                {
+                    var (ci, cj, neut) = candidates[c];
+                    annotations.Add($"bIb[{ci + 1}-{cj + 1}]+1");
+                    mzs.Add(neut + Proton);
+                    intensities.Add((double)predicted[c]);
                 }
+
+                Predictions.Add(new PeptideFragmentIntensityPrediction(
+                    fullSeq, charge, annotations, mzs, intensities));
             }
         }
 
-        [Test, Category("RequiresOnnxModel")]
-        public static async Task MspRoundTrip_RealPeptidesWithMods_CanBeReadBack()
-        {
-            var outputpath = Path.Combine(Path.GetTempPath(), $"internalFragmentRoundTrip_{Guid.NewGuid()}.msp");
+        protected override List<Dictionary<string, object>> ToBatchedRequests() => new();
+        protected override void ResponseToPredictions(string[] response) { }
 
-            var peptides = new List<string>
+        #endregion
+
+        #region Spectral Library Generation
+
+        /// <summary>
+        /// Overrides the base to parse internal fragment annotations (bIb[start-end]+1),
+        /// construct Products with SecondaryProductType set (IsInternalFragment = true),
+        /// apply the top-N filter, and normalise intensities to max = 1.0 per peptide.
+        /// </summary>
+        protected override void GenerateLibrarySpectraFromPredictions(out WarningException? warning)
+        {
+            warning = null;
+            if (Predictions.Count == 0) return;
+
+            var regex = new Regex(
+                @"^([a-zA-Z]+)I([a-zA-Z]+)\[(\d+)-(\d+)\]\+(\d+)$",
+                RegexOptions.Compiled);
+
+            for (int predIdx = 0; predIdx < Predictions.Count; predIdx++)
             {
-                "RPQYSNPPVQGEVMEGADNQGAGEQGR",
-                "TVSLGAGAKDELHIVEAEAMNYEGSPIK",
-                "KLTEESLTSDAANDNHIVAEGVSEESLNR",
-                "TDHPEIGEGKPTPALSEEASSSSIR",
-                "SPPSTGSTYGSSQKEESAASGGAAYTKR",
-                "LADC[Common Fixed:Carbamidomethyl on C]DC[Common Fixed:Carbamidomethyl on C]DGMLDEEEFALAK",
-                "RPQYSNPPVQGEVM[Common Variable:Oxidation on M]EGADNQGAGEQGR"
+                var prediction = Predictions[predIdx];
+
+                var passing = new List<(int idx, double intensity)>();
+                for (int f = 0; f < prediction.FragmentAnnotations.Count; f++)
+                    if (prediction.FragmentIntensities[f] >= MinIntensityFilter)
+                        passing.Add((f, prediction.FragmentIntensities[f]));
+
+                var topN = passing
+                    .OrderByDescending(p => p.intensity)
+                    .Take(MaxInternalIonsPerPeptide)
+                    .ToList();
+
+                if (topN.Count == 0) continue;
+
+                double maxIntensity = topN.Max(p => p.intensity);
+                var fragmentIons = new List<MatchedFragmentIon>(topN.Count);
+
+                for (int t = 0; t < topN.Count; t++)
+                {
+                    int idx = topN[t].idx;
+                    double rawIntensity = topN[t].intensity;
+
+                    var annotation = prediction.FragmentAnnotations[idx];
+                    var match = regex.Match(annotation);
+                    if (!match.Success) continue;
+
+                    var primaryType = Enum.Parse<ProductType>(match.Groups[1].Value, ignoreCase: true);
+                    var secondaryType = Enum.Parse<ProductType>(match.Groups[2].Value, ignoreCase: true);
+                    int startResidue = int.Parse(match.Groups[3].Value);
+                    int endResidue = int.Parse(match.Groups[4].Value);
+                    int fragCharge = int.Parse(match.Groups[5].Value);
+
+                    var product = new Product(
+                        productType: primaryType,
+                        terminus: FragmentationTerminus.None,
+                        neutralMass: prediction.FragmentMZs[idx].ToMass(fragCharge),
+                        fragmentNumber: startResidue,
+                        residuePosition: startResidue,
+                        neutralLoss: 0,
+                        secondaryProductType: secondaryType,
+                        secondaryFragmentNumber: endResidue);
+
+                    fragmentIons.Add(new MatchedFragmentIon(
+                        product,
+                        experMz: prediction.FragmentMZs[idx],
+                        experIntensity: rawIntensity / maxIntensity,
+                        charge: fragCharge));
+                }
+
+                if (fragmentIons.Count == 0) continue;
+
+                var bare = BareSequence(prediction.FullSequence);
+                double pepMass = bare.Sum(aa => AaMass.GetValueOrDefault(aa, 111.0)) + Water;
+                double precursorMz = (pepMass + prediction.PrecursorCharge * Proton)
+                                     / prediction.PrecursorCharge;
+
+                PredictedSpectra.Add(new LibrarySpectrum(
+                    sequence: prediction.FullSequence,
+                    precursorMz: precursorMz,
+                    chargeState: prediction.PrecursorCharge,
+                    peaks: fragmentIons,
+                    rt: RetentionTimes[predIdx]));
+            }
+
+            var unique = PredictedSpectra.DistinctBy(s => s.Name).ToList();
+            if (unique.Count != PredictedSpectra.Count)
+            {
+                warning = new WarningException(
+                    $"Duplicate spectra reduced from {PredictedSpectra.Count} to {unique.Count}.");
+                PredictedSpectra = unique;
+            }
+        }
+
+        #endregion
+
+        #region Utilities
+
+        public static string BareSequence(string fullSeq)
+            => _modRegex.Replace(fullSeq, string.Empty);
+
+        protected override bool IsValidSequence(string sequence)
+        {
+            var bare = BareSequence(sequence);
+            return bare.Length >= MinPeptideLength
+                && bare.Length <= MaxPeptideLength
+                && bare.All(aa => AaMass.ContainsKey(aa));
+        }
+
+        private static float[] ComputeFeatures(
+            string seq, int i, int j, int charge,
+            Dictionary<int, double>? bIntens = null,
+            Dictionary<int, double>? yIntens = null,
+            int rank = 5)
+        {
+            bIntens ??= new();
+            yIntens ??= new();
+
+            int n = seq.Length;
+            int fragLen = j - i + 1;
+            double relDist = (n - 1 - j) / (double)n;
+            int basicY = seq[(j + 1)..].Count(aa => BasicResidues.Contains(aa));
+            int basicB = seq[..i].Count(aa => BasicResidues.Contains(aa));
+            int nBasic = seq.Count(aa => BasicResidues.Contains(aa));
+            double bAtN = bIntens.GetValueOrDefault(i, 0.0);
+            double yAtC = yIntens.GetValueOrDefault(n - 1 - j, 0.0);
+            double maxT = bIntens.Values.Concat(yIntens.Values).DefaultIfEmpty(0.0).Max();
+            double hydro = i > 0 ? Hydrophobicity.GetValueOrDefault(seq[i - 1], 0.0) : 0.0;
+            char fn = seq[i];
+            char ln = seq[j];
+
+            return new float[]
+            {
+                (float)rank,                          // [0]  LocalIntensityRank
+                (float)charge,                        // [1]  PrecursorCharge
+                (float)n,                             // [2]  PeptideLength
+                (float)fragLen,                       // [3]  FragmentLength
+                (float)relDist,                       // [4]  RelativeDistanceFromCTerm
+                (float)basicY,                        // [5]  BasicResiduesInYIonSpan
+                (float)basicB,                        // [6]  BasicResiduesInBIonSpan
+                (float)nBasic,                        // [7]  NumberOfBasicResidues
+                (float)maxT,                          // [8]  MaxTerminalIonIntensity
+                (float)yAtC,                          // [9]  YIonIntensityAtCTerm
+                (float)bAtN,                          // [10] BIonIntensityAtNTerm
+                (float)hydro,                         // [11] NTerminalFlankingHydrophobicity
+                (float)(bAtN * yAtC),                 // [12] BYProductScore
+                fn == 'P' ? 1f : 0f,                 // [13] IsProlineAtInternalNTerminus
+                (fn == 'P' || ln == 'P') ? 1f : 0f, // [14] HasProlineAtEitherTerminus
+                (fn == 'D' || ln == 'D') ? 1f : 0f, // [15] HasAspartateAtEitherTerminus
+                bAtN > 0 ? 1f : 0f,                  // [16] HasMatchedBIonAtNTerm
+                yAtC > 0 ? 1f : 0f,                  // [17] HasMatchedYIonAtCTerm
             };
-            var charges = new List<int> { 3, 3, 4, 3, 4, 2, 3 };
-            var rts = new List<double?> { 80.81802, 184.82224, 128.73701, 79.85082, 47.21765, 166.79734, 65.71475 };
-
-            SpectralLibrary? savedLib = null;
-            try
-            {
-                var model = new InternalFragmentIntensityModel(
-                    peptides, charges, rts,
-                    out var warnings,
-                    spectralLibrarySavePath: outputpath);
-
-                await model.RunInferenceAsync();
-
-                // Verify library was created
-                Assert.That(File.Exists(outputpath), Is.True, "MSP file should have been written");
-                Assert.That(model.PredictedSpectra.Count, Is.GreaterThan(0), "Should have created at least one spectrum");
-
-                TestContext.WriteLine($"Created {model.PredictedSpectra.Count} spectra from {peptides.Count} input peptides");
-
-                // Read the library back
-                savedLib = new SpectralLibrary(new List<string> { outputpath });
-                var librarySpectra = savedLib.GetAllLibrarySpectra().ToList();
-
-                Assert.That(librarySpectra.Count, Is.EqualTo(model.PredictedSpectra.Count),
-                    "Read-back library should have same number of spectra");
-
-                // Verify all ions are recognized as internal fragments
-                int totalIons = 0;
-                foreach (var spectrum in librarySpectra)
-                {
-                    foreach (var ion in spectrum.MatchedFragmentIons)
-                    {
-                        totalIons++;
-                        Assert.That(ion.IsInternalFragment, Is.True,
-                            $"Ion '{ion.NeutralTheoreticalProduct.Annotation}' in spectrum {spectrum.Sequence} should be internal fragment");
-                        Assert.That(ion.NeutralTheoreticalProduct.SecondaryProductType, Is.Not.Null,
-                            $"Ion should have SecondaryProductType set");
-                        Assert.That(ion.NeutralTheoreticalProduct.SecondaryFragmentNumber, Is.GreaterThan(0),
-                            $"Ion should have SecondaryFragmentNumber > 0");
-                    }
-                }
-
-                TestContext.WriteLine($"Successfully read back {totalIons} internal fragment ions from {librarySpectra.Count} spectra");
-
-                // Verify sequences with modifications are preserved
-                var seqsWithMods = librarySpectra.Where(s => s.Sequence.Contains('[')).Select(s => s.Sequence).ToList();
-                TestContext.WriteLine($"Spectra with modifications: {string.Join(", ", seqsWithMods)}");
-            }
-            finally
-            {
-                savedLib?.CloseConnections();
-                savedLib = null;
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-
-                try
-                {
-                    if (File.Exists(outputpath))
-                        File.Delete(outputpath);
-                }
-                catch (IOException)
-                {
-                    // File in temp folder, will be cleaned eventually
-                }
-            }
         }
+
+        private static double InternalNeutralMass(string seq, int i, int j)
+            => seq[i..(j + 1)].Sum(aa => AaMass.GetValueOrDefault(aa, 111.0));
+
+        #endregion
     }
 }
