@@ -1,4 +1,5 @@
-﻿using Microsoft.ML.OnnxRuntime;
+﻿using Chemistry;
+using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
@@ -208,7 +209,6 @@ namespace PredictionClients.LocalModels
             _onnxModelPath = onnxModelPath;
             SpectralLibrarySavePath = spectralLibrarySavePath;
             MinIntensityFilter = minIntensityFilter;
-            MaxInternalIonsPerPeptide = maxInternalIonsPerPeptide;
 
             if (peptideSequences.Count == 0)
             {
@@ -247,13 +247,6 @@ namespace PredictionClients.LocalModels
             }
         }
 
-        // Expose MaxInternalIonsPerPeptide as a settable property so constructor param flows through.
-        // (Declared here because abstract base does not define it.)
-        public new int MaxInternalIonsPerPeptide
-        {
-            get => _maxInternalIonsPerPeptide;
-            private init => _maxInternalIonsPerPeptide = value;
-        }
         private readonly int _maxInternalIonsPerPeptide;
 
         #endregion
