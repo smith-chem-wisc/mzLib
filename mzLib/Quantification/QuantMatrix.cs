@@ -64,9 +64,9 @@ namespace Quantification
             {
                 throw new ArgumentException("Row key not found in matrix.");
             }
-            if (values.Length != ColumnCount)
+            if (values.Length < ColumnCount)
             {
-                throw new ArgumentException("Values array length does not match number of columns.");
+                throw new ArgumentException("Values array length is smaller than number of columns."); // Due to use of array pools, array may be larger than column count, but not smaller
             }
             for (int colIndex = 0; colIndex < ColumnCount; colIndex++)
             {
@@ -108,9 +108,9 @@ namespace Quantification
             {
                 throw new ArgumentException("Column key not found in matrix.");
             }
-            if (values.Length != RowCount)
+            if (values.Length < RowCount)
             {
-                throw new ArgumentException("Values array length does not match number of rows.");
+                throw new ArgumentException("Values array length is smaller than number of rows.");
             }
             for (int rowIndex = 0; rowIndex < RowCount; rowIndex++)
             {

@@ -39,7 +39,7 @@ namespace Quantification.Strategies
                 }
                 // Add the summed values as a new row in the rolled-up matrix
                 rolledUpMatrix.SetRow(highKey, summedValues);
-                ArrayPool.Return(summedValues);
+                ArrayPool.Return(summedValues, clearArray: true);
             }
             return rolledUpMatrix;
         }

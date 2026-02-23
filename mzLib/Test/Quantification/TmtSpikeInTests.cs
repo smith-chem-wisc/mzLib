@@ -11,6 +11,7 @@ using Quantification.Interfaces;
 using Quantification.Strategies;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -1085,10 +1086,19 @@ public class TmtSpikeInTests
         Assert.That(Directory.Exists(upsDir), Is.True, $"UPS directory not found at: {upsDir}");
         Assert.That(Directory.Exists(helaDir), Is.True, $"HeLa directory not found at: {helaDir}");
 
+        var sw = new Stopwatch();
+        sw.Start();
+
         // Load combined inputs from both search directories
         var (spectralMatches, peptides, proteinGroups) =
             PsmTsvQuantAdapter.BuildQuantificationInputsFromMultipleDirectories(
                 new[] { upsDir, helaDir });
+
+           
+        sw.Stop();
+        TestContext.WriteLine("All data loaded in :" + sw.Elapsed);
+            // Write out time it took to load in data
+
 
         TestContext.WriteLine($"Combined: {spectralMatches.Count} PSMs, {peptides.Count} peptides, {proteinGroups.Count} protein groups");
 
