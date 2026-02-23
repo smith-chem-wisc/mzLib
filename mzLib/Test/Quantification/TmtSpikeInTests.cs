@@ -1,8 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.IO;
-using System.Linq;
 using MassSpectrometry;
 using MassSpectrometry.ExperimentalDesign;
 using NUnit.Framework;
@@ -14,6 +9,11 @@ using Proteomics.ProteolyticDigestion;
 using Quantification;
 using Quantification.Interfaces;
 using Quantification.Strategies;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.IO;
+using System.Linq;
 using Test.Quantification.TestHelpers;
 
 namespace Test.Quantification;
@@ -419,6 +419,8 @@ public class TmtSpikeInTests
             $"Could not find TMT_Spike-In_Info directory starting from: {TestContext.CurrentContext.TestDirectory}");
     }
 
+
+
     /// <summary>
     /// Loads the real UPS spike-in PSM file, runs the full TMT quantification pipeline,
     /// and performs basic sanity checks on the resulting protein matrix.
@@ -522,7 +524,7 @@ public class TmtSpikeInTests
     public void EvaluateFoldChanges_HelaBackground()
     {
         string dataDir = Path.Combine(GetSolutionDir(), "TMT_Spike-In_Info");
-        string helaPsmPath = Path.Combine(dataDir, "TMT3_HeLa_Search", "Task1-SearchTask", "AllPSMs.psmtsv");
+        string helaPsmPath = Path.Combine(dataDir, "HeLa_TMT3_Search", "Task1-SearchTask", "AllPSMs.psmtsv");
         Assert.That(File.Exists(helaPsmPath), Is.True, $"HeLa psmtsv not found at: {helaPsmPath}");
 
         var (spectralMatches, peptides, proteinGroups) =
@@ -896,7 +898,7 @@ public class TmtSpikeInTests
     public void BaselineMetrics_NoNormalization_HeLa()
     {
         string dataDir = Path.Combine(GetSolutionDir(), "TMT_Spike-In_Info");
-        string helaPsmPath = Path.Combine(dataDir, "TMT3_HeLa_Search", "Task1-SearchTask", "AllPSMs.psmtsv");
+        string helaPsmPath = Path.Combine(dataDir, "HeLa_TMT3_Search", "Task1-SearchTask", "AllPSMs.psmtsv");
         Assert.That(File.Exists(helaPsmPath), Is.True, $"HeLa psmtsv not found at: {helaPsmPath}");
 
         var (spectralMatches, peptides, proteinGroups) =
@@ -931,6 +933,276 @@ public class TmtSpikeInTests
     }
 
     // ──────────────────────────────────────────────────────────────────────────
+    // Protein overlap analysis: HeLa vs UPS
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Reads both the HeLa and UPS AllPSMs files, extracts unique protein accessions from each,
+    /// and reports which proteins are shared vs distinct to each search.
+    /// </summary>
+    [Test]
+    public void ProteinOverlap_HelaVsUPS()
+    {
+        string dataDir = Path.Combine(GetSolutionDir(), "TMT_Spike-In_Info");
+        string upsPsmPath = Path.Combine(dataDir, "UPS_TMT3_Search", "Task1-SearchTask", "AllPSMs.psmtsv");
+        string helaPsmPath = Path.Combine(dataDir, "HeLa_TMT3_Search", "Task1-SearchTask", "AllPSMs.psmtsv");
+        Assert.That(File.Exists(upsPsmPath), Is.True, $"UPS psmtsv not found at: {upsPsmPath}");
+        Assert.That(File.Exists(helaPsmPath), Is.True, $"HeLa psmtsv not found at: {helaPsmPath}");
+
+        // Read target PSMs (q <= 0.01) from each file and collect unique accessions
+        // Use the first non-decoy accession from pipe-delimited accession strings
+        var upsRecords = Readers.SpectrumMatchTsvReader.ReadPsmTsv(upsPsmPath, out _)
+            .Where(r => r.QValue <= 0.01 && r.DecoyContamTarget.Contains('T')
+                        && !string.IsNullOrEmpty(r.Accession))
+            .ToList();
+
+        var helaRecords = Readers.SpectrumMatchTsvReader.ReadPsmTsv(helaPsmPath, out _)
+            .Where(r => r.QValue <= 0.01 && r.DecoyContamTarget.Contains('T')
+                        && !string.IsNullOrEmpty(r.Accession))
+            .ToList();
+
+        // Extract unique accessions (first non-decoy accession from each pipe-delimited string)
+        var upsAccessions = new HashSet<string>(
+            upsRecords.Select(r => GetFirstNonDecoyAccession(r.Accession))
+                      .Where(a => a != null));
+
+        var helaAccessions = new HashSet<string>(
+            helaRecords.Select(r => GetFirstNonDecoyAccession(r.Accession))
+                       .Where(a => a != null));
+
+        var shared = new HashSet<string>(upsAccessions);
+        shared.IntersectWith(helaAccessions);
+
+        var upsOnly = new HashSet<string>(upsAccessions);
+        upsOnly.ExceptWith(helaAccessions);
+
+        var helaOnly = new HashSet<string>(helaAccessions);
+        helaOnly.ExceptWith(upsAccessions);
+
+        // Print summary
+        TestContext.WriteLine("=== Protein Overlap: HeLa vs UPS ===");
+        TestContext.WriteLine($"UPS total accessions:  {upsAccessions.Count}");
+        TestContext.WriteLine($"HeLa total accessions: {helaAccessions.Count}");
+        TestContext.WriteLine($"Shared:                {shared.Count}");
+        TestContext.WriteLine($"UPS-only:              {upsOnly.Count}");
+        TestContext.WriteLine($"HeLa-only:             {helaOnly.Count}");
+
+        // Print shared proteins
+        TestContext.WriteLine($"\n--- Shared proteins ({shared.Count}) ---");
+        foreach (var acc in shared.OrderBy(a => a))
+        {
+            TestContext.WriteLine($"  {acc}");
+        }
+
+        // Print UPS-only proteins
+        TestContext.WriteLine($"\n--- UPS-only proteins ({upsOnly.Count}) ---");
+        foreach (var acc in upsOnly.OrderBy(a => a))
+        {
+            TestContext.WriteLine($"  {acc}");
+        }
+
+        // Print HeLa-only proteins (just count + first 50 to avoid massive output)
+        TestContext.WriteLine($"\n--- HeLa-only proteins ({helaOnly.Count}) ---");
+        foreach (var acc in helaOnly.OrderBy(a => a).Take(50))
+        {
+            TestContext.WriteLine($"  {acc}");
+        }
+        if (helaOnly.Count > 50)
+            TestContext.WriteLine($"  ... and {helaOnly.Count - 50} more");
+
+        // Basic sanity assertions
+        Assert.That(upsAccessions.Count, Is.GreaterThan(0), "No UPS accessions found");
+        Assert.That(helaAccessions.Count, Is.GreaterThan(0), "No HeLa accessions found");
+    }
+
+    public static string[] UPSOnlyAccessions =
+    {
+        "O00762",
+        "P00167",
+        "P00709",
+        "P00915",
+        "P01008",
+        "P01031",
+        "P01112",
+        "P01127",
+        "P01133",
+        "P01344",
+        "P01375",
+        "P01579",
+        "P02144",
+        "P02741",
+        "P02753",
+        "P02768",
+        "P02787",
+        "P02788",
+        "P05413",
+        "P08263",
+        "P10145",
+        "P10636-8",
+        "P61626",
+        "P62988",
+        "P63165",
+        "P68871",
+        "P69905"
+    };
+
+    public static string[] SharedAccessions =
+    {
+        "O76070",
+        "P00441",
+        "P00918",
+        "P04040",
+        "P06396",
+        "P06732",
+        "P08758",
+        "P09211",
+        "P10599",
+        "P12081",
+        "P15559",
+        "P16083",
+        "P41159",
+        "P51965",
+        "P55957",
+        "P62937",
+        "P63279",
+        "P99999",
+        "Q06830",
+        "Q15843"
+    };
+
+    private static string GetFirstNonDecoyAccession(string rawAccession)
+    {
+        var parts = rawAccession.Split('|');
+        return parts.FirstOrDefault(a => !a.StartsWith("DECOY_")) ?? parts[0];
+    }
+
+    [Test]
+    public void CombinedQuantHelaUPS()
+    {
+        string dataDir = Path.Combine(GetSolutionDir(), "TMT_Spike-In_Info");
+        string upsDir = Path.Combine(dataDir, "UPS_TMT3_Search", "Task1-SearchTask");
+        string helaDir = Path.Combine(dataDir, "HeLa_TMT3_Search", "Task1-SearchTask");
+        Assert.That(Directory.Exists(upsDir), Is.True, $"UPS directory not found at: {upsDir}");
+        Assert.That(Directory.Exists(helaDir), Is.True, $"HeLa directory not found at: {helaDir}");
+
+        // Load combined inputs from both search directories
+        var (spectralMatches, peptides, proteinGroups) =
+            PsmTsvQuantAdapter.BuildQuantificationInputsFromMultipleDirectories(
+                new[] { upsDir, helaDir });
+
+        TestContext.WriteLine($"Combined: {spectralMatches.Count} PSMs, {peptides.Count} peptides, {proteinGroups.Count} protein groups");
+
+        // Run quantification with a single strategy set (no combinatorial sweep)
+        var design = new SpikeInExperimentalDesign();
+        var parameters = new QuantificationParameters
+        {
+            SpectralMatchNormalizationStrategy = new NoNormalization(),
+            SpectralMatchToPeptideRollUpStrategy = new SumRollUp(),
+            PeptideNormalizationStrategy = new NoNormalization(),
+            CollapseStrategy = new NoCollapse(),
+            PeptideToProteinRollUpStrategy = new SumRollUp(),
+            ProteinNormalizationStrategy = new NoNormalization(),
+            OutputDirectory = string.Empty,
+            UseSharedPeptidesForProteinQuant = false,
+            WriteRawInformation = false,
+            WritePeptideInformation = false,
+            WriteProteinInformation = false
+        };
+
+        var engine = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups);
+        var proteinMatrix = engine.RunTmtAndReturnProteinMatrix();
+
+        Assert.That(proteinMatrix.RowKeys.Count, Is.GreaterThan(0), "Combined protein matrix is empty");
+
+        // Classify proteins by accession
+        var upsOnlySet = new HashSet<string>(UPSOnlyAccessions);
+        var sharedSet = new HashSet<string>(SharedAccessions);
+
+        // All protein accessions in the result matrix
+        var allAccessions = proteinMatrix.RowKeys
+            .Select(pg => pg.BioPolymerGroupName)
+            .ToHashSet();
+
+        // HeLa-only = everything that's not UPS-only and not shared
+        var helaOnlyAccessions = allAccessions
+            .Where(a => !upsOnlySet.Contains(a) && !sharedSet.Contains(a))
+            .ToHashSet();
+
+        TestContext.WriteLine($"\nProtein classification in combined matrix:");
+        TestContext.WriteLine($"  Total proteins:    {allAccessions.Count}");
+        TestContext.WriteLine($"  UPS-only found:    {allAccessions.Count(a => upsOnlySet.Contains(a))}");
+        TestContext.WriteLine($"  Shared found:      {allAccessions.Count(a => sharedSet.Contains(a))}");
+        TestContext.WriteLine($"  HeLa-only found:   {helaOnlyAccessions.Count}");
+
+        // Evaluate fold changes for each protein group
+        var comparisons = new[]
+        {
+            ("1 vs 0.125", "1", "0.125", 8.0),
+            ("1 vs 0.5",   "1", "0.5",   2.0),
+            ("1 vs 0.667", "1", "0.667", 1.5),
+        };
+
+        foreach (var (label, numerator, denominator, expectedFc) in comparisons)
+        {
+            var allFoldChanges = QuantificationEvaluator.ComputeFoldChanges(proteinMatrix, numerator, denominator);
+
+            var upsOnlyFCs = allFoldChanges.Where(x => upsOnlySet.Contains(x.accession)).Select(x => x.foldChange).ToList();
+            var sharedFCs = allFoldChanges.Where(x => sharedSet.Contains(x.accession)).Select(x => x.foldChange).ToList();
+            var helaOnlyFCs = allFoldChanges.Where(x => helaOnlyAccessions.Contains(x.accession)).Select(x => x.foldChange).ToList();
+
+            TestContext.WriteLine($"\n=== {label} (expected UPS FC = {expectedFc}, expected HeLa FC = 1.0) ===");
+
+            PrintFoldChangeGroup("UPS-only", upsOnlyFCs, expectedFc);
+            PrintFoldChangeGroup("Shared (UPS+HeLa)", sharedFCs, expectedFc);
+            PrintFoldChangeGroup("HeLa-only", helaOnlyFCs, 1.0);
+        }
+
+        // Basic assertions: UPS-only proteins should show directional fold change for 8x comparison
+        var fc8x_upsOnly = QuantificationEvaluator.ComputeFoldChanges(proteinMatrix, "1", "0.125")
+            .Where(x => upsOnlySet.Contains(x.accession))
+            .Select(x => x.foldChange).ToList();
+
+        if (fc8x_upsOnly.Count > 0)
+        {
+            double medianFc = QuantificationEvaluator.Median(fc8x_upsOnly);
+            Assert.That(medianFc, Is.GreaterThan(1.5),
+                $"UPS-only median FC '1' vs '0.125' was {medianFc:F2}, expected > 1.5 (true value = 8.0)");
+        }
+
+        // HeLa-only proteins should be close to 1.0 for any comparison
+        var fc8x_helaOnly = QuantificationEvaluator.ComputeFoldChanges(proteinMatrix, "1", "0.125")
+            .Where(x => helaOnlyAccessions.Contains(x.accession))
+            .Select(x => x.foldChange).ToList();
+
+        if (fc8x_helaOnly.Count > 0)
+        {
+            double medianFc = QuantificationEvaluator.Median(fc8x_helaOnly);
+            Assert.That(medianFc, Is.InRange(0.3, 3.0),
+                $"HeLa-only median FC '1' vs '0.125' was {medianFc:F3}, expected near 1.0");
+        }
+    }
+
+    private static void PrintFoldChangeGroup(string groupName, List<double> foldChanges, double expectedFc)
+    {
+        TestContext.WriteLine($"\n  {groupName} ({foldChanges.Count} proteins):");
+        if (foldChanges.Count == 0)
+        {
+            TestContext.WriteLine("    No quantifiable proteins in this group");
+            return;
+        }
+
+        double medianFc = QuantificationEvaluator.Median(foldChanges);
+        double meanFc = foldChanges.Average();
+        double maeLog2 = QuantificationEvaluator.MeanAbsoluteLog2Error(foldChanges, expectedFc);
+        double frac2x = QuantificationEvaluator.FractionWithinFactor(foldChanges, expectedFc, 2.0);
+
+        TestContext.WriteLine($"    Median FC:           {medianFc:F3}");
+        TestContext.WriteLine($"    Mean FC:             {meanFc:F3}");
+        TestContext.WriteLine($"    MAE(log2):           {maeLog2:F3}");
+        TestContext.WriteLine($"    Fraction within 2x:  {frac2x:F3}");
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
     // Task 14: Combinatorial strategy evaluation
     // ──────────────────────────────────────────────────────────────────────────
 
@@ -943,12 +1215,15 @@ public class TmtSpikeInTests
     public void StrategyEvaluation_AllCombinations_UPS()
     {
         string dataDir = Path.Combine(GetSolutionDir(), "TMT_Spike-In_Info");
-        string upsPsmPath = Path.Combine(dataDir, "UPS_TMT3_Search", "Task1-SearchTask", "AllPSMs.psmtsv");
-        Assert.That(File.Exists(upsPsmPath), Is.True, $"UPS psmtsv not found at: {upsPsmPath}");
+        //string upsPsmPath = Path.Combine(dataDir, "UPS_TMT3_Search", "Task1-SearchTask", "AllPSMs.psmtsv");
+        //Assert.That(File.Exists(upsPsmPath), Is.True, $"UPS psmtsv not found at: {upsPsmPath}");
 
-        // Load PSMs once; reuse across all strategy combinations.
-        var (spectralMatches, peptides, proteinGroups) =
-            PsmTsvQuantAdapter.BuildQuantificationInputs(upsPsmPath);
+        //// Load PSMs once; reuse across all strategy combinations.
+        //var (spectralMatches, peptides, proteinGroups) =
+        //    PsmTsvQuantAdapter.BuildQuantificationInputs(upsPsmPath);
+
+        var (spectralMatches, peptides, proteinGroups) = PsmTsvQuantAdapter.BuildQuantificationInputsFromDirectory(
+            Path.Combine(GetSolutionDir(), "TMT_Spike-In_Info", "UPS_TMT3_Search", "Task1-SearchTask"));
 
         // Strategy options
         var psmNorms = new INormalizationStrategy[]

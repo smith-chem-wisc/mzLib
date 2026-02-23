@@ -88,4 +88,4 @@ Look at how PsmFromTsv files are read. The header parsing typically happens in a
 ## Verification
 1. `dotnet build "C:/Users/Alex/Source/Repos/mzLib/mzLib/mzLib.sln"` - must compile
 2. `dotnet test "C:/Users/Alex/Source/Repos/mzLib/mzLib/Test/Test.csproj" --filter "FullyQualifiedName~Quantification"` - existing tests must pass
-3. Verify manually: Read a .psmtsv file from `TMT_Spike-In_Info/UPS_Search/Task1-SearchTask/AllPSMs.psmtsv`, check that the header contains columns "126" through "131", and confirm the parser detects them
+3. Verify manually: Read a .psmtsv file from `TMT_Spike-In_Info/UPS_TMT3_Search/Task1-SearchTask/AllPSMs.psmtsv`, check that the header contains columns "126" through "131", and confirm the parser detects them

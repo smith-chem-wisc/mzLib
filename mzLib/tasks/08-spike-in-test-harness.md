@@ -10,7 +10,7 @@ Create integration tests that load the real SpikeIn-5mix-MS3 .psmtsv files, run 
 ## Background
 The SpikeIn-5mix-MS3 dataset has known UPS1 protein fold changes and constant HeLa background. By running the quantification pipeline on this real data, we can measure how well different strategies recover the expected ratios.
 
-**IMPORTANT**: The current .psmtsv files may have all-zero TMT reporter ion intensities. If so, the tests should be written but marked with `[Ignore("TMT intensities are zero - needs re-search")]` until the data issue is resolved. Write the test structure and assertions regardless.
+The current .psmttsv files have non-zero TMT reporter ion intensities. Previously the data had all zero intensities, but this issue has been resolved. Data can be found in the TMT_Spike-In_Info folder
 
 ## File to Modify
 
@@ -18,8 +18,8 @@ The SpikeIn-5mix-MS3 dataset has known UPS1 protein fold changes and constant He
 (Created in Task 7 - add new tests to this file)
 
 ## Data Locations
-- UPS search results: `TMT_Spike-In_Info/UPS_Search/Task1-SearchTask/AllPSMs.psmtsv`
-- HeLa search results: `TMT_Spike-In_Info/TMT_HELA_SILAC_Search/Task1-SearchTask/AllPSMs.psmtsv`
+- UPS search results: `TMT_Spike-In_Info/UPS_TMT3_Search/Task1-SearchTask/AllPSMs.psmtsv`
+- HeLa search results: `TMT_Spike-In_Info/TMT3_HELA_Search/Task1-SearchTask/AllPSMs.psmtsv`
 - Reference doc: `TMT_Spike-In_Info/TMT_SpikeIn_Reference.md`
 
 ## Expected Fold Changes (UPS1 proteins)
