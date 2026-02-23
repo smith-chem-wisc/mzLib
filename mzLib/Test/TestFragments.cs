@@ -20,21 +20,24 @@ using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
+using NUnit.Framework.Internal.Execution;
+using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Fragmentation.Peptide;
+using Omics.Modifications;
 using Proteomics;
 using Proteomics.AminoAcidPolymer;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Omics.Digestion;
-using Omics.Modifications;
-using Stopwatch = System.Diagnostics.Stopwatch;
+using System.Threading.Tasks;
 using Transcriptomics;
-
+using UsefulProteomicsDatabases;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
+using Stopwatch = System.Diagnostics.Stopwatch;
+using System.Threading;
 namespace Test
 {
     [TestFixture]
@@ -273,7 +276,7 @@ namespace Test
             Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _neutralLosses: _neutralLosses,_locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             FragmentationParams fragmentationParams = new FragmentationParams();
-            fragmentationParams.MaxSubsetSize = 2;
+            fragmentationParams.MaxModsForCumulativeNeutralLosses = 2;
 
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
             var theseTheoreticalFragments = new List<Product>();
@@ -298,7 +301,7 @@ namespace Test
             Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _neutralLosses: _neutralLosses, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             FragmentationParams fragmentationParams = new FragmentationParams();
-            fragmentationParams.MaxSubsetSize = 3;
+            fragmentationParams.MaxModsForCumulativeNeutralLosses = 3;
 
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
             var theseTheoreticalFragments = new List<Product>();
@@ -328,7 +331,7 @@ namespace Test
             Modification oxidation = new Modification(_originalId: "oxidation", _modificationType: "CommonBiological", _target: motif_S, _neutralLosses: _neutralLosses_O, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("O"));
             DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
             FragmentationParams fragmentationParams = new FragmentationParams();
-            fragmentationParams.MaxSubsetSize = 3;
+            fragmentationParams.MaxModsForCumulativeNeutralLosses = 3;
 
             var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation, oxidation }, new List<Modification>()).First();
             var theseTheoreticalFragments = new List<Product>();
@@ -1387,6 +1390,71 @@ namespace Test
                 Assert.That(mProducts[i].NeutralMass, Is.EqualTo(expectedMasses[i]).Within(0.01));
                 Assert.That(mProducts[i].Annotation, Is.EqualTo(expectedAnnotations[i]));
             }
+        }
+
+        [Test]
+        public static void Benchmark_ParallelFragmentation()
+        {
+            // Load proteins from the cRAP database with reverse decoys to maximize peptide count
+            //var dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml");
+
+            var dbPath =
+                @"E:\GlycoSearch_WritePrunedDb\Lue's data\FourMucins_NoSigPeps_FASTApruned.xml"; //@"C:\Users\Alex\Documents\Proteomes\uniprotkb_Human_AND_model_organism_9606_2025_03_19.xml.gz";
+
+            var loadSw = Stopwatch.StartNew();
+            var proteins = ProteinDbLoader.LoadProteinXML(dbPath, true, DecoyType.Reverse, Mods.AllKnownMods, false, null, out _, maxHeterozygousVariants: 0);
+            loadSw.Stop();
+            var loadElapsed = loadSw.Elapsed;
+
+            // Digest all proteins into peptides
+            var digestionParams = new DigestionParams();
+            var peptides = proteins
+                .SelectMany(p => p.Digest(digestionParams, new List<Modification>(), new List<Modification>()))
+                .ToList();
+
+            // Warm up: trigger JIT compilation and SingletonDoublePool lazy initialization before timing
+            var warmupProducts = new List<Product>();
+            peptides[0].Fragment(DissociationType.HCD, FragmentationTerminus.Both, warmupProducts);
+
+            // Serial benchmark
+            long serialFragmentCount = 0;
+            var serialProducts = new List<Product>();
+            var sw = Stopwatch.StartNew();
+            foreach (var peptide in peptides)
+            {
+                peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, serialProducts);
+                serialFragmentCount += serialProducts.Count;
+            }
+            sw.Stop();
+            var serialElapsed = sw.Elapsed;
+
+            // Parallel benchmark: each thread owns its List<Product> to avoid contention
+            long parallelFragmentCount = 0;
+            sw.Restart();
+            Parallel.ForEach(
+                peptides,
+                () => new List<Product>(),
+                (peptide, _, localProducts) =>
+                {
+                    peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, localProducts);
+                    Interlocked.Add(ref parallelFragmentCount, localProducts.Count);
+                    return localProducts;
+                },
+                _ => { });
+            sw.Stop();
+            var parallelElapsed = sw.Elapsed;
+
+            TestContext.Out.WriteLine($"Proteins loaded:          {proteins.Count}");
+            TestContext.Out.WriteLine($"Loading elapsed:          {loadElapsed.TotalSeconds:F3} s");
+            TestContext.Out.WriteLine($"Peptides digested:        {peptides.Count}");
+            TestContext.Out.WriteLine($"Serial fragment count:    {serialFragmentCount}");
+            TestContext.Out.WriteLine($"Serial elapsed:           {serialElapsed.TotalSeconds:F3} s");
+            TestContext.Out.WriteLine($"Parallel fragment count:  {parallelFragmentCount}");
+            TestContext.Out.WriteLine($"Parallel elapsed:         {parallelElapsed.TotalSeconds:F3} s");
+            TestContext.Out.WriteLine($"Speedup:                  {serialElapsed.TotalSeconds / parallelElapsed.TotalSeconds:F2}x");
+
+            Assert.That(serialFragmentCount, Is.GreaterThan(0));
+            Assert.That(serialFragmentCount, Is.EqualTo(parallelFragmentCount));
         }
     }
 }

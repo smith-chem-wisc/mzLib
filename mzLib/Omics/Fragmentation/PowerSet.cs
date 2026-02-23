@@ -15,14 +15,12 @@ namespace Omics.Fragmentation
         /// Return a list of the unique sums of all subsets of the input list of numbers, where the size of the subsets is less than or equal to the specified SubsetSize.
         /// </summary>
         /// <param name="numberList"> The input list of numbers to compute subset sums from.</param>
-        /// <param name="subsetSize"> The maximum size of subsets to consider when computing sums. Only subsets with size less than or equal to this value will be included in the results.</param>
+        /// <param name="maxElementsToSum"> The maximum size of subsets to consider when computing sums. Only subsets with size less than or equal to this value will be included in the results.</param>
         /// <returns> A list of unique sums of subsets of the input list, where each subset's size is less than or equal to the specified SubsetSize.</returns>
-        public static List<double> UniqueSubsetSums(IReadOnlyList<double> numberList, int subsetSize) 
+        public static List<double> UniqueSubsetSums(IReadOnlyList<double> numberList, int maxElementsToSum) 
         {
-            if (subsetSize < 0) 
-            {
-                throw new ArgumentException("Subset size must be non-negative.");
-            }
+
+            if(maxElementsToSum < 0) return new List<double> { 0 }; // if maxElementsToSum is negative, treat it as 0, which means only consider the empty set.
 
             switch (numberList.Count)
                 {
@@ -49,7 +47,7 @@ namespace Omics.Fragmentation
                 for (int j = 0; j < currentCount; j++) 
                 {
                     int newSize = sizes[j] + 1;
-                    if (newSize <= subsetSize) 
+                    if (newSize <= maxElementsToSum) 
                     {
                         sums[count] = sums[j] + v;
                         sizes[count] = (byte)newSize;
