@@ -1,5 +1,6 @@
 using MassSpectrometry;
 using Quantification.Interfaces;
+using System.Buffers;
 using System.Collections.Immutable;
 
 namespace Quantification.Strategies
@@ -10,6 +11,8 @@ namespace Quantification.Strategies
     public class SumCollapse : ICollapseStrategy
     {
         public string Name => "Sum Collapse";
+
+        public ArrayPool<double> ArrayPool => ArrayPool<double>.Shared;
 
         public QuantMatrix<T> CollapseSamples<T>(QuantMatrix<T> quantMatrix) where T : IEquatable<T>
         {
@@ -23,7 +26,7 @@ namespace Quantification.Strategies
 
             foreach (var group in groupings)
             {
-                double[] summedValues = new double[quantMatrix.RowKeys.Count];
+                double[] summedValues = ArrayPool.Rent(quantMatrix.RowCount);
                 foreach (var sample in group)
                 {
                     int columnIndex = colIndexMap[sample];
@@ -33,6 +36,7 @@ namespace Quantification.Strategies
                     }
                 }
                 collapsedMatrix.SetColumn(group.First(), summedValues);
+                ArrayPool.Return(summedValues, clearArray: true);
             }
 
             return collapsedMatrix;

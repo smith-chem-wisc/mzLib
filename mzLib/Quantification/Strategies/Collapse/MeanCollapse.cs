@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Collections.Immutable;
 using MassSpectrometry;
 using Quantification.Interfaces;
@@ -18,6 +19,8 @@ namespace Quantification.Strategies
     {
         public string Name => "Mean Collapse";
 
+        public ArrayPool<double> ArrayPool => ArrayPool<double>.Shared;
+
         public QuantMatrix<T> CollapseSamples<T>(QuantMatrix<T> quantMatrix) where T : IEquatable<T>
         {
             // Pre-compute column index map to avoid O(n) IndexOf calls
@@ -34,7 +37,7 @@ namespace Quantification.Strategies
             foreach (var group in groupings)
             {
                 int groupSize = group.Count();
-                double[] summedValues = new double[quantMatrix.RowKeys.Count];
+                double[] summedValues = ArrayPool.Rent(quantMatrix.RowCount);
 
                 foreach (var sample in group)
                 {
@@ -48,6 +51,7 @@ namespace Quantification.Strategies
                     summedValues[i] /= groupSize;
 
                 collapsedMatrix.SetColumn(group.First(), summedValues);
+                ArrayPool.Return(summedValues, clearArray: true);
             }
 
             return collapsedMatrix;

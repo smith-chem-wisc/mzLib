@@ -1,6 +1,7 @@
+using Quantification.Interfaces;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
-using Quantification.Interfaces;
 
 namespace Quantification.Strategies
 {
@@ -16,22 +17,22 @@ namespace Quantification.Strategies
     public class MedianRollUp : IRollUpStrategy
     {
         public string Name => "Median Roll-Up";
+        public ArrayPool<double> ArrayPool => ArrayPool<double>.Shared;
 
         public QuantMatrix<THigh> RollUp<TLow, THigh>(QuantMatrix<TLow> matrix, Dictionary<THigh, List<int>> map)
             where TLow : IEquatable<TLow>
             where THigh : IEquatable<THigh>
         {
             var rolledUpMatrix = new QuantMatrix<THigh>(map.Keys, matrix.ColumnKeys, matrix.ExperimentalDesign);
-            int cols = matrix.ColumnCount;
 
             foreach (var kvp in map)
             {
                 THigh highKey = kvp.Key;
                 List<int> lowIndices = kvp.Value;
 
-                double[] medianValues = new double[cols];
+                double[] medianValues = ArrayPool.Rent(matrix.ColumnCount);
 
-                for (int sampleIndex = 0; sampleIndex < cols; sampleIndex++)
+                for (int sampleIndex = 0; sampleIndex < matrix.ColumnCount; sampleIndex++)
                 {
                     var nonZeroValues = new List<double>();
                     foreach (int i in lowIndices)
@@ -46,6 +47,7 @@ namespace Quantification.Strategies
                 }
 
                 rolledUpMatrix.SetRow(highKey, medianValues);
+                ArrayPool.Return(medianValues);
             }
 
             return rolledUpMatrix;

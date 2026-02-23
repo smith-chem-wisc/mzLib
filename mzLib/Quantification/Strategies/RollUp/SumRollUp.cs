@@ -1,19 +1,20 @@
-﻿using System;
+﻿using MassSpectrometry;
+using Omics;
+using Omics.BioPolymerGroup;
+using Quantification.Interfaces;
+using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using MassSpectrometry;
-using Omics;
-using Omics.BioPolymerGroup;
-using Quantification.Interfaces;
 
 namespace Quantification.Strategies
 {
     public class SumRollUp : IRollUpStrategy
     {
         public string Name => "Sum Roll-Up";
-        // Implement roll-up methods here
+        public ArrayPool<double> ArrayPool => ArrayPool<double>.Shared;
 
         public QuantMatrix<THigh> RollUp<TLow, THigh>(QuantMatrix<TLow> matrix, Dictionary<THigh, List<int>> map)
             where TLow : IEquatable<TLow>
@@ -27,18 +28,18 @@ namespace Quantification.Strategies
                 THigh highKey = kvp.Key;
                 List<int> lowIndices = kvp.Value;
                 // Initialize an array to hold the summed values for this higher-level key
-                int cols = matrix.ColumnCount;
-                double[] summedValues = new double[cols];
+                double[] summedValues = ArrayPool.Rent(matrix.ColumnCount);
                 // Sum the values from the lower-level rows corresponding to this higher-level key
                 foreach (int lowIndex in lowIndices)
                 {
-                    for (int col = 0; col < cols; col++)
+                    for (int col = 0; col < matrix.ColumnCount; col++)
                     {
                         summedValues[col] += matrix.Matrix[lowIndex, col];
                     }
                 }
                 // Add the summed values as a new row in the rolled-up matrix
                 rolledUpMatrix.SetRow(highKey, summedValues);
+                ArrayPool.Return(summedValues);
             }
             return rolledUpMatrix;
         }

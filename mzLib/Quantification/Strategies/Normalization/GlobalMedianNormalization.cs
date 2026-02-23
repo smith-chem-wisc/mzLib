@@ -22,9 +22,9 @@ namespace Quantification.Strategies
             // Step 1: Compute per-column log2 medians, ignoring zeros and negatives.
             // Skip columns with fewer than 2 positive values (no meaningful shift possible).
             var columnLog2Medians = new double[cols];
+            var log2Vals = new List<double>(rows);
             for (int col = 0; col < cols; col++)
             {
-                var log2Vals = new List<double>();
                 for (int row = 0; row < rows; row++)
                 {
                     double val = quantMatrix.Matrix[row, col];
@@ -32,6 +32,7 @@ namespace Quantification.Strategies
                         log2Vals.Add(Math.Log2(val));
                 }
                 columnLog2Medians[col] = log2Vals.Count > 1 ? Median(log2Vals) : double.NaN;
+                log2Vals.Clear();
             }
 
             // Step 2: Compute the global median across all valid column medians.
