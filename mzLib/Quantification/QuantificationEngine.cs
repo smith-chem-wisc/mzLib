@@ -1,4 +1,5 @@
-﻿using Omics;
+using Omics;
+using Omics.SpectralMatch;
 using Omics.BioPolymerGroup;
 using MassSpectrometry;
 using MzLibUtil;
@@ -290,7 +291,7 @@ public class QuantificationEngine
         var sampleInfos = GetOrderedSampleInfos(experimentalDesign, spectralMatches, out var filePathToArrayPositionDict);
 
         var quantifiedMatches = spectralMatches
-            .Where(sm => sm.QuantValues != null)
+            .Where(sm => sm.Intensities != null)
             .OrderBy(sm => sm.FullSequence)
             .ToList();
         SpectralMatchMatrix smMatrix = new SpectralMatchMatrix(quantifiedMatches, sampleInfos, experimentalDesign);
@@ -315,7 +316,7 @@ public class QuantificationEngine
             for (var i = 0; i < arrayPositions.Count; i++)
             {
                  var arrayPosition = arrayPositions[i];
-                 intensities[arrayPosition] = spectralMatch.QuantValues[i];
+                 intensities[arrayPosition] = spectralMatch.Intensities[i];
             }
             // Copy the summed intensities to the matrix
             smMatrix.SetRow(spectralMatch, intensities);
@@ -337,9 +338,9 @@ public class QuantificationEngine
     {
         var result = new Dictionary<string, SpectralMatchMatrix>();
 
-        // Filter to spectral matches with non-null QuantValues and group by file path
+        // Filter to spectral matches with non-null Intensities and group by file path
         var quantified = spectralMatches
-            .Where(sm => sm.QuantValues != null)
+            .Where(sm => sm.Intensities != null)
             .GroupBy(sm => sm.FullFilePath)
             .OrderBy(g => g.Key);
 
@@ -360,10 +361,10 @@ public class QuantificationEngine
 
             var smMatrix = new SpectralMatchMatrix(filePsms, sampleInfoArray, experimentalDesign);
 
-            // Copy QuantValues directly — positional mapping: QuantValues[i] → column[i]
+            // Copy Intensities directly — positional mapping: Intensities[i] → column[i]
             foreach (var sm in filePsms)
             {
-                smMatrix.SetRow(sm, sm.QuantValues);
+                smMatrix.SetRow(sm, sm.Intensities);
             }
 
             result[filePath] = smMatrix;

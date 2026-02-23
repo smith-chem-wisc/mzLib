@@ -11,6 +11,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using Test.Omics;
+using Omics.SpectralMatch;
 
 namespace Test.Quantification;
 
@@ -84,14 +86,14 @@ public class TmtSpikeInTests
         var design = CreateTmtExperimentalDesign(
             new[] { file1, file2 }, channels, conditions, bioReps, techReps);
 
-        var file1Psm1 = new BaseSpectralMatch(file1, 1, 100.0, "PEPTIDEK", "PEPTIDEK")
-            { QuantValues = new double[] { 100, 200, 300 } };
-        var file1Psm2 = new BaseSpectralMatch(file1, 2, 95.0, "SEQUENCEK", "SEQUENCEK")
-            { QuantValues = new double[] { 400, 500, 600 } };
-        var file2Psm1 = new BaseSpectralMatch(file2, 3, 90.0, "PEPTIDEK", "PEPTIDEK")
-            { QuantValues = new double[] { 700, 800, 900 } };
-        var file2Psm2 = new BaseSpectralMatch(file2, 4, 85.0, "SEQUENCEK", "SEQUENCEK")
-            { QuantValues = new double[] { 1000, 1100, 1200 } };
+        var file1Psm1 = new MockSpectralMatch(file1, 1, 100.0, "PEPTIDEK", "PEPTIDEK")
+            { Intensities = new double[] { 100, 200, 300 } };
+        var file1Psm2 = new MockSpectralMatch(file1, 2, 95.0, "SEQUENCEK", "SEQUENCEK")
+            { Intensities = new double[] { 400, 500, 600 } };
+        var file2Psm1 = new MockSpectralMatch(file2, 3, 90.0, "PEPTIDEK", "PEPTIDEK")
+            { Intensities = new double[] { 700, 800, 900 } };
+        var file2Psm2 = new MockSpectralMatch(file2, 4, 85.0, "SEQUENCEK", "SEQUENCEK")
+            { Intensities = new double[] { 1000, 1100, 1200 } };
 
         var allPsms = new List<ISpectralMatch> { file1Psm1, file1Psm2, file2Psm1, file2Psm2 };
 
@@ -234,14 +236,14 @@ public class TmtSpikeInTests
             new HashSet<IBioPolymerWithSetMods> { pep2 });
         var proteinGroups = new List<IBioPolymerGroup> { group1, group2 };
 
-        var sm1 = new BaseSpectralMatch(file1, 1, 100.0, pep1.FullSequence, pep1.BaseSequence, new[] { pep1 })
-            { QuantValues = new double[] { 100, 200, 300 } };
-        var sm2 = new BaseSpectralMatch(file1, 2, 100.0, pep2.FullSequence, pep2.BaseSequence, new[] { pep2 })
-            { QuantValues = new double[] { 400, 500, 600 } };
-        var sm3 = new BaseSpectralMatch(file2, 3, 100.0, pep1.FullSequence, pep1.BaseSequence, new[] { pep1 })
-            { QuantValues = new double[] { 1000, 2000, 3000 } };
-        var sm4 = new BaseSpectralMatch(file2, 4, 100.0, pep2.FullSequence, pep2.BaseSequence, new[] { pep2 })
-            { QuantValues = new double[] { 4000, 5000, 6000 } };
+        var sm1 = new MockSpectralMatch(file1, 1, 100.0, pep1.FullSequence, pep1.BaseSequence, new[] { pep1 })
+            { Intensities = new double[] { 100, 200, 300 } };
+        var sm2 = new MockSpectralMatch(file1, 2, 100.0, pep2.FullSequence, pep2.BaseSequence, new[] { pep2 })
+            { Intensities = new double[] { 400, 500, 600 } };
+        var sm3 = new MockSpectralMatch(file2, 3, 100.0, pep1.FullSequence, pep1.BaseSequence, new[] { pep1 })
+            { Intensities = new double[] { 1000, 2000, 3000 } };
+        var sm4 = new MockSpectralMatch(file2, 4, 100.0, pep2.FullSequence, pep2.BaseSequence, new[] { pep2 })
+            { Intensities = new double[] { 4000, 5000, 6000 } };
 
         var spectralMatches = new List<ISpectralMatch> { sm1, sm2, sm3, sm4 };
 
@@ -298,12 +300,12 @@ public class TmtSpikeInTests
             new HashSet<IBioPolymerWithSetMods> { pep1 });
         var proteinGroups = new List<IBioPolymerGroup> { group1 };
 
-        var sm1 = new BaseSpectralMatch(file1, 1, 100.0, pep1.FullSequence, pep1.BaseSequence, new[] { pep1 })
-            { QuantValues = new double[] { 100, 200, 300 } };
-        var sm2 = new BaseSpectralMatch(file2, 2, 100.0, pep1.FullSequence, pep1.BaseSequence, new[] { pep1 })
-            { QuantValues = new double[] { 100, 200, 300 } };
-        var sm3 = new BaseSpectralMatch(file3, 3, 100.0, pep1.FullSequence, pep1.BaseSequence, new[] { pep1 })
-            { QuantValues = new double[] { 100, 200, 300 } };
+        var sm1 = new MockSpectralMatch(file1, 1, 100.0, pep1.FullSequence, pep1.BaseSequence, new[] { pep1 })
+            { Intensities = new double[] { 100, 200, 300 } };
+        var sm2 = new MockSpectralMatch(file2, 2, 100.0, pep1.FullSequence, pep1.BaseSequence, new[] { pep1 })
+            { Intensities = new double[] { 100, 200, 300 } };
+        var sm3 = new MockSpectralMatch(file3, 3, 100.0, pep1.FullSequence, pep1.BaseSequence, new[] { pep1 })
+            { Intensities = new double[] { 100, 200, 300 } };
 
         var spectralMatches = new List<ISpectralMatch> { sm1, sm2, sm3 };
 
@@ -459,12 +461,12 @@ public class TmtSpikeInTests
             new HashSet<IBioPolymerWithSetMods> { pep1 });
         var proteinGroups = new List<IBioPolymerGroup> { group1 };
 
-        var sm1 = new BaseSpectralMatch(file1, 1, 100.0, pep1.FullSequence, pep1.BaseSequence, new[] { pep1 })
-            { QuantValues = new double[] { 100, 200, 300 } };
-        var sm2 = new BaseSpectralMatch(file2, 2, 100.0, pep1.FullSequence, pep1.BaseSequence, new[] { pep1 })
-            { QuantValues = new double[] { 100, 200, 300 } };
-        var sm3 = new BaseSpectralMatch(file3, 3, 100.0, pep1.FullSequence, pep1.BaseSequence, new[] { pep1 })
-            { QuantValues = new double[] { 100, 200, 300 } };
+        var sm1 = new MockSpectralMatch(file1, 1, 100.0, pep1.FullSequence, pep1.BaseSequence, new[] { pep1 })
+            { Intensities = new double[] { 100, 200, 300 } };
+        var sm2 = new MockSpectralMatch(file2, 2, 100.0, pep1.FullSequence, pep1.BaseSequence, new[] { pep1 })
+            { Intensities = new double[] { 100, 200, 300 } };
+        var sm3 = new MockSpectralMatch(file3, 3, 100.0, pep1.FullSequence, pep1.BaseSequence, new[] { pep1 })
+            { Intensities = new double[] { 100, 200, 300 } };
 
         var spectralMatches = new List<ISpectralMatch> { sm1, sm2, sm3 };
 

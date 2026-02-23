@@ -2,7 +2,7 @@
 using Omics;
 using Omics.SpectralMatch;
 
-namespace Test.Omics;
+namespace Development.QuantificationDevelopment.TestHelpers;
 
 /// <summary>
 /// Test implementation of ISpectralMatch for sequence coverage tests.

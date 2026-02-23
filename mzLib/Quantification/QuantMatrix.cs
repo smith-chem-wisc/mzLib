@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using MassSpectrometry;
 using Omics;
+using Omics.SpectralMatch;
 using Omics.BioPolymerGroup;
 
 

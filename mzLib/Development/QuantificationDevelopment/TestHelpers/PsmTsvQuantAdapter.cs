@@ -6,7 +6,8 @@ using Omics.BioPolymerGroup;
 using Omics.Modifications;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
-using ISpectralMatch = Omics.ISpectralMatch; // disambiguate from Readers.ISpectralMatch
+using Omics.SpectralMatch;
+using ISpectralMatch = Omics.SpectralMatch.ISpectralMatch; // disambiguate from Readers.ISpectralMatch
 
 namespace Development.QuantificationDevelopment.TestHelpers;
 
@@ -17,13 +18,13 @@ namespace Development.QuantificationDevelopment.TestHelpers;
 public static class PsmTsvQuantAdapter
 {
     /// <summary>
-    /// Reads a psmtsv file and returns ISpectralMatch objects with QuantValues populated.
+    /// Reads a psmtsv file and returns ISpectralMatch objects with Intensities populated.
     /// Filters by q-value cutoff and optionally excludes decoys.
     /// </summary>
     /// <param name="psmtsvFilePath">Path to the AllPSMs.psmtsv file</param>
     /// <param name="qValueCutoff">Maximum q-value for filtering (default 0.01)</param>
     /// <param name="includeDecoys">Whether to include decoy matches (default false)</param>
-    /// <returns>List of ISpectralMatch objects with QuantValues set</returns>
+    /// <returns>List of ISpectralMatch objects with Intensities set</returns>
     public static List<ISpectralMatch> LoadSpectralMatches(
         string psmtsvFilePath,
         double qValueCutoff = 0.01,
@@ -40,7 +41,7 @@ public static class PsmTsvQuantAdapter
             if (!includeDecoys && !record.DecoyContamTarget.Contains('T'))
                 continue;
 
-            var match = new BaseSpectralMatch(
+            var match = new MockSpectralMatch(
                 fullFilePath: record.FileNameWithoutExtension,
                 oneBasedScanNumber: record.Ms2ScanNumber,
                 score: record.Score,
@@ -48,7 +49,7 @@ public static class PsmTsvQuantAdapter
                 baseSequence: record.BaseSeq,
                 identifiedBioPolymers: null)
             {
-                QuantValues = record.QuantValues
+                Intensities = record.Intensities
             };
 
             results.Add(match);
@@ -60,7 +61,7 @@ public static class PsmTsvQuantAdapter
     /// <summary>
     /// Reads a psmtsv file and builds all objects needed to run the quantification pipeline:
     /// spectral matches (with identified biopolymers set), peptides, and protein groups.
-    /// Only target PSMs passing the q-value cutoff with non-zero QuantValues are included.
+    /// Only target PSMs passing the q-value cutoff with non-zero Intensities are included.
     /// Multi-protein accessions (pipe-delimited) use the first non-decoy accession.
     /// </summary>
     public static (
@@ -72,8 +73,8 @@ public static class PsmTsvQuantAdapter
         var records = Readers.SpectrumMatchTsvReader.ReadPsmTsv(psmtsvFilePath, out _)
             .Where(r => r.QValue <= qValueCutoff
                         && r.DecoyContamTarget.Contains('T')
-                        && r.QuantValues != null
-                        && r.QuantValues.Any(v => v > 0)
+                        && r.Intensities != null
+                        && r.Intensities.Any(v => v > 0)
                         && !string.IsNullOrEmpty(r.BaseSeq)
                         && !string.IsNullOrEmpty(r.Accession))
             .ToList();
@@ -135,14 +136,14 @@ public static class PsmTsvQuantAdapter
             if (!baseSeqToPeptide.TryGetValue(record.BaseSeq, out var peptide))
                 continue;
 
-            var match = new BaseSpectralMatch(
+            var match = new MockSpectralMatch(
                 fullFilePath: record.FileNameWithoutExtension,
                 oneBasedScanNumber: record.Ms2ScanNumber,
                 score: record.Score,
                 fullSequence: record.FullSequence,
                 baseSequence: record.BaseSeq)
             {
-                QuantValues = record.QuantValues
+                Intensities = record.Intensities
             };
             match.AddIdentifiedBioPolymer(peptide);
 
@@ -208,8 +209,8 @@ public static class PsmTsvQuantAdapter
             .Where(r => !double.IsNaN(r.PEP_QValue)
                         && r.PEP_QValue <= qValueCutoff
                         && r.DecoyContamTarget.Contains('T')
-                        && r.QuantValues != null
-                        && r.QuantValues.Any(v => v > 0)
+                        && r.Intensities != null
+                        && r.Intensities.Any(v => v > 0)
                         && !string.IsNullOrEmpty(r.BaseSeq)
                         && !string.IsNullOrEmpty(r.Accession)
                         && passingPeptideBaseSeqs.Contains(r.BaseSeq))
@@ -246,14 +247,14 @@ public static class PsmTsvQuantAdapter
             if (!baseSeqToPeptide.TryGetValue(record.BaseSeq, out var peptide))
                 continue;
 
-            var match = new BaseSpectralMatch(
+            var match = new MockSpectralMatch(
                 fullFilePath: record.FileNameWithoutExtension,
                 oneBasedScanNumber: record.Ms2ScanNumber,
                 score: record.Score,
                 fullSequence: record.FullSequence,
                 baseSequence: record.BaseSeq)
             {
-                QuantValues = record.QuantValues
+                Intensities = record.Intensities
             };
             match.AddIdentifiedBioPolymer(peptide);
             spectralMatches.Add(match);
@@ -306,8 +307,8 @@ public static class PsmTsvQuantAdapter
                 .Where(r => !double.IsNaN(r.PEP_QValue)
                             && r.PEP_QValue <= qValueCutoff
                             && r.DecoyContamTarget.Contains('T')
-                            && r.QuantValues != null
-                            && r.QuantValues.Any(v => v > 0)
+                            && r.Intensities != null
+                            && r.Intensities.Any(v => v > 0)
                             && !string.IsNullOrEmpty(r.BaseSeq)
                             && !string.IsNullOrEmpty(r.Accession))
                 .ToList();
@@ -371,14 +372,14 @@ public static class PsmTsvQuantAdapter
             if (!baseSeqToPeptide.TryGetValue(record.BaseSeq, out var peptide))
                 continue;
 
-            var match = new BaseSpectralMatch(
+            var match = new MockSpectralMatch(
                 fullFilePath: record.FileNameWithoutExtension,
                 oneBasedScanNumber: record.Ms2ScanNumber,
                 score: record.Score,
                 fullSequence: record.FullSequence,
                 baseSequence: record.BaseSeq)
             {
-                QuantValues = record.QuantValues
+                Intensities = record.Intensities
             };
             match.AddIdentifiedBioPolymer(peptide);
             spectralMatches.Add(match);

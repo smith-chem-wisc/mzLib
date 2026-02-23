@@ -64,7 +64,7 @@ namespace Readers
 
         public List<MatchedFragmentIon> VariantCrossingIons { get; protected set; }
 
-        public double[]? QuantValues { get; protected set; }
+        public double[]? Intensities { get; protected set; }
 
         #region IQuantifiableRecord Properties and Methods
         public string FileName => FileNameWithoutExtension;
@@ -186,7 +186,7 @@ namespace Readers
             #pragma warning restore CS8601 // Possible null reference assignment.
 
             // Parse TMT/isobaric reporter ion columns if present
-            QuantValues = ParseReporterIonColumns(spl, parsedHeader);
+            Intensities = ParseReporterIonColumns(spl, parsedHeader);
         }
 
         /// <summary>

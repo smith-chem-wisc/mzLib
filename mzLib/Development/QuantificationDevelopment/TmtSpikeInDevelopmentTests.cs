@@ -15,6 +15,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using Development.QuantificationDevelopment.TestHelpers;
+using Omics.SpectralMatch;
 
 namespace Development.QuantificationDevelopment;
 
