@@ -1,5 +1,6 @@
 ﻿using MassSpectrometry;
 using Omics.Modifications;
+using Omics.SpectralMatch;
 
 namespace Omics.BioPolymerGroup
 {
@@ -42,11 +43,10 @@ namespace Omics.BioPolymerGroup
         string BioPolymerGroupName { get; }
 
         /// <summary>
-        /// Aggregated confidence score for the group. Higher values indicate higher confidence.
-        /// 
-        /// Computed by <see cref="BioPolymerGroupExtensions.Score"/> as the sum of the best (highest) 
-        /// score for each unique base sequence among the PSMs in <see cref="AllPsmsBelowOnePercentFDR"/>.
-        /// This ensures each unique peptide/oligonucleotide contributes only its best-scoring identification.
+        /// Aggregated confidence score for the group, used internally for protein grouping optimization.
+        /// Computed as the sum of the best (highest) score for each unique base sequence among the 
+        /// PSMs in <see cref="AllPsmsBelowOnePercentFDR"/>. Higher values indicate higher confidence.
+        /// NOT used for protein FDR calculations.
         /// </summary>
         /// <seealso cref="BioPolymerGroupExtensions.Score"/>
         double BioPolymerGroupScore { get; set; }

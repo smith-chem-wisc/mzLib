@@ -689,14 +689,14 @@ namespace Readers
                 {
                     mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0] = new Generated.ScanType
                     {
-                        cvParam = new Generated.CVParamType[3]
+                        cvParam = new Generated.CVParamType[4]
                     };
                 }
                 else
                 {
                     mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0] = new Generated.ScanType
                     {
-                        cvParam = new Generated.CVParamType[3],
+                        cvParam = new Generated.CVParamType[4],
                         instrumentConfigurationRef = analyzersInThisFileDict[myMsDataFile.GetOneBasedScan(i).MzAnalyzer]
                     };
                 }
@@ -730,6 +730,22 @@ namespace Readers
                         unitCvRef = "UO"
                     };
                 }
+
+                // Write compensation voltage if present
+                if (myMsDataFile.GetOneBasedScan(i).CompensationVoltage.HasValue)
+                {
+                    mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].cvParam[3] = new Generated.CVParamType
+                    {
+                        name = "FAIMS compensation voltage",
+                        accession = "MS:1001581",
+                        value = myMsDataFile.GetOneBasedScan(i).CompensationVoltage?.ToString(CultureInfo.InvariantCulture),
+                        cvRef = "MS",
+                        unitName = "volt",
+                        unitAccession = "UO:0000218",
+                        unitCvRef = "UO"
+                    };
+                }
+
                 if (myMsDataFile.GetOneBasedScan(i).MsnOrder != 1)
                 {
                     var scanWithPrecursor = myMsDataFile.GetOneBasedScan(i);
