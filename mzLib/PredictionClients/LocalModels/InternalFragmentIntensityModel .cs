@@ -61,41 +61,31 @@ namespace PredictionClients.LocalModels
         public const string DefaultModelFileName = "InternalFragmentScorer_v3_AllProteases.onnx";
 
         /// <summary>
-        /// Resolves the default ONNX model path by searching common locations:
-        /// 1. Current directory
-        /// 2. LocalModels subdirectory
-        /// 3. Resources subdirectory
+        /// Resolves the default ONNX model path by searching common locations.
         /// </summary>
         public static string DefaultOnnxModelPath
         {
             get
             {
-                // Check current directory
-                if (File.Exists(DefaultModelFileName))
-                    return Path.GetFullPath(DefaultModelFileName);
-
-                // Check LocalModels subdirectory
-                var localModelsPath = Path.Combine("LocalModels", DefaultModelFileName);
-                if (File.Exists(localModelsPath))
-                    return Path.GetFullPath(localModelsPath);
-
-                // Check Resources subdirectory
-                var resourcesPath = Path.Combine("Resources", DefaultModelFileName);
-                if (File.Exists(resourcesPath))
-                    return Path.GetFullPath(resourcesPath);
-
                 // Check relative to executing assembly
                 var assemblyDir = Path.GetDirectoryName(typeof(InternalFragmentIntensityModel).Assembly.Location) ?? "";
-                var assemblyLocalPath = Path.Combine(assemblyDir, "LocalModels", DefaultModelFileName);
-                if (File.Exists(assemblyLocalPath))
-                    return assemblyLocalPath;
+                
+                var paths = new[]
+                {
+                    Path.Combine(assemblyDir, "LocalModels", DefaultModelFileName),
+                    Path.Combine(assemblyDir, DefaultModelFileName),
+                    Path.Combine("LocalModels", DefaultModelFileName),
+                    DefaultModelFileName
+                };
 
-                var assemblyResourcePath = Path.Combine(assemblyDir, DefaultModelFileName);
-                if (File.Exists(assemblyResourcePath))
-                    return assemblyResourcePath;
+                foreach (var path in paths)
+                {
+                    if (File.Exists(path))
+                        return Path.GetFullPath(path);
+                }
 
                 // Return default path even if not found (will throw at runtime)
-                return DefaultModelFileName;
+                return Path.Combine(assemblyDir, "LocalModels", DefaultModelFileName);
             }
         }
 
@@ -129,7 +119,7 @@ namespace PredictionClients.LocalModels
         /// Maximum internal fragment ions per peptide included in the spectral library.
         /// Applied after MinIntensityFilter, keeping the top N by predicted TicNI.
         /// </summary>
-        public int MaxInternalIonsPerPeptide { get; } = 20;
+        public int MaxInternalIonsPerPeptide { get; private set; } = 20;
 
         #endregion
 
@@ -213,6 +203,22 @@ namespace PredictionClients.LocalModels
         #region Constructor
 
         /// <summary>
+        /// Initializes the model using the default ONNX model path.
+        /// </summary>
+        public InternalFragmentIntensityModel(
+            List<string> peptideSequences,
+            List<int> precursorCharges,
+            List<double?> retentionTimes,
+            out WarningException? warnings,
+            string? spectralLibrarySavePath = null,
+            double minIntensityFilter = 0.002,
+            int maxInternalIonsPerPeptide = 20)
+            : this(peptideSequences, precursorCharges, retentionTimes, out warnings,
+                   DefaultOnnxModelPath, spectralLibrarySavePath, minIntensityFilter, maxInternalIonsPerPeptide)
+        {
+        }
+
+        /// <summary>
         /// Initializes the model and validates inputs. Invalid entries are filtered out
         /// with details recorded in the warnings output parameter.
         /// </summary>
@@ -251,6 +257,7 @@ namespace PredictionClients.LocalModels
             _onnxModelPath = onnxModelPath;
             SpectralLibrarySavePath = spectralLibrarySavePath;
             MinIntensityFilter = minIntensityFilter;
+            MaxInternalIonsPerPeptide = maxInternalIonsPerPeptide;
 
             if (peptideSequences.Count == 0)
             {
@@ -289,23 +296,6 @@ namespace PredictionClients.LocalModels
             }
         }
 
-        /// <summary>
-        /// Initializes the model using the default ONNX model path.
-        /// </summary>
-        public InternalFragmentIntensityModel(
-            List<string> peptideSequences,
-            List<int> precursorCharges,
-            List<double?> retentionTimes,
-            out WarningException? warnings,
-            string? spectralLibrarySavePath = null,
-            double minIntensityFilter = 0.002,
-            int maxInternalIonsPerPeptide = 20)
-            : this(peptideSequences, precursorCharges, retentionTimes, out warnings,
-                   DefaultOnnxModelPath, spectralLibrarySavePath, minIntensityFilter, maxInternalIonsPerPeptide)
-        {
-        }
-
-        private readonly int _maxInternalIonsPerPeptide;
 
         #endregion
 

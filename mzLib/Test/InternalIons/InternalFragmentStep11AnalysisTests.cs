@@ -10,8 +10,8 @@ namespace Test.InternalIons
     [TestFixture]
     public class InternalFragmentStep11AnalysisTests
     {
-        private const string TsvInputPath = @"E:\Projects\internalIons\mzLibReportsForClaude\InternalFragmentIons.tsv";
-        private const string OutputPath = @"E:\Projects\internalIons\mzLibReportsForClaude\Step11Analysis_Output.txt";
+        private const string TsvInputPath = @"F:\MSV000090552_scribe\2026-02-23-14-49-36_nce42\Task1-SearchTask\InternalFragmentIons.tsv";
+        private const string OutputPath = @"F:\MSV000090552_scribe\2026-02-23-14-49-36_nce42\Task1-SearchTask\Step11Analysis_Output.txt";
 
         private static readonly char[] StandardAminoAcids =
             { 'A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y' };
