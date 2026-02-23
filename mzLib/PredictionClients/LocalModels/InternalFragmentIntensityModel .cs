@@ -57,6 +57,48 @@ namespace PredictionClients.LocalModels
         public override int MaxPeptideLength => 100;
         public override int MinPeptideLength => 5; // need at least one internal fragment of length 3
 
+        /// <summary>Default ONNX model filename.</summary>
+        public const string DefaultModelFileName = "InternalFragmentScorer_v3_AllProteases.onnx";
+
+        /// <summary>
+        /// Resolves the default ONNX model path by searching common locations:
+        /// 1. Current directory
+        /// 2. LocalModels subdirectory
+        /// 3. Resources subdirectory
+        /// </summary>
+        public static string DefaultOnnxModelPath
+        {
+            get
+            {
+                // Check current directory
+                if (File.Exists(DefaultModelFileName))
+                    return Path.GetFullPath(DefaultModelFileName);
+
+                // Check LocalModels subdirectory
+                var localModelsPath = Path.Combine("LocalModels", DefaultModelFileName);
+                if (File.Exists(localModelsPath))
+                    return Path.GetFullPath(localModelsPath);
+
+                // Check Resources subdirectory
+                var resourcesPath = Path.Combine("Resources", DefaultModelFileName);
+                if (File.Exists(resourcesPath))
+                    return Path.GetFullPath(resourcesPath);
+
+                // Check relative to executing assembly
+                var assemblyDir = Path.GetDirectoryName(typeof(InternalFragmentIntensityModel).Assembly.Location) ?? "";
+                var assemblyLocalPath = Path.Combine(assemblyDir, "LocalModels", DefaultModelFileName);
+                if (File.Exists(assemblyLocalPath))
+                    return assemblyLocalPath;
+
+                var assemblyResourcePath = Path.Combine(assemblyDir, DefaultModelFileName);
+                if (File.Exists(assemblyResourcePath))
+                    return assemblyResourcePath;
+
+                // Return default path even if not found (will throw at runtime)
+                return DefaultModelFileName;
+            }
+        }
+
         /// <summary>Charges 1–6 accepted; the charge feature is passed directly to the model.</summary>
         public override HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
 
@@ -245,6 +287,22 @@ namespace PredictionClients.LocalModels
                     + $"\nRequirements: bare sequence length {MinPeptideLength}–{MaxPeptideLength}, "
                     + $"charge in [{string.Join(", ", AllowedPrecursorCharges)}]");
             }
+        }
+
+        /// <summary>
+        /// Initializes the model using the default ONNX model path.
+        /// </summary>
+        public InternalFragmentIntensityModel(
+            List<string> peptideSequences,
+            List<int> precursorCharges,
+            List<double?> retentionTimes,
+            out WarningException? warnings,
+            string? spectralLibrarySavePath = null,
+            double minIntensityFilter = 0.002,
+            int maxInternalIonsPerPeptide = 20)
+            : this(peptideSequences, precursorCharges, retentionTimes, out warnings,
+                   DefaultOnnxModelPath, spectralLibrarySavePath, minIntensityFilter, maxInternalIonsPerPeptide)
+        {
         }
 
         private readonly int _maxInternalIonsPerPeptide;
