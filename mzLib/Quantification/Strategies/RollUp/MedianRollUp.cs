@@ -22,20 +22,23 @@ namespace Quantification.Strategies
             where THigh : IEquatable<THigh>
         {
             var rolledUpMatrix = new QuantMatrix<THigh>(map.Keys, matrix.ColumnKeys, matrix.ExperimentalDesign);
+            int cols = matrix.ColumnCount;
 
             foreach (var kvp in map)
             {
                 THigh highKey = kvp.Key;
                 List<int> lowIndices = kvp.Value;
 
-                double[] medianValues = new double[matrix.Matrix.ColumnCount];
+                double[] medianValues = new double[cols];
 
-                for (int sampleIndex = 0; sampleIndex < medianValues.Length; sampleIndex++)
+                for (int sampleIndex = 0; sampleIndex < cols; sampleIndex++)
                 {
-                    var nonZeroValues = lowIndices
-                        .Select(i => matrix.GetRow(i)[sampleIndex])
-                        .Where(v => v > 0)
-                        .ToList();
+                    var nonZeroValues = new List<double>();
+                    foreach (int i in lowIndices)
+                    {
+                        double v = matrix.Matrix[i, sampleIndex];
+                        if (v > 0) nonZeroValues.Add(v);
+                    }
 
                     medianValues[sampleIndex] = nonZeroValues.Count > 0
                         ? Median(nonZeroValues)
@@ -50,11 +53,12 @@ namespace Quantification.Strategies
 
         private static double Median(List<double> values)
         {
-            var sorted = values.OrderBy(x => x).ToList();
-            int mid = sorted.Count / 2;
-            return sorted.Count % 2 == 0
-                ? (sorted[mid - 1] + sorted[mid]) / 2.0
-                : sorted[mid];
+            var arr = values.ToArray();
+            Array.Sort(arr);
+            int mid = arr.Length / 2;
+            return arr.Length % 2 == 0
+                ? (arr[mid - 1] + arr[mid]) / 2.0
+                : arr[mid];
         }
     }
 }

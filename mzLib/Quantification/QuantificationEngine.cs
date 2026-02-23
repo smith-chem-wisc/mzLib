@@ -405,26 +405,29 @@ public class QuantificationEngine
         // 3. Create the combined PeptideMatrix
         var combined = new PeptideMatrix(allPeptides, allColumnKeys, experimentalDesign);
 
-        // 4. For each per-file matrix, copy values into the combined matrix at the correct offset
+        // Pre-build peptide index map for O(1) lookup instead of O(n) IndexOf
+        var peptideIndexMap = new Dictionary<IBioPolymerWithSetMods, int>(allPeptides.Count);
+        for (int i = 0; i < allPeptides.Count; i++)
+            peptideIndexMap[allPeptides[i]] = i;
+
+        // 4. For each per-file matrix, copy values directly into the combined matrix at the correct offset
         foreach (var filePath in sortedFilePaths)
         {
             var fileMatrix = perFilePeptideMatrices[filePath];
             int colOffset = fileColumnOffsets[filePath];
             int numFileCols = fileMatrix.ColumnKeys.Count;
 
-            foreach (var peptide in fileMatrix.RowKeys)
+            for (int fileRow = 0; fileRow < fileMatrix.RowKeys.Count; fileRow++)
             {
-                double[] fileRow = fileMatrix.GetRow(peptide);
-                int peptideRowIndex = allPeptides.IndexOf(peptide);
-                if (peptideRowIndex < 0) continue;
+                var peptide = fileMatrix.RowKeys[fileRow];
+                if (!peptideIndexMap.TryGetValue(peptide, out int combinedRow))
+                    continue;
 
-                // Get or build current combined row for this peptide
-                double[] combinedRow = combined.GetRow(peptideRowIndex);
-                for (int i = 0; i < numFileCols; i++)
+                // Copy directly from source matrix to combined matrix — no GetRow/SetRow allocation
+                for (int col = 0; col < numFileCols; col++)
                 {
-                    combinedRow[colOffset + i] = fileRow[i];
+                    combined.Matrix[combinedRow, colOffset + col] = fileMatrix.Matrix[fileRow, col];
                 }
-                combined.SetRow(peptide, combinedRow);
             }
         }
 

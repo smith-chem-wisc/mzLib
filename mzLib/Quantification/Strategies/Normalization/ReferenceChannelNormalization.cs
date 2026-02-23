@@ -61,12 +61,14 @@ namespace Quantification.Strategies
                 for (int row = 0; row < rows; row++)
                 {
                     // Reference mean: average of non-zero reference channel values for this row.
-                    var refValues = refColIndices
-                        .Select(c => quantMatrix.Matrix[row, c])
-                        .Where(v => v > 0)
-                        .ToList();
-
-                    double refMean = refValues.Count > 0 ? refValues.Average() : 0.0;
+                    double refSum = 0;
+                    int refCount = 0;
+                    foreach (int c in refColIndices)
+                    {
+                        double v = quantMatrix.Matrix[row, c];
+                        if (v > 0) { refSum += v; refCount++; }
+                    }
+                    double refMean = refCount > 0 ? refSum / refCount : 0.0;
 
                     if (refMean == 0.0)
                     {

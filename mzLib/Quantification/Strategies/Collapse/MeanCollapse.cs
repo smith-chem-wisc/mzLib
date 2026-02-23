@@ -1,5 +1,5 @@
 using System.Collections.Immutable;
-using System.Linq;
+using MassSpectrometry;
 using Quantification.Interfaces;
 
 namespace Quantification.Strategies
@@ -20,6 +20,11 @@ namespace Quantification.Strategies
 
         public QuantMatrix<T> CollapseSamples<T>(QuantMatrix<T> quantMatrix) where T : IEquatable<T>
         {
+            // Pre-compute column index map to avoid O(n) IndexOf calls
+            var colIndexMap = new Dictionary<ISampleInfo, int>(quantMatrix.ColumnCount);
+            for (int i = 0; i < quantMatrix.ColumnKeys.Count; i++)
+                colIndexMap[quantMatrix.ColumnKeys[i]] = i;
+
             var groupings = quantMatrix.ColumnKeys.GroupBy(s => s.Condition + '_' + s.BiologicalReplicate);
             var collapsedMatrix = new QuantMatrix<T>(
                 quantMatrix.RowKeys,
@@ -33,14 +38,16 @@ namespace Quantification.Strategies
 
                 foreach (var sample in group)
                 {
-                    int columnIndex = quantMatrix.ColumnKeys.IndexOf(sample);
+                    int columnIndex = colIndexMap[sample];
                     for (int rowIndex = 0; rowIndex < quantMatrix.RowKeys.Count; rowIndex++)
                         summedValues[rowIndex] += quantMatrix.Matrix[rowIndex, columnIndex];
                 }
 
-                // Divide by group size to produce the mean.
-                double[] meanValues = summedValues.Select(v => v / groupSize).ToArray();
-                collapsedMatrix.SetColumn(group.First(), meanValues);
+                // Divide by group size in-place to produce the mean
+                for (int i = 0; i < summedValues.Length; i++)
+                    summedValues[i] /= groupSize;
+
+                collapsedMatrix.SetColumn(group.First(), summedValues);
             }
 
             return collapsedMatrix;

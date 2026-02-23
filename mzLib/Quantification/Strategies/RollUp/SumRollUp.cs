@@ -27,14 +27,14 @@ namespace Quantification.Strategies
                 THigh highKey = kvp.Key;
                 List<int> lowIndices = kvp.Value;
                 // Initialize an array to hold the summed values for this higher-level key
-                double[] summedValues = new double[matrix.Matrix.ColumnCount];
+                int cols = matrix.ColumnCount;
+                double[] summedValues = new double[cols];
                 // Sum the values from the lower-level rows corresponding to this higher-level key
                 foreach (int lowIndex in lowIndices)
                 {
-                    var lowRow = matrix.GetRow(lowIndex);
-                    for (int sampleIndex = 0; sampleIndex < summedValues.Length; sampleIndex++)
+                    for (int col = 0; col < cols; col++)
                     {
-                        summedValues[sampleIndex] += lowRow[sampleIndex];
+                        summedValues[col] += matrix.Matrix[lowIndex, col];
                     }
                 }
                 // Add the summed values as a new row in the rolled-up matrix
