@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using MassSpectrometry;
-using MassSpectrometry.ExperimentalDesign;
 using NUnit.Framework;
 using NUnit.Framework.Legacy;
 using Omics;

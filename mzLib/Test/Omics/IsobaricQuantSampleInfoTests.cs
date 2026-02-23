@@ -1,5 +1,4 @@
 ﻿using MassSpectrometry;
-using MassSpectrometry.ExperimentalDesign;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;

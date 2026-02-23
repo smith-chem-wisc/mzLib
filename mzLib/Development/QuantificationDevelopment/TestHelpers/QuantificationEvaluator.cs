@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using MassSpectrometry;
-using MassSpectrometry.ExperimentalDesign;
 using Omics.BioPolymerGroup;
 using Quantification;
 

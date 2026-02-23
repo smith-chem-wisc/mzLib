@@ -1,6 +1,4 @@
-using System.Collections.Generic;
-using System.Linq;
-using MassSpectrometry.ExperimentalDesign;
+using MassSpectrometry;
 using Quantification.Interfaces;
 
 namespace Quantification.Strategies

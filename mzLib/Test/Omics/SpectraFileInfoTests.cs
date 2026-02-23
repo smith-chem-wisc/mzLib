@@ -4,7 +4,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using MassSpectrometry;
-using MassSpectrometry.ExperimentalDesign;
 using NUnit.Framework;
 
 namespace Test.Omics

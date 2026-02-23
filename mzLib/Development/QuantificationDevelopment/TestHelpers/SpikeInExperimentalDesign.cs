@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using MassSpectrometry;
-using MassSpectrometry.ExperimentalDesign;
 
 namespace Development.QuantificationDevelopment.TestHelpers;
 

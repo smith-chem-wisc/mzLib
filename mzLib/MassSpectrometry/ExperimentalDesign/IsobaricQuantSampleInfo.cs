@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 
-namespace MassSpectrometry.ExperimentalDesign
+namespace MassSpectrometry
 {
     /// <summary>
     /// Represents sample information for isobaric (TMT/iTRAQ) quantification.

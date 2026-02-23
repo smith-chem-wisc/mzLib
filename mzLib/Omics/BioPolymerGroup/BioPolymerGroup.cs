@@ -1,6 +1,5 @@
 ﻿using Easy.Common.Extensions;
 using MassSpectrometry;
-using MassSpectrometry.ExperimentalDesign;
 using Omics.Modifications;
 using System.Text;
 
