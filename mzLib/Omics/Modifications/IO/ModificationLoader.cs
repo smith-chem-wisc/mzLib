@@ -52,7 +52,16 @@ public static class ModificationLoader
             return ReadModsFromFile(uniprot_mods, formalChargesDictionary, out filteredModificationsWithWarnings, ptmListLocation);
         }
     }
-
+    
+    /// <summary>
+    /// Read a list of modifications from a text file.
+    /// </summary>
+    /// <param name="ptmListLocation"></param>
+    /// <returns></returns>
+    public static IEnumerable<Modification> ReadModsFromFile(string ptmListLocation, out List<(Modification, string)> filteredModificationsWithWarnings)
+    {
+        return ReadModsFromFile(ptmListLocation, new Dictionary<string, int>(), out filteredModificationsWithWarnings).OrderBy(b => b.IdWithMotif);
+    }
     /// <summary>
     /// Reads a list of modifications from a stream reader.
     /// </summary>
@@ -87,6 +96,44 @@ public static class ModificationLoader
             }
         }
 
+        return acceptedModifications;
+    }
+
+    /// <summary>
+    /// Reads a list of modifications from a string representation of a ptmlist text file.
+    /// </summary>
+    /// <param name="storedModifications"></param>
+    /// <returns></returns>
+    public static IEnumerable<Modification> ReadModsFromString(string storedModifications, out List<(Modification, string)> filteredModificationsWithWarnings)
+    {
+        List<Modification> acceptedModifications = new List<Modification>();
+        filteredModificationsWithWarnings = new List<(Modification filteredMod, string warningString)>();
+        using (StringReader uniprot_mods = new StringReader(storedModifications))
+        {
+            List<string> modification_specification = new List<string>();
+
+            while (uniprot_mods.Peek() != -1)
+            {
+                string line = uniprot_mods.ReadLine();
+                modification_specification.Add(line);
+                if (line.StartsWith("//"))
+                {
+                    foreach (var mod in ReadMod(null, modification_specification, new Dictionary<string, int>()))
+                    {
+                        // Filter out the modifications that don't meet validation
+                        if (mod.ValidModification)
+                        {
+                            acceptedModifications.Add(mod);
+                        }
+                        else
+                        {
+                            filteredModificationsWithWarnings.Add((mod, mod.ModificationErrorsToString()));
+                        }
+                    }
+                    modification_specification = new List<string>();
+                }
+            }
+        }
         return acceptedModifications;
     }
 

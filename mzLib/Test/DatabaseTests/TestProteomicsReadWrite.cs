@@ -8,6 +8,7 @@ using Omics.BioPolymer;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Omics.Fragmentation;
 using Omics.Modifications;
+using Omics.Modifications.IO;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using UsefulProteomicsDatabases;
@@ -565,7 +566,7 @@ namespace Test.DatabaseTests
         [Test]
         public void TestModificationGeneralToString()
         {
-            var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt"), out var errors).ToList();
+            var a = ModificationLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt"), out var errors).ToList();
             char[] myChar = { '"' };
             string output = a.First().ToString();
             Assert.AreEqual(output.TrimStart(myChar).TrimEnd(myChar), "ID   4-carboxyglutamate on E\r\nMT   Biological\r\nTG   E\r\nPP   Anywhere.\r\nCF   CO2\r\nMM   43.989829\r\n");
@@ -574,8 +575,8 @@ namespace Test.DatabaseTests
         [Test]
         public void TestModificationGeneral_Equals()
         {
-            var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt"), out var errors).ToList();
-            var b = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt"), out errors).ToList();
+            var a = ModificationLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt"), out var errors).ToList();
+            var b = ModificationLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt"), out errors).ToList();
 
             Assert.IsTrue(a.First().Equals(b.First()));
         }

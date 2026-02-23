@@ -10,8 +10,8 @@ using Omics.Fragmentation;
 using Omics.Fragmentation.Oligo;
 using Omics.Modifications;
 using Transcriptomics.Digestion;
-using UsefulProteomicsDatabases;
 using Chemistry;
+using Omics.Modifications.IO;
 
 namespace Test.Transcriptomics
 {
@@ -129,7 +129,7 @@ namespace Test.Transcriptomics
         public void TestFragmentation_Modified(string sequence, string modString, string fullSequence, double unmodifiedMass, double modifiedMass,
             ProductType productType, double[] unmodifiedFragmentMass, double[] modifiedFragmentMasses)
         {
-            var mods = PtmListLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).ToList();
+            var mods = ModificationLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).ToList();
             var modDict = mods.ToDictionary(p => p.IdWithMotif, p => p);
             var rna = new RNA(sequence);
 
