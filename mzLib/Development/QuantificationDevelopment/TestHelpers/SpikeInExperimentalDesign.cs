@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using MassSpectrometry;
 using MassSpectrometry.ExperimentalDesign;
 
-namespace Test.Quantification.TestHelpers;
+namespace Development.QuantificationDevelopment.TestHelpers;
 
 /// <summary>
 /// Hardcoded experimental design for the SpikeIn-5mix-MS3 TMT dataset.
@@ -29,11 +29,6 @@ public class SpikeInExperimentalDesign : IExperimentalDesign
         double[] channelMzs   = { 126.12776, 127.12476, 127.13108, 128.12811, 128.13443, 129.13147, 129.13779, 130.13482, 130.14114, 131.13818 };
 
         // Channel-to-condition mappings per mixture type.
-        // Index = channel position (0=126 … 9=131).
-        // Value = (condition, biologicalReplicate). null means reference channel.
-        //
-        // Mixture 1 & 5: 126=Ref, 127N=0.667/1, 127C=0.125/1, 128N=0.5/1, 128C=1/1,
-        //                  129N=0.125/2, 129C=0.5/2, 130N=1/2, 130C=0.667/2, 131=Ref
         (string condition, int bioRep)[] mixture15Conditions =
         {
             ("Reference", 1), // 126
@@ -48,8 +43,6 @@ public class SpikeInExperimentalDesign : IExperimentalDesign
             ("Reference", 1), // 131
         };
 
-        // Mixture 2: 126=Ref, 127N=0.5/1, 127C=1/1, 128N=0.667/1, 128C=0.125/1,
-        //             129N=1/2, 129C=0.667/2, 130N=0.125/2, 130C=0.5/2, 131=Ref
         (string condition, int bioRep)[] mixture2Conditions =
         {
             ("Reference", 1), // 126
@@ -64,8 +57,6 @@ public class SpikeInExperimentalDesign : IExperimentalDesign
             ("Reference", 1), // 131
         };
 
-        // Mixture 3: 126=Ref, 127N=0.125/1, 127C=0.667/1, 128N=1/1, 128C=0.5/1,
-        //             129N=0.5/2, 129C=0.125/2, 130N=0.667/2, 130C=1/2, 131=Ref
         (string condition, int bioRep)[] mixture3Conditions =
         {
             ("Reference", 1), // 126
@@ -80,8 +71,6 @@ public class SpikeInExperimentalDesign : IExperimentalDesign
             ("Reference", 1), // 131
         };
 
-        // Mixture 4: 126=Ref, 127N=1/1, 127C=0.5/1, 128N=0.125/1, 128C=0.667/1,
-        //             129N=0.667/2, 129C=1/2, 130N=0.5/2, 130C=0.125/2, 131=Ref
         (string condition, int bioRep)[] mixture4Conditions =
         {
             ("Reference", 1), // 126
@@ -96,7 +85,6 @@ public class SpikeInExperimentalDesign : IExperimentalDesign
             ("Reference", 1), // 131
         };
 
-        // File list: 14 files (Mixture4_01 is missing from the dataset)
         var files = new[]
         {
             ("161117_SILAC_HeLa_UPS1_TMT10_SPS_MS3_Mixture1_01", 1, 1),

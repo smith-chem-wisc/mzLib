@@ -6,7 +6,7 @@ using MassSpectrometry.ExperimentalDesign;
 using Omics.BioPolymerGroup;
 using Quantification;
 
-namespace Test.Quantification.TestHelpers;
+namespace Development.QuantificationDevelopment.TestHelpers;
 
 /// <summary>
 /// Helper utilities for evaluating quantification results against known ground truth.
@@ -14,16 +14,6 @@ namespace Test.Quantification.TestHelpers;
 /// </summary>
 public static class QuantificationEvaluator
 {
-    /// <summary>
-    /// Calculates the mean intensity for each condition across all columns in the protein matrix
-    /// that belong to that condition (reference channels are excluded).
-    /// </summary>
-    /// <param name="proteinMatrix">The protein-level quantity matrix.</param>
-    /// <param name="protein">The protein group to look up.</param>
-    /// <returns>
-    /// Dictionary mapping condition name → mean intensity (NaN if no non-zero values exist
-    /// for that condition).
-    /// </returns>
     public static Dictionary<string, double> GetMeanIntensityByCondition(
         QuantMatrix<IBioPolymerGroup> proteinMatrix,
         IBioPolymerGroup protein)
@@ -31,7 +21,6 @@ public static class QuantificationEvaluator
         var row = proteinMatrix.GetRow(protein);
         var columnKeys = proteinMatrix.ColumnKeys;
 
-        // Group column indices by condition, skipping reference channels
         var conditionValues = new Dictionary<string, List<double>>();
 
         for (int i = 0; i < columnKeys.Count; i++)
@@ -55,10 +44,6 @@ public static class QuantificationEvaluator
             kvp => kvp.Value.Count > 0 ? kvp.Value.Average() : double.NaN);
     }
 
-    /// <summary>
-    /// Calculates the fold change between two conditions: numerator / denominator.
-    /// Returns NaN if either condition is missing or has value 0 / NaN.
-    /// </summary>
     public static double CalculateFoldChange(
         Dictionary<string, double> meanIntensities,
         string numeratorCondition,
@@ -71,10 +56,6 @@ public static class QuantificationEvaluator
         return num / den;
     }
 
-    /// <summary>
-    /// For each protein in the matrix, computes the fold change between two conditions,
-    /// returning a list of (accession, foldChange) pairs where fold change is finite.
-    /// </summary>
     public static List<(string accession, double foldChange)> ComputeFoldChanges(
         QuantMatrix<IBioPolymerGroup> proteinMatrix,
         string numeratorCondition,
@@ -91,9 +72,6 @@ public static class QuantificationEvaluator
         return results;
     }
 
-    /// <summary>
-    /// Returns the median of a sequence of values.
-    /// </summary>
     public static double Median(IEnumerable<double> values)
     {
         var sorted = values.OrderBy(x => x).ToList();
@@ -104,28 +82,17 @@ public static class QuantificationEvaluator
             : sorted[mid];
     }
 
-    /// <summary>
-    /// Computes the Mean Absolute Error (MAE) between observed and expected fold changes.
-    /// </summary>
     public static double MeanAbsoluteError(List<double> observed, double expected)
     {
         return observed.Average(fc => Math.Abs(fc - expected));
     }
 
-    /// <summary>
-    /// Computes the Mean Absolute Log2 Error between observed and expected fold changes.
-    /// Log2 space is symmetric: a 2x overestimate and 2x underestimate are equidistant from truth.
-    /// </summary>
     public static double MeanAbsoluteLog2Error(List<double> observed, double expected)
     {
         double expectedLog2 = Math.Log2(expected);
         return observed.Average(fc => Math.Abs(Math.Log2(fc) - expectedLog2));
     }
 
-    /// <summary>
-    /// Computes what fraction of observed fold changes are within a tolerance factor of the expected value.
-    /// E.g., tolerance=2.0 means within [expected/2, expected*2].
-    /// </summary>
     public static double FractionWithinFactor(List<double> observed, double expected, double factor)
     {
         return (double)observed.Count(fc => fc >= expected / factor && fc <= expected * factor) / observed.Count;

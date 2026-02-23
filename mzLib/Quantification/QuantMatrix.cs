@@ -5,8 +5,9 @@ using Omics;
 using Omics.BioPolymerGroup;
 
 
-// Make the internals visible to the Test project
+// Make the internals visible to the Test and Development projects
 [assembly: InternalsVisibleTo("Test")]
+[assembly: InternalsVisibleTo("Development")]
 
 namespace Quantification
 {
