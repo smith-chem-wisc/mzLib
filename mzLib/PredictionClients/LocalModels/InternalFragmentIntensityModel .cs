@@ -1,12 +1,9 @@
-﻿using Chemistry;
-using Microsoft.ML.OnnxRuntime;
+﻿using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
 using PredictionClients.Koina.AbstractClasses;
-using Readers.SpectralLibrary;
 using System.ComponentModel;
-using System.Reflection;
 using System.Text.RegularExpressions;
 
 namespace PredictionClients.LocalModels
@@ -27,7 +24,8 @@ namespace PredictionClients.LocalModels
     ///     peptideSequences: sequences,      // bare or mzLib-modified sequences
     ///     precursorCharges: charges,
     ///     retentionTimes: rts,              // optional, used only for library metadata
-    ///     out var warnings);                // uses default ONNX model path
+    ///     out var warnings,
+    ///     onnxModelPath: "path/to/model.onnx");
     ///
     /// await model.RunInferenceAsync();
     ///
@@ -52,53 +50,6 @@ namespace PredictionClients.LocalModels
     public class InternalFragmentIntensityModel : FragmentIntensityModel
     {
         #region Model Metadata
-
-        /// <summary>
-        /// Default filename for the ONNX model.
-        /// </summary>
-        public const string DefaultModelFileName = "InternalFragmentScorer_v3_AllProteases.onnx";
-
-        /// <summary>
-        /// Gets the default path to the ONNX model file.
-        /// First checks for an embedded resource, then falls back to the Resources folder
-        /// in the application's base directory.
-        /// </summary>
-        public static string DefaultOnnxModelPath => GetDefaultModelPath();
-
-        private static string GetDefaultModelPath()
-        {
-            // Try embedded resource first
-            var assembly = Assembly.GetExecutingAssembly();
-            var assemblyName = assembly.GetName().Name;
-            var resourceName = $"{assemblyName}.LocalModels.{DefaultModelFileName}";
-
-            using var resourceStream = assembly.GetManifestResourceStream(resourceName);
-            if (resourceStream != null)
-            {
-                // Extract embedded resource to temporary file
-                var tempPath = Path.Combine(Path.GetTempPath(), DefaultModelFileName);
-                using var fileStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write);
-                resourceStream.CopyTo(fileStream);
-                return tempPath;
-            }
-
-            // Fall back to file system location
-            var defaultPath = Path.Combine(AppContext.BaseDirectory, "Resources", DefaultModelFileName);
-            if (File.Exists(defaultPath))
-            {
-                return defaultPath;
-            }
-
-            // Try relative to LocalModels folder
-            var localModelsPath = Path.Combine(AppContext.BaseDirectory, "LocalModels", DefaultModelFileName);
-            if (File.Exists(localModelsPath))
-            {
-                return localModelsPath;
-            }
-
-            // Return default path even if it doesn't exist (will throw a clear error on inference)
-            return defaultPath;
-        }
 
         public override string ModelName => "InternalFragmentScorer_v3_AllProteases";
         public override int MaxBatchSize => 50_000;
@@ -131,6 +82,11 @@ namespace PredictionClients.LocalModels
         /// </summary>
         public override double MinIntensityFilter { get; protected set; } = 0.002;
 
+        /// <summary>
+        /// Maximum internal fragment ions per peptide included in the spectral library.
+        /// Applied after MinIntensityFilter, keeping the top N by predicted TicNI.
+        /// </summary>
+        public int MaxInternalIonsPerPeptide { get; } = 20;
 
         #endregion
 
@@ -228,10 +184,7 @@ namespace PredictionClients.LocalModels
         /// Must be same length as peptideSequences.
         /// </param>
         /// <param name="warnings">Details of any filtered-out entries; null if all inputs are valid.</param>
-        /// <param name="onnxModelPath">
-        /// Path to InternalFragmentScorer_v3_AllProteases.onnx. 
-        /// If null, uses the default embedded or file system path.
-        /// </param>
+        /// <param name="onnxModelPath">Path to InternalFragmentScorer_v3_AllProteases.onnx</param>
         /// <param name="spectralLibrarySavePath">If set, library is written to disk after inference.</param>
         /// <param name="minIntensityFilter">Minimum predicted TicNI to include a fragment. Default: 0.002.</param>
         /// <param name="maxInternalIonsPerPeptide">Top-N internal ions per peptide. Default: 20.</param>
@@ -241,7 +194,7 @@ namespace PredictionClients.LocalModels
             List<int> precursorCharges,
             List<double?> retentionTimes,
             out WarningException? warnings,
-            string? onnxModelPath = null,
+            string onnxModelPath,
             string? spectralLibrarySavePath = null,
             double minIntensityFilter = 0.002,
             int maxInternalIonsPerPeptide = 20)
@@ -252,7 +205,7 @@ namespace PredictionClients.LocalModels
                 throw new ArgumentException("Input lists must have the same length.");
             }
 
-            _onnxModelPath = onnxModelPath ?? DefaultOnnxModelPath;
+            _onnxModelPath = onnxModelPath;
             SpectralLibrarySavePath = spectralLibrarySavePath;
             MinIntensityFilter = minIntensityFilter;
             MaxInternalIonsPerPeptide = maxInternalIonsPerPeptide;
@@ -329,20 +282,11 @@ namespace PredictionClients.LocalModels
             // Wrap CPU-bound work in Task.Run so callers can await without blocking their thread.
             await Task.Run(RunOnnxInference);
 
-            // Always use our internal fragment-aware method to populate PredictedSpectra.
-            // This must be called before SavePredictedSpectralLibrary because the base class
-            // method cannot parse internal fragment annotations (bIb[start-end]+1).
-            GenerateLibrarySpectraFromPredictions(out var warning);
-
-            // Save to file if requested (base method will skip GenerateLibrary since PredictedSpectra is populated)
+            WarningException? warning;
             if (SpectralLibrarySavePath is not null)
-            {
-                var spectralLibrary = new SpectralLibrary
-                {
-                    Results = PredictedSpectra
-                };
-                spectralLibrary.WriteResults(SpectralLibrarySavePath);
-            }
+                SavePredictedSpectralLibrary(SpectralLibrarySavePath, out warning);
+            else
+                GenerateLibrarySpectraFromPredictions(out warning);
 
             Dispose();
             return warning;
@@ -354,14 +298,6 @@ namespace PredictionClients.LocalModels
         /// </summary>
         private void RunOnnxInference()
         {
-            if (!File.Exists(_onnxModelPath))
-            {
-                throw new FileNotFoundException(
-                    $"ONNX model file not found: {_onnxModelPath}. " +
-                    $"Please ensure '{DefaultModelFileName}' is placed in the Resources or LocalModels folder, " +
-                    $"or provide a valid path via the onnxModelPath constructor parameter.");
-            }
-
             using var session = new InferenceSession(_onnxModelPath);
 
             for (int pepIdx = 0; pepIdx < PeptideSequences.Count; pepIdx++)
@@ -453,7 +389,7 @@ namespace PredictionClients.LocalModels
         /// - Applies MaxInternalIonsPerPeptide limit per peptide
         /// - Normalizes intensities to max = 1.0 within each peptide
         /// </summary>
-        protected new void GenerateLibrarySpectraFromPredictions(out WarningException? warning)
+        protected override void GenerateLibrarySpectraFromPredictions(out WarningException? warning)
         {
             warning = null;
             if (Predictions.Count == 0) return;
