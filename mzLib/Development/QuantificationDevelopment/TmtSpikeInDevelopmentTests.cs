@@ -23,6 +23,7 @@ namespace Development.QuantificationDevelopment;
 /// Integration tests that use the real TMT spike-in data files.
 /// These tests reference local files (TMT_Spike-In_Info/) and should NOT be pushed to CI.
 /// They exist to enable evaluation of normalization/roll-up/collapse strategies.
+/// All the relevant information and files can be found on the Bison at share/Project/TmtQuantificationTestData
 /// </summary>
 [TestFixture]
 [ExcludeFromCodeCoverage]
