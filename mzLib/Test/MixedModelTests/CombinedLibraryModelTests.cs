@@ -35,8 +35,7 @@ namespace Test.MixedModelTests
     {
         private static readonly string OnnxModelPath =
             Environment.GetEnvironmentVariable("INTERNAL_FRAGMENT_ONNX_PATH")
-            ?? Path.Combine(TestContext.CurrentContext.TestDirectory,
-                @"LocalModels\TestData\InternalFragmentScorer_v3_AllProteases.onnx");
+            ?? InternalFragmentIntensityModel.DefaultOnnxModelPath;
 
         // ════════════════════════════════════════════════════════════════════════
         // 1. LibrarySpectrumMerger — pure unit tests (no models, no files)
@@ -290,6 +289,8 @@ namespace Test.MixedModelTests
         [Test, NUnit.Framework.Category("Integration"), NUnit.Framework.Category("RequiresKoina"), NUnit.Framework.Category("RequiresOnnxModel")]
         public static async Task RunAsync_CombinedSpectra_ContainBothPrimaryAndInternalIons()
         {
+            Assume.That(File.Exists(OnnxModelPath), Is.True,
+                $"ONNX model not found at: {OnnxModelPath}");
             var peptides = new List<string> { "PEPTIDEK", "ELVISLIVESK" };
             var charges = new List<int> { 2, 2 };
             var energies = new List<int> { 35, 35 };
@@ -301,6 +302,11 @@ namespace Test.MixedModelTests
 
             var combined = CombinedLibraryModel.WithPrimaryAndInternalFragments(primary, internal_);
             var warning = await combined.RunAsync();
+            _ = (warning?.Message);
+            // Add: verify no component failures occurred
+            if (warning != null)
+                Assert.That(warning.Message, Does.Not.Contain("failed"),
+                    $"A component failed unexpectedly: {warning.Message}");
 
             Assert.That(combined.PredictedSpectra.Count, Is.EqualTo(2));
 
