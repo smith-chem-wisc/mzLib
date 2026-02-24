@@ -14,22 +14,22 @@ public class RnaFragmentationParams : FragmentationParams
         var waterLossFormula = MIonLoss.WaterLoss.ThisChemicalFormula;
 
         // Adenine Base Loss
-        var aLossFormula = Nucleotide.AdenineBase.BaseChemicalFormula - 2 * Nucleotide.AdenineBase.BaseChemicalFormula;
-        var aLoss = new MIonLoss("Adenine Base Loss", "-A", aLossFormula);
+        var aLossFormula =  Nucleotide.AdenineBase.BaseChemicalFormula;
+        var aLoss = new MIonLoss("Adenine Base Loss", "-A", Nucleotide.AdenineBase.BaseChemicalFormula);
         MIonLoss.AllMIonLosses.Add(aLoss.Annotation, aLoss);
 
         // Cytosine Base Loss
-        var cLossFormula = Nucleotide.CytosineBase.BaseChemicalFormula - 2 * Nucleotide.CytosineBase.BaseChemicalFormula;
+        var cLossFormula = Nucleotide.CytosineBase.BaseChemicalFormula;
         var cLoss = new MIonLoss("Cytosine Base Loss", "-C", cLossFormula);
         MIonLoss.AllMIonLosses.Add(cLoss.Annotation, cLoss);
 
         // Guanine Base Loss
-        var gLossFormula = Nucleotide.GuanineBase.BaseChemicalFormula - 2 * Nucleotide.GuanineBase.BaseChemicalFormula;
+        var gLossFormula = Nucleotide.GuanineBase.BaseChemicalFormula;
         var gLoss = new MIonLoss("Guanine Base Loss", "-G", gLossFormula);
         MIonLoss.AllMIonLosses.Add(gLoss.Annotation, gLoss);
 
         // Uracil Base Loss
-        var uLossFormula = Nucleotide.UracilBase.BaseChemicalFormula - 2 * Nucleotide.UracilBase.BaseChemicalFormula;
+        var uLossFormula = Nucleotide.UracilBase.BaseChemicalFormula;
         var uLoss = new MIonLoss("Uracil Base Loss", "-U", uLossFormula);
         MIonLoss.AllMIonLosses.Add(uLoss.Annotation, uLoss);
 

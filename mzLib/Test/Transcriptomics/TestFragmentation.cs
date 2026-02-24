@@ -11,6 +11,7 @@ using Omics.Fragmentation.Oligo;
 using Omics.Modifications;
 using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases;
+using Chemistry;
 
 namespace Test.Transcriptomics
 {
@@ -275,6 +276,35 @@ namespace Test.Transcriptomics
             {
                 Assert.That(mProducts[i].NeutralMass, Is.EqualTo(expectedMasses[i]).Within(0.01));
                 Assert.That(mProducts[i].Annotation, Is.EqualTo(expectedAnnotations[i]));
+            }
+        }
+
+        [Test]
+        public void TestCustomMProducts_Absolute()
+        {
+            var rna = new RNA("GUACUG")
+                .Digest(new RnaDigestionParams(), new List<Modification>(), new List<Modification>())
+                .First() as OligoWithSetMods ?? throw new NullReferenceException();
+            List<Product> products = new();
+
+            // No custom M products
+            rna.Fragment(DissociationType.CID, FragmentationTerminus.Both, products);
+            var mProducts = products.Where(p => p.ProductType == ProductType.M).ToList();
+
+            // With Fragment Params, with custom M Products
+            products.Clear();
+            var fragmentParams = new RnaFragmentationParams();
+            fragmentParams.MIonLosses.Add(MIonLoss.WaterLoss);
+            rna.Fragment(DissociationType.CID, FragmentationTerminus.Both, products, fragmentParams);
+            var mIonsWithLoss = products.Where(p => p.ProductType == ProductType.M).ToList();
+
+            Assert.That(mIonsWithLoss.Count - mProducts.Count, Is.EqualTo(1));
+            var expectedMasses = new[] { rna.MonoisotopicMass, rna.MonoisotopicMass - ChemicalFormula.ParseFormula("H2O").MonoisotopicMass };
+            var expectedAnnotations = new[] { "M", "M-H2O" };
+            for (int i = 0; i < mIonsWithLoss.Count; i++)
+            {
+                Assert.That(mIonsWithLoss[i].NeutralMass, Is.EqualTo(expectedMasses[i]).Within(0.01));
+                Assert.That(mIonsWithLoss[i].Annotation, Is.EqualTo(expectedAnnotations[i]));
             }
         }
 
