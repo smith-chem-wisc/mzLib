@@ -260,20 +260,12 @@ namespace Omics.BioPolymer
                 && protein.AppliedSequenceVariations.Any(x => variantGettingApplied.Intersects(x) && !variantGettingApplied.Includes(x));
 
             IEnumerable<SequenceVariation> appliedVariations = new[] { variantAfterApplication };
-            string seqAfter;
-            if (intersectsAppliedRegionIncompletely)
-            {
-                // Tail from consensus (not the possibly already-mutated BaseSequence)
-                seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.ConsensusVariant.BaseSequence.Substring(afterIdx);
-            }
-            else
-            {
-                // Tail from the current BaseSequence; keep any previously applied variations that are not fully contained by the current edit
-                seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.BaseSequence.Substring(afterIdx);
-                appliedVariations = appliedVariations
-                    .Concat((protein.AppliedSequenceVariations ?? Enumerable.Empty<SequenceVariation>()).Where(x => !variantGettingApplied.Includes(x)))
-                    .ToList();
-            }
+            string seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.BaseSequence.Substring(afterIdx);
+            // Keep previously applied variations not fully overwritten by this edit,
+            // regardless of whether there is a partial overlap with a prior variant.
+            appliedVariations = appliedVariations
+                .Concat((protein.AppliedSequenceVariations ?? Enumerable.Empty<SequenceVariation>()).Where(x => !variantGettingApplied.Includes(x)))
+                .ToList();
 
             // Clip at stop (*) if any
             string variantSequence = (seqBefore + seqVariant + seqAfter).Split('*')[0];

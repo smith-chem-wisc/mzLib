@@ -591,77 +591,119 @@ namespace Test.DatabaseTests
                 proteinsWithAppliedVariants3.Select(p => p.BaseSequence).ToList(),
                 "XML round-trip should preserve variant-applied sequences in the same order");
         }
-        
+
         /// <summary>
-        /// EDGE CASE: Tests rebasing of prior variations when VCF is null.
-        /// Validates the 'else' branch in AdjustSequenceVariationIndices that handles
-        /// variations without VCF data. This prevents null reference exceptions when
-        /// processing mixed variant sources and ensures positions are correctly preserved
-        /// when combining variants with and without VCF metadata.
+        /// Tests two related behaviors in <see cref="VariantApplication"/> when variants overlap:
+        ///
+        /// 1. OVERLAPPING VARIANTS — CORRECT COMBINED SEQUENCE
+        ///    Variants A (PT→PA at positions 4–5) and B (EP→EA at positions 3–4) share
+        ///    position 4, making them partially overlapping. They are applied in descending
+        ///    position order (A first, then B):
+        ///      MPEPTIDE → (PT→PA at 4–5) → MPEPAIDE → (EP→EA at 3–4) → MPEAAIDE
+        ///    The overlap causes <c>intersectsAppliedRegionIncompletely</c> to fire inside
+        ///    <see cref="ApplySingleVariant"/>. The production fix ensures the intermediate
+        ///    tail ("AIDE") is used rather than the consensus tail ("TIDE"), which would
+        ///    incorrectly revert the T→A mutation at position 5 and yield "MPEATIDE".
+        ///
+        /// 2. NULL-VCF PATH IN AdjustSequenceVariationIndices
+        ///    Variant A carries no <see cref="VariantCallFormat"/> data (null VCF). When B
+        ///    is applied on top of A, the rebasing logic in
+        ///    <c>AdjustSequenceVariationIndices</c> must take the null-VCF constructor branch
+        ///    to avoid a null-reference exception. This test verifies that the rebased A is
+        ///    reconstructed without VCF metadata and is still present in
+        ///    <see cref="IHasSequenceVariants.AppliedSequenceVariations"/>.
         /// </summary>
         [Test]
-        public void AdjustSequenceVariationIndices_NullVcf_RebasesPriorVariationNew()
+        public void OverlappingVariants_NullVcf_ProducesCorrectCombinedSequence()
         {
-            // Base protein: MPEPTIDE (positions 1-8)
+            // Base protein: MPEPTIDE  M=1 P=2 E=3 P=4 T=5 I=6 D=7 E=8
             var protein = new Protein("MPEPTIDE", "prot1");
 
-            // Prior variation with VCF = null at position 3 (E->K), non-overlapping
-            VariantCallFormat vcfNull = null;
-            var priorNullVcf = new SequenceVariation(
-                3, 3,
-                originalSequence: "E",
-                variantSequence: "K",
-                description: "NULL_VCF_EtoK",
-                variantCallFormat: vcfNull,
+            // Variant A (null VCF): PT→PA at positions 4–5.
+            // Applied first (higher position). Changes T at position 5 to A.
+            // Single-variant result: MPEPAIDE
+            var variantA = new SequenceVariation(
+                4, 5,
+                originalSequence: "PT",
+                variantSequence: "PA",
+                description: "NULL_VCF_PTtoPA",
+                variantCallFormat: null,
                 oneBasedModifications: null);
 
-            // New variation with a VCF string at position 7 (D->A), non-overlapping
-            string vcfLine = @"1\t50000000\t.\tD\tA\t.\tPASS\tANN=A||||||||||||||||\tGT:AD:DP\t1/1:30,30:30";
-            var newWithVcf = new SequenceVariation(
-                7, 7,
-                originalSequence: "D",
-                variantSequence: "A",
-                description: "D7A",
+            // Variant B (VCF-bearing): EP→EA at positions 3–4.
+            // Applied second (lower position). Changes P at position 4 to A.
+            // Single-variant result: MPEATIDE
+            // Combined result (with fix): MPEAAIDE
+            string vcfLine = @"1\t50000000\t.\tEP\tEA\t.\tPASS\tANN=A||||||||||||||||\tGT:AD:DP\t1/1:30,30:30";
+            var variantB = new SequenceVariation(
+                3, 4,
+                originalSequence: "EP",
+                variantSequence: "EA",
+                description: "EP34EA",
                 variantCallFormatStringRepresentation: vcfLine,
                 oneBasedModifications: null);
 
-            var variations = new List<SequenceVariation> { priorNullVcf, newWithVcf };
+            var variations = new List<SequenceVariation> { variantA, variantB };
             var variants = VariantApplication.ApplyAllVariantCombinations(protein, variations, maxCombinations: 10).ToList();
 
-            // Debug: Print what we got
-            TestContext.WriteLine($"Produced {variants.Count} variant(s):");
-            foreach (var v in variants)
-            {
-                TestContext.WriteLine($"  Seq: {v.BaseSequence}");
-                foreach (var sv in v.AppliedSequenceVariations)
-                {
-                    TestContext.WriteLine($"    Applied: {sv.SimpleString()}, Desc: {sv.Description}, Orig: {sv.OriginalSequence}, Var: {sv.VariantSequence}");
-                }
-            }
+            // Expect 4 results: base + A-only + B-only + both
+            Assert.That(variants.Count, Is.EqualTo(4), "Expected base + 2 single-variant + 1 combined");
 
-            // Expected: MPKPTIAE (E3K + D7A)
-            var both = variants.FirstOrDefault(v => v.BaseSequence == "MPKPTIAE");
-            Assert.IsNotNull(both, "Variant with both edits (MPKPTIAE) was not produced");
+            // [0] Base: no variants applied
+            Assert.That(variants[0].BaseSequence, Is.EqualTo("MPEPTIDE"), "Base sequence must be unchanged");
+            Assert.That(variants[0].AppliedSequenceVariations.Count, Is.EqualTo(0));
 
-            Assert.That(both.AppliedSequenceVariations.Count, Is.EqualTo(2));
+            // [1] A-only: PT→PA at 4–5 → position 5 changes T→A
+            Assert.That(variants[1].BaseSequence, Is.EqualTo("MPEPAIDE"), "PT→PA only: T at pos 5 becomes A");
+            Assert.That(variants[1].AppliedSequenceVariations.Count, Is.EqualTo(1));
+            Assert.That(variants[1].AppliedSequenceVariations.Single().OriginalSequence, Is.EqualTo("PT"));
+            Assert.That(variants[1].AppliedSequenceVariations.Single().VariantSequence, Is.EqualTo("PA"));
 
-            // Find the null-VCF variation by its original/variant sequences
-            var rebased = both.AppliedSequenceVariations.FirstOrDefault(sv =>
-                sv.OriginalSequence == "E" && sv.VariantSequence == "K");
-            Assert.IsNotNull(rebased, "Re-based prior (null-VCF) variation not found");
-            Assert.Multiple(() =>
-            {
-                // After fix: Position 3 should remain at position 3 (no longer off-by-one)
-                Assert.That(rebased.OneBasedBeginPosition, Is.EqualTo(3), "E3K should remain at position 3");
-                Assert.That(rebased.OneBasedEndPosition, Is.EqualTo(3), "E3K should remain at position 3");
-                Assert.That(rebased.OriginalSequence, Is.EqualTo("E"));
-                Assert.That(rebased.VariantSequence, Is.EqualTo("K"));
-            });
+            // [2] B-only: EP→EA at 3–4 → position 4 changes P→A, tail from original MPEPTIDE
+            Assert.That(variants[2].BaseSequence, Is.EqualTo("MPEATIDE"), "EP→EA only: P at pos 4 becomes A");
+            Assert.That(variants[2].AppliedSequenceVariations.Count, Is.EqualTo(1));
+            Assert.That(variants[2].AppliedSequenceVariations.Single().OriginalSequence, Is.EqualTo("EP"));
+            Assert.That(variants[2].AppliedSequenceVariations.Single().VariantSequence, Is.EqualTo("EA"));
 
-            // Find the VCF-bearing variation by its original/variant sequences
+            // [3] Both: A then B applied to MPEPTIDE
+            //   Step 1: MPEPTIDE + PT→PA(4-5) → MPEPAIDE   (T at pos 5 becomes A)
+            //   Step 2: MPEPAIDE + EP→EA(3-4) → MPEAAIDE   (P at pos 4 becomes A; tail "AIDE" preserved)
+            //
+            // The overlap at position 4 triggers intersectsAppliedRegionIncompletely = true.
+            // The production fix uses protein.BaseSequence.Substring(afterIdx) = "AIDE"
+            // rather than the buggy protein.ConsensusVariant.BaseSequence.Substring(afterIdx) = "TIDE",
+            // which would incorrectly revert the T→A from variant A, producing "MPEATIDE".
+            var both = variants[3];
+            Assert.That(both.BaseSequence, Is.EqualTo("MPEAAIDE"),
+                "Combined: PT→PA mutates pos 5 (T→A) and EP→EA mutates pos 4 (P→A); both changes must survive.");
+
+            // Both applied variations must be tracked
+            Assert.That(both.AppliedSequenceVariations.Count, Is.EqualTo(2),
+                "Combined variant must carry both applied variations");
+
+            // Variant B (EP→EA) — VCF-bearing, applied as the outer edit
             var vcfVariation = both.AppliedSequenceVariations.FirstOrDefault(sv =>
-                sv.OriginalSequence == "D" && sv.VariantSequence == "A");
-            Assert.IsNotNull(vcfVariation, "VCF-bearing variation (D->A) not found");
+                sv.OriginalSequence == "EP" && sv.VariantSequence == "EA");
+            Assert.That(vcfVariation, Is.Not.Null, "VCF-bearing EP→EA variation must be present");
+            Assert.That(vcfVariation.OneBasedBeginPosition, Is.EqualTo(3));
+            Assert.That(vcfVariation.OneBasedEndPosition, Is.EqualTo(4));
+            Assert.That(vcfVariation.VariantCallFormatDataString, Is.Not.Null, "EP→EA must retain its VCF data");
+
+            // Variant A (PT→PA) — null VCF, rebased after the overlap with B.
+            // Its rebasing exercises the null-VCF constructor branch inside AdjustSequenceVariationIndices
+            // (the else-branch that builds a new SequenceVariation without VCF metadata, using the
+            // description-only constructor which always creates a VariantCallFormat — but with IsTruncated=true
+            // because the description is not a real tab-delimited VCF line).
+            var nullVcfVariation = both.AppliedSequenceVariations.FirstOrDefault(sv =>
+                sv.OriginalSequence == "PT" && sv.VariantSequence == "PA");
+            Assert.That(nullVcfVariation, Is.Not.Null,
+                "Null-VCF PT→PA variation must be present; its rebasing exercises the null-VCF constructor path in AdjustSequenceVariationIndices");
+            Assert.That(nullVcfVariation.VariantCallFormatDataString.IsTruncated, Is.True,
+                "Rebased PT→PA was created from description only (not a real VCF line); IsTruncated must be true");
+            Assert.That(nullVcfVariation.VariantCallFormatDataString.ReferenceAlleleString, Is.Null,
+                "Rebased PT→PA has no parsed VCF fields; ReferenceAlleleString must be null");
+            Assert.That(nullVcfVariation.Description, Is.EqualTo("NULL_VCF_PTtoPA"),
+                "Description must be preserved through the null-VCF rebasing path");
         }
         /// <summary>
         /// EDGE CASE: Tests the 'continue' branch when a variant's rebased position
