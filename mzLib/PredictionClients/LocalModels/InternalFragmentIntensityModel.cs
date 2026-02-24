@@ -116,7 +116,7 @@ namespace PredictionClients.LocalModels
 
         #endregion
 
-        #region Amino Acid Data
+        #region Amino Acid Data 
 
         private static readonly Dictionary<char, double> AaMass = new()
         {
