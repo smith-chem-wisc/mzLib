@@ -23,9 +23,9 @@ namespace PredictionClients.Koina.AbstractClasses
     public record PeptideFragmentIntensityPrediction(
         string FullSequence,
         int PrecursorCharge,
-        List<string> FragmentAnnotations,
-        List<double> FragmentMZs,
-        List<double> FragmentIntensities,
+        List<string>? FragmentAnnotations,
+        List<double>? FragmentMZs,
+        List<double>? FragmentIntensities,
         WarningException? Warning = null
     );
 
@@ -50,7 +50,8 @@ namespace PredictionClients.Koina.AbstractClasses
     )
     {
         public string? ValidatedFullSequence { get; set; }
-        public WarningException? Warning { get; set; }
+        public WarningException? SequenceWarning { get; set; }
+        public WarningException? ParameterWarning { get; set; }
     }
 
     /// <summary>
@@ -140,22 +141,17 @@ namespace PredictionClients.Koina.AbstractClasses
             var validInputs = new List<FragmentIntensityPredictionInput>();
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                WarningException? warning = null;
-                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var modHandlingWarning);
+                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var modHandlingWarning); // mod handling happens here
                 var validModelParams = ValidateModelSpecificInputs(ModelInputs[i], out var modelParametersWarning);
-                warning = validModelParams ? modHandlingWarning : modelParametersWarning; // If the model parameters are invalid, we prioritize that warning. If the parameters are valid but there was a modification warning, we return that warning instead.
-                if (cleanedSequence != null &&
-                    HasValidModifications(cleanedSequence) &&
-                    IsValidBaseSequence(cleanedSequence) &&
-                    validModelParams)
+                if (cleanedSequence != null && validModelParams)
                 {
-                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = cleanedSequence, Warning = warning };
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = cleanedSequence, SequenceWarning = modHandlingWarning, ParameterWarning = modelParametersWarning };
                     ValidInputsMask[i] = true;
                     validInputs.Add(ModelInputs[i]);
                 }
                 else
                 {
-                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = null, Warning = warning};
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = null, SequenceWarning = modHandlingWarning, ParameterWarning = modelParametersWarning };
                     ValidInputsMask[i] = false;
                 }
             }
@@ -202,10 +198,10 @@ namespace PredictionClients.Koina.AbstractClasses
                     realignedPredictions.Add(new PeptideFragmentIntensityPrediction(
                         FullSequence: ModelInputs[i].FullSequence,
                         PrecursorCharge: ModelInputs[i].PrecursorCharge,
-                        FragmentAnnotations: new List<string>(),
-                        FragmentMZs: new List<double>(),
-                        FragmentIntensities: new List<double>(),
-                        Warning: ModelInputs[i].Warning ?? new WarningException("Input was invalid and skipped during prediction.")
+                        FragmentAnnotations: null,
+                        FragmentMZs: null,
+                        FragmentIntensities: null,
+                        Warning: ModelInputs[i].ParameterWarning ?? ModelInputs[i].SequenceWarning ?? new WarningException("Input was invalid and skipped during prediction.")
                     ));
                 }
             }
@@ -279,7 +275,8 @@ namespace PredictionClients.Koina.AbstractClasses
                         fragmentIons,
                         fragmentMZs,
                         predictedIntensities
-                    ));
+                    ) with
+                    { Warning = batchPeptides[i].SequenceWarning });
                 }
             }
             return predictions;
@@ -352,7 +349,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// 5. Validates uniqueness of generated spectra by name
         /// </remarks>
         /// <exception cref="WarningException">Recorded in the out parameter when duplicate spectra are detected in predictions</exception>
-        protected List<LibrarySpectrum> GenerateLibrarySpectraFromPredictions(double[] alignedRetentionTimes, out WarningException? warning, string? filepath=null, double MinIntensityFilter=1e-4)
+        public List<LibrarySpectrum> GenerateLibrarySpectraFromPredictions(double[] alignedRetentionTimes, out WarningException? warning, string? filepath=null, double minIntensityFilter=1e-4)
         {
             warning = null;
             if (Predictions.Count == 0)
@@ -379,7 +376,7 @@ namespace PredictionClients.Koina.AbstractClasses
                 List<MatchedFragmentIon> fragmentIons = new();
                 for (int fragmentIndex = 0; fragmentIndex < prediction.FragmentAnnotations.Count; fragmentIndex++)
                 {
-                    if ((int)prediction.FragmentIntensities[fragmentIndex] == -1 || prediction.FragmentIntensities[fragmentIndex] < MinIntensityFilter)
+                    if ((int)prediction.FragmentIntensities[fragmentIndex] == -1 || prediction.FragmentIntensities[fragmentIndex] < minIntensityFilter)
                     {
                         // Skip impossible ions and peaks with near zero intensity. The model uses -1 to indicate impossible ions.
                         continue;

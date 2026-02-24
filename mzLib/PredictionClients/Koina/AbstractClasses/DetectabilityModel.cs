@@ -19,7 +19,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
         (double NotDetectable,
          double LowDetectability,
          double IntermediateDetectability,
-         double HighDetectability) DetectabilityProbabilities,
+         double HighDetectability)? DetectabilityProbabilities,
         WarningException? Warning = null
     );
 
@@ -33,7 +33,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
     )
     {
         public string? ValidatedFullSequence { get; set; }
-        public WarningException? Warning { get; set; }
+        public WarningException? SequenceWarning { get; set; }
     }
 
     /// <summary>
@@ -118,19 +118,16 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
             {
                 WarningException? warning = null;
                 var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var modHandlingWarning);
-                warning = modHandlingWarning;
 
-                if (cleanedSequence != null &&
-                    HasValidModifications(cleanedSequence) &&
-                    IsValidBaseSequence(cleanedSequence))
+                if (cleanedSequence != null)
                 {
-                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = cleanedSequence, Warning = warning };
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = cleanedSequence, SequenceWarning = modHandlingWarning };
                     ValidInputsMask[i] = true;
                     validInputs.Add(ModelInputs[i]);
                 }
                 else
                 {
-                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = null, Warning = warning };
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = null, SequenceWarning = modHandlingWarning };
                     ValidInputsMask[i] = false;
                 }
             }
@@ -179,8 +176,8 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
                     // For invalid inputs, add a placeholder prediction with a warning
                     realignedPredictions.Add(new PeptideDetectabilityPrediction(
                         FullSequence: ModelInputs[i].FullSequence,
-                        DetectabilityProbabilities: (0.0, 0.0, 0.0, 0.0),
-                        Warning: ModelInputs[i].Warning ?? new WarningException("Input was invalid and skipped during prediction.")
+                        DetectabilityProbabilities: null,
+                        Warning: ModelInputs[i].SequenceWarning ?? new WarningException("Input was invalid and skipped during prediction.")
                     ));
                 }
             }
@@ -254,7 +251,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
                         IntermediateDetectability: peptideFlyabilityClassProbs[2],
                         HighDetectability: peptideFlyabilityClassProbs[3]
                     ),
-                    Warning: requestInputs[i].Warning
+                    Warning: requestInputs[i].SequenceWarning
                 ));
             }
 

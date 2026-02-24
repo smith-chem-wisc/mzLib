@@ -78,6 +78,12 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         protected virtual string? TryCleanSequence(string sequence, out WarningException? warning)
         {
+            if (!IsValidBaseSequence(sequence))
+            {
+                warning = new WarningException("Invalid valid base sequence. Omitted mod handling.");
+                return null;
+            }
+
             switch (ModHandlingMode)
             {
                 case IncompatibleModHandlingMode.RemoveIncompatibleMods:
