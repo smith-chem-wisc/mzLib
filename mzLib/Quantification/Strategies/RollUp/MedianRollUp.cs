@@ -47,7 +47,7 @@ namespace Quantification.Strategies
                 }
 
                 rolledUpMatrix.SetRow(highKey, medianValues);
-                ArrayPool.Return(medianValues);
+                ArrayPool.Return(medianValues, clearArray: true);
             }
 
             return rolledUpMatrix;

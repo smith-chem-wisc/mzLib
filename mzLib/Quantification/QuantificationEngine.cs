@@ -8,10 +8,9 @@ namespace Quantification;
 
 /// <summary>
 /// A quantification engine that performs the following main (numbered) and ancillary steps:
-/// * Pivot: Covert the raw info (long, one row for every PSM) to a wide QuantMatrix 
-/// * Writes raw information snapshot (if enabled)
-/// 1) Normalize the SpectralMatch Matrix
-/// 2) Roll up to peptides
+/// 1) Creates one SpectralMatchMatrix per file
+///     1a) Normalize the SpectralMatch Matrix for each file
+/// 2) Roll up to peptides for each file
 ///     2a) Map the PSMs to peptides, creating a Dictionary<IBioPolymerWithSetMods, List<int>> Map mapping peptides to the indices of their PSMs in the QuantMatrix
 ///     2b) Roll-up. The roll-up strategy will take in a QuantMatrix of PSMs and the > map, and output a Peptide QuantMatrix
 /// 3) Normalize the peptide matrix
@@ -129,28 +128,27 @@ public class QuantificationEngine
         // 4) Combine per-file peptide matrices
         var combinedPeptideMatrix = CombinePeptideMatrices(perFilePeptideMatrices, ExperimentalDesign);
 
-
-        // 3) Normalize peptide matrix 
+        // 5) Normalize peptide matrix 
         var peptideMatrixNorm = Parameters.PeptideNormalizationStrategy.NormalizeIntensities(combinedPeptideMatrix);
 
-        // 4) Collapse the peptide matrix to combine fractions and technical replicates
+        // 6) Collapse the peptide matrix to combine fractions and technical replicates
         peptideMatrixNorm = Parameters.CollapseStrategy.CollapseSamples(peptideMatrixNorm);
 
         // Write peptide results (If enabled)
         if(Parameters.WritePeptideInformation) // TODO: Make this happen asynchronously
             QuantificationWriter.WritePeptideMatrix(peptideMatrixNorm, Parameters.OutputDirectory);
 
-        // 5) Roll up to protein groups
+        // 7) Roll up to protein groups
         var proteinMap = Parameters.UseSharedPeptidesForProteinQuant ?
             GetAllPeptideToProteinMap(peptideMatrixNorm) :
             GetUniquePeptideToProteinMap(peptideMatrixNorm, BioPolymerGroups);
         var proteinMatrix = Parameters.PeptideToProteinRollUpStrategy
             .RollUp(peptideMatrixNorm, proteinMap);
 
-        // 6) Normalize protein group matrix
+        // 8) Normalize protein group matrix
         var proteinMatrixNorm = Parameters.ProteinNormalizationStrategy.NormalizeIntensities(proteinMatrix);
 
-        // 8) Write protein results (If enabled)
+        // 9) Write protein results (If enabled)
         if(Parameters.WriteProteinInformation)
             QuantificationWriter.WriteProteinGroupMatrix(proteinMatrixNorm, Parameters.OutputDirectory);
 
@@ -345,9 +343,10 @@ public class QuantificationEngine
     }
 
     /// <summary>
-    /// Creates one SpectralMatchMatrix per file for TMT/isobaric data.
+    /// Creates one SpectralMatchMatrix per file.
     /// Each matrix has rows = PSMs from that file, columns = channels within that file.
     /// This produces dense matrices (no sparse zeros) suitable for within-file normalization.
+    /// For LFQ, each matrix will only have one column
     /// </summary>
     /// <param name="spectralMatches">All spectral matches across all files</param>
     /// <param name="experimentalDesign">Maps file names to channel ISampleInfo arrays</param>
