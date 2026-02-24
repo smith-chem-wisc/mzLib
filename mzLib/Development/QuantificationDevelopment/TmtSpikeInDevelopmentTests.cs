@@ -328,7 +328,7 @@ public class TmtSpikeInDevelopmentTests
         }
     }
 
-    [Test]
+    [Test, Explicit("Processes large HeLa psmtsv file (~1.35M lines); run explicitly to evaluate background protein stability.")]
     public void ProteinOverlap_HelaVsUPS()
     {
         string dataDir = Path.Combine(GetSolutionDir(), "TMT_Spike-In_Info");

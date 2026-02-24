@@ -188,57 +188,6 @@ public class QuantificationEngine
     }
 
     /// <summary>
-    /// Creates a pivoted matrix of quantified spectral matches, organizing intensity values according to the specified
-    /// experimental design.
-    /// </summary>
-    /// <remarks>Only spectral matches with non-null quantification values are included in the resulting
-    /// matrix. The order of samples and the mapping of files to matrix columns are determined by the experimental
-    /// design. This method is typically used to prepare data for downstream quantitative analysis.</remarks>
-    /// <param name="spectralMatches">A list of spectral matches to be included in the matrix. Each match must
-    /// have quantification values for inclusion.</param>
-    /// <param name="experimentalDesign">The experimental design that defines how samples and files are mapped to matrix columns.</param>
-    /// <returns>A SpectralMatchMatrix containing the quantified intensity values for each spectral match,
-    /// arranged according to the experimental design.</returns>
-    /// <exception cref="KeyNotFoundException">Thrown if a spectral match references a file path that is not present in the experimental design mapping.</exception>
-    public static SpectralMatchMatrix Pivot(List<ISpectralMatch> spectralMatches, IExperimentalDesign experimentalDesign)
-    {
-        var sampleInfos = GetOrderedSampleInfos(experimentalDesign, spectralMatches, out var filePathToArrayPositionDict);
-
-        var quantifiedMatches = spectralMatches
-            .Where(sm => sm.Intensities != null)
-            .OrderBy(sm => sm.FullSequence)
-            .ToList();
-        SpectralMatchMatrix smMatrix = new SpectralMatchMatrix(quantifiedMatches, sampleInfos, experimentalDesign);
-
-        // create empty array to store intensities as they are summed, before they're copied to the matrix
-        double[] intensities = new double[sampleInfos.Count];
-
-        // Create a matrix where ever spectral match has its own row. 
-        foreach (var spectralMatch in quantifiedMatches)
-        {
-            Array.Clear(intensities, 0, intensities.Length); // I'm pretty sure that values are copied when writing to the matrix,
-                                                             // so this is fine. If it doesn't work, we can create a new array each time instead.
-
-            // Each file is associated with one column (for LFQ) or multiple columns (for TMT) in the matrix
-            // The arrayPositions dict enables mapping between file paths and their corresponding array positions in the matrix
-            if (!filePathToArrayPositionDict.TryGetValue(spectralMatch.FullFilePath, out var arrayPositions))
-            {
-                throw new KeyNotFoundException($"File path '{spectralMatch.FullFilePath}' not found in file path to array position dictionary. This could indicate a problem with the ExperimentalDesign file");
-            }
-
-            // Copy the quant values to the appropriate position in the summedIntensities array
-            for (var i = 0; i < arrayPositions.Count; i++)
-            {
-                 var arrayPosition = arrayPositions[i];
-                 intensities[arrayPosition] = spectralMatch.Intensities[i];
-            }
-            // Copy the summed intensities to the matrix
-            smMatrix.SetRow(spectralMatch, intensities);
-        }
-        return smMatrix;
-    }
-
-    /// <summary>
     /// Creates one SpectralMatchMatrix per file.
     /// Each matrix has rows = PSMs from that file, columns = channels within that file.
     /// This produces dense matrices (no sparse zeros) suitable for within-file normalization.
@@ -348,45 +297,6 @@ public class QuantificationEngine
         }
 
         return combined;
-    }
-
-    /// <summary>
-    /// Orders first by file name (alphabetically), then by sample info for each file
-    /// </summary>
-    /// <param name="experimentalDesign"></param>
-    /// <param name="spectralMatches"></param>
-    /// <param name="filePathToArrayPositionDict"> Dictionary mapping file paths to their corresponding zero-indexed array positions in the ordered sample list </param>
-    /// <returns>A list of ISampleInfo objects. This list can be used designate columns in a QuantMatrix object </returns>
-    public static List<ISampleInfo> GetOrderedSampleInfos(IExperimentalDesign experimentalDesign, List<ISpectralMatch> spectralMatches,
-        out Dictionary<string, List<int>> filePathToArrayPositionDict)
-    {
-        // Start by ordering the file paths alphabetically        
-        var filePaths = spectralMatches
-            .Select(sm => sm.FullFilePath)
-            .Distinct()
-            .OrderBy(fp => fp)
-            .ToList();
-
-        List<ISampleInfo> orderedSamples = new();
-        filePathToArrayPositionDict = new Dictionary<string, List<int>>();
-        int zeroIndexedArrayPosition = 0;
-        foreach (var filePath in filePaths)
-        {
-            var fileName = Path.GetFileName(filePath);
-            filePathToArrayPositionDict[filePath] = new List<int>();
-            if (experimentalDesign.FileNameSampleInfoDictionary.TryGetValue(fileName, out var sampleInfos))
-            {
-                orderedSamples.AddRange(sampleInfos);
-                filePathToArrayPositionDict[filePath].AddRange(Enumerable.Range(zeroIndexedArrayPosition, sampleInfos.Length));
-                zeroIndexedArrayPosition += sampleInfos.Length;
-            }
-            else
-            {
-                throw new KeyNotFoundException($"File name '{fileName}' not found in experimental design.");
-            }
-        }
-
-        return orderedSamples;
     }
 
     /// <summary>

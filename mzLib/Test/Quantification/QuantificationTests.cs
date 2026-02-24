@@ -225,12 +225,16 @@ namespace Test.Quantification
 
             var spectralMatches = new List<ISpectralMatch> { sm1, sm2, sm3, sm4, sm5, sm6, sm7, sm8 };
 
-            // Execute
+            // Execute - use per-file pipeline: PivotByFile → per-file roll-up → combine
             var rollUp = new SumRollUp();
-            var smMatrix = QuantificationEngine.Pivot(spectralMatches, expDesign);
-            var map = QuantificationEngine.GetPsmToPeptideMap(smMatrix, peptides);
-
-            var result = rollUp.RollUp(smMatrix, map);
+            var perFileMatrices = QuantificationEngine.PivotByFile(spectralMatches, expDesign);
+            var perFilePeptideMatrices = new Dictionary<string, QuantMatrix<IBioPolymerWithSetMods>>();
+            foreach (var kvp in perFileMatrices)
+            {
+                var map = QuantificationEngine.GetPsmToPeptideMap(kvp.Value, peptides);
+                perFilePeptideMatrices[kvp.Key] = rollUp.RollUp(kvp.Value, map);
+            }
+            var result = QuantificationEngine.CombinePeptideMatrices(perFilePeptideMatrices, expDesign);
 
             // Assert that the SampleInfoArray was assembled correctly
             Assert.That(result.ColumnKeys.Count, Is.EqualTo(6)); // 2 files x 3 channels each = 6 columns
@@ -309,21 +313,25 @@ namespace Test.Quantification
 
             // Verify the engine processed the data through all steps
             // by checking that we can access the pivot functionality
-            var smMatrix = QuantificationEngine.Pivot(spectralMatches, experimentalDesign);
-            Assert.That(smMatrix, Is.Not.Null);
-            Assert.That(smMatrix.RowKeys.Count, Is.GreaterThan(0));
-            Assert.That(smMatrix.ColumnKeys.Count, Is.EqualTo(numFiles * numChannels));
-
-            // Verify PSM to peptide mapping works
-            var peptideMap = QuantificationEngine.GetPsmToPeptideMap(smMatrix, peptides.ToList());
-            Assert.That(peptideMap, Is.Not.Null);
-            Assert.That(peptideMap.Keys.Count, Is.EqualTo(peptides.Count));
-
-            // Verify each peptide has associated PSMs
-            foreach (var peptide in peptides)
+            var perFileMatrices = QuantificationEngine.PivotByFile(spectralMatches, experimentalDesign);
+            Assert.That(perFileMatrices, Is.Not.Null);
+            Assert.That(perFileMatrices.Count, Is.EqualTo(numFiles));
+            foreach (var kvp in perFileMatrices)
             {
-                Assert.That(peptideMap.ContainsKey(peptide), Is.True);
-                Assert.That(peptideMap[peptide].Count, Is.GreaterThan(0));
+                Assert.That(kvp.Value.RowKeys.Count, Is.GreaterThan(0));
+                Assert.That(kvp.Value.ColumnKeys.Count, Is.EqualTo(numChannels));
+
+                // Verify PSM to peptide mapping works for each file
+                var peptideMap = QuantificationEngine.GetPsmToPeptideMap(kvp.Value, peptides.ToList());
+                Assert.That(peptideMap, Is.Not.Null);
+                Assert.That(peptideMap.Keys.Count, Is.EqualTo(peptides.Count));
+
+                // Verify each peptide has associated PSMs
+                foreach (var peptide in peptides)
+                {
+                    Assert.That(peptideMap.ContainsKey(peptide), Is.True);
+                    Assert.That(peptideMap[peptide].Count, Is.GreaterThan(0));
+                }
             }
         }
 
@@ -433,17 +441,23 @@ namespace Test.Quantification
             Assert.That(result.Summary, Is.EqualTo("Quantification completed successfully."));
 
             // Verify the pivot operation produced the correct dimensions
-            var smMatrix = QuantificationEngine.Pivot(spectralMatches, experimentalDesign);
-            Assert.That(smMatrix.ColumnKeys.Count, Is.EqualTo(numFiles * numChannels));
-            Assert.That(smMatrix.RowKeys.Count, Is.GreaterThan(0));
+            var perFileMatrices = QuantificationEngine.PivotByFile(spectralMatches, experimentalDesign);
+            Assert.That(perFileMatrices.Count, Is.EqualTo(numFiles));
+            foreach (var kvp in perFileMatrices)
+            {
+                Assert.That(kvp.Value.ColumnKeys.Count, Is.EqualTo(numChannels));
+                Assert.That(kvp.Value.RowKeys.Count, Is.GreaterThan(0));
+            }
 
-            // Verify peptide mapping captured all peptides
-            var peptideMap = QuantificationEngine.GetPsmToPeptideMap(smMatrix, allPeptides);
-            Assert.That(peptideMap.Keys.Count, Is.EqualTo(allPeptides.Distinct().Count()));
-
-            // Verify protein mapping works
+            // Verify peptide mapping and roll-up via per-file pipeline
             var rollUpStrategy = new SumRollUp();
-            var peptideMatrix = rollUpStrategy.RollUp(smMatrix, peptideMap);
+            var perFilePeptideMatrices = new Dictionary<string, QuantMatrix<IBioPolymerWithSetMods>>();
+            foreach (var kvp in perFileMatrices)
+            {
+                var peptideMap = QuantificationEngine.GetPsmToPeptideMap(kvp.Value, allPeptides);
+                perFilePeptideMatrices[kvp.Key] = rollUpStrategy.RollUp(kvp.Value, peptideMap);
+            }
+            var peptideMatrix = QuantificationEngine.CombinePeptideMatrices(perFilePeptideMatrices, experimentalDesign);
             Assert.That(peptideMatrix, Is.Not.Null);
             Assert.That(peptideMatrix.RowKeys.Count, Is.GreaterThan(0));
 
