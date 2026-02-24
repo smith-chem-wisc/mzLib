@@ -106,19 +106,32 @@ public class QuantificationEngine
             });
         }
 
-        // Create a matrix from the spectral matches by converting from long format (one row per PSM) to wide format (QuantMatrix)
-        var psmMatrix = Pivot(SpectralMatches, ExperimentalDesign);
+        // 1) PivotByFile - one matrix per file
+        var perFileMatrices = PivotByFile(SpectralMatches, ExperimentalDesign);
 
-        // 1) Normalize PSM matrix
-        var psmMatrixNorm = Parameters.SpectralMatchNormalizationStrategy.NormalizeIntensities(psmMatrix);
+        // 2) Per-file PSM normalization
+        var perFileNormalized = new Dictionary<string, QuantMatrix<ISpectralMatch>>();
+        foreach (var kvp in perFileMatrices)
+        {
+            perFileNormalized[kvp.Key] = Parameters.SpectralMatchNormalizationStrategy
+                .NormalizeIntensities(kvp.Value);
+        }
 
-        // 2) Roll up to peptides
-        var peptideMap = GetPsmToPeptideMap(psmMatrixNorm, ModifiedBioPolymers);
-        var peptideMatrix = Parameters.SpectralMatchToPeptideRollUpStrategy
-            .RollUp(psmMatrixNorm, peptideMap);
+        // 3) Per-file roll-up to peptides
+        var perFilePeptideMatrices = new Dictionary<string, QuantMatrix<IBioPolymerWithSetMods>>();
+        foreach (var kvp in perFileNormalized)
+        {
+            var peptideMap = GetPsmToPeptideMap(kvp.Value, ModifiedBioPolymers);
+            perFilePeptideMatrices[kvp.Key] = Parameters.SpectralMatchToPeptideRollUpStrategy
+                .RollUp(kvp.Value, peptideMap);
+        }
+
+        // 4) Combine per-file peptide matrices
+        var combinedPeptideMatrix = CombinePeptideMatrices(perFilePeptideMatrices, ExperimentalDesign);
+
 
         // 3) Normalize peptide matrix 
-        var peptideMatrixNorm = Parameters.PeptideNormalizationStrategy.NormalizeIntensities(peptideMatrix);
+        var peptideMatrixNorm = Parameters.PeptideNormalizationStrategy.NormalizeIntensities(combinedPeptideMatrix);
 
         // 4) Collapse the peptide matrix to combine fractions and technical replicates
         peptideMatrixNorm = Parameters.CollapseStrategy.CollapseSamples(peptideMatrixNorm);

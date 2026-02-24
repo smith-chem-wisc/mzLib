@@ -115,10 +115,10 @@ namespace Test.Quantification
 
                         var match = new MockSpectralMatch(
                             fileName,
-                            scanNumber++,
-                            100.0 - matchNum * 5,
                             peptide.FullSequence,
                             peptide.BaseSequence,
+                            100.0 - matchNum * 5,
+                            scanNumber++,
                             new[] { peptide })
                         {
                             Intensities = quantValues
@@ -183,42 +183,42 @@ namespace Test.Quantification
             // Create 8 spectral matches:
             // - 4 for peptide1 (two from each file)
             // - 4 for peptide2 (two from each file)
-            var sm1 = new MockSpectralMatch(file1, 1, 100.0, sampler.FullSequence, sampler.BaseSequence, new[] { sampler }) // SAMPLER - File 1
+            var sm1 = new MockSpectralMatch(file1, sampler.FullSequence, sampler.BaseSequence, 100.0, 1, new[] { sampler }) // SAMPLER - File 1
             {
                 Intensities = new double[] { 1000.0, 2000.0, 3000.0 } // file1 channels
             };
 
-            var sm2 = new MockSpectralMatch(file2, 1, 95.0, sampler.FullSequence, sampler.BaseSequence, new[] { sampler }) // SAMPLER - File 2
+            var sm2 = new MockSpectralMatch(file2, sampler.FullSequence, sampler.BaseSequence, 95.0, 1, new[] { sampler }) // SAMPLER - File 2
             {
                 Intensities = new double[] { 1500.0, 2500.0, 3500.0 } // file2 channels
             };
 
-            var sm3 = new MockSpectralMatch(file1, 2, 90.0, peptidek.FullSequence, peptidek.BaseSequence, new[] { peptidek }) //PEPTIDEK - File 1
+            var sm3 = new MockSpectralMatch(file1, peptidek.FullSequence, peptidek.BaseSequence, 90.0, 2, new[] { peptidek }) //PEPTIDEK - File 1
             {
                 Intensities = new double[] { 500.0, 1000.0, 1500.0 } // file1 channels
             };
 
-            var sm4 = new MockSpectralMatch(file2, 2, 85.0, peptidek.FullSequence, peptidek.BaseSequence, new[] { peptidek }) //PEPTIDEK - File 2
+            var sm4 = new MockSpectralMatch(file2, peptidek.FullSequence, peptidek.BaseSequence, 85.0, 2, new[] { peptidek }) //PEPTIDEK - File 2
             {
                 Intensities = new double[] { 750.0, 1250.0, 1750.0 } // file2 channels
             };
 
-            var sm5 = new MockSpectralMatch(file1, 3, 100.0, sampler.FullSequence, sampler.BaseSequence, new[] { sampler }) // SAMPLER - File 1
+            var sm5 = new MockSpectralMatch(file1, sampler.FullSequence, sampler.BaseSequence, 100.0, 3, new[] { sampler }) // SAMPLER - File 1
             {
                 Intensities = new double[] { 1000.0, 2000.0, 3000.0 } // file1 channels
             };
 
-            var sm6 = new MockSpectralMatch(file2, 3, 95.0, sampler.FullSequence, sampler.BaseSequence, new[] { sampler }) // SAMPLER - File 2
+            var sm6 = new MockSpectralMatch(file2, sampler.FullSequence, sampler.BaseSequence, 95.0, 3, new[] { sampler }) // SAMPLER - File 2
             {
                 Intensities = new double[] { 1500.0, 2500.0, 3500.0 } // file2 channels
             };
 
-            var sm7 = new MockSpectralMatch(file1, 4, 90.0, peptidek.FullSequence, peptidek.BaseSequence, new[] { peptidek }) //PEPTIDEK - File 1
+            var sm7 = new MockSpectralMatch(file1, peptidek.FullSequence, peptidek.BaseSequence, 90.0, 4, new[] { peptidek }) //PEPTIDEK - File 1
             {
                 Intensities = new double[] { 500.0, 1000.0, 1500.0 } // file1 channels
             };
 
-            var sm8 = new MockSpectralMatch(file2, 4, 85.0, peptidek.FullSequence, peptidek.BaseSequence, new[] { peptidek }) //PEPTIDEK - File 2
+            var sm8 = new MockSpectralMatch(file2, peptidek.FullSequence, peptidek.BaseSequence, 85.0, 4, new[] { peptidek }) //PEPTIDEK - File 2
             {
                 Intensities = new double[] { 750.0, 1250.0, 1750.0 } // file2 channels
             };
@@ -526,86 +526,86 @@ namespace Test.Quantification
             var spectralMatches = new List<ISpectralMatch>();
 
             // P2 peptide 1: 1 PSM with intensities [100, 200]
-            spectralMatches.Add(new MockSpectralMatch(file1, 1, 100.0, p2_peptide1.FullSequence, p2_peptide1.BaseSequence, new[] { p2_peptide1 })
+            spectralMatches.Add(new MockSpectralMatch(file1, p2_peptide1.FullSequence, p2_peptide1.BaseSequence, 100.0, 1, new[] { p2_peptide1 })
             {
                 Intensities = new double[] { 100.0, 200.0 }
             });
 
             // P3 peptide 1: 2 PSMs with intensities [50, 100] and [50, 100] = sum [100, 200]
-            spectralMatches.Add(new MockSpectralMatch(file1, 2, 95.0, p3_peptide1.FullSequence, p3_peptide1.BaseSequence, new[] { p3_peptide1 })
+            spectralMatches.Add(new MockSpectralMatch(file1, p3_peptide1.FullSequence, p3_peptide1.BaseSequence, 95.0, 2, new[] { p3_peptide1 })
             {
                 Intensities = new double[] { 50.0, 100.0 }
             });
-            spectralMatches.Add(new MockSpectralMatch(file1, 3, 95.0, p3_peptide1.FullSequence, p3_peptide1.BaseSequence, new[] { p3_peptide1 })
+            spectralMatches.Add(new MockSpectralMatch(file1, p3_peptide1.FullSequence, p3_peptide1.BaseSequence, 95.0, 3, new[] { p3_peptide1 })
             {
                 Intensities = new double[] { 50.0, 100.0 }
             });
 
             // P3 peptide 2: 3 PSMs with intensities [30, 60], [30, 60], [40, 80] = sum [100, 200]
-            spectralMatches.Add(new MockSpectralMatch(file1, 4, 90.0, p3_peptide2.FullSequence, p3_peptide2.BaseSequence, new[] { p3_peptide2 })
+            spectralMatches.Add(new MockSpectralMatch(file1, p3_peptide2.FullSequence, p3_peptide2.BaseSequence, 90.0, 4, new[] { p3_peptide2 })
             {
                 Intensities = new double[] { 30.0, 60.0 }
             });
-            spectralMatches.Add(new MockSpectralMatch(file1, 5, 90.0, p3_peptide2.FullSequence, p3_peptide2.BaseSequence, new[] { p3_peptide2 })
+            spectralMatches.Add(new MockSpectralMatch(file1, p3_peptide2.FullSequence, p3_peptide2.BaseSequence, 90.0, 5, new[] { p3_peptide2 })
             {
                 Intensities = new double[] { 30.0, 60.0 }
             });
-            spectralMatches.Add(new MockSpectralMatch(file1, 6, 90.0, p3_peptide2.FullSequence, p3_peptide2.BaseSequence, new[] { p3_peptide2 })
+            spectralMatches.Add(new MockSpectralMatch(file1, p3_peptide2.FullSequence, p3_peptide2.BaseSequence, 90.0, 6, new[] { p3_peptide2 })
             {
                 Intensities = new double[] { 40.0, 80.0 }
             });
 
             // P4 peptide 1: 1 PSM [25, 50] (This one is non-unique, and the intensities shouldn't be included in the final protein quant)
-            spectralMatches.Add(new MockSpectralMatch(file1, 7, 85.0, p4_peptide1.FullSequence, p4_peptide1.BaseSequence, new[] { p4_peptide1 })
+            spectralMatches.Add(new MockSpectralMatch(file1, p4_peptide1.FullSequence, p4_peptide1.BaseSequence, 85.0, 7, new[] { p4_peptide1 })
             {
                 Intensities = new double[] { 25.0, 50.0 } // Should be ignored
             });
 
             // P4 peptide 2: 2 PSMs [25, 50] and [25, 50] = sum [50, 100]
-            spectralMatches.Add(new MockSpectralMatch(file1, 8, 85.0, p4_peptide2.FullSequence, p4_peptide2.BaseSequence, new[] { p4_peptide2 })
+            spectralMatches.Add(new MockSpectralMatch(file1, p4_peptide2.FullSequence, p4_peptide2.BaseSequence, 85.0, 8, new[] { p4_peptide2 })
             {
                 Intensities = new double[] { 25.0, 50.0 }
             });
-            spectralMatches.Add(new MockSpectralMatch(file1, 9, 85.0, p4_peptide2.FullSequence, p4_peptide2.BaseSequence, new[] { p4_peptide2 })
+            spectralMatches.Add(new MockSpectralMatch(file1, p4_peptide2.FullSequence, p4_peptide2.BaseSequence, 85.0, 9, new[] { p4_peptide2 })
             {
                 Intensities = new double[] { 25.0, 50.0 }
             });
 
             // P4 peptide 3: 3 PSMs [10, 20], [10, 20], [5, 10] = sum [25, 50]
-            spectralMatches.Add(new MockSpectralMatch(file1, 10, 80.0, p4_peptide3.FullSequence, p4_peptide3.BaseSequence, new[] { p4_peptide3 })
+            spectralMatches.Add(new MockSpectralMatch(file1, p4_peptide3.FullSequence, p4_peptide3.BaseSequence, 80.0, 10, new[] { p4_peptide3 })
             {
                 Intensities = new double[] { 10.0, 20.0 }
             });
-            spectralMatches.Add(new MockSpectralMatch(file1, 11, 80.0, p4_peptide3.FullSequence, p4_peptide3.BaseSequence, new[] { p4_peptide3 })
+            spectralMatches.Add(new MockSpectralMatch(file1, p4_peptide3.FullSequence, p4_peptide3.BaseSequence, 80.0, 11, new[] { p4_peptide3 })
             {
                 Intensities = new double[] { 10.0, 20.0 }
             });
-            spectralMatches.Add(new MockSpectralMatch(file1, 12, 80.0, p4_peptide3.FullSequence, p4_peptide3.BaseSequence, new[] { p4_peptide3 })
+            spectralMatches.Add(new MockSpectralMatch(file1, p4_peptide3.FullSequence, p4_peptide3.BaseSequence, 80.0, 12, new[] { p4_peptide3 })
             {
                 Intensities = new double[] { 5.0, 10.0 }
             });
 
             // P4 peptide 4: 4 PSMs [10, 20] each = sum [40, 80]
-            spectralMatches.Add(new MockSpectralMatch(file1, 13, 75.0, p4_peptide4.FullSequence, p4_peptide4.BaseSequence, new[] { p4_peptide4 })
+            spectralMatches.Add(new MockSpectralMatch(file1, p4_peptide4.FullSequence, p4_peptide4.BaseSequence, 75.0, 13, new[] { p4_peptide4 })
             {
                 Intensities = new double[] { 10.0, 20.0 }
             });
-            spectralMatches.Add(new MockSpectralMatch(file1, 14, 75.0, p4_peptide4.FullSequence, p4_peptide4.BaseSequence, new[] { p4_peptide4 })
+            spectralMatches.Add(new MockSpectralMatch(file1, p4_peptide4.FullSequence, p4_peptide4.BaseSequence, 75.0, 14, new[] { p4_peptide4 })
             {
                 Intensities = new double[] { 10.0, 20.0 }
             });
-            spectralMatches.Add(new MockSpectralMatch(file1, 15, 75.0, p4_peptide4.FullSequence, p4_peptide4.BaseSequence, new[] { p4_peptide4 })
+            spectralMatches.Add(new MockSpectralMatch(file1, p4_peptide4.FullSequence, p4_peptide4.BaseSequence, 75.0, 15, new[] { p4_peptide4 })
             {
                 Intensities = new double[] { 10.0, 20.0 }
             });
-            spectralMatches.Add(new MockSpectralMatch(file1, 16, 75.0, p4_peptide4.FullSequence, p4_peptide4.BaseSequence, new[] { p4_peptide4 })
+            spectralMatches.Add(new MockSpectralMatch(file1, p4_peptide4.FullSequence, p4_peptide4.BaseSequence, 75.0, 16, new[] { p4_peptide4 })
             {
                 Intensities = new double[] { 10.0, 20.0 }
             });
 
             // Add an orphaned spectral match (not in allPeptides list)
             var orphanPeptide = new PeptideWithSetModifications(protein1, null, 1, 5, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0);
-            spectralMatches.Add(new MockSpectralMatch(file1, 17, 70.0, orphanPeptide.FullSequence, orphanPeptide.BaseSequence, new[] { orphanPeptide })
+            spectralMatches.Add(new MockSpectralMatch(file1, orphanPeptide.FullSequence, orphanPeptide.BaseSequence, 70.0, 17, new[] { orphanPeptide })
             {
                 Intensities = new double[] { 999.0, 999.0 } // Should be ignored
             });
