@@ -1,11 +1,10 @@
 ﻿using NUnit.Framework;
-using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
+using PredictionClients.Koina.AbstractClasses;
+using PredictionClients.Koina.Util;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace Test.KoinaTests
 {
@@ -14,33 +13,26 @@ namespace Test.KoinaTests
     public class Prosit2019iRTTests
     {
         /// <summary>
-        /// Tests the constructor with a list of valid peptide sequences.
-        /// 
-        /// Validates that:
-        /// - No warnings are generated for valid sequences
-        /// - All sequences are accepted and stored
-        /// - Model properties are correctly initialized
-        /// - Model name matches expected value "Prosit_2019_irt"
-        /// - Batch size, length constraints, and iRT flag are correct
-        /// 
-        /// Expected Behavior:
-        /// - warnings should be null
-        /// - PeptideSequences count should equal input count (with carbamidomethylation applied)
-        /// - All model properties should match specification
+        /// Tests that the model correctly processes valid peptide sequences without throwing exceptions.
+        /// Verifies basic prediction functionality and model properties.
         /// </summary>
         [Test]
-        public void TestConstructorWithValidPeptides()
+        public void TestProsit2019iRTModelAcceptsValidPeptides()
         {
-            var peptideSequences = new List<string>
+            var modelInputs = new List<RetentionTimePredictionInput>
             {
-                "PEPTIDE",
-                "TESTING"
+                new RetentionTimePredictionInput("PEPTIDE"),
+                new RetentionTimePredictionInput("TESTING")
             };
 
-            var model = new Prosit2019iRT(peptideSequences, out WarningException warnings);
+            var model = new Prosit2019iRT();
+            var predictions = model.Predict(modelInputs);
 
-            Assert.That(warnings, Is.Null);
-            Assert.That(model.PeptideSequences, Has.Count.EqualTo(2));
+            Assert.That(predictions.Count, Is.EqualTo(2), "Should return predictions for all inputs");
+            Assert.That(predictions.All(p => p.PredictedRetentionTime != null), Is.True, "All valid peptides should have predictions");
+            Assert.That(predictions.All(p => p.Warning == null), Is.True, "Valid peptides should not produce warnings");
+
+            // Verify model properties
             Assert.That(model.ModelName, Is.EqualTo("Prosit_2019_irt"));
             Assert.That(model.MaxBatchSize, Is.EqualTo(1000));
             Assert.That(model.MaxPeptideLength, Is.EqualTo(30));
@@ -49,363 +41,271 @@ namespace Test.KoinaTests
         }
 
         /// <summary>
-        /// Tests the constructor with an empty list of peptides.
-        /// 
-        /// Validates that:
-        /// - A warning is generated indicating empty input
-        /// - PeptideSequences list is empty
-        /// - Model is still instantiated (doesn't throw exception)
-        /// 
-        /// Expected Behavior:
-        /// - warnings should not be null
-        /// - Warning message should contain "Inputs were empty"
-        /// - PeptideSequences should be empty
-        /// 
-        /// Use Case: Defensive programming - ensures graceful handling of empty inputs
+        /// Tests handling of empty input lists.
+        /// Empty lists should not throw exceptions and should return empty predictions.
         /// </summary>
         [Test]
-        public void TestConstructorWithEmptyPeptides()
+        public void TestProsit2019iRTModelEmptyInputHandling()
         {
-            var peptideSequences = new List<string>();
+            var emptyInputs = new List<RetentionTimePredictionInput>();
 
-            var model = new Prosit2019iRT(peptideSequences, out WarningException warnings);
+            var model = new Prosit2019iRT();
+            var predictions = model.Predict(emptyInputs);
 
-            Assert.That(warnings, Is.Not.Null);
-            Assert.That(warnings.Message, Does.Contain("Inputs were empty"));
-            Assert.That(model.PeptideSequences, Is.Empty);
+            Assert.That(predictions.Count, Is.EqualTo(0), "Empty input should result in no predictions");
+            Assert.DoesNotThrow(() => model.Predict(emptyInputs), "Empty input should not throw exception");
         }
 
         /// <summary>
-        /// Tests the constructor with a null list of peptides.
-        /// 
-        /// Validates that:
-        /// - A warning is generated for null input
-        /// - Model handles null gracefully (no NullReferenceException)
-        /// - PeptideSequences list is initialized as empty
-        /// 
-        /// Expected Behavior:
-        /// - warnings should not be null
-        /// - Warning message should contain "Inputs were empty"
-        /// - PeptideSequences should be empty
-        /// 
-        /// Use Case: Defensive programming - ensures null safety
+        /// Tests handling of null input list.
+        /// Null list should throw ArgumentNullException.
         /// </summary>
         [Test]
-        public void TestConstructorWithNullPeptides()
+        public void TestProsit2019iRTModelNullInput()
         {
-            List<string> peptideSequences = null;
-            
-            var model = new Prosit2019iRT(peptideSequences, out WarningException warnings);
+            List<RetentionTimePredictionInput> nullList = null;
 
-            Assert.That(warnings, Is.Not.Null);
-            Assert.That(warnings.Message, Does.Contain("Inputs were empty"));
-            Assert.That(model.PeptideSequences, Is.Empty);
+            var model = new Prosit2019iRT();
+
+            Assert.DoesNotThrow(() => model.Predict(nullList));
+            Assert.That(model.Predictions.Count, Is.EqualTo(0), "Null input should be treated as empty and return no predictions");
+            Assert.That(model.ValidInputsMask.Count, Is.EqualTo(0), "Null input should not produce warnings");
         }
 
         /// <summary>
-        /// Tests the constructor with a mix of valid and invalid peptide sequences.
-        /// 
-        /// Invalid sequences include:
-        /// - Sequences exceeding 30 amino acids (MaxPeptideLength)
-        /// - Sequences with invalid characters (e.g., *)
-        /// - Sequences with non-canonical amino acids (e.g., U for selenocysteine)
-        /// 
-        /// Validates that:
-        /// - A warning is generated listing invalid sequences
-        /// - Only valid sequences are added to PeptideSequences
-        /// - Invalid sequences are properly filtered out
-        /// 
-        /// Expected Behavior:
-        /// - warnings should not be null
-        /// - Warning message should contain "invalid"
-        /// - PeptideSequences should only contain "PEPTIDE"
-        /// - Invalid sequences should be excluded
-        /// 
-        /// Use Case: Ensures robust input validation and informative error messaging
+        /// Tests handling of peptides with invalid sequences.
+        /// Invalid sequences include too long peptides, invalid characters, and non-canonical amino acids.
         /// </summary>
         [Test]
-        public void TestConstructorWithInvalidSequences()
+        public void TestProsit2019iRTModelInvalidSequences()
         {
-            // Arrange
-            var peptideSequences = new List<string>
+            var modelInputs = new List<RetentionTimePredictionInput>
             {
-                "PEPTIDE",
-                "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", // Too long
-                "PEP*TIDE", // Invalid character
-                "SEQUENS" // Noncanonical amino acid 'U'
+                new RetentionTimePredictionInput("PEPTIDE"),
+                new RetentionTimePredictionInput("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"), // Too long
+                new RetentionTimePredictionInput("PEP*TIDE"), // Invalid character
+                new RetentionTimePredictionInput("SEQUENS") // Noncanonical amino acid 'U'
             };
 
-            // Act
-            var model = new Prosit2019iRT(peptideSequences, out WarningException warnings);
+            var model = new Prosit2019iRT();
+            var predictions = model.Predict(modelInputs);
 
-            // Assert
-            Assert.That(warnings, Is.Not.Null);
-            Assert.That(warnings.Message, Does.Contain("invalid"));
-            Assert.That(model.PeptideSequences, Has.Count.EqualTo(1)); // Only valid sequences
-            Assert.That(model.PeptideSequences, Does.Contain("PEPTIDE"));
+            Assert.That(predictions.Count, Is.EqualTo(4), "Should return entries for all inputs");
+            Assert.That(predictions[0].PredictedRetentionTime, Is.Not.Null, "Valid peptide should have predictions");
+            Assert.That(predictions[0].Warning, Is.Null, "Valid peptide should not have warnings");
+
+            Assert.That(predictions[1].PredictedRetentionTime, Is.Null, "Too long peptide should have null predictions");
+            Assert.That(predictions[1].Warning, Is.Not.Null, "Too long peptide should have warning");
+
+            Assert.That(predictions[2].PredictedRetentionTime, Is.Null, "Invalid character peptide should have null predictions");
+            Assert.That(predictions[2].Warning, Is.Not.Null, "Invalid character should have warning");
+
+            Assert.That(predictions[3].PredictedRetentionTime, Is.Null, "Non-canonical AA peptide should have null predictions");
+            Assert.That(predictions[3].Warning, Is.Not.Null, "Non-canonical AA should have warning");
         }
 
         /// <summary>
         /// Tests the handling of valid post-translational modifications.
-        /// 
-        /// Tests three supported modification types:
-        /// 1. Oxidation on methionine (M): [Common Variable:Oxidation on M] → [UNIMOD:35]
-        /// 2. Carbamidomethyl on cysteine (C): [Common Fixed:Carbamidomethyl on C] → [UNIMOD:4]
-        /// 
-        /// Validates that:
-        /// - Modifications are recognized as valid
-        /// - mzLib format is converted to Prosit UNIMOD format
-        /// - All modified sequences are accepted
-        /// - No warnings are generated
-        /// 
-        /// Expected Behavior:
-        /// - warnings should be null
-        /// - All 3 sequences should be accepted
-        /// - Modifications should be converted to UNIMOD format
-        /// 
-        /// Use Case: Ensures compatibility with mzLib modification format and proper conversion
+        /// Prosit2019iRT supports oxidation on M and carbamidomethyl on C.
+        /// ModHandlingMode is RemoveIncompatibleMods by default.
         /// </summary>
         [Test]
-        public void TestValidModificationMapping()
+        public void TestProsit2019iRTModelValidModifications()
         {
-            var peptideSequences = new List<string>
+            var modelInputs = new List<RetentionTimePredictionInput>
             {
-                "PEPTIDE[Common Variable:Oxidation on M]",
-                "M[Common Variable:Oxidation on M]SEQENS",
-                "TESTC[Common Fixed:Carbamidomethyl on C]ING"
+                new RetentionTimePredictionInput("M[Common Variable:Oxidation on M]SEQENS"),
+                new RetentionTimePredictionInput("TESTC[Common Fixed:Carbamidomethyl on C]ING")
             };
 
-            var model = new Prosit2019iRT(peptideSequences, out WarningException warnings);
+            var model = new Prosit2019iRT();
+            var predictions = model.Predict(modelInputs);
 
-            Assert.That(warnings, Is.Null);
-            Assert.That(model.PeptideSequences, Has.Count.EqualTo(3));
-            // Check that modifications are converted to UNIMOD format
-            Assert.That(model.PeptideSequences[0], Does.Contain("[UNIMOD:35]"));
-            Assert.That(model.PeptideSequences[1], Does.Contain("[UNIMOD:35]"));
-            Assert.That(model.PeptideSequences[2], Does.Contain("[UNIMOD:4]"));
+            Assert.That(predictions.Count, Is.EqualTo(2), "Should return predictions for all inputs");
+            Assert.That(predictions[0].PredictedRetentionTime, Is.Not.Null, "Peptide with valid oxidation should have predictions");
+            Assert.That(predictions[1].PredictedRetentionTime, Is.Not.Null, "Peptide with valid carbamidomethyl should have predictions");
         }
 
         /// <summary>
-        /// Tests the rejection of invalid or unsupported modifications.
-        /// 
-        /// Invalid modifications are those not in the ValidModificationUnimodMapping dictionary.
-        /// For Prosit2019iRT, only Oxidation on M and Carbamidomethyl on C are supported.
-        /// 
-        /// Validates that:
-        /// - Invalid modifications are detected
-        /// - Sequences with invalid modifications are rejected
-        /// - A warning is generated listing problematic sequences
-        /// - Valid unmodified sequences are still accepted
-        /// 
-        /// Expected Behavior:
-        /// - warnings should not be null
-        /// - Warning message should contain "invalid"
-        /// - Valid sequences count should be 2 (PEPTIDE, TESTING)
+        /// Tests handling of unsupported modifications.
+        /// ModHandlingMode.RemoveIncompatibleMods strips unsupported modifications and predicts with remaining valid mods/sequence.
         /// </summary>
         [Test]
-        public void TestInvalidModifications()
+        public void TestProsit2019iRTModelIncompatibleModificationsOrAminoAcids()
         {
-            // Arrange
-            var peptideSequences = new List<string>
+            var modelInputs = new List<RetentionTimePredictionInput>
             {
-                "PEPTIDE",
-                "SEQUENC[InvalidMod]E",
-                "TESTING"
+                new RetentionTimePredictionInput("PEPTIDE"),
+                new RetentionTimePredictionInput("SEQENC[InvalidMod]E"),
+                new RetentionTimePredictionInput("TESTING"),
+                new RetentionTimePredictionInput("SEQUENS") // Non-canonical amino acid 'U'
             };
 
-            // Act
-            var model = new Prosit2019iRT(peptideSequences, out WarningException warnings);
+            var model = new Prosit2019iRT();
+            var predictions = model.Predict(modelInputs);
 
-            // Assert
-            Assert.That(warnings, Is.Not.Null);
-            Assert.That(warnings.Message, Does.Contain("invalid"));
-            Assert.That(model.PeptideSequences, Has.Count.EqualTo(2)); // Invalid sequence excluded
+            Assert.That(predictions.Count, Is.EqualTo(4), "Should return entries for all inputs");
+            Assert.That(predictions[0].PredictedRetentionTime, Is.Not.Null, "Valid unmodified peptide should have predictions");
+            Assert.That(predictions[0].Warning, Is.Null, "Valid unmodified peptide should not have warnings");
+
+            // With RemoveIncompatibleMods, the invalid mod is stripped and prediction is made on the base sequence
+            Assert.That(predictions[1].PredictedRetentionTime, Is.Not.Null, "Peptide with invalid mod should still have predictions after stripping");
+            Assert.That(predictions[1].Warning, Is.Not.Null, "Peptide with stripped mod should have warning");
+
+            Assert.That(predictions[2].PredictedRetentionTime, Is.Not.Null, "Valid unmodified peptide should have predictions");
+
+            Assert.That(predictions[3].PredictedRetentionTime, Is.Null, "Peptide with non-canonical amino acid should have null predictions");
         }
 
         /// <summary>
         /// Tests batching behavior with a small input list (below max batch size).
-        /// 
-        /// Validates that:
-        /// - All sequences are processed in a single batch
-        /// - Batch contains expected keys: "id" and "inputs"
-        /// - No warnings are generated
-        /// - Predictions are populated after inference
-        /// 
-        /// Expected Behavior:
-        /// - batches count should be 1
-        /// - Predictions count should equal input count (3)
-        /// 
-        /// Use Case: Ensures correct batching and inference execution
+        /// All sequences should be processed successfully.
         /// </summary>
         [Test]
-        public void TestBatchingWithSmallInput()
+        public void TestProsit2019iRTModelSmallBatchProcessing()
         {
-            var peptideSequences = new List<string> { "PEPTIDE", "SEQENS", "TESTING" };
-            var model = new Prosit2019iRT(peptideSequences, out WarningException warnings);
-            Assert.DoesNotThrowAsync(async () => await model.PredictAsync());
-            Assert.That(model.Predictions, Has.Count.EqualTo(3));
+            var modelInputs = new List<RetentionTimePredictionInput>
+            {
+                new RetentionTimePredictionInput("PEPTIDE"),
+                new RetentionTimePredictionInput("SEQENS"),
+                new RetentionTimePredictionInput("TESTING")
+            };
+
+            var model = new Prosit2019iRT();
+            var predictions = model.Predict(modelInputs);
+
+            Assert.That(predictions.Count, Is.EqualTo(3), "Should return predictions for all inputs");
+            Assert.That(predictions.All(p => p.PredictedRetentionTime != null), Is.True, "All valid peptides should have predictions");
         }
 
         /// <summary>
         /// Tests batching behavior with a large input list (above max batch size).
-        /// 
-        /// Validates that:
-        /// - Input list is split into multiple batches
-        /// - Batch count matches expected (3 batches: 1000 + 1000 + 500)
-        /// - Each batch has a unique ID
-        /// 
-        /// Expected Behavior:
-        /// - batches count should be 3
-        /// - Batch IDs should be unique and sequential (Batch0, Batch1, Batch2)
+        /// Should split into multiple batches and process all sequences successfully.
         /// </summary>
         [Test]
-        public void TestBatchingWithLargeInput()
+        public void TestProsit2019iRTModelRequestBatching()
         {
             var aminoacids = "ACDEFGHIKLMNPQRSTVWY".ToArray();
             int numberOfSequences = 2500;
             int seqLength = 20;
-            var peptides = new List<string>();
+            var peptides = new HashSet<string>();
 
             while (peptides.Count < numberOfSequences)
             {
                 var pep = new string(Random.Shared.GetItems(aminoacids, seqLength));
-                if (!peptides.Contains(pep))
-                {
-                    peptides.Add(pep);
-                }
+                peptides.Add(pep);
             }
 
-            var model = new Prosit2019iRT(peptides, out WarningException warnings);
-            Assert.DoesNotThrowAsync(async () => await model.PredictAsync());
-            Assert.That(model.Predictions, Has.Count.EqualTo(numberOfSequences));
+            var modelInputs = peptides.Select(p => new RetentionTimePredictionInput(p)).ToList();
+            var model = new Prosit2019iRT();
+
+            Assert.DoesNotThrow(() => model.Predict(modelInputs));
+
+            var predictions = model.Predict(modelInputs);
+            Assert.That(predictions.Count, Is.EqualTo(numberOfSequences), "Should return predictions for all inputs");
         }
 
         /// <summary>
-        /// Tests batching behavior when the input list size is exactly the max batch size.
-        /// 
-        /// Validates that:
-        /// - All sequences are processed in a single batch
-        /// - No batching errors occur
-        /// 
-        /// Expected Behavior:
-        /// - batches count should be 1
+        /// Tests batching behavior when input size equals max batch size.
+        /// Should process all sequences in a single batch.
         /// </summary>
         [Test]
-        public void TestBatchingExactlyAtMaxBatchSize()
+        public void TestProsit2019iRTModelExactlyAtMaxBatchSize()
         {
-            var peptideSequences = new List<string>();
+            var modelInputs = new List<RetentionTimePredictionInput>();
             for (int i = 0; i < 1000; i++)
             {
-                peptideSequences.Add("PEPTIDE");
+                modelInputs.Add(new RetentionTimePredictionInput("PEPTIDE"));
             }
-            var model = new Prosit2019iRT(peptideSequences, out WarningException warnings);
-            Assert.DoesNotThrowAsync(async () => await model.PredictAsync());
-            Assert.That(model.Predictions, Has.Count.EqualTo(1000));
-        }
 
-        /// <summary>
-        /// Tests that model predictions are initially empty upon model creation.
-        /// 
-        /// Validates that:
-        /// - Predictions list is empty until inference is run
-        /// 
-        /// Expected Behavior:
-        /// - Predictions should be empty
-        /// </summary>
-        [Test]
-        public void TestPredictionsInitiallyEmpty()
-        {
-            var peptideSequences = new List<string> { "PEPTIDE", "SEQUENCE" };
+            var model = new Prosit2019iRT();
+            var predictions = model.Predict(modelInputs);
 
-            var model = new Prosit2019iRT(peptideSequences, out WarningException warnings);
-
-            Assert.That(model.Predictions, Is.Empty);
+            Assert.That(predictions.Count, Is.EqualTo(1000), "Should return predictions for all inputs");
         }
 
         /// <summary>
         /// Tests the properties of the Prosit2019iRT model.
-        /// 
-        /// Validates that:
-        /// - Model name is correctly set
-        /// - Max batch size, max peptide length, and min peptide length are within expected ranges
-        /// - The model is flagged as an indexed retention time model
-        /// - Valid modification mappings are populated
-        /// 
-        /// Expected Behavior:
-        /// - Model properties should match the specifications
+        /// Validates model metadata and configuration.
         /// </summary>
         [Test]
-        public void TestModelProperties()
+        public void TestProsit2019iRTModelProperties()
         {
-            var peptideSequences = new List<string> { "PEPTIDE" };
-            var model = new Prosit2019iRT(peptideSequences, out WarningException warnings);
+            var model = new Prosit2019iRT();
 
             Assert.That(model.ModelName, Is.EqualTo("Prosit_2019_irt"));
-            Assert.That(model.MaxBatchSize, Is.GreaterThan(0));
-            Assert.That(model.MaxPeptideLength, Is.GreaterThan(0));
-            Assert.That(model.MinPeptideLength, Is.GreaterThanOrEqualTo(1));
+            Assert.That(model.MaxBatchSize, Is.EqualTo(1000));
+            Assert.That(model.MaxPeptideLength, Is.EqualTo(30));
+            Assert.That(model.MinPeptideLength, Is.EqualTo(1));
             Assert.That(model.IsIndexedRetentionTimeModel, Is.True);
+            Assert.That(model.ModHandlingMode, Is.EqualTo(IncompatibleModHandlingMode.RemoveIncompatibleMods));
             Assert.That(model.ValidModificationUnimodMapping, Is.Not.Null);
-            Assert.That(model.ValidModificationUnimodMapping.Count, Is.GreaterThan(0));
+            Assert.That(model.ValidModificationUnimodMapping.Count, Is.EqualTo(2), "Should support Oxidation and Carbamidomethyl");
+            Assert.That(model.ValidModificationUnimodMapping.ContainsKey("[Common Variable:Oxidation on M]"), Is.True);
+            Assert.That(model.ValidModificationUnimodMapping.ContainsKey("[Common Fixed:Carbamidomethyl on C]"), Is.True);
         }
 
         /// <summary>
-        /// Tests the handling of a mix of valid and invalid sequences in the input list.
-        /// 
-        /// Validates that:
-        /// - A warning is generated for the invalid sequences
-        /// - Only valid sequences are added to the model
-        /// - Invalid sequences are properly identified
-        /// 
-        /// Expected Behavior:
-        /// - warnings should not be null
-        /// - Warning message should indicate invalid sequences
-        /// - model.PeptideSequences should contain only valid sequences
+        /// Tests handling of mixed valid and invalid sequences.
+        /// Invalid sequences should have null predictions with warnings.
         /// </summary>
         [Test]
-        public void TestMixedValidAndInvalidSequences()
+        public void TestProsit2019iRTModelMixedValidAndInvalidSequences()
         {
-            var peptideSequences = new List<string>
+            var modelInputs = new List<RetentionTimePredictionInput>
             {
-                "PEPTIDE", // Valid
-                "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", // Invalid - too long
-                "SEQENS", // Valid
-                "INVALID*", // Invalid - bad character
-                "TESTINGTWICE", // Valid
-                "INVALIDPEPTIDE[BadMod]" // Invalid - bad modification
+                new RetentionTimePredictionInput("PEPTIDE"), // Valid
+                new RetentionTimePredictionInput("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"), // Invalid - too long
+                new RetentionTimePredictionInput("SEQENS"), // Valid
+                new RetentionTimePredictionInput("INVALID*"), // Invalid - bad character
+                new RetentionTimePredictionInput("TESTINGTWICE") // Valid
             };
 
-            var model = new Prosit2019iRT(peptideSequences, out WarningException warnings);
+            var model = new Prosit2019iRT();
+            var predictions = model.Predict(modelInputs);
 
-            Assert.That(warnings, Is.Not.Null);
-            Assert.That(model.PeptideSequences, Has.Count.EqualTo(3)); // Only valid sequences
-            Assert.That(warnings.Message, Does.Contain("invalid"));
+            Assert.That(predictions.Count, Is.EqualTo(5), "Should return entries for all inputs");
+            Assert.That(predictions.Count(p => p.PredictedRetentionTime != null), Is.EqualTo(3), "Only valid sequences should have predictions");
+            Assert.That(predictions.Count(p => p.Warning != null), Is.EqualTo(2), "Invalid sequences should have warnings");
         }
 
+        /// <summary>
+        /// Tests prediction order is maintained from input to output.
+        /// </summary>
         [Test]
-        public static async Task TestModelIsDisposedProperly()
+        public void TestProsit2019iRTModelPredictionOrder()
         {
-            var peptides = new List<string> { "PEPTIDE", "PEPTIDEK" };
+            var modelInputs = new List<RetentionTimePredictionInput>
+            {
+                new RetentionTimePredictionInput("AAAAAA"),
+                new RetentionTimePredictionInput("CCCCCC"),
+                new RetentionTimePredictionInput("GGGGGG")
+            };
 
-            // Disposed after use/inference
-            var model = new Prosit2019iRT(peptides, out var warning);
-            Assert.That(warning, Is.Null,
-                "Warning should not be generated for valid peptides");
-            await model.PredictAsync();
-            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.PredictAsync(),
-                "1Running inference on a disposed model should throw ObjectDisposedException");
+            var model = new Prosit2019iRT();
+            var predictions = model.Predict(modelInputs);
 
-            // Results should still be accessible after disposal
-            Assert.That(model.Predictions.Count, Is.EqualTo(2),
-                "Predicted spectra should still be accessible after model is disposed");
+            Assert.That(predictions.Count, Is.EqualTo(3));
+            Assert.That(predictions[0].FullSequence, Is.EqualTo("AAAAAA"));
+            Assert.That(predictions[1].FullSequence, Is.EqualTo("CCCCCC"));
+            Assert.That(predictions[2].FullSequence, Is.EqualTo("GGGGGG"));
+        }
 
-            // Disposed on command
-            model = new Prosit2019iRT(peptides, out warning);
-            Assert.That(warning, Is.Null,
-                "Warning should not be generated for valid peptides");
-            model.Dispose();
-            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.PredictAsync(),
-                "2Running inference on a disposed model should throw ObjectDisposedException");
+        /// <summary>
+        /// Tests custom constructor parameters for batching and throttling.
+        /// </summary>
+        [Test]
+        public void TestProsit2019iRTModelCustomConstructorParameters()
+        {
+            var model = new Prosit2019iRT(
+                modHandlingMode: IncompatibleModHandlingMode.RemoveIncompatibleMods,
+                maxNumberOfBatchesPerRequest: 100,
+                throttlingDelayInMilliseconds: 50
+            );
+
+            Assert.That(model.MaxNumberOfBatchesPerRequest, Is.EqualTo(100));
+            Assert.That(model.ThrottlingDelayInMilliseconds, Is.EqualTo(50));
+            Assert.That(model.ModHandlingMode, Is.EqualTo(IncompatibleModHandlingMode.RemoveIncompatibleMods));
         }
     }
 }

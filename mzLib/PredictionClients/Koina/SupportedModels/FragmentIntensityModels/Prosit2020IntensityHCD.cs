@@ -1,6 +1,7 @@
 ﻿using Omics.SpectrumMatch;
 using System.ComponentModel;
 using PredictionClients.Koina.AbstractClasses;
+using PredictionClients.Koina.Util;
 
 namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
 {
@@ -62,9 +63,11 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
                 {"[Common Variable:Oxidation on M]", 15.994915 },
                 {"[Common Fixed:Carbamidomethyl on C]", 57.021464 }
             };
+        public override IncompatibleModHandlingMode ModHandlingMode { get; init; }
 
-        public Prosit2020IntensityHCD(int maxNumberOfBatchesPerRequest = 500, int throttlingDelayInMilliseconds = 100)
+        public Prosit2020IntensityHCD(IncompatibleModHandlingMode modHandlingMode = IncompatibleModHandlingMode.RemoveIncompatibleMods, int maxNumberOfBatchesPerRequest = 500, int throttlingDelayInMilliseconds = 100)
         {
+            ModHandlingMode = modHandlingMode;
             MaxNumberOfBatchesPerRequest = maxNumberOfBatchesPerRequest;
             ThrottlingDelayInMilliseconds = throttlingDelayInMilliseconds;
         }
@@ -89,7 +92,8 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         protected override List<Dictionary<string, object>> ToBatchedRequests(List<FragmentIntensityPredictionInput> validInputs)
         {
             // Split inputs into batches
-            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence).Chunk(MaxBatchSize).ToList();
+            // ValidatedFullSequence should not be null at this point due to prior validation steps
+            var batchedPeptides = validInputs.Select(p => ConvertMzLibModificationsToUnimod(p.ValidatedFullSequence!)).Chunk(MaxBatchSize).ToList();
             var batchedCharges = validInputs.Select(p => p.PrecursorCharge).Chunk(MaxBatchSize).ToList();
             var batchedEnergies = validInputs.Select(p => p.CollisionEnergy).Chunk(MaxBatchSize).ToList();
 

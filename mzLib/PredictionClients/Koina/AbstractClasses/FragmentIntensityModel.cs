@@ -136,6 +136,12 @@ namespace PredictionClients.Koina.AbstractClasses
         protected virtual async Task<List<PeptideFragmentIntensityPrediction>> AsyncThrottledPredictor(List<FragmentIntensityPredictionInput> modelInputs)
         {
             #region Input Validation and Cleaning
+            if (modelInputs.IsNullOrEmpty())
+            {
+                Predictions = new List<PeptideFragmentIntensityPrediction>();
+                return Predictions;
+            }
+
             ModelInputs = modelInputs;
             ValidInputsMask = new bool[ModelInputs.Count];
             var validInputs = new List<FragmentIntensityPredictionInput>();

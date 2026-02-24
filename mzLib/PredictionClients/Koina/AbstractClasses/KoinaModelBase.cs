@@ -1,4 +1,4 @@
-﻿using Chromatography.RetentionTimePrediction;
+﻿using PredictionClients.Koina.Util;
 using System.ComponentModel;
 using System.Text.RegularExpressions;
 
@@ -23,6 +23,7 @@ namespace PredictionClients.Koina.AbstractClasses
         #endregion
 
         #region Input Sequence Validation Constraints
+        public abstract IncompatibleModHandlingMode ModHandlingMode { get; init; } 
         /// <summary>
         /// Gets the maximum allowed peptide base sequence length.
         /// </summary>
@@ -33,7 +34,6 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         public abstract int MinPeptideLength { get; }
 
-        public virtual IncompatibleModHandlingMode ModHandlingMode { get; } 
 
         /// <summary>
         /// Gets the mapping of valid modification annotations from mzLib format to UNIMOD format.
@@ -84,42 +84,47 @@ namespace PredictionClients.Koina.AbstractClasses
                 return null;
             }
 
+            warning = null;
+            var newSequence = sequence;
             switch (ModHandlingMode)
             {
                 case IncompatibleModHandlingMode.RemoveIncompatibleMods:
-                    var allMods = Regex.Matches(sequence, ModificationPattern).Select(m => m.Value).ToList();
+                    var allMods = Regex.Matches(newSequence, ModificationPattern).Select(m => m.Value).ToList();
                     foreach (var mod in allMods)
                     {
                         if (!ValidModificationUnimodMapping.ContainsKey(mod))
                         {
-                            sequence = sequence.Replace(mod, ""); // Remove incompatible modification
+                            newSequence = newSequence.Replace(mod, ""); // Remove incompatible modification
                         }
                     }
-                    warning = new WarningException("Sequence contained incompatible modifications that were removed for prediction. This WILL affect Mz differences between input and predicted fragment ions, if applicable.");
+                    warning = (sequence != newSequence)
+                        ? new WarningException("Sequence contained incompatible modifications that were removed for prediction. This WILL affect Mz differences between input and predicted fragment ions, if applicable.")
+                        : null;
                     break;
 
                 case IncompatibleModHandlingMode.UsePrimarySequence:
-                    sequence = Regex.Replace(sequence, ModificationPattern, ""); // Use primary sequence only
-                    warning = new WarningException("Sequence contained incompatible modifications that were removed for prediction. This WILL affect Mz differences between input and predicted fragment ions, if applicable.");
+                    newSequence = Regex.Replace(newSequence, ModificationPattern, ""); // Use primary sequence only
+                    warning = (sequence != newSequence)
+                        ? new WarningException("Sequence modifications were removed for prediction. This WILL affect Mz differences between input and predicted fragment ions, if applicable.")
+                        : null;
                     break;
 
                 case IncompatibleModHandlingMode.ThrowException:
-                    if (Regex.IsMatch(sequence, ModificationPattern))
+                    if (!HasValidModifications(newSequence))
                     {
                         throw new InvalidOperationException("Sequence contains unsupported modifications.");
                     }
                     break;
 
                 case IncompatibleModHandlingMode.ReturnNull:
-                    if (!HasValidModifications(sequence))
+                    if (!HasValidModifications(newSequence))
                     {
                         warning = new WarningException("Sequence contains unsupported modifications.");
                         return null;
                     }
                     break;
             }
-            warning = null;
-            return sequence;
+            return newSequence;
         }
 
         /// <summary>

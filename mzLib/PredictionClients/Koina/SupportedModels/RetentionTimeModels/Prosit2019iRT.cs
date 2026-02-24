@@ -1,4 +1,5 @@
-﻿using Easy.Common.Extensions;
+﻿using PredictionClients.Koina.Util;
+using Easy.Common.Extensions;
 using MzLibUtil;
 using PredictionClients.Koina.AbstractClasses;
 using System.ComponentModel;
@@ -63,9 +64,11 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
             {"[Common Variable:Oxidation on M]", "[UNIMOD:35]"},
             {"[Common Fixed:Carbamidomethyl on C]", "[UNIMOD:4]"}
         };
+        public override IncompatibleModHandlingMode ModHandlingMode { get; init; }
 
-        public Prosit2019iRT(int maxNumberOfBatchesPerRequest = 500, int throttlingDelayInMilliseconds = 100)
+        public Prosit2019iRT(IncompatibleModHandlingMode modHandlingMode = IncompatibleModHandlingMode.RemoveIncompatibleMods, int maxNumberOfBatchesPerRequest = 500, int throttlingDelayInMilliseconds = 100)
         {
+            ModHandlingMode = modHandlingMode;
             MaxNumberOfBatchesPerRequest = maxNumberOfBatchesPerRequest;
             ThrottlingDelayInMilliseconds = throttlingDelayInMilliseconds;
         }
@@ -92,7 +95,8 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         protected override List<Dictionary<string, object>> ToBatchedRequests(List<RetentionTimePredictionInput> validInputs)
         {
             // Split sequences into batches for optimal API performance
-            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence).Chunk(MaxBatchSize).ToList();
+            // ValidatedFullSequence should not be null at this point due to prior validation steps
+            var batchedPeptides = validInputs.Select(p => ConvertMzLibModificationsToUnimod(p.ValidatedFullSequence!)).Chunk(MaxBatchSize).ToList();
             var batchedRequests = new List<Dictionary<string, object>>();
 
             for (int i = 0; i < batchedPeptides.Count; i++)

@@ -2,6 +2,7 @@
 using MzLibUtil;
 using System.ComponentModel;
 using PredictionClients.Koina.AbstractClasses;
+using PredictionClients.Koina.Util;
 
 namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
 {
@@ -70,6 +71,8 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
 
         /// <summary>Minimum allowed peptide sequence length in amino acids</summary>
         public override int MinPeptideLength => 1;
+        /// <summary>Uses primary sequence for modified peptides since this model does not support modifications</summary>
+        public override IncompatibleModHandlingMode ModHandlingMode { get; init; } = IncompatibleModHandlingMode.UsePrimarySequence;
 
         public PFly2024FineTuned(int maxNumberOfBatchesPerRequest = 500, int throttlingDelayInMilliseconds = 100)
         {

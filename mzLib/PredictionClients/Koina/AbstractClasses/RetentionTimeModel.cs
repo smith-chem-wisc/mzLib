@@ -31,7 +31,7 @@ namespace PredictionClients.Koina.AbstractClasses
     )
     {
         public string? ValidatedFullSequence { get; set; }
-        public WarningException? Warning { get; set; }
+        public WarningException? SequenceWarning { get; set; }
     }
 
     /// <summary>
@@ -98,27 +98,31 @@ namespace PredictionClients.Koina.AbstractClasses
         protected virtual async Task<List<PeptideRTPrediction>> AsyncThrottledPredictor(List<RetentionTimePredictionInput> modelInputs)
         {
             #region Input Validation and Cleaning
+            if (modelInputs.IsNullOrEmpty())
+            {
+                Predictions = new List<PeptideRTPrediction>();
+                return Predictions;
+            }
+
             ModelInputs = modelInputs;
             ValidInputsMask = new bool[ModelInputs.Count];
             var validInputs = new List<RetentionTimePredictionInput>();
 
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                WarningException? warning = null;
                 var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var modHandlingWarning);
-                warning = modHandlingWarning;
 
                 if (cleanedSequence != null &&
                     HasValidModifications(cleanedSequence) &&
                     IsValidBaseSequence(cleanedSequence))
                 {
-                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = cleanedSequence, Warning = warning };
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = cleanedSequence, SequenceWarning = modHandlingWarning };
                     ValidInputsMask[i] = true;
                     validInputs.Add(ModelInputs[i]);
                 }
                 else
                 {
-                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = null, Warning = warning };
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = null, SequenceWarning = modHandlingWarning };
                     ValidInputsMask[i] = false;
                 }
             }
@@ -169,7 +173,7 @@ namespace PredictionClients.Koina.AbstractClasses
                         FullSequence: ModelInputs[i].FullSequence,
                         PredictedRetentionTime: null,
                         IsIndexed: null,
-                        Warning: ModelInputs[i].Warning ?? new WarningException("Input was invalid and skipped during prediction.")
+                        Warning: ModelInputs[i].SequenceWarning ?? new WarningException("Input was invalid and skipped during prediction.")
                     ));
                 }
             }
@@ -236,7 +240,7 @@ namespace PredictionClients.Koina.AbstractClasses
                     FullSequence: requestInputs[i].ValidatedFullSequence!,
                     PredictedRetentionTime: Convert.ToDouble(rtOutputs[i]),
                     IsIndexed: IsIndexedRetentionTimeModel,
-                    Warning: requestInputs[i].Warning
+                    Warning: requestInputs[i].SequenceWarning
                 ));
             }
 

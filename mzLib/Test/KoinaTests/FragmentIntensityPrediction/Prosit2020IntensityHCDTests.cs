@@ -2,12 +2,11 @@
 using Readers.SpectralLibrary;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using System.IO;
 using System;
-using System.ComponentModel;
 using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 using PredictionClients.Koina.AbstractClasses;
+using PredictionClients.Koina.Util;
 
 namespace Test.KoinaTests
 {
@@ -32,7 +31,7 @@ namespace Test.KoinaTests
                 var peptides = librarySpectra.Select(p => p.Sequence).ToList();
                 var charges = librarySpectra.Select(p => p.ChargeState).ToList();
                 var energies = librarySpectra.Select(p => 35).ToList();
-                var retentionTimes = librarySpectra.Select(p => p.RetentionTime).ToArray();
+                var retentionTimes = librarySpectra.Select(p => (double)p.RetentionTime).ToArray();
 
                 // Create model inputs
                 var modelInputs = new List<FragmentIntensityPredictionInput>();

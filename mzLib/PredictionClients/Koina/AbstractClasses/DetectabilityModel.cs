@@ -110,13 +110,18 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
         protected virtual async Task<List<PeptideDetectabilityPrediction>> AsyncThrottledPredictor(List<DetectabilityPredictionInput> modelInputs)
         {
             #region Input Validation and Cleaning
+            if (modelInputs.IsNullOrEmpty())
+            {
+                Predictions = new List<PeptideDetectabilityPrediction>();
+                return Predictions;
+            }
+
             ModelInputs = modelInputs;
             ValidInputsMask = new bool[ModelInputs.Count];
             var validInputs = new List<DetectabilityPredictionInput>();
 
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                WarningException? warning = null;
                 var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var modHandlingWarning);
 
                 if (cleanedSequence != null)

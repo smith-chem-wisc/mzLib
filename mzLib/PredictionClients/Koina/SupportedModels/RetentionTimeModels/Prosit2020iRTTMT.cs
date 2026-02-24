@@ -3,6 +3,7 @@ using PredictionClients.Koina.AbstractClasses;
 using System.ComponentModel;
 using System.Text;
 using System.Text.RegularExpressions;
+using PredictionClients.Koina.Util;
 
 namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
 {
@@ -104,9 +105,13 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
             {"[Common Fixed:iTRAQ8plex on K]", "[UNIMOD:730]"},
             {"[Common Fixed:iTRAQ8plex on N-terminus]", "[UNIMOD:730]-"}
         };
+        public override IncompatibleModHandlingMode ModHandlingMode { get; init; } 
 
-        public Prosit2020iRTTMT(int maxNumberOfBatchesPerRequest = 500, int throttlingDelayInMilliseconds = 100)
+        // Labeling a sequence as invalid when it contains modifications that are not supported by the model seems better than removing unsupported
+        // mods and sending a sequence without the required TMT/iTRAQ labels, which would likely lead to crashes.
+        public Prosit2020iRTTMT(IncompatibleModHandlingMode modHandlingMode = IncompatibleModHandlingMode.ReturnNull, int maxNumberOfBatchesPerRequest = 500, int throttlingDelayInMilliseconds = 100)
         {
+            ModHandlingMode = modHandlingMode;
             MaxNumberOfBatchesPerRequest = maxNumberOfBatchesPerRequest;
             ThrottlingDelayInMilliseconds = throttlingDelayInMilliseconds;
         }
@@ -139,7 +144,8 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         protected override List<Dictionary<string, object>> ToBatchedRequests(List<RetentionTimePredictionInput> validInputs)
         {
             // Split TMT-labeled sequences into batches for optimal API performance
-            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence).Chunk(MaxBatchSize).ToList();
+            // ValidatedFullSequence should not be null at this point due to prior validation steps
+            var batchedPeptides = validInputs.Select(p => ConvertMzLibModificationsToUnimod(p.ValidatedFullSequence!)).Chunk(MaxBatchSize).ToList();
             var batchedRequests = new List<Dictionary<string, object>>();
 
             for (int i = 0; i < batchedPeptides.Count; i++)
