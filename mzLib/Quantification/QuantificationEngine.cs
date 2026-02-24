@@ -96,13 +96,18 @@ public class QuantificationEngine
             return badResults;
         }
 
+        // Write immutable raw snapshot 
+        Task rawWriter = null;
+        if (Parameters.WriteRawInformation)
+        {
+            rawWriter = Task.Run(async () =>
+            {
+                QuantificationWriter.WriteRawData(SpectralMatches, Parameters.OutputDirectory);
+            });
+        }
+
         // Create a matrix from the spectral matches by converting from long format (one row per PSM) to wide format (QuantMatrix)
         var psmMatrix = Pivot(SpectralMatches, ExperimentalDesign);
-
-        // Write immutable raw snapshot 
-        // TODO: Make this happen asynchronously
-        if (Parameters.WriteRawInformation)
-            QuantificationWriter.WriteRawData(SpectralMatches, Parameters.OutputDirectory);
 
         // 1) Normalize PSM matrix
         var psmMatrixNorm = Parameters.SpectralMatchNormalizationStrategy.NormalizeIntensities(psmMatrix);
@@ -136,9 +141,26 @@ public class QuantificationEngine
         if(Parameters.WriteProteinInformation)
             QuantificationWriter.WriteProteinGroupMatrix(proteinMatrixNorm, Parameters.OutputDirectory);
 
+        if (rawWriter != null) Task.WaitAll(rawWriter);
         return new QuantificationResults
         {
             Summary = "Quantification completed successfully."
+        };
+    }
+
+    /// <summary>
+    /// Runs the TMT-specific quantification pipeline.
+    /// Processes each file independently (pivot, normalize, roll-up) before combining.
+    /// </summary>
+    public QuantificationResults RunTmt()
+    {
+        if (!ValidateEngine(out QuantificationResults badResults))
+            return badResults;
+
+        RunTmtCore(out _);
+        return new QuantificationResults
+        {
+            Summary = "TMT Quantification completed successfully."
         };
     }
 
@@ -198,21 +220,6 @@ public class QuantificationEngine
         return proteinMatrixNorm;
     }
 
-    /// <summary>
-    /// Runs the TMT-specific quantification pipeline.
-    /// Processes each file independently (pivot, normalize, roll-up) before combining.
-    /// </summary>
-    public QuantificationResults RunTmt()
-    {
-        if (!ValidateEngine(out QuantificationResults badResults))
-            return badResults;
-
-        RunTmtCore(out _);
-        return new QuantificationResults
-        {
-            Summary = "TMT Quantification completed successfully."
-        };
-    }
 
     /// <summary>
     /// Runs the TMT pipeline and returns the final protein matrix for testing/inspection.
