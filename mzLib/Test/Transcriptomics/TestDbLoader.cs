@@ -5,12 +5,11 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using UsefulProteomicsDatabases.Transcriptomics;
 using UsefulProteomicsDatabases;
 using Transcriptomics;
 using Omics;
+using Omics.Modifications.IO;
 
 namespace Test.Transcriptomics
 {
@@ -122,7 +121,7 @@ namespace Test.Transcriptomics
             Assert.That(errors.Count, Is.EqualTo(0));
 
             var modString = "ID   Methylation\r\nMT   Biological\r\nPP   Anywhere.\r\nTG   G\r\nCF   C1H2\r\n" + @"//";
-            var methylG = PtmListLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).First();
+            var methylG = ModificationLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).First();
 
             Dictionary<string, HashSet<Tuple<int, Modification>>> mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
             mods.Add("SO:0000254", new HashSet<Tuple<int, Modification>>()
@@ -165,7 +164,7 @@ namespace Test.Transcriptomics
                 .Cast<IBioPolymer>().ToList();
             Assert.That(errors.Count, Is.EqualTo(0));
             var modString = "ID   Methylation\r\nMT   Biological\r\nPP   Anywhere.\r\nTG   G\r\nCF   C1H2\r\n" + @"//";
-            var methylG = PtmListLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).First();
+            var methylG = ModificationLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).First();
 
             Dictionary<string, HashSet<Tuple<int, Modification>>> mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
             mods.Add("SO:0000254", new HashSet<Tuple<int, Modification>>()
@@ -206,7 +205,7 @@ namespace Test.Transcriptomics
             Assert.That(errors.Count, Is.EqualTo(0));
 
             var modString = "ID   Methylation\r\nMT   Biological\r\nPP   Anywhere.\r\nTG   G\r\nCF   C1H2\r\n" + @"//";
-            var methylG = PtmListLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).First();
+            var methylG = ModificationLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).First();
 
             Dictionary<string, HashSet<Tuple<int, Modification>>> mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
             mods.Add("SO:0000254", new HashSet<Tuple<int, Modification>>()
