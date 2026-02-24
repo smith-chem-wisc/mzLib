@@ -477,7 +477,6 @@ namespace Omics.BioPolymerGroup
         /// This method should be called after <see cref="AllPsmsBelowOnePercentFDR"/> has been populated.
         /// If the collection is empty, <see cref="BioPolymerGroupScore"/> will be set to 0.
         /// </remarks>
-        /// <seealso cref="BioPolymerGroupExtensions.Score"/>
         public void Score()
         {
             BioPolymerGroupScore = AllPsmsBelowOnePercentFDR
