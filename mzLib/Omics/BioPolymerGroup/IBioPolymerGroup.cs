@@ -48,7 +48,6 @@ namespace Omics.BioPolymerGroup
         /// PSMs in <see cref="AllPsmsBelowOnePercentFDR"/>. Higher values indicate higher confidence.
         /// NOT used for protein FDR calculations.
         /// </summary>
-        /// <seealso cref="BioPolymerGroupExtensions.Score"/>
         double BioPolymerGroupScore { get; set; }
 
         /// <summary>
@@ -120,39 +119,5 @@ namespace Omics.BioPolymerGroup
         /// <param name="silacLabels">Optional SILAC labels to apply during subset creation.</param>
         /// <returns>A new <see cref="IBioPolymerGroup"/> containing only data from the specified file.</returns>
         IBioPolymerGroup ConstructSubsetBioPolymerGroup(string fullFilePath, List<SilacLabel>? silacLabels = null);
-    }
-
-    /// <summary>
-    /// Extension methods for <see cref="IBioPolymerGroup"/> that provide common operations
-    /// applicable to all implementations.
-    /// </summary>
-    public static class BioPolymerGroupExtensions
-    {
-        /// <summary>
-        /// Calculates and updates the <see cref="IBioPolymerGroup.BioPolymerGroupScore"/> based on PSM scores.
-        /// 
-        /// The score is computed as the sum of the best (highest) score for each unique base sequence
-        /// among the PSMs in <see cref="IBioPolymerGroup.AllPsmsBelowOnePercentFDR"/>. This approach
-        /// ensures that each unique peptide/oligonucleotide sequence contributes only its best-scoring
-        /// identification to the group score.
-        /// </summary>
-        /// <param name="group">The biopolymer group to score.</param>
-        /// <remarks>
-        /// This method should be called after <see cref="IBioPolymerGroup.AllPsmsBelowOnePercentFDR"/> 
-        /// has been populated. If the collection is empty, the score will be set to 0.
-        /// </remarks>
-        /// <example>
-        /// <code>
-        /// IBioPolymerGroup group = GetBioPolymerGroup();
-        /// group.Score(); // Calculates and sets BioPolymerGroupScore
-        /// </code>
-        /// </example>
-        public static void Score(this IBioPolymerGroup group)
-        {
-            group.BioPolymerGroupScore = group.AllPsmsBelowOnePercentFDR
-                .GroupBy(p => p.BaseSequence)
-                .Select(p => p.Select(x => x.Score).Max())
-                .Sum();
-        }
     }
 }
