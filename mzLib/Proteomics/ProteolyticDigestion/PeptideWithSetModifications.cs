@@ -341,7 +341,8 @@ namespace Proteomics.ProteolyticDigestion
 
                     if (mod != null && (mod.ModificationType == "O-linked glycosylation" || mod.ModificationType == "N-linked glycosylation"))
                     {
-                        nTermNeutralLosses_Glcyan = AddNeutralLossesFromMods(mod, nTermNeutralLosses, dissociationType);
+                        nTermNeutralLosses_Glcyan = AddNeutralLossesFromMods(mod, nTermNeutralLosses_Glcyan, dissociationType);
+                        nTermNeutralLosses_Glcyan = nTermNeutralLosses_Glcyan.Distinct().ToList();
                     }
                     else if(mod != null)
                     {
@@ -428,6 +429,7 @@ namespace Proteomics.ProteolyticDigestion
                     if (mod != null && (mod.ModificationType == "O-linked glycosylation" || mod.ModificationType == "N-linked glycosylation"))
                     {
                         cTermNeutralLosses_Glcyan = AddNeutralLossesFromMods(mod, cTermNeutralLosses_Glcyan, dissociationType);
+                        cTermNeutralLosses_Glcyan = cTermNeutralLosses_Glcyan.Distinct().ToList();
                     }
                     else if(mod != null)
                     {
@@ -516,6 +518,7 @@ namespace Proteomics.ProteolyticDigestion
                 if (mod != null && (mod.ModificationType == "O-linked glycosylation" || mod.ModificationType == "N-linked glycosylation"))
                 {
                     cTermNeutralLosses_Glcyan = AddNeutralLossesFromMods(mod, cTermNeutralLosses_Glcyan, dissociationType);
+                    cTermNeutralLosses_Glcyan = cTermNeutralLosses_Glcyan.Distinct().ToList();
                 }
                 else if(mod != null )
                 {
