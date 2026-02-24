@@ -623,7 +623,7 @@ namespace Test.Quantification
                 proteinGroups);
 
             // Act
-            var proteinMatrix = engine.RunAndReturnProteinMatrix();
+            engine.Run(out var proteinMatrix);
 
             // Assert
             Assert.That(proteinMatrix, Is.Not.Null);

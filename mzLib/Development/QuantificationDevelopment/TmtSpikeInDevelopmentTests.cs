@@ -78,7 +78,8 @@ public class TmtSpikeInDevelopmentTests
             WriteProteinInformation = false
         };
         var engine = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups);
-        return engine.RunTmtAndReturnProteinMatrix();
+        engine.Run(out var proteinMatrix);
+        return proteinMatrix;
     }
 
     private static void PrintFoldChangeGroup(string groupName, List<double> foldChanges, double expectedFc)
@@ -153,7 +154,7 @@ public class TmtSpikeInDevelopmentTests
         parameters.WriteProteinInformation = false;
 
         var engine = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups);
-        var proteinMatrix = engine.RunTmtAndReturnProteinMatrix();
+        engine.Run(out var proteinMatrix);
 
         Assert.That(proteinMatrix, Is.Not.Null);
         Assert.That(proteinMatrix.RowKeys.Count, Is.GreaterThan(0), "Protein matrix has no rows");
@@ -182,7 +183,7 @@ public class TmtSpikeInDevelopmentTests
         parameters.WriteProteinInformation = false;
 
         var engine = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups);
-        var proteinMatrix = engine.RunTmtAndReturnProteinMatrix();
+        engine.Run(out var proteinMatrix);
 
         var foldChanges_1_vs_0125 = QuantificationEvaluator.ComputeFoldChanges(proteinMatrix, "1", "0.125")
             .Select(x => x.foldChange).ToList();
@@ -223,7 +224,7 @@ public class TmtSpikeInDevelopmentTests
         parameters.WriteProteinInformation = false;
 
         var engine = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups);
-        var proteinMatrix = engine.RunTmtAndReturnProteinMatrix();
+        engine.Run(out var proteinMatrix);
 
         Assert.That(proteinMatrix.RowKeys.Count, Is.GreaterThan(0), "HeLa protein matrix is empty");
 
@@ -427,7 +428,7 @@ public class TmtSpikeInDevelopmentTests
         };
 
         var engine = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups);
-        var proteinMatrix = engine.RunTmtAndReturnProteinMatrix();
+        engine.Run(out var proteinMatrix);
 
         Assert.That(proteinMatrix.RowKeys.Count, Is.GreaterThan(0), "Combined protein matrix is empty");
 

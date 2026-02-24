@@ -253,7 +253,7 @@ public class TmtSpikeInTests
         parameters.WriteProteinInformation = false;
 
         var engine = new QuantificationEngine(parameters, design, spectralMatches, allPeptides, proteinGroups);
-        var proteinMatrix = engine.RunTmtAndReturnProteinMatrix();
+        engine.Run(out var proteinMatrix);
 
         Assert.That(proteinMatrix.RowKeys.Count, Is.EqualTo(2));
         Assert.That(proteinMatrix.ColumnKeys.Count, Is.EqualTo(6));
@@ -325,7 +325,7 @@ public class TmtSpikeInTests
         };
 
         var engine = new QuantificationEngine(parameters, design, spectralMatches, allPeptides, proteinGroups);
-        var proteinMatrix = engine.RunTmtAndReturnProteinMatrix();
+        engine.Run(out var proteinMatrix);
 
         Assert.That(proteinMatrix.ColumnKeys.Count, Is.EqualTo(3));
 
@@ -486,7 +486,7 @@ public class TmtSpikeInTests
         };
 
         var engine = new QuantificationEngine(parameters, design, spectralMatches, allPeptides, proteinGroups);
-        var proteinMatrix = engine.RunTmtAndReturnProteinMatrix();
+        engine.Run(out var proteinMatrix);
 
         Assert.That(proteinMatrix.ColumnKeys.Count, Is.EqualTo(3),
             "Expected 3 columns after MeanCollapse (Reference_1, CondA_1, CondB_1)");

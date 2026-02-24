@@ -13,6 +13,7 @@ namespace Quantification;
 /// 2) Roll up to peptides for each file
 ///     2a) Map the PSMs to peptides, creating a Dictionary<IBioPolymerWithSetMods, List<int>> Map mapping peptides to the indices of their PSMs in the QuantMatrix
 ///     2b) Roll-up. The roll-up strategy will take in a QuantMatrix of PSMs and the > map, and output a Peptide QuantMatrix
+///     2c) Combine the per-file peptide matrices into a single matrix spanning all files, with missing values filled in as 0s
 /// 3) Normalize the peptide matrix
 /// 4) Collapse the peptide matrix, combining fractions and technical replicates
 /// * Writes peptide information (if enabled)
@@ -42,6 +43,56 @@ public class QuantificationEngine
         SpectralMatches = spectralMatches;
         ModifiedBioPolymers = modifiedBioPolymers;
         BioPolymerGroups = bioPolymerGroups;
+    }
+
+    public QuantificationResults Run()
+    {
+        return Run(out var proteinMatrix);
+    }
+
+    public QuantificationResults Run(out QuantMatrix<IBioPolymerGroup> proteinMatrix)
+    {
+        proteinMatrix = null;
+
+        // 0) Validate engine state
+        if (!ValidateEngine(out QuantificationResults badResults))
+        {
+            return badResults;
+        }
+
+        // Write immutable raw snapshot 
+        Task rawWriter = null;
+        if (Parameters.WriteRawInformation)
+        {
+            rawWriter = Task.Run(async () =>
+            {
+                QuantificationWriter.WriteRawData(SpectralMatches, Parameters.OutputDirectory);
+            });
+        }
+
+        RunPeptideQuant(out var peptideMatrix);
+
+        Task peptideWriter = null;
+        if (Parameters.WritePeptideInformation)
+        {
+            peptideWriter = Task.Run(async () =>
+            {
+                QuantificationWriter.WritePeptideMatrix(peptideMatrix, Parameters.OutputDirectory);
+            });
+        }
+
+        RunProteinQuant(peptideMatrix, out proteinMatrix);
+
+        // 9) Write protein results (If enabled) No need to spin up a task, as this is the last step and we need to wait for it to complete before returning results anyway
+        if (Parameters.WriteProteinInformation)
+            QuantificationWriter.WriteProteinGroupMatrix(proteinMatrix, Parameters.OutputDirectory);
+
+        if (rawWriter != null) Task.WaitAll(rawWriter);
+        if (peptideWriter != null) Task.WaitAll(peptideWriter);
+        return new QuantificationResults
+        {
+            Summary = "Quantification completed successfully."
+        };
     }
 
     /// <summary>
@@ -86,168 +137,8 @@ public class QuantificationEngine
         }
         return true;
     }
-    
-    public QuantificationResults Run()
-    {
-        // 0) Validate engine state
-        if(!ValidateEngine(out QuantificationResults badResults))
-        {
-            return badResults;
-        }
 
-        // Write immutable raw snapshot 
-        Task rawWriter = null;
-        if (Parameters.WriteRawInformation)
-        {
-            rawWriter = Task.Run(async () =>
-            {
-                QuantificationWriter.WriteRawData(SpectralMatches, Parameters.OutputDirectory);
-            });
-        }
-
-        // 1) PivotByFile - one matrix per file
-        var perFileMatrices = PivotByFile(SpectralMatches, ExperimentalDesign);
-
-        // 2) Per-file PSM normalization
-        var perFileNormalized = new Dictionary<string, QuantMatrix<ISpectralMatch>>();
-        foreach (var kvp in perFileMatrices)
-        {
-            perFileNormalized[kvp.Key] = Parameters.SpectralMatchNormalizationStrategy
-                .NormalizeIntensities(kvp.Value);
-        }
-
-        // 3) Per-file roll-up to peptides
-        var perFilePeptideMatrices = new Dictionary<string, QuantMatrix<IBioPolymerWithSetMods>>();
-        foreach (var kvp in perFileNormalized)
-        {
-            var peptideMap = GetPsmToPeptideMap(kvp.Value, ModifiedBioPolymers);
-            perFilePeptideMatrices[kvp.Key] = Parameters.SpectralMatchToPeptideRollUpStrategy
-                .RollUp(kvp.Value, peptideMap);
-        }
-
-        // 4) Combine per-file peptide matrices
-        var combinedPeptideMatrix = CombinePeptideMatrices(perFilePeptideMatrices, ExperimentalDesign);
-
-        // 5) Normalize peptide matrix 
-        var peptideMatrixNorm = Parameters.PeptideNormalizationStrategy.NormalizeIntensities(combinedPeptideMatrix);
-
-        // 6) Collapse the peptide matrix to combine fractions and technical replicates
-        peptideMatrixNorm = Parameters.CollapseStrategy.CollapseSamples(peptideMatrixNorm);
-
-        // Write peptide results (If enabled)
-        if(Parameters.WritePeptideInformation) // TODO: Make this happen asynchronously
-            QuantificationWriter.WritePeptideMatrix(peptideMatrixNorm, Parameters.OutputDirectory);
-
-        // 7) Roll up to protein groups
-        var proteinMap = Parameters.UseSharedPeptidesForProteinQuant ?
-            GetAllPeptideToProteinMap(peptideMatrixNorm) :
-            GetUniquePeptideToProteinMap(peptideMatrixNorm, BioPolymerGroups);
-        var proteinMatrix = Parameters.PeptideToProteinRollUpStrategy
-            .RollUp(peptideMatrixNorm, proteinMap);
-
-        // 8) Normalize protein group matrix
-        var proteinMatrixNorm = Parameters.ProteinNormalizationStrategy.NormalizeIntensities(proteinMatrix);
-
-        // 9) Write protein results (If enabled)
-        if(Parameters.WriteProteinInformation)
-            QuantificationWriter.WriteProteinGroupMatrix(proteinMatrixNorm, Parameters.OutputDirectory);
-
-        if (rawWriter != null) Task.WaitAll(rawWriter);
-        return new QuantificationResults
-        {
-            Summary = "Quantification completed successfully."
-        };
-    }
-
-    /// <summary>
-    /// Runs the TMT-specific quantification pipeline.
-    /// Processes each file independently (pivot, normalize, roll-up) before combining.
-    /// </summary>
-    public QuantificationResults RunTmt()
-    {
-        if (!ValidateEngine(out QuantificationResults badResults))
-            return badResults;
-
-        RunTmtCore(out _);
-        return new QuantificationResults
-        {
-            Summary = "TMT Quantification completed successfully."
-        };
-    }
-
-    /// <summary>
-    /// This is only for testing until the writers are up and running. Returns the protein matrix
-    /// </summary>
-    /// <returns></returns>
-    /// <exception cref="MzLibException"></exception>
-    internal QuantMatrix<IBioPolymerGroup> RunAndReturnProteinMatrix()
-    {
-        // 0) Validate engine state
-        if (!ValidateEngine(out QuantificationResults badResults))
-        {
-            throw new MzLibException("I don't know what went wrong here");
-        }
-
-        // Create a matrix from the spectral matches by converting from long format (one row per PSM) to wide format (QuantMatrix)
-        var psmMatrix = Pivot(SpectralMatches, ExperimentalDesign);
-
-        // Write immutable raw snapshot 
-        // TODO: Make this happen asynchronously
-        if (Parameters.WriteRawInformation)
-            QuantificationWriter.WriteRawData(SpectralMatches, Parameters.OutputDirectory);
-
-        // 1) Normalize PSM matrix
-        var psmMatrixNorm = Parameters.SpectralMatchNormalizationStrategy.NormalizeIntensities(psmMatrix);
-
-        // 2) Roll up to peptides
-        var peptideMap = GetPsmToPeptideMap(psmMatrixNorm, ModifiedBioPolymers);
-        var peptideMatrix = Parameters.SpectralMatchToPeptideRollUpStrategy
-            .RollUp(psmMatrixNorm, peptideMap);
-
-        // 3) Normalize peptide matrix 
-        var peptideMatrixNorm = Parameters.PeptideNormalizationStrategy.NormalizeIntensities(peptideMatrix);
-
-        // 4) Collapse the peptide matrix to combine fractions and technical replicates
-        peptideMatrixNorm = Parameters.CollapseStrategy.CollapseSamples(peptideMatrixNorm);
-
-        // Write peptide results (If enabled)
-        if (Parameters.WritePeptideInformation) // TODO: Make this happen asynchronously
-            QuantificationWriter.WritePeptideMatrix(peptideMatrixNorm, Parameters.OutputDirectory);
-
-        // 5) Roll up to protein groups
-        var proteinMap = Parameters.UseSharedPeptidesForProteinQuant ?
-            GetAllPeptideToProteinMap(peptideMatrixNorm) :
-            GetUniquePeptideToProteinMap(peptideMatrixNorm, BioPolymerGroups);
-        var proteinMatrix = Parameters.PeptideToProteinRollUpStrategy
-            .RollUp(peptideMatrixNorm, proteinMap);
-
-        // 6) Normalize protein group matrix
-        var proteinMatrixNorm = Parameters.ProteinNormalizationStrategy.NormalizeIntensities(proteinMatrix);
-
-        // 8) Write protein results (If enabled)
-        if (Parameters.WriteProteinInformation)
-            QuantificationWriter.WriteProteinGroupMatrix(proteinMatrixNorm, Parameters.OutputDirectory);
-
-        return proteinMatrixNorm;
-    }
-
-
-    /// <summary>
-    /// Runs the TMT pipeline and returns the final protein matrix for testing/inspection.
-    /// </summary>
-    internal QuantMatrix<IBioPolymerGroup> RunTmtAndReturnProteinMatrix()
-    {
-        if (!ValidateEngine(out QuantificationResults _))
-            throw new MzLibException("QuantificationEngine validation failed.");
-
-        RunTmtCore(out var proteinMatrixNorm);
-        return proteinMatrixNorm;
-    }
-
-    /// <summary>
-    /// Core TMT pipeline: per-file normalization, roll-up, combine, normalize, collapse, protein roll-up.
-    /// </summary>
-    private void RunTmtCore(out QuantMatrix<IBioPolymerGroup> proteinMatrixNorm)
+    internal void RunPeptideQuant(out QuantMatrix<IBioPolymerWithSetMods> peptideMatrixNorm)
     {
         // 1) PivotByFile - one matrix per file
         var perFileMatrices = PivotByFile(SpectralMatches, ExperimentalDesign);
@@ -273,9 +164,13 @@ public class QuantificationEngine
         var combinedPeptideMatrix = CombinePeptideMatrices(perFilePeptideMatrices, ExperimentalDesign);
 
         // 5) Normalize combined peptide matrix
-        var peptideMatrixNorm = Parameters.PeptideNormalizationStrategy
+        peptideMatrixNorm = Parameters.PeptideNormalizationStrategy
             .NormalizeIntensities(combinedPeptideMatrix);
+    }
 
+    internal void RunProteinQuant(QuantMatrix<IBioPolymerWithSetMods> peptideMatrixNorm,
+        out QuantMatrix<IBioPolymerGroup> proteinMatrixNorm)
+    {
         // 6) Collapse samples (technical replicates, fractions)
         peptideMatrixNorm = Parameters.CollapseStrategy.CollapseSamples(peptideMatrixNorm);
 
@@ -283,6 +178,7 @@ public class QuantificationEngine
         var proteinMap = Parameters.UseSharedPeptidesForProteinQuant
             ? GetAllPeptideToProteinMap(peptideMatrixNorm)
             : GetUniquePeptideToProteinMap(peptideMatrixNorm, BioPolymerGroups);
+
         var proteinMatrix = Parameters.PeptideToProteinRollUpStrategy
             .RollUp(peptideMatrixNorm, proteinMap);
 
