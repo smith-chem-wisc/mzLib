@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
+
 namespace Proteomics.ProteolyticDigestion
 {
     [Serializable]
@@ -267,6 +268,8 @@ namespace Proteomics.ProteolyticDigestion
             // List used to preserve multiplicity of neutral losses (e.g., two phosphorylation sites on the same fragment would generate two losses of 98 Da.) We want to see both of those losses represented in the products.
             List<double> cTermNeutralLosses = null;
             List<double> nTermNeutralLosses = null;
+            List<double> nTermNeutralLosses_Glcyan = null; // separate list to track neutral losses from glycan modifications, since the whole glycan-containing fragments (e.g., Y1, Y2) will generate huge number of products while doing the combination.
+            List<double> cTermNeutralLosses_Glcyan = null; // separate list to track neutral losses from glycan modifications, since the whole glycan-containing fragments (e.g., Y1, Y2) will generate huge number of products while doing the combination.
             int maxMods = fragmentationParams == null ? 1 : fragmentationParams.MaxModsForCumulativeNeutralLosses;
 
             // n-terminus mod
@@ -336,8 +339,15 @@ namespace Proteomics.ProteolyticDigestion
                         goto CTerminusFragments;
                     }
 
+                    if (mod != null && (mod.ModificationType == "O-linked glycosylation" || mod.ModificationType == "N-linked glycosylation"))
+                    {
+                        nTermNeutralLosses_Glcyan = AddNeutralLossesFromMods(mod, nTermNeutralLosses, dissociationType);
+                    }
+                    else if(mod != null)
+                    {
+                        nTermNeutralLosses = AddNeutralLossesFromMods(mod, nTermNeutralLosses, dissociationType);
+                    }
 
-                    nTermNeutralLosses = AddNeutralLossesFromMods(mod, nTermNeutralLosses, dissociationType);
                     // generate products
                     for (int i = 0; i < nTermProductTypes.Count; i++)
                     {
@@ -362,15 +372,9 @@ namespace Proteomics.ProteolyticDigestion
                             r + 1,
                             0));
 
-
-
-                        if (nTermNeutralLosses != null && nTermNeutralLosses.Count > 0)
+                        var distinctNeutralLosses = CombinedUniqueNeturallosses(nTermNeutralLosses, nTermNeutralLosses_Glcyan, maxMods);
+                        if (distinctNeutralLosses != null)
                         {
-                            if (nTermNeutralLosses.Count > 15) 
-                            {
-                                int yy = 0;
-                            }
-                            var distinctNeutralLosses = PowerSet.UniqueSubsetSums(nTermNeutralLosses, maxMods);
                             foreach (double distinctNeutralLoss in distinctNeutralLosses.Skip(1))
                             {
                                 products.Add(new Product(
@@ -421,7 +425,15 @@ namespace Proteomics.ProteolyticDigestion
                         }
                     }
 
-                    cTermNeutralLosses = AddNeutralLossesFromMods(mod, cTermNeutralLosses, dissociationType);
+                    if (mod != null && (mod.ModificationType == "O-linked glycosylation" || mod.ModificationType == "N-linked glycosylation"))
+                    {
+                        cTermNeutralLosses_Glcyan = AddNeutralLossesFromMods(mod, cTermNeutralLosses_Glcyan, dissociationType);
+                    }
+                    else if(mod != null)
+                    {
+                        cTermNeutralLosses = AddNeutralLossesFromMods(mod, cTermNeutralLosses, dissociationType);
+                    }
+
                     // generate products
                     for (int i = 0; i < cTermProductTypes.Count; i++)
                     {
@@ -454,14 +466,9 @@ namespace Proteomics.ProteolyticDigestion
                             BaseSequence.Length - r,
                             0));
 
-
-                        if (cTermNeutralLosses != null && cTermNeutralLosses.Count > 0)
+                        var distinctNeutralLosses = CombinedUniqueNeturallosses(cTermNeutralLosses, cTermNeutralLosses_Glcyan, maxMods);
+                        if (distinctNeutralLosses!=null)
                         {
-                            if (cTermNeutralLosses.Count > 15)
-                            {
-                                int yy = 0;
-                            }
-                            var distinctNeutralLosses = PowerSet.UniqueSubsetSums(cTermNeutralLosses, maxMods);
                             foreach (double distinctNeutralLoss in distinctNeutralLosses.Skip(1))
                             {
                                 products.Add(new Product(
@@ -506,11 +513,19 @@ namespace Proteomics.ProteolyticDigestion
                     1,
                     0));
 
-                cTermNeutralLosses = AddNeutralLossesFromMods(mod, cTermNeutralLosses, dissociationType);
-
-                if (cTermNeutralLosses != null)
+                if (mod != null && (mod.ModificationType == "O-linked glycosylation" || mod.ModificationType == "N-linked glycosylation"))
                 {
-                    foreach (double neutralLoss in cTermNeutralLosses)
+                    cTermNeutralLosses_Glcyan = AddNeutralLossesFromMods(mod, cTermNeutralLosses_Glcyan, dissociationType);
+                }
+                else if(mod != null )
+                {
+                    cTermNeutralLosses = AddNeutralLossesFromMods(mod, cTermNeutralLosses, dissociationType);
+                }
+
+                var distinctNeutralLosses = CombinedUniqueNeturallosses(cTermNeutralLosses, cTermNeutralLosses_Glcyan, maxMods);
+                if (distinctNeutralLosses != null)
+                {
+                    foreach (double neutralLoss in distinctNeutralLosses.Skip(1))
                     {
                         products.Add(new Product(
                             ProductType.zDot,
@@ -571,6 +586,14 @@ namespace Proteomics.ProteolyticDigestion
             if (nTermNeutralLosses != null) 
             {
                 NeutralLossPool.Return(nTermNeutralLosses);
+            }
+            if (nTermNeutralLosses_Glcyan != null)
+            {
+                NeutralLossPool.Return(nTermNeutralLosses_Glcyan);
+            }
+            if (cTermNeutralLosses_Glcyan != null)
+            {
+                NeutralLossPool.Return(cTermNeutralLosses_Glcyan);
             }
         }
 
@@ -1010,8 +1033,7 @@ namespace Proteomics.ProteolyticDigestion
         
         private List<double> AddNeutralLossesFromMods(Modification mod, List<double> allNeutralLossesSoFar, DissociationType dissociationType)
         {
-            if (mod != null
-                && mod.NeutralLosses != null
+            if (mod.NeutralLosses != null
                 && mod.NeutralLosses.TryGetValue(dissociationType, out List<double> neutralLossesFromMod))
             {
                 foreach (double neutralLoss in neutralLossesFromMod.Where(p => p != 0))
@@ -1025,8 +1047,7 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             // add neutral losses that are generic to any dissociation type
-            if (mod != null
-                && mod.NeutralLosses != null
+            if (mod.NeutralLosses != null
                 && mod.NeutralLosses.TryGetValue(DissociationType.AnyActivationType, out neutralLossesFromMod))
             {
                 foreach (double neutralLoss in neutralLossesFromMod.Where(p => p != 0))
@@ -1421,6 +1442,34 @@ namespace Proteomics.ProteolyticDigestion
 
             //Make the "peptideDescription" store the corresponding target's sequence
             return new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.FullSequence, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
+        }
+
+        private List<double> CombinedUniqueNeturallosses(List<double> otherMod, List<double> glycans, int maxMod)
+        {
+            List<double> result;
+            if (otherMod == null)
+            {
+                if (glycans == null)
+                {
+                    return null;
+                }
+                else
+                {
+                    result = new List<double>(glycans.Count + 1);
+                    result.Add(0.0);
+                    result.AddRange(glycans);
+                    return result;
+                }
+            }
+
+            if (glycans == null)
+            {
+                return PowerSet.UniqueSubsetSums(otherMod, maxMod);
+            }
+
+            result = PowerSet.UniqueSubsetSums(otherMod, maxMod) ?? new List<double>();
+            result.AddRange(glycans);
+            return result;
         }
     }
 }

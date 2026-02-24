@@ -38,6 +38,7 @@ using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using System.Threading;
+using System.Diagnostics;
 namespace Test
 {
     [TestFixture]
@@ -342,6 +343,37 @@ namespace Test
             {
                 "b2-97.98", "b3-97.98", "b4-97.98", "b5-97.98","b5-15.99", "b5-113.97", "b6-97.98","b6-15.99", "b6-113.97","b7-97.98","b7-15.99", "b7-113.97", "b7-195.95", "b7-211.95",
                 "y2-97.98","y3-97.98","y4-97.98", "y4-15.99","y4-113.97","y5-15.99","y5-97.98", "y5-113.97","y6-15.99","y6-97.98", "y6-113.97","y7-15.99","y7-97.98", "y7-113.97","y7-195.95", "y7-211.95"
+            };
+            Assert.IsTrue(expectedNTerminalMassesLabels.All(label => nTerminalMassesLabels.Contains(label)));
+        }
+
+        [Test]
+        public static void Test_GetTheoreticalFragments_cumulativeLoss_mixGlycanandP() 
+        {
+            Protein p = new Protein("NSNPNPN", "accession");
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motif_P);
+            ModificationMotif.TryGetMotif("S", out ModificationMotif motif_S);
+            Dictionary<DissociationType, List<double>> _neutralLosses_P = new Dictionary<DissociationType, List<double>>() { };
+            Dictionary<DissociationType, List<double>> _neutralLosses_glycan = new Dictionary<DissociationType, List<double>>() { };
+            _neutralLosses_P.Add(DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass });
+            _neutralLosses_glycan.Add(DissociationType.HCD, new List<double> { 100.0, 200.0, 300.0, 400.0 });
+
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif_P, _neutralLosses: _neutralLosses_P, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
+            Modification glycan = new Modification(_originalId: "H1N1A1 on S", _modificationType: "O-linked glycosylation", _target: motif_S, _neutralLosses: _neutralLosses_glycan, _locationRestriction: "Anywhere.", _chemicalFormula: null, _monoisotopicMass: 400.0);
+            DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
+            FragmentationParams fragmentationParams = new FragmentationParams();
+            fragmentationParams.MaxModsForCumulativeNeutralLosses = 2;
+
+            var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation, glycan }, new List<Modification>()).First();
+            var theseTheoreticalFragments = new List<Product>();
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments, fragmentationParams);
+
+            var nTerminalMassesLabels = theseTheoreticalFragments.Select(f => f.Annotation.ToString()).ToList();
+            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string>
+            {
+                "b2-100.00", "b2-200.00", "b2-300.00", "b2-400.00", "b4-100.00", "b4-200.00",  "b4-300.00", "b4-400.00","b4-97.98",
+                "b6-100.00", "b6-200.00", "b6-300.00", "b6-400.00", "b6-97.98", "b6-195.95", "y2-97.98", "y4-97.98", "y4-195.95",
+                "y6-100.00", "y6-200.00", "y6-300.00", "y6-400.00", "y6-97.98", "y6-195.95"
             };
             Assert.IsTrue(expectedNTerminalMassesLabels.All(label => nTerminalMassesLabels.Contains(label)));
         }
@@ -1399,7 +1431,7 @@ namespace Test
             //var dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml");
 
             var dbPath =
-                @"E:\GlycoSearch_WritePrunedDb\Lue's data\FourMucins_NoSigPeps_FASTApruned.xml"; //@"C:\Users\Alex\Documents\Proteomes\uniprotkb_Human_AND_model_organism_9606_2025_03_19.xml.gz";
+                @"E:\GlycoSearch_WritePrunedDb\Lue's data\FourMucins_NoSigPeps_FASTApruned.xml";
 
             var loadSw = Stopwatch.StartNew();
             var proteins = ProteinDbLoader.LoadProteinXML(dbPath, true, DecoyType.Reverse, Mods.AllKnownMods, false, null, out _, maxHeterozygousVariants: 0);

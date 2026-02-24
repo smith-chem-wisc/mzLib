@@ -1,6 +1,9 @@
-﻿using System;
+﻿using Omics.Modifications;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -17,22 +20,17 @@ namespace Omics.Fragmentation
         /// <param name="numberList"> The input list of numbers to compute subset sums from.</param>
         /// <param name="maxElementsToSum"> The maximum size of subsets to consider when computing sums. Only subsets with size less than or equal to this value will be included in the results.</param>
         /// <returns> A list of unique sums of subsets of the input list, where each subset's size is less than or equal to the specified SubsetSize.</returns>
-        public static List<double> UniqueSubsetSums(IReadOnlyList<double> numberList, int maxElementsToSum) 
+        public static List<double> UniqueSubsetSums(IReadOnlyList<double> numberList, int maxElementsToSum)
         {
-
-            if(maxElementsToSum < 0) return new List<double> { 0 }; // if maxElementsToSum is negative, treat it as 0, which means only consider the empty set.
-
-            switch (numberList.Count)
-                {
-                case 0:
-                    return new List<double> { 0 }; // The sum of the empty set is defined as 0
-                case > 15:
-                    throw new ArgumentException("Input list is too large. Maximum supported size is 15 to avoid excessive memory usage.");
-                default:
-                    break;
-            }
+            if (numberList == null) return new List<double>() { 0 };
 
             int numberCount = numberList.Count;
+            if (maxElementsToSum < 0 || numberCount == 0) return new List<double> { 0 }; // if maxElementsToSum is negative or the numberList is empty,  which means only consider the empty set.
+            if (numberCount > 15) 
+            {
+                throw new ArgumentException("Input list is too large. Maximum supported size is 15 to avoid excessive memory usage.");
+            }
+            
             Span<double> sums = stackalloc double[1 << numberCount]; // To store the sums of subsets, with a maximum of 2^n subsets for n numbers
             Span<byte> sizes = stackalloc byte[1 << numberCount]; // To track the size of each subset
 
@@ -90,7 +88,5 @@ namespace Omics.Fragmentation
                 a[j + 1] = x;
             }
         }
-
-
     }
 }

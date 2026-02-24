@@ -29,8 +29,9 @@ namespace Test
 
             List<double> numberList_2 = new List<double> {
             1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0 };
-            var ex2 = Assert.Throws<ArgumentException>(() => PowerSet.UniqueSubsetSums(numberList_2, -3));
-            Assert.That(ex2.Message, Is.EqualTo("Subset size must be non-negative."));
+            var result = PowerSet.UniqueSubsetSums(numberList_2, -3);
+            List<double> expectedList = new List<double> { 0 };
+            Assert.That(result.Count == 1);
         }
 
         [Test]
