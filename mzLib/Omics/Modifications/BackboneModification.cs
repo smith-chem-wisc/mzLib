@@ -1,9 +1,9 @@
-﻿using System.Text;
+using System.Text;
 using Chemistry;
 using MassSpectrometry;
 using Omics.Fragmentation;
 
-namespace Omics.Modifications;    
+namespace Omics.Modifications;
 
 /// <summary>
 /// For backbone modifications: fragment types affected by the modification and their corresponding mass shifts. For example, phosphothiolate replaces the O with an S in the RNA backbone, so a, b, y, and z ions will not have a mass shift imparted by the modification, but c, d, w, x ions will have a mass shift O-1S1.

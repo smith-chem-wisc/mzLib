@@ -20,8 +20,9 @@ using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
+using Omics.Fragmentation;
+using Omics.Modifications;
+using Omics.Modifications.IO;
 using Proteomics;
 using Proteomics.AminoAcidPolymer;
 using Proteomics.ProteolyticDigestion;
@@ -29,9 +30,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Omics.Fragmentation;
-using Omics.Modifications;
 using UsefulProteomicsDatabases;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -79,7 +80,7 @@ namespace Test
             var mod1 = new Modification(_originalId: "mod of M", _modificationType: "type", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: ChemicalFormula.ParseFormula("H").MonoisotopicMass);
             var mod1string = mod1.ToString();
             Assert.IsTrue(mod1string.Contains("MM"));
-            var modAfterWriteRead = PtmListLoader.ReadModsFromString(mod1string + Environment.NewLine + "//", out var errors).First() as Modification;
+            var modAfterWriteRead = ModificationLoader.ReadModsFromString(mod1string + Environment.NewLine + "//", out var errors).First() as Modification;
 
             Assert.IsTrue(modAfterWriteRead.Equals(mod1));
         }
