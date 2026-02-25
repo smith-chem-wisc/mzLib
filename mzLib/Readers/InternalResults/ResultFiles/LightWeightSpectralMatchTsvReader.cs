@@ -64,6 +64,8 @@ namespace Readers
                 {
                     lineNumber++;
                     string[] spl = line.Split(Split);
+                    for (int j = 0; j < spl.Length; j++)
+                        spl[j] = spl[j].Trim('"');
 
                     // Check terminating filters first
                     if (resolvedTerminatingFilters != null)
