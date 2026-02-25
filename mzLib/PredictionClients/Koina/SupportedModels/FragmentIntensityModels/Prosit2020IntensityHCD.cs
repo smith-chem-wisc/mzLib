@@ -65,7 +65,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
             };
         public override IncompatibleModHandlingMode ModHandlingMode { get; init; }
 
-        public Prosit2020IntensityHCD(IncompatibleModHandlingMode modHandlingMode = IncompatibleModHandlingMode.RemoveIncompatibleMods, int maxNumberOfBatchesPerRequest = 500, int throttlingDelayInMilliseconds = 100)
+        public Prosit2020IntensityHCD(IncompatibleModHandlingMode modHandlingMode = IncompatibleModHandlingMode.RemoveIncompatibleMods, int maxNumberOfBatchesPerRequest = 250, int throttlingDelayInMilliseconds = 100)
         {
             ModHandlingMode = modHandlingMode;
             MaxNumberOfBatchesPerRequest = maxNumberOfBatchesPerRequest;

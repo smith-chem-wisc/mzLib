@@ -528,5 +528,36 @@ namespace Test.KoinaTests
             Assert.DoesNotThrow( () => model.Predict(modelInputs));
             Assert.That(model.Predictions.Count, Is.EqualTo(numberOfSequences));
         }
+
+        [Test]
+        [Explicit("Massive test, takes a long time to run")]
+        [Category("Performance Benchmark")]
+        public static void TestKoinaProsit2020IntensityHCDModelPerformance()
+        {
+            var aminoacids = "ACDEFGHIKLMNPQRSTVWY".ToArray();
+            var modelInputs = new List<FragmentIntensityPredictionInput>();
+            var seqLength = 30;
+            var numberOfSequences = 4000000;
+            var peptides = new HashSet<string>();
+            while (peptides.Count < numberOfSequences)
+            {
+                var pep = new string(Random.Shared.GetItems(aminoacids, seqLength));
+                if (!peptides.Contains(pep))
+                {
+                    peptides.Add(pep);
+                }
+            }
+            foreach (var peptide in peptides)
+            {
+                modelInputs.Add(new FragmentIntensityPredictionInput(peptide, 2, 35, null, null));
+            }
+            var model = new Prosit2020IntensityHCD();
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            model.Predict(modelInputs);
+            watch.Stop();
+            Assert.That(model.Predictions.Count, Is.EqualTo(numberOfSequences));
+            Assert.That(model.ValidInputsMask, Is.All.True);
+            Console.WriteLine($"Time taken to predict {numberOfSequences:N0} peptides: {watch.Elapsed.Minutes}min {watch.Elapsed.Seconds}s");
+        }   
     }
 }
