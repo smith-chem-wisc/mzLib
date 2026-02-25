@@ -325,8 +325,7 @@ namespace Development.Dia
                         scanIdx + 1, 2, true, Polarity.Positive, rt,
                         new MzRange(100, 2000), "FTMS", MZAnalyzerType.Orbitrap,
                         intensities.Sum(), 20.0, null, $"scan={scanIdx + 1}",
-                        isolationMZ: isoCenter, isolationWidth: windowWidth,
-                        dissociationType: DissociationType.HCD);
+                         isolationMZ: isoCenter, isolationWidth: windowWidth, dissociationType: DissociationType.HCD);
                     scanIdx++;
                 }
             }

@@ -213,6 +213,54 @@ namespace MassSpectrometry.Dia
         /// </summary>
         public ReadOnlySpan<int> AllScanLengths => _scanLengths.AsSpan();
 
+        /// <summary>
+        /// Finds the DIA isolation window that contains the given precursor m/z.
+        /// Linear scan over window bounds; O(W) where W is typically 20-60.
+        /// Returns -1 if the precursor falls outside all windows.
+        /// </summary>
+        public int FindWindowForPrecursorMz(float precursorMz)
+        {
+            for (int w = 0; w < _windowLowerBounds.Length; w++)
+            {
+                if (precursorMz >= _windowLowerBounds[w] && precursorMz <= _windowUpperBounds[w])
+                    return w;
+            }
+            return -1;
+        }
+
+        /// <summary>
+        /// Overload accepting double for convenience (e.g., LibrarySpectrum.PrecursorMz).
+        /// </summary>
+        public int FindWindowForPrecursorMz(double precursorMz)
+        {
+            return FindWindowForPrecursorMz((float)precursorMz);
+        }
+
+        /// <summary>
+        /// Returns the global minimum RT across all scans, or 0 if empty.
+        /// Scans are sorted by (windowId, RT), so the first scan's RT is the global min.
+        /// </summary>
+        public float GetGlobalRtMin()
+        {
+            if (ScanCount == 0) return 0f;
+            float min = _scanRts[0];
+            for (int i = 1; i < _scanRts.Length; i++)
+                if (_scanRts[i] < min) min = _scanRts[i];
+            return min;
+        }
+
+        /// <summary>
+        /// Returns the global maximum RT across all scans, or 0 if empty.
+        /// </summary>
+        public float GetGlobalRtMax()
+        {
+            if (ScanCount == 0) return 0f;
+            float max = _scanRts[0];
+            for (int i = 1; i < _scanRts.Length; i++)
+                if (_scanRts[i] > max) max = _scanRts[i];
+            return max;
+        }
+
         public void Dispose()
         {
             // Currently no pooled arrays to return.

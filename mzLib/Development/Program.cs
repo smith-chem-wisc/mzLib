@@ -33,6 +33,8 @@ namespace Development
             // Phase 5–6: Orchestration + CPU vs GPU benchmarks
             DiaOrchestrationBenchmark.RunAll();
 
+            LibraryBridgeBenchmark.RunAll();
+
             Console.WriteLine(new string('=', 60));
             Console.WriteLine("All benchmarks complete.");
             Console.WriteLine();
