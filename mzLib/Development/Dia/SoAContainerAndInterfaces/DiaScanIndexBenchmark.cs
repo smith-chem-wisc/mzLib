@@ -4,7 +4,9 @@
 using MassSpectrometry;
 using MassSpectrometry.Dia;
 using MzLibUtil;
+using System;
 using System.Diagnostics;
+using System.Linq;
 
 namespace Development.Dia
 {
@@ -38,6 +40,8 @@ namespace Development.Dia
 
             BenchmarkSequentialScanAccess(windowCount: 20, scansPerWindow: 2500, peaksPerScan: 300);
             BenchmarkWindowLookup(windowCount: 20, scansPerWindow: 2500, peaksPerScan: 300);
+
+            BenchmarkFragmentExtraction(windowCount: 20, scansPerWindow: 2500, peaksPerScan: 300);
         }
 
         /// <summary>
@@ -149,45 +153,249 @@ namespace Development.Dia
         }
 
         /// <summary>
+        /// Measures fragment extraction throughput with realistic targeted queries.
+        /// 
+        /// In real DIA analysis, fragment queries are not random — they target specific
+        /// m/z values that are known to exist (from a spectral library or predicted fragments),
+        /// within RT windows centered on predicted elution times. This benchmark simulates
+        /// that by:
+        ///   1. Building the index from synthetic data
+        ///   2. Sampling actual m/z values from actual scans in each window
+        ///   3. Centering RT windows on actual scan retention times
+        /// 
+        /// This ensures a high hit rate (~100%) and realistic data point counts per query
+        /// (typically 20–50 XIC points), matching what a real DIA search engine would see.
+        /// </summary>
+        private static void BenchmarkFragmentExtraction(int windowCount, int scansPerWindow, int peaksPerScan)
+        {
+            Console.WriteLine("=== Fragment Extraction Benchmarks ===");
+            Console.WriteLine();
+
+            var scans = GenerateSyntheticScans(windowCount, scansPerWindow, peaksPerScan);
+            using var index = DiaScanIndexBuilder.Build(scans);
+
+            // ── Benchmark 1: Targeted queries (realistic DIA search) ────────
+            // Simulates a search with ~6 fragments per precursor, 10K precursors = 60K queries
+            // Each query targets an m/z value actually present in a scan, with a ±1 min RT window
+            {
+                int precursorCount = 10_000;
+                int fragmentsPerPrecursor = 6;
+                int queryCount = precursorCount * fragmentsPerPrecursor;
+
+                Console.WriteLine($"Targeted extraction: {precursorCount:N0} precursors × {fragmentsPerPrecursor} fragments = {queryCount:N0} queries");
+
+                var queries = GenerateTargetedQueries(index, queryCount, rtHalfWidth: 1.0f, tolerancePpm: 10f, seed: 123);
+                RunExtractionBenchmark(index, queries, "  ");
+            }
+
+            // ── Benchmark 2: Narrow RT window (well-predicted RT) ───────────
+            // ±0.5 min window — fewer scans to check, should be faster per query
+            {
+                int queryCount = 60_000;
+                Console.WriteLine($"Narrow RT window (±0.5 min): {queryCount:N0} queries");
+                var queries = GenerateTargetedQueries(index, queryCount, rtHalfWidth: 0.5f, tolerancePpm: 10f, seed: 456);
+                RunExtractionBenchmark(index, queries, "  ");
+            }
+
+            // ── Benchmark 3: Wide RT window (poor RT prediction) ────────────
+            // ±3 min window — more scans per query, stress-tests the RT loop
+            {
+                int queryCount = 60_000;
+                Console.WriteLine($"Wide RT window (±3.0 min): {queryCount:N0} queries");
+                var queries = GenerateTargetedQueries(index, queryCount, rtHalfWidth: 3.0f, tolerancePpm: 10f, seed: 789);
+                RunExtractionBenchmark(index, queries, "  ");
+            }
+
+            // ── Benchmark 4: Scaling test ───────────────────────────────────
+            // Run 10K, 50K, 100K, 200K queries to check linearity
+            {
+                Console.WriteLine("Scaling test (±1.0 min RT window):");
+                foreach (int qCount in new[] { 10_000, 50_000, 100_000, 200_000 })
+                {
+                    var queries = GenerateTargetedQueries(index, qCount, rtHalfWidth: 1.0f, tolerancePpm: 10f, seed: 42);
+                    Console.Write($"  {qCount,8:N0} queries → ");
+                    RunExtractionBenchmark(index, queries, "", compact: true);
+                }
+                Console.WriteLine();
+            }
+        }
+
+        /// <summary>
+        /// Generates targeted fragment queries by sampling actual m/z values from the index.
+        /// 
+        /// For each query:
+        ///   - Picks a random window
+        ///   - Picks a random scan within that window
+        ///   - Picks a random peak m/z from that scan as the target
+        ///   - Centers the RT window on that scan's RT
+        /// 
+        /// This guarantees that every query will find at least one matching peak,
+        /// producing realistic hit rates and XIC data point counts.
+        /// </summary>
+        private static FragmentQuery[] GenerateTargetedQueries(
+            DiaScanIndex index, int queryCount, float rtHalfWidth, float tolerancePpm, int seed)
+        {
+            var rng = new Random(seed);
+            var queries = new FragmentQuery[queryCount];
+            var windowIds = index.GetWindowIds().ToArray();
+
+            for (int i = 0; i < queryCount; i++)
+            {
+                // Pick a random window
+                int windowId = windowIds[rng.Next(windowIds.Length)];
+                index.TryGetScanRangeForWindow(windowId, out int scanStart, out int scanCount);
+
+                // Pick a random scan in this window
+                int scanIndex = scanStart + rng.Next(scanCount);
+
+                // Pick a random peak from this scan as the target m/z
+                var mzSpan = index.GetScanMzSpan(scanIndex);
+                float targetMz = mzSpan[rng.Next(mzSpan.Length)];
+
+                // Center RT window on this scan's RT
+                float rt = index.GetScanRt(scanIndex);
+
+                queries[i] = new FragmentQuery(
+                    targetMz: targetMz,
+                    tolerancePpm: tolerancePpm,
+                    rtMin: rt - rtHalfWidth,
+                    rtMax: rt + rtHalfWidth,
+                    windowId: windowId,
+                    queryId: i);
+            }
+
+            return queries;
+        }
+
+        /// <summary>
+        /// Runs the extraction benchmark for a set of queries and prints results.
+        /// Handles buffer allocation, warmup, GC, and timing.
+        /// </summary>
+        private static void RunExtractionBenchmark(
+            DiaScanIndex index, FragmentQuery[] queries, string indent, bool compact = false)
+        {
+            int queryCount = queries.Length;
+
+            using var extractor = new CpuFragmentExtractor(index);
+
+            var results = new FragmentResult[queryCount];
+            // Buffer sized for worst case: each query could match many scans in the RT window
+            // With 2500 scans/window over 100 min, ±1 min = ~50 scans, ±3 min = ~150 scans
+            int bufferSize = queryCount * 200;
+            var rtBuf = new float[bufferSize];
+            var intBuf = new float[bufferSize];
+
+            // Warm up JIT
+            var warmupQ = new FragmentQuery[] { queries[0] };
+            var warmupR = new FragmentResult[1];
+            extractor.ExtractBatch(warmupQ, warmupR, new float[500], new float[500]);
+
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
+            var sw = Stopwatch.StartNew();
+            int totalDataPoints = extractor.ExtractBatch(queries, results, rtBuf, intBuf);
+            sw.Stop();
+
+            double queriesPerSec = queryCount / sw.Elapsed.TotalSeconds;
+            int queriesWithData = 0;
+            for (int i = 0; i < results.Length; i++)
+            {
+                if (results[i].DataPointCount > 0) queriesWithData++;
+            }
+            double avgPointsPerQuery = queriesWithData > 0 ? (double)totalDataPoints / queriesWithData : 0;
+
+            if (compact)
+            {
+                Console.WriteLine($"{sw.ElapsedMilliseconds,6} ms | {queriesPerSec,12:N0} q/sec | {totalDataPoints,10:N0} pts | {avgPointsPerQuery,5:F1} pts/q | {queriesWithData * 100.0 / queryCount,5:F1}% hit");
+            }
+            else
+            {
+                Console.WriteLine($"{indent}Time:           {sw.ElapsedMilliseconds} ms");
+                Console.WriteLine($"{indent}Queries/sec:    {queriesPerSec:N0}");
+                Console.WriteLine($"{indent}Data points:    {totalDataPoints:N0}");
+                Console.WriteLine($"{indent}Queries w/data: {queriesWithData:N0} / {queryCount:N0} ({queriesWithData * 100.0 / queryCount:F1}% hit rate)");
+                Console.WriteLine($"{indent}Avg points/q:   {avgPointsPerQuery:F1}");
+                Console.WriteLine();
+            }
+        }
+
+        /// <summary>
         /// Generates a realistic array of synthetic DIA scans for benchmarking.
         /// 
         /// Simulates a DIA acquisition with:
-        ///   - Interleaved MS1 and MS2 scans (MS1 every windowCount scans)
-        ///   - Equally-spaced isolation windows from 400-1200 m/z
-        ///   - Each MS2 scan has peaksPerScan peaks with random m/z in 100-2000 range
-        ///   - Retention times increase linearly
+        ///   - Equally-spaced isolation windows from 400–1200 m/z
+        ///   - Each window has a set of "resident" fragment m/z values that appear in
+        ///     every scan (simulating real peptide fragments that persist across cycles)
+        ///   - Additional random noise peaks fill out each scan to the target peak count
+        ///   - Retention times increase linearly (~0.04 min per cycle ≈ 100 min run)
+        /// 
+        /// This structure ensures that targeted queries (which sample real m/z values)
+        /// will find matches in every scan within the RT window, producing realistic
+        /// XIC data point counts (25–50 per query with ±1 min RT windows).
         /// </summary>
         private static MsDataScan[] GenerateSyntheticScans(int windowCount, int scansPerWindow, int peaksPerScan)
         {
-            var rng = new Random(42); // Fixed seed for reproducibility
+            var rng = new Random(42);
             int totalMs2 = windowCount * scansPerWindow;
-
-            // Insert an MS1 before each cycle of windows
-            int totalScans = totalMs2 + scansPerWindow; // approximate MS1 count
-            var scans = new MsDataScan[totalMs2]; // Only MS2 for simplicity
+            var scans = new MsDataScan[totalMs2];
 
             double windowWidth = 25.0;
             double windowStart = 400.0;
             double windowSpacing = (1200.0 - windowStart) / windowCount;
 
+            // Number of persistent fragment m/z values per window.
+            // In real DIA, a 25 m/z window might contain 50–200 precursors, each producing
+            // 6–10 fragments. We simulate ~100 persistent fragments per window.
+            int residentFragmentsPerWindow = Math.Min(100, peaksPerScan / 2);
+            int noisePeaksPerScan = peaksPerScan - residentFragmentsPerWindow;
+
+            // Pre-generate resident fragment m/z values for each window.
+            // These are the fragments that will appear in every scan of this window.
+            double[][] residentMzPerWindow = new double[windowCount][];
+            for (int w = 0; w < windowCount; w++)
+            {
+                residentMzPerWindow[w] = new double[residentFragmentsPerWindow];
+                for (int f = 0; f < residentFragmentsPerWindow; f++)
+                {
+                    // Fragment m/z values spread across typical product ion range (100–1800)
+                    residentMzPerWindow[w][f] = 100.0 + rng.NextDouble() * 1700.0;
+                }
+                Array.Sort(residentMzPerWindow[w]);
+            }
+
             int scanIdx = 0;
             for (int cycle = 0; cycle < scansPerWindow; cycle++)
             {
-                double cycleRt = cycle * 0.04; // ~0.04 min per cycle ≈ 100 min run
+                double cycleRt = cycle * 0.04;
 
                 for (int w = 0; w < windowCount; w++)
                 {
                     double isolationCenter = windowStart + w * windowSpacing + windowSpacing / 2.0;
-                    double rt = cycleRt + w * 0.001; // Slight RT offset within cycle
+                    double rt = cycleRt + w * 0.001;
 
+                    // Combine resident fragments + noise peaks
                     double[] mzValues = new double[peaksPerScan];
                     double[] intensities = new double[peaksPerScan];
-                    for (int p = 0; p < peaksPerScan; p++)
+
+                    // Copy resident fragments with slight m/z jitter (±0.001 Da, simulating
+                    // instrument measurement noise) and varying intensity
+                    double[] residents = residentMzPerWindow[w];
+                    for (int f = 0; f < residentFragmentsPerWindow; f++)
+                    {
+                        mzValues[f] = residents[f] + (rng.NextDouble() - 0.5) * 0.002;
+                        intensities[f] = 500.0 + rng.NextDouble() * 9500.0;
+                    }
+
+                    // Fill remaining slots with random noise peaks
+                    for (int p = residentFragmentsPerWindow; p < peaksPerScan; p++)
                     {
                         mzValues[p] = 100.0 + rng.NextDouble() * 1900.0;
-                        intensities[p] = rng.NextDouble() * 10000.0;
+                        intensities[p] = rng.NextDouble() * 500.0; // lower intensity noise
                     }
-                    Array.Sort(mzValues, intensities); // m/z must be sorted
+
+                    Array.Sort(mzValues, intensities);
 
                     scans[scanIdx] = new MsDataScan(
                         massSpectrum: new MzSpectrum(mzValues, intensities, false),
