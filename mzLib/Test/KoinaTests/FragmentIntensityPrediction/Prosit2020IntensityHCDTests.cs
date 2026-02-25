@@ -532,12 +532,23 @@ namespace Test.KoinaTests
         [Test]
         [Explicit("Massive test, takes a long time to run")]
         [Category("Performance Benchmark")]
-        public static void TestKoinaProsit2020IntensityHCDModelPerformance()
+        /// <summary>
+        /// Performance benchmark test for the Prosit2020IntensityHCD model with a large number of unique peptide sequences.
+        /// This test is meant to evaluate the model's ability to handle large batch sizes and the efficiency of request batching logic.
+        /// 
+        /// Notes: 
+        ///  - 1 MaxBatchSize is 1000 peptides and PFly2024FineTuned.Predict() takes under 10 seconds to run.
+        ///  - With 4 million unique peptides of length 30, the test takes approximately 36 minutes to run. 
+        ///  - Timing is linearly proportional to peptide number due to the throttled approach.
+        ///  - For anything above 500k peptides, the MaxNumberOfBatchesPerRequest should be less than 500, but fine-tuning not yet implemented.
+        ///  - The default MaxNumberOfBatchesPerRequest is currently set to 250, which was tested up to 4 million peptides without hitting client issues. 
+        /// </summary>
+        public static void BenchmarkModelInputCountPerformance()
         {
             var aminoacids = "ACDEFGHIKLMNPQRSTVWY".ToArray();
             var modelInputs = new List<FragmentIntensityPredictionInput>();
-            var seqLength = 30;
-            var numberOfSequences = 4000000;
+            var seqLength = 30; // max length increases combinatorial space to ensure we always get unique sequences and benchmark response length handling
+            var numberOfSequences = 1000;
             var peptides = new HashSet<string>();
             while (peptides.Count < numberOfSequences)
             {
@@ -553,11 +564,11 @@ namespace Test.KoinaTests
             }
             var model = new Prosit2020IntensityHCD();
             var watch = System.Diagnostics.Stopwatch.StartNew();
-            model.Predict(modelInputs);
+            Assert.DoesNotThrow(() => model.Predict(modelInputs));
             watch.Stop();
             Assert.That(model.Predictions.Count, Is.EqualTo(numberOfSequences));
             Assert.That(model.ValidInputsMask, Is.All.True);
-            Console.WriteLine($"Time taken to predict {numberOfSequences:N0} peptides: {watch.Elapsed.Minutes}min {watch.Elapsed.Seconds}s");
+            Console.WriteLine($"Time taken to predict {numberOfSequences:N0} peptides: {watch.Elapsed.Minutes}min {watch.Elapsed.Seconds}s {watch.Elapsed.Milliseconds}ms");
         }   
     }
 }

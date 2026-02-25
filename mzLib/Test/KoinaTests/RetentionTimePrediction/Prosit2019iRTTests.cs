@@ -307,5 +307,46 @@ namespace Test.KoinaTests
             Assert.That(model.ThrottlingDelayInMilliseconds, Is.EqualTo(50));
             Assert.That(model.ModHandlingMode, Is.EqualTo(IncompatibleModHandlingMode.RemoveIncompatibleMods));
         }
+
+        [Test]
+        [Explicit("Massive test, takes a long time to run")]
+        [Category("Performance Benchmark")]
+        /// <summary>
+        /// Performance benchmark test for the Prosit2019iRT model with a large number of unique peptide sequences.
+        /// This test is meant to evaluate the model's ability to handle large batch sizes and the efficiency of request batching logic.
+        /// 
+        /// Notes: 
+        ///  - 1 MaxBatchSize is 1000 peptides and PFly2024FineTuned.Predict() takes under 1.5 seconds to run.
+        ///  - With 4 million unique peptides of length 30, the test takes approximately 1 minute to run. 
+        ///  - Timing is linearly proportional to peptide number due to the throttled approach.
+        ///  - The default MaxNumberOfBatchesPerRequest is currently set to 500, which was tested up to 4 million peptides without hitting client issues. 
+        /// </summary>
+        public static void BenchmarkModelInputCountPerformance()
+        {
+            var aminoacids = "ACDEFGHIKLMNPQRSTVWY".ToArray();
+            var modelInputs = new List<RetentionTimePredictionInput>();
+            var seqLength = 30; // max length increases combinatorial space to ensure we always get unique sequences and benchmark response length handling
+            var numberOfSequences = 4000000;
+            var peptides = new HashSet<string>();
+            while (peptides.Count < numberOfSequences)
+            {
+                var pep = new string(Random.Shared.GetItems(aminoacids, seqLength));
+                if (!peptides.Contains(pep))
+                {
+                    peptides.Add(pep);
+                }
+            }
+            foreach (var peptide in peptides)
+            {
+                modelInputs.Add(new RetentionTimePredictionInput(peptide));
+            }
+            var model = new Prosit2019iRT();
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            Assert.DoesNotThrow(() => model.Predict(modelInputs));
+            watch.Stop();
+            Assert.That(model.Predictions.Count, Is.EqualTo(numberOfSequences));
+            Assert.That(model.ValidInputsMask, Is.All.True);
+            Console.WriteLine($"Time taken to predict {numberOfSequences:N0} peptides: {watch.Elapsed.Minutes}min {watch.Elapsed.Seconds}s {watch.Elapsed.Milliseconds}ms");
+        }
     }
 }

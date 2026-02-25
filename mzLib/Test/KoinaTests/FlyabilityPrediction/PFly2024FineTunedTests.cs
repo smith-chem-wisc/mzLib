@@ -1,9 +1,11 @@
 ﻿using NUnit.Framework;
+using PredictionClients.Koina.AbstractClasses;
+using PredictionClients.Koina.SupportedModels.FlyabilityModels;
+using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
+using PredictionClients.Koina.Util;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using PredictionClients.Koina.SupportedModels.FlyabilityModels;
-using PredictionClients.Koina.Util;
 
 namespace Test.KoinaTests
 {
@@ -482,6 +484,47 @@ namespace Test.KoinaTests
                             probs.IntermediateDetectability + probs.HighDetectability;
                 Assert.That(sum, Is.EqualTo(1.0).Within(0.01));
             }
+        }
+
+        [Test]
+        [Explicit("Massive test, takes a long time to run")]
+        [Category("Performance Benchmark")]
+        /// <summary>
+        /// Performance benchmark test for the PFly2024FineTuned model with a large number of unique peptide sequences.
+        /// This test is meant to evaluate the model's ability to handle large batch sizes and the efficiency of request batching logic
+        /// 
+        /// Notes: 
+        ///  - 1 MaxBatchSize is 128 peptides and PFly2024FineTuned.Predict() takes about 0.75 seconds to run.
+        ///  - With 4 million unique peptides of length 40, the test takes approximately 5 min minutes to run. 
+        ///  - Timing is linearly proportional to peptide number due to the throttled approach.
+        ///  - The default MaxNumberOfBatchesPerRequest is currently set to 500, which was tested up to 4 million peptides without hitting client issues. 
+        /// </summary>
+        public static void BenchmarkModelInputCountPerformance()
+        {
+            var aminoacids = "ACDEFGHIKLMNPQRSTVWY".ToArray();
+            var modelInputs = new List<DetectabilityPredictionInput>();
+            var seqLength = 40; // max length increases combinatorial space to ensure we always get unique sequences and benchmark response length handling
+            var numberOfSequences = 4000000;
+            var peptides = new HashSet<string>();
+            while (peptides.Count < numberOfSequences)
+            {
+                var pep = new string(Random.Shared.GetItems(aminoacids, seqLength));
+                if (!peptides.Contains(pep))
+                {
+                    peptides.Add(pep);
+                }
+            }
+            foreach (var peptide in peptides)
+            {
+                modelInputs.Add(new DetectabilityPredictionInput(peptide));
+            }
+            var model = new PFly2024FineTuned();
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var predictions = model.Predict(modelInputs);
+            watch.Stop();
+            Assert.That(model.Predictions.Count, Is.EqualTo(numberOfSequences));
+            Assert.That(model.ValidInputsMask, Is.All.True);
+            Console.WriteLine($"Time taken to predict {numberOfSequences:N0} peptides: {watch.Elapsed.Minutes}min {watch.Elapsed.Seconds}s {watch.Elapsed.Milliseconds}ms");
         }
     }
 }

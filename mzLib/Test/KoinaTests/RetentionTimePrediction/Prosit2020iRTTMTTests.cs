@@ -1,7 +1,8 @@
 ﻿using Easy.Common.Extensions;
 using NUnit.Framework;
-using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
 using PredictionClients.Koina.AbstractClasses;
+using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
+using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
 using PredictionClients.Koina.Util;
 using System;
 using System.Collections.Generic;
@@ -491,6 +492,48 @@ namespace Test.KoinaTests
             Assert.That(model.MaxNumberOfBatchesPerRequest, Is.EqualTo(100));
             Assert.That(model.ThrottlingDelayInMilliseconds, Is.EqualTo(50));
             Assert.That(model.ModHandlingMode, Is.EqualTo(IncompatibleModHandlingMode.ReturnNull));
+        }
+
+        [Test]
+        [Explicit("Massive test, takes a long time to run")]
+        [Category("Performance Benchmark")]
+        /// <summary>
+        /// Performance benchmark test for the Prosit2020iRTTMT model with a large number of unique peptide sequences.
+        /// This test is meant to evaluate the model's ability to handle large batch sizes and the efficiency of request batching logic.
+        /// 
+        /// Notes: 
+        ///  - 1 MaxBatchSize is 1000 peptides and PFly2024FineTuned.Predict() takes under 1.5 seconds to run.
+        ///  - With 4 million unique peptides of length 30, the test takes approximately 2 minutes to run. 
+        ///  - Timing is linearly proportional to peptide number due to the throttled approach.
+        ///  - The default MaxNumberOfBatchesPerRequest is currently set to 500 which was tested up to 4 million peptides without hitting client issues. 
+        ///  - All peptides must include a required N-terminal modification (TMT6plex used here) for this model.
+        /// </summary>
+        public static void BenchmarkModelInputCountPerformance()
+        {
+            var aminoacids = "ACDEFGHIKLMNPQRSTVWY".ToArray();
+            var modelInputs = new List<RetentionTimePredictionInput>();
+            var seqLength = 30; // max length increases combinatorial space to ensure we always get unique sequences and benchmark response length handling
+            var numberOfSequences = 4000000;
+            var peptides = new HashSet<string>();
+            while (peptides.Count < numberOfSequences)
+            {
+                var pep = new string(Random.Shared.GetItems(aminoacids, seqLength));
+                if (!peptides.Contains(pep))
+                {
+                    peptides.Add(pep);
+                }
+            }
+            foreach (var peptide in peptides)
+            {
+                modelInputs.Add(new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]" + peptide));
+            }
+            var model = new Prosit2020iRTTMT();
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            Assert.DoesNotThrow(() => model.Predict(modelInputs));
+            watch.Stop();
+            Assert.That(model.Predictions.Count, Is.EqualTo(numberOfSequences));
+            Assert.That(model.ValidInputsMask, Is.All.True);
+            Console.WriteLine($"Time taken to predict {numberOfSequences:N0} peptides: {watch.Elapsed.Minutes}min {watch.Elapsed.Seconds}s {watch.Elapsed.Milliseconds}ms");
         }
     }
 }

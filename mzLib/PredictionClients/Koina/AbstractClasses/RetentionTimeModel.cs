@@ -131,7 +131,12 @@ namespace PredictionClients.Koina.AbstractClasses
             #region Request Batching, Throttling Setup
             var batchedRequests = ToBatchedRequests(validInputs);
             var batchChunks = batchedRequests.Chunk(MaxNumberOfBatchesPerRequest).ToList();
-            int sessionTimeoutInMinutes = batchedRequests.Count * 2 + (int)(ThrottlingDelayInMilliseconds / 6000 * batchChunks.Count) + 2; // Dynamic timeout: ~2 minutes per batch + throttle time between batches + 2 minute buffer for network/processing overhead.
+            // We calculate a dynamic timeout based on the number of batches at (BenchmarkedTimeForOneMaxBatchSizeInMilliseconds x 2)ms/batch
+            // for buffer to ensure we don't hit timeouts during processing plus throttling time.
+            // Note: the time per batch is benchmarked for the entire Predict() method, so it includes some overhead beyond just the API call. Large peptide
+            // requests will not necessarily scale linearly, so this is a rough estimate to provide a reasonable timeout and is an aggressive 
+            // upper bound to avoid timeouts.
+            int sessionTimeoutInMinutes = (int)Math.Ceiling((batchedRequests.Count * 2 * BenchmarkedTimeForOneMaxBatchSizeInMilliseconds + ThrottlingDelayInMilliseconds * batchChunks.Count) / 6000.0);
             #endregion
 
             #region Throttled API Requests and Response Processing

@@ -53,6 +53,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
         /// Adjust as needed based on model performance and server capacity.
         /// </summary> 
         public override int ThrottlingDelayInMilliseconds { get; init; }
+        public override int BenchmarkedTimeForOneMaxBatchSizeInMilliseconds => 750;
 
         /// <summary>
         /// Number of detectability classes predicted by the model.

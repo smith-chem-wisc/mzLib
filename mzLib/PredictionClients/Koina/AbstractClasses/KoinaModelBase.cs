@@ -20,6 +20,7 @@ namespace PredictionClients.Koina.AbstractClasses
 
         public abstract int MaxNumberOfBatchesPerRequest { get; init; }
         public abstract int ThrottlingDelayInMilliseconds { get; init; }
+        public abstract int BenchmarkedTimeForOneMaxBatchSizeInMilliseconds { get; }
         #endregion
 
         #region Input Sequence Validation Constraints

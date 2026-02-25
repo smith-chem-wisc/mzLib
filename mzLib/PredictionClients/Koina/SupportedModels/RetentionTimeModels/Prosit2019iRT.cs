@@ -42,6 +42,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         /// Adjust as needed based on model performance and server capacity.
         /// </summary> 
         public override int ThrottlingDelayInMilliseconds { get; init; }
+        public override int BenchmarkedTimeForOneMaxBatchSizeInMilliseconds => 1500;
 
         /// <summary>Maximum allowed peptide sequence length in amino acids</summary>
         public override int MaxPeptideLength => 30;
