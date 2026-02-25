@@ -201,6 +201,18 @@ namespace MassSpectrometry.Dia
         /// </summary>
         public ReadOnlySpan<int> AllScanWindowIds => _scanWindowIds.AsSpan();
 
+        /// <summary>
+        /// Provides direct read-only access to per-scan peak offsets into AllMz/AllIntensity.
+        /// Intended for GPU memory transfer where the full offset array must be uploaded.
+        /// </summary>
+        public ReadOnlySpan<int> AllScanOffsets => _scanOffsets.AsSpan();
+
+        /// <summary>
+        /// Provides direct read-only access to per-scan peak counts.
+        /// Intended for GPU memory transfer.
+        /// </summary>
+        public ReadOnlySpan<int> AllScanLengths => _scanLengths.AsSpan();
+
         public void Dispose()
         {
             // Currently no pooled arrays to return.
