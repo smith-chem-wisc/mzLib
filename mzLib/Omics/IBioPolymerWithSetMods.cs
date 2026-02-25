@@ -46,10 +46,10 @@ namespace Omics
         IBioPolymer Parent { get; }
 
         public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus,
-            List<Product> products, FragmentationParams? fragmentationParams = null);
+            List<Product> products, IFragmentationParams? fragmentationParams = null);
 
         public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments,
-            List<Product> products, FragmentationParams? fragmentationParams = null);
+            List<Product> products, IFragmentationParams? fragmentationParams = null);
 
         /// <summary>
         /// Outputs a duplicate IBioPolymerWithSetMods with a localized mass shift, replacing a modification when present
