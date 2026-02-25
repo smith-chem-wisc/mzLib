@@ -20,21 +20,25 @@ using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
+using NUnit.Framework.Internal.Execution;
+using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Fragmentation.Peptide;
+using Omics.Modifications;
 using Proteomics;
 using Proteomics.AminoAcidPolymer;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Omics.Digestion;
-using Omics.Modifications;
-using Stopwatch = System.Diagnostics.Stopwatch;
+using System.Threading.Tasks;
 using Transcriptomics;
-
+using UsefulProteomicsDatabases;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
+using Stopwatch = System.Diagnostics.Stopwatch;
+using System.Threading;
+using System.Diagnostics;
 namespace Test
 {
     [TestFixture]
@@ -261,6 +265,117 @@ namespace Test
             var cTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.C).Select(f => f.ToString()).ToList();
             HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;119.05824-0", "y2;248.10084-0" };
             CollectionAssert.AreEquivalent(expectedCTerminalMassesLabels, cTerminalMassesLabels);
+        }
+
+        [Test]
+        public static void Test_GetTheoreticalFragments_cumulativeLoss_doubleP()
+        {
+            Protein p = new Protein("TPEPTIEK", "accession");
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motif);
+            Dictionary<DissociationType, List<double>> _neutralLosses = new Dictionary<DissociationType, List<double>>(){};
+            _neutralLosses.Add(DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass});
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _neutralLosses: _neutralLosses,_locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
+            DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
+            FragmentationParams fragmentationParams = new FragmentationParams();
+            fragmentationParams.MaxModsForCumulativeNeutralLosses = 2;
+
+            var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
+            var theseTheoreticalFragments = new List<Product>();
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments, fragmentationParams);
+
+            var nTerminalMassesLabels = theseTheoreticalFragments.Select(f => f.Annotation.ToString()).ToList();
+            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string>
+            {
+                "b2-97.98", "b3-97.98", "b4-97.98", "b4-195.95","b5-97.98", "b5-195.95","b6-97.98", "b6-195.95","b7-97.98","b7-195.95",
+                "y5-97.98", "y6-97.98", "y7-97.98", "y7-195.95"
+            };
+            Assert.IsTrue(expectedNTerminalMassesLabels.All(label => nTerminalMassesLabels.Contains(label)));
+        }
+
+        [Test]
+        public static void Test_GetTheoreticalFragments_cumulativeLoss_tripleP()
+        {
+            Protein p = new Protein("TPPPT", "accession");
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motif);
+            Dictionary<DissociationType, List<double>> _neutralLosses = new Dictionary<DissociationType, List<double>>() { };
+            _neutralLosses.Add(DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass });
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif, _neutralLosses: _neutralLosses, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
+            DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
+            FragmentationParams fragmentationParams = new FragmentationParams();
+            fragmentationParams.MaxModsForCumulativeNeutralLosses = 3;
+
+            var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation }, new List<Modification>()).First();
+            var theseTheoreticalFragments = new List<Product>();
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments, fragmentationParams);
+
+            var nTerminalMassesLabels = theseTheoreticalFragments.Select(f => f.Annotation.ToString()).ToList();
+            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string>
+            {
+                "b2-97.98", "b3-97.98", "b3-195.95", "b4-97.98","b4-195.95", "b4-293.93",
+                "y2-97.98", "y3-97.98", "y3-195.95", "y4-97.98","y4-195.95", "y4-293.93",
+            };
+            Assert.IsTrue(expectedNTerminalMassesLabels.All(label => nTerminalMassesLabels.Contains(label)));
+        }
+
+        [Test]
+        public static void Test_GetTheoreticalFragments_cumulativeLoss_mixPandO()
+        {
+            Protein p = new Protein("NPNNSNPN", "accession");
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motif_P);
+            ModificationMotif.TryGetMotif("S", out ModificationMotif motif_S);
+            Dictionary<DissociationType, List<double>> _neutralLosses_P = new Dictionary<DissociationType, List<double>>() { };
+            Dictionary<DissociationType, List<double>> _neutralLosses_O = new Dictionary<DissociationType, List<double>>() { };
+            _neutralLosses_P.Add(DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass });
+            _neutralLosses_O.Add(DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("O1").MonoisotopicMass });
+
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif_P, _neutralLosses: _neutralLosses_P, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
+            Modification oxidation = new Modification(_originalId: "oxidation", _modificationType: "CommonBiological", _target: motif_S, _neutralLosses: _neutralLosses_O, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("O"));
+            DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
+            FragmentationParams fragmentationParams = new FragmentationParams();
+            fragmentationParams.MaxModsForCumulativeNeutralLosses = 3;
+
+            var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation, oxidation }, new List<Modification>()).First();
+            var theseTheoreticalFragments = new List<Product>();
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments, fragmentationParams);
+
+            var nTerminalMassesLabels = theseTheoreticalFragments.Select(f => f.Annotation.ToString()).ToList();
+            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string>
+            {
+                "b2-97.98", "b3-97.98", "b4-97.98", "b5-97.98","b5-15.99", "b5-113.97", "b6-97.98","b6-15.99", "b6-113.97","b7-97.98","b7-15.99", "b7-113.97", "b7-195.95", "b7-211.95",
+                "y2-97.98","y3-97.98","y4-97.98", "y4-15.99","y4-113.97","y5-15.99","y5-97.98", "y5-113.97","y6-15.99","y6-97.98", "y6-113.97","y7-15.99","y7-97.98", "y7-113.97","y7-195.95", "y7-211.95"
+            };
+            Assert.IsTrue(expectedNTerminalMassesLabels.All(label => nTerminalMassesLabels.Contains(label)));
+        }
+
+        [Test]
+        public static void Test_GetTheoreticalFragments_cumulativeLoss_mixGlycanandP() 
+        {
+            Protein p = new Protein("NSNPNPN", "accession");
+            ModificationMotif.TryGetMotif("P", out ModificationMotif motif_P);
+            ModificationMotif.TryGetMotif("S", out ModificationMotif motif_S);
+            Dictionary<DissociationType, List<double>> _neutralLosses_P = new Dictionary<DissociationType, List<double>>() { };
+            Dictionary<DissociationType, List<double>> _neutralLosses_glycan = new Dictionary<DissociationType, List<double>>() { };
+            _neutralLosses_P.Add(DissociationType.HCD, new List<double> { ChemicalFormula.ParseFormula("H3O4P1").MonoisotopicMass });
+            _neutralLosses_glycan.Add(DissociationType.HCD, new List<double> { 100.0, 200.0, 300.0, 400.0 });
+
+            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif_P, _neutralLosses: _neutralLosses_P, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
+            Modification glycan = new Modification(_originalId: "H1N1A1 on S", _modificationType: "O-linked glycosylation", _target: motif_S, _neutralLosses: _neutralLosses_glycan, _locationRestriction: "Anywhere.", _chemicalFormula: null, _monoisotopicMass: 400.0);
+            DigestionParams digestionParams = new DigestionParams(minPeptideLength: 2);
+            FragmentationParams fragmentationParams = new FragmentationParams();
+            fragmentationParams.MaxModsForCumulativeNeutralLosses = 2;
+
+            var aPeptideWithSetModifications = p.Digest(digestionParams, new List<Modification> { phosphorylation, glycan }, new List<Modification>()).First();
+            var theseTheoreticalFragments = new List<Product>();
+            aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, theseTheoreticalFragments, fragmentationParams);
+
+            var nTerminalMassesLabels = theseTheoreticalFragments.Select(f => f.Annotation.ToString()).ToList();
+            HashSet<string> expectedNTerminalMassesLabels = new HashSet<string>
+            {
+                "b2-100.00", "b2-200.00", "b2-300.00", "b2-400.00", "b4-100.00", "b4-200.00",  "b4-300.00", "b4-400.00","b4-97.98",
+                "b6-100.00", "b6-200.00", "b6-300.00", "b6-400.00", "b6-97.98", "b6-195.95", "y2-97.98", "y4-97.98", "y4-195.95",
+                "y6-100.00", "y6-200.00", "y6-300.00", "y6-400.00", "y6-97.98", "y6-195.95"
+            };
+            Assert.IsTrue(expectedNTerminalMassesLabels.All(label => nTerminalMassesLabels.Contains(label)));
         }
 
         [Test]
