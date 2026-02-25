@@ -149,7 +149,8 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
                 // Note: the time per batch is benchmarked for the entire Predict() method, so it includes some overhead beyond just the API call. Large peptide
                 // requests will not necessarily scale linearly, so this is a rough estimate to provide a reasonable timeout and is an aggressive 
                 // upper bound to avoid timeouts.
-                int sessionTimeoutInMinutes = (int)Math.Ceiling((batchedRequests.Count * 2 * BenchmarkedTimeForOneMaxBatchSizeInMilliseconds + ThrottlingDelayInMilliseconds * batchChunks.Count) / 6000.0);
+                int sessionTimeoutInMinutes = (int)Math.Ceiling((batchedRequests.Count * 2 * BenchmarkedTimeForOneMaxBatchSizeInMilliseconds + ThrottlingDelayInMilliseconds * batchChunks.Count) / 6e4); // 60000ms/min
+                sessionTimeoutInMinutes = Math.Max(sessionTimeoutInMinutes, 1); // Ensure a minimum timeout of 1 min
                 #endregion
 
                 #region Throttled API Requests and Response Processing

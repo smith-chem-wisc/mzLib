@@ -18,8 +18,22 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         public abstract int MaxBatchSize { get; }
 
+        /// <summary>
+        /// Gets the maximum number of batches that can be combined into a single API request.
+        /// Used to optimize request throughput while respecting API limitations.
+        /// </summary>
         public abstract int MaxNumberOfBatchesPerRequest { get; init; }
+
+        /// <summary>
+        /// Gets the delay in milliseconds to wait between consecutive API requests.
+        /// Used for rate limiting to prevent overwhelming the Koina API server.
+        /// </summary>
         public abstract int ThrottlingDelayInMilliseconds { get; init; }
+
+        /// <summary>
+        /// Gets the benchmarked processing time in milliseconds for one batch at MaxBatchSize.
+        /// Used for estimating total request duration and optimizing parallelization strategies.
+        /// </summary>
         public abstract int BenchmarkedTimeForOneMaxBatchSizeInMilliseconds { get; }
         #endregion
 
@@ -81,7 +95,7 @@ namespace PredictionClients.Koina.AbstractClasses
         {
             if (!IsValidBaseSequence(sequence))
             {
-                warning = new WarningException("Invalid valid base sequence. Omitted mod handling.");
+                warning = new WarningException("Invalid base sequence. Omitted mod handling.");
                 return null;
             }
 
@@ -90,13 +104,12 @@ namespace PredictionClients.Koina.AbstractClasses
             switch (ModHandlingMode)
             {
                 case IncompatibleModHandlingMode.RemoveIncompatibleMods:
-                    var allMods = Regex.Matches(newSequence, ModificationPattern).Select(m => m.Value).ToList();
-                    foreach (var mod in allMods)
+                    var invalidMods = Regex.Matches(newSequence, ModificationPattern).Select(m => m.Value)
+                        .Where(mod => !ValidModificationUnimodMapping.ContainsKey(mod))
+                        .Distinct();
+                    foreach (var mod in invalidMods)
                     {
-                        if (!ValidModificationUnimodMapping.ContainsKey(mod))
-                        {
-                            newSequence = newSequence.Replace(mod, ""); // Remove incompatible modification
-                        }
+                        newSequence = newSequence.Replace(mod, ""); // Remove incompatible modification
                     }
                     warning = (sequence != newSequence)
                         ? new WarningException("Sequence contained incompatible modifications that were removed for prediction. This WILL affect Mz differences between input and predicted fragment ions, if applicable.")
