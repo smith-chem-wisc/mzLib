@@ -42,6 +42,8 @@ namespace Development.Dia
             BenchmarkWindowLookup(windowCount: 20, scansPerWindow: 2500, peaksPerScan: 300);
 
             BenchmarkFragmentExtraction(windowCount: 20, scansPerWindow: 2500, peaksPerScan: 300);
+
+            BenchmarkScoring();
         }
 
         /// <summary>
@@ -317,6 +319,88 @@ namespace Development.Dia
                 Console.WriteLine($"{indent}Data points:    {totalDataPoints:N0}");
                 Console.WriteLine($"{indent}Queries w/data: {queriesWithData:N0} / {queryCount:N0} ({queriesWithData * 100.0 / queryCount:F1}% hit rate)");
                 Console.WriteLine($"{indent}Avg points/q:   {avgPointsPerQuery:F1}");
+                Console.WriteLine();
+            }
+        }
+
+        /// <summary>
+        /// Benchmarks scoring throughput for both NormalizedDotProduct and SpectralAngle scorers.
+        /// 
+        /// Simulates scoring extracted fragment spectra against library/predicted spectra.
+        /// Tests multiple vector lengths to show how SIMD acceleration scales:
+        ///   - 6 fragments (typical for a single precursor, too short for SIMD benefit)
+        ///   - 20 fragments (transition-level, starts to benefit from SIMD)
+        ///   - 100 fragments (full spectral comparison, SIMD should dominate)
+        /// 
+        /// In a real DIA pipeline, scoring happens after extraction — once per precursor
+        /// per candidate. With 50K–200K candidates, scoring must be very fast.
+        /// </summary>
+        private static void BenchmarkScoring()
+        {
+            Console.WriteLine("=== Scoring Benchmarks ===");
+            Console.WriteLine();
+
+            var dotProduct = new NormalizedDotProductScorer();
+            var spectralAngle = new SpectralAngleScorer();
+
+            foreach (int vectorLength in new[] { 6, 20, 100 })
+            {
+                Console.WriteLine($"Vector length: {vectorLength} fragments");
+
+                // Generate random but consistent test vectors
+                var rng = new Random(42);
+                int pairCount = 200_000;
+                float[][] observed = new float[pairCount][];
+                float[][] expected = new float[pairCount][];
+
+                for (int i = 0; i < pairCount; i++)
+                {
+                    observed[i] = new float[vectorLength];
+                    expected[i] = new float[vectorLength];
+                    for (int j = 0; j < vectorLength; j++)
+                    {
+                        // Observed: library-like intensities with noise
+                        float baseIntensity = (float)(rng.NextDouble() * 1000.0);
+                        observed[i][j] = baseIntensity + (float)(rng.NextDouble() * 200.0 - 100.0);
+                        expected[i][j] = baseIntensity;
+                        // Clamp to non-negative
+                        if (observed[i][j] < 0) observed[i][j] = 0;
+                    }
+                }
+
+                // Warm up
+                for (int i = 0; i < 100; i++)
+                {
+                    dotProduct.Score(observed[i], expected[i]);
+                    spectralAngle.Score(observed[i], expected[i]);
+                }
+
+                // Benchmark dot product
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                var sw = Stopwatch.StartNew();
+                float checksum = 0f;
+                for (int i = 0; i < pairCount; i++)
+                {
+                    checksum += dotProduct.Score(observed[i], expected[i]);
+                }
+                sw.Stop();
+                double dpPerSec = pairCount / sw.Elapsed.TotalSeconds;
+                Console.WriteLine($"  Dot product:    {sw.ElapsedMilliseconds,5} ms | {dpPerSec,14:N0} scores/sec | avg score: {checksum / pairCount:F4}");
+
+                // Benchmark spectral angle
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                sw.Restart();
+                checksum = 0f;
+                for (int i = 0; i < pairCount; i++)
+                {
+                    checksum += spectralAngle.Score(observed[i], expected[i]);
+                }
+                sw.Stop();
+                double saPerSec = pairCount / sw.Elapsed.TotalSeconds;
+                Console.WriteLine($"  Spectral angle: {sw.ElapsedMilliseconds,5} ms | {saPerSec,14:N0} scores/sec | avg score: {checksum / pairCount:F4}");
+
                 Console.WriteLine();
             }
         }
