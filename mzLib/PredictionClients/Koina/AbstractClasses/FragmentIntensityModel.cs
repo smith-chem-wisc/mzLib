@@ -171,7 +171,7 @@ namespace PredictionClients.Koina.AbstractClasses
 
             #region Throttled API Requests and Response Processing
             var predictions = new List<PeptideFragmentIntensityPrediction>();
-            var responses = new string[validInputs.Count];
+            var responses = new List<string>();
             using var _http = new HTTP(timeoutInMinutes: sessionTimeoutInMinutes); // Set a reasonable timeout for each batch chunk
             for (int i = 0; i < batchChunks.Count; i++)
             {
@@ -230,7 +230,9 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         /// <param name="responses">Array of JSON response strings from Koina API</param>
         /// <exception cref="Exception">Thrown when responses are malformed or contain unexpected number of outputs</exception>
-        protected virtual List<PeptideFragmentIntensityPrediction> ResponseToPredictions(string[] responses, List<FragmentIntensityPredictionInput> requestInputs)
+        protected virtual List<PeptideFragmentIntensityPrediction> ResponseToPredictions(
+            IReadOnlyList<string> responses, 
+            List<FragmentIntensityPredictionInput> requestInputs)
         {
             var predictions = new List<PeptideFragmentIntensityPrediction>();
             if (requestInputs.IsNullOrEmpty())
@@ -271,9 +273,16 @@ namespace PredictionClients.Koina.AbstractClasses
                     var predictedIntensities = new List<double>();
                     for (int j = 0; j < fragmentCount; j++)
                     {
+                        double intensity = Convert.ToDouble(outputMZs[i * fragmentCount + j]);
+                        if (intensity == -1)
+                        {
+                            // Skip impossible ions as indicated by the model with an intensity of -1. This is a convention used by the models to indicate that a particular fragment ion cannot be formed from the given peptide sequence and fragmentation conditions.
+                            continue;
+                        }
+
                         fragmentIons.Add(outputAnnotations[i * fragmentCount + j].ToString()!);
                         fragmentMZs.Add(Convert.ToDouble(outputMZs[i * fragmentCount + j]));
-                        predictedIntensities.Add(Convert.ToDouble(outputIntensities[i * fragmentCount + j]));
+                        predictedIntensities.Add(intensity);
                     }
                     predictions.Add(new PeptideFragmentIntensityPrediction(
                         peptideSequence!,

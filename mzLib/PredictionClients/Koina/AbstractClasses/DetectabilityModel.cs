@@ -161,7 +161,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
                 }
             }
 
-            predictions = ResponseToPredictions(responses.ToArray(), validInputs);
+            predictions = ResponseToPredictions(responses, validInputs);
             #endregion
 
             #region Realign Predictions to Original Input List
@@ -222,7 +222,9 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
         /// - 4 consecutive values per peptide (Not Detectable, Low, Intermediate, High)
         /// - Probability scores should sum to 1.0 for each peptide
         /// </remarks>
-        protected virtual List<PeptideDetectabilityPrediction> ResponseToPredictions(string[] responses, List<DetectabilityPredictionInput> requestInputs)
+        protected virtual List<PeptideDetectabilityPrediction> ResponseToPredictions(
+            IReadOnlyList<string> responses, 
+            List<DetectabilityPredictionInput> requestInputs)
         {
             var predictions = new List<PeptideDetectabilityPrediction>();
             if (requestInputs.IsNullOrEmpty())

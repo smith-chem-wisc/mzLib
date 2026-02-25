@@ -207,7 +207,9 @@ namespace PredictionClients.Koina.AbstractClasses
         /// 3. Validates prediction count matches input sequence count
         /// 4. Creates PeptideRTPrediction objects with sequence mapping
         /// </remarks>
-        protected virtual List<PeptideRTPrediction> ResponseToPredictions(string[] responses, List<RetentionTimePredictionInput> requestInputs)
+        protected virtual List<PeptideRTPrediction> ResponseToPredictions(
+            IReadOnlyList<string> responses, 
+            List<RetentionTimePredictionInput> requestInputs)
         {
             var predictions = new List<PeptideRTPrediction>();
             if (requestInputs.IsNullOrEmpty())
