@@ -3,9 +3,9 @@ namespace Readers;
 /// <summary>
 /// A result file wrapper for <see cref="LightWeightSpectralMatch"/> records.
 /// Supports optional row and terminating filters that are passed through to
-/// <see cref="LightWeightSpectralMatchTsvReader.ReadTsv"/>.
+/// <see cref="LightWeightSpectralMatchReader.ReadTsv"/>.
 /// </summary>
-public class LightWeightSpectralMatchFromTsvFile : ResultFile<LightWeightSpectralMatch>, IQuantifiableResultFile
+public class LightWeightSpectralMatchFile : ResultFile<LightWeightSpectralMatch>, IQuantifiableResultFile
 {
     public override SupportedFileType FileType => SupportedFileType.psmtsv;
     public override Software Software { get; set; }
@@ -23,13 +23,13 @@ public class LightWeightSpectralMatchFromTsvFile : ResultFile<LightWeightSpectra
     /// </summary>
     public Dictionary<string, Func<string, bool>>? TerminatingFilters { get; set; }
 
-    public LightWeightSpectralMatchFromTsvFile() : base() { }
+    public LightWeightSpectralMatchFile() : base() { }
 
-    public LightWeightSpectralMatchFromTsvFile(string filePath) : base(filePath, Software.MetaMorpheus) { }
+    public LightWeightSpectralMatchFile(string filePath) : base(filePath, Software.MetaMorpheus) { }
 
     public override void LoadResults()
     {
-        Results = LightWeightSpectralMatchTsvReader.ReadTsv(FilePath, out _, RowFilters, TerminatingFilters);
+        Results = LightWeightSpectralMatchReader.ReadTsv(FilePath, out _, RowFilters, TerminatingFilters);
     }
 
     public override void WriteResults(string outputPath) => throw new NotImplementedException();

@@ -11,7 +11,7 @@ namespace Readers
     ///     The caller is responsible for ensuring the file is sorted by the relevant column.</item>
     /// </list>
     /// </summary>
-    public static class LightWeightSpectralMatchTsvReader
+    public static class LightWeightSpectralMatchReader
     {
         private static readonly char[] Split = { '\t' };
 
