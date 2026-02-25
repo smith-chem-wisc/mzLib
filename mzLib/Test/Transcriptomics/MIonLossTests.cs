@@ -19,7 +19,7 @@ namespace Test.Transcriptomics
             // Arrange
             var expectedName = "Phosphate Loss";
             var expectedAnnotation = "-P";
-            var expectedFormula = ChemicalFormula.ParseFormula("H-1P-1O-3");
+            var expectedFormula = ChemicalFormula.ParseFormula("H1P1O3");
 
             // Act
             var phosphoLoss = MIonLoss.PhosphoLoss;
@@ -38,7 +38,7 @@ namespace Test.Transcriptomics
             // Arrange
             var expectedName = "Water Loss";
             var expectedAnnotation = "-H2O";
-            var expectedFormula = ChemicalFormula.ParseFormula("H-2O-1");
+            var expectedFormula = ChemicalFormula.ParseFormula("H2O1");
 
             // Act
             var waterLoss = MIonLoss.WaterLoss;

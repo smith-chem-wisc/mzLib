@@ -59,7 +59,7 @@ namespace Proteomics.ProteolyticDigestion
         /// Creates a PeptideWithSetModifications object from a sequence string.
         /// Useful for reading in MetaMorpheus search engine output into mzLib objects.
         /// </summary>
-        public PeptideWithSetModifications(string sequence, Dictionary<string, Modification> allKnownMods, int numFixedMods = 0,
+        public PeptideWithSetModifications(string sequence, Dictionary<string, Modification> allKnownMods = null, int numFixedMods = 0,
             IDigestionParams digestionParams = null, Protein p = null, int oneBasedStartResidueInProtein = int.MinValue,
             int oneBasedEndResidueInProtein = int.MinValue, int missedCleavages = int.MinValue,
             CleavageSpecificity cleavageSpecificity = CleavageSpecificity.Full, string peptideDescription = null, string pairedTargetDecoySequence = null)
@@ -71,7 +71,7 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             _baseSequence = IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(sequence);
-            _allModsOneIsNterminus = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(sequence, allKnownMods);
+            _allModsOneIsNterminus = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(sequence, allKnownMods ?? Mods.AllKnownProteinModsDictionary);
             FullSequence = _allModsOneIsNterminus.ContainsKey(_baseSequence.Length + 2) ? this.DetermineFullSequence() : sequence;
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams as DigestionParams;
@@ -221,7 +221,7 @@ namespace Proteomics.ProteolyticDigestion
         /// Generates theoretical fragments for given dissociation type for this peptide. 
         /// The "products" parameter is filled with these fragments.
         /// </summary>
-        public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus, List<Product> products, FragmentationParams? fragmentationParams = null)
+        public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus, List<Product> products, IFragmentationParams? fragmentationParams = null)
         {
             // This code is specifically written to be memory- and CPU -efficient because it is 
             // called millions of times for a typical search (i.e., at least once per peptide). 
@@ -558,7 +558,7 @@ namespace Proteomics.ProteolyticDigestion
         /// TODO: Implement neutral losses (e.g. phospho)
         /// TODO: Implement Star/Degree ions from CID
         /// </summary>
-        public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments, List<Product> products, FragmentationParams? fragmentationParams = null)
+        public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments, List<Product> products, IFragmentationParams? fragmentationParams = null)
         {
             products.Clear();
 
