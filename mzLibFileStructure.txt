@@ -47,6 +47,10 @@ mzLib/Development/DeconvolutionDevelopment/TestData/Averaged_221110_CytoOnly.mzM
 mzLib/Development/DeconvolutionDevelopment/TestData/Averaged_221110_HGHOnly.mzML
 mzLib/Development/DeconvolutionDevelopment/TestData/Averaged_221110_UbiqOnly.mzML
 mzLib/Development/Development.csproj
+mzLib/Development/Dia/DiaOrchestrationBenchmark.cs
+mzLib/Development/Dia/LibraryBridgeBenchmark.cs
+mzLib/Development/Dia/SoAContainerAndInterfaces/DiaScanIndexBenchmark.cs
+mzLib/Development/Program.cs
 mzLib/FlashLFQ/Bayesian Protein Quantification/PairedProteinQuantResult.cs
 mzLib/FlashLFQ/Bayesian Protein Quantification/ProteinFoldChangeEstimationModel.cs
 mzLib/FlashLFQ/Bayesian Protein Quantification/ProteinQuantificationEngine.cs
@@ -98,6 +102,21 @@ mzLib/MassSpectrometry/Deconvolution/Parameters/ExampleNewDeconvolutionParameter
 mzLib/MassSpectrometry/Deconvolution/Parameters/IsoDecDeconvolutionParameters.cs
 mzLib/MassSpectrometry/DeconvolutionFeature.cs
 mzLib/MassSpectrometry/DeconvolutionFeatureWithMassesAndScans.cs
+mzLib/MassSpectrometry/Dia/DataStructures/DiaScanIndex.cs
+mzLib/MassSpectrometry/Dia/DataStructures/DiaScanIndexBuilder.cs
+mzLib/MassSpectrometry/Dia/DataStructures/FragmentQueryAndResult.cs
+mzLib/MassSpectrometry/Dia/DiaLibraryQueryGenerator.cs
+mzLib/MassSpectrometry/Dia/DiaSearchParameters.cs
+mzLib/MassSpectrometry/Dia/DiaSearchResult.cs
+mzLib/MassSpectrometry/Dia/Extraction/CpuFragmentExtractor.cs
+mzLib/MassSpectrometry/Dia/Gpu/FragmentExtractorFactory.cs
+mzLib/MassSpectrometry/Dia/Gpu/GpuDeviceDetector.cs
+mzLib/MassSpectrometry/Dia/Gpu/GpuFragmentExtractor.cs
+mzLib/MassSpectrometry/Dia/Interfaces/IFragmentExtractor.cs
+mzLib/MassSpectrometry/Dia/Interfaces/IScorer.cs
+mzLib/MassSpectrometry/Dia/Orchestration/DiaExtractionOrchestrator.cs
+mzLib/MassSpectrometry/Dia/Scoring/NormalizedDotProductScorer.cs
+mzLib/MassSpectrometry/Dia/Scoring/SpectralAngleScorer.cs
 mzLib/MassSpectrometry/Enums/DissociationType.cs
 mzLib/MassSpectrometry/Enums/MzAnalyzerType.cs
 mzLib/MassSpectrometry/Enums/Polarity.cs
@@ -188,11 +207,21 @@ mzLib/Omics/Fragmentation/Peptide/TerminusSpecificProductTypes.cs
 mzLib/Omics/Fragmentation/Product.cs
 mzLib/Omics/Fragmentation/ProductType.cs
 mzLib/Omics/IBioPolymerWithSetMods.cs
+mzLib/Omics/Modifications/BackboneModification.cs
+mzLib/Omics/Modifications/IO/ModificationLoader.cs
+mzLib/Omics/Modifications/IO/PsiModGenerated.cs
+mzLib/Omics/Modifications/IO/unimod_2.cs
 mzLib/Omics/Modifications/Modification.cs
 mzLib/Omics/Modifications/ModificationLocalization.cs
 mzLib/Omics/Modifications/ModificationMotif.cs
+mzLib/Omics/Modifications/Mods.cs
 mzLib/Omics/Modifications/SilacLabel.cs
 mzLib/Omics/Omics.csproj
+mzLib/Omics/Resources/Mods.txt
+mzLib/Omics/Resources/PSI-MOD.obo.xml
+mzLib/Omics/Resources/RnaMods.txt
+mzLib/Omics/Resources/ptmlist.txt
+mzLib/Omics/Resources/unimod.xml
 mzLib/Omics/SpectralLibrary/CrosslinkLibrarySpectrum.cs
 mzLib/Omics/SpectralLibrary/LibrarySpectrum.cs
 mzLib/Omics/SpectralMatch/BaseSpectralMatch.cs
@@ -241,6 +270,7 @@ mzLib/Proteomics/ProteolyticDigestion/Protease.cs
 mzLib/Proteomics/ProteolyticDigestion/ProteaseDictionary.cs
 mzLib/Proteomics/ProteolyticDigestion/ProteinDigestion.cs
 mzLib/Proteomics/ProteolyticDigestion/ProteolyticPeptide.cs
+mzLib/Proteomics/ProteolyticDigestion/protease_mods.txt
 mzLib/Proteomics/ProteolyticDigestion/proteases.tsv
 mzLib/Proteomics/Proteomics.csproj
 mzLib/Proteomics/RetentionTimePrediction/ChromatographyExtensions.cs
@@ -322,10 +352,6 @@ mzLib/Readers/MzML/XSD/mzML1_1_1_idx.cs
 mzLib/Readers/Readers.csproj
 mzLib/Readers/Readers.csproj.DotSettings
 mzLib/Readers/ReadersDiagram.cd
-mzLib/Readers/Resources/Mods.txt
-mzLib/Readers/Resources/PSI-MOD.obo.xml
-mzLib/Readers/Resources/ptmlist.txt
-mzLib/Readers/Resources/unimod.xml
 mzLib/Readers/SpectralLibrary/SpectralLibrary.cs
 mzLib/Readers/Thermo/ThermoFisher.CommonCore.BackgroundSubtraction.dll
 mzLib/Readers/Thermo/ThermoFisher.CommonCore.Data.dll
@@ -381,6 +407,7 @@ mzLib/Test/DataFiles/05-13-16_cali_MS_60K-res_MS.raw
 mzLib/Test/DataFiles/12-18-17_frac7_calib_ms1_663_665.mzML
 mzLib/Test/DataFiles/14kDaProteoformMzIntensityMs1.txt
 mzLib/Test/DataFiles/BinGenerationTest.mzML
+mzLib/Test/DataFiles/E24484_Mag_1_4_50_3.mzML
 mzLib/Test/DataFiles/FXN11_tr1_032017-calib_ms1_scans716_718.mzML
 mzLib/Test/DataFiles/FXN11_tr1_032017-calib_ms1_scans781_783.mzML
 mzLib/Test/DataFiles/GUACUG_NegativeMode_Sliced.mzML
@@ -558,6 +585,13 @@ mzLib/Test/DatabaseTests/xml.xml
 mzLib/Test/DatabaseTests/xml.xml.gz
 mzLib/Test/DatabaseTests/xml2.xml
 mzLib/Test/DatabaseTests/z.txt
+mzLib/Test/Dia/DiaScanIndexTests.cs
+mzLib/Test/Dia/FragmentExtraction/CpuFragmentExtractorTests.cs
+mzLib/Test/Dia/Gpu/GpuInfrastructureTests.cs
+mzLib/Test/Dia/Integration/DiaIntegrationTests.cs
+mzLib/Test/Dia/LibraryBridge/LibraryBridgeTests.cs
+mzLib/Test/Dia/Orchestration/DiaExtractionOrchestratorTests.cs
+mzLib/Test/Dia/Scoring/ScorerTests.cs
 mzLib/Test/DigestionAgentTests.cs
 mzLib/Test/DoubleProtease.tsv
 mzLib/Test/FileReadingTests/ExternalFileTypes/Casanovo_5.0.0.mztab
@@ -685,6 +719,7 @@ mzLib/Test/Omics/BioPolymerGroupSequenceCoverageTests.cs
 mzLib/Test/Omics/BioPolymerGroupTests.cs
 mzLib/Test/Omics/CrossClassComparisonTests.cs
 mzLib/Test/Omics/ExternalProteinGroupTests.cs
+mzLib/Test/Omics/Fragmentation.cs
 mzLib/Test/Omics/IBioPolymerWithSetModsTests.cs
 mzLib/Test/Omics/ISampleInfoTests.cs
 mzLib/Test/Omics/ISpectralMatchTests.cs
@@ -693,6 +728,7 @@ mzLib/Test/Omics/MatchedFragmentIonTests.cs
 mzLib/Test/Omics/MockBioPolymer.cs
 mzLib/Test/Omics/MockBioPolymerWithSetMods.cs
 mzLib/Test/Omics/MockSpectralMatch.cs
+mzLib/Test/Omics/ModificationTest.cs
 mzLib/Test/Omics/ProductTests.cs
 mzLib/Test/Omics/SequenceCoverageResultTests.cs
 mzLib/Test/Omics/SpectraFileInfoTests.cs
@@ -740,6 +776,7 @@ mzLib/Test/TestMzPlot.cs
 mzLib/Test/TestPeptideWithSetMods.cs
 mzLib/Test/TestPeptides.cs
 mzLib/Test/TestProductMassesMightHaveDuplicates.cs
+mzLib/Test/TestProteaseDictionaryEmbeddedMods.cs
 mzLib/Test/TestProteinDatabase.cs
 mzLib/Test/TestProteinDigestion.cs
 mzLib/Test/TestProteinProperties.cs
@@ -751,7 +788,9 @@ mzLib/Test/TestSpectra.cs
 mzLib/Test/TestSpectralSimilarity.cs
 mzLib/Test/TestSummedDataFile.cs
 mzLib/Test/TestXic.cs
+mzLib/Test/Transcriptomics/BackboneFragmentation.cs
 mzLib/Test/Transcriptomics/MIonLossTests.cs
+mzLib/Test/Transcriptomics/Modifications.cs
 mzLib/Test/Transcriptomics/TestData/20mer1.fasta
 mzLib/Test/Transcriptomics/TestData/20mer1.fasta.gz
 mzLib/Test/Transcriptomics/TestData/20mer1.xml
@@ -819,8 +858,6 @@ mzLib/UsefulProteomicsDatabases/DecoyGeneration/DecoySequenceValidator.cs
 mzLib/UsefulProteomicsDatabases/DecoyGeneration/DecoyType.cs
 mzLib/UsefulProteomicsDatabases/DecoyGeneration/RnaDecoyGenerator.cs
 mzLib/UsefulProteomicsDatabases/FastaHeaderFieldRegex.cs
-mzLib/UsefulProteomicsDatabases/Generated/PsiModGenerated.cs
-mzLib/UsefulProteomicsDatabases/Generated/unimod_2.cs
 mzLib/UsefulProteomicsDatabases/Loaders.cs
 mzLib/UsefulProteomicsDatabases/ProteinDbLoader.cs
 mzLib/UsefulProteomicsDatabases/ProteinDbRetriever.cs
@@ -845,3 +882,5 @@ mzLib/mzPlot/Plots/SpectrumPlot.cs
 mzLib/mzPlot/mzPlot.csproj
 mzLib/pepXML/pepXML.csproj
 mzLib/pepXML/pepXML_v120.cs
+mzLibRepoFolderStructure.txt
+structure.txt

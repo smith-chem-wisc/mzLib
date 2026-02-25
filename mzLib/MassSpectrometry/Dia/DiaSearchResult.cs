@@ -87,6 +87,17 @@ namespace MassSpectrometry.Dia
 
         #endregion
 
+        #region FDR
+
+        /// <summary>
+        /// FDR statistics for this result (q-value, cumulative counts, PEP).
+        /// Populated by FdrAnalysisEngineDia during post-search analysis.
+        /// Null until FDR analysis is run.
+        /// </summary>
+        public DiaFdrInfo FdrInfo { get; set; }
+
+        #endregion
+
         public DiaSearchResult(
             string sequence,
             int chargeState,
@@ -123,9 +134,11 @@ namespace MassSpectrometry.Dia
 
         public override string ToString()
         {
+            string fdrStr = FdrInfo != null ? $" q={FdrInfo.QValue:F4}" : "";
             return $"{Sequence}/{ChargeState} Window={WindowId} " +
                    $"DotProduct={DotProductScore:F4} SpectralAngle={SpectralAngleScore:F4} " +
                    $"Fragments={FragmentsDetected}/{FragmentsQueried}" +
+                   fdrStr +
                    (IsDecoy ? " [DECOY]" : "");
         }
     }
