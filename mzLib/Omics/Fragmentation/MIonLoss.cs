@@ -11,9 +11,9 @@ public class MIonLoss(string name, string annotation, ChemicalFormula chemicalFo
 
     static MIonLoss()
     {
-        PhosphoLoss = new MIonLoss("Phosphate Loss", "-P", ChemicalFormula.ParseFormula("H-1P-1O-3"));
-        WaterLoss = new MIonLoss("Water Loss", "-H2O", ChemicalFormula.ParseFormula("H-2O-1"));
-        PhosphoWaterLoss = new MIonLoss("Phosphate and Water Loss", "-P-H2O", ChemicalFormula.ParseFormula("H-3P-1O-4"));
+        PhosphoLoss = new MIonLoss("Phosphate Loss", "-P", ChemicalFormula.ParseFormula("H1P1O3"));
+        WaterLoss = new MIonLoss("Water Loss", "-H2O", ChemicalFormula.ParseFormula("H2O1"));
+        PhosphoWaterLoss = new MIonLoss("Phosphate and Water Loss", "-P-H2O", ChemicalFormula.ParseFormula("H3P1O4"));
         AllMIonLosses  = new Dictionary<string, MIonLoss>
         {
             { "-P", PhosphoLoss },

@@ -4,14 +4,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using NUnit.Framework.Interfaces;
 using Transcriptomics;
 using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases.Transcriptomics;
 using UsefulProteomicsDatabases;
 using Chemistry;
+using Omics.Modifications.IO;
 
 namespace Test.Transcriptomics
 {
@@ -232,7 +230,7 @@ namespace Test.Transcriptomics
         [Test]
         public void TestCreateNew()
         {
-            var mods = PtmListLoader.ReadModsFromString(
+            var mods = ModificationLoader.ReadModsFromString(
                 "ID   Sodium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A\r\nCF   Na1H-1\r\n" + @"//",
                 out List<(Modification, string)> modsOut).ToList();
             var modDict = mods.ToDictionary(p => p.IdWithMotif, p => p);
@@ -282,7 +280,7 @@ namespace Test.Transcriptomics
         [Test]
         public void TestCreateNew_FromDecoy()
         {
-            var mods = PtmListLoader.ReadModsFromString(
+            var mods = ModificationLoader.ReadModsFromString(
                 "ID   Sodium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A\r\nCF   Na1H-1\r\n" + @"//",
                 out List<(Modification, string)> modsOut).ToList();
             var modDict = mods.ToDictionary(p => p.IdWithMotif, p => p);
