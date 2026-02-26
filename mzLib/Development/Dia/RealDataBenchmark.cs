@@ -172,7 +172,9 @@ namespace Development.Dia
             sw.Restart();
             var extractionResult = new ExtractionResult(results, rtBuf, intBuf, 0);
             var searchResults = DiaLibraryQueryGenerator.AssembleResults(
-                precursorsWithWindow, genResult, extractionResult, parameters, dotScorer, saScorer);
+                precursorsWithWindow, genResult, results, parameters,  // ← same variable
+                intensityBuffer: intBuf,
+                dotScorer, saScorer);
             var scoreTime = sw.Elapsed;
 
             Console.WriteLine("Scoring + Assembly:");

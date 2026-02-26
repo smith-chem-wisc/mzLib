@@ -296,8 +296,8 @@ namespace Test.Dia.LibraryBridge
                 new FragmentResult(1, 3, 5, 3, 200f),
                 new FragmentResult(2, 0, 8, 0, 0f),
             };
-            var extractionResult = new ExtractionResult(extractionResults, Array.Empty<float>(), Array.Empty<float>(), 0);
-            var results = DiaLibraryQueryGenerator.AssembleResults(precursors, genResult, extractionResult, p);
+
+            var results = DiaLibraryQueryGenerator.AssembleResults(precursors, genResult, extractionResults, p);
             Assert.That(results.Count, Is.EqualTo(1));
             Assert.That(results[0].Sequence, Is.EqualTo("PEPTIDE"));
             Assert.That(results[0].FragmentsDetected, Is.EqualTo(2));
@@ -320,8 +320,8 @@ namespace Test.Dia.LibraryBridge
                 new FragmentResult(1, 3, 5, 3, 200f),
                 new FragmentResult(2, 0, 8, 0, 0f),
             };
-            var extractionResult = new ExtractionResult(extractionResults, Array.Empty<float>(), Array.Empty<float>(), 0);
-            var results = DiaLibraryQueryGenerator.AssembleResults(precursors, genResult, extractionResult, p);
+
+            var results = DiaLibraryQueryGenerator.AssembleResults(precursors, genResult, extractionResults, p);
             Assert.That(results.Count, Is.EqualTo(0));
         }
 
@@ -340,8 +340,8 @@ namespace Test.Dia.LibraryBridge
                 new FragmentResult(0, 3, 0, 3, 100f),
                 new FragmentResult(1, 3, 3, 3, 100f),
             };
-            var extractionResult = new ExtractionResult(extractionResults, Array.Empty<float>(), Array.Empty<float>(), 0);
-            var results = DiaLibraryQueryGenerator.AssembleResults(precursors, genResult, extractionResult, p);
+
+            var results = DiaLibraryQueryGenerator.AssembleResults(precursors, genResult, extractionResults, p);
             Assert.That(results.Count, Is.EqualTo(2));
             Assert.That(results[0].IsDecoy, Is.False);
             Assert.That(results[1].IsDecoy, Is.True);

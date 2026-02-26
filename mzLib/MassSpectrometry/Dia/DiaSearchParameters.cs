@@ -51,6 +51,14 @@ namespace MassSpectrometry.Dia
         public bool PreferGpu { get; set; } = false;
 
         /// <summary>
+        /// Number of standard deviations (σ) to use for calibrated RT windows.
+        /// When using iRT calibration, the RT window half-width = k * σ_minutes,
+        /// where σ_minutes comes from the RtCalibrationModel.
+        /// Default: 3.0 (covers 99.7% of true matches for Gaussian residuals).
+        /// </summary>
+        public double CalibratedWindowSigmaMultiplier { get; set; } = 3.0;
+
+        /// <summary>
         /// When true, scoring uses the maximum single-scan intensity per fragment (apex)
         /// instead of the sum of all intensities across scans (TotalIntensity).
         /// 

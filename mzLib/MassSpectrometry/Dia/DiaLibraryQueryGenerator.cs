@@ -248,6 +248,125 @@ namespace MassSpectrometry.Dia
         }
 
         /// <summary>
+        /// Generates FragmentQuery[] using iRT calibration for per-precursor RT windows.
+        /// 
+        /// Instead of a fixed ±RtToleranceMinutes window, each precursor's RT window is
+        /// computed from its iRT value through the calibration model:
+        ///   predicted_RT = model.ToMinutes(precursor.IrtValue)
+        ///   window = predicted_RT ± k * σ_minutes
+        /// 
+        /// where k = parameters.CalibratedWindowSigmaMultiplier (default 3.0)
+        /// and σ_minutes = model.SigmaMinutes.
+        /// 
+        /// For precursors without an iRT value, falls back to RetentionTime ± RtToleranceMinutes.
+        /// For precursors with neither iRT nor RT, uses the full run RT range.
+        /// </summary>
+        /// <param name="precursors">Library precursor inputs with optional IrtValue.</param>
+        /// <param name="scanIndex">The DIA scan index for window lookup and RT bounds.</param>
+        /// <param name="parameters">Search parameters including PpmTolerance and CalibratedWindowSigmaMultiplier.</param>
+        /// <param name="calibration">
+        /// The fitted iRT → RT calibration model. If null, falls back to Generate() behavior.
+        /// </param>
+        public static GenerationResult GenerateCalibrated(
+            IList<LibraryPrecursorInput> precursors,
+            DiaScanIndex scanIndex,
+            DiaSearchParameters parameters,
+            RtCalibrationModel calibration)
+        {
+            if (calibration == null)
+                return Generate(precursors, scanIndex, parameters);
+
+            if (precursors == null) throw new ArgumentNullException(nameof(precursors));
+            if (scanIndex == null) throw new ArgumentNullException(nameof(scanIndex));
+            if (parameters == null) throw new ArgumentNullException(nameof(parameters));
+
+            float ppmTolerance = parameters.PpmTolerance;
+            float fixedRtTolerance = parameters.RtToleranceMinutes;
+            double k = parameters.CalibratedWindowSigmaMultiplier;
+            float calibratedHalfWidth = (float)calibration.GetMinutesWindowHalfWidth(k);
+
+            // Fallback RT bounds for precursors with neither iRT nor RT
+            float globalRtMin = scanIndex.GetGlobalRtMin();
+            float globalRtMax = scanIndex.GetGlobalRtMax();
+
+            // First pass: count
+            int totalQueryCount = 0;
+            int skippedNoWindow = 0;
+            int skippedNoFragments = 0;
+
+            for (int i = 0; i < precursors.Count; i++)
+            {
+                var p = precursors[i];
+                int windowId = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
+                if (windowId < 0) { skippedNoWindow++; continue; }
+                if (p.FragmentCount == 0) { skippedNoFragments++; continue; }
+                totalQueryCount += p.FragmentCount;
+            }
+
+            // Allocate
+            var queries = new FragmentQuery[totalQueryCount];
+            var groups = new List<PrecursorQueryGroup>(
+                precursors.Count - skippedNoWindow - skippedNoFragments);
+
+            // Second pass: fill
+            int queryIndex = 0;
+            for (int i = 0; i < precursors.Count; i++)
+            {
+                var p = precursors[i];
+                int windowId = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
+                if (windowId < 0 || p.FragmentCount == 0)
+                    continue;
+
+                float rtMin, rtMax;
+                if (p.IrtValue.HasValue)
+                {
+                    // Use calibrated iRT → RT conversion with data-driven window
+                    float predictedRt = (float)calibration.ToMinutes(p.IrtValue.Value);
+                    rtMin = predictedRt - calibratedHalfWidth;
+                    rtMax = predictedRt + calibratedHalfWidth;
+                }
+                else if (p.RetentionTime.HasValue)
+                {
+                    // Fallback: fixed window around library RT
+                    float rt = (float)p.RetentionTime.Value;
+                    rtMin = rt - fixedRtTolerance;
+                    rtMax = rt + fixedRtTolerance;
+                }
+                else
+                {
+                    rtMin = globalRtMin;
+                    rtMax = globalRtMax;
+                }
+
+                int groupOffset = queryIndex;
+
+                for (int f = 0; f < p.FragmentCount; f++)
+                {
+                    queries[queryIndex] = new FragmentQuery(
+                        targetMz: p.FragmentMzs[f],
+                        tolerancePpm: ppmTolerance,
+                        rtMin: rtMin,
+                        rtMax: rtMax,
+                        windowId: windowId,
+                        queryId: queryIndex
+                    );
+                    queryIndex++;
+                }
+
+                groups.Add(new PrecursorQueryGroup(
+                    inputIndex: i,
+                    queryOffset: groupOffset,
+                    queryCount: p.FragmentCount,
+                    windowId: windowId,
+                    rtMin: rtMin,
+                    rtMax: rtMax
+                ));
+            }
+
+            return new GenerationResult(queries, groups.ToArray(), skippedNoWindow, skippedNoFragments);
+        }
+
+        /// <summary>
         /// Assembles DiaSearchResult objects from extraction results.
         /// This overload uses TotalIntensity from FragmentResult for scoring.
         /// 
