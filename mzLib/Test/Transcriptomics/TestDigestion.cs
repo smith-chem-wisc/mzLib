@@ -11,6 +11,7 @@ using Omics;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
+using Omics.Modifications.IO;
 using Transcriptomics;
 using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases;
@@ -355,10 +356,10 @@ namespace Test.Transcriptomics
         {
             string sequence = "UAGUCGUUGAUAG";
             RNA rna = new RNA(sequence);
-            var oligoCyclicPhosphate = PtmListLoader.ReadModsFromString(
+            var oligoCyclicPhosphate = ModificationLoader.ReadModsFromString(
                 "ID   Cyclic Phosphate\r\nTG   X\r\nPP   Oligo 3'-terminal.\r\nMT   Digestion Termini\r\nCF   H-2 O-1\r\nDR   Unimod; 280.\r\n//",
                 out List<(Modification, string)> errors).First();
-            var nucleicAcidCyclicPhosphate = PtmListLoader.ReadModsFromString(
+            var nucleicAcidCyclicPhosphate = ModificationLoader.ReadModsFromString(
                 "ID   Cyclic Phosphate\r\nTG   X\r\nPP   3'-terminal.\r\nMT   Digestion Termini\r\nCF   H-2 O-1\r\nDR   Unimod; 280.\r\n//",
                 out errors).First();
             Assert.That(!errors.Any());
@@ -424,10 +425,10 @@ namespace Test.Transcriptomics
         {
             string sequence = "UAGUCGUUGAUAG";
             RNA rna = new RNA(sequence);
-            var oligoLargeMod = PtmListLoader.ReadModsFromString(
+            var oligoLargeMod = ModificationLoader.ReadModsFromString(
                 "ID   Pfizer 5'-Cap\r\nTG   X\r\nPP   Oligo 5'-terminal.\r\nMT   Standard\r\nCF   C13H22N5O14P3\r\nDR   Unimod; 280.\r\n//",
                 out List<(Modification, string)> errors).First();
-            var nucleicAcidLargeMod = PtmListLoader.ReadModsFromString(
+            var nucleicAcidLargeMod = ModificationLoader.ReadModsFromString(
                 "ID   Pfizer 5'-Cap\r\nTG   X\r\nPP   5'-terminal.\r\nMT   Standard\r\nCF   C13H22N5O14P3\r\nDR   Unimod; 280.\r\n//",
                 out errors).First();
             Assert.That(!errors.Any());
@@ -506,7 +507,7 @@ namespace Test.Transcriptomics
             var rnaFormula = rna.ThisChemicalFormula;
 
             string modText = "ID   Sodium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A\r\nCF   Na1H-1\r\n" + @"//";
-            var sodiumAdduct = PtmListLoader.ReadModsFromString(modText, out List<(Modification, string)> mods).First();
+            var sodiumAdduct = ModificationLoader.ReadModsFromString(modText, out List<(Modification, string)> mods).First();
             var oligoWithSetMods =
                 rna.Digest(new RnaDigestionParams(), new List<Modification>() { sodiumAdduct }, new List<Modification>())
                     .First() as OligoWithSetMods ?? throw new NullReferenceException();
@@ -678,19 +679,19 @@ namespace Test.Transcriptomics
         #region Digestion with Modifications
 
         public static List<Modification> SodiumAdducts =>
-            PtmListLoader.ReadModsFromString("ID   Sodium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A or C or G or U\r\nCF   Na1H-1\r\n" + @"//",
+            ModificationLoader.ReadModsFromString("ID   Sodium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A or C or G or U\r\nCF   Na1H-1\r\n" + @"//",
                     out List<(Modification, string)> mods).ToList();
 
         public static List<Modification> PotassiumAdducts =>
-            PtmListLoader.ReadModsFromString("ID   Potassium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A or C or G or U\r\nCF   K1H-1\r\n" + @"//",
+            ModificationLoader.ReadModsFromString("ID   Potassium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A or C or G or U\r\nCF   K1H-1\r\n" + @"//",
                     out List<(Modification, string)> mods).ToList();
 
         public static List<Modification> TerminalSodiumAdducts =>
-            PtmListLoader.ReadModsFromString("ID   Sodium\r\nMT   Metal\r\nPP   3'-terminal.\r\nTG   A or C or G or U\r\nCF   Na1H-1\r\n" + @"//",
+            ModificationLoader.ReadModsFromString("ID   Sodium\r\nMT   Metal\r\nPP   3'-terminal.\r\nTG   A or C or G or U\r\nCF   Na1H-1\r\n" + @"//",
             out List<(Modification, string)> mods).ToList();
 
         public static List<Modification> TerminalPotassiumAdducts =>
-            PtmListLoader.ReadModsFromString("ID   Potassium\r\nMT   Metal\r\nPP   5'-terminal.\r\nTG   A or C or G or U\r\nCF   K1H-1\r\n" + @"//",
+            ModificationLoader.ReadModsFromString("ID   Potassium\r\nMT   Metal\r\nPP   5'-terminal.\r\nTG   A or C or G or U\r\nCF   K1H-1\r\n" + @"//",
             out List<(Modification, string)> mods).ToList();
 
         [Test]
