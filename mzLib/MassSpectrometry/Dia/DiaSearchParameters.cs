@@ -18,6 +18,7 @@ namespace MassSpectrometry.Dia
         /// <summary>
         /// Half-width of the RT window around the predicted/library retention time (in minutes).
         /// Queries are restricted to [RT - tolerance, RT + tolerance].
+        /// Used by the uncalibrated Generate() path; ignored when GenerateCalibrated() is used.
         /// Default: 5.0 minutes.
         /// </summary>
         public float RtToleranceMinutes { get; set; } = 5.0f;
@@ -51,28 +52,17 @@ namespace MassSpectrometry.Dia
         public bool PreferGpu { get; set; } = false;
 
         /// <summary>
-        /// Number of standard deviations (σ) to use for calibrated RT windows.
-        /// When using iRT calibration, the RT window half-width = k * σ_minutes,
-        /// where σ_minutes comes from the RtCalibrationModel.
-        /// Default: 3.0 (covers 99.7% of true matches for Gaussian residuals).
+        /// Multiplier for the calibration model's sigma (residual standard deviation)
+        /// to determine the RT extraction window half-width when using GenerateCalibrated().
+        /// 
+        /// Window half-width = σ × CalibratedWindowSigmaMultiplier
+        /// 
+        /// For example, with σ = 0.3 min and multiplier = 3.0:
+        ///   window = ±0.9 min (covers 99.7% of a Gaussian distribution)
+        /// 
+        /// Default: 3.0 (3σ).
         /// </summary>
         public double CalibratedWindowSigmaMultiplier { get; set; } = 3.0;
-
-        /// <summary>
-        /// When true, scoring uses the maximum single-scan intensity per fragment (apex)
-        /// instead of the sum of all intensities across scans (TotalIntensity).
-        /// 
-        /// Apex intensity better represents the fragment's relative abundance at the 
-        /// chromatographic peak and correlates more strongly with library relative intensities.
-        /// TotalIntensity sums signal over the entire RT window, accumulating noise and
-        /// interference from co-eluting peptides.
-        /// 
-        /// Requires XIC buffers to be passed to AssembleResults. If buffers are not available,
-        /// falls back to TotalIntensity regardless of this setting.
-        /// 
-        /// Default: true.
-        /// </summary>
-        public bool UseApexIntensityForScoring { get; set; } = true;
 
         /// <summary>
         /// Resolves effective thread count, replacing -1 with processor count.

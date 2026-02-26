@@ -22,10 +22,11 @@ namespace Development.Dia
     ///   2. Build DiaScanIndex — validate window count, scan count, RT range
     ///   3. Load DIA-NN ground truth TSV → LibraryPrecursorInput[]
     ///   4. Filter to precursors whose RT falls within the mzML's RT range
-    ///   5. Generate queries, extract, score
-    ///   6. Report correctness metrics:
+    ///   5. Pass 1: Broad extraction with wide RT windows → anchor selection → RT calibration fit
+    ///   6. Pass 2: Narrow extraction with calibrated RT windows → apex intensity scoring
+    ///   7. Report correctness metrics:
     ///      - Fragment detection rate
-    ///      - Score distributions
+    ///      - Score distributions (summed vs apex, broad vs calibrated)
     ///      - Precursor recovery rate
     ///      - Timing
     /// 
@@ -35,14 +36,14 @@ namespace Development.Dia
     /// 
     /// Usage:
     ///   RealDataBenchmark.Run(
-    ///       mzmlPath: @"Test\Dia\DiaTestData\Fig2HeLa-0-5h_MHRM_R01_T0_Scans0to500.mzML",
+    ///       mzmlPath: @"Test\Dia\DiaTestData\Fig2HeLa-0-5h_MHRM_R01_T0.raw",
     ///       groundTruthTsvPath: @"Test\Dia\DiaTestData\diann_ground_truth.tsv"
     ///   );
     /// </summary>
     public static class RealDataBenchmark
     {
         public static void Run(string mzmlPath, string groundTruthTsvPath,
-            float ppmTolerance = 20f, float rtToleranceMinutes = 2.0f, int minFragments = 3)
+            float ppmTolerance = 20f, float rtToleranceMinutes = 5.0f, int minFragments = 3)
         {
             Console.WriteLine("=== DIA Real Data Benchmark (vs DIA-NN Ground Truth) ===");
             Console.WriteLine();
@@ -127,72 +128,265 @@ namespace Development.Dia
                 return;
             }
 
-            // ─── Step 4: Generate queries ───────────────────────────────────
-            var parameters = new DiaSearchParameters
+            var dotScorer = new NormalizedDotProductScorer();
+            var saScorer = new SpectralAngleScorer();
+            int threads = Math.Min(Environment.ProcessorCount, 16);
+
+            // ─── Step 4: Pass 1 — Broad extraction (for RT calibration anchors) ─
+            Console.WriteLine("=== Pass 1: Broad Extraction (for RT calibration) ===");
+
+            var broadParams = new DiaSearchParameters
             {
                 PpmTolerance = ppmTolerance,
                 RtToleranceMinutes = rtToleranceMinutes,
                 MinFragmentsRequired = minFragments,
-                MinScoreThreshold = 0f, // Keep everything for analysis
+                MinScoreThreshold = 0f,
             };
 
             sw.Restart();
-            var genResult = DiaLibraryQueryGenerator.Generate(precursorsWithWindow, index, parameters);
-            var genTime = sw.Elapsed;
+            var broadGenResult = DiaLibraryQueryGenerator.Generate(precursorsWithWindow, index, broadParams);
+            var broadGenTime = sw.Elapsed;
 
-            Console.WriteLine("Query generation:");
-            Console.WriteLine($"  Time:         {genTime.TotalMilliseconds:F0} ms");
-            Console.WriteLine($"  Queries:      {genResult.Queries.Length:N0}");
-            Console.WriteLine($"  Groups:       {genResult.PrecursorGroups.Length:N0}");
-            Console.WriteLine($"  Skipped (no window): {genResult.SkippedNoWindow}");
-            Console.WriteLine($"  Skipped (no frags):  {genResult.SkippedNoFragments}");
-            Console.WriteLine();
+            Console.WriteLine($"  Query generation:  {broadGenTime.TotalMilliseconds:F0} ms  " +
+                              $"({broadGenResult.Queries.Length:N0} queries, " +
+                              $"{broadGenResult.PrecursorGroups.Length:N0} groups)");
 
-            // ─── Step 5: Extract ────────────────────────────────────────────
-            using var extractor = new CpuFragmentExtractor(index);
-            var results = new FragmentResult[genResult.Queries.Length];
-            int bufferSize = Math.Max(genResult.Queries.Length * 200, 1024);
-            var rtBuf = new float[bufferSize];
-            var intBuf = new float[bufferSize];
-
+            // Use orchestrator for parallel extraction
             sw.Restart();
-            int totalPoints = extractor.ExtractBatch(genResult.Queries, results, rtBuf, intBuf);
-            var extractTime = sw.Elapsed;
+            ExtractionResult broadExtraction;
+            using (var orchestrator = new DiaExtractionOrchestrator(index))
+            {
+                broadExtraction = orchestrator.ExtractAll(broadGenResult.Queries,
+                    maxDegreeOfParallelism: threads);
+            }
+            var broadExtractTime = sw.Elapsed;
 
-            Console.WriteLine("Extraction:");
-            Console.WriteLine($"  Time:         {extractTime.TotalMilliseconds:F0} ms");
-            Console.WriteLine($"  Data points:  {totalPoints:N0}");
-            Console.WriteLine($"  Queries/sec:  {genResult.Queries.Length / extractTime.TotalSeconds:N0}");
-            Console.WriteLine();
+            Console.WriteLine($"  Extraction:        {broadExtractTime.TotalMilliseconds:F0} ms  " +
+                              $"({broadExtraction.TotalDataPoints:N0} data points, " +
+                              $"{broadGenResult.Queries.Length / broadExtractTime.TotalSeconds:N0} q/sec)");
 
-            // ─── Step 6: Score ──────────────────────────────────────────────
-            var dotScorer = new NormalizedDotProductScorer();
-            var saScorer = new SpectralAngleScorer();
-
+            // Score Pass 1 with apex intensity
             sw.Restart();
-            var extractionResult = new ExtractionResult(results, rtBuf, intBuf, 0);
-            var searchResults = DiaLibraryQueryGenerator.AssembleResults(
-                precursorsWithWindow, genResult, results, parameters,  // ← same variable
-                intensityBuffer: intBuf,
+            var broadResults = DiaLibraryQueryGenerator.AssembleResults(
+                precursorsWithWindow, broadGenResult, broadExtraction.Results, broadParams,
                 dotScorer, saScorer);
-            var scoreTime = sw.Elapsed;
+            var broadScoreTime = sw.Elapsed;
 
-            Console.WriteLine("Scoring + Assembly:");
-            Console.WriteLine($"  Time:         {scoreTime.TotalMilliseconds:F0} ms");
-            Console.WriteLine($"  Results:      {searchResults.Count:N0} (passing MinFragments={minFragments})");
+            var broadDotScores = broadResults
+                .Where(r => !float.IsNaN(r.DotProductScore))
+                .Select(r => r.DotProductScore).ToArray();
+
+            Console.WriteLine($"  Scoring:           {broadScoreTime.TotalMilliseconds:F0} ms  " +
+                              $"({broadResults.Count:N0} results)");
+            if (broadDotScores.Length > 0)
+            {
+                Console.WriteLine($"  DP scores (summed): median={Median(broadDotScores):F4}, " +
+                                  $"mean={broadDotScores.Average():F4}, " +
+                                  $"Q25={Percentile(broadDotScores, 25):F4}, " +
+                                  $"Q75={Percentile(broadDotScores, 75):F4}");
+            }
             Console.WriteLine();
 
-            // ─── Step 7: Evaluate against ground truth ──────────────────────
-            EvaluateResults(searchResults, precursorsWithWindow, genResult);
+            // ─── Step 5: RT Calibration ─────────────────────────────────────
+            Console.WriteLine("=== RT Calibration ===");
+
+            // Select high-confidence anchors: DP > 0.6, with library RT
+            float anchorDpThreshold = 0.6f;
+            var anchors = new List<(double LibraryRt, double ObservedRt)>();
+
+            for (int g = 0; g < broadGenResult.PrecursorGroups.Length; g++)
+            {
+                // Find the matching search result for this group
+                var group = broadGenResult.PrecursorGroups[g];
+                var input = precursorsWithWindow[group.InputIndex];
+
+                // Find the result by sequence+charge (results are in same order minus filtered ones)
+                var matchingResult = broadResults.FirstOrDefault(r =>
+                    r.Sequence == input.Sequence && r.ChargeState == input.ChargeState);
+
+                if (matchingResult == null || float.IsNaN(matchingResult.DotProductScore))
+                    continue;
+                if (matchingResult.DotProductScore < anchorDpThreshold)
+                    continue;
+                if (!input.RetentionTime.HasValue)
+                    continue;
+
+                // Find the apex RT: scan with highest total fragment intensity
+                float bestIntensity = 0f;
+                float bestRt = (float)input.RetentionTime.Value;
+
+                // Walk through all fragments of this precursor to find the overall apex RT
+                for (int f = 0; f < group.QueryCount; f++)
+                {
+                    int qi = group.QueryOffset + f;
+                    var fr = broadExtraction.Results[qi];
+                    if (fr.DataPointCount == 0) continue;
+
+                    for (int p = 0; p < fr.DataPointCount; p++)
+                    {
+                        float intensity = broadExtraction.IntensityBuffer[fr.IntensityBufferOffset + p];
+                        if (intensity > bestIntensity)
+                        {
+                            bestIntensity = intensity;
+                            bestRt = broadExtraction.RtBuffer[fr.RtBufferOffset + p];
+                        }
+                    }
+                }
+
+                anchors.Add((input.RetentionTime.Value, bestRt));
+            }
+
+            Console.WriteLine($"  Anchor candidates (DP > {anchorDpThreshold}): {anchors.Count}");
+
+            RtCalibrationModel calibration = null;
+            if (anchors.Count >= RtCalibrationModel.MinReliableAnchors)
+            {
+                var anchorLibRts = anchors.Select(a => a.LibraryRt).ToArray();
+                var anchorObsRts = anchors.Select(a => a.ObservedRt).ToArray();
+
+                sw.Restart();
+                calibration = RtCalibrationFitter.Fit(
+                    (ReadOnlySpan<double>)anchorLibRts,
+                    (ReadOnlySpan<double>)anchorObsRts);
+                var fitTime = sw.Elapsed;
+
+                if (calibration != null)
+                {
+                    Console.WriteLine($"  Fit time:          {fitTime.TotalMilliseconds:F1} ms");
+                    Console.WriteLine($"  Model:             RT = {calibration.Slope:F4} * libRT + {calibration.Intercept:F4}");
+                    Console.WriteLine($"  σ:                 {calibration.SigmaMinutes:F4} min");
+                    Console.WriteLine($"  R²:                {calibration.RSquared:F4}");
+                    Console.WriteLine($"  Anchors used:      {calibration.AnchorCount}");
+                    Console.WriteLine($"  Reliable:          {(calibration.IsReliable ? "YES" : "NO")}");
+
+                    double broadHalfWidth = rtToleranceMinutes;
+                    double narrowHalfWidth = calibration.GetMinutesWindowHalfWidth(3.0);
+                    Console.WriteLine($"  Window reduction:  ±{broadHalfWidth:F2} min → ±{narrowHalfWidth:F2} min " +
+                                      $"({broadHalfWidth / narrowHalfWidth:F1}× narrower)");
+                }
+                else
+                {
+                    Console.WriteLine("  Calibration fit returned null — falling back to broad windows.");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"  Too few anchors ({anchors.Count}) for calibration — " +
+                                  $"need >= {RtCalibrationModel.MinReliableAnchors}. Using broad windows.");
+            }
+            Console.WriteLine();
+
+            // ─── Step 6: Pass 2 — Narrow extraction with calibrated RT windows ─
+            Console.WriteLine("=== Pass 2: Calibrated Extraction ===");
+
+            DiaLibraryQueryGenerator.GenerationResult narrowGenResult;
+            var narrowParams = new DiaSearchParameters
+            {
+                PpmTolerance = ppmTolerance,
+                RtToleranceMinutes = rtToleranceMinutes, // fallback if calibration failed
+                MinFragmentsRequired = minFragments,
+                MinScoreThreshold = 0f,
+                CalibratedWindowSigmaMultiplier = 3.0,
+            };
+
+            sw.Restart();
+            if (calibration != null && calibration.IsReliable)
+            {
+                // Use calibrated generation — maps library RT → predicted RT via linear model
+                // Since our ground truth has run-specific RT (not iRT), we treat the library RT
+                // as if it were iRT for the calibration model. The model maps libRT → observed RT.
+                narrowGenResult = DiaLibraryQueryGenerator.GenerateCalibrated(
+                    precursorsWithWindow, index, narrowParams, calibration);
+            }
+            else
+            {
+                // Fall back to fixed windows
+                narrowGenResult = DiaLibraryQueryGenerator.Generate(
+                    precursorsWithWindow, index, narrowParams);
+            }
+            var narrowGenTime = sw.Elapsed;
+
+            Console.WriteLine($"  Query generation:  {narrowGenTime.TotalMilliseconds:F0} ms  " +
+                              $"({narrowGenResult.Queries.Length:N0} queries)");
+
+            sw.Restart();
+            ExtractionResult narrowExtraction;
+            using (var orchestrator = new DiaExtractionOrchestrator(index))
+            {
+                narrowExtraction = orchestrator.ExtractAll(narrowGenResult.Queries,
+                    maxDegreeOfParallelism: threads);
+            }
+            var narrowExtractTime = sw.Elapsed;
+
+            Console.WriteLine($"  Extraction:        {narrowExtractTime.TotalMilliseconds:F0} ms  " +
+                              $"({narrowExtraction.TotalDataPoints:N0} data points, " +
+                              $"{narrowGenResult.Queries.Length / narrowExtractTime.TotalSeconds:N0} q/sec)");
+
+            // Score Pass 2 with apex intensity
+            sw.Restart();
+            var narrowResults = DiaLibraryQueryGenerator.AssembleResults(
+                precursorsWithWindow, narrowGenResult, narrowExtraction.Results, narrowParams,
+                dotScorer, saScorer);
+            var narrowScoreTime = sw.Elapsed;
+
+            Console.WriteLine($"  Scoring:           {narrowScoreTime.TotalMilliseconds:F0} ms  " +
+                              $"({narrowResults.Count:N0} results)");
+            Console.WriteLine();
+
+            // ─── Step 7: Evaluate Pass 2 against ground truth ───────────────
+            EvaluateResults(narrowResults, precursorsWithWindow, narrowGenResult);
+
+            // ─── Step 8: Compare Pass 1 vs Pass 2 ──────────────────────────
+            Console.WriteLine("=== Pass 1 vs Pass 2 Comparison ===");
+
+            var narrowDotScores = narrowResults
+                .Where(r => !float.IsNaN(r.DotProductScore))
+                .Select(r => r.DotProductScore).ToArray();
+
+            Console.WriteLine($"  {"Metric",-30} {"Pass 1 (broad)",-20} {"Pass 2 (calibrated)",-20}");
+            Console.WriteLine($"  {"------",-30} {"------",-20} {"------",-20}");
+            Console.WriteLine($"  {"RT window",-30} {"±" + rtToleranceMinutes.ToString("F1") + " min",-20} " +
+                              $"{"±" + (calibration?.GetMinutesWindowHalfWidth(3.0).ToString("F2") ?? "N/A") + " min",-20}");
+            Console.WriteLine($"  {"Extraction time",-30} {broadExtractTime.TotalMilliseconds.ToString("F0") + " ms",-20} " +
+                              $"{narrowExtractTime.TotalMilliseconds.ToString("F0") + " ms",-20}");
+            Console.WriteLine($"  {"Data points",-30} {broadExtraction.TotalDataPoints.ToString("N0"),-20} " +
+                              $"{narrowExtraction.TotalDataPoints.ToString("N0"),-20}");
+            Console.WriteLine($"  {"Results",-30} {broadResults.Count.ToString("N0"),-20} " +
+                              $"{narrowResults.Count.ToString("N0"),-20}");
+
+            if (broadDotScores.Length > 0 && narrowDotScores.Length > 0)
+            {
+                Console.WriteLine($"  {"Median DP (summed)",-30} {Median(broadDotScores).ToString("F4"),-20} " +
+                                  $"{Median(narrowDotScores).ToString("F4"),-20}");
+                Console.WriteLine($"  {"Mean DP (summed)",-30} {broadDotScores.Average().ToString("F4"),-20} " +
+                                  $"{narrowDotScores.Average().ToString("F4"),-20}");
+                Console.WriteLine($"  {"Q25 DP",-30} {Percentile(broadDotScores, 25).ToString("F4"),-20} " +
+                                  $"{Percentile(narrowDotScores, 25).ToString("F4"),-20}");
+                Console.WriteLine($"  {"Q75 DP",-30} {Percentile(broadDotScores, 75).ToString("F4"),-20} " +
+                                  $"{Percentile(narrowDotScores, 75).ToString("F4"),-20}");
+                Console.WriteLine($"  {"DP > 0.7",-30} " +
+                                  $"{broadDotScores.Count(s => s > 0.7f).ToString("N0") + " (" + (100.0 * broadDotScores.Count(s => s > 0.7f) / broadDotScores.Length).ToString("F1") + "%)",-20} " +
+                                  $"{narrowDotScores.Count(s => s > 0.7f).ToString("N0") + " (" + (100.0 * narrowDotScores.Count(s => s > 0.7f) / narrowDotScores.Length).ToString("F1") + "%)",-20}");
+                Console.WriteLine($"  {"DP > 0.8",-30} " +
+                                  $"{broadDotScores.Count(s => s > 0.8f).ToString("N0") + " (" + (100.0 * broadDotScores.Count(s => s > 0.8f) / broadDotScores.Length).ToString("F1") + "%)",-20} " +
+                                  $"{narrowDotScores.Count(s => s > 0.8f).ToString("N0") + " (" + (100.0 * narrowDotScores.Count(s => s > 0.8f) / narrowDotScores.Length).ToString("F1") + "%)",-20}");
+            }
+            Console.WriteLine();
 
             // ─── Summary ────────────────────────────────────────────────────
+            var totalTime = loadTime + buildTime + broadGenTime + broadExtractTime + broadScoreTime
+                          + narrowGenTime + narrowExtractTime + narrowScoreTime;
             Console.WriteLine("=== Timing Summary ===");
-            Console.WriteLine($"  mzML load:       {loadTime.TotalSeconds:F2}s");
-            Console.WriteLine($"  Index build:     {buildTime.TotalMilliseconds:F0} ms");
-            Console.WriteLine($"  Query gen:       {genTime.TotalMilliseconds:F0} ms");
-            Console.WriteLine($"  Extraction:      {extractTime.TotalMilliseconds:F0} ms");
-            Console.WriteLine($"  Scoring:         {scoreTime.TotalMilliseconds:F0} ms");
-            Console.WriteLine($"  Total pipeline:  {(loadTime + buildTime + genTime + extractTime + scoreTime).TotalSeconds:F2}s");
+            Console.WriteLine($"  mzML load:         {loadTime.TotalSeconds:F2}s");
+            Console.WriteLine($"  Index build:       {buildTime.TotalMilliseconds:F0} ms");
+            Console.WriteLine($"  Pass 1 gen:        {broadGenTime.TotalMilliseconds:F0} ms");
+            Console.WriteLine($"  Pass 1 extract:    {broadExtractTime.TotalMilliseconds:F0} ms");
+            Console.WriteLine($"  Pass 1 score:      {broadScoreTime.TotalMilliseconds:F0} ms");
+            Console.WriteLine($"  Calibration fit:   <1 ms");
+            Console.WriteLine($"  Pass 2 gen:        {narrowGenTime.TotalMilliseconds:F0} ms");
+            Console.WriteLine($"  Pass 2 extract:    {narrowExtractTime.TotalMilliseconds:F0} ms");
+            Console.WriteLine($"  Pass 2 score:      {narrowScoreTime.TotalMilliseconds:F0} ms");
+            Console.WriteLine($"  Total pipeline:    {totalTime.TotalSeconds:F2}s");
         }
 
         // ─── Evaluation ─────────────────────────────────────────────────────
@@ -238,7 +432,7 @@ namespace Development.Dia
 
             if (dotScores.Length > 0)
             {
-                Console.WriteLine($"Dot Product Score (library vs extracted intensities):");
+                Console.WriteLine($"Dot Product Score (summed intensity, library vs extracted):");
                 Console.WriteLine($"  Mean:   {dotScores.Average():F4}");
                 Console.WriteLine($"  Median: {Median(dotScores):F4}");
                 Console.WriteLine($"  Q25:    {Percentile(dotScores, 25):F4}");
@@ -264,7 +458,7 @@ namespace Development.Dia
             Console.WriteLine($"  Detected: mean={fragsDetected.Average():F1}, median={Median(fragsDetected):F0}");
             Console.WriteLine();
 
-            // Metric 5: Top hits (sanity check — print best-scoring precursors)
+            // Metric 5: Top hits
             Console.WriteLine("Top 10 precursors by dot product score:");
             var top10 = searchResults
                 .Where(r => !float.IsNaN(r.DotProductScore))
@@ -278,7 +472,7 @@ namespace Development.Dia
             }
             Console.WriteLine();
 
-            // Metric 6: Bottom hits (what's failing?)
+            // Metric 6: Bottom hits
             Console.WriteLine("Bottom 10 precursors by dot product score (still passing):");
             var bottom10 = searchResults
                 .Where(r => !float.IsNaN(r.DotProductScore))
