@@ -13,6 +13,8 @@ namespace Test.Transcriptomics;
 [TestFixture]
 public static class Modifications
 {
+    #region BackboneModification Tests
+
     [Test]
     public static void BackboneModification_LoadsCorrectly()
     {
@@ -263,4 +265,279 @@ public static class Modifications
             Assert.That(mod.ProductsContainingModMass[i], Is.LessThan(mod.ProductsContainingModMass[i + 1]));
         }
     }
+
+    #endregion
+
+    #region BaseModification Tests
+
+    [Test]
+    public static void BaseModification_LoadsCorrectly_Suppressed()
+    {
+        // Test 2'-O-Methyladenosine which should suppress base loss
+        var mod = Mods.AllRnaModsList.FirstOrDefault(m => 
+            m is BaseModification && 
+            m.OriginalId != null && 
+            m.OriginalId.Contains("2'-O-Methyl"));
+        
+        Assert.That(mod, Is.Not.Null, "2'-O-Methyl modification should be loaded as BaseModification.");
+        
+        var baseMod = mod as BaseModification;
+        Assert.That(baseMod.BaseLossType, Is.EqualTo(BaseLossBehavior.Suppressed), 
+            "2'-O-Methyl should have Suppressed base loss behavior.");
+        Assert.That(baseMod.ChemicalFormula, Is.EqualTo(ChemicalFormula.ParseFormula("C1H2")), 
+            "2'-O-Methyl should have correct chemical formula.");
+    }
+
+    [Test]
+    [TestCase("2'-O-Methyl", "CH2", null, BaseLossBehavior.Suppressed)]
+    [TestCase("N6-methyladenosine", "CH2", "CH2", BaseLossBehavior.Modified)]
+    [TestCase("N6,2'-O-dimethyladenosine", "C2H4", "CH2", BaseLossBehavior.Suppressed)]
+
+    public static void BaseModification_LoadsCorrectly(string modNameStart, string expectedCf, string expectedBaseLossCf, BaseLossBehavior expectedBehavior)
+    {
+        var mod = Mods.AllRnaModsList.FirstOrDefault(m => 
+            m is BaseModification && 
+            m.OriginalId != null && 
+            m.OriginalId.StartsWith(modNameStart)) as BaseModification;
+        
+        Assert.That(mod, Is.Not.Null, $"{modNameStart} modification should be loaded as BaseModification.");
+        
+        Assert.That(mod.ChemicalFormula.Formula, Is.EqualTo(expectedCf), 
+            $"{modNameStart} should have correct chemical formula.");
+        Assert.That(mod.BaseLossType, Is.EqualTo(expectedBehavior), 
+            $"{modNameStart} should have correct base loss behavior.");
+        Assert.That(mod.BaseLossModification?.Formula, Is.EqualTo(expectedBaseLossCf), 
+            $"{modNameStart} should have correct base loss modification formula.");
+    }
+
+    [Test]
+    public static void BaseModification_LoadsCorrectly_Modified()
+    {
+        // Test m6A which should modify base loss mass
+        var mod = Mods.AllRnaModsList.FirstOrDefault(m => 
+            m is BaseModification && 
+            m.OriginalId != null && 
+            m.OriginalId.Contains("N6-methyl"));
+        
+        Assert.That(mod, Is.Not.Null, "N6-methyladenosine should be loaded as BaseModification.");
+        
+        var baseMod = mod as BaseModification;
+        Assert.That(baseMod.BaseLossType, Is.EqualTo(BaseLossBehavior.Modified), 
+            "N6-methyladenosine should have Modified base loss behavior.");
+        Assert.That(baseMod.BaseLossModification, Is.Not.Null, 
+            "N6-methyladenosine should have BaseLossModification formula defined.");
+        Assert.That(baseMod.BaseLossModification.Formula, Is.EqualTo(ChemicalFormula.ParseFormula("C1H2").Formula),
+            "N6-methyladenosine base loss modification should be CH2.");
+    }
+
+    [Test]
+    public static void BaseModification_ToString_ContainsAllFields()
+    {
+        // Test that ToString properly includes the BL field
+        var mod = Mods.AllRnaModsList.FirstOrDefault(m => 
+            m is BaseModification && 
+            m.OriginalId != null && 
+            m.OriginalId.Contains("2'-O-Methyl")) as BaseModification;
+        Assert.That(mod, Is.Not.Null);
+
+        string modString = mod.ToString();
+        
+        // Check that all standard modification fields are present
+        Assert.That(modString, Does.Contain("ID   "));
+        Assert.That(modString, Does.Contain("MT   "));
+        Assert.That(modString, Does.Contain("TG   "));
+        Assert.That(modString, Does.Contain("PP   "));
+        Assert.That(modString, Does.Contain("CF   "));
+        
+        // Check that base-specific BL field is present
+        Assert.That(modString, Does.Contain("BL   "));
+        Assert.That(modString, Does.Contain("Suppressed"));
+    }
+
+    [Test]
+    public static void BaseModification_ToString_ModifiedWithFormula()
+    {
+        var mod = Mods.AllRnaModsList.FirstOrDefault(m => 
+            m is BaseModification && 
+            m.OriginalId != null && 
+            m.OriginalId.Contains("N6-methyl")) as BaseModification;
+        Assert.That(mod, Is.Not.Null);
+
+        string modString = mod.ToString();
+        
+        // Check that BL field includes the formula for Modified type
+        Assert.That(modString, Does.Contain("BL   "));
+        Assert.That(modString, Does.Contain("Modified"));
+        Assert.That(modString, Does.Contain(":"));
+    }
+
+    [Test]
+    public static void BaseModification_ToStringRoundTrip_Suppressed()
+    {
+        // Test that a BaseModification can be written to string and read back successfully
+        var originalMod = Mods.AllRnaModsList.FirstOrDefault(m => 
+            m is BaseModification && 
+            m.OriginalId != null && 
+            m.OriginalId.Contains("2'-O-Methyl")) as BaseModification;
+        Assert.That(originalMod, Is.Not.Null);
+
+        // Convert to string
+        string modString = originalMod.ToString();
+        
+        // Add the terminator that the reader expects
+        modString += Environment.NewLine + "//" + Environment.NewLine;
+        
+        // Create a temporary file for testing
+        string tempFile = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(tempFile, modString);
+            
+            // Read back using the modification loader
+            var readMods = ModificationLoader.ReadModsFromFile(tempFile, new Dictionary<string, int>(), out var filteredMods);
+            var readMod = readMods.FirstOrDefault() as BaseModification;
+            
+            Assert.That(readMod, Is.Not.Null, "Should read back as BaseModification");
+            Assert.That(readMod.OriginalId, Is.EqualTo(originalMod.OriginalId));
+            Assert.That(readMod.ModificationType, Is.EqualTo(originalMod.ModificationType));
+            Assert.That(readMod.ChemicalFormula.Formula, Is.EqualTo(originalMod.ChemicalFormula.Formula));
+            Assert.That(readMod.MonoisotopicMass, Is.EqualTo(originalMod.MonoisotopicMass).Within(0.0001));
+            Assert.That(readMod.BaseLossType, Is.EqualTo(originalMod.BaseLossType));
+        }
+        finally
+        {
+            // Clean up
+            if (File.Exists(tempFile))
+                File.Delete(tempFile);
+        }
+    }
+
+    [Test]
+    public static void BaseModification_ToStringRoundTrip_Modified()
+    {
+        var originalMod = Mods.AllRnaModsList.FirstOrDefault(m => 
+            m is BaseModification && 
+            m.OriginalId != null && 
+            m.OriginalId.Contains("N6-methyl")) as BaseModification;
+        Assert.That(originalMod, Is.Not.Null);
+
+        string modString = originalMod.ToString();
+        modString += Environment.NewLine + "//" + Environment.NewLine;
+        
+        string tempFile = Path.GetTempFileName();
+        try
+        {
+            File.WriteAllText(tempFile, modString);
+            
+            var readMods = ModificationLoader.ReadModsFromFile(tempFile, new Dictionary<string, int>(), out var filteredMods);
+            var readMod = readMods.FirstOrDefault() as BaseModification;
+            
+            Assert.That(readMod, Is.Not.Null, "Should read back as BaseModification");
+            Assert.That(readMod.OriginalId, Is.EqualTo(originalMod.OriginalId));
+            Assert.That(readMod.BaseLossType, Is.EqualTo(originalMod.BaseLossType));
+            Assert.That(readMod.BaseLossModification, Is.Not.Null);
+            Assert.That(readMod.BaseLossModification.Formula, Is.EqualTo(originalMod.BaseLossModification.Formula));
+        }
+        finally
+        {
+            if (File.Exists(tempFile))
+                File.Delete(tempFile);
+        }
+    }
+
+    [Test]
+    public static void BaseModification_ValidModification_Default()
+    {
+        // Test that a base modification with Default behavior is valid
+        ModificationMotif.TryGetMotif("A", out var motif);
+        var validMod = new BaseModification(
+            _originalId: "TestMod",
+            _modificationType: "TestType",
+            _target: motif,
+            _locationRestriction: "Anywhere.",
+            _chemicalFormula: ChemicalFormula.ParseFormula("H2O"),
+            baseLossType: BaseLossBehavior.Default);
+
+        Assert.That(validMod.ValidModification, Is.True);
+    }
+
+    [Test]
+    public static void BaseModification_ValidModification_Suppressed()
+    {
+        // Test that a base modification with Suppressed behavior is valid
+        ModificationMotif.TryGetMotif("U", out var motif);
+        var validMod = new BaseModification(
+            _originalId: "TestMod",
+            _modificationType: "TestType",
+            _target: motif,
+            _locationRestriction: "Anywhere.",
+            _chemicalFormula: ChemicalFormula.ParseFormula("CH2"),
+            baseLossType: BaseLossBehavior.Suppressed);
+
+        Assert.That(validMod.ValidModification, Is.True);
+    }
+
+    [Test]
+    public static void BaseModification_ValidModification_ModifiedWithFormula()
+    {
+        // Test that a base modification with Modified behavior and formula is valid
+        ModificationMotif.TryGetMotif("A", out var motif);
+        var validMod = new BaseModification(
+            _originalId: "TestMod",
+            _modificationType: "TestType",
+            _target: motif,
+            _locationRestriction: "Anywhere.",
+            _chemicalFormula: ChemicalFormula.ParseFormula("CH2"),
+            baseLossType: BaseLossBehavior.Modified,
+            baseLossModification: ChemicalFormula.ParseFormula("CH2"));
+
+        Assert.That(validMod.ValidModification, Is.True);
+    }
+
+    [Test]
+    public static void BaseModification_InvalidModification_ModifiedWithoutFormula()
+    {
+        // Test that a base modification with Modified behavior but no formula is invalid
+        ModificationMotif.TryGetMotif("A", out var motif);
+        var invalidMod = new BaseModification(
+            _originalId: "TestMod",
+            _modificationType: "TestType",
+            _target: motif,
+            _locationRestriction: "Anywhere.",
+            _chemicalFormula: ChemicalFormula.ParseFormula("CH2"),
+            baseLossType: BaseLossBehavior.Modified,
+            baseLossModification: null);
+
+        Assert.That(invalidMod.ValidModification, Is.False, 
+            "Modified BaseLossBehavior without BaseLossModification formula should be invalid");
+    }
+
+    [Test]
+    public static void BaseModification_InvalidModification_MissingBaseFields()
+    {
+        // Test that base modification respects base class validation
+        ModificationMotif.TryGetMotif("A", out var motif);
+        
+        // Missing modification type
+        var invalidMod1 = new BaseModification(
+            _originalId: "TestMod",
+            _modificationType: null,
+            _target: motif,
+            _locationRestriction: "Anywhere.",
+            _chemicalFormula: ChemicalFormula.ParseFormula("H2O"),
+            baseLossType: BaseLossBehavior.Suppressed);
+        Assert.That(invalidMod1.ValidModification, Is.False);
+
+        // Missing target
+        var invalidMod2 = new BaseModification(
+            _originalId: "TestMod",
+            _modificationType: "TestType",
+            _target: null,
+            _locationRestriction: "Anywhere.",
+            _chemicalFormula: ChemicalFormula.ParseFormula("H2O"),
+            baseLossType: BaseLossBehavior.Suppressed);
+        Assert.That(invalidMod2.ValidModification, Is.False);
+    }
+
+    #endregion
 }

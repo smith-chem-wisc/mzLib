@@ -188,10 +188,14 @@ namespace Transcriptomics.Digestion
         /// The "products" parameter is filled with these fragments.
         /// </summary>
         public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus,
-            List<Product> products, FragmentationParams? fragmentationParams = null)
+            List<Product> products, IFragmentationParams? fragmentationParams = null)
         {
             products.Clear();
             fragmentationParams ??= RnaFragmentationParams.Default;
+            bool modsCanSuppressBaseLossIons = fragmentationParams is RnaFragmentationParams
+            {
+                ModificationsCanSuppressBaseLossIons: true
+            };
 
             List<ProductType> fivePrimeProductTypes =
                 dissociationType.GetRnaTerminusSpecificProductTypesFromDissociation(FragmentationTerminus.FivePrime);
@@ -219,11 +223,11 @@ namespace Transcriptomics.Digestion
 
             if (calculateFivePrime)
                 foreach (var type in fivePrimeProductTypes)
-                    products.AddRange(GetNeutralFragments(type, sequence));
+                    products.AddRange(GetNeutralFragments(type, sequence, modsCanSuppressBaseLossIons));
 
             if (calculateThreePrime)
                 foreach (var type in threePrimeProductTypes)
-                    products.AddRange(GetNeutralFragments(type, sequence));
+                    products.AddRange(GetNeutralFragments(type, sequence, modsCanSuppressBaseLossIons));
         }
 
         #region IEquatable
@@ -293,7 +297,7 @@ namespace Transcriptomics.Digestion
         /// The "minLengthOfFragments" parameter is the minimum number of nucleic acids for an internal fragment to be included
         /// </summary>
         public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments,
-            List<Product> products, FragmentationParams? fragmentationParams = null)
+            List<Product> products, IFragmentationParams? fragmentationParams = null)
         {
             throw new NotImplementedException();
         }
@@ -304,7 +308,7 @@ namespace Transcriptomics.Digestion
         /// <param name="type">product type to get neutral fragments from</param>
         /// <param name="sequence">Sequence to generate fragments from, will be calculated from the parent if left null</param>
         /// <returns></returns>
-        public IEnumerable<Product> GetNeutralFragments(ProductType type, Nucleotide[]? sequence = null)
+        public IEnumerable<Product> GetNeutralFragments(ProductType type, Nucleotide[]? sequence = null, bool modsCanSuppressBaseLossIons = false)
         {
             sequence ??= (Parent as NucleicAcid)!.NucleicAcidArray[(OneBasedStartResidue - 1)..OneBasedEndResidue];
 
@@ -389,6 +393,34 @@ namespace Transcriptomics.Digestion
                 if (type.IsBaseLoss())
                 {
                     neutralLoss = previousNucleotide.BaseChemicalFormula.MonoisotopicMass;
+                    var generateBaseLossIon = true;
+
+                    if (sideChainMod is BaseModification baseMod)
+                    {
+                        switch (baseMod.BaseLossType)
+                        {
+                            case BaseLossBehavior.Suppressed when modsCanSuppressBaseLossIons:
+                                generateBaseLossIon = false; // Don't generate base-loss ion
+                                break;
+
+                            case BaseLossBehavior.Suppressed:
+                            case BaseLossBehavior.Modified:
+                                // Add modification mass to base loss
+                                if (baseMod.BaseLossModification != null)
+                                {
+                                    neutralLoss += baseMod.BaseLossModification?.MonoisotopicMass ?? 0;
+                                }
+                                break;
+
+                            case BaseLossBehavior.Default:
+                            default:
+                                // Normal base loss
+                                break;
+                        }
+                    }
+
+                    if (!generateBaseLossIon)
+                        continue;
                 }
 
                 yield return new Product(type,

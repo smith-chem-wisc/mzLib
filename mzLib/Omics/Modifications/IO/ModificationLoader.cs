@@ -161,6 +161,8 @@ public static class ModificationLoader
         Dictionary<DissociationType, List<double>> _diagnosticIons = null;
         string _fileOrigin = ptmListLocation;
         HashSet<ProductType>? _backboneProductTypes = null;
+        BaseLossBehavior _baseLossType = BaseLossBehavior.Default;
+        ChemicalFormula _baseLossModificationFormula = null;
 
         foreach (string line in specification)
         {
@@ -319,6 +321,40 @@ public static class ModificationLoader
                         }
                         break;
 
+                    case "BL": // Base Loss behavior
+                        if (string.IsNullOrWhiteSpace(modValue))
+                            break;
+                        // Parse optional formula
+                        if (modValue.Contains(':'))
+                        {
+                            string formulaString = modValue.Substring(modValue.IndexOf(':') + 1).Trim();
+                            try
+                            {
+                                _baseLossModificationFormula = ChemicalFormula.ParseFormula(formulaString.Replace(" ", string.Empty));
+                            }
+                            catch (Exception ex)
+                            {
+                                throw new MzLibException($"Invalid base loss formula '{formulaString}' for {_id}: {ex.Message}");
+                            }
+                        }
+
+                        if (modValue.Equals("Suppressed", StringComparison.OrdinalIgnoreCase) ||
+                            modValue.StartsWith("Suppressed:", StringComparison.OrdinalIgnoreCase))
+                        {
+                            _baseLossType = BaseLossBehavior.Suppressed;
+                        }
+                        else if (modValue.Equals("Modified", StringComparison.OrdinalIgnoreCase) ||
+                                 modValue.StartsWith("Modified:", StringComparison.OrdinalIgnoreCase))
+                        {
+                            _baseLossType = BaseLossBehavior.Modified;
+                            if (_baseLossModificationFormula == null)
+                            {
+                                // If the modification is a modified base loss but no formula is provided, default to the chemical formula of the modification
+                                _baseLossModificationFormula = _chemicalFormula;
+                            }
+                        }
+                        break;
+
                     case "//":
                         if (_target == null || _target.Count == 0) //This happens for FT=CROSSLINK modifications. We ignore these for now.
                         {
@@ -340,6 +376,10 @@ public static class ModificationLoader
                             if (_backboneProductTypes is { Count: > 0 })
                             {
                                 yield return new BackboneModification(_id, _accession, _modificationType, _featureType, motif, _locationRestriction, _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin, _backboneProductTypes.ToArray());
+                            }
+                            else if (_baseLossType != BaseLossBehavior.Default || _baseLossModificationFormula != null)
+                            {
+                                yield return new BaseModification(_id, _accession, _modificationType, _featureType, motif, _locationRestriction, _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin, _baseLossType, _baseLossModificationFormula);
                             }
                             else
                             {

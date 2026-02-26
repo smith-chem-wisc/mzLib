@@ -66,34 +66,76 @@ CF   H-1 K1
 DR   Unimod; 530.
 //
 ################################## Biological
+ID   2'-O-Methyladenosine
+TG   A
+PP   Anywhere.
+MT   Biological
+CF   C1 H2
+BL   Suppressed
+DR   Unimod; 34.
+//
+ID   N6-methyladenosine
+TG   A
+PP   Anywhere.
+MT   Biological
+CF   C1 H2
+BL   Modified
+DR   Unimod; 34.
+//
+ID   2'-O-Methyluridine
+TG   U
+PP   Anywhere.
+MT   Biological
+CF   C1 H2
+BL   Suppressed
+DR   Unimod; 34.
+//
+ID   5-Methylcytidine
+TG   C
+PP   Anywhere.
+MT   Biological
+CF   C1 H2
+BL   Modified:C1H2
+DR   Unimod; 34.
+//
+ID   N6,2'-O-dimethyladenosine
+TG   A
+PP   Anywhere.
+MT   Biological
+CF   C2 H4
+BL   Suppressed:C1H2
+DR   Unimod; 36.
+//
+################################## Simple Biological
 ID   Methylation
 TG   A or C or G or U or T or Y
 PP   Anywhere.
-MT   Biological
+MT   Simple Biological
 CF   C1 H2
 //
 ID   Dimethylation
 TG   A or C or G or U or T or Y
 PP   Anywhere.
-MT   Biological
+MT   Simple Biological
 CF   C2 H4
 //
 ID   MethoxyEthoxylation
 TG   A or C or G or U
 PP   Anywhere.
-MT   Biological
+MT   Simple Biological
 CF   C3 H6 O1
 //
+################################## Base Conversion
 ID   Deoxylnosine
 TG   T
 PP   Anywhere.
-MT   Biological
+MT   Base Conversion
 CF   N-1H-1
 //
 ID   Deoxylnosine
 TG   G
 PP   Anywhere.
-MT   Biological
+MT   Base Conversion
 CF   N-1H-1O-1
 //
 ################################## Common Artificial
