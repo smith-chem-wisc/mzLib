@@ -20,19 +20,20 @@ using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Omics.Digestion;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using Omics.Fragmentation;
 using Omics.Fragmentation.Peptide;
-using Omics.Modifications;
 using Proteomics;
 using Proteomics.AminoAcidPolymer;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
+using Omics.Digestion;
+using Omics.Modifications;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using Transcriptomics;
 
 namespace Test
 {
