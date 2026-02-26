@@ -289,8 +289,11 @@ namespace MassSpectrometry.Dia
             double k = parameters.CalibratedWindowSigmaMultiplier;
             float fallbackRtTolerance = parameters.RtToleranceMinutes;
 
-            // Calibrated window half-width in minutes
-            float windowHalfMinutes = (float)calibration.GetMinutesWindowHalfWidth(k);
+            // Enforce minimum window half-width to prevent collapse when σ is very small
+            const float MinWindowHalfMinutes = 1.0f;
+            float windowHalfMinutes = Math.Max(
+                (float)calibration.GetMinutesWindowHalfWidth(k),
+                MinWindowHalfMinutes);
 
             // Fallback RT bounds for precursors without any RT info
             float globalRtMin = scanIndex.GetGlobalRtMin();

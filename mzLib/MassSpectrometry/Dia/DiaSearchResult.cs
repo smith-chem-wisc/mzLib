@@ -63,6 +63,16 @@ namespace MassSpectrometry.Dia
 
         #endregion
 
+        #region FDR
+
+        /// <summary>
+        /// FDR analysis results for this DIA match. Set by FdrAnalysisEngineDia after scoring.
+        /// Null until FDR analysis has been run.
+        /// </summary>
+        public DiaFdrInfo FdrInfo { get; set; }
+
+        #endregion
+
         #region Fragment Evidence
 
         /// <summary>Number of library fragment ions that yielded at least one XIC data point</summary>
@@ -99,7 +109,12 @@ namespace MassSpectrometry.Dia
 
         /// <summary>Upper bound of the RT extraction window (minutes)</summary>
         public float RtWindowEnd { get; }
-
+        /// <summary>
+        /// Retention time (minutes) of the scan with the highest total extracted fragment intensity.
+        /// Used as the observed elution time for calibration anchor fitting.
+        /// NaN if no data points were extracted.
+        /// </summary>
+        public float ApexRt { get; set; } = float.NaN;
         /// <summary>
         /// Calibrated iRT value for the center of the extraction window.
         /// Null if no calibration was applied.
