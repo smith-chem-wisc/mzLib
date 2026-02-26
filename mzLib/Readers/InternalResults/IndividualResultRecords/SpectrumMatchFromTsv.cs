@@ -105,8 +105,9 @@ namespace Readers
         /// <param name="split">what to split on</param>
         /// <param name="parsedHeader">index of each potential column in the header</param>
         /// <param name="parsingParams">parsing parameters</param>
-        protected SpectrumMatchFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader, SpectrumMatchParsingParameters parsingParams)
+        protected SpectrumMatchFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader, SpectrumMatchParsingParameters? parsingParams = null)
         {
+            parsingParams ??= new SpectrumMatchParsingParameters();
             var spl = line.Split(split).Select(p => p.Trim('\"')).ToArray();
 
             //Required properties
