@@ -39,7 +39,7 @@ namespace Readers
         public string ParentIons { get; }
 
         public PsmFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader, SpectrumMatchParsingParameters? parsingParams = null)
-            : base (line, split, parsedHeader, parsingParams)
+            : base (line, split, parsedHeader, parsingParams ??= new())
         {
             var spl = line.Split(split).Select(p => p.Trim('\"')).ToArray();
 
