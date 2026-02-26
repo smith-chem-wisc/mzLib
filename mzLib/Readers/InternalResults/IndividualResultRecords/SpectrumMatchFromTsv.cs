@@ -5,9 +5,7 @@ using System.Text.RegularExpressions;
 using Chemistry;
 using Omics.Fragmentation.Peptide;
 using Omics.SpectrumMatch;
-using System.Collections.Generic;
 using MzLibUtil;
-using Omics.Modifications;
 
 namespace Readers
 {
@@ -106,7 +104,8 @@ namespace Readers
         /// <param name="line"></param>
         /// <param name="split">what to split on</param>
         /// <param name="parsedHeader">index of each potential column in the header</param>
-        protected SpectrumMatchFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader)
+        /// <param name="parsingParams">parsing parameters</param>
+        protected SpectrumMatchFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader, SpectrumMatchParsingParameters parsingParams)
         {
             var spl = line.Split(split).Select(p => p.Trim('\"')).ToArray();
 
@@ -147,9 +146,11 @@ namespace Readers
             QValue = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.QValue]].Trim(), CultureInfo.InvariantCulture);
 
             //we are reading in all primary and child ions here only to delete the child scans later. This should be done better.
-            MatchedIons = (spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].StartsWith("{")) ?
-                ReadChildScanMatchedIons(spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonIntensities]].Trim(), BaseSeq).First().Value :
-                ReadFragmentIonsFromString(spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonIntensities]].Trim(), BaseSeq, spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMassDiffDa]].Trim(), this is PsmFromTsv);
+            MatchedIons = parsingParams.ParseMatchedFragmentIons 
+                ? (spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].StartsWith("{")) ?
+                ReadChildScanMatchedIons(spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonIntensities]].Trim(), BaseSeq, parsingParams).First().Value :
+                ReadFragmentIonsFromString(spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonIntensities]].Trim(), BaseSeq, parsingParams, spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMassDiffDa]].Trim(), this is PsmFromTsv)
+                : [];
 
             #pragma warning disable CS8601 // Possible null reference assignment.
             AmbiguityLevel = (parsedHeader[SpectrumMatchFromTsvHeader.AmbiguityLevel] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.AmbiguityLevel]].Trim();
@@ -301,7 +302,7 @@ namespace Readers
             return fullSeq.ParseModifications();
         }
 
-        protected static List<MatchedFragmentIon> ReadFragmentIonsFromString(string matchedMzString, string matchedIntensityString, string peptideBaseSequence, string? matchedMassErrorDaString = null, bool isProtein = true)
+        protected static List<MatchedFragmentIon> ReadFragmentIonsFromString(string matchedMzString, string matchedIntensityString, string peptideBaseSequence, SpectrumMatchParsingParameters parsingParams, string? matchedMassErrorDaString = null, bool isProtein = true)
         {
             List<MatchedFragmentIon> matchedIons = new List<MatchedFragmentIon>();
 
@@ -344,7 +345,9 @@ namespace Readers
 
                         double neutralMass = mZ.ToMass(charge);
                         var product = new CustomMProduct(customAnnotation, neutralMass);
-                        matchedIons.Add(new MatchedFragmentIonWithCache(product, mZ, intens, charge));
+                        matchedIons.Add(parsingParams.FragmentIonsHavePlaceholderForEnvelope
+                            ? new MatchedFragmentIonWithEnvelope(product, mZ, intens, charge)
+                            : new MatchedFragmentIonWithCache(product, mZ, intens, charge));
                         continue;
                     }
 
@@ -441,7 +444,9 @@ namespace Readers
                       secondaryProductType,
                       secondaryFragmentNumber);
 
-                    matchedIons.Add(new MatchedFragmentIonWithCache(theoreticalProduct, mz, intensity, z));
+                    matchedIons.Add(parsingParams.FragmentIonsHavePlaceholderForEnvelope
+                        ? new MatchedFragmentIonWithEnvelope(theoreticalProduct, mz, intensity, z)
+                        : new MatchedFragmentIonWithCache(theoreticalProduct, mz, intensity, z));
                 }
             }
             return matchedIons;
@@ -463,7 +468,7 @@ namespace Readers
             return ionProperty;
         }
 
-        protected static Dictionary<int, List<MatchedFragmentIon>> ReadChildScanMatchedIons(string childScanMatchedMzString, string childScanMatchedIntensitiesString, string peptideBaseSequence)
+        protected static Dictionary<int, List<MatchedFragmentIon>> ReadChildScanMatchedIons(string childScanMatchedMzString, string childScanMatchedIntensitiesString, string peptideBaseSequence, SpectrumMatchParsingParameters parsingParams)
         {
             var childScanMatchedIons = new Dictionary<int, List<MatchedFragmentIon>>();
 
@@ -479,7 +484,7 @@ namespace Readers
                 string matchedMzStrings = mzsplit[1];
                 string matchedIntensityStrings = intSplit[1];
 
-                var childMatchedIons = ReadFragmentIonsFromString(matchedMzStrings, matchedIntensityStrings, peptideBaseSequence);
+                var childMatchedIons = ReadFragmentIonsFromString(matchedMzStrings, matchedIntensityStrings, peptideBaseSequence, parsingParams);
                 childScanMatchedIons.Add(scanNumber, childMatchedIons);
             }
 

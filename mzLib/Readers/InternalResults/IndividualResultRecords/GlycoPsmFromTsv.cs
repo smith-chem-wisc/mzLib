@@ -21,7 +21,7 @@ public class GlycoPsmFromTsv : PsmFromTsv
     public string NGlycanMotifCheck { get; set; }
     public string AllSiteSpecificLocalizationProbability { get; set; }
 
-    public GlycoPsmFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader) : base(line, split, parsedHeader)
+    public GlycoPsmFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader, SpectrumMatchParsingParameters? parsingParams = null) : base(line, split, parsedHeader, parsingParams)
     {
         var spl = line.Split(split).Select(p => p.Trim('\"')).ToArray();
 
