@@ -1,7 +1,6 @@
-﻿using Microsoft.Extensions.ObjectPool;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Threading;
+using Microsoft.Extensions.ObjectPool;
 
 namespace MzLibUtil;
 
@@ -33,34 +32,28 @@ public class ListPool<T>
     /// <summary>
     /// Initializes a new instance of the <see cref="ListPool{T}"/> class.
     /// </summary>
-    /// <param name="initialCapacity">Initial capacity for the pooled List instances.</param>
-    /// <param name="poolCapacity"> Capacity of the pool. If -1, the pool will be set to ThreadCount * 2. Default is -1.</param>
-    public ListPool(int initialCapacity = 16, int poolCapacity = -1)
+    /// <param name="initialCapacity">Initial capacity for the pooled HashSet instances.</param>
+    public ListPool(int initialCapacity = 16)
     {
         var policy = new ListPooledObjectPolicy<T>(initialCapacity);
-        if (poolCapacity < 1)
-        {
-            ThreadPool.GetMaxThreads(out int workerThreads, out int completionPortThreads);
-            poolCapacity = workerThreads * 2;
-        }
-        var provider = new DefaultObjectPoolProvider { MaximumRetained = poolCapacity };
+        var provider = new DefaultObjectPoolProvider { MaximumRetained = Environment.ProcessorCount * 2 };
         _pool = provider.Create(policy);
     }
 
     /// <summary>
-    /// Retrieves a List instance from the pool.
+    /// Retrieves a HashSet instance from the pool.
     /// </summary>
-    /// <returns>A List instance.</returns>
+    /// <returns>A HashSet instance.</returns>
     public List<T> Get() => _pool.Get();
 
     /// <summary>
-    /// Returns a List instance back to the pool.
+    /// Returns a HashSet instance back to the pool.
     /// </summary>
-    /// <param name="list">The List instance to return.</param>
+    /// <param name="list">The HashSet instance to return.</param>
     public void Return(List<T> list)
     {
         if (list == null) throw new ArgumentNullException(nameof(list));
-        list.Clear(); // Ensure the List is clean before returning it to the pool
+        list.Clear(); // Ensure the HashSet is clean before returning it to the pool
         _pool.Return(list);
     }
 
