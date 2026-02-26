@@ -27,13 +27,13 @@ namespace Development
             Console.WriteLine(new string('=', 60));
             Console.WriteLine();
 
-            // Phase 1–2: Index construction and access benchmarks
             DiaScanIndexBenchmark.RunAll();
 
-            // Phase 5–6: Orchestration + CPU vs GPU benchmarks
             DiaOrchestrationBenchmark.RunAll();
 
             LibraryBridgeBenchmark.RunAll();
+
+            RtCalibrationBenchmark.RunAll();
 
             Console.WriteLine(new string('=', 60));
             Console.WriteLine("All benchmarks complete.");

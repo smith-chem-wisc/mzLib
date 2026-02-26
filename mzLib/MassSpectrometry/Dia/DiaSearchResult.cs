@@ -49,6 +49,18 @@ namespace MassSpectrometry.Dia
         /// </summary>
         public float SpectralAngleScore { get; set; }
 
+        /// <summary>
+        /// Gaussian log-likelihood RT score: -(residual_iRT^2) / (2 * σ_iRT^2).
+        /// More negative = worse RT agreement. Zero = perfect. NaN if uncalibrated.
+        /// </summary>
+        public float RtScore { get; set; }
+
+        /// <summary>
+        /// Combined score: spectralScore + λ * rtScore.
+        /// NaN if not yet computed.
+        /// </summary>
+        public float CombinedScore { get; set; }
+
         #endregion
 
         #region Fragment Evidence
@@ -76,6 +88,9 @@ namespace MassSpectrometry.Dia
 
         #region Retention Time Context
 
+        /// <summary>Library/predicted iRT value. Null if library had no iRT.</summary>
+        public double? LibraryIrt { get; }
+
         /// <summary>Library/predicted retention time (minutes). Null if library had no RT.</summary>
         public double? LibraryRetentionTime { get; }
 
@@ -85,16 +100,17 @@ namespace MassSpectrometry.Dia
         /// <summary>Upper bound of the RT extraction window (minutes)</summary>
         public float RtWindowEnd { get; }
 
-        #endregion
-
-        #region FDR
+        /// <summary>
+        /// Calibrated iRT value for the center of the extraction window.
+        /// Null if no calibration was applied.
+        /// </summary>
+        public double? CalibratedIrt { get; set; }
 
         /// <summary>
-        /// FDR statistics for this result (q-value, cumulative counts, PEP).
-        /// Populated by FdrAnalysisEngineDia during post-search analysis.
-        /// Null until FDR analysis is run.
+        /// Residual in iRT space: calibrated scan iRT - library iRT.
+        /// Null if no calibration was applied.
         /// </summary>
-        public DiaFdrInfo FdrInfo { get; set; }
+        public double? IrtResidual { get; set; }
 
         #endregion
 
@@ -107,7 +123,8 @@ namespace MassSpectrometry.Dia
             int fragmentsQueried,
             double? libraryRetentionTime,
             float rtWindowStart,
-            float rtWindowEnd)
+            float rtWindowEnd,
+            double? libraryIrt = null)
         {
             Sequence = sequence ?? throw new ArgumentNullException(nameof(sequence));
             ChargeState = chargeState;
@@ -118,11 +135,14 @@ namespace MassSpectrometry.Dia
             ExtractedIntensities = new float[fragmentsQueried];
             XicPointCounts = new int[fragmentsQueried];
             LibraryRetentionTime = libraryRetentionTime;
+            LibraryIrt = libraryIrt;
             RtWindowStart = rtWindowStart;
             RtWindowEnd = rtWindowEnd;
 
             DotProductScore = float.NaN;
             SpectralAngleScore = float.NaN;
+            RtScore = float.NaN;
+            CombinedScore = float.NaN;
         }
 
         /// <summary>Whether this result meets the minimum fragment detection threshold.</summary>
@@ -134,11 +154,10 @@ namespace MassSpectrometry.Dia
 
         public override string ToString()
         {
-            string fdrStr = FdrInfo != null ? $" q={FdrInfo.QValue:F4}" : "";
             return $"{Sequence}/{ChargeState} Window={WindowId} " +
                    $"DotProduct={DotProductScore:F4} SpectralAngle={SpectralAngleScore:F4} " +
+                   $"RtScore={RtScore:F4} Combined={CombinedScore:F4} " +
                    $"Fragments={FragmentsDetected}/{FragmentsQueried}" +
-                   fdrStr +
                    (IsDecoy ? " [DECOY]" : "");
         }
     }
