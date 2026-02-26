@@ -351,6 +351,9 @@
     <None Update="DataFiles\withIntensity.mgf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Dia\DiaTestData\Fig2HeLa-0-5h_MHRM_R01_T0_Scans0to500.mzML">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="FileReadingTests\ExternalFileTypes\Casanovo_5.0.0.mztab">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

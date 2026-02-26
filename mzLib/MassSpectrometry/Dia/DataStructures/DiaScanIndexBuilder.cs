@@ -20,12 +20,29 @@ namespace MassSpectrometry.Dia
     ///   - Window IDs are assigned by sorting unique isolation window boundaries and mapping
     ///     each scan's isolation center to the nearest window definition.
     /// 
+    /// Window Discovery:
+    ///   Real DIA instruments (Thermo, Bruker, SCIEX) report isolation window boundaries
+    ///   with slight m/z jitter (±0.1 Da scan-to-scan) due to calibration drift, rounding,
+    ///   or firmware differences. A typical DIA scheme has 18-40 windows spanning 25-110 Da
+    ///   each, so the jitter is far smaller than the gap between true windows.
+    ///   
+    ///   We use a Da-based tolerance (default 1.0 Da) on the isolation window center to
+    ///   group scans into windows. This absorbs all realistic instrument jitter while never
+    ///   merging truly distinct windows (which differ by 25+ Da at minimum in any DIA scheme).
+    /// 
     /// Usage:
     ///   var scans = myMsDataFile.GetMsDataScans();
     ///   var index = DiaScanIndexBuilder.Build(scans);
     /// </summary>
     public static class DiaScanIndexBuilder
     {
+        /// <summary>
+        /// Default Da tolerance for grouping isolation window centers.
+        /// Real DIA windows differ by 25+ Da; instrument jitter is &lt;0.5 Da.
+        /// 1.0 Da safely absorbs all jitter without merging distinct windows.
+        /// </summary>
+        public const double DefaultWindowGroupingToleranceDa = 1.0;
+
         /// <summary>
         /// Builds a DiaScanIndex from an array of MsDataScan objects.
         /// Only MS2 (MsnOrder == 2) centroided scans with valid isolation windows are included.
@@ -39,13 +56,15 @@ namespace MassSpectrometry.Dia
         ///   6. Build the window → scan range index
         /// </summary>
         /// <param name="allScans">All scans from an MsDataFile (MS1 + MS2 mixed).</param>
-        /// <param name="isolationWindowTolerancePpm">
-        /// PPM tolerance for grouping isolation window centers into the same window.
-        /// Default 10 ppm. Two scans whose isolation centers differ by less than this 
-        /// tolerance are assigned the same window ID.
+        /// <param name="isolationWindowGroupingToleranceDa">
+        /// Dalton tolerance for grouping isolation window centers into the same window.
+        /// Default 1.0 Da. Two scans whose isolation centers differ by less than this 
+        /// tolerance are assigned the same window ID. This should be large enough to
+        /// absorb instrument jitter (typically ±0.1 Da) but small enough to never merge
+        /// distinct DIA windows (typically 25+ Da apart).
         /// </param>
         /// <returns>A fully built DiaScanIndex ready for fragment extraction.</returns>
-        public static DiaScanIndex Build(MsDataScan[] allScans, double isolationWindowTolerancePpm = 10.0)
+        public static DiaScanIndex Build(MsDataScan[] allScans, double isolationWindowGroupingToleranceDa = DefaultWindowGroupingToleranceDa)
         {
             if (allScans == null) throw new ArgumentNullException(nameof(allScans));
 
@@ -68,7 +87,7 @@ namespace MassSpectrometry.Dia
             }
 
             // ── Step 2: Discover unique windows and assign IDs ──────────────
-            var windowDefinitions = DiscoverIsolationWindows(ms2Scans, isolationWindowTolerancePpm);
+            var windowDefinitions = DiscoverIsolationWindows(ms2Scans, isolationWindowGroupingToleranceDa);
             // windowDefinitions: sorted list of (lowerBound, upperBound, centroidMz)
             // Window ID = index in this list
 
@@ -175,62 +194,150 @@ namespace MassSpectrometry.Dia
         }
 
         /// <summary>
+        /// Overload that accepts the legacy PPM parameter name for backward compatibility
+        /// with existing tests. Converts to a reasonable Da tolerance internally.
+        /// 
+        /// For new code, prefer the default Build(allScans) or Build(allScans, toleranceDa).
+        /// </summary>
+        [Obsolete("Use Build(allScans, isolationWindowGroupingToleranceDa) instead. PPM-based grouping is too tight for real instrument data.")]
+        public static DiaScanIndex BuildWithPpmTolerance(MsDataScan[] allScans, double isolationWindowTolerancePpm)
+        {
+            // Convert PPM at a typical DIA center (~600 m/z) to Da, with a floor of 0.5 Da
+            double daTolerance = Math.Max(0.5, 600.0 * isolationWindowTolerancePpm / 1e6);
+            return Build(allScans, daTolerance);
+        }
+
+        /// <summary>
         /// Discovers unique DIA isolation windows from a set of MS2 scans.
         /// 
-        /// Groups scans by their isolation center m/z (within the given ppm tolerance),
-        /// then computes the window bounds from IsolationMz ± IsolationWidth/2.
-        /// If IsolationWidth is not available, uses just the center m/z as a point window.
+        /// Algorithm:
+        ///   1. Collect all (center, width) pairs from scans
+        ///   2. Sort by center m/z ascending
+        ///   3. Greedy merge: walk sorted centers, start a new cluster whenever the center
+        ///      is more than toleranceDa away from the running cluster mean
+        ///   4. For each cluster, compute the consensus window bounds from the most common
+        ///      isolation width (mode), applied symmetrically around the mean center
+        /// 
+        /// This approach handles:
+        ///   - Instrument jitter (±0.1 Da typical on Thermo QE/Exploris)
+        ///   - Slight rounding differences in mzML conversion
+        ///   - Missing IsolationWidth on some scans (uses cluster consensus)
         /// 
         /// Returns windows sorted by lower bound (ascending).
         /// </summary>
         private static List<WindowDefinition> DiscoverIsolationWindows(
-            List<MsDataScan> ms2Scans, double tolerancePpm)
+            List<MsDataScan> ms2Scans, double toleranceDa)
         {
-            // Collect all unique isolation centers
-            var centers = new List<double>();
-            var widths = new Dictionary<double, double>(); // center → width (from first scan that has it)
-
+            // ── Collect all (center, width) observations ────────────────────
+            // We store the raw values for every scan so we can compute robust statistics
+            var observations = new List<(double Center, double Width)>(ms2Scans.Count);
             for (int i = 0; i < ms2Scans.Count; i++)
             {
                 double center = ms2Scans[i].IsolationMz.Value;
-                bool isNew = true;
-
-                for (int j = 0; j < centers.Count; j++)
-                {
-                    double ppmDiff = Math.Abs(center - centers[j]) / centers[j] * 1e6;
-                    if (ppmDiff < tolerancePpm)
-                    {
-                        isNew = false;
-                        break;
-                    }
-                }
-
-                if (isNew)
-                {
-                    centers.Add(center);
-                    if (ms2Scans[i].IsolationWidth.HasValue)
-                    {
-                        widths[center] = ms2Scans[i].IsolationWidth.Value;
-                    }
-                }
+                double width = ms2Scans[i].IsolationWidth.HasValue
+                    ? ms2Scans[i].IsolationWidth.Value
+                    : 0.0;
+                observations.Add((center, width));
             }
 
-            // Sort centers ascending
-            centers.Sort();
+            // Sort by center ascending for greedy clustering
+            observations.Sort((a, b) => a.Center.CompareTo(b.Center));
 
-            // Build window definitions
-            var windows = new List<WindowDefinition>(centers.Count);
-            for (int i = 0; i < centers.Count; i++)
+            // ── Greedy clustering ───────────────────────────────────────────
+            // Walk sorted observations, group consecutive scans whose centers are
+            // within toleranceDa of the running cluster mean.
+            var clusters = new List<List<(double Center, double Width)>>();
+            var currentCluster = new List<(double Center, double Width)> { observations[0] };
+            double clusterSum = observations[0].Center;
+
+            for (int i = 1; i < observations.Count; i++)
             {
-                double center = centers[i];
-                double halfWidth = widths.ContainsKey(center) ? widths[center] / 2.0 : 0.0;
-                windows.Add(new WindowDefinition(
-                    (float)(center - halfWidth),
-                    (float)(center + halfWidth),
-                    (float)center));
+                double clusterMean = clusterSum / currentCluster.Count;
+                if (Math.Abs(observations[i].Center - clusterMean) <= toleranceDa)
+                {
+                    // Same window cluster
+                    currentCluster.Add(observations[i]);
+                    clusterSum += observations[i].Center;
+                }
+                else
+                {
+                    // New cluster — save current and start fresh
+                    clusters.Add(currentCluster);
+                    currentCluster = new List<(double Center, double Width)> { observations[i] };
+                    clusterSum = observations[i].Center;
+                }
             }
+            clusters.Add(currentCluster); // Don't forget the last cluster
+
+            // ── Build window definitions from clusters ──────────────────────
+            var windows = new List<WindowDefinition>(clusters.Count);
+            for (int c = 0; c < clusters.Count; c++)
+            {
+                var cluster = clusters[c];
+
+                // Consensus center = mean of all observations in cluster
+                double centerSum = 0;
+                for (int i = 0; i < cluster.Count; i++)
+                    centerSum += cluster[i].Center;
+                double consensusCenter = centerSum / cluster.Count;
+
+                // Consensus width = most common non-zero width (mode), or fallback to max
+                double consensusWidth = ComputeConsensusWidth(cluster);
+
+                double halfWidth = consensusWidth / 2.0;
+                windows.Add(new WindowDefinition(
+                    (float)(consensusCenter - halfWidth),
+                    (float)(consensusCenter + halfWidth),
+                    (float)consensusCenter));
+            }
+
+            // Sort by lower bound (should already be sorted, but be safe)
+            windows.Sort((a, b) => a.LowerBound.CompareTo(b.LowerBound));
 
             return windows;
+        }
+
+        /// <summary>
+        /// Computes the consensus isolation width from a cluster of observations.
+        /// Uses the mode (most frequent) non-zero width, rounded to 0.1 Da to absorb jitter.
+        /// Falls back to the maximum width if no non-zero widths are present.
+        /// </summary>
+        private static double ComputeConsensusWidth(List<(double Center, double Width)> cluster)
+        {
+            // Round widths to 0.1 Da and count occurrences
+            var widthCounts = new Dictionary<double, int>();
+            double maxWidth = 0;
+
+            for (int i = 0; i < cluster.Count; i++)
+            {
+                double w = cluster[i].Width;
+                if (w <= 0) continue;
+                if (w > maxWidth) maxWidth = w;
+
+                // Round to nearest 0.1 to group near-identical widths
+                double rounded = Math.Round(w, 1);
+                if (widthCounts.ContainsKey(rounded))
+                    widthCounts[rounded]++;
+                else
+                    widthCounts[rounded] = 1;
+            }
+
+            if (widthCounts.Count == 0)
+                return 0.0; // No width information available
+
+            // Return the most common rounded width
+            double bestWidth = 0;
+            int bestCount = 0;
+            foreach (var kvp in widthCounts)
+            {
+                if (kvp.Value > bestCount)
+                {
+                    bestCount = kvp.Value;
+                    bestWidth = kvp.Key;
+                }
+            }
+
+            return bestWidth;
         }
 
         /// <summary>

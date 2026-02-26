@@ -35,6 +35,11 @@ namespace Development
 
             RtCalibrationBenchmark.RunAll();
 
+            RealDataBenchmark.Run(
+                mzmlPath: @"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",
+                groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv"
+                );
+
             Console.WriteLine(new string('=', 60));
             Console.WriteLine("All benchmarks complete.");
             Console.WriteLine();

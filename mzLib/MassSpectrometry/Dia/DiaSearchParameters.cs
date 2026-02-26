@@ -17,7 +17,7 @@ namespace MassSpectrometry.Dia
 
         /// <summary>
         /// Half-width of the RT window around the predicted/library retention time (in minutes).
-        /// Used as fallback when iRT calibration is unavailable or unreliable.
+        /// Queries are restricted to [RT - tolerance, RT + tolerance].
         /// Default: 5.0 minutes.
         /// </summary>
         public float RtToleranceMinutes { get; set; } = 5.0f;
@@ -50,57 +50,21 @@ namespace MassSpectrometry.Dia
         /// </summary>
         public bool PreferGpu { get; set; } = false;
 
-        // ── iRT Calibration Parameters ──────────────────────────────────────
-
         /// <summary>
-        /// Whether to use iRT-based calibration for RT windowing and scoring.
-        /// When false, falls back to fixed RtToleranceMinutes windows.
+        /// When true, scoring uses the maximum single-scan intensity per fragment (apex)
+        /// instead of the sum of all intensities across scans (TotalIntensity).
+        /// 
+        /// Apex intensity better represents the fragment's relative abundance at the 
+        /// chromatographic peak and correlates more strongly with library relative intensities.
+        /// TotalIntensity sums signal over the entire RT window, accumulating noise and
+        /// interference from co-eluting peptides.
+        /// 
+        /// Requires XIC buffers to be passed to AssembleResults. If buffers are not available,
+        /// falls back to TotalIntensity regardless of this setting.
+        /// 
         /// Default: true.
         /// </summary>
-        public bool UseIrtCalibration { get; set; } = true;
-
-        /// <summary>
-        /// Initial broad window half-width in iRT units for Phase 1 (uncalibrated) search.
-        /// Must be large enough to capture true matches despite unknown calibration.
-        /// Default: 20 iRT units.
-        /// </summary>
-        public double InitialIrtWindow { get; set; } = 20.0;
-
-        /// <summary>
-        /// Number of standard deviations (k) for the calibrated RT window.
-        /// Window = k * σ_iRT in iRT space.
-        /// Default: 3.0.
-        /// </summary>
-        public double CalibratedWindowSigmaMultiplier { get; set; } = 3.0;
-
-        /// <summary>
-        /// Minimum spectral score for a match to be used as an anchor in calibration fitting.
-        /// Higher values produce cleaner calibration at the cost of fewer anchors.
-        /// Default: 0.5 (dot product).
-        /// </summary>
-        public float CalibrationAnchorMinScore { get; set; } = 0.5f;
-
-        /// <summary>
-        /// Weight (λ) for the RT score term in the combined score:
-        /// finalScore = spectralScore + λ * rtScore
-        /// 
-        /// λ = 0 disables RT scoring. Typical values: 0.1–1.0.
-        /// Default: 0.5.
-        /// </summary>
-        public double RtScoreLambda { get; set; } = 0.5;
-
-        /// <summary>
-        /// Maximum number of calibration refinement iterations.
-        /// Each iteration: re-select anchors → refit → re-window → re-score.
-        /// Default: 3.
-        /// </summary>
-        public int MaxCalibrationIterations { get; set; } = 3;
-
-        /// <summary>
-        /// Convergence threshold for slope (|a_new - a_old| &lt; epsilon stops iteration).
-        /// Default: 0.001.
-        /// </summary>
-        public double CalibrationConvergenceEpsilon { get; set; } = 0.001;
+        public bool UseApexIntensityForScoring { get; set; } = true;
 
         /// <summary>
         /// Resolves effective thread count, replacing -1 with processor count.
