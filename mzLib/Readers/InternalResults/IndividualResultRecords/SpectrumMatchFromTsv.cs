@@ -6,6 +6,7 @@ using Chemistry;
 using Omics.Fragmentation.Peptide;
 using Omics.SpectrumMatch;
 using MzLibUtil;
+using System.Numerics;
 
 namespace Readers
 {
@@ -103,7 +104,7 @@ namespace Readers
         /// </summary>
         /// <param name="line"></param>
         /// <param name="split">what to split on</param>
-        /// <param name="parsedHeader">index of each potential column in the header</param>
+        /// <param name="parsedHeader">index of each potential column in the headerField</param>
         /// <param name="parsingParams">parsing parameters</param>
         protected SpectrumMatchFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader, SpectrumMatchParsingParameters? parsingParams = null)
         {
@@ -111,7 +112,7 @@ namespace Readers
             var spl = line.Split(split).Select(p => p.Trim('\"')).ToArray();
 
             //Required properties
-            FileNameWithoutExtension = spl[parsedHeader[SpectrumMatchFromTsvHeader.FileName]].Trim();
+            FileNameWithoutExtension = GetRequiredValue(SpectrumMatchFromTsvHeader.FileName, parsedHeader, spl);
 
             // remove file format, e.g., .raw, .mzML, .mgf, .d
             // this is more robust but slower than Path.GetFileNameWithoutExtension
@@ -123,7 +124,7 @@ namespace Readers
                 }
             }
 
-            Ms2ScanNumber = int.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanNumber]]);
+            Ms2ScanNumber = GetRequiredValue<int>(SpectrumMatchFromTsvHeader.Ms2ScanNumber, parsedHeader, spl);
 
             // this will probably not be known in an .mgf data file
             if (int.TryParse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PrecursorScanNum]].Trim(), out int result))
@@ -135,55 +136,52 @@ namespace Readers
                 PrecursorScanNum = 0;
             }
 
-            PrecursorCharge = (int)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PrecursorCharge]].Trim(), CultureInfo.InvariantCulture);
-            PrecursorIntensity = (parsedHeader[SpectrumMatchFromTsvHeader.PrecursorIntensity] < 0) ? null : Double.TryParse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PrecursorIntensity]].Trim(), out double value) ? value : null;
-            PrecursorMz = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PrecursorMz]].Trim(), CultureInfo.InvariantCulture);
-            PrecursorMass = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PrecursorMass]].Trim(), CultureInfo.InvariantCulture);
-            BaseSeq = RemoveParentheses(spl[parsedHeader[SpectrumMatchFromTsvHeader.BaseSequence]].Trim());
-            FullSequence = spl[parsedHeader[SpectrumMatchFromTsvHeader.FullSequence]];
-            MonoisotopicMassString = spl[parsedHeader[SpectrumMatchFromTsvHeader.MonoisotopicMass]].Trim();
-            Score = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.Score]].Trim(), CultureInfo.InvariantCulture);
-            DecoyContamTarget = spl[parsedHeader[SpectrumMatchFromTsvHeader.DecoyContaminantTarget]].Trim();
-            QValue = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.QValue]].Trim(), CultureInfo.InvariantCulture);
+            PrecursorCharge = (int)GetRequiredValue<double>(SpectrumMatchFromTsvHeader.PrecursorCharge, parsedHeader, spl);
+            PrecursorIntensity = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.PrecursorIntensity, parsedHeader, spl, null);
+            PrecursorMz = GetRequiredValue<double>(SpectrumMatchFromTsvHeader.PrecursorMz, parsedHeader, spl);
+            PrecursorMass = GetRequiredValue<double>(SpectrumMatchFromTsvHeader.PrecursorMass, parsedHeader, spl);
+            BaseSeq = RemoveParentheses(GetRequiredValue(SpectrumMatchFromTsvHeader.BaseSequence, parsedHeader, spl));
+            FullSequence = GetRequiredValue(SpectrumMatchFromTsvHeader.FullSequence, parsedHeader, spl);
+            MonoisotopicMassString = GetRequiredValue(SpectrumMatchFromTsvHeader.MonoisotopicMass, parsedHeader, spl);
+            Score = GetRequiredValue<double>(SpectrumMatchFromTsvHeader.Score, parsedHeader, spl);
+            DecoyContamTarget = GetRequiredValue(SpectrumMatchFromTsvHeader.DecoyContaminantTarget, parsedHeader, spl);
+            QValue = GetRequiredValue<double>(SpectrumMatchFromTsvHeader.QValue, parsedHeader, spl);
 
             //we are reading in all primary and child ions here only to delete the child scans later. This should be done better.
             MatchedIons = parsingParams.ParseMatchedFragmentIons 
-                ? (spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].StartsWith("{")) ?
-                ReadChildScanMatchedIons(spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonIntensities]].Trim(), BaseSeq, parsingParams).First().Value :
-                ReadFragmentIonsFromString(spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonIntensities]].Trim(), BaseSeq, parsingParams, spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMassDiffDa]].Trim(), this is PsmFromTsv)
+                ? (spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].StartsWith("{")) 
+                    ? ReadChildScanMatchedIons(spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonIntensities]].Trim(), BaseSeq, parsingParams).First().Value 
+                    : ReadFragmentIonsFromString(spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonIntensities]].Trim(), BaseSeq, parsingParams, spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMassDiffDa]].Trim(), this is PsmFromTsv)
                 : [];
 
             #pragma warning disable CS8601 // Possible null reference assignment.
-            AmbiguityLevel = (parsedHeader[SpectrumMatchFromTsvHeader.AmbiguityLevel] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.AmbiguityLevel]].Trim();
-            TotalIonCurrent = (parsedHeader[SpectrumMatchFromTsvHeader.TotalIonCurrent] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.TotalIonCurrent]].Trim(), CultureInfo.InvariantCulture);
-            DeltaScore = (parsedHeader[SpectrumMatchFromTsvHeader.DeltaScore] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.DeltaScore]].Trim(), CultureInfo.InvariantCulture);
-            Notch = (parsedHeader[SpectrumMatchFromTsvHeader.Notch] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.Notch]].Trim();
-            EssentialSeq = (parsedHeader[SpectrumMatchFromTsvHeader.EssentialSequence] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.EssentialSequence]].Trim();
-            MissedCleavage = (parsedHeader[SpectrumMatchFromTsvHeader.MissedCleavages] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.MissedCleavages]].Trim();
-            MassDiffDa = (parsedHeader[SpectrumMatchFromTsvHeader.MassDiffDa] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.MassDiffDa]].Trim();
-            MassDiffPpm = (parsedHeader[SpectrumMatchFromTsvHeader.MassDiffPpm] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.MassDiffPpm]].Trim();
-            Accession = (parsedHeader[SpectrumMatchFromTsvHeader.Accession] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.Accession]].Trim();
-            Name = (parsedHeader[SpectrumMatchFromTsvHeader.Name] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.Name]].Trim();
-            GeneName = (parsedHeader[SpectrumMatchFromTsvHeader.GeneName] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.GeneName]].Trim();
-            OrganismName = (parsedHeader[SpectrumMatchFromTsvHeader.OrganismName] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.OrganismName]].Trim();
-            IntersectingSequenceVariations = (parsedHeader[SpectrumMatchFromTsvHeader.IntersectingSequenceVariations] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.IntersectingSequenceVariations]].Trim();
-            IdentifiedSequenceVariations = (parsedHeader[SpectrumMatchFromTsvHeader.IdentifiedSequenceVariations] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.IdentifiedSequenceVariations]].Trim();
-            SpliceSites = (parsedHeader[SpectrumMatchFromTsvHeader.SpliceSites] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.SpliceSites]].Trim();
-            Description = (parsedHeader[SpectrumMatchFromTsvHeader.Description] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.Description]].Trim();
-            StartAndEndResiduesInParentSequence = (parsedHeader[SpectrumMatchFromTsvHeader.StartAndEndResiduesInFullSequence] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.StartAndEndResiduesInFullSequence]].Trim();
-            PreviousResidue = (parsedHeader[SpectrumMatchFromTsvHeader.PreviousResidue] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.PreviousResidue]].Trim();
-            NextResidue = (parsedHeader[SpectrumMatchFromTsvHeader.NextResidue] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.NextResidue]].Trim();
-            QValueNotch = (parsedHeader[SpectrumMatchFromTsvHeader.QValueNotch] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.QValueNotch]].Trim(), CultureInfo.InvariantCulture);
-            RetentionTime = (parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime] < 0) ? -1 : double.TryParse(spl[parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime]].Trim(), CultureInfo.InvariantCulture, out double rt) ? rt : -1;
-            PEP = (parsedHeader[SpectrumMatchFromTsvHeader.PEP] < 0) ? double.NaN : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP]].Trim(), CultureInfo.InvariantCulture);
-            PEP_QValue = (parsedHeader[SpectrumMatchFromTsvHeader.PEP_QValue] < 0) ? double.NaN : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP_QValue]].Trim(), CultureInfo.InvariantCulture);
-            OneOverK0 = (parsedHeader[SpectrumMatchFromTsvHeader.OneOverK0] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.OneOverK0]].Trim(), CultureInfo.InvariantCulture);
+            AmbiguityLevel = GetOptionalValue(SpectrumMatchFromTsvHeader.AmbiguityLevel, parsedHeader, spl);
+            TotalIonCurrent = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.TotalIonCurrent, parsedHeader, spl);
+            DeltaScore = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.DeltaScore, parsedHeader, spl);
+            Notch = GetOptionalValue(SpectrumMatchFromTsvHeader.Notch, parsedHeader, spl);
+            EssentialSeq = GetOptionalValue(SpectrumMatchFromTsvHeader.EssentialSequence, parsedHeader, spl);
+            MissedCleavage = GetOptionalValue(SpectrumMatchFromTsvHeader.MissedCleavages, parsedHeader, spl);
+            MassDiffDa = GetOptionalValue(SpectrumMatchFromTsvHeader.MassDiffDa, parsedHeader, spl);
+            MassDiffPpm = GetOptionalValue(SpectrumMatchFromTsvHeader.MassDiffPpm, parsedHeader, spl);
+            Accession = GetOptionalValue(SpectrumMatchFromTsvHeader.Accession, parsedHeader, spl);
+            Name = GetOptionalValue(SpectrumMatchFromTsvHeader.Name, parsedHeader, spl);
+            GeneName = GetOptionalValue(SpectrumMatchFromTsvHeader.GeneName, parsedHeader, spl);
+            OrganismName = GetOptionalValue(SpectrumMatchFromTsvHeader.OrganismName, parsedHeader, spl);
+            IntersectingSequenceVariations = GetOptionalValue(SpectrumMatchFromTsvHeader.IntersectingSequenceVariations, parsedHeader, spl);
+            IdentifiedSequenceVariations = GetOptionalValue(SpectrumMatchFromTsvHeader.IdentifiedSequenceVariations, parsedHeader, spl);
+            SpliceSites = GetOptionalValue(SpectrumMatchFromTsvHeader.SpliceSites, parsedHeader, spl);
+            Description = GetOptionalValue(SpectrumMatchFromTsvHeader.Description, parsedHeader, spl);
+            StartAndEndResiduesInParentSequence = GetOptionalValue(SpectrumMatchFromTsvHeader.StartAndEndResiduesInFullSequence, parsedHeader, spl);
+            PreviousResidue = GetOptionalValue(SpectrumMatchFromTsvHeader.PreviousResidue, parsedHeader, spl);
+            NextResidue = GetOptionalValue(SpectrumMatchFromTsvHeader.NextResidue, parsedHeader, spl);
+            QValueNotch = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.QValueNotch, parsedHeader, spl);
+            RetentionTime = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime, parsedHeader, spl, -1).GetValueOrDefault(-1);
+            PEP = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.PEP, parsedHeader, spl, double.NaN).GetValueOrDefault(double.NaN);
+            PEP_QValue = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.PEP_QValue, parsedHeader, spl, double.NaN).GetValueOrDefault(double.NaN);
+            OneOverK0 = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.OneOverK0, parsedHeader, spl);
             VariantCrossingIons = FindVariantCrossingIons();
-            SpectralAngle = (parsedHeader[SpectrumMatchFromTsvHeader.SpectralAngle] < 0)
-                ? null
-                : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.SpectralAngle]].Trim(),
-                    CultureInfo.InvariantCulture);
-            #pragma warning restore CS8601 // Possible null reference assignment.
+            SpectralAngle = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.SpectralAngle, parsedHeader, spl);
+#pragma warning restore CS8601 // Possible null reference assignment.
         }
 
         /// <summary>
@@ -261,9 +259,70 @@ namespace Readers
             OneOverK0 = psm.OneOverK0;
         }
 
-        /// <summary>
-        /// All parsing should take place within the derived class constructurs
-        /// </summary>
+
+
+        #region Parsing Methods
+
+        protected string GetRequiredValue(string headerField, Dictionary<string, int> parsedHeader, string[] splitLine)
+        {
+            if (!parsedHeader.ContainsKey(headerField) || parsedHeader[headerField] < 0)
+                throw new KeyNotFoundException($"Required Header '{headerField}' not found or invalid in parsedHeader.");
+
+            return splitLine[parsedHeader[headerField]].Trim();
+        }
+
+        protected TNumber GetRequiredValue<TNumber>(string header, Dictionary<string, int> parsedHeader, string[] splitLine)
+            where TNumber : INumber<TNumber> 
+        {
+            string value = GetRequiredValue(header, parsedHeader, splitLine);
+            if (TNumber.TryParse(value, CultureInfo.InvariantCulture, out TNumber? result))
+                return result;
+
+            throw new FormatException($"Value '{value}' for header '{header}' could not be parsed as {typeof(TNumber).Name}.");
+        }
+
+        protected string? GetOptionalValue(string header, Dictionary<string, int> parsedHeader, string[] splitLine, string? defaultValue = null)
+        {
+            if (!parsedHeader.ContainsKey(header) || parsedHeader[header] < 0)
+            {
+                return defaultValue;
+            }
+            return splitLine[parsedHeader[header]].Trim();
+        }
+
+        protected TNumber? GetOptionalValue<TNumber>(string header, Dictionary<string, int> parsedHeader, string[] splitLine, TNumber? defaultValue = null)
+            where TNumber : struct, IFormattable, IConvertible, IComparable, INumber<TNumber>
+        {
+            if (!parsedHeader.ContainsKey(header) || parsedHeader[header] < 0)
+                return defaultValue;
+
+            string value = splitLine[parsedHeader[header]].Trim();
+            if (string.IsNullOrWhiteSpace(value))
+                return defaultValue;
+
+            if (TNumber.TryParse(value, CultureInfo.InvariantCulture, out TNumber result))
+                return result;
+            return defaultValue;
+        }
+
+        protected IHasChemicalFormula? GetOptionalChemicalFormula(string header, Dictionary<string, int> parsedHeader, string[] splitLine, IHasChemicalFormula? defaultValue = null)
+        {
+            if (!parsedHeader.ContainsKey(header) || parsedHeader[header] < 0)
+                return defaultValue;
+
+            string value = splitLine[parsedHeader[header]].Trim();
+            if (string.IsNullOrWhiteSpace(value))
+                return defaultValue;
+
+            try
+            {
+                return ChemicalFormula.ParseFormula(value);
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
 
         //Used to remove Silac labels for proper annotation
         public static string RemoveParentheses(string baseSequence)
@@ -531,6 +590,7 @@ namespace Readers
             return variantCrossingIons;
         }
 
+        #endregion
 
         public override string ToString()
         {
