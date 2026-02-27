@@ -67,6 +67,13 @@ namespace Development
             //    @"F:\DiaBenchmark\PXD005573\DiannOut\koina_input.tsv",
             //    collisionEnergy: 27);
 
+            Phase12PeakGroupBenchmark.RunAll(
+                rawFilePath: @"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",
+                targetMspPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_input.msp",
+                decoyMspPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_decoys.msp",
+                groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv",
+                outputTsvPath: @"F:\DiaBenchmark\PXD005573\phase12_peak_group_results.tsv");
+
             Console.WriteLine(new string('=', 60));
             Console.WriteLine("All benchmarks complete.");
             Console.WriteLine();
