@@ -181,6 +181,22 @@ namespace MassSpectrometry.Dia
         public float MinFragmentCorrelation { get; set; }
 
         #endregion
+        #region Classifier & FDR (Phase 11)
+
+        /// <summary>
+        /// Composite classifier score from DiaLinearDiscriminant.
+        /// Set by the FDR engine during iterative retraining.
+        /// Higher is better. Default NaN = not yet scored.
+        /// </summary>
+        public float ClassifierScore { get; set; }
+
+        /// <summary>
+        /// FDR statistics: q-value, cumulative targets/decoys.
+        /// Null until DiaFdrEngine.ComputeQValues() is called.
+        /// </summary>
+        public DiaFdrInfo FdrInfo { get; set; }
+
+        #endregion
 
         public DiaSearchResult(
             string sequence,

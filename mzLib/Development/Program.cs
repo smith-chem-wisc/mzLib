@@ -29,33 +29,38 @@ namespace Development
             Console.WriteLine(new string('=', 60));
             Console.WriteLine();
 
-            //DiaScanIndexBenchmark.RunAll();
+            DiaScanIndexBenchmark.RunAll();
 
-            //DiaOrchestrationBenchmark.RunAll();
+            DiaOrchestrationBenchmark.RunAll();
 
-            //LibraryBridgeBenchmark.RunAll();
+            LibraryBridgeBenchmark.RunAll();
 
-            //RtCalibrationBenchmark.RunAll();
+            RtCalibrationBenchmark.RunAll();
 
-            //RealDataBenchmark.Run(
-            //    mzmlPath: @"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",
-            //    groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv"
-            //    );
-
-            //var scoredResults = Phase10ClassifierBenchmark.RunAll(
-            //    @"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",
-            //    mspLibraryPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_input.msp",
-            //    groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv");
-
-            //Phase10_5_FeatureRefinementBenchmark.RunAll(scoredResults,
-            //    @"F:\DiaBenchmark\PXD005573\phase10_5_features_koina.tsv");
-
-
-
-            DecoyKoinaTableGenerator.Generate(
-                @"F:\DiaBenchmark\PXD005573\DiannOut\koina_input.tsv",
-                @"F:\DiaBenchmark\PXD005573\DiannOut\koina_decoys.tsv"
+            RealDataBenchmark.Run(
+                mzmlPath: @"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",
+                groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv"
                 );
+
+            var scoredResults = Phase10ClassifierBenchmark.RunAll(
+                @"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",
+                mspLibraryPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_input.msp",
+                groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv");
+
+            Phase10_5_FeatureRefinementBenchmark.RunAll(scoredResults,
+                @"F:\DiaBenchmark\PXD005573\phase10_5_features_koina.tsv");
+
+            Phase11FdrBenchmark.RunAll(
+                rawFilePath: @"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",
+                targetMspPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_input.msp",
+                decoyMspPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_decoys.msp",
+                groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv",
+                outputTsvPath: @"F:\DiaBenchmark\PXD005573\phase11_fdr_results.tsv");
+
+            //DecoyKoinaTableGenerator.Generate(
+            //    @"F:\DiaBenchmark\PXD005573\DiannOut\koina_input.tsv",
+            //    @"F:\DiaBenchmark\PXD005573\DiannOut\koina_decoys.tsv"
+            //    );
 
             //KoinaTableGenerator.Generate(
             //    @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv",

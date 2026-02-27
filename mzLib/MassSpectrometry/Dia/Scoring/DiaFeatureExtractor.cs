@@ -289,20 +289,25 @@ namespace MassSpectrometry.Dia
             }
 
             // ── Retention time features ─────────────────────────────────
-            // RtWindowHalfWidth REMOVED — constant, zero information
-            float rtWindowHalfWidth = (result.RtWindowEnd - result.RtWindowStart) / 2f;
+            // Maximum RT deviation cap to prevent pathological scores.
+            // Without this, precursors with no library RT get rtWindowHalfWidth
+            // (which can be ~22 min for full-run fallback), causing
+            // RtDeviationSquared ≈ 484 and catastrophic classifier scores.
+            const float MaxRtDeviationMinutes = 5.0f;
 
             if (result.LibraryRetentionTime.HasValue && !float.IsNaN(result.ObservedApexRt))
             {
                 float deltaRt = MathF.Abs(
                     result.ObservedApexRt - (float)result.LibraryRetentionTime.Value);
+                deltaRt = MathF.Min(deltaRt, MaxRtDeviationMinutes);
                 fv.RtDeviationMinutes = deltaRt;
-                fv.RtDeviationSquared = deltaRt * deltaRt;  // Phase 10.5b: quadratic penalty
+                fv.RtDeviationSquared = deltaRt * deltaRt;
             }
             else
             {
-                fv.RtDeviationMinutes = rtWindowHalfWidth; // fallback
-                fv.RtDeviationSquared = rtWindowHalfWidth * rtWindowHalfWidth;
+                // No library RT or no observed apex — use maximum penalty
+                fv.RtDeviationMinutes = MaxRtDeviationMinutes;
+                fv.RtDeviationSquared = MaxRtDeviationMinutes * MaxRtDeviationMinutes;
             }
 
             // ── Metadata ────────────────────────────────────────────────
