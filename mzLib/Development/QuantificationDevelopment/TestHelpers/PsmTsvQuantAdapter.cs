@@ -7,6 +7,7 @@ using Omics.Modifications;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using Omics.SpectralMatch;
+using Readers;
 using ISpectralMatch = Omics.SpectralMatch.ISpectralMatch; // disambiguate from Readers.ISpectralMatch
 
 namespace Development.QuantificationDevelopment.TestHelpers;
@@ -264,6 +265,15 @@ public static class PsmTsvQuantAdapter
         return (spectralMatches, allPeptides, proteinGroups);
     }
 
+
+    public static Dictionary<string, Func<string, bool>> GetPepQValueFilter(double threshold = 0.01)
+    {
+        return new Dictionary<string, Func<string, bool>>()
+        {
+            { SpectrumMatchFromTsvHeader.PEP_QValue, val => Double.TryParse(val, out var pepQ) & pepQ <= threshold  }
+        };
+    }
+
     /// <summary>
     /// Combines quantification inputs from multiple search result directories into a single
     /// unified set of spectral matches, peptides, and protein groups.
@@ -282,8 +292,8 @@ public static class PsmTsvQuantAdapter
         var baseSeqToAccession = new Dictionary<string, string>();
 
         var allPassingProteinAccessions = new HashSet<string>();
-        var allPeptideRecords = new List<Readers.SpectrumMatchFromTsv>();
-        var allPsmRecords = new List<Readers.SpectrumMatchFromTsv>();
+        var allPeptideRecords = new List<LightWeightSpectralMatch>();
+        var allPsmRecords = new List<LightWeightSpectralMatch>();
 
         foreach (string resultsDirectory in resultsDirectories)
         {
@@ -294,51 +304,49 @@ public static class PsmTsvQuantAdapter
             var passingAccessions = ReadPassingProteinAccessions(proteinFilePath, qValueCutoff);
             allPassingProteinAccessions.UnionWith(passingAccessions);
 
-            var peptideRecords = Readers.SpectrumMatchTsvReader.ReadPsmTsv(peptidesFilePath, out _)
-                .Where(r => !double.IsNaN(r.PEP_QValue)
-                            && r.PEP_QValue <= qValueCutoff
-                            && r.DecoyContamTarget.Contains('T')
-                            && !string.IsNullOrEmpty(r.BaseSeq)
+            var peptideRecords = LightWeightSpectralMatchReader.ReadTsv(peptidesFilePath, out _, GetPepQValueFilter(qValueCutoff))
+                .Where(r => !r.IsDecoy
+                            && !string.IsNullOrEmpty(r.BaseSequence)
                             && !string.IsNullOrEmpty(r.Accession))
                 .ToList();
+
             allPeptideRecords.AddRange(peptideRecords);
 
-            var psmRecords = Readers.SpectrumMatchTsvReader.ReadPsmTsv(psmtsvFilePath, out _)
-                .Where(r => !double.IsNaN(r.PEP_QValue)
-                            && r.PEP_QValue <= qValueCutoff
-                            && r.DecoyContamTarget.Contains('T')
+            var psmRecords = LightWeightSpectralMatchReader.ReadTsv(peptidesFilePath, out _, GetPepQValueFilter(qValueCutoff))
+                .Where(r => !r.IsDecoy
+                            && !string.IsNullOrEmpty(r.BaseSequence)
+                            && !string.IsNullOrEmpty(r.Accession)
                             && r.Intensities != null
-                            && r.Intensities.Any(v => v > 0)
-                            && !string.IsNullOrEmpty(r.BaseSeq)
-                            && !string.IsNullOrEmpty(r.Accession))
+                            && r.Intensities.Any(v => v > 0))
                 .ToList();
             allPsmRecords.AddRange(psmRecords);
+
         }
 
         var passingPeptideBaseSeqs = new HashSet<string>();
         foreach (var record in allPeptideRecords)
         {
-            if (baseSeqToPeptide.ContainsKey(record.BaseSeq))
+            if (baseSeqToPeptide.ContainsKey(record.BaseSequence))
                 continue;
 
             string accession = GetFirstNonDecoyAccession(record.Accession);
             if (!allPassingProteinAccessions.Contains(accession))
                 continue;
 
-            var protein = new Protein(record.BaseSeq, accession);
+            var protein = new Protein(record.BaseSequence, accession);
             var pep = protein.Digest(digestionParams, emptyMods, emptyMods)
-                             .FirstOrDefault(p => p.BaseSequence == record.BaseSeq);
+                             .FirstOrDefault(p => p.BaseSequence == record.BaseSequence);
 
             if (pep != null)
             {
-                baseSeqToPeptide[record.BaseSeq] = pep;
-                baseSeqToAccession[record.BaseSeq] = accession;
-                passingPeptideBaseSeqs.Add(record.BaseSeq);
+                baseSeqToPeptide[record.BaseSequence] = pep;
+                baseSeqToAccession[record.BaseSequence] = accession;
+                passingPeptideBaseSeqs.Add(record.BaseSequence);
             }
         }
 
         var filteredPsmRecords = allPsmRecords
-            .Where(r => passingPeptideBaseSeqs.Contains(r.BaseSeq))
+            .Where(r => passingPeptideBaseSeqs.Contains(r.BaseSequence))
             .ToList();
 
         var accessionToPeptides = new Dictionary<string, HashSet<IBioPolymerWithSetMods>>();
@@ -369,15 +377,15 @@ public static class PsmTsvQuantAdapter
         var spectralMatches = new List<ISpectralMatch>();
         foreach (var record in filteredPsmRecords)
         {
-            if (!baseSeqToPeptide.TryGetValue(record.BaseSeq, out var peptide))
+            if (!baseSeqToPeptide.TryGetValue(record.BaseSequence, out var peptide))
                 continue;
 
             var match = new MockSpectralMatch(
-                fullFilePath: record.FileNameWithoutExtension,
-                oneBasedScanNumber: record.Ms2ScanNumber,
+                fullFilePath: record.FullFilePath,
+                oneBasedScanNumber: record.OneBasedScanNumber,
                 score: record.Score,
                 fullSequence: record.FullSequence,
-                baseSequence: record.BaseSeq)
+                baseSequence: record.BaseSequence)
             {
                 Intensities = record.Intensities
             };

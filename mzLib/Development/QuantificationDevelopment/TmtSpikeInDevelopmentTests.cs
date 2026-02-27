@@ -134,6 +134,111 @@ public class TmtSpikeInDevelopmentTests
     // ──────────────────────────────────────────────────────────────────────────
 
     [Test]
+    public void CombinedQuantHelaUPS()
+    {
+        string dataDir = Path.Combine(GetSolutionDir(), "TMT_Spike-In_Info");
+        string upsDir = Path.Combine(dataDir, "UPS_TMT3_Search", "Task1-SearchTask");
+        string helaDir = Path.Combine(dataDir, "HeLa_TMT3_Search", "Task1-SearchTask");
+        Assert.That(Directory.Exists(upsDir), Is.True, $"UPS directory not found at: {upsDir}");
+        Assert.That(Directory.Exists(helaDir), Is.True, $"HeLa directory not found at: {helaDir}");
+
+        var sw = new Stopwatch();
+        sw.Start();
+
+        var (spectralMatches, peptides, proteinGroups) =
+            PsmTsvQuantAdapter.BuildQuantificationInputsFromMultipleDirectories(
+                new[] { upsDir, helaDir });
+
+
+        sw.Stop();
+        TestContext.WriteLine("All data loaded in :" + sw.Elapsed);
+
+        TestContext.WriteLine($"Combined: {spectralMatches.Count} PSMs, {peptides.Count} peptides, {proteinGroups.Count} protein groups");
+
+        var design = new SpikeInExperimentalDesign();
+        var parameters = new QuantificationParameters
+        {
+            SpectralMatchNormalizationStrategy = new NoNormalization(),
+            SpectralMatchToPeptideRollUpStrategy = new SumRollUp(),
+            PeptideNormalizationStrategy = new NoNormalization(),
+            CollapseStrategy = new NoCollapse(),
+            PeptideToProteinRollUpStrategy = new SumRollUp(),
+            ProteinNormalizationStrategy = new NoNormalization(),
+            OutputDirectory = string.Empty,
+            UseSharedPeptidesForProteinQuant = false,
+            WriteRawInformation = false,
+            WritePeptideInformation = false,
+            WriteProteinInformation = false
+        };
+
+        var engine = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups);
+        engine.Run(out var proteinMatrix);
+
+        Assert.That(proteinMatrix.RowKeys.Count, Is.GreaterThan(0), "Combined protein matrix is empty");
+
+        var upsOnlySet = new HashSet<string>(UPSOnlyAccessions);
+        var sharedSet = new HashSet<string>(SharedAccessions);
+
+        var allAccessions = proteinMatrix.RowKeys
+            .Select(pg => pg.BioPolymerGroupName)
+            .ToHashSet();
+
+        var helaOnlyAccessions = allAccessions
+            .Where(a => !upsOnlySet.Contains(a) && !sharedSet.Contains(a))
+            .ToHashSet();
+
+        TestContext.WriteLine($"\nProtein classification in combined matrix:");
+        TestContext.WriteLine($"  Total proteins:    {allAccessions.Count}");
+        TestContext.WriteLine($"  UPS-only found:    {allAccessions.Count(a => upsOnlySet.Contains(a))}");
+        TestContext.WriteLine($"  Shared found:      {allAccessions.Count(a => sharedSet.Contains(a))}");
+        TestContext.WriteLine($"  HeLa-only found:   {helaOnlyAccessions.Count}");
+
+        var comparisons = new[]
+        {
+            ("1 vs 0.125", "1", "0.125", 8.0),
+            ("1 vs 0.5",   "1", "0.5",   2.0),
+            ("1 vs 0.667", "1", "0.667", 1.5),
+        };
+
+        foreach (var (label, numerator, denominator, expectedFc) in comparisons)
+        {
+            var allFoldChanges = QuantificationEvaluator.ComputeFoldChanges(proteinMatrix, numerator, denominator);
+
+            var upsOnlyFCs = allFoldChanges.Where(x => upsOnlySet.Contains(x.accession)).Select(x => x.foldChange).ToList();
+            var sharedFCs = allFoldChanges.Where(x => sharedSet.Contains(x.accession)).Select(x => x.foldChange).ToList();
+            var helaOnlyFCs = allFoldChanges.Where(x => helaOnlyAccessions.Contains(x.accession)).Select(x => x.foldChange).ToList();
+
+            TestContext.WriteLine($"\n=== {label} (expected UPS FC = {expectedFc}, expected HeLa FC = 1.0) ===");
+
+            PrintFoldChangeGroup("UPS-only", upsOnlyFCs, expectedFc);
+            PrintFoldChangeGroup("Shared (UPS+HeLa)", sharedFCs, expectedFc);
+            PrintFoldChangeGroup("HeLa-only", helaOnlyFCs, 1.0);
+        }
+
+        var fc8x_upsOnly = QuantificationEvaluator.ComputeFoldChanges(proteinMatrix, "1", "0.125")
+            .Where(x => upsOnlySet.Contains(x.accession))
+            .Select(x => x.foldChange).ToList();
+
+        if (fc8x_upsOnly.Count > 0)
+        {
+            double medianFc = QuantificationEvaluator.Median(fc8x_upsOnly);
+            Assert.That(medianFc, Is.GreaterThan(1.5),
+                $"UPS-only median FC '1' vs '0.125' was {medianFc:F2}, expected > 1.5 (true value = 8.0)");
+        }
+
+        var fc8x_helaOnly = QuantificationEvaluator.ComputeFoldChanges(proteinMatrix, "1", "0.125")
+            .Where(x => helaOnlyAccessions.Contains(x.accession))
+            .Select(x => x.foldChange).ToList();
+
+        if (fc8x_helaOnly.Count > 0)
+        {
+            double medianFc = QuantificationEvaluator.Median(fc8x_helaOnly);
+            Assert.That(medianFc, Is.InRange(0.3, 3.0),
+                $"HeLa-only median FC '1' vs '0.125' was {medianFc:F3}, expected near 1.0");
+        }
+    }
+
+    [Test]
     public void LoadAndRunSpikeInData_BasicPipeline()
     {
         string dataDir = Path.Combine(GetSolutionDir(), "TMT_Spike-In_Info");
@@ -387,111 +492,6 @@ public class TmtSpikeInDevelopmentTests
 
         Assert.That(upsAccessions.Count, Is.GreaterThan(0), "No UPS accessions found");
         Assert.That(helaAccessions.Count, Is.GreaterThan(0), "No HeLa accessions found");
-    }
-
-    [Test]
-    public void CombinedQuantHelaUPS()
-    {
-        string dataDir = Path.Combine(GetSolutionDir(), "TMT_Spike-In_Info");
-        string upsDir = Path.Combine(dataDir, "UPS_TMT3_Search", "Task1-SearchTask");
-        string helaDir = Path.Combine(dataDir, "HeLa_TMT3_Search", "Task1-SearchTask");
-        Assert.That(Directory.Exists(upsDir), Is.True, $"UPS directory not found at: {upsDir}");
-        Assert.That(Directory.Exists(helaDir), Is.True, $"HeLa directory not found at: {helaDir}");
-
-        var sw = new Stopwatch();
-        sw.Start();
-
-        var (spectralMatches, peptides, proteinGroups) =
-            PsmTsvQuantAdapter.BuildQuantificationInputsFromMultipleDirectories(
-                new[] { upsDir, helaDir });
-
-
-        sw.Stop();
-        TestContext.WriteLine("All data loaded in :" + sw.Elapsed);
-
-        TestContext.WriteLine($"Combined: {spectralMatches.Count} PSMs, {peptides.Count} peptides, {proteinGroups.Count} protein groups");
-
-        var design = new SpikeInExperimentalDesign();
-        var parameters = new QuantificationParameters
-        {
-            SpectralMatchNormalizationStrategy = new NoNormalization(),
-            SpectralMatchToPeptideRollUpStrategy = new SumRollUp(),
-            PeptideNormalizationStrategy = new NoNormalization(),
-            CollapseStrategy = new NoCollapse(),
-            PeptideToProteinRollUpStrategy = new SumRollUp(),
-            ProteinNormalizationStrategy = new NoNormalization(),
-            OutputDirectory = string.Empty,
-            UseSharedPeptidesForProteinQuant = false,
-            WriteRawInformation = false,
-            WritePeptideInformation = false,
-            WriteProteinInformation = false
-        };
-
-        var engine = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups);
-        engine.Run(out var proteinMatrix);
-
-        Assert.That(proteinMatrix.RowKeys.Count, Is.GreaterThan(0), "Combined protein matrix is empty");
-
-        var upsOnlySet = new HashSet<string>(UPSOnlyAccessions);
-        var sharedSet = new HashSet<string>(SharedAccessions);
-
-        var allAccessions = proteinMatrix.RowKeys
-            .Select(pg => pg.BioPolymerGroupName)
-            .ToHashSet();
-
-        var helaOnlyAccessions = allAccessions
-            .Where(a => !upsOnlySet.Contains(a) && !sharedSet.Contains(a))
-            .ToHashSet();
-
-        TestContext.WriteLine($"\nProtein classification in combined matrix:");
-        TestContext.WriteLine($"  Total proteins:    {allAccessions.Count}");
-        TestContext.WriteLine($"  UPS-only found:    {allAccessions.Count(a => upsOnlySet.Contains(a))}");
-        TestContext.WriteLine($"  Shared found:      {allAccessions.Count(a => sharedSet.Contains(a))}");
-        TestContext.WriteLine($"  HeLa-only found:   {helaOnlyAccessions.Count}");
-
-        var comparisons = new[]
-        {
-            ("1 vs 0.125", "1", "0.125", 8.0),
-            ("1 vs 0.5",   "1", "0.5",   2.0),
-            ("1 vs 0.667", "1", "0.667", 1.5),
-        };
-
-        foreach (var (label, numerator, denominator, expectedFc) in comparisons)
-        {
-            var allFoldChanges = QuantificationEvaluator.ComputeFoldChanges(proteinMatrix, numerator, denominator);
-
-            var upsOnlyFCs = allFoldChanges.Where(x => upsOnlySet.Contains(x.accession)).Select(x => x.foldChange).ToList();
-            var sharedFCs = allFoldChanges.Where(x => sharedSet.Contains(x.accession)).Select(x => x.foldChange).ToList();
-            var helaOnlyFCs = allFoldChanges.Where(x => helaOnlyAccessions.Contains(x.accession)).Select(x => x.foldChange).ToList();
-
-            TestContext.WriteLine($"\n=== {label} (expected UPS FC = {expectedFc}, expected HeLa FC = 1.0) ===");
-
-            PrintFoldChangeGroup("UPS-only", upsOnlyFCs, expectedFc);
-            PrintFoldChangeGroup("Shared (UPS+HeLa)", sharedFCs, expectedFc);
-            PrintFoldChangeGroup("HeLa-only", helaOnlyFCs, 1.0);
-        }
-
-        var fc8x_upsOnly = QuantificationEvaluator.ComputeFoldChanges(proteinMatrix, "1", "0.125")
-            .Where(x => upsOnlySet.Contains(x.accession))
-            .Select(x => x.foldChange).ToList();
-
-        if (fc8x_upsOnly.Count > 0)
-        {
-            double medianFc = QuantificationEvaluator.Median(fc8x_upsOnly);
-            Assert.That(medianFc, Is.GreaterThan(1.5),
-                $"UPS-only median FC '1' vs '0.125' was {medianFc:F2}, expected > 1.5 (true value = 8.0)");
-        }
-
-        var fc8x_helaOnly = QuantificationEvaluator.ComputeFoldChanges(proteinMatrix, "1", "0.125")
-            .Where(x => helaOnlyAccessions.Contains(x.accession))
-            .Select(x => x.foldChange).ToList();
-
-        if (fc8x_helaOnly.Count > 0)
-        {
-            double medianFc = QuantificationEvaluator.Median(fc8x_helaOnly);
-            Assert.That(medianFc, Is.InRange(0.3, 3.0),
-                $"HeLa-only median FC '1' vs '0.125' was {medianFc:F3}, expected near 1.0");
-        }
     }
 
     [Test]
