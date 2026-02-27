@@ -2,6 +2,7 @@ using System;
 using Omics.Fragmentation;
 using NUnit.Framework;
 using System.Diagnostics.CodeAnalysis;
+using MassSpectrometry;
 
 namespace Test.Omics
 {
@@ -61,7 +62,7 @@ namespace Test.Omics
 
             // Also works with cached variants
             var cachedProduct = new ProductWithCache(ProductType.D, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
-            var cachedIon = new MatchedFragmentIonWithCache(cachedProduct, 101.0, 200.0, 1); 
+            var cachedIon = new MatchedFragmentIonWithCache(cachedProduct, 101.0, 200.0, 1);
             Assert.That(cachedIon.IsInternalFragment, Is.False);
             Assert.That(cachedIon.IsDiagnosticIon, Is.True);
         }
@@ -183,6 +184,21 @@ namespace Test.Omics
                 Assert.That(product1.GetHashCode(), Is.EqualTo(product2.GetHashCode()));
                 Assert.That(ion.GetHashCode(), Is.EqualTo(ionCached.GetHashCode()));
             });
+        }
+
+        [Test]
+        public void WithEnvelope_Constructor()
+        {
+            var envelope = new IsotopicEnvelope(100, 10, 2);
+            var product = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 1, 1, 0.0);
+            var ion = new MatchedFragmentIonWithEnvelope(product, 101.0, 200.0, 1, envelope);
+
+            Assert.That(ion.Envelope, Is.EqualTo(envelope));
+
+            ion = new MatchedFragmentIonWithEnvelope(product, 101.0, 200.0, 1, null);
+            Assert.That(ion.Envelope, Is.Null);
+            ion.Envelope = envelope;
+            Assert.That(ion.Envelope, Is.EqualTo(envelope));
         }
     }
 }
