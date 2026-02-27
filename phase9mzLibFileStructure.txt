@@ -121,6 +121,7 @@ mzLib/MassSpectrometry/Dia/Gpu/GpuFragmentExtractor.cs
 mzLib/MassSpectrometry/Dia/Interfaces/IFragmentExtractor.cs
 mzLib/MassSpectrometry/Dia/Interfaces/IScorer.cs
 mzLib/MassSpectrometry/Dia/Orchestration/DiaExtractionOrchestrator.cs
+mzLib/MassSpectrometry/Dia/Scoring/DiaTemporalScorer.cs
 mzLib/MassSpectrometry/Dia/Scoring/NormalizedDotProductScorer.cs
 mzLib/MassSpectrometry/Dia/Scoring/SpectralAngleScorer.cs
 mzLib/MassSpectrometry/Enums/DissociationType.cs
@@ -601,6 +602,7 @@ mzLib/Test/Dia/Gpu/GpuInfrastructureTests.cs
 mzLib/Test/Dia/Integration/DiaIntegrationTests.cs
 mzLib/Test/Dia/LibraryBridge/LibraryBridgeTests.cs
 mzLib/Test/Dia/Orchestration/DiaExtractionOrchestratorTests.cs
+mzLib/Test/Dia/Scoring/DiaTemporalScorerTests.cs
 mzLib/Test/Dia/Scoring/ScorerTests.cs
 mzLib/Test/DigestionAgentTests.cs
 mzLib/Test/DoubleProtease.tsv
@@ -892,3 +894,4 @@ mzLib/mzPlot/Plots/SpectrumPlot.cs
 mzLib/mzPlot/mzPlot.csproj
 mzLib/pepXML/pepXML.csproj
 mzLib/pepXML/pepXML_v120.cs
+mzLibFileStructure.txt
