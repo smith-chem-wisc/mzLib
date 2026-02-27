@@ -2,7 +2,9 @@
 // Licensed under the GNU Lesser General Public License v3.0
 
 using Development.Dia;
+using MassSpectrometry.Dia;
 using System;
+using static MassSpectrometry.Dia.DiaLibraryQueryGenerator;
 
 namespace Development
 {
@@ -27,21 +29,33 @@ namespace Development
             Console.WriteLine(new string('=', 60));
             Console.WriteLine();
 
-            DiaScanIndexBenchmark.RunAll();
+            //DiaScanIndexBenchmark.RunAll();
 
-            DiaOrchestrationBenchmark.RunAll();
+            //DiaOrchestrationBenchmark.RunAll();
 
-            LibraryBridgeBenchmark.RunAll();
+            //LibraryBridgeBenchmark.RunAll();
 
-            RtCalibrationBenchmark.RunAll();
+            //RtCalibrationBenchmark.RunAll();
 
-            RealDataBenchmark.Run(
-                mzmlPath: @"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",
-                groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv"
+            //RealDataBenchmark.Run(
+            //    mzmlPath: @"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",
+            //    groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv"
+            //    );
+
+            //var scoredResults = Phase10ClassifierBenchmark.RunAll(
+            //    @"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",
+            //    mspLibraryPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_input.msp",
+            //    groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv");
+
+            //Phase10_5_FeatureRefinementBenchmark.RunAll(scoredResults,
+            //    @"F:\DiaBenchmark\PXD005573\phase10_5_features_koina.tsv");
+
+
+
+            DecoyKoinaTableGenerator.Generate(
+                @"F:\DiaBenchmark\PXD005573\DiannOut\koina_input.tsv",
+                @"F:\DiaBenchmark\PXD005573\DiannOut\koina_decoys.tsv"
                 );
-
-            Phase10ClassifierBenchmark.RunAll(@"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",mspLibraryPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_input.msp",
-                groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv");
 
             //KoinaTableGenerator.Generate(
             //    @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv",

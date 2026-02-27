@@ -12,6 +12,12 @@ namespace MassSpectrometry.Dia
     /// 
     /// Designed as a struct with fixed-size fields for cache-friendly batch processing.
     /// All features are normalized to roughly comparable scales where possible.
+    /// 
+    /// Phase 10.5 changes:
+    ///   - REMOVED RawCosine (r=1.000 with TemporalScore — identical, caused LDA degeneracy)
+    ///   - REMOVED RtWindowHalfWidth (constant across all precursors — zero variance, zero info)
+    ///   - ADDED RtDeviationSquared: (ΔRT)² quadratic penalty for RT outliers (DIA-NN approach)
+    /// Feature count: 14 → 12 → 13 (after adding RtDeviationSquared)
     /// </summary>
     public struct DiaFeatureVector
     {
@@ -23,8 +29,7 @@ namespace MassSpectrometry.Dia
         /// <summary>Average cosine across time points [0,1]</summary>
         public float TemporalScore;
 
-        /// <summary>Raw cosine before any nonlinear transform [0,1]</summary>
-        public float RawCosine;
+        // RawCosine REMOVED in Phase 10.5a (r=1.000 with TemporalScore — identical)
 
         /// <summary>Spectral angle score [0,1]</summary>
         public float SpectralAngle;
@@ -75,8 +80,15 @@ namespace MassSpectrometry.Dia
         /// <summary>|Observed apex RT - Library RT| in minutes. Lower = better.</summary>
         public float RtDeviationMinutes;
 
-        /// <summary>RT window half-width used for extraction (minutes).</summary>
-        public float RtWindowHalfWidth;
+        /// <summary>
+        /// (ΔRT)² — squared RT deviation in minutes².
+        /// Quadratic penalty that sharpens discrimination for large RT outliers.
+        /// DIA-NN explicitly uses this form. Complements the linear RtDeviationMinutes.
+        /// Added in Phase 10.5b.
+        /// </summary>
+        public float RtDeviationSquared;
+
+        // RtWindowHalfWidth REMOVED in Phase 10.5a (constant, zero information)
 
         // ── Metadata (not classifier features) ─────────────────────────────
 
@@ -100,13 +112,20 @@ namespace MassSpectrometry.Dia
 
         /// <summary>
         /// Number of features used by the classifier.
-        /// Updated from 12 to 14 with coelution features.
+        /// Phase 10.5: 14 → 13 (removed RawCosine + RtWindowHalfWidth, added RtDeviationSquared).
         /// </summary>
-        public const int ClassifierFeatureCount = 14;
+        public const int ClassifierFeatureCount = 13;
 
         /// <summary>
         /// Writes the classifier features into a float span for linear algebra operations.
         /// Order must be consistent with weight vectors.
+        /// 
+        /// Phase 10.5 order (13 features):
+        ///   [0] ApexScore, [1] TemporalScore, [2] SpectralAngle,
+        ///   [3] MeanFragCorr, [4] MinFragCorr, [5] FragDetRate,
+        ///   [6] LogTotalIntensity, [7] IntensityCV, [8] MedianXicDepth,
+        ///   [9] XicDepthCV, [10] TimePointsUsed, [11] RtDeviationMinutes,
+        ///   [12] RtDeviationSquared
         /// </summary>
         public readonly void WriteTo(Span<float> features)
         {
@@ -115,18 +134,17 @@ namespace MassSpectrometry.Dia
 
             features[0] = ApexScore;
             features[1] = TemporalScore;
-            features[2] = RawCosine;
-            features[3] = SpectralAngle;
-            features[4] = MeanFragmentCorrelation;
-            features[5] = MinFragmentCorrelation;
-            features[6] = FragmentDetectionRate;
-            features[7] = LogTotalIntensity;
-            features[8] = IntensityCV;
-            features[9] = MedianXicDepth;
-            features[10] = XicDepthCV;
-            features[11] = (float)TimePointsUsed;
-            features[12] = RtDeviationMinutes;
-            features[13] = RtWindowHalfWidth;
+            features[2] = SpectralAngle;
+            features[3] = MeanFragmentCorrelation;
+            features[4] = MinFragmentCorrelation;
+            features[5] = FragmentDetectionRate;
+            features[6] = LogTotalIntensity;
+            features[7] = IntensityCV;
+            features[8] = MedianXicDepth;
+            features[9] = XicDepthCV;
+            features[10] = (float)TimePointsUsed;
+            features[11] = RtDeviationMinutes;
+            features[12] = RtDeviationSquared;
         }
 
         /// <summary>Feature names in the same order as WriteTo, for reporting.</summary>
@@ -134,31 +152,33 @@ namespace MassSpectrometry.Dia
         {
             "ApexScore",
             "TemporalScore",
-            "RawCosine",
             "SpectralAngle",
             "MeanFragCorr",
             "MinFragCorr",
-            "FragmentDetectionRate",
+            "FragDetRate",
             "LogTotalIntensity",
             "IntensityCV",
             "MedianXicDepth",
             "XicDepthCV",
             "TimePointsUsed",
             "RtDeviationMinutes",
-            "RtWindowHalfWidth",
+            "RtDeviationSquared",
         };
     }
 
     /// <summary>
     /// Computes feature vectors from DiaSearchResult objects.
     /// Thread-safe: uses only local state + ArrayPool.
+    /// 
+    /// Phase 10.5 changes:
+    ///   - Removed RawCosine population (was identical to TemporalScore)
+    ///   - Removed RtWindowHalfWidth computation (constant, zero information)
+    ///   - Added RtDeviationSquared = (ΔRT)² computation
     /// </summary>
     public static class DiaFeatureExtractor
     {
         /// <summary>
         /// Computes a feature vector from a scored DiaSearchResult.
-        /// Now uses ObservedApexRt for real RT deviation and
-        /// MeanFragmentCorrelation/MinFragmentCorrelation from the result.
         /// </summary>
         public static DiaFeatureVector ComputeFeatures(
             DiaSearchResult result,
@@ -169,10 +189,10 @@ namespace MassSpectrometry.Dia
             // ── Primary scores ──────────────────────────────────────────
             fv.ApexScore = SafeScore(result.ApexDotProductScore);
             fv.TemporalScore = SafeScore(result.TemporalCosineScore);
-            fv.RawCosine = SafeScore(result.RawCosine);
+            // RawCosine REMOVED — was identical to TemporalScore (r=1.000)
             fv.SpectralAngle = SafeScore(result.SpectralAngleScore);
 
-            // ── Coelution features (new in Phase 10 revision) ───────────
+            // ── Coelution features ──────────────────────────────────────
             fv.MeanFragmentCorrelation = SafeScore(result.MeanFragmentCorrelation);
             fv.MinFragmentCorrelation = float.IsNaN(result.MinFragmentCorrelation)
                 ? -1f  // worst case sentinel for NaN
@@ -268,17 +288,21 @@ namespace MassSpectrometry.Dia
                 fv.XicDepthCV = 1f;
             }
 
-            // ── Retention time features (now using ObservedApexRt) ──────
-            fv.RtWindowHalfWidth = (result.RtWindowEnd - result.RtWindowStart) / 2f;
+            // ── Retention time features ─────────────────────────────────
+            // RtWindowHalfWidth REMOVED — constant, zero information
+            float rtWindowHalfWidth = (result.RtWindowEnd - result.RtWindowStart) / 2f;
 
             if (result.LibraryRetentionTime.HasValue && !float.IsNaN(result.ObservedApexRt))
             {
-                fv.RtDeviationMinutes = MathF.Abs(
+                float deltaRt = MathF.Abs(
                     result.ObservedApexRt - (float)result.LibraryRetentionTime.Value);
+                fv.RtDeviationMinutes = deltaRt;
+                fv.RtDeviationSquared = deltaRt * deltaRt;  // Phase 10.5b: quadratic penalty
             }
             else
             {
-                fv.RtDeviationMinutes = fv.RtWindowHalfWidth; // fallback
+                fv.RtDeviationMinutes = rtWindowHalfWidth; // fallback
+                fv.RtDeviationSquared = rtWindowHalfWidth * rtWindowHalfWidth;
             }
 
             // ── Metadata ────────────────────────────────────────────────

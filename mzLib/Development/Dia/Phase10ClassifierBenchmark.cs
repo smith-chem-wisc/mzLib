@@ -28,13 +28,9 @@ namespace Development.Dia
         /// <param name="mspLibraryPath">Path to Koina .msp predicted library</param>
         /// <param name="groundTruthTsvPath">Path to DIA-NN ground truth TSV (for RT lookup)</param>
         /// <param name="outputDir">Output directory for TSV export</param>
-        public static void RunAll(
-            string rawFilePath,
-            string mspLibraryPath,
-            string groundTruthTsvPath,
-            string outputDir = null)
+        public static List<DiaSearchResult> RunAll(string rawFilePath, string mspLibraryPath, string groundTruthTsvPath)
         {
-            outputDir ??= Path.GetDirectoryName(rawFilePath);
+            //outputDir ??= Path.GetDirectoryName(rawFilePath);
             Console.WriteLine("================================================================");
             Console.WriteLine("  Phase 10: Multi-Feature Classifier Benchmark (Koina Library)");
             Console.WriteLine("================================================================");
@@ -143,11 +139,12 @@ namespace Development.Dia
             // -- Step 6: Compare classifiers -----------------------------------
             CompareClassifiers(features);
 
-            // -- Step 7: Export TSV --------------------------------------------
-            string tsvPath = Path.Combine(outputDir, "phase10_features_koina.tsv");
-            ExportFeatureTsv(features, results, tsvPath);
-            Console.WriteLine($"  Feature TSV exported: {tsvPath}");
-            Console.WriteLine();
+            //// -- Step 7: Export TSV --------------------------------------------
+            //string tsvPath = Path.Combine(outputDir, "phase10_features_koina.tsv");
+            //ExportFeatureTsv(features, results, tsvPath);
+            //Console.WriteLine($"  Feature TSV exported: {tsvPath}");
+            //Console.WriteLine();
+            return results;
         }
 
         // =================================================================
