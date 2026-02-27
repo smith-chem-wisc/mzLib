@@ -19,6 +19,7 @@
         public const string Score = "Score";
         public const string DeltaScore = "Delta Score";
         public const string Notch = "Notch";
+        public const string CollisionEnergy = "Collision Energy";
 
         // Sequence information
         public const string BaseSequence = "Base Sequence";
