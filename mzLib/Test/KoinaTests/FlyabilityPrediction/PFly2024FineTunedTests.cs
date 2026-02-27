@@ -1,7 +1,5 @@
 ﻿using NUnit.Framework;
-using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.SupportedModels.FlyabilityModels;
-using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
 using PredictionClients.Koina.Util;
 using System;
 using System.Collections.Generic;

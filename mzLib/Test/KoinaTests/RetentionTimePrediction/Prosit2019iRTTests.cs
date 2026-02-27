@@ -38,6 +38,10 @@ namespace Test.KoinaTests
             Assert.That(model.MaxPeptideLength, Is.EqualTo(30));
             Assert.That(model.MinPeptideLength, Is.EqualTo(1));
             Assert.That(model.IsIndexedRetentionTimeModel, Is.True);
+
+            // Assert ThrowException mode does not throw for valid peptides
+            model = new Prosit2019iRT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            Assert.DoesNotThrow(() => model.Predict(modelInputs), "Valid peptides should not throw exception even in ThrowException mode");
         }
 
         /// <summary>
@@ -54,6 +58,9 @@ namespace Test.KoinaTests
 
             Assert.That(predictions.Count, Is.EqualTo(0), "Empty input should result in no predictions");
             Assert.DoesNotThrow(() => model.Predict(emptyInputs), "Empty input should not throw exception");
+
+            model = new Prosit2019iRT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            Assert.DoesNotThrow(() => model.Predict(emptyInputs), "Empty input should not throw exception even in ThrowException mode");
         }
 
         /// <summary>
@@ -70,6 +77,9 @@ namespace Test.KoinaTests
             Assert.DoesNotThrow(() => model.Predict(nullList));
             Assert.That(model.Predictions.Count, Is.EqualTo(0), "Null input should be treated as empty and return no predictions");
             Assert.That(model.ValidInputsMask.Count, Is.EqualTo(0), "Null input should not produce warnings");
+
+            model = new Prosit2019iRT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            Assert.DoesNotThrow(() => model.Predict(nullList), "Null input should not throw exception even in ThrowException mode");
         }
 
         /// <summary>
@@ -102,6 +112,9 @@ namespace Test.KoinaTests
 
             Assert.That(predictions[3].PredictedRetentionTime, Is.Null, "Non-canonical AA peptide should have null predictions");
             Assert.That(predictions[3].Warning, Is.Not.Null, "Non-canonical AA should have warning");
+
+            model = new Prosit2019iRT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            Assert.Throws<ArgumentException>(() => model.Predict(modelInputs), "Invalid sequences should throw exception in ThrowException mode");
         }
 
         /// <summary>
@@ -124,6 +137,9 @@ namespace Test.KoinaTests
             Assert.That(predictions.Count, Is.EqualTo(2), "Should return predictions for all inputs");
             Assert.That(predictions[0].PredictedRetentionTime, Is.Not.Null, "Peptide with valid oxidation should have predictions");
             Assert.That(predictions[1].PredictedRetentionTime, Is.Not.Null, "Peptide with valid carbamidomethyl should have predictions");
+
+            model = new Prosit2019iRT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            Assert.DoesNotThrow(() => model.Predict(modelInputs), "Peptides with valid modifications should not throw exception in ThrowException mode");
         }
 
         /// <summary>
@@ -155,6 +171,15 @@ namespace Test.KoinaTests
             Assert.That(predictions[2].PredictedRetentionTime, Is.Not.Null, "Valid unmodified peptide should have predictions");
 
             Assert.That(predictions[3].PredictedRetentionTime, Is.Null, "Peptide with non-canonical amino acid should have null predictions");
+
+            // Test model with ThrowException mode
+            model = new Prosit2019iRT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            var invalidModInput = new RetentionTimePredictionInput("SEQENC[InvalidMod]E");
+            var invalidAAInput = new RetentionTimePredictionInput("SEQUENS");
+
+            Assert.Throws<ArgumentException>(() => model.Predict(modelInputs), "Peptides with unsupported modifications or non-canonical amino acids should throw exception in ThrowException mode");
+            Assert.Throws<ArgumentException>(() => model.Predict(new List<RetentionTimePredictionInput> { invalidModInput }), "Peptide with unsupported modification should throw exception in ThrowException mode");
+            Assert.Throws<ArgumentException>(() => model.Predict(new List<RetentionTimePredictionInput> { invalidAAInput }), "Peptide with non-canonical amino acid should throw exception in ThrowException mode");
         }
 
         /// <summary>

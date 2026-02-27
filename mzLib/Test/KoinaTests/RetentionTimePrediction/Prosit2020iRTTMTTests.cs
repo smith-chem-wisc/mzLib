@@ -1,7 +1,6 @@
 ﻿using Easy.Common.Extensions;
 using NUnit.Framework;
 using PredictionClients.Koina.AbstractClasses;
-using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
 using PredictionClients.Koina.Util;
 using System;
@@ -66,6 +65,10 @@ namespace Test.KoinaTests
             Assert.That(model.MaxPeptideLength, Is.EqualTo(30));
             Assert.That(model.MinPeptideLength, Is.EqualTo(1));
             Assert.That(model.IsIndexedRetentionTimeModel, Is.True);
+
+            // Make sure ThrowException mode also accepts valid peptides without throwing
+            model = new Prosit2020iRTTMT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            Assert.DoesNotThrow(() => model.Predict(modelInputs), "Model should not throw exception for valid peptides with required N-terminal modifications when ModHandlingMode is set to ThrowException");
         }
 
         /// <summary>
@@ -108,6 +111,9 @@ namespace Test.KoinaTests
             // Fifth peptide: oxidation but no N-term
             Assert.That(predictions[4].PredictedRetentionTime, Is.Null, "Peptide without N-term should be rejected");
             Assert.That(predictions[4].Warning, Is.Not.Null, "Peptide without N-term should have warning");
+
+            model = new Prosit2020iRTTMT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            Assert.Throws<ArgumentException>(() => model.Predict(modelInputs), "Model should throw exception for peptides without required N-terminal modifications when ModHandlingMode is set to ThrowException");
         }
 
         /// <summary>
@@ -124,6 +130,9 @@ namespace Test.KoinaTests
 
             Assert.That(predictions.Count, Is.EqualTo(0), "Empty input should result in no predictions");
             Assert.DoesNotThrow(() => model.Predict(emptyInputs), "Empty input should not throw exception");
+
+            model = new Prosit2020iRTTMT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            Assert.DoesNotThrow(() => model.Predict(emptyInputs), "Model should throw exception for peptides without required N-terminal modifications when ModHandlingMode is set to ThrowException");
         }
 
         /// <summary>
@@ -140,6 +149,9 @@ namespace Test.KoinaTests
             Assert.DoesNotThrow(() => model.Predict(nullList));
             Assert.That(model.Predictions.Count, Is.EqualTo(0), "Empty input should result in no predictions");
             Assert.That(model.ValidInputsMask.Count, Is.EqualTo(0), "Empty input should result in empty valid inputs mask");
+
+            model = new Prosit2020iRTTMT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            Assert.DoesNotThrow(() => model.Predict(nullList), "Model should not throw exception for null input list");
         }
 
         /// <summary>
@@ -167,6 +179,9 @@ namespace Test.KoinaTests
             Assert.That(predictions[2].PredictedRetentionTime, Is.Null, "Invalid character peptide should be rejected");
             Assert.That(predictions[3].PredictedRetentionTime, Is.Null, "Peptide without N-term should be rejected");
             Assert.That(predictions[4].PredictedRetentionTime, Is.Not.Null, "Second valid peptide should have predictions");
+
+            model = new Prosit2020iRTTMT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            Assert.Throws<ArgumentException>(() => model.Predict(modelInputs), "Model should throw exception for invalid peptides when ModHandlingMode is set to ThrowException");
         }
 
         /// <summary>

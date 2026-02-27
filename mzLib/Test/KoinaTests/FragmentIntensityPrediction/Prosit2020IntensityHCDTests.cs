@@ -1,12 +1,12 @@
 ﻿using NUnit.Framework;
-using Readers.SpectralLibrary;
-using System.Collections.Generic;
-using System.Linq;
-using System.IO;
-using System;
-using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 using PredictionClients.Koina.AbstractClasses;
+using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 using PredictionClients.Koina.Util;
+using Readers.SpectralLibrary;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 
 namespace Test.KoinaTests
 {
@@ -124,6 +124,9 @@ namespace Test.KoinaTests
             
             Assert.That(predictions.Count, Is.EqualTo(2));
             Assert.That(predictions.All(p => p.Warning == null || p.Warning.Message.Contains("skipped")));
+
+            model = new Prosit2020IntensityHCD(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            Assert.DoesNotThrow(() => model.Predict(modelInputs));
         }
 
         /// <summary>
@@ -140,6 +143,9 @@ namespace Test.KoinaTests
 
             Assert.That(predictions.Count, Is.EqualTo(0));
             Assert.DoesNotThrow( () => model.Predict(emptyInputs));
+
+            model = new Prosit2020IntensityHCD(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            Assert.DoesNotThrow(() => model.Predict(emptyInputs));
         }
 
         /// <summary>
@@ -153,6 +159,7 @@ namespace Test.KoinaTests
             var energy = 35;
 
             var model = new Prosit2020IntensityHCD();
+            var throwModel = new Prosit2020IntensityHCD(parameterHandlingMode: IncompatibleParameterHandlingMode.ThrowException);
 
             // Test all valid charge states (1-6)
             for (int charge = 1; charge <= 6; charge++)
@@ -174,6 +181,8 @@ namespace Test.KoinaTests
                     $"Charge state {charge} should be valid");
                 Assert.That(predictions[0].Warning, Is.Null,
                     $"Charge state {charge} should not produce a warning");
+                Assert.DoesNotThrow(() => throwModel.Predict(modelInputs),
+                    $"Charge state {charge} should not throw an exception in strict mode");
             }
 
             // Test invalid charge state 0
@@ -196,6 +205,8 @@ namespace Test.KoinaTests
                 "Charge state 0 should produce a warning");
             Assert.That(predictionsZero[0].FragmentAnnotations, Is.Null,
                 "Invalid charge should result in null predictions");
+            Assert.Throws<ArgumentException>(() => throwModel.Predict(modelInputsZero),
+                $"Charge state 0 should throw an exception in strict mode");
 
             // Test invalid negative charge state
             var modelInputsNegative = new List<FragmentIntensityPredictionInput>
@@ -215,6 +226,66 @@ namespace Test.KoinaTests
                 "Should return a prediction entry for negative charge");
             Assert.That(predictionsNegative[0].Warning, Is.Not.Null,
                 "Negative charge state should produce a warning");
+            Assert.Throws<ArgumentException>(() => throwModel.Predict(modelInputsNegative),
+                $"Charge state -1 should throw an exception in strict mode");
+        }
+
+        /// <summary>
+        /// Test boundary conditions for collision energy values.
+        /// This model allows any collision energy value.
+        /// </summary>
+        [Test]
+        public static void TestKoinaProsit2020IntensityHCDModelCollisionEnergyBoundaries()
+        {
+            var peptide = "PEPTIDEK";
+            var charge = 2;
+            var model = new Prosit2020IntensityHCD();
+            var throwModel = new Prosit2020IntensityHCD(parameterHandlingMode: IncompatibleParameterHandlingMode.ThrowException);
+            // Test valid collision energy values, including edge cases
+            var validCollisionEnergies = new int[] { 0, 10, 35, 100 };
+            foreach (var energy in validCollisionEnergies)
+            {
+                var modelInputs = new List<FragmentIntensityPredictionInput>
+                {
+                    new FragmentIntensityPredictionInput(
+                        FullSequence: peptide,
+                        PrecursorCharge: charge,
+                        CollisionEnergy: energy,
+                        InstrumentType: null,
+                        FragmentationType: null
+                    )
+                };
+                var predictions = model.Predict(modelInputs);
+                Assert.That(predictions.Count, Is.EqualTo(1),
+                    $"Collision energy {energy} should return a prediction entry");
+                Assert.That(predictions[0].Warning, Is.Null,
+                    $"Collision energy {energy} should not produce a warning");
+                Assert.DoesNotThrow(() => throwModel.Predict(modelInputs),
+                    $"Collision energy {energy} should not throw an exception in strict mode");
+            }
+
+            // Test invalid collision energy values
+            var invalidCollisionEnergies = new int[] { -10, -1, 101, 200 };
+            foreach (var energy in invalidCollisionEnergies)
+            {
+                var modelInputs = new List<FragmentIntensityPredictionInput>
+                {
+                    new FragmentIntensityPredictionInput(
+                        FullSequence: peptide,
+                        PrecursorCharge: charge,
+                        CollisionEnergy: energy,
+                        InstrumentType: null,
+                        FragmentationType: null
+                    )
+                };
+                var predictions = model.Predict(modelInputs);
+                Assert.That(predictions.Count, Is.EqualTo(1),
+                    $"Collision energy {energy} should return a prediction entry");
+                Assert.That(predictions[0].Warning, Is.Not.Null,
+                    $"Collision energy {energy} should produce a warning because not within implemented model limits");
+                Assert.Throws<ArgumentException>(() => throwModel.Predict(modelInputs),
+                    $"Collision energy {energy} should throw an exception because not within implemented model limits");
+            }
         }
 
         /// <summary>
@@ -317,6 +388,7 @@ namespace Test.KoinaTests
             var charge = 2;
             var energy = 35;
             var model = new Prosit2020IntensityHCD();
+            var throwModel = new Prosit2020IntensityHCD(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
 
             // Test peptide with 'X' (unknown amino acid) - common in database searches
             var inputsWithX = new List<FragmentIntensityPredictionInput>
@@ -337,6 +409,7 @@ namespace Test.KoinaTests
                 "Should return a prediction entry");
             Assert.That(predictionsX[0].FragmentAnnotations, Is.Null,
                 "Peptide with 'X' (unknown AA) should be filtered out");
+            Assert.Throws<ArgumentException>(() => throwModel.Predict(inputsWithX));
 
             // Test peptide with 'U' (Selenocysteine) - rare but valid amino acid
             var inputsWithU = new List<FragmentIntensityPredictionInput>
@@ -357,6 +430,7 @@ namespace Test.KoinaTests
                 "Should return a prediction entry");
             Assert.That(predictionsU[0].FragmentAnnotations, Is.Null,
                 "Peptide with 'U' (Selenocysteine) should be filtered out if not supported");
+            Assert.Throws<ArgumentException>(() => throwModel.Predict(inputsWithU));
 
             // Test mixed valid and invalid - ensure valid ones are kept
             var mixedInputs = new List<FragmentIntensityPredictionInput>
@@ -372,6 +446,7 @@ namespace Test.KoinaTests
                 "Should return entries for all inputs");
             Assert.That(predictionsMixed.Count(p => p.FragmentAnnotations != null), Is.EqualTo(2),
                 "Only valid peptides should have predictions");
+            Assert.Throws<ArgumentException>(() => throwModel.Predict(mixedInputs));
         }
 
         /// <summary>

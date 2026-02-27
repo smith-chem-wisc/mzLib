@@ -95,6 +95,11 @@ namespace PredictionClients.Koina.AbstractClasses
         {
             if (!IsValidBaseSequence(sequence))
             {
+                if (ModHandlingMode == IncompatibleModHandlingMode.ThrowException)
+                {
+                    throw new ArgumentException("Invalid base sequence. Omitted mod handling.");
+                }
+                
                 warning = new WarningException("Invalid base sequence. Omitted mod handling.");
                 return null;
             }
@@ -126,7 +131,7 @@ namespace PredictionClients.Koina.AbstractClasses
                 case IncompatibleModHandlingMode.ThrowException:
                     if (!HasValidModifications(newSequence))
                     {
-                        throw new InvalidOperationException("Sequence contains unsupported modifications.");
+                        throw new ArgumentException("Sequence contains unsupported modifications.");
                     }
                     break;
 

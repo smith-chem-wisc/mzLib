@@ -9,6 +9,7 @@ using Proteomics.AminoAcidPolymer;
 using PredictionClients.Koina.Interfaces;
 using System.Data.SQLite;
 using Easy.Common.Extensions;
+using PredictionClients.Koina.Util;
 
 namespace PredictionClients.Koina.AbstractClasses
 {
@@ -89,6 +90,8 @@ namespace PredictionClients.Koina.AbstractClasses
         #region Validation Patterns and Filters
         /// <summary>Minimum intensity threshold for including predicted fragments in spectral library generation</summary>
         public virtual double MinIntensityFilter { get; protected set; } = 1e-6;
+
+        public abstract IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
         #endregion
 
         #region Inputs and Outputs for internal processing 
@@ -334,25 +337,79 @@ namespace PredictionClients.Koina.AbstractClasses
         protected virtual bool ValidateModelSpecificInputs(FragmentIntensityPredictionInput input, out WarningException? warning)
         {
             warning = null;
+
+            // Check precursor charge constraints. Checked first and prioritized since every model will require it. 
             if (!AllowedPrecursorCharges.IsNullOrEmpty() && !AllowedPrecursorCharges.Contains(input.PrecursorCharge))
             {
-                warning = new WarningException($"Precursor charge {input.PrecursorCharge} is not supported by this model.");
-                return false;
+                string exceptionMessage = $"Precursor charge {input.PrecursorCharge} is not supported by this model. Allowed precursor charges: {string.Join(", ", AllowedPrecursorCharges)}.";
+                switch (ParameterHandlingMode)
+                {
+                    case IncompatibleParameterHandlingMode.ThrowException:
+                        throw new ArgumentException(exceptionMessage);
+
+                    case IncompatibleParameterHandlingMode.ReturnNull:
+                        warning = new WarningException(exceptionMessage);
+                        return false;
+                }
             }
-            if (!AllowedCollisionEnergies.IsNullOrEmpty() && input.CollisionEnergy.HasValue && !AllowedCollisionEnergies.Contains(input.CollisionEnergy.Value))
+
+            // Check that input has defined ALL required additional parameters (beyond sequence and charge) for the model. The specific required parameters may differ between models,
+            // but this method checks all common parameters and can be overridden by derived classes to implement additional checks as needed.
+            if ((!AllowedCollisionEnergies.IsNullOrEmpty() && input.CollisionEnergy == null) ||
+                (!AllowedInstrumentTypes.IsNullOrEmpty() && input.InstrumentType == null) ||
+                (!AllowedFragmentationTypes.IsNullOrEmpty() && input.FragmentationType == null))
             {
-                warning = new WarningException($"Collision energy {input.CollisionEnergy.Value} is not supported by this model.");
-                return false;
+                string exceptionMessage = $"Input is missing required parameters for this model. Required parameters: {(AllowedCollisionEnergies.IsNullOrEmpty() ? "" : "CollisionEnergy; ")}{(AllowedInstrumentTypes.IsNullOrEmpty() ? "" : "InstrumentType; ")}{(AllowedFragmentationTypes.IsNullOrEmpty() ? "" : "FragmentationType; ")}";
+                switch (ParameterHandlingMode)
+                {
+                    case IncompatibleParameterHandlingMode.ThrowException:
+                        throw new ArgumentException(exceptionMessage);
+                    case IncompatibleParameterHandlingMode.ReturnNull:
+                        warning = new WarningException(exceptionMessage);
+                        return false;
+                }
             }
+
+            // Check collision energy constraints
+            if (!AllowedCollisionEnergies.IsNullOrEmpty() && input.CollisionEnergy != null && !AllowedCollisionEnergies.Contains(input.CollisionEnergy.Value))
+            {
+                string exceptionMessage = $"Collision energy {input.CollisionEnergy} is not supported by this model. Allowed collision energies: {string.Join(", ", AllowedCollisionEnergies)}.";
+                switch (ParameterHandlingMode)
+                {
+                    case IncompatibleParameterHandlingMode.ThrowException:
+                        throw new ArgumentException(exceptionMessage);
+                    case IncompatibleParameterHandlingMode.ReturnNull:
+                        warning = new WarningException(exceptionMessage);
+                        return false;
+                }
+            }
+
+            // Check instrument type constraints
             if (!AllowedInstrumentTypes.IsNullOrEmpty() && input.InstrumentType != null && !AllowedInstrumentTypes.Contains(input.InstrumentType))
             {
-                warning = new WarningException($"Instrument type '{input.InstrumentType}' is not supported by this model.");
-                return false;
+                string exceptionMessage = $"Instrument type '{input.InstrumentType}' is not supported by this model. Allowed instrument types: {string.Join(", ", AllowedInstrumentTypes)}.";
+                switch (ParameterHandlingMode)
+                {
+                    case IncompatibleParameterHandlingMode.ThrowException:
+                        throw new ArgumentException(exceptionMessage);
+                    case IncompatibleParameterHandlingMode.ReturnNull:
+                        warning = new WarningException(exceptionMessage);
+                        return false;
+                }
             }
+
+            // Check fragmentation type constraints
             if (!AllowedFragmentationTypes.IsNullOrEmpty() && input.FragmentationType != null && !AllowedFragmentationTypes.Contains(input.FragmentationType))
             {
-                warning = new WarningException($"Fragmentation type '{input.FragmentationType}' is not supported by this model.");
-                return false;
+                string exceptionMessage = $"Fragmentation type '{input.FragmentationType}' is not supported by this model. Allowed fragmentation types: {string.Join(", ", AllowedFragmentationTypes)}.";
+                switch (ParameterHandlingMode)
+                {
+                    case IncompatibleParameterHandlingMode.ThrowException:
+                        throw new ArgumentException(exceptionMessage);
+                    case IncompatibleParameterHandlingMode.ReturnNull:
+                        warning = new WarningException(exceptionMessage);
+                        return false;
+                }
             }
             return true;
         }
