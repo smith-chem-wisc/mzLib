@@ -66,6 +66,31 @@ namespace MassSpectrometry.Dia
 
         #endregion
 
+        #region Hybrid Scoring Features
+
+        /// <summary>
+        /// Cosine similarity at the consensus chromatographic apex (single best time point).
+        /// Always computed regardless of which ScoringStrategy was used for DotProductScore.
+        /// 
+        /// High apex score = the library pattern is well-reproduced at peak intensity.
+        /// Good discriminator for high-quality matches (sharp peaks), but noisy for 
+        /// low-abundance or interfered peptides.
+        /// Range [0, 1], NaN if insufficient data.
+        /// </summary>
+        public float ApexDotProductScore { get; set; }
+
+        /// <summary>
+        /// Average cosine similarity across all RT time points with sufficient fragment signal.
+        /// Always computed regardless of which ScoringStrategy was used for DotProductScore.
+        /// 
+        /// High temporal score = the library pattern is consistently reproduced across the peak.
+        /// More robust than apex (averages out noise), but can be pulled down by co-elution.
+        /// Range [0, 1], NaN if insufficient data.
+        /// </summary>
+        public float TemporalCosineScore { get; set; }
+
+        #endregion
+
         #region Temporal Scoring Diagnostics
 
         /// <summary>
@@ -154,6 +179,8 @@ namespace MassSpectrometry.Dia
             DotProductScore = float.NaN;
             SpectralAngleScore = float.NaN;
             RawCosine = float.NaN;
+            ApexDotProductScore = float.NaN;
+            TemporalCosineScore = float.NaN;
             TimePointsUsed = 0;
             ApexTimeIndex = -1;
             ScoringStrategyUsed = ScoringStrategy.Summed;
@@ -177,7 +204,7 @@ namespace MassSpectrometry.Dia
                 _ => "?"
             };
             return $"{Sequence}/{ChargeState} Window={WindowId} " +
-                   $"DP={DotProductScore:F4}({strategyLabel}) Raw={RawCosine:F4} " +
+                   $"DP={DotProductScore:F4}({strategyLabel}) Apex={ApexDotProductScore:F4} Temporal={TemporalCosineScore:F4} " +
                    $"Fragments={FragmentsDetected}/{FragmentsQueried} " +
                    $"TimePts={TimePointsUsed}" +
                    (IsDecoy ? " [DECOY]" : "");

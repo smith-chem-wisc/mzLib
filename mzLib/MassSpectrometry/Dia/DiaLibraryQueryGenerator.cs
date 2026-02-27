@@ -327,10 +327,12 @@ namespace MassSpectrometry.Dia
                 }
                 else if (p.RetentionTime.HasValue)
                 {
-                    // Fallback: use the library RT with fixed tolerance
-                    float rt = (float)p.RetentionTime.Value;
-                    rtMin = rt - fallbackRtTolerance;
-                    rtMax = rt + fallbackRtTolerance;
+                    // No iRT, but have library RT. Use the calibration model to predict
+                    // observed RT from library RT (the model was fitted on library RT vs
+                    // observed RT, so library RT serves as the iRT input here).
+                    float predictedRt = (float)calibrationModel.ToMinutes(p.RetentionTime.Value);
+                    rtMin = predictedRt - calibratedHalfWindow;
+                    rtMax = predictedRt + calibratedHalfWindow;
                 }
                 else
                 {
@@ -465,7 +467,20 @@ namespace MassSpectrometry.Dia
             if (extractionResult == null) throw new ArgumentNullException(nameof(extractionResult));
             if (parameters == null) throw new ArgumentNullException(nameof(parameters));
 
-            var scorer = new DiaTemporalScorer(parameters.ScoringStrategy, parameters.NonlinearPower);
+            // Create scorers for ALL strategies we want as features
+            var apexScorer = new DiaTemporalScorer(ScoringStrategy.ConsensusApex);
+            var temporalScorer = new DiaTemporalScorer(ScoringStrategy.TemporalCosine);
+
+            // The "primary" scorer is whatever the user requested
+            DiaTemporalScorer primaryScorer = parameters.ScoringStrategy switch
+            {
+                ScoringStrategy.ConsensusApex => apexScorer,
+                ScoringStrategy.TemporalCosine => temporalScorer,
+                ScoringStrategy.WeightedTemporalCosineWithTransform =>
+                    new DiaTemporalScorer(ScoringStrategy.WeightedTemporalCosineWithTransform, parameters.NonlinearPower),
+                _ => new DiaTemporalScorer(ScoringStrategy.Summed),
+            };
+
             var results = new List<DiaSearchResult>(generationResult.PrecursorGroups.Length);
 
             ReadOnlySpan<float> rtBuffer = extractionResult.RtBuffer.AsSpan();
@@ -505,28 +520,53 @@ namespace MassSpectrometry.Dia
                 if (!result.MeetsMinFragments(parameters.MinFragmentsRequired))
                     continue;
 
-                // ── Temporal scoring ────────────────────────────────────────
-                // Pass the raw XIC data to the temporal scorer instead of using
-                // the collapsed TotalIntensity values.
+                // ── Get fragment results span for this precursor ────────────
                 ReadOnlySpan<FragmentResult> fragmentResults =
                     extractionResult.Results.AsSpan(group.QueryOffset, group.QueryCount);
+                ReadOnlySpan<float> libIntensities = input.FragmentIntensities.AsSpan();
 
-                DiaTemporalScore score = scorer.ScorePrecursor(
-                    input.FragmentIntensities.AsSpan(),
-                    group.QueryCount,
-                    fragmentResults,
-                    rtBuffer,
-                    intensityBuffer);
+                // ── Always compute apex score ───────────────────────────────
+                DiaTemporalScore apexScore = apexScorer.ScorePrecursor(
+                    libIntensities, group.QueryCount, fragmentResults, rtBuffer, intensityBuffer);
+                result.ApexDotProductScore = apexScore.DotProductScore;
+                result.ApexTimeIndex = apexScore.ApexTimeIndex;
 
-                result.DotProductScore = score.DotProductScore;
-                result.RawCosine = score.RawCosine;
-                result.TimePointsUsed = score.TimePointsUsed;
-                result.ApexTimeIndex = score.ApexTimeIndex;
+                // ── Always compute temporal cosine score ─────────────────────
+                DiaTemporalScore temporalScore = temporalScorer.ScorePrecursor(
+                    libIntensities, group.QueryCount, fragmentResults, rtBuffer, intensityBuffer);
+                result.TemporalCosineScore = temporalScore.DotProductScore;
+                result.TimePointsUsed = temporalScore.TimePointsUsed;
 
-                // Compute spectral angle from the raw cosine (pre-transform) for consistency
-                if (!float.IsNaN(score.RawCosine))
+                // ── Set primary DotProductScore from the requested strategy ──
+                if (parameters.ScoringStrategy == ScoringStrategy.ConsensusApex)
                 {
-                    float clampedCosine = Math.Clamp(score.RawCosine, 0f, 1f);
+                    result.DotProductScore = apexScore.DotProductScore;
+                    result.RawCosine = apexScore.RawCosine;
+                }
+                else if (parameters.ScoringStrategy == ScoringStrategy.TemporalCosine)
+                {
+                    result.DotProductScore = temporalScore.DotProductScore;
+                    result.RawCosine = temporalScore.RawCosine;
+                }
+                else if (parameters.ScoringStrategy == ScoringStrategy.WeightedTemporalCosineWithTransform)
+                {
+                    DiaTemporalScore weightedScore = primaryScorer.ScorePrecursor(
+                        libIntensities, group.QueryCount, fragmentResults, rtBuffer, intensityBuffer);
+                    result.DotProductScore = weightedScore.DotProductScore;
+                    result.RawCosine = weightedScore.RawCosine;
+                }
+                else // Summed
+                {
+                    DiaTemporalScore summedScore = primaryScorer.ScorePrecursor(
+                        libIntensities, group.QueryCount, fragmentResults, rtBuffer, intensityBuffer);
+                    result.DotProductScore = summedScore.DotProductScore;
+                    result.RawCosine = summedScore.RawCosine;
+                }
+
+                // Compute spectral angle from the raw cosine (pre-transform)
+                if (!float.IsNaN(result.RawCosine))
+                {
+                    float clampedCosine = Math.Clamp(result.RawCosine, 0f, 1f);
                     result.SpectralAngleScore = 1.0f - (2.0f / MathF.PI) * MathF.Acos(clampedCosine);
                 }
 
