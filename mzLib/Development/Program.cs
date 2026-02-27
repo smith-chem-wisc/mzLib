@@ -40,8 +40,13 @@ namespace Development
                 groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv"
                 );
 
-            Phase10ClassifierBenchmark.RunAll(@"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",
+            Phase10ClassifierBenchmark.RunAll(@"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",mspLibraryPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_input.msp",
                 groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv");
+
+            //KoinaTableGenerator.Generate(
+            //    @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv",
+            //    @"F:\DiaBenchmark\PXD005573\DiannOut\koina_input.tsv",
+            //    collisionEnergy: 27);
 
             Console.WriteLine(new string('=', 60));
             Console.WriteLine("All benchmarks complete.");

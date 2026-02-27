@@ -2,6 +2,7 @@
 // Licensed under the GNU Lesser General Public License v3.0
 
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 
 namespace MassSpectrometry.Dia
@@ -530,7 +531,23 @@ namespace MassSpectrometry.Dia
                     libIntensities, group.QueryCount, fragmentResults, rtBuffer, intensityBuffer);
                 result.ApexDotProductScore = apexScore.DotProductScore;
                 result.ApexTimeIndex = apexScore.ApexTimeIndex;
-
+                // ── Compute observed apex RT ─────────────────────────────────
+                if (apexScore.ApexTimeIndex >= 0)
+                {
+                    int refFragIdx2 = -1;
+                    int maxPts2 = 0;
+                    for (int f = 0; f < group.QueryCount; f++)
+                    {
+                        int pts = extractionResult.Results[group.QueryOffset + f].DataPointCount;
+                        if (pts > maxPts2) { maxPts2 = pts; refFragIdx2 = f; }
+                    }
+                    if (refFragIdx2 >= 0 && apexScore.ApexTimeIndex < maxPts2)
+                    {
+                        int refQi2 = group.QueryOffset + refFragIdx2;
+                        int rtOff2 = extractionResult.Results[refQi2].RtBufferOffset;
+                        result.ObservedApexRt = rtBuffer[rtOff2 + apexScore.ApexTimeIndex];
+                    }
+                }
                 // ── Always compute temporal cosine score ─────────────────────
                 DiaTemporalScore temporalScore = temporalScorer.ScorePrecursor(
                     libIntensities, group.QueryCount, fragmentResults, rtBuffer, intensityBuffer);
@@ -569,7 +586,9 @@ namespace MassSpectrometry.Dia
                     float clampedCosine = Math.Clamp(result.RawCosine, 0f, 1f);
                     result.SpectralAngleScore = 1.0f - (2.0f / MathF.PI) * MathF.Acos(clampedCosine);
                 }
-
+                // ── Compute fragment-fragment correlations ───────────────────
+                ComputeFragmentCorrelations(
+                    result, group, extractionResult, rtBuffer, intensityBuffer);
                 // Apply score threshold filter
                 if (!float.IsNaN(result.DotProductScore) && result.DotProductScore < parameters.MinScoreThreshold)
                     continue;
@@ -578,6 +597,165 @@ namespace MassSpectrometry.Dia
             }
 
             return results;
+        }
+        /// <summary>
+        /// Computes pairwise Pearson correlation between fragment XICs.
+        /// Populates MeanFragmentCorrelation and MinFragmentCorrelation on the result.
+        /// 
+        /// Uses the same RT-aligned approach as DiaTemporalScorer:
+        /// finds the reference fragment (most data points), builds a common
+        /// RT grid, aligns each fragment's XIC to that grid, then computes
+        /// pairwise Pearson R for all detected fragment pairs.
+        /// 
+        /// This is among the highest-leverage scoring features for DIA,
+        /// per DIA-NN's published feature engineering.
+        /// </summary>
+        private static void ComputeFragmentCorrelations(
+            DiaSearchResult result,
+            PrecursorQueryGroup group,
+            ExtractionResult extractionResult,
+            ReadOnlySpan<float> rtBuffer,
+            ReadOnlySpan<float> intensityBuffer)
+        {
+            if (result.FragmentsDetected < 2) return;
+
+            // Find reference fragment (most data points) for the RT grid
+            int refIdx = -1;
+            int maxPts = 0;
+            for (int f = 0; f < group.QueryCount; f++)
+            {
+                int pts = extractionResult.Results[group.QueryOffset + f].DataPointCount;
+                if (pts > maxPts) { maxPts = pts; refIdx = f; }
+            }
+            if (maxPts < 3) return;
+
+            int refQi = group.QueryOffset + refIdx;
+            var refResult = extractionResult.Results[refQi];
+            ReadOnlySpan<float> refRts = rtBuffer.Slice(refResult.RtBufferOffset, refResult.DataPointCount);
+            int nTimePoints = refRts.Length;
+
+            // Build aligned intensity matrix: nTimePoints x fragmentCount
+            int fragmentCount = group.QueryCount;
+            float[] matrixRented = ArrayPool<float>.Shared.Rent(nTimePoints * fragmentCount);
+            Span<float> matrix = matrixRented.AsSpan(0, nTimePoints * fragmentCount);
+            matrix.Clear();
+
+            try
+            {
+                const float rtTol = 0.01f; // same tolerance as DiaTemporalScorer
+
+                for (int f = 0; f < fragmentCount; f++)
+                {
+                    int qi = group.QueryOffset + f;
+                    var fr = extractionResult.Results[qi];
+                    if (fr.DataPointCount == 0) continue;
+
+                    ReadOnlySpan<float> fragRts = rtBuffer.Slice(fr.RtBufferOffset, fr.DataPointCount);
+                    ReadOnlySpan<float> fragInts = intensityBuffer.Slice(fr.IntensityBufferOffset, fr.DataPointCount);
+
+                    // Two-pointer alignment (same as DiaTemporalScorer.AlignXicToGrid)
+                    int fragPtr = 0;
+                    for (int t = 0; t < nTimePoints && fragPtr < fragRts.Length; t++)
+                    {
+                        float refRt = refRts[t];
+                        while (fragPtr < fragRts.Length && fragRts[fragPtr] < refRt - rtTol)
+                            fragPtr++;
+                        if (fragPtr < fragRts.Length && MathF.Abs(fragRts[fragPtr] - refRt) <= rtTol)
+                        {
+                            matrix[t * fragmentCount + f] = fragInts[fragPtr];
+                            fragPtr++;
+                        }
+                    }
+                }
+
+                // Find fragments with >= 3 nonzero time points
+                int[] detectedFrags = ArrayPool<int>.Shared.Rent(fragmentCount);
+                int nDetected = 0;
+
+                try
+                {
+                    for (int f = 0; f < fragmentCount; f++)
+                    {
+                        int nonzero = 0;
+                        for (int t = 0; t < nTimePoints; t++)
+                        {
+                            if (matrix[t * fragmentCount + f] > 0f) nonzero++;
+                        }
+                        if (nonzero >= 3) detectedFrags[nDetected++] = f;
+                    }
+
+                    if (nDetected < 2) return;
+
+                    float sumCorr = 0f;
+                    float minCorr = float.MaxValue;
+                    int nPairs = 0;
+
+                    for (int a = 0; a < nDetected; a++)
+                    {
+                        for (int b = a + 1; b < nDetected; b++)
+                        {
+                            float r = PearsonCorrelation(
+                                matrix, detectedFrags[a], detectedFrags[b],
+                                fragmentCount, nTimePoints);
+
+                            if (!float.IsNaN(r))
+                            {
+                                sumCorr += r;
+                                if (r < minCorr) minCorr = r;
+                                nPairs++;
+                            }
+                        }
+                    }
+
+                    if (nPairs > 0)
+                    {
+                        result.MeanFragmentCorrelation = sumCorr / nPairs;
+                        result.MinFragmentCorrelation = minCorr;
+                    }
+                }
+                finally
+                {
+                    ArrayPool<int>.Shared.Return(detectedFrags);
+                }
+            }
+            finally
+            {
+                ArrayPool<float>.Shared.Return(matrixRented);
+            }
+        }
+
+        /// <summary>
+        /// Pearson correlation between two columns of the time x fragment matrix.
+        /// Uses only time points where BOTH fragments have nonzero intensity.
+        /// </summary>
+        private static float PearsonCorrelation(
+            ReadOnlySpan<float> matrix, int fragA, int fragB,
+            int fragmentCount, int nTimePoints)
+        {
+            float sumA = 0, sumB = 0, sumAB = 0, sumA2 = 0, sumB2 = 0;
+            int n = 0;
+
+            for (int t = 0; t < nTimePoints; t++)
+            {
+                float a = matrix[t * fragmentCount + fragA];
+                float b = matrix[t * fragmentCount + fragB];
+                if (a <= 0f || b <= 0f) continue;
+
+                sumA += a;
+                sumB += b;
+                sumAB += a * b;
+                sumA2 += a * a;
+                sumB2 += b * b;
+                n++;
+            }
+
+            if (n < 3) return float.NaN;
+
+            float denom = (n * sumA2 - sumA * sumA) * (n * sumB2 - sumB * sumB);
+            if (denom <= 0f) return float.NaN;
+
+            float r = (n * sumAB - sumA * sumB) / MathF.Sqrt(denom);
+            return Math.Clamp(r, -1f, 1f);
         }
     }
 }

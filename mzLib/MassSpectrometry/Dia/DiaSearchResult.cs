@@ -50,7 +50,7 @@ namespace MassSpectrometry.Dia
         public float DotProductScore { get; set; }
 
         /// <summary>
-        /// Spectral angle score: 1 - (2/π) * arccos(normalized dot product).
+        /// Spectral angle score: 1 - (2/pi) * arccos(normalized dot product).
         /// Range [0, 1], higher is better. NaN if insufficient fragments.
         /// Computed from DotProductScore (or RawCosine when available).
         /// </summary>
@@ -128,7 +128,7 @@ namespace MassSpectrometry.Dia
         /// Parallel to the library's fragment ion order.
         /// Retained for backward compatibility and diagnostic use.
         /// Note: when temporal scoring is used, DotProductScore is NOT computed from
-        /// these summed values — it uses RT-resolved data instead.
+        /// these summed values -- it uses RT-resolved data instead.
         /// </summary>
         public float[] ExtractedIntensities { get; }
 
@@ -150,6 +150,35 @@ namespace MassSpectrometry.Dia
 
         /// <summary>Upper bound of the RT extraction window (minutes)</summary>
         public float RtWindowEnd { get; }
+
+        /// <summary>
+        /// Observed retention time at the chromatographic apex (minutes).
+        /// Computed during temporal scoring from the RT of the scan with
+        /// maximum total fragment signal.
+        /// NaN if no apex could be determined.
+        /// </summary>
+        public float ObservedApexRt { get; set; }
+
+        #endregion
+
+        #region Coelution Features
+
+        /// <summary>
+        /// Mean pairwise Pearson correlation across all detected fragment XICs.
+        /// Range [-1, 1], higher is better. True coeluting fragments correlate ~0.9+.
+        /// NaN if fewer than 2 fragments have sufficient XIC data points.
+        /// 
+        /// This is among the most important features for distinguishing true
+        /// identifications from interference, per DIA-NN's feature engineering.
+        /// </summary>
+        public float MeanFragmentCorrelation { get; set; }
+
+        /// <summary>
+        /// Minimum pairwise Pearson correlation across all detected fragment XICs.
+        /// Identifies the "weakest link" -- the fragment most likely to be interfered.
+        /// NaN if fewer than 2 fragments have sufficient XIC data points.
+        /// </summary>
+        public float MinFragmentCorrelation { get; set; }
 
         #endregion
 
@@ -184,12 +213,15 @@ namespace MassSpectrometry.Dia
             TimePointsUsed = 0;
             ApexTimeIndex = -1;
             ScoringStrategyUsed = ScoringStrategy.Summed;
+            ObservedApexRt = float.NaN;
+            MeanFragmentCorrelation = float.NaN;
+            MinFragmentCorrelation = float.NaN;
         }
 
         /// <summary>Whether this result meets the minimum fragment detection threshold.</summary>
         public bool MeetsMinFragments(int minRequired) => FragmentsDetected >= minRequired;
 
-        /// <summary>Fraction of queried fragments that were detected (0–1).</summary>
+        /// <summary>Fraction of queried fragments that were detected (0-1).</summary>
         public float FragmentDetectionRate =>
             FragmentsQueried > 0 ? (float)FragmentsDetected / FragmentsQueried : 0f;
 
@@ -205,6 +237,7 @@ namespace MassSpectrometry.Dia
             };
             return $"{Sequence}/{ChargeState} Window={WindowId} " +
                    $"DP={DotProductScore:F4}({strategyLabel}) Apex={ApexDotProductScore:F4} Temporal={TemporalCosineScore:F4} " +
+                   $"Corr={MeanFragmentCorrelation:F3} " +
                    $"Fragments={FragmentsDetected}/{FragmentsQueried} " +
                    $"TimePts={TimePointsUsed}" +
                    (IsDecoy ? " [DECOY]" : "");

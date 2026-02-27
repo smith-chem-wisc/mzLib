@@ -17,17 +17,32 @@ namespace MassSpectrometry.Dia
     {
         // ── Primary scores (from Phase 9 temporal scoring) ──────────────────
 
-        /// <summary>Cosine at the consensus chromatographic apex [0,1]. From DiaSearchResult.ApexDotProductScore.</summary>
+        /// <summary>Cosine at the consensus chromatographic apex [0,1]</summary>
         public float ApexScore;
 
-        /// <summary>Average cosine across time points with sufficient fragments [0,1]. From DiaSearchResult.TemporalCosineScore.</summary>
+        /// <summary>Average cosine across time points [0,1]</summary>
         public float TemporalScore;
 
-        /// <summary>Raw cosine before any nonlinear transform [0,1]. From DiaSearchResult.RawCosine.</summary>
+        /// <summary>Raw cosine before any nonlinear transform [0,1]</summary>
         public float RawCosine;
 
-        /// <summary>Spectral angle score [0,1]. From DiaSearchResult.SpectralAngleScore.</summary>
+        /// <summary>Spectral angle score [0,1]</summary>
         public float SpectralAngle;
+
+        // ── Coelution features (Phase 10 — highest-leverage additions) ──────
+
+        /// <summary>
+        /// Mean pairwise Pearson correlation across detected fragment XICs.
+        /// True coeluting fragments: ~0.9+. Interfered: much lower.
+        /// This is the single most discriminative non-score feature per DIA-NN.
+        /// </summary>
+        public float MeanFragmentCorrelation;
+
+        /// <summary>
+        /// Minimum pairwise Pearson correlation — the weakest link.
+        /// Identifies the most interfered fragment.
+        /// </summary>
+        public float MinFragmentCorrelation;
 
         // ── Fragment evidence features ──────────────────────────────────────
 
@@ -36,51 +51,34 @@ namespace MassSpectrometry.Dia
 
         // ── Intensity features ──────────────────────────────────────────────
 
-        /// <summary>Log10 of total extracted intensity across all fragments. Higher = more signal.</summary>
+        /// <summary>Log10 of total extracted intensity across all fragments.</summary>
         public float LogTotalIntensity;
 
-        /// <summary>
-        /// Coefficient of variation of fragment intensities (across detected fragments).
-        /// Low CV = fragments have similar amounts of signal = consistent coelution.
-        /// High CV = uneven fragment detection = possible interference.
-        /// </summary>
+        /// <summary>CV of fragment intensities across detected fragments.</summary>
         public float IntensityCV;
 
         // ── XIC shape features ──────────────────────────────────────────────
 
-        /// <summary>
-        /// Median number of XIC data points per detected fragment.
-        /// More points = broader/better chromatographic coverage.
-        /// </summary>
+        /// <summary>Median number of XIC data points per detected fragment.</summary>
         public float MedianXicDepth;
 
-        /// <summary>
-        /// CV of XIC point counts across detected fragments.
-        /// Low = fragments extracted consistently across similar number of scans.
-        /// </summary>
+        /// <summary>CV of XIC point counts across detected fragments.</summary>
         public float XicDepthCV;
 
-        // ── Temporal evidence features ──────────────────────────────────────
+        // ── Temporal evidence ───────────────────────────────────────────────
 
-        /// <summary>
-        /// Number of RT time points that contributed to the temporal score.
-        /// From DiaSearchResult.TimePointsUsed. Higher = more temporal evidence.
-        /// </summary>
+        /// <summary>Number of RT time points that contributed to the temporal score.</summary>
         public int TimePointsUsed;
 
         // ── Retention time features ─────────────────────────────────────────
 
-        /// <summary>
-        /// |Observed apex RT - Library RT| in minutes. Lower = better RT prediction.
-        /// </summary>
+        /// <summary>|Observed apex RT - Library RT| in minutes. Lower = better.</summary>
         public float RtDeviationMinutes;
 
-        /// <summary>
-        /// RT window half-width used for extraction (minutes).
-        /// </summary>
+        /// <summary>RT window half-width used for extraction (minutes).</summary>
         public float RtWindowHalfWidth;
 
-        // ── Metadata (not classifier features — for ground truth / tracing) ─
+        // ── Metadata (not classifier features) ─────────────────────────────
 
         /// <summary>Whether this is a decoy precursor</summary>
         public bool IsDecoy;
@@ -102,8 +100,9 @@ namespace MassSpectrometry.Dia
 
         /// <summary>
         /// Number of features used by the classifier.
+        /// Updated from 12 to 14 with coelution features.
         /// </summary>
-        public const int ClassifierFeatureCount = 12;
+        public const int ClassifierFeatureCount = 14;
 
         /// <summary>
         /// Writes the classifier features into a float span for linear algebra operations.
@@ -118,14 +117,16 @@ namespace MassSpectrometry.Dia
             features[1] = TemporalScore;
             features[2] = RawCosine;
             features[3] = SpectralAngle;
-            features[4] = FragmentDetectionRate;
-            features[5] = LogTotalIntensity;
-            features[6] = IntensityCV;
-            features[7] = MedianXicDepth;
-            features[8] = XicDepthCV;
-            features[9] = (float)TimePointsUsed;
-            features[10] = RtDeviationMinutes;
-            features[11] = RtWindowHalfWidth;
+            features[4] = MeanFragmentCorrelation;
+            features[5] = MinFragmentCorrelation;
+            features[6] = FragmentDetectionRate;
+            features[7] = LogTotalIntensity;
+            features[8] = IntensityCV;
+            features[9] = MedianXicDepth;
+            features[10] = XicDepthCV;
+            features[11] = (float)TimePointsUsed;
+            features[12] = RtDeviationMinutes;
+            features[13] = RtWindowHalfWidth;
         }
 
         /// <summary>Feature names in the same order as WriteTo, for reporting.</summary>
@@ -135,6 +136,8 @@ namespace MassSpectrometry.Dia
             "TemporalScore",
             "RawCosine",
             "SpectralAngle",
+            "MeanFragCorr",
+            "MinFragCorr",
             "FragmentDetectionRate",
             "LogTotalIntensity",
             "IntensityCV",
@@ -147,49 +150,43 @@ namespace MassSpectrometry.Dia
     }
 
     /// <summary>
-    /// Computes feature vectors from DiaSearchResult objects and their XIC data.
-    /// 
-    /// This is the bridge between the extraction/scoring pipeline (Phases 1-9)
-    /// and the classifier (Phase 10). It takes the existing per-precursor results
-    /// and computes additional derived features useful for discriminating
-    /// true from false identifications.
-    /// 
+    /// Computes feature vectors from DiaSearchResult objects.
     /// Thread-safe: uses only local state + ArrayPool.
     /// </summary>
     public static class DiaFeatureExtractor
     {
         /// <summary>
         /// Computes a feature vector from a scored DiaSearchResult.
-        /// 
-        /// Uses the Phase 9 hybrid scoring fields (ApexDotProductScore, TemporalCosineScore)
-        /// plus derived features from the per-fragment intensity and XIC depth arrays.
-        /// 
-        /// When ExtractionResult and PrecursorQueryGroup are available, also computes
-        /// the observed apex RT for RT deviation. Otherwise falls back to window half-width.
+        /// Now uses ObservedApexRt for real RT deviation and
+        /// MeanFragmentCorrelation/MinFragmentCorrelation from the result.
         /// </summary>
         public static DiaFeatureVector ComputeFeatures(
             DiaSearchResult result,
-            int precursorIndex,
-            ExtractionResult extractionResult = null,
-            DiaLibraryQueryGenerator.PrecursorQueryGroup? queryGroup = null)
+            int precursorIndex)
         {
             var fv = new DiaFeatureVector();
 
-            // ── Primary scores (directly from Phase 9 temporal scorer) ──────
+            // ── Primary scores ──────────────────────────────────────────
             fv.ApexScore = SafeScore(result.ApexDotProductScore);
             fv.TemporalScore = SafeScore(result.TemporalCosineScore);
             fv.RawCosine = SafeScore(result.RawCosine);
             fv.SpectralAngle = SafeScore(result.SpectralAngleScore);
 
-            // ── Fragment evidence ───────────────────────────────────────────
+            // ── Coelution features (new in Phase 10 revision) ───────────
+            fv.MeanFragmentCorrelation = SafeScore(result.MeanFragmentCorrelation);
+            fv.MinFragmentCorrelation = float.IsNaN(result.MinFragmentCorrelation)
+                ? -1f  // worst case sentinel for NaN
+                : result.MinFragmentCorrelation;
+
+            // ── Fragment evidence ───────────────────────────────────────
             fv.FragmentDetectionRate = result.FragmentDetectionRate;
             fv.FragmentsDetected = result.FragmentsDetected;
             fv.FragmentsQueried = result.FragmentsQueried;
 
-            // ── Temporal evidence ───────────────────────────────────────────
+            // ── Temporal evidence ───────────────────────────────────────
             fv.TimePointsUsed = result.TimePointsUsed;
 
-            // ── Intensity features from per-fragment summed intensities ─────
+            // ── Intensity features ─────────────────────────────────────
             float totalIntensity = 0f;
             int nDetected = 0;
 
@@ -202,15 +199,12 @@ namespace MassSpectrometry.Dia
 
             fv.LogTotalIntensity = totalIntensity > 0 ? MathF.Log10(totalIntensity) : 0f;
 
-            // Intensity CV across detected fragments
             if (nDetected >= 2)
             {
                 float mean = 0f;
                 for (int f = 0; f < result.FragmentsQueried; f++)
-                {
                     if (result.XicPointCounts[f] > 0)
                         mean += result.ExtractedIntensities[f];
-                }
                 mean /= nDetected;
 
                 float variance = 0f;
@@ -230,7 +224,7 @@ namespace MassSpectrometry.Dia
                 fv.IntensityCV = 1f;
             }
 
-            // ── XIC shape features from per-fragment point counts ───────────
+            // ── XIC shape features ─────────────────────────────────────
             if (nDetected >= 1)
             {
                 int[] counts = ArrayPool<int>.Shared.Rent(nDetected);
@@ -238,24 +232,19 @@ namespace MassSpectrometry.Dia
                 {
                     int idx = 0;
                     for (int f = 0; f < result.FragmentsQueried; f++)
-                    {
                         if (result.XicPointCounts[f] > 0)
                             counts[idx++] = result.XicPointCounts[f];
-                    }
 
-                    // Median XIC depth
                     Array.Sort(counts, 0, nDetected);
                     fv.MedianXicDepth = nDetected % 2 == 1
                         ? counts[nDetected / 2]
                         : (counts[nDetected / 2 - 1] + counts[nDetected / 2]) / 2f;
 
-                    // XIC depth CV
                     if (nDetected >= 2)
                     {
                         float mean = 0f;
                         for (int i = 0; i < nDetected; i++) mean += counts[i];
                         mean /= nDetected;
-
                         float var2 = 0f;
                         for (int i = 0; i < nDetected; i++)
                         {
@@ -266,9 +255,7 @@ namespace MassSpectrometry.Dia
                         fv.XicDepthCV = mean > 0 ? MathF.Sqrt(var2) / mean : 0f;
                     }
                     else
-                    {
                         fv.XicDepthCV = 1f;
-                    }
                 }
                 finally
                 {
@@ -281,67 +268,26 @@ namespace MassSpectrometry.Dia
                 fv.XicDepthCV = 1f;
             }
 
-            // ── Retention time features ─────────────────────────────────────
+            // ── Retention time features (now using ObservedApexRt) ──────
             fv.RtWindowHalfWidth = (result.RtWindowEnd - result.RtWindowStart) / 2f;
 
-            if (result.LibraryRetentionTime.HasValue &&
-                extractionResult != null && queryGroup.HasValue &&
-                result.ApexTimeIndex >= 0)
+            if (result.LibraryRetentionTime.HasValue && !float.IsNaN(result.ObservedApexRt))
             {
-                float observedApexRt = ComputeApexRt(
-                    extractionResult, queryGroup.Value, result.ApexTimeIndex);
-                if (!float.IsNaN(observedApexRt))
-                {
-                    fv.RtDeviationMinutes = MathF.Abs(
-                        observedApexRt - (float)result.LibraryRetentionTime.Value);
-                }
-                else
-                {
-                    fv.RtDeviationMinutes = fv.RtWindowHalfWidth;
-                }
+                fv.RtDeviationMinutes = MathF.Abs(
+                    result.ObservedApexRt - (float)result.LibraryRetentionTime.Value);
             }
             else
             {
-                fv.RtDeviationMinutes = fv.RtWindowHalfWidth;
+                fv.RtDeviationMinutes = fv.RtWindowHalfWidth; // fallback
             }
 
-            // ── Metadata ────────────────────────────────────────────────────
+            // ── Metadata ────────────────────────────────────────────────
             fv.ChargeState = result.ChargeState;
             fv.PrecursorMz = (float)result.PrecursorMz;
             fv.IsDecoy = result.IsDecoy;
             fv.PrecursorIndex = precursorIndex;
 
             return fv;
-        }
-
-        /// <summary>
-        /// Looks up the observed RT at the apex time index from the XIC buffers.
-        /// Uses the reference fragment (most data points) same as DiaTemporalScorer.
-        /// </summary>
-        private static float ComputeApexRt(
-            ExtractionResult extractionResult,
-            DiaLibraryQueryGenerator.PrecursorQueryGroup queryGroup,
-            int apexTimeIndex)
-        {
-            int refFragIdx = -1;
-            int maxPoints = 0;
-            for (int f = 0; f < queryGroup.QueryCount; f++)
-            {
-                int qi = queryGroup.QueryOffset + f;
-                int pts = extractionResult.Results[qi].DataPointCount;
-                if (pts > maxPoints)
-                {
-                    maxPoints = pts;
-                    refFragIdx = f;
-                }
-            }
-
-            if (refFragIdx < 0 || maxPoints == 0 || apexTimeIndex < 0 || apexTimeIndex >= maxPoints)
-                return float.NaN;
-
-            int refQi = queryGroup.QueryOffset + refFragIdx;
-            int rtOffset = extractionResult.Results[refQi].RtBufferOffset;
-            return extractionResult.RtBuffer[rtOffset + apexTimeIndex];
         }
 
         /// <summary>Replaces NaN scores with 0 for classifier safety.</summary>
