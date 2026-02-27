@@ -312,7 +312,7 @@ public static class PsmTsvQuantAdapter
 
             allPeptideRecords.AddRange(peptideRecords);
 
-            var psmRecords = LightWeightSpectralMatchReader.ReadTsv(peptidesFilePath, out _, GetPepQValueFilter(qValueCutoff))
+            var psmRecords = LightWeightSpectralMatchReader.ReadTsv(psmtsvFilePath, out _, GetPepQValueFilter(qValueCutoff))
                 .Where(r => !r.IsDecoy
                             && !string.IsNullOrEmpty(r.BaseSequence)
                             && !string.IsNullOrEmpty(r.Accession)
