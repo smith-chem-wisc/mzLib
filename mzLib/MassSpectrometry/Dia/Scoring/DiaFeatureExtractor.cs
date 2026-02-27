@@ -17,7 +17,12 @@ namespace MassSpectrometry.Dia
     ///   - REMOVED RawCosine (r=1.000 with TemporalScore — identical, caused LDA degeneracy)
     ///   - REMOVED RtWindowHalfWidth (constant across all precursors — zero variance, zero info)
     ///   - ADDED RtDeviationSquared: (ΔRT)² quadratic penalty for RT outliers (DIA-NN approach)
-    /// Feature count: 14 → 12 → 13 (after adding RtDeviationSquared)
+    /// Phase 12 changes:
+    ///   - ADDED PeakApexScore: cosine at peak-detected apex (more robust than max-signal apex)
+    ///   - ADDED PeakMeanFragCorr: fragment correlation within peak boundaries only
+    ///   - ADDED PeakWidth: chromatographic peak width in minutes
+    ///   - ADDED PeakSymmetry: peak shape symmetry ratio
+    /// Feature count: 14 → 12 → 13 → 17 (after Phase 12 peak group features)
     /// </summary>
     public struct DiaFeatureVector
     {
@@ -90,6 +95,40 @@ namespace MassSpectrometry.Dia
 
         // RtWindowHalfWidth REMOVED in Phase 10.5a (constant, zero information)
 
+        // ── Peak group features (Phase 12) ──────────────────────────────
+
+        /// <summary>
+        /// Cosine similarity at the peak-group-detected apex [0,1].
+        /// Unlike ApexScore (max-signal scan, which can be an interference spike),
+        /// this uses the apex from proper peak boundary detection.
+        /// Falls back to ApexScore if no peak was detected.
+        /// </summary>
+        public float PeakApexScore;
+
+        /// <summary>
+        /// Mean pairwise fragment correlation computed ONLY within the detected
+        /// peak boundaries. By restricting to the actual elution peak, interference
+        /// from flanking co-eluters is excluded, dramatically improving discrimination.
+        /// Falls back to MeanFragmentCorrelation if no peak was detected.
+        /// </summary>
+        public float PeakMeanFragCorr;
+
+        /// <summary>
+        /// Chromatographic peak width in minutes. Narrower peaks indicate sharper,
+        /// more confident detections. Very wide "peaks" may indicate interference
+        /// or low-abundance signal that doesn't form a discrete peak.
+        /// 0 if no peak was detected.
+        /// </summary>
+        public float PeakWidth;
+
+        /// <summary>
+        /// Peak shape symmetry ratio: (apex - left) / (right - left).
+        /// 0.5 = perfectly symmetric. Real chromatographic peaks are typically 0.3–0.7.
+        /// Values near 0 or 1 indicate truncated peaks (edge of RT window).
+        /// 0.5 if no peak was detected.
+        /// </summary>
+        public float PeakSymmetry;
+
         // ── Metadata (not classifier features) ─────────────────────────────
 
         /// <summary>Whether this is a decoy precursor</summary>
@@ -112,20 +151,21 @@ namespace MassSpectrometry.Dia
 
         /// <summary>
         /// Number of features used by the classifier.
-        /// Phase 10.5: 14 → 13 (removed RawCosine + RtWindowHalfWidth, added RtDeviationSquared).
+        /// Phase 12: 13 → 17 (added PeakApexScore, PeakMeanFragCorr, PeakWidth, PeakSymmetry).
         /// </summary>
-        public const int ClassifierFeatureCount = 13;
+        public const int ClassifierFeatureCount = 17;
 
         /// <summary>
         /// Writes the classifier features into a float span for linear algebra operations.
         /// Order must be consistent with weight vectors.
         /// 
-        /// Phase 10.5 order (13 features):
+        /// Phase 12 order (17 features):
         ///   [0] ApexScore, [1] TemporalScore, [2] SpectralAngle,
         ///   [3] MeanFragCorr, [4] MinFragCorr, [5] FragDetRate,
         ///   [6] LogTotalIntensity, [7] IntensityCV, [8] MedianXicDepth,
         ///   [9] XicDepthCV, [10] TimePointsUsed, [11] RtDeviationMinutes,
-        ///   [12] RtDeviationSquared
+        ///   [12] RtDeviationSquared, [13] PeakApexScore, [14] PeakMeanFragCorr,
+        ///   [15] PeakWidth, [16] PeakSymmetry
         /// </summary>
         public readonly void WriteTo(Span<float> features)
         {
@@ -145,6 +185,10 @@ namespace MassSpectrometry.Dia
             features[10] = (float)TimePointsUsed;
             features[11] = RtDeviationMinutes;
             features[12] = RtDeviationSquared;
+            features[13] = PeakApexScore;
+            features[14] = PeakMeanFragCorr;
+            features[15] = PeakWidth;
+            features[16] = PeakSymmetry;
         }
 
         /// <summary>Feature names in the same order as WriteTo, for reporting.</summary>
@@ -163,6 +207,10 @@ namespace MassSpectrometry.Dia
             "TimePointsUsed",
             "RtDeviationMinutes",
             "RtDeviationSquared",
+            "PeakApexScore",
+            "PeakMeanFragCorr",
+            "PeakWidth",
+            "PeakSymmetry",
         };
     }
 
@@ -308,6 +356,25 @@ namespace MassSpectrometry.Dia
                 // No library RT or no observed apex — use maximum penalty
                 fv.RtDeviationMinutes = MaxRtDeviationMinutes;
                 fv.RtDeviationSquared = MaxRtDeviationMinutes * MaxRtDeviationMinutes;
+            }
+
+            // ── Peak group features (Phase 12) ──────────────────────────
+            if (result.DetectedPeakGroup.HasValue && result.DetectedPeakGroup.Value.IsValid)
+            {
+                var pg = result.DetectedPeakGroup.Value;
+
+                fv.PeakApexScore = SafeScore(result.PeakApexScore);
+                fv.PeakMeanFragCorr = SafeScore(result.PeakMeanFragCorrelation);
+                fv.PeakWidth = pg.PeakWidthMinutes;
+                fv.PeakSymmetry = pg.SymmetryRatio;
+            }
+            else
+            {
+                // Fall back to full-window scores when no peak was detected
+                fv.PeakApexScore = SafeScore(result.ApexDotProductScore);
+                fv.PeakMeanFragCorr = SafeScore(result.MeanFragmentCorrelation);
+                fv.PeakWidth = 0f;
+                fv.PeakSymmetry = 0.5f;
             }
 
             // ── Metadata ────────────────────────────────────────────────

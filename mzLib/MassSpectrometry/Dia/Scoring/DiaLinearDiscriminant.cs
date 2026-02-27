@@ -113,10 +113,11 @@ namespace MassSpectrometry.Dia
         }
 
         /// <summary>
-        /// Hand-tuned weights — updated for 13-feature layout (Phase 10.5).
+        /// Hand-tuned weights — updated for 17-feature layout (Phase 12).
         /// Feature order: Apex, Temporal, SpectralAngle,
         ///   MeanFragCorr, MinFragCorr, FragDetRate, LogIntensity, IntCV,
-        ///   MedianXicDepth, XicDepthCV, TimePointsUsed, RtDev, RtDevSq
+        ///   MedianXicDepth, XicDepthCV, TimePointsUsed, RtDev, RtDevSq,
+        ///   PeakApexScore, PeakMeanFragCorr, PeakWidth, PeakSymmetry
         /// </summary>
         public static DiaLinearDiscriminant CreateFixedLinear()
         {
@@ -134,6 +135,10 @@ namespace MassSpectrometry.Dia
             w[10] = 0.02f;  // TimePointsUsed
             w[11] = -0.05f; // RtDeviationMinutes (lower = better)
             w[12] = -0.02f; // RtDeviationSquared (quadratic penalty)
+            w[13] = 0.30f;  // PeakApexScore — peak-detected apex
+            w[14] = 0.25f;  // PeakMeanFragCorr — peak-restricted correlation
+            w[15] = 0.03f;  // PeakWidth — reasonable width is good
+            w[16] = 0.0f;   // PeakSymmetry — neutral initially
             return new DiaLinearDiscriminant(ClassifierType.FixedLinearCombination, w, 0f);
         }
 

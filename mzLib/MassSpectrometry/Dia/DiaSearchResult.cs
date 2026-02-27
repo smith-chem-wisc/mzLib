@@ -181,6 +181,47 @@ namespace MassSpectrometry.Dia
         public float MinFragmentCorrelation { get; set; }
 
         #endregion
+
+        #region Peak Group Detection (Phase 12)
+
+        /// <summary>
+        /// Detected chromatographic peak group for this precursor.
+        /// Contains refined apex, boundaries, and shape features.
+        /// Null if peak group detection was not run.
+        /// </summary>
+        public PeakGroup? DetectedPeakGroup { get; set; }
+
+        /// <summary>
+        /// Cosine similarity at the peak-group-refined apex.
+        /// Unlike ApexDotProductScore (which uses max-signal scan from the full RT window),
+        /// this score uses the apex identified by peak boundary detection, which is more
+        /// robust to interference spikes.
+        /// NaN if peak group detection was not run or no valid peak found.
+        /// </summary>
+        public float PeakApexScore { get; set; }
+
+        /// <summary>
+        /// Temporal cosine computed only within the detected peak boundaries.
+        /// Restricting to the actual elution peak dramatically reduces interference
+        /// from flanking co-eluting species.
+        /// NaN if peak group detection was not run or no valid peak found.
+        /// </summary>
+        public float PeakTemporalScore { get; set; }
+
+        /// <summary>
+        /// Mean pairwise Pearson correlation computed only within peak boundaries.
+        /// NaN if peak group detection was not run or no valid peak found.
+        /// </summary>
+        public float PeakMeanFragCorrelation { get; set; }
+
+        /// <summary>
+        /// Minimum pairwise Pearson correlation computed only within peak boundaries.
+        /// NaN if peak group detection was not run or no valid peak found.
+        /// </summary>
+        public float PeakMinFragCorrelation { get; set; }
+
+        #endregion
+
         #region Classifier & FDR (Phase 11)
 
         /// <summary>
@@ -232,6 +273,10 @@ namespace MassSpectrometry.Dia
             ObservedApexRt = float.NaN;
             MeanFragmentCorrelation = float.NaN;
             MinFragmentCorrelation = float.NaN;
+            PeakApexScore = float.NaN;
+            PeakTemporalScore = float.NaN;
+            PeakMeanFragCorrelation = float.NaN;
+            PeakMinFragCorrelation = float.NaN;
         }
 
         /// <summary>Whether this result meets the minimum fragment detection threshold.</summary>
