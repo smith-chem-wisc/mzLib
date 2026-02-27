@@ -7,6 +7,7 @@ using System.IO;
 using System;
 using System.ComponentModel;
 using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
+using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
 
 namespace Test.KoinaTests
 {
@@ -500,6 +501,101 @@ namespace Test.KoinaTests
             model.Dispose();
             Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.RunInferenceAsync(),
                 "Running inference on a disposed model should throw ObjectDisposedException");
+        }
+
+        /// <summary>
+        /// Reads the Koina input TSV at <c>F:\DiaBenchmark\PXD005573\DiannOut\koina_input.tsv</c>
+        /// (columns: modified_sequence, collision_energy, precursor_charge), obtains iRT predictions
+        /// via Prosit 2019 iRT, then submits the full table for HCD fragment intensity prediction and
+        /// writes a single spectral library to the same directory as the input file.
+        ///
+        /// The TSV uses UNIMOD bracket notation (e.g. C[UNIMOD:4], M[UNIMOD:35]); this test converts
+        /// those tokens to mzLib format before submission and converts back for the RT lookup.
+        /// </summary>
+        [Test]
+        public static async Task TestBuildSpectralLibraryFromKoinaInputTsv()
+        {
+            const string tsvPath = @"F:\DiaBenchmark\PXD005573\DiannOut\koina_decoys.tsv";
+
+            if (!File.Exists(tsvPath))
+                Assert.Ignore("Input TSV not found at the specified path. Update tsvPath to run this test.");
+
+            string outDir = Path.GetDirectoryName(tsvPath)!;
+            string mspPath = Path.Combine(outDir, Path.GetFileNameWithoutExtension(tsvPath) + ".msp");
+
+            // 1. Parse the TSV -------------------------------------------------------
+            var lines = File.ReadAllLines(tsvPath);
+            Assert.That(lines.Length, Is.GreaterThan(1), "TSV has no data rows.");
+
+            var header = lines[0].Split('\t');
+            int seqIdx = Array.IndexOf(header, "modified_sequence");
+            int ceIdx = Array.IndexOf(header, "collision_energy");
+            int chargeIdx = Array.IndexOf(header, "precursor_charge");
+
+            Assert.That(seqIdx >= 0, "Column 'modified_sequence' not found.");
+            Assert.That(ceIdx >= 0, "Column 'collision_energy' not found.");
+            Assert.That(chargeIdx >= 0, "Column 'precursor_charge' not found.");
+
+            // The TSV uses UNIMOD bracket notation written by KoinaTableGenerator.
+            // mzLib Prosit models require the mzLib modification annotation; convert here.
+            static string UnimodToMzLib(string seq) => seq
+                .Replace("[UNIMOD:4]", "[Common Fixed:Carbamidomethyl on C]")
+                .Replace("[UNIMOD:35]", "[Common Variable:Oxidation on M]");
+
+            var mzLibSequences = new List<string>();
+            var charges = new List<int>();
+            var energies = new List<int>();
+
+            for (int i = 1; i < lines.Length; i++)
+            {
+                if (string.IsNullOrWhiteSpace(lines[i])) continue;
+                var fields = lines[i].Split('\t');
+                if (fields.Length <= Math.Max(Math.Max(seqIdx, ceIdx), chargeIdx)) continue;
+
+                if (!double.TryParse(fields[ceIdx].Trim(), out double ce)) continue;
+                if (!int.TryParse(fields[chargeIdx].Trim(), out int charge)) continue;
+
+                mzLibSequences.Add(UnimodToMzLib(fields[seqIdx].Trim()));
+                charges.Add(charge);
+                energies.Add((int)ce);
+            }
+
+            Assert.That(mzLibSequences.Count, Is.GreaterThan(0), "No valid rows parsed from TSV.");
+
+            // 2. Retention time predictions ------------------------------------------
+            // Submit unique sequences to avoid redundant API calls.
+            var uniqueSeqs = mzLibSequences.Distinct().ToList();
+            var rtModel = new Prosit2019iRT(uniqueSeqs, out _);
+            await rtModel.RunInferenceAsync();
+
+            // The RT model converts mzLib → UNIMOD internally; predictions are keyed by UNIMOD.
+            var unimodToRt = new Dictionary<string, double?>(rtModel.Predictions.Count);
+            for (int i = 0; i < rtModel.Predictions.Count; i++)
+                unimodToRt[rtModel.Predictions[i].FullSequence] = rtModel.Predictions[i].PredictedRetentionTime;
+
+            // Mirror the same conversion to look up RT for each row's mzLib sequence.
+            static string MzLibToUnimod(string seq) => seq
+                .Replace("[Common Variable:Oxidation on M]", "[UNIMOD:35]")
+                .Replace("[Common Fixed:Carbamidomethyl on C]", "[UNIMOD:4]");
+
+            var retentionTimes = mzLibSequences
+                .Select(s => unimodToRt.TryGetValue(MzLibToUnimod(s), out var rt) ? rt : null)
+                .ToList();
+
+            // 3. HCD fragment intensity predictions + write library ------------------
+            var hcdModel = new Prosit2020IntensityHCD(
+                mzLibSequences, charges, energies, retentionTimes, out _, mspPath);
+            await hcdModel.RunInferenceAsync();
+
+            // 4. Assertions ----------------------------------------------------------
+            Assert.That(File.Exists(mspPath),
+                $"Spectral library was not written to {mspPath}.");
+            Assert.That(new FileInfo(mspPath).Length, Is.GreaterThan(0),
+                "Spectral library file is empty.");
+            Assert.That(hcdModel.PredictedSpectra.Count, Is.GreaterThan(0),
+                "No spectra were predicted.");
+            Assert.That(hcdModel.PredictedSpectra.Count, Is.LessThanOrEqualTo(mzLibSequences.Count),
+                "Cannot have more predicted spectra than input rows.");
         }
     }
 }
