@@ -34,6 +34,14 @@ namespace MassSpectrometry.Dia
         public readonly bool IsDecoy;
 
         /// <summary>
+        /// Indexed retention time (iRT) value from the library, if available.
+        /// Used by the iRT calibration system (IrtLibraryIndex) to build
+        /// calibration models that map iRT → experimental RT.
+        /// Null if the library entry has no iRT annotation.
+        /// </summary>
+        public readonly double? IrtValue;
+
+        /// <summary>
         /// Fragment ion m/z values from the library spectrum.
         /// Length determines the number of queries generated for this precursor.
         /// </summary>
@@ -44,14 +52,6 @@ namespace MassSpectrometry.Dia
         /// Used downstream for scoring (library vs extracted intensity comparison).
         /// </summary>
         public readonly float[] FragmentIntensities;
-
-        /// <summary>
-        /// Indexed retention time (iRT) value from the library, used for RT calibration.
-        /// Null if the library does not provide iRT values. When present, this is the
-        /// normalized/indexed RT (e.g., Biognosys iRT scale) as opposed to RetentionTime
-        /// which is in run-specific minutes. The calibration system maps iRT → run RT.
-        /// </summary>
-        public readonly double? IrtValue;
 
         public LibraryPrecursorInput(
             string sequence,
@@ -68,9 +68,9 @@ namespace MassSpectrometry.Dia
             ChargeState = chargeState;
             RetentionTime = retentionTime;
             IsDecoy = isDecoy;
+            IrtValue = irtValue;
             FragmentMzs = fragmentMzs ?? throw new ArgumentNullException(nameof(fragmentMzs));
             FragmentIntensities = fragmentIntensities ?? throw new ArgumentNullException(nameof(fragmentIntensities));
-            IrtValue = irtValue;
 
             if (fragmentMzs.Length != fragmentIntensities.Length)
                 throw new ArgumentException(
@@ -250,51 +250,44 @@ namespace MassSpectrometry.Dia
         }
 
         /// <summary>
-        /// Generates FragmentQuery[] using an iRT calibration model to compute per-precursor
-        /// RT windows instead of a fixed ±tolerance.
+        /// Generates FragmentQuery[] using a calibrated RT model instead of a fixed RT tolerance.
         /// 
-        /// For each precursor with an IrtValue:
-        ///   1. Converts iRT → predicted run RT via calibration.Predict(iRT)
-        ///   2. Computes the RT window as predicted ± (σ × CalibratedWindowSigmaMultiplier)
-        ///      where σ = calibration.SigmaMinutes (residual standard deviation of the fit)
+        /// For each precursor with an iRT value, the calibration model predicts the
+        /// experimental RT and computes a per-precursor window based on the model's
+        /// residual sigma: predicted_RT ± (sigma × CalibratedWindowSigmaMultiplier).
         /// 
-        /// Precursors without IrtValue fall back to RetentionTime ± RtToleranceMinutes,
-        /// same as the uncalibrated Generate() method.
-        /// 
-        /// This typically narrows RT windows from ±5 min to ±0.9 min (a ~5–20× reduction),
-        /// dramatically improving both extraction speed and scoring quality.
+        /// Precursors without iRT values fall back to the fixed RtToleranceMinutes window.
+        /// This two-pass approach was validated to narrow windows by ~23× (from ±20 min
+        /// to ±0.9 min) in synthetic benchmarks with iRT-based libraries.
         /// </summary>
-        /// <param name="precursors">Library precursor inputs (must have IrtValue set for calibration to apply).</param>
-        /// <param name="scanIndex">The DIA scan index for window lookups.</param>
-        /// <param name="parameters">Search parameters. Uses PpmTolerance and RtToleranceMinutes (as fallback).</param>
-        /// <param name="calibration">
-        /// The fitted iRT → RT calibration model. Provides Predict(irt) and SigmaMinutes.
-        /// If null, behaves identically to Generate().
+        /// <param name="precursors">Library precursor inputs (must have IrtValue for calibration benefit).</param>
+        /// <param name="scanIndex">The DIA scan index.</param>
+        /// <param name="parameters">Search parameters (CalibratedWindowSigmaMultiplier controls window width).</param>
+        /// <param name="calibrationModel">
+        /// Fitted RT calibration model (iRT → experimental RT). Obtained from RtCalibrationFitter.
         /// </param>
+        /// <returns>GenerationResult with per-precursor calibrated RT windows.</returns>
         public static GenerationResult GenerateCalibrated(
             IList<LibraryPrecursorInput> precursors,
             DiaScanIndex scanIndex,
             DiaSearchParameters parameters,
-            RtCalibrationModel calibration)
+            RtCalibrationModel calibrationModel)
         {
             if (precursors == null) throw new ArgumentNullException(nameof(precursors));
             if (scanIndex == null) throw new ArgumentNullException(nameof(scanIndex));
             if (parameters == null) throw new ArgumentNullException(nameof(parameters));
-
-            // If no calibration model, fall back to fixed-window generation
-            if (calibration == null)
-                return Generate(precursors, scanIndex, parameters);
+            if (calibrationModel == null) throw new ArgumentNullException(nameof(calibrationModel));
 
             float ppmTolerance = parameters.PpmTolerance;
-            float fixedRtTolerance = parameters.RtToleranceMinutes;
+            double sigmaMultiplier = parameters.CalibratedWindowSigmaMultiplier;
+            float fallbackRtTolerance = parameters.RtToleranceMinutes;
+
+            // Calibrated window half-width based on model residual sigma (in minutes)
+            float calibratedHalfWindow = (float)calibrationModel.GetMinutesWindowHalfWidth(sigmaMultiplier);
+
+            // Fallback RT bounds for precursors with no RT info at all
             float globalRtMin = scanIndex.GetGlobalRtMin();
             float globalRtMax = scanIndex.GetGlobalRtMax();
-
-            // Calibrated window half-width: σ × multiplier (default 3σ ≈ 99.7% coverage)
-            double sigmaMultiplier = parameters.CalibratedWindowSigmaMultiplier > 0
-                ? parameters.CalibratedWindowSigmaMultiplier
-                : 3.0;
-            float calibratedHalfWidth = (float)calibration.GetMinutesWindowHalfWidth(sigmaMultiplier);
 
             // First pass: count
             int totalQueryCount = 0;
@@ -325,24 +318,22 @@ namespace MassSpectrometry.Dia
                     continue;
 
                 float rtMin, rtMax;
-
                 if (p.IrtValue.HasValue)
                 {
-                    // Use calibration model: iRT → predicted RT, then ± calibrated half-width
-                    float predictedRt = (float)calibration.ToMinutes(p.IrtValue.Value);
-                    rtMin = predictedRt - calibratedHalfWidth;
-                    rtMax = predictedRt + calibratedHalfWidth;
+                    // Use calibration model to predict experimental RT from iRT
+                    float predictedRt = (float)calibrationModel.ToMinutes(p.IrtValue.Value);
+                    rtMin = predictedRt - calibratedHalfWindow;
+                    rtMax = predictedRt + calibratedHalfWindow;
                 }
                 else if (p.RetentionTime.HasValue)
                 {
-                    // Fallback: use raw RT with fixed tolerance
+                    // Fallback: use the library RT with fixed tolerance
                     float rt = (float)p.RetentionTime.Value;
-                    rtMin = rt - fixedRtTolerance;
-                    rtMax = rt + fixedRtTolerance;
+                    rtMin = rt - fallbackRtTolerance;
+                    rtMax = rt + fallbackRtTolerance;
                 }
                 else
                 {
-                    // No RT info at all: search entire run
                     rtMin = globalRtMin;
                     rtMax = globalRtMax;
                 }
@@ -376,11 +367,10 @@ namespace MassSpectrometry.Dia
         }
 
         /// <summary>
-        /// Assembles DiaSearchResult objects from extraction results using summed TotalIntensity.
-        /// This is the original scoring mode — summing all XIC data points per fragment.
+        /// Original result assembly using summed intensities and IScorer interface.
+        /// Retained for backward compatibility and benchmarking.
         /// 
-        /// For better scoring accuracy, prefer the overload that accepts intensityBuffer
-        /// to use apex (max single-scan) intensity instead.
+        /// Uses TotalIntensity from FragmentResult (collapses all XIC points to one value per fragment).
         /// </summary>
         public static List<DiaSearchResult> AssembleResults(
             IList<LibraryPrecursorInput> precursors,
@@ -390,62 +380,7 @@ namespace MassSpectrometry.Dia
             IScorer dotProductScorer = null,
             IScorer spectralAngleScorer = null)
         {
-            // Delegate to the apex-capable overload with null intensityBuffer,
-            // which falls back to TotalIntensity scoring.
-            return AssembleResults(
-                precursors, generationResult, extractionResults,
-                parameters, intensityBuffer: null,
-                dotProductScorer, spectralAngleScorer);
-        }
-
-        /// <summary>
-        /// Assembles DiaSearchResult objects using consensus-apex intensity scoring.
-        /// 
-        /// When rtBuffer and intensityBuffer are both provided, scoring uses the
-        /// "consensus apex" approach:
-        ///   1. For each precursor, build a per-RT intensity profile by summing all
-        ///      fragment intensities at each unique RT point
-        ///   2. Find the RT with the highest total fragment intensity (the consensus apex)
-        ///   3. Extract each fragment's intensity at that specific RT
-        /// 
-        /// This is superior to per-fragment-max-apex because:
-        ///   - All fragments are sampled from the same scan (coelution point)
-        ///   - The relative intensities match what a single-scan library spectrum represents
-        ///   - Interference in one fragment doesn't pull the apex to the wrong scan
-        /// 
-        /// When buffers are null, falls back to TotalIntensity (summed) scoring.
-        /// </summary>
-        /// <param name="precursors">Original library precursor inputs.</param>
-        /// <param name="generationResult">Query generation metadata (from Generate()).</param>
-        /// <param name="extractionResults">Per-query extraction results.</param>
-        /// <param name="parameters">Search parameters.</param>
-        /// <param name="intensityBuffer">
-        /// XIC intensity buffer from ExtractionResult.IntensityBuffer. Pass null for summed scoring.
-        /// </param>
-        /// <param name="dotProductScorer">Optional normalized dot product scorer.</param>
-        /// <param name="spectralAngleScorer">Optional spectral angle scorer.</param>
-        /// <param name="rtBuffer">
-        /// XIC RT buffer from ExtractionResult.RtBuffer. Required for consensus-apex scoring.
-        /// If null but intensityBuffer is provided, falls back to per-fragment max apex.
-        /// </param>
-        public static List<DiaSearchResult> AssembleResults(
-            IList<LibraryPrecursorInput> precursors,
-            GenerationResult generationResult,
-            FragmentResult[] extractionResults,
-            DiaSearchParameters parameters,
-            float[] intensityBuffer,
-            IScorer dotProductScorer = null,
-            IScorer spectralAngleScorer = null,
-            float[] rtBuffer = null)
-        {
-            bool useConsensusApex = intensityBuffer != null && rtBuffer != null;
-            bool usePerFragApex = intensityBuffer != null && rtBuffer == null;
             var results = new List<DiaSearchResult>(generationResult.PrecursorGroups.Length);
-
-            // Reusable lookup structures for consensus apex (avoid per-precursor allocation)
-            // Key: RT value (float bits as int for exact matching), Value: summed intensity
-            var rtToSumIntensity = new Dictionary<int, float>();
-            var rtToFragIntensities = new Dictionary<int, float[]>();
 
             for (int g = 0; g < generationResult.PrecursorGroups.Length; g++)
             {
@@ -463,114 +398,139 @@ namespace MassSpectrometry.Dia
                     rtWindowStart: group.RtMin,
                     rtWindowEnd: group.RtMax
                 );
+                result.ScoringStrategyUsed = ScoringStrategy.Summed;
 
                 int detected = 0;
-
-                if (useConsensusApex)
+                for (int f = 0; f < group.QueryCount; f++)
                 {
-                    // ── Consensus apex scoring ──────────────────────────────
-                    // Pass 1: Build RT → per-fragment intensity map
-                    rtToSumIntensity.Clear();
-                    rtToFragIntensities.Clear();
-
-                    for (int f = 0; f < group.QueryCount; f++)
-                    {
-                        int qi = group.QueryOffset + f;
-                        var fr = extractionResults[qi];
-                        if (fr.DataPointCount == 0) continue;
-
-                        for (int p = 0; p < fr.DataPointCount; p++)
-                        {
-                            float rt = rtBuffer[fr.RtBufferOffset + p];
-                            float intensity = intensityBuffer[fr.IntensityBufferOffset + p];
-                            int rtKey = BitConverter.SingleToInt32Bits(rt);
-
-                            if (!rtToSumIntensity.ContainsKey(rtKey))
-                            {
-                                rtToSumIntensity[rtKey] = 0f;
-                                rtToFragIntensities[rtKey] = new float[group.QueryCount];
-                            }
-
-                            rtToSumIntensity[rtKey] += intensity;
-                            rtToFragIntensities[rtKey][f] = intensity;
-                        }
-                    }
-
-                    // Pass 2: Find the RT with the highest sum (consensus apex)
-                    int bestRtKey = 0;
-                    float bestSum = -1f;
-                    foreach (var kvp in rtToSumIntensity)
-                    {
-                        if (kvp.Value > bestSum)
-                        {
-                            bestSum = kvp.Value;
-                            bestRtKey = kvp.Key;
-                        }
-                    }
-
-                    // Pass 3: Extract each fragment's intensity at the consensus apex RT
-                    if (bestSum > 0f && rtToFragIntensities.TryGetValue(bestRtKey, out var apexIntensities))
-                    {
-                        for (int f = 0; f < group.QueryCount; f++)
-                        {
-                            result.ExtractedIntensities[f] = apexIntensities[f];
-                        }
-                    }
-
-                    // Count detected fragments and XIC point counts
-                    for (int f = 0; f < group.QueryCount; f++)
-                    {
-                        int qi = group.QueryOffset + f;
-                        var fr = extractionResults[qi];
-                        result.XicPointCounts[f] = fr.DataPointCount;
-                        if (fr.DataPointCount > 0)
-                            detected++;
-                    }
+                    int qi = group.QueryOffset + f;
+                    var fr = extractionResults[qi];
+                    result.ExtractedIntensities[f] = fr.TotalIntensity;
+                    result.XicPointCounts[f] = fr.DataPointCount;
+                    if (fr.DataPointCount > 0)
+                        detected++;
                 }
-                else
-                {
-                    // ── Per-fragment max apex or summed scoring ──────────────
-                    for (int f = 0; f < group.QueryCount; f++)
-                    {
-                        int qi = group.QueryOffset + f;
-                        var fr = extractionResults[qi];
-
-                        if (usePerFragApex && fr.DataPointCount > 0)
-                        {
-                            float maxIntensity = 0f;
-                            int offset = fr.IntensityBufferOffset;
-                            for (int p = 0; p < fr.DataPointCount; p++)
-                            {
-                                float val = intensityBuffer[offset + p];
-                                if (val > maxIntensity)
-                                    maxIntensity = val;
-                            }
-                            result.ExtractedIntensities[f] = maxIntensity;
-                        }
-                        else
-                        {
-                            result.ExtractedIntensities[f] = fr.TotalIntensity;
-                        }
-
-                        result.XicPointCounts[f] = fr.DataPointCount;
-                        if (fr.DataPointCount > 0)
-                            detected++;
-                    }
-                }
-
                 result.FragmentsDetected = detected;
 
                 if (!result.MeetsMinFragments(parameters.MinFragmentsRequired))
                     continue;
 
                 if (dotProductScorer != null)
+                {
                     result.DotProductScore = dotProductScorer.Score(
                         input.FragmentIntensities, result.ExtractedIntensities);
+                    result.RawCosine = result.DotProductScore;
+                }
 
                 if (spectralAngleScorer != null)
                     result.SpectralAngleScore = spectralAngleScorer.Score(
                         input.FragmentIntensities, result.ExtractedIntensities);
 
+                if (!float.IsNaN(result.DotProductScore) && result.DotProductScore < parameters.MinScoreThreshold)
+                    continue;
+
+                results.Add(result);
+            }
+
+            return results;
+        }
+
+        /// <summary>
+        /// Temporal-scoring result assembly using RT-resolved XIC data.
+        /// 
+        /// This is the new scoring pipeline that replaces the summed-intensity approach.
+        /// Instead of collapsing each fragment's XIC to a single summed value, it passes
+        /// the full RT × Intensity data to DiaTemporalScorer which computes time-resolved
+        /// cosine similarity.
+        /// 
+        /// The ExtractionResult contains per-fragment XIC buffers (RT[] and Intensity[])
+        /// that are accessed via FragmentResult offsets. The temporal scorer aligns these
+        /// XICs to a common time grid and applies the configured scoring strategy.
+        /// 
+        /// For backward compatibility, the summed ExtractedIntensities[] and XicPointCounts[]
+        /// are still populated on each DiaSearchResult.
+        /// </summary>
+        /// <param name="precursors">The library precursor inputs (same as used for query generation).</param>
+        /// <param name="generationResult">Output from Generate() — links precursors to query indices.</param>
+        /// <param name="extractionResult">Full extraction output including XIC buffers.</param>
+        /// <param name="parameters">Search parameters including scoring strategy.</param>
+        /// <returns>Scored DiaSearchResult list, filtered by minimum fragments and score threshold.</returns>
+        public static List<DiaSearchResult> AssembleResultsWithTemporalScoring(
+            IList<LibraryPrecursorInput> precursors,
+            GenerationResult generationResult,
+            ExtractionResult extractionResult,
+            DiaSearchParameters parameters)
+        {
+            if (precursors == null) throw new ArgumentNullException(nameof(precursors));
+            if (extractionResult == null) throw new ArgumentNullException(nameof(extractionResult));
+            if (parameters == null) throw new ArgumentNullException(nameof(parameters));
+
+            var scorer = new DiaTemporalScorer(parameters.ScoringStrategy, parameters.NonlinearPower);
+            var results = new List<DiaSearchResult>(generationResult.PrecursorGroups.Length);
+
+            ReadOnlySpan<float> rtBuffer = extractionResult.RtBuffer.AsSpan();
+            ReadOnlySpan<float> intensityBuffer = extractionResult.IntensityBuffer.AsSpan();
+
+            for (int g = 0; g < generationResult.PrecursorGroups.Length; g++)
+            {
+                var group = generationResult.PrecursorGroups[g];
+                var input = precursors[group.InputIndex];
+
+                var result = new DiaSearchResult(
+                    sequence: input.Sequence,
+                    chargeState: input.ChargeState,
+                    precursorMz: input.PrecursorMz,
+                    windowId: group.WindowId,
+                    isDecoy: input.IsDecoy,
+                    fragmentsQueried: group.QueryCount,
+                    libraryRetentionTime: input.RetentionTime,
+                    rtWindowStart: group.RtMin,
+                    rtWindowEnd: group.RtMax
+                );
+                result.ScoringStrategyUsed = parameters.ScoringStrategy;
+
+                // Populate summed intensities and XIC point counts (backward compat + diagnostics)
+                int detected = 0;
+                for (int f = 0; f < group.QueryCount; f++)
+                {
+                    int qi = group.QueryOffset + f;
+                    var fr = extractionResult.Results[qi];
+                    result.ExtractedIntensities[f] = fr.TotalIntensity;
+                    result.XicPointCounts[f] = fr.DataPointCount;
+                    if (fr.DataPointCount > 0)
+                        detected++;
+                }
+                result.FragmentsDetected = detected;
+
+                if (!result.MeetsMinFragments(parameters.MinFragmentsRequired))
+                    continue;
+
+                // ── Temporal scoring ────────────────────────────────────────
+                // Pass the raw XIC data to the temporal scorer instead of using
+                // the collapsed TotalIntensity values.
+                ReadOnlySpan<FragmentResult> fragmentResults =
+                    extractionResult.Results.AsSpan(group.QueryOffset, group.QueryCount);
+
+                DiaTemporalScore score = scorer.ScorePrecursor(
+                    input.FragmentIntensities.AsSpan(),
+                    group.QueryCount,
+                    fragmentResults,
+                    rtBuffer,
+                    intensityBuffer);
+
+                result.DotProductScore = score.DotProductScore;
+                result.RawCosine = score.RawCosine;
+                result.TimePointsUsed = score.TimePointsUsed;
+                result.ApexTimeIndex = score.ApexTimeIndex;
+
+                // Compute spectral angle from the raw cosine (pre-transform) for consistency
+                if (!float.IsNaN(score.RawCosine))
+                {
+                    float clampedCosine = Math.Clamp(score.RawCosine, 0f, 1f);
+                    result.SpectralAngleScore = 1.0f - (2.0f / MathF.PI) * MathF.Acos(clampedCosine);
+                }
+
+                // Apply score threshold filter
                 if (!float.IsNaN(result.DotProductScore) && result.DotProductScore < parameters.MinScoreThreshold)
                     continue;
 

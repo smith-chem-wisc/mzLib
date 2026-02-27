@@ -38,38 +38,55 @@ namespace MassSpectrometry.Dia
         #region Scores
 
         /// <summary>
-        /// Normalized dot product between library and extracted fragment intensities.
+        /// Primary similarity score between library and extracted fragment intensities.
         /// Range [0, 1], higher is better. NaN if insufficient fragments.
+        /// 
+        /// The interpretation depends on the ScoringStrategy used:
+        ///   Summed: L2-normalized dot product of summed intensity vectors.
+        ///   ConsensusApex: cosine at the chromatographic peak.
+        ///   TemporalCosine: average cosine across RT time points.
+        ///   WeightedTemporalCosineWithTransform: (weighted average cosine)^N.
         /// </summary>
         public float DotProductScore { get; set; }
 
         /// <summary>
         /// Spectral angle score: 1 - (2/π) * arccos(normalized dot product).
         /// Range [0, 1], higher is better. NaN if insufficient fragments.
+        /// Computed from DotProductScore (or RawCosine when available).
         /// </summary>
         public float SpectralAngleScore { get; set; }
 
         /// <summary>
-        /// Gaussian log-likelihood RT score: -(residual_iRT^2) / (2 * σ_iRT^2).
-        /// More negative = worse RT agreement. Zero = perfect. NaN if uncalibrated.
+        /// The cosine similarity before any nonlinear transform was applied.
+        /// Equals DotProductScore for Summed, ConsensusApex, and TemporalCosine strategies.
+        /// For WeightedTemporalCosineWithTransform, this is the pre-transform score.
+        /// Useful for diagnostics and multi-feature classifiers.
         /// </summary>
-        public float RtScore { get; set; }
-
-        /// <summary>
-        /// Combined score: spectralScore + λ * rtScore.
-        /// NaN if not yet computed.
-        /// </summary>
-        public float CombinedScore { get; set; }
+        public float RawCosine { get; set; }
 
         #endregion
 
-        #region FDR
+        #region Temporal Scoring Diagnostics
 
         /// <summary>
-        /// FDR analysis results for this DIA match. Set by FdrAnalysisEngineDia after scoring.
-        /// Null until FDR analysis has been run.
+        /// Number of RT time points that contributed to the temporal score.
+        /// Higher values mean more temporal evidence and more robust scoring.
+        /// 0 for Summed scoring (not time-resolved).
         /// </summary>
-        public DiaFdrInfo FdrInfo { get; set; }
+        public int TimePointsUsed { get; set; }
+
+        /// <summary>
+        /// Index of the consensus apex time point within the RT window.
+        /// The time point where total fragment signal was highest.
+        /// -1 if not applicable (e.g., Summed scoring).
+        /// </summary>
+        public int ApexTimeIndex { get; set; }
+
+        /// <summary>
+        /// The scoring strategy that was used to compute DotProductScore.
+        /// Stored here so downstream code knows how to interpret the scores.
+        /// </summary>
+        public ScoringStrategy ScoringStrategyUsed { get; set; }
 
         #endregion
 
@@ -84,7 +101,9 @@ namespace MassSpectrometry.Dia
         /// <summary>
         /// Sum of extracted intensities per fragment (length = FragmentsQueried).
         /// Parallel to the library's fragment ion order.
-        /// Used by scorers: library intensities vs these extracted intensities.
+        /// Retained for backward compatibility and diagnostic use.
+        /// Note: when temporal scoring is used, DotProductScore is NOT computed from
+        /// these summed values — it uses RT-resolved data instead.
         /// </summary>
         public float[] ExtractedIntensities { get; }
 
@@ -98,9 +117,6 @@ namespace MassSpectrometry.Dia
 
         #region Retention Time Context
 
-        /// <summary>Library/predicted iRT value. Null if library had no iRT.</summary>
-        public double? LibraryIrt { get; }
-
         /// <summary>Library/predicted retention time (minutes). Null if library had no RT.</summary>
         public double? LibraryRetentionTime { get; }
 
@@ -109,23 +125,6 @@ namespace MassSpectrometry.Dia
 
         /// <summary>Upper bound of the RT extraction window (minutes)</summary>
         public float RtWindowEnd { get; }
-        /// <summary>
-        /// Retention time (minutes) of the scan with the highest total extracted fragment intensity.
-        /// Used as the observed elution time for calibration anchor fitting.
-        /// NaN if no data points were extracted.
-        /// </summary>
-        public float ApexRt { get; set; } = float.NaN;
-        /// <summary>
-        /// Calibrated iRT value for the center of the extraction window.
-        /// Null if no calibration was applied.
-        /// </summary>
-        public double? CalibratedIrt { get; set; }
-
-        /// <summary>
-        /// Residual in iRT space: calibrated scan iRT - library iRT.
-        /// Null if no calibration was applied.
-        /// </summary>
-        public double? IrtResidual { get; set; }
 
         #endregion
 
@@ -138,8 +137,7 @@ namespace MassSpectrometry.Dia
             int fragmentsQueried,
             double? libraryRetentionTime,
             float rtWindowStart,
-            float rtWindowEnd,
-            double? libraryIrt = null)
+            float rtWindowEnd)
         {
             Sequence = sequence ?? throw new ArgumentNullException(nameof(sequence));
             ChargeState = chargeState;
@@ -150,14 +148,15 @@ namespace MassSpectrometry.Dia
             ExtractedIntensities = new float[fragmentsQueried];
             XicPointCounts = new int[fragmentsQueried];
             LibraryRetentionTime = libraryRetentionTime;
-            LibraryIrt = libraryIrt;
             RtWindowStart = rtWindowStart;
             RtWindowEnd = rtWindowEnd;
 
             DotProductScore = float.NaN;
             SpectralAngleScore = float.NaN;
-            RtScore = float.NaN;
-            CombinedScore = float.NaN;
+            RawCosine = float.NaN;
+            TimePointsUsed = 0;
+            ApexTimeIndex = -1;
+            ScoringStrategyUsed = ScoringStrategy.Summed;
         }
 
         /// <summary>Whether this result meets the minimum fragment detection threshold.</summary>
@@ -169,10 +168,18 @@ namespace MassSpectrometry.Dia
 
         public override string ToString()
         {
+            string strategyLabel = ScoringStrategyUsed switch
+            {
+                ScoringStrategy.Summed => "sum",
+                ScoringStrategy.ConsensusApex => "apex",
+                ScoringStrategy.TemporalCosine => "temporal",
+                ScoringStrategy.WeightedTemporalCosineWithTransform => "wt-temporal",
+                _ => "?"
+            };
             return $"{Sequence}/{ChargeState} Window={WindowId} " +
-                   $"DotProduct={DotProductScore:F4} SpectralAngle={SpectralAngleScore:F4} " +
-                   $"RtScore={RtScore:F4} Combined={CombinedScore:F4} " +
-                   $"Fragments={FragmentsDetected}/{FragmentsQueried}" +
+                   $"DP={DotProductScore:F4}({strategyLabel}) Raw={RawCosine:F4} " +
+                   $"Fragments={FragmentsDetected}/{FragmentsQueried} " +
+                   $"TimePts={TimePointsUsed}" +
                    (IsDecoy ? " [DECOY]" : "");
         }
     }

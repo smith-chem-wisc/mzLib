@@ -18,7 +18,6 @@ namespace MassSpectrometry.Dia
         /// <summary>
         /// Half-width of the RT window around the predicted/library retention time (in minutes).
         /// Queries are restricted to [RT - tolerance, RT + tolerance].
-        /// Used by the uncalibrated Generate() path; ignored when GenerateCalibrated() is used.
         /// Default: 5.0 minutes.
         /// </summary>
         public float RtToleranceMinutes { get; set; } = 5.0f;
@@ -52,17 +51,42 @@ namespace MassSpectrometry.Dia
         public bool PreferGpu { get; set; } = false;
 
         /// <summary>
-        /// Multiplier for the calibration model's sigma (residual standard deviation)
-        /// to determine the RT extraction window half-width when using GenerateCalibrated().
+        /// Multiplier for the calibrated RT window width, expressed in units of
+        /// the calibration model's residual standard deviation (sigma).
         /// 
-        /// Window half-width = σ × CalibratedWindowSigmaMultiplier
+        /// After iRT calibration fits a linear model (iRT → experimental RT),
+        /// the residual sigma describes the typical RT prediction error.
+        /// The calibrated extraction window is: predicted_RT ± (sigma × this multiplier).
         /// 
-        /// For example, with σ = 0.3 min and multiplier = 3.0:
-        ///   window = ±0.9 min (covers 99.7% of a Gaussian distribution)
-        /// 
-        /// Default: 3.0 (3σ).
+        /// Default: 3.0 (covers ~99.7% of well-calibrated peptides).
+        /// Lower values (e.g., 2.0) give narrower windows and faster extraction
+        /// but may miss peptides with unusual RT behavior.
         /// </summary>
         public double CalibratedWindowSigmaMultiplier { get; set; } = 3.0;
+
+        /// <summary>
+        /// Controls how extracted fragment intensities are aggregated and scored.
+        /// 
+        /// Summed: original behavior — sum all XIC intensity per fragment, compare to library.
+        /// ConsensusApex: score at the chromatographic apex (best single time point).
+        /// TemporalCosine: intensity-weighted average cosine across all RT points.
+        /// WeightedTemporalCosineWithTransform: DIA-NN-style with sqrt weighting + cos^N transform.
+        /// 
+        /// Default: TemporalCosine (good balance of quality and interpretability).
+        /// </summary>
+        public ScoringStrategy ScoringStrategy { get; set; } = ScoringStrategy.TemporalCosine;
+
+        /// <summary>
+        /// Exponent for the nonlinear transform in WeightedTemporalCosineWithTransform mode.
+        /// Higher values accentuate good matches and suppress mediocre ones.
+        /// 
+        /// 1.0 = no transform (identical to TemporalCosine).
+        /// 3.0 = DIA-NN default. Improves target-decoy separation.
+        /// 
+        /// Only used when ScoringStrategy is WeightedTemporalCosineWithTransform.
+        /// Default: 3.0.
+        /// </summary>
+        public float NonlinearPower { get; set; } = 3.0f;
 
         /// <summary>
         /// Resolves effective thread count, replacing -1 with processor count.
