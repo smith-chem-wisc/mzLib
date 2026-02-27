@@ -1,12 +1,11 @@
 ﻿using Easy.Common.Extensions;
-using MzLibUtil;
 using NUnit.Framework;
+using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
+using PredictionClients.Koina.Util;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace Test.KoinaTests
 {
@@ -15,721 +14,541 @@ namespace Test.KoinaTests
     public class Prosit2020iRTTMTTests
     {
         [Test]
-        public void TestPeptideRTPrediction()
+        public void TestProsit2020iRTTMTPrediction()
         {
-            var peptideSequences = new List<string>
+            var modelInputs = new List<RetentionTimePredictionInput>
             {
-                "[Common Fixed:TMT6plex on N-terminus]PEPTIDE",
-                "[Common Fixed:TMTpro on N-terminus]SEQENS",
-                "[Common Fixed:iTRAQ4plex on N-terminus]TESTING"
+                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"),
+                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]SEQENS"),
+                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]TESTING")
             };
-            var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
-            Assert.DoesNotThrowAsync(async () => await model.RunInferenceAsync());
-            Assert.That(model.Predictions, Has.Count.EqualTo(3));
-            Assert.That(model.Predictions.All(p => p.IsIndexed));
-            Assert.That(model.Predictions.All(p => p.PredictedRetentionTime.IsFinite()));
-            Assert.That(model.Predictions[0].FullSequence == "[UNIMOD:737]-PEPTIDE");
-            Assert.That(model.Predictions[1].FullSequence == "[UNIMOD:2016]-SEQENS");
-            Assert.That(model.Predictions[2].FullSequence == "[UNIMOD:214]-TESTING");
+
+            var model = new Prosit2020iRTTMT();
+            var predictions = model.Predict(modelInputs);
+
+            Assert.That(predictions.Count, Is.EqualTo(3));
+            Assert.That(model.ValidInputsMask, Is.All.True, "All inputs should be valid with N-terminal modifications");
+            Assert.That(predictions.All(p => p.IsIndexed == true));
+            Assert.That(predictions.All(p => p.PredictedRetentionTime != null && p.PredictedRetentionTime.Value.IsFinite()));
+            Assert.That(modelInputs.All(p => p.SequenceWarning == null), "Valid inputs should not have warnings");
+            Assert.That(predictions.All(p => p.Warning == null), "Predictions from perfectly valid inputs should not have warnings");
+            for (int i = 0; i < modelInputs.Count; i++)
+            {
+                Assert.That(predictions[i].FullSequence, Is.EqualTo(modelInputs[i].FullSequence), $"Full sequence in prediction should match input for index {i}");
+                Assert.That(predictions[i].FullSequence, Is.EqualTo(modelInputs[i].ValidatedFullSequence), $"Validated full sequence in prediction should match input for index {i}");
+            }
         }
 
         /// <summary>
-        /// Tests the constructor with valid peptide sequences that have required N-terminal modifications.
-        /// 
-        /// This is the fundamental requirement for Prosit2020iRTTMT: all sequences MUST have
-        /// an N-terminal TMT or iTRAQ modification.
-        /// 
-        /// Validates that:
-        /// - No warnings are generated for sequences with N-terminal mods
-        /// - All sequences are accepted and stored
-        /// - Model properties are correctly initialized
-        /// - Model name matches expected value "Prosit_2020_irt_TMT"
-        /// - Batch size, length constraints, and iRT flag are correct
-        /// 
-        /// Expected Behavior:
-        /// - warnings should be null
-        /// - PeptideSequences count should equal input count (with carbamidomethylation applied)
-        /// - All model properties should match specification
-        /// 
-        /// Use Case: Standard TMT/iTRAQ workflow where all peptides are N-terminally labeled
-        /// Real-world scenario: TMT10plex experiment with all peptides labeled at N-terminus
+        /// Tests that the model correctly processes valid peptide sequences with required N-terminal modifications.
+        /// All sequences MUST have an N-terminal TMT or iTRAQ modification for this model.
         /// </summary>
         [Test]
-        public void TestConstructorWithValidPeptides()
+        public void TestProsit2020iRTTMTModelAcceptsValidPeptides()
         {
-            var peptideSequences = new List<string>
+            var modelInputs = new List<RetentionTimePredictionInput>
             {
-                "[Common Fixed:TMT6plex on N-terminus]PEPTIDE",
-                "[Common Fixed:TMTpro on N-terminus]TESTING"
+                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"),
+                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]TESTING")
             };
 
-            var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
+            var model = new Prosit2020iRTTMT();
+            var predictions = model.Predict(modelInputs);
 
-            Assert.That(warnings, Is.Null);
-            Assert.That(model.PeptideSequences, Has.Count.EqualTo(2));
+            Assert.That(predictions.Count, Is.EqualTo(2), "Should return predictions for all inputs");
+            Assert.That(predictions.All(p => p.PredictedRetentionTime != null), Is.True, "All valid peptides should have predictions");
+            Assert.That(predictions.All(p => p.Warning == null), Is.True, "Valid peptides should not produce warnings");
+
+            // Verify model properties
             Assert.That(model.ModelName, Is.EqualTo("Prosit_2020_irt_TMT"));
             Assert.That(model.MaxBatchSize, Is.EqualTo(1000));
             Assert.That(model.MaxPeptideLength, Is.EqualTo(30));
             Assert.That(model.MinPeptideLength, Is.EqualTo(1));
             Assert.That(model.IsIndexedRetentionTimeModel, Is.True);
+
+            // Make sure ThrowException mode also accepts valid peptides without throwing
+            model = new Prosit2020iRTTMT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            Assert.DoesNotThrow(() => model.Predict(modelInputs), "Model should not throw exception for valid peptides with required N-terminal modifications when ModHandlingMode is set to ThrowException");
         }
 
         /// <summary>
         /// Tests that sequences WITHOUT N-terminal modifications are REJECTED.
-        /// 
-        /// This is a critical test for the Prosit2020iRTTMT model requirement.
-        /// Unlike Prosit2019iRT or standard models, this model REQUIRES N-terminal labeling.
-        /// 
-        /// Validates that:
-        /// - Sequences without N-terminal mods are detected as invalid
-        /// - A warning is generated explaining the missing N-terminal modification
-        /// - Invalid sequences are excluded from processing
-        /// - Only sequences with N-terminal mods are accepted
-        /// 
-        /// Expected Behavior:
-        /// - warnings should not be null
-        /// - Warning message should indicate missing N-terminal modification requirement
-        /// - Only sequences with N-terminal mods should be in PeptideSequences
-        /// 
-        /// Use Case: Quality control - detecting improperly prepared sequences
-        /// Real-world scenario: User attempts to use non-TMT data with TMT-specific model
+        /// ModHandlingMode.ReturnNull rejects sequences with invalid/missing modifications.
         /// </summary>
         [Test]
-        public void TestRejectionOfSequencesWithoutNTerminalModification()
+        public void TestProsit2020iRTTMTModelRejectsSequencesWithoutNTerminalModification()
         {
-            var peptideSequences = new List<string>
+            var modelInputs = new List<RetentionTimePredictionInput>
             {
-                "[Common Fixed:TMT6plex on N-terminus]PEPTIDE", // Valid - has N-term
-                "PEPTIDE", // Invalid - no N-term mod
-                "PEPTK[Common Fixed:TMT6plex on K]IDE", // Invalid - only K-TMT, no N-term
-                "[Common Fixed:TMTpro on N-terminus]TESTING", // Valid - has N-term
-                "M[Common Variable:Oxidation on M]SEQUENCE" // Invalid - only oxidation, no N-term
+                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"), // Valid - has N-term
+                new RetentionTimePredictionInput("PEPTIDE"), // Invalid - no N-term mod
+                new RetentionTimePredictionInput("PEPTK[Common Fixed:TMT6plex on K]IDE"), // Invalid - only K-TMT, no N-term
+                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]TESTING"), // Valid - has N-term
+                new RetentionTimePredictionInput("M[Common Variable:Oxidation on M]SEQUENCE") // Invalid - only oxidation, no N-term
             };
 
-            var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
+            var model = new Prosit2020iRTTMT();
+            var predictions = model.Predict(modelInputs);
 
-            Assert.That(warnings, Is.Not.Null);
-            Assert.That(warnings.Message, Does.Contain("invalid"));
-            Assert.That(model.PeptideSequences, Has.Count.EqualTo(2)); // Only sequences with N-term mods
-            
-            // Verify that only sequences with N-terminal mods were accepted
-            foreach (var sequence in model.PeptideSequences)
+            Assert.That(predictions.Count, Is.EqualTo(5), "Should return entries for all inputs");
+
+            // First peptide: valid with N-term
+            Assert.That(predictions[0].PredictedRetentionTime, Is.Not.Null, "Valid peptide with N-term should have predictions");
+            Assert.That(predictions[0].Warning, Is.Null, "Valid peptide should not have warnings");
+
+            // Second peptide: no N-term mod
+            Assert.That(predictions[1].PredictedRetentionTime, Is.Null, "Peptide without N-term should be rejected");
+            Assert.That(predictions[1].Warning, Is.Not.Null, "Peptide without N-term should have warning");
+
+            // Third peptide: K-TMT but no N-term
+            Assert.That(predictions[2].PredictedRetentionTime, Is.Null, "Peptide with only K-TMT should be rejected");
+            Assert.That(predictions[2].Warning, Is.Not.Null, "Peptide without N-term should have warning");
+
+            // Fourth peptide: valid with N-term
+            Assert.That(predictions[3].PredictedRetentionTime, Is.Not.Null, "Valid peptide with N-term should have predictions");
+            Assert.That(predictions[3].Warning, Is.Null, "Valid peptide should not have warnings");
+
+            // Fifth peptide: oxidation but no N-term
+            Assert.That(predictions[4].PredictedRetentionTime, Is.Null, "Peptide without N-term should be rejected");
+            Assert.That(predictions[4].Warning, Is.Not.Null, "Peptide without N-term should have warning");
+
+            model = new Prosit2020iRTTMT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            Assert.Throws<ArgumentException>(() => model.Predict(modelInputs), "Model should throw exception for peptides without required N-terminal modifications when ModHandlingMode is set to ThrowException");
+        }
+
+        /// <summary>
+        /// Tests handling of empty input lists.
+        /// Empty lists should not throw exceptions and should return empty predictions.
+        /// </summary>
+        [Test]
+        public void TestProsit2020iRTTMTModelEmptyInputHandling()
+        {
+            var emptyInputs = new List<RetentionTimePredictionInput>();
+
+            var model = new Prosit2020iRTTMT();
+            var predictions = model.Predict(emptyInputs);
+
+            Assert.That(predictions.Count, Is.EqualTo(0), "Empty input should result in no predictions");
+            Assert.DoesNotThrow(() => model.Predict(emptyInputs), "Empty input should not throw exception");
+
+            model = new Prosit2020iRTTMT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            Assert.DoesNotThrow(() => model.Predict(emptyInputs), "Model should throw exception for peptides without required N-terminal modifications when ModHandlingMode is set to ThrowException");
+        }
+
+        /// <summary>
+        /// Tests handling of null input list.
+        /// Null list should throw ArgumentNullException.
+        /// </summary>
+        [Test]
+        public void TestProsit2020iRTTMTModelNullInput()
+        {
+            List<RetentionTimePredictionInput> nullList = null;
+
+            var model = new Prosit2020iRTTMT();
+
+            Assert.DoesNotThrow(() => model.Predict(nullList));
+            Assert.That(model.Predictions.Count, Is.EqualTo(0), "Empty input should result in no predictions");
+            Assert.That(model.ValidInputsMask.Count, Is.EqualTo(0), "Empty input should result in empty valid inputs mask");
+
+            model = new Prosit2020iRTTMT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            Assert.DoesNotThrow(() => model.Predict(nullList), "Model should not throw exception for null input list");
+        }
+
+        /// <summary>
+        /// Tests handling of mixed valid and invalid peptide sequences.
+        /// Invalid sequences include too long, invalid characters, and sequences without N-terminal mods.
+        /// </summary>
+        [Test]
+        public void TestProsit2020iRTTMTModelInvalidSequences()
+        {
+            var modelInputs = new List<RetentionTimePredictionInput>
             {
-                Assert.That(sequence, Does.Match(@"^\[UNIMOD:(737|2016|214|730)\]-")); // Must start with N-term mod
-            }
-        }
-
-        /// <summary>
-        /// Tests the constructor with an empty list of peptides.
-        /// 
-        /// Validates that:
-        /// - A warning is generated indicating empty input
-        /// - PeptideSequences list is empty
-        /// - Model is still instantiated (doesn't throw exception)
-        /// 
-        /// Expected Behavior:
-        /// - warnings should not be null
-        /// - Warning message should contain "Inputs were empty"
-        /// - PeptideSequences should be empty
-        /// 
-        /// Use Case: Defensive programming - ensures graceful handling of empty inputs
-        /// </summary>
-        [Test]
-        public void TestConstructorAndInferenceWithEmptyPeptides()
-        {
-            var peptideSequences = new List<string>();
-
-            var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
-
-            Assert.That(warnings, Is.Not.Null);
-            Assert.That(warnings.Message, Does.Contain("Inputs were empty"));
-            Assert.That(model.PeptideSequences, Is.Empty);
-            Assert.DoesNotThrowAsync(async () => await model.RunInferenceAsync());
-            Assert.That(model.Predictions, Is.Empty);
-        }
-
-        /// <summary>
-        /// Tests the constructor with a null list of peptides.
-        /// 
-        /// Validates that:
-        /// - A warning is generated for null input
-        /// - Model handles null gracefully (no NullReferenceException)
-        /// - PeptideSequences list is initialized as empty
-        /// 
-        /// Expected Behavior:
-        /// - warnings should not be null
-        /// - Warning message should contain "Inputs were empty"
-        /// - PeptideSequences should be empty
-        /// 
-        /// Use Case: Defensive programming - ensures null safety
-        /// </summary>
-        [Test]
-        public void TestConstructorWithNullPeptides()
-        {
-            List<string> peptideSequences = null;
-
-            var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
-
-            Assert.That(warnings, Is.Not.Null);
-            Assert.That(warnings.Message, Does.Contain("Inputs were empty"));
-            Assert.That(model.PeptideSequences, Is.Empty);
-        }
-
-        /// <summary>
-        /// Tests the constructor with a mix of valid and invalid peptide sequences.
-        /// 
-        /// Invalid sequences include:
-        /// - Sequences exceeding 30 amino acids (MaxPeptideLength)
-        /// - Sequences with invalid characters (e.g., *)
-        /// - Sequences with non-canonical amino acids (e.g., U for selenocysteine)
-        /// - Sequences WITHOUT N-terminal modifications (critical for this model)
-        /// 
-        /// Validates that:
-        /// - A warning is generated listing invalid sequences
-        /// - Only valid sequences WITH N-terminal mods are added to PeptideSequences
-        /// - Invalid sequences are properly filtered out
-        /// 
-        /// Expected Behavior:
-        /// - warnings should not be null
-        /// - Warning message should contain "invalid"
-        /// - PeptideSequences should only contain sequences with N-terminal mods
-        /// - All invalid sequences should be excluded
-        /// 
-        /// Use Case: Ensures robust input validation and informative error messaging
-        /// </summary>
-        [Test]
-        public void TestConstructorWithInvalidSequences()
-        {
-            var peptideSequences = new List<string>
-            {
-                "[Common Fixed:TMT6plex on N-terminus]PEPTIDE", // Valid
-                "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", // Invalid - too long (and no N-term)
-                "[Common Fixed:TMTpro on N-terminus]PEP*TIDE", // Invalid - has N-term but invalid character
-                "SEQUENS", // Invalid - no N-term mod (and noncanonical U)
-                "[Common Fixed:iTRAQ4plex on N-terminus]TESTING" // Valid
+                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"), // Valid
+                new RetentionTimePredictionInput("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"), // Invalid - too long (and no N-term)
+                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]PEP*TIDE"), // Invalid - has N-term but invalid character
+                new RetentionTimePredictionInput("SEQUENS"), // Invalid - no N-term mod (and noncanonical U)
+                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]TESTING") // Valid
             };
 
-            var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
+            var model = new Prosit2020iRTTMT();
+            var predictions = model.Predict(modelInputs);
 
-            Assert.That(warnings, Is.Not.Null);
-            Assert.That(warnings.Message, Does.Contain("invalid"));
-            Assert.That(model.PeptideSequences, Has.Count.EqualTo(2)); // Only valid sequences with N-term
+            Assert.That(predictions.Count, Is.EqualTo(5), "Should return entries for all inputs");
+            Assert.That(predictions[0].PredictedRetentionTime, Is.Not.Null, "First valid peptide should have predictions");
+            Assert.That(predictions[1].PredictedRetentionTime, Is.Null, "Too long peptide should be rejected");
+            Assert.That(predictions[2].PredictedRetentionTime, Is.Null, "Invalid character peptide should be rejected");
+            Assert.That(predictions[3].PredictedRetentionTime, Is.Null, "Peptide without N-term should be rejected");
+            Assert.That(predictions[4].PredictedRetentionTime, Is.Not.Null, "Second valid peptide should have predictions");
+
+            model = new Prosit2020iRTTMT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            Assert.Throws<ArgumentException>(() => model.Predict(modelInputs), "Model should throw exception for invalid peptides when ModHandlingMode is set to ThrowException");
         }
 
         /// <summary>
-        /// Tests the handling of all supported N-terminal modifications.
-        /// 
-        /// The Prosit2020iRTTMT model supports four types of N-terminal isobaric labels:
-        /// - TMT6plex (UNIMOD:737)-
-        /// - TMTpro (UNIMOD:2016)-
-        /// - iTRAQ4plex (UNIMOD:214)-
-        /// - iTRAQ8plex (UNIMOD:730)-
-        /// 
-        /// Validates that:
-        /// - All four N-terminal modification types are recognized
-        /// - mzLib format is converted to Prosit UNIMOD format
-        /// - All N-terminally modified sequences are accepted
-        /// - No warnings are generated
-        /// 
-        /// Expected Behavior:
-        /// - warnings should be null
-        /// - All 4 sequences should be accepted
-        /// - N-terminal modifications should be converted to [UNIMOD:XXX]- format
-        /// 
-        /// Use Case: Ensures support for all isobaric labeling chemistries
-        /// Real-world scenario: Processing data from different TMT/iTRAQ experiments
+        /// Tests handling of all supported N-terminal modifications.
+        /// The model supports TMT6plex, TMTpro, iTRAQ4plex, and iTRAQ8plex.
         /// </summary>
         [Test]
-        public void TestAllNTerminalModificationTypes()
+        public void TestProsit2020iRTTMTModelAllNTerminalModificationTypes()
         {
-            var peptideSequences = new List<string>
+            var modelInputs = new List<RetentionTimePredictionInput>
             {
-                "[Common Fixed:TMT6plex on N-terminus]PEPTIDE",
-                "[Common Fixed:TMTpro on N-terminus]SEQENCE",
-                "[Common Fixed:iTRAQ4plex on N-terminus]TESTING",
-                "[Common Fixed:iTRAQ8plex on N-terminus]ANTHER"
+                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"),
+                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]SEQENCE"),
+                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]TESTING"),
+                new RetentionTimePredictionInput("[Common Fixed:iTRAQ8plex on N-terminus]ANTHER")
             };
 
-            var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
+            var model = new Prosit2020iRTTMT();
+            var predictions = model.Predict(modelInputs);
 
-            Assert.That(warnings, Is.Null);
-            Assert.That(model.PeptideSequences, Has.Count.EqualTo(4));
-            
+            Assert.That(predictions.Count, Is.EqualTo(4), "Should return predictions for all inputs");
+            Assert.That(predictions.All(p => p.PredictedRetentionTime != null), Is.True, "All should have predictions");
+
             // Verify each N-terminal modification type is correctly converted
-            Assert.That(model.PeptideSequences[0], Does.StartWith("[UNIMOD:737]-")); // TMT6plex
-            Assert.That(model.PeptideSequences[1], Does.StartWith("[UNIMOD:2016]-")); // TMTpro
-            Assert.That(model.PeptideSequences[2], Does.StartWith("[UNIMOD:214]-")); // iTRAQ4plex
-            Assert.That(model.PeptideSequences[3], Does.StartWith("[UNIMOD:730]-")); // iTRAQ8plex
+            Assert.That(predictions[0].FullSequence, Does.StartWith("[Common Fixed:TMT6plex on N-terminus]")); // TMT6plex
+            Assert.That(predictions[1].FullSequence, Does.StartWith("[Common Fixed:TMTpro on N-terminus]")); // TMTpro
+            Assert.That(predictions[2].FullSequence, Does.StartWith("[Common Fixed:iTRAQ4plex on N-terminus]")); // iTRAQ4plex
+            Assert.That(predictions[3].FullSequence, Does.StartWith("[Common Fixed:iTRAQ8plex on N-terminus]")); // iTRAQ8plex
+            Assert.That(model.ValidInputsMask, Is.All.True);
         }
 
         /// <summary>
-        /// Tests the handling of valid post-translational modifications including TMT labels.
-        /// 
-        /// Prosit2020iRTTMT supports:
-        /// REQUIRED (N-terminal):
-        /// 1. TMT6plex on N-terminus: [Common Fixed:TMT6plex on N-terminus] → [UNIMOD:737]-
-        /// 2. TMTpro on N-terminus: [Common Fixed:TMTpro on N-terminus] → [UNIMOD:2016]-
-        /// 3. iTRAQ4plex on N-terminus: [Common Fixed:iTRAQ4plex on N-terminus] → [UNIMOD:214]-
-        /// 4. iTRAQ8plex on N-terminus: [Common Fixed:iTRAQ8plex on N-terminus] → [UNIMOD:730]-
-        /// 
-        /// OPTIONAL (Side-chain):
-        /// 5. Oxidation on methionine (M): [Common Variable:Oxidation on M] → [UNIMOD:35]
-        /// 6. Carbamidomethyl on cysteine (C): [Common Fixed:Carbamidomethyl on C] → [UNIMOD:4]
-        /// 7. SILAC Heavy K: [Common Variable:Label:13C(6)15N(2) on K] → [UNIMOD:259]
-        /// 8. SILAC Heavy R: [Common Variable:Label:13C(6)15N(4) on R] → [UNIMOD:267]
-        /// 9. TMT6plex on K: [Common Fixed:TMT6plex on K] → [UNIMOD:737]
-        /// 10. TMTpro on K: [Common Fixed:TMTpro on K] → [UNIMOD:2016]
-        /// 11. iTRAQ4plex on K: [Common Fixed:iTRAQ4plex on K] → [UNIMOD:214]
-        /// 12. iTRAQ8plex on K: [Common Fixed:iTRAQ8plex on K] → [UNIMOD:730]
-        /// 
-        /// Validates that:
-        /// - All sequences have required N-terminal modifications
-        /// - All supported modifications are recognized as valid
-        /// - mzLib format is converted to Prosit UNIMOD format
-        /// - All modified sequences are accepted
-        /// - No warnings are generated
-        /// 
-        /// Expected Behavior:
-        /// - warnings should be null
-        /// - All sequences should be accepted
-        /// - Modifications should be converted to UNIMOD format
-        /// 
-        /// Use Case: Ensures compatibility with TMT/iTRAQ/SILAC labeling workflows
-        /// Real-world scenario: Processing TMT-labeled proteomics data for retention time prediction
+        /// Tests handling of valid TMT/iTRAQ/SILAC modifications with required N-terminal mods.
         /// </summary>
         [Test]
-        public void TestValidModificationMapping()
+        public void TestProsit2020iRTTMTModelValidModificationMapping()
         {
-            var peptideSequences = new List<string>
+            var modelInputs = new List<RetentionTimePredictionInput>
             {
-                "[Common Fixed:TMT6plex on N-terminus]PEPTIDE[Common Variable:Oxidation on M]",
-                "[Common Fixed:TMTpro on N-terminus]M[Common Variable:Oxidation on M]SEQENS",
-                "[Common Fixed:iTRAQ4plex on N-terminus]TESTC[Common Fixed:Carbamidomethyl on C]ING",
-                "[Common Fixed:iTRAQ8plex on N-terminus]PEPTK[Common Fixed:TMT6plex on K]IDE",
-                "[Common Fixed:TMT6plex on N-terminus]PEPTK[Common Fixed:TMTpro on K]IDE",
-                "[Common Fixed:TMTpro on N-terminus]PEPTK[Common Fixed:iTRAQ4plex on K]IDE",
-                "[Common Fixed:iTRAQ4plex on N-terminus]PEPTK[Common Fixed:iTRAQ8plex on K]IDE",
-                "[Common Fixed:iTRAQ8plex on N-terminus]PEPTK[Common Variable:Label:13C(6)15N(2) on K]IDE",
-                "[Common Fixed:TMT6plex on N-terminus]PEPTR[Common Variable:Label:13C(6)15N(4) on R]IDE"
+                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"),
+                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]M[Common Variable:Oxidation on M]SEQENS"),
+                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]TESTC[Common Fixed:Carbamidomethyl on C]ING"),
+                new RetentionTimePredictionInput("[Common Fixed:iTRAQ8plex on N-terminus]PEPTK[Common Fixed:TMT6plex on K]IDE"),
+                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTK[Common Fixed:TMTpro on K]IDE"),
+                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]PEPTK[Common Fixed:iTRAQ4plex on K]IDE"),
+                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]PEPTK[Common Fixed:iTRAQ8plex on K]IDE"),
+                new RetentionTimePredictionInput("[Common Fixed:iTRAQ8plex on N-terminus]PEPTK[Common Variable:Label:13C(6)15N(2) on K]IDE"),
+                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTR[Common Variable:Label:13C(6)15N(4) on R]IDE")
             };
 
-            var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
+            var model = new Prosit2020iRTTMT();
+            var predictions = model.Predict(modelInputs);
 
-            Assert.That(warnings, Is.Null);
-            Assert.That(model.PeptideSequences, Has.Count.EqualTo(9));
-            
+            Assert.That(predictions.Count, Is.EqualTo(9), "Should return predictions for all inputs");
+            Assert.That(predictions.All(p => p.PredictedRetentionTime != null), Is.True, "All should have predictions");
+
             // Check that all sequences have N-terminal modifications
-            foreach (var sequence in model.PeptideSequences)
+            foreach (var pred in predictions)
             {
-                Assert.That(sequence, Does.Match(@"^\[UNIMOD:(737|2016|214|730)\]-"));
+                var modEnding = pred.FullSequence.IndexOf(']') + 1;
+                Assert.That(model.ValidModificationUnimodMapping.Keys.Contains(pred.FullSequence.Substring(0, modEnding)), $"All sequences should have valid N-terminal modification: {pred.FullSequence}");
             }
-            
-            // Check that side-chain modifications are converted to UNIMOD format
-            Assert.That(model.PeptideSequences[0], Does.Contain("[UNIMOD:35]")); // Oxidation
-            Assert.That(model.PeptideSequences[1], Does.Contain("[UNIMOD:35]")); // Oxidation
-            Assert.That(model.PeptideSequences[2], Does.Contain("[UNIMOD:4]"));  // Carbamidomethyl
-            Assert.That(model.PeptideSequences[3], Does.Contain("[UNIMOD:737]")); // TMT6plex on K
-            Assert.That(model.PeptideSequences[4], Does.Contain("[UNIMOD:2016]")); // TMTpro on K
-            Assert.That(model.PeptideSequences[5], Does.Contain("[UNIMOD:214]")); // iTRAQ4plex on K
-            Assert.That(model.PeptideSequences[6], Does.Contain("[UNIMOD:730]")); // iTRAQ8plex on K
-            Assert.That(model.PeptideSequences[7], Does.Contain("[UNIMOD:259]")); // SILAC K
-            Assert.That(model.PeptideSequences[8], Does.Contain("[UNIMOD:267]")); // SILAC R
+
+            // Check that side-chain modifications are kept in the validated sequence and correctly identified as valid
+            Assert.That(modelInputs[1].ValidatedFullSequence, Does.Contain("[Common Variable:Oxidation on M]")); // Oxidation
+            Assert.That(modelInputs[2].ValidatedFullSequence, Does.Contain("[Common Fixed:Carbamidomethyl on C]"));  // Carbamidomethyl
+            Assert.That(modelInputs[3].ValidatedFullSequence, Does.Contain("[Common Fixed:TMT6plex on K]")); // TMT6plex on K
+            Assert.That(modelInputs[4].ValidatedFullSequence, Does.Contain("[Common Fixed:TMTpro on K]")); // TMTpro on K
+            Assert.That(modelInputs[5].ValidatedFullSequence, Does.Contain("[Common Fixed:iTRAQ4plex on K]")); // iTRAQ4plex on K
+            Assert.That(modelInputs[6].ValidatedFullSequence, Does.Contain("[Common Fixed:iTRAQ8plex on K]")); // iTRAQ8plex on K
+            Assert.That(modelInputs[7].ValidatedFullSequence, Does.Contain("[Common Variable:Label:13C(6)15N(2) on K]")); // SILAC K
+            Assert.That(modelInputs[8].ValidatedFullSequence, Does.Contain("[Common Variable:Label:13C(6)15N(4) on R]")); // SILAC R
+
+            Assert.That(predictions[1].FullSequence, Does.Contain("[Common Variable:Oxidation on M]")); // Oxidation
+            Assert.That(predictions[2].FullSequence, Does.Contain("[Common Fixed:Carbamidomethyl on C]"));  // Carbamidomethyl
+            Assert.That(predictions[3].FullSequence, Does.Contain("[Common Fixed:TMT6plex on K]")); // TMT6plex on K
+            Assert.That(predictions[4].FullSequence, Does.Contain("[Common Fixed:TMTpro on K]")); // TMTpro on K
+            Assert.That(predictions[5].FullSequence, Does.Contain("[Common Fixed:iTRAQ4plex on K]")); // iTRAQ4plex on K
+            Assert.That(predictions[6].FullSequence, Does.Contain("[Common Fixed:iTRAQ8plex on K]")); // iTRAQ8plex on K
+            Assert.That(predictions[7].FullSequence, Does.Contain("[Common Variable:Label:13C(6)15N(2) on K]")); // SILAC K
+            Assert.That(predictions[8].FullSequence, Does.Contain("[Common Variable:Label:13C(6)15N(4) on R]")); // SILAC R
+
+
         }
 
         /// <summary>
-        /// Tests the rejection of invalid or unsupported modifications.
-        /// 
-        /// Invalid modifications are those not in the ValidModificationUnimodMapping dictionary.
-        /// Additionally, sequences without N-terminal modifications are invalid for this model.
-        /// 
-        /// Validates that:
-        /// - Invalid modifications are detected
-        /// - Sequences without N-terminal mods are rejected (even if they have valid side-chain mods)
-        /// - Sequences with invalid modifications are rejected
-        /// - A warning is generated listing problematic sequences
-        /// - Valid sequences with N-terminal mods are still accepted
-        /// 
-        /// Expected Behavior:
-        /// - warnings should not be null
-        /// - Warning message should contain "invalid"
-        /// - Only sequences with valid N-terminal mods should be accepted
-        /// 
-        /// Use Case: Prevents submission of unsupported modifications to the model
-        /// Real-world scenario: User attempts to use non-TMT peptides or unsupported modifications
+        /// Tests rejection of invalid or unsupported modifications.
+        /// ModHandlingMode.ReturnNull rejects sequences with unsupported modifications.
         /// </summary>
         [Test]
-        public void TestInvalidModifications()
+        public void TestProsit2020iRTTMTModelInvalidModifications()
         {
-            var peptideSequences = new List<string>
+            var modelInputs = new List<RetentionTimePredictionInput>
             {
-                "[Common Fixed:TMT6plex on N-terminus]PEPTIDE", // Valid
-                "SEQUENC[InvalidMod]E", // Invalid - no N-term AND invalid mod
-                "[Common Fixed:TMTpro on N-terminus]TESTING", // Valid
-                "PEPTK[Common Fixed:Acetyl on K]IDE", // Invalid - no N-term (acetylation also not supported)
-                "[Common Fixed:iTRAQ4plex on N-terminus]PEPTK[Common Fixed:Acetyl on K]IDE" // Invalid - has N-term but acetylation not supported
+                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"), // Valid
+                new RetentionTimePredictionInput("SEQUENC[InvalidMod]E"), // Invalid - no N-term AND invalid mod
+                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]TESTING"), // Valid
+                new RetentionTimePredictionInput("PEPTK[Common Fixed:Acetyl on K]IDE"), // Invalid - no N-term (acetylation also not supported)
+                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]PEPTK[Common Fixed:Acetyl on K]IDE") // Invalid - has N-term but acetylation not supported
             };
 
-            var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
+            var model = new Prosit2020iRTTMT();
+            var predictions = model.Predict(modelInputs);
 
-            Assert.That(warnings, Is.Not.Null);
-            Assert.That(warnings.Message, Does.Contain("invalid"));
-            Assert.That(model.PeptideSequences, Has.Count.EqualTo(2)); // Only 2 valid sequences
+            Assert.That(predictions.Count, Is.EqualTo(5), "Should return entries for all inputs");
+            Assert.That(predictions[0].PredictedRetentionTime, Is.Not.Null, "First valid peptide should have predictions");
+            Assert.That(predictions[1].PredictedRetentionTime, Is.Null, "Invalid mod peptide should be rejected");
+            Assert.That(predictions[2].PredictedRetentionTime, Is.Not.Null, "Second valid peptide should have predictions");
+            Assert.That(predictions[3].PredictedRetentionTime, Is.Null, "Peptide without N-term should be rejected");
+            Assert.That(predictions[4].PredictedRetentionTime, Is.Null, "Peptide with unsupported mod should be rejected");
         }
 
         /// <summary>
         /// Tests N-terminal TMT/iTRAQ modifications are correctly identified and converted.
-        /// 
-        /// TMT and iTRAQ reagents label the peptide N-terminus (and optionally lysine side chains).
-        /// The model REQUIRES N-terminal modifications with the format [UNIMOD:XXX]-
-        /// 
-        /// Validates that:
-        /// - N-terminal TMT6plex, TMTpro, iTRAQ4plex, and iTRAQ8plex are recognized
-        /// - mzLib format with "N-terminus" is converted correctly
-        /// - Modified sequences are accepted without warnings
-        /// - All sequences have the required N-terminal modification
-        /// 
-        /// Expected Behavior:
-        /// - warnings should be null
-        /// - All 4 sequences should be accepted
-        /// - N-terminal modifications should be converted to [UNIMOD:XXX]- format
-        /// 
-        /// Use Case: Ensures proper handling of N-terminal labeling in TMT/iTRAQ experiments
-        /// Real-world scenario: Processing TMT-labeled peptides where N-term labeling is mandatory
         /// </summary>
         [Test]
-        public void TestNTerminalTMTModifications()
+        public void TestProsit2020iRTTMTModelNTerminalTMTModifications()
         {
-            var peptideSequences = new List<string>
+            var modelInputs = new List<RetentionTimePredictionInput>
             {
-                "[Common Fixed:TMT6plex on N-terminus]PEPTIDE",
-                "[Common Fixed:TMTpro on N-terminus]PEPTIDE",
-                "[Common Fixed:iTRAQ4plex on N-terminus]PEPTIDE",
-                "[Common Fixed:iTRAQ8plex on N-terminus]PEPTIDE"
+                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"),
+                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]PEPTIDE"),
+                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]PEPTIDE"),
+                new RetentionTimePredictionInput("[Common Fixed:iTRAQ8plex on N-terminus]PEPTIDE")
             };
 
-            var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
+            var model = new Prosit2020iRTTMT();
+            var predictions = model.Predict(modelInputs);
 
-            Assert.That(warnings, Is.Null);
-            Assert.That(model.PeptideSequences, Has.Count.EqualTo(4));
-            
+            Assert.That(predictions.Count, Is.EqualTo(4), "Should return predictions for all inputs");
+            Assert.That(predictions.All(p => p.PredictedRetentionTime != null), Is.True, "All should have predictions");
+            Assert.That(model.ValidInputsMask, Is.All.True, "All inputs should be valid with N-terminal modifications");
+
             // Check that N-terminal modifications are converted correctly
-            Assert.That(model.PeptideSequences[0], Does.StartWith("[UNIMOD:737]-")); // TMT6plex
-            Assert.That(model.PeptideSequences[1], Does.StartWith("[UNIMOD:2016]-")); // TMTpro
-            Assert.That(model.PeptideSequences[2], Does.StartWith("[UNIMOD:214]-")); // iTRAQ4plex
-            Assert.That(model.PeptideSequences[3], Does.StartWith("[UNIMOD:730]-")); // iTRAQ8plex
+            for (int i = 0; i < modelInputs.Count; i++)
+            {
+                var modEnding = modelInputs[i].FullSequence.IndexOf(']') + 1;
+                Assert.That(model.ValidModificationUnimodMapping.Keys.Contains(modelInputs[i].FullSequence.Substring(0, modEnding)), $"Input sequence should have valid N-terminal modification: {modelInputs[i].FullSequence}");
+            }
         }
 
         /// <summary>
         /// Tests SILAC-labeled peptides with required N-terminal modifications.
-        /// 
-        /// SILAC (Stable Isotope Labeling by Amino acids in Cell culture) introduces
-        /// heavy isotope labels on lysine and arginine residues. However, for this model,
-        /// N-terminal TMT/iTRAQ labeling is still REQUIRED.
-        /// 
-        /// Validates that:
-        /// - Heavy lysine (13C6 15N2) modifications are recognized
-        /// - Heavy arginine (13C6 15N4) modifications are recognized
-        /// - Multiple SILAC labels in one peptide are handled correctly
-        /// - N-terminal modifications are still required
-        /// - No warnings are generated
-        /// 
-        /// Expected Behavior:
-        /// - warnings should be null
-        /// - All sequences should be accepted
-        /// - SILAC modifications should be converted to UNIMOD format
-        /// - All sequences must start with N-terminal modification
-        /// 
-        /// Use Case: Ensures compatibility with SILAC quantification workflows in TMT experiments
-        /// Real-world scenario: SILAC-labeled samples with additional TMT labeling (hyperplexing)
         /// </summary>
         [Test]
-        public void TestSILACModifications()
+        public void TestProsit2020iRTTMTModelSILACModifications()
         {
-            var peptideSequences = new List<string>
+            var modelInputs = new List<RetentionTimePredictionInput>
             {
-                "[Common Fixed:TMT6plex on N-terminus]PEPTK[Common Variable:Label:13C(6)15N(2) on K]IDE",
-                "[Common Fixed:TMTpro on N-terminus]PEPTR[Common Variable:Label:13C(6)15N(4) on R]IDE",
-                "[Common Fixed:iTRAQ4plex on N-terminus]TESTK[Common Variable:Label:13C(6)15N(2) on K]R[Common Variable:Label:13C(6)15N(4) on R]ING"
+                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTK[Common Variable:Label:13C(6)15N(2) on K]IDE"),
+                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]PEPTR[Common Variable:Label:13C(6)15N(4) on R]IDE"),
+                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]TESTK[Common Variable:Label:13C(6)15N(2) on K]R[Common Variable:Label:13C(6)15N(4) on R]ING")
             };
 
-            var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
+            var model = new Prosit2020iRTTMT();
+            var predictions = model.Predict(modelInputs);
 
-            Assert.That(warnings, Is.Null);
-            Assert.That(model.PeptideSequences, Has.Count.EqualTo(3));
-            
-            // Verify all have N-terminal modifications
-            foreach (var sequence in model.PeptideSequences)
-            {
-                Assert.That(sequence, Does.Match(@"^\[UNIMOD:(737|2016|214|730)\]-"));
-            }
-            
-            // Check that SILAC modifications are converted to UNIMOD format
-            Assert.That(model.PeptideSequences[0], Does.Contain("[UNIMOD:259]")); // Heavy K
-            Assert.That(model.PeptideSequences[1], Does.Contain("[UNIMOD:267]")); // Heavy R
-            Assert.That(model.PeptideSequences[2], Does.Contain("[UNIMOD:259]")); // Heavy K
-            Assert.That(model.PeptideSequences[2], Does.Contain("[UNIMOD:267]")); // Heavy R
+            Assert.That(predictions.Count, Is.EqualTo(3), "Should return predictions for all inputs");
+            // Only if silac mods are valid would retention time not be null.
+            Assert.That(predictions.All(p => p.PredictedRetentionTime != null), Is.True, "All should have predictions");
+            Assert.That(model.ValidInputsMask, Is.All.True, "All inputs should be valid with N-terminal modifications");
         }
 
         /// <summary>
         /// Tests complex peptides with multiple modification types.
-        /// 
-        /// Validates that:
-        /// - N-terminal modifications are always present (REQUIRED)
-        /// - Multiple different modifications in the same peptide are handled
-        /// - Combinations of TMT/iTRAQ with oxidation and carbamidomethyl work correctly
-        /// - SILAC with other modifications is supported
-        /// - No warnings are generated for complex but valid modifications
-        /// 
-        /// Expected Behavior:
-        /// - warnings should be null
-        /// - All complex sequences should be accepted
-        /// - All modifications should be correctly converted
-        /// - All sequences must start with N-terminal modification
-        /// 
-        /// Use Case: Real-world complex modification scenarios
-        /// Real-world scenario: TMT-labeled peptides with oxidized Met, carbamidomethylated Cys,
-        ///                      and additional K-labeling (common in TMT experiments)
+        /// All must have N-terminal modifications.
         /// </summary>
         [Test]
-        public void TestComplexModificationCombinations()
+        public void TestProsit2020iRTTMTModelComplexModificationCombinations()
         {
-            var peptideSequences = new List<string>
+            var modelInputs = new List<RetentionTimePredictionInput>
             {
-                "[Common Fixed:TMT6plex on N-terminus]PEPTK[Common Fixed:TMT6plex on K]IDEC[Common Fixed:Carbamidomethyl on C]",
-                "[Common Fixed:TMTpro on N-terminus]M[Common Variable:Oxidation on M]EPTK[Common Fixed:TMTpro on K]IDEC[Common Fixed:Carbamidomethyl on C]",
-                "[Common Fixed:iTRAQ4plex on N-terminus]TESTK[Common Variable:Label:13C(6)15N(2) on K]R[Common Variable:Label:13C(6)15N(4) on R]C[Common Fixed:Carbamidomethyl on C]ING"
+                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTK[Common Fixed:TMT6plex on K]IDEC[Common Fixed:Carbamidomethyl on C]"),
+                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]M[Common Variable:Oxidation on M]EPTK[Common Fixed:TMTpro on K]IDEC[Common Fixed:Carbamidomethyl on C]"),
+                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]TESTK[Common Variable:Label:13C(6)15N(2) on K]R[Common Variable:Label:13C(6)15N(4) on R]C[Common Fixed:Carbamidomethyl on C]ING")
             };
 
-            var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
+            var model = new Prosit2020iRTTMT();
+            var predictions = model.Predict(modelInputs);
 
-            Assert.That(warnings, Is.Null);
-            Assert.That(model.PeptideSequences, Has.Count.EqualTo(3));
-            
-            // Verify first sequence has N-terminal TMT, K-TMT, and Carbamidomethyl C
-            Assert.That(model.PeptideSequences[0], Does.StartWith("[UNIMOD:737]-")); // N-term TMT6plex
-            Assert.That(model.PeptideSequences[0], Does.Contain("K[UNIMOD:737]")); // K TMT6plex
-            Assert.That(model.PeptideSequences[0], Does.Contain("C[UNIMOD:4]")); // Carbamidomethyl C
-            
-            // Verify second sequence has N-terminal TMT, Oxidation, TMTpro, and Carbamidomethyl
-            Assert.That(model.PeptideSequences[1], Does.StartWith("[UNIMOD:2016]-")); // N-term TMTpro
-            Assert.That(model.PeptideSequences[1], Does.Contain("M[UNIMOD:35]")); // Oxidation
-            Assert.That(model.PeptideSequences[1], Does.Contain("K[UNIMOD:2016]")); // TMTpro
-            Assert.That(model.PeptideSequences[1], Does.Contain("C[UNIMOD:4]")); // Carbamidomethyl C
-            
-            // Verify third sequence has N-terminal iTRAQ, both SILAC labels, and Carbamidomethyl
-            Assert.That(model.PeptideSequences[2], Does.StartWith("[UNIMOD:214]-")); // N-term iTRAQ4plex
-            Assert.That(model.PeptideSequences[2], Does.Contain("[UNIMOD:259]")); // Heavy K
-            Assert.That(model.PeptideSequences[2], Does.Contain("[UNIMOD:267]")); // Heavy R
-            Assert.That(model.PeptideSequences[2], Does.Contain("C[UNIMOD:4]")); // Carbamidomethyl C
+            Assert.That(predictions.Count, Is.EqualTo(3), "Should return predictions for all inputs");
+            Assert.That(predictions.All(p => p.PredictedRetentionTime != null), Is.True, "All should have predictions");
+            foreach (var input in modelInputs)
+            {
+                // since all inputs are valid and have N-terminal modifications, the validated sequence should match the original full sequence
+                Assert.That(input.FullSequence == input.ValidatedFullSequence, $"Input sequence should be validated and match original for: {input.FullSequence}");
+                Assert.That(input.SequenceWarning, Is.Null, $"Valid input should not have warnings for: {input.FullSequence}");
+            }
         }
 
         /// <summary>
         /// Tests batching behavior with a small input list (below max batch size).
-        /// 
-        /// Note: All sequences must have N-terminal modifications.
-        /// 
-        /// Validates that:
-        /// - All sequences are processed in a single batch
-        /// - Batch contains expected keys: "id" and "inputs"
-        /// - No warnings are generated
-        /// - Predictions are populated after inference
-        /// 
-        /// Expected Behavior:
-        /// - batches count should be 1
-        /// - Predictions count should equal input count (3)
-        /// 
-        /// Use Case: Ensures correct batching and inference execution
+        /// All sequences must have N-terminal modifications.
         /// </summary>
         [Test]
-        public void TestBatchingWithSmallInput()
+        public void TestProsit2020iRTTMTModelSmallBatchProcessing()
         {
-            var peptideSequences = new List<string> 
-            { 
-                "[Common Fixed:TMT6plex on N-terminus]PEPTIDE", 
-                "[Common Fixed:TMTpro on N-terminus]SEQENS", 
-                "[Common Fixed:iTRAQ4plex on N-terminus]TESTING" 
+            var modelInputs = new List<RetentionTimePredictionInput>
+            {
+                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"),
+                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]SEQENS"),
+                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]TESTING")
             };
-            var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
-            Assert.DoesNotThrowAsync(async () => await model.RunInferenceAsync());
-            Assert.That(model.Predictions, Has.Count.EqualTo(3));
+
+            var model = new Prosit2020iRTTMT();
+            var predictions = model.Predict(modelInputs);
+
+            Assert.That(predictions.Count, Is.EqualTo(3), "Should return predictions for all inputs");
+            Assert.That(predictions.All(p => p.PredictedRetentionTime != null), Is.True, "All should have predictions");
         }
 
         /// <summary>
         /// Tests batching behavior with a large input list (above max batch size).
-        /// 
         /// Generates 2500 random sequences with N-terminal TMT modifications.
-        /// 
-        /// Validates that:
-        /// - Input list is split into multiple batches
-        /// - Batch count matches expected (3 batches: 1000 + 1000 + 500)
-        /// - Each batch has a unique ID
-        /// - All sequences have N-terminal modifications
-        /// 
-        /// Expected Behavior:
-        /// - batches count should be 3
-        /// - Batch IDs should be unique and sequential (Batch0, Batch1, Batch2)
         /// </summary>
         [Test]
-        public void TestBatchingWithLargeInput()
+        public void TestProsit2020iRTTMTModelRequestBatching()
         {
             var aminoacids = "ACDEFGHIKLMNPQRSTVWY".ToArray();
             int numberOfSequences = 2500;
             int seqLength = 20;
-            var peptides = new List<string>();
+            var peptides = new HashSet<string>();
 
             while (peptides.Count < numberOfSequences)
             {
                 var pep = "[Common Fixed:TMT6plex on N-terminus]" + new string(Random.Shared.GetItems(aminoacids, seqLength));
+                peptides.Add(pep);
+            }
+
+            var modelInputs = peptides.Select(p => new RetentionTimePredictionInput(p)).ToList();
+            var model = new Prosit2020iRTTMT();
+
+            Assert.DoesNotThrow(() => model.Predict(modelInputs));
+
+            var predictions = model.Predict(modelInputs);
+            Assert.That(predictions.Count, Is.EqualTo(numberOfSequences), "Should return predictions for all inputs");
+        }
+
+        /// <summary>
+        /// Tests batching when input size equals max batch size.
+        /// All sequences must have N-terminal modifications.
+        /// </summary>
+        [Test]
+        public void TestProsit2020iRTTMTModelExactlyAtMaxBatchSize()
+        {
+            var modelInputs = new List<RetentionTimePredictionInput>();
+            for (int i = 0; i < 1000; i++)
+            {
+                modelInputs.Add(new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"));
+            }
+
+            var model = new Prosit2020iRTTMT();
+            var predictions = model.Predict(modelInputs);
+
+            Assert.That(predictions.Count, Is.EqualTo(1000), "Should return predictions for all inputs");
+        }
+
+        /// <summary>
+        /// Tests the properties of the Prosit2020iRTTMT model.
+        /// Validates model metadata and configuration.
+        /// </summary>
+        [Test]
+        public void TestProsit2020iRTTMTModelProperties()
+        {
+            var model = new Prosit2020iRTTMT();
+
+            Assert.That(model.ModelName, Is.EqualTo("Prosit_2020_irt_TMT"));
+            Assert.That(model.MaxBatchSize, Is.EqualTo(1000));
+            Assert.That(model.MaxPeptideLength, Is.EqualTo(30));
+            Assert.That(model.MinPeptideLength, Is.EqualTo(1));
+            Assert.That(model.IsIndexedRetentionTimeModel, Is.True);
+            Assert.That(model.ModHandlingMode, Is.EqualTo(IncompatibleModHandlingMode.ReturnNull));
+            Assert.That(model.ValidModificationUnimodMapping, Is.Not.Null);
+            Assert.That(model.ValidModificationUnimodMapping.Count, Is.EqualTo(12), "Should support 12 modification types");
+        }
+
+        /// <summary>
+        /// Tests handling of mixed valid and invalid sequences.
+        /// Invalid sequences should have null predictions with warnings.
+        /// </summary>
+        [Test]
+        public void TestProsit2020iRTTMTModelMixedValidAndInvalidSequences()
+        {
+            var modelInputs = new List<RetentionTimePredictionInput>
+            {
+                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"), // Valid
+                new RetentionTimePredictionInput("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"), // Invalid - too long AND no N-term
+                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]SEQENS"), // Valid
+                new RetentionTimePredictionInput("INVALID*"), // Invalid - bad character AND no N-term
+                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]TESTINGTWICE"), // Valid
+                new RetentionTimePredictionInput("INVALIDPEPTIDE[BadMod]"), // Invalid - bad mod AND no N-term
+                new RetentionTimePredictionInput("VALIDSEQENCE") // Invalid - no N-term mod
+            };
+
+            var model = new Prosit2020iRTTMT();
+            var predictions = model.Predict(modelInputs);
+
+            Assert.That(predictions.Count, Is.EqualTo(7), "Should return entries for all inputs");
+            Assert.That(model.ValidInputsMask.Count(v => v), Is.EqualTo(3), "Should have 3 valid inputs with N-term modifications");
+            Assert.That(predictions.Count(p => p.PredictedRetentionTime != null), Is.EqualTo(3), "Only valid sequences with N-term should have predictions");
+            Assert.That(predictions.Count(p => p.Warning != null), Is.EqualTo(4), "Invalid sequences should have warnings");
+
+            // Verify all accepted sequences have N-terminal modifications
+            foreach (var pred in predictions.Where(p => p.PredictedRetentionTime != null))
+            {
+                int modEnding = pred.FullSequence.IndexOf(']') + 1;
+                Assert.That(model.ValidModificationUnimodMapping.Keys.Contains(pred.FullSequence.Substring(0, modEnding)), $"Accepted sequence should have N-terminal modification: {pred.FullSequence}");
+            }
+        }
+
+        /// <summary>
+        /// Tests custom constructor parameters for batching and throttling.
+        /// </summary>
+        [Test]
+        public void TestProsit2020iRTTMTModelCustomConstructorParameters()
+        {
+            var model = new Prosit2020iRTTMT(
+                modHandlingMode: IncompatibleModHandlingMode.ReturnNull,
+                maxNumberOfBatchesPerRequest: 100,
+                throttlingDelayInMilliseconds: 50
+            );
+
+            Assert.That(model.MaxNumberOfBatchesPerRequest, Is.EqualTo(100));
+            Assert.That(model.ThrottlingDelayInMilliseconds, Is.EqualTo(50));
+            Assert.That(model.ModHandlingMode, Is.EqualTo(IncompatibleModHandlingMode.ReturnNull));
+        }
+
+        [Test]
+        [Explicit("Massive test, takes a long time to run")]
+        [Category("Performance Benchmark")]
+        /// <summary>
+        /// Performance benchmark test for the Prosit2020iRTTMT model with a large number of unique peptide sequences.
+        /// This test is meant to evaluate the model's ability to handle large batch sizes and the efficiency of request batching logic.
+        /// 
+        /// Notes: 
+        ///  - 1 MaxBatchSize is 1000 peptides and PFly2024FineTuned.Predict() takes under 1.5 seconds to run.
+        ///  - With 4 million unique peptides of length 30, the test takes approximately 2 minutes to run. 
+        ///  - Timing is linearly proportional to peptide number due to the throttled approach.
+        ///  - The default MaxNumberOfBatchesPerRequest is currently set to 500 which was tested up to 4 million peptides without hitting client issues. 
+        ///  - All peptides must include a required N-terminal modification (TMT6plex used here) for this model.
+        /// </summary>
+        public static void BenchmarkModelInputCountPerformance()
+        {
+            var aminoacids = "ACDEFGHIKLMNPQRSTVWY".ToArray();
+            var modelInputs = new List<RetentionTimePredictionInput>();
+            var seqLength = 30; // max length increases combinatorial space to ensure we always get unique sequences and benchmark response length handling
+            var numberOfSequences = 4000000;
+            var peptides = new HashSet<string>();
+            while (peptides.Count < numberOfSequences)
+            {
+                var pep = new string(Random.Shared.GetItems(aminoacids, seqLength));
                 if (!peptides.Contains(pep))
                 {
                     peptides.Add(pep);
                 }
             }
-
-            var model = new Prosit2020iRTTMT(peptides, out WarningException warnings);
-            Assert.DoesNotThrowAsync(async () => await model.RunInferenceAsync());
-            Assert.That(model.Predictions, Has.Count.EqualTo(numberOfSequences));
-        }
-
-        /// <summary>
-        /// Tests batching behavior when the input list size is exactly the max batch size.
-        /// 
-        /// Validates that:
-        /// - All sequences are processed in a single batch
-        /// - No batching errors occur
-        /// - All sequences have N-terminal modifications
-        /// 
-        /// Expected Behavior:
-        /// - batches count should be 1
-        /// </summary>
-        [Test]
-        public void TestBatchingExactlyAtMaxBatchSize()
-        {
-            var peptideSequences = new List<string>();
-            for (int i = 0; i < 1000; i++)
+            foreach (var peptide in peptides)
             {
-                peptideSequences.Add("[Common Fixed:TMT6plex on N-terminus]PEPTIDE");
+                modelInputs.Add(new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]" + peptide));
             }
-            var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
-            Assert.DoesNotThrowAsync(async () => await model.RunInferenceAsync());
-            Assert.That(model.Predictions, Has.Count.EqualTo(1000));
-        }
-
-        /// <summary>
-        /// Tests that model predictions are initially empty upon model creation.
-        /// 
-        /// Validates that:
-        /// - Predictions list is empty until inference is run
-        /// 
-        /// Expected Behavior:
-        /// - Predictions should be empty
-        /// </summary>
-        [Test]
-        public void TestPredictionsInitiallyEmpty()
-        {
-            var peptideSequences = new List<string> 
-            { 
-                "[Common Fixed:TMT6plex on N-terminus]PEPTIDE", 
-                "[Common Fixed:TMTpro on N-terminus]SEQUENCE" 
-            };
-
-            var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
-
-            Assert.That(model.Predictions, Is.Empty);
-        }
-
-        /// <summary>
-        /// Tests the properties of the Prosit2020iRTTMT model.
-        /// 
-        /// Validates that:
-        /// - Model name is correctly set
-        /// - Max batch size, max peptide length, and min peptide length are within expected ranges
-        /// - The model is flagged as an indexed retention time model
-        /// - Valid modification mappings are populated
-        /// 
-        /// Expected Behavior:
-        /// - Model properties should match the specifications
-        /// </summary>
-        [Test]
-        public void TestModelProperties()
-        {
-            var peptideSequences = new List<string> { "[Common Fixed:TMT6plex on N-terminus]PEPTIDE" };
-            var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
-
-            Assert.That(model.ModelName, Is.EqualTo("Prosit_2020_irt_TMT"));
-            Assert.That(model.MaxBatchSize, Is.GreaterThan(0));
-            Assert.That(model.MaxPeptideLength, Is.GreaterThan(0));
-            Assert.That(model.MinPeptideLength, Is.GreaterThanOrEqualTo(1));
-            Assert.That(model.IsIndexedRetentionTimeModel, Is.True);
-            Assert.That(model.ValidModificationUnimodMapping, Is.Not.Null);
-            Assert.That(model.ValidModificationUnimodMapping.Count, Is.GreaterThan(0));
-        }
-
-        /// <summary>
-        /// Tests the handling of a mix of valid and invalid sequences in the input list.
-        /// 
-        /// Validates that:
-        /// - A warning is generated for the invalid sequences
-        /// - Only valid sequences WITH N-terminal mods are added to the model
-        /// - Invalid sequences are properly identified
-        /// - Sequences without N-terminal mods are rejected
-        /// 
-        /// Expected Behavior:
-        /// - warnings should not be null
-        /// - Warning message should indicate invalid sequences
-        /// - model.PeptideSequences should contain only sequences with N-terminal mods
-        /// </summary>
-        [Test]
-        public void TestMixedValidAndInvalidSequences()
-        {
-            var peptideSequences = new List<string>
-            {
-                "[Common Fixed:TMT6plex on N-terminus]PEPTIDE", // Valid
-                "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", // Invalid - too long AND no N-term
-                "[Common Fixed:TMTpro on N-terminus]SEQENS", // Valid
-                "INVALID*", // Invalid - bad character AND no N-term
-                "[Common Fixed:iTRAQ4plex on N-terminus]TESTINGTWICE", // Valid
-                "INVALIDPEPTIDE[BadMod]", // Invalid - bad mod AND no N-term
-                "VALIDSEQENCE" // Invalid - no N-term mod (even though sequence is valid)
-            };
-
-            var model = new Prosit2020iRTTMT(peptideSequences, out WarningException warnings);
-
-            Assert.That(warnings, Is.Not.Null);
-            Assert.That(model.PeptideSequences, Has.Count.EqualTo(3)); // Only sequences with N-term mods
-            Assert.That(warnings.Message, Does.Contain("invalid"));
-            
-            // Verify all accepted sequences have N-terminal modifications
-            foreach (var sequence in model.PeptideSequences)
-            {
-                Assert.That(sequence, Does.Match(@"^\[UNIMOD:(737|2016|214|730)\]-"));
-            }
-        }
-
-        [Test]
-        public static async Task TestModelIsDisposedProperly()
-        {
-            var peptides = new List<string> { "[Common Fixed:TMTpro on N-terminus]PEPTIDE", "[Common Fixed:TMTpro on N-terminus]PEPTIDEK" };
-
-            // Disposed after use/inference
-            var model = new Prosit2020iRTTMT(peptides, out var warning);
-            Assert.That(warning, Is.Null,
-                "Warning should not be generated for valid peptides");
-            await model.RunInferenceAsync();
-            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.RunInferenceAsync(),
-                "1Running inference on a disposed model should throw ObjectDisposedException");
-
-            // Results should still be accessible after disposal
-            Assert.That(model.Predictions.Count, Is.EqualTo(2),
-                "Predicted spectra should still be accessible after model is disposed");
-
-            // Disposed on command
-            model = new Prosit2020iRTTMT(peptides, out warning);
-            Assert.That(warning, Is.Null,
-                "Warning should not be generated for valid peptides");
-            model.Dispose();
-            Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.RunInferenceAsync(),
-                "2Running inference on a disposed model should throw ObjectDisposedException");
+            var model = new Prosit2020iRTTMT();
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            Assert.DoesNotThrow(() => model.Predict(modelInputs));
+            watch.Stop();
+            Assert.That(model.Predictions.Count, Is.EqualTo(numberOfSequences));
+            Assert.That(model.ValidInputsMask, Is.All.True);
+            Console.WriteLine($"Time taken to predict {numberOfSequences:N0} peptides: {watch.Elapsed.Minutes}min {watch.Elapsed.Seconds}s {watch.Elapsed.Milliseconds}ms");
         }
     }
 }
