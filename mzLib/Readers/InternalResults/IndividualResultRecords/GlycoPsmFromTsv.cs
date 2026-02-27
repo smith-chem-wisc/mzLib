@@ -21,14 +21,14 @@ public class GlycoPsmFromTsv : PsmFromTsv
     public string NGlycanMotifCheck { get; set; }
     public string AllSiteSpecificLocalizationProbability { get; set; }
 
-    public GlycoPsmFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader) : base(line, split, parsedHeader)
+    public GlycoPsmFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader, SpectrumMatchParsingParameters? parsingParams = null) : base(line, split, parsedHeader, parsingParams ??= new())
     {
         var spl = line.Split(split).Select(p => p.Trim('\"')).ToArray();
 
-        GlycanMass = (parsedHeader[SpectrumMatchFromTsvHeader.GlycanMass] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.GlycanMass]], CultureInfo.InvariantCulture);
-        GlycanComposition = (parsedHeader[SpectrumMatchFromTsvHeader.GlycanComposition] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.GlycanComposition]];
-        GlycanStructure = (parsedHeader[SpectrumMatchFromTsvHeader.GlycanStructure] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.GlycanStructure]];
-        var localizationLevel = (parsedHeader[SpectrumMatchFromTsvHeader.GlycanLocalizationLevel] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.GlycanLocalizationLevel]];
+        GlycanMass = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.GlycanMass, parsedHeader, spl);
+        GlycanComposition = GetOptionalValue(SpectrumMatchFromTsvHeader.GlycanComposition, parsedHeader, spl);
+        GlycanStructure = GetOptionalValue(SpectrumMatchFromTsvHeader.GlycanStructure, parsedHeader, spl);
+        var localizationLevel = GetOptionalValue(SpectrumMatchFromTsvHeader.GlycanLocalizationLevel, parsedHeader, spl);
         if (localizationLevel != null)
         {
             if (localizationLevel.Equals("NA"))
@@ -36,18 +36,17 @@ public class GlycoPsmFromTsv : PsmFromTsv
             else
                 GlycanLocalizationLevel = (LocalizationLevel)Enum.Parse(typeof(LocalizationLevel), localizationLevel);
         }
-        LocalizedGlycanInPeptide = (parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycanInPeptide] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycanInPeptide]];
-        LocalizedGlycanInProtein = (parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycanInProtein] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycanInProtein]];
-        R138144 = (parsedHeader[SpectrumMatchFromTsvHeader.R138144] < 0) ? 0 : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.R138144]], CultureInfo.InvariantCulture);
-        LocalizedScores = (parsedHeader[SpectrumMatchFromTsvHeader.LocalizedScores] < 0) ? 0 : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.LocalizedScores]], CultureInfo.InvariantCulture);
-        YionScore = (parsedHeader[SpectrumMatchFromTsvHeader.YionScore] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.YionScore]], CultureInfo.InvariantCulture);
-        DiagonosticIonScore = (parsedHeader[SpectrumMatchFromTsvHeader.DiagonosticIonScore] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.DiagonosticIonScore]], CultureInfo.InvariantCulture);
-        TotalGlycanSites = (parsedHeader[SpectrumMatchFromTsvHeader.TotalGlycanSite] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.TotalGlycanSite]];
-        FlankingResidues = (parsedHeader[SpectrumMatchFromTsvHeader.FlankingResidues] < 0) ? null
-            : spl[parsedHeader[SpectrumMatchFromTsvHeader.FlankingResidues]];
-        AllPotentialGlycanLocalization = (parsedHeader[SpectrumMatchFromTsvHeader.AllPotentialGlycanLocalization] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.AllPotentialGlycanLocalization]];
-        AllSiteSpecificLocalizationProbability = (parsedHeader[SpectrumMatchFromTsvHeader.AllSiteSpecificLocalizationProbability] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.AllSiteSpecificLocalizationProbability]];
-        NGlycanMotifCheck = (parsedHeader[SpectrumMatchFromTsvHeader.NGlycanMotifCheck] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.NGlycanMotifCheck]];
+        LocalizedGlycanInPeptide = GetOptionalValue(SpectrumMatchFromTsvHeader.LocalizedGlycanInPeptide, parsedHeader, spl);
+        LocalizedGlycanInProtein = GetOptionalValue(SpectrumMatchFromTsvHeader.LocalizedGlycanInProtein, parsedHeader, spl);
+        R138144 = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.R138144, parsedHeader, spl, 0).GetValueOrDefault(0);
+        LocalizedScores = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.LocalizedScores, parsedHeader, spl, 0);
+        YionScore = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.YionScore, parsedHeader, spl);
+        DiagonosticIonScore = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.DiagonosticIonScore, parsedHeader, spl);
+        TotalGlycanSites = GetOptionalValue(SpectrumMatchFromTsvHeader.TotalGlycanSite, parsedHeader, spl);
+        FlankingResidues = GetOptionalValue(SpectrumMatchFromTsvHeader.FlankingResidues, parsedHeader, spl);
+        AllPotentialGlycanLocalization = GetOptionalValue(SpectrumMatchFromTsvHeader.AllPotentialGlycanLocalization, parsedHeader, spl);
+        AllSiteSpecificLocalizationProbability = GetOptionalValue(SpectrumMatchFromTsvHeader.AllSiteSpecificLocalizationProbability, parsedHeader, spl);
+        NGlycanMotifCheck = GetOptionalValue(SpectrumMatchFromTsvHeader.NGlycanMotifCheck, parsedHeader, spl);
     }
 
     public GlycoPsmFromTsv(GlycoPsmFromTsv psm, string fullSequence, int index = 0, string baseSequence = "") : base(psm, fullSequence, index, baseSequence)
