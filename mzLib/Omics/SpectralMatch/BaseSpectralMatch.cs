@@ -12,7 +12,7 @@ namespace Omics.SpectralMatch
     /// residues that have fragment evidence on both sides. This works for any biopolymer type
     /// (peptides use b/y ions, nucleic acids use 5'/3' fragments).
     /// </summary>
-    public abstract class BaseSpectralMatch : ISpectralMatch, IHasSequenceCoverageFromFragments, IEquatable<BaseSpectralMatch>
+    public abstract class BaseSpectralMatch : ISpectralMatch, IHasSequenceCoverageFromFragments, IEquatable<BaseSpectralMatch>, IEquatable<ISpectralMatch>
     {
         public const double ToleranceForScoreDifferentiation = 1e-9;
 
@@ -94,7 +94,7 @@ namespace Omics.SpectralMatch
 
 
         /// <inheritdoc cref="ISpectralMatch.Intensities"/>
-        public double[]? Intensities { get; protected set; }
+        public double[]? Intensities { get; set; }
 
         /// <summary>
         /// Returns the biopolymers (peptides, oligonucleotides, etc.) identified for this spectral match.
@@ -183,6 +183,16 @@ namespace Omics.SpectralMatch
             return string.Equals(FullFilePath, other.FullFilePath, StringComparison.Ordinal)
                 && OneBasedScanNumber == other.OneBasedScanNumber
                 && string.Equals(FullSequence, other.FullSequence, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// Determines equality with another ISpectralMatch.
+        /// Delegates to Equals(BaseSpectralMatch) if the other is a BaseSpectralMatch.
+        /// </summary>
+        public bool Equals(ISpectralMatch? other)
+        {
+            if (other is BaseSpectralMatch sm) return Equals(sm);
+            return false;
         }
 
         /// <summary>

@@ -39,6 +39,7 @@
     <ProjectReference Include="..\Readers\Readers.csproj" />
     <ProjectReference Include="..\Transcriptomics\Transcriptomics.csproj" />
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
+    <ProjectReference Include="..\Quantification\Quantification.csproj" />
   </ItemGroup>
 
   <ItemGroup>

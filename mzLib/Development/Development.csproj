@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -17,7 +17,9 @@
   <ItemGroup>
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
+    <ProjectReference Include="..\Omics\Omics.csproj" />
     <ProjectReference Include="..\Proteomics\Proteomics.csproj" />
+    <ProjectReference Include="..\Quantification\Quantification.csproj" />
     <ProjectReference Include="..\Readers\Readers.csproj" />
     <ProjectReference Include="..\SpectralAveraging\SpectralAveraging.csproj" />
   </ItemGroup>

@@ -145,6 +145,27 @@ namespace Readers
             return other.Score.CompareTo(Score);
         }
 
+        public bool Equals(Omics.SpectralMatch.ISpectralMatch? other)
+        {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+
+            return string.Equals(FullFilePath, other.FullFilePath, StringComparison.Ordinal)
+                && OneBasedScanNumber == other.OneBasedScanNumber
+                && string.Equals(FullSequence, other.FullSequence, StringComparison.Ordinal);
+        }
+
+        public override bool Equals(object? obj)
+        {
+            if (obj is Omics.SpectralMatch.ISpectralMatch sm) return Equals(sm);
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(FullFilePath, OneBasedScanNumber, FullSequence);
+        }
+
         #endregion
 
         #region Private Helpers

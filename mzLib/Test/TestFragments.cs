@@ -20,20 +20,19 @@ using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
+using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Fragmentation.Peptide;
+using Omics.Modifications;
 using Proteomics;
 using Proteomics.AminoAcidPolymer;
 using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Omics.Digestion;
-using Omics.Modifications;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
-using Transcriptomics;
 
 namespace Test
 {
@@ -1300,7 +1299,8 @@ namespace Test
             mProducts = products.Where(p => p.ProductType == ProductType.M).ToList();
             Assert.That(mProducts.Count, Is.EqualTo(2));
 
-            var expectedMasses = new[] { pep.MonoisotopicMass, pep.MonoisotopicMass - MIonLoss.WaterLoss.MonoisotopicMass };
+            var expectedMasses = new[]
+                { pep.MonoisotopicMass, pep.MonoisotopicMass - MIonLoss.WaterLoss.MonoisotopicMass };
             var expectedAnnotations = new[] { "M", "M-H2O" };
             for (int i = 0; i < mProducts.Count; i++)
             {
