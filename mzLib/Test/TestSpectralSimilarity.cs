@@ -2,9 +2,12 @@
 using MassSpectrometry.MzSpectra;
 using MzLibUtil;
 using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using Omics.Fragmentation;
+using Omics.SpectrumMatch;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
 namespace Test
 {
@@ -455,6 +458,168 @@ namespace Test
             // With correction, this should increase divergence for missing peaks
             Assert.That(s.KullbackLeiblerDivergence_P_Q() == null);
 
+        }
+        [Test]
+        public void TestSpectralSimilarityWithInternalFragmentIons()
+        {
+            double ppmTolerance = 10;
+
+            // Create a spectrum with both standard and internal fragment ions
+            // Simulating what would come from a library spectrum with internal ions
+            // Standard ions: b1, b2, y1, y2
+            // Internal ions: bIb[2-4], bIb[3-5]
+            double[] spectrum1Mz = new double[] { 100.0, 200.0, 300.0, 400.0, 250.0, 350.0 };
+            double[] spectrum1Intensity = new double[] { 1000, 2000, 1500, 2500, 800, 1200 };
+
+            // Second spectrum with similar peaks (simulating another acquisition of the same peptide)
+            double[] spectrum2Mz = new double[] { 100.0, 200.0, 300.0, 400.0, 250.0, 350.0 };
+            double[] spectrum2Intensity = new double[] { 1100, 1900, 1600, 2400, 750, 1300 };
+
+            // Test that similarity calculations work with internal ion m/z values
+            SpectralSimilarity s = new SpectralSimilarity(
+                spectrum1Mz, spectrum1Intensity,
+                spectrum2Mz, spectrum2Intensity,
+                SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
+                ppmTolerance, true, 0);
+
+            // All 6 peaks should match
+            Assert.AreEqual(6, s.IntensityPairs.Count);
+
+            // High similarity expected since spectra are nearly identical
+            Assert.That(s.CosineSimilarity(), Is.GreaterThan(0.95));
+            Assert.That(s.SpectralContrastAngle(), Is.GreaterThan(0.85));
+            Assert.That(s.PearsonsCorrelation(), Is.GreaterThan(0.95));
+
+            // Test with partial overlap - some internal ions missing
+            double[] spectrum3Mz = new double[] { 100.0, 200.0, 300.0, 400.0 }; // Missing internal ions
+            double[] spectrum3Intensity = new double[] { 1000, 2000, 1500, 2500 };
+
+            s = new SpectralSimilarity(
+                spectrum1Mz, spectrum1Intensity,
+                spectrum3Mz, spectrum3Intensity,
+                SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
+                ppmTolerance, true, 0);
+
+            // 6 peaks total (4 matching + 2 unmatched internal ions paired with zero)
+            Assert.AreEqual(6, s.IntensityPairs.Count);
+            // Similarity should be lower due to missing internal ions
+            Assert.That(s.CosineSimilarity(), Is.LessThan(0.95));
+            Assert.That(s.CosineSimilarity(), Is.GreaterThan(0.7));
+
+            // Test using only library peaks (allPeaks = false)
+            s = new SpectralSimilarity(
+                spectrum1Mz, spectrum1Intensity,
+                spectrum3Mz, spectrum3Intensity,
+                SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
+                ppmTolerance, false, 0);
+
+            // Only 4 theoretical peaks considered
+            Assert.AreEqual(4, s.IntensityPairs.Count);
+            // Higher similarity since we're only comparing matched peaks
+            Assert.That(s.CosineSimilarity(), Is.EqualTo(1.0).Within(0.01));
+        }
+
+        [Test]
+        public void TestSpectralSimilarityWithInternalIonsFromLibrarySpectrum()
+        {
+            // Create MatchedFragmentIons including internal fragments
+            // Standard b-ion
+            Product bIon = new Product(ProductType.b, FragmentationTerminus.N, 100.0, 2, 2, 0);
+            // Standard y-ion
+            Product yIon = new Product(ProductType.y, FragmentationTerminus.C, 200.0, 3, 3, 0);
+            // Internal fragment ion: bIb[2-5]
+            Product internalIon1 = new Product(
+                ProductType.b, FragmentationTerminus.None, 300.0,
+                fragmentNumber: 2, residuePosition: 2, neutralLoss: 0,
+                secondaryProductType: ProductType.b, secondaryFragmentNumber: 5);
+            // Internal fragment ion: bIy[3-6]
+            Product internalIon2 = new Product(
+                ProductType.b, FragmentationTerminus.None, 400.0,
+                fragmentNumber: 3, residuePosition: 3, neutralLoss: 0,
+                secondaryProductType: ProductType.y, secondaryFragmentNumber: 6);
+
+            // Verify internal ion properties
+            Assert.That(bIon.IsInternalFragment, Is.False);
+            Assert.That(yIon.IsInternalFragment, Is.False);
+            Assert.That(internalIon1.IsInternalFragment, Is.True);
+            Assert.That(internalIon2.IsInternalFragment, Is.True);
+
+            // Create matched fragment ions
+            var matchedIons1 = new List<MatchedFragmentIon>
+    {
+        new MatchedFragmentIon(bIon, 100.0, 1000, 1),
+        new MatchedFragmentIon(yIon, 200.0, 2000, 1),
+        new MatchedFragmentIon(internalIon1, 300.0, 1500, 1),
+        new MatchedFragmentIon(internalIon2, 400.0, 2500, 1)
+    };
+
+            var matchedIons2 = new List<MatchedFragmentIon>
+    {
+        new MatchedFragmentIon(bIon, 100.0, 1100, 1),
+        new MatchedFragmentIon(yIon, 200.0, 1900, 1),
+        new MatchedFragmentIon(internalIon1, 300.0, 1600, 1),
+        new MatchedFragmentIon(internalIon2, 400.0, 2400, 1)
+    };
+
+            // Create library spectra
+            var librarySpectrum1 = new LibrarySpectrum("PEPTIDE", 500.0, 2, matchedIons1, 10.0);
+            var librarySpectrum2 = new LibrarySpectrum("PEPTIDE", 500.0, 2, matchedIons2, 10.0);
+
+            // Verify internal ions are in the spectrum
+            Assert.That(librarySpectrum1.MatchedFragmentIons.Count(m => m.NeutralTheoreticalProduct.IsInternalFragment), Is.EqualTo(2));
+            Assert.That(librarySpectrum2.MatchedFragmentIons.Count(m => m.NeutralTheoreticalProduct.IsInternalFragment), Is.EqualTo(2));
+
+            // Test spectral similarity using the library spectrum's m/z and intensity arrays
+            SpectralSimilarity s = new SpectralSimilarity(
+                librarySpectrum1.XArray, librarySpectrum1.YArray,
+                librarySpectrum2.XArray, librarySpectrum2.YArray,
+                SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
+                toleranceInPpm: 10, allPeaks: true, filterOutBelowThisMz: 0);
+
+            Assert.AreEqual(4, s.IntensityPairs.Count);
+            Assert.That(s.CosineSimilarity(), Is.GreaterThan(0.95));
+            Assert.That(s.SpectralContrastAngle(), Is.GreaterThan(0.85));
+
+            // Test using the LibrarySpectrum's built-in method
+            string spectralAngle = librarySpectrum1.CalculateSpectralAngleOnTheFly(matchedIons2);
+            Assert.That(spectralAngle, Is.Not.EqualTo("N/A"));
+            double parsedAngle = double.Parse(spectralAngle);
+            Assert.That(parsedAngle, Is.GreaterThan(0.85));
+        }
+
+        [Test]
+        public void TestSpectralEntropyWithInternalFragmentIons()
+        {
+            double ppmTolerance = 10;
+
+            // Create spectra with internal ions for spectral entropy calculation
+            double[] spectrum1Mz = new double[] { 100.0, 200.0, 300.0, 400.0, 250.0, 350.0 };
+            double[] spectrum1Intensity = new double[] { 0.2, 0.3, 0.15, 0.2, 0.08, 0.07 }; // Normalized
+
+            double[] spectrum2Mz = new double[] { 100.0, 200.0, 300.0, 400.0, 250.0, 350.0 };
+            double[] spectrum2Intensity = new double[] { 0.2, 0.3, 0.15, 0.2, 0.08, 0.07 };
+
+            SpectralSimilarity s = new SpectralSimilarity(
+                spectrum1Mz, spectrum1Intensity,
+                spectrum2Mz, spectrum2Intensity,
+                SpectralSimilarity.SpectrumNormalizationScheme.SpectrumSum,
+                ppmTolerance, true, 0);
+
+            // Identical spectra should have spectral entropy = 1.0
+            Assert.That(s.SpectralEntropy(), Is.EqualTo(1.0).Within(0.01));
+
+            // Test with different intensity distributions (internal ions have different intensities)
+            double[] spectrum3Intensity = new double[] { 0.1, 0.4, 0.1, 0.25, 0.1, 0.05 };
+
+            s = new SpectralSimilarity(
+                spectrum1Mz, spectrum1Intensity,
+                spectrum2Mz, spectrum3Intensity,
+                SpectralSimilarity.SpectrumNormalizationScheme.SpectrumSum,
+                ppmTolerance, true, 0);
+
+            // Spectral entropy should be less than 1.0 for different spectra
+            Assert.That(s.SpectralEntropy(), Is.LessThan(1.0));
+            Assert.That(s.SpectralEntropy(), Is.GreaterThan(0.8));
         }
     }
 }

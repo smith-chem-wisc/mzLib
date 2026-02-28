@@ -204,7 +204,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// 5. Validates uniqueness of generated spectra by name
         /// </remarks>
         /// <exception cref="WarningException">Recorded in the out parameter when duplicate spectra are detected in predictions</exception>
-        protected void GenerateLibrarySpectraFromPredictions(out WarningException? warning)
+        protected virtual void GenerateLibrarySpectraFromPredictions(out WarningException? warning)
         {
             warning = null;
             if (Predictions.Count == 0)

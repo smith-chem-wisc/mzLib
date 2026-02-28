@@ -4,6 +4,7 @@ using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -94,7 +95,7 @@ namespace Test.KoinaTests
         public void TestConstructorWithNullPeptides()
         {
             List<string> peptideSequences = null;
-            
+
             var model = new Prosit2019iRT(peptideSequences, out WarningException warnings);
 
             Assert.That(warnings, Is.Not.Null);
@@ -406,6 +407,29 @@ namespace Test.KoinaTests
             model.Dispose();
             Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.RunInferenceAsync(),
                 "2Running inference on a disposed model should throw ObjectDisposedException");
+        }
+        [Test]
+        [Explicit("Manual test - requires local data files")]
+        public static async Task TestPredictRetentionTimesFromTextFile()
+        {
+            string inputPath = @"C:\Users\trish\Downloads\falses.txt";
+            string outputPath = @"C:\Users\trish\Downloads\predicted_irts_falses.txt";
+
+            if (!File.Exists(inputPath))
+            {
+                Assert.Ignore($"Input file not found: {inputPath}");
+                return;
+            }
+
+            var peptides = File.ReadAllLines(inputPath).ToList();
+            var model = new Prosit2019iRT(peptides, out WarningException warnings);
+            Assert.That(warnings, Is.Null);
+
+            await model.RunInferenceAsync();
+
+            File.WriteAllLines(outputPath, model.Predictions.Select(p => $"{p.FullSequence}\t{p.PredictedRetentionTime}"));
+
+
         }
     }
 }
