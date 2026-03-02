@@ -649,7 +649,33 @@ namespace MassSpectrometry.Dia
                         result.PeakMeanFragCorrelation = result.MeanFragmentCorrelation;
                         result.PeakMinFragCorrelation = result.MinFragmentCorrelation;
                     }
+                    // ══════════════════════════════════════════════════════════
+                    //  Phase 13: Advanced discriminative features
+                    //  All computed from the existing matrix — no extra file reads
+                    // ══════════════════════════════════════════════════════════
+                    int featureApex = peakGroup.IsValid ? peakGroup.ApexIndex : fullApexIdx;
+                    int featureLeft = peakGroup.IsValid ? peakGroup.LeftIndex : -1;
+                    int featureRight = peakGroup.IsValid ? peakGroup.RightIndex : -1;
 
+                    DiaFeatureCalculator.ComputeAllFeatures(
+                        matrix,                 // the time × fragment matrix already built
+                        libIntensities,         // library intensities already in scope
+                        fragmentCount,          // already computed
+                        timePointCount,         // already computed
+                        featureApex,            // apex from peak detection
+                        featureLeft,            // peak left boundary (-1 = full window)
+                        featureRight,           // peak right boundary (-1 = full window)
+                        result                  // populates all Phase 13 feature properties
+                    );
+
+                    // Also set CandidateCount from peak detection
+                    if (peakGroup.IsValid)
+                    {
+                        result.CandidateCount = peakGroup.CandidateCount;
+                        result.PeakWidth = peakGroup.ApexRt > 0 && peakGroup.LeftIndex >= 0
+                            ? refRts[peakGroup.RightIndex] - refRts[peakGroup.LeftIndex]
+                            : 0f;
+                    }
                     // ── Spectral angle from raw cosine ──────────────────────
                     if (!float.IsNaN(result.RawCosine))
                     {
