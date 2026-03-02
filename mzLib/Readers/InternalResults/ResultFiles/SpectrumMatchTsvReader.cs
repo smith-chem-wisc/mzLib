@@ -150,6 +150,7 @@ namespace Readers
             parsedHeader.Add(SpectrumMatchFromTsvHeader.MissedCleavages, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.MissedCleavages));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.MassDiffDa, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.MassDiffDa));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.MassDiffPpm, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.MassDiffPpm));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.CollisionEnergy, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.CollisionEnergy));
 
             //Handle legacy input
             if (spl.Contains(SpectrumMatchFromTsvHeader.Accession))
