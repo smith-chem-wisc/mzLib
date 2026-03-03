@@ -125,8 +125,9 @@
         public static readonly string[] TmtChannelNames = new[]
         {
             "126", "127N", "127C", "128N", "128C",
-            "129N", "129C", "130N", "130C", "131", "131N",
-            "131C", "132N", "132C", "133N", "133C", "134N" // TMT16+ channels
+            "129N", "129C", "130N", "130C", "131", // TMT 10
+            "131N", "131C", "132N", "132C", "133N", "133C", // TMT16+ channels
+            "134N", "134C", "135N", // TMTpro 18 channels
         };
     }
 }
