@@ -68,6 +68,21 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void SkipsEmptySpectra()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "withEmptySpectra.mgf");
+            var file = MsDataFileReader.GetDataFile(path);
+
+            file.LoadAllStaticData();
+
+            var scans = file.GetAllScansList();
+
+            // Skipped two empty spectra, so only one scan should be loaded
+            Assert.That(scans.Count, Is.EqualTo(1));
+            Assert.That(scans[0].OneBasedScanNumber, Is.EqualTo(25501));
+        }
+
+        [Test]
         public static void TestLoadMgfTabSeparated()
         {
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "Tab_separated_peak_list.mgf");
