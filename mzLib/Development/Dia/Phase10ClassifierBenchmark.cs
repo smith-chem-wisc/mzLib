@@ -103,7 +103,7 @@ namespace Development.Dia
 
             sw.Restart();
             var results = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
-                precursors, genResult, extractionResult, parameters);
+                precursors, genResult, extractionResult, parameters, index);
             Console.WriteLine($"  Temporal scoring: {sw.ElapsedMilliseconds}ms | {results.Count:N0} results");
             Console.WriteLine();
 
@@ -112,8 +112,8 @@ namespace Development.Dia
             {
                 float medDetRate = results.Select(r => r.FragmentDetectionRate).OrderBy(x => x).ElementAt(results.Count / 2);
                 float medFragDet = results.Select(r => (float)r.FragmentsDetected).OrderBy(x => x).ElementAt(results.Count / 2);
-                int hasTemp = results.Count(r => r.TemporalCosineScore > 0 && !float.IsNaN(r.TemporalCosineScore));
-                int hasCorr = results.Count(r => !float.IsNaN(r.MeanFragmentCorrelation));
+                int hasTemp = results.Count(r => r.TemporalScore > 0 && !float.IsNaN(r.TemporalScore));
+                int hasCorr = results.Count(r => !float.IsNaN(r.MeanFragCorr));
                 int hasApexRt = results.Count(r => !float.IsNaN(r.ObservedApexRt));
 
                 Console.WriteLine("--- Library Quality Diagnostics --------------------------------");
@@ -400,7 +400,7 @@ namespace Development.Dia
         {
             using var w = new StreamWriter(path);
             w.Write("Sequence\tCharge\tPrecursorMz\tIsDecoy\tFragDet\tFragQueried");
-            w.Write("\tApexTimeIndex\tTimePointsUsed\tScoringStrategy");
+            w.Write("\tTimePointsUsed");
             w.Write("\tObservedApexRt\tMeanFragCorr\tMinFragCorr");
             for (int j = 0; j < DiaFeatureVector.ClassifierFeatureCount; j++)
                 w.Write("\t" + DiaFeatureVector.FeatureNames[j]);
@@ -413,10 +413,10 @@ namespace Development.Dia
                 w.Write(r.Sequence + "\t" + r.ChargeState + "\t" +
                     r.PrecursorMz.ToString("F4") + "\t" + r.IsDecoy);
                 w.Write("\t" + r.FragmentsDetected + "\t" + r.FragmentsQueried);
-                w.Write("\t" + r.ApexTimeIndex + "\t" + r.TimePointsUsed + "\t" + r.ScoringStrategyUsed);
+                w.Write("\t" + r.TimePointsUsed);
                 w.Write("\t" + r.ObservedApexRt.ToString("F4") +
-                    "\t" + r.MeanFragmentCorrelation.ToString("F4") +
-                    "\t" + r.MinFragmentCorrelation.ToString("F4"));
+                    "\t" + r.MeanFragCorr.ToString("F4") +
+                    "\t" + r.MinFragCorr.ToString("F4"));
 
                 features[i].WriteTo(buf);
                 for (int j = 0; j < DiaFeatureVector.ClassifierFeatureCount; j++)

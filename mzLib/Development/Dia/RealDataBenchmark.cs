@@ -114,11 +114,11 @@ namespace Development.Dia
 
             sw.Restart();
             var broadResults = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
-                precursorsWithWindow, broadGenResult, broadExtraction, broadParams);
+                precursorsWithWindow, broadGenResult, broadExtraction, broadParams, index);
             var broadScoreTime = sw.Elapsed;
 
-            var broadApexScores = broadResults.Where(r => !float.IsNaN(r.ApexDotProductScore))
-                .Select(r => r.ApexDotProductScore).ToArray();
+            var broadApexScores = broadResults.Where(r => !float.IsNaN(r.ApexScore))
+                .Select(r => r.ApexScore).ToArray();
             Console.WriteLine($"  Scoring (apex):    {broadScoreTime.TotalMilliseconds:F0} ms  ({broadResults.Count:N0} results)");
             if (broadApexScores.Length > 0)
                 Console.WriteLine($"  Apex scores:       median={Median(broadApexScores):F4}, mean={broadApexScores.Average():F4}");
@@ -138,9 +138,9 @@ namespace Development.Dia
                 var matchingResult = broadResults.FirstOrDefault(r =>
                     r.Sequence == input.Sequence && r.ChargeState == input.ChargeState);
 
-                if (matchingResult == null || float.IsNaN(matchingResult.ApexDotProductScore))
+                if (matchingResult == null || float.IsNaN(matchingResult.ApexScore))
                     continue;
-                if (matchingResult.ApexDotProductScore < anchorDpThreshold)
+                if (matchingResult.ApexScore < anchorDpThreshold)
                     continue;
                 if (!input.RetentionTime.HasValue)
                     continue;
@@ -239,10 +239,10 @@ namespace Development.Dia
                 var kExtractTime = sw.Elapsed;
 
                 var kResults = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
-                    precursorsWithWindow, kGenResult, kExtraction, kParams);
+                    precursorsWithWindow, kGenResult, kExtraction, kParams, index);
 
-                var apexScores = kResults.Where(r => !float.IsNaN(r.ApexDotProductScore)).Select(r => r.ApexDotProductScore).ToArray();
-                var temporalScores = kResults.Where(r => !float.IsNaN(r.TemporalCosineScore)).Select(r => r.TemporalCosineScore).ToArray();
+                var apexScores = kResults.Where(r => !float.IsNaN(r.ApexScore)).Select(r => r.ApexScore).ToArray();
+                var temporalScores = kResults.Where(r => !float.IsNaN(r.TemporalScore)).Select(r => r.TemporalScore).ToArray();
 
                 // Also compute summed for comparison
                 var summedResults = DiaLibraryQueryGenerator.AssembleResults(
@@ -293,7 +293,7 @@ namespace Development.Dia
                     NonlinearPower = power,
                 };
                 var wResults = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
-                    precursorsWithWindow, bestGenResult, bestExtraction, wParams);
+                    precursorsWithWindow, bestGenResult, bestExtraction, wParams, index);
                 var wScores = wResults.Where(r => !float.IsNaN(r.DotProductScore)).Select(r => r.DotProductScore).ToArray();
 
                 if (wScores.Length > 0)
@@ -319,8 +319,8 @@ namespace Development.Dia
             var strategies = new[]
             {
                 ("Summed", summedBest.Where(r => !float.IsNaN(r.DotProductScore)).Select(r => r.DotProductScore).ToArray()),
-                ("Apex", bestResults.Where(r => !float.IsNaN(r.ApexDotProductScore)).Select(r => r.ApexDotProductScore).ToArray()),
-                ("Temporal", bestResults.Where(r => !float.IsNaN(r.TemporalCosineScore)).Select(r => r.TemporalCosineScore).ToArray()),
+                ("Apex", bestResults.Where(r => !float.IsNaN(r.ApexScore)).Select(r => r.ApexScore).ToArray()),
+                ("Temporal", bestResults.Where(r => !float.IsNaN(r.TemporalScore)).Select(r => r.TemporalScore).ToArray()),
             };
 
             Console.WriteLine($"  {"Strategy",-16} {"Median",10} {"Mean",10} {"Q25",10} {"Q75",10} {">0.7",14} {">0.8",14}");
@@ -343,15 +343,15 @@ namespace Development.Dia
             Console.WriteLine();
 
             var hybrid = bestResults
-                .Where(r => !float.IsNaN(r.ApexDotProductScore) && !float.IsNaN(r.TemporalCosineScore))
+                .Where(r => !float.IsNaN(r.ApexScore) && !float.IsNaN(r.TemporalScore))
                 .ToList();
 
             if (hybrid.Count > 0)
             {
-                int bothGood = hybrid.Count(r => r.ApexDotProductScore > 0.7f && r.TemporalCosineScore > 0.7f);
-                int apexOnly = hybrid.Count(r => r.ApexDotProductScore > 0.7f && r.TemporalCosineScore <= 0.7f);
-                int temporalOnly = hybrid.Count(r => r.ApexDotProductScore <= 0.7f && r.TemporalCosineScore > 0.7f);
-                int neither = hybrid.Count(r => r.ApexDotProductScore <= 0.7f && r.TemporalCosineScore <= 0.7f);
+                int bothGood = hybrid.Count(r => r.ApexScore > 0.7f && r.TemporalScore > 0.7f);
+                int apexOnly = hybrid.Count(r => r.ApexScore > 0.7f && r.TemporalScore <= 0.7f);
+                int temporalOnly = hybrid.Count(r => r.ApexScore <= 0.7f && r.TemporalScore > 0.7f);
+                int neither = hybrid.Count(r => r.ApexScore <= 0.7f && r.TemporalScore <= 0.7f);
                 int union = bothGood + apexOnly + temporalOnly;
 
                 Console.WriteLine($"  Precursors scored:    {hybrid.Count:N0}");
@@ -363,8 +363,8 @@ namespace Development.Dia
                 Console.WriteLine();
 
                 // Simple combined score: max(apex, temporal)
-                var maxScores = hybrid.Select(r => Math.Max(r.ApexDotProductScore, r.TemporalCosineScore)).ToArray();
-                var avgScores = hybrid.Select(r => (r.ApexDotProductScore + r.TemporalCosineScore) / 2f).ToArray();
+                var maxScores = hybrid.Select(r => Math.Max(r.ApexScore, r.TemporalScore)).ToArray();
+                var avgScores = hybrid.Select(r => (r.ApexScore + r.TemporalScore) / 2f).ToArray();
                 Console.WriteLine($"  Combined max(apex,temporal): median={Median(maxScores):F4}, " +
                                   $">0.7: {maxScores.Count(s => s > 0.7f):N0} ({100.0 * maxScores.Count(s => s > 0.7f) / maxScores.Length:F1}%)");
                 Console.WriteLine($"  Combined avg(apex,temporal): median={Median(avgScores):F4}, " +
@@ -372,13 +372,13 @@ namespace Development.Dia
                 Console.WriteLine();
 
                 Console.WriteLine("  Top 10 by max(apex, temporal):");
-                foreach (var r in hybrid.OrderByDescending(r => Math.Max(r.ApexDotProductScore, r.TemporalCosineScore)).Take(10))
-                    Console.WriteLine($"    {r.Sequence,-30} z={r.ChargeState} apex={r.ApexDotProductScore:F3} temporal={r.TemporalCosineScore:F3} tpts={r.TimePointsUsed}");
+                foreach (var r in hybrid.OrderByDescending(r => Math.Max(r.ApexScore, r.TemporalScore)).Take(10))
+                    Console.WriteLine($"    {r.Sequence,-30} z={r.ChargeState} apex={r.ApexScore:F3} temporal={r.TemporalScore:F3} tpts={r.TimePointsUsed}");
                 Console.WriteLine();
 
                 Console.WriteLine("  Largest apex vs temporal disagreements:");
-                foreach (var r in hybrid.OrderByDescending(r => MathF.Abs(r.ApexDotProductScore - r.TemporalCosineScore)).Take(10))
-                    Console.WriteLine($"    {r.Sequence,-30} z={r.ChargeState} apex={r.ApexDotProductScore:F3} temporal={r.TemporalCosineScore:F3} Δ={MathF.Abs(r.ApexDotProductScore - r.TemporalCosineScore):F3}");
+                foreach (var r in hybrid.OrderByDescending(r => MathF.Abs(r.ApexScore - r.TemporalScore)).Take(10))
+                    Console.WriteLine($"    {r.Sequence,-30} z={r.ChargeState} apex={r.ApexScore:F3} temporal={r.TemporalScore:F3} Δ={MathF.Abs(r.ApexScore - r.TemporalScore):F3}");
                 Console.WriteLine();
             }
 
@@ -409,8 +409,8 @@ namespace Development.Dia
             var detRates = results.Select(r => r.FragmentDetectionRate).ToArray();
             Console.WriteLine($"  Fragment Detection: mean={detRates.Average():P1}, median={Median(detRates):P1}");
 
-            var apex = results.Where(r => !float.IsNaN(r.ApexDotProductScore)).Select(r => r.ApexDotProductScore).ToArray();
-            var temporal = results.Where(r => !float.IsNaN(r.TemporalCosineScore)).Select(r => r.TemporalCosineScore).ToArray();
+            var apex = results.Where(r => !float.IsNaN(r.ApexScore)).Select(r => r.ApexScore).ToArray();
+            var temporal = results.Where(r => !float.IsNaN(r.TemporalScore)).Select(r => r.TemporalScore).ToArray();
 
             if (apex.Length > 0)
                 Console.WriteLine($"  Apex DP:     median={Median(apex):F4}, Q25={Percentile(apex, 25):F4}, Q75={Percentile(apex, 75):F4}");
@@ -419,8 +419,8 @@ namespace Development.Dia
 
             Console.WriteLine();
             Console.WriteLine("  Top 10 by apex score:");
-            foreach (var r in results.Where(r => !float.IsNaN(r.ApexDotProductScore)).OrderByDescending(r => r.ApexDotProductScore).Take(10))
-                Console.WriteLine($"    {r.Sequence,-30} z={r.ChargeState} apex={r.ApexDotProductScore:F3} temporal={r.TemporalCosineScore:F3} frags={r.FragmentsDetected}/{r.FragmentsQueried}");
+            foreach (var r in results.Where(r => !float.IsNaN(r.ApexScore)).OrderByDescending(r => r.ApexScore).Take(10))
+                Console.WriteLine($"    {r.Sequence,-30} z={r.ChargeState} apex={r.ApexScore:F3} temporal={r.TemporalScore:F3} frags={r.FragmentsDetected}/{r.FragmentsQueried}");
             Console.WriteLine();
         }
 

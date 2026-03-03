@@ -47,11 +47,19 @@ mzLib/Development/DeconvolutionDevelopment/TestData/Averaged_221110_CytoOnly.mzM
 mzLib/Development/DeconvolutionDevelopment/TestData/Averaged_221110_HGHOnly.mzML
 mzLib/Development/DeconvolutionDevelopment/TestData/Averaged_221110_UbiqOnly.mzML
 mzLib/Development/Development.csproj
+mzLib/Development/Dia/DecoyKoinaTableGenerator.cs
+mzLib/Development/Dia/DiaClassifierBenchmark.cs
 mzLib/Development/Dia/DiaOrchestrationBenchmark.cs
+mzLib/Development/Dia/KoinaMspParser.cs
+mzLib/Development/Dia/KoinaTableGenerator.cs
 mzLib/Development/Dia/LibraryBridgeBenchmark.cs
+mzLib/Development/Dia/Phase10ClassifierBenchmark.cs
+mzLib/Development/Dia/Phase10_5_FeatureRefinementBenchmark.cs
+mzLib/Development/Dia/Phase12PeakGroupBenchmark.cs
 mzLib/Development/Dia/RealDataBenchmark.cs
 mzLib/Development/Dia/RtCalibrationBenchmark.cs
 mzLib/Development/Dia/SoAContainerAndInterfaces/DiaScanIndexBenchmark.cs
+mzLib/Development/Phase11FdrBenchmark.cs
 mzLib/Development/Program.cs
 mzLib/FlashLFQ/Bayesian Protein Quantification/PairedProteinQuantResult.cs
 mzLib/FlashLFQ/Bayesian Protein Quantification/ProteinFoldChangeEstimationModel.cs
@@ -112,15 +120,22 @@ mzLib/MassSpectrometry/Dia/DataStructures/DiaScanIndexBuilder.cs
 mzLib/MassSpectrometry/Dia/DataStructures/FragmentQueryAndResult.cs
 mzLib/MassSpectrometry/Dia/DiaFdrInfo.cs
 mzLib/MassSpectrometry/Dia/DiaLibraryQueryGenerator.cs
+mzLib/MassSpectrometry/Dia/DiaPeakGroupDetector.cs
 mzLib/MassSpectrometry/Dia/DiaSearchParameters.cs
 mzLib/MassSpectrometry/Dia/DiaSearchResult.cs
 mzLib/MassSpectrometry/Dia/Extraction/CpuFragmentExtractor.cs
+mzLib/MassSpectrometry/Dia/FDR/DiaFdrEngine.cs
+mzLib/MassSpectrometry/Dia/FDR/DiaGradientBoostedClassifier.cs
 mzLib/MassSpectrometry/Dia/Gpu/FragmentExtractorFactory.cs
 mzLib/MassSpectrometry/Dia/Gpu/GpuDeviceDetector.cs
 mzLib/MassSpectrometry/Dia/Gpu/GpuFragmentExtractor.cs
 mzLib/MassSpectrometry/Dia/Interfaces/IFragmentExtractor.cs
 mzLib/MassSpectrometry/Dia/Interfaces/IScorer.cs
 mzLib/MassSpectrometry/Dia/Orchestration/DiaExtractionOrchestrator.cs
+mzLib/MassSpectrometry/Dia/Scoring/DiaFdrEngine.cs
+mzLib/MassSpectrometry/Dia/Scoring/DiaFeatureCalculator.cs
+mzLib/MassSpectrometry/Dia/Scoring/DiaFeatureExtractor.cs
+mzLib/MassSpectrometry/Dia/Scoring/DiaLinearDiscriminant.cs
 mzLib/MassSpectrometry/Dia/Scoring/DiaTemporalScorer.cs
 mzLib/MassSpectrometry/Dia/Scoring/NormalizedDotProductScorer.cs
 mzLib/MassSpectrometry/Dia/Scoring/SpectralAngleScorer.cs
@@ -894,4 +909,4 @@ mzLib/mzPlot/Plots/SpectrumPlot.cs
 mzLib/mzPlot/mzPlot.csproj
 mzLib/pepXML/pepXML.csproj
 mzLib/pepXML/pepXML_v120.cs
-mzLibFileStructure.txt
+phase9mzLibFileStructure.txt

@@ -6,12 +6,21 @@ using System;
 namespace MassSpectrometry.Dia
 {
     /// <summary>
-    /// Represents a single DIA precursor identification result with multi-feature scoring.
+    /// Represents a single DIA precursor identification result.
+    /// This is the DIA analog of a DDA spectral match (PSM), but differs fundamentally:
+    /// - Evidence comes from extracted ion chromatograms (XICs) across many scans, not a single spectrum.
+    /// - Scores reflect coelution patterns and library-vs-extracted intensity agreement.
     /// 
-    /// Phase 13 expansion: from 17 features to ~28 features for improved target/decoy
-    /// discrimination. Features are organized into categories matching DIA-NN's architecture.
+    /// Lives in MassSpectrometry.Dia (not Omics) because it is tightly coupled to the
+    /// DIA engine's SoA extraction output format.
     /// 
-    /// NOTE: ScoringStrategy enum lives in DiaTemporalScorer.cs — do NOT duplicate here.
+    /// Field history:
+    /// - Phase 7:  Base fields (DotProductScore, SpectralAngleScore, ExtractedIntensities, XicPointCounts)
+    /// - Phase 9-12: Temporal scoring fields (ApexScore, TemporalScore, correlations, peak shape, RT deviation, etc.)
+    /// - Phase 13 Prompt 2: Mass accuracy fields (MeanMassErrorPpm, MedianMassErrorPpm, MassErrorStdPpm, MaxAbsMassErrorPpm, ApexObservedMzs)
+    /// - Phase 13 Prompt 4: Best-fragment reference curve fields (BestFragCorrelationSum, MedianFragRefCorr, MinFragRefCorr, StdFragRefCorr)
+    /// - Phase 13 Prompt 5: Signal ratio deviation fields (MeanSignalRatioDev, MaxSignalRatioDev, StdSignalRatioDev)
+    /// - Phase 13 Action 4: Backward-compatible aliases removed (ApexDotProductScore, TemporalCosineScore, etc.)
     /// </summary>
     public class DiaSearchResult
     {
@@ -34,7 +43,7 @@ namespace MassSpectrometry.Dia
 
         #endregion
 
-        #region Category 1: Spectral Similarity Scores
+        #region Scores
 
         /// <summary>
         /// Normalized dot product between library and extracted fragment intensities.
@@ -44,121 +53,9 @@ namespace MassSpectrometry.Dia
 
         /// <summary>
         /// Spectral angle score: 1 - (2/pi) * arccos(normalized dot product).
-        /// Range [0, 1], higher is better.
+        /// Range [0, 1], higher is better. NaN if insufficient fragments.
         /// </summary>
         public float SpectralAngleScore { get; set; }
-
-        /// <summary>Raw cosine value before clamping/transform.</summary>
-        public float RawCosine { get; set; }
-
-        /// <summary>Cosine similarity at the apex time point (full-window apex).</summary>
-        public float ApexDotProductScore { get; set; }
-
-        /// <summary>Intensity-weighted average cosine across all time points in the window.</summary>
-        public float TemporalCosineScore { get; set; }
-
-        #endregion
-
-        #region Category 2: Fragment Co-elution / Correlation
-
-        /// <summary>Mean pairwise Pearson correlation between fragment XICs (full window).</summary>
-        public float MeanFragmentCorrelation { get; set; }
-
-        /// <summary>Minimum pairwise Pearson correlation between fragment XICs (full window).</summary>
-        public float MinFragmentCorrelation { get; set; }
-
-        /// <summary>Mean pairwise Pearson correlation within detected peak boundaries.</summary>
-        public float PeakMeanFragCorrelation { get; set; }
-
-        /// <summary>Minimum pairwise Pearson correlation within detected peak boundaries.</summary>
-        public float PeakMinFragCorrelation { get; set; }
-
-        // ── Phase 13: Best-Fragment Reference Curve ──
-
-        /// <summary>Sum of Pearson correlations between the best fragment and all others.</summary>
-        public float BestFragCorrelationSum { get; set; }
-
-        /// <summary>Median correlation of individual fragments with the best reference fragment.</summary>
-        public float MedianFragRefCorr { get; set; }
-
-        /// <summary>Minimum correlation of any fragment with the best reference fragment.</summary>
-        public float MinFragRefCorr { get; set; }
-
-        /// <summary>Std deviation of fragment-vs-reference correlations.</summary>
-        public float StdFragRefCorr { get; set; }
-
-        /// <summary>Cosine at apex weighted by each fragment's correlation with the best reference.</summary>
-        public float BestFragWeightedCosine { get; set; }
-
-        /// <summary>Index of the best (least-interfered) fragment.</summary>
-        public int BestFragIndex { get; set; }
-
-        // ── Phase 13: Smoothed Correlations ──
-
-        /// <summary>Mean pairwise Pearson correlation on min-of-3-consecutive smoothed XICs.</summary>
-        public float SmoothedMeanFragCorr { get; set; }
-
-        /// <summary>Minimum pairwise correlation on smoothed XICs.</summary>
-        public float SmoothedMinFragCorr { get; set; }
-
-        #endregion
-
-        #region Category 3: Signal/Noise and Intensity
-
-        /// <summary>Log2 of total extracted intensity within the peak/window.</summary>
-        public float LogTotalIntensity { get; set; }
-
-        /// <summary>Log2(signal / noise).</summary>
-        public float Log2SignalToNoise { get; set; }
-
-        // ── Phase 13: Per-Fragment Signal Ratio Deviation ──
-
-        /// <summary>Mean |log2(obs_fraction / lib_fraction)| per fragment. LOWER = better.</summary>
-        public float MeanSignalRatioDeviation { get; set; }
-
-        /// <summary>Max |log2(obs_fraction / lib_fraction)| across fragments.</summary>
-        public float MaxSignalRatioDeviation { get; set; }
-
-        /// <summary>Std of per-fragment signal ratio deviations.</summary>
-        public float StdSignalRatioDeviation { get; set; }
-
-        #endregion
-
-        #region Category 4: Peak Shape
-
-        /// <summary>Cosine at the peak-detected apex.</summary>
-        public float PeakApexScore { get; set; }
-
-        /// <summary>Temporal cosine restricted to detected peak boundaries.</summary>
-        public float PeakTemporalScore { get; set; }
-
-        /// <summary>Ratio of average boundary signal to apex signal. LOWER = better.</summary>
-        public float BoundarySignalRatio { get; set; }
-
-        /// <summary>Ratio of apex signal to mean signal. HIGHER = better.</summary>
-        public float ApexToMeanRatio { get; set; }
-
-        /// <summary>Number of candidate peak groups detected.</summary>
-        public int CandidateCount { get; set; }
-
-        /// <summary>Detected peak group from DiaPeakGroupDetector. Null if none detected.</summary>
-        public PeakGroup? DetectedPeakGroup { get; set; }
-
-        /// <summary>Peak width in minutes.</summary>
-        public float PeakWidth { get; set; }
-
-        #endregion
-
-        #region Category 5: Retention Time Quality
-
-        /// <summary>Observed apex RT from extraction (minutes).</summary>
-        public float ObservedApexRt { get; set; }
-
-        /// <summary>Time point index of the observed apex.</summary>
-        public int ApexTimeIndex { get; set; }
-
-        /// <summary>Scoring strategy actually used for this result.</summary>
-        public ScoringStrategy ScoringStrategyUsed { get; set; }
 
         #endregion
 
@@ -170,14 +67,18 @@ namespace MassSpectrometry.Dia
         /// <summary>Total number of library fragment ions queried</summary>
         public int FragmentsQueried { get; }
 
-        /// <summary>Sum of extracted intensities per fragment (length = FragmentsQueried).</summary>
+        /// <summary>
+        /// Sum of extracted intensities per fragment (length = FragmentsQueried).
+        /// Parallel to the library's fragment ion order.
+        /// Used by scorers: library intensities vs these extracted intensities.
+        /// </summary>
         public float[] ExtractedIntensities { get; }
 
-        /// <summary>Number of XIC data points per fragment (length = FragmentsQueried).</summary>
+        /// <summary>
+        /// Number of XIC data points per fragment (length = FragmentsQueried).
+        /// A fragment with 0 points was not detected.
+        /// </summary>
         public int[] XicPointCounts { get; }
-
-        /// <summary>Number of time points used for temporal scoring.</summary>
-        public int TimePointsUsed { get; set; }
 
         #endregion
 
@@ -194,18 +95,278 @@ namespace MassSpectrometry.Dia
 
         #endregion
 
-        #region Classifier and FDR
+        #region Temporal Scoring (Phase 9-12)
 
         /// <summary>
-        /// Combined score from the linear discriminant / logistic regression classifier.
-        /// Set by DiaLinearDiscriminant after feature extraction. Used for ranking and FDR.
+        /// Cosine similarity at the apex scan (scan with max summed fragment intensity).
+        /// Range [0, 1], higher is better. NaN if apex scan has insufficient signal.
+        /// </summary>
+        public float ApexScore { get; set; }
+
+        /// <summary>
+        /// Temporal cosine score computed from the time x fragment intensity matrix.
+        /// Range [0, 1], higher is better.
+        /// </summary>
+        public float TemporalScore { get; set; }
+
+        /// <summary>
+        /// Spectral angle computed from temporal scoring (may differ from SpectralAngleScore
+        /// which uses summed intensities).
+        /// </summary>
+        public float SpectralAngle { get; set; }
+
+        /// <summary>
+        /// Mean pairwise Pearson correlation across all detected fragment XICs (full window).
+        /// Range [-1, 1], higher is better. NaN if fewer than 3 detected fragments.
+        /// </summary>
+        public float MeanFragCorr { get; set; }
+
+        /// <summary>
+        /// Minimum pairwise Pearson correlation across all detected fragment XICs (full window).
+        /// Range [-1, 1]. NaN if fewer than 3 detected fragments.
+        /// </summary>
+        public float MinFragCorr { get; set; }
+
+        /// <summary>
+        /// Mean pairwise Pearson correlation restricted to detected peak group boundaries.
+        /// Better than full-window MeanFragCorr because it excludes noise outside the elution peak.
+        /// Range [-1, 1], higher is better.
+        /// </summary>
+        public float PeakMeanFragCorr { get; set; }
+
+        /// <summary>
+        /// Minimum pairwise correlation restricted to detected peak boundaries.
+        /// Range [-1, 1].
+        /// </summary>
+        public float PeakMinFragCorr { get; set; }
+
+        /// <summary>
+        /// Apex cosine score restricted to peak boundaries.
+        /// </summary>
+        public float PeakApexScore { get; set; }
+
+        /// <summary>
+        /// Peak width in minutes from the detected peak group.
+        /// NaN if no peak detected.
+        /// </summary>
+        public float PeakWidth { get; set; }
+
+        /// <summary>
+        /// Peak symmetry ratio (left width / right width). 1.0 = perfectly symmetric.
+        /// NaN if no peak detected.
+        /// </summary>
+        public float PeakSymmetry { get; set; }
+
+        /// <summary>
+        /// Number of candidate peak groups detected. Higher values indicate
+        /// more ambiguous chromatographic evidence.
+        /// </summary>
+        public float CandidateCount { get; set; }
+
+        /// <summary>
+        /// Log10 of total extracted intensity across all fragments.
+        /// </summary>
+        public float LogTotalIntensity { get; set; }
+
+        /// <summary>
+        /// Coefficient of variation of extracted intensities across detected fragments.
+        /// </summary>
+        public float IntensityCV { get; set; }
+
+        /// <summary>
+        /// Fraction of queried fragments that were detected (had >= 1 XIC data point).
+        /// </summary>
+        public float FragDetRate { get; set; }
+
+        /// <summary>
+        /// Absolute deviation between observed and library retention time (minutes).
+        /// </summary>
+        public float RtDeviationMinutes { get; set; }
+
+        /// <summary>
+        /// Squared deviation between observed and library retention time.
+        /// Provides quadratic penalty for larger deviations.
+        /// </summary>
+        public float RtDeviationSquared { get; set; }
+
+        #endregion
+
+        #region Mass Accuracy (Phase 13, Prompt 2-3)
+
+        /// <summary>
+        /// Mean signed mass error in ppm across detected fragments at the apex scan.
+        /// Targets cluster near 0; decoys are uniformly distributed across tolerance.
+        /// NaN if no fragments matched at the apex scan.
+        /// </summary>
+        public float MeanMassErrorPpm { get; set; }
+
+        /// <summary>
+        /// Median signed mass error in ppm across detected fragments at the apex scan.
+        /// More robust to outliers than mean. NaN if no fragments matched.
+        /// </summary>
+        public float MedianMassErrorPpm { get; set; }
+
+        /// <summary>
+        /// Standard deviation of mass errors in ppm across detected fragments.
+        /// Targets have tight clustering (low std); decoys have random spread.
+        /// NaN if fewer than 2 fragments matched.
+        /// </summary>
+        public float MassErrorStdPpm { get; set; }
+
+        /// <summary>
+        /// Maximum absolute mass error in ppm among detected fragments.
+        /// Captures worst-case accuracy. NaN if no fragments matched.
+        /// </summary>
+        public float MaxAbsMassErrorPpm { get; set; }
+
+        /// <summary>
+        /// Observed m/z values at the apex scan for each fragment (parallel to library order).
+        /// NaN for fragments not found. Populated by DiaMassAccuracyHelper.
+        /// </summary>
+        public float[] ApexObservedMzs { get; set; }
+
+        #endregion
+
+        #region Best-Fragment Reference Curve (Phase 13, Prompt 4)
+
+        /// <summary>
+        /// Sum of pairwise correlations for the best (least interfered) fragment.
+        /// Higher = one fragment has strong coelution with all others.
+        /// NaN if fewer than 3 detected fragments.
+        /// </summary>
+        public float BestFragCorrelationSum { get; set; }
+
+        /// <summary>
+        /// Median correlation of each fragment with the best reference fragment.
+        /// Range [-1, 1], higher is better.
+        /// </summary>
+        public float MedianFragRefCorr { get; set; }
+
+        /// <summary>
+        /// Minimum correlation with the best reference fragment.
+        /// Low values indicate one or more interfered fragments.
+        /// </summary>
+        public float MinFragRefCorr { get; set; }
+
+        /// <summary>
+        /// Standard deviation of correlations with the best reference fragment.
+        /// Low values indicate consistent coelution; high values indicate interference.
+        /// </summary>
+        public float StdFragRefCorr { get; set; }
+
+        #endregion
+
+        #region Signal Ratio Deviation (Phase 13, Prompt 5)
+
+        /// <summary>
+        /// Mean deviation of observed fragment intensity ratios from library ratios.
+        /// Computed at apex scan. Lower is better for targets.
+        /// NaN if fewer than 2 detected fragments at apex.
+        /// </summary>
+        public float MeanSignalRatioDev { get; set; }
+
+        /// <summary>
+        /// Maximum deviation of observed fragment intensity ratios from library ratios.
+        /// Captures worst-case interference. Lower is better.
+        /// </summary>
+        public float MaxSignalRatioDev { get; set; }
+
+        /// <summary>
+        /// Standard deviation of signal ratio deviations across fragments.
+        /// Lower is better -- consistent ratios indicate clean signal.
+        /// </summary>
+        public float StdSignalRatioDev { get; set; }
+
+        #endregion
+
+        #region Smoothed Correlations and S/N (Phase 13, Prompt 6)
+
+        /// <summary>
+        /// Mean pairwise Pearson correlation on Savitzky-Golay smoothed XICs.
+        /// Noise-robust version of MeanFragCorr. Range [-1, 1], higher is better.
+        /// NaN if fewer than 2 detected fragments after smoothing.
+        /// </summary>
+        public float SmoothedMeanFragCorr { get; set; }
+
+        /// <summary>
+        /// Minimum pairwise Pearson correlation on smoothed XICs.
+        /// Noise-robust version of MinFragCorr. Range [-1, 1], higher is better.
+        /// </summary>
+        public float SmoothedMinFragCorr { get; set; }
+
+        /// <summary>
+        /// Log2 signal-to-noise ratio. Signal = TIC at apex, noise = median TIC across scans.
+        /// Higher is better. Typical targets: 2-10. NaN if apex signal is zero.
+        /// </summary>
+        public float Log2SignalToNoise { get; set; }
+
+        #endregion
+
+        #region Migrated Features (Phase 13 Action Items 1-2)
+
+        /// <summary>
+        /// Cosine score at apex weighted by each fragment's correlation with the best fragment.
+        /// Fragments that correlate poorly with the reference are down-weighted.
+        /// NaN if insufficient fragments.
+        /// </summary>
+        public float BestFragWeightedCosine { get; set; }
+
+        /// <summary>
+        /// Index of the best (least interfered) fragment in the fragment array.
+        /// -1 if not computed.
+        /// </summary>
+        public int BestFragIndex { get; set; }
+
+        /// <summary>
+        /// Ratio of boundary signal to apex signal. Low for true chromatographic peaks
+        /// (signal drops at boundaries), high for interference (flat signal).
+        /// NaN if apex signal is zero.
+        /// </summary>
+        public float BoundarySignalRatio { get; set; }
+
+        /// <summary>
+        /// Ratio of apex TIC to mean TIC across the peak range.
+        /// Higher values indicate a sharper, more prominent peak.
+        /// NaN if mean signal is zero.
+        /// </summary>
+        public float ApexToMeanRatio { get; set; }
+
+        #endregion
+
+        #region FDR and Scoring (set by DiaFdrEngine)
+
+        /// <summary>
+        /// Composite classifier score assigned by the FDR engine (LDA or GBT).
+        /// Higher scores indicate more confident identifications.
         /// </summary>
         public float ClassifierScore { get; set; }
 
         /// <summary>
-        /// FDR information computed by DiaFdrEngine (q-value, cumulative counts, etc.).
+        /// FDR statistics (q-value, cumulative target/decoy counts) assigned by the FDR engine.
+        /// Null until FDR estimation is performed.
         /// </summary>
         public DiaFdrInfo FdrInfo { get; set; }
+
+        #endregion
+
+        #region Temporal Metadata (set during assembly)
+
+        /// <summary>
+        /// Number of time points that contributed to the temporal cosine score.
+        /// </summary>
+        public int TimePointsUsed { get; set; }
+
+        /// <summary>
+        /// Observed apex retention time (minutes) from the chromatographic peak.
+        /// NaN if not determined.
+        /// </summary>
+        public float ObservedApexRt { get; set; }
+
+        /// <summary>
+        /// Detected chromatographic peak group from DiaPeakGroupDetector.
+        /// Null if no valid peak was detected.
+        /// </summary>
+        public PeakGroup? DetectedPeakGroup { get; set; }
 
         #endregion
 
@@ -232,36 +393,65 @@ namespace MassSpectrometry.Dia
             RtWindowStart = rtWindowStart;
             RtWindowEnd = rtWindowEnd;
 
+            // Base scores
             DotProductScore = float.NaN;
             SpectralAngleScore = float.NaN;
-            RawCosine = float.NaN;
-            ApexDotProductScore = float.NaN;
-            TemporalCosineScore = float.NaN;
-            MeanFragmentCorrelation = float.NaN;
-            MinFragmentCorrelation = float.NaN;
-            PeakMeanFragCorrelation = float.NaN;
-            PeakMinFragCorrelation = float.NaN;
+
+            // Temporal scoring (Phase 9-12)
+            ApexScore = float.NaN;
+            TemporalScore = float.NaN;
+            SpectralAngle = float.NaN;
+            MeanFragCorr = float.NaN;
+            MinFragCorr = float.NaN;
+            PeakMeanFragCorr = float.NaN;
+            PeakMinFragCorr = float.NaN;
+            PeakApexScore = float.NaN;
+            PeakWidth = float.NaN;
+            PeakSymmetry = float.NaN;
+            CandidateCount = float.NaN;
+            LogTotalIntensity = float.NaN;
+            IntensityCV = float.NaN;
+            FragDetRate = float.NaN;
+            RtDeviationMinutes = float.NaN;
+            RtDeviationSquared = float.NaN;
+
+            // Mass accuracy (Phase 13, Prompt 2-3)
+            MeanMassErrorPpm = float.NaN;
+            MedianMassErrorPpm = float.NaN;
+            MassErrorStdPpm = float.NaN;
+            MaxAbsMassErrorPpm = float.NaN;
+            ApexObservedMzs = null;
+
+            // Best-fragment reference curve (Phase 13, Prompt 4)
             BestFragCorrelationSum = float.NaN;
             MedianFragRefCorr = float.NaN;
             MinFragRefCorr = float.NaN;
             StdFragRefCorr = float.NaN;
-            BestFragWeightedCosine = float.NaN;
-            BestFragIndex = -1;
+
+            // Signal ratio deviation (Phase 13, Prompt 5)
+            MeanSignalRatioDev = float.NaN;
+            MaxSignalRatioDev = float.NaN;
+            StdSignalRatioDev = float.NaN;
+
+            // Smoothed correlations and S/N (Phase 13, Prompt 6)
             SmoothedMeanFragCorr = float.NaN;
             SmoothedMinFragCorr = float.NaN;
-            LogTotalIntensity = 0f;
             Log2SignalToNoise = float.NaN;
-            MeanSignalRatioDeviation = float.NaN;
-            MaxSignalRatioDeviation = float.NaN;
-            StdSignalRatioDeviation = float.NaN;
-            PeakApexScore = float.NaN;
-            PeakTemporalScore = float.NaN;
+
+            // Migrated features (Phase 13 Action Items 1-2)
+            BestFragWeightedCosine = float.NaN;
+            BestFragIndex = -1;
             BoundarySignalRatio = float.NaN;
             ApexToMeanRatio = float.NaN;
-            CandidateCount = 0;
-            PeakWidth = 0f;
+
+            // FDR and scoring
             ClassifierScore = float.NaN;
             FdrInfo = null;
+
+            // Temporal metadata
+            TimePointsUsed = 0;
+            ObservedApexRt = float.NaN;
+            DetectedPeakGroup = null;
         }
 
         /// <summary>Whether this result meets the minimum fragment detection threshold.</summary>
@@ -270,37 +460,6 @@ namespace MassSpectrometry.Dia
         /// <summary>Fraction of queried fragments that were detected (0-1).</summary>
         public float FragmentDetectionRate =>
             FragmentsQueried > 0 ? (float)FragmentsDetected / FragmentsQueried : 0f;
-
-        /// <summary>RT deviation from predicted in minutes (signed).</summary>
-        public float RtDeviationMinutes =>
-            LibraryRetentionTime.HasValue ? ObservedApexRt - (float)LibraryRetentionTime.Value : 0f;
-
-        /// <summary>Squared RT deviation (always positive).</summary>
-        public float RtDeviationSquared => RtDeviationMinutes * RtDeviationMinutes;
-
-        /// <summary>Intensity coefficient of variation across fragments at apex.</summary>
-        public float IntensityCV
-        {
-            get
-            {
-                if (FragmentsDetected < 2) return float.NaN;
-                float sum = 0f, sum2 = 0f;
-                int n = 0;
-                for (int i = 0; i < FragmentsQueried; i++)
-                {
-                    if (ExtractedIntensities[i] > 0f)
-                    {
-                        sum += ExtractedIntensities[i];
-                        sum2 += ExtractedIntensities[i] * ExtractedIntensities[i];
-                        n++;
-                    }
-                }
-                if (n < 2) return float.NaN;
-                float mean = sum / n;
-                float variance = (sum2 / n) - (mean * mean);
-                return mean > 0f ? MathF.Sqrt(Math.Max(0f, variance)) / mean : float.NaN;
-            }
-        }
 
         public override string ToString()
         {

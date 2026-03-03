@@ -151,7 +151,7 @@ namespace Development.Dia
 
             sw.Restart();
             var results = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
-                combined, genResult, extractionResult, parameters);
+                combined, genResult, extractionResult, parameters, index);
             Console.WriteLine($"  Temporal scoring: {sw.ElapsedMilliseconds}ms | {results.Count:N0} results");
 
             int nTargetResults = 0, nDecoyResults = 0;
@@ -184,7 +184,7 @@ namespace Development.Dia
             Console.WriteLine();
             sw.Restart();
 
-            var fdrResult = DiaFdrEngine.RunIterativeFdr(
+            var fdrResult = DiaFdrEngineLegacy.RunIterativeFdr(
                 results, features,
                 maxIterations: 5,
                 convergenceThreshold: 0.01f,
@@ -203,7 +203,7 @@ namespace Development.Dia
             Console.WriteLine();
             foreach (var diag in fdrResult.Diagnostics)
             {
-                DiaFdrEngine.PrintDiagnostics(diag);
+                DiaFdrEngineLegacy.PrintDiagnostics(diag);
                 Console.WriteLine();
             }
 
@@ -358,11 +358,11 @@ namespace Development.Dia
                 w.Write('\t'); w.Write(r.IsDecoy);
                 w.Write('\t'); w.Write(r.ClassifierScore.ToString("F6"));
                 w.Write('\t'); w.Write(qValue.ToString("F6"));
-                w.Write('\t'); w.Write(r.ApexDotProductScore.ToString("F4"));
-                w.Write('\t'); w.Write(r.TemporalCosineScore.ToString("F4"));
+                w.Write('\t'); w.Write(r.ApexScore.ToString("F4"));
+                w.Write('\t'); w.Write(r.TemporalScore.ToString("F4"));
                 w.Write('\t'); w.Write(r.SpectralAngleScore.ToString("F4"));
-                w.Write('\t'); w.Write(r.MeanFragmentCorrelation.ToString("F4"));
-                w.Write('\t'); w.Write(r.MinFragmentCorrelation.ToString("F4"));
+                w.Write('\t'); w.Write(r.MeanFragCorr.ToString("F4"));
+                w.Write('\t'); w.Write(r.MinFragCorr.ToString("F4"));
                 w.Write('\t'); w.Write(r.FragmentDetectionRate.ToString("F4"));
                 w.Write('\t'); w.Write(r.FragmentsDetected);
                 w.Write('\t'); w.Write(r.FragmentsQueried);

@@ -11,22 +11,28 @@ namespace MassSpectrometry.Dia
     /// <summary>
     /// Target-decoy FDR estimation engine for DIA precursor identifications.
     /// 
-    /// Implements the iterative semi-supervised learning approach:
+    /// Implements the iterative semi-supervised learning approach used by DIA-NN:
     ///   Iteration 1: Train on pseudo-labels — top 40% targets (positive) vs ALL decoys (negative).
     ///   Iteration 2+: Retrain using q &lt; 0.01 targets (positive) vs subsampled decoys (negative).
-    ///   Repeat until convergence (weight change &lt; 1%, or ID count stable, or max iterations).
+    ///   Repeat until convergence (weight change &lt; 1%, or ID count stable, or max 5 iterations).
     /// 
-    /// Phase 14 changes:
-    ///   - IDiaClassifier abstraction: classifiers are swappable at runtime
-    ///   - DiaGradientBoostedClassifier (GBT) as the default non-linear classifier
-    ///   - DiaLinearDiscriminant (LDA) preserved via DiaLdaClassifierAdapter
-    ///   - RunIterativeFdr() gains a DiaClassifierType parameter (default: GBT)
-    ///   - Diagnostics extended with classifier type info
-    ///   - GBT feature importances reported alongside LDA weights
+    /// Q-value calculation:
+    ///   - Sort by classifier score descending
+    ///   - Walk down tracking cumulative targets (T) and decoys (D)
+    ///   - FDR at each rank = D / max(T, 1)
+    ///   - Q-value = monotonized minimum FDR from bottom up
+    ///   - Populates DiaFdrInfo on each DiaSearchResult
+    /// 
+    /// Key design decision for iteration 1:
+    ///   Uses DECOYS as negatives (not bottom-40% targets). This is critical because:
+    ///   - Pseudo-labels from target quantiles only separate good-from-bad targets
+    ///   - The classifier must learn what distinguishes targets FROM decoys
+    ///   - Decoys may have pathological feature values (e.g., missing RT → extreme RtDeviation)
+    ///     that the classifier must learn to penalize
     /// 
     /// Lives in MassSpectrometry/Dia/Scoring/ alongside other scoring classes.
     /// </summary>
-    public static class DiaFdrEngine
+    public static class DiaFdrEngineLegacy
     {
         // ════════════════════════════════════════════════════════════════
         //  Result Types
@@ -52,22 +58,15 @@ namespace MassSpectrometry.Dia
             public readonly double Auc;
             public readonly int IdentificationsAt1Pct;
             public readonly float WeightChange;
-            public readonly DiaClassifierType ClassifierType;
-
-            // LDA-specific (null for GBT)
             public readonly float[] Weights;
             public readonly float Bias;
-
-            // GBT-specific (null for LDA)
-            public readonly float[] FeatureImportances;
 
             public IterationDiagnostics(
                 int iteration, int positiveCount, int negativeCount,
                 float targetMean, float targetMedian, float targetQ25, float targetQ75,
                 float decoyMean, float decoyMedian, float decoyQ25, float decoyQ75,
                 float separation, double auc, int idsAt1Pct,
-                float weightChange, DiaClassifierType classifierType,
-                float[] weights, float bias, float[] featureImportances)
+                float weightChange, float[] weights, float bias)
             {
                 Iteration = iteration;
                 PositiveTrainingCount = positiveCount;
@@ -84,10 +83,8 @@ namespace MassSpectrometry.Dia
                 Auc = auc;
                 IdentificationsAt1Pct = idsAt1Pct;
                 WeightChange = weightChange;
-                ClassifierType = classifierType;
                 Weights = weights;
                 Bias = bias;
-                FeatureImportances = featureImportances;
             }
         }
 
@@ -96,24 +93,15 @@ namespace MassSpectrometry.Dia
         /// </summary>
         public readonly struct FdrResult
         {
-            /// <summary>The trained classifier (LDA adapter or GBT adapter)</summary>
-            public readonly IDiaClassifier Classifier;
-
-            /// <summary>If LDA was used, the underlying DiaLinearDiscriminant. Null for GBT.</summary>
-            public readonly DiaLinearDiscriminant LdaClassifier;
-
-            public readonly DiaClassifierType ClassifierType;
+            public readonly DiaLinearDiscriminant Classifier;
             public readonly int IterationsCompleted;
             public readonly int IdentificationsAt1PctFdr;
             public readonly IterationDiagnostics[] Diagnostics;
 
-            public FdrResult(IDiaClassifier classifier, DiaLinearDiscriminant ldaClassifier,
-                DiaClassifierType classifierType, int iterations,
+            public FdrResult(DiaLinearDiscriminant classifier, int iterations,
                 int idsAt1Pct, IterationDiagnostics[] diagnostics)
             {
                 Classifier = classifier;
-                LdaClassifier = ldaClassifier;
-                ClassifierType = classifierType;
                 IterationsCompleted = iterations;
                 IdentificationsAt1PctFdr = idsAt1Pct;
                 Diagnostics = diagnostics;
@@ -130,22 +118,12 @@ namespace MassSpectrometry.Dia
         /// Modifies ClassifierScore and FdrInfo on each DiaSearchResult in place.
         /// Features array must be parallel to results (same indices).
         /// </summary>
-        /// <param name="results">All search results (targets + decoys). Modified in-place.</param>
-        /// <param name="features">Feature vectors parallel to results.</param>
-        /// <param name="classifierType">LDA (Phase 10) or GBT (Phase 14, default).</param>
-        /// <param name="maxIterations">Maximum semi-supervised iterations.</param>
-        /// <param name="convergenceThreshold">LDA weight change threshold for early stop.</param>
-        /// <param name="idCountConvergenceThreshold">ID count change ratio threshold for early stop.</param>
-        /// <param name="l2Lambda">L2 regularization for LDA. Ignored for GBT.</param>
-        /// <param name="learningRate">Learning rate for LDA. Ignored for GBT (uses its own).</param>
-        /// <param name="maxEpochs">Max SGD epochs for LDA. Ignored for GBT.</param>
         public static FdrResult RunIterativeFdr(
             List<DiaSearchResult> results,
             DiaFeatureVector[] features,
-            DiaClassifierType classifierType = DiaClassifierType.GradientBoostedTree,
-            int maxIterations = 10,
+            int maxIterations = 5,
             float convergenceThreshold = 0.01f,
-            float idCountConvergenceThreshold = 0.005f,
+            float idCountConvergenceThreshold = 0.01f,
             float l2Lambda = 5e-3f,
             float learningRate = 0.05f,
             int maxEpochs = 300)
@@ -156,18 +134,9 @@ namespace MassSpectrometry.Dia
                 throw new ArgumentException("Features array must be parallel to results.");
 
             var diagnosticsList = new List<IterationDiagnostics>();
+            float[] previousWeights = null;
             int previousIdCount = 0;
-            IDiaClassifier classifier = null;
-
-            // ── Best-iteration tracking ─────────────────────────────────
-            // GBT can oscillate: iteration 2 finds 14K IDs, iteration 3 drops to 12K.
-            // We keep the classifier that produced the most IDs and restore it at the end.
-            IDiaClassifier bestClassifier = null;
-            int bestIds = 0;
-            int bestIteration = 0;
-
-            // For LDA weight-change convergence tracking
-            float[] previousLdaWeights = null;
+            DiaLinearDiscriminant classifier = null;
 
             // ── Separate target and decoy indices ───────────────────────
             var targetIndices = new List<int>(results.Count);
@@ -185,9 +154,6 @@ namespace MassSpectrometry.Dia
             if (targetIndices.Count == 0)
                 throw new InvalidOperationException("No target results found.");
 
-            // Track consecutive declines to detect oscillation
-            int consecutiveDeclines = 0;
-
             for (int iteration = 1; iteration <= maxIterations; iteration++)
             {
                 DiaFeatureVector[] positives;
@@ -196,6 +162,9 @@ namespace MassSpectrometry.Dia
                 if (iteration == 1)
                 {
                     // ── Iteration 1: top 40% targets as POSITIVES, decoys as NEGATIVES ──
+                    // Using decoys as negatives (not bottom-40% targets) is critical:
+                    // the classifier must learn what distinguishes targets from decoys,
+                    // not just good targets from bad targets.
                     positives = BuildPseudoLabelPositives(features, targetIndices);
                     negatives = CollectDecoyNegatives(features, decoyIndices, positives.Length);
                 }
@@ -210,8 +179,13 @@ namespace MassSpectrometry.Dia
                     break;
 
                 // ── Train classifier ────────────────────────────────────
-                classifier = CreateClassifier(classifierType, learningRate, l2Lambda, maxEpochs);
-                classifier.Train(positives.AsSpan(), negatives.AsSpan());
+                classifier = DiaLinearDiscriminant.TrainLogisticRegression(
+                    positives.AsSpan(), negatives.AsSpan(),
+                    learningRate: learningRate,
+                    l2Lambda: l2Lambda,
+                    maxEpochs: maxEpochs,
+                    batchSize: 256,
+                    useInteraction: false);
 
                 // ── Score all results ───────────────────────────────────
                 for (int i = 0; i < results.Count; i++)
@@ -220,34 +194,15 @@ namespace MassSpectrometry.Dia
                 // ── Compute q-values ────────────────────────────────────
                 int idsAt1Pct = ComputeQValues(results);
 
-                // ── Track best iteration ────────────────────────────────
-                if (idsAt1Pct > bestIds)
-                {
-                    bestIds = idsAt1Pct;
-                    bestClassifier = classifier;
-                    bestIteration = iteration;
-                    consecutiveDeclines = 0;
-                }
-                else
-                {
-                    consecutiveDeclines++;
-                }
-
-                // ── Weight change (LDA only; GBT uses ID count convergence) ──
-                float weightChange = float.PositiveInfinity;
-                if (classifierType == DiaClassifierType.LinearDiscriminant &&
-                    classifier is DiaLdaClassifierAdapter ldaAdapter && ldaAdapter.Lda != null)
-                {
-                    if (previousLdaWeights != null)
-                        weightChange = ldaAdapter.Lda.WeightChangeL2(previousLdaWeights);
-                    previousLdaWeights = (float[])ldaAdapter.Lda.Weights.Clone();
-                }
-
                 // ── Diagnostics ─────────────────────────────────────────
+                float weightChange = previousWeights != null
+                    ? classifier.WeightChangeL2(previousWeights)
+                    : float.PositiveInfinity;
+
                 var diag = BuildDiagnostics(
                     iteration, results, targetIndices, decoyIndices,
                     positives.Length, negatives.Length,
-                    idsAt1Pct, weightChange, classifierType, classifier);
+                    idsAt1Pct, weightChange, classifier);
                 diagnosticsList.Add(diag);
 
                 // ── Convergence check (skip iteration 1) ────────────────
@@ -255,12 +210,9 @@ namespace MassSpectrometry.Dia
                 {
                     bool converged = false;
 
-                    // LDA: weight change convergence
-                    if (classifierType == DiaClassifierType.LinearDiscriminant &&
-                        weightChange < convergenceThreshold)
+                    if (weightChange < convergenceThreshold)
                         converged = true;
 
-                    // Both: ID count convergence (stable)
                     if (previousIdCount > 0)
                     {
                         float idChangeRatio = MathF.Abs(idsAt1Pct - previousIdCount)
@@ -269,86 +221,32 @@ namespace MassSpectrometry.Dia
                             converged = true;
                     }
 
-                    // GBT: stop if declining for 2 consecutive iterations after peak
-                    // This catches the oscillation pattern: 12K → 14K → 12K → 12K
-                    if (classifierType == DiaClassifierType.GradientBoostedTree &&
-                        consecutiveDeclines >= 2 && bestIds > 0)
-                        converged = true;
-
                     if (converged)
                     {
+                        previousWeights = (float[])classifier.Weights.Clone();
                         previousIdCount = idsAt1Pct;
                         break;
                     }
                 }
 
+                previousWeights = (float[])classifier.Weights.Clone();
                 previousIdCount = idsAt1Pct;
             }
 
-            // ── Final pass: restore best classifier ─────────────────────
-            // For GBT, the best iteration often isn't the last one due to oscillation.
-            // Re-score with the best classifier and recompute q-values.
+            // ── Final pass ──────────────────────────────────────────────
             int finalIds = 0;
-            IDiaClassifier finalClassifier = bestClassifier ?? classifier;
-            if (finalClassifier != null)
+            if (classifier != null)
             {
-                if (finalClassifier != classifier)
-                {
-                    // Best wasn't last — re-score everything with the best model
-                    for (int i = 0; i < results.Count; i++)
-                        results[i].ClassifierScore = finalClassifier.Score(in features[i]);
-                }
+                for (int i = 0; i < results.Count; i++)
+                    results[i].ClassifierScore = classifier.Score(in features[i]);
                 finalIds = ComputeQValues(results);
-
-                if (bestIteration > 0 && bestClassifier != classifier)
-                {
-                    Console.WriteLine($"  [Best iteration: {bestIteration} with {bestIds:N0} IDs — restored]");
-                }
             }
 
-            // Extract LDA classifier if applicable
-            DiaLinearDiscriminant ldaOut = null;
-            if (finalClassifier is DiaLdaClassifierAdapter finalLda)
-                ldaOut = finalLda.Lda;
-
             return new FdrResult(
-                finalClassifier,
-                ldaOut,
-                classifierType,
+                classifier,
                 diagnosticsList.Count,
                 finalIds,
                 diagnosticsList.ToArray());
-        }
-
-        // ════════════════════════════════════════════════════════════════
-        //  Classifier Factory
-        // ════════════════════════════════════════════════════════════════
-
-        private static IDiaClassifier CreateClassifier(
-            DiaClassifierType type,
-            float learningRate, float l2Lambda, int maxEpochs)
-        {
-            return type switch
-            {
-                DiaClassifierType.GradientBoostedTree => new DiaGbtClassifierAdapter(
-                    new DiaGradientBoostedClassifier(
-                        featureCount: DiaFeatureVector.ClassifierFeatureCount,
-                        numTrees: 200,
-                        maxDepth: 5,
-                        learningRate: 0.05f,
-                        minSamplesLeaf: 15,
-                        l2Regularization: 0.5f,
-                        numBins: 128,
-                        subsampleFraction: 0.85f)),
-
-                DiaClassifierType.LinearDiscriminant => new DiaLdaClassifierAdapter(
-                    learningRate: learningRate,
-                    l2Lambda: l2Lambda,
-                    maxEpochs: maxEpochs,
-                    batchSize: 256),
-
-                _ => throw new ArgumentException($"Unknown classifier type: {type}")
-            };
         }
 
         // ════════════════════════════════════════════════════════════════
@@ -365,6 +263,7 @@ namespace MassSpectrometry.Dia
         ///   4. Monotonize from bottom up (q-value = running min)
         ///   5. Populate DiaFdrInfo on each result
         /// 
+        /// Performance: O(n log n) for sort + O(n) for forward/backward passes.
         /// Returns count of target identifications at q ≤ 0.01.
         /// </summary>
         public static int ComputeQValues(List<DiaSearchResult> results)
@@ -381,8 +280,10 @@ namespace MassSpectrometry.Dia
                 for (int i = 0; i < n; i++)
                     sortedIdx[i] = i;
 
+                // Sort descending by ClassifierScore
                 Array.Sort(sortedIdx, 0, n, new DescendingScoreComparer(results));
 
+                // Forward pass: compute cumulative T, D, and raw FDR in single O(n) sweep
                 int t = 0, d = 0;
                 for (int rank = 0; rank < n; rank++)
                 {
@@ -397,6 +298,7 @@ namespace MassSpectrometry.Dia
                     rawFdr[rank] = t > 0 ? (double)d / t : 1.0;
                 }
 
+                // Backward pass: monotonize q-values (running minimum from bottom)
                 double runningMin = 1.0;
                 for (int rank = n - 1; rank >= 0; rank--)
                 {
@@ -405,6 +307,7 @@ namespace MassSpectrometry.Dia
                     rawFdr[rank] = runningMin;
                 }
 
+                // Assign to results — O(n), no re-counting
                 int idsAt1Pct = 0;
                 for (int rank = 0; rank < n; rank++)
                 {
@@ -433,6 +336,7 @@ namespace MassSpectrometry.Dia
             }
         }
 
+        /// <summary>Comparer for descending sort by ClassifierScore.</summary>
         private sealed class DescendingScoreComparer : IComparer<int>
         {
             private readonly List<DiaSearchResult> _results;
@@ -510,8 +414,9 @@ namespace MassSpectrometry.Dia
                 return negatives;
             }
 
+            // Subsample decoys to match positive count
             var rng = new Random(42);
-            int sampleSize = Math.Max(positiveCount, 1000);
+            int sampleSize = Math.Max(positiveCount, 1000); // ensure minimum diversity
             sampleSize = Math.Min(sampleSize, decoyIndices.Count);
             var sampled = new DiaFeatureVector[sampleSize];
             var shuffled = new int[decoyIndices.Count];
@@ -540,8 +445,7 @@ namespace MassSpectrometry.Dia
             int negativeTrainCount,
             int idsAt1Pct,
             float weightChange,
-            DiaClassifierType classifierType,
-            IDiaClassifier classifier)
+            DiaLinearDiscriminant classifier)
         {
             float[] targetScores = new float[targetIndices.Count];
             for (int i = 0; i < targetIndices.Count; i++)
@@ -559,24 +463,14 @@ namespace MassSpectrometry.Dia
             float separation = tStats.Mean - dStats.Mean;
 
             double auc = ComputeTargetDecoyAuc(results, targetIndices, decoyIndices);
-
-            // Extract classifier-specific info
-            float[] weights = null;
-            float bias = 0f;
-            float[] importances = null;
-
-            if (classifier is DiaLdaClassifierAdapter ldaAdapter && ldaAdapter.Lda != null)
-            {
-                weights = (float[])ldaAdapter.Lda.Weights.Clone();
-                bias = ldaAdapter.Lda.Bias;
-            }
+            float[] weightsCopy = (float[])classifier.Weights.Clone();
 
             return new IterationDiagnostics(
                 iteration, positiveTrainCount, negativeTrainCount,
                 tStats.Mean, tStats.Median, tStats.Q25, tStats.Q75,
                 dStats.Mean, dStats.Median, dStats.Q25, dStats.Q75,
                 separation, auc, idsAt1Pct,
-                weightChange, classifierType, weights, bias, importances);
+                weightChange, weightsCopy, classifier.Bias);
         }
 
         private readonly struct Stats
@@ -635,45 +529,26 @@ namespace MassSpectrometry.Dia
 
         public static void PrintDiagnostics(IterationDiagnostics d)
         {
-            Console.WriteLine($"  ─── Iteration {d.Iteration} ({d.ClassifierType}) ───");
+            Console.WriteLine($"  ─── Iteration {d.Iteration} ───");
             Console.WriteLine($"    Training: {d.PositiveTrainingCount:N0} positives, {d.NegativeTrainingCount:N0} negatives");
             Console.WriteLine($"    Target scores:  mean={d.TargetScoreMean:F4}  median={d.TargetScoreMedian:F4}  Q25={d.TargetScoreQ25:F4}  Q75={d.TargetScoreQ75:F4}");
             Console.WriteLine($"    Decoy scores:   mean={d.DecoyScoreMean:F4}  median={d.DecoyScoreMedian:F4}  Q25={d.DecoyScoreQ25:F4}  Q75={d.DecoyScoreQ75:F4}");
             Console.WriteLine($"    Separation:     {d.Separation:F4} (mean_target - mean_decoy)");
             Console.WriteLine($"    AUC:            {d.Auc:F4}");
             Console.WriteLine($"    IDs at 1% FDR:  {d.IdentificationsAt1Pct:N0}");
+            Console.WriteLine($"    Weight change:  {(float.IsPositiveInfinity(d.WeightChange) ? "∞" : d.WeightChange.ToString("F6"))}");
+            Console.WriteLine($"    Bias:           {d.Bias:F6}");
 
-            if (d.ClassifierType == DiaClassifierType.LinearDiscriminant && d.Weights != null)
+            int nWeights = Math.Min(d.Weights.Length, DiaFeatureVector.ClassifierFeatureCount);
+            var indexed = new (string Name, float Weight)[nWeights];
+            for (int i = 0; i < nWeights; i++)
+                indexed[i] = (DiaFeatureVector.FeatureNames[i], d.Weights[i]);
+            Array.Sort(indexed, (a, b) => MathF.Abs(b.Weight).CompareTo(MathF.Abs(a.Weight)));
+            Console.WriteLine("    Weights:");
+            for (int i = 0; i < nWeights; i++)
             {
-                Console.WriteLine($"    Weight change:  {(float.IsPositiveInfinity(d.WeightChange) ? "∞" : d.WeightChange.ToString("F6"))}");
-                Console.WriteLine($"    Bias:           {d.Bias:F6}");
-
-                int nWeights = Math.Min(d.Weights.Length, DiaFeatureVector.ClassifierFeatureCount);
-                var indexed = new (string Name, float Weight)[nWeights];
-                for (int i = 0; i < nWeights; i++)
-                    indexed[i] = (DiaFeatureVector.FeatureNames[i], d.Weights[i]);
-                Array.Sort(indexed, (a, b) => MathF.Abs(b.Weight).CompareTo(MathF.Abs(a.Weight)));
-                Console.WriteLine("    Weights:");
-                for (int i = 0; i < nWeights; i++)
-                {
-                    string sign = indexed[i].Weight >= 0 ? "+" : "";
-                    Console.WriteLine($"      {sign}{indexed[i].Weight:F4}  {indexed[i].Name}");
-                }
-            }
-            else if (d.ClassifierType == DiaClassifierType.GradientBoostedTree)
-            {
-                Console.WriteLine($"    Classifier:     GBT (200 trees, depth 5, lr 0.05)");
-                if (d.FeatureImportances != null)
-                {
-                    int nFeats = Math.Min(d.FeatureImportances.Length, DiaFeatureVector.ClassifierFeatureCount);
-                    var indexed = new (string Name, float Importance)[nFeats];
-                    for (int i = 0; i < nFeats; i++)
-                        indexed[i] = (DiaFeatureVector.FeatureNames[i], d.FeatureImportances[i]);
-                    Array.Sort(indexed, (a, b) => b.Importance.CompareTo(a.Importance));
-                    Console.WriteLine("    Feature Importances:");
-                    for (int i = 0; i < nFeats; i++)
-                        Console.WriteLine($"      {indexed[i].Importance:F4}  {indexed[i].Name}");
-                }
+                string sign = indexed[i].Weight >= 0 ? "+" : "";
+                Console.WriteLine($"      {sign}{indexed[i].Weight:F4}  {indexed[i].Name}");
             }
         }
     }

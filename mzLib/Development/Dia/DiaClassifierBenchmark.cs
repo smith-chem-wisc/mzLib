@@ -13,17 +13,6 @@ using System.Diagnostics;
 
 namespace MassSpectrometry.Dia.Benchmarks
 {
-    /// <summary>
-    /// Benchmarks comparing GBT vs LDA classifiers on:
-    ///   1. Training throughput (samples/sec)
-    ///   2. Prediction throughput (samples/sec)
-    ///   3. AUC on linear vs non-linear synthetic problems
-    ///   4. AUC on realistic DIA-like feature distributions (28 features)
-    ///   5. Scaling behavior with sample count
-    /// 
-    /// This benchmark validates the Phase 14 claim that GBT significantly
-    /// outperforms LDA on non-linear target/decoy boundaries.
-    /// </summary>
     public static class DiaClassifierBenchmark
     {
         public static void RunAll()
@@ -45,32 +34,21 @@ namespace MassSpectrometry.Dia.Benchmarks
             Console.WriteLine("All benchmarks complete.");
         }
 
-        /// <summary>
-        /// Baseline: linearly separable problem. Both classifiers should do well.
-        /// Confirms GBT doesn't degrade on easy problems.
-        /// </summary>
+        // ════════════════════════════════════════════════════════════════
+        //  AUC Comparison Benchmarks
+        // ════════════════════════════════════════════════════════════════
+
         private static void BenchmarkLinearProblem()
         {
             Console.WriteLine("--- Linear Separation (sanity check) ---");
             var rng = new Random(42);
             int n = 5000;
-            int features = 10;
-            var X = new float[n * features];
-            var y = new float[n];
+            int fc = 10;
+            var (X, y) = GenerateLinearProblem(rng, n, fc, separation: 3f);
+            ShuffleData(X, y, n, fc, rng);
 
-            for (int i = 0; i < n; i++)
-            {
-                bool isTarget = i < n / 2;
-                y[i] = isTarget ? 1f : 0f;
-                for (int f = 0; f < features; f++)
-                {
-                    float center = isTarget ? 1.5f : -1.5f;
-                    X[i * features + f] = center + (float)(rng.NextDouble() * 2 - 1);
-                }
-            }
-
-            float gbtAuc = TrainAndEvaluate(X, y, n, features, DiaClassifierType.GradientBoostedTree);
-            float ldaAuc = TrainAndEvaluate(X, y, n, features, DiaClassifierType.LinearDiscriminant);
+            float gbtAuc = TrainAndEvaluateGbt(X, y, n, fc);
+            float ldaAuc = TrainAndEvaluateLda(X, y, n, fc);
 
             Console.WriteLine($"  GBT AUC: {gbtAuc:F4}");
             Console.WriteLine($"  LDA AUC: {ldaAuc:F4}");
@@ -78,16 +56,13 @@ namespace MassSpectrometry.Dia.Benchmarks
             Console.WriteLine();
         }
 
-        /// <summary>
-        /// XOR problem: purely non-linear. LDA should fail (~0.5), GBT should succeed (>0.9).
-        /// </summary>
         private static void BenchmarkXorProblem()
         {
             Console.WriteLine("--- XOR Problem (non-linear, 2 features) ---");
             var rng = new Random(42);
             int n = 4000;
-            int features = 2;
-            var X = new float[n * features];
+            int fc = 2;
+            var X = new float[n * fc];
             var y = new float[n];
 
             for (int i = 0; i < n; i++)
@@ -98,9 +73,10 @@ namespace MassSpectrometry.Dia.Benchmarks
                 X[i * 2 + 1] = x2;
                 y[i] = (x1 > 0) != (x2 > 0) ? 1f : 0f;
             }
+            // XOR data is already interleaved by construction — no shuffle needed
 
-            float gbtAuc = TrainAndEvaluate(X, y, n, features, DiaClassifierType.GradientBoostedTree);
-            float ldaAuc = TrainAndEvaluate(X, y, n, features, DiaClassifierType.LinearDiscriminant);
+            float gbtAuc = TrainAndEvaluateGbt(X, y, n, fc);
+            float ldaAuc = TrainAndEvaluateLda(X, y, n, fc);
 
             Console.WriteLine($"  GBT AUC: {gbtAuc:F4}");
             Console.WriteLine($"  LDA AUC: {ldaAuc:F4}");
@@ -108,16 +84,13 @@ namespace MassSpectrometry.Dia.Benchmarks
             Console.WriteLine();
         }
 
-        /// <summary>
-        /// Concentric circles: another classic non-linear boundary.
-        /// </summary>
         private static void BenchmarkConcentricCircles()
         {
             Console.WriteLine("--- Concentric Circles (non-linear, 2 features) ---");
             var rng = new Random(42);
             int n = 4000;
-            int features = 2;
-            var X = new float[n * features];
+            int fc = 2;
+            var X = new float[n * fc];
             var y = new float[n];
 
             for (int i = 0; i < n; i++)
@@ -130,9 +103,10 @@ namespace MassSpectrometry.Dia.Benchmarks
                 X[i * 2 + 1] = radius * MathF.Sin(angle);
                 y[i] = isTarget ? 1f : 0f;
             }
+            ShuffleData(X, y, n, fc, rng);
 
-            float gbtAuc = TrainAndEvaluate(X, y, n, features, DiaClassifierType.GradientBoostedTree);
-            float ldaAuc = TrainAndEvaluate(X, y, n, features, DiaClassifierType.LinearDiscriminant);
+            float gbtAuc = TrainAndEvaluateGbt(X, y, n, fc);
+            float ldaAuc = TrainAndEvaluateLda(X, y, n, fc);
 
             Console.WriteLine($"  GBT AUC: {gbtAuc:F4}");
             Console.WriteLine($"  LDA AUC: {ldaAuc:F4}");
@@ -140,354 +114,326 @@ namespace MassSpectrometry.Dia.Benchmarks
             Console.WriteLine();
         }
 
-        /// <summary>
-        /// Realistic DIA-like feature distributions.
-        /// 28 features modeled after the actual Phase 13 feature space:
-        ///   - Some features have high linear separation (BestFragCorrSum, MeanFragCorr)
-        ///   - Some have non-linear interactions (RT deviation × fragment correlation)
-        ///   - Some are near-redundant (TemporalScore ↔ SpectralAngle, r=0.993)
-        ///   - Some are noisy (IntensityCV, BoundarySignalRatio)
-        /// 
-        /// This is the most important benchmark: it simulates the actual problem
-        /// where we expect the GBT to gain +3000-5000 IDs over LDA.
-        /// </summary>
         private static void BenchmarkRealisticDiaFeatures()
         {
             Console.WriteLine("--- Realistic DIA Features (28 features, non-linear interactions) ---");
             var rng = new Random(42);
-            int n = 50000; // ~39K targets + ~12K decoys (matches real data ratio)
-            int features = 28;
+            int n = 50000;
+            int fc = 28;
             int nTargets = 39000;
-            int nDecoys = n - nTargets;
-            var X = new float[n * features];
+            var X = new float[n * fc];
             var y = new float[n];
-
-            // Feature indices (matching DiaFeatureVector order):
-            // 0: ApexScore, 1: TemporalScore, 2: SpectralAngle, 3: FragDetRate
-            // 4: LogTotalIntensity, 5: MeanFragCorr, 6: MinFragCorr, 7: XicDepthCV
-            // 8: MedianXicDepth, 9: TimePointsUsed, 10: IntensityCV
-            // 11: RtDeviationMinutes, 12: RtDeviationSquared
-            // 13: PeakApexScore, 14: PeakMeanFragCorr, 15: PeakWidth
-            // 16: BestFragCorrSum, 17: MedianFragRefCorr, 18: MinFragRefCorr
-            // 19: StdFragRefCorr, 20: BestFragWeightedCosine
-            // 21: MeanSigRatioDev, 22: MaxSigRatioDev, 23: StdSigRatioDev
-            // 24: SmoothedMeanFragCorr, 25: Log2SNR
-            // 26: BoundarySignalRatio, 27: ApexToMeanRatio
 
             for (int i = 0; i < n; i++)
             {
                 bool isTarget = i < nTargets;
                 y[i] = isTarget ? 1f : 0f;
-                int offset = i * features;
+                int offset = i * fc;
 
-                // Simulate target vs decoy distributions
-                // Targets: mix of good hits (60%) and marginal (40%)
-                // Decoys: lower scores with some overlap
                 bool isGoodTarget = isTarget && rng.NextDouble() < 0.6;
-                bool isMarginalTarget = isTarget && !isGoodTarget;
+                float baseQ = isGoodTarget ? 0.8f + Noise(rng, 0.1f) :
+                              isTarget ? 0.4f + Noise(rng, 0.2f) :
+                              Noise(rng, 0.2f) + 0.15f;
 
-                float baseQuality;
-                if (isGoodTarget) baseQuality = 0.8f + (float)(rng.NextDouble() * 0.2);
-                else if (isMarginalTarget) baseQuality = 0.3f + (float)(rng.NextDouble() * 0.4);
-                else baseQuality = (float)(rng.NextDouble() * 0.4); // decoy
+                X[offset + 0] = baseQ * 0.85f + Noise(rng, 0.15f);
+                X[offset + 1] = X[offset] * 0.98f + Noise(rng, 0.02f);
+                X[offset + 2] = X[offset] * 0.97f + Noise(rng, 0.03f);
+                X[offset + 3] = MathF.Min(baseQ + 0.2f + Noise(rng, 0.1f), 1f);
+                X[offset + 4] = (isGoodTarget ? 8f : isTarget ? 6f : 4f) + Noise(rng, 1.5f);
+                X[offset + 5] = baseQ * 0.9f + Noise(rng, 0.15f);
+                X[offset + 6] = baseQ * 0.6f + Noise(rng, 0.2f);
+                X[offset + 7] = (isTarget ? 0.3f : 0.6f) + Noise(rng, 0.2f);
+                X[offset + 8] = (isTarget ? 15f : 8f) + Noise(rng, 5f);
+                X[offset + 9] = (isTarget ? 30f : 15f) + Noise(rng, 10f);
+                X[offset + 10] = 0.3f + Noise(rng, 0.15f);
 
-                // Strong linear features (similar to Phase 13 top weights)
-                X[offset + 16] = baseQuality * 5f + Noise(rng, 0.5f); // BestFragCorrSum
-                X[offset + 5] = baseQuality * 0.9f + Noise(rng, 0.15f); // MeanFragCorr
-                X[offset + 17] = baseQuality * 0.85f + Noise(rng, 0.15f); // MedianFragRefCorr
-                X[offset + 3] = MathF.Min(baseQuality + 0.2f + Noise(rng, 0.1f), 1f); // FragDetRate
+                float rtDev = isGoodTarget ? MathF.Abs(Noise(rng, 0.3f)) :
+                              isTarget ? MathF.Abs(Noise(rng, 1.0f)) :
+                              MathF.Abs(Noise(rng, 2.0f));
+                X[offset + 11] = rtDev;
+                X[offset + 12] = rtDev * rtDev;
 
-                // RT deviation: non-linear interaction with quality
-                // Good targets have small RT deviation, but the boundary is non-linear
-                float rtDev;
-                if (isGoodTarget) rtDev = MathF.Abs(Noise(rng, 0.3f));
-                else if (isMarginalTarget) rtDev = MathF.Abs(Noise(rng, 1.0f));
-                else rtDev = MathF.Abs(Noise(rng, 2.0f));
-                X[offset + 11] = rtDev; // RtDeviationMinutes
-                X[offset + 12] = rtDev * rtDev; // RtDeviationSquared
-
-                // NON-LINEAR INTERACTION: high MeanFragCorr + low RT deviation → target
-                // This is exactly the kind of boundary LDA misses
-                X[offset + 0] = baseQuality * 0.85f + Noise(rng, 0.15f); // ApexScore
-
-                // Near-redundant features (r ≈ 0.99)
-                X[offset + 1] = X[offset + 0] * 0.98f + Noise(rng, 0.02f); // TemporalScore
-                X[offset + 2] = X[offset + 0] * 0.97f + Noise(rng, 0.03f); // SpectralAngle
-
-                // Intensity features
-                X[offset + 4] = (isGoodTarget ? 8f : (isTarget ? 6f : 4f)) + Noise(rng, 1.5f); // LogTotalIntensity
-                X[offset + 10] = 0.3f + Noise(rng, 0.15f); // IntensityCV (noisy, low sep)
-
-                // Fragment correlation features
-                X[offset + 6] = baseQuality * 0.6f + Noise(rng, 0.2f); // MinFragCorr
-                X[offset + 7] = (isTarget ? 0.3f : 0.6f) + Noise(rng, 0.2f); // XicDepthCV (negative weight)
-                X[offset + 8] = (isTarget ? 15f : 8f) + Noise(rng, 5f); // MedianXicDepth
-                X[offset + 9] = (isTarget ? 30f : 15f) + Noise(rng, 10f); // TimePointsUsed
-
-                // Peak features
-                X[offset + 13] = baseQuality * 0.8f + Noise(rng, 0.15f); // PeakApexScore
-                X[offset + 14] = baseQuality * 0.7f + Noise(rng, 0.15f); // PeakMeanFragCorr
-                X[offset + 15] = (isTarget ? 1.2f : 2.5f) + Noise(rng, 0.8f); // PeakWidth
-
-                // Reference curve features
-                X[offset + 18] = baseQuality * 0.5f + Noise(rng, 0.2f); // MinFragRefCorr
-                X[offset + 19] = (isTarget ? 0.15f : 0.35f) + Noise(rng, 0.1f); // StdFragRefCorr
-                X[offset + 20] = baseQuality * 0.8f + Noise(rng, 0.1f); // BestFragWeightedCosine
-
-                // Signal ratio deviation (negative = worse)
-                X[offset + 21] = (isTarget ? 0.3f : 0.8f) + Noise(rng, 0.2f); // MeanSigRatioDev
-                X[offset + 22] = (isTarget ? 0.6f : 1.5f) + Noise(rng, 0.3f); // MaxSigRatioDev
-                X[offset + 23] = (isTarget ? 0.2f : 0.5f) + Noise(rng, 0.15f); // StdSigRatioDev
-
-                // Smoothed/other
-                X[offset + 24] = baseQuality * 0.75f + Noise(rng, 0.15f); // SmoothedMeanFragCorr
-                X[offset + 25] = (isTarget ? 3f : 1f) + Noise(rng, 1.5f); // Log2SNR
-                X[offset + 26] = (isTarget ? 0.15f : 0.25f) + Noise(rng, 0.1f); // BoundarySignalRatio
-                X[offset + 27] = (isGoodTarget ? 2.5f : 1.5f) + Noise(rng, 0.5f); // ApexToMeanRatio
+                X[offset + 13] = baseQ * 0.8f + Noise(rng, 0.15f);
+                X[offset + 14] = baseQ * 0.7f + Noise(rng, 0.15f);
+                X[offset + 15] = (isTarget ? 1.2f : 2.5f) + Noise(rng, 0.8f);
+                X[offset + 16] = baseQ * 5f + Noise(rng, 0.5f);
+                X[offset + 17] = baseQ * 0.85f + Noise(rng, 0.15f);
+                X[offset + 18] = baseQ * 0.5f + Noise(rng, 0.2f);
+                X[offset + 19] = (isTarget ? 0.15f : 0.35f) + Noise(rng, 0.1f);
+                X[offset + 20] = baseQ * 0.8f + Noise(rng, 0.1f);
+                X[offset + 21] = (isTarget ? 0.3f : 0.8f) + Noise(rng, 0.2f);
+                X[offset + 22] = (isTarget ? 0.6f : 1.5f) + Noise(rng, 0.3f);
+                X[offset + 23] = (isTarget ? 0.2f : 0.5f) + Noise(rng, 0.15f);
+                X[offset + 24] = baseQ * 0.75f + Noise(rng, 0.15f);
+                X[offset + 25] = (isTarget ? 3f : 1f) + Noise(rng, 1.5f);
+                X[offset + 26] = (isTarget ? 0.15f : 0.25f) + Noise(rng, 0.1f);
+                X[offset + 27] = (isGoodTarget ? 2.5f : 1.5f) + Noise(rng, 0.5f);
             }
+            ShuffleData(X, y, n, fc, rng);
 
-            // Train and evaluate both classifiers
             var sw = Stopwatch.StartNew();
-            float gbtAuc = TrainAndEvaluate(X, y, n, features, DiaClassifierType.GradientBoostedTree);
+            float gbtAuc = TrainAndEvaluateGbt(X, y, n, fc);
             long gbtMs = sw.ElapsedMilliseconds;
 
             sw.Restart();
-            float ldaAuc = TrainAndEvaluate(X, y, n, features, DiaClassifierType.LinearDiscriminant);
+            float ldaAuc = TrainAndEvaluateLda(X, y, n, fc);
             long ldaMs = sw.ElapsedMilliseconds;
 
-            Console.WriteLine($"  Samples:    {n:N0} ({nTargets:N0} targets, {nDecoys:N0} decoys)");
-            Console.WriteLine($"  Features:   {features}");
-            Console.WriteLine($"  GBT AUC:    {gbtAuc:F4}  ({gbtMs}ms)");
-            Console.WriteLine($"  LDA AUC:    {ldaAuc:F4}  ({ldaMs}ms)");
+            Console.WriteLine($"  Samples:    {n:N0} ({nTargets:N0} targets, {n - nTargets:N0} decoys)");
+            Console.WriteLine($"  Features:   {fc}");
+            Console.WriteLine($"  GBT AUC:    {gbtAuc:F4}  ({gbtMs}ms train+eval)");
+            Console.WriteLine($"  LDA AUC:    {ldaAuc:F4}  ({ldaMs}ms train+eval)");
             Console.WriteLine($"  Delta:      {gbtAuc - ldaAuc:+0.0000;-0.0000}  ← expected improvement");
             Console.WriteLine();
-
-            // Estimate ID impact (rough: AUC improvement of 0.03 ≈ +3000-5000 IDs at 1% FDR)
-            float aucDelta = gbtAuc - ldaAuc;
-            if (aucDelta > 0)
-            {
-                int estimatedAdditionalIds = (int)(aucDelta * 150000); // rough empirical scaling
-                Console.WriteLine($"  Estimated additional IDs from GBT: ~{estimatedAdditionalIds:N0}");
-                Console.WriteLine();
-            }
         }
 
-        /// <summary>
-        /// Training throughput: how fast can each classifier train on 50K samples × 28 features?
-        /// </summary>
+        // ════════════════════════════════════════════════════════════════
+        //  Throughput Benchmarks
+        // ════════════════════════════════════════════════════════════════
+
         private static void BenchmarkTrainingThroughput()
         {
             Console.WriteLine("--- Training Throughput ---");
             int n = 50000;
-            int features = 28;
+            int fc = 28;
             var rng = new Random(42);
-            var X = new float[n * features];
-            var y = new float[n];
-
-            for (int i = 0; i < n; i++)
-            {
-                y[i] = i < n / 2 ? 1f : 0f;
-                for (int f = 0; f < features; f++)
-                    X[i * features + f] = (y[i] > 0.5f ? 1f : -1f) + (float)(rng.NextDouble() * 2 - 1);
-            }
+            var (X, y) = GenerateLinearProblem(rng, n, fc, separation: 2f);
+            ShuffleData(X, y, n, fc, rng);
 
             // Warm up
-            var warmup = new DiaGradientBoostedClassifier(features, numTrees: 5, maxDepth: 2);
+            var warmup = new DiaGradientBoostedClassifier(fc, numTrees: 5, maxDepth: 2);
             warmup.Train(X, y, n);
 
-            // GBT training
-            int gbtRuns = 3;
+            int runs = 3;
             long gbtTotalMs = 0;
-            for (int r = 0; r < gbtRuns; r++)
+            for (int r = 0; r < runs; r++)
             {
-                var gbt = new DiaGradientBoostedClassifier(features, numTrees: 100, maxDepth: 4,
+                var gbt = new DiaGradientBoostedClassifier(fc, numTrees: 100, maxDepth: 4,
                     learningRate: 0.1f, minSamplesLeaf: 20, numBins: 64, subsampleFraction: 0.8f);
                 var sw = Stopwatch.StartNew();
                 gbt.Train(X, y, n);
-                sw.Stop();
                 gbtTotalMs += sw.ElapsedMilliseconds;
             }
 
-            // LDA training
-            int ldaRuns = 3;
-            long ldaTotalMs = 0;
-            for (int r = 0; r < ldaRuns; r++)
-            {
-                var lda = new DiaLdaClassifierAdapter(features);
-                var sw = Stopwatch.StartNew();
-                lda.Train(X, y, n);
-                sw.Stop();
-                ldaTotalMs += sw.ElapsedMilliseconds;
-            }
-
-            float gbtAvgMs = gbtTotalMs / (float)gbtRuns;
-            float ldaAvgMs = ldaTotalMs / (float)ldaRuns;
-
-            Console.WriteLine($"  Dataset: {n:N0} samples × {features} features");
-            Console.WriteLine($"  GBT (100 trees, depth 4): {gbtAvgMs:F1}ms  ({n / (gbtAvgMs / 1000):N0} samples/sec)");
-            Console.WriteLine($"  LDA (diagonal Fisher):    {ldaAvgMs:F1}ms  ({n / (ldaAvgMs / 1000):N0} samples/sec)");
-            Console.WriteLine($"  GBT/LDA time ratio:       {gbtAvgMs / ldaAvgMs:F1}x");
+            float gbtAvg = gbtTotalMs / (float)runs;
+            Console.WriteLine($"  Dataset: {n:N0} samples × {fc} features");
+            Console.WriteLine($"  GBT (100 trees, depth 4): {gbtAvg:F1}ms  ({n / Math.Max(gbtAvg / 1000, 0.001):N0} samples/sec)");
             Console.WriteLine();
         }
 
-        /// <summary>
-        /// Prediction throughput: how fast can each classifier score 50K samples?
-        /// In the FDR loop, prediction runs every iteration on all results.
-        /// </summary>
         private static void BenchmarkPredictionThroughput()
         {
             Console.WriteLine("--- Prediction Throughput ---");
             int n = 50000;
-            int features = 28;
+            int fc = 28;
             var rng = new Random(42);
-            var X = new float[n * features];
-            var y = new float[n];
+            var (X, y) = GenerateLinearProblem(rng, n, fc, separation: 2f);
+            ShuffleData(X, y, n, fc, rng);
 
-            for (int i = 0; i < n; i++)
-            {
-                y[i] = i < n / 2 ? 1f : 0f;
-                for (int f = 0; f < features; f++)
-                    X[i * features + f] = (y[i] > 0.5f ? 1f : -1f) + (float)(rng.NextDouble() * 2 - 1);
-            }
-
-            // Train both
-            var gbt = new DiaGradientBoostedClassifier(features, numTrees: 100, maxDepth: 4);
+            var gbt = new DiaGradientBoostedClassifier(fc, numTrees: 100, maxDepth: 4);
             gbt.Train(X, y, n);
 
-            var lda = new DiaLdaClassifierAdapter(features);
-            lda.Train(X, y, n);
-
             var scores = new float[n];
-
-            // Warm up
             gbt.PredictBatch(X, n, scores);
-            lda.PredictBatch(X, n, scores);
 
-            // GBT prediction
             int runs = 10;
             GC.Collect();
             GC.WaitForPendingFinalizers();
+
             var sw = Stopwatch.StartNew();
             for (int r = 0; r < runs; r++)
                 gbt.PredictBatch(X, n, scores);
             sw.Stop();
             float gbtPredMs = sw.ElapsedMilliseconds / (float)runs;
 
-            // LDA prediction
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-            sw.Restart();
-            for (int r = 0; r < runs; r++)
-                lda.PredictBatch(X, n, scores);
-            sw.Stop();
-            float ldaPredMs = sw.ElapsedMilliseconds / (float)runs;
-
-            Console.WriteLine($"  Dataset: {n:N0} samples × {features} features");
-            Console.WriteLine($"  GBT predict: {gbtPredMs:F2}ms  ({n / (gbtPredMs / 1000):N0} samples/sec)");
-            Console.WriteLine($"  LDA predict: {ldaPredMs:F2}ms  ({n / (ldaPredMs / 1000):N0} samples/sec)");
-            Console.WriteLine($"  GBT/LDA ratio: {gbtPredMs / Math.Max(ldaPredMs, 0.01f):F1}x");
-            Console.WriteLine();
-
-            // Context: FDR runs ~5-7 iterations, each predicting 50K samples
-            // Even if GBT is 10x slower than LDA at prediction, 50K × 10ms = 500ms total
-            // vs LDA at 50K × 1ms = 50ms. Both negligible vs extraction (2.4s).
-            float totalGbtFdr = gbtPredMs * 7f; // 7 iterations
-            float totalLdaFdr = ldaPredMs * 7f;
-            Console.WriteLine($"  Est. total FDR prediction (7 iters): GBT={totalGbtFdr:F0}ms, LDA={totalLdaFdr:F0}ms");
+            Console.WriteLine($"  Dataset: {n:N0} samples × {fc} features");
+            Console.WriteLine($"  GBT predict: {gbtPredMs:F2}ms  ({n / Math.Max(gbtPredMs / 1000, 0.001):N0} samples/sec)");
+            Console.WriteLine($"  Context: FDR runs ~5-7 iterations × {n:N0} predictions");
+            Console.WriteLine($"  Est. total FDR prediction time (7 iters): {gbtPredMs * 7:F0}ms");
             Console.WriteLine();
         }
 
-        /// <summary>
-        /// How training time scales with sample count.
-        /// Should be roughly linear for histogram-based GBT.
-        /// </summary>
+        // ════════════════════════════════════════════════════════════════
+        //  Scaling Benchmark
+        // ════════════════════════════════════════════════════════════════
+
         private static void BenchmarkScalingBehavior()
         {
             Console.WriteLine("--- Scaling: Training Time vs Sample Count ---");
-            int features = 28;
+            int fc = 28;
             int[] sampleCounts = { 5000, 10000, 25000, 50000, 100000 };
-            var rng = new Random(42);
 
-            Console.WriteLine($"  {"Samples",-12} {"GBT (ms)",-12} {"LDA (ms)",-12} {"GBT AUC",-10} {"LDA AUC",-10}");
+            Console.WriteLine($"  {"Samples",-12} {"GBT (ms)",-12} {"GBT AUC",-10}");
 
             foreach (int n in sampleCounts)
             {
-                var X = new float[n * features];
+                var rng = new Random(42);
+                var X = new float[n * fc];
                 var y = new float[n];
                 for (int i = 0; i < n; i++)
                 {
                     y[i] = i < n / 2 ? 1f : 0f;
-                    for (int f = 0; f < features; f++)
+                    for (int f = 0; f < fc; f++)
                     {
                         float signal = y[i] > 0.5f ? 1f : -1f;
-                        // Add a non-linear interaction on features 0,1
-                        if (f == 0 || f == 1)
-                            X[i * features + f] = signal + (float)(rng.NextDouble() * 2 - 1);
-                        else
-                            X[i * features + f] = (float)(rng.NextDouble() * 2 - 1); // noise
+                        X[i * fc + f] = (f < 2)
+                            ? signal + (float)(rng.NextDouble() * 2 - 1)
+                            : (float)(rng.NextDouble() * 2 - 1);
                     }
-                    // Make label depend on interaction: x0*x1 > 0 boosts targets
-                    if (y[i] > 0.5f && X[i * features] * X[i * features + 1] < 0)
-                        y[i] = rng.NextDouble() < 0.3 ? 0f : 1f; // some targets misclassified by LDA
+                    // Non-linear interaction
+                    if (y[i] > 0.5f && X[i * fc] * X[i * fc + 1] < 0)
+                        y[i] = rng.NextDouble() < 0.3 ? 0f : 1f;
                 }
+                ShuffleData(X, y, n, fc, rng);
 
-                // GBT
-                var gbt = new DiaGradientBoostedClassifier(features, numTrees: 100, maxDepth: 4,
+                var gbt = new DiaGradientBoostedClassifier(fc, numTrees: 100, maxDepth: 4,
                     minSamplesLeaf: 20, numBins: 64);
                 var sw = Stopwatch.StartNew();
                 gbt.Train(X, y, n);
                 long gbtMs = sw.ElapsedMilliseconds;
-                float gbtAuc = gbt.ComputeAuc(X, y, n);
 
-                // LDA
-                var lda = new DiaLdaClassifierAdapter(features);
-                sw.Restart();
-                lda.Train(X, y, n);
-                long ldaMs = sw.ElapsedMilliseconds;
-                float ldaAuc = lda.ComputeAuc(X, y, n);
+                // Evaluate on held-out 20%
+                int trainN = (int)(n * 0.8);
+                int testN = n - trainN;
+                // Since data is shuffled, we can just split
+                float gbtAuc = gbt.ComputeAuc(
+                    X.AsSpan(trainN * fc, testN * fc),
+                    y.AsSpan(trainN, testN), testN);
 
-                Console.WriteLine($"  {n,-12:N0} {gbtMs,-12} {ldaMs,-12} {gbtAuc,-10:F4} {ldaAuc,-10:F4}");
+                Console.WriteLine($"  {n,-12:N0} {gbtMs,-12} {gbtAuc,-10:F4}");
             }
 
             Console.WriteLine();
         }
 
-        #region Helpers
+        // ════════════════════════════════════════════════════════════════
+        //  Helpers
+        // ════════════════════════════════════════════════════════════════
 
-        private static float TrainAndEvaluate(float[] X, float[] y, int n, int features,
-            DiaClassifierType type)
+        private static (float[] X, float[] y) GenerateLinearProblem(
+            Random rng, int n, int fc, float separation)
         {
-            // 80/20 train/test split
+            var X = new float[n * fc];
+            var y = new float[n];
+            for (int i = 0; i < n; i++)
+            {
+                y[i] = i < n / 2 ? 1f : 0f;
+                for (int f = 0; f < fc; f++)
+                {
+                    float center = y[i] > 0.5f ? separation / 2f : -separation / 2f;
+                    X[i * fc + f] = center + (float)(rng.NextDouble() * 2 - 1);
+                }
+            }
+            return (X, y);
+        }
+
+        /// <summary>
+        /// Fisher-Yates shuffle of rows in the feature matrix + label array.
+        /// Critical: without this, an 80/20 split on ordered data gives a test set
+        /// with only one class, yielding AUC = 0.5 (undefined).
+        /// </summary>
+        private static void ShuffleData(float[] X, float[] y, int n, int fc, Random rng)
+        {
+            for (int i = n - 1; i > 0; i--)
+            {
+                int j = rng.Next(i + 1);
+                if (i == j) continue;
+
+                // Swap labels
+                (y[i], y[j]) = (y[j], y[i]);
+
+                // Swap feature rows
+                int rowI = i * fc;
+                int rowJ = j * fc;
+                for (int f = 0; f < fc; f++)
+                    (X[rowI + f], X[rowJ + f]) = (X[rowJ + f], X[rowI + f]);
+            }
+        }
+
+        /// <summary>
+        /// Trains GBT on first 80% of (shuffled) data, evaluates AUC on remaining 20%.
+        /// </summary>
+        private static float TrainAndEvaluateGbt(float[] X, float[] y, int n, int fc)
+        {
             int trainN = (int)(n * 0.8);
             int testN = n - trainN;
-            int testStart = trainN * features;
 
-            IDiaClassifier classifier = type switch
-            {
-                DiaClassifierType.GradientBoostedTree => new DiaGbtClassifierAdapter(
-                    new DiaGradientBoostedClassifier(features, numTrees: 100, maxDepth: 4,
-                        learningRate: 0.1f, minSamplesLeaf: 20, numBins: 64, subsampleFraction: 0.8f)),
-                DiaClassifierType.LinearDiscriminant => new DiaLdaClassifierAdapter(features),
-                _ => throw new ArgumentException()
-            };
-
-            classifier.Train(
-                X.AsSpan(0, trainN * features),
-                y.AsSpan(0, trainN),
-                trainN);
-
-            // Evaluate on test set
-            return classifier.ComputeAuc(
-                X.AsSpan(testStart, testN * features),
-                y.AsSpan(trainN, testN),
-                testN);
+            var gbt = new DiaGradientBoostedClassifier(fc, numTrees: 100, maxDepth: 4,
+                learningRate: 0.1f, minSamplesLeaf: 20, numBins: 64, subsampleFraction: 0.8f);
+            gbt.Train(X.AsSpan(0, trainN * fc), y.AsSpan(0, trainN), trainN);
+            return gbt.ComputeAuc(
+                X.AsSpan(trainN * fc, testN * fc),
+                y.AsSpan(trainN, testN), testN);
         }
 
-        private static float Noise(Random rng, float scale)
+        /// <summary>
+        /// Trains a diagonal Fisher LDA on first 80%, evaluates on remaining 20%.
+        /// </summary>
+        private static float TrainAndEvaluateLda(float[] X, float[] y, int n, int fc)
         {
-            return (float)(rng.NextDouble() * 2 - 1) * scale;
+            int trainN = (int)(n * 0.8);
+            int testN = n - trainN;
+
+            var mean0 = new float[fc];
+            var mean1 = new float[fc];
+            int count0 = 0, count1 = 0;
+
+            for (int i = 0; i < trainN; i++)
+            {
+                int offset = i * fc;
+                if (y[i] > 0.5f)
+                {
+                    count1++;
+                    for (int f = 0; f < fc; f++) mean1[f] += X[offset + f];
+                }
+                else
+                {
+                    count0++;
+                    for (int f = 0; f < fc; f++) mean0[f] += X[offset + f];
+                }
+            }
+
+            if (count0 == 0 || count1 == 0)
+                return 0.5f; // degenerate
+
+            for (int f = 0; f < fc; f++) { mean0[f] /= count0; mean1[f] /= count1; }
+
+            var variance = new float[fc];
+            for (int i = 0; i < trainN; i++)
+            {
+                int offset = i * fc;
+                var mean = y[i] > 0.5f ? mean1 : mean0;
+                for (int f = 0; f < fc; f++)
+                {
+                    float diff = X[offset + f] - mean[f];
+                    variance[f] += diff * diff;
+                }
+            }
+
+            var weights = new float[fc];
+            float bias = 0f;
+            for (int f = 0; f < fc; f++)
+            {
+                variance[f] /= trainN;
+                variance[f] = MathF.Max(variance[f], 1e-8f);
+                weights[f] = (mean1[f] - mean0[f]) / variance[f];
+                bias -= 0.5f * weights[f] * (mean1[f] + mean0[f]);
+            }
+
+            var scores = new float[testN];
+            for (int i = 0; i < testN; i++)
+            {
+                int offset = (trainN + i) * fc;
+                float logit = bias;
+                for (int f = 0; f < fc; f++) logit += weights[f] * X[offset + f];
+                scores[i] = 1f / (1f + MathF.Exp(-logit));
+            }
+
+            return DiaGradientBoostedClassifier.CalculateAuc(
+                            scores.AsSpan(), y.AsSpan(trainN, testN), testN);
         }
 
-        #endregion
+        private static float Noise(Random rng, float scale) =>
+            (float)(rng.NextDouble() * 2 - 1) * scale;
     }
 }

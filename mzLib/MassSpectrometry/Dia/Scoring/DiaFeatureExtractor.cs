@@ -9,69 +9,81 @@ namespace MassSpectrometry.Dia
     /// <summary>
     /// Feature vector for a single DIA precursor identification.
     /// 
-    /// Phase 13: 17 → 28 features. Adds best-fragment reference curve,
-    /// signal ratio deviation, smoothed correlations, S/N, and peak shape.
+    /// Phase 13 Action Item 5: 29-feature classifier vector.
+    /// All 3 migrated features now active (BestFragWeightedCosine, BoundarySignalRatio,
+    /// remain commented out until Prompt 5 activates them (26 -> 29 features).
     /// 
-    /// Drops PeakSymmetry (separation 0.01 — zero discriminative value).
+    /// DROPPED (from Phase 12/early Phase 13):
+    ///   - MeanFragCorr / MinFragCorr -- replaced by SmoothedMeanFragCorr/SmoothedMinFragCorr + best-fragment features
+    ///   - PeakApexScore -- negative separation in Phase 12 analysis (hurts discrimination)
+    ///   - PeakSymmetry -- zero separation (0.01)
+    ///   - MedianXicDepth / XicDepthCV -- weak features, not in Prompt 8 plan
+    /// 
+    /// ADDED:
+    ///   - CandidateCount (strong discriminator, separation 1.66)
+    ///   - MeanMassErrorPpm (absolute), MassErrorStdPpm, MaxAbsMassErrorPpm (mass accuracy: 3)
+    ///   - SmoothedMinFragCorr (was computed but not in vector)
+    /// 
+    /// Current layout: 29 classifier features.
     /// </summary>
     public struct DiaFeatureVector
     {
-        // ── Primary scores ──────────────────────────────────────────
-        public float ApexScore;
-        public float TemporalScore;
-        public float SpectralAngle;
+        // -- Primary scores (3) -------------------------------------------
+        public float ApexScore;             // [0]
+        public float TemporalScore;         // [1]
+        public float SpectralAngle;         // [2]
 
-        // ── Coelution features (Phase 10) ───────────────────────────
-        public float MeanFragmentCorrelation;
-        public float MinFragmentCorrelation;
+        // -- Peak-region correlations (2) ---------------------------------
+        public float PeakMeanFragCorr;      // [3]
+        public float PeakMinFragCorr;       // [4]
 
-        // ── Fragment evidence ───────────────────────────────────────
-        public float FragmentDetectionRate;
+        // -- Peak shape (2) -----------------------------------------------
+        public float PeakWidth;             // [5]
+        public float CandidateCount;        // [6]
 
-        // ── Intensity features ─────────────────────────────────────
-        public float LogTotalIntensity;
-        public float IntensityCV;
+        // -- Signal features (2) ------------------------------------------
+        public float LogTotalIntensity;     // [7]
+        public float IntensityCV;           // [8]
 
-        // ── XIC shape features ─────────────────────────────────────
-        public float MedianXicDepth;
-        public float XicDepthCV;
+        // -- Fragment evidence (1) ----------------------------------------
+        public float FragmentDetectionRate; // [9]
 
-        // ── Temporal evidence ──────────────────────────────────────
-        public int TimePointsUsed;
+        // -- Retention time (2) -------------------------------------------
+        public float RtDeviationMinutes;    // [10]
+        public float RtDeviationSquared;    // [11]
 
-        // ── Retention time ─────────────────────────────────────────
-        public float RtDeviationMinutes;
-        public float RtDeviationSquared;
+        // -- Temporal evidence (1) ----------------------------------------
+        public int TimePointsUsed;          // [12]
 
-        // ── Peak group features (Phase 12) ─────────────────────────
-        public float PeakApexScore;
-        public float PeakMeanFragCorr;
-        public float PeakWidth;
-        // PeakSymmetry DROPPED: separation = 0.01, zero discriminative value
+        // -- Mass accuracy (3) --------------------------------------------
+        public float MeanMassErrorPpm;      // [13]  (absolute value of mean signed error)
+        public float MassErrorStdPpm;       // [14]
+        public float MaxAbsMassErrorPpm;    // [15]
 
-        // ── Phase 13: Best-fragment reference curve ─────────────────
-        public float BestFragCorrelationSum;
-        public float MedianFragRefCorr;
-        public float MinFragRefCorr;
-        public float StdFragRefCorr;
-        public float BestFragWeightedCosine;
+        // -- Best-fragment reference curve (4) ----------------------------
+        public float BestFragCorrelationSum;// [16]
+        public float MedianFragRefCorr;     // [17]
+        public float MinFragRefCorr;        // [18]
+        public float StdFragRefCorr;        // [19]
 
-        // ── Phase 13: Smoothed correlations ─────────────────────────
-        public float SmoothedMeanFragCorr;
+        // -- Signal ratio deviation (3) -----------------------------------
+        public float MeanSignalRatioDeviation;  // [20]
+        public float MaxSignalRatioDeviation;   // [21]
+        public float StdSignalRatioDeviation;   // [22]
 
-        // ── Phase 13: Signal ratio deviation ────────────────────────
-        public float MeanSignalRatioDeviation;
-        public float MaxSignalRatioDeviation;
-        public float StdSignalRatioDeviation;
+        // -- Smoothed correlations (2) ------------------------------------
+        public float SmoothedMeanFragCorr;  // [23]
+        public float SmoothedMinFragCorr;   // [24]
 
-        // ── Phase 13: Signal-to-noise ───────────────────────────────
-        public float Log2SignalToNoise;
+        // -- Signal-to-noise (1) ------------------------------------------
+        public float Log2SignalToNoise;     // [25]
 
-        // ── Phase 13: Peak shape ────────────────────────────────────
-        public float BoundarySignalRatio;
-        public float ApexToMeanRatio;
+        // -- Migrated features (3) -- Action Item 5 -----------------------
+        public float BestFragWeightedCosine;   // [26]
+        public float BoundarySignalRatio;      // [27]
+        public float ApexToMeanRatio;          // [28]
 
-        // ── Metadata (not classifier features) ─────────────────────
+        // -- Metadata (not classifier features) ---------------------------
         public bool IsDecoy;
         public int PrecursorIndex;
         public int ChargeState;
@@ -81,82 +93,110 @@ namespace MassSpectrometry.Dia
 
         /// <summary>
         /// Number of features used by the classifier.
-        /// Phase 13: 17 → 28 (dropped PeakSymmetry, added 12 new features).
+        /// Phase 13 Action Item 5: 26 -> 29 (activated 3 migrated features).
         /// </summary>
-        public const int ClassifierFeatureCount = 28;
+        public const int ClassifierFeatureCount = 29;
+
+        /// <summary>
+        /// Index of ApexScore in the feature vector.
+        /// Used by DiaLinearDiscriminant for interaction features.
+        /// </summary>
+        public const int InteractionFeatureIndexA = 0;  // ApexScore
+
+        /// <summary>
+        /// Index of PeakMeanFragCorr in the feature vector.
+        /// Used by DiaLinearDiscriminant for interaction features.
+        /// </summary>
+        public const int InteractionFeatureIndexB = 3;  // PeakMeanFragCorr
 
         /// <summary>
         /// Writes classifier features into a float span.
         /// Order must be consistent with weight vectors.
         /// 
-        /// Phase 13 order (28 features):
+        /// Phase 13 Action Item 5 order (29 features):
         ///   [0-2]   Primary scores: ApexScore, TemporalScore, SpectralAngle
-        ///   [3-4]   Coelution: MeanFragCorr, MinFragCorr
-        ///   [5]     Fragment evidence: FragDetRate
-        ///   [6-7]   Intensity: LogTotalIntensity, IntensityCV
-        ///   [8-9]   XIC shape: MedianXicDepth, XicDepthCV
-        ///   [10]    Temporal: TimePointsUsed
-        ///   [11-12] RT: RtDeviationMinutes, RtDeviationSquared
-        ///   [13-15] Peak group: PeakApexScore, PeakMeanFragCorr, PeakWidth
-        ///   [16-20] Best-fragment: BestFragCorrSum, MedianRefCorr, MinRefCorr, StdRefCorr, WeightedCosine
-        ///   [21]    Smoothed: SmoothedMeanFragCorr
-        ///   [22-24] Signal ratio: MeanSigRatioDev, MaxSigRatioDev, StdSigRatioDev
+        ///   [3-4]   Peak correlations: PeakMeanFragCorr, PeakMinFragCorr
+        ///   [5-6]   Peak shape: PeakWidth, CandidateCount
+        ///   [7-8]   Signal: LogTotalIntensity, IntensityCV
+        ///   [9]     Fragment evidence: FragDetRate
+        ///   [10-11] RT: RtDeviationMinutes, RtDeviationSquared
+        ///   [12]    Temporal: TimePointsUsed
+        ///   [13-15] Mass accuracy: MeanMassErrorPpm(abs), MassErrorStdPpm, MaxAbsMassErrorPpm
+        ///   [16-19] Best-fragment: BestFragCorrSum, MedianRefCorr, MinRefCorr, StdRefCorr
+        ///   [20-22] Signal ratio: MeanSigRatioDev, MaxSigRatioDev, StdSigRatioDev
+        ///   [23-24] Smoothed correlations: SmoothedMeanFragCorr, SmoothedMinFragCorr
         ///   [25]    S/N: Log2SignalToNoise
-        ///   [26-27] Peak shape: BoundarySignalRatio, ApexToMeanRatio
         /// </summary>
         public readonly void WriteTo(Span<float> features)
         {
             if (features.Length < ClassifierFeatureCount)
                 throw new ArgumentException($"Span must have at least {ClassifierFeatureCount} elements");
 
-            // Existing features [0-15] — same order as Phase 12 minus PeakSymmetry
             features[0] = ApexScore;
             features[1] = TemporalScore;
             features[2] = SpectralAngle;
-            features[3] = MeanFragmentCorrelation;
-            features[4] = MinFragmentCorrelation;
-            features[5] = FragmentDetectionRate;
-            features[6] = LogTotalIntensity;
-            features[7] = IntensityCV;
-            features[8] = MedianXicDepth;
-            features[9] = XicDepthCV;
-            features[10] = (float)TimePointsUsed;
-            features[11] = RtDeviationMinutes;
-            features[12] = RtDeviationSquared;
-            features[13] = PeakApexScore;
-            features[14] = PeakMeanFragCorr;
-            features[15] = PeakWidth;
-
-            // Phase 13 features [16-27]
+            features[3] = PeakMeanFragCorr;
+            features[4] = PeakMinFragCorr;
+            features[5] = PeakWidth;
+            features[6] = CandidateCount;
+            features[7] = LogTotalIntensity;
+            features[8] = IntensityCV;
+            features[9] = FragmentDetectionRate;
+            features[10] = RtDeviationMinutes;
+            features[11] = RtDeviationSquared;
+            features[12] = (float)TimePointsUsed;
+            features[13] = MeanMassErrorPpm;
+            features[14] = MassErrorStdPpm;
+            features[15] = MaxAbsMassErrorPpm;
             features[16] = BestFragCorrelationSum;
             features[17] = MedianFragRefCorr;
             features[18] = MinFragRefCorr;
             features[19] = StdFragRefCorr;
-            features[20] = BestFragWeightedCosine;
-            features[21] = SmoothedMeanFragCorr;
-            features[22] = MeanSignalRatioDeviation;
-            features[23] = MaxSignalRatioDeviation;
-            features[24] = StdSignalRatioDeviation;
+            features[20] = MeanSignalRatioDeviation;
+            features[21] = MaxSignalRatioDeviation;
+            features[22] = StdSignalRatioDeviation;
+            features[23] = SmoothedMeanFragCorr;
+            features[24] = SmoothedMinFragCorr;
             features[25] = Log2SignalToNoise;
-            features[26] = BoundarySignalRatio;
-            features[27] = ApexToMeanRatio;
+
+            // Migrated features [26-28]
+            features[26] = BestFragWeightedCosine;
+            features[27] = BoundarySignalRatio;
+            features[28] = ApexToMeanRatio;
         }
 
+        /// <summary>
+        /// Feature names for TSV/diagnostic output.
+        /// Order matches WriteTo().
+        /// </summary>
         public static readonly string[] FeatureNames = new[]
         {
+            // Primary scores [0-2]
             "ApexScore", "TemporalScore", "SpectralAngle",
-            "MeanFragCorr", "MinFragCorr", "FragDetRate",
+            // Peak correlations [3-4]
+            "PeakMeanFragCorr", "PeakMinFragCorr",
+            // Peak shape [5-6]
+            "PeakWidth", "CandidateCount",
+            // Signal [7-8]
             "LogTotalIntensity", "IntensityCV",
-            "MedianXicDepth", "XicDepthCV",
-            "TimePointsUsed",
+            // Fragment evidence [9]
+            "FragDetRate",
+            // RT [10-11]
             "RtDeviationMinutes", "RtDeviationSquared",
-            "PeakApexScore", "PeakMeanFragCorr", "PeakWidth",
-            "BestFragCorrSum", "MedianFragRefCorr", "MinFragRefCorr",
-            "StdFragRefCorr", "BestFragWeightedCosine",
-            "SmoothedMeanFragCorr",
+            // Temporal [12]
+            "TimePointsUsed",
+            // Mass accuracy [13-15]
+            "MeanMassErrorPpm", "MassErrorStdPpm", "MaxAbsMassErrorPpm",
+            // Best-fragment [16-19]
+            "BestFragCorrSum", "MedianFragRefCorr", "MinFragRefCorr", "StdFragRefCorr",
+            // Signal ratio [20-22]
             "MeanSigRatioDev", "MaxSigRatioDev", "StdSigRatioDev",
+            // Smoothed correlations [23-24]
+            "SmoothedMeanFragCorr", "SmoothedMinFragCorr",
+            // S/N [25]
             "Log2SNR",
-            "BoundarySignalRatio", "ApexToMeanRatio",
+            // Migrated features [26-28]
+            "BestFragWeightedCosine", "BoundarySignalRatio", "ApexToMeanRatio",
         };
     }
 
@@ -164,8 +204,7 @@ namespace MassSpectrometry.Dia
     /// Computes feature vectors from DiaSearchResult objects.
     /// Thread-safe: uses only local state + ArrayPool.
     /// 
-    /// Phase 13: populates 28-feature vector including best-fragment,
-    /// signal ratio, smoothed correlation, S/N, and peak shape features.
+    /// Phase 13 Action Item 5: 29-feature vector with all migrated features active.
     /// </summary>
     public static class DiaFeatureExtractor
     {
@@ -178,26 +217,41 @@ namespace MassSpectrometry.Dia
         {
             var fv = new DiaFeatureVector();
 
-            // ── Primary scores ──────────────────────────────────────
-            fv.ApexScore = SafeScore(result.ApexDotProductScore);
-            fv.TemporalScore = SafeScore(result.TemporalCosineScore);
+            // -- Primary scores [0-2] ------------------------------------
+            fv.ApexScore = SafeScore(result.ApexScore);
+            fv.TemporalScore = SafeScore(result.TemporalScore);
             fv.SpectralAngle = SafeScore(result.SpectralAngleScore);
 
-            // ── Coelution features ──────────────────────────────────
-            fv.MeanFragmentCorrelation = SafeScore(result.MeanFragmentCorrelation);
-            fv.MinFragmentCorrelation = float.IsNaN(result.MinFragmentCorrelation)
-                ? -1f
-                : result.MinFragmentCorrelation;
+            // -- Peak-region correlations [3-4] ---------------------------
+            if (result.DetectedPeakGroup.HasValue && result.DetectedPeakGroup.Value.IsValid)
+            {
+                fv.PeakMeanFragCorr = SafeScore(result.PeakMeanFragCorr);
+                fv.PeakMinFragCorr = float.IsNaN(result.PeakMinFragCorr)
+                    ? -1f : result.PeakMinFragCorr;
+                fv.PeakWidth = result.DetectedPeakGroup.Value.PeakWidthMinutes;
+            }
+            else
+            {
+                // Fallback: use full-window correlations when no peak detected
+                fv.PeakMeanFragCorr = SafeScore(result.MeanFragCorr);
+                fv.PeakMinFragCorr = float.IsNaN(result.MinFragCorr)
+                    ? -1f : result.MinFragCorr;
+                fv.PeakWidth = 0f;
+            }
 
-            // ── Fragment evidence ───────────────────────────────────
+            // -- Peak shape [5-6] ----------------------------------------
+            // PeakWidth already set above
+            fv.CandidateCount = SafeScore(result.CandidateCount);
+
+            // -- Fragment evidence [9] ------------------------------------
             fv.FragmentDetectionRate = result.FragmentDetectionRate;
             fv.FragmentsDetected = result.FragmentsDetected;
             fv.FragmentsQueried = result.FragmentsQueried;
 
-            // ── Temporal evidence ───────────────────────────────────
+            // -- Temporal evidence [12] -----------------------------------
             fv.TimePointsUsed = result.TimePointsUsed;
 
-            // ── Intensity features ─────────────────────────────────
+            // -- Intensity features [7-8] ---------------------------------
             float totalIntensity = 0f;
             int nDetected = 0;
 
@@ -235,51 +289,7 @@ namespace MassSpectrometry.Dia
                 fv.IntensityCV = 1f;
             }
 
-            // ── XIC shape features ─────────────────────────────────
-            if (nDetected >= 1)
-            {
-                int[] counts = ArrayPool<int>.Shared.Rent(nDetected);
-                try
-                {
-                    int idx = 0;
-                    for (int f = 0; f < result.FragmentsQueried; f++)
-                        if (result.XicPointCounts[f] > 0)
-                            counts[idx++] = result.XicPointCounts[f];
-
-                    Array.Sort(counts, 0, nDetected);
-                    fv.MedianXicDepth = nDetected % 2 == 1
-                        ? counts[nDetected / 2]
-                        : (counts[nDetected / 2 - 1] + counts[nDetected / 2]) / 2f;
-
-                    if (nDetected >= 2)
-                    {
-                        float mean = 0f;
-                        for (int i = 0; i < nDetected; i++) mean += counts[i];
-                        mean /= nDetected;
-                        float var2 = 0f;
-                        for (int i = 0; i < nDetected; i++)
-                        {
-                            float diff = counts[i] - mean;
-                            var2 += diff * diff;
-                        }
-                        var2 /= nDetected;
-                        fv.XicDepthCV = mean > 0 ? MathF.Sqrt(var2) / mean : 0f;
-                    }
-                    else
-                        fv.XicDepthCV = 1f;
-                }
-                finally
-                {
-                    ArrayPool<int>.Shared.Return(counts);
-                }
-            }
-            else
-            {
-                fv.MedianXicDepth = 0f;
-                fv.XicDepthCV = 1f;
-            }
-
-            // ── Retention time features ─────────────────────────────
+            // -- Retention time features [10-11] --------------------------
             const float MaxRtDeviationMinutes = 5.0f;
 
             if (result.LibraryRetentionTime.HasValue && !float.IsNaN(result.ObservedApexRt))
@@ -296,52 +306,38 @@ namespace MassSpectrometry.Dia
                 fv.RtDeviationSquared = MaxRtDeviationMinutes * MaxRtDeviationMinutes;
             }
 
-            // ── Peak group features (Phase 12) ──────────────────────
-            if (result.DetectedPeakGroup.HasValue && result.DetectedPeakGroup.Value.IsValid)
-            {
-                var pg = result.DetectedPeakGroup.Value;
+            // -- Mass accuracy features [13-15] ---------------------------
+            fv.MeanMassErrorPpm = float.IsNaN(result.MeanMassErrorPpm)
+                ? 0f : MathF.Abs(result.MeanMassErrorPpm);
+            fv.MassErrorStdPpm = SafeScore(result.MassErrorStdPpm);
+            fv.MaxAbsMassErrorPpm = SafeScore(result.MaxAbsMassErrorPpm);
 
-                fv.PeakApexScore = SafeScore(result.PeakApexScore);
-                fv.PeakMeanFragCorr = SafeScore(result.PeakMeanFragCorrelation);
-                fv.PeakWidth = pg.PeakWidthMinutes;
-            }
-            else
-            {
-                fv.PeakApexScore = SafeScore(result.ApexDotProductScore);
-                fv.PeakMeanFragCorr = SafeScore(result.MeanFragmentCorrelation);
-                fv.PeakWidth = 0f;
-            }
-
-            // ══════════════════════════════════════════════════════════
-            //  Phase 13: New discriminative features
-            //  Read directly from DiaSearchResult (populated by
-            //  DiaFeatureCalculator during assembly)
-            // ══════════════════════════════════════════════════════════
-
-            // Best-fragment reference curve
+            // -- Best-fragment reference curve [16-19] --------------------
             fv.BestFragCorrelationSum = SafeScore(result.BestFragCorrelationSum);
             fv.MedianFragRefCorr = SafeScore(result.MedianFragRefCorr);
             fv.MinFragRefCorr = float.IsNaN(result.MinFragRefCorr)
                 ? -1f : result.MinFragRefCorr;
             fv.StdFragRefCorr = SafeScore(result.StdFragRefCorr);
-            fv.BestFragWeightedCosine = SafeScore(result.BestFragWeightedCosine);
 
-            // Smoothed correlations
+            // -- Signal ratio deviation [20-22] ---------------------------
+            fv.MeanSignalRatioDeviation = SafeScore(result.MeanSignalRatioDev);
+            fv.MaxSignalRatioDeviation = SafeScore(result.MaxSignalRatioDev);
+            fv.StdSignalRatioDeviation = SafeScore(result.StdSignalRatioDev);
+
+            // -- Smoothed correlations [23-24] ----------------------------
             fv.SmoothedMeanFragCorr = SafeScore(result.SmoothedMeanFragCorr);
+            fv.SmoothedMinFragCorr = float.IsNaN(result.SmoothedMinFragCorr)
+                ? -1f : result.SmoothedMinFragCorr;
 
-            // Signal ratio deviation (LOWER = better for targets)
-            fv.MeanSignalRatioDeviation = SafeScore(result.MeanSignalRatioDeviation);
-            fv.MaxSignalRatioDeviation = SafeScore(result.MaxSignalRatioDeviation);
-            fv.StdSignalRatioDeviation = SafeScore(result.StdSignalRatioDeviation);
-
-            // Signal-to-noise
+            // -- Signal-to-noise [25] -------------------------------------
             fv.Log2SignalToNoise = SafeScore(result.Log2SignalToNoise);
 
-            // Peak shape
+            // -- Migrated features [26-28] --------------------------------
+            fv.BestFragWeightedCosine = SafeScore(result.BestFragWeightedCosine);
             fv.BoundarySignalRatio = SafeScore(result.BoundarySignalRatio);
             fv.ApexToMeanRatio = SafeScore(result.ApexToMeanRatio);
 
-            // ── Metadata ────────────────────────────────────────────
+            // -- Metadata -------------------------------------------------
             fv.ChargeState = result.ChargeState;
             fv.PrecursorMz = (float)result.PrecursorMz;
             fv.IsDecoy = result.IsDecoy;

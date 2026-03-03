@@ -577,11 +577,9 @@ namespace MassSpectrometry.Dia.Tests
             Assert.That(r.Sequence, Is.EqualTo("PEPTIDE"));
             Assert.That(r.DotProductScore, Is.EqualTo(1.0f).Within(0.01f),
                 "All time points have perfect library match");
-            Assert.That(r.ScoringStrategyUsed, Is.EqualTo(ScoringStrategy.TemporalCosine));
             Assert.That(r.TimePointsUsed, Is.GreaterThan(0));
             Assert.That(r.FragmentsDetected, Is.EqualTo(3));
             Assert.That(!float.IsNaN(r.SpectralAngleScore), "Spectral angle should be computed");
-            Assert.That(!float.IsNaN(r.RawCosine), "RawCosine should be populated");
         }
 
         // ─────────────────────────────────────────────────────────────────────
@@ -632,7 +630,6 @@ namespace MassSpectrometry.Dia.Tests
             Assert.That(results.Count, Is.EqualTo(1), $"Strategy {strategy} should produce 1 result");
             Assert.That(results[0].DotProductScore, Is.EqualTo(1.0f).Within(0.01f),
                 $"Strategy {strategy} should give ~1.0 for perfect match");
-            Assert.That(results[0].ScoringStrategyUsed, Is.EqualTo(strategy));
         }
     }
 }

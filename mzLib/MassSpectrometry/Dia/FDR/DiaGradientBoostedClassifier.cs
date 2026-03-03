@@ -637,7 +637,7 @@ namespace MassSpectrometry.Dia
         /// <summary>
         /// AUC via Wilcoxon-Mann-Whitney statistic (sorted rank method).
         /// </summary>
-        internal static float CalculateAuc(Span<float> scores, ReadOnlySpan<float> labels, int n)
+        public static float CalculateAuc(Span<float> scores, ReadOnlySpan<float> labels, int n)
         {
             var indices = ArrayPool<int>.Shared.Rent(n);
             try

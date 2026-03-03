@@ -401,7 +401,6 @@ namespace MassSpectrometry.Dia
                     rtWindowStart: group.RtMin,
                     rtWindowEnd: group.RtMax
                 );
-                result.ScoringStrategyUsed = ScoringStrategy.Summed;
 
                 int detected = 0;
                 for (int f = 0; f < group.QueryCount; f++)
@@ -422,7 +421,6 @@ namespace MassSpectrometry.Dia
                 {
                     result.DotProductScore = dotProductScorer.Score(
                         input.FragmentIntensities, result.ExtractedIntensities);
-                    result.RawCosine = result.DotProductScore;
                 }
 
                 if (spectralAngleScorer != null)
@@ -457,7 +455,8 @@ namespace MassSpectrometry.Dia
             IList<LibraryPrecursorInput> precursors,
             GenerationResult generationResult,
             ExtractionResult extractionResult,
-            DiaSearchParameters parameters)
+            DiaSearchParameters parameters,
+            DiaScanIndex index = null)
         {
             if (precursors == null) throw new ArgumentNullException(nameof(precursors));
             if (extractionResult == null) throw new ArgumentNullException(nameof(extractionResult));
@@ -484,7 +483,6 @@ namespace MassSpectrometry.Dia
                     rtWindowStart: group.RtMin,
                     rtWindowEnd: group.RtMax
                 );
-                result.ScoringStrategyUsed = parameters.ScoringStrategy;
 
                 // ── Populate summed intensities and XIC point counts ────────
                 int detected = 0;
@@ -524,8 +522,8 @@ namespace MassSpectrometry.Dia
                 {
                     // No data at all — set NaN scores and add
                     result.DotProductScore = float.NaN;
-                    result.ApexDotProductScore = float.NaN;
-                    result.TemporalCosineScore = float.NaN;
+                    result.ApexScore = float.NaN;
+                    result.TemporalScore = float.NaN;
                     results.Add(result);
                     continue;
                 }
@@ -572,7 +570,6 @@ namespace MassSpectrometry.Dia
                     // ── Peak Group Detection ────────────────────────────────
                     PeakGroup peakGroup = DiaPeakGroupDetector.Detect(
                         matrix, refRts, libIntensities, fragmentCount, timePointCount);
-                    result.DetectedPeakGroup = peakGroup;
 
                     // ── Full-window scoring (backward compatibility) ────────
                     // Apex: find time point with maximum total signal
@@ -587,32 +584,25 @@ namespace MassSpectrometry.Dia
                         if (total > fullApexSignal) { fullApexSignal = total; fullApexIdx = t; }
                     }
 
-                    result.ApexDotProductScore = CosineActiveFragments(
+                    result.ApexScore = CosineActiveFragments(
                         libIntensities, matrix, fullApexIdx * fragmentCount, fragmentCount);
-                    result.ApexTimeIndex = fullApexIdx;
-
-                    // Observed apex RT from full window
-                    if (fullApexIdx < timePointCount)
-                        result.ObservedApexRt = refRts[fullApexIdx];
 
                     // Full-window temporal cosine
                     ComputeTemporalCosineOnRange(
                         libIntensities, matrix, fragmentCount, timePointCount,
                         0, timePointCount - 1, minActiveFragments: 3,
                         out float fullTemporalScore, out int fullTimePointsUsed);
-                    result.TemporalCosineScore = fullTemporalScore;
-                    result.TimePointsUsed = fullTimePointsUsed;
+                    result.TemporalScore = fullTemporalScore;
 
                     // Set primary DotProductScore
-                    result.DotProductScore = result.TemporalCosineScore;
-                    result.RawCosine = result.TemporalCosineScore;
+                    result.DotProductScore = result.TemporalScore;
 
                     // ── Full-window fragment correlations ────────────────────
                     ComputeFragmentCorrelationsOnRange(
                         matrix, fragmentCount, timePointCount, 0, timePointCount - 1,
                         out float fullMeanCorr, out float fullMinCorr);
-                    result.MeanFragmentCorrelation = fullMeanCorr;
-                    result.MinFragmentCorrelation = fullMinCorr;
+                    result.MeanFragCorr = fullMeanCorr;
+                    result.MinFragCorr = fullMinCorr;
 
                     // ── Peak-boundary-restricted scoring ────────────────────
                     if (peakGroup.IsValid)
@@ -624,56 +614,98 @@ namespace MassSpectrometry.Dia
                         result.PeakApexScore = CosineActiveFragments(
                             libIntensities, matrix, peakGroup.ApexIndex * fragmentCount, fragmentCount);
 
-                        // Override observed apex RT with peak-detected apex
-                        result.ObservedApexRt = peakGroup.ApexRt;
-
-                        // Peak-restricted temporal cosine
-                        ComputeTemporalCosineOnRange(
-                            libIntensities, matrix, fragmentCount, timePointCount,
-                            peakLeft, peakRight, minActiveFragments: 3,
-                            out float peakTemporalScore, out int _);
-                        result.PeakTemporalScore = peakTemporalScore;
-
                         // Peak-restricted fragment correlations
                         ComputeFragmentCorrelationsOnRange(
                             matrix, fragmentCount, timePointCount, peakLeft, peakRight,
                             out float peakMeanCorr, out float peakMinCorr);
-                        result.PeakMeanFragCorrelation = peakMeanCorr;
-                        result.PeakMinFragCorrelation = peakMinCorr;
+                        result.PeakMeanFragCorr = peakMeanCorr;
+                        result.PeakMinFragCorr = peakMinCorr;
                     }
                     else
                     {
                         // No valid peak found — peak features fall back to full-window
-                        result.PeakApexScore = result.ApexDotProductScore;
-                        result.PeakTemporalScore = result.TemporalCosineScore;
-                        result.PeakMeanFragCorrelation = result.MeanFragmentCorrelation;
-                        result.PeakMinFragCorrelation = result.MinFragmentCorrelation;
+                        result.PeakApexScore = result.ApexScore;
+                        result.PeakMeanFragCorr = result.MeanFragCorr;
+                        result.PeakMinFragCorr = result.MinFragCorr;
                     }
                     // ══════════════════════════════════════════════════════════
                     //  Phase 13: Advanced discriminative features
                     //  Computed from the existing matrix — no extra file reads.
-                    //  Populates: BestFragCorrelationSum, MedianFragRefCorr,
-                    //  MinFragRefCorr, StdFragRefCorr, BestFragWeightedCosine,
-                    //  MeanSignalRatioDeviation, MaxSignalRatioDeviation,
-                    //  StdSignalRatioDeviation, SmoothedMeanFragCorr,
-                    //  SmoothedMinFragCorr, Log2SignalToNoise, LogTotalIntensity,
-                    //  BoundarySignalRatio, ApexToMeanRatio
                     // ══════════════════════════════════════════════════════════
-                    int featureApex = peakGroup.IsValid ? peakGroup.ApexIndex : fullApexIdx;
-                    int featureLeft = peakGroup.IsValid ? peakGroup.LeftIndex : -1;
-                    int featureRight = peakGroup.IsValid ? peakGroup.RightIndex : -1;
+                    int apexLocalIdx = peakGroup.IsValid ? peakGroup.ApexIndex : fullApexIdx;
 
-                    DiaFeatureCalculator.ComputeAllFeatures(
-                        matrix,
-                        libIntensities,
-                        fragmentCount,
-                        timePointCount,
-                        featureApex,
-                        featureLeft,
-                        featureRight,
-                        result);
+                    // ── Count detected fragments (≥1 nonzero across all scans) ──
+                    int detectedFragmentCount = 0;
+                    for (int f = 0; f < fragmentCount; f++)
+                    {
+                        for (int s = 0; s < timePointCount; s++)
+                        {
+                            if (matrix[s * fragmentCount + f] > 0)
+                            {
+                                detectedFragmentCount++;
+                                break;
+                            }
+                        }
+                    }
 
-                    // Set peak shape metadata from peak detection
+                    // 1. Mass accuracy at apex (needs global scan index for m/z lookup)
+                    //    Resolve apex RT → nearest scan in this precursor's DIA window
+                    //    Uses binary search (O(log N)) since scans are sorted by RT.
+                    if (index != null)
+                    {
+                        float apexRt = refRts[apexLocalIdx];
+                        int apexScanGlobalIndex = -1;
+                        if (index.TryGetScanRangeForWindow(group.WindowId, out int winStart, out int winCount))
+                        {
+                            apexScanGlobalIndex = FindClosestScanByRt(index, winStart, winCount, apexRt);
+                        }
+                        if (apexScanGlobalIndex >= 0)
+                        {
+                            DiaMassAccuracyHelper.ComputeMassAccuracyAtApex(
+                                result, input, index, apexScanGlobalIndex, parameters.PpmTolerance);
+                        }
+                    }
+
+                    // 2. Signal ratio deviation (needs apex intensities + library intensities)
+                    //    Uses ArrayPool to avoid per-precursor heap allocation.
+                    float[] apexIntensities = ArrayPool<float>.Shared.Rent(fragmentCount);
+                    try
+                    {
+                        Array.Clear(apexIntensities, 0, fragmentCount);
+                        for (int f = 0; f < fragmentCount; f++)
+                            apexIntensities[f] = matrix[apexLocalIdx * fragmentCount + f];
+
+                        DiaSignalRatioHelper.ComputeSignalRatioFeatures(
+                            apexIntensities, input.FragmentIntensities, fragmentCount, result);
+                    }
+                    finally
+                    {
+                        ArrayPool<float>.Shared.Return(apexIntensities);
+                    }
+
+                    // 3. Best-fragment reference curve (needs intensity matrix)
+                    DiaBestFragmentHelper.ComputeBestFragmentFeatures(
+                        matrix, fragmentCount, timePointCount, detectedFragmentCount, result,
+                        input.FragmentIntensities.AsSpan(), apexLocalIdx * fragmentCount);
+
+                    // 4. Peak shape ratio features (boundary signal + apex prominence)
+                    if (peakGroup.IsValid)
+                    {
+                        DiaPeakShapeHelper.ComputePeakShapeRatios(
+                            matrix, fragmentCount,
+                            peakGroup.LeftIndex, peakGroup.RightIndex, peakGroup.ApexIndex,
+                            result);
+                    }
+
+                    // 5. Smoothed fragment correlations (works on internal pooled copy)
+                    DiaSmoothedFeatureHelper.ComputeSmoothedCorrelationFeatures(
+                        matrix, fragmentCount, timePointCount, result);
+
+                    // 6. Signal-to-noise (uses apex local index, not global)
+                    DiaSmoothedFeatureHelper.ComputeSignalToNoise(
+                        matrix, apexLocalIdx, fragmentCount, timePointCount, result);
+
+                    // ── Set peak shape metadata from peak detection ──────────
                     if (peakGroup.IsValid)
                     {
                         result.CandidateCount = peakGroup.CandidateCount;
@@ -681,10 +713,10 @@ namespace MassSpectrometry.Dia
                             ? refRts[peakGroup.RightIndex] - refRts[peakGroup.LeftIndex]
                             : 0f;
                     }
-                    // ── Spectral angle from raw cosine ──────────────────────
-                    if (!float.IsNaN(result.RawCosine))
+                    // ── Spectral angle from temporal cosine ─────────────────
+                    if (!float.IsNaN(result.TemporalScore))
                     {
-                        float clampedCosine = Math.Clamp(result.RawCosine, 0f, 1f);
+                        float clampedCosine = Math.Clamp(result.TemporalScore, 0f, 1f);
                         result.SpectralAngleScore = 1.0f - (2.0f / MathF.PI) * MathF.Acos(clampedCosine);
                     }
 
@@ -858,6 +890,43 @@ namespace MassSpectrometry.Dia
 
             float r = (n * sumAB - sumA * sumB) / MathF.Sqrt(denom);
             return Math.Clamp(r, -1f, 1f);
+        }
+
+        /// <summary>
+        /// Binary search for the scan with RT closest to targetRt within [winStart, winStart+winCount).
+        /// Scans must be sorted by RT within this range (guaranteed by DiaScanIndex).
+        /// Returns the global scan index of the closest scan. O(log N) instead of O(N).
+        /// </summary>
+        private static int FindClosestScanByRt(DiaScanIndex index, int winStart, int winCount, float targetRt)
+        {
+            int lo = winStart;
+            int hi = winStart + winCount - 1;
+
+            while (lo < hi)
+            {
+                int mid = lo + (hi - lo) / 2;
+                float midRt = index.GetScanRt(mid);
+                if (midRt < targetRt)
+                    lo = mid + 1;
+                else
+                    hi = mid;
+            }
+
+            // lo is now the first scan with RT >= targetRt (or the last scan if all are <).
+            // The closest scan is either lo or lo-1; compare both.
+            int best = lo;
+            float bestDiff = MathF.Abs(index.GetScanRt(lo) - targetRt);
+
+            if (lo > winStart)
+            {
+                float prevDiff = MathF.Abs(index.GetScanRt(lo - 1) - targetRt);
+                if (prevDiff < bestDiff)
+                {
+                    best = lo - 1;
+                }
+            }
+
+            return best;
         }
 
         /// <summary>

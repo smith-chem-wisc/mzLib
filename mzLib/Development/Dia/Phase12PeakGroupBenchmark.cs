@@ -20,13 +20,9 @@ namespace Development.Dia
     /// into the scoring path. Compares peak-restricted features against full-window
     /// features and measures the impact on FDR yield.
     /// 
-    /// Key metrics to compare vs Phase 11 baseline (11,518 at 1% FDR):
-    ///   - Peak detection rate (what fraction of precursors get valid peaks?)
-    ///   - Peak width distribution
-    ///   - PeakMeanFragCorr vs MeanFragCorr separation improvement
-    ///   - PeakApexScore vs ApexScore separation improvement
-    ///   - FDR yield at 1% (target: ≥13,000)
-    ///   - Temporal scoring time (target: <4s, down from 7.9s)
+    /// Updated Phase 13 Prompt 8: feature vector now has 26 features.
+    /// PeakApexScore, MeanFragCorr, MinFragCorr dropped from DiaFeatureVector
+    /// but still available on DiaSearchResult for diagnostics.
     /// </summary>
     public static class Phase12PeakGroupBenchmark
     {
@@ -151,7 +147,7 @@ namespace Development.Dia
             Console.WriteLine("--- Step 5: Assembly with Peak Group Detection -----------------");
             sw.Restart();
             var results = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
-                combined, genResult, extractionResult, parameters);
+                combined, genResult, extractionResult, parameters, index);
             var assemblyTime = sw.Elapsed;
             Console.WriteLine($"  Assembly + scoring + peak detection: {assemblyTime.TotalMilliseconds:F0}ms | {results.Count:N0} results");
 
@@ -182,12 +178,7 @@ namespace Development.Dia
 
             var fdrResult = DiaFdrEngine.RunIterativeFdr(
                 results, features,
-                maxIterations: 5,
-                convergenceThreshold: 0.01f,
-                idCountConvergenceThreshold: 0.01f,
-                l2Lambda: 5e-3f,
-                learningRate: 0.05f,
-                maxEpochs: 300);
+                DiaClassifierType.GradientBoostedTree);
 
             Console.WriteLine($"  FDR estimation: {sw.ElapsedMilliseconds}ms");
             Console.WriteLine($"  Iterations: {fdrResult.IterationsCompleted}");
@@ -313,6 +304,9 @@ namespace Development.Dia
 
         // ════════════════════════════════════════════════════════════════
         //  Feature Comparison (Peak vs Full-Window)
+        //  NOTE: PeakApexScore and MeanFragCorr were dropped from the
+        //  DiaFeatureVector in Phase 13 Prompt 8 but remain on DiaSearchResult
+        //  for diagnostic purposes. This method reads from DiaSearchResult.
         // ════════════════════════════════════════════════════════════════
 
         private static void PrintFeatureComparison(List<DiaSearchResult> results, DiaFeatureVector[] features)
@@ -333,14 +327,17 @@ namespace Development.Dia
                 var r = results[i];
                 if (r.IsDecoy)
                 {
-                    if (!float.IsNaN(features[i].PeakApexScore)) decoyApexPeak.Add(features[i].PeakApexScore);
+                    // PeakApexScore read from DiaSearchResult (not in feature vector)
+                    if (!float.IsNaN(r.PeakApexScore)) decoyApexPeak.Add(r.PeakApexScore);
                     if (!float.IsNaN(features[i].PeakMeanFragCorr)) decoyCorrPeak.Add(features[i].PeakMeanFragCorr);
                 }
                 else
                 {
                     if (!float.IsNaN(features[i].ApexScore)) targetApexFull.Add(features[i].ApexScore);
-                    if (!float.IsNaN(features[i].PeakApexScore)) targetApexPeak.Add(features[i].PeakApexScore);
-                    if (!float.IsNaN(features[i].MeanFragmentCorrelation)) targetCorrFull.Add(features[i].MeanFragmentCorrelation);
+                    // PeakApexScore read from DiaSearchResult (not in feature vector)
+                    if (!float.IsNaN(r.PeakApexScore)) targetApexPeak.Add(r.PeakApexScore);
+                    // MeanFragCorr read from DiaSearchResult (not in feature vector)
+                    if (!float.IsNaN(r.MeanFragCorr)) targetCorrFull.Add(r.MeanFragCorr);
                     if (!float.IsNaN(features[i].PeakMeanFragCorr)) targetCorrPeak.Add(features[i].PeakMeanFragCorr);
                 }
             }
@@ -366,6 +363,8 @@ namespace Development.Dia
 
         // ════════════════════════════════════════════════════════════════
         //  TSV Export
+        //  Updated Phase 13 Prompt 8: reads dropped features from
+        //  DiaSearchResult directly, not from DiaFeatureVector.
         // ════════════════════════════════════════════════════════════════
 
         private static void ExportResultsTsv(
@@ -382,7 +381,7 @@ namespace Development.Dia
             w.Write("\tFragDet\tFragQueried\tTimePointsUsed");
             w.Write("\tObservedApexRt\tLibraryRt\tRtDeviationMin");
             w.Write("\tPeakDetected\tPeakWidth\tPeakSymmetry\tPeakCandidates");
-            w.Write("\tPeakApexScore\tPeakTemporalScore\tPeakMeanFragCorr\tPeakMinFragCorr");
+            w.Write("\tPeakApexScore\tPeakMeanFragCorr\tPeakMinFragCorr");
             for (int j = 0; j < DiaFeatureVector.ClassifierFeatureCount; j++)
                 w.Write("\tFV_" + DiaFeatureVector.FeatureNames[j]);
             w.WriteLine();
@@ -400,11 +399,12 @@ namespace Development.Dia
                 w.Write('\t'); w.Write(r.IsDecoy);
                 w.Write('\t'); w.Write(r.ClassifierScore.ToString("F6"));
                 w.Write('\t'); w.Write(qValue.ToString("F6"));
-                w.Write('\t'); w.Write(r.ApexDotProductScore.ToString("F4"));
-                w.Write('\t'); w.Write(r.TemporalCosineScore.ToString("F4"));
+                w.Write('\t'); w.Write(r.ApexScore.ToString("F4"));
+                w.Write('\t'); w.Write(r.TemporalScore.ToString("F4"));
                 w.Write('\t'); w.Write(r.SpectralAngleScore.ToString("F4"));
-                w.Write('\t'); w.Write(r.MeanFragmentCorrelation.ToString("F4"));
-                w.Write('\t'); w.Write(r.MinFragmentCorrelation.ToString("F4"));
+                // MeanFragCorr/MinFragCorr from DiaSearchResult (not in feature vector)
+                w.Write('\t'); w.Write(r.MeanFragCorr.ToString("F4"));
+                w.Write('\t'); w.Write(r.MinFragCorr.ToString("F4"));
                 w.Write('\t'); w.Write(r.FragmentDetectionRate.ToString("F4"));
                 w.Write('\t'); w.Write(r.FragmentsDetected);
                 w.Write('\t'); w.Write(r.FragmentsQueried);
@@ -414,16 +414,16 @@ namespace Development.Dia
                     ? r.LibraryRetentionTime.Value.ToString("F4") : "NA");
                 w.Write('\t'); w.Write(features[i].RtDeviationMinutes.ToString("F4"));
 
-                // Peak group columns
+                // Peak group columns — read from DiaSearchResult
                 bool hasPeak = r.DetectedPeakGroup.HasValue && r.DetectedPeakGroup.Value.IsValid;
                 w.Write('\t'); w.Write(hasPeak);
                 w.Write('\t'); w.Write(hasPeak ? r.DetectedPeakGroup.Value.PeakWidthMinutes.ToString("F4") : "NA");
                 w.Write('\t'); w.Write(hasPeak ? r.DetectedPeakGroup.Value.SymmetryRatio.ToString("F4") : "NA");
                 w.Write('\t'); w.Write(hasPeak ? r.DetectedPeakGroup.Value.CandidateCount.ToString() : "NA");
+                // PeakApexScore from DiaSearchResult (dropped from feature vector)
                 w.Write('\t'); w.Write(r.PeakApexScore.ToString("F4"));
-                w.Write('\t'); w.Write(r.PeakTemporalScore.ToString("F4"));
-                w.Write('\t'); w.Write(r.PeakMeanFragCorrelation.ToString("F4"));
-                w.Write('\t'); w.Write(r.PeakMinFragCorrelation.ToString("F4"));
+                w.Write('\t'); w.Write(r.PeakMeanFragCorr.ToString("F4"));
+                w.Write('\t'); w.Write(r.PeakMinFragCorr.ToString("F4"));
 
                 features[i].WriteTo(buf);
                 for (int j = 0; j < DiaFeatureVector.ClassifierFeatureCount; j++)

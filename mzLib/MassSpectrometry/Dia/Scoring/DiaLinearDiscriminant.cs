@@ -21,11 +21,12 @@ namespace MassSpectrometry.Dia
     /// A trained linear discriminant classifier for DIA precursor scoring.
     /// Immutable after training. Thread-safe for scoring.
     /// 
-    /// Phase 10.5 changes:
-    ///   - Updated for 13-feature vector (removed RawCosine + RtWindowHalfWidth, added RtDeviationSquared)
-    ///   - Added SweepRegularization() for Phase 10.5c lambda optimization
-    ///   - Added interaction feature support (ApexScore × MeanFragCorr) for Phase 10.5d
-    ///   - Added WeightChangeL2() for convergence detection (Phase 11 prep)
+    /// Phase 13 Prompt 8 changes:
+    ///   - Updated for 26-feature vector (dropped PeakApexScore, PeakSymmetry,
+    ///     MeanFragCorr, MinFragCorr, MedianXicDepth, XicDepthCV; added CandidateCount,
+    ///     mass accuracy ×3, SmoothedMinFragCorr)
+    ///   - Interaction feature now uses named constants from DiaFeatureVector
+    ///     (ApexScore × PeakMeanFragCorr instead of former ApexScore × MeanFragCorr)
     ///   - Updated FixedLinear weights for new feature layout
     /// </summary>
     public sealed class DiaLinearDiscriminant
@@ -86,10 +87,13 @@ namespace MassSpectrometry.Dia
             for (int i = 0; i < baseCount; i++)
                 score += Weights[i] * features[i];
 
-            // Interaction term: ApexScore (0) × MeanFragCorr (3), standardized
+            // Interaction term: ApexScore × PeakMeanFragCorr, standardized
+            // Uses named constants from DiaFeatureVector so indices stay correct
+            // when the feature vector layout changes.
             if (UseInteractionFeature && Weights.Length > baseCount)
             {
-                float interactionVal = features[0] * features[3]; // already standardized
+                float interactionVal = features[DiaFeatureVector.InteractionFeatureIndexA]
+                                     * features[DiaFeatureVector.InteractionFeatureIndexB];
                 score += Weights[baseCount] * interactionVal;
             }
 
@@ -113,32 +117,66 @@ namespace MassSpectrometry.Dia
         }
 
         /// <summary>
-        /// Hand-tuned weights — updated for 17-feature layout (Phase 12).
-        /// Feature order: Apex, Temporal, SpectralAngle,
-        ///   MeanFragCorr, MinFragCorr, FragDetRate, LogIntensity, IntCV,
-        ///   MedianXicDepth, XicDepthCV, TimePointsUsed, RtDev, RtDevSq,
-        ///   PeakApexScore, PeakMeanFragCorr, PeakWidth, PeakSymmetry
+        /// Hand-tuned weights — updated for 29-feature layout (Phase 13 Action Item 5).
+        /// Feature order matches DiaFeatureVector.WriteTo():
+        ///   [0-2]   ApexScore, TemporalScore, SpectralAngle
+        ///   [3-4]   PeakMeanFragCorr, PeakMinFragCorr
+        ///   [5-6]   PeakWidth, CandidateCount
+        ///   [7-8]   LogTotalIntensity, IntensityCV
+        ///   [9]     FragDetRate
+        ///   [10-11] RtDeviationMinutes, RtDeviationSquared
+        ///   [12]    TimePointsUsed
+        ///   [13-15] MeanMassErrorPpm(abs), MassErrorStdPpm, MaxAbsMassErrorPpm
+        ///   [16-19] BestFragCorrSum, MedianRefCorr, MinRefCorr, StdRefCorr
+        ///   [20-22] MeanSigRatioDev, MaxSigRatioDev, StdSigRatioDev
+        ///   [23-24] SmoothedMeanFragCorr, SmoothedMinFragCorr
+        ///   [25]    Log2SNR
         /// </summary>
         public static DiaLinearDiscriminant CreateFixedLinear()
         {
             var w = new float[DiaFeatureVector.ClassifierFeatureCount];
+            // Primary scores
             w[0] = 0.30f;   // ApexScore
             w[1] = 0.20f;   // TemporalScore
             w[2] = 0.0f;    // SpectralAngle (correlated with temporal)
-            w[3] = 0.20f;   // MeanFragCorr — high-leverage feature
-            w[4] = 0.05f;   // MinFragCorr — weakest-link detection
-            w[5] = 0.08f;   // FragmentDetectionRate
-            w[6] = 0.03f;   // LogTotalIntensity
-            w[7] = -0.04f;  // IntensityCV (lower = better)
-            w[8] = 0.02f;   // MedianXicDepth
-            w[9] = -0.02f;  // XicDepthCV (lower = better)
-            w[10] = 0.02f;  // TimePointsUsed
-            w[11] = -0.05f; // RtDeviationMinutes (lower = better)
-            w[12] = -0.02f; // RtDeviationSquared (quadratic penalty)
-            w[13] = 0.30f;  // PeakApexScore — peak-detected apex
-            w[14] = 0.25f;  // PeakMeanFragCorr — peak-restricted correlation
-            w[15] = 0.03f;  // PeakWidth — reasonable width is good
-            w[16] = 0.0f;   // PeakSymmetry — neutral initially
+            // Peak correlations
+            w[3] = 0.25f;   // PeakMeanFragCorr — high-leverage peak-restricted feature
+            w[4] = 0.05f;   // PeakMinFragCorr — weakest-link detection
+            // Peak shape
+            w[5] = 0.03f;   // PeakWidth
+            w[6] = -0.05f;  // CandidateCount (lower = better, fewer competing peaks)
+            // Signal
+            w[7] = 0.03f;   // LogTotalIntensity
+            w[8] = -0.04f;  // IntensityCV (lower = better)
+            // Fragment evidence
+            w[9] = 0.08f;   // FragDetRate
+            // RT
+            w[10] = -0.05f; // RtDeviationMinutes (lower = better)
+            w[11] = -0.02f; // RtDeviationSquared
+            // Temporal
+            w[12] = 0.02f;  // TimePointsUsed
+            // Mass accuracy (lower = better for all three)
+            w[13] = -0.10f; // MeanMassErrorPpm (abs)
+            w[14] = -0.12f; // MassErrorStdPpm — expected strongest mass accuracy feature
+            w[15] = -0.05f; // MaxAbsMassErrorPpm
+            // Best-fragment
+            w[16] = 0.10f;  // BestFragCorrelationSum
+            w[17] = 0.08f;  // MedianFragRefCorr
+            w[18] = 0.03f;  // MinFragRefCorr
+            w[19] = -0.03f; // StdFragRefCorr (lower = better)
+            // Signal ratio (lower = better)
+            w[20] = -0.06f; // MeanSigRatioDev
+            w[21] = -0.03f; // MaxSigRatioDev
+            w[22] = -0.03f; // StdSigRatioDev
+            // Smoothed correlations
+            w[23] = 0.15f;  // SmoothedMeanFragCorr
+            w[24] = 0.05f;  // SmoothedMinFragCorr
+            // S/N
+            w[25] = 0.05f;  // Log2SNR
+            // Migrated features (Action Item 5)
+            w[26] = 0.10f;  // BestFragWeightedCosine (higher = better, like ApexScore)
+            w[27] = -0.05f; // BoundarySignalRatio (lower = better, sharp peak)
+            w[28] = 0.05f;  // ApexToMeanRatio (higher = better, prominent peak)
             return new DiaLinearDiscriminant(ClassifierType.FixedLinearCombination, w, 0f);
         }
 
@@ -572,8 +610,9 @@ namespace MassSpectrometry.Dia
                 }
                 if (useInteraction)
                 {
-                    // Interaction: standardized ApexScore (0) × standardized MeanFragCorr (3)
-                    result[i][baseN] = result[i][0] * result[i][3];
+                    // Interaction: standardized ApexScore × standardized PeakMeanFragCorr
+                    result[i][baseN] = result[i][DiaFeatureVector.InteractionFeatureIndexA]
+                                     * result[i][DiaFeatureVector.InteractionFeatureIndexB];
                 }
             }
             return result;

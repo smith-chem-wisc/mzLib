@@ -18,7 +18,9 @@ namespace Development.Dia
     ///   10.5a — Feature Pruning: RawCosine and RtWindowHalfWidth removed
     ///   10.5b — RtDeviationSquared added as quadratic penalty
     ///   10.5c — Regularization sweep: λ ∈ {1e-4..1e-1} with 3-fold CV
-    ///   10.5d — Interaction feature: ApexScore × MeanFragCorr (keep if AUC > 0.001 improvement)
+    ///   10.5d — Interaction feature: ApexScore × PeakMeanFragCorr (keep if AUC > 0.001 improvement)
+    /// 
+    /// Updated Phase 13 Action Item 5: feature vector now has 29 features.
     /// 
     /// Entry point:
     ///   var results = pipeline.GetScoredResults(); // from Phase 10 pipeline
@@ -49,7 +51,7 @@ namespace Development.Dia
             // ── 10.5b: Validate RtDeviationSquared ──────────────────────
             ValidateRtDeviationSquared(vectors);
 
-            // ── Feature separation analysis (updated 13 features) ───────
+            // ── Feature separation analysis (updated features) ──────────
             AnalyzeFeatureSeparation(vectors);
 
             // ── Prepare training data (40/40 quantile split) ────────────
@@ -85,52 +87,77 @@ namespace Development.Dia
 
             bool ok = true;
 
-            // Verify feature count
+            // Verify feature count — Phase 13 Prompt 8: now 26 features
             Console.Write($"  ClassifierFeatureCount = {DiaFeatureVector.ClassifierFeatureCount}  ");
-            if (DiaFeatureVector.ClassifierFeatureCount == 13)
+            if (DiaFeatureVector.ClassifierFeatureCount == 29)
                 Console.WriteLine("PASS ✓");
-            else { Console.WriteLine("FAIL ✗ (expected 13)"); ok = false; }
+            else { Console.WriteLine($"FAIL ✗ (expected 29)"); ok = false; }
 
-            // Verify RawCosine removed
+            // Verify legacy features removed from vector
             bool noRawCosine = !Array.Exists(DiaFeatureVector.FeatureNames, n => n == "RawCosine");
             Console.WriteLine($"  RawCosine removed: {(noRawCosine ? "PASS ✓" : "FAIL ✗")}");
             ok &= noRawCosine;
 
-            // Verify RtWindowHalfWidth removed
             bool noRtWindow = !Array.Exists(DiaFeatureVector.FeatureNames, n => n == "RtWindowHalfWidth");
             Console.WriteLine($"  RtWindowHalfWidth removed: {(noRtWindow ? "PASS ✓" : "FAIL ✗")}");
             ok &= noRtWindow;
 
-            // Verify RtDeviationSquared added
+            // Verify RtDeviationSquared present
             bool hasRtSq = Array.Exists(DiaFeatureVector.FeatureNames, n => n == "RtDeviationSquared");
             Console.WriteLine($"  RtDeviationSquared present: {(hasRtSq ? "PASS ✓" : "FAIL ✗")}");
             ok &= hasRtSq;
+
+            // Verify Phase 13 features present
+            bool hasMassErr = Array.Exists(DiaFeatureVector.FeatureNames, n => n == "MeanMassErrorPpm");
+            Console.WriteLine($"  MeanMassErrorPpm present: {(hasMassErr ? "PASS ✓" : "FAIL ✗")}");
+            ok &= hasMassErr;
+
+            bool hasCandCount = Array.Exists(DiaFeatureVector.FeatureNames, n => n == "CandidateCount");
+            Console.WriteLine($"  CandidateCount present: {(hasCandCount ? "PASS ✓" : "FAIL ✗")}");
+            ok &= hasCandCount;
+
+            // Verify Phase 13 Action Item 5 migrated features present
+            bool hasBestFragWC = Array.Exists(DiaFeatureVector.FeatureNames, n => n == "BestFragWeightedCosine");
+            Console.WriteLine($"  BestFragWeightedCosine present: {(hasBestFragWC ? "PASS ✓" : "FAIL ✗")}");
+            ok &= hasBestFragWC;
+
+            bool hasBoundSR = Array.Exists(DiaFeatureVector.FeatureNames, n => n == "BoundarySignalRatio");
+            Console.WriteLine($"  BoundarySignalRatio present: {(hasBoundSR ? "PASS ✓" : "FAIL ✗")}");
+            ok &= hasBoundSR;
+
+            bool hasApexMR = Array.Exists(DiaFeatureVector.FeatureNames, n => n == "ApexToMeanRatio");
+            Console.WriteLine($"  ApexToMeanRatio present: {(hasApexMR ? "PASS ✓" : "FAIL ✗")}");
+            ok &= hasApexMR;
 
             // Verify FeatureNames.Length == ClassifierFeatureCount
             bool namesMatch = DiaFeatureVector.FeatureNames.Length == DiaFeatureVector.ClassifierFeatureCount;
             Console.WriteLine($"  FeatureNames.Length matches: {(namesMatch ? "PASS ✓" : "FAIL ✗")}");
             ok &= namesMatch;
 
-            // WriteTo/ReadFrom roundtrip
+            // WriteTo roundtrip — use current feature vector fields
             var fv = new DiaFeatureVector
             {
                 ApexScore = 0.95f,
                 TemporalScore = 0.78f,
                 SpectralAngle = 0.55f,
-                MeanFragmentCorrelation = 0.65f,
-                MinFragmentCorrelation = -0.2f,
+                PeakMeanFragCorr = 0.65f,
+                PeakMinFragCorr = -0.2f,
+                PeakWidth = 0.5f,
+                CandidateCount = 3f,
                 FragmentDetectionRate = 0.92f,
                 LogTotalIntensity = 5.5f,
                 IntensityCV = 1.1f,
-                MedianXicDepth = 25f,
-                XicDepthCV = 0.3f,
                 TimePointsUsed = 42,
                 RtDeviationMinutes = 0.12f,
-                RtDeviationSquared = 0.0144f
+                RtDeviationSquared = 0.0144f,
+                MeanMassErrorPpm = 2.5f,
+                MassErrorStdPpm = 1.2f,
+                MaxAbsMassErrorPpm = 4.8f,
             };
             Span<float> buf = stackalloc float[DiaFeatureVector.ClassifierFeatureCount];
             fv.WriteTo(buf);
-            bool rtSqMatch = MathF.Abs(buf[12] - 0.0144f) < 1e-6f;
+            // RtDeviationSquared is at index 11 in the new layout
+            bool rtSqMatch = MathF.Abs(buf[11] - 0.0144f) < 1e-6f;
             Console.WriteLine($"  WriteTo roundtrip (RtDevSq): {(rtSqMatch ? "PASS ✓" : "FAIL ✗")}");
             ok &= rtSqMatch;
 
@@ -266,7 +293,7 @@ namespace Development.Dia
         private static void TestInteractionFeature(
             DiaFeatureVector[] positives, DiaFeatureVector[] negatives, float lambda)
         {
-            Console.WriteLine("─── 10.5d: Interaction Feature Test (ApexScore × MeanFragCorr) ───");
+            Console.WriteLine("─── 10.5d: Interaction Feature Test (ApexScore × PeakMeanFragCorr) ───");
 
             var (aucBase, tp1fpBase) = DiaLinearDiscriminant.CrossValidate(
                 positives, negatives, kFolds: 3,
