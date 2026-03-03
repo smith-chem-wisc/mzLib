@@ -1,0 +1,37 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "ollama/qwen3:8b",
+  "provider": {
+    "ollama": {
+      "models": {
+        "glm-4.7-flash": {
+          "_launch": true,
+          "name": "glm-4.7-flash"
+        },
+        "qwen3:8b": {
+          "_launch": true,
+          "name": "qwen3:8b"
+        }
+      },
+      "name": "Ollama (local)",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://127.0.0.1:11434/v1"
+      }
+    }
+  },
+  "small_model": "ollama/glm-4.7-flash",
+  "agent_loop": {
+    "auto_commit": true,
+    "commit_on_success": true,
+    "build_before_commit": true,
+    "test_before_commit": true,
+    "build_command": "dotnet build C:/Users/Nic/Source/Repos/mzLib/mzLib/mzLib.sln",
+    "test_command": "dotnet test C:/Users/Nic/Source/Repos/mzLib/mzLib/Test/Test.csproj",
+    "test_filter": "",
+    "working_directory": "C:/Users/Nic/Source/Repos/mzLib/mzLib/",
+    "require_tests_pass": true,
+    "max_iterations_per_session": 50,
+    "pause_on_error": true
+  }
+}
