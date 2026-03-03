@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 <#
 .SYNOPSIS
     Simplified agent loop that maintains commit discipline
@@ -48,17 +48,19 @@ $config = Get-Content "$RootDir/config.json" | ConvertFrom-Json
 $workDir = $config.agent_loop.working_directory
 
 function Write-SessionHeader {
-    Write-Host "???????????????????????????????????????????????????????????" -ForegroundColor Cyan
+    Write-Host "===========================================================" -ForegroundColor Cyan
     Write-Host "  mzLib Agent Loop Session" -ForegroundColor Cyan
-    Write-Host "???????????????????????????????????????????????????????????" -ForegroundColor Cyan
+    Write-Host "===========================================================" -ForegroundColor Cyan
     Write-Host "Working Directory: $workDir"
     Write-Host "Max Iterations: $MaxIterations"
     Write-Host "Auto Commit: $($config.agent_loop.auto_commit)"
     Write-Host "Require Tests: $($config.agent_loop.require_tests_pass)"
+    Write-Host "Plan File: $($planFile)"
+    Write-Host "Activity Log: $($activityFile)"
     Write-Host ""
     
     # Startup checks
-    Write-Host "?? Session Startup Checks:" -ForegroundColor Yellow
+    Write-Host "📋 Session Startup Checks:" -ForegroundColor Yellow
     Push-Location $workDir
     
     Write-Host "   Current directory: $(Get-Location)"
@@ -76,26 +78,31 @@ function Get-NextTask {
     
     $content = Get-Content $PlanFile -Raw
     
-    if ($content -match '<!-- TASKS:BEGIN -->(.*?)<!-- TASKS:END -->') {
+    if ($content -match '(?s)<!-- TASKS:BEGIN -->(.*?)<!-- TASKS:END -->') {
         $registryText = $Matches[1].Trim()
         
         if ([string]::IsNullOrWhiteSpace($registryText)) {
             return $null
         }
         
-        $lines = $registryText -split "`n" | Where-Object { $_ -match '\|' }
+        $lines = $registryText -split "`n" | Where-Object { $_.Trim() -and $_.Trim() -match '^\S+\|' }
         $tasks = @()
         
         foreach ($line in $lines) {
             $parts = $line -split '\|' | ForEach-Object { $_.Trim() }
             
-            if ($parts.Count -ge 5) {
+            if ($parts.Count -ge 4) {
+                $deps = @()
+                if ($parts.Count -ge 5 -and $parts[4]) { 
+                    $deps = $parts[4] -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+                }
+                
                 $tasks += [PSCustomObject]@{
                     ID = $parts[0]
                     Title = $parts[1]
                     File = $parts[2]
                     Status = $parts[3]
-                    Deps = if ($parts[4]) { $parts[4] -split ',' | ForEach-Object { $_.Trim() } } else { @() }
+                    Deps = $deps
                 }
             }
         }
@@ -107,6 +114,11 @@ function Get-NextTask {
                 return $task
             }
             return $null
+        }
+        
+        # Debug: show parsed tasks
+        if ($tasks.Count -eq 0) {
+            Write-Host "DEBUG: No tasks parsed from registry. Registry text length: $($registryText.Length)" -ForegroundColor Magenta
         }
         
         # Find first TODO/IN_PROGRESS with deps met
@@ -135,7 +147,11 @@ function Get-NextTask {
 function Get-TaskInstructions {
     param([string]$TaskFile)
     
+    # Normalize path separators to backslashes
+    $TaskFile = $TaskFile.Replace('/', '\')
+    
     if (-not (Test-Path $TaskFile)) {
+        Write-Host "ERROR: Task file not found at: $TaskFile" -ForegroundColor Red
         throw "Task file not found: $TaskFile"
     }
     
@@ -159,22 +175,22 @@ function Get-TaskInstructions {
 function Invoke-BuildAndTest {
     param([object]$Config, [switch]$SkipTests)
     
-    Write-Host "?? Building solution..." -ForegroundColor Yellow
+    Write-Host "🔨 Building solution..." -ForegroundColor Yellow
     Push-Location $Config.agent_loop.working_directory
     
     try {
         $buildOutput = & cmd /c "$($Config.agent_loop.build_command) 2>&1"
         
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "? Build failed!" -ForegroundColor Red
+            Write-Host "❌ Build failed!" -ForegroundColor Red
             Write-Host $buildOutput
             return $false
         }
         
-        Write-Host "? Build successful" -ForegroundColor Green
+        Write-Host "✅ Build successful" -ForegroundColor Green
         
         if (-not $SkipTests -and $Config.agent_loop.require_tests_pass) {
-            Write-Host "?? Running tests..." -ForegroundColor Yellow
+            Write-Host "🧪 Running tests..." -ForegroundColor Yellow
             
             $testCmd = $Config.agent_loop.test_command
             if ($Config.agent_loop.test_filter) {
@@ -184,12 +200,12 @@ function Invoke-BuildAndTest {
             $testOutput = & cmd /c "$testCmd 2>&1"
             
             if ($LASTEXITCODE -ne 0) {
-                Write-Host "? Tests failed!" -ForegroundColor Red
+                Write-Host "❌ Tests failed!" -ForegroundColor Red
                 Write-Host $testOutput
                 return $false
             }
             
-            Write-Host "? Tests passed" -ForegroundColor Green
+            Write-Host "✅ Tests passed" -ForegroundColor Green
         }
         
         return $true
@@ -224,9 +240,9 @@ $WorkDone
     if ($Status -eq "DONE") {
         $entry += @"
 ### Verification:
-- ? Build successful
-- ? Tests passed
-- ? Changes committed
+- ✅ Build successful
+- ✅ Tests passed
+- ✅ Changes committed
 
 "@
     }
@@ -243,11 +259,11 @@ function Commit-Changes {
         $gitStatus = git status --short
         
         if (-not $gitStatus) {
-            Write-Host "??  No changes to commit" -ForegroundColor Yellow
+            Write-Host "⚠️  No changes to commit" -ForegroundColor Yellow
             return $true
         }
         
-        Write-Host "?? Committing changes..." -ForegroundColor Yellow
+        Write-Host "📝 Committing changes..." -ForegroundColor Yellow
         
         $commitMsg = "$($Task.ID): $($Task.Title)"
         
@@ -255,10 +271,10 @@ function Commit-Changes {
         git commit -m $commitMsg
         
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "? Committed: $commitMsg" -ForegroundColor Green
+            Write-Host "✅ Committed: $commitMsg" -ForegroundColor Green
             return $true
         } else {
-            Write-Host "? Commit failed" -ForegroundColor Red
+            Write-Host "❌ Commit failed" -ForegroundColor Red
             return $false
         }
     }
@@ -282,27 +298,27 @@ function Update-TaskStatus {
 }
 
 function Main {
-    Write-SessionHeader
     
-    $planFile = "$RootDir/plan.md"
-    $activityFile = "$RootDir/Activity.md"
+    $planFile = "$RootDir\plan.md"
+    $activityFile = "$RootDir\Activity.md"
+    Write-SessionHeader
     
     $iteration = 0
     
     while ($iteration -lt $MaxIterations) {
         $iteration++
         
-        Write-Host "??? Iteration $iteration/$MaxIterations ???" -ForegroundColor Yellow
+        Write-Host "====== Iteration $iteration/$MaxIterations ======" -ForegroundColor Yellow
         
         # Get next task
         $task = Get-NextTask -PlanFile $planFile -SpecificTaskID $TaskID
         
         if (-not $task) {
-            Write-Host "? No actionable tasks found. All done!" -ForegroundColor Green
+            Write-Host "✅ No actionable tasks found. All done!" -ForegroundColor Green
             break
         }
         
-        Write-Host "?? Working on: $($task.ID) - $($task.Title)" -ForegroundColor Cyan
+        Write-Host "📌 Working on: $($task.ID) - $($task.Title)" -ForegroundColor Cyan
         
         # Mark as IN_PROGRESS if it was TODO
         if ($task.Status -eq 'TODO') {
@@ -310,11 +326,12 @@ function Main {
         }
         
         # Load task instructions
-        $taskFile = "$RootDir/$($task.File)"
+        $taskFile = "$RootDir\$($task.File)"
+        Write-Host "   Task file: $taskFile" -ForegroundColor Gray
         $instructions = Get-TaskInstructions -TaskFile $taskFile
         
         Write-Host ""
-        Write-Host "?? Task has $($instructions.Steps.Count) steps:" -ForegroundColor White
+        Write-Host "📋 Task has $($instructions.Steps.Count) steps:" -ForegroundColor White
         $instructions.Steps | ForEach-Object { Write-Host "   - $_" }
         Write-Host ""
         
@@ -327,7 +344,7 @@ function Main {
         # In automated mode, this would call the AI
         # For now, we pause and let the user/AI work
         
-        Write-Host "?? Please implement the task steps above." -ForegroundColor Cyan
+        Write-Host "🤖 Please implement the task steps above." -ForegroundColor Cyan
         Write-Host "   When done, press Enter to verify and commit..." -ForegroundColor Cyan
         
         if (-not $env:AGENT_LOOP_AUTO) {
@@ -339,7 +356,7 @@ function Main {
         $verified = Invoke-BuildAndTest -Config $config -SkipTests:$SkipTests
         
         if (-not $verified) {
-            Write-Host "??  Task verification failed!" -ForegroundColor Red
+            Write-Host "⚠️  Task verification failed!" -ForegroundColor Red
             Write-Host "   Fix the issues and run the loop again." -ForegroundColor Yellow
             
             Save-Progress -ActivityFile $activityFile -Task $task -WorkDone "Attempted but verification failed" -Status "FAILED"
@@ -355,7 +372,7 @@ function Main {
             $committed = Commit-Changes -Task $task -WorkDir $config.agent_loop.working_directory
             
             if (-not $committed) {
-                Write-Host "??  Could not commit changes" -ForegroundColor Yellow
+                Write-Host "⚠️  Could not commit changes" -ForegroundColor Yellow
                 continue
             }
         }
@@ -366,15 +383,15 @@ function Main {
         Save-Progress -ActivityFile $activityFile -Task $task -WorkDone "Task completed successfully" -Status "DONE"
         
         Write-Host ""
-        Write-Host "? Task $($task.ID) completed and verified!" -ForegroundColor Green
+        Write-Host "✅ Task $($task.ID) completed and verified!" -ForegroundColor Green
         Write-Host ""
         
         Start-Sleep -Milliseconds 500
     }
     
-    Write-Host "???????????????????????????????????????????????????????????" -ForegroundColor Cyan
+    Write-Host "===========================================================" -ForegroundColor Cyan
     Write-Host "  Session Complete - $iteration iterations" -ForegroundColor Cyan
-    Write-Host "???????????????????????????????????????????????????????????" -ForegroundColor Cyan
+    Write-Host "===========================================================" -ForegroundColor Cyan
 }
 
 # Execute
