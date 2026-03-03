@@ -14,7 +14,7 @@ namespace Readers
         /// <returns></returns>
         /// <exception cref="MzLibException"></exception>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public static List<T> ReadTsv<T>(string filePath, out List<string> warnings) where T : SpectrumMatchFromTsv
+        public static List<T> ReadTsv<T>(string filePath, out List<string> warnings, SpectrumMatchParsingParameters? parsingParams = null) where T : SpectrumMatchFromTsv
         {
             string[] lines;
             try
@@ -62,9 +62,9 @@ namespace Readers
 
                         T result = type switch
                         {
-                            SupportedFileType.osmtsv => (T)(SpectrumMatchFromTsv)new OsmFromTsv(line, Split, parsedHeader),
-                            _ when lineIsGlyco => (T)(SpectrumMatchFromTsv)new GlycoPsmFromTsv(line, Split, parsedHeader),
-                            _ => (T)(SpectrumMatchFromTsv)new PsmFromTsv(line, Split, parsedHeader)
+                            SupportedFileType.osmtsv => (T)(SpectrumMatchFromTsv)new OsmFromTsv(line, Split, parsedHeader, parsingParams),
+                            _ when lineIsGlyco => (T)(SpectrumMatchFromTsv)new GlycoPsmFromTsv(line, Split, parsedHeader, parsingParams),
+                            _ => (T)(SpectrumMatchFromTsv)new PsmFromTsv(line, Split, parsedHeader, parsingParams)
                         };
                         psmsArray[i - 1] = result; // -1 to align with result array (excluding header)
                     }
@@ -101,8 +101,8 @@ namespace Readers
         /// <returns></returns>
         /// <exception cref="MzLibException"></exception>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public static List<SpectrumMatchFromTsv> ReadTsv(string filePath, out List<string> warnings) =>
-            ReadTsv<SpectrumMatchFromTsv>(filePath, out warnings);
+        public static List<SpectrumMatchFromTsv> ReadTsv(string filePath, out List<string> warnings, SpectrumMatchParsingParameters? parsingParams = null) =>
+            ReadTsv<SpectrumMatchFromTsv>(filePath, out warnings, parsingParams);
 
         /// <summary>
         /// Reads a psmtsv file and returns PsmFromTsv objects
@@ -111,11 +111,11 @@ namespace Readers
         /// <param name="filePath"></param>
         /// <param name="warnings"></param>
         /// <returns></returns>
-        public static List<PsmFromTsv> ReadPsmTsv(string filePath, out List<string> warnings) =>
-            ReadTsv<PsmFromTsv>(filePath, out warnings);
+        public static List<PsmFromTsv> ReadPsmTsv(string filePath, out List<string> warnings, SpectrumMatchParsingParameters? parsingParams = null) =>
+            ReadTsv<PsmFromTsv>(filePath, out warnings, parsingParams);
 
-        public static List<GlycoPsmFromTsv> ReadGlycoPsmTsv(string filePath, out List<string> warnings) =>
-            ReadTsv<GlycoPsmFromTsv>(filePath, out warnings);
+        public static List<GlycoPsmFromTsv> ReadGlycoPsmTsv(string filePath, out List<string> warnings, SpectrumMatchParsingParameters? parsingParams = null) =>
+            ReadTsv<GlycoPsmFromTsv>(filePath, out warnings, parsingParams);
 
         /// <summary>
         /// Reads a osmtsv file and returns OsmFromTsv objects
@@ -123,10 +123,10 @@ namespace Readers
         /// <param name="filePath"></param>
         /// <param name="warnings"></param>
         /// <returns></returns>
-        public static List<OsmFromTsv> ReadOsmTsv(string filePath, out List<string> warnings) =>
-            ReadTsv<OsmFromTsv>(filePath, out warnings);
+        public static List<OsmFromTsv> ReadOsmTsv(string filePath, out List<string> warnings, SpectrumMatchParsingParameters? parsingParams = null) =>
+            ReadTsv<OsmFromTsv>(filePath, out warnings, parsingParams);
 
-        public static Dictionary<string, int> ParseHeader(string header)
+        public static Dictionary<string, int> ParseHeader(string header, SpectrumMatchParsingParameters? parsingParams = null)
         {
             var parsedHeader = new Dictionary<string, int>();
             var spl = header.Split(Split);

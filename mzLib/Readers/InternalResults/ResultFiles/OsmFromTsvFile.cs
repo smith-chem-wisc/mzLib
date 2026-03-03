@@ -1,6 +1,4 @@
-﻿using Transcriptomics;
-
-namespace Readers;
+﻿namespace Readers;
 
 public class OsmFromTsvFile : SpectrumMatchFromTsvFile<OsmFromTsv>
 {
@@ -12,11 +10,11 @@ public class OsmFromTsvFile : SpectrumMatchFromTsvFile<OsmFromTsv>
     /// </summary>
     public OsmFromTsvFile() : base() { }
 
-    public OsmFromTsvFile(string filePath) : base(filePath) { }
+    public OsmFromTsvFile(string filePath, SpectrumMatchParsingParameters? parsingParams = null) : base(filePath, parsingParams) { }
 
     public override void LoadResults()
     {
-        Results = SpectrumMatchTsvReader.ReadOsmTsv(FilePath, out List<string> warnings);
+        Results = SpectrumMatchTsvReader.ReadOsmTsv(FilePath, out List<string> warnings, ParsingParams);
     }
 
     public override void WriteResults(string outputPath) => throw new NotImplementedException();
