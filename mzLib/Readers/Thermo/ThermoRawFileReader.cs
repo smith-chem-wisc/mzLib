@@ -306,7 +306,7 @@ namespace Readers
                         int.Parse(values[i], CultureInfo.InvariantCulture);
                 }
 
-                if (labels[i].StartsWith("HCD Energy:", StringComparison.Ordinal))
+                if (labels[i].StartsWith("HCD Energy:", StringComparison.Ordinal) && HcdEnergy is null)
                 {
                     HcdEnergy = values[i];
                 }
@@ -314,6 +314,17 @@ namespace Readers
                 if (labels[i].StartsWith("Scan Description", StringComparison.Ordinal))
                 {
                     scanDescript = values[i].TrimEnd();
+
+                    // if scan descrition contains "NCE##" where ## is a number, set that number equal to HCD energy
+                    int nceIndex = scanDescript.IndexOf("NCE", StringComparison.OrdinalIgnoreCase);
+                    if (nceIndex >= 0 && nceIndex + 3 < scanDescript.Length)
+                    {
+                        string possibleNceValue = scanDescript.Substring(nceIndex + 3).Split(' ')[0];
+                        if (double.TryParse(possibleNceValue, NumberStyles.Any, CultureInfo.InvariantCulture, out double nce))
+                        {
+                            HcdEnergy = possibleNceValue;
+                        }
+                    }
                 }
             }
 
