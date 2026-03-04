@@ -22,6 +22,7 @@ namespace Test.KoinaTests
         public override int MinPeptideLength => 7;
         public override IncompatibleModHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
+        public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }
 
         public override HashSet<int> AllowedPrecursorCharges { get; }
         public override HashSet<int> AllowedCollisionEnergies { get; }
@@ -34,7 +35,8 @@ namespace Test.KoinaTests
             HashSet<string>? allowedInstruments = null,
             HashSet<string>? allowedFragmentations = null,
             IncompatibleModHandlingMode modHandlingMode = IncompatibleModHandlingMode.ReturnNull,
-            IncompatibleParameterHandlingMode parameterHandlingMode = IncompatibleParameterHandlingMode.ReturnNull
+            IncompatibleParameterHandlingMode parameterHandlingMode = IncompatibleParameterHandlingMode.ReturnNull,
+            FragmentIonMappingMode fragmentIonMappingMode = FragmentIonMappingMode.MapToInputFullSequence
             )
         {
             AllowedPrecursorCharges = allowedCharges ?? new HashSet<int> { 2, 3, 4 };
@@ -43,6 +45,7 @@ namespace Test.KoinaTests
             AllowedFragmentationTypes = allowedFragmentations ?? new HashSet<string>();
             ModHandlingMode = modHandlingMode;
             ParameterHandlingMode = parameterHandlingMode;
+            FragmentIonMappingMode = fragmentIonMappingMode;
         }
 
         protected override List<Dictionary<string, object>> ToBatchedRequests(List<FragmentIntensityPredictionInput> validInputs)

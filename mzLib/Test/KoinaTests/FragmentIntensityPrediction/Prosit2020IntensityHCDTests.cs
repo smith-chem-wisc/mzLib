@@ -31,7 +31,7 @@ namespace Test.KoinaTests
                 var peptides = librarySpectra.Select(p => p.Sequence).ToList();
                 var charges = librarySpectra.Select(p => p.ChargeState).ToList();
                 var energies = librarySpectra.Select(p => 35).ToList();
-                var retentionTimes = librarySpectra.Select(p => (double)p.RetentionTime).ToArray();
+                var retentionTimes = librarySpectra.Select(p => (double?)p.RetentionTime).ToArray();
 
                 // Create model inputs
                 var modelInputs = new List<FragmentIntensityPredictionInput>();
@@ -46,44 +46,51 @@ namespace Test.KoinaTests
                     ));
                 }
 
-                var modelHandler = new Prosit2020IntensityHCD();
-                var predictions = modelHandler.Predict(modelInputs);
-                
-                // Generate spectral library from predictions
-                var predictedSpectra = modelHandler.GenerateLibrarySpectraFromPredictions(retentionTimes, out var warning, predPath, minIntensityFilter: 1e-6);
+                // Test for library spectra created from ORIGINAL input sequences (may contain invalid mods for model, but we map intensities to fragments with original mods)
+                // or from Validated/Cleaned input sequences (model inputs are cleaned to remove unsupported mods and we use MZs directly provided by Koina)
+                var modelOriginalSeqs = new Prosit2020IntensityHCD(fragmentIonMappingMode: FragmentIonMappingMode.MapToInputFullSequence);
+                var modelCleanSeqs = new Prosit2020IntensityHCD(fragmentIonMappingMode: FragmentIonMappingMode.MapToValidatedFullSequence);
 
-                // Test that the predicted spectrum that was saved matches the predicted spectra in memory
-                spectralLibraryTest = new SpectralLibrary(new List<string> { predPath });
-                var spectralLibrary = spectralLibraryTest.GetAllLibrarySpectra().ToList();
-                Assert.That(peptides.Count == spectralLibrary.Count);
-
-                var sortedPredictedSpectra = predictedSpectra.OrderBy(p => p.Sequence).ThenBy(p => p.ChargeState).ToList();
-                var sortedSavedSpectra = spectralLibrary.OrderBy(p => p.Sequence).ThenBy(p => p.ChargeState).ToList();
-                for (int i = 0; i < peptides.Count; i++)
+                foreach (var modelHandler in new List<Prosit2020IntensityHCD> { modelOriginalSeqs, modelCleanSeqs })
                 {
-                    var inMemorySpectrum = sortedPredictedSpectra[i];
-                    var savedSpectrum = sortedSavedSpectra[i];
-                    Assert.That(inMemorySpectrum.Sequence == savedSpectrum.Sequence);
-                    Assert.That(inMemorySpectrum.ChargeState == savedSpectrum.ChargeState);
-                    Assert.That(inMemorySpectrum.MatchedFragmentIons.Count == savedSpectrum.MatchedFragmentIons.Count);
+                    var predictions = modelHandler.Predict(modelInputs);
+                    // Generate spectral library from predictions
+                    var predictedSpectra = modelHandler.GenerateLibrarySpectraFromPredictions(retentionTimes, out var warning, predPath, minIntensityFilter: 1e-6);
 
-                    var sortedInMemoryFrags = inMemorySpectrum.MatchedFragmentIons.OrderBy(p => p.Mz).ToList();
-                    var sortedSavedFrags = savedSpectrum.MatchedFragmentIons.OrderBy(p => p.Mz).ToList();
+                    // Test that the predicted spectrum that was saved matches the predicted spectra in memory
+                    spectralLibraryTest = new SpectralLibrary(new List<string> { predPath });
+                    var spectralLibrary = spectralLibraryTest.GetAllLibrarySpectra().ToList();
+                    Assert.That(peptides.Count == spectralLibrary.Count);
 
-                    // Get max intensity for normalization
-                    double maxInMemoryIntensity = sortedInMemoryFrags.Max(f => f.Intensity);
-
-                    for (int j = 0; j < inMemorySpectrum.MatchedFragmentIons.Count; j++)
+                    var sortedPredictedSpectra = predictedSpectra.OrderBy(p => p.Sequence).ThenBy(p => p.ChargeState).ToList();
+                    var sortedSavedSpectra = spectralLibrary.OrderBy(p => p.Sequence).ThenBy(p => p.ChargeState).ToList();
+                    for (int i = 0; i < peptides.Count; i++)
                     {
-                        var inMemoryFrag = sortedInMemoryFrags[j];
-                        var savedFrag = sortedSavedFrags[j];
-                        Assert.That(inMemoryFrag.Mz, Is.EqualTo(savedFrag.Mz).Within(1e-6));
-                        // Compare normalized intensities since saved library normalizes to max intensity
-                        Assert.That(inMemoryFrag.Intensity / maxInMemoryIntensity, Is.EqualTo(savedFrag.Intensity).Within(1e-6));
-                        Assert.That(inMemoryFrag.NeutralTheoreticalProduct.ProductType == savedFrag.NeutralTheoreticalProduct.ProductType);
-                        Assert.That(inMemoryFrag.NeutralTheoreticalProduct.FragmentNumber == savedFrag.NeutralTheoreticalProduct.FragmentNumber);
-                        Assert.That(inMemoryFrag.Charge == savedFrag.Charge);
+                        var inMemorySpectrum = sortedPredictedSpectra[i];
+                        var savedSpectrum = sortedSavedSpectra[i];
+                        Assert.That(inMemorySpectrum.Sequence == savedSpectrum.Sequence);
+                        Assert.That(inMemorySpectrum.ChargeState == savedSpectrum.ChargeState);
+                        Assert.That(inMemorySpectrum.MatchedFragmentIons.Count == savedSpectrum.MatchedFragmentIons.Count);
+
+                        var sortedInMemoryFrags = inMemorySpectrum.MatchedFragmentIons.OrderBy(p => p.Mz).ToList();
+                        var sortedSavedFrags = savedSpectrum.MatchedFragmentIons.OrderBy(p => p.Mz).ToList();
+
+                        // Get max intensity for normalization
+                        double maxInMemoryIntensity = sortedInMemoryFrags.Max(f => f.Intensity);
+
+                        for (int j = 0; j < inMemorySpectrum.MatchedFragmentIons.Count; j++)
+                        {
+                            var inMemoryFrag = sortedInMemoryFrags[j];
+                            var savedFrag = sortedSavedFrags[j];
+                            Assert.That(inMemoryFrag.Mz, Is.EqualTo(savedFrag.Mz).Within(1e-6));
+                            // Compare normalized intensities since saved library normalizes to max intensity
+                            Assert.That(inMemoryFrag.Intensity / maxInMemoryIntensity, Is.EqualTo(savedFrag.Intensity).Within(1e-6));
+                            Assert.That(inMemoryFrag.NeutralTheoreticalProduct.ProductType == savedFrag.NeutralTheoreticalProduct.ProductType);
+                            Assert.That(inMemoryFrag.NeutralTheoreticalProduct.FragmentNumber == savedFrag.NeutralTheoreticalProduct.FragmentNumber);
+                            Assert.That(inMemoryFrag.Charge == savedFrag.Charge);
+                        }
                     }
+                    spectralLibraryTest?.CloseConnections();
                 }
             }
             finally
@@ -508,7 +515,7 @@ namespace Test.KoinaTests
                 "All peptides should have predictions");
 
             // Test spectral library generation with mixed null/non-null retention times
-            var retentionTimes = new double[] { 100.0, 0.0, 200.0 };
+            var retentionTimes = new double?[] { 100.0, 0.0, 200.0 };
             Assert.DoesNotThrow(() => 
                 model.GenerateLibrarySpectraFromPredictions(retentionTimes, out var warning),
                 "Mixed retention times should be handled gracefully");
@@ -570,7 +577,7 @@ namespace Test.KoinaTests
             Assert.That(predictions.Count, Is.EqualTo(3),
                 "All inputs should have prediction entries");
 
-            var retentionTimes = new double[] { 100.0, 100.0, 200.0 };
+            var retentionTimes = new double?[] { 100.0, 100.0, 200.0 };
             var spectra = model.GenerateLibrarySpectraFromPredictions(retentionTimes, out var warning);
             
             Assert.That(spectra.Count, Is.EqualTo(2),

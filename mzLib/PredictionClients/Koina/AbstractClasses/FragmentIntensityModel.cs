@@ -5,12 +5,10 @@ using PredictionClients.Koina.Client;
 using Readers.SpectralLibrary;
 using System.ComponentModel;
 using Chemistry;
-using Proteomics.AminoAcidPolymer;
 using PredictionClients.Koina.Interfaces;
-using System.Data.SQLite;
+using Proteomics.ProteolyticDigestion;
 using Easy.Common.Extensions;
 using PredictionClients.Koina.Util;
-
 namespace PredictionClients.Koina.AbstractClasses
 {
     /// <summary>
@@ -23,6 +21,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// <param name="FragmentIntensities">Predicted relative intensities (0-1 scale, -1 indicates impossible ions)</param>
     public record PeptideFragmentIntensityPrediction(
         string FullSequence,
+        string ValidatedFullSequence,
         int PrecursorCharge,
         List<string>? FragmentAnnotations,
         List<double>? FragmentMZs,
@@ -92,6 +91,7 @@ namespace PredictionClients.Koina.AbstractClasses
         public virtual double MinIntensityFilter { get; protected set; } = 1e-6;
 
         public abstract IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
+        public abstract FragmentIonMappingMode FragmentIonMappingMode { get; init; }
         #endregion
 
         #region Inputs and Outputs for internal processing 
@@ -214,6 +214,7 @@ namespace PredictionClients.Koina.AbstractClasses
                     // For invalid inputs, we can choose to add a placeholder prediction with a warning, or simply skip them. Here we add a placeholder with a warning for traceability.
                     realignedPredictions.Add(new PeptideFragmentIntensityPrediction(
                         FullSequence: ModelInputs[i].FullSequence,
+                        ValidatedFullSequence: ModelInputs[i].ValidatedFullSequence,
                         PrecursorCharge: ModelInputs[i].PrecursorCharge,
                         FragmentAnnotations: null,
                         FragmentMZs: null,
@@ -276,33 +277,76 @@ namespace PredictionClients.Koina.AbstractClasses
                 var batchPeptides = requestInputs.Skip(batchIndex * MaxBatchSize).Take(MaxBatchSize).ToList();
                 // Assuming outputData is structured such that each peptide's data is sequential
                 var fragmentCount = outputAnnotations.Count / batchPeptides.Count;
-                for (int i = 0; i < batchPeptides.Count; i++)
+                if (FragmentIonMappingMode == FragmentIonMappingMode.MapToValidatedFullSequence)
                 {
-                    var peptideSequence = batchPeptides[i].ValidatedFullSequence;
-                    var fragmentIons = new List<string>();
-                    var fragmentMZs = new List<double>();
-                    var predictedIntensities = new List<double>();
-                    for (int j = 0; j < fragmentCount; j++)
+                    for (int i = 0; i < batchPeptides.Count; i++)
                     {
-                        double intensity = Convert.ToDouble(outputMZs[i * fragmentCount + j]);
-                        if (intensity == -1)
+                        var peptide = batchPeptides[i];
+                        var fragmentIons = new List<string>();
+                        var fragmentMZs = new List<double>();
+                        var predictedIntensities = new List<double>();
+                        for (int j = 0; j < fragmentCount; j++)
                         {
-                            // Skip impossible ions as indicated by the model with an intensity of -1. This is a convention used by the models to indicate that a particular fragment ion cannot be formed from the given peptide sequence and fragmentation conditions.
-                            continue;
-                        }
+                            double intensity = Convert.ToDouble(outputMZs[i * fragmentCount + j]);
+                            if (intensity == -1)
+                            {
+                                // Skip impossible ions as indicated by the model with an intensity of -1. This is a convention used by the models to indicate that a particular fragment ion cannot be formed from the given peptide sequence and fragmentation conditions.
+                                continue;
+                            }
 
-                        fragmentIons.Add(outputAnnotations[i * fragmentCount + j].ToString()!);
-                        fragmentMZs.Add(Convert.ToDouble(outputMZs[i * fragmentCount + j]));
-                        predictedIntensities.Add(intensity);
+                            fragmentIons.Add(outputAnnotations[i * fragmentCount + j].ToString()!);
+                            fragmentMZs.Add(Convert.ToDouble(outputMZs[i * fragmentCount + j]));
+                            predictedIntensities.Add(intensity);
+                        }
+                        predictions.Add(new PeptideFragmentIntensityPrediction(
+                            peptide.FullSequence,
+                            peptide.ValidatedFullSequence!,
+                            ModelInputs[batchIndex * MaxBatchSize + i].PrecursorCharge,
+                            fragmentIons,
+                            fragmentMZs,
+                            predictedIntensities
+                        ) with
+                        { Warning = batchPeptides[i].SequenceWarning });
                     }
-                    predictions.Add(new PeptideFragmentIntensityPrediction(
-                        peptideSequence!,
-                        ModelInputs[batchIndex * MaxBatchSize + i].PrecursorCharge,
-                        fragmentIons,
-                        fragmentMZs,
-                        predictedIntensities
-                    ) with
-                    { Warning = batchPeptides[i].SequenceWarning });
+                }
+                else // FragmentIonMappingMode == FragmentIonMappingMode.MapToInputFullSequence
+                {
+                    for (int i = 0; i < batchPeptides.Count; i++)
+                    {
+                        var peptide = batchPeptides[i];
+                        var pwsm = new PeptideWithSetModifications(peptide.FullSequence);
+                        List<Product> theoreticalProducts = new();
+                        pwsm.Fragment(MassSpectrometry.DissociationType.HCD, FragmentationTerminus.Both, theoreticalProducts);
+                        Dictionary<string, Product> tpLookup = theoreticalProducts.ToDictionary(tp => tp.Annotation);
+
+                        var fragmentIons = new List<string>();
+                        var fragmentMZs = new List<double>();
+                        var predictedIntensities = new List<double>();
+                        for (int j = 0; j < fragmentCount; j++)
+                        {
+                            double intensity = Convert.ToDouble(outputMZs[i * fragmentCount + j]);
+                            if (intensity == -1)
+                            {
+                                // Skip impossible ions as indicated by the model with an intensity of -1. This is a convention used by the models to indicate that a particular fragment ion cannot be formed from the given peptide sequence and fragmentation conditions.
+                                continue;
+                            }
+                            var fragmentIon = outputAnnotations[i * fragmentCount + j].ToString()!;
+                            int plusIndex = fragmentIon.IndexOf('+');
+                            int fragmentCharge = int.Parse(fragmentIon.Substring(plusIndex));
+                            fragmentIons.Add(fragmentIon);
+                            fragmentMZs.Add(tpLookup[fragmentIon.Substring(0, plusIndex)].ToMz(fragmentCharge));
+                            predictedIntensities.Add(intensity);
+                        }
+                        predictions.Add(new PeptideFragmentIntensityPrediction(
+                            peptide.FullSequence,
+                            peptide.ValidatedFullSequence!,
+                            ModelInputs[batchIndex * MaxBatchSize + i].PrecursorCharge,
+                            fragmentIons,
+                            fragmentMZs,
+                            predictedIntensities
+                        ) with
+                        { Warning = batchPeptides[i].SequenceWarning });
+                    }
                 }
             }
             return predictions;
@@ -429,7 +473,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// 5. Validates uniqueness of generated spectra by name
         /// </remarks>
         /// <exception cref="WarningException">Recorded in the out parameter when duplicate spectra are detected in predictions</exception>
-        public List<LibrarySpectrum> GenerateLibrarySpectraFromPredictions(double[] alignedRetentionTimes, out WarningException? warning, string? filepath=null, double minIntensityFilter=1e-4)
+        public List<LibrarySpectrum> GenerateLibrarySpectraFromPredictions(double?[] alignedRetentionTimes, out WarningException? warning, string? filepath=null, double minIntensityFilter=1e-4)
         {
             warning = null;
             if (Predictions.Count == 0)
@@ -441,61 +485,60 @@ namespace PredictionClients.Koina.AbstractClasses
             {
                 throw new ArgumentException("The number of predictions must match the number of aligned retention times.");
             }
+            List<PeptideFragmentIntensityPrediction> predictions = new();
+            List<double?> rts = new();
+
+            for (int i = 0; i < Predictions.Count; i++)
+            {
+                if (ValidInputsMask[i])
+                {
+                    predictions.Add(Predictions[i]);
+                    rts.Add(alignedRetentionTimes[i]);
+                }
+            }
 
             var predictedSpectra = new List<LibrarySpectrum>();
-            for (int predictionIndex = 0; predictionIndex < Predictions.Count; predictionIndex++)
+            for (int predictionIndex = 0; predictionIndex < predictions.Count; predictionIndex++)
             {
-                var prediction = Predictions[predictionIndex];
+                var prediction = predictions[predictionIndex];
 
-                var peptide = new Peptide(
-                    ConvertMzLibModificationsToMassesOnly(
-                        ConvertUnimodToMzLibModifications(prediction.FullSequence)
-                        )
-                    );
-
+                PeptideWithSetModifications peptide = FragmentIonMappingMode == FragmentIonMappingMode.MapToValidatedFullSequence 
+                    ? new PeptideWithSetModifications(prediction.ValidatedFullSequence) 
+                    : new PeptideWithSetModifications(prediction.FullSequence);
                 List<MatchedFragmentIon> fragmentIons = new();
-                for (int fragmentIndex = 0; fragmentIndex < prediction.FragmentAnnotations.Count; fragmentIndex++)
+
+                List<Product> theoreticalProducts = new();
+                peptide.Fragment(MassSpectrometry.DissociationType.HCD, FragmentationTerminus.Both, theoreticalProducts); // Generate theoretical fragments to get the m/z values for the input sequence
+                Dictionary<string, double> predictionAnnotationIntensityLookup = new();
+                Dictionary<string, Product> tpLookup = theoreticalProducts.ToDictionary(tp => tp.Annotation);
+
+                for (int i = 0; i < prediction.FragmentAnnotations.Count; i++)
                 {
-                    if ((int)prediction.FragmentIntensities[fragmentIndex] == -1 || prediction.FragmentIntensities[fragmentIndex] < minIntensityFilter)
+                    if (prediction.FragmentIntensities[i] == -1 || 
+                        prediction.FragmentIntensities[i] < minIntensityFilter ||
+                        prediction.FragmentAnnotations[i] == null ||
+                        !prediction.FragmentAnnotations[i].Contains("+"))
                     {
-                        // Skip impossible ions and peaks with near zero intensity. The model uses -1 to indicate impossible ions.
+                        // Skip impossible ions, peaks with near zero intensity, or misannotated fragments to be safe.
+                        // The model uses -1 to indicate impossible ions.
                         continue;
                     }
+                    predictionAnnotationIntensityLookup[prediction.FragmentAnnotations[i]] = prediction.FragmentIntensities[i];
+                }
 
-                    var annotation = prediction.FragmentAnnotations[fragmentIndex];
+                foreach (var pa in predictionAnnotationIntensityLookup.Keys)
+                {
+                    var productTypeAndCharge = pa.Split("+");
 
-                    // This check is to ensure that the annotation contains the expected format (e.g., "b5+1") before attempting to parse it.
-                    // The API WILL always contain it in the expected format, but this is a safeguard against any malformed annotations that could cause exceptions during parsing.
-                    if (annotation == null || !annotation.Contains('+'))
-                    {
-                        // Skip malformed annotations that do not contain expected ion type and charge information.
-                        continue;
-                    }
-
-                    // Parse the annotation to get ion type, number and charge from something like 'b5+1'
-                    var ionType = annotation.First().ToString(); // 'b' or 'y'
-                    var plusIndex = annotation.IndexOf('+');
-                    var fragmentNumber = int.Parse(annotation.Substring(1, plusIndex - 1));
-                    var fragmentIonCharge = int.Parse(annotation.Substring(plusIndex + 1));
-
+                    var tp = tpLookup[productTypeAndCharge[0]]; // Get theoretical product ("b5") from annotation like "b5+1"
+                    var charge = int.Parse(productTypeAndCharge[1]); // Get charge ("1") from annotation like "b5+1"
                     // Create a new MatchedFragmentIon for each output
                     var fragmentIon = new MatchedFragmentIon
                     (
-                        neutralTheoreticalProduct: new Product
-                        (
-                            productType: Enum.Parse<ProductType>(ionType),
-                            terminus: ionType == "b" ? FragmentationTerminus.N : FragmentationTerminus.C,
-                            // neutralMass is not directly provided by models, and it is not necessary here. If needed, 
-                            // compute it from the peptide sequence and fragment information as shown below.
-                            // neutralMass: peptide.Fragment(Enum.Parse<FragmentTypes>(ionType), fragmentNumber).First().MonoisotopicMass,
-                            neutralMass: 0.0, // Placeholder, not used in this context
-                            fragmentNumber: fragmentNumber,
-                            residuePosition: fragmentNumber, // For b / y ions, the fragment number corresponds to the residue count from the respective terminus.
-                            neutralLoss: 0 // Annotations like "b5+1" do not encode neutral losses, so we explicitly assume no loss as placeholder.
-                        ),
-                        experMz: prediction.FragmentMZs[fragmentIndex],
-                        experIntensity: prediction.FragmentIntensities[fragmentIndex],
-                        charge: fragmentIonCharge
+                        neutralTheoreticalProduct: tp,
+                        experMz: tp.ToMz(charge),
+                        experIntensity: predictionAnnotationIntensityLookup[pa],
+                        charge: charge
                     );
 
                     fragmentIons.Add(fragmentIon);
@@ -507,7 +550,7 @@ namespace PredictionClients.Koina.AbstractClasses
                     precursorMz: peptide.ToMz(prediction.PrecursorCharge),
                     chargeState: prediction.PrecursorCharge,
                     peaks: fragmentIons,
-                    rt: alignedRetentionTimes[predictionIndex]
+                    rt: rts[predictionIndex]
                 );
 
                 predictedSpectra.Add(spectrum);

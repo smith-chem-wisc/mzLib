@@ -72,16 +72,19 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
             };
         public override IncompatibleModHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
+        public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }
 
         public Prosit2020IntensityHCD(
             IncompatibleModHandlingMode modHandlingMode = IncompatibleModHandlingMode.RemoveIncompatibleMods, 
             IncompatibleParameterHandlingMode parameterHandlingMode = IncompatibleParameterHandlingMode.ReturnNull,
+            FragmentIonMappingMode fragmentIonMappingMode = FragmentIonMappingMode.MapToInputFullSequence,
             int maxNumberOfBatchesPerRequest = 250, 
             int throttlingDelayInMilliseconds = 100
             )
         {
             ModHandlingMode = modHandlingMode;
             ParameterHandlingMode = parameterHandlingMode;
+            FragmentIonMappingMode = fragmentIonMappingMode;
             MaxNumberOfBatchesPerRequest = maxNumberOfBatchesPerRequest;
             ThrottlingDelayInMilliseconds = throttlingDelayInMilliseconds;
         }
