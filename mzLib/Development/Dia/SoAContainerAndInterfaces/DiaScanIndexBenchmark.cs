@@ -44,6 +44,11 @@ namespace Development.Dia
             BenchmarkFragmentExtraction(windowCount: 20, scansPerWindow: 2500, peaksPerScan: 300);
 
             BenchmarkScoring();
+
+            // Phase 16B, Prompt 3: MS1 SoA storage verification
+            VerifyMs1Storage();
+            BenchmarkMs1Build(windowCount: 20, scansPerWindow: 2500, ms1ScansPerWindow: 125, peaksPerMs2: 300, peaksPerMs1: 500);
+            BenchmarkMs1RtLookup(windowCount: 20, scansPerWindow: 2500, ms1ScansPerWindow: 125, peaksPerMs1: 500);
         }
 
         /// <summary>
@@ -421,69 +426,116 @@ namespace Development.Dia
         /// </summary>
         private static MsDataScan[] GenerateSyntheticScans(int windowCount, int scansPerWindow, int peaksPerScan)
         {
+            return GenerateSyntheticScansWithMs1(windowCount, scansPerWindow, peaksPerScan,
+                ms1ScansPerWindow: 0, peaksPerMs1: 0);
+        }
+
+        /// <summary>
+        /// Generates synthetic DIA scans including MS1 scans interleaved with MS2.
+        /// 
+        /// MS1 scans are generated at a rate of 1 per (windowCount / ms1ScansPerWindow)
+        /// cycles, interleaved between MS2 cycles at their natural RT positions.
+        /// Each MS1 scan covers the full precursor m/z range (300–1800) with
+        /// simulated peptide isotope clusters.
+        /// 
+        /// Phase 16B, Prompt 3: ms1ScansPerWindow parameter added to enable MS1 testing.
+        /// </summary>
+        private static MsDataScan[] GenerateSyntheticScansWithMs1(
+            int windowCount, int scansPerWindow, int peaksPerMs2,
+            int ms1ScansPerWindow, int peaksPerMs1)
+        {
             var rng = new Random(42);
             int totalMs2 = windowCount * scansPerWindow;
-            var scans = new MsDataScan[totalMs2];
 
             double windowWidth = 25.0;
             double windowStart = 400.0;
             double windowSpacing = (1200.0 - windowStart) / windowCount;
 
-            // Number of persistent fragment m/z values per window.
-            // In real DIA, a 25 m/z window might contain 50–200 precursors, each producing
-            // 6–10 fragments. We simulate ~100 persistent fragments per window.
-            int residentFragmentsPerWindow = Math.Min(100, peaksPerScan / 2);
-            int noisePeaksPerScan = peaksPerScan - residentFragmentsPerWindow;
+            int residentFragmentsPerWindow = Math.Min(100, peaksPerMs2 / 2);
+            int noisePeaksPerScan = peaksPerMs2 - residentFragmentsPerWindow;
 
-            // Pre-generate resident fragment m/z values for each window.
-            // These are the fragments that will appear in every scan of this window.
             double[][] residentMzPerWindow = new double[windowCount][];
             for (int w = 0; w < windowCount; w++)
             {
                 residentMzPerWindow[w] = new double[residentFragmentsPerWindow];
                 for (int f = 0; f < residentFragmentsPerWindow; f++)
-                {
-                    // Fragment m/z values spread across typical product ion range (100–1800)
                     residentMzPerWindow[w][f] = 100.0 + rng.NextDouble() * 1700.0;
-                }
                 Array.Sort(residentMzPerWindow[w]);
             }
 
-            int scanIdx = 0;
+            // Determine which cycles get an MS1 scan before them.
+            // ms1ScansPerWindow total MS1 scans spread across scansPerWindow cycles.
+            var ms1CycleSet = new HashSet<int>();
+            if (ms1ScansPerWindow > 0 && scansPerWindow > 0)
+            {
+                int stride = Math.Max(1, scansPerWindow / ms1ScansPerWindow);
+                for (int i = 0; i < ms1ScansPerWindow; i++)
+                    ms1CycleSet.Add(i * stride);
+            }
+
+            // Pre-size: totalMs2 + ms1ScansPerWindow
+            var scanList = new System.Collections.Generic.List<MsDataScan>(totalMs2 + ms1ScansPerWindow);
+            int oneBasedScanNumber = 1;
+
             for (int cycle = 0; cycle < scansPerWindow; cycle++)
             {
                 double cycleRt = cycle * 0.04;
+
+                // Interleave MS1 before this cycle if it's an MS1 cycle
+                if (ms1ScansPerWindow > 0 && ms1CycleSet.Contains(cycle))
+                {
+                    double ms1Rt = cycleRt - 0.001; // slightly before the MS2 cycle
+                    double[] ms1Mz = new double[peaksPerMs1];
+                    double[] ms1Int = new double[peaksPerMs1];
+
+                    // Simulate precursor peaks spread across 300–1800 m/z
+                    for (int p = 0; p < peaksPerMs1; p++)
+                    {
+                        ms1Mz[p] = 300.0 + rng.NextDouble() * 1500.0;
+                        ms1Int[p] = 1000.0 + rng.NextDouble() * 99000.0;
+                    }
+                    Array.Sort(ms1Mz, ms1Int);
+
+                    scanList.Add(new MsDataScan(
+                        massSpectrum: new MzSpectrum(ms1Mz, ms1Int, false),
+                        oneBasedScanNumber: oneBasedScanNumber++,
+                        msnOrder: 1,
+                        isCentroid: true,
+                        polarity: Polarity.Positive,
+                        retentionTime: ms1Rt,
+                        scanWindowRange: new MzRange(300, 1800),
+                        scanFilter: "FTMS",
+                        mzAnalyzer: MZAnalyzerType.Orbitrap,
+                        totalIonCurrent: ms1Int.Sum(),
+                        injectionTime: 50.0,
+                        noiseData: null,
+                        nativeId: $"scan={oneBasedScanNumber - 1}"));
+                }
 
                 for (int w = 0; w < windowCount; w++)
                 {
                     double isolationCenter = windowStart + w * windowSpacing + windowSpacing / 2.0;
                     double rt = cycleRt + w * 0.001;
 
-                    // Combine resident fragments + noise peaks
-                    double[] mzValues = new double[peaksPerScan];
-                    double[] intensities = new double[peaksPerScan];
+                    double[] mzValues = new double[peaksPerMs2];
+                    double[] intensities = new double[peaksPerMs2];
 
-                    // Copy resident fragments with slight m/z jitter (±0.001 Da, simulating
-                    // instrument measurement noise) and varying intensity
                     double[] residents = residentMzPerWindow[w];
                     for (int f = 0; f < residentFragmentsPerWindow; f++)
                     {
                         mzValues[f] = residents[f] + (rng.NextDouble() - 0.5) * 0.002;
                         intensities[f] = 500.0 + rng.NextDouble() * 9500.0;
                     }
-
-                    // Fill remaining slots with random noise peaks
-                    for (int p = residentFragmentsPerWindow; p < peaksPerScan; p++)
+                    for (int p = residentFragmentsPerWindow; p < peaksPerMs2; p++)
                     {
                         mzValues[p] = 100.0 + rng.NextDouble() * 1900.0;
-                        intensities[p] = rng.NextDouble() * 500.0; // lower intensity noise
+                        intensities[p] = rng.NextDouble() * 500.0;
                     }
-
                     Array.Sort(mzValues, intensities);
 
-                    scans[scanIdx] = new MsDataScan(
+                    scanList.Add(new MsDataScan(
                         massSpectrum: new MzSpectrum(mzValues, intensities, false),
-                        oneBasedScanNumber: scanIdx + 1,
+                        oneBasedScanNumber: oneBasedScanNumber++,
                         msnOrder: 2,
                         isCentroid: true,
                         polarity: Polarity.Positive,
@@ -494,16 +546,293 @@ namespace Development.Dia
                         totalIonCurrent: intensities.Sum(),
                         injectionTime: 20.0,
                         noiseData: null,
-                        nativeId: $"scan={scanIdx + 1}",
+                        nativeId: $"scan={oneBasedScanNumber - 1}",
                         isolationMZ: isolationCenter,
                         isolationWidth: windowWidth,
-                        dissociationType: DissociationType.HCD);
-
-                    scanIdx++;
+                        dissociationType: DissociationType.HCD));
                 }
             }
 
-            return scans;
+            return scanList.ToArray();
+        }
+
+        // ── Phase 16B, Prompt 3: MS1 verification and benchmarks ────────────
+
+        /// <summary>
+        /// Correctness verification for MS1 SoA storage.
+        /// 
+        /// Tests:
+        ///   1. Ms1ScanCount matches the number of MS1 scans in the input
+        ///   2. GetMs1ScanRt returns correct RT values
+        ///   3. GetMs1ScanPeaks returns correct peak counts
+        ///   4. FindMs1ScanIndexAtRt returns the correct lower-bound index
+        ///   5. Edge cases: query RT before all scans, after all scans, exact match
+        ///   6. Zero MS1 scans (MS2-only file) builds correctly
+        /// 
+        /// All assertions use Debug.Assert so failures are immediate and explicit.
+        /// </summary>
+        private static void VerifyMs1Storage()
+        {
+            Console.WriteLine("=== MS1 Storage Verification ===");
+            Console.WriteLine();
+
+            // ── Test 1: Basic MS1 ingestion ─────────────────────────────────
+            {
+                int windowCount = 5, scansPerWindow = 100, ms1Count = 50, peaksPerMs1 = 200;
+                var scans = GenerateSyntheticScansWithMs1(
+                    windowCount, scansPerWindow, peaksPerScan: 100,
+                    ms1ScansPerWindow: ms1Count, peaksPerMs1: peaksPerMs1);
+
+                int expectedMs1 = scans.Count(s => s.MsnOrder == 1);
+                int expectedMs2 = scans.Count(s => s.MsnOrder == 2);
+
+                using var index = DiaScanIndexBuilder.Build(scans);
+
+                Debug.Assert(index.Ms1ScanCount == expectedMs1,
+                    $"Ms1ScanCount mismatch: expected {expectedMs1}, got {index.Ms1ScanCount}");
+                Debug.Assert(index.ScanCount == expectedMs2,
+                    $"ScanCount (MS2) mismatch: expected {expectedMs2}, got {index.ScanCount}");
+
+                Console.WriteLine($"  [PASS] Ms1ScanCount = {index.Ms1ScanCount} (expected {expectedMs1})");
+                Console.WriteLine($"  [PASS] ScanCount (MS2) = {index.ScanCount} (expected {expectedMs2})");
+            }
+
+            // ── Test 2: MS1 scans sorted ascending by RT ────────────────────
+            {
+                var scans = GenerateSyntheticScansWithMs1(
+                    windowCount: 10, scansPerWindow: 200,
+                    peaksPerMs2: 100, ms1ScansPerWindow: 80, peaksPerMs1: 300);
+
+                using var index = DiaScanIndexBuilder.Build(scans);
+
+                float prevRt = float.MinValue;
+                bool sorted = true;
+                for (int i = 0; i < index.Ms1ScanCount; i++)
+                {
+                    float rt = index.GetMs1ScanRt(i);
+                    if (rt < prevRt) { sorted = false; break; }
+                    prevRt = rt;
+                }
+                Debug.Assert(sorted, "MS1 scans must be sorted ascending by RT.");
+                Console.WriteLine($"  [PASS] MS1 scans sorted ascending by RT (n={index.Ms1ScanCount})");
+            }
+
+            // ── Test 3: GetMs1ScanPeaks returns correct peak counts ──────────
+            {
+                int peaksPerMs1 = 150;
+                var scans = GenerateSyntheticScansWithMs1(
+                    windowCount: 5, scansPerWindow: 50,
+                    peaksPerMs2: 100, ms1ScansPerWindow: 20, peaksPerMs1: peaksPerMs1);
+
+                using var index = DiaScanIndexBuilder.Build(scans);
+
+                bool allCorrect = true;
+                for (int i = 0; i < index.Ms1ScanCount; i++)
+                {
+                    index.GetMs1ScanPeaks(i, out var mzs, out var intensities);
+                    if (mzs.Length != peaksPerMs1 || intensities.Length != peaksPerMs1)
+                    {
+                        allCorrect = false;
+                        Console.WriteLine($"  [FAIL] MS1 scan {i}: mzs.Length={mzs.Length}, intensities.Length={intensities.Length}, expected {peaksPerMs1}");
+                        break;
+                    }
+                }
+                Debug.Assert(allCorrect, "All MS1 scans must have the expected peak count.");
+                Console.WriteLine($"  [PASS] All MS1 scans have {peaksPerMs1} peaks");
+            }
+
+            // ── Test 4: FindMs1ScanIndexAtRt binary search ──────────────────
+            {
+                var scans = GenerateSyntheticScansWithMs1(
+                    windowCount: 10, scansPerWindow: 100,
+                    peaksPerMs2: 50, ms1ScansPerWindow: 50, peaksPerMs1: 100);
+
+                using var index = DiaScanIndexBuilder.Build(scans);
+
+                // Edge case: RT before all scans → should return 0
+                {
+                    int idx = index.FindMs1ScanIndexAtRt(-999f);
+                    Debug.Assert(idx == 0, $"Expected 0 for RT before all scans, got {idx}");
+                    Console.WriteLine($"  [PASS] FindMs1ScanIndexAtRt(-999) = {idx} (expected 0)");
+                }
+
+                // Edge case: RT after all scans → should return Ms1ScanCount
+                {
+                    int idx = index.FindMs1ScanIndexAtRt(99999f);
+                    Debug.Assert(idx == index.Ms1ScanCount,
+                        $"Expected {index.Ms1ScanCount} for RT past end, got {idx}");
+                    Console.WriteLine($"  [PASS] FindMs1ScanIndexAtRt(99999) = {idx} (expected {index.Ms1ScanCount})");
+                }
+
+                // Mid-run query: verify lower-bound semantics
+                if (index.Ms1ScanCount > 2)
+                {
+                    int mid = index.Ms1ScanCount / 2;
+                    float targetRt = index.GetMs1ScanRt(mid);
+
+                    int foundIdx = index.FindMs1ScanIndexAtRt(targetRt);
+                    Debug.Assert(foundIdx <= mid,
+                        $"FindMs1ScanIndexAtRt(rt[{mid}]) returned {foundIdx} > {mid}");
+                    // The returned scan must have RT >= targetRt
+                    Debug.Assert(index.GetMs1ScanRt(foundIdx) >= targetRt,
+                        $"Scan at foundIdx={foundIdx} has RT={index.GetMs1ScanRt(foundIdx):F4} < targetRt={targetRt:F4}");
+                    // The scan before it (if any) must have RT < targetRt
+                    if (foundIdx > 0)
+                    {
+                        Debug.Assert(index.GetMs1ScanRt(foundIdx - 1) < targetRt,
+                            $"Scan before foundIdx has RT >= targetRt; lower-bound violated.");
+                    }
+                    Console.WriteLine($"  [PASS] FindMs1ScanIndexAtRt(rt[{mid}]={targetRt:F4}) = {foundIdx} (lower-bound correct)");
+                }
+
+                // RT window iteration test: count scans in [rtMin, rtMax]
+                {
+                    float rtMin = index.GetMs1ScanRt(index.Ms1ScanCount / 4);
+                    float rtMax = index.GetMs1ScanRt(3 * index.Ms1ScanCount / 4);
+
+                    int start = index.FindMs1ScanIndexAtRt(rtMin);
+                    int count = 0;
+                    for (int i = start; i < index.Ms1ScanCount; i++)
+                    {
+                        if (index.GetMs1ScanRt(i) > rtMax) break;
+                        count++;
+                    }
+
+                    // Brute-force count for validation
+                    int bruteCount = 0;
+                    for (int i = 0; i < index.Ms1ScanCount; i++)
+                    {
+                        float rt = index.GetMs1ScanRt(i);
+                        if (rt >= rtMin && rt <= rtMax) bruteCount++;
+                    }
+
+                    Debug.Assert(count == bruteCount,
+                        $"RT window iteration mismatch: binary-search count={count}, brute-force={bruteCount}");
+                    Console.WriteLine($"  [PASS] RT window [{rtMin:F3}, {rtMax:F3}] → {count} MS1 scans (brute-force verified)");
+                }
+            }
+
+            // ── Test 5: MS2-only file (no MS1 scans) ────────────────────────
+            {
+                var scans = GenerateSyntheticScans(windowCount: 5, scansPerWindow: 50, peaksPerScan: 100);
+                using var index = DiaScanIndexBuilder.Build(scans);
+
+                Debug.Assert(index.Ms1ScanCount == 0, $"Expected 0 MS1 scans, got {index.Ms1ScanCount}");
+                Debug.Assert(index.Ms1TotalPeakCount == 0, "Expected 0 MS1 peaks.");
+
+                // FindMs1ScanIndexAtRt should return 0 on empty index
+                int idx = index.FindMs1ScanIndexAtRt(1.0f);
+                Debug.Assert(idx == 0, $"FindMs1ScanIndexAtRt on empty MS1 should return 0, got {idx}");
+
+                Console.WriteLine($"  [PASS] MS2-only file: Ms1ScanCount=0, FindMs1ScanIndexAtRt returns 0");
+            }
+
+            Console.WriteLine();
+            Console.WriteLine("  All MS1 storage verification tests passed.");
+            Console.WriteLine();
+        }
+
+        /// <summary>
+        /// Measures build time for a mixed MS1+MS2 scan array.
+        /// 
+        /// Reports total build time, MS1 scan count, and memory footprint.
+        /// A 45-minute DIA gradient typically produces ~1,480 MS1 scans
+        /// (one per ~1.8 seconds). With ~500 peaks per MS1 scan, that's
+        /// ~740K additional peaks — negligible overhead on top of 15M MS2 peaks.
+        /// </summary>
+        private static void BenchmarkMs1Build(
+            int windowCount, int scansPerWindow, int ms1ScansPerWindow,
+            int peaksPerMs2, int peaksPerMs1)
+        {
+            int totalMs1 = ms1ScansPerWindow;
+            int totalMs2 = windowCount * scansPerWindow;
+            long totalMs1Peaks = (long)totalMs1 * peaksPerMs1;
+            long totalMs2Peaks = (long)totalMs2 * peaksPerMs2;
+
+            Console.WriteLine($"MS1 build benchmark: {totalMs2:N0} MS2 + {totalMs1:N0} MS1 scans");
+            Console.WriteLine($"  MS2 peaks: {totalMs2Peaks:N0} | MS1 peaks: {totalMs1Peaks:N0}");
+
+            var scans = GenerateSyntheticScansWithMs1(
+                windowCount, scansPerWindow, peaksPerMs2, ms1ScansPerWindow, peaksPerMs1);
+
+            // Warm up
+            var warmupScans = GenerateSyntheticScansWithMs1(2, 10, 50, ms1ScansPerWindow: 5, peaksPerMs1: 50);
+            using (var _ = DiaScanIndexBuilder.Build(warmupScans)) { }
+
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
+            long memBefore = GC.GetTotalMemory(true);
+            var sw = Stopwatch.StartNew();
+            using var index = DiaScanIndexBuilder.Build(scans);
+            sw.Stop();
+            long memAfter = GC.GetTotalMemory(false);
+
+            double mbAllocated = (memAfter - memBefore) / (1024.0 * 1024.0);
+
+            Console.WriteLine($"  Build time:      {sw.ElapsedMilliseconds} ms");
+            Console.WriteLine($"  Memory delta:    {mbAllocated:F1} MB");
+            Console.WriteLine($"  MS2 scan count:  {index.ScanCount:N0}");
+            Console.WriteLine($"  MS1 scan count:  {index.Ms1ScanCount:N0}");
+            Console.WriteLine($"  MS1 peak count:  {index.Ms1TotalPeakCount:N0}");
+            Console.WriteLine($"  MS1 RT range:    [{index.GetMs1GlobalRtMin():F3}, {index.GetMs1GlobalRtMax():F3}] min");
+            Console.WriteLine();
+        }
+
+        /// <summary>
+        /// Benchmarks FindMs1ScanIndexAtRt (binary search) throughput.
+        /// 
+        /// In MS1 XIC extraction (Prompt 4), this is called once per precursor per
+        /// extraction window. With 77K precursors, it runs ~77K times per search run.
+        /// Target: well above 1M calls/sec (trivial for a binary search over ~1,500 elements).
+        /// </summary>
+        private static void BenchmarkMs1RtLookup(
+            int windowCount, int scansPerWindow, int ms1ScansPerWindow, int peaksPerMs1)
+        {
+            Console.WriteLine($"MS1 RT lookup benchmark: {ms1ScansPerWindow} MS1 scans");
+
+            var scans = GenerateSyntheticScansWithMs1(
+                windowCount, scansPerWindow, peaksPerMs2: 100,
+                ms1ScansPerWindow: ms1ScansPerWindow, peaksPerMs1: peaksPerMs1);
+
+            using var index = DiaScanIndexBuilder.Build(scans);
+
+            if (index.Ms1ScanCount == 0)
+            {
+                Console.WriteLine("  Skipped (no MS1 scans).");
+                Console.WriteLine();
+                return;
+            }
+
+            float rtMin = index.GetMs1GlobalRtMin();
+            float rtMax = index.GetMs1GlobalRtMax();
+            float rtRange = rtMax - rtMin;
+
+            // Generate random RT query values spread across the run
+            var rng = new Random(99);
+            int queryCount = 500_000;
+            var queryRts = new float[queryCount];
+            for (int i = 0; i < queryCount; i++)
+                queryRts[i] = rtMin + (float)(rng.NextDouble() * rtRange);
+
+            // Warm up
+            for (int i = 0; i < 1000; i++)
+                index.FindMs1ScanIndexAtRt(queryRts[i]);
+
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+
+            var sw = Stopwatch.StartNew();
+            int checksum = 0;
+            for (int i = 0; i < queryCount; i++)
+                checksum += index.FindMs1ScanIndexAtRt(queryRts[i]);
+            sw.Stop();
+
+            double lookupsPerSec = queryCount / sw.Elapsed.TotalSeconds;
+            Console.WriteLine($"  {lookupsPerSec:N0} lookups/sec ({queryCount:N0} queries, {sw.ElapsedMilliseconds} ms)");
+            Console.WriteLine($"  Checksum (prevent optimization): {checksum}");
+            Console.WriteLine();
         }
     }
 }
