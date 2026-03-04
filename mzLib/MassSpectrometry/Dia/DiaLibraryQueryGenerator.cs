@@ -4,6 +4,7 @@
 using System;
 using System.Buffers;
 using System.Collections.Generic;
+using MassSpectrometry.Dia.Calibration;
 
 namespace MassSpectrometry.Dia
 {
@@ -369,6 +370,168 @@ namespace MassSpectrometry.Dia
             return new GenerationResult(queries, groups.ToArray(), skippedNoWindow, skippedNoFragments);
         }
 
+        // ════════════════════════════════════════════════════════════════
+        //  Phase 15, Prompt 4: RT-Adaptive Window Widths
+        // ════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Generates extraction queries using a calibration model with RT-adaptive window widths.
+        /// Each precursor's RT window is sized based on the local calibration σ at that precursor's
+        /// predicted RT, rather than using a single global σ.
+        ///
+        /// For linear models: GetLocalSigma returns the global σ, so this behaves identically
+        /// to GenerateCalibrated with a uniform window.
+        /// For piecewise/LOWESS models: GetLocalSigma varies by RT region, producing tighter
+        /// windows where calibration is better (dense anchor regions) and wider windows where
+        /// calibration is uncertain (gradient edges with fewer anchors).
+        ///
+        /// Applies a minimum window half-width of minWindowHalfWidthMinutes to prevent
+        /// excessively tight windows that could miss valid peptides due to local calibration
+        /// artifacts or small-number statistics in per-segment σ.
+        ///
+        /// Uses the same two-pass (count, then fill) pattern as Generate and GenerateCalibrated.
+        /// </summary>
+        /// <param name="precursors">Library precursor inputs.</param>
+        /// <param name="scanIndex">The DIA scan index.</param>
+        /// <param name="parameters">Search parameters (PpmTolerance, RtToleranceMinutes fallback).</param>
+        /// <param name="calibration">
+        /// The sealed RtCalibrationModel used for RT prediction. For local σ, the method
+        /// uses the detailedModel parameter.
+        /// </param>
+        /// <param name="detailedModel">
+        /// The IRtCalibrationModel that provides GetLocalSigma(). If null, falls back to
+        /// a uniform window using calibration.SigmaMinutes.
+        /// </param>
+        /// <param name="sigmaMultiplier">
+        /// Window = predicted ± max(sigmaMultiplier × localSigma, minWindowHalfWidthMinutes).
+        /// Default 3.0.
+        /// </param>
+        /// <param name="minWindowHalfWidthMinutes">
+        /// Minimum window half-width in minutes. Prevents excessively narrow windows
+        /// in regions with very low local σ. Default 0.3 min.
+        /// </param>
+        /// <returns>GenerationResult with per-precursor RT-adaptive windows.</returns>
+        public static GenerationResult GenerateCalibratedAdaptive(
+            IList<LibraryPrecursorInput> precursors,
+            DiaScanIndex scanIndex,
+            DiaSearchParameters parameters,
+            RtCalibrationModel calibration,
+            IRtCalibrationModel detailedModel = null,
+            double sigmaMultiplier = 3.0,
+            double minWindowHalfWidthMinutes = 0.3)
+        {
+            if (precursors == null) throw new ArgumentNullException(nameof(precursors));
+            if (scanIndex == null) throw new ArgumentNullException(nameof(scanIndex));
+            if (parameters == null) throw new ArgumentNullException(nameof(parameters));
+            if (calibration == null) throw new ArgumentNullException(nameof(calibration));
+
+            float ppmTolerance = parameters.PpmTolerance;
+
+            // Fallback RT bounds for precursors with no RT info at all
+            float globalRtMin = scanIndex.GetGlobalRtMin();
+            float globalRtMax = scanIndex.GetGlobalRtMax();
+
+            // Precompute uniform fallback half-width (used when detailedModel is null
+            // or for precursors with no RT info)
+            double uniformHalfWidth = Math.Max(
+                calibration.SigmaMinutes * sigmaMultiplier,
+                minWindowHalfWidthMinutes);
+
+            // First pass: count
+            int totalQueryCount = 0;
+            int skippedNoWindow = 0;
+            int skippedNoFragments = 0;
+
+            for (int i = 0; i < precursors.Count; i++)
+            {
+                var p = precursors[i];
+                int windowId = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
+                if (windowId < 0) { skippedNoWindow++; continue; }
+                if (p.FragmentCount == 0) { skippedNoFragments++; continue; }
+                totalQueryCount += p.FragmentCount;
+            }
+
+            // Allocate
+            var queries = new FragmentQuery[totalQueryCount];
+            var groups = new List<PrecursorQueryGroup>(
+                precursors.Count - skippedNoWindow - skippedNoFragments);
+
+            // Second pass: fill with RT-adaptive windows
+            int queryIndex = 0;
+            for (int i = 0; i < precursors.Count; i++)
+            {
+                var p = precursors[i];
+                int windowId = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
+                if (windowId < 0 || p.FragmentCount == 0)
+                    continue;
+
+                float rtMin, rtMax;
+
+                // Resolve the library RT source (iRT preferred, then library RT)
+                double? libraryRtSource = p.IrtValue.HasValue ? p.IrtValue : p.RetentionTime;
+
+                if (libraryRtSource.HasValue)
+                {
+                    double libRt = libraryRtSource.Value;
+
+                    // Predict observed RT using the calibration model
+                    float predictedRt = (float)calibration.ToMinutes(libRt);
+
+                    // Compute local σ: use the detailed model if available, otherwise global σ
+                    double localSigma;
+                    if (detailedModel != null)
+                    {
+                        localSigma = detailedModel.GetLocalSigma(libRt);
+                        // Sanity: if local σ is NaN or non-positive, fall back to global
+                        if (double.IsNaN(localSigma) || localSigma <= 0)
+                            localSigma = calibration.SigmaMinutes;
+                    }
+                    else
+                    {
+                        localSigma = calibration.SigmaMinutes;
+                    }
+
+                    // Window half-width: max(sigmaMultiplier × localSigma, minimum floor)
+                    double halfWidth = Math.Max(sigmaMultiplier * localSigma, minWindowHalfWidthMinutes);
+
+                    rtMin = (float)(predictedRt - halfWidth);
+                    rtMax = (float)(predictedRt + halfWidth);
+                }
+                else
+                {
+                    // No RT information at all — use the full run range
+                    rtMin = globalRtMin;
+                    rtMax = globalRtMax;
+                }
+
+                int groupOffset = queryIndex;
+
+                for (int f = 0; f < p.FragmentCount; f++)
+                {
+                    queries[queryIndex] = new FragmentQuery(
+                        targetMz: p.FragmentMzs[f],
+                        tolerancePpm: ppmTolerance,
+                        rtMin: rtMin,
+                        rtMax: rtMax,
+                        windowId: windowId,
+                        queryId: queryIndex
+                    );
+                    queryIndex++;
+                }
+
+                groups.Add(new PrecursorQueryGroup(
+                    inputIndex: i,
+                    queryOffset: groupOffset,
+                    queryCount: p.FragmentCount,
+                    windowId: windowId,
+                    rtMin: rtMin,
+                    rtMax: rtMax
+                ));
+            }
+
+            return new GenerationResult(queries, groups.ToArray(), skippedNoWindow, skippedNoFragments);
+        }
+
         /// <summary>
         /// Original result assembly using summed intensities and IScorer interface.
         /// Retained for backward compatibility and benchmarking.
@@ -571,6 +734,8 @@ namespace MassSpectrometry.Dia
                     PeakGroup peakGroup = DiaPeakGroupDetector.Detect(
                         matrix, refRts, libIntensities, fragmentCount, timePointCount);
 
+                    result.DetectedPeakGroup = peakGroup;
+
                     // ── Full-window scoring (backward compatibility) ────────
                     // Apex: find time point with maximum total signal
                     int fullApexIdx = 0;
@@ -593,6 +758,7 @@ namespace MassSpectrometry.Dia
                         0, timePointCount - 1, minActiveFragments: 3,
                         out float fullTemporalScore, out int fullTimePointsUsed);
                     result.TemporalScore = fullTemporalScore;
+                    result.TimePointsUsed = fullTimePointsUsed;
 
                     // Set primary DotProductScore
                     result.DotProductScore = result.TemporalScore;
@@ -633,6 +799,7 @@ namespace MassSpectrometry.Dia
                     //  Computed from the existing matrix — no extra file reads.
                     // ══════════════════════════════════════════════════════════
                     int apexLocalIdx = peakGroup.IsValid ? peakGroup.ApexIndex : fullApexIdx;
+                    result.ObservedApexRt = refRts[apexLocalIdx];
 
                     // ── Count detected fragments (≥1 nonzero across all scans) ──
                     int detectedFragmentCount = 0;
