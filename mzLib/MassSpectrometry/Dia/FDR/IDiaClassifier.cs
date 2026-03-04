@@ -44,6 +44,14 @@ namespace MassSpectrometry.Dia
         LinearDiscriminant,
 
         /// <summary>Gradient-Boosted Trees (Phase 14 — non-linear, captures feature interactions)</summary>
-        GradientBoostedTree
+        GradientBoostedTree,
+        
+        /// <summary>
+        /// Represents a neural network model used for machine learning tasks.
+        /// </summary>
+        /// <remarks>PHase 16c, Prompt 10. This class provides methods for training the neural network, making predictions, and
+        /// evaluating performance. It supports various architectures and can be configured with different
+        /// hyperparameters to optimize learning.</remarks>
+        NeuralNetwork
     }
 }

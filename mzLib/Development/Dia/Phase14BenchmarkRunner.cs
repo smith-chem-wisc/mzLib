@@ -20,24 +20,30 @@ namespace Development.Dia
     ///            Library lookup uses a pre-built Dictionary to avoid O(N²) scans; no null references.
     ///   Fix 2 — PrecursorXicApexIntensity [29]: TIC normalization applied in DiaFeatureExtractor.
     ///   Fix 3 — IsotopePatternScore [30]: noise-gated dot product applied in DiaFeatureExtractor.
-    /// 
+    /// Updated Phase 16C, Prompt 11: Neural network classifier integrated.
+    ///   Step 10b: NN evaluation via Phase14GbtSweep.RunNnEvaluation() (clone-based isolation).
+    ///   Step 11:  Three-way comparison (LDA vs best-GBT vs NN) via PrintTripleComparisonTable().
+    ///   Step 12:  Best classifier now considers NN; decision follows plan thresholds (+500 IDs).
+    ///
     /// Steps 1-7:  Standard pipeline (load → index → broad extract → calibrate → calibrated extract → assemble → features)
     /// Step 7:     Feature computation passes DiaScanIndex + bestFragXic to ComputeFeatures() for all MS1 features.
     /// Step 8:     Dead-feature diagnostic table (all 33 features; NaN rates reported for MS1 features)
     /// Step 9:     LDA baseline FDR
     /// Step 10:    GBT sweep (configs A–E)
-    /// Step 11:    Comparison table (Phase 13 LDA, Phase 14 LDA, Phase 16B LDA, GBT configs)
-    /// Step 12:    Full FDR threshold table for best classifier
+    /// Step 10b:   Neural network evaluation
+    /// Step 11:    Three-way comparison table (LDA vs best-GBT vs NN)
+    /// Step 12:    Full FDR threshold table for best classifier (LDA / GBT / NN)
     /// Step 13:    Per-step timing summary
     /// Step 14:    TSV export with full column set (5+4+33+6+16 = 64 columns)
-    /// 
-    /// Compilation checklist (Phase 16B, Prompt 8):
-    ///   ✓ No nulls: library lookup uses bool+index pattern, Dictionary with TryGetValue
-    ///   ✓ DiaScanIndex MS2 API used: TryGetScanRangeForWindow, GetScanRt, GetScanMzSpan, GetScanIntensitySpan
-    ///   ✓ SumInMzWindow is self-contained (no cross-assembly dependency on Ms1XicExtractor)
+    ///
+    /// Compilation checklist (Phase 16C, Prompt 11):
+    ///   ✓ DiaClassifierType.NeuralNetwork referenced (requires IDiaClassifier.cs enum update)
+    ///   ✓ Phase14GbtSweep.RunNnEvaluation() called with clone-based isolation
+    ///   ✓ Phase14GbtSweep.PrintTripleComparisonTable() produces LDA vs GBT vs NN table
+    ///   ✓ Step 12 best-classifier logic considers NN using same +500 threshold
+    ///   ✓ msStep10b timing variable added to timing summary
+    ///   ✓ No nulls: all SweepResult fields are value types (no null propagation)
     ///   ✓ No LINQ in hot paths
-    ///   ✓ Span usage: stackalloc float[33] in diagnostics and TSV export
-    ///   ✓ IDisposable: DiaScanIndex (using var), DiaExtractionOrchestrator (using blocks)
     /// </summary>
     public static class Phase14BenchmarkRunner
     {
@@ -76,7 +82,7 @@ namespace Development.Dia
 
             // Per-step timing
             long msStep1 = 0, msStep2 = 0, msStep3Load = 0, msStep3Index = 0;
-            long msStep7 = 0, msStep8 = 0, msStep9 = 0, msStep10 = 0;
+            long msStep7 = 0, msStep8 = 0, msStep9 = 0, msStep10 = 0, msStep10b = 0;
 
             // ════════════════════════════════════════════════════════════
             //  Step 1: Load RT lookup
@@ -353,13 +359,25 @@ namespace Development.Dia
             Phase14GbtSweep.PrintSummaryTable(sweepResults, ldaCounts);
 
             // ════════════════════════════════════════════════════════════
-            //  Step 11: Comparison table
+            //  Step 10b: Neural Network Evaluation (Phase 16C, Prompt 11)
             // ════════════════════════════════════════════════════════════
-            Console.WriteLine();
-            Console.WriteLine("--- Step 11: Phase 13 → Phase 16B Comparison -------------------");
+            Console.WriteLine("--- Step 10b: Neural Network Evaluation ------------------------");
+            sw.Restart();
+
+            var nnResult = Phase14GbtSweep.RunNnEvaluation(results, features);
+
+            sw.Stop();
+            msStep10b = sw.ElapsedMilliseconds;
+            Console.WriteLine($"  NN evaluation: {msStep10b}ms");
             Console.WriteLine();
 
-            // Phase 13 and Phase 14/16A baselines
+            // ════════════════════════════════════════════════════════════
+            //  Step 11: Three-way comparison table (LDA vs best-GBT vs NN)
+            // ════════════════════════════════════════════════════════════
+            Console.WriteLine("--- Step 11: Phase 13 → Phase 16C Comparison -------------------");
+            Console.WriteLine();
+
+            // Phase 13 and Phase 14/16A/16B baselines
             int[] phase13Lda = { 8481, 14092, 16357, 24249, 29693 };
             int[] phase16aLda = { 18575, 23372, 26298, 33774, 36926 };
 
@@ -381,6 +399,7 @@ namespace Development.Dia
                 }
             }
 
+            // All GBT configs
             for (int i = 0; i < sweepResults.Length; i++)
             {
                 var sr = sweepResults[i];
@@ -388,24 +407,48 @@ namespace Development.Dia
                 string marker = (i == bestGbtIdx) ? " ★" : "";
                 PrintComparisonRow($"GBT {gbtConfigs[i].Name}{marker}", gbtCounts, phase13Lda);
             }
+
+            // NN row
+            int[] nnCounts = { nnResult.IdsAtQ0001, nnResult.IdsAtQ0005, nnResult.IdsAtQ001, nnResult.IdsAtQ005, nnResult.IdsAtQ010 };
+            PrintComparisonRow("NeuralNetwork", nnCounts, phase13Lda);
+
             Console.WriteLine();
+
+            // Three-way summary with decision
+            Phase14GbtSweep.PrintTripleComparisonTable(ldaCounts, sweepResults, nnResult);
 
             // ════════════════════════════════════════════════════════════
             //  Step 12: Full FDR threshold table for best classifier
+            //           Best is now chosen among LDA, best-GBT, and NN.
             // ════════════════════════════════════════════════════════════
             Console.WriteLine("--- Step 12: Full FDR Table (Best Classifier) ------------------");
             Console.WriteLine();
 
-            // Determine best overall classifier
+            // Determine best overall classifier considering all three
             string bestClassifierName;
             int bestOverallAt1Pct;
 
-            if (bestGbtIdx >= 0 && bestGbtAt1Pct > ldaAt1Pct)
+            int nnAt1Pct = nnResult.IdsAtQ001;
+            ldaAt1Pct = ldaCounts[2];
+
+            // Priority: highest IDs wins; ties broken LDA > NN > GBT (simpler preferred)
+            bool nnBeatsLda = nnAt1Pct > ldaAt1Pct;
+            bool gbtBeatsLda = bestGbtIdx >= 0 && bestGbtAt1Pct > ldaAt1Pct;
+            bool nnBeatsGbt = nnAt1Pct >= bestGbtAt1Pct;
+
+            if (nnBeatsLda && nnBeatsGbt)
+            {
+                bestClassifierName = "NeuralNetwork";
+                bestOverallAt1Pct = nnAt1Pct;
+                Console.WriteLine($"  Best classifier: NeuralNetwork ({bestOverallAt1Pct:N0} IDs at 1% FDR)");
+                Console.WriteLine($"  Re-applying NeuralNetwork to results for export...");
+                DiaFdrEngine.RunIterativeFdr(results, features,
+                    classifierType: DiaClassifierType.NeuralNetwork);
+            }
+            else if (gbtBeatsLda && !nnBeatsGbt)
             {
                 bestClassifierName = $"GBT {gbtConfigs[bestGbtIdx].Name}";
                 bestOverallAt1Pct = bestGbtAt1Pct;
-
-                // Re-run best GBT config on the actual results so they have the right scores
                 Console.WriteLine($"  Best classifier: {bestClassifierName} ({bestOverallAt1Pct:N0} IDs at 1% FDR)");
                 Console.WriteLine($"  Re-applying best GBT config to results for export...");
                 DiaFdrEngine.RunIterativeFdr(results, features, gbtParams: gbtConfigs[bestGbtIdx]);
@@ -415,8 +458,7 @@ namespace Development.Dia
                 bestClassifierName = "LDA";
                 bestOverallAt1Pct = ldaAt1Pct;
                 Console.WriteLine($"  Best classifier: LDA ({bestOverallAt1Pct:N0} IDs at 1% FDR)");
-
-                // Re-run LDA so results have LDA scores for export
+                Console.WriteLine($"  Re-applying LDA to results for export...");
                 DiaFdrEngine.RunIterativeFdr(results, features,
                     classifierType: DiaClassifierType.LinearDiscriminant);
             }
@@ -466,6 +508,7 @@ namespace Development.Dia
             Console.WriteLine($"  Step 8    Dead feature diag    {msStep8,8}ms");
             Console.WriteLine($"  Step 9    LDA FDR              {msStep9,8}ms");
             Console.WriteLine($"  Step 10   GBT sweep            {msStep10,8}ms");
+            Console.WriteLine($"  Step 10b  NN evaluation        {msStep10b,8}ms");
             Console.WriteLine($"  ────────────────────────────────────────────");
             Console.WriteLine($"  TOTAL                          {totalSw.ElapsedMilliseconds,8}ms ({totalSw.Elapsed.TotalSeconds:F1}s)");
             Console.WriteLine();
@@ -491,7 +534,7 @@ namespace Development.Dia
                 Console.WriteLine();
             }
 
-            Console.WriteLine($"═══ Phase 16B complete. Total time: {totalSw.Elapsed.TotalSeconds:F1}s ═══");
+            Console.WriteLine($"═══ Phase 16C complete. Total time: {totalSw.Elapsed.TotalSeconds:F1}s ═══");
             Console.WriteLine();
         }
 

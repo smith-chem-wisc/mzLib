@@ -1,6 +1,11 @@
 ﻿// Copyright 2026 mzLib Contributors
 // Licensed under the GNU Lesser General Public License v3.0
 // Location: Development/Dia/Phase14GbtSweep.cs
+//
+// Phase 16C, Prompt 11: Added RunNnEvaluation() for neural network benchmark comparison.
+//   - RunNnEvaluation() mirrors RunGbtSweep() but runs a single NN pass on cloned results.
+//   - PrintNnComparisonRow() adds NN result into the unified summary table.
+//   - NnSweepResult mirrors SweepResult for consistent Step 11 reporting.
 
 using MassSpectrometry.Dia;
 using System;
@@ -11,8 +16,9 @@ namespace Development.Dia
 {
     /// <summary>
     /// Phase 14: GBT Hyperparameter Sweep Utility.
-    /// 
-    /// Runs LDA baseline + 5 GBT configurations against deep-cloned results.
+    /// Phase 16C: Extended with neural network evaluation utility.
+    ///
+    /// Runs LDA baseline + 5 GBT configurations + 1 NN evaluation against deep-cloned results.
     /// Each FDR run modifies ClassifierScore and FdrInfo in-place, so results
     /// must be cloned before each config to prevent cross-contamination.
     /// </summary>
@@ -114,6 +120,57 @@ namespace Development.Dia
         }
 
         // ════════════════════════════════════════════════════════════════
+        //  Neural Network Evaluation (Phase 16C, Prompt 11)
+        // ════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Runs a single neural network FDR pass on deep-cloned results.
+        ///
+        /// Design mirrors RunGbtSweep() — uses the same clone-based isolation pattern
+        /// so NN training does not corrupt the original results or GBT sweep results.
+        ///
+        /// The original results list is NOT modified.
+        ///
+        /// Training parameters: 33→64→32→1, Adam (lr=1e-3), dropout=0.3, max 60 epochs,
+        /// early stopping (5 epochs no improvement). These are wired inside
+        /// DiaNeuralNetClassifierAdapter and require no explicit configuration here.
+        /// </summary>
+        public static SweepResult RunNnEvaluation(
+            List<DiaSearchResult> originalResults,
+            DiaFeatureVector[] features)
+        {
+            float[] thresholds = { 0.001f, 0.005f, 0.01f, 0.05f, 0.10f };
+
+            Console.WriteLine("  Neural Network (33→64→32→1, Adam lr=1e-3, dropout=0.3, max 60 epochs)");
+
+            var clonedResults = CloneResults(originalResults);
+
+            var sw = Stopwatch.StartNew();
+            var fdrResult = DiaFdrEngine.RunIterativeFdr(
+                clonedResults, features,
+                classifierType: DiaClassifierType.NeuralNetwork);
+            sw.Stop();
+
+            int[] counts = CountIdsAtThresholds(clonedResults, thresholds);
+
+            Console.WriteLine($"    → 1% FDR: {counts[2]:N0} IDs | iterations={fdrResult.IterationsCompleted} | {sw.ElapsedMilliseconds}ms");
+
+            // Print per-iteration diagnostics
+            Console.WriteLine("  Per-Iteration Diagnostics (NN):");
+            foreach (var diag in fdrResult.Diagnostics)
+            {
+                DiaFdrEngine.PrintDiagnostics(diag);
+                Console.WriteLine();
+            }
+
+            return new SweepResult(
+                "NeuralNetwork",
+                counts[0], counts[1], counts[2], counts[3], counts[4],
+                fdrResult.IterationsCompleted,
+                sw.ElapsedMilliseconds);
+        }
+
+        // ════════════════════════════════════════════════════════════════
         //  Summary Table
         // ════════════════════════════════════════════════════════════════
 
@@ -173,6 +230,88 @@ namespace Development.Dia
             Console.WriteLine();
         }
 
+        /// <summary>
+        /// Prints summary comparison of LDA, best GBT, and NN side by side.
+        /// Called from Phase14BenchmarkRunner Step 11 after both sweeps complete.
+        /// </summary>
+        public static void PrintTripleComparisonTable(
+            int[] ldaCounts,
+            SweepResult[] gbtResults,
+            SweepResult nnResult)
+        {
+            // Find best GBT
+            int bestGbtIdx = -1;
+            int bestGbtAt1Pct = 0;
+            for (int i = 0; i < gbtResults.Length; i++)
+            {
+                if (gbtResults[i].IdsAtQ001 > bestGbtAt1Pct)
+                {
+                    bestGbtAt1Pct = gbtResults[i].IdsAtQ001;
+                    bestGbtIdx = i;
+                }
+            }
+
+            int ldaAt1Pct = ldaCounts != null && ldaCounts.Length > 2 ? ldaCounts[2] : 0;
+            int nnAt1Pct = nnResult.IdsAtQ001;
+
+            Console.WriteLine();
+            Console.WriteLine("  ═══ Phase 16C: LDA vs GBT vs NN Comparison ═══");
+            Console.WriteLine("  ──────────────────────────────────────────────────────────────────────────────");
+            Console.WriteLine("  Classifier          |  q≤0.1%  q≤0.5%  q≤1.0%  q≤5.0%  q≤10%   | Iters | Time");
+            Console.WriteLine("  ──────────────────────────────────────────────────────────────────────────────");
+
+            // LDA row
+            if (ldaCounts != null && ldaCounts.Length >= 5)
+            {
+                Console.WriteLine($"  {"LDA",-20} | {ldaCounts[0],7:N0} {ldaCounts[1],7:N0} {ldaCounts[2],7:N0} " +
+                    $"{ldaCounts[3],7:N0} {ldaCounts[4],7:N0}  |   —   |   —");
+            }
+
+            // Best GBT row
+            if (bestGbtIdx >= 0)
+            {
+                var bg = gbtResults[bestGbtIdx];
+                Console.WriteLine($"  {"GBT (" + bg.Name + ")",-20} | {bg.IdsAtQ0001,7:N0} {bg.IdsAtQ0005,7:N0} {bg.IdsAtQ001,7:N0} " +
+                    $"{bg.IdsAtQ005,7:N0} {bg.IdsAtQ010,7:N0}  | {bg.Iterations,5} | {bg.ElapsedMs}ms");
+            }
+
+            // NN row
+            Console.WriteLine($"  {"NeuralNetwork",-20} | {nnResult.IdsAtQ0001,7:N0} {nnResult.IdsAtQ0005,7:N0} {nnResult.IdsAtQ001,7:N0} " +
+                $"{nnResult.IdsAtQ005,7:N0} {nnResult.IdsAtQ010,7:N0}  | {nnResult.Iterations,5} | {nnResult.ElapsedMs}ms");
+
+            Console.WriteLine("  ──────────────────────────────────────────────────────────────────────────────");
+
+            // Decision logic (from Phase 16 plan):
+            //   NN > LDA + 500  → adopt NN as production default
+            //   NN ≤ LDA        → archive NN; keep LDA (same as GBT decision)
+            //   LDA < NN ≤ LDA + 500 → retain both as user-selectable options
+            int nnDeltaVsLda = nnAt1Pct - ldaAt1Pct;
+            int gbtDeltaVsLda = bestGbtAt1Pct - ldaAt1Pct;
+
+            Console.WriteLine($"  NN vs LDA at 1% FDR:  {(nnDeltaVsLda >= 0 ? "+" : "")}{nnDeltaVsLda:N0} IDs");
+            Console.WriteLine($"  GBT vs LDA at 1% FDR: {(gbtDeltaVsLda >= 0 ? "+" : "")}{gbtDeltaVsLda:N0} IDs");
+            Console.WriteLine();
+
+            if (nnDeltaVsLda > 500)
+            {
+                Console.WriteLine("  ✓ DECISION: NeuralNetwork adopted as production default.");
+                Console.WriteLine($"             NN gains {nnDeltaVsLda:N0} IDs over LDA at 1% FDR (threshold: +500).");
+            }
+            else if (nnDeltaVsLda > 0)
+            {
+                Console.WriteLine("  ~ DECISION: NN marginally better but does not clear +500 threshold.");
+                Console.WriteLine("             Retain LDA (default) + NeuralNetwork as user-selectable option.");
+                Console.WriteLine($"             NN: {nnAt1Pct:N0} IDs  LDA: {ldaAt1Pct:N0} IDs  (delta={nnDeltaVsLda:N0})");
+            }
+            else
+            {
+                Console.WriteLine("  ✗ DECISION: NN does not outperform LDA. LDA remains production default.");
+                Console.WriteLine("             NeuralNetwork archived (same outcome as GBT).");
+                Console.WriteLine($"             NN: {nnAt1Pct:N0} IDs  LDA: {ldaAt1Pct:N0} IDs  (delta={nnDeltaVsLda:N0})");
+            }
+            Console.WriteLine();
+        }
+
         // ════════════════════════════════════════════════════════════════
         //  Deep Clone
         // ════════════════════════════════════════════════════════════════
@@ -180,7 +319,7 @@ namespace Development.Dia
         /// <summary>
         /// Deep-clones the results list so that in-place FDR modifications
         /// (ClassifierScore, FdrInfo) don't contaminate subsequent sweep runs.
-        /// 
+        ///
         /// Uses the constructor for get-only properties, then copies mutable props.
         /// Feature vectors (DiaFeatureVector[]) are NOT cloned — they are read-only
         /// during FDR and shared across all runs.

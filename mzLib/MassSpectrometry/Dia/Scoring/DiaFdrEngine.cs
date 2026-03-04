@@ -24,6 +24,11 @@ namespace MassSpectrometry.Dia
     ///   - Diagnostics extended with classifier type info
     ///   - GBT feature importances reported alongside LDA weights
     /// 
+    /// Phase 16C changes (Prompt 10):
+    ///   - DiaClassifierType.NeuralNetwork added to CreateClassifier() factory
+    ///   - DiaNeuralNetClassifierAdapter wired in (33→64→32→1, Adam, dropout 0.3)
+    ///   - PrintDiagnostics() extended with NeuralNetwork branch
+    /// 
     /// Lives in MassSpectrometry/Dia/Scoring/ alongside other scoring classes.
     /// </summary>
     public static class DiaFdrEngine
@@ -411,6 +416,8 @@ namespace MassSpectrometry.Dia
                     maxEpochs: maxEpochs,
                     batchSize: 256),
 
+                DiaClassifierType.NeuralNetwork => new DiaNeuralNetClassifierAdapter(),
+
                 _ => throw new ArgumentException($"Unknown classifier type: {type}")
             };
         }
@@ -757,6 +764,10 @@ namespace MassSpectrometry.Dia
                     for (int i = 0; i < nFeats; i++)
                         Console.WriteLine($"      {indexed[i].Importance:F4}  {indexed[i].Name}");
                 }
+            }
+            else if (d.ClassifierType == DiaClassifierType.NeuralNetwork)
+            {
+                Console.WriteLine($"    Classifier:     NeuralNetwork (33→64→32→1, Adam, dropout 0.3)");
             }
         }
     }
