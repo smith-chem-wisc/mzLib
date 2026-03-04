@@ -851,11 +851,15 @@ namespace MassSpectrometry.Dia
                     }
 
                     // 3. Best-fragment reference curve (needs intensity matrix)
+                    //    Phase 16A, Prompt 1: BestFragWeightedCosine [26] forwarded to
+                    //    DiaFeatureVector via DiaSearchResult.BestFragWeightedCosine.
                     DiaBestFragmentHelper.ComputeBestFragmentFeatures(
                         matrix, fragmentCount, timePointCount, detectedFragmentCount, result,
                         input.FragmentIntensities.AsSpan(), apexLocalIdx * fragmentCount);
 
                     // 4. Peak shape ratio features (boundary signal + apex prominence)
+                    //    Phase 16A, Prompt 1: BoundarySignalRatio [27] + ApexToMeanRatio [28]
+                    //    forwarded to DiaFeatureVector via DiaSearchResult properties.
                     if (peakGroup.IsValid)
                     {
                         DiaPeakShapeHelper.ComputePeakShapeRatios(

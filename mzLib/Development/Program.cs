@@ -84,19 +84,19 @@ namespace Development
             //    groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv",
             //   outputTsvPath: @"F:\DiaBenchmark\PXD005573\phase13_results.tsv");
 
-   //         Phase14BenchmarkRunner.RunAll(
-   // rawFilePath: @"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",
-   // targetMspPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_input.msp",
-   // decoyMspPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_decoys.msp",
-   // groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv",
-   //outputTsvPath: @"F:\DiaBenchmark\PXD005573\phase14_results.tsv");
-
-            Phase15BenchmarkRunner.RunAll(
+            Phase14BenchmarkRunner.RunAll(
                 rawFilePath: @"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",
                 targetMspPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_input.msp",
                 decoyMspPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_decoys.msp",
                 groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv",
-                outputTsvPath: @"F:\DiaBenchmark\PXD005573\phase15_results.tsv");
+                outputTsvPath: @"F:\DiaBenchmark\PXD005573\phase14_results.tsv");
+
+            //Phase15BenchmarkRunner.RunAll(
+            //    rawFilePath: @"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",
+            //    targetMspPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_input.msp",
+            //    decoyMspPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_decoys.msp",
+            //    groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv",
+            //    outputTsvPath: @"F:\DiaBenchmark\PXD005573\phase15_results.tsv");
 
             Console.WriteLine(new string('=', 60));
             Console.WriteLine("All benchmarks complete.");

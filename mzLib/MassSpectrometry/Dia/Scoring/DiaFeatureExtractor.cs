@@ -9,9 +9,14 @@ namespace MassSpectrometry.Dia
     /// <summary>
     /// Feature vector for a single DIA precursor identification.
     /// 
-    /// Phase 13 Action Item 5: 29-feature classifier vector.
-    /// All 3 migrated features now active (BestFragWeightedCosine, BoundarySignalRatio,
-    /// remain commented out until Prompt 5 activates them (26 -> 29 features).
+    /// Phase 16A, Prompt 1: All 3 previously-unmigrated features now active.
+    /// ClassifierFeatureCount = 29 (26 original + 3 migrated).
+    /// 
+    /// Migrated features (computed in AssembleResultsWithTemporalScoring but previously
+    /// not forwarded to the classifier):
+    ///   [26] BestFragWeightedCosine  — weighted cosine using best-fragment correlations as weights
+    ///   [27] BoundarySignalRatio     — boundary TIC / apex TIC (low = sharp peak)
+    ///   [28] ApexToMeanRatio         — apex TIC / mean TIC in peak range (high = prominent peak)
     /// 
     /// DROPPED (from Phase 12/early Phase 13):
     ///   - MeanFragCorr / MinFragCorr -- replaced by SmoothedMeanFragCorr/SmoothedMinFragCorr + best-fragment features
@@ -19,7 +24,7 @@ namespace MassSpectrometry.Dia
     ///   - PeakSymmetry -- zero separation (0.01)
     ///   - MedianXicDepth / XicDepthCV -- weak features, not in Prompt 8 plan
     /// 
-    /// ADDED:
+    /// ADDED (Phase 13-14):
     ///   - CandidateCount (strong discriminator, separation 1.66)
     ///   - MeanMassErrorPpm (absolute), MassErrorStdPpm, MaxAbsMassErrorPpm (mass accuracy: 3)
     ///   - SmoothedMinFragCorr (was computed but not in vector)
@@ -93,7 +98,7 @@ namespace MassSpectrometry.Dia
 
         /// <summary>
         /// Number of features used by the classifier.
-        /// Phase 13 Action Item 5: 26 -> 29 (activated 3 migrated features).
+        /// Phase 16A, Prompt 1: 29 features (26 original + 3 migrated: [26-28]).
         /// </summary>
         public const int ClassifierFeatureCount = 29;
 
@@ -113,7 +118,7 @@ namespace MassSpectrometry.Dia
         /// Writes classifier features into a float span.
         /// Order must be consistent with weight vectors.
         /// 
-        /// Phase 13 Action Item 5 order (29 features):
+        /// Phase 16A layout (29 features):
         ///   [0-2]   Primary scores: ApexScore, TemporalScore, SpectralAngle
         ///   [3-4]   Peak correlations: PeakMeanFragCorr, PeakMinFragCorr
         ///   [5-6]   Peak shape: PeakWidth, CandidateCount
@@ -126,6 +131,9 @@ namespace MassSpectrometry.Dia
         ///   [20-22] Signal ratio: MeanSigRatioDev, MaxSigRatioDev, StdSigRatioDev
         ///   [23-24] Smoothed correlations: SmoothedMeanFragCorr, SmoothedMinFragCorr
         ///   [25]    S/N: Log2SignalToNoise
+        ///   [26]    Migrated: BestFragWeightedCosine
+        ///   [27]    Migrated: BoundarySignalRatio
+        ///   [28]    Migrated: ApexToMeanRatio
         /// </summary>
         public readonly void WriteTo(Span<float> features)
         {
@@ -204,7 +212,10 @@ namespace MassSpectrometry.Dia
     /// Computes feature vectors from DiaSearchResult objects.
     /// Thread-safe: uses only local state + ArrayPool.
     /// 
-    /// Phase 13 Action Item 5: 29-feature vector with all migrated features active.
+    /// Phase 16A, Prompt 1: 29-feature vector with all migrated features active.
+    /// Features [26-28] (BestFragWeightedCosine, BoundarySignalRatio, ApexToMeanRatio)
+    /// are computed in AssembleResultsWithTemporalScoring and forwarded here via
+    /// DiaSearchResult properties.
     /// </summary>
     public static class DiaFeatureExtractor
     {

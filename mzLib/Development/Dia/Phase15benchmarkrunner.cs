@@ -95,7 +95,7 @@ namespace Development.Dia
 
             // Per-step timing
             long msStep1 = 0, msStep2 = 0, msStep3Load = 0, msStep3Index = 0;
-            long msStep4 = 0, msStep7 = 0, msStep8 = 0, msStep9 = 0;
+            long msStep7 = 0, msStep8 = 0, msStep9 = 0, msStep10 = 0;
 
             // ════════════════════════════════════════════════════════════
             //  Step 1: Load RT lookup
@@ -222,13 +222,8 @@ namespace Development.Dia
             }
 
             sw.Stop();
-            msStep4 = sw.ElapsedMilliseconds;
-
             var results = pipelineResult.Results;
             var calibration = pipelineResult.Calibration;
-            var calibrationLog = pipelineResult.CalibrationLog;
-
-            Console.WriteLine($"  Total calibration pipeline: {msStep4}ms ({msStep4 / 1000.0:F1}s)");
             Console.WriteLine();
 
             // ════════════════════════════════════════════════════════════
@@ -237,11 +232,10 @@ namespace Development.Dia
             Console.WriteLine("--- Step 5: Calibration Iteration Log --------------------------");
             Console.WriteLine();
 
-            DiaCalibrationPipeline.PrintCalibrationLog(calibrationLog);
+            DiaCalibrationPipeline.PrintCalibrationLog(pipelineResult.CalibrationLog);
             Console.WriteLine();
             DiaCalibrationPipeline.PrintPipelineSummary(pipelineResult);
             Console.WriteLine();
-
             // ── Soft Assertions (Regression Tests) ──────────────────────
             if (calibration != null)
             {
@@ -249,16 +243,14 @@ namespace Development.Dia
                     Console.WriteLine($"  WARN: Calibration σ too large: {calibration.SigmaMinutes:F3} min (expected < 1.0)");
                 else
                     Console.WriteLine($"  PASS: Calibration σ = {calibration.SigmaMinutes:F3} min (< 1.0)");
-
                 if (Math.Abs(calibration.Slope - 1.0) >= 0.1)
                     Console.WriteLine($"  WARN: Calibration slope far from 1.0: {calibration.Slope:F4} (expected ~0.99 for same-instrument library)");
                 else
                     Console.WriteLine($"  PASS: Calibration slope = {calibration.Slope:F4} (within 0.1 of 1.0)");
-
-                if (calibrationLog != null && calibrationLog.Count > 5)
-                    Console.WriteLine($"  WARN: Calibration required {calibrationLog.Count} iterations (expected ≤ 5)");
+                if (pipelineResult.CalibrationLog != null && pipelineResult.CalibrationLog.Count > 5)
+                    Console.WriteLine($"  WARN: Calibration required {pipelineResult.CalibrationLog.Count} iterations (expected ≤ 5)");
                 else
-                    Console.WriteLine($"  PASS: Calibration converged in {calibrationLog?.Count ?? 0} iterations (≤ 5)");
+                    Console.WriteLine($"  PASS: Calibration converged in {pipelineResult.CalibrationLog?.Count ?? 0} iterations (≤ 5)");
             }
             else
             {
@@ -488,7 +480,7 @@ namespace Development.Dia
             Console.WriteLine($"  Step 2   Library load             {msStep2,8}ms");
             Console.WriteLine($"  Step 3   Raw file load            {msStep3Load,8}ms");
             Console.WriteLine($"  Step 3   Index build              {msStep3Index,8}ms");
-            Console.WriteLine($"  Step 4   Calibration pipeline     {msStep4,8}ms");
+            Console.WriteLine($"  Step 4   Calibration pipeline     {(long)pipelineResult.TotalTime.TotalMilliseconds,8}ms");
             Console.WriteLine($"    ├─ Calibration loop             {(long)pipelineResult.CalibrationTime.TotalMilliseconds,8}ms");
             Console.WriteLine($"    ├─ Final extraction             {(long)pipelineResult.FinalExtractionTime.TotalMilliseconds,8}ms");
             Console.WriteLine($"    └─ RT deviation recalibration   {(long)pipelineResult.RtDeviationRecalibrationTime.TotalMilliseconds,8}ms");
@@ -512,10 +504,10 @@ namespace Development.Dia
             }
 
             // Calibration convergence TSV
-            if (!string.IsNullOrEmpty(convergenceTsvPath) && calibrationLog != null)
+            if (!string.IsNullOrEmpty(convergenceTsvPath) && pipelineResult.CalibrationLog != null)
             {
                 Console.WriteLine("--- Step 13b: Exporting calibration convergence TSV ------------");
-                string convergenceTsv = DiaCalibrationPipeline.ExportConvergenceTsv(calibrationLog);
+                string convergenceTsv = DiaCalibrationPipeline.ExportConvergenceTsv(pipelineResult.CalibrationLog);
                 File.WriteAllText(convergenceTsvPath, convergenceTsv);
                 Console.WriteLine($"  Exported: {convergenceTsvPath}");
                 Console.WriteLine();

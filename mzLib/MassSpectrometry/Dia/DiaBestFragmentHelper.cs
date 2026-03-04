@@ -7,6 +7,7 @@ namespace MassSpectrometry.Dia
 {
     /// <summary>
     /// Phase 13, Prompt 4: Best-fragment reference curve features.
+    /// Phase 16A, Prompt 1: BestFragWeightedCosine confirmed active in classifier (feature [26]).
     /// 
     /// Identifies the "best" (least interfered) fragment ion by finding the one whose
     /// XIC has the highest sum of Pearson correlations with all other detected fragments.

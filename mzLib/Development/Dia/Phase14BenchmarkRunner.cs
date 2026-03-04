@@ -5,21 +5,18 @@
 using MassSpectrometry;
 using MassSpectrometry.Dia;
 using Readers;
-using System;
-using System.Buffers;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
-using System.Linq;  // Used sparingly: .ToArray() in scan loading and RT anchor collection (not hot paths)
 
 namespace Development.Dia
 {
     /// <summary>
     /// Phase 14: Dead Feature Fixes + GBT Hyperparameter Tuning Benchmark
+    /// Updated Phase 16A, Prompt 1: ClassifierFeatureCount now 29 (3 migrated features active).
     /// 
     /// Steps 1-7:  Standard pipeline (load → index → broad extract → calibrate → calibrated extract → assemble → features)
-    /// Step 8:     Dead-feature diagnostic table (verify PeakWidth, TimePointsUsed, RtDeviationMinutes, RtDeviationSquared)
+    /// Step 8:     Dead-feature diagnostic table (verify PeakWidth, TimePointsUsed, RtDeviationMinutes, RtDeviationSquared,
+    ///             and Phase 16A new features: BestFragWeightedCosine [26], BoundarySignalRatio [27], ApexToMeanRatio [28])
     /// Step 9:     LDA baseline FDR
     /// Step 10:    GBT sweep (configs A–E)
     /// Step 11:    Comparison table (Phase 13 LDA, Phase 14 LDA, GBT configs)
@@ -27,14 +24,14 @@ namespace Development.Dia
     /// Step 13:    Per-step timing summary
     /// Step 14:    TSV export with full column set (finalized in Prompt 4)
     /// 
-    /// Compilation checklist (Prompt 4 Part B):
+    /// Compilation checklist (Phase 16A):
     ///   ✓ Using statements: System, System.Buffers, System.Collections.Generic, System.Diagnostics,
     ///     System.Globalization, System.IO, System.Linq, MassSpectrometry, MassSpectrometry.Dia, Readers
     ///   ✓ API consistency: All method calls verified against uploaded files
     ///   ✓ No LINQ in hot paths: Feature loops, FDR counting, TSV export all use explicit for loops
     ///   ✓ Span usage: stackalloc float[29] in diagnostics and TSV export
     ///   ✓ IDisposable: DiaScanIndex (using var), DiaExtractionOrchestrator (using blocks)
-    ///   ✓ Pre-run sanity checks: File existence, feature count assertion
+    ///   ✓ Pre-run sanity checks: File existence, feature count assertion (29)
     /// </summary>
     public static class Phase14BenchmarkRunner
     {
@@ -66,16 +63,13 @@ namespace Development.Dia
                     Directory.CreateDirectory(outputDir);
             }
             Debug.Assert(DiaFeatureVector.ClassifierFeatureCount == 29,
-                $"Expected 29 features, got {DiaFeatureVector.ClassifierFeatureCount}");
+                $"Expected 29 features (26 original + 3 migrated from Phase 16A), got {DiaFeatureVector.ClassifierFeatureCount}");
 
             var totalSw = Stopwatch.StartNew();
             var sw = new Stopwatch();
 
             // Per-step timing
             long msStep1 = 0, msStep2 = 0, msStep3Load = 0, msStep3Index = 0;
-            long msStep4Gen = 0, msStep4Extract = 0, msStep4Assembly = 0;
-            long msStep5 = 0;
-            long msStep6Gen = 0, msStep6Extract = 0, msStep6Assembly = 0;
             long msStep7 = 0, msStep8 = 0, msStep9 = 0, msStep10 = 0;
 
             // ════════════════════════════════════════════════════════════
@@ -163,141 +157,30 @@ namespace Development.Dia
             int threads = Math.Min(Environment.ProcessorCount, 16);
 
             // ════════════════════════════════════════════════════════════
-            //  Step 4: Broad extraction pass (for RT calibration)
+            //  Steps 4–6: Iterative RT Calibration + Final Extraction
             // ════════════════════════════════════════════════════════════
-            Console.WriteLine("--- Step 4: Broad extraction pass (±5.0 min) -------------------");
+            Console.WriteLine("--- Steps 4-6: Iterative RT Calibration Pipeline ---------------");
 
-            var broadParams = new DiaSearchParameters
+            var pipelineParams = new DiaSearchParameters
             {
                 PpmTolerance = 20f,
-                RtToleranceMinutes = 1.14f,
+                RtToleranceMinutes = 5.0f,
                 MinFragmentsRequired = 3,
                 MinScoreThreshold = 0f,
                 MaxThreads = -1,
                 ScoringStrategy = ScoringStrategy.TemporalCosine,
             };
 
-            sw.Restart();
-            var broadGenResult = DiaLibraryQueryGenerator.Generate(combined, index, broadParams);
-            sw.Stop();
-            msStep4Gen = sw.ElapsedMilliseconds;
-            Console.WriteLine($"  Query generation: {msStep4Gen}ms | {broadGenResult.Queries.Length:N0} queries");
-
-            sw.Restart();
-            ExtractionResult broadExtraction;
+            DiaCalibrationPipeline.PipelineResult pipelineResult;
             using (var orchestrator = new DiaExtractionOrchestrator(index))
-                broadExtraction = orchestrator.ExtractAll(broadGenResult.Queries,
-                    maxDegreeOfParallelism: threads);
-            sw.Stop();
-            msStep4Extract = sw.ElapsedMilliseconds;
-            Console.WriteLine($"  Extraction: {msStep4Extract}ms | {broadExtraction.TotalDataPoints:N0} data points");
+                pipelineResult = DiaCalibrationPipeline.RunWithAutomaticCalibration(
+                    combined, index, pipelineParams, orchestrator);
 
-            sw.Restart();
-            var broadResults = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
-                combined, broadGenResult, broadExtraction, broadParams, index);
-            sw.Stop();
-            msStep4Assembly = sw.ElapsedMilliseconds;
-            Console.WriteLine($"  Assembly + scoring: {msStep4Assembly}ms | {broadResults.Count:N0} results");
-            Console.WriteLine();
+            DiaCalibrationPipeline.PrintCalibrationLog(pipelineResult.CalibrationLog);
+            DiaCalibrationPipeline.PrintPipelineSummary(pipelineResult);
 
-            // ════════════════════════════════════════════════════════════
-            //  Step 5: RT Calibration
-            // ════════════════════════════════════════════════════════════
-            Console.WriteLine("--- Step 5: RT Calibration -------------------------------------");
-            sw.Restart();
-
-            float anchorDpThreshold = 0.5f;
-            var anchors = new List<(double LibraryRt, double ObservedRt)>();
-
-            for (int i = 0; i < broadResults.Count; i++)
-            {
-                var r = broadResults[i];
-                if (r.IsDecoy) continue;
-                if (float.IsNaN(r.ApexScore) || r.ApexScore < anchorDpThreshold) continue;
-                if (!r.LibraryRetentionTime.HasValue) continue;
-                if (float.IsNaN(r.ObservedApexRt)) continue;
-                anchors.Add((r.LibraryRetentionTime.Value, r.ObservedApexRt));
-            }
-
-            Console.WriteLine($"  Anchor candidates (apex ≥ {anchorDpThreshold}): {anchors.Count}");
-
-            RtCalibrationModel calibration = null;
-            if (anchors.Count >= RtCalibrationModel.MinReliableAnchors)
-            {
-                // LINQ usage here is deliberate: one-time array creation, not a hot path
-                var anchorLibRts = anchors.Select(a => a.LibraryRt).ToArray();
-                var anchorObsRts = anchors.Select(a => a.ObservedRt).ToArray();
-
-                calibration = RtCalibrationFitter.Fit(
-                    (ReadOnlySpan<double>)anchorLibRts, (ReadOnlySpan<double>)anchorObsRts);
-
-                if (calibration != null)
-                {
-                    Console.WriteLine($"  Model: RT = {calibration.Slope:F4} * libRT + {calibration.Intercept:F4}");
-                    Console.WriteLine($"  σ = {calibration.SigmaMinutes:F4} min | R² = {calibration.RSquared:F4}");
-                    Console.WriteLine($"  Anchors used: {calibration.AnchorCount} | Reliable: {(calibration.IsReliable ? "YES" : "NO")}");
-                    Console.WriteLine($"  Window at 2σ: ±{calibration.GetMinutesWindowHalfWidth(2.0):F2} min");
-                }
-            }
-            else
-            {
-                Console.WriteLine($"  Too few anchors ({anchors.Count}) for calibration.");
-            }
-            sw.Stop();
-            msStep5 = sw.ElapsedMilliseconds;
-            Console.WriteLine($"  Time: {msStep5}ms");
-            Console.WriteLine();
-
-            // ════════════════════════════════════════════════════════════
-            //  Step 6: Calibrated extraction pass (±2σ window)
-            // ════════════════════════════════════════════════════════════
-            List<DiaSearchResult> results;
-            DiaLibraryQueryGenerator.GenerationResult genResult;
-            ExtractionResult extraction;
-
-            if (calibration != null && calibration.IsReliable)
-            {
-                Console.WriteLine("--- Step 6: Calibrated extraction pass (±2σ) -------------------");
-
-                var calibParams = new DiaSearchParameters
-                {
-                    PpmTolerance = 20f,
-                    RtToleranceMinutes = 5.0f,
-                    MinFragmentsRequired = 3,
-                    MinScoreThreshold = 0f,
-                    MaxThreads = -1,
-                    ScoringStrategy = ScoringStrategy.TemporalCosine,
-                    CalibratedWindowSigmaMultiplier = 2.0,
-                };
-
-                sw.Restart();
-                genResult = DiaLibraryQueryGenerator.GenerateCalibrated(
-                    combined, index, calibParams, calibration);
-                sw.Stop();
-                msStep6Gen = sw.ElapsedMilliseconds;
-                Console.WriteLine($"  Query generation: {msStep6Gen}ms | {genResult.Queries.Length:N0} queries");
-
-                sw.Restart();
-                using (var orchestrator = new DiaExtractionOrchestrator(index))
-                    extraction = orchestrator.ExtractAll(genResult.Queries,
-                        maxDegreeOfParallelism: threads);
-                sw.Stop();
-                msStep6Extract = sw.ElapsedMilliseconds;
-                Console.WriteLine($"  Extraction: {msStep6Extract}ms | {extraction.TotalDataPoints:N0} data points");
-
-                sw.Restart();
-                results = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
-                    combined, genResult, extraction, calibParams, index);
-                sw.Stop();
-                msStep6Assembly = sw.ElapsedMilliseconds;
-                Console.WriteLine($"  Assembly + scoring: {msStep6Assembly}ms | {results.Count:N0} results");
-            }
-            else
-            {
-                Console.WriteLine("--- Step 6: SKIPPED (calibration unavailable) — using broad pass");
-                results = broadResults;
-            }
-            Console.WriteLine();
+            var results = pipelineResult.Results;
+            var calibration = pipelineResult.Calibration;
 
             // ════════════════════════════════════════════════════════════
             //  Step 7: Feature computation (29 features)
@@ -477,23 +360,19 @@ namespace Development.Dia
             totalSw.Stop();
             Console.WriteLine("--- Step 13: Timing Summary ------------------------------------");
             Console.WriteLine();
-            Console.WriteLine($"  Step 1  RT lookup load        {msStep1,8}ms");
-            Console.WriteLine($"  Step 2  Library load          {msStep2,8}ms");
-            Console.WriteLine($"  Step 3  Raw file load         {msStep3Load,8}ms");
-            Console.WriteLine($"  Step 3  Index build           {msStep3Index,8}ms");
-            Console.WriteLine($"  Step 4  Broad query gen       {msStep4Gen,8}ms");
-            Console.WriteLine($"  Step 4  Broad extraction      {msStep4Extract,8}ms");
-            Console.WriteLine($"  Step 4  Broad assembly        {msStep4Assembly,8}ms");
-            Console.WriteLine($"  Step 5  RT calibration        {msStep5,8}ms");
-            Console.WriteLine($"  Step 6  Calib query gen       {msStep6Gen,8}ms");
-            Console.WriteLine($"  Step 6  Calib extraction      {msStep6Extract,8}ms");
-            Console.WriteLine($"  Step 6  Calib assembly        {msStep6Assembly,8}ms");
-            Console.WriteLine($"  Step 7  Feature computation   {msStep7,8}ms");
-            Console.WriteLine($"  Step 8  Dead feature diag     {msStep8,8}ms");
-            Console.WriteLine($"  Step 9  LDA FDR               {msStep9,8}ms");
-            Console.WriteLine($"  Step 10 GBT sweep             {msStep10,8}ms");
+            Console.WriteLine($"  Step 1    RT lookup load        {msStep1,8}ms");
+            Console.WriteLine($"  Step 2    Library load          {msStep2,8}ms");
+            Console.WriteLine($"  Step 3    Raw file load         {msStep3Load,8}ms");
+            Console.WriteLine($"  Step 3    Index build           {msStep3Index,8}ms");
+            Console.WriteLine($"  Steps 4-6 Calibration          {(long)pipelineResult.CalibrationTime.TotalMilliseconds,8}ms");
+            Console.WriteLine($"  Steps 4-6 Final extract        {(long)pipelineResult.FinalExtractionTime.TotalMilliseconds,8}ms");
+            Console.WriteLine($"  Steps 4-6 RT recalib           {(long)pipelineResult.RtDeviationRecalibrationTime.TotalMilliseconds,8}ms");
+            Console.WriteLine($"  Step 7    Feature computation  {msStep7,8}ms");
+            Console.WriteLine($"  Step 8    Dead feature diag    {msStep8,8}ms");
+            Console.WriteLine($"  Step 9    LDA FDR              {msStep9,8}ms");
+            Console.WriteLine($"  Step 10   GBT sweep            {msStep10,8}ms");
             Console.WriteLine($"  ────────────────────────────────────────────");
-            Console.WriteLine($"  TOTAL                         {totalSw.ElapsedMilliseconds,8}ms ({totalSw.Elapsed.TotalSeconds:F1}s)");
+            Console.WriteLine($"  TOTAL                          {totalSw.ElapsedMilliseconds,8}ms ({totalSw.Elapsed.TotalSeconds:F1}s)");
             Console.WriteLine();
 
             // ════════════════════════════════════════════════════════════

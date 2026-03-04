@@ -7,6 +7,9 @@ namespace MassSpectrometry.Dia
 {
     /// <summary>
     /// Computes peak shape ratio features from the time×fragment intensity matrix.
+    /// Phase 16A, Prompt 1: BoundarySignalRatio [27] and ApexToMeanRatio [28] confirmed
+    /// active in the classifier. Both were computed previously but not forwarded.
+    /// 
     /// These features measure how "peak-like" the chromatographic signal is:
     /// - BoundarySignalRatio: low values indicate sharp peak boundaries (good)
     /// - ApexToMeanRatio: high values indicate a prominent apex relative to background (good)
