@@ -147,6 +147,13 @@ namespace MassSpectrometry.Dia
             var results = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
                 precursors, genResult, extractionResult, parameters, scanIndex);
 
+            // ── Step 3b: Compute Chimeric Scores (Phase 19) ─────────────────
+            // ChimericScore [33] requires knowing ALL precursors in each window,
+            // so it must be a post-pass after full assembly. Populates
+            // DiaSearchResult.ChimericScore before DiaFeatureExtractor.ComputeFeatures.
+            DiaLibraryQueryGenerator.ComputeChimericScores(
+                precursors, results, parameters.PpmTolerance);
+
             extractSw.Stop();
 
             // ── Step 4: Recalibrate RT Deviations ──────────────────────────
