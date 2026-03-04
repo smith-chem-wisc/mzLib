@@ -1,5 +1,4 @@
 ﻿using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using Proteomics.ProteolyticDigestion;
@@ -8,15 +7,50 @@ using Transcriptomics.Digestion;
 namespace Test.Transcriptomics
 {
     [ExcludeFromCodeCoverage]
-    internal class TestRnase
+    public class TestRnase
     {
-        public static string rnaseTsvpath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"Digestion\rnases.tsv");
-
         [Test]
         public void TestRnaseDictionaryLoading()
         {
-            var rnaseCountFromTsv = File.ReadAllLines(rnaseTsvpath).Length - 1;
-            Assert.AreEqual(RnaseDictionary.Dictionary.Count, rnaseCountFromTsv);
+            // Verify the dictionary loads correctly from embedded resource
+            Assert.That(RnaseDictionary.Dictionary.Count, Is.GreaterThan(0));
+            
+            // Verify expected RNases are present
+            Assert.That(RnaseDictionary.Dictionary.ContainsKey("RNase T1"));
+            Assert.That(RnaseDictionary.Dictionary.ContainsKey("RNase A"));
+            Assert.That(RnaseDictionary.Dictionary.ContainsKey("top-down"));
+        }
+
+        [Test]
+        public void TestRnaseDictionaryCustomLoadAndMerge()
+        {
+            // Reset to defaults first
+            RnaseDictionary.ResetToDefaults();
+            int originalCount = RnaseDictionary.Dictionary.Count;
+
+            // Create a temporary custom RNase file
+            string tempPath = Path.Combine(Path.GetTempPath(), "custom_rnases.tsv");
+            try
+            {
+                File.WriteAllText(tempPath, "Name\tMotif\tSpecificity\nCustomRNase\tA|\tfull\n");
+                
+                var addedOrUpdated = RnaseDictionary.LoadAndMergeCustomRnases(tempPath);
+                
+                Assert.That(addedOrUpdated.Count, Is.EqualTo(1));
+                Assert.That(addedOrUpdated[0], Is.EqualTo("CustomRNase"));
+                Assert.That(RnaseDictionary.Dictionary.ContainsKey("CustomRNase"));
+                Assert.That(RnaseDictionary.Dictionary.Count, Is.EqualTo(originalCount + 1));
+
+                // Reset and verify custom RNase is gone
+                RnaseDictionary.ResetToDefaults();
+                Assert.That(RnaseDictionary.Dictionary.ContainsKey("CustomRNase"), Is.False);
+                Assert.That(RnaseDictionary.Dictionary.Count, Is.EqualTo(originalCount));
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
+            }
         }
 
         [Test]

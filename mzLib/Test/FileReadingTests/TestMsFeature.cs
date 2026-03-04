@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using Chemistry;
 using CsvHelper;
 using MzLibUtil;
 using Newtonsoft.Json;
@@ -183,6 +184,28 @@ namespace Test.FileReadingTests
             Assert.That(last.ChargeStateMax, Is.EqualTo(1));
             Assert.That(last.FractionIdMin, Is.EqualTo(0));
             Assert.That(last.FractionIdMax, Is.EqualTo(0));
+        }
+
+        [Test]
+        public static void TestTopFDMs1GetSingleChargeFeatureFunctions()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.6.2_ms1.feature");
+            var ms1Features = FileReader.ReadFile<Ms1FeatureFile>(filePath);
+
+            var first = ms1Features.First();
+            var last = ms1Features.Last();
+
+            var singleChargeFeatures = first.GetSingleChargeFeatures();
+            Assert.That(singleChargeFeatures.Count(), Is.EqualTo(11)); // 11 charge states from 7 to 17
+            Assert.That(singleChargeFeatures.First().Charge, Is.EqualTo(7));
+            Assert.That(singleChargeFeatures.Last().Charge, Is.EqualTo(17));
+            Assert.That(singleChargeFeatures.First().Mz, Is.EqualTo(first.Mass.ToMz(7)).Within(0.001));
+
+            var firstSingleChargeFeature = ms1Features.GetMs1Features().First();
+            Assert.That(first.GetSingleChargeFeatures().First(), Is.EqualTo(firstSingleChargeFeature));
+
+            Assert.That(last.GetSingleChargeFeatures().Count, Is.EqualTo(1));
         }
 
         [Test]

@@ -1,5 +1,6 @@
 ﻿using System.Text;
 using Chemistry;
+using Omics.Fragmentation;
 using Omics.Modifications;
 
 namespace Omics;
@@ -18,9 +19,12 @@ public static class BioPolymerWithSetModsExtensions
         var subsequence = new StringBuilder();
 
         // modification on peptide N-terminus
-        if (withSetMods.AllModsOneIsNterminus.TryGetValue(1, out Modification mod))
+        if (withSetMods.AllModsOneIsNterminus.TryGetValue(1, out Modification? mod))
         {
-            subsequence.Append('[' + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
+            if (mod.MonoisotopicMass > 0)
+                subsequence.Append($"[+{mod.MonoisotopicMass.RoundedDouble(6)}]");
+            else
+                subsequence.Append($"[{mod.MonoisotopicMass.RoundedDouble(6)}]");
         }
 
         for (int r = 0; r < withSetMods.Length; r++)
@@ -32,11 +36,11 @@ public static class BioPolymerWithSetModsExtensions
             {
                 if (mod.MonoisotopicMass > 0)
                 {
-                    subsequence.Append("[+" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
+                    subsequence.Append($"[+{mod.MonoisotopicMass.RoundedDouble(6)}]");
                 }
                 else
                 {
-                    subsequence.Append("[" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
+                    subsequence.Append($"[{mod.MonoisotopicMass.RoundedDouble(6)}]");
                 }
             }
         }
@@ -46,11 +50,11 @@ public static class BioPolymerWithSetModsExtensions
         {
             if (mod.MonoisotopicMass > 0)
             {
-                subsequence.Append("[+" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
+                subsequence.Append($"-[+{mod.MonoisotopicMass.RoundedDouble(6)}]");
             }
             else
             {
-                subsequence.Append("[" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
+                subsequence.Append($"-[{mod.MonoisotopicMass.RoundedDouble(6)}]");
             }
         }
         return subsequence.ToString();
@@ -68,14 +72,15 @@ public static class BioPolymerWithSetModsExtensions
         string essentialSequence = withSetMods.BaseSequence;
         if (modstoWritePruned != null)
         {
-            var sbsequence = new StringBuilder();
+            var sbsequence = new StringBuilder(withSetMods.FullSequence.Length);
 
             // variable modification on peptide N-terminus
             if (withSetMods.AllModsOneIsNterminus.TryGetValue(1, out Modification pep_n_term_variable_mod))
             {
                 if (modstoWritePruned.ContainsKey(pep_n_term_variable_mod.ModificationType))
                 {
-                    sbsequence.Append('[' + pep_n_term_variable_mod.ModificationType + ":" + pep_n_term_variable_mod.IdWithMotif + ']');
+                    sbsequence.Append(
+                        $"[{pep_n_term_variable_mod.ModificationType}:{pep_n_term_variable_mod.IdWithMotif}]");
                 }
             }
             for (int r = 0; r < withSetMods.Length; r++)
@@ -86,7 +91,8 @@ public static class BioPolymerWithSetModsExtensions
                 {
                     if (modstoWritePruned.ContainsKey(residue_variable_mod.ModificationType))
                     {
-                        sbsequence.Append('[' + residue_variable_mod.ModificationType + ":" + residue_variable_mod.IdWithMotif + ']');
+                        sbsequence.Append(
+                            $"[{residue_variable_mod.ModificationType}:{residue_variable_mod.IdWithMotif}]");
                     }
                 }
             }
@@ -96,7 +102,8 @@ public static class BioPolymerWithSetModsExtensions
             {
                 if (modstoWritePruned.ContainsKey(pep_c_term_variable_mod.ModificationType))
                 {
-                    sbsequence.Append('[' + pep_c_term_variable_mod.ModificationType + ":" + pep_c_term_variable_mod.IdWithMotif + ']');
+                    sbsequence.Append(
+                        $"-[{pep_c_term_variable_mod.ModificationType}:{pep_c_term_variable_mod.IdWithMotif}]");
                 }
             }
 
@@ -105,38 +112,21 @@ public static class BioPolymerWithSetModsExtensions
         return essentialSequence;
     }
 
-    /// <summary>
-    /// Determines the full sequence of a BioPolymerWithSetMods from its base sequence and modifications
-    /// </summary>
-    /// <param name="withSetMods"></param>
-    /// <returns></returns>
-    public static string DetermineFullSequence(this IBioPolymerWithSetMods withSetMods)
+    public static string DetermineFullSequence(this IBioPolymerWithSetMods withSetMods) => IBioPolymerWithSetMods
+        .DetermineFullSequence(withSetMods.BaseSequence, withSetMods.AllModsOneIsNterminus);
+
+    public static IEnumerable<Product> GetMIons(this IBioPolymerWithSetMods withSetMods, IFragmentationParams? fragmentParams)
     {
-        var subSequence = new StringBuilder();
+        // Normal intact molecular ion
+        yield return new CustomMProduct("", withSetMods.MonoisotopicMass);
 
-        // modification on peptide N-terminus
-        if (withSetMods.AllModsOneIsNterminus.TryGetValue(1, out Modification mod))
+        if (fragmentParams is null)
+            yield break;
+
+        // Molecular ion with neutral losses
+        foreach (var ionLoss in fragmentParams.MIonLosses)
         {
-            subSequence.Append('[' + mod.ModificationType + ":" + mod.IdWithMotif + ']');
+            yield return new CustomMProduct(ionLoss.Annotation, withSetMods.MonoisotopicMass - ionLoss.MonoisotopicMass);
         }
-
-        for (int r = 0; r < withSetMods.Length; r++)
-        {
-            subSequence.Append(withSetMods[r]);
-
-            // modification on this residue
-            if (withSetMods.AllModsOneIsNterminus.TryGetValue(r + 2, out mod))
-            {
-                subSequence.Append('[' + mod.ModificationType + ":" + mod.IdWithMotif + ']');
-            }
-        }
-
-        // modification on peptide C-terminus
-        if (withSetMods.AllModsOneIsNterminus.TryGetValue(withSetMods.Length + 2, out mod))
-        {
-            subSequence.Append('[' + mod.ModificationType + ":" + mod.IdWithMotif + ']');
-        }
-
-        return subSequence.ToString();
     }
 }

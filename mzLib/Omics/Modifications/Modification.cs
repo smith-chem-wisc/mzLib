@@ -1,10 +1,5 @@
 ﻿using Chemistry;
 using MassSpectrometry;
-using Omics.Modifications;
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
 using System.Text;
 
 namespace Omics.Modifications
@@ -13,16 +8,16 @@ namespace Omics.Modifications
     /// Represents a modification
     /// Mods.txt format was taken from https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/docs/ptmlist.txt
     /// </summary>
-    public class Modification
+    public class Modification : IComparable<Modification>
     {
-        public string IdWithMotif { get; private set; }
-        public string OriginalId { get; private set; }
-        public string Accession { get; private set; }
-        public string ModificationType { get; private set; }
-        public string FeatureType { get; private set; }
-        public ModificationMotif Target { get; private set; }
-        public string LocationRestriction { get; private set; }
-        public ChemicalFormula ChemicalFormula { get; private set; }
+        public string IdWithMotif { get; protected set; }
+        public string OriginalId { get; protected set; }
+        public string Accession { get; protected set; }
+        public string ModificationType { get; protected set; }
+        public string FeatureType { get; protected set; }
+        public ModificationMotif Target { get; protected set; }
+        public string LocationRestriction { get; protected set; }
+        public ChemicalFormula ChemicalFormula { get; protected set; }
         private double? monoisotopicMass = null;
 
         public double? MonoisotopicMass
@@ -37,15 +32,15 @@ namespace Omics.Modifications
             }
         }
 
-        public Dictionary<string, IList<string>> DatabaseReference { get; private set; }
-        public Dictionary<string, IList<string>> TaxonomicRange { get; private set; }
-        public List<string> Keywords { get; private set; }
-        public Dictionary<DissociationType, List<double>> NeutralLosses { get; private set; }
-        public Dictionary<DissociationType, List<double>> DiagnosticIons { get; private set; }
+        public Dictionary<string, IList<string>> DatabaseReference { get; protected set; }
+        public Dictionary<string, IList<string>> TaxonomicRange { get; protected set; }
+        public List<string> Keywords { get; protected set; }
+        public Dictionary<DissociationType, List<double>> NeutralLosses { get; protected set; }
+        public Dictionary<DissociationType, List<double>> DiagnosticIons { get; protected set; }
         public string FileOrigin { get; private set; }
         protected const double tolForEquality = 1e-9;
 
-        public bool ValidModification
+        public virtual bool ValidModification
         {
             get
             {
@@ -144,7 +139,8 @@ namespace Omics.Modifications
         {
             string id = IdWithMotif ?? OriginalId ?? string.Empty;
             string mt = ModificationType ?? string.Empty;
-            return id.GetHashCode() ^ mt.GetHashCode();
+            int cf = ChemicalFormula?.GetHashCode() ?? 1;
+            return id.GetHashCode() ^ mt.GetHashCode() ^ cf;
         }
 
         public override string ToString()
@@ -298,6 +294,25 @@ namespace Omics.Modifications
             sb.Append("#This modification can be found in file " + this.FileOrigin);
 
             return sb.ToString();
+        }
+
+
+        // Used in the sorted sets for variable mod generation to ensure that modifications are consistently ordered
+        // UniProt annotations also contain an evidence level. Future work could include this in the ordering of modifications for digestion. 
+        public int CompareTo(Modification? other)
+        {
+            if (other == null) return 1;
+
+            int idComparison = string.Compare(this.IdWithMotif, other.IdWithMotif, StringComparison.Ordinal);
+            if (idComparison != 0) return idComparison;
+
+            int typeComparison = string.Compare(this.ModificationType, other.ModificationType, StringComparison.Ordinal);
+            if (typeComparison != 0) return typeComparison;
+
+            int locRestrictionComparison = string.Compare(this.LocationRestriction, other.LocationRestriction, StringComparison.Ordinal);
+            if (locRestrictionComparison != 0) return locRestrictionComparison;
+
+            return Nullable.Compare(this.MonoisotopicMass, other.MonoisotopicMass);
         }
     }
 }

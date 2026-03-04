@@ -1,20 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Chemistry;
-using Easy.Common.Extensions;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
 
 namespace MassSpectrometry
 {
-    public class ClassicDeconvolutionAlgorithm : DeconvolutionAlgorithm
+    internal class ClassicDeconvolutionAlgorithm : DeconvolutionAlgorithm
     {
         private MzSpectrum spectrum;
 
-        public ClassicDeconvolutionAlgorithm(DeconvolutionParameters deconParameters) : base(deconParameters)
+        internal ClassicDeconvolutionAlgorithm(DeconvolutionParameters deconParameters) : base(deconParameters)
         {
 
         }
@@ -25,7 +22,7 @@ namespace MassSpectrometry
         /// <param name="spectrumToDeconvolute">spectrum to deconvolute</param>
         /// <param name="range">Range of peaks to deconvolute</param>
         /// <returns></returns>
-        public override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrumToDeconvolute, MzRange range)
+        internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrumToDeconvolute, MzRange range)
         {
             var deconParams = DeconvolutionParameters as ClassicDeconvolutionParameters ?? throw new MzLibException("Deconvolution params and algorithm do not match");
             spectrum = spectrumToDeconvolute;
@@ -109,8 +106,8 @@ namespace MassSpectrometry
                         double testMostIntenseMass = candidateForMostIntensePeakMz.ToMass(chargeState);
 
                         //get the index of the theoretical isotopic envelope for an averagine model that's close in mass
-                        int massIndex = mostIntenseMasses.GetClosestIndex(testMostIntenseMass);
-                        
+                        int massIndex = AverageResidueModel.GetMostIntenseMassIndex(testMostIntenseMass);
+
                         //create a list for each isotopic peak from this envelope. This is used to fine tune the monoisotopic mass and is populated in "FindIsotopicEnvelope"
                         List<double> monoisotopicMassPredictions = new List<double>();
 
@@ -169,8 +166,8 @@ namespace MassSpectrometry
 
         private IsotopicEnvelope FindIsotopicEnvelope(int massIndex, double candidateForMostIntensePeakMz, double candidateForMostIntensePeakIntensity, double testMostIntenseMass, int chargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, List<double> monoisotopicMassPredictions)
         {
-            double[] theoreticalMasses = allMasses[massIndex];
-            double[] theoreticalIntensities = allIntensities[massIndex];
+            double[] theoreticalMasses = AverageResidueModel.GetAllTheoreticalMasses(massIndex);
+            double[] theoreticalIntensities = AverageResidueModel.GetAllTheoreticalIntensities(massIndex);
             //add "most intense peak"
             var listOfObservedPeaks = new List<(double, double)> { (candidateForMostIntensePeakMz, candidateForMostIntensePeakIntensity) };
             var listOfRatios = new List<double> { theoreticalIntensities[0] / candidateForMostIntensePeakIntensity }; // theoreticalIntensities and theoreticalMasses are sorted by intensity, so first is most intense
@@ -178,7 +175,7 @@ namespace MassSpectrometry
             // Try to find the rest of the isotopes!
             double differenceBetweenTheorAndActualMass = testMostIntenseMass - theoreticalMasses[0]; //mass difference actual-theoretical for the tallest peak (not necessarily the monoisotopic)
             double totalIntensity = candidateForMostIntensePeakIntensity;
-            double monoisotopicMass = testMostIntenseMass - diffToMonoisotopic[massIndex]; //get the  monoisotopic by taking the most intense mass minus the expected mass difference between most intense and monoisotopic
+            double monoisotopicMass = testMostIntenseMass - AverageResidueModel.GetDiffToMonoisotopic(massIndex); //get the  monoisotopic by taking the most intense mass minus the expected mass difference between most intense and monoisotopic
             monoisotopicMassPredictions.Add(monoisotopicMass);
             for (int indexToLookAt = 1; indexToLookAt < theoreticalIntensities.Length; indexToLookAt++) //cycle through all theoretical peaks in this envelope from most intense to least intense
             {
@@ -205,7 +202,7 @@ namespace MassSpectrometry
                 }
             }
 
-            return new IsotopicEnvelope(listOfObservedPeaks, monoisotopicMass, chargeState, totalIntensity, Statistics.StandardDeviation(listOfRatios), massIndex);
+            return new IsotopicEnvelope(listOfObservedPeaks, monoisotopicMass, chargeState, totalIntensity, listOfRatios.StandardDeviation());
         }
 
         private int ObserveAdjacentChargeStates(IsotopicEnvelope originalEnvelope, double mostIntensePeakMz, int massIndex, double deconvolutionTolerancePpm, double intensityRatioLimit, double minChargeToLookFor, double maxChargeToLookFor, List<double> monoisotopicMassPredictions)

@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System.Diagnostics;
+using System.IO;
 using MassSpectrometry;
 using NUnit; 
 using NUnit.Framework;
@@ -28,9 +29,8 @@ namespace Test.FileReadingTests
         public void TestFileDoesntExist()
         {
             string fakePath = "fakePath.d";
-            var reader = MsDataFileReader.GetDataFile(fakePath);
             Assert.Throws<FileNotFoundException>(() =>
-                reader.InitiateDynamicConnection());
+                MsDataFileReader.GetDataFile(fakePath));
         }
 
         [Test]
@@ -104,6 +104,23 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void TestDynamicConnection_AfterStaticLoading()
+        {
+            MsDataFile brukerReader = MsDataFileReader.GetDataFile(_centroidPath);
+            brukerReader.LoadAllStaticData();
+            brukerReader.InitiateDynamicConnection();
+            var scan = brukerReader.GetOneBasedScanFromDynamicConnection(2);
+
+            Assert.That(scan.Polarity == Polarity.Positive);
+            Assert.That(scan.DissociationType == DissociationType.CID);
+            Assert.That(scan.TotalIonCurrent == 346d);
+            Assert.That(scan.NativeId == "scan=2");
+            Assert.That(scan.SelectedIonMZ, Is.EqualTo(721.86865).Within(0.001));
+            Assert.That(scan.MsnOrder == 2);
+            Assert.That(scan.IsCentroid);
+        }
+
+        [Test]
         public void TestDynamicConnectionToAllScans()
         {
             MsDataFile brukerReader = MsDataFileReader.GetDataFile(_centroidPath);
@@ -139,16 +156,6 @@ namespace Test.FileReadingTests
             FilteringParams filteringParams = new(null, 0.5);
             var scan = MsDataFileReader.GetDataFile(_centroidPath).LoadAllStaticData(filteringParams).Scans[0];
             Assert.That(scan.MassSpectrum.XArray.Length == 1);
-        }
-
-        [Test]
-        public void TestFileNotFoundExceptionThrown()
-        {
-            MsDataFile brukerReader = MsDataFileReader.GetDataFile("notrealfile.d");
-            Assert.Throws<FileNotFoundException>(delegate
-            {
-                brukerReader.LoadAllStaticData(); 
-            });
         }
     }
 }

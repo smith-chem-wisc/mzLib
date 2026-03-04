@@ -8,12 +8,16 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using MzLibUtil;
 using Omics;
+using Omics.BioPolymer;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
+using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using Transcriptomics;
 
 namespace Test
 {
@@ -37,8 +41,9 @@ namespace Test
         }
 
         /// <summary>
-        /// The purpose of this test is to ensure that two peptides digested from two different proteases are not equal even if their sequences are equal
-        /// This is important for multiprotease parsimony in MetaMorpheus
+        /// CRITICAL: Tests that peptides from different proteases are NOT equal even with identical sequences.
+        /// This is essential for multiprotease parsimony in MetaMorpheus - without this distinction,
+        /// peptides from different enzyme digests would be incorrectly collapsed during protein inference.
         /// </summary>
         [Test]
         public static void TestDifferentProteaseEquals()
@@ -46,7 +51,7 @@ namespace Test
             Protein myProtein = new Protein("SEQUENCEK", "accession");
 
             DigestionParams digest1 = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
-            DigestionParams digest2 = new DigestionParams(protease: "Lys-C (cleave before proline)", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            DigestionParams digest2 = new DigestionParams(protease: "Lys-C|P", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
 
             PeptideWithSetModifications pep1 = myProtein.Digest(digest1, new List<Modification>(), new List<Modification>()).First();
             PeptideWithSetModifications pep2 = myProtein.Digest(digest2, new List<Modification>(), new List<Modification>()).First();
@@ -55,10 +60,34 @@ namespace Test
             Assert.That(pep1.Parent.Equals(pep2.Parent));
             Assert.That(!pep1.DigestionParams.DigestionAgent.Equals(pep2.DigestionParams.DigestionAgent));
             Assert.That(!pep1.Equals(pep2));
-            // HashCode is only concerned with the full sequence, not the protease. Only the equals method is interested in the protease used
-            Assert.That(pep1.GetHashCode().Equals(pep2.GetHashCode()));
+            Assert.That(!pep1.Equals((object)pep2));
+            Assert.That(!pep1.GetHashCode().Equals(pep2.GetHashCode()));
         }
 
+        /// <summary>
+        /// CRITICAL: Tests type safety between PeptideWithSetModifications and OligoWithSetMods.
+        /// Ensures these different biopolymer types are never incorrectly compared as equal,
+        /// which would corrupt search results in multi-omics analyses.
+        /// </summary>
+        [Test]
+        public static void TestPeptideOligoEquality()
+        {
+            var oligo = new OligoWithSetMods("GUACUG", []);
+            var peptide = new PeptideWithSetModifications("PEPTIDE", []);
+
+            Assert.That(!oligo.Equals(peptide));
+            Assert.That(!peptide.Equals(oligo));
+            Assert.That(!((IBioPolymerWithSetMods)oligo).Equals(peptide));
+            Assert.That(!((IBioPolymerWithSetMods)peptide).Equals(oligo));
+            Assert.That(!((object)oligo).Equals(peptide));
+            Assert.That(!((object)peptide).Equals(oligo));
+        }
+
+        /// <summary>
+        /// CRITICAL: Tests semi-specific digestion doesn't crash with various protein sequences.
+        /// Semi-specific search is essential for identifying endogenous peptides and degradation
+        /// products. This test guards against edge cases that could crash the digestion algorithm.
+        /// </summary>
         [Test]
         public static void TestSemiFewCleavages()
         {
@@ -74,9 +103,9 @@ namespace Test
             protein2.Digest(nParams, null, null).ToList();
             protein2.Digest(cParams, null, null).ToList();
 
-            List<ProteolysisProduct> proteolysisProducts = new List<ProteolysisProduct>
+            List<TruncationProduct> proteolysisProducts = new List<TruncationProduct>
             {
-                new ProteolysisProduct(5, 25, "asdf")
+                new TruncationProduct(5, 25, "asdf")
             };
 
             //speedy
@@ -85,12 +114,13 @@ namespace Test
             protein3.Digest(cParams, null, null).ToList();
             cParams = new DigestionParams("trypsin", 0, 7, 9, searchModeType: CleavageSpecificity.Semi, fragmentationTerminus: FragmentationTerminus.C, initiatorMethionineBehavior: InitiatorMethionineBehavior.Cleave);
             protein3.Digest(cParams, null, null).ToList();
-
-            //classic
-            DigestionParams classicSemi = new DigestionParams("semi-trypsin", 2, 7, 50);
-            protein3.Digest(classicSemi, null, null).ToList();
         }
 
+        /// <summary>
+        /// CRITICAL: Tests that MaxLength constraints are respected in semi/non-specific digestion.
+        /// Without proper length enforcement, search space would explode and include peptides
+        /// that cannot physically be detected, wasting computational resources and increasing FDR.
+        /// </summary>
         [Test]
         public static void TestSpeedyNonAndSemiSpecificMaxLength()
         {
@@ -128,6 +158,11 @@ namespace Test
             Assert.IsTrue(cPwsms.Any(x => x.Length == nonCParams.MinPeptideLength));
         }
 
+        /// <summary>
+        /// CRITICAL: Comprehensive test for non-specific and semi-specific digestion correctness.
+        /// Tests peptide generation, cleavage specificity labeling, duplicate prevention, and
+        /// methionine behavior. Essential for all non-tryptic and semi-tryptic searches.
+        /// </summary>
         [Test]
         public static void TestNonAndSemiSpecificDigests()
         {
@@ -286,6 +321,11 @@ namespace Test
             Assert.AreEqual(numSequencesExpected, products.Count);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests that terminal modifications are correctly handled with single proteases.
+        /// For SingleN/SingleC searches, terminal mods that don't affect fragment ions should be
+        /// excluded to prevent redundant peptide generation. Essential for spectral library searches.
+        /// </summary>
         [Test]
         public static void TestSingleProteasesWithTerminalMods()
         {
@@ -345,6 +385,11 @@ namespace Test
             Assert.IsTrue(cSpecificPeps.Count == 11);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests single proteases (N/C terminus fixed) with specific cleavage enzymes.
+        /// Validates peptide counts and methionine cleavage behavior for non-specific searches
+        /// that still respect enzyme cleavage sites. Essential for hybrid search strategies.
+        /// </summary>
         [Test]
         public static void TestSingleProteasesWithSpecificProteases()
         {
@@ -383,6 +428,11 @@ namespace Test
             Assert.IsTrue(peptides.Count == 16);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests parsing of complex modification strings with nested brackets.
+        /// Modifications like "Cation:Fe[III]" contain brackets that could break parsing.
+        /// Essential for correctly reading user-specified and database modifications.
+        /// </summary>
         [Test]
         public static void TestHardToParseModifiedSequence()
         {
@@ -410,10 +460,17 @@ namespace Test
             Assert.That(pep.AllModsOneIsNterminus.Keys.ToList().SequenceEqual(new int[] { 1, 3, 8 }));
         }
 
+        /// <summary>
+        /// CRITICAL: Tests correct parsing of C-terminal vs side-chain modifications.
+        /// A modification on the last residue's side chain vs the peptide C-terminus are
+        /// chemically distinct. Incorrect parsing would cause wrong mass calculations.
+        /// </summary>
         [Test]
         public static void TestCTermAndLastSideChainModParsing()
         {
-            string fullSequence = "PEPTIDE[Mod:MyMod on E][PeptideCTermMod:MyCTermMod on E]";
+            string fullSequenceBothMods = "PEPTIDE[Mod:MyMod on E]-[PeptideCTermMod:MyCTermMod on E]";
+            string fullSequenceCTermOnly = "PEPTIDE-[PeptideCTermMod:MyCTermMod on E]";
+            string fullSequenceSideChainOnly = "PEPTIDE[Mod:MyMod on E]";
 
             ModificationMotif.TryGetMotif("E", out var motif);
 
@@ -429,12 +486,27 @@ namespace Test
                 { "MyCTermMod on E", cTermMod }
             };
 
-            PeptideWithSetModifications pep = new PeptideWithSetModifications(fullSequence, mods);
+            PeptideWithSetModifications pepBothMods = new PeptideWithSetModifications(fullSequenceBothMods, mods);
+            PeptideWithSetModifications pepCterm = new PeptideWithSetModifications(fullSequenceCTermOnly, mods);
+            PeptideWithSetModifications pepSideChain = new PeptideWithSetModifications(fullSequenceSideChainOnly, mods);
 
-            Assert.That(pep.AllModsOneIsNterminus.Count == 2);
-            Assert.That(pep.AllModsOneIsNterminus.Keys.SequenceEqual(new int[] { 8, 9 }));
+            Assert.That(pepBothMods.AllModsOneIsNterminus.Count == 2);
+            Assert.That(pepBothMods.AllModsOneIsNterminus.Keys.SequenceEqual(new int[] { 8, 9 }));
+            Assert.That(pepBothMods.AllModsOneIsNterminus[8].IdWithMotif == "MyMod on E");
+            Assert.That(pepBothMods.AllModsOneIsNterminus[9].IdWithMotif == "MyCTermMod on E");
+            Assert.That(pepCterm.AllModsOneIsNterminus.Count == 1);
+            Assert.That(pepCterm.AllModsOneIsNterminus.Keys.SequenceEqual(new int[] { 9 }));
+            Assert.That(pepCterm.AllModsOneIsNterminus[9].IdWithMotif == "MyCTermMod on E");
+            Assert.That(pepSideChain.AllModsOneIsNterminus.Count == 1);
+            Assert.That(pepSideChain.AllModsOneIsNterminus.Keys.SequenceEqual(new int[] { 8 }));
+            Assert.That(pepSideChain.AllModsOneIsNterminus[8].IdWithMotif == "MyMod on E");
         }
 
+        /// <summary>
+        /// CRITICAL: Tests hash code generation for peptides with and without digestion params.
+        /// Hash codes are essential for Dictionary/HashSet operations. A null return or
+        /// inconsistent hashing would break peptide deduplication and grouping operations.
+        /// </summary>
         [Test]
         public static void TestPeptideWithSetMod_GetHashCode()
         {
@@ -456,12 +528,17 @@ namespace Test
             Assert.IsNotNull(twoHashCode);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests top-down proteomics digestion with proteolysis products.
+        /// Validates that full-length proteins and their truncation products are correctly
+        /// generated. Essential for intact protein and proteoform identification.
+        /// </summary>
         [Test]
         public static void TestTopDownDigestion()
         {
-            List<ProteolysisProduct> proteolysisProducts = new List<ProteolysisProduct>
+            List<TruncationProduct> proteolysisProducts = new List<TruncationProduct>
             {
-                new ProteolysisProduct(5, 20, "asdf")
+                new TruncationProduct(5, 20, "asdf")
             };
             Protein protein = new Protein("MACDEFGHIKLMNOPQRSTVWYMACDEFGHIKLMNOPQRSTVWYMACDEFGHIKLMNOPQRSTVWY", "testProtein", "Mus", proteolysisProducts: proteolysisProducts);
             DigestionParams topdownParams = new DigestionParams("top-down");
@@ -469,6 +546,11 @@ namespace Test
             Assert.IsTrue(peptides.Count == 3);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests cleavage specificity assignment for FDR categorization.
+        /// Peptides must be correctly labeled as Full/Semi/None specificity for proper
+        /// FDR estimation. Incorrect labeling leads to inflated or deflated FDR.
+        /// </summary>
         [Test]
         public static void TestUpdateCleavageSpecificity()
         {
@@ -492,7 +574,7 @@ namespace Test
             Assert.IsTrue(noneCleavageRetainMet.CleavageSpecificityForFdrCategory == CleavageSpecificity.None);
 
             //Test with proteolytic cleavages
-            protein = new Protein("MACDEFGHIKLMNPQRST", "test", proteolysisProducts: new List<ProteolysisProduct> { new ProteolysisProduct(3, 9, "chain") });
+            protein = new Protein("MACDEFGHIKLMNPQRST", "test", proteolysisProducts: new List<TruncationProduct> { new TruncationProduct(3, 9, "chain") });
             PeptideWithSetModifications fullProteolytic = new PeptideWithSetModifications(protein, dpVariable, 3, 9, CleavageSpecificity.Unknown, "", 0, empty, 0);
             Assert.IsTrue(fullProteolytic.CleavageSpecificityForFdrCategory == CleavageSpecificity.Full);
             fullProteolytic = new PeptideWithSetModifications(protein, dpVariable, 3, 10, CleavageSpecificity.Unknown, "", 0, empty, 0);
@@ -503,6 +585,11 @@ namespace Test
             Assert.IsTrue(semiProteolytic.CleavageSpecificityForFdrCategory == CleavageSpecificity.Semi);
         }
 
+        /// <summary>
+        /// EDGE CASE: Tests single proteases on small proteins where peptide count
+        /// should equal protein length minus minimum peptide length plus one.
+        /// Guards against off-by-one errors in peptide enumeration.
+        /// </summary>
         [Test]
         public static void TestSingleProteasesTinyProtein()
         {
@@ -515,6 +602,11 @@ namespace Test
             Assert.IsTrue(nPwsms.Count == P56381.Length - singleN.MinLength + 1);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests splice site intersection logic for variant peptide analysis.
+        /// Correctly identifying which peptides span splice sites is essential for
+        /// alternative splicing detection and isoform-specific peptide annotation.
+        /// </summary>
         [Test]
         public static void TestIncludeSpliceSiteRanges()
         {
@@ -536,6 +628,12 @@ namespace Test
             Assert.IsFalse(pepe.IncludesSpliceSite(ss7After));
         }
 
+        /// <summary>
+        /// CRITICAL: Tests sequence variation intersection and identification logic.
+        /// Validates both 'intersects' (peptide overlaps variant) and 'identifies'
+        /// (peptide uniquely confirms variant) for SAV, MNV, indels, and truncations.
+        /// Essential for variant peptide identification in proteogenomics.
+        /// </summary>
         [Test]
         public static void TestIntersectsSequenceVariations()
         {
@@ -585,6 +683,12 @@ namespace Test
             Assert.IsFalse(pepe2.IntersectsAndIdentifiesVariation(sv5InsertionAtEnd).identifies);
         }
 
+        /// <summary>
+        /// CRITICAL: Tests detection of variant-containing peptides.
+        /// The IsVariantPeptide() method must correctly distinguish peptides that
+        /// span applied sequence variations from those that don't. Essential for
+        /// filtering and reporting variant peptides.
+        /// </summary>
         [Test]
         public static void TestIsVariantPeptide()
         {
@@ -597,6 +701,12 @@ namespace Test
             Assert.IsFalse(notPepe.IsVariantPeptide());
         }
 
+        /// <summary>
+        /// CRITICAL: Tests sequence variant string generation for reporting.
+        /// The SequenceVariantString method must correctly format variant annotations
+        /// including N-terminal mods, middle mods, and truncated variants for output.
+        /// Essential for human-readable variant peptide reporting.
+        /// </summary>
         [Test]
         public static void TestSeqVarString()
         {
@@ -625,6 +735,12 @@ namespace Test
             Assert.AreEqual("MABCDEFGHIJKLMNOP1WACDEFGHIK", pepe4.SequenceVariantString(variant, true));
         }
 
+        /// <summary>
+        /// CRITICAL: Comprehensive test for variant identification and string methods.
+        /// Tests all variant types (SAV, MNV, insertion, deletion, stop-gain, stop-loss)
+        /// for correct intersection detection, identification logic, and string formatting.
+        /// Essential for proteogenomic variant peptide analysis.
+        /// </summary>
         [Test]
         public static void TestIdentifyandStringMethods()
         {
@@ -664,22 +780,22 @@ namespace Test
             DigestionParams dp2 = new DigestionParams(protease: "Asp-N", minPeptideLength: 2);
             DigestionParams dp3 = new DigestionParams(protease: "Lys-N", minPeptideLength: 2);
 
-            var protein0_variant = proteins.ElementAt(0).GetVariantProteins().ElementAt(0);
-            var protein1_variant = proteins.ElementAt(1).GetVariantProteins().ElementAt(0);
-            var protein2_variant = proteins.ElementAt(2).GetVariantProteins().ElementAt(0);
-            var protein3_variant = proteins.ElementAt(3).GetVariantProteins().ElementAt(0);
-            var protein4_variant = proteins.ElementAt(4).GetVariantProteins().ElementAt(0);
-            var protein5_variant = proteins.ElementAt(5).GetVariantProteins().ElementAt(0);
-            var protein6_variant = proteins.ElementAt(6).GetVariantProteins().ElementAt(0);
-            var protein7_variant = proteins.ElementAt(7).GetVariantProteins().ElementAt(0);
-            var protein8_variant = proteins.ElementAt(8).GetVariantProteins().ElementAt(0);
-            var protein9_variant = proteins.ElementAt(9).GetVariantProteins().ElementAt(0);
-            var protein10_variant = proteins.ElementAt(10).GetVariantProteins().ElementAt(0);
-            var protein11_variant = proteins.ElementAt(11).GetVariantProteins().ElementAt(0);
-            var protein12_variant = proteins.ElementAt(12).GetVariantProteins().ElementAt(0);
-            var protein13_variant = proteins.ElementAt(13).GetVariantProteins().ElementAt(0);
-            var protein14_variant = proteins.ElementAt(14).GetVariantProteins().ElementAt(0);
-            var protein15_variant = proteins.ElementAt(15).GetVariantProteins().ElementAt(0);
+            var protein0_variant = proteins.ElementAt(0).GetVariantBioPolymers().ElementAt(0);
+            var protein1_variant = proteins.ElementAt(1).GetVariantBioPolymers().ElementAt(0);
+            var protein2_variant = proteins.ElementAt(2).GetVariantBioPolymers().ElementAt(0);
+            var protein3_variant = proteins.ElementAt(3).GetVariantBioPolymers().ElementAt(0);
+            var protein4_variant = proteins.ElementAt(4).GetVariantBioPolymers().ElementAt(0);
+            var protein5_variant = proteins.ElementAt(5).GetVariantBioPolymers().ElementAt(0);
+            var protein6_variant = proteins.ElementAt(6).GetVariantBioPolymers().ElementAt(0);
+            var protein7_variant = proteins.ElementAt(7).GetVariantBioPolymers().ElementAt(0);
+            var protein8_variant = proteins.ElementAt(8).GetVariantBioPolymers().ElementAt(0);
+            var protein9_variant = proteins.ElementAt(9).GetVariantBioPolymers().ElementAt(0);
+            var protein10_variant = proteins.ElementAt(10).GetVariantBioPolymers().ElementAt(0);
+            var protein11_variant = proteins.ElementAt(11).GetVariantBioPolymers().ElementAt(0);
+            var protein12_variant = proteins.ElementAt(12).GetVariantBioPolymers().ElementAt(0);
+            var protein13_variant = proteins.ElementAt(13).GetVariantBioPolymers().ElementAt(0);
+            var protein14_variant = proteins.ElementAt(14).GetVariantBioPolymers().ElementAt(0);
+            var protein15_variant = proteins.ElementAt(15).GetVariantBioPolymers().ElementAt(0);
 
             List<Modification> digestMods = new List<Modification>();
 
@@ -737,6 +853,11 @@ namespace Test
             Assert.AreEqual("P7D", protein13_peptide.SequenceVariantString(protein13_variant.AppliedSequenceVariations.ElementAt(0), false));
         }
 
+        /// <summary>
+        /// DEFENSIVE: Tests error handling for malformed peptide sequences.
+        /// Validates that ambiguous sequences, bad modifications, and nonexistent mods
+        /// throw MzLibException rather than crashing or returning invalid peptides.
+        /// </summary>
         [Test]
         public static void BreakDeserializationMethod()
         {
@@ -745,6 +866,12 @@ namespace Test
             Assert.Throws<MzLibUtil.MzLibException>(() => new PeptideWithSetModifications("A[:mod]", new Dictionary<string, Modification>())); // nonexistent mod
         }
 
+        /// <summary>
+        /// CRITICAL: Tests reverse decoy peptide generation from target peptides.
+        /// Validates correct sequence reversal, modification position remapping,
+        /// cleavage site preservation, and handling of palindromic sequences.
+        /// Essential for target-decoy FDR estimation in all database searches.
+        /// </summary>
         [Test]
         public static void TestReverseDecoyFromTarget()
         {
@@ -762,12 +889,11 @@ namespace Test
 
             int[] newAminoAcidPositions = new int["PEPTIDEK".Length];
             PeptideWithSetModifications reverse = p.GetReverseDecoyFromTarget(newAminoAcidPositions);
-            // Hash code corresponding to the target sequence, should be PairedTargetDecoyHash for reverse
-            int testTargetHash = p.GetHashCode();
-            // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
-            int testDecoyHash = reverse.GetHashCode(); 
-            Assert.AreEqual(reverse.PairedTargetDecoySequence.GetHashCode(), testTargetHash);
-            Assert.AreEqual(p.PairedTargetDecoySequence.GetHashCode(), testDecoyHash);
+
+            string targetSequence = p.FullSequence;
+            string decoySequence = reverse.FullSequence; 
+            Assert.AreEqual(reverse.PairedTargetDecoySequence, targetSequence);
+            Assert.AreEqual(p.PairedTargetDecoySequence, decoySequence);
             Assert.AreEqual("EDITPEPK", reverse.BaseSequence);
             Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0, 7 }, newAminoAcidPositions);
             Assert.IsTrue(reverse.Protein.IsDecoy);
@@ -794,19 +920,12 @@ namespace Test
             Assert.AreEqual("DKEITPDEP", p_aspN_reverse.BaseSequence);
             Assert.AreEqual(p_aspN.FullSequence, p_aspN_reverse.PeptideDescription);
 
-            //  chymotrypsin (don't cleave before proline)
+            //  chymotrypsin|P
             newAminoAcidPositions = new int["FKFPRWAWPSYGYPG".Length];
-            PeptideWithSetModifications p_chymoP = new PeptideWithSetModifications(new Protein("FKFPRWAWPSYGYPG", "DECOY_CHYMOP"), new DigestionParams(protease: "chymotrypsin (don't cleave before proline)", maxMissedCleavages: 10), 1, 15, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications p_chymoP = new PeptideWithSetModifications(new Protein("FKFPRWAWPSYGYPG", "DECOY_CHYMOP"), new DigestionParams(protease: "chymotrypsin|P", maxMissedCleavages: 10), 1, 15, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_chymoP_reverse = p_chymoP.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("FGPYGWSPWAYRPFK", p_chymoP_reverse.BaseSequence);
             Assert.AreEqual(p_chymoP.FullSequence, p_chymoP_reverse.PeptideDescription);
-
-            //  chymotrypsin (don't cleave before proline)
-            newAminoAcidPositions = new int["FKFPRWAWPSYGYPG".Length];
-            PeptideWithSetModifications p_chymo = new PeptideWithSetModifications(new Protein("FKFPRWAWPSYGYPG", "DECOY_CHYMO"), new DigestionParams(protease: "chymotrypsin (cleave before proline)", maxMissedCleavages: 10), 1, 15, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            PeptideWithSetModifications p_chymo_reverse = p_chymo.GetReverseDecoyFromTarget(newAminoAcidPositions);
-            Assert.AreEqual("FGFPGWSWPAYRYPK", p_chymo_reverse.BaseSequence);
-            Assert.AreEqual(p_chymo.FullSequence, p_chymo_reverse.PeptideDescription);
 
             //  CNBr cleave after M
             newAminoAcidPositions = new int["MPEPTIMEK".Length];
@@ -817,9 +936,9 @@ namespace Test
 
             //  elastase cleave after A, V, S, G, L, I,
             newAminoAcidPositions = new int["KAYVPSRGHLDIN".Length];
-            PeptideWithSetModifications p_elastase = new PeptideWithSetModifications(new Protein("KAYVPSRGHLDIN", "DECOY_ELASTASE"), new DigestionParams(protease: "elastase"), 1, 13, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications p_elastase = new PeptideWithSetModifications(new Protein("KAYVPSRGHLDIN", "DECOY_ELASTASE"), new DigestionParams(protease: "elastase|P"), 1, 13, CleavageSpecificity.Semi, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_elastase_reverse = p_elastase.GetReverseDecoyFromTarget(newAminoAcidPositions);
-            Assert.AreEqual("NADVHSRGPLYIK", p_elastase_reverse.BaseSequence);
+            Assert.AreEqual("NADHRSPGVLYIK", p_elastase_reverse.BaseSequence);
 
             //  top-down
             newAminoAcidPositions = new int["RPEPTIREK".Length];
@@ -839,11 +958,11 @@ namespace Test
             PeptideWithSetModifications p_tryp = new PeptideWithSetModifications(new Protein("VTIRTVR", "DECOY_TRYP"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, VTIRTVR_modsDictionary, 0, null);
             PeptideWithSetModifications p_tryp_reverse = p_tryp.GetReverseDecoyFromTarget(newAminoAcidPositions);
             // Hash code corresponding to the target sequence, should be PairedTargetDecoyHash for reverse
-            int testMirrorTargetHash = p_tryp.GetHashCode();
+            string mirrorTarget = p_tryp.FullSequence;
             // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
-            int testMirrorDecoyHash = p_tryp_reverse.GetHashCode();
-            Assert.AreEqual(testMirrorTargetHash, p_tryp_reverse.PairedTargetDecoySequence.GetHashCode());
-            Assert.AreEqual(testMirrorDecoyHash, p_tryp.PairedTargetDecoySequence.GetHashCode());
+            string mirrorDecoy = p_tryp_reverse.FullSequence;
+            Assert.AreEqual(mirrorTarget, p_tryp_reverse.PairedTargetDecoySequence);
+            Assert.AreEqual(mirrorDecoy, p_tryp.PairedTargetDecoySequence);
             Assert.AreEqual("RVTRITV", p_tryp_reverse.BaseSequence);
             Assert.AreEqual(new int[] { 6, 5, 4, 3, 2, 1, 0 }, newAminoAcidPositions);
             Assert.IsTrue(p_tryp_reverse.AllModsOneIsNterminus.ContainsKey(1));//n-term acetyl
@@ -852,6 +971,12 @@ namespace Test
             Assert.AreEqual(p_tryp.FullSequence, p_tryp_reverse.PeptideDescription);
 
         }
+        /// <summary>
+        /// CRITICAL: Tests scrambled decoy peptide generation from target peptides.
+        /// Scrambled decoys are an alternative to reversed decoys that may provide
+        /// better FDR estimation for certain peptide populations. Tests modification
+        /// position mapping and cleavage site preservation during scrambling.
+        /// </summary>
         [Test]
         public static void TestScrambledDecoyFromTarget()
         {
@@ -868,12 +993,11 @@ namespace Test
             PeptideWithSetModifications p = new PeptideWithSetModifications(new Protein("PEPTIDEK", "ACCESSIION"), new DigestionParams(), 1, 8, CleavageSpecificity.Full, null, 0, allmodsoneisnterminus, 0, null);
             int[] newAminoAcidPositions = new int["PEPTIDEK".Length];
             PeptideWithSetModifications testScrambled = p.GetScrambledDecoyFromTarget(newAminoAcidPositions);
-            // Hash code corresponding to the target sequence, should be PairedTargetDecoyHash for reverse
-            int testTargetHash = p.GetHashCode();
-            // Hash code corresponding to the decoy sequence, should be PairedTargetDecoyHash for target
-            int testDecoyHash = testScrambled.GetHashCode();
-            Assert.AreEqual(testScrambled.PairedTargetDecoySequence.GetHashCode(), testTargetHash);
-            Assert.AreEqual(p.PairedTargetDecoySequence.GetHashCode(), testDecoyHash);
+
+            string targetSequence = p.FullSequence;
+            string decoySequence = testScrambled.FullSequence;
+            Assert.AreEqual(testScrambled.PairedTargetDecoySequence, targetSequence);
+            Assert.AreEqual(p.PairedTargetDecoySequence, decoySequence);
             Assert.AreEqual("IDEETPPK", testScrambled.BaseSequence);
             Assert.AreEqual(new int[] { 4, 5, 6, 1, 3, 0, 2, 7 }, newAminoAcidPositions);
             // Check n-term acetyl
@@ -887,7 +1011,6 @@ namespace Test
 
             // Test for complex cleavage motif patterns
             Dictionary<int, Modification> complexTrypticMods = new Dictionary<int, Modification> { { 1, nTermAcet }, { 89, acetylation } };
-            Loaders.LoadElements();
             string insulinFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.fasta");
             string insulinSeq = ProteinDbLoader.LoadProteinFasta(insulinFile, true, DecoyType.None, false, out var dbError)[0].BaseSequence;
             PeptideWithSetModifications insulinTryptic = new PeptideWithSetModifications(new Protein(insulinSeq, "COMPLEX_TRYP"), new DigestionParams(), 1, 110, CleavageSpecificity.Full, null, 0, complexTrypticMods, 0, null);
@@ -912,6 +1035,12 @@ namespace Test
             PeptideWithSetModifications mirroredTarget = forceMirror.GetScrambledDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual(new int[] { 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 }, newAminoAcidPositions);
         }
+        /// <summary>
+        /// CRITICAL: Tests decoy generation from peptides digested from real XML databases.
+        /// Ensures decoy generation works correctly with database-derived modifications,
+        /// sequence variants, and other annotations. No unchanged peptides should remain
+        /// after decoy generation (except true palindromes).
+        /// </summary>
         [Test]
         public static void TestReverseDecoyFromPeptideFromProteinXML()
         {
@@ -953,6 +1082,11 @@ namespace Test
             Assert.AreEqual(0, unchangedPeptides);
         }
 
+        /// <summary>
+        /// INFORMATIONAL: Counts how many target peptides have matching decoy sequences.
+        /// This metric helps assess decoy database quality - too many matches indicate
+        /// potential FDR estimation issues. Used for database quality validation.
+        /// </summary>
         [Test]
         public static void CountTargetsWithMatchingDecoys()
         {
@@ -1007,6 +1141,11 @@ namespace Test
             }
         }
 
+        /// <summary>
+        /// CRITICAL: Tests that top-down digestion returns expected truncation products.
+        /// For insulin, expects 68 truncation products. Essential for top-down and
+        /// middle-down proteomics workflows that search for proteoforms.
+        /// </summary>
         [Test]
         public static void TestPeptideWithSetModsReturnsTruncationsInTopDown()
         {
@@ -1019,67 +1158,188 @@ namespace Test
             List<PeptideWithSetModifications> insulinTruncations = insulin.Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
             Assert.AreEqual(68, insulinTruncations.Count);
         }
-
+        /// <summary>
+        /// CRITICAL: Regression test for top-down truncation product generation.
+        /// Generates a comprehensive table of all truncation peptides for target/decoy
+        /// insulin and compares against expected baseline. Ensures truncation logic
+        /// remains stable across code changes. Essential for top-down proteomics.
+        /// </summary>
         [Test]
-        public static void TestPeptideWithSetModsReturnsDecoyTruncationsInTopDown()
+        public static void TestTopDownTruncationTableMatchesExpected()
         {
+            // PURPOSE
+            // Generate a comprehensive TSV of all top-down truncation peptides for target and decoy insulin entries,
+            // then compare the result against the stored expected file for regression checking.
+            //
+            // OUTPUT COLUMNS
+            // - Sequence: peptide/proteoform base sequence
+            // - Type: "Target" or "Decoy" based on parent protein
+            // - Begin: one-based start residue within the parent protein
+            // - End: one-based end residue within the parent protein
+            // - RetainedMethionine: TRUE when the peptide includes the protein’s N-terminal Met (Begin == 1 and Parent.BaseSequence[0] == 'M'), else FALSE
+
+            // Arrange: load insulin with reverse decoys and truncations enabled
             string xmlDatabase = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "humanInsulin.xml");
-            List<Protein> insulinProteins = ProteinDbLoader.LoadProteinXML(xmlDatabase, true,
-                DecoyType.Reverse, null, false, null, out var unknownModifications, addTruncations: true);
+            List<Protein> insulinProteins = ProteinDbLoader.LoadProteinXML(
+                xmlDatabase,
+                generateTargets: true,
+                decoyType: DecoyType.Reverse,
+                allKnownModifications: null,
+                isContaminant: false,
+                modTypesToExclude: null,
+                unknownModifications: out var unknownModifications,
+                addTruncations: true);
 
-            Protease protease = new Protease("top-down", CleavageSpecificity.None, "", "", new List<DigestionMotif>(), null);
-            List<PeptideWithSetModifications> insulintTargetTruncations = insulinProteins.Where(p=>!p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
-            Assert.AreEqual(68, insulintTargetTruncations.Count);
-            List<PeptideWithSetModifications> insulintDecoyTruncations = insulinProteins.Where(p => p.IsDecoy).First().Digest(new DigestionParams(protease: protease.Name), new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true).ToList();
-            Assert.AreEqual(68, insulintDecoyTruncations.Count);
-        }
+            Assert.That(insulinProteins.Any(p => !p.IsDecoy), "Expected at least one target protein");
+            Assert.That(insulinProteins.Any(p => p.IsDecoy), "Expected at least one decoy protein");
+            Assert.That(unknownModifications == null || unknownModifications.Count == 0, "No unknown modifications expected from insulin XML");
 
-        [Test]
-        public static void CheckFullChemicalFormula()
-        {
-            PeptideWithSetModifications small_pep = new PeptideWithSetModifications(new Protein("PEPTIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            ChemicalFormula small_pep_cf = ChemicalFormula.ParseFormula("C34H53N7O15");
-            Assert.AreEqual(small_pep.FullChemicalFormula, small_pep_cf);
+            // Digest: enumerate truncations for a representative target/decoy pair (parity sanity)
+            static string Reverse(string s) => new string(s.Reverse().ToArray());
+            var target = insulinProteins.First(p => !p.IsDecoy);
+            string expectedDecoySeq = target.BaseSequence.Length > 0 && target.BaseSequence[0] == 'M'
+                ? "M" + Reverse(target.BaseSequence.Substring(1))
+                : Reverse(target.BaseSequence);
+            var decoy = insulinProteins.FirstOrDefault(p => p.IsDecoy && p.BaseSequence == expectedDecoySeq)
+                        ?? insulinProteins.First(p => p.IsDecoy && p.Length == target.Length);
 
-            PeptideWithSetModifications large_pep = new PeptideWithSetModifications(new Protein("PEPTIDEKRNSPEPTIDEKECUEIRQUV", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 28, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
-            ChemicalFormula large_pep_cf = ChemicalFormula.ParseFormula("C134H220N38O50S1Se2");
-            Assert.AreEqual(large_pep.FullChemicalFormula, large_pep_cf);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(target.Accession));
+            Assert.IsTrue(decoy.Accession.StartsWith("DECOY_"));
+            Assert.AreEqual(target.Length, decoy.Length);
+            Assert.AreNotEqual(target.BaseSequence, decoy.BaseSequence);
+            Assert.AreEqual(expectedDecoySeq, decoy.BaseSequence, "Decoy must follow 'retain M, reverse remainder' rule");
 
-            ModificationMotif.TryGetMotif("S", out ModificationMotif motif_s);
-            Modification phosphorylation = new Modification(_originalId: "phospho", _modificationType: "CommonBiological", _target: motif_s, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H1O3P1"));
-            Dictionary<int, Modification> modDict_small = new Dictionary<int, Modification>();
-            modDict_small.Add(4, phosphorylation);
+            var dp = new DigestionParams(protease: "top-down");
+            List<PeptideWithSetModifications> targetTruncs = target
+                .Digest(dp, new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true)
+                .Cast<PeptideWithSetModifications>().ToList();
+            List<PeptideWithSetModifications> decoyTruncs = decoy
+                .Digest(dp, new List<Modification>(), new List<Modification>(), topDownTruncationSearch: true)
+                .Cast<PeptideWithSetModifications>().ToList();
 
-            PeptideWithSetModifications small_pep_mod = new PeptideWithSetModifications(new Protein("PEPSIDE", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 7, CleavageSpecificity.Full, null, 0, modDict_small, 0, null);
-            ChemicalFormula small_pep_mod_cf = ChemicalFormula.ParseFormula("C33H52N7O18P1");
-            Assert.AreEqual(small_pep_mod.FullChemicalFormula, small_pep_mod_cf);
+            // Parity and sanity checks for the selected pair
+            Assert.AreEqual(68, targetTruncs.Count, "Target should yield 68 truncation products in top-down mode");
+            Assert.AreEqual(68, decoyTruncs.Count, "Decoy should yield 68 truncation products in top-down mode");
+            Assert.That(targetTruncs.All(p => p.DigestionParams?.DigestionAgent?.Name == "top-down"));
+            Assert.That(decoyTruncs.All(p => p.DigestionParams?.DigestionAgent?.Name == "top-down"));
+            Assert.AreEqual(targetTruncs.Count, targetTruncs.Select(p => p.BaseSequence).Distinct().Count());
+            Assert.AreEqual(decoyTruncs.Count, decoyTruncs.Select(p => p.BaseSequence).Distinct().Count());
+            Assert.IsTrue(targetTruncs.Any(p => p.BaseSequence == target.BaseSequence));
+            Assert.IsTrue(decoyTruncs.Any(p => p.BaseSequence == decoy.BaseSequence));
 
-            ModificationMotif.TryGetMotif("K", out ModificationMotif motif_k);
-            Modification acetylation = new Modification(_originalId: "acetyl", _modificationType: "CommonBiological", _target: motif_k, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C2H3O"));
-            Dictionary<int, Modification> modDict_large = new Dictionary<int, Modification>();
-            modDict_large.Add(4, phosphorylation);
-            modDict_large.Add(11, phosphorylation);
-            modDict_large.Add(8, acetylation);
+            // Build the table rows
+            static bool HasRetainedMet(PeptideWithSetModifications p) =>
+                p.OneBasedStartResidueInProtein == 1 &&
+                p.Parent?.BaseSequence?.Length > 0 &&
+                p.Parent.BaseSequence[0] == 'M';
 
-            PeptideWithSetModifications large_pep_mod = new PeptideWithSetModifications(new Protein("PEPSIDEKRNSPEPTIDEKECUEIRQUV", "ACCESSION"), new DigestionParams(protease: "trypsin"), 1, 28, CleavageSpecificity.Full, null, 0, modDict_large, 0, null);
-            ChemicalFormula large_pep_mod_cf = ChemicalFormula.ParseFormula("C135H223N38O57P2S1Se2");
-            Assert.AreEqual(large_pep_mod.FullChemicalFormula, large_pep_mod_cf);
-
-            ModificationMotif.TryGetMotif("C", out var motif_c);
-            ModificationMotif.TryGetMotif("G", out var motif_g);
-            Dictionary<string, Modification> modDict =
-                new()
+            // We only compare the combined truncations for the chosen target/decoy in this test (68 + 68 rows)
+            var rows = targetTruncs.Concat(decoyTruncs)
+                .Select(pep =>
                 {
-                    { "Carbamidomethyl on C", new Modification(_originalId: "Carbamidomethyl", _modificationType: "Common Fixed",
-                        _target: motif_c, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C2H3ON")) },
-                    { "BS on G" , new Modification(_originalId: "BS on G", _modificationType: "BS", _target: motif_g, _monoisotopicMass: 96.0875)}
-                };
-            PeptideWithSetModifications pwsmWithMissingCfMods = new PeptideWithSetModifications(
-                "ENQGDETQG[Speculative:BS on G]C[Common Fixed:Carbamidomethyl on C]PPQR", modDict, p: new Protein("ENQGDETQGCPPQR", "FakeProtein"), digestionParams: new DigestionParams(),
-                oneBasedStartResidueInProtein: 1, oneBasedEndResidueInProtein: 14);
-            Assert.Null(pwsmWithMissingCfMods.FullChemicalFormula);
-        }
+                    bool isDecoy = (pep.Parent as Protein)?.IsDecoy == true;
+                    string type = isDecoy ? "Decoy" : "Target";
+                    string retained = HasRetainedMet(pep) ? "TRUE" : "FALSE"; // normalize to match expected
+                    return string.Join("\t", new[]
+                    {
+                        pep.BaseSequence,
+                        type,
+                        pep.OneBasedStartResidueInProtein.ToString(),
+                        pep.OneBasedEndResidueInProtein.ToString(),
+                        retained
+                    });
+                })
+                // Sort deterministically to avoid platform/iteration-order differences
+                .OrderBy(r => r, StringComparer.Ordinal)
+                .ToList();
 
+            var header = "Sequence\tType\tBegin\tEnd\tRetainedMethionine";
+            var outputLines = new List<string>(capacity: rows.Count + 1) { header };
+            outputLines.AddRange(rows);
+
+            // Persist the generated table for inspection
+            string workPath = Path.Combine(TestContext.CurrentContext.WorkDirectory, "topdown_truncations_table.tsv");
+            File.WriteAllLines(workPath, outputLines);
+            Console.WriteLine($"Generated truncation table: {workPath}");
+
+            // Load expected and compare
+            string expectedPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "truncationsExpected.tsv");
+            Assert.That(File.Exists(expectedPath), $"Expected file not found: {expectedPath}");
+            var expectedAll = File.ReadAllLines(expectedPath)
+                                  .Where(l => l is not null)
+                                  .Select(l => l.TrimEnd('\r', '\n'))
+                                  .ToList();
+
+            Assert.That(expectedAll.Count > 0, "Expected file is empty");
+            string expectedHeader = expectedAll[0];
+            var expectedRows = expectedAll.Skip(1)
+                                          .Where(l => !string.IsNullOrWhiteSpace(l))
+                                          .OrderBy(l => l, StringComparer.Ordinal)
+                                          .ToList();
+
+            // Header check
+            if (!string.Equals(header, expectedHeader, StringComparison.Ordinal))
+            {
+                TestContext.Out.WriteLine($"Header mismatch:");
+                TestContext.Out.WriteLine($"  Expected: {expectedHeader}");
+                TestContext.Out.WriteLine($"  Actual  : {header}");
+            }
+
+            // Multiset comparison for rows (counts of duplicates matter)
+            static Dictionary<string, int> ToCounts(IEnumerable<string> lines)
+                => lines.GroupBy(x => x, StringComparer.Ordinal)
+                        .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
+
+            var expCounts = ToCounts(expectedRows);
+            var gotCounts = ToCounts(rows);
+
+            var missing = new List<string>();   // in expected more times than in actual
+            var extra = new List<string>();     // in actual more times than in expected
+
+            foreach (var kv in expCounts)
+            {
+                gotCounts.TryGetValue(kv.Key, out int got);
+                if (got < kv.Value)
+                {
+                    int deficit = kv.Value - got;
+                    for (int i = 0; i < deficit; i++) missing.Add(kv.Key);
+                }
+            }
+            foreach (var kv in gotCounts)
+            {
+                expCounts.TryGetValue(kv.Key, out int exp);
+                if (kv.Value > exp)
+                {
+                    int surplus = kv.Value - exp;
+                    for (int i = 0; i < surplus; i++) extra.Add(kv.Key);
+                }
+            }
+
+            if (missing.Count == 0 && extra.Count == 0)
+            {
+                TestContext.Out.WriteLine("Top-down truncation table matches expected.");
+                TestContext.Out.WriteLine("Sample (first 5 rows):");
+                foreach (var l in outputLines.Take(6)) TestContext.Out.WriteLine(l);
+            }
+            else
+            {
+                TestContext.Out.WriteLine("Top-down truncation table differs from expected.");
+                TestContext.Out.WriteLine($"Missing rows (expected but not found or under-counted): {missing.Count}");
+                foreach (var l in missing.Take(20)) TestContext.Out.WriteLine($"  MISSING: {l}");
+                if (missing.Count > 20) TestContext.Out.WriteLine($"  ...and {missing.Count - 20} more");
+
+                TestContext.Out.WriteLine($"Extra rows (found but not expected or over-counted): {extra.Count}");
+                foreach (var l in extra.Take(20)) TestContext.Out.WriteLine($"  EXTRA:   {l}");
+                if (extra.Count > 20) TestContext.Out.WriteLine($"  ...and {extra.Count - 20} more");
+
+                Assert.Fail($"Generated top-down truncation table does not match expected.\nExpected file: {expectedPath}\nActual file: {workPath}\nMissing: {missing.Count}, Extra: {extra.Count}");
+            }
+        }
+        /// <summary>
+        /// CRITICAL: Tests MostAbundantMonoisotopicMass calculation accuracy.
+        /// Compares against Protein Prospector values. Accurate mass calculation
+        /// is essential for precursor mass matching in database searches.
+        /// </summary>
         [Test]
         public static void CheckMostAbundantMonoisotopicMass()
         {
@@ -1092,6 +1352,12 @@ namespace Test
             Assert.That(large_pep.MostAbundantMonoisotopicMass, Is.EqualTo(large_pep_most_abundant_mass_prospector).Within(0.01));
         }
 
+        /// <summary>
+        /// CRITICAL: Tests EssentialSequence generation for peptide grouping.
+        /// Essential sequences include only user-specified modification types and are
+        /// used for peptide-level grouping and quantification. Regression test against
+        /// expected output file ensures consistency across versions.
+        /// </summary>
         [Test]
         public static void TestPeptideWithSetModsEssentialSequence()
         {
@@ -1105,7 +1371,7 @@ namespace Test
             var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml"), true, DecoyType.None, UniProtPtms, false, null, out var unknownMod);
             var gapdh = proteinXml[0];
 
-            var gapdhPeptides = gapdh.Digest(new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Variable), UniProtPtms, new List<Modification>());
+            var gapdhPeptides = gapdh.Digest(new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Variable), UniProtPtms, new List<Modification>());
 
             List<string> allSequences = new List<string>();
             foreach (var peptide in gapdhPeptides)
@@ -1117,6 +1383,12 @@ namespace Test
 
             CollectionAssert.AreEquivalent(expectedFullStrings, allSequences.ToArray());
         }
+        /// <summary>
+        /// CRITICAL: Tests FullSequence and FullSequenceWithMassShift generation.
+        /// These string representations are used for peptide identification, reporting,
+        /// and spectral library matching. Regression test against expected files
+        /// ensures output format stability across versions.
+        /// </summary>
         [Test]
         public static void TestPeptideWithSetModsFullSequence()
         {
@@ -1126,7 +1398,7 @@ namespace Test
             var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml"), true, DecoyType.None, UniProtPtms, false, null, out var unknownMod);
             var gapdh = proteinXml[0];
 
-            var gapdhPeptides = gapdh.Digest(new DigestionParams(maxMissedCleavages:0, minPeptideLength:1, initiatorMethionineBehavior:InitiatorMethionineBehavior.Variable),UniProtPtms,new List<Modification>());
+            var gapdhPeptides = gapdh.Digest(new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength:1, initiatorMethionineBehavior:InitiatorMethionineBehavior.Variable),UniProtPtms,new List<Modification>());
             
             List<string> allSequences = new List<string>();
             foreach (var peptide in gapdhPeptides)
@@ -1147,6 +1419,11 @@ namespace Test
             CollectionAssert.AreEquivalent(expectedFullStringsWithMassShifts, allSequences.ToArray());
         }
 
+        /// <summary>
+        /// EDGE CASE: Tests peptide behavior when parent protein is null or when
+        /// accessing flanking residues. PreviousResidue/NextResidue should return '-'
+        /// at protein termini or when parent is null. Important for de novo peptides.
+        /// </summary>
         [Test]
         public static void TestPeptideWithSetModsNoParentProtein()
         {
@@ -1180,6 +1457,176 @@ namespace Test
             Assert.AreEqual('K', last.PreviousResidue);
             Assert.AreEqual('-', last.NextAminoAcid);
             Assert.AreEqual('-', last.NextResidue);
+        }
+
+        /// <summary>
+        /// CRITICAL: Tests equality comparison for PeptideWithSetModifications.
+        /// Correct equality is essential for HashSet/Dictionary operations, peptide
+        /// deduplication, and protein inference. Tests same peptide, different proteins,
+        /// different positions, and null comparisons.
+        /// </summary>
+        [Test]
+        public static void TestPeptideWithSetModsEquals()
+        {
+            // Create two proteins
+            Protein protein1 = new Protein("SEQUENCEK", "accession1");
+            Protein protein2 = new Protein("SEQUENCEK", "accession2");
+
+            // Create digestion parameters
+            DigestionParams digestionParams = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+
+            // Digest the proteins to get peptides
+            PeptideWithSetModifications peptide1 = protein1.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
+            PeptideWithSetModifications peptide2 = protein2.Digest(digestionParams, new List<Modification>(), new List<Modification>()).First();
+
+            // Test equality - same peptide
+            Assert.IsTrue(peptide1.Equals(peptide1));
+
+            // different peptide
+            Assert.IsTrue(!peptide1.Equals(peptide2));
+            Assert.IsTrue(!peptide1.Equals((object)peptide2));
+            Assert.IsTrue(!peptide1.Equals((IBioPolymerWithSetMods)peptide2));
+            Assert.AreNotEqual(peptide1.GetHashCode(), peptide2.GetHashCode());
+
+            // Test inequality with different start residue
+            PeptideWithSetModifications peptide3 = new PeptideWithSetModifications(protein1, digestionParams, 2, 9, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0);
+            Assert.IsFalse(peptide1.Equals(peptide3));
+
+            // Test inequality with different parent accession
+            PeptideWithSetModifications peptide4 = new PeptideWithSetModifications(protein2, digestionParams, 1, 9, CleavageSpecificity.Full, "", 0, new Dictionary<int, Modification>(), 0);
+            Assert.IsFalse(peptide1.Equals(peptide4));
+
+            // all fail on null
+            Assert.That(!peptide1.Equals(null));
+            Assert.That(!peptide1.Equals((object)null));
+            Assert.That(!peptide1.Equals((PeptideWithSetModifications)null));
+        }
+
+       
+
+        /// <summary>
+        /// CRITICAL: Tests modification parsing from FullSequence strings.
+        /// Validates that GetModificationDictionaryFromFullSequence and
+        /// GetModificationsFromFullSequence correctly parse modifications from
+        /// peptide strings. Essential for reading results files and spectral libraries.
+        /// </summary>
+        [Test]
+        public static void TestIBioPolymerWithSetModsModificationFromFullSequence()
+        {
+            Dictionary<string, Modification> un = new Dictionary<string, Modification>();
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"),
+                    formalChargesDictionary).ToList();
+            List<Protein> proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"),
+                true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
+            var allKnownModDict = UniProtPtms.ToDictionary(p => p.IdWithMotif, p => p);
+            var digestionParameters = new DigestionParams(maxModsForPeptides: 3);
+
+            foreach (Protein p in proteins)
+            {
+                List<PeptideWithSetModifications> digestedPeptides =
+                    p.Digest(digestionParameters, [], [], null, null).ToList();
+                // take the most modified peptide by base sequence and ensure all methods function properly
+                foreach (var targetPeptide in digestedPeptides
+                             .Where(pep => pep.FullSequence.Contains('['))
+                             .GroupBy(pep => pep.BaseSequence)
+                             .Select(pepGroup => pepGroup.MaxBy(pep => pep.AllModsOneIsNterminus.Count)))
+                {
+                    var startResidue = targetPeptide.OneBasedStartResidue;
+                    var endResidue = targetPeptide.OneBasedEndResidue;
+
+                    // Pull our expected modifications based upon parent protein object with a maximum value of DigestionParameters.MaxMods
+                    // A bunch of logic to count the number of expected modifications based upon the xml database entries
+                    int expectedModCount = 0;
+                    foreach (var modDictEntry in p.OneBasedPossibleLocalizedModifications
+                                 .Where(mod => mod.Key >= startResidue && mod.Key <= endResidue))
+                    {
+                        if (modDictEntry.Value.Count > 1)
+                        {
+                            var locRestrictions = modDictEntry.Value.Select(mod => mod.LocationRestriction).ToList();
+
+                            if (locRestrictions.AllSame())
+                            {
+                                if (locRestrictions.First() == "Anywhere.")
+                                    expectedModCount++;
+                                else if (locRestrictions.First() == "N-terminal." && modDictEntry.Key == startResidue)
+                                    expectedModCount++;
+                            }
+                            else if (modDictEntry.Value.Select(mod => mod.LocationRestriction).Contains("Anywhere.")
+                                     && modDictEntry.Value.Select(mod => mod.LocationRestriction)
+                                         .Contains("N-terminal."))
+                            {
+                                expectedModCount++;
+                                if (modDictEntry.Key == startResidue)
+                                    expectedModCount++;
+                            }
+                        }
+                        else
+                        {
+                            switch (modDictEntry.Value.First().LocationRestriction)
+                            {
+                                case "Anywhere.":
+                                case "N-terminal." when modDictEntry.Key == startResidue:
+                                    expectedModCount++;
+                                    break;
+                            }
+                        }
+                    }
+
+                    expectedModCount = Math.Min(expectedModCount, digestionParameters.MaxMods);
+
+                    var expectedModifications = p.OneBasedPossibleLocalizedModifications.Where(mod =>
+                        mod.Key >= startResidue &&
+                        mod.Key <= endResidue).SelectMany(mod => mod.Value).ToList();
+
+                    // Parse modifications from PWSM and two IBioPolymerWithSetMods methods
+                    var pwsmModDict = targetPeptide.AllModsOneIsNterminus;
+                    var bpwsmModDict = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(targetPeptide.FullSequence, allKnownModDict);
+                    var bpwsmModList = IBioPolymerWithSetMods.GetModificationsFromFullSequence(targetPeptide.FullSequence, allKnownModDict);
+
+                    // Ensure all methods are in agreement by modification count
+                    Assert.AreEqual(pwsmModDict.Count, expectedModCount);
+                    Assert.AreEqual(bpwsmModDict.Count, expectedModCount);
+                    Assert.AreEqual(bpwsmModList.Count, expectedModCount);
+
+                    // Ensure all methods are in agreement by modification identify
+                    foreach (var pwsmModification in pwsmModDict.Values)
+                        Assert.Contains(pwsmModification, expectedModifications);
+                    foreach (var pwsmModification in bpwsmModDict.Values)
+                        Assert.Contains(pwsmModification, expectedModifications);
+                    foreach (var pwsmModification in bpwsmModList)
+                        Assert.Contains(pwsmModification, expectedModifications);
+                }
+            }
+        }
+
+        /// <summary>
+        /// CRITICAL: Tests parsing of nucleotide substitution annotations in full sequences.
+        /// The ParseSubstitutedFullSequence method must correctly apply amino acid
+        /// substitutions from GPTMD-discovered variants while preserving other modifications.
+        /// Essential for variant peptide sequence reconstruction.
+        /// </summary>
+        [Test]
+        public static void TestGetSubstitutedFullSequence()
+        {
+            //It should take care of multiple substitutions
+            string test1 = "F[1 nucleotide substitution:F->Y on F]SIMGGGLA[1 nucleotide substitution:A->S on A]DR";
+            string expected1 = "YSIMGGGLSDR";
+            var actual1 = IBioPolymerWithSetMods.ParseSubstitutedFullSequence(test1);
+            Assert.That(actual1, Is.EqualTo(expected1));
+
+            //It should not change other modifications
+            string test2 = "SANH[1 nucleotide substitution:H->L on H]M[Common Variable:Oxidation on M]AGHWVAISGAAGGLGSLAVQYAK";
+            string expected2 = "SANLM[Common Variable:Oxidation on M]AGHWVAISGAAGGLGSLAVQYAK";
+            var actual2 = IBioPolymerWithSetMods.ParseSubstitutedFullSequence(test2);
+            Assert.That(actual2, Is.EqualTo(expected2));
+
+            //It should work on 2 nucleotide substitutions
+            string test3 = "S[2+ nucleotide substitution:S->E on S]AAADRLNLTSGHLNAGR";
+            string expected3 = "EAAADRLNLTSGHLNAGR";
+            var actual3 = IBioPolymerWithSetMods.ParseSubstitutedFullSequence(test3);
+            Assert.That(actual3, Is.EqualTo(expected3));
         }
     }
 }

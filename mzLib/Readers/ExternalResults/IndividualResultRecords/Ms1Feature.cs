@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Text;
+using Chemistry;
 using CsvHelper.Configuration;
 using CsvHelper.Configuration.Attributes;
 
@@ -56,5 +57,16 @@ namespace Readers
 
         [Name("Maximum_fraction_id")]
         public int FractionIdMax { get; set; }
+
+        public IEnumerable<ISingleChargeMs1Feature> GetSingleChargeFeatures()
+        {
+            for (int z = ChargeStateMin; z <= ChargeStateMax ; z++)
+            {
+                yield return new SingleChargeMs1Feature(Mass.ToMz(z), z, RetentionTimeBegin, RetentionTimeEnd, IntensityApex ?? 0);
+            }
+        }
     }
+
+    public record SingleChargeMs1Feature(double Mz, int Charge, double RetentionTimeStart, double RetentionTimeEnd, double Intensity,
+        int? NumberOfIsotopes = null) : ISingleChargeMs1Feature;
 }

@@ -1,12 +1,8 @@
 ﻿using MassSpectrometry;
 using MzLibUtil;
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
-using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using System.Text.RegularExpressions;
-using UsefulProteomicsDatabases;
 
 // old namespace to ensure backwards compatibility
 namespace IO.Mgf
@@ -35,8 +31,6 @@ namespace Readers
                 throw new FileNotFoundException();
             }
 
-            Loaders.LoadElements();
-
             List<MsDataScan> scans = new List<MsDataScan>();
             HashSet<int> checkForDuplicateScans = new HashSet<int>();
 
@@ -56,7 +50,8 @@ namespace Readers
 
                             var scan = GetNextMsDataOneBasedScanFromConnection(sr, checkForDuplicateScans, filterParams);
 
-                            scans.Add(scan);
+                            if (scan is not null)
+                                scans.Add(scan);
                         }
                     }
                 }
@@ -89,22 +84,28 @@ namespace Readers
 
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int scanNumber, IFilteringParams filterParams = null)
         {
-            if (_streamReader == null)
-            {
-                throw new MzLibException("Cannot get scan; the dynamic data connection to " + FilePath + " has been closed!");
-            }
+            if (CheckIfScansLoaded() && scanNumber <= IndexedScans.Length)
+                return GetOneBasedScan(scanNumber);
 
-            if (_scanByteOffset.TryGetValue(scanNumber, out long byteOffset))
+            lock (DynamicReadingLock)
             {
-                // seek to the byte of the scan
-                _streamReader.BaseStream.Position = byteOffset;
-                _streamReader.DiscardBufferedData();
+                if (_streamReader == null)
+                {
+                    throw new MzLibException("Cannot get scan; the dynamic data connection to " + FilePath + " has been closed!");
+                }
 
-                return Mgf.GetNextMsDataOneBasedScanFromConnection(_streamReader, new HashSet<int>(), filterParams, scanNumber);
-            }
-            else
-            {
-                throw new MzLibException("The specified scan number: " + scanNumber + " does not exist in " + FilePath);
+                if (_scanByteOffset.TryGetValue(scanNumber, out long byteOffset))
+                {
+                    // seek to the byte of the scan
+                    _streamReader.BaseStream.Position = byteOffset;
+                    _streamReader.DiscardBufferedData();
+
+                    return Mgf.GetNextMsDataOneBasedScanFromConnection(_streamReader, new HashSet<int>(), filterParams, scanNumber);
+                }
+                else
+                {
+                    throw new MzLibException("The specified scan number: " + scanNumber + " does not exist in " + FilePath);
+                }
             }
         }
 
@@ -122,7 +123,6 @@ namespace Readers
             {
                 throw new FileNotFoundException();
             }
-            Loaders.LoadElements();
             _streamReader = new StreamReader(FilePath);
 
             BuildIndex();
@@ -138,13 +138,14 @@ namespace Readers
         public static MsDataFile LoadAllStaticData(string filePath, FilteringParams filteringParams = null,
             int maxThreads = 1) => MsDataFileReader.GetDataFile(filePath).LoadAllStaticData(filteringParams, maxThreads);
 
-        private static MsDataScan GetNextMsDataOneBasedScanFromConnection(StreamReader sr, HashSet<int> scanNumbersAlreadyObserved, 
+        private static MsDataScan? GetNextMsDataOneBasedScanFromConnection(StreamReader sr, HashSet<int> scanNumbersAlreadyObserved, 
             IFilteringParams filterParams = null, int? alreadyKnownScanNumber = null)
         {
             List<double> mzs = new List<double>();
             List<double> intensities = new List<double>();
             int charge = 2; //default when unknown
             double precursorMz = 0;
+            double? precursorIntensity = null; //default when unknown
             double rtInMinutes = double.NaN; //default when unknown
 
             int oldScanNumber = scanNumbersAlreadyObserved.Count > 0 ? scanNumbersAlreadyObserved.Max() : 0;
@@ -169,6 +170,8 @@ namespace Readers
                 {
                     sArray = sArray[1].Split(' ');
                     precursorMz = Convert.ToDouble(sArray[0], CultureInfo.InvariantCulture);
+                    if (sArray.Length > 1)
+                        precursorIntensity = Convert.ToDouble(sArray[1], CultureInfo.InvariantCulture);
                 }
                 else if (line.StartsWith("CHARGE"))
                 {
@@ -195,6 +198,8 @@ namespace Readers
 
             double[] mzArray = mzs.ToArray();
             double[] intensityArray = intensities.ToArray();
+            if (mzArray.IsNullOrEmpty() || intensityArray.IsNullOrEmpty())
+                return null;
 
             Array.Sort(mzArray, intensityArray);
 
@@ -234,8 +239,8 @@ namespace Readers
             return new MsDataScan(spectrum, scanNumber, 2, true,
                 charge > 0 ? Polarity.Positive : Polarity.Negative,
                 rtInMinutes, scanRange, null, MZAnalyzerType.Unknown,
-                intensities.Sum(), 0, null, null, precursorMz, charge, 
-                null, precursorMz, null,  DissociationType.Unknown, 
+                intensities.Sum(), 0, null, null, precursorMz, charge,
+                precursorIntensity, precursorMz, null, DissociationType.Unknown,
                 null, precursorMz);
         }
 

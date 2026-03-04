@@ -1,11 +1,9 @@
-﻿using System.Collections.ObjectModel;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Text;
 using MassSpectrometry;
 using System.Data.SQLite;
 using Easy.Common.Extensions;
 using MzLibUtil;
-using UsefulProteomicsDatabases;
 
 namespace Readers
 {
@@ -55,8 +53,6 @@ namespace Readers
 			{
 				throw new FileNotFoundException(); 
 			}
-			// get the baf file inside
-			Loaders.LoadElements();
 
 			List<MsDataScan> scans = new(); 
 			OpenFileConnection(FilePath+@"\analysis.baf");
@@ -96,10 +92,17 @@ namespace Readers
             return new SourceFile(nativeIdFormat, massSpecFileFormat,
 				null, null, id: null, filePath: fileName);
         }
-		public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams? filterParams = null)
+
+        public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams? filterParams = null)
 		{
-			return GetMsDataScanDynamic(oneBasedScanNumber, filterParams); 
-		}
+            if (CheckIfScansLoaded() && oneBasedScanNumber <= Scans.Length)
+                return GetOneBasedScan(oneBasedScanNumber);
+
+            lock (DynamicReadingLock)
+            {
+                return GetMsDataScanDynamic(oneBasedScanNumber, filterParams);
+            }
+        }
 
 		public override void CloseDynamicConnection()
 		{
@@ -378,7 +381,7 @@ namespace Readers
 		/// <param name="reader">SQLiteReader object, initialized after the execution of a command.</param>
 		/// <returns>Return null exception if there is an error in the data format of the baf file.</returns>
 		/// <exception cref="ArgumentNullException"></exception>
-		private T SqlColumnReader<T>(SQLiteDataReader reader) where T: new()
+		public static T SqlColumnReader<T>(SQLiteDataReader reader) where T: new()
 		{
 			// get all the property names, then iterate over that. 
 			// The objects should be exact 1:1 column corresponding so as 
@@ -516,7 +519,7 @@ namespace Readers
 		}
 
 		/* ----------------------------------------------------------------------------------------------- */
-		private static byte[] ConvertStringToUTF8ByteArray(String input)
+		public static byte[] ConvertStringToUTF8ByteArray(String input)
 		{
 			byte[] utf8 = Encoding.UTF8.GetBytes(input);
 			var result = new byte[utf8.Length + 1];

@@ -7,11 +7,13 @@ namespace Readers
     /// For supported versions and software this file type can come from see
     ///     Readers.ExternalResources.SupportedVersions.txt
     /// </summary>
-    public class Ms1FeatureFile : ResultFile<Ms1Feature>, IResultFile
+    public class Ms1FeatureFile : ResultFile<Ms1Feature>, IResultFile, IMs1FeatureFile
     {
         public override SupportedFileType FileType => SupportedFileType.Ms1Feature;
 
         public sealed override Software Software { get; set; }
+
+        public IEnumerable<ISingleChargeMs1Feature> GetMs1Features() => Results.SelectMany(r => r.GetSingleChargeFeatures());
 
         public Ms1FeatureFile(string filePath, Software deconSoftware = Software.Unspecified) : base(filePath,
             deconSoftware)

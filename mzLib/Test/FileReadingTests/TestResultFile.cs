@@ -64,5 +64,48 @@ namespace Test.FileReadingTests
                 Assert.That(feature.GetType() == typeof(Ms1Feature));
             }
         }
+
+        [Test]
+        public static void TestOperatorOverloads()
+        {
+            string path1 = @"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.6.2_ms1.feature";
+            string path2 = @"FileReadingTests\ExternalFileTypes\Ms1Feature_FlashDeconvOpenMs3.0.0_ms1.feature";
+
+            Ms1FeatureFile fileToTest = new Ms1FeatureFile(path1);
+            Ms1FeatureFile ms1Features2 = new Ms1FeatureFile(path2);
+
+            Ms1Feature feature = new Ms1Feature();
+            List<Ms1Feature> features = new List<Ms1Feature> { new Ms1Feature() };
+
+
+            var initialCount = fileToTest.Count();
+            var file2Count = ms1Features2.Count();
+
+            // Test operator +
+            var result1 = fileToTest + feature;
+            Assert.That(result1.Results.Contains(feature));
+            Assert.That(fileToTest.Count, Is.EqualTo(initialCount + 1));
+
+            var result2 = fileToTest + features;
+            Assert.That(result2.Results.Contains(feature));
+            Assert.That(fileToTest.Count, Is.EqualTo(initialCount + 2));
+
+            var result3 = fileToTest + ms1Features2;
+            Assert.That(result3.Results.Contains(feature));
+            Assert.That(fileToTest.Count, Is.EqualTo(initialCount + 2 + file2Count));
+
+            // Test operator -
+            var result4 = fileToTest - feature;
+            Assert.That(!result4.Results.Contains(feature));
+            Assert.That(fileToTest.Count, Is.EqualTo(initialCount + 1 + file2Count));
+
+            var result5 = fileToTest - features;
+            Assert.That(!result5.Results.Contains(feature));
+            Assert.That(fileToTest.Count, Is.EqualTo(initialCount + file2Count));
+
+            var result6 = fileToTest - ms1Features2;
+            Assert.That(!result6.Results.Contains(feature));
+            Assert.That(fileToTest.Count, Is.EqualTo(initialCount));
+        }
     }
 }

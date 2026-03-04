@@ -9,7 +9,7 @@ namespace Readers
     /// </summary>
     public class TopFDMzrtFile : ResultFile<TopFdMzrt>, IResultFile
     {
-        public override SupportedFileType FileType => SupportedFileType.Mzrt_TopFd;
+        public override SupportedFileType FileType => SupportedFileType.TopFDMzrt;
 
         public override Software Software { get; set; }
 

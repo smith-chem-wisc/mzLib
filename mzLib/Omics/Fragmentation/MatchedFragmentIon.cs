@@ -1,9 +1,10 @@
 ﻿using Chemistry;
 using System.Text;
+using MassSpectrometry;
 
 namespace Omics.Fragmentation
 {
-    public class MatchedFragmentIon
+    public class MatchedFragmentIon : IEquatable<MatchedFragmentIon>
     {
         public readonly Product NeutralTheoreticalProduct;
         public readonly double Mz;
@@ -20,27 +21,18 @@ namespace Omics.Fragmentation
             Intensity = experIntensity;
             Charge = charge;
         }
-        public double MassErrorDa
-        {
-            get
-            {
-                return Mz.ToMass(Charge) - NeutralTheoreticalProduct.NeutralMass;
-            }
-        }
 
-        public double MassErrorPpm
-        {
-            get
-            {
-                return (MassErrorDa / NeutralTheoreticalProduct.NeutralMass) * 1e6;
-            }
-        }
+        public bool IsInternalFragment => NeutralTheoreticalProduct.IsInternalFragment;
 
-        public string Annotation
+        public bool IsDiagnosticIon => NeutralTheoreticalProduct.ProductType == ProductType.D;
+
+        public virtual double MassErrorDa => Mz.ToMass(Charge) - NeutralTheoreticalProduct.NeutralMass;
+        public virtual double MassErrorPpm => MassErrorDa / NeutralTheoreticalProduct.NeutralMass * 1e6;
+        public virtual string Annotation
         {
             get
             {
-                StringBuilder sb = new StringBuilder();
+                StringBuilder sb = new StringBuilder(8);
 
                 bool containsNeutralLoss = NeutralTheoreticalProduct.NeutralLoss != 0;
 
@@ -56,7 +48,8 @@ namespace Omics.Fragmentation
                     sb.Append(")");
                 }
 
-                sb.Append("+");
+                if (Charge > 0)
+                    sb.Append('+');
                 sb.Append(Charge);
 
                 return sb.ToString();
@@ -77,13 +70,12 @@ namespace Omics.Fragmentation
         // Rounding to 6 decimal places ensures accurate comparison up to 1,000,000,000 AU (non-inclusive)
         internal const int IntensityDecimalDigits = 6;
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             return obj is MatchedFragmentIon otherIon && this.Equals(otherIon);
         }
 
-
-        public bool Equals(MatchedFragmentIon other)
+        public bool Equals(MatchedFragmentIon? other)
         {
             return this.NeutralTheoreticalProduct.Equals(other.NeutralTheoreticalProduct)
                 && this.Charge == other.Charge
@@ -99,5 +91,30 @@ namespace Omics.Fragmentation
                 Math.Round(Mz, MzDecimalDigits).GetHashCode(),
                 Math.Round(Intensity, IntensityDecimalDigits).GetHashCode());
         }
+    }
+
+    /// <summary>
+    /// Represents a matched fragment ion with additional caching capabilities.
+    /// Inherits from <see cref="MatchedFragmentIon"/>.
+    /// </summary>
+    public class MatchedFragmentIonWithCache(Product neutralTheoreticalProduct, double experMz, double experIntensity, int charge)
+        : MatchedFragmentIon(neutralTheoreticalProduct, experMz, experIntensity, charge)
+    {
+        private double? _massErrorDa = null!;
+        private double? _massErrorPpm = null!;
+        private string? _annotation = null!;
+
+        public override string Annotation => _annotation ??= base.Annotation;
+        public override double MassErrorDa => _massErrorDa ??= base.MassErrorDa;
+        public override double MassErrorPpm => _massErrorPpm ??= base.MassErrorPpm;
+    }
+
+    /// <summary>
+    /// A matched fragment ion that also includes an optional isotopic envelope. Used in MetaDraw to annotate all peaks in the spectrum that match to a theoretical fragment ion, not just the monoisotopic peak. 
+    /// </summary>
+    public class MatchedFragmentIonWithEnvelope(Product neutralTheoreticalProduct, double experMz, double experIntensity, int charge, IsotopicEnvelope? envelope = null)
+        : MatchedFragmentIonWithCache(neutralTheoreticalProduct, experMz, experIntensity, charge)
+    {
+        public IsotopicEnvelope? Envelope { get; set; } = envelope;
     }
 }

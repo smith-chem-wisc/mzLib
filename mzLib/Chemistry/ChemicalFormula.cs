@@ -33,7 +33,7 @@ namespace Chemistry
     /// Formula can change!!! If isotopes or elements are changed.
     /// </summary>
     [Serializable]
-    public sealed class ChemicalFormula : IEquatable<ChemicalFormula>, IHasChemicalFormula
+    public sealed class ChemicalFormula : IEquatable<ChemicalFormula>, IEquatable<IHasChemicalFormula>, IHasChemicalFormula
     {
         // Main data stores, the isotopes and elements
 
@@ -487,6 +487,8 @@ namespace Chemistry
             return true;
         }
 
+        public bool Equals(IHasChemicalFormula other) => Equals(other?.ThisChemicalFormula);
+
         /// <summary>
         /// Produces the Hill Notation of the chemical formula
         /// </summary>
@@ -564,7 +566,24 @@ namespace Chemistry
             ChemicalFormula newFormula = new ChemicalFormula(left);
             newFormula.Add(right);
             return newFormula;
+        }
 
+        public static ChemicalFormula operator *(ChemicalFormula formula, int multiplier)
+        {
+            if (formula == null)
+                return null;
+            ChemicalFormula newFormula = new ChemicalFormula(formula);
+            newFormula.Multiply(multiplier);
+            return newFormula;
+        }
+
+        public static ChemicalFormula operator *(int multiplier, ChemicalFormula formula)
+        {
+            if (formula == null)
+                return null;
+            ChemicalFormula newFormula = new ChemicalFormula(formula);
+            newFormula.Multiply(multiplier);
+            return newFormula;
         }
     }
 }

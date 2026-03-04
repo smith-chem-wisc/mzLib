@@ -8,7 +8,6 @@ using ThermoFisher.CommonCore.Data.Business;
 using ThermoFisher.CommonCore.Data.FilterEnums;
 using ThermoFisher.CommonCore.Data.Interfaces;
 using ThermoFisher.CommonCore.RawFileReader;
-using UsefulProteomicsDatabases;
 
 // old namespace to ensure backwards compatibility
 namespace IO.ThermoRawFileReader
@@ -43,8 +42,6 @@ namespace Readers
             {
                 throw new FileNotFoundException();
             }
-
-            Loaders.LoadElements();
 
             // I don't know why this line needs to be here, but it does...
             var temp = RawFileReaderAdapter.FileFactory(FilePath);
@@ -131,8 +128,6 @@ namespace Readers
                 throw new FileNotFoundException();
             }
 
-            Loaders.LoadElements();
-
             if (dynamicConnection != null)
             {
                 dynamicConnection.Dispose();
@@ -166,21 +161,24 @@ namespace Readers
         /// </summary>
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
         {
-            dynamicConnection = RawFileReaderAdapter.FileFactory(FilePath);
-            dynamicConnection.SelectInstrument(Device.MS, 1);
+            if (CheckIfScansLoaded() && oneBasedScanNumber <= Scans.Length)
+                return GetOneBasedScan(oneBasedScanNumber);
 
-            if (dynamicConnection == null)
+            var dymConnection = RawFileReaderAdapter.FileFactory(FilePath);
+            dymConnection.SelectInstrument(Device.MS, 1);
+
+            if (dymConnection == null)
             {
                 throw new MzLibException("The dynamic connection has not been created yet!");
             }
 
-            if (oneBasedScanNumber > dynamicConnection.RunHeaderEx.LastSpectrum ||
-                oneBasedScanNumber < dynamicConnection.RunHeaderEx.FirstSpectrum)
+            if (oneBasedScanNumber > dymConnection.RunHeaderEx.LastSpectrum ||
+                oneBasedScanNumber < dymConnection.RunHeaderEx.FirstSpectrum)
             {
                 return null;
             }
 
-            return ThermoRawFileReader.GetOneBasedScan(dynamicConnection, filterParams, oneBasedScanNumber);
+            return ThermoRawFileReader.GetOneBasedScan(dymConnection, filterParams, oneBasedScanNumber);
         }
 
         /// <summary>
@@ -253,6 +251,7 @@ namespace Readers
             double? isolationMz = null;
             string HcdEnergy = null;
             string scanDescript = null;
+            double? compensationVoltage = null; 
             ActivationType activationType = ActivationType.Any; // thermo enum
             DissociationType dissociationType = DissociationType.Unknown; // mzLib enum
 
@@ -267,6 +266,10 @@ namespace Readers
                     ionInjectionTime = double.Parse(values[i], CultureInfo.InvariantCulture) == 0 ?
                         (double?)null :
                         double.Parse(values[i], CultureInfo.InvariantCulture);
+                }
+                if (labels[i].StartsWith("FAIMS CV", StringComparison.Ordinal))
+                {
+                    compensationVoltage = double.Parse(values[i]); 
                 }
 
                 if (msOrder < 2)
@@ -380,6 +383,8 @@ namespace Readers
                     }
                 }
             }
+            
+            
 
             return new MsDataScan(
                 massSpectrum: spectrum,
@@ -404,7 +409,8 @@ namespace Readers
                 oneBasedPrecursorScanNumber: precursorScanNumber,
                 selectedIonMonoisotopicGuessMz: precursorSelectedMonoisotopicIonMz,
                 hcdEnergy: HcdEnergy,
-                scanDescription: scanDescript);
+                scanDescription: scanDescript, 
+                compensationVoltage: compensationVoltage);
         }
 
         private static MzSpectrum GetSpectrum(IRawDataPlus rawFile, IFilteringParams filterParams,
@@ -458,7 +464,7 @@ namespace Readers
             if (filterParams != null
                 && xArray.Length > 0
                 && (filterParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue || filterParams.NumberOfPeaksToKeepPerWindow.HasValue)
-                && ((filterParams.ApplyTrimmingToMs1 && scanOrder == 1) || (filterParams.ApplyTrimmingToMsMs && scanOrder > 1)))
+                && ((filterParams.ApplyTrimmingToMs1 && scanOrder == 1) || (filterParams.ApplyTrimmingToMsMs && scanOrder == 2) || (filterParams.ApplyTrimmingToMsN && scanOrder > 2)))
             {
                 var count = xArray.Length;
 
@@ -525,8 +531,6 @@ namespace Readers
                 default: return DissociationType.Unknown;
             }
         }
-
-
 
         /// <summary>
         /// Gets all the MS orders of all scans in a dynamic connection. This is useful if you want to open all MS1 scans

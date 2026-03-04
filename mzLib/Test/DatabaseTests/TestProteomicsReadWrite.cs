@@ -4,9 +4,11 @@ using System.IO;
 using System.Linq;
 using MassSpectrometry;
 using NUnit.Framework;
+using Omics.BioPolymer;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Omics.Fragmentation;
 using Omics.Modifications;
+using Omics.Modifications.IO;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using UsefulProteomicsDatabases;
@@ -81,10 +83,107 @@ namespace Test.DatabaseTests
             Assert.AreEqual("JJJ1", ok2[0].GeneNames.First().Item2);
             Assert.AreEqual("Saccharomyces cerevisiae (strain ATCC 204508 / S288c)", ok2[0].Organism);
             Assert.AreEqual(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"), ok2[0].DatabaseFilePath);
-            Assert.True(ok.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
-            Assert.True(ok.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
-            Assert.True(ok2.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
-            Assert.True(ok2.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
+            Assert.True(ok.All(p => p.TruncationProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
+            Assert.True(ok.All(p => p.TruncationProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
+            Assert.True(ok2.All(p => p.TruncationProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
+            Assert.True(ok2.All(p => p.TruncationProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
+        }
+
+        [Test]
+        public void Test_readUniProtXML_writeProteinXmlCheckEntryUpdated()
+        {
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+
+            string inputXmlPath = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml");
+            bool lineModified = false;
+            foreach (var line in File.ReadLines(inputXmlPath))
+            {
+                if (line.Contains("<entry"))
+                {
+                    string modified = "modified=\"" + "2017-02-15";
+                    // Checks if the line contains the exact entry text
+                    lineModified = line.Contains(modified);
+                    
+                    break;
+                }
+            }
+            Assert.IsTrue(lineModified);
+            lineModified = false; // Reset for the next check
+            List<Protein> ok = ProteinDbLoader.LoadProteinXML(inputXmlPath, true, DecoyType.None, uniprotPtms, false, null,
+                out Dictionary<string, Modification> un);
+
+            string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml");
+
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, outputPath, true);
+            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"), true, DecoyType.None, uniprotPtms, false,
+                new List<string>(), out un);
+
+            foreach (var line in File.ReadLines(outputPath))
+            {
+                if (line.Contains("<entry"))
+                {
+                    //make sure that when the xml is written, the modified date is updated to today's date
+                    string todaysDate = DateTime.Now.ToString("yyyy-MM-dd");
+                    string modified = "modified=\"" + todaysDate;
+                    // Checks if the line contains the exact entry text
+                    lineModified = line.Contains(modified);
+                    
+                }
+            }
+            Assert.IsTrue(lineModified);
+            // Clean up the output file after the test
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
+        }
+
+        [Test]
+        public void Test_readUniProtXML_featureBeginEndPosition()
+        {
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            var uniprotPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+
+            string inputXmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"unknownStatus.xml");
+            string targetLine = "<begin status=\"unknown\"/>";
+            bool foundTargetLine = false;
+            foreach (var line in File.ReadLines(inputXmlPath))
+            {
+                if (line.Equals(targetLine))
+                {
+                    foundTargetLine = true;
+                    Assert.IsTrue(foundTargetLine); //"Found the target line with unknown status for begin position."
+                    foundTargetLine = false; // Reset for the next check
+                    break;
+                }
+            }
+
+            List<Protein> ok = ProteinDbLoader.LoadProteinXML(inputXmlPath, true, DecoyType.None, uniprotPtms, false, null,
+                out Dictionary<string, Modification> un);
+
+            string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_unknownStatus.xml");
+
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, outputPath, true);
+            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(outputPath, true, DecoyType.None, uniprotPtms, false,
+                new List<string>(), out un);
+
+            foreach (var line in File.ReadLines(outputPath))
+            {
+                if (line.Equals(targetLine))
+                {
+                    foundTargetLine = true;
+                    Assert.IsTrue(foundTargetLine); //"Found the target line with unknown status for begin position."
+                    break;
+                }
+            }
+            // Clean up the output file after the test
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
         }
 
         [Test]
@@ -120,10 +219,10 @@ namespace Test.DatabaseTests
             Assert.AreEqual("pep:known chromosome:GRCh37:22:24313554:24322019:-1 gene:ENSG00000099977 transcript:ENST00000350608 gene_biotype:protein_coding transcript_biotype:protein_coding", ok2[1].FullName);
             Assert.AreEqual(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_test_ensembl.pep.all.xml"), ok2[0].DatabaseFilePath);
 
-            Assert.True(ok.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
-            Assert.True(ok.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
-            Assert.True(ok2.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
-            Assert.True(ok2.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
+            Assert.True(ok.All(p => p.TruncationProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
+            Assert.True(ok.All(p => p.TruncationProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
+            Assert.True(ok2.All(p => p.TruncationProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
+            Assert.True(ok2.All(p => p.TruncationProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
         }
 
         [Test]
@@ -167,10 +266,37 @@ namespace Test.DatabaseTests
             Assert.AreEqual(ok.Count, ok2.Count);
             Assert.True(Enumerable.Range(0, ok.Count).All(i => ok[i].BaseSequence == ok2[i].BaseSequence));
 
-            Assert.True(ok.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
-            Assert.True(ok.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
-            Assert.True(ok2.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
-            Assert.True(ok2.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
+            Assert.True(ok.All(p => p.TruncationProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
+            Assert.True(ok.All(p => p.TruncationProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
+            Assert.True(ok2.All(p => p.TruncationProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
+            Assert.True(ok2.All(p => p.TruncationProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
+        }
+
+        [Test]
+        public void AddModsDirectlyToProteinDbWriter()
+        {
+            ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
+            Modification m = new Modification("mod", null, "mt", null, motif, "Anywhere.", null, 1, null, null, null, new Dictionary<DissociationType, List<double>>() { { DissociationType.AnyActivationType, new List<double> { -1 } } }, null, null);
+            Dictionary<string, HashSet<Tuple<int, Modification>>> new_mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>
+            {
+                {  "P62805", new HashSet<Tuple<int, Modification>> {new Tuple<int, Modification>(6, m ) } }
+            };
+            List<Protein> ok = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"), true, DecoyType.None, false, out var a,
+                ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
+                ProteinDbLoader.UniprotOrganismRegex);
+            var newModResEntries = ProteinDbWriter.WriteXmlDatabase(new_mods, ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_fasta.xml"));
+            Assert.AreEqual(1, newModResEntries.Count);
+            var key = newModResEntries.Keys.First();
+            var value = newModResEntries[key];
+            Assert.AreEqual("P62805", new_mods.Keys.First());
+            Assert.AreEqual("mod on K", key);
+            Assert.AreEqual(1, value);
+            List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_fasta.xml"), true, DecoyType.None,
+                new List<Modification> { m }, false, new List<string>(), out Dictionary<string, Modification> un);
+            Assert.AreEqual(ok.Count, ok2.Count);
+            Assert.True(Enumerable.Range(0, ok.Count).All(i => ok[i].BaseSequence == ok2[i].BaseSequence));
+            Assert.AreEqual(0, ok[0].OneBasedPossibleLocalizedModifications.Count);
+            Assert.AreEqual(1, ok2[0].OneBasedPossibleLocalizedModifications.Count);
         }
 
         [Test]
@@ -194,10 +320,10 @@ namespace Test.DatabaseTests
             Assert.True(Enumerable.Range(0, ok.Count).All(i => ok[i].Organism == ok2[i].Organism));
             Assert.True(Enumerable.Range(0, ok.Count).All(i => ok[i].GeneNames.First().Item2 == ok2[i].GeneNames.First().Item2));
 
-            Assert.True(ok.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
-            Assert.True(ok.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
-            Assert.True(ok2.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
-            Assert.True(ok2.All(p => p.ProteolysisProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
+            Assert.True(ok.All(p => p.TruncationProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
+            Assert.True(ok.All(p => p.TruncationProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
+            Assert.True(ok2.All(p => p.TruncationProducts.All(prod => prod.OneBasedBeginPosition == null || prod.OneBasedBeginPosition > 0 && prod.OneBasedBeginPosition <= p.Length)));
+            Assert.True(ok2.All(p => p.TruncationProducts.All(prod => prod.OneBasedEndPosition == null || prod.OneBasedEndPosition > 0 && prod.OneBasedEndPosition <= p.Length)));
         }
 
         [Test]
@@ -244,15 +370,15 @@ namespace Test.DatabaseTests
 
             List<Protein> ok = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"xml2.xml"), true, DecoyType.None, uniprotPtms.Concat(nice), false, new List<string>(),
                 out Dictionary<string, Modification> un);
-            var newModResEntries = ProteinDbWriter.WriteXmlDatabase(new_mods, ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"));
-            Assert.AreEqual(1, newModResEntries.Count);
+            var newModResEntries = ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), ok, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"));
+            Assert.AreEqual(0, newModResEntries.Count);
             List<Protein> ok2 = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"rewrite_xml2.xml"), true, DecoyType.None,
                 nice, false, new List<string>(), out un);
 
             Assert.AreEqual(ok.Count, ok2.Count);
             Assert.True(Enumerable.Range(0, ok.Count).All(i => ok[i].BaseSequence == ok2[i].BaseSequence));
             Assert.AreEqual(2, ok[0].OneBasedPossibleLocalizedModifications.Count);
-            Assert.AreEqual(3, ok2[0].OneBasedPossibleLocalizedModifications.Count);
+            Assert.AreEqual(2, ok2[0].OneBasedPossibleLocalizedModifications.Count);
         }
 
         [Test]
@@ -265,7 +391,7 @@ namespace Test.DatabaseTests
             Protein ParentProtein = new Protein("MPEPTIDEKANTHE", "accession1", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null,
                 "name1", "fullname1", false, false, new List<DatabaseReference>(), new List<SequenceVariation>(), disulfideBonds: new List<DisulfideBond>());
 
-            List<ProteolysisProduct> pp = new List<ProteolysisProduct> { new ProteolysisProduct(4, 8, "chain") };
+            List<TruncationProduct> pp = new List<TruncationProduct> { new TruncationProduct(4, 8, "chain") };
             Protein proteinWithChain = new Protein("MAACNNNCAA", "accession3", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), pp,
                 "name2", "fullname2", false, false, new List<DatabaseReference>(), new List<SequenceVariation>(), disulfideBonds: new List<DisulfideBond>());
 
@@ -282,7 +408,7 @@ namespace Test.DatabaseTests
             var proteinListToWrite = new List<Protein> { p1, p2 };
 
             // Generate data for files
-            ProteinDbWriter.WriteXmlDatabase(null, proteinListToWrite, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"differentlyConstuctedProteins.xml"));
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteinListToWrite, Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"differentlyConstuctedProteins.xml"));
 
             IEnumerable<string> modTypesToExclude = new List<string>();
             IEnumerable<Modification> allKnownModifications = new List<Modification>();
@@ -310,7 +436,7 @@ namespace Test.DatabaseTests
                 {4, new List<Modification>{mod2} },
                 {5, new List<Modification>{mod3} }
             };
-            List<ProteolysisProduct> proteolysisProducts = new List<ProteolysisProduct> { new ProteolysisProduct(1, 2, "propeptide") };
+            List<TruncationProduct> proteolysisProducts = new List<TruncationProduct> { new TruncationProduct(1, 2, "propeptide") };
 
             string name = "testName";
 
@@ -375,16 +501,16 @@ namespace Test.DatabaseTests
             Assert.AreEqual(originalProtein.OneBasedPossibleLocalizedModifications.Keys.First(), proteinReadFromXml[0].OneBasedPossibleLocalizedModifications.Keys.First());
             Assert.IsTrue(originalProtein.OneBasedPossibleLocalizedModifications[5][0].Equals(proteinReadFromXml[0].OneBasedPossibleLocalizedModifications[5][0]));
 
-            Assert.AreEqual(originalProtein.ProteolysisProducts.First().OneBasedBeginPosition, proteinReadFromXml[0].ProteolysisProducts.First().OneBasedBeginPosition);
-            Assert.AreEqual(originalProtein.ProteolysisProducts.First().OneBasedEndPosition, proteinReadFromXml[0].ProteolysisProducts.First().OneBasedEndPosition);
-            Assert.AreEqual(originalProtein.ProteolysisProducts.First().Type, proteinReadFromXml[0].ProteolysisProducts.First().Type.Split('(')[0]);
+            Assert.AreEqual(originalProtein.TruncationProducts.First().OneBasedBeginPosition, proteinReadFromXml[0].TruncationProducts.First().OneBasedBeginPosition);
+            Assert.AreEqual(originalProtein.TruncationProducts.First().OneBasedEndPosition, proteinReadFromXml[0].TruncationProducts.First().OneBasedEndPosition);
+            Assert.AreEqual(originalProtein.TruncationProducts.First().Type, proteinReadFromXml[0].TruncationProducts.First().Type.Split('(')[0]);
 
-            Assert.AreEqual(originalProtein.SequenceVariations.First().Description, proteinReadFromXml[0].SequenceVariations.First().Description);
+            Assert.AreEqual(originalProtein.SequenceVariations.First().VariantCallFormatDataString, proteinReadFromXml[0].SequenceVariations.First().VariantCallFormatDataString);
             Assert.AreEqual(originalProtein.SequenceVariations.First().OneBasedBeginPosition, proteinReadFromXml[0].SequenceVariations.First().OneBasedBeginPosition);
             Assert.AreEqual(originalProtein.SequenceVariations.First().OneBasedEndPosition, proteinReadFromXml[0].SequenceVariations.First().OneBasedEndPosition);
             Assert.AreEqual(originalProtein.SequenceVariations.First().OriginalSequence, proteinReadFromXml[0].SequenceVariations.First().OriginalSequence);
             Assert.AreEqual(originalProtein.SequenceVariations.First().VariantSequence, proteinReadFromXml[0].SequenceVariations.First().VariantSequence);
-            Assert.AreEqual(originalProtein.SequenceVariations.Last().Description, proteinReadFromXml[0].SequenceVariations.Last().Description);
+            Assert.AreEqual(originalProtein.SequenceVariations.Last().VariantCallFormatDataString, proteinReadFromXml[0].SequenceVariations.Last().VariantCallFormatDataString);
             Assert.AreEqual(originalProtein.SequenceVariations.Last().OneBasedBeginPosition, proteinReadFromXml[0].SequenceVariations.Last().OneBasedBeginPosition);
             Assert.AreEqual(originalProtein.SequenceVariations.Last().OneBasedEndPosition, proteinReadFromXml[0].SequenceVariations.Last().OneBasedEndPosition);
             Assert.AreEqual(originalProtein.SequenceVariations.Last().OriginalSequence, proteinReadFromXml[0].SequenceVariations.Last().OriginalSequence);
@@ -409,7 +535,7 @@ namespace Test.DatabaseTests
             Assert.AreEqual(ok[0].SequenceVariations.Count(), ok2[0].SequenceVariations.Count());
             Assert.AreEqual(ok[0].SequenceVariations.First().OneBasedBeginPosition, ok2[0].SequenceVariations.First().OneBasedBeginPosition);
             Assert.AreEqual(ok[0].SequenceVariations.First().OneBasedEndPosition, ok2[0].SequenceVariations.First().OneBasedEndPosition);
-            Assert.AreEqual(ok[0].SequenceVariations.First().Description, ok2[0].SequenceVariations.First().Description);
+            Assert.AreEqual(ok[0].SequenceVariations.First().VariantCallFormatDataString, ok2[0].SequenceVariations.First().VariantCallFormatDataString);
             Assert.AreEqual(ok[0].SequenceVariations.First().OriginalSequence, ok2[0].SequenceVariations.First().OriginalSequence);
             Assert.AreEqual(ok[0].SequenceVariations.First().VariantSequence, ok2[0].SequenceVariations.First().VariantSequence);
         }
@@ -432,7 +558,7 @@ namespace Test.DatabaseTests
             Assert.AreEqual(ok[0].SequenceVariations.Count(), ok2[0].SequenceVariations.Count());
             Assert.AreEqual(ok[0].SequenceVariations.First().OneBasedBeginPosition, ok2[0].SequenceVariations.First().OneBasedBeginPosition);
             Assert.AreEqual(ok[0].SequenceVariations.First().OneBasedEndPosition, ok2[0].SequenceVariations.First().OneBasedEndPosition);
-            Assert.AreEqual(ok[0].SequenceVariations.First().Description, ok2[0].SequenceVariations.First().Description);
+            Assert.AreEqual(ok[0].SequenceVariations.First().VariantCallFormatDataString, ok2[0].SequenceVariations.First().VariantCallFormatDataString);
             Assert.AreEqual(ok[0].SequenceVariations.First().OriginalSequence, ok2[0].SequenceVariations.First().OriginalSequence);
             Assert.AreEqual(ok[0].SequenceVariations.First().VariantSequence, ok2[0].SequenceVariations.First().VariantSequence);
         }
@@ -440,7 +566,7 @@ namespace Test.DatabaseTests
         [Test]
         public void TestModificationGeneralToString()
         {
-            var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt"), out var errors).ToList();
+            var a = ModificationLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt"), out var errors).ToList();
             char[] myChar = { '"' };
             string output = a.First().ToString();
             Assert.AreEqual(output.TrimStart(myChar).TrimEnd(myChar), "ID   4-carboxyglutamate on E\r\nMT   Biological\r\nTG   E\r\nPP   Anywhere.\r\nCF   CO2\r\nMM   43.989829\r\n");
@@ -449,8 +575,8 @@ namespace Test.DatabaseTests
         [Test]
         public void TestModificationGeneral_Equals()
         {
-            var a = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt"), out var errors).ToList();
-            var b = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt"), out errors).ToList();
+            var a = ModificationLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt"), out var errors).ToList();
+            var b = ModificationLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "CommonBiological.txt"), out errors).ToList();
 
             Assert.IsTrue(a.First().Equals(b.First()));
         }
@@ -490,11 +616,11 @@ namespace Test.DatabaseTests
             string messedUpSequence = @"PRO�EIN�";
 
             // just test the string sanitation method alone
-            var sanitized = ProteinDbLoader.SanitizeAminoAcidSequence(messedUpSequence, 'X');
-            Assert.That(sanitized == "PROXEINX");
+            var sanitized = ProteinDbLoader.SanitizeAminoAcidSequence(messedUpSequence, 'C');
+            Assert.That(sanitized == "PROCEINC");
 
             // test reading from a fasta
-            Protein protein = new Protein(messedUpSequence, "accession");
+            Protein protein = new Protein(sanitized, "accession");
 
             string fastaPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"messedUp.fasta");
             ProteinDbWriter.WriteFastaDatabase(new List<Protein> { protein }, fastaPath, "|");
@@ -503,7 +629,7 @@ namespace Test.DatabaseTests
                 ProteinDbLoader.UniprotFullNameRegex, ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
                 ProteinDbLoader.UniprotOrganismRegex);
 
-            Assert.That(fastaProteins.First(p => !p.IsDecoy).BaseSequence == "PROXEINX");
+            Assert.That(fastaProteins.First(p => !p.IsDecoy).BaseSequence == "PROCEINC");
 
             // digest and fragment to check that there isn't a crash
             var peptides = fastaProteins.First().Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).ToList();
@@ -518,7 +644,7 @@ namespace Test.DatabaseTests
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { protein }, xmlPath);
             var xmlProteins = ProteinDbLoader.LoadProteinXML(xmlPath, true, DecoyType.Reverse, new List<Modification>(), false, new List<string>(), out var unk);
 
-            Assert.That(xmlProteins.First(p => !p.IsDecoy).BaseSequence == "PROXEINX");
+            Assert.That(xmlProteins.First(p => !p.IsDecoy).BaseSequence == "PROCEINC");
         }
     }
 }

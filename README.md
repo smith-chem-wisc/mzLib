@@ -2,10 +2,12 @@
 
 A library for mass spectrometry projects.
 
-[![GitHub Action Builds](https://github.com/smith-chem-wisc/mzLib/actions/workflows/dotnet.yml/badge.svg)](https://github.com/smith-chem-wisc/mzLib/actions/workflows/dotnet.yml)
+[![Release](https://img.shields.io/github/v/release/smith-chem-wisc/mzLib)](https://github.com/smith-chem-wisc/mzLib/releases/latest)
+[![Build status](https://ci.appveyor.com/api/projects/status/0jt31252xny5aoxt/branch/master?svg=true)](https://ci.appveyor.com/project/smith-chem-wisc/mzLib/branch/master)
 [![codecov](https://codecov.io/gh/smith-chem-wisc/mzLib/branch/master/graph/badge.svg)](https://codecov.io/gh/smith-chem-wisc/mzLib)
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/10000/badge.svg)](https://scan.coverity.com/projects/mzlib)
-[![NuGet Badge](https://buildstats.info/nuget/mzLib)](https://www.nuget.org/packages/mzLib/)
+
+[![Github All Releases](https://img.shields.io/nuget/dt/mzlib)]()
 
 ![image](https://user-images.githubusercontent.com/16841846/113908189-df7a6e80-979b-11eb-9a2d-571a53e167ac.png)
 

@@ -20,8 +20,9 @@ using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
+using Omics.Fragmentation;
+using Omics.Modifications;
+using Omics.Modifications.IO;
 using Proteomics;
 using Proteomics.AminoAcidPolymer;
 using Proteomics.ProteolyticDigestion;
@@ -29,9 +30,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using Omics.Fragmentation;
-using Omics.Modifications;
 using UsefulProteomicsDatabases;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test
@@ -79,7 +80,7 @@ namespace Test
             var mod1 = new Modification(_originalId: "mod of M", _modificationType: "type", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("H"), _monoisotopicMass: ChemicalFormula.ParseFormula("H").MonoisotopicMass);
             var mod1string = mod1.ToString();
             Assert.IsTrue(mod1string.Contains("MM"));
-            var modAfterWriteRead = PtmListLoader.ReadModsFromString(mod1string + Environment.NewLine + "//", out var errors).First() as Modification;
+            var modAfterWriteRead = ModificationLoader.ReadModsFromString(mod1string + Environment.NewLine + "//", out var errors).First() as Modification;
 
             Assert.IsTrue(modAfterWriteRead.Equals(mod1));
         }
@@ -743,7 +744,7 @@ namespace Test
 
             Protein protein = new Protein("PEPTIDE", "", oneBasedModifications: mods);
             PeptideWithSetModifications peptide = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>()).Where(p => p.AllModsOneIsNterminus.Count == 1).First();
-            Assert.That(peptide.FullSequence == "PEPTIDE[testModType:acetylation on E]");
+            Assert.That(peptide.FullSequence == "PEPTIDE-[testModType:acetylation on E]");
 
             var fragments = new List<Product>();
             peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, fragments);
@@ -783,7 +784,7 @@ namespace Test
             Protein protein = new Protein("PEPTIDE", "", oneBasedModifications: mods);
             var peptide = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>() { variableMod }).Where(p => p.AllModsOneIsNterminus.Count == 1).First();
 
-            Assert.That(peptide.FullSequence == "PEPTIDE[UniProt:acetylation on E]");
+            Assert.That(peptide.FullSequence == "PEPTIDE-[UniProt:acetylation on E]");
         }
 
         [Test]
@@ -801,6 +802,79 @@ namespace Test
             var peptide = protein.Digest(new DigestionParams(), new List<Modification>(), new List<Modification>() { variableMod }).Where(p => p.AllModsOneIsNterminus.Count == 1).First();
 
             Assert.That(peptide.FullSequence == "PEPT[UniProt:acetylation on T]IDE");
+        }
+
+        [Test]
+        public void CompareTo_SameModification_ReturnsZero()
+        {
+            ModificationMotif.TryGetMotif("A", out var motif);
+            var chemicalFormula = new ChemicalFormula();
+            var mod1 = new Modification("mod1", "accession1", "type1", "feature1", motif, "N-terminal.", chemicalFormula, 100.0);
+            var mod2 = new Modification("mod1", "accession1", "type1", "feature1", motif, "N-terminal.", chemicalFormula, 100.0);
+
+            NUnit.Framework.Assert.That(mod1.CompareTo(mod2), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void CompareTo_DifferentIdWithMotif_ReturnsNonZero()
+        {
+            ModificationMotif.TryGetMotif("A", out var motif);
+            var chemicalFormula = new ChemicalFormula();
+            var mod1 = new Modification("mod1", "accession1", "type1", "feature1", motif, "N-terminal.", chemicalFormula, 100.0);
+            var mod2 = new Modification("mod2", "accession1", "type1", "feature1", motif, "N-terminal.", chemicalFormula, 100.0);
+
+            NUnit.Framework.Assert.That(mod1.CompareTo(mod2), Is.LessThan(0));
+            NUnit.Framework.Assert.That(mod2.CompareTo(mod1), Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void CompareTo_DifferentModificationType_ReturnsNonZero()
+        {
+            ModificationMotif.TryGetMotif("A", out var motif);
+            var chemicalFormula = new ChemicalFormula();
+            var mod1 = new Modification("mod1", "accession1", "type1", "feature1", motif, "N-terminal.", chemicalFormula, 100.0);
+            var mod2 = new Modification("mod1", "accession1", "type2", "feature1", motif, "N-terminal.", chemicalFormula, 100.0);
+
+            NUnit.Framework.Assert.That(mod1.CompareTo(mod2), Is.LessThan(0));
+            NUnit.Framework.Assert.That(mod2.CompareTo(mod1), Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void CompareTo_DifferentTarget_ReturnsNonZero()
+        {
+            ModificationMotif.TryGetMotif("A", out var motif1);
+            ModificationMotif.TryGetMotif("B", out var motif2);
+            var chemicalFormula = new ChemicalFormula();
+            var mod1 = new Modification("mod1", "accession1", "type1", "feature1", motif1, "N-terminal.", chemicalFormula, 100.0);
+            var mod2 = new Modification("mod1", "accession1", "type1", "feature1", motif2, "N-terminal.", chemicalFormula, 100.0);
+
+            NUnit.Framework.Assert.That(mod1.CompareTo(mod2), Is.LessThan(0));
+            NUnit.Framework.Assert.That(mod2.CompareTo(mod1), Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void CompareTo_DifferentLocationRestriction_ReturnsNonZero()
+        {
+            ModificationMotif.TryGetMotif("A", out var motif);
+            var chemicalFormula = new ChemicalFormula();
+            var mod1 = new Modification("mod1", "accession1", "type1", "feature1", motif, "C-terminal.", chemicalFormula, 100.0);
+            var mod2 = new Modification("mod1", "accession1", "type1", "feature1", motif, "N-terminal.", chemicalFormula, 100.0);
+
+            NUnit.Framework.Assert.That(mod1.CompareTo(mod2), Is.LessThan(0));
+            NUnit.Framework.Assert.That(mod2.CompareTo(mod1), Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void CompareTo_DifferentMonoisotopicMass_ReturnsNonZero()
+        {
+            ModificationMotif.TryGetMotif("A", out var motif);
+            var chemicalFormula = new ChemicalFormula();
+            var mod1 = new Modification("mod1", "accession1", "type1", "feature1", motif, "N-terminal.", chemicalFormula, 100.0);
+            var mod2 = new Modification("mod1", "accession1", "type1", "feature1", motif, "N-terminal.", chemicalFormula, 101.0);
+
+            NUnit.Framework.Assert.That(mod1.CompareTo(mod2), Is.LessThan(0));
+            NUnit.Framework.Assert.That(mod2.CompareTo(mod1), Is.GreaterThan(0));
+            NUnit.Framework.Assert.That(mod2.CompareTo(null), Is.EqualTo(1));
         }
     }
 }
