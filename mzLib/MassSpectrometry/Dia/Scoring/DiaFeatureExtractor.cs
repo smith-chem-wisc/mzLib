@@ -106,6 +106,13 @@ namespace MassSpectrometry.Dia
         public float Ms1Ms2Correlation;          // [31]
         public float PrecursorElutionScore;      // [32]
 
+        // -- Interference / chimeric features (1) -- Phase 19, Priority 2
+        public float ChimericScore;              // [33]
+
+        // -- Derived RT and coverage features (2) -- Phase 19, Priority 5
+        public float RtDeviationNormalized;      // [34]
+        public float LibraryCoverageFraction;    // [35]
+
         // -- Metadata (not classifier features) ---------------------------
         public bool IsDecoy;
         public int PrecursorIndex;
@@ -118,8 +125,9 @@ namespace MassSpectrometry.Dia
         /// Number of features used by the classifier.
         /// Phase 16A, Prompt 1: 29 features (26 original + 3 migrated: [26-28]).
         /// Phase 16B, Prompt 6: 33 features (29 + 4 MS1: [29-32]).
+        /// Phase 19: 36 features (33 + ChimericScore[33] + RtDeviationNormalized[34] + LibraryCoverageFraction[35]).
         /// </summary>
-        public const int ClassifierFeatureCount = 33;
+        public const int ClassifierFeatureCount = 36;
 
         /// <summary>
         /// Index of ApexScore in the feature vector.
@@ -157,6 +165,9 @@ namespace MassSpectrometry.Dia
         ///   [30]    MS1: IsotopePatternScore
         ///   [31]    MS1: Ms1Ms2Correlation
         ///   [32]    MS1: PrecursorElutionScore
+        ///   [33]    Interference: ChimericScore
+        ///   [34]    Derived RT: RtDeviationNormalized
+        ///   [35]    Coverage: LibraryCoverageFraction
         /// </summary>
         public readonly void WriteTo(Span<float> features)
         {
@@ -196,13 +207,17 @@ namespace MassSpectrometry.Dia
             features[28] = ApexToMeanRatio;
 
             // MS1 features [29-32]
-            // NaN is intentional here: the classifier (LDA/GBT) handles NaN via mean
-            // imputation. Passing NaN through WriteTo preserves the signal that MS1
-            // data was unavailable for this precursor.
             features[29] = PrecursorXicApexIntensity;
             features[30] = IsotopePatternScore;
             features[31] = Ms1Ms2Correlation;
             features[32] = PrecursorElutionScore;
+
+            // Interference / chimeric [33]
+            features[33] = ChimericScore;
+
+            // Derived RT and coverage [34-35]
+            features[34] = RtDeviationNormalized;
+            features[35] = LibraryCoverageFraction;
         }
 
         /// <summary>
@@ -240,6 +255,10 @@ namespace MassSpectrometry.Dia
             // MS1 features [29-32]
             "PrecursorXicApexIntensity", "IsotopePatternScore",
             "Ms1Ms2Correlation", "PrecursorElutionScore",
+            // Interference / chimeric [33]
+            "ChimericScore",
+            // Derived RT and coverage [34-35]
+            "RtDeviationNormalized", "LibraryCoverageFraction",
         };
     }
 
@@ -423,6 +442,20 @@ namespace MassSpectrometry.Dia
             fv.IsotopePatternScore = result.IsotopePatternScore;
             fv.Ms1Ms2Correlation = result.Ms1Ms2Correlation;
             fv.PrecursorElutionScore = result.PrecursorElutionScore;
+
+            // -- ChimericScore [33] ---------------------------------------
+            // Computed during assembly in DiaLibraryQueryGenerator and stored on result.
+            // NaN if only one precursor exists in the window (no co-isolation possible).
+            fv.ChimericScore = result.ChimericScore;
+
+            // -- RtDeviationNormalized [34] --------------------------------
+            // RtDeviationMinutes / PeakWidth. NaN if PeakWidth is zero or NaN.
+            fv.RtDeviationNormalized = result.RtDeviationNormalized;
+
+            // -- LibraryCoverageFraction [35] ------------------------------
+            // Intensity-weighted fraction of library fragments detected.
+            // Computed here directly from the result's arrays since we have them in scope.
+            fv.LibraryCoverageFraction = result.LibraryCoverageFraction;
 
             // -- Metadata -------------------------------------------------
             fv.ChargeState = result.ChargeState;

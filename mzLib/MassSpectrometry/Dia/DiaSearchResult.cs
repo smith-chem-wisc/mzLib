@@ -377,6 +377,43 @@ namespace MassSpectrometry.Dia
 
         #endregion
 
+        #region Interference / Chimeric Features (Phase 19, Priority 2)
+
+        /// <summary>
+        /// Fraction of this precursor's matched fragment signal that is uncontested —
+        /// i.e. not shared with any co-isolated precursor in the same DIA window.
+        /// Range [0, 1]. 1.0 = all fragment m/z values are unique to this precursor;
+        /// 0.0 = every fragment m/z is also queried by at least one other precursor.
+        /// High values indicate a clean, non-chimeric identification.
+        /// NaN if not computed (e.g. only one precursor in the window).
+        /// Feature [33].
+        /// </summary>
+        public float ChimericScore { get; set; }
+
+        #endregion
+
+        #region Derived RT and Coverage Features (Phase 19, Priority 5)
+
+        /// <summary>
+        /// RT deviation normalized by peak width: RtDeviationMinutes / PeakWidth.
+        /// Captures whether the RT shift is large relative to the peptide's own elution width.
+        /// A large shift that is still within the peak FWHM is less penalizing than an equally
+        /// large shift for a narrow peak. NaN if PeakWidth is zero or not detected.
+        /// Feature [34].
+        /// </summary>
+        public float RtDeviationNormalized { get; set; }
+
+        /// <summary>
+        /// Intensity-weighted fraction of theoretical library fragment ions that were detected.
+        /// Each fragment's contribution is weighted by its library intensity, so high-intensity
+        /// library fragments that are missing penalize the score more than low-intensity ones.
+        /// Range [0, 1]. Higher is better.
+        /// Feature [35].
+        /// </summary>
+        public float LibraryCoverageFraction { get; set; }
+
+        #endregion
+
         #region FDR and Scoring (set by DiaFdrEngine)
 
         /// <summary>
@@ -493,6 +530,13 @@ namespace MassSpectrometry.Dia
             IsotopePatternScore = float.NaN;
             Ms1Ms2Correlation = float.NaN;
             PrecursorElutionScore = float.NaN;
+
+            // Interference / chimeric features (Phase 19, Priority 2)
+            ChimericScore = float.NaN;
+
+            // Derived RT and coverage features (Phase 19, Priority 5)
+            RtDeviationNormalized = float.NaN;
+            LibraryCoverageFraction = float.NaN;
 
             // FDR and scoring
             ClassifierScore = float.NaN;

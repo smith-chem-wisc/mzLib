@@ -876,6 +876,36 @@ namespace MassSpectrometry.Dia
                     DiaSmoothedFeatureHelper.ComputeSignalToNoise(
                         matrix, apexLocalIdx, fragmentCount, timePointCount, result);
 
+                    // ── Phase 19: Derived features computed from already-available data ──
+
+                    // 7. RtDeviationNormalized: RT deviation scaled by peak width.
+                    //    Meaningful only when both are available.
+                    if (!float.IsNaN(result.RtDeviationMinutes) &&
+                        !float.IsNaN(result.PeakWidth) && result.PeakWidth > 0f)
+                    {
+                        result.RtDeviationNormalized = result.RtDeviationMinutes / result.PeakWidth;
+                    }
+
+                    // 8. LibraryCoverageFraction: intensity-weighted fraction of library
+                    //    fragments that were detected (had >= 1 XIC data point).
+                    //    Weight each fragment by its library intensity so that missing
+                    //    high-intensity fragments are penalized more than missing weak ones.
+                    {
+                        float totalLibIntensity = 0f;
+                        float detectedLibIntensity = 0f;
+                        for (int f = 0; f < fragmentCount; f++)
+                        {
+                            float libInt = f < input.FragmentIntensities.Length
+                                ? input.FragmentIntensities[f] : 0f;
+                            totalLibIntensity += libInt;
+                            if (result.XicPointCounts[f] > 0)
+                                detectedLibIntensity += libInt;
+                        }
+                        result.LibraryCoverageFraction = totalLibIntensity > 0f
+                            ? detectedLibIntensity / totalLibIntensity
+                            : 0f;
+                    }
+
                     // ── Set peak shape metadata from peak detection ──────────
                     if (peakGroup.IsValid)
                     {
@@ -904,6 +934,132 @@ namespace MassSpectrometry.Dia
             }
 
             return results;
+        }
+
+        /// <summary>
+        /// Computes ChimericScore for each result in a list that was produced by
+        /// <see cref="AssembleResultsWithTemporalScoring"/>.
+        ///
+        /// ChimericScore = fraction of this precursor's matched fragment signal (at apex)
+        /// that is NOT shared with any other precursor in the same DIA window.
+        ///
+        /// Algorithm (per window):
+        ///   1. Collect all library fragment m/z values from every precursor in the window.
+        ///   2. For each precursor, a fragment is "contested" if any other precursor in the
+        ///      same window has a library fragment within ppmTolerance of it.
+        ///   3. ChimericScore = sum(uncontested detected apex intensity) /
+        ///                      sum(all detected apex intensity).
+        ///      If apex intensities are all zero, falls back to uncontested fragment count fraction.
+        ///   4. Precursors that are alone in their window receive ChimericScore = 1.0 (no co-isolation).
+        ///
+        /// Call this once after AssembleResultsWithTemporalScoring returns, passing the same
+        /// precursor list and the ppm tolerance used during extraction.
+        /// </summary>
+        public static void ComputeChimericScores(
+            IList<LibraryPrecursorInput> precursors,
+            IList<DiaSearchResult> results,
+            float ppmTolerance)
+        {
+            if (precursors == null || results == null || results.Count == 0) return;
+
+            // Group results (and their precursor inputs) by window ID
+            // Key = windowId, Value = list of (result, precursor input)
+            var byWindow = new Dictionary<int, List<(DiaSearchResult Result, LibraryPrecursorInput Input)>>();
+            foreach (var r in results)
+            {
+                var input = precursors[r.WindowId >= 0 ? FindPrecursorIndex(precursors, r) : 0];
+                if (!byWindow.TryGetValue(r.WindowId, out var list))
+                {
+                    list = new List<(DiaSearchResult, LibraryPrecursorInput)>();
+                    byWindow[r.WindowId] = list;
+                }
+                list.Add((r, input));
+            }
+
+            foreach (var (windowId, windowResults) in byWindow)
+            {
+                int n = windowResults.Count;
+
+                // Single precursor in window — no co-isolation possible
+                if (n == 1)
+                {
+                    windowResults[0].Result.ChimericScore = 1.0f;
+                    continue;
+                }
+
+                // For each precursor, mark which of its fragments are contested
+                // A fragment at m/z F is contested if any OTHER precursor has a library
+                // fragment within ppmTolerance ppm of F.
+                for (int i = 0; i < n; i++)
+                {
+                    var (result, input) = windowResults[i];
+                    int fragCount = input.FragmentCount;
+
+                    float totalApexSignal = 0f;
+                    float uncontestedApexSignal = 0f;
+                    int totalDetected = 0;
+                    int uncontestedDetected = 0;
+
+                    for (int f = 0; f < fragCount; f++)
+                    {
+                        // Only consider fragments that were actually detected
+                        if (result.XicPointCounts[f] == 0) continue;
+
+                        float fragMz = input.FragmentMzs[f];
+                        float apexInt = result.ExtractedIntensities[f];
+                        bool contested = false;
+
+                        // Check against all other precursors in this window
+                        for (int j = 0; j < n && !contested; j++)
+                        {
+                            if (j == i) continue;
+                            var otherInput = windowResults[j].Input;
+                            for (int k = 0; k < otherInput.FragmentCount; k++)
+                            {
+                                float otherMz = otherInput.FragmentMzs[k];
+                                float ppmDiff = MathF.Abs(fragMz - otherMz) / fragMz * 1e6f;
+                                if (ppmDiff <= ppmTolerance)
+                                {
+                                    contested = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        totalApexSignal += apexInt;
+                        totalDetected++;
+                        if (!contested)
+                        {
+                            uncontestedApexSignal += apexInt;
+                            uncontestedDetected++;
+                        }
+                    }
+
+                    // Score: prefer intensity-weighted fraction; fall back to count fraction
+                    if (totalApexSignal > 0f)
+                        result.ChimericScore = uncontestedApexSignal / totalApexSignal;
+                    else if (totalDetected > 0)
+                        result.ChimericScore = (float)uncontestedDetected / totalDetected;
+                    else
+                        result.ChimericScore = float.NaN; // no detected fragments
+                }
+            }
+        }
+
+        /// <summary>
+        /// Finds the index of the LibraryPrecursorInput that produced the given result,
+        /// by matching sequence and charge state.
+        /// Returns 0 as a safe fallback if no match is found.
+        /// </summary>
+        private static int FindPrecursorIndex(IList<LibraryPrecursorInput> precursors, DiaSearchResult result)
+        {
+            for (int i = 0; i < precursors.Count; i++)
+            {
+                if (precursors[i].Sequence == result.Sequence &&
+                    precursors[i].ChargeState == result.ChargeState)
+                    return i;
+            }
+            return 0;
         }
 
         /// <summary>

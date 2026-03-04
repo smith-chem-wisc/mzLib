@@ -88,6 +88,7 @@ namespace MassSpectrometry.Dia
             var ms2Scans = new List<MsDataScan>(allScans.Length);
             foreach (var scan in allScans)
             {
+                if (scan == null) continue;
                 if (scan.MsnOrder == 2 && scan.IsolationMz.HasValue && scan.IsolationWidth.HasValue)
                     ms2Scans.Add(scan);
             }
@@ -239,7 +240,7 @@ namespace MassSpectrometry.Dia
         {
             // Filter and sort by RT
             var ms1Scans = allScans
-                .Where(s => s.MsnOrder == 1)
+                .Where(s => s != null && s.MsnOrder == 1)
                 .OrderBy(s => s.RetentionTime)
                 .ToArray();
 
