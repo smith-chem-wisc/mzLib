@@ -21,6 +21,8 @@ namespace MassSpectrometry.Dia
     /// - Phase 13 Prompt 4: Best-fragment reference curve fields (BestFragCorrelationSum, MedianFragRefCorr, MinFragRefCorr, StdFragRefCorr)
     /// - Phase 13 Prompt 5: Signal ratio deviation fields (MeanSignalRatioDev, MaxSignalRatioDev, StdSignalRatioDev)
     /// - Phase 13 Action 4: Backward-compatible aliases removed (ApexDotProductScore, TemporalCosineScore, etc.)
+    /// - Phase 16A Prompt 1: BestFragWeightedCosine, BoundarySignalRatio, ApexToMeanRatio migrated to classifier
+    /// - Phase 16B Prompt 5: MS1 feature fields added (PrecursorXicApexIntensity, IsotopePatternScore, Ms1Ms2Correlation, PrecursorElutionScore)
     /// </summary>
     public class DiaSearchResult
     {
@@ -333,6 +335,48 @@ namespace MassSpectrometry.Dia
 
         #endregion
 
+        #region MS1 Features (Phase 16B, Prompt 5)
+
+        /// <summary>
+        /// Log2 of the apex intensity in the precursor (M0) XIC within the calibrated RT window.
+        /// High for true matches (precursor elutes with the fragments); low or zero for decoys
+        /// (random m/z, no precursor signal at the queried position).
+        /// NaN if MS1 scans are absent or the XIC has no signal.
+        /// Feature [29].
+        /// </summary>
+        public float PrecursorXicApexIntensity { get; set; }
+
+        /// <summary>
+        /// Dot product of observed [M0, M+1, M+2] intensities at the XIC apex scan vs the
+        /// theoretical averagine isotope distribution at the precursor neutral mass.
+        /// Range [0, 1]. True peptides follow the averagine pattern; decoy m/z values
+        /// land on random background peaks that do not match the expected pattern.
+        /// NaN if MS1 scans are absent or fewer than 2 isotopes had signal.
+        /// Feature [30].
+        /// </summary>
+        public float IsotopePatternScore { get; set; }
+
+        /// <summary>
+        /// Pearson correlation between the M0 precursor XIC and the best fragment XIC
+        /// over the calibrated RT window. True co-eluting signals produce high positive
+        /// correlation; noise or interference produces near-zero or negative values.
+        /// NaN if MS1 scans are absent or fewer than 3 co-detected time points.
+        /// Feature [31].
+        /// </summary>
+        public float Ms1Ms2Correlation { get; set; }
+
+        /// <summary>
+        /// Gaussian-fit score of the precursor XIC peak shape.
+        /// Measures how well the M0 XIC across the RT window fits a Gaussian profile.
+        /// Range [0, 1]; 1 = perfect Gaussian, 0 = flat or irregular.
+        /// Complements ApexScore (which measures fragment co-elution at the apex scan).
+        /// NaN if MS1 scans are absent or the XIC has insufficient points.
+        /// Feature [32].
+        /// </summary>
+        public float PrecursorElutionScore { get; set; }
+
+        #endregion
+
         #region FDR and Scoring (set by DiaFdrEngine)
 
         /// <summary>
@@ -443,6 +487,12 @@ namespace MassSpectrometry.Dia
             BestFragIndex = -1;
             BoundarySignalRatio = float.NaN;
             ApexToMeanRatio = float.NaN;
+
+            // MS1 features (Phase 16B, Prompt 5)
+            PrecursorXicApexIntensity = float.NaN;
+            IsotopePatternScore = float.NaN;
+            Ms1Ms2Correlation = float.NaN;
+            PrecursorElutionScore = float.NaN;
 
             // FDR and scoring
             ClassifierScore = float.NaN;

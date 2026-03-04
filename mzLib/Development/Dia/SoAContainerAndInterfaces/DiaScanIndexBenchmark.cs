@@ -580,7 +580,7 @@ namespace Development.Dia
             {
                 int windowCount = 5, scansPerWindow = 100, ms1Count = 50, peaksPerMs1 = 200;
                 var scans = GenerateSyntheticScansWithMs1(
-                    windowCount, scansPerWindow, peaksPerScan: 100,
+                    windowCount, scansPerWindow, peaksPerMs2: 100,
                     ms1ScansPerWindow: ms1Count, peaksPerMs1: peaksPerMs1);
 
                 int expectedMs1 = scans.Count(s => s.MsnOrder == 1);

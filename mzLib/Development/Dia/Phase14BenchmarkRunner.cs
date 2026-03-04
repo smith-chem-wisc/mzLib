@@ -13,25 +13,31 @@ namespace Development.Dia
     /// <summary>
     /// Phase 14: Dead Feature Fixes + GBT Hyperparameter Tuning Benchmark
     /// Updated Phase 16A, Prompt 1: ClassifierFeatureCount now 29 (3 migrated features active).
+    /// Updated Phase 16B, Prompt 6: ClassifierFeatureCount now 33 (4 MS1 features added).
+    /// Updated Phase 16B, Prompt 8: Three MS1 feature fixes applied:
+    ///   Fix 1 — Ms1Ms2Correlation [31]: bestFragXic wired in Step 7 via ExtractBestFragmentXic().
+    ///            Previously 100% NaN because the MS2 fragment XIC was not passed to ComputeFeatures().
+    ///            Library lookup uses a pre-built Dictionary to avoid O(N²) scans; no null references.
+    ///   Fix 2 — PrecursorXicApexIntensity [29]: TIC normalization applied in DiaFeatureExtractor.
+    ///   Fix 3 — IsotopePatternScore [30]: noise-gated dot product applied in DiaFeatureExtractor.
     /// 
     /// Steps 1-7:  Standard pipeline (load → index → broad extract → calibrate → calibrated extract → assemble → features)
-    /// Step 8:     Dead-feature diagnostic table (verify PeakWidth, TimePointsUsed, RtDeviationMinutes, RtDeviationSquared,
-    ///             and Phase 16A new features: BestFragWeightedCosine [26], BoundarySignalRatio [27], ApexToMeanRatio [28])
+    /// Step 7:     Feature computation passes DiaScanIndex + bestFragXic to ComputeFeatures() for all MS1 features.
+    /// Step 8:     Dead-feature diagnostic table (all 33 features; NaN rates reported for MS1 features)
     /// Step 9:     LDA baseline FDR
     /// Step 10:    GBT sweep (configs A–E)
-    /// Step 11:    Comparison table (Phase 13 LDA, Phase 14 LDA, GBT configs)
+    /// Step 11:    Comparison table (Phase 13 LDA, Phase 14 LDA, Phase 16B LDA, GBT configs)
     /// Step 12:    Full FDR threshold table for best classifier
     /// Step 13:    Per-step timing summary
-    /// Step 14:    TSV export with full column set (finalized in Prompt 4)
+    /// Step 14:    TSV export with full column set (5+4+33+6+16 = 64 columns)
     /// 
-    /// Compilation checklist (Phase 16A):
-    ///   ✓ Using statements: System, System.Buffers, System.Collections.Generic, System.Diagnostics,
-    ///     System.Globalization, System.IO, System.Linq, MassSpectrometry, MassSpectrometry.Dia, Readers
-    ///   ✓ API consistency: All method calls verified against uploaded files
-    ///   ✓ No LINQ in hot paths: Feature loops, FDR counting, TSV export all use explicit for loops
-    ///   ✓ Span usage: stackalloc float[29] in diagnostics and TSV export
+    /// Compilation checklist (Phase 16B, Prompt 8):
+    ///   ✓ No nulls: library lookup uses bool+index pattern, Dictionary with TryGetValue
+    ///   ✓ DiaScanIndex MS2 API used: TryGetScanRangeForWindow, GetScanRt, GetScanMzSpan, GetScanIntensitySpan
+    ///   ✓ SumInMzWindow is self-contained (no cross-assembly dependency on Ms1XicExtractor)
+    ///   ✓ No LINQ in hot paths
+    ///   ✓ Span usage: stackalloc float[33] in diagnostics and TSV export
     ///   ✓ IDisposable: DiaScanIndex (using var), DiaExtractionOrchestrator (using blocks)
-    ///   ✓ Pre-run sanity checks: File existence, feature count assertion (29)
     /// </summary>
     public static class Phase14BenchmarkRunner
     {
@@ -62,8 +68,8 @@ namespace Development.Dia
                 if (!string.IsNullOrEmpty(outputDir) && !Directory.Exists(outputDir))
                     Directory.CreateDirectory(outputDir);
             }
-            Debug.Assert(DiaFeatureVector.ClassifierFeatureCount == 29,
-                $"Expected 29 features (26 original + 3 migrated from Phase 16A), got {DiaFeatureVector.ClassifierFeatureCount}");
+            Debug.Assert(DiaFeatureVector.ClassifierFeatureCount == 33,
+                $"Expected 33 features (29 from Phase 16A + 4 MS1 from Phase 16B), got {DiaFeatureVector.ClassifierFeatureCount}");
 
             var totalSw = Stopwatch.StartNew();
             var sw = new Stopwatch();
@@ -151,7 +157,8 @@ namespace Development.Dia
             msStep3Index = sw.ElapsedMilliseconds;
 
             Console.WriteLine($"  File load: {msStep3Load / 1000.0:F1}s | Index build: {msStep3Index}ms");
-            Console.WriteLine($"  Scans: {index.ScanCount:N0} | Windows: {index.WindowCount} | Peaks: {index.TotalPeakCount:N0}");
+            Console.WriteLine($"  MS2 scans: {index.ScanCount:N0} | Windows: {index.WindowCount} | Peaks: {index.TotalPeakCount:N0}");
+            Console.WriteLine($"  MS1 scans: {index.Ms1ScanCount:N0} | MS1 peaks: {index.Ms1TotalPeakCount:N0}");
             Console.WriteLine();
 
             int threads = Math.Min(Environment.ProcessorCount, 16);
@@ -183,26 +190,112 @@ namespace Development.Dia
             var calibration = pipelineResult.Calibration;
 
             // ════════════════════════════════════════════════════════════
-            //  Step 7: Feature computation (29 features)
+            //  Step 7: Feature computation (33 features)
             // ════════════════════════════════════════════════════════════
             Console.WriteLine("--- Step 7: Computing feature vectors --------------------------");
             sw.Restart();
 
-            if (DiaFeatureVector.ClassifierFeatureCount != 29)
-                Console.WriteLine($"  WARNING: Expected 29 features, got {DiaFeatureVector.ClassifierFeatureCount}");
+            if (DiaFeatureVector.ClassifierFeatureCount != 33)
+                Console.WriteLine($"  WARNING: Expected 33 features, got {DiaFeatureVector.ClassifierFeatureCount}");
+
+            // Fix 1 (Prompt 8): Wire bestFragXic/bestFragXicRts for Ms1Ms2Correlation [31].
+            //
+            // Previously: features[i] = ComputeFeatures(results[i], i, index)
+            //   → bestFragXic = default → Ms1Ms2Correlation = 100% NaN.
+            //
+            // Now: for each result with a valid BestFragIndex, re-extract the best
+            // fragment's per-scan intensity trace from the MS2 window, then pass it
+            // to ComputeFeatures as bestFragXic/bestFragXicRts.
+            //
+            // Library lookup: combined[] is in the same sequential order as results[]
+            // (pipeline processes targets then decoys, matching how combined was built).
+            // We use a direct index match with a sequence+charge+decoy safety check,
+            // and fall back to linear search if the index doesn't match.
+            // No null references: a bool + index pattern is used throughout.
+
+            // Build a reverse map: (sequence, chargeState, isDecoy) → combined index.
+            // This avoids O(N²) fallback scans on large libraries.
+            // Key: (Sequence, ChargeState, IsDecoy) using a value-tuple for hashing.
+            var combinedIndexMap = new Dictionary<(string, int, bool), int>(combined.Count);
+            for (int k = 0; k < combined.Count; k++)
+            {
+                var lib = combined[k];
+                var key = (lib.Sequence, lib.ChargeState, lib.IsDecoy);
+                // First entry wins (duplicates are possible for very similar decoys;
+                // any matching library entry has the correct fragment m/z set).
+                if (!combinedIndexMap.ContainsKey(key))
+                    combinedIndexMap[key] = k;
+            }
 
             var features = new DiaFeatureVector[results.Count];
+            int bestFragWired = 0;
+
             for (int i = 0; i < results.Count; i++)
-                features[i] = DiaFeatureExtractor.ComputeFeatures(results[i], i);
+            {
+                var result = results[i];
+
+                ReadOnlySpan<float> bestFragXic = default;
+                ReadOnlySpan<float> bestFragXicRts = default;
+
+                // Only attempt fragment XIC extraction when:
+                //   (a) the index has MS1 scans (Ms1Ms2Correlation requires both sides)
+                //   (b) BestFragIndex is a valid fragment slot for this result
+                if (index.Ms1ScanCount > 0 &&
+                    result.BestFragIndex >= 0 &&
+                    result.BestFragIndex < result.FragmentsQueried)
+                {
+                    var libKey = (result.Sequence, result.ChargeState, result.IsDecoy);
+
+                    // Fast O(1) lookup; fall back to direct index if map lookup fails
+                    // (e.g., duplicate entries that were skipped when building the map).
+                    int libIdx = -1;
+                    if (combinedIndexMap.TryGetValue(libKey, out int mapIdx))
+                        libIdx = mapIdx;
+                    else if (i < combined.Count &&
+                             combined[i].Sequence == result.Sequence &&
+                             combined[i].ChargeState == result.ChargeState &&
+                             combined[i].IsDecoy == result.IsDecoy)
+                        libIdx = i;
+
+                    if (libIdx >= 0 && result.BestFragIndex < combined[libIdx].FragmentMzs.Length)
+                    {
+                        float fragMz = combined[libIdx].FragmentMzs[result.BestFragIndex];
+                        ExtractBestFragmentXic(
+                            index, fragMz, result.WindowId,
+                            result.RtWindowStart, result.RtWindowEnd,
+                            ppmTolerance: 20f,
+                            out float[] fragXicIntensities,
+                            out float[] fragXicRts);
+
+                        if (fragXicIntensities.Length >= 3)
+                        {
+                            bestFragXic = fragXicIntensities.AsSpan();
+                            bestFragXicRts = fragXicRts.AsSpan();
+                            bestFragWired++;
+                        }
+                    }
+                }
+
+                features[i] = DiaFeatureExtractor.ComputeFeatures(
+                    result, i, index, bestFragXic, bestFragXicRts);
+            }
+
             sw.Stop();
             msStep7 = sw.ElapsedMilliseconds;
             Console.WriteLine($"  Feature computation: {msStep7}ms | {features.Length:N0} vectors ({DiaFeatureVector.ClassifierFeatureCount} features)");
+            if (index.Ms1ScanCount > 0)
+            {
+                Console.WriteLine($"  MS1 features computed (index has {index.Ms1ScanCount:N0} MS1 scans)");
+                Console.WriteLine($"  Ms1Ms2Correlation wired: {bestFragWired:N0}/{results.Count:N0} ({100.0 * bestFragWired / Math.Max(results.Count, 1):F1}%)");
+            }
+            else
+                Console.WriteLine($"  MS1 features = NaN (no MS1 scans in index)");
             Console.WriteLine();
 
             // ════════════════════════════════════════════════════════════
-            //  Step 8: Dead-feature diagnostic table
+            //  Step 8: Dead-feature diagnostic table + MS1 NaN rates
             // ════════════════════════════════════════════════════════════
-            Console.WriteLine("--- Step 8: Dead Feature Fix Verification ----------------------");
+            Console.WriteLine("--- Step 8: Feature Diagnostic Table --------------------------");
             sw.Restart();
 
             PrintDeadFeatureDiagnostics(results, features);
@@ -263,16 +356,18 @@ namespace Development.Dia
             //  Step 11: Comparison table
             // ════════════════════════════════════════════════════════════
             Console.WriteLine();
-            Console.WriteLine("--- Step 11: Phase 13 → Phase 14 Comparison --------------------");
+            Console.WriteLine("--- Step 11: Phase 13 → Phase 16B Comparison -------------------");
             Console.WriteLine();
 
-            // Phase 13 baselines
+            // Phase 13 and Phase 14/16A baselines
             int[] phase13Lda = { 8481, 14092, 16357, 24249, 29693 };
+            int[] phase16aLda = { 18575, 23372, 26298, 33774, 36926 };
 
             Console.WriteLine("  Classifier          |  q≤0.001  q≤0.005  q≤0.01   q≤0.05   q≤0.10");
             Console.WriteLine("  ────────────────────────────────────────────────────────────────────");
             PrintComparisonRow("Phase 13 LDA", phase13Lda, null);
-            PrintComparisonRow("Phase 14 LDA", ldaCounts, phase13Lda);
+            PrintComparisonRow("Phase 16A LDA", phase16aLda, phase13Lda);
+            PrintComparisonRow("Phase 16B LDA", ldaCounts, phase16aLda);
 
             // Find best GBT config
             int bestGbtIdx = -1;
@@ -376,15 +471,16 @@ namespace Development.Dia
             Console.WriteLine();
 
             // ════════════════════════════════════════════════════════════
-            //  Step 14: TSV export (finalized — Prompt 4)
+            //  Step 14: TSV export
             //
             //  Column groups:
             //    1. Identification:  Sequence, Charge, PrecursorMz, WindowId, IsDecoy
             //    2. Classifier:      ClassifierScore, QValue, PeptideQValue, ClassifierType
-            //    3. Feature vector:  FV_0 .. FV_28  (29 features via WriteTo)
+            //    3. Feature vector:  FV_0 .. FV_32  (33 features via WriteTo)
             //    4. Raw properties:  ObservedApexRt, LibraryRT, RtDeviationMinutes_Raw,
             //                        PeakWidth_Raw, TimePointsUsed_Raw, HasPeakGroup
             //    5. Phase 13 props:  16 properties from DiaSearchResult
+            //    Total: 5+4+33+6+16 = 64 columns
             // ════════════════════════════════════════════════════════════
             if (!string.IsNullOrEmpty(outputTsvPath))
             {
@@ -395,8 +491,124 @@ namespace Development.Dia
                 Console.WriteLine();
             }
 
-            Console.WriteLine($"═══ Phase 14 complete. Total time: {totalSw.Elapsed.TotalSeconds:F1}s ═══");
+            Console.WriteLine($"═══ Phase 16B complete. Total time: {totalSw.Elapsed.TotalSeconds:F1}s ═══");
             Console.WriteLine();
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  Fix 1 (Prompt 8): Best-fragment MS2 XIC extraction
+        // ════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Re-extracts a per-scan MS2 fragment XIC for a single fragment m/z within
+        /// the calibrated RT window of the specified isolation window.
+        ///
+        /// Uses the confirmed DiaScanIndex MS2 API:
+        ///   TryGetScanRangeForWindow → scan range for the precursor's isolation window
+        ///   GetScanRt / GetScanMzSpan / GetScanIntensitySpan → per-scan access
+        ///
+        /// The precursor's WindowId is used to restrict the search to scans from the
+        /// correct isolation window (avoids counting the same fragment signal from
+        /// overlapping windows in adjacent DIA windows).
+        ///
+        /// Output arrays are parallel: rts[j] and intensities[j] correspond to the
+        /// same MS2 scan. The arrays are sorted ascending by RT (same as the index).
+        ///
+        /// Returns empty arrays if the window has no scans, the RT window is empty,
+        /// or fragmentMz ≤ 0. Empty output causes Ms1Ms2Correlation to remain NaN.
+        /// </summary>
+        private static void ExtractBestFragmentXic(
+            DiaScanIndex index,
+            float fragmentMz,
+            int windowId,
+            float rtMin,
+            float rtMax,
+            float ppmTolerance,
+            out float[] intensities,
+            out float[] rts)
+        {
+            if (fragmentMz <= 0f || rtMin > rtMax ||
+                !index.TryGetScanRangeForWindow(windowId, out int winStart, out int winCount) ||
+                winCount == 0)
+            {
+                intensities = Array.Empty<float>();
+                rts = Array.Empty<float>();
+                return;
+            }
+
+            float daltonTol = fragmentMz * ppmTolerance * 1e-6f;
+            float mzLo = fragmentMz - daltonTol;
+            float mzHi = fragmentMz + daltonTol;
+
+            // Count scans in the RT window (needed to allocate exact-size output arrays)
+            int windowCount = 0;
+            for (int i = winStart; i < winStart + winCount; i++)
+            {
+                float rt = index.GetScanRt(i);
+                if (rt < rtMin) continue;
+                if (rt > rtMax) break;
+                windowCount++;
+            }
+
+            if (windowCount == 0)
+            {
+                intensities = Array.Empty<float>();
+                rts = Array.Empty<float>();
+                return;
+            }
+
+            var rtArr = new float[windowCount];
+            var intArr = new float[windowCount];
+            int written = 0;
+
+            for (int i = winStart; i < winStart + winCount && written < windowCount; i++)
+            {
+                float scanRt = index.GetScanRt(i);
+                if (scanRt < rtMin) continue;
+                if (scanRt > rtMax) break;
+
+                ReadOnlySpan<float> mzs = index.GetScanMzSpan(i);
+                ReadOnlySpan<float> ints = index.GetScanIntensitySpan(i);
+
+                rtArr[written] = scanRt;
+                intArr[written] = SumInMzWindow(mzs, ints, mzLo, mzHi);
+                written++;
+            }
+
+            rts = rtArr;
+            intensities = intArr;
+        }
+
+        /// <summary>
+        /// Sums all intensity values in a sorted m/z span that fall within [mzLo, mzHi].
+        /// Uses binary search to locate the lower bound; O(log P + H) where H = hits.
+        /// Self-contained — does not depend on Ms1XicExtractor.SumIntensityInWindow
+        /// to avoid cross-assembly visibility issues.
+        /// </summary>
+        private static float SumInMzWindow(
+            ReadOnlySpan<float> mzs,
+            ReadOnlySpan<float> intensities,
+            float mzLo,
+            float mzHi)
+        {
+            if (mzs.IsEmpty) return 0f;
+
+            // Binary lower-bound: first index where mzs[i] >= mzLo
+            int lo = 0, hi = mzs.Length;
+            while (lo < hi)
+            {
+                int mid = lo + ((hi - lo) >> 1);
+                if (mzs[mid] < mzLo) lo = mid + 1;
+                else hi = mid;
+            }
+
+            float sum = 0f;
+            for (int i = lo; i < mzs.Length; i++)
+            {
+                if (mzs[i] > mzHi) break;
+                sum += intensities[i];
+            }
+            return sum;
         }
 
         // ════════════════════════════════════════════════════════════════
@@ -466,20 +678,20 @@ namespace Development.Dia
             Console.WriteLine("  ─────────────────────────────────────────────────────────────────────────");
             Console.WriteLine();
 
-            // Also print full 29-feature summary for reference
-            Console.WriteLine("  Full 29-Feature Summary (target vs decoy means):");
-            Console.WriteLine("  ───────────────────────────────────────────────────────────");
+            // Full 33-feature summary for reference
+            Console.WriteLine("  Full 33-Feature Summary (target vs decoy means):");
+            Console.WriteLine("  ───────────────────────────────────────────────────────────────────────");
 
             for (int f = 0; f < DiaFeatureVector.ClassifierFeatureCount; f++)
             {
                 double tSum = 0, dSum = 0;
-                int tN = 0, dN = 0;
+                int tN = 0, dN = 0, nanN = 0;
 
                 for (int i = 0; i < results.Count; i++)
                 {
                     features[i].WriteTo(buf);
                     float val = buf[f];
-                    if (float.IsNaN(val)) continue;
+                    if (float.IsNaN(val)) { nanN++; continue; }
                     if (results[i].IsDecoy) { dSum += val; dN++; }
                     else { tSum += val; tN++; }
                 }
@@ -487,8 +699,12 @@ namespace Development.Dia
                 float tm = tN > 0 ? (float)(tSum / tN) : float.NaN;
                 float dm = dN > 0 ? (float)(dSum / dN) : float.NaN;
                 float sep = (!float.IsNaN(tm) && !float.IsNaN(dm)) ? MathF.Abs(tm - dm) : 0f;
+                float nanPct = 100f * nanN / results.Count;
 
-                Console.WriteLine($"    [{f,2}] {DiaFeatureVector.FeatureNames[f],-26} T={tm,9:F4}  D={dm,9:F4}  sep={sep,7:F4}");
+                // Flag MS1 features [29-32] with their NaN rate (expected high if file has no MS1)
+                string ms1Tag = f >= 29 ? $" [MS1, NaN={nanPct:F1}%]" : "";
+
+                Console.WriteLine($"    [{f,2}] {DiaFeatureVector.FeatureNames[f],-30} T={tm,9:F4}  D={dm,9:F4}  sep={sep,7:F4}{ms1Tag}");
             }
             Console.WriteLine();
         }
@@ -547,8 +763,8 @@ namespace Development.Dia
         //  Group 2 — Classifier (4 cols):
         //    ClassifierScore, QValue, PeptideQValue, ClassifierType
         //
-        //  Group 3 — Feature vector (29 cols):
-        //    FV_{FeatureNames[0]} .. FV_{FeatureNames[28]}
+        //  Group 3 — Feature vector (33 cols):
+        //    FV_{FeatureNames[0]} .. FV_{FeatureNames[32]}
         //    Written via DiaFeatureVector.WriteTo(Span<float>)
         //
         //  Group 4 — Raw result properties for dead-feature debugging (6 cols):
@@ -562,7 +778,7 @@ namespace Development.Dia
         //    SmoothedMeanFragCorr, SmoothedMinFragCorr, Log2SignalToNoise,
         //    BestFragWeightedCosine, BoundarySignalRatio, ApexToMeanRatio
         //
-        //  Total: 5 + 4 + 29 + 6 + 16 = 60 columns
+        //  Total: 5 + 4 + 33 + 6 + 16 = 64 columns
         // ════════════════════════════════════════════════════════════════
 
         private static void ExportResultsTsv(

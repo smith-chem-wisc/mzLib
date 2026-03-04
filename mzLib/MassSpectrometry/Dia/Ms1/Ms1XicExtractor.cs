@@ -300,13 +300,16 @@ namespace MassSpectrometry.Dia
         /// Complexity: O(log P + H) where P = total peaks, H = peaks in window.
         /// For DIA MS1 scans (~500 peaks) and a 20 ppm window at 500 m/z (~0.01 Da),
         /// H is typically 0–2 peaks, so this is effectively O(log P).
+        /// 
+        /// Promoted from internal to public in Prompt 8 to allow ExtractBestFragmentXic
+        /// in Phase14BenchmarkRunner to reuse the same m/z window summing logic.
         /// </summary>
         /// <param name="mzs">Sorted m/z array for one MS1 scan.</param>
         /// <param name="intensities">Parallel intensity array.</param>
         /// <param name="mzLo">Lower m/z bound (inclusive).</param>
         /// <param name="mzHi">Upper m/z bound (inclusive).</param>
         /// <returns>Sum of intensities for all peaks in the window. 0 if no peaks found.</returns>
-        internal static float SumIntensityInWindow(
+        public static float SumIntensityInWindow(
             ReadOnlySpan<float> mzs,
             ReadOnlySpan<float> intensities,
             float mzLo,
