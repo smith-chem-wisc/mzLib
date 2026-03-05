@@ -14,7 +14,7 @@ namespace Development.Dia
     /// Phase 14: Dead Feature Fixes + GBT Hyperparameter Tuning Benchmark
     /// Updated Phase 16A, Prompt 1: ClassifierFeatureCount now 29 (3 migrated features active).
     /// Updated Phase 16B, Prompt 6: ClassifierFeatureCount now 33 (4 MS1 features added).
-    /// Updated Phase 19: ClassifierFeatureCount now 36 (+ ChimericScore, RtDeviationNormalized, LibraryCoverageFraction).
+    /// Updated Phase 19: ClassifierFeatureCount now 35 (+ ChimericScore[33] + LibraryCoverageFraction[34]; RtDeviationNormalized dropped: 100% NaN).
     /// Updated Phase 16B, Prompt 8: Three MS1 feature fixes applied:
     ///   Fix 1 — Ms1Ms2Correlation [31]: bestFragXic wired in Step 7 via ExtractBestFragmentXic().
     ///            Previously 100% NaN because the MS2 fragment XIC was not passed to ComputeFeatures().
@@ -28,14 +28,14 @@ namespace Development.Dia
     ///
     /// Steps 1-7:  Standard pipeline (load → index → broad extract → calibrate → calibrated extract → assemble → features)
     /// Step 7:     Feature computation passes DiaScanIndex + bestFragXic to ComputeFeatures() for all MS1 features.
-    /// Step 8:     Dead-feature diagnostic table (all 36 features; NaN rates reported for MS1 + Phase 19 features)
+    /// Step 8:     Dead-feature diagnostic table (all 35 features; NaN rates reported for MS1 + Phase 19 features)
     /// Step 9:     LDA baseline FDR
     /// Step 10:    GBT sweep (configs A–E)
     /// Step 10b:   Neural network evaluation
     /// Step 11:    Three-way comparison table (LDA vs best-GBT vs NN)
     /// Step 12:    Full FDR threshold table for best classifier (LDA / GBT / NN)
     /// Step 13:    Per-step timing summary
-    /// Step 14:    TSV export with full column set (5+4+36+6+16 = 67 columns)
+    /// Step 14:    TSV export with full column set (5+4+35+6+16 = 66 columns)
     ///
     /// Compilation checklist (Phase 16C, Prompt 11):
     ///   ✓ DiaClassifierType.NeuralNetwork referenced (requires IDiaClassifier.cs enum update)
@@ -75,8 +75,8 @@ namespace Development.Dia
                 if (!string.IsNullOrEmpty(outputDir) && !Directory.Exists(outputDir))
                     Directory.CreateDirectory(outputDir);
             }
-            Debug.Assert(DiaFeatureVector.ClassifierFeatureCount == 36,
-                $"Expected 36 features (33 from Phase 16B + 3 from Phase 19: ChimericScore, RtDeviationNormalized, LibraryCoverageFraction), got {DiaFeatureVector.ClassifierFeatureCount}");
+            Debug.Assert(DiaFeatureVector.ClassifierFeatureCount == 35,
+                $"Expected 35 features (33 from Phase 16B + ChimericScore[33] + LibraryCoverageFraction[34]; RtDeviationNormalized dropped), got {DiaFeatureVector.ClassifierFeatureCount}");
 
             var totalSw = Stopwatch.StartNew();
             var sw = new Stopwatch();
@@ -197,13 +197,13 @@ namespace Development.Dia
             var calibration = pipelineResult.Calibration;
 
             // ════════════════════════════════════════════════════════════
-            //  Step 7: Feature computation (36 features)
+            //  Step 7: Feature computation (35 features)
             // ════════════════════════════════════════════════════════════
             Console.WriteLine("--- Step 7: Computing feature vectors --------------------------");
             sw.Restart();
 
-            if (DiaFeatureVector.ClassifierFeatureCount != 36)
-                Console.WriteLine($"  WARNING: Expected 36 features, got {DiaFeatureVector.ClassifierFeatureCount}");
+            if (DiaFeatureVector.ClassifierFeatureCount != 35)
+                Console.WriteLine($"  WARNING: Expected 35 features, got {DiaFeatureVector.ClassifierFeatureCount}");
 
             // Fix 1 (Prompt 8): Wire bestFragXic/bestFragXicRts for Ms1Ms2Correlation [31].
             //
@@ -520,11 +520,11 @@ namespace Development.Dia
             //  Column groups:
             //    1. Identification:  Sequence, Charge, PrecursorMz, WindowId, IsDecoy
             //    2. Classifier:      ClassifierScore, QValue, PeptideQValue, ClassifierType
-            //    3. Feature vector:  FV_0 .. FV_35  (36 features via WriteTo)
+            //    3. Feature vector:  FV_0 .. FV_34  (35 features via WriteTo)
             //    4. Raw properties:  ObservedApexRt, LibraryRT, RtDeviationMinutes_Raw,
             //                        PeakWidth_Raw, TimePointsUsed_Raw, HasPeakGroup
             //    5. Phase 13 props:  16 properties from DiaSearchResult
-            //    Total: 5+4+36+6+16 = 67 columns
+            //    Total: 5+4+35+6+16 = 66 columns
             // ════════════════════════════════════════════════════════════
             if (!string.IsNullOrEmpty(outputTsvPath))
             {
@@ -722,8 +722,8 @@ namespace Development.Dia
             Console.WriteLine("  ─────────────────────────────────────────────────────────────────────────");
             Console.WriteLine();
 
-            // Full 36-feature summary for reference
-            Console.WriteLine("  Full 36-Feature Summary (target vs decoy means):");
+            // Full 35-feature summary for reference
+            Console.WriteLine("  Full 35-Feature Summary (target vs decoy means):");
             Console.WriteLine("  ───────────────────────────────────────────────────────────────────────");
 
             for (int f = 0; f < DiaFeatureVector.ClassifierFeatureCount; f++)
@@ -807,7 +807,7 @@ namespace Development.Dia
         //  Group 2 — Classifier (4 cols):
         //    ClassifierScore, QValue, PeptideQValue, ClassifierType
         //
-        //  Group 3 — Feature vector (36 cols):
+        //  Group 3 — Feature vector (35 cols):
         //    FV_{FeatureNames[0]} .. FV_{FeatureNames[32]}
         //    Written via DiaFeatureVector.WriteTo(Span<float>)
         //
@@ -822,7 +822,7 @@ namespace Development.Dia
         //    SmoothedMeanFragCorr, SmoothedMinFragCorr, Log2SignalToNoise,
         //    BestFragWeightedCosine, BoundarySignalRatio, ApexToMeanRatio
         //
-        //  Total: 5 + 4 + 36 + 6 + 16 = 67 columns
+        //  Total: 5 + 4 + 35 + 6 + 16 = 66 columns
         // ════════════════════════════════════════════════════════════════
 
         private static void ExportResultsTsv(

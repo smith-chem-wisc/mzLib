@@ -878,18 +878,12 @@ namespace MassSpectrometry.Dia
 
                     // ── Phase 19: Derived features computed from already-available data ──
 
-                    // 7. RtDeviationNormalized: RT deviation scaled by peak width.
-                    //    Meaningful only when both are available.
-                    if (!float.IsNaN(result.RtDeviationMinutes) &&
-                        !float.IsNaN(result.PeakWidth) && result.PeakWidth > 0f)
-                    {
-                        result.RtDeviationNormalized = result.RtDeviationMinutes / result.PeakWidth;
-                    }
-
-                    // 8. LibraryCoverageFraction: intensity-weighted fraction of library
+                    // 7. LibraryCoverageFraction: intensity-weighted fraction of library
                     //    fragments that were detected (had >= 1 XIC data point).
                     //    Weight each fragment by its library intensity so that missing
                     //    high-intensity fragments are penalized more than missing weak ones.
+                    //    (RtDeviationNormalized was dropped: 100% NaN because PeakWidth=0
+                    //    whenever no peak group is detected, which is the majority of results.)
                     {
                         float totalLibIntensity = 0f;
                         float detectedLibIntensity = 0f;

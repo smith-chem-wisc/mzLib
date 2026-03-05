@@ -395,20 +395,11 @@ namespace MassSpectrometry.Dia
         #region Derived RT and Coverage Features (Phase 19, Priority 5)
 
         /// <summary>
-        /// RT deviation normalized by peak width: RtDeviationMinutes / PeakWidth.
-        /// Captures whether the RT shift is large relative to the peptide's own elution width.
-        /// A large shift that is still within the peak FWHM is less penalizing than an equally
-        /// large shift for a narrow peak. NaN if PeakWidth is zero or not detected.
-        /// Feature [34].
-        /// </summary>
-        public float RtDeviationNormalized { get; set; }
-
-        /// <summary>
         /// Intensity-weighted fraction of theoretical library fragment ions that were detected.
         /// Each fragment's contribution is weighted by its library intensity, so high-intensity
         /// library fragments that are missing penalize the score more than low-intensity ones.
         /// Range [0, 1]. Higher is better.
-        /// Feature [35].
+        /// Feature [34].
         /// </summary>
         public float LibraryCoverageFraction { get; set; }
 
@@ -535,7 +526,7 @@ namespace MassSpectrometry.Dia
             ChimericScore = float.NaN;
 
             // Derived RT and coverage features (Phase 19, Priority 5)
-            RtDeviationNormalized = float.NaN;
+            // RtDeviationNormalized dropped: 100% NaN (PeakWidth=0 when no peak group detected).
             LibraryCoverageFraction = float.NaN;
 
             // FDR and scoring

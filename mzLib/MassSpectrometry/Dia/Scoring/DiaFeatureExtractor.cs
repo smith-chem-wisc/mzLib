@@ -109,9 +109,9 @@ namespace MassSpectrometry.Dia
         // -- Interference / chimeric features (1) -- Phase 19, Priority 2
         public float ChimericScore;              // [33]
 
-        // -- Derived RT and coverage features (2) -- Phase 19, Priority 5
-        public float RtDeviationNormalized;      // [34]
-        public float LibraryCoverageFraction;    // [35]
+        // -- Coverage features (1) -- Phase 19, Priority 5
+        // RtDeviationNormalized dropped: 100% NaN (PeakWidth=0 when no peak group detected).
+        public float LibraryCoverageFraction;    // [34]
 
         // -- Metadata (not classifier features) ---------------------------
         public bool IsDecoy;
@@ -125,9 +125,10 @@ namespace MassSpectrometry.Dia
         /// Number of features used by the classifier.
         /// Phase 16A, Prompt 1: 29 features (26 original + 3 migrated: [26-28]).
         /// Phase 16B, Prompt 6: 33 features (29 + 4 MS1: [29-32]).
-        /// Phase 19: 36 features (33 + ChimericScore[33] + RtDeviationNormalized[34] + LibraryCoverageFraction[35]).
+        /// Phase 19: 35 features (33 + ChimericScore[33] + LibraryCoverageFraction[34]).
+        ///   RtDeviationNormalized dropped: 100% NaN due to PeakWidth=0 when no peak group detected.
         /// </summary>
-        public const int ClassifierFeatureCount = 36;
+        public const int ClassifierFeatureCount = 35;
 
         /// <summary>
         /// Index of ApexScore in the feature vector.
@@ -166,8 +167,7 @@ namespace MassSpectrometry.Dia
         ///   [31]    MS1: Ms1Ms2Correlation
         ///   [32]    MS1: PrecursorElutionScore
         ///   [33]    Interference: ChimericScore
-        ///   [34]    Derived RT: RtDeviationNormalized
-        ///   [35]    Coverage: LibraryCoverageFraction
+        ///   [34]    Coverage: LibraryCoverageFraction
         /// </summary>
         public readonly void WriteTo(Span<float> features)
         {
@@ -215,9 +215,8 @@ namespace MassSpectrometry.Dia
             // Interference / chimeric [33]
             features[33] = ChimericScore;
 
-            // Derived RT and coverage [34-35]
-            features[34] = RtDeviationNormalized;
-            features[35] = LibraryCoverageFraction;
+            // Coverage [34]
+            features[34] = LibraryCoverageFraction;
         }
 
         /// <summary>
@@ -257,8 +256,8 @@ namespace MassSpectrometry.Dia
             "Ms1Ms2Correlation", "PrecursorElutionScore",
             // Interference / chimeric [33]
             "ChimericScore",
-            // Derived RT and coverage [34-35]
-            "RtDeviationNormalized", "LibraryCoverageFraction",
+            // Coverage [34]
+            "LibraryCoverageFraction",
         };
     }
 
@@ -450,13 +449,8 @@ namespace MassSpectrometry.Dia
             // NaN if only one precursor exists in the window (no co-isolation possible).
             fv.ChimericScore = result.ChimericScore;
 
-            // -- RtDeviationNormalized [34] --------------------------------
-            // RtDeviationMinutes / PeakWidth. NaN if PeakWidth is zero or NaN.
-            fv.RtDeviationNormalized = result.RtDeviationNormalized;
-
-            // -- LibraryCoverageFraction [35] ------------------------------
+            // -- LibraryCoverageFraction [34] ------------------------------
             // Intensity-weighted fraction of library fragments detected.
-            // Computed here directly from the result's arrays since we have them in scope.
             fv.LibraryCoverageFraction = result.LibraryCoverageFraction;
 
             // -- Metadata -------------------------------------------------
