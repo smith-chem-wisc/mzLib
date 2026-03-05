@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Threading;
@@ -100,6 +101,34 @@ public sealed class ModificationCrossRefIndex
         }
 
         return candidates.ToList();
+    }
+
+    /// <summary>
+    /// Gets all modifications registered under the specified database reference.
+    /// </summary>
+    public IReadOnlyList<Modification> GetByDatabaseId(string databaseName, string accession)
+    {
+        var key = NormalizeKey(databaseName, accession);
+        if (_databaseKeyIndex.TryGetValue(key, out var mods))
+        {
+            return mods;
+        }
+
+        return Array.Empty<Modification>();
+    }
+
+    /// <summary>
+    /// Gets all modifications registered with the provided accession identifier (e.g., PTM-0100).
+    /// </summary>
+    public IReadOnlyList<Modification> GetByAccession(string accession)
+    {
+        var normalized = NormalizeValue(accession);
+        if (_accessionIndex.TryGetValue(normalized, out var mods))
+        {
+            return mods;
+        }
+
+        return Array.Empty<Modification>();
     }
 
     private static IEnumerable<string> EnumerateSourceKeys(Modification source)

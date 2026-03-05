@@ -2,10 +2,12 @@
 using Readers.ExternalResults.ResultFiles;
 using Readers;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using Omics.Modifications;
 
 namespace Test.FileReadingTests
 {
@@ -135,6 +137,10 @@ namespace Test.FileReadingTests
             Assert.That(oxM.IdWithMotif, Does.Contain(" on M"));
             Assert.That(oxM.MonoisotopicMass ?? 15.9949, Is.EqualTo(15.9949).Within(0.01));
 
+            // PSI-MOD IDs resolve without throwing
+            var phospho = ModificationConverter.GetClosestMod("MOD:00046", 'S');
+            Assert.That(phospho, Is.Not.Null);
+
             // Parse MetaMorpheus-style full sequence
             var fullSeq = "KVHGSLARAGKVRGQTPKVAKQEKKKKKTGRAKRRM[Common Variable:Oxidation on M]QYNRRFVNVVPTFGKKKGPNANS";
             var dict = ModificationConverter.GetModificationDictionaryFromFullSequence(fullSeq);
@@ -148,6 +154,32 @@ namespace Test.FileReadingTests
             Assert.That(dict2.Count, Is.EqualTo(1));
             Assert.That(dict2.Keys.Single(), Is.EqualTo(3)); // M at position 3
             Assert.That(dict2.Values.Single().IdWithMotif, Does.Contain("Oxidation"));
+
+            // Parse explicit database identifiers within sequences
+            var dict3 = ModificationConverter.GetModificationDictionaryFromFullSequence("S[PSI-MOD:MOD:00046]A");
+            Assert.That(dict3.Count, Is.EqualTo(1));
+            Assert.That(dict3.Values.Single(), Is.Not.Null);
+
+            var dict4 = ModificationConverter.GetModificationDictionaryFromFullSequence("S[MOD:00046]A");
+            Assert.That(dict4.Count, Is.EqualTo(1));
+            Assert.That(dict4.Values.Single(), Is.Not.Null);
+
+            // Register a custom modification with a unique database reference to verify cross-reference matching
+            ModificationMotif.TryGetMotif("M", out var motif);
+            var customRefs = new Dictionary<string, IList<string>> { { "Unimod", new List<string> { "99999" } } };
+            var customMod = new Modification(
+                _originalId: "CustomCrossRef",
+                _modificationType: "Test",
+                _target: motif,
+                _monoisotopicMass: 10.0,
+                _databaseReference: customRefs);
+            Mods.AddOrUpdateModification(customMod);
+
+            var resolvedCustom = ModificationConverter.GetClosestMod("UNIMOD:99999", 'M');
+            Assert.That(resolvedCustom.IdWithMotif, Is.EqualTo(customMod.IdWithMotif));
+
+            var dict5 = ModificationConverter.GetModificationDictionaryFromFullSequence("M[UNIMOD:99999]A");
+            Assert.That(dict5.Values.Single().IdWithMotif, Is.EqualTo(customMod.IdWithMotif));
         }
     }
 }
