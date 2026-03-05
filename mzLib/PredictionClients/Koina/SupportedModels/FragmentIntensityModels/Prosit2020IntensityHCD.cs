@@ -100,8 +100,9 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         /// </code>
         /// </example>
         public Prosit2020IntensityHCD(List<string> peptideSequences, List<int> precursorCharges, List<int> collisionEnergies, List<double?> retentionTimes, out WarningException? warnings, 
-            string? spectralLibrarySavePath = null, double minIntensityFilter = 1e-4)
+            string? spectralLibrarySavePath = null, double minIntensityFilter = 1e-4, KoinaSequenceConversionOptions? conversionOptions = null)
         {
+            ConfigureSequenceConversion(conversionOptions);
             // Verify input lists are of the same length
             if (peptideSequences.Count != precursorCharges.Count
                 || precursorCharges.Count != collisionEnergies.Count

@@ -24,12 +24,12 @@ Status values: `TODO`, `IN_PROGRESS`, `DONE`
 
 <!-- TASKS:BEGIN -->
 SC001|Build Modification Cross-Reference Index|.opencode/tasks/SC001_mod_crossref_index.md|DONE|
-SC002|Refactor ModificationConverter with Database IDs|.opencode/tasks/SC002_refactor_mod_converter.md|TODO|SC001
-SC003|Create SequenceConverter Core Class|.opencode/tasks/SC003_sequence_converter_core.md|TODO|SC002
-SC004|Add Mass Shift Sequence Formatting|.opencode/tasks/SC004_mass_shift_formatting.md|TODO|SC003
+SC002|Refactor ModificationConverter with Database IDs|.opencode/tasks/SC002_refactor_mod_converter.md|DONE|SC001
+SC003|Create SequenceConverter Core Class|.opencode/tasks/SC003_sequence_converter_core.md|DONE|SC002
+SC004|Add Mass Shift Sequence Formatting|.opencode/tasks/SC004_mass_shift_formatting.md|DONE|SC003
 SC005|Integrate with Chronologer|.opencode/tasks/SC005_chronologer_integration.md|TODO|SC003
-SC006|Integrate with ProteinDbWriter|.opencode/tasks/SC006_proteindbwriter_integration.md|TODO|SC003
-SC007|Add Unit Tests for SequenceConverter|.opencode/tasks/SC007_unit_tests.md|TODO|SC003
+SC006|Integrate with ProteinDbWriter|.opencode/tasks/SC006_proteindbwriter_integration.md|IN_PROGRESS|SC003
+SC007|Add Unit Tests for SequenceConverter|.opencode/tasks/SC007_unit_tests.md|IN_PROGRESS|SC003
 SC008|Documentation and Examples|.opencode/tasks/SC008_documentation.md|TODO|SC007
 DOC001|Refresh plan & task instructions|.opencode/tasks/DOC001_doc_refresh.md|DONE|
 <!-- TASKS:END -->

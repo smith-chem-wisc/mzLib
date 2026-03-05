@@ -17,6 +17,7 @@ Tell me the class or file to test, or I will infer it from context.
 **Framework & runner:** NUnit 4 (`NUnit` 4.1.0) + `NUnit3TestAdapter` + `Microsoft.NET.Test.Sdk`
 **Target:** `net8.0-windows`, platform `x64`
 **Test project:** `mzLib/Test/Test.csproj`
+**Test Cases** Use `[Test]` for individual test methods, `[TestCase]` for parameterized tests, and `[TestFixture]` for test classes.`
 
 ### File placement
 | Code under test | Test file location |

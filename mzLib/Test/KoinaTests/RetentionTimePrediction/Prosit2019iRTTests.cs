@@ -1,4 +1,5 @@
 ﻿using NUnit.Framework;
+using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
 using System;
@@ -6,6 +7,8 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
+using Omics.Modifications;
+using Omics.Modifications.Conversion;
 
 namespace Test.KoinaTests
 {
@@ -220,6 +223,28 @@ namespace Test.KoinaTests
             Assert.That(warnings, Is.Not.Null);
             Assert.That(warnings.Message, Does.Contain("invalid"));
             Assert.That(model.PeptideSequences, Has.Count.EqualTo(2)); // Invalid sequence excluded
+        }
+
+        [Test]
+        public void SequenceConverterNormalization_AllowsAdditionalMods()
+        {
+            var peptideSequences = new List<string>
+            {
+                "PEPTN[HexNAc on N]IDE"
+            };
+
+            var options = new KoinaSequenceConversionOptions
+            {
+                Enabled = true,
+                HandlingMode = SequenceConversionHandlingMode.RemoveIncompatibleMods,
+                TargetConvention = ModificationNamingConvention.Unimod
+            };
+
+            var model = new Prosit2019iRT(peptideSequences, out WarningException warnings, options);
+
+            Assert.That(warnings, Is.Null);
+            Assert.That(model.PeptideSequences, Has.Count.EqualTo(1));
+            Assert.That(model.PeptideSequences[0], Does.Not.Contain("HexNAc"));
         }
 
         /// <summary>

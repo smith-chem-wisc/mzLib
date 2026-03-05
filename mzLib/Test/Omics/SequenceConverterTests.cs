@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using NUnit.Framework;
 using Omics;
 using Omics.Modifications;
@@ -217,6 +218,74 @@ public class SequenceConverterTests
             ModificationNamingConvention.Unimod);
 
         Assert.That(converted.Count, Is.EqualTo(peptide.AllModsOneIsNterminus.Count));
+    }
+
+    [Test]
+    public void SequenceConverter_TryConvertModification_ReturnsMappedModification()
+    {
+        var peptide = new PeptideWithSetModifications(
+            "AC[Common Fixed:Carbamidomethyl on C]DE",
+            Mods.AllKnownProteinModsDictionary);
+
+        var mod = peptide.AllModsOneIsNterminus[3];
+
+        var success = SequenceConverter.Default.TryConvertModification(
+            mod,
+            peptide.BaseSequence,
+            3,
+            ModificationNamingConvention.Unimod,
+            SequenceConversionHandlingMode.RemoveIncompatibleMods,
+            out var converted,
+            out var reason);
+
+        Assert.That(success, Is.True);
+        Assert.That(reason, Is.EqualTo(SequenceConversionFailureReason.None));
+        Assert.That(converted, Is.Not.Null);
+        Assert.That(converted!.ModificationType, Is.EqualTo("Unimod"));
+    }
+
+    [Test]
+    public void SequenceConverter_TryConvertModification_RemovesUnsupportedMod()
+    {
+        ModificationMotif.TryGetMotif("M", out var motif);
+        var customMod = new Modification(
+            _originalId: "CustomNull",
+            _modificationType: "CustomNull",
+            _target: motif,
+            _monoisotopicMass: null,
+            _chemicalFormula: null);
+
+        Mods.AddOrUpdateModification(customMod);
+
+        var baseSequence = "MA";
+        var success = SequenceConverter.Default.TryConvertModification(
+            customMod,
+            baseSequence,
+            3,
+            ModificationNamingConvention.Unimod,
+            SequenceConversionHandlingMode.RemoveIncompatibleMods,
+            out var converted,
+            out var reason);
+
+        Assert.That(success, Is.True);
+        Assert.That(converted, Is.Null);
+        Assert.That(reason, Is.EqualTo(SequenceConversionFailureReason.ModificationsRemoved));
+    }
+
+    [Test]
+    public void SequenceConverter_TryConvertModificationDefinition_MapsToTargetConvention()
+    {
+        var source = Mods.ModsByConvention[ModificationNamingConvention.MetaMorpheus]
+            .First(m => m.IdWithMotif.Contains("Carbamidomethyl on C"));
+
+        var success = SequenceConverter.Default.TryConvertModificationDefinition(
+            source,
+            ModificationNamingConvention.Unimod,
+            out var converted);
+
+        Assert.That(success, Is.True);
+        Assert.That(converted, Is.Not.Null);
+        Assert.That(converted!.ModificationType, Is.EqualTo("Unimod"));
     }
 
     [Test]

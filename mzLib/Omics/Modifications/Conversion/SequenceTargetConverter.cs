@@ -15,18 +15,22 @@ public static class SequenceTargetConverter
 
         if (target == SequenceConversionTarget.Chronologer)
         {
-            if (!converter.TryGetChronologerSequence(bioPolymer, handlingMode, out var massShiftSequence, out reason) || massShiftSequence == null)
+            if (!converter.TryGetChronologerSequence(bioPolymer, handlingMode, out var massShiftSequence, out var chronologerReason) || massShiftSequence == null)
             {
+                reason = chronologerReason;
                 converted = null;
                 return false;
             }
 
-            return ChronologerSequenceFormatter.TryFormatChronologerSequence(
+            var formatted = ChronologerSequenceFormatter.TryFormatChronologerSequence(
                 bioPolymer,
                 massShiftSequence,
                 handlingMode,
                 out converted,
-                out reason);
+                out var formattingReason);
+
+            reason = formattingReason ?? chronologerReason;
+            return formatted;
         }
 
         var convention = target switch

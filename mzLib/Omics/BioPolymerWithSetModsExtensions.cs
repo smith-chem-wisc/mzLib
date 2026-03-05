@@ -3,6 +3,7 @@ using System.Text;
 using Chemistry;
 using Omics.Fragmentation;
 using Omics.Modifications;
+using Omics.Modifications.Conversion;
 
 namespace Omics;
 
@@ -15,56 +16,20 @@ public static class BioPolymerWithSetModsExtensions
     /// N-terminal mas shifts are in brackets prior to the first amino acid and apparently missing the + sign
     /// </summary>
     /// <returns></returns>
-    public static string FullSequenceWithMassShift(this IBioPolymerWithSetMods withSetMods, Func<int, bool>? includeModificationPredicate = null)
+    public static string FullSequenceWithMassShift(
+        this IBioPolymerWithSetMods withSetMods,
+        Func<int, bool>? includeModificationPredicate = null,
+        int decimalPlaces = SequenceConverter.DefaultMassShiftDecimalPlaces,
+        bool signed = SequenceConverter.DefaultMassShiftSignedNotation)
     {
-        var subsequence = new StringBuilder();
+        ArgumentNullException.ThrowIfNull(withSetMods);
 
-        // modification on peptide N-terminus
-        if (withSetMods.AllModsOneIsNterminus.TryGetValue(1, out Modification? mod)
-            && ShouldInclude(includeModificationPredicate, 1))
-        {
-            if (mod.MonoisotopicMass > 0)
-                subsequence.Append($"[+{mod.MonoisotopicMass.RoundedDouble(6)}]");
-            else
-                subsequence.Append($"[{mod.MonoisotopicMass.RoundedDouble(6)}]");
-        }
-
-        for (int r = 0; r < withSetMods.Length; r++)
-        {
-            subsequence.Append(withSetMods[r]);
-
-            // modification on this residue
-            if (withSetMods.AllModsOneIsNterminus.TryGetValue(r + 2, out mod)
-                && ShouldInclude(includeModificationPredicate, r + 2))
-            {
-                if (mod.MonoisotopicMass > 0)
-                {
-                    subsequence.Append($"[+{mod.MonoisotopicMass.RoundedDouble(6)}]");
-                }
-                else
-                {
-                    subsequence.Append($"[{mod.MonoisotopicMass.RoundedDouble(6)}]");
-                }
-            }
-        }
-
-        // modification on peptide C-terminus
-        if (withSetMods.AllModsOneIsNterminus.TryGetValue(withSetMods.Length + 2, out mod)
-            && ShouldInclude(includeModificationPredicate, withSetMods.Length + 2))
-        {
-            if (mod.MonoisotopicMass > 0)
-            {
-                subsequence.Append($"-[+{mod.MonoisotopicMass.RoundedDouble(6)}]");
-            }
-            else
-            {
-                subsequence.Append($"-[{mod.MonoisotopicMass.RoundedDouble(6)}]");
-            }
-        }
-        return subsequence.ToString();
-
-        static bool ShouldInclude(Func<int, bool>? predicate, int index)
-            => predicate?.Invoke(index) ?? true;
+        return SequenceConverter.BuildMassShiftSequence(
+            withSetMods.BaseSequence,
+            withSetMods.AllModsOneIsNterminus,
+            decimalPlaces,
+            signed,
+            includeModificationPredicate);
     }
 
     /// <summary>

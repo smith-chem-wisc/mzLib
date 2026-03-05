@@ -1,5 +1,6 @@
 ﻿using Easy.Common.Extensions;
 using MzLibUtil;
+using PredictionClients.Koina.AbstractClasses;
 using System.ComponentModel;
 
 
@@ -93,8 +94,9 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
         /// 4. Preserves original sequences (with modifications) for prediction
         /// 5. Collects invalid sequences for warning message
         /// </remarks>
-        public PFly2024FineTuned(List<string> peptideSequences, out WarningException? warnings)
+        public PFly2024FineTuned(List<string> peptideSequences, out WarningException? warnings, KoinaSequenceConversionOptions? conversionOptions = null)
         {
+            ConfigureSequenceConversion(conversionOptions);
             // Handle empty input case early
             if (peptideSequences.IsNullOrEmpty())
             {

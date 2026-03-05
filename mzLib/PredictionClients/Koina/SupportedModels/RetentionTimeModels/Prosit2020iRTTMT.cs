@@ -128,8 +128,9 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         /// 4. Preserves isobaric labeling information for accurate prediction
         /// 5. Collects invalid sequences for detailed warning messages
         /// </remarks>
-        public Prosit2020iRTTMT(List<string> peptideSequences, out WarningException? warnings)
+        public Prosit2020iRTTMT(List<string> peptideSequences, out WarningException? warnings, KoinaSequenceConversionOptions? conversionOptions = null)
         {
+            ConfigureSequenceConversion(conversionOptions);
             // Handle empty input case early
             if (peptideSequences.IsNullOrEmpty())
             {
@@ -250,18 +251,22 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         /// </remarks>
         protected override bool HasValidModifications(string sequence)
         {
-            // Find all modification annotations in the sequence
             var matches = Regex.Matches(sequence, ModificationPattern);
-
-            // Extract N-terminal modification for special validation (TMT labeling often requires N-terminal tags)
-            // nTermMod will be empty string if no N-terminal mod found in the sequence
-            // firstModIsValid checks if the N-terminal modification is in the valid mapping
             var nTermMod = matches.FirstOrDefault(m => m.Index == 0)?.Value ?? string.Empty;
-            var firstModIsValid = ValidModificationUnimodMapping.TryGetValue(nTermMod, out var _);
+            var firstModIsValid = ValidModificationUnimodMapping.TryGetValue(nTermMod, out _);
 
-            // Validate all modifications are in the supported mapping AND N-terminal mod exists and is valid
-            return matches.All(m => ValidModificationUnimodMapping.ContainsKey(m.Value))
-                && firstModIsValid;
+            var mappingValid = matches.All(m => ValidModificationUnimodMapping.ContainsKey(m.Value)) && firstModIsValid;
+            if (mappingValid)
+            {
+                return true;
+            }
+
+            if (UseSequenceConverterNormalization && TryNormalizeSequence(sequence, out _, out _))
+            {
+                return true;
+            }
+
+            return false;
         }
     }
 }
