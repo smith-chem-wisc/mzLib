@@ -27,9 +27,9 @@ SC001|Build Modification Cross-Reference Index|.opencode/tasks/SC001_mod_crossre
 SC002|Refactor ModificationConverter with Database IDs|.opencode/tasks/SC002_refactor_mod_converter.md|DONE|SC001
 SC003|Create SequenceConverter Core Class|.opencode/tasks/SC003_sequence_converter_core.md|DONE|SC002
 SC004|Add Mass Shift Sequence Formatting|.opencode/tasks/SC004_mass_shift_formatting.md|DONE|SC003
-SC005|Integrate with Chronologer|.opencode/tasks/SC005_chronologer_integration.md|TODO|SC003
-SC006|Integrate with ProteinDbWriter|.opencode/tasks/SC006_proteindbwriter_integration.md|IN_PROGRESS|SC003
-SC007|Add Unit Tests for SequenceConverter|.opencode/tasks/SC007_unit_tests.md|IN_PROGRESS|SC003
+SC005|Integrate with Chronologer|.opencode/tasks/SC005_chronologer_integration.md|DONE|SC003
+SC006|Integrate with ProteinDbWriter|.opencode/tasks/SC006_proteindbwriter_integration.md|DONE|SC003
+SC007|Add Unit Tests for SequenceConverter|.opencode/tasks/SC007_unit_tests.md|DONE|SC003
 SC008|Documentation and Examples|.opencode/tasks/SC008_documentation.md|TODO|SC007
 DOC001|Refresh plan & task instructions|.opencode/tasks/DOC001_doc_refresh.md|DONE|
 <!-- TASKS:END -->
