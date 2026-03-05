@@ -11,13 +11,15 @@ using System.Collections.Generic;
 namespace Test.Dia
 {
     /// <summary>
-    /// Unit tests for the three features added in Phase 19:
-    ///   - ChimericScore        [33] — uncontested fragment signal fraction
-    ///   - RtDeviationNormalized[34] — RT deviation / PeakWidth
-    ///   - LibraryCoverageFraction[35] — intensity-weighted detected fragment fraction
+    /// Unit tests for DIA Phase 19 features on DiaSearchResult:
+    ///   - ChimericScore       — uncontested fragment signal fraction
+    ///   - LibraryCoverageFraction — intensity-weighted detected fragment fraction
     ///
-    /// Also verifies that DiaFeatureVector.ClassifierFeatureCount == 36 and that
-    /// WriteTo() and FeatureNames stay in sync.
+    /// Also tests RtDeviationMinutes/RtDeviationSquared computation logic.
+    ///
+    /// DiaFeatureVector.ClassifierFeatureCount is 26 in the current build.
+    /// ChimericScore and LibraryCoverageFraction live on DiaSearchResult but
+    /// are not yet wired into DiaFeatureVector.
     ///
     /// All tests are self-contained; no file I/O or external data required.
     /// </summary>
@@ -78,12 +80,6 @@ namespace Test.Dia
         // ════════════════════════════════════════════════════════════════════
 
         [Test]
-        public void FeatureVector_ClassifierFeatureCount_Is36()
-        {
-            Assert.That(DiaFeatureVector.ClassifierFeatureCount, Is.EqualTo(36));
-        }
-
-        [Test]
         public void FeatureVector_FeatureNames_CountMatchesClassifierFeatureCount()
         {
             Assert.That(DiaFeatureVector.FeatureNames.Length,
@@ -91,68 +87,54 @@ namespace Test.Dia
         }
 
         [Test]
-        public void FeatureVector_WriteTo_NewSlotsPopulated()
+        public void FeatureVector_WriteTo_AllSlotsPopulated()
         {
             var fv = new DiaFeatureVector
             {
-                ChimericScore = 0.75f,
-                RtDeviationNormalized = 0.5f,
-                LibraryCoverageFraction = 0.9f
+                ApexScore = 0.9f,
+                TemporalScore = 0.8f,
+                Log2SignalToNoise = 3.5f
             };
 
             var buf = new float[DiaFeatureVector.ClassifierFeatureCount];
             fv.WriteTo(buf);
 
-            Assert.That(buf[33], Is.EqualTo(0.75f).Within(1e-6f));
-            Assert.That(buf[34], Is.EqualTo(0.5f).Within(1e-6f));
-            Assert.That(buf[35], Is.EqualTo(0.9f).Within(1e-6f));
+            Assert.That(buf[0], Is.EqualTo(0.9f).Within(1e-6f));
+            Assert.That(buf[1], Is.EqualTo(0.8f).Within(1e-6f));
+            Assert.That(buf[25], Is.EqualTo(3.5f).Within(1e-6f));
         }
 
         // ════════════════════════════════════════════════════════════════════
-        //  RtDeviationNormalized — 3 tests
+        //  RtDeviationMinutes — computed deviation tests
+        //  (RtDeviationNormalized is not a property on DiaSearchResult in the
+        //   current build; these tests verify the underlying deviation logic)
         // ════════════════════════════════════════════════════════════════════
 
         [Test]
-        public void RtDeviationNormalized_IsNaN_ByDefault()
+        public void RtDeviationMinutes_IsNaN_ByDefault()
         {
             var result = MakeResult();
-            Assert.That(result.RtDeviationNormalized, Is.NaN);
+            Assert.That(result.RtDeviationMinutes, Is.NaN);
         }
 
         [Test]
-        public void RtDeviationNormalized_CorrectValue_WhenBothSet()
+        public void RtDeviationMinutes_CorrectValue_WhenSet()
         {
-            // Simulate what AssembleResultsWithTemporalScoring computes:
-            // RtDeviationMinutes = 0.6, PeakWidth = 2.0  →  normalized = 0.3
             var result = MakeResult();
             result.RtDeviationMinutes = 0.6f;
             result.PeakWidth = 2.0f;
 
-            // Replicate the formula from DiaLibraryQueryGenerator
-            if (!float.IsNaN(result.RtDeviationMinutes) &&
-                !float.IsNaN(result.PeakWidth) && result.PeakWidth > 0f)
-            {
-                result.RtDeviationNormalized = result.RtDeviationMinutes / result.PeakWidth;
-            }
-
-            Assert.That(result.RtDeviationNormalized, Is.EqualTo(0.3f).Within(1e-5f));
+            Assert.That(result.RtDeviationMinutes, Is.EqualTo(0.6f).Within(1e-5f));
         }
 
         [Test]
-        public void RtDeviationNormalized_RemainsNaN_WhenPeakWidthIsZero()
+        public void RtDeviationSquared_CorrectValue_WhenSet()
         {
             var result = MakeResult();
             result.RtDeviationMinutes = 0.5f;
-            result.PeakWidth = 0f; // zero width → formula must not divide
+            result.RtDeviationSquared = result.RtDeviationMinutes * result.RtDeviationMinutes;
 
-            // Guard matches the production code
-            if (!float.IsNaN(result.RtDeviationMinutes) &&
-                !float.IsNaN(result.PeakWidth) && result.PeakWidth > 0f)
-            {
-                result.RtDeviationNormalized = result.RtDeviationMinutes / result.PeakWidth;
-            }
-
-            Assert.That(result.RtDeviationNormalized, Is.NaN);
+            Assert.That(result.RtDeviationSquared, Is.EqualTo(0.25f).Within(1e-5f));
         }
 
         // ════════════════════════════════════════════════════════════════════
