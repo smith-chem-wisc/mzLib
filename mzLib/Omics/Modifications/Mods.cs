@@ -1,5 +1,6 @@
-﻿using Omics.Modifications.IO;
+using Omics.Modifications.IO;
 using System.Reflection;
+using System.Threading;
 
 namespace Omics.Modifications;
 
@@ -15,6 +16,7 @@ public enum ModificationNamingConvention
 public static class Mods
 {
     private static readonly object _cacheLock = new object();
+    private static int _registryVersion;
 
     public static Dictionary<ModificationNamingConvention, List<Modification>> ModsByConvention { get; private set; }
 
@@ -48,6 +50,8 @@ public static class Mods
             { ModificationNamingConvention.Unimod, UnimodModifications },
             { ModificationNamingConvention.Mixed, AllKnownMods }
         };
+
+        _registryVersion = 0;
     }
 
     #region Public Properties
@@ -92,6 +96,8 @@ public static class Mods
 
 
     #endregion
+
+    public static int RegistryVersion => Volatile.Read(ref _registryVersion);
 
     #region Loading Methods
 
@@ -208,11 +214,32 @@ public static class Mods
             if (isRnaMod)
             {
                 AllKnownRnaModsDictionary[modification.IdWithMotif] = modification;
+                ReplaceOrAdd(MetaMorpheusRnaModifications, modification);
+                ReplaceOrAdd(AllRnaModsList, modification);
             }
             else
             {
                 AllKnownProteinModsDictionary[modification.IdWithMotif] = modification;
+                ReplaceOrAdd(AllProteinModsList, modification);
             }
+
+            AllModsKnownDictionary[modification.IdWithMotif] = modification;
+            ReplaceOrAdd(AllKnownMods, modification);
+        }
+
+        Interlocked.Increment(ref _registryVersion);
+    }
+
+    private static void ReplaceOrAdd(List<Modification> list, Modification modification)
+    {
+        var index = list.FindIndex(m => string.Equals(m.IdWithMotif, modification.IdWithMotif, StringComparison.Ordinal));
+        if (index >= 0)
+        {
+            list[index] = modification;
+        }
+        else
+        {
+            list.Add(modification);
         }
     }
 

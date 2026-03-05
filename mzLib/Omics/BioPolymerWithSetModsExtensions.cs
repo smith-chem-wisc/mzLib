@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System;
+using System.Text;
 using Chemistry;
 using Omics.Fragmentation;
 using Omics.Modifications;
@@ -14,12 +15,13 @@ public static class BioPolymerWithSetModsExtensions
     /// N-terminal mas shifts are in brackets prior to the first amino acid and apparently missing the + sign
     /// </summary>
     /// <returns></returns>
-    public static string FullSequenceWithMassShift(this IBioPolymerWithSetMods withSetMods)
+    public static string FullSequenceWithMassShift(this IBioPolymerWithSetMods withSetMods, Func<int, bool>? includeModificationPredicate = null)
     {
         var subsequence = new StringBuilder();
 
         // modification on peptide N-terminus
-        if (withSetMods.AllModsOneIsNterminus.TryGetValue(1, out Modification? mod))
+        if (withSetMods.AllModsOneIsNterminus.TryGetValue(1, out Modification? mod)
+            && ShouldInclude(includeModificationPredicate, 1))
         {
             if (mod.MonoisotopicMass > 0)
                 subsequence.Append($"[+{mod.MonoisotopicMass.RoundedDouble(6)}]");
@@ -32,7 +34,8 @@ public static class BioPolymerWithSetModsExtensions
             subsequence.Append(withSetMods[r]);
 
             // modification on this residue
-            if (withSetMods.AllModsOneIsNterminus.TryGetValue(r + 2, out mod))
+            if (withSetMods.AllModsOneIsNterminus.TryGetValue(r + 2, out mod)
+                && ShouldInclude(includeModificationPredicate, r + 2))
             {
                 if (mod.MonoisotopicMass > 0)
                 {
@@ -46,7 +49,8 @@ public static class BioPolymerWithSetModsExtensions
         }
 
         // modification on peptide C-terminus
-        if (withSetMods.AllModsOneIsNterminus.TryGetValue(withSetMods.Length + 2, out mod))
+        if (withSetMods.AllModsOneIsNterminus.TryGetValue(withSetMods.Length + 2, out mod)
+            && ShouldInclude(includeModificationPredicate, withSetMods.Length + 2))
         {
             if (mod.MonoisotopicMass > 0)
             {
@@ -58,6 +62,9 @@ public static class BioPolymerWithSetModsExtensions
             }
         }
         return subsequence.ToString();
+
+        static bool ShouldInclude(Func<int, bool>? predicate, int index)
+            => predicate?.Invoke(index) ?? true;
     }
 
     /// <summary>

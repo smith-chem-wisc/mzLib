@@ -1,6 +1,8 @@
 using System.Text.RegularExpressions;
 using TorchSharp;
 using static TorchSharp.torch;
+using Omics;
+using Omics.Modifications.Conversion;
 
 namespace Chromatography.RetentionTimePrediction.Chronologer;
 
@@ -80,8 +82,20 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDispos
     {
         failureReason = null;
 
-        // Get full sequence with mass shifts
-        string workingSequence = peptide.FullSequenceWithMassShifts;
+        string workingSequence;
+        var handlingMode = ConvertHandlingMode(ModHandlingMode);
+        if (peptide is IBioPolymerWithSetMods withSetMods)
+        {
+            if (!SequenceConverter.Default.TryGetChronologerSequence(withSetMods, handlingMode, out workingSequence, out _))
+            {
+                failureReason = RetentionTimeFailureReason.IncompatibleModifications;
+                return null;
+            }
+        }
+        else
+        {
+            workingSequence = peptide.FullSequenceWithMassShifts;
+        }
 
         // Replace mass shifts with chronologer dictionary codes
         foreach (var (pattern, replacement) in ModificationPatterns)
@@ -134,9 +148,20 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDispos
                 return $"-{peptide.BaseSequence}_";
 
             case IncompatibleModHandlingMode.ThrowException:
-            default:
-                throw new IncompatibleModificationException(peptide.FullSequence, workingSequence, PredictorName);
+                default:
+                    throw new IncompatibleModificationException(peptide.FullSequence, workingSequence, PredictorName);
         }
+    }
+
+    private static SequenceConversionHandlingMode ConvertHandlingMode(IncompatibleModHandlingMode handlingMode)
+    {
+        return handlingMode switch
+        {
+            IncompatibleModHandlingMode.RemoveIncompatibleMods => SequenceConversionHandlingMode.RemoveIncompatibleMods,
+            IncompatibleModHandlingMode.UsePrimarySequence => SequenceConversionHandlingMode.UsePrimarySequence,
+            IncompatibleModHandlingMode.ReturnNull => SequenceConversionHandlingMode.ReturnNull,
+            _ => SequenceConversionHandlingMode.ThrowException
+        };
     }
 
     #region Sequence Encoding 
