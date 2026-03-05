@@ -242,7 +242,7 @@ namespace MassSpectrometry.Dia
         };
     }
 
-    /// <summary>
+    /// <summary> 
     /// Computes feature vectors from DiaSearchResult objects.
     /// Thread-safe: uses only local state + ArrayPool.
     /// 
