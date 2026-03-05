@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 
 namespace Omics.Modifications.Conversion;
 
-internal static class ChronologerSequenceFormatter
+public static class ChronologerSequenceFormatter
 {
     private static readonly (Regex pattern, string replacement)[] ModificationPatterns = new[]
     {
@@ -45,6 +45,23 @@ internal static class ChronologerSequenceFormatter
         out SequenceConversionFailureReason? reason)
     {
         ArgumentNullException.ThrowIfNull(bioPolymer);
+        return TryFormatChronologerSequence(
+            bioPolymer.BaseSequence,
+            massShiftSequence,
+            handlingMode,
+            out formattedSequence,
+            out reason,
+            bioPolymer.FullSequence);
+    }
+
+    public static bool TryFormatChronologerSequence(
+        string baseSequence,
+        string massShiftSequence,
+        SequenceConversionHandlingMode handlingMode,
+        out string? formattedSequence,
+        out SequenceConversionFailureReason? reason,
+        string? originalSequence = null)
+    {
         formattedSequence = null;
         reason = null;
 
@@ -66,7 +83,7 @@ internal static class ChronologerSequenceFormatter
                 return true;
 
             case SequenceConversionHandlingMode.UsePrimarySequence:
-                formattedSequence = $"-{bioPolymer.BaseSequence}_";
+                formattedSequence = $"-{baseSequence}_";
                 reason = SequenceConversionFailureReason.UsedPrimarySequence;
                 return true;
 
@@ -87,7 +104,7 @@ internal static class ChronologerSequenceFormatter
 
             case SequenceConversionHandlingMode.ThrowException:
             default:
-                throw new IncompatibleModificationException(bioPolymer.FullSequence, workingSequence, "Chronologer");
+                throw new IncompatibleModificationException(originalSequence ?? baseSequence, workingSequence, "Chronologer");
         }
     }
 

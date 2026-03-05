@@ -1,6 +1,6 @@
 namespace Omics.Modifications.Conversion;
 
-internal static class IncompatibleModHandlingModeExtensions
+public static class IncompatibleModHandlingModeExtensions
 {
     public static SequenceConversionHandlingMode ToSequenceConversionHandlingMode(this IncompatibleModHandlingMode handlingMode)
     {
