@@ -1,7 +1,13 @@
 namespace Omics.Modifications.Conversion;
 
+/// <summary>
+/// Routes sequences to specific conversion targets (e.g., Chronologer).
+/// </summary>
 public static class SequenceTargetConverter
 {
+    /// <summary>
+    /// Attempts to convert a sequence to a specific target format.
+    /// </summary>
     public static bool TryConvert(
         IBioPolymerWithSetMods bioPolymer,
         SequenceConversionTarget target,
@@ -49,6 +55,9 @@ public static class SequenceTargetConverter
             out reason);
     }
 
+    /// <summary>
+    /// Converts a sequence to a specific target format.
+    /// </summary>
     public static string Convert(
         IBioPolymerWithSetMods bioPolymer,
         SequenceConversionTarget target,

@@ -10,12 +10,8 @@ namespace Omics;
 public static class BioPolymerWithSetModsExtensions
 {
     /// <summary>
-    /// This method returns the full sequence with mass shifts INSTEAD OF PTMs in brackets []
-    /// Some external tools cannot parse PTMs, instead requiring a numerical input indicating the mass of a PTM in brackets
-    /// after the position of that modification
-    /// N-terminal mas shifts are in brackets prior to the first amino acid and apparently missing the + sign
+    /// Returns the full sequence with mass shifts instead of PTM annotations.
     /// </summary>
-    /// <returns></returns>
     public static string FullSequenceWithMassShift(
         this IBioPolymerWithSetMods withSetMods,
         Func<int, bool>? includeModificationPredicate = null,

@@ -3,6 +3,9 @@ using Omics.Modifications.Conversion;
 
 namespace PredictionClients.Koina.AbstractClasses;
 
+/// <summary>
+/// Options controlling SequenceConverter normalization in Koina models.
+/// </summary>
 public sealed class KoinaSequenceConversionOptions
 {
     public bool Enabled { get; init; }

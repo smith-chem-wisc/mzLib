@@ -7,6 +7,9 @@ using Chemistry;
 
 namespace Omics.Modifications.Conversion;
 
+/// <summary>
+/// Defines how to handle modifications that cannot be converted to the target convention.
+/// </summary>
 public enum SequenceConversionHandlingMode
 {
     ThrowException,
@@ -17,6 +20,9 @@ public enum SequenceConversionHandlingMode
     ReturnNull
 }
 
+/// <summary>
+/// Describes why a conversion succeeded with fallback or failed.
+/// </summary>
 public enum SequenceConversionFailureReason
 {
     None,
@@ -30,12 +36,21 @@ public enum SequenceConversionFailureReason
     InvalidTargetConvention
 }
 
+/// <summary>
+/// Exception thrown when a sequence conversion cannot be completed.
+/// </summary>
 public class SequenceConversionException : Exception
 {
+    /// <summary>Reason for the conversion failure.</summary>
     public SequenceConversionFailureReason Reason { get; }
+    /// <summary>The modification that could not be converted, if applicable.</summary>
     public Modification? SourceModification { get; }
+    /// <summary>Target naming convention requested by the caller.</summary>
     public ModificationNamingConvention? TargetConvention { get; }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SequenceConversionException"/> class.
+    /// </summary>
     public SequenceConversionException(string message, SequenceConversionFailureReason reason, Modification? sourceModification = null, ModificationNamingConvention? targetConvention = null)
         : base(message)
     {
@@ -45,9 +60,14 @@ public class SequenceConversionException : Exception
     }
 }
 
+/// <summary>
+/// Converts sequences and modification dictionaries between naming conventions.
+/// </summary>
 public sealed class SequenceConverter : ISequenceConverter
 {
+    /// <summary>Default number of decimal places when formatting mass shifts.</summary>
     public const int DefaultMassShiftDecimalPlaces = 4;
+    /// <summary>Default sign behavior for formatted mass shifts.</summary>
     public const bool DefaultMassShiftSignedNotation = true;
 
     private static readonly Lazy<SequenceConverter> _default = new(() => new SequenceConverter());
@@ -67,8 +87,12 @@ public sealed class SequenceConverter : ISequenceConverter
     private int _cachedVersion;
     private int _indexVersion;
 
+    /// <summary>Gets the shared default instance.</summary>
     public static SequenceConverter Default => _default.Value;
 
+    /// <summary>
+    /// Initializes a new instance of <see cref="SequenceConverter"/>.
+    /// </summary>
     public SequenceConverter(ModificationCrossRefIndex? crossRefIndex = null)
     {
         _crossRefIndex = crossRefIndex ?? ModificationCrossRefIndex.Global;
@@ -79,6 +103,9 @@ public sealed class SequenceConverter : ISequenceConverter
         EnsureConventionCaches();
     }
 
+    /// <summary>
+    /// Formats a modification mass shift in bracket notation.
+    /// </summary>
     public static string GetMassShiftNotation(
         Modification modification,
         int decimalPlaces = DefaultMassShiftDecimalPlaces,
@@ -106,6 +133,9 @@ public sealed class SequenceConverter : ISequenceConverter
         return $"[+{formatted}]";
     }
 
+    /// <summary>
+    /// Builds a mass-shift sequence from a base sequence and modification dictionary.
+    /// </summary>
     public static string BuildMassShiftSequence(
         string baseSequence,
         IReadOnlyDictionary<int, Modification> modifications,
@@ -150,6 +180,9 @@ public sealed class SequenceConverter : ISequenceConverter
         bool ShouldInclude(int index) => includeModificationPredicate?.Invoke(index) ?? true;
     }
 
+    /// <summary>
+    /// Converts a full annotated sequence to mass-shift notation.
+    /// </summary>
     public static string ToMassShiftNotation(
         string fullSequence,
         Dictionary<string, Modification>? modDictionary = null,
@@ -164,6 +197,9 @@ public sealed class SequenceConverter : ISequenceConverter
         return BuildMassShiftSequence(baseSequence, mods, decimalPlaces, signed, includeModificationPredicate);
     }
 
+    /// <summary>
+    /// Maps a mass-shift sequence back to modifications using candidate mods.
+    /// </summary>
     public static Dictionary<int, Modification> FromMassShiftNotation(
         string massShiftSequence,
         string? baseSequence = null,
@@ -187,6 +223,9 @@ public sealed class SequenceConverter : ISequenceConverter
         return MapMassShiftsToModifications(parsed, resolvedBaseSequence, candidates, tolerance);
     }
 
+    /// <summary>
+    /// Attempts to convert a bio-polymer full sequence to the target convention.
+    /// </summary>
     public bool TryConvertFullSequence(
         IBioPolymerWithSetMods bioPolymer,
         ModificationNamingConvention targetConvention,
@@ -225,6 +264,9 @@ public sealed class SequenceConverter : ISequenceConverter
         return true;
     }
 
+    /// <summary>
+    /// Converts a bio-polymer full sequence to the target convention.
+    /// </summary>
     public string ConvertFullSequence(
         IBioPolymerWithSetMods bioPolymer,
         ModificationNamingConvention targetConvention,
@@ -240,6 +282,9 @@ public sealed class SequenceConverter : ISequenceConverter
         return converted;
     }
 
+    /// <summary>
+    /// Attempts to convert a full sequence string between conventions.
+    /// </summary>
     public bool TryConvertFullSequence(
         string fullSequence,
         ModificationNamingConvention sourceConvention,
@@ -277,6 +322,9 @@ public sealed class SequenceConverter : ISequenceConverter
         return true;
     }
 
+    /// <summary>
+    /// Converts a full sequence string between conventions.
+    /// </summary>
     public string ConvertFullSequence(
         string fullSequence,
         ModificationNamingConvention sourceConvention,
@@ -293,6 +341,9 @@ public sealed class SequenceConverter : ISequenceConverter
         return converted;
     }
 
+    /// <summary>
+    /// Attempts to build a Chronologer-compatible sequence.
+    /// </summary>
     public bool TryGetChronologerSequence(
         IBioPolymerWithSetMods bioPolymer,
         SequenceConversionHandlingMode handlingMode,
@@ -347,6 +398,9 @@ public sealed class SequenceConverter : ISequenceConverter
         }
     }
 
+    /// <summary>
+    /// Converts a modification dictionary to the target convention.
+    /// </summary>
     public Dictionary<int, Modification> ConvertModifications(
         IReadOnlyDictionary<int, Modification> source,
         string baseSequence,
@@ -365,6 +419,9 @@ public sealed class SequenceConverter : ISequenceConverter
         return converted;
     }
 
+    /// <summary>
+    /// Attempts to convert a modification dictionary to the target convention.
+    /// </summary>
     public bool TryConvertModifications(
         IReadOnlyDictionary<int, Modification> source,
         string baseSequence,
@@ -377,6 +434,9 @@ public sealed class SequenceConverter : ISequenceConverter
         return converted != null;
     }
 
+    /// <summary>
+    /// Attempts to convert a single modification at a specific position.
+    /// </summary>
     public bool TryConvertModification(
         Modification source,
         string baseSequence,
@@ -409,6 +469,9 @@ public sealed class SequenceConverter : ISequenceConverter
         return true;
     }
 
+    /// <summary>
+    /// Converts a single modification at a specific position.
+    /// </summary>
     public Modification ConvertModification(
         Modification source,
         string baseSequence,
@@ -428,6 +491,9 @@ public sealed class SequenceConverter : ISequenceConverter
         return converted;
     }
 
+    /// <summary>
+    /// Attempts to convert a modification definition to the target convention.
+    /// </summary>
     public bool TryConvertModificationDefinition(
         Modification source,
         ModificationNamingConvention targetConvention,
@@ -484,6 +550,9 @@ public sealed class SequenceConverter : ISequenceConverter
         return true;
     }
 
+    /// <summary>
+    /// Converts a modification definition to the target convention.
+    /// </summary>
     public Modification ConvertModificationDefinition(
         Modification source,
         ModificationNamingConvention targetConvention)

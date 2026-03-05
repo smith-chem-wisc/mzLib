@@ -4,6 +4,9 @@ using System.Text.RegularExpressions;
 
 namespace Omics.Modifications.Conversion;
 
+/// <summary>
+/// Formats mass-shift sequences into Chronologer-compatible encoding.
+/// </summary>
 public static class ChronologerSequenceFormatter
 {
     private static readonly (Regex pattern, string replacement)[] ModificationPatterns = new[]
@@ -37,6 +40,9 @@ public static class ChronologerSequenceFormatter
         { "+229.1", '*' }
     };
 
+    /// <summary>
+    /// Attempts to format a Chronologer sequence from a bio-polymer input.
+    /// </summary>
     public static bool TryFormatChronologerSequence(
         IBioPolymerWithSetMods bioPolymer,
         string massShiftSequence,
@@ -54,6 +60,9 @@ public static class ChronologerSequenceFormatter
             bioPolymer.FullSequence);
     }
 
+    /// <summary>
+    /// Attempts to format a Chronologer sequence from a base sequence and mass-shift annotation.
+    /// </summary>
     public static bool TryFormatChronologerSequence(
         string baseSequence,
         string massShiftSequence,

@@ -1,4 +1,5 @@
 ﻿using System.Text.RegularExpressions;
+using Omics;
 using Omics.Modifications;
 using Omics.Modifications.Conversion;
 
@@ -171,7 +172,7 @@ namespace PredictionClients.Koina.AbstractClasses
         {
             if (UseSequenceConverterNormalization && TryNormalizeSequence(sequence, out var normalizedSequence, out _))
             {
-                sequence = normalizedSequence;
+                return normalizedSequence;
             }
 
             // Apply custom modification mappings first
@@ -225,6 +226,14 @@ namespace PredictionClients.Koina.AbstractClasses
 
             if (!UseSequenceConverterNormalization)
             {
+                return true;
+            }
+
+            if (SequenceConversionHandlingMode == SequenceConversionHandlingMode.RemoveIncompatibleMods)
+            {
+                var baseSequence = IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(sequence);
+                normalizedSequence = baseSequence;
+                reason = SequenceConversionFailureReason.ModificationsRemoved;
                 return true;
             }
 

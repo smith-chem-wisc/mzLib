@@ -7,6 +7,9 @@ namespace UsefulProteomicsDatabases;
 /// Configuration options for enabling SequenceConverter-based modification normalization
 /// when exporting protein databases.
 /// </summary>
+/// <summary>
+/// Options controlling SequenceConverter usage in ProteinDbWriter exports.
+/// </summary>
 public sealed class ProteinDbWriterConversionOptions
 {
     /// <summary>
