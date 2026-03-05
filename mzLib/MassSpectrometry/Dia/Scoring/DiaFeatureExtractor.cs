@@ -380,13 +380,15 @@ namespace MassSpectrometry.Dia
             }
 
             // -- Retention time features [10-11] --------------------------
+            // IMPORTANT: result.LibraryRetentionTime is in iRT units, NOT observed minutes.
+            // Direct subtraction from ObservedApexRt is meaningless (Bug 2).
+            // DiaCalibrationPipeline.RecalibrateRtDeviations() sets result.RtDeviationMinutes
+            // to the calibration-corrected deviation in real minutes. Use that field.
             const float MaxRtDeviationMinutes = 5.0f;
 
-            if (result.LibraryRetentionTime.HasValue && !float.IsNaN(result.ObservedApexRt))
+            if (!float.IsNaN(result.RtDeviationMinutes) && result.RtDeviationMinutes >= 0f)
             {
-                float deltaRt = MathF.Abs(
-                    result.ObservedApexRt - (float)result.LibraryRetentionTime.Value);
-                deltaRt = MathF.Min(deltaRt, MaxRtDeviationMinutes);
+                float deltaRt = MathF.Min(result.RtDeviationMinutes, MaxRtDeviationMinutes);
                 fv.RtDeviationMinutes = deltaRt;
                 fv.RtDeviationSquared = deltaRt * deltaRt;
             }
