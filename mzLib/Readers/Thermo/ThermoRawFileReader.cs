@@ -259,6 +259,22 @@ namespace Readers
             string[] labels = trailer.Labels;
             string[] values = trailer.Values;
 
+            // Parse collision energy from scan filter (e.g. "FTMS + c NSI d Full ms2 591.20@hcd42.00 [100.00-1195.00]") if present
+            var relevantPart = scanFilterString.Split('@', '[').FirstOrDefault(p => p.Contains("hcd", StringComparison.OrdinalIgnoreCase) || p.Contains("cid", StringComparison.OrdinalIgnoreCase));
+            if (relevantPart is not null)
+            {
+                var parts = relevantPart.Split(' ');
+                foreach (var part in parts)
+                {
+                    if (part.StartsWith("hcd", StringComparison.OrdinalIgnoreCase) || part.StartsWith("cid", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string energyString = new string(part.Where(c => char.IsDigit(c) || char.IsPunctuation(c)).ToArray());
+                        HcdEnergy = energyString;
+                        break;
+                    }
+                }
+            }
+
             for (int i = 0; i < trailer.Labels.Length; i++)
             {
                 if (labels[i].StartsWith("Ion Injection Time (ms)", StringComparison.Ordinal))
@@ -306,7 +322,7 @@ namespace Readers
                         int.Parse(values[i], CultureInfo.InvariantCulture);
                 }
 
-                if (labels[i].StartsWith("HCD Energy:", StringComparison.Ordinal))
+                if (labels[i].StartsWith("HCD Energy:", StringComparison.Ordinal) && HcdEnergy is null)
                 {
                     HcdEnergy = values[i];
                 }
