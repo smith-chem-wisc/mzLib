@@ -5,6 +5,7 @@ using Chromatography.RetentionTimePrediction.SSRCalc;
 using Chromatography.RetentionTimePrediction.CZE;
 using Proteomics.ProteolyticDigestion;
 using Omics.Modifications;
+using Omics.Modifications.Conversion;
 using System.Collections.Generic;
 using System.Linq;
 using System;
