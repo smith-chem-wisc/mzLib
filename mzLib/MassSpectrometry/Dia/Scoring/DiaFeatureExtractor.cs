@@ -309,7 +309,9 @@ namespace MassSpectrometry.Dia
             // -- Primary scores [0-2] ------------------------------------
             fv.ApexScore = SafeScore(result.ApexScore);
             fv.TemporalScore = SafeScore(result.TemporalScore);
-            fv.SpectralAngle = SafeScore(result.SpectralAngleScore);
+            // Coalesce: temporal path sets SpectralAngle; simple assembler sets SpectralAngleScore
+            float _sa = result.SpectralAngle;
+            fv.SpectralAngle = SafeScore(float.IsNaN(_sa) ? result.SpectralAngleScore : _sa);
 
             // -- Peak-region correlations [3-4] ---------------------------
             if (result.DetectedPeakGroup.HasValue && result.DetectedPeakGroup.Value.IsValid)
@@ -469,6 +471,89 @@ namespace MassSpectrometry.Dia
         /// <summary>Replaces NaN scores with 0 for classifier safety.</summary>
         private static float SafeScore(float score) =>
             float.IsNaN(score) ? 0f : score;
+
+        // ── Best-fragment XIC extraction ──────────────────────────────────
+        // Used by both Phase14BenchmarkRunner and PostDiaSearchAnalysisTask
+        // to wire Ms1Ms2Correlation (feature slot [31]).
+
+        /// <summary>
+        /// Extracts per-scan intensities for a single fragment m/z within an RT window.
+        /// Returns empty arrays when the window has no scans or the fragment is out of range.
+        /// </summary>
+        public static void ExtractBestFragmentXic(
+            DiaScanIndex index,
+            float fragmentMz,
+            int windowId,
+            float rtMin,
+            float rtMax,
+            float ppmTolerance,
+            out float[] intensities,
+            out float[] rts)
+        {
+            if (fragmentMz <= 0f || rtMin > rtMax ||
+                !index.TryGetScanRangeForWindow(windowId, out int winStart, out int winCount) ||
+                winCount == 0)
+            {
+                intensities = Array.Empty<float>();
+                rts = Array.Empty<float>();
+                return;
+            }
+
+            float daltonTol = fragmentMz * ppmTolerance * 1e-6f;
+            float mzLo = fragmentMz - daltonTol;
+            float mzHi = fragmentMz + daltonTol;
+
+            int windowCount = 0;
+            for (int i = winStart; i < winStart + winCount; i++)
+            {
+                float rt = index.GetScanRt(i);
+                if (rt < rtMin) continue;
+                if (rt > rtMax) break;
+                windowCount++;
+            }
+
+            if (windowCount == 0)
+            {
+                intensities = Array.Empty<float>();
+                rts = Array.Empty<float>();
+                return;
+            }
+
+            var rtArr = new float[windowCount];
+            var intArr = new float[windowCount];
+            int written = 0;
+
+            for (int i = winStart; i < winStart + winCount && written < windowCount; i++)
+            {
+                float scanRt = index.GetScanRt(i);
+                if (scanRt < rtMin) continue;
+                if (scanRt > rtMax) break;
+                rtArr[written] = scanRt;
+                intArr[written] = SumInMzWindow(index.GetScanMzSpan(i), index.GetScanIntensitySpan(i), mzLo, mzHi);
+                written++;
+            }
+
+            rts = rtArr;
+            intensities = intArr;
+        }
+
+        private static float SumInMzWindow(
+            ReadOnlySpan<float> mzs, ReadOnlySpan<float> intensities,
+            float mzLo, float mzHi)
+        {
+            if (mzs.IsEmpty) return 0f;
+            int lo = 0, hi = mzs.Length;
+            while (lo < hi)
+            {
+                int mid = lo + ((hi - lo) >> 1);
+                if (mzs[mid] < mzLo) lo = mid + 1;
+                else hi = mid;
+            }
+            float sum = 0f;
+            for (int i = lo; i < mzs.Length && mzs[i] <= mzHi; i++)
+                sum += intensities[i];
+            return sum;
+        }
     }
 
     /// <summary>

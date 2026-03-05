@@ -8,7 +8,7 @@
 //   Add NeuralNetwork to the DiaClassifierType enum (in IDiaClassifier.cs or wherever defined):
 //     public enum DiaClassifierType { LinearDiscriminant, GradientBoostedTree, NeuralNetwork }
 //
-// Architecture:  Input(33) → Dense(64, ReLU) → Dense(32, ReLU) → Dense(1) → logit
+// Architecture:  Input(ClassifierFeatureCount) → Dense(64, ReLU) → Dense(32, ReLU) → Dense(1) → logit
 // Optimizer:     Adam, lr=1e-3, β₁=0.9, β₂=0.999, ε=1e-8, L2 weight-decay=1e-4
 // Regularization: Inverted dropout p=0.3 during training; no dropout during scoring
 // Initialization: He normal for weights (N(0, √(2/fan_in))), zeros for biases
@@ -31,7 +31,7 @@ namespace MassSpectrometry.Dia
     /// <summary>
     /// Feedforward neural network classifier for DIA precursor scoring.
     ///
-    /// Architecture: 33 → Dense(64, ReLU) → Dense(32, ReLU) → Dense(1, linear logit)
+    /// Architecture: ClassifierFeatureCount → Dense(64, ReLU) → Dense(32, ReLU) → Dense(1, linear logit)
     ///
     /// Training uses Adam SGD with inverted dropout and He initialization.
     /// Scoring is allocation-free (stack-allocated layer activations via stackalloc).
@@ -45,12 +45,12 @@ namespace MassSpectrometry.Dia
         //  Architecture Constants
         // ════════════════════════════════════════════════════════════════
 
-        private const int InputSize = DiaFeatureVector.ClassifierFeatureCount; // 33
+        private const int InputSize = DiaFeatureVector.ClassifierFeatureCount; // currently 36 (36 MS2 + MS1 + interference features)
         private const int Hidden1 = 64;
         private const int Hidden2 = 32;
         private const int OutputSize = 1;
 
-        // Layer 1: 33 → 64
+        // Layer 1: InputSize → 64
         private readonly float[] _w1;  // [Hidden1 * InputSize]
         private readonly float[] _b1;  // [Hidden1]
 
@@ -441,7 +441,7 @@ namespace MassSpectrometry.Dia
             double[] sumSq = new double[n];
 
             // Single reusable buffer — stackalloc inside a loop would stack-overflow
-            // on large datasets (27K+ samples × 33 floats each).
+            // on large datasets (27K+ samples × ClassifierFeatureCount floats each).
             float[] buf = new float[n];
 
             for (int i = 0; i < positives.Length; i++)

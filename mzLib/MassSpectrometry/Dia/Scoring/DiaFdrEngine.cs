@@ -26,7 +26,7 @@ namespace MassSpectrometry.Dia
     /// 
     /// Phase 16C changes (Prompt 10):
     ///   - DiaClassifierType.NeuralNetwork added to CreateClassifier() factory
-    ///   - DiaNeuralNetClassifierAdapter wired in (33→64→32→1, Adam, dropout 0.3)
+    ///   - DiaNeuralNetClassifierAdapter wired in (ClassifierFeatureCount→64→32→1, Adam, dropout 0.3)
     ///   - PrintDiagnostics() extended with NeuralNetwork branch
     /// 
     /// Lives in MassSpectrometry/Dia/Scoring/ alongside other scoring classes.
@@ -767,7 +767,7 @@ namespace MassSpectrometry.Dia
             }
             else if (d.ClassifierType == DiaClassifierType.NeuralNetwork)
             {
-                Console.WriteLine($"    Classifier:     NeuralNetwork (33→64→32→1, Adam, dropout 0.3)");
+                Console.WriteLine($"    Classifier:     NeuralNetwork ({DiaFeatureVector.ClassifierFeatureCount}→64→32→1, Adam, dropout 0.3)");
             }
         }
     }

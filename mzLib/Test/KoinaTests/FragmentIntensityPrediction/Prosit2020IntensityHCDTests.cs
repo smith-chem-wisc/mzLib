@@ -8,6 +8,10 @@ using System;
 using System.ComponentModel;
 using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
+using Omics.Modifications;
+using Proteomics.ProteolyticDigestion;
+using System.Text.RegularExpressions;
+using UsefulProteomicsDatabases;
 
 namespace Test.KoinaTests
 {
@@ -597,5 +601,121 @@ namespace Test.KoinaTests
             Assert.That(hcdModel.PredictedSpectra.Count, Is.LessThanOrEqualTo(mzLibSequences.Count),
                 "Cannot have more predicted spectra than input rows.");
         }
+
+        ///// <summary>
+        ///// Reads a FASTA file from a local path, digests all proteins into tryptic peptides
+        ///// (0 missed cleavages, max length 35, fixed carbamidomethylation on C, variable oxidation
+        ///// on M), obtains iRT predictions via Prosit 2019 iRT, then builds two HCD spectral libraries
+        ///// at charge states 2 and 3 with NCE 35 — one for target precursors and one for decoys —
+        ///// written to the same directory as the FASTA file.
+        ///// </summary>
+        //[Test]
+        //public static async Task TestBuildTargetDecoySpectralLibraryFromFasta()
+        //{
+        //    // TODO: set this to the FASTA file you want to use.
+        //    const string fastaPath = @"F:\DiaBenchmark\PXD005573\human_UP000005640_reviewed.fasta";
+
+        //    if (!File.Exists(fastaPath))
+        //        Assert.Ignore("FASTA file not found. Update fastaPath in the test to run.");
+
+        //    string outDir        = Path.GetDirectoryName(fastaPath)!;
+        //    string baseName      = Path.GetFileNameWithoutExtension(fastaPath);
+        //    string targetMspPath = Path.Combine(outDir, baseName + "_target.msp");
+        //    string decoyMspPath  = Path.Combine(outDir, baseName + "_decoy.msp");
+
+        //    // 1. Load proteins — targets and reverse-sequence decoys in one pass.
+        //    var proteins       = ProteinDbLoader.LoadProteinFasta(
+        //        fastaPath, generateTargets: true, decoyType: DecoyType.Reverse,
+        //        isContaminant: false, out _);
+        //    var targetProteins = proteins.Where(p => !p.IsDecoy).ToList();
+        //    var decoyProteins  = proteins.Where(p => p.IsDecoy).ToList();
+
+        //    // 2. Modifications.
+        //    var fixedMods    = Mods.AllProteinModsList
+        //        .Where(m => m.IdWithMotif == "Carbamidomethyl on C" && m.ModificationType == "Common Fixed")
+        //        .ToList();
+        //    var variableMods = Mods.AllProteinModsList
+        //        .Where(m => m.IdWithMotif == "Oxidation on M" && m.ModificationType == "Common Variable")
+        //        .ToList();
+
+        //    // 3. Tryptic digestion: 0 missed cleavages, max 35 AA, ≤2 variable mods per peptide.
+        //    var digestionParams = new DigestionParams(
+        //        protease: "trypsin",
+        //        maxMissedCleavages: 0,
+        //        minPeptideLength: 7,
+        //        maxPeptideLength: 35,
+        //        maxModsForPeptides: 2);
+
+        //    // Both Prosit models accept base sequences up to 30 AA; filter here to prevent silent skips.
+        //    static int BaseLen(string fullSeq) => Regex.Replace(fullSeq, @"\[.*?\]", "").Length;
+
+        //    // 4. Digest each group, deduplicate by FullSequence, and apply the length cap.
+        //    var targetPeptides = targetProteins
+        //        .SelectMany(p => p.Digest(digestionParams, fixedMods, variableMods))
+        //        .Select(p => p.FullSequence)
+        //        .Distinct()
+        //        .Where(seq => BaseLen(seq) <= 30)
+        //        .ToList();
+
+        //    var decoyPeptides = decoyProteins
+        //        .SelectMany(p => p.Digest(digestionParams, fixedMods, variableMods))
+        //        .Select(p => p.FullSequence)
+        //        .Distinct()
+        //        .Where(seq => BaseLen(seq) <= 30)
+        //        .ToList();
+
+        //    // 5. RT predictions: submit all unique sequences (targets + decoys) in one call.
+        //    var allUniqueSeqs = targetPeptides.Concat(decoyPeptides).Distinct().ToList();
+        //    var rtModel = new Prosit2019iRT(allUniqueSeqs, out _);
+        //    await rtModel.RunInferenceAsync();
+
+        //    // The RT model converts mzLib → UNIMOD internally; predictions are keyed by UNIMOD.
+        //    var unimodToRt = new Dictionary<string, double?>(rtModel.Predictions.Count);
+        //    for (int i = 0; i < rtModel.Predictions.Count; i++)
+        //        unimodToRt[rtModel.Predictions[i].FullSequence] = rtModel.Predictions[i].PredictedRetentionTime;
+
+        //    static string ToUnimod(string seq) => seq
+        //        .Replace("[Common Variable:Oxidation on M]", "[UNIMOD:35]")
+        //        .Replace("[Common Fixed:Carbamidomethyl on C]", "[UNIMOD:4]");
+
+        //    double? LookupRt(string mzLibSeq) =>
+        //        unimodToRt.TryGetValue(ToUnimod(mzLibSeq), out var rt) ? rt : null;
+
+        //    // 6. Expand each unique sequence to charge states 2 and 3 at NCE 35.
+        //    var targetSeqs     = targetPeptides.SelectMany(s => new[] { s, s }).ToList();
+        //    var targetCharges  = targetPeptides.SelectMany(_ => new[] { 2, 3 }).ToList();
+        //    var targetEnergies = Enumerable.Repeat(35, targetSeqs.Count).ToList();
+        //    var targetRts      = targetPeptides
+        //        .SelectMany(s => new double?[] { LookupRt(s), LookupRt(s) }).ToList();
+
+        //    var decoySeqs     = decoyPeptides.SelectMany(s => new[] { s, s }).ToList();
+        //    var decoyCharges  = decoyPeptides.SelectMany(_ => new[] { 2, 3 }).ToList();
+        //    var decoyEnergies = Enumerable.Repeat(35, decoySeqs.Count).ToList();
+        //    var decoyRts      = decoyPeptides
+        //        .SelectMany(s => new double?[] { LookupRt(s), LookupRt(s) }).ToList();
+
+        //    // 7. HCD fragment intensity predictions and spectral library writes.
+        //    var targetModel = new Prosit2020IntensityHCD(
+        //        targetSeqs, targetCharges, targetEnergies, targetRts, out _, targetMspPath);
+        //    await targetModel.RunInferenceAsync();
+
+        //    var decoyModel = new Prosit2020IntensityHCD(
+        //        decoySeqs, decoyCharges, decoyEnergies, decoyRts, out _, decoyMspPath);
+        //    await decoyModel.RunInferenceAsync();
+
+        //    // 8. Assertions.
+        //    Assert.That(File.Exists(targetMspPath),
+        //        $"Target library was not written to {targetMspPath}.");
+        //    Assert.That(File.Exists(decoyMspPath),
+        //        $"Decoy library was not written to {decoyMspPath}.");
+        //    Assert.That(new FileInfo(targetMspPath).Length, Is.GreaterThan(0),
+        //        "Target library file is empty.");
+        //    Assert.That(new FileInfo(decoyMspPath).Length, Is.GreaterThan(0),
+        //        "Decoy library file is empty.");
+        //    Assert.That(targetModel.PredictedSpectra.Count, Is.GreaterThan(0),
+        //        "Target model produced no predicted spectra.");
+        //    Assert.That(decoyModel.PredictedSpectra.Count, Is.GreaterThan(0),
+        //        "Decoy model produced no predicted spectra.");
+        //}
     }
 }
