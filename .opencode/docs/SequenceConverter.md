@@ -111,6 +111,12 @@ Examples:
 - `KeepOriginalAnnotation`: keep the original annotation.
 - `ReturnNull`: return null (Try* methods only).
 
+## Migration Notes
+
+- Chronologer: use `SequenceTargetConverter` or `ToChronologerSequence` instead of custom regex conversion.
+- ProteinDbWriter: use `ProteinDbWriterConversionOptions` to enable UniProt/Unimod normalization.
+- Koina: pass `KoinaSequenceConversionOptions` to opt into normalization.
+
 ## Performance Tips
 
 - Reuse `SequenceConverter.Default` instead of new instances.

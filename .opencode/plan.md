@@ -30,7 +30,7 @@ SC004|Add Mass Shift Sequence Formatting|.opencode/tasks/SC004_mass_shift_format
 SC005|Integrate with Chronologer|.opencode/tasks/SC005_chronologer_integration.md|DONE|SC003
 SC006|Integrate with ProteinDbWriter|.opencode/tasks/SC006_proteindbwriter_integration.md|DONE|SC003
 SC007|Add Unit Tests for SequenceConverter|.opencode/tasks/SC007_unit_tests.md|DONE|SC003
-SC008|Documentation and Examples|.opencode/tasks/SC008_documentation.md|IN_PROGRESS|SC007
+SC008|Documentation and Examples|.opencode/tasks/SC008_documentation.md|DONE|SC007
 DOC001|Refresh plan & task instructions|.opencode/tasks/DOC001_doc_refresh.md|DONE|
 <!-- TASKS:END -->
 
