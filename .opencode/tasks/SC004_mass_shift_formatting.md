@@ -26,7 +26,7 @@ This already exists as an extension method that needs to be verified/improved.
 
 ## File Locations
 - `Omics/IBioPolymerWithSetMods.cs` - Extension methods
-- `Omics/Modifications/SequenceConverter.cs` - Add methods
+- `Omics/Modifications/Conversion/SequenceConverter.cs` - Add methods
 
 ## Key Code
 

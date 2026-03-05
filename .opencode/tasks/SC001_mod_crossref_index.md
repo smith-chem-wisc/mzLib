@@ -41,7 +41,7 @@ These cross-references allow us to definitively match "Phosphorylation on S" (Me
 - [ ] Handle edge cases: mods with no cross-refs, multiple mods sharing same ID
 
 ## File Location
-`Omics/Modifications/ModificationCrossRefIndex.cs`
+`Omics/Modifications/Conversion/ModificationCrossRefIndex.cs`
 
 ## Key Code Structure
 

@@ -5,7 +5,7 @@ Integrate the `SequenceConverter` with the Chronologer retention time prediction
 
 ## Background
 
-Chronologer expects peptide sequences in a specific encoding format. The `ChronologerEncoder.cs` class handles encoding peptides for the neural network. We need to ensure that:
+Chronologer expects peptide sequences in a specific encoding format. The `ChronologerRetentionTimePredictor` class (and its helper methods such as `AddNTerminusToken` and the regex pattern replacements) handles encoding peptides for the neural network. We need to ensure that:
 
 1. Modifications are properly encoded (Chronologer has a specific vocabulary)
 2. Unknown modifications are handled gracefully
@@ -13,7 +13,7 @@ Chronologer expects peptide sequences in a specific encoding format. The `Chrono
 
 ## Implementation Steps
 
-- [ ] Review `Chromatography/RetentionTimePrediction/Chronologer/ChronologerEncoder.cs`
+- [ ] Review `Chromatography/RetentionTimePrediction/Chronologer/ChronologerRetentionTimePredictor.cs`
 - [ ] Identify how modifications are currently encoded
 - [ ] Add `SequenceConverter` integration for standardizing input sequences
 - [ ] Handle modifications not in Chronologer's vocabulary
@@ -22,7 +22,8 @@ Chronologer expects peptide sequences in a specific encoding format. The `Chrono
 - [ ] Add tests for converted sequences
 
 ## File Locations
-- `Chromatography/RetentionTimePrediction/Chronologer/ChronologerEncoder.cs`
+- `Chromatography/RetentionTimePrediction/Chronologer/ChronologerRetentionTimePredictor.cs`
+- `Omics/Modifications/Conversion/SequenceConverter.cs` (`TryGetChronologerSequence` helper)
 - `PredictionClients/` - any relevant prediction client code
 
 ## Key Integration Points

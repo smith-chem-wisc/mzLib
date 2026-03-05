@@ -26,7 +26,7 @@ Users need to:
 - [ ] Add extension methods on `IBioPolymerWithSetMods` for convenient access
 
 ## File Location
-`Omics/Modifications/SequenceConverter.cs`
+`Omics/Modifications/Conversion/SequenceConverter.cs`
 
 ## Key Code Structure
 

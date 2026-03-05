@@ -16,32 +16,6 @@ This document tracks the implementation of a robust Sequence Converter system fo
 
 ---
 
-## Session Startup Routine (READ THIS FIRST)
-
-1. Run `pwd` to confirm you are in `C:/Users/Nic/Source/Repos/mzLib/mzLib/`
-2. Read `Activity.md` in this directory to see what previous sessions accomplished
-3. Run `git log --oneline -10` to see recent commits
-4. Check the task list below - find the first task with status `TODO` whose dependencies are all `DONE`
-5. Read the task's instruction file in `tasks/`
-6. Work on that task. Build and test after each meaningful change.
-7. Commit completed work with descriptive messages.
-
-## End-of-Session Protocol (DO THIS BEFORE YOUR CONTEXT FILLS UP)
-
-When you are nearing the end of your context window or finishing a task:
-1. **Build**: `dotnet build "C:/Users/Nic/Source/Repos/mzLib/mzLib/mzLib.sln"`
-2. **Test**: Run appropriate tests based on the task
-3. **Commit** working changes: `git add <specific files> && git commit -m "descriptive message"`
-4. **Update Activity.md**: Append a dated entry describing what you accomplished
-5. **Update this file**: Change task status from `TODO` to `DONE` for completed tasks
-6. **CRITICAL**: Do NOT mark a task DONE unless:
-   - Code builds successfully
-   - Tests pass (if applicable)
-   - You have verified the functionality works
-   - Changes are committed to git
-
----
-
 ## Task Registry (Machine Readable)
 
 Format: `ID|TITLE|TASK_DOC|STATUS|DEPS`
@@ -57,6 +31,7 @@ SC005|Integrate with Chronologer|tasks/SC005_chronologer_integration.md|TODO|SC0
 SC006|Integrate with ProteinDbWriter|tasks/SC006_proteindbwriter_integration.md|TODO|SC003
 SC007|Add Unit Tests for SequenceConverter|tasks/SC007_unit_tests.md|TODO|SC003
 SC008|Documentation and Examples|tasks/SC008_documentation.md|TODO|SC007
+DOC001|Refresh plan & task instructions|tasks/DOC001_doc_refresh.md|DONE|
 <!-- TASKS:END -->
 
 ---
@@ -66,14 +41,15 @@ SC008|Documentation and Examples|tasks/SC008_documentation.md|TODO|SC007
 ```
 Omics/
 +-- Modifications/
-¦   +-- Modification.cs              # Existing - has DatabaseReference property
-¦   +-- Mods.cs                      # Existing - static mod registries by convention
-¦   +-- ModificationCrossRefIndex.cs # NEW - index for cross-referencing mods
-¦   +-- SequenceConverter.cs         # NEW - main conversion service
-¦
+ï¿½   +-- Modification.cs              # Existing - has DatabaseReference property
+ï¿½   +-- Mods.cs                      # Existing - static mod registries by convention
+ï¿½   +-- Conversion/
+ï¿½       +-- ModificationCrossRefIndex.cs # NEW - index for cross-referencing mods
+ï¿½       +-- SequenceConverter.cs         # NEW - main conversion service
+ï¿½
 Readers/
 +-- ExternalResults/SupportClasses/
-¦   +-- ModificationConverter.cs     # REFACTOR - use cross-ref index
+ï¿½   +-- ModificationConverter.cs     # REFACTOR - use cross-ref index
 ```
 
 ### Key Data Structures

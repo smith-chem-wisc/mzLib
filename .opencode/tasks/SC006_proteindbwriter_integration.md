@@ -27,35 +27,27 @@ Desired behavior: Option to convert all mods to UniProt naming convention
 ## Key Changes
 
 ```csharp
-public static class ProteinDbWriter
+// Inside ProteinDbWriter.WriteXmlDatabase(...)
+var modsToWrite = additionalModsToAddToProteins;
+if (targetConvention.HasValue)
 {
-    /// <summary>
-    /// Writes an XML database with optional modification conversion
-    /// </summary>
-    public static Dictionary<string, int> WriteXmlDatabase(
-        Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
-        List<Protein> proteinList,
-        string outputFileName,
-        bool updateTimeStamp = false,
-        ModificationNamingConvention? targetConvention = null,  // NEW
-        ConversionFailureMode failureMode = ConversionFailureMode.KeepOriginal) // NEW
-    {
-        // If targetConvention specified, convert modifications before writing
-        var modsToWrite = targetConvention.HasValue
-            ? ConvertModifications(additionalModsToAddToProteins, targetConvention.Value, failureMode)
-            : additionalModsToAddToProteins;
-            
-        // ... existing write logic
-    }
-    
-    private static Dictionary<string, HashSet<Tuple<int, Modification>>> ConvertModifications(
-        Dictionary<string, HashSet<Tuple<int, Modification>>> mods,
-        ModificationNamingConvention targetConvention,
-        ConversionFailureMode failureMode)
-    {
-        var converter = SequenceConverter.Default;
-        // Convert each modification...
-    }
+    modsToWrite = ConvertModificationsWithSequenceConverter(
+        additionalModsToAddToProteins,
+        targetConvention.Value,
+        failureMode);
+}
+
+// existing serialization logic continues here
+```
+
+```csharp
+private static Dictionary<string, HashSet<Tuple<int, Modification>>> ConvertModificationsWithSequenceConverter(
+    Dictionary<string, HashSet<Tuple<int, Modification>>> mods,
+    ModificationNamingConvention targetConvention,
+    SequenceConversionHandlingMode failureMode)
+{
+    var converter = SequenceConverter.Default;
+    // loop through each protein accession and convert the HashSet entries before writing
 }
 ```
 
