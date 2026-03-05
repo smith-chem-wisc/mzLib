@@ -250,4 +250,4 @@ ModelManifest.xml
 # Macintosh files
 **/.DS_Store
 
-/.opencode/*
+/.opencode/
