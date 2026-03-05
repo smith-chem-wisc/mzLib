@@ -912,7 +912,9 @@ namespace MassSpectrometry.Dia
                     if (!float.IsNaN(result.TemporalScore))
                     {
                         float clampedCosine = Math.Clamp(result.TemporalScore, 0f, 1f);
-                        result.SpectralAngleScore = 1.0f - (2.0f / MathF.PI) * MathF.Acos(clampedCosine);
+                        float sa = 1.0f - (2.0f / MathF.PI) * MathF.Acos(clampedCosine);
+                        result.SpectralAngle = sa;       // ← THE MISSING LINE
+                        result.SpectralAngleScore = sa;  // keep for backward compatibility
                     }
 
                     // Apply score threshold filter

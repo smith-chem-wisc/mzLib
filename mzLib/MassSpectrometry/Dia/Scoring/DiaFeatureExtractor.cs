@@ -386,9 +386,9 @@ namespace MassSpectrometry.Dia
             // to the calibration-corrected deviation in real minutes. Use that field.
             const float MaxRtDeviationMinutes = 5.0f;
 
-            if (!float.IsNaN(result.RtDeviationMinutes) && result.RtDeviationMinutes >= 0f)
+            if (!float.IsNaN(result.RtDeviationMinutes))
             {
-                float deltaRt = MathF.Min(result.RtDeviationMinutes, MaxRtDeviationMinutes);
+                float deltaRt = MathF.Min(MathF.Abs(result.RtDeviationMinutes), MaxRtDeviationMinutes);
                 fv.RtDeviationMinutes = deltaRt;
                 fv.RtDeviationSquared = deltaRt * deltaRt;
             }
