@@ -1,5 +1,9 @@
-﻿using NUnit.Framework;
+﻿using Chemistry;
+using NUnit.Framework;
+using Readers;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using UsefulProteomicsDatabases;
 
 namespace Test
