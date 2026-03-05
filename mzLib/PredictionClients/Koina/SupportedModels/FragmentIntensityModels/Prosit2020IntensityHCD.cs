@@ -77,7 +77,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public Prosit2020IntensityHCD(
             IncompatibleModHandlingMode modHandlingMode = IncompatibleModHandlingMode.RemoveIncompatibleMods, 
             IncompatibleParameterHandlingMode parameterHandlingMode = IncompatibleParameterHandlingMode.ReturnNull,
-            FragmentIonMappingMode fragmentIonMappingMode = FragmentIonMappingMode.MapToInputFullSequence,
+            FragmentIonMappingMode fragmentIonMappingMode = FragmentIonMappingMode.MapToValidatedFullSequence,
             int maxNumberOfBatchesPerRequest = 250, 
             int throttlingDelayInMilliseconds = 100
             )
