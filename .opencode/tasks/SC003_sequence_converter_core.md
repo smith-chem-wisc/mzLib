@@ -39,6 +39,7 @@ public enum ConversionFailureMode
     Skip,               // Skip unconvertible mods (dangerous - changes mass)
     UseMassShift,       // Replace with mass shift notation [+123.456]
     KeepOriginal        // Keep original mod if no conversion found
+    RemoveModification  // Remove the modification entirely (dangerous - changes mass)
 }
 
 public class SequenceConverter

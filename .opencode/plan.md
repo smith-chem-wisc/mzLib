@@ -23,15 +23,15 @@ Format: `ID|TITLE|TASK_DOC|STATUS|DEPS`
 Status values: `TODO`, `IN_PROGRESS`, `DONE`
 
 <!-- TASKS:BEGIN -->
-SC001|Build Modification Cross-Reference Index|tasks/SC001_mod_crossref_index.md|IN_PROGRESS|
-SC002|Refactor ModificationConverter with Database IDs|tasks/SC002_refactor_mod_converter.md|TODO|SC001
-SC003|Create SequenceConverter Core Class|tasks/SC003_sequence_converter_core.md|TODO|SC002
-SC004|Add Mass Shift Sequence Formatting|tasks/SC004_mass_shift_formatting.md|TODO|SC003
-SC005|Integrate with Chronologer|tasks/SC005_chronologer_integration.md|TODO|SC003
-SC006|Integrate with ProteinDbWriter|tasks/SC006_proteindbwriter_integration.md|TODO|SC003
-SC007|Add Unit Tests for SequenceConverter|tasks/SC007_unit_tests.md|TODO|SC003
-SC008|Documentation and Examples|tasks/SC008_documentation.md|TODO|SC007
-DOC001|Refresh plan & task instructions|tasks/DOC001_doc_refresh.md|DONE|
+SC001|Build Modification Cross-Reference Index|.opencode/tasks/SC001_mod_crossref_index.md|DONE|
+SC002|Refactor ModificationConverter with Database IDs|.opencode/tasks/SC002_refactor_mod_converter.md|TODO|SC001
+SC003|Create SequenceConverter Core Class|.opencode/tasks/SC003_sequence_converter_core.md|TODO|SC002
+SC004|Add Mass Shift Sequence Formatting|.opencode/tasks/SC004_mass_shift_formatting.md|TODO|SC003
+SC005|Integrate with Chronologer|.opencode/tasks/SC005_chronologer_integration.md|TODO|SC003
+SC006|Integrate with ProteinDbWriter|.opencode/tasks/SC006_proteindbwriter_integration.md|TODO|SC003
+SC007|Add Unit Tests for SequenceConverter|.opencode/tasks/SC007_unit_tests.md|TODO|SC003
+SC008|Documentation and Examples|.opencode/tasks/SC008_documentation.md|TODO|SC007
+DOC001|Refresh plan & task instructions|.opencode/tasks/DOC001_doc_refresh.md|DONE|
 <!-- TASKS:END -->
 
 ---
@@ -73,10 +73,10 @@ These can be used to link modifications across conventions:
 
 1. Add a line to the registry above (between BEGIN/END markers):
    ```
-   M001|Task Title|tasks/001_description.md|TODO|
+   M001|Task Title|.opencode/tasks/001_description.md|TODO|
    ```
 
-2. Create the task file in `.opencode/tasks/001_description.md`:
+2. Create the task file in `.opencode/.opencode/tasks/001_description.md`:
    ```markdown
    # Task: Task Title
    
