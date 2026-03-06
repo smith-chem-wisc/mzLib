@@ -9,6 +9,7 @@ using Easy.Common.Extensions;
 using Omics;
 using Omics.BioPolymer;
 using Omics.Modifications;
+using Omics.Modifications.Conversion;
 using Transcriptomics;
 using System.Data;
 
@@ -30,9 +31,18 @@ namespace UsefulProteomicsDatabases
         /// <returns>A dictionary of new modification residue entries.</returns>
         public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, List<IBioPolymer> bioPolymerList, string outputFileName)
         {
+            return WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList, outputFileName, null);
+        }
+
+        public static Dictionary<string, int> WriteXmlDatabase(
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
+            List<IBioPolymer> bioPolymerList,
+            string outputFileName,
+            ProteinDbWriterConversionOptions? conversionOptions)
+        {
             return bioPolymerList.Any(p => p is Protein)
-                ? WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<Protein>().ToList(), outputFileName)
-                : WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<RNA>().ToList(), outputFileName);
+                ? WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<Protein>().ToList(), outputFileName, false, conversionOptions)
+                : WriteXmlDatabase(additionalModsToAddToProteins, bioPolymerList.Cast<RNA>().ToList(), outputFileName, false, conversionOptions);
         }
 
         /// <summary>
@@ -48,7 +58,18 @@ namespace UsefulProteomicsDatabases
         /// </remarks>
         public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToNucleicAcids, List<RNA> nucleicAcidList, string outputFileName, bool updateTimeStamp = false)
         {
+            return WriteXmlDatabase(additionalModsToAddToNucleicAcids, nucleicAcidList, outputFileName, updateTimeStamp, null);
+        }
+
+        public static Dictionary<string, int> WriteXmlDatabase(
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToNucleicAcids,
+            List<RNA> nucleicAcidList,
+            string outputFileName,
+            bool updateTimeStamp,
+            ProteinDbWriterConversionOptions? conversionOptions)
+        {
             additionalModsToAddToNucleicAcids = additionalModsToAddToNucleicAcids ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+            var conversionContext = CreateConversionContext(conversionOptions);
 
             // write nonvariant rna (for cases where variants aren't applied, this just gets the rna itself)
             var nonVariantRna = nucleicAcidList.Select(p => p.ConsensusVariant).Distinct().ToList();
@@ -75,7 +96,7 @@ namespace UsefulProteomicsDatabases
                 }
 
                 // get modifications from nucleic acid list and concatenate the modifications discovered in GPTMDictionary
-                HashSet<Modification> allRelevantModifications = new HashSet<Modification>(
+                var headerModifications = PrepareModificationDefinitions(
                     nonVariantRna
                         .SelectMany(p => p.SequenceVariations
                             .SelectMany(sv => sv.OneBasedModifications)
@@ -86,9 +107,10 @@ namespace UsefulProteomicsDatabases
                                 .SelectMany(p => p.SequenceVariations
                                     .Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession }))
                                 .Contains(kv.Key))
-                            .SelectMany(kv => kv.Value.Select(v => v.Item2))));
+                            .SelectMany(kv => kv.Value.Select(v => v.Item2))),
+                    conversionContext);
 
-                foreach (Modification mod in allRelevantModifications.OrderBy(m => m.IdWithMotif))
+                foreach (Modification mod in headerModifications.OrderBy(m => m.IdWithMotif))
                 {
                     writer.WriteStartElement("modification");
                     writer.WriteString(mod.ToString() + Environment.NewLine + "//");
@@ -186,7 +208,7 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement();
                     }
 
-                    foreach (var hm in GetModsForThisBioPolymer(nucleicAcid, null, additionalModsToAddToNucleicAcids, newModResEntries).OrderBy(b => b.Key))
+                    foreach (var hm in GetModsForThisBioPolymer(nucleicAcid, null, additionalModsToAddToNucleicAcids, newModResEntries, conversionContext).OrderBy(b => b.Key))
                     {
                         foreach (var modId in hm.Value)
                         {
@@ -229,7 +251,7 @@ namespace UsefulProteomicsDatabases
                             writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
                             writer.WriteEndElement();
                         }
-                        foreach (var hmm in GetModsForThisBioPolymer(nucleicAcid, hm, additionalModsToAddToNucleicAcids, newModResEntries).OrderBy(b => b.Key))
+                        foreach (var hmm in GetModsForThisBioPolymer(nucleicAcid, hm, additionalModsToAddToNucleicAcids, newModResEntries, conversionContext).OrderBy(b => b.Key))
                         {
                             foreach (var modId in hmm.Value)
                             {
@@ -295,7 +317,18 @@ namespace UsefulProteomicsDatabases
         /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
         public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, List<Protein> proteinList, string outputFileName, bool updateTimeStamp = false)
         {
+            return WriteXmlDatabase(additionalModsToAddToProteins, proteinList, outputFileName, updateTimeStamp, null);
+        }
+
+        public static Dictionary<string, int> WriteXmlDatabase(
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
+            List<Protein> proteinList,
+            string outputFileName,
+            bool updateTimeStamp,
+            ProteinDbWriterConversionOptions? conversionOptions)
+        {
             additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+            var conversionContext = CreateConversionContext(conversionOptions);
 
             // write nonvariant proteins (for cases where variants aren't applied, this just gets the rna itself)
             var nonVariantProteins = proteinList.Select(p => p.ConsensusVariant).Distinct().ToList();
@@ -322,7 +355,7 @@ namespace UsefulProteomicsDatabases
                     }
                 }
 
-                HashSet<Modification> allRelevantModifications = new HashSet<Modification>(
+                var headerModifications = PrepareModificationDefinitions(
                     nonVariantProteins
                         .SelectMany(p => p.SequenceVariations
                             .SelectMany(sv => sv.OneBasedModifications)
@@ -333,9 +366,10 @@ namespace UsefulProteomicsDatabases
                                 .SelectMany(p => p.SequenceVariations
                                     .Select(sv => VariantApplication.GetAccession(p, new[] { sv })).Concat(new[] { p.Accession }))
                                 .Contains(kv.Key))
-                            .SelectMany(kv => kv.Value.Select(v => v.Item2))));
+                            .SelectMany(kv => kv.Value.Select(v => v.Item2))),
+                    conversionContext);
 
-                foreach (Modification mod in allRelevantModifications.OrderBy(m => m.IdWithMotif))
+                foreach (Modification mod in headerModifications.OrderBy(m => m.IdWithMotif))
                 {
                     writer.WriteStartElement("modification");
                     writer.WriteString(mod.ToString() + Environment.NewLine + "//");
@@ -443,7 +477,7 @@ namespace UsefulProteomicsDatabases
                         writer.WriteEndElement();
                     }
 
-                    foreach (var positionModKvp in GetModsForThisBioPolymer(protein, null, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
+                    foreach (var positionModKvp in GetModsForThisBioPolymer(protein, null, additionalModsToAddToProteins, newModResEntries, conversionContext).OrderBy(b => b.Key))
                     {
                         foreach (var modId in positionModKvp.Value.OrderBy(mod => mod))
                         {
@@ -487,7 +521,7 @@ namespace UsefulProteomicsDatabases
                             writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
                             writer.WriteEndElement();
                         }
-                        foreach (var hmm in GetModsForThisBioPolymer(protein, hm, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
+                        foreach (var hmm in GetModsForThisBioPolymer(protein, hm, additionalModsToAddToProteins, newModResEntries, conversionContext).OrderBy(b => b.Key))
                         {
                             foreach (var modId in hmm.Value.OrderBy(mod => mod))
                             {
@@ -613,19 +647,30 @@ namespace UsefulProteomicsDatabases
             }
         }
 
-        private static Dictionary<int, HashSet<string>> GetModsForThisBioPolymer(IBioPolymer protein, SequenceVariation seqvar, Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, Dictionary<string, int> newModResEntries)
+        private static Dictionary<int, HashSet<string>> GetModsForThisBioPolymer(
+            IBioPolymer protein,
+            SequenceVariation seqvar,
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins,
+            Dictionary<string, int> newModResEntries,
+            SequenceConversionContext? conversionContext)
         {
             var modsToWriteForThisSpecificProtein = new Dictionary<int, HashSet<string>>();
 
             var primaryModDict = seqvar == null ? protein.OneBasedPossibleLocalizedModifications : seqvar.OneBasedModifications;
+            var baseSequence = seqvar?.VariantSequence ?? protein.BaseSequence;
             foreach (var mods in primaryModDict)
             {
                 foreach (var mod in mods.Value)
                 {
+                    if (!TryConvertModificationForWriter(baseSequence, mods.Key, mod, conversionContext, out var descriptor))
+                    {
+                        continue;
+                    }
+
                     if (modsToWriteForThisSpecificProtein.TryGetValue(mods.Key, out HashSet<string> val))
-                        val.Add(mod.IdWithMotif);
+                        val.Add(descriptor);
                     else
-                        modsToWriteForThisSpecificProtein.Add(mods.Key, new HashSet<string> { mod.IdWithMotif });
+                        modsToWriteForThisSpecificProtein.Add(mods.Key, new HashSet<string> { descriptor });
                 }
             }
 
@@ -635,38 +680,221 @@ namespace UsefulProteomicsDatabases
                 foreach (var ye in additionalModsToAddToProteins[accession])
                 {
                     int additionalModResidueIndex = ye.Item1;
-                    string additionalModId = ye.Item2.IdWithMotif;
+                    var additionalMod = ye.Item2;
+                    if (!TryConvertModificationForWriter(baseSequence, additionalModResidueIndex, additionalMod, conversionContext, out var descriptor))
+                    {
+                        continue;
+                    }
+
                     bool modAdded = false;
 
                     // If we already have modifications that need to be written to the specific residue, get the hash set of those mods
                     if (modsToWriteForThisSpecificProtein.TryGetValue(additionalModResidueIndex, out HashSet<string> val))
                     {
                         // Try to add the new mod to that hash set. If it's not there, modAdded=true, and it is added.
-                        modAdded = val.Add(additionalModId);
+                        modAdded = val.Add(descriptor);
                     }
 
                     // Otherwise, no modifications currently need to be written to the residue at residueIndex, so need to create new hash set for that residue
                     else
                     {
-                        modsToWriteForThisSpecificProtein.Add(additionalModResidueIndex, new HashSet<string> { additionalModId });
+                        modsToWriteForThisSpecificProtein.Add(additionalModResidueIndex, new HashSet<string> { descriptor });
                         modAdded = true;
                     }
 
                     // Finally, if a new modification has in fact been deemed worthy of being added to the database, mark that in the output dictionary
                     if (modAdded)
                     {
-                        if (newModResEntries.ContainsKey(additionalModId))
+                        if (newModResEntries.ContainsKey(descriptor))
                         {
-                            newModResEntries[additionalModId]++;
+                            newModResEntries[descriptor]++;
                         }
                         else
                         {
-                            newModResEntries.Add(additionalModId, 1);
+                            newModResEntries.Add(descriptor, 1);
                         }
                     }
                 }
             }
             return modsToWriteForThisSpecificProtein;
+        }
+
+        private static IEnumerable<Modification> PrepareModificationDefinitions(
+            IEnumerable<Modification> modifications,
+            SequenceConversionContext? conversionContext)
+        {
+            if (conversionContext == null)
+            {
+                return modifications.Distinct();
+            }
+
+            var converter = conversionContext.Converter;
+            var prepared = new List<Modification>();
+
+            foreach (var mod in modifications)
+            {
+                try
+                {
+                    if (converter.TryConvertModificationDefinition(mod, conversionContext.TargetConvention, out var converted) && converted != null)
+                    {
+                        prepared.Add(converted);
+                    }
+                    else if (conversionContext.HandlingMode == SequenceConversionHandlingMode.RemoveIncompatibleMods)
+                    {
+                        continue;
+                    }
+                    else if (conversionContext.HandlingMode == SequenceConversionHandlingMode.KeepOriginalAnnotation)
+                    {
+                        prepared.Add(mod);
+                    }
+                    else
+                    {
+                        throw new SequenceConversionException(
+                            $"Unable to convert modification {mod.IdWithMotif} to {conversionContext.TargetConvention}.",
+                            SequenceConversionFailureReason.NoEquivalent,
+                            mod,
+                            conversionContext.TargetConvention);
+                    }
+                }
+                catch (SequenceConversionException)
+                {
+                    if (conversionContext.HandlingMode == SequenceConversionHandlingMode.RemoveIncompatibleMods)
+                    {
+                        continue;
+                    }
+
+                    if (conversionContext.HandlingMode == SequenceConversionHandlingMode.KeepOriginalAnnotation)
+                    {
+                        prepared.Add(mod);
+                        continue;
+                    }
+
+                    throw;
+                }
+            }
+
+            return prepared.Distinct();
+        }
+
+        private static bool TryConvertModificationForWriter(
+            string baseSequence,
+            int residueOneBasedIndex,
+            Modification modification,
+            SequenceConversionContext? conversionContext,
+            out string descriptor)
+        {
+            if (conversionContext == null)
+            {
+                descriptor = modification.IdWithMotif;
+                return true;
+            }
+
+            var converter = conversionContext.Converter;
+            var key = GetSequenceConverterKey(residueOneBasedIndex, baseSequence.Length, modification);
+            var success = converter.TryConvertModification(
+                modification,
+                baseSequence,
+                key,
+                conversionContext.TargetConvention,
+                conversionContext.HandlingMode,
+                out var converted,
+                out var reason);
+
+            if (!success)
+            {
+                throw new SequenceConversionException(
+                    $"Unable to convert modification {modification.IdWithMotif} at position {residueOneBasedIndex} on sequence {baseSequence}.",
+                    reason ?? SequenceConversionFailureReason.NoEquivalent,
+                    modification,
+                    conversionContext.TargetConvention);
+            }
+
+            if (converted == null)
+            {
+                descriptor = string.Empty;
+                return false;
+            }
+
+            descriptor = converted.IdWithMotif;
+            return true;
+        }
+
+        private static int GetSequenceConverterKey(int residueOneBasedIndex, int sequenceLength, Modification modification)
+        {
+            if (IsNTerminalRestriction(modification.LocationRestriction))
+            {
+                return 1;
+            }
+
+            if (IsCTerminalRestriction(modification.LocationRestriction))
+            {
+                return sequenceLength + 2;
+            }
+
+            return residueOneBasedIndex + 1;
+        }
+
+        private static bool IsNTerminalRestriction(string restriction)
+        {
+            if (string.IsNullOrEmpty(restriction))
+            {
+                return false;
+            }
+
+            return restriction.Contains("N-terminal", StringComparison.OrdinalIgnoreCase)
+                || restriction.Contains("5'-terminal", StringComparison.OrdinalIgnoreCase)
+                || restriction.Contains("Peptide N-terminal", StringComparison.OrdinalIgnoreCase)
+                || restriction.Contains("Oligo 5'-terminal", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsCTerminalRestriction(string restriction)
+        {
+            if (string.IsNullOrEmpty(restriction))
+            {
+                return false;
+            }
+
+            return restriction.Contains("C-terminal", StringComparison.OrdinalIgnoreCase)
+                || restriction.Contains("3'-terminal", StringComparison.OrdinalIgnoreCase)
+                || restriction.Contains("Peptide C-terminal", StringComparison.OrdinalIgnoreCase)
+                || restriction.Contains("Oligo 3'-terminal", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static SequenceConversionContext? CreateConversionContext(ProteinDbWriterConversionOptions? options)
+        {
+            if (options is not { Enabled: true })
+            {
+                return null;
+            }
+
+            if (options.HandlingMode is SequenceConversionHandlingMode.UsePrimarySequence
+                or SequenceConversionHandlingMode.UseMassShifts
+                or SequenceConversionHandlingMode.ReturnNull)
+            {
+                throw new NotSupportedException("ProteinDbWriter conversion only supports RemoveIncompatibleMods, KeepOriginalAnnotation, or ThrowException handling modes.");
+            }
+
+            return new SequenceConversionContext(
+                options.Converter ?? SequenceConverter.Default,
+                options.TargetConvention,
+                options.HandlingMode);
+        }
+
+        private sealed class SequenceConversionContext
+        {
+            public SequenceConversionContext(
+                ISequenceConverter converter,
+                ModificationNamingConvention targetConvention,
+                SequenceConversionHandlingMode handlingMode)
+            {
+                Converter = converter;
+                TargetConvention = targetConvention;
+                HandlingMode = handlingMode;
+            }
+
+            public ISequenceConverter Converter { get; }
+            public ModificationNamingConvention TargetConvention { get; }
+            public SequenceConversionHandlingMode HandlingMode { get; }
         }
     }
 }

@@ -4,6 +4,7 @@ using Chromatography.RetentionTimePrediction;
 using Chromatography.RetentionTimePrediction.Chronologer;
 using Proteomics.ProteolyticDigestion;
 using Omics.Modifications;
+using Omics.Modifications.Conversion;
 using System.Collections.Generic;
 using Chromatography;
 using Readers;

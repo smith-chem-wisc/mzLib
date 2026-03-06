@@ -108,8 +108,9 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         /// }
         /// </code>
         /// </example>
-        public Prosit2019iRT(List<string> peptideSequences, out WarningException? warnings)
+        public Prosit2019iRT(List<string> peptideSequences, out WarningException? warnings, KoinaSequenceConversionOptions? conversionOptions = null)
         {
+            ConfigureSequenceConversion(conversionOptions);
             // Handle empty input case early
             if (peptideSequences.IsNullOrEmpty())
             {

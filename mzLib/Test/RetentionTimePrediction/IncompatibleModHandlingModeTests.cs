@@ -1,4 +1,4 @@
-using Chromatography.RetentionTimePrediction;
+using Omics.Modifications.Conversion;
 using NUnit.Framework;
 
 namespace Test.RetentionTimePrediction

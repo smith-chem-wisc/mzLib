@@ -1,4 +1,7 @@
 ﻿using System.Text.RegularExpressions;
+using Omics;
+using Omics.Modifications;
+using Omics.Modifications.Conversion;
 
 namespace PredictionClients.Koina.AbstractClasses
 {
@@ -47,6 +50,9 @@ namespace PredictionClients.Koina.AbstractClasses
         #endregion
 
         protected bool _disposed = false;
+        protected bool UseSequenceConverterNormalization { get; private set; }
+        protected ModificationNamingConvention SequenceConversionTargetConvention { get; private set; } = ModificationNamingConvention.Unimod;
+        protected SequenceConversionHandlingMode SequenceConversionHandlingMode { get; private set; } = SequenceConversionHandlingMode.ReturnNull;
 
         /// <summary>
         /// Gets the list of peptide sequences to be predicted.
@@ -108,7 +114,17 @@ namespace PredictionClients.Koina.AbstractClasses
             }
 
             // Check if any modifications are not in the valid mapping
-            return matches.All(m => ValidModificationUnimodMapping.ContainsKey(m.Value));
+            if (matches.All(m => ValidModificationUnimodMapping.ContainsKey(m.Value)))
+            {
+                return true;
+            }
+
+            if (UseSequenceConverterNormalization && TryNormalizeSequence(sequence, out _, out _))
+            {
+                return true;
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -154,6 +170,11 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </remarks>
         protected virtual string ConvertMzLibModificationsToUnimod(string sequence)
         {
+            if (UseSequenceConverterNormalization && TryNormalizeSequence(sequence, out var normalizedSequence, out _))
+            {
+                return normalizedSequence;
+            }
+
             // Apply custom modification mappings first
             foreach (var mod in ValidModificationUnimodMapping)
             {
@@ -182,6 +203,53 @@ namespace PredictionClients.Koina.AbstractClasses
                 // Dispose of any resources if necessary.
                 _disposed = true;
             }
+        }
+
+        protected void ConfigureSequenceConversion(KoinaSequenceConversionOptions? options)
+        {
+            if (options is { Enabled: true })
+            {
+                UseSequenceConverterNormalization = true;
+                SequenceConversionTargetConvention = options.TargetConvention;
+                SequenceConversionHandlingMode = options.HandlingMode;
+            }
+            else
+            {
+                UseSequenceConverterNormalization = false;
+            }
+        }
+
+        protected bool TryNormalizeSequence(string sequence, out string normalizedSequence, out SequenceConversionFailureReason? reason)
+        {
+            normalizedSequence = sequence;
+            reason = null;
+
+            if (!UseSequenceConverterNormalization)
+            {
+                return true;
+            }
+
+            if (SequenceConversionHandlingMode == SequenceConversionHandlingMode.RemoveIncompatibleMods)
+            {
+                var baseSequence = IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(sequence);
+                normalizedSequence = baseSequence;
+                reason = SequenceConversionFailureReason.ModificationsRemoved;
+                return true;
+            }
+
+            if (SequenceConverter.Default.TryConvertFullSequence(
+                    sequence,
+                    ModificationNamingConvention.Mixed,
+                    SequenceConversionTargetConvention,
+                    SequenceConversionHandlingMode,
+                    out var converted,
+                    out reason) && converted != null)
+            {
+                normalizedSequence = converted;
+                return true;
+            }
+
+            return false;
         }
     }
 }

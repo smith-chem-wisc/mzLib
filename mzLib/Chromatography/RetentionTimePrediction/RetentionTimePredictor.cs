@@ -1,4 +1,6 @@
-﻿namespace Chromatography.RetentionTimePrediction;
+﻿using Omics.Modifications.Conversion;
+
+namespace Chromatography.RetentionTimePrediction;
 
 public abstract class RetentionTimePredictor : IRetentionTimePredictor
 {

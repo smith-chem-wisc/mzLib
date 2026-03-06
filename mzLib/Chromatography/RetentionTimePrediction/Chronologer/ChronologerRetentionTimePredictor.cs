@@ -1,6 +1,7 @@
-using System.Text.RegularExpressions;
 using TorchSharp;
 using static TorchSharp.torch;
+using Omics;
+using Omics.Modifications.Conversion;
 
 namespace Chromatography.RetentionTimePrediction.Chronologer;
 
@@ -79,64 +80,27 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDispos
     public override string? GetFormattedSequence(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason)
     {
         failureReason = null;
+        var handlingMode = ModHandlingMode.ToSequenceConversionHandlingMode();
 
-        // Get full sequence with mass shifts
-        string workingSequence = peptide.FullSequenceWithMassShifts;
-
-        // Replace mass shifts with chronologer dictionary codes
-        foreach (var (pattern, replacement) in ModificationPatterns)
+        if (peptide is IBioPolymerWithSetMods withSetMods)
         {
-            workingSequence = pattern.Replace(workingSequence, replacement);
+            if (SequenceTargetConverter.TryConvert(withSetMods, SequenceConversionTarget.Chronologer, handlingMode, out var converted, out _))
+            {
+                return converted;
+            }
+
+            failureReason = RetentionTimeFailureReason.IncompatibleModifications;
+            return null;
         }
 
-        // Add N-terminus token
-        workingSequence = AddNTerminusToken(workingSequence);
-
-        // Add C-terminus token
-        workingSequence += "_";
-
-        // At this point we have replaced everything that is chronologer compatible with its chronologer dictionary representation. 
-        // If we have any more [] in the full sequence, it means there are incompatible modifications.
-        if (!workingSequence.Contains('[') && !workingSequence.Contains(']')) 
-            return workingSequence;
-
-        switch (ModHandlingMode)
+        var massShiftSequence = peptide.FullSequenceWithMassShifts;
+        if (ChronologerSequenceFormatter.TryFormatChronologerSequence(peptide.BaseSequence, massShiftSequence, handlingMode, out var formatted, out _))
         {
-            case IncompatibleModHandlingMode.ReturnNull:
-                failureReason = RetentionTimeFailureReason.IncompatibleModifications;
-                return null;
-
-            case IncompatibleModHandlingMode.RemoveIncompatibleMods:
-                // Remove incompatible modification annotations from full sequence
-                var sb = new System.Text.StringBuilder();
-                int i = 0;
-                while (i < workingSequence.Length)
-                {
-                    if (workingSequence[i] == '[')
-                    {
-                        // Found modification
-                        int closeIdx = workingSequence.IndexOf(']', i);
-                        if (closeIdx != -1)
-                        {
-                            // Skip modification annotation
-                            i = closeIdx + 1;
-                            continue;
-                        }
-                    }
-                    // Copy character
-                    sb.Append(workingSequence[i]);
-                    i++;
-                }
-                return sb.ToString();
-
-            // Use base sequence without modifications with default termini
-            case IncompatibleModHandlingMode.UsePrimarySequence:
-                return $"-{peptide.BaseSequence}_";
-
-            case IncompatibleModHandlingMode.ThrowException:
-            default:
-                throw new IncompatibleModificationException(peptide.FullSequence, workingSequence, PredictorName);
+            return formatted;
         }
+
+        failureReason = RetentionTimeFailureReason.IncompatibleModifications;
+        return null;
     }
 
     #region Sequence Encoding 
@@ -152,68 +116,6 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDispos
 
     private static readonly Dictionary<char, int> CodeToInt =
         Residues.Select((c, i) => (c, i + 1)).ToDictionary(t => t.c, t => t.Item2);
-
-    // Compiled regex patterns for performance
-    private static readonly (Regex pattern, string replacement)[] ModificationPatterns = new[]
-    {
-        (new Regex(@"M\[\+15\.99\d*\]", RegexOptions.Compiled), "m"),  // Oxidation on M
-        (new Regex(@"C\[\+57\.02\d*\]", RegexOptions.Compiled), "c"),  // Carbamidomethyl on C
-        (new Regex(@"C\[\+39\.99\d*\]", RegexOptions.Compiled), "d"),  // Alternative C mod
-        (new Regex(@"\[\-18\.01\d*\]E", RegexOptions.Compiled), "e"), // PyroGlu from E (prefix)
-        (new Regex(@"E\[\-18\.01\d*\]", RegexOptions.Compiled), "e"),  // PyroGlu from E (suffix)
-        (new Regex(@"\[\-17\.02\d*\]Q", RegexOptions.Compiled), "e"), // PyroGlu from Q (prefix)
-        (new Regex(@"Q\[\-17\.02\d*\]", RegexOptions.Compiled), "e"),  // PyroGlu from Q (suffix)
-        (new Regex(@"S\[\+79\.96\d*\]", RegexOptions.Compiled), "s"),  // Phosphorylation on S
-        (new Regex(@"T\[\+79\.96\d*\]", RegexOptions.Compiled), "t"),  // Phosphorylation on T
-        (new Regex(@"Y\[\+79\.96\d*\]", RegexOptions.Compiled), "y"),  // Phosphorylation on Y
-        (new Regex(@"K\[\+42\.01\d*\]", RegexOptions.Compiled), "a"),  // Acetylation on K
-        (new Regex(@"K\[\+100\.0\d*\]", RegexOptions.Compiled), "b"),  // Succinylation on K
-        (new Regex(@"K\[\+114\.0\d*\]", RegexOptions.Compiled), "u"),  // Ubiquitination on K
-        (new Regex(@"K\[\+14\.01\d*\]", RegexOptions.Compiled), "n"),  // Methylation on K
-        (new Regex(@"K\[\+28\.03\d*\]", RegexOptions.Compiled), "o"),  // Dimethylation on K
-        (new Regex(@"K\[\+42\.04\d*\]", RegexOptions.Compiled), "p"),  // Trimethylation on K
-        (new Regex(@"R\[\+14\.01\d*\]", RegexOptions.Compiled), "q"),  // Methylation on R
-        (new Regex(@"R\[\+28\.03\d*\]", RegexOptions.Compiled), "r"),  // Dimethylation on R
-        (new Regex(@"K\[\+224\.1\d*\]", RegexOptions.Compiled), "z"),  // GlyGly on K
-        (new Regex(@"K\[\+229\.1\d*\]", RegexOptions.Compiled), "x"),  // Heavy GlyGly on K
-    };
-
-    // N-terminus modification codes
-    private static readonly Dictionary<string, char> NTerminusCodes = new()
-    {
-        { "+42.01", '^' },  // N-term acetylation
-        { "+224.1", '&' },  // N-term GlyGly
-        { "+229.1", '*' }   // N-term heavy GlyGly
-    };
-
-    /// <summary>
-    /// Adds appropriate N-terminus token based on modifications or default state.
-    /// </summary>
-    private static string AddNTerminusToken(string seq)
-    {
-        // Check for PyroGlu at N-terminus
-        if (seq[0] == 'd') // pyroGlu at first position
-            return ")" + seq;
-
-        if (seq[0] == 'e') // cyclized CAM-Cys at first
-            return "(" + seq;
-
-        // Check for N-terminal mass modification
-        if (seq[0] == '[')
-        {
-            // grab [+xx.xx]
-            int close = seq.IndexOf(']');
-
-            string key = seq.Substring(1, 6);
-            if (!NTerminusCodes.TryGetValue(key, out char nterm))
-                nterm = '-'; // Unknown modification - use default
-
-            return nterm + seq.Substring(close + 1);
-        }
-
-        // Free N-terminus
-        return "-" + seq;
-    }
 
     #endregion
 
