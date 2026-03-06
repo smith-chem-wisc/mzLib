@@ -66,7 +66,7 @@ public class SequenceConversionException : Exception
 public sealed class SequenceConverter : ISequenceConverter
 {
     /// <summary>Default number of decimal places when formatting mass shifts.</summary>
-    public const int DefaultMassShiftDecimalPlaces = 4;
+    public const int DefaultMassShiftDecimalPlaces = 6;
     /// <summary>Default sign behavior for formatted mass shifts.</summary>
     public const bool DefaultMassShiftSignedNotation = true;
 
@@ -124,6 +124,8 @@ public sealed class SequenceConverter : ISequenceConverter
 
         var rounded = modification.MonoisotopicMass.Value.RoundedDouble(decimalPlaces) ?? modification.MonoisotopicMass.Value;
         var formatted = rounded.ToString($"F{decimalPlaces}", CultureInfo.InvariantCulture);
+        // remove trailing zeros 
+        formatted = formatted.TrimEnd('0').TrimEnd('.');
 
         if (!signed || rounded < 0)
         {
