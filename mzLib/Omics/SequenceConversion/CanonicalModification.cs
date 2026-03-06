@@ -131,36 +131,6 @@ public readonly record struct CanonicalModification(
             mzLibModification);
     }
 
-    public static CanonicalModification FromUnimod(string originalRepresentation, int residueIndex, ModificationPositionType? positionType = null, char? targetResidue = null)
-    {
-        int modNumber;
-        string fullModString;
-        if (originalRepresentation.Contains("UNIMOD:"))
-        {
-            fullModString = originalRepresentation;
-            modNumber = int.Parse(originalRepresentation.Split("UNIMOD:")[1]);
-        }
-        else
-        {
-            fullModString = $"UNIMOD:{originalRepresentation}";
-            modNumber = int.Parse(originalRepresentation);
-        }
-
-        Modification? unimod = Mods.GetModification(fullModString, ModificationNamingConvention.Unimod);
-
-
-        return new CanonicalModification(
-            positionType ?? ModificationPositionType.Residue, // Default to Residue if we can't resolve
-            residueIndex, // Residue index is not known at this stage
-            targetResidue,
-            originalRepresentation,
-            unimod?.MonoisotopicMass,
-            unimod?.ChemicalFormula,
-            modNumber,
-            fullModString,
-            unimod);
-    }
-
     /// <summary>
     /// Returns true if this modification has mass information available.
     /// </summary>
