@@ -149,17 +149,52 @@ public readonly record struct CanonicalModification(
 
     /// <summary>
     /// Creates a new CanonicalModification with the specified mzLib Modification resolved.
-    /// This is used during enrichment to populate additional fields.
+    /// This is used during enrichment to populate additional fields from the resolved modification,
+    /// including UNIMOD ID extraction from database references.
     /// </summary>
-    public CanonicalModification WithResolvedModification(Modification modification)
+    public CanonicalModification WithResolvedModification(Modification modification, int? residueIndex = null, ModificationPositionType positionType = ModificationPositionType.Residue)
     {
-        return this with
+        // Extract UNIMOD ID from database references if not already set
+        int? resolvedUnimodId = UnimodId;
+        if (!resolvedUnimodId.HasValue && modification.DatabaseReference != null)
         {
-            MzLibModification = modification,
-            MzLibId = modification.IdWithMotif,
-            MonoisotopicMass = MonoisotopicMass ?? modification.MonoisotopicMass,
-            ChemicalFormula = ChemicalFormula ?? modification.ChemicalFormula
-        };
+            if (modification.DatabaseReference.TryGetValue("UNIMOD", out var unimodRefs) && unimodRefs.Count > 0)
+            {
+                // Handle formats like "UNIMOD:35", ":35", or just "35"
+                var unimodRef = unimodRefs[0];
+                var numericPart = unimodRef
+                    .Replace("UNIMOD:", "", StringComparison.OrdinalIgnoreCase)
+                    .Replace(":", "")
+                    .Trim();
+                
+                if (int.TryParse(numericPart, out var parsedId))
+                {
+                    resolvedUnimodId = parsedId;
+                }
+            }
+        }
+
+        // Also try to extract from Accession if still not found
+        if (!resolvedUnimodId.HasValue && 
+            modification.Accession != null && 
+            modification.Accession.StartsWith("UNIMOD:", StringComparison.OrdinalIgnoreCase))
+        {
+            if (int.TryParse(modification.Accession.Substring(7), out var accessionId))
+            {
+                resolvedUnimodId = accessionId;
+            }
+        }
+
+        return new CanonicalModification(
+            positionType,
+            residueIndex,
+            modification.Target.ToString().FirstOrDefault(), // Assuming single-character target, adjust if necessary
+            $"{modification.ModificationType}:{modification.IdWithMotif}", // Keep original representation from source
+            modification.MonoisotopicMass,
+            modification.ChemicalFormula,
+            resolvedUnimodId,
+            modification.IdWithMotif,
+            modification);
     }
 
     /// <summary>
