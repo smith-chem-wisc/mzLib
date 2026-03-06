@@ -188,7 +188,7 @@ namespace Readers
 
             // Parse TMT/isobaric reporter ion columns if present
             Intensities = ParseReporterIonColumns(spl, parsedHeader);
-            CollisionEnergy = (parsedHeader[SpectrumMatchFromTsvHeader.CollisionEnergy] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.CollisionEnergy]].Trim(), CultureInfo.InvariantCulture);
+            CollisionEnergy = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.CollisionEnergy, parsedHeader, spl);
         }
 
         /// <summary>
