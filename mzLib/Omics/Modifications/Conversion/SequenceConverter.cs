@@ -124,8 +124,6 @@ public sealed class SequenceConverter : ISequenceConverter
 
         var rounded = modification.MonoisotopicMass.Value.RoundedDouble(decimalPlaces) ?? modification.MonoisotopicMass.Value;
         var formatted = rounded.ToString($"F{decimalPlaces}", CultureInfo.InvariantCulture);
-        // remove trailing zeros 
-        formatted = formatted.TrimEnd('0').TrimEnd('.');
 
         if (!signed || rounded < 0)
         {

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -90,7 +91,7 @@ public class SequenceConverterTests
             "AC[Common Fixed:Carbamidomethyl on C]DE",
             Mods.AllKnownProteinModsDictionary);
 
-        Assert.That(peptide.FullSequenceWithMassShifts, Does.Contain("[+57.0215]"));
+        Assert.That(peptide.FullSequenceWithMassShifts, Does.Contain("[+57.021464]"));
     }
 
     [Test]
@@ -132,6 +133,51 @@ public class SequenceConverterTests
     }
 
     [Test]
+    public void SequenceConverter_FromMassShiftNotation_ThrowsOnInvalidToken()
+    {
+        var massShift = "AC[abc]DE";
+
+        Assert.That(
+            () => SequenceConverter.FromMassShiftNotation(massShift),
+            Throws.TypeOf<FormatException>());
+    }
+
+    [Test]
+    public void SequenceConverter_FromMassShiftNotation_ThrowsOnMismatchedBaseSequence()
+    {
+        var massShift = "AC[+57.02]DE";
+
+        Assert.That(
+            () => SequenceConverter.FromMassShiftNotation(massShift, baseSequence: "ACDF"),
+            Throws.TypeOf<ArgumentException>());
+    }
+
+    [Test]
+    public void SequenceConverter_FromMassShiftNotation_ThrowsOnAmbiguousMatch()
+    {
+        ModificationMotif.TryGetMotif("X", out var motif);
+        var modA = new Modification(
+            _originalId: "AmbigA",
+            _modificationType: "AmbigA",
+            _target: motif,
+            _monoisotopicMass: 10.0,
+            _chemicalFormula: null);
+        var modB = new Modification(
+            _originalId: "AmbigB",
+            _modificationType: "AmbigB",
+            _target: motif,
+            _monoisotopicMass: 10.0,
+            _chemicalFormula: null);
+
+        var massShift = "A[+10]";
+
+        Assert.That(
+            () => SequenceConverter.FromMassShiftNotation(massShift, candidateMods: new List<Modification> { modA, modB }),
+            Throws.TypeOf<SequenceConversionException>()
+                .With.Property(nameof(SequenceConversionException.Reason)).EqualTo(SequenceConversionFailureReason.AmbiguousEquivalent));
+    }
+
+    [Test]
     public void SequenceConverter_StringConversion_UsesMassShiftFallback()
     {
         ModificationMotif.TryGetMotif("S", out var motif);
@@ -158,6 +204,42 @@ public class SequenceConverterTests
     }
 
     [Test]
+    public void SequenceConverter_StringConversion_UsesPrimarySequenceFallback()
+    {
+        var fullSequence = "AC[Unknown:NotInRegistry]DE";
+
+        var success = SequenceConverter.Default.TryConvertFullSequence(
+            fullSequence,
+            ModificationNamingConvention.Mixed,
+            ModificationNamingConvention.Unimod,
+            SequenceConversionHandlingMode.UsePrimarySequence,
+            out var converted,
+            out var reason);
+
+        Assert.That(success, Is.True);
+        Assert.That(converted, Is.EqualTo("ACDE"));
+        Assert.That(reason, Is.EqualTo(SequenceConversionFailureReason.UsedPrimarySequence));
+    }
+
+    [Test]
+    public void SequenceConverter_StringConversion_ReturnsOriginalOnKeepOriginal()
+    {
+        var fullSequence = "AC[Unknown:NotInRegistry]DE";
+
+        var success = SequenceConverter.Default.TryConvertFullSequence(
+            fullSequence,
+            ModificationNamingConvention.Mixed,
+            ModificationNamingConvention.Unimod,
+            SequenceConversionHandlingMode.KeepOriginalAnnotation,
+            out var converted,
+            out var reason);
+
+        Assert.That(success, Is.True);
+        Assert.That(converted, Is.EqualTo(fullSequence));
+        Assert.That(reason, Is.EqualTo(SequenceConversionFailureReason.IncompatibleModifications));
+    }
+
+    [Test]
     public void SequenceConverter_StringConversion_RoundTripsMetaMorpheus()
     {
         var peptide = new PeptideWithSetModifications(
@@ -180,6 +262,25 @@ public class SequenceConverterTests
             SequenceConversionHandlingMode.UsePrimarySequence);
 
         Assert.That(unimod, Is.Not.Null);
+    }
+
+    [Test]
+    public void SequenceConverter_InvalidTargetConvention_ReturnsFailure()
+    {
+        var peptide = new PeptideWithSetModifications(
+            "AC[Common Fixed:Carbamidomethyl on C]DE",
+            Mods.AllKnownProteinModsDictionary);
+
+        var success = SequenceConverter.Default.TryConvertFullSequence(
+            peptide,
+            ModificationNamingConvention.Mixed,
+            SequenceConversionHandlingMode.ThrowException,
+            out var converted,
+            out var reason);
+
+        Assert.That(success, Is.False);
+        Assert.That(converted, Is.Null);
+        Assert.That(reason, Is.EqualTo(SequenceConversionFailureReason.InvalidTargetConvention));
     }
 
     [Test]
@@ -273,6 +374,31 @@ public class SequenceConverterTests
     }
 
     [Test]
+    public void SequenceConverter_TryConvertModification_ReturnsNullWithReturnNullMode()
+    {
+        ModificationMotif.TryGetMotif("M", out var motif);
+        var customMod = new Modification(
+            _originalId: "ReturnNull",
+            _modificationType: "ReturnNull",
+            _target: motif,
+            _monoisotopicMass: null,
+            _chemicalFormula: null);
+
+        var success = SequenceConverter.Default.TryConvertModification(
+            customMod,
+            "MA",
+            3,
+            ModificationNamingConvention.Unimod,
+            SequenceConversionHandlingMode.ReturnNull,
+            out var converted,
+            out var reason);
+
+        Assert.That(success, Is.False);
+        Assert.That(converted, Is.Null);
+        Assert.That(reason, Is.EqualTo(SequenceConversionFailureReason.ReturnedNull));
+    }
+
+    [Test]
     public void SequenceConverter_TryConvertModificationDefinition_MapsToTargetConvention()
     {
         var source = Mods.ModsByConvention[ModificationNamingConvention.MetaMorpheus]
@@ -286,6 +412,40 @@ public class SequenceConverterTests
         Assert.That(success, Is.True);
         Assert.That(converted, Is.Not.Null);
         Assert.That(converted!.ModificationType, Is.EqualTo("Unimod"));
+    }
+
+    [Test]
+    public void SequenceConverter_ConvertModificationDefinition_ThrowsWhenMissing()
+    {
+        ModificationMotif.TryGetMotif("M", out var motif);
+        var customMod = new Modification(
+            _originalId: "NoEquiv",
+            _modificationType: "NoEquiv",
+            _target: motif,
+            _monoisotopicMass: null,
+            _chemicalFormula: null);
+
+        Assert.That(
+            () => SequenceConverter.Default.ConvertModificationDefinition(customMod, ModificationNamingConvention.Unimod),
+            Throws.TypeOf<SequenceConversionException>()
+                .With.Property(nameof(SequenceConversionException.Reason)).EqualTo(SequenceConversionFailureReason.NoEquivalent));
+    }
+
+    [Test]
+    public void SequenceConverter_ConvertModification_ThrowsWhenMissing()
+    {
+        ModificationMotif.TryGetMotif("M", out var motif);
+        var customMod = new Modification(
+            _originalId: "NoEquivMod",
+            _modificationType: "NoEquivMod",
+            _target: motif,
+            _monoisotopicMass: null,
+            _chemicalFormula: null);
+
+        Assert.That(
+            () => SequenceConverter.Default.ConvertModification(customMod, "MA", 3, ModificationNamingConvention.Unimod),
+            Throws.TypeOf<SequenceConversionException>()
+                .With.Property(nameof(SequenceConversionException.Reason)).EqualTo(SequenceConversionFailureReason.NoEquivalent));
     }
 
     [Test]
