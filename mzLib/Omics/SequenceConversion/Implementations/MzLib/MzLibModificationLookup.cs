@@ -14,6 +14,7 @@ public class MzLibModificationLookup : ModificationLookupBase
     private readonly bool _searchProteinMods;
     private readonly bool _searchRnaMods;
     private readonly double _massTolerance;
+    private readonly ModificationNamingConvention _conventionForLookup;
 
     /// <summary>
     /// Singleton instance that searches both protein and RNA modifications.
@@ -41,6 +42,11 @@ public class MzLibModificationLookup : ModificationLookupBase
         _searchProteinMods = searchProteinMods;
         _searchRnaMods = searchRnaMods;
         _massTolerance = massTolerance;
+        _conventionForLookup = searchProteinMods
+            ? searchRnaMods
+                ? ModificationNamingConvention.MetaMorpheus
+                : ModificationNamingConvention.MetaMorpheus_Protein
+            : ModificationNamingConvention.MetaMorpheus_Rna;
     }
 
     /// <inheritdoc />
@@ -53,7 +59,7 @@ public class MzLibModificationLookup : ModificationLookupBase
 
         // Try to resolve by mzLib ID if available
         if (!string.IsNullOrEmpty(mod.MzLibId))
-            toReturn = Mods.GetModification(mod.MzLibId, _searchProteinMods, _searchRnaMods);
+            toReturn = Mods.GetModification(mod.MzLibId, _conventionForLookup);
 
         return toReturn;
     }
@@ -65,7 +71,7 @@ public class MzLibModificationLookup : ModificationLookupBase
             return null;
 
         // Try exact match first (IdWithMotif)
-        var mod = Mods.GetModification(name, _searchProteinMods, _searchRnaMods);
+        var mod = Mods.GetModification(name, _conventionForLookup);
         if (mod != null)
             return mod;
 

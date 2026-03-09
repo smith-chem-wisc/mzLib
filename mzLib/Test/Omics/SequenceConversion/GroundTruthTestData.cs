@@ -1,5 +1,4 @@
 using System.Linq;
-using Omics.SequenceConversion;
 
 namespace Test.Omics.SequenceConversion
 {

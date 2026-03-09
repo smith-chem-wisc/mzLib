@@ -7,6 +7,7 @@ public enum ModificationNamingConvention
 {
     MetaMorpheus, 
     MetaMorpheus_Rna, 
+    MetaMorpheus_Protein, 
     UniProt, 
     Unimod,
     Mixed
@@ -33,6 +34,7 @@ public static class Mods
             .ToDictionary(m => m.IdWithMotif);
 
         // Combine protein and RNA mods, with Protein mods taking precedence in case of conflicts
+        MetaMorpheusModifications = MetaMorpheusProteinModifications.Concat(MetaMorpheusRnaModifications).ToList();
         AllKnownMods = AllProteinModsList.Concat(AllRnaModsList).ToList();
         AllModsKnownDictionary = new Dictionary<string, Modification>(AllKnownRnaModsDictionary);
         foreach (var kvp in AllKnownProteinModsDictionary)
@@ -42,7 +44,8 @@ public static class Mods
 
         ModsByConvention = new Dictionary<ModificationNamingConvention, List<Modification>>
         {
-            { ModificationNamingConvention.MetaMorpheus, MetaMorpheusProteinModifications},
+            { ModificationNamingConvention.MetaMorpheus, MetaMorpheusModifications},
+            { ModificationNamingConvention.MetaMorpheus_Protein, MetaMorpheusProteinModifications},
             { ModificationNamingConvention.MetaMorpheus_Rna, MetaMorpheusRnaModifications },
             { ModificationNamingConvention.UniProt, UniprotModifications},
             { ModificationNamingConvention.Unimod, UnimodModifications },
@@ -53,6 +56,7 @@ public static class Mods
     #region Public Properties
     public static List<Modification> UniprotModifications { get; private set; } = [];
     public static List<Modification> MetaMorpheusProteinModifications { get; private set; } = [];
+    public static List<Modification> MetaMorpheusModifications { get; private set; } = [];
     public static List<Modification> UnimodModifications { get; private set; } = [];
 
     /// <summary>

@@ -22,7 +22,7 @@ public static class ModificationTest
         List<ModificationTestCase> testCases =
         [
             new (Mods.AllKnownProteinModsDictionary["DVFQQQTGG (SUMO-2/3 Site human) on D"], ModificationNamingConvention.MetaMorpheus, true),
-            new (Mods.AllKnownProteinModsDictionary["Phosphorylation on T"], ModificationNamingConvention.MetaMorpheus, true),
+            new (Mods.AllKnownProteinModsDictionary["Phosphorylation on T"], ModificationNamingConvention.MetaMorpheus_Protein, true),
             new (Mods.AllKnownRnaModsDictionary["MethoxyEthoxylation on G"], ModificationNamingConvention.MetaMorpheus_Rna, false),
             new (Mods.AllKnownProteinModsDictionary["(3S)-3-hydroxyaspartate on D"], ModificationNamingConvention.UniProt, true),
             new (Mods.AllKnownProteinModsDictionary["ICAT-D:2H(8) on C"], ModificationNamingConvention.Unimod, true),
