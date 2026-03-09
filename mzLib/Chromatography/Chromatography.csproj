@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
+    <ProjectReference Include="..\Omics\Omics.csproj" />
   </ItemGroup>
 
 </Project>

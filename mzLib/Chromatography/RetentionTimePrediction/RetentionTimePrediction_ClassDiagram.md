@@ -23,7 +23,7 @@ classDiagram
 
     class RetentionTimePredictor {
         <<abstract>>
-        +ModHandlingMode IncompatibleModHandlingMode
+        +SequenceHandlingMode SequenceConversionHandlingMode
         #MinSequenceLength int
         #MaxSequenceLength int
         +PredictRetentionTime(peptide) double?
@@ -78,9 +78,9 @@ classDiagram
     }
 
     %% Enums
-    class IncompatibleModHandlingMode {
+    class SequenceConversionHandlingMode {
         <<enumeration>>
-        RemoveIncompatibleMods
+        RemoveIncompatibleElements
         UsePrimarySequence
         ThrowException
         ReturnNull
@@ -99,7 +99,7 @@ classDiagram
     RetentionTimePredictor <|-- CZEPredictor
     
     IRetentionTimePredictor ..> IRetentionPredictable : predicts
-    RetentionTimePredictor ..> IncompatibleModHandlingMode : uses
+    RetentionTimePredictor ..> SequenceConversionHandlingMode : uses
     RetentionTimePredictor ..> SeparationType : uses
     
     SSRCalc3Predictor *-- SSRCalc3
@@ -129,7 +129,7 @@ classDiagram
 
 | Mode | Behavior |
 |------|----------|
-| **RemoveIncompatibleMods** | Strip unsupported modifications, predict with remaining |
+| **RemoveIncompatibleElements** | Strip unsupported annotations/modifications, predict with remaining |
 | **UsePrimarySequence** | Ignore all modifications, use base sequence only |
 | **ThrowException** | Fail with descriptive error |
 | **ReturnNull** | Return null if incompatible modifications present |
@@ -170,11 +170,11 @@ RetentionTimePredictor.PredictRetentionTime():
 
 ### Strategy (Enum-based)
 ```
-IncompatibleModHandlingMode determines behavior:
-  - RemoveIncompatibleMods → Filter and predict
-  - UsePrimarySequence     → Use base only
-  - ThrowException         → Fail explicitly  
-  - ReturnNull             → Silent failure
+SequenceConversionHandlingMode determines behavior:
+  - RemoveIncompatibleElements → Filter/remove unsupported details
+  - UsePrimarySequence         → Use base only
+  - ThrowException             → Fail explicitly  
+  - ReturnNull                 → Silent failure
 ```
 
 ## Extension Guide

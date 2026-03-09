@@ -35,12 +35,13 @@ public class SequenceConversionService : ISequenceConversionService
     {
         var service = new SequenceConversionService();
 
-        // Register mzLib format (parser + serializer)
+        // Register mzLib format
         service.RegisterParser(MzLibSequenceParser.Instance);
         service.RegisterSerializer(MzLibSequenceSerializer.Instance);
 
-        // Register mass shift format (parser only - serialization would require conversion)
+        // Register mass shift format
         service.RegisterParser(MassShiftSequenceParser.Instance);
+        service.RegisterSerializer(MassShiftSequenceSerializer.Instance);
 
         // Register Chronologer format (serializer only - it's one-way)
         service.RegisterSerializer(ChronologerSequenceSerializer.Instance);

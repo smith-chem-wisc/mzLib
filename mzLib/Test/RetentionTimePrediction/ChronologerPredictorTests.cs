@@ -11,6 +11,7 @@ using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Omics.SequenceConversion;
 
 namespace Test.RetentionTimePrediction
 {
@@ -26,7 +27,7 @@ namespace Test.RetentionTimePrediction
         [SetUp]
         public void Setup()
         {
-            _predictor = new ChronologerRetentionTimePredictor(IncompatibleModHandlingMode.RemoveIncompatibleMods);
+            _predictor = new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.RemoveIncompatibleElements);
         }
 
         [TearDown]
@@ -50,7 +51,7 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void Constructor_WithMode_CreatesPredictor()
         {
-            using var predictor = new ChronologerRetentionTimePredictor(IncompatibleModHandlingMode.ThrowException);
+            using var predictor = new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.ThrowException);
             
             Assert.That(predictor, Is.Not.Null);
         }
@@ -218,7 +219,7 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void PredictRetentionTime_IncompatibleMod_RemoveMode_ReturnsValue()
         {
-            using var predictor = new ChronologerRetentionTimePredictor(IncompatibleModHandlingMode.RemoveIncompatibleMods);
+            using var predictor = new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.RemoveIncompatibleElements);
             
             // Create a peptide with an unsupported modification
             var mods = new Dictionary<string, Modification>
@@ -236,7 +237,7 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void PredictRetentionTime_IncompatibleMod_UsePrimaryMode_ReturnsValue()
         {
-            using var predictor = new ChronologerRetentionTimePredictor(IncompatibleModHandlingMode.UsePrimarySequence);
+            using var predictor = new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.UsePrimarySequence);
             
             var mods = new Dictionary<string, Modification>
             {
@@ -253,7 +254,7 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void PredictRetentionTime_IncompatibleMod_ReturnNullMode_ReturnsNull()
         {
-            using var predictor = new ChronologerRetentionTimePredictor(IncompatibleModHandlingMode.ReturnNull);
+            using var predictor = new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.ReturnNull);
             
             var mods = new Dictionary<string, Modification>
             {
@@ -270,7 +271,7 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void PredictRetentionTime_IncompatibleMod_ThrowMode_ThrowsException()
         {
-            using var predictor = new ChronologerRetentionTimePredictor(IncompatibleModHandlingMode.ThrowException);
+            using var predictor = new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.ThrowException);
             
             var mods = new Dictionary<string, Modification>
             {
@@ -345,7 +346,7 @@ namespace Test.RetentionTimePrediction
             {
                 { "Acetylation on X", ModificationConverter.AllModsKnown["Acetylation on X"] }
             };
-            var peptide = new PeptideWithSetModifications("[Acetylation on X]-PEPTIDE", mods);
+            var peptide = new PeptideWithSetModifications("[Acetylation on X]PEPTIDE", mods);
             
             var formatted = _predictor.GetFormattedSequence(peptide, out var failureReason);
             
