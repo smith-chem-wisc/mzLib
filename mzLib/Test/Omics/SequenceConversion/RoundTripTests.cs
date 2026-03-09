@@ -11,17 +11,13 @@ namespace Test.Omics.SequenceConversion
     public class RoundTripTests
     {
         private MzLibSequenceParser _mzLibParser;
-        private MassShiftSequenceParser _massShiftParser;
         private MzLibSequenceSerializer _mzLibSerializer;
-        private ChronologerSequenceSerializer _chronologerSerializer;
 
         [SetUp]
         public void Setup()
         {
             _mzLibParser = new MzLibSequenceParser();
-            _massShiftParser = new MassShiftSequenceParser();
             _mzLibSerializer = new MzLibSequenceSerializer();
-            _chronologerSerializer = new ChronologerSequenceSerializer();
         }
 
         [Test]

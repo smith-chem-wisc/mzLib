@@ -18,19 +18,13 @@ public static class BioPolymerWithSetModsExtensions
     /// <param name="lookup">Optional modification lookup to resolve modifications that don't have mass information.</param>
     /// <param name="decimalPlaces">Number of decimal places for mass values (default: 6).</param>
     /// <returns>The sequence with mass shifts in bracket notation.</returns>
-    public static string FullSequenceWithMassShift(this IBioPolymerWithSetMods withSetMods, 
-        IModificationLookup? lookup = null, 
-        int decimalPlaces = 6)
+    public static string FullSequenceWithMassShift(this IBioPolymerWithSetMods withSetMods)
     {
         // Convert to canonical sequence using the extension method
         var canonical = withSetMods.ToCanonicalSequenceBuilder().Build();
 
-        // Create serializer with optional lookup and schema
-        var schema = new MassShiftSequenceFormatSchema(decimalPlaces);
-        var serializer = new MassShiftSequenceSerializer(schema, lookup);
-
         // Serialize to mass shift format
-        var result = serializer.Serialize(canonical);
+        var result = MassShiftSequenceSerializer.Instance.Serialize(canonical);
 
         // Should never be null since we're using ThrowException mode by default
         return result ?? throw new InvalidOperationException("Failed to serialize sequence to mass shift format.");

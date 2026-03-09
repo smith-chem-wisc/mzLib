@@ -1,7 +1,7 @@
 using Chemistry;
 using Omics.Modifications;
 
-namespace Omics.SequenceConversion.Implementations.BaseClasses;
+namespace Omics.SequenceConversion;
 
 /// <summary>
 /// Base class for modification lookups providing shared resolution logic.
@@ -23,14 +23,14 @@ public abstract class ModificationLookupBase : IModificationLookup
         var resolved = TryResolvePrimary(mod);
         if (resolved != null)
         {
-            return mod.WithResolvedModification(resolved);
+            return mod.WithResolvedModification(resolved, mod.ResidueIndex, mod.PositionType);
         }
 
         // Try to resolve by original representation
         var byName = TryResolveByName(mod.OriginalRepresentation, mod.TargetResidue);
         if (byName != null)
         {
-            return mod.WithResolvedModification(byName);
+            return mod.WithResolvedModification(byName, mod.ResidueIndex, mod.PositionType);
         }
 
         // Try chemical formula fallback
@@ -39,7 +39,7 @@ public abstract class ModificationLookupBase : IModificationLookup
             var formulaMatch = TryResolveByFormula(mod.ChemicalFormula, mod.TargetResidue);
             if (formulaMatch != null)
             {
-                return mod.WithResolvedModification(formulaMatch);
+                return mod.WithResolvedModification(formulaMatch, mod.ResidueIndex, mod.PositionType);
             }
         }
 
@@ -49,7 +49,7 @@ public abstract class ModificationLookupBase : IModificationLookup
             var massMatch = TryResolveByMass(mod.MonoisotopicMass.Value, mod.TargetResidue);
             if (massMatch != null)
             {
-                return mod.WithResolvedModification(massMatch);
+                return mod.WithResolvedModification(massMatch, mod.ResidueIndex, mod.PositionType);
             }
         }
 

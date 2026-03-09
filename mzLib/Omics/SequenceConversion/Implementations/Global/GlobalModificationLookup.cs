@@ -1,6 +1,5 @@
 using Chemistry;
 using Omics.Modifications;
-using Omics.SequenceConversion.Implementations.BaseClasses;
 
 namespace Omics.SequenceConversion;
 
@@ -40,10 +39,17 @@ public class GlobalModificationLookup : ModificationLookupBase
             toReturn = Mods.GetModification(mod.MzLibId, ModificationNamingConvention.Mixed);
 
         // Try to resolve by UNIMOD ID if available
+        // UNIMOD IDs are stored in DatabaseReference["Unimod"] as just the numeric ID
         if (toReturn == null && mod.UnimodId.HasValue)
         {
-            var lookupId = $"UNIMOD:{mod.UnimodId.Value}";
-            toReturn = Mods.GetModification(lookupId, ModificationNamingConvention.Mixed);
+            var unimodIdString = mod.UnimodId.Value.ToString();
+            var candidates = Mods.AllKnownMods.Where(m =>
+                m.DatabaseReference != null &&
+                m.DatabaseReference.TryGetValue("Unimod", out var ids) &&
+                ids.Contains(unimodIdString));
+            
+            // Prefer modification matching the target residue if specified
+            toReturn = SelectWithResiduePreference(candidates, mod.TargetResidue);
         }
 
         return toReturn;
@@ -55,10 +61,22 @@ public class GlobalModificationLookup : ModificationLookupBase
         if (string.IsNullOrWhiteSpace(name))
             return null;
 
-        // Try exact match first using AllModsKnownDictionary
-        if (Mods.AllModsKnownDictionary.TryGetValue(name, out var mod))
+        var mod = Mods.GetModification(name, ModificationNamingConvention.Mixed);
+        if (mod != null)
             return mod;
 
+        // Try exact match first using AllModsKnownDictionary
+        if (Mods.AllModsKnownDictionary.TryGetValue(name, out mod))
+            return mod;
+
+        // Try adding motif suffix if target residue is known
+        if (targetResidue.HasValue)
+        {
+            var withMotif = $"{name} on {targetResidue.Value}";
+            mod = Mods.GetModification(withMotif, ModificationNamingConvention.Mixed);
+            if (mod != null)
+                return mod;
+        }
         // Try with ModificationType prefix
         mod = Mods.AllKnownMods.FirstOrDefault(m => $"{m.ModificationType}:{m.IdWithMotif}" == name);
         if (mod != null)
