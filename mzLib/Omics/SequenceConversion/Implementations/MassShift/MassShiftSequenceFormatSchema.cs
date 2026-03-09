@@ -28,14 +28,24 @@ namespace Omics.SequenceConversion;
 public sealed class MassShiftSequenceFormatSchema : SequenceFormatSchema
 {
     /// <summary>
-    /// Singleton instance of the mass shift schema.
+    /// Singleton instance of the mass shift schema with default settings (6 decimal places).
     /// </summary>
     public static readonly MassShiftSequenceFormatSchema Instance = new();
 
     /// <summary>
-    /// Private constructor to enforce singleton pattern.
+    /// Creates a new mass shift schema with the specified number of decimal places.
     /// </summary>
-    private MassShiftSequenceFormatSchema() { }
+    /// <param name="decimalPlaces">Number of decimal places to use for mass values (default: 6).</param>
+    public MassShiftSequenceFormatSchema(int decimalPlaces = 6) 
+    {
+        DecimalPlaces = decimalPlaces;
+    }
+
+    /// <summary>
+    /// Number of decimal places to use when formatting mass shift values.
+    /// Default is 6 to match the precision used throughout mzLib.
+    /// </summary>
+    public int DecimalPlaces { get; init; }
 
     /// <inheritdoc />
     public override string FormatName => "MassShift";

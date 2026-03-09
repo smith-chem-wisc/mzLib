@@ -109,7 +109,7 @@ public static class ModificationTest
         Assert.That(mod, Is.EqualTo(testCase.Modification));
 
         ModificationNamingConvention wrongConvention;
-        if (testCase.Convention == ModificationNamingConvention.MetaMorpheus)
+        if (testCase.Convention.ToString().Contains("MetaMor", StringComparison.OrdinalIgnoreCase))
             wrongConvention = ModificationNamingConvention.UniProt;
         else
             wrongConvention = ModificationNamingConvention.MetaMorpheus;

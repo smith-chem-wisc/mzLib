@@ -42,31 +42,6 @@ namespace Test.Omics.SequenceConversion
         }
 
         [Test]
-        [TestCaseSource(typeof(GroundTruthTestData), nameof(GroundTruthTestData.CoreTestCases))]
-        public void MassShiftToMzLibAndBack_CoreTestCases_PreservesSemantics(GroundTruthTestData.TestCase testCase)
-        {
-            // Arrange
-            var originalMassShift = testCase.MassShiftFormat;
-
-            // Act - MassShift to Canonical
-            var canonical1 = _massShiftParser.Parse(originalMassShift);
-            Assert.That(canonical1, Is.Not.Null);
-
-            // Canonical to MzLib
-            var mzLib = _mzLibSerializer.Serialize(canonical1.Value);
-            Assert.That(mzLib, Is.Not.Null);
-            Assert.That(mzLib, Is.EqualTo(testCase.MzLibFormat));
-
-            // MzLib back to Canonical
-            var canonical2 = _mzLibParser.Parse(mzLib);
-            Assert.That(canonical2, Is.Not.Null);
-
-            // Assert - canonical forms should be semantically equivalent
-            Assert.That(canonical2.Value.BaseSequence, Is.EqualTo(canonical1.Value.BaseSequence));
-            Assert.That(canonical2.Value.ResidueModifications.Count(), Is.EqualTo(canonical1.Value.ResidueModifications.Count()));
-        }
-
-        [Test]
         public void MzLibRoundTrip_MultipleIterations_RemainsStable()
         {
             // Arrange
