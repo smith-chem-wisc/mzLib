@@ -11,6 +11,9 @@ namespace Chromatography.RetentionTimePrediction.Chronologer;
 public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDisposable
 {
     private static readonly SequenceConversionService ConversionService = SequenceConversionService.Default;
+    private static readonly string ChronologerFormatName = ChronologerSequenceFormatSchema.Instance.FormatName;
+    private static readonly string MzLibFormatName = MzLibSequenceFormatSchema.Instance.FormatName;
+    private static readonly string MassShiftFormatName = MassShiftSequenceFormatSchema.Instance.FormatName;
 
     private readonly Chronologer _model;
     private readonly object _modelLock = new(); 
@@ -81,39 +84,78 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDispos
     {
         failureReason = null;
 
-        var sourceSequence = !string.IsNullOrWhiteSpace(peptide.FullSequence)
-            ? peptide.FullSequence
-            : peptide.FullSequenceWithMassShifts;
-
-        var warnings = new ConversionWarnings();
+        var candidates = new (string? Sequence, string? ForcedFormat)[]
+        {
+            (peptide.FullSequence, null),
+            (peptide.FullSequenceWithMassShifts, MassShiftFormatName),
+            (peptide.BaseSequence, MzLibFormatName)
+        };
 
         try
         {
-            var inFormat = ConversionService.DetectFormat(sourceSequence) ?? MzLibSequenceFormatSchema.Instance.FormatName;
-            var formatted = ConversionService.Convert(sourceSequence, inFormat, ChronologerSequenceFormatSchema.Instance.FormatName, warnings, SequenceHandlingMode);
-            if (formatted == null)
+            foreach (var (sequence, forcedFormat) in candidates)
             {
-                var mappedReason = MapFailureReason(warnings.FailureReason);
-                if (!mappedReason.HasValue && SequenceHandlingMode == SequenceConversionHandlingMode.ReturnNull)
+                if (string.IsNullOrWhiteSpace(sequence))
+                    continue;
+
+                var attemptWarnings = new ConversionWarnings();
+
+                var sourceFormat = forcedFormat
+                    ?? ConversionService.DetectFormat(sequence!)
+                    ?? MzLibFormatName;
+
+                var formatted = ConversionService.Convert(
+                    sequence!,
+                    sourceFormat,
+                    ChronologerFormatName,
+                    attemptWarnings,
+                    SequenceHandlingMode);
+
+                if (formatted != null)
                 {
-                    mappedReason = RetentionTimeFailureReason.IncompatibleModifications;
+                    return formatted;
                 }
 
-                failureReason = mappedReason;
+                var mappedReason = MapFailureReason(attemptWarnings.FailureReason)
+                    ?? (SequenceHandlingMode == SequenceConversionHandlingMode.ReturnNull
+                        ? RetentionTimeFailureReason.IncompatibleModifications
+                        : null);
 
                 if (SequenceHandlingMode == SequenceConversionHandlingMode.UsePrimarySequence)
+                {
+                    failureReason = mappedReason;
                     return FormatPrimarySequence(peptide.BaseSequence);
-            }
+                }
 
-            return formatted;
+                if (SequenceHandlingMode == SequenceConversionHandlingMode.ReturnNull)
+                {
+                    failureReason = mappedReason ?? RetentionTimeFailureReason.IncompatibleModifications;
+                    return null;
+                }
+
+                failureReason ??= mappedReason;
+            }
         }
         catch (SequenceConversionException ex)
         {
             HandleConversionException(peptide, ex, ref failureReason);
-            return SequenceHandlingMode == SequenceConversionHandlingMode.UsePrimarySequence
-                ? FormatPrimarySequence(peptide.BaseSequence)
-                : null;
+
+            if (SequenceHandlingMode == SequenceConversionHandlingMode.UsePrimarySequence)
+                return FormatPrimarySequence(peptide.BaseSequence);
+
+            return null;
         }
+
+        failureReason ??= SequenceHandlingMode == SequenceConversionHandlingMode.ReturnNull
+            ? RetentionTimeFailureReason.IncompatibleModifications
+            : RetentionTimeFailureReason.PredictionError;
+
+        if (SequenceHandlingMode == SequenceConversionHandlingMode.UsePrimarySequence)
+        {
+            return FormatPrimarySequence(peptide.BaseSequence);
+        }
+
+        return null;
     }
 
     private void HandleConversionException(IRetentionPredictable peptide, SequenceConversionException exception, ref RetentionTimeFailureReason? failureReason)

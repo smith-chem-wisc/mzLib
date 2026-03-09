@@ -26,7 +26,7 @@ public class MzLibSequenceSerializer : SequenceSerializerBase
     /// <param name="lookup">Optional modification lookup to resolve modifications.</param>
     public MzLibSequenceSerializer(IModificationLookup? lookup = null)
     {
-        _lookup = lookup;
+        _lookup = lookup ?? GlobalModificationLookup.Instance;
     }
 
     /// <inheritdoc />

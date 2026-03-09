@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text;
 
 
@@ -29,6 +30,8 @@ public class ChronologerSequenceSerializer : ISequenceSerializer
     public SequenceFormatSchema Schema => ChronologerSequenceFormatSchema.Instance;
 
     #region Modification Mappings
+
+    private static readonly IModificationLookup ModificationLookup = GlobalModificationLookup.Instance;
 
     /// <summary>
     /// Maps UNIMOD IDs to Chronologer codes per target residue.
@@ -190,6 +193,8 @@ public class ChronologerSequenceSerializer : ISequenceSerializer
             }
         }
 
+        sequence = EnrichSequence(sequence);
+
         try
         {
             return SerializeInternal(sequence, warnings, mode);
@@ -278,6 +283,54 @@ public class ChronologerSequenceSerializer : ISequenceSerializer
         sb.Append(ChronologerSequenceFormatSchema.CTerminus);
 
         return sb.ToString();
+    }
+
+    private static CanonicalSequence EnrichSequence(CanonicalSequence sequence)
+    {
+        if (!sequence.HasModifications || ModificationLookup == null)
+            return sequence;
+
+        var modifications = sequence.Modifications;
+        var updated = new CanonicalModification[modifications.Length];
+        var changed = false;
+
+        for (int i = 0; i < modifications.Length; i++)
+        {
+            var mod = modifications[i];
+            var enriched = mod;
+
+            if (NeedsResolution(mod))
+            {
+                var resolved = ModificationLookup.TryResolve(mod);
+                if (resolved.HasValue)
+                {
+                    enriched = resolved.Value with
+                    {
+                        PositionType = mod.PositionType,
+                        ResidueIndex = mod.ResidueIndex,
+                        TargetResidue = mod.TargetResidue ?? resolved.Value.TargetResidue
+                    };
+
+                    if (!enriched.Equals(mod))
+                        changed = true;
+                }
+            }
+
+            updated[i] = enriched;
+        }
+
+        return changed ? sequence.WithModifications(updated) : sequence;
+    }
+
+    private static bool NeedsResolution(CanonicalModification modification)
+    {
+        if (!string.IsNullOrEmpty(modification.MzLibId)
+            && (modification.UnimodId == null || !modification.HasMass || !modification.IsResolved))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>
