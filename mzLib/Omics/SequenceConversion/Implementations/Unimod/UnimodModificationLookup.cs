@@ -1,4 +1,5 @@
-using Chemistry;
+using System;
+using System.Collections.Generic;
 using Omics.Modifications;
 
 namespace Omics.SequenceConversion.Implementations.Unimod;
@@ -14,6 +15,16 @@ public class UnimodModificationLookup : ModificationLookupBase
     /// </summary>
     public static UnimodModificationLookup Instance { get; } = new();
 
+    public UnimodModificationLookup()
+        : base(
+            conventionForLookup: ModificationNamingConvention.Unimod,
+            searchProteinMods: true,
+            searchRnaMods: false,
+            massTolerance: null,
+            candidateSet: Mods.UnimodModifications)
+    {
+    }
+
     /// <inheritdoc />
     public override string Name => "UNIMOD";
 
@@ -23,47 +34,38 @@ public class UnimodModificationLookup : ModificationLookupBase
         // Try to resolve by UNIMOD ID if available
         if (mod.UnimodId.HasValue)
         {
-            var lookupId = $"UNIMOD:{mod.UnimodId.Value}";
-            return Mods.GetModification(lookupId, ModificationNamingConvention.Unimod);
+            return ResolveByIdentifier($"UNIMOD:{mod.UnimodId.Value}");
         }
 
         return null;
     }
 
-    /// <inheritdoc />
-    protected override Modification? TryResolveByName(string name, char? targetResidue)
+    protected override string NormalizeRepresentation(string representation)
     {
-        if (string.IsNullOrWhiteSpace(name))
-            return null;
+        var normalized = base.NormalizeRepresentation(representation);
+        if (string.IsNullOrEmpty(normalized))
+            return normalized;
 
-        string lookupId;
-
-        if (name.Contains("UNIMOD:", StringComparison.OrdinalIgnoreCase))
+        var index = normalized.IndexOf("UNIMOD:", StringComparison.OrdinalIgnoreCase);
+        if (index >= 0)
         {
-            // Already in UNIMOD format
-            lookupId = name;
-        }
-        else if (int.TryParse(name, out _))
-        {
-            // Numeric ID only - convert to UNIMOD format
-            lookupId = $"UNIMOD:{name}";
-        }
-        else
-        {
-            // Try as a modification name
-            lookupId = name;
+            var id = normalized.Substring(index + 7).Trim();
+            return string.IsNullOrEmpty(id) ? normalized : $"UNIMOD:{id}";
         }
 
-        return Mods.GetModification(lookupId, ModificationNamingConvention.Unimod);
+        if (int.TryParse(normalized, out _))
+        {
+            return $"UNIMOD:{normalized}";
+        }
+
+        return normalized;
     }
 
-    /// <inheritdoc />
-    protected override Modification? TryResolveByFormula(ChemicalFormula formula, char? targetResidue)
+    protected override IEnumerable<string> ExpandNameCandidates(string normalizedRepresentation, char? targetResidue)
     {
-        // Search UNIMOD modifications for a formula match
-        var candidates = Mods.UnimodModifications
-            .Where(m => m.ChemicalFormula != null && m.ChemicalFormula.Equals(formula));
+        if (string.IsNullOrEmpty(normalizedRepresentation))
+            yield break;
 
-        return SelectWithResiduePreference(candidates, targetResidue);
+        yield return normalizedRepresentation;
     }
 }

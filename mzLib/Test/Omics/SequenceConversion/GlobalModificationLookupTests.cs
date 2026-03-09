@@ -431,8 +431,8 @@ namespace Test.Omics.SequenceConversion
         {
             // Arrange - C-terminal amidation
             var mod = CanonicalModification.AtCTerminus(
-                originalRepresentation: "Water Loss on D",
-                mzLibId: "Water Loss on D");
+                originalRepresentation: "Less Common:Water loss on D",
+                mzLibId: "Water loss on D");
 
             // Act
             var result = _lookup.TryResolve(mod);
@@ -484,7 +484,6 @@ namespace Test.Omics.SequenceConversion
 
             // Assert
             Assert.That(result, Is.Null);
-            Assert.That(result.Value.IsResolved, Is.False);
         }
 
         [Test]

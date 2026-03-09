@@ -1,4 +1,3 @@
-using Chemistry;
 using Omics.Modifications;
 
 namespace Omics.SequenceConversion;
@@ -10,10 +9,6 @@ namespace Omics.SequenceConversion;
 /// </summary>
 public class MzLibModificationLookup : ModificationLookupBase
 {
-    private readonly bool _searchProteinMods;
-    private readonly bool _searchRnaMods;
-    private readonly double _massTolerance;
-    private readonly ModificationNamingConvention _conventionForLookup;
 
     /// <summary>
     /// Singleton instance that searches both protein and RNA modifications.
@@ -37,15 +32,13 @@ public class MzLibModificationLookup : ModificationLookupBase
     /// <param name="searchRnaMods">Whether to search RNA modifications.</param>
     /// <param name="massTolerance">Tolerance for mass-based matching in Daltons.</param>
     public MzLibModificationLookup(bool searchProteinMods = true, bool searchRnaMods = true, double massTolerance = 0.001)
+        : base(
+            conventionForLookup: DetermineConvention(searchProteinMods, searchRnaMods),
+            searchProteinMods: searchProteinMods,
+            searchRnaMods: searchRnaMods,
+            massTolerance: massTolerance,
+            candidateSet: null)
     {
-        _searchProteinMods = searchProteinMods;
-        _searchRnaMods = searchRnaMods;
-        _massTolerance = massTolerance;
-        _conventionForLookup = searchProteinMods
-            ? searchRnaMods
-                ? ModificationNamingConvention.MetaMorpheus
-                : ModificationNamingConvention.MetaMorpheus_Protein
-            : ModificationNamingConvention.MetaMorpheus_Rna;
     }
 
     /// <inheritdoc />
@@ -54,64 +47,15 @@ public class MzLibModificationLookup : ModificationLookupBase
     /// <inheritdoc />
     protected override Modification? TryResolvePrimary(CanonicalModification mod)
     {
-        Modification? toReturn = null;
-
-        // Try to resolve by mzLib ID if available
-        if (!string.IsNullOrEmpty(mod.MzLibId))
-            toReturn = Mods.GetModification(mod.MzLibId, _conventionForLookup);
-
-        return toReturn;
+        return !string.IsNullOrEmpty(mod.MzLibId)
+            ? ResolveByIdentifier(mod.MzLibId)
+            : null;
     }
 
-    /// <inheritdoc />
-    protected override Modification? TryResolveByName(string name, char? targetResidue)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-            return null;
-
-        // Try exact match first (IdWithMotif)
-        var mod = Mods.GetModification(name, _conventionForLookup);
-        if (mod != null)
-            return mod;
-
-        // Try adding motif suffix if target residue is known
-        if (targetResidue.HasValue)
-        {
-            var withMotif = $"{name} on {targetResidue.Value}";
-            mod = Mods.GetModification(withMotif, _searchProteinMods, _searchRnaMods);
-            if (mod != null)
-                return mod;
-        }
-
-        // Try searching by OriginalId
-        var candidates = Mods.GetModifications(
-            m => m.OriginalId == name || m.IdWithMotif == name,
-            proteinOnly: !_searchRnaMods && _searchProteinMods,
-            rnaOnly: !_searchProteinMods && _searchRnaMods);
-
-        return SelectWithResiduePreference(candidates, targetResidue);
-    }
-
-    /// <inheritdoc />
-    protected override Modification? TryResolveByFormula(ChemicalFormula formula, char? targetResidue)
-    {
-        var candidates = Mods.GetModifications(
-            m => m.ChemicalFormula != null && m.ChemicalFormula.Equals(formula),
-            proteinOnly: !_searchRnaMods && _searchProteinMods,
-            rnaOnly: !_searchProteinMods && _searchRnaMods);
-
-        return SelectWithResiduePreference(candidates, targetResidue);
-    }
-
-    /// <inheritdoc />
-    protected override Modification? TryResolveByMass(double mass, char? targetResidue)
-    {
-        var candidates = Mods.GetModifications(
-            m => m.MonoisotopicMass.HasValue &&
-                 Math.Abs(m.MonoisotopicMass.Value - mass) <= _massTolerance,
-            proteinOnly: !_searchRnaMods && _searchProteinMods,
-            rnaOnly: !_searchProteinMods && _searchRnaMods);
-
-        return SelectWithResiduePreference(candidates, targetResidue);
-    }
+    private static ModificationNamingConvention DetermineConvention(bool searchProteinMods, bool searchRnaMods) =>
+        searchProteinMods
+            ? searchRnaMods
+                ? ModificationNamingConvention.MetaMorpheus
+                : ModificationNamingConvention.MetaMorpheus_Protein
+            : ModificationNamingConvention.MetaMorpheus_Rna;
 }
