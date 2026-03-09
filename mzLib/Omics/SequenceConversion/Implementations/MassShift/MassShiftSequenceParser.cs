@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 
+
 namespace Omics.SequenceConversion;
 
 /// <summary>
@@ -78,7 +79,7 @@ public class MassShiftSequenceParser : SequenceParserBase
             return HandleError(warnings, mode, ConversionFailureReason.UnknownFormat,
                 $"Invalid mass shift format: '{modString}'") == null 
                 ? null 
-                : default(CanonicalModification?);
+                : default;
         }
 
         // Parse the mass value
@@ -87,7 +88,7 @@ public class MassShiftSequenceParser : SequenceParserBase
             return HandleError(warnings, mode, ConversionFailureReason.UnknownFormat,
                 $"Failed to parse mass value: '{modString}'") == null 
                 ? null 
-                : default(CanonicalModification?);
+                : default;
         }
 
         return new CanonicalModification(

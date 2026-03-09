@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 
+
 namespace Omics.SequenceConversion;
 
 /// <summary>

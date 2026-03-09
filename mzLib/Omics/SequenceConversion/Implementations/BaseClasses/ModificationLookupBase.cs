@@ -1,7 +1,7 @@
 using Chemistry;
 using Omics.Modifications;
 
-namespace Omics.SequenceConversion;
+namespace Omics.SequenceConversion.Implementations.BaseClasses;
 
 /// <summary>
 /// Base class for modification lookups providing shared resolution logic.

@@ -1,7 +1,8 @@
 using Chemistry;
 using Omics.Modifications;
+using Omics.SequenceConversion.Implementations.BaseClasses;
 
-namespace Omics.SequenceConversion;
+namespace Omics.SequenceConversion.Implementations.Unimod;
 
 /// <summary>
 /// Resolves modifications using UNIMOD identifiers.
