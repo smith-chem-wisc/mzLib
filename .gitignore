@@ -251,4 +251,5 @@ ModelManifest.xml
 **/.DS_Store
 
 /AGENTS.md
-/.opencode
+/.opencode/
+/.claude/
