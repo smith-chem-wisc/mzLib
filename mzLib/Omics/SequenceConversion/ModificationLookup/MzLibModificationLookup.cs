@@ -48,13 +48,13 @@ public class MzLibModificationLookup : ModificationLookupBase
     /// <inheritdoc />
     protected override Modification? TryResolvePrimary(CanonicalModification mod)
     {
+        Modification? toReturn = null;
+
         // Try to resolve by mzLib ID if available
         if (!string.IsNullOrEmpty(mod.MzLibId))
-        {
-            return Mods.GetModification(mod.MzLibId, _searchProteinMods, _searchRnaMods);
-        }
+            toReturn = Mods.GetModification(mod.MzLibId, _searchProteinMods, _searchRnaMods);
 
-        return null;
+        return toReturn;
     }
 
     /// <inheritdoc />

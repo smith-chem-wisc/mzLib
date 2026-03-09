@@ -153,34 +153,61 @@ public static class Mods
         if (!searchProteinMods && !searchRnaMods)
             throw new ArgumentException("At least one of searchProteinMods or searchRnaMods must be true.");
 
-        if (searchProteinMods && !searchRnaMods)
+        Modification? mod = null;
+
+        switch (searchProteinMods)
         {
-            if (AllKnownProteinModsDictionary.TryGetValue(id, out var mod))
-                return mod;
-            return AllProteinModsList.FirstOrDefault(m => m.IdWithMotif == id);
+            // Only protein mods
+            case true when !searchRnaMods:
+            {
+                if (!AllKnownProteinModsDictionary.TryGetValue(id, out mod))
+                {
+                    mod = AllProteinModsList.FirstOrDefault(m => m.IdWithMotif == id) 
+                          ?? AllProteinModsList.FirstOrDefault(m => $"{m.ModificationType}:{m.IdWithMotif}" == id);
+                }
+                break;
+            }
+            // Only Rna Mods
+            case false when searchRnaMods:
+            {
+                if (!AllKnownRnaModsDictionary.TryGetValue(id, out mod))
+                {
+                    mod = AllRnaModsList.FirstOrDefault(m => m.IdWithMotif == id)
+                          ?? AllRnaModsList.FirstOrDefault(m => $"{m.ModificationType}:{m.IdWithMotif}" == id);
+                }
+                break;
+            }
+            // Search Both
+            case true when searchRnaMods:
+            {
+                if (!AllModsKnownDictionary.TryGetValue(id, out mod))
+                {
+                    mod = AllKnownMods.FirstOrDefault(m => m.IdWithMotif == id) 
+                          ?? AllKnownMods.FirstOrDefault(m => $"{m.ModificationType}:{m.IdWithMotif}" == id);
+                }
+                break;
+            }
         }
 
-        if (!searchProteinMods && searchRnaMods)
-        {
-            if (AllKnownRnaModsDictionary.TryGetValue(id, out var mod))
-                return mod;
-            return AllRnaModsList.FirstOrDefault(m => m.IdWithMotif == id);
-        }
-
-        // Search both
-        if (AllModsKnownDictionary.TryGetValue(id, out var foundMod))
-            return foundMod;
-
-        return AllKnownMods.FirstOrDefault(m => m.IdWithMotif == id);
+        return mod;
     }
 
     public static Modification? GetModification(string id, ModificationNamingConvention convention)
     {
         if (ModsByConvention.TryGetValue(convention, out var mods))
         {
-            return mods.FirstOrDefault(m => m.IdWithMotif == id || m.OriginalId == id);
+            return mods.FirstOrDefault(m => m.IdWithMotif == id || m.OriginalId == id || $"{m.ModificationType}:{m.IdWithMotif}" == id);
         }
         return null;
+    }
+
+    public static IEnumerable<Modification> GetModifications(string id, ModificationNamingConvention convention)
+    {
+        if (ModsByConvention.TryGetValue(convention, out var mods))
+        {
+            return mods.Where(m => m.IdWithMotif == id || m.OriginalId == id || $"{m.ModificationType}:{m.IdWithMotif}" == id);
+        }
+        return Enumerable.Empty<Modification>();
     }
 
     /// <summary>

@@ -7,21 +7,21 @@ namespace Omics.SequenceConversion;
 /// Specifies the position type of a modification within a sequence.
 /// </summary>
 public enum ModificationPositionType
-{
+{       
     /// <summary>
     /// Modification is on the N-terminus (or 5' end for nucleic acids).
     /// </summary>
     NTerminus,
 
     /// <summary>
-    /// Modification is on the C-terminus (or 3' end for nucleic acids).
-    /// </summary>
-    CTerminus,
-
-    /// <summary>
     /// Modification is on a specific residue within the sequence.
     /// </summary>
-    Residue
+    Residue, 
+
+    /// <summary>
+    /// Modification is on the C-terminus (or 3' end for nucleic acids).
+    /// </summary>
+    CTerminus 
 }
 
 /// <summary>
@@ -58,6 +58,8 @@ public readonly record struct CanonicalModification(
     string? MzLibId = null,
     Modification? MzLibModification = null)
 {
+
+
     /// <summary>
     /// Creates a residue modification at the specified zero-based index.
     /// </summary>
@@ -158,7 +160,11 @@ public readonly record struct CanonicalModification(
         int? resolvedUnimodId = UnimodId;
         if (!resolvedUnimodId.HasValue && modification.DatabaseReference != null)
         {
-            if (modification.DatabaseReference.TryGetValue("UNIMOD", out var unimodRefs) && unimodRefs.Count > 0)
+            // Try to find UNIMOD key case-insensitively
+            var unimodKey = modification.DatabaseReference.Keys
+                .FirstOrDefault(k => k.Equals("UNIMOD", StringComparison.OrdinalIgnoreCase));
+            
+            if (unimodKey != null && modification.DatabaseReference.TryGetValue(unimodKey, out var unimodRefs) && unimodRefs.Count > 0)
             {
                 // Handle formats like "UNIMOD:35", ":35", or just "35"
                 var unimodRef = unimodRefs[0];

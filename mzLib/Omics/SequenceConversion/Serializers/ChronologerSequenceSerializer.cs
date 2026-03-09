@@ -398,15 +398,6 @@ public class ChronologerSequenceSerializer : ISequenceSerializer
         ConversionFailureReason reason,
         string message)
     {
-        warnings.SetFailure(reason, message);
-
-        return mode switch
-        {
-            SequenceConversionHandlingMode.ThrowException =>
-                throw warnings.ToException(message),
-            SequenceConversionHandlingMode.ReturnNull => null,
-            SequenceConversionHandlingMode.UsePrimarySequence => null, // Caller should handle
-            _ => null
-        };
+        return SequenceConversionHelpers.HandleSerializerError(warnings, mode, reason, message);
     }
 }

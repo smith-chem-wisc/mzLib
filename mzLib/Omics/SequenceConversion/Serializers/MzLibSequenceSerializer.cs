@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace Omics.SequenceConversion;
 
 /// <summary>
@@ -13,7 +11,7 @@ namespace Omics.SequenceConversion;
 /// 
 /// Note: For mass shift notation output, use a separate MassShiftSequenceSerializer instead.
 /// </summary>
-public class MzLibSequenceSerializer : ISequenceSerializer
+public class MzLibSequenceSerializer : SequenceSerializerBase
 {
     private readonly IModificationLookup? _lookup;
 
@@ -32,115 +30,22 @@ public class MzLibSequenceSerializer : ISequenceSerializer
     }
 
     /// <inheritdoc />
-    public string FormatName => MzLibSequenceFormatSchema.Instance.FormatName;
+    public override string FormatName => MzLibSequenceFormatSchema.Instance.FormatName;
 
     /// <inheritdoc />
-    public SequenceFormatSchema Schema => MzLibSequenceFormatSchema.Instance;
+    public override SequenceFormatSchema Schema => MzLibSequenceFormatSchema.Instance;
 
     /// <inheritdoc />
-    public bool CanSerialize(CanonicalSequence sequence)
+    public override bool CanSerialize(CanonicalSequence sequence)
     {
         // All modifications must have mzLib IDs or be resolvable
         return sequence.Modifications.All(m => !string.IsNullOrEmpty(m.MzLibId) || m.IsResolved);
     }
 
-    /// <inheritdoc />
-    public string? Serialize(
-        CanonicalSequence sequence,
-        ConversionWarnings? warnings = null,
-        SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException)
-    {
-        warnings ??= new ConversionWarnings();
-
-        if (string.IsNullOrEmpty(sequence.BaseSequence))
-        {
-            return HandleError(warnings, mode, ConversionFailureReason.InvalidSequence,
-                "Sequence has no base sequence.");
-        }
-
-        try
-        {
-            return SerializeInternal(sequence, warnings, mode);
-        }
-        catch (SequenceConversionException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            return HandleError(warnings, mode, ConversionFailureReason.UnknownFormat,
-                $"Unexpected error serializing sequence: {ex.Message}");
-        }
-    }
-
-    private string? SerializeInternal(CanonicalSequence sequence, ConversionWarnings warnings, SequenceConversionHandlingMode mode)
-    {
-        var sb = new StringBuilder();
-
-        // Handle N-terminal modification (no separator in mzLib format)
-        var nTermMod = sequence.NTerminalModification;
-        if (nTermMod.HasValue)
-        {
-            var modString = GetModificationString(nTermMod.Value, warnings, mode);
-            if (modString == null && mode == SequenceConversionHandlingMode.ReturnNull)
-                return null;
-            
-            if (modString != null)
-            {
-                sb.Append('[');
-                sb.Append(modString);
-                sb.Append(']');
-            }
-        }
-
-        // Handle residue modifications - build a lookup for quick access
-        var residueMods = sequence.ResidueModifications
-            .Where(m => m.ResidueIndex.HasValue)
-            .ToDictionary(m => m.ResidueIndex!.Value, m => m);
-
-        // Write sequence with modifications
-        for (int i = 0; i < sequence.BaseSequence.Length; i++)
-        {
-            sb.Append(sequence.BaseSequence[i]);
-
-            if (residueMods.TryGetValue(i, out var mod))
-            {
-                var modString = GetModificationString(mod, warnings, mode);
-                if (modString == null && mode == SequenceConversionHandlingMode.ReturnNull)
-                    return null;
-
-                if (modString != null)
-                {
-                    sb.Append('[');
-                    sb.Append(modString);
-                    sb.Append(']');
-                }
-            }
-        }
-
-        // Handle C-terminal modification
-        var cTermMod = sequence.CTerminalModification;
-        if (cTermMod.HasValue)
-        {
-            var modString = GetModificationString(cTermMod.Value, warnings, mode);
-            if (modString == null && mode == SequenceConversionHandlingMode.ReturnNull)
-                return null;
-
-            if (modString != null)
-            {
-                sb.Append("-[");
-                sb.Append(modString);
-                sb.Append(']');
-            }
-        }
-
-        return sb.ToString();
-    }
-
     /// <summary>
     /// Gets the string representation of a modification for serialization.
     /// </summary>
-    private string? GetModificationString(CanonicalModification mod, ConversionWarnings warnings, SequenceConversionHandlingMode mode)
+    protected override string? GetModificationString(CanonicalModification mod, ConversionWarnings warnings, SequenceConversionHandlingMode mode)
     {
         // Try to use mzLib ID first
         if (!string.IsNullOrEmpty(mod.MzLibId))
@@ -201,23 +106,5 @@ public class MzLibSequenceSerializer : ISequenceSerializer
 
         // Check if it matches the pattern for mass shifts: optional sign, digits, optional decimal point and more digits
         return System.Text.RegularExpressions.Regex.IsMatch(value, @"^[+-]?\d+(\.\d+)?$");
-    }
-
-    private static string? HandleError(
-        ConversionWarnings warnings,
-        SequenceConversionHandlingMode mode,
-        ConversionFailureReason reason,
-        string message)
-    {
-        warnings.SetFailure(reason, message);
-
-        return mode switch
-        {
-            SequenceConversionHandlingMode.ThrowException =>
-                throw warnings.ToException(message),
-            SequenceConversionHandlingMode.ReturnNull => null,
-            SequenceConversionHandlingMode.UsePrimarySequence => null, // Caller should handle
-            _ => null
-        };
     }
 }

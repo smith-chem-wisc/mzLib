@@ -1,4 +1,6 @@
+using Easy.Common.Extensions;
 using System.Collections.Immutable;
+using System.Linq;
 using System.Text;
 
 namespace Omics.SequenceConversion;
@@ -39,15 +41,31 @@ public readonly record struct CanonicalSequence(
     /// <summary>
     /// Gets the N-terminal modification, if present.
     /// </summary>
-    public CanonicalModification? NTerminalModification =>
-        Modifications.FirstOrDefault(m => m.PositionType == ModificationPositionType.NTerminus) is { PositionType: ModificationPositionType.NTerminus } mod ? mod : null;
+    public CanonicalModification? NTerminalModification
+    {
+        get
+        {
+            var mod = Modifications.FirstOrDefault(m => m.PositionType == ModificationPositionType.NTerminus);
+
+            if (mod.IsDefault())
+                return null;
+            return mod;
+        }
+    }
 
     /// <summary>
     /// Gets the C-terminal modification, if present.
     /// </summary>
-    public CanonicalModification? CTerminalModification =>
-        Modifications.FirstOrDefault(m => m.PositionType == ModificationPositionType.CTerminus) is var mod
-        && mod.PositionType == ModificationPositionType.CTerminus ? mod : null;
+    public CanonicalModification? CTerminalModification
+    {
+        get
+        {
+            var mod = Modifications.FirstOrDefault(m => m.PositionType == ModificationPositionType.CTerminus);
+            if (mod.IsDefault())
+                return null;
+            return mod;
+        }
+    }
 
     /// <summary>
     /// Gets all residue modifications (excludes terminal modifications).

@@ -38,7 +38,7 @@ public class UnimodModificationLookup : ModificationLookupBase
 
         string lookupId;
 
-        if (name.Contains("UNIMOD:"))
+        if (name.Contains("UNIMOD:", StringComparison.OrdinalIgnoreCase))
         {
             // Already in UNIMOD format
             lookupId = name;
