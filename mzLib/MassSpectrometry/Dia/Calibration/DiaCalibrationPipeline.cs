@@ -105,7 +105,8 @@ namespace MassSpectrometry.Dia
             DiaScanIndex scanIndex,
             DiaSearchParameters parameters,
             DiaExtractionOrchestrator orchestrator,
-            IterativeRtCalibrator calibrator = null)
+            IterativeRtCalibrator calibrator = null,
+            Action<string> progressReporter = null)
         {
             if (precursors == null) throw new ArgumentNullException(nameof(precursors));
             if (scanIndex == null) throw new ArgumentNullException(nameof(scanIndex));
@@ -113,6 +114,10 @@ namespace MassSpectrometry.Dia
             if (orchestrator == null) throw new ArgumentNullException(nameof(orchestrator));
 
             calibrator ??= new IterativeRtCalibrator();
+
+            // Wire progress reporting so calibration messages appear in the GUI/log
+            if (progressReporter != null)
+                calibrator.ProgressReporter = progressReporter;
 
             // ── Step 1: Iterative Calibration ──────────────────────────────
             var calibSw = Stopwatch.StartNew();
@@ -147,12 +152,12 @@ namespace MassSpectrometry.Dia
             var results = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
                 precursors, genResult, extractionResult, parameters, scanIndex);
 
-            // ── Step 3b: Compute Chimeric Scores (Phase 19) ─────────────────
-            // ChimericScore [33] requires knowing ALL precursors in each window,
-            // so it must be a post-pass after full assembly. Populates
-            // DiaSearchResult.ChimericScore before DiaFeatureExtractor.ComputeFeatures.
+            // ── Step 3b: Chimeric Score ─────────────────────────────────────
+            // Must run after assembly (needs ExtractedIntensities + XicPointCounts populated)
+            // and before FDR (ChimericScore must be in the feature vector).
+            // Precursors alone in their window receive ChimericScore = 1.0 (no co-isolation).
             DiaLibraryQueryGenerator.ComputeChimericScores(
-                precursors, results, parameters.PpmTolerance);
+                precursors, results, (float)parameters.PpmTolerance);
 
             extractSw.Stop();
 
@@ -179,10 +184,11 @@ namespace MassSpectrometry.Dia
                 DiaScanIndex scanIndex,
                 DiaSearchParameters parameters,
                 DiaExtractionOrchestrator orchestrator,
-                IterativeRtCalibrator calibrator = null)
+                IterativeRtCalibrator calibrator = null,
+                Action<string> progressReporter = null)
         {
             var result = RunWithAutomaticCalibration(
-                precursors, scanIndex, parameters, orchestrator, calibrator);
+                precursors, scanIndex, parameters, orchestrator, calibrator, progressReporter);
             return (result.Results, result.Calibration, result.CalibrationLog);
         }
 
@@ -292,24 +298,24 @@ namespace MassSpectrometry.Dia
         {
             if (log == null || log.Count == 0)
             {
-                Console.WriteLine("  [No calibration iterations recorded]");
+                System.Diagnostics.Debug.WriteLine("  [No calibration iterations recorded]");
                 return;
             }
 
-            Console.WriteLine("  ┌──────────┬──────────┬─────────┬──────────┬──────────┬──────────┬──────────────────┬──────────────────┐");
-            Console.WriteLine("  │ Iter     │ Anchors  │  Slope  │  σ (min) │    R²    │ ± Window │ Model            │ Time             │");
-            Console.WriteLine("  ├──────────┼──────────┼─────────┼──────────┼──────────┼──────────┼──────────────────┼──────────────────┤");
+            System.Diagnostics.Debug.WriteLine("  ┌──────────┬──────────┬─────────┬──────────┬──────────┬──────────┬──────────────────┬──────────────────┐");
+            System.Diagnostics.Debug.WriteLine("  │ Iter     │ Anchors  │  Slope  │  σ (min) │    R²    │ ± Window │ Model            │ Time             │");
+            System.Diagnostics.Debug.WriteLine("  ├──────────┼──────────┼─────────┼──────────┼──────────┼──────────┼──────────────────┼──────────────────┤");
 
             foreach (var entry in log)
             {
                 string modelStr = (entry.ModelType ?? "Linear").PadRight(16);
                 string timeStr = $"{entry.TotalTime.TotalMilliseconds:F0} ms".PadRight(16);
 
-                Console.WriteLine(
+                System.Diagnostics.Debug.WriteLine(
                     $"  │ {entry.Iteration,8} │ {entry.AnchorCount,8:N0} │ {entry.Slope,7:F4} │ {entry.SigmaMinutes,8:F3} │ {entry.RSquared,8:F4} │ {entry.WindowHalfWidthMinutes,7:F2}m │ {modelStr} │ {timeStr} │");
             }
 
-            Console.WriteLine("  └──────────┴──────────┴─────────┴──────────┴──────────┴──────────┴──────────────────┴──────────────────┘");
+            System.Diagnostics.Debug.WriteLine("  └──────────┴──────────┴─────────┴──────────┴──────────┴──────────┴──────────────────┴──────────────────┘");
         }
 
         /// <summary>
@@ -317,34 +323,34 @@ namespace MassSpectrometry.Dia
         /// </summary>
         public static void PrintPipelineSummary(PipelineResult result)
         {
-            Console.WriteLine("  ═══ Calibration Pipeline Summary ═══");
+            System.Diagnostics.Debug.WriteLine("  ═══ Calibration Pipeline Summary ═══");
 
             if (result.Calibration != null)
             {
-                Console.WriteLine($"  Final model:     slope={result.Calibration.Slope:F4}  intercept={result.Calibration.Intercept:F2}");
-                Console.WriteLine($"  Final σ:         {result.Calibration.SigmaMinutes:F3} min");
-                Console.WriteLine($"  Final R²:        {result.Calibration.RSquared:F4}");
-                Console.WriteLine($"  Anchor count:    {result.Calibration.AnchorCount:N0}");
-                Console.WriteLine($"  Model reliable:  {result.Calibration.IsReliable}");
+                System.Diagnostics.Debug.WriteLine($"  Final model:     slope={result.Calibration.Slope:F4}  intercept={result.Calibration.Intercept:F2}");
+                System.Diagnostics.Debug.WriteLine($"  Final σ:         {result.Calibration.SigmaMinutes:F3} min");
+                System.Diagnostics.Debug.WriteLine($"  Final R²:        {result.Calibration.RSquared:F4}");
+                System.Diagnostics.Debug.WriteLine($"  Anchor count:    {result.Calibration.AnchorCount:N0}");
+                System.Diagnostics.Debug.WriteLine($"  Model reliable:  {result.Calibration.IsReliable}");
 
                 if (result.DetailedCalibration != null &&
                     result.DetailedCalibration.ModelType != RtCalibrationModelType.Linear)
                 {
-                    Console.WriteLine($"  Detailed model:  {result.DetailedCalibration.ModelType}");
+                    System.Diagnostics.Debug.WriteLine($"  Detailed model:  {result.DetailedCalibration.ModelType}");
                 }
             }
             else
             {
-                Console.WriteLine("  Calibration FAILED — no model produced.");
+                System.Diagnostics.Debug.WriteLine("  Calibration FAILED — no model produced.");
             }
 
-            Console.WriteLine($"  Results:         {result.Results?.Count ?? 0:N0} precursors scored");
-            Console.WriteLine($"  Iterations:      {result.CalibrationLog?.Count ?? 0}");
-            Console.WriteLine($"  Timing:");
-            Console.WriteLine($"    Calibration:   {result.CalibrationTime.TotalSeconds:F1}s");
-            Console.WriteLine($"    Final extract: {result.FinalExtractionTime.TotalSeconds:F1}s");
-            Console.WriteLine($"    RT recalib:    {result.RtDeviationRecalibrationTime.TotalMilliseconds:F0}ms");
-            Console.WriteLine($"    Total:         {result.TotalTime.TotalSeconds:F1}s");
+            System.Diagnostics.Debug.WriteLine($"  Results:         {result.Results?.Count ?? 0:N0} precursors scored");
+            System.Diagnostics.Debug.WriteLine($"  Iterations:      {result.CalibrationLog?.Count ?? 0}");
+            System.Diagnostics.Debug.WriteLine($"  Timing:");
+            System.Diagnostics.Debug.WriteLine($"    Calibration:   {result.CalibrationTime.TotalSeconds:F1}s");
+            System.Diagnostics.Debug.WriteLine($"    Final extract: {result.FinalExtractionTime.TotalSeconds:F1}s");
+            System.Diagnostics.Debug.WriteLine($"    RT recalib:    {result.RtDeviationRecalibrationTime.TotalMilliseconds:F0}ms");
+            System.Diagnostics.Debug.WriteLine($"    Total:         {result.TotalTime.TotalSeconds:F1}s");
         }
 
         /// <summary>

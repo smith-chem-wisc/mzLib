@@ -25,6 +25,37 @@ namespace Development.Dia
     public static class Phase14GbtSweep
     {
         // ════════════════════════════════════════════════════════════════
+        //  GBT Hyperparameters (local copy — DiaFdrEngine.GbtHyperparameters removed)
+        // ════════════════════════════════════════════════════════════════
+
+        /// <summary>GBT hyperparameter bundle for sweep configurations.</summary>
+        public readonly struct GbtHyperparameters
+        {
+            public readonly string Name;
+            public readonly int NumTrees;
+            public readonly int MaxDepth;
+            public readonly float LearningRate;
+            public readonly int MinSamplesLeaf;
+            public readonly float L2Regularization;
+            public readonly int NumBins;
+            public readonly float SubsampleFraction;
+
+            public GbtHyperparameters(
+                string name, int numTrees, int maxDepth, float learningRate,
+                int minSamplesLeaf, float l2Regularization, int numBins, float subsampleFraction)
+            {
+                Name = name;
+                NumTrees = numTrees;
+                MaxDepth = maxDepth;
+                LearningRate = learningRate;
+                MinSamplesLeaf = minSamplesLeaf;
+                L2Regularization = l2Regularization;
+                NumBins = numBins;
+                SubsampleFraction = subsampleFraction;
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════
         //  Sweep Result
         // ════════════════════════════════════════════════════════════════
 
@@ -62,15 +93,15 @@ namespace Development.Dia
         /// Returns the 5 standard GBT sweep configurations.
         /// Public so the benchmark runner can access config names.
         /// </summary>
-        public static DiaFdrEngine.GbtHyperparameters[] GetStandardConfigs()
+        public static GbtHyperparameters[] GetStandardConfigs()
         {
             return new[]
             {
-                new DiaFdrEngine.GbtHyperparameters("A: Conservative",  50, 3, 0.10f, 50, 2.0f, 64, 0.7f),
-                new DiaFdrEngine.GbtHyperparameters("B: Moderate",     100, 3, 0.10f, 30, 1.0f, 128, 0.8f),
-                new DiaFdrEngine.GbtHyperparameters("C: Deeper",       100, 4, 0.05f, 30, 1.5f, 128, 0.8f),
-                new DiaFdrEngine.GbtHyperparameters("D: Shallow-many", 200, 2, 0.10f, 50, 2.0f, 64, 0.7f),
-                new DiaFdrEngine.GbtHyperparameters("E: Phase13-orig", 200, 5, 0.05f, 15, 0.5f, 128, 0.85f),
+                new GbtHyperparameters("A: Conservative",  50, 3, 0.10f, 50, 2.0f, 64, 0.7f),
+                new GbtHyperparameters("B: Moderate",     100, 3, 0.10f, 30, 1.0f, 128, 0.8f),
+                new GbtHyperparameters("C: Deeper",       100, 4, 0.05f, 30, 1.5f, 128, 0.8f),
+                new GbtHyperparameters("D: Shallow-many", 200, 2, 0.10f, 50, 2.0f, 64, 0.7f),
+                new GbtHyperparameters("E: Phase13-orig", 200, 5, 0.05f, 15, 0.5f, 128, 0.85f),
             };
         }
 
@@ -101,7 +132,10 @@ namespace Development.Dia
                 var clonedResults = CloneResults(originalResults);
 
                 var sw = Stopwatch.StartNew();
-                var fdrResult = DiaFdrEngine.RunIterativeFdr(clonedResults, features, config);
+                // GBT hyperparameter sweep disabled — using default GBT config.
+                var fdrResult = DiaFdrEngine.RunIterativeFdr(
+                    clonedResults, features,
+                    classifierType: DiaClassifierType.GradientBoostedTree);
                 sw.Stop();
 
                 // Count IDs at each threshold

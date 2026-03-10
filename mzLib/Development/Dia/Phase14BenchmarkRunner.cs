@@ -12,23 +12,11 @@ namespace Development.Dia
 {
     /// <summary>
     /// Phase 14: Dead Feature Fixes + GBT Hyperparameter Tuning Benchmark
-    /// Updated Phase 16A, Prompt 1: ClassifierFeatureCount now 29 (3 migrated features active).
-    /// Updated Phase 16B, Prompt 6: ClassifierFeatureCount now 33 (4 MS1 features added).
-    /// Updated Phase 19: ClassifierFeatureCount now 35 (+ ChimericScore[33] + LibraryCoverageFraction[34]; RtDeviationNormalized dropped: 100% NaN).
-    /// Updated Phase 16B, Prompt 8: Three MS1 feature fixes applied:
-    ///   Fix 1 — Ms1Ms2Correlation [31]: bestFragXic wired in Step 7 via ExtractBestFragmentXic().
-    ///            Previously 100% NaN because the MS2 fragment XIC was not passed to ComputeFeatures().
-    ///            Library lookup uses a pre-built Dictionary to avoid O(N²) scans; no null references.
-    ///   Fix 2 — PrecursorXicApexIntensity [29]: TIC normalization applied in DiaFeatureExtractor.
-    ///   Fix 3 — IsotopePatternScore [30]: noise-gated dot product applied in DiaFeatureExtractor.
-    /// Updated Phase 16C, Prompt 11: Neural network classifier integrated.
-    ///   Step 10b: NN evaluation via Phase14GbtSweep.RunNnEvaluation() (clone-based isolation).
-    ///   Step 11:  Three-way comparison (LDA vs best-GBT vs NN) via PrintTripleComparisonTable().
-    ///   Step 12:  Best classifier now considers NN; decision follows plan thresholds (+500 IDs).
+    /// Current build: DiaFeatureVector.ClassifierFeatureCount = 26.
     ///
     /// Steps 1-7:  Standard pipeline (load → index → broad extract → calibrate → calibrated extract → assemble → features)
-    /// Step 7:     Feature computation passes DiaScanIndex + bestFragXic to ComputeFeatures() for all MS1 features.
-    /// Step 8:     Dead-feature diagnostic table (all 35 features; NaN rates reported for MS1 + Phase 19 features)
+    /// Step 7:     Feature computation — DiaFeatureExtractor.ComputeFeatures(result, i)
+    /// Step 8:     Dead-feature diagnostic table (26 features; NaN rates reported)
     /// Step 9:     LDA baseline FDR
     /// Step 10:    GBT sweep (configs A–E)
     /// Step 10b:   Neural network evaluation
@@ -76,7 +64,7 @@ namespace Development.Dia
                     Directory.CreateDirectory(outputDir);
             }
             Debug.Assert(DiaFeatureVector.ClassifierFeatureCount == 35,
-                $"Expected 35 features (33 from Phase 16B + ChimericScore[33] + LibraryCoverageFraction[34]; RtDeviationNormalized dropped), got {DiaFeatureVector.ClassifierFeatureCount}");
+                $"Expected 26 features, got {DiaFeatureVector.ClassifierFeatureCount}");
 
             var totalSw = Stopwatch.StartNew();
             var sw = new Stopwatch();
@@ -202,101 +190,23 @@ namespace Development.Dia
             Console.WriteLine("--- Step 7: Computing feature vectors --------------------------");
             sw.Restart();
 
-            if (DiaFeatureVector.ClassifierFeatureCount != 35)
-                Console.WriteLine($"  WARNING: Expected 35 features, got {DiaFeatureVector.ClassifierFeatureCount}");
+            if (DiaFeatureVector.ClassifierFeatureCount != 26)
+                Console.WriteLine($"  WARNING: Expected 26 features, got {DiaFeatureVector.ClassifierFeatureCount}");
 
-            // Fix 1 (Prompt 8): Wire bestFragXic/bestFragXicRts for Ms1Ms2Correlation [31].
-            //
-            // Previously: features[i] = ComputeFeatures(results[i], i, index)
-            //   → bestFragXic = default → Ms1Ms2Correlation = 100% NaN.
-            //
-            // Now: for each result with a valid BestFragIndex, re-extract the best
-            // fragment's per-scan intensity trace from the MS2 window, then pass it
-            // to ComputeFeatures as bestFragXic/bestFragXicRts.
-            //
-            // Library lookup: combined[] is in the same sequential order as results[]
-            // (pipeline processes targets then decoys, matching how combined was built).
-            // We use a direct index match with a sequence+charge+decoy safety check,
-            // and fall back to linear search if the index doesn't match.
+            // ComputeFeatures takes (result, precursorIndex) — 2 args.
+            // MS1 features are not in the current 26-feature vector.
             // No null references: a bool + index pattern is used throughout.
 
-            // Build a reverse map: (sequence, chargeState, isDecoy) → combined index.
-            // This avoids O(N²) fallback scans on large libraries.
-            // Key: (Sequence, ChargeState, IsDecoy) using a value-tuple for hashing.
-            var combinedIndexMap = new Dictionary<(string, int, bool), int>(combined.Count);
-            for (int k = 0; k < combined.Count; k++)
-            {
-                var lib = combined[k];
-                var key = (lib.Sequence, lib.ChargeState, lib.IsDecoy);
-                // First entry wins (duplicates are possible for very similar decoys;
-                // any matching library entry has the correct fragment m/z set).
-                if (!combinedIndexMap.ContainsKey(key))
-                    combinedIndexMap[key] = k;
-            }
-
             var features = new DiaFeatureVector[results.Count];
-            int bestFragWired = 0;
 
             for (int i = 0; i < results.Count; i++)
             {
-                var result = results[i];
-
-                ReadOnlySpan<float> bestFragXic = default;
-                ReadOnlySpan<float> bestFragXicRts = default;
-
-                // Only attempt fragment XIC extraction when:
-                //   (a) the index has MS1 scans (Ms1Ms2Correlation requires both sides)
-                //   (b) BestFragIndex is a valid fragment slot for this result
-                if (index.Ms1ScanCount > 0 &&
-                    result.BestFragIndex >= 0 &&
-                    result.BestFragIndex < result.FragmentsQueried)
-                {
-                    var libKey = (result.Sequence, result.ChargeState, result.IsDecoy);
-
-                    // Fast O(1) lookup; fall back to direct index if map lookup fails
-                    // (e.g., duplicate entries that were skipped when building the map).
-                    int libIdx = -1;
-                    if (combinedIndexMap.TryGetValue(libKey, out int mapIdx))
-                        libIdx = mapIdx;
-                    else if (i < combined.Count &&
-                             combined[i].Sequence == result.Sequence &&
-                             combined[i].ChargeState == result.ChargeState &&
-                             combined[i].IsDecoy == result.IsDecoy)
-                        libIdx = i;
-
-                    if (libIdx >= 0 && result.BestFragIndex < combined[libIdx].FragmentMzs.Length)
-                    {
-                        float fragMz = combined[libIdx].FragmentMzs[result.BestFragIndex];
-                        ExtractBestFragmentXic(
-                            index, fragMz, result.WindowId,
-                            result.RtWindowStart, result.RtWindowEnd,
-                            ppmTolerance: 20f,
-                            out float[] fragXicIntensities,
-                            out float[] fragXicRts);
-
-                        if (fragXicIntensities.Length >= 3)
-                        {
-                            bestFragXic = fragXicIntensities.AsSpan();
-                            bestFragXicRts = fragXicRts.AsSpan();
-                            bestFragWired++;
-                        }
-                    }
-                }
-
-                features[i] = DiaFeatureExtractor.ComputeFeatures(
-                    result, i, index, bestFragXic, bestFragXicRts);
+                features[i] = DiaFeatureExtractor.ComputeFeatures(results[i], i);
             }
 
             sw.Stop();
             msStep7 = sw.ElapsedMilliseconds;
             Console.WriteLine($"  Feature computation: {msStep7}ms | {features.Length:N0} vectors ({DiaFeatureVector.ClassifierFeatureCount} features)");
-            if (index.Ms1ScanCount > 0)
-            {
-                Console.WriteLine($"  MS1 features computed (index has {index.Ms1ScanCount:N0} MS1 scans)");
-                Console.WriteLine($"  Ms1Ms2Correlation wired: {bestFragWired:N0}/{results.Count:N0} ({100.0 * bestFragWired / Math.Max(results.Count, 1):F1}%)");
-            }
-            else
-                Console.WriteLine($"  MS1 features = NaN (no MS1 scans in index)");
             Console.WriteLine();
 
             // ════════════════════════════════════════════════════════════
@@ -452,7 +362,7 @@ namespace Development.Dia
                 bestOverallAt1Pct = bestGbtAt1Pct;
                 Console.WriteLine($"  Best classifier: {bestClassifierName} ({bestOverallAt1Pct:N0} IDs at 1% FDR)");
                 Console.WriteLine($"  Re-applying best GBT config to results for export...");
-                DiaFdrEngine.RunIterativeFdr(results, features, gbtParams: gbtConfigs[bestGbtIdx]);
+                DiaFdrEngine.RunIterativeFdr(results, features, classifierType: DiaClassifierType.GradientBoostedTree); // gbtParams sweep disabled
             }
             else
             {
@@ -723,7 +633,7 @@ namespace Development.Dia
             Console.WriteLine();
 
             // Full 35-feature summary for reference
-            Console.WriteLine("  Full 35-Feature Summary (target vs decoy means):");
+            Console.WriteLine("  Full 26-Feature Summary (target vs decoy means):");
             Console.WriteLine("  ───────────────────────────────────────────────────────────────────────");
 
             for (int f = 0; f < DiaFeatureVector.ClassifierFeatureCount; f++)

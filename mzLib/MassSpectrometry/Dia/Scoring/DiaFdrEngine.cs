@@ -24,11 +24,6 @@ namespace MassSpectrometry.Dia
     ///   - Diagnostics extended with classifier type info
     ///   - GBT feature importances reported alongside LDA weights
     /// 
-    /// Phase 16C changes (Prompt 10):
-    ///   - DiaClassifierType.NeuralNetwork added to CreateClassifier() factory
-    ///   - DiaNeuralNetClassifierAdapter wired in (ClassifierFeatureCount→64→32→1, Adam, dropout 0.3)
-    ///   - PrintDiagnostics() extended with NeuralNetwork branch
-    /// 
     /// Lives in MassSpectrometry/Dia/Scoring/ alongside other scoring classes.
     /// </summary>
     public static class DiaFdrEngine
@@ -126,81 +121,8 @@ namespace MassSpectrometry.Dia
         }
 
         // ════════════════════════════════════════════════════════════════
-        //  GBT Hyperparameters (Phase 14, Prompt 2)
+        //  Main Entry Point
         // ════════════════════════════════════════════════════════════════
-
-        /// <summary>
-        /// Configurable GBT hyperparameters for sweep/tuning.
-        /// Default is conservative (anti-overfit). Phase13Original provided for comparison.
-        /// </summary>
-        public readonly struct GbtHyperparameters
-        {
-            public readonly string Name;
-            public readonly int NumTrees;
-            public readonly int MaxDepth;
-            public readonly float LearningRate;
-            public readonly int MinSamplesLeaf;
-            public readonly float L2Regularization;
-            public readonly int NumBins;
-            public readonly float SubsampleFraction;
-
-            public GbtHyperparameters(string name, int numTrees, int maxDepth, float learningRate,
-                int minSamplesLeaf, float l2Regularization, int numBins, float subsampleFraction)
-            {
-                Name = name;
-                NumTrees = numTrees;
-                MaxDepth = maxDepth;
-                LearningRate = learningRate;
-                MinSamplesLeaf = minSamplesLeaf;
-                L2Regularization = l2Regularization;
-                NumBins = numBins;
-                SubsampleFraction = subsampleFraction;
-            }
-
-            /// <summary>Conservative defaults (anti-overfit). Phase 14 default.</summary>
-            public static readonly GbtHyperparameters Default = new(
-                "Conservative", 50, 3, 0.1f, 50, 2.0f, 64, 0.7f);
-
-            /// <summary>Phase 13 original params (known overfit with ~50K samples).</summary>
-            public static readonly GbtHyperparameters Phase13Original = new(
-                "Phase13-orig", 200, 5, 0.05f, 15, 0.5f, 128, 0.85f);
-        }
-
-        /// <summary>
-        /// Thread-static field for passing GBT params from the overloaded RunIterativeFdr
-        /// to CreateClassifier without changing the original method signature.
-        /// </summary>
-        [ThreadStatic]
-        private static GbtHyperparameters? _activeGbtParams;
-
-        // ════════════════════════════════════════════════════════════════
-        //  Main Entry Points
-        // ════════════════════════════════════════════════════════════════
-
-        /// <summary>
-        /// Overload that accepts explicit GBT hyperparameters for sweep/tuning.
-        /// Sets thread-local params, delegates to original method, clears in finally.
-        /// </summary>
-        public static FdrResult RunIterativeFdr(
-            List<DiaSearchResult> results,
-            DiaFeatureVector[] features,
-            GbtHyperparameters gbtParams,
-            int maxIterations = 10,
-            float convergenceThreshold = 0.01f,
-            float idCountConvergenceThreshold = 0.005f)
-        {
-            _activeGbtParams = gbtParams;
-            try
-            {
-                return RunIterativeFdr(results, features,
-                    DiaClassifierType.GradientBoostedTree,
-                    maxIterations, convergenceThreshold, idCountConvergenceThreshold);
-            }
-            finally
-            {
-                _activeGbtParams = null;
-            }
-        }
 
         /// <summary>
         /// Runs the full iterative target-decoy FDR estimation pipeline.
@@ -408,7 +330,16 @@ namespace MassSpectrometry.Dia
         {
             return type switch
             {
-                DiaClassifierType.GradientBoostedTree => CreateGbtClassifier(),
+                DiaClassifierType.GradientBoostedTree => new DiaGbtClassifierAdapter(
+                    new DiaGradientBoostedClassifier(
+                        featureCount: DiaFeatureVector.ClassifierFeatureCount,
+                        numTrees: 200,
+                        maxDepth: 5,
+                        learningRate: 0.05f,
+                        minSamplesLeaf: 15,
+                        l2Regularization: 0.5f,
+                        numBins: 128,
+                        subsampleFraction: 0.85f)),
 
                 DiaClassifierType.LinearDiscriminant => new DiaLdaClassifierAdapter(
                     learningRate: learningRate,
@@ -420,25 +351,6 @@ namespace MassSpectrometry.Dia
 
                 _ => throw new ArgumentException($"Unknown classifier type: {type}")
             };
-        }
-
-        /// <summary>
-        /// Creates a GBT classifier using _activeGbtParams (from sweep overload)
-        /// or GbtHyperparameters.Default (conservative) if none set.
-        /// </summary>
-        private static IDiaClassifier CreateGbtClassifier()
-        {
-            var p = _activeGbtParams ?? GbtHyperparameters.Default;
-            return new DiaGbtClassifierAdapter(
-                new DiaGradientBoostedClassifier(
-                    featureCount: DiaFeatureVector.ClassifierFeatureCount,
-                    numTrees: p.NumTrees,
-                    maxDepth: p.MaxDepth,
-                    learningRate: p.LearningRate,
-                    minSamplesLeaf: p.MinSamplesLeaf,
-                    l2Regularization: p.L2Regularization,
-                    numBins: p.NumBins,
-                    subsampleFraction: p.SubsampleFraction));
         }
 
         // ════════════════════════════════════════════════════════════════
@@ -752,7 +664,7 @@ namespace MassSpectrometry.Dia
             }
             else if (d.ClassifierType == DiaClassifierType.GradientBoostedTree)
             {
-                Console.WriteLine($"    Classifier:     GBT");
+                Console.WriteLine($"    Classifier:     GBT (200 trees, depth 5, lr 0.05)");
                 if (d.FeatureImportances != null)
                 {
                     int nFeats = Math.Min(d.FeatureImportances.Length, DiaFeatureVector.ClassifierFeatureCount);
@@ -764,10 +676,6 @@ namespace MassSpectrometry.Dia
                     for (int i = 0; i < nFeats; i++)
                         Console.WriteLine($"      {indexed[i].Importance:F4}  {indexed[i].Name}");
                 }
-            }
-            else if (d.ClassifierType == DiaClassifierType.NeuralNetwork)
-            {
-                Console.WriteLine($"    Classifier:     NeuralNetwork ({DiaFeatureVector.ClassifierFeatureCount}→64→32→1, Adam, dropout 0.3)");
             }
         }
     }
