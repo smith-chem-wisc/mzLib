@@ -1,4 +1,5 @@
 ﻿using NUnit.Framework;
+using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.Util;
 using System;
@@ -20,7 +21,7 @@ namespace Test.KoinaTests
         public override int BenchmarkedTimeForOneMaxBatchSizeInMilliseconds => 1000;
         public override int MaxPeptideLength => 30;
         public override int MinPeptideLength => 7;
-        public override IncompatibleModHandlingMode ModHandlingMode { get; init; }
+        public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
         public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }
 
@@ -34,7 +35,7 @@ namespace Test.KoinaTests
             HashSet<int>? allowedEnergies = null,
             HashSet<string>? allowedInstruments = null,
             HashSet<string>? allowedFragmentations = null,
-            IncompatibleModHandlingMode modHandlingMode = IncompatibleModHandlingMode.ReturnNull,
+            SequenceConversionHandlingMode modHandlingMode = SequenceConversionHandlingMode.ReturnNull,
             IncompatibleParameterHandlingMode parameterHandlingMode = IncompatibleParameterHandlingMode.ReturnNull,
             FragmentIonMappingMode fragmentIonMappingMode = FragmentIonMappingMode.MapToInputFullSequence
             )

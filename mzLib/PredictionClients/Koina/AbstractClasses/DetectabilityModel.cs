@@ -11,7 +11,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
     /// Represents the prediction results for a single peptide, containing detectability probability scores
     /// for each detectability class from a detectability prediction model.
     /// </summary>
-    /// <param name="FullSequence">The peptide sequence (with modifications in UNIMOD format)</param>
+    /// <param name="FullSequence">Original peptide sequence provided by the user (mzLib format)</param>
     /// <param name="DetectabilityProbabilities">Probability scores for each detectability class (Not Detectable, Low, Intermediate, High)</param>
     /// <param name="Warning">Warning message if any issues occurred during prediction</param>
     public record PeptideDetectabilityPrediction(
@@ -122,11 +122,11 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
 
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var modHandlingWarning);
+                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var apiSequence, out var modHandlingWarning);
 
-                if (cleanedSequence != null)
+                if (cleanedSequence != null && apiSequence != null)
                 {
-                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = cleanedSequence, SequenceWarning = modHandlingWarning };
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = apiSequence, SequenceWarning = modHandlingWarning };
                     ValidInputsMask[i] = true;
                     validInputs.Add(ModelInputs[i]);
                 }
@@ -260,7 +260,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
             {
                 var peptideFlyabilityClassProbs = detectabilityPredictions[i].Select(p => (double)p).ToList();
                 predictions.Add(new PeptideDetectabilityPrediction(
-                    requestInputs[i].ValidatedFullSequence!,
+                    requestInputs[i].FullSequence,
                     (
                         NotDetectable: peptideFlyabilityClassProbs[0],
                         LowDetectability: peptideFlyabilityClassProbs[1],

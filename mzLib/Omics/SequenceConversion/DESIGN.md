@@ -1,491 +1,212 @@
-# Universal Sequence Converter - Design Documentation
+# Universal Sequence Converter – Interaction Wiki
 
-## Overview
-
-The **SequenceConversion** system provides a universal infrastructure for converting peptide and oligonucleotide sequences between different format representations. It uses a canonical intermediate representation (`CanonicalSequence`) that acts as a format-agnostic bridge, enabling conversion from any supported input format to any supported output format.
-
-## Design Intent
-
-### Core Goals
-
-1. **Format-agnostic representation** - A `CanonicalSequence` serves as the universal intermediate representation (IR) that can be created from any input format and serialized to any output format
-
-2. **Multi-format support** - Extensible parser/serializer architecture supporting:
-   - **mzLib format**: `PEP[Oxidation on M]TIDE`, `[Acetyl]PEPTIDE`
-   - **Mass shift format**: `PEP[+15.995]TIDE`
-   - **Chronologer format**: `-PEPmTIDE_` (single-character encoding for deep learning)
-   - Future formats (UNIMOD, ProForma, etc.)
-
-3. **Modification enrichment** - `IModificationLookup` interface enables resolving partial modification information (e.g., just a mass) to fully-resolved mzLib `Modification` objects with UNIMOD IDs, chemical formulas, etc.
-
-4. **Graceful degradation** - Multiple handling modes (`ThrowException`, `ReturnNull`, `RemoveIncompatibleElements`, `UsePrimarySequence`) for dealing with incompatible modifications
-
-5. **Lazy enrichment** - Modifications store only what the source format provides; additional fields can be populated on-demand during serialization
-
-## Architecture
+## System at a Glance
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                    SequenceConversionService                              │
-│  (Orchestrates parsing/serialization, manages registered formats)        │
-└─────────────────────────────┬────────────────────────────────────────────┘
-                              │
-         ┌────────────────────┼────────────────────┐
-         │                    │                    │
-         ▼                    ▼                    ▼
-   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-   │  Parsers    │    │ Canonical   │    │ Serializers │
-   │             │    │ Sequence    │    │             │
-   │ MzLib       │───▶│ (Universal  │───▶│ MzLib       │
-   │ MassShift   │    │  IR)        │    │ Chronologer │
-   └─────────────┘    └─────────────┘    └─────────────┘
-         │                    │                    │
-         │                    │                    │
-         ▼                    ▼                    ▼
-   ┌─────────────┐    ┌─────────────────┐   ┌─────────────┐
-   │  Schemas    │    │ Modification    │   │  Schemas    │
-   │             │    │ Lookups         │   │             │
-   │ MzLib       │    │                 │   │ MzLib       │
-   │ MassShift   │    │ Unimod          │   │ Chronologer │
-   │ Chronologer │    │                 │   │ MassShift   │
-   └─────────────┘    └─────────────────┘   └─────────────┘
+┌───────────────────────────── SequenceConversionService ─────────────────────────────┐
+│  Detects formats ▸ chooses parser ▸ builds CanonicalSequence ▸ serializes ▸ reports │
+└──────────────┬────────────────────────────┬────────────────────────────┬────────────┘
+               │                            │                            │
+        Parsers & Schemas          Canonical IR & Builder        Serializers & Schemas
+      (format-specific input)      (shared data contracts)       (format-specific output)
+               │                            │                            │
+               └───────────► Modification Lookups ◄────────────┘
+                                (lazy enrichment)
 ```
 
-## Core Components
+Every conversion flows through a canonical intermediate representation (IR). Parsers only worry about “How do I get to IR?” while serializers focus on “How do I express IR for my format?”. Modification lookups and handling policies participate along the way to enrich or prune data without breaking format responsibilities.
 
-### Data Types
+## Conversion Lifecycle
 
-| Component | Type | Purpose |
-|-----------|------|---------|
-| **`CanonicalSequence`** | `readonly record struct` | Immutable universal intermediate representation with base sequence + modifications |
-| **`CanonicalModification`** | `readonly record struct` | Immutable modification representation with position, mass, IDs, and resolved `Modification` reference |
-| **`CanonicalSequenceBuilder`** | `class` | Mutable builder for constructing `CanonicalSequence` during parsing |
-| **`ModificationPositionType`** | `enum` | Position type: `NTerminus`, `CTerminus`, `Residue` |
+1. **Format detection / selection** – `SequenceConversionService` auto-detects or respects the caller-provided format key.
+2. **Parsing** – The format’s parser consumes the raw string and drives a `CanonicalSequenceBuilder` using its paired `SequenceFormatSchema` for lexical rules.
+3. **Canonicalization** – The builder emits an immutable `CanonicalSequence` containing the base sequence and a list of `CanonicalModification` values (with whatever metadata the source could provide).
+4. **Lookup enrichment (optional)** – Serializers or downstream code supply an `IModificationLookup` (e.g., mzLib or UNIMOD) to resolve missing IDs, formulas, or motifs.
+5. **Handling incompatible elements** – `SequenceConversionHandlingMode` and `ConversionWarnings` coordinate whether we throw, return null, strip modifications, or fall back to primaries.
+6. **Serialization** – The requested serializer, guided by its schema, recreates the output string (including any lazy-enriched metadata).
 
-### Interfaces
+## Core Concepts & Their Interactions
 
-| Interface | Purpose |
-|-----------|---------|
-| **`ISequenceParser`** | Parses string → `CanonicalSequence` |
-| **`ISequenceSerializer`** | Serializes `CanonicalSequence` → string |
-| **`IModificationLookup`** | Resolves/enriches modifications |
-| **`ISequenceConversionService`** | Orchestrates conversions, manages registry |
+### Canonical IR
 
-### Base Classes
+| Type | Interaction Highlights |
+|------|------------------------|
+| `CanonicalSequence` | Immutable hub shared by all formats. Holds `BaseSequence`, the originating `FormatKey`, and an immutable array of `CanonicalModification` entries. Serializers read it; parsers write it. |
+| `CanonicalModification` | Carries residue index, position type (`ModificationPositionType`), masses, IDs, and an optional resolved `Modification`. Lookups may inject enriched data before serialization. |
+| `CanonicalSequenceBuilder` | A parser-owned mutable object. Ensures we can stream characters without repeated allocations, then produce the immutable IR when parsing completes. |
 
-| Class | Purpose |
-|-------|---------|
-| **`SequenceFormatSchema`** | Abstract base class defining format syntax (brackets, separators) |
-| **`ModificationLookupBase`** | Base class for modification lookups with shared resolution logic |
+### Format Abstractions
 
-### Service Layer
+| Component | Role in the flow |
+|-----------|------------------|
+| `SequenceFormatSchema` | Describes tokens, separators, and character casing rules. Parsers reference it while reading; serializers reference it when writing. Keeping schemas separate allows multiple parsers/serializers to share the same grammar. |
+| `ISequenceParser` / `ISequenceSerializer` | Concrete implementations live under `Parsers/` and `Serializers/`. Both operate strictly on `CanonicalSequence` to stay composable. |
 
-| Component | Purpose |
-|-----------|---------|
-| **`SequenceConversionService`** | Main orchestrator with parser/serializer registry, auto-detection, and conversion API |
+### Modification Lookups
 
-### Utility Types
+`IModificationLookup` sits between raw IR and serialized output. Parsers deliberately keep whatever information they received (names, masses, partial IDs). When a serializer needs a canonical identifier (e.g., `[UNIMOD:35]`), it asks the lookup to resolve the `CanonicalModification`. Because lookups inherit from `ModificationLookupBase`, they all share caching, fuzzy matching, and tolerance handling.
 
-| Component | Purpose |
-|-----------|---------|
-| **`ConversionWarnings`** | Accumulates warnings/errors during conversion |
-| **`SequenceConversionException`** | Typed exception for conversion failures |
-| **`SequenceConversionHandlingMode`** | Configurable behavior for incompatible elements |
-| **`ConversionFailureReason`** | Enum of failure reasons |
+Available implementations:
 
-## Implemented Formats
+- **`MzLibModificationLookup`** – Backs onto the mzLib `Mods` catalog (protein/RNA variant singleton configurations).
+- **`UnimodModificationLookup`** – Accepts a candidate set of `Modification` objects (often filtered) and resolves against UNIMOD accessions or references.
 
-### mzLib Format
+### Handling Modes & Warnings
 
-**Parser**: `MzLibSequenceParser`  
-**Serializer**: `MzLibSequenceSerializer`  
-**Schema**: `MzLibSequenceFormatSchema`
+`SequenceConversionHandlingMode` governs failure policy for both parsers and serializers:
 
-**Format characteristics**:
-- Uses square brackets `[ ]` for modification annotations
-- N-terminal modifications directly precede sequence with **no separator**: `[Acetyl]PEPTIDE`
-- C-terminal modifications use hyphen separator: `PEPTIDE-[Amidated]`
-- Modification identifiers use `IdWithMotif` format: `Oxidation on M`
-- Can include modification type prefix: `Common Fixed:Carbamidomethyl on C`
+| Mode | Interaction effect |
+|------|--------------------|
+| `ThrowException` | Bail immediately with `SequenceConversionException`. Used by workflows that require strict fidelity. |
+| `ReturnNull` | Propagate `null` and record the reason inside `ConversionWarnings`. Upstream code can skip the sequence gracefully. |
+| `RemoveIncompatibleElements` | Strip offending modifications/residues, emit warnings, and continue. Essential for prediction services that can tolerate partial information. |
+| `UsePrimarySequence` | Drop all modifications and keep only the base sequence. Primarily used by tools that explicitly work on unmodified strings. |
 
-**Examples**:
+`ConversionWarnings` travels alongside conversions and aggregates textual warnings, incompatible element summaries, and the eventual `ConversionFailureReason` (if any). Consumers such as the Koina prediction clients surface these warnings back to the user interface.
+
+## Supported Formats & How They Interplay
+
+| Format | Parser | Serializer | Schema | Typical Consumers |
+|--------|--------|------------|--------|-------------------|
+| **mzLib** | `MzLibSequenceParser` | `MzLibSequenceSerializer` | `MzLibSequenceFormatSchema` | Native mzLib APIs (`PeptideWithSetModifications`, readers, writers). |
+| **Mass Shift** | `MassShiftSequenceParser` | _pending_ | `MassShiftSequenceFormatSchema` | Spectral libraries or pipelines that only know delta masses. |
+| **Chronologer** | _n/a (one-way)_ | `ChronologerSequenceSerializer` | `ChronologerSequenceFormatSchema` | Machine-learning inputs (single-character encodings). |
+
+Adding a format means supplying a schema plus at least one parser or serializer; the rest of the stack (service, warnings, lookup plumbing) immediately works.
+
+## Service Layer Responsibilities
+
+`SequenceConversionService` exposes the public API:
+
+- `Parse(formatKey)` / `ParseAutoDetect` – produce `CanonicalSequence?`
+- `Serialize(formatKey)` – write strings from IR
+- `Convert(sourceFormat, targetFormat)` – convenience wrapper for parse + serialize
+- Format registry – each parser/serializer pair registers with a unique key to enable auto-detection and targeted conversions.
+
+Internally, the service also instantiates `ConversionWarnings`, copies handling modes into parser/serializer calls, and orchestrates lookup injection so consumers only need to provide a lookup once.
+
+## Interaction With the Rest of mzLib
+
+- **Proteomics/Transcriptomics domain** – `PeptideWithSetModifications` and `OligoWithSetMods` can adopt canonical conversions when reading/writing full sequences, ensuring consistent format handling.
+- **Prediction clients (Koina)** – `KoinaSequenceConverter` builds on this infrastructure: parse mzLib strings, restrict allowed UNIMOD IDs via custom lookups, serialize to `[UNIMOD:*]`, and hand sequences to remote models while still exposing the original inputs.
+- **File readers/writers** – Identification formats such as mzIdentML, pepXML, or MGF can choose whichever format best matches their syntax and rely on the same conversion lifecycle.
+- **Visualization / Spectral libraries** – Tools needing mass-shift only representations can parse once and serialize into multiple downstream formats with guaranteed consistency.
+
+## Extending the System
+
+1. **Add a schema (if needed)** – Define bracket characters, separators, allowed alphabets, and any format-specific tokens in a `SequenceFormatSchema` derivative.
+2. **Implement parser and/or serializer** – Follow `ISequenceParser`/`ISequenceSerializer`, using the schema for tokenization. Emit `CanonicalSequence` objects via the builder and consume them via immutable accessors.
+3. **Register with the service** – Update the format registry (usually inside `SequenceConversionService.Default` creation) so the system knows how to reach your implementation.
+4. **Optional: custom lookup** – If a format references a specific ontology, implement `IModificationLookup` that encapsulates its resolution logic.
+5. **Decide handling policy** – Surface the preferred `SequenceConversionHandlingMode` to callers, or allow them to override.
+
+## Modification Resolution Flow
+
 ```
-PEPTIDE                                          # Unmodified
-PEP[Oxidation on M]TIDE                         # Residue modification
-[Acetyl]PEPTIDE                                  # N-terminal (NO separator)
-PEPTIDE-[Amidated]                              # C-terminal (with separator)
-[Acetyl]PEP[Oxidation on M]TIDE-[Amidated]     # Multiple modifications
-```
-
-### Mass Shift Format
-
-**Parser**: `MassShiftSequenceParser`  
-**Serializer**: ❌ Not implemented  
-**Schema**: `MassShiftSequenceFormatSchema`
-
-**Format characteristics**:
-- Uses square brackets `[ ]` for modification annotations
-- Modifications specified as mass shifts with sign: `[+15.995]` or `[-18.011]`
-- N-terminal modifications directly precede sequence with **no separator**: `[+42.011]PEPTIDE`
-- C-terminal modifications use hyphen separator: `PEPTIDE-[+0.984]`
-
-**Examples**:
-```
-PEPTIDE                                    # Unmodified
-PEP[+15.995]TIDE                          # Oxidation by mass
-[+42.011]PEPTIDE                          # N-terminal acetylation
-PEPTIDE-[+0.984]                          # C-terminal amidation
-PEP[-18.011]TIDE                          # Water loss (negative shift)
-```
-
-**Use cases**:
-- Exact modification identities unknown
-- Working with raw mass spectrometry data
-- Converting between systems with different modification databases
-- Non-standard modifications not in databases
-
-### Chronologer Format
-
-**Parser**: ❌ Not needed (one-way conversion)  
-**Serializer**: `ChronologerSequenceSerializer`  
-**Schema**: `ChronologerSequenceFormatSchema`
-
-**Format characteristics**:
-- Single-character encoding for deep learning models
-- Lowercase letters represent modified residues
-- Special tokens for N/C-terminus states
-- Maximum sequence length: 50 amino acids (+ 2 for termini)
-- Does NOT use bracket-based modification annotations
-
-**Alphabet**:
-- **Canonical amino acids**: `ACDEFGHIKLMNPQRSTVWY` (positions 1-20)
-- **Modified residues**: `cmdestyabunopqrxz` (positions 21-37)
-- **N/C terminus states**: `-^()&*_` (positions 38-44)
-- **User-defined slots**: `0123456789` (positions 45-54)
-
-**Modification encoding**:
-| Code | Modification | Target | Mass Shift |
-|------|--------------|--------|------------|
-| `m` | Oxidation | M | +15.995 |
-| `c` | Carbamidomethyl | C | +57.021 |
-| `d` | Alternative C mod | C | +39.99 |
-| `e` | PyroGlu | E/Q | -18.01/-17.02 |
-| `s` | Phosphorylation | S | +79.966 |
-| `t` | Phosphorylation | T | +79.966 |
-| `y` | Phosphorylation | Y | +79.966 |
-| `a` | Acetylation | K | +42.011 |
-| `b` | Succinylation | K | +100.0 |
-| `u` | Ubiquitination | K | +114.0 |
-| `n` | Methylation | K | +14.016 |
-| `o` | Dimethylation | K | +28.031 |
-| `p` | Trimethylation | K | +42.047 |
-| `q` | Methylation | R | +14.016 |
-| `r` | Dimethylation | R | +28.031 |
-| `z` | GlyGly | K | +224.1 |
-| `x` | Heavy GlyGly | K | +229.1 |
-
-**N-terminus states**:
-| Token | Meaning |
-|-------|---------|
-| `-` | Free N-terminus |
-| `^` | N-terminal acetylation |
-| `)` | PyroGlu at N-terminus (from E) |
-| `(` | Cyclized CAM-Cys at N-terminus |
-| `&` | N-terminal GlyGly |
-| `*` | N-terminal heavy GlyGly |
-
-**C-terminus state**:
-| Token | Meaning |
-|-------|---------|
-| `_` | C-terminus |
-
-**Examples**:
-```
--PEPTIDE_                  # Unmodified
--PEPmTIDE_                # Oxidized methionine
-^PEPTIDE_                 # N-terminal acetylation
--PEPsTIDE_                # Phosphorylation on serine
+CanonicalSequence.Modifications ──► Serializer needs identifier
+         │                               │
+         │                               ▼
+         └───── optional lookup.Resolve(CanonicalModification)
+                                 │
+                    adds UNIMOD ID / formulas / mzLib IDs
+                                 │
+                          Serializer emits value
 ```
 
-## Modification Resolution
+Lookups can filter their candidate sets. For example, the Koina TMT model provides a curated list of allowed UNIMOD IDs to `UnimodModificationLookup`, preventing accidental enrichment of unsupported modifications.
 
-### `IModificationLookup` Interface
+## Usage Patterns
 
-Enables resolving and enriching modifications by looking up additional information from modification databases.
-
-**Resolution strategies**:
-1. **UNIMOD ID**: `UNIMOD:35` → Oxidation
-2. **mzLib ID**: `Oxidation on M`
-3. **Mass**: Fuzzy matching within tolerance
-4. **Chemical formula**: Exact formula matching
-5. **Name patterns**: Flexible name matching
-
-### Implemented Lookups
-
-**`MzLibModificationLookup`**:
-- Resolves via mzLib `Mods` class
-- Searches protein and/or RNA modifications
-- Supports mass-based fallback (0.001 Da tolerance)
-- Singleton instances: `Instance`, `ProteinOnly`, `RnaOnly`
-
-**`UnimodModificationLookup`**:
-- Status: Implementation exists but not verified in this review
-- Should resolve via UNIMOD database references
-
-## Error Handling
-
-### `SequenceConversionHandlingMode` Enum
-
-Configures behavior when encountering incompatible elements:
-
-| Mode | Behavior |
-|------|----------|
-| `ThrowException` | Throw `SequenceConversionException` immediately |
-| `ReturnNull` | Return `null` without throwing |
-| `RemoveIncompatibleElements` | Remove incompatible modifications with warnings |
-| `UsePrimarySequence` | Fall back to unmodified base sequence |
-
-### `ConversionWarnings` Class
-
-Accumulates issues during conversion:
-- **Warnings**: Non-fatal issues (e.g., using original representation)
-- **Errors**: Issues that affected conversion
-- **Incompatible items**: Specific modifications that couldn't be converted
-- **Failure reason**: Fatal error reason if conversion failed
-
-### `SequenceConversionException`
-
-Typed exception with:
-- `ConversionFailureReason` enum
-- List of incompatible items
-- List of warnings
-
-## Usage Examples
-
-### Basic Conversion
+### Parse → Serialize
 
 ```csharp
-// Parse mzLib format to canonical
 var service = SequenceConversionService.Default;
 var canonical = service.Parse("[Acetyl]PEP[Oxidation on M]TIDE", "mzLib");
-
-// Serialize to Chronologer format
-var chronologer = service.Serialize(canonical.Value, "Chronologer");
-// Result: "^PEPmTIDE_"
+var warnings = new ConversionWarnings();
+var chronologer = service.Serialize(
+    canonical!.Value,
+    "Chronologer",
+    warnings,
+    SequenceConversionHandlingMode.ThrowException,
+    lookup: MzLibModificationLookup.Instance);
 ```
 
-### Direct Format Conversion
-
-```csharp
-var service = SequenceConversionService.Default;
-var chronologer = service.Convert(
-    "[Acetyl]PEPTIDE", 
-    sourceFormat: "mzLib", 
-    targetFormat: "Chronologer");
-// Result: "^PEPTIDE_"
-```
-
-### Auto-Detection
-
-```csharp
-var service = SequenceConversionService.Default;
-var detectedFormat = service.DetectFormat("PEP[+15.995]TIDE");
-// Result: "MassShift"
-
-var canonical = service.ParseAutoDetect("PEP[+15.995]TIDE");
-```
-
-### With Error Handling
+### Source-to-target Conversion with Relaxed Policy
 
 ```csharp
 var warnings = new ConversionWarnings();
-var canonical = service.Parse(
-    "PEP[UnknownMod]TIDE",
-    "mzLib",
+var converted = SequenceConversionService.Default.Convert(
+    input: "PEP[UnknownMod]TIDE",
+    sourceFormat: "mzLib",
+    targetFormat: "MassShift",
     warnings,
-    SequenceConversionHandlingMode.RemoveIncompatibleElements);
+    handling: SequenceConversionHandlingMode.RemoveIncompatibleElements);
 
 if (warnings.HasIncompatibleItems)
 {
-    Console.WriteLine($"Removed: {string.Join(", ", warnings.IncompatibleItems)}");
+    Console.WriteLine(string.Join("; ", warnings.IncompatibleItems));
 }
 ```
 
-### Using Modification Lookup
+### Auto-detect and Integrate With External Pipelines
 
 ```csharp
-var lookup = MzLibModificationLookup.Instance;
-var serializer = new MzLibSequenceSerializer(lookup);
+var canonical = SequenceConversionService.Default.ParseAutoDetect(sequenceString);
+if (canonical is null)
+{
+    // consult warnings for diagnostic text
+    return;
+}
 
-// Canonical sequence with only mass information
-var canonical = new CanonicalSequence(
-    "PEPTIDE",
-    ImmutableArray.Create(
-        CanonicalModification.AtResidue(2, 'P', "+79.966", mass: 79.966)
-    ),
-    "MassShift");
-
-// Serializer will use lookup to resolve mass to "Phospho on S"
-var mzLibFormat = serializer.Serialize(canonical);
+// Downstream pipeline can inspect canonical.Modifications regardless of source syntax
 ```
 
-## Implementation Status
+## Implementation Status & Roadmap
 
-### Completed ✅
+| Area | Status |
+|------|--------|
+| Core IR, builder, schemas | ✅ complete |
+| mzLib parser/serializer | ✅ complete |
+| Mass Shift parser | ✅ complete |
+| Mass Shift serializer | ⏳ planned |
+| Chronologer serializer | ✅ complete (one-way) |
+| Lookup infrastructure | ✅ (mzLib + UNIMOD) |
+| Service orchestration | ✅ |
+| Unit tests | ⏳ expand coverage |
+| Additional formats (ProForma, PSI-MOD, etc.) | 🚧 backlog |
 
-1. **Core Data Types**
-   - `CanonicalSequence` with immutable modifications
-   - `CanonicalModification` with all metadata fields
-   - `CanonicalSequenceBuilder` for fluent construction
-   - `ModificationPositionType` enum
-
-2. **Schema Architecture**
-   - Abstract `SequenceFormatSchema` base class with inheritance
-   - `MzLibSequenceFormatSchema` with empty N-term separator
-   - `MassShiftSequenceFormatSchema`
-   - `ChronologerSequenceFormatSchema` with encoding constants
-
-3. **Parsers**
-   - `MzLibSequenceParser` - bracket annotation parsing
-   - `MassShiftSequenceParser` - mass shift parsing
-
-4. **Serializers**
-   - `MzLibSequenceSerializer` - mzLib format output
-   - `ChronologerSequenceSerializer` - single-char encoding with UNIMOD/mass mappings
-
-5. **Modification Resolution**
-   - `IModificationLookup` interface
-   - `ModificationLookupBase` abstract base with shared logic
-   - `MzLibModificationLookup` implementation
-
-6. **Service Layer**
-   - `SequenceConversionService` with full orchestration
-   - Format auto-detection
-   - Parser/serializer registry
-
-7. **Error Handling**
-   - `ConversionWarnings` accumulator
-   - `SequenceConversionException` typed exception
-   - `SequenceConversionHandlingMode` enum
-   - `ConversionFailureReason` enum
-
-8. **Build Status**: ✅ Compiles with 0 errors
-
-### Remaining Work ❌
-
-| Task | Priority | Notes |
-|------|----------|-------|
-| **Unit Tests** | **High** | Comprehensive test coverage needed for all components |
-| **MassShiftSequenceSerializer** | Medium | Enable outputting `[+15.995]` format |
-| **UnimodModificationLookup verification** | Medium | File exists but implementation not verified |
-| **Integration with mzLib domain** | Low | Wire into `PeptideWithSetModifications.FullSequence` after testing |
-| **ProForma format support** | Low | Not a current priority |
-| **Documentation** | Low | XML docs exist, consider user guide |
-
-## Design Decisions
-
-### Why Canonical Sequence as Intermediate Representation?
-
-- **Separation of concerns**: Parsing and serialization are independent
-- **Extensibility**: New formats only require implementing one interface
-- **Composability**: Can chain conversions or apply transformations
-- **Testability**: Each parser/serializer can be tested in isolation
-- **Performance**: Reusable intermediate representation avoids re-parsing
-
-### Why Lazy Enrichment?
-
-- **Flexibility**: Source formats provide different levels of detail
-- **Efficiency**: Don't resolve modifications unless needed
-- **Compatibility**: Can work with partial information
-- **Preservation**: Original representation always maintained
-
-### Why Schema Inheritance?
-
-- **Type safety**: Each format has its own schema class
-- **Discoverability**: Format-specific constants co-located with schema
-- **Extensibility**: Easy to add format-specific properties
-- **Clean API**: Singleton pattern for easy access
-
-### Why Separate Mass Shift Format?
-
-- **Distinct semantics**: Mass shifts represent different information than named modifications
-- **Parser complexity**: Different detection and validation logic
-- **User clarity**: Clear separation between formats
-- **Future flexibility**: Could have different serialization rules
-
-## Future Considerations
-
-### Potential Format Additions
-
-1. **ProForma** - `M[Oxidation]` or `M[U:35]` notation
-2. **UNIMOD** - `(UniMod:35)` style notation  
-3. **PSI-MOD** - PSI Modification Ontology format
-4. **MaxQuant** - MaxQuant-specific notation
-5. **Mascot** - Mascot search engine format
-
-### Potential Enhancements
-
-1. **Batch conversion** - Process collections of sequences efficiently
-2. **Streaming API** - Handle large files without loading all into memory
-3. **Format validation** - Validate sequences against format rules
-4. **Format migration** - Tools for migrating between database formats
-5. **Ambiguity resolution** - Handle cases where modifications are ambiguous
-6. **Localization scoring** - Preserve modification localization confidence
-
-### Integration Points
-
-1. **`PeptideWithSetModifications.FullSequence`** - Use for reading/writing
-2. **`OligoWithSetMods`** - RNA/DNA sequence support
-3. **File readers** - Parse sequences from identification files
-4. **Search engines** - Input/output format conversions
-5. **Visualization** - Display sequences in user-preferred formats
-
-## Project Structure
+## Project Map
 
 ```
-mzLib/Omics/SequenceConversion/
-├── CanonicalSequence.cs               # Universal IR
-├── CanonicalModification.cs           # Modification IR
-├── CanonicalSequenceBuilder.cs        # Builder for parsing
-├── SequenceFormatSchema.cs            # Abstract schema base
-├── SequenceConversionService.cs       # Main orchestrator
-├── ISequenceParser.cs                 # Parser interface
-├── ISequenceSerializer.cs             # Serializer interface
-├── ISequenceConversionService.cs      # Service interface
-├── IModificationLookup.cs             # Lookup interface
-│
-├── Schema/
-│   ├── MzLibSequenceFormatSchema.cs   # mzLib format definition
-│   ├── MassShiftSequenceFormatSchema.cs
-│   └── ChronologerSequenceFormatSchema.cs
-│
-├── Parsers/
+SequenceConversion/
+├── CanonicalSequence(.cs)               // IR definitions
+├── Parsers/                             // Format-specific readers
 │   ├── MzLibSequenceParser.cs
 │   └── MassShiftSequenceParser.cs
-│
 ├── Serializers/
 │   ├── MzLibSequenceSerializer.cs
 │   └── ChronologerSequenceSerializer.cs
-│
+├── Schema/
+│   ├── MzLibSequenceFormatSchema.cs
+│   ├── MassShiftSequenceFormatSchema.cs
+│   └── ChronologerSequenceFormatSchema.cs
 ├── ModificationLookup/
-│   ├── ModificationLookupBase.cs      # Base class
+│   ├── ModificationLookupBase.cs
 │   ├── MzLibModificationLookup.cs
 │   └── UnimodModificationLookup.cs
-│
 ├── Util/
 │   ├── ConversionWarnings.cs
-│   ├── SequenceConversionException.cs
 │   ├── SequenceConversionHandlingMode.cs
-│   └── ConversionFailureReason.cs
-│
-└── Converters/                        # Empty - future use
+│   ├── ConversionFailureReason.cs
+│   └── SequenceConversionException.cs
+└── SequenceConversionService.cs         // Registry + orchestration
 ```
 
-## Contributors
+## Contributors & Context
 
-This design was developed as part of the mzLib project to provide universal sequence format conversion capabilities for mass spectrometry proteomics and transcriptomics analysis.
+SequenceConversion is part of mzLib’s shared infrastructure for proteomics and transcriptomics. It powers everything from Koina model input sanitation to file reader interoperability. Contributions should favor composability: add formats or lookups rather than embedding special cases, and rely on `ConversionWarnings` + handling modes to keep higher-level components (search engines, prediction clients, visualization tools) informed without breaking their control flow.
 
-## Version History
+### Version Notes
 
-- **Current**: Initial implementation with mzLib, MassShift, and Chronologer format support
-- **Future**: Testing, integration with domain model, and additional format support
+- **Current** – mzLib, MassShift (parse), Chronologer (serialize) available; Koina models rely on these pathways.
+- **Planned** – MassShift serializer, ProForma support, deeper unit coverage, and tighter integration with domain objects once adoption stabilizes.

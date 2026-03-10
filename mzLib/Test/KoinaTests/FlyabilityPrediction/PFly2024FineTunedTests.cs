@@ -1,4 +1,5 @@
 ﻿using NUnit.Framework;
+using Omics.SequenceConversion;
 using PredictionClients.Koina.SupportedModels.FlyabilityModels;
 using PredictionClients.Koina.Util;
 using System;
@@ -60,16 +61,20 @@ namespace Test.KoinaTests
             Assert.That(predictions[0].DetectabilityProbabilities, Is.Not.Null, "Modified peptide should have predictions on base sequence");
             Assert.That(predictions[0].Warning, Is.Not.Null, "Modified peptide should have a warning");
             Assert.That(predictions[0].Warning.Message, Does.Contain("modifications"), "Warning should mention modifications");
+            Assert.That(predictions[0].FullSequence, Is.EqualTo(modelInputs[0].FullSequence));
 
             Assert.That(predictions[1].DetectabilityProbabilities, Is.Not.Null, "Modified peptide should have predictions on base sequence");
             Assert.That(predictions[1].Warning, Is.Not.Null, "Modified peptide should have a warning");
+            Assert.That(predictions[1].FullSequence, Is.EqualTo(modelInputs[1].FullSequence));
 
             Assert.That(predictions[2].DetectabilityProbabilities, Is.Not.Null, "Modified peptide should have predictions on base sequence");
             Assert.That(predictions[2].Warning, Is.Not.Null, "Modified peptide should have a warning");
+            Assert.That(predictions[2].FullSequence, Is.EqualTo(modelInputs[2].FullSequence));
 
             // Unmodified peptide should have no warnings
             Assert.That(predictions[3].DetectabilityProbabilities, Is.Not.Null, "Unmodified peptide should have valid predictions");
             Assert.That(predictions[3].Warning, Is.Null, "Unmodified peptide should not have warnings");
+            Assert.That(predictions[3].FullSequence, Is.EqualTo(modelInputs[3].FullSequence));
         }
 
         /// <summary>
@@ -256,8 +261,8 @@ namespace Test.KoinaTests
             Assert.That(model.DetectabilityClasses[3], Is.EqualTo("High Detectability"));
             Assert.That(model.MaxPeptideLength, Is.EqualTo(40));
             Assert.That(model.MinPeptideLength, Is.EqualTo(1));
-            Assert.That(model.ModHandlingMode, Is.EqualTo(IncompatibleModHandlingMode.UsePrimarySequence));
-            Assert.That(model.ValidModificationUnimodMapping.Count, Is.EqualTo(0), "PFly does not support any modifications");
+            Assert.That(model.ModHandlingMode, Is.EqualTo(SequenceConversionHandlingMode.UsePrimarySequence));
+            Assert.That(model.AllowedUnimodIds.Count, Is.EqualTo(0), "PFly does not support any modifications");
         }
 
         /// <summary>
@@ -278,8 +283,14 @@ namespace Test.KoinaTests
             var predictions = model.Predict(mixedCaseInputs);
 
             Assert.That(predictions.Count, Is.EqualTo(3), "Should return predictions for all inputs");
-            // The AllowedAminoAcidPattern uses uppercase [ACDEFGHIKLMNPQRSTVWY], so lowercase may be invalid
-            // If lowercase letters are rejected, predictions[0] and predictions[2] should have null probabilities
+            Assert.That(predictions[0].DetectabilityProbabilities, Is.Null);
+            Assert.That(predictions[0].Warning, Is.Not.Null);
+
+            Assert.That(predictions[1].DetectabilityProbabilities, Is.Not.Null);
+            Assert.That(predictions[1].Warning, Is.Null);
+
+            Assert.That(predictions[2].DetectabilityProbabilities, Is.Null);
+            Assert.That(predictions[2].Warning, Is.Not.Null);
         }
 
         /// <summary>
@@ -413,39 +424,6 @@ namespace Test.KoinaTests
             Assert.That(predictions[1].FullSequence, Is.EqualTo("CCCCCC"));
             Assert.That(predictions[2].FullSequence, Is.EqualTo("GGGGGG"));
             Assert.That(predictions[3].FullSequence, Is.EqualTo("TTTTTT"));
-        }
-
-        /// <summary>
-        /// Tests that the allowed amino acid pattern regex works correctly.
-        /// </summary>
-        [Test]
-        public static void TestPFly2024FineTunedAllowedAminoAcidPattern()
-        {
-            var model = new PFly2024FineTuned();
-
-            // Test valid sequences
-            Assert.That(System.Text.RegularExpressions.Regex.IsMatch("ACDEFGHIKLMNPQRSTVWY", model.AllowedAminoAcidPattern));
-            Assert.That(System.Text.RegularExpressions.Regex.IsMatch("PEPTIDEK", model.AllowedAminoAcidPattern));
-
-            // Test invalid sequences
-            Assert.That(!System.Text.RegularExpressions.Regex.IsMatch("PEPTXIDEK", model.AllowedAminoAcidPattern));
-            Assert.That(!System.Text.RegularExpressions.Regex.IsMatch("PEPTIDE123", model.AllowedAminoAcidPattern));
-        }
-
-        /// <summary>
-        /// Tests modification pattern regex for correct bracket matching.
-        /// </summary>
-        [Test]
-        public static void TestPFly2024FineTunedModificationPattern()
-        {
-            var model = new PFly2024FineTuned();
-
-            var modificationPattern = model.ModificationPattern;
-
-            Assert.That(System.Text.RegularExpressions.Regex.IsMatch("[Oxidation]", modificationPattern));
-            Assert.That(System.Text.RegularExpressions.Regex.IsMatch("[Common Variable:Oxidation on M]", modificationPattern));
-            Assert.That(!System.Text.RegularExpressions.Regex.IsMatch("[", modificationPattern));
-            Assert.That(!System.Text.RegularExpressions.Regex.IsMatch("]", modificationPattern));
         }
 
         /// <summary>

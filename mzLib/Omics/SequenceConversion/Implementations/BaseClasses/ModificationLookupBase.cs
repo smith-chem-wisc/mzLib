@@ -128,7 +128,7 @@ public abstract class ModificationLookupBase : IModificationLookup
 
     /// <summary>
     /// Attempts to find a modification matching the given chemical formula.
-    /// Default implementation searches available candidates for an exact formula match.
+    /// Default implementation searches available portentialStringRepresentations for an exact formula match.
     /// </summary>
     /// <param name="formula">The chemical formula to match.</param>
     /// <param name="targetResidue">Optional target residue for disambiguation.</param>
@@ -141,7 +141,7 @@ public abstract class ModificationLookupBase : IModificationLookup
 
     /// <summary>
     /// Attempts to find a modification matching the given mass within tolerance.
-    /// Default implementation searches available candidates for matches within configured tolerance.
+    /// Default implementation searches available portentialStringRepresentations for matches within configured tolerance.
     /// </summary>
     /// <param name="mass">The monoisotopic mass to match.</param>
     /// <param name="targetResidue">Optional target residue for disambiguation.</param>
@@ -179,12 +179,12 @@ public abstract class ModificationLookupBase : IModificationLookup
     }
 
     /// <summary>
-    /// Helper method to select a modification from candidates with residue preference.
+    /// Helper method to select a modification from portentialStringRepresentations with residue preference.
     /// Prefers modifications that target the specified residue if provided.
     /// </summary>
     /// <param name="candidates">The candidate modifications to select from.</param>
     /// <param name="targetResidue">Optional preferred target residue.</param>
-    /// <returns>The best matching modification, or null if no candidates.</returns>
+    /// <returns>The best matching modification, or null if no portentialStringRepresentations.</returns>
     protected static Modification? SelectWithResiduePreference(IEnumerable<Modification> candidates, char? targetResidue)
     {
         var candidateList = candidates as IList<Modification> ?? candidates.ToList();
@@ -271,14 +271,23 @@ public abstract class ModificationLookupBase : IModificationLookup
         if (string.IsNullOrEmpty(normalized))
             return null;
 
+        HashSet<string> portentialStringRepresentations = new();
         foreach (var candidate in ExpandNameCandidates(normalized, targetResidue))
         {
             var resolved = ResolveByIdentifier(candidate);
             if (resolved != null)
                 return resolved;
+            portentialStringRepresentations.Add(candidate);
         }
 
-        var matches = FilterCandidates(m => MatchesIdentifier(m, normalized));
-        return SelectWithResiduePreference(matches, targetResidue);
+        foreach (var candidate in portentialStringRepresentations)
+        {
+            var matches = FilterCandidates(m => MatchesIdentifier(m, candidate));
+            var match = SelectWithResiduePreference(matches, targetResidue);
+            if (match != null)
+                return match;
+        }
+
+        return null;
     }
 }

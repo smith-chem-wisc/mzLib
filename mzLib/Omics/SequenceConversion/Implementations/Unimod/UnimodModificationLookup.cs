@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Omics.Modifications;
 
-namespace Omics.SequenceConversion.Implementations.Unimod;
+namespace Omics.SequenceConversion;
 
 /// <summary>
 /// Resolves modifications using UNIMOD identifiers.
@@ -15,13 +15,13 @@ public class UnimodModificationLookup : ModificationLookupBase
     /// </summary>
     public static UnimodModificationLookup Instance { get; } = new();
 
-    public UnimodModificationLookup()
+    public UnimodModificationLookup(IEnumerable<Modification>? candidateSet = null)
         : base(
             conventionForLookup: ModificationNamingConvention.Unimod,
             searchProteinMods: true,
             searchRnaMods: false,
             massTolerance: null,
-            candidateSet: Mods.UnimodModifications)
+            candidateSet: candidateSet ?? Mods.UnimodModifications)
     {
     }
 
@@ -65,6 +65,25 @@ public class UnimodModificationLookup : ModificationLookupBase
     {
         if (string.IsNullOrEmpty(normalizedRepresentation))
             yield break;
+
+        if (normalizedRepresentation.Contains("on N-terminus"))
+        {
+            yield return normalizedRepresentation.Replace("on N-terminus", "on X");
+            if (targetResidue.HasValue)
+                yield return normalizedRepresentation.Replace("on N-terminus", $"on {targetResidue.Value}");
+        }
+
+        if (normalizedRepresentation.Contains(":"))
+        {
+            var second = normalizedRepresentation.Split(':')[1];
+            yield return second;
+            if (second.Contains("on N-terminus"))
+            {
+                yield return second.Replace("on N-terminus", "on X");
+                if (targetResidue.HasValue)
+                    yield return second.Replace("on N-terminus", $"on {targetResidue.Value}");
+            }
+        }
 
         yield return normalizedRepresentation;
     }
