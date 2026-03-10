@@ -36,7 +36,8 @@ public sealed class MassShiftSequenceFormatSchema : SequenceFormatSchema
     /// Creates a new mass shift schema with the specified number of decimal places.
     /// </summary>
     /// <param name="decimalPlaces">Number of decimal places to use for mass values (default: 6).</param>
-    public MassShiftSequenceFormatSchema(int decimalPlaces = 6) 
+    public MassShiftSequenceFormatSchema(int decimalPlaces = 6, char modOpen = '[', char modClosed = ']', string? nTermSeparator = "", string? cTermSeparator = "-")
+        : base(modOpen, modClosed, nTermSeparator, cTermSeparator)
     {
         DecimalPlaces = decimalPlaces;
     }

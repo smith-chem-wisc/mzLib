@@ -127,7 +127,7 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
                 sb.Append(Schema.ModCloseBracket);
                 
                 // Add N-terminal separator if defined and not empty
-                if (Schema.NTermSeparator != null && !string.IsNullOrEmpty(Schema.NTermSeparator))
+                if (!string.IsNullOrEmpty(Schema.NTermSeparator))
                 {
                     sb.Append(Schema.NTermSeparator);
                 }
@@ -170,7 +170,7 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
             if (modString != null)
             {
                 // Add C-terminal separator if defined
-                if (Schema.CTermSeparator != null && !string.IsNullOrEmpty(Schema.CTermSeparator))
+                if (!string.IsNullOrEmpty(Schema.CTermSeparator))
                 {
                     sb.Append(Schema.CTermSeparator);
                 }

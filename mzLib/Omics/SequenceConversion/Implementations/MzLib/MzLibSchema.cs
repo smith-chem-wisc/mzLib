@@ -30,24 +30,10 @@ public sealed class MzLibSequenceFormatSchema : SequenceFormatSchema
     /// <summary>
     /// Private constructor to enforce singleton pattern.
     /// </summary>
-    private MzLibSequenceFormatSchema() { }
+    private MzLibSequenceFormatSchema(char modOpen = '[', char modClosed = ']', string? nTermSeparator = "", string? cTermSeparator = "-")
+        : base(modOpen, modClosed, nTermSeparator, cTermSeparator) { }
 
     /// <inheritdoc />
     public override string FormatName => "mzLib";
 
-    /// <inheritdoc />
-    public override char ModOpenBracket => '[';
-
-    /// <inheritdoc />
-    public override char ModCloseBracket => ']';
-
-    /// <inheritdoc />
-    /// <remarks>
-    /// Empty string indicates N-terminal modifications directly precede the sequence with no separator.
-    /// Example: "[Acetyl]PEPTIDE" not "[Acetyl]-PEPTIDE"
-    /// </remarks>
-    public override string? NTermSeparator => "";
-
-    /// <inheritdoc />
-    public override string? CTermSeparator => "-";
 }
