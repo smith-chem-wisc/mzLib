@@ -49,7 +49,7 @@ namespace Test
             var chymotrypsin = DigestionMotif.ParseDigestionMotifsFromString("F[P]|,W[P]|,Y[P]|");
             Assert.AreEqual(chymotrypsin.Count, 3);
         }
-
+        
         [Test]
         public static void TestBasicProtease1()
         {
@@ -69,7 +69,7 @@ namespace Test
         public static void TestBasicProtease2()
         {
             var empty = new List<Modification>();
-            DigestionParams myDigestionParams = new DigestionParams("Lys-C (don't cleave before proline)", minPeptideLength: 1, maxMissedCleavages: 0);
+            DigestionParams myDigestionParams = new DigestionParams("Lys-C|P", minPeptideLength: 1, maxMissedCleavages: 0);
             // create a protein
             Protein myProtein = new Protein("MKPKPKPMKA", "myAccession");
             // digest it into peptides
@@ -178,7 +178,7 @@ namespace Test
         public static void TestEndSequenceCTerm()
         {
             var empty = new List<Modification>();
-            DigestionParams myDigestionParams = new DigestionParams("chymotrypsin (don't cleave before proline)", minPeptideLength: 1, maxMissedCleavages: 0);
+            DigestionParams myDigestionParams = new DigestionParams("chymotrypsin|P", minPeptideLength: 1, maxMissedCleavages: 0);
             // create a protein
             Protein myProtein = new Protein("AASFPWDJSSMF", "myAccession");
             // digest it into peptides

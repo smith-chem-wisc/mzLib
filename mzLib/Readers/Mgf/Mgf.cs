@@ -1,6 +1,7 @@
 ﻿using MassSpectrometry;
 using MzLibUtil;
 using System.Globalization;
+using System.Reflection.Metadata.Ecma335;
 using System.Text.RegularExpressions;
 
 // old namespace to ensure backwards compatibility
@@ -49,7 +50,8 @@ namespace Readers
 
                             var scan = GetNextMsDataOneBasedScanFromConnection(sr, checkForDuplicateScans, filterParams);
 
-                            scans.Add(scan);
+                            if (scan is not null)
+                                scans.Add(scan);
                         }
                     }
                 }
@@ -136,13 +138,14 @@ namespace Readers
         public static MsDataFile LoadAllStaticData(string filePath, FilteringParams filteringParams = null,
             int maxThreads = 1) => MsDataFileReader.GetDataFile(filePath).LoadAllStaticData(filteringParams, maxThreads);
 
-        private static MsDataScan GetNextMsDataOneBasedScanFromConnection(StreamReader sr, HashSet<int> scanNumbersAlreadyObserved, 
+        private static MsDataScan? GetNextMsDataOneBasedScanFromConnection(StreamReader sr, HashSet<int> scanNumbersAlreadyObserved, 
             IFilteringParams filterParams = null, int? alreadyKnownScanNumber = null)
         {
             List<double> mzs = new List<double>();
             List<double> intensities = new List<double>();
             int charge = 2; //default when unknown
             double precursorMz = 0;
+            double? precursorIntensity = null; //default when unknown
             double rtInMinutes = double.NaN; //default when unknown
 
             int oldScanNumber = scanNumbersAlreadyObserved.Count > 0 ? scanNumbersAlreadyObserved.Max() : 0;
@@ -167,6 +170,8 @@ namespace Readers
                 {
                     sArray = sArray[1].Split(' ');
                     precursorMz = Convert.ToDouble(sArray[0], CultureInfo.InvariantCulture);
+                    if (sArray.Length > 1)
+                        precursorIntensity = Convert.ToDouble(sArray[1], CultureInfo.InvariantCulture);
                 }
                 else if (line.StartsWith("CHARGE"))
                 {
@@ -193,6 +198,8 @@ namespace Readers
 
             double[] mzArray = mzs.ToArray();
             double[] intensityArray = intensities.ToArray();
+            if (mzArray.IsNullOrEmpty() || intensityArray.IsNullOrEmpty())
+                return null;
 
             Array.Sort(mzArray, intensityArray);
 
@@ -232,8 +239,8 @@ namespace Readers
             return new MsDataScan(spectrum, scanNumber, 2, true,
                 charge > 0 ? Polarity.Positive : Polarity.Negative,
                 rtInMinutes, scanRange, null, MZAnalyzerType.Unknown,
-                intensities.Sum(), 0, null, null, precursorMz, charge, 
-                null, precursorMz, null,  DissociationType.Unknown, 
+                intensities.Sum(), 0, null, null, precursorMz, charge,
+                precursorIntensity, precursorMz, null, DissociationType.Unknown,
                 null, precursorMz);
         }
 

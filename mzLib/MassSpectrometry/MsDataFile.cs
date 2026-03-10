@@ -50,6 +50,8 @@ namespace MassSpectrometry
             FilePath = filePath;
         }
 
+        public MsDataScan this[int index] => Scans[index];
+
         #region Abstract members
 
         // static connection

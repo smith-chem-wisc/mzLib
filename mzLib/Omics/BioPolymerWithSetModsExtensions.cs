@@ -115,7 +115,7 @@ public static class BioPolymerWithSetModsExtensions
     public static string DetermineFullSequence(this IBioPolymerWithSetMods withSetMods) => IBioPolymerWithSetMods
         .DetermineFullSequence(withSetMods.BaseSequence, withSetMods.AllModsOneIsNterminus);
 
-    public static IEnumerable<Product> GetMIons(this IBioPolymerWithSetMods withSetMods, FragmentationParams? fragmentParams)
+    public static IEnumerable<Product> GetMIons(this IBioPolymerWithSetMods withSetMods, IFragmentationParams? fragmentParams)
     {
         // Normal intact molecular ion
         yield return new CustomMProduct("", withSetMods.MonoisotopicMass);

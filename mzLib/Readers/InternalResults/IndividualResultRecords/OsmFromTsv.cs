@@ -1,5 +1,4 @@
 ﻿using Chemistry;
-using Omics.SpectrumMatch;
 using Transcriptomics;
 using Transcriptomics.Digestion;
 
@@ -10,20 +9,22 @@ namespace Readers
         public IHasChemicalFormula FivePrimeTerminus { get; set; }
         public IHasChemicalFormula ThreePrimeTerminus { get; set; }
 
-        public OsmFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader)
-            : base(line, split, parsedHeader)
+        public OsmFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader, SpectrumMatchParsingParameters? parsingParams = null)
+            : base(line, split, parsedHeader, parsingParams ??= new())
         {
             var spl = line.Split(split).Select(p => p.Trim('\"')).ToArray();
 
-            if (parsedHeader[SpectrumMatchFromTsvHeader.FivePrimeTerminus] >= 0)
-                FivePrimeTerminus = ChemicalFormula.ParseFormula(spl[parsedHeader[SpectrumMatchFromTsvHeader.FivePrimeTerminus]]);
+            var fivePrimeTerminusFormula = GetOptionalChemicalFormula(SpectrumMatchFromTsvHeader.FivePrimeTerminus, parsedHeader, spl);
+            if (fivePrimeTerminusFormula != null)
+                FivePrimeTerminus = fivePrimeTerminusFormula;
             else if (PreviousResidue == "-")
                 FivePrimeTerminus = NucleicAcid.DefaultFivePrimeTerminus;
             else
                 FivePrimeTerminus = Rnase.DefaultFivePrimeTerminus;
 
-            if (parsedHeader[SpectrumMatchFromTsvHeader.ThreePrimeTerminus] >= 0)
-                ThreePrimeTerminus = ChemicalFormula.ParseFormula(spl[parsedHeader[SpectrumMatchFromTsvHeader.ThreePrimeTerminus]]);
+            var threePrimeTerminusFormula = GetOptionalChemicalFormula(SpectrumMatchFromTsvHeader.ThreePrimeTerminus, parsedHeader, spl);
+            if (threePrimeTerminusFormula != null)
+                ThreePrimeTerminus = threePrimeTerminusFormula;
             else if (NextResidue == "-")
                 ThreePrimeTerminus = NucleicAcid.DefaultThreePrimeTerminus;
             else
