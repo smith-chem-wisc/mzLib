@@ -211,9 +211,10 @@ namespace MassSpectrometry.Dia
                     continue;
 
                 float rtMin, rtMax;
-                if (p.RetentionTime.HasValue)
+                double? libraryRt = p.IrtValue ?? p.RetentionTime;
+                if (libraryRt.HasValue)
                 {
-                    float rt = (float)p.RetentionTime.Value;
+                    float rt = (float)libraryRt.Value;
                     rtMin = rt - rtTolerance;
                     rtMax = rt + rtTolerance;
                 }
@@ -560,7 +561,7 @@ namespace MassSpectrometry.Dia
                     windowId: group.WindowId,
                     isDecoy: input.IsDecoy,
                     fragmentsQueried: group.QueryCount,
-                    libraryRetentionTime: input.RetentionTime,
+                    libraryRetentionTime: input.IrtValue ?? input.RetentionTime,
                     rtWindowStart: group.RtMin,
                     rtWindowEnd: group.RtMax
                 );
@@ -642,7 +643,7 @@ namespace MassSpectrometry.Dia
                     windowId: group.WindowId,
                     isDecoy: input.IsDecoy,
                     fragmentsQueried: group.QueryCount,
-                    libraryRetentionTime: input.RetentionTime,
+                    libraryRetentionTime: input.IrtValue ?? input.RetentionTime,
                     rtWindowStart: group.RtMin,
                     rtWindowEnd: group.RtMax
                 );
@@ -851,15 +852,11 @@ namespace MassSpectrometry.Dia
                     }
 
                     // 3. Best-fragment reference curve (needs intensity matrix)
-                    //    Phase 16A, Prompt 1: BestFragWeightedCosine [26] forwarded to
-                    //    DiaFeatureVector via DiaSearchResult.BestFragWeightedCosine.
                     DiaBestFragmentHelper.ComputeBestFragmentFeatures(
                         matrix, fragmentCount, timePointCount, detectedFragmentCount, result,
                         input.FragmentIntensities.AsSpan(), apexLocalIdx * fragmentCount);
 
                     // 4. Peak shape ratio features (boundary signal + apex prominence)
-                    //    Phase 16A, Prompt 1: BoundarySignalRatio [27] + ApexToMeanRatio [28]
-                    //    forwarded to DiaFeatureVector via DiaSearchResult properties.
                     if (peakGroup.IsValid)
                     {
                         DiaPeakShapeHelper.ComputePeakShapeRatios(
@@ -876,30 +873,6 @@ namespace MassSpectrometry.Dia
                     DiaSmoothedFeatureHelper.ComputeSignalToNoise(
                         matrix, apexLocalIdx, fragmentCount, timePointCount, result);
 
-                    // ── Phase 19: Derived features computed from already-available data ──
-
-                    // 7. LibraryCoverageFraction: intensity-weighted fraction of library
-                    //    fragments that were detected (had >= 1 XIC data point).
-                    //    Weight each fragment by its library intensity so that missing
-                    //    high-intensity fragments are penalized more than missing weak ones.
-                    //    (RtDeviationNormalized was dropped: 100% NaN because PeakWidth=0
-                    //    whenever no peak group is detected, which is the majority of results.)
-                    {
-                        float totalLibIntensity = 0f;
-                        float detectedLibIntensity = 0f;
-                        for (int f = 0; f < fragmentCount; f++)
-                        {
-                            float libInt = f < input.FragmentIntensities.Length
-                                ? input.FragmentIntensities[f] : 0f;
-                            totalLibIntensity += libInt;
-                            if (result.XicPointCounts[f] > 0)
-                                detectedLibIntensity += libInt;
-                        }
-                        result.LibraryCoverageFraction = totalLibIntensity > 0f
-                            ? detectedLibIntensity / totalLibIntensity
-                            : 0f;
-                    }
-
                     // ── Set peak shape metadata from peak detection ──────────
                     if (peakGroup.IsValid)
                     {
@@ -912,9 +885,7 @@ namespace MassSpectrometry.Dia
                     if (!float.IsNaN(result.TemporalScore))
                     {
                         float clampedCosine = Math.Clamp(result.TemporalScore, 0f, 1f);
-                        float sa = 1.0f - (2.0f / MathF.PI) * MathF.Acos(clampedCosine);
-                        result.SpectralAngle = sa;       // ← THE MISSING LINE
-                        result.SpectralAngleScore = sa;  // keep for backward compatibility
+                        result.SpectralAngleScore = 1.0f - (2.0f / MathF.PI) * MathF.Acos(clampedCosine);
                     }
 
                     // Apply score threshold filter
@@ -930,132 +901,6 @@ namespace MassSpectrometry.Dia
             }
 
             return results;
-        }
-
-        /// <summary>
-        /// Computes ChimericScore for each result in a list that was produced by
-        /// <see cref="AssembleResultsWithTemporalScoring"/>.
-        ///
-        /// ChimericScore = fraction of this precursor's matched fragment signal (at apex)
-        /// that is NOT shared with any other precursor in the same DIA window.
-        ///
-        /// Algorithm (per window):
-        ///   1. Collect all library fragment m/z values from every precursor in the window.
-        ///   2. For each precursor, a fragment is "contested" if any other precursor in the
-        ///      same window has a library fragment within ppmTolerance of it.
-        ///   3. ChimericScore = sum(uncontested detected apex intensity) /
-        ///                      sum(all detected apex intensity).
-        ///      If apex intensities are all zero, falls back to uncontested fragment count fraction.
-        ///   4. Precursors that are alone in their window receive ChimericScore = 1.0 (no co-isolation).
-        ///
-        /// Call this once after AssembleResultsWithTemporalScoring returns, passing the same
-        /// precursor list and the ppm tolerance used during extraction.
-        /// </summary>
-        public static void ComputeChimericScores(
-            IList<LibraryPrecursorInput> precursors,
-            IList<DiaSearchResult> results,
-            float ppmTolerance)
-        {
-            if (precursors == null || results == null || results.Count == 0) return;
-
-            // Group results (and their precursor inputs) by window ID
-            // Key = windowId, Value = list of (result, precursor input)
-            var byWindow = new Dictionary<int, List<(DiaSearchResult Result, LibraryPrecursorInput Input)>>();
-            foreach (var r in results)
-            {
-                var input = precursors[r.WindowId >= 0 ? FindPrecursorIndex(precursors, r) : 0];
-                if (!byWindow.TryGetValue(r.WindowId, out var list))
-                {
-                    list = new List<(DiaSearchResult, LibraryPrecursorInput)>();
-                    byWindow[r.WindowId] = list;
-                }
-                list.Add((r, input));
-            }
-
-            foreach (var (windowId, windowResults) in byWindow)
-            {
-                int n = windowResults.Count;
-
-                // Single precursor in window — no co-isolation possible
-                if (n == 1)
-                {
-                    windowResults[0].Result.ChimericScore = 1.0f;
-                    continue;
-                }
-
-                // For each precursor, mark which of its fragments are contested
-                // A fragment at m/z F is contested if any OTHER precursor has a library
-                // fragment within ppmTolerance ppm of F.
-                for (int i = 0; i < n; i++)
-                {
-                    var (result, input) = windowResults[i];
-                    int fragCount = input.FragmentCount;
-
-                    float totalApexSignal = 0f;
-                    float uncontestedApexSignal = 0f;
-                    int totalDetected = 0;
-                    int uncontestedDetected = 0;
-
-                    for (int f = 0; f < fragCount; f++)
-                    {
-                        // Only consider fragments that were actually detected
-                        if (result.XicPointCounts[f] == 0) continue;
-
-                        float fragMz = input.FragmentMzs[f];
-                        float apexInt = result.ExtractedIntensities[f];
-                        bool contested = false;
-
-                        // Check against all other precursors in this window
-                        for (int j = 0; j < n && !contested; j++)
-                        {
-                            if (j == i) continue;
-                            var otherInput = windowResults[j].Input;
-                            for (int k = 0; k < otherInput.FragmentCount; k++)
-                            {
-                                float otherMz = otherInput.FragmentMzs[k];
-                                float ppmDiff = MathF.Abs(fragMz - otherMz) / fragMz * 1e6f;
-                                if (ppmDiff <= ppmTolerance)
-                                {
-                                    contested = true;
-                                    break;
-                                }
-                            }
-                        }
-
-                        totalApexSignal += apexInt;
-                        totalDetected++;
-                        if (!contested)
-                        {
-                            uncontestedApexSignal += apexInt;
-                            uncontestedDetected++;
-                        }
-                    }
-
-                    // Score: prefer intensity-weighted fraction; fall back to count fraction
-                    if (totalApexSignal > 0f)
-                        result.ChimericScore = uncontestedApexSignal / totalApexSignal;
-                    else if (totalDetected > 0)
-                        result.ChimericScore = (float)uncontestedDetected / totalDetected;
-                    else
-                        result.ChimericScore = float.NaN; // no detected fragments
-                }
-            }
-        }
-
-        /// <summary>
-        /// Finds the index of the LibraryPrecursorInput that produced the given result,
-        /// by matching sequence and charge state.
-        /// Returns 0 as a safe fallback if no match is found.
-        /// </summary>
-        private static int FindPrecursorIndex(IList<LibraryPrecursorInput> precursors, DiaSearchResult result)
-        {
-            for (int i = 0; i < precursors.Count; i++)
-            {
-                if (precursors[i].Sequence == result.Sequence &&
-                    precursors[i].ChargeState == result.ChargeState)
-                    return i;
-            }
-            return 0;
         }
 
         /// <summary>
@@ -1279,6 +1124,134 @@ namespace MassSpectrometry.Dia
                 return float.NaN;
 
             return Math.Clamp(dot / (MathF.Sqrt(normLib) * MathF.Sqrt(normObs)), 0f, 1f);
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  Chimeric Score
+        // ════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Computes a chimeric interference score for each result.
+        ///
+        /// For each result R, the score is the fraction of R's total extracted fragment
+        /// intensity that comes from fragments NOT shared (within ppm) with any other
+        /// precursor in the same DIA isolation window:
+        ///
+        ///   ChimericScore = uncontested_intensity / total_intensity
+        ///
+        /// A fragment of R is "contested" if any fragment of any other precursor Q in the
+        /// same window falls within <paramref name="ppmTolerance"/> ppm of that fragment's m/z.
+        ///
+        /// Interpretation:
+        ///   1.0 — no fragment m/z overlaps with any co-eluting precursor (clean precursor)
+        ///   0.0 — every fragment is shared with at least one co-eluting precursor
+        ///   x   — fraction x of the total signal comes from uncontested fragments
+        ///
+        /// When total extracted intensity is zero, ChimericScore is set to 1.0 (no evidence
+        /// of contamination).
+        ///
+        /// Must be called after assembly (ExtractedIntensities populated) and before FDR.
+        /// </summary>
+        /// <param name="precursors">Library precursor inputs carrying fragment m/z values.</param>
+        /// <param name="results">Assembled results. ChimericScore is set in place.</param>
+        /// <param name="ppmTolerance">
+        /// PPM tolerance for fragment m/z overlap detection. A fragment is contested if
+        /// any other precursor in the same window has a fragment within this tolerance.
+        /// </param>
+        public static void ComputeChimericScores(
+            IList<LibraryPrecursorInput> precursors,
+            List<DiaSearchResult> results,
+            float ppmTolerance)
+        {
+            if (results == null || results.Count == 0)
+                return;
+
+            // Build a lookup: (Sequence, ChargeState, IsDecoy) → precursor index.
+            // We deliberately do NOT include PrecursorMz in the key because results
+            // assembled outside the normal pipeline (e.g. unit tests) may carry a
+            // default precursor m/z that does not match the input's PrecursorMz.
+            // (Sequence, ChargeState, IsDecoy) uniquely identifies a precursor in
+            // both target and decoy libraries.
+            var precursorLookup = new Dictionary<(string, int, bool), int>(results.Count);
+            for (int i = 0; i < precursors.Count; i++)
+            {
+                var key = (precursors[i].Sequence, precursors[i].ChargeState, precursors[i].IsDecoy);
+                precursorLookup.TryAdd(key, i);
+            }
+
+            // Group result indices by window ID
+            var windowGroups = new Dictionary<int, List<int>>();
+            for (int i = 0; i < results.Count; i++)
+            {
+                int wid = results[i].WindowId;
+                if (!windowGroups.TryGetValue(wid, out var list))
+                {
+                    list = new List<int>();
+                    windowGroups[wid] = list;
+                }
+                list.Add(i);
+            }
+
+            foreach (var (_, indices) in windowGroups)
+            {
+                int n = indices.Count;
+
+                // Resolve precursor index for every result in this window once
+                var precursorIndices = new int[n];
+                for (int a = 0; a < n; a++)
+                {
+                    var r = results[indices[a]];
+                    precursorIndices[a] = precursorLookup.TryGetValue(
+                        (r.Sequence, r.ChargeState, r.IsDecoy), out int pi) ? pi : -1;
+                }
+
+                for (int a = 0; a < n; a++)
+                {
+                    var ra = results[indices[a]];
+                    int piA = precursorIndices[a];
+                    if (piA < 0)
+                    {
+                        ra.ChimericScore = 1.0f; // no precursor found — treat as uncontested
+                        continue;
+                    }
+
+                    var precA = precursors[piA];
+                    float totalIntensity = 0f;
+                    float uncontestedIntensity = 0f;
+
+                    for (int f = 0; f < precA.FragmentCount; f++)
+                    {
+                        float intensity = ra.ExtractedIntensities[f];
+                        totalIntensity += intensity;
+
+                        float mzF = precA.FragmentMzs[f];
+                        bool contested = false;
+
+                        for (int b = 0; b < n && !contested; b++)
+                        {
+                            if (b == a) continue;
+                            int piB = precursorIndices[b];
+                            if (piB < 0) continue;
+
+                            var precB = precursors[piB];
+                            for (int g = 0; g < precB.FragmentCount && !contested; g++)
+                            {
+                                float mzG = precB.FragmentMzs[g];
+                                float ppmDiff = MathF.Abs(mzF - mzG) / mzF * 1e6f;
+                                if (ppmDiff <= ppmTolerance)
+                                    contested = true;
+                            }
+                        }
+
+                        if (!contested)
+                            uncontestedIntensity += intensity;
+                    }
+
+                    ra.ChimericScore = totalIntensity > 0f
+                        ? uncontestedIntensity / totalIntensity
+                        : 1.0f;
+                }
+            }
         }
     }
 }
