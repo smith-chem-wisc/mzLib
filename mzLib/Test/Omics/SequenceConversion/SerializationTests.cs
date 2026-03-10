@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using NUnit.Framework;
 using Omics.SequenceConversion;
 
@@ -12,6 +13,7 @@ namespace Test.Omics.SequenceConversion
         private MzLibSequenceSerializer _mzLibSerializer;
         private MassShiftSequenceSerializer _massShiftSerializer;
         private ChronologerSequenceSerializer _chronologerSerializer;
+        private UnimodSequenceSerializer _unimodSerializer;
         private MzLibSequenceParser _mzLibParser;
         private MassShiftSequenceParser _massShiftParser;
 
@@ -21,6 +23,7 @@ namespace Test.Omics.SequenceConversion
             _mzLibSerializer = new MzLibSequenceSerializer();
             _massShiftSerializer = new MassShiftSequenceSerializer(new(4));
             _chronologerSerializer = new ChronologerSequenceSerializer();
+            _unimodSerializer = new UnimodSequenceSerializer();
             _mzLibParser = new MzLibSequenceParser();
             _massShiftParser = new MassShiftSequenceParser();
         }
@@ -55,6 +58,22 @@ namespace Test.Omics.SequenceConversion
             // Assert
             Assert.That(result, Is.Not.Null);
             Assert.That(result, Is.EqualTo(testCase.ChronologerFormat));
+        }
+
+        [Test]
+        [TestCaseSource(typeof(GroundTruthTestData), nameof(GroundTruthTestData.CoreTestCases))]
+        public void UnimodSerializer_CoreTestCases_ConvertsCorrectly(GroundTruthTestData.TestCase testCase)
+        {
+            // Arrange - parse from mzLib format
+            var canonical = _mzLibParser.Parse(testCase.MzLibFormat);
+            Assert.That(canonical, Is.Not.Null);
+
+            // Act - serialize to Unimod format
+            var result = _unimodSerializer.Serialize(canonical.Value);
+
+            // Assert
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result, Is.EqualTo(testCase.UnimodUpperCaseFormat));
         }
 
         [Test]
@@ -155,6 +174,53 @@ namespace Test.Omics.SequenceConversion
             Assert.That(token, Does.Contain(":"));
             Assert.That(token.StartsWith(":"), Is.False);
             Assert.That(token.EndsWith(":"), Is.False);
+        }
+
+        [Test]
+        [TestCase(UnimodLabelStyle.UpperCase, "UNIMOD")]
+        [TestCase(UnimodLabelStyle.CamelCase, "Unimod")]
+        [TestCase(UnimodLabelStyle.LowerCase, "unimod")]
+        [TestCase(UnimodLabelStyle.NoLabel, "")]
+        public void UnimodSerializer_LabelStyle_WritesExpectedToken(UnimodLabelStyle labelStyle, string expectedLabel)
+        {
+            var canonical = new CanonicalSequenceBuilder("PEPTIDE")
+                .AddResidueModification(2, "UNIMOD:35", unimodId: 35)
+                .Build();
+
+            var serializer = new UnimodSequenceSerializer(new UnimodSequenceFormatSchema(labelStyle));
+
+            var result = serializer.Serialize(canonical);
+
+            Assert.That(result, Is.Not.Null);
+            var expectedToken = string.IsNullOrEmpty(expectedLabel) ? "[35]" : $"[{expectedLabel}:35]";
+            Assert.That(result, Does.Contain(expectedToken));
+        }
+
+        [Test]
+        public void UnimodSerializer_FromMzLib_ResolvesUnimodId()
+        {
+            var canonical = _mzLibParser.Parse("PEPTM[Common Variable:Oxidation on M]IDE");
+            Assert.That(canonical, Is.Not.Null);
+
+            var result = _unimodSerializer.Serialize(canonical.Value);
+
+            Assert.That(result, Is.EqualTo("PEPTM[UNIMOD:35]IDE"));
+        }
+
+        [Test]
+        public void EssentialSerializer_PrunesNonWhitelistedModificationTypes()
+        {
+            var canonical = _mzLibParser.Parse("[Common Biological:Acetylation on X]PEPTM[Common Variable:Oxidation on M]IDE");
+            Assert.That(canonical, Is.Not.Null);
+
+            var serializer = new EssentialSequenceSerializer(new Dictionary<string, int>
+            {
+                { "Common Variable", 0 }
+            });
+
+            var result = serializer.Serialize(canonical.Value);
+
+            Assert.That(result, Is.EqualTo("PEPTM[Common Variable:Oxidation on M]IDE"));
         }
 
         #endregion

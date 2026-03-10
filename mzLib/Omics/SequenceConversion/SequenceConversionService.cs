@@ -46,6 +46,9 @@ public class SequenceConversionService : ISequenceConversionService
         // Register Chronologer format (serializer only - it's one-way)
         service.RegisterSerializer(ChronologerSequenceSerializer.Instance);
 
+        // Register Unimod format (serializer only)
+        service.RegisterSerializer(UnimodSequenceSerializer.Instance);
+
         return service;
     }
 

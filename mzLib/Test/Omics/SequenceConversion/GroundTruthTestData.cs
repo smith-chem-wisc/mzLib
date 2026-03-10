@@ -38,6 +38,10 @@ namespace Test.Omics.SequenceConversion
             public string MzLibFormat { get; set; }
             public string MassShiftFormat { get; set; }
             public string ChronologerFormat { get; set; }
+            public string UnimodUpperCaseFormat { get; set; }
+            public string UnimodCamelCaseFormat => UnimodUpperCaseFormat.Replace("UNIMOD", "Unimod");
+            public string UnimodLowerCaseFormat => UnimodUpperCaseFormat.Replace("UNIMOD", "unimod");
+            public string UnimodNoLabelFormat => UnimodUpperCaseFormat.Replace("UNIMOD:", "");
             
             // Expected canonical representation
             public string ExpectedBaseSequence { get; set; }
@@ -46,12 +50,14 @@ namespace Test.Omics.SequenceConversion
             public int ExpectedResidueMods { get; set; }
             
             public TestCase(string description, string mzLib, string massShift, string chronologer,
-                string baseSeq, bool hasNTerm = false, bool hasCTerm = false, int residueMods = 0)
+                string baseSeq, bool hasNTerm = false, bool hasCTerm = false, int residueMods = 0,
+                string? unimodUpperCase = null)
             {
                 Description = description;
                 MzLibFormat = mzLib;
                 MassShiftFormat = massShift;
                 ChronologerFormat = chronologer;
+                UnimodUpperCaseFormat = unimodUpperCase;
                 ExpectedBaseSequence = baseSeq;
                 HasNTermMod = hasNTerm;
                 HasCTermMod = hasCTerm;
@@ -70,7 +76,8 @@ namespace Test.Omics.SequenceConversion
                 mzLib: "PEPTIDE",
                 massShift: "PEPTIDE",
                 chronologer: "-PEPTIDE_",
-                baseSeq: "PEPTIDE"
+                baseSeq: "PEPTIDE",
+                unimodUpperCase: "PEPTIDE"
             ),
 
             // 2. Common Variable:Oxidation on M - UNIMOD:35, mass +15.9949
@@ -80,7 +87,8 @@ namespace Test.Omics.SequenceConversion
                 massShift: "PEPTM[+15.9949]IDE",
                 chronologer: "-PEPTmIDE_",
                 baseSeq: "PEPTMIDE",
-                residueMods: 1
+                residueMods: 1,
+                unimodUpperCase: "PEPTM[UNIMOD:35]IDE"
             ),
 
             // 3. Common Fixed:Carbamidomethyl on C - UNIMOD:4, mass +57.0215
@@ -90,7 +98,8 @@ namespace Test.Omics.SequenceConversion
                 massShift: "PEPC[+57.0215]IDE",
                 chronologer: "-PEPcIDE_",
                 baseSeq: "PEPCIDE",
-                residueMods: 1
+                residueMods: 1,
+                unimodUpperCase: "PEPC[UNIMOD:4]IDE"
             ),
 
             // 4. Phosphorylation on S - UNIMOD:21, mass +79.9663
@@ -100,7 +109,8 @@ namespace Test.Omics.SequenceConversion
                 massShift: "PEPS[+79.9663]TIDE",
                 chronologer: "-PEPsTIDE_",
                 baseSeq: "PEPSTIDE",
-                residueMods: 1
+                residueMods: 1,
+                unimodUpperCase: "PEPS[UNIMOD:21]TIDE"
             ),
 
             // 5. Phosphorylation on T - UNIMOD:21, mass +79.9663
@@ -110,7 +120,8 @@ namespace Test.Omics.SequenceConversion
                 massShift: "PEPT[+79.9663]IDE",
                 chronologer: "-PEPtIDE_",
                 baseSeq: "PEPTIDE",
-                residueMods: 1
+                residueMods: 1,
+                unimodUpperCase: "PEPT[UNIMOD:21]IDE"
             ),
 
             // 6. N-terminal acetylation - UNIMOD:1, mass +42.0106
@@ -120,7 +131,8 @@ namespace Test.Omics.SequenceConversion
                 massShift: "[+42.0106]PEPTIDE",
                 chronologer: "^PEPTIDE_",
                 baseSeq: "PEPTIDE",
-                hasNTerm: true
+                hasNTerm: true,
+                unimodUpperCase: "[UNIMOD:1]PEPTIDE"
             ),
 
             // 7. Multiple modifications: oxidation and phosphorylation
@@ -130,7 +142,8 @@ namespace Test.Omics.SequenceConversion
                 massShift: "PEPS[+79.9663]TM[+15.9949]IDE",
                 chronologer: "-PEPsTmIDE_",
                 baseSeq: "PEPSTMIDE",
-                residueMods: 2
+                residueMods: 2,
+                unimodUpperCase: "PEPS[UNIMOD:21]TM[UNIMOD:35]IDE"
             ),
 
             // 8. N-term acetylation + internal oxidation
@@ -141,7 +154,8 @@ namespace Test.Omics.SequenceConversion
                 chronologer: "^PEPTmIDE_",
                 baseSeq: "PEPTMIDE",
                 hasNTerm: true,
-                residueMods: 1
+                residueMods: 1,
+                unimodUpperCase: "[UNIMOD:1]PEPTM[UNIMOD:35]IDE"
             ),
 
             // 9. Two oxidations on different methionines
@@ -151,7 +165,8 @@ namespace Test.Omics.SequenceConversion
                 massShift: "M[+15.9949]EPTM[+15.9949]IDE",
                 chronologer: "-mEPTmIDE_",
                 baseSeq: "MEPTMIDE",
-                residueMods: 2
+                residueMods: 2,
+                unimodUpperCase: "M[UNIMOD:35]EPTM[UNIMOD:35]IDE"
             ),
         };
 
@@ -166,7 +181,8 @@ namespace Test.Omics.SequenceConversion
                 mzLib: "K",
                 massShift: "K",
                 chronologer: "-K_",
-                baseSeq: "K"
+                baseSeq: "K",
+                unimodUpperCase: "K"
             ),
 
             // Single modified residue
@@ -176,7 +192,8 @@ namespace Test.Omics.SequenceConversion
                 massShift: "M[+15.9949]",
                 chronologer: "-m_",
                 baseSeq: "M",
-                residueMods: 1
+                residueMods: 1,
+                unimodUpperCase: "M[UNIMOD:35]"
             ),
 
             // Adjacent modifications
@@ -186,7 +203,8 @@ namespace Test.Omics.SequenceConversion
                 massShift: "PEPTM[+15.9949]M[+15.9949]IDE",
                 chronologer: "-PEPTmmIDE_",
                 baseSeq: "PEPTMMIDE",
-                residueMods: 2
+                residueMods: 2,
+                unimodUpperCase: "PEPTM[UNIMOD:35]M[UNIMOD:35]IDE"
             ),
         };
 
