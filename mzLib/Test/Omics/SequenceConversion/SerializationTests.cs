@@ -133,6 +133,30 @@ namespace Test.Omics.SequenceConversion
             Assert.That(result, Is.Null);
         }
 
+        [Test]
+        public void MassShiftToMzLib_UsesStrictTypeAndIdWithMotifToken()
+        {
+            // Arrange
+            var canonical = _massShiftParser.Parse("PEPTM[+15.9949]IDE");
+            Assert.That(canonical, Is.Not.Null);
+
+            // Act
+            var result = _mzLibSerializer.Serialize(canonical.Value);
+
+            // Assert
+            Assert.That(result, Is.Not.Null);
+
+            var openBracket = result!.IndexOf('[');
+            var closeBracket = result.IndexOf(']', openBracket + 1);
+            Assert.That(openBracket, Is.GreaterThanOrEqualTo(0));
+            Assert.That(closeBracket, Is.GreaterThan(openBracket));
+
+            var token = result.Substring(openBracket + 1, closeBracket - openBracket - 1);
+            Assert.That(token, Does.Contain(":"));
+            Assert.That(token.StartsWith(":"), Is.False);
+            Assert.That(token.EndsWith(":"), Is.False);
+        }
+
         #endregion
     }
 }

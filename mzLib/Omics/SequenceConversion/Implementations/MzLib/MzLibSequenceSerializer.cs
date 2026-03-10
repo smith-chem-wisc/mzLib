@@ -13,8 +13,6 @@ namespace Omics.SequenceConversion;
 /// </summary>
 public class MzLibSequenceSerializer : SequenceSerializerBase
 {
-    private readonly IModificationLookup? _lookup;
-
     /// <summary>
     /// Singleton instance.
     /// </summary>
@@ -25,8 +23,8 @@ public class MzLibSequenceSerializer : SequenceSerializerBase
     /// </summary>
     /// <param name="lookup">Optional modification lookup to resolve modifications.</param>
     public MzLibSequenceSerializer(IModificationLookup? lookup = null)
+        : base(lookup ?? GlobalModificationLookup.Instance)
     {
-        _lookup = lookup ?? GlobalModificationLookup.Instance;
     }
 
     /// <inheritdoc />
@@ -38,8 +36,13 @@ public class MzLibSequenceSerializer : SequenceSerializerBase
     /// <inheritdoc />
     public override bool CanSerialize(CanonicalSequence sequence)
     {
-        // All modifications must have mzLib IDs or be resolvable
-        return sequence.Modifications.All(m => !string.IsNullOrEmpty(m.MzLibId) || m.IsResolved);
+        return !string.IsNullOrEmpty(sequence.BaseSequence);
+    }
+
+    /// <inheritdoc />
+    public override bool ShouldResolveMod(CanonicalModification mod)
+    {
+        return !TryGetStrictMzLibToken(mod, out _);
     }
 
     /// <summary>
@@ -47,33 +50,9 @@ public class MzLibSequenceSerializer : SequenceSerializerBase
     /// </summary>
     protected override string? GetModificationString(CanonicalModification mod, ConversionWarnings warnings, SequenceConversionHandlingMode mode)
     {
-        // Try to use mzLib ID first
-        if (!string.IsNullOrEmpty(mod.MzLibId))
+        if (TryGetStrictMzLibToken(mod, out var token))
         {
-            return mod.MzLibId;
-        }
-
-        // Try to get IdWithMotif from resolved modification
-        if (mod.IsResolved && mod.MzLibModification != null)
-        {
-            return mod.MzLibModification.IdWithMotif;
-        }
-
-        // Try to resolve via lookup
-        if (_lookup != null)
-        {
-            var resolved = _lookup.TryResolve(mod);
-            if (resolved.HasValue && resolved.Value.IsResolved)
-            {
-                return resolved.Value.MzLibModification?.IdWithMotif ?? resolved.Value.MzLibId;
-            }
-        }
-
-        // Fallback to original representation if it's mzLib-style (not a mass shift)
-        if (!string.IsNullOrEmpty(mod.OriginalRepresentation) && !IsNumericMassShift(mod.OriginalRepresentation))
-        {
-            warnings.AddWarning($"Using original representation for modification: {mod.OriginalRepresentation}");
-            return mod.OriginalRepresentation;
+            return token;
         }
 
         // Cannot serialize this modification in mzLib format
@@ -96,15 +75,58 @@ public class MzLibSequenceSerializer : SequenceSerializerBase
         return null;
     }
 
-    /// <summary>
-    /// Checks if a string looks like a numeric mass shift (e.g., "+15.995" or "-18.011").
-    /// </summary>
-    private static bool IsNumericMassShift(string value)
+    private static bool TryGetStrictMzLibToken(CanonicalModification mod, out string token)
     {
-        if (string.IsNullOrEmpty(value))
-            return false;
+        if (mod.MzLibModification != null)
+        {
+            var modificationType = mod.MzLibModification.ModificationType;
+            var idWithMotif = mod.MzLibModification.IdWithMotif;
 
-        // Check if it matches the pattern for mass shifts: optional sign, digits, optional decimal point and more digits
-        return System.Text.RegularExpressions.Regex.IsMatch(value, @"^[+-]?\d+(\.\d+)?$");
+            if (!string.IsNullOrWhiteSpace(modificationType) && !string.IsNullOrWhiteSpace(idWithMotif))
+            {
+                token = $"{modificationType}:{idWithMotif}";
+                return true;
+            }
+        }
+
+        if (TryNormalizeStrictToken(mod.MzLibId, out token))
+        {
+            return true;
+        }
+
+        if (TryNormalizeStrictToken(mod.OriginalRepresentation, out token))
+        {
+            return true;
+        }
+
+        token = string.Empty;
+        return false;
+    }
+
+    private static bool TryNormalizeStrictToken(string? value, out string token)
+    {
+        token = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var trimmed = value.Trim();
+        var separatorIndex = trimmed.IndexOf(':');
+        if (separatorIndex <= 0 || separatorIndex >= trimmed.Length - 1)
+        {
+            return false;
+        }
+
+        var modificationType = trimmed.Substring(0, separatorIndex).Trim();
+        var idWithMotif = trimmed.Substring(separatorIndex + 1).Trim();
+        if (string.IsNullOrEmpty(modificationType) || string.IsNullOrEmpty(idWithMotif))
+        {
+            return false;
+        }
+
+        token = $"{modificationType}:{idWithMotif}";
+        return true;
     }
 }

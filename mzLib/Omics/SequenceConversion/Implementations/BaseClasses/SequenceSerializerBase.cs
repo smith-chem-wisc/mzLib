@@ -8,6 +8,13 @@ namespace Omics.SequenceConversion;
 /// </summary>
 public abstract class SequenceSerializerBase : ISequenceSerializer
 {
+    private readonly IModificationLookup? _lookup;
+
+    protected SequenceSerializerBase(IModificationLookup? lookup = null)
+    {
+        _lookup = lookup;
+    }
+
     /// <inheritdoc />
     public abstract string FormatName { get; }
 
@@ -18,7 +25,10 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
     public abstract bool CanSerialize(CanonicalSequence sequence);
 
     /// <inheritdoc />
-    public string? Serialize(
+    public abstract bool ShouldResolveMod(CanonicalModification mod);
+
+    /// <inheritdoc />
+    public virtual string? Serialize(
         CanonicalSequence sequence,
         ConversionWarnings? warnings = null,
         SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException)
@@ -33,6 +43,7 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
 
         try
         {
+            sequence = EnrichModificationsIfNeeded(sequence);
             return SerializeInternal(sequence, warnings, mode);
         }
         catch (SequenceConversionException)
@@ -44,6 +55,51 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
             return HandleError(warnings, mode, ConversionFailureReason.UnknownFormat,
                 $"Unexpected error serializing sequence: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Resolves and enriches modifications only when required by <see cref="ShouldResolveMod"/>.
+    /// </summary>
+    protected virtual CanonicalSequence EnrichModificationsIfNeeded(CanonicalSequence sequence)
+    {
+        if (!sequence.HasModifications || _lookup == null)
+        {
+            return sequence;
+        }
+
+        var modifications = sequence.Modifications;
+        var updated = new CanonicalModification[modifications.Length];
+        var changed = false;
+
+        for (int i = 0; i < modifications.Length; i++)
+        {
+            var mod = modifications[i];
+            var enriched = mod;
+
+            if (ShouldResolveMod(mod))
+            {
+                var resolved = _lookup.TryResolve(mod);
+                if (resolved.HasValue)
+                {
+                    enriched = resolved.Value with
+                    {
+                        PositionType = mod.PositionType,
+                        ResidueIndex = mod.ResidueIndex,
+                        TargetResidue = mod.TargetResidue ?? resolved.Value.TargetResidue,
+                        OriginalRepresentation = mod.OriginalRepresentation
+                    };
+
+                    if (!enriched.Equals(mod))
+                    {
+                        changed = true;
+                    }
+                }
+            }
+
+            updated[i] = enriched;
+        }
+
+        return changed ? sequence.WithModifications(updated) : sequence;
     }
 
     /// <summary>

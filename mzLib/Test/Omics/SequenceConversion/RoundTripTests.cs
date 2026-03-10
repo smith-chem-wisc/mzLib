@@ -41,7 +41,7 @@ namespace Test.Omics.SequenceConversion
         public void MzLibRoundTrip_MultipleIterations_RemainsStable()
         {
             // Arrange
-            var original = "PEPTM[Oxidation on M]IDE";
+            var original = "PEPTM[Common Variable:Oxidation on M]IDE";
 
             // Act & Assert - perform multiple round trips
             var current = original;

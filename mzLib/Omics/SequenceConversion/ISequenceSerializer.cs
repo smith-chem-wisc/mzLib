@@ -25,6 +25,14 @@ public interface ISequenceSerializer
     bool CanSerialize(CanonicalSequence sequence);
 
     /// <summary>
+    /// Determines whether a modification should be resolved/enriched before serialization.
+    /// This allows each serializer to resolve only the missing fields required by its format.
+    /// </summary>
+    /// <param name="mod">The modification to evaluate.</param>
+    /// <returns>True if this modification should be resolved; otherwise, false.</returns>
+    bool ShouldResolveMod(CanonicalModification mod);
+
+    /// <summary>
     /// Serializes the sequence into a string representation.
     /// </summary>
     /// <param name="sequence">The sequence to serialize.</param>

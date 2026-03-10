@@ -16,7 +16,7 @@ namespace Omics.SequenceConversion;
 /// - Middle: sequence with lowercase letters for modified residues
 /// - Last character: C-terminus state ('_')
 /// </summary>
-public class ChronologerSequenceSerializer : ISequenceSerializer
+public class ChronologerSequenceSerializer : SequenceSerializerBase
 {
     /// <summary>
     /// Singleton instance with default settings.
@@ -24,14 +24,17 @@ public class ChronologerSequenceSerializer : ISequenceSerializer
     public static ChronologerSequenceSerializer Instance { get; } = new();
 
     /// <inheritdoc />
-    public string FormatName => ChronologerSequenceFormatSchema.Instance.FormatName;
+    public override string FormatName => ChronologerSequenceFormatSchema.Instance.FormatName;
 
     /// <inheritdoc />
-    public SequenceFormatSchema Schema => ChronologerSequenceFormatSchema.Instance;
+    public override SequenceFormatSchema Schema => ChronologerSequenceFormatSchema.Instance;
+
+    public ChronologerSequenceSerializer(IModificationLookup? lookup = null)
+        : base(lookup ?? GlobalModificationLookup.Instance)
+    {
+    }
 
     #region Modification Mappings
-
-    private static readonly IModificationLookup ModificationLookup = GlobalModificationLookup.Instance;
 
     /// <summary>
     /// Maps UNIMOD IDs to Chronologer codes per target residue.
@@ -152,7 +155,7 @@ public class ChronologerSequenceSerializer : ISequenceSerializer
     #endregion
 
     /// <inheritdoc />
-    public bool CanSerialize(CanonicalSequence sequence)
+    public override bool CanSerialize(CanonicalSequence sequence)
     {
         // Check sequence length constraint
         if (sequence.Length > ChronologerSequenceFormatSchema.MaxSequenceLength)
@@ -169,7 +172,7 @@ public class ChronologerSequenceSerializer : ISequenceSerializer
     }
 
     /// <inheritdoc />
-    public string? Serialize(
+    public override string? Serialize(
         CanonicalSequence sequence,
         ConversionWarnings? warnings = null,
         SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException)
@@ -193,24 +196,16 @@ public class ChronologerSequenceSerializer : ISequenceSerializer
             }
         }
 
-        sequence = EnrichSequence(sequence);
-
-        try
-        {
-            return SerializeInternal(sequence, warnings, mode);
-        }
-        catch (SequenceConversionException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            return HandleError(warnings, mode, ConversionFailureReason.UnknownFormat,
-                $"Unexpected error serializing sequence: {ex.Message}");
-        }
+        return base.Serialize(sequence, warnings, mode);
     }
 
-    private string? SerializeInternal(CanonicalSequence sequence, ConversionWarnings warnings, SequenceConversionHandlingMode mode)
+    /// <inheritdoc />
+    public override bool ShouldResolveMod(CanonicalModification mod)
+    {
+        return !mod.UnimodId.HasValue && !mod.EffectiveMass.HasValue;
+    }
+
+    protected override string? SerializeInternal(CanonicalSequence sequence, ConversionWarnings warnings, SequenceConversionHandlingMode mode)
     {
         var sb = new StringBuilder();
 
@@ -285,52 +280,9 @@ public class ChronologerSequenceSerializer : ISequenceSerializer
         return sb.ToString();
     }
 
-    private static CanonicalSequence EnrichSequence(CanonicalSequence sequence)
+    protected override string? GetModificationString(CanonicalModification mod, ConversionWarnings warnings, SequenceConversionHandlingMode mode)
     {
-        if (!sequence.HasModifications || ModificationLookup == null)
-            return sequence;
-
-        var modifications = sequence.Modifications;
-        var updated = new CanonicalModification[modifications.Length];
-        var changed = false;
-
-        for (int i = 0; i < modifications.Length; i++)
-        {
-            var mod = modifications[i];
-            var enriched = mod;
-
-            if (NeedsResolution(mod))
-            {
-                var resolved = ModificationLookup.TryResolve(mod);
-                if (resolved.HasValue)
-                {
-                    enriched = resolved.Value with
-                    {
-                        PositionType = mod.PositionType,
-                        ResidueIndex = mod.ResidueIndex,
-                        TargetResidue = mod.TargetResidue ?? resolved.Value.TargetResidue
-                    };
-
-                    if (!enriched.Equals(mod))
-                        changed = true;
-                }
-            }
-
-            updated[i] = enriched;
-        }
-
-        return changed ? sequence.WithModifications(updated) : sequence;
-    }
-
-    private static bool NeedsResolution(CanonicalModification modification)
-    {
-        if (!string.IsNullOrEmpty(modification.MzLibId)
-            && (modification.UnimodId == null || !modification.HasMass || !modification.IsResolved))
-        {
-            return true;
-        }
-
-        return false;
+        throw new NotSupportedException("Chronologer serialization does not use bracketed modification strings.");
     }
 
     /// <summary>
@@ -446,12 +398,4 @@ public class ChronologerSequenceSerializer : ISequenceSerializer
         return null;
     }
 
-    private static string? HandleError(
-        ConversionWarnings warnings,
-        SequenceConversionHandlingMode mode,
-        ConversionFailureReason reason,
-        string message)
-    {
-        return SequenceConversionHelpers.HandleSerializerError(warnings, mode, reason, message);
-    }
 }

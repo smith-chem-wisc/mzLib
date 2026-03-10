@@ -18,8 +18,6 @@ namespace Omics.SequenceConversion;
 /// </summary>
 public class MassShiftSequenceSerializer : SequenceSerializerBase
 {
-    private readonly IModificationLookup? _lookup;
-
     /// <summary>
     /// Singleton instance.
     /// </summary>
@@ -31,9 +29,9 @@ public class MassShiftSequenceSerializer : SequenceSerializerBase
     /// <param name="schema">Optional schema to use for formatting.</param>
     /// <param name="lookup">Optional modification lookup to resolve modifications before serialization.</param>
     public MassShiftSequenceSerializer(MassShiftSequenceFormatSchema? schema = null, IModificationLookup? lookup = null)
+        : base(lookup ?? GlobalModificationLookup.Instance)
     {
         Schema = schema ?? MassShiftSequenceFormatSchema.Instance;
-        _lookup = lookup ?? GlobalModificationLookup.Instance;
     }
 
     /// <inheritdoc />
@@ -45,8 +43,13 @@ public class MassShiftSequenceSerializer : SequenceSerializerBase
     /// <inheritdoc />
     public override bool CanSerialize(CanonicalSequence sequence)
     {
-        // All modifications must have mass information
-        return sequence.Modifications.All(m => m.HasMass);
+        return !string.IsNullOrEmpty(sequence.BaseSequence);
+    }
+
+    /// <inheritdoc />
+    public override bool ShouldResolveMod(CanonicalModification mod)
+    {
+        return !mod.EffectiveMass.HasValue;
     }
 
     /// <summary>
@@ -57,37 +60,26 @@ public class MassShiftSequenceSerializer : SequenceSerializerBase
         ConversionWarnings warnings, 
         SequenceConversionHandlingMode mode)
     {
-        // Try to resolve the modification first if it doesn't have mass information
-        var resolvedMod = mod;
-        if (!mod.HasMass && _lookup != null)
-        {
-            var resolved = _lookup.TryResolve(mod);
-            if (resolved.HasValue)
-            {
-                resolvedMod = resolved.Value;
-            }
-        }
-
         // Get the effective mass (from MonoisotopicMass, ChemicalFormula, or MzLibModification)
-        var mass = resolvedMod.EffectiveMass;
+        var mass = mod.EffectiveMass;
 
         if (!mass.HasValue)
         {
             // Cannot serialize this modification without mass information
-            warnings.AddIncompatibleItem(resolvedMod.ToString());
+            warnings.AddIncompatibleItem(mod.ToString());
             
             if (mode == SequenceConversionHandlingMode.RemoveIncompatibleElements)
             {
-                warnings.AddWarning($"Removing modification without mass information: {resolvedMod}");
+                warnings.AddWarning($"Removing modification without mass information: {mod}");
                 return null; // Signal to skip this modification
             }
 
             if (mode == SequenceConversionHandlingMode.ThrowException)
             {
                 throw new SequenceConversionException(
-                    $"Cannot serialize modification in mass shift format - no mass information available: {resolvedMod}",
+                    $"Cannot serialize modification in mass shift format - no mass information available: {mod}",
                     ConversionFailureReason.IncompatibleModifications,
-                    new[] { resolvedMod.ToString() });
+                    new[] { mod.ToString() });
             }
 
             return null;
