@@ -136,7 +136,7 @@ namespace MassSpectrometry.Dia
         private void Report(string message)
         {
             Console.WriteLine(message);
-            ProgressReporter?.Invoke(message);
+            System.Diagnostics.Debug.WriteLine(message);
         }
 
         // ── Main Entry Point ───────────────────────────────────────────────
