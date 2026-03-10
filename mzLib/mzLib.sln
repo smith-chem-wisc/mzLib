@@ -35,6 +35,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Omics", "Omics\Omics.csproj
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Transcriptomics", "Transcriptomics\Transcriptomics.csproj", "{4661C249-5B9A-4D9F-B852-15EAF3B4F9A3}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Predictions", "Predictions\Predictions.csproj", "{C654973D-28BA-41DA-9793-A1203D2F3B54}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chromatography", "Chromatography\Chromatography.csproj", "{3AE82AE3-FAC6-47CB-BA6E-7486615FB014}"
 EndProject
 Global
@@ -145,6 +147,12 @@ Global
 		{3AE82AE3-FAC6-47CB-BA6E-7486615FB014}.Release|x64.Build.0 = Release|x64
 		{3AE82AE3-FAC6-47CB-BA6E-7486615FB014}.TestAndRelease|x64.ActiveCfg = Release|x64
 		{3AE82AE3-FAC6-47CB-BA6E-7486615FB014}.TestAndRelease|x64.Build.0 = Release|x64
+		{C654973D-28BA-41DA-9793-A1203D2F3B54}.Debug|x64.ActiveCfg = Debug|x64
+		{C654973D-28BA-41DA-9793-A1203D2F3B54}.Debug|x64.Build.0 = Debug|x64
+		{C654973D-28BA-41DA-9793-A1203D2F3B54}.Release|x64.ActiveCfg = Release|x64
+		{C654973D-28BA-41DA-9793-A1203D2F3B54}.Release|x64.Build.0 = Release|x64
+		{C654973D-28BA-41DA-9793-A1203D2F3B54}.TestAndRelease|x64.ActiveCfg = Release|x64
+		{C654973D-28BA-41DA-9793-A1203D2F3B54}.TestAndRelease|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

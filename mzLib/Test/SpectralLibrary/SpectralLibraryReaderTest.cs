@@ -1,13 +1,8 @@
 ﻿using NUnit.Framework;
 using System.IO;
-using System;
 using System.Linq;
 using System.Collections.Generic;
 using Omics.Fragmentation;
-using Proteomics;
-using MassSpectrometry;
-using Omics.Modifications;
-using Readers;
 using Readers.SpectralLibrary;
 using Omics.SpectrumMatch;
 using NUnit.Framework.Legacy;
@@ -117,6 +112,7 @@ namespace Test
             File.Delete(writtenPath);
         }
 
+        
         [Test]
         public static void SpectralLibraryReaderTestNeutralLoss()
         {
