@@ -1,9 +1,8 @@
-﻿using Easy.Common.Extensions;
+﻿using PredictionClients.Koina.Util;
+using Easy.Common.Extensions;
 using MzLibUtil;
 using PredictionClients.Koina.AbstractClasses;
 using System.ComponentModel;
-using System.Text;
-
 
 namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
 {
@@ -27,17 +26,36 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
     {
         /// <summary>The Koina API model name identifier</summary>
         public override string ModelName => "Prosit_2019_irt";
+
         /// <summary>Maximum number of peptides that can be processed in a single API request</summary>
         public override int MaxBatchSize => 1000;
+
+        /// <summary>
+        /// Maximum number of batches that should be processed in a single API request. This is necessary 
+        /// to prevent overwhelming the server with too many concurrent requests, which can lead to timeouts 
+        /// or rate limiting. Adjust this value based on the expected number of peptides and server capacity.
+        /// </summary>
+        public override int MaxNumberOfBatchesPerRequest { get; init; }
+
+        /// <summary>
+        /// Throttle time between batches to avoid overwhelming the server. 
+        /// Adjust as needed based on model performance and server capacity.
+        /// </summary> 
+        public override int ThrottlingDelayInMilliseconds { get; init; }
+        public override int BenchmarkedTimeForOneMaxBatchSizeInMilliseconds => 1500;
+
         /// <summary>Maximum allowed peptide sequence length in amino acids</summary>
         public override int MaxPeptideLength => 30;
+
         /// <summary>Minimum allowed peptide sequence length in amino acids</summary>
         public override int MinPeptideLength => 1;
+
         /// <summary>
         /// Indicates this model predicts indexed retention time (iRT) values.
         /// iRT values are relative measurements independent of chromatographic conditions.
         /// </summary>
         public override bool IsIndexedRetentionTimeModel => true;
+
         /// <summary>
         /// Supported modifications mapping from mzLib format to UNIMOD format.
         /// Only carbamidomethylation on cysteine and oxidation on methionine are supported.
@@ -47,107 +65,13 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
             {"[Common Variable:Oxidation on M]", "[UNIMOD:35]"},
             {"[Common Fixed:Carbamidomethyl on C]", "[UNIMOD:4]"}
         };
-        /// <summary>
-        /// List of validated peptide sequences formatted for model prediction.
-        /// Sequences are converted to UNIMOD format with automatic cysteine carbamidomethylation.
-        /// </summary>
-        public override List<string> PeptideSequences { get; } = new();
-        /// <summary>
-        /// Collection of iRT prediction results after inference completion.
-        /// Each prediction contains the sequence and predicted iRT value.
-        /// </summary>
-        public override List<PeptideRTPrediction> Predictions { get; protected set; } = new();
+        public override IncompatibleModHandlingMode ModHandlingMode { get; init; }
 
-        /// <summary>
-        /// Initializes a new instance of the Prosit2019iRT model with input validation and filtering.
-        /// Validates sequences against model requirements and converts valid sequences to UNIMOD format.
-        /// </summary>
-        /// <param name="peptideSequences">
-        /// List of peptide sequences in mzLib format for iRT prediction.
-        /// Valid modifications: oxidation on methionine, carbamidomethylation on cysteine.
-        /// Unmodified cysteines will be automatically carbamidomethylated.
-        /// </param>
-        /// <param name="warnings">
-        /// Output parameter containing details about any invalid sequences that were filtered out.
-        /// Will be null if all input sequences are valid.
-        /// </param>
-        /// <exception cref="WarningException">
-        /// Returned via warnings parameter when invalid sequences are encountered or input is empty.
-        /// </exception>
-        /// <remarks>
-        /// Validation criteria:
-        /// - Sequence length: 1-30 amino acids
-        /// - Only canonical amino acids (20 standard)
-        /// - Only supported modifications (oxidation on M, carbamidomethyl on C)
-        /// - Empty or null input results in warning
-        /// 
-        /// Processing steps:
-        /// 1. Validates input sequences against model constraints
-        /// 2. Converts valid sequences from mzLib to UNIMOD format
-        /// 3. Collects invalid sequences for warning message
-        /// </remarks>
-        /// <example>
-        /// <code>
-        /// var sequences = new List&lt;string&gt; 
-        /// { 
-        ///     "PEPTIDER", 
-        ///     "PEPTC[Common Fixed:Carbamidomethyl on C]IDE",
-        ///     "PEPTM[Common Variable:Oxidation on M]IDE" 
-        /// };
-        /// 
-        /// var model = new Prosit2019iRT(sequences, out var warnings);
-        /// if (warnings != null)
-        /// {
-        ///     Console.WriteLine(warnings.Message);
-        /// }
-        /// 
-        /// await model.RunInferenceAsync();
-        /// foreach (var prediction in model.Predictions)
-        /// {
-        ///     Console.WriteLine($"Sequence: {prediction.PeptideSequence}, iRT: {prediction.PredictedRetentionTime}");
-        /// }
-        /// </code>
-        /// </example>
-        public Prosit2019iRT(List<string> peptideSequences, out WarningException? warnings)
+        public Prosit2019iRT(IncompatibleModHandlingMode modHandlingMode = IncompatibleModHandlingMode.RemoveIncompatibleMods, int maxNumberOfBatchesPerRequest = 500, int throttlingDelayInMilliseconds = 100)
         {
-            // Handle empty input case early
-            if (peptideSequences.IsNullOrEmpty())
-            {
-                warnings = new WarningException("Inputs were empty. No predictions will be made.");
-                return;
-            }
-
-            // Validate each sequence and collect invalid ones for reporting
-            var invalidSequences = new List<string>();
-            foreach (var seq in peptideSequences)
-            {
-                // Apply comprehensive validation: sequence structure, length, and modifications
-                if (!IsValidSequence(seq) || !HasValidModifications(seq))
-                {
-                    invalidSequences.Add(seq);
-                }
-                else
-                {
-                    // Convert to UNIMOD format
-                    PeptideSequences.Add(ConvertMzLibModificationsToUnimod(seq));
-                }
-            }
-
-            // Generate warning message for invalid sequences if any were found
-            warnings = null;
-            if (invalidSequences.Count > 0)
-            {
-                var sb = new StringBuilder();
-                sb.AppendLine("The following peptide sequences were invalid and will be skipped:");
-                sb.AppendLine($"Model requirements: Length 1-{MaxPeptideLength}, canonical amino acids only,");
-                sb.AppendLine("supported modifications: oxidation on M, carbamidomethyl on C");
-                sb.AppendLine();
-                foreach (var invalid in invalidSequences)
-                {
-                    sb.AppendLine($"  - {invalid}");
-                }
-                warnings = new WarningException(sb.ToString());
-            }
+            ModHandlingMode = modHandlingMode;
+            MaxNumberOfBatchesPerRequest = maxNumberOfBatchesPerRequest;
+            ThrottlingDelayInMilliseconds = throttlingDelayInMilliseconds;
         }
 
         /// <summary>
@@ -169,10 +93,11 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         /// - Each batch gets a unique identifier for tracking
         /// - Enables concurrent processing of large sequence sets
         /// </remarks>
-        protected override List<Dictionary<string, object>> ToBatchedRequests()
+        protected override List<Dictionary<string, object>> ToBatchedRequests(List<RetentionTimePredictionInput> validInputs)
         {
             // Split sequences into batches for optimal API performance
-            var batchedPeptides = PeptideSequences.Chunk(MaxBatchSize).ToList();
+            // ValidatedFullSequence should not be null at this point due to prior validation steps
+            var batchedPeptides = validInputs.Select(p => ConvertMzLibModificationsToUnimod(p.ValidatedFullSequence!)).Chunk(MaxBatchSize).ToList();
             var batchedRequests = new List<Dictionary<string, object>>();
 
             for (int i = 0; i < batchedPeptides.Count; i++)
@@ -198,3 +123,4 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         }
     }
 }
+
