@@ -1403,9 +1403,14 @@ namespace Test
             var gapdhPeptides = gapdh.Digest(new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Variable), UniProtPtms, new List<Modification>());
 
             var serializer = new EssentialSequenceSerializer(modsToWrite);
+            var service = SequenceConversionService.Default;
 
             List<string> extensionResults = new List<string>();
             List<string> serializerResults = new List<string>();
+            List<string> serviceFullResults = new List<string>();
+            List<string> serviceStepResults = new List<string>();
+            List<string> serviceAutoFullResults = new List<string>();
+            List<string> serviceAutoStepResults = new List<string>();
             foreach (var peptide in gapdhPeptides)
             {
                 extensionResults.Add(peptide.EssentialSequence(modsToWrite));
@@ -1413,12 +1418,35 @@ namespace Test
                 var canonical = peptide.ToCanonicalSequenceBuilder().Build();
                 var serialized = serializer.Serialize(canonical);
                 serializerResults.Add(serialized ?? string.Empty);
+
+                var serviceFullConversion = service.Convert(peptide.FullSequence, "mzLib", "essential");
+                serviceFullResults.Add(serviceFullConversion ?? string.Empty);
+
+                var canon = service.Parse(peptide.FullSequence, "mzLib");
+                var serviceStepConversion = service.Serialize(canon.Value, "essential");
+                serviceStepResults.Add(serviceStepConversion ?? string.Empty);
+
+                var serviceAutoFull = service.ConvertAutoDetect(peptide.FullSequence, "essential");
+                serviceAutoFullResults.Add(serviceAutoFull ?? string.Empty);
+
+                var serviceAutoStep = service.ParseAutoDetect(peptide.FullSequence);
+                var serviceAutoStepConversion = service.Serialize(serviceAutoStep.Value, "essential");
+                serviceAutoStepResults.Add(serviceAutoStepConversion ?? string.Empty);
             }
 
             CollectionAssert.AreEquivalent(extensionResults, serializerResults);
+            CollectionAssert.AreEquivalent(extensionResults, serviceFullResults);
+            CollectionAssert.AreEquivalent(extensionResults, serviceStepResults);
+            CollectionAssert.AreEquivalent(extensionResults, serviceAutoFullResults);
+            CollectionAssert.AreEquivalent(extensionResults, serviceAutoStepResults);
+
 
             var expectedFullStrings = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "essentialSequences.txt"));
             CollectionAssert.AreEquivalent(expectedFullStrings, serializerResults.ToArray());
+            CollectionAssert.AreEquivalent(expectedFullStrings, serviceFullResults.ToArray());
+            CollectionAssert.AreEquivalent(expectedFullStrings, serviceStepResults.ToArray());
+            CollectionAssert.AreEquivalent(expectedFullStrings, serviceAutoFullResults.ToArray());
+            CollectionAssert.AreEquivalent(expectedFullStrings, serviceAutoStepResults.ToArray());
         }
         /// <summary>
         /// CRITICAL: Tests FullSequence and FullSequenceWithMassShift generation.

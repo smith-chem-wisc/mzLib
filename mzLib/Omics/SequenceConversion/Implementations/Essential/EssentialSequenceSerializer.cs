@@ -1,7 +1,12 @@
 namespace Omics.SequenceConversion;
 
 public class EssentialSequenceSerializer : SequenceSerializerBase
-{
+{    
+    /// <summary>
+    /// Singleton instance.
+    /// </summary>
+    public static EssentialSequenceSerializer Instance { get; } = new();
+
     private readonly IReadOnlyDictionary<string, int> _modsToWritePruned;
 
     public EssentialSequenceSerializer(

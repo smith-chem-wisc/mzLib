@@ -43,11 +43,14 @@ public class SequenceConversionService : ISequenceConversionService
         service.RegisterParser(MassShiftSequenceParser.Instance);
         service.RegisterSerializer(MassShiftSequenceSerializer.Instance);
 
-        // Register Chronologer format (serializer only - it's one-way)
+        // Register Chronologer format (serializer only)
         service.RegisterSerializer(ChronologerSequenceSerializer.Instance);
 
         // Register Unimod format (serializer only)
         service.RegisterSerializer(UnimodSequenceSerializer.Instance);
+
+        // Register EssentialSequence (serializer only with default (from MM) mod allowances are w)
+        service.RegisterSerializer(EssentialSequenceSerializer.Instance);
 
         return service;
     }
