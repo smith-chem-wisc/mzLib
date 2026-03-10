@@ -2,7 +2,7 @@
 // Licensed under the GNU Lesser General Public License v3.0
 //
 // Phase 15, Prompts 2-3 (fixed in Prompt 5): Iterative calibration framework with model selection
-// Phase 24: T/D ratio scan bootstrap — works for any library scale (iRT or native RT).
+// Phase 21: Offset-detection bootstrap — finds the bulk iRT→RT shift before narrowing.
 // Placement: MassSpectrometry/Dia/Calibration/IterativeRtCalibrator.cs
 
 using System;
@@ -14,34 +14,32 @@ using MassSpectrometry.Dia.Calibration;
 namespace MassSpectrometry.Dia
 {
     /// <summary>
-    /// Implements iterative RT calibration with a T/D ratio scan bootstrap.
+    /// Implements iterative RT calibration following the progressive refinement strategy
+    /// used by DIA-NN and Spectronaut.
     ///
-    /// Bootstrap (Iteration 0):
-    ///   1. Extract all precursors over the full run RT range in one pass.
-    ///   2. Divide library RT into 1-minute bins.
-    ///   3. Within each bin, compute residual = observedApexRt − libRt, then
-    ///      bucket residuals into 20-second increments and find the bucket with
-    ///      the highest T/D ratio.  That bucket is the true offset for that
-    ///      slice of library RT space.
-    ///   4. Fit a line through all (libRt_mid, libRt_mid + peak_offset) control
-    ///      points → bootstrap calibration model.
-    ///
-    /// This works for any library type:
-    ///   - Native-RT libraries (slope ≈ 1, offset ≈ 0): all bins agree on ~0 offset.
-    ///   - iRT-scaled libraries (slope ≈ 0.18): each bin gives a different offset,
-    ///     tracing the correct slope across the library RT range.
-    ///
-    /// Refinement (Iterations 1+):
-    ///   - Use the bootstrap model to generate per-precursor narrow RT windows.
-    ///   - Select high-quality anchors, refit model, iterate until convergence.
-    ///
-    /// Model Selection (refinement only):
-    ///   - Iterations 0–2: always Linear.
-    ///   - Iteration 3+: if linear R² &lt; 0.995 and anchors &gt; 200, try PiecewiseLinear.
-    ///   - LOWESS tried only if PiecewiseLinear R² &lt; 0.990.
-    /// </summary>
+    /// Algorithm:
+    /// 1. Offset-detection bootstrap:
     ///    a. Extract a random subsample of precursors using the full run RT range
     ///    b. Score results, compute per-result offset = ObservedApexRt - LibraryRt
+    ///    c. Find the mode of the offset distribution via kernel density
+    ///    d. Re-extract ALL precursors at LibraryRt + modeOffset ± bootstrapWindow
+    ///    e. Fit initial linear model from anchors
+    /// 2. Re-extract at predicted RT ± Nσ (starting at 3σ)
+    /// 3. Re-select anchors with improved confidence
+    /// 4. Re-fit model (with automatic model selection: Linear → PiecewiseLinear → LOWESS)
+    /// 5. Repeat until convergence (Δσ/σ &lt; threshold) or max iterations
+    ///
+    /// The offset-detection step solves the fundamental problem where iRT values are in
+    /// arbitrary units (e.g. -30 to +150) while experimental RT is 0–90 min. The old
+    /// progressive-widening bootstrap (±1, ±1.5, ±2, ±3, ±5 min) assumes offset ≈ 0,
+    /// which fails completely when the true offset is tens of minutes.
+    ///
+    /// Model Selection Logic:
+    /// - Iteration 0: always Linear (few anchors, avoid overfitting)
+    /// - Iteration 1+: if linear R² &lt; 0.995 and anchors &gt; 200, try PiecewiseLinear
+    /// - If PiecewiseLinear shows &gt; 10% σ improvement over Linear, keep it
+    /// - LOWESS tried only if PiecewiseLinear R² &lt; 0.990 (extreme non-linearity)
+    /// </summary>
     public class IterativeRtCalibrator
     {
         // ── Configuration ──────────────────────────────────────────────────
@@ -51,13 +49,6 @@ namespace MassSpectrometry.Dia
 
         /// <summary>Stop when Δσ/σ &lt; this threshold (5%). Default 0.05.</summary>
         public double ConvergenceThreshold { get; set; } = 0.02;
-
-        /// <summary>
-        /// Optional progress reporter for calibration log messages.
-        /// When set, messages are routed here instead of Console.WriteLine.
-        /// Used by MetaMorpheus to surface calibration progress in the GUI/log.
-        /// </summary>
-        public Action<string> ProgressReporter { get; set; }
 
         /// <summary>Window = predicted ± N × σ. Default 3.0.</summary>
         public double SigmaMultiplier { get; set; } = 4.0;
@@ -129,6 +120,25 @@ namespace MassSpectrometry.Dia
         /// <summary>Bandwidth parameter for LOWESS fitting. Default 0.3.</summary>
         public double LowessBandwidth { get; set; } = 0.3;
 
+        // ── Progress Reporting ─────────────────────────────────────────────
+
+        /// <summary>
+        /// Optional callback invoked for every calibration status message.
+        /// When set (e.g. to MetaMorpheusEngine.Status), messages are surfaced
+        /// to the MetaMorpheus GUI/log in addition to Console.WriteLine.
+        /// </summary>
+        public Action<string> ProgressReporter { get; set; }
+
+        /// <summary>
+        /// Writes a calibration message to Console.WriteLine and, if set,
+        /// also forwards it to ProgressReporter so MetaMorpheus can display it.
+        /// </summary>
+        private void Report(string message)
+        {
+            Console.WriteLine(message);
+            ProgressReporter?.Invoke(message);
+        }
+
         // ── Main Entry Point ───────────────────────────────────────────────
 
         /// <summary>
@@ -149,200 +159,223 @@ namespace MassSpectrometry.Dia
             double previousSigma = double.MaxValue;
             double previousSlope = double.NaN;
 
-            // ── Bootstrap: Center-Outward T/D Ratio Scan ─────────────────
-            // Start with the middle 20% of library RT (iRT ranks 40–60%).  Those
-            // precursors elute near the gradient midpoint regardless of slope, so a
-            // flat RT window centred on the TIC peak captures them cleanly.  Run the
-            // T/D scan on just that band to get an initial slope estimate, optionally
-            // tighten it with one refinement pass, then walk outward band by band
-            // (20–40 / 60–80, then 0–20 / 80–100), using the current model to narrow
-            // the window for each successive band.
+            // ── Bootstrap (Iteration 0): Offset Detection ─────────────────
+            // Phase 21: detect the bulk iRT→RT offset before attempting any
+            // narrow-window extraction.
+            DiaLibraryQueryGenerator.GenerationResult genResult = default;
+            ExtractionResult extractionResult = null;
+            List<DiaSearchResult> bootstrapResults = null;
+
             {
-                var bootstrapSw = Stopwatch.StartNew();
+                var extractSw = new Stopwatch();
+                var fitSw = new Stopwatch();
+                var selectSw = new Stopwatch();
 
-                // ── Sort all targets by library RT ───────────────────────────
-                float globalRtMin = scanIndex.GetGlobalRtMin();
-                float globalRtMax = scanIndex.GetGlobalRtMax();
+                Report("  [Calibration] Iteration 0 starting...");
+                Report("  [Calibration] Bootstrap: offset-detection scan...");
 
-                var targets = new List<(int PrecIdx, double LibRt)>(precursors.Count);
-                for (int i = 0; i < precursors.Count; i++)
+                extractSw.Start();
+
+                // Step A: Subsample precursors for global scan
+                var subsample = BuildSubsample(precursors, OffsetDetectionSubsampleSize);
+
+                // Step B: Extract subsample over full RT range
+                var subsampleParams = CloneWithRtTolerance(baseParameters,
+                    (scanIndex.GetGlobalRtMax() - scanIndex.GetGlobalRtMin()) / 2f + 1f);
+
+                var subGen = DiaLibraryQueryGenerator.Generate(subsample, scanIndex, subsampleParams);
+                var subExtract = orchestrator.ExtractAll(subGen.Queries);
+                var subResults = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
+                    subsample, subGen, subExtract, baseParameters, scanIndex);
+
+                extractSw.Stop();
+                Report($"  [Calibration] Offset scan: {subResults.Count} results from {subsample.Count} precursors ({extractSw.ElapsedMilliseconds}ms)");
+
+                // Step C: Detect mode of offset distribution
+                double modeOffset = double.NaN;
+                bool offsetDetected = false;
+
+                var highQualitySub = subResults
+                    .Where(r => !r.IsDecoy && !float.IsNaN(r.ApexScore) && r.ApexScore >= InitialApexScoreThreshold
+                                && !float.IsNaN(r.ObservedApexRt))
+                    .ToList();
+
+                Report($"  [Calibration] Offset scan: {highQualitySub.Count} high-quality results (ApexScore≥{InitialApexScoreThreshold:F2})");
+
+                if (highQualitySub.Count >= OffsetDetectionMinResults)
                 {
-                    var p = precursors[i];
-                    if (p.IsDecoy) continue;
-                    double lr = p.IrtValue.HasValue ? p.IrtValue.Value
-                              : p.RetentionTime.HasValue ? p.RetentionTime.Value
-                              : double.NaN;
-                    if (!double.IsNaN(lr)) targets.Add((i, lr));
-                }
-                targets.Sort((a, b) => a.LibRt.CompareTo(b.LibRt));
-
-                if (targets.Count < MinAnchorCount * 2)
-                {
-                    Console.WriteLine($"  [Calibration] Too few targets ({targets.Count}), skipping T/D scan bootstrap.");
-                    return LegacyProgressiveBootstrap(precursors, scanIndex, baseParameters,
-                        orchestrator, log, ref currentModel, ref currentResults,
-                        ref previousSigma, ref previousSlope);
-                }
-
-                int n = targets.Count;
-                // Five equal bands by sorted iRT rank: 0–20, 20–40, 40–60, 60–80, 80–100%
-                int[] bandLo = { 0, n / 5, 2 * n / 5, 3 * n / 5, 4 * n / 5 };
-                int[] bandHi = { n / 5, 2 * n / 5, 3 * n / 5, 4 * n / 5, n };
-
-                // ── TIC midpoint for center-band flat window ──────────────────
-                var (elutionMin, elutionMax) = EstimatePeptideElutionWindow(scanIndex);
-                double elutionMid = (elutionMin + elutionMax) / 2.0;
-                // Initial flat half-width: 20% of run length, min 3 min, max 8 min
-                double centerHalfWin = Math.Clamp((elutionMax - elutionMin) * 0.20, 3.0, 8.0);
-
-                Console.WriteLine($"  [Calibration] Gradient window: {elutionMin:F1}–{elutionMax:F1} min (mid={elutionMid:F1})");
-                Console.WriteLine($"  [Calibration] Bootstrap: {n} targets, center band = iRT ranks 40–60%");
-
-                // Accumulated control points across all bands
-                var allControlPoints = new List<(double LibRtMid, double BestOffset)>(32);
-
-                // ── Band 2 (center, ranks 40–60%): flat RT window ─────────────
-                {
-                    var bandIndices = GetBandPrecursorIndices(targets, bandLo[2], bandHi[2]);
-                    var bandPrecursors = BuildBandPrecursorList(precursors, bandIndices, includeDecoys: true);
-
-                    var sw = Stopwatch.StartNew();
-                    var gen = GenerateWithFlatWindowForAll(bandPrecursors, scanIndex, baseParameters,
-                        (float)(elutionMid - centerHalfWin), (float)(elutionMid + centerHalfWin));
-                    var ext = orchestrator.ExtractAll(gen.Queries);
-                    var res = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
-                        bandPrecursors, gen, ext, baseParameters, scanIndex);
-                    sw.Stop();
-
-                    var pts = TdRatioScanBand(res, bandPrecursors, gen);
-                    Console.WriteLine($"  [Calibration] Center band: {bandPrecursors.Count} precursors, " +
-                        $"{pts.Count} control points ({sw.ElapsedMilliseconds}ms)");
-                    allControlPoints.AddRange(pts);
-
-                    // One tightening pass if we got a decent model
-                    var modelCenter = FitFromControlPoints(allControlPoints);
-                    if (modelCenter != null && pts.Count >= 3)
-                    {
-                        double tightWin = Math.Max(modelCenter.SigmaMinutes * 3.0, MinWindowHalfWidthMinutes);
-                        sw.Restart();
-                        gen = GenerateCalibratedWithExplicitWindow(bandPrecursors, scanIndex,
-                            baseParameters, modelCenter, tightWin);
-                        ext = orchestrator.ExtractAll(gen.Queries);
-                        res = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
-                            bandPrecursors, gen, ext, baseParameters, scanIndex);
-                        sw.Stop();
-
-                        var pts2 = TdRatioScanBand(res, bandPrecursors, gen);
-                        Console.WriteLine($"  [Calibration] Center band (tightened ±{tightWin:F2} min): " +
-                            $"{pts2.Count} control points ({sw.ElapsedMilliseconds}ms)");
-                        // Replace center-band points with the tighter ones if better
-                        if (pts2.Count >= pts.Count)
+                    // Build offset distribution: ObservedApexRt - LibraryRt
+                    // Use precursor lookup to get the correct library RT coordinate
+                    var subsampleLookup = new Dictionary<(string, int), LibraryPrecursorInput>(subsample.Count);
+                    foreach (var p in subsample)
+                        if (!p.IsDecoy)
                         {
-                            allControlPoints.Clear();
-                            allControlPoints.AddRange(pts2);
+                            var key = (p.Sequence, p.ChargeState);
+                            if (!subsampleLookup.ContainsKey(key))
+                                subsampleLookup[key] = p;
+                        }
+
+                    var offsets = new List<double>(highQualitySub.Count);
+                    foreach (var r in highQualitySub)
+                    {
+                        if (!subsampleLookup.TryGetValue((r.Sequence, r.ChargeState), out var p))
+                            continue;
+                        double libRt = p.IrtValue.HasValue ? p.IrtValue.Value
+                                     : p.RetentionTime.HasValue ? p.RetentionTime.Value
+                                     : double.NaN;
+                        if (double.IsNaN(libRt)) continue;
+                        offsets.Add(r.ObservedApexRt - libRt);
+                    }
+
+                    if (offsets.Count >= OffsetDetectionMinResults)
+                    {
+                        modeOffset = FindOffsetMode(offsets, OffsetKdeBandwidthMinutes);
+                        offsetDetected = !double.IsNaN(modeOffset);
+
+                        // Compute σ only on offsets near the mode to avoid
+                        // outlier inflation from false matches in the broad scan
+                        double coarseWindow = 1.5; // ±5 min around mode
+                        var nearMode = offsets
+                            .Where(o => Math.Abs(o - modeOffset) <= coarseWindow)
+                            .ToList();
+
+                        double mean = nearMode.Count > 0 ? nearMode.Average() : modeOffset;
+                        double variance = nearMode.Count > 1
+                            ? nearMode.Sum(o => (o - mean) * (o - mean)) / nearMode.Count
+                            : 1.0;
+                        double stdDev = Math.Sqrt(variance);
+                        BootstrapWindowMinutes = Math.Max(3.0 * stdDev, 0.5);
+
+                        Report($"  [Calibration] Offset distribution: mean={mean:F2} mode={modeOffset:F2} σ={stdDev:F2} (from {nearMode.Count}/{offsets.Count} near-mode offsets) → window=±{BootstrapWindowMinutes:F2} min");
+                    }
+                }
+
+                // Step D: Full extraction centered on detected offset
+                extractSw.Reset();
+                extractSw.Start();
+
+                if (offsetDetected)
+                {
+                    // Generate queries: LibraryRt + modeOffset ± BootstrapWindowMinutes
+                    genResult = GenerateWithOffsetWindow(
+                        precursors, scanIndex, baseParameters, modeOffset, BootstrapWindowMinutes);
+                    Report($"  [Calibration] Bootstrap: offset={modeOffset:F2} min, window=±{BootstrapWindowMinutes:F1} min");
+                }
+                else
+                {
+                    // Fallback: legacy progressive widening
+                    Report("  [Calibration] Offset detection failed, falling back to progressive widening...");
+                    double[] fallbackWindows = { 1.0, 1.5, 2.0, 3.0, 5.0 };
+                    bool gotEnough = false;
+
+                    foreach (double tryWindow in fallbackWindows)
+                    {
+                        Report($"  [Calibration] Bootstrap: trying ±{tryWindow:F1} min window...");
+                        var bParams = CloneWithRtTolerance(baseParameters, (float)tryWindow);
+                        genResult = DiaLibraryQueryGenerator.Generate(precursors, scanIndex, bParams);
+                        extractionResult = orchestrator.ExtractAll(genResult.Queries);
+                        bootstrapResults = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
+                            precursors, genResult, extractionResult, baseParameters, scanIndex);
+
+                        Report($"  [Calibration] Bootstrap ±{tryWindow:F1} min: extraction={extractSw.ElapsedMilliseconds}ms, results={bootstrapResults.Count:N0}");
+
+                        selectSw.Start();
+                        var testAnchors = SelectAnchors(bootstrapResults, precursors, genResult.PrecursorGroups,
+                            InitialApexScoreThreshold, InitialTopK, requireMinFragDetRate: false);
+                        selectSw.Stop();
+
+                        Report($"  [Calibration] Bootstrap ±{tryWindow:F1} min: {testAnchors.Count} anchors (threshold={InitialApexScoreThreshold:F2})");
+
+                        if (testAnchors.Count >= InitialTopK || testAnchors.Count >= MinAnchorCount * 5)
+                        {
+                            gotEnough = true;
+                            break;
                         }
                     }
-                }
 
-                // ── Bands 1+3 (mid, ranks 20–40% and 60–80%) ─────────────────
-                {
-                    var modelSoFar = FitFromControlPoints(allControlPoints);
-                    if (modelSoFar != null)
+                    if (!gotEnough && (bootstrapResults == null || bootstrapResults.Count < MinAnchorCount))
                     {
-                        // σ×4 from the tightened center model, but floor at 1.5 min to
-                        // absorb extrapolation error from projecting center-band model outward.
-                        double winB = Math.Max(modelSoFar.SigmaMinutes * 4.0, 1.5);
-                        var bandIndices = GetBandPrecursorIndices(targets,
-                            new[] { (bandLo[1], bandHi[1]), (bandLo[3], bandHi[3]) });
-                        var bandPrecursors = BuildBandPrecursorList(precursors, bandIndices, includeDecoys: true);
-
-                        var sw = Stopwatch.StartNew();
-                        var gen = GenerateCalibratedWithExplicitWindow(bandPrecursors, scanIndex,
-                            baseParameters, modelSoFar, winB);
-                        var ext = orchestrator.ExtractAll(gen.Queries);
-                        var res = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
-                            bandPrecursors, gen, ext, baseParameters, scanIndex);
-                        sw.Stop();
-
-                        var pts = TdRatioScanBand(res, bandPrecursors, gen);
-                        Console.WriteLine($"  [Calibration] Mid bands (±{winB:F2} min): " +
-                            $"{bandPrecursors.Count} precursors, {pts.Count} control points ({sw.ElapsedMilliseconds}ms)");
-                        allControlPoints.AddRange(pts);
+                        log.Add(CreateLogEntry(0, 0, null, baseParameters.RtToleranceMinutes,
+                            extractSw.Elapsed, fitSw.Elapsed, selectSw.Elapsed, "BootstrapFailed"));
+                        return (null, null, log, bootstrapResults ?? new List<DiaSearchResult>());
                     }
-                    else
+
+                    // bootstrapResults is already set by the fallback loop
+                    extractSw.Stop();
+
+                    selectSw.Reset();
+                    selectSw.Start();
+                    var anchors0 = SelectAnchors(bootstrapResults, precursors, genResult.PrecursorGroups,
+                        InitialApexScoreThreshold, InitialTopK, requireMinFragDetRate: false);
+                    selectSw.Stop();
+
+                    fitSw.Start();
+                    currentModel = FitBootstrapModel(anchors0, out string modelLabel0);
+                    fitSw.Stop();
+
+                    if (currentModel == null)
                     {
-                        Console.WriteLine("  [Calibration] Center band yielded no model — skipping mid bands.");
+                        log.Add(CreateLogEntry(0, anchors0.Count, null, baseParameters.RtToleranceMinutes,
+                            extractSw.Elapsed, fitSw.Elapsed, selectSw.Elapsed, "FitFailed"));
+                        return (null, null, log, bootstrapResults);
                     }
+
+                    currentResults = bootstrapResults;
+                    previousSigma = currentModel.SigmaMinutes;
+                    previousSlope = currentModel.Slope;
+                    double windowHW0 = Math.Max(currentModel.SigmaMinutes * SigmaMultiplier, MinWindowHalfWidthMinutes);
+                    log.Add(CreateLogEntry(0, anchors0.Count, currentModel, windowHW0,
+                        extractSw.Elapsed, fitSw.Elapsed, selectSw.Elapsed, modelLabel0));
+
+                    // Run remaining iterations starting at 1
+                    return RunRefinementIterations(
+                        precursors, scanIndex, baseParameters, orchestrator,
+                        currentModel, currentResults, previousSigma, previousSlope,
+                        log, startIteration: 1);
                 }
 
-                // ── Bands 0+4 (outer, ranks 0–20% and 80–100%) ───────────────
+                // Offset-detected path: extract all precursors with offset window
+                extractionResult = orchestrator.ExtractAll(genResult.Queries);
+                bootstrapResults = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
+                    precursors, genResult, extractionResult, baseParameters, scanIndex);
+                extractSw.Stop();
+
+                Report($"  [Calibration] Bootstrap ±{BootstrapWindowMinutes:F1} min (offset={modeOffset:F2}): extraction={extractSw.ElapsedMilliseconds}ms, results={bootstrapResults.Count:N0}");
+
+                // Step E: Select anchors and fit initial model
+                selectSw.Start();
+                var anchors = SelectAnchors(bootstrapResults, precursors, genResult.PrecursorGroups,
+                    InitialApexScoreThreshold, InitialTopK, requireMinFragDetRate: false);
+                selectSw.Stop();
+
+                Report($"  [Calibration] Bootstrap: {anchors.Count} anchors (threshold={InitialApexScoreThreshold:F2})");
+
+                if (anchors.Count < MinAnchorCount)
                 {
-                    var modelSoFar = FitFromControlPoints(allControlPoints);
-                    if (modelSoFar != null)
-                    {
-                        double winC = Math.Max(modelSoFar.SigmaMinutes * 4.0, 2.0);
-                        var bandIndices = GetBandPrecursorIndices(targets,
-                            new[] { (bandLo[0], bandHi[0]), (bandLo[4], bandHi[4]) });
-                        var bandPrecursors = BuildBandPrecursorList(precursors, bandIndices, includeDecoys: true);
-
-                        var sw = Stopwatch.StartNew();
-                        var gen = GenerateCalibratedWithExplicitWindow(bandPrecursors, scanIndex,
-                            baseParameters, modelSoFar, winC);
-                        var ext = orchestrator.ExtractAll(gen.Queries);
-                        var res = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
-                            bandPrecursors, gen, ext, baseParameters, scanIndex);
-                        sw.Stop();
-
-                        var pts = TdRatioScanBand(res, bandPrecursors, gen);
-                        Console.WriteLine($"  [Calibration] Outer bands (±{winC:F2} min): " +
-                            $"{bandPrecursors.Count} precursors, {pts.Count} control points ({sw.ElapsedMilliseconds}ms)");
-                        allControlPoints.AddRange(pts);
-                    }
+                    log.Add(CreateLogEntry(0, anchors.Count, null, baseParameters.RtToleranceMinutes,
+                        extractSw.Elapsed, fitSw.Elapsed, selectSw.Elapsed, "InsufficientAnchors"));
+                    return (null, null, log, bootstrapResults);
                 }
 
-                // ── Fit final bootstrap model from all control points ─────────
-                // First remove control points whose offset deviates more than
-                // 3× MAD from the median offset — catches the tail-of-gradient
-                // early-eluters that inflate σ and widen the full-pass window.
-                var filteredControlPoints = FilterOutlierControlPoints(allControlPoints);
-                Console.WriteLine($"  [Calibration] Bootstrap control points: {allControlPoints.Count} total, " +
-                    $"{filteredControlPoints.Count} after outlier filter");
+                fitSw.Start();
+                currentModel = FitBootstrapModel(anchors, out string modelLabel);
+                fitSw.Stop();
 
-                var bootstrapModel = FitFromControlPoints(filteredControlPoints)
-                               ?? FitFromControlPoints(allControlPoints); // fallback to unfiltered
-                bootstrapSw.Stop();
-
-                if (bootstrapModel == null)
+                if (currentModel == null)
                 {
-                    Console.WriteLine("  [Calibration] Bootstrap T/D scan produced no model — falling back.");
-                    log.Add(CreateLogEntry(0, 0, null, baseParameters.RtToleranceMinutes,
-                        bootstrapSw.Elapsed, TimeSpan.Zero, TimeSpan.Zero, "TdScan_NoModel_Fallback"));
-                    return LegacyProgressiveBootstrap(precursors, scanIndex, baseParameters,
-                        orchestrator, log, ref currentModel, ref currentResults,
-                        ref previousSigma, ref previousSlope);
+                    log.Add(CreateLogEntry(0, anchors.Count, null, baseParameters.RtToleranceMinutes,
+                        extractSw.Elapsed, fitSw.Elapsed, selectSw.Elapsed, "FitFailed"));
+                    return (null, null, log, bootstrapResults);
                 }
 
-                Console.WriteLine($"  [Calibration] Bootstrap complete: slope={bootstrapModel.Slope:F4}, " +
-                    $"σ={bootstrapModel.SigmaMinutes:F3}, R²={bootstrapModel.RSquared:F4} " +
-                    $"({filteredControlPoints.Count} control points, {bootstrapSw.ElapsedMilliseconds}ms)");
+                currentResults = bootstrapResults;
+                previousSigma = currentModel.SigmaMinutes;
+                previousSlope = currentModel.Slope;
+                double hw = Math.Max(currentModel.SigmaMinutes * SigmaMultiplier, MinWindowHalfWidthMinutes);
+                log.Add(CreateLogEntry(0, anchors.Count, currentModel, hw,
+                    extractSw.Elapsed, fitSw.Elapsed, selectSw.Elapsed, modelLabel));
 
-                // ── Full extraction with the bootstrap model ──────────────────
-                double fullWin = Math.Max(bootstrapModel.SigmaMinutes * SigmaMultiplier, MinWindowHalfWidthMinutes);
-                var swFull = Stopwatch.StartNew();
-                var genFull = GenerateCalibratedWithExplicitWindow(
-                    precursors, scanIndex, baseParameters, bootstrapModel, fullWin);
-                var extFull = orchestrator.ExtractAll(genFull.Queries);
-                currentResults = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
-                    precursors, genFull, extFull, baseParameters, scanIndex);
-                swFull.Stop();
-
-                Console.WriteLine($"  [Calibration] Bootstrap full pass: {currentResults.Count:N0} results, window ±{fullWin:F2} min ({swFull.ElapsedMilliseconds}ms)");
-
-                log.Add(CreateLogEntry(0, filteredControlPoints.Count, bootstrapModel, fullWin,
-                    bootstrapSw.Elapsed, TimeSpan.Zero, swFull.Elapsed, "TdScan_Linear"));
-                currentModel = bootstrapModel;
-                previousSigma = bootstrapModel.SigmaMinutes;
-                previousSlope = bootstrapModel.Slope;
+                Report($"  [Calibration] Iteration 0: slope={currentModel.Slope:F4}, σ={currentModel.SigmaMinutes:F3}, R²={currentModel.RSquared:F4}, model={modelLabel}");
             }
 
             // ── Refinement Iterations 1..MaxIterations-1 ──────────────────
@@ -370,7 +403,7 @@ namespace MassSpectrometry.Dia
         {
             for (int iteration = startIteration; iteration < MaxIterations; iteration++)
             {
-                Console.WriteLine($"  [Calibration] Iteration {iteration} starting...");
+                Report($"  [Calibration] Iteration {iteration} starting...");
                 var extractSw = new Stopwatch();
                 var fitSw = new Stopwatch();
                 var selectSw = new Stopwatch();
@@ -388,14 +421,14 @@ namespace MassSpectrometry.Dia
                     precursors, genResult, extractionResult, baseParameters, scanIndex);
                 extractSw.Stop();
 
-                Console.WriteLine($"  [Calibration] Iteration {iteration}: extraction={extractSw.ElapsedMilliseconds}ms, results={results.Count:N0}");
+                Report($"  [Calibration] Iteration {iteration}: extraction={extractSw.ElapsedMilliseconds}ms, results={results.Count:N0}");
 
                 selectSw.Start();
                 var anchors = SelectAnchors(results, precursors, genResult.PrecursorGroups,
                     RefinedApexScoreThreshold, int.MaxValue, requireMinFragDetRate: true);
                 selectSw.Stop();
 
-                Console.WriteLine($"  [Calibration] Iteration {iteration}: {anchors.Count} anchors (threshold={RefinedApexScoreThreshold:F2})");
+                Report($"  [Calibration] Iteration {iteration}: {anchors.Count} anchors (threshold={RefinedApexScoreThreshold:F2})");
 
                 if (anchors.Count < MinAnchorCount)
                 {
@@ -433,13 +466,13 @@ namespace MassSpectrometry.Dia
                 double newSigma = bestModel.SigmaMinutes;
                 double newSlope = bestModel.Slope;
 
-                Console.WriteLine($"  [Calibration] Iteration {iteration}: slope={newSlope:F4}, σ={newSigma:F3}, R²={bestModel.RSquared:F4}, model={modelTypeLabel}");
+                Report($"  [Calibration] Iteration {iteration}: slope={newSlope:F4}, σ={newSigma:F3}, R²={bestModel.RSquared:F4}, model={modelTypeLabel}");
 
                 // Divergence protection: more lenient in early iterations
                 double divergenceThreshold = iteration <= 1 ? 1.20 : 1.10;
                 if (newSigma > previousSigma * divergenceThreshold)
                 {
-                    Console.WriteLine($"  [Calibration] Iteration {iteration}: σ diverged ({newSigma:F3} > {previousSigma * 1.1:F3}), reverting.");
+                    Report($"  [Calibration] Iteration {iteration}: σ diverged ({newSigma:F3} > {previousSigma * 1.1:F3}), reverting.");
                     log.Add(CreateLogEntry(iteration, anchors.Count, bestModel,
                         Math.Max(newSigma * SigmaMultiplier, MinWindowHalfWidthMinutes),
                         extractSw.Elapsed, fitSw.Elapsed, selectSw.Elapsed, modelTypeLabel + "_Diverged_Reverted"));
@@ -453,7 +486,7 @@ namespace MassSpectrometry.Dia
                     double prevDist = Math.Abs(previousSlope - 1.0);
                     if (curDist > prevDist + 0.02)
                     {
-                        Console.WriteLine($"  [Calibration] Iteration {iteration}: slope diverging from 1.0, reverting.");
+                        Report($"  [Calibration] Iteration {iteration}: slope diverging from 1.0, reverting.");
                         log.Add(CreateLogEntry(iteration, anchors.Count, bestModel,
                             Math.Max(newSigma * SigmaMultiplier, MinWindowHalfWidthMinutes),
                             extractSw.Elapsed, fitSw.Elapsed, selectSw.Elapsed, modelTypeLabel + "_SlopeDiverged_Reverted"));
@@ -473,7 +506,7 @@ namespace MassSpectrometry.Dia
                     double relativeDelta = Math.Abs(newSigma - previousSigma) / previousSigma;
                     if (relativeDelta < ConvergenceThreshold)
                     {
-                        Console.WriteLine($"  [Calibration] Converged at iteration {iteration} (Δσ/σ = {relativeDelta:F4} < {ConvergenceThreshold})");
+                        Report($"  [Calibration] Converged at iteration {iteration} (Δσ/σ = {relativeDelta:F4} < {ConvergenceThreshold})");
                         break;
                     }
                 }
@@ -644,393 +677,6 @@ namespace MassSpectrometry.Dia
         /// <summary>
         /// Fits the bootstrap linear model from anchors, with RANSAC fallback.
         /// </summary>
-        /// <summary>
-        /// Generates queries with a fixed [rtMin, rtMax] window for every precursor,
-        /// regardless of library RT. Used in the T/D scan bootstrap.
-        /// </summary>
-        private static DiaLibraryQueryGenerator.GenerationResult GenerateWithFlatWindowForAll(
-            IList<LibraryPrecursorInput> precursors,
-            DiaScanIndex scanIndex,
-            DiaSearchParameters parameters,
-            float rtMin,
-            float rtMax)
-        {
-            float ppmTolerance = parameters.PpmTolerance;
-            rtMin = Math.Max(rtMin, scanIndex.GetGlobalRtMin());
-            rtMax = Math.Min(rtMax, scanIndex.GetGlobalRtMax());
-
-            int totalQueryCount = 0, skippedNoWindow = 0, skippedNoFragments = 0;
-            for (int i = 0; i < precursors.Count; i++)
-            {
-                var p = precursors[i];
-                int windowId = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
-                if (windowId < 0) { skippedNoWindow++; continue; }
-                if (p.FragmentCount == 0) { skippedNoFragments++; continue; }
-                totalQueryCount += p.FragmentCount;
-            }
-
-            var queries = new FragmentQuery[totalQueryCount];
-            var groups = new List<DiaLibraryQueryGenerator.PrecursorQueryGroup>(
-                precursors.Count - skippedNoWindow - skippedNoFragments);
-
-            int queryIndex = 0;
-            for (int i = 0; i < precursors.Count; i++)
-            {
-                var p = precursors[i];
-                int windowId = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
-                if (windowId < 0 || p.FragmentCount == 0) continue;
-
-                int groupOffset = queryIndex;
-                for (int f = 0; f < p.FragmentCount; f++)
-                {
-                    queries[queryIndex++] = new FragmentQuery(
-                        targetMz: p.FragmentMzs[f],
-                        tolerancePpm: ppmTolerance,
-                        rtMin: rtMin,
-                        rtMax: rtMax,
-                        windowId: windowId,
-                        queryId: queryIndex - 1);
-                }
-
-                groups.Add(new DiaLibraryQueryGenerator.PrecursorQueryGroup(
-                    inputIndex: i,
-                    queryOffset: groupOffset,
-                    queryCount: p.FragmentCount,
-                    windowId: windowId,
-                    rtMin: rtMin,
-                    rtMax: rtMax));
-            }
-
-            return new DiaLibraryQueryGenerator.GenerationResult(
-                queries, groups.ToArray(), skippedNoWindow, skippedNoFragments);
-        }
-
-        /// <summary>
-        /// Estimates the peptide elution window using TIC (sum of scan intensities).
-        /// Smooths TIC with a 5-scan median filter, finds the contiguous span where
-        /// smoothed TIC ≥ 10% of peak TIC.  Falls back to full run bounds on failure.
-        /// </summary>
-        private (double ElutionMin, double ElutionMax) EstimatePeptideElutionWindow(DiaScanIndex scanIndex)
-        {
-            int nScans = scanIndex.ScanCount;
-            if (nScans < 5) return (scanIndex.GetGlobalRtMin(), scanIndex.GetGlobalRtMax());
-
-            var tics = new double[nScans];
-            for (int s = 0; s < nScans; s++)
-            {
-                var intensities = scanIndex.GetScanIntensitySpan(s);
-                double sum = 0;
-                foreach (float v in intensities) sum += v;
-                tics[s] = sum;
-            }
-
-            // 5-scan median smooth
-            var smooth = new double[nScans];
-            for (int s = 0; s < nScans; s++)
-            {
-                int lo = Math.Max(0, s - 2), hi = Math.Min(nScans - 1, s + 2);
-                int len = hi - lo + 1;
-                var buf = new double[len];
-                for (int k = 0; k < len; k++) buf[k] = tics[lo + k];
-                Array.Sort(buf);
-                smooth[s] = buf[len / 2];
-            }
-
-            double peakTic = 0;
-            foreach (double v in smooth) if (v > peakTic) peakTic = v;
-            if (peakTic <= 0) return (scanIndex.GetGlobalRtMin(), scanIndex.GetGlobalRtMax());
-
-            double threshold = peakTic * 0.10;
-            double minRt = double.MaxValue, maxRt = double.MinValue;
-            for (int s = 0; s < nScans; s++)
-            {
-                if (smooth[s] >= threshold)
-                {
-                    double rt = scanIndex.GetScanRt(s);
-                    if (rt < minRt) minRt = rt;
-                    if (rt > maxRt) maxRt = rt;
-                }
-            }
-
-            if (minRt >= maxRt)
-                return (scanIndex.GetGlobalRtMin(), scanIndex.GetGlobalRtMax());
-
-            return (minRt, maxRt);
-        }
-
-        /// <summary>
-        /// Builds a subset of precursors for a bootstrap band.
-        /// Always includes all decoys (for FDR scoring), plus the targets
-        /// whose input indices are listed in targetIndices.
-        /// </summary>
-        private static List<LibraryPrecursorInput> BuildBandPrecursorList(
-            IList<LibraryPrecursorInput> all,
-            IList<int> targetIndices,
-            bool includeDecoys)
-        {
-            var result = new List<LibraryPrecursorInput>(targetIndices.Count);
-            foreach (int idx in targetIndices) result.Add(all[idx]);
-            if (includeDecoys)
-                for (int i = 0; i < all.Count; i++)
-                    if (all[i].IsDecoy) result.Add(all[i]);
-            return result;
-        }
-
-        /// <summary>
-        /// Legacy progressive-widening bootstrap fallback.
-        /// Tries ±1, ±1.5, ±2, ±3, ±5 min until enough anchors are found.
-        /// </summary>
-        private (RtCalibrationModel Model, IRtCalibrationModel DetailedModel,
-                 List<CalibrationIterationLog> Log, List<DiaSearchResult> Results)
-            LegacyProgressiveBootstrap(
-                IList<LibraryPrecursorInput> precursors,
-                DiaScanIndex scanIndex,
-                DiaSearchParameters baseParameters,
-                DiaExtractionOrchestrator orchestrator,
-                List<CalibrationIterationLog> log,
-                ref IRtCalibrationModel currentModel,
-                ref List<DiaSearchResult> currentResults,
-                ref double previousSigma,
-                ref double previousSlope)
-        {
-            Console.WriteLine("  [Calibration] Legacy progressive-widening bootstrap...");
-            double[] fallbackWindows = { 1.0, 1.5, 2.0, 3.0, 5.0 };
-            DiaLibraryQueryGenerator.GenerationResult genResult = default;
-            List<DiaSearchResult> bootstrapResults = null;
-
-            var extractSw = new Stopwatch();
-            var fitSw = new Stopwatch();
-            var selectSw = new Stopwatch();
-
-            foreach (double tryWindow in fallbackWindows)
-            {
-                Console.WriteLine($"  [Calibration] Bootstrap: trying ±{tryWindow:F1} min window...");
-                extractSw.Restart();
-                var bParams = CloneWithRtTolerance(baseParameters, (float)tryWindow);
-                genResult = DiaLibraryQueryGenerator.Generate(precursors, scanIndex, bParams);
-                var extractionResult = orchestrator.ExtractAll(genResult.Queries);
-                bootstrapResults = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
-                    precursors, genResult, extractionResult, baseParameters, scanIndex);
-                extractSw.Stop();
-
-                Console.WriteLine($"  [Calibration] Bootstrap ±{tryWindow:F1} min: {bootstrapResults.Count:N0} results ({extractSw.ElapsedMilliseconds}ms)");
-
-                selectSw.Restart();
-                var testAnchors = SelectAnchors(bootstrapResults, precursors, genResult.PrecursorGroups,
-                    InitialApexScoreThreshold, InitialTopK, requireMinFragDetRate: false);
-                selectSw.Stop();
-
-                Console.WriteLine($"  [Calibration] Bootstrap ±{tryWindow:F1} min: {testAnchors.Count} anchors");
-
-                if (testAnchors.Count >= MinAnchorCount)
-                {
-                    fitSw.Restart();
-                    currentModel = FitBootstrapModel(testAnchors, out string ml);
-                    fitSw.Stop();
-
-                    if (currentModel != null)
-                    {
-                        currentResults = bootstrapResults;
-                        previousSigma = currentModel.SigmaMinutes;
-                        previousSlope = currentModel.Slope;
-                        double hw = Math.Max(currentModel.SigmaMinutes * SigmaMultiplier, MinWindowHalfWidthMinutes);
-                        log.Add(CreateLogEntry(0, testAnchors.Count, currentModel, hw,
-                            extractSw.Elapsed, fitSw.Elapsed, selectSw.Elapsed, "Legacy_" + ml));
-                        Console.WriteLine($"  [Calibration] Legacy bootstrap: slope={currentModel.Slope:F4}, σ={currentModel.SigmaMinutes:F3}");
-                        break;
-                    }
-                }
-            }
-
-            if (currentModel == null)
-            {
-                log.Add(CreateLogEntry(0, 0, null, baseParameters.RtToleranceMinutes,
-                    extractSw.Elapsed, fitSw.Elapsed, selectSw.Elapsed, "BootstrapFailed"));
-                return (null, null, log, bootstrapResults ?? new List<DiaSearchResult>());
-            }
-
-            return RunRefinementIterations(
-                precursors, scanIndex, baseParameters, orchestrator,
-                currentModel, currentResults, previousSigma, previousSlope,
-                log, startIteration: 1);
-        }
-
-        /// <summary>Returns precursor indices for a single contiguous iRT rank band [lo, hi).</summary>
-        private static List<int> GetBandPrecursorIndices(
-            List<(int PrecIdx, double LibRt)> targets, int lo, int hi)
-        {
-            var idx = new List<int>(hi - lo);
-            for (int i = lo; i < hi; i++) idx.Add(targets[i].PrecIdx);
-            return idx;
-        }
-
-        /// <summary>Returns precursor indices for multiple (lo, hi) band ranges.</summary>
-        private static List<int> GetBandPrecursorIndices(
-            List<(int PrecIdx, double LibRt)> targets,
-            IEnumerable<(int Lo, int Hi)> bands)
-        {
-            var idx = new List<int>();
-            foreach (var (lo, hi) in bands)
-                for (int i = lo; i < hi; i++) idx.Add(targets[i].PrecIdx);
-            return idx;
-        }
-
-        /// <summary>
-        /// T/D ratio scan over one band's extraction results.
-        /// Divides library RT into 1-minute slices; within each slice bins the residual
-        /// (observedApexRt − libRt) into 20-second buckets and finds the bucket with
-        /// the highest target/decoy ratio.  Returns one (libRtMid, peakOffset) control
-        /// point per slice that passes the quality threshold (≥ 3 results, T/D ≥ 2:1).
-        /// </summary>
-        private List<(double LibRtMid, double BestOffset)> TdRatioScanBand(
-            List<DiaSearchResult> results,
-            IList<LibraryPrecursorInput> bandPrecursors,
-            DiaLibraryQueryGenerator.GenerationResult gen)
-        {
-            const double libBinWidth = 1.0;
-            const double residualBinMin = 20.0 / 60.0;  // 20-second buckets
-            const int minBucketTotal = 3;
-            const double minTdRatio = 2.0;
-
-            var data = new List<(double LibRt, double ObsRt, bool IsDecoy)>(results.Count);
-            for (int gi = 0; gi < gen.PrecursorGroups.Length && gi < results.Count; gi++)
-            {
-                var r = results[gi];
-                if (float.IsNaN(r.ObservedApexRt) || r.ObservedApexRt <= 0f) continue;
-                var prec = bandPrecursors[gen.PrecursorGroups[gi].InputIndex];
-                double lr = prec.IrtValue.HasValue ? prec.IrtValue.Value
-                          : prec.RetentionTime.HasValue ? prec.RetentionTime.Value
-                          : double.NaN;
-                if (!double.IsNaN(lr))
-                    data.Add((lr, r.ObservedApexRt, prec.IsDecoy));
-            }
-
-            if (data.Count < MinAnchorCount) return new List<(double, double)>();
-
-            double libMin = double.MaxValue, libMax = double.MinValue;
-            double resMin = double.MaxValue, resMax = double.MinValue;
-            foreach (var d in data)
-            {
-                if (d.LibRt < libMin) libMin = d.LibRt;
-                if (d.LibRt > libMax) libMax = d.LibRt;
-                double res = d.ObsRt - d.LibRt;
-                if (res < resMin) resMin = res;
-                if (res > resMax) resMax = res;
-            }
-            if (resMax - resMin < residualBinMin) return new List<(double, double)>();
-
-            int numLibBins = Math.Max(1, (int)Math.Ceiling((libMax - libMin) / libBinWidth));
-            int numResBins = (int)Math.Ceiling((resMax - resMin) / residualBinMin) + 1;
-
-            var tgt = new int[numLibBins, numResBins];
-            var dec = new int[numLibBins, numResBins];
-            foreach (var d in data)
-            {
-                int lb = Math.Min((int)((d.LibRt - libMin) / libBinWidth), numLibBins - 1);
-                int rb = Math.Clamp((int)((d.ObsRt - d.LibRt - resMin) / residualBinMin), 0, numResBins - 1);
-                if (d.IsDecoy) dec[lb, rb]++; else tgt[lb, rb]++;
-            }
-
-            var pts = new List<(double LibRtMid, double BestOffset)>(numLibBins);
-            for (int lb = 0; lb < numLibBins; lb++)
-            {
-                double bestRatio = -1.0; int bestRb = -1;
-                for (int rb = 0; rb < numResBins; rb++)
-                {
-                    if (tgt[lb, rb] + dec[lb, rb] < minBucketTotal) continue;
-                    double ratio = (double)tgt[lb, rb] / (dec[lb, rb] + 1.0);
-                    if (ratio > bestRatio) { bestRatio = ratio; bestRb = rb; }
-                }
-                if (bestRb < 0 || tgt[lb, bestRb] < 2 || bestRatio < minTdRatio) continue;
-
-                double offset = resMin + (bestRb + 0.5) * residualBinMin;
-                double libMid = libMin + (lb + 0.5) * libBinWidth;
-                pts.Add((libMid, offset));
-                Console.WriteLine($"    libRt={libMid:F1}  offset={offset:+0.000;-0.000} min  " +
-                    $"obsRt≈{libMid + offset:F2}  T/D={tgt[lb, bestRb]}/{dec[lb, bestRb]}");
-            }
-            return pts;
-        }
-
-        /// <summary>
-        /// Fits a linear calibration model from accumulated (libRtMid, peakOffset)
-        /// control points via OLS+RANSAC.  Each point contributes
-        /// (libRtMid, libRtMid + peakOffset) as an (x, y) anchor.
-        /// Returns null if fewer than 3 points or the fit is unreliable.
-        /// </summary>
-        /// <summary>
-        /// Removes control points whose offset deviates more than 3× MAD from the
-        /// median offset.  This eliminates late-gradient early-eluters and other
-        /// systematic outlier bins that inflate σ and widen the full-pass window.
-        /// Always retains at least 3 points; falls back to all points if fewer remain.
-        /// </summary>
-        private static List<(double LibRtMid, double BestOffset)> FilterOutlierControlPoints(
-            List<(double LibRtMid, double BestOffset)> pts)
-        {
-            if (pts.Count <= 3) return pts;
-
-            // Compute median offset
-            var offsets = pts.Select(p => p.BestOffset).OrderBy(x => x).ToArray();
-            double median = offsets[offsets.Length / 2];
-
-            // MAD = median of |offset - median|
-            var absDevs = offsets.Select(o => Math.Abs(o - median)).OrderBy(x => x).ToArray();
-            double mad = absDevs[absDevs.Length / 2];
-
-            // Use 1.4826 × MAD as robust σ estimate; threshold at 3×
-            double robustSigma = 1.4826 * mad;
-            double threshold = Math.Max(robustSigma * 3.0, 0.5); // floor at 0.5 min
-
-            var filtered = pts.Where(p => Math.Abs(p.BestOffset - median) <= threshold).ToList();
-            return filtered.Count >= 3 ? filtered : pts;
-        }
-
-        private IRtCalibrationModel FitFromControlPoints(
-            List<(double LibRtMid, double BestOffset)> pts)
-        {
-            if (pts.Count < 3) return null;
-
-            var xs = new double[pts.Count];
-            var ys = new double[pts.Count];
-            for (int i = 0; i < pts.Count; i++)
-            {
-                xs[i] = pts[i].LibRtMid;
-                ys[i] = pts[i].LibRtMid + pts[i].BestOffset;
-            }
-
-            // Control points are already T/D-verified — for small sets (≤10) the
-            // x-range may be narrow (center band only spans ~5 min) making R²
-            // unreliable, so use direct OLS.  RANSAC for larger sets.
-            RtCalibrationFitter.FitOptions fitOpts;
-            if (pts.Count <= 10)
-            {
-                fitOpts = new RtCalibrationFitter.FitOptions
-                {
-                    UseRansac = false,
-                    OutlierRejectionPasses = 1,
-                    MinAnchors = 3
-                };
-            }
-            else
-            {
-                fitOpts = new RtCalibrationFitter.FitOptions
-                {
-                    UseRansac = true,
-                    RansacInlierThresholdMinutes = 1.5,
-                    RansacMinInlierFraction = 0.5,
-                    OutlierRejectionPasses = 2,
-                    MinAnchors = 3
-                };
-            }
-
-            var model = RtCalibrationFitter.Fit(
-                (ReadOnlySpan<double>)xs, (ReadOnlySpan<double>)ys, fitOpts);
-
-            // Accept any finite-slope model — IsReliable can reject good fits when
-            // x-range is narrow (center band ~5 min wide gives artificially low R²).
-            return model == null ? null : new LinearRtModelWrapper(model);
-        }
-
         private IRtCalibrationModel FitBootstrapModel(
             List<(double LibraryRt, double ObservedRt, double QualityScore)> anchors,
             out string modelLabel)
@@ -1042,7 +688,7 @@ namespace MassSpectrometry.Dia
             var linearModel = FitLinearWithRansac(libraryRts, observedRts, inlierThreshold: 1.0);
             if (linearModel == null || !linearModel.IsReliable)
             {
-                Console.WriteLine("  [Calibration] Iteration 0: tight RANSAC failed, retrying with 2.0 min...");
+                Report("  [Calibration] Iteration 0: tight RANSAC failed, retrying with 2.0 min...");
                 linearModel = FitLinearWithRansac(libraryRts, observedRts, inlierThreshold: 2.0);
             }
 
@@ -1280,8 +926,8 @@ namespace MassSpectrometry.Dia
             };
 
             return RtCalibrationFitter.Fit(
-                (ReadOnlySpan<double>)libraryRts,
-                (ReadOnlySpan<double>)observedRts,
+                (IList<double>)libraryRts,
+                (IList<double>)observedRts,
                 fitOptions);
         }
 
