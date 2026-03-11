@@ -579,7 +579,7 @@ namespace MassSpectrometry.Dia
                     windowId: group.WindowId,
                     isDecoy: input.IsDecoy,
                     fragmentsQueried: group.QueryCount,
-                    libraryRetentionTime: input.IrtValue ?? input.RetentionTime,
+                    libraryRetentionTime: input.IsDecoy ? null : (input.IrtValue ?? input.RetentionTime),
                     rtWindowStart: group.RtMin,
                     rtWindowEnd: group.RtMax
                 );
@@ -665,7 +665,7 @@ namespace MassSpectrometry.Dia
                     windowId: group.WindowId,
                     isDecoy: input.IsDecoy,
                     fragmentsQueried: group.QueryCount,
-                    libraryRetentionTime: input.IrtValue ?? input.RetentionTime,
+                    libraryRetentionTime: input.IsDecoy ? null : (input.IrtValue ?? input.RetentionTime),
                     rtWindowStart: group.RtMin,
                     rtWindowEnd: group.RtMax
                 );

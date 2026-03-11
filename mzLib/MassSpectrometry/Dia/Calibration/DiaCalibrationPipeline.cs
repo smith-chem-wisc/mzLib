@@ -170,7 +170,7 @@ namespace MassSpectrometry.Dia
             // ── Step 4: Recalibrate RT Deviations ──────────────────────────
             var rtDevSw = Stopwatch.StartNew();
 
-            RecalibrateRtDeviations(results, precursors, model);
+            RecalibrateRtDeviations(results, precursors, detailedModel);
 
             rtDevSw.Stop();
 
@@ -229,45 +229,6 @@ namespace MassSpectrometry.Dia
         public static void RecalibrateRtDeviations(
             List<DiaSearchResult> results,
             IList<LibraryPrecursorInput> precursors,
-            RtCalibrationModel calibration)
-        {
-            if (results == null || calibration == null)
-                return;
-
-            for (int i = 0; i < results.Count; i++)
-            {
-                var r = results[i];
-
-                // Need a valid observed apex RT
-                if (float.IsNaN(r.ObservedApexRt))
-                    continue;
-
-                // Resolve the library RT to calibrate against.
-                // The result stores LibraryRetentionTime (from the precursor input).
-                // The calibration model was fitted on library RT → observed RT,
-                // so we predict observed RT from library RT.
-                double? libRt = r.LibraryRetentionTime;
-                if (!libRt.HasValue || double.IsNaN(libRt.Value))
-                    continue;
-
-                double predictedRt = calibration.ToMinutes(libRt.Value);
-
-                // Signed deviation: positive means observed later than predicted
-                float deviation = (float)(r.ObservedApexRt - predictedRt);
-
-                r.RtDeviationMinutes = deviation;
-                r.RtDeviationSquared = deviation * deviation;
-            }
-        }
-
-        /// <summary>
-        /// Overload that accepts an IRtCalibrationModel (for cases where the detailed
-        /// model should be used for prediction, e.g., piecewise/LOWESS models that
-        /// have better local accuracy than the global linear approximation).
-        /// </summary>
-        public static void RecalibrateRtDeviations(
-            List<DiaSearchResult> results,
-            IList<LibraryPrecursorInput> precursors,
             IRtCalibrationModel calibration)
         {
             if (results == null || calibration == null)
@@ -276,7 +237,6 @@ namespace MassSpectrometry.Dia
             for (int i = 0; i < results.Count; i++)
             {
                 var r = results[i];
-
                 if (float.IsNaN(r.ObservedApexRt))
                     continue;
 
@@ -284,6 +244,11 @@ namespace MassSpectrometry.Dia
                 if (!libRt.HasValue || double.IsNaN(libRt.Value))
                     continue;
 
+                // Always convert through the calibration model.
+                // For iRT libraries: libRt is raw iRT units, ToMinutes applies slope+intercept.
+                // For native-RT libraries: libRt is minutes, ToMinutes applies any systematic
+                // offset/nonlinearity the model captured. Either way this is the correct
+                // predicted RT to compare against ObservedApexRt.
                 double predictedRt = calibration.ToMinutes(libRt.Value);
 
                 float deviation = (float)(r.ObservedApexRt - predictedRt);
