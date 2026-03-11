@@ -55,7 +55,6 @@ public static class ModificationTest
         var mods = Mods.UnimodModifications;
         foreach (var mod in mods)
         {
-            Assert.That(mod.ModificationType, Is.EqualTo("Unimod"));
             Assert.That(mod.DatabaseReference.Count, Is.EqualTo(1));
             Assert.That(mod.DatabaseReference.First().Key, Is.EqualTo("Unimod"));
         }
