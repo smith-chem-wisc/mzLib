@@ -121,6 +121,24 @@ namespace Test.Omics.SequenceConversion
             Assert.That(resultT.Value.MzLibModification.Target.ToString(), Does.Contain("T"));
         }
 
+        [Test]
+        public void TryResolve_WithUnimodIdWithoutResidue_ReturnsNull()
+        {
+            // Arrange - UNIMOD:21 without residue context should remain ambiguous
+            var ambiguous = new CanonicalModification(
+                ModificationPositionType.Residue,
+                ResidueIndex: 3,
+                TargetResidue: null,
+                OriginalRepresentation: "[UNIMOD:21]",
+                UnimodId: 21);
+
+            // Act
+            var result = _lookup.TryResolve(ambiguous);
+
+            // Assert
+            Assert.That(result, Is.Null, "Ambiguous UNIMOD IDs without residue context should not resolve.");
+        }
+
         #endregion
 
         #region Resolution by Name Tests

@@ -1,8 +1,8 @@
 using Chemistry;
-using MathNet.Numerics.RootFinding;
 using Omics.Modifications;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace Omics.SequenceConversion;
@@ -13,31 +13,20 @@ namespace Omics.SequenceConversion;
 /// </summary>
 public abstract class ModificationLookupBase : IModificationLookup
 {
-    protected readonly IReadOnlyCollection<Modification> CandidateSet;
-
-    protected ModificationLookupBase()
-        : this(null, true, true, null, null)
-    {
-    }
-
-    protected ModificationLookupBase(
-        ModificationNamingConvention? conventionForLookup,
-        bool searchProteinMods,
-        bool searchRnaMods,
-        double? massTolerance,
-        IEnumerable<Modification> candidateSet)
-    {
-        ConventionForLookup = conventionForLookup;
-        SearchProteinMods = searchProteinMods;
-        SearchRnaMods = searchRnaMods;
-        MassTolerance = massTolerance;
-        CandidateSet = candidateSet as IReadOnlyCollection<Modification> ?? candidateSet.ToList();
-    }
-
-    protected bool SearchProteinMods { get; }
-    protected bool SearchRnaMods { get; }
-    protected ModificationNamingConvention? ConventionForLookup { get; }
+    protected IReadOnlyCollection<Modification> CandidateSet { get; }
     protected double? MassTolerance { get; }
+
+    protected ModificationLookupBase(IEnumerable<Modification>? candidateSet, double? massTolerance)
+    {
+        IReadOnlyCollection<Modification>? resolvedCandidates = candidateSet as IReadOnlyCollection<Modification>;
+        if (resolvedCandidates == null && candidateSet != null)
+        {
+            resolvedCandidates = candidateSet.ToList();
+        }
+
+        CandidateSet = resolvedCandidates ?? Array.Empty<Modification>();
+        MassTolerance = massTolerance;
+    }
 
     /// <inheritdoc />
     public abstract string Name { get; }
@@ -49,15 +38,15 @@ public abstract class ModificationLookupBase : IModificationLookup
         if (mod.IsResolved)
             return mod;
 
-        // Try primary resolution strategy (database-specific ID lookup)
-        var resolved = TryResolvePrimary(mod);
-        if (resolved != null)
+        // Try primary resolution strategy (database-specific identifiers)
+        var primary = ResolveFromCandidates(GetPrimaryCandidates(mod), mod);
+        if (primary != null)
         {
-            return mod.WithResolvedModification(resolved, mod.ResidueIndex, mod.PositionType);
+            return mod.WithResolvedModification(primary, mod.ResidueIndex, mod.PositionType);
         }
 
         // Try to resolve by original representation
-        var byName = TryResolveByName(mod.OriginalRepresentation, mod.TargetResidue);
+        var byName = ResolveFromCandidates(FilterByName(CandidateSet, mod.OriginalRepresentation, mod.TargetResidue), mod);
         if (byName != null)
         {
             return mod.WithResolvedModification(byName, mod.ResidueIndex, mod.PositionType);
@@ -66,17 +55,17 @@ public abstract class ModificationLookupBase : IModificationLookup
         // Try chemical formula fallback
         if (mod.ChemicalFormula != null)
         {
-            var formulaMatch = TryResolveByFormula(mod.ChemicalFormula, mod.TargetResidue);
+            var formulaMatch = ResolveFromCandidates(FilterByFormula(CandidateSet, mod.ChemicalFormula), mod);
             if (formulaMatch != null)
             {
                 return mod.WithResolvedModification(formulaMatch, mod.ResidueIndex, mod.PositionType);
             }
         }
 
-        // Try mass-based fallback (optional, subclasses can override)
+        // Try mass-based fallback (optional, requires tolerance)
         if (mod.MonoisotopicMass.HasValue)
         {
-            var massMatch = TryResolveByMass(mod.MonoisotopicMass.Value, mod.TargetResidue);
+            var massMatch = ResolveFromCandidates(FilterByMass(CandidateSet, mod.MonoisotopicMass.Value), mod);
             if (massMatch != null)
             {
                 return mod.WithResolvedModification(massMatch, mod.ResidueIndex, mod.PositionType);
@@ -89,20 +78,20 @@ public abstract class ModificationLookupBase : IModificationLookup
     /// <inheritdoc />
     public CanonicalModification? TryResolve(string originalRepresentation, char? targetResidue = null, ChemicalFormula? chemicalFormula = null)
     {
-        // Try to resolve by name/ID
-        var mod = TryResolveByName(originalRepresentation, targetResidue);
-        if (mod != null)
+        var candidates = FilterByName(CandidateSet, originalRepresentation, targetResidue);
+        var resolved = SelectUniqueUsingEvidence(candidates, targetResidue, chemicalFormula, null);
+        if (resolved != null)
         {
-            return CreateCanonicalModification(originalRepresentation, mod, targetResidue);
+            return CreateCanonicalModification(originalRepresentation, resolved, targetResidue);
         }
 
-        // Fallback to chemical formula if provided
         if (chemicalFormula != null)
         {
-            var formulaMatch = TryResolveByFormula(chemicalFormula, targetResidue);
-            if (formulaMatch != null)
+            var formulaCandidates = FilterByFormula(CandidateSet, chemicalFormula);
+            resolved = SelectUniqueUsingEvidence(formulaCandidates, targetResidue, chemicalFormula, null);
+            if (resolved != null)
             {
-                return CreateCanonicalModification(originalRepresentation, formulaMatch, targetResidue);
+                return CreateCanonicalModification(originalRepresentation, resolved, targetResidue);
             }
         }
 
@@ -111,52 +100,82 @@ public abstract class ModificationLookupBase : IModificationLookup
 
     /// <summary>
     /// Primary resolution strategy using database-specific identifiers.
-    /// Called first when resolving an existing CanonicalModification.
+    /// Implementations should return the set of potential matches; the base class
+    /// will apply additional filters to disambiguate.
     /// </summary>
-    /// <param name="mod">The modification to resolve.</param>
-    /// <returns>The resolved Modification, or null if not found.</returns>
-    protected abstract Modification? TryResolvePrimary(CanonicalModification mod);
+    protected virtual IEnumerable<Modification> GetPrimaryCandidates(CanonicalModification mod) => Enumerable.Empty<Modification>();
 
     /// <summary>
-    /// Attempts to resolve a modification by its name or identifier string.
-    /// Subclasses can override to customize the behavior.
+    /// Applies normalization/expansion to a name and filters the provided candidates.
     /// </summary>
-    /// <param name="name">The modification name or identifier.</param>
-    /// <param name="targetResidue">Optional target residue for disambiguation.</param>
-    /// <returns>The resolved Modification, or null if not found.</returns>
-    protected virtual Modification? TryResolveByName(string name, char? targetResidue) =>
-        ResolveByStandardName(name, targetResidue);
-
-    /// <summary>
-    /// Attempts to find a modification matching the given chemical formula.
-    /// Default implementation searches available portentialStringRepresentations for an exact formula match.
-    /// </summary>
-    /// <param name="formula">The chemical formula to match.</param>
-    /// <param name="targetResidue">Optional target residue for disambiguation.</param>
-    /// <returns>The resolved Modification, or null if not found.</returns>
-    protected virtual Modification? TryResolveByFormula(ChemicalFormula formula, char? targetResidue)
+    protected virtual IEnumerable<Modification> FilterByName(IEnumerable<Modification> source, string name, char? targetResidue)
     {
-        var candidates = FilterCandidates(m => m.ChemicalFormula != null && m.ChemicalFormula.Equals(formula));
-        return SelectWithResiduePreference(candidates, targetResidue);
+        if (string.IsNullOrWhiteSpace(name))
+            return Enumerable.Empty<Modification>();
+
+        var normalized = NormalizeRepresentation(name);
+        if (string.IsNullOrEmpty(normalized))
+            return Enumerable.Empty<Modification>();
+
+        source ??= CandidateSet;
+
+        HashSet<string> potentialStrings = new(StringComparer.OrdinalIgnoreCase) { normalized };
+        foreach (var candidate in ExpandNameCandidates(normalized, targetResidue))
+        {
+            potentialStrings.Add(candidate);
+        }
+
+        return source.Where(modification => potentialStrings.Any(candidate => MatchesIdentifier(modification, candidate)));
     }
 
     /// <summary>
-    /// Attempts to find a modification matching the given mass within tolerance.
-    /// Default implementation searches available portentialStringRepresentations for matches within configured tolerance.
+    /// Filters by chemical formula.
     /// </summary>
-    /// <param name="mass">The monoisotopic mass to match.</param>
-    /// <param name="targetResidue">Optional target residue for disambiguation.</param>
-    /// <returns>The resolved Modification, or null if not found.</returns>
-    protected virtual Modification? TryResolveByMass(double mass, char? targetResidue)
+    protected virtual IEnumerable<Modification> FilterByFormula(IEnumerable<Modification> source, ChemicalFormula formula) =>
+        (source ?? CandidateSet).Where(m => m.ChemicalFormula != null && m.ChemicalFormula.Equals(formula));
+
+    /// <summary>
+    /// Filters by mass within the configured tolerance.
+    /// </summary>
+    protected virtual IEnumerable<Modification> FilterByMass(IEnumerable<Modification> source, double mass)
     {
         if (!MassTolerance.HasValue)
-            return null;
+            return Enumerable.Empty<Modification>();
 
         var tolerance = MassTolerance.Value;
-        var candidates = FilterCandidates(m => m.MonoisotopicMass.HasValue &&
-                                              Math.Abs(m.MonoisotopicMass.Value - mass) <= tolerance);
+        return (source ?? CandidateSet).Where(m => m.MonoisotopicMass.HasValue &&
+                                                   Math.Abs(m.MonoisotopicMass.Value - mass) <= tolerance);
+    }
 
-        return SelectWithResiduePreference(candidates, targetResidue);
+    /// <summary>
+    /// Filters by identifiers that match the standard IdWithMotif/OriginalId/Type:Id patterns.
+    /// </summary>
+    protected virtual IEnumerable<Modification> FilterByIdentifier(IEnumerable<Modification> source, string identifier)
+    {
+        if (string.IsNullOrWhiteSpace(identifier))
+            return Enumerable.Empty<Modification>();
+
+        var normalized = NormalizeRepresentation(identifier);
+        if (string.IsNullOrEmpty(normalized))
+            return Enumerable.Empty<Modification>();
+
+        source ??= CandidateSet;
+        return source.Where(m => MatchesIdentifier(m, normalized));
+    }
+
+    /// <summary>
+    /// Filters candidates by UNIMOD database references.
+    /// </summary>
+    protected IEnumerable<Modification> FilterByUnimodId(IEnumerable<Modification> source, int unimodId)
+    {
+        source ??= CandidateSet;
+        var idString = unimodId.ToString(CultureInfo.InvariantCulture);
+
+        return source.Where(m =>
+            (m.DatabaseReference != null &&
+             m.DatabaseReference.Any(kvp => kvp.Key.Equals("UNIMOD", StringComparison.OrdinalIgnoreCase) &&
+                                             kvp.Value.Any(value => value.Contains(idString, StringComparison.OrdinalIgnoreCase))))
+            || (!string.IsNullOrEmpty(m.Accession) && m.Accession.Contains(idString, StringComparison.OrdinalIgnoreCase)));
     }
 
     /// <summary>
@@ -179,33 +198,68 @@ public abstract class ModificationLookupBase : IModificationLookup
         return unresolved.WithResolvedModification(resolvedMod);
     }
 
-    #region Selecting from several options
+    #region Candidate resolution helpers
 
-    /// <summary>
-    /// Helper method to select a modification from portentialStringRepresentations with residue preference.
-    /// Prefers modifications that target the specified residue if provided.
-    /// </summary>
-    /// <param name="candidates">The candidate modifications to select from.</param>
-    /// <param name="targetResidue">Optional preferred target residue.</param>
-    /// <returns>The best matching modification, or null if no portentialStringRepresentations.</returns>
-    protected static Modification? SelectWithResiduePreference(IEnumerable<Modification> candidates, char? targetResidue)
+    private Modification? ResolveFromCandidates(IEnumerable<Modification> candidates, CanonicalModification evidence)
     {
-        var candidateList = candidates as IList<Modification> ?? candidates.ToList();
-        
-        if (candidateList.Count == 0)
+        return SelectUniqueUsingEvidence(candidates, evidence.TargetResidue, evidence.ChemicalFormula, evidence.MonoisotopicMass);
+    }
+
+    protected Modification? SelectUniqueUsingEvidence(
+        IEnumerable<Modification> candidates,
+        char? targetResidue,
+        ChemicalFormula? formula,
+        double? mass)
+    {
+        var current = (candidates as IList<Modification>) ?? candidates?.ToList() ?? new List<Modification>();
+
+        if (current.Count == 0)
             return null;
 
-        if (targetResidue.HasValue)
+        var unique = SelectUnique(current, targetResidue);
+        if (unique != null)
+            return unique;
+
+        if (formula != null)
         {
-            // Prefer modifications that target the specific residue
-            var residueMatch = candidateList.FirstOrDefault(m =>
-                m.Target != null && m.Target.ToString().Contains(targetResidue.Value));
-            
-            if (residueMatch != null)
-                return residueMatch;
+            current = current.Where(m => m.ChemicalFormula != null && m.ChemicalFormula.Equals(formula)).ToList();
+            unique = SelectUnique(current, targetResidue);
+            if (unique != null)
+                return unique;
         }
 
-        return candidateList.FirstOrDefault();
+        if (mass.HasValue)
+        {
+            var massFiltered = FilterByMass(current, mass.Value).ToList();
+            unique = SelectUnique(massFiltered, targetResidue);
+            if (unique != null)
+                return unique;
+        }
+
+        return null;
+    }
+
+    private static Modification? SelectUnique(IEnumerable<Modification> candidates, char? targetResidue)
+    {
+        var list = (candidates as IList<Modification>) ?? candidates.ToList();
+        if (list.Count == 1)
+        {
+            return list[0];
+        }
+
+        if (list.Count > 1 && targetResidue.HasValue)
+        {
+            var residueMatches = list.Where(m =>
+                m.Target != null &&
+                m.Target.ToString().Contains(targetResidue.Value)).ToList();
+
+            if (residueMatches.Count == 1)
+            {
+                return residueMatches[0];
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -234,43 +288,6 @@ public abstract class ModificationLookupBase : IModificationLookup
     }
 
     #endregion
-
-    protected Modification? ResolveByIdentifier(string identifier)
-    {
-        if (string.IsNullOrWhiteSpace(identifier))
-            return null;
-
-        if (ConventionForLookup.HasValue)
-        {
-            var mod = Mods.GetModification(identifier, ConventionForLookup.Value);
-            if (mod != null)
-                return mod;
-        }
-
-        if (SearchProteinMods || SearchRnaMods)
-        {
-            var mod = Mods.GetModification(identifier, SearchProteinMods, SearchRnaMods);
-            if (mod != null)
-                return mod;
-        }
-
-        if (CandidateSet != null)
-        {
-            return CandidateSet.FirstOrDefault(m => MatchesIdentifier(m, identifier));
-        }
-
-        return null;
-    }
-
-    protected IEnumerable<Modification> FilterCandidates(Func<Modification, bool> predicate)
-    {
-        if (CandidateSet != null)
-            return CandidateSet.Where(predicate);
-
-        var proteinOnly = SearchProteinMods && !SearchRnaMods;
-        var rnaOnly = SearchRnaMods && !SearchProteinMods;
-        return Mods.GetModifications(predicate, proteinOnly, rnaOnly);
-    }
 
     #region Name Normalization and Expansion 
     protected virtual string NormalizeRepresentation(string representation) => representation?.Trim() ?? string.Empty;
@@ -361,32 +378,4 @@ public abstract class ModificationLookupBase : IModificationLookup
         modification.OriginalId == identifier ||
         $"{modification.ModificationType}:{modification.IdWithMotif}" == identifier;
 
-    private Modification? ResolveByStandardName(string name, char? targetResidue)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-            return null;
-
-        var normalized = NormalizeRepresentation(name);
-        if (string.IsNullOrEmpty(normalized))
-            return null;
-
-        HashSet<string> portentialStringRepresentations = new();
-        foreach (var candidate in ExpandNameCandidates(normalized, targetResidue))
-        {
-            var resolved = ResolveByIdentifier(candidate);
-            if (resolved != null)
-                return resolved;
-            portentialStringRepresentations.Add(candidate);
-        }
-
-        foreach (var candidate in portentialStringRepresentations)
-        {
-            var matches = FilterCandidates(m => MatchesIdentifier(m, candidate));
-            var match = SelectWithResiduePreference(matches, targetResidue);
-            if (match != null)
-                return match;
-        }
-
-        return null;
-    }
 }

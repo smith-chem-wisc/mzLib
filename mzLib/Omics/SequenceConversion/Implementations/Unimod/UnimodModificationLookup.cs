@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Easy.Common.Extensions;
+using System.Linq;
 using Omics.Modifications;
 
 namespace Omics.SequenceConversion;
@@ -17,12 +17,7 @@ public class UnimodModificationLookup : ModificationLookupBase
     public static UnimodModificationLookup Instance { get; } = new();
 
     public UnimodModificationLookup(IEnumerable<Modification>? candidateSet = null)
-        : base(
-            conventionForLookup: ModificationNamingConvention.Unimod,
-            searchProteinMods: true,
-            searchRnaMods: false,
-            massTolerance: null,
-            candidateSet: candidateSet ?? Mods.UnimodModifications)
+        : base(candidateSet ?? Mods.UnimodModifications, null)
     {
     }
 
@@ -30,20 +25,20 @@ public class UnimodModificationLookup : ModificationLookupBase
     public override string Name => "UNIMOD";
 
     /// <inheritdoc />
-    protected override Modification? TryResolvePrimary(CanonicalModification mod)
+    protected override IEnumerable<Modification> GetPrimaryCandidates(CanonicalModification mod)
     {
-        // Try to resolve by UNIMOD ID if available
-        if (mod.UnimodId.HasValue)
+        if (!mod.UnimodId.HasValue)
         {
-            var withUnimodId = FilterCandidates(p => p.DatabaseReference.Any(p => p.Key.Equals("UNIMOD", StringComparison.OrdinalIgnoreCase) && p.Value.Contains(mod.UnimodId.Value.ToString())));
-
-            if (withUnimodId.IsNotNullOrEmpty())
-                return withUnimodId.MaxBy(p => GetOverlapScore(mod.OriginalRepresentation, p.IdWithMotif));
-
-            return ResolveByIdentifier($"UNIMOD:{mod.UnimodId.Value}");
+            return Enumerable.Empty<Modification>();
         }
 
-        return null;
+        var matches = FilterByUnimodId(CandidateSet, mod.UnimodId.Value).ToList();
+        if (matches.Count > 0)
+        {
+            return matches;
+        }
+
+        return FilterByIdentifier(CandidateSet, $"UNIMOD:{mod.UnimodId.Value}");
     }
 
     protected override string NormalizeRepresentation(string representation)

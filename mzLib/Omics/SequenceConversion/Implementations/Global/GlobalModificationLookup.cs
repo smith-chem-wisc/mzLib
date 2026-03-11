@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using Omics.Modifications;
 
@@ -21,12 +22,7 @@ public class GlobalModificationLookup : ModificationLookupBase
     /// </summary>
     /// <param name="massTolerance">Tolerance for mass-based matching in Daltons.</param>
     public GlobalModificationLookup(double massTolerance = 0.001)
-        : base(
-            conventionForLookup: ModificationNamingConvention.Mixed,
-            searchProteinMods: true,
-            searchRnaMods: true,
-            massTolerance: massTolerance,
-            candidateSet: Mods.AllKnownMods)
+        : base(Mods.AllKnownMods, massTolerance)
     {
     }
 
@@ -34,29 +30,18 @@ public class GlobalModificationLookup : ModificationLookupBase
     public override string Name => "Global (All Mods)";
 
     /// <inheritdoc />
-    protected override Modification? TryResolvePrimary(CanonicalModification mod)
+    protected override IEnumerable<Modification> GetPrimaryCandidates(CanonicalModification mod)
     {
         if (!string.IsNullOrEmpty(mod.MzLibId))
         {
-            var resolved = ResolveByIdentifier(mod.MzLibId);
-            if (resolved != null)
-                return resolved;
+            return FilterByIdentifier(CandidateSet, mod.MzLibId);
         }
 
-        // Try to resolve by UNIMOD ID if available
-        // UNIMOD IDs are stored in DatabaseReference["Unimod"] as just the numeric ID
         if (mod.UnimodId.HasValue)
         {
-            var unimodIdString = mod.UnimodId.Value.ToString();
-            var candidates = Mods.AllKnownMods.Where(m =>
-                m.DatabaseReference != null &&
-                m.DatabaseReference.TryGetValue("Unimod", out var ids) &&
-                ids.Contains(unimodIdString));
-            
-            // Prefer modification matching the target residue if specified
-            return SelectWithResiduePreference(candidates, mod.TargetResidue);
+            return FilterByUnimodId(CandidateSet, mod.UnimodId.Value);
         }
 
-        return null;
+        return Enumerable.Empty<Modification>();
     }
 }

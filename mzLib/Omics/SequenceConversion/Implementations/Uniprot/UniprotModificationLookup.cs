@@ -13,35 +13,26 @@ public class UniprotModificationLookup : ModificationLookupBase
     public static UniprotModificationLookup Instance { get; } = new();
 
     public UniprotModificationLookup(IEnumerable<Modification>? candidateSet = null, double massTolerance = 0.001)
-        : base(
-            conventionForLookup: ModificationNamingConvention.UniProt,
-            searchProteinMods: true,
-            searchRnaMods: false,
-            massTolerance: massTolerance,
-            candidateSet: candidateSet ?? Mods.UniprotModifications)
+        : base(candidateSet ?? Mods.UniprotModifications, massTolerance)
     {
     }
 
     public override string Name => "UniProt";
 
-    protected override Modification? TryResolvePrimary(CanonicalModification mod)
+    protected override IEnumerable<Modification> GetPrimaryCandidates(CanonicalModification mod)
     {
-        if (mod.MzLibModification != null)
+        if (mod.MzLibModification == null)
         {
-            if (IsUniProt(mod.MzLibModification))
-            {
-                return mod.MzLibModification;
-            }
-
-            var residue = mod.TargetResidue ?? mod.MzLibModification.Target?.ToString().FirstOrDefault();
-            var equivalent = FindBySourceModification(mod.MzLibModification, residue);
-            if (equivalent != null)
-            {
-                return equivalent;
-            }
+            return Enumerable.Empty<Modification>();
         }
 
-        return null;
+        if (IsUniProt(mod.MzLibModification))
+        {
+            return new[] { mod.MzLibModification };
+        }
+
+        var residue = mod.TargetResidue ?? mod.MzLibModification.Target?.ToString().FirstOrDefault();
+        return FindCandidatesFromSource(mod.MzLibModification, residue);
     }
 
     protected override string NormalizeRepresentation(string representation)
@@ -71,55 +62,54 @@ public class UniprotModificationLookup : ModificationLookupBase
         modification.ModificationType != null &&
         modification.ModificationType.Equals("UniProt", StringComparison.OrdinalIgnoreCase);
 
-    private Modification? FindBySourceModification(Modification source, char? residue)
+    private IEnumerable<Modification> FindCandidatesFromSource(Modification source, char? residue)
     {
-        var preferredResidue = residue ?? source.Target?.ToString().FirstOrDefault();
+        var results = new List<Modification>();
+
+        void AddMatches(IEnumerable<Modification> matches)
+        {
+            foreach (var match in matches)
+            {
+                if (!results.Contains(match))
+                {
+                    results.Add(match);
+                }
+            }
+        }
 
         if (source.ChemicalFormula != null)
         {
-            var formulaMatches = FilterCandidates(m => m.ChemicalFormula != null && m.ChemicalFormula.Equals(source.ChemicalFormula));
-            var match = SelectWithResiduePreference(formulaMatches, preferredResidue);
-            if (match != null)
-            {
-                return match;
-            }
+            AddMatches(FilterByFormula(CandidateSet, source.ChemicalFormula));
         }
 
-        if (source.MonoisotopicMass.HasValue && MassTolerance.HasValue)
+        if (source.MonoisotopicMass.HasValue)
         {
-            var sourceMass = source.MonoisotopicMass.Value;
-            var tolerance = MassTolerance.Value;
-            var massMatches = FilterCandidates(m => m.MonoisotopicMass.HasValue &&
-                                                   Math.Abs(m.MonoisotopicMass.Value - sourceMass) <= tolerance);
-            var match = SelectWithResiduePreference(massMatches, preferredResidue);
-            if (match != null)
-            {
-                return match;
-            }
+            AddMatches(FilterByMass(CandidateSet, source.MonoisotopicMass.Value));
         }
 
-        var identifiers = new List<string?>
+        foreach (var identifier in EnumerateIdentifiers(source))
         {
-            source.IdWithMotif,
-            source.OriginalId,
-            source.ModificationType != null ? $"{source.ModificationType}:{source.IdWithMotif}" : null
-        };
-
-        foreach (var identifier in identifiers)
-        {
-            if (string.IsNullOrWhiteSpace(identifier))
-            {
-                continue;
-            }
-
-            var normalized = NormalizeRepresentation(identifier!);
-            var resolved = ResolveByIdentifier(normalized);
-            if (resolved != null)
-            {
-                return resolved;
-            }
+            AddMatches(FilterByIdentifier(CandidateSet, identifier));
         }
 
-        return null;
+        return results;
+    }
+
+    private static IEnumerable<string> EnumerateIdentifiers(Modification source)
+    {
+        if (!string.IsNullOrWhiteSpace(source.IdWithMotif))
+        {
+            yield return source.IdWithMotif;
+        }
+
+        if (!string.IsNullOrWhiteSpace(source.OriginalId))
+        {
+            yield return source.OriginalId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(source.ModificationType) && !string.IsNullOrWhiteSpace(source.IdWithMotif))
+        {
+            yield return $"{source.ModificationType}:{source.IdWithMotif}";
+        }
     }
 }

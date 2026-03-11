@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Omics.Modifications;
 
 namespace Omics.SequenceConversion;
@@ -32,12 +35,7 @@ public class MzLibModificationLookup : ModificationLookupBase
     /// <param name="searchRnaMods">Whether to search RNA modifications.</param>
     /// <param name="massTolerance">Tolerance for mass-based matching in Daltons.</param>
     public MzLibModificationLookup(bool searchProteinMods = true, bool searchRnaMods = true, double massTolerance = 0.001)
-        : base(
-            conventionForLookup: DetermineConvention(searchProteinMods, searchRnaMods),
-            searchProteinMods: searchProteinMods,
-            searchRnaMods: searchRnaMods,
-            massTolerance: massTolerance,
-            candidateSet: null)
+        : base(BuildCandidateSet(searchProteinMods, searchRnaMods), massTolerance)
     {
     }
 
@@ -45,17 +43,30 @@ public class MzLibModificationLookup : ModificationLookupBase
     public override string Name => "mzLib";
 
     /// <inheritdoc />
-    protected override Modification? TryResolvePrimary(CanonicalModification mod)
+    protected override IEnumerable<Modification> GetPrimaryCandidates(CanonicalModification mod)
     {
-        return !string.IsNullOrEmpty(mod.MzLibId)
-            ? ResolveByIdentifier(mod.MzLibId)
-            : null;
+        if (string.IsNullOrEmpty(mod.MzLibId))
+        {
+            return Enumerable.Empty<Modification>();
+        }
+
+        return FilterByIdentifier(CandidateSet, mod.MzLibId);
     }
 
-    private static ModificationNamingConvention DetermineConvention(bool searchProteinMods, bool searchRnaMods) =>
-        searchProteinMods
-            ? searchRnaMods
-                ? ModificationNamingConvention.MetaMorpheus
-                : ModificationNamingConvention.MetaMorpheus_Protein
-            : ModificationNamingConvention.MetaMorpheus_Rna;
+    private static IReadOnlyCollection<Modification> BuildCandidateSet(bool searchProteinMods, bool searchRnaMods)
+    {
+        if (!searchProteinMods && !searchRnaMods)
+        {
+            throw new ArgumentException("At least one of searchProteinMods or searchRnaMods must be true.");
+        }
+
+        if (searchProteinMods && searchRnaMods)
+        {
+            return Mods.MetaMorpheusModifications;
+        }
+
+        return searchProteinMods
+            ? Mods.MetaMorpheusProteinModifications
+            : Mods.MetaMorpheusRnaModifications;
+    }
 }
