@@ -211,9 +211,21 @@ namespace MassSpectrometry.Dia
                     continue;
 
                 float rtMin, rtMax;
-                if (p.RetentionTime.HasValue)
+
+                // BUG FIX (2026): Previously only checked p.RetentionTime.HasValue.
+                // For iRT libraries, RetentionTime is null and IrtValue is set instead.
+                // The old code silently fell through to the full-run fallback for every
+                // iRT-annotated precursor, producing 120-minute windows instead of ±5 min.
+                // Fix: resolve IrtValue ?? RetentionTime (IrtValue takes priority when both
+                // are set, because calibration is fitted on iRT, not on library RT).
+                // If this was intentionally using only RetentionTime (e.g. for a library
+                // type that stores calibrated RT in RetentionTime and wants IrtValue ignored),
+                // revert this line and document the library type here.
+                double? resolvedRt = p.IrtValue ?? p.RetentionTime;
+
+                if (resolvedRt.HasValue)
                 {
-                    float rt = (float)p.RetentionTime.Value;
+                    float rt = (float)resolvedRt.Value;
                     rtMin = rt - rtTolerance;
                     rtMax = rt + rtTolerance;
                 }
@@ -553,6 +565,13 @@ namespace MassSpectrometry.Dia
                 var group = generationResult.PrecursorGroups[g];
                 var input = precursors[group.InputIndex];
 
+                // BUG FIX (2026): Previously passed input.RetentionTime as libraryRetentionTime.
+                // For iRT libraries, RetentionTime is null → LibraryRetentionTime was null on
+                // every result → RecalibrateRtDeviations silently skipped all results.
+                // Fix: resolve IrtValue ?? RetentionTime so iRT-annotated precursors propagate
+                // their iRT value through to the result for RT calibration downstream.
+                // If this was intentionally null for iRT libraries (e.g. to suppress RT
+                // deviation computation entirely for that library type), revert and document here.
                 var result = new DiaSearchResult(
                     sequence: input.Sequence,
                     chargeState: input.ChargeState,
@@ -560,7 +579,7 @@ namespace MassSpectrometry.Dia
                     windowId: group.WindowId,
                     isDecoy: input.IsDecoy,
                     fragmentsQueried: group.QueryCount,
-                    libraryRetentionTime: input.RetentionTime,
+                    libraryRetentionTime: input.IrtValue ?? input.RetentionTime,
                     rtWindowStart: group.RtMin,
                     rtWindowEnd: group.RtMax
                 );
@@ -635,6 +654,10 @@ namespace MassSpectrometry.Dia
                 var group = generationResult.PrecursorGroups[g];
                 var input = precursors[group.InputIndex];
 
+                // BUG FIX (2026): Same fix as AssembleResults() above — see comment there.
+                // Previously passed input.RetentionTime, which is null for iRT libraries,
+                // causing LibraryRetentionTime = null on every result and silently disabling
+                // RT recalibration for the entire iRT library path.
                 var result = new DiaSearchResult(
                     sequence: input.Sequence,
                     chargeState: input.ChargeState,
@@ -642,7 +665,7 @@ namespace MassSpectrometry.Dia
                     windowId: group.WindowId,
                     isDecoy: input.IsDecoy,
                     fragmentsQueried: group.QueryCount,
-                    libraryRetentionTime: input.RetentionTime,
+                    libraryRetentionTime: input.IrtValue ?? input.RetentionTime,
                     rtWindowStart: group.RtMin,
                     rtWindowEnd: group.RtMax
                 );
