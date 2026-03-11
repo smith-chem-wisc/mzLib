@@ -142,9 +142,9 @@ namespace MzLibUtil.PositionFrequencyAnalysis
                     var originalMod = modKvp.Value;
                     // Create a new QuantifiedModification with normalized intensity
                     var normalizedMod = new QuantifiedModification(
-                        originalMod.ModificationId,
-                        originalMod.Position,
-                        originalMod.ZeroBasedStartIndexInProtein,
+                        originalMod.Name,
+                        originalMod.PeptidePositionZeroIsNTerminus,
+                        originalMod.ProteinPositionZeroIsNTerminus,
                         Intensity != 0 ? originalMod.Intensity / Intensity : 0
                     );
                     modDict[modKvp.Key] = normalizedMod;

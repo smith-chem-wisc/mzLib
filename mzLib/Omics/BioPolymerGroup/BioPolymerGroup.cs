@@ -754,103 +754,24 @@ namespace Omics.BioPolymerGroup
                 // Calculate modification occupancy statistics
                 if (modsOnThisBioPolymer.Any())
                 {
-                    CalculateModificationOccupancy(bioPolymer, bioPolymersWithLocalizedMods[bioPolymer], result);
+                    var occupancies = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+                        bioPolymer, bioPolymersWithLocalizedMods[bioPolymer]);
+
+                    result.OccupancyByBioPolymer[bioPolymer.Accession] = occupancies;
+
+                    string modInfoString = string.Join(";",
+                        occupancies.OrderBy(kvp => kvp.Key)
+                            .SelectMany(kvp => kvp.Value)
+                            .Select(o => o.ToModInfoString()));
+
+                    if (!string.IsNullOrEmpty(modInfoString))
+                    {
+                        result.ModsInfo.Add(modInfoString);
+                    }
                 }
             }
 
             _coverageResult = result;
-        }
-
-        /// <summary>
-        /// Calculates modification occupancy statistics for a biopolymer and adds them to <see cref="SequenceCoverageResult.ModsInfo"/>.
-        /// Occupancy is calculated as the fraction of peptides covering each modification site that contain the modification.
-        /// </summary>
-        /// <param name="bioPolymer">The biopolymer to calculate modification occupancy for.</param>
-        /// <param name="localizedSequences">Sequences with localized modifications mapping to this biopolymer.</param>
-        /// <param name="result">The result object to populate with modification info.</param>
-        private void CalculateModificationOccupancy(IBioPolymer bioPolymer, List<IBioPolymerWithSetMods> localizedSequences, SequenceCoverageResult result)
-        {
-            var modCounts = new List<int>();      // Count of modified peptides at each position
-            var totalCounts = new List<int>();    // Count of all peptides covering each position
-            var modPositions = new List<(int index, string modName)>();
-
-            foreach (var sequence in localizedSequences)
-            {
-                foreach (var mod in sequence.AllModsOneIsNterminus)
-                {
-                    // Skip common variable/fixed mods and peptide terminal mods
-                    if (mod.Value.ModificationType.Contains("Common Variable") ||
-                        mod.Value.ModificationType.Contains("Common Fixed") ||
-                        mod.Value.LocationRestriction.Equals("NPep") ||
-                        mod.Value.LocationRestriction.Equals("PepC"))
-                    {
-                        continue;
-                    }
-
-                    int indexInProtein;
-                    if (mod.Value.LocationRestriction.Equals("N-terminal."))
-                    {
-                        indexInProtein = 1;
-                    }
-                    else if (mod.Value.LocationRestriction.Equals("Anywhere."))
-                    {
-                        indexInProtein = sequence.OneBasedStartResidue + mod.Key - 2;
-                    }
-                    else if (mod.Value.LocationRestriction.Equals("C-terminal."))
-                    {
-                        indexInProtein = bioPolymer.Length;
-                    }
-                    else
-                    {
-                        // Skip unrecognized location restrictions
-                        continue;
-                    }
-
-                    var modKey = (indexInProtein, mod.Value.IdWithMotif);
-
-                    if (modPositions.Contains(modKey))
-                    {
-                        modCounts[modPositions.IndexOf(modKey)]++;
-                    }
-                    else
-                    {
-                        modPositions.Add(modKey);
-
-                        // Count total peptides covering this position
-                        int peptidesAtPosition = 0;
-                        foreach (var seq in localizedSequences)
-                        {
-                            int rangeStart = seq.OneBasedStartResidue - (indexInProtein == 1 ? 1 : 0);
-                            if (indexInProtein >= rangeStart && indexInProtein <= seq.OneBasedEndResidue)
-                            {
-                                peptidesAtPosition++;
-                            }
-                        }
-
-                        totalCounts.Add(peptidesAtPosition);
-                        modCounts.Add(1);
-                    }
-                }
-            }
-
-            // Build modification info string
-            var modStrings = new List<(int position, string info)>();
-            for (int i = 0; i < modCounts.Count; i++)
-            {
-                string position = modPositions[i].index.ToString();
-                string modName = modPositions[i].modName;
-                string occupancy = ((double)modCounts[i] / totalCounts[i]).ToString("F2");
-                string fractionalOccupancy = $"{modCounts[i]}/{totalCounts[i]}";
-                string modString = $"#aa{position}[{modName},info:occupancy={occupancy}({fractionalOccupancy})]";
-                modStrings.Add((modPositions[i].index, modString));
-            }
-
-            string modInfoString = string.Join(";", modStrings.OrderBy(x => x.position).Select(x => x.info));
-
-            if (!string.IsNullOrEmpty(modInfoString))
-            {
-                result.ModsInfo.Add(modInfoString);
-            }
         }
 
         #endregion
@@ -950,6 +871,14 @@ namespace Omics.BioPolymerGroup
             /// Format: #aa{position}[{modName},info:occupancy={fraction}({count}/{total})]
             /// </summary>
             public List<string> ModsInfo { get; } = new();
+
+            /// <summary>
+            /// Structured modification occupancy data per biopolymer accession.
+            /// Key: biopolymer accession. Value: dictionary keyed by one-based protein position,
+            /// each containing a list of <see cref="ModificationSiteOccupancy"/> entries.
+            /// Populated alongside <see cref="ModsInfo"/> during <see cref="BioPolymerGroup.CalculateSequenceCoverage"/>.
+            /// </summary>
+            public Dictionary<string, Dictionary<int, List<ModificationSiteOccupancy>>> OccupancyByBioPolymer { get; } = new();
         }
 
         #endregion
