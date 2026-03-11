@@ -211,10 +211,9 @@ namespace MassSpectrometry.Dia
                     continue;
 
                 float rtMin, rtMax;
-                double? libraryRt = p.IrtValue ?? p.RetentionTime;
-                if (libraryRt.HasValue)
+                if (p.RetentionTime.HasValue)
                 {
-                    float rt = (float)libraryRt.Value;
+                    float rt = (float)p.RetentionTime.Value;
                     rtMin = rt - rtTolerance;
                     rtMax = rt + rtTolerance;
                 }
@@ -561,7 +560,7 @@ namespace MassSpectrometry.Dia
                     windowId: group.WindowId,
                     isDecoy: input.IsDecoy,
                     fragmentsQueried: group.QueryCount,
-                    libraryRetentionTime: input.IrtValue ?? input.RetentionTime,
+                    libraryRetentionTime: input.RetentionTime,
                     rtWindowStart: group.RtMin,
                     rtWindowEnd: group.RtMax
                 );
@@ -643,7 +642,7 @@ namespace MassSpectrometry.Dia
                     windowId: group.WindowId,
                     isDecoy: input.IsDecoy,
                     fragmentsQueried: group.QueryCount,
-                    libraryRetentionTime: input.IrtValue ?? input.RetentionTime,
+                    libraryRetentionTime: input.RetentionTime,
                     rtWindowStart: group.RtMin,
                     rtWindowEnd: group.RtMax
                 );
@@ -885,9 +884,30 @@ namespace MassSpectrometry.Dia
                     if (!float.IsNaN(result.TemporalScore))
                     {
                         float clampedCosine = Math.Clamp(result.TemporalScore, 0f, 1f);
-                        float sa = 1.0f - (2.0f / MathF.PI) * MathF.Acos(clampedCosine);
-                        result.SpectralAngle = sa;
-                        result.SpectralAngleScore = sa;
+                        result.SpectralAngleScore = 1.0f - (2.0f / MathF.PI) * MathF.Acos(clampedCosine);
+                    }
+
+                    // 7. Library coverage fraction (intensity-weighted detected fraction)
+                    // Numerator: sum of library intensities for fragments with XIC data (XicPointCounts > 0).
+                    // Denominator: sum of all library intensities.
+                    // Targets: most high-intensity fragments detected → score near 1.0.
+                    // Decoys: random m/z values → sparse detection → score near 0.
+                    // Computed here (not in DiaFeatureExtractor) because input.FragmentIntensities
+                    // is only available during assembly.
+                    {
+                        float libTotalWeight = 0f;
+                        float libDetectedWeight = 0f;
+                        for (int f = 0; f < fragmentCount; f++)
+                        {
+                            float libW = input.FragmentIntensities[f];
+                            if (libW <= 0f) continue;
+                            libTotalWeight += libW;
+                            if (result.XicPointCounts[f] > 0)
+                                libDetectedWeight += libW;
+                        }
+                        result.LibraryCoverageFraction = libTotalWeight > 0f
+                            ? libDetectedWeight / libTotalWeight
+                            : float.NaN;
                     }
 
                     // Apply score threshold filter
@@ -1169,11 +1189,6 @@ namespace MassSpectrometry.Dia
                 return;
 
             // Build a lookup: (Sequence, ChargeState, IsDecoy) → precursor index.
-            // We deliberately do NOT include PrecursorMz in the key because results
-            // assembled outside the normal pipeline (e.g. unit tests) may carry a
-            // default precursor m/z that does not match the input's PrecursorMz.
-            // (Sequence, ChargeState, IsDecoy) uniquely identifies a precursor in
-            // both target and decoy libraries.
             var precursorLookup = new Dictionary<(string, int, bool), int>(results.Count);
             for (int i = 0; i < precursors.Count; i++)
             {
@@ -1213,7 +1228,7 @@ namespace MassSpectrometry.Dia
                     int piA = precursorIndices[a];
                     if (piA < 0)
                     {
-                        ra.ChimericScore = 1.0f; // no precursor found — treat as uncontested
+                        ra.ChimericScore = 1.0f;
                         continue;
                     }
 
@@ -1255,5 +1270,6 @@ namespace MassSpectrometry.Dia
                 }
             }
         }
+
     }
 }

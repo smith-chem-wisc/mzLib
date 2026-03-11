@@ -138,6 +138,15 @@ namespace MassSpectrometry.Dia
             }
 
             // ── Step 2: Final Extraction with Adaptive Windows ─────────────
+            // This is a deliberate precision pass using a TIGHTER window than the
+            // calibration iterations. The calibration loop uses ±0.506 min (capped by
+            // BootstrapSigmaMultiplier=2.0 × σ_bootstrap=0.253) to ensure all real anchors
+            // are found. The final re-extraction uses max(SigmaMultiplier×σ_final, MinWindow)
+            // = max(4.0×0.077, 0.3) = ±0.31 min — significantly tighter.
+            //
+            // Tighter final window → fewer decoys → cleaner T/D separation → more IDs at FDR.
+            // DO NOT replace this with calibResults directly: that uses the wider calibration
+            // window and produces ~3,000 fewer NN IDs at 1% FDR.
             var extractSw = Stopwatch.StartNew();
 
             var genResult = DiaLibraryQueryGenerator.GenerateCalibratedAdaptive(
@@ -153,9 +162,6 @@ namespace MassSpectrometry.Dia
                 precursors, genResult, extractionResult, parameters, scanIndex);
 
             // ── Step 3b: Chimeric Score ─────────────────────────────────────
-            // Must run after assembly (needs ExtractedIntensities + XicPointCounts populated)
-            // and before FDR (ChimericScore must be in the feature vector).
-            // Precursors alone in their window receive ChimericScore = 1.0 (no co-isolation).
             DiaLibraryQueryGenerator.ComputeChimericScores(
                 precursors, results, (float)parameters.PpmTolerance);
 
