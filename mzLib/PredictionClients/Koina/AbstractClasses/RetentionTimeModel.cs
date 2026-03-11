@@ -115,32 +115,48 @@ namespace PredictionClients.Koina.AbstractClasses
                 return; // No input sequences to process
             }
 
-            // Deserialize all batch responses
-            var deserializedResponses = responses.Select(r => Newtonsoft.Json.JsonConvert.DeserializeObject<ResponseJSONStruct>(r)).ToList();
+            // Pre-allocate result list with known capacity
+            var predictions = new List<PeptideRTPrediction>(PeptideSequences.Count);
+            int currentIndex = 0;
 
-            // Validate successful deserialization
-            if (deserializedResponses.IsNullOrEmpty() || deserializedResponses.Any(r => r == null))
+            // Process each batch response
+            foreach (var response in responses)
             {
-                throw new Exception("Something went wrong during deserialization of responses.");
+                var deserializedResponse = Newtonsoft.Json.JsonConvert.DeserializeObject<ResponseJSONStruct>(response);
+                
+                // Validate successful deserialization
+                if (deserializedResponse == null || deserializedResponse.Outputs == null || deserializedResponse.Outputs.Count == 0)
+                {
+                    throw new Exception("Something went wrong during deserialization of responses.");
+                }
+
+                // Extract retention time predictions from this batch
+                var rtOutputs = deserializedResponse.Outputs[0].Data;
+                
+                // Create prediction objects directly without intermediate lists
+                for (int i = 0; i < rtOutputs.Count; i++)
+                {
+                    if (currentIndex >= PeptideSequences.Count)
+                    {
+                        throw new Exception("The number of predictions does not match the number of input peptides.");
+                    }
+                    
+                    predictions.Add(new PeptideRTPrediction(
+                        FullSequence: PeptideSequences[currentIndex],
+                        PredictedRetentionTime: Convert.ToDouble(rtOutputs[i]),
+                        IsIndexed: IsIndexedRetentionTimeModel
+                    ));
+                    currentIndex++;
+                }
             }
 
-            // Extract retention time predictions from all batches (flattened)
-            var rtOutputs = deserializedResponses.SelectMany(r => r.Outputs[0].Data).ToList();
-
-            // Ensure prediction count matches input count
-            if (rtOutputs.Count != PeptideSequences.Count)
+            // Validate we processed all sequences
+            if (currentIndex != PeptideSequences.Count)
             {
                 throw new Exception("The number of predictions does not match the number of input peptides.");
             }
 
-            // Create prediction objects with sequence-to-prediction mapping
-            Predictions = PeptideSequences
-                .Select((seq, index) => new PeptideRTPrediction(
-                    FullSequence: seq,
-                    PredictedRetentionTime: Convert.ToDouble(rtOutputs[index]),
-                    IsIndexed: IsIndexedRetentionTimeModel
-                ))
-                .ToList();
+            Predictions = predictions;
         }
         #endregion
 

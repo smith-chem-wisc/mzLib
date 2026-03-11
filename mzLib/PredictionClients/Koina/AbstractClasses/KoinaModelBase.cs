@@ -44,6 +44,13 @@ namespace PredictionClients.Koina.AbstractClasses
         /// Gets the regex pattern for identifying modifications.
         /// </summary>
         public virtual string ModificationPattern => @"\[[^\]]+\]";
+        
+        // Cached compiled regex instances for performance
+        private Regex? _canonicalAminoAcidRegex;
+        private Regex? _modificationRegex;
+        
+        protected Regex CanonicalAminoAcidRegex => _canonicalAminoAcidRegex ??= new Regex(CanonicalAminoAcidPattern, RegexOptions.Compiled);
+        protected Regex ModificationRegex => _modificationRegex ??= new Regex(ModificationPattern, RegexOptions.Compiled);
         #endregion
 
         protected bool _disposed = false;
@@ -101,7 +108,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </remarks>
         protected virtual bool HasValidModifications(string sequence)
         {
-            var matches = Regex.Matches(sequence, ModificationPattern);
+            var matches = ModificationRegex.Matches(sequence);
             if (matches.Count == 0)
             {
                 return true; // No modifications found - valid for all models
@@ -126,9 +133,9 @@ namespace PredictionClients.Koina.AbstractClasses
         protected virtual bool IsValidSequence(string sequence)
         {
             // Remove modification annotations to get base sequence
-            var baseSequence = Regex.Replace(sequence, ModificationPattern, "");
+            var baseSequence = ModificationRegex.Replace(sequence, "");
 
-            return Regex.IsMatch(baseSequence, CanonicalAminoAcidPattern) // Valid amino acids only
+            return CanonicalAminoAcidRegex.IsMatch(baseSequence) // Valid amino acids only
                 && baseSequence.Length <= MaxPeptideLength                 // Within max length
                 && baseSequence.Length >= MinPeptideLength;                // Above min length (implicit from abstract property)
         }
@@ -154,7 +161,15 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </remarks>
         protected virtual string ConvertMzLibModificationsToUnimod(string sequence)
         {
-            // Apply custom modification mappings first
+            // Early exit if no modifications mapping exists
+            if (ValidModificationUnimodMapping.Count == 0)
+                return sequence;
+            
+            // Early exit if sequence has no modification brackets
+            if (!sequence.Contains('['))
+                return sequence;
+            
+            // Apply custom modification mappings
             foreach (var mod in ValidModificationUnimodMapping)
             {
                 sequence = sequence.Replace(mod.Key, mod.Value);

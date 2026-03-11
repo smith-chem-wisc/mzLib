@@ -92,6 +92,29 @@ namespace Readers.SpectralLibrary.DiaNNSpectralLibrary
 
         #endregion
 
+        #region Binary Format Fields (populated by DiaNNSpecLibReader)
+
+        /// <summary>
+        /// 0-based sequential precursor index as stored in the binary file.
+        /// Assigned by DiaNNSpecLibReader; 0 for entries created from other sources.
+        /// </summary>
+        public int GlobalIndex { get; set; }
+
+        /// <summary>
+        /// The terminus type of this peptide within its source protein(s), encoded by the
+        /// marker float in the binary record. Populated by DiaNNSpecLibReader.
+        /// </summary>
+        public DiaNNBinaryStructs.TerminusType TerminusType { get; set; }
+            = DiaNNBinaryStructs.TerminusType.Internal;
+
+        /// <summary>
+        /// 0-based index into the secondary table group list, as read from the binary file.
+        /// For entries not read from binary, this defaults to 0.
+        /// </summary>
+        public int ProteinGroupIndex { get; set; }
+
+        #endregion
+
         #region DIA-NN-Specific Metadata
 
         /// <summary>

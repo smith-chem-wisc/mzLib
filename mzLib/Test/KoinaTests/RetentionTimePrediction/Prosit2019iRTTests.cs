@@ -1,4 +1,5 @@
 ﻿using NUnit.Framework;
+using Omics.Modifications;
 using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
 using System;
@@ -6,6 +7,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
+using UsefulProteomicsDatabases;
 
 namespace Test.KoinaTests
 {
@@ -407,5 +409,263 @@ namespace Test.KoinaTests
             Assert.ThrowsAsync<ObjectDisposedException>(async () => await model.RunInferenceAsync(),
                 "2Running inference on a disposed model should throw ObjectDisposedException");
         }
-    }
+		/// <summary>
+		/// Tests Prosit2019iRT retention time predictions followed by Prosit2020HCD fragmentation predictions
+		/// for unmodified peptides from a FASTA file.
+		/// 
+		/// This test:
+		/// 1. Reads proteins from a FASTA file
+		/// 2. Digests proteins with trypsin (max 1 missed cleavage)
+		/// 3. Filters for unmodified peptides with length ≤ 30
+		/// 4. Runs retention time prediction
+		/// 5. Uses predicted retention times for fragmentation prediction
+		/// 6. Generates fragment ion predictions for charge states 2, 3, 4 at collision energy 30
+		/// 
+		/// Expected Behavior:
+		/// - Peptides should be successfully digested from FASTA
+		/// - All peptides should pass validation (length ≤ 30, no modifications)
+		/// - Retention time predictions should be generated for all valid peptides
+		/// - Fragment ion predictions should be generated for all peptides × charge states
+		/// - Each fragmentation prediction should contain fragment ions
+		/// 
+		/// Use Case: Real-world scenario for generating spectral library from protein database
+		/// </summary>
+		[Test]
+		public async Task TestRetentionTimePredictionFromFastaFile()
+		{
+			// Arrange - Set your FASTA file path here
+			string fastaFilePath = @"C:\Users\mrsho\Downloads\synthetic2\syntheticTest2.fasta";
+
+			// Skip test if FASTA file doesn't exist
+			if (!System.IO.File.Exists(fastaFilePath))
+			{
+				Assert.Ignore($"FASTA file not found at: {fastaFilePath}. Please update the path to run this test.");
+				return;
+			}
+
+			// Read proteins from FASTA file
+			var proteins = ProteinDbLoader.LoadProteinFasta(
+				proteinDbLocation: fastaFilePath,
+				generateTargets: true,
+				decoyType: DecoyType.None,
+				isContaminant: false,
+				errors: out var errors);
+
+			Assert.That(proteins, Is.Not.Empty, "FASTA file should contain at least one protein");
+			Assert.That(errors, Is.Empty, "FASTA file should be parsed without errors");
+
+			// Set up digestion parameters
+			var digestionParams = new Proteomics.ProteolyticDigestion.DigestionParams(
+				protease: "trypsin",
+				maxMissedCleavages: 1,
+				minPeptideLength: 7,  // Typical minimum for mass spec
+				maxPeptideLength: 30, // Match Prosit max length
+				initiatorMethionineBehavior: Proteomics.ProteolyticDigestion.InitiatorMethionineBehavior.Variable,
+				maxModificationIsoforms: 1);
+
+			// Digest proteins into peptides
+			var allPeptides = new HashSet<string>(); // Use HashSet for automatic deduplication
+			foreach (var protein in proteins)
+			{
+				var digestedPeptides = protein.Digest(
+					digestionParams,
+					new List<Modification>(),  // No fixed modifications
+					new List<Modification>()); // No variable modifications
+
+				foreach (var peptide in digestedPeptides)
+				{
+					// Get base sequence (no modifications)
+					string baseSequence = peptide.BaseSequence;
+
+					// Filter: length check
+					if (baseSequence.Length >= digestionParams.MinPeptideLength &&
+						baseSequence.Length <= digestionParams.MaxPeptideLength)
+					{
+						allPeptides.Add(baseSequence); // HashSet automatically handles duplicates
+					}
+				}
+			}
+
+			Assert.That(allPeptides, Is.Not.Empty, "Digestion should produce at least one valid peptide");
+			Console.WriteLine($"Total unique unmodified peptides: {allPeptides.Count}");
+
+			// ========== STEP 1: Retention Time Prediction ==========
+			Console.WriteLine("\n=== STEP 1: Retention Time Prediction ===");
+			var rtModel = new Prosit2019iRT(allPeptides.ToList(), out WarningException rtWarnings);
+
+			// Check for warnings (should be null for valid peptides)
+			if (rtWarnings != null)
+			{
+				Console.WriteLine($"RT Warning: {rtWarnings.Message}");
+			}
+
+			Assert.That(rtModel.PeptideSequences, Is.Not.Empty,
+				"RT model should accept at least some peptides from the FASTA file");
+
+			// Run retention time prediction
+			await rtModel.RunInferenceAsync();
+
+			// Validate predictions
+			Assert.That(rtModel.Predictions, Is.Not.Empty,
+				"RT model should return predictions for the peptides");
+			Assert.That(rtModel.Predictions.Count, Is.EqualTo(rtModel.PeptideSequences.Count),
+				"Should have one RT prediction per input peptide sequence");
+
+			// Validate that all predictions have reasonable retention time values
+			foreach (var prediction in rtModel.Predictions)
+			{
+				Assert.That(prediction.PredictedRetentionTime, Is.Not.NaN,
+					$"RT prediction for peptide {prediction.FullSequence} should not be NaN");
+				Assert.That(double.IsFinite(prediction.PredictedRetentionTime), Is.True,
+					$"RT prediction for peptide {prediction.FullSequence} should be a finite number");
+			}
+
+			// Output RT summary statistics
+			var predictionValues = rtModel.Predictions.Select(p => p.PredictedRetentionTime).ToList();
+			Console.WriteLine($"\nRetention Time Prediction Summary:");
+			Console.WriteLine($"  Total predictions: {predictionValues.Count}");
+			Console.WriteLine($"  Min iRT: {predictionValues.Min():F2}");
+			Console.WriteLine($"  Max iRT: {predictionValues.Max():F2}");
+			Console.WriteLine($"  Mean iRT: {predictionValues.Average():F2}");
+
+			// Display first 5 RT predictions as examples
+			Console.WriteLine($"\nFirst 5 RT Predictions:");
+			foreach (var prediction in rtModel.Predictions.Take(5))
+			{
+				Console.WriteLine($"  {prediction.FullSequence}: {prediction.PredictedRetentionTime:F2}");
+			}
+
+			// ========== STEP 2: Fragmentation Prediction ==========
+			Console.WriteLine("\n=== STEP 2: Fragmentation Prediction ===");
+
+			// Prepare inputs for fragmentation model
+			var chargeStates = new List<int> { 2, 3, 4 };
+			int collisionEnergy = 30;
+
+			var fragmentationPeptides = new List<string>();
+			var fragmentationCharges = new List<int>();
+			var fragmentationEnergies = new List<int>();
+			var fragmentationRTs = new List<double?>();
+
+			// Create a lookup dictionary for retention times
+			var rtLookup = rtModel.Predictions.ToDictionary(
+				p => p.FullSequence,
+				p => (double?)p.PredictedRetentionTime);
+
+			// Generate all combinations of peptide × charge state
+			foreach (var prediction in rtModel.Predictions)
+			{
+				foreach (var charge in chargeStates)
+				{
+					fragmentationPeptides.Add(prediction.FullSequence);
+					fragmentationCharges.Add(charge);
+					fragmentationEnergies.Add(collisionEnergy);
+					fragmentationRTs.Add(prediction.PredictedRetentionTime);
+				}
+			}
+
+			Console.WriteLine($"\nPreparing fragmentation predictions:");
+			Console.WriteLine($"  Unique peptides: {rtModel.Predictions.Count}");
+			Console.WriteLine($"  Charge states: {string.Join(", ", chargeStates)}");
+			Console.WriteLine($"  Collision energy: {collisionEnergy}");
+			Console.WriteLine($"  Total combinations: {fragmentationPeptides.Count}");
+
+			// Construct output path for spectral library (same folder as input FASTA)
+			string fastaDirectory = System.IO.Path.GetDirectoryName(fastaFilePath);
+			string fastaFileName = System.IO.Path.GetFileNameWithoutExtension(fastaFilePath);
+			string spectralLibraryPath = System.IO.Path.Combine(fastaDirectory, $"{fastaFileName}_PredictedLibrary.msp");
+			
+			Console.WriteLine($"  Spectral library will be saved to: {spectralLibraryPath}");
+
+			// Create fragmentation model
+			var fragmentModel = new Prosit2020IntensityHCD(
+				peptideSequences: fragmentationPeptides,
+				precursorCharges: fragmentationCharges,
+				collisionEnergies: fragmentationEnergies,
+				retentionTimes: fragmentationRTs,
+				spectralLibrarySavePath: spectralLibraryPath,
+				warnings: out WarningException fragWarnings);
+
+			if (fragWarnings != null)
+			{
+				Console.WriteLine($"\nFragmentation Warning: {fragWarnings.Message}");
+			}
+
+			Assert.That(fragmentModel.PeptideSequences, Is.Not.Empty,
+				"Fragmentation model should accept peptides");
+
+			// Run fragmentation prediction
+			Console.WriteLine($"\nRunning fragmentation inference...");
+			await fragmentModel.RunInferenceAsync();
+
+			// Validate fragmentation predictions
+			Assert.That(fragmentModel.Predictions, Is.Not.Empty,
+				"Fragmentation model should return predictions");
+			Assert.That(fragmentModel.Predictions.Count, Is.EqualTo(fragmentModel.PeptideSequences.Count),
+				"Should have one fragmentation prediction per input");
+
+			// Analyze fragmentation results
+			Console.WriteLine($"\nFragmentation Prediction Summary:");
+			Console.WriteLine($"  Total predictions: {fragmentModel.Predictions.Count}");
+			Console.WriteLine($"  Unique peptides fragmented: {fragmentModel.Predictions.Select(p => p.FullSequence).Distinct().Count()}");
+
+			// Validate fragment ion data
+			int totalFragmentIons = 0;
+			foreach (var prediction in fragmentModel.Predictions)
+			{
+				Assert.That(prediction.FragmentAnnotations, Is.Not.Null,
+					$"Fragment annotations should not be null for {prediction.FullSequence} at charge {prediction.PrecursorCharge}");
+				Assert.That(prediction.FragmentAnnotations.Count, Is.GreaterThan(0),
+					$"Should have fragment ions for {prediction.FullSequence} at charge {prediction.PrecursorCharge}");
+				
+				// Verify parallel lists have matching counts
+				Assert.That(prediction.FragmentMZs.Count, Is.EqualTo(prediction.FragmentAnnotations.Count),
+					$"Fragment m/z count should match annotation count");
+				Assert.That(prediction.FragmentIntensities.Count, Is.EqualTo(prediction.FragmentAnnotations.Count),
+					$"Fragment intensity count should match annotation count");
+				
+				totalFragmentIons += prediction.FragmentAnnotations.Count;
+			}
+
+			Console.WriteLine($"  Total fragment ions predicted: {totalFragmentIons}");
+			Console.WriteLine($"  Average fragments per peptide: {(double)totalFragmentIons / fragmentModel.Predictions.Count:F1}");
+
+			// Display first 3 fragmentation predictions as examples
+			Console.WriteLine($"\nFirst 3 Fragmentation Predictions:");
+			foreach (var prediction in fragmentModel.Predictions.Take(3))
+			{
+				Console.WriteLine($"\n  Peptide: {prediction.FullSequence}");
+				Console.WriteLine($"  Charge: {prediction.PrecursorCharge}+");
+				Console.WriteLine($"  Fragment Ions: {prediction.FragmentAnnotations.Count}");
+
+				// Show top 5 most intense fragments
+				var fragments = prediction.FragmentAnnotations
+					.Select((annotation, idx) => new
+					{
+						Annotation = annotation,
+						Mz = prediction.FragmentMZs[idx],
+						Intensity = prediction.FragmentIntensities[idx]
+					})
+					.Where(f => f.Intensity > 0) // Filter out impossible fragments (intensity = -1)
+					.OrderByDescending(f => f.Intensity)
+					.Take(5)
+					.ToList();
+
+				Console.WriteLine($"  Top 5 Fragments:");
+				foreach (var fragment in fragments)
+				{
+					Console.WriteLine($"    {fragment.Annotation}: m/z {fragment.Mz:F4}, intensity {fragment.Intensity:F6}");
+				}
+			}
+
+			// Verify spectral library generation
+			if (fragmentModel.PredictedSpectra.Count > 0)
+			{
+				Console.WriteLine($"\n  Spectral library generated: {fragmentModel.PredictedSpectra.Count} spectra");
+				Console.WriteLine($"  Library contains spectra for charges: {string.Join(", ", fragmentModel.PredictedSpectra.Select(s => s.ChargeState).Distinct().OrderBy(c => c))}");
+			}
+
+			Console.WriteLine("\n=== Test Complete ===");
+		}
+	}
 }

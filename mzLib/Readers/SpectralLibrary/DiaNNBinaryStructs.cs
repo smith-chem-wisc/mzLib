@@ -1,280 +1,198 @@
-using System.Runtime.InteropServices;
-
 namespace Readers.SpectralLibrary.DiaNNSpectralLibrary
 {
     /// <summary>
-    /// Binary struct definitions for DIA-NN .speclib format.
-    /// 
-    /// IMPORTANT: These layouts are ESTIMATES based on:
-    /// - DIA-NN TSV export schema
-    /// - ProteoWizard BiblioSpec reverse-engineered reader (PR #1097)
-    /// - DIA-NN GitHub issues (#77, #1184, #1807)
-    /// 
-    /// The actual byte layouts MUST be validated against real .speclib binary files.
-    /// The structs use Pack=1 to match C++ struct packing with #pragma pack(1).
-    /// All multi-byte fields are little-endian (x86/x64 native).
-    /// 
-    /// Version history (from GitHub issues and BiblioSpec reader):
-    ///   Version -2 : Very early legacy format
-    ///   Version -1 : First versioned format (int32 = 0xFFFFFFFF at offset 0)
-    ///   Version  1 : Added structured header
-    ///   Version  2 : Added ion mobility fields
-    ///   Version  3 : Added scores, additional metadata
-    ///   Version  8 : DIA-NN 2.0+, major restructuring
+    /// Constants and enumerations for the DIA-NN 2.3.2 .speclib binary format (version −10).
+    ///
+    /// The format is NOT a struct array. Every precursor is located by scanning for one of
+    /// six 4-byte marker values embedded in the file. All layout knowledge here is the result
+    /// of empirical binary analysis documented in Session3–Session7 findings documents.
+    ///
+    /// Key format characteristics:
+    ///   - Version int32 = −10 at file offset 0
+    ///   - Anchor-based precursor records (no fixed-size array)
+    ///   - 12 fixed fragment slots per precursor (1 null placeholder + up to 11 real)
+    ///   - Fragment bytes 0–2 are opaque DIA-NN internal indices — ignore them
+    ///   - Protein 0 has 2 opaque prefix int32 fields; proteins 1..N−1 have 4
     /// </summary>
     public static class DiaNNBinaryStructs
     {
+        // ─── Version ────────────────────────────────────────────────────────────────
+
         /// <summary>
-        /// Known .speclib format versions. The version int32 is the first 4 bytes of the file.
-        /// Negative values were used in early versions; positive values in later ones.
+        /// The only confirmed .speclib version produced by DIA-NN 2.3.2.
+        /// The first int32 in the file is always −10.
         /// </summary>
-        public enum SpecLibVersion : int
+        public const int ExpectedVersion = -10;
+
+        // ─── Marker byte patterns ────────────────────────────────────────────────────
+
+        /// <summary>
+        /// The six 4-byte marker patterns. Each marks a precursor record anchor point.
+        /// The marker appears at file position (nlp − 8), where nlp is the byte offset
+        /// of the name-length int32.
+        ///
+        /// Patterns with high-byte 0x40 are normal floats; patterns with 0x00 are
+        /// subnormal floats (near zero). A scanner that only looks for 0x40 in the
+        /// fourth byte will silently miss all shared-peptide precursors.
+        /// </summary>
+        public static readonly byte[][] MarkerPatterns = new byte[][]
         {
-            /// <summary>Very early legacy format, no explicit version field</summary>
-            LegacyV2 = -2,
-            /// <summary>First versioned format (pre-1.8)</summary>
-            V1Legacy = -1,
-            /// <summary>~DIA-NN 1.7, added structured header</summary>
-            V1 = 1,
-            /// <summary>~DIA-NN 1.8, added ion mobility</summary>
-            V2 = 2,
-            /// <summary>~DIA-NN 1.8.1, added scores and metadata</summary>
-            V3 = 3,
-            /// <summary>DIA-NN 2.0+, current format with major restructuring</summary>
-            V8 = 8,
+            new byte[] { 0x07, 0x00, 0x3C, 0x40 },   // Internal        (2.9375f)
+            new byte[] { 0x07, 0x00, 0x39, 0x40 },   // N-terminal      (2.8906f)
+            new byte[] { 0x07, 0x00, 0x36, 0x40 },   // C-terminal      (2.8438f)
+            new byte[] { 0x07, 0x00, 0x33, 0x40 },   // N+C terminal    (2.7969f)
+            new byte[] { 0x07, 0x00, 0x3D, 0x00 },   // Shared conflict (subnormal)
+            new byte[] { 0x07, 0x00, 0x39, 0x00 },   // Shared same     (subnormal)
+        };
+
+        // ─── Terminus type ───────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Encodes the terminus position of a peptide within its source protein(s),
+        /// as determined by the marker float value in the binary file.
+        /// </summary>
+        public enum TerminusType
+        {
+            /// <summary>Peptide is neither at the N- nor C-terminus of any source protein.</summary>
+            Internal,
+
+            /// <summary>Peptide is at the N-terminus of all source proteins.</summary>
+            NTerminal,
+
+            /// <summary>Peptide is at the C-terminus of all source proteins.</summary>
+            CTerminal,
+
+            /// <summary>Peptide is simultaneously the N- and C-terminus (single-peptide protein).</summary>
+            NAndCTerminal,
+
+            /// <summary>
+            /// Shared peptide whose terminus type conflicts across source proteins
+            /// (e.g., N-terminal in protein A but internal in protein B).
+            /// Marker bytes: 07 00 3D 00 (subnormal float — do NOT write as a float literal).
+            /// </summary>
+            SharedConflict,
+
+            /// <summary>
+            /// Shared peptide with the same terminus type in all source proteins
+            /// (e.g., N-terminal in every protein that contains it).
+            /// Marker bytes: 07 00 39 00 (subnormal float — do NOT write as a float literal).
+            /// </summary>
+            SharedSameType,
         }
 
         /// <summary>
-        /// File header for .speclib files. The first field identifies the format version.
-        /// Additional header fields are version-dependent and will be populated during
-        /// validation against real binary files (Prompt 8).
+        /// Returns the <see cref="TerminusType"/> encoded by four marker bytes.
+        /// Returns null if the bytes do not match any known marker pattern.
         /// </summary>
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        public struct SpecLibHeader
+        public static TerminusType? ClassifyMarker(byte b0, byte b1, byte b2, byte b3)
         {
-            /// <summary>
-            /// Format version. First 4 bytes of the file.
-            /// Values: -2, -1, 1, 2, 3, 8 (see SpecLibVersion enum).
-            /// NOT a SQLite magic number — this was confirmed by Skyline developers.
-            /// </summary>
-            public int Version;
+            if (b0 != 0x07 || b1 != 0x00) return null;
 
-            /// <summary>
-            /// Whether the library contains generated decoys.
-            /// 0 = no decoys, 1 = decoys included.
-            /// </summary>
-            public int GenDecoys;
-
-            /// <summary>
-            /// Total number of precursor entries in the library.
-            /// Used to pre-allocate arrays during reading.
-            /// </summary>
-            public int PrecursorCount;
-
-            // NOTE: Additional version-dependent header fields will be added here
-            // after validation with real .speclib files. Possible fields include:
-            //   - FragmentCount (total fragments across all precursors)
-            //   - StringTableOffset (offset to the sequence/protein string table)
-            //   - StringTableSize
-            //   - Flags (e.g., whether ion mobility is stored)
-        }
-
-        /// <summary>
-        /// Precursor-level record in the .speclib binary format.
-        /// Each precursor represents one peptide species at a specific charge state.
-        /// 
-        /// The fragment data for this precursor starts at FragmentOffset in the file
-        /// and contains FragmentCount consecutive DiaNNFragmentRecord structs.
-        /// 
-        /// The modified sequence is stored in a separate string table at SequenceOffset
-        /// with SequenceLength bytes.
-        /// 
-        /// ESTIMATED LAYOUT — must be validated against real binary files.
-        /// </summary>
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        public struct PrecursorRecord
-        {
-            /// <summary>Precursor m/z value (single-precision for compactness)</summary>
-            public float PrecursorMz;
-
-            /// <summary>Precursor charge state (1-6 typical)</summary>
-            public short Charge;
-
-            /// <summary>Retention time: iRT value or calibrated RT in minutes</summary>
-            public float RetentionTime;
-
-            /// <summary>Ion mobility value (1/K0 for timsTOF). 0 if not available.</summary>
-            public float IonMobility;
-
-            /// <summary>Byte offset into the string table for the modified sequence</summary>
-            public int SequenceOffset;
-
-            /// <summary>Length of the modified sequence string in bytes</summary>
-            public short SequenceLength;
-
-            /// <summary>Byte offset into the protein name string table</summary>
-            public int ProteinOffset;
-
-            /// <summary>Byte offset into the gene name string table</summary>
-            public int GeneOffset;
-
-            /// <summary>Byte offset in the file where this precursor's fragment data begins</summary>
-            public long FragmentOffset;
-
-            /// <summary>Number of fragment ions for this precursor</summary>
-            public short FragmentCount;
-
-            /// <summary>Decoy flag: 0 = target, 1 = decoy</summary>
-            public byte IsDecoy;
-
-            /// <summary>Proteotypic flag: 1 = unique to one protein, 0 = shared</summary>
-            public byte IsProteotypic;
-
-            /// <summary>Library-level q-value, if available. NaN or 0 if not set.</summary>
-            public float QValue;
-        }
-
-        /// <summary>
-        /// Fragment ion record in the .speclib binary format.
-        /// Stored contiguously for each precursor, sorted by m/z.
-        /// 
-        /// The compact 12-byte layout enables efficient cache utilization:
-        /// a 64-byte cache line holds 5 complete fragment records.
-        /// 
-        /// ESTIMATED LAYOUT — must be validated against real binary files.
-        /// </summary>
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        public struct FragmentRecord
-        {
-            /// <summary>Fragment m/z value (single-precision)</summary>
-            public float Mz;
-
-            /// <summary>Relative intensity, pre-normalized to [0, 1] where 1 = most abundant</summary>
-            public float Intensity;
-
-            /// <summary>
-            /// Ion series type encoded as byte:
-            ///   0 = b-ion (N-terminal)
-            ///   1 = y-ion (C-terminal)
-            /// Additional types may be added in future versions.
-            /// </summary>
-            public byte IonType;
-
-            /// <summary>Fragment series number (1-based, e.g., b3 = 3, y7 = 7)</summary>
-            public byte SeriesNumber;
-
-            /// <summary>Fragment charge state (typically 1 or 2)</summary>
-            public byte Charge;
-
-            /// <summary>
-            /// Neutral loss type encoded as byte:
-            ///   0 = no loss
-            ///   1 = H2O loss (-18.0106 Da)
-            ///   2 = NH3 loss (-17.0265 Da)
-            ///   3 = H3PO4 loss (-97.9769 Da)
-            /// </summary>
-            public byte LossType;
-        }
-
-        /// <summary>
-        /// Ion type byte values used in FragmentRecord.IonType.
-        /// Maps to mzLib ProductType enum values.
-        /// </summary>
-        public static class IonTypeEncoding
-        {
-            public const byte B = 0;
-            public const byte Y = 1;
-
-            /// <summary>Convert a character ion type ('b', 'y') to the byte encoding</summary>
-            public static byte FromChar(char ionType) => ionType switch
+            return (b2, b3) switch
             {
-                'b' or 'B' => B,
-                'y' or 'Y' => Y,
-                _ => throw new ArgumentException($"Unknown ion type: '{ionType}'. Expected 'b' or 'y'.")
-            };
-
-            /// <summary>Convert the byte encoding back to a character</summary>
-            public static char ToChar(byte encoded) => encoded switch
-            {
-                B => 'b',
-                Y => 'y',
-                _ => throw new ArgumentException($"Unknown ion type encoding: {encoded}. Expected 0 (b) or 1 (y).")
-            };
-
-            /// <summary>Convert the byte encoding to the mzLib ProductType string name</summary>
-            public static string ToProductTypeName(byte encoded) => encoded switch
-            {
-                B => "b",
-                Y => "y",
-                _ => throw new ArgumentException($"Unknown ion type encoding: {encoded}.")
+                (0x3C, 0x40) => TerminusType.Internal,
+                (0x39, 0x40) => TerminusType.NTerminal,
+                (0x36, 0x40) => TerminusType.CTerminal,
+                (0x33, 0x40) => TerminusType.NAndCTerminal,
+                (0x3D, 0x00) => TerminusType.SharedConflict,
+                (0x39, 0x00) => TerminusType.SharedSameType,
+                _ => null
             };
         }
 
+        // ─── Pre-name block offsets (relative to nlp) ───────────────────────────────
+
+        /// <summary>Offset from nlp to the precursor_global_index int32 field.</summary>
+        public const int OffsetGlobalIndex = -48;
+
+        /// <summary>Offset from nlp to the charge int32 field.</summary>
+        public const int OffsetCharge = -44;
+
+        /// <summary>Offset from nlp to the stripped_sequence_length int32 field.</summary>
+        public const int OffsetStrippedSeqLen = -40;
+
+        /// <summary>Offset from nlp to the precursor_mz float field.</summary>
+        public const int OffsetPrecursorMz = -36;
+
+        /// <summary>Offset from nlp to the iRT float field.</summary>
+        public const int OffsetIRT = -32;
+
+        /// <summary>Offset from nlp to the ion_mobility float field.</summary>
+        public const int OffsetIonMobility = -28;
+
+        /// <summary>Offset from nlp to the marker float field (4 bytes, one of the six patterns).</summary>
+        public const int OffsetMarker = -8;
+
+        /// <summary>Offset from nlp to the protein_group_index int32 field.</summary>
+        public const int OffsetProteinGroupIndex = -4;
+
+        // ─── Post-name block offsets (relative to name_end = nlp + 4 + name_length) ─
+
+        /// <summary>Offset from name_end to the n_fragments int32 field.</summary>
+        public const int OffsetNFragments = 16;
+
+        /// <summary>Offset from name_end to the top_fragment_mz float field.</summary>
+        public const int OffsetTopFragmentMz = 20;
+
+        /// <summary>Offset from name_end to the top_fragment_intensity float field.</summary>
+        public const int OffsetTopFragmentIntensity = 24;
+
+        /// <summary>Total post-name block size in bytes (before fragment records begin).</summary>
+        public const int PostNameBlockSize = 28;
+
+        // ─── Fragment record layout (12 bytes each) ───────────────────────────────────
+
+        /// <summary>Size in bytes of one fragment record.</summary>
+        public const int FragmentRecordSize = 12;
+
+        /// <summary>Total number of fragment slots per precursor (always 12, including 1 null).</summary>
+        public const int FragmentSlotsPerPrecursor = 12;
+
+        /// <summary>Byte offset within a fragment record for fragment_mz (float).</summary>
+        public const int FragmentOffsetMz = 4;
+
+        /// <summary>Byte offset within a fragment record for fragment_intensity (float).</summary>
+        public const int FragmentOffsetIntensity = 8;
+
+        // ─── Name validation bounds ───────────────────────────────────────────────────
+
+        /// <summary>Minimum valid name_length value (shortest possible peptide name).</summary>
+        public const int NameLengthMin = 5;
+
         /// <summary>
-        /// Neutral loss type byte values used in FragmentRecord.LossType.
-        /// Maps to DIA-NN's string-based neutral loss names in TSV format.
+        /// Maximum valid name_length value. Long missed-cleavage peptides with multiple
+        /// modifications can exceed 60 characters; 300 is a safe upper bound.
         /// </summary>
-        public static class LossTypeEncoding
-        {
-            public const byte NoLoss = 0;
-            public const byte H2O = 1;
-            public const byte NH3 = 2;
-            public const byte H3PO4 = 3;
-            public const byte HPO3 = 4;
+        public const int NameLengthMax = 300;
 
-            /// <summary>Convert a DIA-NN loss type string to the byte encoding</summary>
-            public static byte FromString(string lossType)
-            {
-                if (string.IsNullOrEmpty(lossType) || lossType.Equals("noloss", StringComparison.OrdinalIgnoreCase))
-                    return NoLoss;
+        // ─── Precursor validation bounds ──────────────────────────────────────────────
 
-                return lossType.ToUpperInvariant() switch
-                {
-                    "H2O" => H2O,
-                    "NH3" => NH3,
-                    "H3PO4" => H3PO4,
-                    "HPO3" => HPO3,
-                    _ => NoLoss // Default to no loss for unknown types
-                };
-            }
+        /// <summary>Maximum plausible global_index (upper validation bound).</summary>
+        public const int GlobalIndexMax = 100_000;
 
-            /// <summary>Convert the byte encoding back to DIA-NN loss type string</summary>
-            public static string ToString(byte encoded) => encoded switch
-            {
-                NoLoss => "noloss",
-                H2O => "H2O",
-                NH3 => "NH3",
-                H3PO4 => "H3PO4",
-                HPO3 => "HPO3",
-                _ => "noloss"
-            };
+        /// <summary>Minimum plausible precursor m/z (Da).</summary>
+        public const float PrecursorMzMin = 100.0f;
 
-            /// <summary>Convert the byte encoding to a neutral loss mass in Daltons</summary>
-            public static double ToMass(byte encoded) => encoded switch
-            {
-                NoLoss => 0.0,
-                H2O => 18.010565,
-                NH3 => 17.026549,
-                H3PO4 => 97.976896,
-                HPO3 => 79.966331,
-                _ => 0.0
-            };
-        }
+        /// <summary>Maximum plausible precursor m/z (Da).</summary>
+        public const float PrecursorMzMax = 5000.0f;
+
+        /// <summary>Minimum valid n_fragments value.</summary>
+        public const int NFragmentsMin = 1;
+
+        /// <summary>Maximum valid n_fragments value (generous upper bound).</summary>
+        public const int NFragmentsMax = 50;
+
+        // ─── Writer constants ─────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Size constants for binary I/O. These reflect the ESTIMATED struct sizes
-        /// and will be validated against real files.
+        /// Opaque bytes written for a real fragment record (bytes 0–3).
+        /// These are DIA-NN internal indices; safe placeholder values are used on write.
         /// </summary>
-        public static class SizeOf
-        {
-            /// <summary>Size of SpecLibHeader in bytes</summary>
-            public static readonly int Header = Marshal.SizeOf<SpecLibHeader>();
+        public static readonly byte[] RealFragmentOpaqueBytes = { 1, 2, 1, 0 };
 
-            /// <summary>Size of PrecursorRecord in bytes</summary>
-            public static readonly int Precursor = Marshal.SizeOf<PrecursorRecord>();
-
-            /// <summary>Size of FragmentRecord in bytes</summary>
-            public static readonly int Fragment = Marshal.SizeOf<FragmentRecord>();
-        }
+        /// <summary>
+        /// Opaque bytes written for a null (placeholder) fragment record (bytes 0–3).
+        /// </summary>
+        public static readonly byte[] NullFragmentOpaqueBytes = { 1, 1, 1, 0 };
     }
 }

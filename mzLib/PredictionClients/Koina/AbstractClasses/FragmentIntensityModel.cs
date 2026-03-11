@@ -120,23 +120,18 @@ namespace PredictionClients.Koina.AbstractClasses
             if (PeptideSequences.Count == 0)
             {
                 Predictions = new List<PeptideFragmentIntensityPrediction>();
-                return;
+                return; // No input sequences to process
             }
-            var deserializedResponses = responses.Select(response => Newtonsoft.Json.JsonConvert.DeserializeObject<ResponseJSONStruct>(response)).ToList();
-            var numBatches = deserializedResponses.Count;
-            if (deserializedResponses.IsNullOrEmpty() || deserializedResponses.Any(r => r == null))
-            {
-                throw new Exception("Something went wrong during deserialization of responses.");
-            }
-            for (int batchIndex = 0; batchIndex < numBatches; batchIndex++)
-            {
-                var response = deserializedResponses[batchIndex];
 
-                /// Each response is excpected to have an outputs list with
-                /// 1) Fragment Annotations
-                /// 2) Fragment MZs
-                /// 3) Fragment Intensities
-                if (response == null || response.Outputs.Count != 3)
+            // Pre-allocate result list with known capacity
+            Predictions = new List<PeptideFragmentIntensityPrediction>(PeptideSequences.Count);
+
+            for (int batchIndex = 0; batchIndex < responses.Length; batchIndex++)
+            {
+                var response = Newtonsoft.Json.JsonConvert.DeserializeObject<ResponseJSONStruct>(responses[batchIndex]);
+                
+                // Validate response structure
+                if (response == null || response.Outputs == null || response.Outputs.Count != 3)
                 {
                     throw new Exception($"API response is not in the expected format. Expected 3 outputs, got {response?.Outputs.Count}.");
                 }
@@ -144,24 +139,36 @@ namespace PredictionClients.Koina.AbstractClasses
                 var outputAnnotations = response.Outputs[0].Data;
                 var outputMZs = response.Outputs[1].Data;
                 var outputIntensities = response.Outputs[2].Data;
-                var batchPeptides = PeptideSequences.Skip(batchIndex * MaxBatchSize).Take(MaxBatchSize).ToList();
+                
+                // Calculate peptide range for this batch
+                int batchStartIndex = batchIndex * MaxBatchSize;
+                int batchSize = Math.Min(MaxBatchSize, PeptideSequences.Count - batchStartIndex);
+                
                 // Assuming outputData is structured such that each peptide's data is sequential
-                var fragmentCount = outputAnnotations.Count / batchPeptides.Count;
-                for (int i = 0; i < batchPeptides.Count; i++)
+                var fragmentCount = outputAnnotations.Count / batchSize;
+                
+                for (int i = 0; i < batchSize; i++)
                 {
-                    var peptideSequence = batchPeptides[i];
-                    var fragmentIons = new List<string>();
-                    var fragmentMZs = new List<double>();
-                    var predictedIntensities = new List<double>();
+                    var peptideIndex = batchStartIndex + i;
+                    var peptideSequence = PeptideSequences[peptideIndex];
+                    
+                    // Pre-allocate fragment lists with known capacity
+                    var fragmentIons = new List<string>(fragmentCount);
+                    var fragmentMZs = new List<double>(fragmentCount);
+                    var predictedIntensities = new List<double>(fragmentCount);
+                    
+                    int baseIndex = i * fragmentCount;
                     for (int j = 0; j < fragmentCount; j++)
                     {
-                        fragmentIons.Add(outputAnnotations[i * fragmentCount + j].ToString()!);
-                        fragmentMZs.Add(Convert.ToDouble(outputMZs[i * fragmentCount + j]));
-                        predictedIntensities.Add(Convert.ToDouble(outputIntensities[i * fragmentCount + j]));
+                        int dataIndex = baseIndex + j;
+                        fragmentIons.Add(outputAnnotations[dataIndex].ToString()!);
+                        fragmentMZs.Add(Convert.ToDouble(outputMZs[dataIndex]));
+                        predictedIntensities.Add(Convert.ToDouble(outputIntensities[dataIndex]));
                     }
+                    
                     Predictions.Add(new PeptideFragmentIntensityPrediction(
                         peptideSequence,
-                        PrecursorCharges[batchIndex * MaxBatchSize + i],
+                        PrecursorCharges[peptideIndex],
                         fragmentIons,
                         fragmentMZs,
                         predictedIntensities
