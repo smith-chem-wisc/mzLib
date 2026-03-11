@@ -1196,7 +1196,7 @@ namespace MassSpectrometry.Dia
                 precursorLookup.TryAdd(key, i);
             }
 
-            // Group result indices by window ID
+            // Group result indices by window ID.
             var windowGroups = new Dictionary<int, List<int>>();
             for (int i = 0; i < results.Count; i++)
             {
@@ -1213,13 +1213,19 @@ namespace MassSpectrometry.Dia
             {
                 int n = indices.Count;
 
-                // Resolve precursor index for every result in this window once
+                // Cache per-result data needed in the hot loops to avoid repeated
+                // property access through the result list.
                 var precursorIndices = new int[n];
+                var rtStart = new float[n];
+                var rtEnd = new float[n];
+
                 for (int a = 0; a < n; a++)
                 {
                     var r = results[indices[a]];
                     precursorIndices[a] = precursorLookup.TryGetValue(
                         (r.Sequence, r.ChargeState, r.IsDecoy), out int pi) ? pi : -1;
+                    rtStart[a] = r.RtWindowStart;
+                    rtEnd[a] = r.RtWindowEnd;
                 }
 
                 for (int a = 0; a < n; a++)
@@ -1249,6 +1255,15 @@ namespace MassSpectrometry.Dia
                             if (b == a) continue;
                             int piB = precursorIndices[b];
                             if (piB < 0) continue;
+
+                            // Only consider co-eluters: precursors whose RT extraction
+                            // window overlaps with result A's window. This prevents the
+                            // entire window's ~2800 precursors (spanning the full run)
+                            // from contesting every fragment, which would drive all scores
+                            // to zero. Two windows overlap when neither ends before the
+                            // other starts.
+                            if (rtEnd[b] <= rtStart[a] || rtStart[b] >= rtEnd[a])
+                                continue;
 
                             var precB = precursors[piB];
                             for (int g = 0; g < precB.FragmentCount && !contested; g++)
