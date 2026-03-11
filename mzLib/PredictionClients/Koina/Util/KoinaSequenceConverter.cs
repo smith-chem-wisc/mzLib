@@ -177,7 +177,7 @@ internal sealed class KoinaSequenceConverter
             .Where(m => TryGetUnimodId(m, out var id) && allowedUnimodIds.Contains(id))
             .ToList();
 
-        return new UnimodModificationLookup(candidates);
+       return new UnimodModificationLookup(candidates);
     }
 
     private static bool TryGetUnimodId(Modification modification, out int id)

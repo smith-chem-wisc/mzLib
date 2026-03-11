@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Easy.Common.Extensions;
 using Omics.Modifications;
 
 namespace Omics.SequenceConversion;
@@ -34,6 +35,11 @@ public class UnimodModificationLookup : ModificationLookupBase
         // Try to resolve by UNIMOD ID if available
         if (mod.UnimodId.HasValue)
         {
+            var withUnimodId = FilterCandidates(p => p.DatabaseReference.Any(p => p.Key.Equals("UNIMOD", StringComparison.OrdinalIgnoreCase) && p.Value.Contains(mod.UnimodId.Value.ToString())));
+
+            if (withUnimodId.IsNotNullOrEmpty())
+                return withUnimodId.MaxBy(p => GetOverlapScore(mod.OriginalRepresentation, p.IdWithMotif));
+
             return ResolveByIdentifier($"UNIMOD:{mod.UnimodId.Value}");
         }
 
@@ -59,32 +65,5 @@ public class UnimodModificationLookup : ModificationLookupBase
         }
 
         return normalized;
-    }
-
-    protected override IEnumerable<string> ExpandNameCandidates(string normalizedRepresentation, char? targetResidue)
-    {
-        if (string.IsNullOrEmpty(normalizedRepresentation))
-            yield break;
-
-        if (normalizedRepresentation.Contains("on N-terminus"))
-        {
-            yield return normalizedRepresentation.Replace("on N-terminus", "on X");
-            if (targetResidue.HasValue)
-                yield return normalizedRepresentation.Replace("on N-terminus", $"on {targetResidue.Value}");
-        }
-
-        if (normalizedRepresentation.Contains(":"))
-        {
-            var second = normalizedRepresentation.Split(':')[1];
-            yield return second;
-            if (second.Contains("on N-terminus"))
-            {
-                yield return second.Replace("on N-terminus", "on X");
-                if (targetResidue.HasValue)
-                    yield return second.Replace("on N-terminus", $"on {targetResidue.Value}");
-            }
-        }
-
-        yield return normalizedRepresentation;
     }
 }

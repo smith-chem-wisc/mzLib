@@ -58,6 +58,7 @@ public static class Mods
     public static List<Modification> MetaMorpheusProteinModifications { get; private set; } = [];
     public static List<Modification> MetaMorpheusModifications { get; private set; } = [];
     public static List<Modification> UnimodModifications { get; private set; } = [];
+    public static List<Modification> IsobaricLabelModifications { get; private set; } = [];
 
     /// <summary>
     /// All known protein modifications indexed by IdWithMotif
@@ -69,6 +70,10 @@ public static class Mods
     /// </summary>
     public static List<Modification> AllProteinModsList { get; }
 
+    /// <summary>
+    /// Isobaric label modifications indexed by IdWithMotif
+    /// </summary>
+    public static Dictionary<string, Modification> IsobaricLabelModsDictionary { get; private set; }
 
 
     public static List<Modification> MetaMorpheusRnaModifications { get; private set; } = [];
@@ -130,6 +135,21 @@ public static class Mods
         using var modTextReader = new StreamReader(modsTextStream!);
         MetaMorpheusProteinModifications = ModificationLoader.ReadModsFromFile(modTextReader, formalChargeDict,
             out _).ToList();
+
+        // 5. Load isobaric labels (TMT, iTRAQ, DiLeu)
+        var isobaricStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.TMT.txt");
+        using var isobaricReader = new StreamReader(isobaricStream!);
+        IsobaricLabelModifications = ModificationLoader.ReadModsFromFile(isobaricReader, formalChargeDict,
+            out _).ToList();
+
+        // 6. Build isobaric label dictionary
+        IsobaricLabelModsDictionary = IsobaricLabelModifications
+            .DistinctBy(m => m.IdWithMotif)
+            .ToDictionary(m => m.IdWithMotif);
+        // Add isobaric mods to unimod if missing. 
+        foreach (var isoMod in IsobaricLabelModifications)
+            if (UnimodModifications.All(m => m.IdWithMotif != isoMod.IdWithMotif))
+                UnimodModifications.Add(isoMod);
     }
 
     /// <summary>

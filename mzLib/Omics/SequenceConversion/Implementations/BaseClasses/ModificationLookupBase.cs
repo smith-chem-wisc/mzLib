@@ -1,8 +1,9 @@
+using Chemistry;
+using MathNet.Numerics.RootFinding;
+using Omics.Modifications;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Chemistry;
-using Omics.Modifications;
 
 namespace Omics.SequenceConversion;
 
@@ -12,7 +13,7 @@ namespace Omics.SequenceConversion;
 /// </summary>
 public abstract class ModificationLookupBase : IModificationLookup
 {
-    private readonly IReadOnlyCollection<Modification>? _candidateSet;
+    protected readonly IReadOnlyCollection<Modification> CandidateSet;
 
     protected ModificationLookupBase()
         : this(null, true, true, null, null)
@@ -24,13 +25,13 @@ public abstract class ModificationLookupBase : IModificationLookup
         bool searchProteinMods,
         bool searchRnaMods,
         double? massTolerance,
-        IEnumerable<Modification>? candidateSet)
+        IEnumerable<Modification> candidateSet)
     {
         ConventionForLookup = conventionForLookup;
         SearchProteinMods = searchProteinMods;
         SearchRnaMods = searchRnaMods;
         MassTolerance = massTolerance;
-        _candidateSet = candidateSet as IReadOnlyCollection<Modification> ?? candidateSet?.ToList();
+        CandidateSet = candidateSet as IReadOnlyCollection<Modification> ?? candidateSet.ToList();
     }
 
     protected bool SearchProteinMods { get; }
@@ -178,6 +179,8 @@ public abstract class ModificationLookupBase : IModificationLookup
         return unresolved.WithResolvedModification(resolvedMod);
     }
 
+    #region Selecting from several options
+
     /// <summary>
     /// Helper method to select a modification from portentialStringRepresentations with residue preference.
     /// Prefers modifications that target the specified residue if provided.
@@ -205,6 +208,33 @@ public abstract class ModificationLookupBase : IModificationLookup
         return candidateList.FirstOrDefault();
     }
 
+    /// <summary>
+    /// Calculates the overlap score between the modification ID with motif and the trimmed name.
+    /// The score represents the length of the longest common substring between the two strings.
+    /// </summary>
+    /// <param name="idWithMotif">The modification ID with motif.</param>
+    /// <param name="trimmedName">The trimmed name of the modification.</param>
+    /// <returns>The overlap score, which is the length of the longest common substring.</returns>
+    protected static int GetOverlapScore(string idWithMotif, string trimmedName)
+    {
+        int overlapScore = 0;
+        for (int i = 0; i < idWithMotif.Length; i++)
+        {
+            for (int j = 0; j < trimmedName.Length; j++)
+            {
+                int k = 0;
+                while (i + k < idWithMotif.Length && j + k < trimmedName.Length && idWithMotif[i + k] == trimmedName[j + k])
+                {
+                    k++;
+                }
+                overlapScore = Math.Max(overlapScore, k);
+            }
+        }
+        return overlapScore;
+    }
+
+    #endregion
+
     protected Modification? ResolveByIdentifier(string identifier)
     {
         if (string.IsNullOrWhiteSpace(identifier))
@@ -224,9 +254,9 @@ public abstract class ModificationLookupBase : IModificationLookup
                 return mod;
         }
 
-        if (_candidateSet != null)
+        if (CandidateSet != null)
         {
-            return _candidateSet.FirstOrDefault(m => MatchesIdentifier(m, identifier));
+            return CandidateSet.FirstOrDefault(m => MatchesIdentifier(m, identifier));
         }
 
         return null;
@@ -234,14 +264,15 @@ public abstract class ModificationLookupBase : IModificationLookup
 
     protected IEnumerable<Modification> FilterCandidates(Func<Modification, bool> predicate)
     {
-        if (_candidateSet != null)
-            return _candidateSet.Where(predicate);
+        if (CandidateSet != null)
+            return CandidateSet.Where(predicate);
 
         var proteinOnly = SearchProteinMods && !SearchRnaMods;
         var rnaOnly = SearchRnaMods && !SearchProteinMods;
         return Mods.GetModifications(predicate, proteinOnly, rnaOnly);
     }
 
+    #region Name Normalization and Expansion 
     protected virtual string NormalizeRepresentation(string representation) => representation?.Trim() ?? string.Empty;
 
     protected virtual IEnumerable<string> ExpandNameCandidates(string normalizedRepresentation, char? targetResidue)
@@ -250,12 +281,80 @@ public abstract class ModificationLookupBase : IModificationLookup
             yield break;
 
         yield return normalizedRepresentation;
-
         if (targetResidue.HasValue)
-        {
             yield return $"{normalizedRepresentation} on {targetResidue.Value}";
+
+        bool containsNTerminalRepresentation = normalizedRepresentation.Contains("on N-terminus", StringComparison.OrdinalIgnoreCase);
+        if (containsNTerminalRepresentation)
+            foreach (var additionalName in ExpandNTerminus(normalizedRepresentation, targetResidue))
+                yield return additionalName;
+
+        bool isIsobaric = IsIsobaric(normalizedRepresentation);
+        if (isIsobaric)
+            foreach (var additionalName in ExpandIsobaricTags(normalizedRepresentation, targetResidue))
+                yield return additionalName;
+
+
+        if (!normalizedRepresentation.Contains(":")) 
+            yield break;
+
+        var second = normalizedRepresentation.Split(':')[1];
+        yield return second;
+        if (targetResidue.HasValue)
+            yield return $"{second} on {targetResidue.Value}";
+
+        if (containsNTerminalRepresentation)
+            foreach (var additionalName in ExpandNTerminus(second, targetResidue))
+                yield return additionalName;
+        if (isIsobaric)
+            foreach (var additionalName in ExpandIsobaricTags(second, targetResidue))
+                yield return additionalName;
+    }
+
+    private IEnumerable<string> ExpandNTerminus(string input, char? targetResidue)
+    {
+        yield return input.Replace("on N-terminus", "on X", StringComparison.OrdinalIgnoreCase);
+        if (targetResidue.HasValue)
+            yield return input.Replace("on N-terminus", $"on {targetResidue.Value}", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsIsobaric(string input) => input.Contains("TMT", StringComparison.OrdinalIgnoreCase)
+        || input.Contains("iTRAQ", StringComparison.OrdinalIgnoreCase)
+        || input.Contains("plex", StringComparison.OrdinalIgnoreCase)
+        || input.Contains("DiLeu", StringComparison.OrdinalIgnoreCase);
+
+    private IEnumerable<string> ExpandIsobaricTags(string input, char? targetResidue)
+    {
+        // Handle Isobaric Labeling variations (e.g., TMT, iTRAQ) that may be represented with or without "-plex".
+        if (input.Contains("-plex", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return input.Replace("-plex", "plex", StringComparison.OrdinalIgnoreCase);
+        }
+        else if (input.Contains("plex", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return input.Replace("plex", "-plex", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (input.Contains("TMT18", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return input.Replace("TMT18", "TMTpro", StringComparison.OrdinalIgnoreCase);
+        }
+        else if (input.Contains("TMTpro", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return input.Replace("TMTpro", "TMT18", StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (input.Contains("TMT10pro", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return input.Replace("TMT10pro", "TMT10", StringComparison.OrdinalIgnoreCase);
+        }
+        else if (input.Contains("TMT10", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return input.Replace("TMT10", "TMT10pro", StringComparison.OrdinalIgnoreCase);
         }
     }
+
+    #endregion
 
     protected virtual bool MatchesIdentifier(Modification modification, string identifier) =>
         modification.IdWithMotif == identifier ||
