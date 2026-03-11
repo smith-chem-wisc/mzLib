@@ -49,6 +49,9 @@ public class SequenceConversionService : ISequenceConversionService
         // Register Unimod format (serializer only)
         service.RegisterSerializer(UnimodSequenceSerializer.Instance);
 
+        // Register UniProt format (serializer only)
+        service.RegisterSerializer(UniprotSequenceSerializer.Instance);
+
         // Register EssentialSequence (serializer only with default (from MM) mod allowances are w)
         service.RegisterSerializer(EssentialSequenceSerializer.Instance);
 
