@@ -1,4 +1,5 @@
 ﻿using MzLibUtil;
+using Omics.SequenceConversion;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
 using PredictionClients.Koina.Client;
@@ -70,6 +71,11 @@ namespace PredictionClients.Koina.AbstractClasses
     /// </summary>
     public abstract class FragmentIntensityModel : KoinaModelBase<FragmentIntensityPredictionInput, PeptideFragmentIntensityPrediction>, IPredictor<FragmentIntensityPredictionInput, PeptideFragmentIntensityPrediction>
     {
+        protected FragmentIntensityModel(ISequenceConverter sequenceConverter)
+            : base(sequenceConverter)
+        {
+        }
+
 
         #region Additional Model-Type Constraints
         /// <summary>Set of precursor charge states supported by the model (e.g., {2, 3, 4})</summary>

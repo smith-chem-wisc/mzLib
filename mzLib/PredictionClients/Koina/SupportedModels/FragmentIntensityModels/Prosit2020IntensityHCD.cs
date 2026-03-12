@@ -21,6 +21,9 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
     /// </remarks>
     public class Prosit2020IntensityHCD : FragmentIntensityModel
     {
+        private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int> { 35, 4 };
+        private static readonly ISequenceConverter Converter = CreateUnimodConverter(
+            UnimodSequenceFormatSchema.Instance, SupportedUnimodIds);
         /// <summary>The Koina API model name identifier</summary>
         public override string ModelName => "Prosit_2020_intensity_HCD";
 
@@ -58,14 +61,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
 
         /// <summary>Total number of fragment ions predicted by this model per peptide</summary>
         public int NumberOfPredictedFragmentIons => 174;
-
-        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int> { 35, 4 };
-
-        public override Dictionary<string, double> ValidModificationsMonoisotopicMasses => new()
-            {
-                {"[Common Variable:Oxidation on M]", 15.994915 },
-                {"[Common Fixed:Carbamidomethyl on C]", 57.021464 }
-            };
+        public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
         public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }
@@ -77,6 +73,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
             int maxNumberOfBatchesPerRequest = 250, 
             int throttlingDelayInMilliseconds = 100
             )
+            : base(Converter)
         {
             ModHandlingMode = modHandlingMode;
             ParameterHandlingMode = parameterHandlingMode;

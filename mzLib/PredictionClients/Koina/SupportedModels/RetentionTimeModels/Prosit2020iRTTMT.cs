@@ -32,6 +32,13 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
     /// </remarks>
     public class Prosit2020iRTTMT : RetentionTimeModel
     {
+        private static readonly UnimodSequenceFormatSchema TmtSchema = new(UnimodLabelStyle.UpperCase, '[', ']', "-", "-");
+        private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int>
+        {
+            35, 4, 259, 267, 737, 2016, 214, 730 
+        };
+        private static readonly ISequenceConverter Converter = CreateUnimodConverter(TmtSchema, SupportedUnimodIds);
+
         /// <summary>The Koina API model name identifier for TMT-capable iRT prediction</summary>
         public override string ModelName => "Prosit_2020_irt_TMT";
 
@@ -65,18 +72,13 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         /// </summary>
         public override bool IsIndexedRetentionTimeModel => true;
 
-        private static readonly UnimodSequenceFormatSchema TmtSchema = new(UnimodLabelStyle.UpperCase, '[', ']', "-", "-");
-
-        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>
-        {
-            35, 4, 259, 267, 737, 2016, 214, 730
-        };
-        protected override UnimodSequenceFormatSchema UnimodSchema => TmtSchema;
+        public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; } 
 
         // Labeling a sequence as invalid when it contains modifications that are not supported by the model seems better than removing unsupported
         // mods and sending a sequence without the required TMT/iTRAQ labels, which would likely lead to crashes.
         public Prosit2020iRTTMT(SequenceConversionHandlingMode modHandlingMode = SequenceConversionHandlingMode.ReturnNull, int maxNumberOfBatchesPerRequest = 500, int throttlingDelayInMilliseconds = 100)
+            : base(Converter)
         {
             ModHandlingMode = modHandlingMode;
             MaxNumberOfBatchesPerRequest = maxNumberOfBatchesPerRequest;

@@ -1,4 +1,5 @@
-﻿using PredictionClients.Koina.Client;
+﻿using Omics.SequenceConversion;
+using PredictionClients.Koina.Client;
 using MzLibUtil;
 using System.ComponentModel;
 using PredictionClients.Koina.Interfaces;
@@ -57,6 +58,11 @@ namespace PredictionClients.Koina.AbstractClasses
     /// </remarks>
     public abstract class RetentionTimeModel : KoinaModelBase<RetentionTimePredictionInput, PeptideRTPrediction>, IPredictor<RetentionTimePredictionInput, PeptideRTPrediction>
     {
+        protected RetentionTimeModel(ISequenceConverter sequenceConverter)
+            : base(sequenceConverter)
+        {
+        }
+
         #region Model-Specific Properties
         /// <summary>
         /// Indicates whether this model predicts indexed retention time (iRT) or absolute retention time.
