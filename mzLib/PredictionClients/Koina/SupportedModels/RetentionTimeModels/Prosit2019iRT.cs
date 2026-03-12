@@ -23,6 +23,10 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
     /// </remarks>
     public class Prosit2019iRT : RetentionTimeModel
     {
+        private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int> { 35, 4 };
+        private static readonly ISequenceConverter Converter = CreateUnimodConverter(
+            UnimodSequenceFormatSchema.Instance, SupportedUnimodIds);
+
         /// <summary>The Koina API model name identifier</summary>
         public override string ModelName => "Prosit_2019_irt";
 
@@ -54,10 +58,11 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         /// iRT values are relative measurements independent of chromatographic conditions.
         /// </summary>
         public override bool IsIndexedRetentionTimeModel => true;
-        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int> { 35, 4 };
+        public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
 
         public Prosit2019iRT(SequenceConversionHandlingMode modHandlingMode = SequenceConversionHandlingMode.RemoveIncompatibleElements, int maxNumberOfBatchesPerRequest = 500, int throttlingDelayInMilliseconds = 100)
+            : base(Converter)
         {
             ModHandlingMode = modHandlingMode;
             MaxNumberOfBatchesPerRequest = maxNumberOfBatchesPerRequest;

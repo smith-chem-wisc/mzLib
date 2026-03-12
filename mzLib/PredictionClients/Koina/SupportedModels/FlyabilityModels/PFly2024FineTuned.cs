@@ -2,7 +2,6 @@
 using MzLibUtil;
 using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
-using PredictionClients.Koina.Util;
 
 namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
 {
@@ -35,6 +34,8 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
     /// </remarks>
     public class PFly2024FineTuned : DetectabilityModel
     {
+        private static readonly ISequenceConverter Converter = CreateUnimodConverter(
+            UnimodSequenceFormatSchema.Instance, new HashSet<int>());
         /// <summary>The Koina API model name identifier for peptide detectability prediction</summary>
         public override string ModelName => "pfly_2024_fine_tuned";
 
@@ -76,6 +77,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; } = SequenceConversionHandlingMode.UsePrimarySequence;
 
         public PFly2024FineTuned(int maxNumberOfBatchesPerRequest = 500, int throttlingDelayInMilliseconds = 100)
+            : base(Converter)
         {
             MaxNumberOfBatchesPerRequest = maxNumberOfBatchesPerRequest;
             ThrottlingDelayInMilliseconds = throttlingDelayInMilliseconds;

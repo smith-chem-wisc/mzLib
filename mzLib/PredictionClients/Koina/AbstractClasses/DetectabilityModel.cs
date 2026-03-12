@@ -1,4 +1,5 @@
-﻿using PredictionClients.Koina.Client;
+﻿using Omics.SequenceConversion;
+using PredictionClients.Koina.Client;
 using Easy.Common.Extensions;
 using System.ComponentModel;
 using MzLibUtil;
@@ -65,6 +66,11 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
     /// </remarks>
     public abstract class DetectabilityModel : KoinaModelBase<DetectabilityPredictionInput, PeptideDetectabilityPrediction>, IPredictor<DetectabilityPredictionInput, PeptideDetectabilityPrediction>
     {
+        protected DetectabilityModel(ISequenceConverter sequenceConverter)
+            : base(sequenceConverter)
+        {
+        }
+
         #region Model-Specific Properties
         /// <summary>
         /// Number of detectability classes predicted by the model.

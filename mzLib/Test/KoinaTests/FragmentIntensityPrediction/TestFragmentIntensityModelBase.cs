@@ -14,6 +14,10 @@ namespace Test.KoinaTests
     /// </summary>
     internal class TestFragmentIntensityModel : FragmentIntensityModel
     {
+        private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int>();
+        private static readonly ISequenceConverter Converter = CreateUnimodConverter(
+            UnimodSequenceFormatSchema.Instance,
+            SupportedUnimodIds);
         public override string ModelName => "TestModel";
         public override int MaxBatchSize => 32;
         public override int MaxNumberOfBatchesPerRequest { get; init; } = 10;
@@ -39,6 +43,7 @@ namespace Test.KoinaTests
             IncompatibleParameterHandlingMode parameterHandlingMode = IncompatibleParameterHandlingMode.ReturnNull,
             FragmentIonMappingMode fragmentIonMappingMode = FragmentIonMappingMode.MapToInputFullSequence
             )
+            : base(Converter)
         {
             AllowedPrecursorCharges = allowedCharges ?? new HashSet<int> { 2, 3, 4 };
             AllowedCollisionEnergies = allowedEnergies ?? new HashSet<int>();
