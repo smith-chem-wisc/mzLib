@@ -286,7 +286,9 @@ namespace MassSpectrometry.Dia
                 extractSw.Stop();
 
                 fitSw.Restart();
-                var candidate = ComputeGridModel(centerResults, centerBand);
+                // Phase A iter 0 (first pass — rank-mapped, no model yet)
+                var candidate = ComputeGridModel(centerResults, centerBand,
+                    accumulator: allBootstrapMedians);
                 fitSw.Stop();
 
                 if (candidate == null)
@@ -359,9 +361,9 @@ namespace MassSpectrometry.Dia
                 var midResultsHi = midResults.Where(r => !midLoKeys.Contains((r.Sequence, r.ChargeState))).ToList();
 
                 fitSw.Restart();
-                var candidate = ComputeGridModelSplit(
-    midResultsLo, midBandLo, midResultsHi, midBandHi,
-    accumulator: allBootstrapMedians);
+                // Phase A iter 1+ (model-predicted windows)
+                var candidate = ComputeGridModel(centerResults, centerBand,
+                    accumulator: allBootstrapMedians);
                 fitSw.Stop();
 
                 if (candidate == null)
@@ -1196,9 +1198,10 @@ namespace MassSpectrometry.Dia
         /// Returns null if fewer than 2 signal cells are found.
         /// </summary>
         private IRtCalibrationModel ComputeGridModel(
-    List<DiaSearchResult> results,
-    IList<LibraryPrecursorInput> bandPrecursors,
-    int targetsPerBin = 50)
+            List<DiaSearchResult> results,
+            IList<LibraryPrecursorInput> bandPrecursors,
+            int targetsPerBin = 50,
+            List<(double Irt, double ApexRt)> accumulator = null)
         {
             // Build lookup: (Sequence, ChargeState) → library iRT from precursor's own fields
             var irtByKey = new Dictionary<(string, int), double>(bandPrecursors.Count);
@@ -1263,7 +1266,11 @@ namespace MassSpectrometry.Dia
                 binMedianIrt.Add(binIrts[mid]);
                 binMedianRt.Add(binApexRts[mid]);
             }
-
+            if (accumulator != null)
+            {
+                for (int i = 0; i < binMedianIrt.Count; i++)
+                    accumulator.Add((binMedianIrt[i], binMedianRt[i]));
+            }
             Report($"  [Calibration] Apex grid: {numBins} bins, {binMedianIrt.Count} valid (targetsPerBin={targetsPerBin})");
 
             // Diagnostic: log first 5 and last 5 bin medians to verify grid anchoring

@@ -227,7 +227,7 @@ namespace Development.Dia
             if (!string.IsNullOrEmpty(groundTruthPath) && File.Exists(groundTruthPath))
             {
                 rtLookup = KoinaMspParser.BuildRtLookupFromDiannTsv(groundTruthPath);
-                Console.WriteLine($"  RT lookup: {rtLookup.Count:N0} peptide→RT entries");
+                Console.WriteLine($"  RT lookup: {rtLookup.Count:N0} entries from diann_ground_truth.tsv");
                 Console.WriteLine("  NOTE: this lookup is used ONLY in Step 11 for anchor quality validation.");
                 Console.WriteLine("        It is NOT passed to KoinaIrtMspParser.Parse() and does NOT affect");
                 Console.WriteLine("        library iRT values, calibration, or search results.");
@@ -967,7 +967,8 @@ namespace Development.Dia
                 var r = results[i];
                 if (r.IsDecoy) continue;
                 if (float.IsNaN(r.ObservedApexRt)) continue;
-                if (!rtLookup.TryGetValue(r.Sequence, out double truthRt)) continue;
+                string key = r.Sequence + "/" + r.ChargeState;
+                if (!rtLookup.TryGetValue(key, out double truthRt)) continue;
 
                 double delta = Math.Abs(r.ObservedApexRt - truthRt);
                 deltas.Add(delta);
