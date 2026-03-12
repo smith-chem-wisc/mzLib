@@ -3,7 +3,7 @@ namespace Omics.SequenceConversion;
 /// <summary>
 /// Default implementation of <see cref="ISequenceConverter"/>.
 /// </summary>
-public sealed class SequenceConverter : ISequenceConverter
+public class SequenceConverter : ISequenceConverter
 {
     public SequenceConverter(ISequenceParser parser, ISequenceSerializer serializer)
     {

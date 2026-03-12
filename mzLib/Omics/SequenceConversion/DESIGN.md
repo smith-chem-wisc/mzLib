@@ -89,7 +89,7 @@ Internally, the service also instantiates `ConversionWarnings`, copies handling 
 ## Interaction With the Rest of mzLib
 
 - **Proteomics/Transcriptomics domain** – `PeptideWithSetModifications` and `OligoWithSetMods` can adopt canonical conversions when reading/writing full sequences, ensuring consistent format handling.
-- **Prediction clients (Koina)** – `KoinaSequenceConverter` builds on this infrastructure: parse mzLib strings, restrict allowed UNIMOD IDs via custom lookups, serialize to `[UNIMOD:*]`, and hand sequences to remote models while still exposing the original inputs. It also implements `ISequenceConverter` for reuse in shared pipelines.
+- **Prediction clients (Koina)** – Koina models build on this infrastructure by providing an `ISequenceConverter` per model: parse mzLib strings, restrict allowed UNIMOD IDs via custom lookups, serialize to `[UNIMOD:*]`, and hand sequences to remote models while still exposing the original inputs.
 - **File readers/writers** – Identification formats such as mzIdentML, pepXML, or MGF can choose whichever format best matches their syntax and rely on the same conversion lifecycle.
 - **Visualization / Spectral libraries** – Tools needing mass-shift only representations can parse once and serialize into multiple downstream formats with guaranteed consistency.
 
