@@ -49,7 +49,9 @@ public abstract class ModificationLookupBase : IModificationLookup
     /// <inheritdoc />
     public CanonicalModification? TryResolve(CanonicalModification mod)
     {
-        if (mod.IsResolved)
+        // Only skip lookup if the mod is already resolved to THIS lookup's database
+        // If it's resolved to a different database (e.g., MetaMorpheus), we still need to find the equivalent
+        if (mod.IsResolved && IsResolvedToThisDatabase(mod))
         {
             return mod;
         }
@@ -352,17 +354,20 @@ public abstract class ModificationLookupBase : IModificationLookup
         }
 
         // Check if remaining candidates are functionally equivalent (same formula)
-        var distinctByFormula = working.Where(m => m.ChemicalFormula != null)
-            .DistinctBy(p => p.ChemicalFormula?.Formula)
-            .ToList();
+        var withFormula = working.Where(m => m.ChemicalFormula != null).ToList();
+        var distinctFormulas = withFormula.Select(m => m.ChemicalFormula?.Formula).Distinct().ToList();
         
-        if (distinctByFormula.Count == 1)
+        if (distinctFormulas.Count == 1 && withFormula.Count > 0)
         {
-            return distinctByFormula[0];
+            // All candidates have the same formula - they're chemically equivalent
+            // Prefer the one with the shortest name (generic form over stereospecific)
+            // e.g., prefer "Methionine sulfoxide" over "Methionine (R)-sulfoxide"
+            return withFormula.OrderBy(m => m.OriginalId?.Length ?? int.MaxValue)
+                .ThenBy(m => m.OriginalId) // Stable sort for determinism
+                .First();
         }
 
         // If we still have multiple candidates, prefer those with formulas
-        var withFormula = working.Where(m => m.ChemicalFormula != null).ToList();
         if (withFormula.Count == 1)
         {
             return withFormula[0];
@@ -667,6 +672,21 @@ public abstract class ModificationLookupBase : IModificationLookup
         }
 
         return overlapScore;
+    }
+
+    /// <summary>
+    /// Checks if the modification is already resolved to this lookup's database.
+    /// Used to avoid redundant lookups when the mod is already in the correct format.
+    /// </summary>
+    protected virtual bool IsResolvedToThisDatabase(CanonicalModification mod)
+    {
+        if (!mod.IsResolved || mod.MzLibModification == null)
+        {
+            return false;
+        }
+
+        // Check if the modification type matches this lookup's database name
+        return string.Equals(mod.MzLibModification.ModificationType, Name, StringComparison.OrdinalIgnoreCase);
     }
 
     #endregion

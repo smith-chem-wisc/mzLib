@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Test.Omics.SequenceConversion
@@ -42,6 +43,7 @@ namespace Test.Omics.SequenceConversion
             public string UnimodCamelCaseFormat => UnimodUpperCaseFormat.Replace("UNIMOD", "Unimod");
             public string UnimodLowerCaseFormat => UnimodUpperCaseFormat.Replace("UNIMOD", "unimod");
             public string UnimodNoLabelFormat => UnimodUpperCaseFormat.Replace("UNIMOD:", "");
+            public string? UniProtFormat { get; set; }
             
             // Expected canonical representation
             public string ExpectedBaseSequence { get; set; }
@@ -51,7 +53,7 @@ namespace Test.Omics.SequenceConversion
             
             public TestCase(string description, string mzLib, string massShift, string chronologer,
                 string baseSeq, bool hasNTerm = false, bool hasCTerm = false, int residueMods = 0,
-                string? unimodUpperCase = null)
+                string? unimodUpperCase = null, string? uniProtFormat = null)
             {
                 Description = description;
                 MzLibFormat = mzLib;
@@ -62,6 +64,7 @@ namespace Test.Omics.SequenceConversion
                 HasNTermMod = hasNTerm;
                 HasCTermMod = hasCTerm;
                 ExpectedResidueMods = residueMods;
+                UniProtFormat = uniProtFormat;
             }
         }
 
@@ -88,7 +91,8 @@ namespace Test.Omics.SequenceConversion
                 chronologer: "-PEPTmIDE_",
                 baseSeq: "PEPTMIDE",
                 residueMods: 1,
-                unimodUpperCase: "PEPTM[UNIMOD:35]IDE"
+                unimodUpperCase: "PEPTM[UNIMOD:35]IDE",
+                uniProtFormat: "PEPTM[Methionine sulfoxide]IDE"
             ),
 
             // 3. Common Fixed:Carbamidomethyl on C - UNIMOD:4, mass +57.0215
@@ -99,7 +103,8 @@ namespace Test.Omics.SequenceConversion
                 chronologer: "-PEPcIDE_",
                 baseSeq: "PEPCIDE",
                 residueMods: 1,
-                unimodUpperCase: "PEPC[UNIMOD:4]IDE"
+                unimodUpperCase: "PEPC[UNIMOD:4]IDE",
+                uniProtFormat: "PEPIDE"
             ),
 
             // 4. Phosphorylation on S - UNIMOD:21, mass +79.9663
@@ -110,7 +115,8 @@ namespace Test.Omics.SequenceConversion
                 chronologer: "-PEPsTIDE_",
                 baseSeq: "PEPSTIDE",
                 residueMods: 1,
-                unimodUpperCase: "PEPS[UNIMOD:21]TIDE"
+                unimodUpperCase: "PEPS[UNIMOD:21]TIDE",
+                uniProtFormat: "PEPS[Phosphoserine]TIDE"
             ),
 
             // 5. Phosphorylation on T - UNIMOD:21, mass +79.9663
@@ -121,7 +127,8 @@ namespace Test.Omics.SequenceConversion
                 chronologer: "-PEPtIDE_",
                 baseSeq: "PEPTIDE",
                 residueMods: 1,
-                unimodUpperCase: "PEPT[UNIMOD:21]IDE"
+                unimodUpperCase: "PEPT[UNIMOD:21]IDE",
+                uniProtFormat: "PEPT[Phosphothreonine]IDE"
             ),
 
             // 6. N-terminal acetylation - UNIMOD:1, mass +42.0106
@@ -132,7 +139,8 @@ namespace Test.Omics.SequenceConversion
                 chronologer: "^PEPTIDE_",
                 baseSeq: "PEPTIDE",
                 hasNTerm: true,
-                unimodUpperCase: "[UNIMOD:1]PEPTIDE"
+                unimodUpperCase: "[UNIMOD:1]PEPTIDE",
+                uniProtFormat: "[N-acetylproline]PEPTIDE"
             ),
 
             // 7. Multiple modifications: oxidation and phosphorylation
@@ -143,7 +151,8 @@ namespace Test.Omics.SequenceConversion
                 chronologer: "-PEPsTmIDE_",
                 baseSeq: "PEPSTMIDE",
                 residueMods: 2,
-                unimodUpperCase: "PEPS[UNIMOD:21]TM[UNIMOD:35]IDE"
+                unimodUpperCase: "PEPS[UNIMOD:21]TM[UNIMOD:35]IDE",
+                uniProtFormat: "PEPS[Phosphoserine]TM[Methionine sulfoxide]IDE"
             ),
 
             // 8. N-term acetylation + internal oxidation
@@ -155,7 +164,8 @@ namespace Test.Omics.SequenceConversion
                 baseSeq: "PEPTMIDE",
                 hasNTerm: true,
                 residueMods: 1,
-                unimodUpperCase: "[UNIMOD:1]PEPTM[UNIMOD:35]IDE"
+                unimodUpperCase: "[UNIMOD:1]PEPTM[UNIMOD:35]IDE",
+                uniProtFormat: "[N-acetylproline]PEPTM[Methionine sulfoxide]IDE"
             ),
 
             // 9. Two oxidations on different methionines
@@ -166,7 +176,8 @@ namespace Test.Omics.SequenceConversion
                 chronologer: "-mEPTmIDE_",
                 baseSeq: "MEPTMIDE",
                 residueMods: 2,
-                unimodUpperCase: "M[UNIMOD:35]EPTM[UNIMOD:35]IDE"
+                unimodUpperCase: "M[UNIMOD:35]EPTM[UNIMOD:35]IDE",
+                uniProtFormat: "M[Methionine sulfoxide]EPTM[Methionine sulfoxide]IDE"
             ),
         };
 
@@ -193,7 +204,8 @@ namespace Test.Omics.SequenceConversion
                 chronologer: "-m_",
                 baseSeq: "M",
                 residueMods: 1,
-                unimodUpperCase: "M[UNIMOD:35]"
+                unimodUpperCase: "M[UNIMOD:35]",
+                uniProtFormat: "M[Methionine sulfoxide]"
             ),
 
             // Adjacent modifications
@@ -204,13 +216,20 @@ namespace Test.Omics.SequenceConversion
                 chronologer: "-PEPTmmIDE_",
                 baseSeq: "PEPTMMIDE",
                 residueMods: 2,
-                unimodUpperCase: "PEPTM[UNIMOD:35]M[UNIMOD:35]IDE"
+                unimodUpperCase: "PEPTM[UNIMOD:35]M[UNIMOD:35]IDE",
+                uniProtFormat: "PEPTM[Methionine sulfoxide]M[Methionine sulfoxide]IDE"
             ),
         };
 
         /// <summary>
         /// All test cases combined
         /// </summary>
-        public static TestCase[] AllTestCases => CoreTestCases.Concat(EdgeCases).ToArray();
+        public static IEnumerable<TestCase> AllTestCases() => CoreTestCases.Concat(EdgeCases).ToArray();
+
+        /// <summary>
+        /// Test cases with UniProt expectations defined
+        /// </summary>
+        public static TestCase[] UniProtTestCases() =>
+            AllTestCases().Where(tc => !string.IsNullOrWhiteSpace(tc.UniProtFormat)).ToArray();
     }
 }

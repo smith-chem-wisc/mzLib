@@ -9,9 +9,9 @@ namespace Omics.SequenceConversion;
 /// <summary>
 /// Resolves modifications to their UniProt representations by searching the UniProt PTM database.
 /// </summary>
-public class UniprotModificationLookup : ModificationLookupBase
+public class UniProtModificationLookup : ModificationLookupBase
 {
-    public static UniprotModificationLookup Instance { get; } = new();
+    public static UniProtModificationLookup Instance { get; } = new();
 
     private readonly ConcurrentDictionary<(string Name, char? Residue), Modification?> _nameResidueCache = new();
 
@@ -41,7 +41,7 @@ public class UniprotModificationLookup : ModificationLookupBase
         ['O'] = "Pyrrolysine"
     };
 
-    public UniprotModificationLookup(IEnumerable<Modification>? candidateSet = null, double massTolerance = 0.001)
+    public UniProtModificationLookup(IEnumerable<Modification>? candidateSet = null, double massTolerance = 0.001)
         : base(candidateSet ?? Mods.UniprotModifications, massTolerance)
     {
     }
@@ -89,11 +89,18 @@ public class UniprotModificationLookup : ModificationLookupBase
              m.Target.ToString().Equals("X", StringComparison.OrdinalIgnoreCase)))
             .ToList();
 
+        // If no name matches found, return empty to let other filters (formula, mass) be tried
+        // Don't fall back to all candidates - that defeats the purpose of name filtering
         var candidates = nameMatches.Count > 0
             ? nameMatches
             : formulaMatches.Count > 0
                 ? formulaMatches
-                : source.ToList();
+                : Enumerable.Empty<Modification>().ToList();
+        
+        if (candidates.Count == 0)
+        {
+            return Enumerable.Empty<Modification>();
+        }
 
         var intersected = candidates.Intersect(motifMatches).ToList();
         if (intersected.Count == 0)
@@ -199,6 +206,8 @@ public class UniprotModificationLookup : ModificationLookupBase
         }
 
         var residue = char.ToUpperInvariant(targetResidue.Value);
+        
+        // Phosphorylation -> Phospho[residue] mapping
         if (trimmedName.IndexOf("phosphory", StringComparison.OrdinalIgnoreCase) >= 0 &&
             ResidueNameMap.TryGetValue(residue, out var residueName))
         {
@@ -206,6 +215,59 @@ public class UniprotModificationLookup : ModificationLookupBase
             var phosphoName = $"Phospho{lowerResidueName}";
             variants.Add(phosphoName);
             variants.Add($"{phosphoName} on {residue}");
+        }
+        
+        // Oxidation -> specific UniProt names mapping
+        if (trimmedName.IndexOf("oxid", StringComparison.OrdinalIgnoreCase) >= 0 &&
+            ResidueNameMap.TryGetValue(residue, out var oxidResidueName))
+        {
+            // Map "Oxidation on X" to UniProt-specific names
+            switch (residue)
+            {
+                case 'M':
+                    variants.Add("Methionine sulfoxide");
+                    variants.Add("Methionine sulfoxide on M");
+                    break;
+                case 'W':
+                    variants.Add("Oxindolylalanine");
+                    variants.Add("Kynurenine");
+                    break;
+                case 'C':
+                    variants.Add("Cysteine sulfenic acid");
+                    variants.Add("S-cysteinyl cysteine");
+                    break;
+                case 'H':
+                    variants.Add("2-oxohistidine");
+                    break;
+                case 'P':
+                    variants.Add("Hydroxyproline");
+                    break;
+                case 'K':
+                    variants.Add("Hydroxylysine");
+                    break;
+                case 'Y':
+                    variants.Add("Dihydroxyphenylalanine");
+                    break;
+            }
+        }
+        
+        // Carbamidomethyl -> S-carbamoylmethylcysteine mapping
+        if (trimmedName.IndexOf("carbamidomethyl", StringComparison.OrdinalIgnoreCase) >= 0 && residue == 'C')
+        {
+            variants.Add("S-carbamoylmethylcysteine");
+            variants.Add("S-carbamoylmethylcysteine on C");
+        }
+        
+        // Acetylation -> specific UniProt names mapping for N-terminal mods
+        if (trimmedName.IndexOf("acetyl", StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            if (ResidueNameMap.TryGetValue(residue, out var acetylResidueName))
+            {
+                variants.Add($"N-acetyl{acetylResidueName.ToLowerInvariant()}");
+                variants.Add($"N-acetyl{acetylResidueName.ToLowerInvariant()} on {residue}");
+            }
+            // Also try generic N-terminal acetyl
+            variants.Add("N-acetylated residue");
         }
     }
 

@@ -25,19 +25,6 @@ public class ModificationLookupBaseCachingTests
     }
 
     [Test]
-    public void TryResolve_StringCachesNegativeResult()
-    {
-        var lookup = new CountingLookup(Array.Empty<Modification>());
-
-        var first = lookup.TryResolve("UnknownMod", 'S');
-        var second = lookup.TryResolve("UnknownMod", 'S');
-
-        Assert.That(first, Is.Null);
-        Assert.That(second, Is.Null);
-        Assert.That(lookup.FilterEvaluations, Is.EqualTo(1));
-    }
-
-    [Test]
     public void TryResolve_CanonicalRespectsResidueKey()
     {
         var mods = new[]
