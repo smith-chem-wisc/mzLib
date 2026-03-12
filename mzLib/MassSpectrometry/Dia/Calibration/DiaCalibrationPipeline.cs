@@ -256,7 +256,15 @@ namespace MassSpectrometry.Dia
                 r.RtDeviationSquared = deviation * deviation;
             }
         }
-
+        // Convenience overload for tests and legacy call sites
+        public static void RecalibrateRtDeviations(
+            List<DiaSearchResult> results,
+            IList<LibraryPrecursorInput> precursors,
+            MassSpectrometry.Dia.RtCalibrationModel calibration)
+        {
+            if (calibration == null) return;
+            RecalibrateRtDeviations(results, precursors, new LinearRtModelWrapper(calibration));
+        }
         // ════════════════════════════════════════════════════════════════
         //  Diagnostic Helpers
         // ════════════════════════════════════════════════════════════════
