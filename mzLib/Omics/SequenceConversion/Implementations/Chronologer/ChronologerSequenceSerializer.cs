@@ -56,6 +56,12 @@ public class ChronologerSequenceSerializer : SequenceSerializerBase
         // Acetyl (UNIMOD:1)
         { (1, 'K'), 'a' },
 
+        // Succinyl (UNIMOD:64)
+        { (64, 'K'), 'b' },
+
+        // Ubiquitination (Dicarbamidomethyl on K, UNIMOD:121)
+        { (121, 'K'), 'u' },
+
         // Methyl (UNIMOD:34)
         { (34, 'K'), 'n' },
         { (34, 'R'), 'q' },
@@ -67,17 +73,11 @@ public class ChronologerSequenceSerializer : SequenceSerializerBase
         // Trimethyl (UNIMOD:37)
         { (37, 'K'), 'p' },
 
-        // GG (GlyGly) (UNIMOD:121)
-        { (121, 'K'), 'z' },
+        // TMT0 (UNIMOD:121)
+        { (739, 'K'), 'z' },
 
-        // Succinyl (UNIMOD:64)
-        { (64, 'K'), 'b' },
-
-        // Gln->pyro-Glu (UNIMOD:28) - N-terminal
-        { (28, 'Q'), 'e' },
-
-        // Glu->pyro-Glu (UNIMOD:27) - N-terminal
-        { (27, 'E'), 'e' },
+        // TMT10 (UNIMOD:121)
+        { (737, 'K'), 'x' },
     };
 
     /// <summary>
@@ -91,9 +91,6 @@ public class ChronologerSequenceSerializer : SequenceSerializerBase
 
         // Carbamidomethyl on C: +57.021
         { (57.02, 'C'), 'c' },
-
-        // Alternative C mod: +39.99 (Pyro-carbamidomethyl?)
-        { (39.99, 'C'), 'd' },
 
         // Phosphorylation: +79.966
         { (79.97, 'S'), 's' },
@@ -120,17 +117,11 @@ public class ChronologerSequenceSerializer : SequenceSerializerBase
         // Trimethylation on K: +42.047
         { (42.05, 'K'), 'p' },
 
-        // GlyGly on K: +224.1
+        // TMT 0 on K: +224.12
         { (224.12, 'K'), 'z' },
 
-        // Heavy GlyGly on K: +229.1 (with heavy isotopes)
+        // TMT 10 on K: +229.16
         { (229.16, 'K'), 'x' },
-
-        // PyroGlu from E: -18.011
-        { (-18.01, 'E'), 'e' },
-
-        // PyroGlu from Q: -17.027
-        { (-17.03, 'Q'), 'e' },
     };
 
     /// <summary>
@@ -139,7 +130,11 @@ public class ChronologerSequenceSerializer : SequenceSerializerBase
     private static readonly Dictionary<int, char> NTermUnimodCodes = new()
     {
         { 1, ChronologerSequenceFormatSchema.NTermAcetyl },   // Acetyl
-        { 121, ChronologerSequenceFormatSchema.NTermGlyGly }, // GlyGly
+        { 23, ChronologerSequenceFormatSchema.NTermPyroGlu },  // Pyro Glutamate from E
+        { 24, ChronologerSequenceFormatSchema.NTermPyroGlu },  // Pyro Glutamate from Q
+        { 26 , ChronologerSequenceFormatSchema.NTermCyclizedCamCys },  // cyclized CAM-Cys token.
+        { 739, ChronologerSequenceFormatSchema.NTermTMT0 }, // TMT 0
+        { 737, ChronologerSequenceFormatSchema.NTermTMT10 },  // TMT 10
     };
 
     /// <summary>
@@ -148,8 +143,11 @@ public class ChronologerSequenceSerializer : SequenceSerializerBase
     private static readonly Dictionary<double, char> NTermMassCodes = new()
     {
         { 42.01, ChronologerSequenceFormatSchema.NTermAcetyl },     // Acetyl
-        { 224.12, ChronologerSequenceFormatSchema.NTermGlyGly },    // GlyGly
-        { 229.16, ChronologerSequenceFormatSchema.NTermHeavyGlyGly }, // Heavy GlyGly
+        { -18.01, ChronologerSequenceFormatSchema.NTermPyroGlu },  // Pyro Glutamate from E
+        { -17.03, ChronologerSequenceFormatSchema.NTermPyroGlu },  // Pyro Glutamate from Q
+        { 39.99, ChronologerSequenceFormatSchema.NTermCyclizedCamCys },  // cyclized CAM-Cys token.
+        { 224.12, ChronologerSequenceFormatSchema.NTermTMT0 },  // TMT 0
+        { 229.16, ChronologerSequenceFormatSchema.NTermTMT10 }, // TMT 10
     };
 
     #endregion
@@ -202,7 +200,7 @@ public class ChronologerSequenceSerializer : SequenceSerializerBase
     /// <inheritdoc />
     public override bool ShouldResolveMod(CanonicalModification mod)
     {
-        return !mod.UnimodId.HasValue && !mod.EffectiveMass.HasValue;
+        return !mod.UnimodId.HasValue || !mod.EffectiveMass.HasValue;
     }
 
     protected override string? SerializeInternal(CanonicalSequence sequence, ConversionWarnings warnings, SequenceConversionHandlingMode mode)

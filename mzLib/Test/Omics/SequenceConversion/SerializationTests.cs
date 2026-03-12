@@ -64,7 +64,7 @@ public class SerializationTests
         Assert.That(canonical, Is.Not.Null);
 
         // Act
-        var result = _chronologerSerializer.Serialize(canonical.Value);
+        var result = _chronologerSerializer.Serialize(canonical.Value, null, SequenceConversionHandlingMode.RemoveIncompatibleElements);
 
         // Assert
         Assert.That(result, Is.Not.Null);

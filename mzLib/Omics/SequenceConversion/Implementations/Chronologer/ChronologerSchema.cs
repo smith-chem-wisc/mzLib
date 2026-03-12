@@ -136,10 +136,10 @@ public sealed class ChronologerSequenceFormatSchema : SequenceFormatSchema
     /// <summary>
     /// N-terminal GlyGly token.
     /// </summary>
-    public const char NTermGlyGly = '&';
+    public const char NTermTMT0 = '&';
 
     /// <summary>
     /// N-terminal heavy GlyGly token.
     /// </summary>
-    public const char NTermHeavyGlyGly = '*';
+    public const char NTermTMT10 = '*';
 }

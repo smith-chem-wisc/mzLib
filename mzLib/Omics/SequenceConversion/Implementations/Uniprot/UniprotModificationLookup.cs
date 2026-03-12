@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Concurrent;
-using System.Linq;
 using Omics.Modifications;
 
 namespace Omics.SequenceConversion;
@@ -12,8 +10,6 @@ namespace Omics.SequenceConversion;
 public class UniProtModificationLookup : ModificationLookupBase
 {
     public static UniProtModificationLookup Instance { get; } = new();
-
-    private readonly ConcurrentDictionary<(string Name, char? Residue), Modification?> _nameResidueCache = new();
 
     private static readonly Dictionary<char, string> ResidueNameMap = new()
     {
@@ -56,126 +52,54 @@ public class UniProtModificationLookup : ModificationLookupBase
             return resolved;
         }
 
-        var normalized = NormalizeRepresentation(mod.OriginalRepresentation);
-        var trimmed = TrimUniProtSuffixes(normalized);
-        var variants = BuildNameVariants(trimmed, mod.TargetResidue);
-        if (variants.Count == 0)
-        {
-            return resolved;
-        }
-
-        var mzLibMod = resolved.Value.MzLibModification;
-        if (mzLibMod == null)
-        {
-            return resolved;
-        }
-
-        if (MatchesAnyVariant(mzLibMod, variants))
-        {
-            return resolved;
-        }
-
-        return null;
+        return MatchesResolvedName(resolved.Value.MzLibModification, mod.OriginalRepresentation, mod.TargetResidue)
+            ? resolved
+            : null;
     }
 
-    public override CanonicalModification? TryResolve(string originalRepresentation, char? targetResidue = null, Chemistry.ChemicalFormula? chemicalFormula = null)
+    public override CanonicalModification? TryResolve(string originalRepresentation, char? targetResidue = null, Chemistry.ChemicalFormula? chemicalFormula = null, ModificationPositionType? positionType = null)
     {
-        var resolved = base.TryResolve(originalRepresentation, targetResidue, chemicalFormula);
+        var resolved = base.TryResolve(originalRepresentation, targetResidue, chemicalFormula, positionType);
         if (resolved == null || string.IsNullOrWhiteSpace(originalRepresentation))
         {
             return resolved;
         }
 
-        var normalized = NormalizeRepresentation(originalRepresentation);
-        var trimmed = TrimUniProtSuffixes(normalized);
-        var variants = BuildNameVariants(trimmed, targetResidue);
-        if (variants.Count == 0)
-        {
-            return resolved;
-        }
-
-        var mzLibMod = resolved.Value.MzLibModification;
-        if (mzLibMod == null)
-        {
-            return resolved;
-        }
-
-        if (MatchesAnyVariant(mzLibMod, variants))
-        {
-            return resolved;
-        }
-
-        return null;
+        return MatchesResolvedName(resolved.Value.MzLibModification, originalRepresentation, targetResidue)
+            ? resolved
+            : null;
     }
 
-    protected override IEnumerable<Modification> FilterByName(IEnumerable<Modification> source, string name, char? targetResidue)
+    private bool MatchesResolvedName(Modification? modification, string originalRepresentation, char? targetResidue)
     {
-        var normalized = NormalizeRepresentation(name);
-        if (string.IsNullOrEmpty(normalized))
+        if (modification == null)
         {
-            return Enumerable.Empty<Modification>();
+            return false;
         }
 
-        var cacheKey = (normalized, targetResidue);
-        if (_nameResidueCache.TryGetValue(cacheKey, out var cached) && cached != null)
+        var normalized = NormalizeRepresentation(originalRepresentation);
+        if (string.IsNullOrWhiteSpace(normalized) || IsMassRepresentation(normalized))
         {
-            return new[] { cached };
+            return true;
         }
 
-        var formulaMatches = new List<Modification>();
-        var nameMatches = new List<Modification>();
-
-        source ??= CandidateSet;
-        var trimmedName = TrimUniProtSuffixes(normalized);
-        var nameVariants = BuildNameVariants(trimmedName, targetResidue);
-
-        foreach (var mod in source)
+        var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var candidate in ExpandNameCandidates(normalized, targetResidue))
         {
-            if (mod.ChemicalFormula != null && ContainsVariant(mod.IdWithMotif, nameVariants))
+            if (!string.IsNullOrWhiteSpace(candidate))
             {
-                formulaMatches.Add(mod);
-            }
-
-            if (MatchesUniProtName(mod.IdWithMotif, nameVariants))
-            {
-                nameMatches.Add(mod);
+                candidates.Add(candidate);
             }
         }
 
-        var motifMatches = source.Where(m =>
-            m.Target != null &&
-            (targetResidue == null ||
-             m.Target.ToString().Contains(targetResidue.Value) ||
-             m.Target.ToString().Equals("X", StringComparison.OrdinalIgnoreCase)))
-            .ToList();
-
-        // If no name matches found, return empty to let other filters (formula, mass) be tried
-        // Don't fall back to all candidates - that defeats the purpose of name filtering
-        var candidates = nameMatches.Count > 0
-            ? nameMatches
-            : formulaMatches.Count > 0
-                ? formulaMatches
-                : Enumerable.Empty<Modification>().ToList();
-        
         if (candidates.Count == 0)
         {
-            return Enumerable.Empty<Modification>();
+            return true;
         }
 
-        var intersected = candidates.Intersect(motifMatches).ToList();
-        if (intersected.Count == 0)
-        {
-            intersected = candidates;
-        }
-
-        var resolved = ScoreAndSelect(intersected, nameVariants, targetResidue);
-        if (resolved != null)
-        {
-            _nameResidueCache[cacheKey] = resolved;
-            return new[] { resolved };
-        }
-
-        return intersected;
+        var candidateList = candidates.ToList();
+        return ContainsVariant(modification.IdWithMotif, candidateList) ||
+               ContainsVariant(modification.OriginalId, candidateList);
     }
 
     protected override string NormalizeRepresentation(string representation)
@@ -533,6 +457,20 @@ public class UniProtModificationLookup : ModificationLookupBase
             variants.Add("N6-(pyridoxal phosphate)lysine");
             variants.Add("N6-(pyridoxal phosphate)lysine on K");
         }
+
+        // Water loss on E -> Pyrrolidone carboxylic acid (Glu)
+        if (trimmedName.IndexOf("water loss", StringComparison.OrdinalIgnoreCase) >= 0 && residue == 'E')
+        {
+            variants.Add("Pyrrolidone carboxylic acid (Glu)");
+            variants.Add("Pyrrolidone carboxylic acid (Glu) on E");
+        }
+
+        // Amidation on E -> Glutamic acid 1-amide
+        if (trimmedName.IndexOf("amidation", StringComparison.OrdinalIgnoreCase) >= 0 && residue == 'E')
+        {
+            variants.Add("Glutamic acid 1-amide");
+            variants.Add("Glutamic acid 1-amide on E");
+        }
         
         // Sulfonation on Y -> Sulfotyrosine
         if (trimmedName.IndexOf("sulfon", StringComparison.OrdinalIgnoreCase) >= 0 && residue == 'Y')
@@ -573,19 +511,6 @@ public class UniProtModificationLookup : ModificationLookupBase
         return string.Concat(input.AsSpan(0, start), replacement, input.AsSpan(start + search.Length));
     }
 
-    private static bool MatchesUniProtName(string idWithMotif, IReadOnlyList<string> nameVariants) =>
-        ContainsVariant(idWithMotif, nameVariants);
-
-    private static bool MatchesAnyVariant(Modification mod, IReadOnlyList<string> variants)
-    {
-        if (mod == null || variants == null || variants.Count == 0)
-        {
-            return false;
-        }
-
-        return MatchesUniProtName(mod.IdWithMotif, variants) || MatchesUniProtName(mod.OriginalId, variants);
-    }
-
     private static bool ContainsVariant(string text, IReadOnlyList<string> variants)
     {
         if (string.IsNullOrEmpty(text) || variants == null || variants.Count == 0)
@@ -604,125 +529,30 @@ public class UniProtModificationLookup : ModificationLookupBase
         return false;
     }
 
-    private Modification? ScoreAndSelect(IList<Modification> candidates, IReadOnlyList<string> nameVariants, char? targetResidue)
+    protected override IEnumerable<string> ExpandNameCandidates(string normalizedRepresentation, char? targetResidue)
     {
-        if (candidates.Count == 0)
+        if (string.IsNullOrWhiteSpace(normalizedRepresentation))
         {
-            return null;
+            yield break;
         }
 
-        var nonLabel = candidates.Where(c => !c.IdWithMotif.StartsWith("Label", StringComparison.OrdinalIgnoreCase)).ToList();
-        if (nonLabel.Count > 0)
+        var normalized = NormalizeRepresentation(normalizedRepresentation);
+        if (string.IsNullOrWhiteSpace(normalized))
         {
-            candidates = nonLabel;
+            yield break;
         }
 
-        var variants = nameVariants?.Count > 0 ? nameVariants : Array.Empty<string>();
+        var trimmed = TrimUniProtSuffixes(normalized);
+        foreach (var candidate in base.ExpandNameCandidates(trimmed, targetResidue))
+        {
+            yield return candidate;
+        }
 
-        return candidates
-            .OrderByDescending(mod => HasExactVariantMatch(mod, variants))
-            .ThenBy(mod => GetFirstVariantIndex(mod, variants))
-            .ThenByDescending(mod => GetBestOverlapScore(mod.IdWithMotif, variants))
-            .ThenByDescending(mod => targetResidue != null && mod.Target != null && mod.Target.ToString().Contains(targetResidue.Value))
-            .ThenByDescending(mod => mod.ModificationType?.Length ?? 0)
-            .ThenBy(mod => mod.IdWithMotif.Length)
-            .FirstOrDefault();
+        foreach (var variant in BuildNameVariants(trimmed, targetResidue))
+        {
+            yield return variant;
+        }
     }
 
-    private static bool HasExactVariantMatch(Modification mod, IReadOnlyList<string> variants)
-    {
-        if (mod == null || variants == null || variants.Count == 0)
-        {
-            return false;
-        }
-
-        foreach (var variant in variants)
-        {
-            if (string.IsNullOrWhiteSpace(variant))
-            {
-                continue;
-            }
-
-            if (MatchesExactVariant(mod, variant))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private static int GetFirstVariantIndex(Modification mod, IReadOnlyList<string> variants)
-    {
-        if (mod == null || variants == null || variants.Count == 0)
-        {
-            return int.MaxValue;
-        }
-
-        for (int i = 0; i < variants.Count; i++)
-        {
-            var variant = variants[i];
-            if (string.IsNullOrWhiteSpace(variant))
-            {
-                continue;
-            }
-
-            if (MatchesExactVariant(mod, variant) || ContainsVariant(mod.IdWithMotif, new[] { variant }))
-            {
-                return i;
-            }
-        }
-
-        return int.MaxValue;
-    }
-
-    private static bool MatchesExactVariant(Modification mod, string variant)
-    {
-        if (mod == null || string.IsNullOrWhiteSpace(variant))
-        {
-            return false;
-        }
-
-        if (!string.IsNullOrEmpty(mod.OriginalId) &&
-            string.Equals(mod.OriginalId, variant, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (!string.IsNullOrEmpty(mod.IdWithMotif) &&
-            string.Equals(mod.IdWithMotif, variant, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (!string.IsNullOrEmpty(mod.IdWithMotif) &&
-            mod.IdWithMotif.EndsWith(" on X", StringComparison.OrdinalIgnoreCase))
-        {
-            var baseId = mod.IdWithMotif[..^5].TrimEnd();
-            return string.Equals(baseId, variant, StringComparison.OrdinalIgnoreCase);
-        }
-
-        return false;
-    }
-
-    private static int GetBestOverlapScore(string idWithMotif, IReadOnlyList<string> variants)
-    {
-        if (string.IsNullOrEmpty(idWithMotif) || variants == null || variants.Count == 0)
-        {
-            return 0;
-        }
-
-        var best = 0;
-        foreach (var variant in variants)
-        {
-            if (string.IsNullOrWhiteSpace(variant))
-            {
-                continue;
-            }
-
-            best = Math.Max(best, GetOverlapScore(idWithMotif, variant));
-        }
-
-        return best;
-    }
+    
 }

@@ -40,6 +40,7 @@ public interface IModificationLookup
     /// <param name="targetResidue">The amino acid or nucleotide this mod is attached to, if known.</param>
     /// <param name="chemicalFormula">Optional chemical formula to use as a fallback for matching
     /// when the original representation cannot be resolved directly.</param>
+    /// <param name="positionType">N, C, or internal</param>
     /// <returns>An enriched modification if found; otherwise, null.</returns>
-    CanonicalModification? TryResolve(string originalRepresentation, char? targetResidue = null, ChemicalFormula? chemicalFormula = null);
+    CanonicalModification? TryResolve(string originalRepresentation, char? targetResidue = null, ChemicalFormula? chemicalFormula = null, ModificationPositionType? positionType = null);
 }

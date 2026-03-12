@@ -182,6 +182,44 @@ namespace Test.Omics.SequenceConversion
                 unimodUpperCase: "M[UNIMOD:35]EPTM[UNIMOD:35]IDE",
                 uniProtFormat: "M[Methionine sulfoxide]EPTM[Methionine sulfoxide]IDE"
             ),
+
+            // 10. Water loss (negative mass shift)
+            new SequenceConversionTestCase(
+                description: "dehydrobutyrine on T (negative mass shift)",
+                mzLib: "PEPT[Less Common:Dehydrobutyrine on T]TIDE",
+                massShift: "PEPT[-18.0106]TIDE",
+                chronologer: "-PEPTTIDE_",
+                baseSeq: "PEPTTIDE",
+                residueMods: 1,
+                unimodUpperCase: "PEPT[UNIMOD:23]TIDE",
+                uniProtFormat: "PEPT[2,3-didehydrobutyrine]TIDE"
+                ),
+
+            // 11. N-term pyroglutamate formation (loss of water, -18.0106 Da)
+            new SequenceConversionTestCase(
+                description: "N-term pyroglutamate formation (loss of water, -18.0106 Da)",
+                mzLib: "[Common Artifact:Water Loss on E]EPTIDE",
+                massShift: "[-18.0106]EPTIDE",
+                chronologer: ")EPTIDE_",
+                baseSeq: "EPTIDE",
+                hasNTerm: true,
+                residueMods: 0,
+                unimodUpperCase: "[UNIMOD:27]EPTIDE",
+                uniProtFormat: "[Pyrrolidone carboxylic acid (Glu)]EPTIDE"
+                ),
+
+            // 12. C-term modification
+            new SequenceConversionTestCase(
+                description: "C-terminal amidation",
+                mzLib: "PEPTIDE-[Common Biological:Amidation on X]",
+                massShift: "PEPTIDE-[-0.984]",
+                chronologer: "-PEPTIDE_",
+                baseSeq: "PEPTIDE",
+                hasCTerm: true,
+                residueMods: 0,
+                unimodUpperCase: "PEPTIDE-[UNIMOD:2]",
+                uniProtFormat: "PEPTIDE-[Glutamic acid 1-amide]"
+                )
         };
 
         /// <summary>

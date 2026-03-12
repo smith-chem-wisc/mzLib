@@ -35,7 +35,7 @@ public abstract class ModificationLookupBase : IModificationLookup
             resolvedCandidates = candidateSet.ToList();
         }
 
-        CandidateSet = resolvedCandidates ?? Array.Empty<Modification>();
+        CandidateSet = resolvedCandidates ?? Mods.AllKnownMods;
         MassTolerance = new AbsoluteTolerance(massTolerance ?? 0.01);
     }
 
@@ -63,6 +63,7 @@ public abstract class ModificationLookupBase : IModificationLookup
             mod.ChemicalFormula,
             mod.MonoisotopicMass ?? mod.ChemicalFormula?.MonoisotopicMass ?? null,
             MassTolerance,
+            mod.PositionType,
             context => ResolveInternal(context, () => GetPrimaryCandidates(mod)));
 
         if (resolved != null)
@@ -72,7 +73,7 @@ public abstract class ModificationLookupBase : IModificationLookup
     }
 
     /// <inheritdoc />
-    public virtual CanonicalModification? TryResolve(string originalRepresentation, char? targetResidue = null, ChemicalFormula? chemicalFormula = null)
+    public virtual CanonicalModification? TryResolve(string originalRepresentation, char? targetResidue = null, ChemicalFormula? chemicalFormula = null, ModificationPositionType? positionType = null)
     {
         var normalized = NormalizeRepresentation(originalRepresentation);
         var resolved = ResolveWithCache(
@@ -81,6 +82,7 @@ public abstract class ModificationLookupBase : IModificationLookup
             chemicalFormula,
             chemicalFormula?.MonoisotopicMass ?? null,
             MassTolerance,
+            positionType, 
             context => ResolveInternal(context, null));
 
         return resolved != null
@@ -98,21 +100,22 @@ public abstract class ModificationLookupBase : IModificationLookup
         ChemicalFormula? formula,
         double? mass,
         Tolerance massTolerance,
+        ModificationPositionType? term,
         Func<ResolutionContext, Modification?> resolver)
     {
-        var cacheKey = BuildCacheKey(normalizedRepresentation, residue, formula, mass, massTolerance);
+        var cacheKey = BuildCacheKey(normalizedRepresentation, residue, formula, mass, massTolerance, term);
         if (_instanceCache.TryGetValue(cacheKey, out var cached))
         {
             return cached;
         }
 
-        var context = new ResolutionContext(normalizedRepresentation, residue, formula, mass);
+        var context = new ResolutionContext(normalizedRepresentation, residue, formula, mass, term);
         var resolved = resolver(context);
         _instanceCache[cacheKey] = resolved;
         return resolved;
     }
 
-    protected static string BuildCacheKey(string representation, char? residue, ChemicalFormula? formula, double? mass, Tolerance massTolerance)
+    protected static string BuildCacheKey(string representation, char? residue, ChemicalFormula? formula, double? mass, Tolerance massTolerance, ModificationPositionType? term)
     {
         var builder = new StringBuilder(representation ?? string.Empty);
 
@@ -138,23 +141,31 @@ public abstract class ModificationLookupBase : IModificationLookup
             builder.Append(massTolerance.Value.ToString("G6", CultureInfo.InvariantCulture));
         }
 
+        if (term.HasValue)
+        {
+            builder.Append("|term:");
+            builder.Append(term);
+        }
+
         return builder.ToString();
     }
 
     private readonly struct ResolutionContext
     {
-        public ResolutionContext(string representation, char? residue, ChemicalFormula? formula, double? mass)
+        public ResolutionContext(string representation, char? residue, ChemicalFormula? formula, double? mass, ModificationPositionType? term)
         {
             Representation = representation ?? string.Empty;
             TargetResidue = residue;
             ChemicalFormula = formula;
             Mass = mass;
+            Term = term;
         }
 
         public string Representation { get; }
         public char? TargetResidue { get; }
         public ChemicalFormula? ChemicalFormula { get; }
         public double? Mass { get; }
+        public ModificationPositionType? Term { get; }
     }
 
     #endregion
@@ -234,8 +245,11 @@ public abstract class ModificationLookupBase : IModificationLookup
         bool anyFilterApplied = false;
         bool anyFilterMatched = false;
 
-        // Apply name filter if we have a representation
-        if (!string.IsNullOrWhiteSpace(context.Representation))
+        var hasRepresentation = !string.IsNullOrWhiteSpace(context.Representation);
+        var isMassRepresentation = hasRepresentation && IsMassRepresentation(context.Representation);
+
+        // Apply name filter if we have a non-mass representation
+        if (hasRepresentation && !isMassRepresentation)
         {
             anyFilterApplied = true;
             var byName = FilterByName(candidates, context.Representation, context.TargetResidue).ToList();
@@ -247,6 +261,13 @@ public abstract class ModificationLookupBase : IModificationLookup
                 if (result != null)
                 {
                     return result;
+                }
+            }
+            else
+            {
+                if (context.ChemicalFormula == null && !context.Mass.HasValue)
+                {
+                    return null;
                 }
             }
         }
@@ -266,6 +287,10 @@ public abstract class ModificationLookupBase : IModificationLookup
                     return result;
                 }
             }
+            else
+            {
+                return null;
+            }
         }
 
         // Apply mass filter if available
@@ -283,6 +308,26 @@ public abstract class ModificationLookupBase : IModificationLookup
                     return result;
                 }
             }
+            else
+            {
+                return null;
+            }
+        }
+
+        if (context.TargetResidue.HasValue)
+        {
+            anyFilterApplied = true;
+            var byMotif = FilterByMotif(candidates, context.TargetResidue.Value).ToList();
+            if (byMotif.Count > 0)
+            {
+                anyFilterMatched = true;
+                candidates = byMotif;
+                var result = SelectBestCandidate(candidates, context.TargetResidue);
+                if (result != null)
+                {
+                    return result;
+                }
+            }
         }
 
         // If we applied filters but none matched, return null
@@ -290,6 +335,11 @@ public abstract class ModificationLookupBase : IModificationLookup
         if (anyFilterApplied && !anyFilterMatched)
         {
             return null;
+        }
+
+        if (context.Term.HasValue && candidates.Count > 0)
+        {
+            candidates = FilterByTerm(candidates, context.Term.Value).ToList();
         }
 
         // Final attempt with remaining candidates (only if filters matched or no filters applied)
@@ -457,6 +507,61 @@ public abstract class ModificationLookupBase : IModificationLookup
         return FilterByIdentifierSet(source, identifiers);
     }
 
+    protected IEnumerable<Modification> FilterByMotif(IEnumerable<Modification> source, char motif)
+    {
+        source ??= CandidateSet;
+        return source.Where(m => m.Target != null && 
+                                 (m.Target.Motif == motif.ToString() || m.Target.Motif == "X" || string.IsNullOrEmpty(m.Target.Motif)));
+    }
+
+    protected virtual IEnumerable<Modification> FilterByTerm(IEnumerable<Modification> source, ModificationPositionType term)
+    {
+        source ??= CandidateSet;
+        return source.Where(m => MatchesTermRestriction(m.LocationRestriction, term));
+    }
+
+    protected static bool MatchesTermRestriction(string? locationRestriction, ModificationPositionType term)
+    {
+        if (string.IsNullOrWhiteSpace(locationRestriction) ||
+            locationRestriction.Equals("Anywhere.", StringComparison.OrdinalIgnoreCase) ||
+            locationRestriction.Equals("Unassigned.", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return term switch
+        {
+            ModificationPositionType.NTerminus => IsNTerminalRestriction(locationRestriction),
+            ModificationPositionType.CTerminus => IsCTerminalRestriction(locationRestriction),
+            ModificationPositionType.Residue => !IsNTerminalRestriction(locationRestriction) && !IsCTerminalRestriction(locationRestriction),
+            _ => true
+        };
+    }
+
+    private static bool IsNTerminalRestriction(string locationRestriction)
+    {
+        return locationRestriction.Contains("N-terminal", StringComparison.OrdinalIgnoreCase) ||
+               locationRestriction.Contains("5'-terminal", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsCTerminalRestriction(string locationRestriction)
+    {
+        return locationRestriction.Contains("C-terminal", StringComparison.OrdinalIgnoreCase) ||
+               locationRestriction.Contains("3'-terminal", StringComparison.OrdinalIgnoreCase);
+    }
+
+    protected static bool IsMassRepresentation(string representation)
+    {
+        if (string.IsNullOrWhiteSpace(representation))
+        {
+            return false;
+        }
+
+        var trimmed = representation.Trim().Trim('[', ']');
+        trimmed = trimmed.TrimStart('+');
+        return double.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out _);
+    }
+
     protected IEnumerable<Modification> FilterByUnimodId(IEnumerable<Modification> source, int unimodId)
     {
         source ??= CandidateSet;
@@ -498,6 +603,8 @@ public abstract class ModificationLookupBase : IModificationLookup
 
         return false;
     }
+
+
 
     #endregion
 
