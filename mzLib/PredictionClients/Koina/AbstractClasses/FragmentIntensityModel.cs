@@ -214,7 +214,7 @@ namespace PredictionClients.Koina.AbstractClasses
                     // For invalid inputs, we can choose to add a placeholder prediction with a warning, or simply skip them. Here we add a placeholder with a warning for traceability.
                     realignedPredictions.Add(new PeptideFragmentIntensityPrediction(
                         FullSequence: ModelInputs[i].FullSequence,
-                        ValidatedFullSequence: ModelInputs[i].ValidatedFullSequence ?? ModelInputs[i].FullSequence,
+                        ValidatedFullSequence: ModelInputs[i].ValidatedFullSequence ?? null,
                         PrecursorCharge: ModelInputs[i].PrecursorCharge,
                         FragmentAnnotations: null,
                         FragmentMZs: null,

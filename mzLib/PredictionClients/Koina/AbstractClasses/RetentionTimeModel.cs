@@ -15,7 +15,8 @@ namespace PredictionClients.Koina.AbstractClasses
     /// <param name="IsIndexed">True if the model predicts indexed retention time (iRT); false for absolute retention time</param>
     /// <param name="Warning">Warning message if any issues occurred during prediction</param>
     public record PeptideRTPrediction(
-        string FullSequence,
+        string FullSequence, 
+        string ValidatedFullSequence,
         double? PredictedRetentionTime,
         bool? IsIndexed,
         WarningException? Warning = null
@@ -175,6 +176,7 @@ namespace PredictionClients.Koina.AbstractClasses
                     // For invalid inputs, add a placeholder prediction with a warning
                     realignedPredictions.Add(new PeptideRTPrediction(
                         FullSequence: ModelInputs[i].FullSequence,
+                        ValidatedFullSequence: ModelInputs[i].ValidatedFullSequence ?? null,
                         PredictedRetentionTime: null,
                         IsIndexed: null,
                         Warning: ModelInputs[i].SequenceWarning ?? new WarningException("Input was invalid and skipped during prediction.")
@@ -244,6 +246,7 @@ namespace PredictionClients.Koina.AbstractClasses
             {
                 predictions.Add(new PeptideRTPrediction(
                     FullSequence: requestInputs[i].FullSequence,
+                    ValidatedFullSequence: ModelInputs[i].ValidatedFullSequence ?? null,
                     PredictedRetentionTime: Convert.ToDouble(rtOutputs[i]),
                     IsIndexed: IsIndexedRetentionTimeModel,
                     Warning: requestInputs[i].SequenceWarning

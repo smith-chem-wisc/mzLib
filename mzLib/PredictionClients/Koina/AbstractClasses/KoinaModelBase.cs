@@ -112,25 +112,5 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         return apiSequence;
     }
 
-    /// <summary>
-    /// Validates that a peptide sequence meets model constraints for length and amino acid composition.
-    /// Removes modifications before validation to check only the base amino acid sequence.
-    /// </summary>
-    /// <param name="baseSequence">Peptide sequence with potential modifications</param>
-    /// <returns>True if sequence meets model length and composition requirements; otherwise false</returns>
-    /// <remarks>
-    /// Validation criteria:
-    /// - Strips modification annotations using ModificationPattern
-    /// - Checks against AllowedAminoAcidPattern for valid amino acids
-    /// - Validates length is within [MinPeptideLength, MaxPeptideLength] range
-    /// </remarks 
-    protected virtual bool IsValidBaseSequence(string baseSequence)
-    {
-        return _sequenceConverter.IsValidBaseSequence(
-            baseSequence,
-            AllowedAminoAcidPattern,
-            MinPeptideLength,
-            MaxPeptideLength);
-    }
     #endregion
 }

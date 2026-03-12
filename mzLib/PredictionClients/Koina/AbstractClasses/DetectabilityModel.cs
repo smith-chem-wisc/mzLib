@@ -15,7 +15,8 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
     /// <param name="DetectabilityProbabilities">Probability scores for each detectability class (Not Detectable, Low, Intermediate, High)</param>
     /// <param name="Warning">Warning message if any issues occurred during prediction</param>
     public record PeptideDetectabilityPrediction(
-        string FullSequence,
+        string FullSequence, 
+        string ValidatedFullSequence,
         (double NotDetectable,
          double LowDetectability,
          double IntermediateDetectability,
@@ -190,6 +191,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
                     // For invalid inputs, add a placeholder prediction with a warning
                     realignedPredictions.Add(new PeptideDetectabilityPrediction(
                         FullSequence: ModelInputs[i].FullSequence,
+                        ValidatedFullSequence: ModelInputs[i].ValidatedFullSequence ?? null,
                         DetectabilityProbabilities: null,
                         Warning: ModelInputs[i].SequenceWarning ?? new WarningException("Input was invalid and skipped during prediction.")
                     ));
@@ -261,6 +263,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
                 var peptideFlyabilityClassProbs = detectabilityPredictions[i].Select(p => (double)p).ToList();
                 predictions.Add(new PeptideDetectabilityPrediction(
                     requestInputs[i].FullSequence,
+                    ValidatedFullSequence: ModelInputs[i].ValidatedFullSequence ?? null,
                     (
                         NotDetectable: peptideFlyabilityClassProbs[0],
                         LowDetectability: peptideFlyabilityClassProbs[1],
