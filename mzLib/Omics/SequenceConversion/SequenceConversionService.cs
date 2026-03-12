@@ -44,23 +44,23 @@ public class SequenceConversionService : ISequenceConversionService
         // Register mass shift format
         service.RegisterParser(MassShiftSequenceParser.Instance);
         service.RegisterSerializer(MassShiftSequenceSerializer.Instance);
-        service.RegisterConverter(new SequenceConverter(MassShiftSequenceParser.Instance, MassShiftSequenceSerializer.Instance));
+        service.RegisterConverter(new SequenceConverter(MzLibSequenceParser.Instance, MassShiftSequenceSerializer.Instance));
 
         // Register Chronologer format (serializer only)
         service.RegisterSerializer(ChronologerSequenceSerializer.Instance);
-        service.RegisterConverter(new SequenceConverter(null, ChronologerSequenceSerializer.Instance));
+        service.RegisterConverter(new SequenceConverter(MzLibSequenceParser.Instance, ChronologerSequenceSerializer.Instance));
 
         // Register Unimod format (serializer only)
         service.RegisterSerializer(UnimodSequenceSerializer.Instance);
-        service.RegisterConverter(new SequenceConverter(null, UnimodSequenceSerializer.Instance));
+        service.RegisterConverter(new SequenceConverter(MzLibSequenceParser.Instance, UnimodSequenceSerializer.Instance));
 
         // Register UniProt format (serializer only)
         service.RegisterSerializer(UniProtSequenceSerializer.Instance);
-        service.RegisterConverter(new SequenceConverter(null, UniProtSequenceSerializer.Instance));
+        service.RegisterConverter(new SequenceConverter(MzLibSequenceParser.Instance, UniProtSequenceSerializer.Instance));
 
         // Register EssentialSequence (serializer only with default (from MM) mod allowances are w)
         service.RegisterSerializer(EssentialSequenceSerializer.Instance);
-        service.RegisterConverter(new SequenceConverter(null, EssentialSequenceSerializer.Instance));
+        service.RegisterConverter(new SequenceConverter(MzLibSequenceParser.Instance, EssentialSequenceSerializer.Instance));
 
         return service;
     }
@@ -72,7 +72,7 @@ public class SequenceConversionService : ISequenceConversionService
     public IReadOnlyCollection<string> AvailableTargetFormats => _serializers.Keys.ToList().AsReadOnly();
 
     /// <inheritdoc />
-    public IReadOnlyCollection<string> AvailableConverters => _converters.Keys.ToList().AsReadOnly();
+    public IReadOnlyCollection<string> AvailableConverters => BuildAvailableConverters();
 
     /// <inheritdoc />
     public void RegisterParser(ISequenceParser parser)
@@ -153,6 +153,12 @@ public class SequenceConversionService : ISequenceConversionService
     {
         warnings ??= new ConversionWarnings();
 
+        var converter = GetConverter(sourceFormat, targetFormat);
+        if (converter != null)
+        {
+            return converter.Convert(input, warnings, mode);
+        }
+
         // Parse to canonical form
         var canonical = Parse(input, sourceFormat, warnings, mode);
         if (canonical == null)
@@ -231,7 +237,9 @@ public class SequenceConversionService : ISequenceConversionService
     /// </summary>
     public ISequenceParser? GetParser(string formatName)
     {
-        return _parsers.TryGetValue(formatName, out var parser) ? parser : null;
+        return CanParseFormat(formatName) 
+            ? _parsers.GetValueOrDefault(formatName) 
+            : null;
     }
 
     /// <summary>
@@ -239,15 +247,35 @@ public class SequenceConversionService : ISequenceConversionService
     /// </summary>
     public ISequenceSerializer? GetSerializer(string formatName)
     {
-        return _serializers.TryGetValue(formatName, out var serializer) ? serializer : null;
+        return CanSerializeFormat(formatName) 
+            ? _serializers.GetValueOrDefault(formatName) 
+            : null;
     }
 
     /// <summary>
-    /// Gets the converter for a specific format, or null if not registered.
+    /// Gets the converter for a specific source and target format, or null if unavailable.
     /// </summary>
-    public ISequenceConverter? GetConverter(string formatName)
+    public ISequenceConverter? GetConverter(string sourceFormat, string targetFormat)
     {
-        return _converters.TryGetValue(formatName, out var converter) ? converter : null;
+        if (string.IsNullOrWhiteSpace(sourceFormat) || string.IsNullOrWhiteSpace(targetFormat))
+        {
+            return null;
+        }
+
+        var key = BuildConverterKey(sourceFormat, targetFormat);
+        if (_converters.TryGetValue(key, out var converter))
+        {
+            return converter;
+        }
+
+        if (CanParseFormat(sourceFormat) && CanSerializeFormat(targetFormat))
+        {
+            converter = new SequenceConverter(_parsers[sourceFormat], _serializers[targetFormat]);
+            _converters[key] = converter;
+            return converter;
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -259,6 +287,28 @@ public class SequenceConversionService : ISequenceConversionService
     /// Checks if a specific target format is available for serialization.
     /// </summary>
     public bool CanSerializeFormat(string formatName) => _serializers.ContainsKey(formatName);
+
+    private static string BuildConverterKey(string sourceFormat, string targetFormat)
+        => $"{sourceFormat}-{targetFormat}";
+
+    private IReadOnlyCollection<string> BuildAvailableConverters()
+    {
+        if (_parsers.Count == 0 || _serializers.Count == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        var converters = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var source in _parsers.Keys)
+        {
+            foreach (var target in _serializers.Keys)
+            {
+                converters.Add(BuildConverterKey(source, target));
+            }
+        }
+
+        return converters.ToList().AsReadOnly();
+    }
 
     #region Error Handling
 

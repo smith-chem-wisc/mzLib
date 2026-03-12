@@ -2,13 +2,6 @@ using Omics.Modifications;
 
 namespace Omics.SequenceConversion;
 
-public enum BioPolymerModificationSelection
-{
-    PreferOriginal,
-    OriginalNonVariantOnly,
-    PossibleLocalizedOnly
-}
-
 public static class SequenceConversionExtensions
 {
     public static CanonicalSequence ToCanonicalSequence(
@@ -70,7 +63,6 @@ public static class SequenceConversionExtensions
 
     public static CanonicalSequence ToCanonicalSequence(
         this IBioPolymer bioPolymer,
-        BioPolymerModificationSelection selection = BioPolymerModificationSelection.PreferOriginal,
         ConversionWarnings? warnings = null,
         string? sourceFormat = null)
     {
@@ -84,7 +76,7 @@ public static class SequenceConversionExtensions
             .WithSourceFormat(format);
 
         var baseSequence = bioPolymer.BaseSequence;
-        var mods = SelectModDictionary(bioPolymer, selection, warnings);
+        var mods = SelectModDictionary(bioPolymer, warnings);
 
         foreach (var kvp in mods)
         {
@@ -153,12 +145,11 @@ public static class SequenceConversionExtensions
     public static string? Serialize(
         this IBioPolymer bioPolymer,
         string targetFormat,
-        BioPolymerModificationSelection selection = BioPolymerModificationSelection.PreferOriginal,
         ConversionWarnings? warnings = null,
         SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException,
         SequenceConversionService? service = null)
     {
-        var canonical = bioPolymer.ToCanonicalSequence(selection, warnings);
+        var canonical = bioPolymer.ToCanonicalSequence(warnings);
         return (service ?? SequenceConversionService.Default).Serialize(canonical, targetFormat, warnings, mode);
     }
 
@@ -175,42 +166,31 @@ public static class SequenceConversionExtensions
     public static string? Serialize(
         this IBioPolymer bioPolymer,
         ISequenceSerializer serializer,
-        BioPolymerModificationSelection selection = BioPolymerModificationSelection.PreferOriginal,
         ConversionWarnings? warnings = null,
         SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException)
     {
-        var canonical = bioPolymer.ToCanonicalSequence(selection, warnings);
+        var canonical = bioPolymer.ToCanonicalSequence(warnings);
         return serializer.Serialize(canonical, warnings, mode);
     }
 
     private static IDictionary<int, List<Modification>> SelectModDictionary(
         IBioPolymer bioPolymer,
-        BioPolymerModificationSelection selection,
         ConversionWarnings warnings)
     {
         var originals = bioPolymer.OriginalNonVariantModifications;
-        var localized = bioPolymer.OneBasedPossibleLocalizedModifications;
-
-        switch (selection)
+        if (originals != null && originals.Count > 0)
         {
-            case BioPolymerModificationSelection.OriginalNonVariantOnly:
-                return originals ?? new Dictionary<int, List<Modification>>();
-            case BioPolymerModificationSelection.PossibleLocalizedOnly:
-                return localized ?? new Dictionary<int, List<Modification>>();
-            default:
-                if (originals != null && originals.Count > 0)
-                {
-                    return originals;
-                }
-
-                if (localized != null && localized.Count > 0)
-                {
-                    warnings.AddWarning("Falling back to possible localized modifications for canonical conversion.");
-                    return localized;
-                }
-
-                return new Dictionary<int, List<Modification>>();
+            return originals;
         }
+
+        var localized = bioPolymer.OneBasedPossibleLocalizedModifications;
+        if (localized != null && localized.Count > 0)
+        {
+            warnings.AddWarning("Falling back to possible localized modifications for canonical conversion.");
+            return localized;
+        }
+
+        return new Dictionary<int, List<Modification>>();
     }
 
     private static Modification? SelectFirstModification(

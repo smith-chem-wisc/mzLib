@@ -17,7 +17,7 @@ public interface ISequenceConversionService
     IReadOnlyCollection<string> AvailableTargetFormats { get; }
 
     /// <summary>
-    /// Gets the names of all registered converters (formats with parser/serializer wrappers).
+    /// Gets the names of all available converters ("{sourceFormat}-{targetFormat}").
     /// </summary>
     IReadOnlyCollection<string> AvailableConverters { get; }
 
@@ -86,13 +86,13 @@ public interface ISequenceConversionService
     void RegisterSerializer(ISequenceSerializer serializer);
 
     /// <summary>
-    /// Registers a converter for a specific format.
+    /// Registers a converter for a specific source-to-target format.
     /// </summary>
     /// <param name="converter">The converter to register.</param>
     void RegisterConverter(ISequenceConverter converter);
 
     /// <summary>
-    /// Gets the converter for a specific format, or null if not registered.
+    /// Gets the converter for a specific source and target format, or null if unavailable.
     /// </summary>
-    ISequenceConverter? GetConverter(string formatName);
+    ISequenceConverter? GetConverter(string sourceFormat, string targetFormat);
 }

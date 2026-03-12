@@ -1,35 +1,36 @@
 namespace Omics.SequenceConversion;
 
 /// <summary>
-/// Wraps a parser/serializer pair for a single format.
+/// Wraps a parser/serializer pair for a source-to-target conversion.
 /// Provides a unified API for parse/serialize/convert operations.
 /// </summary>
 public interface ISequenceConverter
 {
     /// <summary>
-    /// Gets the unique name of the format handled by this converter.
+    /// Gets the unique name of the converter in the format "{sourceFormat}-{targetFormat}".
     /// </summary>
     string FormatName { get; }
 
     /// <summary>
-    /// Gets the parser for this format (null if parsing is not supported).
+    /// Gets the source format handled by this converter.
     /// </summary>
-    ISequenceParser? Parser { get; }
+    string SourceFormatName { get; }
 
     /// <summary>
-    /// Gets the serializer for this format (null if serialization is not supported).
+    /// Gets the target format handled by this converter.
     /// </summary>
-    ISequenceSerializer? Serializer { get; }
+    string TargetFormatName { get; }
 
     /// <summary>
-    /// Returns true if this converter can parse input strings.
+    /// Gets the parser for the source format.
     /// </summary>
-    bool CanParse { get; }
+    ISequenceParser Parser { get; }
 
     /// <summary>
-    /// Returns true if this converter can serialize canonical sequences.
+    /// Gets the serializer for the target format.
     /// </summary>
-    bool CanSerialize { get; }
+    ISequenceSerializer Serializer { get; }
+
 
     /// <summary>
     /// Parses an input string into a canonical sequence.
