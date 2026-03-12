@@ -18,7 +18,11 @@ public abstract class ModificationLookupBase : IModificationLookup
 {
     #region State and Construction
 
-    private static readonly ConcurrentDictionary<string, Modification?> RepresentationCache = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>
+    /// Instance-scoped cache to prevent cross-lookup pollution.
+    /// Each lookup type maintains its own cache keyed by representation + context.
+    /// </summary>
+    private readonly ConcurrentDictionary<string, Modification?> _instanceCache = new(StringComparer.OrdinalIgnoreCase);
 
     protected IReadOnlyCollection<Modification> CandidateSet { get; }
     protected Tolerance MassTolerance { get; }
@@ -55,7 +59,7 @@ public abstract class ModificationLookupBase : IModificationLookup
             normalized,
             mod.TargetResidue,
             mod.ChemicalFormula,
-            mod.MonoisotopicMass,
+            mod.MonoisotopicMass ?? mod.ChemicalFormula?.MonoisotopicMass ?? null,
             MassTolerance,
             context => ResolveInternal(context, () => GetPrimaryCandidates(mod)));
 
@@ -86,7 +90,7 @@ public abstract class ModificationLookupBase : IModificationLookup
 
     #region Caching
 
-    private static Modification? ResolveWithCache(
+    private Modification? ResolveWithCache(
         string normalizedRepresentation,
         char? residue,
         ChemicalFormula? formula,
@@ -95,22 +99,16 @@ public abstract class ModificationLookupBase : IModificationLookup
         Func<ResolutionContext, Modification?> resolver)
     {
         var cacheKey = BuildCacheKey(normalizedRepresentation, residue, formula, mass, massTolerance);
-        if (TryGetCachedResolution(cacheKey, out var cached))
+        if (_instanceCache.TryGetValue(cacheKey, out var cached))
         {
             return cached;
         }
 
         var context = new ResolutionContext(normalizedRepresentation, residue, formula, mass);
         var resolved = resolver(context);
-        StoreCachedResolution(cacheKey, resolved);
+        _instanceCache[cacheKey] = resolved;
         return resolved;
     }
-
-    protected static bool TryGetCachedResolution(string cacheKey, out Modification? resolved) =>
-        RepresentationCache.TryGetValue(cacheKey, out resolved);
-
-    protected static void StoreCachedResolution(string cacheKey, Modification? resolved) =>
-        RepresentationCache[cacheKey] = resolved;
 
     protected static string BuildCacheKey(string representation, char? residue, ChemicalFormula? formula, double? mass, Tolerance massTolerance)
     {
@@ -165,6 +163,7 @@ public abstract class ModificationLookupBase : IModificationLookup
     /// Primary resolution strategy using database-specific identifiers.
     /// Implementations should return the set of potential matches; the base class
     /// will apply additional filters to disambiguate.
+    /// Returns empty if no specific identifiers (MzLibId/UnimodId) are available.
     /// </summary>
     protected virtual IEnumerable<Modification> GetPrimaryCandidates(CanonicalModification mod)
     {
@@ -178,65 +177,127 @@ public abstract class ModificationLookupBase : IModificationLookup
             return FilterByUnimodId(CandidateSet, mod.UnimodId.Value);
         }
 
-        return CandidateSet;
+        // No specific identifiers - return empty to signal that we should use cumulative filters
+        return [];
     }
 
+    /// <summary>
+    /// Resolves a modification by applying filters cumulatively.
+    /// Strategy:
+    /// 1. If primary candidates (from MzLibId/UnimodId) exist, try to select best match
+    /// 2. Otherwise, apply cumulative filters (name, formula, mass) to narrow down CandidateSet
+    /// 3. If filters don't match anything, return null (don't return arbitrary candidates)
+    /// </summary>
     private Modification? ResolveInternal(ResolutionContext context, Func<IEnumerable<Modification>>? primaryCandidatesFactory)
     {
-        foreach (var stage in EnumerateResolutionStages(context, primaryCandidatesFactory))
-        {
-            var resolved = SelectUniqueUsingContext(stage, context);
-            if (resolved != null)
-            {
-                return resolved;
-            }
-        }
-
-        return null;
-    }
-
-    private IEnumerable<IEnumerable<Modification>> EnumerateResolutionStages(
-        ResolutionContext context,
-        Func<IEnumerable<Modification>>? primaryCandidatesFactory)
-    {
+        // Step 1: Check for primary candidates (from specific identifiers like MzLibId/UnimodId)
         if (primaryCandidatesFactory != null)
         {
             var primary = primaryCandidatesFactory();
-            if (primary != null)
+            var primaryList = primary?.ToList() ?? [];
+            if (primaryList.Count > 0)
             {
-                yield return primary;
+                // We have primary candidates from specific identifiers - try to select best match
+                var uniqueFromPrimary = SelectBestCandidate(primaryList, context.TargetResidue);
+                if (uniqueFromPrimary != null)
+                {
+                    return uniqueFromPrimary;
+                }
+                // If SelectBestCandidate returned null (ambiguous), continue with cumulative filters
+                // using the primary candidates as the starting set
+                return ApplyCumulativeFilters(primaryList, context);
             }
         }
 
-        yield return FilterByName(CandidateSet, context.Representation, context.TargetResidue);
+        // Step 2: No primary candidates - apply cumulative filters starting from full candidate set
+        return ApplyCumulativeFilters(CandidateSet, context);
+    }
 
+    /// <summary>
+    /// Applies all available filters cumulatively to narrow down candidates.
+    /// Returns a unique match if found, or null if no unique match can be determined.
+    /// Key behavior: if identifying information is provided (name, formula, mass) but
+    /// doesn't match anything, returns null rather than falling through to return
+    /// an arbitrary candidate.
+    /// </summary>
+    private Modification? ApplyCumulativeFilters(IEnumerable<Modification> startingCandidates, ResolutionContext context)
+    {
+        var candidates = startingCandidates.ToList();
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        // Track whether any identifying filter was applied and matched
+        bool anyFilterApplied = false;
+        bool anyFilterMatched = false;
+
+        // Apply name filter if we have a representation
+        if (!string.IsNullOrWhiteSpace(context.Representation))
+        {
+            anyFilterApplied = true;
+            var byName = FilterByName(candidates, context.Representation, context.TargetResidue).ToList();
+            if (byName.Count > 0)
+            {
+                anyFilterMatched = true;
+                candidates = byName;
+                var result = SelectBestCandidate(candidates, context.TargetResidue);
+                if (result != null)
+                {
+                    return result;
+                }
+            }
+        }
+
+        // Apply formula filter if available
         if (context.ChemicalFormula != null)
         {
-            yield return FilterByFormula(CandidateSet, context.ChemicalFormula);
+            anyFilterApplied = true;
+            var byFormula = FilterByFormula(candidates, context.ChemicalFormula).ToList();
+            if (byFormula.Count > 0)
+            {
+                anyFilterMatched = true;
+                candidates = byFormula;
+                var result = SelectBestCandidate(candidates, context.TargetResidue);
+                if (result != null)
+                {
+                    return result;
+                }
+            }
         }
 
+        // Apply mass filter if available
         if (context.Mass.HasValue)
         {
-            yield return FilterByMass(CandidateSet, context.Mass.Value);
+            anyFilterApplied = true;
+            var byMass = FilterByMass(candidates, context.Mass.Value).ToList();
+            if (byMass.Count > 0)
+            {
+                anyFilterMatched = true;
+                candidates = byMass;
+                var result = SelectBestCandidate(candidates, context.TargetResidue);
+                if (result != null)
+                {
+                    return result;
+                }
+            }
         }
-    }
 
-    private Modification? SelectUniqueUsingContext(IEnumerable<Modification> candidates, ResolutionContext context)
-    {
-        if (candidates == null)
+        // If we applied filters but none matched, return null
+        // (don't return an arbitrary candidate when identifying info didn't match)
+        if (anyFilterApplied && !anyFilterMatched)
         {
             return null;
         }
 
-        var working = (candidates as IList<Modification>) ?? candidates.ToList();
-        if (working.Count == 0)
-        {
-            return null;
-        }
-
-        return SelectBestCandidate(working, context.TargetResidue);
+        // Final attempt with remaining candidates (only if filters matched or no filters applied)
+        return anyFilterMatched ? SelectBestCandidate(candidates, context.TargetResidue) : null;
     }
 
+    /// <summary>
+    /// Selects the best candidate from a list based on residue matching and other criteria.
+    /// Does NOT mutate the input list.
+    /// </summary>
     private static Modification? SelectBestCandidate(IList<Modification> candidates, char? targetResidue)
     {
         if (candidates.Count == 0)
@@ -245,34 +306,78 @@ public abstract class ModificationLookupBase : IModificationLookup
         }
 
         if (candidates.Count == 1)
-            return candidates[0];
-
-        var target = targetResidue.ToString();
-        for (int i = 0; i < candidates.Count; i++)
         {
-            var candidate = candidates[i];
-            if (targetResidue.HasValue && candidate.Target.Motif != target)
-            {
-                candidates.RemoveAt(i);
-                i--;
-                continue;
-            }
+            return candidates[0];
+        }
 
-            if (IsIsobaric(candidate.OriginalId) && (candidate.DiagnosticIons is null || candidate.DiagnosticIons.Count < 1))
+        // Create a working copy to avoid mutating input
+        var working = candidates.ToList();
+        var target = targetResidue?.ToString();
+
+        // Filter by residue match if target residue is specified
+        if (targetResidue.HasValue && !string.IsNullOrEmpty(target))
+        {
+            var residueMatches = working.Where(c => 
+                c.Target?.Motif == target || 
+                c.Target?.Motif == "X" ||  // X is wildcard
+                string.IsNullOrEmpty(c.Target?.Motif)).ToList();
+            
+            if (residueMatches.Count > 0)
             {
-                candidates.RemoveAt(i);
-                i--;
+                // Prefer exact residue match over wildcard
+                var exactMatches = residueMatches.Where(c => c.Target?.Motif == target).ToList();
+                if (exactMatches.Count > 0)
+                {
+                    working = exactMatches;
+                }
+                else
+                {
+                    working = residueMatches;
+                }
             }
         }
 
-        if (candidates.Count == 1)
-            return candidates[0];
+        // Filter out isobaric mods without diagnostic ions
+        var nonIsobaricOrWithDiagnostic = working.Where(c =>
+            !IsIsobaric(c.OriginalId) || (c.DiagnosticIons != null && c.DiagnosticIons.Count >= 1)).ToList();
+        
+        if (nonIsobaricOrWithDiagnostic.Count > 0)
+        {
+            working = nonIsobaricOrWithDiagnostic;
+        }
 
-        // Check to see if they are functionally equivalent
-        var mods = candidates.DistinctBy(p => p.ChemicalFormula);
-        if (mods.Count() == 1)
-            return mods.First();
+        if (working.Count == 1)
+        {
+            return working[0];
+        }
 
+        // Check if remaining candidates are functionally equivalent (same formula)
+        var distinctByFormula = working.Where(m => m.ChemicalFormula != null)
+            .DistinctBy(p => p.ChemicalFormula?.Formula)
+            .ToList();
+        
+        if (distinctByFormula.Count == 1)
+        {
+            return distinctByFormula[0];
+        }
+
+        // If we still have multiple candidates, prefer those with formulas
+        var withFormula = working.Where(m => m.ChemicalFormula != null).ToList();
+        if (withFormula.Count == 1)
+        {
+            return withFormula[0];
+        }
+
+        // Check if all remaining candidates have the same target residue
+        // If so, they're functionally equivalent and we can return any
+        var distinctByResidue = working.DistinctBy(m => m.Target?.Motif ?? "").ToList();
+        if (distinctByResidue.Count == 1)
+        {
+            return distinctByResidue[0];
+        }
+
+        // Multiple distinct candidates with different target residues - truly ambiguous
+        // Return null to signal we can't resolve without more context
         return null;
     }
 
@@ -500,11 +605,49 @@ public abstract class ModificationLookupBase : IModificationLookup
 
     #region Utilities
 
-    protected virtual bool MatchesIdentifier(Modification modification, string identifier) =>
-        modification.IdWithMotif == identifier ||
-        modification.OriginalId == identifier ||
-        (modification is { ModificationType: not null, IdWithMotif: not null } &&
-         $"{modification.ModificationType}:{modification.IdWithMotif}" == identifier);
+    protected virtual bool MatchesIdentifier(Modification modification, string identifier)
+    {
+        if (string.IsNullOrWhiteSpace(identifier))
+        {
+            return false;
+        }
+
+        // Direct match on IdWithMotif
+        if (string.Equals(modification.IdWithMotif, identifier, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Match on OriginalId
+        if (string.Equals(modification.OriginalId, identifier, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Match on Type:IdWithMotif pattern
+        if (modification is { ModificationType: not null, IdWithMotif: not null })
+        {
+            var fullId = $"{modification.ModificationType}:{modification.IdWithMotif}";
+            if (string.Equals(fullId, identifier, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        // If identifier contains a colon, try extracting just the suffix (after colon)
+        var colonIndex = identifier.IndexOf(':');
+        if (colonIndex > 0 && colonIndex < identifier.Length - 1)
+        {
+            var suffix = identifier[(colonIndex + 1)..];
+            if (string.Equals(modification.IdWithMotif, suffix, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(modification.OriginalId, suffix, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     protected static int GetOverlapScore(string idWithMotif, string trimmedName)
     {
