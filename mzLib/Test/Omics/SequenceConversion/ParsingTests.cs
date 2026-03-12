@@ -1,7 +1,8 @@
-using System.Linq;
 using NUnit.Framework;
 using Omics.Modifications;
 using Omics.SequenceConversion;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Test.Omics.SequenceConversion
 {
@@ -13,7 +14,8 @@ namespace Test.Omics.SequenceConversion
     {
         private MzLibSequenceParser _mzLibParser;
         private MassShiftSequenceParser _massShiftParser;
-
+        public static IEnumerable<GroundTruthTestData.SequenceConversionTestCase> CoreTestCases() => GroundTruthTestData.CoreTestCases;
+        public static IEnumerable<GroundTruthTestData.SequenceConversionTestCase> EdgeCases() => GroundTruthTestData.EdgeCases;
         [SetUp]
         public void Setup()
         {
@@ -22,8 +24,8 @@ namespace Test.Omics.SequenceConversion
         }
 
         [Test]
-        [TestCaseSource(typeof(GroundTruthTestData), nameof(GroundTruthTestData.CoreTestCases))]
-        public void MzLibParser_CoreTestCases_ParsesCorrectly(GroundTruthTestData.TestCase testCase)
+        [TestCaseSource(nameof(CoreTestCases))]
+        public void MzLibParser_CoreTestCases_ParsesCorrectly(GroundTruthTestData.SequenceConversionTestCase testCase)
         {
             // Act
             var result = _mzLibParser.Parse(testCase.MzLibFormat);
@@ -39,8 +41,8 @@ namespace Test.Omics.SequenceConversion
         }
 
         [Test]
-        [TestCaseSource(typeof(GroundTruthTestData), nameof(GroundTruthTestData.EdgeCases))]
-        public void MzLibParser_EdgeCases_ParsesCorrectly(GroundTruthTestData.TestCase testCase)
+        [TestCaseSource(nameof(EdgeCases))]
+        public void MzLibParser_EdgeCases_ParsesCorrectly(GroundTruthTestData.SequenceConversionTestCase testCase)
         {
             // Act
             var result = _mzLibParser.Parse(testCase.MzLibFormat);
@@ -51,8 +53,8 @@ namespace Test.Omics.SequenceConversion
         }
 
         [Test]
-        [TestCaseSource(typeof(GroundTruthTestData), nameof(GroundTruthTestData.CoreTestCases))]
-        public void MassShiftParser_CoreTestCases_ParsesCorrectly(GroundTruthTestData.TestCase testCase)
+        [TestCaseSource(nameof(CoreTestCases))]
+        public void MassShiftParser_CoreTestCases_ParsesCorrectly(GroundTruthTestData.SequenceConversionTestCase testCase)
         {
             // Act
             var result = _massShiftParser.Parse(testCase.MassShiftFormat);

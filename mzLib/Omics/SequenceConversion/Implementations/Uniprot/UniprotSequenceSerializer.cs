@@ -112,18 +112,23 @@ public class UniProtSequenceSerializer : SequenceSerializerBase
 
     protected override string? GetModificationString(CanonicalModification mod, ConversionWarnings warnings, SequenceConversionHandlingMode mode)
     {
+        bool writeType = Schema is UniProtSequenceSchema { WriteModType: true };
+        bool writeMotif = Schema is UniProtSequenceSchema { WriteMotifs: true };
         var resolved = mod.MzLibModification;
         if (resolved != null &&
             !string.IsNullOrWhiteSpace(resolved.IdWithMotif) &&
             string.Equals(resolved.ModificationType, "UniProt", StringComparison.OrdinalIgnoreCase))
         {
-            if (Schema is UniProtSequenceSchema { WriteModType: false })
-                return resolved.OriginalId;
-            else
-                return $"{resolved.ModificationType}:{resolved.IdWithMotif}";
+            return writeType switch
+            {
+                false when !writeMotif => resolved.OriginalId,
+                false when writeMotif => resolved.IdWithMotif,
+                true when !writeMotif => resolved.ModificationType + ":" + resolved.OriginalId,
+                true when writeMotif => resolved.ModificationType + ":" + resolved.IdWithMotif
+            };
         }
 
-        var inline = TryGetInlineUniProtRepresentation(mod);
+        var inline = TryGetInlineUniProtRepresentation(mod, writeMotif, writeType);
         if (inline != null)
         {
             return inline;
@@ -148,7 +153,7 @@ public class UniProtSequenceSerializer : SequenceSerializerBase
         return null;
     }
 
-    private string? TryGetInlineUniProtRepresentation(CanonicalModification mod)
+    private string? TryGetInlineUniProtRepresentation(CanonicalModification mod, bool writeMotif, bool writeType)
     {
         if (string.IsNullOrWhiteSpace(mod.OriginalRepresentation))
         {
@@ -166,14 +171,26 @@ public class UniProtSequenceSerializer : SequenceSerializerBase
             ? representation[(colonIndex + 1)..].Trim()
             : representation;
 
-        if (string.IsNullOrEmpty(payload))
+        var motifIndex = payload.IndexOf("on", StringComparison.Ordinal);
+        if (motifIndex >= 0)
         {
-            return null;
+            var motifPart = payload[(motifIndex + 2)..].Trim();
+            payload = payload[..motifIndex].Trim();
+            if (writeMotif && !string.IsNullOrEmpty(motifPart))
+            {
+                payload += $" on {motifPart}";
+            }
         }
-        if (Schema is UniProtSequenceSchema { WriteModType: false })
-            return payload;
-        else
-            return $"UniProt:{payload}";
+
+        if (writeType && colonIndex >= 0)
+        {
+            var typePart = representation[..colonIndex].Trim();
+            if (!string.IsNullOrEmpty(typePart))
+            {
+                payload = $"{typePart}:{payload}";
+            }
+        }
+        return payload;
     }
 
     /// <summary>

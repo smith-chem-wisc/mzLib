@@ -1,6 +1,9 @@
-using System.Collections.Generic;
 using NUnit.Framework;
+using Omics.Modifications;
 using Omics.SequenceConversion;
+using System.Collections.Generic;
+using System.Linq;
+using static Test.Omics.SequenceConversion.GroundTruthTestData;
 
 namespace Test.Omics.SequenceConversion;
 
@@ -15,8 +18,13 @@ public class SerializationTests
     private ChronologerSequenceSerializer _chronologerSerializer;
     private UnimodSequenceSerializer _unimodSerializer;
     private UniProtSequenceSerializer _uniprotSerializer;
+    private UniProtSequenceSerializer _uniprotSerializerWithModType;
     private MzLibSequenceParser _mzLibParser;
     private MassShiftSequenceParser _massShiftParser;
+
+    public static IEnumerable<UniProtMappingTestCase> UniProtMappingTestCases() => GroundTruthTestData.UniProtMappingTestCases;
+    public static IEnumerable<SequenceConversionTestCase> CoreTestCases() => GroundTruthTestData.CoreTestCases;
+    public static IEnumerable<SequenceConversionTestCase> EdgeCases() => GroundTruthTestData.EdgeCases;
 
     [SetUp]
     public void Setup()
@@ -26,13 +34,14 @@ public class SerializationTests
         _chronologerSerializer = new ChronologerSequenceSerializer();
         _unimodSerializer = new UnimodSequenceSerializer();
         _uniprotSerializer = new UniProtSequenceSerializer();
+        _uniprotSerializerWithModType = new UniProtSequenceSerializer(new UniProtSequenceSchema(true, false));
         _mzLibParser = new MzLibSequenceParser();
         _massShiftParser = new MassShiftSequenceParser();
     }
 
     [Test]
-    [TestCaseSource(typeof(GroundTruthTestData), nameof(GroundTruthTestData.CoreTestCases))]
-    public void MzLibSerializer_CoreTestCases_SerializesCorrectly(GroundTruthTestData.TestCase testCase)
+    [TestCaseSource(nameof(CoreTestCases))]
+    public void MzLibSerializer_CoreTestCases_SerializesCorrectly(SequenceConversionTestCase testCase)
     {
         // Arrange - parse to get canonical form
         var canonical = _mzLibParser.Parse(testCase.MzLibFormat);
@@ -47,8 +56,8 @@ public class SerializationTests
     }
 
     [Test]
-    [TestCaseSource(typeof(GroundTruthTestData), nameof(GroundTruthTestData.CoreTestCases))]
-    public void ChronologerSerializer_CoreTestCases_SerializesCorrectly(GroundTruthTestData.TestCase testCase)
+    [TestCaseSource(nameof(CoreTestCases))]
+    public void ChronologerSerializer_CoreTestCases_SerializesCorrectly(SequenceConversionTestCase testCase)
     {
         // Arrange
         var canonical = _mzLibParser.Parse(testCase.MzLibFormat);
@@ -63,8 +72,8 @@ public class SerializationTests
     }
 
     [Test]
-    [TestCaseSource(typeof(GroundTruthTestData), nameof(GroundTruthTestData.CoreTestCases))]
-    public void UnimodSerializer_CoreTestCases_ConvertsCorrectly(GroundTruthTestData.TestCase testCase)
+    [TestCaseSource(nameof(CoreTestCases))]
+    public void UnimodSerializer_CoreTestCases_ConvertsCorrectly(SequenceConversionTestCase testCase)
     {
         // Arrange - parse from mzLib format
         var canonical = _mzLibParser.Parse(testCase.MzLibFormat);
@@ -79,8 +88,8 @@ public class SerializationTests
     }
 
     [Test]
-    [TestCaseSource(typeof(GroundTruthTestData), nameof(GroundTruthTestData.UniProtTestCases))]
-    public void UniprotSerializer_KnownCases_SerializesCorrectly(GroundTruthTestData.TestCase testCase)
+    [TestCaseSource(nameof(CoreTestCases))]
+    public void UniprotSerializer_KnownCases_SerializesCorrectly(SequenceConversionTestCase testCase)
     {
         var canonical = _mzLibParser.Parse(testCase.MzLibFormat);
         Assert.That(canonical, Is.Not.Null);
@@ -89,6 +98,79 @@ public class SerializationTests
 
         Assert.That(result, Is.Not.Null);
         Assert.That(result, Is.EqualTo(testCase.UniProtFormat));
+    }
+
+    /// <summary>
+    /// Tests that specific mzLib modifications correctly map to their UniProt representations.
+    /// Each test case validates one modification type on a specific residue.
+    /// </summary>
+    [Test]
+    [TestCaseSource(nameof(UniProtMappingTestCases))]
+    public void UniprotSerializer_ModificationMappings_ResolveCorrectly(UniProtMappingTestCase testCase)
+    {
+        // Build a simple test sequence with the modification
+        string mzLibSequence;
+        string expectedUniProtSequence;
+
+        if (testCase.IsNTerminal)
+        {
+            // N-terminal modification: [mod]XEPTIDE where X is the target residue
+            mzLibSequence = $"[{testCase.MzLibModification}]{testCase.TargetResidue}EPTIDE";
+            expectedUniProtSequence = $"[{testCase.ExpectedUniProtName}]{testCase.TargetResidue}EPTIDE";
+        }
+        else
+        {
+            // Internal modification: PEP{X}[mod]IDE where X is the target residue
+            mzLibSequence = $"PEP{testCase.TargetResidue}[{testCase.MzLibModification}]IDE";
+            expectedUniProtSequence = $"PEP{testCase.TargetResidue}[{testCase.ExpectedUniProtName}]IDE";
+        }
+
+        // Parse the mzLib sequence
+        var canonical = _mzLibParser.Parse(mzLibSequence);
+        Assert.That(canonical, Is.Not.Null, $"Failed to parse mzLib sequence: {mzLibSequence}");
+
+        // Serialize to UniProt format
+        var result = _uniprotSerializer.Serialize(canonical.Value);
+
+        // Verify the result
+        Assert.That(result, Is.Not.Null, $"UniProt serialization returned null for: {mzLibSequence}");
+        Assert.That(result, Is.EqualTo(expectedUniProtSequence), 
+            $"Expected UniProt format '{expectedUniProtSequence}' but got '{result}'");
+    }
+
+
+    [Test]
+    [TestCaseSource(nameof(UniProtMappingTestCases))]
+    public void UniprotSerializerWithModType_ModificationMappings_ResolveCorrectly(UniProtMappingTestCase testCase)
+    {
+        // Build a simple test sequence with the modification
+        string mzLibSequence;
+        string expectedUniProtSequence;
+
+        if (testCase.IsNTerminal)
+        {
+            // N-terminal modification: [mod]XEPTIDE where X is the target residue
+            mzLibSequence = $"[{testCase.MzLibModification}]{testCase.TargetResidue}EPTIDE";
+            expectedUniProtSequence = $"[UniProt:{testCase.ExpectedUniProtName}]{testCase.TargetResidue}EPTIDE";
+        }
+        else
+        {
+            // Internal modification: PEP{X}[mod]IDE where X is the target residue
+            mzLibSequence = $"PEP{testCase.TargetResidue}[{testCase.MzLibModification}]IDE";
+            expectedUniProtSequence = $"PEP{testCase.TargetResidue}[UniProt:{testCase.ExpectedUniProtName}]IDE";
+        }
+
+        // Parse the mzLib sequence
+        var canonical = _mzLibParser.Parse(mzLibSequence);
+        Assert.That(canonical, Is.Not.Null, $"Failed to parse mzLib sequence: {mzLibSequence}");
+
+        // Serialize to UniProt format
+        var result = _uniprotSerializerWithModType.Serialize(canonical.Value);
+
+        // Verify the result
+        Assert.That(result, Is.Not.Null, $"UniProt serialization returned null for: {mzLibSequence}");
+        Assert.That(result, Is.EqualTo(expectedUniProtSequence),
+            $"Expected UniProt format '{expectedUniProtSequence}' but got '{result}'");
     }
 
     [Test]
@@ -107,8 +189,8 @@ public class SerializationTests
     #region MassShift Serializer Tests
 
     [Test]
-    [TestCaseSource(typeof(GroundTruthTestData), nameof(GroundTruthTestData.CoreTestCases))]
-    public void MassShiftSerializer_CoreTestCases_SerializesCorrectly(GroundTruthTestData.TestCase testCase)
+    [TestCaseSource(nameof(CoreTestCases))]
+    public void MassShiftSerializer_CoreTestCases_SerializesCorrectly(SequenceConversionTestCase testCase)
     {
         // Arrange - parse from MassShift format to get canonical form
         var canonical = _massShiftParser.Parse(testCase.MassShiftFormat);
@@ -123,8 +205,8 @@ public class SerializationTests
     }
 
     [Test]
-    [TestCaseSource(typeof(GroundTruthTestData), nameof(GroundTruthTestData.EdgeCases))]
-    public void MassShiftSerializer_EdgeCases_SerializesCorrectly(GroundTruthTestData.TestCase testCase)
+    [TestCaseSource(nameof(EdgeCases))]
+    public void MassShiftSerializer_EdgeCases_SerializesCorrectly(SequenceConversionTestCase testCase)
     {
         // Arrange
         var canonical = _massShiftParser.Parse(testCase.MassShiftFormat);
@@ -139,8 +221,8 @@ public class SerializationTests
     }
 
     [Test]
-    [TestCaseSource(typeof(GroundTruthTestData), nameof(GroundTruthTestData.CoreTestCases))]
-    public void MzLibToMassShift_CoreTestCases_ConvertsCorrectly(GroundTruthTestData.TestCase testCase)
+    [TestCaseSource(nameof(CoreTestCases))]
+    public void MzLibToMassShift_CoreTestCases_ConvertsCorrectly(SequenceConversionTestCase testCase)
     {
         // Arrange - parse from mzLib format
         var canonical = _mzLibParser.Parse(testCase.MzLibFormat);

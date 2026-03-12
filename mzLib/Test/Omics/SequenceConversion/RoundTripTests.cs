@@ -1,6 +1,7 @@
-using System.Linq;
 using NUnit.Framework;
 using Omics.SequenceConversion;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Test.Omics.SequenceConversion
 {
@@ -12,6 +13,8 @@ namespace Test.Omics.SequenceConversion
     {
         private MzLibSequenceParser _mzLibParser;
         private MzLibSequenceSerializer _mzLibSerializer;
+        public static IEnumerable<GroundTruthTestData.SequenceConversionTestCase> CoreTestCases() => GroundTruthTestData.CoreTestCases;
+        public static IEnumerable<GroundTruthTestData.SequenceConversionTestCase> EdgeCases() => GroundTruthTestData.EdgeCases;
 
         [SetUp]
         public void Setup()
@@ -21,8 +24,9 @@ namespace Test.Omics.SequenceConversion
         }
 
         [Test]
-        [TestCaseSource(typeof(GroundTruthTestData), nameof(GroundTruthTestData.CoreTestCases))]
-        public void MzLibRoundTrip_CoreTestCases_PreservesSequence(GroundTruthTestData.TestCase testCase)
+        [TestCaseSource(nameof(CoreTestCases))]
+        [TestCaseSource(nameof(EdgeCases))]
+        public void MzLibRoundTrip_CoreTestCases_PreservesSequence(GroundTruthTestData.SequenceConversionTestCase testCase)
         {
             // Arrange
             var originalSequence = testCase.MzLibFormat;

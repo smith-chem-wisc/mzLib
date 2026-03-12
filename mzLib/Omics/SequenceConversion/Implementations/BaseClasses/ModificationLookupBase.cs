@@ -47,7 +47,7 @@ public abstract class ModificationLookupBase : IModificationLookup
     public abstract string Name { get; }
 
     /// <inheritdoc />
-    public CanonicalModification? TryResolve(CanonicalModification mod)
+    public virtual CanonicalModification? TryResolve(CanonicalModification mod)
     {
         // Only skip lookup if the mod is already resolved to THIS lookup's database
         // If it's resolved to a different database (e.g., MetaMorpheus), we still need to find the equivalent
@@ -72,7 +72,7 @@ public abstract class ModificationLookupBase : IModificationLookup
     }
 
     /// <inheritdoc />
-    public CanonicalModification? TryResolve(string originalRepresentation, char? targetResidue = null, ChemicalFormula? chemicalFormula = null)
+    public virtual CanonicalModification? TryResolve(string originalRepresentation, char? targetResidue = null, ChemicalFormula? chemicalFormula = null)
     {
         var normalized = NormalizeRepresentation(originalRepresentation);
         var resolved = ResolveWithCache(
