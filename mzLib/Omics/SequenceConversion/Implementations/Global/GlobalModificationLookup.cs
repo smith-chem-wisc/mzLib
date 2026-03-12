@@ -29,19 +29,4 @@ public class GlobalModificationLookup : ModificationLookupBase
     /// <inheritdoc />
     public override string Name => "Global (All Mods)";
 
-    /// <inheritdoc />
-    protected override IEnumerable<Modification> GetPrimaryCandidates(CanonicalModification mod)
-    {
-        if (!string.IsNullOrEmpty(mod.MzLibId))
-        {
-            return FilterByIdentifier(CandidateSet, mod.MzLibId);
-        }
-
-        if (mod.UnimodId.HasValue)
-        {
-            return FilterByUnimodId(CandidateSet, mod.UnimodId.Value);
-        }
-
-        return Enumerable.Empty<Modification>();
-    }
 }

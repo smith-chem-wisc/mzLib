@@ -20,7 +20,7 @@ namespace Omics.SequenceConversion;
 /// 
 /// Note: Mass shift notation (e.g., "[+15.995]") is handled by MassShiftSequenceFormatSchema, not this schema.
 /// </summary>
-public sealed class MzLibSequenceFormatSchema : SequenceFormatSchema
+public class MzLibSequenceFormatSchema : SequenceFormatSchema
 {
     /// <summary>
     /// Singleton instance of the mzLib schema.
@@ -30,7 +30,7 @@ public sealed class MzLibSequenceFormatSchema : SequenceFormatSchema
     /// <summary>
     /// Private constructor to enforce singleton pattern.
     /// </summary>
-    private MzLibSequenceFormatSchema(char modOpen = '[', char modClosed = ']', string? nTermSeparator = "", string? cTermSeparator = "-")
+    protected MzLibSequenceFormatSchema(char modOpen = '[', char modClosed = ']', string? nTermSeparator = "", string? cTermSeparator = "-")
         : base(modOpen, modClosed, nTermSeparator, cTermSeparator) { }
 
     /// <inheritdoc />

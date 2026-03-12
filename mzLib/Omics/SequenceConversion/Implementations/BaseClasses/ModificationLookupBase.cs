@@ -1,4 +1,5 @@
 using Chemistry;
+using MzLibUtil;
 using Omics.Modifications;
 using System;
 using System.Collections.Concurrent;
@@ -17,10 +18,10 @@ public abstract class ModificationLookupBase : IModificationLookup
 {
     #region State and Construction
 
-    private readonly ConcurrentDictionary<string, Modification?> _representationCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, Modification?> RepresentationCache = new(StringComparer.OrdinalIgnoreCase);
 
     protected IReadOnlyCollection<Modification> CandidateSet { get; }
-    protected double? MassTolerance { get; }
+    protected Tolerance MassTolerance { get; }
 
     protected ModificationLookupBase(IEnumerable<Modification>? candidateSet, double? massTolerance)
     {
@@ -31,7 +32,7 @@ public abstract class ModificationLookupBase : IModificationLookup
         }
 
         CandidateSet = resolvedCandidates ?? Array.Empty<Modification>();
-        MassTolerance = massTolerance;
+        MassTolerance = new AbsoluteTolerance(massTolerance ?? 0.01);
     }
 
     #endregion
@@ -55,11 +56,13 @@ public abstract class ModificationLookupBase : IModificationLookup
             mod.TargetResidue,
             mod.ChemicalFormula,
             mod.MonoisotopicMass,
+            MassTolerance,
             context => ResolveInternal(context, () => GetPrimaryCandidates(mod)));
 
-        return resolved != null
-            ? mod.WithResolvedModification(resolved, mod.ResidueIndex, mod.PositionType)
-            : null;
+        if (resolved != null)
+            return mod.WithResolvedModification(resolved, mod.ResidueIndex, mod.PositionType);
+
+        return null;
     }
 
     /// <inheritdoc />
@@ -70,7 +73,8 @@ public abstract class ModificationLookupBase : IModificationLookup
             normalized,
             targetResidue,
             chemicalFormula,
-            mass: null,
+            chemicalFormula?.MonoisotopicMass ?? null,
+            MassTolerance,
             context => ResolveInternal(context, null));
 
         return resolved != null
@@ -82,14 +86,15 @@ public abstract class ModificationLookupBase : IModificationLookup
 
     #region Caching
 
-    private Modification? ResolveWithCache(
+    private static Modification? ResolveWithCache(
         string normalizedRepresentation,
         char? residue,
         ChemicalFormula? formula,
         double? mass,
+        Tolerance massTolerance,
         Func<ResolutionContext, Modification?> resolver)
     {
-        var cacheKey = BuildCacheKey(normalizedRepresentation, residue, formula, mass);
+        var cacheKey = BuildCacheKey(normalizedRepresentation, residue, formula, mass, massTolerance);
         if (TryGetCachedResolution(cacheKey, out var cached))
         {
             return cached;
@@ -101,13 +106,13 @@ public abstract class ModificationLookupBase : IModificationLookup
         return resolved;
     }
 
-    private protected bool TryGetCachedResolution(string cacheKey, out Modification? resolved) =>
-        _representationCache.TryGetValue(cacheKey, out resolved);
+    protected static bool TryGetCachedResolution(string cacheKey, out Modification? resolved) =>
+        RepresentationCache.TryGetValue(cacheKey, out resolved);
 
-    private protected void StoreCachedResolution(string cacheKey, Modification? resolved) =>
-        _representationCache[cacheKey] = resolved;
+    protected static void StoreCachedResolution(string cacheKey, Modification? resolved) =>
+        RepresentationCache[cacheKey] = resolved;
 
-    private protected string BuildCacheKey(string representation, char? residue, ChemicalFormula? formula, double? mass)
+    protected static string BuildCacheKey(string representation, char? residue, ChemicalFormula? formula, double? mass, Tolerance massTolerance)
     {
         var builder = new StringBuilder(representation ?? string.Empty);
 
@@ -128,11 +133,9 @@ public abstract class ModificationLookupBase : IModificationLookup
             builder.Append("|mass:");
             builder.Append(mass.Value.ToString("G6", CultureInfo.InvariantCulture));
 
-            if (MassTolerance.HasValue)
-            {
-                builder.Append("@tol:");
-                builder.Append(MassTolerance.Value.ToString("G6", CultureInfo.InvariantCulture));
-            }
+
+            builder.Append("@tol:");
+            builder.Append(massTolerance.Value.ToString("G6", CultureInfo.InvariantCulture));
         }
 
         return builder.ToString();
@@ -163,7 +166,20 @@ public abstract class ModificationLookupBase : IModificationLookup
     /// Implementations should return the set of potential matches; the base class
     /// will apply additional filters to disambiguate.
     /// </summary>
-    protected virtual IEnumerable<Modification> GetPrimaryCandidates(CanonicalModification mod) => Enumerable.Empty<Modification>();
+    protected virtual IEnumerable<Modification> GetPrimaryCandidates(CanonicalModification mod)
+    {
+        if (!string.IsNullOrEmpty(mod.MzLibId))
+        {
+            return FilterByIdentifier(CandidateSet, mod.MzLibId);
+        }
+
+        if (mod.UnimodId.HasValue)
+        {
+            return FilterByUnimodId(CandidateSet, mod.UnimodId.Value);
+        }
+
+        return CandidateSet;
+    }
 
     private Modification? ResolveInternal(ResolutionContext context, Func<IEnumerable<Modification>>? primaryCandidatesFactory)
     {
@@ -228,19 +244,36 @@ public abstract class ModificationLookupBase : IModificationLookup
             return null;
         }
 
-        if (targetResidue.HasValue)
-        {
-            var residueMatches = candidates
-                .Where(m => m.Target != null && m.Target.ToString().IndexOf(targetResidue.Value) >= 0)
-                .ToList();
+        if (candidates.Count == 1)
+            return candidates[0];
 
-            if (residueMatches.Count > 0)
+        var target = targetResidue.ToString();
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            var candidate = candidates[i];
+            if (targetResidue.HasValue && candidate.Target.Motif != target)
             {
-                return residueMatches[0];
+                candidates.RemoveAt(i);
+                i--;
+                continue;
+            }
+
+            if (IsIsobaric(candidate.OriginalId) && (candidate.DiagnosticIons is null || candidate.DiagnosticIons.Count < 1))
+            {
+                candidates.RemoveAt(i);
+                i--;
             }
         }
 
-        return candidates.Count == 1 ? candidates[0] : null;
+        if (candidates.Count == 1)
+            return candidates[0];
+
+        // Check to see if they are functionally equivalent
+        var mods = candidates.DistinctBy(p => p.ChemicalFormula);
+        if (mods.Count() == 1)
+            return mods.First();
+
+        return null;
     }
 
     #endregion
@@ -254,21 +287,27 @@ public abstract class ModificationLookupBase : IModificationLookup
     {
         if (string.IsNullOrWhiteSpace(name))
         {
-            return Enumerable.Empty<Modification>();
+            return [];
         }
 
         var normalized = NormalizeRepresentation(name);
         if (string.IsNullOrEmpty(normalized))
         {
-            return Enumerable.Empty<Modification>();
+            return [];
         }
 
         source ??= CandidateSet;
 
         var potentialStrings = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { normalized };
         foreach (var candidate in ExpandNameCandidates(normalized, targetResidue))
-        {
             potentialStrings.Add(candidate);
+
+        int colonIndex = normalized.IndexOf(":", StringComparison.Ordinal);
+        if (colonIndex > 0)
+        {
+            var suffix = normalized[(colonIndex + 1)..];
+            foreach (var candidate in ExpandNameCandidates(suffix, targetResidue))
+                potentialStrings.Add(candidate);
         }
 
         return FilterByIdentifierSet(source, potentialStrings);
@@ -285,15 +324,7 @@ public abstract class ModificationLookupBase : IModificationLookup
     /// </summary>
     protected virtual IEnumerable<Modification> FilterByMass(IEnumerable<Modification> source, double mass)
     {
-        if (!MassTolerance.HasValue)
-        {
-            return Enumerable.Empty<Modification>();
-        }
-
-        var tolerance = MassTolerance.Value;
-        return (source ?? CandidateSet).Where(m =>
-            m.MonoisotopicMass.HasValue &&
-            Math.Abs(m.MonoisotopicMass.Value - mass) <= tolerance);
+        return (source ?? CandidateSet).Where(m => MassTolerance.Within(m.MonoisotopicMass!.Value, mass));
     }
 
     /// <summary>
@@ -303,13 +334,13 @@ public abstract class ModificationLookupBase : IModificationLookup
     {
         if (string.IsNullOrWhiteSpace(identifier))
         {
-            return Enumerable.Empty<Modification>();
+            return [];
         }
 
         var normalized = NormalizeRepresentation(identifier);
         if (string.IsNullOrEmpty(normalized))
         {
-            return Enumerable.Empty<Modification>();
+            return [];
         }
 
         var identifiers = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { normalized };
@@ -332,11 +363,12 @@ public abstract class ModificationLookupBase : IModificationLookup
     {
         if (identifiers == null || identifiers.Count == 0)
         {
-            return Enumerable.Empty<Modification>();
+            return [];
         }
 
         source ??= CandidateSet;
-        return source.Where(modification => MatchesIdentifierSet(modification, identifiers));
+        return source.Where(modification => MatchesIdentifierSet(modification, identifiers))
+            .Distinct();
     }
 
     private bool MatchesIdentifierSet(Modification modification, HashSet<string> identifiers)
@@ -399,11 +431,13 @@ public abstract class ModificationLookupBase : IModificationLookup
         }
 
         bool containsNTerminalRepresentation = normalizedRepresentation.Contains("on N-terminus", StringComparison.OrdinalIgnoreCase);
+
         if (containsNTerminalRepresentation)
         {
             foreach (var additionalName in ExpandNTerminus(normalizedRepresentation, targetResidue))
             {
                 yield return additionalName;
+
             }
         }
 
@@ -413,45 +447,14 @@ public abstract class ModificationLookupBase : IModificationLookup
             foreach (var additionalName in ExpandIsobaricTags(normalizedRepresentation, targetResidue))
             {
                 yield return additionalName;
-            }
-        }
-
-        var delimiterIndex = normalizedRepresentation.IndexOf(':');
-        if (delimiterIndex < 0)
-        {
-            yield break;
-        }
-
-        var suffix = normalizedRepresentation[(delimiterIndex + 1)..].Trim();
-        if (suffix.Length == 0)
-        {
-            yield break;
-        }
-
-        yield return suffix;
-        if (targetResidue.HasValue)
-        {
-            yield return $"{suffix} on {targetResidue.Value}";
-        }
-
-        if (containsNTerminalRepresentation)
-        {
-            foreach (var additionalName in ExpandNTerminus(suffix, targetResidue))
-            {
-                yield return additionalName;
-            }
-        }
-
-        if (isIsobaric)
-        {
-            foreach (var additionalName in ExpandIsobaricTags(suffix, targetResidue))
-            {
-                yield return additionalName;
+                if (containsNTerminalRepresentation)
+                    foreach (var isobarExpanded in ExpandNTerminus(additionalName, targetResidue))
+                        yield return isobarExpanded;
             }
         }
     }
 
-    private IEnumerable<string> ExpandNTerminus(string input, char? targetResidue)
+    private static IEnumerable<string> ExpandNTerminus(string input, char? targetResidue)
     {
         yield return input.Replace("on N-terminus", "on X", StringComparison.OrdinalIgnoreCase);
         if (targetResidue.HasValue)
@@ -460,20 +463,22 @@ public abstract class ModificationLookupBase : IModificationLookup
         }
     }
 
-    private bool IsIsobaric(string input) => input.Contains("TMT", StringComparison.OrdinalIgnoreCase)
-        || input.Contains("iTRAQ", StringComparison.OrdinalIgnoreCase)
-        || input.Contains("plex", StringComparison.OrdinalIgnoreCase)
-        || input.Contains("DiLeu", StringComparison.OrdinalIgnoreCase);
+    private static bool IsIsobaric(string input) => input.Contains("TMT", StringComparison.OrdinalIgnoreCase)
+                                                   || input.Contains("iTRAQ", StringComparison.OrdinalIgnoreCase)
+                                                   || input.Contains("plex", StringComparison.OrdinalIgnoreCase)
+                                                   || input.Contains("DiLeu", StringComparison.OrdinalIgnoreCase);
 
-    private IEnumerable<string> ExpandIsobaricTags(string input, char? targetResidue)
+    private static IEnumerable<string> ExpandIsobaricTags(string input, char? targetResidue)
     {
         if (input.Contains("-plex", StringComparison.OrdinalIgnoreCase))
         {
             yield return input.Replace("-plex", "plex", StringComparison.OrdinalIgnoreCase);
+            yield return input.Replace("-plex", "", StringComparison.OrdinalIgnoreCase);
         }
         else if (input.Contains("plex", StringComparison.OrdinalIgnoreCase))
         {
             yield return input.Replace("plex", "-plex", StringComparison.OrdinalIgnoreCase);
+            yield return input.Replace("plex", "", StringComparison.OrdinalIgnoreCase);
         }
 
         if (input.Contains("TMT18", StringComparison.OrdinalIgnoreCase))
@@ -485,13 +490,9 @@ public abstract class ModificationLookupBase : IModificationLookup
             yield return input.Replace("TMTpro", "TMT18", StringComparison.OrdinalIgnoreCase);
         }
 
-        if (input.Contains("TMT10pro", StringComparison.OrdinalIgnoreCase))
+        if (input.Contains("TMT", StringComparison.OrdinalIgnoreCase) && input.Contains("pro", StringComparison.OrdinalIgnoreCase))
         {
-            yield return input.Replace("TMT10pro", "TMT10", StringComparison.OrdinalIgnoreCase);
-        }
-        else if (input.Contains("TMT10", StringComparison.OrdinalIgnoreCase))
-        {
-            yield return input.Replace("TMT10", "TMT10pro", StringComparison.OrdinalIgnoreCase);
+            yield return input.Replace("pro", "", StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -502,7 +503,7 @@ public abstract class ModificationLookupBase : IModificationLookup
     protected virtual bool MatchesIdentifier(Modification modification, string identifier) =>
         modification.IdWithMotif == identifier ||
         modification.OriginalId == identifier ||
-        (modification.ModificationType != null && modification.IdWithMotif != null &&
+        (modification is { ModificationType: not null, IdWithMotif: not null } &&
          $"{modification.ModificationType}:{modification.IdWithMotif}" == identifier);
 
     protected static int GetOverlapScore(string idWithMotif, string trimmedName)

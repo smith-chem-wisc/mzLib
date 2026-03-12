@@ -24,23 +24,6 @@ public class UnimodModificationLookup : ModificationLookupBase
     /// <inheritdoc />
     public override string Name => "UNIMOD";
 
-    /// <inheritdoc />
-    protected override IEnumerable<Modification> GetPrimaryCandidates(CanonicalModification mod)
-    {
-        if (!mod.UnimodId.HasValue)
-        {
-            return Enumerable.Empty<Modification>();
-        }
-
-        var matches = FilterByUnimodId(CandidateSet, mod.UnimodId.Value).ToList();
-        if (matches.Count > 0)
-        {
-            return matches;
-        }
-
-        return FilterByIdentifier(CandidateSet, $"UNIMOD:{mod.UnimodId.Value}");
-    }
-
     protected override string NormalizeRepresentation(string representation)
     {
         var normalized = base.NormalizeRepresentation(representation);

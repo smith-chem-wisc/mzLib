@@ -65,14 +65,12 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         /// </summary>
         public override bool IsIndexedRetentionTimeModel => true;
 
-        private static readonly IReadOnlySet<int> AllowedMods = new HashSet<int>
-        {
-            35, 4, 259, 267, 737, 2016, 214, 730, 2016
-        };
-
         private static readonly UnimodSequenceFormatSchema TmtSchema = new(UnimodLabelStyle.UpperCase, '[', ']', "-", "-");
 
-        public override IReadOnlySet<int> AllowedUnimodIds => AllowedMods;
+        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>
+        {
+            35, 4, 259, 267, 737, 2016, 214, 730
+        };
         protected override UnimodSequenceFormatSchema UnimodSchema => TmtSchema;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; } 
 

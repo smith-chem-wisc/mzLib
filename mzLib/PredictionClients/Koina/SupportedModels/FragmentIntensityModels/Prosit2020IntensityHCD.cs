@@ -59,9 +59,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         /// <summary>Total number of fragment ions predicted by this model per peptide</summary>
         public int NumberOfPredictedFragmentIons => 174;
 
-        private static readonly IReadOnlySet<int> AllowedMods = new HashSet<int> { 35, 4 };
-
-        public override IReadOnlySet<int> AllowedUnimodIds => AllowedMods;
+        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int> { 35, 4 };
 
         public override Dictionary<string, double> ValidModificationsMonoisotopicMasses => new()
             {

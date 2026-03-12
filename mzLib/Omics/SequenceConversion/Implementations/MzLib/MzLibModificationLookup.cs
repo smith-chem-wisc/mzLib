@@ -42,17 +42,6 @@ public class MzLibModificationLookup : ModificationLookupBase
     /// <inheritdoc />
     public override string Name => "mzLib";
 
-    /// <inheritdoc />
-    protected override IEnumerable<Modification> GetPrimaryCandidates(CanonicalModification mod)
-    {
-        if (string.IsNullOrEmpty(mod.MzLibId))
-        {
-            return Enumerable.Empty<Modification>();
-        }
-
-        return FilterByIdentifier(CandidateSet, mod.MzLibId);
-    }
-
     private static IReadOnlyCollection<Modification> BuildCandidateSet(bool searchProteinMods, bool searchRnaMods)
     {
         if (!searchProteinMods && !searchRnaMods)

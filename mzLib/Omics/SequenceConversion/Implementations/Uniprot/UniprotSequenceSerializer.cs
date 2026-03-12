@@ -24,7 +24,12 @@ public class UniprotSequenceSerializer : SequenceSerializerBase
     public override bool ShouldResolveMod(CanonicalModification mod)
     {
         var resolved = mod.MzLibModification;
-        return resolved == null || !string.Equals(resolved.ModificationType, "UniProt", StringComparison.OrdinalIgnoreCase);
+        if (resolved != null)
+        {
+            return !string.Equals(resolved.ModificationType, "UniProt", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return mod.OriginalRepresentation?.IndexOf("UniProt", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     protected override string? GetModificationString(CanonicalModification mod, ConversionWarnings warnings, SequenceConversionHandlingMode mode)
@@ -34,7 +39,13 @@ public class UniprotSequenceSerializer : SequenceSerializerBase
             !string.IsNullOrWhiteSpace(resolved.IdWithMotif) &&
             string.Equals(resolved.ModificationType, "UniProt", StringComparison.OrdinalIgnoreCase))
         {
-            return $"UniProt:{resolved.IdWithMotif}";
+            return resolved.OriginalId;
+        }
+
+        var inline = TryGetInlineUniProtRepresentation(mod);
+        if (inline != null)
+        {
+            return inline;
         }
 
         warnings.AddIncompatibleItem(mod.ToString());
@@ -54,5 +65,31 @@ public class UniprotSequenceSerializer : SequenceSerializerBase
         }
 
         return null;
+    }
+
+    private static string? TryGetInlineUniProtRepresentation(CanonicalModification mod)
+    {
+        if (string.IsNullOrWhiteSpace(mod.OriginalRepresentation))
+        {
+            return null;
+        }
+
+        var representation = mod.OriginalRepresentation.Trim().Trim('[', ']');
+        if (representation.IndexOf("UniProt", StringComparison.OrdinalIgnoreCase) < 0)
+        {
+            return null;
+        }
+
+        var colonIndex = representation.IndexOf(':');
+        var payload = colonIndex >= 0
+            ? representation[(colonIndex + 1)..].Trim()
+            : representation;
+
+        if (string.IsNullOrEmpty(payload))
+        {
+            return null;
+        }
+
+        return payload;
     }
 }
