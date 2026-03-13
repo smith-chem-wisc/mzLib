@@ -274,6 +274,33 @@ public class SerializationTests
     }
 
     [Test]
+    public void MassShiftSerializer_ModificationWithoutMass_RemoveModeSkipsModification()
+    {
+        var canonical = new CanonicalSequenceBuilder("PEPTIDE")
+            .AddResidueModification(2, "Unknown:NoMass")
+            .Build();
+        var warnings = new ConversionWarnings();
+
+        var result = _massShiftSerializer.Serialize(canonical, warnings, SequenceConversionHandlingMode.RemoveIncompatibleElements);
+
+        Assert.That(result, Is.EqualTo("PEPTIDE"));
+        Assert.That(warnings.HasWarnings, Is.True);
+        Assert.That(warnings.HasIncompatibleItems, Is.True);
+    }
+
+    [Test]
+    public void MassShiftSerializer_ModificationWithoutMass_ThrowModeThrows()
+    {
+        var canonical = new CanonicalSequenceBuilder("PEPTIDE")
+            .AddResidueModification(2, "Unknown:NoMass")
+            .Build();
+
+        Assert.That(
+            () => _massShiftSerializer.Serialize(canonical, null, SequenceConversionHandlingMode.ThrowException),
+            Throws.TypeOf<SequenceConversionException>());
+    }
+
+    [Test]
     [TestCase(UnimodLabelStyle.UpperCase, "UNIMOD")]
     [TestCase(UnimodLabelStyle.CamelCase, "Unimod")]
     [TestCase(UnimodLabelStyle.LowerCase, "unimod")]
