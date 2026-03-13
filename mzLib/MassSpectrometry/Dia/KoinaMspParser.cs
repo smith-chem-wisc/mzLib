@@ -1,13 +1,12 @@
-﻿// Copyright 2026 mzLib Contributors
+// Copyright 2026 mzLib Contributors
 // Licensed under the GNU Lesser General Public License v3.0
 
-using MassSpectrometry.Dia;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 
-namespace Development.Dia
+namespace MassSpectrometry.Dia
 {
     /// <summary>
     /// Lightweight parser for Koina/Prosit .msp spectral library files.

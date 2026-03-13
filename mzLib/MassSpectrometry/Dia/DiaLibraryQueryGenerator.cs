@@ -973,6 +973,7 @@ namespace MassSpectrometry.Dia
                     {
                         float clampedCosine = Math.Clamp(result.TemporalScore, 0f, 1f);
                         result.SpectralAngleScore = 1.0f - (2.0f / MathF.PI) * MathF.Acos(clampedCosine);
+                        result.SpectralAngle = result.SpectralAngleScore;
                     }
 
                     // 7. Library coverage fraction (intensity-weighted detected fraction)
