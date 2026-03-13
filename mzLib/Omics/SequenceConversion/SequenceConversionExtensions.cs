@@ -1,4 +1,7 @@
 using Omics.Modifications;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Omics.SequenceConversion;
 
@@ -231,6 +234,334 @@ public static class SequenceConversionExtensions
 
         return index == sequenceLength && locationRestriction.Contains("C-terminal", StringComparison.OrdinalIgnoreCase) ||
                index == sequenceLength && locationRestriction.Contains("3'-terminal", StringComparison.OrdinalIgnoreCase);
+    }
+
+    #region Peptides/Oligos
+    public static void ConvertModifications(this IBioPolymerWithSetMods withSetMods, IModificationLookup modificationLookup)
+    {
+        ConvertModifications(withSetMods, modificationLookup, SequenceConversionHandlingMode.RemoveIncompatibleElements);
+    }
+
+    public static void ConvertModifications(this IBioPolymerWithSetMods withSetMods, ISequenceConverter sequenceConverter)
+    {
+        ArgumentNullException.ThrowIfNull(sequenceConverter);
+        ConvertModifications(withSetMods, sequenceConverter.Serializer);
+    }
+
+    public static void ConvertModifications(this IBioPolymerWithSetMods withSetMods, ISequenceSerializer sequenceSerializer)
+    {
+        ArgumentNullException.ThrowIfNull(sequenceSerializer);
+        var lookup = sequenceSerializer.ModificationLookup ?? GlobalModificationLookup.Instance;
+        ConvertModifications(withSetMods, lookup, sequenceSerializer.HandlingMode);
+    }
+
+    #endregion
+
+    #region Proteins/Transcripts
+
+    public static void ConvertModifications(this IBioPolymer withSetMods, ISequenceConverter sequenceConverter)
+    {
+        ArgumentNullException.ThrowIfNull(sequenceConverter);
+        ConvertModifications(withSetMods, sequenceConverter.Serializer);
+    }
+
+    public static IBioPolymer ConvertModifications(this IBioPolymer withSetMods, IModificationLookup modificationLookup)
+    {
+        ConvertModifications(withSetMods, modificationLookup, SequenceConversionHandlingMode.RemoveIncompatibleElements);
+        return withSetMods;
+    }
+
+    public static void ConvertModifications(this IBioPolymer withSetMods, ISequenceSerializer sequenceSerializer)
+    {
+        ArgumentNullException.ThrowIfNull(sequenceSerializer);
+        var lookup = sequenceSerializer.ModificationLookup ?? GlobalModificationLookup.Instance;
+        ConvertModifications(withSetMods, lookup, sequenceSerializer.HandlingMode);
+    }
+
+    #endregion
+
+    private static void ConvertModifications(
+        IBioPolymerWithSetMods withSetMods,
+        IModificationLookup lookup,
+        SequenceConversionHandlingMode mode)
+    {
+        ArgumentNullException.ThrowIfNull(withSetMods);
+        ArgumentNullException.ThrowIfNull(lookup);
+
+        if (mode == SequenceConversionHandlingMode.UsePrimarySequence)
+        {
+            withSetMods.AllModsOneIsNterminus.Clear();
+            return;
+        }
+
+        var baseSequence = withSetMods.BaseSequence;
+        var keys = withSetMods.AllModsOneIsNterminus.Keys.ToList();
+        foreach (var key in keys)
+        {
+            if (!withSetMods.AllModsOneIsNterminus.TryGetValue(key, out var mod))
+            {
+                continue;
+            }
+
+            var position = ResolveWithSetModsPosition(baseSequence, key, out var residueIndex, out var targetResidue);
+            var canonical = BuildCanonicalModification(mod, position, residueIndex, targetResidue);
+            var resolved = lookup.TryResolve(canonical);
+            if (!resolved.HasValue || resolved.Value.MzLibModification == null)
+            {
+                HandleUnresolvedModification(mode, withSetMods.AllModsOneIsNterminus, key, canonical);
+                continue;
+            }
+
+            withSetMods.AllModsOneIsNterminus[key] = resolved.Value.MzLibModification;
+        }
+    }
+
+    private static void ConvertModifications(
+        IBioPolymer bioPolymer,
+        IModificationLookup lookup,
+        SequenceConversionHandlingMode mode)
+    {
+        ArgumentNullException.ThrowIfNull(bioPolymer);
+        ArgumentNullException.ThrowIfNull(lookup);
+
+        if (mode == SequenceConversionHandlingMode.UsePrimarySequence)
+        {
+            bioPolymer.OneBasedPossibleLocalizedModifications.Clear();
+            bioPolymer.OriginalNonVariantModifications.Clear();
+            foreach (var variant in bioPolymer.SequenceVariations)
+            {
+                variant.OneBasedModifications.Clear();
+            }
+
+            foreach (var variant in bioPolymer.AppliedSequenceVariations)
+            {
+                variant.OneBasedModifications.Clear();
+            }
+
+            return;
+        }
+
+        ConvertModificationLists(
+            bioPolymer.OneBasedPossibleLocalizedModifications,
+            index => ResolveBioPolymerPosition(bioPolymer.BaseSequence, index),
+            lookup,
+            mode);
+
+        ConvertModificationLists(
+            bioPolymer.OriginalNonVariantModifications,
+            index => ResolveBioPolymerPosition(bioPolymer.BaseSequence, index),
+            lookup,
+            mode);
+
+        foreach (var variant in bioPolymer.SequenceVariations)
+        {
+            ConvertModificationLists(
+                variant.OneBasedModifications,
+                index => ResolveVariantPosition(variant.VariantSequence, index),
+                lookup,
+                mode);
+        }
+
+        foreach (var variant in bioPolymer.AppliedSequenceVariations)
+        {
+            ConvertModificationLists(
+                variant.OneBasedModifications,
+                index => ResolveVariantPosition(variant.VariantSequence, index),
+                lookup,
+                mode);
+        }
+
+        if (bioPolymer.ConsensusVariant is not null && !ReferenceEquals(bioPolymer, bioPolymer.ConsensusVariant))
+        {
+            ConvertModifications(bioPolymer.ConsensusVariant, lookup, mode);
+        }
+    }
+
+    private static void ConvertModificationLists(
+        IDictionary<int, List<Modification>> modifications,
+        Func<int, (ModificationPositionType positionType, int? residueIndex, char? targetResidue)> positionResolver,
+        IModificationLookup lookup,
+        SequenceConversionHandlingMode mode)
+    {
+        var keys = modifications.Keys.ToList();
+        foreach (var key in keys)
+        {
+            if (!modifications.TryGetValue(key, out var list) || list == null || list.Count == 0)
+            {
+                modifications.Remove(key);
+                continue;
+            }
+
+            var (positionType, residueIndex, targetResidue) = positionResolver(key);
+            for (var index = 0; index < list.Count; index++)
+            {
+                var mod = list[index];
+                var canonical = BuildCanonicalModification(mod, positionType, residueIndex, targetResidue);
+                var resolved = lookup.TryResolve(canonical);
+                if (!resolved.HasValue || resolved.Value.MzLibModification == null)
+                {
+                    HandleUnresolvedModification(mode, list, index, canonical);
+                    if (mode != SequenceConversionHandlingMode.ThrowException)
+                    {
+                        index--;
+                    }
+                    continue;
+                }
+
+                list[index] = resolved.Value.MzLibModification;
+            }
+
+            if (list.Count == 0)
+            {
+                modifications.Remove(key);
+            }
+        }
+    }
+
+    private static ModificationPositionType ResolveWithSetModsPosition(
+        string baseSequence,
+        int index,
+        out int? residueIndex,
+        out char? targetResidue)
+    {
+        residueIndex = null;
+        targetResidue = null;
+
+        if (index == 1)
+        {
+            targetResidue = baseSequence.Length > 0 ? baseSequence[0] : (char?)null;
+            return ModificationPositionType.NTerminus;
+        }
+
+        if (index == baseSequence.Length + 2)
+        {
+            targetResidue = baseSequence.Length > 0 ? baseSequence[^1] : (char?)null;
+            return ModificationPositionType.CTerminus;
+        }
+
+        residueIndex = index - 2;
+        if (residueIndex >= 0 && residueIndex < baseSequence.Length)
+        {
+            targetResidue = baseSequence[residueIndex.Value];
+        }
+
+        return ModificationPositionType.Residue;
+    }
+
+    private static (ModificationPositionType positionType, int? residueIndex, char? targetResidue) ResolveBioPolymerPosition(
+        string baseSequence,
+        int index)
+    {
+        if (index == 1)
+        {
+            return (ModificationPositionType.NTerminus, null, baseSequence.Length > 0 ? baseSequence[0] : (char?)null);
+        }
+
+        if (index == baseSequence.Length + 2)
+        {
+            return (ModificationPositionType.CTerminus, null, baseSequence.Length > 0 ? baseSequence[^1] : (char?)null);
+        }
+
+        var residueIndex = index - 1;
+        var residue = residueIndex >= 0 && residueIndex < baseSequence.Length
+            ? baseSequence[residueIndex]
+            : (char?)null;
+        return (ModificationPositionType.Residue, residueIndex, residue);
+    }
+
+    private static (ModificationPositionType positionType, int? residueIndex, char? targetResidue) ResolveVariantPosition(
+        string? variantSequence,
+        int index)
+    {
+        if (string.IsNullOrEmpty(variantSequence))
+        {
+            return (ModificationPositionType.Residue, null, 'X');
+        }
+
+        if (index == 1)
+        {
+            return (ModificationPositionType.Residue, 0, variantSequence[0]);
+        }
+
+        if (index <= variantSequence.Length)
+        {
+            var residueIndex = index - 1;
+            return (ModificationPositionType.Residue, residueIndex, variantSequence[residueIndex]);
+        }
+
+        return (ModificationPositionType.Residue, null, 'X');
+    }
+
+    private static CanonicalModification BuildCanonicalModification(
+        Modification mod,
+        ModificationPositionType positionType,
+        int? residueIndex,
+        char? targetResidue)
+    {
+        var originalRepresentation = BuildOriginalRepresentation(mod);
+        var modTarget = mod.Target?.ToString();
+        var effectiveTargetResidue = !string.IsNullOrWhiteSpace(modTarget) && !string.Equals(modTarget, "X", StringComparison.OrdinalIgnoreCase)
+            ? modTarget[0]
+            : targetResidue;
+        return positionType switch
+        {
+            ModificationPositionType.NTerminus => CanonicalModification.AtNTerminus(
+                originalRepresentation,
+                effectiveTargetResidue,
+                mod.MonoisotopicMass,
+                mod.ChemicalFormula,
+                mzLibId: mod.IdWithMotif,
+                mzLibModification: mod),
+            ModificationPositionType.CTerminus => CanonicalModification.AtCTerminus(
+                originalRepresentation,
+                effectiveTargetResidue,
+                mod.MonoisotopicMass,
+                mod.ChemicalFormula,
+                mzLibId: mod.IdWithMotif,
+                mzLibModification: mod),
+            _ => CanonicalModification.AtResidue(
+                residueIndex ?? 0,
+                effectiveTargetResidue ?? 'X',
+                originalRepresentation,
+                mod.MonoisotopicMass,
+                mod.ChemicalFormula,
+                mzLibId: mod.IdWithMotif,
+                mzLibModification: mod)
+        };
+    }
+
+    private static void HandleUnresolvedModification(
+        SequenceConversionHandlingMode mode,
+        IDictionary<int, Modification> modifications,
+        int key,
+        CanonicalModification canonical)
+    {
+        if (mode == SequenceConversionHandlingMode.ThrowException)
+        {
+            throw new SequenceConversionException(
+                $"Unable to resolve modification {canonical}",
+                ConversionFailureReason.IncompatibleModifications,
+                new[] { canonical.ToString() });
+        }
+
+        modifications.Remove(key);
+    }
+
+    private static void HandleUnresolvedModification(
+        SequenceConversionHandlingMode mode,
+        IList<Modification> modifications,
+        int index,
+        CanonicalModification canonical)
+    {
+        if (mode == SequenceConversionHandlingMode.ThrowException)
+        {
+            throw new SequenceConversionException(
+                $"Unable to resolve modification {canonical}",
+                ConversionFailureReason.IncompatibleModifications,
+                new[] { canonical.ToString() });
+        }
+
+        modifications.RemoveAt(index);
     }
 
     private static string BuildOriginalRepresentation(Modification mod)

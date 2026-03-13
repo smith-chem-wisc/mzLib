@@ -17,6 +17,16 @@ public interface ISequenceSerializer
     SequenceFormatSchema Schema { get; }
 
     /// <summary>
+    /// Gets the modification lookup used for resolving identifiers during serialization.
+    /// </summary>
+    IModificationLookup? ModificationLookup { get; }
+
+    /// <summary>
+    /// Gets the preferred handling mode for incompatible modifications.
+    /// </summary>
+    SequenceConversionHandlingMode HandlingMode { get; }
+
+    /// <summary>
     /// Determines whether this serializer can handle the given sequence.
     /// Some serializers may not support certain modification types or terminal modifications.
     /// </summary>

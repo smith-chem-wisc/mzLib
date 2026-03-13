@@ -107,7 +107,7 @@ namespace Test.Omics.SequenceConversion
                 baseSeq: "PEPCIDE",
                 residueMods: 1,
                 unimodUpperCase: "PEPC[UNIMOD:4]IDE",
-                uniProtFormat: "PEPIDE"
+                uniProtFormat: "PEPCIDE"
             ),
 
             // 4. Phosphorylation on S - UNIMOD:21, mass +79.9663

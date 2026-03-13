@@ -22,6 +22,12 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
     public abstract SequenceFormatSchema Schema { get; }
 
     /// <inheritdoc />
+    public IModificationLookup? ModificationLookup => _lookup;
+
+    /// <inheritdoc />
+    public virtual SequenceConversionHandlingMode HandlingMode => SequenceConversionHandlingMode.ThrowException;
+
+    /// <inheritdoc />
     public abstract bool CanSerialize(CanonicalSequence sequence);
 
     /// <inheritdoc />

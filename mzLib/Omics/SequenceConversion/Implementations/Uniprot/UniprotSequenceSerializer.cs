@@ -55,6 +55,8 @@ public class UniProtSequenceSerializer : SequenceSerializerBase
 
     public override SequenceFormatSchema Schema { get; }
 
+    public override SequenceConversionHandlingMode HandlingMode => SequenceConversionHandlingMode.RemoveIncompatibleElements;
+
     public override bool CanSerialize(CanonicalSequence sequence) => !string.IsNullOrEmpty(sequence.BaseSequence);
 
     /// <summary>
@@ -250,7 +252,8 @@ public class UniProtSequenceSerializer : SequenceSerializerBase
                 // Check if mod should be suppressed entirely (e.g., Carbamidomethyl)
                 if (ShouldSuppressMod(mod))
                 {
-                    // Skip both residue and modification - completely remove from output
+                    // Suppressed mods omit only the modification annotation
+                    sb.Append(residue);
                     continue;
                 }
 
