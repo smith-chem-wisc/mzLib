@@ -3,6 +3,11 @@ using System.Text.RegularExpressions;
 
 namespace MzLibUtil.PositionFrequencyAnalysis
 {
+    /// <summary>
+    /// A lightweight record of a quantified peptide, storing its full sequence (with modifications),
+    /// base sequence (without modifications), the protein groups it maps to, and its observed intensity.
+    /// The base sequence is derived automatically from the full sequence.
+    /// </summary>
     public class QuantifiedPeptideRecord
     {
         public string FullSequence { get; set; }
@@ -10,13 +15,11 @@ namespace MzLibUtil.PositionFrequencyAnalysis
         public HashSet<string> ProteinGroups { get; set; }
         public double Intensity { get; set; }
         /// <summary>
-        /// A record of a quantified peptide, storing its full sequence (with modifications), base sequence (without modifications),
-        /// protein groups it maps to, and intensity. The base sequence is derived from the full sequence and is not passed 
-        /// as initialization parameter.
+        /// Initializes a new <see cref="QuantifiedPeptideRecord"/>.
         /// </summary>
-        /// <param name="fullSequence"></param>
-        /// <param name="proteinGroups"></param>
-        /// <param name="intensity"></param>
+        /// <param name="fullSequence">Full peptide sequence with embedded modification notation.</param>
+        /// <param name="proteinGroups">Protein groups this peptide maps to.</param>
+        /// <param name="intensity">Observed quantification intensity.</param>
         public QuantifiedPeptideRecord(string fullSequence, HashSet<string> proteinGroups, double intensity)
         {
             FullSequence = fullSequence;

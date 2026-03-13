@@ -12,7 +12,17 @@ namespace MzLibUtil.PositionFrequencyAnalysis
         public HashSet<string> FullSequences { get; set; }
         public string BaseSequence { get; set; }
         public QuantifiedProtein ParentProtein { get; set; }
-        public int ZeroBasedStartIndexInProtein { get; set; }
+        /// <summary>
+        /// The 1-based start position of this peptide within its parent protein sequence,
+        /// where 0 represents the protein N-terminus and 1 represents the first amino acid.
+        /// A value of -1 indicates the position is not yet known.
+        /// </summary>
+        /// <remarks>
+        /// This value is lazily computed and cached by <see cref="QuantifiedProtein.SetProteinModsFromPeptides"/>.
+        /// Each <see cref="QuantifiedPeptide"/> instance should be assigned to exactly one
+        /// <see cref="QuantifiedProtein"/>; sharing instances across proteins will produce incorrect results.
+        /// </remarks>
+        public int ZeroBasedStartIndexInProtein { get; internal set; }
 
         /// <summary>
         /// Dictionary mapping zero-based amino acid positions in the peptide to dictionaries of
@@ -66,10 +76,13 @@ namespace MzLibUtil.PositionFrequencyAnalysis
         /// <exception cref="Exception"></exception>
         public void MergePeptide(QuantifiedPeptide peptideToMerge)
         {
-            if (peptideToMerge == null || peptideToMerge.BaseSequence != BaseSequence)
-            {
-                throw new Exception("The base sequence of the peptide being added does not match the base sequence of this peptide.");
-            }
+            if (peptideToMerge == null)
+                throw new ArgumentNullException(nameof(peptideToMerge));
+
+            if (peptideToMerge.BaseSequence != BaseSequence)
+                throw new ArgumentException(
+                    "The base sequence of the peptide being added does not match the base sequence of this peptide.",
+                    nameof(peptideToMerge));
 
             Intensity += peptideToMerge.Intensity;
             FullSequences.UnionWith(peptideToMerge.FullSequences);

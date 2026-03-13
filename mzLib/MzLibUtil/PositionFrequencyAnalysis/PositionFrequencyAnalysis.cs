@@ -17,10 +17,10 @@ namespace MzLibUtil.PositionFrequencyAnalysis
         /// Populates protein groups with their respective proteins and peptides from a list of quantifide peptide records. 
         /// The resulting protein groups are stored in the ProteinGroups property with the protein group name strings as keys.
         /// </summary>
-        /// <param name="peptides"> A list of QuantifiedPeptideRecord, which store a peptide's full sequence, mapped protein groupsm and intensity.</param>
-        /// <param name="proteinSequences"> An optional dictionary of protein sequences to use for mapping peptides to proteins. 
-        /// If not provided, the protein sequences will be left null in the QuantifiedProtein objects. However, this parameter should not be null if what we want
-        /// is a protein stoichiometry, since it is needed to align the peptides to the parent protein.</param>"
+        /// <param name="peptides">A list of <see cref="QuantifiedPeptideRecord"/>, which store a peptide's full sequence, mapped protein groups, and intensity.</param>
+        /// <param name="proteinSequences">An optional dictionary of protein sequences to use for mapping peptides to proteins.
+        /// If not provided, the protein sequences will be left null in the <see cref="QuantifiedProtein"/> objects. However, this parameter should not be null if
+        /// protein stoichiometry is the goal, since it is needed to align the peptides to the parent protein.</param>
         public void SetUpQuantificationFromQuantifiedPeptideRecords(List<QuantifiedPeptideRecord> peptides, Dictionary<string, string> proteinSequences=null)
         {
             ProteinGroups = new Dictionary<string, QuantifiedProteinGroup>();

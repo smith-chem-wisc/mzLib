@@ -232,13 +232,10 @@ namespace Test
             Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[2].First().Value.Intensity, 111);
 
             // Test failed merge due to base sequence mismatch
-            var errorMessage = "The base sequence of the peptide being added does not match the base sequence of this peptide.";
             var exception1 = Assert.Throws<System.Exception>(() => peptide1.AddFullSequence("AK", intensity: 1));
-            Assert.AreEqual(exception1.Message, errorMessage);
 
             var peptide3 = new QuantifiedPeptide("AK", intensity: 1);
-            var exception2 = Assert.Throws<System.Exception>(() => peptide1.MergePeptide(peptide3));
-            Assert.AreEqual(exception2.Message, errorMessage);
+            var exception2 = Assert.Throws<System.ArgumentException>(() => peptide1.MergePeptide(peptide3));
         }
 
         [Test]

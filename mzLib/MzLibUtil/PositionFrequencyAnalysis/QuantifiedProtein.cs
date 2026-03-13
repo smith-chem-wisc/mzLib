@@ -64,7 +64,11 @@ namespace MzLibUtil.PositionFrequencyAnalysis
                 // if peptide position in protein is unknown, set it using the protein sequence
                 if (peptide.ZeroBasedStartIndexInProtein == -1)
                 {
-                    peptide.ZeroBasedStartIndexInProtein = Sequence.IndexOf(peptide.BaseSequence) + 1;
+                    int idx = Sequence.IndexOf(peptide.BaseSequence);
+                    if (idx == -1)
+                        throw new InvalidOperationException(
+                            $"Peptide '{peptide.BaseSequence}' was not found in protein '{Accession}' sequence.");
+                    peptide.ZeroBasedStartIndexInProtein = idx + 1;
                 }
                 // if peptide has no modifications, add to all of the aminoacid positions in the protein that it covers
                 if (peptide.ModifiedAminoAcidPositions.IsNullOrEmpty())
@@ -95,10 +99,10 @@ namespace MzLibUtil.PositionFrequencyAnalysis
                             continue;
                         }
 
-                        if (!ModifiedAminoAcidPositionsInProtein.ContainsKey(modPositionInProtein))
+                        if (!ModifiedAminoAcidPositionsInProtein.TryGetValue(modPositionInProtein, out _))
                         {
-                            ModifiedAminoAcidPositionsInProtein[modPositionInProtein] = new Dictionary<string, QuantifiedModification>();
-                            PeptidesByProteinPosition[modPositionInProtein] = new HashSet<string>();
+                            ModifiedAminoAcidPositionsInProtein[modPositionInProtein] = new();
+                            PeptidesByProteinPosition[modPositionInProtein] = new();
                         }
                         PeptidesByProteinPosition[modPositionInProtein].Add(peptide.BaseSequence);
 
@@ -131,7 +135,13 @@ namespace MzLibUtil.PositionFrequencyAnalysis
         /// The output is a dictionary keyed by zero-based amino acid positions in the protein and
         /// and the modification names with their corresponding stoichiometry values (fractions).
         /// </summary>
-        /// <returns></returns>
+        /// <returns> 
+        /// A dictionary where keys are zero-based amino acid positions in the protein and values are dictionaries
+        /// mapping modification names to their stoichiometry (fraction of the total intensity at that position). For example:
+        /// { 0: {"Acetyl": 0.5, "Unmodified": 0.5}, 15: {"Phospho": 1.0} } 
+        /// indicates that at position 0, 50% of the intensity is from acetylated peptides and 50% from unmodified peptides, 
+        /// while at position 15, all of the intensity is from phosphorylated peptides.
+        /// </returns>
         public Dictionary<int, Dictionary<string, double>> GetModStoichiometryFromProteinMods()
         {
             SetProteinModsFromPeptides();
@@ -140,10 +150,15 @@ namespace MzLibUtil.PositionFrequencyAnalysis
             {
                 aaModsStoichiometry[modpos] = new Dictionary<string, double>();
 
-                double totalPositionIntensity = Peptides.Where(pep => PeptidesByProteinPosition[modpos].Contains(pep.Key)).Sum(x => x.Value.Intensity);
+                double totalPositionIntensity = Peptides
+                    .Where(pep => PeptidesByProteinPosition[modpos].Contains(pep.Key))
+                    .Sum(x => x.Value.Intensity);
+
                 foreach (var mod in ModifiedAminoAcidPositionsInProtein[modpos].Values)
                 {
-                    double modFraction = mod.Intensity / totalPositionIntensity;
+                    double modFraction = totalPositionIntensity > 0
+                        ? mod.Intensity / totalPositionIntensity
+                        : 0.0;
                     aaModsStoichiometry[modpos].Add(mod.Name, modFraction);
                 }
             }
