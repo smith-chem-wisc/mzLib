@@ -394,6 +394,29 @@ namespace MassSpectrometry.Dia
 
         #endregion
 
+        #region Peak Selection Quality (Prompt 2)
+
+        /// <summary>
+        /// Standard deviation of per-fragment apex positions within the detected peak boundaries.
+        /// Low value = all fragments co-elute tightly (characteristic of a true peptide peak).
+        /// High value = fragments peak at different times (characteristic of interference).
+        /// Populated by DiaPeakGroupDetector.SelectBest() via PeakGroupCandidate.CoElutionStd.
+        /// 0f if no valid peak detected or only one fragment had signal.
+        /// Feature candidate for Prompt 3 feature vector addition.
+        /// </summary>
+        public float CoElutionStd { get; set; }
+
+        /// <summary>
+        /// Difference between the best and second-best candidate SelectionScores
+        /// (SelectionScore - SecondBestScore). Large gap = one peak clearly dominates
+        /// the selection (confident ID). Small gap = ambiguous selection, two competing peaks.
+        /// 0f if only one candidate existed or no valid peak detected.
+        /// Feature candidate for Prompt 3 feature vector addition.
+        /// </summary>
+        public float CandidateScoreGap { get; set; }
+
+        #endregion
+
         #region Derived RT and Coverage Features (Phase 19, Priority 5)
 
         /// <summary>
@@ -437,8 +460,10 @@ namespace MassSpectrometry.Dia
         public float ObservedApexRt { get; set; }
 
         /// <summary>
-        /// Detected chromatographic peak group from DiaPeakGroupDetector.
+        /// Detected chromatographic peak group from DiaPeakGroupDetector.SelectBest().
         /// Null if no valid peak was detected.
+        /// Prompt 2: PeakGroup struct now contains selection scoring fields
+        /// (ApexCosine, CoElutionStd, Snr, SelectionScore, TotalCandidateCount, SecondBestScore).
         /// </summary>
         public PeakGroup? DetectedPeakGroup { get; set; }
 
@@ -526,6 +551,10 @@ namespace MassSpectrometry.Dia
 
             // Interference / chimeric features (Phase 19, Priority 2)
             ChimericScore = float.NaN;
+
+            // Peak selection quality (Prompt 2)
+            CoElutionStd = 0f;
+            CandidateScoreGap = 0f;
 
             // Derived RT and coverage features (Phase 19, Priority 5)
             // RtDeviationNormalized dropped: 100% NaN (PeakWidth=0 when no peak group detected).

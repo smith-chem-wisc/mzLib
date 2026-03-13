@@ -53,15 +53,6 @@
 //     A separate validation step (Step 2B below) can optionally load via SpectralLibrary
 //     + ConvertLibrarySpectra to catch such differences.
 //
-//     *** CRITICAL NOTE ON GROUND TRUTH ISOLATION ***
-//     The DIA-NN ground truth TSV (groundTruthPath) is used ONLY for post-search
-//     comparison in Step 11 (ValidateCalibrationAnchors).  It is NEVER passed to
-//     KoinaMspParser.Parse() and therefore NEVER influences the iRT/RT values stored
-//     in LibraryPrecursorInput.  Passing rtLookup into Parse() would overwrite the
-//     MSP iRT values with observed DIA-NN RT minutes, collapsing the iRT range from
-//     [-34, 169] to [1, 45] and making the calibration slope appear ~1.0 instead
-//     of the true ~0.217.  Keep the two code paths strictly separate.
-//
 // USAGE
 // ─────
 //   1.  Add this file to mzLib/Development/Development.csproj
@@ -96,7 +87,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using static Nett.TomlObjectFactory;
 
 namespace Development.Dia
 {
@@ -146,13 +136,8 @@ namespace Development.Dia
         /// <param name="targetMspPath">Path to target library .msp file.</param>
         /// <param name="decoyMspPath">Path to decoy library .msp file.</param>
         /// <param name="groundTruthPath">
-        /// Optional path to a DIA-NN report TSV for post-search RT comparison only.
+        /// Optional path to a DIA-NN report TSV for RT lookup and anchor validation.
         /// Pass null to skip ground truth comparisons.
-        ///
-        /// IMPORTANT: This file is used SOLELY in Step 11 (ValidateCalibrationAnchors)
-        /// for diagnostic comparison of ObservedApexRt vs DIA-NN RT after the search
-        /// completes.  It is never passed to KoinaMspParser.Parse() and therefore
-        /// has zero influence on library iRT/RT values, calibration, or search results.
         /// </param>
         /// <param name="outputFolder">
         /// Folder where TSV outputs are written.  Created if it does not exist.
@@ -197,41 +182,26 @@ namespace Development.Dia
             // Guards against a partial refactor where DiaFeatureVector.ClassifierFeatureCount
             // changes without updating the FDR engine.
             Debug.Assert(
-                DiaFeatureVector.ClassifierFeatureCount == 35,
-                $"Expected 35 classifier features, got {DiaFeatureVector.ClassifierFeatureCount}. " +
+                DiaFeatureVector.ClassifierFeatureCount == 37,
+                $"Expected 37 classifier features, got {DiaFeatureVector.ClassifierFeatureCount}. " +
                 $"Update the feature count assertion in MetaMorpheusEquivalentBenchmark.");
 
             var totalSw = Stopwatch.StartNew();
 
             // ════════════════════════════════════════════════════════════════════════
-            //  STEP 1 — Load RT ground truth (optional, for post-search validation only)
+            //  STEP 1 — Load RT ground truth (optional, for anchor quality validation)
             //
             //  MetaMorpheus equivalent: none (MetaMorpheus does not load ground truth).
-            //
-            //  *** GROUND TRUTH ISOLATION CONTRACT ***
-            //  rtLookup is populated here and used ONLY in Step 11.
-            //  It is NEVER passed to KoinaMspParser.Parse() (Steps 2a/2b).
-            //  The library iRT values come exclusively from the MSP files.
-            //
-            //  WHY THIS MATTERS: KoinaMspParser.Parse(path, rtLookup, ...) overwrites
-            //  the MSP iRT field with DIA-NN observed RT minutes when a sequence is
-            //  found in rtLookup.  For a Prosit iRT library (range -34 to 169 iRT units,
-            //  scan RT range 1–45 min), this collapses the iRT range to [1, 45] and
-            //  makes the calibration slope appear ~1.0 instead of the true ~0.217.
-            //  The calibrator then converges to slope ~0.94 and sigma ~0.54 min (wrong)
-            //  rather than slope ~0.217 and sigma < 0.5 min (correct).
+            //  This step is ONLY for benchmark diagnostics and does NOT affect results.
             // ════════════════════════════════════════════════════════════════════════
-            PrintStepHeader(1, "Load RT ground truth (post-search validation only — never used in calibration)");
+            PrintStepHeader(1, "Load RT ground truth (benchmark-only — not in MetaMorpheus)");
             var sw1 = Stopwatch.StartNew();
 
             Dictionary<string, double> rtLookup = null;
             if (!string.IsNullOrEmpty(groundTruthPath) && File.Exists(groundTruthPath))
             {
                 rtLookup = KoinaMspParser.BuildRtLookupFromDiannTsv(groundTruthPath);
-                Console.WriteLine($"  RT lookup: {rtLookup.Count:N0} entries from diann_ground_truth.tsv");
-                Console.WriteLine("  NOTE: this lookup is used ONLY in Step 11 for anchor quality validation.");
-                Console.WriteLine("        It is NOT passed to KoinaIrtMspParser.Parse() and does NOT affect");
-                Console.WriteLine("        library iRT values, calibration, or search results.");
+                Console.WriteLine($"  RT lookup: {rtLookup.Count:N0} peptide→RT entries");
             }
             else
             {
@@ -254,29 +224,18 @@ namespace Development.Dia
             //
             //  Here we use KoinaMspParser directly (same output type, fewer allocations).
             //  See the file header note about the two loading paths.
-            //
-            //  *** rtLookup is explicitly NOT passed here (null) ***
-            //  Library iRT/RT values must come from the MSP files only.
-            //  See Step 1 comment for the full explanation.
             // ════════════════════════════════════════════════════════════════════════
-            PrintStepHeader(2, "Load spectral libraries (targets + decoys) — iRT values from MSP only");
+            PrintStepHeader(2, "Load spectral libraries (targets + decoys)");
             var sw2 = Stopwatch.StartNew();
 
             Console.WriteLine($"  Target MSP:  {Path.GetFileName(targetMspPath)}");
             Console.WriteLine($"  Decoy MSP:   {Path.GetFileName(decoyMspPath)}");
-            Console.WriteLine("  (rtLookup is NOT passed here — library iRT/RT comes from MSP files only)");
 
-            // ── Parse targets with NO rtLookup — iRT values come from the MSP file ──
-            // Do NOT pass rtLookup here.  Passing it would overwrite MSP iRT values
-            // with DIA-NN RT minutes and break the iRT→RT calibration (slope ~1 instead
-            // of ~0.217).
-            var targets = KoinaIrtMspParser.Parse(targetMspPath, minIntensity: mspMinIntensity);
+            var targets = KoinaMspParser.Parse(targetMspPath, rtLookup, minIntensity: mspMinIntensity);
             Console.WriteLine($"  Targets:  {targets.Count:N0} precursors  ({sw2.ElapsedMilliseconds}ms)");
 
             var sw2b = Stopwatch.StartNew();
-
-            // ── Parse decoys with NO rtLookup — same reasoning ───────────────────
-            var decoysRaw = KoinaIrtMspParser.Parse(decoyMspPath, minIntensity: mspMinIntensity);
+            var decoysRaw = KoinaMspParser.Parse(decoyMspPath, rtLookup, minIntensity: mspMinIntensity);
 
             // ── Mark all entries from the decoy MSP as IsDecoy = true ──────────────
             // This mirrors DiaSearchTask's marking logic:
@@ -306,14 +265,6 @@ namespace Development.Dia
             combined.AddRange(decoys);
 
             // ── Snapshot iRT range (diagnostic: span >> 30 → iRT library, slope ≠ 1) ──
-            //
-            // For a Prosit/Koina CiRT library on PXD005573 the expected values are:
-            //   irtMin ≈ -34,  irtMax ≈ 169,  span ≈ 203 iRT units
-            //   scan RT range: 1–45 min  →  true slope ≈ 0.217
-            //
-            // If you instead see irtMin ≈ 1, irtMax ≈ 45, span ≈ 44 → the rtLookup
-            // was accidentally passed into Parse(), overwriting MSP iRT values with
-            // DIA-NN RT minutes.  Fix: ensure Parse() is called with rtLookup: null.
             double irtMin = double.MaxValue, irtMax = double.MinValue;
             int irtCount = 0;
             for (int i = 0; i < combined.Count; i++)
@@ -329,64 +280,11 @@ namespace Development.Dia
                 irtCount++;
             }
 
-            // ── Diagnostic: verify IrtValue population ────────────────────────────────
-            // Insert immediately after the irtMin/irtMax/irtCount loop, before sw2.Stop()
-            int irtSet = 0, irtNull = 0, rtSet = 0;
-            for (int i = 0; i < targets.Count; i++)
-            {
-                var p = targets[i];
-                if (p.IrtValue.HasValue) irtSet++; else irtNull++;
-                if (p.RetentionTime.HasValue) rtSet++;
-            }
-            Console.WriteLine($"  IrtValue set:      {irtSet:N0} / {targets.Count:N0}");
-            Console.WriteLine($"  IrtValue null:     {irtNull:N0} / {targets.Count:N0}");
-            Console.WriteLine($"  RetentionTime set: {rtSet:N0} / {targets.Count:N0}");
-
-            // Print first 5 targets to verify actual values
-            for (int i = 0; i < Math.Min(5, targets.Count); i++)
-            {
-                var p = targets[i];
-                Console.WriteLine($"  [{i}] seq={p.Sequence,-30} irt={p.IrtValue?.ToString("F3") ?? "NULL",-10} rt={p.RetentionTime?.ToString("F3") ?? "NULL"}");
-            }
-
-            // Also check the decoy with the lowest iRT — should be negative for Prosit CiRT
-            // Check lowest iRT among decoys (use decoysRaw if decoys list not yet built)
-            double lowestDecoyIrt = double.MaxValue;
-            string lowestDecoySeq = null;
-            for (int i = 0; i < decoysRaw.Count; i++)
-            {
-                var d = decoysRaw[i];
-                if (d.IrtValue.HasValue && d.IrtValue.Value < lowestDecoyIrt)
-                {
-                    lowestDecoyIrt = d.IrtValue.Value;
-                    lowestDecoySeq = d.Sequence;
-                }
-            }
-            if (lowestDecoySeq != null)
-                Console.WriteLine($"  Lowest decoy iRT: seq={lowestDecoySeq} irt={lowestDecoyIrt:F3}");
-            else
-                Console.WriteLine($"  No decoys have IrtValue set.");
-
             sw2.Stop();
             Console.WriteLine($"  Combined: {combined.Count:N0} ({targets.Count:N0} targets, {decoys.Count:N0} decoys)");
             Console.WriteLine($"  Library iRT/RT range (targets): [{irtMin:F1}, {irtMax:F1}]  span={irtMax - irtMin:F1}  n={irtCount:N0}");
-
-            // ── Sanity-check: warn if iRT range looks like RT minutes were substituted ─
-            double irtSpan = irtMax - irtMin;
-            if (irtSpan < 50.0)
-            {
-                Console.WriteLine("  *** ERROR: iRT span < 50 iRT units — library iRT values look like RT minutes.");
-                Console.WriteLine("             This means rtLookup was passed into KoinaMspParser.Parse().");
-                Console.WriteLine("             Calibration slope will be ~1.0 instead of ~0.217.  Aborting.");
-                Console.WriteLine("             Fix: pass rtLookup: null to KoinaMspParser.Parse().");
-                return;
-            }
-            else if (irtSpan > 30.0)
-            {
-                Console.WriteLine("  *** iRT library detected (span >> 30): calibration slope will be ≠ 1.");
-                Console.WriteLine($"      Expected slope ≈ {44.0 / irtSpan:F3} (44 min gradient / {irtSpan:F0} iRT span).");
-            }
-
+            if (irtMax - irtMin > 30.0)
+                Console.WriteLine("  *** iRT library detected (span >> 30): calibration slope will be ≠ 1. ***");
             Console.WriteLine($"  Elapsed: {sw2.ElapsedMilliseconds}ms");
             Console.WriteLine();
 
@@ -429,39 +327,7 @@ namespace Development.Dia
                 Console.WriteLine("  ERROR: No MS2 scans found. Aborting.");
                 return;
             }
-            // Print DIA isolation windows
-            Console.WriteLine("─── DIA Isolation Windows ───");
-            var windowIds = scanIndex.GetWindowIds().OrderBy(w => w).ToList();
-            foreach (var wid in windowIds)
-            {
-                var (lo, hi) = scanIndex.GetWindowBounds(wid);
-                Console.WriteLine($"  Window {wid}: {lo:F1} - {hi:F1} m/z");
-            }
 
-            // Check which window each probe peptide falls in
-            var probePeptides = new (string Name, float Mz)[]
-            {
-    ("VSGHVITDIVEGK",      677.37f),
-    ("EVIAVSC...QETIR",    959.46f),
-    ("GFNPAQPLNIR",        613.84f),
-    ("ENEFSFEDNAIR",        735.83f),
-    ("VPGFADDPTELAC(4)R",  774.36f),
-    ("HFEELETIMDR",         710.33f),
-            };
-            Console.WriteLine("─── Probe peptide window assignments ───");
-            foreach (var (name, mz) in probePeptides)
-            {
-                int wid = scanIndex.FindWindowForPrecursorMz(mz);
-                if (wid >= 0)
-                {
-                    var (lo, hi) = scanIndex.GetWindowBounds(wid);
-                    var (start, count) = (0, 0);
-                    scanIndex.TryGetScanRangeForWindow(wid, out start, out count);
-                    Console.WriteLine($"  {name} mz={mz:F2} → window {wid} [{lo:F1}-{hi:F1}] scans={count}");
-                }
-                else
-                    Console.WriteLine($"  {name} mz={mz:F2} → NO WINDOW FOUND");
-            }
             // ════════════════════════════════════════════════════════════════════════
             //  STEP 4 — Build DiaSearchParameters
             //
@@ -522,6 +388,8 @@ namespace Development.Dia
                 PiecewiseLinearRSquaredThreshold = CalibPiecewiseRSquaredThreshold,
                 LowessRSquaredThreshold = CalibLowessRSquaredThreshold,
                 NonLinearSigmaImprovementThreshold = CalibNonLinearSigmaImprovementThreshold,
+                AnchorMaxCoElutionStd = 2.0f,   // Prompt 4: reject scattered-fragment anchors
+                AnchorMinCandidateScoreGap = 0.05f,  // Prompt 4: reject ambiguous peak-group anchors
             };
 
             Console.WriteLine($"  MaxIterations              = {calibrator.MaxIterations}");
@@ -529,6 +397,8 @@ namespace Development.Dia
             Console.WriteLine($"  InitialApexScoreThreshold  = {calibrator.InitialApexScoreThreshold}");
             Console.WriteLine($"  MinAnchorCount             = {calibrator.MinAnchorCount}");
             Console.WriteLine($"  EnableNonLinear            = {calibrator.EnableNonLinearModelSelection}");
+            Console.WriteLine($"  AnchorMaxCoElutionStd      = {calibrator.AnchorMaxCoElutionStd}");
+            Console.WriteLine($"  AnchorMinCandidateScoreGap = {calibrator.AnchorMinCandidateScoreGap}");
             Console.WriteLine();
 
             // ════════════════════════════════════════════════════════════════════════
@@ -594,67 +464,6 @@ namespace Development.Dia
             PrintCalibrationSummary(calibrationModel, pipelineResult);
             Console.WriteLine();
 
-            // Diagnostic: decoy fragment detection distribution
-            var decoyResults = searchResults.Where(r => r.IsDecoy).ToList();
-            var targetResults = searchResults.Where(r => !r.IsDecoy).ToList();
-
-            Console.WriteLine($"Decoy fragment detection (n={decoyResults.Count}):");
-            for (int minF = 3; minF <= 8; minF++)
-            {
-                int count = decoyResults.Count(r => r.FragmentsDetected >= minF);
-                Console.WriteLine($"  FragmentsDetected >= {minF}: {count} ({100.0 * count / decoyResults.Count:F1}%)");
-            }
-            Console.WriteLine($"Target fragment detection (n={targetResults.Count}):");
-            for (int minF = 3; minF <= 8; minF++)
-            {
-                int count = targetResults.Count(r => r.FragmentsDetected >= minF);
-                Console.WriteLine($"  FragmentsDetected >= {minF}: {count} ({100.0 * count / targetResults.Count:F1}%)");
-            }
-
-            // Mean ApexScore by FragmentsDetected bucket
-            Console.WriteLine("Mean ApexScore by FragmentsDetected (targets vs decoys):");
-            for (int minF = 3; minF <= 6; minF++)
-            {
-                var t = targetResults.Where(r => r.FragmentsDetected == minF && !float.IsNaN(r.ApexScore));
-                var d = decoyResults.Where(r => r.FragmentsDetected == minF && !float.IsNaN(r.ApexScore));
-                Console.WriteLine($"  FragDet={minF}: T mean={t.Average(r => r.ApexScore):F3} (n={t.Count()})  D mean={d.Average(r => r.ApexScore):F3} (n={d.Count()})");
-            }
-
-            // ── RT deviation diagnostic (targets vs decoys) ──────────────────────
-            {
-                double tRtSum = 0, dRtSum = 0;
-                int tRtN = 0, dRtN = 0;
-                var tRtDeltas = new List<float>();
-                var dRtDeltas = new List<float>();
-                for (int i = 0; i < searchResults.Count; i++)
-                {
-                    var r = searchResults[i];
-                    if (float.IsNaN(r.RtDeviationMinutes)) continue;
-                    if (r.IsDecoy) { dRtSum += r.RtDeviationMinutes; dRtN++; dRtDeltas.Add(r.RtDeviationMinutes); }
-                    else { tRtSum += r.RtDeviationMinutes; tRtN++; tRtDeltas.Add(r.RtDeviationMinutes); }
-                }
-                tRtDeltas.Sort(); dRtDeltas.Sort();
-                double tMed = tRtDeltas.Count > 0 ? tRtDeltas[tRtDeltas.Count / 2] : double.NaN;
-                double dMed = dRtDeltas.Count > 0 ? dRtDeltas[dRtDeltas.Count / 2] : double.NaN;
-                Console.WriteLine($"RtDeviationMinutes (targets n={tRtN}): mean={tRtSum / Math.Max(tRtN, 1):F3}  median={tMed:F3}");
-                Console.WriteLine($"RtDeviationMinutes (decoys  n={dRtN}): mean={dRtSum / Math.Max(dRtN, 1):F3}  median={dMed:F3}");
-            }
-            // After calibration model is obtained, before Step 7:
-            if (calibrationModel != null)
-            {
-                int outsideRun = 0, noIrt = 0;
-                float rtMax = scanIndex.GetGlobalRtMax();
-                for (int i = 0; i < targets.Count; i++)
-                {
-                    var p = targets[i];
-                    if (!p.IrtValue.HasValue && !p.RetentionTime.HasValue) { noIrt++; continue; }
-                    double irt = p.IrtValue ?? p.RetentionTime.Value;
-                    float predictedRt = (float)calibrationModel.ToMinutes(irt);
-                    if (predictedRt > rtMax || predictedRt < scanIndex.GetGlobalRtMin())
-                        outsideRun++;
-                }
-                Console.WriteLine($"  Targets with predicted RT outside run [{scanIndex.GetGlobalRtMin():F1},{rtMax:F1}]: {outsideRun:N0}  (no iRT: {noIrt:N0})");
-            }
             // ════════════════════════════════════════════════════════════════════════
             //  STEP 7 — Write pre-FDR diagnostic TSV
             //
@@ -685,59 +494,18 @@ namespace Development.Dia
             //  MetaMorpheus equivalent:
             //    PostDiaSearchAnalysisTask.CalculateDiaFdr()
             //      for (int i = 0; i < results.Count; i++)
-            //          DiaFeatureExtractor.ComputeFeatures(result, i, index, bestFragXic, bestFragXicRts)
+            //          DiaFeatureExtractor.ComputeFeatures(result, precursorIndex)
             //
             // ════════════════════════════════════════════════════════════════════════
             PrintStepHeader(8, "Compute FDR feature vectors (35 features per result)");
             var swFeatures = Stopwatch.StartNew();
 
-            // Build (Sequence, ChargeState, IsDecoy) → LibraryPrecursorInput lookup
-            // so we can find each result's best-fragment m/z for Ms1Ms2Correlation.
-            // Mirrors Phase23BenchmarkRunner and PostDiaSearchAnalysisTask exactly.
-            var precursorMap = new Dictionary<(string, int, bool), LibraryPrecursorInput>(combined.Count);
-            foreach (var p in combined)
-            {
-                var key = (p.Sequence, p.ChargeState, p.IsDecoy);
-                if (!precursorMap.ContainsKey(key))
-                    precursorMap[key] = p;
-            }
-
-            const float fragXicPpm = 20f;
             var featureVectors = new DiaFeatureVector[searchResults.Count];
 
             for (int i = 0; i < searchResults.Count; i++)
             {
                 var result = searchResults[i];
-                ReadOnlySpan<float> bestFragXic = default;
-                ReadOnlySpan<float> bestFragXicRts = default;
-
-                // Wire Ms1Ms2Correlation: extract best-fragment XIC from MS2 index
-                if (scanIndex.Ms1ScanCount > 0 &&
-                    result.BestFragIndex >= 0 &&
-                    result.BestFragIndex < result.FragmentsQueried &&
-                    precursorMap.TryGetValue((result.Sequence, result.ChargeState, result.IsDecoy), out var libInput) &&
-                    libInput.FragmentMzs != null &&
-                    result.BestFragIndex < libInput.FragmentMzs.Length)
-                {
-                    float fragMz = libInput.FragmentMzs[result.BestFragIndex];
-                    DiaFeatureExtractor.ExtractBestFragmentXic(
-                        scanIndex, fragMz, result.WindowId,
-                        result.RtWindowStart, result.RtWindowEnd,
-                        fragXicPpm,
-                        out float[] fragXicIntensities,
-                        out float[] fragXicRts);
-
-                    if (fragXicIntensities.Length >= 3)
-                    {
-                        bestFragXic = fragXicIntensities.AsSpan();
-                        bestFragXicRts = fragXicRts.AsSpan();
-                    }
-                }
-
-                featureVectors[i] = DiaFeatureExtractor.ComputeFeatures(
-                    result, i, scanIndex,
-                    bestFragXic: bestFragXic,
-                    bestFragXicRts: bestFragXicRts);
+                featureVectors[i] = DiaFeatureExtractor.ComputeFeatures(result, i);
             }
 
             swFeatures.Stop();
@@ -748,7 +516,7 @@ namespace Development.Dia
             Console.WriteLine();
 
             // ════════════════════════════════════════════════════════════════════════
-            //  STEP 9 — Run iterative FDR (LDA then NeuralNet)
+            //  STEP 9 — Run iterative semi-supervised FDR (LDA then NeuralNet)
             //
             //  MetaMorpheus equivalent:
             //    DiaFdrEngine.RunIterativeFdr(results, featureVectors, DiaClassifierType.NeuralNetwork)
@@ -771,16 +539,6 @@ namespace Development.Dia
             ldaMs = swFdr.ElapsedMilliseconds - ldaMs;
             Console.WriteLine($"  LDA FDR complete: {ldaFdrResult.IdentificationsAt1PctFdr:N0} IDs at 1% FDR ({ldaMs}ms)");
             Console.WriteLine();
-            foreach (var diag in ldaFdrResult.Diagnostics)
-                DiaFdrEngine.PrintDiagnostics(diag);
-
-            // ── Capture LDA scores to warm-start the NN ─────────────────────────
-            // The LDA classifier score already ranks results better than the raw
-            // apex/temporal scores, so seeding NN iter 1 with LDA scores gives
-            // it ~600 confident positives instead of relying on pseudo-labels.
-            var ldaSeedScores = new float[searchResults.Count];
-            for (int i = 0; i < searchResults.Count; i++)
-                ldaSeedScores[i] = searchResults[i].ClassifierScore;
 
             // ── Neural Network ───────────────────────────────────────────────────
             Console.WriteLine("  [Neural Network]");
@@ -788,9 +546,12 @@ namespace Development.Dia
             DiaFdrEngine.RunIterativeFdr(
                 searchResults, featureVectors,
                 classifierType: DiaClassifierType.NeuralNetwork,
-                maxIterations: 5
-                );   
+                maxIterations: 5);
             nnMs = swFdr.ElapsedMilliseconds - nnMs;
+
+            Console.WriteLine($"  NN  FDR complete: ({nnMs}ms)");
+            swFdr.Stop();
+            Console.WriteLine($"  FDR computation: {swFdr.ElapsedMilliseconds}ms  (LDA: {ldaMs}ms + NN: {nnMs}ms)");
 
             // ── Count IDs at various q-value thresholds ──────────────────────────
             int idsAt0_001 = 0, idsAt0_005 = 0, idsAt0_01 = 0, idsAt0_05 = 0, idsAt0_10 = 0;
@@ -869,39 +630,14 @@ namespace Development.Dia
 
             // ════════════════════════════════════════════════════════════════════════
             //  STEP 11 — Calibration anchor validation (optional, requires ground truth)
-            //
-            //  This is the ONLY place where rtLookup is used.
-            //  It compares ObservedApexRt (from the search) against DIA-NN reference
-            //  RTs to assess calibration quality.  It has no effect on search results.
             // ════════════════════════════════════════════════════════════════════════
             if (rtLookup != null && useCalibration && calibrationModel != null)
             {
-                PrintStepHeader(11, "Calibration anchor validation vs DIA-NN ground truth (diagnostic only)");
+                PrintStepHeader(11, "Calibration anchor validation vs DIA-NN ground truth");
                 ValidateCalibrationAnchors(searchResults, rtLookup, calibrationModel);
                 Console.WriteLine();
             }
-            // Spot-check: what RT do DIA-NN peptides with iRT near 60 actually have?
-            var spotCheck = new List<(double irt, double diannRt, double ourPredRt)>();
-            for (int i = 0; i < searchResults.Count; i++)
-            {
-                var r = searchResults[i];
-                if (r.IsDecoy) continue;
-                string key = r.Sequence + "/" + r.ChargeState;
-                if (!rtLookup.TryGetValue(key, out double truthRt)) continue;
-                if (!precursorMap.TryGetValue((r.Sequence, r.ChargeState, false), out var lib)) continue;
-                if (!lib.IrtValue.HasValue) continue;
-                double irt = lib.IrtValue.Value;
-                double predRt = calibrationModel.ToMinutes(irt);
-                spotCheck.Add((irt, truthRt, predRt));
-            }
-            spotCheck.Sort((a, b) => a.irt.CompareTo(b.irt));
-            Console.WriteLine("iRT vs DIA-NN RT vs Our Predicted RT (sampled at iRT quintiles):");
-            int[] quintiles = { 0, spotCheck.Count / 5, 2 * spotCheck.Count / 5, 3 * spotCheck.Count / 5, 4 * spotCheck.Count / 5, spotCheck.Count - 1 };
-            foreach (int idx in quintiles)
-            {
-                var (irt, truth, pred) = spotCheck[idx];
-                Console.WriteLine($"  iRT={irt:F1}  DIA-NN RT={truth:F2}  Our pred={pred:F2}  error={pred - truth:F2}");
-            }
+
             // ════════════════════════════════════════════════════════════════════════
             //  SUMMARY
             // ════════════════════════════════════════════════════════════════════════
@@ -911,7 +647,6 @@ namespace Development.Dia
             Console.WriteLine("════════════════════════════════════════════════════════════════");
             Console.WriteLine($"  Raw file:               {Path.GetFileName(rawFilePath)}");
             Console.WriteLine($"  Library:                {targets.Count:N0} targets + {decoys.Count:N0} decoys");
-            Console.WriteLine($"  Library iRT span:       {irtSpan:F1} iRT units  [{irtMin:F1}, {irtMax:F1}]");
             Console.WriteLine($"  MS2 scans indexed:      {scanIndex.ScanCount:N0}");
             Console.WriteLine($"  Pre-FDR results:        {searchResults.Count:N0}  ({targetCount:N0} T, {decoyCount:N0} D)");
             Console.WriteLine($"  IDs at 1% FDR:          {idsAt0_01:N0}");
@@ -919,18 +654,10 @@ namespace Development.Dia
 
             if (calibrationModel != null)
             {
-                double scanRtSpan = scanIndex.GetGlobalRtMax() - scanIndex.GetGlobalRtMin();
-                double expectedSlope = irtSpan > 0 ? scanRtSpan / irtSpan : double.NaN;
-                Console.WriteLine($"  Calibration slope:      {calibrationModel.Slope:F4}  (expected ≈ {expectedSlope:F4})");
+                Console.WriteLine($"  Calibration slope:      {calibrationModel.Slope:F4}");
                 Console.WriteLine($"  Calibration intercept:  {calibrationModel.Intercept:F4}");
                 Console.WriteLine($"  Calibration σ:          {calibrationModel.SigmaMinutes:F4} min");
                 Console.WriteLine($"  Calibration R²:         {calibrationModel.RSquared:F4}");
-
-                // Warn if slope deviates more than 30% from the expected iRT→RT slope
-                if (!double.IsNaN(expectedSlope) && Math.Abs(calibrationModel.Slope - expectedSlope) / expectedSlope > 0.30)
-                    Console.WriteLine($"  *** WARNING: slope {calibrationModel.Slope:F4} deviates >30% from expected {expectedSlope:F4}.");
-                else
-                    Console.WriteLine($"  ✓  Slope within 30% of expected {expectedSlope:F4}.");
             }
 
             Console.WriteLine($"  Total elapsed:          {totalSw.Elapsed.TotalSeconds:F1}s");
@@ -988,7 +715,7 @@ namespace Development.Dia
             if (model == null)
             {
                 Console.WriteLine("  Calibration: NOT RUN or FAILED (model is null).");
-                Console.WriteLine("  *** Expected slope ~0.217 for Prosit iRT library on 45-min gradient ***");
+                Console.WriteLine("  *** Expected slope ~0.175 for Prosit iRT library on 45-min gradient ***");
                 return;
             }
 
@@ -1014,7 +741,7 @@ namespace Development.Dia
             if (model.Slope < 0.05 || model.Slope > 5.0)
                 Console.WriteLine($"  *** WARNING: slope={model.Slope:F4} is highly unusual (expected 0.05–5.0). Check library. ***");
             else if (model.Slope < 0.10 || model.Slope > 1.5)
-                Console.WriteLine($"  *** INFO: slope={model.Slope:F4} suggests iRT library (typical Prosit: ~0.217 for 45-min gradient). ***");
+                Console.WriteLine($"  *** INFO: slope={model.Slope:F4} suggests iRT library (typical Prosit: ~0.175 for 45-min gradient). ***");
 
             if (model.SigmaMinutes > 1.0)
                 Console.WriteLine($"  *** WARNING: σ={model.SigmaMinutes:F4} min > 1.0 min — calibration may not have converged. ***");
@@ -1076,8 +803,7 @@ namespace Development.Dia
             Dictionary<string, double> rtLookup,
             RtCalibrationModel model)
         {
-            // Compare ObservedApexRt against DIA-NN ground truth RT.
-            // This is a pure diagnostic — it has no effect on search results.
+            // Compare ObservedApexRt against DIA-NN ground truth RT
             int matched = 0, total = 0;
             double sumDelta = 0, maxDelta = 0;
             var deltas = new List<double>();
@@ -1087,8 +813,7 @@ namespace Development.Dia
                 var r = results[i];
                 if (r.IsDecoy) continue;
                 if (float.IsNaN(r.ObservedApexRt)) continue;
-                string key = r.Sequence + "/" + r.ChargeState;
-                if (!rtLookup.TryGetValue(key, out double truthRt)) continue;
+                if (!rtLookup.TryGetValue(r.Sequence, out double truthRt)) continue;
 
                 double delta = Math.Abs(r.ObservedApexRt - truthRt);
                 deltas.Add(delta);

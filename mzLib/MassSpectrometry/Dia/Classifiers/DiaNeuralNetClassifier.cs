@@ -45,7 +45,7 @@ namespace MassSpectrometry.Dia
         //  Architecture Constants
         // ════════════════════════════════════════════════════════════════
 
-        private const int InputSize = DiaFeatureVector.ClassifierFeatureCount; // currently 35 (33 MS2/MS1 + ChimericScore + LibraryCoverageFraction)
+        private const int InputSize = DiaFeatureVector.ClassifierFeatureCount; // currently 37 (35 + CoElutionStd[35] + CandidateScoreGap[36])
         private const int Hidden1 = 64;
         private const int Hidden2 = 32;
         private const int OutputSize = 1;

@@ -398,14 +398,14 @@ namespace Development.Dia
             Console.WriteLine("--- Step 7: Computing feature vectors --------------------------");
             sw.Restart();
 
-            if (DiaFeatureVector.ClassifierFeatureCount != 29)
+            if (DiaFeatureVector.ClassifierFeatureCount != 37)
             {
-                Console.WriteLine($"  *** WARNING: ClassifierFeatureCount = {DiaFeatureVector.ClassifierFeatureCount}, expected 29!");
+                Console.WriteLine($"  *** WARNING: ClassifierFeatureCount = {DiaFeatureVector.ClassifierFeatureCount}, expected 37!");
                 Console.WriteLine($"  *** Action Item 5 may not be applied -- features 26-28 (migrated) may be missing.");
             }
             else
             {
-                Console.WriteLine($"  ClassifierFeatureCount = {DiaFeatureVector.ClassifierFeatureCount} (confirmed)");
+                Console.WriteLine($"  ClassifierFeatureCount = {DiaFeatureVector.ClassifierFeatureCount} (confirmed: 37)");
             }
 
             var features = new DiaFeatureVector[results.Count];

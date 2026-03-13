@@ -768,10 +768,29 @@ namespace MassSpectrometry.Dia
                     }
 
                     // ── Peak Group Detection ────────────────────────────────
-                    PeakGroup peakGroup = DiaPeakGroupDetector.Detect(
-                        matrix, refRts, libIntensities, fragmentCount, timePointCount, minCandidateFraction: 0.01f);
+                    // Prompt 2: SelectBest() replaces Detect() — uses spectral match ×
+                    // co-elution consistency × SNR scoring instead of cosine × log(signal).
+                    // predictedRt is the primary RT discriminator in SelectBest() —
+                    // it drives the Gaussian proximity factor that overwhelms interference peaks.
+                    float? predictedRt = input.IrtValue.HasValue
+                        ? (float?)input.IrtValue.Value
+                        : input.RetentionTime.HasValue
+                            ? (float?)input.RetentionTime.Value
+                            : null;
+
+                    PeakGroup peakGroup = DiaPeakGroupDetector.SelectBest(
+                        matrix, refRts, libIntensities, fragmentCount, timePointCount,
+                        predictedRt: predictedRt,
+                        rtWindowHalfWidth: (group.RtMax - group.RtMin) * 0.5f);
 
                     result.DetectedPeakGroup = peakGroup;
+
+                    // Store new Prompt 2 selection quality signals onto the result
+                    if (peakGroup.IsValid)
+                    {
+                        result.CoElutionStd = peakGroup.CoElutionStd;
+                        result.CandidateScoreGap = peakGroup.SelectionScore - peakGroup.SecondBestScore;
+                    }
 
                     // ── Full-window scoring (backward compatibility) ────────
                     // Apex: find time point with maximum total signal

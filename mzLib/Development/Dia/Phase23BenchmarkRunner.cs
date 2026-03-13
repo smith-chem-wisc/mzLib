@@ -12,7 +12,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using static Nett.TomlObjectFactory;
 
 namespace Development.Dia
 {
@@ -90,8 +89,8 @@ namespace Development.Dia
                     Directory.CreateDirectory(outputDir);
             }
 
-            Debug.Assert(DiaFeatureVector.ClassifierFeatureCount == 35,
-                $"Expected 35 features, got {DiaFeatureVector.ClassifierFeatureCount}");
+            Debug.Assert(DiaFeatureVector.ClassifierFeatureCount == 37,
+                $"Expected 37 features, got {DiaFeatureVector.ClassifierFeatureCount}");
 
             var totalSw = Stopwatch.StartNew();
             var sw = new Stopwatch();
@@ -226,7 +225,7 @@ namespace Development.Dia
                 MaxIterations = 6,
                 ConvergenceThreshold = 0.02,
                 SigmaMultiplier = 4.0,
-                InitialTopK = int.MaxValue,
+                InitialTopK = 500,
                 InitialApexScoreThreshold = 0.85f,
                 RefinedApexScoreThreshold = 0.5f,
                 MinWindowHalfWidthMinutes = 0.3,
@@ -276,7 +275,7 @@ namespace Development.Dia
                     MaxIterations = 6,
                     ConvergenceThreshold = 0.02,
                     SigmaMultiplier = 4.0,
-                    InitialTopK = int.MaxValue,
+                    InitialTopK = 500,
                     InitialApexScoreThreshold = 0.85f,
                     RefinedApexScoreThreshold = 0.5f,
                     MinWindowHalfWidthMinutes = 0.3,
@@ -368,33 +367,6 @@ namespace Development.Dia
                 Console.WriteLine("  FAIL: Calibration produced no model!");
             }
             Console.WriteLine();
-
-
-            // Diagnostic: decoy fragment detection distribution
-            var decoyResults = result23.Results.Where(r => r.IsDecoy).ToList();
-            var targetResults = result23.Results.Where(r => !r.IsDecoy).ToList();
-
-            Console.WriteLine($"Decoy fragment detection (n={decoyResults.Count}):");
-            for (int minF = 3; minF <= 8; minF++)
-            {
-                int count = decoyResults.Count(r => r.FragmentsDetected >= minF);
-                Console.WriteLine($"  FragmentsDetected >= {minF}: {count} ({100.0 * count / decoyResults.Count:F1}%)");
-            }
-            Console.WriteLine($"Target fragment detection (n={targetResults.Count}):");
-            for (int minF = 3; minF <= 8; minF++)
-            {
-                int count = targetResults.Count(r => r.FragmentsDetected >= minF);
-                Console.WriteLine($"  FragmentsDetected >= {minF}: {count} ({100.0 * count / targetResults.Count:F1}%)");
-            }
-
-            // Mean ApexScore by FragmentsDetected bucket
-            Console.WriteLine("Mean ApexScore by FragmentsDetected (targets vs decoys):");
-            for (int minF = 3; minF <= 6; minF++)
-            {
-                var t = targetResults.Where(r => r.FragmentsDetected == minF && !float.IsNaN(r.ApexScore));
-                var d = decoyResults.Where(r => r.FragmentsDetected == minF && !float.IsNaN(r.ApexScore));
-                Console.WriteLine($"  FragDet={minF}: T mean={t.Average(r => r.ApexScore):F3} (n={t.Count()})  D mean={d.Average(r => r.ApexScore):F3} (n={d.Count()})");
-            }
 
             // ════════════════════════════════════════════════════════════════
             //  Step 7: Diagnostic Anchor Analysis

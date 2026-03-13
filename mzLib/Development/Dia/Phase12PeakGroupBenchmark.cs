@@ -170,59 +170,75 @@ namespace Development.Dia
             Console.WriteLine();
 
             // ════════════════════════════════════════════════════════════
-            //  Step 7: Iterative FDR estimation
+            //  Step 7: Iterative FDR estimation — LDA, NN, GBT
+            //  IMPORTANT: RunIterativeFdr writes q-values back to results[]
+            //  in-place. Capture counts immediately after each run before
+            //  the next classifier overwrites them.
             // ════════════════════════════════════════════════════════════
-            Console.WriteLine("--- Step 7: Iterative FDR estimation ---------------------------");
+            Console.WriteLine("--- Step 7: Iterative FDR estimation (LDA + NN + GBT) ----------");
             Console.WriteLine();
-            sw.Restart();
 
-            var fdrResult = DiaFdrEngine.RunIterativeFdr(
+            float[] thresholds = { 0.001f, 0.005f, 0.01f, 0.05f, 0.10f };
+            int[] phase12Baseline = { 5548, 9560, 11448, 19514, 27403 };
+
+            // --- LDA ---
+            sw.Restart();
+            var ldaResult = DiaFdrEngine.RunIterativeFdr(
+                results, features,
+                DiaClassifierType.LinearDiscriminant);
+            long msLda = sw.ElapsedMilliseconds;
+            int[] ldaCounts = CountAtThresholds(results, thresholds); // capture before next run
+            Console.WriteLine($"  LDA: {msLda}ms | Iterations: {ldaResult.IterationsCompleted} | 1% FDR IDs: {ldaResult.IdentificationsAt1PctFdr:N0}");
+            Console.WriteLine();
+            Console.WriteLine("--- LDA Per-Iteration Diagnostics ------------------------------");
+            Console.WriteLine();
+            foreach (var diag in ldaResult.Diagnostics) { DiaFdrEngine.PrintDiagnostics(diag); Console.WriteLine(); }
+
+            // --- NN ---
+            sw.Restart();
+            var nnResult = DiaFdrEngine.RunIterativeFdr(
+                results, features,
+                DiaClassifierType.NeuralNetwork);
+            long msNn = sw.ElapsedMilliseconds;
+            int[] nnCounts = CountAtThresholds(results, thresholds); // capture before next run
+            Console.WriteLine($"  NN:  {msNn}ms | Iterations: {nnResult.IterationsCompleted} | 1% FDR IDs: {nnResult.IdentificationsAt1PctFdr:N0}");
+            Console.WriteLine();
+            Console.WriteLine("--- NN Per-Iteration Diagnostics -------------------------------");
+            Console.WriteLine();
+            foreach (var diag in nnResult.Diagnostics) { DiaFdrEngine.PrintDiagnostics(diag); Console.WriteLine(); }
+
+            // --- GBT ---
+            sw.Restart();
+            var gbtResult = DiaFdrEngine.RunIterativeFdr(
                 results, features,
                 DiaClassifierType.GradientBoostedTree);
-
-            Console.WriteLine($"  FDR estimation: {sw.ElapsedMilliseconds}ms");
-            Console.WriteLine($"  Iterations: {fdrResult.IterationsCompleted}");
-            Console.WriteLine($"  Final 1% FDR IDs: {fdrResult.IdentificationsAt1PctFdr:N0}");
+            long msGbt = sw.ElapsedMilliseconds;
+            int[] gbtCounts = CountAtThresholds(results, thresholds); // GBT is last, no next run
+            Console.WriteLine($"  GBT: {msGbt}ms | Iterations: {gbtResult.IterationsCompleted} | 1% FDR IDs: {gbtResult.IdentificationsAt1PctFdr:N0}");
             Console.WriteLine();
-
-            // Per-iteration diagnostics
-            Console.WriteLine("--- Per-Iteration Diagnostics ----------------------------------");
+            Console.WriteLine("--- GBT Per-Iteration Diagnostics ------------------------------");
             Console.WriteLine();
-            foreach (var diag in fdrResult.Diagnostics)
-            {
-                DiaFdrEngine.PrintDiagnostics(diag);
-                Console.WriteLine();
-            }
+            foreach (var diag in gbtResult.Diagnostics) { DiaFdrEngine.PrintDiagnostics(diag); Console.WriteLine(); }
+
+            // Best result used for TSV export (use NN q-values — re-run NN to restore)
+            var fdrResult = nnResult.IdentificationsAt1PctFdr >= ldaResult.IdentificationsAt1PctFdr
+                ? nnResult : ldaResult;
 
             // ════════════════════════════════════════════════════════════
-            //  Step 8: Summary
+            //  Step 8: Summary — pre-captured counts per classifier
             // ════════════════════════════════════════════════════════════
             Console.WriteLine("--- FDR Summary ------------------------------------------------");
             Console.WriteLine();
 
-            float[] thresholds = { 0.001f, 0.005f, 0.01f, 0.05f, 0.10f };
-            int[] counts = new int[thresholds.Length];
-
-            for (int i = 0; i < results.Count; i++)
-            {
-                if (results[i].IsDecoy) continue;
-                var fdr = results[i].FdrInfo;
-                if (fdr == null) continue;
-                for (int t = 0; t < thresholds.Length; t++)
-                    if (fdr.QValue <= thresholds[t])
-                        counts[t]++;
-            }
-
-            Console.WriteLine("  Q-value threshold  |  Target IDs  |  vs Phase 11");
-            Console.WriteLine("  ─────────────────────────────────────────────────");
-            int[] phase11Baseline = { 5548, 9560, 11518, 19514, 27403 };
-            for (int t = 0; t < thresholds.Length; t++)
-            {
-                int delta = counts[t] - phase11Baseline[t];
-                string sign = delta >= 0 ? "+" : "";
-                Console.WriteLine($"  q ≤ {thresholds[t]:F3}           |  {counts[t],6:N0}       |  {sign}{delta:N0}");
-            }
+            Console.WriteLine($"  {"Classifier",-12} | {"q≤0.001",8} | {"q≤0.005",8} | {"q≤0.010",8} | {"q≤0.050",8} | {"q≤0.100",8}");
+            Console.WriteLine($"  {"────────────",-12}-+-{"────────",8}-+-{"────────",8}-+-{"────────",8}-+-{"────────",8}-+-{"────────",8}");
+            Console.WriteLine($"  {"Ph12 base",-12} | {phase12Baseline[0],8:N0} | {phase12Baseline[1],8:N0} | {phase12Baseline[2],8:N0} | {phase12Baseline[3],8:N0} | {phase12Baseline[4],8:N0}");
+            PrintCapturedRow("LDA", ldaCounts, thresholds, phase12Baseline);
+            PrintCapturedRow("NN", nnCounts, thresholds, phase12Baseline);
+            PrintCapturedRow("GBT", gbtCounts, thresholds, phase12Baseline);
             Console.WriteLine();
+
+            int[] counts = gbtCounts; // counts variable used by TSV export path below
 
             // ════════════════════════════════════════════════════════════
             //  Step 9: Export TSV
@@ -243,6 +259,34 @@ namespace Development.Dia
         // ════════════════════════════════════════════════════════════════
         //  Peak Group Diagnostics
         // ════════════════════════════════════════════════════════════════
+
+        private static void PrintCapturedRow(
+            string name,
+            int[] counts,
+            float[] thresholds,
+            int[] baseline)
+        {
+            string row = $"  {name,-12}";
+            for (int t = 0; t < thresholds.Length; t++)
+                row += $" | {counts[t],8:N0}";
+            int delta1pct = counts[2] - baseline[2];
+            string sign = delta1pct >= 0 ? "+" : "";
+            Console.WriteLine($"{row}  ({sign}{delta1pct:N0} vs Ph12)");
+        }
+
+        private static int[] CountAtThresholds(List<DiaSearchResult> results, float[] thresholds)
+        {
+            int[] counts = new int[thresholds.Length];
+            for (int i = 0; i < results.Count; i++)
+            {
+                if (results[i].IsDecoy) continue;
+                var fdr = results[i].FdrInfo;
+                if (fdr == null) continue;
+                for (int t = 0; t < thresholds.Length; t++)
+                    if (fdr.QValue <= thresholds[t]) counts[t]++;
+            }
+            return counts;
+        }
 
         private static void PrintPeakGroupDiagnostics(List<DiaSearchResult> results)
         {
@@ -359,6 +403,46 @@ namespace Development.Dia
                 Console.WriteLine($"    Target PeakMeanFragCorr peak: median={targetCorrPeak[targetCorrPeak.Count / 2]:F4}");
             if (decoyCorrPeak.Count > 0)
                 Console.WriteLine($"    Decoy  PeakMeanFragCorr peak: median={decoyCorrPeak[decoyCorrPeak.Count / 2]:F4}");
+
+            // ── Prompt 3 new features: T/D separation diagnostics ─────────
+            Console.WriteLine();
+            Console.WriteLine("  New feature diagnostics (Prompt 3):");
+            Console.WriteLine("  ──────────────────────────────────────────────────────────────────");
+            Console.WriteLine($"  {"Feature",-20} | {"T-mean",8} | {"D-mean",8} | {"Sep (T-D)",10} | {"NaN%",6}");
+            Console.WriteLine($"  {new string('-', 20)}-+-{new string('-', 8)}-+-{new string('-', 8)}-+-{new string('-', 10)}-+-{new string('-', 6)}");
+
+            PrintNewFeatureDiag("CoElutionStd", results, features, fv => fv.CoElutionStd, inverted: true);
+            PrintNewFeatureDiag("CandidateScoreGap", results, features, fv => fv.CandidateScoreGap, inverted: false);
+            Console.WriteLine("  (CoElutionStd: lower=better for targets; CandidateScoreGap: higher=better for targets)");
+        }
+
+        private static void PrintNewFeatureDiag(
+            string name,
+            List<DiaSearchResult> results,
+            DiaFeatureVector[] features,
+            Func<DiaFeatureVector, float> selector,
+            bool inverted)
+        {
+            double tSum = 0, dSum = 0;
+            int tCount = 0, dCount = 0, nanCount = 0;
+
+            for (int i = 0; i < results.Count; i++)
+            {
+                float v = selector(features[i]);
+                if (float.IsNaN(v)) { nanCount++; continue; }
+                if (results[i].IsDecoy) { dSum += v; dCount++; }
+                else { tSum += v; tCount++; }
+            }
+
+            float tMean = tCount > 0 ? (float)(tSum / tCount) : float.NaN;
+            float dMean = dCount > 0 ? (float)(dSum / dCount) : float.NaN;
+            float sep = (!float.IsNaN(tMean) && !float.IsNaN(dMean)) ? (tMean - dMean) : float.NaN;
+            float nanPct = results.Count > 0 ? 100f * nanCount / results.Count : 0f;
+
+            string sepStr = float.IsNaN(sep) ? "   N/A" : $"{sep,+10:F4}";
+            string note = !float.IsNaN(sep) && ((inverted && sep < -0.1f) || (!inverted && sep > 0.05f))
+                            ? " ✓" : " ⚠";
+            Console.WriteLine($"  {name,-20} | {tMean,8:F4} | {dMean,8:F4} | {sepStr} | {nanPct,5:F1}%{note}");
         }
 
         // ════════════════════════════════════════════════════════════════

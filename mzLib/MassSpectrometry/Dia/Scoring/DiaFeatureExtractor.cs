@@ -19,6 +19,8 @@ namespace MassSpectrometry.Dia
     ///   [30] averagine dot product → simple M+1/M0 ratio.
     /// Phase 23 Prompt 10: PrecursorXicApexIntensity gating was attempted and reverted.
     ///   See DiaMs1FeatureComputer class comment for details.
+    /// Prompt 3 (rebuild): CoElutionStd [35] and CandidateScoreGap [36] added.
+    ///   ClassifierFeatureCount = 35 → 37.
     /// 
     /// Migrated features (computed in AssembleResultsWithTemporalScoring but previously
     /// not forwarded to the classifier):
@@ -32,7 +34,11 @@ namespace MassSpectrometry.Dia
     ///   [31] Ms1Ms2Correlation         — Pearson r between M0 XIC and best fragment XIC
     ///   [32] PrecursorElutionScore     — Gaussian fit quality of precursor XIC
     /// 
-    /// Current layout: 35 classifier features.
+    /// Peak selection quality features (Prompt 3):
+    ///   [35] CoElutionStd      — std dev of per-fragment apex positions (low = tight co-elution)
+    ///   [36] CandidateScoreGap — best minus second-best candidate score (high = unambiguous peak)
+    /// 
+    /// Current layout: 37 classifier features.
     /// </summary>
     public struct DiaFeatureVector
     {
@@ -86,7 +92,7 @@ namespace MassSpectrometry.Dia
         // -- Signal-to-noise (1) ------------------------------------------
         public float Log2SignalToNoise;     // [25]
 
-        // -- Migrated features (3) -- Action Item 5 -----------------------
+        // -- Migrated features (3) -- Phase 16A ---------------------------
         public float BestFragWeightedCosine;   // [26]
         public float BoundarySignalRatio;      // [27]
         public float ApexToMeanRatio;          // [28]
@@ -103,6 +109,22 @@ namespace MassSpectrometry.Dia
         // -- Coverage features (1) -- Phase 19, Priority 5
         public float LibraryCoverageFraction;    // [34]
 
+        // -- Peak selection quality (2) -- Prompt 3 -----------------------
+        /// <summary>
+        /// Std dev of per-fragment apex positions within the detected peak window.
+        /// Low value = fragments co-elute tightly (good). High = scattered (interference).
+        /// Populated via DiaSearchResult.CoElutionStd.
+        /// NaN default → sentinel 99f in WriteTo.
+        /// </summary>
+        public float CoElutionStd;               // [35]
+
+        /// <summary>
+        /// SelectionScore of the best peak group candidate minus the second-best.
+        /// Large gap = unambiguous peak. Small gap = competing peaks present.
+        /// NaN default → sentinel 0f in WriteTo.
+        /// </summary>
+        public float CandidateScoreGap;          // [36]
+
         // -- Metadata (not classifier features) ---------------------------
         public bool IsDecoy;
         public int PrecursorIndex;
@@ -113,9 +135,9 @@ namespace MassSpectrometry.Dia
 
         /// <summary>
         /// Number of features used by the classifier.
-        /// Phase 19: 35 features (33 + ChimericScore[33] + LibraryCoverageFraction[34]).
+        /// Prompt 3: 35 → 37 (added CoElutionStd [35] and CandidateScoreGap [36]).
         /// </summary>
-        public const int ClassifierFeatureCount = 35;
+        public const int ClassifierFeatureCount = 37;
 
         /// <summary>Index of ApexScore in the feature vector.</summary>
         public const int InteractionFeatureIndexA = 0;  // ApexScore
@@ -167,6 +189,9 @@ namespace MassSpectrometry.Dia
             features[32] = PrecursorElutionScore;
             features[33] = ChimericScore;
             features[34] = LibraryCoverageFraction;
+            // Peak selection quality [35-36]
+            features[35] = float.IsNaN(CoElutionStd) ? 99f : CoElutionStd;
+            features[36] = float.IsNaN(CandidateScoreGap) ? 0f : CandidateScoreGap;
         }
 
         /// <summary>
@@ -174,23 +199,25 @@ namespace MassSpectrometry.Dia
         /// </summary>
         public static readonly string[] FeatureNames = new[]
         {
-            "ApexScore", "TemporalScore", "SpectralAngle",
-            "PeakMeanFragCorr", "PeakMinFragCorr",
-            "PeakWidth", "CandidateCount",
-            "LogTotalIntensity", "IntensityCV",
-            "FragDetRate",
-            "RtDeviationMinutes", "RtDeviationSquared",
-            "TimePointsUsed",
-            "MeanMassErrorPpm", "MassErrorStdPpm", "MaxAbsMassErrorPpm",
-            "BestFragCorrSum", "MedianFragRefCorr", "MinFragRefCorr", "StdFragRefCorr",
-            "MeanSigRatioDev", "MaxSigRatioDev", "StdSigRatioDev",
-            "SmoothedMeanFragCorr", "SmoothedMinFragCorr",
-            "Log2SNR",
-            "BestFragWeightedCosine", "BoundarySignalRatio", "ApexToMeanRatio",
-            "PrecursorXicApexIntensity", "IsotopePatternScore",
-            "Ms1Ms2Correlation", "PrecursorElutionScore",
-            "ChimericScore",
-            "LibraryCoverageFraction"
+            "ApexScore", "TemporalScore", "SpectralAngle",                        // [0-2]
+            "PeakMeanFragCorr", "PeakMinFragCorr",                                // [3-4]
+            "PeakWidth", "CandidateCount",                                        // [5-6]
+            "LogTotalIntensity", "IntensityCV",                                   // [7-8]
+            "FragDetRate",                                                         // [9]
+            "RtDeviationMinutes", "RtDeviationSquared",                           // [10-11]
+            "TimePointsUsed",                                                     // [12]
+            "MeanMassErrorPpm", "MassErrorStdPpm", "MaxAbsMassErrorPpm",          // [13-15]
+            "BestFragCorrSum", "MedianFragRefCorr", "MinFragRefCorr", "StdFragRefCorr", // [16-19]
+            "MeanSigRatioDev", "MaxSigRatioDev", "StdSigRatioDev",                // [20-22]
+            "SmoothedMeanFragCorr", "SmoothedMinFragCorr",                        // [23-24]
+            "Log2SNR",                                                            // [25]
+            "BestFragWeightedCosine", "BoundarySignalRatio", "ApexToMeanRatio",   // [26-28]
+            "PrecursorXicApexIntensity", "IsotopePatternScore",                   // [29-30]
+            "Ms1Ms2Correlation", "PrecursorElutionScore",                         // [31-32]
+            "ChimericScore",                                                      // [33]
+            "LibraryCoverageFraction",                                            // [34]
+            "CoElutionStd",                                                       // [35]
+            "CandidateScoreGap",                                                  // [36]
         };
     }
 
@@ -341,8 +368,15 @@ namespace MassSpectrometry.Dia
             // -- ChimericScore [33] ---------------------------------------
             fv.ChimericScore = result.ChimericScore;
 
-            // -- LibraryCoverageFraction [34] ------------------------------
+            // -- LibraryCoverageFraction [34] -----------------------------
             fv.LibraryCoverageFraction = result.LibraryCoverageFraction;
+
+            // -- Peak selection quality [35-36] ---------------------------
+            // CoElutionStd: initialized to 0f on DiaSearchResult; 0f = perfect co-elution (good).
+            // CandidateScoreGap: initialized to 0f; 0f = no gap / single candidate.
+            // WriteTo applies NaN sentinels (99f and 0f) for any NaN cases.
+            fv.CoElutionStd = result.CoElutionStd;
+            fv.CandidateScoreGap = result.CandidateScoreGap;
 
             // -- Metadata -------------------------------------------------
             fv.ChargeState = result.ChargeState;
@@ -489,7 +523,6 @@ namespace MassSpectrometry.Dia
                 return;
 
             // ── [31] Ms1Ms2Correlation ────────────────────────────────────────
-            // Pearson r between M0 XIC and best fragment XIC over shared time points.
             if (!bestFragXic.IsEmpty && !bestFragXicRts.IsEmpty &&
                 bestFragXic.Length == bestFragXicRts.Length)
             {
@@ -502,20 +535,6 @@ namespace MassSpectrometry.Dia
             }
 
             // ── [29] PrecursorXicApexIntensity ───────────────────────────────
-            // log2(apexM0 / Q25(M0)) — peak prominence above background.
-            //
-            // The Q25 (lower quartile) of non-zero M0 XIC values represents the genuine
-            // background floor of the extraction window. For true targets with sharp
-            // elution peaks, apex >> Q25 → large positive log2 ratio. For flat/noisy
-            // XICs (many decoys), apex ≈ Q25 → low ratio.
-            //
-            // Note: this feature is slightly inverted on PXD005573 (D-mean > T-mean by ~0.7)
-            // because ~42% of decoy precursor m/z values accidentally overlap real peptide
-            // MS1 signals, inflating their apex/Q25 score. Ms1Ms2Correlation (sep=+0.451)
-            // already handles this contamination case with weight +0.70. Gating
-            // XicApexIntensity by Ms1Ms2Corr was attempted (Prompt 10) but caused a
-            // regression of -138 IDs due to multicollinearity. Raw log2(apex/Q25) is kept
-            // and the LDA assigns it near-zero weight (~0.05) accordingly.
             float apexM0 = FindMax(m0Int);
             if (apexM0 > 0f)
             {
@@ -525,7 +544,6 @@ namespace MassSpectrometry.Dia
             }
 
             // ── [30] IsotopePatternScore ──────────────────────────────────────
-            // M+1/M0 ratio at the XIC apex, clamped to [0, 1], 5% noise gate.
             int apexIdx = FindMaxIndex(m0Int);
             float obsM0 = m0Int[apexIdx];
             float obsM1 = m1Int[apexIdx];
@@ -536,7 +554,6 @@ namespace MassSpectrometry.Dia
             }
 
             // ── [32] PrecursorElutionScore ────────────────────────────────────
-            // Gaussian fit quality of the M0 XIC.
             float gaussScore = ComputeGaussianFitScore(xicRts, m0Int);
             if (!float.IsNaN(gaussScore))
                 result.PrecursorElutionScore = gaussScore;

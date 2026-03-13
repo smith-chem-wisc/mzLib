@@ -138,15 +138,6 @@ namespace MassSpectrometry.Dia
             }
 
             // ── Step 2: Final Extraction with Adaptive Windows ─────────────
-            // This is a deliberate precision pass using a TIGHTER window than the
-            // calibration iterations. The calibration loop uses ±0.506 min (capped by
-            // BootstrapSigmaMultiplier=2.0 × σ_bootstrap=0.253) to ensure all real anchors
-            // are found. The final re-extraction uses max(SigmaMultiplier×σ_final, MinWindow)
-            // = max(4.0×0.077, 0.3) = ±0.31 min — significantly tighter.
-            //
-            // Tighter final window → fewer decoys → cleaner T/D separation → more IDs at FDR.
-            // DO NOT replace this with calibResults directly: that uses the wider calibration
-            // window and produces ~3,000 fewer NN IDs at 1% FDR.
             var extractSw = Stopwatch.StartNew();
 
             var genResult = DiaLibraryQueryGenerator.GenerateCalibratedAdaptive(
@@ -162,6 +153,9 @@ namespace MassSpectrometry.Dia
                 precursors, genResult, extractionResult, parameters, scanIndex);
 
             // ── Step 3b: Chimeric Score ─────────────────────────────────────
+            // Must run after assembly (needs ExtractedIntensities + XicPointCounts populated)
+            // and before FDR (ChimericScore must be in the feature vector).
+            // Precursors alone in their window receive ChimericScore = 1.0 (no co-isolation).
             DiaLibraryQueryGenerator.ComputeChimericScores(
                 precursors, results, (float)parameters.PpmTolerance);
 
@@ -170,7 +164,7 @@ namespace MassSpectrometry.Dia
             // ── Step 4: Recalibrate RT Deviations ──────────────────────────
             var rtDevSw = Stopwatch.StartNew();
 
-            RecalibrateRtDeviations(results, precursors, detailedModel);
+            RecalibrateRtDeviations(results, precursors, model);
 
             rtDevSw.Stop();
 
@@ -229,6 +223,45 @@ namespace MassSpectrometry.Dia
         public static void RecalibrateRtDeviations(
             List<DiaSearchResult> results,
             IList<LibraryPrecursorInput> precursors,
+            RtCalibrationModel calibration)
+        {
+            if (results == null || calibration == null)
+                return;
+
+            for (int i = 0; i < results.Count; i++)
+            {
+                var r = results[i];
+
+                // Need a valid observed apex RT
+                if (float.IsNaN(r.ObservedApexRt))
+                    continue;
+
+                // Resolve the library RT to calibrate against.
+                // The result stores LibraryRetentionTime (from the precursor input).
+                // The calibration model was fitted on library RT → observed RT,
+                // so we predict observed RT from library RT.
+                double? libRt = r.LibraryRetentionTime;
+                if (!libRt.HasValue || double.IsNaN(libRt.Value))
+                    continue;
+
+                double predictedRt = calibration.ToMinutes(libRt.Value);
+
+                // Signed deviation: positive means observed later than predicted
+                float deviation = (float)(r.ObservedApexRt - predictedRt);
+
+                r.RtDeviationMinutes = deviation;
+                r.RtDeviationSquared = deviation * deviation;
+            }
+        }
+
+        /// <summary>
+        /// Overload that accepts an IRtCalibrationModel (for cases where the detailed
+        /// model should be used for prediction, e.g., piecewise/LOWESS models that
+        /// have better local accuracy than the global linear approximation).
+        /// </summary>
+        public static void RecalibrateRtDeviations(
+            List<DiaSearchResult> results,
+            IList<LibraryPrecursorInput> precursors,
             IRtCalibrationModel calibration)
         {
             if (results == null || calibration == null)
@@ -237,6 +270,7 @@ namespace MassSpectrometry.Dia
             for (int i = 0; i < results.Count; i++)
             {
                 var r = results[i];
+
                 if (float.IsNaN(r.ObservedApexRt))
                     continue;
 
@@ -244,11 +278,6 @@ namespace MassSpectrometry.Dia
                 if (!libRt.HasValue || double.IsNaN(libRt.Value))
                     continue;
 
-                // Always convert through the calibration model.
-                // For iRT libraries: libRt is raw iRT units, ToMinutes applies slope+intercept.
-                // For native-RT libraries: libRt is minutes, ToMinutes applies any systematic
-                // offset/nonlinearity the model captured. Either way this is the correct
-                // predicted RT to compare against ObservedApexRt.
                 double predictedRt = calibration.ToMinutes(libRt.Value);
 
                 float deviation = (float)(r.ObservedApexRt - predictedRt);
@@ -256,15 +285,7 @@ namespace MassSpectrometry.Dia
                 r.RtDeviationSquared = deviation * deviation;
             }
         }
-        // Convenience overload for tests and legacy call sites
-        public static void RecalibrateRtDeviations(
-            List<DiaSearchResult> results,
-            IList<LibraryPrecursorInput> precursors,
-            MassSpectrometry.Dia.RtCalibrationModel calibration)
-        {
-            if (calibration == null) return;
-            RecalibrateRtDeviations(results, precursors, new LinearRtModelWrapper(calibration));
-        }
+
         // ════════════════════════════════════════════════════════════════
         //  Diagnostic Helpers
         // ════════════════════════════════════════════════════════════════
@@ -281,9 +302,9 @@ namespace MassSpectrometry.Dia
                 return;
             }
 
-            System.Diagnostics.Debug.WriteLine("  ┌──────────┬──────────┬─────────┬──────────┬──────────┬──────────┬──────────────────┬──────────────────┐");
-            System.Diagnostics.Debug.WriteLine("  │ Iter     │ Anchors  │  Slope  │  σ (min) │    R²    │ ± Window │ Model            │ Time             │");
-            System.Diagnostics.Debug.WriteLine("  ├──────────┼──────────┼─────────┼──────────┼──────────┼──────────┼──────────────────┼──────────────────┤");
+            System.Diagnostics.Debug.WriteLine("  ┌──────────┬──────────┬─────────┬──────────┬──────────┬──────────┬────────────┬─────────┬──────────────────┬──────────────────┐");
+            System.Diagnostics.Debug.WriteLine("  │ Iter     │ Anchors  │  Slope  │  σ (min) │    R²    │ ± Window │ CoElutFilt │ GapFilt │ Model            │ Time             │");
+            System.Diagnostics.Debug.WriteLine("  ├──────────┼──────────┼─────────┼──────────┼──────────┼──────────┼────────────┼─────────┼──────────────────┼──────────────────┤");
 
             foreach (var entry in log)
             {
@@ -291,10 +312,10 @@ namespace MassSpectrometry.Dia
                 string timeStr = $"{entry.TotalTime.TotalMilliseconds:F0} ms".PadRight(16);
 
                 System.Diagnostics.Debug.WriteLine(
-                    $"  │ {entry.Iteration,8} │ {entry.AnchorCount,8:N0} │ {entry.Slope,7:F4} │ {entry.SigmaMinutes,8:F3} │ {entry.RSquared,8:F4} │ {entry.WindowHalfWidthMinutes,7:F2}m │ {modelStr} │ {timeStr} │");
+                    $"  │ {entry.Iteration,8} │ {entry.AnchorCount,8:N0} │ {entry.Slope,7:F4} │ {entry.SigmaMinutes,8:F3} │ {entry.RSquared,8:F4} │ {entry.WindowHalfWidthMinutes,7:F2}m │ {entry.CoElutionFiltered,10:N0} │ {entry.GapFiltered,7:N0} │ {modelStr} │ {timeStr} │");
             }
 
-            System.Diagnostics.Debug.WriteLine("  └──────────┴──────────┴─────────┴──────────┴──────────┴──────────┴──────────────────┴──────────────────┘");
+            System.Diagnostics.Debug.WriteLine("  └──────────┴──────────┴─────────┴──────────┴──────────┴──────────┴────────────┴─────────┴──────────────────┴──────────────────┘");
         }
 
         /// <summary>
@@ -341,7 +362,7 @@ namespace MassSpectrometry.Dia
             if (log == null || log.Count == 0) return string.Empty;
 
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine("Iteration\tAnchorCount\tSlope\tIntercept\tSigma\tRSquared\tWindowHalfWidth\tModelType\tExtractionTimeMs");
+            sb.AppendLine("Iteration\tAnchorCount\tSlope\tIntercept\tSigma\tRSquared\tWindowHalfWidth\tCoElutionFiltered\tGapFiltered\tModelType\tExtractionTimeMs");
 
             foreach (var entry in log)
             {
@@ -353,6 +374,8 @@ namespace MassSpectrometry.Dia
                     entry.SigmaMinutes.ToString("F3"),
                     entry.RSquared.ToString("F4"),
                     entry.WindowHalfWidthMinutes.ToString("F2"),
+                    entry.CoElutionFiltered,
+                    entry.GapFiltered,
                     entry.ModelType ?? "Linear",
                     entry.ExtractionTime.TotalMilliseconds.ToString("F0")));
             }

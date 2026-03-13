@@ -362,7 +362,8 @@ namespace Development.Dia
                 bestOverallAt1Pct = bestGbtAt1Pct;
                 Console.WriteLine($"  Best classifier: {bestClassifierName} ({bestOverallAt1Pct:N0} IDs at 1% FDR)");
                 Console.WriteLine($"  Re-applying best GBT config to results for export...");
-                DiaFdrEngine.RunIterativeFdr(results, features, classifierType: DiaClassifierType.GradientBoostedTree); // gbtParams sweep disabled
+                DiaFdrEngine.RunIterativeFdr(results, features,
+                    classifierType: DiaClassifierType.GradientBoostedTree);
             }
             else
             {
