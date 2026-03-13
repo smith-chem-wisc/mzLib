@@ -197,6 +197,96 @@ public class SequenceConversionServiceTests
         Assert.That(service.DetectFormat("   "), Is.Null);
     }
 
+    [TestCaseSource(typeof(GroundTruthTestData), nameof(GroundTruthTestData.CoreTestCases))]
+    public void Convert_DefaultService_MzLibToChronologer_FollowsGroundTruth(GroundTruthTestData.SequenceConversionTestCase testCase)
+    {
+        var service = SequenceConversionService.Default;
+        var warnings = new ConversionWarnings();
+
+        var result = service.Convert(
+            testCase.MzLibFormat,
+            MzLibSequenceFormatSchema.Instance.FormatName,
+            ChronologerSequenceFormatSchema.Instance.FormatName,
+            warnings,
+            SequenceConversionHandlingMode.ReturnNull);
+
+        Assert.That(result, Is.EqualTo(testCase.ChronologerFormat));
+        Assert.That(warnings.IsClean, Is.True);
+    }
+
+    [Test]
+    public void DefaultService_ExposesMzLibToChronologerConverter()
+    {
+        var service = SequenceConversionService.Default;
+
+        Assert.That(service.CanParseFormat(MzLibSequenceFormatSchema.Instance.FormatName), Is.True);
+        Assert.That(service.CanSerializeFormat(ChronologerSequenceFormatSchema.Instance.FormatName), Is.True);
+        Assert.That(service.GetConverter(
+            MzLibSequenceFormatSchema.Instance.FormatName,
+            ChronologerSequenceFormatSchema.Instance.FormatName), Is.Not.Null);
+    }
+
+    [Test]
+    public void Convert_RemoveIncompatibleChronologerMod_WarnsAndRemoves()
+    {
+        var service = new SequenceConversionService();
+        service.RegisterParser(MzLibSequenceParser.Instance);
+        service.RegisterSerializer(ChronologerSequenceSerializer.Instance);
+
+        var warnings = new ConversionWarnings();
+        var result = service.Convert(
+            "PEPA[Common Biological:Acetylation on A]IDE",
+            MzLibSequenceFormatSchema.Instance.FormatName,
+            ChronologerSequenceFormatSchema.Instance.FormatName,
+            warnings,
+            SequenceConversionHandlingMode.RemoveIncompatibleElements);
+
+        Assert.That(result, Is.EqualTo("-PEPAIDE_"));
+        Assert.That(warnings.HasWarnings, Is.True);
+        Assert.That(warnings.IncompatibleItems, Has.Some.Contains("Acetylation on A"));
+    }
+
+    [Test]
+    public void Convert_TargetFormatMissing_ThrowsSequenceConversionException()
+    {
+        var service = new SequenceConversionService();
+        service.RegisterParser(MzLibSequenceParser.Instance);
+
+        var warnings = new ConversionWarnings();
+
+        Assert.That(
+            () => service.Convert(
+                "PEPTIDE",
+                MzLibSequenceFormatSchema.Instance.FormatName,
+                "missing",
+                warnings,
+                SequenceConversionHandlingMode.ThrowException),
+            Throws.TypeOf<SequenceConversionException>());
+
+        Assert.That(warnings.FailureReason, Is.EqualTo(ConversionFailureReason.UnknownFormat));
+    }
+
+    [TestCase(null)]
+    [TestCase("")]
+    public void Convert_NullOrEmptyInput_ReturnsNullAndRecordsInvalidSequence(string? input)
+    {
+        var service = new SequenceConversionService();
+        service.RegisterParser(MzLibSequenceParser.Instance);
+        service.RegisterSerializer(MzLibSequenceSerializer.Instance);
+
+        var warnings = new ConversionWarnings();
+
+        var result = service.Convert(
+            input!,
+            MzLibSequenceFormatSchema.Instance.FormatName,
+            MzLibSequenceFormatSchema.Instance.FormatName,
+            warnings,
+            SequenceConversionHandlingMode.ReturnNull);
+
+        Assert.That(result, Is.Null);
+        Assert.That(warnings.FailureReason, Is.EqualTo(ConversionFailureReason.InvalidSequence));
+    }
+
     private sealed class StubParser : ISequenceParser
     {
         private readonly Func<string, bool> _canParse;

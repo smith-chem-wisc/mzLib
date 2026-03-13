@@ -201,6 +201,40 @@ public class ModificationLookupBaseTests
     }
 
     [Test]
+    public void TryResolve_UsesFormulaAndResidueFallbackWhenNameUnknown()
+    {
+        var formula = ChemicalFormula.ParseFormula("C2H3");
+        var ser = CreateModification("Ambiguous", 'S', chemicalFormula: formula);
+        var thr = CreateModification("Ambiguous", 'T', chemicalFormula: formula);
+        var lookup = new TestLookup(new[] { ser, thr });
+
+        var canonical = CanonicalModification.AtResidue(0, 'T', "UnknownName", formula: formula);
+
+        var resolved = lookup.TryResolve(canonical);
+
+        Assert.That(resolved, Is.Not.Null);
+        Assert.That(resolved!.Value.MzLibModification, Is.SameAs(thr));
+    }
+
+    [Test]
+    public void TryResolve_MassFilterCachesNormalizedTolerance()
+    {
+        var modification = CreateModification("MassCache", 'S', monoisotopicMass: 123.456789);
+        var lookup = new CountingMassLookup(new[] { modification }, massTolerance: 0.005);
+        var canonical = CanonicalModification.AtResidue(0, 'S', "[+123.456789]", mass: 123.456789);
+        var slightlyDifferent = canonical.WithMass(123.456788);
+
+        var firstResolution = lookup.TryResolve(canonical);
+        var secondResolution = lookup.TryResolve(slightlyDifferent);
+
+        Assert.That(firstResolution, Is.Not.Null);
+        Assert.That(secondResolution, Is.Not.Null);
+        Assert.That(firstResolution!.Value.MzLibModification, Is.SameAs(modification));
+        Assert.That(secondResolution!.Value.MzLibModification, Is.SameAs(modification));
+        Assert.That(lookup.MassFilterCalls, Is.EqualTo(1));
+    }
+
+    [Test]
     public void TryResolve_TargetResidueFiltersCandidates()
     {
         var ser = CreateModification("ResidueSpecific", 'S');
@@ -514,6 +548,22 @@ public class ModificationLookupBaseTests
         {
             FilterByNameCalls++;
             return base.FilterByName(source, name, targetResidue);
+        }
+    }
+
+    private sealed class CountingMassLookup : TestLookup
+    {
+        public CountingMassLookup(IEnumerable<Modification> candidates, double massTolerance)
+            : base(candidates, massTolerance: massTolerance)
+        {
+        }
+
+        public int MassFilterCalls { get; private set; }
+
+        protected override IEnumerable<Modification> FilterByMass(IEnumerable<Modification> source, double mass)
+        {
+            MassFilterCalls++;
+            return base.FilterByMass(source, mass);
         }
     }
 

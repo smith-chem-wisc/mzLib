@@ -393,6 +393,11 @@ public class ChronologerSequenceSerializer : SequenceSerializerBase
         }
 
         // Could not map this modification
+        if (mod.EffectiveMass.HasValue && mod.EffectiveMass.Value < 0)
+        {
+            return char.ToUpperInvariant(targetResidue);
+        }
+
         return null;
     }
 
