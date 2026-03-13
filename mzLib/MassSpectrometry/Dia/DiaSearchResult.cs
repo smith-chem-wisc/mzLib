@@ -415,6 +415,26 @@ namespace MassSpectrometry.Dia
         /// </summary>
         public float CandidateScoreGap { get; set; }
 
+        /// <summary>
+        /// MS1 apex confirmation score for the selected peak group.
+        /// 
+        /// The raw ratio of precursor MS1 intensity at the selected apex RT to the maximum
+        /// precursor MS1 intensity in the search window. Range [0, 1].
+        ///
+        ///   1.0 = precursor has strong MS1 signal at the selected apex → confirms target
+        ///   0.0 = precursor has no MS1 signal at the selected apex → possible interference
+        ///
+        /// Default 1.0f (neutral) when MS1 data is unavailable or the search window is
+        /// narrow (≤ 1.0 min), in which case MS1 confirmation is not applied.
+        ///
+        /// This is the raw ratio before sqrt-softening. The sqrt-softened version is used
+        /// multiplicatively in SelectBest() to penalize interference candidates; the raw
+        /// ratio is stored here as classifier feature [37] for target/decoy separation.
+        ///
+        /// Feature [37] — Ms1ApexConfirmationScore.
+        /// </summary>
+        public float Ms1ApexConfirmationScore { get; set; }
+
         #endregion
 
         #region Derived RT and Coverage Features (Phase 19, Priority 5)
@@ -555,6 +575,10 @@ namespace MassSpectrometry.Dia
             // Peak selection quality (Prompt 2)
             CoElutionStd = 0f;
             CandidateScoreGap = 0f;
+
+            // MS1 apex confirmation (MS1 Interference Resolution phase)
+            // Default 1.0f = neutral (no penalty) until peak group selection computes the real value.
+            Ms1ApexConfirmationScore = 1.0f;
 
             // Derived RT and coverage features (Phase 19, Priority 5)
             // RtDeviationNormalized dropped: 100% NaN (PeakWidth=0 when no peak group detected).

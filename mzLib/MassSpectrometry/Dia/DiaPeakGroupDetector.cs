@@ -245,6 +245,23 @@ namespace MassSpectrometry.Dia
         /// Passing null disables RT-based scoring entirely, which is only appropriate
         /// for libraries with no RT annotation.
         /// </param>
+        /// <param name="ms1Index">
+        /// DiaScanIndex containing MS1 scan data. When non-null and rtMax-rtMin &gt; 1.0 min,
+        /// MS1 apex confirmation is computed for each candidate and applied as a sqrt-softened
+        /// multiplicative factor on SelectionScore to penalize interference peaks.
+        /// Null disables MS1 confirmation (neutral, no penalty).
+        /// </param>
+        /// <param name="precursorMz">
+        /// Precursor m/z used for MS1 apex confirmation. Required when ms1Index != null.
+        /// </param>
+        /// <param name="ppmTolerance">ppm tolerance for MS1 apex intensity extraction.</param>
+        /// <param name="rtMin">Lower RT bound of the search window (minutes).</param>
+        /// <param name="rtMax">Upper RT bound of the search window (minutes).</param>
+        /// <param name="ms1ApexFactor">
+        /// Output: the raw Ms1ApexIntensityRatio [0,1] for the winning candidate.
+        /// 1.0f when MS1 confirmation was not applied (ms1Index null, narrow window, or no MS1 data).
+        /// This raw value (before sqrt-softening) is stored as classifier feature [37].
+        /// </param>
         /// <returns>
         /// The best detected PeakGroup, or PeakGroup.None if no valid
         /// peak was found (too few time points or no signal).
@@ -255,9 +272,17 @@ namespace MassSpectrometry.Dia
             ReadOnlySpan<float> libraryIntensities,
             int fragmentCount,
             int timePointCount,
+            out float ms1ApexFactor,
             float? predictedRt = null,
-            float rtWindowHalfWidth = 0f)
+            float rtWindowHalfWidth = 0f,
+            DiaScanIndex ms1Index = null,
+            float precursorMz = 0f,
+            float ppmTolerance = 20f,
+            float rtMin = float.MinValue,
+            float rtMax = float.MaxValue)
         {
+            ms1ApexFactor = 1.0f;  // neutral default — set to actual value after selection
+
             if (timePointCount < MinPeakScans || fragmentCount < 2)
                 return PeakGroup.None;
 
@@ -372,7 +397,18 @@ namespace MassSpectrometry.Dia
                 Span<float> candCosine = stackalloc float[MaxCandidates];
                 Span<float> candCoElut = stackalloc float[MaxCandidates];
                 Span<float> candSnr = stackalloc float[MaxCandidates];
+                Span<float> candMs1 = stackalloc float[MaxCandidates];  // raw MS1 apex ratio per candidate
                 int validCandCount = 0;
+
+                // MS1 apex confirmation is applied only when:
+                //   - ms1Index is non-null and has MS1 scans
+                //   - precursorMz is positive
+                //   - Window width > 1.0 min (at narrow windows, essentially all candidates are
+                //     near the true RT so MS1 confirmation adds noise rather than signal)
+                bool applyMs1Confirmation = ms1Index != null
+                    && ms1Index.Ms1ScanCount > 0
+                    && precursorMz > 0f
+                    && (rtMax - rtMin) > 1.0f;
 
                 for (int c = 0; c < candidateCount; c++)
                 {
@@ -506,6 +542,28 @@ namespace MassSpectrometry.Dia
 
                     float selectionScore = baseScore * rtProximityFactor;
 
+                    // ── MS1 apex confirmation factor ──────────────────────
+                    // When a wide search window contains multiple candidates, MS1 evidence
+                    // directly discriminates the true target (whose precursor XIC apex aligns
+                    // with the MS2 apex) from an interfering peptide (whose precursor XIC
+                    // has low signal at the target m/z at the interferer's elution time).
+                    //
+                    // sqrt-softening: raw ratio 0.1 → factor 0.316 instead of 0.1.
+                    // This penalizes interference candidates without catastrophically
+                    // eliminating true targets with transient MS1 signal absence.
+                    float rawMs1Ratio = 1.0f;
+                    if (applyMs1Confirmation)
+                    {
+                        rawMs1Ratio = Ms1XicExtractor.GetApexIntensityRatio(
+                            ms1Index,
+                            precursorMz,
+                            apexRt: refRts[apexIdx],
+                            rtMin: rtMin,
+                            rtMax: rtMax,
+                            ppmTolerance: ppmTolerance);
+                        selectionScore *= MathF.Sqrt(rawMs1Ratio);
+                    }
+
                     // Record valid candidate
                     candApex[validCandCount] = apexIdx;
                     candLeft[validCandCount] = leftIdx;
@@ -514,6 +572,7 @@ namespace MassSpectrometry.Dia
                     candCosine[validCandCount] = apexCosine;
                     candCoElut[validCandCount] = coElutionStd;
                     candSnr[validCandCount] = snr;
+                    candMs1[validCandCount] = rawMs1Ratio;
                     validCandCount++;
                 }
 
@@ -546,6 +605,11 @@ namespace MassSpectrometry.Dia
                 // RT proximity is now baked into SelectionScore as a continuous
                 // Gaussian factor. A separate tiebreak on top would be redundant
                 // and could re-introduce the bias it was meant to avoid.
+
+                // Export the winning candidate's raw MS1 apex ratio as the out parameter.
+                // This is the ratio BEFORE sqrt-softening — the classifier uses the raw value
+                // because it has more discriminating power than the softened scoring factor.
+                ms1ApexFactor = candMs1[bestIdx];
 
                 // ── Step 5: Build the winning PeakGroup ──────────
                 int winApex = candApex[bestIdx];
@@ -611,7 +675,7 @@ namespace MassSpectrometry.Dia
             // minCandidateFraction is ignored here — SelectBest always uses the class constant.
             // The parameter is kept only to avoid breaking old call sites.
             return SelectBest(matrix, refRts, libraryIntensities, fragmentCount, timePointCount,
-                predictedRt: null);
+                out _, predictedRt: null);
         }
 
         // ════════════════════════════════════════════════════════════════

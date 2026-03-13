@@ -75,7 +75,7 @@ namespace Development
             //    groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv",
             //    outputTsvPath: @"F:\DiaBenchmark\PXD005573\phase12_peak_group_results.tsv");
 
-            //DiaClassifierBenchmark.RunAll();
+            ////DiaClassifierBenchmark.RunAll();
 
             //Phase13BenchmarkRunner.RunAll(
             //    rawFilePath: @"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",
@@ -114,11 +114,11 @@ namespace Development
                 groundTruthPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv",
                 outputFolder: @"F:\DiaBenchmark\PXD005573\metamorpheusBenchmarkInMzLib.tsv");
 
-            //PeakSelectionAccuracyBenchmark.Run(
-            //    rawFilePath: @"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",
-            //    targetMspPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_input.msp",
-            //    groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv",
-            //    outputTsvPath: @"F:\DiaBenchmark\PXD005573\peakSelectionAccuracyBenchmark.tsv");
+            PeakSelectionAccuracyBenchmark.Run(
+                rawFilePath: @"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",
+                targetMspPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_input.msp",
+                groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_ground_truth.tsv",
+                outputTsvPath: @"F:\DiaBenchmark\PXD005573\peakSelectionAccuracyBenchmark.tsv");
 
             Console.WriteLine(new string('=', 60));
             Console.WriteLine("All benchmarks complete.");

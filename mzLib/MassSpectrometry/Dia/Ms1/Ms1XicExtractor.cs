@@ -220,6 +220,96 @@ namespace MassSpectrometry.Dia
             return AveragineIsotopeTable[massIdx].AsSpan();
         }
 
+        // ── MS1 apex confirmation ────────────────────────────────────────────
+
+        /// <summary>
+        /// Returns the ratio of MS1 precursor intensity at a specific apex RT to the maximum
+        /// MS1 precursor intensity observed in the search window [rtMin, rtMax].
+        ///
+        /// Used to confirm or penalize a peak group candidate based on MS1 evidence:
+        /// a true target peptide has its precursor XIC apex coinciding with the MS2 apex,
+        /// while an interfering co-eluting peptide will show low precursor MS1 signal
+        /// at the target m/z at the interferer's elution apex.
+        ///
+        /// Returns 1.0f (neutral — no penalty) in any of these cases:
+        ///   - index is null or index.Ms1ScanCount == 0 (MS1 data unavailable)
+        ///   - precursorMz &lt;= 0
+        ///   - No MS1 scan falls within ±apexRtToleranceMinutes of apexRt
+        ///   - Maximum MS1 intensity in [rtMin, rtMax] is zero
+        ///
+        /// Returns ratio in [0, 1] otherwise:
+        ///   1.0 = precursor has strong MS1 signal at this apex RT (confirms target apex)
+        ///   0.0 = precursor has no MS1 signal at this apex RT (evidence against this apex)
+        ///
+        /// Performance: O(K) where K = MS1 scans in [rtMin, rtMax] (~8-12 on typical instruments).
+        /// Zero heap allocations in the hot path.
+        /// Thread-safe: stateless.
+        /// </summary>
+        /// <param name="index">DiaScanIndex containing MS1 SoA arrays.</param>
+        /// <param name="precursorMz">Target precursor m/z (M0 monoisotopic).</param>
+        /// <param name="apexRt">Candidate apex retention time (minutes) to evaluate.</param>
+        /// <param name="rtMin">Lower RT bound of the search window (minutes).</param>
+        /// <param name="rtMax">Upper RT bound of the search window (minutes).</param>
+        /// <param name="ppmTolerance">m/z tolerance in ppm for peak extraction.</param>
+        /// <param name="apexRtToleranceMinutes">
+        /// Half-width around apexRt to search for the nearest MS1 scan.
+        /// Default 0.15 min ≈ 1 MS1 scan cycle at 1.78s cycle time.
+        /// </param>
+        /// <returns>Ratio in [0, 1] or 1.0f when MS1 confirmation cannot be applied.</returns>
+        public static float GetApexIntensityRatio(
+            DiaScanIndex index,
+            float precursorMz,
+            float apexRt,
+            float rtMin,
+            float rtMax,
+            float ppmTolerance,
+            float apexRtToleranceMinutes = 0.15f)
+        {
+            // Graceful degradation: return 1.0 (neutral) when MS1 data unavailable
+            if (index == null || index.Ms1ScanCount == 0 || precursorMz <= 0f)
+                return 1.0f;
+
+            float daltonTol = precursorMz * ppmTolerance * 1e-6f;
+            float mzLo = precursorMz - daltonTol;
+            float mzHi = precursorMz + daltonTol;
+
+            // ── Pass 1: Find window maximum and apex-local intensity ──────────
+            // Single pass over [rtMin, rtMax] scans to avoid double-iteration.
+            // Track both the window maximum and the nearest scan to apexRt.
+            int startIdx = index.FindMs1ScanIndexAtRt(rtMin);
+
+            float windowMaxIntensity = 0f;
+            float apexLocalIntensity = 0f;
+            float apexBestGap = float.MaxValue;  // nearest scan to apexRt within tolerance
+
+            for (int i = startIdx; i < index.Ms1ScanCount; i++)
+            {
+                float rt = index.GetMs1ScanRt(i);
+                if (rt > rtMax) break;
+
+                index.GetMs1ScanPeaks(i, out var mzs, out var ints);
+                float peakIntensity = SumIntensityInWindow(mzs, ints, mzLo, mzHi);
+
+                // Update window maximum
+                if (peakIntensity > windowMaxIntensity)
+                    windowMaxIntensity = peakIntensity;
+
+                // Track nearest scan to apexRt within tolerance
+                float gap = MathF.Abs(rt - apexRt);
+                if (gap <= apexRtToleranceMinutes && gap < apexBestGap)
+                {
+                    apexBestGap = gap;
+                    apexLocalIntensity = peakIntensity;
+                }
+            }
+
+            // If window max is zero or no apex-local scan found, return neutral
+            if (windowMaxIntensity <= 0f || apexBestGap == float.MaxValue)
+                return 1.0f;
+
+            return Math.Clamp(apexLocalIntensity / windowMaxIntensity, 0f, 1f);
+        }
+
         // ── Internal extraction helpers ──────────────────────────────────────
 
         /// <summary>

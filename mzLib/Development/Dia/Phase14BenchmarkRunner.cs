@@ -12,18 +12,18 @@ namespace Development.Dia
 {
     /// <summary>
     /// Phase 14: Dead Feature Fixes + GBT Hyperparameter Tuning Benchmark
-    /// Current build: DiaFeatureVector.ClassifierFeatureCount = 26.
+    /// Current build: DiaFeatureVector.ClassifierFeatureCount = 38.
     ///
     /// Steps 1-7:  Standard pipeline (load → index → broad extract → calibrate → calibrated extract → assemble → features)
     /// Step 7:     Feature computation — DiaFeatureExtractor.ComputeFeatures(result, i)
-    /// Step 8:     Dead-feature diagnostic table (26 features; NaN rates reported)
+    /// Step 8:     Dead-feature diagnostic table (38 features; NaN rates reported)
     /// Step 9:     LDA baseline FDR
     /// Step 10:    GBT sweep (configs A–E)
     /// Step 10b:   Neural network evaluation
     /// Step 11:    Three-way comparison table (LDA vs best-GBT vs NN)
     /// Step 12:    Full FDR threshold table for best classifier (LDA / GBT / NN)
     /// Step 13:    Per-step timing summary
-    /// Step 14:    TSV export with full column set (5+4+35+6+16 = 66 columns)
+    /// Step 14:    TSV export with full column set (5+4+38+6+16 = 69 columns)
     ///
     /// Compilation checklist (Phase 16C, Prompt 11):
     ///   ✓ DiaClassifierType.NeuralNetwork referenced (requires IDiaClassifier.cs enum update)
@@ -63,8 +63,8 @@ namespace Development.Dia
                 if (!string.IsNullOrEmpty(outputDir) && !Directory.Exists(outputDir))
                     Directory.CreateDirectory(outputDir);
             }
-            Debug.Assert(DiaFeatureVector.ClassifierFeatureCount == 35,
-                $"Expected 26 features, got {DiaFeatureVector.ClassifierFeatureCount}");
+            Debug.Assert(DiaFeatureVector.ClassifierFeatureCount == 38,
+                $"Expected 38 features, got {DiaFeatureVector.ClassifierFeatureCount}");
 
             var totalSw = Stopwatch.StartNew();
             var sw = new Stopwatch();
@@ -185,17 +185,16 @@ namespace Development.Dia
             var calibration = pipelineResult.Calibration;
 
             // ════════════════════════════════════════════════════════════
-            //  Step 7: Feature computation (35 features)
+            //  Step 7: Feature computation (38 features)
             // ════════════════════════════════════════════════════════════
             Console.WriteLine("--- Step 7: Computing feature vectors --------------------------");
             sw.Restart();
 
-            if (DiaFeatureVector.ClassifierFeatureCount != 26)
-                Console.WriteLine($"  WARNING: Expected 26 features, got {DiaFeatureVector.ClassifierFeatureCount}");
+            if (DiaFeatureVector.ClassifierFeatureCount != 38)
+                Console.WriteLine($"  WARNING: Expected 38 features, got {DiaFeatureVector.ClassifierFeatureCount}");
 
-            // ComputeFeatures takes (result, precursorIndex) — 2 args.
-            // MS1 features are not in the current 26-feature vector.
-            // No null references: a bool + index pattern is used throughout.
+            // ComputeFeatures takes (result, precursorIndex) — required; index/xic args are optional.
+            // All 38 features including Ms1ApexConfirmationScore [37] are computed here.
 
             var features = new DiaFeatureVector[results.Count];
 
@@ -431,11 +430,11 @@ namespace Development.Dia
             //  Column groups:
             //    1. Identification:  Sequence, Charge, PrecursorMz, WindowId, IsDecoy
             //    2. Classifier:      ClassifierScore, QValue, PeptideQValue, ClassifierType
-            //    3. Feature vector:  FV_0 .. FV_34  (35 features via WriteTo)
+            //    3. Feature vector:  FV_0 .. FV_37  (38 features via WriteTo)
             //    4. Raw properties:  ObservedApexRt, LibraryRT, RtDeviationMinutes_Raw,
             //                        PeakWidth_Raw, TimePointsUsed_Raw, HasPeakGroup
             //    5. Phase 13 props:  16 properties from DiaSearchResult
-            //    Total: 5+4+35+6+16 = 66 columns
+            //    Total: 5+4+38+6+16 = 69 columns
             // ════════════════════════════════════════════════════════════
             if (!string.IsNullOrEmpty(outputTsvPath))
             {
@@ -633,8 +632,8 @@ namespace Development.Dia
             Console.WriteLine("  ─────────────────────────────────────────────────────────────────────────");
             Console.WriteLine();
 
-            // Full 35-feature summary for reference
-            Console.WriteLine("  Full 26-Feature Summary (target vs decoy means):");
+            // Full 38-feature summary for reference
+            Console.WriteLine("  Full 38-Feature Summary (target vs decoy means):");
             Console.WriteLine("  ───────────────────────────────────────────────────────────────────────");
 
             for (int f = 0; f < DiaFeatureVector.ClassifierFeatureCount; f++)
@@ -718,8 +717,8 @@ namespace Development.Dia
         //  Group 2 — Classifier (4 cols):
         //    ClassifierScore, QValue, PeptideQValue, ClassifierType
         //
-        //  Group 3 — Feature vector (35 cols):
-        //    FV_{FeatureNames[0]} .. FV_{FeatureNames[32]}
+        //  Group 3 — Feature vector (38 cols):
+        //    FV_{FeatureNames[0]} .. FV_{FeatureNames[37]}
         //    Written via DiaFeatureVector.WriteTo(Span<float>)
         //
         //  Group 4 — Raw result properties for dead-feature debugging (6 cols):
@@ -733,7 +732,7 @@ namespace Development.Dia
         //    SmoothedMeanFragCorr, SmoothedMinFragCorr, Log2SignalToNoise,
         //    BestFragWeightedCosine, BoundarySignalRatio, ApexToMeanRatio
         //
-        //  Total: 5 + 4 + 35 + 6 + 16 = 66 columns
+        //  Total: 5 + 4 + 38 + 6 + 16 = 69 columns
         // ════════════════════════════════════════════════════════════════
 
         private static void ExportResultsTsv(

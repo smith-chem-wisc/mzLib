@@ -101,10 +101,7 @@ namespace Development.Dia
             // Diagnose key-format mismatch between library and ground truth
             int matched = 0;
             for (int i = 0; i < allTargets.Count; i++)
-            {
-                var t = allTargets[i];
-                if (trueRtBySequence.ContainsKey(t.Sequence + "/" + t.ChargeState)) matched++;
-            }
+                if (trueRtBySequence.ContainsKey(allTargets[i].Sequence + "/" + allTargets[i].ChargeState)) matched++;
 
             double matchFrac = allTargets.Count > 0 ? (double)matched / allTargets.Count : 0.0;
             Console.WriteLine($"  Ground truth coverage: {matched:N0}/{allTargets.Count:N0} = {matchFrac:P1}");
@@ -139,15 +136,11 @@ namespace Development.Dia
             // ════════════════════════════════════════════════════════════
             Console.WriteLine("--- Step 3: Selecting benchmark precursors (stratified by iRT) -");
 
-            // Filter to those that have a ground truth RT entry.
-            // GT keys are "sequence/charge" (e.g. "PEPTIDEK/2") — match accordingly.
+            // Filter to those that have a ground truth RT entry
             var withGt = new List<LibraryPrecursorInput>(allTargets.Count);
             for (int i = 0; i < allTargets.Count; i++)
-            {
-                var t = allTargets[i];
-                if (trueRtBySequence.ContainsKey(t.Sequence + "/" + t.ChargeState))
-                    withGt.Add(t);
-            }
+                if (trueRtBySequence.ContainsKey(allTargets[i].Sequence + "/" + allTargets[i].ChargeState))
+                    withGt.Add(allTargets[i]);
 
             Console.WriteLine($"  Precursors with ground truth RT: {withGt.Count:N0}");
 
@@ -391,9 +384,9 @@ namespace Development.Dia
         {
             if (withGt.Count == 0 || selected.Count == 0) return 0;
 
-            // Build a set of selected sequence/charge keys for fast lookup
+            // Build a set of selected sequences for fast lookup
             var selSet = new HashSet<string>(selected.Count, StringComparer.Ordinal);
-            foreach (var s in selected) selSet.Add(s.Sequence + "/" + s.ChargeState);
+            foreach (var s in selected) selSet.Add(s.Sequence);
 
             // Sort withGt by iRT to assign decile ids
             var sorted = new List<LibraryPrecursorInput>(withGt);
@@ -408,7 +401,7 @@ namespace Development.Dia
             var decilesSeen = new HashSet<int>();
             for (int i = 0; i < n; i++)
             {
-                if (!selSet.Contains(sorted[i].Sequence + "/" + sorted[i].ChargeState)) continue;
+                if (!selSet.Contains(sorted[i].Sequence)) continue;
                 int d = (int)((long)i * deciles / n);
                 d = Math.Min(d, deciles - 1);
                 decilesSeen.Add(d);

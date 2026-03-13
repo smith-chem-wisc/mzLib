@@ -780,8 +780,14 @@ namespace MassSpectrometry.Dia
 
                     PeakGroup peakGroup = DiaPeakGroupDetector.SelectBest(
                         matrix, refRts, libIntensities, fragmentCount, timePointCount,
+                        out float ms1Factor,
                         predictedRt: predictedRt,
-                        rtWindowHalfWidth: (group.RtMax - group.RtMin) * 0.5f);
+                        rtWindowHalfWidth: (group.RtMax - group.RtMin) * 0.5f,
+                        ms1Index: index,
+                        precursorMz: (float)input.PrecursorMz,
+                        ppmTolerance: parameters.PpmTolerance,
+                        rtMin: group.RtMin,
+                        rtMax: group.RtMax);
 
                     result.DetectedPeakGroup = peakGroup;
 
@@ -790,6 +796,7 @@ namespace MassSpectrometry.Dia
                     {
                         result.CoElutionStd = peakGroup.CoElutionStd;
                         result.CandidateScoreGap = peakGroup.SelectionScore - peakGroup.SecondBestScore;
+                        result.Ms1ApexConfirmationScore = ms1Factor;
                     }
 
                     // ── Full-window scoring (backward compatibility) ────────

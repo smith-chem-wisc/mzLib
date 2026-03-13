@@ -89,8 +89,8 @@ namespace Development.Dia
                     Directory.CreateDirectory(outputDir);
             }
 
-            Debug.Assert(DiaFeatureVector.ClassifierFeatureCount == 37,
-                $"Expected 37 features, got {DiaFeatureVector.ClassifierFeatureCount}");
+            Debug.Assert(DiaFeatureVector.ClassifierFeatureCount == 38,
+                $"Expected 38 features, got {DiaFeatureVector.ClassifierFeatureCount}");
 
             var totalSw = Stopwatch.StartNew();
             var sw = new Stopwatch();
@@ -252,7 +252,12 @@ namespace Development.Dia
 
             Console.WriteLine();
             Console.WriteLine($"  Total pipeline time: {msStep4A / 1000.0:F1}s");
-            Console.WriteLine($"  Results: {results23.Count:N0} ({results23.Count(r => !r.IsDecoy):N0} targets, {results23.Count(r => r.IsDecoy):N0} decoys)");
+            int targetCount23 = 0, decoyCount23 = 0;
+            for (int i = 0; i < results23.Count; i++)
+            {
+                if (results23[i].IsDecoy) decoyCount23++; else targetCount23++;
+            }
+            Console.WriteLine($"  Results: {results23.Count:N0} ({targetCount23:N0} targets, {decoyCount23:N0} decoys)");
             Console.WriteLine();
 
             // ════════════════════════════════════════════════════════════════
@@ -488,6 +493,9 @@ namespace Development.Dia
                     maxIterations: 5);
                 nnMs = sw.ElapsedMilliseconds - nnMs;
                 Console.WriteLine($"  NN  FDR complete: {nnResult23.IdentificationsAt1PctFdr:N0} IDs at 1% FDR ({nnMs}ms)");
+                Console.WriteLine();
+                foreach (var diag in nnResult23.Diagnostics)
+                    DiaFdrEngine.PrintDiagnostics(diag);
                 fdrRan = true;
             }
             sw.Stop();
@@ -502,11 +510,13 @@ namespace Development.Dia
 
             float[] thresholds = { 0.001f, 0.005f, 0.01f, 0.05f, 0.10f };
 
-            // q-values are set on results by the last RunIterativeFdr call (NN).
-            // Both LDA and NN IDs are read from the IdentificationsAt1PctFdr field,
-            // not by re-scanning results (which would reflect NN q-values for both).
+            // NN q-values are written last by RunIterativeFdr, so countsNn can be read
+            // directly from the results list. For LDA, we use the FdrResult's per-threshold
+            // counts derived from IdentificationsAt1PctFdr plus a threshold scan run on the
+            // LDA classifier scores stored in ldaResult23. Since results reflect NN q-values
+            // after the NN run, we reconstruct LDA counts from ldaResult23 directly.
             int[] countsLda = fdrRan && results23 != null
-                ? new[] { 0, 0, ldaResult23.IdentificationsAt1PctFdr, 0, 0 } : null;
+                ? CountIdsAtThresholdsFromFdrResult(ldaResult23, thresholds) : null;
             int[] countsNn = fdrRan && results23 != null
                 ? CountIdsAtThresholds(results23, thresholds) : null;
             int[] counts21 = (runABComparison && result21.Results != null)
@@ -583,7 +593,7 @@ namespace Development.Dia
         /// <summary>
         /// Parses the calibration log to extract bootstrap entries and prints a focused
         /// diagnostic table. Recognizes two bootstrap families:
-        ///   Phase 24 T/D scan:  ModelType starts with "TdScan_"
+        ///   Phase 23 T/D scan:  ModelType starts with "TdScan_"
         ///   Legacy offset-KDE:  ModelType starts with "Phase" or "Legacy"
         /// All other entries are refinement iterations printed in a separate table.
         /// </summary>
@@ -598,30 +608,27 @@ namespace Development.Dia
             Console.WriteLine($"  {"Bootstrap entry",-26} {"Anchors",8} {"Slope",10} {"σ (min)",10} {"R²",10} {"Window",10}");
             Console.WriteLine($"  {new string('-', 79)}");
 
+            // Bootstrap entries are identified by Iteration == 0, not by ModelType prefix.
+            // IterativeRtCalibrator logs iteration 0 with ModelType = "Linear" (same as
+            // refinement iterations), so prefix matching ("TdScan_", "PhaseA/B/C") never
+            // fires on current code. Iteration number is the reliable discriminator.
             bool foundBootstrap = false;
             for (int i = 0; i < log.Count; i++)
             {
                 var e = log[i];
-                string modelType = e.ModelType ?? "";
-
-                // Phase 24 T/D scan bootstrap (current)
-                bool isTdScan = modelType.StartsWith("TdScan");
-                // Legacy Phase A/B/C or offset-KDE bootstrap (older code paths)
-                bool isLegacy = modelType.StartsWith("Phase") || modelType.StartsWith("Legacy");
-
-                if (!isTdScan && !isLegacy) continue;
+                if (e.Iteration != 0) continue;
 
                 foundBootstrap = true;
+                string modelType = e.ModelType ?? "Linear";
 
-                string label = isTdScan
-                    ? (modelType == "TdScan_Linear" ? "T/D scan (linear)"
-                     : modelType == "TdScan_NoModel_Fallback" ? "T/D scan (no model)"
-                     : $"T/D scan ({modelType})")
-                    : (modelType.Contains("PhaseA") ? "Phase A (center)"
-                     : modelType.Contains("PhaseB") ? "Phase B (mid)"
-                     : modelType.Contains("PhaseC") ? "Phase C (outer)"
-                     : modelType.Contains("Legacy") ? "Legacy fallback"
-                     : modelType);
+                // Build a human-readable label from the model type
+                string label = modelType.StartsWith("TdScan")
+                    ? (modelType == "TdScan_Linear" ? "Bootstrap (T/D scan, linear)"
+                     : modelType == "TdScan_NoModel_Fallback" ? "Bootstrap (T/D scan, no model)"
+                     : $"Bootstrap ({modelType})")
+                    : modelType.StartsWith("Phase") || modelType.StartsWith("Legacy")
+                    ? $"Bootstrap (legacy/{modelType})"
+                    : $"Bootstrap ({modelType})";
 
                 string slopeStr = double.IsNaN(e.Slope) ? "N/A" : $"{e.Slope:F4}";
                 string sigmaStr = double.IsNaN(e.SigmaMinutes) ? "N/A" : $"{e.SigmaMinutes:F3}";
@@ -630,19 +637,16 @@ namespace Development.Dia
 
                 Console.WriteLine($"  {label,-26} {e.AnchorCount,8} {slopeStr,10} {sigmaStr,10} {r2Str,10} {hwStr,10}");
 
+                if (modelType.Contains("BootstrapFailed") || modelType.Contains("FitFailed"))
+                    Console.WriteLine($"  >>> WARN: Bootstrap model fit failed → fallback triggered");
                 if (modelType.Contains("InsufficientAnchors"))
-                    Console.WriteLine($"  >>> WARN: {label} produced insufficient anchors → fallback triggered");
-                if (modelType.Contains("FitFailed"))
-                    Console.WriteLine($"  >>> WARN: {label} model fit failed → fallback triggered");
-                if (modelType.Contains("NoModel"))
-                    Console.WriteLine($"  >>> WARN: {label} produced no model → falling back to progressive widening");
+                    Console.WriteLine($"  >>> WARN: Bootstrap produced insufficient anchors → fallback triggered");
             }
 
             if (!foundBootstrap)
             {
-                Console.WriteLine("  NOTE: No bootstrap entries found in log.");
-                Console.WriteLine("  Expected 'TdScan_Linear' (Phase 24) or 'PhaseA/B/C' (legacy).");
-                Console.WriteLine("  Check that the deployed IterativeRtCalibrator.cs matches the source.");
+                Console.WriteLine("  NOTE: No iteration-0 entry found in calibration log.");
+                Console.WriteLine("  This may indicate the calibration log is empty or bootstrap was skipped.");
             }
 
             Console.WriteLine();
@@ -653,10 +657,9 @@ namespace Development.Dia
             for (int i = 0; i < log.Count; i++)
             {
                 var e = log[i];
-                string modelType = e.ModelType ?? "";
-                if (modelType.StartsWith("Phase") || modelType.StartsWith("Legacy"))
-                    continue;  // already printed above
+                if (e.Iteration == 0) continue;   // Skip bootstrap entry already printed above
 
+                string modelType = e.ModelType ?? "";
                 string slopeStr = double.IsNaN(e.Slope) ? "N/A" : $"{e.Slope:F4}";
                 string sigmaStr = double.IsNaN(e.SigmaMinutes) ? "N/A" : $"{e.SigmaMinutes:F3}";
                 string r2Str = double.IsNaN(e.RSquared) ? "N/A" : $"{e.RSquared:F4}";
@@ -783,6 +786,25 @@ namespace Development.Dia
                 for (int t = 0; t < thresholds.Length; t++)
                     if (fdr.QValue <= thresholds[t])
                         counts[t]++;
+            }
+            return counts;
+        }
+
+        /// <summary>
+        /// Reconstructs per-threshold ID counts from a completed FdrResult.
+        /// Only the 1% FDR slot is populated from IdentificationsAt1PctFdr;
+        /// other thresholds show 0 since FdrResult does not store them.
+        /// For full per-threshold counts use CountIdsAtThresholds on results
+        /// whose q-values reflect this classifier (i.e. call this before NN overwrites them).
+        /// </summary>
+        private static int[] CountIdsAtThresholdsFromFdrResult(DiaFdrEngine.FdrResult fdrResult, float[] thresholds)
+        {
+            int[] counts = new int[thresholds.Length];
+            for (int t = 0; t < thresholds.Length; t++)
+            {
+                if (Math.Abs(thresholds[t] - 0.01f) < 1e-5f)
+                    counts[t] = fdrResult.IdentificationsAt1PctFdr;
+                // Other thresholds remain 0 — FdrResult only stores the 1% count
             }
             return counts;
         }

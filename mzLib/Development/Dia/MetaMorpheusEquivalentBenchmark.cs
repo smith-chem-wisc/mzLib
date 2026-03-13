@@ -182,8 +182,8 @@ namespace Development.Dia
             // Guards against a partial refactor where DiaFeatureVector.ClassifierFeatureCount
             // changes without updating the FDR engine.
             Debug.Assert(
-                DiaFeatureVector.ClassifierFeatureCount == 37,
-                $"Expected 37 classifier features, got {DiaFeatureVector.ClassifierFeatureCount}. " +
+                DiaFeatureVector.ClassifierFeatureCount == 38,
+                $"Expected 38 classifier features, got {DiaFeatureVector.ClassifierFeatureCount}. " +
                 $"Update the feature count assertion in MetaMorpheusEquivalentBenchmark.");
 
             var totalSw = Stopwatch.StartNew();
@@ -813,7 +813,7 @@ namespace Development.Dia
                 var r = results[i];
                 if (r.IsDecoy) continue;
                 if (float.IsNaN(r.ObservedApexRt)) continue;
-                if (!rtLookup.TryGetValue(r.Sequence, out double truthRt)) continue;
+                if (!rtLookup.TryGetValue(r.Sequence + "/" + r.ChargeState, out double truthRt)) continue;
 
                 double delta = Math.Abs(r.ObservedApexRt - truthRt);
                 deltas.Add(delta);

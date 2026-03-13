@@ -124,7 +124,8 @@ namespace MassSpectrometry.Dia
                 if (float.IsNaN(r.ApexScore) || r.ApexScore < minApexScore) continue;
                 if (float.IsNaN(r.ObservedApexRt)) continue;
 
-                string key = $"{r.Sequence}_{r.ChargeState}";
+                // Key format must match KoinaMspParser.BuildRtLookupFromDiannTsv: "SEQUENCE/charge"
+                string key = $"{r.Sequence}/{r.ChargeState}";
                 if (!diannRtLookup.TryGetValue(key, out double diannRt)) continue;
 
                 double absError = Math.Abs(r.ObservedApexRt - diannRt);

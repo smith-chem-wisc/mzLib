@@ -6,7 +6,15 @@
 //   - RunNnEvaluation() mirrors RunGbtSweep() but runs a single NN pass on cloned results.
 //   - PrintNnComparisonRow() adds NN result into the unified summary table.
 //   - NnSweepResult mirrors SweepResult for consistent Step 11 reporting.
+//
+// Fix: CloneResults updated to copy all 9 properties added after the original clone
+//      was written: PrecursorXicApexIntensity, IsotopePatternScore, Ms1Ms2Correlation,
+//      PrecursorElutionScore, ChimericScore, CoElutionStd, CandidateScoreGap,
+//      Ms1ApexConfirmationScore, LibraryCoverageFraction.
+//      Without these, GBT/NN sweep runs operated on stale 0f/NaN defaults for
+//      features [29-37], making the sweep pessimistic vs real LDA.
 
+using MassSpectrometry;
 using MassSpectrometry.Dia;
 using System;
 using System.Collections.Generic;
@@ -165,7 +173,7 @@ namespace Development.Dia
         ///
         /// The original results list is NOT modified.
         ///
-        /// Training parameters: 33→64→32→1, Adam (lr=1e-3), dropout=0.3, max 60 epochs,
+        /// Training parameters: 38→64→32→1, Adam (lr=1e-3), dropout=0.3, max 60 epochs,
         /// early stopping (5 epochs no improvement). These are wired inside
         /// DiaNeuralNetClassifierAdapter and require no explicit configuration here.
         /// </summary>
@@ -175,7 +183,7 @@ namespace Development.Dia
         {
             float[] thresholds = { 0.001f, 0.005f, 0.01f, 0.05f, 0.10f };
 
-            Console.WriteLine("  Neural Network (33→64→32→1, Adam lr=1e-3, dropout=0.3, max 60 epochs)");
+            Console.WriteLine("  Neural Network (38→64→32→1, Adam lr=1e-3, dropout=0.3, max 60 epochs)");
 
             var clonedResults = CloneResults(originalResults);
 
@@ -357,6 +365,10 @@ namespace Development.Dia
         /// Uses the constructor for get-only properties, then copies mutable props.
         /// Feature vectors (DiaFeatureVector[]) are NOT cloned — they are read-only
         /// during FDR and shared across all runs.
+        ///
+        /// All properties from DiaSearchResult are copied, including those added
+        /// in later phases (MS1, interference, coverage). Omitting any would cause
+        /// the cloned FDR run to see stale defaults for those features.
         /// </summary>
         private static List<DiaSearchResult> CloneResults(List<DiaSearchResult> originals)
         {
@@ -430,12 +442,31 @@ namespace Development.Dia
                 c.BoundarySignalRatio = o.BoundarySignalRatio;
                 c.ApexToMeanRatio = o.ApexToMeanRatio;
 
+                // MS1 features (Phase 16B)
+                c.PrecursorXicApexIntensity = o.PrecursorXicApexIntensity;
+                c.IsotopePatternScore = o.IsotopePatternScore;
+                c.Ms1Ms2Correlation = o.Ms1Ms2Correlation;
+                c.PrecursorElutionScore = o.PrecursorElutionScore;
+
+                // Interference / chimeric features
+                c.ChimericScore = o.ChimericScore;
+
+                // Peak selection quality (Prompt 2)
+                c.CoElutionStd = o.CoElutionStd;
+                c.CandidateScoreGap = o.CandidateScoreGap;
+
+                // MS1 apex confirmation (MS1 Interference Resolution phase)
+                c.Ms1ApexConfirmationScore = o.Ms1ApexConfirmationScore;
+
+                // Coverage
+                c.LibraryCoverageFraction = o.LibraryCoverageFraction;
+
                 // Temporal metadata
                 c.TimePointsUsed = o.TimePointsUsed;
                 c.ObservedApexRt = o.ObservedApexRt;
                 c.DetectedPeakGroup = o.DetectedPeakGroup;
 
-                // Reset FDR fields (these are what we're testing)
+                // Reset FDR fields (these are what we're testing across configs)
                 c.ClassifierScore = float.NaN;
                 c.FdrInfo = null;
 

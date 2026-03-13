@@ -21,6 +21,8 @@ namespace MassSpectrometry.Dia
     ///   See DiaMs1FeatureComputer class comment for details.
     /// Prompt 3 (rebuild): CoElutionStd [35] and CandidateScoreGap [36] added.
     ///   ClassifierFeatureCount = 35 → 37.
+    /// MS1 Interference Resolution phase: Ms1ApexConfirmationScore [37] added.
+    ///   ClassifierFeatureCount = 37 → 38.
     /// 
     /// Migrated features (computed in AssembleResultsWithTemporalScoring but previously
     /// not forwarded to the classifier):
@@ -125,6 +127,20 @@ namespace MassSpectrometry.Dia
         /// </summary>
         public float CandidateScoreGap;          // [36]
 
+        // -- MS1 apex confirmation (1) -- MS1 Interference Resolution phase
+        /// <summary>
+        /// Raw MS1 apex intensity ratio for the selected peak group.
+        /// Ratio of precursor MS1 intensity at the selected apex RT to the maximum precursor
+        /// MS1 intensity in the search window. Range [0, 1].
+        ///
+        ///   1.0 = precursor has strong MS1 signal at the apex → strong target confirmation
+        ///   0.0 = precursor has no MS1 signal at the apex → possible interference
+        ///
+        /// Default 1.0f (neutral) when MS1 is unavailable or window ≤ 1.0 min.
+        /// Targets should have systematically higher values than decoys.
+        /// </summary>
+        public float Ms1ApexConfirmationScore;   // [37]
+
         // -- Metadata (not classifier features) ---------------------------
         public bool IsDecoy;
         public int PrecursorIndex;
@@ -136,8 +152,9 @@ namespace MassSpectrometry.Dia
         /// <summary>
         /// Number of features used by the classifier.
         /// Prompt 3: 35 → 37 (added CoElutionStd [35] and CandidateScoreGap [36]).
+        /// MS1 Interference Resolution phase: 37 → 38 (added Ms1ApexConfirmationScore [37]).
         /// </summary>
-        public const int ClassifierFeatureCount = 37;
+        public const int ClassifierFeatureCount = 38;
 
         /// <summary>Index of ApexScore in the feature vector.</summary>
         public const int InteractionFeatureIndexA = 0;  // ApexScore
@@ -192,6 +209,8 @@ namespace MassSpectrometry.Dia
             // Peak selection quality [35-36]
             features[35] = float.IsNaN(CoElutionStd) ? 99f : CoElutionStd;
             features[36] = float.IsNaN(CandidateScoreGap) ? 0f : CandidateScoreGap;
+            // MS1 apex confirmation [37]
+            features[37] = float.IsNaN(Ms1ApexConfirmationScore) ? 1.0f : Ms1ApexConfirmationScore;
         }
 
         /// <summary>
@@ -218,6 +237,7 @@ namespace MassSpectrometry.Dia
             "LibraryCoverageFraction",                                            // [34]
             "CoElutionStd",                                                       // [35]
             "CandidateScoreGap",                                                  // [36]
+            "Ms1ApexConfirmationScore",                                           // [37]
         };
     }
 
@@ -377,6 +397,11 @@ namespace MassSpectrometry.Dia
             // WriteTo applies NaN sentinels (99f and 0f) for any NaN cases.
             fv.CoElutionStd = result.CoElutionStd;
             fv.CandidateScoreGap = result.CandidateScoreGap;
+
+            // -- MS1 apex confirmation [37] --------------------------------
+            // Default 1.0f (neutral) is the initialization on DiaSearchResult.
+            // WriteTo uses 1.0f as the NaN sentinel (same neutral value).
+            fv.Ms1ApexConfirmationScore = result.Ms1ApexConfirmationScore;
 
             // -- Metadata -------------------------------------------------
             fv.ChargeState = result.ChargeState;
