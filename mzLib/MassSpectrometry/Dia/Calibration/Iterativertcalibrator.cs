@@ -53,8 +53,21 @@ namespace MassSpectrometry.Dia
         /// <summary>Window = predicted ± N × σ. Default 3.0.</summary>
         public double SigmaMultiplier { get; set; } = 4.0;
 
-        /// <summary>Maximum anchors for iteration 0 (bootstrap). Default 500.</summary>
-        public int InitialTopK { get; set; } = 500;
+        /// <summary>
+        /// Maximum anchors used from the bootstrap candidate pool (iteration 0).
+        /// Default int.MaxValue (use all candidates — no cap).
+        ///
+        /// With the bootstrap gap-filter disabled (minCandidateScoreGap=0f), SelectAnchors
+        /// can return tens of thousands of candidates on a typical DIA dataset. If this is
+        /// capped at a small value (e.g. 500), SelectWithRtBalance discards most of them,
+        /// degrading calibration sigma from ~0.019 min to ~0.025–0.04 min and costing
+        /// thousands of IDs at 1% FDR.
+        ///
+        /// The only caller that legitimately sets this below int.MaxValue is the A/B
+        /// comparison in DiaEngine (which runs both 500 and unlimited to let the pipeline
+        /// self-select). All other callers should leave this at int.MaxValue.
+        /// </summary>
+        public int InitialTopK { get; set; } = int.MaxValue;
 
         /// <summary>Strict ApexScore threshold for bootstrap iteration. Default 0.85.</summary>
         public float InitialApexScoreThreshold { get; set; } = 0.85f;
@@ -287,7 +300,7 @@ namespace MassSpectrometry.Dia
                         var testAnchors = SelectAnchors(bootstrapResults, precursors, genResult.PrecursorGroups,
                             InitialApexScoreThreshold, InitialTopK, requireMinFragDetRate: false,
                             maxCoElutionStd: AnchorMaxCoElutionStd,
-                            minCandidateScoreGap: AnchorMinCandidateScoreGap);
+                            minCandidateScoreGap: 0f); // Bootstrap: CandidateScoreGap is 0f by default (wide windows prevent valid peak groups)
                         selectSw.Stop();
 
                         Console.WriteLine($"  [Calibration] Bootstrap ±{tryWindow:F1} min: {testAnchors.Count} anchors (threshold={InitialApexScoreThreshold:F2})");
@@ -314,7 +327,7 @@ namespace MassSpectrometry.Dia
                     var anchors0 = SelectAnchors(bootstrapResults, precursors, genResult.PrecursorGroups,
                         InitialApexScoreThreshold, InitialTopK, requireMinFragDetRate: false,
                         maxCoElutionStd: AnchorMaxCoElutionStd,
-                        minCandidateScoreGap: AnchorMinCandidateScoreGap,
+                        minCandidateScoreGap: 0f, // Bootstrap: gap filter disabled (same reason as test pass)
                         coElutionFiltered: out int coElutFilt0fb,
                         gapFiltered: out int gapFilt0fb);
                     selectSw.Stop();
@@ -359,7 +372,10 @@ namespace MassSpectrometry.Dia
                 var anchors = SelectAnchors(bootstrapResults, precursors, genResult.PrecursorGroups,
                     InitialApexScoreThreshold, InitialTopK, requireMinFragDetRate: false,
                     maxCoElutionStd: AnchorMaxCoElutionStd,
-                    minCandidateScoreGap: AnchorMinCandidateScoreGap,
+                    minCandidateScoreGap: 0f, // Bootstrap (iter 0): gap filter disabled — wide RT windows
+                                              // prevent valid peak groups, so CandidateScoreGap stays at
+                                              // its default of 0f. Re-enabled for refinement iters 1+ in
+                                              // RunRefinementIterations (line ~450).
                     coElutionFiltered: out int coElutFilt0,
                     gapFiltered: out int gapFilt0);
                 selectSw.Stop();
@@ -446,7 +462,13 @@ namespace MassSpectrometry.Dia
                 var anchors = SelectAnchors(results, precursors, genResult.PrecursorGroups,
                     RefinedApexScoreThreshold, int.MaxValue, requireMinFragDetRate: true,
                     maxCoElutionStd: AnchorMaxCoElutionStd,
-                    minCandidateScoreGap: AnchorMinCandidateScoreGap,
+                    minCandidateScoreGap: 0f, // Gap filter disabled for ALL calibration iterations.
+                                              // CandidateScoreGap is only set when peakGroup.IsValid,
+                                              // which requires windows narrow enough for SelectBest to
+                                              // find a confident apex. During calibration the window is
+                                              // still converging and too wide for reliable gap scores.
+                                              // CandidateScoreGap belongs as classifier feature [36]
+                                              // for FDR discrimination, not as a calibration anchor gate.
                     coElutionFiltered: out int coElutFilt,
                     gapFiltered: out int gapFilt);
                 selectSw.Stop();
