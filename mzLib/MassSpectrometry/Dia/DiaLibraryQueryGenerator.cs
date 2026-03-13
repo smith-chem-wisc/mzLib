@@ -424,13 +424,13 @@ namespace MassSpectrometry.Dia
         /// </param>
         /// <returns>GenerationResult with per-precursor RT-adaptive windows.</returns>
         public static GenerationResult GenerateCalibratedAdaptive(
-            IList<LibraryPrecursorInput> precursors,
-            DiaScanIndex scanIndex,
-            DiaSearchParameters parameters,
-            RtCalibrationModel calibration,
-            IRtCalibrationModel detailedModel = null,
-            double sigmaMultiplier = 3.0,
-            double minWindowHalfWidthMinutes = 0.3)
+    IList<LibraryPrecursorInput> precursors,
+    DiaScanIndex scanIndex,
+    DiaSearchParameters parameters,
+    RtCalibrationModel calibration,
+    IRtCalibrationModel detailedModel = null,
+    double sigmaMultiplier = 3.0,
+    double minWindowHalfWidthMinutes = 0.3)
         {
             if (precursors == null) throw new ArgumentNullException(nameof(precursors));
             if (scanIndex == null) throw new ArgumentNullException(nameof(scanIndex));
@@ -439,15 +439,19 @@ namespace MassSpectrometry.Dia
 
             float ppmTolerance = parameters.PpmTolerance;
 
-            // Fallback RT bounds for precursors with no RT info at all
             float globalRtMin = scanIndex.GetGlobalRtMin();
             float globalRtMax = scanIndex.GetGlobalRtMax();
 
-            // Precompute uniform fallback half-width (used when detailedModel is null
-            // or for precursors with no RT info)
             double uniformHalfWidth = Math.Max(
                 calibration.SigmaMinutes * sigmaMultiplier,
                 minWindowHalfWidthMinutes);
+
+            // Find first decoy index for paired-target window placement
+            int firstDecoyIdx = -1;
+            for (int i = 0; i < precursors.Count; i++)
+            {
+                if (precursors[i].IsDecoy) { firstDecoyIdx = i; break; }
+            }
 
             // First pass: count
             int totalQueryCount = 0;
@@ -479,22 +483,34 @@ namespace MassSpectrometry.Dia
 
                 float rtMin, rtMax;
 
-                // Resolve the library RT source (iRT preferred, then library RT)
-                double? libraryRtSource = p.IrtValue.HasValue ? p.IrtValue : p.RetentionTime;
-
-                if (libraryRtSource.HasValue)
+                // For window placement, decoys use their paired target's iRT so they
+                // compete in the same local signal environment as their target partner.
+                // Assembly still uses the decoy's own irtValue for LibraryRetentionTime,
+                // so RtDeviationMinutes is computed correctly relative to the decoy's
+                // own predicted RT.
+                double? extractionIrt;
+                if (p.IsDecoy && firstDecoyIdx >= 0)
                 {
-                    double libRt = libraryRtSource.Value;
+                    int pairedTargetIdx = i - firstDecoyIdx;
+                    extractionIrt = pairedTargetIdx >= 0 && pairedTargetIdx < firstDecoyIdx
+                        ? precursors[pairedTargetIdx].IrtValue ?? precursors[pairedTargetIdx].RetentionTime
+                        : p.IrtValue ?? p.RetentionTime;
+                }
+                else
+                {
+                    extractionIrt = p.IrtValue ?? p.RetentionTime;
+                }
 
-                    // Predict observed RT using the calibration model
+                if (extractionIrt.HasValue)
+                {
+                    double libRt = extractionIrt.Value;
+
                     float predictedRt = (float)calibration.ToMinutes(libRt);
 
-                    // Compute local σ: use the detailed model if available, otherwise global σ
                     double localSigma;
                     if (detailedModel != null)
                     {
                         localSigma = detailedModel.GetLocalSigma(libRt);
-                        // Sanity: if local σ is NaN or non-positive, fall back to global
                         if (double.IsNaN(localSigma) || localSigma <= 0)
                             localSigma = calibration.SigmaMinutes;
                     }
@@ -503,7 +519,6 @@ namespace MassSpectrometry.Dia
                         localSigma = calibration.SigmaMinutes;
                     }
 
-                    // Window half-width: max(sigmaMultiplier × localSigma, minimum floor)
                     double halfWidth = Math.Max(sigmaMultiplier * localSigma, minWindowHalfWidthMinutes);
 
                     rtMin = (float)(predictedRt - halfWidth);
@@ -511,7 +526,6 @@ namespace MassSpectrometry.Dia
                 }
                 else
                 {
-                    // No RT information at all — use the full run range
                     rtMin = globalRtMin;
                     rtMax = globalRtMax;
                 }
@@ -579,7 +593,7 @@ namespace MassSpectrometry.Dia
                     windowId: group.WindowId,
                     isDecoy: input.IsDecoy,
                     fragmentsQueried: group.QueryCount,
-                    libraryRetentionTime: input.IsDecoy ? null : (input.IrtValue ?? input.RetentionTime),
+                    libraryRetentionTime: input.IrtValue ?? input.RetentionTime,
                     rtWindowStart: group.RtMin,
                     rtWindowEnd: group.RtMax
                 );
@@ -665,7 +679,7 @@ namespace MassSpectrometry.Dia
                     windowId: group.WindowId,
                     isDecoy: input.IsDecoy,
                     fragmentsQueried: group.QueryCount,
-                    libraryRetentionTime: input.IsDecoy ? null : (input.IrtValue ?? input.RetentionTime),
+                    libraryRetentionTime: input.IrtValue ?? input.RetentionTime,
                     rtWindowStart: group.RtMin,
                     rtWindowEnd: group.RtMax
                 );
@@ -755,21 +769,46 @@ namespace MassSpectrometry.Dia
 
                     // ── Peak Group Detection ────────────────────────────────
                     PeakGroup peakGroup = DiaPeakGroupDetector.Detect(
-                        matrix, refRts, libIntensities, fragmentCount, timePointCount);
+                        matrix, refRts, libIntensities, fragmentCount, timePointCount, minCandidateFraction: 0.01f);
 
                     result.DetectedPeakGroup = peakGroup;
 
                     // ── Full-window scoring (backward compatibility) ────────
                     // Apex: find time point with maximum total signal
+                    // NEW: cosine-weighted apex — picks the time point with best spectral match
+                    // weighted by total intensity, so it favors the true peptide peak over
+                    // high-intensity interfering signal at the wrong RT.
                     int fullApexIdx = 0;
-                    float fullApexSignal = 0f;
+                    float fullApexScore = -1f;
                     for (int t = 0; t < timePointCount; t++)
                     {
-                        float total = 0f;
                         int rowOffset = t * fragmentCount;
+
+                        // Count active fragments and total intensity at this time point
+                        int activeCount = 0;
+                        float totalIntensity = 0f;
                         for (int f = 0; f < fragmentCount; f++)
-                            total += matrix[rowOffset + f];
-                        if (total > fullApexSignal) { fullApexSignal = total; fullApexIdx = t; }
+                        {
+                            if (matrix[rowOffset + f] > 0f)
+                            {
+                                activeCount++;
+                                totalIntensity += matrix[rowOffset + f];
+                            }
+                        }
+
+                        if (activeCount < parameters.MinFragmentsRequired || totalIntensity <= 0f)
+                            continue;
+
+                        float cosine = CosineActiveFragments(libIntensities, matrix, rowOffset, fragmentCount);
+                        if (float.IsNaN(cosine)) continue;
+
+                        // Score = cosine × log(intensity) — rewards spectral match scaled by signal strength
+                        float score = cosine * MathF.Log(totalIntensity + 1f);
+                        if (score > fullApexScore)
+                        {
+                            fullApexScore = score;
+                            fullApexIdx = t;
+                        }
                     }
 
                     result.ApexScore = CosineActiveFragments(

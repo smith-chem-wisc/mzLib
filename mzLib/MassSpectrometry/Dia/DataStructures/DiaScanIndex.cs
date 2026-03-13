@@ -462,7 +462,34 @@ namespace MassSpectrometry.Dia
         {
             return Ms1ScanCount == 0 ? 0f : _ms1ScanRts[Ms1ScanCount - 1];
         }
+        /// <summary>
+        /// Computes a per-scan MS2 TIC profile by summing all peak intensities in each scan.
+        /// Returns an array of (Rt, TotalIntensity) pairs sorted ascending by RT.
+        /// Used by IterativeRtCalibrator to estimate the peptide elution window boundaries
+        /// via cumulative TIC fractions (10% and 90% points).
+        /// </summary>
+        public (float Rt, float Intensity)[] GetMs2TicProfile()
+        {
+            if (ScanCount == 0)
+                return Array.Empty<(float, float)>();
 
+            var profile = new (float Rt, float Intensity)[ScanCount];
+
+            for (int i = 0; i < ScanCount; i++)
+            {
+                float sum = 0f;
+                int offset = _scanOffsets[i];
+                int length = _scanLengths[i];
+                for (int j = offset; j < offset + length; j++)
+                    sum += _allIntensity[j];
+                profile[i] = (_scanRts[i], sum);
+            }
+
+            // Sort by RT — scans are stored per-window so global order is not guaranteed
+            Array.Sort(profile, (a, b) => a.Rt.CompareTo(b.Rt));
+
+            return profile;
+        }
         public void Dispose()
         {
             // Currently no pooled arrays to return.

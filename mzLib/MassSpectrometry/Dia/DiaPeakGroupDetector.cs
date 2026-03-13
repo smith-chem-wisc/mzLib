@@ -51,6 +51,13 @@ namespace MassSpectrometry.Dia
         public readonly float TotalSignal;
 
         /// <summary>
+        /// RT of every candidate peak apex found during detection, before selection.
+        /// Used by grid calibration to take median over all candidates across a bin
+        /// rather than committing to one apex per precursor.
+        /// </summary>
+        public readonly float[] CandidateApexRts;
+        
+        /// <summary>
         /// Number of candidate peaks detected before selecting this one.
         /// More candidates = more ambiguous identification.
         /// </summary>
@@ -68,7 +75,8 @@ namespace MassSpectrometry.Dia
             float leftRt, float rightRt,
             float peakWidthMinutes, float symmetryRatio,
             int scanCount, float totalSignal,
-            int candidateCount)
+            int candidateCount,
+            float[] candidateApexRts)
         {
             ApexIndex = apexIndex;
             ApexRt = apexRt;
@@ -81,6 +89,7 @@ namespace MassSpectrometry.Dia
             ScanCount = scanCount;
             TotalSignal = totalSignal;
             CandidateCount = candidateCount;
+            CandidateApexRts = candidateApexRts;
             IsValid = true;
         }
     }
@@ -159,7 +168,8 @@ namespace MassSpectrometry.Dia
             ReadOnlySpan<float> refRts,
             ReadOnlySpan<float> libraryIntensities,
             int fragmentCount,
-            int timePointCount)
+            int timePointCount,
+            float minCandidateFraction = MinCandidateFraction)     // ← new
         {
             if (timePointCount < MinPeakScans || fragmentCount < 2)
                 return PeakGroup.None;
@@ -258,6 +268,13 @@ namespace MassSpectrometry.Dia
                 }
 
                 // ── Step 4: Find boundaries and score each candidate ────────
+
+                // Collect all candidate apex RTs once — passed into the winning PeakGroup.
+                // ComputeGridModel uses all candidates across a bin to vote out interference peaks.
+                float[] candidateApexRts = new float[candidateCount];
+                for (int c2 = 0; c2 < candidateCount; c2++)
+                    candidateApexRts[c2] = refRts[candidateApices[c2]];
+
                 PeakGroup bestPeak = PeakGroup.None;
                 float bestScore = float.MinValue;
 
@@ -267,7 +284,7 @@ namespace MassSpectrometry.Dia
                     float apexHeight = smoothed[apexIdx];
                     float boundaryThreshold = apexHeight * BoundaryFraction;
 
-                    // Find left boundary: descend from apex to left
+                    // Find left boundary
                     int leftIdx = apexIdx;
                     for (int t = apexIdx - 1; t >= 0; t--)
                     {
@@ -276,7 +293,6 @@ namespace MassSpectrometry.Dia
                             leftIdx = t + 1;
                             break;
                         }
-                        // Also stop at a local minimum (valley between peaks)
                         if (t > 0 && smoothed[t] <= smoothed[t - 1] && smoothed[t] < smoothed[t + 1])
                         {
                             leftIdx = t;
@@ -285,7 +301,7 @@ namespace MassSpectrometry.Dia
                         leftIdx = t;
                     }
 
-                    // Find right boundary: descend from apex to right
+                    // Find right boundary
                     int rightIdx = apexIdx;
                     for (int t = apexIdx + 1; t < timePointCount; t++)
                     {
@@ -294,7 +310,6 @@ namespace MassSpectrometry.Dia
                             rightIdx = t - 1;
                             break;
                         }
-                        // Also stop at a local minimum
                         if (t < timePointCount - 1 && smoothed[t] <= smoothed[t + 1] && smoothed[t] < smoothed[t - 1])
                         {
                             rightIdx = t;
@@ -307,13 +322,31 @@ namespace MassSpectrometry.Dia
                     if (scanCount < MinPeakScans)
                         continue;
 
-                    // Compute total signal within boundaries (from raw composite, not smoothed)
+                    // Total signal within boundaries (raw composite)
                     float totalSignal = 0f;
                     for (int t = leftIdx; t <= rightIdx; t++)
                         totalSignal += composite[t];
 
-                    // Peak scoring: prefer high signal with reasonable width
-                    float peakScore = totalSignal;
+                    // ── Cosine at apex: score = cosine × log(totalSignal) ──────────
+                    // Raw signal alone picks high-intensity interfering peaks.
+                    // Cosine × signal rewards spectral match scaled by signal strength,
+                    // ensuring the true peptide peak wins over co-eluting interferences.
+                    int apexRowOffset = apexIdx * fragmentCount;
+                    float dotProduct = 0f, normLib = 0f, normObs = 0f;
+                    for (int f = 0; f < fragmentCount; f++)
+                    {
+                        float obs = matrix[apexRowOffset + f];
+                        if (obs <= 0f) continue;
+                        float lib = f < libraryIntensities.Length ? libraryIntensities[f] : 0f;
+                        dotProduct += lib * obs;
+                        normLib += lib * lib;
+                        normObs += obs * obs;
+                    }
+                    float apexCosine = (normLib > 0f && normObs > 0f)
+                        ? Math.Clamp(dotProduct / (MathF.Sqrt(normLib) * MathF.Sqrt(normObs)), 0f, 1f)
+                        : 0f;
+
+                    float peakScore = apexCosine * MathF.Log(totalSignal + 1f);
 
                     if (peakScore > bestScore)
                     {
@@ -323,9 +356,7 @@ namespace MassSpectrometry.Dia
                         float leftRt = refRts[leftIdx];
                         float rightRt = refRts[rightIdx];
                         float width = rightRt - leftRt;
-                        float symmetry = width > 0f
-                            ? (apexRt - leftRt) / width
-                            : 0.5f;
+                        float symmetry = width > 0f ? (apexRt - leftRt) / width : 0.5f;
 
                         bestPeak = new PeakGroup(
                             apexIndex: apexIdx,
@@ -338,7 +369,8 @@ namespace MassSpectrometry.Dia
                             symmetryRatio: symmetry,
                             scanCount: scanCount,
                             totalSignal: totalSignal,
-                            candidateCount: candidateCount);
+                            candidateCount: candidateCount,
+                            candidateApexRts: candidateApexRts);
                     }
                 }
 

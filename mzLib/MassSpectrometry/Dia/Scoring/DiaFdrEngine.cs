@@ -148,7 +148,7 @@ namespace MassSpectrometry.Dia
             float idCountConvergenceThreshold = 0.005f,
             float l2Lambda = 5e-3f,
             float learningRate = 0.05f,
-            int maxEpochs = 300)
+            int maxEpochs = 300) 
         {
             if (results == null || results.Count == 0)
                 throw new ArgumentException("Results list cannot be null or empty.");
@@ -201,8 +201,14 @@ namespace MassSpectrometry.Dia
                 }
                 else
                 {
-                    // ── Iteration 2+: confident targets vs decoys ───────────
+                    // ── Iteration 2+: confident targets vs decoys ───────────────────
+                    // Adaptive threshold: fall back to looser q-values if too few
+                    // confident targets exist (e.g. when LDA iter 1 yields very few IDs).
                     positives = CollectConfidentTargets(results, features, targetIndices, qThreshold: 0.01f);
+                    if (positives.Length < 50)
+                        positives = CollectConfidentTargets(results, features, targetIndices, qThreshold: 0.05f);
+                    if (positives.Length < 50)
+                        positives = CollectConfidentTargets(results, features, targetIndices, qThreshold: 0.10f);
                     negatives = CollectDecoyNegatives(features, decoyIndices, positives.Length);
                 }
 
@@ -502,9 +508,16 @@ namespace MassSpectrometry.Dia
         /// Collects decoy feature vectors as negatives. Subsamples to balance if needed.
         /// </summary>
         private static DiaFeatureVector[] CollectDecoyNegatives(
-            DiaFeatureVector[] features, List<int> decoyIndices, int positiveCount)
+    DiaFeatureVector[] features, List<int> decoyIndices, int positiveCount)
         {
-            if (decoyIndices.Count <= positiveCount * 2)
+            // Target 1:1 balance. Allow up to 2:1 (neg:pos) only when positives
+            // are plentiful (≥1000), to give the classifier more negative signal
+            // without introducing class imbalance at small positive counts.
+            int targetNegatives = positiveCount >= 1000
+                ? Math.Min(positiveCount * 2, decoyIndices.Count)
+                : Math.Min(positiveCount, decoyIndices.Count);
+
+            if (decoyIndices.Count <= targetNegatives)
             {
                 var negatives = new DiaFeatureVector[decoyIndices.Count];
                 for (int i = 0; i < decoyIndices.Count; i++)
@@ -513,14 +526,11 @@ namespace MassSpectrometry.Dia
             }
 
             var rng = new Random(42);
-            int sampleSize = Math.Max(positiveCount, 1000);
-            sampleSize = Math.Min(sampleSize, decoyIndices.Count);
-            var sampled = new DiaFeatureVector[sampleSize];
+            var sampled = new DiaFeatureVector[targetNegatives];
             var shuffled = new int[decoyIndices.Count];
             for (int i = 0; i < decoyIndices.Count; i++)
                 shuffled[i] = decoyIndices[i];
-
-            for (int i = 0; i < sampleSize; i++)
+            for (int i = 0; i < targetNegatives; i++)
             {
                 int j = i + rng.Next(shuffled.Length - i);
                 (shuffled[i], shuffled[j]) = (shuffled[j], shuffled[i]);

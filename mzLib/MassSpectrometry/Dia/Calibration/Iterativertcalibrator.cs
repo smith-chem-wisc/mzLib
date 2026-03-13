@@ -123,7 +123,7 @@ namespace MassSpectrometry.Dia
         public double LowessRSquaredThreshold { get; set; } = 0.990;
 
         /// <summary>Minimum σ improvement (fraction) for a non-linear model to be preferred. Default 0.10.</summary>
-        public double NonLinearSigmaImprovementThreshold { get; set; } = 0.10;
+        public double NonLinearSigmaImprovementThreshold { get; set; } = 0.05;
 
         /// <summary>Number of segments for PiecewiseLinear model. Default 8.</summary>
         public int PiecewiseLinearSegments { get; set; } = 8;
@@ -171,21 +171,7 @@ namespace MassSpectrometry.Dia
                    $"ApexScore≥{apexThreshold:F2}: {targetsAbove}T / {decoysAbove}D (ratio {aboveRatio:F2})");
         }
 
-        // ── Main Entry Point ───────────────────────────────────────────────
-
-        /// <summary>
-        /// Runs the full iterative calibration loop.
-        ///
-        /// Bootstrap (iteration 0): offset-detection.
-        ///   a. Extract a subsample over the full RT range.
-        ///   b. For high-quality results, compute offset = ObservedApexRt - LibraryRt.
-        ///   c. Find the mode of the offset distribution via KDE — targets cluster at
-        ///      the true shift; decoy offsets are flat/random so they don't contribute
-        ///      a mode. This is immune to the T/D=1 raw-count problem.
-        ///   d. Re-extract ALL precursors at LibraryRt + modeOffset ± window.
-        ///   e. Fit initial linear model.
-        /// Iterations 1-N: re-extract at predicted RT ± Nσ, refit, until convergence.
-        /// </summary>
+        
         public (RtCalibrationModel Model, IRtCalibrationModel DetailedModel,
     List<CalibrationIterationLog> Log, List<DiaSearchResult> Results) Calibrate(
     IList<LibraryPrecursorInput> precursors,
@@ -232,22 +218,77 @@ namespace MassSpectrometry.Dia
                 Report("  [Calibration] Insufficient targets for center-outward bootstrap — falling back.");
                 return LegacyProgressiveBootstrap(precursors, scanIndex, baseParameters, orchestrator, log);
             }
-            var allBootstrapMedians = new List<(double Irt, double ApexRt)>();
-            // ── Phase A: iterate center band (rank 40–60%) until slope converges ──
-            // First pass uses rank-mapped flat windows (no model needed).
-            // Subsequent passes use the current model to narrow windows around
-            // predicted RT, improving slope accuracy before expanding outward.
-            int centerLo = (int)(totalTargets * 0.40);
-            int centerHi = (int)(totalTargets * 0.60);
+
+            var phaseAMedians = new List<(double Irt, double ApexRt)>();
+            var phaseBLoMedians = new List<(double Irt, double ApexRt)>();
+            var phaseBHiMedians = new List<(double Irt, double ApexRt)>();
+            var phaseCLoMedians = new List<(double Irt, double ApexRt)>();
+            var phaseCHiMedians = new List<(double Irt, double ApexRt)>();
+
+            // ── Compute TIC seed model ─────────────────────────────────────────────
+            // Maps library iRT extremes to the RT boundaries where 10%/90% of the
+            // cumulative MS2 TIC has elapsed. This gives a correct prior slope even
+            // when the iRT scale is nonlinear or offset (e.g. Prosit CiRT where
+            // iRT=0 elutes at ~16 min, not at run start).
+            double irtLow = allTargetsSorted[0].LibRt;
+            double irtHigh = allTargetsSorted[allTargetsSorted.Count - 1].LibRt;
+
+            var (ticLowRt, ticHighRt) = EstimateTicBoundaries(scanIndex,
+                lowFraction: 0.05, highFraction: 0.95);
+
+            Report($"  [Calibration] TIC boundaries: 10%→{ticLowRt:F2} min, 90%→{ticHighRt:F2} min");
+            Report($"  [Calibration] Library iRT range: [{irtLow:F1}, {irtHigh:F1}]");
+
+            // ── TIC diagnostic: report cumulative fractions at known anchor RTs ───
+            {
+                var ticProfile = scanIndex.GetMs2TicProfile();
+                double totalTic = 0;
+                for (int i = 0; i < ticProfile.Length; i++)
+                    totalTic += ticProfile[i].Intensity;
+
+                if (totalTic > 0)
+                {
+                    double cumAt11 = 0, cumAt41 = 0;
+                    for (int i = 0; i < ticProfile.Length; i++)
+                    {
+                        if (ticProfile[i].Rt <= 11.0f) cumAt11 += ticProfile[i].Intensity;
+                        if (ticProfile[i].Rt <= 41.0f) cumAt41 += ticProfile[i].Intensity;
+                    }
+                    Report($"  [Calibration] TIC diagnostic: " +
+                           $"cumulative at RT=11 min = {cumAt11 / totalTic * 100:F1}%,  " +
+                           $"cumulative at RT=41 min = {cumAt41 / totalTic * 100:F1}%");
+                    Report($"  [Calibration] Suggested fractions: " +
+                           $"lowFraction={cumAt11 / totalTic:F3}, highFraction={cumAt41 / totalTic:F3}");
+                }
+            }
+
+
+            double seedSlope = (ticHighRt - ticLowRt) / (irtHigh - irtLow);
+            double seedIntercept = ticLowRt - seedSlope * irtLow;
+            double seedSigma = Math.Max((ticHighRt - ticLowRt) * 0.08, 1.0); // ~8% of span, ≥1 min
+
+            IRtCalibrationModel ticSeedModel = new LinearRtModelWrapper(new RtCalibrationModel(
+                slope: seedSlope,
+                intercept: seedIntercept,
+                sigmaMinutes: seedSigma,
+                rSquared: 0.0,
+                anchorCount: 2));
+
+            Report($"  [Calibration] TIC seed model: slope={seedSlope:F4}, intercept={seedIntercept:F3}, " +
+                   $"σ={seedSigma:F3} (iRT {irtLow:F1}→RT {ticLowRt:F2}, iRT {irtHigh:F1}→RT {ticHighRt:F2})");
+
+            // ── Phase A: iterate center band (rank 23–43%) ──────────────────────────
+            // The TIC seed model is most accurate in the lower-middle iRT range,
+            // where the iRT→RT curve is approximately linear.
+            // Using rank 40–60% puts the initial search windows ~5 min too early
+            // due to the nonlinear compression at high iRT values.
+            int centerLo = (int)(totalTargets * 0.23);
+            int centerHi = (int)(totalTargets * 0.43);
             var centerIndices = new List<int>();
             for (int i = centerLo; i < centerHi; i++)
                 centerIndices.Add(allTargetsSorted[i].Idx);
 
-            double rtCenterLo = elutionMin + elutionSpan * 0.40;
-            double rtCenterHi = elutionMin + elutionSpan * 0.60;
-            double centerCellHalfWidth = Math.Max((rtCenterHi - rtCenterLo) / 5.0, MinWindowHalfWidthMinutes);
-
-            var centerBand = BuildBandPrecursorList(precursors, centerIndices, includeDecoys: true);
+            var (centerBand, centerExtractionIrts) = BuildBandPrecursorList(precursors, centerIndices, includeDecoys: true);
 
             IRtCalibrationModel model0 = null;
             double prevSlopeA = double.NaN;
@@ -258,23 +299,19 @@ namespace MassSpectrometry.Dia
                 DiaLibraryQueryGenerator.GenerationResult gen;
                 double halfWidth;
 
-                if (model0 == null)
+                if (phaseAIter == 0)
                 {
-                    // First pass: rank-mapped flat windows, no model required
-                    halfWidth = centerCellHalfWidth;
-                    gen = GenerateWithRankMappedWindows(
-                        centerBand, centerIndices, allTargetsSorted,
-                        bandLo: centerLo, bandHi: centerHi,
-                        rtBandLo: rtCenterLo, rtBandHi: rtCenterHi,
+                    halfWidth = Math.Max(ticSeedModel.SigmaMinutes * 3.0, 2.0);
+                    gen = GenerateWithModelWindows(
+                        centerBand, centerExtractionIrts, ticSeedModel,
                         cellHalfWidth: halfWidth,
                         scanIndex, baseParameters);
                 }
                 else
                 {
-                    // Subsequent passes: model-predicted RT ± 2σ
                     halfWidth = Math.Max(model0.SigmaMinutes * 2.0, MinWindowHalfWidthMinutes);
                     gen = GenerateWithModelWindows(
-                        centerBand, model0,
+                        centerBand, centerExtractionIrts, model0,
                         cellHalfWidth: halfWidth,
                         scanIndex, baseParameters);
                 }
@@ -285,10 +322,71 @@ namespace MassSpectrometry.Dia
                     centerBand, gen, extract, baseParameters, scanIndex);
                 extractSw.Stop();
 
+                // ── Diagnostic: sample apex RTs after extraction ──────────────────
+                if (phaseAIter == 0 && centerResults != null && centerResults.Count > 0)
+                {
+                    int step = Math.Max(1, centerResults.Count / 5);
+                    Report($"  [Calibration] Phase A iter 0 apex sample (observedApexRt vs seedPredicted):");
+                    for (int di = 0; di < centerResults.Count; di += step)
+                    {
+                        var r = centerResults[di];
+                        double seedPred = ticSeedModel.ToMinutes(r.LibraryRetentionTime ?? 0);
+                        Report($"    iRT={r.LibraryRetentionTime:F1}  apexRt={r.ObservedApexRt:F2}  seedPred={seedPred:F2}  isDecoy={r.IsDecoy}");
+                    }
+                }
+
+                if (phaseAIter == 0 && centerResults != null)
+                {
+                    var gtPoints = new (double Irt, double TrueRt)[]
+                    {
+                        (20.1, 19.5), (27.6, 21.5), (33.7, 22.5), (40.6, 23.5),
+                        (50.6, 24.5), (61.9, 26.5), (75.2, 28.5), (77.9, 29.5),
+                        (81.0, 30.5), (86.1, 31.5), (91.3, 32.5)
+                    };
+
+                    Report($"  [GT PROBE] Ground truth center band diagnostics (Phase A iter 0):");
+                    foreach (var (irt, trueRt) in gtPoints)
+                    {
+                        var match = centerResults
+                            .Where(r => !r.IsDecoy && r.LibraryRetentionTime.HasValue)
+                            .OrderBy(r => Math.Abs(r.LibraryRetentionTime.Value - irt))
+                            .FirstOrDefault();
+
+                        if (match == null) continue;
+
+                        string candidates = "none";
+                        if (match.DetectedPeakGroup.HasValue && match.DetectedPeakGroup.Value.CandidateApexRts != null)
+                            candidates = string.Join(", ", match.DetectedPeakGroup.Value.CandidateApexRts.Select(r => r.ToString("F2")));
+
+                        Report($"  [GT PROBE] iRT={irt:F1} trueRt={trueRt:F1} " +
+                               $"seq={match.Sequence} matchIrt={match.LibraryRetentionTime:F1} " +
+                               $"apexRt={match.ObservedApexRt:F2} apexScore={match.ApexScore:F3} " +
+                               $"window={match.RtWindowStart:F2}-{match.RtWindowEnd:F2} " +
+                               $"candidates=[{candidates}]");
+                    }
+                }
+
+                // ── Diagnostic: candidate count distribution ──────────────────────
+                if (phaseAIter == 0 && centerResults != null && centerResults.Count > 0)
+                {
+                    
+                    int singleCandidate = 0, multiCandidate = 0;
+                    foreach (var r in centerResults)
+                    {
+                        if (r.DetectedPeakGroup.HasValue)
+                        {
+                            int nc = r.DetectedPeakGroup.Value.CandidateCount;
+                            if (nc <= 1) singleCandidate++;
+                            else multiCandidate++;
+                        }
+                    }
+                    int total = singleCandidate + multiCandidate;
+                    Report($"  [Calibration] Phase A iter 0 candidate counts: {singleCandidate} single, {multiCandidate} multi ({(total > 0 ? 100.0 * multiCandidate / total : 0):F0}% multi)");
+                }
                 fitSw.Restart();
-                // Phase A iter 0 (first pass — rank-mapped, no model yet)
                 var candidate = ComputeGridModel(centerResults, centerBand,
-                    accumulator: allBootstrapMedians);
+    accumulator: phaseAMedians,
+    rtPercentile: phaseAIter == 0 ? 0.85 : 0.50);
                 fitSw.Stop();
 
                 if (candidate == null)
@@ -306,7 +404,6 @@ namespace MassSpectrometry.Dia
 
                 model0 = candidate;
 
-                // Converged?
                 if (!double.IsNaN(prevSlopeA) && Math.Abs(candidate.Slope - prevSlopeA) / prevSlopeA < 0.02)
                 {
                     Report($"  [Calibration] Phase A converged at iter {phaseAIter}.");
@@ -317,10 +414,10 @@ namespace MassSpectrometry.Dia
 
             Report($"  [Calibration] Phase A final: slope={model0.Slope:F4}, intercept={model0.Intercept:F3}, σ={model0.SigmaMinutes:F3}");
 
-
             // ── Phase B: mid bands (rank 20–40%, 60–80%) → model_1 ────────────────
-            // Project Phase A model into B range — no blind grid search.
-            // Use model-predicted windows and iterate until convergence.
+            IRtCalibrationModel modelBLo = null;
+            IRtCalibrationModel modelBHi = null;
+
             int midLoLo = (int)(totalTargets * 0.20);
             int midLoHi = centerLo;
             int midHiLo = centerHi;
@@ -334,7 +431,10 @@ namespace MassSpectrometry.Dia
             midIndices.AddRange(midIndicesLo);
             midIndices.AddRange(midIndicesHi);
 
-            var midBand = BuildBandPrecursorList(precursors, midIndices, includeDecoys: true);
+            var (midBand, midExtractionIrts) = BuildBandPrecursorList(precursors, midIndices, includeDecoys: true);
+            var (midBandLo, _) = BuildBandPrecursorList(precursors, midIndicesLo, includeDecoys: false);
+            var (midBandHi, _) = BuildBandPrecursorList(precursors, midIndicesHi, includeDecoys: false);
+            var midLoKeys = new HashSet<(string, int)>(midBandLo.Select(p => (p.Sequence, p.ChargeState)));
 
             IRtCalibrationModel model1 = model0;
             double prevSlopeB = double.NaN;
@@ -342,9 +442,15 @@ namespace MassSpectrometry.Dia
 
             for (int phaseBIter = 0; phaseBIter < 5; phaseBIter++)
             {
-                double halfWidth = Math.Max(model1.SigmaMinutes * 2.0, MinWindowHalfWidthMinutes);
+                phaseBLoMedians.Clear();
+                phaseBHiMedians.Clear();
+
+                double halfWidth = phaseBIter == 0
+                    ? Math.Max(model1.SigmaMinutes * 3.0, 2.0)
+                    : Math.Max(model1.SigmaMinutes * 2.0, MinWindowHalfWidthMinutes);
+
                 var gen = GenerateWithModelWindows(
-                    midBand, model1,
+                    midBand, midExtractionIrts, model1,
                     cellHalfWidth: halfWidth,
                     scanIndex, baseParameters);
 
@@ -354,16 +460,17 @@ namespace MassSpectrometry.Dia
                     midBand, gen, extract, baseParameters, scanIndex);
                 extractSw.Stop();
 
-                var midBandLo = BuildBandPrecursorList(precursors, midIndicesLo, includeDecoys: false);
-                var midBandHi = BuildBandPrecursorList(precursors, midIndicesHi, includeDecoys: false);
-                var midLoKeys = new HashSet<(string, int)>(midBandLo.Select(p => (p.Sequence, p.ChargeState)));
                 var midResultsLo = midResults.Where(r => midLoKeys.Contains((r.Sequence, r.ChargeState))).ToList();
                 var midResultsHi = midResults.Where(r => !midLoKeys.Contains((r.Sequence, r.ChargeState))).ToList();
 
                 fitSw.Restart();
-                // Phase A iter 1+ (model-predicted windows)
-                var candidate = ComputeGridModel(centerResults, centerBand,
-                    accumulator: allBootstrapMedians);
+                var candidate = ComputeGridModelSplit(
+                    midResultsLo, midBandLo, midResultsHi, midBandHi,
+                    accumulator: null);
+                var candidateLo = ComputeGridModel(midResultsLo, midBandLo, accumulator: phaseBLoMedians);
+                var candidateHi = ComputeGridModel(midResultsHi, midBandHi, accumulator: phaseBHiMedians);
+                if (candidateLo != null) modelBLo = candidateLo;
+                if (candidateHi != null) modelBHi = candidateHi;
                 fitSw.Stop();
 
                 if (candidate == null)
@@ -373,7 +480,6 @@ namespace MassSpectrometry.Dia
                 }
 
                 Report($"  [Calibration] Phase B iter {phaseBIter}: slope={candidate.Slope:F4}, intercept={candidate.Intercept:F3}, σ={candidate.SigmaMinutes:F3}, R²={candidate.RSquared:F4} (cell±{halfWidth:F2} min)");
-
                 model1 = candidate;
 
                 if (!double.IsNaN(prevSlopeB) && Math.Abs(candidate.Slope - prevSlopeB) / prevSlopeB < 0.02)
@@ -387,7 +493,9 @@ namespace MassSpectrometry.Dia
             Report($"  [Calibration] Phase B final: slope={model1.Slope:F4}, intercept={model1.Intercept:F3}, σ={model1.SigmaMinutes:F3}");
 
             // ── Phase C: outer bands (rank 0–20%, 80–100%) → currentModel ─────────
-            // Project Phase B model into C range and iterate.
+            IRtCalibrationModel modelCLo = modelBLo ?? model1;
+            IRtCalibrationModel modelCHi = modelBHi ?? model1;
+
             int outerLoLo = 0;
             int outerLoHi = midLoLo;
             int outerHiLo = midHiHi;
@@ -401,37 +509,47 @@ namespace MassSpectrometry.Dia
             outerIndices.AddRange(outerIndicesLo);
             outerIndices.AddRange(outerIndicesHi);
 
-            var outerBand = BuildBandPrecursorList(precursors, outerIndices, includeDecoys: true);
+            var (outerBand, outerExtractionIrts) = BuildBandPrecursorList(precursors, outerIndices, includeDecoys: true);
+            var (outerBandLo, _) = BuildBandPrecursorList(precursors, outerIndicesLo, includeDecoys: false);
+            var (outerBandHi, _) = BuildBandPrecursorList(precursors, outerIndicesHi, includeDecoys: false);
+            var outerLoKeys = new HashSet<(string, int)>(outerBandLo.Select(p => (p.Sequence, p.ChargeState)));
 
             IRtCalibrationModel modelC = model1;
             double prevSlopeC = double.NaN;
             List<DiaSearchResult> outerResults = null;
-
+            List<DiaSearchResult> outerResultsLo = null;
+            List<DiaSearchResult> outerResultsHi = null;
             for (int phaseCIter = 0; phaseCIter < 5; phaseCIter++)
             {
-                double halfWidth = Math.Max(modelC.SigmaMinutes * 2.0, MinWindowHalfWidthMinutes);
-                var gen = GenerateWithModelWindows(
-                    outerBand, modelC,
-                    cellHalfWidth: halfWidth,
-                    scanIndex, baseParameters);
+                phaseCLoMedians.Clear();
+                phaseCHiMedians.Clear();
+
+                double halfWidthLo = Math.Max(modelCLo.SigmaMinutes * 2.0, MinWindowHalfWidthMinutes);
+                double halfWidthHi = Math.Max(modelCHi.SigmaMinutes * 2.0, MinWindowHalfWidthMinutes);
+
+                var (outerBandLoWithDecoys, outerExtractionIrtsLo) = BuildBandPrecursorList(precursors, outerIndicesLo, includeDecoys: true);
+                var (outerBandHiWithDecoys, outerExtractionIrtsHi) = BuildBandPrecursorList(precursors, outerIndicesHi, includeDecoys: true);
+
+                var genLo = GenerateWithModelWindows(outerBandLoWithDecoys, outerExtractionIrtsLo, modelCLo,
+                    cellHalfWidth: halfWidthLo, scanIndex, baseParameters);
+                var genHi = GenerateWithModelWindows(outerBandHiWithDecoys, outerExtractionIrtsHi, modelCHi,
+                    cellHalfWidth: halfWidthHi, scanIndex, baseParameters);
 
                 extractSw.Restart();
-                var extract = orchestrator.ExtractAll(gen.Queries);
-                outerResults = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
-                    outerBand, gen, extract, baseParameters, scanIndex);
+                var extractLo = orchestrator.ExtractAll(genLo.Queries);
+                var extractHi = orchestrator.ExtractAll(genHi.Queries);
+                outerResultsLo = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
+                    outerBandLoWithDecoys, genLo, extractLo, baseParameters, scanIndex);
+                outerResultsHi = DiaLibraryQueryGenerator.AssembleResultsWithTemporalScoring(
+                    outerBandHiWithDecoys, genHi, extractHi, baseParameters, scanIndex);
                 extractSw.Stop();
 
-                var outerBandLo = BuildBandPrecursorList(precursors, outerIndicesLo, includeDecoys: false);
-                var outerBandHi = BuildBandPrecursorList(precursors, outerIndicesHi, includeDecoys: false);
-                var outerLoKeys = new HashSet<(string, int)>(outerBandLo.Select(p => (p.Sequence, p.ChargeState)));
-                var outerResultsLo = outerResults.Where(r => outerLoKeys.Contains((r.Sequence, r.ChargeState))).ToList();
-                var outerResultsHi = outerResults.Where(r => !outerLoKeys.Contains((r.Sequence, r.ChargeState))).ToList();
+                var candidateLo = ComputeGridModel(outerResultsLo, outerBandLo, accumulator: phaseCLoMedians);
+                var candidateHi = ComputeGridModel(outerResultsHi, outerBandHi, accumulator: phaseCHiMedians);
 
-                fitSw.Restart();
                 var candidate = ComputeGridModelSplit(
-    outerResultsLo, outerBandLo, outerResultsHi, outerBandHi,
-    accumulator: allBootstrapMedians);
-                fitSw.Stop();
+                    outerResultsLo, outerBandLo, outerResultsHi, outerBandHi,
+                    accumulator: null);
 
                 if (candidate == null)
                 {
@@ -439,13 +557,14 @@ namespace MassSpectrometry.Dia
                     break;
                 }
 
-                Report($"  [Calibration] Phase C iter {phaseCIter}: slope={candidate.Slope:F4}, intercept={candidate.Intercept:F3}, σ={candidate.SigmaMinutes:F3}, R²={candidate.RSquared:F4} (cell±{halfWidth:F2} min)");
+                if (candidateLo != null) modelCLo = candidateLo;
+                if (candidateHi != null) modelCHi = candidateHi;
 
-                modelC = candidate;
+                Report($"  [Calibration] Phase C iter {phaseCIter}: slope={candidate.Slope:F4}, intercept={candidate.Intercept:F3}, σ={candidate.SigmaMinutes:F3}, R²={candidate.RSquared:F4} (lo±{halfWidthLo:F2} hi±{halfWidthHi:F2} min)");
 
                 if (!double.IsNaN(prevSlopeC) && Math.Abs(candidate.Slope - prevSlopeC) / prevSlopeC < 0.02)
                 {
-                    Report($"  [Calibration] Phase C converged at iter {phaseCIter}.");
+                    Report($"  [Calibration] Phase C converged at iter {phaseCIter}: lo={phaseCLoMedians.Count}, hi={phaseCHiMedians.Count}");
                     break;
                 }
                 prevSlopeC = candidate.Slope;
@@ -453,38 +572,71 @@ namespace MassSpectrometry.Dia
 
             // ── Select final bootstrap model and cap sigma ────────────────────────
             const double BootstrapSigmaCap = 0.3;
-
             IRtCalibrationModel bootstrapFinal = modelC;
 
-            if (EnableNonLinearModelSelection && allBootstrapMedians.Count >= 50)
+            var allPhaseMedians = phaseAMedians
+                .Concat(phaseBLoMedians)
+                .Concat(phaseBHiMedians)
+                .Concat(phaseCLoMedians)
+                .Concat(phaseCHiMedians)
+                .OrderBy(m => m.Irt)
+                .ToList();
+
+            Report($"  [Calibration] Bootstrap model selection: A={phaseAMedians.Count}, BLo={phaseBLoMedians.Count}, BHi={phaseBHiMedians.Count}, CLo={phaseCLoMedians.Count}, CHi={phaseCHiMedians.Count}, total={allPhaseMedians.Count}, modelC.σ={modelC.SigmaMinutes:F4}, EnableNonLinear={EnableNonLinearModelSelection}");
+
+            if (EnableNonLinearModelSelection && allPhaseMedians.Count >= 50)
             {
-                var libRts = allBootstrapMedians.Select(m => m.Irt).ToArray();
-                var apexRts = allBootstrapMedians.Select(m => m.ApexRt).ToArray();
+                var libRts = allPhaseMedians.Select(m => m.Irt).ToArray();
+                var apexRts = allPhaseMedians.Select(m => m.ApexRt).ToArray();
 
-                var pwModel = PiecewiseLinearRtModel.Fit(libRts, apexRts, numSegments: 8);
-
-                if (pwModel != null && pwModel.SigmaMinutes < modelC.SigmaMinutes
-                                    && pwModel.RSquared >= 0.995)
+                var lowessModel = LowessRtModel.Fit(libRts, apexRts, bandwidth: 0.25, enforceMonotonic: true);
+                Report($"  [Calibration] LOWESS fit: null={lowessModel == null}, reliable={lowessModel?.IsReliable}, σ={lowessModel?.SigmaMinutes:F4}, threshold={modelC.SigmaMinutes:F4}"); 
+                Report($"  [Calibration] LOWESS predictions: iRT=0→{lowessModel.ToMinutes(0):F2}, iRT=34→{lowessModel.ToMinutes(34):F2}, iRT=59→{lowessModel.ToMinutes(59):F2}, iRT=84→{lowessModel.ToMinutes(84):F2}, iRT=110→{lowessModel.ToMinutes(110):F2}, iRT=170→{lowessModel.ToMinutes(170):F2}");
+                if (lowessModel != null && lowessModel.IsReliable)
                 {
-                    Report($"  [Calibration] Piecewise model selected: σ={pwModel.SigmaMinutes:F3}, R²={pwModel.RSquared:F4}, segments={pwModel.NumSegments}");
-                    bootstrapFinal = pwModel;
+                    Report($"  [Calibration] LOWESS bootstrap model selected: σ={lowessModel.SigmaMinutes:F3}, R²={lowessModel.RSquared:F4}");
+                    // Use BootstrapSigmaCap for window generation — LOWESS σ is fit residual on
+                    // clean bin medians, not real anchor scatter
+                    bootstrapFinal = new LowessSigmaOverrideModel(lowessModel, BootstrapSigmaCap);
                 }
                 else
                 {
-                    Report($"  [Calibration] Linear model retained: σ={modelC.SigmaMinutes:F3}, R²={modelC.RSquared:F4}");
+                    // Fall back to piecewise linear
+                    var pwModel = PiecewiseLinearRtModel.Fit(libRts, apexRts, numSegments: 8);
+                    if (pwModel != null && pwModel.SigmaMinutes < modelC.SigmaMinutes
+                                        && pwModel.RSquared >= 0.995)
+                    {
+                        Report($"  [Calibration] Piecewise model selected: σ={pwModel.SigmaMinutes:F3}, R²={pwModel.RSquared:F4}, segments={pwModel.NumSegments}");
+                        bootstrapFinal = pwModel;
+                    }
+                    else
+                    {
+                        Report($"  [Calibration] Linear model retained: σ={modelC.SigmaMinutes:F3}, R²={modelC.RSquared:F4}");
+                    }
                 }
             }
 
+            // Cap sigma for window generation but preserve the nonlinear curve shape
             if (bootstrapFinal.SigmaMinutes > BootstrapSigmaCap)
             {
-                var capped = new RtCalibrationModel(
-                    slope: bootstrapFinal.Slope,
-                    intercept: bootstrapFinal.Intercept,
-                    sigmaMinutes: BootstrapSigmaCap,
-                    rSquared: bootstrapFinal.RSquared,
-                    anchorCount: bootstrapFinal.AnchorCount);
-                currentModel = new LinearRtModelWrapper(capped);
-                Report($"  [Calibration] Bootstrap complete: slope={bootstrapFinal.Slope:F4}, intercept={bootstrapFinal.Intercept:F3}, σ={bootstrapFinal.SigmaMinutes:F3}→{BootstrapSigmaCap:F3} (capped), R²={bootstrapFinal.RSquared:F4}");
+                // IMPORTANT: if we have a nonlinear model, keep it — only override sigma
+                // by wrapping it in a SigmaOverrideModel rather than collapsing to linear
+                if (bootstrapFinal is LowessRtModel lowess)
+                {
+                    currentModel = new LowessSigmaOverrideModel(lowess, BootstrapSigmaCap);
+                    Report($"  [Calibration] Bootstrap complete (LOWESS, σ capped): σ={bootstrapFinal.SigmaMinutes:F3}→{BootstrapSigmaCap:F3}, R²={bootstrapFinal.RSquared:F4}");
+                }
+                else
+                {
+                    var capped = new RtCalibrationModel(
+                        slope: bootstrapFinal.Slope,
+                        intercept: bootstrapFinal.Intercept,
+                        sigmaMinutes: BootstrapSigmaCap,
+                        rSquared: bootstrapFinal.RSquared,
+                        anchorCount: bootstrapFinal.AnchorCount);
+                    currentModel = new LinearRtModelWrapper(capped);
+                    Report($"  [Calibration] Bootstrap complete: slope={bootstrapFinal.Slope:F4}, intercept={bootstrapFinal.Intercept:F3}, σ={bootstrapFinal.SigmaMinutes:F3}→{BootstrapSigmaCap:F3} (capped), R²={bootstrapFinal.RSquared:F4}");
+                }
             }
             else
             {
@@ -492,12 +644,12 @@ namespace MassSpectrometry.Dia
                 Report($"  [Calibration] Bootstrap complete: slope={currentModel.Slope:F4}, intercept={currentModel.Intercept:F3}, σ={currentModel.SigmaMinutes:F3}, R²={currentModel.RSquared:F4}");
             }
 
-
             // Combine all results for refinement iterations
-            currentResults = new List<DiaSearchResult>(centerResults.Count + midResults.Count + outerResults.Count);
+            currentResults = new List<DiaSearchResult>(centerResults.Count + midResults.Count + outerResultsLo.Count + outerResultsHi.Count);
             currentResults.AddRange(centerResults);
             currentResults.AddRange(midResults);
-            currentResults.AddRange(outerResults);
+            currentResults.AddRange(outerResultsLo);
+            currentResults.AddRange(outerResultsHi);
 
             previousSigma = currentModel.SigmaMinutes;
             previousSlope = currentModel.Slope;
@@ -513,148 +665,59 @@ namespace MassSpectrometry.Dia
                 log, startIteration: 1,
                 maxWindowHalfWidth: bootstrapWindowCap);
         }
-
-        // ── Offset Detection Helpers ───────────────────────────────────────
-
-        private static double FindOffsetMode(List<double> offsets, double bandwidth)
-        {
-            if (offsets.Count == 0) return double.NaN;
-
-            // Clamp grid to IQR ± 3×bandwidth to avoid outliers diluting resolution.
-            // A handful of extreme false matches can drag min/max far from the true mode,
-            // spreading 500 grid points over a range where we have no signal.
-            var sorted = offsets.OrderBy(o => o).ToList();
-            int n = sorted.Count;
-            double q1 = sorted[n / 4];
-            double q3 = sorted[3 * n / 4];
-            double iqr = q3 - q1;
-            double gridMin = q1 - Math.Max(iqr * 1.5, 3.0 * bandwidth);
-            double gridMax = q3 + Math.Max(iqr * 1.5, 3.0 * bandwidth);
-            if (gridMax - gridMin < 1e-6) return sorted[n / 2];
-
-            const int gridPoints = 500;
-            double step = (gridMax - gridMin) / (gridPoints - 1);
-            double bestDensity = double.MinValue, bestX = double.NaN;
-            for (int g = 0; g < gridPoints; g++)
-            {
-                double x = gridMin + g * step;
-                double density = 0.0;
-                foreach (double o in offsets)
-                {
-                    double d = (x - o) / bandwidth;
-                    density += Math.Exp(-0.5 * d * d);
-                }
-                if (density > bestDensity) { bestDensity = density; bestX = x; }
-            }
-            return bestX;
-        }
-
-        private static List<LibraryPrecursorInput> BuildSubsample(
-            IList<LibraryPrecursorInput> precursors, int maxSize)
-        {
-            // Collect targets only — decoys have no reliable RT for offset detection.
-            // Sort by RetentionTime/IrtValue so reservoir sampling draws uniformly
-            // across the RT range, not from whatever order the library was written.
-            var targets = new List<LibraryPrecursorInput>(precursors.Count / 2 + 1);
-            foreach (var p in precursors)
-                if (!p.IsDecoy) targets.Add(p);
-
-            targets.Sort((a, b) =>
-            {
-                double rtA = a.IrtValue ?? a.RetentionTime ?? 0;
-                double rtB = b.IrtValue ?? b.RetentionTime ?? 0;
-                return rtA.CompareTo(rtB);
-            });
-
-            if (targets.Count <= maxSize) return targets;
-
-            // Evenly-spaced stride gives better RT coverage than random reservoir
-            // when the list is already RT-sorted.
-            double stride = (double)targets.Count / maxSize;
-            var result = new List<LibraryPrecursorInput>(maxSize);
-            for (int i = 0; i < maxSize; i++)
-                result.Add(targets[(int)(i * stride)]);
-            return result;
-        }
-
-        private static DiaLibraryQueryGenerator.GenerationResult GenerateWithOffsetWindow(
-            IList<LibraryPrecursorInput> precursors,
+        /// <summary>
+        /// Finds the RT at which cumulative MS2 TIC crosses lowFraction and highFraction.
+        /// Uses scan peak sums as TIC proxy. Falls back to trimmed file RT range if sparse.
+        /// </summary>
+        private (double LowRt, double HighRt) EstimateTicBoundaries(
             DiaScanIndex scanIndex,
-            DiaSearchParameters parameters,
-            double offset,
-            double halfWidthMinutes)
+            double lowFraction = 0.10,
+            double highFraction = 0.90)
         {
-            float ppmTolerance = parameters.PpmTolerance;
-            float globalRtMin = scanIndex.GetGlobalRtMin();
-            float globalRtMax = scanIndex.GetGlobalRtMax();
+            var profile = scanIndex.GetMs2TicProfile(); // (float Rt, float Intensity)[]
 
-            // Skip decoys: offset bootstrap is used only to fit a calibration model,
-            // not to score decoys. Including decoys wastes extraction time and inflates
-            // the result list with hits that can't contribute a reliable LibraryRt offset.
-            int totalQueryCount = 0, skippedNoWindow = 0, skippedNoFragments = 0;
-            for (int i = 0; i < precursors.Count; i++)
+            // Fallback: use trimmed file RT range
+            double fallbackLow = scanIndex.GetGlobalRtMin() + 2.0;
+            double fallbackHigh = scanIndex.GetGlobalRtMax() - 2.0;
+
+            if (profile == null || profile.Length < 10)
+                return (fallbackLow, fallbackHigh);
+
+            double total = 0;
+            for (int i = 0; i < profile.Length; i++)
+                total += profile[i].Intensity;
+
+            if (total <= 0) return (fallbackLow, fallbackHigh);
+
+            double cumulative = 0;
+            double lowRt = profile[0].Rt;
+            double highRt = profile[profile.Length - 1].Rt;
+            bool foundLow = false;
+
+            for (int i = 0; i < profile.Length; i++)
             {
-                var p = precursors[i];
-                if (p.IsDecoy) continue;
-                int windowId = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
-                if (windowId < 0) { skippedNoWindow++; continue; }
-                if (p.FragmentCount == 0) { skippedNoFragments++; continue; }
-                totalQueryCount += p.FragmentCount;
+                cumulative += profile[i].Intensity;
+                double fraction = cumulative / total;
+
+                if (!foundLow && fraction >= lowFraction)
+                {
+                    lowRt = profile[i].Rt;
+                    foundLow = true;
+                }
+                if (fraction >= highFraction)
+                {
+                    highRt = profile[i].Rt;
+                    break;
+                }
             }
 
-            var queries = new FragmentQuery[totalQueryCount];
-            var groups = new List<DiaLibraryQueryGenerator.PrecursorQueryGroup>(
-                precursors.Count / 2);
+            // Sanity check — must be at least 5 min apart
+            if (highRt - lowRt < 5.0)
+                return (fallbackLow, fallbackHigh);
 
-            int queryIndex = 0;
-            for (int i = 0; i < precursors.Count; i++)
-            {
-                var p = precursors[i];
-                if (p.IsDecoy) continue;
-                int windowId = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
-                if (windowId < 0 || p.FragmentCount == 0) continue;
-
-                double libRt = p.IrtValue.HasValue ? p.IrtValue.Value
-                             : p.RetentionTime.HasValue ? p.RetentionTime.Value
-                             : double.NaN;
-
-                float rtMin, rtMax;
-                if (!double.IsNaN(libRt))
-                {
-                    float center = (float)(libRt + offset);
-                    rtMin = Math.Max((float)(center - halfWidthMinutes), globalRtMin);
-                    rtMax = Math.Min((float)(center + halfWidthMinutes), globalRtMax);
-                }
-                else
-                {
-                    rtMin = globalRtMin;
-                    rtMax = globalRtMax;
-                }
-
-                int groupOffset = queryIndex;
-                for (int f = 0; f < p.FragmentCount; f++)
-                {
-                    queries[queryIndex++] = new FragmentQuery(
-                        targetMz: p.FragmentMzs[f],
-                        tolerancePpm: ppmTolerance,
-                        rtMin: rtMin,
-                        rtMax: rtMax,
-                        windowId: windowId,
-                        queryId: queryIndex - 1);
-                }
-
-                groups.Add(new DiaLibraryQueryGenerator.PrecursorQueryGroup(
-                    inputIndex: i,
-                    queryOffset: groupOffset,
-                    queryCount: p.FragmentCount,
-                    windowId: windowId,
-                    rtMin: rtMin,
-                    rtMax: rtMax));
-            }
-
-            return new DiaLibraryQueryGenerator.GenerationResult(
-                queries, groups.ToArray(), skippedNoWindow, skippedNoFragments);
+            return (lowRt, highRt);
         }
+        
 
         // ── Refinement Loop ────────────────────────────────────────────────
 
@@ -682,10 +745,6 @@ namespace MassSpectrometry.Dia
 
                 extractSw.Start();
 
-                // Window may only shrink from the bootstrap window — never grow beyond it.
-                // Using SigmaMultiplier × σ without a cap caused the window to expand on
-                // the first refinement iteration (bootstrap used 3σ, refinement uses 4σ),
-                // pulling in more false matches, inflating σ further — a divergence loop.
                 double rawWindow = Math.Max(
                     currentModel.SigmaMinutes * SigmaMultiplier,
                     MinRefinementWindowMinutes);
@@ -721,9 +780,6 @@ namespace MassSpectrometry.Dia
                 var libraryRts = anchors.Select(a => a.LibraryRt).ToArray();
                 var observedRts = anchors.Select(a => a.ObservedRt).ToArray();
 
-                // RANSAC threshold: start tight (0.5 min covers ~2-3× true σ of 0.15–0.25 min).
-                // The old 2.0×σ threshold was using the inflated σ from the wide inlier set,
-                // keeping false matches in the fit indefinitely.
                 double inlierThreshold = Math.Max(currentModel.SigmaMinutes * 2.0, 0.3);
                 var linearModel = FitLinearWithRansac(libraryRts, observedRts, inlierThreshold);
 
@@ -738,11 +794,6 @@ namespace MassSpectrometry.Dia
                 IRtCalibrationModel bestModel = new LinearRtModelWrapper(linearModel);
                 string modelTypeLabel = "Linear";
 
-                if (EnableNonLinearModelSelection && anchors.Count > 200)
-                {
-                    bestModel = SelectBestModel(libraryRts, observedRts, linearModel, out modelTypeLabel);
-                }
-
                 fitSw.Stop();
 
                 double newSigma = bestModel.SigmaMinutes;
@@ -750,7 +801,6 @@ namespace MassSpectrometry.Dia
 
                 Console.WriteLine($"  [Calibration] Iteration {iteration}: slope={newSlope:F4}, σ={newSigma:F3}, R²={bestModel.RSquared:F4}, model={modelTypeLabel}");
 
-                // Divergence protection: more lenient in early iterations
                 double divergenceThreshold = iteration <= 1 ? 1.20 : 1.10;
                 if (newSigma > previousSigma * divergenceThreshold)
                 {
@@ -761,8 +811,6 @@ namespace MassSpectrometry.Dia
                     break;
                 }
 
-                // Slope stability: each iteration should only refine, not re-estimate wildly.
-                // If slope moves >10% relative to previous, the RANSAC found a bad consensus.
                 if (!double.IsNaN(previousSlope) && Math.Abs(previousSlope) > 1e-6)
                 {
                     double relSlopeChange = Math.Abs(newSlope - previousSlope) / Math.Abs(previousSlope);
@@ -797,8 +845,6 @@ namespace MassSpectrometry.Dia
 
                 previousSigma = newSigma;
                 previousSlope = newSlope;
-                // Ratchet the window cap down as σ improves — never let it grow back up.
-                // This ensures refinement always narrows toward the true RT distribution.
                 double nextRawWindow = Math.Max(newSigma * SigmaMultiplier, MinRefinementWindowMinutes);
                 if (nextRawWindow < maxWindowHalfWidth)
                     maxWindowHalfWidth = nextRawWindow;
@@ -812,39 +858,14 @@ namespace MassSpectrometry.Dia
 
         // ── Phase 23 Bootstrap Helpers ─────────────────────────────────────
 
-        /// <summary>
-        /// Estimates the peptide elution window from the MS2 TIC profile.
-        /// Sums fragment intensities per scan, applies a 5-scan median smooth,
-        /// and returns the RT range where the smoothed TIC exceeds TicThresholdFraction
-        /// of the peak TIC. Falls back to the global RT range if detection fails.
-        /// </summary>
-        /// <summary>
-        /// Estimates the peptide elution window using cumulative TIC.
-        /// Returns the RT where 10% of cumulative TIC has passed (gradient start)
-        /// and the RT where 90% of cumulative TIC has passed (gradient end).
-        /// This brackets the actual peptide elution regardless of gradient shape.
-        /// </summary>
         private (double Min, double Max) EstimatePeptideElutionWindow(DiaScanIndex scanIndex)
         {
-            // Use the actual file RT range trimmed by a fixed margin.
-            //
-            // Why not TIC percentiles: the MS2 TIC is dominated by the dense gradient
-            // midpoint. Even at 2/98 percentile, the window ends up being ~60% of the
-            // true gradient span, which compresses all rank-mapped extraction windows
-            // and causes inverted T/D ratios throughout the bootstrap.
-            //
-            // The file RT range already excludes pre-column equilibration dead time
-            // (vendors set scan start/end to the gradient boundaries). We apply a
-            // 2-minute fixed trim on each side as a conservative guard against the
-            // very first/last few scans being noisy survey spectra.
-
             double rtMin = scanIndex.GetGlobalRtMin();
             double rtMax = scanIndex.GetGlobalRtMax();
             double span = rtMax - rtMin;
 
             const double TrimMinutes = 2.0;
 
-            // Only trim if the run is long enough that trimming makes sense
             if (span > TrimMinutes * 4)
             {
                 rtMin += TrimMinutes;
@@ -853,161 +874,64 @@ namespace MassSpectrometry.Dia
 
             return (rtMin, rtMax);
         }
+
         /// <summary>
-        /// Builds a precursor list for a single iRT band.
-        /// Always includes all decoys so FDR scoring works correctly.
-        /// targetIndices are original indices into the full precursors list.
+        /// Builds a precursor list for a single iRT band with paired extraction iRTs.
+        /// Targets and their paired decoys are interleaved: (target0, decoy0, target1, decoy1, ...).
+        /// extractionIrts[i] contains the iRT to use for window placement of precursors[i].
+        /// For targets: their own iRT. For decoys: the paired target's iRT.
+        /// This ensures each decoy competes in the same local signal environment as its target.
         /// </summary>
-        private static List<LibraryPrecursorInput> BuildBandPrecursorList(
-            IList<LibraryPrecursorInput> all,
-            IList<int> targetIndices,
-            bool includeDecoys)
+        private static (List<LibraryPrecursorInput> precursors, double?[] extractionIrts)
+            BuildBandPrecursorList(
+                IList<LibraryPrecursorInput> all,
+                IList<int> targetIndices,
+                bool includeDecoys)
         {
+            int firstDecoyIdx = -1;
+            if (includeDecoys)
+            {
+                for (int i = 0; i < all.Count; i++)
+                {
+                    if (all[i].IsDecoy) { firstDecoyIdx = i; break; }
+                }
+            }
+
             var result = new List<LibraryPrecursorInput>(
                 targetIndices.Count * (includeDecoys ? 2 : 1));
+            var extractionIrts = new List<double?>();
 
             foreach (int idx in targetIndices)
-                result.Add(all[idx]);
-
-            if (!includeDecoys)
-                return result;
-
-            // Find where decoys start in the combined list (targets come first)
-            int firstDecoyIdx = -1;
-            for (int i = 0; i < all.Count; i++)
             {
-                if (all[i].IsDecoy) { firstDecoyIdx = i; break; }
-            }
+                var target = all[idx];
+                double? targetIrt = target.IrtValue ?? target.RetentionTime;
 
-            if (firstDecoyIdx < 0)
-                return result; // no decoys in library
+                result.Add(target);
+                extractionIrts.Add(targetIrt);  // target uses its own iRT
 
-            // For each target in this band, include its paired decoy.
-            // CRITICAL: decoys must inherit the target's IrtValue/RetentionTime, NOT
-            // their own — decoy sequences are scrambled so their iRT predictions are
-            // unrelated to the target's observed RT. Using the decoy's own RT would
-            // place it in a completely different RT space, making grid T/D comparisons
-            // meaningless and causing RANSAC to fail.
-            foreach (int targetIdx in targetIndices)
-            {
-                var target = all[targetIdx];
-
-                // Paired decoy is at offset targetIdx within the decoy block
-                int decoyIdx = firstDecoyIdx + targetIdx;
-                if (decoyIdx >= all.Count || !all[decoyIdx].IsDecoy)
+                if (!includeDecoys || firstDecoyIdx < 0)
                     continue;
 
-                var decoy = all[decoyIdx];
-
-                // Rebuild the decoy with the target's RT metadata so it gets
-                // searched in the correct RT window
-                result.Add(new LibraryPrecursorInput(
-                    sequence: decoy.Sequence,
-                    precursorMz: decoy.PrecursorMz,
-                    chargeState: decoy.ChargeState,
-                    retentionTime: target.RetentionTime,   // ← target's RT
-                    isDecoy: true,
-                    fragmentMzs: decoy.FragmentMzs,
-                    fragmentIntensities: decoy.FragmentIntensities,
-                    irtValue: target.IrtValue));            // ← target's iRT
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Generates queries with a fixed [rtMin, rtMax] for every precursor.
-        /// Used for Phase A where no calibration model exists yet.
-        /// Every precursor in the list receives the same RT window.
-        /// </summary>
-        private static DiaLibraryQueryGenerator.GenerationResult GenerateWithFlatWindowForAll(
-            IList<LibraryPrecursorInput> precursors,
-            DiaScanIndex scanIndex,
-            DiaSearchParameters parameters,
-            float rtMin,
-            float rtMax)
-        {
-            float ppmTolerance = parameters.PpmTolerance;
-            float globalRtMin = scanIndex.GetGlobalRtMin();
-            float globalRtMax = scanIndex.GetGlobalRtMax();
-
-            // Clamp to actual run range
-            float clampedMin = Math.Max(rtMin, globalRtMin);
-            float clampedMax = Math.Min(rtMax, globalRtMax);
-            if (clampedMin >= clampedMax) { clampedMin = globalRtMin; clampedMax = globalRtMax; }
-
-            int totalQueryCount = 0, skippedNoWindow = 0, skippedNoFragments = 0;
-            for (int i = 0; i < precursors.Count; i++)
-            {
-                var p = precursors[i];
-                int windowId = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
-                if (windowId < 0) { skippedNoWindow++; continue; }
-                if (p.FragmentCount == 0) { skippedNoFragments++; continue; }
-                totalQueryCount += p.FragmentCount;
-            }
-
-            var queries = new FragmentQuery[totalQueryCount];
-            var groups = new List<DiaLibraryQueryGenerator.PrecursorQueryGroup>(
-                precursors.Count - skippedNoWindow - skippedNoFragments);
-
-            int queryIndex = 0;
-            for (int i = 0; i < precursors.Count; i++)
-            {
-                var p = precursors[i];
-                int windowId = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
-                if (windowId < 0 || p.FragmentCount == 0)
-                    continue;
-
-                int groupOffset = queryIndex;
-                for (int f = 0; f < p.FragmentCount; f++)
+                int decoyIdx = firstDecoyIdx + idx;
+                if (decoyIdx < all.Count && all[decoyIdx].IsDecoy)
                 {
-                    queries[queryIndex] = new FragmentQuery(
-                        targetMz: p.FragmentMzs[f],
-                        tolerancePpm: ppmTolerance,
-                        rtMin: clampedMin,
-                        rtMax: clampedMax,
-                        windowId: windowId,
-                        queryId: queryIndex);
-                    queryIndex++;
+                    result.Add(all[decoyIdx]);
+                    extractionIrts.Add(targetIrt);  // decoy uses paired target's iRT
                 }
-
-                groups.Add(new DiaLibraryQueryGenerator.PrecursorQueryGroup(
-                    inputIndex: i,
-                    queryOffset: groupOffset,
-                    queryCount: p.FragmentCount,
-                    windowId: windowId,
-                    rtMin: clampedMin,
-                    rtMax: clampedMax));
             }
 
-            return new DiaLibraryQueryGenerator.GenerationResult(
-                queries, groups.ToArray(), skippedNoWindow, skippedNoFragments);
+            return (result, extractionIrts.ToArray());
         }
 
         /// <summary>
-        /// Generates queries for the center-band targets where each precursor's RT window
-        /// is determined by its iRT rank position within the band, mapped linearly onto
-        /// the corresponding RT sub-band.
-        ///
-        /// For a precursor at rank fraction f within the band (0=lowest iRT, 1=highest),
-        /// its expected RT is: rtBandLo + f * rtBandSpan.
-        /// Its window is that predicted RT ± cellHalfWidth.
-        ///
-        /// This gives every peptide a narrow, correctly-positioned RT window without
-        /// requiring a calibration model. It works because the mapping from iRT rank
-        /// to RT rank is monotone regardless of the unknown slope.
-        ///
-        /// targetIndices: original indices into 'all' for the band targets, in iRT-sorted order.
-        /// bandLo/bandHi: the rank range within the global sorted targets list.
+        /// Generates queries using a calibration model and per-precursor extraction iRTs.
+        /// extractionIrts[i] is the iRT to use for window placement of bandPrecursors[i].
+        /// For targets this is their own iRT; for decoys it is the paired target's iRT.
         /// </summary>
-        private static DiaLibraryQueryGenerator.GenerationResult GenerateWithRankMappedWindows(
+        private static DiaLibraryQueryGenerator.GenerationResult GenerateWithModelWindows(
             IList<LibraryPrecursorInput> bandPrecursors,
-            IList<int> targetIndices,
-            IList<(int Idx, double LibRt)> allTargetsSorted,
-            int bandLo,
-            int bandHi,
-            double rtBandLo,
-            double rtBandHi,
+            double?[] extractionIrts,
+            IRtCalibrationModel model,
             double cellHalfWidth,
             DiaScanIndex scanIndex,
             DiaSearchParameters parameters)
@@ -1016,108 +940,6 @@ namespace MassSpectrometry.Dia
             float globalRtMin = scanIndex.GetGlobalRtMin();
             float globalRtMax = scanIndex.GetGlobalRtMax();
 
-            double rtBandSpan = rtBandHi - rtBandLo;
-            int bandCount = bandHi - bandLo;
-
-            // Build a lookup: original precursor index → rank-fraction within band
-            // targetIndices[j] == allTargetsSorted[bandLo + j].Idx
-            var rankFraction = new Dictionary<int, double>(targetIndices.Count);
-            for (int j = 0; j < targetIndices.Count; j++)
-            {
-                double f = bandCount > 1 ? (double)j / (bandCount - 1) : 0.5;
-                rankFraction[targetIndices[j]] = f;
-            }
-
-            // Count queries
-            int totalQueryCount = 0, skippedNoWindow = 0, skippedNoFragments = 0;
-            for (int i = 0; i < bandPrecursors.Count; i++)
-            {
-                var p = bandPrecursors[i];
-                int windowId = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
-                if (windowId < 0) { skippedNoWindow++; continue; }
-                if (p.FragmentCount == 0) { skippedNoFragments++; continue; }
-                totalQueryCount += p.FragmentCount;
-            }
-
-            var queries = new FragmentQuery[totalQueryCount];
-            var groups = new List<DiaLibraryQueryGenerator.PrecursorQueryGroup>(
-                bandPrecursors.Count - skippedNoWindow - skippedNoFragments);
-
-            // We need to map bandPrecursors[i] back to its original index.
-            // BuildBandPrecursorList puts targets first (in targetIndices order), then decoys.
-            // So bandPrecursors[j] for j < targetIndices.Count corresponds to targetIndices[j].
-            int queryIndex = 0;
-            for (int i = 0; i < bandPrecursors.Count; i++)
-            {
-                var p = bandPrecursors[i];
-                int windowId = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
-                if (windowId < 0 || p.FragmentCount == 0)
-                    continue;
-
-                float rtMin, rtMax;
-
-                // Is this a target in the band with a known rank fraction?
-                // Targets come first in the list (indices 0..targetIndices.Count-1).
-                // Decoys get the SAME narrow window as their corresponding rank-mapped target
-                // (matched by position in the list after the target block). This prevents
-                // the full-band decoy flood that destroys the T/D signal in the grid cells.
-                double rankF;
-                if (i < targetIndices.Count && rankFraction.TryGetValue(targetIndices[i], out rankF))
-                {
-                    // This is a band target — use its rank-mapped window
-                    double predictedRt = rtBandLo + rankF * rtBandSpan;
-                    rtMin = (float)Math.Max(predictedRt - cellHalfWidth, globalRtMin);
-                    rtMax = (float)Math.Min(predictedRt + cellHalfWidth, globalRtMax);
-                }
-                else
-                {
-                    // Decoy: pair with the matching band target by position offset.
-                    // i - targetIndices.Count gives the decoy's position in the appended decoy block.
-                    // We cycle through rank fractions so each decoy is searched in a specific cell,
-                    // not the whole band. This keeps decoy counts proportional to cell size (fair comparison).
-                    int decoyPos = i - targetIndices.Count;
-                    double decoyF = bandCount > 1 ? (double)(decoyPos % bandCount) / (bandCount - 1) : 0.5;
-                    double decoyPredictedRt = rtBandLo + decoyF * rtBandSpan;
-                    rtMin = (float)Math.Max(decoyPredictedRt - cellHalfWidth, globalRtMin);
-                    rtMax = (float)Math.Min(decoyPredictedRt + cellHalfWidth, globalRtMax);
-                }
-
-                int groupOffset = queryIndex;
-                for (int f2 = 0; f2 < p.FragmentCount; f2++)
-                {
-                    queries[queryIndex] = new FragmentQuery(
-                        targetMz: p.FragmentMzs[f2],
-                        tolerancePpm: ppmTolerance,
-                        rtMin: rtMin,
-                        rtMax: rtMax,
-                        windowId: windowId,
-                        queryId: queryIndex);
-                    queryIndex++;
-                }
-
-                groups.Add(new DiaLibraryQueryGenerator.PrecursorQueryGroup(
-                    inputIndex: i,
-                    queryOffset: groupOffset,
-                    queryCount: p.FragmentCount,
-                    windowId: windowId,
-                    rtMin: rtMin,
-                    rtMax: rtMax));
-            }
-
-            return new DiaLibraryQueryGenerator.GenerationResult(
-                queries, groups.ToArray(), skippedNoWindow, skippedNoFragments);
-        }
-        private static DiaLibraryQueryGenerator.GenerationResult GenerateWithModelWindows(
-    IList<LibraryPrecursorInput> bandPrecursors,
-    IRtCalibrationModel model,
-    double cellHalfWidth,
-    DiaScanIndex scanIndex,
-    DiaSearchParameters parameters)
-        {
-            float ppmTolerance = parameters.PpmTolerance;
-            float globalRtMin = scanIndex.GetGlobalRtMin();
-            float globalRtMax = scanIndex.GetGlobalRtMax();
-
             int totalQueryCount = 0, skippedNoWindow = 0, skippedNoFragments = 0;
             for (int i = 0; i < bandPrecursors.Count; i++)
             {
@@ -1140,21 +962,21 @@ namespace MassSpectrometry.Dia
                 if (windowId < 0 || p.FragmentCount == 0)
                     continue;
 
-                // Get library RT for this precursor
-                double libRt = p.IrtValue.HasValue ? p.IrtValue.Value
-                             : p.RetentionTime.HasValue ? p.RetentionTime.Value
-                             : double.NaN;
+                // Use the pre-computed extraction iRT (target's own iRT for targets,
+                // paired target's iRT for decoys).
+                double? irt = (extractionIrts != null && i < extractionIrts.Length)
+                    ? extractionIrts[i]
+                    : (p.IrtValue ?? p.RetentionTime);
 
                 float rtMin, rtMax;
-                if (!double.IsNaN(libRt))
+                if (irt.HasValue && !double.IsNaN(irt.Value))
                 {
-                    double predictedRt = model.ToMinutes(libRt);
+                    double predictedRt = model.ToMinutes(irt.Value);
                     rtMin = (float)Math.Max(predictedRt - cellHalfWidth, globalRtMin);
                     rtMax = (float)Math.Min(predictedRt + cellHalfWidth, globalRtMax);
                 }
                 else
                 {
-                    // No iRT — search full elution range as fallback
                     rtMin = globalRtMin;
                     rtMax = globalRtMax;
                 }
@@ -1171,7 +993,6 @@ namespace MassSpectrometry.Dia
                         queryId: queryIndex);
                     queryIndex++;
                 }
-
                 groups.Add(new DiaLibraryQueryGenerator.PrecursorQueryGroup(
                     inputIndex: i,
                     queryOffset: groupOffset,
@@ -1184,26 +1005,14 @@ namespace MassSpectrometry.Dia
             return new DiaLibraryQueryGenerator.GenerationResult(
                 queries, groups.ToArray(), skippedNoWindow, skippedNoFragments);
         }
-        /// <summary>
-        /// Fits an initial calibration model by scoring a T/D grid.
-        ///
-        /// Divides [rtBandLo, rtBandHi] and [irtBandLo, irtBandHi] each into numSegments
-        /// cells, forming an (numSegments × numSegments) grid. For each cell, counts
-        /// targets and decoys whose observed apex RT and library RT fall in that cell.
-        ///
-        /// Cells with T/D ratio well above 1:1 are "signal" cells. These form a diagonal
-        /// whose slope defines the iRT→RT relationship for this band. A weighted OLS fit
-        /// through the signal-cell centers gives the initial model.
-        ///
-        /// Returns null if fewer than 2 signal cells are found.
-        /// </summary>
+
         private IRtCalibrationModel ComputeGridModel(
             List<DiaSearchResult> results,
             IList<LibraryPrecursorInput> bandPrecursors,
             int targetsPerBin = 50,
-            List<(double Irt, double ApexRt)> accumulator = null)
+            List<(double Irt, double ApexRt)> accumulator = null,
+            double rtPercentile = 0.85)
         {
-            // Build lookup: (Sequence, ChargeState) → library iRT from precursor's own fields
             var irtByKey = new Dictionary<(string, int), double>(bandPrecursors.Count);
             foreach (var p in bandPrecursors)
             {
@@ -1214,20 +1023,38 @@ namespace MassSpectrometry.Dia
                     irtByKey[(p.Sequence, p.ChargeState)] = libRt;
             }
 
-            // Build lookup: (Sequence, ChargeState) → best apex RT among target results
-            var apexByKey = new Dictionary<(string, int), (double ApexRt, float ApexScore)>();
+            // Collect candidate RTs with their apex cosine scores
+            var candidatesByKey = new Dictionary<(string, int), List<(float Rt, float Score)>>();
             foreach (var r in results)
             {
                 if (r.IsDecoy) continue;
-                if (float.IsNaN(r.ObservedApexRt)) continue;
                 var key = (r.Sequence, r.ChargeState);
-                if (!apexByKey.TryGetValue(key, out var existing)
-                    || r.ApexScore > existing.ApexScore)
-                    apexByKey[key] = (r.ObservedApexRt, r.ApexScore);
+                if (!candidatesByKey.TryGetValue(key, out var list))
+                {
+                    list = new List<(float, float)>();
+                    candidatesByKey[key] = list;
+                }
+
+                if (r.DetectedPeakGroup.HasValue
+                    && r.DetectedPeakGroup.Value.CandidateApexRts != null
+                    && r.DetectedPeakGroup.Value.CandidateApexRts.Length > 0)
+                {
+                    // The selected apex has a known score; other candidates get a discounted score
+                    float bestRt = r.DetectedPeakGroup.Value.ApexRt;
+                    float bestScore = r.ApexScore;
+                    foreach (float rt in r.DetectedPeakGroup.Value.CandidateApexRts)
+                    {
+                        // Selected apex gets full score; others get 50% — they're unscored candidates
+                        float score = Math.Abs(rt - bestRt) < 0.05f ? bestScore : bestScore * 0.5f;
+                        list.Add((rt, score));
+                    }
+                }
+                else if (!float.IsNaN(r.ObservedApexRt))
+                {
+                    list.Add((r.ObservedApexRt, r.ApexScore));
+                }
             }
 
-            // Only include non-decoy precursors that have iRT values.
-            // bandPrecursors is already in iRT-sorted order.
             var targetPrecursors = new List<LibraryPrecursorInput>();
             foreach (var p in bandPrecursors)
                 if (!p.IsDecoy && irtByKey.ContainsKey((p.Sequence, p.ChargeState)))
@@ -1245,35 +1072,52 @@ namespace MassSpectrometry.Dia
                 int hi = (b == numBins - 1) ? targetPrecursors.Count : lo + binSize;
 
                 var binIrts = new List<double>();
-                var binApexRts = new List<double>();
+                var allBinApexRts = new List<(float Rt, float Score)>();
 
                 for (int i = lo; i < hi; i++)
                 {
                     var p = targetPrecursors[i];
                     var aKey = (p.Sequence, p.ChargeState);
                     if (!irtByKey.TryGetValue(aKey, out double irt)) continue;
-                    if (!apexByKey.TryGetValue(aKey, out var apex)) continue;
+                    if (!candidatesByKey.TryGetValue(aKey, out var candidates)) continue;
+                    if (candidates.Count == 0) continue;
+
                     binIrts.Add(irt);
-                    binApexRts.Add(apex.ApexRt);
+                    allBinApexRts.AddRange(candidates);
                 }
 
-                if (binIrts.Count < 5) continue;
+                if (binIrts.Count < 5 || allBinApexRts.Count < 5) continue;
 
-                // Take median of iRT and median of apex RT independently
                 binIrts.Sort();
-                binApexRts.Sort();
-                int mid = binIrts.Count / 2;
-                binMedianIrt.Add(binIrts[mid]);
-                binMedianRt.Add(binApexRts[mid]);
+                double medianIrt = binIrts[binIrts.Count / 2];
+
+                // Use 85th percentile of all candidate RTs.
+                // Interference peaks cluster early; true peptide peaks elute later.
+                // The 85th percentile skips past the dense early interference cluster.
+                var sortedRts = allBinApexRts.Select(x => x.Rt).OrderBy(x => x).ToList();
+                int p85idx = Math.Min(sortedRts.Count - 1, (int)(sortedRts.Count * rtPercentile));
+                double medianRt = sortedRts[p85idx];
+
+                binMedianIrt.Add(medianIrt);
+                binMedianRt.Add(medianRt);
+                // After collecting allBinApexRts for the first bin only:
+                if (b == 0)
+                {
+                    float minCand = allBinApexRts.Min(x => x.Rt);
+                    float maxCand = allBinApexRts.Max(x => x.Rt);
+                    float meanCand = allBinApexRts.Average(x => x.Rt);
+                    Report($"  [DIAG] Bin 0 candidates: n={allBinApexRts.Count} RT=[{minCand:F2},{maxCand:F2}] mean={meanCand:F2}");
+                }
             }
+
             if (accumulator != null)
             {
                 for (int i = 0; i < binMedianIrt.Count; i++)
                     accumulator.Add((binMedianIrt[i], binMedianRt[i]));
             }
+
             Report($"  [Calibration] Apex grid: {numBins} bins, {binMedianIrt.Count} valid (targetsPerBin={targetsPerBin})");
 
-            // Diagnostic: log first 5 and last 5 bin medians to verify grid anchoring
             int logCount = Math.Min(5, binMedianIrt.Count);
             var diagLines = new System.Text.StringBuilder();
             diagLines.Append("  [Calibration] Grid bin medians (first/last 5): ");
@@ -1288,7 +1132,6 @@ namespace MassSpectrometry.Dia
             if (binMedianIrt.Count < 3)
                 return null;
 
-            // OLS through bin medians
             double n = binMedianIrt.Count;
             double sumX = 0, sumY = 0, sumXX = 0, sumXY = 0;
             for (int i = 0; i < binMedianIrt.Count; i++)
@@ -1331,11 +1174,12 @@ namespace MassSpectrometry.Dia
 
             return new LinearRtModelWrapper(syntheticModel);
         }
+
         private IRtCalibrationModel ComputeGridModelSplit(
-    List<DiaSearchResult> resultsLo, IList<LibraryPrecursorInput> bandLo,
-    List<DiaSearchResult> resultsHi, IList<LibraryPrecursorInput> bandHi,
-    int targetsPerBin = 50,
-    List<(double Irt, double ApexRt)> accumulator = null)
+            List<DiaSearchResult> resultsLo, IList<LibraryPrecursorInput> bandLo,
+            List<DiaSearchResult> resultsHi, IList<LibraryPrecursorInput> bandHi,
+            int targetsPerBin = 50,
+            List<(double Irt, double ApexRt)> accumulator = null)
         {
             var allMedians = new List<(double Irt, double ApexRt)>();
             CollectBinMedians(resultsLo, bandLo, targetsPerBin, allMedians);
@@ -1393,14 +1237,36 @@ namespace MassSpectrometry.Dia
                 if (!double.IsNaN(libRt))
                     irtByKey[(p.Sequence, p.ChargeState)] = libRt;
             }
-            var apexByKey = new Dictionary<(string, int), (double ApexRt, float ApexScore)>();
+
+            // For each precursor, collect all candidate apex RTs with their scores
+            var candidatesByKey = new Dictionary<(string, int), List<(float Rt, float Score)>>();
             foreach (var r in results)
             {
-                if (r.IsDecoy || float.IsNaN(r.ObservedApexRt)) continue;
+                if (r.IsDecoy) continue;
                 var key = (r.Sequence, r.ChargeState);
-                if (!apexByKey.TryGetValue(key, out var existing) || r.ApexScore > existing.ApexScore)
-                    apexByKey[key] = (r.ObservedApexRt, r.ApexScore);
+                if (!candidatesByKey.TryGetValue(key, out var list))
+                {
+                    list = new List<(float, float)>();
+                    candidatesByKey[key] = list;
+                }
+                if (r.DetectedPeakGroup.HasValue
+                    && r.DetectedPeakGroup.Value.CandidateApexRts != null
+                    && r.DetectedPeakGroup.Value.CandidateApexRts.Length > 0)
+                {
+                    float bestRt = r.DetectedPeakGroup.Value.ApexRt;
+                    float bestScore = r.ApexScore;
+                    foreach (float rt in r.DetectedPeakGroup.Value.CandidateApexRts)
+                    {
+                        float score = Math.Abs(rt - bestRt) < 0.05f ? bestScore : bestScore * 0.5f;
+                        list.Add((rt, score));
+                    }
+                }
+                else if (!float.IsNaN(r.ObservedApexRt))
+                {
+                    list.Add((r.ObservedApexRt, r.ApexScore));
+                }
             }
+
             var targetPrecursors = new List<LibraryPrecursorInput>();
             foreach (var p in bandPrecursors)
                 if (!p.IsDecoy && irtByKey.ContainsKey((p.Sequence, p.ChargeState)))
@@ -1415,33 +1281,31 @@ namespace MassSpectrometry.Dia
                 int hi = (b == numBins - 1) ? targetPrecursors.Count : lo + binSize;
 
                 var binIrts = new List<double>();
-                var binApexRts = new List<double>();
+                var binBestRts = new List<double>();
 
                 for (int i = lo; i < hi; i++)
                 {
                     var p = targetPrecursors[i];
                     var aKey = (p.Sequence, p.ChargeState);
                     if (!irtByKey.TryGetValue(aKey, out double irt)) continue;
-                    if (!apexByKey.TryGetValue(aKey, out var apex)) continue;
+                    if (!candidatesByKey.TryGetValue(aKey, out var candidates)) continue;
+                    if (candidates.Count == 0) continue;
+
+                    // Best-scoring candidate for this precursor
+                    float bestRt = candidates.OrderByDescending(x => x.Score).First().Rt;
                     binIrts.Add(irt);
-                    binApexRts.Add(apex.ApexRt);
+                    binBestRts.Add(bestRt);
                 }
 
                 if (binIrts.Count < 5) continue;
 
-                // Independent medians — robust to outliers on either axis
                 binIrts.Sort();
-                binApexRts.Sort();
+                binBestRts.Sort();
                 int mid = binIrts.Count / 2;
-                output.Add((binIrts[mid], binApexRts[mid]));
+                output.Add((binIrts[mid], binBestRts[mid]));
             }
         }
-        /// <summary>
-        /// Legacy progressive-widening bootstrap. Used as fallback when the center-outward
-        /// bootstrap cannot produce enough anchors (e.g. very small libraries, degenerate
-        /// RT distributions). Tries windows ±1.0, ±1.5, ±2.0, ±3.0, ±5.0 min centered
-        /// on raw library RT values (assumes slope ≈ 1).
-        /// </summary>
+
         private (RtCalibrationModel Model, IRtCalibrationModel DetailedModel,
                  List<CalibrationIterationLog> Log, List<DiaSearchResult> Results)
             LegacyProgressiveBootstrap(
@@ -1508,15 +1372,6 @@ namespace MassSpectrometry.Dia
                 log, startIteration: 1);
         }
 
-        /// <summary>
-        /// Fits the bootstrap linear model from anchors, with RANSAC fallback.
-        /// </summary>
-        /// <summary>
-        /// Fits the bootstrap linear model from anchors using weighted RANSAC.
-        /// QualityScore is used as a weight — anchors with lower scores contribute
-        /// less by replicating points proportional to their relative weight.
-        /// This ensures Phase C down-weighting (×0.3) has real effect on the fit.
-        /// </summary>
         private IRtCalibrationModel FitBootstrapModel(
             List<(double LibraryRt, double ObservedRt, double QualityScore)> anchors,
             out string modelLabel)
@@ -1524,13 +1379,9 @@ namespace MassSpectrometry.Dia
             modelLabel = "Linear";
             if (anchors.Count == 0) return null;
 
-            // Normalize weights and replicate points so weighted anchors
-            // have proportional influence on the RANSAC fit.
             double maxWeight = anchors.Max(a => a.QualityScore);
             if (maxWeight <= 0) maxWeight = 1.0;
 
-            // Scale weights to [0.3, 1.0] range so even down-weighted Phase C
-            // anchors contribute at least once. Full-weight anchors replicate 3×.
             const int MaxReplications = 3;
             var libraryRtsList = new List<double>(anchors.Count * MaxReplications);
             var observedRtsList = new List<double>(anchors.Count * MaxReplications);
@@ -1538,7 +1389,6 @@ namespace MassSpectrometry.Dia
             foreach (var (libRt, obsRt, quality) in anchors)
             {
                 double normalizedWeight = quality / maxWeight;
-                // Map [0, 1] → [1, MaxReplications] replications
                 int reps = Math.Max(1, (int)Math.Round(normalizedWeight * MaxReplications));
                 for (int r = 0; r < reps; r++)
                 {
@@ -1550,12 +1400,6 @@ namespace MassSpectrometry.Dia
             var libraryRts = libraryRtsList.ToArray();
             var observedRts = observedRtsList.ToArray();
 
-            // With only the center iRT band (narrow range), slope and intercept are
-            // highly correlated — RANSAC can fit many (slope, intercept) pairs equally
-            // well, consistently returning a wrong slope. Force intercept through the
-            // known gradient origin to break the degeneracy.
-            // For Prosit CiRT: iRT=0 elutes at ~RT=1 min (gradient start).
-            // We estimate the forced intercept from the data rather than hardcoding it.
             double forcedIntercept = EstimateIntercept(libraryRtsList, observedRtsList);
             var forcedModel = FitForcedInterceptLinear(libraryRts, observedRts, forcedIntercept);
             if (forcedModel != null && forcedModel.IsReliable)
@@ -1571,12 +1415,7 @@ namespace MassSpectrometry.Dia
                 return null;
             return new LinearRtModelWrapper(linearModel);
         }
-        /// <summary>
-        /// Estimates the RT-axis intercept by finding the minimum plausible RT
-        /// for the lowest-iRT anchors. Uses the 5th percentile of observed RT
-        /// values for anchors in the bottom 10% of the iRT range.
-        /// Falls back to 1.0 min (typical gradient start) if too few low-iRT anchors.
-        /// </summary>
+
         private static double EstimateIntercept(
             List<double> libraryRts, List<double> observedRts)
         {
@@ -1594,24 +1433,19 @@ namespace MassSpectrometry.Dia
                     lowIrtObservedRts.Add(observedRts[i]);
 
             if (lowIrtObservedRts.Count < 5)
-                return 1.0; // fallback: typical gradient start
+                return 1.0;
 
             lowIrtObservedRts.Sort();
-            return lowIrtObservedRts[lowIrtObservedRts.Count / 20]; // 5th percentile
+            return lowIrtObservedRts[lowIrtObservedRts.Count / 20];
         }
 
-        /// <summary>
-        /// Fits RT = slope * iRT + intercept with the intercept fixed.
-        /// Solves for slope only via weighted least squares.
-        /// </summary>
         private static RtCalibrationModel FitForcedInterceptLinear(
             double[] libraryRts, double[] observedRts, double intercept)
         {
             if (libraryRts.Length < 5) return null;
 
-            // Shift observed RTs by intercept, then solve slope = sum(x*(y-b)) / sum(x*x)
             double sumXY = 0, sumXX = 0;
-            for (int i = 0; i < libraryRts.Count(); i++)
+            for (int i = 0; i < libraryRts.Length; i++)
             {
                 double x = libraryRts[i];
                 double y = observedRts[i] - intercept;
@@ -1623,7 +1457,6 @@ namespace MassSpectrometry.Dia
             double slope = sumXY / sumXX;
             if (slope <= 0) return null;
 
-            // Compute sigma from residuals
             double ssRes = 0;
             for (int i = 0; i < libraryRts.Length; i++)
             {
@@ -1651,7 +1484,7 @@ namespace MassSpectrometry.Dia
                 rSquared: rSquared,
                 anchorCount: libraryRts.Length);
         }
-        /// <summary>Creates a copy of parameters with a different RtToleranceMinutes.</summary>
+
         private static DiaSearchParameters CloneWithRtTolerance(DiaSearchParameters src, float rtTolerance)
         {
             return new DiaSearchParameters
@@ -1668,66 +1501,10 @@ namespace MassSpectrometry.Dia
             };
         }
 
-        // ── Model Selection ────────────────────────────────────────────────
-
-        private IRtCalibrationModel SelectBestModel(
-            double[] libraryRts,
-            double[] observedRts,
-            RtCalibrationModel linearModel,
-            out string selectedModelType)
-        {
-            selectedModelType = "Linear";
-            IRtCalibrationModel bestModel = new LinearRtModelWrapper(linearModel);
-            double bestSigma = linearModel.SigmaMinutes;
-
-            if (linearModel.RSquared >= PiecewiseLinearRSquaredThreshold)
-                return bestModel;
-
-            try
-            {
-                var pwlModel = PiecewiseLinearRtModel.Fit(libraryRts, observedRts, PiecewiseLinearSegments);
-                if (pwlModel != null && pwlModel.IsReliable)
-                {
-                    double sigmaImprovement = (bestSigma - pwlModel.SigmaMinutes) / bestSigma;
-                    if (sigmaImprovement > NonLinearSigmaImprovementThreshold)
-                    {
-                        bestModel = pwlModel;
-                        bestSigma = pwlModel.SigmaMinutes;
-                        selectedModelType = "PiecewiseLinear";
-                    }
-                }
-
-                if (bestModel.RSquared < LowessRSquaredThreshold)
-                {
-                    var lowessModel = LowessRtModel.Fit(
-                        libraryRts, observedRts, LowessBandwidth, enforceMonotonic: true);
-                    if (lowessModel != null && lowessModel.IsReliable)
-                    {
-                        double sigmaImpLowess = (bestSigma - lowessModel.SigmaMinutes) / bestSigma;
-                        if (sigmaImpLowess > NonLinearSigmaImprovementThreshold)
-                        {
-                            bestModel = lowessModel;
-                            bestSigma = lowessModel.SigmaMinutes;
-                            selectedModelType = "Lowess";
-                        }
-                    }
-                }
-            }
-            catch
-            {
-                // Non-linear fitting failures must never crash calibration
-            }
-
-            return bestModel;
-        }
+        
 
         // ── Anchor Selection ───────────────────────────────────────────────
 
-        /// <summary>
-        /// Selects calibration anchors from extraction results.
-        /// Uses iRT (preferred) then RetentionTime as the library RT coordinate.
-        /// Anchors are targets with ObservedApexRt and ApexScore >= minApexScore.
-        /// </summary>
         public static List<(double LibraryRt, double ObservedRt, double QualityScore)> SelectAnchors(
             List<DiaSearchResult> results,
             IList<LibraryPrecursorInput> precursors,
@@ -1750,11 +1527,6 @@ namespace MassSpectrometry.Dia
 
             var candidates = new List<(double LibraryRt, double ObservedRt, double QualityScore)>();
 
-            // Margin to detect boundary-clipped apexes.
-            // If ObservedApexRt is within this distance of the extraction window edge,
-            // the true apex was likely outside the window and the observed value is biased.
-            // One scan cycle ≈ 0.05 min is a safe minimum; use 10% of the window half-width
-            // to scale with window size.
             const float BoundaryMarginFraction = 0.10f;
             const float BoundaryMarginMinMinutes = 0.04f;
 
@@ -1768,7 +1540,6 @@ namespace MassSpectrometry.Dia
                 float fragDetRate = r.FragmentDetectionRate;
                 if (requireMinFragDetRate && fragDetRate < 0.5f) continue;
 
-                // Reject apex at extraction window boundary — ObservedApexRt is biased.
                 float windowHalfWidth = (r.RtWindowEnd - r.RtWindowStart) * 0.5f;
                 float margin = Math.Max(windowHalfWidth * BoundaryMarginFraction, BoundaryMarginMinMinutes);
                 if (r.ObservedApexRt <= r.RtWindowStart + margin) continue;
@@ -1810,7 +1581,6 @@ namespace MassSpectrometry.Dia
             return SelectWithRtBalance(candidates, maxAnchors, numBins: 10);
         }
 
-        /// <summary>Legacy overload without groups.</summary>
         public static List<(double LibraryRt, double ObservedRt, double QualityScore)> SelectAnchors(
             List<DiaSearchResult> results,
             IList<LibraryPrecursorInput> precursors,
@@ -1898,6 +1668,14 @@ namespace MassSpectrometry.Dia
 
         // ── Calibrated Query Generation ────────────────────────────────────
 
+        /// <summary>
+        /// Generates queries for the full precursor list using a calibration model and
+        /// explicit window half-width. Used for refinement iterations.
+        /// Decoys are searched at their paired target's predicted RT so they compete
+        /// in the same local signal environment (correct T/D competition).
+        /// Assembly uses each precursor's own IrtValue for LibraryRetentionTime,
+        /// so RtDeviationMinutes is computed correctly for both targets and decoys.
+        /// </summary>
         private static DiaLibraryQueryGenerator.GenerationResult GenerateCalibratedWithExplicitWindow(
             IList<LibraryPrecursorInput> precursors,
             DiaScanIndex scanIndex,
@@ -1908,6 +1686,13 @@ namespace MassSpectrometry.Dia
             float ppmTolerance = parameters.PpmTolerance;
             float globalRtMin = scanIndex.GetGlobalRtMin();
             float globalRtMax = scanIndex.GetGlobalRtMax();
+
+            // Find first decoy index for paired-target window placement
+            int firstDecoyIdx = -1;
+            for (int i = 0; i < precursors.Count; i++)
+            {
+                if (precursors[i].IsDecoy) { firstDecoyIdx = i; break; }
+            }
 
             int totalQueryCount = 0, skippedNoWindow = 0, skippedNoFragments = 0;
             for (int i = 0; i < precursors.Count; i++)
@@ -1931,17 +1716,25 @@ namespace MassSpectrometry.Dia
                 if (windowId < 0 || p.FragmentCount == 0)
                     continue;
 
-                float rtMin, rtMax;
-
-                if (p.IrtValue.HasValue)
+                // For decoys, use the paired target's iRT for window placement.
+                // The paired target is at index (i - firstDecoyIdx) in the targets block.
+                double? extractionIrt;
+                if (p.IsDecoy && firstDecoyIdx >= 0)
                 {
-                    float predictedRt = (float)model.ToMinutes(p.IrtValue.Value);
-                    rtMin = Math.Max((float)(predictedRt - windowHalfWidthMinutes), globalRtMin);
-                    rtMax = Math.Min((float)(predictedRt + windowHalfWidthMinutes), globalRtMax);
+                    int pairedTargetIdx = i - firstDecoyIdx;
+                    extractionIrt = pairedTargetIdx >= 0 && pairedTargetIdx < firstDecoyIdx
+                        ? precursors[pairedTargetIdx].IrtValue ?? precursors[pairedTargetIdx].RetentionTime
+                        : p.IrtValue ?? p.RetentionTime;
                 }
-                else if (p.RetentionTime.HasValue)
+                else
                 {
-                    float predictedRt = (float)model.ToMinutes(p.RetentionTime.Value);
+                    extractionIrt = p.IrtValue ?? p.RetentionTime;
+                }
+
+                float rtMin, rtMax;
+                if (extractionIrt.HasValue)
+                {
+                    float predictedRt = (float)model.ToMinutes(extractionIrt.Value);
                     rtMin = Math.Max((float)(predictedRt - windowHalfWidthMinutes), globalRtMin);
                     rtMax = Math.Min((float)(predictedRt + windowHalfWidthMinutes), globalRtMax);
                 }
@@ -2008,9 +1801,6 @@ namespace MassSpectrometry.Dia
 
     // ── Per-Iteration Diagnostic Log ───────────────────────────────────────
 
-    /// <summary>
-    /// Captures diagnostics for a single iteration of the calibration loop.
-    /// </summary>
     public class CalibrationIterationLog
     {
         public int Iteration { get; set; }

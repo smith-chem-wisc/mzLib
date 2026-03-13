@@ -356,12 +356,52 @@ namespace Test.KoinaTests
             Assert.That(warningDiffCharge, Is.Null,
                 "Same peptide with different charges should not produce a warning");
         }
-
         /// <summary>
-        /// Tests that null retention times are handled correctly.
-        /// Retention times are optional metadata and may not always be available.
+        /// Submits a hardcoded list of peptides to Prosit 2019 iRT and prints the predicted
+        /// retention times to the test output so they can be copied directly.
         /// </summary>
         [Test]
+        public static async Task TestGetRetentionTimes()
+        {
+            var peptides = new List<string>
+            {
+                "HSGASAEVQK", "EHSNPNYDK", "EAETPQAK", "GHEYTNIK", "ESEPAEEVK",
+"ESEPQAAAEPAEAK", "HPMDLSTVK", "IDESSLTGESDHVK", "AAQLGFK",
+"IFASNLK", "GPSYGLSAEVK", "TNVNGGAIALGHPLGGSGSR", "ASSAGVLVS",
+"ELSPVLTSEVHSVR", "AFPEHFTYEPNEADAAQGYR", "WANFHLENSGWQK",
+"AMVLDLR", "ISFEEFER", "EALGIPAAASFK", "APASEEEFQFLR", "FTSLGLLPR",
+"NITVIFHPLLR", "ASSTSPVEISEWLDQK", "NFSAHLLDLLAR", "FVFDVFR",
+"AVLAPLIALVYSVPR", "DVFLGMFLYEYAR"
+            };
+
+            var rtModel = new Prosit2019iRT(peptides, out _);
+            await rtModel.RunInferenceAsync();
+
+            List<double> predictedRetentionTimes = rtModel.Predictions.Select(p => p.PredictedRetentionTime).ToList();
+
+            Assert.That(rtModel.Predictions.Count, Is.EqualTo(peptides.Count),
+                "Expected one prediction per input peptide.");
+
+            // --- copiable sequence → iRT list ---
+            TestContext.Progress.WriteLine("Predicted iRT values:");
+            TestContext.Progress.WriteLine($"{"Sequence",-35} {"iRT",10}");
+            TestContext.Progress.WriteLine(new string('-', 47));
+            foreach (var p in rtModel.Predictions)
+                TestContext.Progress.WriteLine($"{p.FullSequence,-35} {p.PredictedRetentionTime,10:F4}");
+
+            // --- copiable C# list literal ---
+            TestContext.Progress.WriteLine();
+            TestContext.Progress.WriteLine("var retentionTimes = new List<double?>");
+            TestContext.Progress.WriteLine("{");
+            foreach (var p in rtModel.Predictions)
+                TestContext.Progress.WriteLine($"    {p.PredictedRetentionTime:F4},  // {p.FullSequence}");
+            TestContext.Progress.WriteLine("};");
+        }
+            /// <summary>
+            /// Tests that null retention times are handled correctly.
+            /// Retention times are optional metadata and may not always be available.
+            /// </summary>
+            [Test]
         public static void TestKoinaProsit2020IntensityHCDModelNullRetentionTimes()
         {
             var peptides = new List<string> { "PEPTIDEK", "VALIDSEQK", "ANTHERSEQR" };
