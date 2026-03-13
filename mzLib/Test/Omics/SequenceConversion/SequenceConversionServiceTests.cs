@@ -82,6 +82,121 @@ public class SequenceConversionServiceTests
         Assert.That(warnings.HasFatalError, Is.False);
     }
 
+    [Test]
+    public void Parse_WithEmptyInput_RecordsInvalidSequence()
+    {
+        var service = new SequenceConversionService();
+        var warnings = new ConversionWarnings();
+
+        var result = service.Parse(string.Empty, "source", warnings, SequenceConversionHandlingMode.ReturnNull);
+
+        Assert.That(result, Is.Null);
+        Assert.That(warnings.FailureReason, Is.EqualTo(ConversionFailureReason.InvalidSequence));
+    }
+
+    [Test]
+    public void Parse_WithThrowExceptionMode_ThrowsForUnknownFormat()
+    {
+        var service = new SequenceConversionService();
+
+        Assert.That(
+            () => service.Parse("PEPTIDE", "missing", new ConversionWarnings(), SequenceConversionHandlingMode.ThrowException),
+            Throws.TypeOf<SequenceConversionException>());
+    }
+
+    [Test]
+    public void Serialize_WithUnknownFormat_RecordsFailureAndReturnsNull()
+    {
+        var service = new SequenceConversionService();
+        var warnings = new ConversionWarnings();
+        var sequence = CanonicalSequence.Unmodified("PEPTIDE", "source");
+
+        var result = service.Serialize(sequence, "missing", warnings, SequenceConversionHandlingMode.ReturnNull);
+
+        Assert.That(result, Is.Null);
+        Assert.That(warnings.FailureReason, Is.EqualTo(ConversionFailureReason.UnknownFormat));
+    }
+
+    [Test]
+    public void Serialize_WithEmptyBaseSequence_RecordsInvalidSequence()
+    {
+        var service = new SequenceConversionService();
+        var warnings = new ConversionWarnings();
+        var sequence = CanonicalSequence.Unmodified(string.Empty, "source");
+
+        var result = service.Serialize(sequence, "target", warnings, SequenceConversionHandlingMode.ReturnNull);
+
+        Assert.That(result, Is.Null);
+        Assert.That(warnings.FailureReason, Is.EqualTo(ConversionFailureReason.InvalidSequence));
+    }
+
+    [Test]
+    public void Serialize_WithThrowExceptionMode_ThrowsForUnknownFormat()
+    {
+        var service = new SequenceConversionService();
+        var sequence = CanonicalSequence.Unmodified("PEPTIDE", "source");
+
+        Assert.That(
+            () => service.Serialize(sequence, "missing", new ConversionWarnings(), SequenceConversionHandlingMode.ThrowException),
+            Throws.TypeOf<SequenceConversionException>());
+    }
+
+    [Test]
+    public void GetConverter_WithMissingOrBlankFormats_ReturnsNull()
+    {
+        var parser = new StubParser("source", _ => true);
+        var serializer = new StubSerializer("target");
+        var service = new SequenceConversionService();
+        service.RegisterParser(parser);
+        service.RegisterSerializer(serializer);
+
+        Assert.That(service.GetConverter("", "target"), Is.Null);
+        Assert.That(service.GetConverter("source", ""), Is.Null);
+        Assert.That(service.GetConverter("missing", "target"), Is.Null);
+        Assert.That(service.GetConverter("source", "missing"), Is.Null);
+    }
+
+    [Test]
+    public void AvailableConverters_ReturnsCrossProductOfRegisteredFormats()
+    {
+        var service = new SequenceConversionService();
+        service.RegisterParser(new StubParser("s1", _ => true));
+        service.RegisterParser(new StubParser("s2", _ => true));
+        service.RegisterSerializer(new StubSerializer("t1"));
+        service.RegisterSerializer(new StubSerializer("t2"));
+
+        var converters = service.AvailableConverters;
+
+        Assert.That(converters, Does.Contain("s1-t1"));
+        Assert.That(converters, Does.Contain("s1-t2"));
+        Assert.That(converters, Does.Contain("s2-t1"));
+        Assert.That(converters, Does.Contain("s2-t2"));
+    }
+
+    [Test]
+    public void GetParserAndSerializer_ReturnNullForUnknownFormats()
+    {
+        var parser = new StubParser("source", _ => true);
+        var serializer = new StubSerializer("target");
+        var service = new SequenceConversionService();
+        service.RegisterParser(parser);
+        service.RegisterSerializer(serializer);
+
+        Assert.That(service.GetParser("source"), Is.SameAs(parser));
+        Assert.That(service.GetSerializer("target"), Is.SameAs(serializer));
+        Assert.That(service.GetParser("missing"), Is.Null);
+        Assert.That(service.GetSerializer("missing"), Is.Null);
+    }
+
+    [Test]
+    public void DetectFormat_WithBlankInput_ReturnsNull()
+    {
+        var service = new SequenceConversionService();
+
+        Assert.That(service.DetectFormat(""), Is.Null);
+        Assert.That(service.DetectFormat("   "), Is.Null);
+    }
+
     private sealed class StubParser : ISequenceParser
     {
         private readonly Func<string, bool> _canParse;
