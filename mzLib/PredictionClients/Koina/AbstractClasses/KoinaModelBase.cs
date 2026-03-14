@@ -1,8 +1,10 @@
-﻿using System.Text.RegularExpressions;
+﻿using PredictionClients.Koina.Util;
+using System.ComponentModel;
+using System.Text.RegularExpressions;
 
 namespace PredictionClients.Koina.AbstractClasses
 {
-    public abstract class KoinaModelBase: IDisposable
+    public abstract class KoinaModelBase <TModelInput, TModelOutput>
     {
         #region Model Metadata
         /// <summary>
@@ -15,9 +17,28 @@ namespace PredictionClients.Koina.AbstractClasses
         /// Can dig in the Koina github repo to find these values if needed.
         /// </summary>
         public abstract int MaxBatchSize { get; }
+
+        /// <summary>
+        /// Gets the maximum number of batches that can be combined into a single API request.
+        /// Used to optimize request throughput while respecting API limitations.
+        /// </summary>
+        public abstract int MaxNumberOfBatchesPerRequest { get; init; }
+
+        /// <summary>
+        /// Gets the delay in milliseconds to wait between consecutive API requests.
+        /// Used for rate limiting to prevent overwhelming the Koina API server.
+        /// </summary>
+        public abstract int ThrottlingDelayInMilliseconds { get; init; }
+
+        /// <summary>
+        /// Gets the benchmarked processing time in milliseconds for one batch at MaxBatchSize.
+        /// Used for estimating total request duration and optimizing parallelization strategies.
+        /// </summary>
+        public abstract int BenchmarkedTimeForOneMaxBatchSizeInMilliseconds { get; }
         #endregion
-        
+
         #region Input Sequence Validation Constraints
+        public abstract IncompatibleModHandlingMode ModHandlingMode { get; init; } 
         /// <summary>
         /// Gets the maximum allowed peptide base sequence length.
         /// </summary>
@@ -27,7 +48,8 @@ namespace PredictionClients.Koina.AbstractClasses
         /// Gets the minimum allowed peptide base sequence length.
         /// </summary>
         public abstract int MinPeptideLength { get; }
-        
+
+
         /// <summary>
         /// Gets the mapping of valid modification annotations from mzLib format to UNIMOD format.
         /// Leaving this empty will only allow unmodified peptides. Models that allow modifications
@@ -38,7 +60,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// <summary>
         /// Gets the regex pattern for validating amino acid sequences.
         /// </summary>
-        public virtual string CanonicalAminoAcidPattern => @"^[ACDEFGHIKLMNPQRSTVWY]+$";
+        public virtual string AllowedAminoAcidPattern => @"^[ACDEFGHIKLMNPQRSTVWY]+$";
         
         /// <summary>
         /// Gets the regex pattern for identifying modifications.
@@ -46,15 +68,7 @@ namespace PredictionClients.Koina.AbstractClasses
         public virtual string ModificationPattern => @"\[[^\]]+\]";
         #endregion
 
-        protected bool _disposed = false;
-
-        /// <summary>
-        /// Gets the list of peptide sequences to be predicted.
-        /// All models must provide this list.
-        /// </summary>
-        public abstract List<string> PeptideSequences { get; }
-
-        #region Required Client Methods for Koina API Interaction and Prediction Handling
+        #region Required Client Methods for Koina API Interaction
         /// <summary>
         /// Converts peptide sequences and associated data into batched request payloads for the Koina API.
         /// Implementations should group input sequences into batches respecting the MaxBatchSize constraint
@@ -66,27 +80,72 @@ namespace PredictionClients.Koina.AbstractClasses
         /// - Peptide sequences (formatted according to model requirements)
         /// - Model-specific parameters (e.g., charge states, collision energies, NCE values)
         /// - Any additional metadata required by the specific Koina model
-        /// 
+        /// Must ensure that only the validated sequences that meet the model's constraints are included in the batches. 
         /// The total number of sequences across all batches should equal PeptideSequences.Count.
         /// </remarks>
-        protected abstract List<Dictionary<string, object>> ToBatchedRequests();
-
-        /// <summary>
-        /// Executes the prediction workflow by sending batched requests to the Koina API and processing responses.
-        /// </summary>
-        /// <returns>Task representing the asynchronous inference operation</returns>
-        public abstract Task RunInferenceAsync();
-
-        /// <summary>
-        /// Parses API response data and converts it into model-specific prediction results.
-        /// This method is used internally after receiving responses from the Koina API
-        /// within the RunInferenceAsync method.
-        /// </summary>
-        /// <param name="response">Array of response strings from the Koina API</param>
-        protected abstract void ResponseToPredictions(string[] response);
+        protected abstract List<Dictionary<string, object>> ToBatchedRequests(List<TModelInput> validInputs);
         #endregion
 
         #region Validation and Modification Handling
+        /// <summary>
+        /// Validates a peptide sequence against model constraints for modifications and basic sequence requirements.
+        /// Handles incompatible modifications according to the specified ModHandlingMode.
+        /// </summary>
+        protected virtual string? TryCleanSequence(string sequence, out WarningException? warning)
+        {
+            if (!IsValidBaseSequence(sequence))
+            {
+                if (ModHandlingMode == IncompatibleModHandlingMode.ThrowException)
+                {
+                    throw new ArgumentException("Invalid base sequence. Omitted mod handling.");
+                }
+                
+                warning = new WarningException("Invalid base sequence. Omitted mod handling.");
+                return null;
+            }
+
+            warning = null;
+            var newSequence = sequence;
+            switch (ModHandlingMode)
+            {
+                case IncompatibleModHandlingMode.RemoveIncompatibleMods:
+                    var invalidMods = Regex.Matches(newSequence, ModificationPattern).Select(m => m.Value)
+                        .Where(mod => !ValidModificationUnimodMapping.ContainsKey(mod))
+                        .Distinct();
+                    foreach (var mod in invalidMods)
+                    {
+                        newSequence = newSequence.Replace(mod, ""); // Remove incompatible modification
+                    }
+                    warning = (sequence != newSequence)
+                        ? new WarningException("Sequence contained incompatible modifications that were removed for prediction. This WILL affect Mz differences between input and predicted fragment ions, if applicable.")
+                        : null;
+                    break;
+
+                case IncompatibleModHandlingMode.UsePrimarySequence:
+                    newSequence = Regex.Replace(newSequence, ModificationPattern, ""); // Use primary sequence only
+                    warning = (sequence != newSequence)
+                        ? new WarningException("Sequence modifications were removed for prediction. This WILL affect Mz differences between input and predicted fragment ions, if applicable.")
+                        : null;
+                    break;
+
+                case IncompatibleModHandlingMode.ThrowException:
+                    if (!HasValidModifications(newSequence))
+                    {
+                        throw new ArgumentException("Sequence contains unsupported modifications.");
+                    }
+                    break;
+
+                case IncompatibleModHandlingMode.ReturnNull:
+                    if (!HasValidModifications(newSequence))
+                    {
+                        warning = new WarningException("Sequence contains unsupported modifications.");
+                        return null;
+                    }
+                    break;
+            }
+            return newSequence;
+        }
+
         /// <summary>
         /// Validates that all modifications in a peptide sequence are supported by the model.
         /// Returns true for sequences without modifications or when all modifications are recognized.
@@ -120,15 +179,15 @@ namespace PredictionClients.Koina.AbstractClasses
         /// <remarks>
         /// Validation criteria:
         /// - Strips modification annotations using ModificationPattern
-        /// - Checks against CanonicalAminoAcidPattern for valid amino acids
+        /// - Checks against AllowedAminoAcidPattern for valid amino acids
         /// - Validates length is within [MinPeptideLength, MaxPeptideLength] range
         /// </remarks>
-        protected virtual bool IsValidSequence(string sequence)
+        protected virtual bool IsValidBaseSequence(string sequence)
         {
             // Remove modification annotations to get base sequence
             var baseSequence = Regex.Replace(sequence, ModificationPattern, "");
 
-            return Regex.IsMatch(baseSequence, CanonicalAminoAcidPattern) // Valid amino acids only
+            return Regex.IsMatch(baseSequence, AllowedAminoAcidPattern) // Valid amino acids only
                 && baseSequence.Length <= MaxPeptideLength                 // Within max length
                 && baseSequence.Length >= MinPeptideLength;                // Above min length (implicit from abstract property)
         }
@@ -175,13 +234,5 @@ namespace PredictionClients.Koina.AbstractClasses
             return sequence;
         }
         #endregion
-        public void Dispose()
-        {
-            if (!_disposed)
-            {
-                // Dispose of any resources if necessary.
-                _disposed = true;
-            }
-        }
     }
 }

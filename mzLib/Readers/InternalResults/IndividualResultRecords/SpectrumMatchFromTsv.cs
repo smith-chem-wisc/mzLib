@@ -25,6 +25,7 @@ namespace Readers
         public double PrecursorMz { get; protected set; }
         public double PrecursorMass { get; protected set; }
         public double RetentionTime { get; protected set; }
+        public double? CollisionEnergy { get; protected set; }
         public double Score { get; protected set; }
         public int SpectrumMatchCount { get; protected set; }
         public string Accession { get; protected set; }
@@ -187,6 +188,7 @@ namespace Readers
 
             // Parse TMT/isobaric reporter ion columns if present
             Intensities = ParseReporterIonColumns(spl, parsedHeader);
+            CollisionEnergy = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.CollisionEnergy, parsedHeader, spl);
         }
 
         /// <summary>
