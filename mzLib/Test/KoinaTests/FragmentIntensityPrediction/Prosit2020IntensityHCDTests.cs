@@ -19,11 +19,11 @@ namespace Test.KoinaTests
         {
             var experPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\myPrositLib.msp");
             var predPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\koinaTestOutput.msp");
-            SpectralLibrary testLibraryWithoutDecoy = null;
-            SpectralLibrary spectralLibraryTest = null;
+			Readers.SpectralLibrary.SpectralLibrary testLibraryWithoutDecoy = null;
+			Readers.SpectralLibrary.SpectralLibrary spectralLibraryTest = null;
             try
             {
-                testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { experPath });
+                testLibraryWithoutDecoy = new Readers.SpectralLibrary.SpectralLibrary(new List<string> { experPath });
                 string aminoacids = @"ACDEFGHIKLMNPQRSTVWY";
                 var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra()
                     .Where(p => p.ChargeState < 6 && p.Sequence.Length < 30 && p.Sequence.Length > 1 && p.Sequence.ToHashSet().IsSubsetOf(aminoacids.ToHashSet())).ToList();
@@ -58,7 +58,7 @@ namespace Test.KoinaTests
                     var predictedSpectra = modelHandler.GenerateLibrarySpectraFromPredictions(retentionTimes, out var warning, predPath, minIntensityFilter: 1e-6);
 
                     // Test that the predicted spectrum that was saved matches the predicted spectra in memory
-                    spectralLibraryTest = new SpectralLibrary(new List<string> { predPath });
+                    spectralLibraryTest = new Readers.SpectralLibrary.SpectralLibrary(new List<string> { predPath });
                     var spectralLibrary = spectralLibraryTest.GetAllLibrarySpectra().ToList();
                     Assert.That(peptides.Count == spectralLibrary.Count);
 

@@ -1,0 +1,568 @@
+﻿using MassSpectrometry;
+using Omics.Fragmentation;
+using Omics.SpectrumMatch;
+
+namespace Omics.SpectralMatch.MslSpectralLibrary;
+
+// ──────────────────────────────────────────────────────────────────────────────
+// MslFragmentIon
+// ──────────────────────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Rich in-memory representation of a single fragment ion inside an MslLibraryEntry.
+/// All fields are stored as structured data (product types, residue numbers, charge) rather
+/// than as an annotation string; the human-readable annotation is reconstructed on demand
+/// from those fields. This mirrors the on-disk MslFragmentRecord layout but uses full .NET
+/// types (nullable ProductType? for internal ions, double for neutral-loss mass) rather
+/// than the compact binary encodings.
+/// </summary>
+public class MslFragmentIon
+{
+	// ── Core ion identity ───────────────────────────────────────────────
+
+	/// <summary>
+	/// Observed or predicted m/z of the fragment ion.
+	/// Stored as float32 in the binary format; promoted to float here for in-memory
+	/// convenience. Maps to MatchedFragmentIon.Mz.
+	/// </summary>
+	public float Mz { get; set; }
+
+	/// <summary>
+	/// Relative intensity of this fragment within its precursor, normalized to 0–1
+	/// (1.0 = most abundant fragment in the precursor's spectrum).
+	/// Maps to MatchedFragmentIon.Intensity.
+	/// </summary>
+	public float Intensity { get; set; }
+
+	// ── Product type information ────────────────────────────────────────
+
+	/// <summary>
+	/// N-terminal fragment ion series type (e.g. b, c for peptides; a, d for oligos).
+	/// For terminal ions this is the only product type.
+	/// For internal ions this is the N-terminal terminus type of the internal pair.
+	/// Maps to Product.ProductType.
+	/// </summary>
+	public ProductType ProductType { get; set; }
+
+	/// <summary>
+	/// C-terminal fragment ion series type for internal fragment ions; null for all
+	/// terminal ions (b, y, c, z, a, w, d, etc.).
+	/// When non-null, IsInternalFragment returns true and this type defines the C-terminal
+	/// boundary of the internal fragment (e.g. y-type for a bIy internal ion).
+	/// Maps to Product.SecondaryProductType.
+	/// </summary>
+	public ProductType? SecondaryProductType { get; set; }
+
+	// ── Residue numbering ────────────────────────────────────────────────
+
+	/// <summary>
+	/// Ion series number for terminal ions (e.g. 5 for b5, 3 for y3).
+	/// Start residue index (0-based) for internal fragment ions.
+	/// Maps to Product.FragmentNumber.
+	/// </summary>
+	public int FragmentNumber { get; set; }
+
+	/// <summary>
+	/// End residue index for internal fragment ions (0-based, exclusive upper bound).
+	/// 0 for all terminal ions (FragmentNumber fully describes them).
+	/// Maps to Product.SecondaryFragmentNumber.
+	/// </summary>
+	public int SecondaryFragmentNumber { get; set; }
+
+	/// <summary>
+	/// Residue position within the parent peptide sequence from which the fragment
+	/// was annotated. Used by MetaMorpheus during spectrum visualization.
+	/// Maps to Product.ResiduePosition.
+	/// </summary>
+	public int ResiduePosition { get; set; }
+
+	// ── Charge and neutral loss ──────────────────────────────────────────
+
+	/// <summary>
+	/// Charge state of the fragment ion (typically 1; occasionally 2 for large peptides).
+	/// Maps to MatchedFragmentIon.Charge.
+	/// </summary>
+	public int Charge { get; set; }
+
+	/// <summary>
+	/// Neutral-loss mass applied to this fragment ion (0.0 = no loss).
+	/// For named losses (H2O, NH3, H3PO4, etc.) this value is populated by the reader
+	/// from the NeutralLossCode bits; for Custom losses it is read from the extended
+	/// annotation table. Negative values represent losses; positive values represent gains.
+	/// Maps to Product.NeutralLoss.
+	/// </summary>
+	public double NeutralLoss { get; set; }
+
+	// ── Quantification flag ──────────────────────────────────────────────
+
+	/// <summary>
+	/// When true this fragment should be excluded from quantification (mirrors the
+	/// DIA-NN ExcludeFromAssay concept). Stored in bit 5 of the fragment flags byte.
+	/// </summary>
+	public bool ExcludeFromQuant { get; set; }
+
+	// ── Derived properties ───────────────────────────────────────────────
+
+	/// <summary>
+	/// True when this fragment is an internal ion (i.e. SecondaryProductType is not null).
+	/// Equivalent to the is_internal bit in the on-disk fragment flags byte.
+	/// Internal ions span a sub-sequence of the peptide and require both a start and an end
+	/// residue number to be fully specified.
+	/// </summary>
+	public bool IsInternalFragment => SecondaryProductType != null;
+
+	/// <summary>
+	/// True when this fragment is a diagnostic ion (ProductType == ProductType.D).
+	/// Diagnostic ions arise from modifications (glycans, cross-links, etc.) rather than
+	/// from peptide backbone cleavage. Equivalent to the is_diagnostic flag bit.
+	/// </summary>
+	public bool IsDiagnosticIon => ProductType == ProductType.D;
+
+	// ── Annotation reconstruction ────────────────────────────────────────
+
+	/// <summary>
+	/// Human-readable annotation string reconstructed at runtime from the structured fields;
+	/// no annotation string is stored in the binary file.
+	/// Examples: "b5", "y3-H2O", "bIy[3-6]" (internal b/y spanning residues 3–6).
+	/// The format follows mzLib conventions: type + number (+ neutral loss if present).
+	/// </summary>
+	public string Annotation
+	{
+		get
+		{
+			// Build the annotation string from structured fields
+			string typePart;
+
+			if (IsInternalFragment)
+			{
+				// Internal ion: format is <Ntype>I<Ctype>[start-end]
+				// e.g. bIy[3-6] for b-type N-terminus / y-type C-terminus spanning 3 to 6
+				typePart = $"{ProductType}I{SecondaryProductType}[{FragmentNumber}-{SecondaryFragmentNumber}]";
+			}
+			else
+			{
+				// Terminal ion: format is <type><number>  e.g. b5, y12, c3
+				typePart = $"{ProductType}{FragmentNumber}";
+			}
+
+			// Append neutral-loss suffix when non-zero
+			// Negative loss magnitude is shown as a subtraction; positive as addition
+			if (NeutralLoss != 0.0)
+			{
+				string lossSuffix = NeutralLoss < 0
+					? $"-{-NeutralLoss:F4}"
+					: $"+{NeutralLoss:F4}";
+				typePart += lossSuffix;
+			}
+
+			// Append charge superscript for z > 1
+			if (Charge > 1)
+				typePart += $"^{Charge}+";
+
+			return typePart;
+		}
+	}
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// MslLibraryEntry
+// ──────────────────────────────────────────────────────────────────────────────
+
+/// <summary>
+/// The rich in-memory representation of one library precursor entry.  This class is the
+/// primary data model for the MSL binary spectral library; it mirrors LibrarySpectrum
+/// from Omics.SpectrumMatch but adds all extended metadata (ion mobility, protein
+/// accession/name/gene, molecule type, source type, dissociation type, NCE, q-value,
+/// elution group) that the binary format supports.
+///
+/// Conversion methods (<see cref="ToLibrarySpectrum"/>, <see cref="FromLibrarySpectrum"/>)
+/// provide bidirectional interop with the existing mzLib type system.
+/// </summary>
+public class MslLibraryEntry
+{
+	// ── Core fields (round-trip with LibrarySpectrum) ────────────────────
+
+	/// <summary>
+	/// Modified sequence in mzLib bracket notation, e.g. "PEPTM[Common Variable:Oxidation on M]IDE".
+	/// This is the primary identifier used in DDA-style dictionary lookups.
+	/// Maps to LibrarySpectrum.Sequence and MslPrecursorRecord.ModifiedSeqStringIdx.
+	/// </summary>
+	public string ModifiedSequence { get; set; }
+
+	/// <summary>
+	/// Unmodified amino-acid sequence without any modification annotations.
+	/// Used for elution group construction and for the stripped-sequence lookup dictionary.
+	/// Maps to MslPrecursorRecord.StrippedSeqStringIdx.
+	/// </summary>
+	public string StrippedSequence { get; set; }
+
+	/// <summary>
+	/// Precursor m/z value. For multiply-charged precursors this is the (M + z*H) / z value.
+	/// Maps to LibrarySpectrum.PrecursorMz and MslPrecursorRecord.PrecursorMz.
+	/// </summary>
+	public double PrecursorMz { get; set; }
+
+	/// <summary>
+	/// Precursor charge state. Typically 1–4 for tryptic peptides; may be higher for
+	/// top-down proteoforms. Maps to LibrarySpectrum.ChargeState and MslPrecursorRecord.Charge.
+	/// </summary>
+	public int Charge { get; set; }
+
+	/// <summary>
+	/// Indexed retention time (iRT, in iRT units) or calibrated run-specific retention time
+	/// in minutes. Which representation is stored is indicated by the rt_is_calibrated bit
+	/// in PrecursorFlags. Maps to LibrarySpectrum.RetentionTime and MslPrecursorRecord.Irt.
+	/// </summary>
+	public double Irt { get; set; }
+
+	/// <summary>
+	/// True for decoy precursors (reversed or shuffled sequence). Used to separate target
+	/// and decoy distributions for FDR estimation. Maps to LibrarySpectrum.IsDecoy.
+	/// </summary>
+	public bool IsDecoy { get; set; }
+
+	/// <summary>
+	/// All fragment ions for this precursor.  The list may contain terminal ions (b, y, c, z,
+	/// a, w, d, …), internal fragment ions, diagnostic ions, and glycan Y ions in any order;
+	/// the writer sorts them by m/z before serialization.
+	/// Maps to LibrarySpectrum.MatchedFragmentIons via ToLibrarySpectrum().
+	/// </summary>
+	public List<MslFragmentIon> Fragments { get; set; } = new();
+
+	// ── Extended fields ──────────────────────────────────────────────────
+
+	/// <summary>
+	/// Ion mobility expressed as 1/K0 (collisional cross section proxy, in V·s/cm²).
+	/// 0.0 means the value is not available. Maps to MslPrecursorRecord.IonMobility.
+	/// </summary>
+	public double IonMobility { get; set; }
+
+	/// <summary>
+	/// UniProt accession of the source protein (e.g. "P04637" for TP53).
+	/// Empty string or null when no protein information is associated with this entry.
+	/// Resolved from MslPrecursorRecord.ProteinIdx via the protein table at read time.
+	/// </summary>
+	public string ProteinAccession { get; set; }
+
+	/// <summary>
+	/// Human-readable protein name (e.g. "Cellular tumor antigen p53").
+	/// Empty string or null when absent. Resolved from the protein table at read time.
+	/// </summary>
+	public string ProteinName { get; set; }
+
+	/// <summary>
+	/// HGNC gene symbol (e.g. "TP53"). Empty string or null when absent.
+	/// Resolved from the protein table at read time; only populated when the file-level
+	/// has_gene_data flag is set.
+	/// </summary>
+	public string GeneName { get; set; }
+
+	/// <summary>
+	/// True when the peptide is expected to produce a uniquely detectable signal
+	/// (proteotypic). Stored in bit 1 of PrecursorFlags. Maps to MslPrecursorRecord.PrecursorFlags.
+	/// </summary>
+	public bool IsProteotypic { get; set; }
+
+	/// <summary>
+	/// Library q-value (confidence score; lower is better; 0 = perfect confidence).
+	/// float.NaN when no q-value is available (e.g. purely predicted library).
+	/// Maps to MslPrecursorRecord.QValue.
+	/// </summary>
+	public float QValue { get; set; } = float.NaN;
+
+	/// <summary>
+	/// Elution group identifier. All precursors with the same StrippedSequence value share
+	/// the same ElutionGroupId, allowing the DIA scorer to handle multiple charge states and
+	/// modifications as co-eluting species.
+	/// Maps to MslPrecursorRecord.ElutionGroupId.
+	/// </summary>
+	public int ElutionGroupId { get; set; }
+
+	/// <summary>
+	/// Molecule classification for this precursor.  Controls which fragmentation namespace
+	/// is used to reconstruct Product.Terminus and Product.NeutralMass at read time.
+	/// Defaults to Peptide for standard tryptic libraries.
+	/// Maps to MslPrecursorRecord.MoleculeType.
+	/// </summary>
+	public MslFormat.MoleculeType MoleculeType { get; set; } = MslFormat.MoleculeType.Peptide;
+
+	/// <summary>
+	/// Origin of fragment intensities: Predicted (model output), Empirical (real experiment),
+	/// or EmpiricalRefined (predicted RT/IM replaced by empirical values).
+	/// Maps to MslPrecursorRecord.SourceType.
+	/// </summary>
+	public MslFormat.SourceType Source { get; set; } = MslFormat.SourceType.Predicted;
+
+	/// <summary>
+	/// Dissociation type used to generate this spectrum (e.g. HCD, CID, EThcD).
+	/// Required for correct reconstruction of Product.NeutralMass at read time because
+	/// different dissociation types have different mass shift offsets per ion type.
+	/// Maps to MslPrecursorRecord.DissociationType.
+	/// </summary>
+	public DissociationType DissociationType { get; set; } = DissociationType.Unknown;
+
+	/// <summary>
+	/// Nominal collision energy. Stored as NCE × 10 as int16 in the binary format;
+	/// exposed here as a plain int (e.g. 28 for NCE 28). 0 = unknown or not applicable.
+	/// Maps to MslPrecursorRecord.Nce (divided by 10 on read, multiplied on write).
+	/// </summary>
+	public int Nce { get; set; }
+
+	// ── Lookup key ───────────────────────────────────────────────────────
+
+	/// <summary>
+	/// Canonical DDA-style lookup key combining modified sequence and charge state.
+	/// Format: "{ModifiedSequence}/{Charge}", e.g. "PEPTM[Common Variable:Oxidation on M]IDE/2".
+	/// Used as the dictionary key in the MslIndex sequence-to-entry map for O(1) DDA lookup.
+	/// </summary>
+	public string LookupKey => ModifiedSequence + "/" + Charge;
+
+	// ── Conversion: MslLibraryEntry → LibrarySpectrum ───────────────────
+
+	/// <summary>
+	/// Converts this entry to a LibrarySpectrum compatible with the existing mzLib type system.
+	/// Fragment ions are converted from MslFragmentIon to MatchedFragmentIon, with Product
+	/// instances reconstructed from the stored structured fields. Neutral masses are
+	/// recomputed using the appropriate dissociation-type mass shift; Product.Terminus is
+	/// looked up from the appropriate TerminusSpecificProductTypes dictionary based on
+	/// MoleculeType.
+	/// </summary>
+	/// <returns>
+	///   A new LibrarySpectrum with:
+	///   <list type="bullet">
+	///     <item>Sequence = ModifiedSequence</item>
+	///     <item>PrecursorMz = PrecursorMz (double precision)</item>
+	///     <item>ChargeState = Charge</item>
+	///     <item>RetentionTime = Irt</item>
+	///     <item>IsDecoy = IsDecoy</item>
+	///     <item>MatchedFragmentIons = one MatchedFragmentIon per MslFragmentIon in Fragments</item>
+	///   </list>
+	/// </returns>
+	public LibrarySpectrum ToLibrarySpectrum()
+	{
+		// Convert every MslFragmentIon to a MatchedFragmentIon wrapping a Product
+		var matchedIons = new List<MatchedFragmentIon>(Fragments.Count);
+
+		foreach (MslFragmentIon mslIon in Fragments)
+		{
+			// Determine whether this is an oligo or peptide to select the correct
+			// Terminus lookup source
+			bool isOligo = MoleculeType == MslFormat.MoleculeType.Oligonucleotide;
+
+			// Derive terminus directly from the ProductType enum value.
+			// Internal ions (IsInternalFragment) and diagnostic ions always get None.
+			// For oligo entries, a/d are 5'-terminal; w/z are 3'-terminal.
+			// For peptide/proteoform/glycopeptide, b/a/c are N-terminal; y/z/x are C-terminal.
+			FragmentationTerminus terminus;
+			if (mslIon.IsInternalFragment)
+			{
+				terminus = FragmentationTerminus.None;
+			}
+			else if (isOligo)
+			{
+				terminus = mslIon.ProductType switch
+				{
+					ProductType.a or ProductType.d => FragmentationTerminus.FivePrime,
+					ProductType.w or ProductType.z => FragmentationTerminus.ThreePrime,
+					_ => FragmentationTerminus.None
+				};
+			}
+			else
+			{
+				terminus = mslIon.ProductType switch
+				{
+					ProductType.b or ProductType.a or ProductType.c => FragmentationTerminus.N,
+					ProductType.y or ProductType.z or ProductType.x => FragmentationTerminus.C,
+					_ => FragmentationTerminus.None
+				};
+			}
+
+			// Construct the Product using the confirmed 6-parameter mzLib constructor:
+			// (productType, terminus, neutralMass, fragmentNumber, residuePosition, neutralLoss).
+			// neutralMass is passed as 0.0 — this matches the pattern used throughout the
+			// existing mzLib readers (MSP reader, DIA-NN reader) because mzLib uses the stored
+			// m/z directly for matching rather than recomputing from neutral mass at read time.
+			// SecondaryProductType and SecondaryFragmentNumber are MSL-specific internal-fragment
+			// metadata carried only in MslFragmentIon; they are not part of the mzLib Product type.
+			var product = new Product(
+				mslIon.ProductType,
+				terminus,
+				neutralMass: 0.0,
+				mslIon.FragmentNumber,
+				mslIon.ResiduePosition,
+				mslIon.NeutralLoss);
+
+			// Wrap in a MatchedFragmentIon with the stored Mz (float → double), Intensity, and Charge
+			matchedIons.Add(new MatchedFragmentIon(product, mslIon.Mz, mslIon.Intensity, mslIon.Charge));
+		}
+
+		// Construct the LibrarySpectrum using the mzLib constructor signature
+		return new LibrarySpectrum(
+			sequence: ModifiedSequence,
+			precursorMz: PrecursorMz,
+			chargeState: Charge,
+			peaks: matchedIons,
+			rt: Irt,
+			isDecoy: IsDecoy);
+	}
+
+	// ── Conversion: LibrarySpectrum → MslLibraryEntry ───────────────────
+
+	/// <summary>
+	/// Static factory that constructs an MslLibraryEntry from an existing LibrarySpectrum.
+	/// All structured fragment fields (ProductType, FragmentNumber, ResiduePosition, etc.)
+	/// are extracted from the MatchedFragmentIon list. Extended metadata fields that have
+	/// no representation in LibrarySpectrum are initialized to sensible defaults:
+	/// IonMobility = 0, QValue = float.NaN, ElutionGroupId = 0, Source = Predicted,
+	/// MoleculeType = Peptide, DissociationType = Unknown, Nce = 0.
+	/// </summary>
+	/// <param name="spectrum">
+	///   The LibrarySpectrum to convert. Must not be null. The MatchedFragmentIon list may be
+	///   empty (resulting in an entry with no fragments) but should not be null.
+	/// </param>
+	/// <returns>
+	///   A new MslLibraryEntry whose core fields mirror the spectrum and whose fragment list
+	///   contains one MslFragmentIon per MatchedFragmentIon in spectrum.MatchedFragmentIons.
+	/// </returns>
+	/// <exception cref="ArgumentNullException">Thrown when <paramref name="spectrum"/> is null.</exception>
+	public static MslLibraryEntry FromLibrarySpectrum(LibrarySpectrum spectrum)
+	{
+		if (spectrum is null)
+			throw new ArgumentNullException(nameof(spectrum));
+
+		// Build the stripped sequence by removing all bracket-notation modifications.
+		// e.g. "PEPTM[Common Variable:Oxidation on M]IDE" → "PEPTMIDE"
+		string strippedSeq = StripModifications(spectrum.Sequence);
+
+		// Convert each MatchedFragmentIon to an MslFragmentIon
+		var fragments = new List<MslFragmentIon>(spectrum.MatchedFragmentIons?.Count ?? 0);
+
+		foreach (MatchedFragmentIon ion in spectrum.MatchedFragmentIons ?? Enumerable.Empty<MatchedFragmentIon>())
+		{
+			// Extract the Product from the MatchedFragmentIon wrapper
+			Product product = ion.NeutralTheoreticalProduct;
+
+			// Determine the NeutralLossCode from the neutral-loss mass for the flags byte
+			// (only the named common losses are given a code; everything else is Custom)
+			MslFormat.NeutralLossCode lossCode = ClassifyNeutralLoss(product.NeutralLoss);
+
+			// Build the MslFragmentIon with all structured fields populated
+			var mslIon = new MslFragmentIon
+			{
+				Mz = (float)ion.Mz,
+				Intensity = (float)ion.Intensity,
+				ProductType = product.ProductType,
+				// SecondaryProductType and SecondaryFragmentNumber describe internal-fragment
+				// boundaries (e.g. bIy[2-5]). The mzLib Product type does not carry these fields;
+				// they cannot be recovered from a LibrarySpectrum round-trip. Default to null/0.
+				SecondaryProductType = null,
+				SecondaryFragmentNumber = 0,
+				FragmentNumber = product.FragmentNumber,
+				ResiduePosition = product.ResiduePosition,
+				Charge = ion.Charge,
+				NeutralLoss = product.NeutralLoss,
+				ExcludeFromQuant = false  // not available from LibrarySpectrum; default false
+			};
+
+			fragments.Add(mslIon);
+		}
+
+		// Construct the entry with defaults for all fields not present in LibrarySpectrum
+		return new MslLibraryEntry
+		{
+			ModifiedSequence = spectrum.Sequence,
+			StrippedSequence = strippedSeq,
+			PrecursorMz = spectrum.PrecursorMz,
+			Charge = spectrum.ChargeState,
+			Irt = spectrum.RetentionTime ?? 0.0,
+			IsDecoy = spectrum.IsDecoy,
+			Fragments = fragments,
+
+			// Extended fields: sensible defaults since LibrarySpectrum carries no metadata
+			IonMobility = 0.0,
+			ProteinAccession = string.Empty,
+			ProteinName = string.Empty,
+			GeneName = string.Empty,
+			IsProteotypic = false,
+			QValue = float.NaN,
+			ElutionGroupId = 0,
+			MoleculeType = MslFormat.MoleculeType.Peptide,
+			Source = MslFormat.SourceType.Predicted,
+			DissociationType = DissociationType.Unknown,
+			Nce = 0
+		};
+	}
+
+	// ── Private helpers ──────────────────────────────────────────────────
+
+	/// <summary>
+	/// Strips all mzLib bracket-notation modification tags from a modified sequence string,
+	/// returning the bare amino-acid sequence.
+	/// For example, "PEPTM[Common Variable:Oxidation on M]IDE" → "PEPTMIDE".
+	/// The method iterates character-by-character to avoid allocating a Regex match collection
+	/// on the hot path.
+	/// </summary>
+	/// <param name="modifiedSeq">Modified sequence in mzLib bracket notation. Must not be null.</param>
+	/// <returns>The sequence with all [...] tags removed.</returns>
+	private static string StripModifications(string modifiedSeq)
+	{
+		// Track bracket nesting depth; characters inside any level of brackets are omitted
+		int depth = 0;
+
+		// Use a char-array builder sized to the input to avoid reallocation
+		var buffer = new char[modifiedSeq.Length];
+		int writePos = 0;
+
+		foreach (char ch in modifiedSeq)
+		{
+			if (ch == '[')
+			{
+				// Entering a modification tag: increment nesting depth but don't copy
+				depth++;
+			}
+			else if (ch == ']')
+			{
+				// Leaving a modification tag: decrement depth but don't copy
+				depth--;
+			}
+			else if (depth == 0)
+			{
+				// Outside all brackets: this is a real residue character — copy it
+				buffer[writePos++] = ch;
+			}
+		}
+
+		return new string(buffer, 0, writePos);
+	}
+
+	/// <summary>
+	/// Maps a neutral-loss mass (in Da) to the nearest named NeutralLossCode, or
+	/// NeutralLossCode.Custom when the mass does not correspond to a known common loss.
+	/// Tolerance for matching is ±0.01 Da; this is intentionally loose to handle
+	/// minor floating-point variations in how different tools report mass shifts.
+	/// </summary>
+	/// <param name="neutralLoss">
+	///   Neutral-loss mass in daltons. 0.0 = no loss. Negative values represent mass losses;
+	///   positive values represent mass gains.
+	/// </param>
+	/// <returns>The best-matching NeutralLossCode, or Custom if no match is found.</returns>
+	private static MslFormat.NeutralLossCode ClassifyNeutralLoss(double neutralLoss)
+	{
+		// Named neutral-loss masses (negative = loss from the fragment)
+		const double MassH2O = -18.010565;
+		const double MassNH3 = -17.026549;
+		const double MassH3PO4 = -97.976895;
+		const double MassHPO3 = -79.966331;
+		const double Tolerance = 0.01;     // Da, loose match for cross-tool compatibility
+
+		if (neutralLoss == 0.0) return MslFormat.NeutralLossCode.None;
+		if (Math.Abs(neutralLoss - MassH2O) < Tolerance) return MslFormat.NeutralLossCode.H2O;
+		if (Math.Abs(neutralLoss - MassNH3) < Tolerance) return MslFormat.NeutralLossCode.NH3;
+		if (Math.Abs(neutralLoss - MassH3PO4) < Tolerance) return MslFormat.NeutralLossCode.H3PO4;
+		if (Math.Abs(neutralLoss - MassHPO3) < Tolerance) return MslFormat.NeutralLossCode.HPO3;
+		if (Math.Abs(neutralLoss - (MassH3PO4 + MassH2O)) < Tolerance) return MslFormat.NeutralLossCode.PlusH2O;
+
+		// No match: caller must store the exact mass in the extended annotation table
+		return MslFormat.NeutralLossCode.Custom;
+	}
+}
