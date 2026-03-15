@@ -170,13 +170,22 @@ public sealed class MslLibrary : IDisposable
 	/// difference is that <see cref="GetEntry"/> and <see cref="GetAllEntries"/> trigger disk
 	/// reads for fragment data rather than returning pre-populated objects.
 	/// </para>
+	///
+	/// <para>
+	/// <b>Compressed files:</b> when <see cref="MslFormat.FileFlagIsCompressed"/> is set in the
+	/// file header, index-only mode is not available because fragment block offsets are relative
+	/// to the decompressed buffer rather than absolute file positions. This method transparently
+	/// falls back to full decompression in that case and returns a library with
+	/// <see cref="IsIndexOnly"/> == <see langword="false"/> and
+	/// <see cref="IsCompressed"/> == <see langword="true"/>. No exception is thrown.
+	/// </para>
 	/// </summary>
 	/// <param name="filePath">
 	///   Absolute or relative path to the .msl file. Must not be null or empty.
 	/// </param>
 	/// <returns>
-	///   An <see cref="MslLibrary"/> in index-only mode where <see cref="IsIndexOnly"/> is
-	///   <see langword="true"/> and fragment lists are empty until explicitly retrieved.
+	///   An <see cref="MslLibrary"/> in index-only mode for uncompressed files, or in full-load
+	///   mode for compressed files (see compressed-file note above).
 	/// </returns>
 	/// <exception cref="ArgumentNullException"><paramref name="filePath"/> is null.</exception>
 	/// <exception cref="FileNotFoundException">No file exists at <paramref name="filePath"/>.</exception>
@@ -186,19 +195,34 @@ public sealed class MslLibrary : IDisposable
 	{
 		ArgumentNullException.ThrowIfNull(filePath);
 
-		// Delegate to MslReader; the returned rawLib holds an open FileStream and exposes
-		// LoadFragmentsOnDemand for lazy fragment retrieval.
+		// Delegate to MslReader. For uncompressed files this returns a true index-only
+		// MslLibraryData (IsIndexOnly = true) with an open FileStream for on-demand reads.
+		// For compressed files, MslReader.LoadIndexOnly falls back to full-load and returns
+		// an MslLibraryData with IsIndexOnly = false and all fragments already in memory.
 		MslLibraryData rawLib = MslReader.LoadIndexOnly(filePath);
 
-		// Capture rawLib in the loader closure. On index cache miss the delegate seeks the open
-		// FileStream and deserializes the fragment block for the requested precursor.
-		MslIndex index = MslIndex.Build(
+		MslIndex index;
+
+		if (!rawLib.IsIndexOnly)
+		{
+			// Compressed-file fallback: rawLib is fully loaded — use direct array access,
+			// same as the MslLibrary.Load path. Do not call LoadFragmentsOnDemand.
+			index = MslIndex.Build(
+				rawLib.Entries,
+				i => i >= 0 && i < rawLib.Count ? rawLib.Entries[i] : null);
+
+			// rawLib has no open stream for compressed files; no rawLibrary to retain.
+			return new MslLibrary(index, rawLib.Header, isIndexOnly: false, rawLibrary: null);
+		}
+
+		// Uncompressed index-only path: capture rawLib in the loader closure.
+		// On index cache miss the delegate seeks the open FileStream and reads the fragment block.
+		index = MslIndex.Build(
 			rawLib.Entries,
 			i =>
 			{
 				if (i < 0 || i >= rawLib.Count)
 					return null;
-				// Clone the skeleton entry and populate its Fragments list from disk
 				MslLibraryEntry skeleton = rawLib.Entries[i];
 				skeleton.Fragments = rawLib.LoadFragmentsOnDemand(i);
 				return skeleton;
@@ -323,6 +347,15 @@ public sealed class MslLibrary : IDisposable
 	/// libraries to release the underlying file handle.
 	/// </summary>
 	public bool IsIndexOnly { get; }
+
+	/// <summary>
+	/// True when the library file was written with zstd block compression
+	/// (<see cref="MslFormat.FileFlagIsCompressed"/> is set in <see cref="Header"/>).
+	/// Compressed libraries always load in full-load mode regardless of which
+	/// Load method was called; <see cref="IsIndexOnly"/> is always <see langword="false"/>
+	/// for compressed files.
+	/// </summary>
+	public bool IsCompressed => (Header.FileFlags & MslFormat.FileFlagIsCompressed) != 0;
 
 	// ── Disposal guard ────────────────────────────────────────────────────────
 

@@ -161,6 +161,15 @@ public sealed class MslLibraryData : IDisposable
 	/// </summary>
 	public bool IsIndexOnly => _isIndexOnly;
 
+	/// <summary>
+	/// True when the library file was written with zstd block compression
+	/// (<see cref="MslFormat.FileFlagIsCompressed"/> is set in <see cref="Header"/>).
+	/// Compressed libraries always load in full-load mode regardless of which
+	/// <see cref="MslReader"/> method was called; <see cref="IsIndexOnly"/> is always
+	/// <c>false</c> for compressed files.
+	/// </summary>
+	public bool IsCompressed => (Header.FileFlags & MslFormat.FileFlagIsCompressed) != 0;
+
 	// ── On-demand fragment loading ────────────────────────────────────────────
 
 	/// <summary>

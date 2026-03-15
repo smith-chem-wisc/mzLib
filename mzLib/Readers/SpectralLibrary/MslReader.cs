@@ -4,6 +4,7 @@ using System.Text;
 using MassSpectrometry;
 using Omics.Fragmentation;
 using Omics.SpectralMatch.MslSpectralLibrary;
+using ZstdSharp;
 
 namespace Readers.SpectralLibrary;
 
@@ -21,13 +22,16 @@ namespace Readers.SpectralLibrary;
 ///   string table. Fragment blocks remain on disk and are fetched lazily via seeks into
 ///   the kept-open <see cref="System.IO.FileStream"/>. Best for multi-gigabyte libraries
 ///   where loading all fragments would exhaust available RAM.
+///   Note: compressed files always fall back to full-load regardless of which method is
+///   called — index-only mode is unavailable when <see cref="MslFormat.FileFlagIsCompressed"/>
+///   is set.
 ///
 /// Both modes return an <see cref="MslLibrary"/> with the same public API; the difference
 /// is purely internal.
 ///
 /// Validation sequence on every open:
 ///   1. Leading magic bytes verified against "MZLB".
-///   2. <c>FormatVersion</c> verified equal to <see cref="MslFormat.CurrentVersion"/>.
+///   2. <c>FormatVersion</c> accepted when in range [1, <see cref="MslFormat.CurrentVersion"/>].
 ///   3. Trailing footer magic verified.
 ///   4. Footer <c>NPrecursors</c> cross-checked against header <c>NPrecursors</c>.
 ///   5. CRC-32/ISO-HDLC checksum verified over all data bytes before the offset table.
@@ -162,16 +166,20 @@ public static class MslReader
 	}
 
 	/// <summary>
-	/// Reads the entire .msl file into memory and returns an <see cref="MslLibrary"/> with
+	/// Reads the entire .msl file into memory and returns an <see cref="MslLibraryData"/> with
 	/// all precursor entries and fragment ions fully loaded. No file handle is held open after
 	/// this method returns.
+	///
+	/// When <see cref="MslFormat.FileFlagIsCompressed"/> is set the fragment section is
+	/// decompressed from the zstd frame before fragment blocks are read. All other read paths
+	/// are unchanged.
 	///
 	/// Optimal for libraries that fit comfortably in RAM (typically &lt;~2 GB). For larger
 	/// libraries use <see cref="LoadIndexOnly"/> to avoid exhausting available RAM.
 	/// </summary>
 	/// <param name="filePath">Path to the .msl file. Must not be null.</param>
 	/// <returns>
-	/// A fully populated <see cref="MslLibrary"/> whose <c>Entries</c> list contains one
+	/// A fully populated <see cref="MslLibraryData"/> whose <c>Entries</c> list contains one
 	/// <see cref="MslLibraryEntry"/> per precursor, all with fragment ions loaded.
 	/// </returns>
 	/// <exception cref="FileNotFoundException">File does not exist.</exception>
@@ -197,13 +205,20 @@ public static class MslReader
 		// Read extended annotation table (custom neutral-loss masses) when present
 		double[] customLossMasses = ReadExtAnnotationTable(fileBytes, header);
 
+		// When compressed, decompress the fragment section into a separate buffer.
+		// FragmentBlockOffset values in precursor records are then relative to this buffer.
+		bool isCompressed = (header.FileFlags & MslFormat.FileFlagIsCompressed) != 0;
+		byte[] fragmentBuffer = isCompressed
+			? DecompressFragmentSection(fileBytes, header)
+			: fileBytes;
+
 		// Build the fully-loaded entry list — each entry includes its fragment ions
 		var entries = new List<MslLibraryEntry>(precursors.Length);
 
 		for (int i = 0; i < precursors.Length; i++)
 		{
 			MslPrecursorRecord p = precursors[i];
-			List<MslFragmentIon> fragments = ReadFragmentBlockFromBytes(fileBytes, p, customLossMasses);
+			List<MslFragmentIon> fragments = ReadFragmentBlockFromBytes(fragmentBuffer, p, customLossMasses);
 			entries.Add(ConvertPrecursor(p, strings, proteins, fragments));
 		}
 
@@ -214,17 +229,24 @@ public static class MslReader
 	/// Reads only the precursor records and string table into memory; fragment blocks remain
 	/// on disk and are fetched lazily via seeks into the kept-open <see cref="System.IO.FileStream"/>.
 	///
-	/// The returned <see cref="MslLibrary"/> holds an open file handle until its
+	/// The returned <see cref="MslLibraryData"/> holds an open file handle until its
 	/// <see cref="MslLibrary.Dispose"/> method is called. Callers must dispose the library
 	/// when finished (critical on Windows, which uses mandatory file locking).
 	///
 	/// All five validation checks are performed on open before any entries are returned.
+	///
+	/// <para>
+	/// <b>Compressed files:</b> when <see cref="MslFormat.FileFlagIsCompressed"/> is set,
+	/// index-only mode is not available because fragment block offsets are relative to the
+	/// decompressed buffer rather than the file. This method transparently falls back to full
+	/// decompression and returns an <see cref="MslLibraryData"/> with <c>IsIndexOnly = false</c>.
+	/// No exception is thrown; callers can detect this via <see cref="MslLibrary.IsIndexOnly"/>.
+	/// </para>
 	/// </summary>
 	/// <param name="filePath">Path to the .msl file. Must not be null.</param>
 	/// <returns>
-	/// An <see cref="MslLibrary"/> whose <c>Entries</c> list contains precursor metadata
-	/// but empty fragment lists. Fragment ions can be retrieved via
-	/// <see cref="MslLibrary.LoadFragmentsOnDemand"/>.
+	/// An <see cref="MslLibraryData"/> in index-only mode for uncompressed files, or in
+	/// full-load mode for compressed files.
 	/// </returns>
 	/// <exception cref="FileNotFoundException">File does not exist.</exception>
 	/// <exception cref="FormatException">Structural or version validation failed.</exception>
@@ -240,6 +262,36 @@ public static class MslReader
 
 		ValidateFileBytes(fileBytes, filePath, out MslFileHeader header, out _);
 
+		// Compressed files cannot use index-only mode: fragment offsets are decompressed-
+		// buffer-relative and there is no persistent decompressed buffer to seek into.
+		// Fall back to full-load transparently.
+		bool isCompressed = (header.FileFlags & MslFormat.FileFlagIsCompressed) != 0;
+		if (isCompressed)
+		{
+			System.Diagnostics.Debug.WriteLine(
+				$"[MslReader] LoadIndexOnly called on compressed file '{filePath}'; " +
+				"falling back to full-load (index-only mode unavailable for compressed files).");
+
+			string[] stringsC = ReadStringTable(fileBytes, header);
+			MslProteinRecord[] proteinsC = ReadProteinTable(fileBytes, header);
+			MslPrecursorRecord[] precursorsC = ReadPrecursorArray(fileBytes, header);
+			double[] customLossMassesC = ReadExtAnnotationTable(fileBytes, header);
+			byte[] fragmentBuffer = DecompressFragmentSection(fileBytes, header);
+
+			var entriesC = new List<MslLibraryEntry>(precursorsC.Length);
+			for (int i = 0; i < precursorsC.Length; i++)
+			{
+				MslPrecursorRecord p = precursorsC[i];
+				List<MslFragmentIon> fragments =
+					ReadFragmentBlockFromBytes(fragmentBuffer, p, customLossMassesC);
+				entriesC.Add(ConvertPrecursor(p, stringsC, proteinsC, fragments));
+			}
+
+			// Return a full-load library (no open stream, IsIndexOnly = false)
+			return new MslLibraryData(entriesC, header);
+		}
+
+		// Uncompressed: standard index-only path
 		string[] strings = ReadStringTable(fileBytes, header);
 		MslProteinRecord[] proteins = ReadProteinTable(fileBytes, header);
 		MslPrecursorRecord[] precursors = ReadPrecursorArray(fileBytes, header);
@@ -267,6 +319,12 @@ public static class MslReader
 	/// <summary>
 	/// Performs all five mandatory validation checks on the in-memory file bytes and
 	/// outputs the deserialized header and footer on success. Throws on the first failure.
+	///
+	/// Version acceptance policy:
+	/// <list type="bullet">
+	///   <item>Versions 1 through <see cref="MslFormat.CurrentVersion"/> — accepted.</item>
+	///   <item>Any other version — <see cref="FormatException"/> thrown.</item>
+	/// </list>
 	/// </summary>
 	/// <param name="fileBytes">Complete file content already loaded into memory.</param>
 	/// <param name="filePath">Original file path, used only for exception messages.</param>
@@ -300,10 +358,11 @@ public static class MslReader
 		// Deserialise the header now; re-use it for all subsequent field reads.
 		header = MemoryMarshal.Read<MslFileHeader>(fileBytes.AsSpan(0, MslFormat.HeaderSize));
 
-		if (header.FormatVersion != 1 && header.FormatVersion != MslFormat.CurrentVersion)
+		// Accept versions 1 through CurrentVersion; reject anything outside that range.
+		if (header.FormatVersion < 1 || header.FormatVersion > MslFormat.CurrentVersion)
 			throw new FormatException(
 				$"Unsupported version: {header.FormatVersion} in '{filePath}'. " +
-				$"This reader supports versions 1 and {MslFormat.CurrentVersion}.");
+				$"This reader supports versions 1–{MslFormat.CurrentVersion}.");
 
 		// ── Check 4: trailing footer magic ────────────────────────────────────
 		int footerStart = fileBytes.Length - MslFormat.FooterSize;
@@ -478,11 +537,49 @@ public static class MslReader
 	}
 
 	/// <summary>
-	/// Deserialises one precursor's fragment block from the in-memory file bytes.
-	/// Used in full-load mode (<see cref="Load"/>).
-	/// Returns an empty list when <c>precursor.FragmentCount</c> is zero.
+	/// Reads the 16-byte compression descriptor at file offset 64 and decompresses the
+	/// zstd fragment frame into a new <c>byte[]</c>. Called when
+	/// <see cref="MslFormat.FileFlagIsCompressed"/> is set.
+	///
+	/// After this call, <c>MslPrecursorRecord.FragmentBlockOffset</c> values are treated as
+	/// offsets into the returned buffer rather than absolute file positions.
 	/// </summary>
 	/// <param name="fileBytes">Complete file content.</param>
+	/// <param name="header">Deserialized file header (provides <c>FragmentSectionOffset</c>).</param>
+	/// <returns>The decompressed fragment section as a new byte array.</returns>
+	private static byte[] DecompressFragmentSection(byte[] fileBytes, MslFileHeader header)
+	{
+		// Compression descriptor is at offset 64 (immediately after the 64-byte header):
+		//   int64 CompressedFragmentSize   (offset 64)
+		//   int64 UncompressedFragmentSize (offset 72)
+		const int DescriptorOffset = MslFormat.HeaderSize; // = 64
+		long compressedSize = BitConverter.ToInt64(fileBytes, DescriptorOffset);
+		long uncompressedSize = BitConverter.ToInt64(fileBytes, DescriptorOffset + 8);
+
+		// The compressed zstd frame starts at FragmentSectionOffset
+		int frameStart = (int)header.FragmentSectionOffset;
+
+		ReadOnlySpan<byte> compressedSpan = fileBytes.AsSpan(frameStart, (int)compressedSize);
+
+		using var decompressor = new Decompressor();
+		byte[] decompressed = new byte[uncompressedSize];
+		decompressor.Unwrap(compressedSpan, decompressed);
+
+		return decompressed;
+	}
+
+	/// <summary>
+	/// Deserialises one precursor's fragment block from a byte buffer.
+	/// Used in full-load mode (<see cref="Load"/>).
+	///
+	/// For uncompressed files <paramref name="buffer"/> is the full file content and
+	/// <c>precursor.FragmentBlockOffset</c> is an absolute file position.
+	/// For compressed files <paramref name="buffer"/> is the decompressed fragment buffer
+	/// and the offset is relative to its start.
+	///
+	/// Returns an empty list when <c>precursor.FragmentCount</c> is zero.
+	/// </summary>
+	/// <param name="buffer">Byte buffer to read from.</param>
 	/// <param name="precursor">
 	/// The precursor record whose <c>FragmentBlockOffset</c> and <c>FragmentCount</c>
 	/// identify the fragment block.
@@ -495,7 +592,7 @@ public static class MslReader
 	/// List of <see cref="MslFragmentIon"/> objects in m/z ascending order as written.
 	/// </returns>
 	private static List<MslFragmentIon> ReadFragmentBlockFromBytes(
-		byte[] fileBytes,
+		byte[] buffer,
 		MslPrecursorRecord precursor,
 		double[] customLossMasses)
 	{
@@ -508,7 +605,7 @@ public static class MslReader
 		int startPos = (int)precursor.FragmentBlockOffset;
 
 		var records = new MslFragmentRecord[fragmentCount];
-		ReadOnlySpan<byte> span = fileBytes.AsSpan(startPos, byteCount);
+		ReadOnlySpan<byte> span = buffer.AsSpan(startPos, byteCount);
 		MemoryMarshal.Cast<byte, MslFragmentRecord>(span).CopyTo(records);
 
 		var ions = new List<MslFragmentIon>(fragmentCount);
@@ -630,8 +727,8 @@ public static class MslReader
 			ProductType = (ProductType)r.ProductType,
 			// -1 on disk is the "not an internal ion" sentinel; map to null in the rich type
 			SecondaryProductType = r.SecondaryProductType == -1
-										? (ProductType?)null
-										: (ProductType)r.SecondaryProductType,
+									? (ProductType?)null
+									: (ProductType)r.SecondaryProductType,
 			// short → int widening required for all three residue-number fields
 			FragmentNumber = (int)r.FragmentNumber,
 			SecondaryFragmentNumber = (int)r.SecondaryFragmentNumber,
