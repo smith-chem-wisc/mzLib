@@ -1,4 +1,5 @@
-﻿using Omics.SpectralMatch.MslSpectralLibrary;
+﻿using Chromatography.RetentionTimePrediction;
+using Omics.SpectralMatch.MslSpectralLibrary;
 using Omics.SpectrumMatch;
 
 namespace Readers.SpectralLibrary;
@@ -708,6 +709,80 @@ public sealed class MslLibrary : IDisposable
 	{
 		ThrowIfDisposed();
 		return _index!.GetElutionGroup(elutionGroupId);
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────────
+	// PATCH — add the following method to MslLibrary.cs inside the MslLibrary class,
+	// before the Dispose() method.
+	//
+	// No new using directives are required: MslFragmentModelRouter is in the same
+	// namespace (Readers.SpectralLibrary) and all other types are already imported.
+	// ─────────────────────────────────────────────────────────────────────────────
+
+	// ── Fragment prediction façade ────────────────────────────────────────────
+	/// <summary>
+	/// Predicts fragment ions for all eligible entries using a caller-supplied prediction
+	/// function, then writes the results back into those entries in-place.
+	///
+	/// The prediction function receives the list of eligible entries and returns a dictionary
+	/// mapping each entry's LookupKey to its predicted LibrarySpectrum. Use
+	/// MslFragmentModelRouter.Predict from PredictionClients to supply this function:
+	///
+	///   library.PredictFragments(entries => MslFragmentModelRouter.Predict(entries, out _));
+	/// </summary>
+	/// <param name="predict">
+	///   Function that accepts a read-only list of MslLibraryEntry and returns a dictionary
+	///   from LookupKey to LibrarySpectrum. Only entries present in the dictionary are updated.
+	/// </param>
+	/// <returns>The number of entries whose Fragments list was successfully populated.</returns>
+	/// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
+	public int PredictFragments(
+		Func<IReadOnlyList<MslLibraryEntry>, Dictionary<string, LibrarySpectrum>> predict)
+	{
+		ThrowIfDisposed();
+		ArgumentNullException.ThrowIfNull(predict);
+
+		var eligible = GetAllEntries(includeDecoys: true)
+			.Where(e => e.Source == MslFormat.SourceType.Predicted && e.Fragments.Count == 0)
+			.ToList();
+
+		if (eligible.Count == 0)
+			return 0;
+
+		Dictionary<string, LibrarySpectrum> predicted = predict(eligible);
+
+		if (predicted.Count == 0)
+			return 0;
+
+		var entryByKey = eligible.ToDictionary(e => e.LookupKey);
+		int updatedCount = 0;
+
+		foreach (var (key, spectrum) in predicted)
+		{
+			if (!entryByKey.TryGetValue(key, out MslLibraryEntry? entry))
+				continue;
+
+			entry.Fragments = spectrum.MatchedFragmentIons
+				.Select(ion => new MslFragmentIon
+				{
+					Mz = (float)ion.Mz,
+					Intensity = (float)ion.Intensity,
+					ProductType = ion.NeutralTheoreticalProduct.ProductType,
+					SecondaryProductType = null,
+					SecondaryFragmentNumber = 0,
+					FragmentNumber = ion.NeutralTheoreticalProduct.FragmentNumber,
+					ResiduePosition = ion.NeutralTheoreticalProduct.ResiduePosition,
+					Charge = ion.Charge,
+					NeutralLoss = ion.NeutralTheoreticalProduct.NeutralLoss,
+					ExcludeFromQuant = false
+				})
+				.ToList();
+
+			entry.Source = MslFormat.SourceType.Predicted;
+			updatedCount++;
+		}
+
+		return updatedCount;
 	}
 
 	// ── IDisposable ───────────────────────────────────────────────────────────

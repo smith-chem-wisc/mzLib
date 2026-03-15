@@ -1,13 +1,12 @@
-﻿using MassSpectrometry;
-using NUnit.Framework;
+﻿using NUnit.Framework;
 using Omics.Fragmentation;
-using Omics.SpectralMatch.MslSpectralLibrary;
 using Omics.SpectrumMatch;
 using Readers.SpectralLibrary;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using SpectralLibraryClass = Readers.SpectralLibrary.SpectralLibrary;
 
 namespace Test.MslSpectralLibrary;
 
@@ -215,7 +214,7 @@ public sealed class TestMslRegressionMsp
 		// ── Step 1: Read all spectra from the MSP via SpectralLibrary ────────
 		// SpectralLibrary.GetAllLibrarySpectra() enumerates every entry without requiring
 		// individual TryGetSpectrum calls per sequence name.
-		var mspLib = new SpectralLibrary(new List<string> { MspFilePath });
+		var mspLib = new SpectralLibraryClass(new List<string> { MspFilePath });
 		_mspSpectra = mspLib.GetAllLibrarySpectra().ToList();
 		mspLib.CloseConnections();
 

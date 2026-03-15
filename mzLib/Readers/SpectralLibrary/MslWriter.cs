@@ -1086,7 +1086,7 @@ public static class MslWriter
 		byte[] buffer = ArrayPool<byte>.Shared.Rent(size);
 		try
 		{
-			MemoryMarshal.Write(buffer.AsSpan(0, size), ref value);
+			MemoryMarshal.Write(buffer.AsSpan(0, size), in value);
 			writer.Write(buffer, 0, size);
 		}
 		finally

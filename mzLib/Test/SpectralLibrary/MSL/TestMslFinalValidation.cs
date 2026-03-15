@@ -11,10 +11,9 @@ using System.Runtime.InteropServices;
 using MassSpectrometry;
 using NUnit.Framework;
 using Omics.Fragmentation;
-using Omics.Fragmentation.Peptide;
 using Omics.SpectralMatch.MslSpectralLibrary;
-using Omics.SpectrumMatch;
 using Readers.SpectralLibrary;
+using SpectralLibraryClass = Readers.SpectralLibrary.SpectralLibrary;
 
 namespace Test.MslSpectralLibrary;
 
@@ -512,7 +511,7 @@ public sealed class TestMslFinalValidation
 	[Test]
 	public void Check_SpectralLibraryRouting_MslExtension()
 	{
-		var lib = new SpectralLibrary(new List<string> { SharedMslPath });
+		var lib = new SpectralLibraryClass(new List<string> { SharedMslPath });
 		try
 		{
 			// "PEPTIDE"/2 is index 0 in StandardEntries
@@ -541,7 +540,7 @@ public sealed class TestMslFinalValidation
 		char[] fragmentSplit = new[] { '\t', '"', ')', '/' };
 		char[] neutralLossSplit = new[] { '-' };
 
-		var ion = SpectralLibrary.ReadFragmentIon(peakLine, fragmentSplit, neutralLossSplit, "LGGNEQVTR");
+		var ion = SpectralLibraryClass.ReadFragmentIon(peakLine, fragmentSplit, neutralLossSplit, "LGGNEQVTR");
 
 		Assert.That(ion, Is.Not.Null);
 		Assert.That(ion.NeutralTheoreticalProduct.ProductType, Is.EqualTo(ProductType.b),

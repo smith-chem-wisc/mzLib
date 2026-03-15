@@ -1,13 +1,13 @@
 ﻿using MassSpectrometry;
 using NUnit.Framework;
 using Omics.Fragmentation;
-using Omics.Fragmentation.Peptide;
 using Omics.SpectralMatch.MslSpectralLibrary;
 using Omics.SpectrumMatch;
 using Readers.SpectralLibrary;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using SpectralLibraryClass = Readers.SpectralLibrary.SpectralLibrary;
 
 namespace Test.MslSpectralLibrary;
 
@@ -244,7 +244,7 @@ public sealed class TestMslIntegration
 	[Test]
 	public void SpectralLibrary_WithMslPath_TryGetSpectrum_FindsEntry()
 	{
-		var lib = new SpectralLibrary(new List<string> { SharedMslPath });
+		var lib = new SpectralLibraryClass(new List<string> { SharedMslPath });
 
 		bool found = lib.TryGetSpectrum("PEPTIDE", 2, out LibrarySpectrum spectrum);
 		lib.CloseConnections();
@@ -261,7 +261,7 @@ public sealed class TestMslIntegration
 	[Test]
 	public void SpectralLibrary_WithMslPath_ContainsSpectrum_CorrectResults()
 	{
-		var lib = new SpectralLibrary(new List<string> { SharedMslPath });
+		var lib = new SpectralLibraryClass(new List<string> { SharedMslPath });
 
 		Assert.That(lib.ContainsSpectrum("PEPTIDE", 2), Is.True);
 		Assert.That(lib.ContainsSpectrum("NOTINLIB", 2), Is.False);
@@ -285,7 +285,7 @@ public sealed class TestMslIntegration
 			"364.197\t1.0\t\"y3^1/0ppm\"",
 			""));
 
-		var lib = new SpectralLibrary(new List<string> { SharedMslPath, mspPath });
+		var lib = new SpectralLibraryClass(new List<string> { SharedMslPath, mspPath });
 
 		// MSL entry
 		bool foundMsl = lib.TryGetSpectrum("PEPTIDE", 2, out LibrarySpectrum mslSpectrum);
@@ -310,7 +310,7 @@ public sealed class TestMslIntegration
 		string path = TempMsl("close_connections_test");
 		MslLibrary.Save(path, BuildFixtureEntries());
 
-		var lib = new SpectralLibrary(new List<string> { path });
+		var lib = new SpectralLibraryClass(new List<string> { path });
 
 		Assert.That(() => lib.CloseConnections(), Throws.Nothing);
 
@@ -335,7 +335,7 @@ public sealed class TestMslIntegration
 		// Tab-separated: mz \t intensity \t annotation
 		string line = "312.1\t0.3\t\"bIb[3-6]^1/0ppm\"";
 
-		MatchedFragmentIon ion = SpectralLibrary.ReadFragmentIon(
+		MatchedFragmentIon ion = SpectralLibraryClass.ReadFragmentIon(
 			line, FragSplit, NeutralLossSplit, peptideSequence: "PEPTIDE");
 
 		Assert.That(ion, Is.Not.Null);
@@ -349,7 +349,7 @@ public sealed class TestMslIntegration
 	{
 		string line = "256.1\t0.2\t\"aIb[2-5]^1/0ppm\"";
 
-		MatchedFragmentIon ion = SpectralLibrary.ReadFragmentIon(
+		MatchedFragmentIon ion = SpectralLibraryClass.ReadFragmentIon(
 			line, FragSplit, NeutralLossSplit, peptideSequence: "PEPTIDE");
 
 		Assert.That(ion.NeutralTheoreticalProduct.ProductType, Is.EqualTo(ProductType.a));
@@ -364,7 +364,7 @@ public sealed class TestMslIntegration
 	{
 		string line = "312.1\t0.3\t\"bIb[3-6]^1/0ppm\"";
 
-		MatchedFragmentIon ion = SpectralLibrary.ReadFragmentIon(
+		MatchedFragmentIon ion = SpectralLibraryClass.ReadFragmentIon(
 			line, FragSplit, NeutralLossSplit, peptideSequence: "PEPTIDE");
 
 		Assert.That(ion.NeutralTheoreticalProduct.Terminus,
@@ -380,7 +380,7 @@ public sealed class TestMslIntegration
 	{
 		string line = "312.1\t0.3\t\"bIb[3-6]^1/0ppm\"";
 
-		MatchedFragmentIon ion = SpectralLibrary.ReadFragmentIon(
+		MatchedFragmentIon ion = SpectralLibraryClass.ReadFragmentIon(
 			line, FragSplit, NeutralLossSplit, peptideSequence: "PEPTIDE");
 
 		// FragmentNumber carries the start residue for internal ions
@@ -396,7 +396,7 @@ public sealed class TestMslIntegration
 	{
 		string line = "567.3\t0.9\t\"b5^1/0ppm\"";
 
-		MatchedFragmentIon ion = SpectralLibrary.ReadFragmentIon(
+		MatchedFragmentIon ion = SpectralLibraryClass.ReadFragmentIon(
 			line, FragSplit, NeutralLossSplit, peptideSequence: "PEPTIDE");
 
 		Assert.That(ion.NeutralTheoreticalProduct.ProductType, Is.EqualTo(ProductType.b));
@@ -413,7 +413,7 @@ public sealed class TestMslIntegration
 	{
 		string line = "156.6\t0.1\t\"bIb[3-6]^2/0ppm\"";
 
-		MatchedFragmentIon ion = SpectralLibrary.ReadFragmentIon(
+		MatchedFragmentIon ion = SpectralLibraryClass.ReadFragmentIon(
 			line, FragSplit, NeutralLossSplit, peptideSequence: "PEPTIDE");
 
 		Assert.That(ion.Charge, Is.EqualTo(2));
@@ -434,7 +434,7 @@ public sealed class TestMslIntegration
 		string mslPath = TempMsl("roundtrip_basic");
 
 		// Read the MSP
-		var mspLib = new SpectralLibrary(new List<string> { mspPath });
+		var mspLib = new SpectralLibraryClass(new List<string> { mspPath });
 		bool found = mspLib.TryGetSpectrum("PEPTIDE", 2, out LibrarySpectrum spectrum);
 		mspLib.CloseConnections();
 
@@ -461,7 +461,7 @@ public sealed class TestMslIntegration
 		string mspPath = WriteMspWithInternalIons("roundtrip_fragcount");
 		string mslPath = TempMsl("roundtrip_fragcount");
 
-		var mspLib = new SpectralLibrary(new List<string> { mspPath });
+		var mspLib = new SpectralLibraryClass(new List<string> { mspPath });
 		mspLib.TryGetSpectrum("PEPTIDE", 2, out LibrarySpectrum spectrum);
 		mspLib.CloseConnections();
 
@@ -485,7 +485,7 @@ public sealed class TestMslIntegration
 		string mspPath = WriteMspWithInternalIons("roundtrip_terminus");
 		string mslPath = TempMsl("roundtrip_terminus");
 
-		var mspLib = new SpectralLibrary(new List<string> { mspPath });
+		var mspLib = new SpectralLibraryClass(new List<string> { mspPath });
 		mspLib.TryGetSpectrum("PEPTIDE", 2, out LibrarySpectrum spectrum);
 		mspLib.CloseConnections();
 
