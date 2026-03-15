@@ -321,25 +321,25 @@ public sealed class TestMslCustomNeutralLoss
 			"FileFlagHasExtAnnotations must be clear when only named losses are present");
 	}
 
-	/// <summary>Written files carry FormatVersion == 2.</summary>
+	/// <summary>Written files carry FormatVersion == 3.</summary>
 	[Test]
 	public void CustomLoss_Version2_WrittenCorrectly()
 	{
-		string path = TempPath("version2");
+		string path = TempPath("version3");
 
-		// Write any library — version 2 is always used by the updated writer
+		// Write any library — version 3 is always used by the updated writer
 		MslWriter.Write(path, new[] { EntryWithLoss(0.0) });
 
 		MslFileHeader header = ReadRawHeader(path);
-		Assert.That(header.FormatVersion, Is.EqualTo(2),
-			"All files written by the updated writer must carry FormatVersion 2");
+		Assert.That(header.FormatVersion, Is.EqualTo(3),
+			"All files written by the updated writer must carry FormatVersion 3");
 	}
 
 	/// <summary>
 	/// A version-1 file (no custom losses, FormatVersion 1) is accepted by the updated
 	/// reader without throwing an exception.
 	///
-	/// Implementation: write a normal v2 file with no custom losses, then patch the
+	/// Implementation: write a normal v3 file with no custom losses, then patch the
 	/// FormatVersion field to 1. Because the patched byte is inside the CRC-covered region,
 	/// the CRC is recomputed and re-written to the footer before attempting to read.
 	/// </summary>
@@ -353,7 +353,7 @@ public sealed class TestMslCustomNeutralLoss
 		MslWriter.Write(path, new[] { EntryWithLoss(0.0) });
 		byte[] bytes = File.ReadAllBytes(path);
 
-		// Patch FormatVersion at offset 4 (little-endian int32) from 2 → 1
+		// Patch FormatVersion at offset 4 (little-endian int32) from 3 → 1
 		bytes[4] = 1; bytes[5] = 0; bytes[6] = 0; bytes[7] = 0;
 
 		// The FormatVersion field is inside the CRC-covered region (before OffsetTableOffset),

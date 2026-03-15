@@ -5,6 +5,8 @@ using System.Buffers;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using ZstdSharp;
+using static UsefulProteomicsDatabases.ProteinDbRetriever;
 
 namespace Readers.SpectralLibrary;
 
@@ -18,6 +20,12 @@ namespace Readers.SpectralLibrary;
 ///   Pass 2 — the file is written sequentially from byte 0 to EOF with no Seek() calls;
 ///             <c>MslPrecursorRecord.FragmentBlockOffset</c> is filled from the pre-computed
 ///             layout rather than from a back-patch.
+///
+/// When compression is enabled (<c>compressionLevel &gt; 0</c>), all fragment records are
+/// first serialized to an in-memory buffer, compressed with zstd, and the compressed size
+/// is stored in a 16-byte compression descriptor written immediately after the file header.
+/// This pre-compression in memory means the descriptor's sizes are known before the first
+/// byte is written to disk, preserving the no-Seek invariant.
 ///
 /// The output is written atomically: bytes go to a temp file first, then the temp file
 /// is renamed to the final path with <c>File.Move(overwrite: true)</c> so that a failed
@@ -37,26 +45,23 @@ public static class MslWriter
 	}
 
 	// ────────────────────────────────────────────────────────────────────────
-	// Magic endianness constant
+	// Constants
 	// ────────────────────────────────────────────────────────────────────────
 
 	/// <summary>
-	/// The file magic stored as a uint for use inside <c>MslFileHeader.Magic</c> and
-	/// <c>MslFooter.TrailingMagic</c> struct fields, which are serialized to disk by
-	/// <see cref="MemoryMarshal.Write{T}"/> in native (little-endian) byte order on
-	/// x86/x64 platforms.
-	///
-	/// The canonical on-disk magic is the four ASCII bytes "MZLB": 0x4D 0x5A 0x4C 0x42.
-	/// When MemoryMarshal serializes a uint little-endian, it writes the least-significant
-	/// byte first. To produce 0x4D 0x5A 0x4C 0x42 on disk the uint must therefore hold the
-	/// byte-swapped value 0x424C5A4Du (decimal 1112756813), so that the four bytes written
-	/// are reversed back to the canonical order.
-	///
-	/// Do NOT use <see cref="MslFormat.MagicAsUInt32"/> (= 0x4D5A4C42u) directly inside
-	/// a struct field written via MemoryMarshal; that value is the big-endian form and
-	/// would produce the wrong on-disk bytes 0x42 0x4C 0x5A 0x4D.
+	/// The file magic stored as a uint for use inside struct fields serialized by
+	/// <see cref="MemoryMarshal.Write{T}"/> in native (little-endian) byte order.
+	/// Produces the canonical on-disk bytes 0x4D 0x5A 0x4C 0x42 ("MZLB").
+	/// Do NOT use <see cref="MslFormat.MagicAsUInt32"/> directly in a struct field.
 	/// </summary>
 	private const uint MagicForLEStruct = 0x424C_5A4Du;
+
+	/// <summary>
+	/// Size in bytes of the compression descriptor block written immediately after the
+	/// file header when <see cref="MslFormat.FileFlagIsCompressed"/> is set.
+	/// Layout: int64 CompressedFragmentSize + int64 UncompressedFragmentSize = 16 bytes.
+	/// </summary>
+	private const int CompressionDescriptorSize = 16;
 
 	// ────────────────────────────────────────────────────────────────────────
 	// Public API
@@ -78,63 +83,92 @@ public static class MslWriter
 	///   already exist; this method does not create parent directories.
 	/// </param>
 	/// <param name="entries">
-	///   Ordered list of library entries to write. The on-disk precursor order mirrors
-	///   the list order. Must not be null; may be empty (produces a valid zero-precursor file).
+	///   Ordered list of library entries to write. Must not be null; may be empty
+	///   (produces a valid zero-precursor file).
+	/// </param>
+	/// <param name="compressionLevel">
+	///   zstd compression level for the fragment section. 0 = no compression (default);
+	///   1–22 = zstd levels in ascending compression ratio / decreasing speed order.
+	///   Level 3 is recommended for balanced throughput. When &gt; 0,
+	///   <see cref="MslFormat.FileFlagIsCompressed"/> is set in the file header, a
+	///   16-byte compression descriptor is inserted at file offset 64, and
+	///   <c>MslPrecursorRecord.FragmentBlockOffset</c> values are stored as offsets
+	///   into the decompressed fragment buffer rather than absolute file positions.
+	///   Note: <see cref="MslLibrary.LoadIndexOnly"/> falls back to full-load for
+	///   compressed files; index-only mode is unavailable when the file is compressed.
 	/// </param>
 	/// <exception cref="ArgumentNullException">
 	///   Thrown when <paramref name="outputPath"/> or <paramref name="entries"/> is null.
 	/// </exception>
-	public static void Write(string outputPath, IReadOnlyList<MslLibraryEntry> entries)
+	/// <exception cref="ArgumentOutOfRangeException">
+	///   Thrown when <paramref name="compressionLevel"/> is outside [0, 22].
+	/// </exception>
+	public static void Write(string outputPath, IReadOnlyList<MslLibraryEntry> entries,
+		int compressionLevel = 0)
 	{
 		if (outputPath is null) throw new ArgumentNullException(nameof(outputPath));
 		if (entries is null) throw new ArgumentNullException(nameof(entries));
+		if (compressionLevel < 0 || compressionLevel > 22)
+			throw new ArgumentOutOfRangeException(nameof(compressionLevel),
+				"compressionLevel must be in [0, 22]. Use 0 for no compression.");
 
-		// Derive a temp path in the same directory so the final rename is an atomic
-		// same-volume move rather than a cross-device copy.
 		string tempPath = outputPath + ".tmp~";
 
 		try
 		{
-			// ── Pass 1: compute layout (all offsets, indices, deduplication) ─────
-			var layout = new MslWriteLayout(entries);
+			// ── Pass 1: compute layout ────────────────────────────────────────
+			// For compressed files, the fragment records are also serialized and
+			// compressed here so that CompressedFragmentSize is known before we
+			// open the output file (preserving the no-Seek-in-Pass-2 invariant).
+			var layout = new MslWriteLayout(entries, compressionLevel);
 
-			// ── Pass 2a: write all sections except the footer ────────────────────
-			// The writer is fully closed before the CRC read-back so that the OS
-			// releases its exclusive write lock on the temp file. Attempting to
-			// open the same file for reading while a BinaryWriter still holds it
-			// open with FileShare.None raises an IOException on Windows.
-			using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None,
-											   bufferSize: 65536, FileOptions.SequentialScan))
+			// Pre-compress the fragment data when compression is requested.
+			// This gives us the exact compressed size before writing the descriptor.
+			byte[]? compressedFragmentData = null;
+			if (layout.IsCompressed)
+			{
+				compressedFragmentData = BuildAndCompressFragmentBuffer(layout, entries);
+				// Store sizes in layout so WriteHeader / WriteCompressionDescriptor can use them
+				layout.CompressedFragmentSize = compressedFragmentData.Length;
+				// UncompressedFragmentSize was already set during Pass 1
+			}
+
+			// ── Pass 2a: write all sections except the footer ─────────────────
+			using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write,
+										   FileShare.None, bufferSize: 65536,
+										   FileOptions.SequentialScan))
 			using (var writer = new BinaryWriter(fs, Encoding.UTF8, leaveOpen: false))
 			{
 				WriteHeader(writer, layout);
+				if (layout.IsCompressed)
+					WriteCompressionDescriptor(writer, layout);
 				WriteProteinTable(writer, layout);
 				WriteStringTable(writer, layout);
 				WritePrecursorArray(writer, layout, entries);
-				WriteFragmentBlocks(writer, layout, entries);
+
+				if (layout.IsCompressed)
+					writer.Write(compressedFragmentData!);   // already compressed above
+				else
+					WriteFragmentRecords(writer, layout, entries);  // uncompressed path
+
 				WriteExtAnnotationTable(writer, layout);
 				WriteOffsetTable(writer, layout);
-				// writer and fs are disposed here; OS write lock is released
 			}
 
-			// ── Pass 2b: compute CRC over the closed file, then append footer ─────
-			// A fresh read stream is safe because the write stream above has been
-			// fully disposed. The footer is appended in a new write stream.
+			// ── Pass 2b: CRC + footer ─────────────────────────────────────────
 			uint crc = ComputeCrc32(tempPath, layout.DataEndOffset);
 
-			using (var fs = new FileStream(tempPath, FileMode.Append, FileAccess.Write, FileShare.None,
-											   bufferSize: 128))
+			using (var fs = new FileStream(tempPath, FileMode.Append, FileAccess.Write,
+										   FileShare.None, bufferSize: 128))
 			using (var writer = new BinaryWriter(fs, Encoding.UTF8, leaveOpen: false))
 			{
 				WriteFooter(writer, layout, crc);
 			}
 
-			// Atomic rename: replaces any existing file at outputPath
 			File.Move(tempPath, outputPath, overwrite: true);
 		}
 		catch
 		{
-			// Clean up the temp file on any failure so stale partials don't accumulate
 			if (File.Exists(tempPath))
 				File.Delete(tempPath);
 			throw;
@@ -149,100 +183,63 @@ public static class MslWriter
 	/// </summary>
 	/// <param name="outputPath">
 	///   Destination file path. Follows the same atomicity guarantee as
-	///   <see cref="Write(string, IReadOnlyList{MslLibraryEntry})"/>.
+	///   <see cref="Write(string, IReadOnlyList{MslLibraryEntry}, int)"/>.
 	/// </param>
 	/// <param name="spectra">
-	///   Source library spectra. Must not be null. Each spectrum must have a non-null,
-	///   non-empty <c>MatchedFragmentIons</c> list or the resulting entry will fail validation.
+	///   Source library spectra. Must not be null.
+	/// </param>
+	/// <param name="compressionLevel">
+	///   zstd compression level. 0 = no compression (default). See
+	///   <see cref="Write(string, IReadOnlyList{MslLibraryEntry}, int)"/> for details.
 	/// </param>
 	/// <exception cref="ArgumentNullException">
 	///   Thrown when <paramref name="outputPath"/> or <paramref name="spectra"/> is null.
 	/// </exception>
 	public static void WriteFromLibrarySpectra(string outputPath,
-		IReadOnlyList<LibrarySpectrum> spectra)
+		IReadOnlyList<LibrarySpectrum> spectra, int compressionLevel = 0)
 	{
 		if (outputPath is null) throw new ArgumentNullException(nameof(outputPath));
 		if (spectra is null) throw new ArgumentNullException(nameof(spectra));
 
-		// Convert each LibrarySpectrum to an MslLibraryEntry; preserve list order
 		var entries = new List<MslLibraryEntry>(spectra.Count);
 		foreach (LibrarySpectrum spectrum in spectra)
 			entries.Add(MslLibraryEntry.FromLibrarySpectrum(spectrum));
 
-		Write(outputPath, entries);
+		Write(outputPath, entries, compressionLevel);
 	}
 
 	/// <summary>
 	/// Returns the estimated file size in bytes without writing any data.
 	/// Useful for pre-flight disk-space checks before committing to a write.
-	///
-	/// The estimate uses the formula:
-	///   HeaderSize + NProteins × ProteinRecordSize
-	///   + StringTable(approx) + NPrecursors × PrecursorRecordSize
-	///   + NPrecursors × AvgFragments × FragmentRecordSize
-	///   + NPrecursors × 8 (offset table) + FooterSize
-	///
-	/// Actual size may vary by up to ±5% depending on UTF-8 encoding lengths and
-	/// the number of unique strings vs total string references.
 	/// </summary>
-	/// <param name="nPrecursors">
-	///   Number of precursor entries that will be written.
-	/// </param>
-	/// <param name="avgFragmentsPerPrecursor">
-	///   Average number of fragment records per precursor.
-	/// </param>
+	/// <param name="nPrecursors">Number of precursor entries that will be written.</param>
+	/// <param name="avgFragmentsPerPrecursor">Average number of fragment records per precursor.</param>
 	/// <param name="avgStringBytes">
-	///   Average UTF-8 byte length of each unique string (sequence, protein accession, etc.).
-	///   A value of 20 is a reasonable default for tryptic peptide libraries.
+	///   Average UTF-8 byte length of each unique string. 20 is a reasonable default.
 	/// </param>
 	/// <returns>Estimated total file size in bytes.</returns>
 	public static long EstimateFileSize(int nPrecursors, int avgFragmentsPerPrecursor,
 		int avgStringBytes)
 	{
-		// Estimate unique strings in the string table.
-		//
-		// Each precursor contributes up to 3 string fields that are likely to be unique
-		// per-precursor (modified sequence, stripped sequence, protein accession). The
-		// protein name and gene name are typically shared across many precursors within a
-		// protein, so they are not counted per-precursor. A deduplication factor of 0.6
-		// is applied to account for charge-state variants sharing the same sequences.
-		// The +1 accounts for the mandatory empty-string entry at index 0.
 		long estimatedUniqueStrings = (long)(nPrecursors * 3 * 0.6) + 1;
-
-		// String table on disk: 4-byte NStrings header + 4-byte TotalBytes header
-		// + per-entry: 4-byte length prefix + UTF-8 body
 		long stringTableBytes = 8 + estimatedUniqueStrings * (4 + avgStringBytes);
-
-		// Fragment section: one MslFragmentRecord (20 bytes) per fragment per precursor
-		long fragmentBytes = (long)nPrecursors * avgFragmentsPerPrecursor * MslFormat.FragmentRecordSize;
+		long fragmentBytes = (long)nPrecursors * avgFragmentsPerPrecursor
+										  * MslFormat.FragmentRecordSize;
 
 		return MslFormat.HeaderSize
-			 + (long)nPrecursors * MslFormat.ProteinRecordSize   // ~1 protein record per precursor
+			 + (long)nPrecursors * MslFormat.ProteinRecordSize
 			 + stringTableBytes
 			 + (long)nPrecursors * MslFormat.PrecursorRecordSize
 			 + fragmentBytes
-			 + (long)nPrecursors * sizeof(long)                   // offset table: 8 bytes per precursor
+			 + (long)nPrecursors * sizeof(long)
 			 + MslFormat.FooterSize;
 	}
 
 	/// <summary>
 	/// Validates a list of <see cref="MslLibraryEntry"/> objects before writing.
-	/// Returns a list of human-readable error strings. An empty return list means all
-	/// entries passed every check and the list is safe to pass to <see cref="Write"/>.
-	///
-	/// Checks performed:
-	/// <list type="bullet">
-	///   <item>Modified sequence is not null or empty.</item>
-	///   <item>Charge is greater than zero.</item>
-	///   <item>PrecursorMz is greater than zero.</item>
-	///   <item>At least one fragment is present (FragmentCount > 0).</item>
-	///   <item>Each fragment has Mz > 0.</item>
-	///   <item>Each fragment has Charge > 0.</item>
-	///   <item>For internal ions: SecondaryFragmentNumber > FragmentNumber.</item>
-	/// </list>
+	/// Returns a list of human-readable error strings. An empty list means all entries
+	/// are safe to pass to <see cref="Write"/>.
 	/// </summary>
-	/// <param name="entries">The entries to validate. Must not be null.</param>
-	/// <returns>A list of error description strings; empty when all entries are valid.</returns>
 	public static List<string> ValidateEntries(IReadOnlyList<MslLibraryEntry> entries)
 	{
 		if (entries is null) throw new ArgumentNullException(nameof(entries));
@@ -253,41 +250,33 @@ public static class MslWriter
 		{
 			MslLibraryEntry entry = entries[i];
 
-			// Modified sequence must be a non-empty string
 			if (string.IsNullOrEmpty(entry.ModifiedSequence))
 				errors.Add($"Entry [{i}]: ModifiedSequence is null or empty.");
 
-			// Precursor charge must be positive
 			if (entry.Charge <= 0)
 				errors.Add($"Entry [{i}] '{entry.ModifiedSequence}': Charge must be > 0 (got {entry.Charge}).");
 
-			// Precursor m/z must be a positive, finite value
 			if (entry.PrecursorMz <= 0.0 || !double.IsFinite(entry.PrecursorMz))
 				errors.Add($"Entry [{i}] '{entry.ModifiedSequence}': PrecursorMz must be > 0 (got {entry.PrecursorMz}).");
 
-			// At least one fragment ion is required for a useful library entry
 			if (entry.Fragments == null || entry.Fragments.Count == 0)
 			{
 				errors.Add($"Entry [{i}] '{entry.ModifiedSequence}': FragmentCount must be > 0.");
-				continue; // Skip per-fragment checks; Fragments list may be null
+				continue;
 			}
 
-			// Per-fragment checks
 			for (int j = 0; j < entry.Fragments.Count; j++)
 			{
 				MslFragmentIon frag = entry.Fragments[j];
 
-				// Fragment m/z must be a positive, finite value
 				if (frag.Mz <= 0f || !float.IsFinite(frag.Mz))
 					errors.Add($"Entry [{i}] '{entry.ModifiedSequence}', fragment [{j}]: " +
 							   $"Mz must be > 0 (got {frag.Mz}).");
 
-				// Fragment charge must be positive
 				if (frag.Charge <= 0)
 					errors.Add($"Entry [{i}] '{entry.ModifiedSequence}', fragment [{j}]: " +
 							   $"Charge must be > 0 (got {frag.Charge}).");
 
-				// Internal ion residue range must be valid (end > start)
 				if (frag.IsInternalFragment && frag.SecondaryFragmentNumber <= frag.FragmentNumber)
 					errors.Add($"Entry [{i}] '{entry.ModifiedSequence}', fragment [{j}]: " +
 							   $"Internal ion SecondaryFragmentNumber ({frag.SecondaryFragmentNumber}) " +
@@ -304,21 +293,13 @@ public static class MslWriter
 
 	/// <summary>
 	/// Writes the 64-byte <see cref="MslFileHeader"/> to the current stream position.
-	/// All offset and count fields are taken from the pre-computed <paramref name="layout"/>.
+	/// Sets <see cref="MslFormat.FileFlagIsCompressed"/> in <c>FileFlags</c> when the
+	/// layout uses compression.
 	/// </summary>
-	/// <param name="writer">Open binary writer positioned at byte 0.</param>
-	/// <param name="layout">Pre-computed write layout containing all offset values.</param>
 	private static void WriteHeader(BinaryWriter writer, MslWriteLayout layout)
 	{
-		// Populate every field from the pre-computed layout
 		var header = new MslFileHeader
 		{
-			// MslFileHeader.Magic is a uint field serialized by MemoryMarshal.Write, which
-			// writes the value in native (little-endian) byte order on x86/x64. To produce
-			// the canonical on-disk bytes 0x4D 0x5A 0x4C 0x42 ("MZLB") we store the
-			// byte-swapped value 0x424C5A4Du so that the LE serialization reverses it back.
-			// MslFormat.MagicAsUInt32 (0x4D5A4C42u) is the big-endian representation and
-			// must NOT be used directly here.
 			Magic = MagicForLEStruct,
 			FormatVersion = MslFormat.CurrentVersion,
 			FileFlags = layout.FileFlags,
@@ -326,7 +307,8 @@ public static class MslWriter
 			NProteins = layout.NProteins,
 			NElutionGroups = layout.NElutionGroups,
 			NStrings = layout.NStrings,
-			ExtAnnotationTableOffset = layout.HasCustomLosses ? (int)layout.ExtAnnotationTableOffset : 0,
+			ExtAnnotationTableOffset = layout.HasCustomLosses
+										   ? (int)layout.ExtAnnotationTableOffset : 0,
 			ProteinTableOffset = layout.ProteinTableOffset,
 			StringTableOffset = layout.StringTableOffset,
 			PrecursorSectionOffset = layout.PrecursorSectionOffset,
@@ -337,12 +319,23 @@ public static class MslWriter
 	}
 
 	/// <summary>
-	/// Writes one <see cref="MslProteinRecord"/> per unique protein in the layout's protein
-	/// slot list. Fields are taken from the <see cref="MslWriteLayout.ProteinSlots"/> list
-	/// and the pre-computed string-table indices.
+	/// Writes the 16-byte compression descriptor immediately after the file header.
+	/// Present only when <see cref="MslFormat.FileFlagIsCompressed"/> is set.
+	/// <code>
+	///   int64  CompressedFragmentSize    — byte count of the compressed zstd frame
+	///   int64  UncompressedFragmentSize  — byte count after decompression
+	/// </code>
+	/// Both values are known after pre-compression in Pass 1.
 	/// </summary>
-	/// <param name="writer">Open binary writer positioned at the start of the protein table.</param>
-	/// <param name="layout">Pre-computed write layout.</param>
+	private static void WriteCompressionDescriptor(BinaryWriter writer, MslWriteLayout layout)
+	{
+		writer.Write(layout.CompressedFragmentSize);    // int64
+		writer.Write(layout.UncompressedFragmentSize);  // int64
+	}
+
+	/// <summary>
+	/// Writes one <see cref="MslProteinRecord"/> per unique protein.
+	/// </summary>
 	private static void WriteProteinTable(BinaryWriter writer, MslWriteLayout layout)
 	{
 		foreach (ProteinSlot slot in layout.ProteinSlots)
@@ -352,9 +345,9 @@ public static class MslWriter
 				AccessionStringIdx = slot.AccessionStringIdx,
 				NameStringIdx = slot.NameStringIdx,
 				GeneStringIdx = slot.GeneStringIdx,
-				ProteinGroupId = 0,                   // not yet assigned; default to 0
+				ProteinGroupId = 0,
 				NPrecursors = slot.PrecursorCount,
-				ProteinFlags = 0                    // is_reviewed not determined here
+				ProteinFlags = 0
 			};
 
 			WriteStruct(writer, record);
@@ -363,26 +356,14 @@ public static class MslWriter
 
 	/// <summary>
 	/// Writes the string table section.
-	///
-	/// On-disk layout:
-	/// <code>
-	///   int32   NStrings       — total number of string entries
-	///   int32   TotalBytes     — total byte count of all encoded string bodies
-	///   For each string:
-	///     int32  length        — byte count of the UTF-8 body (no null terminator)
-	///     bytes  body          — UTF-8 encoded characters
-	/// </code>
+	/// On-disk: int32 NStrings, int32 TotalBytes, then per-entry: int32 length + UTF-8 body.
 	/// The empty string "" is always at index 0.
 	/// </summary>
-	/// <param name="writer">Open binary writer positioned at the start of the string table.</param>
-	/// <param name="layout">Pre-computed write layout containing the ordered string list.</param>
 	private static void WriteStringTable(BinaryWriter writer, MslWriteLayout layout)
 	{
-		// Header: entry count and total body byte size
 		writer.Write(layout.StringList.Count);
 		writer.Write(layout.StringTableBodyBytes);
 
-		// Each string: 4-byte length prefix + UTF-8 body (no null terminator)
 		foreach (string s in layout.StringList)
 		{
 			byte[] encoded = Encoding.UTF8.GetBytes(s);
@@ -392,13 +373,13 @@ public static class MslWriter
 	}
 
 	/// <summary>
-	/// Writes one <see cref="MslPrecursorRecord"/> per entry in <paramref name="entries"/>,
-	/// preserving the caller's list order. All integer indices and offsets come from the
-	/// pre-computed <paramref name="layout"/>.
+	/// Writes one <see cref="MslPrecursorRecord"/> per entry.
+	///
+	/// When compressed, <c>FragmentBlockOffset</c> values are decompressed-buffer-relative
+	/// (offsets from 0 into the uncompressed fragment buffer, not absolute file positions).
+	/// The reader detects compression via <see cref="MslFormat.FileFlagIsCompressed"/> and
+	/// interprets offsets accordingly.
 	/// </summary>
-	/// <param name="writer">Open binary writer positioned at the start of the precursor array.</param>
-	/// <param name="layout">Pre-computed write layout.</param>
-	/// <param name="entries">Source library entries in write order.</param>
 	private static void WritePrecursorArray(BinaryWriter writer, MslWriteLayout layout,
 		IReadOnlyList<MslLibraryEntry> entries)
 	{
@@ -421,11 +402,10 @@ public static class MslWriter
 				FragmentBlockOffset = pl.FragmentBlockOffset,
 				QValue = entry.QValue,
 				StrippedSeqLength = string.IsNullOrEmpty(entry.StrippedSequence)
-										   ? 0
-										   : entry.StrippedSequence.Length,
+										   ? 0 : entry.StrippedSequence.Length,
 				MoleculeType = (short)entry.MoleculeType,
 				DissociationType = (short)entry.DissociationType,
-				Nce = (short)(entry.Nce * 10),   // stored as NCE × 10
+				Nce = (short)(entry.Nce * 10),
 				PrecursorFlags = MslFormat.EncodePrecursorFlags(
 										   isDecoy: entry.IsDecoy,
 										   isProteotypic: entry.IsProteotypic,
@@ -438,67 +418,124 @@ public static class MslWriter
 	}
 
 	/// <summary>
-	/// Writes the fragment blocks section: for each precursor, writes its fragment ions as
-	/// contiguous <see cref="MslFragmentRecord"/> structs in m/z ascending order (sorted
-	/// during pass 1). Intensities must already be normalized before this is called (done
-	/// in <see cref="MslWriteLayout"/> constructor).
+	/// Writes raw <see cref="MslFragmentRecord"/> structs directly to the output stream
+	/// (uncompressed path only).
+	/// For the compressed path, <see cref="BuildAndCompressFragmentBuffer"/> is used instead.
 	/// </summary>
-	/// <param name="writer">Open binary writer positioned at the start of the fragment section.</param>
-	/// <param name="layout">Pre-computed write layout (used for NeutralLossCode per fragment).</param>
-	/// <param name="entries">Source library entries; fragment lists are already sorted and normalized.</param>
-	private static void WriteFragmentBlocks(BinaryWriter writer, MslWriteLayout layout,
+	private static void WriteFragmentRecords(BinaryWriter writer, MslWriteLayout layout,
 		IReadOnlyList<MslLibraryEntry> entries)
 	{
 		foreach (MslLibraryEntry entry in entries)
 		{
 			foreach (MslFragmentIon frag in entry.Fragments)
 			{
-				// Map the neutral-loss double to the 3-bit NeutralLossCode enum value.
-				MslFormat.NeutralLossCode lossCode = ClassifyNeutralLoss(frag.NeutralLoss);
-
-				// Build the packed flags byte from the four independent flag properties
-				byte flags = MslFormat.EncodeFragmentFlags(
-					isInternal: frag.IsInternalFragment,
-					isDiagnostic: frag.IsDiagnosticIon,
-					lossCode: lossCode,
-					excludeFromQuant: frag.ExcludeFromQuant);
-
-				// When neutral_loss_code == Custom, repurpose ResiduePosition to store the
-				// 1-based index into the extended annotation table (ExtAnnotationIdx).
-				// For all other loss codes, ResiduePosition retains its normal meaning.
-				short residuePos;
-				if (lossCode == MslFormat.NeutralLossCode.Custom)
-					residuePos = (short)layout.CustomLossTable[frag.NeutralLoss];
-				else
-					residuePos = (short)frag.ResiduePosition;
-
-				var record = new MslFragmentRecord
-				{
-					Mz = frag.Mz,
-					Intensity = frag.Intensity,
-					ProductType = (short)(int)frag.ProductType,
-					SecondaryProductType = frag.SecondaryProductType.HasValue
-											   ? (short)(int)frag.SecondaryProductType.Value
-											   : (short)-1,
-					FragmentNumber = (short)frag.FragmentNumber,
-					SecondaryFragmentNumber = (short)frag.SecondaryFragmentNumber,
-					ResiduePosition = residuePos,
-					Charge = (byte)frag.Charge,
-					Flags = flags
-				};
-
-				WriteStruct(writer, record);
+				WriteFragmentRecord(writer, layout, frag);
 			}
 		}
 	}
 
 	/// <summary>
-	/// Writes the offset table: one int64 per precursor giving the absolute file byte offset
-	/// of that precursor's <see cref="MslFragmentRecord"/> block. The offsets come directly
-	/// from the pre-computed <see cref="MslWriteLayout.PrecursorLayouts"/> list.
+	/// Serializes all fragment records into an in-memory buffer, then compresses the buffer
+	/// with zstd at <see cref="MslWriteLayout.CompressionLevel"/>. Returns the compressed bytes.
+	/// Called during Pass 1 (before the output file is opened) so that
+	/// <see cref="MslWriteLayout.CompressedFragmentSize"/> is known when writing the header.
 	/// </summary>
-	/// <param name="writer">Open binary writer positioned at the start of the offset table.</param>
-	/// <param name="layout">Pre-computed write layout.</param>
+	private static byte[] BuildAndCompressFragmentBuffer(MslWriteLayout layout,
+		IReadOnlyList<MslLibraryEntry> entries)
+	{
+		int bufferSize = (int)layout.UncompressedFragmentSize;
+		using var ms = new MemoryStream(bufferSize);
+		using var writer = new BinaryWriter(ms, Encoding.UTF8, leaveOpen: false);
+
+		foreach (MslLibraryEntry entry in entries)
+		{
+			foreach (MslFragmentIon frag in entry.Fragments)
+			{
+				WriteFragmentRecord(writer, layout, frag);
+			}
+		}
+
+		writer.Flush();
+		byte[] uncompressed = ms.ToArray();
+
+		using var compressor = new Compressor(layout.CompressionLevel);
+		return compressor.Wrap(uncompressed).ToArray();
+	}
+
+	/// <summary>
+	/// Writes a single <see cref="MslFragmentRecord"/> to any <see cref="BinaryWriter"/>.
+	/// Shared by the uncompressed direct-write path and the compressed buffer-build path.
+	/// </summary>
+	private static void WriteFragmentRecord(BinaryWriter writer, MslWriteLayout layout,
+		MslFragmentIon frag)
+	{
+		MslFormat.NeutralLossCode lossCode = ClassifyNeutralLoss(frag.NeutralLoss);
+
+		byte flags = MslFormat.EncodeFragmentFlags(
+			isInternal: frag.IsInternalFragment,
+			isDiagnostic: frag.IsDiagnosticIon,
+			lossCode: lossCode,
+			excludeFromQuant: frag.ExcludeFromQuant);
+
+		// When neutral_loss_code == Custom, repurpose ResiduePosition as ExtAnnotationIdx
+		// (1-based index into the extended annotation table).
+		// For all other loss codes, ResiduePosition retains its normal meaning.
+		short residuePos = lossCode == MslFormat.NeutralLossCode.Custom
+			? (short)layout.CustomLossTable[frag.NeutralLoss]
+			: (short)frag.ResiduePosition;
+
+		var record = new MslFragmentRecord
+		{
+			Mz = frag.Mz,
+			Intensity = frag.Intensity,
+			ProductType = (short)(int)frag.ProductType,
+			SecondaryProductType = frag.SecondaryProductType.HasValue
+										  ? (short)(int)frag.SecondaryProductType.Value
+										  : (short)-1,
+			FragmentNumber = (short)frag.FragmentNumber,
+			SecondaryFragmentNumber = (short)frag.SecondaryFragmentNumber,
+			ResiduePosition = residuePos,
+			Charge = (byte)frag.Charge,
+			Flags = flags
+		};
+
+		WriteStruct(writer, record);
+	}
+
+	/// <summary>
+	/// Writes the extended annotation table section when the library contains at least one
+	/// fragment with a custom neutral-loss mass. Does nothing when
+	/// <see cref="MslWriteLayout.HasCustomLosses"/> is false.
+	///
+	/// On-disk format:
+	/// <code>
+	///   int32    NCustomLosses     — count (≥ 2 when section present: sentinel + entries)
+	///   double[] CustomLossMasses  — NCustomLosses × 8 bytes, little-endian IEEE 754
+	/// </code>
+	/// Index 0 is the reserved sentinel (0.0). Valid custom-loss indices start at 1.
+	/// </summary>
+	private static void WriteExtAnnotationTable(BinaryWriter writer, MslWriteLayout layout)
+	{
+		if (!layout.HasCustomLosses)
+			return;
+
+		double[] sorted = layout.CustomLossTable
+			.OrderBy(kv => kv.Value)
+			.Select(kv => kv.Key)
+			.ToArray();
+
+		int totalCount = sorted.Length + 1;   // +1 for index-0 sentinel
+		writer.Write(totalCount);             // int32: NCustomLosses
+		writer.Write(0.0);                    // index 0: reserved sentinel
+		foreach (double mass in sorted)
+			writer.Write(mass);               // indices 1..N: actual custom masses
+	}
+
+	/// <summary>
+	/// Writes the offset table: one int64 per precursor giving the fragment-block offset.
+	/// For uncompressed files this is the absolute file byte offset.
+	/// For compressed files it is the byte offset within the decompressed fragment buffer.
+	/// </summary>
 	private static void WriteOffsetTable(BinaryWriter writer, MslWriteLayout layout)
 	{
 		foreach (MslPrecursorLayout pl in layout.PrecursorLayouts)
@@ -506,49 +543,8 @@ public static class MslWriter
 	}
 
 	/// <summary>
-	/// Writes the extended annotation table section when the library contains at least one
-	/// fragment with a custom neutral-loss mass (<see cref="MslFormat.NeutralLossCode.Custom"/>).
-	/// Does nothing when <see cref="MslWriteLayout.HasCustomLosses"/> is false.
-	///
-	/// On-disk format:
-	/// <code>
-	///   int32    NCustomLosses     — count of entries (≥1 when section is written)
-	///   double[] CustomLossMasses  — NCustomLosses × 8 bytes, little-endian IEEE 754 float64
-	/// </code>
-	///
-	/// Index 0 is reserved (always 0.0); valid custom-loss indices start at 1.
-	/// Entries are written in ascending index order (i.e. in the order they were assigned
-	/// during Pass 1 layout).
-	/// </summary>
-	/// <param name="writer">Open binary writer positioned immediately after the fragment section.</param>
-	/// <param name="layout">Pre-computed write layout containing the custom-loss table.</param>
-	private static void WriteExtAnnotationTable(BinaryWriter writer, MslWriteLayout layout)
-	{
-		if (!layout.HasCustomLosses)
-			return;
-
-		// Sort the deduplication dictionary by assigned index so masses are written
-		// in index order. Index 0 is the reserved sentinel (0.0 = no loss) and is written
-		// first. Valid custom entries follow at indices 1..N, where N = CustomLossTable.Count.
-		double[] sorted = layout.CustomLossTable
-			.OrderBy(kv => kv.Value)
-			.Select(kv => kv.Key)
-			.ToArray();
-
-		// NCustomLosses = actual custom count + 1 for the index-0 sentinel
-		int totalCount = sorted.Length + 1;
-		writer.Write(totalCount);      // int32: NCustomLosses (includes sentinel)
-		writer.Write(0.0);             // index 0: reserved sentinel (no loss)
-		foreach (double mass in sorted)
-			writer.Write(mass);        // indices 1..N: actual custom masses
-	}
-
-	/// <summary>
 	/// Writes the 20-byte <see cref="MslFooter"/> as the final bytes of the file.
 	/// </summary>
-	/// <param name="writer">Open binary writer positioned at the start of the footer.</param>
-	/// <param name="layout">Pre-computed write layout (supplies OffsetTableOffset and NPrecursors).</param>
-	/// <param name="crc32">CRC-32 computed over bytes 0..(OffsetTableOffset−1) by the caller.</param>
 	private static void WriteFooter(BinaryWriter writer, MslWriteLayout layout, uint crc32)
 	{
 		var footer = new MslFooter
@@ -567,31 +563,20 @@ public static class MslWriter
 	// ────────────────────────────────────────────────────────────────────────
 
 	/// <summary>
-	/// Serializes a blittable struct of type <typeparamref name="T"/> to the
-	/// <paramref name="writer"/> stream using <see cref="MemoryMarshal.Write{T}"/> so that
-	/// the entire struct is written in one span operation rather than one field at a time.
-	/// A byte buffer of the correct size is rented from <see cref="ArrayPool{T}"/> to avoid
-	/// per-call heap allocations on the hot path.
+	/// Serializes a blittable struct to the writer stream via <see cref="MemoryMarshal.Write{T}"/>.
+	/// Rents a buffer from <see cref="ArrayPool{T}"/> to avoid per-call heap allocations.
 	/// </summary>
-	/// <typeparam name="T">An unmanaged (blittable) struct type with a known Marshal size.</typeparam>
-	/// <param name="writer">The <see cref="BinaryWriter"/> to write into.</param>
-	/// <param name="value">The struct value to serialize.</param>
 	private static void WriteStruct<T>(BinaryWriter writer, T value) where T : unmanaged
 	{
-		// Determine the exact byte count the OS will see for this struct
 		int size = Marshal.SizeOf<T>();
-
-		// Rent a buffer to avoid a heap allocation per struct write
 		byte[] buffer = ArrayPool<byte>.Shared.Rent(size);
 		try
 		{
-			// Write the struct's raw bytes into the buffer via MemoryMarshal
 			MemoryMarshal.Write(buffer.AsSpan(0, size), ref value);
 			writer.Write(buffer, 0, size);
 		}
 		finally
 		{
-			// Always return the rented buffer, even on exception
 			ArrayPool<byte>.Shared.Return(buffer);
 		}
 	}
@@ -601,45 +586,27 @@ public static class MslWriter
 	// ────────────────────────────────────────────────────────────────────────
 
 	/// <summary>
-	/// Computes the CRC-32/ISO-HDLC checksum over bytes 0..(dataEndOffset−1) of the file
-	/// at <paramref name="filePath"/>. The file must be flushed to disk before calling this.
-	///
-	/// Uses a self-contained lookup-table implementation (standard 0xEDB88320 reflected
-	/// polynomial) to avoid any dependency on <c>System.IO.Hashing</c>, which is only
-	/// available in .NET 6+ and may not be present in all target frameworks.
-	/// Reads the file in 64 KiB chunks to bound peak memory usage.
+	/// Computes the CRC-32/ISO-HDLC checksum over bytes 0..(dataEndOffset−1) of the file.
+	/// Reads in 64 KiB chunks. Uses the standard reflected polynomial 0xEDB88320.
 	/// </summary>
-	/// <param name="filePath">Path of the file to hash.</param>
-	/// <param name="dataEndOffset">
-	///   Number of bytes to include in the hash (exclusive upper bound).
-	///   Bytes at or beyond this offset (the offset table and footer) are excluded.
-	/// </param>
-	/// <returns>The CRC-32 checksum as a uint32.</returns>
 	private static uint ComputeCrc32(string filePath, long dataEndOffset)
 	{
-		// 64 KiB read buffer — large enough to amortise I/O overhead without wasting memory
 		const int ChunkSize = 65536;
-
-		uint crc = 0xFFFF_FFFFu; // standard CRC-32 initial value
+		uint crc = 0xFFFF_FFFFu;
 		byte[] buffer = ArrayPool<byte>.Shared.Rent(ChunkSize);
 
 		try
 		{
 			using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read,
 										  FileShare.None, bufferSize: ChunkSize);
-
 			long remaining = dataEndOffset;
 
 			while (remaining > 0)
 			{
-				// Read up to ChunkSize bytes but never past dataEndOffset
 				int toRead = (int)Math.Min(remaining, ChunkSize);
 				int read = fs.Read(buffer, 0, toRead);
+				if (read == 0) break;
 
-				if (read == 0)
-					break; // Unexpected EOF — CRC will be over whatever was read
-
-				// Feed each byte through the CRC-32 lookup table
 				for (int i = 0; i < read; i++)
 					crc = (crc >> 8) ^ Crc32Table[(crc ^ buffer[i]) & 0xFF];
 
@@ -651,38 +618,21 @@ public static class MslWriter
 			ArrayPool<byte>.Shared.Return(buffer);
 		}
 
-		// Final XOR with 0xFFFFFFFF is part of the CRC-32/ISO-HDLC specification
 		return crc ^ 0xFFFF_FFFFu;
 	}
 
-	/// <summary>
-	/// Precomputed CRC-32/ISO-HDLC lookup table generated from the standard reflected
-	/// polynomial 0xEDB88320. Each entry gives the CRC contribution of one input byte value.
-	/// Computed once at class load time; stored as a static readonly array to avoid
-	/// regeneration overhead on every Write() call.
-	/// </summary>
 	private static readonly uint[] Crc32Table = BuildCrc32Table();
 
-	/// <summary>
-	/// Builds the 256-entry CRC-32 lookup table using the standard reflected polynomial
-	/// 0xEDB88320 (the bit-reversed form of the IEEE 802.3 / PKZIP polynomial 0x04C11DB7).
-	/// </summary>
-	/// <returns>A 256-element uint array where index <c>i</c> is the CRC remainder for byte value <c>i</c>.</returns>
 	private static uint[] BuildCrc32Table()
 	{
-		// Standard reflected CRC-32 polynomial (IEEE 802.3 / PKZIP / zlib convention)
 		const uint Polynomial = 0xEDB8_8320u;
-
 		var table = new uint[256];
 
 		for (uint i = 0; i < 256; i++)
 		{
-			// Process the 8 bits of each possible byte value
 			uint entry = i;
 			for (int bit = 0; bit < 8; bit++)
-				entry = (entry & 1u) != 0
-					? (entry >> 1) ^ Polynomial
-					: entry >> 1;
+				entry = (entry & 1u) != 0 ? (entry >> 1) ^ Polynomial : entry >> 1;
 			table[i] = entry;
 		}
 
@@ -690,19 +640,14 @@ public static class MslWriter
 	}
 
 	/// <summary>
-	/// Computes the CRC-32/ISO-HDLC checksum over a byte array segment.
-	/// Used by the test suite to independently verify the footer CRC without re-reading a file.
+	/// Computes CRC-32 over a byte array segment.
+	/// Used by the test suite to independently verify the footer CRC.
 	/// </summary>
-	/// <param name="data">The byte array to hash.</param>
-	/// <param name="length">Number of bytes to include, starting from index 0.</param>
-	/// <returns>The CRC-32 checksum as a uint32.</returns>
 	internal static uint ComputeCrc32OfArray(byte[] data, int length)
 	{
 		uint crc = 0xFFFF_FFFFu;
-
 		for (int i = 0; i < length; i++)
 			crc = (crc >> 8) ^ Crc32Table[(crc ^ data[i]) & 0xFF];
-
 		return crc ^ 0xFFFF_FFFFu;
 	}
 
@@ -710,23 +655,10 @@ public static class MslWriter
 	// Intensity normalization
 	// ────────────────────────────────────────────────────────────────────────
 
-	/// <summary>
-	/// Normalizes the fragment intensities of a single precursor entry in-place so that
-	/// the most abundant fragment has intensity 1.0. All other intensities are scaled
-	/// proportionally.
-	///
-	/// If the fragment list is empty, or if all intensities are zero or non-finite,
-	/// normalization is skipped and the list is left unchanged.
-	/// </summary>
-	/// <param name="fragments">
-	///   The mutable fragment list belonging to a single precursor. Modified in place.
-	/// </param>
 	private static void NormalizeIntensities(List<MslFragmentIon> fragments)
 	{
-		if (fragments.Count == 0)
-			return;
+		if (fragments.Count == 0) return;
 
-		// Find the maximum finite, positive intensity across all fragments
 		float maxIntensity = 0f;
 		foreach (MslFragmentIon f in fragments)
 		{
@@ -734,44 +666,31 @@ public static class MslWriter
 				maxIntensity = f.Intensity;
 		}
 
-		// Skip normalization when max is zero (all-zero or all-NaN intensities)
-		if (maxIntensity == 0f)
-			return;
+		if (maxIntensity == 0f) return;
 
-		// Divide every intensity by the maximum; result lies in [0, 1]
 		float invMax = 1.0f / maxIntensity;
 		for (int i = 0; i < fragments.Count; i++)
-		{
-			MslFragmentIon f = fragments[i];
-			f.Intensity = f.Intensity * invMax;
-		}
+			fragments[i].Intensity = fragments[i].Intensity * invMax;
 	}
 
 	// ────────────────────────────────────────────────────────────────────────
-	// Neutral-loss classification (shared by layout and writer)
+	// Neutral-loss classification
 	// ────────────────────────────────────────────────────────────────────────
 
 	/// <summary>
 	/// Maps a neutral-loss mass in Daltons to the nearest named
 	/// <see cref="MslFormat.NeutralLossCode"/>, or
-	/// <see cref="MslFormat.NeutralLossCode.Custom"/> when the mass does not correspond to
-	/// any of the seven defined codes.
-	///
-	/// Tolerance is ±0.01 Da to accommodate minor floating-point variations between tools.
+	/// <see cref="MslFormat.NeutralLossCode.Custom"/> when the mass does not correspond
+	/// to any of the defined codes. Tolerance is ±0.01 Da.
 	/// </summary>
-	/// <param name="neutralLoss">
-	///   Neutral-loss mass in Daltons. 0.0 = no loss. Negative = mass removed from fragment.
-	/// </param>
-	/// <returns>The best-matching <see cref="MslFormat.NeutralLossCode"/>.</returns>
 	internal static MslFormat.NeutralLossCode ClassifyNeutralLoss(double neutralLoss)
 	{
-		// Named neutral-loss mass constants (negative = lost from the fragment ion)
 		const double MassH2O = -18.010565;
 		const double MassNH3 = -17.026549;
 		const double MassH3PO4 = -97.976895;
 		const double MassHPO3 = -79.966331;
-		const double MassPlusH2O = MassH3PO4 + MassH2O; // combined loss
-		const double Tolerance = 0.01; // Da — intentionally loose for cross-tool compatibility
+		const double MassPlusH2O = MassH3PO4 + MassH2O;
+		const double Tolerance = 0.01;
 
 		if (neutralLoss == 0.0) return MslFormat.NeutralLossCode.None;
 		if (Math.Abs(neutralLoss - MassH2O) < Tolerance) return MslFormat.NeutralLossCode.H2O;
@@ -789,7 +708,8 @@ public static class MslWriter
 	/// <summary>
 	/// Encapsulates all pre-computed layout information for a single write operation:
 	/// section offsets, string table, protein deduplication, elution group assignments,
-	/// per-precursor fragment-block offsets, and file-level flags.
+	/// per-precursor fragment-block offsets, custom neutral-loss table, compression state,
+	/// and file-level flags.
 	///
 	/// Constructing this object constitutes Pass 1 of the two-pass algorithm. After
 	/// construction every offset is finalized and can be written sequentially in Pass 2
@@ -798,134 +718,124 @@ public static class MslWriter
 	private sealed class MslWriteLayout
 	{
 		// ── Counts ───────────────────────────────────────────────────────────
-
-		/// <summary>Total number of precursor entries to write.</summary>
 		public int NPrecursors { get; }
-
-		/// <summary>Number of unique proteins in the protein table.</summary>
 		public int NProteins { get; private set; }
-
-		/// <summary>Number of unique elution groups (distinct stripped sequences).</summary>
 		public int NElutionGroups { get; private set; }
-
-		/// <summary>Total number of unique strings in the string table.</summary>
 		public int NStrings => StringList.Count;
 
 		// ── Section offsets (absolute file byte positions) ───────────────────
 
-		/// <summary>Byte offset of the first MslProteinRecord (= MslFormat.HeaderSize).</summary>
+		/// <summary>Absolute byte offset of the first MslProteinRecord.</summary>
 		public long ProteinTableOffset { get; private set; }
 
-		/// <summary>Byte offset of the first string table entry.</summary>
+		/// <summary>Absolute byte offset of the first string table entry.</summary>
 		public long StringTableOffset { get; private set; }
 
-		/// <summary>Byte offset of the first MslPrecursorRecord.</summary>
+		/// <summary>Absolute byte offset of the first MslPrecursorRecord.</summary>
 		public long PrecursorSectionOffset { get; private set; }
 
-		/// <summary>Byte offset of the first MslFragmentRecord.</summary>
+		/// <summary>
+		/// Absolute byte offset in the file where fragment data begins.
+		/// For uncompressed files: offset of the first MslFragmentRecord.
+		/// For compressed files: offset of the start of the zstd frame.
+		/// Written into MslFileHeader.FragmentSectionOffset so the reader can locate it.
+		/// </summary>
 		public long FragmentSectionOffset { get; private set; }
 
-		/// <summary>Byte offset of the per-precursor offset table (one int64 per precursor).</summary>
+		/// <summary>
+		/// Absolute byte offset of the per-precursor offset table.
+		/// For uncompressed files: immediately after the fragment section (+ ext table if present).
+		/// For compressed files: computed lazily as FragmentSectionOffset + CompressedFragmentSize
+		/// + ext annotation table size, once CompressedFragmentSize is set.
+		/// </summary>
 		public long OffsetTableOffset { get; private set; }
 
-		/// <summary>
-		/// Byte offset immediately after all data to be covered by the CRC-32 checksum.
-		/// Equals <see cref="OffsetTableOffset"/>; the offset table and footer are excluded
-		/// from the CRC.
-		/// </summary>
+		/// <summary>CRC covers bytes [0, DataEndOffset).</summary>
 		public long DataEndOffset => OffsetTableOffset;
 
 		// ── String table ─────────────────────────────────────────────────────
-
-		/// <summary>
-		/// Ordered list of all unique strings; index 0 is always the empty string "".
-		/// The integer index of each string in this list is what is stored in every
-		/// string-index field of the precursor and protein records.
-		/// </summary>
 		public List<string> StringList { get; private set; }
-
-		/// <summary>
-		/// Total number of UTF-8 encoded bytes in all string bodies (excluding the
-		/// 4-byte length prefix of each entry). Written as the TotalBytes header in
-		/// <see cref="MslWriter.WriteStringTable"/>.
-		/// </summary>
 		public int StringTableBodyBytes { get; private set; }
 
 		// ── Protein table ────────────────────────────────────────────────────
-
-		/// <summary>
-		/// One slot per unique protein accession, in first-occurrence order.
-		/// Written verbatim as the protein table section.
-		/// </summary>
 		public List<ProteinSlot> ProteinSlots { get; private set; }
 
 		// ── Per-precursor layout ─────────────────────────────────────────────
-
-		/// <summary>
-		/// Per-precursor layout data (string indices, protein index, fragment-block offset)
-		/// in the same order as the original entries list. Indexed by precursor position.
-		/// </summary>
 		public List<MslPrecursorLayout> PrecursorLayouts { get; private set; }
 
 		// ── File-level flags ─────────────────────────────────────────────────
-
-		/// <summary>
-		/// Packed int32 file-level flag field for the header. Computed by inspecting all
-		/// entries for ion-mobility, protein data, gene data, and predicted-source presence.
-		/// </summary>
 		public int FileFlags { get; private set; }
 
 		// ── Extended annotation table ────────────────────────────────────────
-
-		/// <summary>
-		/// True when at least one fragment in the library has a custom neutral-loss mass
-		/// (i.e. a mass that does not match any of the five named NeutralLossCode values).
-		/// Controls whether the extended annotation table section is written.
-		/// </summary>
 		public bool HasCustomLosses { get; private set; }
-
-		/// <summary>
-		/// Deduplication table for custom neutral-loss masses.
-		/// Key: exact double neutral-loss mass. Value: 1-based index in the extended
-		/// annotation table (index 0 is reserved as the "no-loss sentinel" = 0.0).
-		/// Only populated when <see cref="HasCustomLosses"/> is true.
-		/// </summary>
 		public Dictionary<double, int> CustomLossTable { get; private set; } = new();
 
 		/// <summary>
-		/// Absolute byte offset of the extended annotation table section.
-		/// Valid only when <see cref="HasCustomLosses"/> is true; 0 otherwise.
+		/// Absolute byte offset of the extended annotation table in the file.
+		/// 0 when <see cref="HasCustomLosses"/> is false.
+		/// For compressed files this is after the compressed fragment data.
 		/// </summary>
 		public long ExtAnnotationTableOffset { get; private set; }
+
+		// ── Compression ──────────────────────────────────────────────────────
+
+		/// <summary>zstd compression level supplied to the constructor; 0 = no compression.</summary>
+		public int CompressionLevel { get; }
+
+		/// <summary>True when <see cref="CompressionLevel"/> is greater than 0.</summary>
+		public bool IsCompressed => CompressionLevel > 0;
+
+		/// <summary>
+		/// Byte count of the compressed zstd frame.
+		/// Set by <see cref="MslWriter.Write"/> after <see cref="BuildAndCompressFragmentBuffer"/>
+		/// returns; used by <see cref="WriteCompressionDescriptor"/> and, for compressed files,
+		/// to compute <see cref="OffsetTableOffset"/>. 0 until set.
+		/// </summary>
+		public long CompressedFragmentSize
+		{
+			get => _compressedFragmentSize;
+			set
+			{
+				_compressedFragmentSize = value;
+				if (IsCompressed)
+					UpdateCompressedOffsets();
+			}
+		}
+		private long _compressedFragmentSize;
+
+		/// <summary>
+		/// Total byte count of the uncompressed fragment records.
+		/// Computed during Pass 1 from total fragment counts × FragmentRecordSize.
+		/// Written into the compression descriptor alongside CompressedFragmentSize.
+		/// </summary>
+		public long UncompressedFragmentSize { get; private set; }
 
 		// ── Constructor (Pass 1) ─────────────────────────────────────────────
 
 		/// <summary>
-		/// Performs the complete Pass-1 layout computation over <paramref name="entries"/>:
-		/// string internment, protein deduplication, elution-group assignment, per-precursor
-		/// m/z sort + intensity normalization, fragment-block offset computation, custom
-		/// neutral-loss table construction, and file-level flag evaluation. All results are
-		/// stored in the public properties above.
+		/// Performs the complete Pass-1 layout computation: string internment, protein
+		/// deduplication, elution-group assignment, per-precursor m/z sort + intensity
+		/// normalization, custom neutral-loss table construction, section offset computation,
+		/// and file-level flag evaluation.
 		/// </summary>
 		/// <param name="entries">
-		///   The library entries to be written. Modified in place (fragment lists are sorted
+		///   Library entries to be written. Modified in place (fragment lists are sorted
 		///   and intensities are normalized). Must not be null.
 		/// </param>
-		public MslWriteLayout(IReadOnlyList<MslLibraryEntry> entries)
+		/// <param name="compressionLevel">
+		///   zstd level; 0 = no compression. When &gt; 0 the compression descriptor (16 bytes)
+		///   is included in section offset calculations.
+		/// </param>
+		public MslWriteLayout(IReadOnlyList<MslLibraryEntry> entries, int compressionLevel)
 		{
 			NPrecursors = entries.Count;
+			CompressionLevel = compressionLevel;
 
 			// ── Step 1: String internment ─────────────────────────────────────
-			// Dictionary maps string value → integer index in StringList.
-			// Index 0 is reserved for the empty string so that absent optional fields
-			// (protein name, gene name, etc.) resolve to a defined empty-string slot.
 			var stringIndex = new Dictionary<string, int>(StringComparer.Ordinal);
 			StringList = new List<string>();
-
-			// Pre-register the empty string at index 0
 			InternString(string.Empty, stringIndex, StringList);
 
-			// Walk every entry and intern all string fields
 			foreach (MslLibraryEntry entry in entries)
 			{
 				InternString(entry.ModifiedSequence ?? string.Empty, stringIndex, StringList);
@@ -935,14 +845,12 @@ public static class MslWriter
 				InternString(entry.GeneName ?? string.Empty, stringIndex, StringList);
 			}
 
-			// Compute total UTF-8 body bytes (sum of per-string UTF-8 byte counts)
 			int bodyBytes = 0;
 			foreach (string s in StringList)
 				bodyBytes += Encoding.UTF8.GetByteCount(s);
 			StringTableBodyBytes = bodyBytes;
 
 			// ── Step 2: Protein deduplication ─────────────────────────────────
-			// Map from accession string → protein slot index (zero-based)
 			var proteinSlotIndex = new Dictionary<string, int>(StringComparer.Ordinal);
 			ProteinSlots = new List<ProteinSlot>();
 
@@ -952,7 +860,6 @@ public static class MslWriter
 
 				if (!proteinSlotIndex.TryGetValue(acc, out int slotIdx))
 				{
-					// First time we've seen this accession: create a new slot
 					slotIdx = ProteinSlots.Count;
 					proteinSlotIndex[acc] = slotIdx;
 					ProteinSlots.Add(new ProteinSlot
@@ -965,14 +872,12 @@ public static class MslWriter
 					});
 				}
 
-				// Increment the precursor count for this protein slot
 				ProteinSlots[slotIdx].PrecursorCount++;
 			}
 
 			NProteins = ProteinSlots.Count;
 
 			// ── Step 3: Elution group assignment ──────────────────────────────
-			// Groups entries by StrippedSequence; groups appear in first-occurrence order.
 			var elutionGroupIndex = new Dictionary<string, int>(StringComparer.Ordinal);
 			int nextGroupId = 0;
 
@@ -986,24 +891,20 @@ public static class MslWriter
 					elutionGroupIndex[stripped] = groupId;
 				}
 
-				// Assign the computed elution group ID back to the entry
 				entry.ElutionGroupId = groupId;
 			}
 
 			NElutionGroups = nextGroupId;
 
-			// ── Step 4: Fragment ordering + intensity normalization + custom-loss table ──
-			// Build the custom neutral-loss deduplication table while sorting and normalizing.
-			// Index 0 is the reserved "no-loss sentinel" (0.0). Valid custom entries start at 1.
+			// ── Step 4: Fragment ordering + normalization + custom-loss table ──
 			CustomLossTable = new Dictionary<double, int>();
-			int nextCustomIdx = 1; // index 0 reserved
+			int nextCustomIdx = 1; // index 0 is reserved as the 0.0 sentinel
 
 			foreach (MslLibraryEntry entry in entries)
 			{
 				if (entry.Fragments == null || entry.Fragments.Count == 0)
 					continue;
 
-				// Assign ExtAnnotationIdx for any custom-loss fragment seen in this entry
 				foreach (MslFragmentIon frag in entry.Fragments)
 				{
 					if (ClassifyNeutralLoss(frag.NeutralLoss) == MslFormat.NeutralLossCode.Custom)
@@ -1014,87 +915,86 @@ public static class MslWriter
 					}
 				}
 
-				// Sort fragments by m/z ascending to support binary search during scoring
 				entry.Fragments.Sort((a, b) => a.Mz.CompareTo(b.Mz));
-
-				// Normalize intensities so the most abundant fragment = 1.0
 				NormalizeIntensities(entry.Fragments);
 			}
 
 			// ── Step 5: Offset computation ────────────────────────────────────
-			// Compute every absolute file offset in dependency order.
+			// When compressed, the 16-byte descriptor is inserted at offset 64, pushing
+			// the protein table (and everything after it) up by CompressionDescriptorSize.
+			long headerEnd = MslFormat.HeaderSize
+				+ (IsCompressed ? CompressionDescriptorSize : 0L);
 
-			// Protein table starts immediately after the fixed-size header
-			ProteinTableOffset = MslFormat.HeaderSize;
+			ProteinTableOffset = headerEnd;
 
-			// String table starts after the protein table
-			StringTableOffset = ProteinTableOffset + (long)NProteins * MslFormat.ProteinRecordSize;
+			StringTableOffset = ProteinTableOffset
+				+ (long)NProteins * MslFormat.ProteinRecordSize;
 
-			// String table on-disk size: 4-byte NStrings + 4-byte TotalBytes + per-entry data
-			// Each entry: 4-byte length prefix + UTF-8 body bytes
-			long stringTableTotalBytes = 4L + 4L +  // NStrings header + TotalBytes header
-										 (long)StringList.Count * 4 + // length prefixes
-										 StringTableBodyBytes;         // body bytes
+			long stringTableTotalBytes = 4L + 4L
+				+ (long)StringList.Count * 4
+				+ StringTableBodyBytes;
 
-			// Precursor section starts after the string table
 			PrecursorSectionOffset = StringTableOffset + stringTableTotalBytes;
 
-			// Fragment section starts after all precursor records
-			FragmentSectionOffset = PrecursorSectionOffset +
-									(long)NPrecursors * MslFormat.PrecursorRecordSize;
+			FragmentSectionOffset = PrecursorSectionOffset
+				+ (long)NPrecursors * MslFormat.PrecursorRecordSize;
 
 			// ── Step 6: Per-precursor layout (fragment-block offsets) ──────────
 			PrecursorLayouts = new List<MslPrecursorLayout>(NPrecursors);
 
-			// Accumulate the running fragment section offset for each precursor
-			long runningFragmentOffset = FragmentSectionOffset;
+			// Uncompressed: FragmentBlockOffset = absolute file position.
+			// Compressed:   FragmentBlockOffset = offset within decompressed buffer (starts at 0).
+			long runningOffset = IsCompressed ? 0L : FragmentSectionOffset;
 
 			for (int i = 0; i < entries.Count; i++)
 			{
 				MslLibraryEntry entry = entries[i];
-
 				string acc = entry.ProteinAccession ?? string.Empty;
 				int proteinIdx = proteinSlotIndex.TryGetValue(acc, out int pIdx) ? pIdx : -1;
 
-				var pl = new MslPrecursorLayout
+				PrecursorLayouts.Add(new MslPrecursorLayout
 				{
 					ModifiedSeqStringIdx = stringIndex[entry.ModifiedSequence ?? string.Empty],
 					StrippedSeqStringIdx = stringIndex[entry.StrippedSequence ?? string.Empty],
 					ProteinIdx = proteinIdx,
-					FragmentBlockOffset = runningFragmentOffset
-				};
+					FragmentBlockOffset = runningOffset
+				});
 
-				PrecursorLayouts.Add(pl);
-
-				// Advance past this precursor's fragment block
 				int fragCount = entry.Fragments?.Count ?? 0;
-				runningFragmentOffset += (long)fragCount * MslFormat.FragmentRecordSize;
+				runningOffset += (long)fragCount * MslFormat.FragmentRecordSize;
 			}
 
-			// Extended annotation table sits between the fragment section and the offset table.
-			// Size: 4 bytes (NCustomLosses int32) + NCustomLosses × 8 bytes (double[]).
-			long fragmentSectionEnd = runningFragmentOffset;
+			// Total uncompressed fragment bytes
+			UncompressedFragmentSize = IsCompressed
+				? runningOffset                          // runningOffset started at 0
+				: runningOffset - FragmentSectionOffset;
 
-			if (HasCustomLosses)
+			// For uncompressed files, compute OffsetTableOffset now (it's fully known).
+			// For compressed files, OffsetTableOffset is computed lazily in
+			// UpdateCompressedOffsets() once CompressedFragmentSize is set.
+			if (!IsCompressed)
 			{
-				ExtAnnotationTableOffset = fragmentSectionEnd;
-				// Size: 4 bytes (int32 NCustomLosses) + (Count + 1) × 8 bytes (sentinel + custom masses)
-				long extAnnotationTableSize = 4L + (long)(CustomLossTable.Count + 1) * sizeof(double);
-				OffsetTableOffset = ExtAnnotationTableOffset + extAnnotationTableSize;
+				long fragmentSectionEnd = runningOffset; // = absolute end of fragment section
+				if (HasCustomLosses)
+				{
+					ExtAnnotationTableOffset = fragmentSectionEnd;
+					long extAnnotSize = 4L + (long)(CustomLossTable.Count + 1) * sizeof(double);
+					OffsetTableOffset = ExtAnnotationTableOffset + extAnnotSize;
+				}
+				else
+				{
+					ExtAnnotationTableOffset = 0;
+					OffsetTableOffset = fragmentSectionEnd;
+				}
 			}
-			else
-			{
-				ExtAnnotationTableOffset = 0;
-				OffsetTableOffset = fragmentSectionEnd;
-			}
+			// (For compressed files, OffsetTableOffset remains 0 until UpdateCompressedOffsets)
 
 			// ── Step 7: File-level flags ───────────────────────────────────────
 			int flags = 0;
-
 			bool anyIonMobility = false;
 			bool anyProteinData = false;
 			bool anyGeneData = false;
-			bool allPredicted = NPrecursors > 0; // assume true until falsified
+			bool allPredicted = NPrecursors > 0;
 
 			foreach (MslLibraryEntry entry in entries)
 			{
@@ -1109,30 +1009,45 @@ public static class MslWriter
 			if (anyGeneData) flags |= MslFormat.FileFlagHasGeneData;
 			if (allPredicted) flags |= MslFormat.FileFlagIsPredicted;
 			if (HasCustomLosses) flags |= MslFormat.FileFlagHasExtAnnotations;
+			if (IsCompressed) flags |= MslFormat.FileFlagIsCompressed;
 
 			FileFlags = flags;
 		}
 
+		/// <summary>
+		/// Computes <see cref="OffsetTableOffset"/> and <see cref="ExtAnnotationTableOffset"/>
+		/// for compressed files, once <see cref="CompressedFragmentSize"/> is known.
+		/// Called automatically when the <see cref="CompressedFragmentSize"/> property is set.
+		/// </summary>
+		private void UpdateCompressedOffsets()
+		{
+			// For compressed files, the on-disk layout after the precursor section is:
+			//   [Compressed Fragment Data]  CompressedFragmentSize bytes
+			//   [Extended Annotation Table] present when HasCustomLosses
+			//   [Offset Table]
+			long compressedEnd = FragmentSectionOffset + _compressedFragmentSize;
+
+			if (HasCustomLosses)
+			{
+				ExtAnnotationTableOffset = compressedEnd;
+				long extAnnotSize = 4L + (long)(CustomLossTable.Count + 1) * sizeof(double);
+				OffsetTableOffset = ExtAnnotationTableOffset + extAnnotSize;
+			}
+			else
+			{
+				ExtAnnotationTableOffset = 0;
+				OffsetTableOffset = compressedEnd;
+			}
+		}
+
 		// ── String internment helper ─────────────────────────────────────────
 
-		/// <summary>
-		/// Adds <paramref name="value"/> to the string table if it is not already present
-		/// and returns its assigned integer index. If the string is already interned its
-		/// existing index is returned without modification to the table.
-		/// </summary>
-		/// <param name="value">The string to intern. Must not be null.</param>
-		/// <param name="index">The lookup dictionary mapping string → int index.</param>
-		/// <param name="list">The ordered string list; the string is appended when new.</param>
-		/// <returns>The zero-based integer index assigned to <paramref name="value"/>.</returns>
 		private static int InternString(string value,
-			Dictionary<string, int> index,
-			List<string> list)
+			Dictionary<string, int> index, List<string> list)
 		{
-			// Fast path: string is already interned
 			if (index.TryGetValue(value, out int existingIdx))
 				return existingIdx;
 
-			// Slow path: assign the next sequential index
 			int newIdx = list.Count;
 			list.Add(value);
 			index[value] = newIdx;
@@ -1151,22 +1066,10 @@ public static class MslWriter
 /// </summary>
 internal sealed class ProteinSlot
 {
-	/// <summary>UniProt-style accession string, used as the deduplication key.</summary>
 	public string Accession { get; init; } = string.Empty;
-
-	/// <summary>String-table index for the protein accession string.</summary>
 	public int AccessionStringIdx { get; init; }
-
-	/// <summary>String-table index for the human-readable protein name.</summary>
 	public int NameStringIdx { get; init; }
-
-	/// <summary>String-table index for the gene symbol.</summary>
 	public int GeneStringIdx { get; init; }
-
-	/// <summary>
-	/// Number of precursor entries that reference this protein. Populated during Pass 1
-	/// and written to <see cref="MslProteinRecord.NPrecursors"/> in Pass 2.
-	/// </summary>
 	public int PrecursorCount { get; set; }
 }
 
@@ -1177,29 +1080,13 @@ internal sealed class ProteinSlot
 /// </summary>
 internal sealed class MslPrecursorLayout
 {
-	/// <summary>
-	/// String-table index for the modified sequence (mzLib bracket notation).
-	/// Written to <see cref="MslPrecursorRecord.ModifiedSeqStringIdx"/>.
-	/// </summary>
 	public int ModifiedSeqStringIdx { get; init; }
-
-	/// <summary>
-	/// String-table index for the stripped (unmodified) amino-acid sequence.
-	/// Written to <see cref="MslPrecursorRecord.StrippedSeqStringIdx"/>.
-	/// </summary>
 	public int StrippedSeqStringIdx { get; init; }
-
-	/// <summary>
-	/// Zero-based index into the protein table for the owning protein.
-	/// −1 when the entry has no protein assignment.
-	/// Written to <see cref="MslPrecursorRecord.ProteinIdx"/>.
-	/// </summary>
 	public int ProteinIdx { get; init; }
 
 	/// <summary>
-	/// Absolute file byte offset of the first <see cref="MslFragmentRecord"/> for this
-	/// precursor. Computed arithmetically in Pass 1 by accumulating fragment block sizes.
-	/// Written to <see cref="MslPrecursorRecord.FragmentBlockOffset"/> and to the offset table.
+	/// Absolute file byte offset (uncompressed) or decompressed-buffer offset (compressed)
+	/// of the first <see cref="MslFragmentRecord"/> for this precursor.
 	/// </summary>
 	public long FragmentBlockOffset { get; init; }
 }

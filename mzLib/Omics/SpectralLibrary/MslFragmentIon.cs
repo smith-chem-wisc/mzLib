@@ -377,20 +377,24 @@ public class MslLibraryEntry
 				};
 			}
 
-			// Construct the Product using the confirmed 6-parameter mzLib constructor:
-			// (productType, terminus, neutralMass, fragmentNumber, residuePosition, neutralLoss).
+			// Construct the Product using the mzLib constructor:
+			// (productType, terminus, neutralMass, fragmentNumber, residuePosition, neutralLoss,
+			//  secondaryProductType, secondaryFragmentNumber).
 			// neutralMass is passed as 0.0 — this matches the pattern used throughout the
 			// existing mzLib readers (MSP reader, DIA-NN reader) because mzLib uses the stored
 			// m/z directly for matching rather than recomputing from neutral mass at read time.
-			// SecondaryProductType and SecondaryFragmentNumber are MSL-specific internal-fragment
-			// metadata carried only in MslFragmentIon; they are not part of the mzLib Product type.
+			// SecondaryProductType and SecondaryFragmentNumber are passed through to Product's
+			// optional parameters, enabling correct internal-ion annotation (e.g. bIy[3-6])
+			// in MetaMorpheus spectrum visualization and scoring.
 			var product = new Product(
 				mslIon.ProductType,
 				terminus,
 				neutralMass: 0.0,
 				mslIon.FragmentNumber,
 				mslIon.ResiduePosition,
-				mslIon.NeutralLoss);
+				mslIon.NeutralLoss,
+				mslIon.SecondaryProductType,
+				mslIon.SecondaryFragmentNumber);
 
 			// Wrap in a MatchedFragmentIon with the stored Mz (float → double), Intensity, and Charge
 			matchedIons.Add(new MatchedFragmentIon(product, mslIon.Mz, mslIon.Intensity, mslIon.Charge));
@@ -452,11 +456,11 @@ public class MslLibraryEntry
 				Mz = (float)ion.Mz,
 				Intensity = (float)ion.Intensity,
 				ProductType = product.ProductType,
-				// SecondaryProductType and SecondaryFragmentNumber describe internal-fragment
-				// boundaries (e.g. bIy[2-5]). The mzLib Product type does not carry these fields;
-				// they cannot be recovered from a LibrarySpectrum round-trip. Default to null/0.
-				SecondaryProductType = null,
-				SecondaryFragmentNumber = 0,
+				// SecondaryProductType and SecondaryFragmentNumber are read directly from Product,
+				// which carries them since mzLib added optional internal-ion fields to its
+				// Product constructor. Both fields default to null/0 for terminal ions.
+				SecondaryProductType = product.SecondaryProductType,
+				SecondaryFragmentNumber = product.SecondaryFragmentNumber,
 				FragmentNumber = product.FragmentNumber,
 				ResiduePosition = product.ResiduePosition,
 				Charge = ion.Charge,
