@@ -23,7 +23,6 @@
     <ProjectReference Include="..\Quantification\Quantification.csproj" />
     <ProjectReference Include="..\Readers\Readers.csproj" />
     <ProjectReference Include="..\SpectralAveraging\SpectralAveraging.csproj" />
-	  <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
   </ItemGroup>
 
   <ItemGroup>

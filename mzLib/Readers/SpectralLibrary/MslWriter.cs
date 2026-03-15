@@ -542,7 +542,7 @@ public static class MslWriter
 		try
 		{
 			// Write the struct's raw bytes into the buffer via MemoryMarshal
-			MemoryMarshal.Write(buffer.AsSpan(0, size), ref value);
+			MemoryMarshal.Write(buffer.AsSpan(0, size), in value);
 			writer.Write(buffer, 0, size);
 		}
 		finally
