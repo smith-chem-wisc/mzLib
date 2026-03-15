@@ -1,444 +1,274 @@
-﻿// Development/Benchmarks/MslBenchmarks.cs
-// Prompt 8 — BenchmarkDotNet benchmark suite for the MSL binary spectral library.
-//
-// ── .csproj change required before this compiles ─────────────────────────────
-// Add inside an <ItemGroup> in Development/Development.csproj:
-//
-//   <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
-//
-// Run benchmarks from the Development project root (NOT via dotnet test):
-//   dotnet run -c Release -- --filter "*MslBenchmarks*"
-// ─────────────────────────────────────────────────────────────────────────────
-
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
+using System.Text;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
-using MassSpectrometry;                          // ProductType, DissociationType
+using MassSpectrometry;
 using Omics.Fragmentation;
-using Omics.SpectralMatch.MslSpectralLibrary;   // MslLibraryEntry, MslFragmentIon,
-												// MslIndex, MslPrecursorIndexEntry,
-												// NeutralLossCode, MoleculeType
-using Readers.SpectralLibrary;                   // MslLibrary, MslWriter
+using Omics.SpectralMatch.MslSpectralLibrary;
+using Readers.SpectralLibrary;
 
 namespace Development.MSL
 {
 	/// <summary>
-	/// BenchmarkDotNet suite covering write, full-load, index-only-load, query,
-	/// index-build, and RT-calibration operations on <see cref="MslLibrary"/>.
+	/// BenchmarkDotNet suite for core MSL library operations: write, full-load,
+	/// index-only-load, m/z window query, DDA lookup, index build, and RT calibration.
 	///
-	/// Attributes
-	/// ----------
-	/// [MemoryDiagnoser]  — reports Gen0/Gen1/Gen2 GC counts and allocated bytes per op.
-	/// [SimpleJob(...)]   — targets .NET 8 with default warmup + measurement counts.
+	/// Each benchmark is parameterised over three library sizes:
+	///   NPrecursors = 1 000, 50 000, 500 000
 	///
-	/// Design note — query benchmarks
-	/// --------------------------------
-	/// <see cref="MslLibrary"/> does not expose a public Index property. Query benchmarks
-	/// therefore keep a long-lived <see cref="MslLibrary"/> instance alive in
-	/// <see cref="_queryLib"/> (opened in index-only mode) and call its public query methods
-	/// directly. The instance is disposed in <see cref="GlobalCleanup"/>.
-	///
-	/// Index-build benchmarks work directly with <see cref="MslIndex.Build"/>, which is
-	/// the public static factory on the index type.
-	///
-	/// RT-calibration benchmarks call <see cref="MslLibrary.WithCalibratedRetentionTimes"/>,
-	/// which returns a new <see cref="MslLibrary"/> and does not modify the original.
+	/// All benchmarks share a common <see cref="GlobalSetup"/> that writes a synthetic
+	/// .msl file to a temp path and (for query/lookup/calibration benchmarks) loads it
+	/// into <see cref="_queryLib"/>. <see cref="GlobalCleanup"/> disposes and deletes
+	/// the temp file.
 	/// </summary>
-	[MemoryDiagnoser]
 	[SimpleJob(RuntimeMoniker.Net80)]
+	[MemoryDiagnoser]
+	[HideColumns("Job", "RntmId", "WarmupCount", "LaunchCount", "TargetCount")]
 	public class MslBenchmarks
 	{
-		// ── Parameters ───────────────────────────────────────────────────────────────
+		// ── Parameters ────────────────────────────────────────────────────────────
 
-		/// <summary>
-		/// Number of synthetic precursor entries written/read in each benchmark.
-		/// BenchmarkDotNet runs the full suite once per value.
-		/// Matches the three sizes in the prompt performance-target table.
-		/// </summary>
 		[Params(1_000, 50_000, 500_000)]
-		public int NPrecursors;
+		public int NPrecursors { get; set; }
 
-		/// <summary>
-		/// Average fragment ions per precursor. Fixed at 10 per the prompt spec.
-		/// Declared as [Params] so the value appears in BenchmarkDotNet result tables.
-		/// </summary>
 		[Params(10)]
-		public int AvgFragmentsPerPrecursor;
+		public int AvgFrag { get; set; }
 
-		// ── Private state (populated by GlobalSetup) ─────────────────────────────────
+		// ── State ─────────────────────────────────────────────────────────────────
 
-		/// <summary>
-		/// Absolute path of the temporary .msl file written in <see cref="GlobalSetup"/>.
-		/// Shared by all read/query benchmarks. Deleted in <see cref="GlobalCleanup"/>.
-		/// </summary>
-		private string _tempMslPath = string.Empty;
-
-		/// <summary>
-		/// Synthetic entries generated once in <see cref="GlobalSetup"/> and reused by
-		/// <see cref="Write_MslLibrary"/> and <see cref="BuildIndex_FromEntries"/> so that
-		/// data-generation cost is excluded from timed benchmark iterations.
-		/// </summary>
-		private List<MslLibraryEntry> _syntheticEntries = new();
-
-		/// <summary>
-		/// Long-lived <see cref="MslLibrary"/> opened in index-only mode during
-		/// <see cref="GlobalSetup"/> and kept alive for the duration of all query benchmarks.
-		/// Disposed in <see cref="GlobalCleanup"/>.
-		///
-		/// <see cref="MslLibrary"/> does not expose a public Index property; all query
-		/// benchmarks call its public methods (<see cref="MslLibrary.QueryMzWindow"/>,
-		/// <see cref="MslLibrary.TryGetEntry"/>) directly.
-		/// </summary>
+		private string _tempMslPath = null!;
 		private MslLibrary _queryLib = null!;
+		private IReadOnlyList<MslLibraryEntry> _entries = null!;
 
-		/// <summary>
-		/// Median precursor m/z of the synthetic library, pre-computed in
-		/// <see cref="GlobalSetup"/>. Centres the single-query window in
-		/// <see cref="QueryMzWindow_SingleQuery"/>.
-		/// </summary>
-		private float _medianMz;
+		// ── Setup / Cleanup ───────────────────────────────────────────────────────
 
-		/// <summary>
-		/// Half-width of each m/z query window: 12.5 Da each side = 25 Da total,
-		/// matching the prompt specification.
-		/// </summary>
-		private const float QueryHalfWidth = 12.5f;
-
-		/// <summary>
-		/// 1 000 pre-computed, non-overlapping query-centre m/z values used by
-		/// <see cref="QueryMzWindow_1000Queries"/>. Built in <see cref="GlobalSetup"/> by
-		/// spacing 25-Da windows across the library's m/z range.
-		/// </summary>
-		private float[] _queryMzCentres = Array.Empty<float>();
-
-		// ── Setup / teardown ─────────────────────────────────────────────────────────
-
-		/// <summary>
-		/// Runs once per parameter combination before any benchmark iterations begin.
-		///
-		/// Steps
-		/// -----
-		/// 1. Generate <see cref="NPrecursors"/> synthetic entries.
-		/// 2. Write them to a unique temp .msl file; record wall-clock time.
-		/// 3. Open the file in index-only mode and store as <see cref="_queryLib"/>.
-		/// 4. Compute median m/z and 1 000 non-overlapping query window centres.
-		/// 5. Print a setup summary to stdout (captured in BenchmarkDotNet logs).
-		/// </summary>
 		[GlobalSetup]
 		public void GlobalSetup()
 		{
-			var sw = Stopwatch.StartNew();
-
-			// 1. Generate entries
-			_syntheticEntries = GenerateSyntheticEntries(NPrecursors, AvgFragmentsPerPrecursor);
-
-			// 2. Write to temp file.
-			//    Signature: MslWriter.Write(string outputPath, IReadOnlyList<MslLibraryEntry>)
-			_tempMslPath = Path.Combine(
-				Path.GetTempPath(),
-				$"MslBenchmark_{NPrecursors}_{Guid.NewGuid():N}.msl");
-			MslWriter.Write(_tempMslPath, _syntheticEntries);
-
-			// 3. Open in index-only mode; keep alive for query benchmarks.
-			//    MslLibrary has no public Index property — query benchmarks call its
-			//    public methods (QueryMzWindow, TryGetEntry, etc.) directly.
-			_queryLib = MslLibrary.LoadIndexOnly(_tempMslPath);
-
-			// 4. Median m/z.
-			//    MslLibraryEntry.PrecursorMz is double; cast to float for the array.
-			var allMz = new float[_syntheticEntries.Count];
-			for (int i = 0; i < _syntheticEntries.Count; i++)
-				allMz[i] = (float)_syntheticEntries[i].PrecursorMz;
-			Array.Sort(allMz);
-			_medianMz = allMz[allMz.Length / 2];
-
-			// 5. 1 000 non-overlapping 25-Da query windows starting below the median.
-			//    Cast to float explicitly to avoid CS0266 widening to double.
-			_queryMzCentres = new float[1_000];
-			float start = _medianMz - (float)(1_000 * QueryHalfWidth);
-			for (int i = 0; i < 1_000; i++)
-				_queryMzCentres[i] = start + i * (2f * QueryHalfWidth);
-
-			sw.Stop();
-
-			// Heuristic size estimate: 56 B/precursor + 20 B/fragment
-			long estimatedBytes =
-				(long)NPrecursors * 56 +
-				(long)NPrecursors * AvgFragmentsPerPrecursor * 20;
-			double estimatedMb = estimatedBytes / 1_048_576.0;
-
-			Console.WriteLine();
-			Console.WriteLine("MSL Benchmark Setup:");
-			Console.WriteLine($"  NPrecursors:               {NPrecursors:N0}");
-			Console.WriteLine($"  AvgFragmentsPerPrecursor:  {AvgFragmentsPerPrecursor}");
-			Console.WriteLine($"  Estimated file size:       {estimatedMb:F1} MB");
-			Console.WriteLine($"  MSP file size (estimated): ~{estimatedMb * 10:F0} MB");
-			Console.WriteLine($"  Setup time:                {sw.Elapsed.TotalSeconds:F2} s");
+			_tempMslPath = Path.Combine(Path.GetTempPath(),
+				$"msl_bench_{NPrecursors}_{Guid.NewGuid():N}.msl");
+			_entries = GenerateEntries(NPrecursors, AvgFrag);
+			MslWriter.Write(_tempMslPath, _entries);
+			_queryLib = MslLibrary.Load(_tempMslPath);
 		}
 
-		/// <summary>
-		/// Runs once per parameter combination after all iterations complete.
-		/// Disposes <see cref="_queryLib"/> (releases the index-only FileStream) and
-		/// deletes the temporary .msl file.
-		/// </summary>
 		[GlobalCleanup]
 		public void GlobalCleanup()
 		{
 			_queryLib?.Dispose();
+			_queryLib = null!;
 			if (File.Exists(_tempMslPath))
 				File.Delete(_tempMslPath);
 		}
 
-		// ── Write benchmarks ─────────────────────────────────────────────────────────
+		// ── Write ─────────────────────────────────────────────────────────────────
 
 		/// <summary>
-		/// Writes <see cref="_syntheticEntries"/> to a fresh unique temp file via
-		/// <see cref="MslWriter.Write"/>, then immediately deletes it.
-		///
-		/// A new path per iteration prevents OS file-cache reuse from inflating scores.
-		///
-		/// Performance targets (prompt spec)
-		/// ----------------------------------
-		///   1 K  → &lt; 50 ms
-		///  50 K  → &lt; 500 ms
-		/// 500 K  → &lt; 5 s
+		/// Measures the time to serialise <see cref="NPrecursors"/> synthetic entries to
+		/// a new .msl file. Each iteration writes to a fresh temp path to prevent OS
+		/// write-caching from dominating subsequent runs.
 		/// </summary>
 		[Benchmark]
 		public void Write_MslLibrary()
 		{
-			string path = Path.Combine(
-				Path.GetTempPath(),
-				$"MslBench_Write_{Guid.NewGuid():N}.msl");
+			string path = Path.Combine(Path.GetTempPath(),
+				$"msl_write_{Guid.NewGuid():N}.msl");
 			try
 			{
-				MslWriter.Write(path, _syntheticEntries);
+				MslWriter.Write(path, _entries);
 			}
 			finally
 			{
-				if (File.Exists(path)) File.Delete(path);
+				if (File.Exists(path))
+					File.Delete(path);
 			}
 		}
 
-		// ── Read benchmarks ──────────────────────────────────────────────────────────
+		// ── Full load ─────────────────────────────────────────────────────────────
 
 		/// <summary>
-		/// Full-loads the pre-written temp file via <see cref="MslLibrary.Load"/>
-		/// (all fragments into RAM). Returns the library so BenchmarkDotNet cannot elide
-		/// the call. The GC finalises the file handle between iterations.
-		///
-		/// Performance targets
-		/// -------------------
-		///   1 K  → &lt; 10 ms
-		///  50 K  → &lt; 200 ms
-		/// 500 K  → &lt; 3 s
+		/// Measures the time to fully deserialise an .msl file — header, string table,
+		/// protein table, all precursor records, and all fragment blocks — into an
+		/// in-memory <see cref="MslLibrary"/> ready for querying.
 		/// </summary>
 		[Benchmark]
-		public MslLibrary FullLoad_MslLibrary()
-			=> MslLibrary.Load(_tempMslPath);
-
-		/// <summary>
-		/// Index-only-loads the pre-written temp file via
-		/// <see cref="MslLibrary.LoadIndexOnly"/> (precursor section only; fragment data
-		/// stays on disk). Returns the library so BenchmarkDotNet cannot elide the call.
-		/// The GC finalises the file handle between iterations.
-		///
-		/// Performance target: 500 K precursors → &lt; 1 s
-		/// </summary>
-		[Benchmark]
-		public MslLibrary IndexOnlyLoad_MslLibrary()
-			=> MslLibrary.LoadIndexOnly(_tempMslPath);
-
-		// ── Query benchmarks ─────────────────────────────────────────────────────────
-
-		/// <summary>
-		/// Executes a single 25-Da m/z window query centred on <see cref="_medianMz"/>
-		/// via <see cref="MslLibrary.QueryMzWindow"/>. Returns the result span so the JIT
-		/// cannot dead-code-eliminate the call.
-		///
-		/// <see cref="MslLibrary.QueryMzWindow"/> is the zero-allocation path (delegates
-		/// to <see cref="MslIndex.QueryMzRange"/> internally and returns a
-		/// <see cref="ReadOnlySpan{T}"/> over the internal sorted array).
-		///
-		/// Performance target: median latency &lt; 1 μs (acceptance: &lt; 10 μs).
-		/// </summary>
-		[Benchmark]
-		public ReadOnlySpan<MslPrecursorIndexEntry> QueryMzWindow_SingleQuery()
-			=> _queryLib.QueryMzWindow(
-				_medianMz - QueryHalfWidth,
-				_medianMz + QueryHalfWidth);
-
-		/// <summary>
-		/// Executes 1 000 sequential non-overlapping 25-Da window queries via
-		/// <see cref="MslLibrary.QueryMzWindow"/>. Each result span's Length is read to
-		/// prevent JIT elision. Query centres were pre-computed in
-		/// <see cref="GlobalSetup"/>.
-		///
-		/// Performance target: total elapsed &lt; 5 ms for all 1 000 queries.
-		/// </summary>
-		[Benchmark]
-		public void QueryMzWindow_1000Queries()
+		public void FullLoad_MslLibrary()
 		{
-			for (int i = 0; i < _queryMzCentres.Length; i++)
-			{
-				float lo = _queryMzCentres[i] - QueryHalfWidth;
-				float hi = _queryMzCentres[i] + QueryHalfWidth;
-				_ = _queryLib.QueryMzWindow(lo, hi).Length;
-			}
+			using MslLibrary lib = MslLibrary.Load(_tempMslPath);
+		}
+
+		// ── Index-only load ───────────────────────────────────────────────────────
+
+		/// <summary>
+		/// Measures the end-to-end cost of opening an .msl file in index-only mode:
+		/// read the header, deserialise the precursor section into the in-memory index,
+		/// and release the FileStream via Dispose.
+		///
+		/// The return type is <c>void</c> and each iteration uses a <c>using</c>
+		/// declaration so that the <see cref="MslLibrary"/> (and its underlying
+		/// FileStream) is disposed before the method returns.  This prevents multiple
+		/// undisposed instances from accumulating across BenchmarkDotNet iterations,
+		/// which would cause a Windows file-locking error in GlobalCleanup.
+		///
+		/// The measured time correctly reflects the real-world cost a caller pays when
+		/// preparing an index-only library for DIA window queries: open → read precursor
+		/// index → dispose.
+		/// </summary>
+		[Benchmark]
+		public void IndexOnlyLoad_MslLibrary()
+		{
+			using MslLibrary lib = MslLibrary.LoadIndexOnly(_tempMslPath);
+		}
+
+		// ── m/z window queries ────────────────────────────────────────────────────
+
+		/// <summary>
+		/// Measures the latency of a single <see cref="MslLibrary.QueryMzWindow"/> call
+		/// over the fully-loaded library. Uses a fixed 25 Da window centred at 800 m/z.
+		/// </summary>
+		[Benchmark]
+		public int QueryMzWindow_SingleQuery()
+		{
+			ReadOnlySpan<MslPrecursorIndexEntry> results =
+				_queryLib.QueryMzWindow(787.5f, 812.5f);
+			return results.Length;
 		}
 
 		/// <summary>
-		/// Measures DDA lookup latency via <see cref="MslLibrary.TryGetEntry"/> for the
-		/// first entry's modified sequence and charge (always present).
-		/// Returns the bool result so the JIT cannot elide the call.
-		///
-		/// Performance target: &lt; 100 ns (O(1) hit).
+		/// Measures the throughput of 1 000 sequential <see cref="MslLibrary.QueryMzWindow"/>
+		/// calls with 25 Da windows stepping by 1 Da from 400 m/z.
+		/// Represents the hot path during a DIA isolation-window sweep.
+		/// </summary>
+		[Benchmark]
+		public long QueryMzWindow_1000Queries()
+		{
+			long total = 0;
+			for (int i = 0; i < 1000; i++)
+			{
+				float centre = 400f + i;
+				ReadOnlySpan<MslPrecursorIndexEntry> results =
+					_queryLib.QueryMzWindow(centre - 12.5f, centre + 12.5f);
+				total += results.Length;
+			}
+			return total;
+		}
+
+		// ── DDA lookup ────────────────────────────────────────────────────────────
+
+		/// <summary>
+		/// Measures O(1) dictionary lookup for a sequence/charge key that exists in the
+		/// library. Return value prevents dead-code elimination.
 		/// </summary>
 		[Benchmark]
 		public bool DdaLookup_ExistingEntry()
 		{
-			var first = _syntheticEntries[0];
-			return _queryLib.TryGetEntry(first.ModifiedSequence, first.Charge, out _);
+			return _queryLib.TryGetEntry(
+				_entries[0].ModifiedSequence,
+				_entries[0].Charge,
+				out _);
 		}
 
 		/// <summary>
-		/// Measures DDA lookup latency for a deliberately absent key via
-		/// <see cref="MslLibrary.TryGetEntry"/>. Returns the bool result so the JIT
-		/// cannot elide the call.
-		///
-		/// Performance target: &lt; 100 ns (O(1) miss).
+		/// Measures O(1) dictionary lookup for a sequence/charge key that does NOT exist
+		/// in the library. Confirms that the negative path is equally fast.
 		/// </summary>
 		[Benchmark]
 		public bool DdaLookup_MissingEntry()
-			=> _queryLib.TryGetEntry("XXXXXXXXXXX", 99, out _);
+		{
+			return _queryLib.TryGetEntry("ZZZZZZNOTPRESENT", 99, out _);
+		}
 
-		// ── Index-build benchmark ─────────────────────────────────────────────────────
+		// ── Index build ───────────────────────────────────────────────────────────
 
 		/// <summary>
-		/// Builds an <see cref="MslIndex"/> directly from <see cref="_syntheticEntries"/>
-		/// via <see cref="MslIndex.Build"/>, isolating index-construction cost from I/O.
-		///
-		/// Signature: Build(IReadOnlyList&lt;MslLibraryEntry&gt;, Func&lt;int, MslLibraryEntry?&gt;)
-		/// The loader delegate is a closure over a local copy of the list reference so it
-		/// does not close over `this`.
-		///
-		/// The returned index is discarded and GC-collected between iterations.
+		/// Measures the time to construct an <see cref="MslIndex"/> from a list of
+		/// already-loaded <see cref="MslLibraryEntry"/> objects (in-memory sort + index
+		/// build, no I/O). The loader delegate provides direct array access so the
+		/// sequence/charge dictionary is fully populated — matching the real usage pattern
+		/// inside <see cref="MslLibrary.Load"/>.
 		/// </summary>
 		[Benchmark]
 		public MslIndex BuildIndex_FromEntries()
 		{
-			var entries = _syntheticEntries;
-			return MslIndex.Build(
-				entries,
-				idx => (idx >= 0 && idx < entries.Count) ? entries[idx] : null);
+			return MslIndex.Build(_entries, i =>
+				i >= 0 && i < _entries.Count ? _entries[i] : null);
 		}
 
-		// ── RT-calibration benchmark ──────────────────────────────────────────────────
+		// ── RT calibration ────────────────────────────────────────────────────────
 
 		/// <summary>
-		/// Applies a linear RT calibration (slope = 0.03, intercept = 40) via
-		/// <see cref="MslLibrary.WithCalibratedRetentionTimes"/>.
-		///
-		/// This method returns a brand-new <see cref="MslLibrary"/> whose index entries
-		/// have transformed Irt values; <see cref="_queryLib"/> is not modified. The new
-		/// library is disposed immediately after being returned to prevent handle leaks.
-		///
-		/// Returning the new library prevents JIT elision; BenchmarkDotNet discards the
-		/// return value automatically.
+		/// Measures the time to apply a linear iRT → run-RT calibration to all precursors
+		/// in the loaded library, producing a new calibrated <see cref="MslLibrary"/>.
+		/// This involves copying and transforming every <see cref="MslPrecursorIndexEntry"/>
+		/// in the sorted index array and rebuilding the sequence/charge dictionary.
 		/// </summary>
 		[Benchmark]
 		public MslLibrary RtCalibration_LinearTransform()
-			=> _queryLib.WithCalibratedRetentionTimes(slope: 0.03, intercept: 40.0);
+		{
+			return _queryLib.WithCalibratedRetentionTimes(slope: 1.2, intercept: -5.0);
+		}
 
-		// ── Synthetic data factory ────────────────────────────────────────────────────
+		// ── Synthetic data generation ─────────────────────────────────────────────
 
 		/// <summary>
-		/// Generates a deterministic list of <paramref name="count"/> synthetic
-		/// <see cref="MslLibraryEntry"/> objects with <paramref name="avgFragments"/>
-		/// terminal b/y-ion pairs each.
-		///
-		/// Property names (confirmed from MslLibraryEntry source)
-		/// -------------------------------------------------------
-		///   ModifiedSequence  — string
-		///   StrippedSequence  — string
-		///   PrecursorMz       — double
-		///   Charge            — int
-		///   Irt               — double
-		///   IsDecoy           — bool
-		///   MoleculeType      — MslFormat.MoleculeType
-		///   DissociationType  — DissociationType
-		///   ProteinAccession  — string
-		///   QValue            — float
-		///   Fragments         — List&lt;MslFragmentIon&gt;
-		///
-		/// MslFragmentIon properties used
-		/// --------------------------------
-		///   ProductType, FragmentNumber, Charge, Mz, Intensity,
-		///   NeutralLoss (double, 0.0 = none), SecondaryProductType (null),
-		///   SecondaryFragmentNumber (0)
-		///
-		/// Design choices
-		/// --------------
-		/// • 7-residue sequences cycling through the 20 canonical amino acids.
-		/// • Precursor m/z spaced 0.01 Da apart from 400.00 Da.
-		/// • Alternating b/y ions with per-entry m/z offsets.
-		/// • All entries: non-decoy, HCD, charge 2, MoleculeType.Peptide.
+		/// Builds a deterministic list of synthetic <see cref="MslLibraryEntry"/> objects.
+		/// Precursor m/z values are spread across 400–1000 Thomson so that range queries
+		/// return a realistic non-zero hit count at all three library sizes.
+		/// Internal to allow reuse from <see cref="MslVsMspBenchmarks"/>.
 		/// </summary>
-		/// <param name="count">Number of precursor entries to generate.</param>
-		/// <param name="avgFragments">Number of fragment ions per entry.</param>
-		/// <returns>New <see cref="List{MslLibraryEntry}"/>.</returns>
-		private static List<MslLibraryEntry> GenerateSyntheticEntries(int count, int avgFragments)
+		internal static IReadOnlyList<MslLibraryEntry> GenerateEntries(int nPrecursors, int avgFrag)
 		{
-			const string AminoAcids = "ACDEFGHIKLMNPQRSTVWY";
+			var rng = new Random(42);
+			var entries = new List<MslLibraryEntry>(nPrecursors);
 
-			var entries = new List<MslLibraryEntry>(count);
+			string[] aa = { "A", "C", "D", "E", "F", "G", "H", "I", "K", "L",
+							 "M", "N", "P", "Q", "R", "S", "T", "V", "W", "Y" };
 
-			for (int i = 0; i < count; i++)
+			for (int i = 0; i < nPrecursors; i++)
 			{
-				char[] seq = new char[7];
-				for (int k = 0; k < 7; k++)
-					seq[k] = AminoAcids[(i + k) % AminoAcids.Length];
-				string strippedSequence = new string(seq);
+				// Unique sequence of 7–20 residues, deterministic from index
+				int seqLen = 7 + (i % 14);
+				var sb = new StringBuilder(seqLen);
+				for (int j = 0; j < seqLen; j++)
+					sb.Append(aa[(i * 7 + j * 13) % aa.Length]);
+				string seq = sb.ToString();
 
-				double precursorMz = 400.00 + i * 0.01;
-				double irt = 10.0 + i * 0.001;
+				int charge = 2 + (i % 3);                                     // 2, 3, or 4
+				double mz = 400.0 + (i % 1000) * 0.6 + rng.NextDouble() * 0.1;
+				double irt = -30.0 + i * (120.0 / nPrecursors) + rng.NextDouble();
 
-				var fragments = new List<MslFragmentIon>(avgFragments);
-				for (int f = 0; f < avgFragments; f++)
+				var fragments = new List<MslFragmentIon>(avgFrag);
+				for (int f = 0; f < avgFrag; f++)
 				{
-					bool isY = (f % 2) == 1;
-					var productType = isY ? ProductType.y : ProductType.b;
-					int fragNum = 2 + f / 2;
-					float fragMz = (isY ? 200f : 150f) + fragNum * 10f + i * 0.001f;
-					float intensity = Math.Max(0.1f, 1.0f - f * 0.09f);
-
 					fragments.Add(new MslFragmentIon
 					{
-						ProductType = productType,
-						FragmentNumber = fragNum,
+						Mz = (float)(100.0 + f * 80.0 + rng.NextDouble() * 10),
+						Intensity = (float)(rng.NextDouble() + 0.01),   // always > 0
+						ProductType = (f % 2 == 0) ? ProductType.y : ProductType.b,
+						FragmentNumber = f + 1,
 						Charge = 1,
-						Mz = fragMz,
-						Intensity = intensity,
-						NeutralLoss = 0.0,
-						SecondaryProductType = null,
-						SecondaryFragmentNumber = 0
+						NeutralLoss = 0.0
 					});
 				}
 
 				entries.Add(new MslLibraryEntry
 				{
-					ModifiedSequence = strippedSequence,
-					StrippedSequence = strippedSequence,
-					PrecursorMz = precursorMz,
-					Charge = 2,
+					ModifiedSequence = seq,
+					StrippedSequence = seq,
+					PrecursorMz = mz,
+					Charge = charge,
 					Irt = irt,
 					IsDecoy = false,
+					IsProteotypic = true,
+					ProteinAccession = "BENCH_PROT",
+					ProteinName = "Benchmark protein",
+					GeneName = "BENCH",
+					Source = MslFormat.SourceType.Predicted,
 					MoleculeType = MslFormat.MoleculeType.Peptide,
 					DissociationType = DissociationType.HCD,
-					ProteinAccession = string.Empty,
-					QValue = float.NaN,
+					Nce = 28,
 					Fragments = fragments
 				});
 			}

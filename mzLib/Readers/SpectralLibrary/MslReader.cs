@@ -22,7 +22,7 @@ namespace Readers.SpectralLibrary;
 ///   the kept-open <see cref="System.IO.FileStream"/>. Best for multi-gigabyte libraries
 ///   where loading all fragments would exhaust available RAM.
 ///
-/// Both modes return an <see cref="MslLibraryData"/> with the same public API; the difference
+/// Both modes return an <see cref="MslLibrary"/> with the same public API; the difference
 /// is purely internal.
 ///
 /// Validation sequence on every open:
@@ -162,7 +162,7 @@ public static class MslReader
 	}
 
 	/// <summary>
-	/// Reads the entire .msl file into memory and returns an <see cref="MslLibraryData"/> with
+	/// Reads the entire .msl file into memory and returns an <see cref="MslLibrary"/> with
 	/// all precursor entries and fragment ions fully loaded. No file handle is held open after
 	/// this method returns.
 	///
@@ -171,7 +171,7 @@ public static class MslReader
 	/// </summary>
 	/// <param name="filePath">Path to the .msl file. Must not be null.</param>
 	/// <returns>
-	/// A fully populated <see cref="MslLibraryData"/> whose <c>Entries</c> list contains one
+	/// A fully populated <see cref="MslLibrary"/> whose <c>Entries</c> list contains one
 	/// <see cref="MslLibraryEntry"/> per precursor, all with fragment ions loaded.
 	/// </returns>
 	/// <exception cref="FileNotFoundException">File does not exist.</exception>
@@ -194,13 +194,16 @@ public static class MslReader
 		MslProteinRecord[] proteins = ReadProteinTable(fileBytes, header);
 		MslPrecursorRecord[] precursors = ReadPrecursorArray(fileBytes, header);
 
+		// Read extended annotation table (custom neutral-loss masses) when present
+		double[] customLossMasses = ReadExtAnnotationTable(fileBytes, header);
+
 		// Build the fully-loaded entry list — each entry includes its fragment ions
 		var entries = new List<MslLibraryEntry>(precursors.Length);
 
 		for (int i = 0; i < precursors.Length; i++)
 		{
 			MslPrecursorRecord p = precursors[i];
-			List<MslFragmentIon> fragments = ReadFragmentBlockFromBytes(fileBytes, p);
+			List<MslFragmentIon> fragments = ReadFragmentBlockFromBytes(fileBytes, p, customLossMasses);
 			entries.Add(ConvertPrecursor(p, strings, proteins, fragments));
 		}
 
@@ -211,17 +214,17 @@ public static class MslReader
 	/// Reads only the precursor records and string table into memory; fragment blocks remain
 	/// on disk and are fetched lazily via seeks into the kept-open <see cref="System.IO.FileStream"/>.
 	///
-	/// The returned <see cref="MslLibraryData"/> holds an open file handle until its
-	/// <see cref="MslLibraryData.Dispose"/> method is called. Callers must dispose the library
+	/// The returned <see cref="MslLibrary"/> holds an open file handle until its
+	/// <see cref="MslLibrary.Dispose"/> method is called. Callers must dispose the library
 	/// when finished (critical on Windows, which uses mandatory file locking).
 	///
 	/// All five validation checks are performed on open before any entries are returned.
 	/// </summary>
 	/// <param name="filePath">Path to the .msl file. Must not be null.</param>
 	/// <returns>
-	/// An <see cref="MslLibraryData"/> whose <c>Entries</c> list contains precursor metadata
+	/// An <see cref="MslLibrary"/> whose <c>Entries</c> list contains precursor metadata
 	/// but empty fragment lists. Fragment ions can be retrieved via
-	/// <see cref="MslLibraryData.LoadFragmentsOnDemand"/>.
+	/// <see cref="MslLibrary.LoadFragmentsOnDemand"/>.
 	/// </returns>
 	/// <exception cref="FileNotFoundException">File does not exist.</exception>
 	/// <exception cref="FormatException">Structural or version validation failed.</exception>
@@ -241,6 +244,10 @@ public static class MslReader
 		MslProteinRecord[] proteins = ReadProteinTable(fileBytes, header);
 		MslPrecursorRecord[] precursors = ReadPrecursorArray(fileBytes, header);
 
+		// Read the extended annotation table now so on-demand fragment reads can decode
+		// custom neutral-loss indices without re-reading the file header each time.
+		double[] customLossMasses = ReadExtAnnotationTable(fileBytes, header);
+
 		// Build skeleton entries — fragment lists are intentionally left empty
 		var entries = new List<MslLibraryEntry>(precursors.Length);
 
@@ -252,7 +259,7 @@ public static class MslReader
 		var onDemandStream = new FileStream(
 			filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096);
 
-		return new MslLibraryData(entries, header, precursors, strings, proteins, onDemandStream);
+		return new MslLibraryData(entries, header, precursors, strings, proteins, onDemandStream, customLossMasses);
 	}
 
 	// ── Validation ────────────────────────────────────────────────────────────
@@ -293,17 +300,10 @@ public static class MslReader
 		// Deserialise the header now; re-use it for all subsequent field reads.
 		header = MemoryMarshal.Read<MslFileHeader>(fileBytes.AsSpan(0, MslFormat.HeaderSize));
 
-		if (header.FormatVersion != MslFormat.CurrentVersion)
+		if (header.FormatVersion != 1 && header.FormatVersion != MslFormat.CurrentVersion)
 			throw new FormatException(
 				$"Unsupported version: {header.FormatVersion} in '{filePath}'. " +
-				$"This reader supports version {MslFormat.CurrentVersion} only.");
-
-		// Forward-compatibility: warn (do not throw) on non-zero reserved header bytes.
-		// A future format version may populate these bytes; we should still read such files.
-		if (header.Reserved != 0)
-			System.Diagnostics.Debug.WriteLine(
-				$"[MslReader] Warning: header.Reserved is non-zero ({header.Reserved}) in '{filePath}'. " +
-				"File was written by a newer format version; some metadata may not be read.");
+				$"This reader supports versions 1 and {MslFormat.CurrentVersion}.");
 
 		// ── Check 4: trailing footer magic ────────────────────────────────────
 		int footerStart = fileBytes.Length - MslFormat.FooterSize;
@@ -442,6 +442,42 @@ public static class MslReader
 	}
 
 	/// <summary>
+	/// Reads the extended annotation table section when
+	/// <see cref="MslFormat.FileFlagHasExtAnnotations"/> is set in the file header.
+	/// Returns an empty array for version-1 files or any file without the flag.
+	///
+	/// On-disk format:
+	/// <code>
+	///   int32    NCustomLosses
+	///   double[] CustomLossMasses  (NCustomLosses × 8 bytes)
+	/// </code>
+	///
+	/// Index 0 is the reserved sentinel (0.0 = no loss). Valid custom entries start at 1.
+	/// </summary>
+	private static double[] ReadExtAnnotationTable(byte[] fileBytes, MslFileHeader header)
+	{
+		// Flag absent or version 1: no extended annotation table in this file
+		if ((header.FileFlags & MslFormat.FileFlagHasExtAnnotations) == 0
+			|| header.ExtAnnotationTableOffset <= 0)
+			return Array.Empty<double>();
+
+		int pos = header.ExtAnnotationTableOffset;
+		int count = ReadInt32LE(fileBytes, pos); pos += 4;
+
+		if (count <= 0)
+			return Array.Empty<double>();
+
+		var masses = new double[count];
+		for (int i = 0; i < count; i++)
+		{
+			masses[i] = BitConverter.ToDouble(fileBytes, pos);
+			pos += 8;
+		}
+
+		return masses;
+	}
+
+	/// <summary>
 	/// Deserialises one precursor's fragment block from the in-memory file bytes.
 	/// Used in full-load mode (<see cref="Load"/>).
 	/// Returns an empty list when <c>precursor.FragmentCount</c> is zero.
@@ -451,12 +487,17 @@ public static class MslReader
 	/// The precursor record whose <c>FragmentBlockOffset</c> and <c>FragmentCount</c>
 	/// identify the fragment block.
 	/// </param>
+	/// <param name="customLossMasses">
+	/// Extended annotation table masses. Index 0 is the sentinel (0.0). Pass
+	/// <see cref="Array.Empty{T}"/> for files with no custom neutral losses.
+	/// </param>
 	/// <returns>
 	/// List of <see cref="MslFragmentIon"/> objects in m/z ascending order as written.
 	/// </returns>
 	private static List<MslFragmentIon> ReadFragmentBlockFromBytes(
 		byte[] fileBytes,
-		MslPrecursorRecord precursor)
+		MslPrecursorRecord precursor,
+		double[] customLossMasses)
 	{
 		int fragmentCount = precursor.FragmentCount;
 
@@ -472,7 +513,7 @@ public static class MslReader
 
 		var ions = new List<MslFragmentIon>(fragmentCount);
 		foreach (ref readonly MslFragmentRecord r in records.AsSpan())
-			ions.Add(ConvertFragment(in r));
+			ions.Add(ConvertFragment(in r, customLossMasses));
 
 		return ions;
 	}
@@ -480,9 +521,9 @@ public static class MslReader
 	/// <summary>
 	/// Deserialises one precursor's fragment block from the open on-demand
 	/// <see cref="System.IO.FileStream"/> by seeking to the stored offset. Used in
-	/// index-only mode; called from <see cref="MslLibraryData.LoadFragmentsOnDemand"/>.
+	/// index-only mode; called from <see cref="MslLibrary.LoadFragmentsOnDemand"/>.
 	///
-	/// Thread-safety: the caller (<see cref="MslLibraryData"/>) must hold the library's internal
+	/// Thread-safety: the caller (<see cref="MslLibrary"/>) must hold the library's internal
 	/// stream lock around the entire call to prevent concurrent Seek + Read interleaving.
 	/// </summary>
 	/// <param name="stream">
@@ -490,12 +531,17 @@ public static class MslReader
 	/// <c>precursor.FragmentBlockOffset</c> before reading.
 	/// </param>
 	/// <param name="precursor">The precursor record identifying the fragment block.</param>
+	/// <param name="customLossMasses">
+	/// Extended annotation table masses passed from the library's cached copy.
+	/// Pass <see cref="Array.Empty{T}"/> for files with no custom neutral losses.
+	/// </param>
 	/// <returns>
 	/// List of <see cref="MslFragmentIon"/> objects. Empty when <c>FragmentCount</c> is zero.
 	/// </returns>
 	internal static List<MslFragmentIon> ReadFragmentBlockFromStream(
 		FileStream stream,
-		MslPrecursorRecord precursor)
+		MslPrecursorRecord precursor,
+		double[] customLossMasses)
 	{
 		int fragmentCount = precursor.FragmentCount;
 
@@ -521,7 +567,7 @@ public static class MslReader
 
 			var ions = new List<MslFragmentIon>(fragmentCount);
 			foreach (ref readonly MslFragmentRecord r in records.AsSpan())
-				ions.Add(ConvertFragment(in r));
+				ions.Add(ConvertFragment(in r, customLossMasses));
 
 			return ions;
 		}
@@ -542,13 +588,40 @@ public static class MslReader
 	///   <c>short</c> FragmentNumber, SecondaryFragmentNumber, ResiduePosition → <c>int</c>
 	///   <c>byte</c>  Charge → <c>int</c>
 	///   SecondaryProductType == -1 in the record → null in the output (terminal ion sentinel)
+	///
+	/// Custom neutral-loss decoding: when <c>neutral_loss_code == Custom</c>, the
+	/// <c>ResiduePosition</c> field is repurposed as a 1-based index into
+	/// <paramref name="customLossMasses"/>. <c>ResiduePosition</c> is set to 0 for such
+	/// fragments (documented trade-off; see Prompt 11 design rationale).
 	/// </summary>
 	/// <param name="r">Raw fragment record, passed by read-only reference to avoid a copy.</param>
+	/// <param name="customLossMasses">
+	/// Extended annotation table masses. Index 0 is the sentinel (0.0 = no loss).
+	/// Pass <see cref="Array.Empty{T}"/> for files with no custom neutral losses.
+	/// </param>
 	/// <returns>A fully populated <see cref="MslFragmentIon"/>.</returns>
-	private static MslFragmentIon ConvertFragment(in MslFragmentRecord r)
+	private static MslFragmentIon ConvertFragment(in MslFragmentRecord r, double[] customLossMasses)
 	{
 		// Decode the packed flags byte into its four named components
 		var (_, _, lossCode, excludeFromQuant) = MslFormat.DecodeFragmentFlags(r.Flags);
+
+		double neutralLoss;
+		int residuePosition;
+
+		if (lossCode == MslFormat.NeutralLossCode.Custom)
+		{
+			// ResiduePosition is repurposed as the 1-based index into the ext annotation table
+			int extIdx = r.ResiduePosition;
+			neutralLoss = (extIdx > 0 && extIdx < customLossMasses.Length)
+				? customLossMasses[extIdx]
+				: 0.0;  // defensive fallback; should not occur in a well-formed file
+			residuePosition = 0; // not available for custom-loss fragments (documented trade-off)
+		}
+		else
+		{
+			neutralLoss = DecodeNeutralLoss(lossCode);
+			residuePosition = r.ResiduePosition;
+		}
 
 		return new MslFragmentIon
 		{
@@ -562,10 +635,10 @@ public static class MslReader
 			// short → int widening required for all three residue-number fields
 			FragmentNumber = (int)r.FragmentNumber,
 			SecondaryFragmentNumber = (int)r.SecondaryFragmentNumber,
-			ResiduePosition = (int)r.ResiduePosition,
+			ResiduePosition = residuePosition,
 			// byte → int widening required for charge
 			Charge = (int)r.Charge,
-			NeutralLoss = DecodeNeutralLoss(lossCode),
+			NeutralLoss = neutralLoss,
 			ExcludeFromQuant = excludeFromQuant
 		};
 	}
@@ -591,7 +664,7 @@ public static class MslReader
 	/// </param>
 	/// <param name="fragments">
 	/// Pre-loaded fragment ions. Pass a populated list for full-load mode; pass an empty list
-	/// for index-only mode (fragments loaded later via <see cref="MslLibraryData.LoadFragmentsOnDemand"/>).
+	/// for index-only mode (fragments loaded later via <see cref="MslLibrary.LoadFragmentsOnDemand"/>).
 	/// </param>
 	/// <returns>A fully populated <see cref="MslLibraryEntry"/>.</returns>
 	private static MslLibraryEntry ConvertPrecursor(

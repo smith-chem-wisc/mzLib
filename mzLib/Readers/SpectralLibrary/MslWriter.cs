@@ -2,6 +2,7 @@
 using Omics.SpectralMatch.MslSpectralLibrary;
 using Omics.SpectrumMatch;
 using System.Buffers;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -83,10 +84,6 @@ public static class MslWriter
 	/// <exception cref="ArgumentNullException">
 	///   Thrown when <paramref name="outputPath"/> or <paramref name="entries"/> is null.
 	/// </exception>
-	/// <exception cref="NotSupportedException">
-	///   Thrown when any fragment carries <see cref="MslFormat.NeutralLossCode.Custom"/>,
-	///   which requires the extended annotation table not yet implemented.
-	/// </exception>
 	public static void Write(string outputPath, IReadOnlyList<MslLibraryEntry> entries)
 	{
 		if (outputPath is null) throw new ArgumentNullException(nameof(outputPath));
@@ -115,6 +112,7 @@ public static class MslWriter
 				WriteStringTable(writer, layout);
 				WritePrecursorArray(writer, layout, entries);
 				WriteFragmentBlocks(writer, layout, entries);
+				WriteExtAnnotationTable(writer, layout);
 				WriteOffsetTable(writer, layout);
 				// writer and fs are disposed here; OS write lock is released
 			}
@@ -328,7 +326,7 @@ public static class MslWriter
 			NProteins = layout.NProteins,
 			NElutionGroups = layout.NElutionGroups,
 			NStrings = layout.NStrings,
-			Reserved = 0,
+			ExtAnnotationTableOffset = layout.HasCustomLosses ? (int)layout.ExtAnnotationTableOffset : 0,
 			ProteinTableOffset = layout.ProteinTableOffset,
 			StringTableOffset = layout.StringTableOffset,
 			PrecursorSectionOffset = layout.PrecursorSectionOffset,
@@ -456,7 +454,6 @@ public static class MslWriter
 			foreach (MslFragmentIon frag in entry.Fragments)
 			{
 				// Map the neutral-loss double to the 3-bit NeutralLossCode enum value.
-				// Custom losses are not yet supported and were already checked during layout.
 				MslFormat.NeutralLossCode lossCode = ClassifyNeutralLoss(frag.NeutralLoss);
 
 				// Build the packed flags byte from the four independent flag properties
@@ -465,6 +462,15 @@ public static class MslWriter
 					isDiagnostic: frag.IsDiagnosticIon,
 					lossCode: lossCode,
 					excludeFromQuant: frag.ExcludeFromQuant);
+
+				// When neutral_loss_code == Custom, repurpose ResiduePosition to store the
+				// 1-based index into the extended annotation table (ExtAnnotationIdx).
+				// For all other loss codes, ResiduePosition retains its normal meaning.
+				short residuePos;
+				if (lossCode == MslFormat.NeutralLossCode.Custom)
+					residuePos = (short)layout.CustomLossTable[frag.NeutralLoss];
+				else
+					residuePos = (short)frag.ResiduePosition;
 
 				var record = new MslFragmentRecord
 				{
@@ -476,7 +482,7 @@ public static class MslWriter
 											   : (short)-1,
 					FragmentNumber = (short)frag.FragmentNumber,
 					SecondaryFragmentNumber = (short)frag.SecondaryFragmentNumber,
-					ResiduePosition = (short)frag.ResiduePosition,
+					ResiduePosition = residuePos,
 					Charge = (byte)frag.Charge,
 					Flags = flags
 				};
@@ -497,6 +503,44 @@ public static class MslWriter
 	{
 		foreach (MslPrecursorLayout pl in layout.PrecursorLayouts)
 			writer.Write(pl.FragmentBlockOffset);
+	}
+
+	/// <summary>
+	/// Writes the extended annotation table section when the library contains at least one
+	/// fragment with a custom neutral-loss mass (<see cref="MslFormat.NeutralLossCode.Custom"/>).
+	/// Does nothing when <see cref="MslWriteLayout.HasCustomLosses"/> is false.
+	///
+	/// On-disk format:
+	/// <code>
+	///   int32    NCustomLosses     — count of entries (≥1 when section is written)
+	///   double[] CustomLossMasses  — NCustomLosses × 8 bytes, little-endian IEEE 754 float64
+	/// </code>
+	///
+	/// Index 0 is reserved (always 0.0); valid custom-loss indices start at 1.
+	/// Entries are written in ascending index order (i.e. in the order they were assigned
+	/// during Pass 1 layout).
+	/// </summary>
+	/// <param name="writer">Open binary writer positioned immediately after the fragment section.</param>
+	/// <param name="layout">Pre-computed write layout containing the custom-loss table.</param>
+	private static void WriteExtAnnotationTable(BinaryWriter writer, MslWriteLayout layout)
+	{
+		if (!layout.HasCustomLosses)
+			return;
+
+		// Sort the deduplication dictionary by assigned index so masses are written
+		// in index order. Index 0 is the reserved sentinel (0.0 = no loss) and is written
+		// first. Valid custom entries follow at indices 1..N, where N = CustomLossTable.Count.
+		double[] sorted = layout.CustomLossTable
+			.OrderBy(kv => kv.Value)
+			.Select(kv => kv.Key)
+			.ToArray();
+
+		// NCustomLosses = actual custom count + 1 for the index-0 sentinel
+		int totalCount = sorted.Length + 1;
+		writer.Write(totalCount);      // int32: NCustomLosses (includes sentinel)
+		writer.Write(0.0);             // index 0: reserved sentinel (no loss)
+		foreach (double mass in sorted)
+			writer.Write(mass);        // indices 1..N: actual custom masses
 	}
 
 	/// <summary>
@@ -542,7 +586,7 @@ public static class MslWriter
 		try
 		{
 			// Write the struct's raw bytes into the buffer via MemoryMarshal
-			MemoryMarshal.Write(buffer.AsSpan(0, size), in value);
+			MemoryMarshal.Write(buffer.AsSpan(0, size), ref value);
 			writer.Write(buffer, 0, size);
 		}
 		finally
@@ -759,10 +803,10 @@ public static class MslWriter
 		public int NPrecursors { get; }
 
 		/// <summary>Number of unique proteins in the protein table.</summary>
-		public int NProteins { get; }
+		public int NProteins { get; private set; }
 
 		/// <summary>Number of unique elution groups (distinct stripped sequences).</summary>
-		public int NElutionGroups { get; }
+		public int NElutionGroups { get; private set; }
 
 		/// <summary>Total number of unique strings in the string table.</summary>
 		public int NStrings => StringList.Count;
@@ -770,19 +814,19 @@ public static class MslWriter
 		// ── Section offsets (absolute file byte positions) ───────────────────
 
 		/// <summary>Byte offset of the first MslProteinRecord (= MslFormat.HeaderSize).</summary>
-		public long ProteinTableOffset { get; }
+		public long ProteinTableOffset { get; private set; }
 
 		/// <summary>Byte offset of the first string table entry.</summary>
-		public long StringTableOffset { get; }
+		public long StringTableOffset { get; private set; }
 
 		/// <summary>Byte offset of the first MslPrecursorRecord.</summary>
-		public long PrecursorSectionOffset { get; }
+		public long PrecursorSectionOffset { get; private set; }
 
 		/// <summary>Byte offset of the first MslFragmentRecord.</summary>
-		public long FragmentSectionOffset { get; }
+		public long FragmentSectionOffset { get; private set; }
 
 		/// <summary>Byte offset of the per-precursor offset table (one int64 per precursor).</summary>
-		public long OffsetTableOffset { get; }
+		public long OffsetTableOffset { get; private set; }
 
 		/// <summary>
 		/// Byte offset immediately after all data to be covered by the CRC-32 checksum.
@@ -798,14 +842,14 @@ public static class MslWriter
 		/// The integer index of each string in this list is what is stored in every
 		/// string-index field of the precursor and protein records.
 		/// </summary>
-		public List<string> StringList { get; }
+		public List<string> StringList { get; private set; }
 
 		/// <summary>
 		/// Total number of UTF-8 encoded bytes in all string bodies (excluding the
 		/// 4-byte length prefix of each entry). Written as the TotalBytes header in
 		/// <see cref="MslWriter.WriteStringTable"/>.
 		/// </summary>
-		public int StringTableBodyBytes { get; }
+		public int StringTableBodyBytes { get; private set; }
 
 		// ── Protein table ────────────────────────────────────────────────────
 
@@ -813,7 +857,7 @@ public static class MslWriter
 		/// One slot per unique protein accession, in first-occurrence order.
 		/// Written verbatim as the protein table section.
 		/// </summary>
-		public List<ProteinSlot> ProteinSlots { get; }
+		public List<ProteinSlot> ProteinSlots { get; private set; }
 
 		// ── Per-precursor layout ─────────────────────────────────────────────
 
@@ -821,7 +865,7 @@ public static class MslWriter
 		/// Per-precursor layout data (string indices, protein index, fragment-block offset)
 		/// in the same order as the original entries list. Indexed by precursor position.
 		/// </summary>
-		public List<MslPrecursorLayout> PrecursorLayouts { get; }
+		public List<MslPrecursorLayout> PrecursorLayouts { get; private set; }
 
 		// ── File-level flags ─────────────────────────────────────────────────
 
@@ -829,24 +873,44 @@ public static class MslWriter
 		/// Packed int32 file-level flag field for the header. Computed by inspecting all
 		/// entries for ion-mobility, protein data, gene data, and predicted-source presence.
 		/// </summary>
-		public int FileFlags { get; }
+		public int FileFlags { get; private set; }
+
+		// ── Extended annotation table ────────────────────────────────────────
+
+		/// <summary>
+		/// True when at least one fragment in the library has a custom neutral-loss mass
+		/// (i.e. a mass that does not match any of the five named NeutralLossCode values).
+		/// Controls whether the extended annotation table section is written.
+		/// </summary>
+		public bool HasCustomLosses { get; private set; }
+
+		/// <summary>
+		/// Deduplication table for custom neutral-loss masses.
+		/// Key: exact double neutral-loss mass. Value: 1-based index in the extended
+		/// annotation table (index 0 is reserved as the "no-loss sentinel" = 0.0).
+		/// Only populated when <see cref="HasCustomLosses"/> is true.
+		/// </summary>
+		public Dictionary<double, int> CustomLossTable { get; private set; } = new();
+
+		/// <summary>
+		/// Absolute byte offset of the extended annotation table section.
+		/// Valid only when <see cref="HasCustomLosses"/> is true; 0 otherwise.
+		/// </summary>
+		public long ExtAnnotationTableOffset { get; private set; }
 
 		// ── Constructor (Pass 1) ─────────────────────────────────────────────
 
 		/// <summary>
 		/// Performs the complete Pass-1 layout computation over <paramref name="entries"/>:
 		/// string internment, protein deduplication, elution-group assignment, per-precursor
-		/// m/z sort + intensity normalization, fragment-block offset computation, and
-		/// file-level flag evaluation. All results are stored in the public properties above.
+		/// m/z sort + intensity normalization, fragment-block offset computation, custom
+		/// neutral-loss table construction, and file-level flag evaluation. All results are
+		/// stored in the public properties above.
 		/// </summary>
 		/// <param name="entries">
 		///   The library entries to be written. Modified in place (fragment lists are sorted
 		///   and intensities are normalized). Must not be null.
 		/// </param>
-		/// <exception cref="NotSupportedException">
-		///   Thrown when any fragment's neutral loss maps to
-		///   <see cref="MslFormat.NeutralLossCode.Custom"/>, which is not yet supported.
-		/// </exception>
 		public MslWriteLayout(IReadOnlyList<MslLibraryEntry> entries)
 		{
 			NPrecursors = entries.Count;
@@ -928,20 +992,26 @@ public static class MslWriter
 
 			NElutionGroups = nextGroupId;
 
-			// ── Step 4: Fragment ordering + intensity normalization ─────────────
+			// ── Step 4: Fragment ordering + intensity normalization + custom-loss table ──
+			// Build the custom neutral-loss deduplication table while sorting and normalizing.
+			// Index 0 is the reserved "no-loss sentinel" (0.0). Valid custom entries start at 1.
+			CustomLossTable = new Dictionary<double, int>();
+			int nextCustomIdx = 1; // index 0 reserved
+
 			foreach (MslLibraryEntry entry in entries)
 			{
 				if (entry.Fragments == null || entry.Fragments.Count == 0)
 					continue;
 
-				// Validate no Custom neutral-loss codes before sorting
+				// Assign ExtAnnotationIdx for any custom-loss fragment seen in this entry
 				foreach (MslFragmentIon frag in entry.Fragments)
 				{
 					if (ClassifyNeutralLoss(frag.NeutralLoss) == MslFormat.NeutralLossCode.Custom)
-						throw new NotSupportedException(
-							$"Fragment in '{entry.ModifiedSequence}' has a custom neutral loss " +
-							$"({frag.NeutralLoss:F4} Da). Custom neutral-loss codes are not yet " +
-							"supported; the extended annotation table mechanism has not been designed.");
+					{
+						if (!CustomLossTable.ContainsKey(frag.NeutralLoss))
+							CustomLossTable[frag.NeutralLoss] = nextCustomIdx++;
+						HasCustomLosses = true;
+					}
 				}
 
 				// Sort fragments by m/z ascending to support binary search during scoring
@@ -1001,8 +1071,22 @@ public static class MslWriter
 				runningFragmentOffset += (long)fragCount * MslFormat.FragmentRecordSize;
 			}
 
-			// Offset table starts after all fragment blocks
-			OffsetTableOffset = runningFragmentOffset;
+			// Extended annotation table sits between the fragment section and the offset table.
+			// Size: 4 bytes (NCustomLosses int32) + NCustomLosses × 8 bytes (double[]).
+			long fragmentSectionEnd = runningFragmentOffset;
+
+			if (HasCustomLosses)
+			{
+				ExtAnnotationTableOffset = fragmentSectionEnd;
+				// Size: 4 bytes (int32 NCustomLosses) + (Count + 1) × 8 bytes (sentinel + custom masses)
+				long extAnnotationTableSize = 4L + (long)(CustomLossTable.Count + 1) * sizeof(double);
+				OffsetTableOffset = ExtAnnotationTableOffset + extAnnotationTableSize;
+			}
+			else
+			{
+				ExtAnnotationTableOffset = 0;
+				OffsetTableOffset = fragmentSectionEnd;
+			}
 
 			// ── Step 7: File-level flags ───────────────────────────────────────
 			int flags = 0;
@@ -1024,6 +1108,7 @@ public static class MslWriter
 			if (anyProteinData) flags |= MslFormat.FileFlagHasProteinData;
 			if (anyGeneData) flags |= MslFormat.FileFlagHasGeneData;
 			if (allPredicted) flags |= MslFormat.FileFlagIsPredicted;
+			if (HasCustomLosses) flags |= MslFormat.FileFlagHasExtAnnotations;
 
 			FileFlags = flags;
 		}

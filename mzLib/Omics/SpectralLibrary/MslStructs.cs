@@ -113,10 +113,17 @@ public struct MslFileHeader
 	public int NStrings;
 
 	/// <summary>
-	/// Offset 28, 4 bytes. Reserved; must be written as 0 and ignored on read.
-	/// Reserved for future use (e.g. a second string table for extended annotations).
+	/// Offset 28, 4 bytes. Absolute byte offset of the extended annotation table section.
+	/// 0 when <c>MslFormat.FileFlagHasExtAnnotations</c> is not set (section absent).
+	/// When the flag is set, this field holds the offset at which the extended annotation
+	/// table begins; readers must seek here to read custom neutral-loss masses.
+	///
+	/// Formerly the <c>Reserved</c> field in format version 1 (always written as 0).
+	/// Repurposed in format version 2. Version-1 readers see this field as Reserved=0
+	/// for all version-1 files and will reject version-2 files on the version check
+	/// before reaching this field, so backward compatibility is fully maintained.
 	/// </summary>
-	public int Reserved;
+	public int ExtAnnotationTableOffset;
 
 	/// <summary>
 	/// Offset 32, 8 bytes. Absolute file byte offset of the first MslProteinRecord.

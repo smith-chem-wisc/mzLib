@@ -445,9 +445,11 @@ public sealed class TestMslEdgeCases
 	}
 
 	/// <summary>
-	/// Writing a version number other than <see cref="MslFormat.CurrentVersion"/> into the
-	/// file header (by direct byte manipulation) must cause <see cref="MslLibrary.Load"/> to
-	/// throw <see cref="FormatException"/> with a message that mentions the version number.
+	/// Writing a version number other than a supported version into the file header (by direct
+	/// byte manipulation) must cause <see cref="MslLibrary.Load"/> to throw
+	/// <see cref="FormatException"/> with a message that mentions the version number.
+	/// The reader supports versions 1 and <see cref="MslFormat.CurrentVersion"/> (2); version
+	/// 99 is unsupported and must be rejected.
 	/// </summary>
 	[Test]
 	public void EdgeCase_WrongVersion_ThrowsFormatExceptionWithVersionInMessage()
@@ -501,28 +503,26 @@ public sealed class TestMslEdgeCases
 	// ─────────────────────────────────────────────────────────────────────────
 
 	/// <summary>
-	/// Every named <see cref="MslFormat.NeutralLossCode"/> value that the writer supports
-	/// (None, H2O, NH3, H3PO4, HPO3, PlusH2O) must survive the fragment-flags byte round-trip.
-	/// The test writes one fragment per named loss type and verifies that the loaded NeutralLoss
-	/// mass matches the written value within 1 × 10⁻⁴ Da.
+	/// Every named <see cref="MslFormat.NeutralLossCode"/> value (None, H2O, NH3, H3PO4,
+	/// HPO3, PlusH2O) must survive the fragment-flags byte round-trip. The test writes one
+	/// fragment per named loss type and verifies that the loaded NeutralLoss mass matches the
+	/// written value within 1 × 10⁻⁴ Da.
 	///
-	/// Custom (arbitrary) neutral losses are intentionally excluded: the extended annotation
-	/// table mechanism that would persist them has not yet been designed and the writer throws
-	/// <see cref="NotSupportedException"/> when a custom loss is encountered. That behavior is
-	/// verified separately in <see cref="EdgeCase_CustomNeutralLoss_ThrowsNotSupportedException"/>.
+	/// Custom (arbitrary) neutral losses are handled via the extended annotation table
+	/// introduced in format version 2; they are covered by <see cref="TestMslCustomNeutralLoss"/>.
 	/// </summary>
 	[Test]
 	public void EdgeCase_AllNeutralLossValues_RoundTrip()
 	{
-		// Only the five named (non-Custom) neutral-loss masses are supported by the writer.
-		// The masses match the constants in MslLibraryEntry.ClassifyNeutralLoss.
+		// All six named neutral-loss masses (None through PlusH2O).
 		var lossValues = new (string name, double mass)[]
 		{
-			("None",    0.0),
+			("None",     0.0),
 			("H2O",    -18.010565),
 			("NH3",    -17.026549),
 			("H3PO4",  -97.976895),
 			("HPO3",   -79.966331),
+			("PlusH2O", -97.976895 + -18.010565),
 		};
 
 		// Build one entry with one fragment per named loss type at distinct m/z values
@@ -581,17 +581,20 @@ public sealed class TestMslEdgeCases
 
 	/// <summary>
 	/// A fragment ion whose neutral-loss mass does not match any of the five named codes
-	/// (i.e. <see cref="MslFormat.NeutralLossCode.Custom"/> would be assigned) must cause
-	/// <see cref="MslLibrary.Save"/> to throw <see cref="NotSupportedException"/>.
+	/// (i.e. <see cref="MslFormat.NeutralLossCode.Custom"/> would be assigned) must now write
+	/// and read back successfully via the extended annotation table introduced in format
+	/// version 2. The custom mass must round-trip within 1 × 10⁻⁹ Da (double precision).
 	///
-	/// The extended annotation table that would persist custom loss masses has not been
-	/// designed yet. This test documents the current intentional limitation so that it is
-	/// not silently regressed to a data-loss scenario in a future prompt.
+	/// This test replaces the former <c>EdgeCase_CustomNeutralLoss_ThrowsNotSupportedException</c>
+	/// which documented the pre-v2 limitation. Custom neutral losses are now fully supported;
+	/// the dedicated test suite is in <see cref="TestMslCustomNeutralLoss"/>.
 	/// </summary>
 	[Test]
-	public void EdgeCase_CustomNeutralLoss_ThrowsNotSupportedException()
+	public void EdgeCase_CustomNeutralLoss_WritesAndReadsBack()
 	{
-		// Arrange — arbitrary loss mass that ClassifyNeutralLoss will map to Custom
+		// Arrange — arbitrary loss mass that ClassifyNeutralLoss maps to Custom
+		const double customLoss = -42.010565; // acetyl loss, not a named code
+
 		var entry = new MslLibraryEntry
 		{
 			ModifiedSequence = "CUSTOMLOSS",
@@ -616,15 +619,24 @@ public sealed class TestMslEdgeCases
 					FragmentNumber  = 3,
 					ResiduePosition = 3,
 					Charge          = 1,
-                    // -42.01 Da does not match any named NeutralLossCode → Custom
-                    NeutralLoss     = -42.010565
+					NeutralLoss     = customLoss
 				}
 			}
 		};
 
-		// Act / Assert
-		Assert.Throws<NotSupportedException>(() => MslLibrary.Save(_tempMslPath, new[] { entry }),
-			"Save must throw NotSupportedException when a fragment has a custom neutral loss");
+		// Act — must not throw
+		Assert.DoesNotThrow(() => MslLibrary.Save(_tempMslPath, new[] { entry }),
+			"Save must not throw for a custom neutral-loss fragment in format version 2");
+
+		// Load and verify round-trip
+		using MslLibrary lib = MslLibrary.Load(_tempMslPath);
+		bool found = lib.TryGetEntry("CUSTOMLOSS", 2, out MslLibraryEntry? loaded);
+
+		Assert.That(found, Is.True);
+		Assert.That(loaded!.Fragments.Count, Is.EqualTo(1));
+		Assert.That(loaded.Fragments[0].NeutralLoss,
+			Is.EqualTo(customLoss).Within(1e-9),
+			"Custom neutral-loss mass must round-trip within double precision");
 	}
 
 	/// <summary>

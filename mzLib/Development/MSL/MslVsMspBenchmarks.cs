@@ -1,390 +1,242 @@
-﻿// Development/MSL/MslVsMspBenchmarks.cs
-// Prompt 8 — Format comparison benchmarks: MSL binary vs MSP text.
-//
-// Run from the Development project root (NOT via dotnet test):
-//   dotnet run -c Release -- --filter "*MslVsMspBenchmarks*"
-//
-// Requires BenchmarkDotNet in Development.csproj:
-//   <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
-
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Text;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
-using MassSpectrometry;                          // ProductType, DissociationType
-using Omics.Fragmentation;
-using Omics.SpectralMatch.MslSpectralLibrary;   // MslLibraryEntry, MslFragmentIon, MslFormat
-using Omics.SpectrumMatch;                       // LibrarySpectrum
-using Readers.SpectralLibrary;                   // MslLibrary, MslWriter, SpectralLibrary
+using MassSpectrometry;
+using Omics.SpectralMatch.MslSpectralLibrary;
+using Readers.SpectralLibrary;
 
 namespace Development.MSL
 {
 	/// <summary>
-	/// Compares load and lookup throughput between the MSL binary format and the MSP text
-	/// format for the same set of synthetic precursor entries.
+	/// Format comparison benchmarks: .msl vs .msp for write throughput, full-load time,
+	/// index-only-load time, and single-entry lookup latency.
 	///
-	/// <para>
-	/// <b>Baseline</b>: <see cref="MspLoad_FullIndex"/> uses <see cref="SpectralLibrary"/>,
-	/// which builds a byte-offset index over the MSP file on load. All MSL benchmarks are
-	/// compared against this baseline in the BenchmarkDotNet report.
-	/// </para>
+	/// Each benchmark is parameterised over three library sizes:
+	///   NPrecursors = 1 000, 10 000, 50 000
 	///
-	/// <para>
-	/// <b>MSP file authorship</b>: written by iterating <see cref="LibrarySpectrum.ToString"/>
-	/// via a <see cref="StreamWriter"/> — the same path MetaMorpheus uses when serialising a
-	/// spectral library to disk. The MSP file is therefore a faithful ground-truth export of
-	/// the same entries that are written to the .msl file.
-	/// </para>
+	/// The MSP baseline uses <see cref="SpectralLibrary"/> (mzLib's built-in MSP reader).
+	/// MSL uses the binary format. Both operate on the same synthetic entry data generated
+	/// by <see cref="MslBenchmarks.GenerateEntries"/> to ensure a fair comparison.
 	///
-	/// Attributes
-	/// ----------
-	/// [MemoryDiagnoser]  — reports Gen0/Gen1/Gen2 GC counts and allocated bytes per op.
-	/// [SimpleJob(...)]   — targets .NET 8 with default warmup + measurement counts.
+	/// <b>File isolation note:</b> <see cref="MslLoad_IndexOnly"/> uses a separate temp file
+	/// (<see cref="_mslIndexOnlyPath"/>) that is never opened by any other benchmark method
+	/// in this class. This prevents the Windows file-locking error that occurs when
+	/// <see cref="GlobalCleanup"/> tries to delete a file that <c>MslLoad_IndexOnly</c>'s
+	/// index-only <c>FileStream</c> may still hold across BenchmarkDotNet process boundaries.
 	/// </summary>
-	[MemoryDiagnoser]
 	[SimpleJob(RuntimeMoniker.Net80)]
+	[MemoryDiagnoser]
+	[HideColumns("Job", "RntmId", "WarmupCount", "LaunchCount", "TargetCount")]
 	public class MslVsMspBenchmarks
 	{
-		// ── Parameters ───────────────────────────────────────────────────────────────
+		// ── Parameters ────────────────────────────────────────────────────────────
 
-		/// <summary>
-		/// Number of synthetic precursor entries written to both the MSP and MSL files.
-		/// BenchmarkDotNet runs the full suite once per value.
-		/// The 50 K value matches the primary comparison target in the prompt spec;
-		/// 1 K and 10 K provide the low-end curve.
-		/// </summary>
 		[Params(1_000, 10_000, 50_000)]
-		public int NPrecursors;
+		public int NPrecursors { get; set; }
 
-		// ── Private state (populated by GlobalSetup) ─────────────────────────────────
+		[Params(10)]
+		public int AvgFrag { get; set; }
 
-		/// <summary>
-		/// Absolute path of the temporary .msl file written in <see cref="GlobalSetup"/>.
-		/// Deleted in <see cref="GlobalCleanup"/>.
-		/// </summary>
-		private string _tempMslPath = string.Empty;
+		// ── State ─────────────────────────────────────────────────────────────────
 
-		/// <summary>
-		/// Absolute path of the temporary .msp text file written in <see cref="GlobalSetup"/>.
-		/// Written by calling <see cref="LibrarySpectrum.ToString"/> per entry, matching the
-		/// MetaMorpheus serialisation convention.
-		/// Deleted in <see cref="GlobalCleanup"/>.
-		/// </summary>
-		private string _tempMspPath = string.Empty;
+		/// <summary>MSL file used by MslLoad_Full, MslLookup_BySequenceCharge, and the write benchmarks.</summary>
+		private string _mslPath = null!;
 
 		/// <summary>
-		/// Synthetic <see cref="MslLibraryEntry"/> list generated once in
-		/// <see cref="GlobalSetup"/> and used to produce both the MSL and MSP files.
-		/// Also used by the lookup benchmarks to supply alternating hit/miss keys.
+		/// Dedicated MSL file used exclusively by <see cref="MslLoad_IndexOnly"/>.
+		/// Kept separate from <see cref="_mslPath"/> so that GlobalCleanup's
+		/// <c>File.Delete(_mslPath)</c> is never racing with an open index-only FileStream.
 		/// </summary>
-		private List<MslLibraryEntry> _syntheticEntries = new();
+		private string _mslIndexOnlyPath = null!;
 
-		/// <summary>
-		/// Pre-converted list of <see cref="LibrarySpectrum"/> objects derived from
-		/// <see cref="_syntheticEntries"/> in <see cref="GlobalSetup"/>. Used as the
-		/// canonical source for writing the MSP file and for supplying lookup keys to
-		/// the MSP lookup benchmark.
-		/// </summary>
-		private List<LibrarySpectrum> _syntheticSpectra = new();
-
-		/// <summary>
-		/// Long-lived <see cref="MslLibrary"/> opened in index-only mode during
-		/// <see cref="GlobalSetup"/> and kept alive for the MSL lookup benchmark.
-		/// Disposed in <see cref="GlobalCleanup"/>.
-		/// </summary>
+		private string _mspPath = null!;
+		private IReadOnlyList<MslLibraryEntry> _entries = null!;
 		private MslLibrary _mslLib = null!;
-
-		/// <summary>
-		/// Long-lived <see cref="SpectralLibrary"/> opened over the MSP file during
-		/// <see cref="GlobalSetup"/> and kept alive for the MSP lookup benchmark.
-		/// Connections closed in <see cref="GlobalCleanup"/>.
-		/// </summary>
 		private SpectralLibrary _mspLib = null!;
 
-		/// <summary>
-		/// Pre-built array of 1 000 lookup keys (sequence/charge pairs) used by
-		/// <see cref="Msp_TryGetSpectrum_1000Lookups"/> and
-		/// <see cref="Msl_TryGetLibrarySpectrum_1000Lookups"/>. Alternates between
-		/// hits (entries that exist) and misses (entries that do not exist) to measure
-		/// realistic mixed-workload latency. Built in <see cref="GlobalSetup"/>.
-		/// </summary>
-		private (string sequence, int charge)[] _lookupKeys = Array.Empty<(string, int)>();
+		// ── Setup / Cleanup ───────────────────────────────────────────────────────
 
-		// ── Setup / teardown ─────────────────────────────────────────────────────────
-
-		/// <summary>
-		/// Runs once per parameter combination before any benchmark iterations begin.
-		///
-		/// Steps
-		/// -----
-		/// 1. Generate <see cref="NPrecursors"/> synthetic entries and convert to spectra.
-		/// 2. Write the .msl file via <see cref="MslWriter.Write"/>.
-		/// 3. Write the .msp file via <see cref="LibrarySpectrum.ToString"/> + StreamWriter.
-		/// 4. Open long-lived <see cref="MslLibrary"/> (index-only) and
-		///    <see cref="SpectralLibrary"/> (full index) for lookup benchmarks.
-		/// 5. Build the 1 000 alternating hit/miss lookup key array.
-		/// 6. Print a setup summary to stdout.
-		/// </summary>
 		[GlobalSetup]
 		public void GlobalSetup()
 		{
-			var sw = Stopwatch.StartNew();
+			string tmp = Path.GetTempPath();
+			string uid = Guid.NewGuid().ToString("N");
 
-			// 1. Generate synthetic entries and convert to LibrarySpectrum for MSP writing
-			_syntheticEntries = GenerateSyntheticEntries(NPrecursors);
-			_syntheticSpectra = new List<LibrarySpectrum>(_syntheticEntries.Count);
-			foreach (var entry in _syntheticEntries)
-				_syntheticSpectra.Add(entry.ToLibrarySpectrum());
+			_mslPath = Path.Combine(tmp, $"vsmsp_{NPrecursors}_{uid}.msl");
+			_mslIndexOnlyPath = Path.Combine(tmp, $"vsmsp_io_{NPrecursors}_{uid}.msl");
+			_mspPath = Path.Combine(tmp, $"vsmsp_{NPrecursors}_{uid}.msp");
 
-			string tempDir = Path.GetTempPath();
-			string tag = Guid.NewGuid().ToString("N");
+			_entries = MslBenchmarks.GenerateEntries(NPrecursors, AvgFrag);
 
-			// 2. Write .msl file
-			//    Signature: MslWriter.Write(string outputPath, IReadOnlyList<MslLibraryEntry>)
-			_tempMslPath = Path.Combine(tempDir, $"MslVsMsp_{NPrecursors}_{tag}.msl");
-			MslWriter.Write(_tempMslPath, _syntheticEntries);
+			// Write all three files once so load benchmarks read pre-existing data.
+			// _mslIndexOnlyPath is an identical copy of _mslPath; written separately so
+			// MslLoad_IndexOnly never touches _mslPath.
+			MslWriter.Write(_mslPath, _entries);
+			MslWriter.Write(_mslIndexOnlyPath, _entries);
+			WriteMsp(_entries, _mspPath);
 
-			// 3. Write .msp file using LibrarySpectrum.ToString(), matching MetaMorpheus convention
-			_tempMspPath = Path.Combine(tempDir, $"MslVsMsp_{NPrecursors}_{tag}.msp");
-			WriteMspFile(_syntheticSpectra, _tempMspPath);
-
-			// 4. Open long-lived libraries for lookup benchmarks
-			_mslLib = MslLibrary.LoadIndexOnly(_tempMslPath);
-			_mspLib = new SpectralLibrary(new List<string> { _tempMspPath });
-
-			// 5. Build 1 000 alternating hit/miss lookup keys
-			//    Even indices → real entry (hit); odd indices → fabricated key (miss).
-			_lookupKeys = new (string, int)[1_000];
-			for (int i = 0; i < 1_000; i++)
-			{
-				if (i % 2 == 0)
-				{
-					// Hit: use a real entry cycling through the library
-					var entry = _syntheticEntries[i % _syntheticEntries.Count];
-					_lookupKeys[i] = (entry.ModifiedSequence, entry.Charge);
-				}
-				else
-				{
-					// Miss: deliberately absent sequence
-					_lookupKeys[i] = ("XXXXXXXXXXX", 99);
-				}
-			}
-
-			sw.Stop();
-
-			long mslBytes = new FileInfo(_tempMslPath).Length;
-			long mspBytes = new FileInfo(_tempMspPath).Length;
-
-			Console.WriteLine();
-			Console.WriteLine("MslVsMsp Benchmark Setup:");
-			Console.WriteLine($"  NPrecursors:    {NPrecursors:N0}");
-			Console.WriteLine($"  MSL file size:  {mslBytes / 1_048_576.0:F1} MB");
-			Console.WriteLine($"  MSP file size:  {mspBytes / 1_048_576.0:F1} MB");
-			Console.WriteLine($"  Size ratio:     {(double)mspBytes / mslBytes:F1}× (MSP / MSL)");
-			Console.WriteLine($"  Setup time:     {sw.Elapsed.TotalSeconds:F2} s");
+			// Pre-load MSL and MSP for the lookup benchmarks.
+			_mslLib = MslLibrary.Load(_mslPath);
+			_mspLib = new SpectralLibrary(new List<string> { _mspPath });
 		}
 
-		/// <summary>
-		/// Runs once per parameter combination after all iterations complete.
-		/// Disposes the long-lived library instances and deletes temp files.
-		/// </summary>
 		[GlobalCleanup]
 		public void GlobalCleanup()
 		{
 			_mslLib?.Dispose();
+			_mslLib = null!;
+
 			_mspLib?.CloseConnections();
+			_mspLib = null!;
 
-			if (File.Exists(_tempMslPath)) File.Delete(_tempMslPath);
-			if (File.Exists(_tempMspPath)) File.Delete(_tempMspPath);
+			if (File.Exists(_mslPath)) File.Delete(_mslPath);
+			if (File.Exists(_mslIndexOnlyPath)) File.Delete(_mslIndexOnlyPath);
+			if (File.Exists(_mspPath)) File.Delete(_mspPath);
 		}
 
-		// ── Load benchmarks ───────────────────────────────────────────────────────────
+		// ── Write: MSL vs MSP ─────────────────────────────────────────────────────
 
 		/// <summary>
-		/// Baseline: loads the MSP text file via <see cref="SpectralLibrary"/>, which
-		/// builds a byte-offset index over the entire file before returning.
-		/// All MSL benchmarks are compared against this in the BenchmarkDotNet report.
-		///
-		/// <see cref="BenchmarkDotNet.Attributes.BenchmarkAttribute.Baseline"/> = true causes
-		/// BenchmarkDotNet to display a "Ratio" column showing how many times faster/slower
-		/// each other benchmark is relative to this one.
-		///
-		/// Connections are closed inline so that the StreamReader handle does not leak
-		/// across iterations.
+		/// Time to serialise <see cref="NPrecursors"/> entries to a new .msl binary file.
 		/// </summary>
-		[Benchmark(Baseline = true)]
-		public SpectralLibrary MspLoad_FullIndex()
+		[Benchmark]
+		public void MslWrite_Full()
 		{
-			var lib = new SpectralLibrary(new List<string> { _tempMspPath });
+			string path = Path.Combine(Path.GetTempPath(), $"msl_w_{Guid.NewGuid():N}.msl");
+			try { MslWriter.Write(path, _entries); }
+			finally { if (File.Exists(path)) File.Delete(path); }
+		}
+
+		/// <summary>
+		/// Time to serialise <see cref="NPrecursors"/> entries to a new .msp text file.
+		/// </summary>
+		[Benchmark]
+		public void MspWrite_Full()
+		{
+			string path = Path.Combine(Path.GetTempPath(), $"msp_w_{Guid.NewGuid():N}.msp");
+			try { WriteMsp(_entries, path); }
+			finally { if (File.Exists(path)) File.Delete(path); }
+		}
+
+		// ── Full load: MSL vs MSP ─────────────────────────────────────────────────
+
+		/// <summary>
+		/// Time to fully deserialise an .msl binary file into an in-memory
+		/// <see cref="MslLibrary"/>. Uses <see cref="_mslPath"/>.
+		/// </summary>
+		[Benchmark]
+		public void MslLoad_Full()
+		{
+			using MslLibrary lib = MslLibrary.Load(_mslPath);
+		}
+
+		/// <summary>
+		/// Time to open an .msp text file and build the byte-offset index in
+		/// <see cref="SpectralLibrary"/>. All work happens in the constructor;
+		/// <see cref="SpectralLibrary.CloseConnections"/> releases the StreamReader
+		/// at the end of each iteration.
+		/// </summary>
+		[Benchmark]
+		public void MspLoad_Full()
+		{
+			var lib = new SpectralLibrary(new List<string> { _mspPath });
 			lib.CloseConnections();
-			return lib;
+		}
+
+		// ── Index-only load: MSL ──────────────────────────────────────────────────
+
+		/// <summary>
+		/// Time to open an .msl file in index-only mode (reads only the precursor index
+		/// section; fragment data is left on disk), then dispose (release the FileStream).
+		///
+		/// Uses <see cref="_mslIndexOnlyPath"/> — a dedicated copy of the library file that
+		/// is never opened by any other benchmark method. This prevents the Windows
+		/// file-locking error that occurred in earlier runs when <see cref="GlobalCleanup"/>
+		/// attempted to delete a path that another benchmark's in-flight FileStream still held.
+		///
+		/// The <c>using</c> declaration disposes the library (and releases its FileStream)
+		/// before the method returns, so no handles accumulate across iterations.
+		///
+		/// MSP has no equivalent index-only mode (the entire text file must be scanned
+		/// to build the byte-offset index), so this benchmark has no MSP counterpart.
+		/// </summary>
+		[Benchmark]
+		public void MslLoad_IndexOnly()
+		{
+			using MslLibrary lib = MslLibrary.LoadIndexOnly(_mslIndexOnlyPath);
+		}
+
+		// ── Single-entry lookup: MSL vs MSP ───────────────────────────────────────
+
+		/// <summary>
+		/// Time to retrieve a single entry from the pre-loaded MSL library by sequence
+		/// + charge (O(1) dictionary lookup in the in-memory index).
+		/// </summary>
+		[Benchmark]
+		public bool MslLookup_BySequenceCharge()
+		{
+			return _mslLib.TryGetEntry(
+				_entries[0].ModifiedSequence,
+				_entries[0].Charge,
+				out _);
 		}
 
 		/// <summary>
-		/// Loads the MSL file with all fragments into RAM via <see cref="MslLibrary.Load"/>.
-		/// Returns the library so BenchmarkDotNet cannot elide the call; the GC finalises
-		/// the handle between iterations.
-		///
-		/// Expected to be measurably faster than <see cref="MspLoad_FullIndex"/> for all
-		/// three <see cref="NPrecursors"/> values (prompt acceptance criterion).
+		/// Time to retrieve a single entry from the pre-loaded MSP library by sequence
+		/// + charge. <see cref="SpectralLibrary.TryGetSpectrum"/> performs an O(1)
+		/// dictionary lookup into its byte-offset index, then seeks to the offset and
+		/// reads the spectrum record from disk (with LRU buffer on subsequent calls).
 		/// </summary>
 		[Benchmark]
-		public MslLibrary MslLoad_Full()
-			=> MslLibrary.Load(_tempMslPath);
-
-		/// <summary>
-		/// Loads the MSL file in index-only mode via <see cref="MslLibrary.LoadIndexOnly"/>
-		/// (precursor section only; fragment data stays on disk).
-		/// Expected to be the fastest load benchmark at all sizes.
-		/// Returns the library so BenchmarkDotNet cannot elide the call; the GC finalises
-		/// the handle between iterations.
-		/// </summary>
-		[Benchmark]
-		public MslLibrary MslLoad_IndexOnly()
-			=> MslLibrary.LoadIndexOnly(_tempMslPath);
-
-		// ── Lookup benchmarks ─────────────────────────────────────────────────────────
-
-		/// <summary>
-		/// Performs 1 000 <see cref="SpectralLibrary.TryGetSpectrum"/> lookups against the
-		/// pre-loaded MSP library, alternating between hits and misses using
-		/// <see cref="_lookupKeys"/>. The bool result is consumed to prevent JIT elision.
-		///
-		/// Provides the MSP baseline latency for single-spectrum retrieval, against which
-		/// <see cref="Msl_TryGetLibrarySpectrum_1000Lookups"/> is compared.
-		/// </summary>
-		[Benchmark]
-		public void Msp_TryGetSpectrum_1000Lookups()
+		public bool MspLookup_BySequenceCharge()
 		{
-			for (int i = 0; i < _lookupKeys.Length; i++)
+			return _mspLib.TryGetSpectrum(
+				_entries[0].ModifiedSequence,
+				_entries[0].Charge,
+				out _);
+		}
+
+		// ── MSP write helper ──────────────────────────────────────────────────────
+
+		/// <summary>
+		/// Writes <paramref name="entries"/> to an MSP text file at <paramref name="path"/>
+		/// using the standard NIST MSP format read by <see cref="SpectralLibrary"/>.
+		/// </summary>
+		private static void WriteMsp(IReadOnlyList<MslLibraryEntry> entries, string path)
+		{
+			using var sw = new StreamWriter(path, append: false,
+				encoding: new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+				bufferSize: 65536);
+
+			foreach (MslLibraryEntry e in entries)
 			{
-				var (seq, charge) = _lookupKeys[i];
-				_ = _mspLib.TryGetSpectrum(seq, charge, out _);
-			}
-		}
+				// Normalise intensities to max = 1.0 within this precursor
+				float maxInty = 0f;
+				foreach (MslFragmentIon frag in e.Fragments)
+					if (frag.Intensity > maxInty) maxInty = frag.Intensity;
+				if (maxInty <= 0f) maxInty = 1f;
 
-		/// <summary>
-		/// Performs 1 000 <see cref="MslLibrary.TryGetLibrarySpectrum"/> lookups against the
-		/// pre-loaded MSL library (index-only mode), alternating between hits and misses using
-		/// <see cref="_lookupKeys"/>. The bool result is consumed to prevent JIT elision.
-		///
-		/// Expected to be faster than <see cref="Msp_TryGetSpectrum_1000Lookups"/> because
-		/// hits are served from the LRU cache and the dictionary lookup is O(1) in both cases,
-		/// but MSL avoids the StreamReader seek and text parsing overhead on hits.
-		/// </summary>
-		[Benchmark]
-		public void Msl_TryGetLibrarySpectrum_1000Lookups()
-		{
-			for (int i = 0; i < _lookupKeys.Length; i++)
-			{
-				var (seq, charge) = _lookupKeys[i];
-				_ = _mslLib.TryGetLibrarySpectrum(seq, charge, out _);
-			}
-		}
+				sw.WriteLine(FormattableString.Invariant(
+					$"Name: {e.ModifiedSequence}/{e.Charge}"));
+				sw.WriteLine(FormattableString.Invariant(
+					$"MW: {e.PrecursorMz:F6}"));
+				sw.WriteLine(FormattableString.Invariant(
+					$"Comment: Parent={e.PrecursorMz:F6} iRT={e.Irt:F4}"));
+				sw.WriteLine(FormattableString.Invariant(
+					$"Num peaks: {e.Fragments.Count}"));
 
-		// ── MSP file writer ───────────────────────────────────────────────────────────
-
-		/// <summary>
-		/// Writes a list of <see cref="LibrarySpectrum"/> objects to an MSP text file by
-		/// calling <see cref="LibrarySpectrum.ToString"/> on each entry and writing the
-		/// result to a <see cref="StreamWriter"/>.
-		///
-		/// This matches the serialisation path used by MetaMorpheus
-		/// (<c>WriteSpectrumLibrary</c> in <c>MetaMorpheusTask</c>) and by
-		/// <see cref="SpectralLibrary.WriteResults"/>. Using the same path ensures the MSP
-		/// file is a faithful representation that <see cref="SpectralLibrary"/> can index.
-		/// </summary>
-		/// <param name="spectra">Spectra to serialise. Must not be null.</param>
-		/// <param name="outputPath">Destination file path. Created or overwritten.</param>
-		private static void WriteMspFile(List<LibrarySpectrum> spectra, string outputPath)
-		{
-			using var writer = new StreamWriter(outputPath, append: false, Encoding.UTF8);
-			foreach (var spectrum in spectra)
-				writer.WriteLine(spectrum.ToString());
-		}
-
-		// ── Synthetic data factory ────────────────────────────────────────────────────
-
-		/// <summary>
-		/// Generates a deterministic list of <paramref name="count"/> synthetic
-		/// <see cref="MslLibraryEntry"/> objects with 10 alternating b/y terminal fragment
-		/// ions each — the same design as <see cref="MslBenchmarks.GenerateSyntheticEntries"/>
-		/// so that results are directly comparable across the two benchmark classes.
-		///
-		/// Property names confirmed from MslLibraryEntry source
-		/// ------------------------------------------------------
-		///   ModifiedSequence, StrippedSequence, PrecursorMz (double), Charge (int),
-		///   Irt (double), IsDecoy, MoleculeType, DissociationType, ProteinAccession,
-		///   QValue, Fragments.
-		///
-		/// MslFragmentIon properties used
-		/// --------------------------------
-		///   ProductType, FragmentNumber, Charge, Mz, Intensity,
-		///   NeutralLoss (double 0.0 = none), SecondaryProductType (null),
-		///   SecondaryFragmentNumber (0).
-		/// </summary>
-		/// <param name="count">Number of precursor entries to generate.</param>
-		/// <returns>New <see cref="List{MslLibraryEntry}"/>.</returns>
-		private static List<MslLibraryEntry> GenerateSyntheticEntries(int count)
-		{
-			const string AminoAcids = "ACDEFGHIKLMNPQRSTVWY";
-			const int AvgFragments = 10;
-
-			var entries = new List<MslLibraryEntry>(count);
-
-			for (int i = 0; i < count; i++)
-			{
-				// 7-residue sequence cycling through the amino-acid alphabet
-				char[] seq = new char[7];
-				for (int k = 0; k < 7; k++)
-					seq[k] = AminoAcids[(i + k) % AminoAcids.Length];
-				string strippedSequence = new string(seq);
-
-				double precursorMz = 400.00 + i * 0.01;
-				double irt = 10.0 + i * 0.001;
-
-				var fragments = new List<MslFragmentIon>(AvgFragments);
-				for (int f = 0; f < AvgFragments; f++)
+				foreach (MslFragmentIon frag in e.Fragments)
 				{
-					bool isY = (f % 2) == 1;
-					var productType = isY ? ProductType.y : ProductType.b;
-					int fragNum = 2 + f / 2;
-					float fragMz = (isY ? 200f : 150f) + fragNum * 10f + i * 0.001f;
-					float intensity = Math.Max(0.1f, 1.0f - f * 0.09f);
-
-					fragments.Add(new MslFragmentIon
-					{
-						ProductType = productType,
-						FragmentNumber = fragNum,
-						Charge = 1,
-						Mz = fragMz,
-						Intensity = intensity,
-						NeutralLoss = 0.0,
-						SecondaryProductType = null,
-						SecondaryFragmentNumber = 0
-					});
+					float normInty = frag.Intensity / maxInty;
+					sw.WriteLine(FormattableString.Invariant(
+						$"{frag.Mz:F6}\t{normInty:F6}\t\"{frag.ProductType}{frag.FragmentNumber}^{frag.Charge}/0ppm\""));
 				}
 
-				entries.Add(new MslLibraryEntry
-				{
-					ModifiedSequence = strippedSequence,
-					StrippedSequence = strippedSequence,
-					PrecursorMz = precursorMz,
-					Charge = 2,
-					Irt = irt,
-					IsDecoy = false,
-					MoleculeType = MslFormat.MoleculeType.Peptide,
-					DissociationType = DissociationType.HCD,
-					ProteinAccession = string.Empty,
-					QValue = float.NaN,
-					Fragments = fragments
-				});
+				sw.WriteLine(); // blank line between entries
 			}
-
-			return entries;
 		}
 	}
 }

@@ -57,6 +57,16 @@ public sealed class MslLibraryData : IDisposable
 	private readonly MslProteinRecord[]? _proteins;
 
 	/// <summary>
+	/// Extended annotation table masses read from the file's optional extended annotation
+	/// section (format version 2+, <see cref="MslFormat.FileFlagHasExtAnnotations"/>).
+	/// Index 0 is the reserved sentinel (0.0 = no loss); valid custom entries start at 1.
+	/// Empty array when the file contains no custom neutral losses (version 1 or flag absent).
+	/// Retained so on-demand fragment reads can decode custom-loss indices without re-opening
+	/// the file.
+	/// </summary>
+	private readonly double[] _customLossMasses;
+
+	/// <summary>
 	/// True when this instance was created in index-only mode; false for full-load mode.
 	/// Controls the behaviour of <see cref="LoadFragmentsOnDemand"/>.
 	/// </summary>
@@ -75,6 +85,7 @@ public sealed class MslLibraryData : IDisposable
 	{
 		Entries = entries ?? throw new ArgumentNullException(nameof(entries));
 		Header = header;
+		_customLossMasses = Array.Empty<double>();
 		_isIndexOnly = false;
 	}
 
@@ -84,9 +95,7 @@ public sealed class MslLibraryData : IDisposable
 	/// Ownership of the stream is transferred to this instance and will be closed by
 	/// <see cref="Dispose"/>.
 	/// </summary>
-	/// <param name="entries">
-	/// Skeleton precursor entries (metadata populated, fragment lists empty).
-	/// </param>
+	/// <param name="entries">Skeleton precursor entries (metadata populated, fragment lists empty).</param>
 	/// <param name="header">Deserialized file header.</param>
 	/// <param name="precursorRecords">
 	/// Raw precursor records retained for on-demand fragment reads; provides
@@ -98,14 +107,20 @@ public sealed class MslLibraryData : IDisposable
 	/// An open <see cref="System.IO.FileStream"/> used to seek and read fragment blocks.
 	/// Ownership is transferred; will be disposed by <see cref="Dispose"/>.
 	/// </param>
-	/// <exception cref="ArgumentNullException">Any parameter is null.</exception>
+	/// <param name="customLossMasses">
+	/// Extended annotation table masses from the file (format version 2+). Index 0 is the
+	/// reserved sentinel (0.0). Pass <see cref="Array.Empty{T}"/> for version-1 files or
+	/// files that contain no custom neutral losses.
+	/// </param>
+	/// <exception cref="ArgumentNullException">Any required parameter is null.</exception>
 	internal MslLibraryData(
 		List<MslLibraryEntry> entries,
 		MslFileHeader header,
 		MslPrecursorRecord[] precursorRecords,
 		string[] strings,
 		MslProteinRecord[] proteins,
-		FileStream onDemandStream)
+		FileStream onDemandStream,
+		double[] customLossMasses)
 	{
 		Entries = entries ?? throw new ArgumentNullException(nameof(entries));
 		Header = header;
@@ -113,6 +128,7 @@ public sealed class MslLibraryData : IDisposable
 		_strings = strings ?? throw new ArgumentNullException(nameof(strings));
 		_proteins = proteins ?? throw new ArgumentNullException(nameof(proteins));
 		_onDemandStream = onDemandStream ?? throw new ArgumentNullException(nameof(onDemandStream));
+		_customLossMasses = customLossMasses ?? Array.Empty<double>();
 		_isIndexOnly = true;
 	}
 
@@ -195,7 +211,10 @@ public sealed class MslLibraryData : IDisposable
 				throw new ObjectDisposedException(nameof(MslLibraryData),
 					"Cannot load fragments: the library has been disposed.");
 
-			return MslReader.ReadFragmentBlockFromStream(_onDemandStream, _precursorRecords![precursorIndex]);
+			return MslReader.ReadFragmentBlockFromStream(
+				_onDemandStream,
+				_precursorRecords![precursorIndex],
+				_customLossMasses);
 		}
 	}
 

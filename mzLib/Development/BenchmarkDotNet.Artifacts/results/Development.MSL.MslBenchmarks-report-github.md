@@ -6,40 +6,36 @@ Intel Core i7-8550U CPU 1.80GHz (Max: 1.99GHz) (Kaby Lake R), 1 CPU, 8 logical a
   [Host]   : .NET 8.0.21 (8.0.21, 8.0.2125.47513), X64 RyuJIT x86-64-v3
   .NET 8.0 : .NET 8.0.21 (8.0.21, 8.0.2125.47513), X64 RyuJIT x86-64-v3
 
-Job=.NET 8.0  Runtime=.NET 8.0  
+Job=.NET 8.0  Runtime=.NET 8.0  LaunchCount=Default  
+WarmupCount=Default  
 
 ```
-| Method                        | NPrecursors | AvgFragmentsPerPrecursor | Mean                | Error             | StdDev            | Gen0       | Gen1       | Gen2     | Allocated   |
-|------------------------------ |------------ |------------------------- |--------------------:|------------------:|------------------:|-----------:|-----------:|---------:|------------:|
-| **Write_MslLibrary**              | **1000**        | **10**                       |     **6,308,421.63 ns** |    **121,365.720 ns** |    **134,897.676 ns** |    **31.2500** |          **-** |        **-** |    **186858 B** |
-| FullLoad_MslLibrary           | 1000        | 10                       |     1,471,923.70 ns |     29,030.150 ns |     22,664.831 ns |   277.3438 |   179.6875 |  82.0313 |   1686281 B |
-| IndexOnlyLoad_MslLibrary      | 1000        | 10                       |                  NA |                NA |                NA |         NA |         NA |       NA |          NA |
-| QueryMzWindow_SingleQuery     | 1000        | 10                       |           910.49 ns |         11.648 ns |         10.896 ns |          - |          - |        - |           - |
-| QueryMzWindow_1000Queries     | 1000        | 10                       |        14,707.94 ns |        279.328 ns |        261.284 ns |          - |          - |        - |           - |
-| DdaLookup_ExistingEntry       | 1000        | 10                       |            87.00 ns |          1.743 ns |          1.630 ns |     0.0095 |          - |        - |        40 B |
-| DdaLookup_MissingEntry        | 1000        | 10                       |            78.79 ns |          1.099 ns |          1.028 ns |     0.0134 |          - |        - |        56 B |
-| BuildIndex_FromEntries        | 1000        | 10                       |       126,461.73 ns |      2,515.784 ns |      3,089.609 ns |    48.5840 |    12.2070 |        - |    204264 B |
-| RtCalibration_LinearTransform | 1000        | 10                       |       834,567.16 ns |     14,232.355 ns |     13,978.076 ns |   191.4063 |   190.4297 |        - |   1204360 B |
-| **Write_MslLibrary**              | **50000**       | **10**                       |   **159,134,713.33 ns** |  **3,178,565.350 ns** |  **3,660,440.585 ns** |   **333.3333** |          **-** |        **-** |   **2538987 B** |
-| FullLoad_MslLibrary           | 50000       | 10                       |   206,522,559.02 ns |  6,179,747.638 ns | 17,928,569.739 ns | 10250.0000 |  5250.0000 | 500.0000 |  84647692 B |
-| IndexOnlyLoad_MslLibrary      | 50000       | 10                       |                  NA |                NA |                NA |         NA |         NA |       NA |          NA |
-| QueryMzWindow_SingleQuery     | 50000       | 10                       |         2,106.49 ns |         40.579 ns |         87.351 ns |          - |          - |        - |           - |
-| QueryMzWindow_1000Queries     | 50000       | 10                       |        68,421.93 ns |      1,895.456 ns |      5,588.794 ns |          - |          - |        - |           - |
-| DdaLookup_ExistingEntry       | 50000       | 10                       |            91.97 ns |          0.679 ns |          0.567 ns |     0.0095 |          - |        - |        40 B |
-| DdaLookup_MissingEntry        | 50000       | 10                       |            78.12 ns |          1.436 ns |          2.626 ns |     0.0134 |          - |        - |        56 B |
-| BuildIndex_FromEntries        | 50000       | 10                       |    16,070,786.07 ns |    606,369.738 ns |  1,700,325.879 ns |   890.6250 |   390.6250 |  78.1250 |  10645260 B |
-| RtCalibration_LinearTransform | 50000       | 10                       |   144,421,042.86 ns |  2,876,205.312 ns |  2,549,681.094 ns |  9000.0000 |  4750.0000 | 500.0000 |  60647292 B |
-| **Write_MslLibrary**              | **500000**      | **10**                       | **1,437,155,880.00 ns** | **27,384,012.486 ns** | **25,615,022.282 ns** |  **3000.0000** |  **1000.0000** |        **-** |  **24139056 B** |
-| FullLoad_MslLibrary           | 500000      | 10                       | 1,271,680,393.33 ns | 13,929,709.000 ns | 13,029,858.447 ns | 96000.0000 | 47000.0000 |        - | 840140320 B |
-| IndexOnlyLoad_MslLibrary      | 500000      | 10                       |                  NA |                NA |                NA |         NA |         NA |       NA |          NA |
-| QueryMzWindow_SingleQuery     | 500000      | 10                       |         1,797.82 ns |         27.973 ns |         23.359 ns |          - |          - |        - |           - |
-| QueryMzWindow_1000Queries     | 500000      | 10                       |       799,423.09 ns |      7,850.750 ns |      6,959.486 ns |          - |          - |        - |           - |
-| DdaLookup_ExistingEntry       | 500000      | 10                       |            90.31 ns |          1.357 ns |          1.133 ns |     0.0095 |          - |        - |        40 B |
-| DdaLookup_MissingEntry        | 500000      | 10                       |            77.52 ns |          1.052 ns |          0.984 ns |     0.0134 |          - |        - |        56 B |
-| BuildIndex_FromEntries        | 500000      | 10                       |   112,193,722.86 ns |  1,640,941.980 ns |  1,454,652.324 ns |  5000.0000 |   400.0000 |        - | 100138208 B |
-| RtCalibration_LinearTransform | 500000      | 10                       | 1,038,034,938.46 ns | 13,940,074.934 ns | 11,640,593.922 ns | 83000.0000 | 41000.0000 |        - | 600138304 B |
-
-Benchmarks with issues:
-  MslBenchmarks.IndexOnlyLoad_MslLibrary: .NET 8.0(Runtime=.NET 8.0) [NPrecursors=1000, AvgFragmentsPerPrecursor=10]
-  MslBenchmarks.IndexOnlyLoad_MslLibrary: .NET 8.0(Runtime=.NET 8.0) [NPrecursors=50000, AvgFragmentsPerPrecursor=10]
-  MslBenchmarks.IndexOnlyLoad_MslLibrary: .NET 8.0(Runtime=.NET 8.0) [NPrecursors=500000, AvgFragmentsPerPrecursor=10]
+| Method                        | NPrecursors | AvgFrag | Mean                | Error             | StdDev            | Median              | Gen0        | Gen1       | Gen2     | Allocated   |
+|------------------------------ |------------ |-------- |--------------------:|------------------:|------------------:|--------------------:|------------:|-----------:|---------:|------------:|
+| **Write_MslLibrary**              | **1000**        | **10**      |     **6,395,476.22 ns** |    **120,252.558 ns** |    **128,668.890 ns** |     **6,391,104.69 ns** |     **46.8750** |          **-** |        **-** |    **211949 B** |
+| FullLoad_MslLibrary           | 1000        | 10      |     1,637,810.21 ns |     44,497.053 ns |    128,384.181 ns |     1,580,740.23 ns |    277.3438 |   199.2188 |  82.0313 |   1717818 B |
+| IndexOnlyLoad_MslLibrary      | 1000        | 10      |     2,016,942.17 ns |     28,848.931 ns |     24,090.164 ns |     2,020,774.02 ns |    316.4063 |   167.9688 |  82.0313 |   1754185 B |
+| QueryMzWindow_SingleQuery     | 1000        | 10      |            52.94 ns |          1.093 ns |          2.511 ns |            52.00 ns |           - |          - |        - |           - |
+| QueryMzWindow_1000Queries     | 1000        | 10      |        57,744.63 ns |        996.899 ns |        932.500 ns |        57,670.43 ns |           - |          - |        - |           - |
+| DdaLookup_ExistingEntry       | 1000        | 10      |            93.85 ns |          1.899 ns |          1.776 ns |            93.43 ns |      0.0095 |          - |        - |        40 B |
+| DdaLookup_MissingEntry        | 1000        | 10      |            79.93 ns |          1.028 ns |          0.961 ns |            80.26 ns |      0.0153 |          - |        - |        64 B |
+| BuildIndex_FromEntries        | 1000        | 10      |       146,978.26 ns |      2,431.564 ns |      2,155.518 ns |       147,203.89 ns |     53.7109 |    15.1367 |        - |    225904 B |
+| RtCalibration_LinearTransform | 1000        | 10      |       155,049.37 ns |      2,380.414 ns |      2,226.641 ns |       155,590.23 ns |     52.7344 |    15.8691 |        - |    226024 B |
+| **Write_MslLibrary**              | **50000**       | **10**      |   **147,958,403.57 ns** |  **2,346,632.916 ns** |  **2,080,228.958 ns** |   **148,203,375.00 ns** |    **250.0000** |          **-** |        **-** |   **2564040 B** |
+| FullLoad_MslLibrary           | 50000       | 10      |   146,855,942.86 ns |  2,633,711.186 ns |  2,334,716.367 ns |   146,945,250.00 ns |  10250.0000 |  5250.0000 | 250.0000 |  84996756 B |
+| IndexOnlyLoad_MslLibrary      | 50000       | 10      |   396,326,491.30 ns |  7,829,893.002 ns |  9,902,308.476 ns |   397,259,900.00 ns |  10000.0000 |  5000.0000 |        - |  86600872 B |
+| QueryMzWindow_SingleQuery     | 50000       | 10      |         1,515.74 ns |         23.791 ns |         22.254 ns |         1,509.53 ns |           - |          - |        - |           - |
+| QueryMzWindow_1000Queries     | 50000       | 10      |     1,003,787.29 ns |     19,244.286 ns |     18,001.117 ns |       997,763.18 ns |           - |          - |        - |           - |
+| DdaLookup_ExistingEntry       | 50000       | 10      |            95.78 ns |          1.819 ns |          1.613 ns |            95.61 ns |      0.0095 |          - |        - |        40 B |
+| DdaLookup_MissingEntry        | 50000       | 10      |            83.60 ns |          1.442 ns |          2.245 ns |            83.07 ns |      0.0153 |          - |        - |        64 B |
+| BuildIndex_FromEntries        | 50000       | 10      |    19,365,439.58 ns |    186,553.770 ns |    174,502.512 ns |    19,361,262.50 ns |   1031.2500 |  1000.0000 |  31.2500 |  10984317 B |
+| RtCalibration_LinearTransform | 50000       | 10      |    14,277,074.40 ns |     90,172.848 ns |     75,298.412 ns |    14,295,282.81 ns |   1046.8750 |  1031.2500 |  46.8750 |  10984448 B |
+| **Write_MslLibrary**              | **500000**      | **10**      | **1,497,149,226.67 ns** | **17,993,061.923 ns** | **16,830,721.294 ns** | **1,495,650,700.00 ns** |   **3000.0000** |  **1000.0000** |        **-** |  **24164144 B** |
+| FullLoad_MslLibrary           | 500000      | 10      | 1,393,995,876.56 ns | 27,571,288.667 ns | 63,900,658.756 ns | 1,380,264,650.00 ns |  99000.0000 | 48000.0000 |        - | 844257840 B |
+| IndexOnlyLoad_MslLibrary      | 500000      | 10      | 4,948,797,064.29 ns | 49,067,481.274 ns | 43,497,044.105 ns | 4,956,035,850.00 ns | 101000.0000 | 50000.0000 |        - | 860261872 B |
+| QueryMzWindow_SingleQuery     | 500000      | 10      |        24,848.96 ns |        352.786 ns |        312.736 ns |        24,901.45 ns |           - |          - |        - |           - |
+| QueryMzWindow_1000Queries     | 500000      | 10      |    10,373,468.54 ns |    190,316.511 ns |    178,022.183 ns |    10,307,285.94 ns |           - |          - |        - |           - |
+| DdaLookup_ExistingEntry       | 500000      | 10      |            97.30 ns |          1.835 ns |          1.717 ns |            97.68 ns |      0.0095 |          - |        - |        40 B |
+| DdaLookup_MissingEntry        | 500000      | 10      |            88.05 ns |          1.442 ns |          1.278 ns |            87.92 ns |      0.0153 |          - |        - |        64 B |
+| BuildIndex_FromEntries        | 500000      | 10      |   195,733,952.38 ns |  1,729,572.722 ns |  1,533,221.169 ns |   195,570,050.00 ns |   7666.6667 |  2333.3333 |        - | 104245296 B |
+| RtCalibration_LinearTransform | 500000      | 10      |   128,501,992.31 ns |  1,129,759.883 ns |    943,400.669 ns |   128,371,000.00 ns |   7750.0000 |  2000.0000 |        - | 104245416 B |
