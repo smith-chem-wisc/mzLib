@@ -56,6 +56,14 @@ public sealed class MslLibrary : IDisposable
 	private MslIndex? _index;
 
 	/// <summary>
+	/// Neutral-mass index for top-down proteoform search. Non-null when the library contains
+	/// at least one entry with <see cref="MslFormat.MoleculeType.Proteoform"/>; null otherwise.
+	/// This is an <b>additional</b> index — proteoform entries are also present in
+	/// <see cref="_index"/> for m/z-based DDA workflows.
+	/// </summary>
+	private readonly MslProteoformIndex? _proteoformIndex;
+
+	/// <summary>
 	/// The Prompt 3 data container that owns the open <see cref="System.IO.FileStream"/> and
 	/// the <see cref="MslLibraryData.LoadFragmentsOnDemand"/> implementation in index-only mode.
 	/// Null in full-load mode and after <see cref="Dispose"/> has been called.
@@ -98,16 +106,22 @@ public sealed class MslLibrary : IDisposable
 	///   <see cref="System.IO.FileStream"/> and on-demand fragment loader in index-only mode.
 	///   <see langword="null"/> in full-load mode.
 	/// </param>
+	/// <param name="proteoformIndex">
+	///   Pre-built <see cref="MslProteoformIndex"/>, or <see langword="null"/> when the library
+	///   contains no proteoform entries.
+	/// </param>
 	private MslLibrary(
 		MslIndex index,
 		MslFileHeader header,
 		bool isIndexOnly,
-		MslLibraryData? rawLibrary)
+		MslLibraryData? rawLibrary,
+		MslProteoformIndex? proteoformIndex)
 	{
 		_index = index;
 		Header = header;
 		IsIndexOnly = isIndexOnly;
 		_rawLibrary = rawLibrary;
+		_proteoformIndex = proteoformIndex;
 		_stats = index.GetStatistics();
 	}
 
@@ -152,7 +166,13 @@ public sealed class MslLibrary : IDisposable
 			rawLib.Entries,
 			i => i >= 0 && i < rawLib.Count ? rawLib.Entries[i] : null);
 
-		return new MslLibrary(index, rawLib.Header, isIndexOnly: false, rawLibrary: null);
+		// Build the proteoform index when the library contains proteoform entries.
+		MslProteoformIndex? proteoformIndex = BuildProteoformIndexIfNeeded(
+			rawLib.Entries,
+			i => i >= 0 && i < rawLib.Count ? rawLib.Entries[i] : null);
+
+		return new MslLibrary(index, rawLib.Header, isIndexOnly: false,
+			rawLibrary: null, proteoformIndex: proteoformIndex);
 	}
 
 	/// <summary>
@@ -203,6 +223,7 @@ public sealed class MslLibrary : IDisposable
 		MslLibraryData rawLib = MslReader.LoadIndexOnly(filePath);
 
 		MslIndex index;
+		MslProteoformIndex? proteoformIndex;
 
 		if (!rawLib.IsIndexOnly)
 		{
@@ -212,24 +233,31 @@ public sealed class MslLibrary : IDisposable
 				rawLib.Entries,
 				i => i >= 0 && i < rawLib.Count ? rawLib.Entries[i] : null);
 
+			proteoformIndex = BuildProteoformIndexIfNeeded(
+				rawLib.Entries,
+				i => i >= 0 && i < rawLib.Count ? rawLib.Entries[i] : null);
+
 			// rawLib has no open stream for compressed files; no rawLibrary to retain.
-			return new MslLibrary(index, rawLib.Header, isIndexOnly: false, rawLibrary: null);
+			return new MslLibrary(index, rawLib.Header, isIndexOnly: false,
+				rawLibrary: null, proteoformIndex: proteoformIndex);
 		}
 
 		// Uncompressed index-only path: capture rawLib in the loader closure.
 		// On index cache miss the delegate seeks the open FileStream and reads the fragment block.
-		index = MslIndex.Build(
-			rawLib.Entries,
-			i =>
-			{
-				if (i < 0 || i >= rawLib.Count)
-					return null;
-				MslLibraryEntry skeleton = rawLib.Entries[i];
-				skeleton.Fragments = rawLib.LoadFragmentsOnDemand(i);
-				return skeleton;
-			});
+		Func<int, MslLibraryEntry?> loader = i =>
+		{
+			if (i < 0 || i >= rawLib.Count)
+				return null;
+			MslLibraryEntry skeleton = rawLib.Entries[i];
+			skeleton.Fragments = rawLib.LoadFragmentsOnDemand(i);
+			return skeleton;
+		};
 
-		return new MslLibrary(index, rawLib.Header, isIndexOnly: true, rawLibrary: rawLib);
+		index = MslIndex.Build(rawLib.Entries, loader);
+		proteoformIndex = BuildProteoformIndexIfNeeded(rawLib.Entries, loader);
+
+		return new MslLibrary(index, rawLib.Header, isIndexOnly: true,
+			rawLibrary: rawLib, proteoformIndex: proteoformIndex);
 	}
 
 	/// <summary>
@@ -300,6 +328,27 @@ public sealed class MslLibrary : IDisposable
 		MslWriter.Write(filePath, entries);
 	}
 
+	// ── Private helpers ───────────────────────────────────────────────────────
+
+	/// <summary>
+	/// Scans <paramref name="entries"/> for any entry with
+	/// <see cref="MslFormat.MoleculeType.Proteoform"/>. When at least one is found,
+	/// delegates to <see cref="MslProteoformIndex.Build"/> and returns the result;
+	/// otherwise returns <see langword="null"/>.
+	/// </summary>
+	private static MslProteoformIndex? BuildProteoformIndexIfNeeded(
+		IReadOnlyList<MslLibraryEntry> entries,
+		Func<int, MslLibraryEntry?> loader)
+	{
+		for (int i = 0; i < entries.Count; i++)
+		{
+			if (entries[i].MoleculeType == MslFormat.MoleculeType.Proteoform)
+				return MslProteoformIndex.Build(entries, loader);
+		}
+
+		return null;
+	}
+
 	// ── Public properties ─────────────────────────────────────────────────────
 
 	/// <summary>
@@ -357,6 +406,33 @@ public sealed class MslLibrary : IDisposable
 	/// for compressed files.
 	/// </summary>
 	public bool IsCompressed => (Header.FileFlags & MslFormat.FileFlagIsCompressed) != 0;
+
+	/// <summary>
+	/// Proteoform-specific neutral-mass index, populated when the library contains entries
+	/// with <see cref="MslFormat.MoleculeType.Proteoform"/>.
+	/// <see langword="null"/> when no proteoform entries are present.
+	///
+	/// <para>
+	/// Use <see cref="QueryProteoformMassWindow"/> for the common window-query pattern, or
+	/// access this property directly for more advanced operations on the index.
+	/// </para>
+	/// </summary>
+	public MslProteoformIndex? ProteoformIndex => _proteoformIndex;
+
+	/// <summary>
+	/// Number of entries with <see cref="MslFormat.MoleculeType.Proteoform"/> in the library.
+	/// Equivalent to <see cref="MslProteoformIndex.Count"/> when <see cref="ProteoformIndex"/>
+	/// is non-null; otherwise 0.
+	/// </summary>
+	public int ProteoformCount => _proteoformIndex?.Count ?? 0;
+
+	/// <summary>
+	/// Number of entries with <see cref="MslFormat.MoleculeType.Peptide"/> in the library.
+	/// Computed as <c>PrecursorCount − ProteoformCount</c>; this is correct because peptide
+	/// and proteoform are the two primary molecule types and all other types (oligonucleotide,
+	/// glycopeptide) are not currently tracked by a separate count.
+	/// </summary>
+	public int PeptideCount => PrecursorCount - ProteoformCount;
 
 	// ── Disposal guard ────────────────────────────────────────────────────────
 
@@ -581,6 +657,53 @@ public sealed class MslLibrary : IDisposable
 		return _index!.GetEntry(precursorIdx);
 	}
 
+	// ── Proteoform window query ───────────────────────────────────────────────
+
+	/// <summary>
+	/// Queries the proteoform index by neutral monoisotopic mass window.
+	///
+	/// <para>
+	/// This is the primary entry point for top-down DDA search. The caller supplies a
+	/// deconvoluted neutral mass with an appropriate tolerance window (e.g. ±5 Da or ±10 ppm
+	/// converted to absolute Da at the target mass) and receives all library proteoform
+	/// candidates whose neutral mass falls within that window.
+	/// </para>
+	///
+	/// <para>
+	/// Equivalent to calling <see cref="ProteoformIndex"/>?.QueryMassWindow(...).
+	/// Returns an empty span when no proteoform index is present (peptide-only libraries).
+	/// </para>
+	///
+	/// <para>
+	/// <b>Zero-allocation</b> when <paramref name="includeDecoys"/> is
+	/// <see langword="true"/>; returns a span slice of the internal sorted array.
+	/// </para>
+	/// </summary>
+	/// <param name="minMass">Lower neutral mass bound in daltons (inclusive).</param>
+	/// <param name="maxMass">Upper neutral mass bound in daltons (inclusive).</param>
+	/// <param name="includeDecoys">
+	///   When <see langword="true"/> (default), decoy entries are included.
+	///   When <see langword="false"/>, decoy entries are filtered out (allocates a copy).
+	/// </param>
+	/// <returns>
+	///   A <see cref="ReadOnlySpan{T}"/> of matching <see cref="MslProteoformIndexEntry"/>
+	///   values in ascending neutral mass order. Empty span when no entries match or when
+	///   the library contains no proteoform entries.
+	/// </returns>
+	/// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
+	public ReadOnlySpan<MslProteoformIndexEntry> QueryProteoformMassWindow(
+		double minMass,
+		double maxMass,
+		bool includeDecoys = true)
+	{
+		ThrowIfDisposed();
+
+		if (_proteoformIndex is null)
+			return ReadOnlySpan<MslProteoformIndexEntry>.Empty;
+
+		return _proteoformIndex.QueryMassWindow(minMass, maxMass, includeDecoys);
+	}
+
 	// ── Bulk enumeration ──────────────────────────────────────────────────────
 
 	/// <summary>
@@ -644,6 +767,13 @@ public sealed class MslLibrary : IDisposable
 	/// </para>
 	///
 	/// <para>
+	/// When the library contains proteoform entries, the <see cref="ProteoformIndex"/> is
+	/// also calibrated using the same linear function. Both indexes are updated atomically
+	/// in the sense that the new library returned by this method has consistent RT values
+	/// across both indexes.
+	/// </para>
+	///
+	/// <para>
 	/// <b>This instance is not modified.</b> The new library is independent and holds its
 	/// own index. Dispose the new library when finished; it does not share a file stream with
 	/// the original.
@@ -667,8 +797,9 @@ public sealed class MslLibrary : IDisposable
 	/// </param>
 	/// <returns>
 	///   A new <see cref="MslLibrary"/> whose precursor index entries have transformed
-	///   <c>Irt</c> values. The new library has the same <see cref="Header"/> and
-	///   <see cref="IsIndexOnly"/> flag as the original.
+	///   <c>Irt</c> values in both the primary <see cref="MslIndex"/> and, when present,
+	///   the <see cref="ProteoformIndex"/>. The new library has the same <see cref="Header"/>
+	///   and <see cref="IsIndexOnly"/> flag as the original.
 	/// </returns>
 	/// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
 	public MslLibrary WithCalibratedRetentionTimes(double slope, double intercept)
@@ -679,7 +810,12 @@ public sealed class MslLibrary : IDisposable
 		// Irt values; the original index (_index) is not modified.
 		MslIndex calibratedIndex = _index!.WithCalibratedRetentionTimes(slope, intercept);
 
-		return new MslLibrary(calibratedIndex, Header, IsIndexOnly, _rawLibrary);
+		// Also calibrate the proteoform index when present.
+		MslProteoformIndex? calibratedProteoformIndex =
+			_proteoformIndex?.WithCalibratedRetentionTimes(slope, intercept);
+
+		return new MslLibrary(calibratedIndex, Header, IsIndexOnly, _rawLibrary,
+			calibratedProteoformIndex);
 	}
 
 	// ── Elution group access ──────────────────────────────────────────────────
@@ -711,15 +847,8 @@ public sealed class MslLibrary : IDisposable
 		return _index!.GetElutionGroup(elutionGroupId);
 	}
 
-	// ─────────────────────────────────────────────────────────────────────────────
-	// PATCH — add the following method to MslLibrary.cs inside the MslLibrary class,
-	// before the Dispose() method.
-	//
-	// No new using directives are required: MslFragmentModelRouter is in the same
-	// namespace (Readers.SpectralLibrary) and all other types are already imported.
-	// ─────────────────────────────────────────────────────────────────────────────
-
 	// ── Fragment prediction façade ────────────────────────────────────────────
+
 	/// <summary>
 	/// Predicts fragment ions for all eligible entries using a caller-supplied prediction
 	/// function, then writes the results back into those entries in-place.
@@ -828,5 +957,8 @@ public sealed class MslLibrary : IDisposable
 		// This is safe to call even if _rawLibrary was never used after index construction
 		// because MslLibraryData.Dispose is itself idempotent.
 		_rawLibrary?.Dispose();
+
+		// MslProteoformIndex holds no unmanaged resources (no file handles, no pooled
+		// buffers), so it does not implement IDisposable. No explicit cleanup needed.
 	}
 }
