@@ -697,6 +697,9 @@
     <None Update="SpectralLibrary\SpectralLibraryData\SpectralLibrary_XL.msp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="SpectralLibrary\SpectralLibraryData\syntheticTest2_PredictedLibrary.msp">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="SpectralLibrary\SpectralLibraryData\test_ms2pip.msp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

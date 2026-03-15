@@ -416,7 +416,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		Assert.That(lib.Count, Is.EqualTo(written.Count),
 			"Full load must return exactly as many entries as were written.");
@@ -432,7 +432,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		// PrecursorMz is stored as float32; compare to float32 precision
 		Assert.That((float)lib.Entries[0].PrecursorMz,
@@ -454,7 +454,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		Assert.That(lib.Entries[0].Charge, Is.EqualTo(written[0].Charge));
 		Assert.That(lib.Entries[1].Charge, Is.EqualTo(written[1].Charge));
@@ -470,7 +470,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		Assert.That((float)lib.Entries[0].Irt,
 			Is.EqualTo((float)written[0].Irt).Within(1e-4f),
@@ -487,7 +487,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		Assert.That((float)lib.Entries[0].IonMobility,
 			Is.EqualTo((float)written[0].IonMobility).Within(1e-6f),
@@ -504,7 +504,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		Assert.That(lib.Entries[0].ModifiedSequence, Is.EqualTo(written[0].ModifiedSequence));
 		Assert.That(lib.Entries[1].ModifiedSequence, Is.EqualTo(written[1].ModifiedSequence));
@@ -520,7 +520,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		Assert.That(lib.Entries[0].StrippedSequence, Is.EqualTo(written[0].StrippedSequence));
 	}
@@ -535,7 +535,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		Assert.That(lib.Entries[0].IsDecoy, Is.EqualTo(written[0].IsDecoy));
 	}
@@ -551,7 +551,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		// Both entries share "PEPTIDE" → same elution group ID
 		Assert.That(lib.Entries[0].ElutionGroupId, Is.EqualTo(lib.Entries[1].ElutionGroupId),
@@ -568,7 +568,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		Assert.That(lib.Entries[0].MoleculeType, Is.EqualTo(written[0].MoleculeType));
 	}
@@ -583,7 +583,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		Assert.That(lib.Entries[0].DissociationType, Is.EqualTo(written[0].DissociationType));
 	}
@@ -600,7 +600,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		// Writer sorts + normalizes in-place; fragment counts are unchanged
 		Assert.That(lib.Entries[0].Fragments.Count, Is.EqualTo(written[0].Fragments.Count),
@@ -619,7 +619,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		// Fragments are sorted by m/z ascending; entry 0 has b2 first, then y1
 		// After write: [b2@98.060, y1@175.119]
@@ -643,7 +643,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		// Max intensity fragment for entry 0 is b2 (10000 raw → 1.0 normalized), m/z=98.060
 		float maxIntensity = lib.Entries[0].Fragments.Max(f => f.Intensity);
@@ -666,7 +666,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		// Sorted ascending: [b2, y1]
 		Assert.That(lib.Entries[0].Fragments[0].ProductType, Is.EqualTo(ProductType.b));
@@ -683,7 +683,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		// Sorted: [b2@98.060 → FragmentNumber=2, y1@175.119 → FragmentNumber=1]
 		Assert.That(lib.Entries[0].Fragments[0].FragmentNumber, Is.EqualTo(2));
@@ -700,7 +700,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		Assert.That(lib.Entries[0].Fragments[0].Charge, Is.EqualTo(1));
 		Assert.That(lib.Entries[0].Fragments[1].Charge, Is.EqualTo(1));
@@ -717,7 +717,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildInternalIonEntry();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		// The bIy ion is at higher m/z (485.215), so it should be at index 1 after sort
 		MslFragmentIon internalIon = lib.Entries[0].Fragments
@@ -742,7 +742,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildInternalIonEntry();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		MslFragmentIon internalIon = lib.Entries[0].Fragments
 			.First(f => f.SecondaryProductType != null);
@@ -762,7 +762,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildInternalIonEntry();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		MslFragmentIon internalIon = lib.Entries[0].Fragments
 			.First(f => f.SecondaryProductType != null);
@@ -810,7 +810,7 @@ public sealed class TestMslReader
 
 		MslWriter.Write(path, entries);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		double readLoss = lib.Entries[0].Fragments[0].NeutralLoss;
 		Assert.That(readLoss, Is.EqualTo(-18.010565).Within(0.001),
@@ -827,7 +827,7 @@ public sealed class TestMslReader
 		string path = TempPath(nameof(Load_FullLoad_Fragments_AreSortedByMz));
 		MslWriter.Write(path, BuildTestEntries());
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		foreach (MslLibraryEntry entry in lib.Entries)
 		{
@@ -851,7 +851,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		Assert.That(lib.Entries[0].ProteinAccession, Is.EqualTo("P12345"),
 			"ProteinAccession must survive write → read.");
@@ -867,7 +867,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		Assert.That(lib.Entries[0].GeneName, Is.EqualTo("TESTA"),
 			"GeneName must survive write → read.");
@@ -883,7 +883,7 @@ public sealed class TestMslReader
 		string path = TempPath(nameof(Load_FullLoad_NoProtein_ProteinAccessionIsEmpty));
 		MslWriter.Write(path, BuildTestEntries());
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		// Entry 1 has no protein in the fixture
 		Assert.That(lib.Entries[1].ProteinAccession, Is.EqualTo(string.Empty),
@@ -903,7 +903,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.LoadIndexOnly(path);
+		using MslLibraryData lib = MslReader.LoadIndexOnly(path);
 
 		Assert.That(lib.Count, Is.EqualTo(written.Count),
 			"LoadIndexOnly must report the correct precursor count.");
@@ -922,7 +922,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.LoadIndexOnly(path);
+		using MslLibraryData lib = MslReader.LoadIndexOnly(path);
 
 		// Fragment lists must be empty in index-only mode
 		Assert.That(lib.Entries[0].Fragments, Is.Empty,
@@ -935,7 +935,7 @@ public sealed class TestMslReader
 	}
 
 	/// <summary>
-	/// Verifies that fragments loaded on demand via <see cref="MslLibrary.LoadFragmentsOnDemand"/>
+	/// Verifies that fragments loaded on demand via <see cref="MslLibraryData.LoadFragmentsOnDemand"/>
 	/// match the fragments returned by a full load of the same file.
 	/// </summary>
 	[Test]
@@ -945,9 +945,9 @@ public sealed class TestMslReader
 		MslWriter.Write(path, BuildTestEntries());
 
 		// Full load for reference
-		using MslLibrary fullLib = MslReader.Load(path);
+		using MslLibraryData fullLib = MslReader.Load(path);
 		// Index-only load for on-demand comparison
-		using MslLibrary indexLib = MslReader.LoadIndexOnly(path);
+		using MslLibraryData indexLib = MslReader.LoadIndexOnly(path);
 
 		for (int i = 0; i < fullLib.Count; i++)
 		{
@@ -975,9 +975,9 @@ public sealed class TestMslReader
 	}
 
 	/// <summary>
-	/// Verifies that <see cref="MslLibrary.Dispose"/> closes the file handle held in
+	/// Verifies that <see cref="MslLibraryData.Dispose"/> closes the file handle held in
 	/// index-only mode. After disposal, subsequent calls to
-	/// <see cref="MslLibrary.LoadFragmentsOnDemand"/> must throw
+	/// <see cref="MslLibraryData.LoadFragmentsOnDemand"/> must throw
 	/// <see cref="ObjectDisposedException"/>.
 	/// </summary>
 	[Test]
@@ -986,7 +986,7 @@ public sealed class TestMslReader
 		string path = TempPath(nameof(LoadIndexOnly_DisposesFileStream_OnDispose));
 		MslWriter.Write(path, BuildTestEntries());
 
-		MslLibrary lib = MslReader.LoadIndexOnly(path);
+		MslLibraryData lib = MslReader.LoadIndexOnly(path);
 		lib.Dispose();
 
 		Assert.That(() => lib.LoadFragmentsOnDemand(0),
@@ -1002,7 +1002,7 @@ public sealed class TestMslReader
 	}
 
 	/// <summary>
-	/// Verifies that multiple threads can call <see cref="MslLibrary.LoadFragmentsOnDemand"/>
+	/// Verifies that multiple threads can call <see cref="MslLibraryData.LoadFragmentsOnDemand"/>
 	/// concurrently without data corruption or exceptions. Each thread reads the same
 	/// precursor repeatedly and checks the fragment count.
 	/// </summary>
@@ -1012,7 +1012,7 @@ public sealed class TestMslReader
 		string path = TempPath(nameof(LoadIndexOnly_IsThreadSafe_ConcurrentFragmentReads));
 		MslWriter.Write(path, BuildTestEntries());
 
-		using MslLibrary lib = MslReader.LoadIndexOnly(path);
+		using MslLibraryData lib = MslReader.LoadIndexOnly(path);
 
 		// 8 threads, each reading all entries 25 times = 400 reads total
 		const int ThreadCount = 8;
@@ -1065,7 +1065,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		for (int i = 0; i < written.Count; i++)
 		{
@@ -1095,7 +1095,7 @@ public sealed class TestMslReader
 		List<MslLibraryEntry> written = BuildTestEntries();
 		MslWriter.Write(path, written);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		for (int i = 0; i < written.Count; i++)
 		{
@@ -1128,7 +1128,7 @@ public sealed class TestMslReader
 		string path = TempPath(nameof(WriteRead_RoundTrip_ToLibrarySpectrum_NameMatchesExpected));
 		MslWriter.Write(path, BuildTestEntries());
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		LibrarySpectrum spectrum = lib.Entries[0].ToLibrarySpectrum();
 
@@ -1146,7 +1146,7 @@ public sealed class TestMslReader
 		string path = TempPath(nameof(WriteRead_RoundTrip_ToLibrarySpectrum_FragmentIonAnnotationsCorrect));
 		MslWriter.Write(path, BuildTestEntries());
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		LibrarySpectrum spectrum = lib.Entries[0].ToLibrarySpectrum();
 
@@ -1173,7 +1173,7 @@ public sealed class TestMslReader
 		string path = TempPath(nameof(Load_EmptyLibrary_ZeroPrecursors_LoadsSuccessfully));
 		MslWriter.Write(path, new List<MslLibraryEntry>());
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		Assert.That(lib.Count, Is.EqualTo(0),
 			"An empty library must load with zero entries.");
@@ -1220,7 +1220,7 @@ public sealed class TestMslReader
 
 		Assert.That(() =>
 		{
-			using MslLibrary lib = MslReader.Load(path);
+			using MslLibraryData lib = MslReader.Load(path);
 			Assert.That(lib.Count, Is.EqualTo(1));
 			Assert.That(lib.Entries[0].ProteinAccession, Is.EqualTo(string.Empty));
 		}, Throws.Nothing,
@@ -1268,7 +1268,7 @@ public sealed class TestMslReader
 
 		MslWriter.Write(path, entries);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		Assert.That(lib.Entries[0].Fragments.Count, Is.EqualTo(FragmentCount),
 			$"All {FragmentCount} fragments must survive write → read.");
@@ -1315,7 +1315,7 @@ public sealed class TestMslReader
 
 		MslWriter.Write(path, entries);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		Assert.That(lib.Count, Is.EqualTo(1),
 			"Oligonucleotide entry must load successfully.");
@@ -1371,7 +1371,7 @@ public sealed class TestMslReader
 
 		MslWriter.Write(path, entries);
 
-		using MslLibrary lib = MslReader.Load(path);
+		using MslLibraryData lib = MslReader.Load(path);
 
 		Assert.That(lib.Count, Is.EqualTo(1), "Proteoform entry must load.");
 		Assert.That(lib.Entries[0].StrippedSequence.Length, Is.EqualTo(200),

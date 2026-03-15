@@ -19,7 +19,7 @@ namespace Readers.SpectralLibrary;
 /// In full-load mode <see cref="Dispose"/> is a no-op but is still safe to call.
 /// </para>
 /// </summary>
-public sealed class MslLibrary : IDisposable
+public sealed class MslLibraryData : IDisposable
 {
 	// ── Private state ─────────────────────────────────────────────────────────
 
@@ -71,7 +71,7 @@ public sealed class MslLibrary : IDisposable
 	/// <param name="entries">All precursor entries with their fragment ions fully loaded.</param>
 	/// <param name="header">Deserialized file header providing version and flag metadata.</param>
 	/// <exception cref="ArgumentNullException"><paramref name="entries"/> is null.</exception>
-	internal MslLibrary(List<MslLibraryEntry> entries, MslFileHeader header)
+	internal MslLibraryData(List<MslLibraryEntry> entries, MslFileHeader header)
 	{
 		Entries = entries ?? throw new ArgumentNullException(nameof(entries));
 		Header = header;
@@ -99,7 +99,7 @@ public sealed class MslLibrary : IDisposable
 	/// Ownership is transferred; will be disposed by <see cref="Dispose"/>.
 	/// </param>
 	/// <exception cref="ArgumentNullException">Any parameter is null.</exception>
-	internal MslLibrary(
+	internal MslLibraryData(
 		List<MslLibraryEntry> entries,
 		MslFileHeader header,
 		MslPrecursorRecord[] precursorRecords,
@@ -192,7 +192,7 @@ public sealed class MslLibrary : IDisposable
 		lock (_streamLock)
 		{
 			if (_onDemandStream is null)
-				throw new ObjectDisposedException(nameof(MslLibrary),
+				throw new ObjectDisposedException(nameof(MslLibraryData),
 					"Cannot load fragments: the library has been disposed.");
 
 			return MslReader.ReadFragmentBlockFromStream(_onDemandStream, _precursorRecords![precursorIndex]);

@@ -22,7 +22,7 @@ namespace Readers.SpectralLibrary;
 ///   the kept-open <see cref="System.IO.FileStream"/>. Best for multi-gigabyte libraries
 ///   where loading all fragments would exhaust available RAM.
 ///
-/// Both modes return an <see cref="MslLibrary"/> with the same public API; the difference
+/// Both modes return an <see cref="MslLibraryData"/> with the same public API; the difference
 /// is purely internal.
 ///
 /// Validation sequence on every open:
@@ -162,7 +162,7 @@ public static class MslReader
 	}
 
 	/// <summary>
-	/// Reads the entire .msl file into memory and returns an <see cref="MslLibrary"/> with
+	/// Reads the entire .msl file into memory and returns an <see cref="MslLibraryData"/> with
 	/// all precursor entries and fragment ions fully loaded. No file handle is held open after
 	/// this method returns.
 	///
@@ -171,7 +171,7 @@ public static class MslReader
 	/// </summary>
 	/// <param name="filePath">Path to the .msl file. Must not be null.</param>
 	/// <returns>
-	/// A fully populated <see cref="MslLibrary"/> whose <c>Entries</c> list contains one
+	/// A fully populated <see cref="MslLibraryData"/> whose <c>Entries</c> list contains one
 	/// <see cref="MslLibraryEntry"/> per precursor, all with fragment ions loaded.
 	/// </returns>
 	/// <exception cref="FileNotFoundException">File does not exist.</exception>
@@ -179,7 +179,7 @@ public static class MslReader
 	/// Magic mismatch, unsupported version, trailing magic mismatch, or NPrecursors mismatch.
 	/// </exception>
 	/// <exception cref="InvalidDataException">CRC-32 checksum mismatch (data corruption).</exception>
-	public static MslLibrary Load(string filePath)
+	public static MslLibraryData Load(string filePath)
 	{
 		if (!File.Exists(filePath))
 			throw new FileNotFoundException($"MSL file not found: '{filePath}'.", filePath);
@@ -204,29 +204,29 @@ public static class MslReader
 			entries.Add(ConvertPrecursor(p, strings, proteins, fragments));
 		}
 
-		return new MslLibrary(entries, header);
+		return new MslLibraryData(entries, header);
 	}
 
 	/// <summary>
 	/// Reads only the precursor records and string table into memory; fragment blocks remain
 	/// on disk and are fetched lazily via seeks into the kept-open <see cref="System.IO.FileStream"/>.
 	///
-	/// The returned <see cref="MslLibrary"/> holds an open file handle until its
-	/// <see cref="MslLibrary.Dispose"/> method is called. Callers must dispose the library
+	/// The returned <see cref="MslLibraryData"/> holds an open file handle until its
+	/// <see cref="MslLibraryData.Dispose"/> method is called. Callers must dispose the library
 	/// when finished (critical on Windows, which uses mandatory file locking).
 	///
 	/// All five validation checks are performed on open before any entries are returned.
 	/// </summary>
 	/// <param name="filePath">Path to the .msl file. Must not be null.</param>
 	/// <returns>
-	/// An <see cref="MslLibrary"/> whose <c>Entries</c> list contains precursor metadata
+	/// An <see cref="MslLibraryData"/> whose <c>Entries</c> list contains precursor metadata
 	/// but empty fragment lists. Fragment ions can be retrieved via
-	/// <see cref="MslLibrary.LoadFragmentsOnDemand"/>.
+	/// <see cref="MslLibraryData.LoadFragmentsOnDemand"/>.
 	/// </returns>
 	/// <exception cref="FileNotFoundException">File does not exist.</exception>
 	/// <exception cref="FormatException">Structural or version validation failed.</exception>
 	/// <exception cref="InvalidDataException">CRC-32 checksum mismatch.</exception>
-	public static MslLibrary LoadIndexOnly(string filePath)
+	public static MslLibraryData LoadIndexOnly(string filePath)
 	{
 		if (!File.Exists(filePath))
 			throw new FileNotFoundException($"MSL file not found: '{filePath}'.", filePath);
@@ -252,7 +252,7 @@ public static class MslReader
 		var onDemandStream = new FileStream(
 			filePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096);
 
-		return new MslLibrary(entries, header, precursors, strings, proteins, onDemandStream);
+		return new MslLibraryData(entries, header, precursors, strings, proteins, onDemandStream);
 	}
 
 	// ── Validation ────────────────────────────────────────────────────────────
@@ -480,9 +480,9 @@ public static class MslReader
 	/// <summary>
 	/// Deserialises one precursor's fragment block from the open on-demand
 	/// <see cref="System.IO.FileStream"/> by seeking to the stored offset. Used in
-	/// index-only mode; called from <see cref="MslLibrary.LoadFragmentsOnDemand"/>.
+	/// index-only mode; called from <see cref="MslLibraryData.LoadFragmentsOnDemand"/>.
 	///
-	/// Thread-safety: the caller (<see cref="MslLibrary"/>) must hold the library's internal
+	/// Thread-safety: the caller (<see cref="MslLibraryData"/>) must hold the library's internal
 	/// stream lock around the entire call to prevent concurrent Seek + Read interleaving.
 	/// </summary>
 	/// <param name="stream">
@@ -591,7 +591,7 @@ public static class MslReader
 	/// </param>
 	/// <param name="fragments">
 	/// Pre-loaded fragment ions. Pass a populated list for full-load mode; pass an empty list
-	/// for index-only mode (fragments loaded later via <see cref="MslLibrary.LoadFragmentsOnDemand"/>).
+	/// for index-only mode (fragments loaded later via <see cref="MslLibraryData.LoadFragmentsOnDemand"/>).
 	/// </param>
 	/// <returns>A fully populated <see cref="MslLibraryEntry"/>.</returns>
 	private static MslLibraryEntry ConvertPrecursor(
