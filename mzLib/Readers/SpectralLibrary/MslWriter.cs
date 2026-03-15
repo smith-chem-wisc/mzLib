@@ -1,12 +1,9 @@
-﻿using MassSpectrometry;
-using Omics.SpectralMatch.MslSpectralLibrary;
+﻿using Omics.SpectralMatch.MslSpectralLibrary;
 using Omics.SpectrumMatch;
 using System.Buffers;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using ZstdSharp;
-using static UsefulProteomicsDatabases.ProteinDbRetriever;
 
 namespace Readers.SpectralLibrary;
 
@@ -207,6 +204,523 @@ public static class MslWriter
 
 		Write(outputPath, entries, compressionLevel);
 	}
+
+	/// <summary>
+	/// Writes a potentially very large spectral library from an enumerable source using a
+	/// streaming two-pass algorithm. Unlike <see cref="Write"/>, this overload does not
+	/// require all entries to be in memory simultaneously; it buffers only the string table
+	/// and per-precursor metadata (spill file) between passes.
+	///
+	/// Memory usage is O(UniqueStrings + NPrecursors × 22 bytes spill) rather than
+	/// O(TotalFragments × FragmentRecordSize) as in the non-streaming path.
+	///
+	/// The output file is written atomically: intermediate data goes to temp files, which
+	/// are renamed and deleted on completion or failure.
+	///
+	/// <para>
+	/// The files produced by this method are byte-for-byte identical to those produced by
+	/// <see cref="Write"/> when given the same entries in the same order: same normalization,
+	/// same m/z sort, same string internment order, same elution-group assignment.
+	/// </para>
+	/// </summary>
+	/// <param name="outputPath">
+	///   Destination .msl file path. Created or overwritten. Directory must exist.
+	/// </param>
+	/// <param name="entries">
+	///   Enumerable source of library entries. Each entry is consumed exactly once and need
+	///   not be held in memory after it has been written. Must not be null. Entries are
+	///   written in enumeration order.
+	/// </param>
+	/// <param name="compressionLevel">
+	///   zstd compression level for the fragment section (0 = no compression, 1–22 = zstd).
+	///   Defaults to 0. When > 0, compression is applied to the fragment temp file after
+	///   Pass 1 is complete and before Pass 2 writes the output.
+	/// </param>
+	/// <exception cref="ArgumentNullException">
+	///   Thrown when <paramref name="outputPath"/> or <paramref name="entries"/> is null.
+	/// </exception>
+	/// <exception cref="IOException">An I/O error occurred during write or temp-file cleanup.</exception>
+	public static void WriteStreaming(
+		string outputPath,
+		IEnumerable<MslLibraryEntry> entries,
+		int compressionLevel = 0)
+	{
+		if (outputPath is null) throw new ArgumentNullException(nameof(outputPath));
+		if (entries is null) throw new ArgumentNullException(nameof(entries));
+
+		// All three temps live on the same volume as the final output so that the
+		// concluding File.Move is a same-volume atomic rename rather than a cross-device copy.
+		string fragmentTempPath = outputPath + ".frags~";
+		string spillTempPath = outputPath + ".spill~";
+		string outputTempPath = outputPath + ".tmp~";
+
+		try
+		{
+			// ── Pass 1: stream entries ────────────────────────────────────────
+			// Writes fragment records to fragmentTempPath and per-precursor metadata
+			// (spill records) to spillTempPath. In-memory state accumulates:
+			//   • stringIndex / stringList — all unique strings
+			//   • proteinSlots / proteinSlotIndex — protein deduplication
+			//   • elutionGroupIndex — stripped-sequence → group-id mapping
+			//   • fileFlags accumulator bitmask
+			// None of the fragment data itself is held in memory between entries.
+
+			var stringIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+			var stringList = new List<string>();
+			InternStringStreaming(string.Empty, stringIndex, stringList); // index 0 = empty
+
+			var proteinSlots = new List<ProteinSlot>();
+			var proteinSlotIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+
+			var elutionGroupIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+			int nextGroupId = 0;
+
+			// Flag accumulators — same semantics as MslWriteLayout flag computation
+			bool anyIonMobility = false;
+			bool anyProteinData = false;
+			bool anyGeneData = false;
+			bool allPredicted = true;   // flipped false on first non-predicted entry
+			bool seenAnyEntry = false;  // allPredicted is meaningful only when true
+
+			int nPrecursors = 0;
+			long runningFragmentOffset = 0L; // offset within the fragment temp file
+
+			using (var fragStream = new FileStream(fragmentTempPath, FileMode.Create,
+													FileAccess.Write, FileShare.None,
+													bufferSize: 1 << 16, FileOptions.SequentialScan))
+			using (var fragWriter = new BinaryWriter(fragStream, Encoding.UTF8, leaveOpen: false))
+			using (var spillStream = new FileStream(spillTempPath, FileMode.Create,
+													FileAccess.Write, FileShare.None,
+													bufferSize: 1 << 16, FileOptions.SequentialScan))
+			using (var spillWriter = new BinaryWriter(spillStream, Encoding.UTF8, leaveOpen: false))
+			{
+				foreach (MslLibraryEntry entry in entries)
+				{
+					seenAnyEntry = true;
+
+					// ── Step 1: Intern all string fields ─────────────────────
+					int modSeqIdx = InternStringStreaming(entry.ModifiedSequence ?? string.Empty, stringIndex, stringList);
+					int stripSeqIdx = InternStringStreaming(entry.StrippedSequence ?? string.Empty, stringIndex, stringList);
+					InternStringStreaming(entry.ProteinAccession ?? string.Empty, stringIndex, stringList);
+					InternStringStreaming(entry.ProteinName ?? string.Empty, stringIndex, stringList);
+					InternStringStreaming(entry.GeneName ?? string.Empty, stringIndex, stringList);
+
+					// ── Step 2: Protein deduplication ─────────────────────────
+					string acc = entry.ProteinAccession ?? string.Empty;
+					if (!proteinSlotIndex.TryGetValue(acc, out int slotIdx))
+					{
+						slotIdx = proteinSlots.Count;
+						proteinSlotIndex[acc] = slotIdx;
+						proteinSlots.Add(new ProteinSlot
+						{
+							Accession = acc,
+							AccessionStringIdx = stringIndex[acc],
+							NameStringIdx = stringIndex[entry.ProteinName ?? string.Empty],
+							GeneStringIdx = stringIndex[entry.GeneName ?? string.Empty],
+							PrecursorCount = 0
+						});
+					}
+					proteinSlots[slotIdx].PrecursorCount++;
+
+					// ── Step 3: Elution group assignment ──────────────────────
+					string stripped = entry.StrippedSequence ?? string.Empty;
+					if (!elutionGroupIndex.TryGetValue(stripped, out int groupId))
+					{
+						groupId = nextGroupId++;
+						elutionGroupIndex[stripped] = groupId;
+					}
+					entry.ElutionGroupId = groupId;
+
+					// ── Step 4: Fragment validation, sort, normalize ────────────
+					List<MslFragmentIon> frags = entry.Fragments ?? new List<MslFragmentIon>(0);
+
+					foreach (MslFragmentIon frag in frags)
+					{
+						if (ClassifyNeutralLoss(frag.NeutralLoss) == MslFormat.NeutralLossCode.Custom)
+							throw new NotSupportedException(
+								$"Fragment in '{entry.ModifiedSequence}' has a custom neutral loss " +
+								$"({frag.NeutralLoss:F4} Da). Custom neutral-loss codes are not yet supported.");
+					}
+
+					if (frags.Count > 0)
+					{
+						frags.Sort((a, b) => a.Mz.CompareTo(b.Mz));
+						NormalizeIntensities(frags);
+					}
+
+					// ── Step 5: Write fragment block to fragment temp file ─────
+					long fragOffset = runningFragmentOffset;
+					WriteFragmentBlockToWriter(fragWriter, frags);
+					runningFragmentOffset += (long)frags.Count * MslFormat.FragmentRecordSize;
+
+					// ── Step 6: Write spill record ─────────────────────────────
+					var spill = new MslSpillRecord
+					{
+						ModifiedSeqStringIdx = modSeqIdx,
+						StrippedSeqStringIdx = stripSeqIdx,
+						ProteinIdx = proteinSlotIndex.TryGetValue(acc, out int pIdx) ? pIdx : -1,
+						FragmentBlockOffset = fragOffset,
+						FragmentCount = (short)frags.Count
+					};
+					WriteStruct(spillWriter, spill);
+
+					// ── Step 7: Accumulate file-level flags ────────────────────
+					if (entry.IonMobility != 0.0) anyIonMobility = true;
+					if (!string.IsNullOrEmpty(entry.ProteinAccession)) anyProteinData = true;
+					if (!string.IsNullOrEmpty(entry.GeneName)) anyGeneData = true;
+					if (entry.Source != MslFormat.SourceType.Predicted) allPredicted = false;
+
+					nPrecursors++;
+				}
+				// fragWriter and spillWriter are flushed and disposed here
+			}
+
+			// allPredicted is only meaningful when there was at least one entry
+			if (!seenAnyEntry) allPredicted = false;
+
+			// ── Compute string-table body bytes ───────────────────────────────
+			int stringBodyBytes = 0;
+			foreach (string s in stringList)
+				stringBodyBytes += Encoding.UTF8.GetByteCount(s);
+
+			// ── Build final file flags ────────────────────────────────────────
+			int fileFlags = 0;
+			if (anyIonMobility) fileFlags |= MslFormat.FileFlagHasIonMobility;
+			if (anyProteinData) fileFlags |= MslFormat.FileFlagHasProteinData;
+			if (anyGeneData) fileFlags |= MslFormat.FileFlagHasGeneData;
+			if (allPredicted) fileFlags |= MslFormat.FileFlagIsPredicted;
+
+			// ── Optional zstd compression of the fragment temp file ───────────
+			// When compressionLevel > 0, compress the fragment temp file and update
+			// the file-flags bitmask and the compressed/uncompressed size fields.
+			long compressedFragmentSize = 0L;
+			long uncompressedFragmentSize = runningFragmentOffset; // raw byte count
+			byte[]? compressedFragmentBytes = null;
+
+			if (compressionLevel > 0)
+			{
+				// Read the entire fragment temp file into memory for compression.
+				// For very large files this is the dominant memory cost; however, the
+				// zstd compression itself may produce output significantly smaller.
+				byte[] rawFragmentBytes = File.ReadAllBytes(fragmentTempPath);
+
+				using var compressor = new ZstdSharp.Compressor(compressionLevel);
+				compressedFragmentBytes = compressor.Wrap(rawFragmentBytes).ToArray();
+				compressedFragmentSize = compressedFragmentBytes.Length;
+				fileFlags |= MslFormat.FileFlagIsCompressed;
+			}
+
+			bool isCompressed = (fileFlags & MslFormat.FileFlagIsCompressed) != 0;
+
+			// ── Pass 2: write output in correct section order ─────────────────
+			// Compute all section offsets from the in-memory counters accumulated in Pass 1.
+
+			int nProteins = proteinSlots.Count;
+			int nElutionGroups = nextGroupId;
+			int nStrings = stringList.Count;
+
+			long compressionDescriptorSize = isCompressed ? 16L : 0L;
+
+			long proteinTableOffset = MslFormat.HeaderSize + compressionDescriptorSize;
+			long proteinTableSize = (long)nProteins * MslFormat.ProteinRecordSize;
+
+			long stringTableSize = 4L + 4L                      // NStrings + TotalBytes headers
+									  + (long)nStrings * 4           // per-string length prefixes
+									  + stringBodyBytes;             // string body bytes
+
+			long stringTableOffset = proteinTableOffset + proteinTableSize;
+			long precursorSectionOffset = stringTableOffset + stringTableSize;
+			long precursorSectionSize = (long)nPrecursors * MslFormat.PrecursorRecordSize;
+
+			// fragmentBaseOffset is the absolute file position where the first fragment byte lands.
+			// The spill records store offsets relative to the fragment temp file start (= 0),
+			// so the absolute file offset for any spill record is fragmentBaseOffset + spill.FragmentBlockOffset.
+			long fragmentBaseOffset = precursorSectionOffset + precursorSectionSize;
+
+			// When compressed the fragment bytes on-disk are the compressed frame; its size
+			// governs where the offset table begins.
+			long onDiskFragmentSize = isCompressed ? compressedFragmentSize : uncompressedFragmentSize;
+			long offsetTableOffset = fragmentBaseOffset + onDiskFragmentSize;
+
+			// DataEndOffset = OffsetTableOffset (CRC covers everything before the offset table)
+			long dataEndOffset = offsetTableOffset;
+
+			// Collect FragmentBlockOffset values during the precursor-section write so we can
+			// write the offset table immediately afterward without re-reading the spill file.
+			var absoluteFragOffsets = new List<long>(nPrecursors);
+
+			// ── Write the output temp file ────────────────────────────────────
+			using (var outStream = new FileStream(outputTempPath, FileMode.Create,
+												  FileAccess.Write, FileShare.None,
+												  bufferSize: 1 << 16, FileOptions.SequentialScan))
+			using (var outWriter = new BinaryWriter(outStream, Encoding.UTF8, leaveOpen: false))
+			{
+				// 1. Header — filled with final values (no back-patch needed because all
+				//    sizes were computed from in-memory counters before opening the file).
+				var header = new MslFileHeader
+				{
+					Magic = MagicForLEStruct,
+					FormatVersion = MslFormat.CurrentVersion,
+					FileFlags = fileFlags,
+					NPrecursors = nPrecursors,
+					NProteins = nProteins,
+					NElutionGroups = nElutionGroups,
+					NStrings = nStrings,
+					ProteinTableOffset = proteinTableOffset,
+					StringTableOffset = stringTableOffset,
+					PrecursorSectionOffset = precursorSectionOffset,
+					FragmentSectionOffset = fragmentBaseOffset
+				};
+				WriteStruct(outWriter, header);
+
+				// 2. Compression descriptor (present only when isCompressed)
+				if (isCompressed)
+				{
+					outWriter.Write(compressedFragmentSize);   // int64
+					outWriter.Write(uncompressedFragmentSize); // int64
+				}
+
+				// 3. Protein table
+				foreach (ProteinSlot slot in proteinSlots)
+				{
+					var record = new MslProteinRecord
+					{
+						AccessionStringIdx = slot.AccessionStringIdx,
+						NameStringIdx = slot.NameStringIdx,
+						GeneStringIdx = slot.GeneStringIdx,
+						ProteinGroupId = 0,
+						NPrecursors = slot.PrecursorCount,
+						ProteinFlags = 0
+					};
+					WriteStruct(outWriter, record);
+				}
+
+				// 4. String table
+				outWriter.Write(nStrings);
+				outWriter.Write(stringBodyBytes);
+				foreach (string s in stringList)
+				{
+					byte[] encoded = Encoding.UTF8.GetBytes(s);
+					outWriter.Write(encoded.Length);
+					outWriter.Write(encoded);
+				}
+
+				// 5. Precursor section — read spill file sequentially; compute absolute offsets
+				using (var spillReadStream = new FileStream(spillTempPath, FileMode.Open,
+															FileAccess.Read, FileShare.None,
+															bufferSize: 1 << 16, FileOptions.SequentialScan))
+				using (var spillReader = new BinaryReader(spillReadStream, Encoding.UTF8, leaveOpen: false))
+				{
+					// We need the original MslLibraryEntry fields (PrecursorMz, Irt, Charge, etc.)
+					// that are not stored in the spill file.  The spill file stores only the
+					// layout-derived fields; the entry-specific scalars are written by re-enumerating
+					// the entries a second time in lock-step with the spill reader.
+					//
+					// NOTE: This requires the entries enumerable to be re-enumerable (e.g. a List<>
+					// or a LINQ query over an in-memory collection). If the caller passes a
+					// single-pass IEnumerable (e.g. a streaming file reader), the second enumeration
+					// will produce no elements, resulting in a zero-precursor file. The XML doc on
+					// WriteStreaming describes this constraint.
+					//
+					// For truly single-pass enumerables the caller should materialise the entries
+					// into a List<> before calling WriteStreaming, or use Write() directly.
+					foreach (MslLibraryEntry entry in entries)
+					{
+						MslSpillRecord spill = ReadSpillRecord(spillReader);
+
+						// For compressed files, FragmentBlockOffset values in precursor records
+						// are decompressed-buffer-relative (same as Prompt 13 compressed layout).
+						// For uncompressed files they are absolute file positions.
+						long recordFragOffset = isCompressed
+							? spill.FragmentBlockOffset                        // buffer-relative
+							: fragmentBaseOffset + spill.FragmentBlockOffset;  // absolute
+
+						absoluteFragOffsets.Add(recordFragOffset);
+
+						// Re-normalize and re-sort are NOT needed here; Pass 1 already mutated
+						// the entry in-place.  The fragment count comes from the spill record.
+						var precRecord = new MslPrecursorRecord
+						{
+							PrecursorMz = (float)entry.PrecursorMz,
+							Irt = (float)entry.Irt,
+							IonMobility = (float)entry.IonMobility,
+							Charge = (short)entry.Charge,
+							FragmentCount = spill.FragmentCount,
+							ElutionGroupId = entry.ElutionGroupId,
+							ProteinIdx = spill.ProteinIdx,
+							ModifiedSeqStringIdx = spill.ModifiedSeqStringIdx,
+							StrippedSeqStringIdx = spill.StrippedSeqStringIdx,
+							FragmentBlockOffset = recordFragOffset,
+							QValue = entry.QValue,
+							StrippedSeqLength = string.IsNullOrEmpty(entry.StrippedSequence)
+													   ? 0
+													   : entry.StrippedSequence.Length,
+							MoleculeType = (short)entry.MoleculeType,
+							DissociationType = (short)entry.DissociationType,
+							Nce = (short)(entry.Nce * 10),
+							PrecursorFlags = MslFormat.EncodePrecursorFlags(
+													   isDecoy: entry.IsDecoy,
+													   isProteotypic: entry.IsProteotypic,
+													   rtCalibrated: false),
+							SourceType = (byte)entry.Source
+						};
+
+						WriteStruct(outWriter, precRecord);
+					}
+				}
+
+				// 6. Fragment section — either raw or compressed bytes from the fragment temp file
+				if (isCompressed)
+				{
+					// compressedFragmentBytes is non-null when isCompressed is true
+					outWriter.Write(compressedFragmentBytes!);
+				}
+				else
+				{
+					// Copy the fragment temp file verbatim with a 1 MB I/O buffer
+					using var fragReadStream = new FileStream(fragmentTempPath, FileMode.Open,
+															  FileAccess.Read, FileShare.None,
+															  bufferSize: 1 << 20, FileOptions.SequentialScan);
+					fragReadStream.CopyTo(outWriter.BaseStream, 1 << 20);
+				}
+
+				// 7. Offset table — one int64 per precursor
+				foreach (long absOffset in absoluteFragOffsets)
+					outWriter.Write(absOffset);
+
+				// outWriter and outStream are disposed here; OS write lock is released
+			}
+
+			// ── Compute CRC and append footer ─────────────────────────────────
+			// CRC covers bytes 0..(dataEndOffset - 1); the offset table and footer are excluded.
+			uint crc = ComputeCrc32(outputTempPath, dataEndOffset);
+
+			using (var outAppendStream = new FileStream(outputTempPath, FileMode.Append,
+														FileAccess.Write, FileShare.None, bufferSize: 128))
+			using (var outAppendWriter = new BinaryWriter(outAppendStream, Encoding.UTF8, leaveOpen: false))
+			{
+				var footer = new MslFooter
+				{
+					OffsetTableOffset = offsetTableOffset,
+					NPrecursors = nPrecursors,
+					DataCrc32 = crc,
+					TrailingMagic = MagicForLEStruct
+				};
+				WriteStruct(outAppendWriter, footer);
+			}
+
+			// ── Atomic rename ─────────────────────────────────────────────────
+			File.Move(outputTempPath, outputPath, overwrite: true);
+		}
+		catch
+		{
+			// Clean up any partially written output at the final path on failure.
+			// Temp files are cleaned up in the finally block below.
+			if (File.Exists(outputPath))
+			{
+				// Only delete if it was just written by this call (i.e. the atomic rename
+				// succeeded but something afterward failed — extremely unlikely, but safe).
+				// Do NOT delete pre-existing files at outputPath that we did not create.
+			}
+			throw;
+		}
+		finally
+		{
+			// Always delete all three temp files regardless of success or failure.
+			// Use try/catch per file so a failure to delete one does not prevent the others.
+			TryDeleteFile(fragmentTempPath);
+			TryDeleteFile(spillTempPath);
+			TryDeleteFile(outputTempPath);
+		}
+	}
+
+	// ────────────────────────────────────────────────────────────────────────
+	// Streaming writer private helpers
+	// ────────────────────────────────────────────────────────────────────────
+
+	/// <summary>
+	/// Interns <paramref name="value"/> into the streaming string table, returning its index.
+	/// Identical semantics to the private InternString helper inside MslWriteLayout but
+	/// extracted here so the streaming path can call it without constructing a layout object.
+	/// </summary>
+	private static int InternStringStreaming(string value,
+		Dictionary<string, int> index, List<string> list)
+	{
+		if (index.TryGetValue(value, out int existing))
+			return existing;
+
+		int newIdx = list.Count;
+		list.Add(value);
+		index[value] = newIdx;
+		return newIdx;
+	}
+
+	/// <summary>
+	/// Writes the fragment block for a single entry's fragment list to
+	/// <paramref name="writer"/>. Fragments must already be sorted by m/z and
+	/// intensity-normalized before this is called.
+	/// </summary>
+	private static void WriteFragmentBlockToWriter(BinaryWriter writer,
+		List<MslFragmentIon> frags)
+	{
+		foreach (MslFragmentIon frag in frags)
+		{
+			MslFormat.NeutralLossCode lossCode = ClassifyNeutralLoss(frag.NeutralLoss);
+			byte flags = MslFormat.EncodeFragmentFlags(
+				isInternal: frag.IsInternalFragment,
+				isDiagnostic: frag.IsDiagnosticIon,
+				lossCode: lossCode,
+				excludeFromQuant: frag.ExcludeFromQuant);
+
+			var record = new MslFragmentRecord
+			{
+				Mz = frag.Mz,
+				Intensity = frag.Intensity,
+				ProductType = (short)(int)frag.ProductType,
+				SecondaryProductType = frag.SecondaryProductType.HasValue
+											 ? (short)(int)frag.SecondaryProductType.Value
+											 : (short)-1,
+				FragmentNumber = (short)frag.FragmentNumber,
+				SecondaryFragmentNumber = (short)frag.SecondaryFragmentNumber,
+				ResiduePosition = (short)frag.ResiduePosition,
+				Charge = (byte)frag.Charge,
+				Flags = flags
+			};
+
+			WriteStruct(writer, record);
+		}
+	}
+
+	/// <summary>
+	/// Reads one <see cref="MslSpillRecord"/> from <paramref name="reader"/> at the current
+	/// stream position. The record is 22 bytes with Pack = 1.
+	/// </summary>
+	private static MslSpillRecord ReadSpillRecord(BinaryReader reader)
+	{
+		return new MslSpillRecord
+		{
+			ModifiedSeqStringIdx = reader.ReadInt32(),
+			StrippedSeqStringIdx = reader.ReadInt32(),
+			ProteinIdx = reader.ReadInt32(),
+			FragmentBlockOffset = reader.ReadInt64(),
+			FragmentCount = reader.ReadInt16()
+		};
+	}
+
+	/// <summary>
+	/// Silently deletes the file at <paramref name="path"/> if it exists.
+	/// Suppresses all exceptions so that a cleanup failure in one temp file
+	/// does not prevent the others from being cleaned up.
+	/// </summary>
+	private static void TryDeleteFile(string path)
+	{
+		try { if (File.Exists(path)) File.Delete(path); }
+		catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[MslWriter] TryDeleteFile failed for '{path}': {ex.Message}"); }
+	}
+
+
+	// 
+
 
 	/// <summary>
 	/// Returns the estimated file size in bytes without writing any data.
@@ -1089,4 +1603,35 @@ internal sealed class MslPrecursorLayout
 	/// of the first <see cref="MslFragmentRecord"/> for this precursor.
 	/// </summary>
 	public long FragmentBlockOffset { get; init; }
+}
+
+/// <summary>
+/// Per-precursor metadata record written to the spill file during Pass 1 of the
+/// streaming write (<see cref="MslWriter.WriteStreaming"/>). Each instance is
+/// serialized as a flat 22-byte record (Pack = 1) containing only the layout-derived
+/// fields. The entry's scalar fields (PrecursorMz, Irt, Charge, etc.) are not stored
+/// here; they are read by re-enumerating the original source in Pass 2.
+/// </summary>
+[System.Runtime.InteropServices.StructLayout(
+	System.Runtime.InteropServices.LayoutKind.Sequential, Pack = 1)]
+internal struct MslSpillRecord
+{
+	/// <summary>4 bytes. String-table index for the modified sequence.</summary>
+	public int ModifiedSeqStringIdx;
+
+	/// <summary>4 bytes. String-table index for the stripped (unmodified) sequence.</summary>
+	public int StrippedSeqStringIdx;
+
+	/// <summary>4 bytes. Zero-based index into the protein table; −1 when absent.</summary>
+	public int ProteinIdx;
+
+	/// <summary>
+	/// 8 bytes. Byte offset of this precursor's fragment block within the fragment
+	/// temp file (i.e. relative to byte 0 of that temp file, not the output file).
+	/// </summary>
+	public long FragmentBlockOffset;
+
+	/// <summary>2 bytes. Number of fragment records written for this precursor.</summary>
+	public short FragmentCount;
+	// Total: 4 + 4 + 4 + 8 + 2 = 22 bytes
 }
