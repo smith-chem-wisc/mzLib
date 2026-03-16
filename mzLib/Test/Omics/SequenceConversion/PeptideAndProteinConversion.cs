@@ -1,14 +1,9 @@
 ﻿using NUnit.Framework;
-using Omics;
 using Omics.Digestion;
 using Omics.Modifications;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Chemistry;
 using Omics.SequenceConversion;
 
@@ -16,10 +11,6 @@ namespace Test.Omics.SequenceConversion;
 [TestFixture]
 public class PeptideAndProteinConversion
 {
-    public static IEnumerable<GroundTruthTestData.SequenceConversionTestCase> UniProtTestCases() => GroundTruthTestData.CoreTestCases
-        .Concat(GroundTruthTestData.EdgeCases)
-        .Where(testCase => !string.IsNullOrWhiteSpace(testCase.UniProtFormat));
-
     #region PeptideWithSetModifications Conversion Tests
 
     [Test]
@@ -69,13 +60,13 @@ public class PeptideAndProteinConversion
         Assert.That(peptide.AllModsOneIsNterminus[4].ModificationType, Is.EqualTo("Common Biological"));
         Assert.That(peptide.AllModsOneIsNterminus[6].ModificationType, Is.EqualTo("Common Biological"));
 
-        // Convert to UniProt convention
-        peptide.ConvertModifications(UniProtModificationLookup.Instance);
+        // Convert to Unimod convention
+        peptide.ConvertModifications(UnimodModificationLookup.Instance);
 
         // Verify conversions
-        Assert.That(peptide.AllModsOneIsNterminus[1].ModificationType, Is.EqualTo("UniProt"));
-        Assert.That(peptide.AllModsOneIsNterminus[4].ModificationType, Is.EqualTo("UniProt"));
-        Assert.That(peptide.AllModsOneIsNterminus[6].ModificationType, Is.EqualTo("UniProt"));
+        Assert.That(peptide.AllModsOneIsNterminus[1].ModificationType, Is.EqualTo("Unimod"));
+        Assert.That(peptide.AllModsOneIsNterminus[4].ModificationType, Is.EqualTo("Unimod"));
+        Assert.That(peptide.AllModsOneIsNterminus[6].ModificationType, Is.EqualTo("Unimod"));
 
         // Verify chemical formulas are preserved
         Assert.That(peptide.AllModsOneIsNterminus[1].ChemicalFormula, Is.Not.Null);
@@ -118,8 +109,8 @@ public class PeptideAndProteinConversion
         // Get original target
         var originalTarget = peptide.AllModsOneIsNterminus[7].Target.ToString();
 
-        // Convert to UniProt
-        peptide.ConvertModifications(UniProtModificationLookup.Instance);
+        // Convert to Unimod
+        peptide.ConvertModifications(UnimodModificationLookup.Instance);
 
         // Verify target is preserved
         Assert.That(peptide.AllModsOneIsNterminus[7].Target.ToString(), Is.EqualTo(originalTarget));
@@ -158,12 +149,12 @@ public class PeptideAndProteinConversion
             allModsOneIsNterminus: modsOneIsNterm,
             numFixedMods: 0);
 
-        // Convert to UniProt
-        peptide.ConvertModifications(UniProtModificationLookup.Instance);
+        // Convert to Unimod
+        peptide.ConvertModifications(UnimodModificationLookup.Instance);
 
         // Verify C-terminal mod was converted
         Assert.That(peptide.AllModsOneIsNterminus.ContainsKey(9), Is.True);
-        Assert.That(peptide.AllModsOneIsNterminus[9].ModificationType, Is.EqualTo("UniProt"));
+        Assert.That(peptide.AllModsOneIsNterminus[9].ModificationType, Is.EqualTo("Unimod"));
     }
 
     [Test]
@@ -187,7 +178,7 @@ public class PeptideAndProteinConversion
             numFixedMods: 0);
 
         // Should not throw
-        Assert.DoesNotThrow(() => peptide.ConvertModifications(UniProtModificationLookup.Instance));
+        Assert.DoesNotThrow(() => peptide.ConvertModifications(UnimodModificationLookup.Instance));
 
         // Should still have no mods
         Assert.That(peptide.AllModsOneIsNterminus.Count, Is.EqualTo(0));
@@ -196,7 +187,7 @@ public class PeptideAndProteinConversion
     [Test]
     public static void TestPeptideConversionRoundTrip()
     {
-        // Test converting from MetaMorpheus to UniProt and back preserves chemistry
+        // Test converting from MetaMorpheus to Unimod and back preserves chemistry
         ModificationMotif.TryGetMotif("S", out var motifS);
 
         var phosphoMM = new Modification(
@@ -228,10 +219,10 @@ public class PeptideAndProteinConversion
         var originalFormula = peptide.AllModsOneIsNterminus[7].ChemicalFormula;
         var originalTarget = peptide.AllModsOneIsNterminus[7].Target.ToString();
 
-        // Convert to UniProt
-        peptide.ConvertModifications(UniProtModificationLookup.Instance);
+        // Convert to Unimod
+        peptide.ConvertModifications(UnimodModificationLookup.Instance);
 
-        var uniprotFormula = peptide.AllModsOneIsNterminus[7].ChemicalFormula;
+        var UnimodFormula = peptide.AllModsOneIsNterminus[7].ChemicalFormula;
 
         // Convert back to MetaMorpheus
         peptide.ConvertModifications(MzLibModificationLookup.Instance);
@@ -240,40 +231,9 @@ public class PeptideAndProteinConversion
         var finalTarget = peptide.AllModsOneIsNterminus[7].Target.ToString();
 
         // Verify chemistry is preserved
-        Assert.That(originalFormula.Equals(uniprotFormula), Is.True);
+        Assert.That(originalFormula.Equals(UnimodFormula), Is.True);
         Assert.That(originalFormula.Equals(finalFormula), Is.True);
         Assert.That(originalTarget, Is.EqualTo(finalTarget));
-    }
-
-    [Test]
-    [TestCaseSource(nameof(UniProtTestCases))]
-    public static void TestConvertModificationsWithGroundTruthUniProtFormats(GroundTruthTestData.SequenceConversionTestCase testCase)
-    {
-        var serializer = UniProtSequenceSerializer.Instance;
-
-        var mods = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(
-            testCase.MzLibFormat,
-            Mods.AllModsKnownDictionary);
-
-        var protein = new Protein(testCase.ExpectedBaseSequence, "TestProtein");
-        var digestionParams = new DigestionParams(protease: "trypsin");
-        var peptide = new PeptideWithSetModifications(
-            protein,
-            digestionParams,
-            oneBasedStartResidueInProtein: 1,
-            oneBasedEndResidueInProtein: testCase.ExpectedBaseSequence.Length,
-            cleavageSpecificity: CleavageSpecificity.Full,
-            peptideDescription: "Test",
-            missedCleavages: 0,
-            allModsOneIsNterminus: mods,
-            numFixedMods: 0);
-
-        peptide.ConvertModifications(serializer);
-
-        var canonical = peptide.ToCanonicalSequence();
-        var result = serializer.Serialize(canonical, null, serializer.HandlingMode);
-
-        Assert.That(result, Is.EqualTo(testCase.UniProtFormat), testCase.Description);
     }
 
     #endregion

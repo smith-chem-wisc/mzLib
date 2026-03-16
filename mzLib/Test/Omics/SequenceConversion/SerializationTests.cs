@@ -17,12 +17,9 @@ public class SerializationTests
     private MassShiftSequenceSerializer _massShiftSerializer;
     private ChronologerSequenceSerializer _chronologerSerializer;
     private UnimodSequenceSerializer _unimodSerializer;
-    private UniProtSequenceSerializer _uniprotSerializer;
-    private UniProtSequenceSerializer _uniprotSerializerWithModType;
     private MzLibSequenceParser _mzLibParser;
     private MassShiftSequenceParser _massShiftParser;
 
-    public static IEnumerable<UniProtMappingTestCase> UniProtMappingTestCases() => GroundTruthTestData.UniProtMappingTestCases;
     public static IEnumerable<SequenceConversionTestCase> CoreTestCases() => GroundTruthTestData.CoreTestCases;
     public static IEnumerable<SequenceConversionTestCase> EdgeCases() => GroundTruthTestData.EdgeCases;
 
@@ -33,8 +30,6 @@ public class SerializationTests
         _massShiftSerializer = new MassShiftSequenceSerializer(new(4));
         _chronologerSerializer = new ChronologerSequenceSerializer();
         _unimodSerializer = new UnimodSequenceSerializer();
-        _uniprotSerializer = new UniProtSequenceSerializer();
-        _uniprotSerializerWithModType = new UniProtSequenceSerializer(new UniProtSequenceSchema(true, false));
         _mzLibParser = new MzLibSequenceParser();
         _massShiftParser = new MassShiftSequenceParser();
     }
@@ -85,92 +80,6 @@ public class SerializationTests
         // Assert
         Assert.That(result, Is.Not.Null);
         Assert.That(result, Is.EqualTo(testCase.UnimodUpperCaseFormat));
-    }
-
-    [Test]
-    [TestCaseSource(nameof(CoreTestCases))]
-    public void UniprotSerializer_KnownCases_SerializesCorrectly(SequenceConversionTestCase testCase)
-    {
-        var canonical = _mzLibParser.Parse(testCase.MzLibFormat);
-        Assert.That(canonical, Is.Not.Null);
-
-        var result = _uniprotSerializer.Serialize(canonical.Value);
-
-        Assert.That(result, Is.Not.Null);
-        Assert.That(result, Is.EqualTo(testCase.UniProtFormat));
-    }
-
-    /// <summary>
-    /// Tests that specific mzLib modifications correctly map to their UniProt representations.
-    /// Each test case validates one modification type on a specific residue.
-    /// </summary>
-    [Test]
-    [TestCaseSource(nameof(UniProtMappingTestCases))]
-    public void UniprotSerializer_ModificationMappings_ResolveCorrectly(UniProtMappingTestCase testCase)
-    {
-        // Build a simple test sequence with the modification
-        string mzLibSequence;
-        string expectedUniProtSequence;
-
-        if (testCase.IsNTerminal)
-        {
-            // N-terminal modification: [mod]XEPTIDE where X is the target residue
-            mzLibSequence = $"[{testCase.MzLibModification}]{testCase.TargetResidue}EPTIDE";
-            expectedUniProtSequence = $"[{testCase.ExpectedUniProtName}]{testCase.TargetResidue}EPTIDE";
-        }
-        else
-        {
-            // Internal modification: PEP{X}[mod]IDE where X is the target residue
-            mzLibSequence = $"PEP{testCase.TargetResidue}[{testCase.MzLibModification}]IDE";
-            expectedUniProtSequence = $"PEP{testCase.TargetResidue}[{testCase.ExpectedUniProtName}]IDE";
-        }
-
-        // Parse the mzLib sequence
-        var canonical = _mzLibParser.Parse(mzLibSequence);
-        Assert.That(canonical, Is.Not.Null, $"Failed to parse mzLib sequence: {mzLibSequence}");
-
-        // Serialize to UniProt format
-        var result = _uniprotSerializer.Serialize(canonical.Value);
-
-        // Verify the result
-        Assert.That(result, Is.Not.Null, $"UniProt serialization returned null for: {mzLibSequence}");
-        Assert.That(result, Is.EqualTo(expectedUniProtSequence), 
-            $"Expected UniProt format '{expectedUniProtSequence}' but got '{result}'");
-    }
-
-
-    [Test]
-    [TestCaseSource(nameof(UniProtMappingTestCases))]
-    public void UniprotSerializerWithModType_ModificationMappings_ResolveCorrectly(UniProtMappingTestCase testCase)
-    {
-        // Build a simple test sequence with the modification
-        string mzLibSequence;
-        string expectedUniProtSequence;
-
-        if (testCase.IsNTerminal)
-        {
-            // N-terminal modification: [mod]XEPTIDE where X is the target residue
-            mzLibSequence = $"[{testCase.MzLibModification}]{testCase.TargetResidue}EPTIDE";
-            expectedUniProtSequence = $"[UniProt:{testCase.ExpectedUniProtName}]{testCase.TargetResidue}EPTIDE";
-        }
-        else
-        {
-            // Internal modification: PEP{X}[mod]IDE where X is the target residue
-            mzLibSequence = $"PEP{testCase.TargetResidue}[{testCase.MzLibModification}]IDE";
-            expectedUniProtSequence = $"PEP{testCase.TargetResidue}[UniProt:{testCase.ExpectedUniProtName}]IDE";
-        }
-
-        // Parse the mzLib sequence
-        var canonical = _mzLibParser.Parse(mzLibSequence);
-        Assert.That(canonical, Is.Not.Null, $"Failed to parse mzLib sequence: {mzLibSequence}");
-
-        // Serialize to UniProt format
-        var result = _uniprotSerializerWithModType.Serialize(canonical.Value);
-
-        // Verify the result
-        Assert.That(result, Is.Not.Null, $"UniProt serialization returned null for: {mzLibSequence}");
-        Assert.That(result, Is.EqualTo(expectedUniProtSequence),
-            $"Expected UniProt format '{expectedUniProtSequence}' but got '{result}'");
     }
 
     [Test]
