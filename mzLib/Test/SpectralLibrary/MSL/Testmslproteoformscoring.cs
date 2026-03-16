@@ -354,7 +354,6 @@ public class TestMslProteoformScoring
 	// ─────────────────────────────────────────────────────────────────────────
 	// Group 7: MatchedFragments annotation
 	// ─────────────────────────────────────────────────────────────────────────
-
 	[Test]
 	public void Scoring_MatchedFragments_PopulatedCorrectly()
 	{
@@ -367,12 +366,19 @@ public class TestMslProteoformScoring
 
 		Assert.That(results[0].MatchedFragments, Has.Count.EqualTo(5));
 
-		// First fragment is b10+1 — verify product type and fragment number.
-		MatchedFragmentIon firstIon = results[0].MatchedFragments[0];
-		Assert.That(firstIon.NeutralTheoreticalProduct.ProductType, Is.EqualTo(ProductType.b));
-		Assert.That(firstIon.NeutralTheoreticalProduct.FragmentNumber, Is.EqualTo(10));
-		Assert.That(firstIon.Charge, Is.EqualTo(1));
+		// The writer sorts fragments by m/z ascending before writing, so the order
+		// after a round-trip is: c8 (850.4), y25 (900.2), b20 (1100.3), b10 (1200.5), y15 (1600.7).
+		// Find the b10+1 ion by its properties rather than by index position.
+		MatchedFragmentIon b10Ion = results[0].MatchedFragments
+			.Single(ion => ion.NeutralTheoreticalProduct.ProductType == ProductType.b
+						&& ion.NeutralTheoreticalProduct.FragmentNumber == 10
+						&& ion.Charge == 1);
+
+		Assert.That(b10Ion.NeutralTheoreticalProduct.ProductType, Is.EqualTo(ProductType.b));
+		Assert.That(b10Ion.NeutralTheoreticalProduct.FragmentNumber, Is.EqualTo(10));
+		Assert.That(b10Ion.Charge, Is.EqualTo(1));
 	}
+
 
 	// ─────────────────────────────────────────────────────────────────────────
 	// Group 8: Decoy scoring parity
