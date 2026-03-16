@@ -704,6 +704,72 @@ public sealed class MslLibrary : IDisposable
 		return _proteoformIndex.QueryMassWindow(minMass, maxMass, includeDecoys);
 	}
 
+	/// <summary>
+	/// Queries the proteoform index for candidates within a neutral mass window and scores
+	/// them against the supplied deconvoluted peaks in one call.
+	///
+	/// <para>
+	/// Equivalent to calling <see cref="QueryProteoformMassWindow"/> followed by
+	/// <see cref="MslProteoformScorer.Score(ReadOnlySpan{MslProteoformIndexEntry}, MslLibrary, IReadOnlyList{DeconvolutedPeak}, double, int)"/>.
+	/// </para>
+	///
+	/// <para>
+	/// Returns an empty list (not an exception) when this library contains no proteoform
+	/// entries — i.e. when <see cref="ProteoformIndex"/> is null. Peptide-only libraries
+	/// are therefore safe to pass to this method without a prior null check.
+	/// </para>
+	/// </summary>
+	/// <param name="precursorNeutralMass">
+	///   Deconvoluted precursor neutral mass in daltons.
+	/// </param>
+	/// <param name="massTolerance">
+	///   Half-width of the neutral mass search window in daltons.
+	///   Candidates within [<paramref name="precursorNeutralMass"/> − <paramref name="massTolerance"/>,
+	///   <paramref name="precursorNeutralMass"/> + <paramref name="massTolerance"/>] are scored.
+	///   Recommended value for top-down deconvolution: 10 Da.
+	/// </param>
+	/// <param name="deconvolutedPeaks">
+	///   Deconvoluted fragment peaks from the experimental MS2 spectrum. Must not be null.
+	/// </param>
+	/// <param name="fragmentMassTolerance">
+	///   Fragment matching mass tolerance as a fraction (ppm × 1e-6). Default: 20e-6 (20 ppm).
+	/// </param>
+	/// <param name="minMatchedFragments">
+	///   Minimum matched fragments required to include a candidate. Default: 3.
+	/// </param>
+	/// <returns>
+	///   <see cref="MslProteoformScoringResult"/> list sorted by composite score descending.
+	///   Empty when no proteoform index is present or no candidates pass the fragment filter.
+	/// </returns>
+	/// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
+	/// <exception cref="ArgumentNullException"><paramref name="deconvolutedPeaks"/> is null.</exception>
+	public List<MslProteoformScoringResult> ScoreProteoformCandidates(
+		double precursorNeutralMass,
+		double massTolerance,
+		IReadOnlyList<DeconvolutedPeak> deconvolutedPeaks,
+		double fragmentMassTolerance = 20e-6,
+		int minMatchedFragments = 3)
+	{
+		ThrowIfDisposed();
+		ArgumentNullException.ThrowIfNull(deconvolutedPeaks);
+
+		// Return empty list (not exception) for peptide-only libraries.
+		if (_proteoformIndex is null)
+			return new List<MslProteoformScoringResult>();
+
+		ReadOnlySpan<MslProteoformIndexEntry> candidates =
+			_proteoformIndex.QueryMassWindow(
+				precursorNeutralMass - massTolerance,
+				precursorNeutralMass + massTolerance);
+
+		return MslProteoformScorer.Score(
+			candidates,
+			this,
+			deconvolutedPeaks,
+			fragmentMassTolerance,
+			minMatchedFragments);
+	}
+
 	// ── Bulk enumeration ──────────────────────────────────────────────────────
 
 	/// <summary>
