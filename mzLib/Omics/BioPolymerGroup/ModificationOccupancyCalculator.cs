@@ -30,16 +30,16 @@ public static class ModificationOccupancyCalculator
     /// </param>
     /// <returns>
     /// Dictionary keyed by one-based protein position, each value a list of
-    /// <see cref="ModificationSiteOccupancy"/> entries for modifications observed at that position.
+    /// <see cref="SiteSpecificModificationOccupancy"/> entries for modifications observed at that position.
     /// </returns>
-    public static Dictionary<int, List<ModificationSiteOccupancy>> CalculateProteinLevelOccupancy(
+    public static Dictionary<int, List<SiteSpecificModificationOccupancy>> CalculateProteinLevelOccupancy(
         IBioPolymer bioPolymer,
         IEnumerable<IBioPolymerWithSetMods> localizedSequences,
         Dictionary<string, double>? intensitiesByFullSequence = null)
     {
         var sequences = localizedSequences as IList<IBioPolymerWithSetMods> ?? localizedSequences.ToList();
         // Use an inner dictionary for dedup during construction, then flatten to lists
-        var working = new Dictionary<int, Dictionary<string, ModificationSiteOccupancy>>();
+        var working = new Dictionary<int, Dictionary<string, SiteSpecificModificationOccupancy>>();
 
         foreach (var sequence in sequences)
         {
@@ -50,13 +50,13 @@ public static class ModificationOccupancyCalculator
 
                 if (!working.TryGetValue(indexInProtein, out var modsAtPosition))
                 {
-                    modsAtPosition = new Dictionary<string, ModificationSiteOccupancy>();
+                    modsAtPosition = new Dictionary<string, SiteSpecificModificationOccupancy>();
                     working[indexInProtein] = modsAtPosition;
                 }
 
                 if (!modsAtPosition.TryGetValue(mod.Value.IdWithMotif, out var siteOccupancy))
                 {
-                    siteOccupancy = new ModificationSiteOccupancy(indexInProtein, mod.Value.IdWithMotif);
+                    siteOccupancy = new SiteSpecificModificationOccupancy(indexInProtein, mod.Value.IdWithMotif);
 
                     // Count total peptides covering this position
                     foreach (var seq in sequences)
@@ -91,83 +91,71 @@ public static class ModificationOccupancyCalculator
     }
 
     /// <summary>
-    /// Calculates per-site modification occupancy in peptide-local coordinates,
+    /// Calculates per-site modification occupancy in peptide-local coordinates
     /// for a group of peptides sharing the same base sequence.
     /// Positions use the AllModsOneIsNterminus convention (1 = N-terminus, 2 = first residue, etc.).
     /// </summary>
-    /// <param name="peptidesByBaseSequence">
-    /// Peptides grouped by base sequence. All peptides in a group must share the same BaseSequence.
+    /// <param name="peptides">
+    /// Peptides sharing the same base sequence. All must have the same BaseSequence.
     /// </param>
     /// <param name="intensitiesByFullSequence">
     /// Optional map of FullSequence → intensity for intensity-based stoichiometry.
     /// </param>
     /// <returns>
-    /// Dictionary keyed by base sequence, each value a dictionary keyed by
-    /// peptide-local position (AllModsOneIsNterminus key) containing a list of
-    /// <see cref="ModificationSiteOccupancy"/> entries for modifications observed at that position.
+    /// Dictionary keyed by peptide-local position (AllModsOneIsNterminus key) containing a list of
+    /// <see cref="SiteSpecificModificationOccupancy"/> entries for modifications observed at that position.
     /// </returns>
-    public static Dictionary<string, Dictionary<int, List<ModificationSiteOccupancy>>> CalculatePeptideLevelOccupancy(
-        IEnumerable<IGrouping<string, IBioPolymerWithSetMods>> peptidesByBaseSequence,
+    public static Dictionary<int, List<SiteSpecificModificationOccupancy>> CalculatePeptideLevelOccupancy(
+        IEnumerable<IBioPolymerWithSetMods> peptides,
         Dictionary<string, double>? intensitiesByFullSequence = null)
     {
-        var results = new Dictionary<string, Dictionary<int, List<ModificationSiteOccupancy>>>();
+        var peptideList = peptides as IList<IBioPolymerWithSetMods> ?? peptides.ToList();
+        int totalPeptideCount = peptideList.Count;
 
-        foreach (var group in peptidesByBaseSequence)
+        double totalGroupIntensity = 0;
+        if (intensitiesByFullSequence != null)
         {
-            string baseSequence = group.Key;
-            var peptides = group.ToList();
-            int totalPeptideCount = peptides.Count;
-
-            double totalGroupIntensity = 0;
-            if (intensitiesByFullSequence != null)
-            {
-                totalGroupIntensity = peptides
-                    .Where(p => p.FullSequence != null && intensitiesByFullSequence.ContainsKey(p.FullSequence))
-                    .Sum(p => intensitiesByFullSequence[p.FullSequence]);
-            }
-
-            // Use an inner dictionary for dedup during construction, then flatten to lists
-            var working = new Dictionary<int, Dictionary<string, ModificationSiteOccupancy>>();
-
-            foreach (var peptide in peptides)
-            {
-                foreach (var mod in peptide.AllModsOneIsNterminus)
-                {
-                    if (IsExcludedMod(mod.Value))
-                        continue;
-
-                    // Use the AllModsOneIsNterminus key directly as the peptide-local position
-                    if (!working.TryGetValue(mod.Key, out var modsAtPosition))
-                    {
-                        modsAtPosition = new Dictionary<string, ModificationSiteOccupancy>();
-                        working[mod.Key] = modsAtPosition;
-                    }
-
-                    if (!modsAtPosition.TryGetValue(mod.Value.IdWithMotif, out var siteOccupancy))
-                    {
-                        siteOccupancy = new ModificationSiteOccupancy(mod.Key, mod.Value.IdWithMotif)
-                        {
-                            // All peptides in the group cover all positions (same base sequence)
-                            TotalCount = totalPeptideCount,
-                            TotalIntensity = totalGroupIntensity
-                        };
-                        modsAtPosition[mod.Value.IdWithMotif] = siteOccupancy;
-                    }
-
-                    siteOccupancy.ModifiedCount++;
-                    if (intensitiesByFullSequence != null &&
-                        peptide.FullSequence != null &&
-                        intensitiesByFullSequence.TryGetValue(peptide.FullSequence, out double intensity))
-                    {
-                        siteOccupancy.ModifiedIntensity += intensity;
-                    }
-                }
-            }
-
-            results[baseSequence] = working.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Values.ToList());
+            totalGroupIntensity = peptideList
+                .Where(p => p.FullSequence != null && intensitiesByFullSequence.ContainsKey(p.FullSequence))
+                .Sum(p => intensitiesByFullSequence[p.FullSequence]);
         }
 
-        return results;
+        var working = new Dictionary<int, Dictionary<string, SiteSpecificModificationOccupancy>>();
+
+        foreach (var peptide in peptideList)
+        {
+            foreach (var mod in peptide.AllModsOneIsNterminus)
+            {
+                if (IsExcludedMod(mod.Value))
+                    continue;
+
+                if (!working.TryGetValue(mod.Key, out var modsAtPosition))
+                {
+                    modsAtPosition = new Dictionary<string, SiteSpecificModificationOccupancy>();
+                    working[mod.Key] = modsAtPosition;
+                }
+
+                if (!modsAtPosition.TryGetValue(mod.Value.IdWithMotif, out var siteOccupancy))
+                {
+                    siteOccupancy = new SiteSpecificModificationOccupancy(mod.Key, mod.Value.IdWithMotif)
+                    {
+                        TotalCount = totalPeptideCount,
+                        TotalIntensity = totalGroupIntensity
+                    };
+                    modsAtPosition[mod.Value.IdWithMotif] = siteOccupancy;
+                }
+
+                siteOccupancy.ModifiedCount++;
+                if (intensitiesByFullSequence != null &&
+                    peptide.FullSequence != null &&
+                    intensitiesByFullSequence.TryGetValue(peptide.FullSequence, out double intensity))
+                {
+                    siteOccupancy.ModifiedIntensity += intensity;
+                }
+            }
+        }
+
+        return working.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Values.ToList());
     }
 
     /// <summary>

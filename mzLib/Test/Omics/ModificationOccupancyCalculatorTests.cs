@@ -160,14 +160,11 @@ public class ModificationOccupancyCalculatorTests
         var modifiedPeptide = new MockBioPolymerWithSetMods("ACDEF", "ACD[Phosphorylation]EF", protein, 1, 5, mods);
         var unmodifiedPeptide = new MockBioPolymerWithSetMods("ACDEF", "ACDEF", protein, 1, 5);
 
-        var groups = new IBioPolymerWithSetMods[] { modifiedPeptide, unmodifiedPeptide }
-            .GroupBy(p => p.BaseSequence);
+        var result = ModificationOccupancyCalculator.CalculatePeptideLevelOccupancy(
+            new IBioPolymerWithSetMods[] { modifiedPeptide, unmodifiedPeptide });
 
-        var result = ModificationOccupancyCalculator.CalculatePeptideLevelOccupancy(groups);
-
-        Assert.That(result.ContainsKey("ACDEF"), Is.True);
-        Assert.That(result["ACDEF"].ContainsKey(4), Is.True); // peptide-local position (AllModsOneIsNterminus key)
-        var site = result["ACDEF"][4][0];
+        Assert.That(result.ContainsKey(4), Is.True); // peptide-local position (AllModsOneIsNterminus key)
+        var site = result[4][0];
         Assert.That(site.ModifiedCount, Is.EqualTo(1));
         Assert.That(site.TotalCount, Is.EqualTo(2));
         Assert.That(site.CountBasedOccupancy, Is.EqualTo(0.5));
@@ -190,12 +187,10 @@ public class ModificationOccupancyCalculatorTests
             ["ACDEF"] = 8_000_000
         };
 
-        var groups = new IBioPolymerWithSetMods[] { modifiedPeptide, unmodifiedPeptide }
-            .GroupBy(p => p.BaseSequence);
+        var result = ModificationOccupancyCalculator.CalculatePeptideLevelOccupancy(
+            new IBioPolymerWithSetMods[] { modifiedPeptide, unmodifiedPeptide }, intensities);
 
-        var result = ModificationOccupancyCalculator.CalculatePeptideLevelOccupancy(groups, intensities);
-
-        var site = result["ACDEF"][4][0];
+        var site = result[4][0];
         Assert.That(site.ModifiedIntensity, Is.EqualTo(2_000_000));
         Assert.That(site.TotalIntensity, Is.EqualTo(10_000_000));
         Assert.That(site.IntensityBasedStoichiometry, Is.EqualTo(0.2));
@@ -211,11 +206,9 @@ public class ModificationOccupancyCalculatorTests
         var mods = new Dictionary<int, Modification> { { 3, fixedMod } };
         var peptide = new MockBioPolymerWithSetMods("ACDEF", "AC[Carbamidomethyl]DEF", protein, 1, 5, mods);
 
-        var groups = new[] { peptide }.GroupBy(p => p.BaseSequence);
+        var result = ModificationOccupancyCalculator.CalculatePeptideLevelOccupancy(new[] { peptide });
 
-        var result = ModificationOccupancyCalculator.CalculatePeptideLevelOccupancy(groups);
-
-        Assert.That(result["ACDEF"], Is.Empty);
+        Assert.That(result, Is.Empty);
     }
 
     [Test]
@@ -231,37 +224,35 @@ public class ModificationOccupancyCalculatorTests
         var mods2 = new Dictionary<int, Modification> { { 3, mod } };
         var peptide2 = new MockBioPolymerWithSetMods("GHIKLM", "GH[Phosphorylation]IKLM", protein, 6, 11, mods2);
 
-        var groups = new IBioPolymerWithSetMods[] { peptide1, peptide2 }
-            .GroupBy(p => p.BaseSequence);
+        // New signature operates on a single base sequence group; test each separately
+        var result1 = ModificationOccupancyCalculator.CalculatePeptideLevelOccupancy(new[] { peptide1 });
+        var result2 = ModificationOccupancyCalculator.CalculatePeptideLevelOccupancy(new[] { peptide2 });
 
-        var result = ModificationOccupancyCalculator.CalculatePeptideLevelOccupancy(groups);
-
-        Assert.That(result.Count, Is.EqualTo(2));
-        Assert.That(result.ContainsKey("ACDEF"), Is.True);
-        Assert.That(result.ContainsKey("GHIKLM"), Is.True);
+        Assert.That(result1.Count, Is.EqualTo(1));
+        Assert.That(result2.Count, Is.EqualTo(1));
     }
 
     #endregion
 
-    #region ModificationSiteOccupancy Tests
+    #region SiteSpecificModificationOccupancy Tests
 
     [Test]
-    public void ToModInfoStringMatchesExpectedFormat()
+    public void ToSpectralCountModInfoStringMatchesExpectedFormat()
     {
-        var site = new ModificationSiteOccupancy(5, "Phosphorylation on S")
+        var site = new SiteSpecificModificationOccupancy(5, "Phosphorylation on S")
         {
             ModifiedCount = 3,
             TotalCount = 10
         };
 
         string expected = "#aa5[Phosphorylation on S,info:occupancy=0.30(3/10)]";
-        Assert.That(site.ToModInfoString(), Is.EqualTo(expected));
+        Assert.That(site.ToSpectralCountModInfoString(), Is.EqualTo(expected));
     }
 
     [Test]
     public void IntensityBasedStoichiometryZeroTotalIntensityDoesNotThrowDivByZero()
     {
-        var site = new ModificationSiteOccupancy(1, "TestMod")
+        var site = new SiteSpecificModificationOccupancy(1, "TestMod")
         {
             ModifiedIntensity = 0,
             TotalIntensity = 0
@@ -273,7 +264,7 @@ public class ModificationOccupancyCalculatorTests
     [Test]
     public void CountBasedOccupancyZeroTotalIntensityDoesNotThrowDivByZero()
     {
-        var site = new ModificationSiteOccupancy(1, "TestMod")
+        var site = new SiteSpecificModificationOccupancy(1, "TestMod")
         {
             ModifiedCount = 0,
             TotalCount = 0

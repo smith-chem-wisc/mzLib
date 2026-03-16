@@ -4,7 +4,7 @@ namespace Omics.BioPolymerGroup;
 /// Represents the occupancy/stoichiometry of a single modification at a specific
 /// position on a biopolymer. Supports both count-based and intensity-based metrics.
 /// </summary>
-public class ModificationSiteOccupancy
+public class SiteSpecificModificationOccupancy
 {
     /// <summary>One-based position in the parent biopolymer sequence.</summary>
     public int OneBasedPositionInBioPolymer { get; }
@@ -30,20 +30,31 @@ public class ModificationSiteOccupancy
     /// <summary>Intensity-based stoichiometry fraction (ModifiedIntensity / TotalIntensity).</summary>
     public double IntensityBasedStoichiometry => TotalIntensity > 0 ? ModifiedIntensity / TotalIntensity : 0;
 
-    public ModificationSiteOccupancy(int oneBasedPosition, string modIdWithMotif)
+    public SiteSpecificModificationOccupancy(int oneBasedPosition, string modIdWithMotif)
     {
         OneBasedPositionInBioPolymer = oneBasedPosition;
         ModificationIdWithMotif = modIdWithMotif;
     }
 
     /// <summary>
-    /// Formatted string matching the existing ModsInfo format for backward compatibility.
+    /// Formatted string for spectral count-based occupancy output.
     /// Format: #aa{position}[{modName},info:occupancy={fraction}({count}/{total})]
     /// </summary>
-    public string ToModInfoString()
+    public string ToSpectralCountModInfoString()
     {
         string occupancy = CountBasedOccupancy.ToString("F2");
         string fractional = $"{ModifiedCount}/{TotalCount}";
         return $"#aa{OneBasedPositionInBioPolymer}[{ModificationIdWithMotif},info:occupancy={occupancy}({fractional})]";
+    }
+
+    /// <summary>
+    /// Formatted string for intensity-based stoichiometry output.
+    /// Format: #aa{position}[{modName},info:stoichiometry={fraction}({modifiedIntensity}/{totalIntensity})]
+    /// </summary>
+    public string ToIntensityModInfoString()
+    {
+        string stoichiometry = IntensityBasedStoichiometry.ToString("F4");
+        string fractional = $"{ModifiedIntensity:G4}/{TotalIntensity:G4}";
+        return $"#aa{OneBasedPositionInBioPolymer}[{ModificationIdWithMotif},info:stoichiometry={stoichiometry}({fractional})]";
     }
 }

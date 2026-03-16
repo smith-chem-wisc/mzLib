@@ -97,6 +97,22 @@ namespace Omics.BioPolymerGroup
         List<IBioPolymer> ListOfBioPolymersOrderedByAccession { get; }
 
         /// <summary>
+        /// Per-sample-group quantification and modification occupancy results.
+        /// Each entry represents one (Condition × BiologicalReplicate) group for label-free data,
+        /// one (File × Channel) for isobaric data, or one file for count-only results.
+        /// Built by PopulateSampleGroupResults, consumed by ToString and GetTabSeparatedHeader.
+        /// </summary>
+        List<SampleGroupResult>? SampleGroupResults { get; set; }
+
+        /// <summary>
+        /// Identifies the type of biopolymer in this group, which determines the modification
+        /// occupancy calculation strategy. <see cref="BioPolymerGroupType.Protein"/> uses
+        /// protein-level coordinates; <see cref="BioPolymerGroupType.Peptide"/> and
+        /// <see cref="BioPolymerGroupType.Oligo"/> use digestion-product-local coordinates.
+        /// </summary>
+        BioPolymerGroupType GroupType { get; set; }
+
+        /// <summary>
         /// Returns a tab-separated header line for output files.
         /// The format matches the output of <see cref="object.ToString"/>.
         /// </summary>
