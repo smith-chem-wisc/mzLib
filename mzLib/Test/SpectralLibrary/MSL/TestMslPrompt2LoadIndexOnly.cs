@@ -111,15 +111,23 @@ public class TestMslPrompt2LoadIndexOnly
 	/// Immediately after LoadIndexOnly, every entry's Fragments list must be
 	/// empty. This is the core promise of index-only mode: fragment bytes
 	/// remain on disk until explicitly requested.
+	///
+	/// Verified via MslReader.LoadIndexOnly (returns MslLibraryData) rather than
+	/// MslLibrary.LoadIndexOnly, because MslLibrary.GetAllEntries invokes the loader
+	/// delegate and triggers demand-loading as part of its normal operation.
+	/// MslLibraryData.Entries exposes the raw skeleton entries before any demand-load.
 	/// </summary>
 	[Test]
 	public void LoadIndexOnly_FragmentLists_AreEmptyImmediatelyAfterOpen()
 	{
 		string path = BuildAndWriteLibrary(nameof(LoadIndexOnly_FragmentLists_AreEmptyImmediatelyAfterOpen));
 
-		using MslLibrary lib = MslLibrary.LoadIndexOnly(path);
+		// MslReader.LoadIndexOnly returns MslLibraryData whose Entries collection
+		// contains skeleton entries with empty fragment lists — no loader delegate
+		// is invoked when accessing Entries directly.
+		using MslLibraryData data = MslReader.LoadIndexOnly(path);
 
-		foreach (MslLibraryEntry entry in lib.GetAllEntries())
+		foreach (MslLibraryEntry entry in data.Entries)
 		{
 			Assert.That(entry.Fragments, Is.Empty,
 				$"Entry '{entry.ModifiedSequence}' must have an empty Fragments list " +

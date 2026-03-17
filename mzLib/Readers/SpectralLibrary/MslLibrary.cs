@@ -957,14 +957,14 @@ public sealed class MslLibrary : IDisposable
 			if (!entryByKey.TryGetValue(key, out MslLibraryEntry? entry))
 				continue;
 
-			entry.Fragments = spectrum.MatchedFragmentIons
+			var convertedFragments = spectrum.MatchedFragmentIons
 				.Select(ion => new MslFragmentIon
 				{
 					Mz = (float)ion.Mz,
 					Intensity = (float)ion.Intensity,
 					ProductType = ion.NeutralTheoreticalProduct.ProductType,
-					SecondaryProductType = null,
-					SecondaryFragmentNumber = 0,
+					SecondaryProductType = ion.NeutralTheoreticalProduct.SecondaryProductType,
+					SecondaryFragmentNumber = ion.NeutralTheoreticalProduct.SecondaryFragmentNumber,
 					FragmentNumber = ion.NeutralTheoreticalProduct.FragmentNumber,
 					ResiduePosition = ion.NeutralTheoreticalProduct.ResiduePosition,
 					Charge = ion.Charge,
@@ -973,8 +973,15 @@ public sealed class MslLibrary : IDisposable
 				})
 				.ToList();
 
-			entry.Source = MslFormat.SourceType.Predicted;
-			updatedCount++;
+			// Fix 8b: only count as updated when the model returned at least one fragment.
+			// An empty prediction leaves the entry eligible for re-prediction on the next
+			// call, so we do not assign Fragments or increment the counter.
+			if (convertedFragments.Count > 0)
+			{
+				entry.Fragments = convertedFragments;
+				entry.Source = MslFormat.SourceType.Predicted;
+				updatedCount++;
+			}
 		}
 
 		return updatedCount;

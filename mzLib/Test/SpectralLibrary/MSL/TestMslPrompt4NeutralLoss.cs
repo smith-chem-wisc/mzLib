@@ -149,36 +149,35 @@ public class TestMslPrompt4NeutralLoss
 	}
 
 	// ═════════════════════════════════════════════════════════════════════
-	// NL3 — WriteStreaming custom loss behaviour
+	// NL3 — WriteStreaming custom loss behaviour (Fix 7 applied)
 	// ═════════════════════════════════════════════════════════════════════
 
 	/// <summary>
-	/// BEFORE Fix 7: WriteStreaming throws NotSupportedException for a custom
-	/// neutral loss. This test documents the pre-fix behaviour.
-	///
-	/// AFTER Fix 7: Replace Throws.TypeOf with Assert.DoesNotThrow and add
-	/// a round-trip assertion for the custom mass.
+	/// After Fix 7: WriteStreaming supports custom neutral losses without throwing.
+	/// The round-trip mass must exactly equal the written value.
 	/// </summary>
 	[Test]
-	public void WriteStreaming_CustomLoss_ThrowsNotSupportedException_BeforeFix7()
+	public void WriteStreaming_CustomLoss_RoundTrips_Correctly()
 	{
-		// A mass that does not match any named code — will be classified as Custom
 		const double customLoss = -203.0794;   // glycan loss (HexNAc)
-		string path = TempPath("streaming_custom_before_fix7");
+		string path = TempPath("streaming_custom_roundtrip");
 
 		var entries = new List<MslLibraryEntry> { EntryWithLoss(customLoss) };
 
-		// BEFORE Fix 7: WriteStreaming throws.
 		Assert.That(() => MslWriter.WriteStreaming(path, entries),
-			Throws.TypeOf<NotSupportedException>().With.Message.Contains("custom neutral loss"),
-			"WriteStreaming must throw NotSupportedException for custom neutral losses " +
-			"until Fix 7 is applied. After Fix 7, change this to Assert.DoesNotThrow.");
+			Throws.Nothing,
+			"After Fix 7, WriteStreaming must not throw for custom neutral losses.");
+
+		var lib = MslReader.Load(path);
+		double actual = lib.Entries[0].Fragments[0].NeutralLoss;
+
+		Assert.That(actual, Is.EqualTo(customLoss).Within(1e-9),
+			$"Custom loss {customLoss:F6} Da must survive WriteStreaming→Read round-trip exactly.");
 	}
 
 	/// <summary>
-	/// Write() (non-streaming path) ALREADY supports custom neutral losses via
-	/// the extended annotation table. This test confirms the non-streaming path
-	/// is correct and serves as the target behaviour for WriteStreaming after Fix 7.
+	/// Write() (non-streaming path) supports custom neutral losses via the
+	/// extended annotation table. Both paths must produce the same result.
 	/// </summary>
 	[Test]
 	public void Write_CustomLoss_RoundTrips_Correctly()
@@ -195,33 +194,6 @@ public class TestMslPrompt4NeutralLoss
 
 		Assert.That(actual, Is.EqualTo(customLoss).Within(1e-9),
 			$"Custom loss {customLoss:F6} Da must survive Write→Read round-trip exactly.");
-	}
-
-	/// <summary>
-	/// After Fix 7: WriteStreaming must handle custom losses identically to Write().
-	/// Uncomment and activate this test once Fix 7 is merged.
-	///
-	/// Note: this test is currently marked Ignore to avoid a build-blocking failure.
-	/// Remove the [Ignore] attribute after applying Fix 7.
-	/// </summary>
-	[Test]
-	[Ignore("Activate after Fix 7 (WriteStreaming custom loss support) is merged")]
-	public void WriteStreaming_CustomLoss_RoundTrips_AfterFix7()
-	{
-		const double customLoss = -203.0794;
-		string path = TempPath("streaming_custom_after_fix7");
-
-		var entries = new List<MslLibraryEntry> { EntryWithLoss(customLoss) };
-
-		Assert.That(() => MslWriter.WriteStreaming(path, entries),
-			Throws.Nothing,
-			"After Fix 7, WriteStreaming must not throw for custom neutral losses.");
-
-		var lib = MslReader.Load(path);
-		double actual = lib.Entries[0].Fragments[0].NeutralLoss;
-
-		Assert.That(actual, Is.EqualTo(customLoss).Within(1e-9),
-			$"Custom loss {customLoss:F6} Da must survive WriteStreaming→Read round-trip.");
 	}
 
 	// ═════════════════════════════════════════════════════════════════════
