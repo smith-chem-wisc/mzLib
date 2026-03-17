@@ -102,16 +102,7 @@ namespace Omics.BioPolymerGroup
         /// Setting this property will automatically invoke <see cref="PopulateSampleGroupResults"/>
         /// when <see cref="IntensitiesBySample"/> is also non-null.
         /// </summary>
-        public List<ISampleInfo>? SamplesForQuantification
-        {
-            get => _samplesForQuantification;
-            set
-            {
-                _samplesForQuantification = value;
-                PopulateSampleGroupResults();
-            }
-        }
-        private List<ISampleInfo>? _samplesForQuantification;
+        public List<ISampleInfo>? SamplesForQuantification { get; set; }
 
         /// <summary>
         /// Dictionary mapping sample identifiers to measured intensity values for this group.
@@ -119,16 +110,7 @@ namespace Omics.BioPolymerGroup
         /// Setting this property will automatically invoke <see cref="PopulateSampleGroupResults"/>
         /// when <see cref="SamplesForQuantification"/> is also non-null.
         /// </summary>
-        public Dictionary<ISampleInfo, double>? IntensitiesBySample
-        {
-            get => _intensitiesBySample;
-            set
-            {
-                _intensitiesBySample = value;
-                PopulateSampleGroupResults();
-            }
-        }
-        private Dictionary<ISampleInfo, double>? _intensitiesBySample;
+        public Dictionary<ISampleInfo, double>? IntensitiesBySample { get; set; }
 
         /// <summary>
         /// Set of all biopolymers (e.g., proteins, RNA sequences) that belong to this group.
@@ -505,7 +487,7 @@ namespace Omics.BioPolymerGroup
                             .Where(p => filePaths.Contains(p.FullFilePath))
                             .ToList();
 
-                        // Greate SampleGroupResult with per-sample intensities if available.
+                        // Create SampleGroupResult with per-sample intensities if available.
                         // Otherwise, create with empty intensities (HasIntensityData = false) for spectral counting.
                         var intensitiesBySample = new Dictionary<string, double>();
                         SampleGroupResult result;

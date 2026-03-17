@@ -401,6 +401,7 @@ namespace Test.Omics
             var file2 = new SpectraFileInfo(@"C:\test2.raw", "Treatment", 1, 1, 0);
 
             _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { file1, file2 };
+            _bioPolymerGroup.PopulateSampleGroupResults();
 
             var header = _bioPolymerGroup.GetTabSeparatedHeader();
 
@@ -413,6 +414,7 @@ namespace Test.Omics
                 { file1, 1000.0 },
                 { file2, 2000.0 }
             };
+            _bioPolymerGroup.PopulateSampleGroupResults();
 
             header = _bioPolymerGroup.GetTabSeparatedHeader();
             Assert.That(header, Does.Contain("Intensity_test1"));
@@ -432,6 +434,7 @@ namespace Test.Omics
             var file2 = new SpectraFileInfo(@"C:\sample_B.raw", "", 1, 1, 0);  // biorep=1
 
             _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { file1, file2 };
+            _bioPolymerGroup.PopulateSampleGroupResults();
 
             // IntensitiesBySample is required to trigger intensity column generation
             var header = _bioPolymerGroup.GetTabSeparatedHeader();
@@ -444,6 +447,7 @@ namespace Test.Omics
                 { file1, 1000.0 },
                 { file2, 2000.0 }
             };
+            _bioPolymerGroup.PopulateSampleGroupResults();
 
             header = _bioPolymerGroup.GetTabSeparatedHeader();
 
