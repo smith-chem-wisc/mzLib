@@ -76,14 +76,32 @@ public record MslMergeResult
 
 /// <summary>
 /// Merges multiple .msl spectral library files into a single output file using a
-/// streaming k-way merge algorithm. Memory usage is O(k + UniqueStrings), not
-/// O(TotalEntries), making this suitable for merging very large libraries.
+/// k-way merge algorithm.
 ///
 /// <para>
+/// <b>Source-read memory</b>: O(k) — only k entries live in the heap at any one time.
 /// Source files are read via <see cref="MslLibrary.LoadIndexOnly"/> and enumerated with
-/// <see cref="MslLibrary.GetAllEntries"/>. The output is written via
-/// <see cref="MslWriter.WriteStreaming"/>. All source file handles are released when the
-/// method returns.
+/// <see cref="MslLibrary.GetAllEntries"/>. Fragment bytes are loaded on demand per entry
+/// rather than all at once.
+/// </para>
+///
+/// <para>
+/// <b>Output memory</b>: O(TotalOutputEntries) — all winning entries (with their fragment
+/// arrays) are accumulated in a list before being passed to
+/// <see cref="MslWriter.WriteStreaming"/>. This is required because WriteStreaming
+/// performs two passes over its source enumerable. For very large merges the output list
+/// is the dominant memory cost.
+/// </para>
+///
+/// <para>
+/// For <see cref="MslMergeConflictPolicy.KeepLowestQValue"/>, an additional buffer
+/// bounded by the number of entries within a 0.001 Da m/z window is held while winners
+/// are resolved. This buffer is typically very small.
+/// </para>
+///
+/// <para>
+/// The output is written via <see cref="MslWriter.WriteStreaming"/>. All source file
+/// handles are released when the method returns.
 /// </para>
 ///
 /// <para>
