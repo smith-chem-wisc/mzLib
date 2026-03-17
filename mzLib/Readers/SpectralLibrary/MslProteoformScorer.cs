@@ -250,6 +250,11 @@ public static class MslProteoformScorer
 
 		foreach (MslFragmentIon libFrag in entry.Fragments)
 		{
+			// Guard: Charge = 0 produces neutral mass = 0.0, which is incorrect and
+			// would silently fail to match any real experimental peak. MslWriter.ValidateEntries
+			// flags Charge = 0 as an error, but that check is not called automatically.
+			if (libFrag.Charge <= 0) continue;
+
 			// Step 1: Convert library fragment m/z + charge to neutral mass.
 			double fragNeutralMass = ((double)libFrag.Mz * libFrag.Charge)
 									 - (libFrag.Charge * ProtonMass);
@@ -319,9 +324,20 @@ public static class MslProteoformScorer
 	// ── Private: spectral angle ───────────────────────────────────────────────
 
 	/// <summary>
-	/// Computes the cosine similarity between two equal-length intensity vectors.
-	/// Returns 0 when either vector has zero magnitude.
-	/// <para>Formula: dot(lib, exp) / (|lib| × |exp|)</para>
+	/// Computes the arccos-scaled spectral angle (SA) between two equal-length
+	/// matched intensity vectors.
+	///
+	/// <para>Formula:  SA = 1 − (2/π) × arccos( dot(lib,exp) / (|lib| × |exp|) )</para>
+	///
+	/// <para>Range: 0–1 where 1.0 = perfect spectral match and 0.0 = orthogonal spectra.
+	/// This matches the SA metric used throughout MetaMorpheus for bottom-up PSM scoring
+	/// (see Bittremieux et al., J. Proteome Res. 2022), ensuring that a single threshold
+	/// (e.g. SA > 0.7) applies consistently across both bottom-up and top-down workflows.</para>
+	///
+	/// <para>The cosine is clamped to [−1, 1] before arccos to guard against floating-point
+	/// values microscopically outside the valid domain (e.g. 1.0000000000000002).</para>
+	///
+	/// <para>Returns 0.0 when either vector has zero magnitude.</para>
 	/// </summary>
 	private static double ComputeSpectralAngle(
 		List<float> libIntensities,
@@ -341,7 +357,13 @@ public static class MslProteoformScorer
 		}
 
 		double denom = Math.Sqrt(normLib) * Math.Sqrt(normExp);
-		return denom > 0.0 ? dot / denom : 0.0;
+		if (denom <= 0.0) return 0.0;
+
+		// Clamp before arccos: floating-point arithmetic can produce values like
+		// 1.0000000000000002 for identical vectors, which arccos would return NaN for.
+		double cosine = Math.Clamp(dot / denom, -1.0, 1.0);
+
+		return 1.0 - (2.0 / Math.PI) * Math.Acos(cosine);
 	}
 
 	// ── Private: binary search on sorted peaks ────────────────────────────────

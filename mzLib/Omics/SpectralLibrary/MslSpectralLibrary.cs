@@ -142,14 +142,18 @@ public static class MslFormat
 		/// <summary>Loss of metaphosphoric acid: −79.966331 Da (phospho, alternative loss).</summary>
 		HPO3 = 4,
 
-		/// <summary>Combined H3PO4 + H2O loss.</summary>
-		PlusH2O = 5,
+		/// <summary>
+		/// Combined loss of phosphoric acid and water: −115.987460 Da (= −97.976895 + −18.010565).
+		/// Occurs for phosphorylated serine/threonine residues via a two-step elimination.
+		/// Formerly named PlusH2O (misleading — the "plus" referred to the water component
+		/// of the combined loss, not a water gain or standalone water loss).
+		/// The integer value (5) is unchanged; existing binary files are forward-compatible.
+		/// </summary>
+		H3PO4AndH2O = 5,
 
 		/// <summary>
 		/// Custom mass loss not covered by the named codes above.
-		/// The exact mass shift (negative = loss, positive = gain) is stored in
-		/// MslFragmentIon.NeutralLoss and must be written to / read from the binary
-		/// extended annotation table.
+		/// The exact mass shift is stored in the extended annotation table.
 		/// </summary>
 		Custom = 6
 	}
@@ -398,5 +402,44 @@ public static class MslFormat
 		bool rtCalibrated = (flags & PrecFlagRtCalibrated) != 0;
 
 		return (isDecoy, isProteotypic, rtCalibrated);
+	}
+
+	/// <summary>
+	/// Maps a neutral-loss mass in daltons to the nearest named
+	/// <see cref="NeutralLossCode"/>, or <see cref="NeutralLossCode.Custom"/>
+	/// when the mass does not correspond to any defined code.
+	///
+	/// <para>Tolerance is ±0.01 Da; all named losses are at least 1 Da apart
+	/// so no ambiguous classification is possible.</para>
+	///
+	/// <para>This is the single authoritative implementation shared by
+	/// <c>MslFragmentIon.FromLibrarySpectrum</c> and <c>MslWriter</c>.
+	/// Both previously maintained independent copies; this method eliminates
+	/// the duplication.</para>
+	/// </summary>
+	/// <param name="neutralLoss">
+	///   Neutral-loss mass in daltons. 0.0 = no loss. Negative = mass lost.
+	/// </param>
+	/// <returns>
+	///   The matching <see cref="NeutralLossCode"/>, or
+	///   <see cref="NeutralLossCode.Custom"/> when no match is found.
+	/// </returns>
+	public static NeutralLossCode ClassifyNeutralLoss(double neutralLoss)
+	{
+		const double MassH2O = -18.010565;
+		const double MassNH3 = -17.026549;
+		const double MassH3PO4 = -97.976895;
+		const double MassHPO3 = -79.966331;
+		const double MassCombined = MassH3PO4 + MassH2O;   // = −115.987460
+		const double Tolerance = 0.01;
+
+		if (neutralLoss == 0.0) return NeutralLossCode.None;
+		if (Math.Abs(neutralLoss - MassH2O) < Tolerance) return NeutralLossCode.H2O;
+		if (Math.Abs(neutralLoss - MassNH3) < Tolerance) return NeutralLossCode.NH3;
+		if (Math.Abs(neutralLoss - MassH3PO4) < Tolerance) return NeutralLossCode.H3PO4;
+		if (Math.Abs(neutralLoss - MassHPO3) < Tolerance) return NeutralLossCode.HPO3;
+		if (Math.Abs(neutralLoss - MassCombined) < Tolerance) return NeutralLossCode.H3PO4AndH2O;
+
+		return NeutralLossCode.Custom;
 	}
 }

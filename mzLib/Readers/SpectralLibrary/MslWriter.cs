@@ -284,6 +284,8 @@ public static class MslWriter
 
 			int nPrecursors = 0;
 			long runningFragmentOffset = 0L; // offset within the fragment temp file
+			var customLossIndex = new Dictionary<double, int>();
+			int nextCustomIdx = 1;           // index 0 is the reserved sentinel (0.0)
 
 			using (var fragStream = new FileStream(fragmentTempPath, FileMode.Create,
 													FileAccess.Write, FileShare.None,
@@ -337,9 +339,10 @@ public static class MslWriter
 					foreach (MslFragmentIon frag in frags)
 					{
 						if (ClassifyNeutralLoss(frag.NeutralLoss) == MslFormat.NeutralLossCode.Custom)
-							throw new NotSupportedException(
-								$"Fragment in '{entry.ModifiedSequence}' has a custom neutral loss " +
-								$"({frag.NeutralLoss:F4} Da). Custom neutral-loss codes are not yet supported.");
+						{
+							if (!customLossIndex.ContainsKey(frag.NeutralLoss))
+								customLossIndex[frag.NeutralLoss] = nextCustomIdx++;
+						}
 					}
 
 					if (frags.Count > 0)
@@ -350,7 +353,7 @@ public static class MslWriter
 
 					// ── Step 5: Write fragment block to fragment temp file ─────
 					long fragOffset = runningFragmentOffset;
-					WriteFragmentBlockToWriter(fragWriter, frags);
+					WriteFragmentBlockToWriter(fragWriter, frags, customLossIndex);
 					runningFragmentOffset += (long)frags.Count * MslFormat.FragmentRecordSize;
 
 					// ── Step 6: Write spill record ─────────────────────────────
@@ -440,7 +443,14 @@ public static class MslWriter
 			// When compressed the fragment bytes on-disk are the compressed frame; its size
 			// governs where the offset table begins.
 			long onDiskFragmentSize = isCompressed ? compressedFragmentSize : uncompressedFragmentSize;
-			long offsetTableOffset = fragmentBaseOffset + onDiskFragmentSize;
+
+			// Ext annotation table sits between the fragment section and the offset table.
+			bool hasCustomLosses = customLossIndex.Count > 0;
+			long extAnnotTableOffset = fragmentBaseOffset + onDiskFragmentSize;
+			long extAnnotTableSize = hasCustomLosses
+				? 4L + (long)(customLossIndex.Count + 1) * sizeof(double)  // int32 count + sentinel + masses
+				: 0L;
+			long offsetTableOffset = extAnnotTableOffset + extAnnotTableSize;
 
 			// DataEndOffset = OffsetTableOffset (CRC covers everything before the offset table)
 			long dataEndOffset = offsetTableOffset;
@@ -461,11 +471,12 @@ public static class MslWriter
 				{
 					Magic = MagicForLEStruct,
 					FormatVersion = MslFormat.CurrentVersion,
-					FileFlags = fileFlags,
+					FileFlags = fileFlags | (hasCustomLosses ? MslFormat.FileFlagHasExtAnnotations : 0),
 					NPrecursors = nPrecursors,
 					NProteins = nProteins,
 					NElutionGroups = nElutionGroups,
 					NStrings = nStrings,
+					ExtAnnotationTableOffset = hasCustomLosses ? (int)extAnnotTableOffset : 0,
 					ProteinTableOffset = proteinTableOffset,
 					StringTableOffset = stringTableOffset,
 					PrecursorSectionOffset = precursorSectionOffset,
@@ -557,7 +568,7 @@ public static class MslWriter
 													   : entry.StrippedSequence.Length,
 							MoleculeType = (short)entry.MoleculeType,
 							DissociationType = (short)entry.DissociationType,
-							Nce = (short)(entry.Nce * 10),
+							Nce = EncodeNce(entry.Nce, entry.ModifiedSequence),
 							PrecursorFlags = MslFormat.EncodePrecursorFlags(
 													   isDecoy: entry.IsDecoy,
 													   isProteotypic: entry.IsProteotypic,
@@ -583,7 +594,20 @@ public static class MslWriter
 															  bufferSize: 1 << 20, FileOptions.SequentialScan);
 					fragReadStream.CopyTo(outWriter.BaseStream, 1 << 20);
 				}
+				// 6b. Extended annotation table — present only when custom neutral losses exist
+				if (hasCustomLosses)
+				{
+					double[] sortedMasses = customLossIndex
+						.OrderBy(kv => kv.Value)
+						.Select(kv => kv.Key)
+						.ToArray();
 
+					int totalCount = sortedMasses.Length + 1;  // +1 for index-0 sentinel (0.0)
+					outWriter.Write(totalCount);               // int32: NCustomLosses
+					outWriter.Write(0.0);                      // index 0: reserved sentinel
+					foreach (double mass in sortedMasses)
+						outWriter.Write(mass);
+				}
 				// 7. Offset table — one int64 per precursor
 				foreach (long absOffset in absoluteFragOffsets)
 					outWriter.Write(absOffset);
@@ -660,17 +684,29 @@ public static class MslWriter
 	/// <paramref name="writer"/>. Fragments must already be sorted by m/z and
 	/// intensity-normalized before this is called.
 	/// </summary>
-	private static void WriteFragmentBlockToWriter(BinaryWriter writer,
-		List<MslFragmentIon> frags)
+	private static void WriteFragmentBlockToWriter(
+	BinaryWriter writer,
+	List<MslFragmentIon> frags,
+	IReadOnlyDictionary<double, int>? customLossIndex = null)
 	{
 		foreach (MslFragmentIon frag in frags)
 		{
 			MslFormat.NeutralLossCode lossCode = ClassifyNeutralLoss(frag.NeutralLoss);
+
 			byte flags = MslFormat.EncodeFragmentFlags(
 				isInternal: frag.IsInternalFragment,
 				isDiagnostic: frag.IsDiagnosticIon,
 				lossCode: lossCode,
 				excludeFromQuant: frag.ExcludeFromQuant);
+
+			// When neutral_loss_code == Custom, repurpose ResiduePosition as
+			// ExtAnnotationIdx (1-based index into the extended annotation table).
+			// For all other loss codes, ResiduePosition retains its normal meaning.
+			short residuePos = (lossCode == MslFormat.NeutralLossCode.Custom
+				&& customLossIndex != null
+				&& customLossIndex.TryGetValue(frag.NeutralLoss, out int idx))
+				? (short)idx
+				: (short)frag.ResiduePosition;
 
 			var record = new MslFragmentRecord
 			{
@@ -678,11 +714,11 @@ public static class MslWriter
 				Intensity = frag.Intensity,
 				ProductType = (short)(int)frag.ProductType,
 				SecondaryProductType = frag.SecondaryProductType.HasValue
-											 ? (short)(int)frag.SecondaryProductType.Value
-											 : (short)-1,
+											? (short)(int)frag.SecondaryProductType.Value
+											: (short)-1,
 				FragmentNumber = (short)frag.FragmentNumber,
 				SecondaryFragmentNumber = (short)frag.SecondaryFragmentNumber,
-				ResiduePosition = (short)frag.ResiduePosition,
+				ResiduePosition = residuePos,
 				Charge = (byte)frag.Charge,
 				Flags = flags
 			};
@@ -919,7 +955,7 @@ public static class MslWriter
 										   ? 0 : entry.StrippedSequence.Length,
 				MoleculeType = (short)entry.MoleculeType,
 				DissociationType = (short)entry.DissociationType,
-				Nce = (short)(entry.Nce * 10),
+				Nce = EncodeNce(entry.Nce, entry.ModifiedSequence),
 				PrecursorFlags = MslFormat.EncodePrecursorFlags(
 										   isDecoy: entry.IsDecoy,
 										   isProteotypic: entry.IsProteotypic,
@@ -930,7 +966,35 @@ public static class MslWriter
 			WriteStruct(writer, record);
 		}
 	}
+	/// <summary>
+	/// Encodes the NCE value for storage as NCE × 10 in an int16 field.
+	/// Clamps to [0, 3276] with a debug-mode assertion so the caller is
+	/// notified immediately rather than producing a silently corrupted file.
+	/// NCE values outside the plausible physical range (0–3276) are not
+	/// expected in practice; the clamp exists as a defensive guard only.
+	/// </summary>
+	/// <param name="nce">NCE value from <see cref="MslLibraryEntry.Nce"/>.</param>
+	/// <param name="sequence">Used only in the assertion message for diagnosis.</param>
+	/// <returns>NCE × 10 clamped to the int16 range as a short.</returns>
+	private static short EncodeNce(int nce, string? sequence)
+	{
+		const int MaxNce = 3276; // 3276 × 10 = 32760, fits in int16 with headroom
 
+		if (nce < 0 || nce > MaxNce)
+		{
+			// Throw in debug; clamp in release so a single bad entry doesn't abort a
+			// large write job.  Adjust to throw in both modes if strict correctness is
+			// preferred over resilience.
+			System.Diagnostics.Debug.Assert(
+				false,
+				$"[MslWriter] NCE value {nce} for '{sequence}' is outside the " +
+				$"encodable range [0, {MaxNce}]. It will be clamped to {Math.Clamp(nce, 0, MaxNce)}.");
+
+			nce = Math.Clamp(nce, 0, MaxNce);
+		}
+
+		return (short)(nce * 10);
+	}
 	/// <summary>
 	/// Writes raw <see cref="MslFragmentRecord"/> structs directly to the output stream
 	/// (uncompressed path only).
@@ -1198,22 +1262,7 @@ public static class MslWriter
 	/// to any of the defined codes. Tolerance is ±0.01 Da.
 	/// </summary>
 	internal static MslFormat.NeutralLossCode ClassifyNeutralLoss(double neutralLoss)
-	{
-		const double MassH2O = -18.010565;
-		const double MassNH3 = -17.026549;
-		const double MassH3PO4 = -97.976895;
-		const double MassHPO3 = -79.966331;
-		const double MassPlusH2O = MassH3PO4 + MassH2O;
-		const double Tolerance = 0.01;
-
-		if (neutralLoss == 0.0) return MslFormat.NeutralLossCode.None;
-		if (Math.Abs(neutralLoss - MassH2O) < Tolerance) return MslFormat.NeutralLossCode.H2O;
-		if (Math.Abs(neutralLoss - MassNH3) < Tolerance) return MslFormat.NeutralLossCode.NH3;
-		if (Math.Abs(neutralLoss - MassH3PO4) < Tolerance) return MslFormat.NeutralLossCode.H3PO4;
-		if (Math.Abs(neutralLoss - MassHPO3) < Tolerance) return MslFormat.NeutralLossCode.HPO3;
-		if (Math.Abs(neutralLoss - MassPlusH2O) < Tolerance) return MslFormat.NeutralLossCode.PlusH2O;
-		return MslFormat.NeutralLossCode.Custom;
-	}
+		=> MslFormat.ClassifyNeutralLoss(neutralLoss);
 
 	// ────────────────────────────────────────────────────────────────────────
 	// Pass-1 layout engine

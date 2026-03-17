@@ -551,22 +551,5 @@ public class MslLibraryEntry
 	/// </param>
 	/// <returns>The best-matching NeutralLossCode, or Custom if no match is found.</returns>
 	private static MslFormat.NeutralLossCode ClassifyNeutralLoss(double neutralLoss)
-	{
-		// Named neutral-loss masses (negative = loss from the fragment)
-		const double MassH2O = -18.010565;
-		const double MassNH3 = -17.026549;
-		const double MassH3PO4 = -97.976895;
-		const double MassHPO3 = -79.966331;
-		const double Tolerance = 0.01;     // Da, loose match for cross-tool compatibility
-
-		if (neutralLoss == 0.0) return MslFormat.NeutralLossCode.None;
-		if (Math.Abs(neutralLoss - MassH2O) < Tolerance) return MslFormat.NeutralLossCode.H2O;
-		if (Math.Abs(neutralLoss - MassNH3) < Tolerance) return MslFormat.NeutralLossCode.NH3;
-		if (Math.Abs(neutralLoss - MassH3PO4) < Tolerance) return MslFormat.NeutralLossCode.H3PO4;
-		if (Math.Abs(neutralLoss - MassHPO3) < Tolerance) return MslFormat.NeutralLossCode.HPO3;
-		if (Math.Abs(neutralLoss - (MassH3PO4 + MassH2O)) < Tolerance) return MslFormat.NeutralLossCode.PlusH2O;
-
-		// No match: caller must store the exact mass in the extended annotation table
-		return MslFormat.NeutralLossCode.Custom;
-	}
+		=> MslFormat.ClassifyNeutralLoss(neutralLoss);
 }
