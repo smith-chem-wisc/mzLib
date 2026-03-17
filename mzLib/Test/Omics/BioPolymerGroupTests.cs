@@ -405,6 +405,16 @@ namespace Test.Omics
             var header = _bioPolymerGroup.GetTabSeparatedHeader();
 
             // When files don't exist, falls back to filename format
+            Assert.That(header, Does.Not.Contain("Intensity_test1"));
+            Assert.That(header, Does.Not.Contain("Intensity_test2"));
+
+            _bioPolymerGroup.IntensitiesBySample = new Dictionary<ISampleInfo, double>
+            {
+                { file1, 1000.0 },
+                { file2, 2000.0 }
+            };
+
+            header = _bioPolymerGroup.GetTabSeparatedHeader();
             Assert.That(header, Does.Contain("Intensity_test1"));
             Assert.That(header, Does.Contain("Intensity_test2"));
         }
@@ -423,7 +433,19 @@ namespace Test.Omics
 
             _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { file1, file2 };
 
+            // IntensitiesBySample is required to trigger intensity column generation
             var header = _bioPolymerGroup.GetTabSeparatedHeader();
+
+            Assert.That(header, Does.Not.Contain("Intensity_sample_A"));
+            Assert.That(header, Does.Not.Contain("Intensity_sample_B"));
+
+            _bioPolymerGroup.IntensitiesBySample = new Dictionary<ISampleInfo, double>
+            {
+                { file1, 1000.0 },
+                { file2, 2000.0 }
+            };
+
+            header = _bioPolymerGroup.GetTabSeparatedHeader();
 
             Assert.That(header, Does.Contain("Intensity_sample_A"));
             Assert.That(header, Does.Contain("Intensity_sample_B"));
@@ -595,8 +617,6 @@ namespace Test.Omics
 
             var psm = new MockSpectralMatch(@"C:\test.raw", "PEPTIDEK", "PEPTIDEK-[Amidated on K]", 100, 1, [peptide]);
             group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
-
-            group.CalculateSequenceCoverage();
 
             var output = group.ToString();
             // C-terminal mod occupancy should report position as aa8 (protein length)

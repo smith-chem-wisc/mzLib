@@ -1,9 +1,11 @@
+using MassSpectrometry;
+
 namespace Omics.BioPolymerGroup;
 
 /// <summary>
 /// Bundles quantification and modification occupancy data for a single sample group
 /// (Condition × BiologicalReplicate). Each group contributes 2 columns (SpectralCount + CountOccupancy)
-/// or 4 columns (+Intensity + IntensityOccupancy) when FlashLFQ intensity data is available.
+/// or 4 columns (+Intensity + IntensityOccupancy) when intensity data is available.
 /// </summary>
 public sealed class SampleGroupResult
 {
@@ -35,15 +37,29 @@ public sealed class SampleGroupResult
     public int SpectralCount { get; set; }
 
     /// <summary>
-    /// Summed intensity from FlashLFQ for this sample group. Only meaningful when <see cref="HasIntensityData"/> is true.
+    /// The sample files (or channels) that belong to this result group.
+    /// For label-free data, contains one or more <see cref="SpectraFileInfo"/> entries (one per fraction).
+    /// For isobaric data, contains a single <see cref="IsobaricQuantSampleInfo"/> entry per channel.
     /// </summary>
-    public double Intensity { get; set; }
+    public Dictionary<string, ISampleInfo> FilesInGroup { get; init; } = new();
 
     /// <summary>
-    /// True when FlashLFQ intensity data was available for this sample group.
+    /// Per-file intensity values for this result group, keyed by sample info.
+    /// Populated from <see cref="BioPolymerGroup.IntensitiesBySample"/> filtered to the files in this group.
+    /// </summary>
+    public Dictionary<string, double> IntensitiesBySample { get; init; } = new();
+
+    /// <summary>
+    /// Summed intensity across all files in this sample group.
+    /// Computed from <see cref="IntensitiesBySample"/>. Zero when no intensity data is available.
+    /// </summary>
+    public double Intensity => IntensitiesBySample.Values.Sum();
+
+    /// <summary>
+    /// True when intensity data was available for this sample group (i.e., <see cref="IntensitiesBySample"/> is non-empty).
     /// Controls whether intensity and intensity-occupancy columns are output.
     /// </summary>
-    public bool HasIntensityData { get; init; }
+    public bool HasIntensityData => IntensitiesBySample.Count > 0;
 
     #endregion
 
