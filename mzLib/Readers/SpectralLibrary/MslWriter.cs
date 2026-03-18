@@ -356,14 +356,37 @@ public static class MslWriter
 					WriteFragmentBlockToWriter(fragWriter, frags, customLossIndex);
 					runningFragmentOffset += (long)frags.Count * MslFormat.FragmentRecordSize;
 
-					// ── Step 6: Write spill record ─────────────────────────────
+					// ── Step 6: Write extended spill record ──────────────────────────────────
+					// The extended MslSpillRecord captures all fields needed to write the
+					// MslPrecursorRecord in Pass 2, eliminating the second enumeration of entries.
 					var spill = new MslSpillRecord
 					{
+						// Layout-derived fields (computed above in Steps 1–3)
 						ModifiedSeqStringIdx = modSeqIdx,
 						StrippedSeqStringIdx = stripSeqIdx,
 						ProteinIdx = proteinSlotIndex.TryGetValue(acc, out int pIdx) ? pIdx : -1,
+						FragmentCount = (short)frags.Count,
 						FragmentBlockOffset = fragOffset,
-						FragmentCount = (short)frags.Count
+
+						// Entry scalar fields — copied directly from the entry object.
+						// Pass 2 reads these from the spill file instead of re-enumerating entries.
+						Charge = (short)entry.Charge,
+						ElutionGroupId = entry.ElutionGroupId,   // already set by Step 3 above
+						StrippedSeqLength = string.IsNullOrEmpty(entry.StrippedSequence)
+												? 0
+												: entry.StrippedSequence.Length,
+						MoleculeType = (short)entry.MoleculeType,
+						DissociationType = (short)entry.DissociationType,
+						Nce = EncodeNce(entry.Nce, entry.ModifiedSequence),
+						PrecursorFlags = MslFormat.EncodePrecursorFlags(
+											   isDecoy: entry.IsDecoy,
+											   isProteotypic: entry.IsProteotypic,
+											   rtCalibrated: false),
+						SourceType = (byte)entry.Source,
+						PrecursorMz = (float)entry.PrecursorMz,
+						Irt = (float)entry.Irt,
+						IonMobility = (float)entry.IonMobility,
+						QValue = entry.QValue,
 					};
 					WriteStruct(spillWriter, spill);
 
@@ -516,64 +539,48 @@ public static class MslWriter
 					outWriter.Write(encoded);
 				}
 
-				// 5. Precursor section — read spill file sequentially; compute absolute offsets
+				// 5. Precursor section — read only from the spill file.
+				//    The extended MslSpillRecord now carries all scalar fields, so the source
+				//    entries enumerable is NOT re-enumerated.  WriteStreaming is now truly
+				//    single-pass with respect to the caller-supplied IEnumerable<MslLibraryEntry>.
 				using (var spillReadStream = new FileStream(spillTempPath, FileMode.Open,
 															FileAccess.Read, FileShare.None,
 															bufferSize: 1 << 16, FileOptions.SequentialScan))
 				using (var spillReader = new BinaryReader(spillReadStream, Encoding.UTF8, leaveOpen: false))
 				{
-					// We need the original MslLibraryEntry fields (PrecursorMz, Irt, Charge, etc.)
-					// that are not stored in the spill file.  The spill file stores only the
-					// layout-derived fields; the entry-specific scalars are written by re-enumerating
-					// the entries a second time in lock-step with the spill reader.
-					//
-					// NOTE: This requires the entries enumerable to be re-enumerable (e.g. a List<>
-					// or a LINQ query over an in-memory collection). If the caller passes a
-					// single-pass IEnumerable (e.g. a streaming file reader), the second enumeration
-					// will produce no elements, resulting in a zero-precursor file. The XML doc on
-					// WriteStreaming describes this constraint.
-					//
-					// For truly single-pass enumerables the caller should materialise the entries
-					// into a List<> before calling WriteStreaming, or use Write() directly.
-					foreach (MslLibraryEntry entry in entries)
+					for (int i = 0; i < nPrecursors; i++)
 					{
 						MslSpillRecord spill = ReadSpillRecord(spillReader);
 
-						// For compressed files, FragmentBlockOffset values in precursor records
-						// are decompressed-buffer-relative (same as Prompt 13 compressed layout).
-						// For uncompressed files they are absolute file positions.
+						// For compressed files, FragmentBlockOffset in the spill is already
+						// decompressed-buffer-relative (starts at 0); for uncompressed files
+						// it is relative to byte 0 of the fragment temp file, so we add
+						// fragmentBaseOffset to get the absolute file position.
 						long recordFragOffset = isCompressed
 							? spill.FragmentBlockOffset                        // buffer-relative
 							: fragmentBaseOffset + spill.FragmentBlockOffset;  // absolute
 
 						absoluteFragOffsets.Add(recordFragOffset);
 
-						// Re-normalize and re-sort are NOT needed here; Pass 1 already mutated
-						// the entry in-place.  The fragment count comes from the spill record.
 						var precRecord = new MslPrecursorRecord
 						{
-							PrecursorMz = (float)entry.PrecursorMz,
-							Irt = (float)entry.Irt,
-							IonMobility = (float)entry.IonMobility,
-							Charge = (short)entry.Charge,
+							PrecursorMz = spill.PrecursorMz,
+							Irt = spill.Irt,
+							IonMobility = spill.IonMobility,
+							Charge = spill.Charge,
 							FragmentCount = spill.FragmentCount,
-							ElutionGroupId = entry.ElutionGroupId,
+							ElutionGroupId = spill.ElutionGroupId,
 							ProteinIdx = spill.ProteinIdx,
 							ModifiedSeqStringIdx = spill.ModifiedSeqStringIdx,
 							StrippedSeqStringIdx = spill.StrippedSeqStringIdx,
 							FragmentBlockOffset = recordFragOffset,
-							QValue = entry.QValue,
-							StrippedSeqLength = string.IsNullOrEmpty(entry.StrippedSequence)
-													   ? 0
-													   : entry.StrippedSequence.Length,
-							MoleculeType = (short)entry.MoleculeType,
-							DissociationType = (short)entry.DissociationType,
-							Nce = EncodeNce(entry.Nce, entry.ModifiedSequence),
-							PrecursorFlags = MslFormat.EncodePrecursorFlags(
-													   isDecoy: entry.IsDecoy,
-													   isProteotypic: entry.IsProteotypic,
-													   rtCalibrated: false),
-							SourceType = (byte)entry.Source
+							QValue = spill.QValue,
+							StrippedSeqLength = spill.StrippedSeqLength,
+							MoleculeType = spill.MoleculeType,
+							DissociationType = spill.DissociationType,
+							Nce = spill.Nce,
+							PrecursorFlags = spill.PrecursorFlags,
+							SourceType = spill.SourceType
 						};
 
 						WriteStruct(outWriter, precRecord);
@@ -729,17 +736,34 @@ public static class MslWriter
 
 	/// <summary>
 	/// Reads one <see cref="MslSpillRecord"/> from <paramref name="reader"/> at the current
-	/// stream position. The record is 22 bytes with Pack = 1.
+	/// stream position. The extended record is 56 bytes with Pack = 1.
 	/// </summary>
 	private static MslSpillRecord ReadSpillRecord(BinaryReader reader)
 	{
 		return new MslSpillRecord
 		{
+			// Layout-derived fields (offsets 0–13)
 			ModifiedSeqStringIdx = reader.ReadInt32(),
 			StrippedSeqStringIdx = reader.ReadInt32(),
 			ProteinIdx = reader.ReadInt32(),
+			FragmentCount = reader.ReadInt16(),
+
+			// Entry scalar fields (offsets 14–47)
+			Charge = reader.ReadInt16(),
+			ElutionGroupId = reader.ReadInt32(),
+			StrippedSeqLength = reader.ReadInt32(),
+			MoleculeType = reader.ReadInt16(),
+			DissociationType = reader.ReadInt16(),
+			Nce = reader.ReadInt16(),
+			PrecursorFlags = reader.ReadByte(),
+			SourceType = reader.ReadByte(),
+			PrecursorMz = reader.ReadSingle(),
+			Irt = reader.ReadSingle(),
+			IonMobility = reader.ReadSingle(),
+			QValue = reader.ReadSingle(),
+
+			// Fragment block offset (offsets 48–55)
 			FragmentBlockOffset = reader.ReadInt64(),
-			FragmentCount = reader.ReadInt16()
 		};
 	}
 
@@ -1656,15 +1680,47 @@ internal sealed class MslPrecursorLayout
 
 /// <summary>
 /// Per-precursor metadata record written to the spill file during Pass 1 of the
-/// streaming write (<see cref="MslWriter.WriteStreaming"/>). Each instance is
-/// serialized as a flat 22-byte record (Pack = 1) containing only the layout-derived
-/// fields. The entry's scalar fields (PrecursorMz, Irt, Charge, etc.) are not stored
-/// here; they are read by re-enumerating the original source in Pass 2.
+/// streaming write (<see cref="MslWriter.WriteStreaming"/>). Extended in Fix 9a
+/// to include all precursor scalar fields so that Pass 2 no longer needs to
+/// re-enumerate the source <c>IEnumerable&lt;MslLibraryEntry&gt;</c>.
+///
+/// <para>
+/// <b>Layout (56 bytes, Pack = 1):</b>
+/// <list type="table">
+///   <listheader><term>Field</term><term>Offset</term><term>Size</term></listheader>
+///   <item><term>ModifiedSeqStringIdx</term>  <term>0</term>  <term>4</term></item>
+///   <item><term>StrippedSeqStringIdx</term>  <term>4</term>  <term>4</term></item>
+///   <item><term>ProteinIdx</term>            <term>8</term>  <term>4</term></item>
+///   <item><term>FragmentCount</term>         <term>12</term> <term>2</term></item>
+///   <item><term>Charge</term>                <term>14</term> <term>2</term></item>
+///   <item><term>ElutionGroupId</term>        <term>16</term> <term>4</term></item>
+///   <item><term>StrippedSeqLength</term>     <term>20</term> <term>4</term></item>
+///   <item><term>MoleculeType</term>          <term>24</term> <term>2</term></item>
+///   <item><term>DissociationType</term>      <term>26</term> <term>2</term></item>
+///   <item><term>Nce</term>                   <term>28</term> <term>2</term></item>
+///   <item><term>PrecursorFlags</term>        <term>30</term> <term>1</term></item>
+///   <item><term>SourceType</term>            <term>31</term> <term>1</term></item>
+///   <item><term>PrecursorMz</term>           <term>32</term> <term>4</term></item>
+///   <item><term>Irt</term>                   <term>36</term> <term>4</term></item>
+///   <item><term>IonMobility</term>           <term>40</term> <term>4</term></item>
+///   <item><term>QValue</term>                <term>44</term> <term>4</term></item>
+///   <item><term>FragmentBlockOffset</term>   <term>48</term> <term>8</term></item>
+/// </list>
+/// Total: 56 bytes
+/// </para>
+///
+/// <para>
+/// This struct is an internal implementation detail of <see cref="MslWriter.WriteStreaming"/>.
+/// It is written to a temp file during Pass 1 and read back during Pass 2.  Its layout
+/// has no bearing on the .msl file format; it may change freely between releases.
+/// </para>
 /// </summary>
 [System.Runtime.InteropServices.StructLayout(
 	System.Runtime.InteropServices.LayoutKind.Sequential, Pack = 1)]
 internal struct MslSpillRecord
 {
+	// ── Layout-derived fields (computed during Pass 1 from string/protein tables) ──
+
 	/// <summary>4 bytes. String-table index for the modified sequence.</summary>
 	public int ModifiedSeqStringIdx;
 
@@ -1674,13 +1730,72 @@ internal struct MslSpillRecord
 	/// <summary>4 bytes. Zero-based index into the protein table; −1 when absent.</summary>
 	public int ProteinIdx;
 
+	/// <summary>2 bytes. Number of fragment records written for this precursor.</summary>
+	public short FragmentCount;
+
+	// ── Entry scalar fields (copied verbatim from MslLibraryEntry during Pass 1) ──
+	// These replace the second enumeration of the source in Pass 2.
+
+	/// <summary>
+	/// 2 bytes. Precursor charge state, cast from MslLibraryEntry.Charge.
+	/// Copied here so Pass 2 does not need to re-read the source entry.
+	/// </summary>
+	public short Charge;
+
+	/// <summary>
+	/// 4 bytes. Elution group ID assigned during Pass 1
+	/// (written back to entry.ElutionGroupId by the elution-group step).
+	/// </summary>
+	public int ElutionGroupId;
+
+	/// <summary>
+	/// 4 bytes. Residue count of the stripped sequence.
+	/// 0 when StrippedSequence is null or empty.
+	/// </summary>
+	public int StrippedSeqLength;
+
+	/// <summary>2 bytes. MoleculeType, cast from (int)entry.MoleculeType.</summary>
+	public short MoleculeType;
+
+	/// <summary>2 bytes. DissociationType, cast from (int)entry.DissociationType.</summary>
+	public short DissociationType;
+
+	/// <summary>
+	/// 2 bytes. Pre-encoded NCE: EncodeNce(entry.Nce) result already clamped and × 10.
+	/// Storing the encoded value avoids re-calling EncodeNce in Pass 2.
+	/// </summary>
+	public short Nce;
+
+	/// <summary>1 byte. Packed precursor-flag byte from MslFormat.EncodePrecursorFlags.</summary>
+	public byte PrecursorFlags;
+
+	/// <summary>1 byte. Source type, cast from (byte)entry.Source.</summary>
+	public byte SourceType;
+
+	/// <summary>
+	/// 4 bytes. Precursor m/z cast to float32 (float)entry.PrecursorMz.
+	/// float32 precision at 500 Da ≈ 0.06 mDa — within all standard matching tolerances.
+	/// </summary>
+	public float PrecursorMz;
+
+	/// <summary>4 bytes. iRT / calibrated RT, cast to float32.</summary>
+	public float Irt;
+
+	/// <summary>4 bytes. Ion mobility (1/K0), cast to float32. 0.0f when absent.</summary>
+	public float IonMobility;
+
+	/// <summary>
+	/// 4 bytes. Library q-value. float.NaN when absent (predicted-only entries).
+	/// </summary>
+	public float QValue;
+
 	/// <summary>
 	/// 8 bytes. Byte offset of this precursor's fragment block within the fragment
-	/// temp file (i.e. relative to byte 0 of that temp file, not the output file).
+	/// temp file (relative to byte 0 of that temp file, not the final output file).
+	/// Placed last to keep the 8-byte field naturally aligned within the 56-byte record,
+	/// avoiding any padding concern even though Pack=1 eliminates mandatory padding.
 	/// </summary>
 	public long FragmentBlockOffset;
 
-	/// <summary>2 bytes. Number of fragment records written for this precursor.</summary>
-	public short FragmentCount;
-	// Total: 4 + 4 + 4 + 8 + 2 = 22 bytes
+	// Total: 4+4+4+2+2+4+4+2+2+2+1+1+4+4+4+4+8 = 56 bytes
 }

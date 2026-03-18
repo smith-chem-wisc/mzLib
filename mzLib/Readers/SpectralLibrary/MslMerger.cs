@@ -81,27 +81,22 @@ public record MslMergeResult
 /// <para>
 /// <b>Source-read memory</b>: O(k) — only k entries live in the heap at any one time.
 /// Source files are read via <see cref="MslLibrary.LoadIndexOnly"/> and enumerated with
-/// <see cref="MslLibrary.GetAllEntries"/>. Fragment bytes are loaded on demand per entry
-/// rather than all at once.
+/// <see cref="MslLibrary.GetAllEntries"/>. Fragment bytes are loaded on demand per entry.
 /// </para>
 ///
 /// <para>
-/// <b>Output memory</b>: O(TotalOutputEntries) — all winning entries (with their fragment
-/// arrays) are accumulated in a list before being passed to
-/// <see cref="MslWriter.WriteStreaming"/>. This is required because WriteStreaming
-/// performs two passes over its source enumerable. For very large merges the output list
-/// is the dominant memory cost.
+/// <b>Output memory</b>: O(spill file) — winning entries are yielded lazily to
+/// <see cref="MslWriter.WriteStreaming"/> via an iterator method and are never
+/// accumulated in a list.  WriteStreaming spills precursor scalar fields to a temp
+/// file during Pass 1 (56 bytes × N entries on disk) and reads the source enumerable
+/// exactly once.  Peak RAM during the merge is determined by the source heap (k entries)
+/// plus the string and protein deduplication tables in WriteStreaming.
 /// </para>
 ///
 /// <para>
 /// For <see cref="MslMergeConflictPolicy.KeepLowestQValue"/>, an additional buffer
 /// bounded by the number of entries within a 0.001 Da m/z window is held while winners
-/// are resolved. This buffer is typically very small.
-/// </para>
-///
-/// <para>
-/// The output is written via <see cref="MslWriter.WriteStreaming"/>. All source file
-/// handles are released when the method returns.
+/// are resolved. This buffer is typically very small (at most a few dozen entries).
 /// </para>
 ///
 /// <para>
@@ -145,11 +140,11 @@ public static class MslMerger
 	///   Thrown when <paramref name="sourcePaths"/> is empty.
 	/// </exception>
 	public static MslMergeResult Merge(
-		IReadOnlyList<string> sourcePaths,
-		string outputPath,
-		MslMergeConflictPolicy conflictPolicy = MslMergeConflictPolicy.KeepFirst,
-		bool deduplicate = true,
-		int compressionLevel = 0)
+	IReadOnlyList<string> sourcePaths,
+	string outputPath,
+	MslMergeConflictPolicy conflictPolicy = MslMergeConflictPolicy.KeepFirst,
+	bool deduplicate = true,
+	int compressionLevel = 0)
 	{
 		if (sourcePaths is null) throw new ArgumentNullException(nameof(sourcePaths));
 		if (outputPath is null) throw new ArgumentNullException(nameof(outputPath));
@@ -158,19 +153,16 @@ public static class MslMerger
 
 		int k = sourcePaths.Count;
 
-		// ── KeepLast two-pass pre-scan ────────────────────────────────────────
-		// For KeepLast we need to know which source index last contains each key.
+		// ── KeepLast two-pass pre-scan ────────────────────────────────────────────
 		Dictionary<string, int>? keepLastMap = null;
 		if (deduplicate && conflictPolicy == MslMergeConflictPolicy.KeepLast)
-		{
 			keepLastMap = BuildKeepLastMap(sourcePaths);
-		}
 
-		// ── Open source libraries ─────────────────────────────────────────────
+		// ── Open source libraries ─────────────────────────────────────────────────
 		MslLibrary[] libraries = new MslLibrary[k];
 		IEnumerator<MslLibraryEntry>[] enumerators = new IEnumerator<MslLibraryEntry>[k];
 		int[] sourceCounts = new int[k];
-		float[] lastMz = new float[k]; // for unsorted-source detection
+		float[] lastMz = new float[k];
 		var unsortedSourceFiles = new List<string>();
 
 		try
@@ -182,110 +174,32 @@ public static class MslMerger
 				lastMz[i] = float.MinValue;
 			}
 
-			// ── k-way min-heap: element = (entry, enumerator, sourceIdx), priority = PrecursorMz
-			var heap = new PriorityQueue<(MslLibraryEntry Entry, IEnumerator<MslLibraryEntry> Enum, int SourceIdx), float>();
+			// ── Shared mutable state passed into the iterator ─────────────────────
+			// We use a tiny reference-type wrapper so the iterator can write back
+			// the counters that Merge() reports in MslMergeResult.
+			var state = new MslMergeState();
 
-			// Seed the heap
-			for (int i = 0; i < k; i++)
-			{
-				if (TryAdvance(enumerators[i], sourcePaths[i], ref lastMz[i], unsortedSourceFiles, ref sourceCounts[i], out MslLibraryEntry? first))
-					heap.Enqueue((first!, enumerators[i], i), (float)first!.PrecursorMz);
-			}
+			// ── Build the lazy merge sequence and feed it directly to WriteStreaming ─
+			// WriteStreaming is now single-pass (Fix9a), so this IEnumerable is
+			// consumed exactly once — no List materialisation needed.
+			IEnumerable<MslLibraryEntry> mergedSequence = MergeEntries(
+				sourcePaths, k, enumerators, lastMz, unsortedSourceFiles,
+				sourceCounts, keepLastMap, deduplicate, conflictPolicy, state);
 
-			// ── Deduplication state ───────────────────────────────────────────
-			// KeepFirst: HashSet of already-emitted keys
-			var emittedKeys = (deduplicate && conflictPolicy == MslMergeConflictPolicy.KeepFirst)
-				? new HashSet<string>(StringComparer.Ordinal)
-				: null;
+			MslWriter.WriteStreaming(outputPath, mergedSequence, compressionLevel);
 
-			// KeepLowestQValue: buffer pending entries within a narrow m/z window
-			// Key = LookupKey, Value = (bestQValue, entry)
-			var qValueBuffer = (deduplicate && conflictPolicy == MslMergeConflictPolicy.KeepLowestQValue)
-				? new Dictionary<string, (float QValue, MslLibraryEntry Entry)>(StringComparer.Ordinal)
-				: null;
-
-			int totalRead = 0;
-			int duplicatesSkipped = 0;
-			var outputEntries = new List<MslLibraryEntry>();
-
-			while (heap.Count > 0)
-			{
-				heap.TryDequeue(out var item, out float _);
-				var (entry, enumerator, sourceIdx) = item;
-
-				totalRead++;
-
-				// Advance this source and push its next entry onto the heap
-				if (TryAdvance(enumerator, sourcePaths[sourceIdx], ref lastMz[sourceIdx], unsortedSourceFiles, ref sourceCounts[sourceIdx], out MslLibraryEntry? next))
-					heap.Enqueue((next!, enumerator, sourceIdx), (float)next!.PrecursorMz);
-
-				if (!deduplicate)
-				{
-					outputEntries.Add(entry);
-					continue;
-				}
-
-				string key = entry.LookupKey;
-
-				switch (conflictPolicy)
-				{
-					case MslMergeConflictPolicy.KeepFirst:
-						if (emittedKeys!.Add(key))
-							outputEntries.Add(entry);
-						else
-							duplicatesSkipped++;
-						break;
-
-					case MslMergeConflictPolicy.KeepLast:
-						// Only emit if this source is the last source that has this key
-						if (keepLastMap!.TryGetValue(key, out int lastSource) && lastSource == sourceIdx)
-							outputEntries.Add(entry);
-						else
-							duplicatesSkipped++;
-						break;
-
-					case MslMergeConflictPolicy.KeepLowestQValue:
-						// Flush buffer entries that are far enough behind the current m/z
-						FlushQValueBuffer(qValueBuffer!, outputEntries, (float)entry.PrecursorMz, 0.001f);
-
-						// Update buffer with the better (lower) q-value entry
-						float q = entry.QValue;
-						if (qValueBuffer!.TryGetValue(key, out var existing))
-						{
-							// Keep lower q-value; NaN is treated as infinity (worst)
-							float existingQ = existing.QValue;
-							bool replaceWithNew = (!float.IsNaN(q) && (float.IsNaN(existingQ) || q < existingQ));
-							if (replaceWithNew)
-								qValueBuffer[key] = (q, entry);
-							// Either way, one entry for this key is a duplicate
-							duplicatesSkipped++;
-						}
-						else
-						{
-							qValueBuffer[key] = (q, entry);
-						}
-						break;
-				}
-			}
-
-			// Flush any remaining KeepLowestQValue buffer entries
-			if (qValueBuffer is { Count: > 0 })
-				FlushQValueBuffer(qValueBuffer, outputEntries, float.MaxValue, 0f);
-
-			// Recalculate totalRead from per-source counts (loop above counts heap pops which
-			// match entries read, but sourceCounts were incremented in TryAdvance on MoveNext)
+			// sourceCounts are incremented inside TryAdvance (called from MergeEntries);
+			// state.OutputEntryCount and state.DuplicatesSkipped are incremented inside
+			// MergeEntries as entries are yielded / skipped.
 			int totalSourceCount = 0;
 			for (int i = 0; i < k; i++) totalSourceCount += sourceCounts[i];
-
-			// Write the merged output atomically via WriteStreaming
-			MslWriter.WriteStreaming(outputPath, outputEntries, compressionLevel);
 
 			return new MslMergeResult
 			{
 				OutputPath = outputPath,
-				OutputEntryCount = outputEntries.Count,
+				OutputEntryCount = state.OutputEntryCount,
 				TotalSourceEntryCount = totalSourceCount,
-				DuplicatesSkipped = duplicatesSkipped,
+				DuplicatesSkipped = state.DuplicatesSkipped,
 				UnsortedSourceFiles = unsortedSourceFiles.Distinct().ToList(),
 				SourceEntryCounts = sourceCounts
 			};
@@ -294,8 +208,8 @@ public static class MslMerger
 		{
 			for (int i = 0; i < k; i++)
 			{
-				try { enumerators[i]?.Dispose(); } catch { /* best-effort */ }
-				try { libraries[i]?.Dispose(); } catch { /* best-effort */ }
+				try { enumerators[i]?.Dispose(); } catch { }
+				try { libraries[i]?.Dispose(); } catch { }
 			}
 		}
 	}
@@ -322,6 +236,130 @@ public static class MslMerger
 		}
 
 		return map;
+	}
+	/// <summary>
+	/// Core k-way merge iterator.  Yields each winning <see cref="MslLibraryEntry"/>
+	/// in precursor-m/z ascending order according to <paramref name="conflictPolicy"/>.
+	/// Increments counters in <paramref name="state"/> as it runs so that
+	/// <see cref="Merge"/> can report accurate totals in <see cref="MslMergeResult"/>
+	/// after <see cref="MslWriter.WriteStreaming"/> has consumed the sequence.
+	/// </summary>
+	private static IEnumerable<MslLibraryEntry> MergeEntries(
+		IReadOnlyList<string> sourcePaths,
+		int k,
+		IEnumerator<MslLibraryEntry>[] enumerators,
+		float[] lastMz,
+		List<string> unsortedSourceFiles,
+		int[] sourceCounts,
+		Dictionary<string, int>? keepLastMap,
+		bool deduplicate,
+		MslMergeConflictPolicy conflictPolicy,
+		MslMergeState state)
+	{
+		// k-way min-heap keyed on PrecursorMz
+		var heap = new PriorityQueue<(MslLibraryEntry Entry, IEnumerator<MslLibraryEntry> Enum, int SourceIdx), float>();
+
+		// Seed the heap with one entry from each source
+		for (int i = 0; i < k; i++)
+		{
+			if (TryAdvance(enumerators[i], sourcePaths[i], ref lastMz[i],
+						   unsortedSourceFiles, ref sourceCounts[i], out MslLibraryEntry? first))
+				heap.Enqueue((first!, enumerators[i], i), (float)first!.PrecursorMz);
+		}
+
+		// KeepFirst: HashSet of already-yielded keys
+		var emittedKeys = (deduplicate && conflictPolicy == MslMergeConflictPolicy.KeepFirst)
+			? new HashSet<string>(StringComparer.Ordinal)
+			: null;
+
+		// KeepLowestQValue: pending buffer for entries within a narrow m/z window
+		var qValueBuffer = (deduplicate && conflictPolicy == MslMergeConflictPolicy.KeepLowestQValue)
+			? new Dictionary<string, (float QValue, MslLibraryEntry Entry)>(StringComparer.Ordinal)
+			: null;
+
+		while (heap.Count > 0)
+		{
+			heap.TryDequeue(out var item, out float _);
+			var (entry, enumerator, sourceIdx) = item;
+
+			// Advance this source and push its next entry onto the heap
+			if (TryAdvance(enumerator, sourcePaths[sourceIdx], ref lastMz[sourceIdx],
+						   unsortedSourceFiles, ref sourceCounts[sourceIdx], out MslLibraryEntry? next))
+				heap.Enqueue((next!, enumerator, sourceIdx), (float)next!.PrecursorMz);
+
+			if (!deduplicate)
+			{
+				state.OutputEntryCount++;
+				yield return entry;
+				continue;
+			}
+
+			string key = entry.LookupKey;
+
+			switch (conflictPolicy)
+			{
+				case MslMergeConflictPolicy.KeepFirst:
+					if (emittedKeys!.Add(key))
+					{
+						state.OutputEntryCount++;
+						yield return entry;
+					}
+					else
+					{
+						state.DuplicatesSkipped++;
+					}
+					break;
+
+				case MslMergeConflictPolicy.KeepLast:
+					// Only yield if this source is the last source that has this key
+					if (keepLastMap!.TryGetValue(key, out int lastSource) && lastSource == sourceIdx)
+					{
+						state.OutputEntryCount++;
+						yield return entry;
+					}
+					else
+					{
+						state.DuplicatesSkipped++;
+					}
+					break;
+
+				case MslMergeConflictPolicy.KeepLowestQValue:
+					// Flush buffer entries that are more than 0.001 Da behind current m/z
+					foreach (MslLibraryEntry flushed in FlushQValueBuffer(
+						qValueBuffer!, (float)entry.PrecursorMz, 0.001f))
+					{
+						state.OutputEntryCount++;
+						yield return flushed;
+					}
+
+					// Update buffer with the better (lower) q-value entry for this key
+					float q = entry.QValue;
+					if (qValueBuffer!.TryGetValue(key, out var existing))
+					{
+						float existingQ = existing.QValue;
+						bool replaceWithNew = (!float.IsNaN(q) && (float.IsNaN(existingQ) || q < existingQ));
+						if (replaceWithNew)
+							qValueBuffer[key] = (q, entry);
+						// Either way, one duplicate was resolved
+						state.DuplicatesSkipped++;
+					}
+					else
+					{
+						qValueBuffer[key] = (q, entry);
+					}
+					break;
+			}
+		}
+
+		// Flush any remaining KeepLowestQValue buffer entries
+		if (qValueBuffer is { Count: > 0 })
+		{
+			foreach (MslLibraryEntry flushed in FlushQValueBuffer(qValueBuffer, float.MaxValue, 0f))
+			{
+				state.OutputEntryCount++;
+				yield return flushed;
+			}
+		}
 	}
 
 	/// <summary>
@@ -359,18 +397,20 @@ public static class MslMerger
 	}
 
 	/// <summary>
-	/// Flushes all KeepLowestQValue buffer entries whose m/z is more than
-	/// <paramref name="mzWindow"/> Da below <paramref name="currentMz"/> into
-	/// <paramref name="output"/>. When <paramref name="currentMz"/> is
-	/// <see cref="float.MaxValue"/> all remaining entries are flushed regardless of m/z.
+	/// Yields all KeepLowestQValue buffer entries whose precursor m/z is more than
+	/// <paramref name="mzWindow"/> Da below <paramref name="currentMz"/>.  When
+	/// <paramref name="currentMz"/> is <see cref="float.MaxValue"/> all remaining
+	/// entries are yielded regardless of m/z.
+	///
+	/// Entries are removed from <paramref name="buffer"/> as they are yielded.
 	/// </summary>
-	private static void FlushQValueBuffer(
+	private static IEnumerable<MslLibraryEntry> FlushQValueBuffer(
 		Dictionary<string, (float QValue, MslLibraryEntry Entry)> buffer,
-		List<MslLibraryEntry> output,
 		float currentMz,
 		float mzWindow)
 	{
-		// Collect keys to flush in this pass
+		// Collect keys to flush this pass (Dictionary iteration order is unspecified;
+		// same non-determinism as the original version — documented in Prompt 7 / M3).
 		var toFlush = new List<string>();
 
 		foreach (var (key, (_, entry)) in buffer)
@@ -381,8 +421,26 @@ public static class MslMerger
 
 		foreach (string key in toFlush)
 		{
-			output.Add(buffer[key].Entry);
+			MslLibraryEntry winner = buffer[key].Entry;
 			buffer.Remove(key);
+			yield return winner;
 		}
+	}
+	/// <summary>
+	/// Mutable counter bag shared between <see cref="MslMerger.Merge"/> and the
+	/// <see cref="MslMerger.MergeEntries"/> iterator so that post-write result
+	/// construction can report accurate totals.
+	///
+	/// Using a reference type avoids the "iterator cannot use ref parameters"
+	/// restriction that would prevent passing <c>ref int</c> counters into an
+	/// iterator method.
+	/// </summary>
+	internal sealed class MslMergeState
+	{
+		/// <summary>Total number of entries yielded to WriteStreaming.</summary>
+		public int OutputEntryCount { get; set; }
+
+		/// <summary>Total number of entries discarded by the conflict policy.</summary>
+		public int DuplicatesSkipped { get; set; }
 	}
 }
