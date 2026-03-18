@@ -79,7 +79,8 @@ public static class MslFileTypeHandler
 	/// </param>
 	/// <returns>
 	///   A fully initialised <see cref="MslLibrary"/> in either full-load or index-only mode.
-	///   In index-only mode the caller is responsible for calling <see cref="MslLibraryData.Dispose"/>.
+	///   In index-only mode the caller is responsible for disposing the returned
+	///   <see cref="MslLibrary"/>, which will release the underlying file handle.
 	/// </returns>
 	/// <exception cref="FileNotFoundException">
 	///   Thrown when <paramref name="filePath"/> does not exist on the file system.

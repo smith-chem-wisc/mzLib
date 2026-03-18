@@ -68,8 +68,13 @@ public record MslProteoformScoringResult
 			: 0.0;
 
 	/// <summary>
-	/// The matched fragment ions, each carrying both the library and experimental m/z and
-	/// intensity. Useful for output annotation and visualization.
+	/// The matched fragment ions, populated with library annotation values (ion type,
+	/// fragment number, residue position, neutral loss, library m/z and intensity).
+	/// Useful for output annotation and visualization.
+	/// Note: matching is performed in neutral-mass space using deconvoluted peaks, so
+	/// no experimental m/z is available; the library m/z is stored as a display proxy.
+	/// Experimental intensities used for spectral angle scoring are tracked separately
+	/// inside the scorer and are not reproduced here.
 	/// </summary>
 	public required IReadOnlyList<MatchedFragmentIon> MatchedFragments { get; init; }
 }

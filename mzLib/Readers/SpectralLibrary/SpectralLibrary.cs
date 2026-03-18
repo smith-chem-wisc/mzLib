@@ -882,14 +882,20 @@ namespace Readers.SpectralLibrary
 				ProductType primaryType = (ProductType)Enum.Parse(typeof(ProductType), primaryTypeStr, true);
 				ProductType secondaryType = (ProductType)Enum.Parse(typeof(ProductType), secondaryTypeStr, true);
 
-				// Internal ions have no peptide terminus association
+				// Internal ions have no peptide terminus association.
+				// fragmentNumber holds the N-terminal boundary (startResidue) and
+				// secondaryFragmentNumber holds the C-terminal boundary (endResidue),
+				// consistent with how MslFragmentIon and FromLibrarySpectrum represent
+				// internal ions in the MSL binary format.
 				var internalProduct = new Product(
 					primaryType,
 					FragmentationTerminus.None,
 					experMz.ToMass(internalCharge),
 					fragmentNumber: startResidue,
 					residuePosition: startResidue,
-					neutralLoss: 0);
+					neutralLoss: 0,
+					secondaryProductType: secondaryType,
+					secondaryFragmentNumber: endResidue);
 
 				return new MatchedFragmentIon(internalProduct, experMz, experIntensity, internalCharge);
 			}

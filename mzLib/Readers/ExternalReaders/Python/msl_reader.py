@@ -15,7 +15,7 @@ Format overview:
 
 Validation order (Section 4.10):
   1. Header magic == 0x4D 0x5A 0x4C 0x42
-  2. FormatVersion == 1
+  2. FormatVersion in [1, 2]  (v2 adds ExtAnnotationTableOffset for custom neutral losses)
   3. Trailing footer magic (read as little-endian uint32) == 0x4D5A4C42
   4. footer.NPrecursors == header.NPrecursors
   5. CRC-32/ISO-HDLC over bytes [0, footer.OffsetTableOffset) == footer.DataCrc32
@@ -123,7 +123,7 @@ NEUTRAL_LOSS_MASSES = {
     2: -17.026549,   # NH3
     3: -97.976895,   # H3PO4
     4: -79.966331,   # HPO3
-    5: -115.987460,  # H3PO4 + H2O  (PlusH2O)
+    5: -115.987460,  # H3PO4 + H2O  (H3PO4AndH2O — formerly misnamed PlusH2O)
     6: 0.0,          # Custom — exact mass stored externally (Prompt 11)
 }
 
@@ -133,7 +133,13 @@ NEUTRAL_LOSS_MASSES = {
 
 HEADER_MAGIC = bytes([0x4D, 0x5A, 0x4C, 0x42])   # raw bytes: MZLB
 FOOTER_MAGIC_UINT32 = 0x4D5A4C42                   # read as LE uint32 (bytes on disk: 42 4C 5A 4D)
-FORMAT_VERSION = 1
+
+# Version 1: original format. Header byte 28-31 is Reserved (always 0).
+# Version 2: header byte 28-31 repurposed as ExtAnnotationTableOffset for
+#             custom neutral-loss masses (FileFlagHasExtAnnotations).
+#             Version-1 readers safely ignore this field (it was 0 in all v1 files).
+MIN_SUPPORTED_VERSION = 1
+MAX_SUPPORTED_VERSION = 2
 
 # ---------------------------------------------------------------------------
 # Data model
@@ -376,10 +382,10 @@ def _validate_and_load(path: str, load_fragments_data: bool) -> MslLibrary:
             struct.unpack(HEADER_FMT, header_raw)
 
         # ── 2. Validate format version ────────────────────────────────────────
-        if format_version != FORMAT_VERSION:
+        if not (MIN_SUPPORTED_VERSION <= format_version <= MAX_SUPPORTED_VERSION):
             raise ValueError(
                 f'Unsupported .msl format version: {format_version} '
-                f'(expected {FORMAT_VERSION})'
+                f'(supported: {MIN_SUPPORTED_VERSION}–{MAX_SUPPORTED_VERSION})'
             )
 
         # ── 3. Read footer (last 20 bytes) and validate trailing magic ────────

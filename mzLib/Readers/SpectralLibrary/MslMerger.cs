@@ -246,7 +246,7 @@ public static class MslMerger
 
 					case MslMergeConflictPolicy.KeepLowestQValue:
 						// Flush buffer entries that are far enough behind the current m/z
-						FlushQValueBuffer(qValueBuffer!, outputEntries, (float)entry.PrecursorMz, 0.001f, ref duplicatesSkipped);
+						FlushQValueBuffer(qValueBuffer!, outputEntries, (float)entry.PrecursorMz, 0.001f);
 
 						// Update buffer with the better (lower) q-value entry
 						float q = entry.QValue;
@@ -270,7 +270,7 @@ public static class MslMerger
 
 			// Flush any remaining KeepLowestQValue buffer entries
 			if (qValueBuffer is { Count: > 0 })
-				FlushQValueBuffer(qValueBuffer, outputEntries, float.MaxValue, 0f, ref duplicatesSkipped);
+				FlushQValueBuffer(qValueBuffer, outputEntries, float.MaxValue, 0f);
 
 			// Recalculate totalRead from per-source counts (loop above counts heap pops which
 			// match entries read, but sourceCounts were incremented in TryAdvance on MoveNext)
@@ -368,8 +368,7 @@ public static class MslMerger
 		Dictionary<string, (float QValue, MslLibraryEntry Entry)> buffer,
 		List<MslLibraryEntry> output,
 		float currentMz,
-		float mzWindow,
-		ref int duplicatesSkipped)
+		float mzWindow)
 	{
 		// Collect keys to flush in this pass
 		var toFlush = new List<string>();

@@ -324,8 +324,11 @@ public class TestMslPrompt2LoadIndexOnly
 	// ═════════════════════════════════════════════════════════════════════
 
 	/// <summary>
-	/// After Dispose(), the FileStream must be released. On Windows, a locked
-	/// file cannot be deleted; successful deletion confirms the stream is closed.
+	/// After Dispose(), the FileStream must be released. Verified cross-platform by
+	/// opening the file with FileShare.None (exclusive access): if the stream is still
+	/// open this throws on both Windows and Linux/macOS, giving a reliable signal on
+	/// all CI platforms. The Windows-only delete-lock approach is not used because on
+	/// Linux deleting an open file succeeds, making the test pass even on a leaked stream.
 	/// </summary>
 	[Test]
 	public void LoadIndexOnly_AfterDispose_FileStreamIsClosed()
@@ -335,11 +338,15 @@ public class TestMslPrompt2LoadIndexOnly
 		MslLibrary lib = MslLibrary.LoadIndexOnly(path);
 		lib.Dispose();
 
-		Assert.That(() => File.Delete(path), Throws.Nothing,
-			"File.Delete must succeed after Dispose() — confirms the FileStream was closed.");
-
-		// Recreate for TearDown cleanup
-		File.WriteAllBytes(path, Array.Empty<byte>());
+		// Exclusive open: throws IOException if any handle to the file is still open.
+		// This is cross-platform: unlike File.Delete, FileShare.None fails on both
+		// Windows and Linux/macOS when the stream is leaked.
+		Assert.That(() =>
+		{
+			using var probe = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
+		},
+			Throws.Nothing,
+			"Opening with FileShare.None must succeed after Dispose() — confirms the FileStream was closed on all platforms.");
 	}
 
 	/// <summary>

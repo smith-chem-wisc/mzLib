@@ -57,9 +57,12 @@ public static class MslStructs
 
 /// <summary>
 /// The 64-byte file header occupying the first bytes of every .msl file.
-/// After reading the header the caller must validate FormatVersion == MslFormat.CurrentVersion
-/// before proceeding; mismatched versions should produce a clear error rather than
-/// attempting to read a misaligned layout.
+/// After reading the header the caller must validate that FormatVersion falls within
+/// the supported range [MslFormat.MinSupportedVersion, MslFormat.CurrentVersion]
+/// before proceeding. Version 1 is the original layout. Version 2 repurposes the
+/// formerly-Reserved field at offset 28 as ExtAnnotationTableOffset for custom
+/// neutral-loss masses. An unsupported version should produce a clear error rather
+/// than attempting to read a misaligned layout.
 /// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct MslFileHeader
@@ -74,8 +77,14 @@ public struct MslFileHeader
 	public uint Magic;
 
 	/// <summary>
-	/// Offset 4, 4 bytes. Format version; must equal MslFormat.CurrentVersion (1).
-	/// Increment CurrentVersion when any layout change is made.
+	/// Offset 4, 4 bytes. Format version. Valid values are MslFormat.MinSupportedVersion
+	/// through MslFormat.CurrentVersion (inclusive). Readers must reject files outside
+	/// this range with a clear error. Increment MslFormat.CurrentVersion — and add a
+	/// corresponding entry in the version history below — whenever a layout change is made.
+	/// Version history:
+	///   1 — original layout; Reserved field at offset 28 is always 0.
+	///   2 — offset 28 repurposed as ExtAnnotationTableOffset for custom neutral losses
+	///       (FileFlagHasExtAnnotations). All v1 files remain readable by v2+ readers.
 	/// </summary>
 	public int FormatVersion;
 
@@ -452,15 +461,10 @@ public struct MslFooter
 	public uint DataCrc32;
 
 	/// <summary>
-	/// Offset from EOF: −4, 4 bytes. Trailing magic bytes, identical to MslFileHeader.Magic
-	/// ("MZLB"). Presence of the correct trailing magic confirms that the file was fully
-	/// written and not truncated mid-stream.
-	/// </summary>
-	/// <summary>
 	/// Offset from EOF: −4, 4 bytes. Trailing magic stored as a uint, identical in value to
-	/// MslFileHeader.Magic. Presence of the correct trailing magic confirms the file was fully
-	/// written and not truncated mid-stream. Writers populate this with the same uint written
-	/// to MslFileHeader.Magic; readers verify it matches before trusting the footer.
+	/// MslFileHeader.Magic ("MZLB"). Presence of the correct trailing magic confirms the file
+	/// was fully written and not truncated mid-stream. Writers populate this with the same
+	/// uint written to MslFileHeader.Magic; readers verify it matches before trusting the footer.
 	/// </summary>
 	public uint TrailingMagic;
 }
