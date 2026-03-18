@@ -35,11 +35,56 @@ public static class MslFormat
 	/// </summary>
 	public const uint MagicAsUInt32 = 0x4D5A_4C42u;
 
+	// ── Format version history ────────────────────────────────────────────
+	// Version 1 (original):
+	//   Header offset 28 = Reserved (always 0).
+	//   All named neutral losses supported via 3-bit NeutralLossCode in fragment flags.
+	//   No extended annotation table; no compression.
+	//
+	// Version 2 (custom neutral losses):
+	//   Header offset 28 repurposed as ExtAnnotationTableOffset (int32).
+	//   FileFlagHasExtAnnotations (bit 4 of FileFlags) signals the table is present.
+	//   Extended annotation table holds custom neutral-loss masses beyond the six
+	//   named codes. Version-1 readers reject version-2 files on the version check
+	//   before reaching offset 28, so backward compatibility is fully maintained.
+	//
+	// Version 3 (zstd block compression):
+	//   FileFlagIsCompressed (bit 5 of FileFlags) signals compressed fragment data.
+	//   When set, a 16-byte compression descriptor is inserted at file offset 64
+	//   (immediately after the file header):
+	//       int64  CompressedFragmentSize    — byte count of the zstd frame on disk
+	//       int64  UncompressedFragmentSize  — byte count after decompression
+	//   MslPrecursorRecord.FragmentBlockOffset values are byte offsets into the
+	//   decompressed fragment buffer, not absolute file positions.
+	//   Index-only load is unavailable for compressed files; MslLibrary.IsIndexOnly
+	//   always returns false for compressed files.
+	//
+	// ── Checklist for adding a new version ───────────────────────────────
+	//   1. Increment CurrentVersion and add a history entry above.
+	//   2. Add a corresponding bullet to the CurrentVersion XML doc <list>.
+	//   3. Update MinSupportedVersion if old versions are being dropped.
+	//   4. Update msl_reader.py MAX_SUPPORTED_VERSION to match CurrentVersion.
+	//   5. Update test_msl_reader.py _MslBuilder.FORMAT_VERSION to match.
+	//   6. Update MslStructs.cs MslFileHeader.FormatVersion field doc.
+	//   7. Update the FormatVersion_PythonReaderMaxVersion_MustMatchCurrentVersion
+	//      canary test expected value in TestMslPrompt11VersionManagement.cs.
+	// ─────────────────────────────────────────────────────────────────────
+
+	/// <summary>
+	/// Minimum format version this reader accepts.
+	/// Files with <c>FormatVersion</c> below this value are rejected with a clear error.
+	/// Currently 1 — all versions since the original format are supported.
+	/// Update this constant (and drop the corresponding reader code paths) only when
+	/// support for old versions is intentionally removed.
+	/// </summary>
+	public const int MinSupportedVersion = 1;
+
 	/// <summary>
 	/// Format version stored at bytes 4–7 of the file header.
 	/// Increment this constant whenever any struct layout, field offset, or semantic
 	/// meaning changes in an incompatible way. Readers must reject files whose stored
-	/// version differs from this value unless they explicitly handle the older version.
+	/// version is outside [<see cref="MinSupportedVersion"/>, <see cref="CurrentVersion"/>].
+	/// See the version history comment above for the full change log.
 	/// <list type="bullet">
 	///   <item>Version 1 — original format; <c>ExtAnnotationTableOffset</c> field is <c>Reserved</c> (must be 0).</item>
 	///   <item>Version 2 — extended annotation table support (<see cref="FileFlagHasExtAnnotations"/>); <c>Reserved</c> repurposed as <c>ExtAnnotationTableOffset</c>.</item>

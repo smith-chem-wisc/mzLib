@@ -61,7 +61,8 @@ public static class MslStructs
 /// the supported range [MslFormat.MinSupportedVersion, MslFormat.CurrentVersion]
 /// before proceeding. Version 1 is the original layout. Version 2 repurposes the
 /// formerly-Reserved field at offset 28 as ExtAnnotationTableOffset for custom
-/// neutral-loss masses. An unsupported version should produce a clear error rather
+/// neutral-loss masses. Version 3 adds optional zstd block compression of the
+/// fragment section. An unsupported version should produce a clear error rather
 /// than attempting to read a misaligned layout.
 /// </summary>
 [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -80,11 +81,15 @@ public struct MslFileHeader
 	/// Offset 4, 4 bytes. Format version. Valid values are MslFormat.MinSupportedVersion
 	/// through MslFormat.CurrentVersion (inclusive). Readers must reject files outside
 	/// this range with a clear error. Increment MslFormat.CurrentVersion — and add a
-	/// corresponding entry in the version history below — whenever a layout change is made.
+	/// corresponding entry in the version history in MslFormat.cs — whenever a layout
+	/// change is made.
 	/// Version history:
 	///   1 — original layout; Reserved field at offset 28 is always 0.
 	///   2 — offset 28 repurposed as ExtAnnotationTableOffset for custom neutral losses
 	///       (FileFlagHasExtAnnotations). All v1 files remain readable by v2+ readers.
+	///   3 — optional zstd block compression (FileFlagIsCompressed); 16-byte compression
+	///       descriptor inserted at file offset 64 when compressed; FragmentBlockOffset
+	///       values become decompressed-buffer-relative rather than absolute file offsets.
 	/// </summary>
 	public int FormatVersion;
 
@@ -149,7 +154,7 @@ public struct MslFileHeader
 
 	/// <summary>
 	/// Offset 48, 8 bytes. Absolute file byte offset of the first MslPrecursorRecord.
-	/// The precursor section immediately follows the string table in the two-pass writer;
+	/// The precursor section immediately follows the string table in the streaming writer;
 	/// readers skip directly to this offset for indexed or full-load access.
 	/// </summary>
 	public long PrecursorSectionOffset;
@@ -297,6 +302,8 @@ public struct MslPrecursorRecord
 	/// Offset 32, 8 bytes. Absolute file byte offset of the first MslFragmentRecord belonging
 	/// to this precursor. Combined with FragmentCount this fully specifies the fragment block
 	/// extent, enabling O(1) seeking without scanning other precursors' fragments.
+	/// For compressed files (FileFlagIsCompressed), this is an offset into the decompressed
+	/// fragment buffer rather than an absolute file position.
 	/// </summary>
 	public long FragmentBlockOffset;
 

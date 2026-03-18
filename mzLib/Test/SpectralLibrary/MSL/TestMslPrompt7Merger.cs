@@ -366,21 +366,20 @@ public class TestMslPrompt7Merger
 	// ═════════════════════════════════════════════════════════════════════
 
 	/// <summary>
-	/// FlushQValueBuffer iterates the qValueBuffer dictionary to collect keys
-	/// to flush. Within a given flush, the ORDER of emitted entries for
-	/// different keys at the same m/z is Dictionary iteration order, which is
-	/// not guaranteed by the .NET specification.
+	/// After Fix 12: FlushQValueBuffer sorts flushed entries by PrecursorMz ascending,
+	/// then LookupKey lexicographic (ordinal), before yielding them. The output order
+	/// within a flush window is now deterministic and stable across .NET versions,
+	/// platforms, and insertion orders.
 	///
-	/// This is a cosmetic issue — the file is structurally valid — but callers
-	/// must not depend on the output order of entries with identical m/z values.
-	/// This test documents the behavior: all expected entries ARE present, but
-	/// we make no assertion about their relative order.
+	/// This test supersedes the original "OrderUnspecified" version (Prompt 7 / M3),
+	/// which correctly documented the non-determinism but accepted it as unavoidable.
+	/// It is no longer unavoidable.
 	/// </summary>
 	[Test]
 	public void Merge_KeepLowestQValue_SameMzDifferentKeys_AllPresent_OrderUnspecified()
 	{
 		// Three different peptides at exactly the same nominal m/z.
-		// All must appear in the output; their relative order is unspecified.
+		// All must appear in the output in deterministic order.
 		var a = new List<MslLibraryEntry>
 		{
 			MakeEntry("PEP1", 2, 400.0, qValue: 0.01f),
@@ -396,10 +395,15 @@ public class TestMslPrompt7Merger
 		Assert.That(lib.PrecursorCount, Is.EqualTo(3),
 			"All three distinct peptides at the same m/z must appear in the output.");
 
-		// Confirm all three are findable regardless of output order
-		Assert.That(lib.TryGetEntry("PEP1", 2, out _), Is.True);
-		Assert.That(lib.TryGetEntry("PEP2", 2, out _), Is.True);
-		Assert.That(lib.TryGetEntry("PEP3", 2, out _), Is.True);
+		// After Fix 12: output order is deterministic — PrecursorMz ascending (all equal here),
+		// then LookupKey lexicographic. LookupKey = "{ModifiedSequence}/{Charge}":
+		//   "PEP1/2" < "PEP2/2" < "PEP3/2"
+		var entries = lib.GetAllEntries().ToList();
+		Assert.That(entries[0].ModifiedSequence, Is.EqualTo("PEP1"),
+			"After Fix 12, entries flushed from the same m/z window must be in " +
+			"LookupKey lexicographic order. PEP1/2 is first.");
+		Assert.That(entries[1].ModifiedSequence, Is.EqualTo("PEP2"));
+		Assert.That(entries[2].ModifiedSequence, Is.EqualTo("PEP3"));
 	}
 
 	// ═════════════════════════════════════════════════════════════════════

@@ -229,20 +229,35 @@ namespace PredictionClients.Koina.AbstractClasses
             return Predictions;
         }
 
-        public List<PeptideFragmentIntensityPrediction> Predict(List<FragmentIntensityPredictionInput> modelInputs)
-        {
-            return AsyncThrottledPredictor(modelInputs).GetAwaiter().GetResult();
-        }
+		public List<PeptideFragmentIntensityPrediction> Predict(List<FragmentIntensityPredictionInput> modelInputs)
+		{
+			// Task.Run() schedules AsyncThrottledPredictor on a ThreadPool thread that
+			// carries no SynchronizationContext. The awaited continuations inside
+			// AsyncThrottledPredictor (Task.WhenAll, Task.Delay) therefore complete freely
+			// on ThreadPool threads rather than trying to resume on the caller's context.
+			//
+			// Without Task.Run, calling .GetAwaiter().GetResult() directly on
+			// AsyncThrottledPredictor() would deadlock on any single-threaded
+			// SynchronizationContext (WinForms, WPF, ASP.NET non-Core) because:
+			//   - GetResult() blocks the context thread
+			//   - continuations need that thread to resume
+			//   - neither can proceed — permanent hang
+			//
+			// This is a stopgap (Option A). The correct long-term fix (Option B) is to
+			// expose PredictFragmentsAsync on MslLibrary and propagate async through
+			// MslFragmentModelRouter and all callers. See tracking issue for Option B.
+			return Task.Run(() => AsyncThrottledPredictor(modelInputs)).GetAwaiter().GetResult();
+		}
 
-        /// <summary>
-        /// Converts Koina API responses into structured prediction objects.
-        /// Expects responses with exactly 3 outputs: annotations, m/z values, and intensities.
-        /// The only filtering done at this stage is removing impossible ions (intensity = -1). 
-        /// MinIntensityFilter is applied later during spectral library generation.
-        /// </summary>
-        /// <param name="responses">Array of JSON response strings from Koina API</param>
-        /// <exception cref="Exception">Thrown when responses are malformed or contain unexpected number of outputs</exception>
-        protected virtual List<PeptideFragmentIntensityPrediction> ResponseToPredictions(
+		/// <summary>
+		/// Converts Koina API responses into structured prediction objects.
+		/// Expects responses with exactly 3 outputs: annotations, m/z values, and intensities.
+		/// The only filtering done at this stage is removing impossible ions (intensity = -1). 
+		/// MinIntensityFilter is applied later during spectral library generation.
+		/// </summary>
+		/// <param name="responses">Array of JSON response strings from Koina API</param>
+		/// <exception cref="Exception">Thrown when responses are malformed or contain unexpected number of outputs</exception>
+		protected virtual List<PeptideFragmentIntensityPrediction> ResponseToPredictions(
             IReadOnlyList<string> responses, 
             List<FragmentIntensityPredictionInput> requestInputs)
         {

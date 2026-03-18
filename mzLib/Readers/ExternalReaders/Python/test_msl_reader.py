@@ -37,7 +37,7 @@ class _MslBuilder:
     """
 
     HEADER_MAGIC   = bytes([0x4D, 0x5A, 0x4C, 0x42])
-    FORMAT_VERSION = 1
+    FORMAT_VERSION = 3   # must equal msl_reader.MAX_SUPPORTED_VERSION
     FOOTER_MAGIC   = 0x4D5A4C42
 
     def __init__(self):
@@ -378,7 +378,7 @@ class TestMslReader(unittest.TestCase):
     # ── Version validation ────────────────────────────────────────────────────
 
     def test_version_validation(self):
-        """A file with FormatVersion != 1 raises ValueError."""
+        """A file with FormatVersion outside [1, 3] raises ValueError."""
         with tempfile.NamedTemporaryFile(suffix='.msl', delete=False) as f:
             bad_path = f.name
             with open(self._path, 'rb') as src:
@@ -538,7 +538,80 @@ class TestMslReader(unittest.TestCase):
         """NEUTRAL_LOSS_MASSES contains entries for codes 0–6."""
         for code in range(7):
             self.assertIn(code, NEUTRAL_LOSS_MASSES)
-
+    # ── Version range tests ───────────────────────────────────────────────────
+ 
+    def test_version_range_accepted(self):
+        \"\"\"
+        Files with FormatVersion in [MIN_SUPPORTED_VERSION, MAX_SUPPORTED_VERSION]
+        must load without raising ValueError.
+ 
+        Versions 1 and 2 are tested by patching the FormatVersion field of the
+        standard test file (which has no compression and no custom losses, so it
+        is structurally valid at any version in the supported range — only the
+        version field differs).
+ 
+        Version 3 is the FORMAT_VERSION used by _MslBuilder, so the standard
+        test file is already a version-3 file.
+        \"\"\"
+        with open(self._path, 'rb') as f:
+            original_data = f.read()
+ 
+        for version in range(msl_reader.MIN_SUPPORTED_VERSION,
+                             msl_reader.MAX_SUPPORTED_VERSION + 1):
+            patched = bytearray(original_data)
+            struct.pack_into('<i', patched, 4, version)  # FormatVersion at offset 4
+ 
+            with tempfile.NamedTemporaryFile(suffix='.msl', delete=False) as tmp:
+                tmp_path = tmp.name
+                tmp.write(patched)
+ 
+            try:
+                # The reader may raise on CRC mismatch (we changed a header byte)
+                # but must NOT raise because of the version number.
+                try:
+                    msl_reader.load(tmp_path)
+                    # Loaded successfully — version accepted
+                except ValueError as e:
+                    if 'version' in str(e).lower():
+                        self.fail(
+                            f'Version {version} was rejected by the reader: {e}. '
+                            f'All versions in [{msl_reader.MIN_SUPPORTED_VERSION}, '
+                            f'{msl_reader.MAX_SUPPORTED_VERSION}] must be accepted.'
+                        )
+                    # Other ValueError (e.g. CRC mismatch) is acceptable
+            finally:
+                os.unlink(tmp_path)
+ 
+    def test_version_above_max_rejected(self):
+        \"\"\"
+        A file with FormatVersion = MAX_SUPPORTED_VERSION + 1 must raise ValueError
+        with a message that includes the supported version range.
+        \"\"\"
+        with open(self._path, 'rb') as f:
+            original_data = f.read()
+ 
+        future_version = msl_reader.MAX_SUPPORTED_VERSION + 1
+        patched = bytearray(original_data)
+        struct.pack_into('<i', patched, 4, future_version)
+ 
+        with tempfile.NamedTemporaryFile(suffix='.msl', delete=False) as tmp:
+            tmp_path = tmp.name
+            tmp.write(patched)
+ 
+        try:
+            with self.assertRaises(ValueError) as ctx:
+                msl_reader.load(tmp_path)
+ 
+            err_msg = str(ctx.exception).lower()
+            self.assertIn('version', err_msg,
+                'ValueError message must mention "version".')
+            # The message should include the supported range so callers know what is valid
+            self.assertIn(str(msl_reader.MIN_SUPPORTED_VERSION), str(ctx.exception),
+                'ValueError message should include MIN_SUPPORTED_VERSION.')
+            self.assertIn(str(msl_reader.MAX_SUPPORTED_VERSION), str(ctx.exception),
+                'ValueError message should include MAX_SUPPORTED_VERSION.')
+        finally:
+            os.unlink(tmp_path)
 
 if __name__ == '__main__':
     unittest.main()

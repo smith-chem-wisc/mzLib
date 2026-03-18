@@ -403,14 +403,17 @@ public static class MslMerger
 	/// entries are yielded regardless of m/z.
 	///
 	/// Entries are removed from <paramref name="buffer"/> as they are yielded.
+	///
+	/// Output order within a single flush is deterministic: entries are sorted by
+	/// PrecursorMz ascending, then LookupKey lexicographic (ordinal), so the
+	/// output file is stable across .NET versions, platforms, and insertion orders.
 	/// </summary>
 	private static IEnumerable<MslLibraryEntry> FlushQValueBuffer(
 		Dictionary<string, (float QValue, MslLibraryEntry Entry)> buffer,
 		float currentMz,
 		float mzWindow)
 	{
-		// Collect keys to flush this pass (Dictionary iteration order is unspecified;
-		// same non-determinism as the original version — documented in Prompt 7 / M3).
+		// Collect keys eligible for flushing this pass.
 		var toFlush = new List<string>();
 
 		foreach (var (key, (_, entry)) in buffer)
@@ -418,6 +421,18 @@ public static class MslMerger
 			if (currentMz == float.MaxValue || (currentMz - (float)entry.PrecursorMz) > mzWindow)
 				toFlush.Add(key);
 		}
+
+		// Sort by PrecursorMz ascending, then LookupKey lexicographic, to produce
+		// a stable deterministic output order regardless of Dictionary iteration order.
+		// This is the only change from the original: without this sort the relative
+		// ordering of entries flushed in the same pass was non-deterministic.
+		toFlush.Sort((a, b) =>
+		{
+			float mzA = (float)buffer[a].Entry.PrecursorMz;
+			float mzB = (float)buffer[b].Entry.PrecursorMz;
+			int mzCmp = ((float)mzA).CompareTo((float)mzB);
+			return mzCmp != 0 ? mzCmp : string.Compare(a, b, StringComparison.Ordinal);
+		});
 
 		foreach (string key in toFlush)
 		{

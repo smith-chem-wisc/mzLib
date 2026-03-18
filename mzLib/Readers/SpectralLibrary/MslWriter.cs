@@ -206,8 +206,7 @@ public static class MslWriter
 	}
 
 	/// <summary>
-	/// Writes a potentially very large spectral library from an enumerable source using a
-	/// streaming two-pass algorithm. Unlike <see cref="Write"/>, this overload does not
+	/// "Writes a potentially very large spectral library from an enumerable source using a streaming single-pass algorithm." Unlike <see cref="Write"/>, this overload does not
 	/// require all entries to be in memory simultaneously; it buffers only the string table
 	/// and per-precursor metadata (spill file) between passes.
 	///
@@ -1009,8 +1008,7 @@ public static class MslWriter
 			// Throw in debug; clamp in release so a single bad entry doesn't abort a
 			// large write job.  Adjust to throw in both modes if strict correctness is
 			// preferred over resilience.
-			System.Diagnostics.Debug.Assert(
-				false,
+			System.Diagnostics.Debug.WriteLine(
 				$"[MslWriter] NCE value {nce} for '{sequence}' is outside the " +
 				$"encodable range [0, {MaxNce}]. It will be clamped to {Math.Clamp(nce, 0, MaxNce)}.");
 

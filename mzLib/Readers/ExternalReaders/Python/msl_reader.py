@@ -15,7 +15,8 @@ Format overview:
 
 Validation order (Section 4.10):
   1. Header magic == 0x4D 0x5A 0x4C 0x42
-  2. FormatVersion in [1, 2]  (v2 adds ExtAnnotationTableOffset for custom neutral losses)
+  2. FormatVersion in [1, 3]  (v2 adds ExtAnnotationTableOffset; v3 adds optional
+     zstd compression of the fragment section)
   3. Trailing footer magic (read as little-endian uint32) == 0x4D5A4C42
   4. footer.NPrecursors == header.NPrecursors
   5. CRC-32/ISO-HDLC over bytes [0, footer.OffsetTableOffset) == footer.DataCrc32
@@ -138,8 +139,14 @@ FOOTER_MAGIC_UINT32 = 0x4D5A4C42                   # read as LE uint32 (bytes on
 # Version 2: header byte 28-31 repurposed as ExtAnnotationTableOffset for
 #             custom neutral-loss masses (FileFlagHasExtAnnotations).
 #             Version-1 readers safely ignore this field (it was 0 in all v1 files).
+
 MIN_SUPPORTED_VERSION = 1
-MAX_SUPPORTED_VERSION = 2
+MAX_SUPPORTED_VERSION = 3  # must equal MslFormat.CurrentVersion in MslFormat.cs
+                            # Version 3 adds optional zstd compression of the
+                            # fragment section (FileFlagIsCompressed, bit 5).
+                            # Uncompressed v3 files are identical to v2 files
+                            # except for the FormatVersion field.
+
 
 # ---------------------------------------------------------------------------
 # Data model
@@ -198,6 +205,7 @@ class MslLibrary:
     has_protein_data: bool
     has_gene_data: bool
     is_predicted: bool
+    is_compressed: bool = False   # True when FileFlagIsCompressed (bit 5) is set
     precursors: List[MslPrecursor] = field(default_factory=list)
 
 
@@ -214,19 +222,14 @@ def _compute_crc32(data: bytes) -> int:
 # Internal parsing helpers
 # ---------------------------------------------------------------------------
 
-def _decode_fragment_flags(flags_byte: int):
-    """
-    Fragment flags byte layout (Section 4.6):
-      bit 0   = is_internal
-      bit 1   = is_diagnostic
-      bits 2–4 = neutral_loss_code (3-bit unsigned)
-      bit 5   = exclude_from_quant
-    """
-    is_internal      = bool(flags_byte & 0x01)
-    is_diagnostic    = bool(flags_byte & 0x02)
-    neutral_loss_code = (flags_byte >> 2) & 0x07
-    exclude_from_quant = bool(flags_byte & 0x20)
-    return is_internal, is_diagnostic, neutral_loss_code, exclude_from_quant
+def _decode_file_flags(file_flags: int):
+    has_ion_mobility  = bool(file_flags & 0x01)
+    has_protein_data  = bool(file_flags & 0x02)
+    has_gene_data     = bool(file_flags & 0x04)
+    is_predicted      = bool(file_flags & 0x08)
+    # bit 4: has_ext_annotations (handled implicitly via ExtAnnotationTableOffset)
+    is_compressed     = bool(file_flags & 0x20)  # bit 5: FileFlagIsCompressed (v3+)
+    return has_ion_mobility, has_protein_data, has_gene_data, is_predicted, is_compressed
 
 
 def _decode_precursor_flags(flags_byte: int):
@@ -247,7 +250,8 @@ def _decode_file_flags(file_flags: int):
     has_protein_data  = bool(file_flags & 0x02)
     has_gene_data     = bool(file_flags & 0x04)
     is_predicted      = bool(file_flags & 0x08)
-    return has_ion_mobility, has_protein_data, has_gene_data, is_predicted
+    has_ion_mobility, has_protein_data, has_gene_data, is_predicted, is_compressed = \
+        _decode_file_flags(file_flags)
 
 
 def _parse_fragment(raw: bytes) -> MslFragment:
@@ -496,12 +500,68 @@ def _validate_and_load(path: str, load_fragments_data: bool) -> MslLibrary:
             )
             precursors.append(prec)
 
+                # ── Compression descriptor and fragment decompression (version 3+) ────────
+        # When FileFlagIsCompressed is set (bit 5), the fragment section on disk is
+        # a single zstd frame. A 16-byte compression descriptor at file offset 64
+        # (immediately after the header) records the compressed and uncompressed sizes.
+        #
+        # FragmentBlockOffset values in the precursor records are byte offsets into
+        # the DECOMPRESSED buffer, not absolute file positions.  We decompress into
+        # a BytesIO buffer and pass that to _read_fragments instead of the file handle.
+        #
+        # For uncompressed files (is_compressed == False), fragment_source remains
+        # the real file handle and FragmentBlockOffset values are absolute positions.
+        fragment_source = f  # default: read directly from the file
+        if is_compressed:
+            # Read compression descriptor at offset 64 (immediately after 64-byte header)
+            COMPRESSION_DESCRIPTOR_OFFSET = 64
+            COMPRESSION_DESCRIPTOR_SIZE   = 16  # int64 compressed + int64 uncompressed
+            f.seek(COMPRESSION_DESCRIPTOR_OFFSET)
+            desc_raw = f.read(COMPRESSION_DESCRIPTOR_SIZE)
+            if len(desc_raw) < COMPRESSION_DESCRIPTOR_SIZE:
+                raise ValueError(
+                    'Compressed .msl file is missing the 16-byte compression descriptor '
+                    f'at offset {COMPRESSION_DESCRIPTOR_OFFSET}.'
+                )
+            compressed_size, uncompressed_size = struct.unpack('<qq', desc_raw)
+ 
+            # The compressed fragment frame begins at fragment_section_offset
+            f.seek(fragment_section_offset)
+            compressed_data = f.read(compressed_size)
+            if len(compressed_data) < compressed_size:
+                raise ValueError(
+                    f'Compressed fragment section truncated: expected {compressed_size} '
+                    f'bytes at offset {fragment_section_offset}, got {len(compressed_data)}.'
+                )
+ 
+            # zstd decompression — requires the zstandard package
+            try:
+                import zstandard as zstd
+                dctx = zstd.ZstdDecompressor()
+                decompressed_data = dctx.decompress(compressed_data,
+                                                     max_output_size=uncompressed_size)
+            except ImportError:
+                raise ImportError(
+                    "Reading compressed .msl files requires the 'zstandard' package. "
+                    "Install it with: pip install zstandard"
+                )
+ 
+            if len(decompressed_data) != uncompressed_size:
+                raise ValueError(
+                    f'Decompressed fragment data length {len(decompressed_data)} does not '
+                    f'match expected uncompressed size {uncompressed_size}.'
+                )
+ 
+            fragment_source = io.BytesIO(decompressed_data)
+
         # ── Fragment data (full load only) ────────────────────────────────────
         if load_fragments_data:
             for prec in precursors:
                 if prec.fragment_count > 0:
                     prec.fragments = _read_fragments(
-                        f, prec.fragment_block_offset, prec.fragment_count
+                        fragment_source,
+                        prec.fragment_block_offset,
+                        prec.fragment_count
                     )
 
         return MslLibrary(
@@ -512,6 +572,7 @@ def _validate_and_load(path: str, load_fragments_data: bool) -> MslLibrary:
             has_protein_data=has_protein_data,
             has_gene_data=has_gene_data,
             is_predicted=is_predicted,
+            is_compressed=is_compressed,
             precursors=precursors,
         )
 
@@ -547,23 +608,39 @@ def load_index_only(path: str) -> MslLibrary:
 
 
 def load_fragments(path: str, precursor: MslPrecursor) -> List[MslFragment]:
-    """
+    \"\"\"
     Loads and returns the fragment list for a single precursor.
-
+ 
+    NOTE: This function is not supported for compressed .msl files (FileFlagIsCompressed).
+    For compressed files, use load() which decompresses the fragment section automatically.
+    An ImportError will be raised if zstandard is not installed and the file is compressed.
+ 
     Opens the file, seeks to precursor.fragment_block_offset, and reads
     precursor.fragment_count records. Does not re-validate the whole file.
-
+ 
     Raises ValueError if fragment_count == 0 or block_offset is out of range.
     Raises FileNotFoundError if path does not exist.
-    """
+    \"\"\"
     if precursor.fragment_count <= 0:
         raise ValueError(
-            f'Precursor has fragment_count={precursor.fragment_count}; '
-            f'nothing to load.'
+            f'Precursor has fragment_count={precursor.fragment_count}; nothing to load.'
         )
+ 
+    # Check whether this file is compressed — if so, we cannot seek directly.
+    # Read only the file flags byte (offset 8, 4 bytes).
+    with open(path, 'rb') as f:
+        f.seek(8)
+        file_flags = struct.unpack('<i', f.read(4))[0]
+    is_compressed = bool(file_flags & 0x20)
+    if is_compressed:
+        raise ValueError(
+            'load_fragments() does not support compressed .msl files. '
+            'Use load() instead, which decompresses the fragment section automatically.'
+        )
+ 
     import os
     file_size = os.path.getsize(path)
-    frag_size = struct.calcsize(FRAGMENT_FMT)  # 20
+    frag_size = struct.calcsize(FRAGMENT_FMT)
     end_offset = precursor.fragment_block_offset + frag_size * precursor.fragment_count
     if precursor.fragment_block_offset < 0 or end_offset > file_size:
         raise ValueError(
