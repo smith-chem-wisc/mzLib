@@ -1,6 +1,7 @@
 ﻿using Easy.Common.Extensions;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace MzLibUtil.PositionFrequencyAnalysis
@@ -51,13 +52,13 @@ namespace MzLibUtil.PositionFrequencyAnalysis
                 throw new Exception("The protein sequence is unknown.");
             }
 
+            ModifiedAminoAcidPositionsInProtein = new Dictionary<int, Dictionary<string, QuantifiedModification>>();
+            PeptidesByProteinPosition = new Dictionary<int, HashSet<string>>();
+
             if (Peptides.IsNullOrEmpty())
             {
                 return;
             }
-
-            ModifiedAminoAcidPositionsInProtein = new Dictionary<int, Dictionary<string, QuantifiedModification>>();
-            PeptidesByProteinPosition = new Dictionary<int, HashSet<string>>();
 
             foreach (var peptide in Peptides.Values)
             {
@@ -70,31 +71,36 @@ namespace MzLibUtil.PositionFrequencyAnalysis
                             $"Peptide '{peptide.BaseSequence}' was not found in protein '{Accession}' sequence.");
                     peptide.ZeroBasedStartIndexInProtein = idx + 1;
                 }
-                // if peptide has no modifications, add to all of the aminoacid positions in the protein that it covers
+
+                // update protein prosition total observations with observed aminoacids from this peptide
+                int startIndex = peptide.ZeroBasedStartIndexInProtein == 1 ? 0 : peptide.ZeroBasedStartIndexInProtein; // if the peptide is at the N-terminus of the protein, the mod position should be 0, not 1.
+                int endIndex = peptide.ZeroBasedStartIndexInProtein + peptide.BaseSequence.Length - 1 == Sequence.Length 
+                    ? peptide.ZeroBasedStartIndexInProtein + peptide.BaseSequence.Length 
+                    : peptide.ZeroBasedStartIndexInProtein + peptide.BaseSequence.Length - 1; // if the peptide is at the C-terminus of the protein, the mod position should be the length of the protein, not length of the protein + 1.
+                for (int pos = startIndex; pos <= endIndex; pos++)
+                {
+                    if (!PeptidesByProteinPosition.ContainsKey(pos))
+                    {
+                        PeptidesByProteinPosition[pos] = new HashSet<string>();
+                    }
+                    PeptidesByProteinPosition[pos].Add(peptide.BaseSequence);
+                }
+
+                // if no mods in peptide, no need to update the ModifiedAminoAcidPositionsInProtein
                 if (peptide.ModifiedAminoAcidPositions.IsNullOrEmpty())
                 {
-                    for (int i = 0; i < peptide.BaseSequence.Length; i++)
-                    {
-                        var pos = peptide.ZeroBasedStartIndexInProtein + i;
-                        if (!ModifiedAminoAcidPositionsInProtein.ContainsKey(pos))
-                        {
-                            ModifiedAminoAcidPositionsInProtein[pos] = new Dictionary<string, QuantifiedModification>();
-                            PeptidesByProteinPosition[pos] = new HashSet<string>();
-                        }
-                        PeptidesByProteinPosition[pos].Add(peptide.BaseSequence);
-                    }
                     continue;
                 }
 
-                else // if peptide has modifications, add to modified positions
+                else
                 {
                     foreach (var modpos in peptide.ModifiedAminoAcidPositions.Keys)
                     {
                         var modPositionInProtein = modpos + peptide.ZeroBasedStartIndexInProtein - 1;
 
                         // Ignore peptide terminal modifications that are not at the protein terminal
-                        if (modPositionInProtein != 0 && modpos == 0 // if the mod is at the N-terminus of the peptide, but not the protein.
-                            || modPositionInProtein != Sequence.Length + 1 && modpos == peptide.BaseSequence.Length + 1) // if the mod is at the C-terminus of the peptide, but not the protein.
+                        if ((modPositionInProtein != 0 && modpos == 0) // if the mod is at the N-terminus of the peptide, but not the protein.
+                            || (modPositionInProtein != Sequence.Length + 1 && modpos == peptide.BaseSequence.Length + 1)) // if the mod is at the C-terminus of the peptide, but not the protein.
                         {
                             continue;
                         }
@@ -102,9 +108,7 @@ namespace MzLibUtil.PositionFrequencyAnalysis
                         if (!ModifiedAminoAcidPositionsInProtein.TryGetValue(modPositionInProtein, out _))
                         {
                             ModifiedAminoAcidPositionsInProtein[modPositionInProtein] = new();
-                            PeptidesByProteinPosition[modPositionInProtein] = new();
                         }
-                        PeptidesByProteinPosition[modPositionInProtein].Add(peptide.BaseSequence);
 
                         foreach (var mod in peptide.ModifiedAminoAcidPositions[modpos].Values)
                         {
@@ -121,7 +125,9 @@ namespace MzLibUtil.PositionFrequencyAnalysis
             }
 
             // clean up the dictionary to remove any empty modifications
-            var noModPositions = ModifiedAminoAcidPositionsInProtein.Where(x => x.Value.IsNullOrEmpty()).ToDictionary().Keys;
+            var noModPositions = ModifiedAminoAcidPositionsInProtein.Where(x => x.Value.IsNullOrEmpty()).Select(kvp => kvp.Key);
+            var alwaysUnmodifiedPositions = PeptidesByProteinPosition.Where(x => !ModifiedAminoAcidPositionsInProtein.ContainsKey(x.Key)).Select(x => x.Key);
+            var removablePositions = noModPositions.Concat(alwaysUnmodifiedPositions).Distinct();
             foreach (var pos in noModPositions)
             {
                 ModifiedAminoAcidPositionsInProtein.Remove(pos);

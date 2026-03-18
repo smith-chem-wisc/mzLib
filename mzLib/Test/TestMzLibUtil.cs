@@ -236,6 +236,18 @@ namespace Test
 
             var peptide3 = new QuantifiedPeptide("AK", intensity: 1);
             var exception2 = Assert.Throws<System.ArgumentException>(() => peptide1.MergePeptide(peptide3));
+
+            // Test failed merge due to null argument
+            var exception3 = Assert.Throws<System.ArgumentNullException>(() => peptide1.MergePeptide(null));
+
+            // Test ModStoichiometry calculation
+            var stoich = peptide1.GetModStoichiometryForPeptide();
+            Assert.IsNotNull(stoich);
+            Assert.AreEqual(stoich.Count, 3);
+            Assert.AreEqual(stoich[0]["UniProt: N - palmitoyl glycine on G"].Intensity, 1 / 111.0);
+            Assert.AreEqual(stoich[0]["UniProt: N - acetylglycine on G"].Intensity, 10 / 111.0);
+            Assert.AreEqual(stoich[1]["UniProt: N - methylglycine on G"].Intensity, 11 / 111.0);
+            Assert.AreEqual(stoich[2]["UniProt: O - linked(Hex) hydroxylysine on K"].Intensity, 111 / 111.0);
         }
 
         [Test]
@@ -311,6 +323,47 @@ namespace Test
 
             var exception3 = Assert.Throws<System.Exception>(() => new QuantifiedProteinGroup("PROT1|PROT2|PROT3", proteins));
             Assert.AreEqual(exception3.Message, errorMessage);
+
+            // Test modification mapping from peptides to proteins - fails if protein does not have a sequence
+            var newProt = new QuantifiedProtein(accession: "PROT3", sequence: null, peptides: new Dictionary<string, QuantifiedPeptide>());
+            Assert.Throws<System.Exception>(() => newProt.SetProteinModsFromPeptides());
+            newProt.Sequence = "AAAYYY";
+            newProt.SetProteinModsFromPeptides();
+            Assert.That(newProt.ModifiedAminoAcidPositionsInProtein.Count == 0);
+
+            // Test modification mapping from peptides to proteins
+            var peptide1 = new QuantifiedPeptide("[UniProt: Mod1 on A]AAAYYY", intensity: 1);
+            var peptide2 = new QuantifiedPeptide("AAARRR[UniProt: Mod2 on R]", intensity: 2);
+            var peptide3 = new QuantifiedPeptide("AAA", intensity: 3);
+            var peptide4 = new QuantifiedPeptide("[Test Mod]RRR", intensity: 4);
+
+            protein1.Peptides.Add(peptide1.BaseSequence, peptide1);
+            protein1.Peptides.Add(peptide3.BaseSequence, peptide3);
+            protein1.SetProteinModsFromPeptides();
+
+            protein2.Peptides.Add(peptide2.BaseSequence, peptide2);
+            protein2.Peptides.Add(peptide3.BaseSequence, peptide3);
+            protein2.Peptides.Add(peptide4.BaseSequence, peptide4);
+            protein2.SetProteinModsFromPeptides();
+
+            Assert.AreEqual(proteinGroup.Proteins["PROT1"].ModifiedAminoAcidPositionsInProtein.Count, 1);
+            Assert.AreEqual(proteinGroup.Proteins["PROT1"].ModifiedAminoAcidPositionsInProtein[0].Count, 1);
+            Assert.AreEqual(proteinGroup.Proteins["PROT1"].ModifiedAminoAcidPositionsInProtein[0]["UniProt: Mod1 on A"].Name, "UniProt: Mod1 on A");
+            Assert.AreEqual(proteinGroup.Proteins["PROT1"].ModifiedAminoAcidPositionsInProtein[0]["UniProt: Mod1 on A"].Intensity, 1);
+
+            Assert.AreEqual(proteinGroup.Proteins["PROT2"].ModifiedAminoAcidPositionsInProtein.Count, 1);
+            Assert.AreEqual(proteinGroup.Proteins["PROT2"].ModifiedAminoAcidPositionsInProtein[6].Count, 1);
+            Assert.AreEqual(proteinGroup.Proteins["PROT2"].ModifiedAminoAcidPositionsInProtein[6]["UniProt: Mod2 on R"].Name, "UniProt: Mod2 on R");
+            Assert.AreEqual(proteinGroup.Proteins["PROT2"].ModifiedAminoAcidPositionsInProtein[6]["UniProt: Mod2 on R"].Intensity, 2);
+
+            // Test protein modification stoichiometry calculation
+            var stoich1 = proteinGroup.Proteins["PROT1"].GetModStoichiometryFromProteinMods();
+            Assert.AreEqual(stoich1.Count, 1);
+            Assert.AreEqual(stoich1[0]["UniProt: Mod1 on A"], 1 / 4.0);
+
+            var stoich2 = proteinGroup.Proteins["PROT2"].GetModStoichiometryFromProteinMods();
+            Assert.AreEqual(stoich2.Count, 1);
+            Assert.AreEqual(stoich2[6]["UniProt: Mod2 on R"], 2 / 6.0);
         }
 
         [Test]
