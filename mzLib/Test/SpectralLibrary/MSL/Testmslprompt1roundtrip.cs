@@ -258,31 +258,23 @@ public class TestMslPrompt1RoundTrip
 	}
 
 	/// <summary>
-	/// Documents the current overflow behaviour for NCE > 3276.
-	/// After Fix 2 (EncodeNce helper with clamping), this test should be
-	/// updated to assert that the clamped value (3276) is recovered rather
-	/// than a corrupted negative value.
-	///
-	/// Until Fix 2 is applied this test documents the bug: NCE 3277 overflows
-	/// int16 and the reader recovers a negative value, which is wrong.
-	///
-	/// After Fix 2: remove the Inconclusive and assert recovered == 3276.
+	/// Fix 2 (EncodeNce with Math.Clamp) clamps NCE > 3276 to 3276 rather
+	/// than silently overflowing int16. This test confirms the clamp is applied:
+	/// NCE 3277 must be stored and recovered as 3276. The writer emits a
+	/// diagnostic warning when clamping occurs; that is expected behaviour.
 	/// </summary>
 	[Test]
-	public void Nce_OverflowValue_3277_DocumentsCurrentBehaviour()
+	public void Nce_OverflowValue_3277_IsClamped()
 	{
-		string path = Tmp(nameof(Nce_OverflowValue_3277_DocumentsCurrentBehaviour));
+		string path = Tmp(nameof(Nce_OverflowValue_3277_IsClamped));
 		MslWriter.Write(path, new List<MslLibraryEntry> { MakeEntry(nce: 3277) });
 		var lib = MslReader.Load(path);
 
 		int recovered = lib.Entries[0].Nce;
 
-		// 3277 * 10 = 32770; as int16 this wraps to 32770 - 65536 = -32766; / 10 = -3276
-		// This assertion documents the current broken behaviour.
-		// After Fix 2, change this to: Assert.That(recovered, Is.EqualTo(3276));
-		Assert.That(recovered, Is.Not.EqualTo(3277),
-			"NCE 3277 overflows int16 storage. This test documents the existing bug " +
-			"(recovered value is wrong). Apply Fix 2 to add the EncodeNce guard.");
+		Assert.That(recovered, Is.EqualTo(3276),
+			"NCE 3277 exceeds int16 range when stored as NCE×10. " +
+			"EncodeNce (Fix 2) must clamp it to 3276; the writer emits a diagnostic warning.");
 	}
 
 	// ═════════════════════════════════════════════════════════════════════
@@ -474,16 +466,10 @@ public class TestMslPrompt1RoundTrip
 	/// exposed through MslLibraryData's public API. This test documents that the
 	/// value is present in the raw header and reads back correctly when accessed
 	/// via the Header property, even though no high-level API surfaces it.
-	///
-	/// Severity: Minor / cosmetic. The field is informational metadata. If
-	/// MslLibrary were to expose a PrecursorGroupCount property it would need
-	/// to read this field.
 	/// </summary>
 	[Test]
 	public void Header_NElutionGroups_IsWrittenCorrectly()
 	{
-		// Two entries with the same stripped sequence → one elution group
-		// One entry with a different sequence → second elution group
 		var entries = new List<MslLibraryEntry>
 		{
 			MakeEntry("PEPTIDE",  charge: 2),
@@ -494,7 +480,6 @@ public class TestMslPrompt1RoundTrip
 		string path = Tmp(nameof(Header_NElutionGroups_IsWrittenCorrectly));
 		MslWriter.Write(path, entries);
 
-		// Read the raw header to check NElutionGroups
 		MslFileHeader header = MslReader.ReadHeaderOnly(path);
 
 		Assert.That(header.NElutionGroups, Is.EqualTo(2),
@@ -504,12 +489,7 @@ public class TestMslPrompt1RoundTrip
 	/// <summary>
 	/// MslPrecursorRecord.StrippedSeqLength is written by the writer but the
 	/// reader does not use it — StrippedSequence.Length is recomputed from the
-	/// string resolved from the string table. This test documents that the
-	/// written value is consistent with the actual string length.
-	///
-	/// Severity: Minor / cosmetic. If a future reader were to use StrippedSeqLength
-	/// as a fast-path alternative to the string lookup, the written value would
-	/// need to be correct. It currently is correct.
+	/// string resolved from the string table.
 	/// </summary>
 	[Test]
 	public void PrecursorRecord_StrippedSeqLength_MatchesActualSequenceLength()
@@ -520,7 +500,6 @@ public class TestMslPrompt1RoundTrip
 		string path = Tmp(nameof(PrecursorRecord_StrippedSeqLength_MatchesActualSequenceLength));
 		MslWriter.Write(path, new List<MslLibraryEntry> { entry });
 
-		// Read back the entry and verify StrippedSequence length matches what we expect
 		var lib = MslReader.Load(path);
 		string recovered = lib.Entries[0].StrippedSequence;
 
@@ -534,12 +513,6 @@ public class TestMslPrompt1RoundTrip
 	// Struct size validation
 	// ═════════════════════════════════════════════════════════════════════
 
-	/// <summary>
-	/// MslStructs.SizeCheck() must pass without throwing. This verifies that
-	/// all five structs have exactly the sizes declared in MslFormat and that
-	/// Pack = 1 is correctly applied. A failure here would cause every file
-	/// written by this build to be unreadable.
-	/// </summary>
 	[Test]
 	public void StructSizeCheck_DoesNotThrow()
 	{
@@ -547,9 +520,6 @@ public class TestMslPrompt1RoundTrip
 			"SizeCheck must not throw — all structs must match their declared sizes.");
 	}
 
-	/// <summary>
-	/// Individual struct size assertions, matching the declared constants in MslFormat.
-	/// </summary>
 	[Test]
 	public void StructSizes_MatchDeclaredConstants()
 	{
