@@ -196,7 +196,7 @@ namespace MassSpectrometry.Dia
             DiaScanIndex scanIndex,
             float ppmTolerance,
             LowessRtModel lowess,
-            double localSigmaCap = 1.5)
+            double localSigmaCap = 0.5)
         {
             if (precursors == null) throw new ArgumentNullException(nameof(precursors));
             if (scanIndex == null) throw new ArgumentNullException(nameof(scanIndex));

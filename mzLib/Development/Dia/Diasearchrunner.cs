@@ -24,7 +24,8 @@ namespace Development.Dia
             string decoyMspPath,
             string outputTsvPath,
             string groundTruthTsvPath = null,
-            DiaClassifierType classifierType = DiaClassifierType.LinearDiscriminant)
+            DiaClassifierType classifierType = DiaClassifierType.LinearDiscriminant,
+            string gapAnalysisTsvPath = null)
         {
             Header("DIA Search Runner — Bootstrap Calibration Pipeline");
 
@@ -428,6 +429,11 @@ namespace Development.Dia
                         $"{(inGt ? "YES" : "no"),5}");
                     shown++;
                 }
+
+                // ────────────────────────────────────────────────────────
+                // Deep Gap Analysis
+                // ────────────────────────────────────────────────────────
+                PrintDeepGapAnalysis(results, rtLookup, combined, lowess, gapAnalysisTsvPath);
             }
             else
             {
@@ -522,6 +528,482 @@ namespace Development.Dia
             Console.WriteLine(new string('═', 72));
             Console.WriteLine("  Done.");
             Console.WriteLine(new string('═', 72));
+        }
+
+        // ════════════════════════════════════════════════════════════════
+        //  Deep Gap Analysis
+        //  Answers four questions:
+        //    1. Are our 1%-FDR IDs contained within DIA-NN's set?
+        //    2. Are our IDs distributed proportionally across the RT range?
+        //    3. What is the RT-deviation distribution for our IDs vs missed IDs?
+        //    4. For missed IDs — did we even search them with a tight enough window?
+        // ════════════════════════════════════════════════════════════════
+
+        private static void PrintDeepGapAnalysis(
+            List<DiaSearchResult> results,
+            Dictionary<string, double> rtLookup,       // key = "seq/charge" → GT apex RT (exp min)
+            List<LibraryPrecursorInput> combined,       // full library (targets + decoys)
+            LowessRtModel lowess,                       // LOWESS model (may be null)
+            string gapTsvPath)
+        {
+            Section("7b. Deep Gap Analysis");
+
+            // ── Build key sets ────────────────────────────────────────────
+            // Our 1% FDR targets (best result per unique key = lowest q-value)
+            var ourBest = new Dictionary<string, DiaSearchResult>();
+            for (int i = 0; i < results.Count; i++)
+            {
+                var r = results[i];
+                if (r.IsDecoy) continue;
+                string key = r.Sequence + "/" + r.ChargeState;
+                if (!ourBest.TryGetValue(key, out var prev) ||
+                    (r.FdrInfo?.QValue ?? 2.0) < (prev.FdrInfo?.QValue ?? 2.0))
+                    ourBest[key] = r;
+            }
+
+            var ourAt1Pct = new HashSet<string>();
+            foreach (var kv in ourBest)
+                if (kv.Value.FdrInfo?.QValue <= 0.01)
+                    ourAt1Pct.Add(kv.Key);
+
+            var gtKeys = new HashSet<string>(rtLookup.Keys);
+            int gtTotal = gtKeys.Count;
+            int ourTotal = ourAt1Pct.Count;
+            int inBoth = 0, ourOnly = 0, gtOnly = 0;
+            foreach (var k in ourAt1Pct) { if (gtKeys.Contains(k)) inBoth++; else ourOnly++; }
+            foreach (var k in gtKeys) { if (!ourAt1Pct.Contains(k)) gtOnly++; }
+
+            // ── 1. Containment summary ────────────────────────────────────
+            Console.WriteLine($"  ┌─ Containment check ─────────────────────────────────────┐");
+            Console.WriteLine($"  │  DIA-NN (ground truth, 1% FDR):  {gtTotal,7:N0}                   │");
+            Console.WriteLine($"  │  Ours   (1% FDR):                {ourTotal,7:N0}                   │");
+            Console.WriteLine($"  │  In both:  {inBoth,6:N0} ({inBoth * 100.0 / Math.Max(ourTotal, 1),5:F1}% of ours, {inBoth * 100.0 / gtTotal,5:F1}% of DIA-NN)  │");
+            Console.WriteLine($"  │  Ours only (not in DIA-NN):  {ourOnly,6:N0}                        │");
+            Console.WriteLine($"  │  DIA-NN only (we missed):    {gtOnly,6:N0}                        │");
+            Console.WriteLine($"  └─────────────────────────────────────────────────────────┘");
+            Console.WriteLine();
+
+            // ── 2. RT distribution histograms ─────────────────────────────
+            // Bin RT range 1–45 min into 22 bins of 2 min each
+            const int nBins = 22;
+            const double binMin = 1.0, binMax = 45.0;
+            double binWidth = (binMax - binMin) / nBins;
+
+            var histOurIds = new int[nBins];  // our 1%-FDR IDs
+            var histMissed = new int[nBins];  // DIA-NN IDs we missed
+            var histOurOnly = new int[nBins];  // our IDs not in DIA-NN
+
+            // Our 1%-FDR IDs — use ObservedApexRt
+            foreach (var kv in ourBest)
+            {
+                var r = kv.Value;
+                if (r.FdrInfo?.QValue > 0.01) continue;
+                float rt = r.ObservedApexRt;
+                if (float.IsNaN(rt)) continue;
+                int b = (int)((rt - binMin) / binWidth);
+                b = Math.Max(0, Math.Min(nBins - 1, b));
+                histOurIds[b]++;
+                if (!gtKeys.Contains(kv.Key)) histOurOnly[b]++;
+            }
+
+            // Missed DIA-NN IDs — use GT observed RT (experimental minutes)
+            foreach (var kv in rtLookup)
+            {
+                if (ourAt1Pct.Contains(kv.Key)) continue;
+                double rt = kv.Value;
+                int b = (int)((rt - binMin) / binWidth);
+                b = Math.Max(0, Math.Min(nBins - 1, b));
+                histMissed[b]++;
+            }
+
+            int maxH = 0;
+            for (int b = 0; b < nBins; b++) maxH = Math.Max(maxH, Math.Max(histOurIds[b], histMissed[b]));
+
+            Console.WriteLine("  RT Distribution (2 min bins, 1–45 min)");
+            Console.WriteLine("  " + "Bin".PadRight(12) + "  " + "Ours (1%)".PadLeft(10) + "  " + "Missed GT".PadLeft(10) + "  " + "Ours only".PadLeft(10));
+            Console.WriteLine("  " + new string('─', 50));
+            for (int b = 0; b < nBins; b++)
+            {
+                double lo = binMin + b * binWidth;
+                double hi = lo + binWidth;
+                Console.WriteLine($"  {lo,4:F0}–{hi,4:F0} min  {histOurIds[b],10:N0}  {histMissed[b],10:N0}  {histOurOnly[b],10:N0}");
+            }
+            Console.WriteLine();
+
+            // ASCII bar chart — stacked side-by-side, 40 chars wide
+            Console.WriteLine("  RT Distribution Bar Chart  (█=Ours@1%  ░=Missed DIA-NN)");
+            Console.WriteLine("  " + new string('─', 65));
+            int barWidth = 40;
+            for (int b = 0; b < nBins; b++)
+            {
+                double lo = binMin + b * binWidth;
+                int ourBar = maxH > 0 ? (int)Math.Round(histOurIds[b] * barWidth / (double)maxH) : 0;
+                int missedBar = maxH > 0 ? (int)Math.Round(histMissed[b] * barWidth / (double)maxH) : 0;
+                string ourStr = new string('█', ourBar).PadRight(barWidth);
+                string missStr = new string('░', missedBar);
+                Console.WriteLine($"  {lo,4:F0} │{ourStr}│ {histOurIds[b],5:N0}");
+                Console.WriteLine($"       │{missStr.PadRight(barWidth)}│ {histMissed[b],5:N0}");
+            }
+            Console.WriteLine();
+
+            // ── 3. RT deviation histograms ────────────────────────────────
+            // For our 1%-FDR IDs:  RtDeviationMinutes = ObservedApexRt − LOWESS(libRT)
+            // For missed DIA-NN IDs: deviation = GT_RT − LOWESS(libRT) if we have the
+            //   library entry; otherwise GT_RT − predicted from the best result in ourBest.
+            //
+            // Build a lib-RT lookup: key → LibraryRetentionTime (library scale)
+            var libRtByKey = new Dictionary<string, double>(combined.Count);
+            for (int i = 0; i < combined.Count; i++)
+            {
+                if (combined[i].IsDecoy || !combined[i].RetentionTime.HasValue) continue;
+                string k = combined[i].Sequence + "/" + combined[i].ChargeState;
+                if (!libRtByKey.ContainsKey(k))
+                    libRtByKey[k] = combined[i].RetentionTime.Value;
+            }
+
+            const int nDevBins = 24;
+            const double devMin = -6.0, devMax = 6.0;
+            double devBinW = (devMax - devMin) / nDevBins;
+
+            var devOurIds = new int[nDevBins];   // signed RT-dev: (apexRT − predictedRT)
+            var devMissed = new int[nDevBins];   // signed: (GT_RT − predictedRT)
+            int ourDevCount = 0, missedDevCount = 0;
+            int missedNoLib = 0, missedLowessNan = 0;
+
+            // Our 1% IDs
+            foreach (var kv in ourBest)
+            {
+                var r = kv.Value;
+                if (r.FdrInfo?.QValue > 0.01) continue;
+                float dev = r.RtDeviationMinutes;
+                if (float.IsNaN(dev)) continue;
+                // RtDeviationMinutes is already (observedApex − predictedRT) set during assembly
+                int b = (int)((dev - devMin) / devBinW);
+                b = Math.Max(0, Math.Min(nDevBins - 1, b));
+                devOurIds[b]++;
+                ourDevCount++;
+            }
+
+            // Missed DIA-NN IDs — compute GT_RT − LOWESS(libRT)
+            var missedDevList = new List<double>(gtOnly);
+            foreach (var kv in rtLookup)
+            {
+                if (ourAt1Pct.Contains(kv.Key)) continue;
+                double gtRt = kv.Value;
+
+                double predictedRt = double.NaN;
+                if (lowess != null && libRtByKey.TryGetValue(kv.Key, out double libRt))
+                    predictedRt = lowess.ToMinutes(libRt);
+
+                if (double.IsNaN(predictedRt))
+                {
+                    // Fallback: use the best-result's observed apex if we searched it
+                    if (ourBest.TryGetValue(kv.Key, out var fallback) &&
+                        !float.IsNaN(fallback.ObservedApexRt) &&
+                        lowess != null &&
+                        fallback.LibraryRetentionTime.HasValue)
+                    {
+                        predictedRt = lowess.ToMinutes(fallback.LibraryRetentionTime.Value);
+                    }
+                }
+
+                if (double.IsNaN(predictedRt))
+                {
+                    if (!libRtByKey.ContainsKey(kv.Key)) missedNoLib++;
+                    else missedLowessNan++;
+                    continue;
+                }
+
+                double dev = gtRt - predictedRt;
+                missedDevList.Add(dev);
+                int b = (int)((dev - devMin) / devBinW);
+                b = Math.Max(0, Math.Min(nDevBins - 1, b));
+                devMissed[b]++;
+                missedDevCount++;
+            }
+
+            // Percentiles helper
+            static double Pct(List<double> sorted, double p)
+            {
+                if (sorted.Count == 0) return double.NaN;
+                int idx = (int)(p * (sorted.Count - 1));
+                return sorted[Math.Max(0, Math.Min(sorted.Count - 1, idx))];
+            }
+
+            var ourDevVals = new List<double>(ourAt1Pct.Count);
+            foreach (var kv in ourBest)
+            {
+                var r = kv.Value;
+                if (r.FdrInfo?.QValue > 0.01 || float.IsNaN(r.RtDeviationMinutes)) continue;
+                ourDevVals.Add(r.RtDeviationMinutes);
+            }
+            ourDevVals.Sort();
+            missedDevList.Sort();
+
+            Console.WriteLine("  RT Deviation (observedApex − predictedRT) Histograms");
+            Console.WriteLine($"  Bin: {devBinW:F2} min wide   Range: [{devMin},{devMax}] min");
+            Console.WriteLine();
+
+            if (ourDevVals.Count > 0)
+                Console.WriteLine($"  Our 1% IDs:   n={ourDevVals.Count:N0}  " +
+                    $"median={Pct(ourDevVals, 0.50):+0.00;-0.00} min  " +
+                    $"p05={Pct(ourDevVals, 0.05):+0.00;-0.00}  " +
+                    $"p95={Pct(ourDevVals, 0.95):+0.00;-0.00}  " +
+                    $"p25={Pct(ourDevVals, 0.25):+0.00;-0.00}  " +
+                    $"p75={Pct(ourDevVals, 0.75):+0.00;-0.00}");
+            if (missedDevList.Count > 0)
+                Console.WriteLine($"  Missed IDs:   n={missedDevList.Count:N0}  " +
+                    $"median={Pct(missedDevList, 0.50):+0.00;-0.00} min  " +
+                    $"p05={Pct(missedDevList, 0.05):+0.00;-0.00}  " +
+                    $"p95={Pct(missedDevList, 0.95):+0.00;-0.00}  " +
+                    $"p25={Pct(missedDevList, 0.25):+0.00;-0.00}  " +
+                    $"p75={Pct(missedDevList, 0.75):+0.00;-0.00}");
+            Console.WriteLine($"  (Missed: {missedNoLib:N0} had no lib-RT entry, {missedLowessNan:N0} LOWESS NaN — excluded)");
+            Console.WriteLine();
+
+            int maxDev = 0;
+            for (int b = 0; b < nDevBins; b++) maxDev = Math.Max(maxDev, Math.Max(devOurIds[b], devMissed[b]));
+
+            Console.WriteLine("  " + "RTdev bin".PadLeft(14) + "  " + "Ours(1%)".PadLeft(10) + "  " + "Missed GT".PadLeft(10));
+            Console.WriteLine("  " + new string('─', 38));
+            for (int b = 0; b < nDevBins; b++)
+            {
+                double lo = devMin + b * devBinW;
+                double hi = lo + devBinW;
+                string mark = (lo <= 0 && hi > 0) ? " ◄ zero" : "";
+                Console.WriteLine($"  [{lo,+5:F1},{hi,+5:F1})  {devOurIds[b],10:N0}  {devMissed[b],10:N0}{mark}");
+            }
+            Console.WriteLine();
+
+            // ASCII deviation bar chart
+            Console.WriteLine("  RT Deviation Bar Chart  (▓=Ours@1%  ░=Missed DIA-NN)");
+            Console.WriteLine("  " + new string('─', 65));
+            for (int b = 0; b < nDevBins; b++)
+            {
+                double lo = devMin + b * devBinW;
+                int ourBar = maxDev > 0 ? (int)Math.Round(devOurIds[b] * barWidth / (double)maxDev) : 0;
+                int missedBar = maxDev > 0 ? (int)Math.Round(devMissed[b] * barWidth / (double)maxDev) : 0;
+                string ourStr = new string('▓', ourBar).PadRight(barWidth);
+                string missStr = new string('░', missedBar).PadRight(barWidth);
+                Console.WriteLine($"  {lo,+5:F1} │{ourStr}│ {devOurIds[b],5:N0}");
+                Console.WriteLine($"        │{missStr}│ {devMissed[b],5:N0}");
+            }
+            Console.WriteLine();
+
+            // ── 4. Window coverage check for missed IDs ───────────────────
+            // For missed IDs that ARE in ourBest (searched but not identified),
+            // report whether their GT apex fell inside the search window.
+            int missedSearched = 0, missedInWindow = 0, missedOutWindow = 0, missedNotSearched = 0;
+            var windowGapList = new List<double>(); // gap = |GT_RT − window_midpoint|
+
+            foreach (var kv in rtLookup)
+            {
+                if (ourAt1Pct.Contains(kv.Key)) continue;
+                double gtRt = kv.Value;
+
+                if (ourBest.TryGetValue(kv.Key, out var searched))
+                {
+                    missedSearched++;
+                    double winMid = (searched.RtWindowStart + searched.RtWindowEnd) / 2.0;
+                    double winHw = (searched.RtWindowEnd - searched.RtWindowStart) / 2.0;
+                    double gap = Math.Abs(gtRt - winMid);
+                    windowGapList.Add(gap - winHw);   // negative = inside window
+                    if (gtRt >= searched.RtWindowStart && gtRt <= searched.RtWindowEnd)
+                        missedInWindow++;
+                    else
+                        missedOutWindow++;
+                }
+                else
+                {
+                    missedNotSearched++;
+                }
+            }
+
+            windowGapList.Sort();
+            Console.WriteLine($"  Window Coverage for Missed DIA-NN IDs:");
+            Console.WriteLine($"    Total missed:        {gtOnly:N0}");
+            Console.WriteLine($"    We searched them:    {missedSearched:N0} ({missedSearched * 100.0 / Math.Max(gtOnly, 1):F1}%)");
+            Console.WriteLine($"      GT apex IN window:     {missedInWindow:N0} ({missedInWindow * 100.0 / Math.Max(missedSearched, 1):F1}%) — scored but failed FDR");
+            Console.WriteLine($"      GT apex OUT of window: {missedOutWindow:N0} ({missedOutWindow * 100.0 / Math.Max(missedSearched, 1):F1}%) — window missed the peak");
+            Console.WriteLine($"    Not searched at all: {missedNotSearched:N0} ({missedNotSearched * 100.0 / Math.Max(gtOnly, 1):F1}%) — no RT or skipped");
+            if (windowGapList.Count > 0)
+            {
+                // gap < 0 means inside window; gap > 0 means outside
+                int inside = windowGapList.Count(g => g <= 0);
+                Console.WriteLine($"    Window gap stats: {inside:N0}/{windowGapList.Count:N0} GT apexes inside window (gap ≤ 0)");
+                Console.WriteLine($"      p05={windowGapList[(int)(0.05 * windowGapList.Count)]:+0.00;-0.00}  " +
+                    $"p25={windowGapList[(int)(0.25 * windowGapList.Count)]:+0.00;-0.00}  " +
+                    $"median={windowGapList[windowGapList.Count / 2]:+0.00;-0.00}  " +
+                    $"p75={windowGapList[(int)(0.75 * windowGapList.Count)]:+0.00;-0.00}  " +
+                    $"p95={windowGapList[(int)(0.95 * windowGapList.Count)]:+0.00;-0.00} min");
+                Console.WriteLine($"      (negative = GT apex comfortably inside window)");
+            }
+            Console.WriteLine();
+
+            // ── 5. Score distribution for searched-but-missed IDs ─────────
+            // For IDs that were searched (in ourBest) but not at 1% FDR, show
+            // score/qv distribution — are they scoring low or just above FDR threshold?
+            var missedScores = new List<float>();
+            var missedQvals = new List<double>();
+            int missedHighScore = 0; // classifier score > 0 but qv > 0.01
+            foreach (var kv in rtLookup)
+            {
+                if (ourAt1Pct.Contains(kv.Key)) continue;
+                if (!ourBest.TryGetValue(kv.Key, out var r)) continue;
+                if (float.IsNaN(r.ClassifierScore)) continue;
+                missedScores.Add(r.ClassifierScore);
+                double qv = r.FdrInfo?.QValue ?? 2.0;
+                missedQvals.Add(qv);
+                if (r.ClassifierScore > 0 && qv > 0.01) missedHighScore++;
+            }
+            missedScores.Sort();
+            missedQvals.Sort();
+
+            if (missedScores.Count > 0)
+            {
+                Console.WriteLine($"  Score distribution for searched-but-missed DIA-NN IDs ({missedScores.Count:N0} total):");
+                Console.WriteLine($"    ClassifierScore:  " +
+                    $"p05={missedScores[(int)(0.05 * missedScores.Count)]:F3}  " +
+                    $"p25={missedScores[(int)(0.25 * missedScores.Count)]:F3}  " +
+                    $"median={missedScores[missedScores.Count / 2]:F3}  " +
+                    $"p75={missedScores[(int)(0.75 * missedScores.Count)]:F3}  " +
+                    $"p95={missedScores[(int)(0.95 * missedScores.Count)]:F3}");
+                Console.WriteLine($"    Q-value:          " +
+                    $"p05={missedQvals[(int)(0.05 * missedQvals.Count)]:F3}  " +
+                    $"p25={missedQvals[(int)(0.25 * missedQvals.Count)]:F3}  " +
+                    $"median={missedQvals[missedQvals.Count / 2]:F3}  " +
+                    $"p75={missedQvals[(int)(0.75 * missedQvals.Count)]:F3}  " +
+                    $"p95={missedQvals[(int)(0.95 * missedQvals.Count)]:F3}");
+                Console.WriteLine($"    Score > 0 but q > 0.01:  {missedHighScore:N0}  " +
+                    $"({missedHighScore * 100.0 / missedScores.Count:F1}%) — real signal but below FDR cut");
+                Console.WriteLine();
+
+                // Show score vs q distribution in bins
+                var qBins = new[] { 0.01, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0 };
+                Console.WriteLine($"  {"Q-value range",-20}  {"Count",8}  {"% of missed",12}");
+                Console.WriteLine("  " + new string('─', 44));
+                double prevQ = 0.0;
+                foreach (double qb in qBins)
+                {
+                    int cnt = 0;
+                    for (int i = 0; i < missedQvals.Count; i++)
+                        if (missedQvals[i] > prevQ && missedQvals[i] <= qb) cnt++;
+                    Console.WriteLine($"  q ∈ ({prevQ:F2}, {qb:F2}]      {cnt,8:N0}  {cnt * 100.0 / missedScores.Count,12:F1}%");
+                    prevQ = qb;
+                }
+            }
+            Console.WriteLine();
+
+            // ── 6. Export gap analysis TSV ────────────────────────────────
+            if (!string.IsNullOrEmpty(gapTsvPath))
+            {
+                try
+                {
+                    string gapDir = Path.GetDirectoryName(gapTsvPath);
+                    if (!string.IsNullOrEmpty(gapDir) && !Directory.Exists(gapDir))
+                        Directory.CreateDirectory(gapDir);
+
+                    var inv = CultureInfo.InvariantCulture;
+                    using var w = new StreamWriter(gapTsvPath);
+                    w.WriteLine("Key\tGT_ApexRt\tLibRT\tPredictedRt\tDev_GT_minus_Pred\t" +
+                        "Searched\tObservedApexRt\tRtWindowStart\tRtWindowEnd\tWindowHalfWidth\t" +
+                        "GtApexInWindow\tWindowGap\tClassifierScore\tQValue\tCategory");
+
+                    // All DIA-NN IDs (not in our 1% set) — the misses
+                    foreach (var kv in rtLookup)
+                    {
+                        if (ourAt1Pct.Contains(kv.Key)) continue;
+                        string key = kv.Key;
+                        double gtRt = kv.Value;
+
+                        double libRt = double.NaN;
+                        libRtByKey.TryGetValue(key, out libRt);
+                        double predRt = (lowess != null && !double.IsNaN(libRt))
+                            ? lowess.ToMinutes(libRt) : double.NaN;
+                        double devGt = !double.IsNaN(predRt) ? gtRt - predRt : double.NaN;
+
+                        bool searched = ourBest.TryGetValue(key, out var r);
+                        float apexRt = searched ? r.ObservedApexRt : float.NaN;
+                        float winS = searched ? r.RtWindowStart : float.NaN;
+                        float winE = searched ? r.RtWindowEnd : float.NaN;
+                        double winHw = searched ? (r.RtWindowEnd - r.RtWindowStart) / 2.0 : double.NaN;
+                        bool inWin = searched && gtRt >= r.RtWindowStart && gtRt <= r.RtWindowEnd;
+                        double gap = searched ? (gtRt - (r.RtWindowStart + r.RtWindowEnd) / 2.0 - winHw) : double.NaN;
+                        // gap > 0 means GT apex is outside the window on the far side
+                        float score = searched ? r.ClassifierScore : float.NaN;
+                        double qval = searched ? (r.FdrInfo?.QValue ?? 2.0) : double.NaN;
+
+                        string cat = !searched ? "not_searched"
+                            : !inWin ? "window_miss"
+                            : qval <= 0.05 ? "below_fdr_5pct"
+                            : qval <= 0.20 ? "low_score"
+                            : "very_low_score";
+
+                        w.Write(key); w.Write('\t');
+                        w.Write(gtRt.ToString("F4", inv)); w.Write('\t');
+                        w.Write(double.IsNaN(libRt) ? "NA" : libRt.ToString("F4", inv)); w.Write('\t');
+                        w.Write(double.IsNaN(predRt) ? "NA" : predRt.ToString("F4", inv)); w.Write('\t');
+                        w.Write(double.IsNaN(devGt) ? "NA" : devGt.ToString("F4", inv)); w.Write('\t');
+                        w.Write(searched ? "1" : "0"); w.Write('\t');
+                        w.Write(float.IsNaN(apexRt) ? "NA" : apexRt.ToString("F4", inv)); w.Write('\t');
+                        w.Write(float.IsNaN(winS) ? "NA" : winS.ToString("F4", inv)); w.Write('\t');
+                        w.Write(float.IsNaN(winE) ? "NA" : winE.ToString("F4", inv)); w.Write('\t');
+                        w.Write(double.IsNaN(winHw) ? "NA" : winHw.ToString("F4", inv)); w.Write('\t');
+                        w.Write(searched ? (inWin ? "1" : "0") : "NA"); w.Write('\t');
+                        w.Write(double.IsNaN(gap) ? "NA" : gap.ToString("F4", inv)); w.Write('\t');
+                        w.Write(float.IsNaN(score) ? "NA" : score.ToString("G6", inv)); w.Write('\t');
+                        w.Write(double.IsNaN(qval) ? "NA" : qval.ToString("F6", inv)); w.Write('\t');
+                        w.WriteLine(cat);
+                    }
+
+                    // Also emit our 1% IDs for completeness (with category "found")
+                    foreach (var kv in ourBest)
+                    {
+                        var r = kv.Value;
+                        if (r.FdrInfo?.QValue > 0.01) continue;
+                        string key = kv.Key;
+                        double gtRt = rtLookup.TryGetValue(key, out double g) ? g : double.NaN;
+                        double libRt = double.NaN; libRtByKey.TryGetValue(key, out libRt);
+                        double predRt = (lowess != null && !double.IsNaN(libRt))
+                            ? lowess.ToMinutes(libRt) : double.NaN;
+                        double devGt = !double.IsNaN(predRt) && !double.IsNaN(gtRt)
+                            ? gtRt - predRt : double.NaN;
+                        double winHw = (r.RtWindowEnd - r.RtWindowStart) / 2.0;
+                        bool inWin = !double.IsNaN(gtRt) &&
+                            gtRt >= r.RtWindowStart && gtRt <= r.RtWindowEnd;
+                        double gap = !double.IsNaN(gtRt)
+                            ? (gtRt - (r.RtWindowStart + r.RtWindowEnd) / 2.0 - winHw) : double.NaN;
+                        double qval = r.FdrInfo?.QValue ?? 2.0;
+
+                        w.Write(key); w.Write('\t');
+                        w.Write(double.IsNaN(gtRt) ? "NA" : gtRt.ToString("F4", inv)); w.Write('\t');
+                        w.Write(double.IsNaN(libRt) ? "NA" : libRt.ToString("F4", inv)); w.Write('\t');
+                        w.Write(double.IsNaN(predRt) ? "NA" : predRt.ToString("F4", inv)); w.Write('\t');
+                        w.Write(double.IsNaN(devGt) ? "NA" : devGt.ToString("F4", inv)); w.Write('\t');
+                        w.Write("1"); w.Write('\t');
+                        w.Write(float.IsNaN(r.ObservedApexRt) ? "NA" : r.ObservedApexRt.ToString("F4", inv)); w.Write('\t');
+                        w.Write(r.RtWindowStart.ToString("F4", inv)); w.Write('\t');
+                        w.Write(r.RtWindowEnd.ToString("F4", inv)); w.Write('\t');
+                        w.Write(winHw.ToString("F4", inv)); w.Write('\t');
+                        w.Write(inWin ? "1" : "0"); w.Write('\t');
+                        w.Write(double.IsNaN(gap) ? "NA" : gap.ToString("F4", inv)); w.Write('\t');
+                        w.Write(r.ClassifierScore.ToString("G6", inv)); w.Write('\t');
+                        w.Write(qval.ToString("F6", inv)); w.Write('\t');
+                        w.WriteLine(gtKeys.Contains(key) ? "found_in_gt" : "found_not_in_gt");
+                    }
+
+                    Console.WriteLine($"  Gap analysis TSV written: {gapTsvPath}");
+                    Console.WriteLine($"  ({gtOnly:N0} missed + {ourAt1Pct.Count:N0} found rows)");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"  [ERROR] Gap TSV write failed: {ex.Message}");
+                }
+            }
+            else
+            {
+                Console.WriteLine("  (No gap analysis TSV path specified — skipping export)");
+            }
         }
 
         // ════════════════════════════════════════════════════════════════
