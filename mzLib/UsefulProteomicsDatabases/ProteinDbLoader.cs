@@ -62,7 +62,7 @@ namespace UsefulProteomicsDatabases
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
             int maxHeterozygousVariants = 4, int minAlleleDepth = 1, bool addTruncations = false, string decoyIdentifier = "DECOY",
-            string entrapmentIdentifier = "NTRAP")
+            string entrapmentIdentifier = "NTRAP", bool isEntrapment = false)
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
@@ -107,7 +107,7 @@ namespace UsefulProteomicsDatabases
                         }
                         if (xml.NodeType == XmlNodeType.EndElement || xml.IsEmptyElement)
                         {
-                            Protein newProtein = block.ParseEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, proteinDbLocation, decoyIdentifier, entrapmentIdentifier);
+                            Protein newProtein = block.ParseEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, proteinDbLocation, decoyIdentifier, entrapmentIdentifier, isEntrapment);
                             if (newProtein != null)
                             {
                                 //If we have read any modifications that are nucleotide substitutions, convert them to sequence variants here:
@@ -200,7 +200,7 @@ namespace UsefulProteomicsDatabases
         public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool generateTargets, DecoyType decoyType, bool isContaminant, out List<string> errors,
             FastaHeaderFieldRegex accessionRegex = null, FastaHeaderFieldRegex fullNameRegex = null, FastaHeaderFieldRegex nameRegex = null,
             FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, int maxThreads = -1, bool addTruncations = false, string decoyIdentifier = "DECOY",
-            string entrapmentIdentifier = "NTRAP")
+            string entrapmentIdentifier = "NTRAP", bool isEntrapment = false)
         {
             FastaHeaderType? HeaderType = null;
             HashSet<string> unique_accessions = new HashSet<string>();
@@ -317,9 +317,22 @@ namespace UsefulProteomicsDatabases
                             unique_identifier = 2; //reset
                         }
                         unique_accessions.Add(accession);
-                        bool isEntrapment = accession.StartsWith(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase);
+                        // Auto-detect entrapment if the accession contains the entrapment identifier anywhere
+                        bool proteinIsEntrapment = isEntrapment || accession.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) >= 0;
+                        if (proteinIsEntrapment && isContaminant)
+                            throw new MzLibUtil.MzLibException($"Protein accession '{accession}' cannot be both a contaminant and an entrapment protein.",
+                                new ArgumentException("isContaminant and isEntrapment cannot both be true"));
+                        // Prepend entrapment identifier if the caller flagged this as entrapment but accession doesn't already contain it
+                        if (proteinIsEntrapment && accession.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) < 0)
+                        {
+                            bool startsWithDecoy = accession.StartsWith(decoyIdentifier, StringComparison.OrdinalIgnoreCase);
+                            if (startsWithDecoy)
+                                accession = decoyIdentifier + "_" + entrapmentIdentifier + "_" + accession.Substring(decoyIdentifier.Length).TrimStart('_');
+                            else
+                                accession = entrapmentIdentifier + "_" + accession;
+                        }
                         Protein protein = new Protein(sequence, accession, organism, geneName, name: name, fullName: fullName,
-                            isContaminant: isContaminant, isDecoy: accession.StartsWith(decoyIdentifier), isEntrapment: isEntrapment,
+                            isContaminant: isContaminant, isDecoy: accession.StartsWith(decoyIdentifier), isEntrapment: proteinIsEntrapment,
                             databaseFilePath: proteinDbLocation, addTruncations: addTruncations);
                         if (protein.Length == 0)
                         {

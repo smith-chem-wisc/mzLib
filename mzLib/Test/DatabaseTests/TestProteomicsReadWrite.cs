@@ -389,11 +389,11 @@ namespace Test.DatabaseTests
 
             // Generate data for files
             Protein ParentProtein = new Protein("MPEPTIDEKANTHE", "accession1", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null,
-                "name1", "fullname1", false, false, false, new List<DatabaseReference>(), new List<SequenceVariation>(), disulfideBonds: new List<DisulfideBond>());
+                "name1", "fullname1", false, false, new List<DatabaseReference>(), new List<SequenceVariation>(), disulfideBonds: new List<DisulfideBond>());
 
             List<TruncationProduct> pp = new List<TruncationProduct> { new TruncationProduct(4, 8, "chain") };
             Protein proteinWithChain = new Protein("MAACNNNCAA", "accession3", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), pp,
-                "name2", "fullname2", false, false, false, new List<DatabaseReference>(), new List<SequenceVariation>(), disulfideBonds: new List<DisulfideBond>());
+                "name2", "fullname2", false, false, new List<DatabaseReference>(), new List<SequenceVariation>(), disulfideBonds: new List<DisulfideBond>());
 
             ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { ParentProtein, proteinWithChain }, Path.Combine(TestContext.CurrentContext.TestDirectory, @"fdsfsd.xml"));
         }
@@ -598,7 +598,7 @@ namespace Test.DatabaseTests
                 { 3, new List<Modification>() { meOnR } }
             };
 
-            Protein p = new Protein("KKR", "accession", null, null, obm, null, null, null, false, false, false, null, null, null);
+            Protein p = new Protein("KKR", "accession", null, null, obm, null, null, null, false, false, null, null, null);
             List<Protein> pList = new List<Protein>() { p };
 
             string outputFileName = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"redundant.xml");

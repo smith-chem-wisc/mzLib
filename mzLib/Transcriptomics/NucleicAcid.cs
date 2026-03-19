@@ -71,13 +71,14 @@ namespace Transcriptomics
             IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
             string? name = null, string? organism = null,
             string? databaseFilePath = null,
-            bool isContaminant = false, bool isDecoy = false, bool isEntrapment = false,
+            bool isContaminant = false, bool isDecoy = false,
             List<Tuple<string, string>>? geneNames = null,
             Dictionary<string, string>? additionalDatabaseFields = null,
             List<TruncationProduct>? truncationProducts = null,
             List<SequenceVariation>? sequenceVariations = null,
             List<SequenceVariation>? appliedSequenceVariations = null,
-            string? sampleNameForVariants = null, string? fullName = null)
+            string? sampleNameForVariants = null, string? fullName = null,
+            bool isEntrapment = false)
             : this(sequence, oneBasedPossibleLocalizedModifications, fivePrimeTerm, threePrimeTerm)
         {
             Name = name ?? "";

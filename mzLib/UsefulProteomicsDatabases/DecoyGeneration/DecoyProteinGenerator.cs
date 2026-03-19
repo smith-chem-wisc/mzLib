@@ -163,7 +163,6 @@ namespace UsefulProteomicsDatabases
                     protein.FullName,
                     true,
                     protein.IsContaminant,
-                    protein.IsEntrapment,
                     null,
                     decoyVariations,
                     decoyAppliedVariations,
@@ -176,7 +175,8 @@ namespace UsefulProteomicsDatabases
                     modified: protein.ModifiedEntryTag,
                     version: protein.VersionEntryTag,
                     xmlns: protein.XmlnsEntryTag,
-                    uniProtSequenceAttributes: protein.UniProtSequenceAttributes);
+                    uniProtSequenceAttributes: protein.UniProtSequenceAttributes,
+                    isEntrapment: protein.IsEntrapment);
 
                 lock (decoyProteins) { decoyProteins.Add(decoyProtein); }
             });
@@ -357,8 +357,8 @@ namespace UsefulProteomicsDatabases
                     }
                 }
                 var decoyProteinSlide = new Protein(slided_sequence, $"{decoyIdentifier}_" + protein.Accession, protein.Organism, protein.GeneNames.ToList(), decoyModifications, decoyPPSlide,
-                    protein.Name, protein.FullName, true, protein.IsContaminant, protein.IsEntrapment, null, decoyVariationsSlide, null, protein.SampleNameForVariants, decoy_disulfides_slide, spliceSitesSlide, protein.DatabaseFilePath,
-                    false, protein.DatasetEntryTag, protein.CreatedEntryTag, protein.ModifiedEntryTag, protein.VersionEntryTag, protein.XmlnsEntryTag);
+                    protein.Name, protein.FullName, true, protein.IsContaminant, null, decoyVariationsSlide, null, protein.SampleNameForVariants, decoy_disulfides_slide, spliceSitesSlide, protein.DatabaseFilePath,
+                    false, protein.DatasetEntryTag, protein.CreatedEntryTag, protein.ModifiedEntryTag, protein.VersionEntryTag, protein.XmlnsEntryTag, isEntrapment: protein.IsEntrapment);
                 lock (decoyProteins) { decoyProteins.Add(decoyProteinSlide); }
             });
             decoyProteins = decoyProteins.OrderBy(p => p.Accession).ToList();

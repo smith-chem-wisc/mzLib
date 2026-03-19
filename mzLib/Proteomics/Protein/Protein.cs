@@ -41,12 +41,12 @@ namespace Proteomics
         /// <param name="databaseFilePath"></param>
         public Protein(string sequence, string accession, string organism = null, List<Tuple<string, string>> geneNames = null,
             IDictionary<int, List<Modification>> oneBasedModifications = null, List<TruncationProduct> proteolysisProducts = null,
-            string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false, bool isEntrapment = false,
+            string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false,
             List<DatabaseReference> databaseReferences = null,
             List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
             List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false, 
             string dataset = "unknown", string created = "unknown", string modified = "unknown", string version = "unknown", string xmlns = "http://uniprot.org/uniprot",
-            UniProtSequenceAttributes uniProtSequenceAttributes = null)
+            UniProtSequenceAttributes uniProtSequenceAttributes = null, bool isEntrapment = false)
         {
             BaseSequence = sequence;
             NonVariantProtein = this;

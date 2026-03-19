@@ -143,7 +143,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
 public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets, DecoyType decoyType,
             bool isContaminant, out List<string> errors, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null, 
-            int maxThreads = 1, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "NTRAP")
+            int maxThreads = 1, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "NTRAP", bool isEntrapment = false)
         {
             RnaFastaHeaderType? headerType = null;
             SequenceTransformationOnRead sequenceTransformation = SequenceTransformationOnRead.None;
@@ -252,9 +252,20 @@ public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets,
                         var sequence = SanitizeAndTransform(sb.ToString(), sequenceTransformation);
 
                         bool isDecoy = identifier.StartsWith(decoyIdentifier);
-                        bool isEntrapment = identifier.StartsWith(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase);
+                        bool rnaIsEntrapment = isEntrapment || identifier.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) >= 0;
+                        if (rnaIsEntrapment && isContaminant)
+                            throw new MzLibUtil.MzLibException($"RNA accession '{identifier}' cannot be both a contaminant and an entrapment sequence.",
+                                new ArgumentException("isContaminant and isEntrapment cannot both be true"));
+                        // Prepend entrapment identifier if accession doesn't already contain it
+                        if (rnaIsEntrapment && identifier.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) < 0)
+                        {
+                            if (isDecoy)
+                                identifier = decoyIdentifier + "_" + entrapmentIdentifier + "_" + identifier.Substring(decoyIdentifier.Length).TrimStart('_');
+                            else
+                                identifier = entrapmentIdentifier + "_" + identifier;
+                        }
                         RNA rna = new RNA(sequence, identifier,
-                            null, fivePrimeTerminus: fivePrimeTerm, threePrimeTerminus: threePrimeTerm, name: name, organism: organism, databaseFilePath: rnaDbLocation, isContaminant: isContaminant, isDecoy: isDecoy, isEntrapment: isEntrapment, geneNames: geneNames, databaseAdditionalFields: additonalDatabaseFields);
+                            null, fivePrimeTerminus: fivePrimeTerm, threePrimeTerminus: threePrimeTerm, name: name, organism: organism, databaseFilePath: rnaDbLocation, isContaminant: isContaminant, isDecoy: isDecoy, geneNames: geneNames, databaseAdditionalFields: additonalDatabaseFields, isEntrapment: rnaIsEntrapment);
                         if (rna.Length == 0)
                             errors.Add("Line" + line + ", Rna length of 0: " + rna.Name + "was skipped from database: " + rnaDbLocation);
                         else if (rna.IsDecoy)
@@ -309,7 +320,7 @@ public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets,
             IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications,
             int maxHeterozygousVariants = 4, int minAlleleDepth = 1,
             int maxThreads = 1, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
-            string decoyIdentifier = "DECOY", string entrapmentIdentifier = "NTRAP")
+            string decoyIdentifier = "DECOY", string entrapmentIdentifier = "NTRAP", bool isEntrapment = false)
         {
             var prespecified = ProteinDbLoader.GetPtmListFromProteinXml(rnaDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
@@ -353,7 +364,7 @@ public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets,
                         }
                         if (xml.NodeType == XmlNodeType.EndElement || xml.IsEmptyElement)
                         {
-                            RNA newProtein = block.ParseRnaEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, rnaDbLocation, decoyIdentifier, entrapmentIdentifier);
+                            RNA newProtein = block.ParseRnaEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, rnaDbLocation, decoyIdentifier, entrapmentIdentifier, isEntrapment);
                             if (newProtein != null)
                             {
                                 if (newProtein.IsDecoy)
