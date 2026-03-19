@@ -203,40 +203,6 @@ public static class MslProteoformScorer
 		return results;
 	}
 
-	/// <summary>
-	/// Convenience overload that deconvolutes the scan internally before scoring.
-	/// Uses mzLib's <see cref="ClassicDeconvolutionParameters"/> with default settings.
-	/// Prefer the <see cref="Score(ReadOnlySpan{MslProteoformIndexEntry}, MslLibrary, IReadOnlyList{DeconvolutedPeak}, double, int)"/>
-	/// overload if the caller has already deconvoluted, to avoid redundant work.
-	/// </summary>
-	/// <param name="candidates">Index entries from <see cref="MslProteoformIndex.QueryMassWindow"/>.</param>
-	/// <param name="library">Library to retrieve full entries from. Must not be null.</param>
-	/// <param name="ms2Scan">The raw MS2 scan to deconvolute internally. Must not be null.</param>
-	/// <param name="fragmentMassTolerance">Fragment matching tolerance as a fraction (ppm × 1e-6). Default: 20e-6.</param>
-	/// <param name="minMatchedFragments">Minimum matched fragments to include a candidate. Default: 3.</param>
-	/// <returns>
-	///   List of <see cref="MslProteoformScoringResult"/> sorted by composite score descending.
-	/// </returns>
-	/// <exception cref="ArgumentNullException">
-	///   <paramref name="library"/> or <paramref name="ms2Scan"/> is null.
-	/// </exception>
-	public static List<MslProteoformScoringResult> Score(
-		ReadOnlySpan<MslProteoformIndexEntry> candidates,
-		MslLibrary library,
-		MsDataScan ms2Scan,
-		double fragmentMassTolerance = 20e-6,
-		int minMatchedFragments = 3)
-	{
-		ArgumentNullException.ThrowIfNull(library);
-		ArgumentNullException.ThrowIfNull(ms2Scan);
-
-		if (candidates.IsEmpty)
-			return new List<MslProteoformScoringResult>();
-
-		List<DeconvolutedPeak> deconvPeaks = DeconvoluteScanInternal(ms2Scan);
-		return Score(candidates, library, deconvPeaks, fragmentMassTolerance, minMatchedFragments);
-	}
-
 	// ── Private: per-candidate scoring ───────────────────────────────────────
 
 	/// <summary>
@@ -434,44 +400,5 @@ public static class MslProteoformScorer
 
 		Array.Sort(arr, static (a, b) => a.NeutralMass.CompareTo(b.NeutralMass));
 		return arr;
-	}
-
-	// ── Private: internal deconvolution ──────────────────────────────────────
-
-	/// <summary>
-	/// Deconvolutes an MS2 scan using mzLib's <see cref="ClassicDeconvolutionParameters"/>
-	/// and returns the result as a list of <see cref="DeconvolutedPeak"/> values with
-	/// intensities normalized so the most abundant peak = 1.0.
-	/// </summary>
-	private static List<DeconvolutedPeak> DeconvoluteScanInternal(MsDataScan scan)
-	{
-		// ClassicDeconvolutionParameters(minAssumedChargeState, maxAssumedChargeState,
-		//                                deconvolutionTolerancePpm, intensityRatioLimit)
-		var deconvParams = new ClassicDeconvolutionParameters(
-			minCharge: 1,
-			maxCharge: 60,
-			deconPpm: 4,
-			intensityRatio: 3);
-
-		// Use Deconvoluter.Deconvolute(scan, parameters) — the correct mzLib entry point.
-		var envelopes = Deconvoluter.Deconvolute(scan, deconvParams)
-			.ToList();
-
-		if (envelopes.Count == 0)
-			return new List<DeconvolutedPeak>();
-
-		double maxIntensity = envelopes.Max(e => e.TotalIntensity);
-		if (maxIntensity <= 0.0)
-			maxIntensity = 1.0;
-
-		var peaks = new List<DeconvolutedPeak>(envelopes.Count);
-		foreach (var env in envelopes)
-		{
-			peaks.Add(new DeconvolutedPeak(
-				neutralMass: env.MonoisotopicMass,
-				intensity: (float)(env.TotalIntensity / maxIntensity)));
-		}
-
-		return peaks;
 	}
 }
