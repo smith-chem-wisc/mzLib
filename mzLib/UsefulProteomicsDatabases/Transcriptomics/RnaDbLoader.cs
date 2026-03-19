@@ -143,7 +143,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
 public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets, DecoyType decoyType,
             bool isContaminant, out List<string> errors, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null, 
-            int maxThreads = 1, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "NTRAP", bool isEntrapment = false)
+            int maxThreads = 1, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapment = false)
         {
             RnaFastaHeaderType? headerType = null;
             SequenceTransformationOnRead sequenceTransformation = SequenceTransformationOnRead.None;
@@ -320,7 +320,7 @@ public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets,
             IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications,
             int maxHeterozygousVariants = 4, int minAlleleDepth = 1,
             int maxThreads = 1, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
-            string decoyIdentifier = "DECOY", string entrapmentIdentifier = "NTRAP", bool isEntrapment = false)
+            string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapment = false)
         {
             var prespecified = ProteinDbLoader.GetPtmListFromProteinXml(rnaDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();

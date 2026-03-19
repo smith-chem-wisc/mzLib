@@ -404,18 +404,18 @@ namespace Test.Transcriptomics
             var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_entrapment.fasta");
             File.WriteAllText(fastapath, fastacontent);
 
-            var rnas = RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.Reverse, false, out var errors, entrapmentIdentifier: "NTRAP", isEntrapment: true);
+            var rnas = RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.Reverse, false, out var errors, entrapmentIdentifier: "Random", isEntrapment: true);
             Assert.That(errors.Count, Is.EqualTo(0));
             Assert.That(rnas.Count, Is.EqualTo(2));
 
             var target = rnas.Single(p => !p.IsDecoy);
             Assert.That(target.IsEntrapment, Is.True);
-            Assert.That(target.Accession.Contains("NTRAP_"), Is.True);
+            Assert.That(target.Accession.Contains("Random_"), Is.True);
 
             var decoy = rnas.Single(p => p.IsDecoy);
             Assert.That(decoy.IsEntrapment, Is.True);
             Assert.That(decoy.Accession.Contains("DECOY_"), Is.True);
-            Assert.That(decoy.Accession.Contains("NTRAP_"), Is.True);
+            Assert.That(decoy.Accession.Contains("Random_"), Is.True);
 
             File.Delete(fastapath);
         }
@@ -427,11 +427,11 @@ namespace Test.Transcriptomics
             var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_entrapment_prepend.fasta");
             File.WriteAllText(fastapath, fastacontent);
 
-            var rnas = RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.None, false, out var errors, entrapmentIdentifier: "NTRAP", isEntrapment: true);
+            var rnas = RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.None, false, out var errors, entrapmentIdentifier: "Random", isEntrapment: true);
             Assert.That(errors.Count, Is.EqualTo(0));
             Assert.That(rnas.Count, Is.EqualTo(1));
             Assert.That(rnas[0].IsEntrapment, Is.True);
-            Assert.That(rnas[0].Accession.Contains("NTRAP_"), Is.True);
+            Assert.That(rnas[0].Accession.Contains("Random_"), Is.True);
 
             File.Delete(fastapath);
         }
@@ -443,18 +443,18 @@ namespace Test.Transcriptomics
             var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_entrapment_decoy.fasta");
             File.WriteAllText(fastapath, fastacontent);
 
-            var rnas = RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.Reverse, false, out var errors, entrapmentIdentifier: "NTRAP", isEntrapment: true);
+            var rnas = RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.Reverse, false, out var errors, entrapmentIdentifier: "Random", isEntrapment: true);
             Assert.That(errors.Count, Is.EqualTo(0));
             Assert.That(rnas.Count, Is.EqualTo(2));
 
             var target = rnas.Single(p => !p.IsDecoy);
             Assert.That(target.IsEntrapment, Is.True);
-            Assert.That(target.Accession.Contains("NTRAP_"), Is.True);
+            Assert.That(target.Accession.Contains("Random_"), Is.True);
 
             var decoy = rnas.Single(p => p.IsDecoy);
             Assert.That(decoy.IsEntrapment, Is.True);
             Assert.That(decoy.Accession.Contains("DECOY_"), Is.True);
-            Assert.That(decoy.Accession.Contains("NTRAP_"), Is.True);
+            Assert.That(decoy.Accession.Contains("Random_"), Is.True);
 
             File.Delete(fastapath);
         }
@@ -467,7 +467,7 @@ namespace Test.Transcriptomics
             File.WriteAllText(fastapath, fastacontent);
 
             Assert.Throws<MzLibException>(() =>
-                RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.None, true, out var errors, entrapmentIdentifier: "NTRAP", isEntrapment: true));
+                RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.None, true, out var errors, entrapmentIdentifier: "Random", isEntrapment: true));
 
             File.Delete(fastapath);
         }

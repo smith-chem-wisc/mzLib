@@ -312,7 +312,7 @@ namespace UsefulProteomicsDatabases
         /// A constructed <see cref="Protein"/> object if the end of an <entry> element is reached and all required data is present; otherwise, <c>null</c>.
         /// </returns>
         public Protein ParseEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications,
-            bool isContaminant, string proteinDbLocation, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "NTRAP", bool isEntrapmentDb = false)
+            bool isContaminant, string proteinDbLocation, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapmentDb = false)
         {
             Protein protein = null;
             if (xml.Name == "feature")
@@ -363,7 +363,7 @@ namespace UsefulProteomicsDatabases
         /// </returns>
         internal RNA ParseRnaEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude,
             Dictionary<string, Modification> unknownModifications,
-            bool isContaminant, string rnaDbLocation, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "NTRAP", bool isEntrapmentDb = false)
+            bool isContaminant, string rnaDbLocation, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapmentDb = false)
         {
             RNA result = null;
             if (xml.Name == "feature")
@@ -418,7 +418,7 @@ namespace UsefulProteomicsDatabases
         /// or <c>null</c> if the entry is incomplete.
         /// </returns>
 
-        public Protein ParseEntryEndElement(XmlReader xml, bool isContaminant, string proteinDbLocation, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "NTRAP", bool isEntrapmentDb = false)
+        public Protein ParseEntryEndElement(XmlReader xml, bool isContaminant, string proteinDbLocation, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapmentDb = false)
         {
             Protein result = null;
             bool isDecoy = false;
@@ -482,7 +482,7 @@ namespace UsefulProteomicsDatabases
         /// or <c>null</c> if the entry is incomplete.
         /// </returns>
         internal RNA ParseRnaEntryEndElement(XmlReader xml, bool isContaminant, string rnaDbLocation,
-            IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "NTRAP", bool isEntrapmentDb = false)
+            IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapmentDb = false)
         {
             RNA result = null;
             bool isDecoy = false;
