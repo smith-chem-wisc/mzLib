@@ -36,7 +36,8 @@ namespace Test.Omics;
     public MockBioPolymer(string sequence, string accession,
         string organism = "", string name = "", string fullName = "",
         List<Tuple<string, string>> geneNames = null,
-        bool isDecoy = false, bool isContaminant = false, bool isEntrapment = false)
+        bool isDecoy = false, bool isContaminant = false,
+        bool isEntrapment = false)
     {
         BaseSequence = sequence;
         Accession = accession;
