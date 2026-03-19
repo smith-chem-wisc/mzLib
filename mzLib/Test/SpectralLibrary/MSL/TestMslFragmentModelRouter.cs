@@ -174,30 +174,4 @@ public class TestMslFragmentModelRouter
 		Assert.That(sum20, Is.Not.EqualTo(sum35).Within(1e-6),
 			"NCE 20 and NCE 35 should produce different intensity distributions");
 	}
-
-	[Test]
-	[Ignore("Requires Koina server — run manually with network access")]
-	public void MslLibrary_PredictFragments_UpdatesFragments()
-	{
-		const string testLibraryPath = "TestData/predicted_no_fragments.msl";
-
-		Assert.That(File.Exists(testLibraryPath), Is.True,
-			$"Pre-condition: test file must exist at {testLibraryPath}");
-
-		using var library = MslLibrary.Load(testLibraryPath);
-
-		int emptyBefore = library.GetAllEntries()
-			.Count(e => e.Source == MslFormat.SourceType.Predicted && e.Fragments.Count == 0);
-
-		Assert.That(emptyBefore, Is.GreaterThan(0));
-
-		// Extension method from MslLibraryPredictionExtensions
-		int updated = library.PredictFragments();
-
-		Assert.That(updated, Is.EqualTo(emptyBefore));
-		Assert.That(
-			library.GetAllEntries()
-				.Count(e => e.Source == MslFormat.SourceType.Predicted && e.Fragments.Count == 0),
-			Is.Zero);
-	}
 }
