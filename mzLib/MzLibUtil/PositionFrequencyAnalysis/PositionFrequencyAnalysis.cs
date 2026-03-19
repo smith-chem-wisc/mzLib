@@ -1,5 +1,6 @@
 ﻿using Easy.Common.Extensions;
 using System.Collections.Generic;
+using System;
 
 namespace MzLibUtil.PositionFrequencyAnalysis
 {
@@ -21,8 +22,9 @@ namespace MzLibUtil.PositionFrequencyAnalysis
         /// <param name="proteinSequences">An optional dictionary of protein sequences to use for mapping peptides to proteins.
         /// If not provided, the protein sequences will be left null in the <see cref="QuantifiedProtein"/> objects. However, this parameter should not be null if
         /// protein stoichiometry is the goal, since it is needed to align the peptides to the parent protein.</param>
-        public void SetUpQuantificationFromQuantifiedPeptideRecords(List<QuantifiedPeptideRecord> peptides, Dictionary<string, string> proteinSequences=null)
+        public void SetUpQuantificationFromQuantifiedPeptideRecords(List<QuantifiedPeptideRecord> peptides, Dictionary<string, string> proteinSequences = null)
         {
+            ArgumentNullException.ThrowIfNull(peptides);
             ProteinGroups = new Dictionary<string, QuantifiedProteinGroup>();
             foreach (var peptide in peptides)
             {

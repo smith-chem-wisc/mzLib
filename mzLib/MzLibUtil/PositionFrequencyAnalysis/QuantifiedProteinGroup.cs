@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace MzLibUtil.PositionFrequencyAnalysis
 {
@@ -30,12 +29,12 @@ namespace MzLibUtil.PositionFrequencyAnalysis
         /// </summary>
         public QuantifiedProteinGroup(string name, Dictionary<string, QuantifiedProtein> proteins = null)
         {
-            proteins = proteins ?? new Dictionary<string, QuantifiedProtein>();
+            proteins ??= new Dictionary<string, QuantifiedProtein>();
             var proteinAccessions = name.SplitProteinAccessions();
             if ((proteinAccessions.Length == proteins.Count && proteinAccessions.OrderBy(x => x).SequenceEqual(proteins.Keys.OrderBy(x => x))) || proteins.IsNullOrEmpty())
             {
                 Name = name;
-                Proteins = proteins ?? new Dictionary<string, QuantifiedProtein>();
+                Proteins = proteins;
             }
             else
             {

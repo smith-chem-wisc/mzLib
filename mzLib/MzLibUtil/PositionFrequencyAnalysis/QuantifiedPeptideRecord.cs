@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.Text.RegularExpressions;
 
 namespace MzLibUtil.PositionFrequencyAnalysis
 {
@@ -11,7 +10,7 @@ namespace MzLibUtil.PositionFrequencyAnalysis
     public class QuantifiedPeptideRecord
     {
         public string FullSequence { get; set; }
-        public string BaseSequence { get; set; }
+        public string BaseSequence { get; private set; } 
         public HashSet<string> ProteinGroups { get; set; }
         public double Intensity { get; set; }
         /// <summary>
