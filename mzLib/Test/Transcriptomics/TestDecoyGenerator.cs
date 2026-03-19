@@ -47,6 +47,28 @@ namespace Test.Transcriptomics
         }
 
         [Test]
+        public static void TestReverseDecoy_EntrapmentIsPreserved()
+        {
+            var entrapmentRna = new RNA("GUUCUG", "NTRAP_RNA1", isEntrapment: true);
+            var targetRna = new RNA("GUGCUA", "RNA2");
+
+            var oligos = new List<RNA> { entrapmentRna, targetRna };
+            var decoys = RnaDecoyGenerator.GenerateDecoys(oligos, DecoyType.Reverse, 1);
+
+            Assert.That(decoys.Count, Is.EqualTo(2));
+
+            var entrapmentDecoy = decoys.First(d => d.BaseSequence == "GUCUUG");
+            Assert.That(entrapmentDecoy.IsEntrapment, Is.True);
+            Assert.That(entrapmentDecoy.IsDecoy, Is.True);
+            Assert.That(entrapmentDecoy.Accession.StartsWith("DECOY_"), Is.True);
+            Assert.That(entrapmentDecoy.Accession.Contains("NTRAP_"), Is.True);
+
+            var targetDecoy = decoys.First(d => d.BaseSequence == "AUCGUG");
+            Assert.That(targetDecoy.IsEntrapment, Is.False);
+            Assert.That(targetDecoy.IsDecoy, Is.True);
+        }
+
+        [Test]
         [TestCase("GUACUG", 1, "GUCAUG", 6)]
         [TestCase("GUACUA", 2, "AUCAUG", 5)]
         [TestCase("GUACUA", 3, "AUCAUG", 4)]

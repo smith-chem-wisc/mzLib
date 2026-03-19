@@ -10,6 +10,7 @@ using UsefulProteomicsDatabases;
 using Transcriptomics;
 using Omics;
 using Omics.Modifications.IO;
+using MzLibUtil;
 
 namespace Test.Transcriptomics
 {
@@ -394,6 +395,81 @@ namespace Test.Transcriptomics
             Assert.That(readInDecoyCount, Is.EqualTo(5));
 
             File.Delete(xmlPath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_PrependingAndDecoy()
+        {
+            string fastacontent = ">id:RNA1|Name:RNA1|SOterm:transcript|Type:gene|Species:Homo sapiens\nGUUCUG";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_entrapment.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            var rnas = RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.Reverse, false, out var errors, entrapmentIdentifier: "NTRAP", isEntrapment: true);
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(rnas.Count, Is.EqualTo(2));
+
+            var target = rnas.Single(p => !p.IsDecoy);
+            Assert.That(target.IsEntrapment, Is.True);
+            Assert.That(target.Accession.Contains("NTRAP_"), Is.True);
+
+            var decoy = rnas.Single(p => p.IsDecoy);
+            Assert.That(decoy.IsEntrapment, Is.True);
+            Assert.That(decoy.Accession.Contains("DECOY_"), Is.True);
+            Assert.That(decoy.Accession.Contains("NTRAP_"), Is.True);
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_PrependingWhenMissing()
+        {
+            string fastacontent = ">id:RNA1|Name:RNA1|SOterm:transcript|Type:gene|Species:Homo sapiens\nGUUCUG";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_entrapment_prepend.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            var rnas = RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.None, false, out var errors, entrapmentIdentifier: "NTRAP", isEntrapment: true);
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(rnas.Count, Is.EqualTo(1));
+            Assert.That(rnas[0].IsEntrapment, Is.True);
+            Assert.That(rnas[0].Accession.Contains("NTRAP_"), Is.True);
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_DecoyPrependsWithNtrap()
+        {
+            string fastacontent = ">id:RNA1|Name:RNA1|SOterm:transcript|Type:gene|Species:Homo sapiens\nGUUCUG";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_entrapment_decoy.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            var rnas = RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.Reverse, false, out var errors, entrapmentIdentifier: "NTRAP", isEntrapment: true);
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(rnas.Count, Is.EqualTo(2));
+
+            var target = rnas.Single(p => !p.IsDecoy);
+            Assert.That(target.IsEntrapment, Is.True);
+            Assert.That(target.Accession.Contains("NTRAP_"), Is.True);
+
+            var decoy = rnas.Single(p => p.IsDecoy);
+            Assert.That(decoy.IsEntrapment, Is.True);
+            Assert.That(decoy.Accession.Contains("DECOY_"), Is.True);
+            Assert.That(decoy.Accession.Contains("NTRAP_"), Is.True);
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_ContaminantAndEntrapment_Throws()
+        {
+            string fastacontent = ">id:RNA1|Name:RNA1|SOterm:transcript|Type:gene|Species:Homo sapiens\nGUUCUG";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_contam_entrap.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            Assert.Throws<MzLibException>(() =>
+                RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.None, true, out var errors, entrapmentIdentifier: "NTRAP", isEntrapment: true));
+
+            File.Delete(fastapath);
         }
     }
 }
