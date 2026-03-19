@@ -1,10 +1,10 @@
 // Copyright 2026 mzLib Contributors
 // Licensed under the GNU Lesser General Public License v3.0
 
+using MassSpectrometry.Dia.Calibration;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
-using MassSpectrometry.Dia.Calibration;
 
 namespace MassSpectrometry.Dia
 {
@@ -153,13 +153,182 @@ namespace MassSpectrometry.Dia
                 SkippedNoFragments = skippedNoFragments;
             }
         }
+        // Add this method to DiaLibraryQueryGenerator (MassSpectrometry/Dia/DiaLibraryQueryGenerator.cs)
+        // This is the only query generation method used in the bootstrap calibration path.
+        // All other Generate* methods (Generate, GenerateCalibrated, GenerateCalibratedAdaptive)
+        // are candidates for deletion once this path is validated end-to-end.
 
+        /// <summary>
+        /// Generates extraction queries using the LOWESS calibration model from
+        /// <see cref="DiaBootstrapCalibrator.RunBidirectional"/>.
+        ///
+        /// Window per target precursor:
+        ///   predictedRt = lowess.ToMinutes(precursor.RetentionTime)
+        ///   hw          = Math.Min(lowess.GetLocalSigma(precursor.RetentionTime), localSigmaCap) * 2.0
+        ///   window      = [predictedRt - hw, predictedRt + hw]
+        ///
+        /// Each decoy receives the same window as its paired target. Pairing is by position:
+        /// decoy at index i pairs with target at index (i - firstDecoyIndex). This places
+        /// the decoy in the same local RT signal environment as its target for fair
+        /// target-decoy competition.
+        ///
+        /// Precursors with no RetentionTime are skipped and counted in SkippedNoFragments.
+        ///
+        /// NOTE: Skipping no-RT precursors is a deliberate simplification. In the current
+        /// dataset, 93.2% of precursors have library RT so the impact is small. Once
+        /// end-to-end results are validated, revisit whether a full-run fallback window
+        /// is worth adding for the ~7% without RT. For now, skipping keeps the search
+        /// clean and avoids flooding with uncalibrated full-run queries. See Bootstrap
+        /// RT Calibration Writeup §7 for context.
+        /// </summary>
+        /// <param name="precursors">Target + decoy library precursors, targets first.</param>
+        /// <param name="scanIndex">The DIA scan index.</param>
+        /// <param name="ppmTolerance">Fragment m/z tolerance in ppm.</param>
+        /// <param name="lowess">LOWESS calibration model from DiaBootstrapCalibrator.RunBidirectional().</param>
+        /// <param name="localSigmaCap">
+        /// Cap on local σ before doubling to half-width. Default 1.5 min.
+        /// Prevents the σ spike at libRT ~105 (observed σ = 3.16 min) from producing
+        /// 6+ min windows. At 1.5 min cap, spike region gets hw = 3.0 min which is
+        /// conservative but not catastrophic. See Bootstrap RT Calibration Writeup §7.1.
+        /// </param>
+        public static GenerationResult GenerateFromLowess(
+            IReadOnlyList<LibraryPrecursorInput> precursors,
+            DiaScanIndex scanIndex,
+            float ppmTolerance,
+            LowessRtModel lowess,
+            double localSigmaCap = 1.5)
+        {
+            if (precursors == null) throw new ArgumentNullException(nameof(precursors));
+            if (scanIndex == null) throw new ArgumentNullException(nameof(scanIndex));
+            if (lowess == null) throw new ArgumentNullException(nameof(lowess));
+
+            // ── Find the first decoy index ───────────────────────────────────────
+            int firstDecoyIdx = -1;
+            for (int i = 0; i < precursors.Count; i++)
+                if (precursors[i].IsDecoy) { firstDecoyIdx = i; break; }
+
+            int targetCount = firstDecoyIdx >= 0 ? firstDecoyIdx : precursors.Count;
+
+            // ── Pre-compute target windows ───────────────────────────────────────
+            // Stored so decoys can look up their paired target window by index.
+            var targetRtMin = new float[targetCount];
+            var targetRtMax = new float[targetCount];
+            var targetHasWindow = new bool[targetCount];
+
+            for (int i = 0; i < targetCount; i++)
+            {
+                var p = precursors[i];
+                if (!p.RetentionTime.HasValue)
+                {
+                    // NOTE: target has no library RT — skipped (see method summary).
+                    continue;
+                }
+
+                double libRt = p.RetentionTime.Value;
+                double predictedRt = lowess.ToMinutes(libRt);
+                double localSigma = lowess.GetLocalSigma(libRt);
+                double hw = Math.Min(localSigma, localSigmaCap) * 2.0;
+
+                targetRtMin[i] = (float)(predictedRt - hw);
+                targetRtMax[i] = (float)(predictedRt + hw);
+                targetHasWindow[i] = true;
+            }
+
+            // ── First pass: count valid queries ──────────────────────────────────
+            int totalQueryCount = 0;
+            int skippedNoWindow = 0;
+            // NOTE: SkippedNoFragments is overloaded here to also count precursors
+            // skipped due to missing RetentionTime (no-RT targets and their paired decoys).
+            // This is a conscious simplification — GenerationResult has no third skip slot.
+            // When revisiting the no-RT fallback, add SkippedNoRt to GenerationResult.
+            int skippedNoFragments = 0;
+
+            for (int i = 0; i < precursors.Count; i++)
+            {
+                var p = precursors[i];
+
+                int windowId = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
+                if (windowId < 0) { skippedNoWindow++; continue; }
+
+                if (p.FragmentCount == 0) { skippedNoFragments++; continue; }
+
+                bool hasWindow;
+                if (!p.IsDecoy)
+                {
+                    hasWindow = i < targetCount && targetHasWindow[i];
+                }
+                else
+                {
+                    int pairedIdx = firstDecoyIdx >= 0 ? i - firstDecoyIdx : -1;
+                    hasWindow = pairedIdx >= 0 && pairedIdx < targetCount && targetHasWindow[pairedIdx];
+                }
+
+                if (!hasWindow) { skippedNoFragments++; continue; }
+
+                totalQueryCount += p.FragmentCount;
+            }
+
+            // ── Allocate ──────────────────────────────────────────────────────────
+            var queries = new FragmentQuery[totalQueryCount];
+            var groups = new List<PrecursorQueryGroup>(
+                precursors.Count - skippedNoWindow - skippedNoFragments);
+
+            // ── Second pass: fill ─────────────────────────────────────────────────
+            int queryIndex = 0;
+            for (int i = 0; i < precursors.Count; i++)
+            {
+                var p = precursors[i];
+
+                int windowId = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
+                if (windowId < 0 || p.FragmentCount == 0) continue;
+
+                float rtMin, rtMax;
+
+                if (!p.IsDecoy)
+                {
+                    if (i >= targetCount || !targetHasWindow[i]) continue;
+                    rtMin = targetRtMin[i];
+                    rtMax = targetRtMax[i];
+                }
+                else
+                {
+                    int pairedIdx = firstDecoyIdx >= 0 ? i - firstDecoyIdx : -1;
+                    if (pairedIdx < 0 || pairedIdx >= targetCount || !targetHasWindow[pairedIdx]) continue;
+                    rtMin = targetRtMin[pairedIdx];
+                    rtMax = targetRtMax[pairedIdx];
+                }
+
+                int groupOffset = queryIndex;
+
+                for (int f = 0; f < p.FragmentCount; f++)
+                {
+                    queries[queryIndex] = new FragmentQuery(
+                        targetMz: p.FragmentMzs[f],
+                        tolerancePpm: ppmTolerance,
+                        rtMin: rtMin,
+                        rtMax: rtMax,
+                        windowId: windowId,
+                        queryId: queryIndex);
+                    queryIndex++;
+                }
+
+                groups.Add(new PrecursorQueryGroup(
+                    inputIndex: i,
+                    queryOffset: groupOffset,
+                    queryCount: p.FragmentCount,
+                    windowId: windowId,
+                    rtMin: rtMin,
+                    rtMax: rtMax));
+            }
+
+            return new GenerationResult(queries, groups.ToArray(), skippedNoWindow, skippedNoFragments);
+        }
         /// <summary>
         /// Generates FragmentQuery[] from library precursor inputs.
         /// Two-pass: first counts for a single allocation, then fills.
         /// </summary>
         public static GenerationResult Generate(
-            IList<LibraryPrecursorInput> precursors,
+            IReadOnlyList<LibraryPrecursorInput> precursors,
             DiaScanIndex scanIndex,
             DiaSearchParameters parameters)
         {
@@ -211,16 +380,6 @@ namespace MassSpectrometry.Dia
                     continue;
 
                 float rtMin, rtMax;
-
-                // BUG FIX (2026): Previously only checked p.RetentionTime.HasValue.
-                // For iRT libraries, RetentionTime is null and IrtValue is set instead.
-                // The old code silently fell through to the full-run fallback for every
-                // iRT-annotated precursor, producing 120-minute windows instead of ±5 min.
-                // Fix: resolve IrtValue ?? RetentionTime (IrtValue takes priority when both
-                // are set, because calibration is fitted on iRT, not on library RT).
-                // If this was intentionally using only RetentionTime (e.g. for a library
-                // type that stores calibrated RT in RetentionTime and wants IrtValue ignored),
-                // revert this line and document the library type here.
                 double? resolvedRt = p.IrtValue ?? p.RetentionTime;
 
                 if (resolvedRt.HasValue)
@@ -281,291 +440,8 @@ namespace MassSpectrometry.Dia
         /// Fitted RT calibration model (iRT → experimental RT). Obtained from RtCalibrationFitter.
         /// </param>
         /// <returns>GenerationResult with per-precursor calibrated RT windows.</returns>
-        public static GenerationResult GenerateCalibrated(
-            IList<LibraryPrecursorInput> precursors,
-            DiaScanIndex scanIndex,
-            DiaSearchParameters parameters,
-            RtCalibrationModel calibrationModel)
-        {
-            if (precursors == null) throw new ArgumentNullException(nameof(precursors));
-            if (scanIndex == null) throw new ArgumentNullException(nameof(scanIndex));
-            if (parameters == null) throw new ArgumentNullException(nameof(parameters));
-            if (calibrationModel == null) throw new ArgumentNullException(nameof(calibrationModel));
-
-            float ppmTolerance = parameters.PpmTolerance;
-            double sigmaMultiplier = parameters.CalibratedWindowSigmaMultiplier;
-            float fallbackRtTolerance = parameters.RtToleranceMinutes;
-
-            // Calibrated window half-width based on model residual sigma (in minutes)
-            float calibratedHalfWindow = (float)calibrationModel.GetMinutesWindowHalfWidth(sigmaMultiplier);
-
-            // Fallback RT bounds for precursors with no RT info at all
-            float globalRtMin = scanIndex.GetGlobalRtMin();
-            float globalRtMax = scanIndex.GetGlobalRtMax();
-
-            // First pass: count
-            int totalQueryCount = 0;
-            int skippedNoWindow = 0;
-            int skippedNoFragments = 0;
-
-            for (int i = 0; i < precursors.Count; i++)
-            {
-                var p = precursors[i];
-                int windowId = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
-                if (windowId < 0) { skippedNoWindow++; continue; }
-                if (p.FragmentCount == 0) { skippedNoFragments++; continue; }
-                totalQueryCount += p.FragmentCount;
-            }
-
-            // Allocate
-            var queries = new FragmentQuery[totalQueryCount];
-            var groups = new List<PrecursorQueryGroup>(
-                precursors.Count - skippedNoWindow - skippedNoFragments);
-
-            // Second pass: fill with calibrated RT windows
-            int queryIndex = 0;
-            for (int i = 0; i < precursors.Count; i++)
-            {
-                var p = precursors[i];
-                int windowId = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
-                if (windowId < 0 || p.FragmentCount == 0)
-                    continue;
-
-                float rtMin, rtMax;
-                if (p.IrtValue.HasValue)
-                {
-                    // Use calibration model to predict experimental RT from iRT
-                    float predictedRt = (float)calibrationModel.ToMinutes(p.IrtValue.Value);
-                    rtMin = predictedRt - calibratedHalfWindow;
-                    rtMax = predictedRt + calibratedHalfWindow;
-                }
-                else if (p.RetentionTime.HasValue)
-                {
-                    // No iRT, but have library RT. Use the calibration model to predict
-                    // observed RT from library RT (the model was fitted on library RT vs
-                    // observed RT, so library RT serves as the iRT input here).
-                    float predictedRt = (float)calibrationModel.ToMinutes(p.RetentionTime.Value);
-                    rtMin = predictedRt - calibratedHalfWindow;
-                    rtMax = predictedRt + calibratedHalfWindow;
-                }
-                else
-                {
-                    rtMin = globalRtMin;
-                    rtMax = globalRtMax;
-                }
-
-                int groupOffset = queryIndex;
-
-                for (int f = 0; f < p.FragmentCount; f++)
-                {
-                    queries[queryIndex] = new FragmentQuery(
-                        targetMz: p.FragmentMzs[f],
-                        tolerancePpm: ppmTolerance,
-                        rtMin: rtMin,
-                        rtMax: rtMax,
-                        windowId: windowId,
-                        queryId: queryIndex
-                    );
-                    queryIndex++;
-                }
-
-                groups.Add(new PrecursorQueryGroup(
-                    inputIndex: i,
-                    queryOffset: groupOffset,
-                    queryCount: p.FragmentCount,
-                    windowId: windowId,
-                    rtMin: rtMin,
-                    rtMax: rtMax
-                ));
-            }
-
-            return new GenerationResult(queries, groups.ToArray(), skippedNoWindow, skippedNoFragments);
-        }
-
-        // ════════════════════════════════════════════════════════════════
-        //  Phase 15, Prompt 4: RT-Adaptive Window Widths
-        // ════════════════════════════════════════════════════════════════
-
-        /// <summary>
-        /// Generates extraction queries using a calibration model with RT-adaptive window widths.
-        /// Each precursor's RT window is sized based on the local calibration σ at that precursor's
-        /// predicted RT, rather than using a single global σ.
-        ///
-        /// For linear models: GetLocalSigma returns the global σ, so this behaves identically
-        /// to GenerateCalibrated with a uniform window.
-        /// For piecewise/LOWESS models: GetLocalSigma varies by RT region, producing tighter
-        /// windows where calibration is better (dense anchor regions) and wider windows where
-        /// calibration is uncertain (gradient edges with fewer anchors).
-        ///
-        /// Applies a minimum window half-width of minWindowHalfWidthMinutes to prevent
-        /// excessively tight windows that could miss valid peptides due to local calibration
-        /// artifacts or small-number statistics in per-segment σ.
-        ///
-        /// Uses the same two-pass (count, then fill) pattern as Generate and GenerateCalibrated.
-        /// </summary>
-        /// <param name="precursors">Library precursor inputs.</param>
-        /// <param name="scanIndex">The DIA scan index.</param>
-        /// <param name="parameters">Search parameters (PpmTolerance, RtToleranceMinutes fallback).</param>
-        /// <param name="calibration">
-        /// The sealed RtCalibrationModel used for RT prediction. For local σ, the method
-        /// uses the detailedModel parameter.
-        /// </param>
-        /// <param name="detailedModel">
-        /// The IRtCalibrationModel that provides GetLocalSigma(). If null, falls back to
-        /// a uniform window using calibration.SigmaMinutes.
-        /// </param>
-        /// <param name="sigmaMultiplier">
-        /// Window = predicted ± max(sigmaMultiplier × localSigma, minWindowHalfWidthMinutes).
-        /// Default 3.0.
-        /// </param>
-        /// <param name="minWindowHalfWidthMinutes">
-        /// Minimum window half-width in minutes. Prevents excessively narrow windows
-        /// in regions with very low local σ. Default 0.3 min.
-        /// </param>
-        /// <returns>GenerationResult with per-precursor RT-adaptive windows.</returns>
-        public static GenerationResult GenerateCalibratedAdaptive(
-    IList<LibraryPrecursorInput> precursors,
-    DiaScanIndex scanIndex,
-    DiaSearchParameters parameters,
-    RtCalibrationModel calibration,
-    IRtCalibrationModel detailedModel = null,
-    double sigmaMultiplier = 3.0,
-    double minWindowHalfWidthMinutes = 0.3)
-        {
-            if (precursors == null) throw new ArgumentNullException(nameof(precursors));
-            if (scanIndex == null) throw new ArgumentNullException(nameof(scanIndex));
-            if (parameters == null) throw new ArgumentNullException(nameof(parameters));
-            if (calibration == null) throw new ArgumentNullException(nameof(calibration));
-
-            float ppmTolerance = parameters.PpmTolerance;
-
-            float globalRtMin = scanIndex.GetGlobalRtMin();
-            float globalRtMax = scanIndex.GetGlobalRtMax();
-
-            double uniformHalfWidth = Math.Max(
-                calibration.SigmaMinutes * sigmaMultiplier,
-                minWindowHalfWidthMinutes);
-
-            // Find first decoy index for paired-target window placement
-            int firstDecoyIdx = -1;
-            for (int i = 0; i < precursors.Count; i++)
-            {
-                if (precursors[i].IsDecoy) { firstDecoyIdx = i; break; }
-            }
-
-            // First pass: count
-            int totalQueryCount = 0;
-            int skippedNoWindow = 0;
-            int skippedNoFragments = 0;
-
-            for (int i = 0; i < precursors.Count; i++)
-            {
-                var p = precursors[i];
-                int windowId = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
-                if (windowId < 0) { skippedNoWindow++; continue; }
-                if (p.FragmentCount == 0) { skippedNoFragments++; continue; }
-                totalQueryCount += p.FragmentCount;
-            }
-
-            // Allocate
-            var queries = new FragmentQuery[totalQueryCount];
-            var groups = new List<PrecursorQueryGroup>(
-                precursors.Count - skippedNoWindow - skippedNoFragments);
-
-            // Second pass: fill with RT-adaptive windows
-            int queryIndex = 0;
-            for (int i = 0; i < precursors.Count; i++)
-            {
-                var p = precursors[i];
-                int windowId = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
-                if (windowId < 0 || p.FragmentCount == 0)
-                    continue;
-
-                float rtMin, rtMax;
-
-                // For window placement, decoys use their paired target's iRT so they
-                // compete in the same local signal environment as their target partner.
-                // Assembly still uses the decoy's own irtValue for LibraryRetentionTime,
-                // so RtDeviationMinutes is computed correctly relative to the decoy's
-                // own predicted RT.
-                double? extractionIrt;
-                if (p.IsDecoy && firstDecoyIdx >= 0)
-                {
-                    int pairedTargetIdx = i - firstDecoyIdx;
-                    extractionIrt = pairedTargetIdx >= 0 && pairedTargetIdx < firstDecoyIdx
-                        ? precursors[pairedTargetIdx].IrtValue ?? precursors[pairedTargetIdx].RetentionTime
-                        : p.IrtValue ?? p.RetentionTime;
-                }
-                else
-                {
-                    extractionIrt = p.IrtValue ?? p.RetentionTime;
-                }
-
-                if (extractionIrt.HasValue)
-                {
-                    double libRt = extractionIrt.Value;
-
-                    float predictedRt = (float)calibration.ToMinutes(libRt);
-
-                    double localSigma;
-                    if (detailedModel != null)
-                    {
-                        localSigma = detailedModel.GetLocalSigma(libRt);
-                        if (double.IsNaN(localSigma) || localSigma <= 0)
-                            localSigma = calibration.SigmaMinutes;
-                    }
-                    else
-                    {
-                        localSigma = calibration.SigmaMinutes;
-                    }
-
-                    double halfWidth = Math.Max(sigmaMultiplier * localSigma, minWindowHalfWidthMinutes);
-
-                    rtMin = (float)(predictedRt - halfWidth);
-                    rtMax = (float)(predictedRt + halfWidth);
-                }
-                else
-                {
-                    rtMin = globalRtMin;
-                    rtMax = globalRtMax;
-                }
-
-                int groupOffset = queryIndex;
-
-                for (int f = 0; f < p.FragmentCount; f++)
-                {
-                    queries[queryIndex] = new FragmentQuery(
-                        targetMz: p.FragmentMzs[f],
-                        tolerancePpm: ppmTolerance,
-                        rtMin: rtMin,
-                        rtMax: rtMax,
-                        windowId: windowId,
-                        queryId: queryIndex
-                    );
-                    queryIndex++;
-                }
-
-                groups.Add(new PrecursorQueryGroup(
-                    inputIndex: i,
-                    queryOffset: groupOffset,
-                    queryCount: p.FragmentCount,
-                    windowId: windowId,
-                    rtMin: rtMin,
-                    rtMax: rtMax
-                ));
-            }
-
-            return new GenerationResult(queries, groups.ToArray(), skippedNoWindow, skippedNoFragments);
-        }
-
-        /// <summary>
-        /// Original result assembly using summed intensities and IScorer interface.
-        /// Retained for backward compatibility and benchmarking.
-        /// 
-        /// Uses TotalIntensity from FragmentResult (collapses all XIC points to one value per fragment).
-        /// </summary>
         public static List<DiaSearchResult> AssembleResults(
-            IList<LibraryPrecursorInput> precursors,
+            IReadOnlyList<LibraryPrecursorInput> precursors,
             GenerationResult generationResult,
             FragmentResult[] extractionResults,
             DiaSearchParameters parameters,
@@ -633,26 +509,25 @@ namespace MassSpectrometry.Dia
         }
 
         /// <summary>
-        /// Temporal-scoring result assembly with Phase 12 peak group detection.
-        /// 
+        /// Assembles DIA search results from extracted XICs, computing all features
+        /// needed for the 38-feature classifier vector.
+        ///
         /// For each precursor:
-        ///   1. Builds the time × fragment intensity matrix ONCE (shared across all scoring)
-        ///   2. Runs peak group detection to find the chromatographic peak boundaries
-        ///   3. Computes temporal cosine and apex scores WITHIN peak boundaries
-        ///   4. Computes fragment correlations WITHIN peak boundaries
-        ///   5. Also computes full-window scores for backward compatibility
-        /// 
-        /// This replaces the Phase 9/11 approach where the matrix was built twice
-        /// (once for temporal scoring, once for correlations) and no peak boundaries
-        /// were used. The refactoring both improves scoring quality (by restricting to
-        /// the actual elution peak) and improves performance (single matrix build).
+        ///   1. Builds the time × fragment intensity matrix from ExtractionResult
+        ///   2. Runs peak group detection (SelectBest) using LOWESS-calibrated predicted RT
+        ///   3. Computes all scores and features within peak boundaries
+        ///   4. Sets RtDeviationMinutes and RtDeviationSquared against calibrated predicted RT
+        ///
+        /// The LowessRtModel is the only calibration input. RT windows in GenerationResult
+        /// are already set correctly by GenerateFromLowess — this method does not adjust them.
         /// </summary>
         public static List<DiaSearchResult> AssembleResultsWithTemporalScoring(
-            IList<LibraryPrecursorInput> precursors,
+            IReadOnlyList<LibraryPrecursorInput> precursors,
             GenerationResult generationResult,
             ExtractionResult extractionResult,
             DiaSearchParameters parameters,
-            DiaScanIndex index = null)
+            DiaScanIndex index = null,
+            LowessRtModel lowess = null)   // NEW
         {
             if (precursors == null) throw new ArgumentNullException(nameof(precursors));
             if (extractionResult == null) throw new ArgumentNullException(nameof(extractionResult));
@@ -679,7 +554,7 @@ namespace MassSpectrometry.Dia
                     windowId: group.WindowId,
                     isDecoy: input.IsDecoy,
                     fragmentsQueried: group.QueryCount,
-                    libraryRetentionTime: input.IrtValue ?? input.RetentionTime,
+                    libraryRetentionTime: input.RetentionTime,
                     rtWindowStart: group.RtMin,
                     rtWindowEnd: group.RtMax
                 );
@@ -704,10 +579,6 @@ namespace MassSpectrometry.Dia
                 ReadOnlySpan<FragmentResult> fragmentResults =
                     extractionResult.Results.AsSpan(group.QueryOffset, group.QueryCount);
                 ReadOnlySpan<float> libIntensities = input.FragmentIntensities.AsSpan();
-
-                // ══════════════════════════════════════════════════════════════
-                //  Phase 12: Build matrix ONCE, detect peak, score within peak
-                // ══════════════════════════════════════════════════════════════
 
                 // Find reference fragment (most data points) for the RT grid
                 int refFragIdx = -1;
@@ -767,16 +638,11 @@ namespace MassSpectrometry.Dia
                         }
                     }
 
-                    // ── Peak Group Detection ────────────────────────────────
-                    // Prompt 2: SelectBest() replaces Detect() — uses spectral match ×
-                    // co-elution consistency × SNR scoring instead of cosine × log(signal).
-                    // predictedRt is the primary RT discriminator in SelectBest() —
-                    // it drives the Gaussian proximity factor that overwhelms interference peaks.
-                    float? predictedRt = input.IrtValue.HasValue
-                        ? (float?)input.IrtValue.Value
-                        : input.RetentionTime.HasValue
-                            ? (float?)input.RetentionTime.Value
-                            : null;
+                    // Calibrated predicted RT in experimental minutes from the LOWESS model.
+                    // Used by SelectBest() as the Gaussian proximity discriminator.
+                    float? predictedRt = (lowess != null && input.RetentionTime.HasValue)
+                        ? (float?)lowess.ToMinutes(input.RetentionTime.Value)
+                        : null;
 
                     PeakGroup peakGroup = DiaPeakGroupDetector.SelectBest(
                         matrix, refRts, libIntensities, fragmentCount, timePointCount,
@@ -882,12 +748,18 @@ namespace MassSpectrometry.Dia
                         result.PeakMeanFragCorr = result.MeanFragCorr;
                         result.PeakMinFragCorr = result.MinFragCorr;
                     }
-                    // ══════════════════════════════════════════════════════════
-                    //  Phase 13: Advanced discriminative features
-                    //  Computed from the existing matrix — no extra file reads.
-                    // ══════════════════════════════════════════════════════════
+
                     int apexLocalIdx = peakGroup.IsValid ? peakGroup.ApexIndex : fullApexIdx;
                     result.ObservedApexRt = refRts[apexLocalIdx];
+
+                    // RT deviation in experimental minutes against the LOWESS-predicted RT.
+                    // Features [10] and [11]. NaN if no model or no RetentionTime.
+                    if (predictedRt.HasValue && !float.IsNaN(result.ObservedApexRt))
+                    {
+                        float deviation = result.ObservedApexRt - predictedRt.Value;
+                        result.RtDeviationMinutes = deviation;
+                        result.RtDeviationSquared = deviation * deviation;
+                    }
 
                     // ── Count detected fragments (≥1 nonzero across all scans) ──
                     int detectedFragmentCount = 0;
@@ -1270,7 +1142,7 @@ namespace MassSpectrometry.Dia
         /// any other precursor in the same window has a fragment within this tolerance.
         /// </param>
         public static void ComputeChimericScores(
-            IList<LibraryPrecursorInput> precursors,
+            IReadOnlyList<LibraryPrecursorInput> precursors,
             List<DiaSearchResult> results,
             float ppmTolerance)
         {

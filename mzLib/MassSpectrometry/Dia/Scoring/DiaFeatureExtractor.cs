@@ -497,20 +497,10 @@ namespace MassSpectrometry.Dia
 
     /// <summary>
     /// Computes the four MS1 features for a single precursor result.
-    /// 
-    /// Phase 23 Prompt 10 analysis: PrecursorXicApexIntensity gating was attempted
-    /// (multiplying log2(apex/Q25) by max(0, Ms1Ms2Corr)) but caused a regression
-    /// of -138 IDs. Root cause: Ms1Ms2Correlation already handles contaminated decoys
-    /// (sep=+0.451, LDA weight=+0.704). The product introduced multicollinearity,
-    /// squashing genuine target signal for targets with moderate Ms1Ms2Corr more than
-    /// it suppressed contaminated decoys that Ms1Ms2Corr already penalized.
-    /// 
-    /// PrecursorXicApexIntensity is left as raw log2(apex/Q25) (Prompt 9 implementation).
-    /// The LDA assigns it near-zero weight (~0.05) because it is inverted (D>T), but
-    /// removing it would only marginally affect results. The inversion is a fundamental
-    /// property of the feature on this dataset: ~42% of decoys with non-NaN MS1 values
-    /// accidentally overlap real peptide MS1 signals, inflating their apex/Q25 ratio.
-    /// Ms1Ms2Correlation is the correct discriminator for this contamination.
+    ///   [29] PrecursorXicApexIntensity — log2(apex M0 / Q25 M0)
+    ///   [30] IsotopePatternScore       — M+1/M0 ratio at apex
+    ///   [31] Ms1Ms2Correlation         — Pearson r between M0 XIC and best fragment XIC
+    ///   [32] PrecursorElutionScore     — Gaussian fit quality of precursor XIC
     /// </summary>
     public static class DiaMs1FeatureComputer
     {

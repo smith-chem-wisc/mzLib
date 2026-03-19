@@ -1,4 +1,4 @@
-// Copyright 2026 mzLib Contributors
+﻿// Copyright 2026 mzLib Contributors
 // Licensed under the GNU Lesser General Public License v3.0
 
 using System;

@@ -10,21 +10,14 @@ namespace MassSpectrometry.Dia
 {
     /// <summary>
     /// Target-decoy FDR estimation engine for DIA precursor identifications.
-    /// 
-    /// Implements the iterative semi-supervised learning approach:
-    ///   Iteration 1: Train on pseudo-labels — top 40% targets (positive) vs ALL decoys (negative).
-    ///   Iteration 2+: Retrain using q &lt; 0.01 targets (positive) vs subsampled decoys (negative).
-    ///   Repeat until convergence (weight change &lt; 1%, or ID count stable, or max iterations).
-    /// 
-    /// Phase 14 changes:
-    ///   - IDiaClassifier abstraction: classifiers are swappable at runtime
-    ///   - DiaGradientBoostedClassifier (GBT) as the default non-linear classifier
-    ///   - DiaLinearDiscriminant (LDA) preserved via DiaLdaClassifierAdapter
-    ///   - RunIterativeFdr() gains a DiaClassifierType parameter (default: GBT)
-    ///   - Diagnostics extended with classifier type info
-    ///   - GBT feature importances reported alongside LDA weights
-    /// 
-    /// Lives in MassSpectrometry/Dia/Scoring/ alongside other scoring classes.
+    ///
+    /// Implements iterative semi-supervised learning:
+    ///   Iteration 1: Train on pseudo-labels — top 40% targets vs all decoys.
+    ///   Iteration 2+: Retrain using q &lt; 0.01 targets vs subsampled decoys.
+    ///   Repeat until convergence or max iterations.
+    ///
+    /// Supports GradientBoostedTree (default), LinearDiscriminant, and NeuralNetwork
+    /// classifiers, selectable at runtime via DiaClassifierType.
     /// </summary>
     public static class DiaFdrEngine
     {
@@ -132,7 +125,7 @@ namespace MassSpectrometry.Dia
         /// </summary>
         /// <param name="results">All search results (targets + decoys). Modified in-place.</param>
         /// <param name="features">Feature vectors parallel to results.</param>
-        /// <param name="classifierType">LDA (Phase 10) or GBT (Phase 14, default).</param>
+        /// <param name="classifierType"
         /// <param name="maxIterations">Maximum semi-supervised iterations.</param>
         /// <param name="convergenceThreshold">LDA weight change threshold for early stop.</param>
         /// <param name="idCountConvergenceThreshold">ID count change ratio threshold for early stop.</param>
