@@ -421,9 +421,13 @@ namespace Omics.BioPolymerGroup
             sb.Append("" + AllPsmsBelowOnePercentFDR.Count);
             sb.Append("\t");
 
-            if (IsEntrapment)
+            if (IsEntrapment && IsDecoy)
             {
-                sb.Append("E");
+                sb.Append("ED");
+            }
+            else if (IsEntrapment)
+            {
+                sb.Append("ET");
             }
             else if (IsDecoy)
             {
