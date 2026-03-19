@@ -471,5 +471,80 @@ namespace Test.Transcriptomics
 
             File.Delete(fastapath);
         }
+
+        [Test]
+        public static void EntrapmentXml_AutoDetection()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.fasta");
+            var rnas = RnaDbLoader.LoadRnaFasta(fastaFile, true, DecoyType.Reverse, false, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_entrapment_xml.xml");
+            ProteinDbWriter.WriteXmlDatabase([], rnas, xmlPath);
+
+            var loadedRnas = RnaDbLoader.LoadRnaXML(xmlPath, true, DecoyType.None, false, new List<Modification>(), new List<string>(), out var errors2, entrapmentIdentifier: "Random");
+            Assert.That(errors2.Count, Is.EqualTo(0));
+            Assert.That(loadedRnas.All(p => !p.IsEntrapment), Is.True);
+
+            File.Delete(xmlPath);
+        }
+
+        [Test]
+        public static void EntrapmentXml_PrependingWhenMissing()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.fasta");
+            var rnas = RnaDbLoader.LoadRnaFasta(fastaFile, true, DecoyType.None, false, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_entrapment_prepend_xml.xml");
+            ProteinDbWriter.WriteXmlDatabase([], rnas, xmlPath);
+
+            var loadedRnas = RnaDbLoader.LoadRnaXML(xmlPath, true, DecoyType.None, false, new List<Modification>(), new List<string>(), out var errors2, entrapmentIdentifier: "Random", isEntrapment: true);
+            Assert.That(errors2.Count, Is.EqualTo(0));
+            Assert.That(loadedRnas.All(p => p.IsEntrapment), Is.True);
+            Assert.That(loadedRnas.All(p => p.Accession.Contains("Random_")), Is.True);
+
+            File.Delete(xmlPath);
+        }
+
+        [Test]
+        public static void EntrapmentXml_DecoyPrependsWithEntrapmentPrefix()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.fasta");
+            var rnas = RnaDbLoader.LoadRnaFasta(fastaFile, true, DecoyType.Reverse, false, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_entrapment_decoy_xml.xml");
+            ProteinDbWriter.WriteXmlDatabase([], rnas, xmlPath);
+
+            var loadedRnas = RnaDbLoader.LoadRnaXML(xmlPath, true, DecoyType.None, false, new List<Modification>(), new List<string>(), out var errors2, entrapmentIdentifier: "Random", isEntrapment: true);
+            Assert.That(errors2.Count, Is.EqualTo(0));
+
+            var targets = loadedRnas.Where(p => !p.IsDecoy).ToList();
+            var decoys = loadedRnas.Where(p => p.IsDecoy).ToList();
+
+            Assert.That(targets.All(p => p.IsEntrapment), Is.True);
+            Assert.That(decoys.All(p => p.IsEntrapment), Is.True);
+            Assert.That(targets.All(p => p.Accession.Contains("Random_")), Is.True);
+            Assert.That(decoys.All(p => p.Accession.Contains("Random_")), Is.True);
+
+            File.Delete(xmlPath);
+        }
+
+        [Test]
+        public static void EntrapmentXml_ContaminantAndEntrapment_Throws()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.fasta");
+            var rnas = RnaDbLoader.LoadRnaFasta(fastaFile, true, DecoyType.None, false, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_contam_entrap_xml.xml");
+            ProteinDbWriter.WriteXmlDatabase([], rnas, xmlPath);
+
+            Assert.Throws<MzLibException>(() =>
+                RnaDbLoader.LoadRnaXML(xmlPath, true, DecoyType.None, true, new List<Modification>(), new List<string>(), out var errors2, entrapmentIdentifier: "Random", isEntrapment: true));
+
+            File.Delete(xmlPath);
+        }
     }
 }
