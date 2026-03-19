@@ -8,7 +8,7 @@ using Omics.Modifications;
 
 namespace Test.Omics;
 
-public class MockBioPolymer : IBioPolymer
+    public class MockBioPolymer : IBioPolymer
 {
     public string BaseSequence { get; }
     public string Accession { get; }
@@ -18,6 +18,7 @@ public class MockBioPolymer : IBioPolymer
     public List<Tuple<string, string>> GeneNames { get; }
     public bool IsDecoy { get; }
     public bool IsContaminant { get; }
+    public bool IsEntrapment { get; }
     public string DatabaseFilePath { get; } = "";
     public int Length => BaseSequence.Length;
     public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; } = new Dictionary<int, List<Modification>>();
@@ -28,14 +29,14 @@ public class MockBioPolymer : IBioPolymer
     public List<SequenceVariation> SequenceVariations { get; } = new();
     public List<TruncationProduct> TruncationProducts { get; } = new();
 
-    public MockBioPolymer(string sequence, string accession) : this(sequence, accession, false, false){}
+    public MockBioPolymer(string sequence, string accession) : this(sequence, accession, false, false, false){}
 
-    public MockBioPolymer(string sequence, string accession, bool isDecoy = false, bool isContaminant = false) : this(sequence, accession, "", "", "", null, isDecoy, isContaminant){}
+    public MockBioPolymer(string sequence, string accession, bool isDecoy = false, bool isContaminant = false, bool isEntrapment = false) : this(sequence, accession, "", "", "", null, isDecoy, isContaminant, isEntrapment){}
 
     public MockBioPolymer(string sequence, string accession,
         string organism = "", string name = "", string fullName = "",
         List<Tuple<string, string>> geneNames = null,
-        bool isDecoy = false, bool isContaminant = false)
+        bool isDecoy = false, bool isContaminant = false, bool isEntrapment = false)
     {
         BaseSequence = sequence;
         Accession = accession;
@@ -45,6 +46,7 @@ public class MockBioPolymer : IBioPolymer
         GeneNames = geneNames ?? new List<Tuple<string, string>>();
         IsDecoy = isDecoy;
         IsContaminant = isContaminant;
+        IsEntrapment = isEntrapment;
     }
 
     public IEnumerable<IBioPolymerWithSetMods> Digest(IDigestionParams digestionParams,
@@ -53,7 +55,7 @@ public class MockBioPolymer : IBioPolymer
         bool topDownTruncationSearch = false) => Enumerable.Empty<IBioPolymerWithSetMods>();
 
     public IBioPolymer CloneWithNewSequenceAndMods(string newBaseSequence, IDictionary<int, List<Modification>>? newMods)
-        => new MockBioPolymer(newBaseSequence, Accession, Organism, Name, FullName, GeneNames, IsDecoy, IsContaminant);
+        => new MockBioPolymer(newBaseSequence, Accession, Organism, Name, FullName, GeneNames, IsDecoy, IsContaminant, IsEntrapment);
 
     public TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original,
         IEnumerable<SequenceVariation> appliedSequenceVariants, IEnumerable<TruncationProduct> applicableProteolysisProducts,

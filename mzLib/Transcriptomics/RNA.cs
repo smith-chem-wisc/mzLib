@@ -27,14 +27,15 @@ namespace Transcriptomics
             IDictionary<int, List<Modification>>? oneBasedPossibleModifications = null,
             IHasChemicalFormula? fivePrimeTerminus = null, IHasChemicalFormula? threePrimeTerminus = null,
             string? name = null, string? organism = null, string? databaseFilePath = null,
-            bool isContaminant = false, bool isDecoy = false, List<Tuple<string, string>> geneNames = null,
+            bool isContaminant = false, bool isDecoy = false, bool isEntrapment = false,
+            List<Tuple<string, string>> geneNames = null,
             Dictionary<string, string>? databaseAdditionalFields = null,
             List<TruncationProduct>? truncationProducts = null,
             List<SequenceVariation>? sequenceVariations = null,
             List<SequenceVariation>? appliedSequenceVariations = null,
             string? sampleNameForVariants = null, string? fullName = null)
             : base(sequence, accession, oneBasedPossibleModifications, fivePrimeTerminus, threePrimeTerminus,
-                name, organism, databaseFilePath, isContaminant, isDecoy, geneNames, databaseAdditionalFields,
+                name, organism, databaseFilePath, isContaminant, isDecoy, isEntrapment, geneNames, databaseAdditionalFields,
                 truncationProducts, sequenceVariations, appliedSequenceVariations, sampleNameForVariants, fullName)
         {
         }
@@ -49,7 +50,7 @@ namespace Transcriptomics
                   original.FivePrimeTerminus, original.ThreePrimeTerminus,
                   VariantApplication.GetVariantName(original.Name, appliedSequenceVariants), 
                   original.Organism, original.DatabaseFilePath, original.IsContaminant, 
-                  original.IsDecoy, original.GeneNames, original.AdditionalDatabaseFields,
+                  original.IsDecoy, original.IsEntrapment, original.GeneNames, original.AdditionalDatabaseFields,
                   [..applicableTruncationProducts ?? new List<TruncationProduct>()], original.SequenceVariations, 
                   [..appliedSequenceVariants ?? new List<SequenceVariation>()], sampleNameForVariants, 
                   VariantApplication.GetVariantName(original.FullName, appliedSequenceVariants))

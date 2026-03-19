@@ -43,7 +43,7 @@ namespace Transcriptomics
 
                         returnObj = new RNA(newSequence, accession, newModifications, rna.FivePrimeTerminus,
                         rna.ThreePrimeTerminus, rna.Name, rna.Organism, rna.DatabaseFilePath, rna.IsContaminant,
-                        newIsDecoy, rna.GeneNames, rna.AdditionalDatabaseFields, newTruncs,
+                        newIsDecoy, rna.IsEntrapment, rna.GeneNames, rna.AdditionalDatabaseFields, newTruncs,
                         newVariations, newAppliedVariations, rna.SampleNameForVariants, rna.FullName);
                     break;
                 }
@@ -57,7 +57,7 @@ namespace Transcriptomics
                     List<SequenceVariation> newAppliedVariations = appliedSequenceVariations ?? oldParent.AppliedSequenceVariations;
 
                     var newParent = new RNA(newSequence, accession, newModifications,oldParent.FivePrimeTerminus, oldParent.ThreePrimeTerminus, 
-                    oldParent.Name, oldParent.Organism, oldParent.DatabaseFilePath, oldParent.IsContaminant, newIsDecoy, oldParent.GeneNames, oldParent.AdditionalDatabaseFields,
+                    oldParent.Name, oldParent.Organism, oldParent.DatabaseFilePath, oldParent.IsContaminant, newIsDecoy, oldParent.IsEntrapment, oldParent.GeneNames, oldParent.AdditionalDatabaseFields,
                     newTruncs, newVariations, newAppliedVariations, oldParent.SampleNameForVariants, oldParent.FullName);
 
 

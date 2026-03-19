@@ -61,6 +61,7 @@ namespace Omics.BioPolymerGroup
             QValue = 0;
             IsDecoy = false;
             IsContaminant = false;
+            IsEntrapment = false;
 
             // if any of the biopolymers in the group are decoys, the group is a decoy
             foreach (var bioPolymer in bioPolymers)
@@ -75,8 +76,13 @@ namespace Omics.BioPolymerGroup
                     IsContaminant = true;
                 }
 
-                // If both are true, we can break early
-                if (IsDecoy && IsContaminant)
+                if (bioPolymer.IsEntrapment)
+                {
+                    IsEntrapment = true;
+                }
+
+                // If all three are true, we can break early
+                if (IsDecoy && IsContaminant && IsEntrapment)
                 {
                     break;
                 }
@@ -94,6 +100,11 @@ namespace Omics.BioPolymerGroup
         /// True if this group contains any biopolymers marked as contaminants.
         /// </summary>
         public bool IsContaminant { get; }
+
+        /// <summary>
+        /// True if this group contains any biopolymers marked as entrapment proteins.
+        /// </summary>
+        public bool IsEntrapment { get; }
 
         /// <summary>
         /// List of samples that contribute quantification data for this group.
@@ -410,7 +421,11 @@ namespace Omics.BioPolymerGroup
             sb.Append("" + AllPsmsBelowOnePercentFDR.Count);
             sb.Append("\t");
 
-            if (IsDecoy)
+            if (IsEntrapment)
+            {
+                sb.Append("E");
+            }
+            else if (IsDecoy)
             {
                 sb.Append("D");
             }
