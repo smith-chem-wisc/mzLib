@@ -1034,4 +1034,22 @@ public sealed class MslLibrary : IDisposable
 		// MslProteoformIndex holds no unmanaged resources (no file handles, no pooled
 		// buffers), so it does not implement IDisposable. No explicit cleanup needed.
 	}
+	/// <summary>
+	/// Creates a fully in-memory <see cref="MslLibrary"/> from a pre-built
+	/// <see cref="MslIndex"/> and a synthetic header. Intended for use by
+	/// <see cref="MslConverter"/> when constructing a library from text-format
+	/// sources (MSP, pDeep, ms2pip) without writing a binary file to disk.
+	///
+	/// <para>
+	/// The returned library is identical in behavior to one produced by
+	/// <see cref="Load"/>: <see cref="IsIndexOnly"/> is <see langword="false"/>,
+	/// no <see cref="System.IO.FileStream"/> is held, and all query APIs are
+	/// immediately available.
+	/// </para>
+	/// </summary>
+	/// <param name="index">Fully constructed index. Ownership is transferred.</param>
+	/// <param name="header">Synthetic header describing the in-memory content.</param>
+	/// <returns>A fully populated in-memory <see cref="MslLibrary"/>.</returns>
+	internal static MslLibrary CreateInMemory(MslIndex index, MslFileHeader header)
+		=> new MslLibrary(index, header, isIndexOnly: false, rawLibrary: null, proteoformIndex: null);
 }
