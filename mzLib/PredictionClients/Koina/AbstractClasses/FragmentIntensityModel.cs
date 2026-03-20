@@ -578,18 +578,22 @@ namespace PredictionClients.Koina.AbstractClasses
                 predictedSpectra = unique;
             }
 
-            if (filepath == null)
-            {
-                warningString += "No file path provided for spectral library output. Generated spectra will not be saved to disk.\n";
-            }
-            else
-            {
-                var spectralLibrary = new SpectralLibrary();
-                spectralLibrary.Results = predictedSpectra;
-                spectralLibrary.WriteResults(filepath);
-            }
+			if (filepath == null)
+			{
+				warningString += "No file path provided for spectral library output. Generated spectra will not be saved to disk.\n";
+			}
+			else if (MslFileTypeHandler.IsMslFile(filepath))
+			{
+				MslWriter.WriteFromLibrarySpectra(filepath, predictedSpectra);
+			}
+			else
+			{
+				var spectralLibrary = new SpectralLibrary();
+				spectralLibrary.Results = predictedSpectra;
+				spectralLibrary.WriteResults(filepath);
+			}
 
-            return predictedSpectra;
+			return predictedSpectra;
         }
         #endregion
     }
