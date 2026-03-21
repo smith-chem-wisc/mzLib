@@ -502,38 +502,68 @@ public class MslLibraryEntry
 	/// <summary>
 	/// Strips all mzLib bracket-notation modification tags from a modified sequence string,
 	/// returning the bare amino-acid sequence.
-	/// For example, "PEPTM[Common Variable:Oxidation on M]IDE" → "PEPTMIDE".
+	/// 
+	/// Examples:
+	/// - Internal modification: "PEPTM[Common Variable:Oxidation on M]IDE" → "PEPTMIDE"
+	/// - C-terminal modification: "PEPTIDE-[Common Variable:Amidation]" → "PEPTIDE"
+	/// - N-terminal modification: "[Common Variable:Acetylation]PEPTIDE" → "PEPTIDE"
+	/// - Nested brackets: "PEP[outer[nested]more]TIDE" → "PEPTIDE"
+	/// - Multiple modifications: "M[Oxidation]PEPTIDEK[Acetylation]" → "MPEPTIDEK"
+	/// 
+	/// The method uses a depth counter to handle arbitrarily nested brackets - anything inside
+	/// the outermost brackets (including nested brackets) is completely ignored. This handles
+	/// complex modification annotations that may contain brackets in their description.
+	/// 
 	/// The method iterates character-by-character to avoid allocating a Regex match collection
 	/// on the hot path.
 	/// </summary>
 	/// <param name="modifiedSeq">Modified sequence in mzLib bracket notation. Must not be null.</param>
-	/// <returns>The sequence with all [...] tags removed.</returns>
-	private static string StripModifications(string modifiedSeq)
+	/// <returns>The sequence with all [...] tags and terminal dashes removed.</returns>
+	internal static string StripModifications(string modifiedSeq)
 	{
-		// Track bracket nesting depth; characters inside any level of brackets are omitted
+		// Track bracket nesting depth; characters inside any level of brackets are omitted.
+		// This naturally handles nested brackets: depth > 0 means "inside brackets somewhere"
+		// regardless of nesting level, so all nested content is correctly ignored.
 		int depth = 0;
 
 		// Use a char-array builder sized to the input to avoid reallocation
 		var buffer = new char[modifiedSeq.Length];
 		int writePos = 0;
 
-		foreach (char ch in modifiedSeq)
+		// Use index-based loop to allow look-back for dash-before-bracket pattern
+		for (int i = 0; i < modifiedSeq.Length; i++)
 		{
+			char ch = modifiedSeq[i];
+
 			if (ch == '[')
 			{
 				// Entering a modification tag: increment nesting depth but don't copy
+				// For nested brackets like [[...]], this will increment depth twice (1→2)
 				depth++;
+
+				// Remove trailing dash from buffer if this is the FIRST bracket after a dash
+				// (C-terminal modification pattern). Only check on the first '[' (when depth==1)
+				// Example: "PEPTIDE-[modification]" → buffer contains "PEPTIDE-" → remove the dash
+				// Example: "PEPTIDE-[[nested]]" → same behavior, dash removed on first '['
+				if (depth == 1 && writePos > 0 && buffer[writePos - 1] == '-')
+				{
+					writePos--; // Back up to remove the dash
+				}
 			}
 			else if (ch == ']')
 			{
 				// Leaving a modification tag: decrement depth but don't copy
+				// For nested brackets, this will decrement from 2→1 (still inside outer brackets)
+				// Only when depth reaches 0 do we resume copying amino acid characters
 				depth--;
 			}
 			else if (depth == 0)
 			{
 				// Outside all brackets: this is a real residue character — copy it
+				// This condition is only true when not inside ANY bracket (nested or not)
 				buffer[writePos++] = ch;
 			}
+			// else: depth > 0, we're inside brackets (possibly nested), skip this character
 		}
 
 		return new string(buffer, 0, writePos);

@@ -1,7 +1,14 @@
 ﻿using NUnit.Framework;
 using Omics.SpectralMatch.MslSpectralLibrary;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
+using Omics.Modifications;
+using Proteomics;
+using Proteomics.ProteolyticDigestion;
+using UsefulProteomicsDatabases;
+using Readers;
 
 namespace Test.MslSpectralLibrary;
 
@@ -156,5 +163,182 @@ public sealed class TestMslStructsCoverage
 			Marshal.SizeOf<MslFooter>(),
 			Is.EqualTo(MslFormat.FooterSize),
 			$"MslFooter must be exactly {MslFormat.FooterSize} bytes (Pack=1)");
+	}
+
+	// ── StripModifications unit tests ───────────────────────────────────────────
+
+	/// <summary>
+	/// Tests that StripModifications correctly handles unmodified sequences (no brackets).
+	/// </summary>
+	[Test]
+	public void StripModifications_UnmodifiedSequence_ReturnsUnchanged()
+	{
+		Assert.That(MslLibraryEntry.StripModifications("PEPTIDE"), Is.EqualTo("PEPTIDE"));
+		Assert.That(MslLibraryEntry.StripModifications("MKLAVFSGLCVAGILVLGAAA"), Is.EqualTo("MKLAVFSGLCVAGILVLGAAA"));
+		Assert.That(MslLibraryEntry.StripModifications("A"), Is.EqualTo("A"));
+	}
+
+	/// <summary>
+	/// Tests that StripModifications correctly strips internal (mid-sequence) modifications.
+	/// Example: "PEPTM[Common Variable:Oxidation on M]IDE" → "PEPTMIDE"
+	/// </summary>
+	[Test]
+	public void StripModifications_InternalModification_RemovesBrackets()
+	{
+		Assert.That(
+			MslLibraryEntry.StripModifications("PEPTM[Common Variable:Oxidation on M]IDE"),
+			Is.EqualTo("PEPTMIDE"));
+
+		Assert.That(
+			MslLibraryEntry.StripModifications("TESTC[Common Fixed:Carbamidomethyl on C]SEQUENCE"),
+			Is.EqualTo("TESTCSEQUENCE"));
+	}
+
+	/// <summary>
+	/// Tests that StripModifications correctly handles C-terminal modifications with dash.
+	/// Example: "PEPTIDE-[Common Variable:Amidation]" → "PEPTIDE"
+	/// The dash before the bracket should be removed along with the brackets.
+	/// </summary>
+	[Test]
+	public void StripModifications_CTerminalModification_RemovesDashAndBrackets()
+	{
+		Assert.That(
+			MslLibraryEntry.StripModifications("PEPTIDE-[Common Variable:Amidation]"),
+			Is.EqualTo("PEPTIDE"));
+
+		Assert.That(
+			MslLibraryEntry.StripModifications("TESTSEQ-[Uniprot:Amidation]"),
+			Is.EqualTo("TESTSEQ"));
+
+		// Multiple words in modification name
+		Assert.That(
+			MslLibraryEntry.StripModifications("ABCDEF-[Very Long Modification Name Here]"),
+			Is.EqualTo("ABCDEF"));
+	}
+
+	/// <summary>
+	/// Tests that StripModifications correctly handles N-terminal modifications.
+	/// Example: "[Common Variable:Acetylation]PEPTIDE" → "PEPTIDE"
+	/// </summary>
+	[Test]
+	public void StripModifications_NTerminalModification_RemovesBrackets()
+	{
+		Assert.That(
+			MslLibraryEntry.StripModifications("[Common Variable:Acetylation]PEPTIDE"),
+			Is.EqualTo("PEPTIDE"));
+
+		Assert.That(
+			MslLibraryEntry.StripModifications("[Uniprot:Acetylation]MKLAVFS"),
+			Is.EqualTo("MKLAVFS"));
+	}
+
+	/// <summary>
+	/// Tests that StripModifications correctly handles nested brackets.
+	/// Example: "PEP[outer[nested]more]TIDE" → "PEPTIDE"
+	/// Anything inside the outermost brackets (including nested brackets) should be ignored.
+	/// </summary>
+	[Test]
+	public void StripModifications_NestedBrackets_RemovesAllNested()
+	{
+		Assert.That(
+			MslLibraryEntry.StripModifications("PEP[outer[nested]more]TIDE"),
+			Is.EqualTo("PEPTIDE"));
+
+		Assert.That(
+			MslLibraryEntry.StripModifications("TEST[level1[level2[level3]back2]back1]SEQ"),
+			Is.EqualTo("TESTSEQ"));
+
+		// C-terminal with nested brackets
+		Assert.That(
+			MslLibraryEntry.StripModifications("PEPTIDE-[outer[nested]]"),
+			Is.EqualTo("PEPTIDE"));
+	}
+
+	/// <summary>
+	/// Tests that StripModifications correctly handles multiple modifications in one sequence.
+	/// Example: "M[Oxidation]PEPTIDEK[Acetylation]" → "MPEPTIDEK"
+	/// </summary>
+	[Test]
+	public void StripModifications_MultipleModifications_RemovesAll()
+	{
+		Assert.That(
+			MslLibraryEntry.StripModifications("M[Common Variable:Oxidation on M]PEPTIDEK[Common Variable:Acetylation]"),
+			Is.EqualTo("MPEPTIDEK"));
+
+		// Three modifications
+		Assert.That(
+			MslLibraryEntry.StripModifications("M[mod1]PEPC[mod2]TIDEK[mod3]"),
+			Is.EqualTo("MPEPCTIDEK"));
+
+		// N-terminal + internal + C-terminal
+		Assert.That(
+			MslLibraryEntry.StripModifications("[NTerm]PEPM[Internal]IDE-[CTerm]"),
+			Is.EqualTo("PEPMIDE"));
+	}
+
+	/// <summary>
+	/// Tests that StripModifications handles edge cases correctly.
+	/// </summary>
+	[Test]
+	public void StripModifications_EdgeCases_HandlesCorrectly()
+	{
+		// Empty string
+		Assert.That(MslLibraryEntry.StripModifications(""), Is.EqualTo(""));
+
+		// Only brackets (no sequence)
+		Assert.That(MslLibraryEntry.StripModifications("[modification]"), Is.EqualTo(""));
+
+		// Only C-terminal modification
+		Assert.That(MslLibraryEntry.StripModifications("-[modification]"), Is.EqualTo(""));
+
+		// Consecutive modifications (no amino acids between)
+		Assert.That(MslLibraryEntry.StripModifications("PEP[mod1][mod2]TIDE"), Is.EqualTo("PEPTIDE"));
+
+		// Single amino acid with modification
+		Assert.That(MslLibraryEntry.StripModifications("M[Oxidation]"), Is.EqualTo("M"));
+
+		// Single amino acid with C-terminal modification
+		Assert.That(MslLibraryEntry.StripModifications("K-[Amidation]"), Is.EqualTo("K"));
+	}
+
+	/// <summary>
+	/// Tests that StripModifications handles complex real-world modification strings.
+	/// Uses actual modification names from Unimod/PSI-MOD to ensure compatibility.
+	/// </summary>
+	[Test]
+	public void StripModifications_RealWorldModifications_HandlesCorrectly()
+	{
+		// Phosphorylation with detailed description
+		Assert.That(
+			MslLibraryEntry.StripModifications("PEPTS[Phosphorylation on S, T, or Y]EQENCE"),
+			Is.EqualTo("PEPTSEQENCE"));
+
+		// Glycosylation (can have complex names)
+		Assert.That(
+			MslLibraryEntry.StripModifications("PEPTN[N-Glycosylation (HexNAc)]IDE"),
+			Is.EqualTo("PEPTNIDE"));
+
+		// Multiple modifications with colons and special characters
+		Assert.That(
+			MslLibraryEntry.StripModifications("[Common Variable:Acetyl]M[Common Variable:Oxidation on M]PEPTIDE-[Uniprot:Amidation]"),
+			Is.EqualTo("MPEPTIDE"));
+	}
+
+	/// <summary>
+	/// Tests that StripModifications handles sequences with dashes that are NOT C-terminal modifications.
+	/// Dashes inside brackets or in the middle of sequence (if they exist) should be handled appropriately.
+	/// </summary>
+	[Test]
+	public void StripModifications_DashesInVariousContexts_HandlesCorrectly()
+	{
+		// Dash inside modification name (should be removed with the bracket content)
+		Assert.That(
+			MslLibraryEntry.StripModifications("PEPTM[Mod-with-dashes]IDE"),
+			Is.EqualTo("PEPTMIDE"));
+
+		// Multiple C-terminal modifications (only theoretical, but test robustness)
+		Assert.That(
+			MslLibraryEntry.StripModifications("PEPTIDE-[mod1]-[mod2]"),
+			Is.EqualTo("PEPTIDE"));
 	}
 }
