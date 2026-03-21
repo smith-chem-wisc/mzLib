@@ -728,10 +728,12 @@ public sealed class TestMslIntegration
 	/// <see cref="ArgumentNullException"/> when passed null.
 	/// </summary>
 	[Test]
-	public void FromLibrarySpectrum_NullInput_Throws()
+	public void FromLibrarySpectrum_NullInput_ReturnsError()
 	{
-		Assert.That(() => MslLibraryEntry.FromLibrarySpectrum(null),
-			Throws.ArgumentNullException);
+		var result = MslLibraryEntry.TryFromLibrarySpectrum(null);
+
+		Assert.That(result.Success, Is.False);
+		Assert.That(result.Errors, Is.Not.Empty);
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════

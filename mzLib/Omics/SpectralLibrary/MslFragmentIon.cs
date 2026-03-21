@@ -573,19 +573,11 @@ public class MslLibraryEntry
 	/// </returns>
 	/// <exception cref="ArgumentNullException">Thrown when <paramref name="spectrum"/> is null.</exception>
 	/// <exception cref="ArgumentException">Thrown when spectrum.Sequence is null or empty, or other validation fails.</exception>
-	public static MslLibraryEntry FromLibrarySpectrum(LibrarySpectrum spectrum)
+	public static MslLibraryEntry? FromLibrarySpectrum(LibrarySpectrum spectrum)
 	{
 		// Use TryFromLibrarySpectrum for validation and conversion
 		var result = TryFromLibrarySpectrum(spectrum);
-
-		if (!result.Success)
-		{
-			// Aggregate all errors into a single exception message
-			string errorMessage = string.Join("; ", result.Errors);
-			throw new ArgumentException($"Invalid LibrarySpectrum: {errorMessage}", nameof(spectrum));
-		}
-
-		return result.Entry!;
+		return result.Success ? result.Entry : null;
 	}
 
 	// ── Private helpers ──────────────────────────────────────────────────
