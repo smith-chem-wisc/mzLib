@@ -5,6 +5,52 @@ using Omics.SpectrumMatch;
 namespace Omics.SpectralMatch.MslSpectralLibrary;
 
 // ──────────────────────────────────────────────────────────────────────────────
+// ConversionResult
+// ──────────────────────────────────────────────────────────────────────────────
+
+/// <summary>
+/// Result of attempting to convert a LibrarySpectrum to an MslLibraryEntry.
+/// Contains either a successfully converted entry or a collection of validation errors.
+/// </summary>
+public class ConversionResult
+{
+	/// <summary>
+	/// True when the conversion succeeded and Entry contains a valid MslLibraryEntry.
+	/// False when validation failed and Errors contains one or more error messages.
+	/// </summary>
+	public bool Success { get; init; }
+
+	/// <summary>
+	/// The converted MslLibraryEntry when Success is true; null when Success is false.
+	/// </summary>
+	public MslLibraryEntry? Entry { get; init; }
+
+	/// <summary>
+	/// Collection of error messages describing why the conversion failed.
+	/// Empty when Success is true; contains one or more messages when Success is false.
+	/// </summary>
+	public List<string> Errors { get; init; } = new();
+
+	/// <summary>
+	/// Creates a successful conversion result.
+	/// </summary>
+	public static ConversionResult FromSuccess(MslLibraryEntry entry)
+		=> new() { Success = true, Entry = entry };
+
+	/// <summary>
+	/// Creates a failed conversion result with a single error message.
+	/// </summary>
+	public static ConversionResult FromError(string error)
+		=> new() { Success = false, Errors = new List<string> { error } };
+
+	/// <summary>
+	/// Creates a failed conversion result with multiple error messages.
+	/// </summary>
+	public static ConversionResult FromErrors(IEnumerable<string> errors)
+		=> new() { Success = false, Errors = new List<string>(errors) };
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // MslFragmentIon
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -413,66 +459,75 @@ public class MslLibraryEntry
 	// ── Conversion: LibrarySpectrum → MslLibraryEntry ───────────────────
 
 	/// <summary>
-	/// Static factory that constructs an MslLibraryEntry from an existing LibrarySpectrum.
-	/// All structured fragment fields (ProductType, FragmentNumber, ResiduePosition, etc.)
-	/// are extracted from the MatchedFragmentIon list. Extended metadata fields that have
-	/// no representation in LibrarySpectrum are initialized to sensible defaults:
-	/// IonMobility = 0, QValue = float.NaN, ElutionGroupId = 0, Source = Predicted,
-	/// MoleculeType = Peptide, DissociationType = Unknown, Nce = 0.
+	/// Attempts to construct an MslLibraryEntry from an existing LibrarySpectrum, returning
+	/// a ConversionResult that contains either the successfully converted entry or a collection
+	/// of validation errors. This method never throws exceptions; use this for batch processing
+	/// where you need to collect errors and continue processing other spectra.
 	/// </summary>
 	/// <param name="spectrum">
-	///   The LibrarySpectrum to convert. Must not be null. The MatchedFragmentIon list may be
-	///   empty (resulting in an entry with no fragments) but should not be null.
+	///   The LibrarySpectrum to convert. May be null (returns error).
 	/// </param>
 	/// <returns>
-	///   A new MslLibraryEntry whose core fields mirror the spectrum and whose fragment list
-	///   contains one MslFragmentIon per MatchedFragmentIon in spectrum.MatchedFragmentIons.
+	///   A ConversionResult with Success=true and Entry populated on success, or Success=false
+	///   and Errors populated with validation failure messages on failure.
 	/// </returns>
-	/// <exception cref="ArgumentNullException">Thrown when <paramref name="spectrum"/> is null.</exception>
-	public static MslLibraryEntry FromLibrarySpectrum(LibrarySpectrum spectrum)
+	public static ConversionResult TryFromLibrarySpectrum(LibrarySpectrum? spectrum)
 	{
-		if (spectrum is null)
-			throw new ArgumentNullException(nameof(spectrum));
+		// Validate input
+		var errors = new List<string>();
 
-		// Build the stripped sequence by removing all bracket-notation modifications.
-		// e.g. "PEPTM[Common Variable:Oxidation on M]IDE" → "PEPTMIDE"
+		if (spectrum is null)
+		{
+			errors.Add("LibrarySpectrum is null");
+			return ConversionResult.FromErrors(errors);
+		}
+
+		if (string.IsNullOrEmpty(spectrum.Sequence))
+		{
+			errors.Add($"LibrarySpectrum.Sequence is null or empty (PrecursorMz: {spectrum.PrecursorMz:F4}, Charge: {spectrum.ChargeState})");
+		}
+
+		if (spectrum.ChargeState <= 0)
+		{
+			errors.Add($"LibrarySpectrum.ChargeState must be positive (Sequence: {spectrum.Sequence ?? "<null>"}, Charge: {spectrum.ChargeState})");
+		}
+
+		if (spectrum.PrecursorMz <= 0)
+		{
+			errors.Add($"LibrarySpectrum.PrecursorMz must be positive (Sequence: {spectrum.Sequence ?? "<null>"}, PrecursorMz: {spectrum.PrecursorMz})");
+		}
+
+		// Return early if validation failed
+		if (errors.Count > 0)
+			return ConversionResult.FromErrors(errors);
+
+		// Perform conversion (at this point spectrum.Sequence is guaranteed non-null)
 		string strippedSeq = StripModifications(spectrum.Sequence);
 
-		// Convert each MatchedFragmentIon to an MslFragmentIon
 		var fragments = new List<MslFragmentIon>(spectrum.MatchedFragmentIons?.Count ?? 0);
 
 		foreach (MatchedFragmentIon ion in spectrum.MatchedFragmentIons ?? Enumerable.Empty<MatchedFragmentIon>())
 		{
-			// Extract the Product from the MatchedFragmentIon wrapper
 			Product product = ion.NeutralTheoreticalProduct;
 
-			// Determine the NeutralLossCode from the neutral-loss mass for the flags byte
-			// (only the named common losses are given a code; everything else is Custom)
-			MslFormat.NeutralLossCode lossCode = ClassifyNeutralLoss(product.NeutralLoss);
-
-			// Build the MslFragmentIon with all structured fields populated
 			var mslIon = new MslFragmentIon
 			{
 				Mz = (float)ion.Mz,
 				Intensity = (float)ion.Intensity,
 				ProductType = product.ProductType,
-				// SecondaryProductType and SecondaryFragmentNumber are read directly from Product,
-				// which carries them since mzLib added optional internal-ion fields to its
-				// Product constructor. Both fields default to null/0 for terminal ions.
 				SecondaryProductType = product.SecondaryProductType,
 				SecondaryFragmentNumber = product.SecondaryFragmentNumber,
 				FragmentNumber = product.FragmentNumber,
 				ResiduePosition = product.ResiduePosition,
 				Charge = ion.Charge,
 				NeutralLoss = product.NeutralLoss,
-				ExcludeFromQuant = false  // not available from LibrarySpectrum; default false
+				ExcludeFromQuant = false
 			};
 
 			fragments.Add(mslIon);
 		}
 
-		// Construct the entry with defaults for all fields not present in LibrarySpectrum
-		return new MslLibraryEntry
+		var entry = new MslLibraryEntry
 		{
 			ModifiedSequence = spectrum.Sequence,
 			StrippedSequence = strippedSeq,
@@ -481,8 +536,6 @@ public class MslLibraryEntry
 			Irt = spectrum.RetentionTime ?? 0.0,
 			IsDecoy = spectrum.IsDecoy,
 			Fragments = fragments,
-
-			// Extended fields: sensible defaults since LibrarySpectrum carries no metadata
 			IonMobility = 0.0,
 			ProteinAccession = string.Empty,
 			ProteinName = string.Empty,
@@ -495,6 +548,44 @@ public class MslLibraryEntry
 			DissociationType = DissociationType.Unknown,
 			Nce = 0
 		};
+
+		return ConversionResult.FromSuccess(entry);
+	}
+
+	/// <summary>
+	/// Static factory that constructs an MslLibraryEntry from an existing LibrarySpectrum.
+	/// All structured fragment fields (ProductType, FragmentNumber, ResiduePosition, etc.)
+	/// are extracted from the MatchedFragmentIon list. Extended metadata fields that have
+	/// no representation in LibrarySpectrum are initialized to sensible defaults:
+	/// IonMobility = 0, QValue = float.NaN, ElutionGroupId = 0, Source = Predicted,
+	/// MoleculeType = Peptide, DissociationType = Unknown, Nce = 0.
+	/// 
+	/// This method throws exceptions on validation failure; for batch processing where you
+	/// need to collect errors and continue, use <see cref="TryFromLibrarySpectrum"/> instead.
+	/// </summary>
+	/// <param name="spectrum">
+	///   The LibrarySpectrum to convert. Must not be null. The MatchedFragmentIon list may be
+	///   empty (resulting in an entry with no fragments) but should not be null.
+	/// </param>
+	/// <returns>
+	///   A new MslLibraryEntry whose core fields mirror the spectrum and whose fragment list
+	///   contains one MslFragmentIon per MatchedFragmentIon in spectrum.MatchedFragmentIons.
+	/// </returns>
+	/// <exception cref="ArgumentNullException">Thrown when <paramref name="spectrum"/> is null.</exception>
+	/// <exception cref="ArgumentException">Thrown when spectrum.Sequence is null or empty, or other validation fails.</exception>
+	public static MslLibraryEntry FromLibrarySpectrum(LibrarySpectrum spectrum)
+	{
+		// Use TryFromLibrarySpectrum for validation and conversion
+		var result = TryFromLibrarySpectrum(spectrum);
+
+		if (!result.Success)
+		{
+			// Aggregate all errors into a single exception message
+			string errorMessage = string.Join("; ", result.Errors);
+			throw new ArgumentException($"Invalid LibrarySpectrum: {errorMessage}", nameof(spectrum));
+		}
+
+		return result.Entry!;
 	}
 
 	// ── Private helpers ──────────────────────────────────────────────────
