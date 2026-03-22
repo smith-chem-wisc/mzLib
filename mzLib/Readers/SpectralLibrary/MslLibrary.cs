@@ -1,4 +1,5 @@
 ﻿using Chromatography.RetentionTimePrediction;
+using Easy.Common.Extensions;
 using Omics.SpectralMatch.MslSpectralLibrary;
 using Omics.SpectrumMatch;
 
@@ -883,6 +884,297 @@ public sealed class MslLibrary : IDisposable
 		return new MslLibrary(calibratedIndex, Header, IsIndexOnly, _rawLibrary,
 			calibratedProteoformIndex);
 	}
+	/// <summary>
+	/// Merges a set of newly observed spectra into this library and writes the result to disk,
+	/// normalising the retention times of incoming entries to the iRT coordinate system already
+	/// used by this library.
+	///
+	/// <para>
+	/// <b>Why this belongs in mzLib rather than MetaMorpheus:</b>
+	/// The RT normalisation step requires knowledge of the stored iRT values, which live inside
+	/// the <see cref="MslLibrary"/> instance. Performing the operation here avoids shipping an
+	/// entire loaded library object back to the caller just to thread its RT values through an
+	/// external regression.
+	/// </para>
+	///
+	/// <para><b>Algorithm — three sequential steps:</b></para>
+	///
+	/// <list type="number">
+	///   <item>
+	///     <term>RT Regression</term>
+	///     <description>
+	///       For every entry in <paramref name="newSpectra"/> whose <c>(FullSequence, charge)</c>
+	///       key is already present in this library, the pair
+	///       <c>(observedRT, libraryIrt)</c> is collected as a regression anchor.
+	///       An ordinary-least-squares linear fit is computed:
+	///       <code>iRT_predicted = slope × observedRT + intercept</code>
+	///       If fewer than <paramref name="minRegressionAnchors"/> anchors are available the
+	///       regression cannot be trusted; in that case the raw observed RT is stored unchanged
+	///       and <see cref="MslUpdateResult.RtNormalisationApplied"/> is <see langword="false"/>.
+	///     </description>
+	///   </item>
+	///   <item>
+	///     <term>Merge / selection</term>
+	///     <description>
+	///       Every entry in the original library is compared against the incoming spectrum for the
+	///       same <c>(sequence, charge)</c> key, if one exists. The entry with more matched
+	///       fragment ions is kept; ties go to the original library entry. Incoming spectra with
+	///       no match in the original library are appended as new entries. The comparison metric
+	///       is intentionally the same as the MetaMorpheus
+	///       <c>UpdateSpectralLibrary</c> method: <c>MatchedFragmentIons.Count vs Floor(Score)</c>.
+	///     </description>
+	///   </item>
+	///   <item>
+	///     <term>Save</term>
+	///     <description>
+	///       The merged entry list is written atomically to <paramref name="outputPath"/> via
+	///       <see cref="Save(string, IReadOnlyList{MslLibraryEntry})"/>. No partial file is left
+	///       on disk if the write fails.
+	///     </description>
+	///   </item>
+	/// </list>
+	///
+	/// <para>
+	/// <b>Source-type flag:</b> entries that were present in the original library and are kept
+	/// unchanged retain their original <see cref="MslFormat.SourceType"/>. Entries that are
+	/// replaced by or newly added from the incoming spectra are tagged
+	/// <see cref="MslFormat.SourceType.Empirical"/>, and if RT normalisation was applied their
+	/// <c>RtIsCalibrated</c> flag is set to <see langword="true"/>.
+	/// </para>
+	///
+	/// <para><b>Thread safety:</b> this method is safe to call from any thread as long as no
+	/// concurrent write to <paramref name="outputPath"/> is in progress.</para>
+	/// </summary>
+	/// <param name="newSpectra">
+	///   Spectra observed in the current search run. Must not be <see langword="null"/>.
+	///   May be empty, in which case the output is a verbatim copy of this library.
+	///   The <see cref="LibrarySpectrum.MatchedFragmentIons"/> collection is used both as the
+	///   fragment data for replacement entries and as the ion count for the keep/replace decision.
+	/// </param>
+	/// <param name="outputPath">
+	///   Destination file path for the updated .msl file. Created or overwritten. The parent
+	///   directory must exist. Must not be <see langword="null"/>.
+	/// </param>
+	/// <param name="minRegressionAnchors">
+	///   Minimum number of sequence/charge overlapping entries required before the linear
+	///   RT regression is trusted and applied. Defaults to 5. Must be ≥ 2; values below 2 are
+	///   clamped to 2 (a line requires at least two points).
+	/// </param>
+	/// <returns>
+	///   An <see cref="MslUpdateResult"/> summarising the regression parameters, the count of
+	///   replaced/retained/added entries, and whether normalisation was applied.
+	/// </returns>
+	/// <exception cref="ArgumentNullException">
+	///   <paramref name="newSpectra"/> or <paramref name="outputPath"/> is <see langword="null"/>.
+	/// </exception>
+	/// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
+	/// <exception cref="IOException">An I/O error occurred while writing the file.</exception>
+	public MslUpdateResult UpdateAndSave(
+		IReadOnlyList<LibrarySpectrum> newSpectra,
+		string outputPath,
+		int minRegressionAnchors = 5)
+	{
+		ArgumentNullException.ThrowIfNull(newSpectra);
+		ArgumentNullException.ThrowIfNull(outputPath);
+		ThrowIfDisposed();
+
+		// Clamp: a linear regression requires at least 2 points.
+		if (minRegressionAnchors < 2)
+			minRegressionAnchors = 2;
+
+		// ── Step 0: index incoming spectra by (FullSequence, Charge) ──────────
+		// We use a dictionary so both the regression pass and the merge pass are O(1) per lookup.
+		// When duplicates exist in newSpectra (same sequence+charge observed in multiple files)
+		// we keep the one with the most matched fragment ions — mirroring MetaMorpheus behaviour.
+		var incoming = new Dictionary<(string Sequence, int Charge), LibrarySpectrum>(
+			newSpectra.Count, SequenceChargeComparer.Instance);
+
+		foreach (LibrarySpectrum s in newSpectra)
+		{
+			var key = (s.Sequence, s.ChargeState);
+			if (!incoming.TryGetValue(key, out LibrarySpectrum? existing)
+				|| s.MatchedFragmentIons.Count > existing.MatchedFragmentIons.Count)
+			{
+				incoming[key] = s;
+			}
+		}
+
+		// ── Step 1: RT regression ─────────────────────────────────────────────
+		// Collect (observedRT, libraryIrt) anchor pairs for entries that overlap between
+		// this library and the incoming spectrum set.
+		var anchorsObservedRt = new List<double>(incoming.Count);
+		var anchorsLibraryIrt = new List<double>(incoming.Count);
+
+		foreach (var (key, spectrum) in incoming)
+		{
+			if (TryGetEntry(key.Sequence, key.Charge, out MslLibraryEntry? libEntry)
+				&& libEntry is not null)
+			{
+				anchorsObservedRt.Add(spectrum.RetentionTime ?? 0.0);
+				anchorsLibraryIrt.Add(libEntry.Irt);
+			}
+		}
+
+		bool rtNormalisationApplied = anchorsObservedRt.Count >= minRegressionAnchors;
+		double rtSlope = 1.0;
+		double rtIntercept = 0.0;
+
+		if (rtNormalisationApplied)
+			(rtSlope, rtIntercept) = ComputeOlsRegression(anchorsObservedRt, anchorsLibraryIrt);
+
+		// ── Step 2: merge ─────────────────────────────────────────────────────
+		// Walk every entry already in this library and decide whether to keep the original
+		// or replace it with the incoming spectrum.  Novel incoming entries are appended at
+		// the end so that the output is a proper superset of this library.
+		var mergedEntries = new List<MslLibraryEntry>(PrecursorCount + incoming.Count);
+
+		int retained = 0;
+		int replaced = 0;
+		int added = 0;
+
+		// Track which incoming keys we consumed so we know what to append afterwards.
+		var consumedKeys = new HashSet<(string, int)>(incoming.Count);
+
+		foreach (MslLibraryEntry originalEntry in GetAllEntries(includeDecoys: true))
+		{
+			var key = (originalEntry.ModifiedSequence, originalEntry.Charge);
+
+			if (incoming.TryGetValue(key, out LibrarySpectrum? newSpectrum))
+			{
+				consumedKeys.Add(key);
+
+				int originalFragmentCount = originalEntry.Fragments.Count;
+				int newFragmentCount = newSpectrum.MatchedFragmentIons.Count;
+
+				if (newFragmentCount > originalFragmentCount)
+				{
+					// The incoming spectrum has more matched ions — prefer it.
+					MslLibraryEntry replacement = MslLibraryEntry.FromLibrarySpectrum(newSpectrum);
+					replacement.Irt = NormaliseRt(newSpectrum.RetentionTime ?? 0.0,
+															  rtSlope, rtIntercept,
+															  rtNormalisationApplied);
+					replacement.Source = MslFormat.SourceType.Empirical;
+
+					// Preserve rich metadata that LibrarySpectrum cannot carry.
+					replacement.IonMobility = originalEntry.IonMobility;
+					replacement.ProteinAccession = originalEntry.ProteinAccession;
+					replacement.IsProteotypic = originalEntry.IsProteotypic;
+					replacement.IsDecoy = originalEntry.IsDecoy;
+					replacement.MoleculeType = originalEntry.MoleculeType;
+
+					mergedEntries.Add(replacement);
+					replaced++;
+				}
+				else
+				{
+					// Original library entry is at least as good — keep it.
+					mergedEntries.Add(originalEntry);
+					retained++;
+				}
+			}
+			else
+			{
+				// No incoming spectrum for this sequence/charge — always keep the original.
+				mergedEntries.Add(originalEntry);
+				retained++;
+			}
+		}
+
+		// Append novel entries (incoming spectra not present in the original library).
+		foreach (var (key, newSpectrum) in incoming)
+		{
+			if (consumedKeys.Contains(key))
+				continue;
+
+			MslLibraryEntry novel = MslLibraryEntry.FromLibrarySpectrum(newSpectrum);
+			novel.Irt = NormaliseRt(newSpectrum.RetentionTime ?? 0.0,
+													  rtSlope, rtIntercept,
+													  rtNormalisationApplied);
+			novel.Source = MslFormat.SourceType.Empirical;
+
+			mergedEntries.Add(novel);
+			added++;
+		}
+
+		// ── Step 3: save ──────────────────────────────────────────────────────
+		Save(outputPath, mergedEntries);
+
+		return new MslUpdateResult(
+			OutputPath: outputPath,
+			AnchorCount: anchorsObservedRt.Count,
+			RtNormalisationApplied: rtNormalisationApplied,
+			RtSlope: rtSlope,
+			RtIntercept: rtIntercept,
+			RetainedCount: retained,
+			ReplacedCount: replaced,
+			AddedCount: added);
+	}
+	// ── Private helpers for UpdateAndSave ────────────────────────────────────
+
+	/// <summary>
+	/// Ordinary least-squares linear regression: fits <c>y = slope × x + intercept</c>.
+	/// Both lists must have the same length ≥ 2; callers are responsible for the precondition.
+	/// </summary>
+	/// <returns>A <c>(slope, intercept)</c> value tuple.</returns>
+	private static (double slope, double intercept) ComputeOlsRegression(
+		List<double> x, List<double> y)
+	{
+		int n = x.Count;
+
+		// Running sums for the closed-form OLS solution.
+		double sumX = 0.0;
+		double sumY = 0.0;
+		double sumXY = 0.0;
+		double sumX2 = 0.0;
+
+		for (int i = 0; i < n; i++)
+		{
+			sumX += x[i];
+			sumY += y[i];
+			sumXY += x[i] * y[i];
+			sumX2 += x[i] * x[i];
+		}
+
+		double denominator = n * sumX2 - sumX * sumX;
+
+		// Guard: if all observed RT values are identical the denominator is zero.
+		// Return an identity transform so callers get a non-NaN result.
+		if (Math.Abs(denominator) < double.Epsilon)
+			return (slope: 1.0, intercept: 0.0);
+
+		double slope = (n * sumXY - sumX * sumY) / denominator;
+		double intercept = (sumY - slope * sumX) / n;
+
+		return (slope, intercept);
+	}
+
+	/// <summary>
+	/// Applies the linear RT → iRT transform when normalisation is active, or returns the raw
+	/// observed retention time unchanged when it is not.
+	/// </summary>
+	[System.Runtime.CompilerServices.MethodImpl(
+		System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+	private static double NormaliseRt(double observedRt, double slope, double intercept,
+									   bool apply)
+		=> apply ? slope * observedRt + intercept : observedRt;
+
+
+	// ────────────────────────────────────────────────────────────────────────────
+	// Helper: IEqualityComparer for (string, int) tuples that delegates the string
+	// comparison to StringComparer.Ordinal.  Placed as a private nested class so it
+	// lives next to the code that uses it without polluting the public API.
+	// ────────────────────────────────────────────────────────────────────────────
+	private sealed class SequenceChargeComparer : IEqualityComparer<(string Sequence, int Charge)>
+	{
+		public static readonly SequenceChargeComparer Instance = new();
+
+		public bool Equals((string Sequence, int Charge) x, (string Sequence, int Charge) y)
+			=> x.Charge == y.Charge
+			   && StringComparer.Ordinal.Equals(x.Sequence, y.Sequence);
+
+		public int GetHashCode((string Sequence, int Charge) obj)
+			=> HashCode.Combine(StringComparer.Ordinal.GetHashCode(obj.Sequence), obj.Charge);
+	}
 
 	// ── Elution group access ──────────────────────────────────────────────────
 
@@ -1052,4 +1344,62 @@ public sealed class MslLibrary : IDisposable
 	/// <returns>A fully populated in-memory <see cref="MslLibrary"/>.</returns>
 	internal static MslLibrary CreateInMemory(MslIndex index, MslFileHeader header)
 		=> new MslLibrary(index, header, isIndexOnly: false, rawLibrary: null, proteoformIndex: null);
+}
+/// <summary>
+/// Diagnostic summary returned by <see cref="MslLibrary.UpdateAndSave"/>.
+/// All counts and regression parameters refer to the single call that produced this result.
+/// </summary>
+/// <param name="OutputPath">Absolute path of the .msl file written by the update operation.</param>
+/// <param name="AnchorCount">
+///   Number of <c>(sequence, charge)</c> pairs that were present in both the original library
+///   and the incoming spectrum set and therefore served as regression anchors. Zero if no
+///   overlap was found.
+/// </param>
+/// <param name="RtNormalisationApplied">
+///   <see langword="true"/> when the regression was computed and applied to incoming entries;
+///   <see langword="false"/> when there were too few anchors (below the
+///   <c>minRegressionAnchors</c> threshold) and raw RT values were stored instead.
+/// </param>
+/// <param name="RtSlope">
+///   Slope of the fitted <c>iRT = slope × observedRT + intercept</c> line.
+///   Equal to 1.0 when <see cref="RtNormalisationApplied"/> is <see langword="false"/>.
+/// </param>
+/// <param name="RtIntercept">
+///   Intercept of the fitted line (in the same units as the library's stored iRT values).
+///   Equal to 0.0 when <see cref="RtNormalisationApplied"/> is <see langword="false"/>.
+/// </param>
+/// <param name="RetainedCount">
+///   Number of original library entries kept without replacement (either because no incoming
+///   spectrum matched their key, or because the original had at least as many fragment ions).
+/// </param>
+/// <param name="ReplacedCount">
+///   Number of original library entries replaced by a higher-ion-count incoming spectrum.
+/// </param>
+/// <param name="AddedCount">
+///   Number of incoming entries appended to the library because their
+///   <c>(sequence, charge)</c> key was not already present in the original library.
+/// </param>
+public sealed record MslUpdateResult(
+	string OutputPath,
+	int AnchorCount,
+	bool RtNormalisationApplied,
+	double RtSlope,
+	double RtIntercept,
+	int RetainedCount,
+	int ReplacedCount,
+	int AddedCount)
+{
+	/// <summary>
+	/// Total number of entries in the updated library
+	/// (<see cref="RetainedCount"/> + <see cref="ReplacedCount"/> + <see cref="AddedCount"/>).
+	/// </summary>
+	public int TotalCount => RetainedCount + ReplacedCount + AddedCount;
+
+	/// <inheritdoc/>
+	public override string ToString()
+		=> $"MslUpdateResult: {TotalCount} entries written to '{OutputPath}' "
+		 + $"(retained={RetainedCount}, replaced={ReplacedCount}, added={AddedCount}); "
+		 + (RtNormalisationApplied
+			   ? $"RT normalised: slope={RtSlope:F6}, intercept={RtIntercept:F4} ({AnchorCount} anchors)"
+			   : $"RT normalisation skipped (only {AnchorCount} anchors, threshold not met)");
 }
