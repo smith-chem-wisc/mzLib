@@ -179,8 +179,8 @@ namespace Development.MSL
 		public bool MslLookup_BySequenceCharge()
 		{
 			return _mslLib.TryGetEntry(
-				_entries[0].ModifiedSequence,
-				_entries[0].Charge,
+				_entries[0].FullSequence,
+				_entries[0].ChargeState,
 				out _);
 		}
 
@@ -194,8 +194,8 @@ namespace Development.MSL
 		public bool MspLookup_BySequenceCharge()
 		{
 			return _mspLib.TryGetSpectrum(
-				_entries[0].ModifiedSequence,
-				_entries[0].Charge,
+				_entries[0].FullSequence,
+				_entries[0].ChargeState,
 				out _);
 		}
 
@@ -215,20 +215,20 @@ namespace Development.MSL
 			{
 				// Normalise intensities to max = 1.0 within this precursor
 				float maxInty = 0f;
-				foreach (MslFragmentIon frag in e.Fragments)
+				foreach (MslFragmentIon frag in e.MatchedFragmentIons)
 					if (frag.Intensity > maxInty) maxInty = frag.Intensity;
 				if (maxInty <= 0f) maxInty = 1f;
 
 				sw.WriteLine(FormattableString.Invariant(
-					$"Name: {e.ModifiedSequence}/{e.Charge}"));
+					$"Name: {e.FullSequence}/{e.ChargeState}"));
 				sw.WriteLine(FormattableString.Invariant(
 					$"MW: {e.PrecursorMz:F6}"));
 				sw.WriteLine(FormattableString.Invariant(
-					$"Comment: Parent={e.PrecursorMz:F6} iRT={e.Irt:F4}"));
+					$"Comment: Parent={e.PrecursorMz:F6} iRT={e.RetentionTime:F4}"));
 				sw.WriteLine(FormattableString.Invariant(
-					$"Num peaks: {e.Fragments.Count}"));
+					$"Num peaks: {e.MatchedFragmentIons.Count}"));
 
-				foreach (MslFragmentIon frag in e.Fragments)
+				foreach (MslFragmentIon frag in e.MatchedFragmentIons)
 				{
 					float normInty = frag.Intensity / maxInty;
 					sw.WriteLine(FormattableString.Invariant(

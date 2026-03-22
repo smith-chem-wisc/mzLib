@@ -37,7 +37,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// a standardized way to pass all relevant information to the models.
     /// </summary>
     /// <param name="FullSequence">Peptide sequence with modifications in UNIMOD format (used in every model)</param>
-    /// <param name="PrecursorCharge">Charge state of the precursor ion (used in every model)</param>
+    /// <param name="PrecursorCharge">ChargeState state of the precursor ion (used in every model)</param>
     /// <param name="CollisionEnergy">Collision energy used for fragmentation (not used by some models)</param>
     /// <param name="InstrumentType">Type of mass spectrometer instrument (not used by some models)</param>
     /// <param name="FragmentationType">Fragmentation method used (not used by some models)</param>

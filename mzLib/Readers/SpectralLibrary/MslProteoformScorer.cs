@@ -76,7 +76,7 @@ public record MslProteoformScoringResult
 	/// Experimental intensities used for spectral angle scoring are tracked separately
 	/// inside the scorer and are not reproduced here.
 	/// </summary>
-	public required IReadOnlyList<MatchedFragmentIon> MatchedFragments { get; init; }
+	public required IReadOnlyList<MatchedFragmentIon> MatchedFragmentIons { get; init; }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -188,7 +188,7 @@ public static class MslProteoformScorer
 		for (int i = 0; i < candidates.Length; i++)
 		{
 			MslLibraryEntry? entry = library.GetEntry(candidates[i].OrdinalIndex);
-			if (entry is null || entry.Fragments is null || entry.Fragments.Count == 0)
+			if (entry is null || entry.MatchedFragmentIons is null || entry.MatchedFragmentIons.Count == 0)
 				continue;
 
 			MslProteoformScoringResult? result = ScoreCandidate(
@@ -215,15 +215,15 @@ public static class MslProteoformScorer
 		double fragmentMassTolerance,
 		int minMatchedFragments)
 	{
-		var matchedLibIntensities = new List<float>(entry.Fragments.Count);
-		var matchedExpIntensities = new List<float>(entry.Fragments.Count);
-		var matchedIons = new List<MatchedFragmentIon>(entry.Fragments.Count);
+		var matchedLibIntensities = new List<float>(entry.MatchedFragmentIons.Count);
+		var matchedExpIntensities = new List<float>(entry.MatchedFragmentIons.Count);
+		var matchedIons = new List<MatchedFragmentIon>(entry.MatchedFragmentIons.Count);
 
-		foreach (MslFragmentIon libFrag in entry.Fragments)
+		foreach (MslFragmentIon libFrag in entry.MatchedFragmentIons)
 		{
-			// Guard: Charge = 0 produces neutral mass = 0.0, which is incorrect and
+			// Guard: ChargeState = 0 produces neutral mass = 0.0, which is incorrect and
 			// would silently fail to match any real experimental peak. MslWriter.ValidateEntries
-			// flags Charge = 0 as an error, but that check is not called automatically.
+			// flags ChargeState = 0 as an error, but that check is not called automatically.
 			if (libFrag.Charge <= 0) continue;
 
 			// Step 1: Convert library fragment m/z + charge to neutral mass.
@@ -287,8 +287,8 @@ public static class MslProteoformScorer
 			CompositeScore = compositeScore,
 			SpectralAngle = spectralAngle,
 			MatchedFragmentCount = matchedCount,
-			TotalLibraryFragments = entry.Fragments.Count,
-			MatchedFragments = matchedIons.AsReadOnly()
+			TotalLibraryFragments = entry.MatchedFragmentIons.Count,
+			MatchedFragmentIons = matchedIons.AsReadOnly()
 		};
 	}
 

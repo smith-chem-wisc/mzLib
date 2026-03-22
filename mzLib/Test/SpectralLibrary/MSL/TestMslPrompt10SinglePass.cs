@@ -55,11 +55,11 @@ public class TestMslPrompt10SinglePass
 	private static MslLibraryEntry MakeEntry(string seq, double mz, int charge = 2) =>
 		new MslLibraryEntry
 		{
-			ModifiedSequence = seq,
-			StrippedSequence = seq,
+			FullSequence = seq,
+			BaseSequence = seq,
 			PrecursorMz = mz,
-			Charge = charge,
-			Irt = 30.0,
+			ChargeState = charge,
+			RetentionTime = 30.0,
 			DissociationType = DissociationType.HCD,
 			Nce = 28,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
@@ -71,7 +71,7 @@ public class TestMslPrompt10SinglePass
 			QValue = float.NaN,
 			ElutionGroupId = 0,
 			IsDecoy = false,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new() { ProductType = ProductType.b, FragmentNumber = 3,
 						Charge = 1, Mz = 312.15f, Intensity = 1.0f,
@@ -184,8 +184,8 @@ public class TestMslPrompt10SinglePass
 			"WriteStreaming with an array source must write all entries.");
 
 		// Spot-check order is preserved
-		Assert.That(data.Entries[0].ModifiedSequence, Is.EqualTo("ARRAYA"));
-		Assert.That(data.Entries[2].ModifiedSequence, Is.EqualTo("ARRAYC"));
+		Assert.That(data.Entries[0].FullSequence, Is.EqualTo("ARRAYA"));
+		Assert.That(data.Entries[2].FullSequence, Is.EqualTo("ARRAYC"));
 	}
 
 	// ════════════════════════════════════════════════════════════════════
@@ -279,7 +279,7 @@ public class TestMslPrompt10SinglePass
 			"LINQ Select source (lazy single-pass IEnumerable) must produce the correct entry count.");
 
 		// Confirm all sequences are present
-		var writtenSeqs = data.Entries.Select(e => e.ModifiedSequence).ToHashSet();
+		var writtenSeqs = data.Entries.Select(e => e.FullSequence).ToHashSet();
 		foreach (string seq in sequences)
 			Assert.That(writtenSeqs, Does.Contain(seq),
 				$"Sequence '{seq}' must be present in the output.");

@@ -73,11 +73,11 @@ public sealed class TestMslMerger
 	{
 		return new MslLibraryEntry
 		{
-			ModifiedSequence = modSeq,
-			StrippedSequence = modSeq.Replace("[+16]", ""),
+			FullSequence = modSeq,
+			BaseSequence = modSeq.Replace("[+16]", ""),
 			PrecursorMz = precursorMz,
-			Charge = charge,
-			Irt = irt,
+			ChargeState = charge,
+			RetentionTime = irt,
 			IsDecoy = isDecoy,
 			QValue = qValue,
 			MoleculeType = moleculeType,
@@ -86,7 +86,7 @@ public sealed class TestMslMerger
 			GeneName = string.Empty,
 			Source = MslFormat.SourceType.Predicted,
 			DissociationType = DissociationType.HCD,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -183,7 +183,7 @@ public sealed class TestMslMerger
 		bool found = lib.TryGetEntry("DUPL", 2, out MslLibraryEntry? entry);
 		Assert.That(found, Is.True);
 		// KeepFirst keeps file A's entry (iRT 10.0)
-		Assert.That(entry!.Irt, Is.EqualTo(10.0).Within(0.01));
+		Assert.That(entry!.RetentionTime, Is.EqualTo(10.0).Within(0.01));
 	}
 
 	[Test]
@@ -204,7 +204,7 @@ public sealed class TestMslMerger
 
 		lib.TryGetEntry("DUPL", 2, out MslLibraryEntry? entry);
 		// KeepLast keeps file B's entry (iRT 99.0)
-		Assert.That(entry!.Irt, Is.EqualTo(99.0).Within(0.01));
+		Assert.That(entry!.RetentionTime, Is.EqualTo(99.0).Within(0.01));
 	}
 
 	[Test]
@@ -226,7 +226,7 @@ public sealed class TestMslMerger
 
 		lib.TryGetEntry("QVAL", 2, out MslLibraryEntry? entry);
 		// Should keep entry with q-value 0.01 (file B, iRT 99.0)
-		Assert.That(entry!.Irt, Is.EqualTo(99.0).Within(0.01));
+		Assert.That(entry!.RetentionTime, Is.EqualTo(99.0).Within(0.01));
 	}
 
 	[Test]
@@ -351,14 +351,14 @@ public sealed class TestMslMerger
 
 		Assert.That(merged.PrecursorCount, Is.EqualTo(orig.PrecursorCount));
 
-		var origEntries = orig.GetAllEntries().OrderBy(e => e.LookupKey).ToList();
-		var mergedEntries = merged.GetAllEntries().OrderBy(e => e.LookupKey).ToList();
+		var origEntries = orig.GetAllEntries().OrderBy(e => e.Name).ToList();
+		var mergedEntries = merged.GetAllEntries().OrderBy(e => e.Name).ToList();
 
 		for (int i = 0; i < origEntries.Count; i++)
 		{
-			Assert.That(mergedEntries[i].ModifiedSequence, Is.EqualTo(origEntries[i].ModifiedSequence));
-			Assert.That(mergedEntries[i].Charge, Is.EqualTo(origEntries[i].Charge));
-			Assert.That(mergedEntries[i].Irt, Is.EqualTo(origEntries[i].Irt).Within(0.01));
+			Assert.That(mergedEntries[i].FullSequence, Is.EqualTo(origEntries[i].FullSequence));
+			Assert.That(mergedEntries[i].ChargeState, Is.EqualTo(origEntries[i].ChargeState));
+			Assert.That(mergedEntries[i].RetentionTime, Is.EqualTo(origEntries[i].RetentionTime).Within(0.01));
 		}
 	}
 
@@ -406,11 +406,11 @@ public sealed class TestMslMerger
 	{
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDEM[+16]IDE",
-			StrippedSequence = "PEPTIDEMIDE",
+			FullSequence = "PEPTIDEM[+16]IDE",
+			BaseSequence = "PEPTIDEMIDE",
 			PrecursorMz = 512.34,
-			Charge = 3,
-			Irt = 42.7,
+			ChargeState = 3,
+			RetentionTime = 42.7,
 			IsDecoy = false,
 			QValue = 0.005f,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
@@ -420,7 +420,7 @@ public sealed class TestMslMerger
 			Source = MslFormat.SourceType.Predicted,
 			DissociationType = DissociationType.HCD,
 			Nce = 28,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon { Mz = 175.12f, Intensity = 1.0f, ProductType = ProductType.y,
 									 FragmentNumber = 1, Charge = 1, NeutralLoss = 0.0 },
@@ -439,16 +439,16 @@ public sealed class TestMslMerger
 		bool found = lib.TryGetEntry("PEPTIDEM[+16]IDE", 3, out MslLibraryEntry? loaded);
 
 		Assert.That(found, Is.True);
-		Assert.That(loaded!.ModifiedSequence, Is.EqualTo("PEPTIDEM[+16]IDE"));
-		Assert.That(loaded.Charge, Is.EqualTo(3));
+		Assert.That(loaded!.FullSequence, Is.EqualTo("PEPTIDEM[+16]IDE"));
+		Assert.That(loaded.ChargeState, Is.EqualTo(3));
 		Assert.That(loaded.PrecursorMz, Is.EqualTo(512.34).Within(0.01));
-		Assert.That(loaded.Irt, Is.EqualTo(42.7).Within(0.01));
+		Assert.That(loaded.RetentionTime, Is.EqualTo(42.7).Within(0.01));
 		Assert.That(loaded.QValue, Is.EqualTo(0.005f).Within(0.0001f));
 		Assert.That(loaded.ProteinAccession, Is.EqualTo("P12345"));
-		Assert.That(loaded.Fragments.Count, Is.EqualTo(2));
+		Assert.That(loaded.MatchedFragmentIons.Count, Is.EqualTo(2));
 
 		// Verify fragment m/z round-trips (float precision)
-		Assert.That(loaded.Fragments.Any(f => Math.Abs(f.Mz - 175.12f) < 0.01f), Is.True);
+		Assert.That(loaded.MatchedFragmentIons.Any(f => Math.Abs(f.Mz - 175.12f) < 0.01f), Is.True);
 	}
 
 	[Test]
@@ -578,7 +578,7 @@ public sealed class TestMslMerger
 
 		using var lib = MslLibrary.Load(outPath);
 		Assert.That(lib.PrecursorCount, Is.EqualTo(2), "Overwritten file should contain the merged entries.");
-		Assert.That(lib.GetAllEntries().All(e => e.ModifiedSequence != "OLD"), Is.True,
+		Assert.That(lib.GetAllEntries().All(e => e.FullSequence != "OLD"), Is.True,
 			"The old entry should not appear in the overwritten file.");
 	}
 }

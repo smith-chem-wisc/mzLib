@@ -122,7 +122,7 @@ public class MslFragmentIon
 	/// </summary>
 	public int ResiduePosition { get; set; }
 
-	// ── Charge and neutral loss ──────────────────────────────────────────
+	// ── ChargeState and neutral loss ──────────────────────────────────────────
 
 	/// <summary>
 	/// Charge state of the fragment ion (typically 1; occasionally 2 for large peptides).
@@ -233,14 +233,14 @@ public class MslLibraryEntry
 	/// This is the primary identifier used in DDA-style dictionary lookups.
 	/// Maps to LibrarySpectrum.Sequence and MslPrecursorRecord.ModifiedSeqStringIdx.
 	/// </summary>
-	public string ModifiedSequence { get; set; }
-
+	public string FullSequence { get; set; }
+	
 	/// <summary>
 	/// Unmodified amino-acid sequence without any modification annotations.
 	/// Used for elution group construction and for the stripped-sequence lookup dictionary.
 	/// Maps to MslPrecursorRecord.StrippedSeqStringIdx.
 	/// </summary>
-	public string StrippedSequence { get; set; }
+	public string BaseSequence { get; set; }
 
 	/// <summary>
 	/// Precursor m/z value. For multiply-charged precursors this is the (M + z*H) / z value.
@@ -250,16 +250,16 @@ public class MslLibraryEntry
 
 	/// <summary>
 	/// Precursor charge state. Typically 1–4 for tryptic peptides; may be higher for
-	/// top-down proteoforms. Maps to LibrarySpectrum.ChargeState and MslPrecursorRecord.Charge.
+	/// top-down proteoforms. Maps to LibrarySpectrum.ChargeState and MslPrecursorRecord.ChargeState.
 	/// </summary>
-	public int Charge { get; set; }
+	public int ChargeState { get; set; }
 
 	/// <summary>
 	/// Indexed retention time (iRT, in iRT units) or calibrated run-specific retention time
 	/// in minutes. Which representation is stored is indicated by the rt_is_calibrated bit
-	/// in PrecursorFlags. Maps to LibrarySpectrum.RetentionTime and MslPrecursorRecord.Irt.
+	/// in PrecursorFlags. Maps to LibrarySpectrum.RetentionTime and MslPrecursorRecord.RetentionTime.
 	/// </summary>
-	public double Irt { get; set; }
+	public double RetentionTime { get; set; }
 
 	/// <summary>
 	/// True for decoy precursors (reversed or shuffled sequence). Used to separate target
@@ -273,7 +273,7 @@ public class MslLibraryEntry
 	/// the writer sorts them by m/z before serialization.
 	/// Maps to LibrarySpectrum.MatchedFragmentIons via ToLibrarySpectrum().
 	/// </summary>
-	public List<MslFragmentIon> Fragments { get; set; } = new();
+	public List<MslFragmentIon> MatchedFragmentIons { get; set; } = new();
 
 	// ── Extended fields ──────────────────────────────────────────────────
 
@@ -317,7 +317,7 @@ public class MslLibraryEntry
 	public float QValue { get; set; } = float.NaN;
 
 	/// <summary>
-	/// Elution group identifier. All precursors with the same StrippedSequence value share
+	/// Elution group identifier. All precursors with the same BaseSequence value share
 	/// the same ElutionGroupId, allowing the DIA scorer to handle multiple charge states and
 	/// modifications as co-eluting species.
 	/// Maps to MslPrecursorRecord.ElutionGroupId.
@@ -358,10 +358,10 @@ public class MslLibraryEntry
 
 	/// <summary>
 	/// Canonical DDA-style lookup key combining modified sequence and charge state.
-	/// Format: "{ModifiedSequence}/{Charge}", e.g. "PEPTM[Common Variable:Oxidation on M]IDE/2".
+	/// Format: "{FullSequence}/{ChargeState}", e.g. "PEPTM[Common Variable:Oxidation on M]IDE/2".
 	/// Used as the dictionary key in the MslIndex sequence-to-entry map for O(1) DDA lookup.
 	/// </summary>
-	public string LookupKey => ModifiedSequence + "/" + Charge;
+	public string Name => FullSequence + "/" + ChargeState;
 
 	// ── Conversion: MslLibraryEntry → LibrarySpectrum ───────────────────
 
@@ -376,20 +376,20 @@ public class MslLibraryEntry
 	/// <returns>
 	///   A new LibrarySpectrum with:
 	///   <list type="bullet">
-	///     <item>Sequence = ModifiedSequence</item>
+	///     <item>Sequence = FullSequence</item>
 	///     <item>PrecursorMz = PrecursorMz (double precision)</item>
-	///     <item>ChargeState = Charge</item>
-	///     <item>RetentionTime = Irt</item>
+	///     <item>ChargeState = ChargeState</item>
+	///     <item>RetentionTime = RetentionTime</item>
 	///     <item>IsDecoy = IsDecoy</item>
-	///     <item>MatchedFragmentIons = one MatchedFragmentIon per MslFragmentIon in Fragments</item>
+	///     <item>MatchedFragmentIons = one MatchedFragmentIon per MslFragmentIon in MatchedFragmentIons</item>
 	///   </list>
 	/// </returns>
 	public LibrarySpectrum ToLibrarySpectrum()
 	{
 		// Convert every MslFragmentIon to a MatchedFragmentIon wrapping a Product
-		var matchedIons = new List<MatchedFragmentIon>(Fragments.Count);
+		var matchedIons = new List<MatchedFragmentIon>(MatchedFragmentIons.Count);
 
-		foreach (MslFragmentIon mslIon in Fragments)
+		foreach (MslFragmentIon mslIon in MatchedFragmentIons)
 		{
 			// Determine whether this is an oligo or peptide to select the correct
 			// Terminus lookup source
@@ -442,17 +442,17 @@ public class MslLibraryEntry
 				mslIon.SecondaryProductType,
 				mslIon.SecondaryFragmentNumber);
 
-			// Wrap in a MatchedFragmentIon with the stored Mz (float → double), Intensity, and Charge
+			// Wrap in a MatchedFragmentIon with the stored Mz (float → double), Intensity, and ChargeState
 			matchedIons.Add(new MatchedFragmentIon(product, mslIon.Mz, mslIon.Intensity, mslIon.Charge));
 		}
 
 		// Construct the LibrarySpectrum using the mzLib constructor signature
 		return new LibrarySpectrum(
-			sequence: ModifiedSequence,
+			sequence: FullSequence,
 			precursorMz: PrecursorMz,
-			chargeState: Charge,
+			chargeState: ChargeState,
 			peaks: matchedIons,
-			rt: Irt,
+			rt: RetentionTime,
 			isDecoy: IsDecoy);
 	}
 
@@ -484,12 +484,12 @@ public class MslLibraryEntry
 
 		if (string.IsNullOrEmpty(spectrum.Sequence))
 		{
-			errors.Add($"LibrarySpectrum.Sequence is null or empty (PrecursorMz: {spectrum.PrecursorMz:F4}, Charge: {spectrum.ChargeState})");
+			errors.Add($"LibrarySpectrum.Sequence is null or empty (PrecursorMz: {spectrum.PrecursorMz:F4}, ChargeState: {spectrum.ChargeState})");
 		}
 
 		if (spectrum.ChargeState <= 0)
 		{
-			errors.Add($"LibrarySpectrum.ChargeState must be positive (Sequence: {spectrum.Sequence ?? "<null>"}, Charge: {spectrum.ChargeState})");
+			errors.Add($"LibrarySpectrum.ChargeState must be positive (Sequence: {spectrum.Sequence ?? "<null>"}, ChargeState: {spectrum.ChargeState})");
 		}
 
 		if (spectrum.PrecursorMz <= 0)
@@ -529,13 +529,13 @@ public class MslLibraryEntry
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = spectrum.Sequence,
-			StrippedSequence = strippedSeq,
+			FullSequence = spectrum.Sequence,
+			BaseSequence = strippedSeq,
 			PrecursorMz = spectrum.PrecursorMz,
-			Charge = spectrum.ChargeState,
-			Irt = spectrum.RetentionTime ?? 0.0,
+			ChargeState = spectrum.ChargeState,
+			RetentionTime = spectrum.RetentionTime ?? 0.0,
 			IsDecoy = spectrum.IsDecoy,
-			Fragments = fragments,
+			MatchedFragmentIons = fragments,
 			IonMobility = 0.0,
 			ProteinAccession = string.Empty,
 			ProteinName = string.Empty,

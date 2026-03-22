@@ -58,11 +58,11 @@ public class TestMslPrompt2LoadIndexOnly
 			string seq = sequences[i % sequences.Length] + (i >= sequences.Length ? i.ToString() : "");
 			entries.Add(new MslLibraryEntry
 			{
-				ModifiedSequence = seq,
-				StrippedSequence = seq,
+				FullSequence = seq,
+				BaseSequence = seq,
 				PrecursorMz = 400.0 + i * 50.0,
-				Charge = 2,
-				Irt = 30.0 + i * 5.0,
+				ChargeState = 2,
+				RetentionTime = 30.0 + i * 5.0,
 				DissociationType = DissociationType.HCD,
 				Nce = 28,
 				MoleculeType = MslFormat.MoleculeType.Peptide,
@@ -74,7 +74,7 @@ public class TestMslPrompt2LoadIndexOnly
 				QValue = float.NaN,
 				ElutionGroupId = 0,
 				IsDecoy = false,
-				Fragments = new List<MslFragmentIon>
+				MatchedFragmentIons = new List<MslFragmentIon>
 				{
 					new MslFragmentIon
 					{
@@ -108,7 +108,7 @@ public class TestMslPrompt2LoadIndexOnly
 	// ═════════════════════════════════════════════════════════════════════
 
 	/// <summary>
-	/// Immediately after LoadIndexOnly, every entry's Fragments list must be
+	/// Immediately after LoadIndexOnly, every entry's MatchedFragmentIons list must be
 	/// empty. This is the core promise of index-only mode: fragment bytes
 	/// remain on disk until explicitly requested.
 	///
@@ -129,8 +129,8 @@ public class TestMslPrompt2LoadIndexOnly
 
 		foreach (MslLibraryEntry entry in data.Entries)
 		{
-			Assert.That(entry.Fragments, Is.Empty,
-				$"Entry '{entry.ModifiedSequence}' must have an empty Fragments list " +
+			Assert.That(entry.MatchedFragmentIons, Is.Empty,
+				$"Entry '{entry.FullSequence}' must have an empty MatchedFragmentIons list " +
 				"immediately after LoadIndexOnly (fragments are loaded on demand, not upfront).");
 		}
 	}
@@ -164,7 +164,7 @@ public class TestMslPrompt2LoadIndexOnly
 
 	/// <summary>
 	/// After calling GetEntry (which triggers LoadFragmentsOnDemand internally),
-	/// the entry's Fragments list must be non-empty.
+	/// the entry's MatchedFragmentIons list must be non-empty.
 	/// </summary>
 	[Test]
 	public void LoadIndexOnly_GetEntry_PopulatesFragments()
@@ -176,8 +176,8 @@ public class TestMslPrompt2LoadIndexOnly
 		bool found = lib.TryGetEntry("PEPTIDE", 2, out MslLibraryEntry? entry);
 
 		Assert.That(found, Is.True, "TryGetEntry must find PEPTIDE/2.");
-		Assert.That(entry!.Fragments, Is.Not.Empty,
-			"Fragments must be populated after demand-load via GetEntry.");
+		Assert.That(entry!.MatchedFragmentIons, Is.Not.Empty,
+			"MatchedFragmentIons must be populated after demand-load via GetEntry.");
 	}
 
 	/// <summary>
@@ -189,19 +189,19 @@ public class TestMslPrompt2LoadIndexOnly
 	public void LoadIndexOnly_DemandLoadedFragments_HaveCorrectMzValues()
 	{
 		var entries = BuildEntries(1);
-		float expectedMz0 = entries[0].Fragments[0].Mz;
-		float expectedMz1 = entries[0].Fragments[1].Mz;
+		float expectedMz0 = entries[0].MatchedFragmentIons[0].Mz;
+		float expectedMz1 = entries[0].MatchedFragmentIons[1].Mz;
 
 		string path = Tmp(nameof(LoadIndexOnly_DemandLoadedFragments_HaveCorrectMzValues));
 		MslWriter.Write(path, entries);
 
 		using MslLibrary lib = MslLibrary.LoadIndexOnly(path);
-		bool found = lib.TryGetEntry(entries[0].ModifiedSequence, 2, out MslLibraryEntry? entry);
+		bool found = lib.TryGetEntry(entries[0].FullSequence, 2, out MslLibraryEntry? entry);
 
 		Assert.That(found, Is.True);
 
-		// Fragments are sorted by m/z ascending on write
-		var frags = entry!.Fragments.OrderBy(f => f.Mz).ToList();
+		// MatchedFragmentIons are sorted by m/z ascending on write
+		var frags = entry!.MatchedFragmentIons.OrderBy(f => f.Mz).ToList();
 
 		Assert.That(frags[0].Mz, Is.EqualTo(Math.Min(expectedMz0, expectedMz1)).Within(1e-3f),
 			"Lowest m/z fragment must match the written value after demand-load.");
@@ -216,16 +216,16 @@ public class TestMslPrompt2LoadIndexOnly
 	public void LoadIndexOnly_DemandLoadedFragments_CountMatchesWritten()
 	{
 		var entries = BuildEntries(1);
-		int expectedCount = entries[0].Fragments.Count;
+		int expectedCount = entries[0].MatchedFragmentIons.Count;
 
 		string path = Tmp(nameof(LoadIndexOnly_DemandLoadedFragments_CountMatchesWritten));
 		MslWriter.Write(path, entries);
 
 		using MslLibrary lib = MslLibrary.LoadIndexOnly(path);
-		bool found = lib.TryGetEntry(entries[0].ModifiedSequence, 2, out MslLibraryEntry? entry);
+		bool found = lib.TryGetEntry(entries[0].FullSequence, 2, out MslLibraryEntry? entry);
 
 		Assert.That(found, Is.True);
-		Assert.That(entry!.Fragments.Count, Is.EqualTo(expectedCount),
+		Assert.That(entry!.MatchedFragmentIons.Count, Is.EqualTo(expectedCount),
 			$"Demand-loaded fragment count must equal written count ({expectedCount}).");
 	}
 
@@ -247,8 +247,8 @@ public class TestMslPrompt2LoadIndexOnly
 		Assert.That(fullEntry, Is.Not.Null);
 		Assert.That(indexEntry, Is.Not.Null);
 
-		var fullFrags = fullEntry!.Fragments.OrderBy(f => f.Mz).ToList();
-		var indexFrags = indexEntry!.Fragments.OrderBy(f => f.Mz).ToList();
+		var fullFrags = fullEntry!.MatchedFragmentIons.OrderBy(f => f.Mz).ToList();
+		var indexFrags = indexEntry!.MatchedFragmentIons.OrderBy(f => f.Mz).ToList();
 
 		Assert.That(indexFrags.Count, Is.EqualTo(fullFrags.Count),
 			"Index-only demand-load must produce the same fragment count as full-load.");
@@ -297,12 +297,12 @@ public class TestMslPrompt2LoadIndexOnly
 					try
 					{
 						bool found = lib.TryGetEntry(
-							skeleton.ModifiedSequence, skeleton.Charge, out MslLibraryEntry? loaded);
+							skeleton.FullSequence, skeleton.ChargeState, out MslLibraryEntry? loaded);
 
-						if (!found || loaded is null || loaded.Fragments.Count == 0)
+						if (!found || loaded is null || loaded.MatchedFragmentIons.Count == 0)
 							exceptions.Add(new AssertionException(
-								$"Concurrent demand-load failed for '{skeleton.ModifiedSequence}': " +
-								$"found={found}, fragments={loaded?.Fragments.Count ?? -1}"));
+								$"Concurrent demand-load failed for '{skeleton.FullSequence}': " +
+								$"found={found}, fragments={loaded?.MatchedFragmentIons.Count ?? -1}"));
 					}
 					catch (Exception ex) when (ex is not AssertionException)
 					{
@@ -447,7 +447,7 @@ public class TestMslPrompt2LoadIndexOnly
 	// ═════════════════════════════════════════════════════════════════════
 
 	/// <summary>
-	/// PrecursorMz, Charge, ModifiedSequence, and Irt must all be correctly
+	/// PrecursorMz, ChargeState, FullSequence, and RetentionTime must all be correctly
 	/// populated in index-only mode without any fragment demand-load occurring.
 	/// This verifies that the skeleton entries carry full precursor metadata.
 	/// </summary>
@@ -474,8 +474,8 @@ public class TestMslPrompt2LoadIndexOnly
 		Assert.That((double)indexEntry.PrecursorMz,
 			Is.EqualTo(written[0].PrecursorMz).Within(1e-3),
 			"PrecursorMz must be available in skeleton entry without fragment load.");
-		Assert.That((int)indexEntry.Charge, Is.EqualTo(written[0].Charge),
-			"Charge must be available in skeleton entry without fragment load.");
+		Assert.That((int)indexEntry.Charge, Is.EqualTo(written[0].ChargeState),
+			"ChargeState must be available in skeleton entry without fragment load.");
 	}
 
 	// ═════════════════════════════════════════════════════════════════════

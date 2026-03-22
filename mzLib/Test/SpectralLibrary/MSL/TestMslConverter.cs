@@ -172,7 +172,7 @@ public sealed class TestMslConverter
 	public void FromMspFile_TotalFragmentCount_MatchesMsp()
 	{
 		int totalFragments = _fromFile!.GetAllEntries()
-			.Sum(e => e.Fragments.Count);
+			.Sum(e => e.MatchedFragmentIons.Count);
 
 		Assert.That(totalFragments, Is.EqualTo(ExpectedTotalFragments));
 	}
@@ -336,13 +336,13 @@ public sealed class TestMslConverter
 		foreach (MslLibraryEntry fileEntry in fileLib.GetAllEntries())
 		{
 			bool found = _fromFile.TryGetEntry(
-				fileEntry.ModifiedSequence, fileEntry.Charge, out MslLibraryEntry? memEntry);
+				fileEntry.FullSequence, fileEntry.ChargeState, out MslLibraryEntry? memEntry);
 
 			Assert.That(found, Is.True,
-				$"Entry '{fileEntry.ModifiedSequence}/{fileEntry.Charge}' missing from in-memory library.");
+				$"Entry '{fileEntry.FullSequence}/{fileEntry.ChargeState}' missing from in-memory library.");
 			Assert.That(memEntry!.PrecursorMz,
 				Is.EqualTo(fileEntry.PrecursorMz).Within(MzTolerance),
-				$"PrecursorMz mismatch for '{fileEntry.ModifiedSequence}/{fileEntry.Charge}'.");
+				$"PrecursorMz mismatch for '{fileEntry.FullSequence}/{fileEntry.ChargeState}'.");
 		}
 	}
 

@@ -57,12 +57,12 @@ public sealed class TestMslCustomNeutralLoss
 		int charge = 1) =>
 		new()
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz = 450.25,
-			Charge = 2,
-			Irt = 30.0,
-			Fragments = new List<MslFragmentIon>
+			ChargeState = 2,
+			RetentionTime = 30.0,
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new()
 				{
@@ -106,8 +106,8 @@ public sealed class TestMslCustomNeutralLoss
 		Assert.That(lib.PrecursorCount, Is.EqualTo(1));
 		bool found = lib.TryGetEntry("PEPTIDE", 2, out MslLibraryEntry? entry);
 		Assert.That(found, Is.True);
-		Assert.That(entry!.Fragments, Has.Count.EqualTo(1));
-		Assert.That(entry.Fragments[0].NeutralLoss,
+		Assert.That(entry!.MatchedFragmentIons, Has.Count.EqualTo(1));
+		Assert.That(entry.MatchedFragmentIons[0].NeutralLoss,
 			Is.EqualTo(hexNacLoss).Within(1e-9));
 	}
 
@@ -123,12 +123,12 @@ public sealed class TestMslCustomNeutralLoss
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "GLYCOPEPTIDE",
-			StrippedSequence = "GLYCOPEPTIDE",
+			FullSequence = "GLYCOPEPTIDE",
+			BaseSequence = "GLYCOPEPTIDE",
 			PrecursorMz = 700.35,
-			Charge = 2,
-			Irt = 45.0,
-			Fragments = losses.Select((loss, i) => new MslFragmentIon
+			ChargeState = 2,
+			RetentionTime = 45.0,
+			MatchedFragmentIons = losses.Select((loss, i) => new MslFragmentIon
 			{
 				Mz = 200f + i * 50f,
 				Intensity = 1.0f,
@@ -145,10 +145,10 @@ public sealed class TestMslCustomNeutralLoss
 
 		bool found = lib.TryGetEntry("GLYCOPEPTIDE", 2, out MslLibraryEntry? readBack);
 		Assert.That(found, Is.True);
-		Assert.That(readBack!.Fragments, Has.Count.EqualTo(losses.Length));
+		Assert.That(readBack!.MatchedFragmentIons, Has.Count.EqualTo(losses.Length));
 
 		// Sort both by Mz to compare in a deterministic order (writer sorts by m/z)
-		var readLosses = readBack.Fragments
+		var readLosses = readBack.MatchedFragmentIons
 			.OrderBy(f => f.Mz)
 			.Select(f => f.NeutralLoss)
 			.ToArray();
@@ -176,12 +176,12 @@ public sealed class TestMslCustomNeutralLoss
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz = 450.25,
-			Charge = 2,
-			Irt = 30.0,
-			Fragments = new List<MslFragmentIon>
+			ChargeState = 2,
+			RetentionTime = 30.0,
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new() { Mz = 200f, Intensity = 1.0f, ProductType = ProductType.b,
 					FragmentNumber = 2, ResiduePosition = 1, Charge = 1, NeutralLoss = sharedLoss },
@@ -221,12 +221,12 @@ public sealed class TestMslCustomNeutralLoss
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz = 450.25,
-			Charge = 2,
-			Irt = 30.0,
-			Fragments = new List<MslFragmentIon>
+			ChargeState = 2,
+			RetentionTime = 30.0,
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new() { Mz = 200f, Intensity = 1.0f, ProductType = ProductType.b,
 					FragmentNumber = 2, ResiduePosition = 1, Charge = 1, NeutralLoss = h2oLoss },
@@ -243,7 +243,7 @@ public sealed class TestMslCustomNeutralLoss
 		bool found = lib.TryGetEntry("PEPTIDE", 2, out MslLibraryEntry? readBack);
 		Assert.That(found, Is.True);
 
-		var frags = readBack!.Fragments.OrderBy(f => f.Mz).ToList();
+		var frags = readBack!.MatchedFragmentIons.OrderBy(f => f.Mz).ToList();
 		Assert.That(frags, Has.Count.EqualTo(3));
 
 		Assert.That(frags[0].NeutralLoss, Is.EqualTo(h2oLoss).Within(1e-6),
@@ -421,7 +421,7 @@ public sealed class TestMslCustomNeutralLoss
 		using MslLibrary lib = MslLibrary.Load(path);
 
 		lib.TryGetEntry("PEPTIDE", 2, out MslLibraryEntry? entry);
-		Assert.That(entry!.Fragments[0].ResiduePosition, Is.EqualTo(expectedResiduePos),
+		Assert.That(entry!.MatchedFragmentIons[0].ResiduePosition, Is.EqualTo(expectedResiduePos),
 			"ResiduePosition must be preserved for fragments with no custom neutral loss");
 	}
 
@@ -439,7 +439,7 @@ public sealed class TestMslCustomNeutralLoss
 		using MslLibrary lib = MslLibrary.Load(path);
 
 		lib.TryGetEntry("PEPTIDE", 2, out MslLibraryEntry? entry);
-		Assert.That(entry!.Fragments[0].ResiduePosition, Is.EqualTo(0),
+		Assert.That(entry!.MatchedFragmentIons[0].ResiduePosition, Is.EqualTo(0),
 			"ResiduePosition must be 0 for custom-loss fragments (repurposed as ExtAnnotationIdx in binary)");
 	}
 

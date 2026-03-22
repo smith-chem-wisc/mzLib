@@ -55,15 +55,15 @@ public sealed class TestMslProteoformIndex
 	{
 		return new MslLibraryEntry
 		{
-			ModifiedSequence = sequence,
-			StrippedSequence = sequence,
+			FullSequence = sequence,
+			BaseSequence = sequence,
 			PrecursorMz = mz,
-			Charge = charge,
-			Irt = irt,
+			ChargeState = charge,
+			RetentionTime = irt,
 			IsDecoy = isDecoy,
 			MoleculeType = MslFormat.MoleculeType.Proteoform,
 			DissociationType = DissociationType.HCD,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -87,14 +87,14 @@ public sealed class TestMslProteoformIndex
 	{
 		return new MslLibraryEntry
 		{
-			ModifiedSequence = sequence,
-			StrippedSequence = sequence,
+			FullSequence = sequence,
+			BaseSequence = sequence,
 			PrecursorMz = mz,
-			Charge = charge,
-			Irt = irt,
+			ChargeState = charge,
+			RetentionTime = irt,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -258,8 +258,8 @@ public sealed class TestMslProteoformIndex
 
 		Assert.That(found, Is.True);
 		Assert.That(entry, Is.Not.Null);
-		Assert.That(entry!.ModifiedSequence, Is.EqualTo("MYPROTEOFORM"));
-		Assert.That(entry.Charge, Is.EqualTo(15));
+		Assert.That(entry!.FullSequence, Is.EqualTo("MYPROTEOFORM"));
+		Assert.That(entry.ChargeState, Is.EqualTo(15));
 	}
 
 	[Test]

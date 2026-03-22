@@ -165,8 +165,8 @@ namespace Development.MSL
 		public bool DdaLookup_ExistingEntry()
 		{
 			return _queryLib.TryGetEntry(
-				_entries[0].ModifiedSequence,
-				_entries[0].Charge,
+				_entries[0].FullSequence,
+				_entries[0].ChargeState,
 				out _);
 		}
 
@@ -255,11 +255,11 @@ namespace Development.MSL
 
 				entries.Add(new MslLibraryEntry
 				{
-					ModifiedSequence = seq,
-					StrippedSequence = seq,
+					FullSequence = seq,
+					BaseSequence = seq,
 					PrecursorMz = mz,
-					Charge = charge,
-					Irt = irt,
+					ChargeState = charge,
+					RetentionTime = irt,
 					IsDecoy = false,
 					IsProteotypic = true,
 					ProteinAccession = "BENCH_PROT",
@@ -269,7 +269,7 @@ namespace Development.MSL
 					MoleculeType = MslFormat.MoleculeType.Peptide,
 					DissociationType = DissociationType.HCD,
 					Nce = 28,
-					Fragments = fragments
+					MatchedFragmentIons = fragments
 				});
 			}
 

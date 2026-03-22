@@ -54,11 +54,11 @@ public class TestMslPrompt1RoundTrip
 	{
 		return new MslLibraryEntry
 		{
-			ModifiedSequence = seq,
-			StrippedSequence = seq,
+			FullSequence = seq,
+			BaseSequence = seq,
 			PrecursorMz = precursorMz,
-			Charge = charge,
-			Irt = 30.0,
+			ChargeState = charge,
+			RetentionTime = 30.0,
 			IonMobility = 0.0,
 			DissociationType = DissociationType.HCD,
 			Nce = nce,
@@ -71,7 +71,7 @@ public class TestMslPrompt1RoundTrip
 			QValue = float.NaN,
 			ElutionGroupId = 0,
 			IsDecoy = false,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -107,7 +107,7 @@ public class TestMslPrompt1RoundTrip
 
 		MslWriter.Write(path, new List<MslLibraryEntry> { MakeEntry(neutralLoss: expectedLoss) });
 		var lib = MslReader.Load(path);
-		double actual = lib.Entries[0].Fragments[0].NeutralLoss;
+		double actual = lib.Entries[0].MatchedFragmentIons[0].NeutralLoss;
 
 		Assert.That(actual, Is.EqualTo(expectedLoss).Within(1e-6),
 			$"H3PO4AndH2O loss must round-trip to {expectedLoss:F6} Da, got {actual:F6}.");
@@ -127,7 +127,7 @@ public class TestMslPrompt1RoundTrip
 
 		MslWriter.Write(path, new List<MslLibraryEntry> { MakeEntry(neutralLoss: combinedLoss) });
 		var lib = MslReader.Load(path);
-		double actual = lib.Entries[0].Fragments[0].NeutralLoss;
+		double actual = lib.Entries[0].MatchedFragmentIons[0].NeutralLoss;
 
 		Assert.That(Math.Abs(actual - waterOnly), Is.GreaterThan(0.1),
 			$"H3PO4AndH2O (−115.987) must NOT decode as water-only (−18.011). " +
@@ -173,7 +173,7 @@ public class TestMslPrompt1RoundTrip
 
 		MslWriter.Write(path, new List<MslLibraryEntry> { MakeEntry(neutralLoss: loss) });
 		var lib = MslReader.Load(path);
-		double actual = lib.Entries[0].Fragments[0].NeutralLoss;
+		double actual = lib.Entries[0].MatchedFragmentIons[0].NeutralLoss;
 
 		Assert.That(actual, Is.EqualTo(loss).Within(1e-4),
 			$"Neutral loss {loss:F6} did not survive write→read round-trip (got {actual:F6}).");
@@ -306,21 +306,21 @@ public class TestMslPrompt1RoundTrip
 	}
 
 	/// <summary>
-	/// Irt (iRT) is stored as float32. Same acceptable precision-loss as PrecursorMz.
+	/// RetentionTime (iRT) is stored as float32. Same acceptable precision-loss as PrecursorMz.
 	/// </summary>
 	[Test]
 	public void Irt_StoredAsFloat32_PrecisionLossAcceptable()
 	{
 		// Build entry with a high-precision iRT value
 		var entry = MakeEntry();
-		entry.Irt = 42.123456789;
+		entry.RetentionTime = 42.123456789;
 		string path = Tmp(nameof(Irt_StoredAsFloat32_PrecisionLossAcceptable));
 		MslWriter.Write(path, new List<MslLibraryEntry> { entry });
 		var lib = MslReader.Load(path);
 
-		double delta = Math.Abs(lib.Entries[0].Irt - entry.Irt);
+		double delta = Math.Abs(lib.Entries[0].RetentionTime - entry.RetentionTime);
 		Assert.That(delta, Is.LessThan(1e-3),
-			"Irt float32 precision loss should be < 1 mDa equivalent.");
+			"RetentionTime float32 precision loss should be < 1 mDa equivalent.");
 	}
 
 	// ═════════════════════════════════════════════════════════════════════
@@ -336,11 +336,11 @@ public class TestMslPrompt1RoundTrip
 	{
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "ACDEFGHIK",
-			StrippedSequence = "ACDEFGHIK",
+			FullSequence = "ACDEFGHIK",
+			BaseSequence = "ACDEFGHIK",
 			PrecursorMz = 529.765,
-			Charge = 2,
-			Irt = 42.5,
+			ChargeState = 2,
+			RetentionTime = 42.5,
 			IonMobility = 0.85,
 			DissociationType = DissociationType.HCD,
 			Nce = 28,
@@ -353,7 +353,7 @@ public class TestMslPrompt1RoundTrip
 			IsDecoy = false,
 			QValue = 0.01f,
 			ElutionGroupId = 0,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -370,9 +370,9 @@ public class TestMslPrompt1RoundTrip
 
 		Assert.Multiple(() =>
 		{
-			Assert.That(r.ModifiedSequence, Is.EqualTo(entry.ModifiedSequence), "ModifiedSequence");
-			Assert.That(r.StrippedSequence, Is.EqualTo(entry.StrippedSequence), "StrippedSequence");
-			Assert.That(r.Charge, Is.EqualTo(entry.Charge), "Charge");
+			Assert.That(r.FullSequence, Is.EqualTo(entry.FullSequence), "FullSequence");
+			Assert.That(r.BaseSequence, Is.EqualTo(entry.BaseSequence), "BaseSequence");
+			Assert.That(r.ChargeState, Is.EqualTo(entry.ChargeState), "ChargeState");
 			Assert.That(r.Nce, Is.EqualTo(entry.Nce), "Nce");
 			Assert.That(r.MoleculeType, Is.EqualTo(entry.MoleculeType), "MoleculeType");
 			Assert.That(r.DissociationType, Is.EqualTo(entry.DissociationType), "DissociationType");
@@ -383,14 +383,14 @@ public class TestMslPrompt1RoundTrip
 
 			// Float32 fields — allow float32 round-trip precision loss
 			Assert.That(r.PrecursorMz, Is.EqualTo(entry.PrecursorMz).Within(1e-3), "PrecursorMz");
-			Assert.That(r.Irt, Is.EqualTo(entry.Irt).Within(1e-3), "Irt");
+			Assert.That(r.RetentionTime, Is.EqualTo(entry.RetentionTime).Within(1e-3), "RetentionTime");
 			Assert.That(r.IonMobility, Is.EqualTo(entry.IonMobility).Within(1e-5), "IonMobility");
 		});
 	}
 
 	/// <summary>
 	/// All fragment-level fields must survive write → read with values intact.
-	/// Tests Mz, Intensity, ProductType, FragmentNumber, ResiduePosition, Charge,
+	/// Tests Mz, Intensity, ProductType, FragmentNumber, ResiduePosition, ChargeState,
 	/// SecondaryProductType, SecondaryFragmentNumber, and NeutralLoss.
 	/// </summary>
 	[Test]
@@ -398,7 +398,7 @@ public class TestMslPrompt1RoundTrip
 	{
 		var entry = MakeEntry();
 		// Replace the default fragment with a richly populated one
-		entry.Fragments = new List<MslFragmentIon>
+		entry.MatchedFragmentIons = new List<MslFragmentIon>
 		{
             // Terminal b ion
             new MslFragmentIon
@@ -431,7 +431,7 @@ public class TestMslPrompt1RoundTrip
 		string path = Tmp(nameof(FragmentRecord_AllFields_RoundTrip));
 		MslWriter.Write(path, new List<MslLibraryEntry> { entry });
 		var lib = MslReader.Load(path);
-		var frags = lib.Entries[0].Fragments;
+		var frags = lib.Entries[0].MatchedFragmentIons;
 
 		// Frags are sorted by m/z ascending on write; 390 < 612 so internal ion is [0]
 		var internal_ion = frags[0];
@@ -444,7 +444,7 @@ public class TestMslPrompt1RoundTrip
 			Assert.That(terminal_ion.SecondaryProductType, Is.Null, "terminal SecondaryProductType");
 			Assert.That(terminal_ion.FragmentNumber, Is.EqualTo(5), "terminal FragmentNumber");
 			Assert.That(terminal_ion.ResiduePosition, Is.EqualTo(4), "terminal ResiduePosition");
-			Assert.That(terminal_ion.Charge, Is.EqualTo(2), "terminal Charge");
+			Assert.That(terminal_ion.Charge, Is.EqualTo(2), "terminal ChargeState");
 			Assert.That(terminal_ion.NeutralLoss, Is.EqualTo(-18.010565).Within(1e-4), "terminal NeutralLoss");
 			Assert.That(terminal_ion.Mz, Is.EqualTo(612.34f).Within(1e-4f), "terminal Mz");
 
@@ -488,7 +488,7 @@ public class TestMslPrompt1RoundTrip
 
 	/// <summary>
 	/// MslPrecursorRecord.StrippedSeqLength is written by the writer but the
-	/// reader does not use it — StrippedSequence.Length is recomputed from the
+	/// reader does not use it — BaseSequence.Length is recomputed from the
 	/// string resolved from the string table.
 	/// </summary>
 	[Test]
@@ -501,12 +501,12 @@ public class TestMslPrompt1RoundTrip
 		MslWriter.Write(path, new List<MslLibraryEntry> { entry });
 
 		var lib = MslReader.Load(path);
-		string recovered = lib.Entries[0].StrippedSequence;
+		string recovered = lib.Entries[0].BaseSequence;
 
 		Assert.That(recovered.Length, Is.EqualTo(seq.Length),
-			"Recovered StrippedSequence must have the same length as the original.");
+			"Recovered BaseSequence must have the same length as the original.");
 		Assert.That(recovered, Is.EqualTo(seq),
-			"Recovered StrippedSequence must equal the original.");
+			"Recovered BaseSequence must equal the original.");
 	}
 
 	// ═════════════════════════════════════════════════════════════════════

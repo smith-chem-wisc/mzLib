@@ -100,11 +100,11 @@ public sealed class TestMslLibrary
 	{
 		var entry0 = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz = 449.74,
-			Charge = 2,
-			Irt = 35.4,
+			ChargeState = 2,
+			RetentionTime = 35.4,
 			IonMobility = 0.0,
 			ProteinAccession = "P12345",
 			ProteinName = "Test Protein",
@@ -116,7 +116,7 @@ public sealed class TestMslLibrary
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
 			Nce = 28,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -135,11 +135,11 @@ public sealed class TestMslLibrary
 
 		var entry1 = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz = 300.16,
-			Charge = 3,
-			Irt = 35.4,
+			ChargeState = 3,
+			RetentionTime = 35.4,
 			IonMobility = 0.0,
 			ProteinAccession = string.Empty,
 			ProteinName = string.Empty,
@@ -151,7 +151,7 @@ public sealed class TestMslLibrary
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
 			Nce = 28,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -164,11 +164,11 @@ public sealed class TestMslLibrary
 
 		var entry2 = new MslLibraryEntry
 		{
-			ModifiedSequence = "ACDEFGHIK",
-			StrippedSequence = "ACDEFGHIK",
+			FullSequence = "ACDEFGHIK",
+			BaseSequence = "ACDEFGHIK",
 			PrecursorMz = 529.76,
-			Charge = 2,
-			Irt = 42.1,
+			ChargeState = 2,
+			RetentionTime = 42.1,
 			IonMobility = 0.0,
 			ProteinAccession = string.Empty,
 			ProteinName = string.Empty,
@@ -180,7 +180,7 @@ public sealed class TestMslLibrary
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
 			Nce = 0,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -371,8 +371,8 @@ public sealed class TestMslLibrary
 			"TryGetEntry must return true for PEPTIDE/2 in index-only mode.");
 		Assert.That(entry, Is.Not.Null,
 			"The out parameter must be non-null when TryGetEntry returns true.");
-		Assert.That(entry!.Fragments, Is.Not.Empty,
-			"Fragments must be loaded on demand in index-only mode.");
+		Assert.That(entry!.MatchedFragmentIons, Is.Not.Empty,
+			"MatchedFragmentIons must be loaded on demand in index-only mode.");
 	}
 
 	/// <summary>
@@ -488,7 +488,7 @@ public sealed class TestMslLibrary
 
 		Assert.That(entry, Is.Not.Null,
 			"GetEntry must return a non-null entry for a valid PrecursorIdx.");
-		Assert.That(entry!.Fragments, Is.Not.Empty,
+		Assert.That(entry!.MatchedFragmentIons, Is.Not.Empty,
 			"Fragment ions must be loaded on demand in index-only mode.");
 	}
 
@@ -562,8 +562,8 @@ public sealed class TestMslLibrary
 
 		foreach (MslLibraryEntry entry in lib.GetAllEntries())
 		{
-			Assert.That(entry.Fragments, Is.Not.Empty,
-				$"Entry {entry.ModifiedSequence}/{entry.Charge} must have fragments in full-load mode.");
+			Assert.That(entry.MatchedFragmentIons, Is.Not.Empty,
+				$"Entry {entry.FullSequence}/{entry.ChargeState} must have fragments in full-load mode.");
 		}
 	}
 
@@ -579,8 +579,8 @@ public sealed class TestMslLibrary
 
 		foreach (MslLibraryEntry entry in lib.GetAllEntries())
 		{
-			Assert.That(entry.Fragments, Is.Not.Empty,
-				$"Entry {entry.ModifiedSequence}/{entry.Charge} must have fragments loaded on demand.");
+			Assert.That(entry.MatchedFragmentIons, Is.Not.Empty,
+				$"Entry {entry.FullSequence}/{entry.ChargeState} must have fragments loaded on demand.");
 		}
 	}
 
@@ -599,7 +599,7 @@ public sealed class TestMslLibrary
 		using MslLibrary original = MslLibrary.Load(SharedLibraryPath);
 		using MslLibrary calibrated = original.WithCalibratedRetentionTimes(slope: 2.0, intercept: 5.0);
 
-		// Query the calibrated library for PEPTIDE/2 and inspect its index entry's Irt
+		// Query the calibrated library for PEPTIDE/2 and inspect its index entry's RetentionTime
 		ReadOnlySpan<MslPrecursorIndexEntry> entries =
 			calibrated.QueryMzWindow(449.0f, 450.0f);
 
@@ -768,13 +768,13 @@ public sealed class TestMslLibrary
 		// Verify every written entry survives the round-trip by sequence/charge lookup
 		foreach (MslLibraryEntry original in written)
 		{
-			bool found = lib.TryGetEntry(original.ModifiedSequence, original.Charge,
+			bool found = lib.TryGetEntry(original.FullSequence, original.ChargeState,
 				out MslLibraryEntry? loaded);
 
 			Assert.That(found, Is.True,
-				$"Entry {original.ModifiedSequence}/{original.Charge} must survive the round-trip.");
-			Assert.That(loaded!.Fragments.Count, Is.EqualTo(original.Fragments.Count),
-				$"Fragment count for {original.ModifiedSequence}/{original.Charge} must be preserved.");
+				$"Entry {original.FullSequence}/{original.ChargeState} must survive the round-trip.");
+			Assert.That(loaded!.MatchedFragmentIons.Count, Is.EqualTo(original.MatchedFragmentIons.Count),
+				$"Fragment count for {original.FullSequence}/{original.ChargeState} must be preserved.");
 		}
 	}
 

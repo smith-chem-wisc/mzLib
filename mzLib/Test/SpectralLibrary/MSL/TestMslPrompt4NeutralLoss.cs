@@ -52,11 +52,11 @@ public class TestMslPrompt4NeutralLoss
 	private static MslLibraryEntry EntryWithLoss(double neutralLoss, string seq = "PEPTIDE") =>
 		new MslLibraryEntry
 		{
-			ModifiedSequence = seq,
-			StrippedSequence = seq,
+			FullSequence = seq,
+			BaseSequence = seq,
 			PrecursorMz = 500.0,
-			Charge = 2,
-			Irt = 30.0,
+			ChargeState = 2,
+			RetentionTime = 30.0,
 			DissociationType = DissociationType.HCD,
 			Nce = 28,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
@@ -68,7 +68,7 @@ public class TestMslPrompt4NeutralLoss
 			QValue = float.NaN,
 			ElutionGroupId = 0,
 			IsDecoy = false,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -104,7 +104,7 @@ public class TestMslPrompt4NeutralLoss
 		MslWriter.Write(path, new[] { EntryWithLoss(loss) });
 		var lib = MslReader.Load(path);
 
-		double actual = lib.Entries[0].Fragments[0].NeutralLoss;
+		double actual = lib.Entries[0].MatchedFragmentIons[0].NeutralLoss;
 
 		Assert.That(actual, Is.EqualTo(loss).Within(1e-6),
 			$"NeutralLossCode.{codeName} ({loss:F6} Da) must survive write→read round-trip.");
@@ -128,7 +128,7 @@ public class TestMslPrompt4NeutralLoss
 		MslWriter.Write(path, new[] { EntryWithLoss(combinedLoss) });
 		var lib = MslReader.Load(path);
 
-		double actual = lib.Entries[0].Fragments[0].NeutralLoss;
+		double actual = lib.Entries[0].MatchedFragmentIons[0].NeutralLoss;
 
 		Assert.That(actual, Is.EqualTo(combinedLoss).Within(1e-6),
 			$"H3PO4AndH2O must decode to {combinedLoss:F6} Da.");
@@ -169,7 +169,7 @@ public class TestMslPrompt4NeutralLoss
 			"After Fix 7, WriteStreaming must not throw for custom neutral losses.");
 
 		var lib = MslReader.Load(path);
-		double actual = lib.Entries[0].Fragments[0].NeutralLoss;
+		double actual = lib.Entries[0].MatchedFragmentIons[0].NeutralLoss;
 
 		Assert.That(actual, Is.EqualTo(customLoss).Within(1e-9),
 			$"Custom loss {customLoss:F6} Da must survive WriteStreaming→Read round-trip exactly.");
@@ -190,7 +190,7 @@ public class TestMslPrompt4NeutralLoss
 			"Write() must support custom neutral losses without throwing.");
 
 		var lib = MslReader.Load(path);
-		double actual = lib.Entries[0].Fragments[0].NeutralLoss;
+		double actual = lib.Entries[0].MatchedFragmentIons[0].NeutralLoss;
 
 		Assert.That(actual, Is.EqualTo(customLoss).Within(1e-9),
 			$"Custom loss {customLoss:F6} Da must survive Write→Read round-trip exactly.");
@@ -335,13 +335,13 @@ public class TestMslPrompt4NeutralLoss
 	public void NamedLoss_ResiduePosition_PreservedInRoundTrip()
 	{
 		var entry = EntryWithLoss(-18.010565);   // H2O — named
-		entry.Fragments[0].ResiduePosition = 7;
+		entry.MatchedFragmentIons[0].ResiduePosition = 7;
 
 		string path = TempPath("residue_pos_named");
 		MslWriter.Write(path, new[] { entry });
 		var lib = MslReader.Load(path);
 
-		Assert.That(lib.Entries[0].Fragments[0].ResiduePosition, Is.EqualTo(7),
+		Assert.That(lib.Entries[0].MatchedFragmentIons[0].ResiduePosition, Is.EqualTo(7),
 			"ResiduePosition must be preserved for named neutral losses.");
 	}
 
@@ -353,13 +353,13 @@ public class TestMslPrompt4NeutralLoss
 	public void CustomLoss_ResiduePosition_IsZeroAfterRoundTrip()
 	{
 		var entry = EntryWithLoss(-203.0794);    // custom
-		entry.Fragments[0].ResiduePosition = 7;
+		entry.MatchedFragmentIons[0].ResiduePosition = 7;
 
 		string path = TempPath("residue_pos_custom");
 		MslWriter.Write(path, new[] { entry });
 		var lib = MslReader.Load(path);
 
-		Assert.That(lib.Entries[0].Fragments[0].ResiduePosition, Is.EqualTo(0),
+		Assert.That(lib.Entries[0].MatchedFragmentIons[0].ResiduePosition, Is.EqualTo(0),
 			"ResiduePosition is repurposed as ExtAnnotationIdx for custom-loss fragments " +
 			"and is recovered as 0 on read. This is a documented trade-off.");
 	}

@@ -90,11 +90,11 @@ public sealed class TestMslReader
 		// ── Entry 0: PEPTIDE/2 ────────────────────────────────────────────────
 		var entry0 = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz = 449.7358,
-			Charge = 2,
-			Irt = 35.4,
+			ChargeState = 2,
+			RetentionTime = 35.4,
 			IonMobility = 0.0,
 			ProteinAccession = "P12345",
 			ProteinName = "Test protein alpha",
@@ -106,7 +106,7 @@ public sealed class TestMslReader
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
 			Nce = 28,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new()
 				{
@@ -140,11 +140,11 @@ public sealed class TestMslReader
 		// ── Entry 1: PEPTIDE/3 — same stripped seq, different charge ──────────
 		var entry1 = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz = 300.160,
-			Charge = 3,
-			Irt = 35.4,
+			ChargeState = 3,
+			RetentionTime = 35.4,
 			IonMobility = 0.0,
 			ProteinAccession = string.Empty,
 			ProteinName = string.Empty,
@@ -156,7 +156,7 @@ public sealed class TestMslReader
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
 			Nce = 28,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new()
 				{
@@ -186,11 +186,11 @@ public sealed class TestMslReader
 	{
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "ACDEFGHIK",
-			StrippedSequence = "ACDEFGHIK",
+			FullSequence = "ACDEFGHIK",
+			BaseSequence = "ACDEFGHIK",
 			PrecursorMz = 529.760,
-			Charge = 2,
-			Irt = 42.1,
+			ChargeState = 2,
+			RetentionTime = 42.1,
 			IonMobility = 0.0,
 			ProteinAccession = string.Empty,
 			ProteinName = string.Empty,
@@ -202,7 +202,7 @@ public sealed class TestMslReader
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
 			Nce = 28,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new()
 				{
@@ -456,8 +456,8 @@ public sealed class TestMslReader
 
 		using MslLibraryData lib = MslReader.Load(path);
 
-		Assert.That(lib.Entries[0].Charge, Is.EqualTo(written[0].Charge));
-		Assert.That(lib.Entries[1].Charge, Is.EqualTo(written[1].Charge));
+		Assert.That(lib.Entries[0].ChargeState, Is.EqualTo(written[0].ChargeState));
+		Assert.That(lib.Entries[1].ChargeState, Is.EqualTo(written[1].ChargeState));
 	}
 
 	/// <summary>
@@ -472,9 +472,9 @@ public sealed class TestMslReader
 
 		using MslLibraryData lib = MslReader.Load(path);
 
-		Assert.That((float)lib.Entries[0].Irt,
-			Is.EqualTo((float)written[0].Irt).Within(1e-4f),
-			"Irt must round-trip to float32 precision.");
+		Assert.That((float)lib.Entries[0].RetentionTime,
+			Is.EqualTo((float)written[0].RetentionTime).Within(1e-4f),
+			"RetentionTime must round-trip to float32 precision.");
 	}
 
 	/// <summary>
@@ -506,8 +506,8 @@ public sealed class TestMslReader
 
 		using MslLibraryData lib = MslReader.Load(path);
 
-		Assert.That(lib.Entries[0].ModifiedSequence, Is.EqualTo(written[0].ModifiedSequence));
-		Assert.That(lib.Entries[1].ModifiedSequence, Is.EqualTo(written[1].ModifiedSequence));
+		Assert.That(lib.Entries[0].FullSequence, Is.EqualTo(written[0].FullSequence));
+		Assert.That(lib.Entries[1].FullSequence, Is.EqualTo(written[1].FullSequence));
 	}
 
 	/// <summary>
@@ -522,7 +522,7 @@ public sealed class TestMslReader
 
 		using MslLibraryData lib = MslReader.Load(path);
 
-		Assert.That(lib.Entries[0].StrippedSequence, Is.EqualTo(written[0].StrippedSequence));
+		Assert.That(lib.Entries[0].BaseSequence, Is.EqualTo(written[0].BaseSequence));
 	}
 
 	/// <summary>
@@ -603,9 +603,9 @@ public sealed class TestMslReader
 		using MslLibraryData lib = MslReader.Load(path);
 
 		// Writer sorts + normalizes in-place; fragment counts are unchanged
-		Assert.That(lib.Entries[0].Fragments.Count, Is.EqualTo(written[0].Fragments.Count),
+		Assert.That(lib.Entries[0].MatchedFragmentIons.Count, Is.EqualTo(written[0].MatchedFragmentIons.Count),
 			"Entry 0 fragment count must match.");
-		Assert.That(lib.Entries[1].Fragments.Count, Is.EqualTo(written[1].Fragments.Count),
+		Assert.That(lib.Entries[1].MatchedFragmentIons.Count, Is.EqualTo(written[1].MatchedFragmentIons.Count),
 			"Entry 1 fragment count must match.");
 	}
 
@@ -621,13 +621,13 @@ public sealed class TestMslReader
 
 		using MslLibraryData lib = MslReader.Load(path);
 
-		// Fragments are sorted by m/z ascending; entry 0 has b2 first, then y1
+		// MatchedFragmentIons are sorted by m/z ascending; entry 0 has b2 first, then y1
 		// After write: [b2@98.060, y1@175.119]
-		Assert.That(lib.Entries[0].Fragments[0].Mz,
+		Assert.That(lib.Entries[0].MatchedFragmentIons[0].Mz,
 			Is.EqualTo(98.060f).Within(1e-3f),
 			"b2 fragment m/z (lowest) must be first after m/z sort.");
 
-		Assert.That(lib.Entries[0].Fragments[1].Mz,
+		Assert.That(lib.Entries[0].MatchedFragmentIons[1].Mz,
 			Is.EqualTo(175.119f).Within(1e-3f),
 			"y1 fragment m/z must survive round-trip.");
 	}
@@ -646,12 +646,12 @@ public sealed class TestMslReader
 		using MslLibraryData lib = MslReader.Load(path);
 
 		// Max intensity fragment for entry 0 is b2 (10000 raw → 1.0 normalized), m/z=98.060
-		float maxIntensity = lib.Entries[0].Fragments.Max(f => f.Intensity);
+		float maxIntensity = lib.Entries[0].MatchedFragmentIons.Max(f => f.Intensity);
 		Assert.That(maxIntensity, Is.EqualTo(1.0f).Within(1e-5f),
 			"The most-abundant fragment must have normalized intensity 1.0.");
 
 		// y1 was 8000 raw out of 10000 max → 0.8 after normalization
-		float y1Intensity = lib.Entries[0].Fragments.First(f => f.ProductType == ProductType.y).Intensity;
+		float y1Intensity = lib.Entries[0].MatchedFragmentIons.First(f => f.ProductType == ProductType.y).Intensity;
 		Assert.That(y1Intensity, Is.EqualTo(0.8f).Within(1e-4f),
 			"y1 intensity must be 0.8 after normalization (8000/10000).");
 	}
@@ -669,8 +669,8 @@ public sealed class TestMslReader
 		using MslLibraryData lib = MslReader.Load(path);
 
 		// Sorted ascending: [b2, y1]
-		Assert.That(lib.Entries[0].Fragments[0].ProductType, Is.EqualTo(ProductType.b));
-		Assert.That(lib.Entries[0].Fragments[1].ProductType, Is.EqualTo(ProductType.y));
+		Assert.That(lib.Entries[0].MatchedFragmentIons[0].ProductType, Is.EqualTo(ProductType.b));
+		Assert.That(lib.Entries[0].MatchedFragmentIons[1].ProductType, Is.EqualTo(ProductType.y));
 	}
 
 	/// <summary>
@@ -686,8 +686,8 @@ public sealed class TestMslReader
 		using MslLibraryData lib = MslReader.Load(path);
 
 		// Sorted: [b2@98.060 → FragmentNumber=2, y1@175.119 → FragmentNumber=1]
-		Assert.That(lib.Entries[0].Fragments[0].FragmentNumber, Is.EqualTo(2));
-		Assert.That(lib.Entries[0].Fragments[1].FragmentNumber, Is.EqualTo(1));
+		Assert.That(lib.Entries[0].MatchedFragmentIons[0].FragmentNumber, Is.EqualTo(2));
+		Assert.That(lib.Entries[0].MatchedFragmentIons[1].FragmentNumber, Is.EqualTo(1));
 	}
 
 	/// <summary>
@@ -702,8 +702,8 @@ public sealed class TestMslReader
 
 		using MslLibraryData lib = MslReader.Load(path);
 
-		Assert.That(lib.Entries[0].Fragments[0].Charge, Is.EqualTo(1));
-		Assert.That(lib.Entries[0].Fragments[1].Charge, Is.EqualTo(1));
+		Assert.That(lib.Entries[0].MatchedFragmentIons[0].Charge, Is.EqualTo(1));
+		Assert.That(lib.Entries[0].MatchedFragmentIons[1].Charge, Is.EqualTo(1));
 	}
 
 	/// <summary>
@@ -720,7 +720,7 @@ public sealed class TestMslReader
 		using MslLibraryData lib = MslReader.Load(path);
 
 		// The bIy ion is at higher m/z (485.215), so it should be at index 1 after sort
-		MslFragmentIon internalIon = lib.Entries[0].Fragments
+		MslFragmentIon internalIon = lib.Entries[0].MatchedFragmentIons
 			.FirstOrDefault(f => f.SecondaryProductType != null)!;
 
 		Assert.That(internalIon, Is.Not.Null,
@@ -744,7 +744,7 @@ public sealed class TestMslReader
 
 		using MslLibraryData lib = MslReader.Load(path);
 
-		MslFragmentIon internalIon = lib.Entries[0].Fragments
+		MslFragmentIon internalIon = lib.Entries[0].MatchedFragmentIons
 			.First(f => f.SecondaryProductType != null);
 
 		Assert.That(internalIon.FragmentNumber, Is.EqualTo(2),
@@ -764,7 +764,7 @@ public sealed class TestMslReader
 
 		using MslLibraryData lib = MslReader.Load(path);
 
-		MslFragmentIon internalIon = lib.Entries[0].Fragments
+		MslFragmentIon internalIon = lib.Entries[0].MatchedFragmentIons
 			.First(f => f.SecondaryProductType != null);
 
 		Assert.That(internalIon.SecondaryFragmentNumber, Is.EqualTo(5),
@@ -785,15 +785,15 @@ public sealed class TestMslReader
 		{
 			new()
 			{
-				ModifiedSequence = "PEPTIDE",
-				StrippedSequence = "PEPTIDE",
+				FullSequence = "PEPTIDE",
+				BaseSequence = "PEPTIDE",
 				PrecursorMz      = 449.74,
-				Charge           = 2,
-				Irt              = 30.0,
+				ChargeState           = 2,
+				RetentionTime              = 30.0,
 				Source           = MslFormat.SourceType.Predicted,
 				MoleculeType     = MslFormat.MoleculeType.Peptide,
 				DissociationType = DissociationType.HCD,
-				Fragments        = new List<MslFragmentIon>
+				MatchedFragmentIons        = new List<MslFragmentIon>
 				{
 					new()
 					{
@@ -812,7 +812,7 @@ public sealed class TestMslReader
 
 		using MslLibraryData lib = MslReader.Load(path);
 
-		double readLoss = lib.Entries[0].Fragments[0].NeutralLoss;
+		double readLoss = lib.Entries[0].MatchedFragmentIons[0].NeutralLoss;
 		Assert.That(readLoss, Is.EqualTo(-18.010565).Within(0.001),
 			"H2O neutral-loss mass must round-trip from NeutralLossCode.H2O.");
 	}
@@ -831,11 +831,11 @@ public sealed class TestMslReader
 
 		foreach (MslLibraryEntry entry in lib.Entries)
 		{
-			var mzValues = entry.Fragments.Select(f => f.Mz).ToList();
+			var mzValues = entry.MatchedFragmentIons.Select(f => f.Mz).ToList();
 			var sorted = mzValues.OrderBy(mz => mz).ToList();
 
 			Assert.That(mzValues, Is.EqualTo(sorted),
-				$"Fragments for entry '{entry.ModifiedSequence}/{entry.Charge}' must be m/z ascending.");
+				$"MatchedFragmentIons for entry '{entry.FullSequence}/{entry.ChargeState}' must be m/z ascending.");
 		}
 	}
 
@@ -925,7 +925,7 @@ public sealed class TestMslReader
 		using MslLibraryData lib = MslReader.LoadIndexOnly(path);
 
 		// Fragment lists must be empty in index-only mode
-		Assert.That(lib.Entries[0].Fragments, Is.Empty,
+		Assert.That(lib.Entries[0].MatchedFragmentIons, Is.Empty,
 			"Fragment list must be empty before on-demand loading.");
 
 		// But PrecursorMz must already be populated
@@ -952,7 +952,7 @@ public sealed class TestMslReader
 		for (int i = 0; i < fullLib.Count; i++)
 		{
 			List<MslFragmentIon> onDemand = indexLib.LoadFragmentsOnDemand(i);
-			List<MslFragmentIon> preLoaded = fullLib.Entries[i].Fragments;
+			List<MslFragmentIon> preLoaded = fullLib.Entries[i].MatchedFragmentIons;
 
 			Assert.That(onDemand.Count, Is.EqualTo(preLoaded.Count),
 				$"Fragment count for entry {i} must match between full-load and on-demand.");
@@ -1073,10 +1073,10 @@ public sealed class TestMslReader
 			MslLibraryEntry r = lib.Entries[i];
 
 			Assert.That((float)r.PrecursorMz, Is.EqualTo((float)w.PrecursorMz).Within(1e-4f), $"[{i}] PrecursorMz");
-			Assert.That(r.Charge, Is.EqualTo(w.Charge), $"[{i}] Charge");
-			Assert.That((float)r.Irt, Is.EqualTo((float)w.Irt).Within(1e-4f), $"[{i}] Irt");
-			Assert.That(r.ModifiedSequence, Is.EqualTo(w.ModifiedSequence), $"[{i}] ModifiedSequence");
-			Assert.That(r.StrippedSequence, Is.EqualTo(w.StrippedSequence), $"[{i}] StrippedSequence");
+			Assert.That(r.ChargeState, Is.EqualTo(w.ChargeState), $"[{i}] ChargeState");
+			Assert.That((float)r.RetentionTime, Is.EqualTo((float)w.RetentionTime).Within(1e-4f), $"[{i}] RetentionTime");
+			Assert.That(r.FullSequence, Is.EqualTo(w.FullSequence), $"[{i}] FullSequence");
+			Assert.That(r.BaseSequence, Is.EqualTo(w.BaseSequence), $"[{i}] BaseSequence");
 			Assert.That(r.IsDecoy, Is.EqualTo(w.IsDecoy), $"[{i}] IsDecoy");
 			Assert.That(r.MoleculeType, Is.EqualTo(w.MoleculeType), $"[{i}] MoleculeType");
 			Assert.That(r.DissociationType, Is.EqualTo(w.DissociationType), $"[{i}] DissociationType");
@@ -1101,8 +1101,8 @@ public sealed class TestMslReader
 		{
 			// After write the writer has sorted and normalized in-place;
 			// compare against the (now mutated) written lists
-			List<MslFragmentIon> wFrags = written[i].Fragments;
-			List<MslFragmentIon> rFrags = lib.Entries[i].Fragments;
+			List<MslFragmentIon> wFrags = written[i].MatchedFragmentIons;
+			List<MslFragmentIon> rFrags = lib.Entries[i].MatchedFragmentIons;
 
 			Assert.That(rFrags.Count, Is.EqualTo(wFrags.Count), $"[{i}] fragment count");
 
@@ -1112,7 +1112,7 @@ public sealed class TestMslReader
 				Assert.That(rFrags[j].Intensity, Is.EqualTo(wFrags[j].Intensity).Within(1e-5f), $"[{i}][{j}] Intensity");
 				Assert.That(rFrags[j].ProductType, Is.EqualTo(wFrags[j].ProductType), $"[{i}][{j}] ProductType");
 				Assert.That(rFrags[j].FragmentNumber, Is.EqualTo(wFrags[j].FragmentNumber), $"[{i}][{j}] FragmentNumber");
-				Assert.That(rFrags[j].Charge, Is.EqualTo(wFrags[j].Charge), $"[{i}][{j}] Charge");
+				Assert.That(rFrags[j].Charge, Is.EqualTo(wFrags[j].Charge), $"[{i}][{j}] ChargeState");
 			}
 		}
 	}
@@ -1120,7 +1120,7 @@ public sealed class TestMslReader
 	/// <summary>
 	/// Verifies that calling <see cref="MslLibraryEntry.ToLibrarySpectrum"/> on a read entry
 	/// produces a <see cref="LibrarySpectrum"/> whose sequence matches the written
-	/// ModifiedSequence (the "Name" in the DDA dictionary).
+	/// FullSequence (the "Name" in the DDA dictionary).
 	/// </summary>
 	[Test]
 	public void WriteRead_RoundTrip_ToLibrarySpectrum_NameMatchesExpected()
@@ -1133,7 +1133,7 @@ public sealed class TestMslReader
 		LibrarySpectrum spectrum = lib.Entries[0].ToLibrarySpectrum();
 
 		Assert.That(spectrum.Sequence, Is.EqualTo("PEPTIDE"),
-			"ToLibrarySpectrum().Sequence must match the original ModifiedSequence.");
+			"ToLibrarySpectrum().Sequence must match the original FullSequence.");
 	}
 
 	/// <summary>
@@ -1192,17 +1192,17 @@ public sealed class TestMslReader
 		{
 			new()
 			{
-				ModifiedSequence = "PEPTIDE",
-				StrippedSequence = "PEPTIDE",
+				FullSequence = "PEPTIDE",
+				BaseSequence = "PEPTIDE",
 				PrecursorMz      = 449.74,
-				Charge           = 2,
+				ChargeState           = 2,
 				Source           = MslFormat.SourceType.Predicted,
 				MoleculeType     = MslFormat.MoleculeType.Peptide,
 				DissociationType = DissociationType.HCD,
 				ProteinAccession = string.Empty,
 				ProteinName      = string.Empty,
 				GeneName         = string.Empty,
-				Fragments        = new List<MslFragmentIon>
+				MatchedFragmentIons        = new List<MslFragmentIon>
 				{
 					new()
 					{
@@ -1255,14 +1255,14 @@ public sealed class TestMslReader
 		{
 			new()
 			{
-				ModifiedSequence = "ACDEFGHIKLMNPQRSTVWY",
-				StrippedSequence = "ACDEFGHIKLMNPQRSTVWY",
+				FullSequence = "ACDEFGHIKLMNPQRSTVWY",
+				BaseSequence = "ACDEFGHIKLMNPQRSTVWY",
 				PrecursorMz      = 1000.0,
-				Charge           = 2,
+				ChargeState           = 2,
 				Source           = MslFormat.SourceType.Predicted,
 				MoleculeType     = MslFormat.MoleculeType.Peptide,
 				DissociationType = DissociationType.HCD,
-				Fragments        = fragments
+				MatchedFragmentIons        = fragments
 			}
 		};
 
@@ -1270,7 +1270,7 @@ public sealed class TestMslReader
 
 		using MslLibraryData lib = MslReader.Load(path);
 
-		Assert.That(lib.Entries[0].Fragments.Count, Is.EqualTo(FragmentCount),
+		Assert.That(lib.Entries[0].MatchedFragmentIons.Count, Is.EqualTo(FragmentCount),
 			$"All {FragmentCount} fragments must survive write → read.");
 	}
 
@@ -1292,14 +1292,14 @@ public sealed class TestMslReader
 		{
 			new()
 			{
-				ModifiedSequence = "ACGU",
-				StrippedSequence = "ACGU",
+				FullSequence = "ACGU",
+				BaseSequence = "ACGU",
 				PrecursorMz      = 600.0,
-				Charge           = 2,
+				ChargeState           = 2,
 				Source           = MslFormat.SourceType.Predicted,
 				MoleculeType     = MslFormat.MoleculeType.Oligonucleotide,
 				DissociationType = DissociationType.HCD,
-				Fragments        = new List<MslFragmentIon>
+				MatchedFragmentIons        = new List<MslFragmentIon>
 				{
 					new()
 					{
@@ -1322,7 +1322,7 @@ public sealed class TestMslReader
 		Assert.That(lib.Entries[0].MoleculeType,
 			Is.EqualTo(MslFormat.MoleculeType.Oligonucleotide),
 			"MoleculeType must be Oligonucleotide after round-trip.");
-		Assert.That(lib.Entries[0].Fragments.Count, Is.EqualTo(1),
+		Assert.That(lib.Entries[0].MatchedFragmentIons.Count, Is.EqualTo(1),
 			"Fragment count must be 1 after round-trip.");
 
 		// Call ToLibrarySpectrum() to exercise the terminus-reconstruction branch for oligos.
@@ -1348,14 +1348,14 @@ public sealed class TestMslReader
 		{
 			new()
 			{
-				ModifiedSequence = longSeq,
-				StrippedSequence = longSeq,
+				FullSequence = longSeq,
+				BaseSequence = longSeq,
 				PrecursorMz      = 1200.0,
-				Charge           = 10,
+				ChargeState           = 10,
 				Source           = MslFormat.SourceType.Predicted,
 				MoleculeType     = MslFormat.MoleculeType.Proteoform,
 				DissociationType = DissociationType.HCD,
-				Fragments        = new List<MslFragmentIon>
+				MatchedFragmentIons        = new List<MslFragmentIon>
 				{
 					new()
 					{
@@ -1374,7 +1374,7 @@ public sealed class TestMslReader
 		using MslLibraryData lib = MslReader.Load(path);
 
 		Assert.That(lib.Count, Is.EqualTo(1), "Proteoform entry must load.");
-		Assert.That(lib.Entries[0].StrippedSequence.Length, Is.EqualTo(200),
+		Assert.That(lib.Entries[0].BaseSequence.Length, Is.EqualTo(200),
 			"Proteoform stripped sequence length must survive write → read.");
 		Assert.That(lib.Entries[0].MoleculeType, Is.EqualTo(MslFormat.MoleculeType.Proteoform),
 			"MoleculeType must be Proteoform.");

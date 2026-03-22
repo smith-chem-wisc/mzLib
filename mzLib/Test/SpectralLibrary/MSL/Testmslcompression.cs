@@ -58,14 +58,14 @@ public sealed class TestMslCompression
 	{
 		return new MslLibraryEntry
 		{
-			ModifiedSequence = sequence,
-			StrippedSequence = sequence,
+			FullSequence = sequence,
+			BaseSequence = sequence,
 			PrecursorMz = precursorMz,
-			Charge = charge,
-			Irt = irt,
+			ChargeState = charge,
+			RetentionTime = irt,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -118,14 +118,14 @@ public sealed class TestMslCompression
 
 			entries.Add(new MslLibraryEntry
 			{
-				ModifiedSequence = $"P{i}",
-				StrippedSequence = $"P{i}",
+				FullSequence = $"P{i}",
+				BaseSequence = $"P{i}",
 				PrecursorMz = 400.0 + i * 0.01,
-				Charge = 2,
-				Irt = i * 0.1,
+				ChargeState = 2,
+				RetentionTime = i * 0.1,
 				MoleculeType = MslFormat.MoleculeType.Peptide,
 				DissociationType = DissociationType.HCD,
-				Fragments = fragments
+				MatchedFragmentIons = fragments
 			});
 		}
 		return entries;
@@ -163,7 +163,7 @@ public sealed class TestMslCompression
 		using MslLibrary lib = MslLibrary.Load(path);
 		Assert.That(lib.PrecursorCount, Is.EqualTo(1));
 		Assert.That(lib.TryGetEntry("PEPTIDE", 2, out MslLibraryEntry? entry), Is.True);
-		Assert.That(entry!.Fragments, Has.Count.EqualTo(3));
+		Assert.That(entry!.MatchedFragmentIons, Has.Count.EqualTo(3));
 	}
 
 	/// <summary>
@@ -241,18 +241,18 @@ public sealed class TestMslCompression
 
 		var original = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz = 449.74,
-			Charge = 2,
-			Irt = 35.4,
+			ChargeState = 2,
+			RetentionTime = 35.4,
 			IonMobility = 0.95,
 			IsDecoy = false,
 			IsProteotypic = true,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
 			Nce = 28,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -274,16 +274,16 @@ public sealed class TestMslCompression
 		using MslLibrary lib = MslLibrary.Load(path);
 		Assert.That(lib.TryGetEntry("PEPTIDE", 2, out MslLibraryEntry? entry), Is.True);
 
-		Assert.That(entry!.ModifiedSequence, Is.EqualTo(original.ModifiedSequence));
-		Assert.That(entry.Charge, Is.EqualTo(original.Charge));
-		Assert.That(entry.Irt, Is.EqualTo((double)(float)original.Irt).Within(1e-4));
+		Assert.That(entry!.FullSequence, Is.EqualTo(original.FullSequence));
+		Assert.That(entry.ChargeState, Is.EqualTo(original.ChargeState));
+		Assert.That(entry.RetentionTime, Is.EqualTo((double)(float)original.RetentionTime).Within(1e-4));
 		Assert.That(entry.IsDecoy, Is.EqualTo(original.IsDecoy));
 		Assert.That(entry.IsProteotypic, Is.EqualTo(original.IsProteotypic));
-		Assert.That(entry.Fragments, Has.Count.EqualTo(2));
+		Assert.That(entry.MatchedFragmentIons, Has.Count.EqualTo(2));
 
-		// Fragments are sorted by m/z ascending on write; check both
-		MslFragmentIon b2 = entry.Fragments.Single(f => f.ProductType == ProductType.b);
-		MslFragmentIon y1 = entry.Fragments.Single(f => f.ProductType == ProductType.y);
+		// MatchedFragmentIons are sorted by m/z ascending on write; check both
+		MslFragmentIon b2 = entry.MatchedFragmentIons.Single(f => f.ProductType == ProductType.b);
+		MslFragmentIon y1 = entry.MatchedFragmentIons.Single(f => f.ProductType == ProductType.y);
 
 		Assert.That(b2.FragmentNumber, Is.EqualTo(2));
 		Assert.That(y1.FragmentNumber, Is.EqualTo(1));
@@ -303,7 +303,7 @@ public sealed class TestMslCompression
 		using MslLibrary lib = MslLibrary.Load(path);
 		lib.TryGetEntry("PEPTIDE", 2, out MslLibraryEntry? entry);
 
-		float[] actualMzValues = entry!.Fragments.Select(f => f.Mz).OrderBy(m => m).ToArray();
+		float[] actualMzValues = entry!.MatchedFragmentIons.Select(f => f.Mz).OrderBy(m => m).ToArray();
 
 		Assert.That(actualMzValues, Has.Length.EqualTo(expectedMzValues.Length));
 		for (int i = 0; i < expectedMzValues.Length; i++)
@@ -512,11 +512,11 @@ public sealed class TestMslCompression
 		using MslLibrary lib = MslLibrary.Load(path);
 
 		Assert.That(lib.TryGetEntry("PEPTIDE", 2, out MslLibraryEntry? e1), Is.True);
-		Assert.That(e1!.Charge, Is.EqualTo(2));
-		Assert.That(e1.Fragments, Has.Count.EqualTo(3));
+		Assert.That(e1!.ChargeState, Is.EqualTo(2));
+		Assert.That(e1.MatchedFragmentIons, Has.Count.EqualTo(3));
 
 		Assert.That(lib.TryGetEntry("ACDEFGHIK", 3, out MslLibraryEntry? e2), Is.True);
-		Assert.That(e2!.Charge, Is.EqualTo(3));
+		Assert.That(e2!.ChargeState, Is.EqualTo(3));
 
 		Assert.That(lib.TryGetEntry("NOTPRESENT", 2, out _), Is.False,
 			"Lookup of absent entry must return false");

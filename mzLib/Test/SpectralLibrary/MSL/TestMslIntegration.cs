@@ -85,17 +85,17 @@ public sealed class TestMslIntegration
 	{
 		var entry0 = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz = 449.74,
-			Charge = 2,
-			Irt = 35.4,
+			ChargeState = 2,
+			RetentionTime = 35.4,
 			IsDecoy = false,
 			IsProteotypic = true,
 			Source = MslFormat.SourceType.Predicted,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -114,16 +114,16 @@ public sealed class TestMslIntegration
 
 		var entry1 = new MslLibraryEntry
 		{
-			ModifiedSequence = "ACDEFGHIK",
-			StrippedSequence = "ACDEFGHIK",
+			FullSequence = "ACDEFGHIK",
+			BaseSequence = "ACDEFGHIK",
 			PrecursorMz = 529.76,
-			Charge = 2,
-			Irt = 42.1,
+			ChargeState = 2,
+			RetentionTime = 42.1,
 			IsDecoy = true,
 			Source = MslFormat.SourceType.Predicted,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -517,12 +517,12 @@ public sealed class TestMslIntegration
 	{
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz = 449.74,
-			Charge = 2,
+			ChargeState = 2,
 			MoleculeType = molType,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -663,7 +663,7 @@ public sealed class TestMslIntegration
 		var originalTypes = spectrum.MatchedFragmentIons
 			.Select(i => i.NeutralTheoreticalProduct.ProductType)
 			.ToList();
-		var roundTrippedTypes = entry.Fragments
+		var roundTrippedTypes = entry.MatchedFragmentIons
 			.Select(f => f.ProductType)
 			.ToList();
 
@@ -688,7 +688,7 @@ public sealed class TestMslIntegration
 
 		MslLibraryEntry entry = MslLibraryEntry.FromLibrarySpectrum(spectrum);
 
-		Assert.That(entry.Fragments[0].NeutralLoss,
+		Assert.That(entry.MatchedFragmentIons[0].NeutralLoss,
 			Is.EqualTo(h2oLoss).Within(1e-4));
 	}
 
@@ -707,12 +707,12 @@ public sealed class TestMslIntegration
 
 		MslLibraryEntry entry = MslLibraryEntry.FromLibrarySpectrum(spectrum);
 
-		Assert.That(entry.Fragments[0].Charge, Is.EqualTo(2));
+		Assert.That(entry.MatchedFragmentIons[0].Charge, Is.EqualTo(2));
 	}
 
 	/// <summary>
 	/// <see cref="MslLibraryEntry.FromLibrarySpectrum"/> must preserve the
-	/// <see cref="LibrarySpectrum.Sequence"/> as <see cref="MslLibraryEntry.ModifiedSequence"/>.
+	/// <see cref="LibrarySpectrum.Sequence"/> as <see cref="MslLibraryEntry.FullSequence"/>.
 	/// </summary>
 	[Test]
 	public void FromLibrarySpectrum_Sequence_Preserved()
@@ -720,7 +720,7 @@ public sealed class TestMslIntegration
 		LibrarySpectrum spectrum = BuildMixedSpectrum();
 		MslLibraryEntry entry = MslLibraryEntry.FromLibrarySpectrum(spectrum);
 
-		Assert.That(entry.ModifiedSequence, Is.EqualTo(spectrum.Sequence));
+		Assert.That(entry.FullSequence, Is.EqualTo(spectrum.Sequence));
 	}
 
 	/// <summary>

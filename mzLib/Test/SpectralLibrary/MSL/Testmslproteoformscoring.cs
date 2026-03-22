@@ -26,7 +26,7 @@ namespace Test.SpectralLibrary.MSL;
 ///   <item>Partial match</item>
 ///   <item>Result ordering</item>
 ///   <item>Mass tolerance enforcement</item>
-///   <item>MatchedFragments annotation</item>
+///   <item>MatchedFragmentIons annotation</item>
 ///   <item>Decoy scoring parity</item>
 ///   <item>MslLibrary.ScoreProteoformCandidates round-trip and peptide-only guard</item>
 ///   <item>Orthogonal intensity edge case</item>
@@ -78,14 +78,14 @@ public class TestMslProteoformScoring
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "LARGEPROT[Common Variable:Oxidation on M]EOFORMSEQUENCE",
-			StrippedSequence = "LARGEPROTEFORMSEQUENCE",
+			FullSequence = "LARGEPROT[Common Variable:Oxidation on M]EOFORMSEQUENCE",
+			BaseSequence = "LARGEPROTEFORMSEQUENCE",
 			PrecursorMz = 1200.0,
-			Charge = 10,
-			Irt = 45.0,
+			ChargeState = 10,
+			RetentionTime = 45.0,
 			MoleculeType = MslFormat.MoleculeType.Proteoform,
 			DissociationType = DissociationType.HCD,
-			Fragments = fragments
+			MatchedFragmentIons = fragments
 		};
 
 		// Compute exact neutral masses matching the fragment ions.
@@ -186,14 +186,14 @@ public class TestMslProteoformScoring
 		var (_, peaks) = MakeSyntheticProteoformData();
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "DUMMY",
-			StrippedSequence = "DUMMY",
+			FullSequence = "DUMMY",
+			BaseSequence = "DUMMY",
 			PrecursorMz = 500.0,
-			Charge = 5,
-			Irt = 0.0,
+			ChargeState = 5,
+			RetentionTime = 0.0,
 			MoleculeType = MslFormat.MoleculeType.Proteoform,
 			DissociationType = DissociationType.HCD,
-			Fragments = new List<MslFragmentIon>()
+			MatchedFragmentIons = new List<MslFragmentIon>()
 		};
 
 		using var lib = BuildLibraryFromEntry(entry);
@@ -277,17 +277,17 @@ public class TestMslProteoformScoring
 		var (entry1, peaks) = MakeSyntheticProteoformData();  // 5 fragments, all match
 
 		// Entry2 has only 2 fragments that match → lower composite score.
-		var entry2Frags = entry1.Fragments!.Take(2).ToList();
+		var entry2Frags = entry1.MatchedFragmentIons!.Take(2).ToList();
 		var entry2 = new MslLibraryEntry
 		{
-			ModifiedSequence = "ANOTHERPROTEOFORM",
-			StrippedSequence = "ANOTHERPROTEOFORM",
+			FullSequence = "ANOTHERPROTEOFORM",
+			BaseSequence = "ANOTHERPROTEOFORM",
 			PrecursorMz = 1201.0,
-			Charge = 10,
-			Irt = 46.0,
+			ChargeState = 10,
+			RetentionTime = 46.0,
 			MoleculeType = MslFormat.MoleculeType.Proteoform,
 			DissociationType = DissociationType.HCD,
-			Fragments = entry2Frags
+			MatchedFragmentIons = entry2Frags
 		};
 
 		using var lib = BuildLibraryFromEntries(new[] { entry1, entry2 });
@@ -298,9 +298,9 @@ public class TestMslProteoformScoring
 		for (int i = 0; i < allEntries.Count; i++)
 		{
 			var e = allEntries[i];
-			double nm = (double)e.PrecursorMz * e.Charge - e.Charge * Proton;
+			double nm = (double)e.PrecursorMz * e.ChargeState - e.ChargeState * Proton;
 			indexEntries.Add(new MslProteoformIndexEntry(
-				nm, (float)e.PrecursorMz, (short)e.Charge, (float)e.Irt, e.IsDecoy, i));
+				nm, (float)e.PrecursorMz, (short)e.ChargeState, (float)e.RetentionTime, e.IsDecoy, i));
 		}
 
 		var results = MslProteoformScorer.Score(
@@ -324,7 +324,7 @@ public class TestMslProteoformScoring
 		var candidates = BuildCandidateSpan(entry);
 
 		// Fragment 0: b10+1, Mz = 1200.5 → neutral mass = 1200.5 - 1.007276 ≈ 1199.493
-		double frag0NeutralMass = (double)entry.Fragments![0].Mz * 1 - Proton;
+		double frag0NeutralMass = (double)entry.MatchedFragmentIons![0].Mz * 1 - Proton;
 
 		// 10 ppm tolerance on that mass.
 		double tenPpm = frag0NeutralMass * 10e-6;
@@ -352,7 +352,7 @@ public class TestMslProteoformScoring
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// Group 7: MatchedFragments annotation
+	// Group 7: MatchedFragmentIons annotation
 	// ─────────────────────────────────────────────────────────────────────────
 	[Test]
 	public void Scoring_MatchedFragments_PopulatedCorrectly()
@@ -364,12 +364,12 @@ public class TestMslProteoformScoring
 		var results = MslProteoformScorer.Score(candidates, lib, peaks,
 			fragmentMassTolerance: 20e-6, minMatchedFragments: 1);
 
-		Assert.That(results[0].MatchedFragments, Has.Count.EqualTo(5));
+		Assert.That(results[0].MatchedFragmentIons, Has.Count.EqualTo(5));
 
 		// The writer sorts fragments by m/z ascending before writing, so the order
 		// after a round-trip is: c8 (850.4), y25 (900.2), b20 (1100.3), b10 (1200.5), y15 (1600.7).
 		// Find the b10+1 ion by its properties rather than by index position.
-		MatchedFragmentIon b10Ion = results[0].MatchedFragments
+		MatchedFragmentIon b10Ion = results[0].MatchedFragmentIons
 			.Single(ion => ion.NeutralTheoreticalProduct.ProductType == ProductType.b
 						&& ion.NeutralTheoreticalProduct.FragmentNumber == 10
 						&& ion.Charge == 1);
@@ -392,24 +392,24 @@ public class TestMslProteoformScoring
 		// Make an identical decoy entry.
 		var decoyEntry = new MslLibraryEntry
 		{
-			ModifiedSequence = targetEntry.ModifiedSequence,
-			StrippedSequence = targetEntry.StrippedSequence,
+			FullSequence = targetEntry.FullSequence,
+			BaseSequence = targetEntry.BaseSequence,
 			PrecursorMz = targetEntry.PrecursorMz,
-			Charge = targetEntry.Charge,
-			Irt = targetEntry.Irt,
+			ChargeState = targetEntry.ChargeState,
+			RetentionTime = targetEntry.RetentionTime,
 			MoleculeType = MslFormat.MoleculeType.Proteoform,
 			DissociationType = DissociationType.HCD,
 			IsDecoy = true,
-			Fragments = targetEntry.Fragments
+			MatchedFragmentIons = targetEntry.MatchedFragmentIons
 		};
 
 		var candidateArr = new[]
 		{
 			new MslProteoformIndexEntry(
-				(double)decoyEntry.PrecursorMz * decoyEntry.Charge - decoyEntry.Charge * Proton,
+				(double)decoyEntry.PrecursorMz * decoyEntry.ChargeState - decoyEntry.ChargeState * Proton,
 				(float)decoyEntry.PrecursorMz,
-				(short)decoyEntry.Charge,
-				(float)decoyEntry.Irt,
+				(short)decoyEntry.ChargeState,
+				(float)decoyEntry.RetentionTime,
 				isDecoy: true,
 				ordinalIndex: 0)
 		};
@@ -438,7 +438,7 @@ public class TestMslProteoformScoring
 		using var lib = MslLibrary.Load(path);
 		Assert.That(lib.ProteoformCount, Is.EqualTo(1), "Library must contain one proteoform entry.");
 
-		double neutralMass = (double)entry.PrecursorMz * entry.Charge - entry.Charge * Proton;
+		double neutralMass = (double)entry.PrecursorMz * entry.ChargeState - entry.ChargeState * Proton;
 
 		var results = lib.ScoreProteoformCandidates(
 			precursorNeutralMass: neutralMass,
@@ -458,14 +458,14 @@ public class TestMslProteoformScoring
 		// Write a peptide-only library (MoleculeType.Peptide, not Proteoform).
 		var peptideEntry = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDER",
-			StrippedSequence = "PEPTIDER",
+			FullSequence = "PEPTIDER",
+			BaseSequence = "PEPTIDER",
 			PrecursorMz = 500.0,
-			Charge = 2,
-			Irt = 30.0,
+			ChargeState = 2,
+			RetentionTime = 30.0,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new() { ProductType = ProductType.b, FragmentNumber = 3, Charge = 1, Mz = 350.2f, Intensity = 1.0f }
 			}
@@ -505,14 +505,14 @@ public class TestMslProteoformScoring
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "ORTHOGTEST",
-			StrippedSequence = "ORTHOGTEST",
+			FullSequence = "ORTHOGTEST",
+			BaseSequence = "ORTHOGTEST",
 			PrecursorMz = 600.0,
-			Charge = 5,
-			Irt = 20.0,
+			ChargeState = 5,
+			RetentionTime = 20.0,
 			MoleculeType = MslFormat.MoleculeType.Proteoform,
 			DissociationType = DissociationType.HCD,
-			Fragments = fragments
+			MatchedFragmentIons = fragments
 		};
 
 		// Experimental peaks at the exact same neutral masses but with zero intensity
@@ -556,15 +556,15 @@ public class TestMslProteoformScoring
 	/// </summary>
 	private static ReadOnlySpan<MslProteoformIndexEntry> BuildCandidateSpan(MslLibraryEntry entry)
 	{
-		double neutralMass = (double)entry.PrecursorMz * entry.Charge - entry.Charge * Proton;
+		double neutralMass = (double)entry.PrecursorMz * entry.ChargeState - entry.ChargeState * Proton;
 
 		var arr = new[]
 		{
 			new MslProteoformIndexEntry(
 				neutralMass,
 				(float)entry.PrecursorMz,
-				(short)entry.Charge,
-				(float)entry.Irt,
+				(short)entry.ChargeState,
+				(float)entry.RetentionTime,
 				entry.IsDecoy,
 				ordinalIndex: 0)
 		};

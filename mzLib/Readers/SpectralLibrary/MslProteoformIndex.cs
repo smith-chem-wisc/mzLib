@@ -17,7 +17,7 @@ public readonly struct MslProteoformIndexEntry : IComparable<MslProteoformIndexE
 {
 	/// <summary>
 	/// Neutral monoisotopic mass in daltons, computed as
-	/// (PrecursorMz × Charge) − (Charge × 1.007276).
+	/// (PrecursorMz × ChargeState) − (ChargeState × 1.007276).
 	/// Primary sort key; used for O(log N) binary search on mass window queries.
 	/// </summary>
 	public readonly double NeutralMass;
@@ -72,7 +72,7 @@ public readonly struct MslProteoformIndexEntry : IComparable<MslProteoformIndexE
 ///
 /// <para>
 /// <b>Secondary index:</b> a <c>Dictionary&lt;string, int&gt;</c> keyed by
-/// <c>ModifiedSequence + "/" + Charge</c> for O(1) DDA-style lookup by sequence
+/// <c>FullSequence + "/" + ChargeState</c> for O(1) DDA-style lookup by sequence
 /// and charge. The value is the ordinal index into the source entry list.
 /// </para>
 ///
@@ -86,7 +86,7 @@ public readonly struct MslProteoformIndexEntry : IComparable<MslProteoformIndexE
 ///
 /// <para>
 /// <b>Neutral mass computation:</b>
-/// <c>NeutralMass = (PrecursorMz × Charge) − (Charge × ProtonMass)</c>
+/// <c>NeutralMass = (PrecursorMz × ChargeState) − (ChargeState × ProtonMass)</c>
 /// where <c>ProtonMass = 1.007276 Da</c>. Computation is performed in
 /// <see cref="double"/> precision to preserve the mass accuracy required for
 /// top-down search.
@@ -118,7 +118,7 @@ public sealed class MslProteoformIndex
 	private readonly MslProteoformIndexEntry[] _entries;
 
 	/// <summary>
-	/// Secondary lookup: <c>"{ModifiedSequence}/{Charge}"</c> → ordinal index in
+	/// Secondary lookup: <c>"{FullSequence}/{ChargeState}"</c> → ordinal index in
 	/// the source entry list. Ordinal is passed to <see cref="_loader"/> to retrieve
 	/// the full <see cref="MslLibraryEntry"/>.
 	/// </summary>
@@ -180,20 +180,20 @@ public sealed class MslProteoformIndex
 			if (e.MoleculeType != MslFormat.MoleculeType.Proteoform)
 				continue;
 
-			double neutralMass = ComputeNeutralMass((double)e.PrecursorMz, e.Charge);
+			double neutralMass = ComputeNeutralMass((double)e.PrecursorMz, e.ChargeState);
 
 			var indexEntry = new MslProteoformIndexEntry(
 				neutralMass: neutralMass,
 				precursorMz: (float)e.PrecursorMz,
-				charge: (short)e.Charge,
-				irt: (float)e.Irt,
+				charge: (short)e.ChargeState,
+				irt: (float)e.RetentionTime,
 				isDecoy: e.IsDecoy,
 				ordinalIndex: i);
 
 			rawList.Add(indexEntry);
 
-			// Secondary index key: "Sequence/Charge"
-			string key = e.ModifiedSequence + "/" + e.Charge;
+			// Secondary index key: "Sequence/ChargeState"
+			string key = e.FullSequence + "/" + e.ChargeState;
 			seqDict.TryAdd(key, i);
 		}
 
@@ -381,7 +381,7 @@ public sealed class MslProteoformIndex
 	/// <param name="intercept">
 	///   Intercept in the same units as the calibrated RT axis.
 	/// </param>
-	/// <returns>A new <see cref="MslProteoformIndex"/> with transformed Irt values.</returns>
+	/// <returns>A new <see cref="MslProteoformIndex"/> with transformed RetentionTime values.</returns>
 	public MslProteoformIndex WithCalibratedRetentionTimes(double slope, double intercept)
 	{
 		MslProteoformIndexEntry[] calibrated = new MslProteoformIndexEntry[_entries.Length];

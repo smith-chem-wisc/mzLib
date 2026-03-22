@@ -799,7 +799,7 @@ public static class MslReader
 	///
 	/// Type-widening performed:
 	///   <c>short</c> FragmentNumber, SecondaryFragmentNumber, ResiduePosition → <c>int</c>
-	///   <c>byte</c>  Charge → <c>int</c>
+	///   <c>byte</c>  ChargeState → <c>int</c>
 	///   SecondaryProductType == -1 in the record → null in the output (terminal ion sentinel)
 	///
 	/// Custom neutral-loss decoding: when <c>neutral_loss_code == Custom</c>, the
@@ -861,9 +861,9 @@ public static class MslReader
 	/// fragment ions into a fully populated <see cref="MslLibraryEntry"/>.
 	///
 	/// Type-widening and scaling performed:
-	///   <c>short</c>  Charge          → <c>int</c>  (explicit cast)
+	///   <c>short</c>  ChargeState          → <c>int</c>  (explicit cast)
 	///   <c>float</c>  PrecursorMz     → <c>double</c> (implicit widening)
-	///   <c>float</c>  Irt, IonMobility → <c>double</c> (implicit widening)
+	///   <c>float</c>  RetentionTime, IonMobility → <c>double</c> (implicit widening)
 	///   <c>short</c>  Nce (stored as NCE × 10) → <c>int</c> NCE via integer division by 10
 	/// </summary>
 	/// <param name="p">The raw precursor record.</param>
@@ -895,13 +895,13 @@ public static class MslReader
 
 		return new MslLibraryEntry
 		{
-			ModifiedSequence = strings[p.ModifiedSeqStringIdx],
-			StrippedSequence = strings[p.StrippedSeqStringIdx],
+			FullSequence = strings[p.ModifiedSeqStringIdx],
+			BaseSequence = strings[p.StrippedSeqStringIdx],
 			// float → double: implicit widening, no precision loss beyond float32 representation
 			PrecursorMz = p.PrecursorMz,
 			// short → int: explicit cast required (no implicit narrowing in C#)
-			Charge = (int)p.Charge,
-			Irt = p.Irt,
+			ChargeState = (int)p.Charge,
+			RetentionTime = p.Irt,
 			IonMobility = p.IonMobility,
 			IsDecoy = isDecoy,
 			IsProteotypic = isProteotypic,
@@ -915,7 +915,7 @@ public static class MslReader
 			ProteinAccession = hasProtein ? strings[protein.AccessionStringIdx] : string.Empty,
 			ProteinName = hasProtein ? strings[protein.NameStringIdx] : string.Empty,
 			GeneName = hasProtein ? strings[protein.GeneStringIdx] : string.Empty,
-			Fragments = fragments
+			MatchedFragmentIons = fragments
 		};
 	}
 	private static void StreamingValidateAndReadHeader(

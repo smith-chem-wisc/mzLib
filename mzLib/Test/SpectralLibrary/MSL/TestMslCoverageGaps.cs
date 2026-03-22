@@ -48,16 +48,16 @@ public sealed class TestMslCoverageGaps
 	{
 		return new MslLibraryEntry
 		{
-			ModifiedSequence = seq,
-			StrippedSequence = seq,
+			FullSequence = seq,
+			BaseSequence = seq,
 			PrecursorMz = mz,
-			Charge = charge,
-			Irt = irt,
+			ChargeState = charge,
+			RetentionTime = irt,
 			IsDecoy = isDecoy,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
 			Source = MslFormat.SourceType.Predicted,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new() { Mz = 98.06f,  Intensity = 1.0f, ProductType = ProductType.b,
 						 FragmentNumber = 2, Charge = 1 },
@@ -74,16 +74,16 @@ public sealed class TestMslCoverageGaps
 		double nm = (double)mz * charge - charge * 1.007276;
 		return new MslLibraryEntry
 		{
-			ModifiedSequence = seq,
-			StrippedSequence = seq,
+			FullSequence = seq,
+			BaseSequence = seq,
 			PrecursorMz = mz,
-			Charge = charge,
-			Irt = irt,
+			ChargeState = charge,
+			RetentionTime = irt,
 			IsDecoy = isDecoy,
 			MoleculeType = MslFormat.MoleculeType.Proteoform,
 			DissociationType = DissociationType.EThcD,
 			Source = MslFormat.SourceType.Empirical,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new() { Mz = 850.4f,  Intensity = 1.0f, ProductType = ProductType.c,
 						 FragmentNumber = 8,  Charge = 1 },
@@ -119,17 +119,17 @@ public sealed class TestMslCoverageGaps
 	}
 
 	/// <summary>
-	/// ValidateEntries must catch a null/empty ModifiedSequence. An entry without
+	/// ValidateEntries must catch a null/empty FullSequence. An entry without
 	/// a sequence cannot be indexed or retrieved and must be rejected before writing.
 	/// </summary>
 	[Test]
 	public void ValidateEntries_NullSequence_ReportsError()
 	{
 		var entry = MakePeptideEntry();
-		entry.ModifiedSequence = "";
+		entry.FullSequence = "";
 		var errors = MslWriter.ValidateEntries(new[] { entry });
 		Assert.That(errors, Has.Count.GreaterThan(0));
-		Assert.That(errors[0], Does.Contain("ModifiedSequence"));
+		Assert.That(errors[0], Does.Contain("FullSequence"));
 	}
 
 	/// <summary>
@@ -140,9 +140,9 @@ public sealed class TestMslCoverageGaps
 	public void ValidateEntries_ZeroCharge_ReportsError()
 	{
 		var entry = MakePeptideEntry();
-		entry.Charge = 0;
+		entry.ChargeState = 0;
 		var errors = MslWriter.ValidateEntries(new[] { entry });
-		Assert.That(errors.Any(e => e.Contains("Charge")), Is.True);
+		Assert.That(errors.Any(e => e.Contains("ChargeState")), Is.True);
 	}
 
 	/// <summary>
@@ -166,7 +166,7 @@ public sealed class TestMslCoverageGaps
 	public void ValidateEntries_NoFragments_ReportsError()
 	{
 		var entry = MakePeptideEntry();
-		entry.Fragments = new List<MslFragmentIon>();
+		entry.MatchedFragmentIons = new List<MslFragmentIon>();
 		var errors = MslWriter.ValidateEntries(new[] { entry });
 		Assert.That(errors.Any(e => e.Contains("FragmentCount")), Is.True);
 	}
@@ -179,22 +179,22 @@ public sealed class TestMslCoverageGaps
 	public void ValidateEntries_ZeroFragmentMz_ReportsError()
 	{
 		var entry = MakePeptideEntry();
-		entry.Fragments[0].Mz = 0f;
+		entry.MatchedFragmentIons[0].Mz = 0f;
 		var errors = MslWriter.ValidateEntries(new[] { entry });
 		Assert.That(errors.Any(e => e.Contains("Mz")), Is.True);
 	}
 
 	/// <summary>
-	/// ValidateEntries must catch a fragment with a non-positive Charge. Fragment
+	/// ValidateEntries must catch a fragment with a non-positive ChargeState. Fragment
 	/// charge is used to compute neutral mass during scoring; zero would divide by zero.
 	/// </summary>
 	[Test]
 	public void ValidateEntries_ZeroFragmentCharge_ReportsError()
 	{
 		var entry = MakePeptideEntry();
-		entry.Fragments[0].Charge = 0;
+		entry.MatchedFragmentIons[0].Charge = 0;
 		var errors = MslWriter.ValidateEntries(new[] { entry });
-		Assert.That(errors.Any(e => e.Contains("Charge")), Is.True);
+		Assert.That(errors.Any(e => e.Contains("ChargeState")), Is.True);
 	}
 
 	/// <summary>
@@ -206,7 +206,7 @@ public sealed class TestMslCoverageGaps
 	public void ValidateEntries_InvalidInternalIonRange_ReportsError()
 	{
 		var entry = MakePeptideEntry();
-		entry.Fragments.Add(new MslFragmentIon
+		entry.MatchedFragmentIons.Add(new MslFragmentIon
 		{
 			Mz = 400f,
 			Intensity = 0.5f,
@@ -268,7 +268,7 @@ public sealed class TestMslCoverageGaps
 		Assert.That(lib.PrecursorCount, Is.EqualTo(1));
 		bool found = lib.TryGetEntry("PEPTIDE", 2, out MslLibraryEntry? e);
 		Assert.That(found, Is.True);
-		Assert.That(e!.Fragments, Has.Count.EqualTo(1));
+		Assert.That(e!.MatchedFragmentIons, Has.Count.EqualTo(1));
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
@@ -327,14 +327,14 @@ public sealed class TestMslCoverageGaps
 	{
 		const double h2oLoss = -18.010565;
 		var entry = MakePeptideEntry();
-		entry.Fragments[0].NeutralLoss = h2oLoss;
+		entry.MatchedFragmentIons[0].NeutralLoss = h2oLoss;
 
 		string path = P("h2o_loss.msl");
 		MslLibrary.Save(path, new[] { entry });
 		using MslLibrary lib = MslLibrary.Load(path);
 		lib.TryGetEntry("PEPTIDE", 2, out MslLibraryEntry? loaded);
 		// Writer sorts by mz; b2 (98.06) is first
-		MslFragmentIon lossIon = loaded!.Fragments.First(f => f.ProductType == ProductType.b && f.FragmentNumber == 2);
+		MslFragmentIon lossIon = loaded!.MatchedFragmentIons.First(f => f.ProductType == ProductType.b && f.FragmentNumber == 2);
 		Assert.That(lossIon.NeutralLoss, Is.EqualTo(h2oLoss).Within(1e-4));
 	}
 
@@ -348,13 +348,13 @@ public sealed class TestMslCoverageGaps
 	{
 		const double nh3Loss = -17.026549;
 		var entry = MakePeptideEntry();
-		entry.Fragments[0].NeutralLoss = nh3Loss;
+		entry.MatchedFragmentIons[0].NeutralLoss = nh3Loss;
 
 		string path = P("nh3_loss.msl");
 		MslLibrary.Save(path, new[] { entry });
 		using MslLibrary lib = MslLibrary.Load(path);
 		lib.TryGetEntry("PEPTIDE", 2, out MslLibraryEntry? loaded);
-		MslFragmentIon lossIon = loaded!.Fragments.First(f => f.ProductType == ProductType.b && f.FragmentNumber == 2);
+		MslFragmentIon lossIon = loaded!.MatchedFragmentIons.First(f => f.ProductType == ProductType.b && f.FragmentNumber == 2);
 		Assert.That(lossIon.NeutralLoss, Is.EqualTo(nh3Loss).Within(1e-4));
 	}
 
@@ -668,14 +668,14 @@ public sealed class TestMslCoverageGaps
 		var entries = new[] { proto };
 		var index = BuildProtoIndex(entries);
 
-		double mass = MslProteoformIndex.ComputeNeutralMass(proto.PrecursorMz, proto.Charge);
+		double mass = MslProteoformIndex.ComputeNeutralMass(proto.PrecursorMz, proto.ChargeState);
 		var hits = index.QueryMassWindow(mass - 10, mass + 10);
 		Assert.That(hits.Length, Is.EqualTo(1));
 
 		MslLibraryEntry? full = index.GetEntry(hits[0]);
 		Assert.That(full, Is.Not.Null);
-		Assert.That(full!.ModifiedSequence, Is.EqualTo(proto.ModifiedSequence));
-		Assert.That(full.Fragments, Is.Not.Empty);
+		Assert.That(full!.FullSequence, Is.EqualTo(proto.FullSequence));
+		Assert.That(full.MatchedFragmentIons, Is.Not.Empty);
 	}
 
 	/// <summary>
@@ -734,7 +734,7 @@ public sealed class TestMslCoverageGaps
 			SpectralAngle = 0.9,
 			MatchedFragmentCount = 2,
 			TotalLibraryFragments = 3,
-			MatchedFragments = new List<MatchedFragmentIon>().AsReadOnly()
+			MatchedFragmentIons = new List<MatchedFragmentIon>().AsReadOnly()
 		};
 
 		Assert.That(result.LibraryEntry, Is.SameAs(entry));
@@ -780,12 +780,12 @@ public sealed class TestMslCoverageGaps
 		var allEntries = lib.GetAllEntries(includeDecoys: true).ToList();
 		var protoIndex = MslProteoformIndex.Build(allEntries, i => allEntries[i]);
 
-		double neutralMass = MslProteoformIndex.ComputeNeutralMass(proto.PrecursorMz, proto.Charge);
+		double neutralMass = MslProteoformIndex.ComputeNeutralMass(proto.PrecursorMz, proto.ChargeState);
 		var hits = protoIndex.QueryMassWindow(neutralMass - 10, neutralMass + 10);
 		Assert.That(hits.Length, Is.EqualTo(1));
 
 		// Synthetic peaks that match all 3 fragments exactly
-		var peaks = proto.Fragments!.Select(f => new DeconvolutedPeak(
+		var peaks = proto.MatchedFragmentIons!.Select(f => new DeconvolutedPeak(
 			(double)f.Mz * f.Charge - f.Charge * 1.007276, f.Intensity)).ToList();
 
 		var results = MslProteoformScorer.Score(
@@ -832,7 +832,7 @@ public sealed class TestMslCoverageGaps
 		var all = lib.GetAllEntries(includeDecoys: true).ToList();
 		Assert.That(all, Has.Count.EqualTo(2));
 		// Verify fragments were actually loaded by the lambda
-		Assert.That(all.All(e => e.Fragments.Count > 0), Is.True);
+		Assert.That(all.All(e => e.MatchedFragmentIons.Count > 0), Is.True);
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
@@ -881,14 +881,14 @@ public sealed class TestMslCoverageGaps
 	{
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "ACGU",
-			StrippedSequence = "ACGU",
+			FullSequence = "ACGU",
+			BaseSequence = "ACGU",
 			PrecursorMz = 600.0,
-			Charge = 2,
-			Irt = 10.0,
+			ChargeState = 2,
+			RetentionTime = 10.0,
 			MoleculeType = MslFormat.MoleculeType.Oligonucleotide,
 			DissociationType = DissociationType.HCD,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new() { Mz = 330f, Intensity = 1.0f, ProductType = ProductType.a,
 						 FragmentNumber = 2, Charge = 1 }
@@ -910,14 +910,14 @@ public sealed class TestMslCoverageGaps
 	{
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "ACGU",
-			StrippedSequence = "ACGU",
+			FullSequence = "ACGU",
+			BaseSequence = "ACGU",
 			PrecursorMz = 600.0,
-			Charge = 2,
-			Irt = 10.0,
+			ChargeState = 2,
+			RetentionTime = 10.0,
 			MoleculeType = MslFormat.MoleculeType.Oligonucleotide,
 			DissociationType = DissociationType.HCD,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new() { Mz = 380f, Intensity = 1.0f, ProductType = ProductType.w,
 						 FragmentNumber = 2, Charge = 1 }
@@ -940,14 +940,14 @@ public sealed class TestMslCoverageGaps
 	{
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTM[Common Variable:Oxidation on M]IDE",
-			StrippedSequence = "PEPTMIDE",
+			FullSequence = "PEPTM[Common Variable:Oxidation on M]IDE",
+			BaseSequence = "PEPTMIDE",
 			PrecursorMz = 450.0,
-			Charge = 2,
-			Irt = 30.0,
+			ChargeState = 2,
+			RetentionTime = 30.0,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new() { Mz = 98f, Intensity = 1.0f, ProductType = ProductType.b,
 						 FragmentNumber = 2, Charge = 1 }
@@ -959,6 +959,6 @@ public sealed class TestMslCoverageGaps
 			entry.ToLibrarySpectrum());
 
 		// StripModifications should produce "PEPTMIDE" from the modified sequence
-		Assert.That(fromSpectrum.StrippedSequence, Is.EqualTo("PEPTMIDE"));
+		Assert.That(fromSpectrum.BaseSequence, Is.EqualTo("PEPTMIDE"));
 	}
 }

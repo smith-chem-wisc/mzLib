@@ -49,14 +49,14 @@ public sealed class TestMslReaderCoverage
 
 	private static MslLibraryEntry MakeEntry() => new MslLibraryEntry
 	{
-		ModifiedSequence = "PEPTIDE",
-		StrippedSequence = "PEPTIDE",
+		FullSequence = "PEPTIDE",
+		BaseSequence = "PEPTIDE",
 		PrecursorMz = 449.74,
-		Charge = 2,
-		Irt = 35.4,
+		ChargeState = 2,
+		RetentionTime = 35.4,
 		MoleculeType = MslFormat.MoleculeType.Peptide,
 		DissociationType = DissociationType.HCD,
-		Fragments = new List<MslFragmentIon>
+		MatchedFragmentIons = new List<MslFragmentIon>
 		{
 			new MslFragmentIon
 			{

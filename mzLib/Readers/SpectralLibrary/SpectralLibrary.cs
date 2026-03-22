@@ -38,7 +38,7 @@ namespace Readers.SpectralLibrary
 		private List<string> LibraryPaths;
 
 		/// <summary>
-		/// Maps the "Sequence/Charge" lookup key to the file path and byte offset of the corresponding
+		/// Maps the "Sequence/ChargeState" lookup key to the file path and byte offset of the corresponding
 		/// spectrum record inside an MSP/pDeep/ms2pip text library file.
 		/// Not used for .msl files — those are looked up directly via <see cref="_mslLibraries"/>.
 		/// </summary>
@@ -52,7 +52,7 @@ namespace Readers.SpectralLibrary
 
 		/// <summary>
 		/// LRU cache of recently accessed <see cref="LibrarySpectrum"/> objects, keyed by
-		/// "Sequence/Charge".  Avoids repeated disk seeks for frequently queried entries.
+		/// "Sequence/ChargeState".  Avoids repeated disk seeks for frequently queried entries.
 		/// </summary>
 		public Dictionary<string, LibrarySpectrum> LibrarySpectrumBuffer;
 

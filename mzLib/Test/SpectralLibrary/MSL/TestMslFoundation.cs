@@ -326,7 +326,7 @@ public class TestMslFoundation
 	// ══════════════════════════════════════════════════════════════════════
 
 	/// <summary>
-	/// Verifies that LookupKey concatenates ModifiedSequence and Charge with "/" as separator,
+	/// Verifies that Name concatenates FullSequence and ChargeState with "/" as separator,
 	/// matching the format used by MslIndex for O(1) DDA-style lookup.
 	/// </summary>
 	[Test]
@@ -335,12 +335,12 @@ public class TestMslFoundation
 		// Arrange
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			Charge = 2
+			FullSequence = "PEPTIDE",
+			ChargeState = 2
 		};
 
 		// Act
-		string key = entry.LookupKey;
+		string key = entry.Name;
 
 		// Assert
 		Assert.That(key, Is.EqualTo("PEPTIDE/2"));
@@ -385,8 +385,8 @@ public class TestMslFoundation
 	}
 
 	/// <summary>
-	/// Verifies that ToLibrarySpectrum produces a LibrarySpectrum whose Name (Sequence/Charge)
-	/// matches the source entry's ModifiedSequence and Charge.
+	/// Verifies that ToLibrarySpectrum produces a LibrarySpectrum whose Name (Sequence/ChargeState)
+	/// matches the source entry's FullSequence and ChargeState.
 	/// </summary>
 	[Test]
 	public void MslLibraryEntry_ToLibrarySpectrum_PreservesSequenceAndCharge()
@@ -412,8 +412,8 @@ public class TestMslFoundation
 	{
 		// Arrange
 		var entry = BuildMinimalPeptideEntry("ALGVGLATR", 2, precursorMz: 429.26);
-		entry.Fragments[0].Mz = 100.0f;
-		entry.Fragments[0].Intensity = 0.8f;
+		entry.MatchedFragmentIons[0].Mz = 100.0f;
+		entry.MatchedFragmentIons[0].Intensity = 0.8f;
 
 		// Act
 		LibrarySpectrum spectrum = entry.ToLibrarySpectrum();
@@ -434,13 +434,13 @@ public class TestMslFoundation
 		// Arrange: b2 ion on a peptide entry
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "ACDEF",
-			StrippedSequence = "ACDEF",
+			FullSequence = "ACDEF",
+			BaseSequence = "ACDEF",
 			PrecursorMz = 300.0,
-			Charge = 1,
-			Irt = 0.0,
+			ChargeState = 1,
+			RetentionTime = 0.0,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -472,12 +472,12 @@ public class TestMslFoundation
 		// Arrange: bIy[2-4] internal ion
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz = 400.0,
-			Charge = 2,
+			ChargeState = 2,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -510,12 +510,12 @@ public class TestMslFoundation
 		// Arrange: RNA oligo entry with a-type (5'-terminal) fragment
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "rArUrGrC",
-			StrippedSequence = "rArUrGrC",
+			FullSequence = "rArUrGrC",
+			BaseSequence = "rArUrGrC",
 			PrecursorMz = 600.0,
-			Charge = 2,
+			ChargeState = 2,
 			MoleculeType = MslFormat.MoleculeType.Oligonucleotide,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -579,11 +579,11 @@ public class TestMslFoundation
 		// Arrange: build MslLibraryEntry directly with an internal ion
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz = 400.0,
-			Charge = 2,
-			Fragments = new List<MslFragmentIon>
+			ChargeState = 2,
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -599,7 +599,7 @@ public class TestMslFoundation
 		};
 
 		// Act: access via the MslFragmentIon directly — no lossy LibrarySpectrum round-trip
-		MslFragmentIon mslIon = entry.Fragments[0];
+		MslFragmentIon mslIon = entry.MatchedFragmentIons[0];
 
 		// Assert: start and end residue are preserved on the MslFragmentIon itself
 		Assert.That(mslIon.FragmentNumber, Is.EqualTo(2));
@@ -612,9 +612,9 @@ public class TestMslFoundation
 		var ions = new List<MatchedFragmentIon> { new MatchedFragmentIon(product, experMz: 451.0, experIntensity: 0.9f, charge: 1) };
 		var spectrum = new LibrarySpectrum("PEPTIDE", 400.0, 2, ions, rt: 10.0);
 		MslLibraryEntry fromSpectrum = MslLibraryEntry.FromLibrarySpectrum(spectrum);
-		Assert.That(fromSpectrum.Fragments[0].SecondaryProductType, Is.Null);
-		Assert.That(fromSpectrum.Fragments[0].SecondaryFragmentNumber, Is.EqualTo(0));
-		Assert.That(fromSpectrum.Fragments[0].IsInternalFragment, Is.False);
+		Assert.That(fromSpectrum.MatchedFragmentIons[0].SecondaryProductType, Is.Null);
+		Assert.That(fromSpectrum.MatchedFragmentIons[0].SecondaryFragmentNumber, Is.EqualTo(0));
+		Assert.That(fromSpectrum.MatchedFragmentIons[0].IsInternalFragment, Is.False);
 	}
 
 	/// <summary>
@@ -644,7 +644,7 @@ public class TestMslFoundation
 		MslLibraryEntry entry = MslLibraryEntry.FromLibrarySpectrum(spectrum);
 
 		// Assert: neutral loss preserved within floating-point tolerance
-		Assert.That(entry.Fragments[0].NeutralLoss, Is.EqualTo(h2oLoss).Within(1e-6));
+		Assert.That(entry.MatchedFragmentIons[0].NeutralLoss, Is.EqualTo(h2oLoss).Within(1e-6));
 	}
 
 	// ══════════════════════════════════════════════════════════════════════
@@ -704,13 +704,13 @@ public class TestMslFoundation
 	{
 		return new MslLibraryEntry
 		{
-			ModifiedSequence = sequence,
-			StrippedSequence = sequence,
+			FullSequence = sequence,
+			BaseSequence = sequence,
 			PrecursorMz = precursorMz,
-			Charge = charge,
-			Irt = 0.0,
+			ChargeState = charge,
+			RetentionTime = 0.0,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{

@@ -62,14 +62,14 @@ public sealed class TestSpectralLibraryMslCoverage
 		double precursorMz = 449.74, double irt = 35.4) =>
 		new MslLibraryEntry
 		{
-			ModifiedSequence = sequence,
-			StrippedSequence = sequence,
+			FullSequence = sequence,
+			BaseSequence = sequence,
 			PrecursorMz = precursorMz,
-			Charge = charge,
-			Irt = irt,
+			ChargeState = charge,
+			RetentionTime = irt,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -178,8 +178,8 @@ public sealed class TestSpectralLibraryMslCoverage
 
 		Assert.That(lib.TryGetEntry("PEPTIDE", 2, out MslLibraryEntry? entry), Is.True,
 			"Demand-loaded entry must be reachable in index-only mode");
-		Assert.That(entry!.Fragments, Is.Not.Empty,
-			"Fragments must be fetched on demand in index-only mode");
+		Assert.That(entry!.MatchedFragmentIons, Is.Not.Empty,
+			"MatchedFragmentIons must be fetched on demand in index-only mode");
 	}
 
 	// ── SpectralLibrary.ReadFragmentIon — internal ion path ───────────────────
@@ -202,7 +202,7 @@ public sealed class TestSpectralLibraryMslCoverage
 			line, FragmentSplit, NeutralLossSplit, "PEPTIDER");
 
 		Assert.That(ion.Charge, Is.EqualTo(1),
-			"Charge must default to 1 when absent from the internal ion annotation");
+			"ChargeState must default to 1 when absent from the internal ion annotation");
 		Assert.That(ion.Mz, Is.EqualTo(350.175).Within(1e-3));
 		Assert.That(ion.Intensity, Is.EqualTo(0.85).Within(1e-6));
 		Assert.That(ion.NeutralTheoreticalProduct.Terminus,

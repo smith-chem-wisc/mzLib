@@ -459,7 +459,7 @@ public sealed class MslIndex : IDisposable
 			var entry = entryLoader(_byMz[i].PrecursorIdx);
 			if (entry is not null)
 			{
-				string key = BuildSeqChargeKey(entry.ModifiedSequence, _byMz[i].Charge);
+				string key = BuildSeqChargeKey(entry.FullSequence, _byMz[i].Charge);
 				_bySeqCharge.TryAdd(key, _byMz[i]);
 			}
 
@@ -512,11 +512,11 @@ public sealed class MslIndex : IDisposable
 			MslLibraryEntry e = entries[i];
 			raw[i] = new MslPrecursorIndexEntry(
 				precursorMz: (float)e.PrecursorMz,
-				irt: (float)e.Irt,
+				irt: (float)e.RetentionTime,
 				ionMobility: (float)e.IonMobility,
 				precursorIdx: i,
 				elutionGroupId: e.ElutionGroupId,
-				charge: (short)e.Charge,
+				charge: (short)e.ChargeState,
 				isDecoy: (byte)(e.IsDecoy ? 1 : 0),
 				flags: (byte)((int)e.MoleculeType & 0x03));
 		}
@@ -820,7 +820,7 @@ public sealed class MslIndex : IDisposable
 	/// <see cref="MslPrecursorIndexEntry.Irt"/> field and returns a brand-new
 	/// <see cref="MslIndex"/> containing the transformed entries.
 	/// The formula applied to each entry is:
-	/// <code>calibratedRT = (float)(slope * entry.Irt + intercept)</code>
+	/// <code>calibratedRT = (float)(slope * entry.RetentionTime + intercept)</code>
 	/// <para>
 	/// The original index is not modified in any way. The new index shares the same
 	/// entry-loader delegate and LRU configuration but starts with an empty LRU cache.
@@ -844,7 +844,7 @@ public sealed class MslIndex : IDisposable
 	{
 		ThrowIfDisposed();
 
-		// Build a new entry array with transformed Irt values; all other fields are unchanged
+		// Build a new entry array with transformed RetentionTime values; all other fields are unchanged
 		var calibrated = new MslPrecursorIndexEntry[_byMz.Length];
 		for (int i = 0; i < _byMz.Length; i++)
 		{
@@ -861,7 +861,7 @@ public sealed class MslIndex : IDisposable
 				flags: src.Flags);
 		}
 
-		// The new index is already sorted (only Irt changed, PrecursorMz is unchanged)
+		// The new index is already sorted (only RetentionTime changed, PrecursorMz is unchanged)
 		// but we pass through the constructor to rebuild dictionaries correctly.
 		return new MslIndex(calibrated, _entryLoader, _maxBufferSize);
 	}

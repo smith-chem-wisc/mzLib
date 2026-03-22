@@ -99,11 +99,11 @@ public sealed class TestMslFinalValidation
 		// Verify each entry can be retrieved by sequence/charge
 		foreach (var entry in original)
 		{
-			bool found = lib.TryGetEntry(entry.ModifiedSequence, entry.Charge, out var loaded);
+			bool found = lib.TryGetEntry(entry.FullSequence, entry.ChargeState, out var loaded);
 			Assert.That(found, Is.True,
-				$"Entry {entry.ModifiedSequence}/{entry.Charge} not found after round-trip");
-			Assert.That(loaded!.Fragments.Count, Is.EqualTo(entry.Fragments.Count),
-				$"Fragment count mismatch for {entry.ModifiedSequence}/{entry.Charge}");
+				$"Entry {entry.FullSequence}/{entry.ChargeState} not found after round-trip");
+			Assert.That(loaded!.MatchedFragmentIons.Count, Is.EqualTo(entry.MatchedFragmentIons.Count),
+				$"Fragment count mismatch for {entry.FullSequence}/{entry.ChargeState}");
 		}
 	}
 
@@ -197,17 +197,17 @@ public sealed class TestMslFinalValidation
 		{
 			entries.Add(new MslLibraryEntry
 			{
-				ModifiedSequence = $"PEPTIDE",
-				StrippedSequence = "PEPTIDE",
+				FullSequence = $"PEPTIDE",
+				BaseSequence = "PEPTIDE",
 				PrecursorMz = 400.0 + (int)pt * 0.1,
-				Charge = 2,
-				Irt = 30.0,
+				ChargeState = 2,
+				RetentionTime = 30.0,
 				IsDecoy = false,
 				MoleculeType = MslFormat.MoleculeType.Peptide,
 				DissociationType = DissociationType.HCD,
 				ProteinAccession = string.Empty,
 				QValue = float.NaN,
-				Fragments = new List<MslFragmentIon>
+				MatchedFragmentIons = new List<MslFragmentIon>
 				{
 					new MslFragmentIon
 					{
@@ -231,9 +231,9 @@ public sealed class TestMslFinalValidation
 
 		foreach (var entry in lib.GetAllEntries())
 		{
-			Assert.That(entry.Fragments.Count, Is.EqualTo(1));
+			Assert.That(entry.MatchedFragmentIons.Count, Is.EqualTo(1));
 			// ProductType value is recoverable from fragment
-			Assert.That(entry.Fragments[0].ProductType,
+			Assert.That(entry.MatchedFragmentIons[0].ProductType,
 				Is.AnyOf(productTypes),
 				$"ProductType on loaded entry must be a known value");
 		}
@@ -252,17 +252,17 @@ public sealed class TestMslFinalValidation
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "LGGNEQVTR",
-			StrippedSequence = "LGGNEQVTR",
+			FullSequence = "LGGNEQVTR",
+			BaseSequence = "LGGNEQVTR",
 			PrecursorMz = 487.28,
-			Charge = 2,
-			Irt = 55.30,
+			ChargeState = 2,
+			RetentionTime = 55.30,
 			IsDecoy = false,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
 			ProteinAccession = string.Empty,
 			QValue = float.NaN,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
                 // Terminal b3
                 new MslFragmentIon
@@ -298,10 +298,10 @@ public sealed class TestMslFinalValidation
 
 		bool found = lib.TryGetEntry("LGGNEQVTR", 2, out var loaded);
 		Assert.That(found, Is.True);
-		Assert.That(loaded!.Fragments.Count, Is.EqualTo(3));
+		Assert.That(loaded!.MatchedFragmentIons.Count, Is.EqualTo(3));
 
 		// Find the internal ion by its IsInternalFragment flag
-		var internalIon = loaded.Fragments.FirstOrDefault(f => f.IsInternalFragment);
+		var internalIon = loaded.MatchedFragmentIons.FirstOrDefault(f => f.IsInternalFragment);
 		Assert.That(internalIon, Is.Not.Null, "Internal ion must survive round-trip");
 		Assert.That(internalIon!.ProductType, Is.EqualTo(ProductType.b));
 		Assert.That(internalIon.SecondaryProductType, Is.EqualTo(ProductType.b));
@@ -321,17 +321,17 @@ public sealed class TestMslFinalValidation
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "AGUCGUA",
-			StrippedSequence = "AGUCGUA",
+			FullSequence = "AGUCGUA",
+			BaseSequence = "AGUCGUA",
 			PrecursorMz = 1065.15,
-			Charge = 2,
-			Irt = 15.0,
+			ChargeState = 2,
+			RetentionTime = 15.0,
 			IsDecoy = false,
 			MoleculeType = MslFormat.MoleculeType.Oligonucleotide,
 			DissociationType = DissociationType.HCD,
 			ProteinAccession = string.Empty,
 			QValue = float.NaN,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -361,7 +361,7 @@ public sealed class TestMslFinalValidation
 		Assert.That(found, Is.True);
 		Assert.That(loaded!.MoleculeType, Is.EqualTo(MslFormat.MoleculeType.Oligonucleotide));
 
-		var types = loaded.Fragments.Select(f => f.ProductType).ToHashSet();
+		var types = loaded.MatchedFragmentIons.Select(f => f.ProductType).ToHashSet();
 		Assert.That(types.Contains(ProductType.a), Is.True, "a-ion must round-trip");
 		Assert.That(types.Contains(ProductType.w), Is.True, "w-ion must round-trip");
 		Assert.That(types.Contains(ProductType.aBaseLoss), Is.True, "aBaseLoss-ion must round-trip");
@@ -392,17 +392,17 @@ public sealed class TestMslFinalValidation
 		{
 			entries.Add(new MslLibraryEntry
 			{
-				ModifiedSequence = $"PEPTIDE",
-				StrippedSequence = "PEPTIDE",
+				FullSequence = $"PEPTIDE",
+				BaseSequence = "PEPTIDE",
 				PrecursorMz = 400.0 + i * 1.0,
-				Charge = 2,
-				Irt = 30.0,
+				ChargeState = 2,
+				RetentionTime = 30.0,
 				IsDecoy = false,
 				MoleculeType = MslFormat.MoleculeType.Peptide,
 				DissociationType = DissociationType.HCD,
 				ProteinAccession = string.Empty,
 				QValue = float.NaN,
-				Fragments = new List<MslFragmentIon>
+				MatchedFragmentIons = new List<MslFragmentIon>
 				{
 					new MslFragmentIon
 					{
@@ -423,8 +423,8 @@ public sealed class TestMslFinalValidation
 		int idx = 0;
 		foreach (var entry in lib.GetAllEntries())
 		{
-			Assert.That(entry.Fragments.Count, Is.EqualTo(1));
-			Assert.That(entry.Fragments[0].NeutralLoss,
+			Assert.That(entry.MatchedFragmentIons.Count, Is.EqualTo(1));
+			Assert.That(entry.MatchedFragmentIons[0].NeutralLoss,
 				Is.EqualTo(namedLosses[idx]).Within(0.02),
 				$"Neutral loss at index {idx} must round-trip within 0.02 Da");
 			idx++;
@@ -663,7 +663,7 @@ public sealed class TestMslFinalValidation
 	// ═════════════════════════════════════════════════════════════════════════
 
 	/// <summary>
-	/// Verifies that all integer fields (Charge, FragmentNumber, SecondaryFragmentNumber,
+	/// Verifies that all integer fields (ChargeState, FragmentNumber, SecondaryFragmentNumber,
 	/// ElutionGroupId) survive write → read with bit-exact equality.
 	/// </summary>
 	[Test]
@@ -673,17 +673,17 @@ public sealed class TestMslFinalValidation
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "LGGNEQVTR",
-			StrippedSequence = "LGGNEQVTR",
+			FullSequence = "LGGNEQVTR",
+			BaseSequence = "LGGNEQVTR",
 			PrecursorMz = 487.2764,
-			Charge = 3,
-			Irt = 55.30,
+			ChargeState = 3,
+			RetentionTime = 55.30,
 			IsDecoy = false,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
 			ProteinAccession = string.Empty,
 			QValue = 0.01f,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -704,14 +704,14 @@ public sealed class TestMslFinalValidation
 
 		bool found = lib.TryGetEntry("LGGNEQVTR", 3, out var loaded);
 		Assert.That(found, Is.True);
-		Assert.That(loaded!.Charge, Is.EqualTo(3));
-		Assert.That(loaded.Fragments[0].FragmentNumber, Is.EqualTo(3));
-		Assert.That(loaded.Fragments[0].SecondaryFragmentNumber, Is.EqualTo(6));
-		Assert.That(loaded.Fragments[0].Charge, Is.EqualTo(2));
+		Assert.That(loaded!.ChargeState, Is.EqualTo(3));
+		Assert.That(loaded.MatchedFragmentIons[0].FragmentNumber, Is.EqualTo(3));
+		Assert.That(loaded.MatchedFragmentIons[0].SecondaryFragmentNumber, Is.EqualTo(6));
+		Assert.That(loaded.MatchedFragmentIons[0].Charge, Is.EqualTo(2));
 	}
 
 	/// <summary>
-	/// Verifies that float fields (PrecursorMz, Irt, fragment Mz, Intensity) survive
+	/// Verifies that float fields (PrecursorMz, RetentionTime, fragment Mz, Intensity) survive
 	/// write → read within single-precision float tolerance (1e-5 relative).
 	/// </summary>
 	[Test]
@@ -731,17 +731,17 @@ public sealed class TestMslFinalValidation
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "LGGNEQVTR",
-			StrippedSequence = "LGGNEQVTR",
+			FullSequence = "LGGNEQVTR",
+			BaseSequence = "LGGNEQVTR",
 			PrecursorMz = originalMz,
-			Charge = 2,
-			Irt = originalIrt,
+			ChargeState = 2,
+			RetentionTime = originalIrt,
 			IsDecoy = false,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
 			ProteinAccession = string.Empty,
 			QValue = float.NaN,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -763,18 +763,18 @@ public sealed class TestMslFinalValidation
 
 		bool found = lib.TryGetEntry("LGGNEQVTR", 2, out var loaded);
 		Assert.That(found, Is.True);
-		Assert.That(loaded!.Fragments.Count, Is.EqualTo(2));
+		Assert.That(loaded!.MatchedFragmentIons.Count, Is.EqualTo(2));
 
-		// PrecursorMz and Irt stored as float32 on disk — within single-precision tolerance
+		// PrecursorMz and RetentionTime stored as float32 on disk — within single-precision tolerance
 		Assert.That((float)loaded.PrecursorMz,
 			Is.EqualTo((float)originalMz).Within(1e-4f),
 			"PrecursorMz must survive round-trip within float32 tolerance");
-		Assert.That((float)loaded.Irt,
+		Assert.That((float)loaded.RetentionTime,
 			Is.EqualTo((float)originalIrt).Within(1e-4f),
-			"Irt must survive round-trip within float32 tolerance");
+			"RetentionTime must survive round-trip within float32 tolerance");
 
 		// Fragment m/z: sort loaded fragments by m/z to match original order
-		var sortedFragments = loaded.Fragments.OrderBy(f => f.Mz).ToList();
+		var sortedFragments = loaded.MatchedFragmentIons.OrderBy(f => f.Mz).ToList();
 		Assert.That(sortedFragments[0].Mz,
 			Is.EqualTo(frag1Mz).Within(1e-4f),
 			"Fragment 1 Mz must survive round-trip within float32 tolerance");
@@ -809,9 +809,9 @@ public sealed class TestMslFinalValidation
 
 		foreach (var entry in entries)
 		{
-			bool found = lib.TryGetEntry(entry.ModifiedSequence, entry.Charge, out _);
+			bool found = lib.TryGetEntry(entry.FullSequence, entry.ChargeState, out _);
 			Assert.That(found, Is.True,
-				$"Entry {entry.ModifiedSequence}/{entry.Charge} must be retrievable from MSL");
+				$"Entry {entry.FullSequence}/{entry.ChargeState} must be retrievable from MSL");
 		}
 	}
 
@@ -828,15 +828,15 @@ public sealed class TestMslFinalValidation
 
 		foreach (var original in entries)
 		{
-			bool found = lib.TryGetEntry(original.ModifiedSequence, original.Charge, out var loaded);
+			bool found = lib.TryGetEntry(original.FullSequence, original.ChargeState, out var loaded);
 			Assert.That(found, Is.True);
 
 			// Sort both lists by m/z for pairwise comparison
-			var origMzs = original.Fragments.Select(f => f.Mz).OrderBy(x => x).ToList();
-			var loadMzs = loaded!.Fragments.Select(f => f.Mz).OrderBy(x => x).ToList();
+			var origMzs = original.MatchedFragmentIons.Select(f => f.Mz).OrderBy(x => x).ToList();
+			var loadMzs = loaded!.MatchedFragmentIons.Select(f => f.Mz).OrderBy(x => x).ToList();
 
 			Assert.That(loadMzs.Count, Is.EqualTo(origMzs.Count),
-				$"Fragment count must match for {original.ModifiedSequence}/{original.Charge}");
+				$"Fragment count must match for {original.FullSequence}/{original.ChargeState}");
 
 			for (int i = 0; i < origMzs.Count; i++)
 			{
@@ -874,12 +874,12 @@ public sealed class TestMslFinalValidation
             // [0] PEPTIDE/2
             new MslLibraryEntry
 			{
-				ModifiedSequence = "PEPTIDE", StrippedSequence = "PEPTIDE",
-				PrecursorMz = 400.21, Charge = 2, Irt = 35.40, IsDecoy = false,
+				FullSequence = "PEPTIDE", BaseSequence = "PEPTIDE",
+				PrecursorMz = 400.21, ChargeState = 2, RetentionTime = 35.40, IsDecoy = false,
 				MoleculeType = MslFormat.MoleculeType.Peptide,
 				DissociationType = DissociationType.HCD,
 				ProteinAccession = "P12345", QValue = float.NaN,
-				Fragments = new List<MslFragmentIon>
+				MatchedFragmentIons = new List<MslFragmentIon>
 				{
 					new MslFragmentIon { ProductType = ProductType.b, FragmentNumber = 2, Charge = 1, Mz = 227.10f, Intensity = 0.80f, NeutralLoss = 0.0, SecondaryProductType = null, SecondaryFragmentNumber = 0 },
 					new MslFragmentIon { ProductType = ProductType.y, FragmentNumber = 2, Charge = 1, Mz = 263.13f, Intensity = 1.00f, NeutralLoss = 0.0, SecondaryProductType = null, SecondaryFragmentNumber = 0 },
@@ -888,12 +888,12 @@ public sealed class TestMslFinalValidation
             // [1] PEPTIDE/3 — same stripped sequence → same ElutionGroupId
             new MslLibraryEntry
 			{
-				ModifiedSequence = "PEPTIDE", StrippedSequence = "PEPTIDE",
-				PrecursorMz = 267.14, Charge = 3, Irt = 35.40, IsDecoy = false,
+				FullSequence = "PEPTIDE", BaseSequence = "PEPTIDE",
+				PrecursorMz = 267.14, ChargeState = 3, RetentionTime = 35.40, IsDecoy = false,
 				MoleculeType = MslFormat.MoleculeType.Peptide,
 				DissociationType = DissociationType.HCD,
 				ProteinAccession = string.Empty, QValue = float.NaN,
-				Fragments = new List<MslFragmentIon>
+				MatchedFragmentIons = new List<MslFragmentIon>
 				{
 					new MslFragmentIon { ProductType = ProductType.b, FragmentNumber = 2, Charge = 1, Mz = 227.10f, Intensity = 0.80f, NeutralLoss = 0.0, SecondaryProductType = null, SecondaryFragmentNumber = 0 },
 					new MslFragmentIon { ProductType = ProductType.y, FragmentNumber = 2, Charge = 1, Mz = 263.13f, Intensity = 1.00f, NeutralLoss = 0.0, SecondaryProductType = null, SecondaryFragmentNumber = 0 },
@@ -902,12 +902,12 @@ public sealed class TestMslFinalValidation
             // [2] ACDEFGHIK/2 — decoy; y3 with H2O neutral loss
             new MslLibraryEntry
 			{
-				ModifiedSequence = "ACDEFGHIK", StrippedSequence = "ACDEFGHIK",
-				PrecursorMz = 529.76, Charge = 2, Irt = 42.10, IsDecoy = true,
+				FullSequence = "ACDEFGHIK", BaseSequence = "ACDEFGHIK",
+				PrecursorMz = 529.76, ChargeState = 2, RetentionTime = 42.10, IsDecoy = true,
 				MoleculeType = MslFormat.MoleculeType.Peptide,
 				DissociationType = DissociationType.HCD,
 				ProteinAccession = string.Empty, QValue = float.NaN,
-				Fragments = new List<MslFragmentIon>
+				MatchedFragmentIons = new List<MslFragmentIon>
 				{
 					new MslFragmentIon { ProductType = ProductType.y, FragmentNumber = 3, Charge = 1, Mz = 342.18f, Intensity = 1.00f, NeutralLoss = -18.010565, SecondaryProductType = null, SecondaryFragmentNumber = 0 },
 				}
@@ -915,12 +915,12 @@ public sealed class TestMslFinalValidation
             // [3] LGGNEQVTR/2 — b3, y4, bIb[3-6]
             new MslLibraryEntry
 			{
-				ModifiedSequence = "LGGNEQVTR", StrippedSequence = "LGGNEQVTR",
-				PrecursorMz = 487.28, Charge = 2, Irt = 55.30, IsDecoy = false,
+				FullSequence = "LGGNEQVTR", BaseSequence = "LGGNEQVTR",
+				PrecursorMz = 487.28, ChargeState = 2, RetentionTime = 55.30, IsDecoy = false,
 				MoleculeType = MslFormat.MoleculeType.Peptide,
 				DissociationType = DissociationType.HCD,
 				ProteinAccession = string.Empty, QValue = float.NaN,
-				Fragments = new List<MslFragmentIon>
+				MatchedFragmentIons = new List<MslFragmentIon>
 				{
 					new MslFragmentIon { ProductType = ProductType.b, FragmentNumber = 3, Charge = 1, Mz = 285.16f, Intensity = 0.55f, NeutralLoss = 0.0, SecondaryProductType = null, SecondaryFragmentNumber = 0 },
 					new MslFragmentIon { ProductType = ProductType.y, FragmentNumber = 4, Charge = 1, Mz = 489.25f, Intensity = 0.80f, NeutralLoss = 0.0, SecondaryProductType = null, SecondaryFragmentNumber = 0 },
@@ -930,12 +930,12 @@ public sealed class TestMslFinalValidation
             // [4] LGGNEQVTR/3 — b3, y4, aIb[2-5]^2
             new MslLibraryEntry
 			{
-				ModifiedSequence = "LGGNEQVTR", StrippedSequence = "LGGNEQVTR",
-				PrecursorMz = 325.19, Charge = 3, Irt = 55.30, IsDecoy = false,
+				FullSequence = "LGGNEQVTR", BaseSequence = "LGGNEQVTR",
+				PrecursorMz = 325.19, ChargeState = 3, RetentionTime = 55.30, IsDecoy = false,
 				MoleculeType = MslFormat.MoleculeType.Peptide,
 				DissociationType = DissociationType.HCD,
 				ProteinAccession = string.Empty, QValue = float.NaN,
-				Fragments = new List<MslFragmentIon>
+				MatchedFragmentIons = new List<MslFragmentIon>
 				{
 					new MslFragmentIon { ProductType = ProductType.b, FragmentNumber = 3, Charge = 1, Mz = 285.16f, Intensity = 0.55f, NeutralLoss = 0.0, SecondaryProductType = null, SecondaryFragmentNumber = 0 },
 					new MslFragmentIon { ProductType = ProductType.y, FragmentNumber = 4, Charge = 1, Mz = 489.25f, Intensity = 0.80f, NeutralLoss = 0.0, SecondaryProductType = null, SecondaryFragmentNumber = 0 },
@@ -945,12 +945,12 @@ public sealed class TestMslFinalValidation
             // [5] ALGVGLATR/2 — Proteoform
             new MslLibraryEntry
 			{
-				ModifiedSequence = "ALGVGLATR", StrippedSequence = "ALGVGLATR",
-				PrecursorMz = 450.27, Charge = 2, Irt = 60.00, IsDecoy = false,
+				FullSequence = "ALGVGLATR", BaseSequence = "ALGVGLATR",
+				PrecursorMz = 450.27, ChargeState = 2, RetentionTime = 60.00, IsDecoy = false,
 				MoleculeType = MslFormat.MoleculeType.Proteoform,
 				DissociationType = DissociationType.HCD,
 				ProteinAccession = string.Empty, QValue = float.NaN,
-				Fragments = new List<MslFragmentIon>
+				MatchedFragmentIons = new List<MslFragmentIon>
 				{
 					new MslFragmentIon { ProductType = ProductType.b, FragmentNumber = 2, Charge = 1, Mz = 185.12f, Intensity = 0.70f, NeutralLoss = 0.0, SecondaryProductType = null, SecondaryFragmentNumber = 0 },
 					new MslFragmentIon { ProductType = ProductType.y, FragmentNumber = 5, Charge = 1, Mz = 560.32f, Intensity = 1.00f, NeutralLoss = 0.0, SecondaryProductType = null, SecondaryFragmentNumber = 0 },
@@ -959,12 +959,12 @@ public sealed class TestMslFinalValidation
             // [6] KVFGR/2 — b3; ProteinAccession="P54321"
             new MslLibraryEntry
 			{
-				ModifiedSequence = "KVFGR", StrippedSequence = "KVFGR",
-				PrecursorMz = 306.18, Charge = 2, Irt = 28.30, IsDecoy = false,
+				FullSequence = "KVFGR", BaseSequence = "KVFGR",
+				PrecursorMz = 306.18, ChargeState = 2, RetentionTime = 28.30, IsDecoy = false,
 				MoleculeType = MslFormat.MoleculeType.Peptide,
 				DissociationType = DissociationType.HCD,
 				ProteinAccession = "P54321", QValue = float.NaN,
-				Fragments = new List<MslFragmentIon>
+				MatchedFragmentIons = new List<MslFragmentIon>
 				{
 					new MslFragmentIon { ProductType = ProductType.b, FragmentNumber = 3, Charge = 1, Mz = 337.19f, Intensity = 1.00f, NeutralLoss = 0.0, SecondaryProductType = null, SecondaryFragmentNumber = 0 },
 				}
@@ -972,12 +972,12 @@ public sealed class TestMslFinalValidation
             // [7] YGGFLR/2 — Glycopeptide; D-type diagnostic ion
             new MslLibraryEntry
 			{
-				ModifiedSequence = "YGGFLR", StrippedSequence = "YGGFLR",
-				PrecursorMz = 366.20, Charge = 2, Irt = 38.50, IsDecoy = false,
+				FullSequence = "YGGFLR", BaseSequence = "YGGFLR",
+				PrecursorMz = 366.20, ChargeState = 2, RetentionTime = 38.50, IsDecoy = false,
 				MoleculeType = MslFormat.MoleculeType.Glycopeptide,
 				DissociationType = DissociationType.HCD,
 				ProteinAccession = string.Empty, QValue = float.NaN,
-				Fragments = new List<MslFragmentIon>
+				MatchedFragmentIons = new List<MslFragmentIon>
 				{
 					new MslFragmentIon { ProductType = ProductType.D, FragmentNumber = 1, Charge = 1, Mz = 204.07f, Intensity = 1.00f, NeutralLoss = 0.0, SecondaryProductType = null, SecondaryFragmentNumber = 0 },
 				}
@@ -985,12 +985,12 @@ public sealed class TestMslFinalValidation
             // [8] MSTYNQK/2 — QValue=0.01f
             new MslLibraryEntry
 			{
-				ModifiedSequence = "MSTYNQK", StrippedSequence = "MSTYNQK",
-				PrecursorMz = 436.20, Charge = 2, Irt = 21.51, IsDecoy = false,
+				FullSequence = "MSTYNQK", BaseSequence = "MSTYNQK",
+				PrecursorMz = 436.20, ChargeState = 2, RetentionTime = 21.51, IsDecoy = false,
 				MoleculeType = MslFormat.MoleculeType.Peptide,
 				DissociationType = DissociationType.HCD,
 				ProteinAccession = string.Empty, QValue = 0.01f,
-				Fragments = new List<MslFragmentIon>
+				MatchedFragmentIons = new List<MslFragmentIon>
 				{
 					new MslFragmentIon { ProductType = ProductType.b, FragmentNumber = 2, Charge = 1, Mz = 236.09f, Intensity = 0.60f, NeutralLoss = 0.0, SecondaryProductType = null, SecondaryFragmentNumber = 0 },
 					new MslFragmentIon { ProductType = ProductType.y, FragmentNumber = 6, Charge = 1, Mz = 750.37f, Intensity = 1.00f, NeutralLoss = 0.0, SecondaryProductType = null, SecondaryFragmentNumber = 0 },
@@ -999,12 +999,12 @@ public sealed class TestMslFinalValidation
             // [9] AGUCGUA/2 — Oligonucleotide
             new MslLibraryEntry
 			{
-				ModifiedSequence = "AGUCGUA", StrippedSequence = "AGUCGUA",
-				PrecursorMz = 1065.15, Charge = 2, Irt = 15.00, IsDecoy = false,
+				FullSequence = "AGUCGUA", BaseSequence = "AGUCGUA",
+				PrecursorMz = 1065.15, ChargeState = 2, RetentionTime = 15.00, IsDecoy = false,
 				MoleculeType = MslFormat.MoleculeType.Oligonucleotide,
 				DissociationType = DissociationType.HCD,
 				ProteinAccession = string.Empty, QValue = float.NaN,
-				Fragments = new List<MslFragmentIon>
+				MatchedFragmentIons = new List<MslFragmentIon>
 				{
 					new MslFragmentIon { ProductType = ProductType.a, FragmentNumber = 2, Charge = 1, Mz = 595.08f, Intensity = 1.00f, NeutralLoss = 0.0, SecondaryProductType = null, SecondaryFragmentNumber = 0 },
 					new MslFragmentIon { ProductType = ProductType.w, FragmentNumber = 2, Charge = 1, Mz = 597.10f, Intensity = 0.80f, NeutralLoss = 0.0, SecondaryProductType = null, SecondaryFragmentNumber = 0 },
@@ -1028,17 +1028,17 @@ public sealed class TestMslFinalValidation
 	{
 		return new MslLibraryEntry
 		{
-			ModifiedSequence = sequence,
-			StrippedSequence = sequence,
+			FullSequence = sequence,
+			BaseSequence = sequence,
 			PrecursorMz = precursorMz,
-			Charge = charge,
-			Irt = irt,
+			ChargeState = charge,
+			RetentionTime = irt,
 			IsDecoy = isDecoy,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
 			ProteinAccession = string.Empty,
 			QValue = float.NaN,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{

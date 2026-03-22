@@ -21,7 +21,7 @@ namespace Test.SpectralLibrary.MSL;
 /// Covers:
 ///   K1 — PredictFragments drops SecondaryProductType/SecondaryFragmentNumber (Fix 8a)
 ///   K2 — PredictFragments increments updatedCount for empty predictions (Fix 8b)
-///   K3 — PredictFragments only processes Source==Predicted AND Fragments.Count==0
+///   K3 — PredictFragments only processes Source==Predicted AND MatchedFragmentIons.Count==0
 ///   K4 — PredictFragments returns 0 immediately when no eligible entries exist
 ///   K5 — PredictFragments skips entries not present in the predict() result dict
 ///   K6 — GetAwaiter().GetResult() deadlock risk documented (no network test)
@@ -57,11 +57,11 @@ public class TestMslPrompt6KoinaPipeline
 	private static MslLibraryEntry PredictedEntryNoFragments(
 		string seq = "PEPTIDE", int charge = 2) => new()
 		{
-			ModifiedSequence = seq,
-			StrippedSequence = seq,
+			FullSequence = seq,
+			BaseSequence = seq,
 			PrecursorMz = 449.75,
-			Charge = charge,
-			Irt = 30.0,
+			ChargeState = charge,
+			RetentionTime = 30.0,
 			DissociationType = DissociationType.HCD,
 			Nce = 28,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
@@ -73,17 +73,17 @@ public class TestMslPrompt6KoinaPipeline
 			QValue = float.NaN,
 			ElutionGroupId = 0,
 			IsDecoy = false,
-			Fragments = new List<MslFragmentIon>()   // empty — eligible for prediction
+			MatchedFragmentIons = new List<MslFragmentIon>()   // empty — eligible for prediction
 		};
 
 	private static MslLibraryEntry EmpiricalEntryWithFragments(
 		string seq = "LESLIEK", int charge = 2) => new()
 		{
-			ModifiedSequence = seq,
-			StrippedSequence = seq,
+			FullSequence = seq,
+			BaseSequence = seq,
 			PrecursorMz = 450.0,
-			Charge = charge,
-			Irt = 35.0,
+			ChargeState = charge,
+			RetentionTime = 35.0,
 			DissociationType = DissociationType.HCD,
 			Nce = 28,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
@@ -95,7 +95,7 @@ public class TestMslPrompt6KoinaPipeline
 			QValue = 0.01f,
 			ElutionGroupId = 0,
 			IsDecoy = false,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 		{
 			new() { ProductType = ProductType.b, FragmentNumber = 3,
 					Charge = 1, Mz = 312.15f, Intensity = 1.0f, NeutralLoss = 0.0,
@@ -159,24 +159,24 @@ public class TestMslPrompt6KoinaPipeline
 		var entry = PredictedEntryNoFragments();
 		using MslLibrary lib = BuildLibrary(new[] { entry });
 
-		string key = entry.LookupKey;
+		string key = entry.Name;
 
 		// Simulate a prediction model that returns an internal ion
 		Dictionary<string, LibrarySpectrum> FakePredict(IReadOnlyList<MslLibraryEntry> eligible)
 			=> new()
 			{
-				[key] = MakeSpectrumWithInternalIon(entry.ModifiedSequence,
-															entry.PrecursorMz, entry.Charge)
+				[key] = MakeSpectrumWithInternalIon(entry.FullSequence,
+															entry.PrecursorMz, entry.ChargeState)
 			};
 
 		int updated = lib.PredictFragments(FakePredict);
 
 		Assert.That(updated, Is.EqualTo(1));
 
-		lib.TryGetEntry(entry.ModifiedSequence, entry.Charge, out var result);
+		lib.TryGetEntry(entry.FullSequence, entry.ChargeState, out var result);
 		Assert.That(result, Is.Not.Null);
 
-		var internalIon = result!.Fragments.FirstOrDefault(f => f.IsInternalFragment);
+		var internalIon = result!.MatchedFragmentIons.FirstOrDefault(f => f.IsInternalFragment);
 		Assert.That(internalIon, Is.Not.Null,
 			"After Fix 8a, at least one internal fragment ion must be present.");
 		Assert.That(internalIon!.SecondaryProductType, Is.EqualTo(ProductType.y),
@@ -195,19 +195,19 @@ public class TestMslPrompt6KoinaPipeline
 		var entry = PredictedEntryNoFragments();
 		using MslLibrary lib = BuildLibrary(new[] { entry });
 
-		string key = entry.LookupKey;
+		string key = entry.Name;
 
 		Dictionary<string, LibrarySpectrum> FakePredict(IReadOnlyList<MslLibraryEntry> eligible)
 			=> new()
 			{
-				[key] = MakeSpectrumWithInternalIon(entry.ModifiedSequence,
-															entry.PrecursorMz, entry.Charge)
+				[key] = MakeSpectrumWithInternalIon(entry.FullSequence,
+															entry.PrecursorMz, entry.ChargeState)
 			};
 
 		lib.PredictFragments(FakePredict);
-		lib.TryGetEntry(entry.ModifiedSequence, entry.Charge, out var result);
+		lib.TryGetEntry(entry.FullSequence, entry.ChargeState, out var result);
 
-		var terminalIon = result!.Fragments.FirstOrDefault(f => !f.IsInternalFragment);
+		var terminalIon = result!.MatchedFragmentIons.FirstOrDefault(f => !f.IsInternalFragment);
 		Assert.That(terminalIon, Is.Not.Null);
 		Assert.That(terminalIon!.SecondaryProductType, Is.Null,
 			"Terminal ions must have SecondaryProductType = null after prediction.");
@@ -222,7 +222,7 @@ public class TestMslPrompt6KoinaPipeline
 	/// for an entry, that entry must NOT be counted as updated and must remain
 	/// eligible for re-prediction on the next call.
 	///
-	/// Before Fix 8b: updatedCount was incremented and entry.Fragments was set
+	/// Before Fix 8b: updatedCount was incremented and entry.MatchedFragmentIons was set
 	/// to an empty list, making the return value misleading and leaving the entry
 	/// stuck in a permanently re-eligible state.
 	/// </summary>
@@ -232,15 +232,15 @@ public class TestMslPrompt6KoinaPipeline
 		var entry = PredictedEntryNoFragments();
 		using MslLibrary lib = BuildLibrary(new[] { entry });
 
-		string key = entry.LookupKey;
+		string key = entry.Name;
 
 		// Predict returns a spectrum with zero fragment ions
 		var emptySpectrum = new LibrarySpectrum(
-			sequence: entry.ModifiedSequence,
+			sequence: entry.FullSequence,
 			precursorMz: entry.PrecursorMz,
-			chargeState: entry.Charge,
+			chargeState: entry.ChargeState,
 			peaks: new List<MatchedFragmentIon>(),
-			rt: entry.Irt);
+			rt: entry.RetentionTime);
 
 		Dictionary<string, LibrarySpectrum> FakePredict(IReadOnlyList<MslLibraryEntry> eligible)
 			=> new() { [key] = emptySpectrum };
@@ -253,7 +253,7 @@ public class TestMslPrompt6KoinaPipeline
 
 	/// <summary>
 	/// After Fix 8b, an entry that received an empty prediction must remain eligible
-	/// (Fragments.Count == 0, Source == Predicted) so subsequent calls can retry.
+	/// (MatchedFragmentIons.Count == 0, Source == Predicted) so subsequent calls can retry.
 	/// </summary>
 	[Test]
 	public void PredictFragments_EmptyPrediction_EntryRemainsEligible()
@@ -261,13 +261,13 @@ public class TestMslPrompt6KoinaPipeline
 		var entry = PredictedEntryNoFragments();
 		using MslLibrary lib = BuildLibrary(new[] { entry });
 
-		string key = entry.LookupKey;
+		string key = entry.Name;
 		var emptySpectrum = new LibrarySpectrum(
-			sequence: entry.ModifiedSequence,
+			sequence: entry.FullSequence,
 			precursorMz: entry.PrecursorMz,
-			chargeState: entry.Charge,
+			chargeState: entry.ChargeState,
 			peaks: new List<MatchedFragmentIon>(),
-			rt: entry.Irt);
+			rt: entry.RetentionTime);
 
 		int callCount = 0;
 		Dictionary<string, LibrarySpectrum> FakePredict(IReadOnlyList<MslLibraryEntry> eligible)
@@ -288,7 +288,7 @@ public class TestMslPrompt6KoinaPipeline
 	}
 
 	// ═════════════════════════════════════════════════════════════════════
-	// K3 — Eligible filter: Source==Predicted AND Fragments.Count==0
+	// K3 — Eligible filter: Source==Predicted AND MatchedFragmentIons.Count==0
 	// ═════════════════════════════════════════════════════════════════════
 
 	/// <summary>
@@ -306,15 +306,15 @@ public class TestMslPrompt6KoinaPipeline
 		var receivedKeys = new List<string>();
 		Dictionary<string, LibrarySpectrum> FakePredict(IReadOnlyList<MslLibraryEntry> eligible)
 		{
-			receivedKeys.AddRange(eligible.Select(e => e.LookupKey));
+			receivedKeys.AddRange(eligible.Select(e => e.Name));
 			return new Dictionary<string, LibrarySpectrum>();
 		}
 
 		lib.PredictFragments(FakePredict);
 
-		Assert.That(receivedKeys, Does.Contain(predicted.LookupKey),
+		Assert.That(receivedKeys, Does.Contain(predicted.Name),
 			"The predicted entry with no fragments must be eligible.");
-		Assert.That(receivedKeys, Does.Not.Contain(empirical.LookupKey),
+		Assert.That(receivedKeys, Does.Not.Contain(empirical.Name),
 			"Empirical entries must not be passed to the predict delegate.");
 	}
 
@@ -326,7 +326,7 @@ public class TestMslPrompt6KoinaPipeline
 	public void PredictFragments_PredictedWithFragments_IsNotEligible()
 	{
 		var entry = PredictedEntryNoFragments();
-		entry.Fragments.Add(new MslFragmentIon
+		entry.MatchedFragmentIons.Add(new MslFragmentIon
 		{
 			ProductType = ProductType.b,
 			FragmentNumber = 3,

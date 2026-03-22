@@ -44,11 +44,11 @@ public class TestMslPrompt11VersionManagement
 
 	private static MslLibraryEntry OneEntry() => new()
 	{
-		ModifiedSequence = "PEPTIDE",
-		StrippedSequence = "PEPTIDE",
+		FullSequence = "PEPTIDE",
+		BaseSequence = "PEPTIDE",
 		PrecursorMz = 449.75,
-		Charge = 2,
-		Irt = 30.0,
+		ChargeState = 2,
+		RetentionTime = 30.0,
 		DissociationType = DissociationType.HCD,
 		Nce = 28,
 		MoleculeType = MslFormat.MoleculeType.Peptide,
@@ -60,7 +60,7 @@ public class TestMslPrompt11VersionManagement
 		QValue = float.NaN,
 		ElutionGroupId = 0,
 		IsDecoy = false,
-		Fragments = new List<MslFragmentIon>
+		MatchedFragmentIons = new List<MslFragmentIon>
 		{
 			new() { ProductType = ProductType.b, FragmentNumber = 3,
 					Charge = 1, Mz = 312.15f, Intensity = 1.0f,

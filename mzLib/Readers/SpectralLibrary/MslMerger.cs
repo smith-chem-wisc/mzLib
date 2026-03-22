@@ -7,7 +7,7 @@ namespace Readers.SpectralLibrary;
 // ────────────────────────────────────────────────────────────────────────────
 
 /// <summary>
-/// Determines which entry is kept when the same LookupKey appears in multiple source files.
+/// Determines which entry is kept when the same Name appears in multiple source files.
 /// </summary>
 public enum MslMergeConflictPolicy
 {
@@ -52,7 +52,7 @@ public record MslMergeResult
 	public required int TotalSourceEntryCount { get; init; }
 
 	/// <summary>
-	/// Number of entries skipped due to duplicate LookupKey resolution.
+	/// Number of entries skipped due to duplicate Name resolution.
 	/// Zero when <c>deduplicate: false</c>.
 	/// </summary>
 	public required int DuplicatesSkipped { get; init; }
@@ -124,7 +124,7 @@ public static class MslMerger
 	///   Default: <see cref="MslMergeConflictPolicy.KeepFirst"/>.
 	/// </param>
 	/// <param name="deduplicate">
-	///   When <see langword="true"/> (default), each unique LookupKey is written only once.
+	///   When <see langword="true"/> (default), each unique Name is written only once.
 	///   When <see langword="false"/>, all entries are written including duplicates.
 	/// </param>
 	/// <param name="compressionLevel">
@@ -219,7 +219,7 @@ public static class MslMerger
 	// ────────────────────────────────────────────────────────────────────────
 
 	/// <summary>
-	/// Builds a dictionary mapping each LookupKey to the index of the last source file
+	/// Builds a dictionary mapping each Name to the index of the last source file
 	/// that contains an entry with that key. Used for the KeepLast conflict policy.
 	/// This is the first pass of the two-pass KeepLast algorithm; it requires O(UniqueKeys)
 	/// RAM which is acceptable (~30 MB for 1M unique keys).
@@ -232,7 +232,7 @@ public static class MslMerger
 		{
 			using var lib = MslLibrary.LoadIndexOnly(sourcePaths[i]);
 			foreach (MslLibraryEntry entry in lib.GetAllEntries())
-				map[entry.LookupKey] = i;   // overwrite: last writer wins
+				map[entry.Name] = i;   // overwrite: last writer wins
 		}
 
 		return map;
@@ -294,7 +294,7 @@ public static class MslMerger
 				continue;
 			}
 
-			string key = entry.LookupKey;
+			string key = entry.Name;
 
 			switch (conflictPolicy)
 			{
@@ -405,7 +405,7 @@ public static class MslMerger
 	/// Entries are removed from <paramref name="buffer"/> as they are yielded.
 	///
 	/// Output order within a single flush is deterministic: entries are sorted by
-	/// PrecursorMz ascending, then LookupKey lexicographic (ordinal), so the
+	/// PrecursorMz ascending, then Name lexicographic (ordinal), so the
 	/// output file is stable across .NET versions, platforms, and insertion orders.
 	/// </summary>
 	private static IEnumerable<MslLibraryEntry> FlushQValueBuffer(
@@ -422,7 +422,7 @@ public static class MslMerger
 				toFlush.Add(key);
 		}
 
-		// Sort by PrecursorMz ascending, then LookupKey lexicographic, to produce
+		// Sort by PrecursorMz ascending, then Name lexicographic, to produce
 		// a stable deterministic output order regardless of Dictionary iteration order.
 		// This is the only change from the original: without this sort the relative
 		// ordering of entries flushed in the same pass was non-deterministic.

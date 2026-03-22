@@ -56,15 +56,15 @@ public class TestMslPrompt3SpectralAngle
 	/// </summary>
 	private static ReadOnlySpan<MslProteoformIndexEntry> CandidateSpan(MslLibraryEntry entry)
 	{
-		double neutralMass = (double)entry.PrecursorMz * entry.Charge
-							 - entry.Charge * Proton;
+		double neutralMass = (double)entry.PrecursorMz * entry.ChargeState
+							 - entry.ChargeState * Proton;
 		return new[]
 		{
 			new MslProteoformIndexEntry(
 				neutralMass,
 				(float)entry.PrecursorMz,
-				(short)entry.Charge,
-				(float)entry.Irt,
+				(short)entry.ChargeState,
+				(float)entry.RetentionTime,
 				entry.IsDecoy,
 				ordinalIndex: 0)
 		}.AsSpan();
@@ -102,14 +102,14 @@ public class TestMslPrompt3SpectralAngle
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "TESTPROTEOFORM",
-			StrippedSequence = "TESTPROTEOFORM",
+			FullSequence = "TESTPROTEOFORM",
+			BaseSequence = "TESTPROTEOFORM",
 			PrecursorMz = 1200.0,
-			Charge = 10,
-			Irt = 45.0,
+			ChargeState = 10,
+			RetentionTime = 45.0,
 			MoleculeType = MslFormat.MoleculeType.Proteoform,
 			DissociationType = DissociationType.HCD,
-			Fragments = frags
+			MatchedFragmentIons = frags
 		};
 
 		return (entry, peaks);
@@ -290,14 +290,14 @@ public class TestMslPrompt3SpectralAngle
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz = 1200.0,
-			Charge = 10,
-			Irt = 45.0,
+			ChargeState = 10,
+			RetentionTime = 45.0,
 			MoleculeType = MslFormat.MoleculeType.Proteoform,
 			DissociationType = DissociationType.HCD,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new()
 				{
@@ -324,7 +324,7 @@ public class TestMslPrompt3SpectralAngle
 	}
 
 	// ═════════════════════════════════════════════════════════════════════
-	// S8 — Charge = 0 guard
+	// S8 — ChargeState = 0 guard
 	// ═════════════════════════════════════════════════════════════════════
 
 	/// <summary>
@@ -336,14 +336,14 @@ public class TestMslPrompt3SpectralAngle
 	{
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz = 1200.0,
-			Charge = 10,
-			Irt = 45.0,
+			ChargeState = 10,
+			RetentionTime = 45.0,
 			MoleculeType = MslFormat.MoleculeType.Proteoform,
 			DissociationType = DissociationType.HCD,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new()
 				{
@@ -354,7 +354,7 @@ public class TestMslPrompt3SpectralAngle
 				new()
 				{
 					ProductType = ProductType.b, FragmentNumber = 2,
-					Charge = 0, Mz = 400.0f, Intensity = 0.8f,   // Charge=0 — must be skipped
+					Charge = 0, Mz = 400.0f, Intensity = 0.8f,   // ChargeState=0 — must be skipped
                     NeutralLoss = 0.0, ResiduePosition = 2
 				}
 			}
@@ -383,11 +383,11 @@ public class TestMslPrompt3SpectralAngle
 	{
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz = 500.0,
-			Charge = 2,
-			Irt = 30.0,
+			ChargeState = 2,
+			RetentionTime = 30.0,
 			DissociationType = DissociationType.HCD,
 			Nce = 28,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
@@ -399,7 +399,7 @@ public class TestMslPrompt3SpectralAngle
 			QValue = float.NaN,
 			ElutionGroupId = 0,
 			IsDecoy = false,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new()
 				{
@@ -413,7 +413,7 @@ public class TestMslPrompt3SpectralAngle
 		List<string> errors = MslWriter.ValidateEntries(
 			new List<MslLibraryEntry> { entry });
 
-		Assert.That(errors.Any(e => e.Contains("Charge")), Is.True,
-			"ValidateEntries must report a Charge error for a fragment with Charge=0.");
+		Assert.That(errors.Any(e => e.Contains("ChargeState")), Is.True,
+			"ValidateEntries must report a ChargeState error for a fragment with ChargeState=0.");
 	}
 }

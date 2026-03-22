@@ -110,11 +110,11 @@ public sealed class TestMslEdgeCases
 		// Arrange
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz = 400.21f,
-			Charge = 2,
-			Irt = 35.4,
+			ChargeState = 2,
+			RetentionTime = 35.4,
 			IsDecoy = false,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
@@ -122,7 +122,7 @@ public sealed class TestMslEdgeCases
 			ProteinAccession = string.Empty,
 			ProteinName = string.Empty,
 			GeneName = string.Empty,
-			Fragments = new List<MslFragmentIon>()
+			MatchedFragmentIons = new List<MslFragmentIon>()
 		};
 
 		// Act
@@ -132,7 +132,7 @@ public sealed class TestMslEdgeCases
 
 		// Assert
 		Assert.That(found, Is.True);
-		Assert.That(loaded!.Fragments.Count, Is.EqualTo(0));
+		Assert.That(loaded!.MatchedFragmentIons.Count, Is.EqualTo(0));
 	}
 
 	/// <summary>
@@ -164,11 +164,11 @@ public sealed class TestMslEdgeCases
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "BIGPEPTIDE",
-			StrippedSequence = "BIGPEPTIDE",
+			FullSequence = "BIGPEPTIDE",
+			BaseSequence = "BIGPEPTIDE",
 			PrecursorMz = 500.0f,
-			Charge = 2,
-			Irt = 50.0,
+			ChargeState = 2,
+			RetentionTime = 50.0,
 			IsDecoy = false,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
@@ -176,7 +176,7 @@ public sealed class TestMslEdgeCases
 			ProteinAccession = string.Empty,
 			ProteinName = string.Empty,
 			GeneName = string.Empty,
-			Fragments = frags
+			MatchedFragmentIons = frags
 		};
 
 		// Act
@@ -186,7 +186,7 @@ public sealed class TestMslEdgeCases
 
 		// Assert
 		Assert.That(found, Is.True);
-		Assert.That(loaded!.Fragments.Count, Is.EqualTo(MaxFragments));
+		Assert.That(loaded!.MatchedFragmentIons.Count, Is.EqualTo(MaxFragments));
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -206,11 +206,11 @@ public sealed class TestMslEdgeCases
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = longSeq,
-			StrippedSequence = longSeq,
+			FullSequence = longSeq,
+			BaseSequence = longSeq,
 			PrecursorMz = 900.0f,
-			Charge = 10,
-			Irt = 120.0,
+			ChargeState = 10,
+			RetentionTime = 120.0,
 			IsDecoy = false,
 			MoleculeType = MslFormat.MoleculeType.Proteoform,
 			DissociationType = DissociationType.ECD,
@@ -218,7 +218,7 @@ public sealed class TestMslEdgeCases
 			ProteinAccession = string.Empty,
 			ProteinName = string.Empty,
 			GeneName = string.Empty,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -235,7 +235,7 @@ public sealed class TestMslEdgeCases
 
 		// Assert
 		Assert.That(found, Is.True);
-		Assert.That(loaded!.StrippedSequence.Length, Is.EqualTo(500));
+		Assert.That(loaded!.BaseSequence.Length, Is.EqualTo(500));
 	}
 
 	/// <summary>
@@ -252,11 +252,11 @@ public sealed class TestMslEdgeCases
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = modSeq,
-			StrippedSequence = stripped,
+			FullSequence = modSeq,
+			BaseSequence = stripped,
 			PrecursorMz = 700.0f,
-			Charge = 3,
-			Irt = 40.0,
+			ChargeState = 3,
+			RetentionTime = 40.0,
 			IsDecoy = false,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
@@ -264,7 +264,7 @@ public sealed class TestMslEdgeCases
 			ProteinAccession = string.Empty,
 			ProteinName = string.Empty,
 			GeneName = string.Empty,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -281,7 +281,7 @@ public sealed class TestMslEdgeCases
 
 		// Assert
 		Assert.That(found, Is.True);
-		Assert.That(loaded!.ModifiedSequence, Is.EqualTo(modSeq));
+		Assert.That(loaded!.FullSequence, Is.EqualTo(modSeq));
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -300,11 +300,11 @@ public sealed class TestMslEdgeCases
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz = 400.21f,
-			Charge = 2,
-			Irt = 35.4,
+			ChargeState = 2,
+			RetentionTime = 35.4,
 			IsDecoy = false,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
@@ -312,7 +312,7 @@ public sealed class TestMslEdgeCases
 			ProteinAccession = "P99999",
 			ProteinName = unicodeName,
 			GeneName = "HEMO",
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -343,11 +343,11 @@ public sealed class TestMslEdgeCases
 		// Arrange
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "KVFGR",
-			StrippedSequence = "KVFGR",
+			FullSequence = "KVFGR",
+			BaseSequence = "KVFGR",
 			PrecursorMz = 306.18f,
-			Charge = 2,
-			Irt = 28.3,
+			ChargeState = 2,
+			RetentionTime = 28.3,
 			IsDecoy = false,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
@@ -355,7 +355,7 @@ public sealed class TestMslEdgeCases
 			ProteinAccession = string.Empty,
 			ProteinName = string.Empty,
 			GeneName = string.Empty,  // explicitly empty
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -543,11 +543,11 @@ public sealed class TestMslEdgeCases
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "NEUTRALLOSS",
-			StrippedSequence = "NEUTRALLOSS",
+			FullSequence = "NEUTRALLOSS",
+			BaseSequence = "NEUTRALLOSS",
 			PrecursorMz = 600.0f,
-			Charge = 2,
-			Irt = 50.0,
+			ChargeState = 2,
+			RetentionTime = 50.0,
 			IsDecoy = false,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
@@ -555,7 +555,7 @@ public sealed class TestMslEdgeCases
 			ProteinAccession = string.Empty,
 			ProteinName = string.Empty,
 			GeneName = string.Empty,
-			Fragments = frags
+			MatchedFragmentIons = frags
 		};
 
 		// Act
@@ -565,11 +565,11 @@ public sealed class TestMslEdgeCases
 
 		// Assert
 		Assert.That(found, Is.True);
-		Assert.That(loaded!.Fragments.Count, Is.EqualTo(lossValues.Length));
+		Assert.That(loaded!.MatchedFragmentIons.Count, Is.EqualTo(lossValues.Length));
 
 		// Sort both by m/z ascending for positional comparison
 		List<MslFragmentIon> origSorted = frags.OrderBy(f => f.Mz).ToList();
-		List<MslFragmentIon> loadedSorted = loaded.Fragments.OrderBy(f => f.Mz).ToList();
+		List<MslFragmentIon> loadedSorted = loaded.MatchedFragmentIons.OrderBy(f => f.Mz).ToList();
 
 		for (int i = 0; i < lossValues.Length; i++)
 		{
@@ -597,11 +597,11 @@ public sealed class TestMslEdgeCases
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "CUSTOMLOSS",
-			StrippedSequence = "CUSTOMLOSS",
+			FullSequence = "CUSTOMLOSS",
+			BaseSequence = "CUSTOMLOSS",
 			PrecursorMz = 400.0f,
-			Charge = 2,
-			Irt = 30.0,
+			ChargeState = 2,
+			RetentionTime = 30.0,
 			IsDecoy = false,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
@@ -609,7 +609,7 @@ public sealed class TestMslEdgeCases
 			ProteinAccession = string.Empty,
 			ProteinName = string.Empty,
 			GeneName = string.Empty,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -633,8 +633,8 @@ public sealed class TestMslEdgeCases
 		bool found = lib.TryGetEntry("CUSTOMLOSS", 2, out MslLibraryEntry? loaded);
 
 		Assert.That(found, Is.True);
-		Assert.That(loaded!.Fragments.Count, Is.EqualTo(1));
-		Assert.That(loaded.Fragments[0].NeutralLoss,
+		Assert.That(loaded!.MatchedFragmentIons.Count, Is.EqualTo(1));
+		Assert.That(loaded.MatchedFragmentIons[0].NeutralLoss,
 			Is.EqualTo(customLoss).Within(1e-9),
 			"Custom neutral-loss mass must round-trip within double precision");
 	}
@@ -651,11 +651,11 @@ public sealed class TestMslEdgeCases
 		// Arrange
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "GLYCOPEP",
-			StrippedSequence = "GLYCOPEP",
+			FullSequence = "GLYCOPEP",
+			BaseSequence = "GLYCOPEP",
 			PrecursorMz = 550.0f,
-			Charge = 2,
-			Irt = 45.0,
+			ChargeState = 2,
+			RetentionTime = 45.0,
 			IsDecoy = false,
 			MoleculeType = MslFormat.MoleculeType.Glycopeptide,
 			DissociationType = DissociationType.HCD,
@@ -663,7 +663,7 @@ public sealed class TestMslEdgeCases
 			ProteinAccession = string.Empty,
 			ProteinName = string.Empty,
 			GeneName = string.Empty,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -681,7 +681,7 @@ public sealed class TestMslEdgeCases
 
 		// Assert
 		Assert.That(found, Is.True);
-		MslFragmentIon dIon = loaded!.Fragments.Single();
+		MslFragmentIon dIon = loaded!.MatchedFragmentIons.Single();
 		Assert.That(dIon.IsDiagnosticIon, Is.True);
 		Assert.That(dIon.ProductType, Is.EqualTo(ProductType.D));
 	}
@@ -697,10 +697,10 @@ public sealed class TestMslEdgeCases
 
 		MslLibrary.Save(_tempMslPath, new[] { entry });
 		using MslLibrary lib = MslLibrary.Load(_tempMslPath);
-		bool found = lib.TryGetEntry(entry.ModifiedSequence, entry.Charge, out MslLibraryEntry? loaded);
+		bool found = lib.TryGetEntry(entry.FullSequence, entry.ChargeState, out MslLibraryEntry? loaded);
 
 		Assert.That(found, Is.True);
-		Assert.That(loaded!.Fragments.Single().ProductType, Is.EqualTo(ProductType.M));
+		Assert.That(loaded!.MatchedFragmentIons.Single().ProductType, Is.EqualTo(ProductType.M));
 	}
 
 	/// <summary>
@@ -714,10 +714,10 @@ public sealed class TestMslEdgeCases
 
 		MslLibrary.Save(_tempMslPath, new[] { entry });
 		using MslLibrary lib = MslLibrary.Load(_tempMslPath);
-		bool found = lib.TryGetEntry(entry.ModifiedSequence, entry.Charge, out MslLibraryEntry? loaded);
+		bool found = lib.TryGetEntry(entry.FullSequence, entry.ChargeState, out MslLibraryEntry? loaded);
 
 		Assert.That(found, Is.True);
-		Assert.That(loaded!.Fragments.Single().ProductType, Is.EqualTo(ProductType.Y));
+		Assert.That(loaded!.MatchedFragmentIons.Single().ProductType, Is.EqualTo(ProductType.Y));
 	}
 
 	/// <summary>
@@ -740,11 +740,11 @@ public sealed class TestMslEdgeCases
 
 			entries.Add(new MslLibraryEntry
 			{
-				ModifiedSequence = seq,
-				StrippedSequence = seq,
+				FullSequence = seq,
+				BaseSequence = seq,
 				PrecursorMz = 300f + pt * 5f,
-				Charge = 2,
-				Irt = 30.0 + pt,
+				ChargeState = 2,
+				RetentionTime = 30.0 + pt,
 				IsDecoy = false,
 				MoleculeType = MslFormat.MoleculeType.Peptide,
 				DissociationType = DissociationType.HCD,
@@ -752,7 +752,7 @@ public sealed class TestMslEdgeCases
 				ProteinAccession = string.Empty,
 				ProteinName = string.Empty,
 				GeneName = string.Empty,
-				Fragments = new List<MslFragmentIon>
+				MatchedFragmentIons = new List<MslFragmentIon>
 				{
 					new MslFragmentIon
 					{
@@ -780,7 +780,7 @@ public sealed class TestMslEdgeCases
 
 			bool found = lib.TryGetEntry(seq, 2, out MslLibraryEntry? loaded);
 			Assert.That(found, Is.True, $"Entry for ProductType {pt} ({productType}) not found");
-			Assert.That(loaded!.Fragments.Single().ProductType, Is.EqualTo(productType),
+			Assert.That(loaded!.MatchedFragmentIons.Single().ProductType, Is.EqualTo(productType),
 				$"ProductType mismatch for value {pt}");
 		}
 	}
@@ -806,7 +806,7 @@ public sealed class TestMslEdgeCases
 
 		MslLibrary.Save(_tempMslPath, new[] { entry });
 		using MslLibrary lib = MslLibrary.Load(_tempMslPath);
-		bool found = lib.TryGetEntry(entry.ModifiedSequence, entry.Charge, out MslLibraryEntry? loaded);
+		bool found = lib.TryGetEntry(entry.FullSequence, entry.ChargeState, out MslLibraryEntry? loaded);
 
 		Assert.That(found, Is.True);
 		Assert.That((double)loaded!.PrecursorMz, Is.EqualTo(expectedFloat).Within(1e-4));
@@ -824,10 +824,10 @@ public sealed class TestMslEdgeCases
 
 		MslLibrary.Save(_tempMslPath, new[] { entry });
 		using MslLibrary lib = MslLibrary.Load(_tempMslPath);
-		bool found = lib.TryGetEntry(entry.ModifiedSequence, entry.Charge, out MslLibraryEntry? loaded);
+		bool found = lib.TryGetEntry(entry.FullSequence, entry.ChargeState, out MslLibraryEntry? loaded);
 
 		Assert.That(found, Is.True);
-		Assert.That((double)loaded!.Fragments.Single().Mz, Is.EqualTo(fragMz).Within(1e-4));
+		Assert.That((double)loaded!.MatchedFragmentIons.Single().Mz, Is.EqualTo(fragMz).Within(1e-4));
 	}
 
 	/// <summary>
@@ -839,14 +839,14 @@ public sealed class TestMslEdgeCases
 	{
 		const float negativeIrt = -12.34f;
 		var entry = MakeMinimalEntry();
-		entry.Irt = negativeIrt;
+		entry.RetentionTime = negativeIrt;
 
 		MslLibrary.Save(_tempMslPath, new[] { entry });
 		using MslLibrary lib = MslLibrary.Load(_tempMslPath);
-		bool found = lib.TryGetEntry(entry.ModifiedSequence, entry.Charge, out MslLibraryEntry? loaded);
+		bool found = lib.TryGetEntry(entry.FullSequence, entry.ChargeState, out MslLibraryEntry? loaded);
 
 		Assert.That(found, Is.True);
-		Assert.That((double)loaded!.Irt, Is.EqualTo(negativeIrt).Within(1e-4));
+		Assert.That((double)loaded!.RetentionTime, Is.EqualTo(negativeIrt).Within(1e-4));
 	}
 
 	/// <summary>
@@ -862,7 +862,7 @@ public sealed class TestMslEdgeCases
 
 		MslLibrary.Save(_tempMslPath, new[] { entry });
 		using MslLibrary lib = MslLibrary.Load(_tempMslPath);
-		bool found = lib.TryGetEntry(entry.ModifiedSequence, entry.Charge, out MslLibraryEntry? loaded);
+		bool found = lib.TryGetEntry(entry.FullSequence, entry.ChargeState, out MslLibraryEntry? loaded);
 
 		Assert.That(found, Is.True);
 		Assert.That(float.IsNaN(loaded!.QValue), Is.True,
@@ -886,11 +886,11 @@ public sealed class TestMslEdgeCases
 	private static MslLibraryEntry MakeMinimalEntryWithMz(float precursorMz) =>
 		new MslLibraryEntry
 		{
-			ModifiedSequence = "MINPEP",
-			StrippedSequence = "MINPEP",
+			FullSequence = "MINPEP",
+			BaseSequence = "MINPEP",
 			PrecursorMz = precursorMz,
-			Charge = 2,
-			Irt = 30.0,
+			ChargeState = 2,
+			RetentionTime = 30.0,
 			IsDecoy = false,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
@@ -898,7 +898,7 @@ public sealed class TestMslEdgeCases
 			ProteinAccession = string.Empty,
 			ProteinName = string.Empty,
 			GeneName = string.Empty,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -916,11 +916,11 @@ public sealed class TestMslEdgeCases
 	private static MslLibraryEntry MakeEntryWithSingleFragment(ProductType productType, float mz) =>
 		new MslLibraryEntry
 		{
-			ModifiedSequence = $"FRAG{(int)productType}",
-			StrippedSequence = $"FRAG{(int)productType}",
+			FullSequence = $"FRAG{(int)productType}",
+			BaseSequence = $"FRAG{(int)productType}",
 			PrecursorMz = 300f + (int)productType,
-			Charge = 2,
-			Irt = 30.0,
+			ChargeState = 2,
+			RetentionTime = 30.0,
 			IsDecoy = false,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
@@ -928,7 +928,7 @@ public sealed class TestMslEdgeCases
 			ProteinAccession = string.Empty,
 			ProteinName = string.Empty,
 			GeneName = string.Empty,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{

@@ -286,7 +286,7 @@ public sealed class TestMslRegressionMsp
 	/// For every spectrum in the MSP, each fragment m/z read back from the .msl must match
 	/// the corresponding MSP fragment m/z within <see cref="MzTolerance"/>.
 	///
-	/// Fragments are matched positionally after sorting both lists by m/z ascending, which
+	/// MatchedFragmentIons are matched positionally after sorting both lists by m/z ascending, which
 	/// is the order guaranteed by the writer's normalization step.
 	/// </summary>
 	[Test]
@@ -435,7 +435,7 @@ public sealed class TestMslRegressionMsp
 	// ─────────────────────────────────────────────────────────────────────────
 
 	/// <summary>
-	/// Fragments loaded via index-only mode (<see cref="MslLibrary.LoadIndexOnly"/>) must be
+	/// MatchedFragmentIons loaded via index-only mode (<see cref="MslLibrary.LoadIndexOnly"/>) must be
 	/// identical to those loaded via full-load mode (<see cref="MslLibrary.Load"/>) for every
 	/// spectrum in the MSP.
 	///
@@ -481,7 +481,7 @@ public sealed class TestMslRegressionMsp
 	public void Regression_TotalFragmentCount_MatchesBaseline()
 	{
 		int total = _fullLib.GetAllEntries()
-							.Sum(e => e.Fragments.Count);
+							.Sum(e => e.MatchedFragmentIons.Count);
 
 		Assert.That(total, Is.EqualTo(ExpectedTotalFragments),
 			$"Total fragment count across all precursors: expected {ExpectedTotalFragments}, got {total}");

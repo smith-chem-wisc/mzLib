@@ -53,14 +53,14 @@ public sealed class TestMslInternalIonRoundTrip
 	private static MslLibraryEntry MakeInternalIonEntry() =>
 		new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz = 400.2,
-			Charge = 2,
-			Irt = 25.0,
+			ChargeState = 2,
+			RetentionTime = 25.0,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
                 // Terminal b ion
                 new MslFragmentIon
@@ -215,7 +215,7 @@ public sealed class TestMslInternalIonRoundTrip
 			rt: 25.0);
 
 		var entry = MslLibraryEntry.FromLibrarySpectrum(spectrum);
-		var mslInternal = entry.Fragments.Single(f => f.IsInternalFragment);
+		var mslInternal = entry.MatchedFragmentIons.Single(f => f.IsInternalFragment);
 
 		Assert.That(mslInternal.SecondaryProductType, Is.EqualTo(ProductType.y));
 	}
@@ -247,7 +247,7 @@ public sealed class TestMslInternalIonRoundTrip
 			rt: 25.0);
 
 		var entry = MslLibraryEntry.FromLibrarySpectrum(spectrum);
-		var mslInternal = entry.Fragments.Single(f => f.IsInternalFragment);
+		var mslInternal = entry.MatchedFragmentIons.Single(f => f.IsInternalFragment);
 
 		Assert.That(mslInternal.SecondaryFragmentNumber, Is.EqualTo(6));
 	}
@@ -268,7 +268,7 @@ public sealed class TestMslInternalIonRoundTrip
 		var recovered = MslLibraryEntry.FromLibrarySpectrum(spectrum);
 
 		// Find the internal ion in the recovered entry
-		var recoveredInternal = recovered.Fragments.Single(f => f.IsInternalFragment);
+		var recoveredInternal = recovered.MatchedFragmentIons.Single(f => f.IsInternalFragment);
 
 		Assert.That(recoveredInternal.SecondaryProductType, Is.EqualTo(ProductType.y),
 			"SecondaryProductType must survive MslEntry → LibrarySpectrum → MslEntry round-trip");
@@ -313,14 +313,14 @@ public sealed class TestMslInternalIonRoundTrip
 	{
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "ACDEFGHIK",
-			StrippedSequence = "ACDEFGHIK",
+			FullSequence = "ACDEFGHIK",
+			BaseSequence = "ACDEFGHIK",
 			PrecursorMz = 529.76,
-			Charge = 2,
-			Irt = 42.0,
+			ChargeState = 2,
+			RetentionTime = 42.0,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
                 // Terminal ions
                 new MslFragmentIon

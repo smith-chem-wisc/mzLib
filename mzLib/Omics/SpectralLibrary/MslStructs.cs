@@ -415,8 +415,8 @@ public struct MslFragmentRecord
 	public short ResiduePosition;
 
 	/// <summary>
-	/// Offset 18, 1 byte. Charge state of the fragment ion (typically 1 or 2).
-	/// Maps to MatchedFragmentIon.Charge. Values above 127 are extremely rare for fragments;
+	/// Offset 18, 1 byte. ChargeState state of the fragment ion (typically 1 or 2).
+	/// Maps to MatchedFragmentIon.ChargeState. Values above 127 are extremely rare for fragments;
 	/// a byte is sufficient.
 	/// </summary>
 	public byte Charge;

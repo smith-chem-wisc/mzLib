@@ -57,11 +57,11 @@ public class TestMslPrompt5CoverageGaps
 	{
 		new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz      = 449.75,
-			Charge           = 2,
-			Irt              = 30.0,
+			ChargeState           = 2,
+			RetentionTime              = 30.0,
 			DissociationType = DissociationType.HCD,
 			Nce              = 28,
 			MoleculeType     = MslFormat.MoleculeType.Peptide,
@@ -73,7 +73,7 @@ public class TestMslPrompt5CoverageGaps
 			QValue           = float.NaN,
 			ElutionGroupId   = 0,
 			IsDecoy          = false,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new() { ProductType = ProductType.b, FragmentNumber = 3,
 						Charge = 1, Mz = 312.15f, Intensity = 1.0f, NeutralLoss = 0.0,
@@ -160,11 +160,11 @@ public class TestMslPrompt5CoverageGaps
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "ACDEFGHIK",
-			StrippedSequence = "ACDEFGHIK",
+			FullSequence = "ACDEFGHIK",
+			BaseSequence = "ACDEFGHIK",
 			PrecursorMz = 529.76,
-			Charge = 2,
-			Irt = 42.0,
+			ChargeState = 2,
+			RetentionTime = 42.0,
 			DissociationType = DissociationType.HCD,
 			Nce = 28,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
@@ -176,7 +176,7 @@ public class TestMslPrompt5CoverageGaps
 			QValue = float.NaN,
 			ElutionGroupId = 0,
 			IsDecoy = false,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new() { ProductType = ProductType.b, FragmentNumber = 3,
 						Charge = 1, Mz = 312.15f, Intensity = 1.0f,
@@ -186,7 +186,7 @@ public class TestMslPrompt5CoverageGaps
 
 		MslWriter.Write(path, new[] { entry });
 		var lib = MslReader.Load(path);
-		double actual = lib.Entries[0].Fragments[0].NeutralLoss;
+		double actual = lib.Entries[0].MatchedFragmentIons[0].NeutralLoss;
 
 		// Assert against the known constant, not against what was written
 		Assert.That(actual, Is.EqualTo(expectedLoss).Within(1e-6),

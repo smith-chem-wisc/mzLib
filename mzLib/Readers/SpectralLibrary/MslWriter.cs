@@ -300,8 +300,8 @@ public static class MslWriter
 					seenAnyEntry = true;
 
 					// ── Step 1: Intern all string fields ─────────────────────
-					int modSeqIdx = InternStringStreaming(entry.ModifiedSequence ?? string.Empty, stringIndex, stringList);
-					int stripSeqIdx = InternStringStreaming(entry.StrippedSequence ?? string.Empty, stringIndex, stringList);
+					int modSeqIdx = InternStringStreaming(entry.FullSequence ?? string.Empty, stringIndex, stringList);
+					int stripSeqIdx = InternStringStreaming(entry.BaseSequence ?? string.Empty, stringIndex, stringList);
 					InternStringStreaming(entry.ProteinAccession ?? string.Empty, stringIndex, stringList);
 					InternStringStreaming(entry.ProteinName ?? string.Empty, stringIndex, stringList);
 					InternStringStreaming(entry.GeneName ?? string.Empty, stringIndex, stringList);
@@ -324,7 +324,7 @@ public static class MslWriter
 					proteinSlots[slotIdx].PrecursorCount++;
 
 					// ── Step 3: Elution group assignment ──────────────────────
-					string stripped = entry.StrippedSequence ?? string.Empty;
+					string stripped = entry.BaseSequence ?? string.Empty;
 					if (!elutionGroupIndex.TryGetValue(stripped, out int groupId))
 					{
 						groupId = nextGroupId++;
@@ -333,7 +333,7 @@ public static class MslWriter
 					entry.ElutionGroupId = groupId;
 
 					// ── Step 4: Fragment validation, sort, normalize ────────────
-					List<MslFragmentIon> frags = entry.Fragments ?? new List<MslFragmentIon>(0);
+					List<MslFragmentIon> frags = entry.MatchedFragmentIons ?? new List<MslFragmentIon>(0);
 
 					foreach (MslFragmentIon frag in frags)
 					{
@@ -369,21 +369,21 @@ public static class MslWriter
 
 						// Entry scalar fields — copied directly from the entry object.
 						// Pass 2 reads these from the spill file instead of re-enumerating entries.
-						Charge = (short)entry.Charge,
+						Charge = (short)entry.ChargeState,
 						ElutionGroupId = entry.ElutionGroupId,   // already set by Step 3 above
-						StrippedSeqLength = string.IsNullOrEmpty(entry.StrippedSequence)
+						StrippedSeqLength = string.IsNullOrEmpty(entry.BaseSequence)
 												? 0
-												: entry.StrippedSequence.Length,
+												: entry.BaseSequence.Length,
 						MoleculeType = (short)entry.MoleculeType,
 						DissociationType = (short)entry.DissociationType,
-						Nce = EncodeNce(entry.Nce, entry.ModifiedSequence),
+						Nce = EncodeNce(entry.Nce, entry.FullSequence),
 						PrecursorFlags = MslFormat.EncodePrecursorFlags(
 											   isDecoy: entry.IsDecoy,
 											   isProteotypic: entry.IsProteotypic,
 											   rtCalibrated: false),
 						SourceType = (byte)entry.Source,
 						PrecursorMz = (float)entry.PrecursorMz,
-						Irt = (float)entry.Irt,
+						Irt = (float)entry.RetentionTime,
 						IonMobility = (float)entry.IonMobility,
 						QValue = entry.QValue,
 					};
@@ -687,7 +687,7 @@ public static class MslWriter
 
 	/// <summary>
 	/// Writes the fragment block for a single entry's fragment list to
-	/// <paramref name="writer"/>. Fragments must already be sorted by m/z and
+	/// <paramref name="writer"/>. MatchedFragmentIons must already be sorted by m/z and
 	/// intensity-normalized before this is called.
 	/// </summary>
 	private static void WriteFragmentBlockToWriter(
@@ -823,35 +823,35 @@ public static class MslWriter
 		{
 			MslLibraryEntry entry = entries[i];
 
-			if (string.IsNullOrEmpty(entry.ModifiedSequence))
-				errors.Add($"Entry [{i}]: ModifiedSequence is null or empty.");
+			if (string.IsNullOrEmpty(entry.FullSequence))
+				errors.Add($"Entry [{i}]: FullSequence is null or empty.");
 
-			if (entry.Charge <= 0)
-				errors.Add($"Entry [{i}] '{entry.ModifiedSequence}': Charge must be > 0 (got {entry.Charge}).");
+			if (entry.ChargeState <= 0)
+				errors.Add($"Entry [{i}] '{entry.FullSequence}': ChargeState must be > 0 (got {entry.ChargeState}).");
 
 			if (entry.PrecursorMz <= 0.0 || !double.IsFinite(entry.PrecursorMz))
-				errors.Add($"Entry [{i}] '{entry.ModifiedSequence}': PrecursorMz must be > 0 (got {entry.PrecursorMz}).");
+				errors.Add($"Entry [{i}] '{entry.FullSequence}': PrecursorMz must be > 0 (got {entry.PrecursorMz}).");
 
-			if (entry.Fragments == null || entry.Fragments.Count == 0)
+			if (entry.MatchedFragmentIons == null || entry.MatchedFragmentIons.Count == 0)
 			{
-				errors.Add($"Entry [{i}] '{entry.ModifiedSequence}': FragmentCount must be > 0.");
+				errors.Add($"Entry [{i}] '{entry.FullSequence}': FragmentCount must be > 0.");
 				continue;
 			}
 
-			for (int j = 0; j < entry.Fragments.Count; j++)
+			for (int j = 0; j < entry.MatchedFragmentIons.Count; j++)
 			{
-				MslFragmentIon frag = entry.Fragments[j];
+				MslFragmentIon frag = entry.MatchedFragmentIons[j];
 
 				if (frag.Mz <= 0f || !float.IsFinite(frag.Mz))
-					errors.Add($"Entry [{i}] '{entry.ModifiedSequence}', fragment [{j}]: " +
+					errors.Add($"Entry [{i}] '{entry.FullSequence}', fragment [{j}]: " +
 							   $"Mz must be > 0 (got {frag.Mz}).");
 
 				if (frag.Charge <= 0)
-					errors.Add($"Entry [{i}] '{entry.ModifiedSequence}', fragment [{j}]: " +
-							   $"Charge must be > 0 (got {frag.Charge}).");
+					errors.Add($"Entry [{i}] '{entry.FullSequence}', fragment [{j}]: " +
+							   $"ChargeState must be > 0 (got {frag.Charge}).");
 
 				if (frag.IsInternalFragment && frag.SecondaryFragmentNumber <= frag.FragmentNumber)
-					errors.Add($"Entry [{i}] '{entry.ModifiedSequence}', fragment [{j}]: " +
+					errors.Add($"Entry [{i}] '{entry.FullSequence}', fragment [{j}]: " +
 							   $"Internal ion SecondaryFragmentNumber ({frag.SecondaryFragmentNumber}) " +
 							   $"must be > FragmentNumber ({frag.FragmentNumber}).");
 			}
@@ -964,21 +964,21 @@ public static class MslWriter
 			var record = new MslPrecursorRecord
 			{
 				PrecursorMz = (float)entry.PrecursorMz,
-				Irt = (float)entry.Irt,
+				Irt = (float)entry.RetentionTime,
 				IonMobility = (float)entry.IonMobility,
-				Charge = (short)entry.Charge,
-				FragmentCount = (short)entry.Fragments.Count,
+				Charge = (short)entry.ChargeState,
+				FragmentCount = (short)entry.MatchedFragmentIons.Count,
 				ElutionGroupId = entry.ElutionGroupId,
 				ProteinIdx = pl.ProteinIdx,
 				ModifiedSeqStringIdx = pl.ModifiedSeqStringIdx,
 				StrippedSeqStringIdx = pl.StrippedSeqStringIdx,
 				FragmentBlockOffset = pl.FragmentBlockOffset,
 				QValue = entry.QValue,
-				StrippedSeqLength = string.IsNullOrEmpty(entry.StrippedSequence)
-										   ? 0 : entry.StrippedSequence.Length,
+				StrippedSeqLength = string.IsNullOrEmpty(entry.BaseSequence)
+										   ? 0 : entry.BaseSequence.Length,
 				MoleculeType = (short)entry.MoleculeType,
 				DissociationType = (short)entry.DissociationType,
-				Nce = EncodeNce(entry.Nce, entry.ModifiedSequence),
+				Nce = EncodeNce(entry.Nce, entry.FullSequence),
 				PrecursorFlags = MslFormat.EncodePrecursorFlags(
 										   isDecoy: entry.IsDecoy,
 										   isProteotypic: entry.IsProteotypic,
@@ -1027,7 +1027,7 @@ public static class MslWriter
 	{
 		foreach (MslLibraryEntry entry in entries)
 		{
-			foreach (MslFragmentIon frag in entry.Fragments)
+			foreach (MslFragmentIon frag in entry.MatchedFragmentIons)
 			{
 				WriteFragmentRecord(writer, layout, frag);
 			}
@@ -1049,7 +1049,7 @@ public static class MslWriter
 
 		foreach (MslLibraryEntry entry in entries)
 		{
-			foreach (MslFragmentIon frag in entry.Fragments)
+			foreach (MslFragmentIon frag in entry.MatchedFragmentIons)
 			{
 				WriteFragmentRecord(writer, layout, frag);
 			}
@@ -1423,8 +1423,8 @@ public static class MslWriter
 
 			foreach (MslLibraryEntry entry in entries)
 			{
-				InternString(entry.ModifiedSequence ?? string.Empty, stringIndex, StringList);
-				InternString(entry.StrippedSequence ?? string.Empty, stringIndex, StringList);
+				InternString(entry.FullSequence ?? string.Empty, stringIndex, StringList);
+				InternString(entry.BaseSequence ?? string.Empty, stringIndex, StringList);
 				InternString(entry.ProteinAccession ?? string.Empty, stringIndex, StringList);
 				InternString(entry.ProteinName ?? string.Empty, stringIndex, StringList);
 				InternString(entry.GeneName ?? string.Empty, stringIndex, StringList);
@@ -1468,7 +1468,7 @@ public static class MslWriter
 
 			foreach (MslLibraryEntry entry in entries)
 			{
-				string stripped = entry.StrippedSequence ?? string.Empty;
+				string stripped = entry.BaseSequence ?? string.Empty;
 
 				if (!elutionGroupIndex.TryGetValue(stripped, out int groupId))
 				{
@@ -1487,10 +1487,10 @@ public static class MslWriter
 
 			foreach (MslLibraryEntry entry in entries)
 			{
-				if (entry.Fragments == null || entry.Fragments.Count == 0)
+				if (entry.MatchedFragmentIons == null || entry.MatchedFragmentIons.Count == 0)
 					continue;
 
-				foreach (MslFragmentIon frag in entry.Fragments)
+				foreach (MslFragmentIon frag in entry.MatchedFragmentIons)
 				{
 					if (ClassifyNeutralLoss(frag.NeutralLoss) == MslFormat.NeutralLossCode.Custom)
 					{
@@ -1500,8 +1500,8 @@ public static class MslWriter
 					}
 				}
 
-				entry.Fragments.Sort((a, b) => a.Mz.CompareTo(b.Mz));
-				NormalizeIntensities(entry.Fragments);
+				entry.MatchedFragmentIons.Sort((a, b) => a.Mz.CompareTo(b.Mz));
+				NormalizeIntensities(entry.MatchedFragmentIons);
 			}
 
 			// ── Step 5: Offset computation ────────────────────────────────────
@@ -1539,13 +1539,13 @@ public static class MslWriter
 
 				PrecursorLayouts.Add(new MslPrecursorLayout
 				{
-					ModifiedSeqStringIdx = stringIndex[entry.ModifiedSequence ?? string.Empty],
-					StrippedSeqStringIdx = stringIndex[entry.StrippedSequence ?? string.Empty],
+					ModifiedSeqStringIdx = stringIndex[entry.FullSequence ?? string.Empty],
+					StrippedSeqStringIdx = stringIndex[entry.BaseSequence ?? string.Empty],
 					ProteinIdx = proteinIdx,
 					FragmentBlockOffset = runningOffset
 				});
 
-				int fragCount = entry.Fragments?.Count ?? 0;
+				int fragCount = entry.MatchedFragmentIons?.Count ?? 0;
 				runningOffset += (long)fragCount * MslFormat.FragmentRecordSize;
 			}
 
@@ -1690,7 +1690,7 @@ internal sealed class MslPrecursorLayout
 ///   <item><term>StrippedSeqStringIdx</term>  <term>4</term>  <term>4</term></item>
 ///   <item><term>ProteinIdx</term>            <term>8</term>  <term>4</term></item>
 ///   <item><term>FragmentCount</term>         <term>12</term> <term>2</term></item>
-///   <item><term>Charge</term>                <term>14</term> <term>2</term></item>
+///   <item><term>ChargeState</term>                <term>14</term> <term>2</term></item>
 ///   <item><term>ElutionGroupId</term>        <term>16</term> <term>4</term></item>
 ///   <item><term>StrippedSeqLength</term>     <term>20</term> <term>4</term></item>
 ///   <item><term>MoleculeType</term>          <term>24</term> <term>2</term></item>
@@ -1699,7 +1699,7 @@ internal sealed class MslPrecursorLayout
 ///   <item><term>PrecursorFlags</term>        <term>30</term> <term>1</term></item>
 ///   <item><term>SourceType</term>            <term>31</term> <term>1</term></item>
 ///   <item><term>PrecursorMz</term>           <term>32</term> <term>4</term></item>
-///   <item><term>Irt</term>                   <term>36</term> <term>4</term></item>
+///   <item><term>RetentionTime</term>                   <term>36</term> <term>4</term></item>
 ///   <item><term>IonMobility</term>           <term>40</term> <term>4</term></item>
 ///   <item><term>QValue</term>                <term>44</term> <term>4</term></item>
 ///   <item><term>FragmentBlockOffset</term>   <term>48</term> <term>8</term></item>
@@ -1735,7 +1735,7 @@ internal struct MslSpillRecord
 	// These replace the second enumeration of the source in Pass 2.
 
 	/// <summary>
-	/// 2 bytes. Precursor charge state, cast from MslLibraryEntry.Charge.
+	/// 2 bytes. Precursor charge state, cast from MslLibraryEntry.ChargeState.
 	/// Copied here so Pass 2 does not need to re-read the source entry.
 	/// </summary>
 	public short Charge;
@@ -1748,7 +1748,7 @@ internal struct MslSpillRecord
 
 	/// <summary>
 	/// 4 bytes. Residue count of the stripped sequence.
-	/// 0 when StrippedSequence is null or empty.
+	/// 0 when BaseSequence is null or empty.
 	/// </summary>
 	public int StrippedSeqLength;
 

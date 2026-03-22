@@ -64,17 +64,17 @@ public sealed class TestMslCoverage
 	{
 		new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz      = 449.74,
-			Charge           = 2,
-			Irt              = 35.4f,
+			ChargeState           = 2,
+			RetentionTime              = 35.4f,
 			IsDecoy          = false,
 			IsProteotypic    = true,
 			MoleculeType     = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
 			Source           = MslFormat.SourceType.Predicted,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new() { Mz = 98.06f,  Intensity = 1.0f, ProductType = ProductType.b, FragmentNumber = 2, Charge = 1 },
 				new() { Mz = 175.12f, Intensity = 0.8f, ProductType = ProductType.y, FragmentNumber = 1, Charge = 1 }
@@ -82,16 +82,16 @@ public sealed class TestMslCoverage
 		},
 		new MslLibraryEntry
 		{
-			ModifiedSequence = "ACDEFGHIK",
-			StrippedSequence = "ACDEFGHIK",
+			FullSequence = "ACDEFGHIK",
+			BaseSequence = "ACDEFGHIK",
 			PrecursorMz      = 529.76,
-			Charge           = 2,
-			Irt              = 55.0f,
+			ChargeState           = 2,
+			RetentionTime              = 55.0f,
 			IsDecoy          = true,
 			MoleculeType     = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
 			Source           = MslFormat.SourceType.Predicted,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new() { Mz = 364.20f, Intensity = 1.0f, ProductType = ProductType.y, FragmentNumber = 3, Charge = 1 }
 			}
@@ -272,7 +272,7 @@ public sealed class TestMslCoverage
 		var spectrum = new LibrarySpectrum("ALGVGLATR", 429.26, 2,
 			new List<MatchedFragmentIon> { ion }, rt: 16.5);
 		MslLibraryEntry entry = MslLibraryEntry.FromLibrarySpectrum(spectrum);
-		Assert.That(entry.Fragments[0].NeutralLoss, Is.EqualTo(nh3Loss).Within(1e-5));
+		Assert.That(entry.MatchedFragmentIons[0].NeutralLoss, Is.EqualTo(nh3Loss).Within(1e-5));
 	}
 
 	/// <summary>ClassifyNeutralLoss: H3PO4 loss is classified correctly.</summary>
@@ -285,7 +285,7 @@ public sealed class TestMslCoverage
 		var spectrum = new LibrarySpectrum("PEPTIDE", 449.74, 2,
 			new List<MatchedFragmentIon> { ion }, rt: 10.0);
 		MslLibraryEntry entry = MslLibraryEntry.FromLibrarySpectrum(spectrum);
-		Assert.That(entry.Fragments[0].NeutralLoss, Is.EqualTo(phosphoLoss).Within(1e-4));
+		Assert.That(entry.MatchedFragmentIons[0].NeutralLoss, Is.EqualTo(phosphoLoss).Within(1e-4));
 	}
 
 	/// <summary>ClassifyNeutralLoss: HPO3 loss is classified correctly.</summary>
@@ -298,7 +298,7 @@ public sealed class TestMslCoverage
 		var spectrum = new LibrarySpectrum("PEPTIDE", 449.74, 2,
 			new List<MatchedFragmentIon> { ion }, rt: 10.0);
 		MslLibraryEntry entry = MslLibraryEntry.FromLibrarySpectrum(spectrum);
-		Assert.That(entry.Fragments[0].NeutralLoss, Is.EqualTo(hpo3Loss).Within(1e-4));
+		Assert.That(entry.MatchedFragmentIons[0].NeutralLoss, Is.EqualTo(hpo3Loss).Within(1e-4));
 	}
 
 	/// <summary>ClassifyNeutralLoss: custom loss (not matching any named loss) round-trips.</summary>
@@ -317,7 +317,7 @@ public sealed class TestMslCoverage
 		using MslLibrary lib = MslLibrary.Load(roundTripPath);
 		bool found = lib.TryGetEntry("PEPTIDE", 2, out MslLibraryEntry? loaded);
 		Assert.That(found, Is.True);
-		Assert.That(loaded!.Fragments[0].NeutralLoss, Is.EqualTo(customLoss).Within(0.001));
+		Assert.That(loaded!.MatchedFragmentIons[0].NeutralLoss, Is.EqualTo(customLoss).Within(0.001));
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
@@ -506,12 +506,12 @@ public sealed class TestMslCoverage
 	public void MslWriter_ExcludeFromQuant_RoundTrips()
 	{
 		var entry = TwoEntries()[0];
-		entry.Fragments[0].ExcludeFromQuant = true;
+		entry.MatchedFragmentIons[0].ExcludeFromQuant = true;
 		string path = MslPath("exclude_quant");
 		MslLibrary.Save(path, new List<MslLibraryEntry> { entry });
 		using MslLibrary lib = MslLibrary.Load(path);
 		lib.TryGetEntry("PEPTIDE", 2, out MslLibraryEntry? loaded);
-		Assert.That(loaded!.Fragments[0].ExcludeFromQuant, Is.True);
+		Assert.That(loaded!.MatchedFragmentIons[0].ExcludeFromQuant, Is.True);
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
@@ -647,8 +647,8 @@ public sealed class TestMslCoverage
 
 	/// <summary>
 	/// WithCalibratedRetentionTimes returns a new library whose index entries have
-	/// transformed iRT values. Calibration applies to MslPrecursorIndexEntry.Irt
-	/// (used for window queries), not to MslLibraryEntry.Irt.
+	/// transformed iRT values. Calibration applies to MslPrecursorIndexEntry.RetentionTime
+	/// (used for window queries), not to MslLibraryEntry.RetentionTime.
 	/// Formula: 2.0 * 35.4 + 5.0 = 75.8.
 	/// </summary>
 	[Test]
@@ -659,7 +659,7 @@ public sealed class TestMslCoverage
 
 		Assert.That(calibrated.PrecursorCount, Is.EqualTo(original.PrecursorCount));
 
-		// Calibration is reflected in the index entry's Irt, accessible via QueryMzWindow
+		// Calibration is reflected in the index entry's RetentionTime, accessible via QueryMzWindow
 		ReadOnlySpan<MslPrecursorIndexEntry> hits = calibrated.QueryMzWindow(449.0f, 450.0f);
 		Assert.That(hits.Length, Is.EqualTo(1));
 		float expectedIrt = (float)(2.0 * 35.4 + 5.0); // 75.8

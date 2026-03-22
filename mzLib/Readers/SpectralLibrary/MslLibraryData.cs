@@ -6,7 +6,7 @@ namespace Readers.SpectralLibrary;
 /// In-memory container for a loaded .msl spectral library. Returned by both
 /// <see cref="MslReader.Load"/> (full-load mode) and <see cref="MslReader.LoadIndexOnly"/>
 /// (index-only mode). The public API is identical in both modes; the difference is whether
-/// fragment ions are pre-populated in each entry's <c>Fragments</c> list or must be fetched
+/// fragment ions are pre-populated in each entry's <c>MatchedFragmentIons</c> list or must be fetched
 /// on demand via <see cref="LoadFragmentsOnDemand"/>.
 ///
 /// <para>
@@ -90,7 +90,7 @@ public sealed class MslLibraryData : IDisposable
 	}
 
 	/// <summary>
-	/// Constructs an index-only library instance. Entries have empty <c>Fragments</c> lists;
+	/// Constructs an index-only library instance. Entries have empty <c>MatchedFragmentIons</c> lists;
 	/// the retained <paramref name="onDemandStream"/> is used to fetch fragments on demand.
 	/// Ownership of the stream is transferred to this instance and will be closed by
 	/// <see cref="Dispose"/>.
@@ -136,7 +136,7 @@ public sealed class MslLibraryData : IDisposable
 
 	/// <summary>
 	/// All precursor entries in the library, in file order. In full-load mode each entry's
-	/// <c>Fragments</c> list is fully populated. In index-only mode the list is empty until
+	/// <c>MatchedFragmentIons</c> list is fully populated. In index-only mode the list is empty until
 	/// <see cref="LoadFragmentsOnDemand"/> is called for that entry's index.
 	/// </summary>
 	public IReadOnlyList<MslLibraryEntry> Entries { get; }
@@ -179,7 +179,7 @@ public sealed class MslLibraryData : IDisposable
 	///
 	/// <para>
 	/// This method is only available in index-only mode. In full-load mode the fragment list
-	/// is already populated in <see cref="Entries"/>[<paramref name="precursorIndex"/>].Fragments;
+	/// is already populated in <see cref="Entries"/>[<paramref name="precursorIndex"/>].MatchedFragmentIons;
 	/// calling this method on a full-load instance throws <see cref="InvalidOperationException"/>.
 	/// </para>
 	///

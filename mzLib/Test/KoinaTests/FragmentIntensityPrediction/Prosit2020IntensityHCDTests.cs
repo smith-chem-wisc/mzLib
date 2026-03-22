@@ -186,11 +186,11 @@ namespace Test.KoinaTests
                 var predictions = model.Predict(modelInputs);
 
                 Assert.That(predictions.Count, Is.EqualTo(1),
-                    $"Charge state {charge} should be valid");
+                    $"ChargeState state {charge} should be valid");
                 Assert.That(predictions[0].Warning, Is.Null,
-                    $"Charge state {charge} should not produce a warning");
+                    $"ChargeState state {charge} should not produce a warning");
                 Assert.DoesNotThrow(() => throwModel.Predict(modelInputs),
-                    $"Charge state {charge} should not throw an exception in strict mode");
+                    $"ChargeState state {charge} should not throw an exception in strict mode");
             }
 
             // Test invalid charge state 0
@@ -210,11 +210,11 @@ namespace Test.KoinaTests
             Assert.That(predictionsZero.Count, Is.EqualTo(1),
                 "Should return a prediction entry for invalid charge");
             Assert.That(predictionsZero[0].Warning, Is.Not.Null,
-                "Charge state 0 should produce a warning");
+                "ChargeState state 0 should produce a warning");
             Assert.That(predictionsZero[0].FragmentAnnotations, Is.Null,
                 "Invalid charge should result in null predictions");
             Assert.Throws<ArgumentException>(() => throwModel.Predict(modelInputsZero),
-                $"Charge state 0 should throw an exception in strict mode");
+                $"ChargeState state 0 should throw an exception in strict mode");
 
             // Test invalid negative charge state
             var modelInputsNegative = new List<FragmentIntensityPredictionInput>
@@ -235,7 +235,7 @@ namespace Test.KoinaTests
             Assert.That(predictionsNegative[0].Warning, Is.Not.Null,
                 "Negative charge state should produce a warning");
             Assert.Throws<ArgumentException>(() => throwModel.Predict(modelInputsNegative),
-                $"Charge state -1 should throw an exception in strict mode");
+                $"ChargeState state -1 should throw an exception in strict mode");
         }
 
         /// <summary>

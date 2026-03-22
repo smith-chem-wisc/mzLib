@@ -148,7 +148,7 @@ public sealed class MslLibrary : IDisposable
 	/// <returns>
 	///   A fully populated <see cref="MslLibrary"/> in full-load mode where
 	///   <see cref="IsIndexOnly"/> is <see langword="false"/> and every entry's
-	///   <c>Fragments</c> list is populated.
+	///   <c>MatchedFragmentIons</c> list is populated.
 	/// </returns>
 	/// <exception cref="ArgumentNullException"><paramref name="filePath"/> is null.</exception>
 	/// <exception cref="FileNotFoundException">No file exists at <paramref name="filePath"/>.</exception>
@@ -250,7 +250,7 @@ public sealed class MslLibrary : IDisposable
 			if (i < 0 || i >= rawLib.Count)
 				return null;
 			MslLibraryEntry skeleton = rawLib.Entries[i];
-			skeleton.Fragments = rawLib.LoadFragmentsOnDemand(i);
+			skeleton.MatchedFragmentIons = rawLib.LoadFragmentsOnDemand(i);
 			return skeleton;
 		};
 
@@ -795,7 +795,7 @@ public sealed class MslLibrary : IDisposable
 	/// </param>
 	/// <returns>
 	///   An <see cref="IEnumerable{T}"/> of <see cref="MslLibraryEntry"/> in ascending m/z
-	///   order. Each entry has its <c>Fragments</c> list populated before being yielded.
+	///   order. Each entry has its <c>MatchedFragmentIons</c> list populated before being yielded.
 	/// </returns>
 	/// <exception cref="ObjectDisposedException">
 	///   Thrown when the first call to <see cref="IEnumerator{T}.MoveNext"/> is made after
@@ -864,7 +864,7 @@ public sealed class MslLibrary : IDisposable
 	/// </param>
 	/// <returns>
 	///   A new <see cref="MslLibrary"/> whose precursor index entries have transformed
-	///   <c>Irt</c> values in both the primary <see cref="MslIndex"/> and, when present,
+	///   <c>RetentionTime</c> values in both the primary <see cref="MslIndex"/> and, when present,
 	///   the <see cref="ProteoformIndex"/>. The new library has the same <see cref="Header"/>
 	///   and <see cref="IsIndexOnly"/> flag as the original.
 	/// </returns>
@@ -874,7 +874,7 @@ public sealed class MslLibrary : IDisposable
 		ThrowIfDisposed();
 
 		// MslIndex.WithCalibratedRetentionTimes creates a brand-new index with transformed
-		// Irt values; the original index (_index) is not modified.
+		// RetentionTime values; the original index (_index) is not modified.
 		MslIndex calibratedIndex = _index!.WithCalibratedRetentionTimes(slope, intercept);
 
 		// Also calibrate the proteoform index when present.
@@ -982,7 +982,7 @@ public sealed class MslLibrary : IDisposable
 		if (minRegressionAnchors < 2)
 			minRegressionAnchors = 2;
 
-		// ── Step 0: index incoming spectra by (FullSequence, Charge) ──────────
+		// ── Step 0: index incoming spectra by (FullSequence, ChargeState) ──────────
 		// We use a dictionary so both the regression pass and the merge pass are O(1) per lookup.
 		// When duplicates exist in newSpectra (same sequence+charge observed in multiple files)
 		// we keep the one with the most matched fragment ions — mirroring MetaMorpheus behaviour.
@@ -1011,7 +1011,7 @@ public sealed class MslLibrary : IDisposable
 				&& libEntry is not null)
 			{
 				anchorsObservedRt.Add(spectrum.RetentionTime ?? 0.0);
-				anchorsLibraryIrt.Add(libEntry.Irt);
+				anchorsLibraryIrt.Add(libEntry.RetentionTime);
 			}
 		}
 
@@ -1037,20 +1037,20 @@ public sealed class MslLibrary : IDisposable
 
 		foreach (MslLibraryEntry originalEntry in GetAllEntries(includeDecoys: true))
 		{
-			var key = (originalEntry.ModifiedSequence, originalEntry.Charge);
+			var key = (originalEntry.FullSequence, originalEntry.ChargeState);
 
 			if (incoming.TryGetValue(key, out LibrarySpectrum? newSpectrum))
 			{
 				consumedKeys.Add(key);
 
-				int originalFragmentCount = originalEntry.Fragments.Count;
+				int originalFragmentCount = originalEntry.MatchedFragmentIons.Count;
 				int newFragmentCount = newSpectrum.MatchedFragmentIons.Count;
 
 				if (newFragmentCount > originalFragmentCount)
 				{
 					// The incoming spectrum has more matched ions — prefer it.
 					MslLibraryEntry replacement = MslLibraryEntry.FromLibrarySpectrum(newSpectrum);
-					replacement.Irt = NormaliseRt(newSpectrum.RetentionTime ?? 0.0,
+					replacement.RetentionTime = NormaliseRt(newSpectrum.RetentionTime ?? 0.0,
 															  rtSlope, rtIntercept,
 															  rtNormalisationApplied);
 					replacement.Source = MslFormat.SourceType.Empirical;
@@ -1087,7 +1087,7 @@ public sealed class MslLibrary : IDisposable
 				continue;
 
 			MslLibraryEntry novel = MslLibraryEntry.FromLibrarySpectrum(newSpectrum);
-			novel.Irt = NormaliseRt(newSpectrum.RetentionTime ?? 0.0,
+			novel.RetentionTime = NormaliseRt(newSpectrum.RetentionTime ?? 0.0,
 													  rtSlope, rtIntercept,
 													  rtNormalisationApplied);
 			novel.Source = MslFormat.SourceType.Empirical;
@@ -1212,16 +1212,16 @@ public sealed class MslLibrary : IDisposable
 	/// function, then writes the results back into those entries in-place.
 	///
 	/// The prediction function receives the list of eligible entries and returns a dictionary
-	/// mapping each entry's LookupKey to its predicted LibrarySpectrum. Use
+	/// mapping each entry's Name to its predicted LibrarySpectrum. Use
 	/// MslFragmentModelRouter.Predict from PredictionClients to supply this function:
 	///
 	///   library.PredictFragments(entries => MslFragmentModelRouter.Predict(entries, out _));
 	/// </summary>
 	/// <param name="predict">
 	///   Function that accepts a read-only list of MslLibraryEntry and returns a dictionary
-	///   from LookupKey to LibrarySpectrum. Only entries present in the dictionary are updated.
+	///   from Name to LibrarySpectrum. Only entries present in the dictionary are updated.
 	/// </param>
-	/// <returns>The number of entries whose Fragments list was successfully populated.</returns>
+	/// <returns>The number of entries whose MatchedFragmentIons list was successfully populated.</returns>
 	/// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
 	public int PredictFragments(
 		Func<IReadOnlyList<MslLibraryEntry>, Dictionary<string, LibrarySpectrum>> predict)
@@ -1230,7 +1230,7 @@ public sealed class MslLibrary : IDisposable
 		ArgumentNullException.ThrowIfNull(predict);
 
 		var eligible = GetAllEntries(includeDecoys: true)
-			.Where(e => e.Source == MslFormat.SourceType.Predicted && e.Fragments.Count == 0)
+			.Where(e => e.Source == MslFormat.SourceType.Predicted && e.MatchedFragmentIons.Count == 0)
 			.ToList();
 
 		if (eligible.Count == 0)
@@ -1241,7 +1241,7 @@ public sealed class MslLibrary : IDisposable
 		if (predicted.Count == 0)
 			return 0;
 
-		var entryByKey = eligible.ToDictionary(e => e.LookupKey);
+		var entryByKey = eligible.ToDictionary(e => e.Name);
 		int updatedCount = 0;
 
 		foreach (var (key, spectrum) in predicted)
@@ -1267,10 +1267,10 @@ public sealed class MslLibrary : IDisposable
 
 			// Fix 8b: only count as updated when the model returned at least one fragment.
 			// An empty prediction leaves the entry eligible for re-prediction on the next
-			// call, so we do not assign Fragments or increment the counter.
+			// call, so we do not assign MatchedFragmentIons or increment the counter.
 			if (convertedFragments.Count > 0)
 			{
-				entry.Fragments = convertedFragments;
+				entry.MatchedFragmentIons = convertedFragments;
 				entry.Source = MslFormat.SourceType.Predicted;
 				updatedCount++;
 			}

@@ -64,11 +64,11 @@ public class TestMslPrompt7Merger
 
 		return new MslLibraryEntry
 		{
-			ModifiedSequence = seq,
-			StrippedSequence = seq,
+			FullSequence = seq,
+			BaseSequence = seq,
 			PrecursorMz = mz,
-			Charge = charge,
-			Irt = irt,
+			ChargeState = charge,
+			RetentionTime = irt,
 			DissociationType = DissociationType.HCD,
 			Nce = 28,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
@@ -80,7 +80,7 @@ public class TestMslPrompt7Merger
 			QValue = qValue,
 			ElutionGroupId = 0,
 			IsDecoy = false,
-			Fragments = frags
+			MatchedFragmentIons = frags
 		};
 	}
 
@@ -139,7 +139,7 @@ public class TestMslPrompt7Merger
 
 		// A-file BBB (mz=400.000) is popped first; KeepFirst keeps it.
 		lib.TryGetEntry("BBB", 2, out MslLibraryEntry? bbb);
-		Assert.That(bbb!.Irt, Is.EqualTo(10.0).Within(0.01),
+		Assert.That(bbb!.RetentionTime, Is.EqualTo(10.0).Within(0.01),
 			"KeepFirst must retain the A-file entry for BBB (lower m/z, popped first).");
 	}
 
@@ -216,7 +216,7 @@ public class TestMslPrompt7Merger
 
 		using var lib = MslLibrary.Load(outPath);
 		lib.TryGetEntry("SAME", 2, out MslLibraryEntry? entry);
-		Assert.That(entry!.Irt, Is.EqualTo(20.0).Within(0.01),
+		Assert.That(entry!.RetentionTime, Is.EqualTo(20.0).Within(0.01),
 			"KeepLowestQValue must select the entry with q=0.01 (irt=20).");
 		Assert.That(entry.QValue, Is.EqualTo(0.01f).Within(1e-6f));
 	}
@@ -239,7 +239,7 @@ public class TestMslPrompt7Merger
 
 		using var lib = MslLibrary.Load(outPath);
 		lib.TryGetEntry("NQ", 2, out MslLibraryEntry? entry);
-		Assert.That(entry!.Irt, Is.EqualTo(99.0).Within(0.01),
+		Assert.That(entry!.RetentionTime, Is.EqualTo(99.0).Within(0.01),
 			"Real q-value (0.01) must beat NaN q-value.");
 	}
 
@@ -261,7 +261,7 @@ public class TestMslPrompt7Merger
 
 		using var lib = MslLibrary.Load(outPath);
 		lib.TryGetEntry("NN", 2, out MslLibraryEntry? entry);
-		Assert.That(entry!.Irt, Is.EqualTo(10.0).Within(0.01),
+		Assert.That(entry!.RetentionTime, Is.EqualTo(10.0).Within(0.01),
 			"Both NaN q-values: KeepFirst semantics must apply (A-file entry kept).");
 	}
 
@@ -290,7 +290,7 @@ public class TestMslPrompt7Merger
 
 		using var lib = MslLibrary.Load(outPath);
 		lib.TryGetEntry("KEY", 2, out MslLibraryEntry? entry);
-		Assert.That(entry!.Irt, Is.EqualTo(99.0).Within(0.01),
+		Assert.That(entry!.RetentionTime, Is.EqualTo(99.0).Within(0.01),
 			"KeepLast must keep the C-file entry (highest source index).");
 	}
 
@@ -330,7 +330,7 @@ public class TestMslPrompt7Merger
 			"SAME (resolved) + OTHER must both be in the output.");
 
 		lib.TryGetEntry("SAME", 2, out MslLibraryEntry? same);
-		Assert.That(same!.Irt, Is.EqualTo(99.0).Within(0.01),
+		Assert.That(same!.RetentionTime, Is.EqualTo(99.0).Within(0.01),
 			"SAME: B-file entry (q=0.01) must beat A-file entry (q=0.10).");
 	}
 
@@ -367,7 +367,7 @@ public class TestMslPrompt7Merger
 
 	/// <summary>
 	/// After Fix 12: FlushQValueBuffer sorts flushed entries by PrecursorMz ascending,
-	/// then LookupKey lexicographic (ordinal), before yielding them. The output order
+	/// then Name lexicographic (ordinal), before yielding them. The output order
 	/// within a flush window is now deterministic and stable across .NET versions,
 	/// platforms, and insertion orders.
 	///
@@ -396,14 +396,14 @@ public class TestMslPrompt7Merger
 			"All three distinct peptides at the same m/z must appear in the output.");
 
 		// After Fix 12: output order is deterministic — PrecursorMz ascending (all equal here),
-		// then LookupKey lexicographic. LookupKey = "{ModifiedSequence}/{Charge}":
+		// then Name lexicographic. Name = "{FullSequence}/{ChargeState}":
 		//   "PEP1/2" < "PEP2/2" < "PEP3/2"
 		var entries = lib.GetAllEntries().ToList();
-		Assert.That(entries[0].ModifiedSequence, Is.EqualTo("PEP1"),
+		Assert.That(entries[0].FullSequence, Is.EqualTo("PEP1"),
 			"After Fix 12, entries flushed from the same m/z window must be in " +
-			"LookupKey lexicographic order. PEP1/2 is first.");
-		Assert.That(entries[1].ModifiedSequence, Is.EqualTo("PEP2"));
-		Assert.That(entries[2].ModifiedSequence, Is.EqualTo("PEP3"));
+			"Name lexicographic order. PEP1/2 is first.");
+		Assert.That(entries[1].FullSequence, Is.EqualTo("PEP2"));
+		Assert.That(entries[2].FullSequence, Is.EqualTo("PEP3"));
 	}
 
 	// ═════════════════════════════════════════════════════════════════════
@@ -429,7 +429,7 @@ public class TestMslPrompt7Merger
 
 		using var lib = MslLibrary.Load(outPath);
 		lib.TryGetEntry("FRAG", 2, out MslLibraryEntry? entry);
-		Assert.That(entry!.Fragments, Has.Count.EqualTo(5),
+		Assert.That(entry!.MatchedFragmentIons, Has.Count.EqualTo(5),
 			"All 5 fragment ions must be present in the merged output file.");
 	}
 

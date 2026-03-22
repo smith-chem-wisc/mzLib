@@ -49,17 +49,17 @@ public static class TestMslPrompt8Streaming
 	{
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = modSeq,
-			StrippedSequence = modSeq.Replace("[Common Variable:Oxidation on M]", ""),
+			FullSequence = modSeq,
+			BaseSequence = modSeq.Replace("[Common Variable:Oxidation on M]", ""),
 			PrecursorMz = mz,
-			Charge = charge,
-			Irt = irt,
+			ChargeState = charge,
+			RetentionTime = irt,
 			IonMobility = ionMobility,
 			QValue = qValue,
 			IsDecoy = isDecoy,
 			ProteinAccession = protein,
 			Source = MslFormat.SourceType.Empirical,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -127,14 +127,14 @@ public static class TestMslPrompt8Streaming
 				MslLibraryEntry expected = w.Entries[i];
 				MslLibraryEntry actual = ws.Entries[i];
 
-				Assert.That(actual.ModifiedSequence, Is.EqualTo(expected.ModifiedSequence),
-					$"Entry {i}: ModifiedSequence");
+				Assert.That(actual.FullSequence, Is.EqualTo(expected.FullSequence),
+					$"Entry {i}: FullSequence");
 				Assert.That(actual.PrecursorMz, Is.EqualTo(expected.PrecursorMz).Within(1e-4),
 					$"Entry {i}: PrecursorMz");
-				Assert.That(actual.Charge, Is.EqualTo(expected.Charge),
-					$"Entry {i}: Charge");
-				Assert.That(actual.Irt, Is.EqualTo(expected.Irt).Within(1e-4f),
-					$"Entry {i}: Irt");
+				Assert.That(actual.ChargeState, Is.EqualTo(expected.ChargeState),
+					$"Entry {i}: ChargeState");
+				Assert.That(actual.RetentionTime, Is.EqualTo(expected.RetentionTime).Within(1e-4f),
+					$"Entry {i}: RetentionTime");
 				Assert.That(actual.IonMobility, Is.EqualTo(expected.IonMobility).Within(1e-6f),
 					$"Entry {i}: IonMobility");
 				Assert.That(actual.IsDecoy, Is.EqualTo(expected.IsDecoy),
@@ -150,9 +150,9 @@ public static class TestMslPrompt8Streaming
 					Assert.That(actual.QValue, Is.EqualTo(expected.QValue).Within(1e-6f),
 						$"Entry {i}: QValue");
 
-				Assert.That(actual.Fragments.Count, Is.EqualTo(expected.Fragments.Count),
+				Assert.That(actual.MatchedFragmentIons.Count, Is.EqualTo(expected.MatchedFragmentIons.Count),
 					$"Entry {i}: fragment count");
-				Assert.That(actual.Fragments[0].Mz, Is.EqualTo(expected.Fragments[0].Mz).Within(1e-4f),
+				Assert.That(actual.MatchedFragmentIons[0].Mz, Is.EqualTo(expected.MatchedFragmentIons[0].Mz).Within(1e-4f),
 					$"Entry {i}: fragment Mz");
 			}
 		}
@@ -197,8 +197,8 @@ public static class TestMslPrompt8Streaming
 				"Single-pass IEnumerable must produce a file with the correct entry count.");
 
 			// Spot-check first and last entries
-			Assert.That(data.Entries[0].ModifiedSequence, Is.EqualTo("SEQ000"));
-			Assert.That(data.Entries[N - 1].ModifiedSequence, Is.EqualTo($"SEQ{N - 1:D3}"));
+			Assert.That(data.Entries[0].FullSequence, Is.EqualTo("SEQ000"));
+			Assert.That(data.Entries[N - 1].FullSequence, Is.EqualTo($"SEQ{N - 1:D3}"));
 		}
 		finally
 		{
@@ -219,11 +219,11 @@ public static class TestMslPrompt8Streaming
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTM[Common Variable:Oxidation on M]IDE",
-			StrippedSequence = "PEPTMIDE",
+			FullSequence = "PEPTM[Common Variable:Oxidation on M]IDE",
+			BaseSequence = "PEPTMIDE",
 			PrecursorMz = 612.34,
-			Charge = 3,
-			Irt = 27.5f,
+			ChargeState = 3,
+			RetentionTime = 27.5f,
 			IonMobility = 1.05f,
 			QValue = 0.0012f,
 			IsDecoy = false,
@@ -235,7 +235,7 @@ public static class TestMslPrompt8Streaming
 			ProteinAccession = "P99999",
 			ProteinName = "Test Protein",
 			GeneName = "TESTP",
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -255,8 +255,8 @@ public static class TestMslPrompt8Streaming
 			MslLibraryEntry r = data.Entries[0];
 
 			Assert.That(r.PrecursorMz, Is.EqualTo(entry.PrecursorMz).Within(5e-3), "PrecursorMz");
-			Assert.That(r.Charge, Is.EqualTo(entry.Charge), "Charge");
-			Assert.That(r.Irt, Is.EqualTo((float)entry.Irt).Within(1e-4f), "Irt");
+			Assert.That(r.ChargeState, Is.EqualTo(entry.ChargeState), "ChargeState");
+			Assert.That(r.RetentionTime, Is.EqualTo((float)entry.RetentionTime).Within(1e-4f), "RetentionTime");
 			Assert.That(r.IonMobility, Is.EqualTo((float)entry.IonMobility).Within(1e-6f), "IonMobility");
 			Assert.That(r.QValue, Is.EqualTo(entry.QValue).Within(1e-6f), "QValue");
 			Assert.That(r.IsDecoy, Is.EqualTo(entry.IsDecoy), "IsDecoy");
@@ -265,8 +265,8 @@ public static class TestMslPrompt8Streaming
 			Assert.That(r.Source, Is.EqualTo(entry.Source), "Source");
 			Assert.That(r.MoleculeType, Is.EqualTo(entry.MoleculeType), "MoleculeType");
 			Assert.That(r.DissociationType, Is.EqualTo(entry.DissociationType), "DissociationType");
-			Assert.That(r.StrippedSequence, Is.EqualTo(entry.StrippedSequence), "StrippedSequence");
-			Assert.That(r.Fragments.Count, Is.EqualTo(1), "fragment count");
+			Assert.That(r.BaseSequence, Is.EqualTo(entry.BaseSequence), "BaseSequence");
+			Assert.That(r.MatchedFragmentIons.Count, Is.EqualTo(1), "fragment count");
 		}
 		finally
 		{
@@ -303,12 +303,12 @@ public static class TestMslPrompt8Streaming
 			Assert.That(ws.Count, Is.EqualTo(w.Count), "compressed: entry count");
 			for (int i = 0; i < w.Count; i++)
 			{
-				Assert.That(ws.Entries[i].ModifiedSequence, Is.EqualTo(w.Entries[i].ModifiedSequence),
-					$"compressed entry {i}: ModifiedSequence");
-				Assert.That(ws.Entries[i].Charge, Is.EqualTo(w.Entries[i].Charge),
-					$"compressed entry {i}: Charge");
-				Assert.That(ws.Entries[i].Irt, Is.EqualTo(w.Entries[i].Irt).Within(1e-4f),
-					$"compressed entry {i}: Irt");
+				Assert.That(ws.Entries[i].FullSequence, Is.EqualTo(w.Entries[i].FullSequence),
+					$"compressed entry {i}: FullSequence");
+				Assert.That(ws.Entries[i].ChargeState, Is.EqualTo(w.Entries[i].ChargeState),
+					$"compressed entry {i}: ChargeState");
+				Assert.That(ws.Entries[i].RetentionTime, Is.EqualTo(w.Entries[i].RetentionTime).Within(1e-4f),
+					$"compressed entry {i}: RetentionTime");
 			}
 		}
 		finally
@@ -353,7 +353,7 @@ public static class TestMslPrompt8Streaming
 		string pathB = Path.Combine(dir, "p8_merge_b.msl");
 		string pathOut = Path.Combine(dir, "p8_merge_out.msl");
 
-		// Two libraries share one LookupKey ("SHARED/2").
+		// Two libraries share one Name ("SHARED/2").
 		// The duplicate entries must be within the 0.001 Da KeepLowestQValue flush
 		// window so both are buffered together before one is resolved and emitted.
 		// Library A has lower qValue so it wins under KeepLowestQValue.
@@ -388,7 +388,7 @@ public static class TestMslPrompt8Streaming
 
 			// Find the SHARED entry in the output and check which file won
 			MslLibraryEntry? shared = merged.Entries
-				.FirstOrDefault(e => e.ModifiedSequence == "SHARED");
+				.FirstOrDefault(e => e.FullSequence == "SHARED");
 
 			Assert.That(shared, Is.Not.Null, "SHARED entry must be present in output.");
 			Assert.That(shared!.PrecursorMz, Is.EqualTo(expectedWinnerMz).Within(0.0002),
@@ -419,12 +419,12 @@ public static class TestMslPrompt8Streaming
 
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "GLYCOPEPTIDE",
-			StrippedSequence = "GLYCOPEPTIDE",
+			FullSequence = "GLYCOPEPTIDE",
+			BaseSequence = "GLYCOPEPTIDE",
 			PrecursorMz = 750.0,
-			Charge = 2,
+			ChargeState = 2,
 			Source = MslFormat.SourceType.Empirical,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -452,8 +452,8 @@ public static class TestMslPrompt8Streaming
 			using MslLibraryData merged = MslReader.Load(pathOut);
 			Assert.That(merged.Count, Is.EqualTo(1));
 			MslLibraryEntry r = merged.Entries[0];
-			Assert.That(r.Fragments.Count, Is.EqualTo(1));
-			Assert.That(r.Fragments[0].NeutralLoss, Is.EqualTo(CustomLoss).Within(1e-6),
+			Assert.That(r.MatchedFragmentIons.Count, Is.EqualTo(1));
+			Assert.That(r.MatchedFragmentIons[0].NeutralLoss, Is.EqualTo(CustomLoss).Within(1e-6),
 				"Custom neutral loss mass must be preserved through the merge.");
 		}
 		finally
@@ -512,7 +512,7 @@ public static class TestMslPrompt8Streaming
 
 	/// <summary>
 	/// Fragment data must be fully preserved through the lazy merge.
-	/// This tests that entry.Fragments — loaded on-demand by GetAllEntries/LoadFragmentsOnDemand
+	/// This tests that entry.MatchedFragmentIons — loaded on-demand by GetAllEntries/LoadFragmentsOnDemand
 	/// — arrive intact in the output file even though the entry is never held in a List.
 	/// </summary>
 	[Test]
@@ -524,7 +524,7 @@ public static class TestMslPrompt8Streaming
 
 		var entry = MakeEntry("FRAGTEST", 550.0, fragMz: 321.45f);
 		// Add a second fragment to make the check more specific
-		entry.Fragments.Add(new MslFragmentIon
+		entry.MatchedFragmentIons.Add(new MslFragmentIon
 		{
 			Mz = 456.78f,
 			Intensity = 0.5f,
@@ -543,12 +543,12 @@ public static class TestMslPrompt8Streaming
 			Assert.That(merged.Count, Is.EqualTo(1));
 
 			MslLibraryEntry r = merged.Entries[0];
-			Assert.That(r.Fragments.Count, Is.EqualTo(2), "Both fragments must survive the merge.");
+			Assert.That(r.MatchedFragmentIons.Count, Is.EqualTo(2), "Both fragments must survive the merge.");
 
-			// Fragments are sorted by m/z ascending on write
+			// MatchedFragmentIons are sorted by m/z ascending on write
 			float[] expectedMzs = { 321.45f, 456.78f };
 			for (int i = 0; i < expectedMzs.Length; i++)
-				Assert.That(r.Fragments[i].Mz, Is.EqualTo(expectedMzs[i]).Within(0.01f),
+				Assert.That(r.MatchedFragmentIons[i].Mz, Is.EqualTo(expectedMzs[i]).Within(0.01f),
 					$"fragment[{i}].Mz");
 		}
 		finally
@@ -580,7 +580,7 @@ public static class TestMslPrompt8Streaming
 		};
 		var libB = new List<MslLibraryEntry>
 		{
-			MakeEntry("SHARED1", 400.1), // duplicate (slightly different mz but same LookupKey)
+			MakeEntry("SHARED1", 400.1), // duplicate (slightly different mz but same Name)
             MakeEntry("SHARED2", 600.1), // duplicate
             MakeEntry("UNIQ3",   700.0)
 		};

@@ -91,11 +91,11 @@ public sealed class TestMslWriter
 		// ── Entry 0: PEPTIDE/2 ───────────────────────────────────────────────
 		var entry0 = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz = 449.7358,
-			Charge = 2,
-			Irt = 35.4,
+			ChargeState = 2,
+			RetentionTime = 35.4,
 			IonMobility = 0.0,
 			ProteinAccession = "P12345",
 			ProteinName = "Test protein alpha",
@@ -107,7 +107,7 @@ public sealed class TestMslWriter
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
 			Nce = 28,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -141,11 +141,11 @@ public sealed class TestMslWriter
 		// ── Entry 1: PEPTIDE/3 — same stripped sequence, different charge ────
 		var entry1 = new MslLibraryEntry
 		{
-			ModifiedSequence = "PEPTIDE",
-			StrippedSequence = "PEPTIDE",
+			FullSequence = "PEPTIDE",
+			BaseSequence = "PEPTIDE",
 			PrecursorMz = 300.160,
-			Charge = 3,
-			Irt = 35.4,
+			ChargeState = 3,
+			RetentionTime = 35.4,
 			IonMobility = 0.0,
 			ProteinAccession = string.Empty,
 			ProteinName = string.Empty,
@@ -157,7 +157,7 @@ public sealed class TestMslWriter
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
 			Nce = 28,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -187,11 +187,11 @@ public sealed class TestMslWriter
 	{
 		var entry = new MslLibraryEntry
 		{
-			ModifiedSequence = "ACDEFGHIK",
-			StrippedSequence = "ACDEFGHIK",
+			FullSequence = "ACDEFGHIK",
+			BaseSequence = "ACDEFGHIK",
 			PrecursorMz = 529.760,
-			Charge = 2,
-			Irt = 42.1,
+			ChargeState = 2,
+			RetentionTime = 42.1,
 			IonMobility = 0.0,
 			ProteinAccession = string.Empty,
 			ProteinName = string.Empty,
@@ -203,7 +203,7 @@ public sealed class TestMslWriter
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
 			Nce = 28,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
                 // Terminal ion: y3 of ACDEFGHIK
                 new MslFragmentIon
@@ -252,11 +252,11 @@ public sealed class TestMslWriter
 		// Add a third entry with a different stripped sequence
 		entries.Add(new MslLibraryEntry
 		{
-			ModifiedSequence = "ACDEFGHIK",
-			StrippedSequence = "ACDEFGHIK",
+			FullSequence = "ACDEFGHIK",
+			BaseSequence = "ACDEFGHIK",
 			PrecursorMz = 529.760,
-			Charge = 2,
-			Irt = 42.1,
+			ChargeState = 2,
+			RetentionTime = 42.1,
 			IonMobility = 0.0,
 			ProteinAccession = string.Empty,
 			ProteinName = string.Empty,
@@ -268,7 +268,7 @@ public sealed class TestMslWriter
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
 			Nce = 0,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new MslFragmentIon
 				{
@@ -501,7 +501,7 @@ public sealed class TestMslWriter
 		// Sum all fragment counts to compute total fragment bytes
 		long totalFragmentBytes = 0;
 		foreach (MslLibraryEntry e in entries)
-			totalFragmentBytes += (e.Fragments?.Count ?? 0) * MslFormat.FragmentRecordSize;
+			totalFragmentBytes += (e.MatchedFragmentIons?.Count ?? 0) * MslFormat.FragmentRecordSize;
 
 		long expectedOffsetTableStart = fragmentSectionOffset + totalFragmentBytes;
 
@@ -524,7 +524,7 @@ public sealed class TestMslWriter
 		MslWriter.Write(path, entries);
 
 		long actualSize = new FileInfo(path).Length;
-		int avgFragments = entries.Sum(e => e.Fragments?.Count ?? 0) / entries.Count;
+		int avgFragments = entries.Sum(e => e.MatchedFragmentIons?.Count ?? 0) / entries.Count;
 		long estimate = MslWriter.EstimateFileSize(entries.Count, avgFragments, 20);
 
 		double ratio = (double)actualSize / estimate;
@@ -566,8 +566,8 @@ public sealed class TestMslWriter
 	}
 
 	/// <summary>
-	/// Verifies that the Charge stored in the first precursor record matches the input entry.
-	/// Charge is at offset 12 of MslPrecursorRecord as an int16.
+	/// Verifies that the ChargeState stored in the first precursor record matches the input entry.
+	/// ChargeState is at offset 12 of MslPrecursorRecord as an int16.
 	/// </summary>
 	[Test]
 	public void Write_FirstPrecursor_HasCorrectCharge()
@@ -579,13 +579,13 @@ public sealed class TestMslWriter
 		byte[] data = ReadAllBytes(path);
 		long precursorSectionOffset = ReadInt64LE(data, HdrOffPrecursorSectionOffset);
 
-		// MslPrecursorRecord.Charge is at offset 12 from the start of the record (int16, 2 bytes)
+		// MslPrecursorRecord.ChargeState is at offset 12 from the start of the record (int16, 2 bytes)
 		const int ChargeOffsetInRecord = 12;
 		short storedCharge = (short)(data[(int)precursorSectionOffset + ChargeOffsetInRecord]
 									 | (data[(int)precursorSectionOffset + ChargeOffsetInRecord + 1] << 8));
 
-		Assert.That(storedCharge, Is.EqualTo(entries[0].Charge),
-			"First precursor Charge on disk must match the input entry.");
+		Assert.That(storedCharge, Is.EqualTo(entries[0].ChargeState),
+			"First precursor ChargeState on disk must match the input entry.");
 	}
 
 	/// <summary>
@@ -609,7 +609,7 @@ public sealed class TestMslWriter
 			data[(int)precursorSectionOffset + FragCountOffsetInRecord]
 			| (data[(int)precursorSectionOffset + FragCountOffsetInRecord + 1] << 8));
 
-		Assert.That(storedFragCount, Is.EqualTo(entries[0].Fragments.Count),
+		Assert.That(storedFragCount, Is.EqualTo(entries[0].MatchedFragmentIons.Count),
 			"First precursor FragmentCount on disk must equal the number of fragments in the entry.");
 	}
 
@@ -644,7 +644,7 @@ public sealed class TestMslWriter
 
 	/// <summary>Returns the minimum Mz value among all fragments in the first entry.</summary>
 	private static float entry0MinMz(IReadOnlyList<MslLibraryEntry> entries) =>
-		entries[0].Fragments.Min(f => f.Mz);
+		entries[0].MatchedFragmentIons.Min(f => f.Mz);
 
 	/// <summary>
 	/// Verifies that the fragment records on disk for the first precursor are ordered by
@@ -662,7 +662,7 @@ public sealed class TestMslWriter
 		const int FragBlockOffsetInRecord = 32;
 		long fragmentBlockOffset = ReadInt64LE(data, (int)precursorSectionOffset + FragBlockOffsetInRecord);
 
-		int fragCount = entries[0].Fragments.Count;
+		int fragCount = entries[0].MatchedFragmentIons.Count;
 		float prevMz = float.MinValue;
 
 		for (int i = 0; i < fragCount; i++)
@@ -673,7 +673,7 @@ public sealed class TestMslWriter
 
 			Assert.That(mz, Is.GreaterThanOrEqualTo(prevMz),
 				$"Fragment [{i}] m/z ({mz}) must be ≥ previous m/z ({prevMz}). " +
-				"Fragments must be sorted by m/z ascending.");
+				"MatchedFragmentIons must be sorted by m/z ascending.");
 			prevMz = mz;
 		}
 	}
@@ -695,7 +695,7 @@ public sealed class TestMslWriter
 		const int FragBlockOffsetInRecord = 32;
 		long fragmentBlockOffset = ReadInt64LE(data, (int)precursorSectionOffset + FragBlockOffsetInRecord);
 
-		int fragCount = entries[0].Fragments.Count;
+		int fragCount = entries[0].MatchedFragmentIons.Count;
 		float maxIntensity = float.MinValue;
 
 		for (int i = 0; i < fragCount; i++)
@@ -785,14 +785,14 @@ public sealed class TestMslWriter
 		{
 			new MslLibraryEntry
 			{
-				ModifiedSequence = UnicodeSequence,
-				StrippedSequence = "PEPTIDE",
+				FullSequence = UnicodeSequence,
+				BaseSequence = "PEPTIDE",
 				PrecursorMz      = 449.7,
-				Charge           = 2,
+				ChargeState           = 2,
 				Source           = MslFormat.SourceType.Predicted,
 				MoleculeType     = MslFormat.MoleculeType.Peptide,
 				DissociationType = DissociationType.HCD,
-				Fragments        = new List<MslFragmentIon>
+				MatchedFragmentIons        = new List<MslFragmentIon>
 				{
 					new MslFragmentIon
 					{
@@ -840,7 +840,7 @@ public sealed class TestMslWriter
 	[Test]
 	public void Write_SameStrippedSequence_SameElutionGroupId()
 	{
-		var entries = BuildTestEntries(); // both entries have StrippedSequence = "PEPTIDE"
+		var entries = BuildTestEntries(); // both entries have BaseSequence = "PEPTIDE"
 		string path = TempPath(nameof(Write_SameStrippedSequence_SameElutionGroupId));
 		MslWriter.Write(path, entries);
 
@@ -856,7 +856,7 @@ public sealed class TestMslWriter
 									   + ElutionGroupIdOffset);
 
 		Assert.That(egId0, Is.EqualTo(egId1),
-			"Precursors with the same StrippedSequence must have the same ElutionGroupId.");
+			"Precursors with the same BaseSequence must have the same ElutionGroupId.");
 	}
 
 	/// <summary>
@@ -992,7 +992,7 @@ public sealed class TestMslWriter
 
 	/// <summary>
 	/// Verifies that ValidateEntries() returns at least one error when an entry has an
-	/// empty ModifiedSequence.
+	/// empty FullSequence.
 	/// </summary>
 	[Test]
 	public void ValidateEntries_EmptySequence_ReturnsError()
@@ -1001,10 +1001,10 @@ public sealed class TestMslWriter
 		{
 			new MslLibraryEntry
 			{
-				ModifiedSequence = string.Empty, // invalid
-                Charge           = 2,
+				FullSequence = string.Empty, // invalid
+                ChargeState           = 2,
 				PrecursorMz      = 449.7,
-				Fragments        = new List<MslFragmentIon>
+				MatchedFragmentIons        = new List<MslFragmentIon>
 				{
 					new MslFragmentIon { Mz = 175f, Intensity = 1f, ProductType = ProductType.y,
 										 FragmentNumber = 1, Charge = 1 }
@@ -1015,11 +1015,11 @@ public sealed class TestMslWriter
 		List<string> errors = MslWriter.ValidateEntries(entries);
 
 		Assert.That(errors, Is.Not.Empty,
-			"An entry with an empty ModifiedSequence must produce a validation error.");
+			"An entry with an empty FullSequence must produce a validation error.");
 	}
 
 	/// <summary>
-	/// Verifies that ValidateEntries() returns at least one error when an entry has Charge = 0.
+	/// Verifies that ValidateEntries() returns at least one error when an entry has ChargeState = 0.
 	/// </summary>
 	[Test]
 	public void ValidateEntries_ZeroCharge_ReturnsError()
@@ -1028,10 +1028,10 @@ public sealed class TestMslWriter
 		{
 			new MslLibraryEntry
 			{
-				ModifiedSequence = "PEPTIDE",
-				Charge           = 0,          // invalid
+				FullSequence = "PEPTIDE",
+				ChargeState           = 0,          // invalid
                 PrecursorMz      = 449.7,
-				Fragments        = new List<MslFragmentIon>
+				MatchedFragmentIons        = new List<MslFragmentIon>
 				{
 					new MslFragmentIon { Mz = 175f, Intensity = 1f, ProductType = ProductType.y,
 										 FragmentNumber = 1, Charge = 1 }
@@ -1042,7 +1042,7 @@ public sealed class TestMslWriter
 		List<string> errors = MslWriter.ValidateEntries(entries);
 
 		Assert.That(errors, Is.Not.Empty,
-			"An entry with Charge = 0 must produce a validation error.");
+			"An entry with ChargeState = 0 must produce a validation error.");
 	}
 
 	/// <summary>
@@ -1056,10 +1056,10 @@ public sealed class TestMslWriter
 		{
 			new MslLibraryEntry
 			{
-				ModifiedSequence = "ACDEFGHIK",
-				Charge           = 2,
+				FullSequence = "ACDEFGHIK",
+				ChargeState           = 2,
 				PrecursorMz      = 529.76,
-				Fragments        = new List<MslFragmentIon>
+				MatchedFragmentIons        = new List<MslFragmentIon>
 				{
 					new MslFragmentIon
 					{

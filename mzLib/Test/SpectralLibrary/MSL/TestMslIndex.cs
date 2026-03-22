@@ -1015,11 +1015,11 @@ public class TestMslIndex
 	{
 		return new MslLibraryEntry
 		{
-			ModifiedSequence = sequence,
-			StrippedSequence = sequence,
+			FullSequence = sequence,
+			BaseSequence = sequence,
 			PrecursorMz = mz,
-			Charge = charge,
-			Irt = irt,
+			ChargeState = charge,
+			RetentionTime = irt,
 			IonMobility = ionMobility,
 			IsDecoy = isDecoy,
 			ElutionGroupId = elutionGroupId,
@@ -1027,7 +1027,7 @@ public class TestMslIndex
 			Source = MslFormat.SourceType.Predicted,
 			DissociationType = DissociationType.Unknown,
 			Nce = 0,
-			Fragments = new List<MslFragmentIon>()
+			MatchedFragmentIons = new List<MslFragmentIon>()
 		};
 	}
 
@@ -1053,11 +1053,11 @@ public class TestMslIndex
 			MslLibraryEntry e = entries[i];
 			raw[i] = new MslPrecursorIndexEntry(
 				precursorMz: (float)e.PrecursorMz,
-				irt: (float)e.Irt,
+				irt: (float)e.RetentionTime,
 				ionMobility: (float)e.IonMobility,
 				precursorIdx: i,
 				elutionGroupId: e.ElutionGroupId,
-				charge: (short)e.Charge,
+				charge: (short)e.ChargeState,
 				isDecoy: (byte)(e.IsDecoy ? 1 : 0),
 				flags: (byte)((int)e.MoleculeType & 0x03));
 		}

@@ -160,11 +160,11 @@ public sealed class TestMslUpdateAndSave
 
 		return new MslLibraryEntry
 		{
-			ModifiedSequence = seq,
-			StrippedSequence = seq,
+			FullSequence = seq,
+			BaseSequence = seq,
 			PrecursorMz = mz,
-			Charge = charge,
-			Irt = irt,
+			ChargeState = charge,
+			RetentionTime = irt,
 			IonMobility = ionMobility,
 			ProteinAccession = protein,
 			IsDecoy = isDecoy,
@@ -173,7 +173,7 @@ public sealed class TestMslUpdateAndSave
 			Source = MslFormat.SourceType.Predicted,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
 			DissociationType = DissociationType.HCD,
-			Fragments = frags
+			MatchedFragmentIons = frags
 		};
 	}
 
@@ -287,7 +287,7 @@ public sealed class TestMslUpdateAndSave
 		updated.TryGetEntry("BBBB", 2, out MslLibraryEntry? entry);
 
 		Assert.That(entry, Is.Not.Null, "BBBB/2 must be present in the updated library.");
-		Assert.That(entry!.Irt, Is.EqualTo(IrtB).Within(0.01),
+		Assert.That(entry!.RetentionTime, Is.EqualTo(IrtB).Within(0.01),
 			"Retained entry iRT must be unchanged.");
 	}
 
@@ -337,7 +337,7 @@ public sealed class TestMslUpdateAndSave
 		using MslLibrary updated = MslLibrary.Load(output);
 		updated.TryGetEntry("AAAA", 2, out MslLibraryEntry? entry);
 
-		Assert.That(entry!.Fragments.Count, Is.EqualTo(5),
+		Assert.That(entry!.MatchedFragmentIons.Count, Is.EqualTo(5),
 			"Replaced entry must carry the incoming fragment count.");
 	}
 
@@ -450,7 +450,7 @@ public sealed class TestMslUpdateAndSave
 		using MslLibrary updated = MslLibrary.Load(output);
 		updated.TryGetEntry("AAAA", 2, out MslLibraryEntry? aaaa);
 		double expectedIrt = RtSlope * 5.0 + RtIntercept;
-		Assert.That(aaaa!.Irt, Is.EqualTo(expectedIrt).Within(0.01),
+		Assert.That(aaaa!.RetentionTime, Is.EqualTo(expectedIrt).Within(0.01),
 			"Replaced entry iRT must equal slope × observedRT + intercept.");
 	}
 
@@ -476,7 +476,7 @@ public sealed class TestMslUpdateAndSave
 
 		using MslLibrary updated = MslLibrary.Load(output);
 		updated.TryGetEntry("NOVEL", 2, out MslLibraryEntry? novel);
-		Assert.That(novel!.Irt, Is.EqualTo(expectedIrt).Within(0.01),
+		Assert.That(novel!.RetentionTime, Is.EqualTo(expectedIrt).Within(0.01),
 			"Added entry iRT must be normalised via the regression.");
 	}
 
@@ -527,7 +527,7 @@ public sealed class TestMslUpdateAndSave
 
 		using MslLibrary updated = MslLibrary.Load(output);
 		updated.TryGetEntry("NOVEL", 2, out MslLibraryEntry? novel);
-		Assert.That(novel!.Irt, Is.EqualTo(rawRt).Within(0.01),
+		Assert.That(novel!.RetentionTime, Is.EqualTo(rawRt).Within(0.01),
 			"When normalisation is skipped, raw observed RT must be stored as-is.");
 	}
 
@@ -592,7 +592,7 @@ public sealed class TestMslUpdateAndSave
 
 		using MslLibrary updated = MslLibrary.Load(output);
 		updated.TryGetEntry("AAAA", 2, out MslLibraryEntry? entry);
-		Assert.That(entry!.Fragments.Count, Is.EqualTo(7),
+		Assert.That(entry!.MatchedFragmentIons.Count, Is.EqualTo(7),
 			"The duplicate with the most fragment ions must be selected.");
 	}
 
@@ -621,7 +621,7 @@ public sealed class TestMslUpdateAndSave
 
 		// Spot-check iRTs are preserved.
 		updated.TryGetEntry("AAAA", 2, out MslLibraryEntry? a);
-		Assert.That(a!.Irt, Is.EqualTo(IrtA).Within(0.01));
+		Assert.That(a!.RetentionTime, Is.EqualTo(IrtA).Within(0.01));
 	}
 
 	// ────────────────────────────────────────────────────────────────────────

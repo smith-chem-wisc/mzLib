@@ -39,11 +39,11 @@ public class TestMslPrompt12FlushOrder
 	{
 		return new MslLibraryEntry
 		{
-			ModifiedSequence = seq,
-			StrippedSequence = seq,
+			FullSequence = seq,
+			BaseSequence = seq,
 			PrecursorMz = mz,
-			Charge = charge,
-			Irt = 30.0,
+			ChargeState = charge,
+			RetentionTime = 30.0,
 			DissociationType = DissociationType.HCD,
 			Nce = 28,
 			MoleculeType = MslFormat.MoleculeType.Peptide,
@@ -55,7 +55,7 @@ public class TestMslPrompt12FlushOrder
 			QValue = qValue,
 			ElutionGroupId = 0,
 			IsDecoy = false,
-			Fragments = new List<MslFragmentIon>
+			MatchedFragmentIons = new List<MslFragmentIon>
 			{
 				new() { ProductType = ProductType.b, FragmentNumber = 1,
 						Charge = 1, Mz = 200f, Intensity = 1.0f, NeutralLoss = 0.0 }
@@ -76,7 +76,7 @@ public class TestMslPrompt12FlushOrder
 
 	/// <summary>
 	/// Multiple distinct peptides within the 0.001 Da flush window must be
-	/// emitted in a stable order: PrecursorMz ascending, then LookupKey
+	/// emitted in a stable order: PrecursorMz ascending, then Name
 	/// lexicographic. Running the same merge twice must produce byte-for-byte
 	/// identical output files.
 	///
@@ -89,9 +89,9 @@ public class TestMslPrompt12FlushOrder
 	{
 		// Three peptides at identical m/z — all unique keys, no duplicates.
 		// They sit in the qValueBuffer together and are flushed as a group.
-		// After Fix 12 the flush order must be LookupKey lexicographic
+		// After Fix 12 the flush order must be Name lexicographic
 		// (since all have the same PrecursorMz).
-		// LookupKey format is "{ModifiedSequence}/{Charge}", so:
+		// Name format is "{FullSequence}/{ChargeState}", so:
 		//   "AAA/2" < "BBB/2" < "CCC/2"  (ordinal lexicographic)
 		var entries = new List<MslLibraryEntry>
 		{
@@ -109,14 +109,14 @@ public class TestMslPrompt12FlushOrder
 		using MslLibraryData data = MslReader.Load(outPath);
 		Assert.That(data.Count, Is.EqualTo(3), "All three entries must be present.");
 
-		// All three have identical PrecursorMz, so tiebreaker is LookupKey ordinal.
+		// All three have identical PrecursorMz, so tiebreaker is Name ordinal.
 		// Expected order: AAA/2 < BBB/2 < CCC/2
-		Assert.That(data.Entries[0].ModifiedSequence, Is.EqualTo("AAA"),
-			"First entry must be AAA (LookupKey 'AAA/2' is lexicographically first).");
-		Assert.That(data.Entries[1].ModifiedSequence, Is.EqualTo("BBB"),
+		Assert.That(data.Entries[0].FullSequence, Is.EqualTo("AAA"),
+			"First entry must be AAA (Name 'AAA/2' is lexicographically first).");
+		Assert.That(data.Entries[1].FullSequence, Is.EqualTo("BBB"),
 			"Second entry must be BBB.");
-		Assert.That(data.Entries[2].ModifiedSequence, Is.EqualTo("CCC"),
-			"Third entry must be CCC (LookupKey 'CCC/2' is lexicographically last).");
+		Assert.That(data.Entries[2].FullSequence, Is.EqualTo("CCC"),
+			"Third entry must be CCC (Name 'CCC/2' is lexicographically last).");
 	}
 
 	// ════════════════════════════════════════════════════════════════════
@@ -156,7 +156,7 @@ public class TestMslPrompt12FlushOrder
 	}
 
 	// ════════════════════════════════════════════════════════════════════
-	// Test 3 — PrecursorMz sort takes priority over LookupKey
+	// Test 3 — PrecursorMz sort takes priority over Name
 	// ════════════════════════════════════════════════════════════════════
 
 	/// <summary>
@@ -189,11 +189,11 @@ public class TestMslPrompt12FlushOrder
 		Assert.That(data.Count, Is.EqualTo(3));
 
 		// ZZZ (mz=400.0000) must precede AAA (mz=400.0005)
-		Assert.That(data.Entries[0].ModifiedSequence, Is.EqualTo("ZZZ"),
+		Assert.That(data.Entries[0].FullSequence, Is.EqualTo("ZZZ"),
 			"ZZZ (lower mz=400.0000) must be emitted before AAA (mz=400.0005), " +
 			"even though 'AAA/2' < 'ZZZ/2' lexicographically.");
-		Assert.That(data.Entries[1].ModifiedSequence, Is.EqualTo("AAA"));
-		Assert.That(data.Entries[2].ModifiedSequence, Is.EqualTo("NEXT"));
+		Assert.That(data.Entries[1].FullSequence, Is.EqualTo("AAA"));
+		Assert.That(data.Entries[2].FullSequence, Is.EqualTo("NEXT"));
 	}
 
 	// ════════════════════════════════════════════════════════════════════
@@ -244,7 +244,7 @@ public class TestMslPrompt12FlushOrder
 
 		using MslLibraryData data = MslReader.Load(outPath);
 		Assert.That(data.Count, Is.EqualTo(1));
-		Assert.That(data.Entries[0].ModifiedSequence, Is.EqualTo("SINGLE"));
+		Assert.That(data.Entries[0].FullSequence, Is.EqualTo("SINGLE"));
 		Assert.That(data.Entries[0].QValue, Is.EqualTo(0.005f).Within(1e-6f));
 	}
 }
