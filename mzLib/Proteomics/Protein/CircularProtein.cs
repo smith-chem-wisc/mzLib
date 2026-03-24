@@ -216,6 +216,7 @@ namespace Proteomics
 
             if (!anyYielded)
             {
+                // Unmodified full-ring peptide — always produced
                 yield return new CircularPeptideWithSetModifications(
                     protein: this,
                     digestionParams: digestionParams,
@@ -227,28 +228,73 @@ namespace Proteomics
                     allModsOneIsNterminus: new Dictionary<int, Modification>(),
                     numFixedMods: 0,
                     baseSequence: BaseSequence);
+
+                // For each variable modification with LocationRestriction "Anywhere.",
+                // scan the canonical sequence for matching residues and yield one
+                // modified full-ring peptide per match site.
+                // N-terminal and C-terminal restrictions are excluded — circular
+                // peptides have no termini.
+                if (variableModifications != null)
+                {
+                    foreach (var mod in variableModifications)
+                    {
+                        if (mod.LocationRestriction != "Anywhere.") continue;
+
+                        for (int pos = 1; pos <= n; pos++)
+                        {
+                            if (ModificationLocalization.ModFits(
+                                    mod,
+                                    BaseSequence,
+                                    digestionProductOneBasedIndex: pos,
+                                    digestionProductLength: n,
+                                    bioPolymerOneBasedIndex: pos))
+                            {
+                                int modKey = pos + 1;
+                                var modDict = new Dictionary<int, Modification> { [modKey] = mod };
+
+                                yield return new CircularPeptideWithSetModifications(
+                                    protein: this,
+                                    digestionParams: digestionParams,
+                                    oneBasedStartResidueInProtein: 1,
+                                    oneBasedEndResidueInProtein: n,
+                                    cleavageSpecificity: CleavageSpecificity.Full,
+                                    peptideDescription: null,
+                                    missedCleavages: 0,
+                                    allModsOneIsNterminus: modDict,
+                                    numFixedMods: 0,
+                                    baseSequence: BaseSequence);
+                            }
+                        }
+                    }
+                }
             }
+
         }
 
         private HashSet<int> GetCleavagePositionsInRing(IDigestionParams digestionParams)
         {
-            // Digest a doubled sequence (2N) with maxMissedCleavages: 0 and
-            // minPeptideLength: 1. The doubled sequence has no terminal effects
-            // hiding cleavage sites — every K or R in the first copy [1..N]
-            // will be followed by more sequence, so trypsin will always cut after
-            // it and produce a peptide boundary there. 
-            // We then read the end position of every peptide that ends within [1, N]
-            // as a cleavage site in the canonical ring.
-            var doubledProtein = new Protein(BaseSequence + BaseSequence, Accession + "_cleavage");
-            var fragments = doubledProtein.Digest(
+            // Proxy sequence: BaseSequence + BaseSequence[..^1], length 2N-1.
+            // The last character is omitted deliberately — the proxy represents one
+            // full traversal of the ring starting at the canonical origin, continuing
+            // through a second partial copy. This means every cleavage residue in the
+            // first copy [1..N] is followed by more sequence (from the second copy),
+            // so the linear digestion engine will always produce a cut after it and
+            // reveal its position as a peptide boundary.
+            //
+            // We collect the end position of every peptide whose end falls within
+            // [1, N] — these are the genuine cleavage sites of the canonical ring.
+            var proxyProtein = new Protein(
+                BaseSequence + BaseSequence[..^1],
+                Accession + "_cleavage");
+
+            var fragments = proxyProtein.Digest(
                 new DigestionParams(
                     protease: ((DigestionParams)digestionParams).Protease.Name,
                     maxMissedCleavages: 0,
                     minPeptideLength: 1),
                 [], [])
                 .Cast<PeptideWithSetModifications>()
-                .Where(p => p.OneBasedEndResidueInProtein <= Length
-                         && p.OneBasedStartResidueInProtein >= 1)
+                .Where(p => p.OneBasedEndResidueInProtein <= Length)
                 .ToList();
 
             var positions = new HashSet<int>();
