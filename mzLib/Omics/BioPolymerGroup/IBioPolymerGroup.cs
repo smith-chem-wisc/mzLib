@@ -113,6 +113,28 @@ namespace Omics.BioPolymerGroup
         BioPolymerGroupType GroupType { get; set; }
 
         /// <summary>
+        /// Cumulative count of target groups at or above this group's rank, used for FDR calculation.
+        /// </summary>
+        int CumulativeTarget { get; set; }
+
+        /// <summary>
+        /// Cumulative count of decoy groups at or above this group's rank, used for FDR calculation.
+        /// </summary>
+        int CumulativeDecoy { get; set; }
+
+        /// <summary>
+        /// Computes <see cref="BioPolymerGroupScore"/> from the PSMs in <see cref="AllPsmsBelowOnePercentFDR"/>.
+        /// Score is the sum of the best (highest) score per unique base sequence.
+        /// </summary>
+        void Score();
+
+        /// <summary>
+        /// Computes sequence coverage for each biopolymer in the group based on the PSMs
+        /// in <see cref="AllPsmsBelowOnePercentFDR"/>.
+        /// </summary>
+        void CalculateSequenceCoverage();
+
+        /// <summary>
         /// Returns a tab-separated header line for output files.
         /// The format matches the output of <see cref="object.ToString"/>.
         /// </summary>
