@@ -1,6 +1,7 @@
 ﻿using Chemistry;
 using MassSpectrometry;
 using NUnit.Framework;
+using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
 using Proteomics;
@@ -505,41 +506,47 @@ namespace Test
                 "No wrap-around fragments from full-ring [1-9] with minLength=3");
         }
 
-        // ══════════════════════════════════════════════════════════════════════
-        // NUMBERING — wrapping sub-peptide (OneBasedStart > 1, OneBasedEnd > N)
-        //
-        // Ring "AKDEFKGHIM" (N=10), K at positions 2 and 6.
-        // With maxMissedCleavages=1, Digest() produces wrapping sub-peptide
-        // "GHIMAK" with OneBasedStart=7, OneBasedEnd=12.
-        //
-        // Fragment loop for peptideLength=6, canonicalOffset=7:
-        //   localStart=0: oneBasedStart=7, maxLength=5
-        //     [7,9]=GHI (L=3), [7,10]=GHIM (L=4), [7,11]=GHIMA (L=5, wraps!)
-        //   localStart=1: oneBasedStart=8, maxLength=4
-        //     [8,10]=HIM (L=3), [8,11]=HIMA (L=4, wraps!)
-        //   localStart=2: oneBasedStart=9, maxLength=3
-        //     [9,11]=IMA (L=3, wraps!)
-        //   localStart=3: oneBasedStart=10, maxLength=2
-        //     [10,11]=MA (L=2, wraps!)
-        //   localStart=4: oneBasedStart=11, maxLength=1 < minLength=3 → none
-        // ══════════════════════════════════════════════════════════════════════
-
         [Test]
         public static void FragmentInternally_WrappingSubPeptide_EndExceedsN()
         {
-            const string ringSeq = "AKDEFKGHIM"; // N=10, K at 2 and 6
+            // Ring "AKDEFKGHIM" (N=10): K at positions 2 and 6 → 2 cleavage sites.
+            // maxMissedCleavages=1 < numCleavageSites=2 → no CircularPeptideWithSetModifications
+            // from Digest(). The wrapping peptide "GHIMAK" [7-12] is constructed directly
+            // to test FragmentInternally() on a span that crosses the ring junction.
+            //
+            // "AKDEFKGHIM" is already canonical (A is the smallest first character).
+            //
+            // Fragment loop for peptideLength=6, oneBasedStart=7, minLength=3:
+            //   localStart=0: oneBasedStart=7, maxLength=5
+            //     [7,9]=GHI (L=3), [7,10]=GHIM (L=4), [7,11]=GHIMA (L=5, wraps)
+            //   localStart=1: oneBasedStart=8, maxLength=4
+            //     [8,10]=HIM (L=3), [8,11]=HIMA (L=4, wraps)
+            //   localStart=2: oneBasedStart=9, maxLength=3
+            //     [9,11]=IMA (L=3, wraps)
+            //   localStart=3: oneBasedStart=10, maxLength=2 < 3 → none
+
+            const string ringSeq = "AKDEFKGHIM";
             var protein = new CircularProtein(ringSeq, "wrap_test");
 
-            Assert.That(protein.BaseSequence, Is.EqualTo(ringSeq), "Already canonical");
+            Assert.That(protein.BaseSequence, Is.EqualTo(ringSeq), "Already canonical.");
 
-            var wrappingPeptide = protein
-                .Digest(new DigestionParams("trypsin", maxMissedCleavages: 1, minPeptideLength: 1),
-                    [], [])
-                .OfType<CircularPeptideWithSetModifications>()
-                .SingleOrDefault(p => p.BaseSequence == "GHIMAK");
+            var digestionParams = new DigestionParams(
+                protease: "trypsin",
+                maxMissedCleavages: 1,
+                minPeptideLength: 1);
 
-            Assume.That(wrappingPeptide, Is.Not.Null,
-                "GHIMAK[7-12] must be produced by Digest()");
+            var wrappingPeptide = new CircularPeptideWithSetModifications(
+                protein: protein,
+                digestionParams: digestionParams,
+                oneBasedStartResidueInProtein: 7,
+                oneBasedEndResidueInProtein: 12,
+                cleavageSpecificity: CleavageSpecificity.Full,
+                peptideDescription: null,
+                missedCleavages: 1,
+                allModsOneIsNterminus: new Dictionary<int, Modification>(),
+                numFixedMods: 0,
+                baseSequence: "GHIMAK");
+
             Assert.That(wrappingPeptide.OneBasedStartResidueInProtein, Is.EqualTo(7));
             Assert.That(wrappingPeptide.OneBasedEndResidueInProtein, Is.EqualTo(12));
 
@@ -562,14 +569,14 @@ namespace Test
             Assert.That(frag_9_3.SecondaryFragmentNumber, Is.EqualTo(11), "[9,11]=IMA wraps");
 
             Assert.That(products.Where(p => p.SecondaryFragmentNumber > 10).ToList(),
-                Is.Not.Empty, "Wrapping peptide must produce wrap-around fragments");
+                Is.Not.Empty, "Wrapping peptide must produce wrap-around fragments.");
         }
 
         [Test]
         public static void FragmentInternally_WrappingSubPeptide_ProducesWrapAroundFragments()
         {
-            // Alias for EndExceedsN — exercises the same peptide with the same assertions
-            // but emphasises the positive assertion that wrap-around IS produced.
+            // Alias — exercises the same peptide, emphasising the positive assertion
+            // that wrap-around IS produced.
             FragmentInternally_WrappingSubPeptide_EndExceedsN();
         }
 
@@ -600,16 +607,29 @@ namespace Test
         {
             // Fragment [7,11] = G(7),H(8),I(9),M(10),A(1) from GHIMAK[7-12].
             // Mass = residue masses of G,H,I,M,A read clockwise from ring pos 7.
+            //
+            // Constructed directly — Digest() with maxMissedCleavages=1 on a ring with
+            // numCleavageSites=2 produces no CircularPeptideWithSetModifications.
+
             const string ringSeq = "AKDEFKGHIM";
             var protein = new CircularProtein(ringSeq, "wrap_mass_test");
 
-            var wrappingPeptide = protein
-                .Digest(new DigestionParams("trypsin", maxMissedCleavages: 1, minPeptideLength: 1),
-                    [], [])
-                .OfType<CircularPeptideWithSetModifications>()
-                .SingleOrDefault(p => p.BaseSequence == "GHIMAK");
+            var digestionParams = new DigestionParams(
+                protease: "trypsin",
+                maxMissedCleavages: 1,
+                minPeptideLength: 1);
 
-            Assume.That(wrappingPeptide, Is.Not.Null);
+            var wrappingPeptide = new CircularPeptideWithSetModifications(
+                protein: protein,
+                digestionParams: digestionParams,
+                oneBasedStartResidueInProtein: 7,
+                oneBasedEndResidueInProtein: 12,
+                cleavageSpecificity: CleavageSpecificity.Full,
+                peptideDescription: null,
+                missedCleavages: 1,
+                allModsOneIsNterminus: new Dictionary<int, Modification>(),
+                numFixedMods: 0,
+                baseSequence: "GHIMAK");
 
             var products = new List<Product>();
             wrappingPeptide.FragmentInternally(DissociationType.HCD, 3, products);
@@ -620,39 +640,43 @@ namespace Test
                 "[7,11]=GHIMA mass = G+H+I+M+A residue masses");
         }
 
-        // ══════════════════════════════════════════════════════════════════════
-        // NUMBERING — sub-peptide fragments use parent ring canonical positions
-        //
-        // Ring "ACDEKFGHIK" (N=10), K at positions 5 and 10.
-        // Two genuine cut sites → "ACDEK"[1-5] and "FGHIK"[6-10].
-        //
-        // NOTE: The ring must have K at BOTH position 5 AND position 10 (the
-        // last residue). With K only at position 5, position 1 is not a valid
-        // cut-derived start and "ACDEK" would be filtered as a proxy artifact.
-        // K at the last position makes position 1 valid (post-K[N] = position 1).
-        //
-        // "ACDEK"[1-5], canonicalOffset=1:
-        //   localStart | oneBasedStart | maxLength | fragments
-        //       0      |      1        |     4     | [1,3],[1,4],[1,5-1=4]  etc.
-        //       1      |      2        |     3     | [2,3],[2,4]
-        //       2      |      3        |     2     | [3,4]
-        //
-        // "FGHIK"[6-10], canonicalOffset=6:
-        //   localStart | oneBasedStart | maxLength | fragments
-        //       0      |      6        |     4     | [6,8],[6,9]
-        //       1      |      7        |     3     | [7,9]
-        //       2      |      8        |     2     | [8,9]
-        // ══════════════════════════════════════════════════════════════════════
-
         [Test]
         public static void FragmentInternally_SubPeptide_N5_MinLength2_CorrectCount()
         {
-            // "ACDEK"[1-5], length 5, minLength 2:
-            //   s=0: L=2,3,4 → 3;  s=1: L=2,3 → 2;  s=2: L=2 → 1;  s=3,4: 0
+            // "ACDEK" [1-5] from ring "ACDEKFGHIK" (N=10), length 5, minLength 2.
+            //
+            // Fragment count for peptideLength=5, minLength=2:
+            //   localStart=0: maxLength=4 → lengths 2,3,4 → 3 fragments
+            //   localStart=1: maxLength=3 → lengths 2,3   → 2 fragments
+            //   localStart=2: maxLength=2 → length  2      → 1 fragment
+            //   localStart=3: maxLength=1 < 2              → 0
+            //   localStart=4: maxLength=0 < 2              → 0
             //   Total = 6 fragments
-            var peptide = GetSubPeptide("ACDEKFGHIK", "ACDEK");
-            var products = new List<Product>();
+            //
+            // Note: CircularPeptideWithSetModifications for this span is constructed
+            // directly because Digest() with maxMissedCleavages=0 on a ring with two
+            // cleavage sites produces linear PeptideWithSetModifications, not circular.
 
+            var protein = new CircularProtein("ACDEKFGHIK", "test_acc");
+
+            var digestionParams = new DigestionParams(
+                protease: "trypsin",
+                maxMissedCleavages: 0,
+                minPeptideLength: 1);
+
+            var peptide = new CircularPeptideWithSetModifications(
+                protein: protein,
+                digestionParams: digestionParams,
+                oneBasedStartResidueInProtein: 1,
+                oneBasedEndResidueInProtein: 5,
+                cleavageSpecificity: CleavageSpecificity.Full,
+                peptideDescription: null,
+                missedCleavages: 0,
+                allModsOneIsNterminus: new Dictionary<int, Modification>(),
+                numFixedMods: 0,
+                baseSequence: "ACDEK");
+
+            var products = new List<Product>();
             peptide.FragmentInternally(DissociationType.HCD, 2, products);
 
             Assert.That(products, Has.Count.EqualTo(6));
@@ -661,10 +685,32 @@ namespace Test
         [Test]
         public static void FragmentInternally_SubPeptide_AtRingStart_NumberingIsCanonical()
         {
-            // "ACDEK"[1-5]: fragment numbers must be in parent ring coordinates.
-            var peptide = GetSubPeptide("ACDEKFGHIK", "ACDEK");
-            var products = new List<Product>();
+            // "ACDEK" [1-5] from ring "ACDEKFGHIK" (N=10).
+            // Fragment numbers must be in parent ring coordinates.
+            //
+            // Constructed directly — see FragmentInternally_SubPeptide_N5_MinLength2_CorrectCount
+            // for why GetSubPeptide() cannot be used here.
 
+            var protein = new CircularProtein("ACDEKFGHIK", "test_acc");
+
+            var digestionParams = new DigestionParams(
+                protease: "trypsin",
+                maxMissedCleavages: 0,
+                minPeptideLength: 1);
+
+            var peptide = new CircularPeptideWithSetModifications(
+                protein: protein,
+                digestionParams: digestionParams,
+                oneBasedStartResidueInProtein: 1,
+                oneBasedEndResidueInProtein: 5,
+                cleavageSpecificity: CleavageSpecificity.Full,
+                peptideDescription: null,
+                missedCleavages: 0,
+                allModsOneIsNterminus: new Dictionary<int, Modification>(),
+                numFixedMods: 0,
+                baseSequence: "ACDEK");
+
+            var products = new List<Product>();
             peptide.FragmentInternally(DissociationType.HCD, 3, products);
 
             var frag_1_3 = products.Single(p => p.FragmentNumber == 1 && p.ResiduePosition == 3);
@@ -680,10 +726,32 @@ namespace Test
         [Test]
         public static void FragmentInternally_SubPeptide_NotAtRingStart_NumberingIsCanonical()
         {
-            // "FGHIK"[6-10]: all fragment numbers must be ≥ 6 (parent ring coordinates).
-            var peptide = GetSubPeptide("ACDEKFGHIK", "FGHIK");
-            var products = new List<Product>();
+            // "FGHIK" [6-10] from ring "ACDEKFGHIK" (N=10).
+            // All fragment numbers must be ≥ 6 (parent ring coordinates).
+            //
+            // Constructed directly — see FragmentInternally_SubPeptide_N5_MinLength2_CorrectCount
+            // for why GetSubPeptide() cannot be used here.
 
+            var protein = new CircularProtein("ACDEKFGHIK", "test_acc");
+
+            var digestionParams = new DigestionParams(
+                protease: "trypsin",
+                maxMissedCleavages: 0,
+                minPeptideLength: 1);
+
+            var peptide = new CircularPeptideWithSetModifications(
+                protein: protein,
+                digestionParams: digestionParams,
+                oneBasedStartResidueInProtein: 6,
+                oneBasedEndResidueInProtein: 10,
+                cleavageSpecificity: CleavageSpecificity.Full,
+                peptideDescription: null,
+                missedCleavages: 0,
+                allModsOneIsNterminus: new Dictionary<int, Modification>(),
+                numFixedMods: 0,
+                baseSequence: "FGHIK");
+
+            var products = new List<Product>();
             peptide.FragmentInternally(DissociationType.HCD, 3, products);
 
             var frag_6_3 = products.Single(p => p.FragmentNumber == 6 && p.ResiduePosition == 3);
@@ -699,10 +767,32 @@ namespace Test
         [Test]
         public static void FragmentInternally_SubPeptide_NoFragmentsStartAtParentPosition1()
         {
-            // "FGHIK" starts at canonical position 6 — no fragment may start below 6.
-            var peptide = GetSubPeptide("ACDEKFGHIK", "FGHIK");
-            var products = new List<Product>();
+            // "FGHIK" [6-10] from ring "ACDEKFGHIK" (N=10).
+            // Starts at canonical position 6 — no fragment may have FragmentNumber < 6.
+            //
+            // Constructed directly — see FragmentInternally_SubPeptide_N5_MinLength2_CorrectCount
+            // for why GetSubPeptide() cannot be used here.
 
+            var protein = new CircularProtein("ACDEKFGHIK", "test_acc");
+
+            var digestionParams = new DigestionParams(
+                protease: "trypsin",
+                maxMissedCleavages: 0,
+                minPeptideLength: 1);
+
+            var peptide = new CircularPeptideWithSetModifications(
+                protein: protein,
+                digestionParams: digestionParams,
+                oneBasedStartResidueInProtein: 6,
+                oneBasedEndResidueInProtein: 10,
+                cleavageSpecificity: CleavageSpecificity.Full,
+                peptideDescription: null,
+                missedCleavages: 0,
+                allModsOneIsNterminus: new Dictionary<int, Modification>(),
+                numFixedMods: 0,
+                baseSequence: "FGHIK");
+
+            var products = new List<Product>();
             peptide.FragmentInternally(DissociationType.HCD, 2, products);
 
             Assert.That(products.All(p => p.FragmentNumber >= 6), Is.True);
@@ -711,11 +801,35 @@ namespace Test
         [Test]
         public static void FragmentInternally_SubPeptide_NeutralMass_MatchesResidueMassSum()
         {
-            // "FGHIK"[6-10]: masses must use parent ring residue masses.
-            const string ring = "ACDEKFGHIK";
-            var peptide = GetSubPeptide(ring, "FGHIK");
-            var products = new List<Product>();
+            // "FGHIK" [6-10] from ring "ACDEKFGHIK" (N=10).
+            // All fragment neutral masses must equal the sum of parent ring residue masses
+            // for the corresponding sub-sequence.
+            //
+            // Constructed directly — see FragmentInternally_SubPeptide_N5_MinLength2_CorrectCount
+            // for why GetSubPeptide() cannot be used here.
 
+            const string ring = "ACDEKFGHIK";
+
+            var protein = new CircularProtein(ring, "test_acc");
+
+            var digestionParams = new DigestionParams(
+                protease: "trypsin",
+                maxMissedCleavages: 0,
+                minPeptideLength: 1);
+
+            var peptide = new CircularPeptideWithSetModifications(
+                protein: protein,
+                digestionParams: digestionParams,
+                oneBasedStartResidueInProtein: 6,
+                oneBasedEndResidueInProtein: 10,
+                cleavageSpecificity: CleavageSpecificity.Full,
+                peptideDescription: null,
+                missedCleavages: 0,
+                allModsOneIsNterminus: new Dictionary<int, Modification>(),
+                numFixedMods: 0,
+                baseSequence: "FGHIK");
+
+            var products = new List<Product>();
             peptide.FragmentInternally(DissociationType.HCD, 3, products);
 
             foreach (var product in products)
@@ -727,40 +841,79 @@ namespace Test
             }
         }
 
-        // ══════════════════════════════════════════════════════════════════════
-        // SPAN RESTRICTION — sub-peptides cannot produce fragments outside their span
-        //
-        // Both cleavage sites that define a sub-peptide must lie within the
-        // sub-peptide's span. The maxLength bound enforces this.
-        // ══════════════════════════════════════════════════════════════════════
-
         [Test]
         public static void FragmentInternally_SubPeptide_NoFragmentExceedsSpan()
         {
-            // "ACDEK"[1-5]: no fragment end may reach position 5 (the K boundary).
+            // "ACDEK" [1-5] from ring "ACDEKFGHIK" (N=10).
+            // No fragment end may reach position 5 (the K boundary).
             // maxLength at localStart=0 is 4, so max end = 1+4-1 = 4 < 5. ✓
-            var peptide = GetSubPeptide("ACDEKFGHIK", "ACDEK");
-            var products = new List<Product>();
+            //
+            // Constructed directly — see FragmentInternally_SubPeptide_N5_MinLength2_CorrectCount
+            // for why GetSubPeptide() cannot be used here.
 
+            var protein = new CircularProtein("ACDEKFGHIK", "test_acc");
+
+            var digestionParams = new DigestionParams(
+                protease: "trypsin",
+                maxMissedCleavages: 0,
+                minPeptideLength: 1);
+
+            var peptide = new CircularPeptideWithSetModifications(
+                protein: protein,
+                digestionParams: digestionParams,
+                oneBasedStartResidueInProtein: 1,
+                oneBasedEndResidueInProtein: 5,
+                cleavageSpecificity: CleavageSpecificity.Full,
+                peptideDescription: null,
+                missedCleavages: 0,
+                allModsOneIsNterminus: new Dictionary<int, Modification>(),
+                numFixedMods: 0,
+                baseSequence: "ACDEK");
+
+            var products = new List<Product>();
             peptide.FragmentInternally(DissociationType.HCD, 2, products);
 
             Assert.That(products.All(p => p.SecondaryFragmentNumber < 5), Is.True,
-                "ACDEK[1-5]: SecondaryFragmentNumber must be < 5");
+                "ACDEK[1-5]: SecondaryFragmentNumber must be < 5.");
         }
 
         [Test]
         public static void FragmentInternally_SubPeptide_NoWrapAroundFragments()
         {
+            // "FGHIK" [6-10] from ring "ACDEKFGHIK" (N=10).
             // Sub-peptides (length < N) never produce wrap-around fragments.
             // Both cleavage sites lie within the ring, so no fragment can extend
             // beyond the C-terminal boundary of the sub-peptide.
-            var peptide = GetSubPeptide("ACDEKFGHIK", "FGHIK");
-            var products = new List<Product>();
+            //
+            // Max SecondaryFragmentNumber: localStart=0, length=4 → 6+4-1=9 ≤ N=10. ✓
+            //
+            // Constructed directly — see FragmentInternally_SubPeptide_N5_MinLength2_CorrectCount
+            // for why GetSubPeptide() cannot be used here.
 
+            var protein = new CircularProtein("ACDEKFGHIK", "test_acc");
+
+            var digestionParams = new DigestionParams(
+                protease: "trypsin",
+                maxMissedCleavages: 0,
+                minPeptideLength: 1);
+
+            var peptide = new CircularPeptideWithSetModifications(
+                protein: protein,
+                digestionParams: digestionParams,
+                oneBasedStartResidueInProtein: 6,
+                oneBasedEndResidueInProtein: 10,
+                cleavageSpecificity: CleavageSpecificity.Full,
+                peptideDescription: null,
+                missedCleavages: 0,
+                allModsOneIsNterminus: new Dictionary<int, Modification>(),
+                numFixedMods: 0,
+                baseSequence: "FGHIK");
+
+            var products = new List<Product>();
             peptide.FragmentInternally(DissociationType.HCD, 2, products);
 
             Assert.That(products.All(p => p.SecondaryFragmentNumber <= 10), Is.True,
-                "FGHIK[6-10]: SecondaryFragmentNumber must be ≤ N=10");
+                "FGHIK[6-10]: SecondaryFragmentNumber must be ≤ N=10.");
         }
 
         // ══════════════════════════════════════════════════════════════════════
