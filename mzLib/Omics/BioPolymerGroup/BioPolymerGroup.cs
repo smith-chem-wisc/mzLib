@@ -1,6 +1,5 @@
 ﻿using Easy.Common.Extensions;
 using MassSpectrometry;
-using MzLibUtil;
 using Omics.Modifications;
 using Omics.SpectralMatch;
 using System.Text;
@@ -48,8 +47,13 @@ namespace Omics.BioPolymerGroup
         /// including sequences shared with other groups.</param>
         /// <param name="uniqueBioPolymersWithSetMods">Sequences with modifications that are unique to this group
         /// and not shared with any other biopolymer group.</param>
+        /// <param name="groupType">Identifies the type of biopolymer in this group, which determines the modification
+        /// occupancy calculation strategy used by <see cref="PopulateSampleGroupResults"/>.
+        /// <see cref="BioPolymerGroupType.Protein"/> uses protein-level coordinates;
+        /// <see cref="BioPolymerGroupType.Peptide"/> and <see cref="BioPolymerGroupType.Oligo"/> use
+        /// digestion-product-local coordinates.</param>
         public BioPolymerGroup(HashSet<IBioPolymer> bioPolymers, HashSet<IBioPolymerWithSetMods> bioPolymersWithSetMods,
-            HashSet<IBioPolymerWithSetMods> uniqueBioPolymersWithSetMods)
+            HashSet<IBioPolymerWithSetMods> uniqueBioPolymersWithSetMods, BioPolymerGroupType groupType = BioPolymerGroupType.Protein)
         {
             BioPolymers = bioPolymers;
             ListOfBioPolymersOrderedByAccession = BioPolymers.OrderBy(p => p.Accession).ToList();
@@ -62,6 +66,7 @@ namespace Omics.BioPolymerGroup
             QValue = 0;
             IsDecoy = false;
             IsContaminant = false;
+            GroupType = groupType;
 
             // if any of the biopolymers in the group are decoys, the group is a decoy
             foreach (var bioPolymer in bioPolymers)
@@ -99,18 +104,36 @@ namespace Omics.BioPolymerGroup
         /// <summary>
         /// List of samples that contribute quantification data for this group.
         /// Supports both <see cref="SpectraFileInfo"/> (label-free) and <see cref="IsobaricQuantSampleInfo"/> (TMT/iTRAQ).
-        /// Setting this property will automatically invoke <see cref="PopulateSampleGroupResults"/>
-        /// when <see cref="IntensitiesBySample"/> is also non-null.
+        /// Setting this property invalidates <see cref="SampleGroupResults"/>, which will be 
+        /// re-populated on the next call to <see cref="GetTabSeparatedHeader"/> or <see cref="ToString"/>.
         /// </summary>
-        public List<ISampleInfo>? SamplesForQuantification { get; set; }
+        private List<ISampleInfo>? _samplesForQuantification;
+        public List<ISampleInfo>? SamplesForQuantification
+        {
+            get => _samplesForQuantification;
+            set
+            {
+                _samplesForQuantification = value;
+                SampleGroupResults = null;
+            }
+        }
 
         /// <summary>
         /// Dictionary mapping sample identifiers to measured intensity values for this group.
         /// Supports both <see cref="SpectraFileInfo"/> (label-free) and <see cref="IsobaricQuantSampleInfo"/> (TMT/iTRAQ) as keys.
-        /// Setting this property will automatically invoke <see cref="PopulateSampleGroupResults"/>
-        /// when <see cref="SamplesForQuantification"/> is also non-null.
+        /// Setting this property invalidates <see cref="SampleGroupResults"/>, which will be
+        /// re-populated on the next call to <see cref="GetTabSeparatedHeader"/> or <see cref="ToString"/>.
         /// </summary>
-        public Dictionary<ISampleInfo, double>? IntensitiesBySample { get; set; }
+        private Dictionary<ISampleInfo, double>? _intensitiesBySample;
+        public Dictionary<ISampleInfo, double>? IntensitiesBySample
+        {
+            get => _intensitiesBySample;
+            set
+            {
+                _intensitiesBySample = value;
+                SampleGroupResults = null;
+            }
+        }
 
         /// <summary>
         /// Set of all biopolymers (e.g., proteins, RNA sequences) that belong to this group.
@@ -149,8 +172,20 @@ namespace Omics.BioPolymerGroup
         /// All peptide-spectrum matches (PSMs) for this group that pass the 1% FDR threshold.
         /// Must be populated before calling <see cref="CalculateSequenceCoverage"/> or <see cref="Score"/>.
         /// Used for scoring, coverage calculation, and quantification.
+        /// Setting this property invalidates both <see cref="SampleGroupResults"/> and the cached
+        /// sequence coverage result.
         /// </summary>
-        public HashSet<ISpectralMatch> AllPsmsBelowOnePercentFDR { get; set; }
+        private HashSet<ISpectralMatch> _allPsmsBelowOnePercentFDR = null!;
+        public HashSet<ISpectralMatch> AllPsmsBelowOnePercentFDR
+        {
+            get => _allPsmsBelowOnePercentFDR;
+            set
+            {
+                _allPsmsBelowOnePercentFDR = value;
+                SampleGroupResults = null;
+                _coverageResult = null;
+            }
+        }
 
         /// <summary>
         /// The q-value for this biopolymer group, representing the minimum FDR at which 
@@ -214,7 +249,7 @@ namespace Omics.BioPolymerGroup
         /// <see cref="BioPolymerGroupType.Peptide"/> and <see cref="BioPolymerGroupType.Oligo"/> use
         /// digestion-product-local coordinates.
         /// </summary>
-        public BioPolymerGroupType GroupType { get; set; } = BioPolymerGroupType.Protein;
+        public BioPolymerGroupType GroupType { get; }
 
         /// <summary>
         /// Cached sequence coverage results from <see cref="CalculateSequenceCoverage"/>.
@@ -258,9 +293,9 @@ namespace Omics.BioPolymerGroup
             sb.Append("Fragment Sequence Coverage" + '\t');
 
             #region Quantification Header Building
-            if (SampleGroupResults.IsNullOrEmpty()) PopulateSampleGroupResults();
+            if (SampleGroupResults is null) PopulateSampleGroupResults();
 
-            foreach (var group in SampleGroupResults)
+            foreach (var group in SampleGroupResults!)
             {
                 sb.Append($"SpectralCount_{group.Label}\t");
                 if (group.HasIntensityData)
@@ -271,7 +306,7 @@ namespace Omics.BioPolymerGroup
             }
             #endregion
 
-        sb.Append("Number of PSMs" + '\t');
+            sb.Append("Number of PSMs" + '\t');
             sb.Append("BioPolymer Decoy/Contaminant/Target" + '\t');
             sb.Append("BioPolymer Cumulative Target" + '\t');
             sb.Append("BioPolymer Cumulative Decoy" + '\t');
@@ -361,22 +396,23 @@ namespace Omics.BioPolymerGroup
 
             #region Quantification Column Writing
             // Output per-group quantification and occupancy
-            if (SampleGroupResults.IsNullOrEmpty()) PopulateSampleGroupResults();
+            if (SampleGroupResults is null) PopulateSampleGroupResults();
 
             bool isProteinLevel = GroupType == BioPolymerGroupType.Protein;
-            IEnumerable<string> orderedKeys = isProteinLevel
-                ? ListOfBioPolymersOrderedByAccession.Select(p => p.Accession)
-                : AllBioPolymersWithSetMods.Select(p => p.BaseSequence).Distinct().OrderBy(s => s);
 
-            foreach (var group in SampleGroupResults)
+            List<string> orderedKeys = (isProteinLevel
+                ? ListOfBioPolymersOrderedByAccession.Select(p => p.Accession)
+                : AllBioPolymersWithSetMods.Select(p => p.BaseSequence).Distinct().OrderBy(s => s))
+                .ToList();
+
+            foreach (var group in SampleGroupResults!)
             {
                 sb.Append(group.SpectralCount);
                 sb.Append("\t");
 
                 if (group.HasIntensityData)
                 {
-                    if (group.Intensity > 0)
-                        sb.Append(group.Intensity);
+                    sb.Append(group.Intensity);
                     sb.Append("\t");
                 }
 
@@ -457,8 +493,10 @@ namespace Omics.BioPolymerGroup
         /// </summary>
         /// <remarks>
         /// Must be called after <see cref="AllPsmsBelowOnePercentFDR"/> has been populated.
-        /// Automatically invoked when both <see cref="SamplesForQuantification"/> and
-        /// <see cref="IntensitiesBySample"/> are set to non-null values.
+        /// Invoked on the next call to <see cref="GetTabSeparatedHeader"/> or
+        /// <see cref="ToString"/> whenever <see cref="SampleGroupResults"/> is null — which
+        /// occurs after construction or after setting <see cref="SamplesForQuantification"/>,
+        /// <see cref="IntensitiesBySample"/>, or <see cref="AllPsmsBelowOnePercentFDR"/>.
         /// </remarks>
         public void PopulateSampleGroupResults()
         {
@@ -696,6 +734,7 @@ namespace Omics.BioPolymerGroup
 
             // Invalidate cached coverage since PSMs changed
             _coverageResult = null;
+            SampleGroupResults = null;
         }
 
         /// <summary>
@@ -717,11 +756,15 @@ namespace Omics.BioPolymerGroup
             var allUniqueSequencesForThisFile =
                 new HashSet<IBioPolymerWithSetMods>(UniqueBioPolymersWithSetMods.Intersect(allSequencesForThisFile));
 
-            BioPolymerGroup subsetGroup = new BioPolymerGroup(BioPolymers, allSequencesForThisFile, allUniqueSequencesForThisFile)
+            // ConstructSubsetBioPolymerGroup passes it through the constructor instead of object initializer
+            BioPolymerGroup subsetGroup = new BioPolymerGroup(
+                BioPolymers,
+                allSequencesForThisFile,
+                allUniqueSequencesForThisFile,
+                GroupType)
             {
                 AllPsmsBelowOnePercentFDR = allPsmsForThisFile,
-                DisplayModsOnPeptides = DisplayModsOnPeptides,
-                GroupType = GroupType
+                DisplayModsOnPeptides = DisplayModsOnPeptides
             };
 
             if (SamplesForQuantification != null)
@@ -752,14 +795,14 @@ namespace Omics.BioPolymerGroup
         ///   <item><description><b>Fragment-level coverage:</b> Only residues with supporting fragment ion evidence 
         ///   are considered covered. Requires PSMs to implement <see cref="IHasSequenceCoverageFromFragments"/>.</description></item>
         /// </list>
-        /// 
         /// Display strings use uppercase letters for covered residues and lowercase for uncovered residues.
         /// </summary>
         /// <remarks>
-        /// This method should be called after <see cref="AllPsmsBelowOnePercentFDR"/> has been populated.
-        /// If PSMs do not implement <see cref="IHasSequenceCoverageFromFragments"/>, fragment-level coverage
-        /// will show all residues as uncovered (all lowercase).
-        /// Results are cached and used by <see cref="ToString"/> for output formatting.
+        /// Must be called after <see cref="AllPsmsBelowOnePercentFDR"/> has been populated.
+        /// If PSMs do not implement <see cref="IHasSequenceCoverageFromFragments"/>, fragment-level
+        /// coverage will show all residues as uncovered (all lowercase).
+        /// Results are cached and invalidated by <see cref="MergeWith"/> or reassignment of
+        /// <see cref="AllPsmsBelowOnePercentFDR"/>.
         /// </remarks>
         public void CalculateSequenceCoverage()
         {

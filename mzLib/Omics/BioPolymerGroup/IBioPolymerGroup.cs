@@ -110,7 +110,7 @@ namespace Omics.BioPolymerGroup
         /// protein-level coordinates; <see cref="BioPolymerGroupType.Peptide"/> and
         /// <see cref="BioPolymerGroupType.Oligo"/> use digestion-product-local coordinates.
         /// </summary>
-        BioPolymerGroupType GroupType { get; set; }
+        BioPolymerGroupType GroupType { get; }
 
         /// <summary>
         /// Cumulative count of target groups at or above this group's rank, used for FDR calculation.
