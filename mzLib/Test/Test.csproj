@@ -318,6 +318,9 @@
     <None Update="DataFiles\BinGenerationTest.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\d Tryp-SFYR MS2 CID35 plus2.mgf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="DataFiles\MS3_TMT11_Mouse_snip.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
