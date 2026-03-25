@@ -357,26 +357,26 @@ namespace Test
                     Is.EqualTo(circular.CyclicMonoisotopicMass).Within(1e-9));
             });
         }
-
         [Test]
         public static void Digest_TwoKs_MaxMissedCleavagesTwo_ProducesCorrectMixOfTypes()
         {
-            // "ACDEKFGHIK" has two K's at positions 5 and 10.
-            // maxMissedCleavages: 2 allows the linear engine to produce peptides
-            // with up to 2 internal missed cleavage sites.
+            // Ring "ACDEKFGHIK" (N=10): K at positions 5 and 10 → 2 cleavage sites.
+            // maxMissedCleavages: 2 >= numCleavageSites: 2
+            //   → CircularPeptideWithSetModifications IS emitted (Step 2, full ring intact).
             //
-            // Products:
-            //   0 cuts (two actual cuts in proxy → sub-peptides, length < N):
-            //     "ACDEK" [1-5]   → CircularPeptideWithSetModifications
-            //     "FGHIK" [6-10]  → CircularPeptideWithSetModifications
+            // Step 3 (proxy digestion, maxMissedCleavages=2) produces linear products:
+            //   0 missed cleavages (two cuts, length < N):
+            //     "ACDEK" [1-5]         → PeptideWithSetModifications
+            //     "FGHIK" [6-10]        → PeptideWithSetModifications
+            //   1 missed cleavage (one cut, length == N):
+            //     "ACDEKFGHIK" [1-10]   → PeptideWithSetModifications
+            //     "FGHIKACDEK" [6-15]   → PeptideWithSetModifications
+            //   2 missed cleavages: length 15 > N → discarded.
             //
-            //   1 cut (one actual cut → full-length linear, length == N):
-            //     "ACDEKFGHIK" [1-10]   → PeptideWithSetModifications  (cut at K10, MC=1 internal K5)
-            //     "FGHIKACDEK" [6-15]   → PeptideWithSetModifications  (cut at K5,  MC=1 internal K10)
-            //
-            // There is no "0 cut" CircularPeptideWithSetModifications of length N here
-            // because the proxy digestion always finds at least one cleavage site.
+            // Total: 1 circular + 4 linear = 5 products.
+
             var circular = new CircularProtein("ACDEKFGHIK", "acc_type2");
+
             var digestionParams = new DigestionParams(
                 protease: "trypsin",
                 maxMissedCleavages: 2,
@@ -386,21 +386,35 @@ namespace Test
                 .Cast<PeptideWithSetModifications>()
                 .ToList();
 
-            var linearProducts = peptides.Where(p => p is not CircularPeptideWithSetModifications).ToList();
             var circularProducts = peptides.OfType<CircularPeptideWithSetModifications>().ToList();
+            var linearProducts = peptides.Where(p => p is not CircularPeptideWithSetModifications).ToList();
+            var subPeptides = linearProducts.Where(p => p.Length < circular.Length).ToList();
+            var fullLengthLinear = linearProducts.Where(p => p.Length == circular.Length).ToList();
 
             Assert.Multiple(() =>
             {
-                // Sub-peptides: two cuts, length < N
-                Assert.That(circularProducts.Select(p => p.BaseSequence),
-                    Is.EquivalentTo(new[] { "ACDEK", "FGHIK" }));
-                Assert.That(circularProducts.All(p => p.Length < circular.Length), Is.True);
+                Assert.That(peptides, Has.Count.EqualTo(5));
 
-                // Linear ring-opening products: one cut, length == N
-                Assert.That(linearProducts.Select(p => p.BaseSequence),
+                // Circular product: full ring intact, length == N
+                Assert.That(circularProducts, Has.Count.EqualTo(1),
+                    "maxMissedCleavages (2) >= numCleavageSites (2): exactly one circular product.");
+                Assert.That(circularProducts[0].BaseSequence, Is.EqualTo("ACDEKFGHIK"));
+                Assert.That(circularProducts[0].Length, Is.EqualTo(circular.Length));
+
+                // Sub-peptides: two cuts, length < N, linear
+                Assert.That(subPeptides, Has.Count.EqualTo(2));
+                Assert.That(subPeptides.All(p => p is not CircularPeptideWithSetModifications), Is.True,
+                    "Sub-peptides (length < N) are linear PeptideWithSetModifications.");
+                Assert.That(subPeptides.Select(p => p.BaseSequence),
+                    Is.EquivalentTo(new[] { "ACDEK", "FGHIK" }));
+
+                // Full-length linear products: one cut, length == N
+                Assert.That(fullLengthLinear, Has.Count.EqualTo(2));
+                Assert.That(fullLengthLinear.All(p => p is not CircularPeptideWithSetModifications), Is.True,
+                    "Full-length linear products (one cut) are PeptideWithSetModifications.");
+                Assert.That(fullLengthLinear.Select(p => p.BaseSequence),
                     Is.EquivalentTo(new[] { "ACDEKFGHIK", "FGHIKACDEK" }));
-                Assert.That(linearProducts.All(p => p.Length == circular.Length), Is.True);
-                Assert.That(linearProducts.All(p => p is not CircularPeptideWithSetModifications), Is.True);
+                Assert.That(fullLengthLinear.All(p => p.Length == circular.Length), Is.True);
 
                 // All bound to the CircularProtein parent
                 Assert.That(peptides.All(p => ReferenceEquals(p.Protein, circular)), Is.True);
@@ -412,9 +426,17 @@ namespace Test
         {
             // Every peptide yielded by CircularProtein.Digest() — regardless of type —
             // must be bound to the originating CircularProtein as its parent.
-            // Sub-peptides (length < N) are CircularPeptideWithSetModifications.
-            // Full-length products (length == N) are linear PeptideWithSetModifications.
+            //
+            // Ring "ACDEKFGHIK" (N=10): K at positions 5 and 10 → 2 cleavage sites.
+            // maxMissedCleavages: 1 < numCleavageSites: 2 → NO CircularPeptideWithSetModifications.
+            // All products are linear PeptideWithSetModifications.
+            //
+            // Expected products (trypsin, maxMissedCleavages=1, minPeptideLength=1):
+            //   0 missed cleavages: ACDEK [1-5], FGHIK [6-10]           (length < N)
+            //   1 missed cleavage:  ACDEKFGHIK [1-10], FGHIKACDEK [6-15] (length == N)
+
             var circular = new CircularProtein("ACDEKFGHIK", "acc_type3");
+
             var digestionParams = new DigestionParams(
                 protease: "trypsin",
                 maxMissedCleavages: 1,
@@ -431,19 +453,23 @@ namespace Test
             {
                 Assert.That(peptides, Is.Not.Empty);
 
-                // Sub-peptides (two cuts) must be CircularPeptideWithSetModifications
-                Assert.That(subPeptides, Is.Not.Empty);
-                Assert.That(subPeptides.All(p => p is CircularPeptideWithSetModifications), Is.True,
-                    "Sub-peptides (length < N, two cuts) must be CircularPeptideWithSetModifications");
+                // No CircularPeptideWithSetModifications: maxMissedCleavages (1) < numCleavageSites (2)
+                Assert.That(peptides.All(p => p is not CircularPeptideWithSetModifications), Is.True,
+                    "maxMissedCleavages (1) < numCleavageSites (2): no circular product expected.");
 
-                // Full-length products (one cut) must be plain PeptideWithSetModifications
+                // Sub-peptides (length < N) are linear PeptideWithSetModifications — two cuts opened the ring
+                Assert.That(subPeptides, Is.Not.Empty);
+                Assert.That(subPeptides.All(p => p is not CircularPeptideWithSetModifications), Is.True,
+                    "Sub-peptides (length < N) are linear PeptideWithSetModifications, never circular.");
+
+                // Full-length products (length == N) are single-cut ring-opening linear products
                 Assert.That(fullLengthPeptides, Is.Not.Empty);
                 Assert.That(fullLengthPeptides.All(p => p is not CircularPeptideWithSetModifications), Is.True,
-                    "Full-length products (length == N, one cut) must be linear PeptideWithSetModifications");
+                    "Full-length products (length == N, one cut) are linear PeptideWithSetModifications.");
 
                 // All products are bound to the CircularProtein parent
                 Assert.That(peptides.All(p => ReferenceEquals(p.Protein, circular)), Is.True,
-                    "Every product from CircularProtein.Digest() must reference the CircularProtein parent");
+                    "Every product from CircularProtein.Digest() must reference the CircularProtein parent.");
             });
         }
 
@@ -452,13 +478,24 @@ namespace Test
         {
             // The CircularParent property of every CircularPeptideWithSetModifications
             // must reference the exact same CircularProtein instance that was digested.
-            // Linear ring-opening products (length == N) are PeptideWithSetModifications
-            // and do not have CircularParent, but their Protein property must also
-            // reference the same CircularProtein instance.
+            // Linear products (PeptideWithSetModifications) must also reference the same
+            // CircularProtein instance via their Protein property.
+            //
+            // Ring "ACDEKFGHIK" (N=10): K at positions 5 and 10 → 2 cleavage sites.
+            // maxMissedCleavages: 2 >= numCleavageSites: 2 → CircularPeptideWithSetModifications IS emitted.
+            //
+            // Expected products:
+            //   Circular: ACDEKFGHIK [1-10]          (maxMissedCleavages absorbs both sites)
+            //   Linear:   ACDEK [1-5]                (0 missed cleavages)
+            //   Linear:   FGHIK [6-10]               (0 missed cleavages)
+            //   Linear:   ACDEKFGHIK [1-10]          (1 missed cleavage, length == N)
+            //   Linear:   FGHIKACDEK [6-15]          (1 missed cleavage, wraps, length == N)
+
             var circular = new CircularProtein("ACDEKFGHIK", "acc_type4");
+
             var digestionParams = new DigestionParams(
                 protease: "trypsin",
-                maxMissedCleavages: 1,
+                maxMissedCleavages: 2,
                 minPeptideLength: 1);
 
             var peptides = circular.Digest(digestionParams, [], [])
@@ -473,14 +510,15 @@ namespace Test
                 Assert.That(peptides, Is.Not.Empty);
 
                 // CircularPeptideWithSetModifications: CircularParent must be this instance
-                Assert.That(circularPeptides, Is.Not.Empty);
+                Assert.That(circularPeptides, Is.Not.Empty,
+                    "maxMissedCleavages (2) >= numCleavageSites (2): circular product must be emitted.");
                 Assert.That(circularPeptides.All(p => ReferenceEquals(p.CircularParent, circular)), Is.True,
-                    "CircularParent must be the same instance as the digested CircularProtein");
+                    "CircularParent must be the same instance as the digested CircularProtein.");
 
-                // Linear ring-opening products: Protein must be this instance
+                // Linear products: Protein must be this instance
                 Assert.That(linearPeptides, Is.Not.Empty);
                 Assert.That(linearPeptides.All(p => ReferenceEquals(p.Protein, circular)), Is.True,
-                    "Linear ring-opening products must also reference the CircularProtein as their Protein");
+                    "All linear products must also reference the CircularProtein as their Protein.");
             });
         }
 
@@ -609,25 +647,36 @@ namespace Test
         }
 
         [Test]
-        public static void Digest_TwoLysines_ZeroMissedCleavages_ProducesOnlyCircularPeptides()
+        public static void Digest_TwoLysines_ZeroMissedCleavages_ProducesOnlyLinearSubPeptides()
         {
-            // Two cuts produce two sub-peptides — neither spans the full ring.
-            // Both must be CircularPeptideWithSetModifications (they retain circular identity).
+            // Ring "ACDEKFGHIK" (N=10): K at positions 5 and 10 → 2 cleavage sites.
+            // maxMissedCleavages: 0 < numCleavageSites: 2
+            //   → no CircularPeptideWithSetModifications emitted.
+            //   → two cuts produce two linear sub-peptides, both length < N.
+            //
+            // Sub-peptides are PeptideWithSetModifications — the ring has been opened
+            // and they are linear fragments with free termini. They are NOT circular.
+
             var circular = new CircularProtein("ACDEKFGHIK", "acc_linear4");
+
             var digestionParams = new DigestionParams(
                 protease: "trypsin",
                 maxMissedCleavages: 0,
                 minPeptideLength: 1);
 
             var peptides = circular.Digest(digestionParams, [], [])
-                .Cast<PeptideWithSetModifications>().ToList();
+                .Cast<PeptideWithSetModifications>()
+                .ToList();
 
             Assert.Multiple(() =>
             {
                 Assert.That(peptides, Has.Count.EqualTo(2));
-                Assert.That(peptides.All(p => p is CircularPeptideWithSetModifications), Is.True,
-                    "Sub-peptides from a circular digest must be CircularPeptideWithSetModifications");
-                Assert.That(peptides.All(p => p.Length < circular.Length), Is.True);
+
+                Assert.That(peptides.All(p => p is not CircularPeptideWithSetModifications), Is.True,
+                    "Sub-peptides from two cuts are linear PeptideWithSetModifications, not circular.");
+
+                Assert.That(peptides.All(p => p.Length < circular.Length), Is.True,
+                    "Both sub-peptides must be shorter than the full ring length N.");
             });
         }
 
@@ -689,18 +738,28 @@ namespace Test
 
         // ──────────────────────────────────────────────────────────────────────
         // One cut: exactly one cleavage site → PeptideWithSetModifications, length N
-        // Missed cleavages within the linear product do not change the cut count.
         // ──────────────────────────────────────────────────────────────────────
-
         [Test]
         public static void Digest_OneCut_YieldsLinearPeptideOfLengthN_KAtEnd()
         {
-            // K at position 9 (last). One cut → linear "ACDEFGHIK", start=1, end=9.
-            // maxMissedCleavages=1 makes no difference — still one cut was made.
+            // Ring "ACDEFGHIK" (N=9): K at position 9 (last residue) → 1 cleavage site.
+            //
+            // maxMissedCleavages: 0 < numCleavageSites: 1
+            //   → condition maxMissedCleavages >= numCleavageSites is NOT satisfied
+            //   → no CircularPeptideWithSetModifications emitted.
+            //
+            // The single cut opens the ring at K(9), producing one linear product:
+            //   "ACDEFGHIK" [1-9], length N, PeptideWithSetModifications.
+            //
+            // NOTE: maxMissedCleavages: 1 would satisfy 1 >= 1 and additionally emit
+            // a CircularPeptideWithSetModifications, giving 2 products total — not 1.
+            // maxMissedCleavages: 0 is required to isolate the single-cut linear product.
+
             var circular = new CircularProtein("ACDEFGHIK", "acc_cuts1a");
+
             var digestionParams = new DigestionParams(
                 protease: "trypsin",
-                maxMissedCleavages: 1,
+                maxMissedCleavages: 0,
                 minPeptideLength: 1);
 
             var peptides = circular.Digest(digestionParams, [], [])
@@ -710,14 +769,20 @@ namespace Test
             Assert.Multiple(() =>
             {
                 Assert.That(peptides, Has.Count.EqualTo(1),
-                    "One cleavage site produces exactly one linear product");
+                    "One cleavage site with maxMissedCleavages=0 produces exactly one linear product.");
+
                 Assert.That(peptides[0], Is.Not.InstanceOf<CircularPeptideWithSetModifications>(),
-                    "One cut → linear PeptideWithSetModifications");
-                Assert.That(peptides[0].Length, Is.EqualTo(circular.Length));
+                    "One cut → linear PeptideWithSetModifications, never circular.");
+
+                Assert.That(peptides[0].Length, Is.EqualTo(circular.Length),
+                    "The single-cut product spans the full ring: length == N.");
+
                 Assert.That(peptides[0].BaseSequence, Is.EqualTo("ACDEFGHIK"));
                 Assert.That(peptides[0].OneBasedStartResidueInProtein, Is.EqualTo(1));
                 Assert.That(peptides[0].OneBasedEndResidueInProtein, Is.EqualTo(9));
-                Assert.That(ReferenceEquals(peptides[0].Protein, circular), Is.True);
+
+                Assert.That(ReferenceEquals(peptides[0].Protein, circular), Is.True,
+                    "The linear product must reference the CircularProtein as its parent.");
             });
         }
 
@@ -754,17 +819,20 @@ namespace Test
                 Assert.That(ReferenceEquals(peptides[0].Protein, circular), Is.True);
             });
         }
-
         // ──────────────────────────────────────────────────────────────────────
-        // Two or more cuts: all products are PeptideWithSetModifications, length < N
+        // Two cuts (maxMissedCleavages=0): all products are linear
+        // PeptideWithSetModifications, length < N.
         // ──────────────────────────────────────────────────────────────────────
-
         [Test]
-        public static void Digest_TwoCuts_YieldsOnlySubPeptides_AllCircularType()
+        public static void Digest_TwoCuts_YieldsOnlySubPeptides_AllLinearType()
         {
-            // Two K's → two cuts → two sub-peptides, both length < N.
-            // Both are CircularPeptideWithSetModifications.
+            // Ring "ACDEFKGHIK" (N=10): K at positions 6 and 10 → 2 cleavage sites.
+            // maxMissedCleavages: 0 < numCleavageSites: 2
+            //   → no CircularPeptideWithSetModifications emitted.
+            //   → two cuts produce two linear sub-peptides, both length < N.
+
             var circular = new CircularProtein("ACDEFKGHIK", "acc_cuts2");
+
             var digestionParams = new DigestionParams(
                 protease: "trypsin",
                 maxMissedCleavages: 0,
@@ -777,10 +845,13 @@ namespace Test
             Assert.Multiple(() =>
             {
                 Assert.That(peptides, Has.Count.EqualTo(2));
+
                 Assert.That(peptides.All(p => p.Length < circular.Length), Is.True,
-                    "Two cuts → all products shorter than N");
-                Assert.That(peptides.All(p => p is CircularPeptideWithSetModifications), Is.True,
-                    "Two cuts → all products are CircularPeptideWithSetModifications");
+                    "Two cuts → all products shorter than N.");
+
+                Assert.That(peptides.All(p => p is not CircularPeptideWithSetModifications), Is.True,
+                    "Two cuts → all products are linear PeptideWithSetModifications, never circular.");
+
                 Assert.That(peptides.Select(p => p.BaseSequence),
                     Is.EquivalentTo(new[] { "ACDEFK", "GHIK" }));
             });
@@ -789,11 +860,21 @@ namespace Test
         [Test]
         public static void Digest_TwoCuts_WithMissedCleavages_LinearProductsAreStillLengthN()
         {
-            // Two K's with maxMissedCleavages=1 yields both sub-peptides (two cuts)
-            // AND full-length linear products (one cut each, internal K is the missed cleavage).
-            // Full-length products are PeptideWithSetModifications;
-            // sub-peptides are CircularPeptideWithSetModifications.
+            // Ring "ACDEFKGHIK" (N=10): K at positions 6 and 10 → 2 cleavage sites.
+            // maxMissedCleavages: 1 < numCleavageSites: 2
+            //   → no CircularPeptideWithSetModifications emitted.
+            //   → all products are linear PeptideWithSetModifications.
+            //
+            // Expected products:
+            //   0 missed cleavages (two cuts):
+            //     "ACDEFK"     [1-6]   length < N
+            //     "GHIK"       [7-10]  length < N
+            //   1 missed cleavage (one cut):
+            //     "ACDEFKGHIK" [1-10]  length == N  (cut after K@10, K@6 is the missed cleavage)
+            //     "GHIKACDEFK" [7-16]  length == N  (cut after K@6, K@10 is the missed cleavage)
+
             var circular = new CircularProtein("ACDEFKGHIK", "acc_cuts2mc");
+
             var digestionParams = new DigestionParams(
                 protease: "trypsin",
                 maxMissedCleavages: 1,
@@ -803,33 +884,39 @@ namespace Test
                 .Cast<PeptideWithSetModifications>()
                 .ToList();
 
-            var linear = peptides.Where(p => p is not CircularPeptideWithSetModifications).ToList();
-            var circular_ = peptides.OfType<CircularPeptideWithSetModifications>().ToList();
+            var subPeptides = peptides.Where(p => p.Length < circular.Length).ToList();
+            var fullLengthLinear = peptides.Where(p => p.Length == circular.Length).ToList();
 
             Assert.Multiple(() =>
             {
-                // Sub-peptides from two cuts
-                Assert.That(circular_, Has.Count.EqualTo(2));
-                Assert.That(circular_.All(p => p.Length < circular.Length), Is.True);
-                Assert.That(circular_.Select(p => p.BaseSequence),
+                // No circular product: maxMissedCleavages (1) < numCleavageSites (2)
+                Assert.That(peptides.All(p => p is not CircularPeptideWithSetModifications), Is.True,
+                    "maxMissedCleavages (1) < numCleavageSites (2): no circular product.");
+
+                // Sub-peptides from two cuts — linear, length < N
+                Assert.That(subPeptides, Has.Count.EqualTo(2));
+                Assert.That(subPeptides.All(p => p is not CircularPeptideWithSetModifications), Is.True,
+                    "Sub-peptides (length < N) are linear PeptideWithSetModifications.");
+                Assert.That(subPeptides.Select(p => p.BaseSequence),
                     Is.EquivalentTo(new[] { "ACDEFK", "GHIK" }));
 
-                // Full-length linear products from one cut each
-                Assert.That(linear, Has.Count.EqualTo(2));
-                Assert.That(linear.All(p => p.Length == circular.Length), Is.True);
-                Assert.That(linear.Select(p => p.BaseSequence),
+                // Full-length products from one cut — linear, length == N
+                Assert.That(fullLengthLinear, Has.Count.EqualTo(2));
+                Assert.That(fullLengthLinear.All(p => p is not CircularPeptideWithSetModifications), Is.True,
+                    "Full-length products (length == N, one cut) are linear PeptideWithSetModifications.");
+                Assert.That(fullLengthLinear.Select(p => p.BaseSequence),
                     Is.EquivalentTo(new[] { "ACDEFKGHIK", "GHIKACDEFK" }));
 
-                // Canonical numbering for linear products
-                var fromK10 = linear.Single(p => p.BaseSequence == "ACDEFKGHIK");
+                // Canonical numbering for full-length linear products
+                var fromK10 = fullLengthLinear.Single(p => p.BaseSequence == "ACDEFKGHIK");
                 Assert.That(fromK10.OneBasedStartResidueInProtein, Is.EqualTo(1));
                 Assert.That(fromK10.OneBasedEndResidueInProtein, Is.EqualTo(10));
 
-                var fromK6 = linear.Single(p => p.BaseSequence == "GHIKACDEFK");
+                var fromK6 = fullLengthLinear.Single(p => p.BaseSequence == "GHIKACDEFK");
                 Assert.That(fromK6.OneBasedStartResidueInProtein, Is.EqualTo(7));
                 Assert.That(fromK6.OneBasedEndResidueInProtein, Is.EqualTo(16));
 
-                // All bound to the CircularProtein parent
+                // All products are bound to the CircularProtein parent
                 Assert.That(peptides.All(p => ReferenceEquals(p.Protein, circular)), Is.True);
             });
         }

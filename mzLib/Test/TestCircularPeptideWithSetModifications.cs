@@ -118,6 +118,50 @@ namespace Test
                 .Single(p => p.BaseSequence == subSequence);
         }
 
+        [Test]
+        public static void Digest_RingWithCleavageSites_NeverReturnsCircularPeptideWithSetModifications()
+        {
+            // A ring with trypsin cleavage sites digested with maxMissedCleavages: 0
+            // has numCleavageSites > maxMissedCleavages, so the condition
+            // maxMissedCleavages >= numCleavageSites is NOT satisfied.
+            // Therefore Digest() must never emit a CircularPeptideWithSetModifications.
+            // All products are linear PeptideWithSetModifications.
+            //
+            // This test documents that the old GetSubPeptide() helper was incorrect:
+            // it called .OfType<CircularPeptideWithSetModifications>() on a ring with
+            // cleavage sites, which always returns empty after the Digest() fix.
+
+            const string ringSequence = "ACDEKFGHIK"; // K at positions 5 and 10
+            var protein = new CircularProtein(ringSequence, "test_acc");
+
+            var digestionParams = new DigestionParams(
+                protease: "trypsin",
+                maxMissedCleavages: 0,
+                minPeptideLength: 1);
+
+            var allProducts = protein
+                .Digest(digestionParams, new List<Modification>(), new List<Modification>())
+                .ToList();
+
+            var circularProducts = allProducts
+                .OfType<CircularPeptideWithSetModifications>()
+                .ToList();
+
+            Assert.That(circularProducts, Is.Empty,
+                "A ring with cleavage sites and maxMissedCleavages: 0 must never " +
+                "produce a CircularPeptideWithSetModifications.");
+
+            var linearProducts = allProducts
+                .OfType<PeptideWithSetModifications>()
+                .Where(p => p is not CircularPeptideWithSetModifications)
+                .ToList();
+
+            Assert.That(linearProducts, Is.Not.Empty,
+                "All products must be linear PeptideWithSetModifications.");
+        }
+
+
+
         // ══════════════════════════════════════════════════════════════════════
         // DIGESTION — modification renumbering
         //

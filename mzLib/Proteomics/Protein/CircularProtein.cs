@@ -134,89 +134,31 @@ namespace Proteomics
         {
             int n = Length;
 
-            // Identify the 1-based positions of all cleavage sites in the
-            // canonical ring. A cleavage site at position p means the protease
-            // cuts after residue p, so genuine sub-peptides and ring-opening
-            // products always start at position p+1 (mod N, 1-based).
-            // Products that start at position 1 are only genuine if position N
-            // (the last residue) is itself a cleavage site.
+            // ── Step 1: Identify cleavage sites in the ring ───────────────────
+            //
+            // Find all 1-based positions in the canonical ring at which the
+            // protease cuts after that residue.
             var cleavagePositions = GetCleavagePositionsInRing(digestionParams);
+            int numCleavageSites = cleavagePositions.Count;
+            int maxMissedCleavages = ((DigestionParams)digestionParams).MaxMissedCleavages;
 
-            // Valid start positions for genuine cut products: one position after
-            // each cleavage site, in 1-based canonical ring coordinates.
-            // These are the only positions at which a cut can open a new fragment.
-            var validStartPositions = new HashSet<int>(
-                cleavagePositions.Select(p => p == n ? 1 : p + 1));
-
-            var proxyProtein = new Protein(this, BaseSequence + BaseSequence[..^1]);
-            var proxyPeptides = proxyProtein.Digest(digestionParams,
-                allKnownFixedModifications, variableModifications,
-                silacLabels, turnoverLabels, topDownTruncationSearch);
-
-            var seen = new HashSet<string>();
-            bool anyYielded = false;
-
-            foreach (var peptide in proxyPeptides)
+            // ── Step 2: Emit the CircularPeptideWithSetModifications (1:1) ────
+            //
+            // The CircularPeptideWithSetModifications is ALWAYS a direct 1:1
+            // conversion of the CircularProtein — the whole ring, intact.
+            // It is NEVER produced by cutting: not even a single cut.
+            // It is emitted here, independently of the proxy digestion below.
+            //
+            // It is only possible when the missed-cleavage budget is large enough
+            // to absorb every cleavage site in the ring, meaning the entire ring
+            // is one un-cut cyclic segment with no free N- or C-termini.
+            //
+            // A CircularPeptideWithSetModifications is ALWAYS length N.
+            // It is NEVER shorter than N and NEVER starts at any position other
+            // than position 1 (the canonical origin).
+            if (maxMissedCleavages >= numCleavageSites)
             {
-                if (peptide is not PeptideWithSetModifications pwsm)
-                {
-                    yield return peptide;
-                    anyYielded = true;
-                    continue;
-                }
-
-                if (pwsm.Length > n || pwsm.OneBasedStartResidueInProtein > n)
-                    continue;
-
-                // Only accept products whose start position corresponds to a
-                // genuine cut site in the canonical ring. This excludes proxy
-                // boundary artifacts (products starting at the proxy N-terminus
-                // when that position is not itself after a cleavage residue).
-                int canonicalStart = pwsm.OneBasedStartResidueInProtein <= n
-                    ? pwsm.OneBasedStartResidueInProtein
-                    : pwsm.OneBasedStartResidueInProtein - n;
-
-                if (!validStartPositions.Contains(canonicalStart))
-                    continue;
-
-                if (!seen.Add(pwsm.FullSequence))
-                    continue;
-
-                anyYielded = true;
-
-                if (pwsm.Length == n)
-                {
-                    yield return new PeptideWithSetModifications(
-                        protein: this,
-                        digestionParams: pwsm.DigestionParams,
-                        oneBasedStartResidueInProtein: pwsm.OneBasedStartResidueInProtein,
-                        oneBasedEndResidueInProtein: pwsm.OneBasedEndResidueInProtein,
-                        cleavageSpecificity: pwsm.CleavageSpecificityForFdrCategory,
-                        peptideDescription: pwsm.PeptideDescription,
-                        missedCleavages: pwsm.MissedCleavages,
-                        allModsOneIsNterminus: pwsm.AllModsOneIsNterminus,
-                        numFixedMods: pwsm.NumFixedMods,
-                        baseSequence: pwsm.BaseSequence);
-                }
-                else
-                {
-                    yield return new CircularPeptideWithSetModifications(
-                        protein: this,
-                        digestionParams: pwsm.DigestionParams,
-                        oneBasedStartResidueInProtein: pwsm.OneBasedStartResidueInProtein,
-                        oneBasedEndResidueInProtein: pwsm.OneBasedEndResidueInProtein,
-                        cleavageSpecificity: pwsm.CleavageSpecificityForFdrCategory,
-                        peptideDescription: pwsm.PeptideDescription,
-                        missedCleavages: pwsm.MissedCleavages,
-                        allModsOneIsNterminus: pwsm.AllModsOneIsNterminus,
-                        numFixedMods: pwsm.NumFixedMods,
-                        baseSequence: pwsm.BaseSequence);
-                }
-            }
-
-            if (!anyYielded)
-            {
-                // Unmodified full-ring peptide — always produced
+                // Unmodified full-ring product — always emitted when the budget allows.
                 yield return new CircularPeptideWithSetModifications(
                     protein: this,
                     digestionParams: digestionParams,
@@ -224,18 +166,26 @@ namespace Proteomics
                     oneBasedEndResidueInProtein: n,
                     cleavageSpecificity: CleavageSpecificity.Full,
                     peptideDescription: null,
-                    missedCleavages: 0,
+                    missedCleavages: numCleavageSites,
                     allModsOneIsNterminus: new Dictionary<int, Modification>(),
                     numFixedMods: 0,
                     baseSequence: BaseSequence);
 
-                // For each variable modification with LocationRestriction "Anywhere.",
-                // scan the canonical sequence for matching residues and yield one
-                // modified full-ring peptide per match site.
-                // N-terminal and C-terminal restrictions are excluded — circular
-                // peptides have no termini.
-                if (variableModifications != null)
+                // Variable-modified full-ring products.
+                // Circular peptides have no N- or C-termini, so only
+                // "Anywhere." modifications are applicable.
+                //
+                // We enumerate all combinations of up to MaxMods modifications
+                // across all matching (key, mod) pairs, mirroring the combinatorial
+                // enumeration that linear peptide digestion performs.
+                // MaxMods == 0 means no modified forms are produced.
+                if (variableModifications != null && maxMissedCleavages >= numCleavageSites)
                 {
+                    // Build the list of all (key, mod) pairs that fit this ring.
+                    // Key convention: side-chain at 1-based position pos → key = pos + 1.
+                    // Circular peptides have no termini, so N-term (key=1) and
+                    // C-term (key=n+2) restrictions are excluded.
+                    var applicableSites = new List<(int Key, Modification Mod)>();
                     foreach (var mod in variableModifications)
                     {
                         if (mod.LocationRestriction != "Anywhere.") continue;
@@ -249,26 +199,152 @@ namespace Proteomics
                                     digestionProductLength: n,
                                     bioPolymerOneBasedIndex: pos))
                             {
-                                int modKey = pos + 1;
-                                var modDict = new Dictionary<int, Modification> { [modKey] = mod };
-
-                                yield return new CircularPeptideWithSetModifications(
-                                    protein: this,
-                                    digestionParams: digestionParams,
-                                    oneBasedStartResidueInProtein: 1,
-                                    oneBasedEndResidueInProtein: n,
-                                    cleavageSpecificity: CleavageSpecificity.Full,
-                                    peptideDescription: null,
-                                    missedCleavages: 0,
-                                    allModsOneIsNterminus: modDict,
-                                    numFixedMods: 0,
-                                    baseSequence: BaseSequence);
+                                applicableSites.Add((pos + 1, mod));
                             }
                         }
+                    }
+
+                    // Enumerate all subsets of applicableSites of size 1..MaxMods.
+                    // Each subset where all keys are distinct produces one modified peptide.
+                    // (Two mods at the same site are excluded — one mod per residue.)
+                    int maxMods = ((DigestionParams)digestionParams).MaxMods;
+                    foreach (var subset in GetModSubsets(applicableSites, maxMods))
+                    {
+                        yield return new CircularPeptideWithSetModifications(
+                            protein: this,
+                            digestionParams: digestionParams,
+                            oneBasedStartResidueInProtein: 1,
+                            oneBasedEndResidueInProtein: n,
+                            cleavageSpecificity: CleavageSpecificity.Full,
+                            peptideDescription: null,
+                            missedCleavages: numCleavageSites,
+                            allModsOneIsNterminus: subset,
+                            numFixedMods: 0,
+                            baseSequence: BaseSequence);
                     }
                 }
             }
 
+            // ── Step 3: Emit linear PeptideWithSetModifications products ──────
+            //
+            // All linear products come from the proxy digestion of a doubled
+            // sequence (BaseSequence + BaseSequence[..^1], length 2N-1), which
+            // allows the linear digestion engine to discover wrap-around fragments.
+            //
+            // CRITICAL: Every product from the proxy digestion is ALWAYS a
+            // PeptideWithSetModifications — linear, with free termini.
+            // The CircularPeptideWithSetModifications was emitted above and must
+            // NEVER be produced from the proxy.
+            //
+            // There are two sub-cases, both yielding PeptideWithSetModifications:
+            //
+            //   Single cut (Length == N):
+            //     The ring was opened at exactly one cleavage site. The product
+            //     spans the full canonical sequence and has the same length N as
+            //     the circular product, but it is a completely different object:
+            //     it has free N- and C-termini and carries the standard +H2O mass.
+            //     Do NOT conflate length equality with type equality.
+            //
+            //   Two or more cuts (Length < N):
+            //     The ring was opened and sub-divided. Always linear, always < N.
+            if (numCleavageSites == 0)
+                yield break; // No cuts possible; only the circular product exists.
+
+            // Valid start positions: one position after each cleavage site in
+            // 1-based canonical ring coordinates.
+            var validStartPositions = new HashSet<int>(
+                cleavagePositions.Select(p => p == n ? 1 : p + 1));
+
+            var proxyProtein = new Protein(this, BaseSequence + BaseSequence[..^1]);
+            var proxyPeptides = proxyProtein.Digest(digestionParams,
+                allKnownFixedModifications, variableModifications,
+                silacLabels, turnoverLabels, topDownTruncationSearch);
+
+            var seen = new HashSet<string>();
+
+            foreach (var peptide in proxyPeptides)
+            {
+                if (peptide is not PeptideWithSetModifications pwsm)
+                    continue; // Non-linear proxy products are not expected; skip.
+
+                // Discard fragments longer than N, or starting in the second copy
+                // of the proxy (those duplicate first-copy fragments).
+                if (pwsm.Length > n || pwsm.OneBasedStartResidueInProtein > n)
+                    continue;
+
+                // Discard proxy artifacts not starting at a genuine cut boundary.
+                if (!validStartPositions.Contains(pwsm.OneBasedStartResidueInProtein))
+                    continue;
+
+                // Deduplicate by full sequence.
+                if (!seen.Add(pwsm.FullSequence))
+                    continue;
+
+                // Every proxy product is linear — length N (single-cut) or < N (multi-cut).
+                // Neither case is ever a CircularPeptideWithSetModifications.
+                yield return new PeptideWithSetModifications(
+                    protein: this,
+                    digestionParams: pwsm.DigestionParams,
+                    oneBasedStartResidueInProtein: pwsm.OneBasedStartResidueInProtein,
+                    oneBasedEndResidueInProtein: pwsm.OneBasedEndResidueInProtein,
+                    cleavageSpecificity: pwsm.CleavageSpecificityForFdrCategory,
+                    peptideDescription: pwsm.PeptideDescription,
+                    missedCleavages: pwsm.MissedCleavages,
+                    allModsOneIsNterminus: pwsm.AllModsOneIsNterminus,
+                    numFixedMods: pwsm.NumFixedMods,
+                    baseSequence: pwsm.BaseSequence);
+            }
+        }
+
+        /// <summary>
+        /// Yields all non-empty subsets of <paramref name="sites"/> of size at most
+        /// <paramref name="maxMods"/>, where every key in the subset is distinct
+        /// (one modification per residue). Each subset is returned as a
+        /// <see cref="Dictionary{TKey,TValue}"/> ready for use as
+        /// <c>AllModsOneIsNterminus</c>.
+        /// </summary>
+        private static IEnumerable<Dictionary<int, Modification>> GetModSubsets(
+            List<(int Key, Modification Mod)> sites,
+            int maxMods)
+        {
+            if (maxMods <= 0 || sites.Count == 0)
+                yield break;
+
+            // Enumerate subsets via recursive backtracking.
+            var current = new Dictionary<int, Modification>();
+
+            foreach (var subset in Backtrack(sites, 0, current, maxMods))
+                yield return subset;
+        }
+
+        private static IEnumerable<Dictionary<int, Modification>> Backtrack(
+            List<(int Key, Modification Mod)> sites,
+            int startIndex,
+            Dictionary<int, Modification> current,
+            int maxMods)
+        {
+            // Yield a copy of the current non-empty subset.
+            if (current.Count > 0)
+                yield return new Dictionary<int, Modification>(current);
+
+            if (current.Count == maxMods)
+                yield break;
+
+            for (int i = startIndex; i < sites.Count; i++)
+            {
+                var (key, mod) = sites[i];
+
+                // Skip if this residue already has a mod in the current subset.
+                if (current.ContainsKey(key))
+                    continue;
+
+                current[key] = mod;
+
+                foreach (var subset in Backtrack(sites, i + 1, current, maxMods))
+                    yield return subset;
+
+                current.Remove(key);
+            }
         }
 
         private HashSet<int> GetCleavagePositionsInRing(IDigestionParams digestionParams)
