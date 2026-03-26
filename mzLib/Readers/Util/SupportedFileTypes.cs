@@ -33,7 +33,9 @@ namespace Readers
         ExperimentAnnotation,
         BrukerD,
         BrukerTimsTof,
-        CasanovoMzTab
+        CasanovoMzTab,
+        FdrBenchPeptide,
+        FdrBenchProtein
     }
 
     public static class SupportedFileTypeExtensions
@@ -77,6 +79,8 @@ namespace Readers
                 SupportedFileType.CruxResult => ".txt",
                 SupportedFileType.ExperimentAnnotation => "experiment_annotation.tsv",
                 SupportedFileType.CasanovoMzTab => ".mztab",
+                SupportedFileType.FdrBenchPeptide => "_fdrbench_peptide.tsv",
+                SupportedFileType.FdrBenchProtein => "_fdrbench_protein.tsv",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -146,6 +150,11 @@ namespace Readers
                         return SupportedFileType.ExperimentAnnotation;
                     if(filePath.EndsWith(SupportedFileType.Tsv_Dinosaur.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Tsv_Dinosaur;
+
+                    if (filePath.EndsWith(SupportedFileType.FdrBenchPeptide.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.FdrBenchPeptide;
+                    if (filePath.EndsWith(SupportedFileType.FdrBenchProtein.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.FdrBenchProtein;
 
                         // these tsv cases are just .tsv and need an extra step to determine the type
                         // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
@@ -227,6 +236,8 @@ namespace Readers
                 SupportedFileType.Ms1Align => typeof(MsDataFileToResultFileAdapter),
                 SupportedFileType.Ms2Align => typeof(MsDataFileToResultFileAdapter),
                 SupportedFileType.CasanovoMzTab => typeof(CasanovoMzTabFile),
+                SupportedFileType.FdrBenchPeptide => typeof(FdrBenchPeptideFile),
+                SupportedFileType.FdrBenchProtein => typeof(FdrBenchProteinFile),
                 _ => throw new MzLibException("File type not supported")
             };
         }
