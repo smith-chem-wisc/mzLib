@@ -45,6 +45,8 @@ namespace Test.FileReadingTests
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\Ms1Align_FlashDeconvOpenMs3.0.0_ms1.msalign", SupportedFileType.Ms1Align);
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\Ms2Align_FlashDeconvOpenMs3.0.0_ms2.msalign", SupportedFileType.Ms2Align);
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\Casanovo_5.0.0.mztab", SupportedFileType.CasanovoMzTab);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\peptides_fdrbench_peptide.tsv", SupportedFileType.FdrBenchPeptide);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\peptides_fdrbench_protein.tsv", SupportedFileType.FdrBenchProtein);
         }
 
         private static IEnumerable<SupportedFileType> EnumTestCases() => Enum.GetValues<SupportedFileType>();

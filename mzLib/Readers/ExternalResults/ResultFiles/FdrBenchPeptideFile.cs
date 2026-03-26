@@ -1,5 +1,6 @@
 using CsvHelper;
 using System.IO;
+using System.Linq;
 
 namespace Readers;
 
@@ -19,7 +20,9 @@ public class FdrBenchPeptideFile : ResultFile<FdrBenchPeptide>
 
     public override void LoadResults()
     {
-        throw new NotSupportedException("FDRBench peptide exports are write-only.");
+        using var reader = new StreamReader(FilePath);
+        using var csv = new CsvReader(reader, FdrBenchPeptide.CsvConfiguration);
+        Results = csv.GetRecords<FdrBenchPeptide>().ToList();
     }
 
     public override void WriteResults(string outputPath)

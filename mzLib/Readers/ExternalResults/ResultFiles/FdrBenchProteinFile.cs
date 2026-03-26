@@ -1,5 +1,6 @@
 using CsvHelper;
 using System.IO;
+using System.Linq;
 
 namespace Readers;
 
@@ -19,7 +20,9 @@ public class FdrBenchProteinFile : ResultFile<FdrBenchProtein>
 
     public override void LoadResults()
     {
-        throw new NotSupportedException("FDRBench protein exports are write-only.");
+        using var reader = new StreamReader(FilePath);
+        using var csv = new CsvReader(reader, FdrBenchProtein.CsvConfiguration);
+        Results = csv.GetRecords<FdrBenchProtein>().ToList();
     }
 
     public override void WriteResults(string outputPath)
