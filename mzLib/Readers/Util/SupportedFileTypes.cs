@@ -122,6 +122,10 @@ namespace Readers
                 case ".tsv":
                 {
                     // these tsv cases have a specialized ending before the .tsv
+                    if (filePath.EndsWith(SupportedFileType.FdrBenchPeptide.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                            return SupportedFileType.FdrBenchPeptide;
+                    if (filePath.EndsWith(SupportedFileType.FdrBenchProtein.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.FdrBenchProtein;
                     if (filePath.EndsWith(SupportedFileType.Ms1Tsv_FlashDeconv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms1Tsv_FlashDeconv;
                     if (filePath.EndsWith(SupportedFileType.ToppicPrsm.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
@@ -151,14 +155,10 @@ namespace Readers
                     if(filePath.EndsWith(SupportedFileType.Tsv_Dinosaur.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Tsv_Dinosaur;
 
-                    if (filePath.EndsWith(SupportedFileType.FdrBenchPeptide.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
-                        return SupportedFileType.FdrBenchPeptide;
-                    if (filePath.EndsWith(SupportedFileType.FdrBenchProtein.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
-                        return SupportedFileType.FdrBenchProtein;
 
-                        // these tsv cases are just .tsv and need an extra step to determine the type
-                        // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
-                        using var sw = new StreamReader(filePath);
+                    // these tsv cases are just .tsv and need an extra step to determine the type
+                    // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
+                    using var sw = new StreamReader(filePath);
                     var firstLine = sw.ReadLine() ?? "";
                     if (firstLine == "") throw new MzLibException("Tsv file is empty");
 
