@@ -16,7 +16,7 @@ public class TestFdrBenchResultFiles
     [Test]
     public void CanReadFdrBenchPeptideFile()
     {
-        var filePath = GetTestFile("FileReadingTests/ExternalFileTypes/peptides_fdrbench_peptide.tsv");
+        var filePath = GetTestFile("FileReadingTests/ExternalFileTypes/data_fdrbench_peptide.tsv");
         var peptideFile = new FdrBenchPeptideFile(filePath);
         var results = peptideFile.Results;
 
@@ -39,7 +39,7 @@ public class TestFdrBenchResultFiles
     [Test]
     public void CanReadFdrBenchProteinFile()
     {
-        var filePath = GetTestFile("FileReadingTests/ExternalFileTypes/peptides_fdrbench_protein.tsv");
+        var filePath = GetTestFile("FileReadingTests/ExternalFileTypes/data_fdrbench_protein.tsv");
         var proteinFile = new FdrBenchProteinFile(filePath);
         var results = proteinFile.Results;
 
@@ -57,7 +57,7 @@ public class TestFdrBenchResultFiles
     [Test]
     public void WritingPeptideRecordsProducesEquivalentFile()
     {
-        var sourcePath = GetTestFile("FileReadingTests/ExternalFileTypes/peptides_fdrbench_peptide.tsv");
+        var sourcePath = GetTestFile("FileReadingTests/ExternalFileTypes/data_fdrbench_peptide.tsv");
         var sourceRecords = new FdrBenchPeptideFile(sourcePath).Results
             .Select(ClonePeptide)
             .ToList();
@@ -86,7 +86,7 @@ public class TestFdrBenchResultFiles
     [Test]
     public void WritingProteinRecordsProducesEquivalentFile()
     {
-        var sourcePath = GetTestFile("FileReadingTests/ExternalFileTypes/peptides_fdrbench_protein.tsv");
+        var sourcePath = GetTestFile("FileReadingTests/ExternalFileTypes/data_fdrbench_protein.tsv");
         var sourceRecords = new FdrBenchProteinFile(sourcePath).Results
             .Select(CloneProtein)
             .ToList();
