@@ -598,7 +598,7 @@ namespace Test.DatabaseTests
                 { 3, new List<Modification>() { meOnR } }
             };
 
-            Protein p = new Protein("KKR", "accession", null, null, obm, null, null, null, false, false, null, null, null, null);
+            Protein p = new Protein("KKR", "accession", null, null, obm, null, null, null, false, false, null, null, null);
             List<Protein> pList = new List<Protein>() { p };
 
             string outputFileName = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"redundant.xml");

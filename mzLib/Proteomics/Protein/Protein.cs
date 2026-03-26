@@ -33,6 +33,7 @@ namespace Proteomics
         /// <param name="fullName"></param>
         /// <param name="isDecoy"></param>
         /// <param name="isContaminant"></param>
+        /// <param name="isEntrapment"></param>
         /// <param name="databaseReferences"></param>
         /// <param name="sequenceVariations"></param>
         /// <param name="disulfideBonds"></param>
@@ -40,11 +41,12 @@ namespace Proteomics
         /// <param name="databaseFilePath"></param>
         public Protein(string sequence, string accession, string organism = null, List<Tuple<string, string>> geneNames = null,
             IDictionary<int, List<Modification>> oneBasedModifications = null, List<TruncationProduct> proteolysisProducts = null,
-            string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null,
+            string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false,
+            List<DatabaseReference> databaseReferences = null,
             List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
             List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false, 
             string dataset = "unknown", string created = "unknown", string modified = "unknown", string version = "unknown", string xmlns = "http://uniprot.org/uniprot",
-            UniProtSequenceAttributes uniProtSequenceAttributes = null)
+            UniProtSequenceAttributes uniProtSequenceAttributes = null, bool isEntrapment = false)
         {
             BaseSequence = sequence;
             NonVariantProtein = this;
@@ -55,6 +57,7 @@ namespace Proteomics
             FullName = fullName;
             IsDecoy = isDecoy;
             IsContaminant = isContaminant;
+            IsEntrapment = isEntrapment;
             DatabaseFilePath = databaseFilePath;
             SampleNameForVariants = sampleNameForVariants;
 
@@ -104,6 +107,7 @@ namespace Proteomics
             FullName = originalProtein.FullName;
             IsDecoy = originalProtein.IsDecoy;
             IsContaminant = originalProtein.IsContaminant;
+            IsEntrapment = originalProtein.IsEntrapment;
             DatabaseFilePath = originalProtein.DatabaseFilePath;
             SampleNameForVariants = originalProtein.SampleNameForVariants;
             GeneNames = originalProtein.GeneNames;
@@ -146,6 +150,7 @@ namespace Proteomics
                   fullName: VariantApplication.GetVariantName(protein.FullName, appliedSequenceVariations), 
                   isDecoy: protein.IsDecoy,
                   isContaminant: protein.IsContaminant,
+                  isEntrapment: protein.IsEntrapment,
                   databaseReferences: new List<DatabaseReference>(protein.DatabaseReferences),
                   sequenceVariations: new List<SequenceVariation>(protein.SequenceVariations),
                   disulfideBonds: new List<DisulfideBond>(protein.DisulfideBonds),
@@ -191,6 +196,7 @@ namespace Proteomics
         public string Name { get; }
         public string FullName { get; }
         public bool IsContaminant { get; }
+        public bool IsEntrapment { get; }
         public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
         #region Database Handling and XML Parsed Fields

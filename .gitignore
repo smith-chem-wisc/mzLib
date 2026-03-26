@@ -250,7 +250,8 @@ ModelManifest.xml
 # Macintosh files
 **/.DS_Store
 
-/AGENTS.md
-/.opencode/
-/.claude/
+/.claude
+/.opencode
 /.serena
+/.opencode/config/coverage.json
+/AGENTS.md
