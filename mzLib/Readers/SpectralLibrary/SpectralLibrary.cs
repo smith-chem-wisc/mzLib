@@ -10,7 +10,7 @@ using Omics.SpectrumMatch;
 
 namespace Readers.SpectralLibrary
 {
-	public class SpectralLibrary : ResultFile<LibrarySpectrum>, IResultFile
+	public class SpectralLibrary : ResultFile<LibrarySpectrum>, IResultFile, IDisposable
 	{
 		public override SupportedFileType FileType => FilePath.ParseFileType();
 		public override Software Software { get; set; }
@@ -21,9 +21,10 @@ namespace Readers.SpectralLibrary
 		{
 			Results = GetAllLibrarySpectra().ToList();
 		}
+        public void Dispose() => CloseConnections();
 
-		//This is from WriteSpectrumLibrary in MetaMorpheusTask
-		public override void WriteResults(string outputPath)
+        //This is from WriteSpectrumLibrary in MetaMorpheusTask
+        public override void WriteResults(string outputPath)
 		{
 			using (StreamWriter output = new StreamWriter(outputPath))
 			{
@@ -238,20 +239,51 @@ namespace Readers.SpectralLibrary
 			return false;
 		}
 
-		public IEnumerable<LibrarySpectrum> GetAllLibrarySpectra()
-		{
-			foreach (var item in SequenceToFileAndLocation)
-			{
-				yield return ReadSpectrumFromLibraryFile(item.Value.filePath, item.Value.byteOffset);
-			}
-		}
+        /// <summary>
+        /// Enumerates every <see cref="LibrarySpectrum"/> across all loaded libraries —
+        /// both binary <c>.msl</c> files and text-based MSP/pDeep/ms2pip files.
+        ///
+        /// <para>
+        /// Spectra from <c>.msl</c> libraries are yielded first (in ascending precursor m/z
+        /// order, as returned by <see cref="MslLibrary.GetAllEntries"/>), followed by spectra
+        /// from text-based libraries in the order they appear in the indexed file.
+        /// </para>
+        ///
+        /// <para>
+        /// This method is the source for <see cref="LoadResults"/>. Prior to this fix,
+        /// <c>.msl</c> inputs were silently excluded because only
+        /// <c>SequenceToFileAndLocation</c> (the MSP/TSV byte-offset index) was iterated.
+        /// </para>
+        /// </summary>
+        /// <returns>
+        ///   All library spectra from every loaded source, including decoys.
+        /// </returns>
+        public IEnumerable<LibrarySpectrum> GetAllLibrarySpectra()
+        {
+            // Yield spectra from every .msl library.
+            // GetAllEntries(includeDecoys: true) returns all entries in ascending m/z order.
+            // ToLibrarySpectrum() converts each MslLibraryEntry to the shared LibrarySpectrum type.
+            foreach (var mslLib in _mslLibraries.Values)
+            {
+                foreach (var entry in mslLib.GetAllEntries(includeDecoys: true))
+                {
+                    yield return entry.ToLibrarySpectrum();
+                }
+            }
 
-		/// <summary>
-		/// Closes all open <see cref="StreamReader"/> handles for text libraries and disposes
-		/// all <see cref="MslLibrary"/> instances (which releases any open file handles held
-		/// in index-only mode).  Safe to call multiple times.
-		/// </summary>
-		public void CloseConnections()
+            // Yield spectra from text-based libraries (MSP, pDeep, ms2pip).
+            foreach (var item in SequenceToFileAndLocation)
+            {
+                yield return ReadSpectrumFromLibraryFile(item.Value.filePath, item.Value.byteOffset);
+            }
+        }
+
+        /// <summary>
+        /// Closes all open <see cref="StreamReader"/> handles for text libraries and disposes
+        /// all <see cref="MslLibrary"/> instances (which releases any open file handles held
+        /// in index-only mode).  Safe to call multiple times.
+        /// </summary>
+        public void CloseConnections()
 		{
 			// Close text-library stream readers
 			foreach (var item in StreamReaders)
@@ -934,17 +966,47 @@ namespace Readers.SpectralLibrary
 			if (TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(peakProductType,
 					out var terminus))
 			{
-				// peptideLength is used to compute ResiduePosition for C-terminal ions
-				int peptideLength = peptideSequence.IsNotNullOrEmptyOrWhiteSpace() ? peptideSequence.Length : 25; // Arbitrary default peptide length
-				product = new Product(peakProductType, terminus, experMz.ToMass(fragmentCharge), fragmentNumber,
+                int peptideLength = CountResidues(peptideSequence);
+                if (peptideLength == 0)
+                {
+                    peptideLength = 25; // Documented fallback — sequence not available at parse time
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[SpectralLibrary] ReadFragmentIon: peptideSequence is null or empty for " +
+                        $"fragment '{annotation}'. Falling back to peptideLength=25. " +
+                        $"C-terminal ResiduePosition values may be inaccurate.");
+                }
+                product = new Product(peakProductType, terminus, experMz.ToMass(fragmentCharge), fragmentNumber,
 					residuePosition: terminus == FragmentationTerminus.N ? fragmentNumber : peptideLength - fragmentNumber,
 					neutralLoss);
 			}
 
 			return new MatchedFragmentIon(product, experMz, experIntensity, fragmentCharge);
 		}
+        /// <summary>
+        /// Counts the number of amino-acid residues in a modified sequence string, ignoring
+        /// bracket-delimited modification annotations (e.g. "[Common Variable:Oxidation on M]").
+        /// Calling <c>.Length</c> on a modified sequence overcounts by the total character length
+        /// of all modification strings, which inflates C-terminal ResiduePosition values.
+        /// Returns 0 for null or empty input.
+        /// </summary>
+        private static int CountResidues(string modifiedSequence)
+        {
+            if (string.IsNullOrEmpty(modifiedSequence))
+                return 0;
 
-		private void IndexSpectralLibrary(string path)
+            int count = 0;
+            int depth = 0;
+
+            foreach (char c in modifiedSequence)
+            {
+                if (c == '[') depth++;
+                else if (c == ']') { if (depth > 0) depth--; }
+                else if (depth == 0) count++;
+            }
+
+            return count;
+        }
+        private void IndexSpectralLibrary(string path)
 		{
 			var reader = new StreamReader(path);
 			StreamReaders.Add(path, reader);

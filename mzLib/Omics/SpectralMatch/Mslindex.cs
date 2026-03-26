@@ -1002,4 +1002,23 @@ public sealed class MslIndex : IDisposable
 		if (_disposed != 0)
 			throw new ObjectDisposedException(nameof(MslIndex));
 	}
+    // New property to ADD alongside it
+    public int Count
+    {
+        get
+        {
+            ThrowIfDisposed();
+            return _byMz.Length;
+        }
+    }
+
+    // New method to ADD alongside it
+    public MslPrecursorIndexEntry GetEntryAt(int position)
+    {
+        ThrowIfDisposed();
+        if ((uint)position >= (uint)_byMz.Length)
+            throw new ArgumentOutOfRangeException(nameof(position),
+                $"Position {position} is out of range [0, {_byMz.Length}).");
+        return _byMz[position];
+    }
 }
