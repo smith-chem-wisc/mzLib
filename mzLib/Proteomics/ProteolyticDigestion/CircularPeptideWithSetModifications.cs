@@ -184,7 +184,7 @@ namespace Proteomics.ProteolyticDigestion
             DissociationType dissociationType,
             int minLengthOfFragments,
             List<Product> products,
-            FragmentationParams? fragmentationParams = null)
+            IFragmentationParams? fragmentationParams = null)
         {
             if (minLengthOfFragments < 1)
                 throw new ArgumentOutOfRangeException(nameof(minLengthOfFragments),

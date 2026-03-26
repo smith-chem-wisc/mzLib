@@ -570,7 +570,7 @@ namespace Proteomics.ProteolyticDigestion
         /// TODO: Implement neutral losses (e.g. phospho)
         /// TODO: Implement Star/Degree ions from CID
         /// </summary>
-        public virtual void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments, List<Product> products, FragmentationParams? fragmentationParams = null)
+        public virtual void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments, List<Product> products, IFragmentationParams? fragmentationParams = null)
         {
             products.Clear();
 
