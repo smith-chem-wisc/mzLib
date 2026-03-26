@@ -1,5 +1,8 @@
 using Chemistry;
+using MassSpectrometry;
 using NUnit.Framework;
+using Omics.Digestion;
+using Omics.Fragmentation;
 using Omics.Modifications;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
@@ -919,6 +922,489 @@ namespace Test
                 // All products are bound to the CircularProtein parent
                 Assert.That(peptides.All(p => ReferenceEquals(p.Protein, circular)), Is.True);
             });
+        }
+        // ──────────────────────────────────────────────────────────────────────
+        // Modification remapping (fix_001)
+        // ──────────────────────────────────────────────────────────────────────
+
+        private static Modification CreateTestMod(char targetResidue, string id = "TestMod", double mass = 42.01057)
+        {
+            ModificationMotif.TryGetMotif(targetResidue.ToString(), out var motif);
+            return new Modification(
+                _originalId: id,
+                _modificationType: "Common",
+                _target: motif,
+                _locationRestriction: "Anywhere.",
+                _monoisotopicMass: mass);
+        }
+
+        [Test]
+        public static void Constructor_NonCanonicalInputWithModification_ModificationRemappedToCorrectResidue()
+        {
+            // "GKAEC" → canonical "AECGK", offset = 2
+            // Original position 3 (A) should become canonical position 1 (A).
+            var testMod = CreateTestMod('A');
+            var mods = new Dictionary<int, List<Modification>>
+            {
+                { 3, new List<Modification> { testMod } }
+            };
+
+            var cp = new CircularProtein("GKAEC", "acc_remap1", oneBasedModifications: mods);
+
+            Assert.That(cp.BaseSequence, Is.EqualTo("AECGK"));
+            Assert.That(cp.OneBasedPossibleLocalizedModifications.ContainsKey(1), Is.True,
+                "Modification should be remapped to position 1 (residue A)");
+            Assert.That(cp.OneBasedPossibleLocalizedModifications.ContainsKey(3), Is.False,
+                "Position 3 in canonical is residue C, not the original target");
+        }
+
+        [Test]
+        public static void Constructor_AlreadyCanonicalInput_ModificationsUnchanged()
+        {
+            // "AECGK" position 2 is 'E'
+            var testMod = CreateTestMod('E');
+            var mods = new Dictionary<int, List<Modification>>
+            {
+                { 2, new List<Modification> { testMod } }
+            };
+
+            var cp = new CircularProtein("AECGK", "acc_remap2", oneBasedModifications: mods);
+
+            Assert.That(cp.BaseSequence, Is.EqualTo("AECGK"));
+            Assert.That(cp.OneBasedPossibleLocalizedModifications.ContainsKey(2), Is.True);
+            Assert.That(cp.OneBasedPossibleLocalizedModifications[2], Contains.Item(testMod));
+        }
+
+        [Test]
+        public static void Constructor_NullModifications_DoesNotThrow()
+        {
+            Assert.DoesNotThrow(() =>
+                new CircularProtein("GKAEC", "acc_remap3", oneBasedModifications: null));
+        }
+
+        [Test]
+        public static void Constructor_EmptyModifications_DoesNotThrow()
+        {
+            var mods = new Dictionary<int, List<Modification>>();
+            var cp = new CircularProtein("GKAEC", "acc_remap4", oneBasedModifications: mods);
+
+            Assert.That(cp.OneBasedPossibleLocalizedModifications, Is.Empty);
+        }
+
+        [Test]
+        public static void Constructor_MultipleModificationsRemapped_AllPositionsCorrect()
+        {
+            // "GKAEC" → "AECGK", offset = 2
+            // pos 1 (G) → ((1-1-2+5)%5)+1 = 4
+            // pos 4 (E) → ((4-1-2+5)%5)+1 = 2
+            var testMod = CreateTestMod('G');
+            var mod2 = CreateTestMod('E', "OtherMod", 15.99491);
+
+            var mods = new Dictionary<int, List<Modification>>
+            {
+                { 1, new List<Modification> { testMod } },
+                { 4, new List<Modification> { mod2 } }
+            };
+
+            var cp = new CircularProtein("GKAEC", "acc_remap5", oneBasedModifications: mods);
+
+            Assert.That(cp.BaseSequence, Is.EqualTo("AECGK"));
+            Assert.That(cp.OneBasedPossibleLocalizedModifications.ContainsKey(4), Is.True,
+                "G was at original pos 1, should be at canonical pos 4");
+            Assert.That(cp.OneBasedPossibleLocalizedModifications[4], Contains.Item(testMod));
+            Assert.That(cp.OneBasedPossibleLocalizedModifications.ContainsKey(2), Is.True,
+                "E was at original pos 4, should be at canonical pos 2");
+            Assert.That(cp.OneBasedPossibleLocalizedModifications[2], Contains.Item(mod2));
+        }
+
+        [Test]
+        public static void Constructor_ModificationOnLastResidue_WrapsCorrectly()
+        {
+            // "GKAEC" → "AECGK", offset = 2
+            // pos 5 (C) → ((5-1-2+5)%5)+1 = 3
+            var testMod = CreateTestMod('C');
+            var mods = new Dictionary<int, List<Modification>>
+            {
+                { 5, new List<Modification> { testMod } }
+            };
+
+            var cp = new CircularProtein("GKAEC", "acc_remap6", oneBasedModifications: mods);
+
+            Assert.That(cp.BaseSequence, Is.EqualTo("AECGK"));
+            Assert.That(cp.OneBasedPossibleLocalizedModifications.ContainsKey(3), Is.True,
+                "C was at original pos 5, should be at canonical pos 3");
+        }
+
+        [Test]
+        public static void FromProtein_SourceHasModificationsAndNonCanonicalSequence_ModificationsRemapped()
+        {
+            // "GKAEC" position 3 is 'A'
+            var testMod = CreateTestMod('A');
+            var mods = new Dictionary<int, List<Modification>>
+            {
+                { 3, new List<Modification> { testMod } }
+            };
+
+            var source = new Protein("GKAEC", "acc_remap7", oneBasedModifications: mods);
+            var cp = CircularProtein.FromProtein(source);
+
+            Assert.That(cp.BaseSequence, Is.EqualTo("AECGK"));
+            Assert.That(cp.OneBasedPossibleLocalizedModifications.ContainsKey(1), Is.True,
+                "Modification at original pos 3 (A) should map to canonical pos 1 (A)");
+        }
+
+        [Test]
+        public static void Constructor_SingleResidue_ModificationStaysAtPositionOne()
+        {
+            var testMod = CreateTestMod('A');
+            var mods = new Dictionary<int, List<Modification>>
+            {
+                { 1, new List<Modification> { testMod } }
+            };
+
+            var cp = new CircularProtein("A", "acc_remap8", oneBasedModifications: mods);
+
+            Assert.That(cp.BaseSequence, Is.EqualTo("A"));
+            Assert.That(cp.OneBasedPossibleLocalizedModifications.ContainsKey(1), Is.True);
+        }
+
+        [Test]
+        public static void GetCanonicalRotationWithOffset_ReturnsCorrectOffset()
+        {
+            var (canonical, offset) = CircularProtein.GetCanonicalRotationWithOffset("GKAEC");
+
+            Assert.That(canonical, Is.EqualTo("AECGK"));
+            Assert.That(offset, Is.EqualTo(2));
+        }
+
+        [Test]
+        public static void GetCanonicalRotationWithOffset_AlreadyCanonical_OffsetIsZero()
+        {
+            var (canonical, offset) = CircularProtein.GetCanonicalRotationWithOffset("AECGK");
+
+            Assert.That(canonical, Is.EqualTo("AECGK"));
+            Assert.That(offset, Is.EqualTo(0));
+        }
+
+        [TestCase("KAEC", 1, 4, 'K', TestName = "ModRemap_K_at_pos1_to_pos4")]
+        [TestCase("KAEC", 2, 1, 'A', TestName = "ModRemap_A_at_pos2_to_pos1")]
+        [TestCase("KAEC", 3, 2, 'E', TestName = "ModRemap_E_at_pos3_to_pos2")]
+        [TestCase("KAEC", 4, 3, 'C', TestName = "ModRemap_C_at_pos4_to_pos3")]
+        public static void Constructor_ModAtPosition_LandsOnSameAminoAcid(
+            string sequence, int originalPos, int expectedCanonicalPos, char expectedResidue)
+        {
+            var testMod = CreateTestMod(sequence[originalPos - 1]);
+            var mods = new Dictionary<int, List<Modification>>
+            {
+                { originalPos, new List<Modification> { testMod } }
+            };
+
+            var cp = new CircularProtein(sequence, "acc_tc", oneBasedModifications: mods);
+
+            Assert.That(cp.OneBasedPossibleLocalizedModifications.ContainsKey(expectedCanonicalPos), Is.True,
+                $"Mod should be at canonical position {expectedCanonicalPos}");
+            Assert.That(cp.BaseSequence[expectedCanonicalPos - 1], Is.EqualTo(expectedResidue),
+                $"Canonical position {expectedCanonicalPos} should be residue {expectedResidue}");
+        }
+
+        // ──────────────────────────────────────────────────────────────────────
+        // Positional isomer deduplication (fix_009)
+        // ──────────────────────────────────────────────────────────────────────
+
+        [Test]
+        public static void Digest_RepeatedMotifCircularProtein_RetainsAllPositionalIsomers()
+        {
+            // "ARARK" canonical → trypsin cuts after R and K.
+            // Two distinct "AR" fragments at different ring positions must both survive.
+            var protein = new CircularProtein("ARARK", "REPEAT_TEST");
+
+            var digestionParams = new DigestionParams(
+                protease: "trypsin",
+                maxMissedCleavages: 0,
+                minPeptideLength: 1);
+
+            var products = protein
+                .Digest(digestionParams, new List<Modification>(), new List<Modification>())
+                .ToList();
+
+            var arProducts = products
+                .Where(p => p is PeptideWithSetModifications pwsm && pwsm.BaseSequence == "AR")
+                .Cast<PeptideWithSetModifications>()
+                .ToList();
+
+            Assert.That(arProducts.Count, Is.GreaterThanOrEqualTo(2),
+                "Both 'AR' positional isomers at different ring positions must be retained");
+
+            var startPositions = arProducts
+                .Select(p => p.OneBasedStartResidueInProtein)
+                .Distinct()
+                .ToList();
+
+            Assert.That(startPositions.Count, Is.GreaterThanOrEqualTo(2),
+                "The 'AR' products must originate at distinct start positions on the ring");
+        }
+
+        [Test]
+        public static void Digest_RepeatedMotifCircularProtein_TrueDuplicatesStillCollapsed()
+        {
+            var protein = new CircularProtein("ARARK", "REPEAT_TEST");
+
+            var digestionParams = new DigestionParams(
+                protease: "trypsin",
+                maxMissedCleavages: 2,
+                minPeptideLength: 1);
+
+            var products = protein
+                .Digest(digestionParams, new List<Modification>(), new List<Modification>())
+                .Cast<PeptideWithSetModifications>()
+                .Where(p => p is not CircularPeptideWithSetModifications)
+                .ToList();
+
+            // No two products should share both the same start position and full sequence
+            var keys = products.Select(p =>
+                $"{p.OneBasedStartResidueInProtein}:{p.FullSequence}").ToList();
+
+            Assert.That(keys.Distinct().Count(), Is.EqualTo(keys.Count),
+                "True duplicates (same position + same sequence) must still be collapsed");
+        }
+
+        [Test]
+        public static void Digest_SymmetricRepeatProtein_AllPositionsRetained()
+        {
+            // "ARARAR" — 3 copies of "AR", trypsin cuts after each R
+            var symmetricProtein = new CircularProtein("ARARAR", "SYMMETRIC_TEST");
+
+            var digestionParams = new DigestionParams(
+                protease: "trypsin",
+                maxMissedCleavages: 0,
+                minPeptideLength: 1);
+
+            var products = symmetricProtein
+                .Digest(digestionParams, new List<Modification>(), new List<Modification>())
+                .OfType<PeptideWithSetModifications>()
+                .Where(p => p is not CircularPeptideWithSetModifications)
+                .Where(p => p.BaseSequence == "AR")
+                .ToList();
+
+            Assert.That(products.Count, Is.EqualTo(3),
+                "All three 'AR' positional isomers must be retained in a fully symmetric ring");
+
+            var distinctStarts = products
+                .Select(p => p.OneBasedStartResidueInProtein)
+                .Distinct()
+                .ToList();
+
+            Assert.That(distinctStarts.Count, Is.EqualTo(3),
+                "Each 'AR' product must have a unique start position");
+        }
+
+        [Test]
+        public static void Digest_RepeatedMotif_WithMissedCleavages_PositionalIsomersPreserved()
+        {
+            var protein = new CircularProtein("ARARK", "REPEAT_TEST");
+
+            var digestionParams = new DigestionParams(
+                protease: "trypsin",
+                maxMissedCleavages: 1,
+                minPeptideLength: 1);
+
+            var products = protein
+                .Digest(digestionParams, new List<Modification>(), new List<Modification>())
+                .OfType<PeptideWithSetModifications>()
+                .Where(p => p is not CircularPeptideWithSetModifications)
+                .ToList();
+
+            // For any sequence that appears at multiple positions, all positions must be present
+            var grouped = products
+                .GroupBy(p => p.FullSequence)
+                .Where(g => g.Select(p => p.OneBasedStartResidueInProtein).Distinct().Count() > 1)
+                .ToList();
+
+            foreach (var group in grouped)
+            {
+                var distinctPositions = group
+                    .Select(p => p.OneBasedStartResidueInProtein)
+                    .Distinct()
+                    .Count();
+
+                Assert.That(group.Count(), Is.EqualTo(distinctPositions),
+                    $"Sequence '{group.Key}' has {distinctPositions} distinct positions " +
+                    $"but only {group.Count()} products were emitted");
+            }
+        }
+        // ──────────────────────────────────────────────────────────────────────
+        // CircularPeptideWithSetModifications constructor validation (fix_010)
+        // ──────────────────────────────────────────────────────────────────────
+
+        [Test]
+        public static void CircularPeptide_NullProtein_ThrowsArgumentNullException()
+        {
+            var digestionParams = new DigestionParams();
+            var emptyMods = new Dictionary<int, Modification>();
+
+            var ex = Assert.Throws<ArgumentNullException>(() =>
+                new CircularPeptideWithSetModifications(
+                    protein: null,
+                    digestionParams: digestionParams,
+                    oneBasedStartResidueInProtein: 1,
+                    oneBasedEndResidueInProtein: 5,
+                    cleavageSpecificity: CleavageSpecificity.Full,
+                    peptideDescription: "test",
+                    missedCleavages: 0,
+                    allModsOneIsNterminus: emptyMods,
+                    numFixedMods: 0));
+
+            Assert.That(ex.ParamName, Is.EqualTo("protein"));
+            Assert.That(ex.Message, Does.Contain("non-null"));
+        }
+
+        [Test]
+        public static void CircularPeptide_NonCircularProtein_ThrowsArgumentException()
+        {
+            var linearProtein = new Protein("ACDEFG", "LINEAR1");
+            var digestionParams = new DigestionParams();
+            var emptyMods = new Dictionary<int, Modification>();
+
+            var ex = Assert.Throws<ArgumentException>(() =>
+                new CircularPeptideWithSetModifications(
+                    protein: linearProtein,
+                    digestionParams: digestionParams,
+                    oneBasedStartResidueInProtein: 1,
+                    oneBasedEndResidueInProtein: 6,
+                    cleavageSpecificity: CleavageSpecificity.Full,
+                    peptideDescription: "test",
+                    missedCleavages: 0,
+                    allModsOneIsNterminus: emptyMods,
+                    numFixedMods: 0));
+
+            Assert.That(ex.ParamName, Is.EqualTo("protein"));
+            Assert.That(ex.Message, Does.Contain("CircularProtein"));
+        }
+
+        [Test]
+        public static void CircularPeptide_ValidCircularProtein_SetsCircularParent()
+        {
+            var circularProtein = new CircularProtein("ACDEFG", "CIRC1");
+            var digestionParams = new DigestionParams();
+            var emptyMods = new Dictionary<int, Modification>();
+
+            var peptide = new CircularPeptideWithSetModifications(
+                protein: circularProtein,
+                digestionParams: digestionParams,
+                oneBasedStartResidueInProtein: 1,
+                oneBasedEndResidueInProtein: 6,
+                cleavageSpecificity: CleavageSpecificity.Full,
+                peptideDescription: "valid",
+                missedCleavages: 0,
+                allModsOneIsNterminus: emptyMods,
+                numFixedMods: 0);
+
+            Assert.That(peptide.CircularParent, Is.Not.Null);
+            Assert.That(peptide.CircularParent, Is.SameAs(circularProtein));
+        }
+        // ──────────────────────────────────────────────────────────────────────
+        // Wrap-around fragmentation (fix_013)
+        // ──────────────────────────────────────────────────────────────────────
+
+        private static CircularPeptideWithSetModifications BuildFullRingPeptide(string sequence)
+        {
+            var protein = new CircularProtein(sequence, "TEST");
+            int n = protein.BaseSequence.Length;
+            return new CircularPeptideWithSetModifications(
+                protein,
+                new DigestionParams(),
+                oneBasedStartResidueInProtein: 1,
+                oneBasedEndResidueInProtein: n,
+                cleavageSpecificity: CleavageSpecificity.Full,
+                peptideDescription: "full-ring",
+                missedCleavages: 0,
+                allModsOneIsNterminus: new Dictionary<int, Modification>(),
+                numFixedMods: 0,
+                baseSequence: protein.BaseSequence);
+        }
+
+        [Test]
+        public static void FragmentInternally_FullRingLength5_CountEqualsNTimesNMinusMinLength()
+        {
+            // N=5, minLength=2: expected = 5 * (5-2) = 15
+            var peptide = BuildFullRingPeptide("ACDEF");
+            var products = new List<Product>();
+            peptide.FragmentInternally(DissociationType.HCD, 2, products);
+
+            Assert.That(products.Count, Is.EqualTo(15),
+                "Full-ring peptide of length 5 should produce N*(N-2) = 15 internal fragments");
+        }
+
+        [Test]
+        public static void FragmentInternally_FullRing_ContainsWrapAroundFragment()
+        {
+            var peptide = BuildFullRingPeptide("ACDEF");
+            var products = new List<Product>();
+            peptide.FragmentInternally(DissociationType.HCD, 2, products);
+
+            // Fragment starting at last residue wrapping to first
+            bool hasWrapFragment = products.Any(p =>
+                p.FragmentNumber == 5 && p.ResiduePosition == 2);
+
+            Assert.That(hasWrapFragment, Is.True,
+                "Should contain a wrap-around fragment starting at residue 5 with length 2");
+        }
+
+        [Test]
+        public static void FragmentInternally_FullRingLength4_TotalCountIsCorrect()
+        {
+            // N=4, minLength=2: count = 4 * (4-2) = 8
+            var peptide = BuildFullRingPeptide("ACDE");
+            var products = new List<Product>();
+            peptide.FragmentInternally(DissociationType.HCD, 2, products);
+
+            Assert.That(products.Count, Is.EqualTo(8));
+        }
+
+        [Test]
+        public static void FragmentInternally_FullRing_AllMassesPositive()
+        {
+            var peptide = BuildFullRingPeptide("ACDEF");
+            var products = new List<Product>();
+            peptide.FragmentInternally(DissociationType.HCD, 2, products);
+
+            Assert.That(products.All(p => p.NeutralMass > 0), Is.True,
+                "Every fragment mass should be positive, including wrap-around fragments");
+        }
+
+        [Test]
+        public static void FragmentInternally_FullRing_NoFullLengthFragments()
+        {
+            var peptide = BuildFullRingPeptide("ACDEF");
+            var products = new List<Product>();
+            peptide.FragmentInternally(DissociationType.HCD, 2, products);
+
+            Assert.That(products.Any(p => p.ResiduePosition == 5), Is.False,
+                "No fragment should span the entire ring (length == N)");
+        }
+
+        [Test]
+        public static void FragmentInternally_SubPeptide_DoesNotWrapAround()
+        {
+            var protein = new CircularProtein("ACDEFG", "TEST");
+            var subPeptide = new CircularPeptideWithSetModifications(
+                protein,
+                new DigestionParams(),
+                oneBasedStartResidueInProtein: 1,
+                oneBasedEndResidueInProtein: 4,
+                cleavageSpecificity: CleavageSpecificity.Full,
+                peptideDescription: "sub-ring",
+                missedCleavages: 0,
+                allModsOneIsNterminus: new Dictionary<int, Modification>(),
+                numFixedMods: 0,
+                baseSequence: "ACDE");
+
+            var products = new List<Product>();
+            subPeptide.FragmentInternally(DissociationType.HCD, 2, products);
+
+            // Sub-peptide of length 4, minLength 2: (4-2)(4-2+1)/2 = 3
+            Assert.That(products.Count, Is.EqualTo(3),
+                "Sub-peptide should not include wrap-around fragments");
         }
     }
 }

@@ -262,10 +262,12 @@ namespace Proteomics
                 .Cast<PeptideWithSetModifications>();
 
         /// <summary>
-        /// Gets peptides for digestion of a protein
-        /// Implemented with interfaces to allow for use of both Proteomics and Omics classes
+        /// Gets peptides for digestion of a protein.
+        /// Implemented with interfaces to allow for use of both Proteomics and Omics classes.
+        /// Virtual to allow derived classes (e.g., <see cref="CircularProtein"/>) to override
+        /// with specialized digestion behavior while preserving polymorphic dispatch.
         /// </summary>
-        public IEnumerable<IBioPolymerWithSetMods> Digest(IDigestionParams digestionParams, List<Modification> allKnownFixedModifications,
+        public virtual IEnumerable<IBioPolymerWithSetMods> Digest(IDigestionParams digestionParams, List<Modification> allKnownFixedModifications,
             List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null, bool topDownTruncationSearch = false)
         {
 

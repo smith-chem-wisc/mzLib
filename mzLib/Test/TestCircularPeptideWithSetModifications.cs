@@ -399,7 +399,8 @@ namespace Test
 
             // HCD: nTermProductTypes=[b], cTermProductTypes=[y]
             // Each (start, length) pair → 1 product (1 b-nTerm × 1 y-cTerm)
-            Assert.That(products, Has.Count.EqualTo(21));
+            // Full-ring with wrap-around: N*(N-minLength) = 9*6 = 54
+            Assert.That(products, Has.Count.EqualTo(54));
         }
 
         // ══════════════════════════════════════════════════════════════════════
@@ -467,8 +468,10 @@ namespace Test
         // ══════════════════════════════════════════════════════════════════════
 
         [Test]
-        public static void FragmentInternally_FullRingStartingAt1_NeverProducesWrapAroundFragments()
+        public static void FragmentInternally_FullRingStartingAt1_ProducesWrapAroundFragments()
         {
+            // Full-ring peptides produce wrap-around fragments (SecondaryFragmentNumber > N)
+            // because every pair of backbone cleavage sites is valid on a ring.
             const string ring = "ACDEFGHIM"; // N=9
             var peptide = GetFullRingPeptide(ring);
             var products = new List<Product>();
@@ -476,8 +479,12 @@ namespace Test
             peptide.FragmentInternally(DissociationType.HCD, 2, products);
 
             Assert.That(products, Is.Not.Empty);
-            Assert.That(products.All(p => p.SecondaryFragmentNumber < ring.Length), Is.True,
-                "Full-ring [1-N]: SecondaryFragmentNumber < N always");
+            // N*(N-2) = 9*7 = 63 fragments for a 9-residue ring with minLength=2
+            Assert.That(products.Count, Is.EqualTo(63),
+                "Full-ring of length 9 should produce N*(N-2) = 63 internal fragments");
+            // Some fragments should wrap around (SecondaryFragmentNumber >= N)
+            Assert.That(products.Any(p => p.SecondaryFragmentNumber >= ring.Length), Is.True,
+                "Full-ring peptide should include wrap-around fragments");
         }
 
         [Test]
@@ -493,17 +500,18 @@ namespace Test
         [Test]
         public static void FragmentInternally_FullRing_WrapAround_NeutralMass_MatchesResidueMassSum()
         {
-            // Corollary: the full-ring [1-N] peptide produces zero wrap-around fragments.
+            // Full-ring peptide includes wrap-around fragments for any minLength < N.
             const string ring = "ACDEFGHIM"; // N=9
             var peptide = GetFullRingPeptide(ring);
             var products = new List<Product>();
 
             peptide.FragmentInternally(DissociationType.HCD, 3, products);
 
-            Assert.That(
-                products.Where(p => p.SecondaryFragmentNumber > ring.Length).ToList(),
-                Is.Empty,
-                "No wrap-around fragments from full-ring [1-9] with minLength=3");
+            // N*(N-3) = 9*6 = 54 for minLength=3
+            Assert.That(products.Count, Is.EqualTo(54),
+                "Full-ring of length 9 with minLength=3 should produce N*(N-3) = 54 fragments");
+            Assert.That(products.All(p => p.NeutralMass > 0), Is.True,
+                "All fragment masses should be positive");
         }
 
         [Test]
@@ -976,25 +984,39 @@ namespace Test
             unmodified.FragmentInternally(DissociationType.HCD, 2, unmodProducts);
             oxidized.FragmentInternally(DissociationType.HCD, 2, oxProducts);
 
-            // [7,8]=HI exists (localStart=6, maxLength=2, length=2 ✓)
+            // [7,8]=HI exists (localStart=6, length=2) — does NOT span position 9
             var unmod_7_2 = unmodProducts.Single(p => p.FragmentNumber == 7 && p.ResiduePosition == 2);
             var ox_7_2 = oxProducts.Single(p => p.FragmentNumber == 7 && p.ResiduePosition == 2);
             Assert.That(ox_7_2.NeutralMass,
                 Is.EqualTo(unmod_7_2.NeutralMass).Within(1e-4),
-                "[7,8]=HI: M at pos 9 unreachable → no mass shift");
+                "[7,8]=HI: does not span position 9, so no mass shift");
 
-            // All fragments: oxidation at position 9 cannot affect any fragment
-            // because SecondaryFragmentNumber ≤ N-1 = 8 always for full-ring [1-9].
+            // With wrap-around, some fragments DO span position 9.
+            // Fragments that include residue 9 should show a mass shift equal to the oxidation mass.
             Assert.That(unmodProducts.Count, Is.EqualTo(oxProducts.Count));
+
+            // Fragments NOT spanning position 9 should have identical masses.
+            // Fragments spanning position 9 should differ by the oxidation mass.
             var unmodOrdered = unmodProducts.OrderBy(p => p.FragmentNumber)
                 .ThenBy(p => p.ResiduePosition).ToList();
             var oxOrdered = oxProducts.OrderBy(p => p.FragmentNumber)
                 .ThenBy(p => p.ResiduePosition).ToList();
+
+            bool foundModifiedFragment = false;
             for (int i = 0; i < unmodOrdered.Count; i++)
-                Assert.That(oxOrdered[i].NeutralMass,
-                    Is.EqualTo(unmodOrdered[i].NeutralMass).Within(1e-9),
-                    $"[{unmodOrdered[i].FragmentNumber},{unmodOrdered[i].SecondaryFragmentNumber}]: " +
-                    $"M at pos 9 unreachable → identical mass");
+            {
+                double diff = Math.Abs(oxOrdered[i].NeutralMass - unmodOrdered[i].NeutralMass);
+                if (diff > 1e-4)
+                {
+                    // Fragment spans the modified residue — mass difference should be ~15.995
+                    Assert.That(diff, Is.EqualTo(15.994915).Within(1e-3),
+                        $"Fragment [{unmodOrdered[i].FragmentNumber},{unmodOrdered[i].SecondaryFragmentNumber}]: " +
+                        "mass difference should equal oxidation mass");
+                    foundModifiedFragment = true;
+                }
+            }
+            Assert.That(foundModifiedFragment, Is.True,
+                "At least one fragment should span the modified position 9 via wrap-around");
         }
 
         [Test]

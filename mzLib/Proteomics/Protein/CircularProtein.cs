@@ -46,10 +46,10 @@ namespace Proteomics
     ///
     /// DISPATCH NOTE
     /// -------------
-    /// Callers must hold a <see cref="CircularProtein"/> reference (not
-    /// <see cref="Protein"/> or <see cref="IBioPolymer"/>) for the shadowed
-    /// <see cref="Digest"/> to be dispatched correctly, since
-    /// <see cref="Protein.Digest"/> is not virtual.
+    /// <see cref="Digest"/> is a virtual override of <see cref="Protein.Digest"/>.
+    /// Callers may hold any reference type (<see cref="Protein"/>,
+    /// <see cref="IBioPolymer"/>, etc.) and the circular digestion logic will be
+    /// dispatched correctly at runtime via standard polymorphic dispatch.
     /// </summary>
     public class CircularProtein : Protein
     {
@@ -83,12 +83,45 @@ namespace Proteomics
             bool isContaminant = false,
             List<DatabaseReference> databaseReferences = null,
             string databaseFilePath = null)
+            : this(
+                GetCanonicalRotationWithOffset(sequence),
+                sequence?.Length ?? 0,
+                accession,
+                organism,
+                geneNames,
+                oneBasedModifications,
+                name,
+                fullName,
+                isDecoy,
+                isContaminant,
+                databaseReferences,
+                databaseFilePath)
+        {
+        }
+
+        /// <summary>
+        /// Private constructor that receives the pre-computed canonical rotation and offset,
+        /// avoiding a redundant second call to <see cref="GetCanonicalRotationWithOffset"/>.
+        /// </summary>
+        private CircularProtein(
+            (string Canonical, int Offset) rotation,
+            int originalLength,
+            string accession,
+            string organism,
+            List<Tuple<string, string>> geneNames,
+            IDictionary<int, List<Modification>> oneBasedModifications,
+            string name,
+            string fullName,
+            bool isDecoy,
+            bool isContaminant,
+            List<DatabaseReference> databaseReferences,
+            string databaseFilePath)
             : base(
-                sequence: GetCanonicalRotation(sequence),
+                sequence: rotation.Canonical,
                 accession: accession,
                 organism: organism,
                 geneNames: geneNames,
-                oneBasedModifications: oneBasedModifications,
+                oneBasedModifications: RemapModifications(oneBasedModifications, originalLength, rotation.Offset),
                 name: name,
                 fullName: fullName,
                 isDecoy: isDecoy,
@@ -101,7 +134,9 @@ namespace Proteomics
 
         /// <summary>
         /// Creates a <see cref="CircularProtein"/> from an existing <see cref="Protein"/>,
-        /// canonicalizing its sequence. Use after loading entries from a FASTA or XML database.
+        /// canonicalizing its sequence and remapping any one-based modifications to their
+        /// correct positions in the canonical rotation.
+        /// Use after loading entries from a FASTA or XML database.
         /// </summary>
         public static CircularProtein FromProtein(Protein source) =>
             new(source.BaseSequence,
@@ -121,10 +156,12 @@ namespace Proteomics
 
         /// <summary>
         /// Digests the circular sequence by running linear digestion on a doubled
-        /// proxy sequence of length 2N−1, then filtering and deduplicating results.
+        /// proxy sequence of length 2N-1, then filtering and deduplicating results.
         /// Wrapping peptides have <c>OneBasedEndResidueInProtein &gt; N</c>.
+        /// This is a virtual override of <see cref="Protein.Digest"/> and will be
+        /// dispatched correctly regardless of the compile-time reference type.
         /// </summary>
-        public new IEnumerable<IBioPolymerWithSetMods> Digest(
+        public override IEnumerable<IBioPolymerWithSetMods> Digest(
     IDigestionParams digestionParams,
     List<Modification> allKnownFixedModifications,
     List<Modification> variableModifications,
@@ -158,7 +195,38 @@ namespace Proteomics
             // than position 1 (the canonical origin).
             if (maxMissedCleavages >= numCleavageSites)
             {
-                // Unmodified full-ring product — always emitted when the budget allows.
+                // ── Apply fixed modifications to the ring ─────────────────────
+                // Circular peptides have no termini, so only "Anywhere."
+                // fixed modifications are applicable. Key convention:
+                // residue at 1-based position pos → key = pos + 1.
+                var fixedModsDict = new Dictionary<int, Modification>();
+                if (allKnownFixedModifications != null)
+                {
+                    foreach (var mod in allKnownFixedModifications)
+                    {
+                        if (mod.LocationRestriction != "Anywhere.") continue;
+
+                        for (int pos = 1; pos <= n; pos++)
+                        {
+                            int key = pos + 1;
+                            if (fixedModsDict.ContainsKey(key)) continue;
+
+                            if (ModificationLocalization.ModFits(
+                                    mod,
+                                    BaseSequence,
+                                    digestionProductOneBasedIndex: pos,
+                                    digestionProductLength: n,
+                                    bioPolymerOneBasedIndex: pos))
+                            {
+                                fixedModsDict[key] = mod;
+                            }
+                        }
+                    }
+                }
+
+                int numFixed = fixedModsDict.Count;
+
+                // Full-ring product with fixed mods only — always emitted when the budget allows.
                 yield return new CircularPeptideWithSetModifications(
                     protein: this,
                     digestionParams: digestionParams,
@@ -167,8 +235,8 @@ namespace Proteomics
                     cleavageSpecificity: CleavageSpecificity.Full,
                     peptideDescription: null,
                     missedCleavages: numCleavageSites,
-                    allModsOneIsNterminus: new Dictionary<int, Modification>(),
-                    numFixedMods: 0,
+                    allModsOneIsNterminus: new Dictionary<int, Modification>(fixedModsDict),
+                    numFixedMods: numFixed,
                     baseSequence: BaseSequence);
 
                 // Variable-modified full-ring products.
@@ -179,7 +247,7 @@ namespace Proteomics
                 // across all matching (key, mod) pairs, mirroring the combinatorial
                 // enumeration that linear peptide digestion performs.
                 // MaxMods == 0 means no modified forms are produced.
-                if (variableModifications != null && maxMissedCleavages >= numCleavageSites)
+                if (variableModifications != null)
                 {
                     // Build the list of all (key, mod) pairs that fit this ring.
                     // Key convention: side-chain at 1-based position pos → key = pos + 1.
@@ -210,6 +278,16 @@ namespace Proteomics
                     int maxMods = ((DigestionParams)digestionParams).MaxMods;
                     foreach (var subset in GetModSubsets(applicableSites, maxMods))
                     {
+                        // Merge fixed mods into the variable-mod subset so that every
+                        // variable-modified form also carries fixed modifications.
+                        // Variable mods at the same key override the fixed mod at that
+                        // position, consistent with how the linear pathway handles conflicts.
+                        var merged = new Dictionary<int, Modification>(fixedModsDict);
+                        foreach (var kvp in subset)
+                        {
+                            merged[kvp.Key] = kvp.Value;
+                        }
+
                         yield return new CircularPeptideWithSetModifications(
                             protein: this,
                             digestionParams: digestionParams,
@@ -218,8 +296,8 @@ namespace Proteomics
                             cleavageSpecificity: CleavageSpecificity.Full,
                             peptideDescription: null,
                             missedCleavages: numCleavageSites,
-                            allModsOneIsNterminus: subset,
-                            numFixedMods: 0,
+                            allModsOneIsNterminus: merged,
+                            numFixedMods: numFixed,
                             baseSequence: BaseSequence);
                     }
                 }
@@ -276,8 +354,10 @@ namespace Proteomics
                 if (!validStartPositions.Contains(pwsm.OneBasedStartResidueInProtein))
                     continue;
 
-                // Deduplicate by full sequence.
-                if (!seen.Add(pwsm.FullSequence))
+                // Deduplicate by full sequence AND start position.
+                // Two peptides with the same sequence at different ring positions
+                // are distinct cleavage products and must both be retained.
+                if (!seen.Add($"{pwsm.OneBasedStartResidueInProtein}:{pwsm.FullSequence}"))
                     continue;
 
                 // Every proxy product is linear — length N (single-cut) or < N (multi-cut).
@@ -349,33 +429,27 @@ namespace Proteomics
 
         private HashSet<int> GetCleavagePositionsInRing(IDigestionParams digestionParams)
         {
-            // Proxy sequence: BaseSequence + BaseSequence[..^1], length 2N-1.
-            // The last character is omitted deliberately — the proxy represents one
-            // full traversal of the ring starting at the canonical origin, continuing
-            // through a second partial copy. This means every cleavage residue in the
-            // first copy [1..N] is followed by more sequence (from the second copy),
-            // so the linear digestion engine will always produce a cut after it and
-            // reveal its position as a peptide boundary.
+            // Use the protease's cleavage-site detection directly on the doubled
+            // proxy sequence (length 2N-1) to discover all cut positions in the ring.
+            // The doubled sequence ensures that cleavage motifs spanning the
+            // wrap-around boundary (position N -> position 1) are evaluated correctly.
             //
-            // We collect the end position of every peptide whose end falls within
-            // [1, N] — these are the genuine cleavage sites of the canonical ring.
-            var proxyProtein = new Protein(
-                BaseSequence + BaseSequence[..^1],
-                Accession + "_cleavage");
+            // GetDigestionSiteIndices returns 0-based cut-after indices and always
+            // includes the virtual boundaries 0 and proxySequence.Length. We keep
+            // only indices in [1, N], which correspond to 1-based positions in the
+            // canonical ring where the protease cuts after that residue.
+            var protease = ((DigestionParams)digestionParams).Protease;
+            string proxySequence = BaseSequence + BaseSequence[..^1];
 
-            var fragments = proxyProtein.Digest(
-                new DigestionParams(
-                    protease: ((DigestionParams)digestionParams).Protease.Name,
-                    maxMissedCleavages: 0,
-                    minPeptideLength: 1),
-                [], [])
-                .Cast<PeptideWithSetModifications>()
-                .Where(p => p.OneBasedEndResidueInProtein <= Length)
-                .ToList();
+            var allIndices = protease.GetDigestionSiteIndices(proxySequence);
 
+            int n = Length;
             var positions = new HashSet<int>();
-            foreach (var f in fragments)
-                positions.Add(f.OneBasedEndResidueInProtein);
+            foreach (var index in allIndices)
+            {
+                if (index >= 1 && index <= n)
+                    positions.Add(index);
+            }
 
             return positions;
         }
@@ -394,27 +468,82 @@ namespace Proteomics
         /// </summary>
         public static string GetCanonicalRotation(string sequence)
         {
+            return GetCanonicalRotationWithOffset(sequence).Canonical;
+        }
+
+        /// <summary>
+        /// Returns the lexicographically smallest rotation of <paramref name="sequence"/>
+        /// along with the 0-based offset into the original string at which the canonical
+        /// rotation begins. An offset of 0 means the input was already in canonical form.
+        /// </summary>
+        /// <param name="sequence">The circular amino acid sequence.</param>
+        /// <returns>
+        /// A tuple of (<c>Canonical</c>, <c>Offset</c>) where <c>Canonical</c> is the
+        /// smallest rotation and <c>Offset</c> is the starting index in the original string.
+        /// </returns>
+        public static (string Canonical, int Offset) GetCanonicalRotationWithOffset(string sequence)
+        {
             if (string.IsNullOrEmpty(sequence))
-                return sequence;
+                return (sequence, 0);
 
             int n = sequence.Length;
             string best = sequence;
+            int bestOffset = 0;
 
             for (int i = 1; i < n; i++)
             {
-                // Compare rotation starting at i with the current best, character by character.
                 for (int k = 0; k < n; k++)
                 {
                     char ci = sequence[(i + k) % n];
-                    char cb = best[k];               // best is already a rotation, read linearly
+                    char cb = best[k];
 
-                    if (ci < cb) { best = (sequence + sequence).Substring(i, n); break; }
+                    if (ci < cb)
+                    {
+                        best = (sequence + sequence).Substring(i, n);
+                        bestOffset = i;
+                        break;
+                    }
                     if (ci > cb) break;
-                    // equal: continue to next character (tiebreaker)
                 }
             }
 
-            return best;
+            return (best, bestOffset);
+        }
+
+        /// <summary>
+        /// Remaps 1-based modification positions to account for the rotational offset
+        /// introduced by canonicalization. Returns <c>null</c> when no modifications
+        /// are present, and returns the dictionary unchanged when the offset is zero.
+        /// </summary>
+        private static IDictionary<int, List<Modification>> RemapModifications(
+            IDictionary<int, List<Modification>> oneBasedModifications,
+            int sequenceLength,
+            int offset)
+        {
+            if (oneBasedModifications == null || oneBasedModifications.Count == 0)
+                return oneBasedModifications;
+
+            if (offset == 0)
+                return oneBasedModifications;
+
+            int n = sequenceLength;
+            var remapped = new Dictionary<int, List<Modification>>();
+            foreach (var kvp in oneBasedModifications)
+            {
+                int oldPos = kvp.Key;
+                // Only remap valid 1-based ring positions; pass through any
+                // out-of-range keys (e.g. 0 for N-term) unchanged.
+                if (oldPos >= 1 && oldPos <= n)
+                {
+                    int newPos = (oldPos - 1 - offset + n) % n + 1;
+                    remapped[newPos] = kvp.Value;
+                }
+                else
+                {
+                    remapped[oldPos] = kvp.Value;
+                }
+            }
+            return remapped;
         }
     }
 }

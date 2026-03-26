@@ -47,6 +47,10 @@ namespace Proteomics.ProteolyticDigestion
             PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2
             + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
 
+        // ── Cached mass arrays (lazy-initialized, immutable after first use) ──
+        private double[] _cachedRingMasses;
+        private double[] _cachedDoubledPrefix;
+
         // ── Parent protein (typed) ────────────────────────────────────────────
 
         /// <summary>
@@ -85,22 +89,50 @@ namespace Proteomics.ProteolyticDigestion
             Dictionary<int, Modification> allModsOneIsNterminus,
             int numFixedMods,
             string baseSequence = null)
-            : base(protein, digestionParams,
+            : base(ValidateProtein(protein), digestionParams,
                    oneBasedStartResidueInProtein, oneBasedEndResidueInProtein,
                    cleavageSpecificity, peptideDescription, missedCleavages,
                    allModsOneIsNterminus, numFixedMods, baseSequence)
+        {
+            // ValidateProtein already guarantees protein is a non-null CircularProtein.
+            CircularParent = (CircularProtein)protein;
+
+            // Terminal modifications are chemically invalid on a circular peptide
+            // (no free N- or C-terminus). Reject them early so that mass accounting
+            // in MonoisotopicMass and FragmentInternally stays consistent.
+            if (allModsOneIsNterminus != null)
+            {
+                int peptideLen = oneBasedEndResidueInProtein - oneBasedStartResidueInProtein + 1;
+                if (allModsOneIsNterminus.ContainsKey(1))
+                    throw new ArgumentException(
+                        "N-terminal modifications are not valid for circular peptides (no free N-terminus).",
+                        nameof(allModsOneIsNterminus));
+                if (allModsOneIsNterminus.ContainsKey(peptideLen + 2))
+                    throw new ArgumentException(
+                        "C-terminal modifications are not valid for circular peptides (no free C-terminus).",
+                        nameof(allModsOneIsNterminus));
+            }
+        }
+
+        /// <summary>
+        /// Validates that <paramref name="protein"/> is a non-null <see cref="CircularProtein"/>
+        /// before the base constructor executes. Called inline in the constructor initializer
+        /// so that callers receive descriptive exceptions instead of opaque crashes from the
+        /// base class.
+        /// </summary>
+        private static Protein ValidateProtein(Protein protein)
         {
             if (protein is null)
                 throw new ArgumentNullException(nameof(protein),
                     $"{nameof(CircularPeptideWithSetModifications)} requires a non-null protein.");
 
-            if (protein is not CircularProtein cp)
+            if (protein is not CircularProtein)
                 throw new ArgumentException(
                     $"{nameof(CircularPeptideWithSetModifications)} requires a " +
                     $"{nameof(CircularProtein)} parent, but received {protein.GetType().Name}.",
                     nameof(protein));
 
-            CircularParent = cp;
+            return protein;
         }
 
         // ── Mass override ─────────────────────────────────────────────────────
@@ -111,7 +143,13 @@ namespace Proteomics.ProteolyticDigestion
         /// Equals the parent protein's <see cref="CircularProtein.CyclicMonoisotopicMass"/>
         /// when unmodified.
         /// </summary>
-        public new double MonoisotopicMass =>
+        /// <summary>
+        /// Monoisotopic mass of the circular peptide: sum of residue and modification
+        /// masses with no added water (no free termini).
+        /// Overrides the base implementation to subtract H2O, reflecting the absence of
+        /// free termini in a head-to-tail cyclized peptide.
+        /// </summary>
+        public override double MonoisotopicMass =>
             (double)ClassExtensions.RoundedDouble(
                 base.MonoisotopicMass - WaterMonoisotopicMass);
 
@@ -142,35 +180,36 @@ namespace Proteomics.ProteolyticDigestion
         /// sub-peptide (Length &lt; N) wrap-around internal fragments are excluded because
         /// they would require a cleavage outside the peptide's span.
         /// </summary>
-        public new void FragmentInternally(
+        public override void FragmentInternally(
             DissociationType dissociationType,
             int minLengthOfFragments,
             List<Product> products,
             FragmentationParams? fragmentationParams = null)
         {
+            if (minLengthOfFragments < 1)
+                throw new ArgumentOutOfRangeException(nameof(minLengthOfFragments),
+                    minLengthOfFragments,
+                    $"{nameof(minLengthOfFragments)} must be at least 1.");
+
             products.Clear();
 
             int peptideLength = BaseSequence.Length;
             int ringLength = CircularParent.Length;
 
+            // Internal fragments require at least 2 residues: one cleavage on each side
+            // of the fragment within the peptide span.
             if (minLengthOfFragments < 2 || minLengthOfFragments >= peptideLength)
                 return;
 
             // ── Build doubled prefix sum over the parent ring ─────────────────
             // Masses come from the parent ring (not just the peptide subsequence)
             // so that mod positions and residue masses are correct for the full ring.
-            // We read ringLength entries starting at this peptide's 0-based position
-            // in the ring, wrapping with modular indexing.
-            double[] ringMasses = BuildParentRingMassArray();
+            // Arrays are cached because this peptide's state is immutable after
+            // construction, so the values never change between calls.
+            double[] ringMasses = GetOrBuildRingMasses();
             int peptideStartInRing = OneBasedStartResidueInProtein - 1; // 0-based
 
-            // We need at most 2*peptideLength steps around the ring from our start.
-            double[] doubledPrefix = new double[2 * peptideLength + 1];
-            for (int i = 0; i < 2 * peptideLength; i++)
-            {
-                int ringIndex = (peptideStartInRing + i) % ringLength;
-                doubledPrefix[i + 1] = doubledPrefix[i] + ringMasses[ringIndex];
-            }
+            double[] doubledPrefix = GetOrBuildDoubledPrefix(ringMasses, peptideStartInRing, peptideLength, ringLength);
 
             // ── Ion type caps ─────────────────────────────────────────────────
             var massCaps = DissociationTypeCollection
@@ -186,18 +225,24 @@ namespace Proteomics.ProteolyticDigestion
 
             // ── Enumerate internal fragments ──────────────────────────────────
             // localStart: 0-based offset from this peptide's first residue.
-            // Both cleavage sites must fall within [0, peptideLength), so:
-            //   - the fragment starts at localStart ≥ 0
-            //   - the fragment ends at localStart + length - 1 < peptideLength
-            //   → maxLength = peptideLength - localStart - 1
-            //     (leaves at least one residue uncovered on the C-terminal side)
-            // This naturally prevents wrap-around for sub-peptides (length < ringLength)
-            // and allows full wrap-around only for full-ring peptides.
+            //
+            // Sub-peptide (peptideLength < ringLength):
+            //   Both cleavage sites must fall within [0, peptideLength), so
+            //   maxLength = peptideLength - localStart - 1, preventing wrap-around.
+            //
+            // Full-ring peptide (peptideLength == ringLength):
+            //   Every pair of backbone cleavage sites on the ring is valid. A fragment
+            //   may wrap around the origin, so maxLength = peptideLength - 1 for all
+            //   starting positions (the doubled prefix-sum handles the wrap).
+
+            bool isFullRing = peptideLength == ringLength;
 
             for (int localStart = 0; localStart < peptideLength; localStart++)
             {
                 int oneBasedStart = OneBasedStartResidueInProtein + localStart;
-                int maxLength = peptideLength - localStart - 1;
+                int maxLength = isFullRing
+                    ? peptideLength - 1
+                    : peptideLength - localStart - 1;
 
                 for (int length = minLengthOfFragments; length <= maxLength; length++)
                 {
@@ -246,6 +291,33 @@ namespace Proteomics.ProteolyticDigestion
         /// 0-based ring index:
         ///   ringIndex = (OneBasedStartResidueInProtein − 1 + localIndex) % ringLength
         /// </summary>
+        /// <summary>
+        /// Returns the cached ring mass array, building it on first access.
+        /// </summary>
+        private double[] GetOrBuildRingMasses()
+        {
+            return _cachedRingMasses ??= BuildParentRingMassArray();
+        }
+
+        /// <summary>
+        /// Returns the cached doubled prefix-sum array, building it on first access.
+        /// </summary>
+        private double[] GetOrBuildDoubledPrefix(double[] ringMasses, int peptideStartInRing, int peptideLength, int ringLength)
+        {
+            if (_cachedDoubledPrefix != null)
+                return _cachedDoubledPrefix;
+
+            var doubledPrefix = new double[2 * peptideLength + 1];
+            for (int i = 0; i < 2 * peptideLength; i++)
+            {
+                int ringIndex = (peptideStartInRing + i) % ringLength;
+                doubledPrefix[i + 1] = doubledPrefix[i] + ringMasses[ringIndex];
+            }
+
+            _cachedDoubledPrefix = doubledPrefix;
+            return _cachedDoubledPrefix;
+        }
+
         private double[] BuildParentRingMassArray()
         {
             int ringLength = CircularParent.Length;
@@ -254,9 +326,13 @@ namespace Proteomics.ProteolyticDigestion
 
             for (int i = 0; i < ringLength; i++)
             {
-                masses[i] = Residue.TryGetResidue(ringSeq[i], out Residue res)
-                    ? res.MonoisotopicMass
-                    : double.NaN;
+                if (!Residue.TryGetResidue(ringSeq[i], out Residue res))
+                    throw new InvalidOperationException(
+                        $"Unrecognized amino acid '{ringSeq[i]}' at position {i + 1} " +
+                        $"in the ring sequence of protein '{CircularParent.Accession}'. " +
+                        $"Cannot compute fragment masses.");
+
+                masses[i] = res.MonoisotopicMass;
             }
 
             // Map each mod from its peptide-local key to its ring position.
@@ -268,9 +344,14 @@ namespace Proteomics.ProteolyticDigestion
 
             foreach (var kvp in AllModsOneIsNterminus)
             {
-                int localIndex = kvp.Key == 1 ? 0
-                               : kvp.Key == n + 2 ? n - 1
-                               : kvp.Key - 2;
+                // Only side-chain mods (keys 2..n+1) are valid; terminal mods
+                // are rejected by the constructor.
+                int localIndex = kvp.Key - 2;
+
+                if (localIndex < 0 || localIndex >= n)
+                    throw new InvalidOperationException(
+                        $"Unexpected modification key {kvp.Key} for circular peptide of length {n}. " +
+                        "Only side-chain modifications (keys 2 to n+1) are supported.");
 
                 int ringIndex = (startInRing + localIndex) % ringLength;
                 masses[ringIndex] += kvp.Value.MonoisotopicMass.Value;
