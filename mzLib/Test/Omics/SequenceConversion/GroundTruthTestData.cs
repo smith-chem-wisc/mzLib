@@ -44,6 +44,12 @@ namespace Test.Omics.SequenceConversion
             public string UnimodCamelCaseFormat => UnimodUpperCaseFormat.Replace("UNIMOD", "Unimod");
             public string UnimodLowerCaseFormat => UnimodUpperCaseFormat.Replace("UNIMOD", "unimod");
             public string UnimodNoLabelFormat => UnimodUpperCaseFormat.Replace("UNIMOD:", "");
+            
+            /// <summary>
+            /// FDRBench format uses parentheses and CamelCase: "PEPC(UniMod:4)IDE"
+            /// </summary>
+            public string FdrBenchFormat => UnimodCamelCaseFormat.Replace("[", "(").Replace("]", ")");
+            
             public string? UniProtFormat { get; set; }
             public string? UniProtFormatWithModType => UniProtFormat is null ? null : $"UniProt:{UniProtFormat}";
             public string ExpectedBaseSequence { get; set; }

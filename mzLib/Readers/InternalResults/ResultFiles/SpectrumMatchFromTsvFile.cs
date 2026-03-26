@@ -1,6 +1,6 @@
-﻿namespace Readers;
+namespace Readers;
 
-public abstract class SpectrumMatchFromTsvFile<T> : ResultFile<T>, IQuantifiableResultFile where T: SpectrumMatchFromTsv
+public abstract class SpectrumMatchFromTsvFile<T> : ResultFile<T>, IQuantifiableResultFile where T : SpectrumMatchFromTsv
 {
     protected SpectrumMatchParsingParameters? ParsingParams { get; }
     public override SupportedFileType FileType => FilePath.ParseFileType();
