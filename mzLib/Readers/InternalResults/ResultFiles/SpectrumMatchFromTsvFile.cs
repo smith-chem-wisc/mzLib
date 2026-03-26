@@ -1,8 +1,4 @@
-using System.Collections.Generic;
-using System.Linq;
-
 namespace Readers;
-
 public abstract class SpectrumMatchFromTsvFile<T> : ResultFile<T>, IQuantifiableResultFile where T : SpectrumMatchFromTsv
 {
     protected SpectrumMatchParsingParameters? ParsingParams { get; }
@@ -42,11 +38,6 @@ public abstract class SpectrumMatchFromTsvFile<T> : ResultFile<T>, IQuantifiable
         }
         return fileNameToPath;
     }
-
-
-
-
-
 }
 public class SpectrumMatchFromTsvFile : SpectrumMatchFromTsvFile<SpectrumMatchFromTsv> 
 {
