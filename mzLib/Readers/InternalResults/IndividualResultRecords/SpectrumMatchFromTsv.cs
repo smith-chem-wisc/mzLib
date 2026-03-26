@@ -72,6 +72,7 @@ namespace Readers
         public string BaseSequence => BaseSeq;
         public int ChargeState => PrecursorCharge;
         public bool IsDecoy => DecoyContamTarget.Contains('D');
+        public bool IsEntrapment => DecoyContamTarget.Contains('E');
         public double MonoisotopicMass => double.TryParse(MonoisotopicMassString.Split('|')[0], CultureInfo.InvariantCulture, out double monoMass) ? monoMass : -1;
         private List<(string proteinAccessions, string geneName, string organism)>? _proteinGroupInfos;
         public List<(string proteinAccessions, string geneName, string organism)> ProteinGroupInfos
