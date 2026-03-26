@@ -7,6 +7,7 @@ public enum ModificationNamingConvention
 {
     MetaMorpheus, 
     MetaMorpheus_Rna, 
+    MetaMorpheus_Protein, 
     UniProt, 
     Unimod,
     Mixed
@@ -33,6 +34,7 @@ public static class Mods
             .ToDictionary(m => m.IdWithMotif);
 
         // Combine protein and RNA mods, with Protein mods taking precedence in case of conflicts
+        MetaMorpheusModifications = MetaMorpheusProteinModifications.Concat(MetaMorpheusRnaModifications).ToList();
         AllKnownMods = AllProteinModsList.Concat(AllRnaModsList).ToList();
         AllModsKnownDictionary = new Dictionary<string, Modification>(AllKnownRnaModsDictionary);
         foreach (var kvp in AllKnownProteinModsDictionary)
@@ -42,7 +44,8 @@ public static class Mods
 
         ModsByConvention = new Dictionary<ModificationNamingConvention, List<Modification>>
         {
-            { ModificationNamingConvention.MetaMorpheus, MetaMorpheusProteinModifications},
+            { ModificationNamingConvention.MetaMorpheus, MetaMorpheusModifications},
+            { ModificationNamingConvention.MetaMorpheus_Protein, MetaMorpheusProteinModifications},
             { ModificationNamingConvention.MetaMorpheus_Rna, MetaMorpheusRnaModifications },
             { ModificationNamingConvention.UniProt, UniprotModifications},
             { ModificationNamingConvention.Unimod, UnimodModifications },
@@ -53,7 +56,9 @@ public static class Mods
     #region Public Properties
     public static List<Modification> UniprotModifications { get; private set; } = [];
     public static List<Modification> MetaMorpheusProteinModifications { get; private set; } = [];
+    public static List<Modification> MetaMorpheusModifications { get; private set; } = [];
     public static List<Modification> UnimodModifications { get; private set; } = [];
+    public static List<Modification> IsobaricLabelModifications { get; private set; } = [];
 
     /// <summary>
     /// All known protein modifications indexed by IdWithMotif
@@ -65,6 +70,10 @@ public static class Mods
     /// </summary>
     public static List<Modification> AllProteinModsList { get; }
 
+    /// <summary>
+    /// Isobaric label modifications indexed by IdWithMotif
+    /// </summary>
+    public static Dictionary<string, Modification> IsobaricLabelModsDictionary { get; private set; }
 
 
     public static List<Modification> MetaMorpheusRnaModifications { get; private set; } = [];
@@ -126,6 +135,21 @@ public static class Mods
         using var modTextReader = new StreamReader(modsTextStream!);
         MetaMorpheusProteinModifications = ModificationLoader.ReadModsFromFile(modTextReader, formalChargeDict,
             out _).ToList();
+
+        // 5. Load isobaric labels (TMT, iTRAQ, DiLeu)
+        var isobaricStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.TMT.txt");
+        using var isobaricReader = new StreamReader(isobaricStream!);
+        IsobaricLabelModifications = ModificationLoader.ReadModsFromFile(isobaricReader, formalChargeDict,
+            out _).ToList();
+
+        // 6. Build isobaric label dictionary
+        IsobaricLabelModsDictionary = IsobaricLabelModifications
+            .DistinctBy(m => m.IdWithMotif)
+            .ToDictionary(m => m.IdWithMotif);
+        // Add isobaric mods to unimod if missing. 
+        foreach (var isoMod in IsobaricLabelModifications)
+            if (UnimodModifications.All(m => m.IdWithMotif != isoMod.IdWithMotif))
+                UnimodModifications.Add(isoMod);
     }
 
     /// <summary>
@@ -153,34 +177,61 @@ public static class Mods
         if (!searchProteinMods && !searchRnaMods)
             throw new ArgumentException("At least one of searchProteinMods or searchRnaMods must be true.");
 
-        if (searchProteinMods && !searchRnaMods)
+        Modification? mod = null;
+
+        switch (searchProteinMods)
         {
-            if (AllKnownProteinModsDictionary.TryGetValue(id, out var mod))
-                return mod;
-            return AllProteinModsList.FirstOrDefault(m => m.IdWithMotif == id);
+            // Only protein mods
+            case true when !searchRnaMods:
+            {
+                if (!AllKnownProteinModsDictionary.TryGetValue(id, out mod))
+                {
+                    mod = AllProteinModsList.FirstOrDefault(m => m.IdWithMotif == id) 
+                          ?? AllProteinModsList.FirstOrDefault(m => $"{m.ModificationType}:{m.IdWithMotif}" == id);
+                }
+                break;
+            }
+            // Only Rna Mods
+            case false when searchRnaMods:
+            {
+                if (!AllKnownRnaModsDictionary.TryGetValue(id, out mod))
+                {
+                    mod = AllRnaModsList.FirstOrDefault(m => m.IdWithMotif == id)
+                          ?? AllRnaModsList.FirstOrDefault(m => $"{m.ModificationType}:{m.IdWithMotif}" == id);
+                }
+                break;
+            }
+            // Search Both
+            case true when searchRnaMods:
+            {
+                if (!AllModsKnownDictionary.TryGetValue(id, out mod))
+                {
+                    mod = AllKnownMods.FirstOrDefault(m => m.IdWithMotif == id) 
+                          ?? AllKnownMods.FirstOrDefault(m => $"{m.ModificationType}:{m.IdWithMotif}" == id);
+                }
+                break;
+            }
         }
 
-        if (!searchProteinMods && searchRnaMods)
-        {
-            if (AllKnownRnaModsDictionary.TryGetValue(id, out var mod))
-                return mod;
-            return AllRnaModsList.FirstOrDefault(m => m.IdWithMotif == id);
-        }
-
-        // Search both
-        if (AllModsKnownDictionary.TryGetValue(id, out var foundMod))
-            return foundMod;
-
-        return AllKnownMods.FirstOrDefault(m => m.IdWithMotif == id);
+        return mod;
     }
 
     public static Modification? GetModification(string id, ModificationNamingConvention convention)
     {
         if (ModsByConvention.TryGetValue(convention, out var mods))
         {
-            return mods.FirstOrDefault(m => m.IdWithMotif == id || m.OriginalId == id);
+            return mods.FirstOrDefault(m => m.IdWithMotif == id || m.OriginalId == id || $"{m.ModificationType}:{m.IdWithMotif}" == id);
         }
         return null;
+    }
+
+    public static IEnumerable<Modification> GetModifications(string id, ModificationNamingConvention convention)
+    {
+        if (ModsByConvention.TryGetValue(convention, out var mods))
+        {
+            return mods.Where(m => m.IdWithMotif == id || m.OriginalId == id || $"{m.ModificationType}:{m.IdWithMotif}" == id);
+        }
+        return Enumerable.Empty<Modification>();
     }
 
     /// <summary>

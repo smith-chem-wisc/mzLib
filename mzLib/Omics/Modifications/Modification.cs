@@ -108,6 +108,10 @@ namespace Omics.Modifications
         {
             switch (_locationRestriction)
             {
+                case "Protein core.":
+                case "Protein core":
+                    return "Anywhere.";
+
                 case "N-terminal.":
                 case "C-terminal.":
                 case "Peptide N-terminal.":
