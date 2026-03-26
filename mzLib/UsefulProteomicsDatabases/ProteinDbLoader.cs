@@ -14,6 +14,7 @@ using Chemistry;
 using Omics.BioPolymer;
 using Omics.Modifications;
 using Transcriptomics;
+using Omics.Modifications.IO;
 
 namespace UsefulProteomicsDatabases
 {
@@ -181,7 +182,7 @@ namespace UsefulProteomicsDatabases
                                     //This block of code does not process information in any of the entries.
                                     protein_xml_modlist_general = storedKnownModificationsBuilder.Length <= 0 ?
                                         new List<Modification>() :
-                                        PtmListLoader.ReadModsFromString(storedKnownModificationsBuilder.ToString(), out var errors).ToList();
+                                        ModificationLoader.ReadModsFromString(storedKnownModificationsBuilder.ToString(), out var errors).ToList();
                                     break;
                                 }
                             }

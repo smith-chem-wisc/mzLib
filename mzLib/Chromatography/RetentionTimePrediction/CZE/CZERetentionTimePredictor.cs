@@ -1,3 +1,5 @@
+using Omics.SequenceConversion;
+
 namespace Chromatography.RetentionTimePrediction.CZE;
 
 /// <summary>
@@ -22,10 +24,10 @@ public class CZERetentionTimePredictor : RetentionTimePredictor
     /// <param name="columnLengthMeters">Total capillary length in meters (default: 1.0m)</param>
     /// <param name="voltsPerMeter">Applied voltage gradient in V/m (default: 300,000 V/m)</param>
     public CZERetentionTimePredictor(
-        IncompatibleModHandlingMode modHandlingMode = IncompatibleModHandlingMode.UsePrimarySequence,
+        SequenceConversionHandlingMode sequenceHandlingMode = SequenceConversionHandlingMode.UsePrimarySequence,
         double columnLengthMeters = 1.0,
         double voltsPerMeter = 300000)
-        : base(modHandlingMode)
+        : base(sequenceHandlingMode)
     {
         if (columnLengthMeters <= 0)
             throw new ArgumentException("Column length must be positive", nameof(columnLengthMeters));

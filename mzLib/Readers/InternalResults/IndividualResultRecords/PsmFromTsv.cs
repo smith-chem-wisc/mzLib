@@ -2,7 +2,6 @@
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
 using System.Globalization;
-using TopDownProteomics.Biochemistry;
 
 namespace Readers
 {
@@ -39,27 +38,32 @@ namespace Readers
         public double? XLTotalScore { get; }
         public string ParentIons { get; }
 
-        public PsmFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader)
-            : base (line, split, parsedHeader)
+        public PsmFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader, SpectrumMatchParsingParameters? parsingParams = null)
+            : base (line, split, parsedHeader, parsingParams ??= new())
         {
             var spl = line.Split(split).Select(p => p.Trim('\"')).ToArray();
 
             //For crosslinks
-            CrossType = (parsedHeader[SpectrumMatchFromTsvHeader.CrossTypeLabel] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.CrossTypeLabel]].Trim();
-            LinkResidues = (parsedHeader[SpectrumMatchFromTsvHeader.LinkResiduesLabel] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.LinkResiduesLabel]].Trim();
-            ProteinLinkSite = (parsedHeader[SpectrumMatchFromTsvHeader.ProteinLinkSiteLabel] < 0) ? null : (spl[parsedHeader[SpectrumMatchFromTsvHeader.ProteinLinkSiteLabel]] == "" ? null : (int?)int.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.ProteinLinkSiteLabel]].Trim()));
-            Rank = (parsedHeader[SpectrumMatchFromTsvHeader.RankLabel] < 0) ? null : (int?)int.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.RankLabel]].Trim());
-            BetaPeptideProteinAccession = (parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideProteinAccessionLabel] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideProteinAccessionLabel]].Trim();
-            BetaPeptideProteinLinkSite = (parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideProteinLinkSiteLabel] < 0) ? null : (spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideProteinLinkSiteLabel]] == "" ? null : (int?)int.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideProteinLinkSiteLabel]].Trim()));
-            BetaPeptideBaseSequence = (parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideBaseSequenceLabel] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideBaseSequenceLabel]].Trim();
-            BetaPeptideFullSequence = (parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideFullSequenceLabel] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideFullSequenceLabel]].Trim();
-            BetaPeptideTheoreticalMass = (parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideTheoreticalMassLabel] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideTheoreticalMassLabel]].Trim();
-            BetaPeptideScore = (parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideScoreLabel] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideScoreLabel]].Trim(), CultureInfo.InvariantCulture);
-            BetaPeptideRank = (parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideRankLabel] < 0) ? null : (int?)int.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideRankLabel]].Trim());
-            BetaPeptideMatchedIons = (parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideMatchedIonsLabel] < 0) ? null :
-                ((spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideMatchedIonsLabel]].StartsWith("{")) ? ReadChildScanMatchedIons(spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideMatchedIonsLabel]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideMatchedIonIntensitiesLabel]].Trim(), BetaPeptideBaseSequence).First().Value : ReadFragmentIonsFromString(spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideMatchedIonsLabel]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideMatchedIonIntensitiesLabel]].Trim(), BetaPeptideBaseSequence));
-            XLTotalScore = (parsedHeader[SpectrumMatchFromTsvHeader.XLTotalScoreLabel] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.XLTotalScoreLabel]].Trim(), CultureInfo.InvariantCulture);
-            ParentIons = (parsedHeader[SpectrumMatchFromTsvHeader.ParentIonsLabel] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.ParentIonsLabel]].Trim();
+            CrossType = GetOptionalValue(SpectrumMatchFromTsvHeader.CrossTypeLabel, parsedHeader, spl);
+            LinkResidues = GetOptionalValue(SpectrumMatchFromTsvHeader.LinkResiduesLabel, parsedHeader, spl);
+            ProteinLinkSite = GetOptionalValue<int>(SpectrumMatchFromTsvHeader.ProteinLinkSiteLabel, parsedHeader, spl);
+            Rank = GetOptionalValue<int>(SpectrumMatchFromTsvHeader.RankLabel, parsedHeader, spl);
+            BetaPeptideProteinAccession = GetOptionalValue(SpectrumMatchFromTsvHeader.BetaPeptideProteinAccessionLabel, parsedHeader, spl);
+            BetaPeptideProteinLinkSite = GetOptionalValue<int>(SpectrumMatchFromTsvHeader.BetaPeptideProteinLinkSiteLabel, parsedHeader, spl);
+            BetaPeptideBaseSequence = GetOptionalValue(SpectrumMatchFromTsvHeader.BetaPeptideBaseSequenceLabel, parsedHeader, spl);
+            BetaPeptideFullSequence = GetOptionalValue(SpectrumMatchFromTsvHeader.BetaPeptideFullSequenceLabel, parsedHeader, spl);
+            BetaPeptideTheoreticalMass = GetOptionalValue(SpectrumMatchFromTsvHeader.BetaPeptideTheoreticalMassLabel, parsedHeader, spl);
+            BetaPeptideScore = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.BetaPeptideScoreLabel, parsedHeader, spl);
+            BetaPeptideRank = GetOptionalValue<int>(SpectrumMatchFromTsvHeader.BetaPeptideRankLabel, parsedHeader, spl);
+            BetaPeptideMatchedIons = parsingParams.ParseMatchedFragmentIons
+                ? (parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideMatchedIonsLabel] < 0) 
+                    ? null 
+                    : ((spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideMatchedIonsLabel]].StartsWith("{")) 
+                        ? ReadChildScanMatchedIons(spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideMatchedIonsLabel]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideMatchedIonIntensitiesLabel]].Trim(), BetaPeptideBaseSequence, parsingParams).First().Value 
+                        : ReadFragmentIonsFromString(spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideMatchedIonsLabel]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideMatchedIonIntensitiesLabel]].Trim(), BetaPeptideBaseSequence, parsingParams))
+                : [];
+            XLTotalScore = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.XLTotalScoreLabel, parsedHeader, spl);
+            ParentIons = GetOptionalValue(SpectrumMatchFromTsvHeader.ParentIonsLabel, parsedHeader, spl);
             // This ensures backwards compatibility with old Crosslink Search Results
             // This works because the alpha and beta peptide full sequences are written to tsv with their crosslink site included (e.g., PEPTIDEK(4))
             if (UniqueSequence == null && BetaPeptideFullSequence != null)
@@ -68,15 +72,24 @@ namespace Readers
             }
 
             // child scan matched ions for xlink and glyco. we are getting them all above and then deleting primary scan ions here.
-            ChildScanMatchedIons = (!spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].StartsWith("{")) ? null : ReadChildScanMatchedIons(spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonIntensities]].Trim(), BaseSeq);
+            ChildScanMatchedIons = parsingParams.ParseMatchedFragmentIons 
+                ? (!spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].StartsWith("{")) 
+                    ? null 
+                    : ReadChildScanMatchedIons(spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonIntensities]].Trim(), BaseSeq, parsingParams)
+                : [];
             if (ChildScanMatchedIons != null && ChildScanMatchedIons.ContainsKey(Ms2ScanNumber))
             {
                 ChildScanMatchedIons.Remove(Ms2ScanNumber);
             }
 
             // beta peptide child scan matched ions (for crosslinks)
-            BetaPeptideChildScanMatchedIons = (parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideMatchedIonsLabel] < 0) ? null :
-                ((!spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideMatchedIonsLabel]].StartsWith("{")) ? null : ReadChildScanMatchedIons(spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideMatchedIonsLabel]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideMatchedIonIntensitiesLabel]].Trim(), BetaPeptideBaseSequence));
+            BetaPeptideChildScanMatchedIons = parsingParams.ParseMatchedFragmentIons
+                ? (parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideMatchedIonsLabel] < 0) 
+                    ? null 
+                    : ((!spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideMatchedIonsLabel]].StartsWith("{")) 
+                        ? null 
+                        : ReadChildScanMatchedIons(spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideMatchedIonsLabel]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.BetaPeptideMatchedIonIntensitiesLabel]].Trim(), BetaPeptideBaseSequence, parsingParams))
+                : [];
             if (BetaPeptideChildScanMatchedIons != null && BetaPeptideChildScanMatchedIons.ContainsKey(Ms2ScanNumber))
             {
                 BetaPeptideChildScanMatchedIons.Remove(Ms2ScanNumber);

@@ -11,6 +11,7 @@ using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases;
 using UsefulProteomicsDatabases.Transcriptomics;
 using Omics;
+using Omics.Modifications.IO;
 using Proteomics;
 
 namespace Test.Transcriptomics;
@@ -25,7 +26,7 @@ public class TestVariantOligo
     public static void SetUpModifications()
     {
         var modPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "RnaMods.txt");
-        AllKnownMods = PtmListLoader.ReadModsFromFile(modPath, out _).ToList();
+        AllKnownMods = ModificationLoader.ReadModsFromFile(modPath, out _).ToList();
     }
 
     [Test]

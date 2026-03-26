@@ -15,6 +15,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Omics.Modifications.IO;
 using UsefulProteomicsDatabases;
 using static Chemistry.PeriodicTable;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
@@ -60,7 +61,7 @@ namespace Test
         [Test]
         public static void CNBrProteinDigestion()
         {
-            var proteaseMods = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "ProteaseMods.txt"), out var errors).ToList();
+            var proteaseMods = ModificationLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "ProteaseMods.txt"), out var errors).ToList();
             var prot = new Protein("PEPTIDEMPEPTIDEM", null);
             var prot2 = new Protein("MPEPTIDEMPEPTIDE", null);
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DoubleProtease.tsv");

@@ -260,20 +260,12 @@ namespace Omics.BioPolymer
                 && protein.AppliedSequenceVariations.Any(x => variantGettingApplied.Intersects(x) && !variantGettingApplied.Includes(x));
 
             IEnumerable<SequenceVariation> appliedVariations = new[] { variantAfterApplication };
-            string seqAfter;
-            if (intersectsAppliedRegionIncompletely)
-            {
-                // Tail from consensus (not the possibly already-mutated BaseSequence)
-                seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.ConsensusVariant.BaseSequence.Substring(afterIdx);
-            }
-            else
-            {
-                // Tail from the current BaseSequence; keep any previously applied variations that are not fully contained by the current edit
-                seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.BaseSequence.Substring(afterIdx);
-                appliedVariations = appliedVariations
-                    .Concat((protein.AppliedSequenceVariations ?? Enumerable.Empty<SequenceVariation>()).Where(x => !variantGettingApplied.Includes(x)))
-                    .ToList();
-            }
+            string seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.BaseSequence.Substring(afterIdx);
+            // Keep previously applied variations not fully overwritten by this edit,
+            // regardless of whether there is a partial overlap with a prior variant.
+            appliedVariations = appliedVariations
+                .Concat((protein.AppliedSequenceVariations ?? Enumerable.Empty<SequenceVariation>()).Where(x => !variantGettingApplied.Includes(x)))
+                .ToList();
 
             // Clip at stop (*) if any
             string variantSequence = (seqBefore + seqVariant + seqAfter).Split('*')[0];
@@ -305,10 +297,16 @@ namespace Omics.BioPolymer
                 int addedIdx = alreadyAppliedVariations
                     .Where(applied => applied.OneBasedEndPosition < v.OneBasedBeginPosition)
                     .Sum(applied => applied.VariantSequence.Length - applied.OriginalSequence.Length);
+                // Check if this variation IS the newly applied variant (handles null VCF case)
+                bool isSameVariant =
+                    (v.VariantCallFormatDataString != null && v.VariantCallFormatDataString.Equals(variantGettingApplied.VariantCallFormatDataString))
+                    || (v.VariantCallFormatDataString == null && variantGettingApplied.VariantCallFormatDataString == null
+                        && v.OriginalSequence == variantGettingApplied.OriginalSequence
+                        && v.VariantSequence == variantGettingApplied.VariantSequence
+                        && v.Description == variantGettingApplied.Description);
 
-                // Either same VCF payload (null-safe) or fully before the new application region after compensating for prior shifts
-                if ((v.VariantCallFormatDataString != null && v.VariantCallFormatDataString.Equals(variantGettingApplied.VariantCallFormatDataString))
-                    || v.OneBasedEndPosition - addedIdx < variantGettingApplied.OneBasedBeginPosition)
+                // Same variant or fully before the new application region
+                if (isSameVariant || v.OneBasedEndPosition - addedIdx < variantGettingApplied.OneBasedBeginPosition)
                 {
                     variations.Add(v);
                 }
@@ -470,12 +468,17 @@ namespace Omics.BioPolymer
 
         /// <summary>
         /// Concatenates the compact representations (<see cref="SequenceVariation.SimpleString"/>) of the provided variations with underscores.
+        /// Variations are sorted by ascending position order to ensure consistent naming regardless of application order.
         /// </summary>
         /// <param name="variations">Variations to stringify; may be null/empty.</param>
         /// <returns>An underscore-joined string or empty string if none.</returns>
         private static string CombineSimpleStrings(IEnumerable<SequenceVariation>? variations)
         {
-            return variations.IsNullOrEmpty() ? "" : string.Join("_", variations.Select(v => v.SimpleString()));
+            return variations.IsNullOrEmpty()
+                ? ""
+                : string.Join("_", variations
+                    .OrderBy(v => v.OneBasedBeginPosition)
+                    .Select(v => v.SimpleString()));
         }
 
         /// <summary>
@@ -493,34 +496,44 @@ namespace Omics.BioPolymer
         /// Applies all combinations of the provided variations to the base biopolymer up to a maximum number of yielded results.
         /// The base (no-variant) biopolymer is yielded first, followed by combinations in increasing size.
         /// </summary>
+        /// <remarks>
+        /// Within each combination, variants are applied in descending position order (highest position first).
+        /// This ensures that insertions or deletions from earlier-applied variants do not invalidate the
+        /// coordinate positions of subsequent variants in the same combination.
+        /// </remarks>
         /// <typeparam name="TBioPolymerType">A biopolymer type that supports sequence variants.</typeparam>
         /// <param name="baseBioPolymer">The starting biopolymer (no variations applied).</param>
         /// <param name="variations">Candidate variations to combine.</param>
         /// <param name="maxCombinations">Maximum number of variants (including the base) to yield to bound combinatorial growth.</param>
         /// <returns>An enumerable of applied-variant biopolymers.</returns>
+
         public static IEnumerable<TBioPolymerType> ApplyAllVariantCombinations<TBioPolymerType>(
             TBioPolymerType baseBioPolymer,
             List<SequenceVariation> variations,
             int maxCombinations)
             where TBioPolymerType : IHasSequenceVariants
         {
-            int count = 0; // number of variants yielded so far
+            int count = 0;
 
             yield return baseBioPolymer;
             count++;
             if (count >= maxCombinations)
                 yield break;
 
-            int n = variations.Count; // total variation count
+            int n = variations.Count;
             for (int size = 1; size <= n; size++)
             {
                 foreach (var combo in GetCombinations(variations, size))
                 {
-                    var result = baseBioPolymer; // start from base and apply this combination in order
-                    foreach (var variant in combo)
+                    var result = baseBioPolymer;
+
+                    // Sort variants by descending position before applying.
+                    // This ensures earlier sequence modifications don't invalidate later variant positions.
+                    foreach (var variant in combo.OrderByDescending(v => v.OneBasedBeginPosition))
                     {
                         result = ApplySingleVariant(variant, result, string.Empty);
                     }
+
                     if (result != null)
                     {
                         yield return result;

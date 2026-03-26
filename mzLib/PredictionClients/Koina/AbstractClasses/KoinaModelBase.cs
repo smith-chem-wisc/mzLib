@@ -1,187 +1,269 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
+using System.Text.RegularExpressions;
+using Omics.Modifications;
+using Omics.SequenceConversion;
 
-namespace PredictionClients.Koina.AbstractClasses
+namespace PredictionClients.Koina.AbstractClasses;
+
+public abstract class KoinaModelBase<TModelInput, TModelOutput>
 {
-    public abstract class KoinaModelBase: IDisposable
+    private static readonly Regex BaseStripper = new(@"\[[^\]]+\]", RegexOptions.Compiled);
+
+    protected KoinaModelBase(ISequenceConverter sequenceConverter)
     {
-        #region Model Metadata
-        /// <summary>
-        /// Gets the model name as registered in the Koina API.
-        /// </summary>
-        public abstract string ModelName { get; }
-        
-        /// <summary>
-        /// Gets the maximum number of sequences allowed per API request batch.
-        /// Can dig in the Koina github repo to find these values if needed.
-        /// </summary>
-        public abstract int MaxBatchSize { get; }
-        #endregion
-        
-        #region Input Sequence Validation Constraints
-        /// <summary>
-        /// Gets the maximum allowed peptide base sequence length.
-        /// </summary>
-        public abstract int MaxPeptideLength { get; }
-        
-        /// <summary>
-        /// Gets the minimum allowed peptide base sequence length.
-        /// </summary>
-        public abstract int MinPeptideLength { get; }
-        
-        /// <summary>
-        /// Gets the mapping of valid modification annotations from mzLib format to UNIMOD format.
-        /// Leaving this empty will only allow unmodified peptides. Models that allow modifications
-        /// must override this property.
-        /// </summary>
-        public virtual Dictionary<string, string> ValidModificationUnimodMapping => new();
-        
-        /// <summary>
-        /// Gets the regex pattern for validating amino acid sequences.
-        /// </summary>
-        public virtual string CanonicalAminoAcidPattern => @"^[ACDEFGHIKLMNPQRSTVWY]+$";
-        
-        /// <summary>
-        /// Gets the regex pattern for identifying modifications.
-        /// </summary>
-        public virtual string ModificationPattern => @"\[[^\]]+\]";
-        #endregion
+        SequenceConverter = sequenceConverter ?? throw new ArgumentNullException(nameof(sequenceConverter));
+    }
 
-        protected bool _disposed = false;
+    protected ISequenceConverter SequenceConverter { get; }
 
-        /// <summary>
-        /// Gets the list of peptide sequences to be predicted.
-        /// All models must provide this list.
-        /// </summary>
-        public abstract List<string> PeptideSequences { get; }
+    #region Model Metadata
+    /// <summary>
+    /// Gets the model name as registered in the Koina API.
+    /// </summary>
+    public abstract string ModelName { get; }
 
-        #region Required Client Methods for Koina API Interaction and Prediction Handling
-        /// <summary>
-        /// Converts peptide sequences and associated data into batched request payloads for the Koina API.
-        /// Implementations should group input sequences into batches respecting the MaxBatchSize constraint
-        /// and format them according to the specific model's input requirements.
-        /// </summary>
-        /// <returns>List of request dictionaries, each containing a batch of sequences and parameters</returns>
-        /// <remarks>
-        /// Each dictionary in the returned list represents one API request batch and should contain:
-        /// - Peptide sequences (formatted according to model requirements)
-        /// - Model-specific parameters (e.g., charge states, collision energies, NCE values)
-        /// - Any additional metadata required by the specific Koina model
-        /// 
-        /// The total number of sequences across all batches should equal PeptideSequences.Count.
-        /// </remarks>
-        protected abstract List<Dictionary<string, object>> ToBatchedRequests();
+    /// <summary>
+    /// Gets the maximum number of sequences allowed per API request batch.
+    /// Can dig in the Koina github repo to find these values if needed.
+    /// </summary>
+    public abstract int MaxBatchSize { get; }
 
-        /// <summary>
-        /// Executes the prediction workflow by sending batched requests to the Koina API and processing responses.
-        /// </summary>
-        /// <returns>Task representing the asynchronous inference operation</returns>
-        public abstract Task RunInferenceAsync();
+    /// <summary>
+    /// Gets the maximum number of batches that can be combined into a single API request.
+    /// Used to optimize request throughput while respecting API limitations.
+    /// </summary>
+    public abstract int MaxNumberOfBatchesPerRequest { get; init; }
 
-        /// <summary>
-        /// Parses API response data and converts it into model-specific prediction results.
-        /// This method is used internally after receiving responses from the Koina API
-        /// within the RunInferenceAsync method.
-        /// </summary>
-        /// <param name="response">Array of response strings from the Koina API</param>
-        protected abstract void ResponseToPredictions(string[] response);
-        #endregion
+    /// <summary>
+    /// Gets the delay in milliseconds to wait between consecutive API requests.
+    /// Used for rate limiting to prevent overwhelming the Koina API server.
+    /// </summary>
+    public abstract int ThrottlingDelayInMilliseconds { get; init; }       
+    /// <summary>
+    /// Gets the benchmarked processing time in milliseconds for one batch at MaxBatchSize.
+    /// Used for estimating total request duration and optimizing parallelization strategies.
+    /// </summary>
+    public abstract int BenchmarkedTimeForOneMaxBatchSizeInMilliseconds { get; }
+    #endregion
 
-        #region Validation and Modification Handling
-        /// <summary>
-        /// Validates that all modifications in a peptide sequence are supported by the model.
-        /// Returns true for sequences without modifications or when all modifications are recognized.
-        /// </summary>
-        /// <param name="sequence">Peptide sequence with potential modifications in mzLib format</param>
-        /// <returns>True if all modifications are valid or no modifications present; otherwise false</returns>
-        /// <remarks>
-        /// Modification validation process:
-        /// 1. Uses ModificationPattern regex to find all modification annotations
-        /// 2. Checks each modification against ValidModificationUnimodMapping
-        /// 3. Empty modification list (unmodified peptides) is considered valid
-        /// </remarks>
-        protected virtual bool HasValidModifications(string sequence)
+    #region Input Sequence Validation Constraints
+    public abstract SequenceConversionHandlingMode ModHandlingMode { get; init; }
+    /// <summary>
+    /// Gets the maximum allowed peptide base sequence length.
+    /// </summary>
+    public abstract int MaxPeptideLength { get; }
+
+    /// <summary>
+    /// Gets the minimum allowed peptide base sequence length.
+    /// </summary>
+    public abstract int MinPeptideLength { get; }
+
+    /// <summary>
+    /// Unimod Ids that are allowed to b passed to the model. 
+    /// </summary>
+    public virtual IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>();
+
+
+    /// <summary>
+    /// Gets the regex pattern for validating amino acid sequences.
+    /// </summary>
+    protected virtual string AllowedAminoAcidPattern => "^[ACDEFGHIKLMNPQRSTVWY]+$";
+    #endregion
+
+    #region Required Client Methods for Koina API Interaction
+    /// <summary>
+    /// Converts peptide sequences and associated data into batched request payloads for the Koina API.
+    /// Implementations should group input sequences into batches respecting the MaxBatchSize constraint
+    /// and format them according to the specific model's input requirements.
+    /// </summary>
+    /// <returns>List of request dictionaries, each containing a batch of sequences and parameters</returns>
+    /// <remarks>
+    /// Each dictionary in the returned list represents one API request batch and should contain:
+    /// - Peptide sequences (formatted according to model requirements)
+    /// - Model-specific parameters (e.g., charge states, collision energies, NCE values)
+    /// - Any additional metadata required by the specific Koina model
+    /// Must ensure that only the validated sequences that meet the model's constraints are included in the batches. 
+    /// The total number of sequences across all batches should equal PeptideSequences.Count.
+    /// </remarks>
+    protected abstract List<Dictionary<string, object>> ToBatchedRequests(List<TModelInput> validInputs);
+    #endregion
+
+    #region Validation and Modification Handling
+    /// <summary>
+    /// Validates a peptide sequence against model constraints for modifications and basic sequence requirements.
+    /// Handles incompatible modifications according to the specified ModHandlingMode.
+    /// </summary>
+    protected virtual string? TryCleanSequence(
+        string sequence,
+        out string? apiSequence,
+        out WarningException? warning)
+    {
+        apiSequence = null;
+        warning = null;
+
+        var rawBase = BaseStripper.Replace(sequence, string.Empty);
+        if (!Regex.IsMatch(rawBase, AllowedAminoAcidPattern))
         {
-            var matches = Regex.Matches(sequence, ModificationPattern);
-            if (matches.Count == 0)
-            {
-                return true; // No modifications found - valid for all models
-            }
-
-            // Check if any modifications are not in the valid mapping
-            return matches.All(m => ValidModificationUnimodMapping.ContainsKey(m.Value));
+            HandleFailure(ModHandlingMode, "Invalid base sequence.");
+            return null;
         }
 
-        /// <summary>
-        /// Validates that a peptide sequence meets model constraints for length and amino acid composition.
-        /// Removes modifications before validation to check only the base amino acid sequence.
-        /// </summary>
-        /// <param name="sequence">Peptide sequence with potential modifications</param>
-        /// <returns>True if sequence meets model length and composition requirements; otherwise false</returns>
-        /// <remarks>
-        /// Validation criteria:
-        /// - Strips modification annotations using ModificationPattern
-        /// - Checks against CanonicalAminoAcidPattern for valid amino acids
-        /// - Validates length is within [MinPeptideLength, MaxPeptideLength] range
-        /// </remarks>
-        protected virtual bool IsValidSequence(string sequence)
+        var conversionWarnings = new ConversionWarnings();
+        CanonicalSequence? canonical;
+        try
         {
-            // Remove modification annotations to get base sequence
-            var baseSequence = Regex.Replace(sequence, ModificationPattern, "");
-
-            return Regex.IsMatch(baseSequence, CanonicalAminoAcidPattern) // Valid amino acids only
-                && baseSequence.Length <= MaxPeptideLength                 // Within max length
-                && baseSequence.Length >= MinPeptideLength;                // Above min length (implicit from abstract property)
-        }
-        #endregion
-
-        #region Full Sequence Modification Conversion Methods
-        /// <summary>
-        /// Converts peptide sequence from mzLib modification format to UNIMOD format required by the model.
-        /// Base implementation performs standard mzLib to UNIMOD conversion using the ValidModificationUnimodMapping.
-        /// </summary>
-        /// <param name="sequence">Peptide sequence in mzLib modification format</param>
-        /// <returns>Sequence converted to UNIMOD format</returns>
-        /// <remarks>
-        /// Conversion process:
-        /// 1. Replaces mzLib modification names with UNIMOD identifiers using ValidModificationUnimodMapping
-        /// 
-        /// Example transformations:
-        /// - "PEPT[Common Variable:Oxidation on M]IDE" -> "PEPT[UNIMOD:35]IDE" (oxidation converted)
-        /// - "C[Common Fixed:Carbamidomethyl on C]PEPTIDE" -> "C[UNIMOD:4]PEPTIDE" (carbamidomethyl converted)
-        /// 
-        /// Derived classes may override this method to implement model-specific modification handling,
-        /// such as automatic carbamidomethylation of cysteines or other required modifications.
-        /// </remarks>
-        protected virtual string ConvertMzLibModificationsToUnimod(string sequence)
-        {
-            // Apply custom modification mappings first
-            foreach (var mod in ValidModificationUnimodMapping)
+            canonical = SequenceConverter.Parse(sequence, conversionWarnings, ModHandlingMode);
+            if (!canonical.HasValue)
             {
-                sequence = sequence.Replace(mod.Key, mod.Value);
-            }
-            return sequence;
-        }
-
-        /// <summary>
-        /// Converts peptide sequence from UNIMOD format back to mzLib modification format.
-        /// Inverse operation of ConvertMzLibModificationsToUnimod.
-        /// </summary>
-        protected virtual string ConvertUnimodToMzLibModifications(string sequence)
-        {
-            foreach (var mod in ValidModificationUnimodMapping)
-            {
-                sequence = sequence.Replace(mod.Value, mod.Key);
-            }
-            return sequence;
-        }
-        #endregion
-        public void Dispose()
-        {
-            if (!_disposed)
-            {
-                // Dispose of any resources if necessary.
-                _disposed = true;
+                HandleFailure(ModHandlingMode, "Failed to parse sequence.");
+                warning = BuildWarning(conversionWarnings, null);
+                return null;
             }
         }
+        catch (SequenceConversionException ex)
+        {
+            HandleFailure(ModHandlingMode, $"Failed to parse sequence: {ex.Message}");
+            warning = BuildWarning(conversionWarnings, ex.Message);
+            return null;
+        }
+
+        if (!IsValidBaseSequence(canonical.Value.BaseSequence, AllowedAminoAcidPattern, MinPeptideLength, MaxPeptideLength))
+        {
+            HandleFailure(ModHandlingMode, "Invalid base sequence.");
+            return null;
+        }
+
+        var cleaned = canonical.Value;
+        if (ModHandlingMode == SequenceConversionHandlingMode.UsePrimarySequence && cleaned.HasModifications)
+        {
+            cleaned = cleaned.WithModifications(Array.Empty<CanonicalModification>());
+            conversionWarnings.AddWarning("Sequence modifications were removed for prediction.");
+        }
+
+        string? serialized;
+        try
+        {
+            serialized = SequenceConverter.Serialize(cleaned, conversionWarnings, ModHandlingMode);
+        }
+        catch (SequenceConversionException ex)
+        {
+            HandleFailure(ModHandlingMode, ex.Message);
+            warning = BuildWarning(conversionWarnings, ex.Message);
+            return null;
+        }
+
+        if (serialized == null)
+        {
+            warning = BuildWarning(conversionWarnings, null);
+            return null;
+        }
+
+        apiSequence = serialized;
+        warning = BuildWarning(conversionWarnings, null);
+        return apiSequence;
+    }
+
+    #endregion
+
+    protected static ISequenceConverter CreateUnimodConverter(
+        UnimodSequenceFormatSchema schema,
+        IReadOnlySet<int> allowedUnimodIds)
+    {
+        var lookup = CreateLookup(allowedUnimodIds);
+        var serializer = new UnimodSequenceSerializer(schema, lookup);
+        return new SequenceConverter(MzLibSequenceParser.Instance, serializer);
+    }
+
+    private static IModificationLookup CreateLookup(IReadOnlySet<int> allowedUnimodIds)
+    {
+        if (allowedUnimodIds.Count == 0)
+        {
+            return new UnimodModificationLookup(Enumerable.Empty<Modification>());
+        }
+
+        var candidates = Mods.UnimodModifications
+            .Where(m => TryGetUnimodId(m, out var id) && allowedUnimodIds.Contains(id))
+            .ToList();
+
+        return new UnimodModificationLookup(candidates);
+    }
+
+    private static bool TryGetUnimodId(Modification modification, out int id)
+    {
+        if (modification.Accession?.StartsWith("UNIMOD:", StringComparison.OrdinalIgnoreCase) == true
+            && int.TryParse(modification.Accession[7..], out id))
+        {
+            return true;
+        }
+
+        if (modification.DatabaseReference != null)
+        {
+            foreach (var kvp in modification.DatabaseReference)
+            {
+                if (!kvp.Key.Equals("UNIMOD", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (kvp.Value.Count > 0)
+                {
+                    var reference = kvp.Value[0]
+                        .Replace("UNIMOD:", string.Empty, StringComparison.OrdinalIgnoreCase)
+                        .Replace(":", string.Empty);
+
+                    if (int.TryParse(reference, out id))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        id = -1;
+        return false;
+    }
+
+    private static bool IsValidBaseSequence(string baseSequence, string allowedPattern, int minLength, int maxLength)
+    {
+        return Regex.IsMatch(baseSequence, allowedPattern)
+               && baseSequence.Length <= maxLength
+               && baseSequence.Length >= minLength;
+    }
+
+    private static void HandleFailure(SequenceConversionHandlingMode mode, string message)
+    {
+        if (mode == SequenceConversionHandlingMode.ThrowException)
+        {
+            throw new ArgumentException(message);
+        }
+    }
+
+    private static WarningException? BuildWarning(ConversionWarnings warnings, string? additionalMessage)
+    {
+        var messages = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(additionalMessage))
+        {
+            messages.Add(additionalMessage);
+        }
+
+        if (warnings.HasIncompatibleItems)
+        {
+            messages.Add($"Sequence contains unsupported modifications: {string.Join(", ", warnings.IncompatibleItems)}");
+        }
+
+        if (warnings.HasErrors)
+        {
+            messages.AddRange(warnings.Errors);
+        }
+
+        if (warnings.HasWarnings)
+        {
+            messages.AddRange(warnings.Warnings);
+        }
+
+        return messages.Count > 0 ? new WarningException(string.Join(" ", messages)) : null;
     }
 }

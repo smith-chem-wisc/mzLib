@@ -39,6 +39,7 @@
     <ProjectReference Include="..\Readers\Readers.csproj" />
     <ProjectReference Include="..\Transcriptomics\Transcriptomics.csproj" />
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
+    <ProjectReference Include="..\Quantification\Quantification.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -346,6 +347,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\timsTOF_snippet_Corrupted.d\analysis.tdf_bin">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\withEmptySpectra.mgf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\withIntensity.mgf">
