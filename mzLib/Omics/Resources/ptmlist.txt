@@ -1,4 +1,3 @@
-
 ---------------------------------------------------------------------------
         UniProt Knowledgebase:
           Swiss-Prot Protein Knowledgebase
@@ -10,7 +9,7 @@
 
 Description: Controlled vocabulary of posttranslational modifications (PTM)
 Name:        ptmlist.txt
-Release:     2018_01 of 31-Jan-2018
+Release:     2026_01 of 28-Jan-2026
 
 ---------------------------------------------------------------------------
 
@@ -40,7 +39,7 @@ Release:     2018_01 of 31-Jan-2018
                                              can be proposed
   TR         Taxonomic range                 Optional; once or more
   KW         Keyword                         Optional; once or more
-  DR         Cross-reference to PTM          Optional; once or more
+  DR         Cross-reference to external     Optional; once or more
              databases
   //         Terminator                      Once; ends an entry
 
@@ -88,7 +87,9 @@ CF   O1
 MM   15.994915
 MA   16.00
 TR   Bacteria; taxId:2 (Bacteria).
+TR   Eukaryota; taxId:40674 (Mammalia).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:78294.
 DR   RESID; AA0601.
 DR   PSI-MOD; MOD:01956.
 //
@@ -104,8 +105,10 @@ MA   16.00
 LC   Intracellular localisation or Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:40674 (Mammalia).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141853.
 DR   RESID; AA0026.
 DR   PSI-MOD; MOD:00035.
+DR   Unimod; 35.
 //
 ID   (3R)-3-hydroxyaspartate
 AC   PTM-0371
@@ -120,8 +123,10 @@ LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:68215 (Streptomyces griseoverticillatus).
 TR   Eukaryota; taxId:40674 (Mammalia).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141848.
 DR   RESID; AA0027.
 DR   PSI-MOD; MOD:00036.
+DR   Unimod; 35.
 //
 ID   (3S)-3-hydroxyhistidine
 AC   PTM-0477
@@ -135,6 +140,8 @@ MA   16.00
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:138021.
+DR   RESID; AA0580.
 DR   PSI-MOD; MOD:01920.
 //
 ID   (3R,4R)-3,4-dihydroxyproline
@@ -149,6 +156,7 @@ MA   32.00
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:78357 (Amanita virosa).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141805.
 DR   RESID; AA0479.
 DR   PSI-MOD; MOD:01402.
 //
@@ -164,6 +172,7 @@ MA   32.00
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:67723 (Amanita phalloides).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141826.
 DR   RESID; AA0449.
 DR   PSI-MOD; MOD:01378.
 //
@@ -179,8 +188,10 @@ MA   32.00
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:6550 (Mytilus edulis).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141803.
 DR   RESID; AA0282.
 DR   PSI-MOD; MOD:00287.
+DR   Unimod; 425.
 //
 ID   (3R,4S)-4-hydroxyisoleucine
 AC   PTM-0337
@@ -194,6 +205,7 @@ MA   16.00
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:67723 (Amanita phalloides).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141844.
 DR   RESID; AA0448.
 DR   PSI-MOD; MOD:01377.
 //
@@ -209,6 +221,7 @@ MA   16.00
 LC   Intracellular localisation or Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:7742 (Vertebrata).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:138107.
 DR   RESID; AA0478.
 DR   PSI-MOD; MOD:01401.
 //
@@ -224,7 +237,23 @@ MA   16.00
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:138111.
+DR   RESID; AA0579.
 DR   PSI-MOD; MOD:01919.
+//
+ID   (3S)-3-hydroxylysine
+AC   PTM-0663
+FT   MOD_RES
+TG   Lysine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   O1
+MM   15.994915
+MA   16.00
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:40674 (Mammalia).
+KW   Hydroxylation.
+DR   ChEBI; CHEBI:141492.
 //
 ID   (3S,4R)-3,4-dihydroxyisoleucine
 AC   PTM-0343
@@ -238,8 +267,25 @@ MA   32.00
 LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:146537 (Streptomyces azureus).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141827.
 DR   RESID; AA0447.
 DR   PSI-MOD; MOD:01376.
+//
+ID   (2S)-4-hydroxyleucine
+AC   PTM-0665
+FT   MOD_RES
+TG   Leucine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   O1
+MM   15.994915
+MA   16.00
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:4751 (Fungi).
+KW   Hydroxylation.
+DR   ChEBI; CHEBI:141825.
+DR   RESID; AA0442.
+DR   PSI-MOD; MOD:01372.
 //
 ID   (4R)-5-hydroxyleucine
 AC   PTM-0491
@@ -253,6 +299,7 @@ MA   16.00
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141824.
 DR   RESID; AA0443.
 DR   PSI-MOD; MOD:01373.
 //
@@ -268,8 +315,38 @@ MA   32.00
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:78357 (Amanita virosa).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141823.
 DR   RESID; AA0445.
 DR   PSI-MOD; MOD:01375.
+//
+ID   (4S)-4,5-dihydroxyleucine
+AC   PTM-0666
+FT   MOD_RES
+TG   Leucine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   O2
+MM   31.989829
+MA   32.00
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:500611 (Amanita suballiacea).
+KW   Hydroxylation.
+DR   ChEBI; CHEBI:141819.
+DR   RESID; AA0446.
+DR   PSI-MOD; MOD:01432.
+//
+ID   (Z)-2,3-didehydroaspartate
+AC   PTM-0673
+FT   MOD_RES
+TG   Aspartate.
+PA   Amino acid backbone.
+PP   Protein core.
+CF   H-2
+MM   -2.015650
+MA   -2.02
+LC   Intracellular localisation.
+TR   Archaea; taxId:28890 (Euryarchaeota).
+DR   ChEBI; CHEBI:145325.
 //
 ID   (E)-2,3-didehydrotyrosine
 AC   PTM-0001
@@ -284,6 +361,7 @@ LC   Intracellular localisation.
 TR   Eukaryota; taxId:6073 (Cnidaria).
 DR   RESID; AA0365.
 DR   PSI-MOD; MOD:00370.
+DR   Unimod; 401.
 //
 ID   (Z)-2,3-didehydrotyrosine
 AC   PTM-0002
@@ -298,6 +376,7 @@ LC   Intracellular localisation.
 TR   Eukaryota; taxId:6073 (Cnidaria).
 DR   RESID; AA0183.
 DR   PSI-MOD; MOD:00191.
+DR   Unimod; 401.
 //
 ID   2,3-didehydrotyrosine
 AC   PTM-0008
@@ -311,6 +390,7 @@ MA   -2.02
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:6073 (Cnidaria).
 DR   PSI-MOD; MOD:00706.
+DR   Unimod; 401.
 //
 ID   2,3-didehydroalanine (Cys)
 AC   PTM-0468
@@ -322,10 +402,13 @@ CF   H-2 S-1
 MM   -33.987721
 MA   -34.08
 LC   Intracellular localisation.
+TR   Archaea; taxId:28890 (Euryarchaeota).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:4932 (Saccharomyces cerevisiae).
+DR   ChEBI; CHEBI:90873.
 DR   RESID; AA0181.
 DR   PSI-MOD; MOD:00793.
+DR   Unimod; 368.
 //
 ID   2,3-didehydroalanine (Ser)
 AC   PTM-0006
@@ -340,8 +423,10 @@ LC   Intracellular localisation.
 TR   Archaea; taxId:28890 (Euryarchaeota).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:90873.
 DR   RESID; AA0181.
 DR   PSI-MOD; MOD:00189.
+DR   Unimod; 23.
 //
 ID   2,3-didehydroalanine (Tyr)
 AC   PTM-0647
@@ -355,8 +440,10 @@ MA   -94.11
 LC   Intracellular localisation.
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:90873.
 DR   RESID; AA0181.
 DR   PSI-MOD; MOD:00824.
+DR   Unimod; 400.
 //
 ID   (E)-2,3-didehydrobutyrine
 AC   PTM-0441
@@ -385,6 +472,7 @@ LC   Extracellular localisation.
 TR   Bacteria; taxId:1239 (Firmicutes).
 DR   RESID; AA0182.
 DR   PSI-MOD; MOD:01471.
+DR   Unimod; 23.
 //
 ID   2,3-didehydrobutyrine
 AC   PTM-0007
@@ -398,6 +486,7 @@ MA   -18.02
 LC   Extracellular localisation.
 TR   Bacteria; taxId:1239 (Firmicutes).
 DR   PSI-MOD; MOD:00190.
+DR   Unimod; 23.
 //
 ID   1-amino-2-propanone
 AC   PTM-0379
@@ -444,6 +533,7 @@ TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 DR   RESID; AA0265.
 DR   PSI-MOD; MOD:00270.
+DR   Unimod; 420.
 //
 ID   1-(tryptophan-3-yl)-tryptophan (Trp-Trp) (interchain with W-...)
 AC   PTM-0445
@@ -487,8 +577,10 @@ LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   TPQ.
+DR   ChEBI; CHEBI:79027.
 DR   RESID; AA0147.
 DR   PSI-MOD; MOD:00156.
+DR   Unimod; 392.
 //
 ID   2'-cysteinyl-6'-hydroxytryptophan sulfoxide (Trp-Cys)
 AC   PTM-0338
@@ -545,6 +637,7 @@ MA   168.04
 LC   Intracellular localisation.
 TR   Bacteria; taxId:2 (Bacteria).
 KW   Pyruvate.
+DR   ChEBI; CHEBI:149496.
 DR   RESID; AA0391.
 DR   PSI-MOD; MOD:00797.
 //
@@ -608,6 +701,20 @@ KW   Thioether bond.
 DR   RESID; AA0559.
 DR   PSI-MOD; MOD:01857.
 //
+ID   2-(cystein-S-ylcarbonyl)-3-methyl-4-(glutam-5-yloxy)methylindole (Glu-Cys)
+AC   PTM-0718
+FT   CROSSLNK
+TG   Glutamate-Cysteine.
+PA   Amino acid side chain-Amino acid side chain.
+PP   Anywhere-Anywhere.
+CF   C11 H7 N1 O1
+MM   169.052764
+MA   169.18
+TR   Bacteria; taxId:1885 (Streptomyces actuosus).
+KW   Thioether bond.
+DR   RESID; AA0488.
+DR   PSI-MOD; MOD:01435.
+//
 ID   2-iminomethyl-5-imidazolinone (Gln-Gly)
 AC   PTM-0013
 FT   CROSSLNK
@@ -664,6 +771,7 @@ TR   Archaea; taxId:79929 (Methanothermobacter marburgensis (strain ATCC BAA-927
 KW   Methylation.
 DR   RESID; AA0273.
 DR   PSI-MOD; MOD:00278.
+DR   Unimod; 34.
 //
 ID   2'-methylsulfonyltryptophan
 AC   PTM-0304
@@ -691,8 +799,23 @@ MM   -17.026549
 MA   -17.03
 LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:1282 (Staphylococcus epidermidis).
+DR   ChEBI; CHEBI:149508.
 DR   RESID; AA0129.
 DR   PSI-MOD; MOD:00138.
+DR   Unimod; 385.
+//
+ID   2-oxo-5,5-dimethylhexanoate
+AC   PTM-0687
+FT   MOD_RES
+TG   Threonine.
+PA   Amino acid backbone.
+PP   N-terminal.
+CF   C4 H5 N-1
+MM   39.03605
+MA   39.08
+LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
+DR   ChEBI; CHEBI:149505.
 //
 ID   2-tetrahydro-2-pyridyl-5-imidazolinone (Lys-Gly)
 AC   PTM-0018
@@ -707,6 +830,20 @@ LC   Intracellular localisation.
 TR   Eukaryota; taxId:105402 (Zoanthus sp.).
 DR   RESID; AA0382.
 DR   PSI-MOD; MOD:00387.
+//
+ID   3-(L-phenylalan-2'-yl)-L-valine (Phe-Val)
+AC   PTM-0739
+FT   CROSSLNK
+TG   Phenylalanine-Valine.
+PA   Amino acid side chain-Amino acid side chain.
+PP   Anywhere-Anywhere.
+CF   H-2
+MM   -2.015650
+MA   -2.02
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:33678 (Cyanophoraceae).
+DR   RESID; AA0565.
+DR   PSI-MOD; MOD:01881.
 //
 ID   3-(O4'-tyrosyl)-valine (Val-Tyr)
 AC   PTM-0390
@@ -779,8 +916,10 @@ MA   32.00
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:7725 (Styela clava).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141829.
 DR   RESID; AA0369.
 DR   PSI-MOD; MOD:00374.
+DR   Unimod; 425.
 //
 ID   3',4'-dihydroxyphenylalanine
 AC   PTM-0023
@@ -795,8 +934,44 @@ LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:201174 (Actinobacteria).
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141815.
 DR   RESID; AA0146.
 DR   PSI-MOD; MOD:00155.
+DR   Unimod; 35.
+//
+ID   3',4',5'-trihydroxyphenylalanine
+AC   PTM-0667
+FT   MOD_RES
+TG   Tyrosine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   O2
+MM   31.989829
+MA   32.00
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:33208 (Metazoa).
+KW   Hydroxylation.
+DR   ChEBI; CHEBI:141811.
+DR   RESID; AA0263.
+DR   PSI-MOD; MOD:00268.
+DR   Unimod; 425.
+//
+ID   2-hydroxyproline
+AC   PTM-0668
+FT   MOD_RES
+TG   Proline.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   O1
+MM   15.994915
+MA   16.00
+LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
+TR   Eukaryota; taxId:33208 (Metazoa).
+KW   Hydroxylation.
+DR   ChEBI; CHEBI:141809.
+DR   RESID; AA0602.
+DR   PSI-MOD; MOD:01957.
 //
 ID   3,4-dihydroxyproline
 AC   PTM-0024
@@ -811,8 +986,8 @@ LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:415003 (Microbispora sp. (strain 107891)).
 TR   Eukaryota; taxId:6550 (Mytilus edulis).
 KW   Hydroxylation.
-DR   RESID; AA0282.
-DR   PSI-MOD; MOD:00287.
+DR   ChEBI; CHEBI:141832.
+DR   PSI-MOD; MOD:00866.
 //
 ID   3-cysteinyl-aspartic acid (Cys-Asp)
 AC   PTM-0025
@@ -829,6 +1004,21 @@ KW   Thioether bond.
 DR   RESID; AA0314.
 DR   PSI-MOD; MOD:00319.
 //
+ID   3'-farnesyl-2',N2-cyclotryptophan
+AC   PTM-0713
+FT   LIPID
+TG   Tryptophan.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C15 H24
+MM   204.187801
+MA   204.36
+TR   Bacteria; taxId:1386 (Bacillus).
+KW   Prenylation.
+DR   ChEBI; CHEBI:177368.
+DR   RESID; AA0500.
+DR   PSI-MOD; MOD:01590.
+//
 ID   3'-geranyl-2',N2-cyclotryptophan
 AC   PTM-0026
 FT   LIPID
@@ -839,10 +1029,24 @@ CF   C10 H16
 MM   136.125201
 MA   136.24
 LC   Extracellular and lumenal localisation.
-TR   Bacteria; taxId:1423 (Bacillus subtilis).
+TR   Bacteria; taxId:1386 (Bacillus).
 KW   Prenylation.
+DR   ChEBI; CHEBI:141127.
 DR   RESID; AA0408.
 DR   PSI-MOD; MOD:00817.
+//
+ID   3'-prenyl-2',N2-cyclotryptophan
+AC   PTM-0685
+FT   LIPID
+TG   Tryptophan.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C5 H8
+MM   68.06260
+MA   68.12
+TR   Bacteria; taxId:1117 (Cyanobacteria).
+KW   Prenylation.
+DR   ChEBI; CHEBI:147338.
 //
 ID   3'-histidyl-3-tyrosine (His-Tyr)
 AC   PTM-0027
@@ -870,8 +1074,7 @@ MA   16.00
 LC   Intracellular localisation or Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:7742 (Vertebrata).
 KW   Hydroxylation.
-DR   RESID; AA0026.
-DR   PSI-MOD; MOD:00035.
+DR   ChEBI; CHEBI:141828.
 //
 ID   3-hydroxyaspartate
 AC   PTM-0029
@@ -885,8 +1088,7 @@ MA   16.00
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:7742 (Vertebrata).
 KW   Hydroxylation.
-DR   RESID; AA0027.
-DR   PSI-MOD; MOD:00036.
+DR   ChEBI; CHEBI:17427.
 //
 ID   3-hydroxyphenylalanine
 AC   PTM-0346
@@ -900,6 +1102,7 @@ MA   16.00
 LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:35762 (Planobispora rosea).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141841.
 DR   RESID; AA0462.
 DR   PSI-MOD; MOD:01385.
 //
@@ -915,8 +1118,10 @@ MA   16.00
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:85428.
 DR   RESID; AA0029.
 DR   PSI-MOD; MOD:00038.
+DR   Unimod; 35.
 //
 ID   3-hydroxypyridine-2,5-dicarboxylic acid (Ser-Cys) (with S-...)
 AC   PTM-0454
@@ -953,10 +1158,12 @@ LC   Intracellular localisation or Extracellular and lumenal localisation.
 TR   Bacteria; taxId:1224 (Proteobacteria).
 TR   Eukaryota; taxId:5306 (Phanerochaete chrysosporium).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141794.
 DR   RESID; AA0322.
 DR   PSI-MOD; MOD:00327.
+DR   Unimod; 35.
 //
-ID   3-hydroxyvaline
+ID   3-hydroxyvaline (Val)
 AC   PTM-0347
 FT   MOD_RES
 TG   Valine.
@@ -968,8 +1175,65 @@ MA   16.00
 LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:1386 (Bacillus).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141793.
 DR   RESID; AA0463.
 DR   PSI-MOD; MOD:01386.
+//
+ID   3-hydroxyvaline (Thr)
+AC   PTM-0692
+FT   MOD_RES
+TG   Threonine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C1 H2
+MM   14.015650
+MA   14.03
+LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
+KW   Methylation.
+DR   ChEBI; CHEBI:141793.
+//
+ID   3-hydroxy-D-valine
+AC   PTM-0694
+FT   MOD_RES
+TG   Valine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   O1
+MM   15.994915
+MA   16.00
+LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
+KW   D-amino acid; Hydroxylation.
+DR   ChEBI; CHEBI:149516.
+//
+ID   (3S)-3-methylglutamine
+AC   PTM-0693
+FT   MOD_RES
+TG   Glutamine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C1 H2
+MM   14.015650
+MA   14.03
+LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
+KW   Methylation.
+DR   ChEBI; CHEBI:149515.
+//
+ID   3-methylisoleucine
+AC   PTM-0688
+FT   MOD_RES
+TG   Isoleucine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C1 H2
+MM   14.015650
+MA   14.03
+LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
+KW   Methylation.
+DR   ChEBI; CHEBI:149510.
 //
 ID   3-methylthioaspartic acid
 AC   PTM-0032
@@ -983,8 +1247,38 @@ MA   46.09
 LC   Intracellular localisation.
 TR   Bacteria; taxId:2 (Bacteria).
 KW   Methylation.
+DR   ChEBI; CHEBI:73599.
 DR   RESID; AA0232.
 DR   PSI-MOD; MOD:00237.
+DR   Unimod; 39.
+//
+ID   3-methylvaline
+AC   PTM-0689
+FT   MOD_RES
+TG   Valine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C1 H2
+MM   14.015650
+MA   14.03
+LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
+KW   Methylation.
+DR   ChEBI; CHEBI:149511.
+//
+ID   3-methyl-D-valine
+AC   PTM-0690
+FT   MOD_RES
+TG   Valine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C1 H2
+MM   14.015650
+MA   14.03
+LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
+KW   D-amino acid; Methylation.
+DR   ChEBI; CHEBI:149513.
 //
 ID   3'-nitrotyrosine
 AC   PTM-0434
@@ -995,9 +1289,10 @@ PP   Anywhere.
 CF   H-1 N1 O2
 MM   44.985078
 MA   45.00
-LC   Extracellular localisation.
-TR   Eukaryota; taxId:40674 (Mammalia).
+LC   Intracellular localisation or Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Nitration.
+DR   ChEBI; CHEBI:149694.
 DR   RESID; AA0537.
 DR   PSI-MOD; MOD:01786.
 //
@@ -1013,8 +1308,10 @@ MA   -18.08
 LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:1224 (Proteobacteria), taxId:1239 (Firmicutes).
 TR   Eukaryota; taxId:3041 (Chlorophyta), taxId:33208 (Metazoa).
+DR   ChEBI; CHEBI:85621.
 DR   RESID; AA0185.
 DR   PSI-MOD; MOD:00193.
+DR   Unimod; 402.
 //
 ID   3-oxoalanine (Ser)
 AC   PTM-0034
@@ -1028,8 +1325,10 @@ MA   -2.02
 LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:1224 (Proteobacteria).
 TR   Eukaryota; taxId:9606 (Homo sapiens).
+DR   ChEBI; CHEBI:85621.
 DR   RESID; AA0185.
 DR   PSI-MOD; MOD:00835.
+DR   Unimod; 401.
 //
 ID   3-phenyllactic acid
 AC   PTM-0035
@@ -1044,6 +1343,7 @@ LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:6073 (Cnidaria).
 DR   RESID; AA0128.
 DR   PSI-MOD; MOD:00137.
+DR   Unimod; 7.
 //
 ID   4,5,5'-trihydroxyleucine
 AC   PTM-0372
@@ -1057,8 +1357,22 @@ MA   48.00
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:78357 (Amanita virosa).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141818.
 DR   RESID; AA0480.
 DR   PSI-MOD; MOD:01403.
+//
+ID   4-(1-hydroxyethyl)-7-isoleucino-2-(threonin-O3-ylcarbonyl)-7,8-dihydroquinolin-8-ol (Ile-Thr)
+AC   PTM-0711
+FT   CROSSLNK
+TG   Isoleucine-Threonine.
+PA   Amino acid backbone-Amino acid side chain.
+PP   N-terminal-Protein core.
+CF   C12 H9 N1 O3
+MM   215.058243
+MA   215.21
+TR   Bacteria; taxId:201174 (Actinobacteria).
+DR   RESID; AA0472.
+DR   PSI-MOD; MOD:01395.
 //
 ID   4,5-dihydroxylysine
 AC   PTM-0036
@@ -1072,8 +1386,10 @@ MA   32.00
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:7725 (Styela clava).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141816.
 DR   RESID; AA0370.
 DR   PSI-MOD; MOD:00375.
+DR   Unimod; 425.
 //
 ID   4-aspartylphosphate
 AC   PTM-0038
@@ -1089,8 +1405,10 @@ TR   Archaea; taxId:28890 (Euryarchaeota).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2763 (Rhodophyta), taxId:3027 (Cryptophyta), taxId:4751 (Fungi), taxId:33090 (Viridiplantae), taxId:38254 (Glaucocystophyceae).
 KW   Phosphoprotein.
+DR   ChEBI; CHEBI:145811.
 DR   RESID; AA0033.
 DR   PSI-MOD; MOD:00042.
+DR   Unimod; 21.
 //
 ID   4-carboxyglutamate
 AC   PTM-0039
@@ -1104,8 +1422,10 @@ MA   44.01
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:6447 (Mollusca), taxId:7742 (Vertebrata).
 KW   Gamma-carboxyglutamic acid.
+DR   ChEBI; CHEBI:84990.
 DR   RESID; AA0032.
 DR   PSI-MOD; MOD:00041.
+DR   Unimod; 299.
 //
 ID   4-cysteinyl-glutamic acid (Cys-Glu)
 AC   PTM-0040
@@ -1134,6 +1454,7 @@ MA   27.97
 LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:1224 (Proteobacteria).
 KW   CTQ; Thioether bond.
+DR   ChEBI; CHEBI:20252.
 DR   RESID; AA0313.
 DR   PSI-MOD; MOD:00318.
 //
@@ -1149,8 +1470,10 @@ MA   16.00
 LC   Intracellular localisation.
 TR   Bacteria; taxId:47421 (Hydrogenophaga pseudoflava).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141854.
 DR   RESID; AA0215.
 DR   PSI-MOD; MOD:00220.
+DR   Unimod; 35.
 //
 ID   4-hydroxyglutamate
 AC   PTM-0453
@@ -1164,8 +1487,26 @@ MA   16.00
 LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:1885 (Streptomyces actuosus).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141845.
 DR   RESID; AA0487.
 DR   PSI-MOD; MOD:01434.
+//
+ID   4-hydroxylysine
+AC   PTM-0664
+FT   MOD_RES
+TG   Lysine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   O1
+MM   15.994915
+MA   16.00
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:40674 (Mammalia).
+KW   Hydroxylation.
+DR   ChEBI; CHEBI:141495.
+DR   RESID; AA0235.
+DR   PSI-MOD; MOD:00240.
+DR   Unimod; 35.
 //
 ID   4-hydroxyproline
 AC   PTM-0043
@@ -1180,8 +1521,37 @@ LC   Intracellular localisation or Extracellular and lumenal localisation.
 TR   Bacteria; taxId:415003 (Microbispora sp. (strain 107891)).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:61965.
 DR   RESID; AA0030.
 DR   PSI-MOD; MOD:00039.
+DR   Unimod; 35.
+//
+ID   4-hydroxynonenal-conjugated cysteine
+AC   PTM-0735
+FT   MOD_RES
+TG   Cysteine.
+PA   Amino acid side chain.
+PP   Anywhere.
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:40674 (Mammalia).
+//
+ID   4-hydroxynonenal-conjugated histidine
+AC   PTM-0736
+FT   MOD_RES
+TG   Histidine.
+PA   Amino acid side chain.
+PP   Anywhere.
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:40674 (Mammalia).
+//
+ID   4-hydroxynonenal-conjugated lysine
+AC   PTM-0737
+FT   MOD_RES
+TG   Lysine.
+PA   Amino acid side chain.
+PP   Anywhere.
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:40674 (Mammalia).
 //
 ID   5-(methoxymethyl)thiazole-4-carboxylic acid (Val-Cys)
 AC   PTM-0373
@@ -1232,6 +1602,7 @@ MA   143.14
 LC   Intracellular localisation.
 TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:1297 (Deinococcus-Thermus).
+DR   ChEBI; CHEBI:78503.
 DR   RESID; AA0502.
 DR   PSI-MOD; MOD:01605.
 //
@@ -1247,8 +1618,10 @@ MA   197.13
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Phosphoprotein.
+DR   ChEBI; CHEBI:156066.
 DR   RESID; AA0170.
 DR   PSI-MOD; MOD:00179.
+DR   Unimod; 396.
 //
 ID   5-glutamyl N2-ornithine
 AC   PTM-0478
@@ -1256,11 +1629,13 @@ FT   MOD_RES
 TG   Glutamate.
 PA   Amino acid side chain.
 PP   C-terminal.
-CF   C6 H12 N4 O1
+CF   C5 H10 N2 O1
+MM   114.079313
 MA   114.15
 LC   Intracellular localisation.
 TR   Archaea; taxId:2267 (Thermoproteaceae).
 KW   Isopeptide bond.
+DR   ChEBI; CHEBI:136763.
 DR   PSI-MOD; MOD:01971.
 //
 ID   5-glutamyl glutamate
@@ -1274,10 +1649,27 @@ MM   129.042593
 MA   129.12
 LC   Intracellular localisation.
 TR   Archaea; taxId:2267 (Thermoproteaceae).
+TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Isopeptide bond.
+DR   ChEBI; CHEBI:143622.
 DR   RESID; AA0612.
 DR   PSI-MOD; MOD:01970.
+DR   Unimod; 450.
+//
+ID   5-glutamyl glycine
+AC   PTM-0708
+FT   MOD_RES
+TG   Glutamate.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C2 H3 N1 O1
+MM   57.02146
+MA   57.05
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Isopeptide bond.
+DR   ChEBI; CHEBI:167890.
 //
 ID   5-glutamyl N2-lysine
 AC   PTM-0407
@@ -1292,6 +1684,7 @@ LC   Intracellular localisation.
 TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:1297 (Deinococcus-Thermus).
 KW   Isopeptide bond.
+DR   ChEBI; CHEBI:78526.
 DR   RESID; AA0505.
 DR   PSI-MOD; MOD:01608.
 //
@@ -1304,6 +1697,7 @@ PP   Anywhere.
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Isopeptide bond.
+DR   ChEBI; CHEBI:167891.
 DR   RESID; AA0201.
 DR   PSI-MOD; MOD:00206.
 //
@@ -1314,8 +1708,10 @@ TG   Glutamate.
 PA   Amino acid side chain.
 PP   Anywhere.
 LC   Intracellular localisation.
+TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Isopeptide bond.
+DR   ChEBI; CHEBI:143623.
 DR   RESID; AA0202.
 DR   PSI-MOD; MOD:00207.
 //
@@ -1346,8 +1742,10 @@ MA   16.00
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141817.
 DR   RESID; AA0028.
 DR   PSI-MOD; MOD:00037.
+DR   Unimod; 35.
 //
 ID   (5R)-5-hydroxylysine
 AC   PTM-0471
@@ -1361,8 +1759,10 @@ MA   16.00
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:133442.
 DR   RESID; AA0028.
 DR   PSI-MOD; MOD:01925.
+DR   Unimod; 35.
 //
 ID   (5S)-5-hydroxylysine
 AC   PTM-0472
@@ -1376,6 +1776,8 @@ MA   16.00
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141843.
+DR   RESID; AA0578.
 DR   PSI-MOD; MOD:01918.
 //
 ID   5-imidazolinone (Ala-Gly)
@@ -1464,8 +1866,10 @@ MA   14.03
 LC   Intracellular localisation.
 TR   Archaea; taxId:28890 (Euryarchaeota).
 KW   Methylation.
+DR   ChEBI; CHEBI:166868.
 DR   RESID; AA0272.
 DR   PSI-MOD; MOD:00277.
+DR   Unimod; 34.
 //
 ID   5-methyloxazole-4-carboxylic acid (Cys-Thr)
 AC   PTM-0461
@@ -1545,13 +1949,28 @@ FT   CROSSLNK
 TG   Tyrosine-Tyrosine.
 PA   Amino acid side chain-Amino acid side chain.
 PP   Anywhere-Anywhere.
-CF   H -1 N 1
+CF   H-1 N1
 MM   12.995249
 MA   13.00
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:68444 (Polypedates leucomystax).
 DR   RESID; AA0459.
 DR   PSI-MOD; MOD:01787.
+//
+ID   3'-bromotyrosine
+AC   PTM-0716
+FT   MOD_RES
+TG   Tyrosine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   Br1 H-1
+MM   77.910512
+MA   78.90
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Bromination.
+DR   ChEBI; CHEBI:183512.
+DR   Unimod; 340.
 //
 ID   6'-bromotryptophan
 AC   PTM-0051
@@ -1565,8 +1984,10 @@ MA   78.90
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Bromination.
+DR   ChEBI; CHEBI:61899.
 DR   RESID; AA0179.
 DR   PSI-MOD; MOD:00188.
+DR   Unimod; 340.
 //
 ID   5'-chlorotryptophan
 AC   PTM-0444
@@ -1579,8 +2000,24 @@ MM   33.961028
 MA   34.44
 LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:2005 (Microbispora).
-DR   RESID; AA0180.
-DR   PSI-MOD; MOD:00886.
+DR   RESID; AA0549.
+DR   PSI-MOD; MOD:01843.
+DR   Unimod; 936.
+//
+ID   6-(S-cysteinyl)-8alpha-(pros-histidyl)-FAD (His-Cys)
+AC   PTM-0681
+FT   CROSSLNK
+TG   Histidine-Cysteine.
+PA   Amino acid side chain-Amino acid side chain.
+PP   Anywhere-Anywhere.
+CF   C36 H41 N13 O17 P2 S1
+MM   781.125835
+MA   781.52
+TR   Bacteria; taxId:2 (Bacteria).
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   FAD.
+DR   RESID; AA0436.
+DR   PSI-MOD; MOD:01182.
 //
 ID   6'-chlorotryptophan
 AC   PTM-0052
@@ -1595,6 +2032,7 @@ LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:2005 (Microbispora).
 DR   RESID; AA0180.
 DR   PSI-MOD; MOD:00886.
+DR   Unimod; 936.
 //
 ID   7'-hydroxytryptophan
 AC   PTM-0427
@@ -1608,6 +2046,7 @@ MA   16.00
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:73031 (Perna viridis).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141831.
 DR   RESID; AA0520.
 DR   PSI-MOD; MOD:01664.
 //
@@ -1625,8 +2064,42 @@ TR   Archaea; taxId:28890 (Euryarchaeota).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   ADP-ribosylation.
+DR   ChEBI; CHEBI:142554.
 DR   RESID; AA0168.
 DR   PSI-MOD; MOD:00177.
+DR   Unimod; 213.
+//
+ID   ADP-riboxanated arginine
+AC   PTM-0715
+FT   MOD_RES
+TG   Arginine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C15 H18 N4 O13 P2
+MM   524.03456
+MA   524.27
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:184300.
+//
+ID   ADP-alpha-D-ribosylarginine
+AC   PTM-0709
+FT   MOD_RES
+TG   Arginine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C15 H21 N5 O13 P2
+MM   541.061109
+MA   541.30
+LC   Intracellular localisation.
+TR   Archaea; taxId:28890 (Euryarchaeota).
+TR   Bacteria; taxId:2 (Bacteria).
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   ADP-ribosylation.
+DR   ChEBI; CHEBI:83960.
+DR   RESID; AA0168.
+DR   PSI-MOD; MOD:00177.
+DR   Unimod; 213.
 //
 ID   ADP-ribosylasparagine
 AC   PTM-0054
@@ -1640,8 +2113,10 @@ MA   541.30
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:9606 (Homo sapiens).
 KW   ADP-ribosylation.
+DR   ChEBI; CHEBI:142555.
 DR   RESID; AA0231.
 DR   PSI-MOD; MOD:00236.
+DR   Unimod; 213.
 //
 ID   ADP-ribosyl aspartic acid
 AC   PTM-0497
@@ -1656,6 +2131,7 @@ LC   Intracellular localisation.
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:7742 (Vertebrata).
 KW   ADP-ribosylation.
+DR   ChEBI; CHEBI:138102.
 //
 ID   ADP-ribosylcysteine
 AC   PTM-0055
@@ -1669,8 +2145,25 @@ MA   541.30
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:40674 (Mammalia).
 KW   ADP-ribosylation.
+DR   ChEBI; CHEBI:140607.
 DR   RESID; AA0169.
 DR   PSI-MOD; MOD:00178.
+DR   Unimod; 213.
+//
+ID   ADP-ribosyldiphthamide
+AC   PTM-0672
+FT   MOD_RES
+TG   Histidine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C22 H36 N7 O14 P2
+MM   684.178999
+MA   684.51
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   ADP-ribosylation.
+DR   ChEBI; CHEBI:82697.
+DR   PSI-MOD; MOD:01145.
 //
 ID   ADP-ribosyl glutamic acid
 AC   PTM-0646
@@ -1684,6 +2177,34 @@ MA   541.30
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:40674 (Mammalia).
 KW   ADP-ribosylation.
+DR   ChEBI; CHEBI:142540.
+//
+ID   ADP-ribosylglycine
+AC   PTM-0671
+FT   MOD_RES
+TG   Glycine.
+PA   Amino acid backbone.
+PP   C-terminal.
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   ADP-ribosylation.
+DR   ChEBI; CHEBI:142558.
+//
+ID   ADP-ribosylhistidine
+AC   PTM-0720
+FT   MOD_RES
+TG   Histidine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C15 H21 N5 O13 P2
+MM   541.061109
+MA   541.30
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   ADP-ribosylation.
+DR   ChEBI; CHEBI:191398.
+DR   PSI-MOD; MOD:00752.
+DR   Unimod; 213.
 //
 ID   ADP-ribosylserine
 AC   PTM-0056
@@ -1697,8 +2218,38 @@ MA   541.30
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:9606 (Homo sapiens).
 KW   ADP-ribosylation.
+DR   ChEBI; CHEBI:142556.
 DR   RESID; AA0237.
 DR   PSI-MOD; MOD:00242.
+DR   Unimod; 213.
+//
+ID   ADP-ribosylthreonine
+AC   PTM-0721
+FT   MOD_RES
+TG   Threonine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C15 H21 N5 O13 P2
+MM   541.061109
+MA   541.30
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   ADP-ribosylation.
+DR   ChEBI; CHEBI:192363.
+DR   RESID; AA0519.
+DR   PSI-MOD; MOD:01663.
+DR   Unimod; 213.
+//
+ID   ADP-ribosyltyrosine
+AC   PTM-0670
+FT   MOD_RES
+TG   Tyrosine.
+PA   Amino acid side chain.
+PP   Anywhere.
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   ADP-ribosylation.
+DR   ChEBI; CHEBI:142557.
 //
 ID   Alanine amide
 AC   PTM-0057
@@ -1712,8 +2263,10 @@ MA   -0.98
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Amidation.
+DR   ChEBI; CHEBI:145896.
 DR   RESID; AA0081.
 DR   PSI-MOD; MOD:00090.
+DR   Unimod; 2.
 //
 ID   Alanine derivative
 AC   PTM-0058
@@ -1748,9 +2301,13 @@ CF   H-3 N-1 O1
 MM   -1.031634
 MA   -1.03
 LC   Extracellular and lumenal localisation.
-TR   Eukaryota; taxId:6052 (Ephydatia muelleri), taxId:7742 (Vertebrata).
+TR   Archaea; taxId:2157 (Archaea).
+TR   Bacteria; taxId:2 (Bacteria).
+TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:131803.
 DR   RESID; AA0121.
 DR   PSI-MOD; MOD:00130.
+DR   Unimod; 352.
 //
 ID   Aminomalonic acid (Ser)
 AC   PTM-0321
@@ -1778,8 +2335,10 @@ MA   -0.98
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Amidation.
+DR   ChEBI; CHEBI:145897.
 DR   RESID; AA0082.
 DR   PSI-MOD; MOD:00091.
+DR   Unimod; 2.
 //
 ID   Arginine derivative
 AC   PTM-0061
@@ -1802,8 +2361,28 @@ MA   -0.98
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Amidation.
+DR   ChEBI; CHEBI:145898.
 DR   RESID; AA0083.
 DR   PSI-MOD; MOD:00092.
+DR   Unimod; 2.
+//
+ID   Aspartate methyl ester
+AC   PTM-0732
+FT   MOD_RES
+TG   Aspartate.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C1 H2
+MM   14.015650
+MA   14.03
+LC   Intracellular localisation.
+TR   Archaea; taxId:2157 (Archaea).
+TR   Bacteria; taxId:2 (Bacteria).
+KW   Methylation.
+DR   ChEBI; CHEBI:197389.
+DR   RESID; AA0435.
+DR   PSI-MOD; MOD:01181.
+DR   Unimod; 34.
 //
 ID   Aspartate 1-(chondroitin 4-sulfate)-ester
 AC   PTM-0334
@@ -1830,6 +2409,7 @@ TR   Bacteria; taxId:562 (Escherichia coli).
 KW   Phosphoprotein.
 DR   RESID; AA0328.
 DR   PSI-MOD; MOD:00333.
+DR   Unimod; 437.
 //
 ID   Aspartic acid 1-amide
 AC   PTM-0063
@@ -1843,8 +2423,10 @@ MA   -0.98
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:6491 (Conus geographus), taxId:8395 (Phyllomedusa sauvagei).
 KW   Amidation.
+DR   ChEBI; CHEBI:145899.
 DR   RESID; AA0084.
 DR   PSI-MOD; MOD:00093.
+DR   Unimod; 2.
 //
 ID   Aspartyl aldehyde
 AC   PTM-0064
@@ -1859,6 +2441,7 @@ LC   Intramembrane.
 TR   Eukaryota; taxId:2763 (Rhodophyta), taxId:3027 (Cryptophyta), taxId:33090 (Viridiplantae), taxId:33634 (Stramenopiles), taxId:33682 (Euglenozoa), taxId:38254 (Glaucocystophyceae).
 DR   RESID; AA0373.
 DR   PSI-MOD; MOD:00378.
+DR   Unimod; 447.
 //
 ID   Isoaspartyl glycine isopeptide (Asn-Gly)
 AC   PTM-0489
@@ -1890,6 +2473,21 @@ KW   Isopeptide bond.
 DR   RESID; AA0126.
 DR   PSI-MOD; MOD:01805.
 //
+ID   Isoaspartyl glycine isopeptide (Gly-Asp)
+AC   PTM-0686
+FT   CROSSLNK
+TG   Glycine-Aspartate.
+PA   Amino acid backbone-Amino acid side chain.
+PP   N-terminal-Anywhere.
+CF   H-2 O-1
+MM   -18.010565
+MA   -18.02
+LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
+KW   Isopeptide bond.
+DR   RESID; AA0126.
+DR   PSI-MOD; MOD:01805.
+//
 ID   Asymmetric dimethylarginine
 AC   PTM-0066
 FT   MOD_RES
@@ -1902,8 +2500,10 @@ MA   28.05
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Methylation.
+DR   ChEBI; CHEBI:61897.
 DR   RESID; AA0068.
 DR   PSI-MOD; MOD:00077.
+DR   Unimod; 36.
 //
 ID   Beta-decarboxylated aspartate
 AC   PTM-0314
@@ -2129,6 +2729,7 @@ TR   Eukaryota; taxId:7644 (Clypeaster japonicus).
 KW   Bromination.
 DR   RESID; AA0173.
 DR   PSI-MOD; MOD:00182.
+DR   Unimod; 340.
 //
 ID   Cholesterol glycine ester
 AC   PTM-0090
@@ -2142,8 +2743,10 @@ MA   368.65
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Lipoprotein.
+DR   ChEBI; CHEBI:143135.
 DR   RESID; AA0309.
 DR   PSI-MOD; MOD:00314.
+DR   Unimod; 432.
 //
 ID   Cis-14-hydroxy-10,13-dioxo-7-heptadecenoic acid aspartate ester
 AC   PTM-0091
@@ -2159,6 +2762,7 @@ TR   Eukaryota; taxId:33090 (Viridiplantae).
 KW   Lipoprotein.
 DR   RESID; AA0316.
 DR   PSI-MOD; MOD:00321.
+DR   Unimod; 434.
 //
 ID   Citrulline
 AC   PTM-0092
@@ -2172,8 +2776,10 @@ MA   0.98
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:7742 (Vertebrata).
 KW   Citrullination.
+DR   ChEBI; CHEBI:83397.
 DR   RESID; AA0214.
 DR   PSI-MOD; MOD:00219.
+DR   Unimod; 7.
 //
 ID   Cyclo[(prolylserin)-O-yl] cysteinate
 AC   PTM-0380
@@ -2254,6 +2860,15 @@ MA   -18.02
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:9544 (Macaca mulatta).
 //
+ID   Cyclopeptide (Cys-Arg) (interchain with R-...)
+AC   PTM-0097
+FT   CROSSLNK
+TG   Cysteine-Arginine.
+PA   Amino acid backbone-Amino acid backbone.
+PP   C-terminal-N-terminal.
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:9544 (Macaca mulatta).
+//
 ID   Cyclopeptide (Cys-Ile)
 AC   PTM-0496
 FT   CROSSLNK
@@ -2266,14 +2881,17 @@ MA   -18.02
 LC   Extracellular localisation.
 TR   Bacteria; taxId:1386 (Bacillus).
 //
-ID   Cyclopeptide (Cys-Arg) (interchain with R-...)
-AC   PTM-0097
+ID   Cyclopeptide (Cys-Pro)
+AC   PTM-0652
 FT   CROSSLNK
-TG   Cysteine-Arginine.
+TG   Cysteine-Proline.
 PA   Amino acid backbone-Amino acid backbone.
-PP   C-terminal-N-terminal.
+PP   N-terminal-C-terminal.
+CF   H-2 O-1
+MM   -18.010565
+MA   -18.02
 LC   Extracellular and lumenal localisation.
-TR   Eukaryota; taxId:9544 (Macaca mulatta).
+TR   Eukaryota; taxId:87325 (Amanita bisporigera).
 //
 ID   Cyclopeptide (Glu-Asn)
 AC   PTM-0635
@@ -2323,6 +2941,18 @@ MA   -18.02
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:71240 (eudicotyledons).
 //
+ID   Cyclopeptide (Gly-Pro)
+AC   PTM-0653
+FT   CROSSLNK
+TG   Glycine-Proline.
+PA   Amino acid backbone-Amino acid backbone.
+PP   N-terminal-C-terminal.
+CF   H-2 O-1
+MM   -18.010565
+MA   -18.02
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:87325 (Amanita bisporigera).
+//
 ID   Cyclopeptide (His-Asn)
 AC   PTM-0436
 FT   CROSSLNK
@@ -2346,6 +2976,29 @@ MM   -18.010565
 MA   -18.02
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:43366 (Clitoria ternatea).
+//
+ID   Cyclopeptide (His-Pro)
+AC   PTM-0654
+FT   CROSSLNK
+TG   Histidine-Proline.
+PA   Amino acid backbone-Amino acid backbone.
+PP   N-terminal-C-terminal.
+CF   H-2 O-1
+MM   -18.010565
+MA   -18.02
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:87325 (Amanita bisporigera).
+//
+ID   Cyclopeptide (Ile-Lys)
+AC   PTM-0714
+FT   CROSSLNK
+TG   Isoleucine-Lysine.
+PA   Amino acid backbone-Amino acid backbone.
+PP   N-terminal-C-terminal.
+CF   H-2 O-1
+MM   -18.010565
+MA   -18.02
+TR   Eukaryota; taxId:6855 (Scorpiones).
 //
 ID   Cyclopeptide (Ile-Pro)
 AC   PTM-0339
@@ -2371,6 +3024,18 @@ MA   -18.02
 LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:2751 (Carnobacterium maltaromaticum).
 //
+ID   Cyclopeptide (Leu-Pro)
+AC   PTM-0655
+FT   CROSSLNK
+TG   Leucine-Proline.
+PA   Amino acid backbone-Amino acid backbone.
+PP   N-terminal-C-terminal.
+CF   H-2 O-1
+MM   -18.010565
+MA   -18.02
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:87325 (Amanita bisporigera).
+//
 ID   Cyclopeptide (Leu-Trp)
 AC   PTM-0319
 FT   CROSSLNK
@@ -2394,6 +3059,30 @@ MM   -18.010565
 MA   -18.02
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:71240 (eudicotyledons).
+//
+ID   Cyclopeptide (Met-Pro)
+AC   PTM-0661
+FT   CROSSLNK
+TG   Methionine-Proline.
+PA   Amino acid backbone-Amino acid backbone.
+PP   N-terminal-C-terminal.
+CF   H-2 O-1
+MM   -18.010565
+MA   -18.02
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:67723 (Amanita phalloides).
+//
+ID   Cyclopeptide (Phe-Pro)
+AC   PTM-0656
+FT   CROSSLNK
+TG   Phenylalanine-Proline.
+PA   Amino acid backbone-Amino acid backbone.
+PP   N-terminal-C-terminal.
+CF   H-2 O-1
+MM   -18.010565
+MA   -18.02
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:87325 (Amanita bisporigera).
 //
 ID   Cyclopeptide (Pro-Met)
 AC   PTM-0316
@@ -2455,6 +3144,55 @@ MA   -18.02
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:71240 (eudicotyledons).
 //
+ID   Cyclopeptide (Ser-Pro)
+AC   PTM-0658
+FT   CROSSLNK
+TG   Serine-Proline.
+PA   Amino acid backbone-Amino acid backbone.
+PP   N-terminal-C-terminal.
+CF   H-2 O-1
+MM   -18.010565
+MA   -18.02
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:67723 (Amanita phalloides).
+//
+ID   Cyclopeptide (Trp-Pro)
+AC   PTM-0659
+FT   CROSSLNK
+TG   Tryptophan-Proline.
+PA   Amino acid backbone-Amino acid backbone.
+PP   N-terminal-C-terminal.
+CF   H-2 O-1
+MM   -18.010565
+MA   -18.02
+LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
+TR   Eukaryota; taxId:67723 (Amanita phalloides).
+//
+ID   Cyclopeptide (Tyr-Pro)
+AC   PTM-0657
+FT   CROSSLNK
+TG   Tyrosine-Proline.
+PA   Amino acid backbone-Amino acid backbone.
+PP   N-terminal-C-terminal.
+CF   H-2 O-1
+MM   -18.010565
+MA   -18.02
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:87325 (Amanita bisporigera).
+//
+ID   Cyclopeptide (Val-Pro)
+AC   PTM-0660
+FT   CROSSLNK
+TG   Valine-Proline.
+PA   Amino acid backbone-Amino acid backbone.
+PP   N-terminal-C-terminal.
+CF   H-2 O-1
+MM   -18.010565
+MA   -18.02
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:262245 (Amanita exitialis).
+//
 ID   CysO-cysteine adduct
 AC   PTM-0433
 FT   MOD_RES
@@ -2481,8 +3219,10 @@ MA   -0.98
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:6448 (Gastropoda), taxId:6656 (Arthropoda).
 KW   Amidation.
+DR   ChEBI; CHEBI:145900.
 DR   RESID; AA0085.
 DR   PSI-MOD; MOD:00094.
+DR   Unimod; 2.
 //
 ID   Cysteine derivative
 AC   PTM-0103
@@ -2507,6 +3247,7 @@ TR   Bacteria; taxId:2 (Bacteria).
 KW   Methylation.
 DR   RESID; AA0101.
 DR   PSI-MOD; MOD:00110.
+DR   Unimod; 39.
 //
 ID   Cysteine methyl ester
 AC   PTM-0105
@@ -2521,8 +3262,10 @@ LC   Intracellular localisation.
 TR   Bacteria; taxId:201174 (Actinobacteria).
 TR   Eukaryota; taxId:4751 (Fungi), taxId:33208 (Metazoa).
 KW   Methylation.
+DR   ChEBI; CHEBI:61989.
 DR   RESID; AA0105.
 DR   PSI-MOD; MOD:00114.
+DR   Unimod; 34.
 //
 ID   Cysteine persulfide
 AC   PTM-0106
@@ -2537,8 +3280,10 @@ LC   Intracellular localisation.
 TR   Bacteria; taxId:1224 (Proteobacteria).
 TR   Archaea; taxId:2157 (Archaea).
 TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:61963.
 DR   RESID; AA0269.
 DR   PSI-MOD; MOD:00274.
+DR   Unimod; 421.
 //
 ID   Cysteine sulfenic acid (-SOH)
 AC   PTM-0107
@@ -2554,8 +3299,10 @@ TR   Archaea; taxId:28890 (Euryarchaeota).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:40674 (Mammalia).
 KW   Oxidation.
+DR   ChEBI; CHEBI:61973.
 DR   RESID; AA0205.
 DR   PSI-MOD; MOD:00210.
+DR   Unimod; 35.
 //
 ID   Cysteine sulfinic acid (-SO2H)
 AC   PTM-0108
@@ -2570,8 +3317,10 @@ LC   Intracellular localisation.
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:40674 (Mammalia).
 KW   Oxidation.
+DR   ChEBI; CHEBI:61974.
 DR   RESID; AA0262.
 DR   PSI-MOD; MOD:00267.
+DR   Unimod; 425.
 //
 ID   Cysteine sulfonic acid (-SO3H)
 AC   PTM-0634
@@ -2585,8 +3334,10 @@ MA   48.00
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:40674 (Mammalia).
 KW   Oxidation.
+DR   ChEBI; CHEBI:141830.
 DR   RESID; AA0556.
 DR   PSI-MOD; MOD:00460.
+DR   Unimod; 345.
 //
 ID   Cysteinyl-selenocysteine (Cys-Sec)
 AC   PTM-0109
@@ -2630,6 +3381,7 @@ MA   16.00
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:6448 (Gastropoda).
 KW   D-amino acid; Hydroxylation.
+DR   ChEBI; CHEBI:141792.
 DR   RESID; AA0388.
 DR   PSI-MOD; MOD:00756.
 //
@@ -2640,8 +3392,10 @@ TG   Alanine.
 PA   Amino acid backbone.
 PP   Protein core.
 LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:8292 (Amphibia).
 KW   D-amino acid.
+DR   ChEBI; CHEBI:29949.
 DR   RESID; AA0191.
 DR   PSI-MOD; MOD:00198.
 //
@@ -2657,8 +3411,10 @@ MA   -16.00
 LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:1634 (Lactobacillus sakei L45).
 KW   D-amino acid.
+DR   ChEBI; CHEBI:29949.
 DR   RESID; AA0191.
 DR   PSI-MOD; MOD:00858.
+DR   Unimod; 447.
 //
 ID   D-allo-isoleucine
 AC   PTM-0114
@@ -2669,6 +3425,7 @@ PP   Protein core.
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:8292 (Amphibia).
 KW   D-amino acid.
+DR   ChEBI; CHEBI:30007.
 DR   RESID; AA0192.
 DR   PSI-MOD; MOD:00199.
 //
@@ -2679,8 +3436,10 @@ TG   Asparagine.
 PA   Amino acid backbone.
 PP   Protein core.
 LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:6530 (Achatina fulica).
 KW   D-amino acid.
+DR   ChEBI; CHEBI:50349.
 DR   RESID; AA0196.
 DR   PSI-MOD; MOD:00203.
 //
@@ -2694,9 +3453,12 @@ CF   H-1 N-1 O1
 MM   0.984016
 MA   0.98
 LC   Intracellular localisation or Extracellular and lumenal localisation.
+TR   Archaea; taxId:2157 (Archaea).
 TR   Eukaryota; taxId:3702 (Arabidopsis thaliana), taxId:7742 (Vertebrata).
+DR   ChEBI; CHEBI:29961.
 DR   RESID; AA0004.
 DR   PSI-MOD; MOD:00684.
+DR   Unimod; 7.
 //
 ID   Deamidated glutamine
 AC   PTM-0117
@@ -2708,10 +3470,13 @@ CF   H-1 N-1 O1
 MM   0.984016
 MA   0.98
 LC   Intracellular localisation or Extracellular and lumenal localisation.
+TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:7742 (Vertebrata).
+DR   ChEBI; CHEBI:29973.
 DR   RESID; AA0006.
 DR   PSI-MOD; MOD:00685.
+DR   Unimod; 7.
 //
 ID   Decarboxylated threonine
 AC   PTM-0354
@@ -2727,21 +3492,6 @@ TR   Bacteria; taxId:1386 (Bacillus).
 DR   RESID; AA0465.
 DR   PSI-MOD; MOD:01388.
 //
-ID   Diiodotyrosine
-AC   PTM-0408
-FT   MOD_RES
-TG   Tyrosine.
-PA   Amino acid side chain.
-PP   Anywhere.
-CF   H-2 I2
-MM   251.793295
-MA   251.79
-LC   Intracellular localisation.
-TR   Eukaryota; taxId:40674 (Mammalia).
-KW   Iodination.
-DR   RESID; AA0510.
-DR   PSI-MOD; MOD:01613.
-//
 ID   Dimethylated arginine
 AC   PTM-0341
 FT   MOD_RES
@@ -2755,6 +3505,37 @@ LC   Intracellular localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Methylation.
 DR   PSI-MOD; MOD:00783.
+DR   Unimod; 36.
+//
+ID   Diphosphoserine
+AC   PTM-0697
+FT   MOD_RES
+TG   Serine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   H2 O6 P2
+MM   159.93266
+MA   159.96
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Phosphoprotein.
+DR   ChEBI; CHEBI:149682.
+DR   Unimod; 898.
+//
+ID   Diphosphothreonine
+AC   PTM-0698
+FT   MOD_RES
+TG   Threonine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   H2 O6 P2
+MM   159.93266
+MA   159.96
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Phosphoprotein.
+DR   ChEBI; CHEBI:149684.
+DR   Unimod; 898.
 //
 ID   Diphthamide
 AC   PTM-0118
@@ -2768,8 +3549,10 @@ MA   143.21
 LC   Intracellular localisation.
 TR   Archaea; taxId:2157 (Archaea).
 TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:16692.
 DR   RESID; AA0040.
 DR   PSI-MOD; MOD:00049.
+DR   Unimod; 375.
 //
 ID   D-leucine
 AC   PTM-0119
@@ -2778,8 +3561,10 @@ TG   Leucine.
 PA   Amino acid backbone.
 PP   Protein core.
 LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:6448 (Gastropoda).
 KW   D-amino acid.
+DR   ChEBI; CHEBI:30005.
 DR   RESID; AA0197.
 DR   PSI-MOD; MOD:00204.
 //
@@ -2792,6 +3577,7 @@ PP   Protein core.
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:8395 (Phyllomedusa sauvagei).
 KW   D-amino acid.
+DR   ChEBI; CHEBI:29984.
 DR   RESID; AA0193.
 DR   PSI-MOD; MOD:00200.
 //
@@ -2804,6 +3590,7 @@ PP   Protein core.
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:6447 (Mollusca), taxId:6656 (Arthropoda).
 KW   D-amino acid.
+DR   ChEBI; CHEBI:29996.
 DR   RESID; AA0194.
 DR   PSI-MOD; MOD:00201.
 //
@@ -2819,6 +3606,7 @@ MA   -16.06
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:78357 (Amanita virosa).
 KW   D-amino acid.
+DR   ChEBI; CHEBI:29998.
 DR   RESID; AA0195.
 DR   PSI-MOD; MOD:00892.
 //
@@ -2829,8 +3617,10 @@ TG   Serine.
 PA   Amino acid backbone.
 PP   Protein core.
 LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:6908 (Agelenopsis aperta), taxId:515824 (Callistoctopus minor).
 KW   D-amino acid.
+DR   ChEBI; CHEBI:29998.
 DR   RESID; AA0195.
 DR   PSI-MOD; MOD:00202.
 //
@@ -2841,8 +3631,10 @@ TG   Threonine.
 PA   Amino acid backbone.
 PP   Protein core.
 LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:78357 (Amanita virosa).
 KW   D-amino acid.
+DR   ChEBI; CHEBI:30014.
 DR   RESID; AA0199.
 DR   PSI-MOD; MOD:00863.
 //
@@ -2856,6 +3648,7 @@ LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:1931 (Streptomyces sp.).
 TR   Eukaryota; taxId:6448 (Gastropoda).
 KW   D-amino acid.
+DR   ChEBI; CHEBI:29955.
 DR   RESID; AA0198.
 DR   PSI-MOD; MOD:00205.
 //
@@ -2868,6 +3661,7 @@ PP   Protein core.
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:6448 (Gastropoda).
 KW   D-amino acid.
+DR   ChEBI; CHEBI:50328.
 DR   RESID; AA0200.
 DR   PSI-MOD; MOD:00705.
 //
@@ -2883,8 +3677,10 @@ MA   438.33
 LC   Intracellular localisation.
 TR   Bacteria; taxId:1224 (Proteobacteria).
 KW   FMN; Phosphoprotein.
+DR   ChEBI; CHEBI:156050.
 DR   RESID; AA0350.
 DR   PSI-MOD; MOD:00355.
+DR   Unimod; 442.
 //
 ID   FMN phosphoryl threonine
 AC   PTM-0126
@@ -2896,10 +3692,13 @@ CF   C17 H19 N4 O8 P1
 MM   438.094050
 MA   438.33
 LC   Intracellular localisation.
+TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:2 (Bacteria).
 KW   FMN; Phosphoprotein.
+DR   ChEBI; CHEBI:74257.
 DR   RESID; AA0349.
 DR   PSI-MOD; MOD:00354.
+DR   Unimod; 442.
 //
 ID   Glutamate methyl ester (Gln)
 AC   PTM-0127
@@ -2913,8 +3712,10 @@ MA   15.01
 LC   Intracellular localisation.
 TR   Bacteria; taxId:2 (Bacteria).
 KW   Methylation.
+DR   ChEBI; CHEBI:82795.
 DR   RESID; AA0072.
 DR   PSI-MOD; MOD:00657.
+DR   Unimod; 528.
 //
 ID   Glutamate methyl ester (Glu)
 AC   PTM-0128
@@ -2929,8 +3730,10 @@ LC   Intracellular localisation.
 TR   Archaea; taxId:28890 (Euryarchaeota).
 TR   Bacteria; taxId:2 (Bacteria).
 KW   Methylation.
+DR   ChEBI; CHEBI:82795.
 DR   RESID; AA0072.
 DR   PSI-MOD; MOD:00081.
+DR   Unimod; 34.
 //
 ID   Glutamic acid 1-amide
 AC   PTM-0129
@@ -2944,19 +3747,22 @@ MA   -0.98
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Amidation.
+DR   ChEBI; CHEBI:145903.
 DR   RESID; AA0087.
 DR   PSI-MOD; MOD:00096.
+DR   Unimod; 2.
 //
 ID   Isoglutamyl lysine isopeptide (Glu-Lys) (interchain with K-...)
 AC   PTM-0397
 FT   CROSSLNK
 TG   Glutamate-Lysine.
 PA   Amino acid side chain-Amino acid side chain.
-PP   C-terminal-Anywhere.
+PP   Anywhere-Anywhere.
 LC   Intracellular localisation.
 TR   Bacteria; taxId:201174 (Actinobacteria).
 TR   Eukaryota; taxId:7742 (Vertebrata).
 KW   Isopeptide bond.
+DR   ChEBI; CHEBI:138370.
 DR   RESID; AA0124.
 DR   PSI-MOD; MOD:01630.
 //
@@ -2965,11 +3771,12 @@ AC   PTM-0398
 FT   CROSSLNK
 TG   Lysine-Glutamate.
 PA   Amino acid side chain-Amino acid side chain.
-PP   Anywhere-C-terminal.
+PP   Anywhere-Anywhere.
 LC   Intracellular localisation.
 TR   Bacteria; taxId:201174 (Actinobacteria).
 TR   Eukaryota; taxId:7742 (Vertebrata).
 KW   Isopeptide bond.
+DR   ChEBI; CHEBI:138370.
 DR   RESID; AA0124.
 DR   PSI-MOD; MOD:01630.
 //
@@ -2985,8 +3792,10 @@ MA   -0.98
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Amidation.
+DR   ChEBI; CHEBI:145904.
 DR   RESID; AA0086.
 DR   PSI-MOD; MOD:00095.
+DR   Unimod; 2.
 //
 ID   Glutamine derivative
 AC   PTM-0131
@@ -3009,8 +3818,10 @@ MA   -0.98
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Amidation.
+DR   ChEBI; CHEBI:145906.
 DR   RESID; AA0088.
 DR   PSI-MOD; MOD:00097.
+DR   Unimod; 2.
 //
 ID   Glycine radical
 AC   PTM-0133
@@ -3023,6 +3834,7 @@ TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:3055 (Chlamydomonas reinhardtii).
 TR   Viruses; taxId:10239 (Viruses).
 KW   Organic radical.
+DR   ChEBI; CHEBI:32722.
 DR   RESID; AA0008.
 DR   PSI-MOD; MOD:00017.
 //
@@ -3040,6 +3852,7 @@ TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:1224 (Proteobacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Nucleotide-binding; Phosphoprotein.
+DR   ChEBI; CHEBI:83151.
 DR   RESID; AA0511.
 DR   PSI-MOD; MOD:01614.
 //
@@ -3115,6 +3928,7 @@ LC   Intracellular localisation.
 TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
+TR   Viruses; taxId:10239 (Viruses).
 KW   Isopeptide bond.
 DR   RESID; AA0125.
 DR   PSI-MOD; MOD:00134.
@@ -3202,8 +4016,10 @@ PP   C-terminal.
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   GPI-anchor.
+DR   ChEBI; CHEBI:143785.
 DR   RESID; AA0163.
 DR   PSI-MOD; MOD:00172.
+DR   Unimod; 394.
 //
 ID   GPI-anchor amidated asparagine
 AC   PTM-0137
@@ -3214,8 +4030,10 @@ PP   C-terminal.
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   GPI-anchor.
+DR   ChEBI; CHEBI:143786.
 DR   RESID; AA0158.
 DR   PSI-MOD; MOD:00167.
+DR   Unimod; 394.
 //
 ID   GPI-anchor amidated aspartate
 AC   PTM-0138
@@ -3226,8 +4044,10 @@ PP   C-terminal.
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   GPI-anchor.
+DR   ChEBI; CHEBI:143787.
 DR   RESID; AA0159.
 DR   PSI-MOD; MOD:00168.
+DR   Unimod; 394.
 //
 ID   GPI-anchor amidated carboxyl end
 AC   PTM-0139
@@ -3238,7 +4058,9 @@ PP   C-terminal.
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   GPI-anchor.
+DR   ChEBI; CHEBI:143797.
 DR   PSI-MOD; MOD:00818.
+DR   Unimod; 394.
 //
 ID   GPI-anchor amidated cysteine
 AC   PTM-0140
@@ -3249,8 +4071,10 @@ PP   C-terminal.
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   GPI-anchor.
+DR   ChEBI; CHEBI:143798.
 DR   RESID; AA0160.
 DR   PSI-MOD; MOD:00169.
+DR   Unimod; 394.
 //
 ID   GPI-anchor amidated glycine
 AC   PTM-0141
@@ -3261,8 +4085,21 @@ PP   C-terminal.
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   GPI-anchor.
+DR   ChEBI; CHEBI:143799.
 DR   RESID; AA0161.
 DR   PSI-MOD; MOD:00170.
+DR   Unimod; 394.
+//
+ID   GPI-anchor amidated isoleucine
+AC   PTM-0734
+FT   LIPID
+TG   Isoleucine.
+PA   Amino acid backbone.
+PP   C-terminal.
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   GPI-anchor.
+DR   Unimod; 394.
 //
 ID   GPI-anchor amidated serine
 AC   PTM-0142
@@ -3273,8 +4110,10 @@ PP   C-terminal.
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   GPI-anchor.
+DR   ChEBI; CHEBI:143800.
 DR   RESID; AA0162.
 DR   PSI-MOD; MOD:00171.
+DR   Unimod; 394.
 //
 ID   GPI-anchor amidated threonine
 AC   PTM-0143
@@ -3285,8 +4124,10 @@ PP   C-terminal.
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:10090 (Mus musculus).
 KW   GPI-anchor.
+DR   ChEBI; CHEBI:143801.
 DR   RESID; AA0164.
 DR   PSI-MOD; MOD:00173.
+DR   Unimod; 394.
 //
 ID   GPI-like-anchor amidated alanine
 AC   PTM-0144
@@ -3297,6 +4138,7 @@ PP   C-terminal.
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:746128 (Neosartorya fumigata).
 KW   GPI-anchor.
+DR   ChEBI; CHEBI:143804.
 DR   RESID; AA0424.
 DR   PSI-MOD; MOD:01172.
 //
@@ -3309,6 +4151,7 @@ PP   C-terminal.
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:44689 (Dictyostelium discoideum), taxId:4751 (Fungi).
 KW   GPI-anchor.
+DR   ChEBI; CHEBI:143802.
 DR   RESID; AA0425.
 DR   PSI-MOD; MOD:01173.
 //
@@ -3321,6 +4164,7 @@ PP   C-terminal.
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:44689 (Dictyostelium discoideum).
 KW   GPI-anchor.
+DR   ChEBI; CHEBI:143803.
 DR   RESID; AA0439.
 DR   PSI-MOD; MOD:00865.
 //
@@ -3333,8 +4177,10 @@ PP   C-terminal.
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:44689 (Dictyostelium discoideum), taxId:746128 (Neosartorya fumigata).
 KW   GPI-anchor.
+DR   ChEBI; CHEBI:143805.
 DR   RESID; AA0165.
 DR   PSI-MOD; MOD:00174.
+DR   Unimod; 394.
 //
 ID   GPI-like-anchor amidated serine
 AC   PTM-0147
@@ -3343,10 +4189,12 @@ TG   Serine.
 PA   Amino acid backbone.
 PP   C-terminal.
 LC   Extracellular and lumenal localisation.
-TR   Eukaryota; taxId:33083 (Dictyosteliida), taxId:746128 (Neosartorya fumigata).
+TR   Eukaryota; taxId:33083 (Dictyostelids), taxId:746128 (Neosartorya fumigata).
 KW   GPI-anchor.
+DR   ChEBI; CHEBI:143806.
 DR   RESID; AA0166.
 DR   PSI-MOD; MOD:00175.
+DR   Unimod; 394.
 //
 ID   Histidine amide
 AC   PTM-0148
@@ -3360,10 +4208,12 @@ MA   -0.98
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Amidation.
+DR   ChEBI; CHEBI:145909.
 DR   RESID; AA0089.
 DR   PSI-MOD; MOD:00098.
+DR   Unimod; 2.
 //
-ID   Hydroxylated arginine
+ID   Hydroxyarginine
 AC   PTM-0498
 FT   MOD_RES
 TG   Arginine.
@@ -3372,6 +4222,7 @@ PP   Anywhere.
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:40674 (Mammalia).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:141997.
 DR   PSI-MOD; MOD:00682.
 //
 ID   Hydroxyproline
@@ -3386,7 +4237,9 @@ MA   16.00
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Hydroxylation.
-DR   PSI-MOD; MOD:00678.
+DR   ChEBI; CHEBI:141993.
+DR   PSI-MOD; MOD:01024.
+DR   Unimod; 35.
 //
 ID   Hypusine
 AC   PTM-0150
@@ -3401,8 +4254,25 @@ LC   Intracellular localisation.
 TR   Archaea; taxId:2157 (Archaea).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Hypusine.
+DR   ChEBI; CHEBI:91175.
 DR   RESID; AA0116.
 DR   PSI-MOD; MOD:00125.
+DR   Unimod; 379.
+//
+ID   Deoxyhypusine
+AC   PTM-0684
+FT   MOD_RES
+TG   Lysine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C4 H9 N1
+MM   71.073499
+MA   71.12
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:82657.
+DR   RESID; AA0564.
+DR   PSI-MOD; MOD:01880.
 //
 ID   Iodotyrosine
 AC   PTM-0411
@@ -3416,8 +4286,59 @@ MA   125.90
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:40674 (Mammalia).
 KW   Iodination.
+DR   ChEBI; CHEBI:90870.
 DR   RESID; AA0509.
 DR   PSI-MOD; MOD:01612.
+//
+ID   Diiodotyrosine
+AC   PTM-0408
+FT   MOD_RES
+TG   Tyrosine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   H-2 I2
+MM   251.793295
+MA   251.79
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:40674 (Mammalia).
+KW   Iodination.
+DR   ChEBI; CHEBI:90871.
+DR   RESID; AA0510.
+DR   PSI-MOD; MOD:01613.
+//
+ID   Triiodothyronine
+AC   PTM-0295
+FT   MOD_RES
+TG   Tyrosine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C6 H1 I3 O1
+MM   469.716158
+MA   469.79
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:40674 (Mammalia).
+KW   Iodination.
+DR   ChEBI; CHEBI:90874.
+DR   RESID; AA0177.
+DR   PSI-MOD; MOD:00186.
+DR   Unimod; 397.
+//
+ID   Thyroxine
+AC   PTM-0294
+FT   MOD_RES
+TG   Tyrosine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C6 I4 O1
+MM   595.612805
+MA   595.68
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:40674 (Mammalia).
+KW   Iodination.
+DR   ChEBI; CHEBI:90872.
+DR   RESID; AA0178.
+DR   PSI-MOD; MOD:00187.
+DR   Unimod; 398.
 //
 ID   Isoaspartyl cysteine isopeptide (Cys-Asn)
 AC   PTM-0151
@@ -3471,7 +4392,7 @@ CF   H-3 N-1
 MM   -17.026549
 MA   -17.03
 LC   Extracellular and lumenal localisation.
-TR   Bacteria; taxId:1280 (Staphylococcus aureus).
+TR   Bacteria; taxId:91061 (Bacilli).
 KW   Isopeptide bond.
 DR   RESID; AA0294.
 DR   PSI-MOD; MOD:00299.
@@ -3502,6 +4423,20 @@ TR   Bacteria; taxId:1301 (Streptococcus).
 KW   Isopeptide bond.
 DR   RESID; AA0294.
 DR   PSI-MOD; MOD:01917.
+//
+ID   Dityrosine (Tyr-Tyr) (interchain with Y-...)
+AC   PTM-0719
+FT   CROSSLNK
+TG   Tyrosine-Tyrosine.
+PA   Amino acid side chain-Amino acid side chain.
+PP   Anywhere-Anywhere.
+CF   H-2
+MM   -2.015650
+MA   -2.02
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:7742 (Vertebrata).
+DR   RESID; AA0367.
+DR   PSI-MOD; MOD:00372.
 //
 ID   Isodityrosine (Tyr-Tyr)
 AC   PTM-0155
@@ -3558,6 +4493,7 @@ LC   Intracellular localisation or Extracellular and lumenal localisation.
 TR   Bacteria; taxId:201174 (Actinobacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Isopeptide bond.
+DR   ChEBI; CHEBI:138370.
 DR   RESID; AA0124.
 DR   PSI-MOD; MOD:00133.
 //
@@ -3573,6 +4509,7 @@ MA   -17.03
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Isopeptide bond.
+DR   ChEBI; CHEBI:138370.
 DR   RESID; AA0124.
 DR   PSI-MOD; MOD:00133.
 //
@@ -3586,6 +4523,7 @@ LC   Intracellular localisation or Extracellular and lumenal localisation.
 TR   Bacteria; taxId:201174 (Actinobacteria).
 TR   Eukaryota; taxId:40674 (Mammalia).
 KW   Isopeptide bond.
+DR   ChEBI; CHEBI:138370.
 DR   RESID; AA0124.
 DR   PSI-MOD; MOD:00133.
 //
@@ -3601,8 +4539,10 @@ MA   -0.98
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Amidation.
+DR   ChEBI; CHEBI:145910.
 DR   RESID; AA0090.
 DR   PSI-MOD; MOD:00099.
+DR   Unimod; 2.
 //
 ID   Isoleucine derivative
 AC   PTM-0162
@@ -3621,10 +4561,11 @@ PA   Amino acid backbone.
 PP   Protein core.
 LC   Extracellular localisation.
 TR   Bacteria; taxId:932694 (Streptomyces sp. OH-4156).
+DR   ChEBI; CHEBI:30008.
 DR   RESID; AA0546.
 DR   PSI-MOD; MOD:01840.
 //
-ID   Lactic acid
+ID   D-lactate
 AC   PTM-0163
 FT   MOD_RES
 TG   Serine.
@@ -3635,8 +4576,10 @@ MM   -15.010899
 MA   -15.02
 LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:1282 (Staphylococcus epidermidis).
+DR   ChEBI; CHEBI:149487.
 DR   RESID; AA0186.
 DR   PSI-MOD; MOD:00194.
+DR   Unimod; 403.
 //
 ID   Lanthionine (Cys-Ser)
 AC   PTM-0164
@@ -3680,8 +4623,10 @@ MA   -0.98
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Amidation.
+DR   ChEBI; CHEBI:145812.
 DR   RESID; AA0091.
 DR   PSI-MOD; MOD:00100.
+DR   Unimod; 2.
 //
 ID   Leucine methyl ester
 AC   PTM-0167
@@ -3697,6 +4642,7 @@ TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Methylation.
 DR   RESID; AA0299.
 DR   PSI-MOD; MOD:00304.
+DR   Unimod; 34.
 //
 ID   Lysine amide
 AC   PTM-0168
@@ -3710,8 +4656,10 @@ MA   -0.98
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Amidation.
+DR   ChEBI; CHEBI:145912.
 DR   RESID; AA0092.
 DR   PSI-MOD; MOD:00101.
+DR   Unimod; 2.
 //
 ID   Lysine derivative
 AC   PTM-0169
@@ -3736,6 +4684,7 @@ TR   Eukaryota; taxId:4932 (Saccharomyces cerevisiae).
 KW   Methylation.
 DR   RESID; AA0318.
 DR   PSI-MOD; MOD:00323.
+DR   Unimod; 34.
 //
 ID   Lysine tyrosylquinone (Lys-Tyr)
 AC   PTM-0171
@@ -3807,8 +4756,10 @@ MA   -0.98
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Amidation.
+DR   ChEBI; CHEBI:145913.
 DR   RESID; AA0093.
 DR   PSI-MOD; MOD:00102.
+DR   Unimod; 2.
 //
 ID   Methionine derivative
 AC   PTM-0174
@@ -3831,8 +4782,10 @@ MA   32.00
 LC   Intracellular localisation.
 TR   Bacteria; taxId:584 (Proteus mirabilis).
 KW   Oxidation.
+DR   ChEBI; CHEBI:156065.
 DR   RESID; AA0251.
 DR   PSI-MOD; MOD:00256.
+DR   Unimod; 425.
 //
 ID   Methionine (R)-sulfoxide
 AC   PTM-0480
@@ -3846,8 +4799,10 @@ MA   16.00
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Oxidation.
+DR   ChEBI; CHEBI:45764.
 DR   RESID; AA0581.
 DR   PSI-MOD; MOD:00720.
+DR   Unimod; 35.
 //
 ID   Methionine (S)-sulfoxide
 AC   PTM-0481
@@ -3861,7 +4816,9 @@ MA   16.00
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Oxidation.
+DR   ChEBI; CHEBI:44120.
 DR   PSI-MOD; MOD:00721.
+DR   Unimod; 35.
 //
 ID   Methionine sulfoxide
 AC   PTM-0469
@@ -3875,7 +4832,9 @@ MA   16.00
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Oxidation.
+DR   ChEBI; CHEBI:15989.
 DR   PSI-MOD; MOD:00719.
+DR   Unimod; 35.
 //
 ID   (4R)-5-oxoleucine
 AC   PTM-0492
@@ -3892,6 +4851,18 @@ KW   Oxidation.
 DR   RESID; AA0444.
 DR   PSI-MOD; MOD:01374.
 //
+ID   Methylcyclopropylglycine
+AC   PTM-0738
+FT   MOD_RES
+TG   Isoleucine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   H-2
+MM   -2.015650
+MA   -2.02
+TR   Bacteria; taxId:2 (Bacteria).
+DR   ChEBI; CHEBI:229546.
+//
 ID   Methylhistidine
 AC   PTM-0176
 FT   MOD_RES
@@ -3905,7 +4876,18 @@ LC   Intracellular localisation.
 TR   Archaea; taxId:28890 (Euryarchaeota).
 TR   Eukaryota; taxId:5791 (Physarum polycephalum), taxId:7742 (Vertebrata).
 KW   Methylation.
-DR   PSI-MOD; MOD:00661.
+DR   PSI-MOD; MOD:02038.
+DR   Unimod; 34.
+//
+ID   Murein peptidoglycan amidated serine
+AC   PTM-0669
+FT   MOD_RES
+TG   Serine.
+PA   Amino acid backbone.
+PP   C-terminal.
+LC   Extracellular.
+TR   Bacteria; taxId:2 (Bacteria).
+KW   Peptidoglycan-anchor.
 //
 ID   N,N-(cysteine-1,S-diyl)phenylalanine (Cys-Phe)
 AC   PTM-0451
@@ -3954,6 +4936,7 @@ TR   Eukaryota; taxId:5908 (Tetrahymena pyriformis), taxId:9986 (Oryctolagus cun
 KW   Methylation.
 DR   RESID; AA0062.
 DR   PSI-MOD; MOD:00071.
+DR   Unimod; 37.
 //
 ID   N,N,N-trimethylglycine
 AC   PTM-0485
@@ -4056,8 +5039,10 @@ MA   29.06
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:6446 (Sipunculus nudus), taxId:7586 (Echinodermata), taxId:33682 (Euglenozoa).
 KW   Methylation.
+DR   ChEBI; CHEBI:145671.
 DR   RESID; AA0066.
 DR   PSI-MOD; MOD:00075.
+DR   Unimod; 529.
 //
 ID   N,N-dimethylserine
 AC   PTM-0431
@@ -4074,6 +5059,20 @@ KW   Methylation.
 DR   RESID; AA0534.
 DR   PSI-MOD; MOD:01783.
 //
+ID   3,3-dimethylmethionine
+AC   PTM-0696
+FT   MOD_RES
+TG   Methionine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C2 H4
+MM   28.031300
+MA   28.05
+LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
+KW   Methylation.
+DR   ChEBI; CHEBI:149518.
+//
 ID   N2-acetylarginine
 AC   PTM-0180
 FT   MOD_RES
@@ -4086,8 +5085,10 @@ MA   42.04
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:33090 (Viridiplantae).
 KW   Acetylation.
+DR   ChEBI; CHEBI:145666.
 DR   RESID; AA0354.
 DR   PSI-MOD; MOD:00359.
+DR   Unimod; 1.
 //
 ID   N2-succinyltryptophan
 AC   PTM-0181
@@ -4102,6 +5103,7 @@ LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:1423 (Bacillus subtilis).
 DR   RESID; AA0130.
 DR   PSI-MOD; MOD:00139.
+DR   Unimod; 64.
 //
 ID   N2,N2-dimethylarginine
 AC   PTM-0459
@@ -4132,6 +5134,7 @@ TR   Eukaryota; taxId:9606 (Homo sapiens).
 KW   Methylation.
 DR   RESID; AA0311.
 DR   PSI-MOD; MOD:00316.
+DR   Unimod; 36.
 //
 ID   N4-methylasparagine
 AC   PTM-0183
@@ -4146,8 +5149,56 @@ LC   Intracellular localisation.
 TR   Bacteria; taxId:1117 (Cyanobacteria).
 TR   Eukaryota; taxId:2763 (Rhodophyta), taxId:3027 (Cryptophyta), taxId:38254 (Glaucocystophyceae).
 KW   Methylation.
+DR   ChEBI; CHEBI:61960.
 DR   RESID; AA0070.
 DR   PSI-MOD; MOD:00079.
+DR   Unimod; 34.
+//
+ID   N4-methyl-D-asparagine
+AC   PTM-0691
+FT   MOD_RES
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C1 H2
+MM   14.015650
+MA   14.03
+LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
+KW   D-amino acid; Methylation.
+DR   ChEBI; CHEBI:149514.
+//
+ID   (3R)-N4-methyl-3-hydroxy-D-asparagine
+AC   PTM-0695
+FT   MOD_RES
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C1 H2 O1
+MM   30.01056
+MA   30.03
+LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
+KW   D-amino acid; Hydroxylation; Methylation.
+DR   ChEBI; CHEBI:149517.
+//
+ID   N5-[4-(S-L-cysteinyl)-5-methyl-1H-imidazol-2-yl]-L-ornithine (Arg-Cys) (interchain with C-...)
+AC   PTM-0678
+FT   CROSSLNK
+TG   Arginine-Cysteine.
+PA   Amino acid side chain-Amino acid side chain.
+PP   Protein core-Protein core.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:144464.
+//
+ID   N5-[4-(S-L-cysteinyl)-5-methyl-1H-imidazol-2-yl]-L-ornithine (Cys-Arg) (interchain with R-...)
+AC   PTM-0679
+FT   CROSSLNK
+TG   Cysteine-Arginine.
+PA   Amino acid side chain-Amino acid side chain.
+PP   Protein core-Protein core.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:144464.
 //
 ID   N5-methylarginine
 AC   PTM-0184
@@ -4163,6 +5214,7 @@ TR   Eukaryota; taxId:4932 (Saccharomyces cerevisiae).
 KW   Methylation.
 DR   RESID; AA0305.
 DR   PSI-MOD; MOD:00310.
+DR   Unimod; 34.
 //
 ID   N5-methylglutamine
 AC   PTM-0185
@@ -4174,11 +5226,14 @@ CF   C1 H2
 MM   14.015650
 MA   14.03
 LC   Intracellular localisation.
+TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:1224 (Proteobacteria).
 TR   Eukaryota; taxId:4932 (Saccharomyces cerevisiae).
 KW   Methylation.
+DR   ChEBI; CHEBI:61891.
 DR   RESID; AA0071.
 DR   PSI-MOD; MOD:00080.
+DR   Unimod; 34.
 //
 ID   N6-(3,6-diaminohexanoyl)-5-hydroxylysine
 AC   PTM-0474
@@ -4189,6 +5244,7 @@ PP   Anywhere.
 LC   Intracellular localisation.
 TR   Bacteria; taxId:2 (Bacteria).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:156054.
 DR   PSI-MOD; MOD:01780.
 //
 ID   N6-(ADP-ribosyl)lysine
@@ -4220,8 +5276,10 @@ TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Pyridoxal phosphate.
+DR   ChEBI; CHEBI:143915.
 DR   RESID; AA0119.
 DR   PSI-MOD; MOD:00128.
+DR   Unimod; 46.
 //
 ID   N6-(retinylidene)lysine
 AC   PTM-0388
@@ -4237,8 +5295,10 @@ TR   Archaea; taxId:28890 (Euryarchaeota), taxId:2236 (Halobacteriaceae).
 TR   Bacteria; taxId:1236 (Gammaproteobacteria).
 TR   Eukaryota; taxId:33154 (Opisthokonta).
 KW   Retinal protein.
+DR   ChEBI; CHEBI:149695.
 DR   RESID; AA0120.
 DR   PSI-MOD; MOD:00129.
+DR   Unimod; 380.
 //
 ID   N6,N6,N6-trimethyl-5-hydroxylysine
 AC   PTM-0186
@@ -4254,6 +5314,7 @@ TR   Eukaryota; taxId:2853 (Cylindrotheca fusiformis).
 KW   Hydroxylation; Methylation.
 DR   RESID; AA0359.
 DR   PSI-MOD; MOD:00364.
+DR   Unimod; 445.
 //
 ID   N6,N6,N6-trimethyllysine
 AC   PTM-0187
@@ -4265,11 +5326,14 @@ CF   C3 H7
 MM   43.054227
 MA   43.09
 LC   Intracellular localisation.
+TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Methylation.
+DR   ChEBI; CHEBI:61961.
 DR   RESID; AA0074.
 DR   PSI-MOD; MOD:00083.
+DR   Unimod; 37.
 //
 ID   N6,N6-dimethyllysine
 AC   PTM-0188
@@ -4281,11 +5345,14 @@ CF   C2 H4
 MM   28.031300
 MA   28.05
 LC   Intracellular localisation.
+TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Methylation.
+DR   ChEBI; CHEBI:61976.
 DR   RESID; AA0075.
 DR   PSI-MOD; MOD:00084.
+DR   Unimod; 36.
 //
 ID   N6-1-carboxyethyl lysine
 AC   PTM-0189
@@ -4298,8 +5365,10 @@ MM   72.021129
 MA   72.06
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:40674 (Mammalia).
+DR   ChEBI; CHEBI:156063.
 DR   RESID; AA0115.
 DR   PSI-MOD; MOD:00124.
+DR   Unimod; 378.
 //
 ID   N6-acetyllysine
 AC   PTM-0190
@@ -4315,8 +5384,25 @@ TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Acetylation.
+DR   ChEBI; CHEBI:61930.
 DR   RESID; AA0055.
 DR   PSI-MOD; MOD:00064.
+DR   Unimod; 1.
+//
+ID   N6-acetyl-N6-methyllysine
+AC   PTM-0733
+FT   MOD_RES
+TG   Lysine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C3 H4 O1
+MM   56.02621
+MA   56.06
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Acetylation.
+KW   Methylation.
+DR   ChEBI; CHEBI:197459.
 //
 ID   N6-biotinyllysine
 AC   PTM-0382
@@ -4332,8 +5418,25 @@ TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Biotin.
+DR   ChEBI; CHEBI:83144.
 DR   RESID; AA0117.
 DR   PSI-MOD; MOD:00126.
+DR   Unimod; 3.
+//
+ID   N6-carbamoyllysine
+AC   PTM-0675
+FT   MOD_RES
+TG   Lysine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C1 H1 N1 O1
+MM   43.005814
+MA   43.02
+LC   Intracellular localisation.
+TR   Archaea; taxId:28890 (Euryarchaeota).
+TR   Bacteria; taxId:2 (Bacteria).
+TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:144369.
 //
 ID   N6-carboxylysine
 AC   PTM-0191
@@ -4347,9 +5450,11 @@ MA   44.01
 LC   Intracellular localisation.
 TR   Archaea; taxId:28890 (Euryarchaeota).
 TR   Bacteria; taxId:2 (Bacteria).
-TR   Eukaryota; taxId:2763 (Rhodophyta), taxId:2830 (Haptophyceae), taxId:3027 (Cryptophyta), taxId:33090 (Viridiplantae), taxId:33634 (Stramenopiles), taxId:33682 (Euglenozoa), taxId:38254 (Glaucocystophyceae).
+TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:144366.
 DR   RESID; AA0114.
 DR   PSI-MOD; MOD:00123.
+DR   Unimod; 299.
 //
 ID   N6-crotonyllysine
 AC   PTM-0475
@@ -4362,8 +5467,25 @@ MM   68.026215
 MA   68.07
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:137954.
 DR   RESID; AA0567.
 DR   PSI-MOD; MOD:01892.
+//
+ID   N6-decanoyllysine
+AC   PTM-0722
+FT   LIPID
+TG   Lysine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C10 H18 O1
+MM   154.135765
+MA   154.25
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Lipoprotein.
+DR   ChEBI; CHEBI:143222.
+DR   PSI-MOD; MOD:01875.
+DR   Unimod; 449.
 //
 ID   N6-formyllysine
 AC   PTM-0192
@@ -4377,8 +5499,19 @@ MA   28.01
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:7460 (Apis mellifera).
 KW   Formylation.
+DR   ChEBI; CHEBI:156064.
 DR   RESID; AA0211.
 DR   PSI-MOD; MOD:00216.
+DR   Unimod; 122.
+//
+ID   N6-lactoyllysine
+AC   PTM-0682
+FT   MOD_RES
+TG   Lysine.
+PA   Amino acid side chain.
+PP   Anywhere.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:145324.
 //
 ID   N6-lipoyllysine
 AC   PTM-0383
@@ -4394,8 +5527,10 @@ TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Lipoyl.
+DR   ChEBI; CHEBI:83099.
 DR   RESID; AA0118.
 DR   PSI-MOD; MOD:00127.
+DR   Unimod; 42.
 //
 ID   N6-malonyllysine
 AC   PTM-0467
@@ -4410,6 +5545,7 @@ LC   Intracellular localisation.
 TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:87831.
 DR   RESID; AA0568.
 DR   PSI-MOD; MOD:01893.
 //
@@ -4440,8 +5576,10 @@ TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Methylation.
+DR   ChEBI; CHEBI:61929.
 DR   RESID; AA0076.
 DR   PSI-MOD; MOD:00085.
+DR   Unimod; 34.
 //
 ID   N6-murein peptidoglycan lysine
 AC   PTM-0195
@@ -4465,10 +5603,13 @@ CF   C14 H26 O1
 MM   210.198365
 MA   210.36
 LC   Intracellular localisation.
+TR   Bacteria; taxId:1224 (Proteobacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Myristate.
+DR   ChEBI; CHEBI:141129.
 DR   RESID; AA0078.
 DR   PSI-MOD; MOD:00087.
+DR   Unimod; 45.
 //
 ID   N6-palmitoyl lysine
 AC   PTM-0197
@@ -4483,8 +5624,10 @@ LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:1224 (Proteobacteria).
 TR   Eukaryota; taxId:7742 (Vertebrata).
 KW   Palmitate.
+DR   ChEBI; CHEBI:138936.
 DR   RESID; AA0077.
 DR   PSI-MOD; MOD:00086.
+DR   Unimod; 47.
 //
 ID   N6-poly(methylaminopropyl)lysine
 AC   PTM-0198
@@ -4511,6 +5654,7 @@ LC   Intracellular localisation.
 TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:87830.
 DR   RESID; AA0545.
 DR   PSI-MOD; MOD:01819.
 //
@@ -4526,6 +5670,7 @@ MA   114.10
 LC   Intracellular localisation.
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:87828.
 //
 ID   N6-butyryllysine
 AC   PTM-0637
@@ -4539,8 +5684,65 @@ MA   70.09
 LC   Intracellular localisation.
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:137955.
 DR   RESID; AA0532.
 DR   PSI-MOD; MOD:01781.
+DR   Unimod; 1289.
+//
+ID   N6-isobutyryllysine
+AC   PTM-0744
+FT   MOD_RES
+TG   Lysine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C4 H6 O1
+MM   70.041865
+MA   70.09
+LC   Intracellular localisation.
+TR   Bacteria; taxId:2 (Bacteria).
+TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:234239.
+//
+ID   N6-isonicotinyllysine
+AC   PTM-0742
+FT   MOD_RES
+TG   Lysine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C6 H3 N1 O1
+MM   105.02146
+MA   105.09
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:233146.
+DR   Unimod; 697.
+//
+ID   N6-benzoyllysine
+AC   PTM-0741
+FT   MOD_RES
+TG   Lysine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C7 H4 O1
+MM   104.0261
+MA   104.11
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:233144.
+DR   Unimod; 136.
+//
+ID   N6-methacryllysine
+AC   PTM-0743
+FT   MOD_RES
+TG   Lysine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C4 H4 O1
+MM   68.02621
+MA   68.07
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:233147.
 //
 ID   N6-(2-hydroxyisobutyryl)lysine
 AC   PTM-0638
@@ -4552,8 +5754,11 @@ CF   C4 H6 O2
 MM   86.036780
 MA   86.09
 LC   Intracellular localisation.
+TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:144968.
+DR   Unimod; 1849.
 //
 ID   N6-(beta-hydroxybutyryl)lysine
 AC   PTM-0499
@@ -4561,12 +5766,14 @@ FT   MOD_RES
 TG   Lysine.
 PA   Amino acid side chain.
 PP   Anywhere.
-CF   C4 H7 O2
-MM   87.044604
-MA   87.09
+CF   C4 H6 O2
+MM   86.036780
+MA   86.09
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Hydroxylation.
+DR   ChEBI; CHEBI:149490.
+DR   Unimod; 1849.
 //
 ID   N6-poly(beta-hydroxybutyryl)lysine
 AC   PTM-0639
@@ -4614,8 +5821,10 @@ MA   56.06
 LC   Intracellular localisation.
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:40674 (Mammalia).
+DR   ChEBI; CHEBI:138019.
 DR   RESID; AA0475.
 DR   PSI-MOD; MOD:01398.
+DR   Unimod; 58.
 //
 ID   N-[(12R)-12-hydroxymyristoyl]cysteine
 AC   PTM-0419
@@ -4628,6 +5837,7 @@ MM   226.193280
 MA   226.36
 TR   Eukaryota; taxId:715217 (Eudistoma sp. (strain FJ04-12-071)).
 KW   Myristate.
+DR   ChEBI; CHEBI:143561.
 DR   RESID; AA0516.
 DR   PSI-MOD; MOD:01690.
 //
@@ -4642,6 +5852,7 @@ MM   224.177630
 MA   224.34
 TR   Eukaryota; taxId:715217 (Eudistoma sp. (strain FJ04-12-071)).
 KW   Myristate.
+DR   ChEBI; CHEBI:143562.
 DR   RESID; AA0517.
 DR   PSI-MOD; MOD:01691.
 //
@@ -4658,8 +5869,10 @@ LC   Intracellular localisation.
 TR   Bacteria; taxId:1224 (Proteobacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Acetylation.
+DR   ChEBI; CHEBI:83683.
 DR   RESID; AA0041.
 DR   PSI-MOD; MOD:00050.
+DR   Unimod; 1.
 //
 ID   N-acetylaspartate
 AC   PTM-0200
@@ -4673,8 +5886,10 @@ MA   42.04
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Acetylation.
+DR   ChEBI; CHEBI:140856.
 DR   RESID; AA0042.
 DR   PSI-MOD; MOD:00051.
+DR   Unimod; 1.
 //
 ID   N-acetylcysteine
 AC   PTM-0201
@@ -4689,8 +5904,10 @@ LC   Intracellular localisation.
 TR   Archaea; taxId:28890 (Euryarchaeota).
 TR   Eukaryota; taxId:7742 (Vertebrata).
 KW   Acetylation.
+DR   ChEBI; CHEBI:133372.
 DR   RESID; AA0043.
 DR   PSI-MOD; MOD:00052.
+DR   Unimod; 1.
 //
 ID   N-acetylglutamate
 AC   PTM-0202
@@ -4704,8 +5921,10 @@ MA   42.04
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Acetylation.
+DR   ChEBI; CHEBI:140857.
 DR   RESID; AA0044.
 DR   PSI-MOD; MOD:00053.
+DR   Unimod; 1.
 //
 ID   N-acetylglycine
 AC   PTM-0203
@@ -4719,8 +5938,10 @@ MA   42.04
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Acetylation.
+DR   ChEBI; CHEBI:133369.
 DR   RESID; AA0046.
 DR   PSI-MOD; MOD:00055.
+DR   Unimod; 1.
 //
 ID   N-acetylisoleucine
 AC   PTM-0204
@@ -4735,8 +5956,10 @@ LC   Intracellular localisation.
 TR   Eukaryota; taxId:10116 (Rattus norvegicus).
 TR   Bacteria; taxId:2 (Bacteria).
 KW   Acetylation.
+DR   ChEBI; CHEBI:140858.
 DR   RESID; AA0047.
 DR   PSI-MOD; MOD:00056.
+DR   Unimod; 1.
 //
 ID   N-acetylmethionine
 AC   PTM-0205
@@ -4752,8 +5975,10 @@ TR   Archaea; taxId:2287 (Sulfolobus solfataricus).
 TR   Bacteria; taxId:1270 (Micrococcus luteus).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Acetylation.
+DR   ChEBI; CHEBI:133414.
 DR   RESID; AA0049.
 DR   PSI-MOD; MOD:00058.
+DR   Unimod; 1.
 //
 ID   N-acetylproline
 AC   PTM-0206
@@ -4768,8 +5993,10 @@ LC   Intracellular localisation.
 TR   Eukaryota; taxId:33090 (Viridiplantae), taxId:40674 (Mammalia).
 TR   Bacteria; taxId:2 (Bacteria).
 KW   Acetylation.
+DR   ChEBI; CHEBI:140859.
 DR   RESID; AA0050.
 DR   PSI-MOD; MOD:00059.
+DR   Unimod; 1.
 //
 ID   N-acetylserine
 AC   PTM-0207
@@ -4785,8 +6012,10 @@ TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Acetylation.
+DR   ChEBI; CHEBI:83690.
 DR   RESID; AA0051.
 DR   PSI-MOD; MOD:00060.
+DR   Unimod; 1.
 //
 ID   N-acetylthreonine
 AC   PTM-0208
@@ -4801,8 +6030,10 @@ LC   Intracellular localisation.
 TR   Bacteria; taxId:90370 (Salmonella typhi).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Acetylation.
+DR   ChEBI; CHEBI:133375.
 DR   RESID; AA0052.
 DR   PSI-MOD; MOD:00061.
+DR   Unimod; 1.
 //
 ID   N-acetyltyrosine
 AC   PTM-0209
@@ -4816,8 +6047,10 @@ MA   42.04
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:8018 (Oncorhynchus keta).
 KW   Acetylation.
+DR   ChEBI; CHEBI:140860.
 DR   RESID; AA0053.
 DR   PSI-MOD; MOD:00062.
+DR   Unimod; 1.
 //
 ID   N-acetylvaline
 AC   PTM-0210
@@ -4832,8 +6065,10 @@ LC   Intracellular localisation.
 TR   Eukaryota; taxId:3055 (Chlamydomonas reinhardtii), taxId:33208 (Metazoa).
 TR   Bacteria; taxId:2 (Bacteria).
 KW   Acetylation.
+DR   ChEBI; CHEBI:133371.
 DR   RESID; AA0054.
 DR   PSI-MOD; MOD:00063.
+DR   Unimod; 1.
 //
 ID   N-carbamoylalanine
 AC   PTM-0374
@@ -4848,6 +6083,23 @@ LC   Intracellular localisation.
 TR   Bacteria; taxId:195064 (Ectothiorhodospira mobilis).
 DR   RESID; AA0343.
 DR   PSI-MOD; MOD:00348.
+DR   Unimod; 5.
+//
+ID   S-(2-succinyl)cysteine
+AC   PTM-0674
+FT   MOD_RES
+TG   Cysteine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C4 H4 O4
+MM   116.010959
+MA   116.07
+TR   Bacteria; taxId:2 (Bacteria).
+TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:143134.
+DR   RESID; AA0561.
+DR   PSI-MOD; MOD:01889.
+DR   Unimod; 957.
 //
 ID   S-carbamoylcysteine
 AC   PTM-0649
@@ -4862,6 +6114,7 @@ LC   Intracellular localisation.
 TR   Bacteria; taxId:2 (Bacteria).
 DR   RESID; AA0332.
 DR   PSI-MOD; MOD:00337.
+DR   Unimod; 5.
 //
 ID   S-cyanocysteine
 AC   PTM-0650
@@ -4874,8 +6127,21 @@ MM   24.995249
 MA   25.01
 LC   Intracellular localisation.
 TR   Bacteria; taxId:2 (Bacteria).
+TR   Eukaryota; taxId:40674 (Mammalia).
+DR   ChEBI; CHEBI:233759.
 DR   RESID; AA0333.
 DR   PSI-MOD; MOD:00338.
+DR   Unimod; 438.
+//
+ID   S-(2,3-dicarboxypropyl)cysteine
+AC   PTM-0676
+FT   MOD_RES
+TG   Cysteine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C5 H5 O4
+TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:144095.
 //
 ID   N-D-glucuronoyl glycine
 AC   PTM-0331
@@ -4891,6 +6157,7 @@ TR   Eukaryota; taxId:147550 (Sordariomycetes).
 KW   Glycoprotein.
 DR   RESID; AA0058.
 DR   PSI-MOD; MOD:00067.
+DR   Unimod; 54.
 //
 ID   N-formylglycine
 AC   PTM-0211
@@ -4906,6 +6173,7 @@ TR   Eukaryota; taxId:7460 (Apis mellifera).
 KW   Formylation.
 DR   RESID; AA0057.
 DR   PSI-MOD; MOD:00066.
+DR   Unimod; 122.
 //
 ID   N-formylmethionine
 AC   PTM-0212
@@ -4920,8 +6188,10 @@ LC   Intracellular localisation.
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Formylation.
+DR   ChEBI; CHEBI:49298.
 DR   RESID; AA0021.
 DR   PSI-MOD; MOD:00482.
+DR   Unimod; 122.
 //
 ID   Nitrated tyrosine
 AC   PTM-0213
@@ -4936,13 +6206,14 @@ LC   Intracellular localisation.
 TR   Eukaryota; taxId:40674 (Mammalia).
 KW   Nitration.
 DR   PSI-MOD; MOD:01352.
+DR   Unimod; 354.
 //
 ID   N-methylalanine
 AC   PTM-0214
 FT   MOD_RES
 TG   Alanine.
 PA   Amino acid backbone.
-PP   N-terminal.
+PP   Anywhere.
 CF   C1 H2
 MM   14.015650
 MA   14.03
@@ -4952,51 +6223,84 @@ TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Methylation.
 DR   RESID; AA0061.
 DR   PSI-MOD; MOD:00070.
+DR   Unimod; 34.
+//
+ID   N-methylaspartate
+AC   PTM-0728
+FT   MOD_RES
+TG   Aspartate.
+PA   Amino acid backbone.
+PP   Anywhere.
+CF   C1 H2
+MM   14.015650
+MA   14.03
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:4751 (Fungi).
+KW   Methylation.
+DR   ChEBI; CHEBI:195202.
 //
 ID   N-methylglycine
 AC   PTM-0483
 FT   MOD_RES
 TG   Glycine.
 PA   Amino acid backbone.
-PP   N-terminal.
+PP   Anywhere.
 CF   C1 H2
 MM   14.015650
 MA   14.03
-TR   Eukaryota; taxId:40674 (Mammalia).
+TR   Eukaryota; taxId:40674 (Mammalia), taxId:4751 (Fungi).
 KW   Methylation.
 DR   RESID; AA0063.
 DR   PSI-MOD; MOD:00072.
+DR   Unimod; 34.
+//
+ID   N-methylhistidine
+AC   PTM-0729
+FT   MOD_RES
+TG   Histidine.
+PA   Amino acid backbone.
+PP   Anywhere.
+CF   C1 H2
+MM   14.015650
+MA   14.03
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:4751 (Fungi).
+KW   Methylation.
+DR   ChEBI; CHEBI:195204.
 //
 ID   N-methylisoleucine
 AC   PTM-0215
 FT   MOD_RES
 TG   Isoleucine.
 PA   Amino acid backbone.
-PP   N-terminal.
+PP   Anywhere.
 CF   C1 H2
 MM   14.015650
 MA   14.03
 LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:303 (Pseudomonas putida).
+TR   Eukaryota; taxId:4751 (Fungi).
 KW   Methylation.
 DR   RESID; AA0336.
 DR   PSI-MOD; MOD:00341.
+DR   Unimod; 34.
 //
 ID   N-methylleucine
 AC   PTM-0216
 FT   MOD_RES
 TG   Leucine.
 PA   Amino acid backbone.
-PP   N-terminal.
+PP   Anywhere.
 CF   C1 H2
 MM   14.015650
 MA   14.03
 LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:1224 (Proteobacteria).
-TR   Eukaryota; taxId:68564 (Petrosia ficiformis).
+TR   Eukaryota; taxId:68564 (Petrosia ficiformis), taxId:4751 (Fungi).
 KW   Methylation.
 DR   RESID; AA0337.
 DR   PSI-MOD; MOD:00342.
+DR   Unimod; 34.
 //
 ID   N-methylmethionine
 AC   PTM-0217
@@ -5013,21 +6317,24 @@ TR   Eukaryota; taxId:3055 (Chlamydomonas reinhardtii).
 KW   Methylation.
 DR   RESID; AA0064.
 DR   PSI-MOD; MOD:00073.
+DR   Unimod; 34.
 //
 ID   N-methylphenylalanine
 AC   PTM-0218
 FT   MOD_RES
 TG   Phenylalanine.
 PA   Amino acid backbone.
-PP   N-terminal.
+PP   Anywhere.
 CF   C1 H2
 MM   14.015650
 MA   14.03
 LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:2 (Bacteria).
+TR   Eukaryota; taxId:4751 (Fungi).
 KW   Methylation.
 DR   RESID; AA0065.
 DR   PSI-MOD; MOD:00074.
+DR   Unimod; 34.
 //
 ID   N-methylproline
 AC   PTM-0219
@@ -5049,7 +6356,7 @@ AC   PTM-0432
 FT   MOD_RES
 TG   Serine.
 PA   Amino acid backbone.
-PP   N-terminal.
+PP   Anywhere.
 CF   C1 H2
 MM   14.015650
 MA   14.03
@@ -5059,20 +6366,50 @@ KW   Methylation.
 DR   RESID; AA0533.
 DR   PSI-MOD; MOD:01782.
 //
+ID   N-methylthreonine
+AC   PTM-0727
+FT   MOD_RES
+TG   Threonine.
+PA   Amino acid backbone.
+PP   Anywhere.
+CF   C1 H2
+MM   14.015650
+MA   14.03
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:4751 (Fungi).
+KW   Methylation.
+DR   ChEBI; CHEBI:194547.
+//
 ID   N-methyltyrosine
 AC   PTM-0220
 FT   MOD_RES
 TG   Tyrosine.
 PA   Amino acid backbone.
-PP   N-terminal.
+PP   Anywhere.
 CF   C1 H2
 MM   14.015650
 MA   14.03
 LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:1224 (Proteobacteria).
+TR   Eukaryota; taxId:4751 (Fungi).
 KW   Methylation.
 DR   RESID; AA0338.
 DR   PSI-MOD; MOD:00343.
+DR   Unimod; 34.
+//
+ID   N-methylvaline
+AC   PTM-0726
+FT   MOD_RES
+TG   Valine.
+PA   Amino acid backbone.
+PP   Anywhere.
+CF   C1 H2
+MM   14.015650
+MA   14.03
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:4751 (Fungi).
+KW   Methylation.
+DR   ChEBI; CHEBI:194546.
 //
 ID   N-myristoyl glycine
 AC   PTM-0221
@@ -5087,8 +6424,10 @@ LC   Intracellular localisation.
 TR   Bacteria; taxId:319 (Pseudomonas savastanoi pv. phaseolicola).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Myristate.
+DR   ChEBI; CHEBI:133050.
 DR   RESID; AA0059.
 DR   PSI-MOD; MOD:00068.
+DR   Unimod; 45.
 //
 ID   N-palmitoyl cysteine
 AC   PTM-0222
@@ -5103,8 +6442,10 @@ LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Palmitate.
+DR   ChEBI; CHEBI:143147.
 DR   RESID; AA0060.
 DR   PSI-MOD; MOD:00069.
+DR   Unimod; 47.
 //
 ID   N-palmitoyl glycine
 AC   PTM-0223
@@ -5118,8 +6459,10 @@ MA   238.41
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:9913 (Bos taurus).
 KW   Palmitate.
+DR   ChEBI; CHEBI:143223.
 DR   RESID; AA0339.
 DR   PSI-MOD; MOD:00344.
+DR   Unimod; 47.
 //
 ID   N-pyruvate 2-iminyl-cysteine
 AC   PTM-0224
@@ -5135,6 +6478,7 @@ TR   Bacteria; taxId:543 (Enterobacteriaceae).
 KW   Pyruvate.
 DR   RESID; AA0274.
 DR   PSI-MOD; MOD:00279.
+DR   Unimod; 422.
 //
 ID   N-pyruvate 2-iminyl-valine
 AC   PTM-0225
@@ -5150,6 +6494,7 @@ TR   Eukaryota; taxId:9606 (Homo sapiens).
 KW   Pyruvate.
 DR   RESID; AA0275.
 DR   PSI-MOD; MOD:00280.
+DR   Unimod; 422.
 //
 ID   O-(2-aminoethylphosphoryl)serine
 AC   PTM-0399
@@ -5244,8 +6589,10 @@ LC   Intracellular localisation.
 TR   Bacteria; taxId:638 (Arsenophonus nasoniae), taxId:112 (Planctomycetales).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Phosphopantetheine; Phosphoprotein.
+DR   ChEBI; CHEBI:64479.
 DR   RESID; AA0150.
 DR   PSI-MOD; MOD:00159.
+DR   Unimod; 49.
 //
 ID   O-(phosphoribosyl dephospho-coenzyme A)serine
 AC   PTM-0389
@@ -5261,6 +6608,7 @@ TR   Bacteria; taxId:158 (Treponema denticola), taxId:1224 (Proteobacteria), tax
 KW   Phosphoprotein.
 DR   RESID; AA0167.
 DR   PSI-MOD; MOD:00176.
+DR   Unimod; 395.
 //
 ID   O-(sn-1-glycerophosphoryl)serine
 AC   PTM-0230
@@ -5276,6 +6624,7 @@ TR   Bacteria; taxId:1224 (Proteobacteria).
 KW   Phosphoprotein.
 DR   RESID; AA0264.
 DR   PSI-MOD; MOD:00269.
+DR   Unimod; 419.
 //
 ID   O-8alpha-FAD tyrosine
 AC   PTM-0231
@@ -5291,6 +6640,7 @@ TR   Bacteria; taxId:303 (Pseudomonas putida).
 KW   FAD.
 DR   RESID; AA0145.
 DR   PSI-MOD; MOD:00154.
+DR   Unimod; 50.
 //
 ID   O-acetylserine
 AC   PTM-0232
@@ -5304,8 +6654,10 @@ MA   42.04
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Acetylation.
+DR   ChEBI; CHEBI:141128.
 DR   RESID; AA0364.
 DR   PSI-MOD; MOD:00369.
+DR   Unimod; 1.
 //
 ID   O-acetylthreonine
 AC   PTM-0233
@@ -5319,8 +6671,42 @@ MA   42.04
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Acetylation.
+DR   ChEBI; CHEBI:141025.
 DR   RESID; AA0423.
 DR   PSI-MOD; MOD:01171.
+DR   Unimod; 1.
+//
+ID   O-AMP-serine
+AC   PTM-0651
+FT   MOD_RES
+TG   Serine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C10 H12 N5 O6 P1
+MM   329.052520
+MA   329.21
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:7742 (Vertebrata).
+KW   Nucleotide-binding; Phosphoprotein.
+DR   ChEBI; CHEBI:142516.
+//
+ID   O-AMP-threonine
+AC   PTM-0393
+FT   MOD_RES
+TG   Threonine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C10 H12 N5 O6 P1
+MM   329.052520
+MA   329.21
+LC   Intracellular localisation.
+TR   Bacteria; taxId:2 (Bacteria).
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Nucleotide-binding; Phosphoprotein.
+DR   ChEBI; CHEBI:138113.
+DR   RESID; AA0267.
+DR   PSI-MOD; MOD:00272.
+DR   Unimod; 405.
 //
 ID   O-AMP-tyrosine
 AC   PTM-0332
@@ -5336,23 +6722,40 @@ TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Nucleotide-binding; Phosphoprotein.
+DR   ChEBI; CHEBI:83624.
 DR   RESID; AA0203.
 DR   PSI-MOD; MOD:00208.
+DR   Unimod; 405.
 //
-ID   O-AMP-threonine
-AC   PTM-0393
+ID   O-di-AMP-tyrosine
+AC   PTM-0702
 FT   MOD_RES
-TG   Threonine.
+TG   Tyrosine.
 PA   Amino acid side chain.
 PP   Anywhere.
-CF   C10 H12 N5 O6 P1
-MM   329.052520
-MA   329.21
+CF   C20 H24 N10 O12 P2
+MM   658.105040
+MA   658.42
 LC   Intracellular localisation.
-TR   Eukaryota; taxId:2759 (Eukaryota).
+TR   Archaea; taxId:2157 (Archaea).
+TR   Bacteria; taxId:2 (Bacteria).
 KW   Nucleotide-binding; Phosphoprotein.
-DR   RESID; AA0267.
-DR   PSI-MOD; MOD:00272.
+DR   ChEBI; CHEBI:167160.
+//
+ID   O-tri-AMP-tyrosine
+AC   PTM-0703
+FT   MOD_RES
+TG   Tyrosine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C30 H36 N15 O18 P3
+MM   987.15756
+MA   987.63
+LC   Intracellular localisation.
+TR   Archaea; taxId:2157 (Archaea).
+TR   Bacteria; taxId:2 (Bacteria).
+KW   Nucleotide-binding; Phosphoprotein.
+DR   ChEBI; CHEBI:167161.
 //
 ID   O-decanoyl threonine
 AC   PTM-0235
@@ -5366,8 +6769,10 @@ MA   154.25
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:8400 (Lithobates catesbeiana).
 KW   Lipoprotein.
+DR   ChEBI; CHEBI:143546.
 DR   RESID; AA0387.
 DR   PSI-MOD; MOD:00392.
+DR   Unimod; 449.
 //
 ID   O-decanoyl serine
 AC   PTM-0234
@@ -5381,8 +6786,10 @@ MA   154.25
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:147599 (Gyrodactylus lomi).
 KW   Lipoprotein.
+DR   ChEBI; CHEBI:143549.
 DR   RESID; AA0385.
 DR   PSI-MOD; MOD:00390.
+DR   Unimod; 449.
 //
 ID   Omega-hydroxyceramide glutamate ester
 AC   PTM-0236
@@ -5411,8 +6818,10 @@ MA   14.03
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:5661 (Leishmania donovani), taxId:40674 (Mammalia).
 KW   Methylation.
+DR   ChEBI; CHEBI:65280.
 DR   RESID; AA0069.
 DR   PSI-MOD; MOD:00078.
+DR   Unimod; 34.
 //
 ID   Omega-N-methylated arginine
 AC   PTM-0238
@@ -5437,8 +6846,22 @@ MA   14.03
 LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:1386 (Bacillus).
 KW   Methylation.
+DR   ChEBI; CHEBI:167628.
 DR   RESID; AA0464.
 DR   PSI-MOD; MOD:01387.
+//
+ID   O-hexanoyl serine
+AC   PTM-0712
+FT   LIPID
+TG   Serine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C6 H10 O1
+MM   98.07316
+MA   98.14
+TR   Eukaryota; taxId:7742 (Vertebrata).
+KW   Lipoprotein.
+DR   ChEBI; CHEBI:177289.
 //
 ID   O-octanoyl serine
 AC   PTM-0239
@@ -5452,8 +6875,10 @@ MA   126.20
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:7742 (Vertebrata).
 KW   Lipoprotein.
+DR   ChEBI; CHEBI:143548.
 DR   RESID; AA0290.
 DR   PSI-MOD; MOD:00295.
+DR   Unimod; 426.
 //
 ID   O-octanoyl threonine
 AC   PTM-0240
@@ -5467,8 +6892,10 @@ MA   126.20
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:8400 (Lithobates catesbeiana).
 KW   Lipoprotein.
+DR   ChEBI; CHEBI:143547.
 DR   RESID; AA0386.
 DR   PSI-MOD; MOD:00391.
+DR   Unimod; 426.
 //
 ID   O-palmitoyl serine
 AC   PTM-0241
@@ -5482,8 +6909,10 @@ MA   238.41
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:7711 (Chordata).
 KW   Palmitate.
+DR   ChEBI; CHEBI:140185.
 DR   RESID; AA0080.
 DR   PSI-MOD; MOD:00089.
+DR   Unimod; 47.
 //
 ID   O-palmitoyl threonine
 AC   PTM-0242
@@ -5497,10 +6926,12 @@ MA   238.41
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:7711 (Chordata).
 KW   Palmitate.
+DR   ChEBI; CHEBI:143621.
 DR   RESID; AA0079.
 DR   PSI-MOD; MOD:00088.
+DR   Unimod; 47.
 //
-ID   O-UMP-histidine
+ID   N(tele)-UMP-histidine
 AC   PTM-0500
 FT   MOD_RES
 TG   Histidine.
@@ -5512,8 +6943,10 @@ MA   306.17
 LC   Intracellular localisation.
 TR   Bacteria; taxId:2 (Bacteria).
 KW   Nucleotide-binding; Phosphoprotein.
+DR   ChEBI; CHEBI:233474.
 DR   RESID; AA0372.
 DR   PSI-MOD; MOD:00377.
+DR   Unimod; 417.
 //
 ID   O-UMP-serine
 AC   PTM-0501
@@ -5528,6 +6961,7 @@ LC   Intracellular localisation.
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:33090 (Viridiplantae).
 KW   Nucleotide-binding; Phosphoprotein.
+DR   ChEBI; CHEBI:156051.
 //
 ID   O-UMP-threonine
 AC   PTM-0502
@@ -5542,6 +6976,7 @@ LC   Intracellular localisation.
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:33090 (Viridiplantae).
 KW   Nucleotide-binding; Phosphoprotein.
+DR   ChEBI; CHEBI:156052.
 //
 ID   O-UMP-tyrosine
 AC   PTM-0333
@@ -5558,8 +6993,10 @@ TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2797 (Bangiophyceae).
 TR   Viruses; taxId:10239 (Viruses).
 KW   Nucleotide-binding; Phosphoprotein.
+DR   ChEBI; CHEBI:90602.
 DR   RESID; AA0256.
 DR   PSI-MOD; MOD:00261.
+DR   Unimod; 417.
 //
 ID   Oxazole-4-carboxylic acid (Cys-Ser)
 AC   PTM-0376
@@ -5676,8 +7113,10 @@ MA   -0.98
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Amidation.
+DR   ChEBI; CHEBI:61957.
 DR   RESID; AA0094.
 DR   PSI-MOD; MOD:00103.
+DR   Unimod; 2.
 //
 ID   Phosphatidylethanolamine amidated glycine
 AC   PTM-0249
@@ -5691,8 +7130,20 @@ MA   699.99
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Lipoprotein.
+DR   ChEBI; CHEBI:172941.
 DR   RESID; AA0346.
 DR   PSI-MOD; MOD:00351.
+//
+ID   Phosphatidylserine amidated glycine
+AC   PTM-0710
+FT   LIPID
+TG   Glycine.
+PA   Amino acid backbone.
+PP   C-terminal.
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Lipoprotein.
+DR   ChEBI; CHEBI:172942.
 //
 ID   Phosphoarginine
 AC   PTM-0250
@@ -5707,8 +7158,10 @@ LC   Intracellular localisation.
 TR   Eukaryota; taxId:40674 (Mammalia).
 TR   Bacteria; taxId:2 (Bacteria).
 KW   Phosphoprotein.
+DR   ChEBI; CHEBI:83226.
 DR   RESID; AA0222.
 DR   PSI-MOD; MOD:00227.
+DR   Unimod; 21.
 //
 ID   Phosphocysteine
 AC   PTM-0251
@@ -5723,8 +7176,10 @@ LC   Intracellular localisation.
 TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:2 (Bacteria).
 KW   Phosphoprotein.
+DR   ChEBI; CHEBI:61975.
 DR   RESID; AA0034.
 DR   PSI-MOD; MOD:00043.
+DR   Unimod; 21.
 //
 ID   Phosphohistidine
 AC   PTM-0252
@@ -5741,6 +7196,7 @@ TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Phosphoprotein.
 DR   PSI-MOD; MOD:00890.
+DR   Unimod; 21.
 //
 ID   Phosphoserine
 AC   PTM-0253
@@ -5757,8 +7213,10 @@ TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 TR   Viruses; taxId:10239 (Viruses).
 KW   Phosphoprotein.
+DR   ChEBI; CHEBI:83421.
 DR   RESID; AA0037.
 DR   PSI-MOD; MOD:00046.
+DR   Unimod; 21.
 //
 ID   Phosphothreonine
 AC   PTM-0254
@@ -5774,8 +7232,10 @@ TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 TR   Viruses; taxId:10239 (Viruses).
 KW   Phosphoprotein.
+DR   ChEBI; CHEBI:61977.
 DR   RESID; AA0038.
 DR   PSI-MOD; MOD:00047.
+DR   Unimod; 21.
 //
 ID   Phosphotyrosine
 AC   PTM-0255
@@ -5792,8 +7252,10 @@ TR   Bacteria; taxId:1224 (Proteobacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 TR   Viruses; taxId:10239 (Viruses).
 KW   Phosphoprotein.
+DR   ChEBI; CHEBI:61978.
 DR   RESID; AA0039.
 DR   PSI-MOD; MOD:00048.
+DR   Unimod; 21.
 //
 ID   PolyADP-ribosyl aspartic acid
 AC   PTM-0494
@@ -5831,6 +7293,18 @@ TR   Bacteria; taxId:426 (Methylosinus trichosporium).
 DR   RESID; AA0551.
 DR   PSI-MOD; MOD:01845.
 //
+ID   Lysine 5-hydroxy-oxazole-4-carbothionic acid (Lys-Cys)
+AC   PTM-0774
+FT   CROSSLNK
+TG   Lysine-Cysteine.
+PA   Amino acid backbone-Amino acid backbone.
+PP   Protein core-Protein core.
+CF   H-4
+MM   -4.031300
+MA   -4.03
+LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:724 (Haemophilus).
+//
 ID   Proline amide
 AC   PTM-0257
 FT   MOD_RES
@@ -5844,8 +7318,10 @@ LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:35762 (Planobispora rosea).
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Amidation.
+DR   ChEBI; CHEBI:145914.
 DR   RESID; AA0095.
 DR   PSI-MOD; MOD:00104.
+DR   Unimod; 2.
 //
 ID   Pros-8alpha-FAD histidine
 AC   PTM-0258
@@ -5857,11 +7333,13 @@ CF   C27 H31 N9 O15 P2
 MM   783.141485
 MA   783.54
 LC   Intracellular localisation.
+TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   FAD.
 DR   RESID; AA0144.
 DR   PSI-MOD; MOD:00153.
+DR   Unimod; 50.
 //
 ID   Pros-methylhistidine
 AC   PTM-0259
@@ -5876,8 +7354,10 @@ LC   Intracellular localisation.
 TR   Archaea; taxId:28890 (Euryarchaeota).
 TR   Eukaryota; taxId:7742 (Vertebrata).
 KW   Methylation.
+DR   ChEBI; CHEBI:43903.
 DR   RESID; AA0073.
 DR   PSI-MOD; MOD:00082.
+DR   Unimod; 34.
 //
 ID   Pros-phosphohistidine
 AC   PTM-0260
@@ -5889,10 +7369,14 @@ CF   H1 O3 P1
 MM   79.966331
 MA   79.98
 LC   Intracellular localisation.
+TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:2 (Bacteria).
+TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Phosphoprotein.
+DR   ChEBI; CHEBI:64837.
 DR   RESID; AA0036.
 DR   PSI-MOD; MOD:00045.
+DR   Unimod; 21.
 //
 ID   Pyridine-2,5-dicarboxylic acid (Ser-Cys) (with S-...)
 AC   PTM-0357
@@ -5930,8 +7414,10 @@ TR   Archaea; taxId:28890 (Euryarchaeota).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Pyrrolidone carboxylic acid.
+DR   ChEBI; CHEBI:87215.
 DR   RESID; AA0031.
 DR   PSI-MOD; MOD:00040.
+DR   Unimod; 28.
 //
 ID   Pyrrolidone carboxylic acid (Glu)
 AC   PTM-0262
@@ -5945,8 +7431,10 @@ MA   -18.02
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:9913 (Bos taurus).
 KW   Pyrrolidone carboxylic acid.
+DR   ChEBI; CHEBI:87215.
 DR   RESID; AA0031.
 DR   PSI-MOD; MOD:00420.
+DR   Unimod; 27.
 //
 ID   Pyrroloquinoline quinone (Glu-Tyr)
 AC   PTM-0263
@@ -5962,6 +7450,18 @@ TR   Bacteria; taxId:1224 (Proteobacteria).
 DR   RESID; AA0283.
 DR   PSI-MOD; MOD:00288.
 //
+ID   Glyoxylic acid (Cys)
+AC   PTM-0740
+FT   MOD_RES
+TG   Cysteine.
+PA   Amino acid backbone.
+PP   N-terminal.
+CF   C-1 H-5 N-1 O1 S-1
+MM   -47.01936
+MA   -47.12
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:7742 (Vertebrata).
+//
 ID   Pyruvic acid (Cys)
 AC   PTM-0265
 FT   MOD_RES
@@ -5973,9 +7473,12 @@ MM   -33.003705
 MA   -33.09
 LC   Intracellular localisation.
 TR   Bacteria; taxId:1239 (Firmicutes).
+TR   Eukaryota; taxId:7742 (Vertebrata).
 KW   Pyruvate.
+DR   ChEBI; CHEBI:45360.
 DR   RESID; AA0127.
 DR   PSI-MOD; MOD:00136.
+DR   Unimod; 382.
 //
 ID   Pyruvic acid (Ser)
 AC   PTM-0266
@@ -5991,8 +7494,26 @@ TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Pyruvate.
+DR   ChEBI; CHEBI:45360.
 DR   RESID; AA0127.
 DR   PSI-MOD; MOD:00807.
+DR   Unimod; 385.
+//
+ID   Pyruvic acid (Tyr)
+AC   PTM-0662
+FT   MOD_RES
+TG   Tyrosine.
+PA   Amino acid backbone.
+PP   N-terminal.
+CF   C-6 H-7 N-1
+MM   -93.057849
+MA   -93.13
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Pyruvate.
+DR   ChEBI; CHEBI:45360.
+DR   RESID; AA0127.
+DR   PSI-MOD; MOD:01661.
 //
 ID   S-(15-deoxy-Delta12,14-prostaglandin J2-9-yl)cysteine
 AC   PTM-0447
@@ -6005,6 +7526,7 @@ MM   316.203845
 MA   316.44
 TR   Eukaryota; taxId:40674 (Mammalia).
 KW   Lipoprotein.
+DR   ChEBI; CHEBI:143698.
 DR   RESID; AA0426.
 DR   PSI-MOD; MOD:01174.
 //
@@ -6078,9 +7600,11 @@ CF   C9 H6 O2
 MM   146.036779
 MA   146.14
 TR   Bacteria; taxId:1224 (Proteobacteria).
+TR   Eukaryota; taxId:33090 (Viridiplantae).
 KW   Chromophore.
 DR   RESID; AA0207.
 DR   PSI-MOD; MOD:00212.
+DR   Unimod; 407.
 //
 ID   S-(coelenterazin-3a-yl)cysteine
 AC   PTM-0428
@@ -6108,8 +7632,10 @@ LC   Intracellular localisation.
 TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:61892.
 DR   RESID; AA0252.
 DR   PSI-MOD; MOD:00257.
+DR   Unimod; 416.
 //
 ID   S-12-hydroxyfarnesyl cysteine
 AC   PTM-0269
@@ -6123,8 +7649,10 @@ MA   220.36
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:5217 (Tremella mesenterica).
 KW   Prenylation.
+DR   ChEBI; CHEBI:143699.
 DR   RESID; AA0103.
 DR   PSI-MOD; MOD:00112.
+DR   Unimod; 376.
 //
 ID   S-4a-FMN cysteine
 AC   PTM-0270
@@ -6141,6 +7669,7 @@ TR   Eukaryota; taxId:3702 (Arabidopsis thaliana).
 KW   FMN.
 DR   RESID; AA0351.
 DR   PSI-MOD; MOD:00356.
+DR   Unimod; 443.
 //
 ID   S-6-FMN cysteine
 AC   PTM-0271
@@ -6156,6 +7685,7 @@ TR   Bacteria; taxId:1224 (Proteobacteria).
 KW   FMN.
 DR   RESID; AA0220.
 DR   PSI-MOD; MOD:00225.
+DR   Unimod; 409.
 //
 ID   S-8alpha-FAD cysteine
 AC   PTM-0272
@@ -6172,6 +7702,7 @@ TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   FAD.
 DR   RESID; AA0143.
 DR   PSI-MOD; MOD:00152.
+DR   Unimod; 50.
 //
 ID   S-archaeol cysteine
 AC   PTM-0273
@@ -6185,8 +7716,10 @@ MA   635.16
 LC   Extracellular and lumenal localisation.
 TR   Archaea; taxId:28890 (Euryarchaeota).
 KW   Lipoprotein.
+DR   ChEBI; CHEBI:143704.
 DR   RESID; AA0223.
 DR   PSI-MOD; MOD:00228.
+DR   Unimod; 410.
 //
 ID   S-bacillithiol cysteine disulfide
 AC   PTM-0452
@@ -6201,6 +7734,16 @@ LC   Intracellular localisation.
 TR   Bacteria; taxId:2 (Bacteria).
 DR   RESID; AA0563.
 DR   PSI-MOD; MOD:01860.
+//
+ID   S-cGMP-cysteine
+AC   PTM-0677
+FT   MOD_RES
+TG   Cysteine.
+PA   Amino acid side chain.
+PP   Anywhere.
+TR   Bacteria; taxId:2 (Bacteria).
+TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:144463.
 //
 ID   S-cysteinyl 3-(oxidosulfanyl)alanine (Cys-Cys)
 AC   PTM-0324
@@ -6231,6 +7774,7 @@ TR   Bacteria; taxId:91347 (Enterobacterales).
 TR   Eukaryota; taxId:40674 (Mammalia).
 DR   RESID; AA0025.
 DR   PSI-MOD; MOD:00765.
+DR   Unimod; 312.
 //
 ID   S-diacylglycerol cysteine
 AC   PTM-0274
@@ -6244,8 +7788,10 @@ MA   576.93
 LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:2 (Bacteria).
 KW   Lipoprotein.
+DR   ChEBI; CHEBI:140656.
 DR   RESID; AA0107.
 DR   PSI-MOD; MOD:00116.
+DR   Unimod; 377.
 //
 ID   Serine amide
 AC   PTM-0275
@@ -6260,8 +7806,10 @@ LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:146537 (Streptomyces azureus).
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Amidation.
+DR   ChEBI; CHEBI:145915.
 DR   RESID; AA0096.
 DR   PSI-MOD; MOD:00105.
+DR   Unimod; 2.
 //
 ID   Serine microcin E492 siderophore ester
 AC   PTM-0276
@@ -6276,6 +7824,7 @@ LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:573 (Klebsiella pneumoniae).
 DR   RESID; AA0374.
 DR   PSI-MOD; MOD:00379.
+DR   Unimod; 448.
 //
 ID   S-farnesyl cysteine
 AC   PTM-0277
@@ -6289,8 +7838,10 @@ MA   204.36
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Prenylation.
+DR   ChEBI; CHEBI:86019.
 DR   RESID; AA0102.
 DR   PSI-MOD; MOD:00111.
+DR   Unimod; 44.
 //
 ID   S-geranylgeranyl cysteine
 AC   PTM-0278
@@ -6304,8 +7855,10 @@ MA   272.48
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Prenylation.
+DR   ChEBI; CHEBI:86021.
 DR   RESID; AA0104.
 DR   PSI-MOD; MOD:00113.
+DR   Unimod; 48.
 //
 ID   S-glutathionyl cysteine
 AC   PTM-0311
@@ -6322,6 +7875,23 @@ TR   Eukaryota; taxId:3981 (Hevea brasiliensis), taxId:7742 (Vertebrata).
 KW   Glutathionylation.
 DR   RESID; AA0229.
 DR   PSI-MOD; MOD:00234.
+DR   Unimod; 55.
+//
+ID   L-cysteine coenzyme A disulfide
+AC   PTM-0731
+FT   MOD_RES
+TG   Cysteine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C21 H34 N7 O16 P3 S1
+MM   765.099559
+MA   765.52
+TR   Bacteria; taxId:2 (Bacteria).
+TR   Eukaryota; taxId:40674 (Mammalia).
+DR   ChEBI; CHEBI:195328.
+DR   RESID; AA0306.
+DR   PSI-MOD; MOD:00311.
+DR   Unimod; 281.
 //
 ID   S-Lysyl-methionine sulfilimine (Met-Lys) (interchain with K-...)
 AC   PTM-0401
@@ -6359,8 +7929,10 @@ TR   Archaea; taxId:28890 (Euryarchaeota).
 TR   Bacteria; taxId:1421 (Lysinibacillus sphaericus).
 TR   Eukaryota; taxId:3055 (Chlamydomonas reinhardtii).
 KW   Methylation.
+DR   ChEBI; CHEBI:82612.
 DR   RESID; AA0234.
 DR   PSI-MOD; MOD:00239.
+DR   Unimod; 34.
 //
 ID   S-methylmethionine
 AC   PTM-0636
@@ -6374,6 +7946,7 @@ MA   15.03
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:162425 (Emericella nidulans).
 KW   Methylation.
+DR   ChEBI; CHEBI:142742.
 DR   RESID; AA0616.
 DR   PSI-MOD; MOD:01974.
 //
@@ -6390,8 +7963,10 @@ LC   Intracellular localisation.
 TR   Bacteria; taxId:1224 (Proteobacteria).
 TR   Eukaryota; taxId:40674 (Mammalia).
 KW   S-nitrosylation.
+DR   ChEBI; CHEBI:149494.
 DR   RESID; AA0230.
 DR   PSI-MOD; MOD:00235.
+DR   Unimod; 275.
 //
 ID   S-palmitoyl cysteine
 AC   PTM-0281
@@ -6403,10 +7978,13 @@ CF   C16 H30 O1
 MM   238.229666
 MA   238.41
 LC   Intracellular localisation.
+TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Palmitate.
+DR   ChEBI; CHEBI:74151.
 DR   RESID; AA0106.
 DR   PSI-MOD; MOD:00115.
+DR   Unimod; 47.
 //
 ID   S-selanylcysteine
 AC   PTM-0282
@@ -6419,9 +7997,11 @@ MM   79.916521
 MA   78.97
 LC   Intracellular localisation.
 TR   Bacteria; taxId:562 (Escherichia coli).
+TR   Eukaryota; taxId:33090 (Viridiplantae).
 KW   Selenium.
 DR   RESID; AA0277.
 DR   PSI-MOD; MOD:00282.
+DR   Unimod; 423.
 //
 ID   S-stearoyl cysteine
 AC   PTM-0283
@@ -6435,8 +8015,40 @@ MA   266.47
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:9606 (Homo sapiens).
 KW   Lipoprotein.
+DR   ChEBI; CHEBI:143200.
 DR   RESID; AA0407.
 DR   PSI-MOD; MOD:00816.
+//
+ID   N6-stearoyl lysine
+AC   PTM-0717
+FT   LIPID
+TG   Lysine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C18 H34 O1
+MM   266.260966
+MA   266.47
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:9606 (Homo sapiens).
+KW   Lipoprotein.
+DR   ChEBI; CHEBI:143206.
+DR   PSI-MOD; MOD:02009.
+//
+ID   Sulfocysteine
+AC   PTM-0730
+FT   MOD_RES
+TG   Cysteine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   O3 S1
+MM   79.956815
+MA   80.06
+TR   Eukaryota; taxId:40674 (Mammalia).
+KW   Sulfation.
+DR   ChEBI; CHEBI:87169.
+DR   RESID; AA0171.
+DR   PSI-MOD; MOD:00180.
+DR   Unimod; 40.
 //
 ID   Sulfoserine
 AC   PTM-0284
@@ -6452,6 +8064,7 @@ TR   Eukaryota; taxId:9606 (Homo sapiens).
 KW   Sulfation.
 DR   RESID; AA0361.
 DR   PSI-MOD; MOD:00366.
+DR   Unimod; 40.
 //
 ID   Sulfothreonine
 AC   PTM-0285
@@ -6467,6 +8080,7 @@ TR   Eukaryota; taxId:36329 (Plasmodium falciparum (isolate 3D7)).
 KW   Sulfation.
 DR   RESID; AA0362.
 DR   PSI-MOD; MOD:00367.
+DR   Unimod; 40.
 //
 ID   Sulfotyrosine
 AC   PTM-0286
@@ -6480,8 +8094,10 @@ MA   80.06
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa), taxId:33090 (Viridiplantae).
 KW   Sulfation.
+DR   ChEBI; CHEBI:65286.
 DR   RESID; AA0172.
 DR   PSI-MOD; MOD:00181.
+DR   Unimod; 40.
 //
 ID   Symmetric dimethylarginine
 AC   PTM-0287
@@ -6495,8 +8111,10 @@ MA   28.05
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:7742 (Vertebrata).
 KW   Methylation.
+DR   ChEBI; CHEBI:88221.
 DR   RESID; AA0067.
 DR   PSI-MOD; MOD:00076.
+DR   Unimod; 36.
 //
 ID   Tele-(1,2,3-trihydroxypropan-2-yl)histidine
 AC   PTM-0416
@@ -6526,6 +8144,7 @@ TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   FAD.
 DR   RESID; AA0221.
 DR   PSI-MOD; MOD:00226.
+DR   Unimod; 50.
 //
 ID   Tele-8alpha-FMN histidine
 AC   PTM-0289
@@ -6541,6 +8160,7 @@ TR   Bacteria; taxId:69006 (Corynebacterium sp. (strain P-1)).
 KW   FMN.
 DR   RESID; AA0352.
 DR   PSI-MOD; MOD:00357.
+DR   Unimod; 409.
 //
 ID   Tele-methylhistidine
 AC   PTM-0290
@@ -6554,8 +8174,10 @@ MA   14.03
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:5791 (Physarum polycephalum), taxId:7742 (Vertebrata).
 KW   Methylation.
+DR   ChEBI; CHEBI:16367.
 DR   RESID; AA0317.
 DR   PSI-MOD; MOD:00322.
+DR   Unimod; 34.
 //
 ID   Tele-phosphohistidine
 AC   PTM-0325
@@ -6567,10 +8189,14 @@ CF   H1 O3 P1
 MM   79.966331
 MA   79.98
 LC   Intracellular localisation.
+TR   Archaea; taxId:2157 (Archaea).
 TR   Bacteria; taxId:2 (Bacteria).
+TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Phosphoprotein.
+DR   ChEBI; CHEBI:83586.
 DR   RESID; AA0035.
 DR   PSI-MOD; MOD:00044.
+DR   Unimod; 21.
 //
 ID   Thiazole-4-carboxylic acid (Arg-Cys)
 AC   PTM-0460
@@ -6674,11 +8300,14 @@ FT   CROSSLNK
 TG   Proline-Cysteine.
 PA   Amino acid backbone-Amino acid backbone.
 PP   Protein core-Protein core.
+CF   H-4 O-1
+MM   -20.026215
+MA   -20.03
 LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:1931 (Streptomyces sp.).
 KW   Thioether bond.
-DR   RESID; AA0282.
-DR   PSI-MOD; MOD:00287.
+DR   RESID; AA0482.
+DR   PSI-MOD; MOD:01405.
 //
 ID   Thiazole-4-carboxylic acid (Ser-Cys)
 AC   PTM-0363
@@ -6755,6 +8384,19 @@ KW   Thioether bond.
 DR   RESID; AA0485.
 DR   PSI-MOD; MOD:01408.
 //
+ID   Thiazolidine linkage to a ring-opened DNA abasic site
+AC   PTM-0683
+FT   MOD_RES
+TG   Cysteine.
+PA   Amino acid side chain.
+PP   N-terminal.
+LC   Intracellular localisation.
+TR   Bacteria; taxId:2 (Bacteria).
+TR   Eukaryota; taxId:2759 (Eukaryota).
+TR   Viruses; taxId:10239 (Viruses).
+KW   Covalent protein-DNA linkage.
+DR   ChEBI; CHEBI:145793.
+//
 ID   Threonine 5-hydroxy-oxazole-4-carbonthionic acid (Thr-Cys)
 AC   PTM-0458
 FT   CROSSLNK
@@ -6781,8 +8423,10 @@ MA   -0.98
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Amidation.
+DR   ChEBI; CHEBI:145916.
 DR   RESID; AA0097.
 DR   PSI-MOD; MOD:00106.
+DR   Unimod; 2.
 //
 ID   Threonyl lysine isopeptide (Lys-Thr) (interchain with T-...)
 AC   PTM-0326
@@ -6822,36 +8466,6 @@ KW   Methylation.
 DR   RESID; AA0507.
 DR   PSI-MOD; MOD:01610.
 //
-ID   Thyroxine
-AC   PTM-0294
-FT   MOD_RES
-TG   Tyrosine.
-PA   Amino acid side chain.
-PP   Anywhere.
-CF   C6 I4 O1
-MM   595.612805
-MA   595.68
-LC   Extracellular and lumenal localisation.
-TR   Eukaryota; taxId:40674 (Mammalia).
-KW   Iodination.
-DR   RESID; AA0178.
-DR   PSI-MOD; MOD:00187.
-//
-ID   Triiodothyronine
-AC   PTM-0295
-FT   MOD_RES
-TG   Tyrosine.
-PA   Amino acid side chain.
-PP   Anywhere.
-CF   C6 H1 I3 O1
-MM   469.716158
-MA   469.79
-LC   Extracellular and lumenal localisation.
-TR   Eukaryota; taxId:40674 (Mammalia).
-KW   Iodination.
-DR   RESID; AA0177.
-DR   PSI-MOD; MOD:00186.
-//
 ID   Trithiocysteine (Cys-Cys)
 AC   PTM-0417
 FT   CROSSLNK
@@ -6877,8 +8491,10 @@ MA   -0.98
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Amidation.
+DR   ChEBI; CHEBI:145917.
 DR   RESID; AA0098.
 DR   PSI-MOD; MOD:00107.
+DR   Unimod; 2.
 //
 ID   Tryptophan derivative
 AC   PTM-0297
@@ -6901,6 +8517,7 @@ MA   27.97
 LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:1224 (Proteobacteria).
 KW   TTQ.
+DR   ChEBI; CHEBI:20251.
 DR   RESID; AA0149.
 DR   PSI-MOD; MOD:00158.
 //
@@ -6917,6 +8534,7 @@ LC   Extracellular and lumenal localisation.
 TR   Bacteria; taxId:1224 (Proteobacteria).
 DR   RESID; AA0148.
 DR   PSI-MOD; MOD:00157.
+DR   Unimod; 392.
 //
 ID   Tryptophyl-tyrosyl-methioninium (Trp-Tyr) (with M-...)
 AC   PTM-0328
@@ -6956,8 +8574,10 @@ MA   -0.98
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Amidation.
+DR   ChEBI; CHEBI:145918.
 DR   RESID; AA0099.
 DR   PSI-MOD; MOD:00108.
+DR   Unimod; 2.
 //
 ID   Valine amide
 AC   PTM-0303
@@ -6971,10 +8591,25 @@ MA   -0.98
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Amidation.
+DR   ChEBI; CHEBI:145919.
 DR   RESID; AA0100.
 DR   PSI-MOD; MOD:00109.
+DR   Unimod; 2.
 //
-ID   L-isoglutamyl histamine
+ID   5-glutamyl dopamine
+AC   PTM-0704
+FT   MOD_RES
+TG   Glutamine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C8 H8 O2
+MM   136.05243
+MA   136.15
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:167175.
+//
+ID   5-glutamyl histamine
 AC   PTM-0488
 FT   MOD_RES
 TG   Glutamine.
@@ -6985,8 +8620,37 @@ MM   94.053098
 MA   94.12
 LC   Intracellular localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:167179.
 DR   RESID; AA0596.
 DR   PSI-MOD; MOD:01950.
+//
+ID   5-glutamyl noradrenaline
+AC   PTM-0705
+FT   MOD_RES
+TG   Glutamine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C8 H8 O3
+MM   152.04734
+MA   152.15
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:167178.
+//
+ID   5-glutamyl serotonin
+AC   PTM-0706
+FT   MOD_RES
+TG   Glutamine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C10 H9 N1 O1
+MM   159.068414
+MA   159.19
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+DR   ChEBI; CHEBI:167174.
+DR   RESID; AA0528.
+DR   PSI-MOD; MOD:01775.
 //
 ID   O-palmitoleoyl serine
 AC   PTM-0493
@@ -6994,11 +8658,12 @@ FT   LIPID
 TG   Serine.
 PA   Amino acid side chain.
 PP   Anywhere.
-CF   C 16 H 28 O 1
+CF   C16 H28 O1
 MM   236.214016
 MA   236.40
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Lipoprotein.
+DR   ChEBI; CHEBI:85189.
 DR   RESID; AA0455.
 DR   PSI-MOD; MOD:01381.
 //
@@ -7008,13 +8673,15 @@ FT   LIPID
 TG   Cysteine.
 PA   Amino acid side chain.
 PP   Anywhere.
-CF   C 16 H 28 O 1
+CF   C16 H28 O1
 MM   236.214016
 MA   236.40
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Lipoprotein.
+DR   ChEBI; CHEBI:143203.
 DR   RESID; AA0308.
 DR   PSI-MOD; MOD:00313.
+DR   Unimod; 431.
 //
 ID   C-linked (Man) hydroxytryptophan
 AC   PTM-0504
@@ -7043,8 +8710,10 @@ MA   162.14
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
+DR   ChEBI; CHEBI:195646.
 DR   RESID; AA0217.
 DR   PSI-MOD; MOD:00222.
+DR   Unimod; 41.
 //
 ID   N-linked (DATDGlc) asparagine
 AC   PTM-0506
@@ -7060,6 +8729,19 @@ TR   Bacteria; taxId:1224 (Proteobacteria).
 KW   Glycoprotein.
 DR   RESID; AA0606.
 DR   PSI-MOD; MOD:01962.
+//
+ID   N-linked (Glc) (glycation) arginine
+AC   PTM-0680
+FT   CARBOHYD
+TG   Arginine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C6 H10 O5
+MM   162.052823
+MA   162.14
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:40674 (Mammalia).
+KW   Glycation.
 //
 ID   N-linked (Glc) (glycation) histidine
 AC   PTM-0507
@@ -7100,6 +8782,7 @@ LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:40674 (Mammalia).
 KW   Glycation.
 DR   PSI-MOD; MOD:01347.
+DR   Unimod; 41.
 //
 ID   N-linked (Glc) (glycation) valine
 AC   PTM-0510
@@ -7127,6 +8810,7 @@ LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:40674 (Mammalia).
 KW   Glycation.
 DR   PSI-MOD; MOD:00929.
+DR   Unimod; 512.
 //
 ID   N-linked (GalNAc) asparagine
 AC   PTM-0512
@@ -7178,6 +8862,7 @@ TR   Eukaryota; taxId:33090 (Viridiplantae).
 KW   Glycoprotein.
 DR   RESID; AA0327.
 DR   PSI-MOD; MOD:00332.
+DR   Unimod; 41.
 //
 ID   N-linked (Glc...) arginine
 AC   PTM-0516
@@ -7188,6 +8873,19 @@ PP   Anywhere.
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33090 (Viridiplantae).
 KW   Glycoprotein.
+//
+ID   N-alpha-linked (Rha) arginine
+AC   PTM-0707
+FT   CARBOHYD
+TG   Arginine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C6 H10 O4
+MM   146.057909
+MA   146.14
+TR   Bacteria; taxId:91347 (Enterobacterales).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:167445.
 //
 ID   N-linked (Glc) asparagine
 AC   PTM-0517
@@ -7216,7 +8914,7 @@ TR   Archaea; taxId:2157 (Archaea).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
 //
-ID   N-linked (GlcNAc) arginine
+ID   N-beta-linked (GlcNAc) arginine
 AC   PTM-0519
 FT   CARBOHYD
 TG   Arginine.
@@ -7225,9 +8923,11 @@ PP   Anywhere.
 CF   C8 H13 N1 O5
 MM   203.079373
 MA   203.19
-LC   Extracellular and lumenal localisation.
+LC   Intracellular localisation.
 TR   Bacteria; taxId:91347 (Enterobacterales).
+TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
+DR   ChEBI; CHEBI:167322.
 DR   RESID; AA0609.
 DR   PSI-MOD; MOD:01967.
 //
@@ -7308,6 +9008,7 @@ TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
 DR   RESID; AA0151.
 DR   PSI-MOD; MOD:00831.
+DR   Unimod; 43.
 //
 ID   N-linked (GlcNAc...) asparagine
 AC   PTM-0528
@@ -7329,6 +9030,412 @@ PP   Anywhere.
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
+//
+ID   N-linked (beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAcl-(1->4)-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0745
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C50 H82 N4 O35
+MM   1299.19
+MA   1298.47596
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:60651.
+//
+ID   N-linked (beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0746
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C56 H92 N4 O40
+MM   1461.33
+MA   1460.52878
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:233541.
+//
+ID   N-linked (beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0747
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C56 H92 N4 O40
+MM   1461.33
+MA   1460.52878
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:187878.
+//
+ID   N-linked ([beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)]-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0748
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C62 H102 N4 O45
+MM   1623.48
+MA   1622.58161
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:232681.
+//
+ID   N-linked ([alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)]-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0749
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C73 H119 N5 O53
+MM   1914.73
+MA   1913.67702
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:232682.
+//
+ID   N-linked (alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0750
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C84 H136 N6 O61
+MM   2205.99
+MA   2204.77244
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:233611.
+//
+ID   N-linked (beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0751
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C58 H95 N5 O40
+MM   1502.39
+MA   1501.55533
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:139504.
+//
+ID   N-linked (beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0752
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C64 H105 N5 O45
+MM   1664.53
+MA   1663.60816
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:234193.
+//
+ID   N-linked (beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0753
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C64 H105 N5 O45
+MM   1664.53
+MA   1663.60816
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:234194.
+//
+ID   N-linked (beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0754
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C70 H115 N5 O50
+MM   1826.67
+MA   1825.66098
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:234185.
+//
+ID   N-linked (alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0755
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C75 H122 N6 O53
+MM   1955.78
+MA   1954.70357
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:234205.
+//
+ID   N-linked (beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0756
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C75 H122 N6 O53
+MM   1955.78
+MA   1954.70357
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:234208.
+//
+ID   N-linked (beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0757
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C81 H132 N6 O58
+MM   2117.92
+MA   2116.7564
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:234195.
+//
+ID   N-linked (alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0758
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C81 H132 N6 O58
+MM   2117.92
+MA   2116.7564
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:234196.
+//
+ID   N-linked (alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0759
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C92 H149 N7 O66
+MM   2409.18
+MA   2407.85181
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:234186.
+//
+ID   N-linked (beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0760
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C56 H92 N4 O39
+MM   1445.34
+MA   1444.53387
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:137207.
+//
+ID   N-linked (beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0761
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C62 H102 N4 O44
+MM   1607.48
+MA   1606.58669
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:233510.
+//
+ID   N-linked (beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0762
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C62 H102 N4 O44
+MM   1607.48
+MA   1606.58669
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:233511.
+//
+ID   N-linked (beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0763
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C68 H112 N4 O49
+MM   1769.62
+MA   1768.63952
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:233509.
+//
+ID   N-linked (alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0764
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C79 H129 N5 O57
+MM   2060.87
+MA   2059.73493
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:233513.
+//
+ID   N-linked (beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0765
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C79 H129 N5 O57
+MM   2060.87
+MA   2059.73493
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:234308.
+//
+ID   N-linked (alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0766
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C90 H146 N6 O65
+MM   2352.13
+MA   2350.83035
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:233512.
+//
+ID   N-linked (beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0767
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C64 H105 N5 O44
+MM   1648.53
+MA   1647.61324
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:233533.
+//
+ID   N-linked (beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0768
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C70 H115 N5 O49
+MM   1810.67
+MA   1809.66607
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:233507.
+//
+ID   N-linked (beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0769
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C70 H115 N5 O49
+MM   1810.67
+MA   1809.66607
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:233508.
+//
+ID   N-linked (beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0770
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C76 H125 N5 O54
+MM   1972.81
+MA   1971.71889
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:233506.
+//
+ID   N-linked (alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0771
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C87 H142 N6 O62
+MM   2264.06
+MA   2262.81431
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:233503.
+//
+ID   N-linked (beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0772
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C87 H142 N6 O62
+MM   2264.06
+MA   2262.81431
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:233505.
+//
+ID   N-linked (alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine
+AC   PTM-0773
+FT   CARBOHYD
+TG   Asparagine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C98 H159 N7 O70
+MM   2555.32
+MA   2553.90972
+LC   Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:233504.
 //
 ID   N-linked (GlcNAc...) (hybrid) asparagine
 AC   PTM-0530
@@ -7519,6 +9626,7 @@ TR   Eukaryota; taxId:33090 (Viridiplantae).
 KW   Glycoprotein; Hydroxylation.
 DR   RESID; AA0212.
 DR   PSI-MOD; MOD:00217.
+DR   Unimod; 408.
 //
 ID   O-linked (Ara...) hydroxyproline
 AC   PTM-0546
@@ -7589,6 +9697,7 @@ TR   Eukaryota; taxId:7742 (Vertebrata).
 KW   Glycoprotein.
 DR   RESID; AA0404.
 DR   PSI-MOD; MOD:00812.
+DR   Unimod; 295.
 //
 ID   O-linked (Fuc...) serine
 AC   PTM-0551
@@ -7614,6 +9723,7 @@ TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Glycoprotein.
 DR   RESID; AA0405.
 DR   PSI-MOD; MOD:00813.
+DR   Unimod; 295.
 //
 ID   O-linked (Fuc...) threonine
 AC   PTM-0553
@@ -7663,6 +9773,7 @@ LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:7742 (Vertebrata).
 KW   Glycoprotein; Hydroxylation.
 DR   PSI-MOD; MOD:01914.
+DR   Unimod; 907.
 //
 ID   O-linked (Gal...) hydroxylysine
 AC   PTM-0557
@@ -7761,8 +9872,10 @@ MA   203.19
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:40674 (Mammalia).
 KW   Glycoprotein.
+DR   ChEBI; CHEBI:53604.
 DR   RESID; AA0154.
 DR   PSI-MOD; MOD:00163.
+DR   Unimod; 43.
 //
 ID   O-linked (GalNAc...) serine
 AC   PTM-0565
@@ -7796,8 +9909,10 @@ MA   203.19
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
+DR   ChEBI; CHEBI:87075.
 DR   RESID; AA0155.
 DR   PSI-MOD; MOD:00164.
+DR   Unimod; 43.
 //
 ID   O-linked (GalNAc...) threonine
 AC   PTM-0568
@@ -7882,6 +9997,19 @@ LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:7742 (Vertebrata).
 KW   Glycoprotein.
 //
+ID   O-linked (Glc) threonine
+AC   PTM-0700
+FT   CARBOHYD
+TG   Threonine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C6 H10 O5
+MM   162.052823
+MA   162.14
+LC   Intracellular localisation.
+TR   Eukaryota; taxId:40674 (Mammalia).
+KW   Glycoprotein.
+//
 ID   O-linked (Glc) tyrosine
 AC   PTM-0575
 FT   CARBOHYD
@@ -7896,6 +10024,7 @@ TR   Eukaryota; taxId:40674 (Mammalia).
 KW   Glycoprotein.
 DR   RESID; AA0157.
 DR   PSI-MOD; MOD:00166.
+DR   Unimod; 41.
 //
 ID   O-linked (Glc...) tyrosine
 AC   PTM-0576
@@ -7922,6 +10051,7 @@ TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
 DR   RESID; AA0291.
 DR   PSI-MOD; MOD:00296.
+DR   Unimod; 54.
 //
 ID   O-linked (GlcNAc) hydroxyproline
 AC   PTM-0578
@@ -7958,9 +10088,10 @@ CF   C8 H13 N1 O5
 MM   203.079373
 MA   203.19
 LC   Intracellular localisation or Extracellular and lumenal localisation.
-TR   Bacteria; taxId:1590 (Lactobacillus plantarum).
+TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
+DR   ChEBI; CHEBI:90838.
 DR   RESID; AA0398.
 DR   PSI-MOD; MOD:00805.
 //
@@ -7971,8 +10102,21 @@ TG   Serine.
 PA   Amino acid side chain.
 PP   Anywhere.
 LC   Intracellular localisation or Extracellular and lumenal localisation.
-TR   Bacteria; taxId:485 (Neisseria gonorrhoeae).
+TR   Bacteria; taxId:2 (Bacteria).
 TR   Eukaryota; taxId:40674 (Mammalia).
+KW   Glycoprotein.
+//
+ID   O-alpha-linked (GlcNAc) threonine
+AC   PTM-0701
+FT   CARBOHYD
+TG   Threonine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C8 H13 N1 O5
+MM   203.079373
+MA   203.19
+LC   Intracellular localisation or Extracellular and lumenal localisation.
+TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
 //
 ID   O-linked (GlcNAc) threonine
@@ -7987,6 +10131,7 @@ MA   203.19
 LC   Intracellular localisation or Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:2759 (Eukaryota).
 KW   Glycoprotein.
+DR   ChEBI; CHEBI:90840.
 DR   RESID; AA0399.
 DR   PSI-MOD; MOD:00806.
 //
@@ -8036,6 +10181,7 @@ TR   Eukaryota; taxId:44689 (Dictyostelium discoideum).
 KW   Glycoprotein; Phosphoprotein.
 DR   RESID; AA0296.
 DR   PSI-MOD; MOD:00301.
+DR   Unimod; 428.
 //
 ID   O-linked (GlcNAc6P) serine
 AC   PTM-0587
@@ -8049,6 +10195,48 @@ MA   283.17
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:9606 (Homo sapiens).
 KW   Glycoprotein; Phosphoprotein.
+//
+ID   O-alpha-linked (D-glycero-D-manno-heptose) serine
+AC   PTM-0723
+FT   CARBOHYD
+TG   Serine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C7 H12 O6
+MM   192.06339
+MA   192.17
+LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:194481.
+//
+ID   O-alpha-linked (glycero-D-manno-heptose) serine
+AC   PTM-0724
+FT   CARBOHYD
+TG   Serine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C7 H12 O6
+MM   192.06339
+MA   192.17
+LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:194496.
+//
+ID   O-alpha-linked (glycero-D-manno-heptose) threonine
+AC   PTM-0725
+FT   CARBOHYD
+TG   Threonine.
+PA   Amino acid side chain.
+PP   Anywhere.
+CF   C7 H12 O6
+MM   192.06339
+MA   192.17
+LC   Extracellular and lumenal localisation.
+TR   Bacteria; taxId:2 (Bacteria).
+KW   Glycoprotein.
+DR   ChEBI; CHEBI:194497.
 //
 ID   O-linked (Man) serine
 AC   PTM-0588
@@ -8137,6 +10325,7 @@ TR   Eukaryota; taxId:5654 (Trypanosomatidae).
 KW   Glycoprotein; Phosphoprotein.
 DR   RESID; AA0297.
 DR   PSI-MOD; MOD:00302.
+DR   Unimod; 429.
 //
 ID   O-linked (Man1P...) serine
 AC   PTM-0595
@@ -8243,18 +10432,6 @@ PP   Anywhere.
 LC   Extracellular and lumenal localisation.
 TR   Eukaryota; taxId:33208 (Metazoa).
 KW   Proteoglycan.
-//
-ID   O-linked (Xyl...) (keratan sulfate) threonine
-AC   PTM-0604
-FT   CARBOHYD
-TG   Threonine.
-PA   Amino acid side chain.
-PP   Anywhere.
-LC   Extracellular and lumenal localisation.
-TR   Eukaryota; taxId:7742 (Vertebrata).
-KW   Proteoglycan.
-DR   RESID; AA0247.
-DR   PSI-MOD; MOD:00252.
 //
 ID   O-linked (Xyl...) (glycosaminoglycan) threonine
 AC   PTM-0605
@@ -8521,6 +10698,7 @@ TR   Eukaryota; taxId:7742 (Vertebrata).
 KW   Glycoprotein.
 DR   RESID; AA0152.
 DR   PSI-MOD; MOD:00161.
+DR   Unimod; 41.
 //
 ID   S-linked (Glc...) cysteine
 AC   PTM-0627
@@ -8603,6 +10781,7 @@ LC   Extracellular and lumenal localisation.
 KW   Glycoprotein.
 //
 -----------------------------------------------------------------------
-Copyrighted by the UniProt Consortium, see http://www.uniprot.org/terms
-Distributed under the Creative Commons Attribution-NoDerivs License
+Copyrighted by the UniProt Consortium, see https://www.uniprot.org/terms
+Distributed under the Creative Commons Attribution (CC BY 4.0) License
 -----------------------------------------------------------------------
+
