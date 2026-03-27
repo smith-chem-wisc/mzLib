@@ -427,7 +427,7 @@ namespace Proteomics
             }
         }
 
-        private HashSet<int> GetCleavagePositionsInRing(IDigestionParams digestionParams)
+        internal HashSet<int> GetCleavagePositionsInRing(IDigestionParams digestionParams)
         {
             // Use the protease's cleavage-site detection directly on the doubled
             // proxy sequence (length 2N-1) to discover all cut positions in the ring.
@@ -439,16 +439,19 @@ namespace Proteomics
             // only indices in [1, N], which correspond to 1-based positions in the
             // canonical ring where the protease cuts after that residue.
             var protease = ((DigestionParams)digestionParams).Protease;
-            string proxySequence = BaseSequence + BaseSequence[..^1];
-
-            var allIndices = protease.GetDigestionSiteIndices(proxySequence);
-
-            int n = Length;
             var positions = new HashSet<int>();
-            foreach (var index in allIndices)
+            // Top-down search mode does not perform any cuts, so skip the protease call
+            if (protease.Name != "top-down") 
             {
-                if (index >= 1 && index <= n)
-                    positions.Add(index);
+                string proxySequence = BaseSequence + BaseSequence[..^1];
+                var allIndices = protease.GetDigestionSiteIndices(proxySequence);
+                int n = Length;
+
+                foreach (var index in allIndices)
+                {
+                    if (index >= 1 && index <= n)
+                        positions.Add(index);
+                }
             }
 
             return positions;
