@@ -645,10 +645,24 @@ namespace Omics.BioPolymerGroup
                     .ToDictionary(g => g.Key, g => g.Sum(p => p.Intensities![0]));
             }
 
-            var sequences = psms
+            // All modification forms from all PSMs — used for ModifiedCount (numerator).
+            // SelectMany expands BestMatchingBioPolymersWithSetMods for each PSM, so a single PSM
+            // with two ambiguous interpretations (e.g. "Deamidation on N" vs
+            // "Deamidated asparagine on N") contributes two entries here.
+            var allSequences = psms
                 .Where(p => p.BaseSequence != null)
                 .SelectMany(p => p.GetIdentifiedBioPolymersWithSetMods())
                 .Where(s => s.FullSequence != null)
+                .ToList();
+
+            // One representative form per PSM — used for TotalCount (denominator).
+            // Taking only the first form per PSM ensures that a PSM with multiple interpretations
+            // of the same peptide is counted exactly once toward the denominator, preventing
+            // spurious fractional occupancies (e.g. 1/2 instead of 1/1 for a single PSM).
+            var coverageSequences = psms
+                .Where(p => p.BaseSequence != null)
+                .Select(p => p.GetIdentifiedBioPolymersWithSetMods().FirstOrDefault(s => s.FullSequence != null))
+                .OfType<IBioPolymerWithSetMods>()
                 .ToList();
 
             if (GroupType == BioPolymerGroupType.Protein)
@@ -656,13 +670,16 @@ namespace Omics.BioPolymerGroup
                 // Protein-level occupancy: map modifications to parent biopolymer coordinates
                 foreach (var bioPolymer in ListOfBioPolymersOrderedByAccession)
                 {
-                    var sequencesForBioPolymer = sequences
+                    var modCountSeqs = allSequences
                         .Where(s => s.Parent.Accession == bioPolymer.Accession)
                         .ToList();
-                    if (sequencesForBioPolymer.Count == 0) continue;
+                    var totalCountSeqs = coverageSequences
+                        .Where(s => s.Parent.Accession == bioPolymer.Accession)
+                        .ToList();
+                    if (totalCountSeqs.Count == 0) continue;
 
                     var occupancy = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
-                        bioPolymer, sequencesForBioPolymer, intensitiesByFullSequence);
+                        bioPolymer, modCountSeqs, totalCountSeqs, intensitiesByFullSequence);
 
                     if (occupancy.Count > 0)
                         result.ProteinOccupancy[bioPolymer.Accession] = occupancy;
@@ -670,11 +687,13 @@ namespace Omics.BioPolymerGroup
             }
             else
             {
-                // Peptide/Oligo-level occupancy: use digestion-product-local coordinates
-                foreach (var baseSeqGroup in sequences.GroupBy(s => s.BaseSequence))
+                // Peptide/Oligo-level occupancy: use digestion-product-local coordinates.
+                // psmCount comes from coverageSequences (one per PSM) to keep the denominator correct.
+                foreach (var baseSeqGroup in allSequences.GroupBy(s => s.BaseSequence))
                 {
+                    int psmCount = coverageSequences.Count(s => s.BaseSequence == baseSeqGroup.Key);
                     var occupancy = ModificationOccupancyCalculator.CalculatePeptideLevelOccupancy(
-                        baseSeqGroup, intensitiesByFullSequence);
+                        baseSeqGroup, intensitiesByFullSequence, psmCount > 0 ? psmCount : null);
 
                     if (occupancy.Count > 0)
                         result.PeptideOccupancy[baseSeqGroup.Key] = occupancy;
@@ -1037,40 +1056,4 @@ namespace Omics.BioPolymerGroup
                 return input;
 
             return input.Substring(0, MaxStringLength);
-        }
-
-        /// <summary>
-        /// Holds cached sequence coverage calculation results from <see cref="CalculateSequenceCoverage"/>.
-        /// Encapsulates the various coverage display lists to avoid storing them as separate class properties.
-        /// </summary>
-        public sealed class SequenceCoverageResult
-        {
-            /// <summary>
-            /// Sequence coverage fraction for each biopolymer in the group, ordered by accession.
-            /// Each value (0.0 to 1.0) represents the fraction of residues covered by identified peptides.
-            /// </summary>
-            public List<double> SequenceCoverageFraction { get; } = new();
-
-            /// <summary>
-            /// Visual representation of sequence coverage for each biopolymer in the group, ordered by accession.
-            /// Uppercase letters indicate covered residues; lowercase indicates uncovered residues.
-            /// </summary>
-            public List<string> SequenceCoverageDisplayList { get; } = new();
-
-            /// <summary>
-            /// Visual representation of sequence coverage including modification annotations, ordered by accession.
-            /// Modifications are shown as [ModName] inserted at the appropriate position.
-            /// </summary>
-            public List<string> SequenceCoverageDisplayListWithMods { get; } = new();
-
-            /// <summary>
-            /// Visual representation of fragment-level sequence coverage for each biopolymer, ordered by accession.
-            /// Uppercase letters indicate residues covered by matched fragment ions; lowercase indicates uncovered.
-            /// Will show all lowercase if PSMs do not implement <see cref="IHasSequenceCoverageFromFragments"/>.
-            /// </summary>
-            public List<string> FragmentSequenceCoverageDisplayList { get; } = new();
-        }
-
-        #endregion
-    }
-}
+ 

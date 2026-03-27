@@ -23,7 +23,18 @@ public static class ModificationOccupancyCalculator
     /// Calculates per-site modification occupancy mapped to protein coordinates.
     /// </summary>
     /// <param name="bioPolymer">The parent biopolymer whose length defines the coordinate space.</param>
-    /// <param name="localizedSequences">Peptides with localized modifications mapped to this biopolymer.</param>
+    /// <param name="localizedSequences">
+    /// All peptide forms from all PSMs mapped to this biopolymer. Used to compute
+    /// <see cref="SiteSpecificModificationOccupancy.ModifiedCount"/> (numerator).
+    /// </param>
+    /// <param name="sequencesForTotalCount">
+    /// One representative form per PSM, used to compute
+    /// <see cref="SiteSpecificModificationOccupancy.TotalCount"/> (denominator).
+    /// Passing a deduplicated list here prevents a single PSM with multiple interpretations
+    /// of the same peptide from inflating the denominator.
+    /// When null, <paramref name="localizedSequences"/> is used for the denominator as well
+    /// (legacy behaviour).
+    /// </param>
     /// <param name="intensitiesByFullSequence">
     /// Optional map of FullSequence → intensity. When provided, intensity-based stoichiometry is calculated.
     /// When null, only count-based occupancy is populated.
@@ -35,9 +46,16 @@ public static class ModificationOccupancyCalculator
     public static Dictionary<int, List<SiteSpecificModificationOccupancy>> CalculateProteinLevelOccupancy(
         IBioPolymer bioPolymer,
         IEnumerable<IBioPolymerWithSetMods> localizedSequences,
+        IEnumerable<IBioPolymerWithSetMods>? sequencesForTotalCount = null,
         Dictionary<string, double>? intensitiesByFullSequence = null)
     {
         var sequences = localizedSequences as IList<IBioPolymerWithSetMods> ?? localizedSequences.ToList();
+        // coverageList is used only for TotalCount (denominator): one entry per PSM prevents a
+        // single PSM with multiple interpretations of the same peptide from inflating the count.
+        var coverageList = sequencesForTotalCount != null
+            ? (sequencesForTotalCount as IList<IBioPolymerWithSetMods> ?? sequencesForTotalCount.ToList())
+            : sequences;
+
         // Use an inner dictionary for dedup during construction, then flatten to lists
         var working = new Dictionary<int, Dictionary<string, SiteSpecificModificationOccupancy>>();
 
@@ -58,8 +76,10 @@ public static class ModificationOccupancyCalculator
                 {
                     siteOccupancy = new SiteSpecificModificationOccupancy(indexInProtein, mod.Value.IdWithMotif);
 
-                    // Count total peptides covering this position
-                    foreach (var seq in sequences)
+                    // Count total PSMs covering this position using the deduplicated coverage list
+                    // (one entry per PSM) so that multiple interpretations of the same PSM do not
+                    // inflate the denominator.
+                    foreach (var seq in coverageList)
                     {
                         int rangeStart = seq.OneBasedStartResidue - (indexInProtein == 1 ? 1 : 0);
                         if (indexInProtein >= rangeStart && indexInProtein <= seq.OneBasedEndResidue)
@@ -97,9 +117,17 @@ public static class ModificationOccupancyCalculator
     /// </summary>
     /// <param name="peptides">
     /// Peptides sharing the same base sequence. All must have the same BaseSequence.
+    /// Provides the forms used for <see cref="SiteSpecificModificationOccupancy.ModifiedCount"/> (numerator).
     /// </param>
     /// <param name="intensitiesByFullSequence">
     /// Optional map of FullSequence → intensity for intensity-based stoichiometry.
+    /// </param>
+    /// <param name="psmCount">
+    /// Optional override for the total PSM count used as the denominator
+    /// (<see cref="SiteSpecificModificationOccupancy.TotalCount"/>).
+    /// When supplied, this value replaces <c>peptides.Count()</c>, preventing a single PSM
+    /// with multiple interpretations of the same base sequence from inflating the denominator.
+    /// When null, <c>peptides.Count()</c> is used (legacy behaviour).
     /// </param>
     /// <returns>
     /// Dictionary keyed by peptide-local position (AllModsOneIsNterminus key) containing a list of
@@ -107,10 +135,13 @@ public static class ModificationOccupancyCalculator
     /// </returns>
     public static Dictionary<int, List<SiteSpecificModificationOccupancy>> CalculatePeptideLevelOccupancy(
         IEnumerable<IBioPolymerWithSetMods> peptides,
-        Dictionary<string, double>? intensitiesByFullSequence = null)
+        Dictionary<string, double>? intensitiesByFullSequence = null,
+        int? psmCount = null)
     {
         var peptideList = peptides as IList<IBioPolymerWithSetMods> ?? peptides.ToList();
-        int totalPeptideCount = peptideList.Count;
+        // Use the caller-supplied PSM count when available so that a single PSM with multiple
+        // interpretations of the same base sequence does not inflate the denominator.
+        int totalPeptideCount = psmCount ?? peptideList.Count;
 
         double totalGroupIntensity = 0;
         if (intensitiesByFullSequence != null)

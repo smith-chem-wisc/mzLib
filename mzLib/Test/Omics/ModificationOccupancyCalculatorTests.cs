@@ -145,6 +145,59 @@ public class ModificationOccupancyCalculatorTests
         Assert.That(result, Is.Empty);
     }
 
+    /// <summary>
+    /// Regression test for the "1 PSM → occupancy 1/2" bug.
+    ///
+    /// When a single PSM has two ambiguous interpretations of the same peptide
+    /// (e.g. "Deamidation on N" vs "Deamidated asparagine on N" at the same site),
+    /// PopulateOccupancy previously expanded them via SelectMany, causing TotalCount = 2
+    /// and occupancy = 0.50 (1/2) instead of 1.0 (1/1).
+    ///
+    /// The fix: callers pass a deduplicated <paramref name="sequencesForTotalCount"/> list
+    /// (one entry per PSM) separately from the full <paramref name="localizedSequences"/>
+    /// list (all forms, for ModifiedCount).  Both modifications should show occupancy = 1.0.
+    /// </summary>
+    [Test]
+    public void ProteinLevel_SinglePsmTwoAmbiguousInterpretations_OccupancyIsNotInflated()
+    {
+        var protein = new MockBioPolymer("IVENGSEQGSYDADK", "Q6PI26");
+        ModificationMotif.TryGetMotif("N", out var motif);
+        var deamidation = new Modification("Deamidation on N", null, "Biological", null, motif, "Anywhere.", null, 0.984);
+        var deamidatedAsp = new Modification("Deamidated asparagine on N", null, "Biological", null, motif, "Anywhere.", null, 0.984);
+
+        // Two interpretation forms from a single PSM: same base sequence, different mod identity
+        var form1 = new MockBioPolymerWithSetMods(
+            "IVEN", "IVEN[Deamidation on N]", protein, 1, 4,
+            new Dictionary<int, Modification> { { 5, deamidation } });
+        var form2 = new MockBioPolymerWithSetMods(
+            "IVEN", "IVEN[Deamidated asparagine on N]", protein, 1, 4,
+            new Dictionary<int, Modification> { { 5, deamidatedAsp } });
+
+        // allSequences = both forms (used for ModifiedCount numerator)
+        IBioPolymerWithSetMods[] allSequences = [form1, form2];
+        // coverageSequences = one representative per PSM (used for TotalCount denominator)
+        IBioPolymerWithSetMods[] coverageSequences = [form1];
+
+        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein, allSequences, coverageSequences);
+
+        Assert.That(result.ContainsKey(4), Is.True, "Expected occupancy data at protein position 4 (N)");
+        var modsAtSite = result[4];
+
+        var deamSite = modsAtSite.FirstOrDefault(s => s.ModificationIdWithMotif == "Deamidation on N");
+        var deamAspSite = modsAtSite.FirstOrDefault(s => s.ModificationIdWithMotif == "Deamidated asparagine on N");
+
+        Assert.That(deamSite, Is.Not.Null, "Deamidation on N should be present");
+        Assert.That(deamSite!.TotalCount, Is.EqualTo(1), "TotalCount must be 1 (one PSM), not 2");
+        Assert.That(deamSite.ModifiedCount, Is.EqualTo(1));
+        Assert.That(deamSite.CountBasedOccupancy, Is.EqualTo(1.0), "Occupancy must be 1/1 = 100%, not 1/2 = 50%");
+
+        Assert.That(deamAspSite, Is.Not.Null, "Deamidated asparagine on N should be present");
+        Assert.That(deamAspSite!.TotalCount, Is.EqualTo(1), "TotalCount must be 1 (one PSM), not 2");
+        Assert.That(deamAspSite.ModifiedCount, Is.EqualTo(1));
+        Assert.That(deamAspSite.CountBasedOccupancy, Is.EqualTo(1.0), "Occupancy must be 1/1 = 100%, not 1/2 = 50%");
+    }
+
     #endregion
 
     #region CalculatePeptideLevelOccupancy Tests
