@@ -641,5 +641,92 @@ namespace Test
 
             Assert.That(agent1.GetHashCode(), Is.Not.EqualTo(agent2.GetHashCode()));
         }
+        /// <summary>
+        /// Trypsin cleaves after K and R, but not before P.
+        /// Sequence "PEPTIDEKA": K is at index 7, followed by 'A' (not P) → cut at index 8.
+        /// GetDigestionSiteIndices always includes 0 (start) and sequence.Length (end).
+        /// Expected: [0, 8, 9]
+        ///   0 → start sentinel
+        ///   8 → after K at index 7  (r + CutIndex = 7 + 1)
+        ///   9 → end sentinel  (sequence.Length)
+        /// </summary>
+        [Test]
+        public void GetDigestionSiteIndices_Trypsin_PEPTIDEKA_ReturnsExpectedIndices()
+        {
+            var trypsin = ProteaseDictionary.Dictionary["trypsin"];
+
+            List<int> indices = trypsin.GetDigestionSiteIndices("PEPTIDEKA");
+
+            Assert.That(indices, Is.EquivalentTo(new[] { 0, 8, 9 }));
+        }
+
+        /// <summary>
+        /// Asp-N cleaves N-terminal to D (motif "|D", CutIndex=0).
+        /// Sequence "PEPTIDEKA": D is at index 5, cut at 5+0=5.
+        /// Expected: [0, 5, 9]
+        ///   0 → start sentinel
+        ///   5 → before D at index 5  (r + CutIndex = 5 + 0)
+        ///   9 → end sentinel  (sequence.Length)
+        /// </summary>
+        [Test]
+        public void GetDigestionSiteIndices_AspN_PEPTIDEKA_CutsBeforeD()
+        {
+            var aspN = ProteaseDictionary.Dictionary["Asp-N"];
+
+            List<int> indices = aspN.GetDigestionSiteIndices("PEPTIDEKA");
+
+            Assert.That(indices, Is.EquivalentTo(new[] { 0, 5, 9 }));
+        }
+
+        /// <summary>
+        /// A protease with no digestion motifs (top-down / no-enzyme) produces no internal cuts.
+        /// Only the start (0) and end (sequence.Length) sentinels are added.
+        /// Sequence "PEPTIDEKA": Expected: [0, 9]
+        /// </summary>
+        [Test]
+        public void GetDigestionSiteIndices_NoMotifProtease_TopDown_OnlyStartAndEndSentinels()
+        {
+            var topDown = new Protease("test-top-down", CleavageSpecificity.None, "", "", new List<DigestionMotif>());
+
+            List<int> indices = topDown.GetDigestionSiteIndices("PEPTIDEKA");
+
+            Assert.That(indices, Is.EquivalentTo(new[] { 0, 9 }));
+        }
+
+        /// <summary>
+        /// Lys-N cleaves N-terminal to K (motif "|K", CutIndex=0).
+        /// Sequence "PEPTIDEKA": K is at index 7, cut at 7+0=7.
+        /// Expected: [0, 7, 9]
+        ///   0 → start sentinel
+        ///   7 → before K at index 7  (r + CutIndex = 7 + 0)
+        ///   9 → end sentinel  (sequence.Length)
+        /// </summary>
+        [Test]
+        public void GetDigestionSiteIndices_LysN_PEPTIDEKA_CutsBeforeK()
+        {
+            var lysN = ProteaseDictionary.Dictionary["Lys-N"];
+
+            List<int> indices = lysN.GetDigestionSiteIndices("PEPTIDEKA");
+
+            Assert.That(indices, Is.EquivalentTo(new[] { 0, 7, 9 }));
+        }
+
+        /// <summary>
+        /// Trypsin cleaves after K and R, but not before P.
+        /// Sequence "PEPTIDEPEPTIDE" contains no K or R residues → no internal cuts.
+        /// GetDigestionSiteIndices always includes 0 (start) and sequence.Length (end).
+        /// Expected: [0, 14]
+        ///   0  → start sentinel
+        ///   14 → end sentinel  (sequence.Length)
+        /// </summary>
+        [Test]
+        public void GetDigestionSiteIndices_Trypsin_PEPTIDEPEPTIDE_NoCleavageSites()
+        {
+            var trypsin = ProteaseDictionary.Dictionary["trypsin"];
+
+            List<int> indices = trypsin.GetDigestionSiteIndices("PEPTIDEPEPTIDE");
+
+            Assert.That(indices, Is.EquivalentTo(new[] { 0, 14 }));
+        }
     }
 }
