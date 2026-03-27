@@ -1126,6 +1126,220 @@ namespace Test.DatabaseTests
         }
 
         [Test]
+        public static void EntrapmentFasta_AutoDetection()
+        {
+            string fastacontent = ">sp|Random_PROT1|Prot1 desc\nPEPTIDEK\n>sp|Random_PROT2|Prot2 desc\nPEPTIDEK";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_auto.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.None, false, out var errors, entrapmentIdentifier: "Random");
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(proteins.Count(p => p.IsEntrapment), Is.EqualTo(2));
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_PrependingWhenMissing()
+        {
+            string fastacontent = ">sp|PROTEIN1|Prot1 desc\nPEPTIDEK\n>sp|PROTEIN2|Prot2 desc\nPEPTIDEK";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.None, false, out var errors, entrapmentIdentifier: "Random", isEntrapment: true);
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(proteins.Count, Is.EqualTo(2));
+            Assert.That(proteins.All(p => p.IsEntrapment), Is.True);
+            Assert.That(proteins.All(p => p.Accession.StartsWith("Random_")), Is.True);
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_NoDoublePrefixing()
+        {
+            string fastacontent = ">sp|Random_PROTEIN1|Prot1 desc\nPEPTIDEK";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_nodouble.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.None, false, out var errors, entrapmentIdentifier: "Random", isEntrapment: true);
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(proteins.Count, Is.EqualTo(1));
+            Assert.That(proteins[0].Accession, Does.StartWith("Random_"));
+            Assert.That(proteins[0].IsEntrapment, Is.True);
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_DecoyPrependsWithNtrap()
+        {
+            string fastacontent = ">sp|PROTEIN1|Prot1 desc\nPEPTIDEK";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_decoy.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.Reverse, false, out var errors, entrapmentIdentifier: "Random", isEntrapment: true);
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(proteins.Count, Is.EqualTo(2));
+
+            var target = proteins.Single(p => !p.IsDecoy);
+            Assert.That(target.IsEntrapment, Is.True);
+            Assert.That(target.Accession.StartsWith("Random_"), Is.True);
+
+            var decoy = proteins.Single(p => p.IsDecoy);
+            Assert.That(decoy.IsEntrapment, Is.True);
+            Assert.That(decoy.Accession.Contains("Random_"), Is.True);
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_DualPrefixDetection()
+        {
+            string fastacontent = ">DECOY_Random_PROTEIN1 description\nPEPTIDEK";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_dual_prefix.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            var accessionRegex = new FastaHeaderFieldRegex("accession", @">(.+?)\s", 0, 1);
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.None, false, out var errors, accessionRegex: accessionRegex, entrapmentIdentifier: "Random");
+            Assert.That(proteins.Count, Is.EqualTo(1));
+            Assert.That(proteins[0].IsEntrapment, Is.True);
+            Assert.That(proteins[0].IsDecoy, Is.True);
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_ContaminantAndEntrapment_Throws()
+        {
+            string fastacontent = ">sp|PROTEIN1|Prot1 desc\nPEPTIDEK";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_contam_entrap.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            Assert.Throws<MzLibException>(() =>
+                ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.None, true, out var errors, entrapmentIdentifier: "Random", isEntrapment: true));
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_CombinedTargetDecoyAsEntrapment()
+        {
+            string fastacontent = ">sp|PROTEIN1|Prot1 desc\nPEPTIDEK\n>sp|PROTEIN2|Prot2 desc\nPEPTIDEK";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_combined_entrap.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.Reverse, false, out var errors, entrapmentIdentifier: "Random", isEntrapment: true);
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(proteins.Count, Is.EqualTo(4));
+
+            var targets = proteins.Where(p => !p.IsDecoy).ToList();
+            var decoys = proteins.Where(p => p.IsDecoy).ToList();
+            Assert.That(targets.Count, Is.EqualTo(2));
+            Assert.That(decoys.Count, Is.EqualTo(2));
+
+            Assert.That(targets.All(p => p.IsEntrapment), Is.True);
+            Assert.That(decoys.All(p => p.IsEntrapment), Is.True);
+
+            Assert.That(targets.All(p => p.Accession.StartsWith("Random_")), Is.True);
+            Assert.That(decoys.All(p => p.Accession.Contains("Random_")), Is.True);
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentXml_AutoDetection()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "test_ensembl.pep.all.fasta");
+            var oligos = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.Reverse, false, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_xml.xml");
+            ProteinDbWriter.WriteXmlDatabase([], oligos, xmlPath);
+
+            var proteins = ProteinDbLoader.LoadProteinXML(xmlPath, true, DecoyType.None, new List<Modification>(), false, new List<string>(), out var errors2, entrapmentIdentifier: "Random");
+            Assert.That(errors2.Count, Is.EqualTo(0));
+            Assert.That(proteins.All(p => !p.IsEntrapment), Is.True);
+
+            File.Delete(xmlPath);
+        }
+
+        [Test]
+        public static void EntrapmentXml_PrependingWhenMissing()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "test_ensembl.pep.all.fasta");
+            var oligos = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.None, false, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_prepend_xml.xml");
+            ProteinDbWriter.WriteXmlDatabase([], oligos, xmlPath);
+
+            var proteins = ProteinDbLoader.LoadProteinXML(xmlPath, true, DecoyType.None, new List<Modification>(), false, new List<string>(), out var errors2, entrapmentIdentifier: "Random", isEntrapment: true);
+            Assert.That(errors2.Count, Is.EqualTo(0));
+            Assert.That(proteins.All(p => p.IsEntrapment), Is.True);
+            Assert.That(proteins.All(p => p.Accession.StartsWith("Random_")), Is.True);
+
+            File.Delete(xmlPath);
+        }
+
+        [Test]
+        public static void EntrapmentXml_DecoyPrependsWithEntrapmentPrefix()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "test_ensembl.pep.all.fasta");
+            var oligos = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.Reverse, false, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_decoy_xml.xml");
+            ProteinDbWriter.WriteXmlDatabase([], oligos, xmlPath);
+
+            var proteins = ProteinDbLoader.LoadProteinXML(xmlPath, true, DecoyType.None, new List<Modification>(), false, new List<string>(), out var errors2, entrapmentIdentifier: "Random", isEntrapment: true);
+            Assert.That(errors2.Count, Is.EqualTo(0));
+
+            var targets = proteins.Where(p => !p.IsDecoy).ToList();
+            var decoys = proteins.Where(p => p.IsDecoy).ToList();
+
+            Assert.That(targets.All(p => p.IsEntrapment), Is.True);
+            Assert.That(decoys.All(p => p.IsEntrapment), Is.True);
+            Assert.That(targets.All(p => p.Accession.StartsWith("Random_")), Is.True);
+            Assert.That(decoys.All(p => p.Accession.Contains("Random_")), Is.True);
+
+            File.Delete(xmlPath);
+        }
+
+        [Test]
+        public static void EntrapmentXml_ContaminantAndEntrapment_Throws()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "test_ensembl.pep.all.fasta");
+            var oligos = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.None, false, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_contam_entrap_xml.xml");
+            ProteinDbWriter.WriteXmlDatabase([], oligos, xmlPath);
+
+            Assert.Throws<MzLibException>(() =>
+                ProteinDbLoader.LoadProteinXML(xmlPath, true, DecoyType.None, new List<Modification>(), true, new List<string>(), out var errors2, entrapmentIdentifier: "Random", isEntrapment: true));
+
+            File.Delete(xmlPath);
+        }
+
+        [Test]
+        public static void EntrapmentXml_DualPrefixDetection()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "test_ensembl.pep.all.fasta");
+            var oligos = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.Reverse, false, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_dual_prefix_xml.xml");
+            ProteinDbWriter.WriteXmlDatabase([], oligos, xmlPath);
+
+            var proteins = ProteinDbLoader.LoadProteinXML(xmlPath, true, DecoyType.None, new List<Modification>(), false, new List<string>(), out var errors2, entrapmentIdentifier: "Random");
+            Assert.That(errors2.Count, Is.EqualTo(0));
+            Assert.That(proteins.All(p => !p.IsEntrapment), Is.True);
+
+            File.Delete(xmlPath);
+        }
+
+        [Test]
         public static void DecoyWritingLoading_Xml()
         {
             var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "test_ensembl.pep.all.fasta");
