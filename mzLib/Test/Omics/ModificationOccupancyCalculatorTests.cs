@@ -104,7 +104,7 @@ public class ModificationOccupancyCalculatorTests
         };
 
         var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
-            protein, new IBioPolymerWithSetMods[] { modifiedPeptide, unmodifiedPeptide }, intensities);
+            protein, new IBioPolymerWithSetMods[] { modifiedPeptide, unmodifiedPeptide }, null, intensities);
 
         var site = result[3][0];
         Assert.That(site.ModifiedIntensity, Is.EqualTo(1_000_000));

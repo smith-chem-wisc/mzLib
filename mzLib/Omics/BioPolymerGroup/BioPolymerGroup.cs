@@ -1,5 +1,6 @@
 ﻿using Easy.Common.Extensions;
 using MassSpectrometry;
+using MzLibUtil;
 using Omics.Modifications;
 using Omics.SpectralMatch;
 using System.Text;
@@ -1056,4 +1057,40 @@ namespace Omics.BioPolymerGroup
                 return input;
 
             return input.Substring(0, MaxStringLength);
- 
+        }
+
+        /// <summary>
+        /// Holds cached sequence coverage calculation results from <see cref="CalculateSequenceCoverage"/>.
+        /// Encapsulates the various coverage display lists to avoid storing them as separate class properties.
+        /// </summary>
+        public sealed class SequenceCoverageResult
+        {
+            /// <summary>
+            /// Sequence coverage fraction for each biopolymer in the group, ordered by accession.
+            /// Each value (0.0 to 1.0) represents the fraction of residues covered by identified peptides.
+            /// </summary>
+            public List<double> SequenceCoverageFraction { get; } = new();
+
+            /// <summary>
+            /// Visual representation of sequence coverage for each biopolymer in the group, ordered by accession.
+            /// Uppercase letters indicate covered residues; lowercase indicates uncovered residues.
+            /// </summary>
+            public List<string> SequenceCoverageDisplayList { get; } = new();
+
+            /// <summary>
+            /// Visual representation of sequence coverage including modification annotations, ordered by accession.
+            /// Modifications are shown as [ModName] inserted at the appropriate position.
+            /// </summary>
+            public List<string> SequenceCoverageDisplayListWithMods { get; } = new();
+
+            /// <summary>
+            /// Visual representation of fragment-level sequence coverage for each biopolymer, ordered by accession.
+            /// Uppercase letters indicate residues covered by matched fragment ions; lowercase indicates uncovered.
+            /// Will show all lowercase if PSMs do not implement <see cref="IHasSequenceCoverageFromFragments"/>.
+            /// </summary>
+            public List<string> FragmentSequenceCoverageDisplayList { get; } = new();
+        }
+
+        #endregion
+    }
+}
