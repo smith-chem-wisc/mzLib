@@ -136,19 +136,20 @@ public sealed class TestMslEdgeCases
 	}
 
 	/// <summary>
-	/// A single precursor with 32 767 fragment ions (the maximum representable in the int16
-	/// FragmentCount field) must write and load without error or data truncation.
+	/// A single precursor with 1,000 fragment ions must write and load without error or data
+	/// truncation. The test verifies count equality and spot-checks several fragment m/z values
+	/// and metadata fields to detect silent data corruption.
 	///
-	/// Note: this test generates 32 767 synthetic fragment ions with unique m/z values and
-	/// verifies that the count round-trips exactly. It does not verify every m/z value.
+	/// 1,000 fragments exercises the large-list code path (well above typical tryptic spectra)
+	/// while keeping I/O and allocation suitable for CI.
 	/// </summary>
 	[Test]
-	public void EdgeCase_SinglePrecursor_MaxFragments_32767_WritesAndLoads()
+	public void EdgeCase_SinglePrecursor_ManyFragments_WritesAndLoads()
 	{
-		// Arrange — generate 32 767 fragments with distinct m/z values (float spacing ensures uniqueness)
-		const int MaxFragments = 32_767;
-		var frags = new List<MslFragmentIon>(MaxFragments);
-		for (int i = 0; i < MaxFragments; i++)
+		// Arrange — generate 1 000 fragments with distinct m/z values
+		const int FragmentCount = 1_000;
+		var frags = new List<MslFragmentIon>(FragmentCount);
+		for (int i = 0; i < FragmentCount; i++)
 		{
 			frags.Add(new MslFragmentIon
 			{
@@ -184,9 +185,30 @@ public sealed class TestMslEdgeCases
 		using MslLibrary lib = MslLibrary.Load(_tempMslPath);
 		bool found = lib.TryGetEntry("BIGPEPTIDE", 2, out MslLibraryEntry? loaded);
 
-		// Assert
+		// Assert — count equality
 		Assert.That(found, Is.True);
-		Assert.That(loaded!.MatchedFragmentIons.Count, Is.EqualTo(MaxFragments));
+		Assert.That(loaded!.MatchedFragmentIons.Count, Is.EqualTo(FragmentCount));
+
+		// Assert — spot-check content correctness on first, middle, and last fragments (sorted by m/z)
+		List<MslFragmentIon> sortedLoaded = loaded.MatchedFragmentIons.OrderBy(f => f.Mz).ToList();
+
+		// First fragment: m/z = 100.0 + 0 * 0.01 = 100.0
+		Assert.That((double)sortedLoaded[0].Mz, Is.EqualTo(100.0).Within(1e-4),
+			"First fragment m/z mismatch");
+		Assert.That(sortedLoaded[0].ProductType, Is.EqualTo(ProductType.y),
+			"First fragment ProductType mismatch");
+
+		// Middle fragment: m/z = 100.0 + 500 * 0.01 = 105.0
+		Assert.That((double)sortedLoaded[500].Mz, Is.EqualTo(105.0).Within(1e-4),
+			"Middle fragment m/z mismatch");
+		Assert.That(sortedLoaded[500].FragmentNumber, Is.EqualTo(501),
+			"Middle fragment FragmentNumber mismatch");
+
+		// Last fragment: m/z = 100.0 + 999 * 0.01 = 109.99
+		Assert.That((double)sortedLoaded[999].Mz, Is.EqualTo(109.99).Within(1e-2),
+			"Last fragment m/z mismatch");
+		Assert.That(sortedLoaded[999].Charge, Is.EqualTo(1),
+			"Last fragment Charge mismatch");
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────

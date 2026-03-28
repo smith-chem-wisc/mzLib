@@ -245,13 +245,19 @@ def _decode_precursor_flags(flags_byte: int):
     return is_decoy, is_proteotypic, rt_is_calibrated
 
 
-def _decode_file_flags(file_flags: int):
-    has_ion_mobility  = bool(file_flags & 0x01)
-    has_protein_data  = bool(file_flags & 0x02)
-    has_gene_data     = bool(file_flags & 0x04)
-    is_predicted      = bool(file_flags & 0x08)
-    has_ion_mobility, has_protein_data, has_gene_data, is_predicted, is_compressed = \
-        _decode_file_flags(file_flags)
+def _decode_fragment_flags(flags_byte: int):
+    """
+    Fragment flags byte layout (Section 4.7):
+      bit 0 = is_internal
+      bit 1 = is_diagnostic
+      bits 2-4 = neutral_loss_code (3-bit field, values 0-6)
+      bit 5 = exclude_from_quant
+    """
+    is_internal       = bool(flags_byte & 0x01)
+    is_diagnostic     = bool(flags_byte & 0x02)
+    neutral_loss_code = (flags_byte >> 2) & 0x07
+    exclude_from_quant = bool(flags_byte & 0x20)
+    return is_internal, is_diagnostic, neutral_loss_code, exclude_from_quant
 
 
 def _parse_fragment(raw: bytes) -> MslFragment:
@@ -343,16 +349,16 @@ def _read_protein_table(f: io.RawIOBase, offset: int, n_proteins: int,
     if len(raw) < prot_size * n_proteins:
         raise ValueError('Protein table truncated')
 
+    def resolve(idx):
+        if idx < 0 or idx >= len(strings):
+            return ''
+        return strings[idx]
+
     proteins = []
     for i in range(n_proteins):
         chunk = raw[i * prot_size:(i + 1) * prot_size]
         (acc_idx, name_idx, gene_idx,
          _group_id, _n_prec, _flags) = struct.unpack(PROTEIN_FMT, chunk)
-
-        def resolve(idx):
-            if idx < 0 or idx >= len(strings):
-                return ''
-            return strings[idx]
 
         proteins.append((resolve(acc_idx), resolve(name_idx), resolve(gene_idx)))
     return proteins
@@ -431,7 +437,7 @@ def _validate_and_load(path: str, load_fragments_data: bool) -> MslLibrary:
             )
 
         # ── Decode file flags ─────────────────────────────────────────────────
-        has_ion_mobility, has_protein_data, has_gene_data, is_predicted = \
+        has_ion_mobility, has_protein_data, has_gene_data, is_predicted, is_compressed = \
             _decode_file_flags(file_flags)
 
         # ── String table ──────────────────────────────────────────────────────
@@ -608,19 +614,19 @@ def load_index_only(path: str) -> MslLibrary:
 
 
 def load_fragments(path: str, precursor: MslPrecursor) -> List[MslFragment]:
-    \"\"\"
+    """
     Loads and returns the fragment list for a single precursor.
- 
+
     NOTE: This function is not supported for compressed .msl files (FileFlagIsCompressed).
     For compressed files, use load() which decompresses the fragment section automatically.
     An ImportError will be raised if zstandard is not installed and the file is compressed.
- 
+
     Opens the file, seeks to precursor.fragment_block_offset, and reads
     precursor.fragment_count records. Does not re-validate the whole file.
- 
+
     Raises ValueError if fragment_count == 0 or block_offset is out of range.
     Raises FileNotFoundError if path does not exist.
-    \"\"\"
+    """
     if precursor.fragment_count <= 0:
         raise ValueError(
             f'Precursor has fragment_count={precursor.fragment_count}; nothing to load.'

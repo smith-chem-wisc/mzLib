@@ -42,6 +42,8 @@ namespace Development.MSL
 
 		// ── State ─────────────────────────────────────────────────────────────────
 
+		private int _lookupIndex;
+
 		/// <summary>MSL file used by MslLoad_Full, MslLookup_BySequenceCharge, and the write benchmarks.</summary>
 		private string _mslPath = null!;
 
@@ -143,7 +145,15 @@ namespace Development.MSL
 		public void MspLoad_Full()
 		{
 			var lib = new SpectralLibrary(new List<string> { _mspPath });
-			lib.CloseConnections();
+			try
+			{
+				// Intentionally empty — all work happens in the constructor.
+				// The try block exists solely to guarantee cleanup below.
+			}
+			finally
+			{
+				lib.CloseConnections();
+			}
 		}
 
 		// ── Index-only load: MSL ──────────────────────────────────────────────────
@@ -178,9 +188,11 @@ namespace Development.MSL
 		[Benchmark]
 		public bool MslLookup_BySequenceCharge()
 		{
+			var entry = _entries[_lookupIndex % _entries.Count];
+			_lookupIndex++;
 			return _mslLib.TryGetEntry(
-				_entries[0].FullSequence,
-				_entries[0].ChargeState,
+				entry.FullSequence,
+				entry.ChargeState,
 				out _);
 		}
 
@@ -193,9 +205,11 @@ namespace Development.MSL
 		[Benchmark]
 		public bool MspLookup_BySequenceCharge()
 		{
+			var entry = _entries[_lookupIndex % _entries.Count];
+			_lookupIndex++;
 			return _mspLib.TryGetSpectrum(
-				_entries[0].FullSequence,
-				_entries[0].ChargeState,
+				entry.FullSequence,
+				entry.ChargeState,
 				out _);
 		}
 
@@ -221,8 +235,9 @@ namespace Development.MSL
 
 				sw.WriteLine(FormattableString.Invariant(
 					$"Name: {e.FullSequence}/{e.ChargeState}"));
+				double neutralMass = (e.PrecursorMz * e.ChargeState) - (e.ChargeState * 1.00727647);
 				sw.WriteLine(FormattableString.Invariant(
-					$"MW: {e.PrecursorMz:F6}"));
+					$"MW: {neutralMass:F6}"));
 				sw.WriteLine(FormattableString.Invariant(
 					$"Comment: Parent={e.PrecursorMz:F6} iRT={e.RetentionTime:F4}"));
 				sw.WriteLine(FormattableString.Invariant(

@@ -18,7 +18,7 @@
 //! # Validation order (Section 4.10)
 //!
 //! 1. Header magic == `[0x4D, 0x5A, 0x4C, 0x42]`
-//! 2. `FormatVersion == 1`
+//! 2. `FormatVersion` in `[1, 3]`
 //! 3. Trailing footer magic (read as LE uint32) == `0x4D5A4C42`
 //! 4. `footer.NPrecursors == header.NPrecursors`
 //! 5. CRC-32/ISO-HDLC over bytes `[0, footer.OffsetTableOffset)` == `footer.DataCrc32`
@@ -43,7 +43,8 @@ use std::string::FromUtf8Error;
 
 const HEADER_MAGIC: [u8; 4] = [0x4D, 0x5A, 0x4C, 0x42];
 const FOOTER_MAGIC_U32: u32 = 0x4D5A4C42;
-const FORMAT_VERSION: i32 = 1;
+const MIN_SUPPORTED_VERSION: i32 = 1;
+const MAX_SUPPORTED_VERSION: i32 = 3;
 
 const HEADER_SIZE: usize    = 64;
 const PROTEIN_SIZE: usize   = 24;
@@ -204,6 +205,24 @@ fn compute_crc32(data: &[u8]) -> u32 {
         crc = (crc >> 8) ^ table[((crc ^ byte as u32) & 0xFF) as usize];
     }
     crc ^ 0xFFFF_FFFF
+}
+
+/// Computes CRC-32/ISO-HDLC by streaming `len` bytes from the current file
+/// position, without buffering the entire range in memory.
+fn compute_crc32_streaming(file: &mut File, len: usize) -> io::Result<u32> {
+    let table = build_crc32_table();
+    let mut crc: u32 = 0xFFFF_FFFF;
+    let mut remaining = len;
+    let mut buf = [0u8; 65536];
+    while remaining > 0 {
+        let to_read = remaining.min(buf.len());
+        file.read_exact(&mut buf[..to_read])?;
+        for &byte in &buf[..to_read] {
+            crc = (crc >> 8) ^ table[((crc ^ byte as u32) & 0xFF) as usize];
+        }
+        remaining -= to_read;
+    }
+    Ok(crc ^ 0xFFFF_FFFF)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -506,21 +525,22 @@ fn parse_precursor(buf: &[u8], strings: &[String],
 fn load_impl(path: &str, load_fragment_data: bool)
     -> Result<MslLibrary, MslError>
 {
-    // Read entire file into memory.
     let mut file = File::open(path)?;
-    let mut data = Vec::new();
-    file.read_to_end(&mut data)?;
+    let file_size = file.seek(SeekFrom::End(0))? as usize;
 
-    if data.len() < HEADER_SIZE + FOOTER_SIZE {
+    if file_size < HEADER_SIZE + FOOTER_SIZE {
         return Err(MslError::InvalidData("File too short to be a valid .msl".to_string()));
     }
 
-    // ── 1. Header magic ───────────────────────────────────────────────────────
-    if &data[0..4] != &HEADER_MAGIC {
+    // ── 1. Read header (64 bytes) ─────────────────────────────────────────────
+    file.seek(SeekFrom::Start(0))?;
+    let mut header_buf = [0u8; HEADER_SIZE];
+    file.read_exact(&mut header_buf)?;
+
+    if &header_buf[0..4] != &HEADER_MAGIC {
         return Err(MslError::InvalidMagic);
     }
 
-    // ── 2. Header fields ──────────────────────────────────────────────────────
     // Header layout (64 bytes, Section 4.2):
     //   0:  u8[4]  Magic
     //   4:  i32    FormatVersion
@@ -529,44 +549,46 @@ fn load_impl(path: &str, load_fragment_data: bool)
     //  16:  i32    NProteins
     //  20:  i32    NElutionGroups
     //  24:  i32    NStrings
-    //  28:  i32    Reserved
+    //  28:  i32    Reserved (v1) / ExtAnnotationTableOffset (v2+)
     //  32:  i64    ProteinTableOffset
     //  40:  i64    StringTableOffset
     //  48:  i64    PrecursorSectionOffset
     //  56:  i64    FragmentSectionOffset
-    let format_version          = read_i32_le(&data, 4);
-    if format_version != FORMAT_VERSION {
+    let format_version          = read_i32_le(&header_buf, 4);
+    if format_version < MIN_SUPPORTED_VERSION || format_version > MAX_SUPPORTED_VERSION {
         return Err(MslError::UnsupportedVersion(format_version));
     }
 
-    let file_flags              = read_i32_le(&data, 8);
-    let n_precursors            = read_i32_le(&data, 12);
-    let n_proteins              = read_i32_le(&data, 16);
-    let n_strings               = read_i32_le(&data, 24);
-    let protein_table_offset    = read_i64_le(&data, 32);
-    let string_table_offset     = read_i64_le(&data, 40);
-    let precursor_section_offset = read_i64_le(&data, 48);
+    let file_flags              = read_i32_le(&header_buf, 8);
+    let n_precursors            = read_i32_le(&header_buf, 12);
+    let n_proteins              = read_i32_le(&header_buf, 16);
+    let n_strings               = read_i32_le(&header_buf, 24);
+    // v2+ stores ExtAnnotationTableOffset at byte 28; v1 has Reserved here.
+    // Either way, this i32 is not needed for basic reading — skip it.
+    let _ext_annotation_table_offset = read_i32_le(&header_buf, 28);
+    let protein_table_offset    = read_i64_le(&header_buf, 32);
+    let string_table_offset     = read_i64_le(&header_buf, 40);
+    let precursor_section_offset = read_i64_le(&header_buf, 48);
 
     let (has_ion_mobility, has_protein_data, has_gene_data, is_predicted) =
         decode_file_flags(file_flags);
 
-    // ── 3. Footer: trailing magic ─────────────────────────────────────────────
-    let footer_start = data.len() - FOOTER_SIZE;
-    // Footer layout (20 bytes, Section 4.8):
-    //   0:  i64 OffsetTableOffset
-    //   8:  i32 NPrecursors
-    //  12:  u32 DataCrc32
-    //  16:  u32 TrailingMagic
-    let offset_table_offset = read_i64_le(&data, footer_start);
-    let footer_n_precursors  = read_i32_le(&data, footer_start + 8);
-    let data_crc32           = read_u32_le(&data, footer_start + 12);
-    let trailing_magic       = read_u32_le(&data, footer_start + 16);
+    // ── 2. Read footer (last 20 bytes) ────────────────────────────────────────
+    let footer_start = file_size - FOOTER_SIZE;
+    file.seek(SeekFrom::Start(footer_start as u64))?;
+    let mut footer_buf = [0u8; FOOTER_SIZE];
+    file.read_exact(&mut footer_buf)?;
+
+    let offset_table_offset = read_i64_le(&footer_buf, 0);
+    let footer_n_precursors  = read_i32_le(&footer_buf, 8);
+    let data_crc32           = read_u32_le(&footer_buf, 12);
+    let trailing_magic       = read_u32_le(&footer_buf, 16);
 
     if trailing_magic != FOOTER_MAGIC_U32 {
         return Err(MslError::TrailingMagicMismatch);
     }
 
-    // ── 4. Precursor count consistency ───────────────────────────────────────
+    // ── 3. Precursor count consistency ───────────────────────────────────────
     if footer_n_precursors != n_precursors {
         return Err(MslError::PrecursorCountMismatch {
             header: n_precursors,
@@ -574,48 +596,109 @@ fn load_impl(path: &str, load_fragment_data: bool)
         });
     }
 
-    // ── 5. CRC-32 over [0, offset_table_offset) ──────────────────────────────
+    // ── 4. CRC-32 over [0, offset_table_offset) — streamed in chunks ─────────
     let crc_end = offset_table_offset as usize;
-    if crc_end > data.len() {
+    if crc_end > file_size {
         return Err(MslError::InvalidData(format!(
             "offset_table_offset {} exceeds file size {}",
-            crc_end, data.len()
+            crc_end, file_size
         )));
     }
-    let computed = compute_crc32(&data[..crc_end]);
+    file.seek(SeekFrom::Start(0))?;
+    let computed = compute_crc32_streaming(&mut file, crc_end)
+        .map_err(MslError::Io)?;
     if computed != data_crc32 {
         return Err(MslError::CrcMismatch { expected: data_crc32, computed });
     }
 
-    // ── String table ──────────────────────────────────────────────────────────
-    let strings = read_string_table(&data, string_table_offset, n_strings)?;
+    // ── 5. Read string table (targeted seek) ─────────────────────────────────
+    file.seek(SeekFrom::Start(string_table_offset as u64))?;
+    let mut st_header = [0u8; 8];
+    file.read_exact(&mut st_header)?;
+    let n_read = read_i32_le(&st_header, 0);
+    if n_read != n_strings {
+        return Err(MslError::InvalidData(format!(
+            "String table NStrings mismatch: header={}, table={}",
+            n_strings, n_read
+        )));
+    }
+    let total_bytes = read_i32_le(&st_header, 4);
+    let string_entry_size = (n_strings as usize) * 4 + total_bytes as usize;
+    let mut string_entry_buf = vec![0u8; string_entry_size];
+    file.read_exact(&mut string_entry_buf)?;
 
-    // ── Protein table ─────────────────────────────────────────────────────────
+    let mut strings = Vec::with_capacity(n_strings as usize);
+    let mut pos = 0usize;
+    for _ in 0..n_strings {
+        let length = read_i32_le(&string_entry_buf, pos) as usize;
+        pos += 4;
+        if pos + length > string_entry_buf.len() {
+            return Err(MslError::InvalidData(
+                "String table truncated while reading string data".to_string()
+            ));
+        }
+        let s = String::from_utf8(string_entry_buf[pos..pos + length].to_vec())?;
+        strings.push(s);
+        pos += length;
+    }
+
+    // ── 6. Read protein table (targeted seek) ────────────────────────────────
     let proteins: Vec<(String, String, String)> =
         if n_proteins > 0 && protein_table_offset > 0 {
-            read_protein_table(&data, protein_table_offset, n_proteins, &strings)?
+            let prot_total = n_proteins as usize * PROTEIN_SIZE;
+            let mut prot_buf = vec![0u8; prot_total];
+            file.seek(SeekFrom::Start(protein_table_offset as u64))?;
+            file.read_exact(&mut prot_buf)?;
+
+            let resolve = |idx: i32| -> String {
+                if idx >= 0 && (idx as usize) < strings.len() {
+                    strings[idx as usize].clone()
+                } else {
+                    String::new()
+                }
+            };
+
+            let mut proteins = Vec::with_capacity(n_proteins as usize);
+            for i in 0..n_proteins as usize {
+                let base = i * PROTEIN_SIZE;
+                let acc_idx  = read_i32_le(&prot_buf, base);
+                let name_idx = read_i32_le(&prot_buf, base + 4);
+                let gene_idx = read_i32_le(&prot_buf, base + 8);
+                proteins.push((resolve(acc_idx), resolve(name_idx), resolve(gene_idx)));
+            }
+            proteins
         } else {
             Vec::new()
         };
 
-    // ── Precursor section ─────────────────────────────────────────────────────
-    let prec_start = precursor_section_offset as usize;
-    let prec_end   = prec_start + (n_precursors as usize) * PRECURSOR_SIZE;
-    if prec_end > data.len() {
-        return Err(MslError::InvalidData("Precursor section truncated".to_string()));
-    }
+    // ── 7. Read precursor section (targeted seek) ────────────────────────────
+    let prec_total = n_precursors as usize * PRECURSOR_SIZE;
+    let mut prec_buf = vec![0u8; prec_total];
+    file.seek(SeekFrom::Start(precursor_section_offset as u64))?;
+    file.read_exact(&mut prec_buf)?;
 
     let mut precursors: Vec<MslPrecursor> = Vec::with_capacity(n_precursors as usize);
     for i in 0..n_precursors as usize {
-        let off = prec_start + i * PRECURSOR_SIZE;
+        let off = i * PRECURSOR_SIZE;
         let mut prec = parse_precursor(
-            &data[off..off + PRECURSOR_SIZE],
+            &prec_buf[off..off + PRECURSOR_SIZE],
             &strings,
             &proteins,
         );
 
+        // ── 8. Fragment data: only read when requested ───────────────────────
         if load_fragment_data && prec.fragment_count > 0 {
-            prec.fragments = read_fragments(&data, prec.fragment_block_offset, prec.fragment_count)?;
+            let frag_byte_count = prec.fragment_count as usize * FRAGMENT_SIZE;
+            let mut frag_buf = vec![0u8; frag_byte_count];
+            file.seek(SeekFrom::Start(prec.fragment_block_offset as u64))?;
+            file.read_exact(&mut frag_buf)?;
+
+            let mut frags = Vec::with_capacity(prec.fragment_count as usize);
+            for j in 0..prec.fragment_count as usize {
+                let foff = j * FRAGMENT_SIZE;
+                frags.push(parse_fragment(&frag_buf[foff..foff + FRAGMENT_SIZE]));
+            }
+            prec.fragments = frags;
         }
 
         precursors.push(prec);
@@ -852,7 +935,7 @@ mod tests {
             // Header
             let mut header = Vec::with_capacity(HEADER_SIZE);
             header.extend_from_slice(&HEADER_MAGIC);
-            header.extend_from_slice(&FORMAT_VERSION.to_le_bytes());
+            header.extend_from_slice(&MIN_SUPPORTED_VERSION.to_le_bytes());
             header.extend_from_slice(&file_flags.to_le_bytes());
             header.extend_from_slice(&n_prec.to_le_bytes());
             header.extend_from_slice(&n_prot.to_le_bytes());

@@ -76,41 +76,38 @@ public class TestMslPrompt9AsyncDeadlock
 		/// </summary>
 		public bool RunOnCurrentThread(Action action, int timeoutMs = 5000)
 		{
-			var previous = Current;
-			SetSynchronizationContext(this);
-
 			bool completed = false;
 			Exception? thrown = null;
 
-			// Run the action on a background thread so we can pump this thread
-			var actionThread = new Thread(() =>
+			// Run the action on a dedicated thread with this SynchronizationContext
+			// installed. This simulates a WinForms/WPF UI thread: the thread owns
+			// a SyncContext, and if it blocks (e.g. in .GetResult()), continuations
+			// posted to the context via Post() accumulate in _queue but are never
+			// executed — exactly the deadlock a real message-loop thread would hit.
+			// No pumping is done: the single thread must be blocked for the
+			// deadlock to manifest, just as a real UI thread would be.
+			var thread = new Thread(() =>
 			{
-				try { action(); }
+				SetSynchronizationContext(this);
+				try
+				{
+					action();
+					completed = true;
+				}
 				catch (Exception ex) { thrown = ex; }
-				finally { completed = true; _queue.Add((_ => { }, null)); } // sentinel to unblock Take
+				finally { SetSynchronizationContext(null); }
 			})
 			{ IsBackground = true };
-			actionThread.Start();
 
-			var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+			thread.Start();
 
-			// Pump continuations until the action completes and the queue drains,
-			// or until the timeout elapses.
-			while (DateTime.UtcNow < deadline)
-			{
-				if (_queue.TryTake(out var item, millisecondsTimeout: 20))
-					item.Callback(item.State);
-
-				if (completed && _queue.Count == 0)
-					break;
-			}
-
-			SetSynchronizationContext(previous);
+			if (!thread.Join(timeoutMs))
+				return false; // Timed out — the thread is deadlocked
 
 			if (thrown != null)
 				System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(thrown).Throw();
 
-			return completed && DateTime.UtcNow < deadline;
+			return completed;
 		}
 	}
 
@@ -159,7 +156,7 @@ public class TestMslPrompt9AsyncDeadlock
 			// With the old Predict() pattern, this continuation will never run because
 			// the context thread is blocked in GetResult() — deadlock.
 			// With Task.Run() (Fix 10), this runs on a ThreadPool thread with no context.
-			await Task.Delay(1).ConfigureAwait(false);
+			await Task.Delay(1);
 
 			// Return empty predictions — no assertions on content in deadlock tests
 			Predictions = new List<PeptideFragmentIntensityPrediction>();

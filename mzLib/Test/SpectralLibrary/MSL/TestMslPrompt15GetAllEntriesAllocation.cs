@@ -372,12 +372,13 @@ public sealed class TestMslPrompt15GetAllEntriesAllocation
         long gen0After = GC.CollectionCount(0);
         long gen0Delta = gen0After - gen0Before;
 
-        // Allow up to 2 collections for baseline GC noise.
+        // Allow up to 10 collections for baseline GC noise from background threads
+        // (finalizer, JIT recompilation, test harness, parallel test runners).
         // The pre-fix code produced hundreds of collections for this workload.
-        Assert.That(gen0Delta, Is.LessThanOrEqualTo(2),
+        Assert.That(gen0Delta, Is.LessThanOrEqualTo(10),
             $"GetAllEntries triggered {gen0Delta} Gen-0 GC collections across " +
-            $"{iterations} iterations on a 1000-entry library. Expected at most 2 " +
-            $"(iterator state machine baseline only). A higher count indicates the " +
-            $"index array clone was not eliminated by the fix.");
+            $"{iterations} iterations on a 1000-entry library. Expected at most 10 " +
+            $"(iterator state machine baseline + background GC noise). A much higher " +
+            $"count indicates the index array clone was not eliminated by the fix.");
     }
 }

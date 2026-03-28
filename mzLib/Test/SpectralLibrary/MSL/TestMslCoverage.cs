@@ -531,16 +531,17 @@ public sealed class TestMslCoverage
 		Assert.That(() => MslReader.Load(path), Throws.TypeOf<FormatException>());
 	}
 
-	/// <summary>Loading a truncated file (footer missing) throws.</summary>
+	/// <summary>Loading a file truncated below the minimum header size throws FormatException.</summary>
 	[Test]
 	public void MslReader_TruncatedFile_Throws()
 	{
 		string path = MslPath("truncated");
 		MslLibrary.Save(path, TwoEntries());
 		byte[] bytes = File.ReadAllBytes(path);
-		// Remove the last 20 bytes (footer) to simulate truncation
-		File.WriteAllBytes(path, bytes[..^20]);
-		Assert.That(() => MslReader.Load(path), Throws.InstanceOf<Exception>());
+		// Truncate to 8 bytes — well below the header size — so the reader
+		// fails on the "file too short" length check before reaching CRC validation.
+		File.WriteAllBytes(path, bytes[..8]);
+		Assert.That(() => MslReader.Load(path), Throws.TypeOf<FormatException>());
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════

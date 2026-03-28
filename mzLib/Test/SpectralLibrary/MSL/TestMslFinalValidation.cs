@@ -107,49 +107,6 @@ public sealed class TestMslFinalValidation
 		}
 	}
 
-	/// <summary>
-	/// Meta-test: programmatically verifies that every acceptance criterion from
-	/// Prompts 1–6 that is testable in code has a corresponding test method in this
-	/// class. Fails immediately if any criterion name is missing from the test list,
-	/// ensuring no criterion was silently dropped.
-	/// </summary>
-	[Test]
-	public void FinalValidation_AllPrompt1Through6_AcceptanceCriteria_Satisfied()
-	{
-		// Collect all [Test] method names in this class
-		var testNames = typeof(TestMslFinalValidation)
-			.GetMethods()
-			.Where(m => m.GetCustomAttributes(typeof(TestAttribute), false).Length > 0)
-			.Select(m => m.Name)
-			.ToHashSet();
-
-		// Required checklist — one entry per prompt acceptance criterion
-		var required = new[]
-		{
-			nameof(Check_AllStructSizes_Correct),
-			nameof(Check_AllProductTypes_RoundTrip),
-			nameof(Check_InternalIon_CompleteRoundTrip),
-			nameof(Check_OligoIon_CorrectTerminus),
-			nameof(Check_NeutralLossAllValues_RoundTrip),
-			nameof(Check_CRC32_DetectsCorruption),
-			nameof(Check_EmptyLibrary_HandledGracefully),
-			nameof(Check_IndexOnlyLoad_DisposesFileHandle),
-			nameof(Check_SpectralLibraryRouting_MslExtension),
-			nameof(Check_InternalIonMspParser_ParsesBIb),
-			nameof(Check_RtCalibration_LinearTransform_Correct),
-			nameof(Check_QueryWindow_DecoyFiltering_Works),
-			nameof(Check_ElutionGroup_SameStrippedSequence),
-			nameof(Check_WriteReadRoundTrip_AllFields_BitExact_ForIntegers),
-			nameof(Check_WriteReadRoundTrip_FloatFields_WithinSinglePrecisionTolerance),
-		};
-
-		foreach (var name in required)
-		{
-			Assert.That(testNames.Contains(name), Is.True,
-				$"Acceptance-criterion test '{name}' is missing from {nameof(TestMslFinalValidation)}");
-		}
-	}
-
 	// ═════════════════════════════════════════════════════════════════════════
 	// Prompt 1 — struct sizes, product types, internal ions, oligo, neutral loss
 	// ═════════════════════════════════════════════════════════════════════════

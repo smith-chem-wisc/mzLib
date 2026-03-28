@@ -17,8 +17,7 @@ namespace Test.SpectralLibrary.MSL;
 /// existing 472-test suite. They do NOT duplicate tests already present.
 ///
 /// Gaps addressed:
-///   G1 — WriteStreaming with a single-pass IEnumerable silently produces a
-///         zero-precursor file (documented in code, untested)
+///   G1 — WriteStreaming spill-file cleanup: temp files removed after two-pass write
 ///   G2 — DecodeNeutralLoss for H3PO4, HPO3, and H3PO4AndH2O not tested
 ///         in isolation (only via round-trip)
 ///   G3 — ClassifyNeutralLoss not called directly in any test (only via
@@ -83,44 +82,52 @@ public class TestMslPrompt5CoverageGaps
 	};
 
 	// ═════════════════════════════════════════════════════════════════════
-	// G1 — WriteStreaming with a single-pass IEnumerable
+	// G1 — WriteStreaming spill-file cleanup and List source
 	// ═════════════════════════════════════════════════════════════════════
 
 	/// <summary>
-	/// WriteStreaming correctly handles single-pass IEnumerable sources.
-	/// Pass 2 reads entry scalars from the spill file written during Pass 1,
-	/// so the source only needs to be enumerated once.
-	///
-	/// This test documents the fixed behavior. The original concern (that a
-	/// single-pass source would silently produce a zero-precursor file) no longer
-	/// applies because WriteStreaming was refactored to store per-entry scalars in
-	/// the spill file rather than relying on re-enumeration of the caller's source.
+	/// WriteStreaming uses a temporary spill file during the two-pass write.
+	/// After the write completes, no spill (temp) files should remain in the
+	/// output directory. This verifies the cleanup path that replaced the
+	/// original single-pass IEnumerable concern (now covered by
+	/// TestMslPrompt10SinglePass).
 	/// </summary>
 	[Test]
-	public void WriteStreaming_SinglePassIEnumerable_ProducesCorrectPrecursorCount()
+	public void WriteStreaming_SpillFileCleanup_NoTempFilesRemainAfterWrite()
 	{
-		string path = TempPath("streaming_single_pass");
+		string path = TempPath("streaming_spill_cleanup");
+		string dir = Path.GetDirectoryName(path)!;
 
-		// A true single-pass sequence — once exhausted, a second foreach yields nothing.
+		// Snapshot files before the write
+		var filesBefore = new HashSet<string>(Directory.GetFiles(dir));
+
 		static IEnumerable<MslLibraryEntry> SinglePassSource()
 		{
 			foreach (var e in OneEntry())
 				yield return e;
 		}
 
-		Assert.That(() => MslWriter.WriteStreaming(path, SinglePassSource()),
-			Throws.Nothing,
-			"WriteStreaming must not throw for a single-pass IEnumerable.");
+		MslWriter.WriteStreaming(path, SinglePassSource());
 
+		// After the write, only the output .msl file should be new
+		var filesAfter = Directory.GetFiles(dir);
+		var newFiles = filesAfter.Where(f => !filesBefore.Contains(f)).ToList();
+
+		Assert.That(newFiles, Has.Count.EqualTo(1),
+			"WriteStreaming must clean up all spill/temp files after completion. " +
+			"Only the output .msl file should remain.");
+		Assert.That(newFiles[0], Is.EqualTo(path),
+			"The only new file after WriteStreaming must be the output .msl itself.");
+
+		// Confirm the output is valid
 		var lib = MslReader.Load(path);
 		Assert.That(lib.Count, Is.EqualTo(1),
-			"WriteStreaming correctly handles single-pass IEnumerable sources. " +
-			"Pass 2 reads entry scalars from the spill file, not from re-enumerating the source.");
+			"The output file must contain the correct precursor count.");
 	}
 
 	/// <summary>
 	/// Confirms that WriteStreaming works correctly when a List&lt;T&gt; (re-enumerable)
-	/// is passed — the normal usage path. Companion to the single-pass test above.
+	/// is passed — the normal usage path.
 	/// </summary>
 	[Test]
 	public void WriteStreaming_ListSource_ProducesCorrectPrecursorCount()

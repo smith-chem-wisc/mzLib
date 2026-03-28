@@ -121,6 +121,12 @@ namespace PredictionClients.Koina.AbstractClasses
         /// and realigning the predictions back to the original input list using the ValidInputsMask.
         /// </summary>
         public List<PeptideFragmentIntensityPrediction> Predictions { get; protected set; } = new();
+
+        /// <summary>
+        /// Lock object that serializes access to mutable instance state (ModelInputs, ValidInputsMask, Predictions)
+        /// across concurrent Predict() calls on the same model instance.
+        /// </summary>
+        private readonly object _predictLock = new();
         #endregion
         // TODO: Implement Caches to optimize performance by avoiding redundant computations during sequence validation and modification conversions.
 
@@ -246,7 +252,13 @@ namespace PredictionClients.Koina.AbstractClasses
 			// This is a stopgap (Option A). The correct long-term fix (Option B) is to
 			// expose PredictFragmentsAsync on MslLibrary and propagate async through
 			// MslFragmentModelRouter and all callers. See tracking issue for Option B.
-			return Task.Run(() => AsyncThrottledPredictor(modelInputs)).GetAwaiter().GetResult();
+			//
+			// The lock serializes concurrent callers so that the shared instance state
+			// (ModelInputs, ValidInputsMask, Predictions) is not corrupted by interleaving.
+			lock (_predictLock)
+			{
+				return Task.Run(() => AsyncThrottledPredictor(modelInputs)).GetAwaiter().GetResult();
+			}
 		}
 
 		/// <summary>
@@ -302,7 +314,7 @@ namespace PredictionClients.Koina.AbstractClasses
                         var predictedIntensities = new List<double>();
                         for (int j = 0; j < fragmentCount; j++)
                         {
-                            double intensity = Convert.ToDouble(outputMZs[i * fragmentCount + j]);
+                            double intensity = Convert.ToDouble(outputIntensities[i * fragmentCount + j]);
                             if (intensity == -1)
                             {
                                 // Skip impossible ions as indicated by the model with an intensity of -1. This is a convention used by the models to indicate that a particular fragment ion cannot be formed from the given peptide sequence and fragmentation conditions.
@@ -339,7 +351,7 @@ namespace PredictionClients.Koina.AbstractClasses
                         var predictedIntensities = new List<double>();
                         for (int j = 0; j < fragmentCount; j++)
                         {
-                            double intensity = Convert.ToDouble(outputMZs[i * fragmentCount + j]);
+                            double intensity = Convert.ToDouble(outputIntensities[i * fragmentCount + j]);
                             if (intensity == -1)
                             {
                                 // Skip impossible ions as indicated by the model with an intensity of -1. This is a convention used by the models to indicate that a particular fragment ion cannot be formed from the given peptide sequence and fragmentation conditions.
@@ -347,7 +359,12 @@ namespace PredictionClients.Koina.AbstractClasses
                             }
                             var fragmentIon = outputAnnotations[i * fragmentCount + j].ToString()!;
                             int plusIndex = fragmentIon.IndexOf('+');
-                            int fragmentCharge = int.Parse(fragmentIon.Substring(plusIndex));
+                            if (plusIndex == -1)
+                            {
+                                // Skip annotations without a '+' charge delimiter (e.g., precursor ions, internal fragments)
+                                continue;
+                            }
+                            int fragmentCharge = int.Parse(fragmentIon.Substring(plusIndex + 1));
                             fragmentIons.Add(fragmentIon);
                             fragmentMZs.Add(tpLookup[fragmentIon.Substring(0, plusIndex)].ToMz(fragmentCharge));
                             predictedIntensities.Add(intensity);
@@ -570,7 +587,6 @@ namespace PredictionClients.Koina.AbstractClasses
 
                 predictedSpectra.Add(spectrum);
             }
-            var warningString = $"Generated {predictedSpectra.Count} spectra from predictions.\n";
             var unique = predictedSpectra.DistinctBy(p => p.Name).ToList();
             if (unique.Count != predictedSpectra.Count)
             {
@@ -580,7 +596,10 @@ namespace PredictionClients.Koina.AbstractClasses
 
 			if (filepath == null)
 			{
-				warningString += "No file path provided for spectral library output. Generated spectra will not be saved to disk.\n";
+				var noFilePathMessage = "No file path provided for spectral library output. Generated spectra will not be saved to disk.";
+				warning = warning == null
+					? new WarningException(noFilePathMessage)
+					: new WarningException($"{warning.Message} {noFilePathMessage}");
 			}
 			else if (MslFileTypeHandler.IsMslFile(filepath))
 			{

@@ -41,6 +41,8 @@ namespace Development.MSL
 		private string _tempMslPath = null!;
 		private MslLibrary _queryLib = null!;
 		private IReadOnlyList<MslLibraryEntry> _entries = null!;
+		private MslIndex _lastIndex;
+		private MslLibrary _lastCalibratedLib;
 
 		// ── Setup / Cleanup ───────────────────────────────────────────────────────
 
@@ -54,9 +56,21 @@ namespace Development.MSL
 			_queryLib = MslLibrary.Load(_tempMslPath);
 		}
 
+		[IterationCleanup]
+		public void IterationCleanup()
+		{
+			if (_lastIndex is IDisposable disposableIndex)
+				disposableIndex.Dispose();
+			_lastIndex = null;
+
+			_lastCalibratedLib?.Dispose();
+			_lastCalibratedLib = null;
+		}
+
 		[GlobalCleanup]
 		public void GlobalCleanup()
 		{
+			IterationCleanup();
 			_queryLib?.Dispose();
 			_queryLib = null!;
 			if (File.Exists(_tempMslPath))
@@ -192,8 +206,9 @@ namespace Development.MSL
 		[Benchmark]
 		public MslIndex BuildIndex_FromEntries()
 		{
-			return MslIndex.Build(_entries, i =>
+			_lastIndex = MslIndex.Build(_entries, i =>
 				i >= 0 && i < _entries.Count ? _entries[i] : null);
+			return _lastIndex;
 		}
 
 		// ── RT calibration ────────────────────────────────────────────────────────
@@ -207,7 +222,8 @@ namespace Development.MSL
 		[Benchmark]
 		public MslLibrary RtCalibration_LinearTransform()
 		{
-			return _queryLib.WithCalibratedRetentionTimes(slope: 1.2, intercept: -5.0);
+			_lastCalibratedLib = _queryLib.WithCalibratedRetentionTimes(slope: 1.2, intercept: -5.0);
+			return _lastCalibratedLib;
 		}
 
 		// ── Synthetic data generation ─────────────────────────────────────────────
@@ -228,11 +244,13 @@ namespace Development.MSL
 
 			for (int i = 0; i < nPrecursors; i++)
 			{
-				// Unique sequence of 7–20 residues, deterministic from index
+				// Unique sequence of 7–20 residues, deterministic from index.
+				// The index suffix guarantees uniqueness across all NPrecursors values.
 				int seqLen = 7 + (i % 14);
-				var sb = new StringBuilder(seqLen);
+				var sb = new StringBuilder(seqLen + 10);
 				for (int j = 0; j < seqLen; j++)
 					sb.Append(aa[(i * 7 + j * 13) % aa.Length]);
+				sb.Append(i);
 				string seq = sb.ToString();
 
 				int charge = 2 + (i % 3);                                     // 2, 3, or 4

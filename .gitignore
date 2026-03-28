@@ -250,3 +250,6 @@ ModelManifest.xml
 # Macintosh files
 **/.DS_Store
 
+# BenchmarkDotNet artifacts - machine-specific, regenerated on every run
+**/BenchmarkDotNet.Artifacts/
+
