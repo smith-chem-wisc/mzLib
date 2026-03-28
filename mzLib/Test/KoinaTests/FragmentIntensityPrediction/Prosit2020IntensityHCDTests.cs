@@ -1,4 +1,5 @@
 ﻿using NUnit.Framework;
+using Omics.SequenceConversion;
 using Omics.SpectrumMatch;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;

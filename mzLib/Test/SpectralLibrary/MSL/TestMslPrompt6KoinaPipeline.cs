@@ -463,22 +463,17 @@ public class TestMslPrompt6KoinaPipeline
 		var model = new PredictionClients.Koina.SupportedModels.FragmentIntensityModels
 			.Prosit2020IntensityHCD();
 
-		// A phospho modification not in Prosit's ValidModificationUnimodMapping
-		string seqWithUnsupportedMod = "PEPT[Common Variable:Phospho on T]IDE";
-
-		// Access TryCleanSequence via the public ValidModificationUnimodMapping
-		// to confirm the mod is not supported
-		bool isSupported = model.ValidModificationUnimodMapping
-			.ContainsKey("[Common Variable:Phospho on T]");
+		// Phospho (UNIMOD:21) is not in Prosit's AllowedUnimodIds
+		bool isSupported = model.AllowedUnimodIds.Contains(21);
 
 		Assert.That(isSupported, Is.False,
-			"Phospho on T must not be in Prosit's ValidModificationUnimodMapping — " +
+			"Phospho (UNIMOD:21) must not be in Prosit's AllowedUnimodIds — " +
 			"it is not a supported modification for this model.");
 
-		// The model maps only Oxidation on M and Carbamidomethyl on C
-		Assert.That(model.ValidModificationUnimodMapping.Count, Is.EqualTo(2),
+		// The model supports only Oxidation on M (UNIMOD:35) and Carbamidomethyl on C (UNIMOD:4)
+		Assert.That(model.AllowedUnimodIds.Count, Is.EqualTo(2),
 			"Prosit 2020 HCD must support exactly 2 modifications: " +
-			"Oxidation on M ([UNIMOD:35]) and Carbamidomethyl on C ([UNIMOD:4]).");
+			"Oxidation on M (UNIMOD:35) and Carbamidomethyl on C (UNIMOD:4).");
 	}
 
 	/// <summary>

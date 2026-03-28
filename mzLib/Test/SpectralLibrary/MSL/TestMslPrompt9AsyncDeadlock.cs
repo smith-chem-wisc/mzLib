@@ -12,6 +12,7 @@
 using MassSpectrometry;
 using NUnit.Framework;
 using Omics.Fragmentation;
+using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.Util;
 using System;
@@ -126,6 +127,12 @@ public class TestMslPrompt9AsyncDeadlock
 	/// </summary>
 	private sealed class MockAsyncFragmentModel : FragmentIntensityModel
 	{
+		private static readonly IReadOnlySet<int> MockUnimodIds = new HashSet<int> { 35, 4 };
+		private static readonly ISequenceConverter MockConverter = CreateUnimodConverter(
+			UnimodSequenceFormatSchema.Instance, MockUnimodIds);
+
+		public MockAsyncFragmentModel() : base(MockConverter) { }
+
 		// ── Abstract overrides — minimal stubs ────────────────────────────
 
 		public override string ModelName => "MockModel";
@@ -134,8 +141,9 @@ public class TestMslPrompt9AsyncDeadlock
 		public override int ThrottlingDelayInMilliseconds { get; init; } = 0;
 		public override int BenchmarkedTimeForOneMaxBatchSizeInMilliseconds => 100;
 		public override HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3 };
-		public override IncompatibleModHandlingMode ModHandlingMode { get; init; }
-			= IncompatibleModHandlingMode.RemoveIncompatibleMods;
+		public override IReadOnlySet<int> AllowedUnimodIds => MockUnimodIds;
+		public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
+			= SequenceConversionHandlingMode.RemoveIncompatibleElements;
 		public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
 			= IncompatibleParameterHandlingMode.ReturnNull;
 		public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }
