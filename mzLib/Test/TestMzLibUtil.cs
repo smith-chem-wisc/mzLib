@@ -3,6 +3,12 @@ using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using MzLibUtil;
 using Readers;
 using System.Collections.Generic;
+using FlashLFQ;
+using System.Linq;
+using Proteomics.AminoAcidPolymer;
+using System;
+using NUnit.Framework.Legacy;
+using MzLibUtil.PositionFrequencyAnalysis;
 
 namespace Test
 {
@@ -163,8 +169,242 @@ namespace Test
             string cleanSeq = seqWithHash.ToString();
             ClassExtensions.RemoveSpecialCharacters(ref cleanSeq, specialCharacter: "#");
             Assert.AreEqual("PEPTIDE", cleanSeq);
+        }
 
+        [Test]
+        public void TestQuantifiedModification()
+        {
+            var quantmod = new QuantifiedModification(name: "TestMod: ModX on AAY", positionInPeptide: 1, positionInProtein: 2, intensity: 10);
+            Assert.AreEqual(quantmod.Name, "TestMod: ModX on AAY");
+            Assert.AreEqual(quantmod.PeptidePositionZeroIsNTerminus, 1);
+            Assert.AreEqual(quantmod.ProteinPositionZeroIsNTerminus, 2);
+            Assert.AreEqual(quantmod.Intensity, 10);
+        }
 
+        [Test]
+        public void TestQuantifiedPeptide()
+        {
+            var fullSeq1 = "[UniProt: N - palmitoyl glycine on G]G[UniProt: N - methylglycine on G]K[UniProt: O - linked(Hex) hydroxylysine on K]";
+            var peptide1 = new QuantifiedPeptide(fullSeq1, intensity: 1);
+            Assert.That(peptide1.FullSequences.Contains(fullSeq1));
+            Assert.AreEqual(peptide1.BaseSequence, "GK");
+            Assert.AreEqual(peptide1.Intensity, 1);
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions.Count, 3);
+            Assert.That(peptide1.ModifiedAminoAcidPositions.ContainsKey(0));
+            Assert.That(peptide1.ModifiedAminoAcidPositions.ContainsKey(1));
+            Assert.That(peptide1.ModifiedAminoAcidPositions.ContainsKey(2));
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[0].First().Value.Name, "UniProt: N - palmitoyl glycine on G");
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[1].First().Value.Name, "UniProt: N - methylglycine on G");
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[2].First().Value.Name, "UniProt: O - linked(Hex) hydroxylysine on K");
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[0].First().Value.Intensity, 1);
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[1].First().Value.Intensity, 1);
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[2].First().Value.Intensity, 1);
+
+            // Test MergePeptide method
+            var fullSeq2 = "[UniProt: N - acetylglycine on G]G[UniProt: N - methylglycine on G]K[UniProt: O - linked(Hex) hydroxylysine on K]";
+            var peptide2 = new QuantifiedPeptide(fullSeq2, intensity: 10);
+            peptide1.MergePeptide(peptide2);
+
+            Assert.That(peptide1.FullSequences.Contains(fullSeq2));
+            Assert.AreEqual(peptide1.Intensity, 11);
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions.Count, 3);
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[0].Count, 2);
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[1].Count, 1);
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[2].Count, 1);
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[0]["UniProt: N - palmitoyl glycine on G"].Intensity, 1);
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[0]["UniProt: N - acetylglycine on G"].Intensity, 10);
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[1].First().Value.Intensity, 11);
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[2].First().Value.Intensity, 11);
+
+            // Test AddFullSequence method
+            var fullSeq3 = "GK[UniProt: O - linked(Hex) hydroxylysine on K]";
+            peptide1.AddFullSequence(fullSeq3, intensity:100);
+
+            Assert.That(peptide1.FullSequences.Contains(fullSeq3));
+            Assert.AreEqual(peptide1.Intensity, 111);
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions.Count, 3);
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[0].Count, 2);
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[1].Count, 1);
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[2].Count, 1);
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[0]["UniProt: N - palmitoyl glycine on G"].Intensity, 1);
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[0]["UniProt: N - acetylglycine on G"].Intensity, 10);
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[1].First().Value.Intensity, 11);
+            Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[2].First().Value.Intensity, 111);
+
+            // Test failed merge due to base sequence mismatch
+            var exception1 = Assert.Throws<System.Exception>(() => peptide1.AddFullSequence("AK", intensity: 1));
+
+            var peptide3 = new QuantifiedPeptide("AK", intensity: 1);
+            var exception2 = Assert.Throws<System.ArgumentException>(() => peptide1.MergePeptide(peptide3));
+
+            // Test failed merge due to null argument
+            var exception3 = Assert.Throws<System.ArgumentNullException>(() => peptide1.MergePeptide(null));
+
+            // Test ModStoichiometry calculation
+            var stoich = peptide1.GetModStoichiometryForPeptide();
+            Assert.IsNotNull(stoich);
+            Assert.AreEqual(stoich.Count, 3);
+            Assert.AreEqual(stoich[0]["UniProt: N - palmitoyl glycine on G"].Intensity, 1 / 111.0);
+            Assert.AreEqual(stoich[0]["UniProt: N - acetylglycine on G"].Intensity, 10 / 111.0);
+            Assert.AreEqual(stoich[1]["UniProt: N - methylglycine on G"].Intensity, 11 / 111.0);
+            Assert.AreEqual(stoich[2]["UniProt: O - linked(Hex) hydroxylysine on K"].Intensity, 111 / 111.0);
+        }
+
+        [Test]
+        public void TestQuantifiedProtein()
+        {
+
+            var fullSeq1 = "[UniProt: N - palmitoyl glycine on G]G[UniProt: N - methylglycine on G]K[UniProt: O - linked(Hex) hydroxylysine on K]";
+            var fullSeq2 = "[UniProt: N - acetylglycine on G]G[UniProt: N - methylglycine on G]K-[C-Terminal UniProt: Lysine Amide on K]";
+            var fullSeq3 = "A[UniProt:N-methylalanine on A]K[UniProt: O - linked(Hex) hydroxylysine on K]-[C-Terminal UniProt: Lysine Amide on K]";
+
+            var basePeptide1 = new QuantifiedPeptide(fullSeq1, intensity: 1);
+            var basePeptide2 = new QuantifiedPeptide(fullSeq3, intensity: 100);
+
+            basePeptide1.AddFullSequence(fullSeq2, intensity: 10);
+            var peptides = new Dictionary<string, QuantifiedPeptide> {{ basePeptide1.BaseSequence, basePeptide1},
+                                                                      { basePeptide2.BaseSequence, basePeptide2 }};
+
+            var proteinSeq = "GKAAAAAAK";
+            var protein = new QuantifiedProtein(accession: "TESTPROT", sequence: proteinSeq, peptides: peptides);
+            var stoich = protein.GetModStoichiometryFromProteinMods();
+
+            // Check object fields modified by SetProteinModsFromPeptides, which gets called first in the GetModStoichiometryFromProteinMods method. 
+            Assert.AreEqual(protein.Accession, "TESTPROT");
+            Assert.AreEqual(protein.Sequence, proteinSeq);
+            Assert.AreEqual(protein.Peptides.Count, 2);
+            Assert.AreEqual(protein.ModifiedAminoAcidPositionsInProtein.Count, 6);
+            Assert.AreEqual(protein.ModifiedAminoAcidPositionsInProtein[0].Count, 2);
+            Assert.AreEqual(protein.ModifiedAminoAcidPositionsInProtein[1].Count, 1);
+            Assert.AreEqual(protein.ModifiedAminoAcidPositionsInProtein[2].Count, 1);
+            Assert.AreEqual(protein.ModifiedAminoAcidPositionsInProtein[8].Count, 1);
+            Assert.AreEqual(protein.ModifiedAminoAcidPositionsInProtein[9].Count, 1);
+            Assert.AreEqual(protein.ModifiedAminoAcidPositionsInProtein[10].Count, 1);
+
+            Assert.AreEqual(protein.ModifiedAminoAcidPositionsInProtein[0]["UniProt: N - palmitoyl glycine on G"].Intensity, 1);
+            Assert.AreEqual(protein.ModifiedAminoAcidPositionsInProtein[0]["UniProt: N - acetylglycine on G"].Intensity, 10);
+            Assert.AreEqual(protein.ModifiedAminoAcidPositionsInProtein[1]["UniProt: N - methylglycine on G"].Intensity, 11);
+            Assert.AreEqual(protein.ModifiedAminoAcidPositionsInProtein[2]["UniProt: O - linked(Hex) hydroxylysine on K"].Intensity, 1);
+            Assert.AreEqual(protein.ModifiedAminoAcidPositionsInProtein[8]["UniProt:N-methylalanine on A"].Intensity, 100);
+            Assert.AreEqual(protein.ModifiedAminoAcidPositionsInProtein[9]["UniProt: O - linked(Hex) hydroxylysine on K"].Intensity, 100);
+            Assert.AreEqual(protein.ModifiedAminoAcidPositionsInProtein[10]["C-Terminal UniProt: Lysine Amide on K"].Intensity, 100);
+
+            // Check stoichiometry results
+            Assert.AreEqual(stoich.Count, 6);
+            Assert.AreEqual(stoich[0]["UniProt: N - palmitoyl glycine on G"], 1 / 11.0);
+            Assert.AreEqual(stoich[0]["UniProt: N - acetylglycine on G"], 10 / 11.0);
+            Assert.AreEqual(stoich[1]["UniProt: N - methylglycine on G"], 11 / 11.0);
+            Assert.AreEqual(stoich[2]["UniProt: O - linked(Hex) hydroxylysine on K"], 1 / 11.0);
+            Assert.AreEqual(stoich[8]["UniProt:N-methylalanine on A"], 1);
+            Assert.AreEqual(stoich[9]["UniProt: O - linked(Hex) hydroxylysine on K"], 1);
+            Assert.AreEqual(stoich[10]["C-Terminal UniProt: Lysine Amide on K"], 1);
+        }
+
+        [Test]
+        public void TestQuantifiedProteinGroup()
+        {   
+            // Test correct arguments where protein group name contains the names of the proteins
+            var protein1 = new QuantifiedProtein(accession: "PROT1", sequence: "AAAYYY", peptides: new Dictionary<string, QuantifiedPeptide>());
+            var protein2 = new QuantifiedProtein(accession: "PROT2", sequence: "AAARRR", peptides: new Dictionary<string, QuantifiedPeptide>());
+            var proteins = new Dictionary<string, QuantifiedProtein> { { protein1.Accession, protein1 },
+                                                                       { protein2.Accession, protein2 } };
+            var proteinGroup = new QuantifiedProteinGroup("PROT1|PROT2", proteins);
+            Assert.AreEqual(proteinGroup.Proteins.Count, 2);
+            Assert.AreEqual(proteinGroup.Proteins["PROT1"].Accession, "PROT1");
+            Assert.AreEqual(proteinGroup.Proteins["PROT2"].Accession, "PROT2");
+
+            // Test incorrect argument where protein group name does not contain the names of the proteins
+            var errorMessage = "The number of proteins provided does not match the number of proteins in the protein group name.";
+            var exception1 = Assert.Throws<System.Exception>(() => new QuantifiedProteinGroup("PROT1|PROT2", new Dictionary<string, QuantifiedProtein> { { protein1.Accession, protein1 } }));
+            Assert.AreEqual(exception1.Message, errorMessage);
+
+            var exception2 = Assert.Throws<System.Exception>(() => new QuantifiedProteinGroup("PROT1", proteins));
+            Assert.AreEqual(exception2.Message, errorMessage);
+
+            var exception3 = Assert.Throws<System.Exception>(() => new QuantifiedProteinGroup("PROT1|PROT2|PROT3", proteins));
+            Assert.AreEqual(exception3.Message, errorMessage);
+
+            // Test modification mapping from peptides to proteins - fails if protein does not have a sequence
+            var newProt = new QuantifiedProtein(accession: "PROT3", sequence: null, peptides: new Dictionary<string, QuantifiedPeptide>());
+            Assert.Throws<System.Exception>(() => newProt.SetProteinModsFromPeptides());
+            newProt.Sequence = "AAAYYY";
+            newProt.SetProteinModsFromPeptides();
+            Assert.That(newProt.ModifiedAminoAcidPositionsInProtein.Count == 0);
+
+            // Test modification mapping from peptides to proteins
+            var peptide1 = new QuantifiedPeptide("[UniProt: Mod1 on A]AAAYYY", intensity: 1);
+            var peptide2 = new QuantifiedPeptide("AAARRR[UniProt: Mod2 on R]", intensity: 2);
+            var peptide3 = new QuantifiedPeptide("AAA", intensity: 3);
+            var peptide4 = new QuantifiedPeptide("[Test Mod]RRR", intensity: 4);
+
+            protein1.Peptides.Add(peptide1.BaseSequence, peptide1);
+            protein1.Peptides.Add(peptide3.BaseSequence, peptide3);
+            protein1.SetProteinModsFromPeptides();
+
+            protein2.Peptides.Add(peptide2.BaseSequence, peptide2);
+            protein2.Peptides.Add(peptide3.BaseSequence, peptide3);
+            protein2.Peptides.Add(peptide4.BaseSequence, peptide4);
+            protein2.SetProteinModsFromPeptides();
+
+            Assert.AreEqual(proteinGroup.Proteins["PROT1"].ModifiedAminoAcidPositionsInProtein.Count, 1);
+            Assert.AreEqual(proteinGroup.Proteins["PROT1"].ModifiedAminoAcidPositionsInProtein[0].Count, 1);
+            Assert.AreEqual(proteinGroup.Proteins["PROT1"].ModifiedAminoAcidPositionsInProtein[0]["UniProt: Mod1 on A"].Name, "UniProt: Mod1 on A");
+            Assert.AreEqual(proteinGroup.Proteins["PROT1"].ModifiedAminoAcidPositionsInProtein[0]["UniProt: Mod1 on A"].Intensity, 1);
+
+            Assert.AreEqual(proteinGroup.Proteins["PROT2"].ModifiedAminoAcidPositionsInProtein.Count, 1);
+            Assert.AreEqual(proteinGroup.Proteins["PROT2"].ModifiedAminoAcidPositionsInProtein[6].Count, 1);
+            Assert.AreEqual(proteinGroup.Proteins["PROT2"].ModifiedAminoAcidPositionsInProtein[6]["UniProt: Mod2 on R"].Name, "UniProt: Mod2 on R");
+            Assert.AreEqual(proteinGroup.Proteins["PROT2"].ModifiedAminoAcidPositionsInProtein[6]["UniProt: Mod2 on R"].Intensity, 2);
+
+            // Test protein modification stoichiometry calculation
+            var stoich1 = proteinGroup.Proteins["PROT1"].GetModStoichiometryFromProteinMods();
+            Assert.AreEqual(stoich1.Count, 1);
+            Assert.AreEqual(stoich1[0]["UniProt: Mod1 on A"], 1 / 4.0);
+
+            var stoich2 = proteinGroup.Proteins["PROT2"].GetModStoichiometryFromProteinMods();
+            Assert.AreEqual(stoich2.Count, 1);
+            Assert.AreEqual(stoich2[6]["UniProt: Mod2 on R"], 2 / 6.0);
+        }
+
+        [Test]
+        public void TestSetUpQuantificationObjects()
+        {
+            var fullSeq1 = "[UniProt: N - palmitoyl glycine on G]G[UniProt: N - methylglycine on G]K[UniProt: O - linked(Hex) hydroxylysine on K]";
+            var fullSeq2 = "[UniProt: N - acetylglycine on G]G[UniProt: N - methylglycine on G]K-[C-Terminal UniProt: Lysine Amide on K]";
+            var fullSequences = new List<string> { fullSeq1, fullSeq2 };
+            var proteinGroups = new List<string> { "TESTPROT1|TESTPROT2", "TESTPROT3" };
+            var proteinSequences = new Dictionary<string, string> { { "TESTPROT1", "GKAAAAAAK" },
+                                                                    { "TESTPROT2", "AKAAAAAGK" },
+                                                                    { "TESTPROT3", "AKGK"} };
+            var intensities = new List<double> { 1, 5 };
+            var sequenceInputs = new List<QuantifiedPeptideRecord> { };
+            for (int i = 0; i < 2; i++)
+            {
+                QuantifiedPeptideRecord record = new QuantifiedPeptideRecord(fullSequences[i], proteinGroups.ToHashSet(), intensities[i]);
+                sequenceInputs.Add(record);
+            }
+            sequenceInputs.Add(new QuantifiedPeptideRecord("AAAA", new HashSet<string> { "TESTPROT1|TESTPROT2" }, 10));
+
+            var quant = new PositionFrequencyAnalysis();
+            quant.SetUpQuantificationFromQuantifiedPeptideRecords(sequenceInputs, proteinSequences);
+            Assert.AreEqual(quant.ProteinGroups.Count, 2);
+            Assert.That(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins.Keys.Contains("TESTPROT1"));
+            Assert.That(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins.Keys.Contains("TESTPROT2"));
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT1"].Accession, "TESTPROT1");
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT1"].Sequence, "GKAAAAAAK");
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT1"].Peptides.Count, 2);
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT1"].Peptides["GK"].FullSequences.Count, 2);
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT1"].Peptides["AAAA"].FullSequences.Count, 1);
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT2"].Accession, "TESTPROT2");
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT2"].Sequence, "AKAAAAAGK");
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT2"].Peptides.Count, 2);
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT2"].Peptides["GK"].FullSequences.Count, 2);
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT2"].Peptides["AAAA"].FullSequences.Count, 1);
+
+            Assert.That(quant.ProteinGroups["TESTPROT3"].Proteins.Keys.Contains("TESTPROT3"));
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT3"].Proteins["TESTPROT3"].Accession, "TESTPROT3");
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT3"].Proteins["TESTPROT3"].Sequence, "AKGK");
+            Assert.AreEqual(quant.ProteinGroups["TESTPROT3"].Proteins["TESTPROT3"].Peptides.Count, 1);
         }
 
         public struct TestStruct

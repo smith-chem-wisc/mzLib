@@ -102,6 +102,44 @@ namespace Omics.BioPolymerGroup
         List<IBioPolymer> ListOfBioPolymersOrderedByAccession { get; }
 
         /// <summary>
+        /// Per-sample-group quantification and modification occupancy results.
+        /// Each entry represents one (Condition × BiologicalReplicate) group for label-free data,
+        /// one (File × Channel) for isobaric data, or one file for count-only results.
+        /// Built by PopulateSampleGroupResults, consumed by ToString and GetTabSeparatedHeader.
+        /// </summary>
+        List<SampleGroupResult>? SampleGroupResults { get; set; }
+
+        /// <summary>
+        /// Identifies the type of biopolymer in this group, which determines the modification
+        /// occupancy calculation strategy. <see cref="BioPolymerGroupType.Protein"/> uses
+        /// protein-level coordinates; <see cref="BioPolymerGroupType.Peptide"/> and
+        /// <see cref="BioPolymerGroupType.Oligo"/> use digestion-product-local coordinates.
+        /// </summary>
+        BioPolymerGroupType GroupType { get; }
+
+        /// <summary>
+        /// Cumulative count of target groups at or above this group's rank, used for FDR calculation.
+        /// </summary>
+        int CumulativeTarget { get; set; }
+
+        /// <summary>
+        /// Cumulative count of decoy groups at or above this group's rank, used for FDR calculation.
+        /// </summary>
+        int CumulativeDecoy { get; set; }
+
+        /// <summary>
+        /// Computes <see cref="BioPolymerGroupScore"/> from the PSMs in <see cref="AllPsmsBelowOnePercentFDR"/>.
+        /// Score is the sum of the best (highest) score per unique base sequence.
+        /// </summary>
+        void Score();
+
+        /// <summary>
+        /// Computes sequence coverage for each biopolymer in the group based on the PSMs
+        /// in <see cref="AllPsmsBelowOnePercentFDR"/>.
+        /// </summary>
+        void CalculateSequenceCoverage();
+
+        /// <summary>
         /// Returns a tab-separated header line for output files.
         /// The format matches the output of <see cref="object.ToString"/>.
         /// </summary>
