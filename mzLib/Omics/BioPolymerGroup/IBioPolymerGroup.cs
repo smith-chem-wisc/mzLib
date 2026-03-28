@@ -25,6 +25,11 @@ namespace Omics.BioPolymerGroup
         bool IsContaminant { get; }
 
         /// <summary>
+        /// True if any biopolymer in this group is marked as an entrapment protein.
+        /// </summary>
+        bool IsEntrapment { get; }
+
+        /// <summary>
         /// Samples that contribute quantification data for this group.
         /// Supports <see cref="SpectraFileInfo"/> (label-free) and <see cref="IsobaricQuantSampleInfo"/> (TMT/iTRAQ).
         /// </summary>

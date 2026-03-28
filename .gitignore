@@ -250,6 +250,10 @@ ModelManifest.xml
 # Macintosh files
 **/.DS_Store
 
+/.claude
+/.opencode
+/.opencode/config/coverage.json
+/AGENTS.md
 # BenchmarkDotNet artifacts - machine-specific, regenerated on every run
 **/BenchmarkDotNet.Artifacts/
 

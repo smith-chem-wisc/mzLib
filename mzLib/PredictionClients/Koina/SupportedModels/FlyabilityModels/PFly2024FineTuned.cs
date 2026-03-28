@@ -1,8 +1,7 @@
 ﻿using Easy.Common.Extensions;
 using MzLibUtil;
-using System.ComponentModel;
+using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
-using PredictionClients.Koina.Util;
 
 namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
 {
@@ -35,6 +34,8 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
     /// </remarks>
     public class PFly2024FineTuned : DetectabilityModel
     {
+        private static readonly ISequenceConverter Converter = CreateUnimodConverter(
+            UnimodSequenceFormatSchema.Instance, new HashSet<int>());
         /// <summary>The Koina API model name identifier for peptide detectability prediction</summary>
         public override string ModelName => "pfly_2024_fine_tuned";
 
@@ -73,9 +74,10 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
         /// <summary>Minimum allowed peptide sequence length in amino acids</summary>
         public override int MinPeptideLength => 1;
         /// <summary>Uses primary sequence for modified peptides since this model does not support modifications</summary>
-        public override IncompatibleModHandlingMode ModHandlingMode { get; init; } = IncompatibleModHandlingMode.UsePrimarySequence;
+        public override SequenceConversionHandlingMode ModHandlingMode { get; init; } = SequenceConversionHandlingMode.UsePrimarySequence;
 
         public PFly2024FineTuned(int maxNumberOfBatchesPerRequest = 500, int throttlingDelayInMilliseconds = 100)
+            : base(Converter)
         {
             MaxNumberOfBatchesPerRequest = maxNumberOfBatchesPerRequest;
             ThrottlingDelayInMilliseconds = throttlingDelayInMilliseconds;

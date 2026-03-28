@@ -133,7 +133,7 @@ namespace Test.KoinaTests
             Assert.That(predictions.Count, Is.EqualTo(2));
             Assert.That(predictions.All(p => p.Warning == null || p.Warning.Message.Contains("skipped")));
 
-            model = new Prosit2020IntensityHCD(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            model = new Prosit2020IntensityHCD(modHandlingMode: SequenceConversionHandlingMode.ThrowException);
             Assert.DoesNotThrow(() => model.Predict(modelInputs));
         }
 
@@ -152,7 +152,7 @@ namespace Test.KoinaTests
             Assert.That(predictions.Count, Is.EqualTo(0));
             Assert.DoesNotThrow( () => model.Predict(emptyInputs));
 
-            model = new Prosit2020IntensityHCD(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            model = new Prosit2020IntensityHCD(modHandlingMode: SequenceConversionHandlingMode.ThrowException);
             Assert.DoesNotThrow(() => model.Predict(emptyInputs));
         }
 
@@ -396,7 +396,7 @@ namespace Test.KoinaTests
             var charge = 2;
             var energy = 35;
             var model = new Prosit2020IntensityHCD();
-            var throwModel = new Prosit2020IntensityHCD(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            var throwModel = new Prosit2020IntensityHCD(modHandlingMode: SequenceConversionHandlingMode.ThrowException);
 
             // Test peptide with 'X' (unknown amino acid) - common in database searches
             var inputsWithX = new List<FragmentIntensityPredictionInput>

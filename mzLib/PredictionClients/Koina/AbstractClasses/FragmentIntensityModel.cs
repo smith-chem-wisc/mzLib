@@ -1,4 +1,5 @@
 ﻿using MzLibUtil;
+using Omics.SequenceConversion;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
 using PredictionClients.Koina.Client;
@@ -15,7 +16,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Represents the prediction results for a single peptide, containing fragment annotations,
     /// m/z values, and predicted intensities from a fragment intensity model.
     /// </summary>
-    /// <param name="FullSequence">The peptide sequence (with modifications in UNIMOD format)</param>
+    /// <param name="FullSequence">Original peptide sequence provided by the user (mzLib format)</param>
     /// <param name="FragmentAnnotations">Fragment ion annotations (e.g., "b5+1", "y3+2")</param>
     /// <param name="FragmentMZs">Theoretical m/z values for each fragment ion</param>
     /// <param name="FragmentIntensities">Predicted relative intensities (0-1 scale, -1 indicates impossible ions)</param>
@@ -70,6 +71,11 @@ namespace PredictionClients.Koina.AbstractClasses
     /// </summary>
     public abstract class FragmentIntensityModel : KoinaModelBase<FragmentIntensityPredictionInput, PeptideFragmentIntensityPrediction>, IPredictor<FragmentIntensityPredictionInput, PeptideFragmentIntensityPrediction>
     {
+        protected FragmentIntensityModel(ISequenceConverter sequenceConverter)
+            : base(sequenceConverter)
+        {
+        }
+
 
         #region Additional Model-Type Constraints
         /// <summary>Set of precursor charge states supported by the model (e.g., {2, 3, 4})</summary>
@@ -156,11 +162,11 @@ namespace PredictionClients.Koina.AbstractClasses
             var validInputs = new List<FragmentIntensityPredictionInput>();
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var modHandlingWarning); // mod handling happens here
+                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var apiSequence, out var modHandlingWarning); // mod handling happens here
                 var validModelParams = ValidateModelSpecificInputs(ModelInputs[i], out var modelParametersWarning);
-                if (cleanedSequence != null && validModelParams)
+                if (cleanedSequence != null && apiSequence != null && validModelParams)
                 {
-                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = cleanedSequence, SequenceWarning = modHandlingWarning, ParameterWarning = modelParametersWarning };
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = apiSequence, SequenceWarning = modHandlingWarning, ParameterWarning = modelParametersWarning };
                     ValidInputsMask[i] = true;
                     validInputs.Add(ModelInputs[i]);
                 }
@@ -220,7 +226,7 @@ namespace PredictionClients.Koina.AbstractClasses
                     // For invalid inputs, we can choose to add a placeholder prediction with a warning, or simply skip them. Here we add a placeholder with a warning for traceability.
                     realignedPredictions.Add(new PeptideFragmentIntensityPrediction(
                         FullSequence: ModelInputs[i].FullSequence,
-                        ValidatedFullSequence: ModelInputs[i].ValidatedFullSequence,
+                        ValidatedFullSequence: ModelInputs[i].ValidatedFullSequence ?? null,
                         PrecursorCharge: ModelInputs[i].PrecursorCharge,
                         FragmentAnnotations: null,
                         FragmentMZs: null,
@@ -382,24 +388,6 @@ namespace PredictionClients.Koina.AbstractClasses
                 }
             }
             return predictions;
-        }
-        #endregion
-
-        #region Full Sequence Modification Conversion Methods
-
-        /// <summary>
-        /// Converts mzLib modifications to mass-only format with 6 decimal precision.
-        /// Example: "[Common Fixed:Carbamidomethyl on C]" becomes "[57.021464]"
-        /// </summary>
-        /// <param name="sequence">Peptide sequence in mzLib format</param>
-        /// <returns>Peptide sequence with modifications as mass values</returns>
-        protected virtual string ConvertMzLibModificationsToMassesOnly(string sequence)
-        {
-            foreach (var mod in ValidModificationsMonoisotopicMasses)
-            {
-                sequence = sequence.Replace(mod.Key, $"[{mod.Value.ToString("F6")}]");
-            }
-            return sequence;
         }
         #endregion
 
