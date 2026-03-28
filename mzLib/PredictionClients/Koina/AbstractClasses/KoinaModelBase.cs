@@ -53,7 +53,7 @@ namespace PredictionClients.Koina.AbstractClasses
         protected Regex ModificationRegex => _modificationRegex ??= new Regex(ModificationPattern, RegexOptions.Compiled);
         #endregion
 
-        protected bool _disposed = false;
+        protected bool _disposed = false; 
 
         /// <summary>
         /// Gets the list of peptide sequences to be predicted.
