@@ -37,8 +37,8 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Each model will look for specific parameters within this record and may ignore others, but this provides 
     /// a standardized way to pass all relevant information to the models.
     /// </summary>
-    /// <param name="FullSequence">Peptide sequence with modifications in mzLib format (original input)</param>
-    /// <param name="PrecursorCharge">Charge state of the precursor ion (used in every model)</param>
+    /// <param name="FullSequence">Peptide sequence with modifications in UNIMOD format (used in every model)</param>
+    /// <param name="PrecursorCharge">ChargeState state of the precursor ion (used in every model)</param>
     /// <param name="CollisionEnergy">Collision energy used for fragmentation (not used by some models)</param>
     /// <param name="InstrumentType">Type of mass spectrometer instrument (not used by some models)</param>
     /// <param name="FragmentationType">Fragmentation method used (not used by some models)</param>
@@ -127,6 +127,12 @@ namespace PredictionClients.Koina.AbstractClasses
         /// and realigning the predictions back to the original input list using the ValidInputsMask.
         /// </summary>
         public List<PeptideFragmentIntensityPrediction> Predictions { get; protected set; } = new();
+
+        /// <summary>
+        /// Lock object that serializes access to mutable instance state (ModelInputs, ValidInputsMask, Predictions)
+        /// across concurrent Predict() calls on the same model instance.
+        /// </summary>
+        private readonly object _predictLock = new();
         #endregion
         // TODO: Implement Caches to optimize performance by avoiding redundant computations during sequence validation and modification conversions.
 
@@ -235,20 +241,41 @@ namespace PredictionClients.Koina.AbstractClasses
             return Predictions;
         }
 
-        public List<PeptideFragmentIntensityPrediction> Predict(List<FragmentIntensityPredictionInput> modelInputs)
-        {
-            return AsyncThrottledPredictor(modelInputs).GetAwaiter().GetResult();
-        }
+		public List<PeptideFragmentIntensityPrediction> Predict(List<FragmentIntensityPredictionInput> modelInputs)
+		{
+			// Task.Run() schedules AsyncThrottledPredictor on a ThreadPool thread that
+			// carries no SynchronizationContext. The awaited continuations inside
+			// AsyncThrottledPredictor (Task.WhenAll, Task.Delay) therefore complete freely
+			// on ThreadPool threads rather than trying to resume on the caller's context.
+			//
+			// Without Task.Run, calling .GetAwaiter().GetResult() directly on
+			// AsyncThrottledPredictor() would deadlock on any single-threaded
+			// SynchronizationContext (WinForms, WPF, ASP.NET non-Core) because:
+			//   - GetResult() blocks the context thread
+			//   - continuations need that thread to resume
+			//   - neither can proceed — permanent hang
+			//
+			// This is a stopgap (Option A). The correct long-term fix (Option B) is to
+			// expose PredictFragmentsAsync on MslLibrary and propagate async through
+			// MslFragmentModelRouter and all callers. See tracking issue for Option B.
+			//
+			// The lock serializes concurrent callers so that the shared instance state
+			// (ModelInputs, ValidInputsMask, Predictions) is not corrupted by interleaving.
+			lock (_predictLock)
+			{
+				return Task.Run(() => AsyncThrottledPredictor(modelInputs)).GetAwaiter().GetResult();
+			}
+		}
 
-        /// <summary>
-        /// Converts Koina API responses into structured prediction objects.
-        /// Expects responses with exactly 3 outputs: annotations, m/z values, and intensities.
-        /// The only filtering done at this stage is removing impossible ions (intensity = -1). 
-        /// MinIntensityFilter is applied later during spectral library generation.
-        /// </summary>
-        /// <param name="responses">Array of JSON response strings from Koina API</param>
-        /// <exception cref="Exception">Thrown when responses are malformed or contain unexpected number of outputs</exception>
-        protected virtual List<PeptideFragmentIntensityPrediction> ResponseToPredictions(
+		/// <summary>
+		/// Converts Koina API responses into structured prediction objects.
+		/// Expects responses with exactly 3 outputs: annotations, m/z values, and intensities.
+		/// The only filtering done at this stage is removing impossible ions (intensity = -1). 
+		/// MinIntensityFilter is applied later during spectral library generation.
+		/// </summary>
+		/// <param name="responses">Array of JSON response strings from Koina API</param>
+		/// <exception cref="Exception">Thrown when responses are malformed or contain unexpected number of outputs</exception>
+		protected virtual List<PeptideFragmentIntensityPrediction> ResponseToPredictions(
             IReadOnlyList<string> responses, 
             List<FragmentIntensityPredictionInput> requestInputs)
         {
@@ -293,7 +320,7 @@ namespace PredictionClients.Koina.AbstractClasses
                         var predictedIntensities = new List<double>();
                         for (int j = 0; j < fragmentCount; j++)
                         {
-                            double intensity = Convert.ToDouble(outputMZs[i * fragmentCount + j]);
+                            double intensity = Convert.ToDouble(outputIntensities[i * fragmentCount + j]);
                             if (intensity == -1)
                             {
                                 // Skip impossible ions as indicated by the model with an intensity of -1. This is a convention used by the models to indicate that a particular fragment ion cannot be formed from the given peptide sequence and fragmentation conditions.
@@ -330,7 +357,7 @@ namespace PredictionClients.Koina.AbstractClasses
                         var predictedIntensities = new List<double>();
                         for (int j = 0; j < fragmentCount; j++)
                         {
-                            double intensity = Convert.ToDouble(outputMZs[i * fragmentCount + j]);
+                            double intensity = Convert.ToDouble(outputIntensities[i * fragmentCount + j]);
                             if (intensity == -1)
                             {
                                 // Skip impossible ions as indicated by the model with an intensity of -1. This is a convention used by the models to indicate that a particular fragment ion cannot be formed from the given peptide sequence and fragmentation conditions.
@@ -338,7 +365,12 @@ namespace PredictionClients.Koina.AbstractClasses
                             }
                             var fragmentIon = outputAnnotations[i * fragmentCount + j].ToString()!;
                             int plusIndex = fragmentIon.IndexOf('+');
-                            int fragmentCharge = int.Parse(fragmentIon.Substring(plusIndex));
+                            if (plusIndex == -1)
+                            {
+                                // Skip annotations without a '+' charge delimiter (e.g., precursor ions, internal fragments)
+                                continue;
+                            }
+                            int fragmentCharge = int.Parse(fragmentIon.Substring(plusIndex + 1));
                             fragmentIons.Add(fragmentIon);
                             fragmentMZs.Add(tpLookup[fragmentIon.Substring(0, plusIndex)].ToMz(fragmentCharge));
                             predictedIntensities.Add(intensity);
@@ -543,7 +575,6 @@ namespace PredictionClients.Koina.AbstractClasses
 
                 predictedSpectra.Add(spectrum);
             }
-            var warningString = $"Generated {predictedSpectra.Count} spectra from predictions.\n";
             var unique = predictedSpectra.DistinctBy(p => p.Name).ToList();
             if (unique.Count != predictedSpectra.Count)
             {
@@ -551,18 +582,25 @@ namespace PredictionClients.Koina.AbstractClasses
                 predictedSpectra = unique;
             }
 
-            if (filepath == null)
-            {
-                warningString += "No file path provided for spectral library output. Generated spectra will not be saved to disk.\n";
-            }
-            else
-            {
-                var spectralLibrary = new SpectralLibrary();
-                spectralLibrary.Results = predictedSpectra;
-                spectralLibrary.WriteResults(filepath);
-            }
+			if (filepath == null)
+			{
+				var noFilePathMessage = "No file path provided for spectral library output. Generated spectra will not be saved to disk.";
+				warning = warning == null
+					? new WarningException(noFilePathMessage)
+					: new WarningException($"{warning.Message} {noFilePathMessage}");
+			}
+			else if (MslFileTypeHandler.IsMslFile(filepath))
+			{
+				MslWriter.WriteFromLibrarySpectra(filepath, predictedSpectra);
+			}
+			else
+			{
+				var spectralLibrary = new SpectralLibrary();
+				spectralLibrary.Results = predictedSpectra;
+				spectralLibrary.WriteResults(filepath);
+			}
 
-            return predictedSpectra;
+			return predictedSpectra;
         }
         #endregion
     }

@@ -3,9 +3,9 @@ using System.IO;
 using System.Linq;
 using System.Collections.Generic;
 using Omics.Fragmentation;
-using Readers.SpectralLibrary;
 using Omics.SpectrumMatch;
 using NUnit.Framework.Legacy;
+using SpectralLibraryClass = Readers.SpectralLibrary.SpectralLibrary;
 
 namespace Test
 {
@@ -17,7 +17,7 @@ namespace Test
         {
             var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\myPrositLib.msp");
 
-            var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { path });
+            var testLibraryWithoutDecoy = new SpectralLibraryClass(new List<string> { path });
             var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
 
             Assert.That(librarySpectra.Count == 5);
@@ -84,7 +84,7 @@ namespace Test
             testLibraryWithoutDecoy.CloseConnections();
 
             // read the written library and make sure the results are readable
-            testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { writtenPath });
+            testLibraryWithoutDecoy = new SpectralLibraryClass(new List<string> { writtenPath });
             librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
 
             Assert.That(librarySpectra.Count == 5);
@@ -118,7 +118,7 @@ namespace Test
         {
             var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\spectralLibraryNeutralLossTest.msp");
 
-            var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { path });
+            var testLibraryWithoutDecoy = new SpectralLibraryClass(new List<string> { path });
             var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
             Assert.That(librarySpectra[0].MatchedFragmentIons[9].NeutralTheoreticalProduct.NeutralLoss, Is.EqualTo(97.976895573));
             Assert.That(librarySpectra[0].MatchedFragmentIons[11].NeutralTheoreticalProduct.NeutralLoss, Is.EqualTo(97.976895573));
@@ -177,7 +177,7 @@ namespace Test
             testLibraryWithoutDecoy.CloseConnections();
 
             // read the written library and make sure the results are readable
-            testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { writtenPath });
+            testLibraryWithoutDecoy = new SpectralLibraryClass(new List<string> { writtenPath });
             librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
 
             Assert.That(librarySpectra.Count == 1);
@@ -208,7 +208,7 @@ namespace Test
         {
             var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\yeast2fake_pdeep_lib.msp");
 
-            var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { path });
+            var testLibraryWithoutDecoy = new SpectralLibraryClass(new List<string> { path });
             var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
 
             Assert.That(librarySpectra.Count, Is.EqualTo(5));
@@ -255,7 +255,7 @@ namespace Test
             testLibraryWithoutDecoy.CloseConnections();
 
             // read the written library and make sure the results are readable
-            testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { writtenPath });
+            testLibraryWithoutDecoy = new SpectralLibraryClass(new List<string> { writtenPath });
             librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
 
             Assert.That(librarySpectra.Count == 5);
@@ -314,7 +314,7 @@ namespace Test
         {
             var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\RnaSpectralLibrary.msp");
 
-            var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { path });
+            var testLibraryWithoutDecoy = new SpectralLibraryClass(new List<string> { path });
             var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
 
             Assert.That(librarySpectra.Count, Is.EqualTo(3));
@@ -356,7 +356,7 @@ namespace Test
         public static void WriteXlSpectralLibraryTest()
         {
             var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\SpectralLibrary_XL.msp");
-            var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { path });
+            var testLibraryWithoutDecoy = new SpectralLibraryClass(new List<string> { path });
 
             // Check that SinglePeptides are written
             Assert.That(testLibraryWithoutDecoy.TryGetSpectrum("GNVINLSLGFSHPVDHQLPAGITAEC[Common Fixed:Carbamidomethyl on C]PTQTEIVLK", 4, out var spectrum));
@@ -395,7 +395,7 @@ namespace Test
         {
             var libraryPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\test_ms2pip.msp"); ;
             var pathList = new List<string> { libraryPath }; 
-            var library = new SpectralLibrary(pathList);
+            var library = new SpectralLibraryClass(pathList);
             var librarySpectra = library.GetAllLibrarySpectra().ToList();
 
             Assert.That(librarySpectra.Count, Is.EqualTo(7));

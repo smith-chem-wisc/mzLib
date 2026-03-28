@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Development.MSL.MslVsMspBenchmarks-20260315-115133</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.8037/25H2/2025Update/HudsonValley2)
+Intel Core i7-8550U CPU 1.80GHz (Max: 1.99GHz) (Kaby Lake R), 1 CPU, 8 logical and 4 physical cores
+.NET SDK 10.0.103
+  [Host]   : .NET 8.0.21 (8.0.21, 8.0.2125.47513), X64 RyuJIT x86-64-v3
+  .NET 8.0 : .NET 8.0.21 (8.0.21, 8.0.2125.47513), X64 RyuJIT x86-64-v3
+</code></pre>
+<pre><code>Job=.NET 8.0  Runtime=.NET 8.0  LaunchCount=Default  
+WarmupCount=Default  
+</code></pre>
+
+<table>
+<thead><tr><th>Method              </th><th>NPrecursors</th><th>AvgFrag</th><th>Mean       </th><th>Error     </th><th>StdDev     </th><th>Gen0</th><th>Gen1</th><th>Gen2</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>MslWrite_Full</td><td>1000</td><td>10</td><td>6,571,168.53 ns</td><td>105,264.039 ns</td><td>93,313.829 ns</td><td>46.8750</td><td>-</td><td>-</td><td>211925 B</td>
+</tr><tr><td>MspWrite_Full</td><td>1000</td><td>10</td><td>10,417,464.73 ns</td><td>194,835.656 ns</td><td>172,716.734 ns</td><td>937.5000</td><td>62.5000</td><td>62.5000</td><td>4038008 B</td>
+</tr><tr><td>MslLoad_Full</td><td>1000</td><td>10</td><td>2,200,724.79 ns</td><td>43,201.530 ns</td><td>69,762.424 ns</td><td>355.4688</td><td>242.1875</td><td>74.2188</td><td>1717937 B</td>
+</tr><tr><td>MspLoad_Full</td><td>1000</td><td>10</td><td>5,816,493.25 ns</td><td>113,087.944 ns</td><td>138,882.163 ns</td><td>765.6250</td><td>109.3750</td><td>-</td><td>3237847 B</td>
+</tr><tr><td>MslLoad_IndexOnly</td><td>1000</td><td>10</td><td>2,246,101.35 ns</td><td>25,985.795 ns</td><td>21,699.316 ns</td><td>300.7813</td><td>187.5000</td><td>74.2188</td><td>1754202 B</td>
+</tr><tr><td>MslLookup_BySequenceCharge</td><td>1000</td><td>10</td><td>97.85 ns</td><td>1.971 ns</td><td>2.562 ns</td><td>0.0095</td><td>-</td><td>-</td><td>40 B</td>
+</tr><tr><td>MspLookup_BySequenceCharge</td><td>1000</td><td>10</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td>
+</tr><tr><td>MslWrite_Full</td><td>10000</td><td>10</td><td>31,789,980.00 ns</td><td>344,468.974 ns</td><td>287,647.194 ns</td><td>66.6667</td><td>-</td><td>-</td><td>643940 B</td>
+</tr><tr><td>MspWrite_Full</td><td>10000</td><td>10</td><td>88,237,038.46 ns</td><td>1,399,003.802 ns</td><td>1,168,231.536 ns</td><td>8666.6667</td><td>-</td><td>-</td><td>37419232 B</td>
+</tr><tr><td>MslLoad_Full</td><td>10000</td><td>10</td><td>35,367,589.73 ns</td><td>704,275.720 ns</td><td>1,287,808.080 ns</td><td>2375.0000</td><td>1375.0000</td><td>312.5000</td><td>17190196 B</td>
+</tr><tr><td>MspLoad_Full</td><td>10000</td><td>10</td><td>57,850,788.89 ns</td><td>1,145,902.198 ns</td><td>1,226,102.515 ns</td><td>7555.5556</td><td>111.1111</td><td>-</td><td>32047400 B</td>
+</tr><tr><td>MslLoad_IndexOnly</td><td>10000</td><td>10</td><td>82,690,752.14 ns</td><td>1,607,092.608 ns</td><td>1,850,730.238 ns</td><td>2428.5714</td><td>1285.7143</td><td>285.7143</td><td>17514480 B</td>
+</tr><tr><td>MslLookup_BySequenceCharge</td><td>10000</td><td>10</td><td>104.95 ns</td><td>1.974 ns</td><td>2.112 ns</td><td>0.0095</td><td>-</td><td>-</td><td>40 B</td>
+</tr><tr><td>MspLookup_BySequenceCharge</td><td>10000</td><td>10</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td>
+</tr><tr><td>MslWrite_Full</td><td>50000</td><td>10</td><td>152,633,264.29 ns</td><td>2,732,450.693 ns</td><td>2,422,246.368 ns</td><td>250.0000</td><td>-</td><td>-</td><td>2564016 B</td>
+</tr><tr><td>MspWrite_Full</td><td>50000</td><td>10</td><td>427,246,540.00 ns</td><td>3,903,596.768 ns</td><td>3,651,426.840 ns</td><td>44000.0000</td><td>-</td><td>-</td><td>185780896 B</td>
+</tr><tr><td>MslLoad_Full</td><td>50000</td><td>10</td><td>162,079,510.25 ns</td><td>3,388,140.986 ns</td><td>9,990,010.868 ns</td><td>10250.0000</td><td>5250.0000</td><td>250.0000</td><td>84996708 B</td>
+</tr><tr><td>MspLoad_Full</td><td>50000</td><td>10</td><td>280,469,875.00 ns</td><td>4,748,718.936 ns</td><td>4,209,615.648 ns</td><td>38000.0000</td><td>-</td><td>-</td><td>160089336 B</td>
+</tr><tr><td>MslLoad_IndexOnly</td><td>50000</td><td>10</td><td>426,574,461.76 ns</td><td>8,305,729.876 ns</td><td>13,412,206.634 ns</td><td>10000.0000</td><td>5000.0000</td><td>-</td><td>86600872 B</td>
+</tr><tr><td>MslLookup_BySequenceCharge</td><td>50000</td><td>10</td><td>106.83 ns</td><td>2.655 ns</td><td>7.788 ns</td><td>0.0095</td><td>-</td><td>-</td><td>40 B</td>
+</tr><tr><td>MspLookup_BySequenceCharge</td><td>50000</td><td>10</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td><td>NA</td>
+</tr></tbody></table>
+</body>
+</html>
