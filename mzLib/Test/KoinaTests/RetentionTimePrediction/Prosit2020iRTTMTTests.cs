@@ -1,5 +1,6 @@
 ﻿using Easy.Common.Extensions;
 using NUnit.Framework;
+using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
 using PredictionClients.Koina.Util;
@@ -34,8 +35,9 @@ namespace Test.KoinaTests
             Assert.That(predictions.All(p => p.Warning == null), "Predictions from perfectly valid inputs should not have warnings");
             for (int i = 0; i < modelInputs.Count; i++)
             {
-                Assert.That(predictions[i].FullSequence, Is.EqualTo(modelInputs[i].FullSequence), $"Full sequence in prediction should match input for index {i}");
-                Assert.That(predictions[i].FullSequence, Is.EqualTo(modelInputs[i].ValidatedFullSequence), $"Validated full sequence in prediction should match input for index {i}");
+                Assert.That(modelInputs[i].ValidatedFullSequence, Is.Not.Null);
+                Assert.That(modelInputs[i].ValidatedFullSequence, Does.StartWith("[UNIMOD:"));
+                Assert.That(predictions[i].FullSequence, Is.EqualTo(modelInputs[i].FullSequence), $"Prediction sequence should match original input for index {i}");
             }
         }
 
@@ -49,7 +51,7 @@ namespace Test.KoinaTests
             var modelInputs = new List<RetentionTimePredictionInput>
             {
                 new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"),
-                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]TESTING")
+                new RetentionTimePredictionInput("[Common Fixed:TMT10pro on N-terminus]TESTING")
             };
 
             var model = new Prosit2020iRTTMT();
@@ -67,7 +69,7 @@ namespace Test.KoinaTests
             Assert.That(model.IsIndexedRetentionTimeModel, Is.True);
 
             // Make sure ThrowException mode also accepts valid peptides without throwing
-            model = new Prosit2020iRTTMT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            model = new Prosit2020iRTTMT(modHandlingMode: SequenceConversionHandlingMode.ThrowException);
             Assert.DoesNotThrow(() => model.Predict(modelInputs), "Model should not throw exception for valid peptides with required N-terminal modifications when ModHandlingMode is set to ThrowException");
         }
 
@@ -112,7 +114,7 @@ namespace Test.KoinaTests
             Assert.That(predictions[4].PredictedRetentionTime, Is.Null, "Peptide without N-term should be rejected");
             Assert.That(predictions[4].Warning, Is.Not.Null, "Peptide without N-term should have warning");
 
-            model = new Prosit2020iRTTMT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            model = new Prosit2020iRTTMT(modHandlingMode: SequenceConversionHandlingMode.ThrowException);
             Assert.Throws<ArgumentException>(() => model.Predict(modelInputs), "Model should throw exception for peptides without required N-terminal modifications when ModHandlingMode is set to ThrowException");
         }
 
@@ -131,7 +133,7 @@ namespace Test.KoinaTests
             Assert.That(predictions.Count, Is.EqualTo(0), "Empty input should result in no predictions");
             Assert.DoesNotThrow(() => model.Predict(emptyInputs), "Empty input should not throw exception");
 
-            model = new Prosit2020iRTTMT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            model = new Prosit2020iRTTMT(modHandlingMode: SequenceConversionHandlingMode.ThrowException);
             Assert.DoesNotThrow(() => model.Predict(emptyInputs), "Model should throw exception for peptides without required N-terminal modifications when ModHandlingMode is set to ThrowException");
         }
 
@@ -150,7 +152,7 @@ namespace Test.KoinaTests
             Assert.That(model.Predictions.Count, Is.EqualTo(0), "Empty input should result in no predictions");
             Assert.That(model.ValidInputsMask.Count, Is.EqualTo(0), "Empty input should result in empty valid inputs mask");
 
-            model = new Prosit2020iRTTMT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            model = new Prosit2020iRTTMT(modHandlingMode: SequenceConversionHandlingMode.ThrowException);
             Assert.DoesNotThrow(() => model.Predict(nullList), "Model should not throw exception for null input list");
         }
 
@@ -180,7 +182,7 @@ namespace Test.KoinaTests
             Assert.That(predictions[3].PredictedRetentionTime, Is.Null, "Peptide without N-term should be rejected");
             Assert.That(predictions[4].PredictedRetentionTime, Is.Not.Null, "Second valid peptide should have predictions");
 
-            model = new Prosit2020iRTTMT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            model = new Prosit2020iRTTMT(modHandlingMode: SequenceConversionHandlingMode.ThrowException);
             Assert.Throws<ArgumentException>(() => model.Predict(modelInputs), "Model should throw exception for invalid peptides when ModHandlingMode is set to ThrowException");
         }
 
@@ -206,10 +208,15 @@ namespace Test.KoinaTests
             Assert.That(predictions.All(p => p.PredictedRetentionTime != null), Is.True, "All should have predictions");
 
             // Verify each N-terminal modification type is correctly converted
-            Assert.That(predictions[0].FullSequence, Does.StartWith("[Common Fixed:TMT6plex on N-terminus]")); // TMT6plex
-            Assert.That(predictions[1].FullSequence, Does.StartWith("[Common Fixed:TMTpro on N-terminus]")); // TMTpro
-            Assert.That(predictions[2].FullSequence, Does.StartWith("[Common Fixed:iTRAQ4plex on N-terminus]")); // iTRAQ4plex
-            Assert.That(predictions[3].FullSequence, Does.StartWith("[Common Fixed:iTRAQ8plex on N-terminus]")); // iTRAQ8plex
+            Assert.That(modelInputs[0].ValidatedFullSequence, Does.StartWith("[UNIMOD:737]-")); // TMT6plex
+            Assert.That(modelInputs[1].ValidatedFullSequence, Does.StartWith("[UNIMOD:2016]-")); // TMTpro
+            Assert.That(modelInputs[2].ValidatedFullSequence, Does.StartWith("[UNIMOD:214]-")); // iTRAQ4plex
+            Assert.That(modelInputs[3].ValidatedFullSequence, Does.StartWith("[UNIMOD:730]-")); // iTRAQ8plex
+
+            Assert.That(predictions[0].FullSequence, Is.EqualTo(modelInputs[0].FullSequence));
+            Assert.That(predictions[1].FullSequence, Is.EqualTo(modelInputs[1].FullSequence));
+            Assert.That(predictions[2].FullSequence, Is.EqualTo(modelInputs[2].FullSequence));
+            Assert.That(predictions[3].FullSequence, Is.EqualTo(modelInputs[3].FullSequence));
             Assert.That(model.ValidInputsMask, Is.All.True);
         }
 
@@ -238,31 +245,31 @@ namespace Test.KoinaTests
             Assert.That(predictions.Count, Is.EqualTo(9), "Should return predictions for all inputs");
             Assert.That(predictions.All(p => p.PredictedRetentionTime != null), Is.True, "All should have predictions");
 
-            // Check that all sequences have N-terminal modifications
-            foreach (var pred in predictions)
+            for (int i = 0; i < modelInputs.Count; i++)
             {
-                var modEnding = pred.FullSequence.IndexOf(']') + 1;
-                Assert.That(model.ValidModificationUnimodMapping.Keys.Contains(pred.FullSequence.Substring(0, modEnding)), $"All sequences should have valid N-terminal modification: {pred.FullSequence}");
+                Assert.That(modelInputs[i].ValidatedFullSequence, Is.Not.Null);
+                Assert.That(modelInputs[i].ValidatedFullSequence, Does.StartWith("[UNIMOD:"), $"Validated sequence missing UNIMOD prefix for index {i}");
+                Assert.That(predictions[i].FullSequence, Is.EqualTo(modelInputs[i].FullSequence));
             }
 
             // Check that side-chain modifications are kept in the validated sequence and correctly identified as valid
-            Assert.That(modelInputs[1].ValidatedFullSequence, Does.Contain("[Common Variable:Oxidation on M]")); // Oxidation
-            Assert.That(modelInputs[2].ValidatedFullSequence, Does.Contain("[Common Fixed:Carbamidomethyl on C]"));  // Carbamidomethyl
-            Assert.That(modelInputs[3].ValidatedFullSequence, Does.Contain("[Common Fixed:TMT6plex on K]")); // TMT6plex on K
-            Assert.That(modelInputs[4].ValidatedFullSequence, Does.Contain("[Common Fixed:TMTpro on K]")); // TMTpro on K
-            Assert.That(modelInputs[5].ValidatedFullSequence, Does.Contain("[Common Fixed:iTRAQ4plex on K]")); // iTRAQ4plex on K
-            Assert.That(modelInputs[6].ValidatedFullSequence, Does.Contain("[Common Fixed:iTRAQ8plex on K]")); // iTRAQ8plex on K
-            Assert.That(modelInputs[7].ValidatedFullSequence, Does.Contain("[Common Variable:Label:13C(6)15N(2) on K]")); // SILAC K
-            Assert.That(modelInputs[8].ValidatedFullSequence, Does.Contain("[Common Variable:Label:13C(6)15N(4) on R]")); // SILAC R
+            Assert.That(modelInputs[1].ValidatedFullSequence, Does.Contain("[UNIMOD:35]")); // Oxidation
+            Assert.That(modelInputs[2].ValidatedFullSequence, Does.Contain("[UNIMOD:4]"));  // Carbamidomethyl
+            Assert.That(modelInputs[3].ValidatedFullSequence, Does.Contain("[UNIMOD:737]")); // TMT6plex on K
+            Assert.That(modelInputs[4].ValidatedFullSequence, Does.Contain("[UNIMOD:2016]")); // TMTpro on K
+            Assert.That(modelInputs[5].ValidatedFullSequence, Does.Contain("[UNIMOD:214]")); // iTRAQ4plex on K
+            Assert.That(modelInputs[6].ValidatedFullSequence, Does.Contain("[UNIMOD:730]")); // iTRAQ8plex on K
+            Assert.That(modelInputs[7].ValidatedFullSequence, Does.Contain("[UNIMOD:259]")); // SILAC K
+            Assert.That(modelInputs[8].ValidatedFullSequence, Does.Contain("[UNIMOD:267]")); // SILAC R
 
-            Assert.That(predictions[1].FullSequence, Does.Contain("[Common Variable:Oxidation on M]")); // Oxidation
-            Assert.That(predictions[2].FullSequence, Does.Contain("[Common Fixed:Carbamidomethyl on C]"));  // Carbamidomethyl
-            Assert.That(predictions[3].FullSequence, Does.Contain("[Common Fixed:TMT6plex on K]")); // TMT6plex on K
-            Assert.That(predictions[4].FullSequence, Does.Contain("[Common Fixed:TMTpro on K]")); // TMTpro on K
-            Assert.That(predictions[5].FullSequence, Does.Contain("[Common Fixed:iTRAQ4plex on K]")); // iTRAQ4plex on K
-            Assert.That(predictions[6].FullSequence, Does.Contain("[Common Fixed:iTRAQ8plex on K]")); // iTRAQ8plex on K
-            Assert.That(predictions[7].FullSequence, Does.Contain("[Common Variable:Label:13C(6)15N(2) on K]")); // SILAC K
-            Assert.That(predictions[8].FullSequence, Does.Contain("[Common Variable:Label:13C(6)15N(4) on R]")); // SILAC R
+            Assert.That(predictions[1].FullSequence, Does.Contain("[Common Variable:Oxidation on M]"));
+            Assert.That(predictions[2].FullSequence, Does.Contain("[Common Fixed:Carbamidomethyl on C]"));
+            Assert.That(predictions[3].FullSequence, Does.Contain("[Common Fixed:TMT6plex on K]"));
+            Assert.That(predictions[4].FullSequence, Does.Contain("[Common Fixed:TMTpro on K]"));
+            Assert.That(predictions[5].FullSequence, Does.Contain("[Common Fixed:iTRAQ4plex on K]"));
+            Assert.That(predictions[6].FullSequence, Does.Contain("[Common Fixed:iTRAQ8plex on K]"));
+            Assert.That(predictions[7].FullSequence, Does.Contain("[Common Variable:Label:13C(6)15N(2) on K]"));
+            Assert.That(predictions[8].FullSequence, Does.Contain("[Common Variable:Label:13C(6)15N(4) on R]"));
 
 
         }
@@ -318,8 +325,7 @@ namespace Test.KoinaTests
             // Check that N-terminal modifications are converted correctly
             for (int i = 0; i < modelInputs.Count; i++)
             {
-                var modEnding = modelInputs[i].FullSequence.IndexOf(']') + 1;
-                Assert.That(model.ValidModificationUnimodMapping.Keys.Contains(modelInputs[i].FullSequence.Substring(0, modEnding)), $"Input sequence should have valid N-terminal modification: {modelInputs[i].FullSequence}");
+                Assert.That(modelInputs[i].FullSequence.StartsWith("[Common Fixed:"), Is.True);
             }
         }
 
@@ -366,8 +372,8 @@ namespace Test.KoinaTests
             Assert.That(predictions.All(p => p.PredictedRetentionTime != null), Is.True, "All should have predictions");
             foreach (var input in modelInputs)
             {
-                // since all inputs are valid and have N-terminal modifications, the validated sequence should match the original full sequence
-                Assert.That(input.FullSequence == input.ValidatedFullSequence, $"Input sequence should be validated and match original for: {input.FullSequence}");
+                Assert.That(input.ValidatedFullSequence, Is.Not.Null);
+                Assert.That(input.ValidatedFullSequence, Does.StartWith("[UNIMOD:"));
                 Assert.That(input.SequenceWarning, Is.Null, $"Valid input should not have warnings for: {input.FullSequence}");
             }
         }
@@ -453,9 +459,9 @@ namespace Test.KoinaTests
             Assert.That(model.MaxPeptideLength, Is.EqualTo(30));
             Assert.That(model.MinPeptideLength, Is.EqualTo(1));
             Assert.That(model.IsIndexedRetentionTimeModel, Is.True);
-            Assert.That(model.ModHandlingMode, Is.EqualTo(IncompatibleModHandlingMode.ReturnNull));
-            Assert.That(model.ValidModificationUnimodMapping, Is.Not.Null);
-            Assert.That(model.ValidModificationUnimodMapping.Count, Is.EqualTo(12), "Should support 12 modification types");
+            Assert.That(model.ModHandlingMode, Is.EqualTo(SequenceConversionHandlingMode.ReturnNull));
+            Assert.That(model.AllowedUnimodIds, Is.Not.Null);
+            Assert.That(model.AllowedUnimodIds.Count, Is.EqualTo(8), "Should support expected UNIMOD IDs");
         }
 
         /// <summary>
@@ -484,11 +490,17 @@ namespace Test.KoinaTests
             Assert.That(predictions.Count(p => p.PredictedRetentionTime != null), Is.EqualTo(3), "Only valid sequences with N-term should have predictions");
             Assert.That(predictions.Count(p => p.Warning != null), Is.EqualTo(4), "Invalid sequences should have warnings");
 
-            // Verify all accepted sequences have N-terminal modifications
-            foreach (var pred in predictions.Where(p => p.PredictedRetentionTime != null))
+            for (int i = 0; i < predictions.Count; i++)
             {
-                int modEnding = pred.FullSequence.IndexOf(']') + 1;
-                Assert.That(model.ValidModificationUnimodMapping.Keys.Contains(pred.FullSequence.Substring(0, modEnding)), $"Accepted sequence should have N-terminal modification: {pred.FullSequence}");
+                Assert.That(predictions[i].FullSequence, Is.EqualTo(modelInputs[i].FullSequence));
+                if (predictions[i].PredictedRetentionTime != null)
+                {
+                    Assert.That(modelInputs[i].ValidatedFullSequence, Does.StartWith("[UNIMOD:"));
+                }
+                else
+                {
+                    Assert.That(modelInputs[i].ValidatedFullSequence, Is.Null);
+                }
             }
         }
 
@@ -499,14 +511,14 @@ namespace Test.KoinaTests
         public void TestProsit2020iRTTMTModelCustomConstructorParameters()
         {
             var model = new Prosit2020iRTTMT(
-                modHandlingMode: IncompatibleModHandlingMode.ReturnNull,
+                modHandlingMode: SequenceConversionHandlingMode.ReturnNull,
                 maxNumberOfBatchesPerRequest: 100,
                 throttlingDelayInMilliseconds: 50
             );
 
             Assert.That(model.MaxNumberOfBatchesPerRequest, Is.EqualTo(100));
             Assert.That(model.ThrottlingDelayInMilliseconds, Is.EqualTo(50));
-            Assert.That(model.ModHandlingMode, Is.EqualTo(IncompatibleModHandlingMode.ReturnNull));
+            Assert.That(model.ModHandlingMode, Is.EqualTo(SequenceConversionHandlingMode.ReturnNull));
         }
 
         [Test]

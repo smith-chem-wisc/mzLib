@@ -5,6 +5,7 @@ using Proteomics.ProteolyticDigestion;
 using Omics.Modifications;
 using System.Collections.Generic;
 using Readers;
+using Omics.SequenceConversion;
 
 namespace Test.RetentionTimePrediction
 {
@@ -171,7 +172,7 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void ChronologerFormatting_UnsupportedMod_RemoveMode_RemovesIt()
         {
-            using var predictor = new ChronologerRetentionTimePredictor(IncompatibleModHandlingMode.RemoveIncompatibleMods);
+            using var predictor = new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.RemoveIncompatibleElements);
             var mods = new Dictionary<string, Modification>
             {
                 { "HexNAc on N", ModificationConverter.AllModsKnown["HexNAc on N"] }
@@ -190,7 +191,7 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void ChronologerFormatting_UnsupportedMod_UsePrimaryMode_ReturnsBaseSequence()
         {
-            using var predictor = new ChronologerRetentionTimePredictor(IncompatibleModHandlingMode.UsePrimarySequence);
+            using var predictor = new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.UsePrimarySequence);
             var mods = new Dictionary<string, Modification>
             {
                 { "HexNAc on N", ModificationConverter.AllModsKnown["HexNAc on N"] }
@@ -207,7 +208,7 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void ChronologerFormatting_UnsupportedMod_ReturnNullMode_ReturnsNull()
         {
-            using var predictor = new ChronologerRetentionTimePredictor(IncompatibleModHandlingMode.ReturnNull);
+            using var predictor = new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.ReturnNull);
             var mods = new Dictionary<string, Modification>
             {
                 { "HexNAc on N", ModificationConverter.AllModsKnown["HexNAc on N"] }
@@ -223,7 +224,7 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void ChronologerFormatting_UnsupportedMod_ThrowMode_ThrowsException()
         {
-            using var predictor = new ChronologerRetentionTimePredictor(IncompatibleModHandlingMode.ThrowException);
+            using var predictor = new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.ThrowException);
             var mods = new Dictionary<string, Modification>
             {
                 { "HexNAc on N", ModificationConverter.AllModsKnown["HexNAc on N"] }
@@ -350,7 +351,7 @@ namespace Test.RetentionTimePrediction
         }
 
         [Test]
-        public void Formatting_DifferentModHandlingModes_GiveDifferentResults()
+        public void Formatting_DifferentHandlingModes_GiveDifferentResults()
         {
             var mods = new Dictionary<string, Modification>
             {
@@ -359,8 +360,8 @@ namespace Test.RetentionTimePrediction
             };
             var peptide = new PeptideWithSetModifications("PEPT[Phospho on T]N[HexNAc on N]IDE", mods);
             
-            using var removeMode = new ChronologerRetentionTimePredictor(IncompatibleModHandlingMode.RemoveIncompatibleMods);
-            using var primaryMode = new ChronologerRetentionTimePredictor(IncompatibleModHandlingMode.UsePrimarySequence);
+            using var removeMode = new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.RemoveIncompatibleElements);
+            using var primaryMode = new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.UsePrimarySequence);
             
             var removeFormatted = removeMode.GetFormattedSequence(peptide, out _);
             var primaryFormatted = primaryMode.GetFormattedSequence(peptide, out _);

@@ -12,6 +12,8 @@ namespace Omics.Modifications
             motifString = motif;
         }
 
+        public string Motif => motifString;
+
         /// <summary>
         /// Only upper and lower case letters allowed, must have a single upper case letter
         /// </summary>

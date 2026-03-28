@@ -1,7 +1,7 @@
 ﻿using NUnit.Framework;
+using Omics.SequenceConversion;
 using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
 using PredictionClients.Koina.AbstractClasses;
-using PredictionClients.Koina.Util;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -40,7 +40,7 @@ namespace Test.KoinaTests
             Assert.That(model.IsIndexedRetentionTimeModel, Is.True);
 
             // Assert ThrowException mode does not throw for valid peptides
-            model = new Prosit2019iRT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            model = new Prosit2019iRT(modHandlingMode: SequenceConversionHandlingMode.ThrowException);
             Assert.DoesNotThrow(() => model.Predict(modelInputs), "Valid peptides should not throw exception even in ThrowException mode");
         }
 
@@ -59,7 +59,7 @@ namespace Test.KoinaTests
             Assert.That(predictions.Count, Is.EqualTo(0), "Empty input should result in no predictions");
             Assert.DoesNotThrow(() => model.Predict(emptyInputs), "Empty input should not throw exception");
 
-            model = new Prosit2019iRT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            model = new Prosit2019iRT(modHandlingMode: SequenceConversionHandlingMode.ThrowException);
             Assert.DoesNotThrow(() => model.Predict(emptyInputs), "Empty input should not throw exception even in ThrowException mode");
         }
 
@@ -78,7 +78,7 @@ namespace Test.KoinaTests
             Assert.That(model.Predictions.Count, Is.EqualTo(0), "Null input should be treated as empty and return no predictions");
             Assert.That(model.ValidInputsMask.Count, Is.EqualTo(0), "Null input should not produce warnings");
 
-            model = new Prosit2019iRT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            model = new Prosit2019iRT(modHandlingMode: SequenceConversionHandlingMode.ThrowException);
             Assert.DoesNotThrow(() => model.Predict(nullList), "Null input should not throw exception even in ThrowException mode");
         }
 
@@ -113,14 +113,14 @@ namespace Test.KoinaTests
             Assert.That(predictions[3].PredictedRetentionTime, Is.Null, "Non-canonical AA peptide should have null predictions");
             Assert.That(predictions[3].Warning, Is.Not.Null, "Non-canonical AA should have warning");
 
-            model = new Prosit2019iRT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            model = new Prosit2019iRT(modHandlingMode: SequenceConversionHandlingMode.ThrowException);
             Assert.Throws<ArgumentException>(() => model.Predict(modelInputs), "Invalid sequences should throw exception in ThrowException mode");
         }
 
         /// <summary>
         /// Tests the handling of valid post-translational modifications.
         /// Prosit2019iRT supports oxidation on M and carbamidomethyl on C.
-        /// ModHandlingMode is RemoveIncompatibleMods by default.
+        /// ModHandlingMode is RemoveIncompatibleElements by default.
         /// </summary>
         [Test]
         public void TestProsit2019iRTModelValidModifications()
@@ -138,13 +138,13 @@ namespace Test.KoinaTests
             Assert.That(predictions[0].PredictedRetentionTime, Is.Not.Null, "Peptide with valid oxidation should have predictions");
             Assert.That(predictions[1].PredictedRetentionTime, Is.Not.Null, "Peptide with valid carbamidomethyl should have predictions");
 
-            model = new Prosit2019iRT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            model = new Prosit2019iRT(modHandlingMode: SequenceConversionHandlingMode.ThrowException);
             Assert.DoesNotThrow(() => model.Predict(modelInputs), "Peptides with valid modifications should not throw exception in ThrowException mode");
         }
 
         /// <summary>
         /// Tests handling of unsupported modifications.
-        /// ModHandlingMode.RemoveIncompatibleMods strips unsupported modifications and predicts with remaining valid mods/sequence.
+        /// ModHandlingMode.RemoveIncompatibleElements strips unsupported modifications and predicts with remaining valid mods/sequence.
         /// </summary>
         [Test]
         public void TestProsit2019iRTModelIncompatibleModificationsOrAminoAcids()
@@ -164,7 +164,7 @@ namespace Test.KoinaTests
             Assert.That(predictions[0].PredictedRetentionTime, Is.Not.Null, "Valid unmodified peptide should have predictions");
             Assert.That(predictions[0].Warning, Is.Null, "Valid unmodified peptide should not have warnings");
 
-            // With RemoveIncompatibleMods, the invalid mod is stripped and prediction is made on the base sequence
+            // With RemoveIncompatibleElements, the invalid mod is stripped and prediction is made on the base sequence
             Assert.That(predictions[1].PredictedRetentionTime, Is.Not.Null, "Peptide with invalid mod should still have predictions after stripping");
             Assert.That(predictions[1].Warning, Is.Not.Null, "Peptide with stripped mod should have warning");
 
@@ -173,7 +173,7 @@ namespace Test.KoinaTests
             Assert.That(predictions[3].PredictedRetentionTime, Is.Null, "Peptide with non-canonical amino acid should have null predictions");
 
             // Test model with ThrowException mode
-            model = new Prosit2019iRT(modHandlingMode: IncompatibleModHandlingMode.ThrowException);
+            model = new Prosit2019iRT(modHandlingMode: SequenceConversionHandlingMode.ThrowException);
             var invalidModInput = new RetentionTimePredictionInput("SEQENC[InvalidMod]E");
             var invalidAAInput = new RetentionTimePredictionInput("SEQUENS");
 
@@ -263,11 +263,11 @@ namespace Test.KoinaTests
             Assert.That(model.MaxPeptideLength, Is.EqualTo(30));
             Assert.That(model.MinPeptideLength, Is.EqualTo(1));
             Assert.That(model.IsIndexedRetentionTimeModel, Is.True);
-            Assert.That(model.ModHandlingMode, Is.EqualTo(IncompatibleModHandlingMode.RemoveIncompatibleMods));
-            Assert.That(model.ValidModificationUnimodMapping, Is.Not.Null);
-            Assert.That(model.ValidModificationUnimodMapping.Count, Is.EqualTo(2), "Should support Oxidation and Carbamidomethyl");
-            Assert.That(model.ValidModificationUnimodMapping.ContainsKey("[Common Variable:Oxidation on M]"), Is.True);
-            Assert.That(model.ValidModificationUnimodMapping.ContainsKey("[Common Fixed:Carbamidomethyl on C]"), Is.True);
+            Assert.That(model.ModHandlingMode, Is.EqualTo(SequenceConversionHandlingMode.RemoveIncompatibleElements));
+            Assert.That(model.AllowedUnimodIds, Is.Not.Null);
+            Assert.That(model.AllowedUnimodIds.Count, Is.EqualTo(2), "Should support Oxidation and Carbamidomethyl");
+            Assert.That(model.AllowedUnimodIds.Contains(35), Is.True);
+            Assert.That(model.AllowedUnimodIds.Contains(4), Is.True);
         }
 
         /// <summary>
@@ -323,14 +323,14 @@ namespace Test.KoinaTests
         public void TestProsit2019iRTModelCustomConstructorParameters()
         {
             var model = new Prosit2019iRT(
-                modHandlingMode: IncompatibleModHandlingMode.RemoveIncompatibleMods,
+                modHandlingMode: SequenceConversionHandlingMode.RemoveIncompatibleElements,
                 maxNumberOfBatchesPerRequest: 100,
                 throttlingDelayInMilliseconds: 50
             );
 
             Assert.That(model.MaxNumberOfBatchesPerRequest, Is.EqualTo(100));
             Assert.That(model.ThrottlingDelayInMilliseconds, Is.EqualTo(50));
-            Assert.That(model.ModHandlingMode, Is.EqualTo(IncompatibleModHandlingMode.RemoveIncompatibleMods));
+            Assert.That(model.ModHandlingMode, Is.EqualTo(SequenceConversionHandlingMode.RemoveIncompatibleElements));
         }
 
         [Test]

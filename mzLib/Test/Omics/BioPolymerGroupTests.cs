@@ -276,12 +276,15 @@ namespace Test.Omics
         /// Critical: These markers determine how results are filtered and reported.
         /// </summary>
         [Test]
-        [TestCase(false, false, "\tT\t", Description = "Target")]
-        [TestCase(true, false, "\tD\t", Description = "Decoy")]
-        [TestCase(false, true, "\tC\t", Description = "Contaminant")]
-        public void ToString_ContainsCorrectTypeMarker(bool isDecoy, bool isContaminant, string expectedMarker)
+        [TestCase(false, false, false, "\tT\t", Description = "Target")]
+        [TestCase(true, false, false, "\tD\t", Description = "Decoy")]
+        [TestCase(false, true, false, "\tC\t", Description = "Contaminant")]
+        [TestCase(false, false, true, "\tET\t", Description = "Entrapment Target")]
+        [TestCase(true, false, true, "\tED\t", Description = "Entrapment Decoy")]
+        public void ToString_ContainsCorrectTypeMarker(bool isDecoy, bool isContaminant, bool isEntrapment, string expectedMarker)
         {
-            var bioPolymer = isDecoy ? _decoyBioPolymer : (isContaminant ? _contaminantBioPolymer : _bioPolymer1);
+            var bioPolymer = new MockBioPolymer("ACGTACGT", "TEST001",
+                isDecoy: isDecoy, isContaminant: isContaminant, isEntrapment: isEntrapment);
             var bg = new BioPolymerGroup(new HashSet<IBioPolymer> { bioPolymer }, _allSequences, _uniqueSequences);
 
             var result = bg.ToString();
