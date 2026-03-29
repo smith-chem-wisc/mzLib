@@ -32,8 +32,9 @@ namespace Omics.BioPolymerGroup
         /// <summary>
         /// Samples that contribute quantification data for this group.
         /// Supports <see cref="SpectraFileInfo"/> (label-free) and <see cref="IsobaricQuantSampleInfo"/> (TMT/iTRAQ).
+        /// May be null when no experimental design is available.
         /// </summary>
-        List<ISampleInfo> SamplesForQuantification { get; set; }
+        List<ISampleInfo>? SamplesForQuantification { get; set; }
 
         /// <summary>
         /// All biopolymers (e.g., proteins, RNA sequences) that belong to this group.
@@ -92,8 +93,9 @@ namespace Omics.BioPolymerGroup
         /// <summary>
         /// Measured intensity values for this group, keyed by sample.
         /// Supports both <see cref="SpectraFileInfo"/> and <see cref="IsobaricQuantSampleInfo"/> as keys.
+        /// May be null when no intensity data is available.
         /// </summary>
-        Dictionary<ISampleInfo, double> IntensitiesBySample { get; set; }
+        Dictionary<ISampleInfo, double>? IntensitiesBySample { get; set; }
 
         /// <summary>
         /// All biopolymers in this group ordered alphabetically by accession.

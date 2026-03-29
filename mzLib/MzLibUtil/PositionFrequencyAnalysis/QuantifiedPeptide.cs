@@ -26,8 +26,12 @@ namespace MzLibUtil.PositionFrequencyAnalysis
 
         /// <summary>
         /// Dictionary mapping zero-based amino acid positions in the peptide to dictionaries of
-        /// modification IDs and their corresponding QuantifiedModification objects. This property 
+        /// modification IDs and their corresponding QuantifiedModification objects. This property
         /// stores ALL of the modifications observed for this peptide across all full sequences.
+        /// Note: <see cref="QuantifiedModification.ProteinPositionZeroIsNTerminus"/> values in these
+        /// entries are not reliable until <see cref="QuantifiedProtein.SetProteinModsFromPeptides"/>
+        /// has been called, as they are initialized with the default <see cref="ZeroBasedStartIndexInProtein"/>
+        /// value of -1 at construction time.
         /// </summary>
         public Dictionary<int, Dictionary<string, QuantifiedModification>> ModifiedAminoAcidPositions { get; set; }
         public double Intensity { get; set; }
@@ -57,16 +61,14 @@ namespace MzLibUtil.PositionFrequencyAnalysis
         /// <exception cref="Exception"></exception>
         public void AddFullSequence(string fullSeq, double intensity = 0)
         {
-            if (BaseSequence.Equals(fullSeq.GetBaseSequenceFromFullSequence()))
-            {
-                FullSequences.Add(fullSeq);
-                Intensity += intensity;
-                _SetModifications(fullSeq, intensity);
-            }
-            else
+            if (!BaseSequence.Equals(fullSeq.GetBaseSequenceFromFullSequence()))
             {
                 throw new Exception("The base sequence of the peptide being added does not match the base sequence of this peptide.");
             }
+
+            FullSequences.Add(fullSeq);
+            Intensity += intensity;
+            _SetModifications(fullSeq, intensity);
         }
 
         /// <summary>

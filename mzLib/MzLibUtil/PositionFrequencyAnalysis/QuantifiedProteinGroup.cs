@@ -26,12 +26,16 @@ namespace MzLibUtil.PositionFrequencyAnalysis
 
         /// <summary>
         /// Initializes a new protein group with the specified name and optional proteins.
+        /// When <paramref name="proteins"/> is null or empty, the group is created with an empty
+        /// dictionary for incremental population (e.g., by <see cref="PositionFrequencyAnalysis"/>).
+        /// When a non-empty dictionary is provided, its keys must match the accessions parsed
+        /// from <paramref name="name"/>.
         /// </summary>
         public QuantifiedProteinGroup(string name, Dictionary<string, QuantifiedProtein> proteins = null)
         {
             proteins ??= new Dictionary<string, QuantifiedProtein>();
             var proteinAccessions = name.SplitProteinAccessions();
-            if ((proteinAccessions.Length == proteins.Count && proteinAccessions.OrderBy(x => x).SequenceEqual(proteins.Keys.OrderBy(x => x))) || proteins.IsNullOrEmpty())
+            if (proteins.Count == 0 || (proteinAccessions.Length == proteins.Count && proteinAccessions.OrderBy(x => x).SequenceEqual(proteins.Keys.OrderBy(x => x))))
             {
                 Name = name;
                 Proteins = proteins;
