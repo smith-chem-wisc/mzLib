@@ -99,6 +99,12 @@ namespace Transcriptomics.Digestion
         /// <summary>
         /// Loads custom RNases from one or more TSV files and merges new entries into <see cref="Dictionary"/>.
         ///
+        /// <para><b>Atomicity guarantee:</b></para>
+        /// <para>
+        /// All files are parsed and validated before any entry is added to <see cref="Dictionary"/>.
+        /// If any file cannot be read or contains malformed data, the dictionary remains completely unchanged.
+        /// </para>
+        ///
         /// <para><b>Merge rules:</b></para>
         /// <list type="bullet">
         ///   <item><description>
@@ -127,32 +133,51 @@ namespace Transcriptomics.Digestion
         /// <returns>
         /// A <see cref="CustomDigestionAgentLoadResult"/> with the names of added and skipped RNases.
         /// </returns>
+        /// <exception cref="FileNotFoundException">Thrown if any path does not exist. Dictionary is not modified.</exception>
+        /// <exception cref="MzLibException">Thrown if any file contains duplicate RNase names. Dictionary is not modified.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="paths"/> is <c>null</c>.</exception>
         public static CustomDigestionAgentLoadResult LoadAndMergeCustomRnases(IEnumerable<string> paths)
         {
+            ArgumentNullException.ThrowIfNull(paths);
+
             var added = new List<string>();
             var skipped = new List<string>();
 
+            // Stage 1: Parse ALL files into a temporary collection.
+            // If any file is missing or malformed this will throw before Dictionary is touched.
+            var parsedFiles = new List<Dictionary<string, Rnase>>();
             foreach (string path in paths)
             {
                 string[] lines = File.ReadAllLines(path);
-                var customRnases = ParseRnaseLines(lines);
+                parsedFiles.Add(ParseRnaseLines(lines));
+            }
 
+            // Stage 2: Merge into Dictionary only after every file parsed successfully.
+            // Build a combined view that also deduplicates across files (first-encountered wins).
+            var staged = new Dictionary<string, Rnase>();
+            foreach (var customRnases in parsedFiles)
+            {
                 foreach (var kvp in customRnases)
                 {
-                    if (Dictionary.ContainsKey(kvp.Key))
+                    if (Dictionary.ContainsKey(kvp.Key) || staged.ContainsKey(kvp.Key))
                     {
-                        // Name collision — embedded or earlier custom entry wins
                         skipped.Add(kvp.Key);
                     }
                     else
                     {
-                        Dictionary.Add(kvp.Key, kvp.Value);
+                        staged.Add(kvp.Key, kvp.Value);
                         added.Add(kvp.Key);
                     }
                 }
             }
 
-            return new CustomDigestionAgentLoadResult(added, skipped);
+            // Commit all staged entries atomically.
+            foreach (var kvp in staged)
+            {
+                Dictionary.Add(kvp.Key, kvp.Value);
+            }
+
+            return new CustomDigestionAgentLoadResult(added.AsReadOnly(), skipped.AsReadOnly());
         }
 
         #endregion

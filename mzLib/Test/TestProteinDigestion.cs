@@ -53,12 +53,17 @@ namespace Test
         public static void ProteaseLoader_InvalidFiles_Throw()
         {
             string path_badMod = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteaseFilesForLoadingTests", "TestProteases_badMod.tsv");
+            string path_badModDupName = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteaseFilesForLoadingTests", "TestProteases_badMod_dupName.tsv");
             string path_dupName = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteaseFilesForLoadingTests", "TestProteases_dupName.tsv");
             string path_modDupName = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteaseFilesForLoadingTests", "TestProteases_Mod_dupName.tsv");
 
             // A file referencing a modification name that doesn't exist should throw
             NUnit.Framework.Assert.Throws<MzLibException>(
                 () => ProteaseDictionary.LoadAndMergeCustomProteases(path_badMod));
+
+            // A file with both a bad mod reference and a duplicate name should throw
+            NUnit.Framework.Assert.Throws<MzLibException>(
+                () => ProteaseDictionary.LoadAndMergeCustomProteases(path_badModDupName));
 
             // A file with duplicate names within a single file should throw
             NUnit.Framework.Assert.Throws<MzLibException>(
@@ -309,7 +314,7 @@ namespace Test
             var prot = new Protein("MNNNKQQQQ", null);
             var motifList = DigestionMotif.ParseDigestionMotifsFromString("K|");
             var protease = new Protease("CustomizedProtease", CleavageSpecificity.Full, null, null, motifList);
-            ProteaseDictionary.Dictionary.Add(protease.Name, protease);
+            ProteaseDictionary.Dictionary[protease.Name] = protease;
             try
             {
                 DigestionParams digestionParams = new DigestionParams(
@@ -357,7 +362,7 @@ namespace Test
             var prot = new Protein("MNNNKQQXQ", null);
             var motifList = DigestionMotif.ParseDigestionMotifsFromString("K|");
             var protease = new Protease("Custom Protease7", CleavageSpecificity.Full, null, null, motifList);
-            ProteaseDictionary.Dictionary.Add(protease.Name, protease);
+            ProteaseDictionary.Dictionary[protease.Name] = protease;
             try
             {
                 DigestionParams digestionParams = new DigestionParams(
@@ -753,7 +758,7 @@ namespace Test
             var prot = new Protein("MNNNYTKQQQQKS", null);
             var motifList = DigestionMotif.ParseDigestionMotifsFromString("K|");
             var protease = new Protease("CustomizedProtease_diffname", CleavageSpecificity.Full, null, null, motifList);
-            ProteaseDictionary.Dictionary.Add(protease.Name, protease);
+            ProteaseDictionary.Dictionary[protease.Name] = protease;
             try
             {
                 DigestionParams digestionParams = new DigestionParams(

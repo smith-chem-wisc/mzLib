@@ -44,6 +44,9 @@ namespace Proteomics.ProteolyticDigestion
         private const string EmbeddedProteaseResourceName = "Proteomics.ProteolyticDigestion.proteases.tsv";
         private const string EmbeddedProteaseModsResourceName = "Proteomics.ProteolyticDigestion.protease_mods.txt";
 
+        private static readonly Lazy<List<Modification>> CachedEmbeddedProteaseMods =
+            new Lazy<List<Modification>>(() => LoadEmbeddedProteaseModsFromResource());
+
         static ProteaseDictionary()
         {
             Dictionary = LoadProteaseDictionaryWithEmbeddedMods();
@@ -70,11 +73,18 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         /// <summary>
-        /// Loads protease-specific modifications from the embedded protease_mods.txt resource.
+        /// Returns protease-specific modifications from the embedded protease_mods.txt resource.
         /// These are modifications applied at cleavage sites (e.g., Homoserine lactone for CNBr).
+        /// The embedded resource is parsed at most once and cached for the lifetime of the process;
+        /// each call returns a fresh copy of the cached list.
         /// Returns an empty list if the resource is absent, allowing backward compatibility.
         /// </summary>
         public static List<Modification> LoadEmbeddedProteaseMods()
+        {
+            return CachedEmbeddedProteaseMods.Value.ToList();
+        }
+
+        private static List<Modification> LoadEmbeddedProteaseModsFromResource()
         {
             var assembly = typeof(ProteaseDictionary).Assembly;
 
@@ -245,6 +255,12 @@ namespace Proteomics.ProteolyticDigestion
         /// <summary>
         /// Loads custom proteases from one or more TSV files and merges new entries into <see cref="Dictionary"/>.
         ///
+        /// <para><b>Atomicity guarantee:</b></para>
+        /// <para>
+        /// All files are parsed and validated before any entry is added to <see cref="Dictionary"/>.
+        /// If any file cannot be read or contains malformed data, the dictionary remains completely unchanged.
+        /// </para>
+        ///
         /// <para><b>Merge rules:</b></para>
         /// <list type="bullet">
         ///   <item><description>
@@ -279,40 +295,59 @@ namespace Proteomics.ProteolyticDigestion
         /// <returns>
         /// A <see cref="CustomDigestionAgentLoadResult"/> with the names of added and skipped proteases.
         /// </returns>
+        /// <exception cref="FileNotFoundException">Thrown if any path does not exist. Dictionary is not modified.</exception>
+        /// <exception cref="MzLibException">Thrown if any file contains duplicate protease names. Dictionary is not modified.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="paths"/> is <c>null</c>.</exception>
         public static CustomDigestionAgentLoadResult LoadAndMergeCustomProteases(
             IEnumerable<string> paths,
             List<Modification> proteaseMods = null)
         {
+            ArgumentNullException.ThrowIfNull(paths);
+
             // Fall back to the embedded mods when the caller does not supply their own.
             // This allows custom files to reference the same cleavage modifications as the
             // embedded resource (e.g. "Homoserine lactone on M" for CNBr-style proteases)
             // without requiring every caller to load the mods file themselves.
             var resolvedMods = proteaseMods ?? LoadEmbeddedProteaseMods();
 
-            var added = new List<string>();
-            var skipped = new List<string>();
-
+            // Stage 1: Parse ALL files into a temporary collection.
+            // If any file is missing or malformed this will throw before Dictionary is touched.
+            var parsedFiles = new List<Dictionary<string, Protease>>();
             foreach (string path in paths)
             {
                 string[] lines = File.ReadAllLines(path);
-                var customProteases = ParseProteaseLines(lines, resolvedMods);
+                parsedFiles.Add(ParseProteaseLines(lines, resolvedMods));
+            }
 
+            // Stage 2: Merge into Dictionary only after every file parsed successfully.
+            // Build a combined view that also deduplicates across files (first-encountered wins).
+            var added = new List<string>();
+            var skipped = new List<string>();
+            var staged = new Dictionary<string, Protease>();
+
+            foreach (var customProteases in parsedFiles)
+            {
                 foreach (var kvp in customProteases)
                 {
-                    if (Dictionary.ContainsKey(kvp.Key))
+                    if (Dictionary.ContainsKey(kvp.Key) || staged.ContainsKey(kvp.Key))
                     {
-                        // Name collision — embedded or earlier custom entry wins
                         skipped.Add(kvp.Key);
                     }
                     else
                     {
-                        Dictionary.Add(kvp.Key, kvp.Value);
+                        staged.Add(kvp.Key, kvp.Value);
                         added.Add(kvp.Key);
                     }
                 }
             }
 
-            return new CustomDigestionAgentLoadResult(added, skipped);
+            // Commit all staged entries atomically.
+            foreach (var kvp in staged)
+            {
+                Dictionary.Add(kvp.Key, kvp.Value);
+            }
+
+            return new CustomDigestionAgentLoadResult(added.AsReadOnly(), skipped.AsReadOnly());
         }
 
         #endregion

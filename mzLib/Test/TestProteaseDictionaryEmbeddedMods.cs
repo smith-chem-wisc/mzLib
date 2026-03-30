@@ -464,7 +464,6 @@ namespace Test
             finally
             {
                 File.Delete(path);
-                ProteaseDictionary.Dictionary.Remove("DuplicateName");
             }
         }
 
@@ -520,6 +519,324 @@ namespace Test
             Assert.That(cnbr.CleavageMod, Is.Not.Null,
                 "CNBr should have cleavage mod without needing external files");
             Assert.That(cnbr.CleavageMod.IdWithMotif, Is.EqualTo("Homoserine lactone on M"));
+        }
+
+        #endregion
+
+        #region Atomicity, Null Guard, and Edge Case Tests
+
+        [Test]
+        public static void LoadAndMergeCustomProteases_SecondPathInvalid_DictionaryUnchanged()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "ProteaseAtomicTests_" + Path.GetRandomFileName());
+            Directory.CreateDirectory(tempDir);
+            try
+            {
+                string validFile = Path.Combine(tempDir, "valid.tsv");
+                File.WriteAllLines(validFile, new[]
+                {
+                    "Name\tMotif\tSpecificity",
+                    "AtomicTestProtease\tK|\tFull"
+                });
+                string nonExistent = Path.Combine(tempDir, "no_such_file.tsv");
+
+                int countBefore = ProteaseDictionary.Dictionary.Count;
+
+                NUnit.Framework.Assert.That(() =>
+                    ProteaseDictionary.LoadAndMergeCustomProteases(new[] { validFile, nonExistent }),
+                    Throws.Exception);
+
+                NUnit.Framework.Assert.That(ProteaseDictionary.Dictionary.Count, Is.EqualTo(countBefore),
+                    "Dictionary must not grow when the second file is missing");
+                NUnit.Framework.Assert.That(ProteaseDictionary.Dictionary.ContainsKey("AtomicTestProtease"), Is.False,
+                    "Entry from the first (valid) file must not be present after a failed multi-file load");
+            }
+            finally
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+
+        [Test]
+        public static void LoadAndMergeCustomProteases_SecondFileHasDuplicates_DictionaryUnchanged()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "ProteaseAtomicDup_" + Path.GetRandomFileName());
+            Directory.CreateDirectory(tempDir);
+            try
+            {
+                string validFile = Path.Combine(tempDir, "valid.tsv");
+                File.WriteAllLines(validFile, new[]
+                {
+                    "Name\tMotif\tSpecificity",
+                    "AtomicTestProtease2\tK|\tFull"
+                });
+                string dupFile = Path.Combine(tempDir, "dup.tsv");
+                File.WriteAllLines(dupFile, new[]
+                {
+                    "Name\tMotif\tSpecificity",
+                    "DupEntry\tK|\tFull",
+                    "DupEntry\tR|\tFull"
+                });
+
+                int countBefore = ProteaseDictionary.Dictionary.Count;
+
+                NUnit.Framework.Assert.That(() =>
+                    ProteaseDictionary.LoadAndMergeCustomProteases(new[] { validFile, dupFile }),
+                    Throws.TypeOf<MzLibUtil.MzLibException>());
+
+                NUnit.Framework.Assert.That(ProteaseDictionary.Dictionary.Count, Is.EqualTo(countBefore));
+                NUnit.Framework.Assert.That(ProteaseDictionary.Dictionary.ContainsKey("AtomicTestProtease2"), Is.False);
+            }
+            finally
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+
+        [Test]
+        public static void LoadAndMergeCustomProteases_NullPaths_ThrowsArgumentNullException()
+        {
+            NUnit.Framework.Assert.That(
+                () => ProteaseDictionary.LoadAndMergeCustomProteases((IEnumerable<string>)null),
+                Throws.TypeOf<System.ArgumentNullException>()
+                    .With.Property("ParamName").EqualTo("paths"));
+        }
+
+        [Test]
+        public static void LoadAndMergeCustomProteases_EmptyPaths_ReturnsEmptyResult()
+        {
+            int countBefore = ProteaseDictionary.Dictionary.Count;
+
+            var result = ProteaseDictionary.LoadAndMergeCustomProteases(
+                System.Array.Empty<string>());
+
+            NUnit.Framework.Assert.That(result.Added, Is.Empty);
+            NUnit.Framework.Assert.That(result.Skipped, Is.Empty);
+            NUnit.Framework.Assert.That(ProteaseDictionary.Dictionary.Count, Is.EqualTo(countBefore));
+        }
+
+        [Test]
+        public static void LoadAndMergeCustomProteases_DuplicateAcrossFiles_FirstFileWins()
+        {
+            string tempDir = Path.Combine(Path.GetTempPath(), "ProteaseAcrossDup_" + Path.GetRandomFileName());
+            Directory.CreateDirectory(tempDir);
+            try
+            {
+                string file1 = Path.Combine(tempDir, "file1.tsv");
+                File.WriteAllLines(file1, new[]
+                {
+                    "Name\tMotif\tSpecificity",
+                    "CrossFileDupProtease\tK|\tFull"
+                });
+                string file2 = Path.Combine(tempDir, "file2.tsv");
+                File.WriteAllLines(file2, new[]
+                {
+                    "Name\tMotif\tSpecificity",
+                    "CrossFileDupProtease\tR|\tFull"
+                });
+
+                var result = ProteaseDictionary.LoadAndMergeCustomProteases(new[] { file1, file2 });
+
+                NUnit.Framework.Assert.That(result.Added, Does.Contain("CrossFileDupProtease"));
+                NUnit.Framework.Assert.That(result.Skipped, Does.Contain("CrossFileDupProtease"));
+                // First file's motif (K|) should win
+                var motifs = ProteaseDictionary.Dictionary["CrossFileDupProtease"].DigestionMotifs;
+                NUnit.Framework.Assert.That(motifs.Any(m => m.InducingCleavage == "K"), Is.True);
+            }
+            finally
+            {
+                ProteaseDictionary.Dictionary.Remove("CrossFileDupProtease");
+                Directory.Delete(tempDir, true);
+            }
+        }
+
+        [Test]
+        public static void LoadEmbeddedProteaseMods_ReturnsFreshCopy_MutationDoesNotAffectCache()
+        {
+            var first = ProteaseDictionary.LoadEmbeddedProteaseMods();
+            int originalCount = first.Count;
+
+            first.Clear();
+
+            var second = ProteaseDictionary.LoadEmbeddedProteaseMods();
+            NUnit.Framework.Assert.That(second.Count, Is.EqualTo(originalCount),
+                "Clearing a returned list must not affect the cached copy");
+        }
+
+        [Test]
+        public static void LoadEmbeddedProteaseMods_ReturnsDifferentInstances()
+        {
+            var first = ProteaseDictionary.LoadEmbeddedProteaseMods();
+            var second = ProteaseDictionary.LoadEmbeddedProteaseMods();
+
+            NUnit.Framework.Assert.That(ReferenceEquals(first, second), Is.False,
+                "Each call should return a separate list instance");
+        }
+
+        [Test]
+        public static void LoadAndMergeCustomProteases_FileWithNoHeader_Throws()
+        {
+            string path = Path.GetTempFileName();
+            try
+            {
+                // Write a file with only comment lines and no header
+                File.WriteAllLines(path, new[]
+                {
+                    "# This is a comment",
+                    "# Another comment"
+                });
+
+                NUnit.Framework.Assert.That(
+                    () => ProteaseDictionary.LoadAndMergeCustomProteases(path),
+                    Throws.TypeOf<MzLibUtil.MzLibException>()
+                        .With.Message.Contains("no header"));
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        [Test]
+        public static void LoadAndMergeCustomProteases_HeaderMissingRequiredColumn_Throws()
+        {
+            string path = Path.GetTempFileName();
+            try
+            {
+                File.WriteAllLines(path, new[]
+                {
+                    "Name\tMotif",
+                    "TestProtease\tK|"
+                });
+
+                NUnit.Framework.Assert.That(
+                    () => ProteaseDictionary.LoadAndMergeCustomProteases(path),
+                    Throws.TypeOf<MzLibUtil.MzLibException>()
+                        .With.Message.Contains("Specificity"));
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        [Test]
+        public static void LoadAndMergeCustomProteases_EmptySpecificity_Throws()
+        {
+            string path = Path.GetTempFileName();
+            try
+            {
+                File.WriteAllLines(path, new[]
+                {
+                    "Name\tMotif\tSpecificity",
+                    "TestProtease\tK|\t"
+                });
+
+                NUnit.Framework.Assert.That(
+                    () => ProteaseDictionary.LoadAndMergeCustomProteases(path),
+                    Throws.TypeOf<MzLibUtil.MzLibException>()
+                        .With.Message.Contains("Specificity"));
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        [Test]
+        public static void LoadAndMergeCustomProteases_EmptyFile_ReturnsEmptyResult()
+        {
+            string path = Path.GetTempFileName();
+            try
+            {
+                // Header only, no data rows
+                File.WriteAllLines(path, new[]
+                {
+                    "Name\tMotif\tSpecificity"
+                });
+
+                int countBefore = ProteaseDictionary.Dictionary.Count;
+                var result = ProteaseDictionary.LoadAndMergeCustomProteases(path);
+
+                NUnit.Framework.Assert.That(result.Added, Is.Empty);
+                NUnit.Framework.Assert.That(result.Skipped, Is.Empty);
+                NUnit.Framework.Assert.That(ProteaseDictionary.Dictionary.Count, Is.EqualTo(countBefore));
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        [Test]
+        public static void LoadAndMergeCustomProteases_OldStyleHeaders_ParsesCorrectly()
+        {
+            string path = Path.GetTempFileName();
+            try
+            {
+                // Use old-style column names from base branch
+                File.WriteAllLines(path, new[]
+                {
+                    "Name\tSequences Inducing Cleavage\tCleavage Specificity\tPSI-MS Accession Number\tPSI-MS Name\tCleavage Mass Shifts",
+                    "OldHeaderTestProtease\tK|\tFull\t\t\t"
+                });
+
+                var result = ProteaseDictionary.LoadAndMergeCustomProteases(path);
+                NUnit.Framework.Assert.That(result.Added, Does.Contain("OldHeaderTestProtease"));
+                NUnit.Framework.Assert.That(ProteaseDictionary.Dictionary.ContainsKey("OldHeaderTestProtease"), Is.True);
+            }
+            finally
+            {
+                ProteaseDictionary.Dictionary.Remove("OldHeaderTestProtease");
+                File.Delete(path);
+            }
+        }
+
+        [Test]
+        public static void LoadAndMergeCustomProteases_WithExplicitMods_UsesProvidedMods()
+        {
+            string path = Path.GetTempFileName();
+            try
+            {
+                File.WriteAllLines(path, new[]
+                {
+                    "Name\tMotif\tSpecificity\tPSI-MS Accession\tPSI-MS Name\tCleavage Modification",
+                    "ExplicitModTestProtease\tK|\tFull\t\t\t"
+                });
+
+                var explicitMods = ProteaseDictionary.LoadEmbeddedProteaseMods();
+                var result = ProteaseDictionary.LoadAndMergeCustomProteases(path, explicitMods);
+
+                NUnit.Framework.Assert.That(result.Added, Does.Contain("ExplicitModTestProtease"));
+            }
+            finally
+            {
+                ProteaseDictionary.Dictionary.Remove("ExplicitModTestProtease");
+                File.Delete(path);
+            }
+        }
+
+        [Test]
+        public static void LoadAndMergeCustomProteases_BadModWithExplicitEmptyList_Throws()
+        {
+            string path = Path.GetTempFileName();
+            try
+            {
+                File.WriteAllLines(path, new[]
+                {
+                    "Name\tMotif\tSpecificity\tPSI-MS Accession\tPSI-MS Name\tCleavage Modification",
+                    "BadModProtease\tK|\tFull\t\t\tNonexistent mod on X"
+                });
+
+                NUnit.Framework.Assert.That(
+                    () => ProteaseDictionary.LoadAndMergeCustomProteases(path, new List<Modification>()),
+                    Throws.TypeOf<MzLibUtil.MzLibException>()
+                        .With.Message.Contains("Nonexistent mod on X"));
+            }
+            finally
+            {
+                File.Delete(path);
+            }
         }
 
         #endregion
