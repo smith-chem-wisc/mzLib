@@ -396,10 +396,9 @@ namespace Test.Omics
         /// Note: When files don't exist, the code treats it as SILAC experimental design and uses filename.
         /// </summary>
         [Test]
-        public void GetTabSeparatedHeader_LabelFree_WithConditions_UsesFilenameWhenFilesDoNotExist()
+        public void GetTabSeparatedHeader_LabelFree_WithConditions_NoIntensities_OmitsIntensityColumns()
         {
             // Files that don't exist trigger SILAC experimental design path, which uses filename
-            // Different bioreps ensure separate columns
             var file1 = new SpectraFileInfo(@"C:\test1.raw", "Control", 0, 1, 0);
             var file2 = new SpectraFileInfo(@"C:\test2.raw", "Treatment", 1, 1, 0);
 
@@ -408,10 +407,19 @@ namespace Test.Omics
 
             var header = _bioPolymerGroup.GetTabSeparatedHeader();
 
-            // When files don't exist, falls back to filename format
+            // Without IntensitiesBySample, intensity columns should not appear
             Assert.That(header, Does.Not.Contain("Intensity_test1"));
             Assert.That(header, Does.Not.Contain("Intensity_test2"));
+        }
 
+        [Test]
+        public void GetTabSeparatedHeader_LabelFree_WithConditions_WithIntensities_ContainsIntensityColumns()
+        {
+            // Files that don't exist trigger SILAC experimental design path, which uses filename
+            var file1 = new SpectraFileInfo(@"C:\test1.raw", "Control", 0, 1, 0);
+            var file2 = new SpectraFileInfo(@"C:\test2.raw", "Treatment", 1, 1, 0);
+
+            _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { file1, file2 };
             _bioPolymerGroup.IntensitiesBySample = new Dictionary<ISampleInfo, double>
             {
                 { file1, 1000.0 },
@@ -419,7 +427,7 @@ namespace Test.Omics
             };
             _bioPolymerGroup.PopulateSampleGroupResults();
 
-            header = _bioPolymerGroup.GetTabSeparatedHeader();
+            var header = _bioPolymerGroup.GetTabSeparatedHeader();
             Assert.That(header, Does.Contain("Intensity_test1"));
             Assert.That(header, Does.Contain("Intensity_test2"));
         }
@@ -429,22 +437,27 @@ namespace Test.Omics
         /// Critical: Ensures correct fallback behavior for simple experimental designs.
         /// </summary>
         [Test]
-        public void GetTabSeparatedHeader_LabelFree_UndefinedConditions_UsesFilename()
+        public void GetTabSeparatedHeader_LabelFree_UndefinedConditions_NoIntensities_OmitsIntensityColumns()
         {
-            // Use different biological replicates so they generate separate columns
-            // Constructor: SpectraFileInfo(path, condition, biorep, techrep, fraction)
-            var file1 = new SpectraFileInfo(@"C:\sample_A.raw", "", 0, 1, 0);  // biorep=0
-            var file2 = new SpectraFileInfo(@"C:\sample_B.raw", "", 1, 1, 0);  // biorep=1
+            var file1 = new SpectraFileInfo(@"C:\sample_A.raw", "", 0, 1, 0);
+            var file2 = new SpectraFileInfo(@"C:\sample_B.raw", "", 1, 1, 0);
 
             _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { file1, file2 };
             _bioPolymerGroup.PopulateSampleGroupResults();
 
-            // IntensitiesBySample is required to trigger intensity column generation
             var header = _bioPolymerGroup.GetTabSeparatedHeader();
 
             Assert.That(header, Does.Not.Contain("Intensity_sample_A"));
             Assert.That(header, Does.Not.Contain("Intensity_sample_B"));
+        }
 
+        [Test]
+        public void GetTabSeparatedHeader_LabelFree_UndefinedConditions_WithIntensities_ContainsIntensityColumns()
+        {
+            var file1 = new SpectraFileInfo(@"C:\sample_A.raw", "", 0, 1, 0);
+            var file2 = new SpectraFileInfo(@"C:\sample_B.raw", "", 1, 1, 0);
+
+            _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { file1, file2 };
             _bioPolymerGroup.IntensitiesBySample = new Dictionary<ISampleInfo, double>
             {
                 { file1, 1000.0 },
@@ -452,7 +465,7 @@ namespace Test.Omics
             };
             _bioPolymerGroup.PopulateSampleGroupResults();
 
-            header = _bioPolymerGroup.GetTabSeparatedHeader();
+            var header = _bioPolymerGroup.GetTabSeparatedHeader();
 
             Assert.That(header, Does.Contain("Intensity_sample_A"));
             Assert.That(header, Does.Contain("Intensity_sample_B"));

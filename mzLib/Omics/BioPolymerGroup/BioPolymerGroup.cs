@@ -572,7 +572,7 @@ namespace Omics.BioPolymerGroup
                                 Label = label,
                                 SpectralCount = psmsInGroup.Count,
                                 FilesInGroup = filesInGroup.ToDictionary(kvp => kvp.FilenameWithoutExtension, kvp => (ISampleInfo)kvp)
-                                // IntensitiesBySample left null → HasIntensityData = false
+                                // IntensitiesBySample left empty → HasIntensityData = false
                             };
                         }
 
@@ -613,7 +613,7 @@ namespace Omics.BioPolymerGroup
                                 Label = label,
                                 SpectralCount = psmsInFile.Count,
                                 FilesInGroup = new Dictionary<string, ISampleInfo> { { label, sample } }
-                                // IntensitiesBySample left null → HasIntensityData = false
+                                // IntensitiesBySample left empty → HasIntensityData = false
                             };
                         }
 

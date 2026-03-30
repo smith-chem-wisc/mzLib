@@ -46,7 +46,7 @@ namespace MzLibUtil.PositionFrequencyAnalysis
                         if (!proteinGroup.Proteins.ContainsKey(proteinName))
                         {
                             proteinGroup.Proteins[proteinName] = new QuantifiedProtein(proteinName);
-                            if (proteinSequences.IsNotNullOrEmpty() && proteinSequences.TryGetValue(proteinName, out var sequence))
+                            if (proteinSequences != null && proteinSequences.TryGetValue(proteinName, out var sequence))
                             {
                                 proteinGroup.Proteins[proteinName].Sequence = sequence;
                             }

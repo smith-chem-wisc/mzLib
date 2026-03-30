@@ -59,6 +59,11 @@ public static class ModificationOccupancyCalculator
         // Use an inner dictionary for dedup during construction, then flatten to lists
         var working = new Dictionary<int, Dictionary<string, SiteSpecificModificationOccupancy>>();
 
+        // Cache per-position totals so they are computed once and shared across all mods at the
+        // same site. Without this, TotalCount is recalculated for every new mod type at the same
+        // position, and occupancies for competing mods at a single site can sum to >1.0.
+        var positionTotals = new Dictionary<int, (int count, double intensity)>();
+
         foreach (var sequence in sequences)
         {
             foreach (var mod in sequence.AllModsOneIsNterminus)
@@ -72,27 +77,38 @@ public static class ModificationOccupancyCalculator
                     working[indexInProtein] = modsAtPosition;
                 }
 
-                if (!modsAtPosition.TryGetValue(mod.Value.IdWithMotif, out var siteOccupancy))
+                // Compute total coverage for this position once and cache it
+                if (!positionTotals.TryGetValue(indexInProtein, out var totals))
                 {
-                    siteOccupancy = new SiteSpecificModificationOccupancy(indexInProtein, mod.Value.IdWithMotif);
+                    int totalCount = 0;
+                    double totalIntensity = 0;
 
-                    // Count total PSMs covering this position using the deduplicated coverage list
-                    // (one entry per PSM) so that multiple interpretations of the same PSM do not
-                    // inflate the denominator.
                     foreach (var seq in coverageList)
                     {
                         int rangeStart = seq.OneBasedStartResidue - (indexInProtein == 1 ? 1 : 0);
                         if (indexInProtein >= rangeStart && indexInProtein <= seq.OneBasedEndResidue)
                         {
-                            siteOccupancy.TotalCount++;
+                            totalCount++;
                             if (intensitiesByFullSequence != null &&
                                 seq.FullSequence != null &&
                                 intensitiesByFullSequence.TryGetValue(seq.FullSequence, out double seqIntensity))
                             {
-                                siteOccupancy.TotalIntensity += seqIntensity;
+                                totalIntensity += seqIntensity;
                             }
                         }
                     }
+
+                    totals = (totalCount, totalIntensity);
+                    positionTotals[indexInProtein] = totals;
+                }
+
+                if (!modsAtPosition.TryGetValue(mod.Value.IdWithMotif, out var siteOccupancy))
+                {
+                    siteOccupancy = new SiteSpecificModificationOccupancy(indexInProtein, mod.Value.IdWithMotif)
+                    {
+                        TotalCount = totals.count,
+                        TotalIntensity = totals.intensity
+                    };
 
                     modsAtPosition[mod.Value.IdWithMotif] = siteOccupancy;
                 }
@@ -146,9 +162,14 @@ public static class ModificationOccupancyCalculator
         double totalGroupIntensity = 0;
         if (intensitiesByFullSequence != null)
         {
-            totalGroupIntensity = peptideList
-                .Where(p => p.FullSequence != null && intensitiesByFullSequence.ContainsKey(p.FullSequence))
-                .Sum(p => intensitiesByFullSequence[p.FullSequence]);
+            foreach (var p in peptideList)
+            {
+                if (p.FullSequence != null &&
+                    intensitiesByFullSequence.TryGetValue(p.FullSequence, out double val))
+                {
+                    totalGroupIntensity += val;
+                }
+            }
         }
 
         var working = new Dictionary<int, Dictionary<string, SiteSpecificModificationOccupancy>>();

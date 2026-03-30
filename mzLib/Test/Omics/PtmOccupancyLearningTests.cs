@@ -1,0 +1,1759 @@
+using NUnit.Framework;
+using Omics;
+using Omics.BioPolymerGroup;
+using Omics.Modifications;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+
+namespace Test.Omics;
+
+/// <summary>
+/// Educational unit tests for understanding how PTM occupancy is calculated
+/// in ModificationOccupancyCalculator.
+///
+/// KEY CONCEPTS:
+/// =============
+/// PTM occupancy answers the question: "At a given amino acid position, what fraction
+/// of the observed peptides carry a specific modification?"
+///
+/// Two metrics are computed:
+///   1. Count-Based Occupancy = ModifiedCount / TotalCount
+///      - ModifiedCount: number of PSMs carrying this mod at this position
+///      - TotalCount: total PSMs covering this position (modified + unmodified)
+///
+///   2. Intensity-Based Stoichiometry = ModifiedIntensity / TotalIntensity
+///      - ModifiedIntensity: sum of intensities from PSMs with the mod at this position
+///      - TotalIntensity: sum of intensities from ALL PSMs covering this position
+///
+/// POSITION MAPPING (AllModsOneIsNterminus convention):
+///   - Key 1 = N-terminal modification slot
+///   - Key 2 = first amino acid residue
+///   - Key 3 = second amino acid residue
+///   - Key (n+1) = nth amino acid residue
+///   - For "Anywhere." mods, protein position = OneBasedStartResidue + key - 2
+///
+/// IMPORTANT: The calculator only reports positions where a modification EXISTS.
+/// Unmodified positions produce no entries in the result dictionary.
+/// </summary>
+[TestFixture]
+[ExcludeFromCodeCoverage]
+public class PtmOccupancyLearningTests
+{
+    // ========================================================================
+    // HELPER: Creates a Modification with "Anywhere." location restriction
+    // ========================================================================
+    private static Modification CreateMod(string name, string motifChar)
+    {
+        ModificationMotif.TryGetMotif(motifChar, out var motif);
+        return new Modification(name, null, "Biological", null, motif, "Anywhere.", null, 79.966);
+    }
+
+    #region Test 1: Single unmodified peptide — no occupancy to report
+
+    /// <summary>
+    /// TEST 1: One protein, one peptide (whole protein sequence), completely unmodified, 1 PSM.
+    ///
+    /// SCENARIO:
+    ///   Protein:  ACDEFGHIK  (9 amino acids)
+    ///   Peptide:  ACDEFGHIK  (spans the entire protein, positions 1–9)
+    ///   PSMs:     1 unmodified PSM
+    ///
+    /// EXPECTED RESULT:
+    ///   The result dictionary is EMPTY. The calculator only creates entries at positions
+    ///   where a modification is observed. Since this peptide has no modifications,
+    ///   there is nothing to report — the occupancy of any hypothetical PTM at any
+    ///   position is implicitly 0/1 = 0%, but this is not explicitly stored.
+    ///
+    ///   This is a fundamental design choice: the calculator answers "what is the
+    ///   occupancy of modifications that WERE observed?" not "what is the occupancy
+    ///   of modifications that COULD exist?"
+    /// </summary>
+    [Test]
+    public void Test1_SingleUnmodifiedPeptide_NoOccupancyReported()
+    {
+        // Arrange: one protein, one unmodified peptide spanning the whole protein
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
+        var unmodifiedPeptide = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK",    // base sequence
+            "ACDEFGHIK",    // full sequence (no modification brackets)
+            protein,        // parent protein
+            1, 9);          // spans positions 1 through 9
+
+        // We also test with intensities to show both metrics are empty
+        var intensities = new Dictionary<string, double>
+        {
+            ["ACDEFGHIK"] = 1000.0
+        };
+
+        // Act: calculate protein-level occupancy
+        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein, new[] { unmodifiedPeptide }, null, intensities);
+
+        // Assert: result is empty because no modifications were observed
+        // The calculator does not create entries for unmodified positions.
+        // Even though this PSM "covers" all 9 positions, there are no modifications
+        // at any position, so there is nothing to report.
+        Assert.That(result, Is.Empty,
+            "No modifications exist, so the result dictionary should be empty. " +
+            "PTM occupancy is only reported at positions where a modification was actually observed.");
+    }
+
+    #endregion
+
+    #region Test 2: One modified + one unmodified PSM at a single position
+
+    /// <summary>
+    /// TEST 2: One protein, one peptide (whole protein), sometimes modified, sometimes not.
+    ///
+    /// SCENARIO:
+    ///   Protein:  ACDEFGHIK
+    ///   PSM 1:    ACDEFGHIK         (unmodified, intensity = 1)
+    ///   PSM 2:    ACD[Phospho]EFGHIK (Phosphorylation on D at protein position 3, intensity = 2)
+    ///
+    /// This tests the core occupancy calculation: of the 2 PSMs covering position 3,
+    /// only 1 carries the modification.
+    ///
+    /// OCCUPANCY AT THE MODIFIED POSITION (D, protein position 3):
+    ///   Count-Based:     ModifiedCount=1, TotalCount=2  → 1/2 = 0.50 (50%)
+    ///   Intensity-Based: ModifiedIntensity=2, TotalIntensity=3 → 2/3 ≈ 0.667 (66.7%)
+    ///
+    ///   Notice the two metrics give DIFFERENT answers because the modified PSM
+    ///   has higher intensity (2) than the unmodified (1). Intensity-based stoichiometry
+    ///   weights each PSM by its signal strength.
+    ///
+    /// OCCUPANCY AT ANY OTHER POSITION (e.g., A at position 1):
+    ///   Not reported — the calculator only tracks positions where mods exist.
+    /// </summary>
+    [Test]
+    public void Test2_OneModOneUnmod_OccupancyAtModifiedAndUnmodifiedSites()
+    {
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
+        var phosphoOnD = CreateMod("Phosphorylation", "D");
+
+        // PSM 1: unmodified peptide, intensity = 1
+        var unmodifiedPsm = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACDEFGHIK", protein, 1, 9);
+
+        // PSM 2: Phosphorylation on D (3rd residue → AllModsOneIsNterminus key = 4)
+        // Key 4 maps to protein position: 1 + 4 - 2 = 3
+        var modifiedPsm = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACD[Phosphorylation]EFGHIK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 4, phosphoOnD } });
+
+        var intensities = new Dictionary<string, double>
+        {
+            ["ACDEFGHIK"] = 1.0,             // unmodified PSM intensity
+            ["ACD[Phosphorylation]EFGHIK"] = 2.0  // modified PSM intensity
+        };
+
+        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein,
+            new IBioPolymerWithSetMods[] { unmodifiedPsm, modifiedPsm },
+            null,
+            intensities);
+
+        // --- Occupancy at the MODIFIED position (D, protein position 3) ---
+        // Both PSMs cover position 3, but only 1 carries the phosphorylation.
+        Assert.That(result.ContainsKey(3), Is.True,
+            "Position 3 (D) should have occupancy data because a modification was observed there.");
+
+        var siteD = result[3][0];
+
+        // Count-based: 1 modified out of 2 total = 50%
+        Assert.That(siteD.ModifiedCount, Is.EqualTo(1),
+            "Only 1 of the 2 PSMs carries Phosphorylation at position 3.");
+        Assert.That(siteD.TotalCount, Is.EqualTo(2),
+            "Both PSMs (modified and unmodified) cover position 3, so TotalCount = 2.");
+        Assert.That(siteD.CountBasedOccupancy, Is.EqualTo(0.5),
+            "Count-based occupancy = 1/2 = 0.50. Half the PSMs are modified at this site.");
+
+        // Intensity-based: modified intensity = 2, total intensity = 1 + 2 = 3
+        Assert.That(siteD.ModifiedIntensity, Is.EqualTo(2.0),
+            "The modified PSM has intensity 2.");
+        Assert.That(siteD.TotalIntensity, Is.EqualTo(3.0),
+            "Total intensity = 1 (unmodified) + 2 (modified) = 3.");
+        Assert.That(siteD.IntensityBasedStoichiometry, Is.EqualTo(2.0 / 3.0).Within(1e-10),
+            "Intensity-based stoichiometry = 2/3 ≈ 0.667. Higher than count-based because " +
+            "the modified PSM has higher intensity than the unmodified one.");
+
+        // --- Occupancy at an UNMODIFIED position (e.g., position 1, A) ---
+        // No modification was observed at position 1, so the calculator does not report it.
+        Assert.That(result.ContainsKey(1), Is.False,
+            "Position 1 (A) has no modification, so it does not appear in the result. " +
+            "The calculator only tracks positions where modifications were observed.");
+    }
+
+    #endregion
+
+    #region Test 3: Modifications at two different positions
+
+    /// <summary>
+    /// TEST 3: One protein, one peptide, modifications at two separate positions.
+    ///
+    /// SCENARIO:
+    ///   Protein:  ACDEFGHIK
+    ///   PSM 1:    ACDEFGHIK            (unmodified, intensity = 1)
+    ///   PSM 2:    ACD[Phospho]EFGHIK   (Phospho on D at position 3, intensity = 2)
+    ///   PSM 3:    ACDEFG[Phospho]HIK   (Phospho on G at position 6, intensity = 3)
+    ///
+    /// Each PSM represents a different observation from mass spec. All 3 PSMs cover
+    /// ALL positions in the protein because they all span the full sequence.
+    ///
+    /// AT POSITION 3 (D, Phosphorylation):
+    ///   Count:     1 modified / 3 total = 0.333 (33.3%)
+    ///   Intensity: 2 / (1+2+3) = 2/6 = 0.333 (33.3%)
+    ///
+    /// AT POSITION 6 (G, Phosphorylation):
+    ///   Count:     1 modified / 3 total = 0.333 (33.3%)
+    ///   Intensity: 3 / (1+2+3) = 3/6 = 0.500 (50.0%)
+    ///
+    /// KEY INSIGHT: The count-based occupancy is the same at both sites (1/3),
+    /// but intensity-based stoichiometry differs because the PSM modified at G
+    /// has higher intensity (3) than the PSM modified at D (2). This shows how
+    /// intensity weighting can reveal that one modification site may be more
+    /// abundantly occupied than another, even when the same number of PSMs
+    /// carry each modification.
+    ///
+    /// AT AN UNMODIFIED POSITION (e.g., position 1):
+    ///   Not reported — no modification was observed there.
+    /// </summary>
+    [Test]
+    public void Test3_TwoModificationsAtDifferentPositions()
+    {
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
+        var phosphoD = CreateMod("Phosphorylation", "D");
+        var phosphoG = CreateMod("Phosphorylation", "G");
+
+        // PSM 1: unmodified, intensity = 1
+        var unmodPsm = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACDEFGHIK", protein, 1, 9);
+
+        // PSM 2: Phospho on D (key 4 → protein position 1+4-2=3), intensity = 2
+        var modDPsm = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACD[Phosphorylation]EFGHIK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 4, phosphoD } });
+
+        // PSM 3: Phospho on G (key 7 → protein position 1+7-2=6), intensity = 3
+        var modGPsm = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACDEFG[Phosphorylation]HIK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 7, phosphoG } });
+
+        var intensities = new Dictionary<string, double>
+        {
+            ["ACDEFGHIK"] = 1.0,
+            ["ACD[Phosphorylation]EFGHIK"] = 2.0,
+            ["ACDEFG[Phosphorylation]HIK"] = 3.0
+        };
+
+        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein,
+            new IBioPolymerWithSetMods[] { unmodPsm, modDPsm, modGPsm },
+            null,
+            intensities);
+
+        // --- Position 3 (D): Phosphorylation ---
+        // All 3 PSMs cover this position. Only 1 carries Phospho here.
+        Assert.That(result.ContainsKey(3), Is.True);
+        var siteD = result[3][0];
+        Assert.That(siteD.ModifiedCount, Is.EqualTo(1),
+            "Only 1 PSM has Phosphorylation at position 3 (D).");
+        Assert.That(siteD.TotalCount, Is.EqualTo(3),
+            "All 3 PSMs span the full protein and cover position 3.");
+        Assert.That(siteD.CountBasedOccupancy, Is.EqualTo(1.0 / 3.0).Within(1e-10),
+            "Count occupancy at D = 1/3 ≈ 33.3%.");
+        Assert.That(siteD.ModifiedIntensity, Is.EqualTo(2.0),
+            "The PSM modified at D has intensity 2.");
+        Assert.That(siteD.TotalIntensity, Is.EqualTo(6.0),
+            "Total intensity = 1 + 2 + 3 = 6 (all PSMs covering this position).");
+        Assert.That(siteD.IntensityBasedStoichiometry, Is.EqualTo(2.0 / 6.0).Within(1e-10),
+            "Intensity stoichiometry at D = 2/6 ≈ 33.3%. Same as count here by coincidence.");
+
+        // --- Position 6 (G): Phosphorylation ---
+        // All 3 PSMs cover this position. Only 1 carries Phospho here.
+        Assert.That(result.ContainsKey(6), Is.True);
+        var siteG = result[6][0];
+        Assert.That(siteG.ModifiedCount, Is.EqualTo(1),
+            "Only 1 PSM has Phosphorylation at position 6 (G).");
+        Assert.That(siteG.TotalCount, Is.EqualTo(3),
+            "All 3 PSMs cover position 6.");
+        Assert.That(siteG.CountBasedOccupancy, Is.EqualTo(1.0 / 3.0).Within(1e-10),
+            "Count occupancy at G = 1/3. Same as D because each site has exactly 1 modified PSM out of 3.");
+        Assert.That(siteG.ModifiedIntensity, Is.EqualTo(3.0),
+            "The PSM modified at G has intensity 3.");
+        Assert.That(siteG.TotalIntensity, Is.EqualTo(6.0),
+            "Total intensity is 6 (same denominator as D — all PSMs cover all positions).");
+        Assert.That(siteG.IntensityBasedStoichiometry, Is.EqualTo(3.0 / 6.0).Within(1e-10),
+            "Intensity stoichiometry at G = 3/6 = 50%. HIGHER than D's 33.3% because the " +
+            "PSM modified at G has higher intensity (3 vs 2). This demonstrates how " +
+            "intensity-based stoichiometry can differentiate site occupancy even when " +
+            "count-based occupancy is the same.");
+
+        // --- Unmodified position (e.g., position 1, A) ---
+        Assert.That(result.ContainsKey(1), Is.False,
+            "Position 1 (A) has no modification observed, so it's not in the result.");
+
+        // Only 2 positions are in the result: 3 and 6 (the two modified sites)
+        Assert.That(result.Count, Is.EqualTo(2),
+            "Only the 2 modified positions appear in the result dictionary.");
+    }
+
+    #endregion
+
+    #region Test 4: Two peptides (full + half length), both unmodified
+
+    /// <summary>
+    /// TEST 4: Two peptides of different lengths, both unmodified.
+    ///
+    /// SCENARIO:
+    ///   Protein:       ACDEFGHIK  (positions 1–9)
+    ///   Long peptide:  ACDEFGHIK  (positions 1–9, intensity = 1)
+    ///   Short peptide: ACDEF      (positions 1–5, intensity = 2)
+    ///
+    ///   Shared positions: 1–5 (covered by BOTH peptides)
+    ///   Non-shared positions: 6–9 (covered ONLY by the long peptide)
+    ///
+    /// EXPECTED RESULT:
+    ///   Empty — neither peptide has modifications, so there is nothing to report.
+    ///
+    ///   Even though position 3 is covered by 2 PSMs and position 7 by only 1 PSM,
+    ///   the calculator does not create entries for unmodified positions. The "coverage"
+    ///   only matters as a denominator when there IS a modification to report.
+    ///
+    /// This test establishes the baseline for Tests 5a and 5b, which add modifications
+    /// to these same peptides.
+    /// </summary>
+    [Test]
+    public void Test4_TwoPeptidesBothUnmodified_NoOccupancyReported()
+    {
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
+
+        // Long peptide: full protein, positions 1–9, intensity = 1
+        var longPeptide = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACDEFGHIK", protein, 1, 9);
+
+        // Short peptide: first half, positions 1–5, intensity = 2
+        var shortPeptide = new MockBioPolymerWithSetMods(
+            "ACDEF", "ACDEF", protein, 1, 5);
+
+        var intensities = new Dictionary<string, double>
+        {
+            ["ACDEFGHIK"] = 1.0,
+            ["ACDEF"] = 2.0
+        };
+
+        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein,
+            new IBioPolymerWithSetMods[] { longPeptide, shortPeptide },
+            null,
+            intensities);
+
+        // No modifications on either peptide → empty result
+        Assert.That(result, Is.Empty,
+            "Both peptides are unmodified. The calculator only reports positions with " +
+            "observed modifications. Coverage information (2 PSMs at positions 1-5, " +
+            "1 PSM at positions 6-9) is not stored unless a modification triggers it.");
+    }
+
+    #endregion
+
+    #region Test 5a: Overlapping peptides, modification at a SHARED position
+
+    /// <summary>
+    /// TEST 5a: Long peptide modified at a position covered by both peptides.
+    ///
+    /// SCENARIO:
+    ///   Protein:       ACDEFGHIK  (positions 1–9)
+    ///   Long peptide:  ACD[Phospho]EFGHIK  (positions 1–9, mod at D = position 3, intensity = 1)
+    ///   Short peptide: ACDEF               (positions 1–5, unmodified, intensity = 2)
+    ///
+    ///   Position 3 (D) is SHARED — both peptides cover it.
+    ///   The short peptide does not carry the modification at position 3.
+    ///
+    /// AT THE MODIFIED POSITION (D, position 3 — shared by both peptides):
+    ///   TotalCount = 2 (both peptides cover position 3)
+    ///   ModifiedCount = 1 (only the long peptide has Phospho at D)
+    ///   Count Occupancy = 1/2 = 0.50
+    ///
+    ///   TotalIntensity = 1 + 2 = 3 (intensities of ALL peptides covering position 3)
+    ///   ModifiedIntensity = 1 (only the long peptide's intensity counts as modified)
+    ///   Intensity Stoichiometry = 1/3 ≈ 0.333
+    ///
+    ///   KEY INSIGHT: The short peptide acts as evidence AGAINST the modification.
+    ///   It covers position 3 but does NOT carry Phospho, so it increases the denominator
+    ///   (TotalCount and TotalIntensity) without increasing the numerator. This pulls
+    ///   the occupancy DOWN from what it would be if only the long peptide were observed.
+    ///
+    /// AT AN UNMODIFIED SHARED POSITION (e.g., position 1):
+    ///   Not reported — no modification observed there.
+    ///
+    /// AT A NON-SHARED POSITION (e.g., position 7 — only long peptide covers it):
+    ///   Not reported — no modification observed there.
+    /// </summary>
+    [Test]
+    public void Test5a_ModificationAtSharedPosition_BothPeptidesContributeToDenominator()
+    {
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
+        var phosphoD = CreateMod("Phosphorylation", "D");
+
+        // Long peptide: full protein, Phospho at D (key=4 → protein pos 3), intensity=1
+        var longPeptide = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACD[Phosphorylation]EFGHIK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 4, phosphoD } });
+
+        // Short peptide: first half, unmodified, intensity=2
+        var shortPeptide = new MockBioPolymerWithSetMods(
+            "ACDEF", "ACDEF", protein, 1, 5);
+
+        var intensities = new Dictionary<string, double>
+        {
+            ["ACD[Phosphorylation]EFGHIK"] = 1.0,
+            ["ACDEF"] = 2.0
+        };
+
+        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein,
+            new IBioPolymerWithSetMods[] { longPeptide, shortPeptide },
+            null,
+            intensities);
+
+        // --- Modified position (D, position 3) — SHARED by both peptides ---
+        Assert.That(result.ContainsKey(3), Is.True);
+        var site = result[3][0];
+
+        // Both peptides cover position 3, so TotalCount = 2
+        Assert.That(site.TotalCount, Is.EqualTo(2),
+            "Both the long peptide (1-9) and short peptide (1-5) cover position 3, so TotalCount = 2.");
+        Assert.That(site.ModifiedCount, Is.EqualTo(1),
+            "Only the long peptide carries Phosphorylation at position 3.");
+        Assert.That(site.CountBasedOccupancy, Is.EqualTo(0.5),
+            "Count occupancy = 1/2 = 50%. The short unmodified peptide dilutes the occupancy.");
+
+        // Intensity: total = 1 (long) + 2 (short) = 3
+        Assert.That(site.TotalIntensity, Is.EqualTo(3.0),
+            "Both peptides contribute intensity to the denominator: 1 + 2 = 3.");
+        Assert.That(site.ModifiedIntensity, Is.EqualTo(1.0),
+            "Only the long peptide's intensity (1) counts as modified.");
+        Assert.That(site.IntensityBasedStoichiometry, Is.EqualTo(1.0 / 3.0).Within(1e-10),
+            "Intensity stoichiometry = 1/3 ≈ 33.3%. Lower than count-based 50% because " +
+            "the unmodified short peptide has higher intensity (2) than the modified long peptide (1).");
+
+        // --- Unmodified shared position (e.g., position 1) ---
+        Assert.That(result.ContainsKey(1), Is.False,
+            "Position 1 has no modification, so it's not reported.");
+
+        // --- Non-shared position (e.g., position 7) ---
+        Assert.That(result.ContainsKey(7), Is.False,
+            "Position 7 is only covered by the long peptide, but it has no modification there.");
+    }
+
+    #endregion
+
+    #region Test 5b: Overlapping peptides, modification at a NON-SHARED position
+
+    /// <summary>
+    /// TEST 5b: Long peptide modified at a position NOT covered by the short peptide.
+    ///
+    /// SCENARIO:
+    ///   Protein:       ACDEFGHIK  (positions 1–9)
+    ///   Long peptide:  ACDEFGH[Phospho]IK  (positions 1–9, mod at H = position 7, intensity = 1)
+    ///   Short peptide: ACDEF                (positions 1–5, unmodified, intensity = 2)
+    ///
+    ///   Position 7 (H) is NOT SHARED — only the long peptide covers it.
+    ///   The short peptide ends at position 5 and cannot contribute evidence at position 7.
+    ///
+    /// AT THE MODIFIED POSITION (H, position 7 — NOT shared):
+    ///   TotalCount = 1 (only long peptide covers position 7)
+    ///   ModifiedCount = 1
+    ///   Count Occupancy = 1/1 = 1.00 (100%)
+    ///
+    ///   TotalIntensity = 1 (only long peptide's intensity)
+    ///   ModifiedIntensity = 1
+    ///   Intensity Stoichiometry = 1/1 = 1.00 (100%)
+    ///
+    ///   KEY INSIGHT: The short peptide cannot dilute the occupancy here because it
+    ///   doesn't cover position 7. Contrast this with Test 5a where the short peptide
+    ///   DID cover the modified position and reduced occupancy to 50%. This shows
+    ///   how peptide coverage geometry affects occupancy calculations.
+    ///
+    /// AT SHARED UNMODIFIED POSITIONS (1–5):
+    ///   Not reported — no modification there.
+    /// </summary>
+    [Test]
+    public void Test5b_ModificationAtNonSharedPosition_OnlyLongPeptideContributes()
+    {
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
+        var phosphoH = CreateMod("Phosphorylation", "H");
+
+        // Long peptide: Phospho at H (key=8 → protein pos 1+8-2=7), intensity=1
+        var longPeptide = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACDEFGH[Phosphorylation]IK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 8, phosphoH } });
+
+        // Short peptide: positions 1–5, unmodified, intensity=2
+        var shortPeptide = new MockBioPolymerWithSetMods(
+            "ACDEF", "ACDEF", protein, 1, 5);
+
+        var intensities = new Dictionary<string, double>
+        {
+            ["ACDEFGH[Phosphorylation]IK"] = 1.0,
+            ["ACDEF"] = 2.0
+        };
+
+        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein,
+            new IBioPolymerWithSetMods[] { longPeptide, shortPeptide },
+            null,
+            intensities);
+
+        // --- Modified position (H, position 7) — only long peptide covers it ---
+        Assert.That(result.ContainsKey(7), Is.True);
+        var site = result[7][0];
+
+        Assert.That(site.TotalCount, Is.EqualTo(1),
+            "Only the long peptide covers position 7. The short peptide (1-5) does NOT reach position 7.");
+        Assert.That(site.ModifiedCount, Is.EqualTo(1),
+            "The long peptide carries Phospho at position 7.");
+        Assert.That(site.CountBasedOccupancy, Is.EqualTo(1.0),
+            "Count occupancy = 1/1 = 100%. Compare to Test 5a where sharing diluted it to 50%.");
+
+        Assert.That(site.TotalIntensity, Is.EqualTo(1.0),
+            "Only the long peptide's intensity counts — short peptide doesn't cover this position.");
+        Assert.That(site.ModifiedIntensity, Is.EqualTo(1.0));
+        Assert.That(site.IntensityBasedStoichiometry, Is.EqualTo(1.0),
+            "Intensity stoichiometry = 1/1 = 100%. The short peptide's intensity (2) " +
+            "is NOT included because it doesn't cover position 7.");
+
+        // --- Shared unmodified positions (1–5): not reported ---
+        Assert.That(result.ContainsKey(3), Is.False,
+            "Position 3 is covered by both peptides but has no modification.");
+    }
+
+    #endregion
+
+    #region Test 6: Two proteins, identical sequences, shared unmodified peptide
+
+    /// <summary>
+    /// TEST 6: Two proteins with identical sequences share one unmodified peptide.
+    ///
+    /// SCENARIO:
+    ///   Protein 1: ACDEFGHIK  (accession P1)
+    ///   Protein 2: ACDEFGHIK  (accession P2)
+    ///   1 PSM:     ACDEFGHIK  (unmodified, intensity = 1)
+    ///
+    ///   The peptide maps to both proteins (shared/ambiguous peptide).
+    ///   In the real software, PopulateOccupancy filters peptides by Parent.Accession,
+    ///   so each protein's occupancy is calculated independently with only its own peptides.
+    ///
+    /// HOW OCCUPANCY IS DISTRIBUTED:
+    ///   Both proteins get empty results — the peptide is unmodified.
+    ///
+    ///   The key point about shared peptides is that each protein gets its own copy
+    ///   of the peptide in the occupancy calculation. But since there are no modifications,
+    ///   there's nothing to distribute.
+    /// </summary>
+    [Test]
+    public void Test6_TwoProteinsSharedUnmodifiedPeptide_BothEmpty()
+    {
+        var protein1 = new MockBioPolymer("ACDEFGHIK", "P00001");
+        var protein2 = new MockBioPolymer("ACDEFGHIK", "P00002");
+
+        // The same PSM maps to both proteins → create one peptide form per protein
+        var peptideForP1 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACDEFGHIK", protein1, 1, 9);
+        var peptideForP2 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACDEFGHIK", protein2, 1, 9);
+
+        var intensities = new Dictionary<string, double>
+        {
+            ["ACDEFGHIK"] = 1.0
+        };
+
+        // Calculate occupancy for each protein independently
+        // (mimicking how PopulateOccupancy filters by Parent.Accession)
+        var resultP1 = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein1, new[] { peptideForP1 }, null, intensities);
+
+        var resultP2 = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein2, new[] { peptideForP2 }, null, intensities);
+
+        // Both proteins get empty results — no modifications to report
+        Assert.That(resultP1, Is.Empty,
+            "Protein 1 has no modifications from this unmodified shared peptide.");
+        Assert.That(resultP2, Is.Empty,
+            "Protein 2 has no modifications from this unmodified shared peptide. " +
+            "For shared peptides, occupancy is calculated per-protein but since the " +
+            "peptide is unmodified, both proteins show nothing.");
+    }
+
+    #endregion
+
+    #region Test 7: Two proteins, identical sequences, shared modified peptide
+
+    /// <summary>
+    /// TEST 7: Two proteins with identical sequences share one MODIFIED peptide.
+    ///
+    /// SCENARIO:
+    ///   Protein 1: ACDEFGHIK  (accession P1)
+    ///   Protein 2: ACDEFGHIK  (accession P2)
+    ///   1 PSM:     ACD[Phospho]EFGHIK  (modified at D, position 3, intensity = 1)
+    ///
+    ///   The PSM maps to both proteins. Each protein gets its own copy of the
+    ///   modified peptide for its occupancy calculation.
+    ///
+    /// HOW OCCUPANCY IS DISTRIBUTED:
+    ///   Each protein independently shows:
+    ///     Count Occupancy = 1/1 = 100%
+    ///     Intensity Stoichiometry = 1/1 = 100%
+    ///
+    ///   Both proteins show identical, full occupancy. This is because from each
+    ///   protein's perspective, the ONLY peptide covering it is modified. The occupancy
+    ///   is not "split" between proteins — each protein gets the full 100%.
+    ///
+    ///   This makes biological sense: if the only evidence you have for a protein
+    ///   is a modified peptide, then 100% of the observed evidence is modified.
+    /// </summary>
+    [Test]
+    public void Test7_TwoProteinsSharedModifiedPeptide_BothShow100Percent()
+    {
+        var protein1 = new MockBioPolymer("ACDEFGHIK", "P00001");
+        var protein2 = new MockBioPolymer("ACDEFGHIK", "P00002");
+        var phosphoD = CreateMod("Phosphorylation", "D");
+
+        // One modified PSM → one peptide form per protein
+        var modPeptideP1 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACD[Phosphorylation]EFGHIK", protein1, 1, 9,
+            new Dictionary<int, Modification> { { 4, phosphoD } });
+        var modPeptideP2 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACD[Phosphorylation]EFGHIK", protein2, 1, 9,
+            new Dictionary<int, Modification> { { 4, phosphoD } });
+
+        var intensities = new Dictionary<string, double>
+        {
+            ["ACD[Phosphorylation]EFGHIK"] = 1.0
+        };
+
+        // Calculate independently for each protein
+        var resultP1 = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein1, new[] { modPeptideP1 }, null, intensities);
+        var resultP2 = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein2, new[] { modPeptideP2 }, null, intensities);
+
+        // Protein 1 at position 3
+        Assert.That(resultP1.ContainsKey(3), Is.True);
+        Assert.That(resultP1[3][0].CountBasedOccupancy, Is.EqualTo(1.0),
+            "Protein 1: 1 modified PSM / 1 total PSM = 100% occupancy.");
+        Assert.That(resultP1[3][0].IntensityBasedStoichiometry, Is.EqualTo(1.0),
+            "Protein 1: intensity 1 / total intensity 1 = 100%.");
+
+        // Protein 2 at position 3 — SAME result
+        Assert.That(resultP2.ContainsKey(3), Is.True);
+        Assert.That(resultP2[3][0].CountBasedOccupancy, Is.EqualTo(1.0),
+            "Protein 2: also 100%. Occupancy is NOT split between proteins. " +
+            "Each protein independently sees 100% of its evidence as modified.");
+        Assert.That(resultP2[3][0].IntensityBasedStoichiometry, Is.EqualTo(1.0),
+            "Protein 2: intensity stoichiometry also 100%.");
+
+        // CONCERN: Both proteins report 100% occupancy from a single shared PSM, but the
+        // modification physically exists on only ONE protein molecule. The calculator does
+        // not apportion shared peptide evidence between proteins — it duplicates it. A consumer
+        // summing occupancy across proteins in a group could overcount the total modification
+        // burden. For example, if Protein 1 and Protein 2 are in the same protein group, a
+        // naive sum would suggest 200% total modification, which is physically impossible.
+        // Whether this is a problem depends on how downstream code consumes these values.
+    }
+
+    #endregion
+
+    #region Test 8: Two proteins, shared peptide, modified + unmodified PSMs
+
+    /// <summary>
+    /// TEST 8: Two proteins with identical sequences. Both a modified and unmodified PSM are observed.
+    ///
+    /// SCENARIO:
+    ///   Protein 1: ACDEFGHIK  (accession P1)
+    ///   Protein 2: ACDEFGHIK  (accession P2)
+    ///   PSM 1:     ACD[Phospho]EFGHIK  (modified at D, intensity = 1)
+    ///   PSM 2:     ACDEFGHIK           (unmodified, intensity = 2)
+    ///
+    ///   Both PSMs map to both proteins (shared peptides).
+    ///
+    /// HOW OCCUPANCY IS DISTRIBUTED:
+    ///   Each protein receives BOTH PSMs for its calculation. The result is identical
+    ///   for both proteins:
+    ///     Count:     1 modified / 2 total = 50%
+    ///     Intensity: 1 / (1+2) = 1/3 ≈ 33.3%
+    ///
+    ///   The occupancy is NOT split or halved between proteins. Each protein independently
+    ///   sees the same 2 PSMs and computes the same occupancy. This means if a peptide
+    ///   is shared between N proteins, all N proteins report the same occupancy values.
+    /// </summary>
+    [Test]
+    public void Test8_TwoProteinsSharedPeptide_ModifiedAndUnmodified()
+    {
+        var protein1 = new MockBioPolymer("ACDEFGHIK", "P00001");
+        var protein2 = new MockBioPolymer("ACDEFGHIK", "P00002");
+        var phosphoD = CreateMod("Phosphorylation", "D");
+
+        // Modified PSM → one peptide form per protein
+        var modP1 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACD[Phosphorylation]EFGHIK", protein1, 1, 9,
+            new Dictionary<int, Modification> { { 4, phosphoD } });
+        var modP2 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACD[Phosphorylation]EFGHIK", protein2, 1, 9,
+            new Dictionary<int, Modification> { { 4, phosphoD } });
+
+        // Unmodified PSM → one peptide form per protein
+        var unmodP1 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACDEFGHIK", protein1, 1, 9);
+        var unmodP2 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACDEFGHIK", protein2, 1, 9);
+
+        var intensities = new Dictionary<string, double>
+        {
+            ["ACD[Phosphorylation]EFGHIK"] = 1.0,
+            ["ACDEFGHIK"] = 2.0
+        };
+
+        // Protein 1: receives modP1 + unmodP1
+        var resultP1 = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein1,
+            new IBioPolymerWithSetMods[] { modP1, unmodP1 },
+            null,
+            intensities);
+
+        // Protein 2: receives modP2 + unmodP2
+        var resultP2 = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein2,
+            new IBioPolymerWithSetMods[] { modP2, unmodP2 },
+            null,
+            intensities);
+
+        // --- Protein 1 ---
+        var siteP1 = resultP1[3][0];
+        Assert.That(siteP1.ModifiedCount, Is.EqualTo(1));
+        Assert.That(siteP1.TotalCount, Is.EqualTo(2));
+        Assert.That(siteP1.CountBasedOccupancy, Is.EqualTo(0.5),
+            "Protein 1: 1 modified / 2 total = 50%.");
+        Assert.That(siteP1.IntensityBasedStoichiometry, Is.EqualTo(1.0 / 3.0).Within(1e-10),
+            "Protein 1: 1/(1+2) ≈ 33.3%. Lower than 50% because the unmodified PSM " +
+            "has higher intensity.");
+
+        // --- Protein 2 — results are IDENTICAL ---
+        var siteP2 = resultP2[3][0];
+        Assert.That(siteP2.CountBasedOccupancy, Is.EqualTo(0.5),
+            "Protein 2: same 50% as Protein 1.");
+        Assert.That(siteP2.IntensityBasedStoichiometry, Is.EqualTo(1.0 / 3.0).Within(1e-10),
+            "Protein 2: same 33.3% as Protein 1. Both proteins see the same shared " +
+            "peptide data, so occupancy is identical. The occupancy is NOT split — " +
+            "it is DUPLICATED across both proteins.");
+    }
+
+    #endregion
+
+    #region Test 9: Two proteins with shared + unique regions (missed cleavage), all unmodified
+
+    /// <summary>
+    /// TEST 9: Two proteins each with a shared peptide and a unique peptide,
+    ///         observed as missed cleavage (both peptides joined), all unmodified.
+    ///
+    /// SCENARIO:
+    ///   Protein 1: ACDEFGHIK   (accession P1)
+    ///   Protein 2: ACDEFLMNPQ  (accession P2)
+    ///
+    ///   Shared region:  ACDEF (positions 1–5 in both proteins)
+    ///   P1 unique:      GHIK  (positions 6–9 in Protein 1)
+    ///   P2 unique:      LMNPQ (positions 6–10 in Protein 2)
+    ///
+    ///   Missed cleavage PSM for P1: ACDEFGHIK   (spans full P1, intensity = 1)
+    ///   Missed cleavage PSM for P2: ACDEFLMNPQ  (spans full P2, intensity = 2)
+    ///
+    ///   The missed cleavage sequences are DIFFERENT (ACDEFGHIK vs ACDEFLMNPQ),
+    ///   so they map unambiguously to their respective proteins.
+    ///
+    /// EXPECTED RESULT:
+    ///   Empty for both proteins — no modifications observed.
+    ///
+    ///   KEY INSIGHT: Even though positions 1–5 contain the same amino acids in both
+    ///   proteins, the missed cleavage PSMs have different full sequences. Each PSM
+    ///   maps to exactly one protein. The shared peptide region is only "shared" in
+    ///   the biological sense — the PSMs themselves are unambiguous.
+    /// </summary>
+    [Test]
+    public void Test9_TwoProteinsMissedCleavageUnmodified_BothEmpty()
+    {
+        var protein1 = new MockBioPolymer("ACDEFGHIK", "P00001");
+        var protein2 = new MockBioPolymer("ACDEFLMNPQ", "P00002");
+
+        // Missed cleavage for P1: full protein sequence, unmodified, intensity = 1
+        var psmP1 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACDEFGHIK", protein1, 1, 9);
+
+        // Missed cleavage for P2: full protein sequence, unmodified, intensity = 2
+        var psmP2 = new MockBioPolymerWithSetMods(
+            "ACDEFLMNPQ", "ACDEFLMNPQ", protein2, 1, 10);
+
+        var intensities = new Dictionary<string, double>
+        {
+            ["ACDEFGHIK"] = 1.0,
+            ["ACDEFLMNPQ"] = 2.0
+        };
+
+        // Each protein gets only its own PSM
+        var resultP1 = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein1, new[] { psmP1 }, null, intensities);
+        var resultP2 = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein2, new[] { psmP2 }, null, intensities);
+
+        Assert.That(resultP1, Is.Empty,
+            "Protein 1: no modifications on the missed cleavage PSM → empty.");
+        Assert.That(resultP2, Is.Empty,
+            "Protein 2: no modifications on the missed cleavage PSM → empty.");
+    }
+
+    #endregion
+
+    #region Test 10: Two proteins with missed cleavage, modification in UNSHARED region
+
+    /// <summary>
+    /// TEST 10: Same as Test 9, but Protein 1's PSM is modified in its UNIQUE region.
+    ///
+    /// SCENARIO:
+    ///   Protein 1: ACDEFGHIK   (accession P1)
+    ///   Protein 2: ACDEFLMNPQ  (accession P2)
+    ///
+    ///   PSM for P1: ACDEFG[Phospho]HIK  (modified at G, position 6 — UNIQUE to P1, intensity = 1)
+    ///   PSM for P2: ACDEFLMNPQ          (unmodified, intensity = 2)
+    ///
+    /// FOR PROTEIN 1 (modified position G at position 6 — unique region):
+    ///   ModifiedCount = 1, TotalCount = 1 → Count Occupancy = 100%
+    ///   ModifiedIntensity = 1, TotalIntensity = 1 → Intensity Stoichiometry = 100%
+    ///
+    ///   The modification is in P1's unique region, so only P1's PSM covers it.
+    ///   With only one PSM and it being modified, occupancy is 100%.
+    ///
+    /// FOR PROTEIN 2 (unmodified):
+    ///   Empty — no modifications on P2's PSM.
+    ///
+    /// FOR A SHARED POSITION (e.g., position 3):
+    ///   Protein 1: not reported (position 3 has no modification on P1's PSM)
+    ///   Protein 2: not reported (P2's PSM is entirely unmodified)
+    /// </summary>
+    [Test]
+    public void Test10_ModificationInUnsharedRegion_OnlyAffectsOneProtein()
+    {
+        var protein1 = new MockBioPolymer("ACDEFGHIK", "P00001");
+        var protein2 = new MockBioPolymer("ACDEFLMNPQ", "P00002");
+        var phosphoG = CreateMod("Phosphorylation", "G");
+
+        // P1's PSM: missed cleavage with Phospho at G (key=7 → pos 1+7-2=6), intensity=1
+        var psmP1 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACDEFG[Phosphorylation]HIK", protein1, 1, 9,
+            new Dictionary<int, Modification> { { 7, phosphoG } });
+
+        // P2's PSM: missed cleavage, unmodified, intensity=2
+        var psmP2 = new MockBioPolymerWithSetMods(
+            "ACDEFLMNPQ", "ACDEFLMNPQ", protein2, 1, 10);
+
+        var intensities = new Dictionary<string, double>
+        {
+            ["ACDEFG[Phosphorylation]HIK"] = 1.0,
+            ["ACDEFLMNPQ"] = 2.0
+        };
+
+        // Protein 1: gets only its own PSM (which is modified)
+        var resultP1 = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein1, new[] { psmP1 }, null, intensities);
+
+        // Protein 2: gets only its own PSM (which is unmodified)
+        var resultP2 = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein2, new[] { psmP2 }, null, intensities);
+
+        // --- Protein 1: modified position (G, position 6, unique region) ---
+        Assert.That(resultP1.ContainsKey(6), Is.True,
+            "Protein 1 has a modification at position 6 (G).");
+        var siteP1 = resultP1[6][0];
+        Assert.That(siteP1.ModifiedCount, Is.EqualTo(1));
+        Assert.That(siteP1.TotalCount, Is.EqualTo(1),
+            "Only P1's own PSM covers position 6. P2's PSM is not involved.");
+        Assert.That(siteP1.CountBasedOccupancy, Is.EqualTo(1.0),
+            "Count occupancy = 1/1 = 100%. The sole PSM is modified.");
+        Assert.That(siteP1.IntensityBasedStoichiometry, Is.EqualTo(1.0),
+            "Intensity stoichiometry = 1/1 = 100%.");
+
+        // --- Protein 2: unmodified → empty ---
+        Assert.That(resultP2, Is.Empty,
+            "Protein 2's PSM is unmodified, so no occupancy is reported for P2.");
+
+        // --- Shared position (e.g., position 3): not reported for either protein ---
+        Assert.That(resultP1.ContainsKey(3), Is.False,
+            "Shared position 3 has no modification on P1's PSM.");
+    }
+
+    #endregion
+
+    #region Test 11: Two proteins with missed cleavage, modification in SHARED region
+
+    /// <summary>
+    /// TEST 11: Same as Test 9, but Protein 1's PSM is modified in the SHARED region.
+    ///
+    /// SCENARIO:
+    ///   Protein 1: ACDEFGHIK   (accession P1)
+    ///   Protein 2: ACDEFLMNPQ  (accession P2)
+    ///
+    ///   PSM for P1: ACD[Phospho]EFGHIK  (modified at D, position 3 — SHARED region, intensity = 1)
+    ///   PSM for P2: ACDEFLMNPQ          (unmodified, intensity = 2)
+    ///
+    ///   Position 3 (D) exists in BOTH proteins, but the modification is only on P1's PSM.
+    ///   Because the missed cleavage sequences are different, each PSM maps unambiguously
+    ///   to its own protein.
+    ///
+    /// FOR PROTEIN 1 (modified at shared position D, position 3):
+    ///   ModifiedCount = 1, TotalCount = 1 → Count Occupancy = 100%
+    ///   ModifiedIntensity = 1, TotalIntensity = 1 → Intensity Stoichiometry = 100%
+    ///
+    ///   Even though position 3 is biologically "shared," P1's occupancy is calculated
+    ///   using only P1's own PSM. The fact that P2's PSM also covers the same amino acid
+    ///   is irrelevant — P2's PSM maps to a different protein.
+    ///
+    /// FOR PROTEIN 2 (unmodified):
+    ///   Empty — no modifications on P2's PSM, even at position 3 (D).
+    ///
+    ///   KEY INSIGHT: Protein 2 does NOT get occupancy information for position 3 (D),
+    ///   even though it has the same amino acid there, because Protein 2's PSM is
+    ///   unmodified. Each protein's occupancy is completely independent.
+    ///
+    /// FOR AN UNMODIFIED POSITION ON PROTEIN 1 (e.g., position 6, G):
+    ///   Not reported — no modification at position 6 on P1's PSM.
+    /// </summary>
+    [Test]
+    public void Test11_ModificationInSharedRegion_OnlyAffectsProteinWithModifiedPsm()
+    {
+        var protein1 = new MockBioPolymer("ACDEFGHIK", "P00001");
+        var protein2 = new MockBioPolymer("ACDEFLMNPQ", "P00002");
+        var phosphoD = CreateMod("Phosphorylation", "D");
+
+        // P1's PSM: missed cleavage with Phospho at D (key=4 → pos 1+4-2=3), intensity=1
+        var psmP1 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACD[Phosphorylation]EFGHIK", protein1, 1, 9,
+            new Dictionary<int, Modification> { { 4, phosphoD } });
+
+        // P2's PSM: missed cleavage, unmodified, intensity=2
+        var psmP2 = new MockBioPolymerWithSetMods(
+            "ACDEFLMNPQ", "ACDEFLMNPQ", protein2, 1, 10);
+
+        var intensities = new Dictionary<string, double>
+        {
+            ["ACD[Phosphorylation]EFGHIK"] = 1.0,
+            ["ACDEFLMNPQ"] = 2.0
+        };
+
+        // Protein 1: gets its own PSM (modified at shared position)
+        var resultP1 = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein1, new[] { psmP1 }, null, intensities);
+
+        // Protein 2: gets its own PSM (unmodified)
+        var resultP2 = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein2, new[] { psmP2 }, null, intensities);
+
+        // --- Protein 1: modified at position 3 (D, in shared region) ---
+        Assert.That(resultP1.ContainsKey(3), Is.True,
+            "Protein 1 has Phospho at position 3 (D), which is in the shared region.");
+        var siteP1 = resultP1[3][0];
+        Assert.That(siteP1.ModifiedCount, Is.EqualTo(1));
+        Assert.That(siteP1.TotalCount, Is.EqualTo(1),
+            "Only P1's PSM is considered for P1's occupancy. P2's PSM (even though it " +
+            "covers the same amino acid sequence at position 3) belongs to a different protein.");
+        Assert.That(siteP1.CountBasedOccupancy, Is.EqualTo(1.0),
+            "Count occupancy = 1/1 = 100% for Protein 1.");
+        Assert.That(siteP1.IntensityBasedStoichiometry, Is.EqualTo(1.0),
+            "Intensity stoichiometry = 1/1 = 100% for Protein 1.");
+
+        // --- Protein 2: no modifications → empty ---
+        Assert.That(resultP2, Is.Empty,
+            "Protein 2's PSM is unmodified. Even though position 3 has the SAME amino acid (D) " +
+            "as Protein 1, Protein 2 shows no occupancy because its own PSM has no modifications. " +
+            "Occupancy is computed per-protein, not per-amino-acid-across-proteins.");
+
+        // --- Protein 1 at an unmodified position (e.g., position 6, G) ---
+        Assert.That(resultP1.ContainsKey(6), Is.False,
+            "Position 6 on Protein 1 has no modification, so it's not reported.");
+
+        // Only 1 position reported for Protein 1 (position 3)
+        Assert.That(resultP1.Count, Is.EqualTo(1),
+            "Only the modified position appears in Protein 1's result.");
+    }
+
+    #endregion
+
+    // ========================================================================
+    // GAP-FILLING TESTS: Scenarios not covered by the original 11 test prompts
+    // ========================================================================
+
+    #region Gap A: Competing modifications at the SAME position
+
+    /// <summary>
+    /// GAP TEST A: Two different modification types at the same amino acid position.
+    ///
+    /// SCENARIO:
+    ///   Protein:  ACDEFGHIK
+    ///   PSM 1:    ACD[Phospho]EFGHIK    (Phospho on D at position 3, intensity = 1)
+    ///   PSM 2:    ACD[Acetyl]EFGHIK     (Acetyl on D at position 3, intensity = 2)
+    ///   PSM 3:    ACDEFGHIK             (unmodified, intensity = 3)
+    ///
+    /// WHY THIS MATTERS:
+    ///   When two different modifications compete for the same site, the calculator
+    ///   uses a "positionTotals" cache to ensure they SHARE the same denominator.
+    ///   Without this cache, each mod would independently count total coverage,
+    ///   and their occupancies could (incorrectly) sum to more than 100%.
+    ///
+    ///   With the cache, both mods share TotalCount=3, so:
+    ///     Phospho occupancy = 1/3 ≈ 33.3%
+    ///     Acetyl occupancy  = 1/3 ≈ 33.3%
+    ///     Sum               = 2/3 ≈ 66.7%  (leaves room for the unmodified 1/3)
+    ///
+    ///   This correctly reflects that 1/3 of observations are Phospho, 1/3 are Acetyl,
+    ///   and 1/3 are unmodified. The occupancies are coherent.
+    /// </summary>
+    [Test]
+    public void GapA_CompetingModsAtSamePosition_ShareDenominator()
+    {
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
+        var phosphoD = CreateMod("Phosphorylation", "D");
+
+        // Acetyl on D — different modification at the same amino acid
+        ModificationMotif.TryGetMotif("D", out var motifD);
+        var acetylD = new Modification("Acetylation", null, "Biological", null, motifD, "Anywhere.", null, 42.011);
+
+        // PSM 1: Phospho at D (key=4 → protein position 3), intensity = 1
+        var phosphoPsm = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACD[Phosphorylation]EFGHIK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 4, phosphoD } });
+
+        // PSM 2: Acetyl at D (key=4 → protein position 3), intensity = 2
+        var acetylPsm = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACD[Acetylation]EFGHIK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 4, acetylD } });
+
+        // PSM 3: unmodified, intensity = 3
+        var unmodPsm = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACDEFGHIK", protein, 1, 9);
+
+        var intensities = new Dictionary<string, double>
+        {
+            ["ACD[Phosphorylation]EFGHIK"] = 1.0,
+            ["ACD[Acetylation]EFGHIK"] = 2.0,
+            ["ACDEFGHIK"] = 3.0
+        };
+
+        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein,
+            new IBioPolymerWithSetMods[] { phosphoPsm, acetylPsm, unmodPsm },
+            null,
+            intensities);
+
+        // Position 3 should have TWO entries: one for Phospho, one for Acetyl
+        Assert.That(result.ContainsKey(3), Is.True);
+        Assert.That(result[3].Count, Is.EqualTo(2),
+            "Two different mods at position 3 → two SiteSpecificModificationOccupancy entries.");
+
+        var phosphoSite = result[3].First(s => s.ModificationIdWithMotif == "Phosphorylation on D");
+        var acetylSite = result[3].First(s => s.ModificationIdWithMotif == "Acetylation on D");
+
+        // Both mods share the SAME denominator (TotalCount = 3, TotalIntensity = 6)
+        // This is the key behavior of the positionTotals cache.
+        Assert.That(phosphoSite.TotalCount, Is.EqualTo(3),
+            "Phospho shares denominator: all 3 PSMs cover position 3.");
+        Assert.That(acetylSite.TotalCount, Is.EqualTo(3),
+            "Acetyl shares the SAME denominator as Phospho. The positionTotals cache " +
+            "ensures that the denominator is computed once per position, not once per mod type.");
+
+        Assert.That(phosphoSite.TotalIntensity, Is.EqualTo(6.0),
+            "Shared total intensity = 1 + 2 + 3 = 6.");
+        Assert.That(acetylSite.TotalIntensity, Is.EqualTo(6.0),
+            "Same shared total intensity for Acetyl.");
+
+        // Each mod has its own numerator
+        Assert.That(phosphoSite.ModifiedCount, Is.EqualTo(1));
+        Assert.That(phosphoSite.CountBasedOccupancy, Is.EqualTo(1.0 / 3.0).Within(1e-10),
+            "Phospho count occupancy = 1/3 ≈ 33.3%.");
+        Assert.That(phosphoSite.ModifiedIntensity, Is.EqualTo(1.0));
+        Assert.That(phosphoSite.IntensityBasedStoichiometry, Is.EqualTo(1.0 / 6.0).Within(1e-10),
+            "Phospho intensity stoichiometry = 1/6 ≈ 16.7%.");
+
+        Assert.That(acetylSite.ModifiedCount, Is.EqualTo(1));
+        Assert.That(acetylSite.CountBasedOccupancy, Is.EqualTo(1.0 / 3.0).Within(1e-10),
+            "Acetyl count occupancy = 1/3 ≈ 33.3%.");
+        Assert.That(acetylSite.ModifiedIntensity, Is.EqualTo(2.0));
+        Assert.That(acetylSite.IntensityBasedStoichiometry, Is.EqualTo(2.0 / 6.0).Within(1e-10),
+            "Acetyl intensity stoichiometry = 2/6 ≈ 33.3%.");
+
+        // The sum of count-based occupancies = 2/3, leaving 1/3 for unmodified. Coherent!
+        double sumCountOccupancy = phosphoSite.CountBasedOccupancy + acetylSite.CountBasedOccupancy;
+        Assert.That(sumCountOccupancy, Is.EqualTo(2.0 / 3.0).Within(1e-10),
+            "Sum of occupancies = 2/3 ≈ 66.7%. The remaining 1/3 is the unmodified fraction. " +
+            "The shared denominator guarantees occupancies are coherent and sum to ≤ 1.0.");
+    }
+
+    #endregion
+
+    #region Gap B: Ambiguous PSM interpretations (sequencesForTotalCount deduplication)
+
+    /// <summary>
+    /// GAP TEST B: One PSM with two ambiguous modification localizations.
+    ///
+    /// SCENARIO:
+    ///   Protein:  ACDEFGHIK
+    ///   1 PSM, but the search engine reports two possible interpretations:
+    ///     Form 1: ACD[Phospho]EFGHIK  (Phospho on D, position 3)
+    ///     Form 2: ACDE[Phospho]FGHIK  (Phospho on E, position 4)
+    ///
+    ///   This is a SINGLE observation from the mass spec — the PSM could be either form,
+    ///   but we don't know which.
+    ///
+    /// THE BUG THIS PREVENTS:
+    ///   If we naively pass both forms as the full peptide list, the calculator sees
+    ///   2 "peptides" covering each position → TotalCount = 2. But only 1 PSM exists!
+    ///   This would give occupancy = 1/2 = 50% at each site, implying the modification
+    ///   is absent half the time — which is wrong, because ALL observations show the mod.
+    ///
+    /// THE FIX:
+    ///   Pass the full list as `localizedSequences` (for the numerator — both forms count),
+    ///   but pass a DEDUPLICATED list (one entry per PSM) as `sequencesForTotalCount`
+    ///   (for the denominator). This gives TotalCount = 1 and occupancy = 1/1 = 100%.
+    ///
+    /// This test demonstrates the fix both with and without deduplication so you can
+    /// see the difference.
+    /// </summary>
+    [Test]
+    public void GapB_AmbiguousPsm_WithoutDeduplication_InflatesDenominator()
+    {
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
+        var phosphoD = CreateMod("Phosphorylation", "D");
+        var phosphoE = CreateMod("Phosphorylation", "E");
+
+        // Two interpretations of the SAME PSM
+        var form1 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACD[Phosphorylation]EFGHIK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 4, phosphoD } });
+        var form2 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACDE[Phosphorylation]FGHIK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 5, phosphoE } });
+
+        // WITHOUT deduplication: pass both forms as both localizedSequences AND coverage
+        // (sequencesForTotalCount = null means localizedSequences is reused for denominator)
+        var resultBuggy = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein,
+            new IBioPolymerWithSetMods[] { form1, form2 },
+            null); // <-- no deduplication!
+
+        // The denominator is inflated: TotalCount = 2 (both forms counted)
+        var siteD_buggy = resultBuggy[3][0];
+        Assert.That(siteD_buggy.TotalCount, Is.EqualTo(2),
+            "WITHOUT deduplication: TotalCount = 2 because both interpretations are counted " +
+            "as separate observations. But there was really only 1 PSM!");
+        Assert.That(siteD_buggy.CountBasedOccupancy, Is.EqualTo(0.5),
+            "WITHOUT deduplication: occupancy = 1/2 = 50%. This is MISLEADING — " +
+            "it suggests the mod is absent half the time, but every observation has the mod.");
+    }
+
+    [Test]
+    public void GapB_AmbiguousPsm_WithDeduplication_CorrectDenominator()
+    {
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
+        var phosphoD = CreateMod("Phosphorylation", "D");
+        var phosphoE = CreateMod("Phosphorylation", "E");
+
+        var form1 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACD[Phosphorylation]EFGHIK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 4, phosphoD } });
+        var form2 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACDE[Phosphorylation]FGHIK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 5, phosphoE } });
+
+        // WITH deduplication: pass both forms for numerator, but only ONE for denominator
+        // This is what PopulateOccupancy does: allSequences = SelectMany (all forms),
+        // coverageSequences = First() per PSM (one representative).
+        var resultFixed = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein,
+            localizedSequences: new IBioPolymerWithSetMods[] { form1, form2 },
+            sequencesForTotalCount: new IBioPolymerWithSetMods[] { form1 }); // <-- 1 per PSM
+
+        // Denominator is now correct: TotalCount = 1 (one PSM)
+        var siteD = resultFixed[3][0];
+        Assert.That(siteD.TotalCount, Is.EqualTo(1),
+            "WITH deduplication: TotalCount = 1 because we explicitly pass one representative " +
+            "per PSM for the denominator. This reflects the true observation count.");
+        Assert.That(siteD.ModifiedCount, Is.EqualTo(1));
+        Assert.That(siteD.CountBasedOccupancy, Is.EqualTo(1.0),
+            "WITH deduplication: occupancy = 1/1 = 100%. Correct! The only PSM is modified.");
+
+        // The OTHER ambiguous position (E, position 4) also shows occupancy = 100%
+        var siteE = resultFixed[4][0];
+        Assert.That(siteE.TotalCount, Is.EqualTo(1),
+            "Position 4 (E) also has TotalCount = 1 from the deduplicated coverage list.");
+        Assert.That(siteE.CountBasedOccupancy, Is.EqualTo(1.0),
+            "Both ambiguous positions show 100% occupancy. This is correct: regardless " +
+            "of which interpretation is right, the PSM IS modified. The question is WHERE, " +
+            "not WHETHER.");
+
+        // CONCERN: Position 3 shows 100% and position 4 shows 100%, but this single PSM has
+        // only ONE modification — it cannot be modified at BOTH sites simultaneously. Summing
+        // occupancy across positions gives 200%, which overstates the total modification burden.
+        // A consumer scanning all positions might conclude there are 2 modifications when there
+        // is actually only 1 in an ambiguous location. The deduplication fix correctly prevents
+        // the denominator inflation bug, but it creates a different issue: the modification is
+        // counted at full strength at EVERY candidate position. There is no mechanism to split
+        // the ambiguous signal (e.g., 50% at D + 50% at E) to reflect the uncertainty.
+        double sumAcrossPositions = siteD.CountBasedOccupancy + siteE.CountBasedOccupancy;
+        Assert.That(sumAcrossPositions, Is.EqualTo(2.0),
+            "Sum of occupancies across ambiguous positions = 200%. This exceeds the physical " +
+            "maximum of 100% for a single modification. The calculator does not normalize " +
+            "across ambiguous sites.");
+    }
+
+    #endregion
+
+    #region Gap C: N-terminal and C-terminal modifications
+
+    /// <summary>
+    /// GAP TEST C: Modifications with N-terminal and C-terminal location restrictions.
+    ///
+    /// SCENARIO:
+    ///   Protein:  ACDEFGHIK  (length 9)
+    ///   PSM 1:    [Acetyl]ACDEFGHIK  (N-terminal Acetylation, intensity = 1)
+    ///   PSM 2:    ACDEFGHIK          (unmodified, intensity = 2)
+    ///
+    /// POSITION MAPPING:
+    ///   N-terminal mods (LocationRestriction = "N-terminal.") ALWAYS map to protein position 1,
+    ///   regardless of where the peptide starts in the protein. This is a special case in
+    ///   TryGetProteinPosition.
+    ///
+    ///   Similarly, C-terminal mods ("C-terminal.") ALWAYS map to the protein's last position
+    ///   (protein.Length).
+    ///
+    ///   This differs from "Anywhere." mods which use the formula:
+    ///     proteinPosition = OneBasedStartResidue + key - 2
+    ///
+    /// AT PROTEIN POSITION 1 (N-terminal Acetylation):
+    ///   Count: 1/2 = 50%
+    ///   Intensity: 1/3 ≈ 33.3%
+    /// </summary>
+    [Test]
+    public void GapC_NTerminalModification_MapsToProteinPosition1()
+    {
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
+
+        // N-terminal mod uses LocationRestriction = "N-terminal." (note the period)
+        ModificationMotif.TryGetMotif("A", out var motif);
+        var nTermAcetyl = new Modification("Acetylation", null, "Biological", null, motif,
+            "N-terminal.", null, 42.011);
+
+        // PSM 1: N-terminal acetylation (key=1 in AllModsOneIsNterminus = N-terminal slot)
+        var modPsm = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "[Acetylation]ACDEFGHIK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 1, nTermAcetyl } });
+
+        // PSM 2: unmodified
+        var unmodPsm = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACDEFGHIK", protein, 1, 9);
+
+        var intensities = new Dictionary<string, double>
+        {
+            ["[Acetylation]ACDEFGHIK"] = 1.0,
+            ["ACDEFGHIK"] = 2.0
+        };
+
+        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein,
+            new IBioPolymerWithSetMods[] { modPsm, unmodPsm },
+            null,
+            intensities);
+
+        // N-terminal mods always map to protein position 1
+        Assert.That(result.ContainsKey(1), Is.True,
+            "N-terminal mods map to protein position 1, regardless of AllModsOneIsNterminus key. " +
+            "The TryGetProteinPosition method has special handling: if LocationRestriction is " +
+            "'N-terminal.', it sets indexInProtein = 1.");
+
+        var site = result[1][0];
+        Assert.That(site.ModifiedCount, Is.EqualTo(1));
+        Assert.That(site.TotalCount, Is.EqualTo(2));
+        Assert.That(site.CountBasedOccupancy, Is.EqualTo(0.5),
+            "1 modified / 2 total = 50%.");
+        Assert.That(site.IntensityBasedStoichiometry, Is.EqualTo(1.0 / 3.0).Within(1e-10),
+            "Intensity: 1 / (1+2) = 33.3%.");
+    }
+
+    [Test]
+    public void GapC_CTerminalModification_MapsToProteinLastPosition()
+    {
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001"); // length = 9
+
+        // C-terminal mod uses LocationRestriction = "C-terminal."
+        ModificationMotif.TryGetMotif("K", out var motif);
+        var cTermAmidation = new Modification("Amidation", null, "Biological", null, motif,
+            "C-terminal.", null, -0.984);
+
+        // PSM with C-terminal amidation (key = length+1 in AllModsOneIsNterminus convention,
+        // but the key value doesn't matter — LocationRestriction drives the position mapping)
+        var modPsm = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACDEFGHIK[Amidation]", protein, 1, 9,
+            new Dictionary<int, Modification> { { 10, cTermAmidation } });
+
+        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein, new[] { modPsm });
+
+        // C-terminal mods always map to protein.Length (position 9 here)
+        Assert.That(result.ContainsKey(9), Is.True,
+            "C-terminal mods map to the last position in the protein (bioPolymer.Length = 9). " +
+            "TryGetProteinPosition sets indexInProtein = bioPolymerLength for 'C-terminal.' mods.");
+
+        Assert.That(result[9][0].ModifiedCount, Is.EqualTo(1));
+        Assert.That(result[9][0].TotalCount, Is.EqualTo(1));
+        Assert.That(result[9][0].CountBasedOccupancy, Is.EqualTo(1.0));
+    }
+
+    #endregion
+
+    #region Gap D: Peptide starting in the MIDDLE of the protein
+
+    /// <summary>
+    /// GAP TEST D: A peptide that does not start at position 1 in the protein.
+    ///
+    /// SCENARIO:
+    ///   Protein:  ACDEFGHIK  (positions 1–9)
+    ///   Peptide:  FGHIK      (positions 5–9, a tryptic peptide from the C-terminal half)
+    ///   Modification: Phospho on G (2nd residue of peptide, key=3 in AllModsOneIsNterminus)
+    ///
+    /// POSITION MAPPING:
+    ///   For "Anywhere." mods: proteinPosition = OneBasedStartResidue + key - 2
+    ///   Here: proteinPosition = 5 + 3 - 2 = 6
+    ///   So key=3 in the peptide maps to protein position 6 (G). Correct!
+    ///
+    ///   This test verifies the position mapping formula when OneBasedStartResidue ≠ 1.
+    ///   In Tests 1–11, all peptides started at position 1, so the formula simplified to
+    ///   proteinPosition = key - 1. Here we confirm the general formula works.
+    ///
+    /// WHY THIS MATTERS:
+    ///   In real experiments, proteins are digested into peptides by trypsin. Most peptides
+    ///   do NOT start at position 1 of the protein. The position mapping formula must
+    ///   correctly translate peptide-local modification positions to absolute protein coordinates.
+    /// </summary>
+    [Test]
+    public void GapD_MidProteinPeptide_PositionMappingUsesStartResidue()
+    {
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
+        var phosphoG = CreateMod("Phosphorylation", "G");
+
+        // Peptide FGHIK starts at position 5 in the protein
+        // G is the 2nd residue of the peptide → AllModsOneIsNterminus key = 3
+        // (key 1 = N-term, key 2 = F, key 3 = G, key 4 = H, ...)
+        // Protein position = 5 + 3 - 2 = 6 → G is at protein position 6 ✓
+        var peptide = new MockBioPolymerWithSetMods(
+            "FGHIK", "FG[Phosphorylation]HIK", protein, 5, 9,
+            new Dictionary<int, Modification> { { 3, phosphoG } });
+
+        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein, new[] { peptide });
+
+        // The modification should appear at protein position 6 (G), NOT position 2
+        Assert.That(result.ContainsKey(6), Is.True,
+            "Key=3 in a peptide starting at position 5 maps to protein position 5+3-2=6. " +
+            "The formula accounts for the peptide's offset within the protein.");
+        Assert.That(result.ContainsKey(2), Is.False,
+            "Position 2 is wrong — that would be the result if OneBasedStartResidue were ignored.");
+
+        Assert.That(result[6][0].ModifiedCount, Is.EqualTo(1));
+        Assert.That(result[6][0].TotalCount, Is.EqualTo(1));
+        Assert.That(result[6][0].CountBasedOccupancy, Is.EqualTo(1.0));
+    }
+
+    #endregion
+
+    #region Gap E: Peptide-level vs Protein-level coordinate systems
+
+    /// <summary>
+    /// GAP TEST E: Same modification analyzed at both protein-level and peptide-level.
+    ///
+    /// SCENARIO:
+    ///   Protein:  ACDEFGHIK (positions 1–9)
+    ///   Peptide:  FGHIK     (positions 5–9 in protein)
+    ///   Mod:      Phospho on G, AllModsOneIsNterminus key = 3
+    ///
+    /// PROTEIN-LEVEL result:
+    ///   Position key = 6 (mapped to protein coordinates: 5 + 3 - 2 = 6)
+    ///
+    /// PEPTIDE-LEVEL result:
+    ///   Position key = 3 (the raw AllModsOneIsNterminus key, NOT mapped to protein)
+    ///   This means: key 1 = N-terminal, key 2 = 1st residue (F), key 3 = 2nd residue (G)
+    ///
+    /// WHY THIS MATTERS:
+    ///   The two calculators use DIFFERENT coordinate systems:
+    ///   - Protein-level: absolute position in the protein (1-based)
+    ///   - Peptide-level: position within the peptide using AllModsOneIsNterminus convention
+    ///
+    ///   When reviewing results, you must know which calculator produced them to interpret
+    ///   the position numbers correctly.
+    /// </summary>
+    [Test]
+    public void GapE_PeptideLevelVsProteinLevel_DifferentCoordinates()
+    {
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
+        var phosphoG = CreateMod("Phosphorylation", "G");
+
+        var modPeptide = new MockBioPolymerWithSetMods(
+            "FGHIK", "FG[Phosphorylation]HIK", protein, 5, 9,
+            new Dictionary<int, Modification> { { 3, phosphoG } });
+        var unmodPeptide = new MockBioPolymerWithSetMods(
+            "FGHIK", "FGHIK", protein, 5, 9);
+
+        // --- Protein-level: maps to PROTEIN coordinates ---
+        var proteinResult = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein,
+            new IBioPolymerWithSetMods[] { modPeptide, unmodPeptide });
+
+        Assert.That(proteinResult.ContainsKey(6), Is.True,
+            "PROTEIN-level uses absolute protein coordinates. Key=3 → position 5+3-2=6.");
+        Assert.That(proteinResult.ContainsKey(3), Is.False,
+            "Position 3 would be wrong for protein-level — that's where D is, not G.");
+
+        // --- Peptide-level: uses raw AllModsOneIsNterminus keys ---
+        var peptideResult = ModificationOccupancyCalculator.CalculatePeptideLevelOccupancy(
+            new IBioPolymerWithSetMods[] { modPeptide, unmodPeptide });
+
+        Assert.That(peptideResult.ContainsKey(3), Is.True,
+            "PEPTIDE-level uses the raw AllModsOneIsNterminus key directly. " +
+            "Key=3 means '2nd residue' in the peptide (key 1=N-term, 2=1st residue, 3=2nd residue). " +
+            "No mapping to protein coordinates is performed.");
+        Assert.That(peptideResult.ContainsKey(6), Is.False,
+            "Position 6 would be wrong for peptide-level — peptide-level doesn't know about " +
+            "protein coordinates.");
+
+        // Both calculators report the same occupancy values — only the position keys differ
+        Assert.That(proteinResult[6][0].CountBasedOccupancy, Is.EqualTo(0.5));
+        Assert.That(peptideResult[3][0].CountBasedOccupancy, Is.EqualTo(0.5));
+        Assert.That(proteinResult[6][0].CountBasedOccupancy,
+            Is.EqualTo(peptideResult[3][0].CountBasedOccupancy),
+            "Same modification, same PSMs → same occupancy. Only the position key differs " +
+            "between protein-level (6) and peptide-level (3).");
+    }
+
+    #endregion
+
+    #region Gap F: Excluded modification types are silently filtered
+
+    /// <summary>
+    /// GAP TEST F: Certain modification types are automatically excluded from occupancy.
+    ///
+    /// The calculator filters out:
+    ///   1. "Common Variable" mods (e.g., Oxidation of M) — these are search artifacts,
+    ///      not biologically meaningful PTMs
+    ///   2. "Common Fixed" mods (e.g., Carbamidomethylation of C) — applied uniformly
+    ///      during sample preparation, always present, occupancy is always 100% and meaningless
+    ///   3. Peptide-terminal mods with LocationRestriction "NPep" or "PepC" — these are
+    ///      peptide-level artifacts from digestion, not true protein modifications
+    ///
+    /// Protein-terminal mods ("N-terminal." and "C-terminal.") are NOT excluded — they
+    /// represent real protein modifications.
+    ///
+    /// WHY THIS MATTERS:
+    ///   If you expect to see occupancy for a modification and the result is empty,
+    ///   check whether the modification type is in the excluded list. This is a common
+    ///   source of confusion when analyzing results.
+    /// </summary>
+    [Test]
+    public void GapF_CommonVariableModIsExcluded()
+    {
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
+        ModificationMotif.TryGetMotif("D", out var motif);
+
+        // "Common Variable" type → excluded from occupancy
+        var oxidation = new Modification("Oxidation", null, "Common Variable", null, motif,
+            "Anywhere.", null, 15.995);
+
+        var peptide = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACD[Oxidation]EFGHIK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 4, oxidation } });
+
+        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein, new[] { peptide });
+
+        Assert.That(result, Is.Empty,
+            "'Common Variable' modifications are excluded from occupancy calculations. " +
+            "These are typically search engine artifacts (like oxidation) that don't represent " +
+            "biologically meaningful PTMs. The modification is silently skipped.");
+    }
+
+    [Test]
+    public void GapF_CommonFixedModIsExcluded()
+    {
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
+        ModificationMotif.TryGetMotif("C", out var motif);
+
+        // "Common Fixed" type → excluded from occupancy
+        var carbamido = new Modification("Carbamidomethyl", null, "Common Fixed", null, motif,
+            "Anywhere.", null, 57.021);
+
+        var peptide = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "AC[Carbamidomethyl]DEFGHIK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 3, carbamido } });
+
+        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein, new[] { peptide });
+
+        Assert.That(result, Is.Empty,
+            "'Common Fixed' modifications are excluded. These mods (like carbamidomethylation " +
+            "of cysteine) are applied during sample preparation and present on every peptide — " +
+            "their occupancy would always be 100% and carry no biological information.");
+    }
+
+    [Test]
+    public void GapF_PeptideTerminalModIsExcluded_ButProteinTerminalIsKept()
+    {
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
+        ModificationMotif.TryGetMotif("A", out var motif);
+
+        // Peptide N-terminal mod (LocationRestriction = "NPep") → excluded
+        var pepNterm = new Modification("PyroGlu", null, "Biological", null, motif,
+            "NPep", null, -17.027);
+        var pepNtermPeptide = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "[PyroGlu]ACDEFGHIK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 1, pepNterm } });
+
+        var resultPepTerm = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein, new[] { pepNtermPeptide });
+
+        Assert.That(resultPepTerm, Is.Empty,
+            "'NPep' (peptide N-terminal) mods are excluded. These are artifacts of enzymatic " +
+            "digestion, not true protein modifications.");
+
+        // Protein N-terminal mod (LocationRestriction = "N-terminal.") → KEPT
+        var protNterm = new Modification("Acetylation", null, "Biological", null, motif,
+            "N-terminal.", null, 42.011);
+        var protNtermPeptide = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "[Acetylation]ACDEFGHIK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 1, protNterm } });
+
+        var resultProtTerm = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein, new[] { protNtermPeptide });
+
+        Assert.That(resultProtTerm, Is.Not.Empty,
+            "'N-terminal.' (protein N-terminal) mods are NOT excluded. These represent real " +
+            "biological modifications of the protein's N-terminus. The subtle difference in " +
+            "LocationRestriction strings ('NPep' vs 'N-terminal.') determines the behavior.");
+    }
+
+    #endregion
+
+    #region Gap G: Multiple PSMs of the same modified form
+
+    /// <summary>
+    /// GAP TEST G: Multiple PSMs all carrying the same modification.
+    ///
+    /// SCENARIO:
+    ///   Protein:  ACDEFGHIK
+    ///   PSM 1:    ACD[Phospho]EFGHIK  (intensity = 1)
+    ///   PSM 2:    ACD[Phospho]EFGHIK  (intensity = 3)
+    ///   PSM 3:    ACD[Phospho]EFGHIK  (intensity = 5)
+    ///   PSM 4:    ACDEFGHIK           (unmodified, intensity = 1)
+    ///
+    ///   Three PSMs carry the modification, one does not.
+    ///
+    /// AT POSITION 3 (D):
+    ///   Count:     3 modified / 4 total = 75%  (CORRECT)
+    ///   Intensity: expected 9/10 = 90%, actual 27/28 ≈ 96.4%  (SEE CONCERN BELOW)
+    ///
+    /// WHY THIS MATTERS:
+    ///   In real experiments, you often see the same modification in many PSMs.
+    ///   The ModifiedCount accumulates — it's not just 0 or 1.
+    ///
+    ///   Note on intensity: the intensity dictionary is keyed by FullSequence, not by PSM.
+    ///   All 3 modified PSMs share the same FullSequence ("ACD[Phosphorylation]EFGHIK"),
+    ///   so they map to a single entry. The caller (PopulateOccupancy) sums their
+    ///   intensities into one dictionary entry before calling the calculator.
+    ///   For this test, we sum them as the caller would: 1 + 3 + 5 = 9.
+    /// </summary>
+    [Test]
+    public void GapG_MultiplePsmsWithSameModification()
+    {
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
+        var phosphoD = CreateMod("Phosphorylation", "D");
+
+        // 3 PSMs with the same modification (same FullSequence)
+        var mod1 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACD[Phosphorylation]EFGHIK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 4, phosphoD } });
+        var mod2 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACD[Phosphorylation]EFGHIK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 4, phosphoD } });
+        var mod3 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACD[Phosphorylation]EFGHIK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 4, phosphoD } });
+
+        // 1 unmodified PSM
+        var unmod = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACDEFGHIK", protein, 1, 9);
+
+        // Intensities: the caller sums PSMs with the same FullSequence.
+        // Modified: 1 + 3 + 5 = 9, Unmodified: 1
+        var intensities = new Dictionary<string, double>
+        {
+            ["ACD[Phosphorylation]EFGHIK"] = 9.0, // sum of 3 PSMs
+            ["ACDEFGHIK"] = 1.0
+        };
+
+        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+            protein,
+            new IBioPolymerWithSetMods[] { mod1, mod2, mod3, unmod },
+            null,
+            intensities);
+
+        var site = result[3][0];
+
+        Assert.That(site.ModifiedCount, Is.EqualTo(3),
+            "ModifiedCount = 3 because three separate PSM forms carry Phospho at this site. " +
+            "Each peptide in the localizedSequences list that has this mod increments the count.");
+        Assert.That(site.TotalCount, Is.EqualTo(4),
+            "TotalCount = 4: all 4 peptide forms cover position 3.");
+        Assert.That(site.CountBasedOccupancy, Is.EqualTo(0.75),
+            "Count occupancy = 3/4 = 75%. Three-quarters of observations are modified.");
+
+        // Intensity: the calculator looks up each peptide's FullSequence in the intensity dict.
+        // All 3 modified peptides have FullSequence "ACD[Phosphorylation]EFGHIK" → intensity 9.
+        // But intensity is added once per peptide form, so ModifiedIntensity = 9 * 3 = 27?
+        // Wait — actually the calculator adds the looked-up intensity for EACH peptide.
+        // Let's check: for each modified peptide, it does siteOccupancy.ModifiedIntensity += 9.
+        // So ModifiedIntensity = 9 + 9 + 9 = 27. TotalIntensity is computed from coverageList.
+        // For coverageList, each of the 4 peptides is checked: 3 modified (each finds 9) + 1 unmod (finds 1).
+        // So TotalIntensity = 9 + 9 + 9 + 1 = 28.
+        Assert.That(site.ModifiedIntensity, Is.EqualTo(27.0),
+            "ModifiedIntensity = 9 × 3 = 27. The intensity dictionary returns 9 for each of " +
+            "the 3 modified peptides. This is a subtlety: the intensity dict is keyed by " +
+            "FullSequence, so all 3 look up the same value (9) and it's added 3 times.");
+        Assert.That(site.TotalIntensity, Is.EqualTo(28.0),
+            "TotalIntensity = 9+9+9+1 = 28. Same effect: each coverageList entry looks up " +
+            "its FullSequence intensity independently.");
+        Assert.That(site.IntensityBasedStoichiometry, Is.EqualTo(27.0 / 28.0).Within(1e-10),
+            "Intensity stoichiometry = 27/28 ≈ 96.4%.");
+
+        // CONCERN: The intensity-based stoichiometry appears INCORRECT in this scenario.
+        //
+        // The true intensities are: modified = 9 (sum of PSMs 1+3+5), unmodified = 1.
+        // The expected stoichiometry should be 9 / (9 + 1) = 9/10 = 90%.
+        // But the calculator reports 27/28 ≈ 96.4%.
+        //
+        // ROOT CAUSE: The intensity dictionary stores the SUMMED intensity per FullSequence
+        // (built upstream by PopulateOccupancy via GroupBy + Sum). But the calculator looks up
+        // that summed value once PER PEPTIDE in the list, not once per unique FullSequence.
+        // When 3 peptides share FullSequence "ACD[Phospho]EFGHIK", each lookup returns 9
+        // (the sum), and the calculator adds 9 three times → 27 instead of 9.
+        //
+        // The unmodified group has only 1 peptide, so its intensity is looked up once → 1.
+        // This asymmetry (3× overcounting for modified vs 1× for unmodified) inflates the
+        // stoichiometry towards whichever modification state has more PSMs.
+        //
+        // The count-based occupancy (75%) is NOT affected because it increments by 1 per
+        // peptide, not by a looked-up value. Only the intensity metric has this issue.
+        //
+        // If modified and unmodified PSM counts were equal (e.g., 3 each), the overcounting
+        // factors would cancel and the ratio would be correct. The distortion only manifests
+        // when modification states have different PSM counts — which is the common case.
+        //
+        // IMPACT: The intensity-based stoichiometry becomes a hybrid of count-based and
+        // intensity-based metrics, weighting by both PSM count and summed intensity. It is
+        // no longer a pure intensity ratio.
+        double expectedStoichiometry = 9.0 / 10.0; // true value: 90%
+        Assert.That(site.IntensityBasedStoichiometry,
+            Is.Not.EqualTo(expectedStoichiometry).Within(1e-10),
+            "The computed stoichiometry (96.4%) does NOT match the expected true stoichiometry " +
+            "(90%). This discrepancy is caused by intensity double-counting when multiple " +
+            "peptides in the list share the same FullSequence.");
+    }
+
+    #endregion
+
+    #region Gap H: Peptide-level uses total group intensity as denominator for ALL positions
+
+    /// <summary>
+    /// GAP TEST H: Peptide-level intensity denominator is the TOTAL GROUP intensity.
+    ///
+    /// SCENARIO:
+    ///   Two forms of the same base sequence:
+    ///     Form 1: ACD[Phospho]EFGHIK  (Phospho at key=4, intensity = 2)
+    ///     Form 2: ACDEFG[Phospho]HIK  (Phospho at key=7, intensity = 3)
+    ///     Form 3: ACDEFGHIK           (unmodified, intensity = 5)
+    ///
+    /// PEPTIDE-LEVEL BEHAVIOR:
+    ///   TotalIntensity = 2 + 3 + 5 = 10 for ALL positions. The peptide-level calculator
+    ///   uses the same totalGroupIntensity denominator for every position, unlike the
+    ///   protein-level calculator which computes per-position intensity based on coverage.
+    ///
+    ///   At key=4: ModifiedIntensity = 2, Stoichiometry = 2/10 = 20%
+    ///   At key=7: ModifiedIntensity = 3, Stoichiometry = 3/10 = 30%
+    ///
+    ///   This is a design difference from protein-level. At protein-level, TotalIntensity
+    ///   at each position only includes peptides that COVER that position. At peptide-level,
+    ///   all forms are assumed to cover all positions (since they share the same base sequence),
+    ///   so the total intensity is the same everywhere.
+    /// </summary>
+    [Test]
+    public void GapH_PeptideLevel_TotalIntensityIsGroupWide()
+    {
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
+        var phosphoD = CreateMod("Phosphorylation", "D");
+        var phosphoG = CreateMod("Phosphorylation", "G");
+
+        var form1 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACD[Phosphorylation]EFGHIK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 4, phosphoD } });
+        var form2 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACDEFG[Phosphorylation]HIK", protein, 1, 9,
+            new Dictionary<int, Modification> { { 7, phosphoG } });
+        var form3 = new MockBioPolymerWithSetMods(
+            "ACDEFGHIK", "ACDEFGHIK", protein, 1, 9);
+
+        var intensities = new Dictionary<string, double>
+        {
+            ["ACD[Phosphorylation]EFGHIK"] = 2.0,
+            ["ACDEFG[Phosphorylation]HIK"] = 3.0,
+            ["ACDEFGHIK"] = 5.0
+        };
+
+        var result = ModificationOccupancyCalculator.CalculatePeptideLevelOccupancy(
+            new IBioPolymerWithSetMods[] { form1, form2, form3 },
+            intensities);
+
+        // Key=4 (Phospho on D)
+        var siteD = result[4][0];
+        Assert.That(siteD.TotalIntensity, Is.EqualTo(10.0),
+            "Peptide-level TotalIntensity = sum of ALL forms: 2 + 3 + 5 = 10. " +
+            "This is the same denominator used for every position.");
+        Assert.That(siteD.ModifiedIntensity, Is.EqualTo(2.0));
+        Assert.That(siteD.IntensityBasedStoichiometry, Is.EqualTo(0.2),
+            "Stoichiometry at key=4: 2/10 = 20%.");
+
+        // Key=7 (Phospho on G) — same TotalIntensity denominator
+        var siteG = result[7][0];
+        Assert.That(siteG.TotalIntensity, Is.EqualTo(10.0),
+            "Same total intensity (10) at key=7. Peptide-level uses a flat denominator " +
+            "because all forms share the same base sequence and thus cover the same residues.");
+        Assert.That(siteG.ModifiedIntensity, Is.EqualTo(3.0));
+        Assert.That(siteG.IntensityBasedStoichiometry, Is.EqualTo(0.3),
+            "Stoichiometry at key=7: 3/10 = 30%.");
+
+        // Count-based also uses a flat denominator (total peptide count = 3)
+        Assert.That(siteD.TotalCount, Is.EqualTo(3),
+            "Peptide-level TotalCount = total number of forms (3), same for all positions.");
+        Assert.That(siteG.TotalCount, Is.EqualTo(3));
+
+        // NOTE: This test works correctly because each peptide has a UNIQUE FullSequence, so
+        // each intensity dictionary lookup returns a distinct value. However, the peptide-level
+        // calculator has the same intensity double-counting vulnerability as the protein-level
+        // calculator (see Gap G concern). If multiple peptides in the list shared the same
+        // FullSequence, the totalGroupIntensity loop would look up the same summed intensity
+        // value for each, inflating the denominator. The same would happen for ModifiedIntensity.
+    }
+
+    #endregion
+}
