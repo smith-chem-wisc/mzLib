@@ -85,13 +85,6 @@ namespace Test.Transcriptomics
                 new[] { "G", "UACUG", "CCUCUAG", "UG", "AAG", "CA" });
         }
 
-        [OneTimeSetUp]
-        public void OneTimeSetup()
-        {
-            // Ensure dictionary is loaded from embedded resource
-            RnaseDictionary.ResetToDefaults();
-        }
-
         #region Rnase
 
         [Test]
