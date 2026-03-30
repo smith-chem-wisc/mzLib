@@ -660,9 +660,14 @@ namespace Omics.BioPolymerGroup
 
             if (psmsWithLfqIntensity.Count > 0)
             {
+                // Store the per-PSM AVERAGE intensity.
+                // Both allSequences and coverageSequences contain one entry per originating PSM,
+                // so the calculator accumulates (N PSMs × average) = total — which is correct.
+                // Storing the sum would cause double-counting: a FullSequence shared by N PSMs
+                // would contribute N × sum rather than the true sum.
                 intensitiesByFullSequence = psmsWithLfqIntensity
                     .GroupBy(p => p.FullSequence!)
-                    .ToDictionary(g => g.Key, g => g.Sum(p => p.Intensities![0]));
+                    .ToDictionary(g => g.Key, g => g.Average(p => p.Intensities![0]));
             }
 
             // All modification forms from all PSMs — used for ModifiedCount (numerator).
