@@ -431,7 +431,6 @@ namespace UsefulProteomicsDatabases
                             WriteFeatureElement(writer, "modified residue", modId, positionModKvp.Key, positionModKvp.Key);
                         }
                     }
-
                     
                     foreach (var hm in protein.SequenceVariations.OrderBy(sv => sv.OneBasedBeginPosition).ThenBy(sv => sv.VariantSequence)) 
                     {
@@ -547,6 +546,7 @@ namespace UsefulProteomicsDatabases
 
         private static void WriteFeatureElement(XmlWriter writer, string featureType, string description, int? beginPosition, int? endPosition)
         {
+            if (!beginPosition.HasValue && !endPosition.HasValue) return; // if there is no position information, don't write the feature at all.
             writer.WriteStartElement("feature");
             writer.WriteAttributeString("type", featureType);
             if (!string.IsNullOrEmpty(description))
