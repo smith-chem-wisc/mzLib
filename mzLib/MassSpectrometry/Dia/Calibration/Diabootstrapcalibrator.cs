@@ -265,17 +265,35 @@ namespace MassSpectrometry.Dia.Calibration
                     foreach (var s in deque) pooled.AddRange(s.Anchors);
                 }
 
-                var result = RunSlice(
+                // ── Pass 1: extract with inherited RT line ───────────────────
+                var pass1 = RunSlice(
                     precursors, scanIndex, lo, hi, ppmTolerance,
                     warmStartWeights: prev.Model.Weights,
                     progressReporter: progressReporter,
                     rtPrediction: prev.RtLine,
                     pooledPriorAnchors: pooled);
 
-                if (result == null)
+                if (pass1 == null)
                 {
-                    Log($"[Bootstrap] {armName} step {step} produced no model — stopping arm.");
+                    Log($"[Bootstrap] {armName} step {step} pass 1 produced no model — stopping arm.");
                     break;
+                }
+
+                // ── Pass 2: refit local RT line from pass 1 anchors, re-extract
+                // This gives decoys a locally-corrected jitter target and gives the
+                // LDA a clean RT deviation signal against the local gradient shape.
+                BootstrapSliceResult result = pass1;
+                if (pass1.RtLine != null && pass1.Anchors.Count >= 5)
+                {
+                    var pass2 = RunSlice(
+                        precursors, scanIndex, lo, hi, ppmTolerance,
+                        warmStartWeights: pass1.Model.Weights,
+                        progressReporter: progressReporter,
+                        rtPrediction: pass1.RtLine,
+                        pooledPriorAnchors: pooled);
+
+                    if (pass2 != null && pass2.Anchors.Count >= pass1.Anchors.Count)
+                        result = pass2;
                 }
 
                 results.Add(result);
