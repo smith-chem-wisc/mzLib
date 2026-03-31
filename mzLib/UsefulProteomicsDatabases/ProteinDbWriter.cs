@@ -1,4 +1,4 @@
-﻿using Proteomics;
+using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -420,42 +420,15 @@ namespace UsefulProteomicsDatabases
                         .OrderBy(p => p.OneBasedBeginPosition).ToList();
                     foreach (var proteolysisProduct in proteolysisProducts)
                     {
-                        writer.WriteStartElement("feature");
-                        writer.WriteAttributeString("type", proteolysisProduct.Type.Split('(')[0]);
-                        writer.WriteStartElement("location");
-                        writer.WriteStartElement("begin");
-
-                        if(proteolysisProduct.OneBasedBeginPosition == null)
-                        {
-                            writer.WriteAttributeString("status", "unknown");
-                        }
-                        else
-                        {
-                            writer.WriteAttributeString("position", proteolysisProduct.OneBasedBeginPosition.ToString());
-                        }
-
-                        //writer.WriteAttributeString("position", proteolysisProduct.OneBasedBeginPosition.ToString());
-                        writer.WriteEndElement();
-                        writer.WriteStartElement("end");
-                        writer.WriteAttributeString("position", proteolysisProduct.OneBasedEndPosition.ToString());
-                        writer.WriteEndElement();
-                        writer.WriteEndElement();
-                        writer.WriteEndElement();
+                        WriteFeatureElement(writer, proteolysisProduct.Type.Split('(')[0], null,
+                            proteolysisProduct.OneBasedBeginPosition, proteolysisProduct.OneBasedEndPosition);
                     }
 
                     foreach (var positionModKvp in GetModsForThisBioPolymer(protein, null, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
                     {
                         foreach (var modId in positionModKvp.Value.OrderBy(mod => mod))
                         {
-                            writer.WriteStartElement("feature");
-                            writer.WriteAttributeString("type", "modified residue");
-                            writer.WriteAttributeString("description", modId);
-                            writer.WriteStartElement("location");
-                            writer.WriteStartElement("position");
-                            writer.WriteAttributeString("position", positionModKvp.Key.ToString(CultureInfo.InvariantCulture));
-                            writer.WriteEndElement();
-                            writer.WriteEndElement();
-                            writer.WriteEndElement();
+                            WriteFeatureElement(writer, "modified residue", modId, positionModKvp.Key, positionModKvp.Key);
                         }
                     }
 
@@ -508,52 +481,12 @@ namespace UsefulProteomicsDatabases
 
                     foreach (var hm in protein.DisulfideBonds.OrderBy(bond => bond.OneBasedBeginPosition))
                     {
-                        writer.WriteStartElement("feature");
-                        writer.WriteAttributeString("type", "disulfide bond");
-                        writer.WriteAttributeString("description", hm.Description);
-                        writer.WriteStartElement("location");
-                        if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
-                        {
-                            writer.WriteStartElement("position");
-                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
-                            writer.WriteEndElement();
-                        }
-                        else
-                        {
-                            writer.WriteStartElement("begin");
-                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
-                            writer.WriteEndElement();
-                            writer.WriteStartElement("end");
-                            writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
-                            writer.WriteEndElement();
-                        }
-                        writer.WriteEndElement(); // location
-                        writer.WriteEndElement(); // feature
+                        WriteFeatureElement(writer, "disulfide bond", hm.Description, hm.OneBasedBeginPosition, hm.OneBasedEndPosition);
                     }
 
                     foreach (var hm in protein.SpliceSites.OrderBy(site => site.OneBasedBeginPosition))
                     {
-                        writer.WriteStartElement("feature");
-                        writer.WriteAttributeString("type", "splice site");
-                        writer.WriteAttributeString("description", hm.Description);
-                        writer.WriteStartElement("location");
-                        if (hm.OneBasedBeginPosition == hm.OneBasedEndPosition)
-                        {
-                            writer.WriteStartElement("position");
-                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
-                            writer.WriteEndElement();
-                        }
-                        else
-                        {
-                            writer.WriteStartElement("begin");
-                            writer.WriteAttributeString("position", hm.OneBasedBeginPosition.ToString());
-                            writer.WriteEndElement();
-                            writer.WriteStartElement("end");
-                            writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
-                            writer.WriteEndElement();
-                        }
-                        writer.WriteEndElement(); // location
-                        writer.WriteEndElement(); // feature
+                        WriteFeatureElement(writer, "splice site", hm.Description, hm.OneBasedBeginPosition, hm.OneBasedEndPosition);
                     }
 
                     writer.WriteStartElement("sequence");
@@ -583,7 +516,6 @@ namespace UsefulProteomicsDatabases
             return newModResEntries;
         }
 
-
         public static void WriteFastaDatabase(List<Protein> proteinList, string outputFileName, string delimeter)
         {
             using (StreamWriter writer = new StreamWriter(outputFileName))
@@ -611,6 +543,33 @@ namespace UsefulProteomicsDatabases
                     writer.WriteLine(rna.BaseSequence);
                 }
             }
+        }
+
+        private static void WriteFeatureElement(XmlWriter writer, string featureType, string description, int? beginPosition, int? endPosition)
+        {
+            writer.WriteStartElement("feature");
+            writer.WriteAttributeString("type", featureType);
+            if (!string.IsNullOrEmpty(description))
+                writer.WriteAttributeString("description", description);
+            writer.WriteStartElement("location");
+            if (beginPosition.HasValue && endPosition.HasValue && beginPosition.Value != endPosition.Value)
+            {
+                writer.WriteStartElement("begin");
+                writer.WriteAttributeString("position", beginPosition.Value.ToString(CultureInfo.InvariantCulture));
+                writer.WriteEndElement();
+                writer.WriteStartElement("end");
+                writer.WriteAttributeString("position", endPosition.Value.ToString(CultureInfo.InvariantCulture));
+                writer.WriteEndElement();
+            }
+            else
+            {
+                int? position = beginPosition ?? endPosition;
+                writer.WriteStartElement("position");
+                writer.WriteAttributeString("position", position?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
+                writer.WriteEndElement();
+            }
+            writer.WriteEndElement(); // location
+            writer.WriteEndElement(); // feature
         }
 
         private static Dictionary<int, HashSet<string>> GetModsForThisBioPolymer(IBioPolymer protein, SequenceVariation seqvar, Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, Dictionary<string, int> newModResEntries)
