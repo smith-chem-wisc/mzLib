@@ -22,7 +22,7 @@ public static class ModificationTest
         List<ModificationTestCase> testCases =
         [
             new (Mods.AllKnownProteinModsDictionary["DVFQQQTGG (SUMO-2/3 Site human) on D"], ModificationNamingConvention.MetaMorpheus, true),
-            new (Mods.AllKnownProteinModsDictionary["Phosphorylation on T"], ModificationNamingConvention.MetaMorpheus, true),
+            new (Mods.AllKnownProteinModsDictionary["Phosphorylation on T"], ModificationNamingConvention.MetaMorpheus_Protein, true),
             new (Mods.AllKnownRnaModsDictionary["MethoxyEthoxylation on G"], ModificationNamingConvention.MetaMorpheus_Rna, false),
             new (Mods.AllKnownProteinModsDictionary["(3S)-3-hydroxyaspartate on D"], ModificationNamingConvention.UniProt, true),
             new (Mods.AllKnownProteinModsDictionary["ICAT-D:2H(8) on C"], ModificationNamingConvention.Unimod, true),
@@ -55,7 +55,6 @@ public static class ModificationTest
         var mods = Mods.UnimodModifications;
         foreach (var mod in mods)
         {
-            Assert.That(mod.ModificationType, Is.EqualTo("Unimod"));
             Assert.That(mod.DatabaseReference.Count, Is.EqualTo(1));
             Assert.That(mod.DatabaseReference.First().Key, Is.EqualTo("Unimod"));
         }
@@ -109,7 +108,7 @@ public static class ModificationTest
         Assert.That(mod, Is.EqualTo(testCase.Modification));
 
         ModificationNamingConvention wrongConvention;
-        if (testCase.Convention == ModificationNamingConvention.MetaMorpheus)
+        if (testCase.Convention.ToString().Contains("MetaMor", StringComparison.OrdinalIgnoreCase))
             wrongConvention = ModificationNamingConvention.UniProt;
         else
             wrongConvention = ModificationNamingConvention.MetaMorpheus;

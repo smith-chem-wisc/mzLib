@@ -1,4 +1,6 @@
-﻿namespace Chromatography.RetentionTimePrediction;
+﻿using Omics.SequenceConversion;
+
+namespace Chromatography.RetentionTimePrediction;
 
 public abstract class RetentionTimePredictor : IRetentionTimePredictor
 {
@@ -17,13 +19,13 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor
     /// <summary>
     /// Determine what to do if we encounter incompatible modifications in an RT predictor where mods are important. 
     /// </summary>
-    public virtual IncompatibleModHandlingMode ModHandlingMode { get; }
+    public virtual SequenceConversionHandlingMode SequenceHandlingMode { get; }
     protected virtual int MinSequenceLength => 7;
     protected virtual int MaxSequenceLength => int.MaxValue;
 
-    protected RetentionTimePredictor(IncompatibleModHandlingMode modHandlingMode = IncompatibleModHandlingMode.UsePrimarySequence)
+    protected RetentionTimePredictor(SequenceConversionHandlingMode sequenceHandlingMode = SequenceConversionHandlingMode.UsePrimarySequence)
     {
-        ModHandlingMode = modHandlingMode;
+        SequenceHandlingMode = sequenceHandlingMode;
     }
 
     public double? PredictRetentionTime(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason)

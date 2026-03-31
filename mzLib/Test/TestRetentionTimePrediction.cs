@@ -8,6 +8,7 @@ using Chromatography.RetentionTimePrediction.SSRCalc;
 using Omics.Modifications;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using Chromatography.RetentionTimePrediction.CZE;
+using Omics.SequenceConversion;
 
 namespace Test
 {
@@ -675,7 +676,7 @@ namespace Test
         [Test]
         public void CZE_RetentionTime_Test()
         {
-            CZERetentionTimePredictor testCZE = new CZERetentionTimePredictor(Chromatography.RetentionTimePrediction.IncompatibleModHandlingMode.UsePrimarySequence, 1, 1);
+            CZERetentionTimePredictor testCZE = new CZERetentionTimePredictor(SequenceConversionHandlingMode.UsePrimarySequence, 1, 1);
 
             double expElutionTime = 1;
             double expMu = Math.Round(testCZE.ExperimentalElectrophoreticMobility(expElutionTime), 0);

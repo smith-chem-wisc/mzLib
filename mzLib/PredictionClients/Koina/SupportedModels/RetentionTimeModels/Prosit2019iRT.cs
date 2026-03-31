@@ -1,8 +1,7 @@
-﻿using PredictionClients.Koina.Util;
-using Easy.Common.Extensions;
+﻿using Easy.Common.Extensions;
 using MzLibUtil;
+using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
-using System.ComponentModel;
 
 namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
 {
@@ -24,6 +23,10 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
     /// </remarks>
     public class Prosit2019iRT : RetentionTimeModel
     {
+        private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int> { 35, 4 };
+        private static readonly ISequenceConverter Converter = CreateUnimodConverter(
+            UnimodSequenceFormatSchema.Instance, SupportedUnimodIds);
+
         /// <summary>The Koina API model name identifier</summary>
         public override string ModelName => "Prosit_2019_irt";
 
@@ -55,19 +58,11 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         /// iRT values are relative measurements independent of chromatographic conditions.
         /// </summary>
         public override bool IsIndexedRetentionTimeModel => true;
+        public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
+        public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
 
-        /// <summary>
-        /// Supported modifications mapping from mzLib format to UNIMOD format.
-        /// Only carbamidomethylation on cysteine and oxidation on methionine are supported.
-        /// </summary>
-        public override Dictionary<string, string> ValidModificationUnimodMapping => new()
-        {
-            {"[Common Variable:Oxidation on M]", "[UNIMOD:35]"},
-            {"[Common Fixed:Carbamidomethyl on C]", "[UNIMOD:4]"}
-        };
-        public override IncompatibleModHandlingMode ModHandlingMode { get; init; }
-
-        public Prosit2019iRT(IncompatibleModHandlingMode modHandlingMode = IncompatibleModHandlingMode.RemoveIncompatibleMods, int maxNumberOfBatchesPerRequest = 500, int throttlingDelayInMilliseconds = 100)
+        public Prosit2019iRT(SequenceConversionHandlingMode modHandlingMode = SequenceConversionHandlingMode.RemoveIncompatibleElements, int maxNumberOfBatchesPerRequest = 500, int throttlingDelayInMilliseconds = 100)
+            : base(Converter)
         {
             ModHandlingMode = modHandlingMode;
             MaxNumberOfBatchesPerRequest = maxNumberOfBatchesPerRequest;
@@ -97,7 +92,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         {
             // Split sequences into batches for optimal API performance
             // ValidatedFullSequence should not be null at this point due to prior validation steps
-            var batchedPeptides = validInputs.Select(p => ConvertMzLibModificationsToUnimod(p.ValidatedFullSequence!)).Chunk(MaxBatchSize).ToList();
+            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToList();
             var batchedRequests = new List<Dictionary<string, object>>();
 
             for (int i = 0; i < batchedPeptides.Count; i++)

@@ -1,5 +1,5 @@
-﻿using Omics.SpectrumMatch;
-using System.ComponentModel;
+﻿using Omics.SequenceConversion;
+using Omics.SpectrumMatch;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.Util;
 
@@ -21,6 +21,9 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
     /// </remarks>
     public class Prosit2020IntensityHCD : FragmentIntensityModel
     {
+        private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int> { 35, 4 };
+        private static readonly ISequenceConverter Converter = CreateUnimodConverter(
+            UnimodSequenceFormatSchema.Instance, SupportedUnimodIds);
         /// <summary>The Koina API model name identifier</summary>
         public override string ModelName => "Prosit_2020_intensity_HCD";
 
@@ -58,29 +61,19 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
 
         /// <summary>Total number of fragment ions predicted by this model per peptide</summary>
         public int NumberOfPredictedFragmentIons => 174;
-
-        public override Dictionary<string, string> ValidModificationUnimodMapping => new()
-            {
-                {"[Common Variable:Oxidation on M]", "[UNIMOD:35]"},
-                {"[Common Fixed:Carbamidomethyl on C]", "[UNIMOD:4]"}
-            };
-
-        public override Dictionary<string, double> ValidModificationsMonoisotopicMasses => new()
-            {
-                {"[Common Variable:Oxidation on M]", 15.994915 },
-                {"[Common Fixed:Carbamidomethyl on C]", 57.021464 }
-            };
-        public override IncompatibleModHandlingMode ModHandlingMode { get; init; }
+        public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
+        public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
         public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }
 
         public Prosit2020IntensityHCD(
-            IncompatibleModHandlingMode modHandlingMode = IncompatibleModHandlingMode.RemoveIncompatibleMods, 
+            SequenceConversionHandlingMode modHandlingMode = SequenceConversionHandlingMode.RemoveIncompatibleElements, 
             IncompatibleParameterHandlingMode parameterHandlingMode = IncompatibleParameterHandlingMode.ReturnNull,
             FragmentIonMappingMode fragmentIonMappingMode = FragmentIonMappingMode.MapToValidatedFullSequence,
             int maxNumberOfBatchesPerRequest = 250, 
             int throttlingDelayInMilliseconds = 100
             )
+            : base(Converter)
         {
             ModHandlingMode = modHandlingMode;
             ParameterHandlingMode = parameterHandlingMode;
@@ -110,7 +103,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         {
             // Split inputs into batches
             // ValidatedFullSequence should not be null at this point due to prior validation steps
-            var batchedPeptides = validInputs.Select(p => ConvertMzLibModificationsToUnimod(p.ValidatedFullSequence!)).Chunk(MaxBatchSize).ToList();
+            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToList();
             var batchedCharges = validInputs.Select(p => p.PrecursorCharge).Chunk(MaxBatchSize).ToList();
             var batchedEnergies = validInputs.Select(p => p.CollisionEnergy).Chunk(MaxBatchSize).ToList();
 

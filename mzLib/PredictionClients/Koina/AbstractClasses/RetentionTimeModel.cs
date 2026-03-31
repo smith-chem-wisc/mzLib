@@ -1,4 +1,5 @@
-﻿using PredictionClients.Koina.Client;
+﻿using Omics.SequenceConversion;
+using PredictionClients.Koina.Client;
 using MzLibUtil;
 using System.ComponentModel;
 using PredictionClients.Koina.Interfaces;
@@ -10,12 +11,13 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Represents a retention time prediction result for a single peptide sequence.
     /// Contains the original sequence, predicted retention time, and indexing information.
     /// </summary>
-    /// <param name="FullSequence">The peptide sequence used for prediction (in UNIMOD format)</param>
+    /// <param name="FullSequence">Original peptide sequence provided by the user (mzLib format)</param>
     /// <param name="PredictedRetentionTime">Predicted retention time value (units depend on model - typically minutes or indexed RT)</param>
     /// <param name="IsIndexed">True if the model predicts indexed retention time (iRT); false for absolute retention time</param>
     /// <param name="Warning">Warning message if any issues occurred during prediction</param>
     public record PeptideRTPrediction(
-        string FullSequence,
+        string FullSequence, 
+        string ValidatedFullSequence,
         double? PredictedRetentionTime,
         bool? IsIndexed,
         WarningException? Warning = null
@@ -26,9 +28,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// This record captures the input information required for peptide retention time prediction.
     /// </summary>
     /// <param name="FullSequence">Peptide sequence with modifications in mzLib format</param>
-    public record RetentionTimePredictionInput(
-        string FullSequence
-    )
+    public record RetentionTimePredictionInput(string FullSequence)
     {
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
@@ -58,6 +58,11 @@ namespace PredictionClients.Koina.AbstractClasses
     /// </remarks>
     public abstract class RetentionTimeModel : KoinaModelBase<RetentionTimePredictionInput, PeptideRTPrediction>, IPredictor<RetentionTimePredictionInput, PeptideRTPrediction>
     {
+        protected RetentionTimeModel(ISequenceConverter sequenceConverter)
+            : base(sequenceConverter)
+        {
+        }
+
         #region Model-Specific Properties
         /// <summary>
         /// Indicates whether this model predicts indexed retention time (iRT) or absolute retention time.
@@ -110,13 +115,11 @@ namespace PredictionClients.Koina.AbstractClasses
 
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var modHandlingWarning);
+                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var apiSequence, out var modHandlingWarning);
 
-                if (cleanedSequence != null &&
-                    HasValidModifications(cleanedSequence) &&
-                    IsValidBaseSequence(cleanedSequence))
+                if (cleanedSequence != null && apiSequence != null)
                 {
-                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = cleanedSequence, SequenceWarning = modHandlingWarning };
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = apiSequence, SequenceWarning = modHandlingWarning };
                     ValidInputsMask[i] = true;
                     validInputs.Add(ModelInputs[i]);
                 }
@@ -179,6 +182,7 @@ namespace PredictionClients.Koina.AbstractClasses
                     // For invalid inputs, add a placeholder prediction with a warning
                     realignedPredictions.Add(new PeptideRTPrediction(
                         FullSequence: ModelInputs[i].FullSequence,
+                        ValidatedFullSequence: ModelInputs[i].ValidatedFullSequence ?? null,
                         PredictedRetentionTime: null,
                         IsIndexed: null,
                         Warning: ModelInputs[i].SequenceWarning ?? new WarningException("Input was invalid and skipped during prediction.")
@@ -247,7 +251,8 @@ namespace PredictionClients.Koina.AbstractClasses
             for (int i = 0; i < requestInputs.Count; i++)
             {
                 predictions.Add(new PeptideRTPrediction(
-                    FullSequence: requestInputs[i].ValidatedFullSequence!,
+                    FullSequence: requestInputs[i].FullSequence,
+                    ValidatedFullSequence: ModelInputs[i].ValidatedFullSequence ?? null,
                     PredictedRetentionTime: Convert.ToDouble(rtOutputs[i]),
                     IsIndexed: IsIndexedRetentionTimeModel,
                     Warning: requestInputs[i].SequenceWarning

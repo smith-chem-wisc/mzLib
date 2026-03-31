@@ -10,6 +10,7 @@ using System.Linq;
 using System;
 using Chromatography;
 using Readers;
+using Omics.SequenceConversion;
 
 namespace Test.RetentionTimePrediction
 {
@@ -28,9 +29,9 @@ namespace Test.RetentionTimePrediction
         {
             _predictors = new List<IRetentionTimePredictor>
             {
-                new ChronologerRetentionTimePredictor(IncompatibleModHandlingMode.RemoveIncompatibleMods),
+                new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.RemoveIncompatibleElements),
                 new SSRCalc3RetentionTimePredictor(),
-                new CZERetentionTimePredictor(IncompatibleModHandlingMode.UsePrimarySequence, 1.0, 1.0)
+                new CZERetentionTimePredictor(SequenceConversionHandlingMode.UsePrimarySequence, 1.0, 1.0)
             };
         }
 
