@@ -149,7 +149,7 @@ namespace MassSpectrometry.Dia
             float l2Lambda = 5e-3f,
             float learningRate = 0.05f,
             int maxEpochs = 300,
-            bool rtWindowRefinement = true,
+            bool rtWindowRefinement = false,
             float rtSigmaMultiplier = 3.0f)
         {
             if (results == null || results.Count == 0)

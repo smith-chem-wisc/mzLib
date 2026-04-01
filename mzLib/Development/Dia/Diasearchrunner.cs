@@ -58,16 +58,20 @@ namespace Development.Dia
             Console.WriteLine($"  Targets: {targets.Count:N0} ({sw.ElapsedMilliseconds}ms)");
 
             sw.Restart();
-            var decoysRaw = KoinaMspParser.Parse(decoyMspPath, rtLookup, minIntensity: 0.05f);
-            var decoys = new List<LibraryPrecursorInput>(decoysRaw.Count);
-            for (int i = 0; i < decoysRaw.Count; i++)
-            {
-                var d = decoysRaw[i];
-                decoys.Add(new LibraryPrecursorInput(
-                    d.Sequence, d.PrecursorMz, d.ChargeState,
-                    d.RetentionTime, isDecoy: true,
-                    d.FragmentMzs, d.FragmentIntensities, d.IrtValue));
-            }
+
+            var decoys = DecoyGenerator.GenerateFromTargets(targets);
+
+
+            //var decoysRaw = KoinaMspParser.Parse(decoyMspPath, rtLookup, minIntensity: 0.05f);
+            //var decoys = new List<LibraryPrecursorInput>(decoysRaw.Count);
+            //for (int i = 0; i < decoysRaw.Count; i++)
+            //{
+            //    var d = decoysRaw[i];
+            //    decoys.Add(new LibraryPrecursorInput(
+            //        d.Sequence, d.PrecursorMz, d.ChargeState,
+            //        d.RetentionTime, isDecoy: true,
+            //        d.FragmentMzs, d.FragmentIntensities, d.IrtValue));
+            //}
             Console.WriteLine($"  Decoys:  {decoys.Count:N0} ({sw.ElapsedMilliseconds}ms)");
 
             var combined = new List<LibraryPrecursorInput>(targets.Count + decoys.Count);
