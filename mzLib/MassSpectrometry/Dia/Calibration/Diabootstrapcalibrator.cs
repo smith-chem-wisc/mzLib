@@ -34,8 +34,34 @@ namespace MassSpectrometry.Dia.Calibration
     public static class DiaBootstrapCalibrator
     {
         // ── Tuning ──────────────────────────────────────────────────────────
-        public const float SliceFraction = 0.20f;
+        // Seed window: percentile 30%-70% of the RT range (width = 40%).
+        // Step windows are 20% wide, shifting left 5% per step:
+        //   Step 0 (seed):  30%-70%  (40% wide)
+        //   Step 1:         25%-45%  (20% wide)
+        //   Step 2:         20%-40%
+        //   Step 3:         15%-35%
+        //   Step 4:         10%-30%
+        //   Step 5:          5%-25%
+        //   Step 6:          0%-20%
+        //   Step 7:          0%-15%  (clamped at run start)
+        //   Step 8:          0%-10%
+        // No right arm: the seed already captures 30%-70%.
+        // StepWindowWidth controls the width of the arm steps (distinct from seed width).
+        public const float SeedLoPct = 0.30f;
+        public const float SeedHiPct = 0.70f;
         public const float StepPct = 0.05f;
+        /// <summary>Width of each arm step window as fraction of total RT range.
+        /// Smaller than the seed (0.40) to keep each step focused.</summary>
+        public const float StepWindowWidth = 0.20f;
+
+        /// <summary>
+        /// Maximum number of calibration anchors kept per step.
+        /// All targets scoring above the LDA threshold are ranked by score descending;
+        /// only the top AnchorTopK are kept. This ensures anchor quality is consistent
+        /// across steps regardless of how many precursors happen to pass the threshold.
+        /// Set to int.MaxValue to disable the cap.
+        /// </summary>
+        public const int AnchorTopK = 1000;
         public const double DefaultLowessBandwidth = 0.3;
         public const int MaxIterations = 15;
         public const float ConvergenceEpsilon = 0.002f;
@@ -92,7 +118,7 @@ namespace MassSpectrometry.Dia.Calibration
         /// Runs a full bidirectional sliding-window bootstrap calibration.
         ///
         /// Algorithm:
-        ///   1. Seed at the middle <see cref="SliceFraction"/> of the run (no RT restriction).
+        ///   1. Seed at percentiles 30%-60% of the run (no RT restriction).
         ///   2. Left arm: shift left by <paramref name="stepPct"/> per step until the left
         ///      edge, each step using warm-start weights and a sliding anchor deque.
         ///   3. Right arm: same, shifting right.
@@ -108,6 +134,23 @@ namespace MassSpectrometry.Dia.Calibration
         ///   double hw = Math.Min(result.LowessModel.GetLocalSigma(precursor.LibraryRt), 1.5) * 2.0;
         /// </code>
         /// </summary>
+        /// <summary>
+        /// Leftward sliding-window bootstrap calibration.
+        ///
+        /// Sequence of 30%-wide windows shifted 5% left per step:
+        ///   Seed  : 30%-70%  (40% wide)
+        ///   Step 1: 25%-45%  (20% wide — same as current arm width)
+        ///   Step 2: 20%-40%
+        ///   Step 3: 15%-35%
+        ///   ...continuing until run start is reached
+        ///
+        /// Left arm: 20%-wide steps (25%-45%, 20%-40%, ...) walking toward run start.
+        /// Right arm: standard ShiftRight steps from the seed's right edge.
+        /// Both arms inherit warm-start weights and RT line from the previous step.
+        ///
+        /// Returns a <see cref="BootstrapCalibrationResult"/> whose
+        /// <see cref="BootstrapCalibrationResult.LowessModel"/> is the primary artifact.
+        /// </summary>
         public static BootstrapCalibrationResult RunBidirectional(
             IReadOnlyList<LibraryPrecursorInput> precursors,
             DiaScanIndex scanIndex,
@@ -120,7 +163,7 @@ namespace MassSpectrometry.Dia.Calibration
         {
             void Log(string msg) => progressReporter?.Invoke(msg);
 
-            // ── Seed pass 1 — cold start, no RT prediction ───────────────────
+            // ── Seed: percentiles 30%-60% ────────────────────────────────────
             (float seedLo, float seedHi) = ComputeSliceBounds(scanIndex);
             Log($"[Bootstrap] Seed pass 1: [{seedLo:F3}, {seedHi:F3}] min");
 
@@ -138,16 +181,9 @@ namespace MassSpectrometry.Dia.Calibration
                     null, null, new List<BootstrapAnchor>(),
                     null, new List<BootstrapSliceResult>(), new List<BootstrapSliceResult>());
             }
-
             Log($"[Bootstrap] Seed pass 1 anchors: {seed1.Anchors.Count}");
 
-            // ── Seed pass 2 — same window, now with RT prediction ────────────
-            // Pass 1 gives us a rough RT line. Pass 2 re-extracts the same slice
-            // with rtPrediction populated so:
-            //   (a) decoys get ±1 min jitter → realistic RT deviation signal
-            //   (b) RtDeviationMinutes and RtDeviationSquared are meaningful features
-            // The window itself is unchanged — same seedLo/seedHi, same hw from the
-            // RT line. No tightening, no floor games.
+            // ── Seed pass 2: warm-start + RT prediction ──────────────────────
             BootstrapSliceResult seed;
             if (seed1.RtLine != null && seed1.Anchors.Count >= 5)
             {
@@ -171,44 +207,60 @@ namespace MassSpectrometry.Dia.Calibration
             }
             else
             {
-                Log($"[Bootstrap] Seed pass 2 skipped (insufficient anchors or no RT line)");
+                Log("[Bootstrap] Seed pass 2 skipped (insufficient anchors or no RT line)");
                 seed = seed1;
             }
 
-            // ── Arms ────────────────────────────────────────────────────────
-            List<BootstrapSliceResult> leftSteps, rightSteps;
-            if (armsEnabled)
+            // ── Seed pass 3: tighten window using pass 2 sigma ───────────────
+            if (seed.RtLine != null && seed.Anchors.Count >= 10)
             {
-                Log("[Bootstrap] Starting left arm...");
-                leftSteps = RunArm(seed, precursors, scanIndex, ppmTolerance,
+                float tightHw = Math.Max(seed.RtLine.ResidualSigma * 3.0f, 1.0f);
+                BootstrapRtLine tightRtLine = seed.RtLine.WithHalfWidth(tightHw);
+                Log($"[Bootstrap] Seed pass 3: tightened hw={tightHw:F3} min  (σ={seed.RtLine.ResidualSigma:F3} from pass 2,  was hw={seed.RtLine.HalfWidth:F3})");
+
+                BootstrapSliceResult? seed3 = RunSlice(
+                    precursors, scanIndex, seedLo, seedHi, ppmTolerance,
+                    warmStartWeights: seed.Model.Weights,
+                    progressReporter: progressReporter,
+                    rtPrediction: tightRtLine,
+                    pooledPriorAnchors: null);
+
+                if (seed3 != null && seed3.Anchors.Count >= seed.Anchors.Count)
+                {
+                    Log($"[Bootstrap] Seed pass 3 anchors: {seed3.Anchors.Count}  σ={seed3.RtLine?.ResidualSigma:F3} min  — using pass 3");
+                    seed = seed3;
+                }
+                else
+                {
+                    Log($"[Bootstrap] Seed pass 3 anchors: {seed3?.Anchors.Count ?? 0}  — keeping pass 2");
+                }
+            }
+
+            // ── Left sweep only ──────────────────────────────────────────────
+            // The seed covers 30%-60%.  Walk left in 5% steps until we reach 0%.
+            // Each step covers the same 30% width shifted 5% left.
+            Log("[Bootstrap] Starting left sweep...");
+            var leftSteps = RunArm(seed, precursors, scanIndex, ppmTolerance,
                                    stepPct, goRight: false, progressReporter);
 
-                Log("[Bootstrap] Starting right arm...");
-                rightSteps = RunArm(seed, precursors, scanIndex, ppmTolerance,
+            // ── Right arm ────────────────────────────────────────────────
+            Log("[Bootstrap] Starting right arm...");
+            var rightSteps = RunArm(seed, precursors, scanIndex, ppmTolerance,
                                     stepPct, goRight: true, progressReporter);
-            }
-            else
-            {
-                Log("[Bootstrap] Arms disabled — seed only.");
-                leftSteps = new List<BootstrapSliceResult>();
-                rightSteps = new List<BootstrapSliceResult>();
-            }
 
-            // ── Pool all anchors ─────────────────────────────────────────────
+            // ── Pool all anchors ─────────────────────────────────────────
             int cap = seed.Anchors.Count
                     + leftSteps.Sum(s => s.Anchors.Count)
                     + rightSteps.Sum(s => s.Anchors.Count);
-
             var allAnchors = new List<BootstrapAnchor>(cap);
             allAnchors.AddRange(seed.Anchors);
             foreach (var s in leftSteps) allAnchors.AddRange(s.Anchors);
             foreach (var s in rightSteps) allAnchors.AddRange(s.Anchors);
 
-            Log($"[Bootstrap] Total anchors: {allAnchors.Count}" +
-                $"  (seed={seed.Anchors.Count}" +
-                $"  left={leftSteps.Sum(s => s.Anchors.Count)}" +
-                $"  right={rightSteps.Sum(s => s.Anchors.Count)})");
-
+            Log($"[Bootstrap] Total anchors: {allAnchors.Count}"
+                + $"  (seed={seed.Anchors.Count}"
+                + $"  left={leftSteps.Sum(s => s.Anchors.Count)}"
+                + $"  right={rightSteps.Sum(s => s.Anchors.Count)})");
             // ── Global OLS line ──────────────────────────────────────────────
             BootstrapRtLine? globalOls = BootstrapRtLine.Fit(allAnchors, fwhmFloor: 0f);
             if (globalOls != null)
@@ -222,6 +274,7 @@ namespace MassSpectrometry.Dia.Calibration
             return new BootstrapCalibrationResult(
                 lowess, globalOls, allAnchors, seed, leftSteps, rightSteps);
         }
+
         // ══════════════════════════════════════════════════════════════════
         // Arm runner
         // ══════════════════════════════════════════════════════════════════
@@ -249,13 +302,72 @@ namespace MassSpectrometry.Dia.Calibration
 
             while (true)
             {
-                var next = goRight
-                    ? prev.ShiftRight(scanIndex, stepPct)
-                    : prev.ShiftLeft(scanIndex, stepPct);
+                // Left arm: each step is StepWindowWidth wide, anchored so that
+                // step 1 hi = seed lo, step 2 hi = seed lo - shift, etc.
+                // This gives: step 1 = 25%-45%, step 2 = 20%-40%, etc.
+                // Right arm (unused in current design): uses standard ShiftRight.
+                (float, float)? next;
+                if (goRight)
+                {
+                    // Right arm: fixed StepWindowWidth (20%), symmetric to left arm.
+                    // Step 1: 55%-75%, step 2: 60%-80%, step 3: 65%-85%, etc.
+                    // lo_pct = 0.55 + 0.05*(step-1), matching the table layout.
+                    int nScansR = scanIndex.ScanCount;
+                    if (nScansR == 0) { next = null; }
+                    else
+                    {
+                        float[] rtBufR = ArrayPool<float>.Shared.Rent(nScansR);
+                        try
+                        {
+                            for (int _i = 0; _i < nScansR; _i++) rtBufR[_i] = scanIndex.GetScanRt(_i);
+                            Array.Sort(rtBufR, 0, nScansR);
+                            float runLoR = rtBufR[0];
+                            float runTotalR = rtBufR[nScansR - 1] - runLoR;
+                            float shiftR = runTotalR * stepPct;
+                            float winWidthR = runTotalR * StepWindowWidth;
+                            // Step 1: 55%-75%, step 2: 60%-80%, step N: (55+(N-1)*5%)%-(75+(N-1)*5%)%
+                            // lo_pct = 0.55 + 0.05*(step-1)
+                            float loPct = 0.55f + stepPct * (step - 1);
+                            float newLoR = runLoR + loPct * runTotalR;
+                            float newHiR = Math.Min(newLoR + winWidthR, rtBufR[nScansR - 1]);
+                            next = newLoR >= rtBufR[nScansR - 1]
+                                ? ((float, float)?)null
+                                : (newLoR, newHiR);
+                        }
+                        finally { ArrayPool<float>.Shared.Return(rtBufR); }
+                    }
+                }
+                else
+                {
+                    int nScans = scanIndex.ScanCount;
+                    if (nScans == 0) { next = null; }
+                    else
+                    {
+                        float[] rtBuf = ArrayPool<float>.Shared.Rent(nScans);
+                        try
+                        {
+                            for (int _i = 0; _i < nScans; _i++) rtBuf[_i] = scanIndex.GetScanRt(_i);
+                            Array.Sort(rtBuf, 0, nScans);
+                            float runLo = rtBuf[0];
+                            float runTotal = rtBuf[nScans - 1] - runLo;
+                            float shift = runTotal * stepPct;
+                            float winWidth = runTotal * StepWindowWidth;
+                            // Step 1: 25%-45%, step 2: 20%-40%, step N: (45-5*(N-1))%-(25-5*(N-1))%
+                            // hi = run_lo + (0.45 - 0.05*(step-1)) * runTotal
+                            float hiPct = 0.45f - stepPct * (step - 1);
+                            float newHi = runLo + hiPct * runTotal;
+                            float newLo = Math.Max(newHi - winWidth, runLo);
+                            next = newHi <= runLo
+                                ? ((float, float)?)null
+                                : (newLo, newHi);
+                        }
+                        finally { ArrayPool<float>.Shared.Return(rtBuf); }
+                    }
+                }
 
                 if (next == null) break;
 
-                float lo = next.Value.Lo, hi = next.Value.Hi;
+                float lo = next.Value.Item1, hi = next.Value.Item2;
                 Log($"[Bootstrap] {armName} step {step}: [{lo:F3}, {hi:F3}] min");
 
                 List<BootstrapAnchor>? pooled = null;
@@ -354,322 +466,109 @@ namespace MassSpectrometry.Dia.Calibration
         }
 
         // ══════════════════════════════════════════════════════════════════
-        // Piecewise prefit + LOWESS residual correction
+        // Slice bounds
         // ══════════════════════════════════════════════════════════════════
 
-        /// <summary>
-        /// Two-stage calibration that corrects the shape of the mapping before
-        /// LOWESS is applied.
-        ///
-        /// Problem with plain LOWESS on bootstrap anchors:
-        ///   The steep region of the gradient (20–35 min) has far more anchors
-        ///   than the flat ends. LOWESS uses a fixed bandwidth fraction of N,
-        ///   so dense regions dominate the local fits and pull the slope flatter
-        ///   than the true curve. The result is a systematic tilt: predictions
-        ///   are too early on the right side and too late on the left side.
-        ///
-        /// Solution:
-        ///   Stage 1 — Fit a piecewise linear model using evenly-spaced knots
-        ///             across the library RT range (not evenly-spaced anchor counts).
-        ///             Equal RT intervals means each segment captures the true local
-        ///             slope regardless of anchor density.
-        ///   Stage 2 — Compute residuals: obsRT - piecewise(libRT). These are small
-        ///             (the shape is already correct) and symmetric around zero.
-        ///   Stage 3 — Fit LOWESS on (libRT, residuals). LOWESS now only models
-        ///             local deviations from an already-correct shape.
-        ///   Stage 4 — Resample the combined model (piecewise + residual LOWESS)
-        ///             at all anchor library RTs and fit a final LowessRtModel on
-        ///             those resampled predictions. This produces a standard
-        ///             LowessRtModel that the rest of the pipeline can use unchanged,
-        ///             with GetLocalSigma() reflecting the true residual scatter.
-        ///
-        /// Falls back to plain FitLowess if the piecewise prefit fails.
-        /// </summary>
-        private static LowessRtModel? FitLowessWithPiecewisePrefit(
-            IReadOnlyList<BootstrapAnchor> anchors,
-            double bandwidth,
-            Action<string>? progressReporter,
-            int evenKnots = 25,
-            double fullLibRtMin = 0,
-            double fullLibRtMax = 170)
+        public static (float RtLo, float RtHi) ComputeSliceBounds(DiaScanIndex scanIndex)
+            => ComputeSliceBoundsAtPercentile(scanIndex, SeedLoPct, SeedHiPct);
+
+        public static (float RtLo, float RtHi) ComputeSliceBoundsAtPercentile(
+            DiaScanIndex scanIndex, float loPct, float hiPct)
         {
-            void Log(string msg) => progressReporter?.Invoke(msg);
-
-            // Collect valid anchors
-            var libRts = new List<double>(anchors.Count);
-            var obsRts = new List<double>(anchors.Count);
-            foreach (var a in anchors)
-                if (a.LibraryRt > 0f && a.ObservedApexRt > 0f)
-                {
-                    libRts.Add(a.LibraryRt);
-                    obsRts.Add(a.ObservedApexRt);
-                }
-
-            if (libRts.Count < 50)
+            int n = scanIndex.ScanCount;
+            if (n == 0) return (0f, 0f);
+            float[] buf = ArrayPool<float>.Shared.Rent(n);
+            try
             {
-                Log($"[Bootstrap] LOWESS+prefit skipped — only {libRts.Count} valid anchors (need ≥50).");
-                return null;
+                for (int i = 0; i < n; i++) buf[i] = scanIndex.GetScanRt(i);
+                Array.Sort(buf, 0, n);
+                return (buf[(int)(loPct * (n - 1))], buf[(int)(hiPct * (n - 1))]);
             }
-
-            double[] libArr = libRts.ToArray();
-            double[] obsArr = obsRts.ToArray();
-
-            // ── Stage 1: Piecewise linear with evenly-spaced RT knots ────────
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            double[]? piecewisePred = FitPiecewiseEvenKnots(
-                libArr, obsArr, evenKnots, Log,
-                libRtMin: fullLibRtMin, libRtMax: fullLibRtMax);
-
-            if (piecewisePred == null)
-            {
-                Log("[Bootstrap] Piecewise prefit failed — falling back to plain LOWESS.");
-                return FitLowess(anchors, bandwidth, progressReporter);
-            }
-
-            sw.Stop();
-            Log($"[Bootstrap] Piecewise prefit done in {sw.Elapsed.TotalSeconds:F2}s  " +
-                $"knots={evenKnots}");
-
-            // ── Stage 2: Residuals ────────────────────────────────────────────
-            var residuals = new double[libArr.Length];
-            double ssResPrefit = 0, ssTot = 0, meanObs = 0;
-            for (int i = 0; i < obsArr.Length; i++) meanObs += obsArr[i];
-            meanObs /= obsArr.Length;
-            for (int i = 0; i < libArr.Length; i++)
-            {
-                residuals[i] = obsArr[i] - piecewisePred[i];
-                ssResPrefit += residuals[i] * residuals[i];
-                double dev = obsArr[i] - meanObs;
-                ssTot += dev * dev;
-            }
-            double sigmaPrefit = Math.Sqrt(ssResPrefit / libArr.Length);
-            double r2Prefit = ssTot > 0 ? 1.0 - ssResPrefit / ssTot : 0;
-            Log($"[Bootstrap] Piecewise prefit: R²={r2Prefit:F4}  σ={sigmaPrefit:F4} min  " +
-                $"(residuals to LOWESS are much smaller than raw obsRT)");
-
-            // ── Stage 3: LOWESS on residuals ──────────────────────────────────
-            Log($"[Bootstrap] Fitting LOWESS on {libArr.Length} residuals, bandwidth={bandwidth:F2}...");
-            sw.Restart();
-
-            var residualLowess = LowessRtModel.Fit(
-                libArr, residuals,
-                bandwidth: bandwidth,
-                enforceMonotonic: false);   // residuals need NOT be monotonic
-
-            sw.Stop();
-            if (residualLowess == null)
-            {
-                Log("[Bootstrap] Residual LOWESS failed — falling back to plain LOWESS.");
-                return FitLowess(anchors, bandwidth, progressReporter);
-            }
-            Log($"[Bootstrap] Residual LOWESS done in {sw.Elapsed.TotalSeconds:F2}s  " +
-                $"R²={residualLowess.RSquared:F4}  σ={residualLowess.SigmaMinutes:F4} min");
-
-            // ── Stage 4: Resample combined model → final LowessRtModel ───────
-            // Evaluate combined = piecewise + residualLowess at every anchor libRT.
-            // Fit a final monotonic LowessRtModel on those resampled values so the
-            // rest of the pipeline gets a standard LowessRtModel with correct
-            // GetLocalSigma() values.
-            var combinedObs = new double[libArr.Length];
-            for (int i = 0; i < libArr.Length; i++)
-                combinedObs[i] = piecewisePred[i] + residualLowess.ToMinutes(libArr[i]);
-
-            Log($"[Bootstrap] Fitting final LOWESS on {libArr.Length} combined predictions...");
-            sw.Restart();
-
-            var finalLowess = LowessRtModel.Fit(
-                libArr, combinedObs,
-                bandwidth: bandwidth,
-                enforceMonotonic: true);
-
-            sw.Stop();
-            if (finalLowess == null)
-            {
-                Log("[Bootstrap] Final LOWESS failed — falling back to plain LOWESS.");
-                return FitLowess(anchors, bandwidth, progressReporter);
-            }
-
-            // The sigma of the final model should be measured against the original
-            // observed RTs, not the resampled combined predictions.
-            // Report both for diagnostics.
-            double ssResFinal = 0;
-            for (int i = 0; i < libArr.Length; i++)
-            {
-                double pred = finalLowess.ToMinutes(libArr[i]);
-                double r = obsArr[i] - pred;
-                ssResFinal += r * r;
-            }
-            double sigmaFinal = Math.Sqrt(ssResFinal / libArr.Length);
-
-            Log($"[Bootstrap] Final LOWESS done in {sw.Elapsed.TotalSeconds:F2}s  " +
-                $"R²={finalLowess.RSquared:F4}  " +
-                $"σ(vs combined)={finalLowess.SigmaMinutes:F4} min  " +
-                $"σ(vs original obsRT)={sigmaFinal:F4} min");
-
-            return finalLowess;
+            finally { ArrayPool<float>.Shared.Return(buf); }
         }
 
-        /// <summary>
-        /// Fits a piecewise linear mapping using evenly-spaced knots across the
-        /// library RT range. This is immune to anchor density imbalance: each
-        /// segment spans the same width in library RT space regardless of how
-        /// many anchors fall in it.
-        ///
-        /// Returns predicted observed RTs at each input library RT (same length
-        /// as libArr, sorted ascending), or null if fitting fails.
-        ///
-        /// Each segment is fit by OLS on the anchors within that RT interval.
-        /// Segments with fewer than MinAnchorsPerSegment anchors borrow slope
-        /// from their neighbors via distance-weighted average.
-        /// Monotonicity is enforced at knot boundaries after fitting.
-        /// </summary>
-        private static double[]? FitPiecewiseEvenKnots(
-            double[] libArr,    // sorted ascending
-            double[] obsArr,
-            int numKnots,
-            Action<string> log,
-            int minAnchorsPerSegment = 5,
-            double libRtMin = 0,
-            double libRtMax = 170)
+        // ══════════════════════════════════════════════════════════════════
+        // Query generation
+        // ══════════════════════════════════════════════════════════════════
+
+        // Maximum RT jitter applied to decoy extraction windows (minutes).
+        // Decoys get a deterministic random offset in [-DecoyRtJitterMinutes, +DecoyRtJitterMinutes]
+        // so the bootstrap LDA can exploit RT deviation to separate T from D.
+        public const float DecoyRtJitterMinutes = 1.0f;
+
+        private static (FragmentQuery[] Queries, SliceGroup[] Groups) GenerateSliceQueries(
+            IReadOnlyList<LibraryPrecursorInput> precursors,
+            DiaScanIndex scanIndex,
+            float sliceLo, float sliceHi, float ppmTol,
+            BootstrapRtLine? rtPrediction)
         {
-            int n = libArr.Length;
-            if (n < 50) return null;
+            var qList = new List<FragmentQuery>(precursors.Count * 8);
+            var gList = new List<SliceGroup>(precursors.Count);
 
-            // Use the FULL library RT range for knot spacing, not just the anchor range.
-            // This ensures knots cover the entire gradient even when anchors are absent
-            // at the early or late ends (common when those steps yield zero confident IDs).
-            double libMin = libRtMin;
-            double libMax = libRtMax;
-            if (libMax <= libMin) return null;
-
-            int numSegments = Math.Max(2, numKnots - 1);
-            double segWidth = (libMax - libMin) / numSegments;
-
-            // Knot positions in library RT space — evenly spaced
-            var knotLibRt = new double[numKnots];
-            var knotObsRt = new double[numKnots];  // filled after fitting
-            var segSlope = new double[numSegments];
-            var segIntercept = new double[numSegments];
-            var segCount = new int[numSegments];
-
-            for (int k = 0; k < numKnots; k++)
-                knotLibRt[k] = libMin + k * segWidth;
-            knotLibRt[numKnots - 1] = libMax; // ensure exact right boundary
-
-            // Fit OLS per segment
-            for (int s = 0; s < numSegments; s++)
+            for (int pi = 0; pi < precursors.Count; pi++)
             {
-                double lo = knotLibRt[s];
-                double hi = knotLibRt[s + 1];
+                var p = precursors[pi];
 
-                // Collect anchors in [lo, hi)  (last segment includes hi)
-                double sx = 0, sy = 0, sxx = 0, sxy = 0;
-                int cnt = 0;
-                for (int i = 0; i < n; i++)
+                float qLo, qHi;
+                if (rtPrediction != null && p.RetentionTime.HasValue)
                 {
-                    if (libArr[i] < lo) continue;
-                    if (s < numSegments - 1 && libArr[i] >= hi) break;
-                    sx += libArr[i]; sy += obsArr[i];
-                    sxx += libArr[i] * libArr[i]; sxy += libArr[i] * obsArr[i];
-                    cnt++;
-                }
-                segCount[s] = cnt;
+                    float libRt = (float)p.RetentionTime.Value;
+                    float hw = rtPrediction.HalfWidth;
+                    float pred = rtPrediction.PredictObservedRt(libRt);
+                    qLo = pred - hw;
+                    qHi = pred + hw;
 
-                if (cnt >= 2)
-                {
-                    double d = cnt * sxx - sx * sx;
-                    if (Math.Abs(d) > 1e-12)
+                    // Shift decoy windows by a deterministic random RT offset so the
+                    // bootstrap LDA can use RT deviation as a discriminating feature.
+                    // The offset is derived from the sequence hash — reproducible across runs.
+                    if (p.IsDecoy)
                     {
-                        segSlope[s] = (cnt * sxy - sx * sy) / d;
-                        segIntercept[s] = (sy - segSlope[s] * sx) / cnt;
-                        continue;
+                        int hash = p.Sequence.GetHashCode();
+                        float jitter = ((hash & 0x7FFFFFFF) / (float)0x7FFFFFFF * 2f - 1f)
+                                       * DecoyRtJitterMinutes;
+                        qLo += jitter;
+                        qHi += jitter;
                     }
                 }
-
-                // Too few anchors — use segment midpoint mean with slope=0
-                double midLib = (lo + hi) * 0.5;
-                double midObs = cnt > 0 ? sy / cnt : (lo + hi) * 0.5; // fallback
-                segSlope[s] = 0;
-                segIntercept[s] = midObs;
-            }
-
-            // Smooth slopes for sparse segments by borrowing from neighbors
-            for (int pass = 0; pass < 2; pass++)
-            {
-                for (int s = 0; s < numSegments; s++)
+                else
                 {
-                    if (segCount[s] >= minAnchorsPerSegment) continue;
-
-                    // Distance-weighted average of neighbor slopes
-                    double wSum = 0, slopeSum = 0, interceptSum = 0;
-                    for (int nb = 0; nb < numSegments; nb++)
-                    {
-                        if (nb == s || segCount[nb] < minAnchorsPerSegment) continue;
-                        double dist = Math.Abs(nb - s) + 1.0;
-                        double w = 1.0 / (dist * dist);
-                        wSum += w;
-                        slopeSum += w * segSlope[nb];
-                        interceptSum += w * segIntercept[nb];
-                    }
-                    if (wSum > 0)
-                    {
-                        segSlope[s] = slopeSum / wSum;
-                        // Re-anchor intercept to pass through segment midpoint mean
-                        double midLib = (knotLibRt[s] + knotLibRt[s + 1]) * 0.5;
-                        double midObs = segSlope[s] * midLib + interceptSum / wSum;
-                        segIntercept[s] = midObs - segSlope[s] * midLib;
-                    }
-                }
-            }
-
-            // Evaluate at knot boundaries
-            for (int k = 0; k < numKnots; k++)
-            {
-                int s = Math.Min(k, numSegments - 1);
-                knotObsRt[k] = segSlope[s] * knotLibRt[k] + segIntercept[s];
-            }
-
-            // Enforce monotonicity at knots via pool-adjacent-violators
-            for (int k = 1; k < numKnots; k++)
-                if (knotObsRt[k] < knotObsRt[k - 1])
-                    knotObsRt[k] = knotObsRt[k - 1];
-
-            // Log knot table
-            log($"[Bootstrap] Piecewise knots (libRT → predRT  anchors):");
-            for (int k = 0; k < numKnots; k++)
-            {
-                int s = Math.Min(k, numSegments - 1);
-                log($"[Bootstrap]   [{k,2}] libRT={knotLibRt[k],7:F2}  predRT={knotObsRt[k]:F3}  " +
-                    (k < numSegments ? $"n={segCount[k]}" : ""));
-            }
-
-            // Interpolate predictions at every anchor libRT
-            var predictions = new double[n];
-            for (int i = 0; i < n; i++)
-            {
-                double x = libArr[i];
-
-                // Find bracketing knots via binary search
-                int lo = 0, hi2 = numKnots - 2;
-                while (lo < hi2)
-                {
-                    int mid = (lo + hi2) / 2;
-                    if (x < knotLibRt[mid + 1]) hi2 = mid;
-                    else lo = mid + 1;
+                    qLo = sliceLo;
+                    qHi = sliceHi;
                 }
 
-                double leftLib = knotLibRt[lo];
-                double rightLib = knotLibRt[lo + 1];
-                double leftObs = knotObsRt[lo];
-                double rightObs = knotObsRt[lo + 1];
+                // Clamp to slice bounds
+                qLo = Math.Max(qLo, sliceLo);
+                qHi = Math.Min(qHi, sliceHi);
+                if (qHi <= qLo) continue;
 
-                double frac = (rightLib > leftLib)
-                    ? (x - leftLib) / (rightLib - leftLib)
-                    : 0.0;
-                predictions[i] = leftObs + frac * (rightObs - leftObs);
+                int windowId = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
+                if (windowId < 0) continue;
+
+                int queryOffset = qList.Count;
+                int queryCount = 0;
+
+                for (int f = 0; f < p.FragmentCount; f++)
+                {
+                    qList.Add(new FragmentQuery(
+                        targetMz: p.FragmentMzs[f],
+                        tolerancePpm: ppmTol,
+                        rtMin: qLo,
+                        rtMax: qHi,
+                        windowId: windowId,
+                        queryId: qList.Count));
+                    queryCount++;
+                }
+
+                if (queryCount == 0) continue;
+
+                gList.Add(new SliceGroup(
+                    precursorIndex: pi,
+                    queryOffset: queryOffset,
+                    queryCount: queryCount,
+                    windowId: windowId));
             }
 
-            return predictions;
+            return (qList.ToArray(), gList.ToArray());
         }
 
         // ══════════════════════════════════════════════════════════════════
@@ -746,20 +645,30 @@ namespace MassSpectrometry.Dia.Calibration
             // ── Fit LDA ─────────────────────────────────────────────────────
             BootstrapLdaModel model = FitIterativeLda(features, isDecoy, warmStartWeights, Log);
 
-            // ── Collect confident anchors for this step ─────────────────────
-            var stepAnchors = new List<BootstrapAnchor>();
-            var stepFwhms = new List<float>();
-
+            // ── Collect confident anchors for this step (top-K by LDA score) ──
+            // First pass: collect all targets above the decision boundary.
+            // Second pass: keep only the top AnchorTopK by score.
+            var candidateAnchors = new List<(float Score, int Index)>();
             for (int i = 0; i < features.Length; i++)
             {
                 float score = model.Score(features[i]);
                 if (model.IsTarget(score) && !isDecoy[i] && libraryRts[i] > 0f)
-                {
-                    stepAnchors.Add(new BootstrapAnchor(
-                        libraryRts[i], observedApexRts[i], score));
-                    if (!float.IsNaN(peakFwhms[i]) && peakFwhms[i] > 0f)
-                        stepFwhms.Add(peakFwhms[i]);
-                }
+                    candidateAnchors.Add((score, i));
+            }
+
+            // Sort descending by score, take top K
+            candidateAnchors.Sort((a, b) => b.Score.CompareTo(a.Score));
+            int takeCount = Math.Min(candidateAnchors.Count, AnchorTopK);
+
+            var stepAnchors = new List<BootstrapAnchor>(takeCount);
+            var stepFwhms = new List<float>(takeCount);
+            for (int k = 0; k < takeCount; k++)
+            {
+                int i = candidateAnchors[k].Index;
+                stepAnchors.Add(new BootstrapAnchor(
+                    libraryRts[i], observedApexRts[i], candidateAnchors[k].Score));
+                if (!float.IsNaN(peakFwhms[i]) && peakFwhms[i] > 0f)
+                    stepFwhms.Add(peakFwhms[i]);
             }
 
             Log($"Confident anchors: {stepAnchors.Count}");
@@ -806,96 +715,6 @@ namespace MassSpectrometry.Dia.Calibration
 
             return new BootstrapSliceResult(
                 model, rtLine, stepAnchors, sliceLo, sliceHi, medianFwhm);
-        }
-
-        // ══════════════════════════════════════════════════════════════════
-        // Slice bounds
-        // ══════════════════════════════════════════════════════════════════
-
-        public static (float RtLo, float RtHi) ComputeSliceBounds(DiaScanIndex scanIndex)
-            => ComputeSliceBoundsAtPercentile(scanIndex,
-                   (1f - SliceFraction) / 2f, 1f - (1f - SliceFraction) / 2f);
-
-        public static (float RtLo, float RtHi) ComputeSliceBoundsAtPercentile(
-            DiaScanIndex scanIndex, float loPct, float hiPct)
-        {
-            int n = scanIndex.ScanCount;
-            if (n == 0) return (0f, 0f);
-            float[] buf = ArrayPool<float>.Shared.Rent(n);
-            try
-            {
-                for (int i = 0; i < n; i++) buf[i] = scanIndex.GetScanRt(i);
-                Array.Sort(buf, 0, n);
-                return (buf[(int)(loPct * (n - 1))], buf[(int)(hiPct * (n - 1))]);
-            }
-            finally { ArrayPool<float>.Shared.Return(buf); }
-        }
-
-        // ══════════════════════════════════════════════════════════════════
-        // Query generation
-        // ══════════════════════════════════════════════════════════════════
-
-        // Maximum RT jitter applied to decoy extraction windows (minutes).
-        // Decoys get a deterministic random offset in [-DecoyRtJitterMinutes, +DecoyRtJitterMinutes]
-        // so the bootstrap LDA can exploit RT deviation to separate T from D.
-        public const float DecoyRtJitterMinutes = 1.0f;
-
-        private static (FragmentQuery[] Queries, SliceGroup[] Groups) GenerateSliceQueries(
-            IReadOnlyList<LibraryPrecursorInput> precursors,
-            DiaScanIndex scanIndex,
-            float sliceLo, float sliceHi, float ppmTol,
-            BootstrapRtLine? rtPrediction)
-        {
-            var qList = new List<FragmentQuery>(precursors.Count * 8);
-            var gList = new List<SliceGroup>(precursors.Count);
-
-            for (int pi = 0; pi < precursors.Count; pi++)
-            {
-                var p = precursors[pi];
-
-                float qLo, qHi;
-                if (rtPrediction != null && p.RetentionTime.HasValue)
-                {
-                    float libRt = (float)p.RetentionTime.Value;
-                    float hw = rtPrediction.HalfWidth;
-                    float pred = rtPrediction.PredictObservedRt(libRt);
-                    qLo = pred - hw;
-                    qHi = pred + hw;
-
-                    // Shift decoy windows by a deterministic random RT offset so the
-                    // bootstrap LDA can use RT deviation as a discriminating feature.
-                    // The offset is derived from the sequence hash — reproducible across runs.
-                    if (p.IsDecoy)
-                    {
-                        int hash = p.Sequence.GetHashCode();
-                        // Map hash to [-1, +1] uniformly, then scale to jitter range
-                        float jitter = ((hash & 0x7FFFFFFF) / (float)0x7FFFFFFF * 2f - 1f)
-                                       * DecoyRtJitterMinutes;
-                        qLo += jitter;
-                        qHi += jitter;
-                    }
-
-                    if (qHi < sliceLo || qLo > sliceHi) continue;
-                    qLo = Math.Max(qLo, sliceLo);
-                    qHi = Math.Min(qHi, sliceHi);
-                }
-                else { qLo = sliceLo; qHi = sliceHi; }
-
-                int wid = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
-                if (wid < 0) continue;
-                if (!scanIndex.TryGetScanRangeForWindow(wid, out int wS, out int wC)) continue;
-
-                bool has = false;
-                for (int si = wS; si < wS + wC && !has; si++)
-                    has = scanIndex.GetScanRt(si) >= qLo && scanIndex.GetScanRt(si) <= qHi;
-                if (!has) continue;
-
-                int qo = qList.Count;
-                for (int fi = 0; fi < p.FragmentCount; fi++)
-                    qList.Add(new FragmentQuery(p.FragmentMzs[fi], ppmTol, qLo, qHi, wid, qList.Count));
-                gList.Add(new SliceGroup(pi, qo, p.FragmentCount, wid));
-            }
-            return (qList.ToArray(), gList.ToArray());
         }
 
         // ══════════════════════════════════════════════════════════════════
@@ -1106,7 +925,7 @@ namespace MassSpectrometry.Dia.Calibration
                 {
                     float span = tic[t - 1] - tic[t];
                     float frac = span > 0f ? (halfMax - tic[t]) / span : 0.5f;
-                    rightRt = rts[t] + frac * (rts[t - 1] - rts[t]);
+                    rightRt = rts[t] - frac * (rts[t] - rts[t - 1]);
                     foundRight = true;
                     break;
                 }
@@ -1117,120 +936,177 @@ namespace MassSpectrometry.Dia.Calibration
         }
 
         // ══════════════════════════════════════════════════════════════════
-        // Feature sub-computations
+        // XIC alignment
         // ══════════════════════════════════════════════════════════════════
 
         private static void AlignToGrid(
-            ReadOnlySpan<float> refRts, ReadOnlySpan<float> fragRts,
-            ReadOnlySpan<float> fragInts, float[] matrix,
-            int fragIdx, int fragCount, int timePoints)
+            ReadOnlySpan<float> refRts,
+            ReadOnlySpan<float> srcRts,
+            ReadOnlySpan<float> srcInten,
+            float[] mat, int fragIdx, int fc, int timePoints)
         {
-            const float rtTol = 0.01f;
-            int fp = 0;
-            for (int t = 0; t < timePoints && fp < fragRts.Length; t++)
+            int si = 0;
+            for (int t = 0; t < timePoints && si < srcRts.Length; t++)
             {
-                float rrt = refRts[t];
-                while (fp < fragRts.Length && fragRts[fp] < rrt - rtTol) fp++;
-                if (fp < fragRts.Length && MathF.Abs(fragRts[fp] - rrt) <= rtTol)
-                    matrix[t * fragCount + fragIdx] = fragInts[fp++];
+                float rt = refRts[t];
+                while (si < srcRts.Length - 1 && srcRts[si + 1] <= rt) si++;
+                if (MathF.Abs(srcRts[si] - rt) < 0.01f)
+                    mat[t * fc + fragIdx] = srcInten[si];
             }
         }
+
+        // ══════════════════════════════════════════════════════════════════
+        // Pairwise XIC correlation
+        // ══════════════════════════════════════════════════════════════════
 
         private static (float Mean, float Min) PairwiseXicCorrelation(
-            float[] matrix, int fc, int timePoints)
+            float[] mat, int fc, int timePoints)
         {
             if (fc < 2) return (float.NaN, float.NaN);
-            float[] rm = ArrayPool<float>.Shared.Rent(fc);
-            float[] rs = ArrayPool<float>.Shared.Rent(fc);
-            try
+
+            float sumR = 0f; float minR = float.MaxValue; int pairs = 0;
+
+            for (int a = 0; a < fc; a++)
             {
-                for (int f = 0; f < fc; f++)
+                for (int b = a + 1; b < fc; b++)
                 {
-                    double s = 0, s2 = 0;
-                    for (int t = 0; t < timePoints; t++) { double v = matrix[t * fc + f]; s += v; s2 += v * v; }
-                    double m = s / timePoints; double var = s2 / timePoints - m * m;
-                    rm[f] = (float)m; rs[f] = var > 0 ? (float)Math.Sqrt(var) : 0f;
-                }
-                float sumR = 0f, minR = float.MaxValue; int pairs = 0;
-                for (int a = 0; a < fc - 1; a++)
-                {
-                    if (rs[a] <= 0f) continue;
-                    for (int b = a + 1; b < fc; b++)
+                    double sa = 0, sb = 0, sa2 = 0, sb2 = 0, sab = 0;
+                    for (int t = 0; t < timePoints; t++)
                     {
-                        if (rs[b] <= 0f) continue;
-                        double cov = 0;
-                        for (int t = 0; t < timePoints; t++)
-                            cov += (matrix[t * fc + a] - rm[a]) * (matrix[t * fc + b] - rm[b]);
-                        float r = Math.Clamp((float)(cov / timePoints / rs[a] / rs[b]), -1f, 1f);
-                        sumR += r; if (r < minR) minR = r; pairs++;
+                        double va = mat[t * fc + a];
+                        double vb = mat[t * fc + b];
+                        sa += va; sb += vb; sa2 += va * va; sb2 += vb * vb; sab += va * vb;
                     }
+                    double n = timePoints;
+                    double num = sab - sa * sb / n;
+                    double den = Math.Sqrt(Math.Max(sa2 - sa * sa / n, 0) *
+                                          Math.Max(sb2 - sb * sb / n, 0));
+                    float r = den > 1e-8 ? (float)(num / den) : 0f;
+                    sumR += r;
+                    if (r < minR) minR = r;
+                    pairs++;
                 }
-                return pairs > 0 ? (sumR / pairs, minR) : (float.NaN, float.NaN);
             }
-            finally { ArrayPool<float>.Shared.Return(rm); ArrayPool<float>.Shared.Return(rs); }
+
+            if (pairs == 0) return (float.NaN, float.NaN);
+            return (sumR / pairs, minR);
         }
 
-        /// <summary>
-        /// BestFragCorrSum = sum of pairwise correlations for the best fragment.
-        /// MedianFragRefCorr = median correlation of all others with the best fragment.
-        /// </summary>
-        private static (float BestFragCorrSum, float MedianFragRefCorr) ComputeBestFragFeatures(
-            float[] matrix, int fc, int timePoints)
+        // ══════════════════════════════════════════════════════════════════
+        // Best-fragment features
+        // ══════════════════════════════════════════════════════════════════
+
+        private static (float BestFragCorrSum, float MedianFragRefCorr)
+            ComputeBestFragFeatures(float[] mat, int fc, int timePoints)
         {
-            if (fc < 2) return (float.NaN, float.NaN);
-            float[] rm = ArrayPool<float>.Shared.Rent(fc);
-            float[] rs = ArrayPool<float>.Shared.Rent(fc);
-            try
+            if (fc < 3) return (float.NaN, float.NaN);
+
+            // Build pairwise correlation matrix
+            float[] corrMat = new float[fc * fc];
+            for (int a = 0; a < fc; a++)
             {
-                for (int f = 0; f < fc; f++)
+                corrMat[a * fc + a] = 1f;
+                for (int b = a + 1; b < fc; b++)
                 {
-                    double s = 0, s2 = 0;
-                    for (int t = 0; t < timePoints; t++) { double v = matrix[t * fc + f]; s += v; s2 += v * v; }
-                    double m = s / timePoints; double var = s2 / timePoints - m * m;
-                    rm[f] = (float)m; rs[f] = var > 0 ? (float)Math.Sqrt(var) : 0f;
-                }
-                float[] corrMat = ArrayPool<float>.Shared.Rent(fc * fc);
-                try
-                {
-                    for (int a = 0; a < fc; a++) corrMat[a * fc + a] = 1f;
-                    for (int a = 0; a < fc - 1; a++)
-                        for (int b = a + 1; b < fc; b++)
-                        {
-                            float r = 0f;
-                            if (rs[a] > 0f && rs[b] > 0f)
-                            {
-                                double cov = 0;
-                                for (int t = 0; t < timePoints; t++)
-                                    cov += (matrix[t * fc + a] - rm[a]) * (matrix[t * fc + b] - rm[b]);
-                                r = Math.Clamp((float)(cov / timePoints / rs[a] / rs[b]), -1f, 1f);
-                            }
-                            corrMat[a * fc + b] = r;
-                            corrMat[b * fc + a] = r;
-                        }
-                    int bestIdx = 0; float bestSum = float.MinValue;
-                    for (int a = 0; a < fc; a++)
+                    double sa = 0, sb = 0, sa2 = 0, sb2 = 0, sab = 0;
+                    for (int t = 0; t < timePoints; t++)
                     {
-                        float rowSum = 0f;
-                        for (int b = 0; b < fc; b++) if (b != a) rowSum += corrMat[a * fc + b];
-                        if (rowSum > bestSum) { bestSum = rowSum; bestIdx = a; }
+                        double va = mat[t * fc + a];
+                        double vb = mat[t * fc + b];
+                        sa += va; sb += vb; sa2 += va * va; sb2 += vb * vb; sab += va * vb;
                     }
-                    var refCorrs = new float[fc - 1]; int idx = 0;
-                    for (int a = 0; a < fc; a++) if (a != bestIdx) refCorrs[idx++] = corrMat[bestIdx * fc + a];
-                    Array.Sort(refCorrs);
-                    float median = refCorrs.Length % 2 == 1
-                        ? refCorrs[refCorrs.Length / 2]
-                        : (refCorrs[refCorrs.Length / 2 - 1] + refCorrs[refCorrs.Length / 2]) * 0.5f;
-                    return (bestSum, median);
+                    double n = timePoints;
+                    double num = sab - sa * sb / n;
+                    double den = Math.Sqrt(Math.Max(sa2 - sa * sa / n, 0) *
+                                          Math.Max(sb2 - sb * sb / n, 0));
+                    float r = den > 1e-8 ? (float)(num / den) : 0f;
+                    corrMat[a * fc + b] = r;
+                    corrMat[b * fc + a] = r;
                 }
-                finally { ArrayPool<float>.Shared.Return(corrMat); }
             }
-            finally { ArrayPool<float>.Shared.Return(rm); ArrayPool<float>.Shared.Return(rs); }
+
+            // Find best fragment (highest row-sum)
+            int bestFrag = 0; float bestSum = float.MinValue;
+            for (int a = 0; a < fc; a++)
+            {
+                float rowSum = 0f;
+                for (int b = 0; b < fc; b++) if (b != a) rowSum += corrMat[a * fc + b];
+                if (rowSum > bestSum) { bestSum = rowSum; bestFrag = a; }
+            }
+
+            // Median of other fragments vs best fragment
+            var refCorrs = new float[fc - 1];
+            int ri = 0;
+            for (int b = 0; b < fc; b++)
+                if (b != bestFrag) refCorrs[ri++] = corrMat[bestFrag * fc + b];
+
+            Array.Sort(refCorrs);
+            float median = refCorrs.Length % 2 == 1
+                ? refCorrs[refCorrs.Length / 2]
+                : (refCorrs[refCorrs.Length / 2 - 1] + refCorrs[refCorrs.Length / 2]) * 0.5f;
+
+            return (bestSum, median);
         }
 
-        /// <summary>
-        /// Pearson r between MS1 M0 XIC and best fragment XIC. Returns NaN if MS1 unavailable.
-        /// Uses the isolation window center as the precursor m/z for MS1 lookup.
-        /// </summary>
+        // ══════════════════════════════════════════════════════════════════
+        // Mean signal ratio deviation
+        // ══════════════════════════════════════════════════════════════════
+
+        private static float ComputeMeanSignalRatioDev(
+            ReadOnlySpan<float> obs, ReadOnlySpan<float> exp)
+        {
+            float ot = 0, et = 0;
+            for (int f = 0; f < obs.Length; f++) { ot += obs[f]; et += exp[f]; }
+            if (ot <= 0 || et <= 0) return float.NaN;
+            float s = 0; int n = 0;
+            for (int f = 0; f < obs.Length; f++)
+            {
+                if (obs[f] <= 0 || exp[f] <= 0) continue;
+                s += MathF.Abs(MathF.Log2((obs[f] / ot) / (exp[f] / et))); n++;
+            }
+            return n >= 3 ? s / n : float.NaN;
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // Mass error at apex
+        // ══════════════════════════════════════════════════════════════════
+
+        private static float ComputeMassErrorPpm(
+            SliceGroup g, FragmentQuery[] queries, ExtractionResult extr,
+            DiaScanIndex scanIndex, float apexRt, float ppmTol)
+        {
+            if (!scanIndex.TryGetScanRangeForWindow(g.WindowId, out int wS, out int wC)) return ppmTol;
+            int ai = -1;
+            for (int si = wS; si < wS + wC; si++)
+                if (MathF.Abs(scanIndex.GetScanRt(si) - apexRt) < 1e-5f) { ai = si; break; }
+            if (ai < 0) return ppmTol;
+            ReadOnlySpan<float> mzs = scanIndex.GetScanMzSpan(ai);
+            if (mzs.Length == 0) return ppmTol;
+            double eS = 0; int eN = 0;
+            for (int qi = g.QueryOffset; qi < g.QueryOffset + g.QueryCount; qi++)
+            {
+                var res = extr.Results[qi];
+                if (res.DataPointCount == 0) continue;
+                bool hit = false;
+                for (int k = 0; k < res.DataPointCount; k++)
+                    if (extr.RtBuffer[res.RtBufferOffset + k] == apexRt &&
+                       extr.IntensityBuffer[res.IntensityBufferOffset + k] > 0) { hit = true; break; }
+                if (!hit) continue;
+                float tgt = queries[qi].TargetMz;
+                int lo = 0, hi = mzs.Length - 1;
+                while (lo < hi) { int mid = (lo + hi) / 2; if (mzs[mid] < tgt) lo = mid + 1; else hi = mid; }
+                float best = mzs[lo];
+                if (lo > 0 && MathF.Abs(mzs[lo - 1] - tgt) < MathF.Abs(best - tgt)) best = mzs[lo - 1];
+                float ppm = MathF.Abs((best - tgt) / tgt * 1e6f);
+                if (ppm <= ppmTol) { eS += ppm; eN++; }
+            }
+            return eN > 0 ? (float)(eS / eN) : ppmTol;
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // MS1–MS2 correlation (bootstrap version — uses adjacent MS1 scans)
+        // ══════════════════════════════════════════════════════════════════
+
         private static float ComputeBootstrapMs1Ms2Correlation(
             DiaScanIndex scanIndex,
             int windowId,
@@ -1281,66 +1157,26 @@ namespace MassSpectrometry.Dia.Calibration
                 ms1Aligned[t] = ms1IntList[mp];
             }
 
+            // Pearson r between MS1 aligned and MS2 best-frag intensities
             ReadOnlySpan<float> ms2Span = new ReadOnlySpan<float>(
                 extr.IntensityBuffer, bestFragResult.IntensityBufferOffset, ms2Pts);
-            double sm1 = 0, sm2 = 0;
-            for (int t = 0; t < ms2Pts; t++) { sm1 += ms1Aligned[t]; sm2 += ms2Span[t]; }
-            double m1 = sm1 / ms2Pts, m2 = sm2 / ms2Pts;
-            double cov = 0, v1 = 0, v2 = 0;
-            for (int t = 0; t < ms2Pts; t++)
+
+            double sa = 0, sb = 0, sa2 = 0, sb2 = 0, sab = 0;
+            for (int i = 0; i < ms2Pts; i++)
             {
-                double d1 = ms1Aligned[t] - m1, d2 = ms2Span[t] - m2;
-                cov += d1 * d2; v1 += d1 * d1; v2 += d2 * d2;
+                double va = ms1Aligned[i]; double vb = ms2Span[i];
+                sa += va; sb += vb; sa2 += va * va; sb2 += vb * vb; sab += va * vb;
             }
-            if (v1 <= 0 || v2 <= 0) return float.NaN;
-            return Math.Clamp((float)(cov / Math.Sqrt(v1 * v2)), -1f, 1f);
+            double n = ms2Pts;
+            double num = sab - sa * sb / n;
+            double den = Math.Sqrt(Math.Max(sa2 - sa * sa / n, 0) *
+                                   Math.Max(sb2 - sb * sb / n, 0));
+            return den > 1e-8 ? (float)(num / den) : float.NaN;
         }
 
-        private static float ComputeMeanSignalRatioDev(ReadOnlySpan<float> obs, ReadOnlySpan<float> exp)
-        {
-            float ot = 0, et = 0;
-            for (int f = 0; f < obs.Length; f++) { ot += obs[f]; et += exp[f]; }
-            if (ot <= 0 || et <= 0) return float.NaN;
-            float s = 0; int n = 0;
-            for (int f = 0; f < obs.Length; f++)
-            {
-                if (obs[f] <= 0 || exp[f] <= 0) continue;
-                s += MathF.Abs(MathF.Log2((obs[f] / ot) / (exp[f] / et))); n++;
-            }
-            return n >= 3 ? s / n : float.NaN;
-        }
-
-        private static float ComputeMassErrorPpm(
-            SliceGroup g, FragmentQuery[] queries, ExtractionResult extr,
-            DiaScanIndex scanIndex, float apexRt, float ppmTol)
-        {
-            if (!scanIndex.TryGetScanRangeForWindow(g.WindowId, out int wS, out int wC)) return ppmTol;
-            int ai = -1;
-            for (int si = wS; si < wS + wC; si++)
-                if (MathF.Abs(scanIndex.GetScanRt(si) - apexRt) < 1e-5f) { ai = si; break; }
-            if (ai < 0) return ppmTol;
-            ReadOnlySpan<float> mzs = scanIndex.GetScanMzSpan(ai);
-            if (mzs.Length == 0) return ppmTol;
-            double eS = 0; int eN = 0;
-            for (int qi = g.QueryOffset; qi < g.QueryOffset + g.QueryCount; qi++)
-            {
-                var res = extr.Results[qi];
-                if (res.DataPointCount == 0) continue;
-                bool hit = false;
-                for (int k = 0; k < res.DataPointCount; k++)
-                    if (extr.RtBuffer[res.RtBufferOffset + k] == apexRt &&
-                       extr.IntensityBuffer[res.IntensityBufferOffset + k] > 0) { hit = true; break; }
-                if (!hit) continue;
-                float tgt = queries[qi].TargetMz;
-                int lo = 0, hi = mzs.Length - 1;
-                while (lo < hi) { int mid = (lo + hi) / 2; if (mzs[mid] < tgt) lo = mid + 1; else hi = mid; }
-                float best = mzs[lo];
-                if (lo > 0 && MathF.Abs(mzs[lo - 1] - tgt) < MathF.Abs(best - tgt)) best = mzs[lo - 1];
-                float ppm = MathF.Abs((best - tgt) / tgt * 1e6f);
-                if (ppm <= ppmTol) { eS += ppm; eN++; }
-            }
-            return eN > 0 ? (float)(eS / eN) : ppmTol;
-        }
+        // ══════════════════════════════════════════════════════════════════
+        // Median helpers
+        // ══════════════════════════════════════════════════════════════════
 
         private static float MedianOfSpan(Span<float> src, int n)
         {
@@ -1673,6 +1509,15 @@ namespace MassSpectrometry.Dia.Calibration
             return new BootstrapRtLine(slope, intercept, r2, sigma, hw, n);
         }
 
+        /// <summary>
+        /// Returns a new BootstrapRtLine with the same slope/intercept/σ/R²
+        /// but a caller-specified HalfWidth. Used to tighten the seed window
+        /// for pass 3 without refitting the OLS line.
+        /// </summary>
+        public BootstrapRtLine WithHalfWidth(float halfWidth) =>
+            new BootstrapRtLine(Slope, Intercept, RSquared, ResidualSigma,
+                                Math.Max(halfWidth, 0.1f), AnchorCount);
+
         public override string ToString() =>
             $"obs = {Slope:F4}×lib + {Intercept:F4}  " +
             $"R²={RSquared:F4}  σ={ResidualSigma:F4} min  hw={HalfWidth:F4} min  n={AnchorCount}";
@@ -1694,29 +1539,38 @@ namespace MassSpectrometry.Dia.Calibration
         public float SeparationRatio =>
             TargetSigma > 0f ? (TargetMean - DecoyMean) / TargetSigma : 0f;
 
-        internal BootstrapLdaModel(float[] w, float thr, float tM, float tS, float dM, int it)
-        { Weights = w; Threshold = thr; TargetMean = tM; TargetSigma = tS; DecoyMean = dM; IterationsRun = it; }
+        internal BootstrapLdaModel(float[] w, float t, float tm, float ts, float dm, int iters)
+        { Weights = w; Threshold = t; TargetMean = tm; TargetSigma = ts; DecoyMean = dm; IterationsRun = iters; }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public float Score(ReadOnlySpan<float> fv)
+        public float Score(float[] features)
         {
-            float s = 0f; int len = Math.Min(fv.Length, Weights.Length);
-            for (int i = 0; i < len; i++) s += fv[i] * Weights[i]; return s;
+            float s = 0f;
+            for (int j = 0; j < DiaBootstrapCalibrator.FeatureCount; j++) s += features[j] * Weights[j];
+            return s;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsTarget(float score) => score >= Threshold;
-
-        public override string ToString() =>
-            $"LDA  threshold={Threshold:F4}  tMean={TargetMean:F4}  " +
-            $"dMean={DecoyMean:F4}  tSigma={TargetSigma:F4}  sep={SeparationRatio:F2}  iters={IterationsRun}";
     }
 
-    // ── Internal ──────────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════
+    // SliceGroup — groups fragment queries belonging to one precursor
+    // ══════════════════════════════════════════════════════════════════════
 
     internal readonly struct SliceGroup
     {
-        public readonly int PrecursorIndex, QueryOffset, QueryCount, WindowId;
-        public SliceGroup(int pi, int qo, int qc, int wid)
-        { PrecursorIndex = pi; QueryOffset = qo; QueryCount = qc; WindowId = wid; }
+        public readonly int PrecursorIndex;
+        public readonly int QueryOffset;
+        public readonly int QueryCount;
+        public readonly int WindowId;
+
+        public SliceGroup(int precursorIndex, int queryOffset, int queryCount, int windowId)
+        {
+            PrecursorIndex = precursorIndex;
+            QueryOffset = queryOffset;
+            QueryCount = queryCount;
+            WindowId = windowId;
+        }
     }
 }

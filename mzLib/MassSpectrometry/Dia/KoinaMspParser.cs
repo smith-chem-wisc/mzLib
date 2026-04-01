@@ -26,6 +26,13 @@ namespace MassSpectrometry.Dia
     /// </summary>
     public static class KoinaMspParser
     {
+        /// <summary>
+        /// Maximum number of fragments retained per precursor, ranked by predicted intensity.
+        /// Matches DIA-NN's library format. Fragments beyond this rank are discarded even
+        /// if they pass the minIntensity threshold.
+        /// </summary>
+        public const int MaxFragmentsPerPrecursor = 12;
+
         public static List<LibraryPrecursorInput> Parse(
             string mspPath,
             Dictionary<string, double> retentionTimeLookup = null,
@@ -129,7 +136,8 @@ namespace MassSpectrometry.Dia
             }
 
             Console.WriteLine($"  MSP parsed: {entriesParsed:N0} entries, {totalFragments:N0} total fragments" +
-                              (entriesSkipped > 0 ? $", {entriesSkipped} skipped" : ""));
+                              (entriesSkipped > 0 ? $", {entriesSkipped} skipped" : "") +
+                              $"  (capped at top {MaxFragmentsPerPrecursor} per precursor)");
 
             return results;
         }
@@ -212,14 +220,14 @@ namespace MassSpectrometry.Dia
             double precursorMz = mwOrMz;
             if (precursorMz <= 0) return null;
 
-            // Filter by relative intensity
+            // Filter by relative intensity (≥ minIntensity × max)
             float maxInt = 0;
             for (int i = 0; i < intList.Count; i++)
                 if (intList[i] > maxInt) maxInt = intList[i];
 
             float threshold = maxInt * minIntensity;
-            var filtMz = new List<float>();
-            var filtInt = new List<float>();
+            var filtMz = new List<float>(mzList.Count);
+            var filtInt = new List<float>(intList.Count);
             for (int i = 0; i < mzList.Count; i++)
             {
                 if (intList[i] > threshold && intList[i] > 0)
@@ -230,9 +238,30 @@ namespace MassSpectrometry.Dia
             }
             if (filtMz.Count == 0) return null;
 
+            // Cap to top MaxFragmentsPerPrecursor by predicted intensity.
+            // Prosit/Koina typically outputs 50–100 fragments; keeping only the
+            // top 12 (matching DIA-NN) avoids scoring noise from weak predicted ions.
+            if (filtMz.Count > MaxFragmentsPerPrecursor)
+            {
+                // Indirect sort: build index array, sort by intensity descending, take top K
+                var indices = new int[filtMz.Count];
+                for (int i = 0; i < indices.Length; i++) indices[i] = i;
+                Array.Sort(indices, (a, b) => filtInt[b].CompareTo(filtInt[a]));
+
+                var topMz = new List<float>(MaxFragmentsPerPrecursor);
+                var topInt = new List<float>(MaxFragmentsPerPrecursor);
+                for (int k = 0; k < MaxFragmentsPerPrecursor; k++)
+                {
+                    topMz.Add(filtMz[indices[k]]);
+                    topInt.Add(filtInt[indices[k]]);
+                }
+                filtMz = topMz;
+                filtInt = topInt;
+            }
+
             var mzArr = filtMz.ToArray();
             var intArr = filtInt.ToArray();
-            Array.Sort(mzArr, intArr);
+            Array.Sort(mzArr, intArr);  // sort by m/z ascending for binary search
 
             // RT: prefer DIA-NN ground truth, fall back to MSP Comment RT
             string key = sequence + "/" + charge;

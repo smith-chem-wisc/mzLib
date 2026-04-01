@@ -1075,13 +1075,19 @@ namespace Development.Dia
             string path, string classifierType)
         {
             var inv = CultureInfo.InvariantCulture;
+            var modRe = new System.Text.RegularExpressions.Regex(
+                @"\(UniMod:\d+\)|\[UniMod:\d+\]",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
             using var w = new StreamWriter(path);
             w.Write("Sequence\tCharge\tPrecursorMz\tWindowId\tIsDecoy");
             w.Write("\tClassifierScore\tQValue\tClassifierType");
             for (int j = 0; j < DiaFeatureVector.ClassifierFeatureCount; j++)
                 w.Write("\tFV_" + DiaFeatureVector.FeatureNames[j]);
             w.Write("\tObservedApexRt\tLibraryRT\tRtDeviationMinutes\tRtWindowStart\tRtWindowEnd");
+            w.Write("\tPeptideLength\tFragmentsDetected");
             w.WriteLine();
+
             Span<float> buf = stackalloc float[DiaFeatureVector.ClassifierFeatureCount];
             for (int i = 0; i < results.Count; i++)
             {
@@ -1104,6 +1110,16 @@ namespace Development.Dia
                 w.Write('\t'); w.Write(Ft(r.RtDeviationMinutes, inv));
                 w.Write('\t'); w.Write(r.RtWindowStart.ToString("F4", inv));
                 w.Write('\t'); w.Write(r.RtWindowEnd.ToString("F4", inv));
+
+                // PeptideLength — strip modification annotations
+                string bareSeq = modRe.Replace(r.Sequence ?? "", "");
+                w.Write('\t'); w.Write(bareSeq.Length.ToString(inv));
+
+                // FragmentsDetected — FragDetRate (feature index 9) × cap (12)
+                // buf is already populated from WriteTo above
+                int fragsDetected = (int)Math.Round(buf[9] * KoinaMspParser.MaxFragmentsPerPrecursor);
+                w.Write('\t'); w.Write(fragsDetected.ToString(inv));
+
                 w.WriteLine();
             }
         }
