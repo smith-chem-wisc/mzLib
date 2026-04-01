@@ -16,11 +16,7 @@ namespace UsefulProteomicsDatabases
     public class ProteinXmlEntry
     {
         private static readonly Regex SubstituteWhitespace = new Regex(@"\s+");
-        public string DatasetEntryTag { get; private set; }
-        public string DatabaseCreatedEntryTag { get; private set; }
-        public string DatabaseModifiedEntryTag { get; private set; }
-        public string DatabaseVersionEntryTag { get; private set; }
-        public string XmlnsEntryTag { get; private set; }
+        public UniProtEntryAttributes EntryAttributes { get; private set; }
         public string Accession { get; private set; }
         public string Name { get; private set; }
         public string FullName { get; private set; }
@@ -174,11 +170,12 @@ namespace UsefulProteomicsDatabases
         /// <param name="xml">The <see cref="XmlReader"/> positioned at the &lt;entry&gt; element whose attributes are to be read.</param>
         private void ParseEntryAttributes(XmlReader xml)
         {
-            DatasetEntryTag = xml.GetAttribute("dataset");
-            DatabaseCreatedEntryTag = xml.GetAttribute("created");
-            DatabaseModifiedEntryTag = xml.GetAttribute("modified");
-            DatabaseVersionEntryTag = xml.GetAttribute("version");
-            XmlnsEntryTag = xml.GetAttribute("xmlns");
+            EntryAttributes = new UniProtEntryAttributes(
+                dataset: xml.GetAttribute("dataset"),
+                created: xml.GetAttribute("created"),
+                modified: xml.GetAttribute("modified"),
+                version: xml.GetAttribute("version"),
+                xmlns: xml.GetAttribute("xmlns"));
         }
         /// <summary>
         /// Parses some attributes of a &lt;sequence&gt; XML element and assigns their values to the corresponding properties of the ProteinXmlEntry.
@@ -220,7 +217,7 @@ namespace UsefulProteomicsDatabases
         /// Parses the modified date attribute from the sequence element.
         /// Returns DateTime.Now if parsing fails or the attribute is missing.
         /// </summary>
-        private static DateTime ParseModifiedDate(string modifiedAttr)
+        public static DateTime ParseModifiedDate(string modifiedAttr)
         {
             if (!string.IsNullOrEmpty(modifiedAttr))
             {
@@ -242,7 +239,7 @@ namespace UsefulProteomicsDatabases
         /// Parses the version attribute from the sequence element.
         /// Returns -1 if parsing fails or the attribute is missing.
         /// </summary>
-        private static int ParseSequenceVersion(string versionAttr)
+        public static int ParseSequenceVersion(string versionAttr)
         {
             if (int.TryParse(versionAttr, out int version))
             {
@@ -256,7 +253,7 @@ namespace UsefulProteomicsDatabases
         /// Parses the precursor attribute from the sequence element.
         /// Returns false if the attribute is missing or not "true".
         /// </summary>
-        private static bool ParseIsPrecursor(string precursorAttr)
+        public static bool ParseIsPrecursor(string precursorAttr)
         {
             return !string.IsNullOrEmpty(precursorAttr) && precursorAttr.Equals("true", StringComparison.OrdinalIgnoreCase);
         }
@@ -266,7 +263,7 @@ namespace UsefulProteomicsDatabases
         /// Parses the fragment attribute from the sequence element.
         /// Returns FragmentType.unspecified if parsing fails or the attribute is missing.
         /// </summary>
-        private static UniProtSequenceAttributes.FragmentType ParseFragmentType(string fragmentAttr)
+        public static UniProtSequenceAttributes.FragmentType ParseFragmentType(string fragmentAttr)
         {
             if (!string.IsNullOrEmpty(fragmentAttr) &&
                 Enum.TryParse(fragmentAttr, true, out UniProtSequenceAttributes.FragmentType fragment))
@@ -451,7 +448,7 @@ namespace UsefulProteomicsDatabases
                 }
                 result = new Protein(Sequence, Accession, Organism, GeneNames, OneBasedModifications, ProteolysisProducts, Name, FullName,
                     isDecoy, isContaminant, DatabaseReferences, SequenceVariations, null, null, DisulfideBonds, SpliceSites, proteinDbLocation,
-                    false, DatasetEntryTag, DatabaseCreatedEntryTag, DatabaseModifiedEntryTag, DatabaseVersionEntryTag, XmlnsEntryTag, SequenceAttributes,
+                    false, EntryAttributes, SequenceAttributes,
                     isEntrapment);
             }
             Clear();
@@ -681,11 +678,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         private void Clear()
         {
-            DatasetEntryTag = null;
-            DatabaseCreatedEntryTag = null;
-            DatabaseModifiedEntryTag = null;
-            DatabaseVersionEntryTag = null;
-            XmlnsEntryTag = null;
+            EntryAttributes = null;
             Accession = null;
             Name = null;
             FullName = null;

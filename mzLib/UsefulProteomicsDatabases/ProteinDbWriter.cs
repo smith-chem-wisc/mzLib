@@ -11,6 +11,7 @@ using Omics.BioPolymer;
 using Omics.Modifications;
 using Transcriptomics;
 using System.Data;
+using MzLibUtil;
 
 namespace UsefulProteomicsDatabases
 {
@@ -288,6 +289,14 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
+        /// This is a default value for entries missing uniprot sequence attributes. The values themselves are not important, but if any of these fields are written as empty string or "unknown", then
+        /// ProSightPD and ProSight Annotator will crash on read
+        /// </summary>
+        private static UniProtSequenceAttributes _defaultSequenceAttributes => new UniProtSequenceAttributes(1, 1, "FFFFFFFFFFFFFFFF", DateTime.Now, 1);
+
+        private static (string geneType, string geneName) _defaultGene = ("unknown", "unknown");
+
+        /// <summary>
         /// Writes a protein database in mzLibProteinDb format, with additional modifications from the AdditionalModsToAddToProteins list.
         /// </summary>
         /// <param name="additionalModsToAddToProteins"></param>
@@ -295,9 +304,11 @@ namespace UsefulProteomicsDatabases
         /// <param name="outputFileName"></param>
         /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
         public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, List<Protein> proteinList, string outputFileName, bool updateTimeStamp = false,
-            string? defaultDataset = null, string? defaultCreated = null, string? defaultModified = null, string? defaultVersion = null)
+            UniProtEntryAttributes entryAttributes = null, UniProtSequenceAttributes sequenceAttributes = null)
         {
             additionalModsToAddToProteins ??= new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+            entryAttributes ??= new UniProtEntryAttributes();
+            sequenceAttributes ??= _defaultSequenceAttributes;
 
             // write nonvariant proteins (for cases where variants aren't applied, this just gets the rna itself)
             var nonVariantProteins = proteinList.Select(p => p.ConsensusVariant).Distinct().ToList();
@@ -347,17 +358,17 @@ namespace UsefulProteomicsDatabases
                 foreach (Protein protein in nonVariantProteins)
                 {
                     writer.WriteStartElement("entry", "http://uniprot.org/uniprot");
-                    writer.WriteAttributeString("dataset", protein.DatasetEntryTag ?? defaultDataset);
-                    writer.WriteAttributeString("created", protein.CreatedEntryTag ?? defaultCreated);
+                    writer.WriteAttributeString("dataset", protein.UniProtEntryAttributes.Dataset ?? entryAttributes.Dataset);
+                    writer.WriteAttributeString("created", protein.UniProtEntryAttributes.Created ?? entryAttributes.Created);
                     if (updateTimeStamp)
                     {
                         writer.WriteAttributeString("modified", DateTime.Now.ToString("yyyy-MM-dd"));
                     }
                     else
                     {
-                        writer.WriteAttributeString("modified", protein.ModifiedEntryTag ?? defaultModified);
+                        writer.WriteAttributeString("modified", protein.UniProtEntryAttributes.Modified ?? entryAttributes.Modified);
                     }
-                    writer.WriteAttributeString("version", protein.VersionEntryTag ?? defaultVersion);
+                    writer.WriteAttributeString("version", protein.UniProtEntryAttributes.Version ?? entryAttributes.Version);
                     writer.WriteStartElement("accession");
                     writer.WriteString(protein.Accession);
                     writer.WriteEndElement();
@@ -386,6 +397,14 @@ namespace UsefulProteomicsDatabases
                         writer.WriteStartElement("name");
                         writer.WriteAttributeString("type", gene_name.Item1);
                         writer.WriteString(gene_name.Item2);
+                        writer.WriteEndElement();
+                    }
+
+                    if (protein.GeneNames.IsNullOrEmpty())
+                    {
+                        writer.WriteStartElement("name");
+                        writer.WriteAttributeString("type", _defaultGene.Item1);
+                        writer.WriteString(_defaultGene.Item2);
                         writer.WriteEndElement();
                     }
                     writer.WriteEndElement();

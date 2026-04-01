@@ -44,8 +44,8 @@ namespace Proteomics
             string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false,
             List<DatabaseReference> databaseReferences = null,
             List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
-            List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false, 
-            string dataset = "unknown", string created = "unknown", string modified = "unknown", string version = "unknown", string xmlns = "http://uniprot.org/uniprot",
+            List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false,
+            UniProtEntryAttributes uniProtEntryAttributes = null,
             UniProtSequenceAttributes uniProtSequenceAttributes = null, bool isEntrapment = false)
         {
             BaseSequence = sequence;
@@ -82,11 +82,7 @@ namespace Proteomics
             {
                 this.AddTruncations();
             }
-            DatasetEntryTag = dataset;
-            CreatedEntryTag = created;
-            ModifiedEntryTag = modified;
-            VersionEntryTag = version;
-            XmlnsEntryTag = xmlns;
+            UniProtEntryAttributes = uniProtEntryAttributes ?? new UniProtEntryAttributes();
             UniProtSequenceAttributes = uniProtSequenceAttributes ?? new UniProtSequenceAttributes(Length, (int)Math.Round(new PeptideWithSetModifications(BaseSequence, new Dictionary<string,Modification>()).MonoisotopicMass), "unknown", DateTime.Now, -1);
         }
 
@@ -120,11 +116,7 @@ namespace Proteomics
             DisulfideBonds = originalProtein.DisulfideBonds;
             SpliceSites = originalProtein.SpliceSites;
             DatabaseFilePath = originalProtein.DatabaseFilePath;
-            DatasetEntryTag = originalProtein.DatasetEntryTag;
-            CreatedEntryTag = originalProtein.CreatedEntryTag;
-            ModifiedEntryTag = originalProtein.ModifiedEntryTag;
-            VersionEntryTag = originalProtein.VersionEntryTag;
-            XmlnsEntryTag = originalProtein.XmlnsEntryTag;
+            UniProtEntryAttributes = originalProtein.UniProtEntryAttributes;
             UniProtSequenceAttributes = originalProtein.UniProtSequenceAttributes;
         }
 
@@ -156,11 +148,7 @@ namespace Proteomics
                   disulfideBonds: new List<DisulfideBond>(protein.DisulfideBonds),
                   spliceSites: new List<SpliceSite>(protein.SpliceSites),
                   databaseFilePath: protein.DatabaseFilePath,
-                  dataset: protein.DatasetEntryTag,
-                  created: protein.CreatedEntryTag,
-                  modified: protein.ModifiedEntryTag,
-                  version: protein.VersionEntryTag,
-                  xmlns: protein.XmlnsEntryTag,
+                  uniProtEntryAttributes: protein.UniProtEntryAttributes,
                   uniProtSequenceAttributes: protein.UniProtSequenceAttributes)
         {
             NonVariantProtein = protein.ConsensusVariant as Protein;
@@ -228,11 +216,7 @@ namespace Proteomics
         public List<DatabaseReference> DatabaseReferences { get; }
 
         public string DatabaseFilePath { get; }
-        public string DatasetEntryTag { get; private set; }
-        public string CreatedEntryTag { get; private set; }
-        public string ModifiedEntryTag { get; private set; }
-        public string VersionEntryTag { get; private set; }
-        public string XmlnsEntryTag { get; private set; }
+        public UniProtEntryAttributes UniProtEntryAttributes { get; private set; }
         public UniProtSequenceAttributes UniProtSequenceAttributes { get; private set; }
         /// <summary>
         /// Formats a string for a UniProt fasta header. See https://www.uniprot.org/help/fasta-headers.
