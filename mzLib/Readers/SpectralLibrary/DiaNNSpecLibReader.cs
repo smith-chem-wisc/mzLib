@@ -212,8 +212,11 @@ namespace Readers.SpectralLibrary.DiaNNSpectralLibrary
 				float mz = ReadFloat(data, recOffset + DiaNNBinaryStructs.FragmentOffsetMz);
 				float intensity = ReadFloat(data, recOffset + DiaNNBinaryStructs.FragmentOffsetIntensity);
 
-				// Discard null placeholder slots
-				if (mz == 0.0f)
+				// Discard null placeholder slots.
+				// DIA-NN writes 0.0f for null slots, but subnormal IEEE 754 values
+				// (e.g. ~5.7 × 10⁻⁴⁴) can appear in real files and are NOT == 0.0f.
+				// Threshold on FragmentMzMin catches both zero and subnormals.
+				if (mz < DiaNNBinaryStructs.FragmentMzMin)
 					continue;
 
 				list.Add(new FragmentData(mz, intensity));
@@ -396,16 +399,20 @@ namespace Readers.SpectralLibrary.DiaNNSpectralLibrary
 				// Build DIA-NN format modified sequence (parenthesis notation, no underscores)
 				string modifiedSequence = BuildModifiedSequence(strippedSeq, mods);
 
-				var fragmentIons = Fragments.Select(f => new DiaNNFragmentIon
-				{
-					Mz = f.Mz,
-					Intensity = f.Intensity,
-					// Ion type annotation is not decoded (bytes 0-2 are opaque)
-					IonType = 'y',           // placeholder
-					SeriesNumber = 0,        // placeholder
-					Charge = 1,              // placeholder
-					LossType = "noloss",
-				}).ToList();
+				// Ion type annotation is not decoded from bytes 0–2 (opaque DIA-NN internal
+				// indices). SeriesNumber is assigned sequentially (1-based) so MSP output
+				// produces y1, y2, … rather than the nonsensical y0.
+				var fragmentIons = Fragments
+					.Select((f, idx) => new DiaNNFragmentIon
+					{
+						Mz = f.Mz,
+						Intensity = f.Intensity,
+						IonType = 'y',              // placeholder — ion type is opaque
+						SeriesNumber = idx + 1,     // sequential 1-based placeholder
+						Charge = 1,                 // placeholder
+						LossType = "noloss",
+					})
+					.ToList();
 
 				return new DiaNNLibraryEntry
 				{

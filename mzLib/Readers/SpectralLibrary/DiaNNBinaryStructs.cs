@@ -159,6 +159,17 @@ namespace Readers.SpectralLibrary.DiaNNSpectralLibrary
 		/// <summary>Byte offset within a fragment record for fragment_intensity (float).</summary>
 		public const int FragmentOffsetIntensity = 8;
 
+		/// <summary>
+		/// Minimum plausible fragment m/z (Da).
+		/// Null placeholder slots written by DIA-NN (and by <see cref="DiaNNSpecLibWriter"/>)
+		/// have mz = 0.0f, but subnormal IEEE 754 floats (e.g. ~5.7 × 10⁻⁴⁴) can appear in
+		/// those slots in real files and are NOT equal to 0.0f under exact comparison.
+		/// Filtering on mz &lt; FragmentMzMin catches both zero and subnormal values while
+		/// leaving all physically meaningful fragment ions untouched (smallest real fragment
+		/// ions are immonium ions, ~50–120 Da).
+		/// </summary>
+		public const float FragmentMzMin = 50.0f;
+
 		// ─── Name validation bounds ───────────────────────────────────────────────────
 
 		/// <summary>Minimum valid name_length value (shortest possible peptide name).</summary>
