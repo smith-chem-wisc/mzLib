@@ -184,7 +184,7 @@ namespace Readers.SpectralLibrary.DiaNNSpectralLibrary
 		// ─── Precursor validation bounds ──────────────────────────────────────────────
 
 		/// <summary>Maximum plausible global_index (upper validation bound).</summary>
-		public const int GlobalIndexMax = 100_000;
+		public const int GlobalIndexMax = 10_000_000;
 
 		/// <summary>Minimum plausible precursor m/z (Da).</summary>
 		public const float PrecursorMzMin = 100.0f;

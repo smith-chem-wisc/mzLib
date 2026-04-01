@@ -557,19 +557,23 @@ namespace Readers.SpectralLibrary.DiaNNSpectralLibrary.Tests
 			@"F:\DiaBenchmark\PXD005573\DiannOut\fig2helalib.predicted.speclib";
 
 		private const string LookupTsvPath =
-			@"F:\DiaBenchmark\PXD005573\DiannOut\SequenceMzCharge.tsv";
+			@"F:\DiaBenchmark\PXD005573\DiannOut\StrippedModifiedCharge.tsv";
 
 		private const string MspOutputPath =
 			@"F:\DiaBenchmark\PXD005573\DiannOut\diannFig2helalib.msp";
 
 		/// <summary>
 		/// Reads a real DIA-NN .speclib file, filters entries that appear in a
-		/// Sequence/Mz/Charge TSV lookup table, and writes matching entries as MSP.
+		/// StrippedModifiedCharge TSV lookup table, and writes matching entries as MSP.
 		///
-		/// Matching is performed on stripped sequence + charge first; if a TSV row
-		/// contains a modified sequence (parenthesis notation) it is matched on that
-		/// directly.  The Mz column is accepted by the TSV parser but is not used for
-		/// filtering — sequence + charge already uniquely identifies a precursor.
+		/// Matching uses two parallel key sets built from the TSV:
+		///   • stripped sequence + charge
+		///   • modified sequence + charge
+		/// A speclib entry is included if either key matches.
+		///
+		/// Unmatched TSV rows are diagnosed: each is labelled as either a charge
+		/// mismatch (the sequence IS in the library but at a different charge) or a
+		/// genuine sequence absence (the sequence is not in the library at all).
 		///
 		/// [Explicit] — skipped in CI; run on demand when the F: benchmark drive is mounted.
 		/// </summary>
@@ -584,31 +588,57 @@ namespace Readers.SpectralLibrary.DiaNNSpectralLibrary.Tests
 			var allEntries = DiaNNSpecLibReader.Read(SpeclibPath);
 			Assert.That(allEntries, Is.Not.Empty, "speclib must contain at least one entry");
 
-			// 2. Build lookup key set from the TSV
-			var lookupKeys = ParseSequenceMzChargeTsv(LookupTsvPath);
-			Assert.That(lookupKeys, Is.Not.Empty, "TSV must contain at least one lookup key");
+			// 2. Parse TSV into typed rows (stripped seq, modified seq, charge)
+			var tsvRows = ParseStrippedModifiedChargeTsv(LookupTsvPath);
+			Assert.That(tsvRows, Is.Not.Empty, "TSV must contain at least one data row");
 
-			// 3. Filter: match on stripped sequence + charge, then modified sequence + charge
+			// 3. Build a stripped-sequence-only lookup set (no charge, no modified sequence)
+			var strippedSeqKeys = new HashSet<string>(
+				tsvRows.Where(r => !string.IsNullOrEmpty(r.stripped))
+					   .Select(r => r.stripped),
+				StringComparer.Ordinal);
+
+			// 4. Filter: include every speclib entry whose stripped sequence appears in the TSV
 			var matched = allEntries
-				.Where(e =>
-					lookupKeys.Contains(e.StrippedSequence + "/" + e.PrecursorCharge) ||
-					lookupKeys.Contains(e.ModifiedSequence + "/" + e.PrecursorCharge))
+				.Where(e => strippedSeqKeys.Contains(e.StrippedSequence))
 				.ToList();
 
-			// 4. Write matched entries to MSP using LibrarySpectrum.ToString()
+			// 5. Write matched entries to MSP
 			using (var writer = new StreamWriter(MspOutputPath, append: false, Encoding.UTF8))
 			{
 				foreach (var entry in matched)
 				{
 					writer.WriteLine(entry.ToLibrarySpectrum().ToString());
-					writer.WriteLine(); // blank line separator required by MSP format
+					writer.WriteLine();
 				}
 			}
 
-			TestContext.WriteLine($"Total speclib entries : {allEntries.Count}");
-			TestContext.WriteLine($"TSV lookup keys       : {lookupKeys.Count}");
-			TestContext.WriteLine($"Matched entries       : {matched.Count}");
-			TestContext.WriteLine($"MSP written to        : {MspOutputPath}");
+			// 6. Summary
+			TestContext.WriteLine($"Total speclib entries  : {allEntries.Count}");
+			TestContext.WriteLine($"  globalIndex range    : {allEntries.Min(e => e.GlobalIndex)} – {allEntries.Max(e => e.GlobalIndex)}");
+			TestContext.WriteLine($"TSV rows               : {tsvRows.Count}");
+			TestContext.WriteLine($"  unique stripped seqs : {strippedSeqKeys.Count}");
+			TestContext.WriteLine($"Matched entries        : {matched.Count}");
+			TestContext.WriteLine($"MSP written to         : {MspOutputPath}");
+
+			// 7. Diagnose unmatched TSV stripped sequences (not found in library at all)
+			var libStrippedSeqs = new HashSet<string>(
+				allEntries.Select(e => e.StrippedSequence), StringComparer.Ordinal);
+
+			var unmatchedSeqs = strippedSeqKeys
+				.Where(s => !libStrippedSeqs.Contains(s))
+				.OrderBy(s => s)
+				.ToList();
+
+			if (unmatchedSeqs.Count > 0)
+			{
+				TestContext.WriteLine($"\nStripped sequences in TSV but NOT in library: {unmatchedSeqs.Count}");
+				const int maxDiagnosticRows = 30;
+				foreach (var s in unmatchedSeqs.Take(maxDiagnosticRows))
+					TestContext.WriteLine($"  [NOT_IN_LIBRARY] {s}");
+				if (unmatchedSeqs.Count > maxDiagnosticRows)
+					TestContext.WriteLine($"  ... ({unmatchedSeqs.Count - maxDiagnosticRows} further sequences omitted)");
+			}
 
 			Assert.That(matched.Count, Is.GreaterThan(0),
 				"At least one speclib entry should match a key in the TSV.");
@@ -617,45 +647,81 @@ namespace Readers.SpectralLibrary.DiaNNSpectralLibrary.Tests
 		}
 
 		/// <summary>
-		/// Parses a tab-separated lookup file whose columns include a sequence and a charge.
-		/// Column names are detected case-insensitively from the header row so the file can
-		/// use any of the common naming conventions (Sequence, StrippedPeptide,
-		/// ModifiedPeptide, Charge, PrecursorCharge, Z …).
-		/// Returns a HashSet of "sequence/charge" keys ready for O(1) lookup.
+		/// Parses a TSV file that contains stripped sequence, modified sequence, and charge
+		/// columns (all three are optional — missing columns yield empty strings).
+		/// Column names are matched case-insensitively.
+		///
+		/// Stripped columns recognised : Sequence, StrippedPeptide, StrippedSequence, Stripped.Sequence, PeptideSequence
+		/// Modified columns recognised : ModifiedPeptide, ModifiedSequence, Modified.Sequence, FullUniModPeptideName,
+		///                               ModifiedPeptideSequence, PeptideModSeq
+		/// Charge columns recognised   : Charge, PrecursorCharge, Precursor.Charge, Z, PrecursorZ
+		///
+		/// Returns one typed row per data line so callers can build whatever key sets they need
+		/// and perform per-row diagnostics.
 		/// </summary>
-		private static HashSet<string> ParseSequenceMzChargeTsv(string path)
+		private static List<(string stripped, string modified, int charge)>
+			ParseStrippedModifiedChargeTsv(string path)
 		{
-			var keys = new HashSet<string>(StringComparer.Ordinal);
-			string[] lines = File.ReadAllLines(path);
+			var rows = new List<(string, string, int)>();
+			// Open with ReadWrite share so the file can be read even when open in Excel.
+			string[] lines;
+			using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+			using (var sr = new StreamReader(fs, Encoding.UTF8))
+			{
+				var lineList = new List<string>();
+				string? line;
+				while ((line = sr.ReadLine()) != null)
+					lineList.Add(line);
+				lines = lineList.ToArray();
+			}
 			if (lines.Length < 2)
-				return keys;
+				return rows;
 
 			string[] headers = lines[0].Split('\t');
+			int strippedIdx = -1, modifiedIdx = -1, chargeIdx = -1;
 
-			int seqIdx = -1, chargeIdx = -1;
 			for (int i = 0; i < headers.Length; i++)
 			{
 				string h = headers[i].Trim();
-				if (seqIdx < 0 && (
-					h.Equals("Sequence",        StringComparison.OrdinalIgnoreCase) ||
-					h.Equals("StrippedPeptide", StringComparison.OrdinalIgnoreCase) ||
-					h.Equals("ModifiedPeptide", StringComparison.OrdinalIgnoreCase) ||
-					h.Equals("PeptideSequence", StringComparison.OrdinalIgnoreCase) ||
-					h.Equals("FullUniModPeptideName", StringComparison.OrdinalIgnoreCase)))
-					seqIdx = i;
 
-				if (chargeIdx < 0 && (
-					h.Equals("Charge",          StringComparison.OrdinalIgnoreCase) ||
-					h.Equals("PrecursorCharge", StringComparison.OrdinalIgnoreCase) ||
-					h.Equals("Z",               StringComparison.OrdinalIgnoreCase) ||
-					h.Equals("PrecursorZ",      StringComparison.OrdinalIgnoreCase)))
-					chargeIdx = i;
+				if (strippedIdx < 0 && (
+						h.Equals("Sequence",         StringComparison.OrdinalIgnoreCase) ||
+						h.Equals("StrippedPeptide",  StringComparison.OrdinalIgnoreCase) ||
+						h.Equals("StrippedSequence", StringComparison.OrdinalIgnoreCase) ||
+						h.Equals("Stripped.Sequence",StringComparison.OrdinalIgnoreCase) ||
+						h.Equals("PeptideSequence",  StringComparison.OrdinalIgnoreCase)))
+						strippedIdx = i;
+
+					if (modifiedIdx < 0 && (
+						h.Equals("ModifiedPeptide",         StringComparison.OrdinalIgnoreCase) ||
+						h.Equals("ModifiedSequence",         StringComparison.OrdinalIgnoreCase) ||
+						h.Equals("Modified.Sequence",         StringComparison.OrdinalIgnoreCase) ||
+						h.Equals("FullUniModPeptideName",    StringComparison.OrdinalIgnoreCase) ||
+						h.Equals("ModifiedPeptideSequence",  StringComparison.OrdinalIgnoreCase) ||
+						h.Equals("PeptideModSeq",            StringComparison.OrdinalIgnoreCase)))
+						modifiedIdx = i;
+
+					if (chargeIdx < 0 && (
+						h.Equals("Charge",            StringComparison.OrdinalIgnoreCase) ||
+						h.Equals("PrecursorCharge",   StringComparison.OrdinalIgnoreCase) ||
+						h.Equals("Precursor.Charge",  StringComparison.OrdinalIgnoreCase) ||
+						h.Equals("Z",                 StringComparison.OrdinalIgnoreCase) ||
+						h.Equals("PrecursorZ",        StringComparison.OrdinalIgnoreCase)))
+						chargeIdx = i;
 			}
 
-			Assert.That(seqIdx,    Is.GreaterThanOrEqualTo(0),
-				$"Could not find a sequence column in TSV header: {lines[0]}");
+			// Report which columns were found; fail only for charge (required for any key)
+			TestContext.WriteLine($"TSV header          : {lines[0]}");
+			TestContext.WriteLine($"  stripped col idx  : {(strippedIdx  >= 0 ? headers[strippedIdx].Trim()  : "NOT FOUND")}");
+			TestContext.WriteLine($"  modified col idx  : {(modifiedIdx  >= 0 ? headers[modifiedIdx].Trim()  : "NOT FOUND")}");
+			TestContext.WriteLine($"  charge   col idx  : {(chargeIdx    >= 0 ? headers[chargeIdx].Trim()    : "NOT FOUND")}");
+
 			Assert.That(chargeIdx, Is.GreaterThanOrEqualTo(0),
 				$"Could not find a charge column in TSV header: {lines[0]}");
+
+			int minRequired = chargeIdx;
+			if (strippedIdx >= 0) minRequired = Math.Max(minRequired, strippedIdx);
+			if (modifiedIdx >= 0) minRequired = Math.Max(minRequired, modifiedIdx);
 
 			for (int i = 1; i < lines.Length; i++)
 			{
@@ -663,18 +729,22 @@ namespace Readers.SpectralLibrary.DiaNNSpectralLibrary.Tests
 					continue;
 
 				string[] cols = lines[i].Split('\t');
-				if (cols.Length <= Math.Max(seqIdx, chargeIdx))
+				if (cols.Length <= minRequired)
 					continue;
 
-				string seq = cols[seqIdx].Trim();
-				if (!int.TryParse(cols[chargeIdx].Trim(), out int charge) ||
-					string.IsNullOrEmpty(seq))
+				if (!int.TryParse(cols[chargeIdx].Trim(), out int charge))
 					continue;
 
-				keys.Add(seq + "/" + charge);
+				string stripped = strippedIdx >= 0 ? cols[strippedIdx].Trim() : string.Empty;
+				string modified = modifiedIdx >= 0 ? cols[modifiedIdx].Trim() : string.Empty;
+
+				if (string.IsNullOrEmpty(stripped) && string.IsNullOrEmpty(modified))
+					continue;
+
+				rows.Add((stripped, modified, charge));
 			}
 
-			return keys;
+			return rows;
 		}
 	}
 }
