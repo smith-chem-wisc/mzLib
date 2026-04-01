@@ -46,7 +46,8 @@ namespace UsefulProteomicsDatabases
         /// Several chunks of code are commented out. These are blocks that are intended to be implmented in the future, but
         /// are not necessary for the bare bones implementation of Transcriptomics
         /// </remarks>
-        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToNucleicAcids, List<RNA> nucleicAcidList, string outputFileName, bool updateTimeStamp = false)
+        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToNucleicAcids, List<RNA> nucleicAcidList, string outputFileName,
+ bool updateTimeStamp = false)
         {
             additionalModsToAddToNucleicAcids = additionalModsToAddToNucleicAcids ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
@@ -287,15 +288,16 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// Writes a rna database in mzLibProteinDb format, with additional modifications from the AdditionalModsToAddToProteins list.
+        /// Writes a protein database in mzLibProteinDb format, with additional modifications from the AdditionalModsToAddToProteins list.
         /// </summary>
         /// <param name="additionalModsToAddToProteins"></param>
         /// <param name="proteinList"></param>
         /// <param name="outputFileName"></param>
         /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
-        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, List<Protein> proteinList, string outputFileName, bool updateTimeStamp = false)
+        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, List<Protein> proteinList, string outputFileName, bool updateTimeStamp = false,
+            string? defaultDataset = null, string? defaultCreated = null, string? defaultModified = null, string? defaultVersion = null)
         {
-            additionalModsToAddToProteins = additionalModsToAddToProteins ?? new Dictionary<string, HashSet<Tuple<int, Modification>>>();
+            additionalModsToAddToProteins ??= new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
             // write nonvariant proteins (for cases where variants aren't applied, this just gets the rna itself)
             var nonVariantProteins = proteinList.Select(p => p.ConsensusVariant).Distinct().ToList();
@@ -345,17 +347,17 @@ namespace UsefulProteomicsDatabases
                 foreach (Protein protein in nonVariantProteins)
                 {
                     writer.WriteStartElement("entry", "http://uniprot.org/uniprot");
-                    writer.WriteAttributeString("dataset", protein.DatasetEntryTag);
-                    writer.WriteAttributeString("created", protein.CreatedEntryTag);
+                    writer.WriteAttributeString("dataset", protein.DatasetEntryTag ?? defaultDataset);
+                    writer.WriteAttributeString("created", protein.CreatedEntryTag ?? defaultCreated);
                     if (updateTimeStamp)
                     {
                         writer.WriteAttributeString("modified", DateTime.Now.ToString("yyyy-MM-dd"));
                     }
                     else
                     {
-                        writer.WriteAttributeString("modified", protein.ModifiedEntryTag);
-                    }         
-                    writer.WriteAttributeString("version", protein.VersionEntryTag);
+                        writer.WriteAttributeString("modified", protein.ModifiedEntryTag ?? defaultModified);
+                    }
+                    writer.WriteAttributeString("version", protein.VersionEntryTag ?? defaultVersion);
                     writer.WriteStartElement("accession");
                     writer.WriteString(protein.Accession);
                     writer.WriteEndElement();
