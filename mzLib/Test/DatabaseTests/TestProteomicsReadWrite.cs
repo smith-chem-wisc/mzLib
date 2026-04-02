@@ -255,6 +255,96 @@ namespace Test.DatabaseTests
         }
 
         [Test]
+        public static void FastaToXmlRoundTrip_UniProtEntryAttributesPopulated()
+        {
+            // Read from fasta, write as XML, read back — verify UniProtEntryAttributes and default gene fields are populated
+            List<Protein> prots = ProteinDbLoader.LoadProteinFasta(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta.fasta"),
+                true, DecoyType.None, false, out _,
+                ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
+                ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
+                ProteinDbLoader.UniprotOrganismRegex);
+
+            string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"fasta_to_xml_roundtrip.xml");
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), prots, outputPath);
+
+            List<Protein> readBack = ProteinDbLoader.LoadProteinXML(outputPath, true, DecoyType.None,
+                new List<Modification>(), false, new List<string>(), out _);
+
+            // Basic identity checks
+            Assert.AreEqual("P62805", readBack.First().Accession);
+            Assert.AreEqual("H4_HUMAN", readBack.First().Name);
+            Assert.AreEqual("Histone H4", readBack.First().FullName);
+            Assert.AreEqual("HIST1H4A", readBack.First().GeneNames.First().Item2);
+            Assert.AreEqual("Homo sapiens", readBack.First().Organism);
+
+            // UniProtEntryAttributes should be populated with defaults after the round-trip
+            UniProtEntryAttributes attrs = readBack.First().UniProtEntryAttributes;
+            Assert.IsNotNull(attrs);
+            Assert.IsFalse(string.IsNullOrEmpty(attrs.Dataset));
+            Assert.IsFalse(string.IsNullOrEmpty(attrs.Created));
+            Assert.IsFalse(string.IsNullOrEmpty(attrs.Modified));
+            Assert.IsFalse(string.IsNullOrEmpty(attrs.Version));
+
+            if (File.Exists(outputPath))
+                File.Delete(outputPath);
+        }
+
+        [Test]
+        public void TestWriteXmlDatabase_UniProtEntryAttributesRoundTrip()
+        {
+            // Verify that explicit UniProtEntryAttributes passed to WriteXmlDatabase are preserved on read-back
+            var entryAttributes = new UniProtEntryAttributes(
+                dataset: "Swiss-Prot",
+                created: "2020-01-15",
+                modified: "2021-06-30",
+                version: "7",
+                xmlns: "http://uniprot.org/uniprot");
+
+            Protein protein = new Protein("SEQENCE", "acc1", uniProtEntryAttributes: entryAttributes);
+
+            string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "entryAttributesRoundTrip.xml");
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { protein }, outputPath);
+
+            List<Protein> readProteins = ProteinDbLoader.LoadProteinXML(outputPath, true, DecoyType.None,
+                new List<Modification>(), false, new List<string>(), out _);
+
+            Assert.AreEqual(1, readProteins.Count);
+            Assert.AreEqual("Swiss-Prot", readProteins[0].UniProtEntryAttributes.Dataset);
+            Assert.AreEqual("2020-01-15", readProteins[0].UniProtEntryAttributes.Created);
+            Assert.AreEqual("2021-06-30", readProteins[0].UniProtEntryAttributes.Modified);
+            Assert.AreEqual("7", readProteins[0].UniProtEntryAttributes.Version);
+
+            if (File.Exists(outputPath))
+                File.Delete(outputPath);
+        }
+
+        [Test]
+        public void TestWriteXmlDatabase_DefaultGeneWrittenForProteinWithNoGeneNames()
+        {
+            // Proteins with no gene names should still get a default gene element written (ProSight compatibility)
+            Protein protein = new Protein("SEQENCE", "acc2");
+            Assert.IsFalse(protein.GeneNames.Any());
+
+            string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "noGeneNamesDefaultGene.xml");
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { protein }, outputPath);
+
+            bool geneElementFound = false;
+            foreach (var line in File.ReadLines(outputPath))
+            {
+                if (line.Contains("<name type=") && line.Contains("unknown"))
+                {
+                    geneElementFound = true;
+                    break;
+                }
+            }
+            Assert.IsTrue(geneElementFound, "Expected a default gene <name> element for a protein with no gene names.");
+
+            if (File.Exists(outputPath))
+                File.Delete(outputPath);
+        }
+
+        [Test]
         public void Test_read_write_read_fasta()
         {
             List<Protein> ok = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"test_ensembl.pep.all.fasta"), true, DecoyType.None, false, out var a,
