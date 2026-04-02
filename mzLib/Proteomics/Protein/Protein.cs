@@ -121,6 +121,80 @@ namespace Proteomics
         }
 
         /// <summary>
+        /// Protein construction that clones a protein but allows the assignment of any
+        /// number of new properties. Each parameter defaults to the original protein's
+        /// value when null.
+        /// </summary>
+        /// <param name="originalProtein">The protein to clone.</param>
+        /// <param name="accession">New accession, or null to keep the original.</param>
+        /// <param name="proteinName">New name, or null to keep the original.</param>
+        /// <param name="proteinFullName">New full name, or null to keep the original.</param>
+        /// <param name="organism">New organism, or null to keep the original.</param>
+        /// <param name="databaseFilePath">New database file path, or null to keep the original.</param>
+        /// <param name="sampleNameForVariants">New sample name for variants, or null to keep the original.</param>
+        /// <param name="isDecoy">New isDecoy flag, or null to keep the original.</param>
+        /// <param name="isContaminant">New isContaminant flag, or null to keep the original.</param>
+        /// <param name="isEntrapment">New isEntrapment flag, or null to keep the original.</param>
+        /// <param name="geneNames">New gene names, or null to keep the original.</param>
+        /// <param name="oneBasedModifications">New modifications, or null to keep the original.</param>
+        /// <param name="proteolysisProducts">New truncation products, or null to keep the original.</param>
+        /// <param name="sequenceVariations">New sequence variations, or null to keep the original.</param>
+        /// <param name="appliedSequenceVariations">New applied sequence variations, or null to keep the original.</param>
+        /// <param name="databaseReferences">New database references, or null to keep the original.</param>
+        /// <param name="disulfideBonds">New disulfide bonds, or null to keep the original.</param>
+        /// <param name="spliceSites">New splice sites, or null to keep the original.</param>
+        /// <param name="uniProtEntryAttributes">New UniProt entry attributes, or null to keep the original.</param>
+        /// <param name="uniProtSequenceAttributes">New UniProt sequence attributes, or null to keep the original.</param>
+        public Protein(Protein originalProtein,
+            string? accession = null,
+            string? proteinName = null,
+            string? proteinFullName = null,
+            string? organism = null,
+            string? databaseFilePath = null,
+            string? sampleNameForVariants = null,
+            bool? isDecoy = null,
+            bool? isContaminant = null,
+            bool? isEntrapment = null,
+            List<Tuple<string, string>> geneNames = null,
+            IDictionary<int, List<Modification>> oneBasedModifications = null,
+            List<TruncationProduct> proteolysisProducts = null,
+            List<SequenceVariation> sequenceVariations = null,
+            List<SequenceVariation> appliedSequenceVariations = null,
+            List<DatabaseReference> databaseReferences = null,
+            List<DisulfideBond> disulfideBonds = null,
+            List<SpliceSite> spliceSites = null,
+            UniProtEntryAttributes uniProtEntryAttributes = null,
+            UniProtSequenceAttributes uniProtSequenceAttributes = null)
+        {
+            BaseSequence = originalProtein.BaseSequence;
+            Accession = accession ?? originalProtein.Accession;
+            NonVariantProtein = originalProtein.ConsensusVariant as Protein;
+            Name = proteinName ?? originalProtein.Name;
+            Organism = organism ?? originalProtein.Organism;
+            FullName = proteinFullName ?? originalProtein.FullName;
+            IsDecoy = isDecoy ?? originalProtein.IsDecoy;
+            IsContaminant = isContaminant ?? originalProtein.IsContaminant;
+            IsEntrapment = isEntrapment ?? originalProtein.IsEntrapment;
+            DatabaseFilePath = databaseFilePath ?? originalProtein.DatabaseFilePath;
+            SampleNameForVariants = sampleNameForVariants ?? originalProtein.SampleNameForVariants;
+            GeneNames = geneNames ?? originalProtein.GeneNames;
+            _proteolysisProducts = proteolysisProducts ?? originalProtein._proteolysisProducts;
+            SequenceVariations = sequenceVariations ?? originalProtein.SequenceVariations;
+            AppliedSequenceVariations = appliedSequenceVariations ?? originalProtein.AppliedSequenceVariations;
+            OriginalNonVariantModifications = oneBasedModifications != null
+                ? oneBasedModifications.ToDictionary(x => x.Key, x => x.Value)
+                : originalProtein.OriginalNonVariantModifications;
+            OneBasedPossibleLocalizedModifications = oneBasedModifications != null
+                ? ((IBioPolymer)this).SelectValidOneBaseMods(oneBasedModifications)
+                : originalProtein.OneBasedPossibleLocalizedModifications;
+            DatabaseReferences = databaseReferences ?? originalProtein.DatabaseReferences;
+            DisulfideBonds = disulfideBonds ?? originalProtein.DisulfideBonds;
+            SpliceSites = spliceSites ?? originalProtein.SpliceSites;
+            UniProtEntryAttributes = uniProtEntryAttributes ?? originalProtein.UniProtEntryAttributes;
+            UniProtSequenceAttributes = uniProtSequenceAttributes ?? originalProtein.UniProtSequenceAttributes;
+        }
+
+        /// <summary>
         /// Protein construction with applied variations
         /// </summary>
         /// <param name="variantBaseSequence"></param>

@@ -320,31 +320,6 @@ namespace Test.DatabaseTests
         }
 
         [Test]
-        public void TestWriteXmlDatabase_DefaultGeneWrittenForProteinWithNoGeneNames()
-        {
-            // Proteins with no gene names should still get a default gene element written (ProSight compatibility)
-            Protein protein = new Protein("SEQENCE", "acc2");
-            Assert.IsFalse(protein.GeneNames.Any());
-
-            string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "noGeneNamesDefaultGene.xml");
-            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { protein }, outputPath);
-
-            bool geneElementFound = false;
-            foreach (var line in File.ReadLines(outputPath))
-            {
-                if (line.Contains("<name type=") && line.Contains("unknown"))
-                {
-                    geneElementFound = true;
-                    break;
-                }
-            }
-            Assert.IsTrue(geneElementFound, "Expected a default gene <name> element for a protein with no gene names.");
-
-            if (File.Exists(outputPath))
-                File.Delete(outputPath);
-        }
-
-        [Test]
         public void Test_read_write_read_fasta()
         {
             List<Protein> ok = ProteinDbLoader.LoadProteinFasta(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"test_ensembl.pep.all.fasta"), true, DecoyType.None, false, out var a,
@@ -506,7 +481,8 @@ namespace Test.DatabaseTests
                 allKnownModifications, false, modTypesToExclude, out Dictionary<string, Modification> un);
             Assert.AreEqual(p1.Accession, ok[0].Accession);
             Assert.AreEqual(p2.Accession, ok[1].Accession);
-            Assert.AreEqual(p1.Name, ok[0].Name);
+            // Changed on 4/2/26 - Empty name fields are no longer allowed in .xml databases, to ensure prosightPD compatibility, so null protein names are now set to "unknown" when written to .xml
+            Assert.AreEqual("unknown", ok[0].Name);
             Assert.AreEqual(p2.Name, ok[1].Name);
         }
 

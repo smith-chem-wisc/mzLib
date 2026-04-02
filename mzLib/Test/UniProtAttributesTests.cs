@@ -11,7 +11,7 @@ namespace Test
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
-    public class UniProtSequenceAttributesTests
+    public class UniProtAttributesTests
     {
         [Test]
         public void Constructor_SetsAllMandatoryProperties()
@@ -310,6 +310,48 @@ namespace Test
             // Assert
             Assert.That(entry.SequenceAttributes.Length, Is.EqualTo(99));
             Assert.That(entry.SequenceAttributes.Mass, Is.EqualTo(999));
+        }
+
+        [Test]
+        public void EntryAttributes_DefaultConstructor_SetsExpectedDefaults()
+        {
+            var attr = new UniProtEntryAttributes();
+
+            Assert.That(attr.Dataset, Is.EqualTo("unknown"));
+            Assert.That(attr.Version, Is.EqualTo("1"));
+            Assert.That(attr.Xmlns, Is.EqualTo("http://uniprot.org/uniprot"));
+        }
+
+        [Test]
+        public void EntryAttributes_Constructor_WithAllParameters_SetsAllProperties()
+        {
+            var attr = new UniProtEntryAttributes("Swiss-Prot", "2020-01-01", "2024-06-13", "42", "http://example.org");
+
+            Assert.That(attr.Dataset, Is.EqualTo("Swiss-Prot"));
+            Assert.That(attr.Created, Is.EqualTo("2020-01-01"));
+            Assert.That(attr.Modified, Is.EqualTo("2024-06-13"));
+            Assert.That(attr.Version, Is.EqualTo("42"));
+            Assert.That(attr.Xmlns, Is.EqualTo("http://example.org"));
+        }
+
+        [Test]
+        public void EntryAttributes_CurrentDate_ReturnsToday_InExpectedFormat()
+        {
+            var attr = new UniProtEntryAttributes();
+            string expected = DateTime.Now.ToString("yyyy-MM-dd");
+
+            Assert.That(attr.CurrentDate, Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void EntryAttributes_NullCreatedAndModified_FallBackToCurrentDate()
+        {
+            string today = DateTime.Now.ToString("yyyy-MM-dd");
+            var attr = new UniProtEntryAttributes(created: null, modified: null, version: null);
+
+            Assert.That(attr.Created, Is.EqualTo(today));
+            Assert.That(attr.Modified, Is.EqualTo(today));
+            Assert.That(attr.Version, Is.EqualTo("1"));
         }
     }
 }
