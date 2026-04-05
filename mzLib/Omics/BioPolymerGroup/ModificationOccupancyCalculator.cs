@@ -1,5 +1,6 @@
 using Omics.BioPolymer;
 using Omics.Modifications;
+using Omics.SpectralMatch;
 
 namespace Omics.BioPolymerGroup;
 
@@ -20,51 +21,67 @@ public static class ModificationOccupancyCalculator
     private static readonly string[] ExcludedLocations = ["NPep", "PepC"];
 
     /// <summary>
-    /// Calculates per-site modification occupancy mapped to protein coordinates.
+    /// Calculates per-site modification occupancy mapped to protein coordinates directly from PSMs.
+    /// PSM grouping, form filtering, TotalCount derivation, and intensity lookup are all handled internally.
     /// </summary>
     /// <param name="bioPolymer">The parent biopolymer whose length defines the coordinate space.</param>
-    /// <param name="localizedSequences">
-    /// All peptide forms from all PSMs mapped to this biopolymer. Used to compute
-    /// <see cref="SiteSpecificModificationOccupancy.ModifiedCount"/> (numerator).
+    /// <param name="psms">
+    /// All PSMs to consider. Forms are filtered to <paramref name="bioPolymer"/> internally.
+    /// PSMs whose <see cref="ISpectralMatch.Intensities"/> is a single-element array contribute
+    /// to intensity-based stoichiometry; others contribute only to count-based metrics.
     /// </param>
-    /// <param name="sequencesForTotalCount">
-    /// One representative form per PSM, used to compute
-    /// <see cref="SiteSpecificModificationOccupancy.TotalCount"/> (denominator).
-    /// Passing a deduplicated list here prevents a single PSM with multiple interpretations
-    /// of the same peptide from inflating the denominator.
-    /// When null, <paramref name="localizedSequences"/> is used for the denominator as well
-    /// (legacy behaviour).
-    /// </param>
-    /// <param name="intensitiesByFullSequence">
-    /// Optional map of FullSequence → intensity. When provided, intensity-based stoichiometry is calculated.
-    /// When null, only count-based occupancy is populated.
-    /// </param>
-    /// <returns>
-    /// Dictionary keyed by one-based protein position, each value a list of
-    /// <see cref="SiteSpecificModificationOccupancy"/> entries for modifications observed at that position.
-    /// </returns>
     public static Dictionary<int, List<SiteSpecificModificationOccupancy>> CalculateProteinLevelOccupancy(
         IBioPolymer bioPolymer,
-        IEnumerable<IBioPolymerWithSetMods> localizedSequences,
-        IEnumerable<IBioPolymerWithSetMods>? sequencesForTotalCount = null,
-        Dictionary<string, double>? intensitiesByFullSequence = null)
+        IEnumerable<ISpectralMatch> psms)
     {
-        var sequences = localizedSequences as IList<IBioPolymerWithSetMods> ?? localizedSequences.ToList();
-        // coverageList is used only for TotalCount (denominator): one entry per PSM prevents a
-        // single PSM with multiple interpretations of the same peptide from inflating the count.
-        var coverageList = sequencesForTotalCount != null
-            ? (sequencesForTotalCount as IList<IBioPolymerWithSetMods> ?? sequencesForTotalCount.ToList())
-            : sequences;
+        var psmList = psms as IList<ISpectralMatch> ?? psms.ToList();
 
-        // Use an inner dictionary for dedup during construction, then flatten to lists
+        // Map each PSM to the single form that owns its intensity: matching FullSequence + Accession.
+        var psmToBioPolymer = psmList
+            .ToDictionary(
+                p => p,
+                p => p.GetIdentifiedBioPolymersWithSetMods()
+                    .FirstOrDefault(s => s.FullSequence != null
+                        && s.BaseSequence == p.BaseSequence
+                        && s.FullSequence == p.FullSequence
+                        && s.Parent.Accession == bioPolymer.Accession));
+
         var working = new Dictionary<int, Dictionary<string, SiteSpecificModificationOccupancy>>();
+        var positionTotals = new Dictionary<int, (int totalCount, double totalIntensity)>();
 
-        foreach (var sequence in sequences)
+        foreach (var psm in psmList)
         {
+            var sequence = psmToBioPolymer[psm];
+            if (sequence is null)  // PSM has no form for this protein, skip 
+                continue;
+
             foreach (var mod in sequence.AllModsOneIsNterminus)
             {
                 if (!TryGetProteinPosition(mod, sequence, bioPolymer.Length, out int indexInProtein))
                     continue;
+
+                // Compute TotalCount/TotalIntensity for this position on first encounter only.
+                if (!positionTotals.TryGetValue(indexInProtein, out var totals))
+                {
+                    var totalCount = 0;
+                    var totalIntensity = 0.0;
+                    foreach (var p in psmList)
+                    {
+                        var pSeq = psmToBioPolymer[p];
+                        if (pSeq is null) 
+                            continue;
+
+                        int rangeStart = pSeq.OneBasedStartResidue - (indexInProtein == 1 ? 1 : 0);
+                        if (indexInProtein >= rangeStart && indexInProtein <= pSeq.OneBasedEndResidue)
+                        {
+                            totalCount++;
+                            if (p.Intensities is { Length: 1 })
+                                totalIntensity += p.Intensities[0];
+                        }
+                    }
+                    totals = (totalCount, totalIntensity);
+                    positionTotals[indexInProtein] = totals;
+                }
 
                 if (!working.TryGetValue(indexInProtein, out var modsAtPosition))
                 {
@@ -72,38 +89,19 @@ public static class ModificationOccupancyCalculator
                     working[indexInProtein] = modsAtPosition;
                 }
 
-                if (!modsAtPosition.TryGetValue(mod.Value.IdWithMotif, out var siteOccupancy))
+                if (!modsAtPosition.ContainsKey(mod.Value.IdWithMotif))
                 {
-                    siteOccupancy = new SiteSpecificModificationOccupancy(indexInProtein, mod.Value.IdWithMotif);
-
-                    // Count total PSMs covering this position using the deduplicated coverage list
-                    // (one entry per PSM) so that multiple interpretations of the same PSM do not
-                    // inflate the denominator.
-                    foreach (var seq in coverageList)
+                    modsAtPosition[mod.Value.IdWithMotif] = new SiteSpecificModificationOccupancy(indexInProtein, mod.Value.IdWithMotif)
                     {
-                        int rangeStart = seq.OneBasedStartResidue - (indexInProtein == 1 ? 1 : 0);
-                        if (indexInProtein >= rangeStart && indexInProtein <= seq.OneBasedEndResidue)
-                        {
-                            siteOccupancy.TotalCount++;
-                            if (intensitiesByFullSequence != null &&
-                                seq.FullSequence != null &&
-                                intensitiesByFullSequence.TryGetValue(seq.FullSequence, out double seqIntensity))
-                            {
-                                siteOccupancy.TotalIntensity += seqIntensity;
-                            }
-                        }
-                    }
-
-                    modsAtPosition[mod.Value.IdWithMotif] = siteOccupancy;
+                        TotalCount = totals.totalCount,
+                        TotalIntensity = totals.totalIntensity
+                    };
                 }
 
-                siteOccupancy.ModifiedCount++;
-                if (intensitiesByFullSequence != null &&
-                    sequence.FullSequence != null &&
-                    intensitiesByFullSequence.TryGetValue(sequence.FullSequence, out double intensity))
-                {
-                    siteOccupancy.ModifiedIntensity += intensity;
-                }
+                var siteOcc = modsAtPosition[mod.Value.IdWithMotif];
+                siteOcc.ModifiedCount++;
+                if (psm.Intensities is { Length: 1 })
+                    siteOcc.ModifiedIntensity += psm.Intensities[0];
             }
         }
 
@@ -111,88 +109,98 @@ public static class ModificationOccupancyCalculator
     }
 
     /// <summary>
-    /// Calculates per-site modification occupancy in peptide-local coordinates
-    /// for a group of peptides sharing the same base sequence.
-    /// Positions use the AllModsOneIsNterminus convention (1 = N-terminus, 2 = first residue, etc.).
+    /// Calculates per-site modification occupancy in peptide-local coordinates directly from PSMs,
+    /// returning results for all observed base sequences in a single call.
+    /// PSM grouping, intensity derivation, and base-sequence bucketing are all handled internally.
     /// </summary>
-    /// <param name="peptides">
-    /// Peptides sharing the same base sequence. All must have the same BaseSequence.
-    /// Provides the forms used for <see cref="SiteSpecificModificationOccupancy.ModifiedCount"/> (numerator).
-    /// </param>
-    /// <param name="intensitiesByFullSequence">
-    /// Optional map of FullSequence → intensity for intensity-based stoichiometry.
-    /// </param>
-    /// <param name="psmCount">
-    /// Optional override for the total PSM count used as the denominator
-    /// (<see cref="SiteSpecificModificationOccupancy.TotalCount"/>).
-    /// When supplied, this value replaces <c>peptides.Count()</c>, preventing a single PSM
-    /// with multiple interpretations of the same base sequence from inflating the denominator.
-    /// When null, <c>peptides.Count()</c> is used (legacy behaviour).
+    /// <param name="psms">
+    /// All PSMs to consider. PSMs are grouped internally by <see cref="ISpectralMatch.BaseSequence"/>.
+    /// PSMs whose <see cref="ISpectralMatch.Intensities"/> is a single-element array contribute
+    /// to intensity-based stoichiometry; others contribute only to count-based metrics.
     /// </param>
     /// <returns>
-    /// Dictionary keyed by peptide-local position (AllModsOneIsNterminus key) containing a list of
-    /// <see cref="SiteSpecificModificationOccupancy"/> entries for modifications observed at that position.
+    /// Dictionary keyed by base sequence, each value a dictionary keyed by peptide-local position
+    /// (AllModsOneIsNterminus convention) containing <see cref="SiteSpecificModificationOccupancy"/> entries.
     /// </returns>
-    public static Dictionary<int, List<SiteSpecificModificationOccupancy>> CalculatePeptideLevelOccupancy(
-        IEnumerable<IBioPolymerWithSetMods> peptides,
-        Dictionary<string, double>? intensitiesByFullSequence = null,
-        int? psmCount = null)
+    public static Dictionary<string, Dictionary<int, List<SiteSpecificModificationOccupancy>>> CalculatePeptideLevelOccupancy(
+        IEnumerable<ISpectralMatch> psms)
     {
-        var peptideList = peptides as IList<IBioPolymerWithSetMods> ?? peptides.ToList();
-        // Use the caller-supplied PSM count when available so that a single PSM with multiple
-        // interpretations of the same base sequence does not inflate the denominator.
-        int totalPeptideCount = psmCount ?? peptideList.Count;
+        var psmList = psms as IList<ISpectralMatch> ?? psms.ToList();
+        var result = new Dictionary<string, Dictionary<int, List<SiteSpecificModificationOccupancy>>>();
 
-        double totalGroupIntensity = 0;
-        if (intensitiesByFullSequence != null)
+        foreach (var baseSeqGroup in psmList
+            .Where(p => p.BaseSequence != null)
+            .GroupBy(p => p.BaseSequence!))
         {
-            totalGroupIntensity = peptideList
-                .Where(p => p.FullSequence != null && intensitiesByFullSequence.ContainsKey(p.FullSequence))
-                .Sum(p => intensitiesByFullSequence[p.FullSequence]);
-        }
+            // Map each PSM to the single form that owns its intensity: matching FullSequence.
+            var psmToForm = baseSeqGroup
+                .ToDictionary(
+                    p => p,
+                    p => p.GetIdentifiedBioPolymersWithSetMods()
+                        .FirstOrDefault(s => s.FullSequence != null
+                            && s.BaseSequence == baseSeqGroup.Key
+                            && s.FullSequence == p.FullSequence));
 
-        var working = new Dictionary<int, Dictionary<string, SiteSpecificModificationOccupancy>>();
-
-        foreach (var peptide in peptideList)
-        {
-            foreach (var mod in peptide.AllModsOneIsNterminus)
+            // All positions in a peptide share the same denominator: every PSM with this base
+            // sequence covers every residue, so TotalCount/TotalIntensity are uniform across sites.
+            var totalCount = 0;
+            var totalIntensity = 0.0;
+            foreach (var p in baseSeqGroup)
             {
-                if (IsExcludedMod(mod.Value))
+                if (psmToForm[p] is null)
+                    continue;
+                totalCount++;
+                if (p.Intensities is { Length: 1 })
+                    totalIntensity += p.Intensities[0];
+            }
+
+            if (totalCount == 0)
+                continue;
+
+            var working = new Dictionary<int, Dictionary<string, SiteSpecificModificationOccupancy>>();
+
+            foreach (var psm in baseSeqGroup)
+            {
+                var form = psmToForm[psm];
+                if (form is null)
                     continue;
 
-                if (!working.TryGetValue(mod.Key, out var modsAtPosition))
+                foreach (var mod in form.AllModsOneIsNterminus)
                 {
-                    modsAtPosition = new Dictionary<string, SiteSpecificModificationOccupancy>();
-                    working[mod.Key] = modsAtPosition;
-                }
+                    if (IsExcludedMod(mod.Value))
+                        continue;
 
-                if (!modsAtPosition.TryGetValue(mod.Value.IdWithMotif, out var siteOccupancy))
-                {
-                    siteOccupancy = new SiteSpecificModificationOccupancy(mod.Key, mod.Value.IdWithMotif)
+                    if (!working.TryGetValue(mod.Key, out var modsAtPosition))
                     {
-                        TotalCount = totalPeptideCount,
-                        TotalIntensity = totalGroupIntensity
-                    };
-                    modsAtPosition[mod.Value.IdWithMotif] = siteOccupancy;
-                }
+                        modsAtPosition = new Dictionary<string, SiteSpecificModificationOccupancy>();
+                        working[mod.Key] = modsAtPosition;
+                    }
 
-                siteOccupancy.ModifiedCount++;
-                if (intensitiesByFullSequence != null &&
-                    peptide.FullSequence != null &&
-                    intensitiesByFullSequence.TryGetValue(peptide.FullSequence, out double intensity))
-                {
-                    siteOccupancy.ModifiedIntensity += intensity;
+                    if (!modsAtPosition.ContainsKey(mod.Value.IdWithMotif))
+                    {
+                        modsAtPosition[mod.Value.IdWithMotif] = new SiteSpecificModificationOccupancy(mod.Key, mod.Value.IdWithMotif)
+                        {
+                            TotalCount = totalCount,
+                            TotalIntensity = totalIntensity
+                        };
+                    }
+
+                    var siteOcc = modsAtPosition[mod.Value.IdWithMotif];
+                    siteOcc.ModifiedCount++;
+                    if (psm.Intensities is { Length: 1 })
+                        siteOcc.ModifiedIntensity += psm.Intensities[0];
                 }
             }
+
+            if (working.Count > 0)
+                result[baseSeqGroup.Key] = working.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value.Values.ToList());
         }
 
-        return working.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Values.ToList());
+        return result;
     }
 
-    /// <summary>
-    /// Maps an AllModsOneIsNterminus entry to a one-based protein position based on the
-    /// modification's location restriction. Returns false if the mod should be skipped.
-    /// </summary>
     private static bool TryGetProteinPosition(
         KeyValuePair<int, Modification> mod,
         IBioPolymerWithSetMods sequence,

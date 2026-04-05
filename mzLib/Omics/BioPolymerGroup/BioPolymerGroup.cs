@@ -538,7 +538,7 @@ namespace Omics.BioPolymerGroup
                         var filesInGroup = bioRepGroup.ToList();
                         string label = (conditionsUndefined && unfractionated) || silacExperimentalDesign
                             ? filesInGroup.First().FilenameWithoutExtension
-                            : $"{filesInGroup.First().Condition}_{filesInGroup.First().BiologicalReplicate + 1}";
+                            : $"{conditionGroup.Key}_{bioRepGroup.Key + 1}";
 
                         var filePaths = new HashSet<string>(filesInGroup.Select(f => f.FullFilePathWithExtension));
                         var psmsInGroup = AllPsmsBelowOnePercentFDR
@@ -647,64 +647,17 @@ namespace Omics.BioPolymerGroup
 
         /// <summary>
         /// Populates protein-level and peptide-level modification occupancy on a <see cref="SampleGroupResult"/>
-        /// using the specified PSMs. Derives per-sequence intensity from PSMs carrying LFQ intensity data
-        /// (single-element <see cref="ISpectralMatch.Intensities"/> arrays) for intensity-based stoichiometry.
+        /// using the specified PSMs. PSM grouping, form filtering, TotalCount derivation, and intensity
+        /// lookup are all handled internally by <see cref="ModificationOccupancyCalculator"/>.
         /// </summary>
         private void PopulateOccupancy(SampleGroupResult result, List<ISpectralMatch> psms)
         {
-            // Derive per-sequence intensity from PSMs that carry LFQ intensity (single-element Intensities array)
-            Dictionary<string, double>? intensitiesByFullSequence = null;
-            var psmsWithLfqIntensity = psms
-                .Where(p => p.FullSequence != null && p.Intensities is { Length: 1 })
-                .ToList();
-
-            if (psmsWithLfqIntensity.Count > 0)
-            {
-                // Store the per-PSM AVERAGE intensity.
-                // Both allSequences and coverageSequences contain one entry per originating PSM,
-                // so the calculator accumulates (N PSMs × average) = total — which is correct.
-                // Storing the sum would cause double-counting: a FullSequence shared by N PSMs
-                // would contribute N × sum rather than the true sum.
-                intensitiesByFullSequence = psmsWithLfqIntensity
-                    .GroupBy(p => p.FullSequence!)
-                    .ToDictionary(g => g.Key, g => g.Average(p => p.Intensities![0]));
-            }
-
-            // All modification forms from all PSMs — used for ModifiedCount (numerator).
-            // SelectMany expands BestMatchingBioPolymersWithSetMods for each PSM, so a single PSM
-            // with two ambiguous interpretations (e.g. "Deamidation on N" vs
-            // "Deamidated asparagine on N") contributes two entries here.
-            var allSequences = psms
-                .Where(p => p.BaseSequence != null)
-                .SelectMany(p => p.GetIdentifiedBioPolymersWithSetMods())
-                .Where(s => s.FullSequence != null)
-                .ToList();
-
-            // One representative form per PSM — used for TotalCount (denominator).
-            // Taking only the first form per PSM ensures that a PSM with multiple interpretations
-            // of the same peptide is counted exactly once toward the denominator, preventing
-            // spurious fractional occupancies (e.g. 1/2 instead of 1/1 for a single PSM).
-            var coverageSequences = psms
-                .Where(p => p.BaseSequence != null)
-                .Select(p => p.GetIdentifiedBioPolymersWithSetMods().FirstOrDefault(s => s.FullSequence != null))
-                .OfType<IBioPolymerWithSetMods>()
-                .ToList();
-
             if (GroupType == BioPolymerGroupType.Protein)
             {
-                // Protein-level occupancy: map modifications to parent biopolymer coordinates
                 foreach (var bioPolymer in ListOfBioPolymersOrderedByAccession)
                 {
-                    var modCountSeqs = allSequences
-                        .Where(s => s.Parent.Accession == bioPolymer.Accession)
-                        .ToList();
-                    var totalCountSeqs = coverageSequences
-                        .Where(s => s.Parent.Accession == bioPolymer.Accession)
-                        .ToList();
-                    if (totalCountSeqs.Count == 0) continue;
-
                     var occupancy = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
-                        bioPolymer, modCountSeqs, totalCountSeqs, intensitiesByFullSequence);
+                        bioPolymer, psms);
 
                     if (occupancy.Count > 0)
                         result.ProteinOccupancy[bioPolymer.Accession] = occupancy;
@@ -712,17 +665,10 @@ namespace Omics.BioPolymerGroup
             }
             else
             {
-                // Peptide/Oligo-level occupancy: use digestion-product-local coordinates.
-                // psmCount comes from coverageSequences (one per PSM) to keep the denominator correct.
-                foreach (var baseSeqGroup in allSequences.GroupBy(s => s.BaseSequence))
-                {
-                    int psmCount = coverageSequences.Count(s => s.BaseSequence == baseSeqGroup.Key);
-                    var occupancy = ModificationOccupancyCalculator.CalculatePeptideLevelOccupancy(
-                        baseSeqGroup, intensitiesByFullSequence, psmCount > 0 ? psmCount : null);
+                var occupancy = ModificationOccupancyCalculator.CalculatePeptideLevelOccupancy(psms);
 
-                    if (occupancy.Count > 0)
-                        result.PeptideOccupancy[baseSeqGroup.Key] = occupancy;
-                }
+                foreach (var (baseSequence, sites) in occupancy)
+                    result.PeptideOccupancy[baseSequence] = sites;
             }
         }
 

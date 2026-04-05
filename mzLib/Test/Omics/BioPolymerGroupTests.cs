@@ -586,7 +586,7 @@ namespace Test.Omics
                 new HashSet<IBioPolymerWithSetMods> { peptide },
                 new HashSet<IBioPolymerWithSetMods> { peptide });
 
-            var psm = new MockSpectralMatch(@"C:\test.raw", "MPEPTIDE", "[Acetyl on M]-MPEPTIDE", 100, 1, [peptide]);
+            var psm = new MockSpectralMatch(@"C:\test.raw", "[Acetyl on M]-MPEPTIDE", "MPEPTIDE", 100, 1, [peptide]);
             group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
 
             group.CalculateSequenceCoverage();
@@ -622,7 +622,7 @@ namespace Test.Omics
                 new HashSet<IBioPolymerWithSetMods> { peptide },
                 new HashSet<IBioPolymerWithSetMods> { peptide });
 
-            var psm = new MockSpectralMatch(@"C:\test.raw", "PEPTIDEK", "PEPTIDEK-[Amidated on K]", 100, 1, [peptide]);
+            var psm = new MockSpectralMatch(@"C:\test.raw", "PEPTIDEK-[Amidated on K]", "PEPTIDEK", 100, 1, [peptide]);
             group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
 
             var output = group.ToString();
