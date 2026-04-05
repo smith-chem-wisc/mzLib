@@ -168,7 +168,7 @@ namespace Proteomics
         {
             BaseSequence = originalProtein.BaseSequence;
             Accession = accession ?? originalProtein.Accession;
-            NonVariantProtein = originalProtein.ConsensusVariant as Protein;
+            NonVariantProtein = this;
             Name = proteinName ?? originalProtein.Name;
             Organism = organism ?? originalProtein.Organism;
             FullName = proteinFullName ?? originalProtein.FullName;
