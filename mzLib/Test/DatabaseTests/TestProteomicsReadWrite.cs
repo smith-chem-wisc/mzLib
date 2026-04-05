@@ -712,5 +712,121 @@ namespace Test.DatabaseTests
 
             Assert.That(xmlProteins.First(p => !p.IsDecoy).BaseSequence == "PROCEINC");
         }
+
+        [Test]
+        public static void TestWriteProSightCompatibleMods()
+        {
+            // Create a modification with a target motif so that OriginalId and IdWithMotif differ
+            ModificationMotif.TryGetMotif("K", out ModificationMotif motif);
+            Modification phosphoMod = new Modification(
+                _originalId: "Phosphorylation",
+                _accession: null,
+                _modificationType: "Common",
+                _featureType: null,
+                _target: motif,
+                _locationRestriction: "Anywhere.",
+                _monoisotopicMass: 79.966331);
+
+            // Verify the modification has distinct OriginalId and IdWithMotif
+            Assert.AreEqual("Phosphorylation", phosphoMod.OriginalId);
+            Assert.AreEqual("Phosphorylation on K", phosphoMod.IdWithMotif);
+
+            // Create a protein with this modification
+            Dictionary<int, List<Modification>> oneBasedMods = new Dictionary<int, List<Modification>>
+            {
+                { 3, new List<Modification> { phosphoMod } }
+            };
+
+            Protein protein = new Protein("SEKENCE", "testAccession", oneBasedModifications: oneBasedMods);
+
+            // Test 1: Write with writeProSightCompatibleMods = false (default)
+            // The feature description attribute should use IdWithMotif ("Phosphorylation on K")
+            string defaultOutputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "proSightCompatibleMods_default.xml");
+            ProteinDbWriter.WriteXmlDatabase(
+                new Dictionary<string, HashSet<Tuple<int, Modification>>>(),
+                new List<Protein> { protein },
+                defaultOutputPath,
+                writeProSightCompatibleMods: false);
+
+            string defaultXmlContent = File.ReadAllText(defaultOutputPath);
+            // Check that the feature element uses IdWithMotif in the description attribute
+            Assert.IsTrue(defaultXmlContent.Contains("description=\"Phosphorylation on K\""), 
+                "Default mode should write IdWithMotif in feature description");
+
+            // Test 2: Write with writeProSightCompatibleMods = true
+            // The feature description attribute should use OriginalId ("Phosphorylation")
+            string proSightOutputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "proSightCompatibleMods_prosight.xml");
+            ProteinDbWriter.WriteXmlDatabase(
+                new Dictionary<string, HashSet<Tuple<int, Modification>>>(),
+                new List<Protein> { protein },
+                proSightOutputPath,
+                writeProSightCompatibleMods: true);
+
+            string proSightXmlContent = File.ReadAllText(proSightOutputPath);
+            // Check that the feature element uses OriginalId in the description attribute
+            Assert.IsTrue(proSightXmlContent.Contains("description=\"Phosphorylation\""), 
+                "ProSight mode should write OriginalId in feature description");
+            Assert.IsFalse(proSightXmlContent.Contains("description=\"Phosphorylation on K\""), 
+                "ProSight mode should not write IdWithMotif in feature description");
+
+            // Clean up
+            if (File.Exists(defaultOutputPath))
+                File.Delete(defaultOutputPath);
+            if (File.Exists(proSightOutputPath))
+                File.Delete(proSightOutputPath);
+        }
+
+        [Test]
+        public static void TestWriteProSightCompatibleMods_WithAdditionalMods()
+        {
+            // Test that writeProSightCompatibleMods also works correctly with additional modifications
+            // passed via the additionalModsToAddToProteins dictionary
+            ModificationMotif.TryGetMotif("S", out ModificationMotif motif);
+            Modification acetylMod = new Modification(
+                _originalId: "Acetylation",
+                _accession: null,
+                _modificationType: "Common",
+                _featureType: null,
+                _target: motif,
+                _locationRestriction: "Anywhere.",
+                _monoisotopicMass: 42.010565);
+
+            Assert.AreEqual("Acetylation", acetylMod.OriginalId);
+            Assert.AreEqual("Acetylation on S", acetylMod.IdWithMotif);
+
+            Protein protein = new Protein("SEKENCE", "testAccession");
+
+            // Add modification via additionalModsToAddToProteins dictionary (simulating GPTMD additions)
+            Dictionary<string, HashSet<Tuple<int, Modification>>> additionalMods = new Dictionary<string, HashSet<Tuple<int, Modification>>>
+            {
+                { "testAccession", new HashSet<Tuple<int, Modification>> { new Tuple<int, Modification>(1, acetylMod) } }
+            };
+
+            // Test with writeProSightCompatibleMods = false
+            string defaultOutputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "proSightAdditionalMods_default.xml");
+            var defaultNewModEntries = ProteinDbWriter.WriteXmlDatabase(
+                additionalMods,
+                new List<Protein> { protein },
+                defaultOutputPath,
+                writeProSightCompatibleMods: false);
+
+            Assert.IsTrue(defaultNewModEntries.ContainsKey("Acetylation on S"), "Default mode should track mods by IdWithMotif");
+
+            // Test with writeProSightCompatibleMods = true
+            string proSightOutputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "proSightAdditionalMods_prosight.xml");
+            var proSightNewModEntries = ProteinDbWriter.WriteXmlDatabase(
+                additionalMods,
+                new List<Protein> { protein },
+                proSightOutputPath,
+                writeProSightCompatibleMods: true);
+
+            Assert.IsTrue(proSightNewModEntries.ContainsKey("Acetylation"), "ProSight mode should track mods by OriginalId");
+
+            // Clean up
+            if (File.Exists(defaultOutputPath))
+                File.Delete(defaultOutputPath);
+            if (File.Exists(proSightOutputPath))
+                File.Delete(proSightOutputPath);
+        }
     }
 }

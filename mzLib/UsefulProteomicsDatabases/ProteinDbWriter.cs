@@ -1,17 +1,18 @@
+using Easy.Common.Extensions;
+using MzLibUtil;
+using Omics;
+using Omics.BioPolymer;
+using Omics.Modifications;
 using Proteomics;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Xml;
-using Easy.Common.Extensions;
-using Omics;
-using Omics.BioPolymer;
-using Omics.Modifications;
 using Transcriptomics;
-using System.Data;
-using MzLibUtil;
+using static TorchSharp.torch.optim.lr_scheduler.impl.CyclicLR;
 
 namespace UsefulProteomicsDatabases
 {
@@ -312,7 +313,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="proteinList"></param>
         /// <param name="outputFileName"></param>
         /// <returns>The new "modified residue" entries that are added due to being in the Mods dictionary</returns>
-        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, List<Protein> proteinList, string outputFileName, bool updateTimeStamp = false)
+        public static Dictionary<string, int> WriteXmlDatabase(Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, List<Protein> proteinList, string outputFileName, bool updateTimeStamp = false, bool writeProSightCompatibleMods = false)
         {
             additionalModsToAddToProteins ??= new Dictionary<string, HashSet<Tuple<int, Modification>>>();
 
@@ -443,7 +444,7 @@ namespace UsefulProteomicsDatabases
                             proteolysisProduct.OneBasedBeginPosition, proteolysisProduct.OneBasedEndPosition);
                     }
 
-                    foreach (var positionModKvp in GetModsForThisBioPolymer(protein, null, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
+                    foreach (var positionModKvp in GetModsForThisBioPolymer(protein, null, additionalModsToAddToProteins, newModResEntries, writeProSightCompatibleMods: writeProSightCompatibleMods).OrderBy(b => b.Key))
                     {
                         foreach (var modId in positionModKvp.Value.OrderBy(mod => mod))
                         {
@@ -478,7 +479,7 @@ namespace UsefulProteomicsDatabases
                             writer.WriteAttributeString("position", hm.OneBasedEndPosition.ToString());
                             writer.WriteEndElement();
                         }
-                        foreach (var hmm in GetModsForThisBioPolymer(protein, hm, additionalModsToAddToProteins, newModResEntries).OrderBy(b => b.Key))
+                        foreach (var hmm in GetModsForThisBioPolymer(protein, hm, additionalModsToAddToProteins, newModResEntries, writeProSightCompatibleMods: writeProSightCompatibleMods).OrderBy(b => b.Key))
                         {
                             foreach (var modId in hmm.Value.OrderBy(mod => mod))
                             {
@@ -593,7 +594,7 @@ namespace UsefulProteomicsDatabases
             writer.WriteEndElement(); // feature
         }
 
-        private static Dictionary<int, HashSet<string>> GetModsForThisBioPolymer(IBioPolymer protein, SequenceVariation seqvar, Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, Dictionary<string, int> newModResEntries)
+        private static Dictionary<int, HashSet<string>> GetModsForThisBioPolymer(IBioPolymer protein, SequenceVariation seqvar, Dictionary<string, HashSet<Tuple<int, Modification>>> additionalModsToAddToProteins, Dictionary<string, int> newModResEntries, bool writeProSightCompatibleMods = false)
         {
             var modsToWriteForThisSpecificProtein = new Dictionary<int, HashSet<string>>();
 
@@ -603,9 +604,9 @@ namespace UsefulProteomicsDatabases
                 foreach (var mod in mods.Value)
                 {
                     if (modsToWriteForThisSpecificProtein.TryGetValue(mods.Key, out HashSet<string> val))
-                        val.Add(mod.IdWithMotif);
+                        val.Add(writeProSightCompatibleMods ? mod.OriginalId : mod.IdWithMotif);
                     else
-                        modsToWriteForThisSpecificProtein.Add(mods.Key, new HashSet<string> { mod.IdWithMotif });
+                        modsToWriteForThisSpecificProtein.Add(mods.Key, new HashSet<string> { writeProSightCompatibleMods ? mod.OriginalId : mod.IdWithMotif });
                 }
             }
 
@@ -615,7 +616,7 @@ namespace UsefulProteomicsDatabases
                 foreach (var ye in additionalModsToAddToProteins[accession])
                 {
                     int additionalModResidueIndex = ye.Item1;
-                    string additionalModId = ye.Item2.IdWithMotif;
+                    string additionalModId = writeProSightCompatibleMods ? ye.Item2.OriginalId : ye.Item2.IdWithMotif;
                     bool modAdded = false;
 
                     // If we already have modifications that need to be written to the specific residue, get the hash set of those mods
