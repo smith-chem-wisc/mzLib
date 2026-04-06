@@ -3,6 +3,7 @@
 
 using System;
 using System.Buffers;
+using System.Collections.Generic;
 
 namespace MassSpectrometry.Dia
 {
@@ -493,6 +494,107 @@ namespace MassSpectrometry.Dia
                 sum += intensities[i];
             return sum;
         }
+        // ════════════════════════════════════════════════════════════════
+        //  PeakWidth Diagnostic Export
+        // ════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Writes a TSV file with per-result PeakWidth diagnostic data.
+        /// Captures everything needed to understand why PeakWidth has no
+        /// target/decoy separation: peak geometry, RT deviation, scan count,
+        /// whether the peak was valid, and the decoy's proximity to its
+        /// paired target's predicted RT.
+        ///
+        /// Call after AssembleResultsWithTemporalScoring, before FDR.
+        /// </summary>
+        public static void WritePeakWidthDiagnostics(
+            List<DiaSearchResult> results,
+            string outputTsvPath)
+        {
+            using var w = new System.IO.StreamWriter(outputTsvPath);
+
+            // Header
+            w.WriteLine(string.Join("\t", new[]
+            {
+        "Sequence",
+        "Charge",
+        "IsDecoy",
+        "WindowId",
+        "LibraryRt",
+        "PredictedRtWindowCenter",
+        "ObservedApexRt",
+        "RtDeviationMinutes",       // ObservedApex - LibraryRt (signed)
+        "PeakValid",
+        "PeakWidthMinutes",         // RightRt - LeftRt
+        "PeakLeftRt",
+        "PeakApexRt",               // from PeakGroup, may differ from ObservedApexRt
+        "PeakRightRt",
+        "PeakScanCount",            // number of scans within peak boundaries
+        "PeakSymmetryRatio",        // 0.5 = symmetric
+        "PeakTotalSignal",
+        "CandidateCount",           // how many peak candidates were found
+        "CandidateScoreGap",        // best - second best selection score
+        "ApexScore",
+        "PeakMeanFragCorr",
+        "ExtractionWindowStart",
+        "ExtractionWindowEnd",
+        "ExtractionWindowWidth",    // total window width in minutes
+        "PeakFractionOfWindow",     // PeakWidth / ExtractionWindowWidth
+        "TimePointsUsed",
+        "FragDetRate",
+    }));
+
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+
+            foreach (var r in results)
+            {
+                bool peakValid = r.DetectedPeakGroup.HasValue && r.DetectedPeakGroup.Value.IsValid;
+                var pg = peakValid ? r.DetectedPeakGroup.Value : default;
+
+                float winWidth = r.RtWindowEnd - r.RtWindowStart;
+                float winCenter = r.RtWindowStart + winWidth * 0.5f;
+                float peakWidth = peakValid ? pg.PeakWidthMinutes : 0f;
+                float peakFraction = winWidth > 0f ? peakWidth / winWidth : float.NaN;
+
+                // Signed RT deviation: apex relative to library RT
+                float signedRtDev = float.NaN;
+                if (!float.IsNaN(r.ObservedApexRt) && r.LibraryRetentionTime.HasValue)
+                    signedRtDev = r.ObservedApexRt - (float)r.LibraryRetentionTime.Value;
+
+                w.Write(r.Sequence); w.Write('\t');
+                w.Write(r.ChargeState); w.Write('\t');
+                w.Write(r.IsDecoy ? "1" : "0"); w.Write('\t');
+                w.Write(r.WindowId); w.Write('\t');
+                w.Write(r.LibraryRetentionTime.HasValue
+                    ? r.LibraryRetentionTime.Value.ToString("F4", inv) : "NA"); w.Write('\t');
+                w.Write(winCenter.ToString("F4", inv)); w.Write('\t');
+                w.Write(float.IsNaN(r.ObservedApexRt)
+                    ? "NA" : r.ObservedApexRt.ToString("F4", inv)); w.Write('\t');
+                w.Write(float.IsNaN(signedRtDev)
+                    ? "NA" : signedRtDev.ToString("F4", inv)); w.Write('\t');
+                w.Write(peakValid ? "1" : "0"); w.Write('\t');
+                w.Write(peakWidth.ToString("F4", inv)); w.Write('\t');
+                w.Write(peakValid ? pg.LeftRt.ToString("F4", inv) : "NA"); w.Write('\t');
+                w.Write(peakValid ? pg.ApexRt.ToString("F4", inv) : "NA"); w.Write('\t');
+                w.Write(peakValid ? pg.RightRt.ToString("F4", inv) : "NA"); w.Write('\t');
+                w.Write(peakValid ? pg.ScanCount.ToString(inv) : "0"); w.Write('\t');
+                w.Write(peakValid ? pg.SymmetryRatio.ToString("F4", inv) : "NA"); w.Write('\t');
+                w.Write(peakValid ? pg.TotalSignal.ToString("G6", inv) : "0"); w.Write('\t');
+                w.Write(r.CandidateCount.ToString("F0", inv)); w.Write('\t');
+                w.Write(r.CandidateScoreGap.ToString("F4", inv)); w.Write('\t');
+                w.Write(float.IsNaN(r.ApexScore)
+                    ? "NA" : r.ApexScore.ToString("F4", inv)); w.Write('\t');
+                w.Write(float.IsNaN(r.PeakMeanFragCorr)
+                    ? "NA" : r.PeakMeanFragCorr.ToString("F4", inv)); w.Write('\t');
+                w.Write(r.RtWindowStart.ToString("F4", inv)); w.Write('\t');
+                w.Write(r.RtWindowEnd.ToString("F4", inv)); w.Write('\t');
+                w.Write(winWidth.ToString("F4", inv)); w.Write('\t');
+                w.Write(float.IsNaN(peakFraction)
+                    ? "NA" : peakFraction.ToString("F4", inv)); w.Write('\t');
+                w.Write(r.TimePointsUsed); w.Write('\t');
+                w.WriteLine(r.FragmentDetectionRate.ToString("F4", inv));
+            }
+        }
     }
 
     /// <summary>
@@ -577,12 +679,12 @@ namespace MassSpectrometry.Dia
         // ── Feature sub-computations ──────────────────────────────────────────
 
         private static float ComputeMs1Ms2Correlation(
-            ReadOnlySpan<float> ms1Rts,
-            ReadOnlySpan<float> ms1Intensities,
-            ReadOnlySpan<float> ms2Rts,
-            ReadOnlySpan<float> ms2Intensities)
+    ReadOnlySpan<float> ms1Rts,
+    ReadOnlySpan<float> ms1Intensities,
+    ReadOnlySpan<float> ms2Rts,
+    ReadOnlySpan<float> ms2Intensities)
         {
-            const float maxRtGapMin = 0.05f;
+            const float maxRtGapMin = 0.10f;
 
             int pairCount = 0;
             float sumA = 0f, sumB = 0f, sumAB = 0f, sumA2 = 0f, sumB2 = 0f;
@@ -592,20 +694,24 @@ namespace MassSpectrometry.Dia
             {
                 float ms2Rt = ms2Rts[j];
                 float ms2Int = ms2Intensities[j];
-                if (ms2Int <= 0f) continue;
 
+                // Advance ms1Cursor to the closest MS1 scan to this MS2 RT.
+                // Reset to nearest from current position — advance while next is closer.
                 while (ms1Cursor + 1 < ms1Rts.Length &&
-                       MathF.Abs(ms1Rts[ms1Cursor + 1] - ms2Rt) <
-                       MathF.Abs(ms1Rts[ms1Cursor] - ms2Rt))
-                {
-                    ms1Cursor++;
-                }
+                       MathF.Abs(ms1Rts[ms1Cursor + 1] - ms2Rt)
+                       
+                       < MathF.Abs(ms1Rts[ms1Cursor] - ms2Rt))
+                        {
+                            ms1Cursor++;
+                        }
 
                 float gap = MathF.Abs(ms1Rts[ms1Cursor] - ms2Rt);
                 if (gap > maxRtGapMin) continue;
 
                 float ms1Int = ms1Intensities[ms1Cursor];
-                if (ms1Int <= 0f) continue;
+
+                // Both zero — no information, skip.
+                if (ms1Int <= 0f && ms2Int <= 0f) continue;
 
                 sumA += ms1Int;
                 sumB += ms2Int;
@@ -617,7 +723,8 @@ namespace MassSpectrometry.Dia
 
             if (pairCount < MinMs1Points) return float.NaN;
 
-            float denom = (pairCount * sumA2 - sumA * sumA) * (pairCount * sumB2 - sumB * sumB);
+            float denom = (pairCount * sumA2 - sumA * sumA) *
+                          (pairCount * sumB2 - sumB * sumB);
             if (denom <= 0f) return float.NaN;
 
             float r = (pairCount * sumAB - sumA * sumB) / MathF.Sqrt(denom);
@@ -735,5 +842,6 @@ namespace MassSpectrometry.Dia
             }
             return idx;
         }
+        
     }
 }

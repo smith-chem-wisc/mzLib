@@ -102,7 +102,7 @@ namespace MassSpectrometry.Dia
             MsDataScan[] scans,
             IReadOnlyList<LibraryPrecursorInput> precursors,
             DiaSearchParameters parameters,
-            DiaClassifierType classifierType = DiaClassifierType.LinearDiscriminant,
+            DiaClassifierType classifierType,
             Action<string> progressReporter = null)
         {
             if (scans == null) throw new ArgumentNullException(nameof(scans));
@@ -191,6 +191,7 @@ namespace MassSpectrometry.Dia
                 $"results: {results.Count:N0}  " +
                 $"targets: {CountTargets(results)}  decoys: {CountDecoys(results)}");
 
+
             // ── Step 6: Chimeric scores ──────────────────────────────────────
             Log("[DiaSearch] Computing chimeric scores...");
             DiaLibraryQueryGenerator.ComputeChimericScores(
@@ -270,6 +271,11 @@ namespace MassSpectrometry.Dia
                     ms1DiagCount++;
                 }
             }
+
+            // After AssembleResultsWithTemporalScoring, before FDR
+            DiaFeatureExtractor.WritePeakWidthDiagnostics(
+                results,
+                @"F:\DiaBenchmark\PXD005573\Runner\peakwidth_diagnostics.tsv");
 
             // ── Step 8: Iterative FDR ────────────────────────────────────────
             Log($"[DiaSearch] Running iterative FDR ({classifierType})...");

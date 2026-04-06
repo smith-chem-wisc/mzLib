@@ -8,23 +8,22 @@ using MassSpectrometry.Dia;
 using MassSpectrometry.Dia.Calibration;
 using Readers;
 using System;
-using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
-using System.IO;
-using System.Linq;
+using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
 
 namespace Development.Dia
 {
     public static class DiaSearchRunner
     {
-        public static void Run(
+        public static async Task Run(
             string rawFilePath,
             string targetMspPath,
-            string decoyMspPath,
+            //string decoyMspPath,
             string outputTsvPath,
+            DiaClassifierType classifierType, 
             string groundTruthTsvPath = null,
-            DiaClassifierType classifierType = DiaClassifierType.LinearDiscriminant,
             string gapAnalysisTsvPath = null)
         {
             Header("DIA Search Runner — Bootstrap Calibration Pipeline");
@@ -51,7 +50,7 @@ namespace Development.Dia
             // ════════════════════════════════════════════════════════════
             Section("2. Loading libraries");
             if (!File.Exists(targetMspPath)) { Error($"Target MSP not found: {targetMspPath}"); return; }
-            if (!File.Exists(decoyMspPath)) { Error($"Decoy MSP not found: {decoyMspPath}"); return; }
+            //if (!File.Exists(decoyMspPath)) { Error($"Decoy MSP not found: {decoyMspPath}"); return; }
 
             var sw = Stopwatch.StartNew();
             var targets = KoinaMspParser.Parse(targetMspPath, rtLookup, minIntensity: 0.05f);
@@ -60,23 +59,13 @@ namespace Development.Dia
             sw.Restart();
 
             var decoys = DecoyGenerator.GenerateFromTargets(targets);
+            await ApplyIrtRtCorrection(targets, decoys);  // local method below
+            var combined = targets.Concat(decoys).ToList();
 
 
-            //var decoysRaw = KoinaMspParser.Parse(decoyMspPath, rtLookup, minIntensity: 0.05f);
-            //var decoys = new List<LibraryPrecursorInput>(decoysRaw.Count);
-            //for (int i = 0; i < decoysRaw.Count; i++)
-            //{
-            //    var d = decoysRaw[i];
-            //    decoys.Add(new LibraryPrecursorInput(
-            //        d.Sequence, d.PrecursorMz, d.ChargeState,
-            //        d.RetentionTime, isDecoy: true,
-            //        d.FragmentMzs, d.FragmentIntensities, d.IrtValue));
-            //}
             Console.WriteLine($"  Decoys:  {decoys.Count:N0} ({sw.ElapsedMilliseconds}ms)");
 
-            var combined = new List<LibraryPrecursorInput>(targets.Count + decoys.Count);
-            combined.AddRange(targets);
-            combined.AddRange(decoys);
+
 
             // Library RT distribution
             var libRts = targets.Where(p => p.RetentionTime.HasValue)
@@ -115,7 +104,7 @@ namespace Development.Dia
             // ════════════════════════════════════════════════════════════
             //  Step 4: Run DiaSearchEngine
             // ════════════════════════════════════════════════════════════
-            Section($"4. Running DIA search ({classifierType})");
+            Section($"4 . Running DIA search ({classifierType})");
             Console.WriteLine();
 
             var parameters = new DiaSearchParameters
@@ -307,9 +296,9 @@ namespace Development.Dia
             // ════════════════════════════════════════════════════════════
             //  Step 6: FDR results
             // ════════════════════════════════════════════════════════════
-            Section("6. FDR results");
+            Section("6. FDR results for: " + classifierType);
             float[] thresholds = { 0.001f, 0.005f, 0.01f, 0.05f, 0.10f };
-            int[] gbtCounts = CountIdsAtThresholds(results, thresholds);
+            int[] classifierResultCounts = CountIdsAtThresholds(results, thresholds);
 
             Console.WriteLine($"  Results: {results.Count:N0}  " +
                               $"targets: {results.Count(r => !r.IsDecoy):N0}  " +
@@ -318,7 +307,7 @@ namespace Development.Dia
             Console.WriteLine($"  {"Q-value",-12}  {"IDs",8}");
             Console.WriteLine("  " + new string('─', 24));
             for (int t = 0; t < thresholds.Length; t++)
-                Console.WriteLine($"  q ≤ {thresholds[t]:F3}      {gbtCounts[t],8:N0}");
+                Console.WriteLine($"  q ≤ {thresholds[t]:F3}      {classifierResultCounts[t],8:N0}");
             Console.WriteLine();
             Console.WriteLine($"  FDR iterations: {searchResult.FdrResult.IterationsCompleted}");
             Console.WriteLine($"  IDs at 1% FDR:  {searchResult.FdrResult.IdentificationsAt1PctFdr:N0}");
@@ -327,179 +316,209 @@ namespace Development.Dia
             foreach (var diag in searchResult.FdrResult.Diagnostics)
                 DiaFdrEngine.PrintDiagnostics(diag);
 
-            // ════════════════════════════════════════════════════════════
-            //  Step 7: Ground truth comparison
-            // ════════════════════════════════════════════════════════════
-            Section("7. Ground truth comparison");
 
-            if (rtLookup != null && rtLookup.Count > 0)
-            {
-                int gtTotal = rtLookup.Count;
-                int ourAt1Pct = gbtCounts[2];
-                Console.WriteLine($"  DIA-NN (1% FDR): {gtTotal:N0}");
-                Console.WriteLine($"  Ours   (1% FDR): {ourAt1Pct:N0}");
-                Console.WriteLine($"  Recall:          {ourAt1Pct * 100.0 / gtTotal:F1}%");
-                Console.WriteLine();
+            //// ════════════════════════════════════════════════════════════
+            ////  Step 6: FDR results
+            //// ════════════════════════════════════════════════════════════
+            //Section("6. FDR results");
+            //float[] thresholds = { 0.001f, 0.005f, 0.01f, 0.05f, 0.10f };
+            //int[] gbtCounts = CountIdsAtThresholds(results, thresholds);
 
-                // Build our 1% FDR set
-                var ourSet = new HashSet<string>();
-                for (int i = 0; i < results.Count; i++)
-                {
-                    var r = results[i];
-                    if (r.IsDecoy || r.FdrInfo == null || r.FdrInfo.QValue > 0.01) continue;
-                    ourSet.Add(r.Sequence + "/" + r.ChargeState);
-                }
+            //Console.WriteLine($"  Results: {results.Count:N0}  " +
+            //                  $"targets: {results.Count(r => !r.IsDecoy):N0}  " +
+            //                  $"decoys: {results.Count(r => r.IsDecoy):N0}");
+            //Console.WriteLine();
+            //Console.WriteLine($"  {"Q-value",-12}  {"IDs",8}");
+            //Console.WriteLine("  " + new string('─', 24));
+            //for (int t = 0; t < thresholds.Length; t++)
+            //    Console.WriteLine($"  q ≤ {thresholds[t]:F3}      {gbtCounts[t],8:N0}");
+            //Console.WriteLine();
+            //Console.WriteLine($"  FDR iterations: {searchResult.FdrResult.IterationsCompleted}");
+            //Console.WriteLine($"  IDs at 1% FDR:  {searchResult.FdrResult.IdentificationsAt1PctFdr:N0}");
+            //Console.WriteLine();
+            //Console.WriteLine("  Per-iteration diagnostics:");
+            //foreach (var diag in searchResult.FdrResult.Diagnostics)
+            //    DiaFdrEngine.PrintDiagnostics(diag);
 
-                int overlap = ourSet.Count(k => rtLookup.ContainsKey(k));
-                int ourOnly = ourSet.Count(k => !rtLookup.ContainsKey(k));
-                int gtOnly = rtLookup.Keys.Count(k => !ourSet.Contains(k));
+            //// ════════════════════════════════════════════════════════════
+            ////  Step 7: Ground truth comparison
+            //// ════════════════════════════════════════════════════════════
+            //Section("7. Ground truth comparison");
 
-                Console.WriteLine($"  In both:         {overlap:N0} ({overlap * 100.0 / Math.Max(ourAt1Pct, 1):F1}% of ours)");
-                Console.WriteLine($"  Ours only:       {ourOnly:N0}  (false positives or novel)");
-                Console.WriteLine($"  GT only (missed):{gtOnly:N0}");
-                Console.WriteLine();
+            //if (rtLookup != null && rtLookup.Count > 0)
+            //{
+            //    int gtTotal = rtLookup.Count;
+            //    int ourAt1Pct = gbtCounts[2];
+            //    Console.WriteLine($"  DIA-NN (1% FDR): {gtTotal:N0}");
+            //    Console.WriteLine($"  Ours   (1% FDR): {ourAt1Pct:N0}");
+            //    Console.WriteLine($"  Recall:          {ourAt1Pct * 100.0 / gtTotal:F1}%");
+            //    Console.WriteLine();
 
-                // RT deviation for overlapping IDs
-                var inGtDev = new List<float>();
-                var notGtDev = new List<float>();
-                for (int i = 0; i < results.Count; i++)
-                {
-                    var r = results[i];
-                    if (r.IsDecoy || r.FdrInfo == null || r.FdrInfo.QValue > 0.01) continue;
-                    if (float.IsNaN(r.RtDeviationMinutes)) continue;
-                    string key = r.Sequence + "/" + r.ChargeState;
-                    (rtLookup.ContainsKey(key) ? inGtDev : notGtDev).Add(MathF.Abs(r.RtDeviationMinutes));
-                }
-                if (inGtDev.Count > 0)
-                {
-                    inGtDev.Sort();
-                    Console.WriteLine($"  |RtDev| in GT:   " +
-                        $"median={inGtDev[inGtDev.Count / 2]:F3}  " +
-                        $"p95={inGtDev[(int)(inGtDev.Count * 0.95)]:F3} min");
-                }
-                if (notGtDev.Count > 0)
-                {
-                    notGtDev.Sort();
-                    Console.WriteLine($"  |RtDev| not GT:  " +
-                        $"median={notGtDev[notGtDev.Count / 2]:F3}  " +
-                        $"p95={notGtDev[(int)(notGtDev.Count * 0.95)]:F3} min");
-                }
-                Console.WriteLine();
+            //    // Build our 1% FDR set
+            //    var ourSet = new HashSet<string>();
+            //    for (int i = 0; i < results.Count; i++)
+            //    {
+            //        var r = results[i];
+            //        if (r.IsDecoy || r.FdrInfo == null || r.FdrInfo.QValue > 0.01) continue;
+            //        ourSet.Add(r.Sequence + "/" + r.ChargeState);
+            //    }
 
-                // Sample 20 missed GT IDs
-                Console.WriteLine("  [DEBUG] First 20 DIA-NN IDs we missed:");
-                Console.WriteLine($"    {"Key",-42}  {"GT_RT",7}  {"InOurResults",12}  {"BestScore",10}  {"BestQv",8}");
-                Console.WriteLine("    " + new string('─', 85));
-                int shown = 0;
-                foreach (var kvp in rtLookup)
-                {
-                    if (ourSet.Contains(kvp.Key)) continue;
-                    string inRes = "no", score = "n/a", qv = "n/a";
-                    for (int i = 0; i < results.Count; i++)
-                    {
-                        var r = results[i];
-                        if (r.IsDecoy) continue;
-                        if (r.Sequence + "/" + r.ChargeState == kvp.Key)
-                        {
-                            inRes = "yes";
-                            score = r.ClassifierScore.ToString("F4");
-                            qv = r.FdrInfo?.QValue.ToString("F4") ?? "null";
-                            break;
-                        }
-                    }
-                    Console.WriteLine($"    {kvp.Key,-42}  {kvp.Value,7:F3}  {inRes,12}  {score,10}  {qv,8}");
-                    if (++shown >= 20) break;
-                }
-                Console.WriteLine();
+            //    int overlap = ourSet.Count(k => rtLookup.ContainsKey(k));
+            //    int ourOnly = ourSet.Count(k => !rtLookup.ContainsKey(k));
+            //    int gtOnly = rtLookup.Keys.Count(k => !ourSet.Contains(k));
 
-                // Sample 10 of our 1% IDs with RT info
-                Console.WriteLine("  [DEBUG] Sample of our q≤0.01 IDs with RT info:");
-                Console.WriteLine($"    {"Key",-42}  {"LibRT",7}  {"PredRT",7}  {"ApexRT",7}  {"RtDev",6}  {"InGT",5}");
-                Console.WriteLine("    " + new string('─', 85));
-                shown = 0;
-                for (int i = 0; i < results.Count && shown < 10; i++)
-                {
-                    var r = results[i];
-                    if (r.IsDecoy || r.FdrInfo == null || r.FdrInfo.QValue > 0.01) continue;
-                    string key = r.Sequence + "/" + r.ChargeState;
-                    bool inGt = rtLookup.ContainsKey(key);
-                    double pred = (lowess != null && r.LibraryRetentionTime.HasValue)
-                        ? lowess.ToMinutes(r.LibraryRetentionTime.Value) : double.NaN;
-                    Console.WriteLine($"    {key,-42}  " +
-                        $"{(r.LibraryRetentionTime.HasValue ? r.LibraryRetentionTime.Value.ToString("F3") : "null"),7}  " +
-                        $"{(double.IsNaN(pred) ? "null" : pred.ToString("F3")),7}  " +
-                        $"{(float.IsNaN(r.ObservedApexRt) ? "NaN" : r.ObservedApexRt.ToString("F3")),7}  " +
-                        $"{(float.IsNaN(r.RtDeviationMinutes) ? "NaN" : r.RtDeviationMinutes.ToString("F3")),6}  " +
-                        $"{(inGt ? "YES" : "no"),5}");
-                    shown++;
-                }
+            //    Console.WriteLine($"  In both:         {overlap:N0} ({overlap * 100.0 / Math.Max(ourAt1Pct, 1):F1}% of ours)");
+            //    Console.WriteLine($"  Ours only:       {ourOnly:N0}  (false positives or novel)");
+            //    Console.WriteLine($"  GT only (missed):{gtOnly:N0}");
+            //    Console.WriteLine();
 
-                // ────────────────────────────────────────────────────────
-                // Deep Gap Analysis
-                // ────────────────────────────────────────────────────────
-                PrintDeepGapAnalysis(results, rtLookup, combined, lowess, gapAnalysisTsvPath);
-            }
-            else
-            {
-                Console.WriteLine("  Skipped (no ground truth).");
-                Console.WriteLine();
-                Console.WriteLine("  [DEBUG] Sample q≤0.01 targets:");
-                Console.WriteLine($"    {"Sequence",-42}  {"LibRT",7}  {"ApexRT",7}  {"RtDev",6}  {"Apex",6}  {"Peak",4}");
-                Console.WriteLine("    " + new string('─', 82));
-                int shown = 0;
-                for (int i = 0; i < results.Count && shown < 15; i++)
-                {
-                    var r = results[i];
-                    if (r.IsDecoy || r.FdrInfo == null || r.FdrInfo.QValue > 0.01) continue;
-                    Console.WriteLine($"    {r.Sequence,-42}  " +
-                        $"{(r.LibraryRetentionTime.HasValue ? r.LibraryRetentionTime.Value.ToString("F3") : "null"),7}  " +
-                        $"{(float.IsNaN(r.ObservedApexRt) ? "NaN" : r.ObservedApexRt.ToString("F3")),7}  " +
-                        $"{(float.IsNaN(r.RtDeviationMinutes) ? "NaN" : r.RtDeviationMinutes.ToString("F3")),6}  " +
-                        $"{(float.IsNaN(r.ApexScore) ? "NaN" : r.ApexScore.ToString("F4")),6}  " +
-                        $"{(r.DetectedPeakGroup?.IsValid.ToString() ?? "null"),4}");
-                    shown++;
-                }
-            }
+            //    // RT deviation for overlapping IDs
+            //    var inGtDev = new List<float>();
+            //    var notGtDev = new List<float>();
+            //    for (int i = 0; i < results.Count; i++)
+            //    {
+            //        var r = results[i];
+            //        if (r.IsDecoy || r.FdrInfo == null || r.FdrInfo.QValue > 0.01) continue;
+            //        if (float.IsNaN(r.RtDeviationMinutes)) continue;
+            //        string key = r.Sequence + "/" + r.ChargeState;
+            //        (rtLookup.ContainsKey(key) ? inGtDev : notGtDev).Add(MathF.Abs(r.RtDeviationMinutes));
+            //    }
+            //    if (inGtDev.Count > 0)
+            //    {
+            //        inGtDev.Sort();
+            //        Console.WriteLine($"  |RtDev| in GT:   " +
+            //            $"median={inGtDev[inGtDev.Count / 2]:F3}  " +
+            //            $"p95={inGtDev[(int)(inGtDev.Count * 0.95)]:F3} min");
+            //    }
+            //    if (notGtDev.Count > 0)
+            //    {
+            //        notGtDev.Sort();
+            //        Console.WriteLine($"  |RtDev| not GT:  " +
+            //            $"median={notGtDev[notGtDev.Count / 2]:F3}  " +
+            //            $"p95={notGtDev[(int)(notGtDev.Count * 0.95)]:F3} min");
+            //    }
+            //    Console.WriteLine();
+
+            //    // Sample 20 missed GT IDs
+            //    Console.WriteLine("  [DEBUG] First 20 DIA-NN IDs we missed:");
+            //    Console.WriteLine($"    {"Key",-42}  {"GT_RT",7}  {"InOurResults",12}  {"BestScore",10}  {"BestQv",8}");
+            //    Console.WriteLine("    " + new string('─', 85));
+            //    int shown = 0;
+            //    foreach (var kvp in rtLookup)
+            //    {
+            //        if (ourSet.Contains(kvp.Key)) continue;
+            //        string inRes = "no", score = "n/a", qv = "n/a";
+            //        for (int i = 0; i < results.Count; i++)
+            //        {
+            //            var r = results[i];
+            //            if (r.IsDecoy) continue;
+            //            if (r.Sequence + "/" + r.ChargeState == kvp.Key)
+            //            {
+            //                inRes = "yes";
+            //                score = r.ClassifierScore.ToString("F4");
+            //                qv = r.FdrInfo?.QValue.ToString("F4") ?? "null";
+            //                break;
+            //            }
+            //        }
+            //        Console.WriteLine($"    {kvp.Key,-42}  {kvp.Value,7:F3}  {inRes,12}  {score,10}  {qv,8}");
+            //        if (++shown >= 20) break;
+            //    }
+            //    Console.WriteLine();
+
+            //    // Sample 10 of our 1% IDs with RT info
+            //    Console.WriteLine("  [DEBUG] Sample of our q≤0.01 IDs with RT info:");
+            //    Console.WriteLine($"    {"Key",-42}  {"LibRT",7}  {"PredRT",7}  {"ApexRT",7}  {"RtDev",6}  {"InGT",5}");
+            //    Console.WriteLine("    " + new string('─', 85));
+            //    shown = 0;
+            //    for (int i = 0; i < results.Count && shown < 10; i++)
+            //    {
+            //        var r = results[i];
+            //        if (r.IsDecoy || r.FdrInfo == null || r.FdrInfo.QValue > 0.01) continue;
+            //        string key = r.Sequence + "/" + r.ChargeState;
+            //        bool inGt = rtLookup.ContainsKey(key);
+            //        double pred = (lowess != null && r.LibraryRetentionTime.HasValue)
+            //            ? lowess.ToMinutes(r.LibraryRetentionTime.Value) : double.NaN;
+            //        Console.WriteLine($"    {key,-42}  " +
+            //            $"{(r.LibraryRetentionTime.HasValue ? r.LibraryRetentionTime.Value.ToString("F3") : "null"),7}  " +
+            //            $"{(double.IsNaN(pred) ? "null" : pred.ToString("F3")),7}  " +
+            //            $"{(float.IsNaN(r.ObservedApexRt) ? "NaN" : r.ObservedApexRt.ToString("F3")),7}  " +
+            //            $"{(float.IsNaN(r.RtDeviationMinutes) ? "NaN" : r.RtDeviationMinutes.ToString("F3")),6}  " +
+            //            $"{(inGt ? "YES" : "no"),5}");
+            //        shown++;
+            //    }
+
+            //    // ────────────────────────────────────────────────────────
+            //    // Deep Gap Analysis
+            //    // ────────────────────────────────────────────────────────
+            //    PrintDeepGapAnalysis(results, rtLookup, combined, lowess, gapAnalysisTsvPath);
+            //}
+            //else
+            //{
+            //    Console.WriteLine("  Skipped (no ground truth).");
+            //    Console.WriteLine();
+            //    Console.WriteLine("  [DEBUG] Sample q≤0.01 targets:");
+            //    Console.WriteLine($"    {"Sequence",-42}  {"LibRT",7}  {"ApexRT",7}  {"RtDev",6}  {"Apex",6}  {"Peak",4}");
+            //    Console.WriteLine("    " + new string('─', 82));
+            //    int shown = 0;
+            //    for (int i = 0; i < results.Count && shown < 15; i++)
+            //    {
+            //        var r = results[i];
+            //        if (r.IsDecoy || r.FdrInfo == null || r.FdrInfo.QValue > 0.01) continue;
+            //        Console.WriteLine($"    {r.Sequence,-42}  " +
+            //            $"{(r.LibraryRetentionTime.HasValue ? r.LibraryRetentionTime.Value.ToString("F3") : "null"),7}  " +
+            //            $"{(float.IsNaN(r.ObservedApexRt) ? "NaN" : r.ObservedApexRt.ToString("F3")),7}  " +
+            //            $"{(float.IsNaN(r.RtDeviationMinutes) ? "NaN" : r.RtDeviationMinutes.ToString("F3")),6}  " +
+            //            $"{(float.IsNaN(r.ApexScore) ? "NaN" : r.ApexScore.ToString("F4")),6}  " +
+            //            $"{(r.DetectedPeakGroup?.IsValid.ToString() ?? "null"),4}");
+            //        shown++;
+            //    }
+            //}
 
             // ════════════════════════════════════════════════════════════
             //  Step 8: Feature diagnostics
             // ════════════════════════════════════════════════════════════
-            Section("8. Feature diagnostics");
+            Section("8. Feature diagnostics for: " + classifierType);
             Console.WriteLine("  All targets vs all decoys:");
             PrintFeatureDiagnostics(results, features);
             Console.WriteLine();
             Console.WriteLine("  q≤0.01 targets vs all decoys:");
             PrintFeatureDiagnosticsFiltered(results, features, 0.01f);
 
-            // ════════════════════════════════════════════════════════════
-            //  Step 9: Classifier comparison
-            // ════════════════════════════════════════════════════════════
-            Section("9. Classifier comparison");
+            //// ════════════════════════════════════════════════════════════
+            ////  Step 9: Classifier comparison
+            //// ════════════════════════════════════════════════════════════
+            //Section("9. Classifier comparison");
 
-            Console.WriteLine("  Running LDA...");
-            var ldaFdr = DiaFdrEngine.RunIterativeFdr(results, features, DiaClassifierType.LinearDiscriminant);
-            int[] ldaCounts = CountIdsAtThresholds(results, thresholds);
-            Console.WriteLine($"  LDA: {ldaCounts[2]:N0} IDs at 1% FDR  ({ldaFdr.IterationsCompleted} iters)");
-            foreach (var diag in ldaFdr.Diagnostics) DiaFdrEngine.PrintDiagnostics(diag);
+            //Console.WriteLine("  Running LDA...");
+            //var ldaFdr = DiaFdrEngine.RunIterativeFdr(results, features, DiaClassifierType.LinearDiscriminant);
+            //int[] ldaCounts = CountIdsAtThresholds(results, thresholds);
+            //Console.WriteLine($"  LDA: {ldaCounts[2]:N0} IDs at 1% FDR  ({ldaFdr.IterationsCompleted} iters)");
+            //foreach (var diag in ldaFdr.Diagnostics) DiaFdrEngine.PrintDiagnostics(diag);
 
-            Console.WriteLine();
-            Console.WriteLine("  Running Neural Network...");
-            var nnFdr = DiaFdrEngine.RunIterativeFdr(results, features, DiaClassifierType.NeuralNetwork);
-            int[] nnCounts = CountIdsAtThresholds(results, thresholds);
-            Console.WriteLine($"  NN:  {nnCounts[2]:N0} IDs at 1% FDR  ({nnFdr.IterationsCompleted} iters)");
+            //Console.WriteLine();
+            //Console.WriteLine("  Running Neural Network...");
+            //var nnFdr = DiaFdrEngine.RunIterativeFdr(results, features, DiaClassifierType.NeuralNetwork);
+            //int[] nnCounts = CountIdsAtThresholds(results, thresholds);
+            //Console.WriteLine($"  NN:  {nnCounts[2]:N0} IDs at 1% FDR  ({nnFdr.IterationsCompleted} iters)");
 
-            // Restore LDA scores for TSV export
-            Console.WriteLine();
-            Console.WriteLine("  Re-running LDA for TSV export...");
-            DiaFdrEngine.RunIterativeFdr(results, features, DiaClassifierType.LinearDiscriminant);
-            gbtCounts = CountIdsAtThresholds(results, thresholds);
+            //Console.WriteLine("  Running GBT...");
+            //var gbtFdr = DiaFdrEngine.RunIterativeFdr(results, features, DiaClassifierType.GradientBoostedTree);
+            //gbtCounts = CountIdsAtThresholds(results, thresholds);
+            //Console.WriteLine($"  GBT: {gbtCounts[2]:N0} IDs at 1% FDR  ({gbtFdr.IterationsCompleted} iters)");
+            //foreach (var diag in gbtFdr.Diagnostics) DiaFdrEngine.PrintDiagnostics(diag);
+
+            ////// Restore LDA scores for TSV export — do NOT reassign gbtCounts here.
+            ////// gbtCounts was captured after the GBT run in Step 6 and must not be overwritten.
+            ////Console.WriteLine();
+            ////Console.WriteLine("  Re-running LDA for TSV export...");
+            ////DiaFdrEngine.RunIterativeFdr(results, features, DiaClassifierType.LinearDiscriminant);
 
             Console.WriteLine();
             Console.WriteLine($"  {"Classifier",-16}  {"q≤0.001",8}  {"q≤0.005",8}  {"q≤0.010",8}  {"q≤0.050",8}  {"q≤0.100",8}");
             Console.WriteLine("  " + new string('─', 68));
-            PrintRow("GBT", gbtCounts);
-            PrintRow("LDA", ldaCounts);
-            PrintRow("NN", nnCounts);
+            PrintRow(classifierType.ToString(), classifierResultCounts);
+            //PrintRow("LDA", ldaCounts);
+            //PrintRow("NN", nnCounts);
             if (rtLookup != null)
                 PrintRow("DIA-NN GT", new[] { -1, -1, rtLookup.Count, -1, -1 });
 
@@ -522,7 +541,7 @@ namespace Development.Dia
                     string dir = Path.GetDirectoryName(outputTsvPath);
                     if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                         Directory.CreateDirectory(dir);
-                    ExportResultsTsv(results, features, outputTsvPath, "GBT");
+                    ExportResultsTsv(results, features, outputTsvPath, classifierType.ToString());
                     Console.WriteLine($"  Written: {outputTsvPath}");
                 }
                 catch (Exception ex) { Error($"TSV export failed: {ex.Message}"); }
@@ -533,6 +552,73 @@ namespace Development.Dia
             Console.WriteLine("  Done.");
             Console.WriteLine(new string('═', 72));
         }
+
+
+        private static async Task ApplyIrtRtCorrection(
+    IReadOnlyList<LibraryPrecursorInput> targets,
+    List<LibraryPrecursorInput> decoys)
+        {
+            int n = targets.Count;
+            var allSequences = new List<string>(n * 2);
+            for (int i = 0; i < n; i++)
+                allSequences.Add(StripMods(targets[i].Sequence));
+            for (int i = 0; i < n; i++)
+                allSequences.Add(StripMods(decoys[i].Sequence));
+
+            Prosit2019iRT? model;
+            try
+            {
+                WarningException? warnings = null;
+                model = new Prosit2019iRT(allSequences, out warnings);
+                if (warnings != null)
+                    Console.WriteLine($"  [iRT] {warnings.Message.Split('\n')[0]}");
+                await model.RunInferenceAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"  [iRT] WARNING: Prosit failed — decoy RTs unchanged. ({ex.Message})");
+                return;
+            }
+
+            var predictions = model.Predictions;
+            if (predictions?.Count != n * 2)
+            {
+                Console.WriteLine($"  [iRT] WARNING: Expected {n * 2} predictions, got {predictions?.Count ?? 0}.");
+                return;
+            }
+
+            int corrected = 0;
+            for (int i = 0; i < n; i++)
+            {
+                double? targetRt = targets[i].RetentionTime ?? targets[i].IrtValue;
+                if (targetRt == null) continue;
+                double delta = predictions[i + n].PredictedRetentionTime
+                             - predictions[i].PredictedRetentionTime;
+                var old = decoys[i];
+                decoys[i] = new LibraryPrecursorInput(
+                    old.Sequence, old.PrecursorMz, old.ChargeState,
+                    retentionTime: targetRt.Value + delta,
+                    isDecoy: true,
+                    old.FragmentMzs, old.FragmentIntensities,
+                    old.IrtValue);
+                corrected++;
+            }
+            Console.WriteLine($"  [iRT] RT correction applied: {corrected:N0} decoys updated.");
+        }
+
+        private static string StripMods(string seq)
+        {
+            if (string.IsNullOrEmpty(seq)) return "";
+            var sb = new System.Text.StringBuilder(seq.Length);
+            bool inMod = false; char open = ' ';
+            foreach (char c in seq)
+            {
+                if (!inMod) { if (c == '(' || c == '[') { inMod = true; open = c; } else sb.Append(c); }
+                else if (c == (open == '(' ? ')' : ']')) inMod = false;
+            }
+            return sb.ToString();
+        }
+
 
         // ════════════════════════════════════════════════════════════════
         //  Deep Gap Analysis

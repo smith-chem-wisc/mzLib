@@ -43,6 +43,9 @@ namespace MassSpectrometry.Dia
         /// <summary>Whether this is a decoy identification (from decoy library)</summary>
         public bool IsDecoy { get; }
 
+        /// <summary>Index into the combined precursors list. Set during assembly. -1 if unknown.</summary>
+        public int PrecursorIndex { get; set; } = -1;
+
         #endregion
 
         #region Scores

@@ -268,7 +268,7 @@ namespace MassSpectrometry.Dia
             double? rt = null;
             if (rtLookup != null && rtLookup.TryGetValue(key, out double rtVal))
                 rt = rtVal;
-            else if (mspRt >= 0)
+            else if (mspRt != -1)  // accept any value including negative; -1 is the sentinel for "not found"
                 rt = mspRt;
 
             return new LibraryPrecursorInput(

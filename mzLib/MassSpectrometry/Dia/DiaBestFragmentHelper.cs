@@ -8,33 +8,54 @@ namespace MassSpectrometry.Dia
     /// <summary>
     /// Phase 13, Prompt 4: Best-fragment reference curve features.
     /// Phase 16A, Prompt 1: BestFragWeightedCosine confirmed active in classifier (feature [26]).
-    /// 
+    /// Phase 19 (this revision): Pearson correlations now computed over an apex-centred
+    /// window sized to the measured peak FWHM, replacing the full extraction window.
+    ///
+    /// Motivation:
+    ///   The full extraction window (~50 scans) is dominated by baseline noise on either
+    ///   side of the chromatographic peak. Correlating 50 points where ~45 are near-zero
+    ///   produces spuriously high or noisy Pearson values. The apex-centred window
+    ///   (typically 5-7 scans = ±FWHM/2 around the apex) captures only the region where
+    ///   the peak actually lives, giving a physically meaningful correlation.
+    ///
+    /// Window sizing:
+    ///   scanInterval   = median inter-scan gap in refRts
+    ///   halfWidthScans = max(MinApexHalfWidthScans,
+    ///                        round(peakWidthMinutes / 2 / scanInterval))
+    ///   range          = [apexIdx - halfWidthScans, apexIdx + halfWidthScans]
+    ///
+    /// Fragment eligibility: ≥ 2 nonzero time points within the window
+    ///   (relaxed from 3 because the window is narrow by design).
+    ///
     /// Identifies the "best" (least interfered) fragment ion by finding the one whose
     /// XIC has the highest sum of Pearson correlations with all other detected fragments.
     /// Then computes each detected fragment's correlation with this reference fragment,
     /// producing summary statistics (sum, median, min, std) that measure how consistently
     /// all fragments coelute with the cleanest signal.
-    /// 
-    /// Phase 13 Action Item 1: Also computes BestFragWeightedCosine — a cosine score
-    /// between library and observed apex intensities, weighted by each fragment's
-    /// correlation with the best fragment. This down-weights interfered fragments.
-    /// 
-    /// True peptide signals show high, consistent correlations with the best fragment.
-    /// Interfered or random matches show low or scattered correlations.
+    ///
+    /// Also computes BestFragWeightedCosine — a cosine score between library and observed
+    /// apex intensities, weighted by each fragment's correlation with the best fragment.
     /// </summary>
     internal static class DiaBestFragmentHelper
     {
         /// <summary>
+        /// Minimum half-width in scans on each side of the apex.
+        /// Guarantees at least this many scans even for very narrow peaks.
+        /// </summary>
+        private const int MinApexHalfWidthScans = 3;
+
+        /// <summary>
         /// Computes best-fragment reference curve features and populates the result.
-        /// 
+        ///
         /// Algorithm:
-        ///   1. Identify detected fragments (≥3 nonzero time points)
-        ///   2. Compute full pairwise Pearson correlation matrix among detected fragments
-        ///   3. Find the "best" fragment = the one with the highest sum of correlations
-        ///   4. Extract each fragment's correlation with the best fragment
-        ///   5. Compute summary stats: sum, median, min, std of those correlations
-        ///   6. Compute weighted cosine at apex using correlations as weights (Action Item 1)
-        /// 
+        ///   1. Compute apex-centred window from peakWidthMinutes and refRts scan interval
+        ///   2. Identify detected fragments (≥2 nonzero time points within window)
+        ///   3. Compute full pairwise Pearson correlation matrix within window
+        ///   4. Find the "best" fragment = highest sum of correlations with others
+        ///   5. Extract each fragment's correlation with the best fragment
+        ///   6. Compute summary stats: sum, median, min, std of those correlations
+        ///   7. Compute weighted cosine at apex using correlations as weights
+        ///
         /// Requires ≥3 detected fragments to produce meaningful results.
         /// </summary>
         /// <param name="matrix">
@@ -44,8 +65,8 @@ namespace MassSpectrometry.Dia
         /// <param name="fragmentCount">Number of fragment ions (columns).</param>
         /// <param name="timePointCount">Number of time points (rows).</param>
         /// <param name="detectedFragmentCount">
-        /// Number of fragments with at least one nonzero data point.
-        /// Used as an early-exit check.
+        /// Number of fragments with at least one nonzero data point across the full window.
+        /// Used as an early-exit check only.
         /// </param>
         /// <param name="result">DiaSearchResult to populate with computed features.</param>
         /// <param name="libraryIntensities">
@@ -56,6 +77,19 @@ namespace MassSpectrometry.Dia
         /// Offset into the matrix for the apex scan row (= apexScanIndex * fragmentCount).
         /// Used for weighted cosine computation.
         /// </param>
+        /// <param name="apexLocalIdx">
+        /// Index of the apex scan within the local refRts / matrix time axis.
+        /// Centre of the correlation window.
+        /// </param>
+        /// <param name="peakWidthMinutes">
+        /// Measured chromatographic peak width in minutes
+        /// (refRts[RightIndex] - refRts[LeftIndex] from the detected peak group).
+        /// Used to derive halfWidthScans. Pass 0f to use MinApexHalfWidthScans only.
+        /// </param>
+        /// <param name="refRts">
+        /// RT timestamps of the reference fragment, length = timePointCount.
+        /// Used to compute the median inter-scan interval for window sizing.
+        /// </param>
         public static void ComputeBestFragmentFeatures(
             ReadOnlySpan<float> matrix,
             int fragmentCount,
@@ -63,34 +97,42 @@ namespace MassSpectrometry.Dia
             int detectedFragmentCount,
             DiaSearchResult result,
             ReadOnlySpan<float> libraryIntensities,
-            int apexRowOffset)
+            int apexRowOffset,
+            int apexLocalIdx,
+            float peakWidthMinutes,
+            ReadOnlySpan<float> refRts)
         {
             // Need at least 3 detected fragments for meaningful pairwise correlations
             if (detectedFragmentCount < 3 || fragmentCount < 3 || timePointCount < 3)
-                return; // fields remain NaN from constructor
+                return;
 
-            // Step 1: Find fragments with ≥3 nonzero time points (suitable for Pearson)
+            // ── Step 0: Compute apex-centred window ──────────────────────────
+            int rangeStart, rangeEnd;
+            ComputeApexWindow(timePointCount, apexLocalIdx, peakWidthMinutes, refRts,
+                              out rangeStart, out rangeEnd);
+
+            int rangeLength = rangeEnd - rangeStart + 1;
+            if (rangeLength < 2) return;
+
+            // ── Step 1: Find fragments with ≥2 nonzero points within window ──
+            // Threshold relaxed from 3 to 2 because the window is narrow.
             Span<int> detectedIndices = stackalloc int[Math.Min(fragmentCount, 64)];
             int nDetected = 0;
 
             for (int f = 0; f < fragmentCount && nDetected < detectedIndices.Length; f++)
             {
                 int nonzero = 0;
-                for (int t = 0; t < timePointCount; t++)
-                {
-                    if (matrix[t * fragmentCount + f] > 0f)
-                        nonzero++;
-                }
-                if (nonzero >= 3)
+                for (int t = rangeStart; t <= rangeEnd; t++)
+                    if (matrix[t * fragmentCount + f] > 0f) nonzero++;
+                if (nonzero >= 2)
                     detectedIndices[nDetected++] = f;
             }
 
             if (nDetected < 3)
                 return;
 
-            // Step 2: Compute pairwise Pearson correlation matrix (upper triangle)
-            // Store as flat array: corrMatrix[i * nDetected + j]
-            // We only need the upper triangle but store symmetrically for easy row-sum
+            // ── Step 2: Compute pairwise Pearson correlation matrix ───────────
+            // Within the apex-centred window only.
             int corrSize = nDetected * nDetected;
             Span<float> corrMatrix = corrSize <= 256
                 ? stackalloc float[corrSize]
@@ -102,19 +144,18 @@ namespace MassSpectrometry.Dia
                 corrMatrix[a * nDetected + a] = 1.0f; // self-correlation
                 for (int b = a + 1; b < nDetected; b++)
                 {
-                    float r = PearsonCorrelation(
+                    float r = PearsonCorrelationOnRange(
                         matrix, detectedIndices[a], detectedIndices[b],
-                        fragmentCount, timePointCount);
+                        fragmentCount, rangeStart, rangeEnd);
 
-                    if (float.IsNaN(r))
-                        r = 0f; // treat undefined correlation as zero
+                    if (float.IsNaN(r)) r = 0f; // undefined → zero
 
                     corrMatrix[a * nDetected + b] = r;
                     corrMatrix[b * nDetected + a] = r;
                 }
             }
 
-            // Step 3: Find the best fragment (highest sum of correlations with others)
+            // ── Step 3: Find best fragment (highest row-sum) ─────────────────
             int bestIdx = 0;
             float bestSum = float.MinValue;
 
@@ -122,19 +163,11 @@ namespace MassSpectrometry.Dia
             {
                 float rowSum = 0f;
                 for (int b = 0; b < nDetected; b++)
-                {
-                    if (b != a)
-                        rowSum += corrMatrix[a * nDetected + b];
-                }
-                if (rowSum > bestSum)
-                {
-                    bestSum = rowSum;
-                    bestIdx = a;
-                }
+                    if (b != a) rowSum += corrMatrix[a * nDetected + b];
+                if (rowSum > bestSum) { bestSum = rowSum; bestIdx = a; }
             }
 
-            // Step 4: Extract each fragment's correlation with the best fragment
-            // (excluding the best fragment's self-correlation)
+            // ── Step 4: Extract correlations of all others vs best fragment ───
             Span<float> refCorrs = stackalloc float[nDetected - 1];
             int idx = 0;
             for (int a = 0; a < nDetected; a++)
@@ -145,51 +178,116 @@ namespace MassSpectrometry.Dia
 
             int n = refCorrs.Length;
 
-            // Step 5: Compute summary statistics
-            // BestFragCorrelationSum = sum of correlations between best and all others
+            // ── Step 5: Summary statistics ────────────────────────────────────
             result.BestFragCorrelationSum = bestSum;
 
-            // Sort for median
             SortSpan(refCorrs);
 
-            // MedianFragRefCorr
             result.MedianFragRefCorr = n % 2 == 1
                 ? refCorrs[n / 2]
                 : (refCorrs[n / 2 - 1] + refCorrs[n / 2]) / 2f;
 
-            // MinFragRefCorr (after sort, it's the first element)
             result.MinFragRefCorr = refCorrs[0];
 
-            // StdFragRefCorr (population standard deviation)
             float sum = 0f;
-            for (int i = 0; i < n; i++)
-                sum += refCorrs[i];
+            for (int i = 0; i < n; i++) sum += refCorrs[i];
             float mean = sum / n;
-
             float sumSqDev = 0f;
-            for (int i = 0; i < n; i++)
-            {
-                float dev = refCorrs[i] - mean;
-                sumSqDev += dev * dev;
-            }
+            for (int i = 0; i < n; i++) { float dev = refCorrs[i] - mean; sumSqDev += dev * dev; }
             result.StdFragRefCorr = MathF.Sqrt(sumSqDev / n);
 
-            // Step 6: Best-fragment weighted cosine at apex (Action Item 1)
-            // Weight each fragment's contribution to the cosine by its correlation
-            // with the best fragment. Negative correlations are clamped to 0.
-            // The best fragment itself gets weight 1.0.
+            // ── Step 6: Best-fragment weighted cosine at apex ─────────────────
             result.BestFragIndex = detectedIndices[bestIdx];
             ComputeWeightedCosine(
                 matrix, corrMatrix, detectedIndices, nDetected, bestIdx,
                 libraryIntensities, fragmentCount, apexRowOffset, result);
         }
 
+        // ── Window computation ────────────────────────────────────────────────
+
         /// <summary>
-        /// Computes weighted cosine between library and observed apex intensities,
-        /// using each fragment's correlation with the best fragment as the weight.
-        /// Fragments that correlate poorly with the reference are down-weighted,
-        /// producing a cleaner cosine score that is robust to interference.
+        /// Computes the apex-centred correlation window bounds.
+        /// halfWidthScans = max(MinApexHalfWidthScans, round(peakWidthMinutes/2/scanInterval))
         /// </summary>
+        private static void ComputeApexWindow(
+            int timePointCount,
+            int apexLocalIdx,
+            float peakWidthMinutes,
+            ReadOnlySpan<float> refRts,
+            out int rangeStart,
+            out int rangeEnd)
+        {
+            // Compute median inter-scan interval from refRts
+            float scanInterval = 0.03f; // ~30ms fallback
+            if (timePointCount >= 2)
+            {
+                // Collect gaps into a small buffer; use stack for short sequences
+                if (timePointCount - 1 <= 64)
+                {
+                    Span<float> gaps = stackalloc float[timePointCount - 1];
+                    for (int i = 0; i < timePointCount - 1; i++)
+                        gaps[i] = refRts[i + 1] - refRts[i];
+                    SortSpan(gaps);
+                    float med = gaps[(timePointCount - 1) / 2];
+                    if (med > 0f) scanInterval = med;
+                }
+                else
+                {
+                    // Fallback: global average for long sequences
+                    float total = refRts[timePointCount - 1] - refRts[0];
+                    float avg = total / (timePointCount - 1);
+                    if (avg > 0f) scanInterval = avg;
+                }
+            }
+
+            int halfWidthScans = MinApexHalfWidthScans;
+            if (peakWidthMinutes > 0f)
+            {
+                int dynamic = (int)Math.Round(peakWidthMinutes / 2f / scanInterval);
+                halfWidthScans = Math.Max(MinApexHalfWidthScans, dynamic);
+            }
+
+            rangeStart = Math.Max(0, apexLocalIdx - halfWidthScans);
+            rangeEnd = Math.Min(timePointCount - 1, apexLocalIdx + halfWidthScans);
+        }
+
+        // ── Pearson correlation within a range ────────────────────────────────
+
+        /// <summary>
+        /// Pearson correlation between two fragment XICs within [rangeStart, rangeEnd].
+        /// Uses only time points where BOTH fragments have nonzero intensity.
+        /// Returns NaN if fewer than 2 co-detected time points.
+        /// </summary>
+        private static float PearsonCorrelationOnRange(
+            ReadOnlySpan<float> matrix, int fragA, int fragB,
+            int fragmentCount, int rangeStart, int rangeEnd)
+        {
+            float sumA = 0, sumB = 0, sumAB = 0, sumA2 = 0, sumB2 = 0;
+            int n = 0;
+
+            for (int t = rangeStart; t <= rangeEnd; t++)
+            {
+                float a = matrix[t * fragmentCount + fragA];
+                float b = matrix[t * fragmentCount + fragB];
+                if (a <= 0f || b <= 0f) continue;
+                sumA += a; sumB += b;
+                sumAB += a * b;
+                sumA2 += a * a;
+                sumB2 += b * b;
+                n++;
+            }
+
+            if (n < 2) return float.NaN;
+
+            float denom = (n * sumA2 - sumA * sumA) * (n * sumB2 - sumB * sumB);
+            if (denom <= 0f) return float.NaN;
+
+            float r = (n * sumAB - sumA * sumB) / MathF.Sqrt(denom);
+            return Math.Clamp(r, -1f, 1f);
+        }
+
+        // ── Weighted cosine ───────────────────────────────────────────────────
+
         private static void ComputeWeightedCosine(
             ReadOnlySpan<float> matrix,
             ReadOnlySpan<float> corrMatrix,
@@ -206,16 +304,11 @@ namespace MassSpectrometry.Dia
             for (int a = 0; a < nDetected; a++)
             {
                 int f = detectedIndices[a];
-
-                // Observed intensity at the apex scan for this fragment
                 float obs = matrix[apexRowOffset + f];
                 if (obs <= 0f) continue;
-
-                // Library intensity for this fragment
                 float lib = f < libraryIntensities.Length ? libraryIntensities[f] : 0f;
                 if (lib <= 0f) continue;
 
-                // Weight: best fragment gets 1.0, others get their correlation with best (clamped ≥ 0)
                 float weight = (a == bestIdx)
                     ? 1.0f
                     : Math.Max(0f, corrMatrix[a * nDetected + bestIdx]);
@@ -227,64 +320,20 @@ namespace MassSpectrometry.Dia
                 normObs += wObs * wObs;
             }
 
-            // Only set if we had valid weighted contributions
             if (normLib > 0f && normObs > 0f)
-            {
                 result.BestFragWeightedCosine = Math.Clamp(
                     dot / (MathF.Sqrt(normLib) * MathF.Sqrt(normObs)), 0f, 1f);
-            }
-            // else: remains NaN from constructor
         }
 
-        /// <summary>
-        /// Pearson correlation between two fragment XICs across all time points.
-        /// Uses only time points where BOTH fragments have nonzero intensity.
-        /// Returns NaN if fewer than 3 co-detected time points.
-        /// </summary>
-        private static float PearsonCorrelation(
-            ReadOnlySpan<float> matrix, int fragA, int fragB,
-            int fragmentCount, int timePointCount)
-        {
-            float sumA = 0, sumB = 0, sumAB = 0, sumA2 = 0, sumB2 = 0;
-            int n = 0;
+        // ── Sort helper ───────────────────────────────────────────────────────
 
-            for (int t = 0; t < timePointCount; t++)
-            {
-                float a = matrix[t * fragmentCount + fragA];
-                float b = matrix[t * fragmentCount + fragB];
-                if (a <= 0f || b <= 0f) continue;
-
-                sumA += a;
-                sumB += b;
-                sumAB += a * b;
-                sumA2 += a * a;
-                sumB2 += b * b;
-                n++;
-            }
-
-            if (n < 3) return float.NaN;
-
-            float denom = (n * sumA2 - sumA * sumA) * (n * sumB2 - sumB * sumB);
-            if (denom <= 0f) return float.NaN;
-
-            float r = (n * sumAB - sumA * sumB) / MathF.Sqrt(denom);
-            return Math.Clamp(r, -1f, 1f);
-        }
-
-        /// <summary>
-        /// Simple insertion sort for small spans (typically ≤ 12 elements).
-        /// </summary>
         private static void SortSpan(Span<float> span)
         {
             for (int i = 1; i < span.Length; i++)
             {
                 float key = span[i];
                 int j = i - 1;
-                while (j >= 0 && span[j] > key)
-                {
-                    span[j + 1] = span[j];
-                    j--;
-                }
+                while (j >= 0 && span[j] > key) { span[j + 1] = span[j]; j--; }
                 span[j + 1] = key;
             }
         }

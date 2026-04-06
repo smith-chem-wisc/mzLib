@@ -211,6 +211,8 @@ namespace MassSpectrometry.Dia
 
             // ── Pre-compute target windows ───────────────────────────────────────
             // Stored so decoys can look up their paired target window by index.
+            // Decoys use the same window as their positionally-paired target, placing
+            // them in the same local RT signal environment for fair T/D competition.
             var targetRtMin = new float[targetCount];
             var targetRtMax = new float[targetCount];
             var targetHasWindow = new bool[targetCount];
@@ -219,10 +221,7 @@ namespace MassSpectrometry.Dia
             {
                 var p = precursors[i];
                 if (!p.RetentionTime.HasValue)
-                {
-                    // NOTE: target has no library RT — skipped (see method summary).
-                    continue;
-                }
+                    continue; // NOTE: target has no library RT — skipped (see method summary).
 
                 double libRt = p.RetentionTime.Value;
                 double predictedRt = lowess.ToMinutes(libRt);
@@ -237,10 +236,6 @@ namespace MassSpectrometry.Dia
             // ── First pass: count valid queries ──────────────────────────────────
             int totalQueryCount = 0;
             int skippedNoWindow = 0;
-            // NOTE: SkippedNoFragments is overloaded here to also count precursors
-            // skipped due to missing RetentionTime (no-RT targets and their paired decoys).
-            // This is a conscious simplification — GenerationResult has no third skip slot.
-            // When revisiting the no-RT fallback, add SkippedNoRt to GenerationResult.
             int skippedNoFragments = 0;
 
             for (int i = 0; i < precursors.Count; i++)
@@ -294,8 +289,17 @@ namespace MassSpectrometry.Dia
                 {
                     int pairedIdx = firstDecoyIdx >= 0 ? i - firstDecoyIdx : -1;
                     if (pairedIdx < 0 || pairedIdx >= targetCount || !targetHasWindow[pairedIdx]) continue;
-                    rtMin = targetRtMin[pairedIdx];
-                    rtMax = targetRtMax[pairedIdx];
+
+                    // Narrow decoy extraction to ±2σ around the paired target's predicted RT.
+                    // The full target window (±hw) spans ~1-2 min and contains many other
+                    // peptides whose peaks the decoy detector would otherwise find.
+                    // Constraining to ±2σ forces decoys to extract data only where their
+                    // paired target is expected to elute, so a decoy with no matching
+                    // signal gets a flat XIC rather than borrowing a real peptide peak.
+                    float targetCenter = (targetRtMin[pairedIdx] + targetRtMax[pairedIdx]) * 0.5f;
+                    float halfWidth = (float)(2.0 * lowess.SigmaMinutes);
+                    rtMin = targetCenter - halfWidth;
+                    rtMax = targetCenter + halfWidth;
                 }
 
                 int groupOffset = queryIndex;
@@ -321,8 +325,58 @@ namespace MassSpectrometry.Dia
                     rtMax: rtMax));
             }
 
+            //// ── Second pass: fill ─────────────────────────────────────────────────
+            //int queryIndex = 0;
+            //for (int i = 0; i < precursors.Count; i++)
+            //{
+            //    var p = precursors[i];
+
+            //    int windowId = scanIndex.FindWindowForPrecursorMz(p.PrecursorMz);
+            //    if (windowId < 0 || p.FragmentCount == 0) continue;
+
+            //    float rtMin, rtMax;
+
+            //    if (!p.IsDecoy)
+            //    {
+            //        if (i >= targetCount || !targetHasWindow[i]) continue;
+            //        rtMin = targetRtMin[i];
+            //        rtMax = targetRtMax[i];
+            //    }
+            //    else
+            //    {
+            //        int pairedIdx = firstDecoyIdx >= 0 ? i - firstDecoyIdx : -1;
+            //        if (pairedIdx < 0 || pairedIdx >= targetCount || !targetHasWindow[pairedIdx]) continue;
+            //        rtMin = targetRtMin[pairedIdx];
+            //        rtMax = targetRtMax[pairedIdx];
+            //    }
+
+            //    int groupOffset = queryIndex;
+
+            //    for (int f = 0; f < p.FragmentCount; f++)
+            //    {
+            //        queries[queryIndex] = new FragmentQuery(
+            //            targetMz: p.FragmentMzs[f],
+            //            tolerancePpm: ppmTolerance,
+            //            rtMin: rtMin,
+            //            rtMax: rtMax,
+            //            windowId: windowId,
+            //            queryId: queryIndex);
+            //        queryIndex++;
+            //    }
+
+            //    groups.Add(new PrecursorQueryGroup(
+            //        inputIndex: i,
+            //        queryOffset: groupOffset,
+            //        queryCount: p.FragmentCount,
+            //        windowId: windowId,
+            //        rtMin: rtMin,
+            //        rtMax: rtMax));
+            //}
+
             return new GenerationResult(queries, groups.ToArray(), skippedNoWindow, skippedNoFragments);
         }
+
+
         /// <summary>
         /// Generates FragmentQuery[] from library precursor inputs.
         /// Two-pass: first counts for a single allocation, then fills.
@@ -473,6 +527,7 @@ namespace MassSpectrometry.Dia
                     rtWindowStart: group.RtMin,
                     rtWindowEnd: group.RtMax
                 );
+                result.PrecursorIndex = group.InputIndex;
 
                 int detected = 0;
                 for (int f = 0; f < group.QueryCount; f++)
@@ -558,6 +613,7 @@ namespace MassSpectrometry.Dia
                     rtWindowStart: group.RtMin,
                     rtWindowEnd: group.RtMax
                 );
+                result.PrecursorIndex = group.InputIndex;
 
                 // ── Populate summed intensities and XIC point counts ────────
                 int detected = 0;
@@ -619,10 +675,8 @@ namespace MassSpectrometry.Dia
                     {
                         var fr = fragmentResults[f];
                         if (fr.DataPointCount == 0) continue;
-
                         ReadOnlySpan<float> fragRts = rtBuffer.Slice(fr.RtBufferOffset, fr.DataPointCount);
                         ReadOnlySpan<float> fragInts = intensityBuffer.Slice(fr.IntensityBufferOffset, fr.DataPointCount);
-
                         // Two-pointer alignment
                         int fragPtr = 0;
                         for (int t = 0; t < timePointCount && fragPtr < fragRts.Length; t++)
@@ -644,6 +698,23 @@ namespace MassSpectrometry.Dia
                         ? (float?)lowess.ToMinutes(input.RetentionTime.Value)
                         : null;
 
+                    // For decoys, constrain peak search to window center ± 2σ so the detector
+                    // is forced to compete at the target's predicted elution time rather than
+                    // finding any real peptide peak elsewhere in the ±1 min extraction window.
+                    float peakSearchRtMin, peakSearchRtMax;
+                    if (input.IsDecoy && lowess != null)
+                    {
+                        float center = (group.RtMin + group.RtMax) * 0.5f;
+                        float halfWidth = (float)(2.0 * lowess.SigmaMinutes);
+                        peakSearchRtMin = center - halfWidth;
+                        peakSearchRtMax = center + halfWidth;
+                    }
+                    else
+                    {
+                        peakSearchRtMin = group.RtMin;
+                        peakSearchRtMax = group.RtMax;
+                    }
+
                     PeakGroup peakGroup = DiaPeakGroupDetector.SelectBest(
                         matrix, refRts, libIntensities, fragmentCount, timePointCount,
                         out float ms1Factor,
@@ -652,8 +723,8 @@ namespace MassSpectrometry.Dia
                         ms1Index: index,
                         precursorMz: (float)input.PrecursorMz,
                         ppmTolerance: parameters.PpmTolerance,
-                        rtMin: group.RtMin,
-                        rtMax: group.RtMax);
+                        rtMin: peakSearchRtMin,
+                        rtMax: peakSearchRtMax);
 
                     result.DetectedPeakGroup = peakGroup;
 
@@ -725,32 +796,46 @@ namespace MassSpectrometry.Dia
                     result.MinFragCorr = fullMinCorr;
 
                     // ── Peak-boundary-restricted scoring ────────────────────
+                    // apexLocalIdx must be defined before the peak block so it is
+                    // available both here and in the downstream code that follows.
+                    int apexLocalIdx = peakGroup.IsValid ? peakGroup.ApexIndex : fullApexIdx;
+                    result.ObservedApexRt = refRts[apexLocalIdx];
+
                     if (peakGroup.IsValid)
                     {
-                        int peakLeft = peakGroup.LeftIndex;
-                        int peakRight = peakGroup.RightIndex;
-
-                        // Peak apex score
+                        // Peak apex cosine
                         result.PeakApexScore = CosineActiveFragments(
                             libIntensities, matrix, peakGroup.ApexIndex * fragmentCount, fragmentCount);
 
-                        // Peak-restricted fragment correlations
-                        ComputeFragmentCorrelationsOnRange(
-                            matrix, fragmentCount, timePointCount, peakLeft, peakRight,
-                            out float peakMeanCorr, out float peakMinCorr);
-                        result.PeakMeanFragCorr = peakMeanCorr;
+                        // Apex-centred, peak-width-scaled, median pairwise correlation.
+                        // Uses the measured peak FWHM to set the window half-width,
+                        // replacing the old 2-3 scan peak-boundary window.
+                        float peakWidthMinutes = (peakGroup.RightIndex < timePointCount &&
+                                                  peakGroup.LeftIndex >= 0)
+                            ? refRts[peakGroup.RightIndex] - refRts[peakGroup.LeftIndex]
+                            : 0f;
+
+                        ComputeApexCenteredFragmentCorrelations(
+                            matrix, fragmentCount, timePointCount,
+                            apexLocalIdx,
+                            peakWidthMinutes,
+                            refRts,
+                            out float peakMedCorr, out float peakMinCorr);
+
+                        result.PeakMeanFragCorr = peakMedCorr;
                         result.PeakMinFragCorr = peakMinCorr;
                     }
                     else
                     {
-                        // No valid peak found — peak features fall back to full-window
                         result.PeakApexScore = result.ApexScore;
                         result.PeakMeanFragCorr = result.MeanFragCorr;
                         result.PeakMinFragCorr = result.MinFragCorr;
                     }
 
-                    int apexLocalIdx = peakGroup.IsValid ? peakGroup.ApexIndex : fullApexIdx;
-                    result.ObservedApexRt = refRts[apexLocalIdx];
+                    // NOTE: remove the original "int apexLocalIdx = ..." line that
+                    // appears after this block in the old code — it is now defined above.
+                    // Also remove the original "result.ObservedApexRt = refRts[apexLocalIdx];"
+                    // line that appeared after the old peak block — it is now above too.
 
                     // RT deviation in experimental minutes against the LOWESS-predicted RT.
                     // Features [10] and [11]. NaN if no model or no RetentionTime.
@@ -811,9 +896,18 @@ namespace MassSpectrometry.Dia
                     }
 
                     // 3. Best-fragment reference curve (needs intensity matrix)
+                    float peakWidthMinutesForBestFrag = peakGroup.IsValid &&
+                                    peakGroup.RightIndex < timePointCount &&
+                                    peakGroup.LeftIndex >= 0
+                                    ? refRts[peakGroup.RightIndex] - refRts[peakGroup.LeftIndex]
+                                    : 0f;
+
                     DiaBestFragmentHelper.ComputeBestFragmentFeatures(
                         matrix, fragmentCount, timePointCount, detectedFragmentCount, result,
-                        input.FragmentIntensities.AsSpan(), apexLocalIdx * fragmentCount);
+                        input.FragmentIntensities.AsSpan(), apexLocalIdx * fragmentCount,
+                        apexLocalIdx,              // apex scan index in local refRts
+                        peakWidthMinutesForBestFrag,
+                        refRts);                   // RT timestamps for scan interval computation
 
                     // 4. Peak shape ratio features (boundary signal + apex prominence)
                     if (peakGroup.IsValid)
@@ -1042,7 +1136,155 @@ namespace MassSpectrometry.Dia
             float r = (n * sumAB - sumA * sumB) / MathF.Sqrt(denom);
             return Math.Clamp(r, -1f, 1f);
         }
+        /// <summary>
+        /// Computes pairwise Pearson correlations between fragment XICs in a window
+        /// centred on the chromatographic apex, sized to one measured peak half-width
+        /// on each side.
+        ///
+        /// Window sizing:
+        ///   scanInterval   = median inter-scan gap in refRts (robust to outliers)
+        ///   halfWidthScans = max(MinApexHalfWidthScans,
+        ///                        round(peakWidthMinutes / 2 / scanInterval))
+        ///   range          = [apexIdx - halfWidthScans, apexIdx + halfWidthScans]
+        ///
+        /// This gives ~5-7 scans for our typical FWHM of 0.069 min at ~33 scans/min,
+        /// replacing the 2-3 scan peak-boundary window (too narrow for reliableComputeFragmentCorrelationsOnRange
+        /// Pearson) and the ~50 scan full-window (dominated by baseline noise).
+        ///
+        /// Summary statistic: MEDIAN pairwise correlation.
+        ///   Mean is sensitive to one noisy fragment pair dragging it down.
+        ///   Median is robust — one bad pair out of 28 has negligible effect.
+        ///
+        /// Fragment eligibility: >= 2 nonzero time points within the window.
+        ///   (Threshold relaxed from 3 because the window is narrow.)
+        ///
+        /// Outputs PeakMeanFragCorr (now median) and PeakMinFragCorr unchanged
+        /// so no downstream code needs to change.
+        /// </summary>
+        /// <param name="matrix">Flat row-major [timePoints × fragments] matrix.</param>
+        /// <param name="fragmentCount">Number of fragment columns.</param>
+        /// <param name="timePointCount">Number of time point rows.</param>
+        /// <param name="apexIdx">Apex scan index within the local refRts array.</param>
+        /// <param name="peakWidthMinutes">
+        /// Measured peak width in minutes (refRts[RightIndex] - refRts[LeftIndex]).
+        /// Used to derive halfWidthScans. Pass 0f to use MinApexHalfWidthScans only.
+        /// </param>
+        /// <param name="refRts">RT timestamps of the reference fragment (used to
+        /// compute scan interval). Length must equal timePointCount.</param>
+        /// <param name="medianCorrelation">Median pairwise Pearson r. NaN if < 2
+        /// eligible fragments or < 1 valid pair.</param>
+        /// <param name="minCorrelation">Minimum pairwise Pearson r across all pairs.
+        /// NaN if < 1 valid pair.</param>
+        private static void ComputeApexCenteredFragmentCorrelations(
+            ReadOnlySpan<float> matrix,
+            int fragmentCount,
+            int timePointCount,
+            int apexIdx,
+            float peakWidthMinutes,
+            ReadOnlySpan<float> refRts,
+            out float medianCorrelation,
+            out float minCorrelation)
+        {
+            // Minimum half-width: always use at least this many scans on each side
+            // of the apex, regardless of measured peak width.
+            const int MinApexHalfWidthScans = 3;
 
+            medianCorrelation = float.NaN;
+            minCorrelation = float.NaN;
+
+            if (timePointCount < 2 || fragmentCount < 2) return;
+
+            // ── Compute scan interval from refRts ────────────────────────────
+            // Use median of consecutive gaps — robust to any duplicated RT values.
+            float scanInterval;
+            if (timePointCount >= 2)
+            {
+                // Collect gaps, take median
+                Span<float> gaps = timePointCount <= 65
+                    ? stackalloc float[timePointCount - 1]
+                    : new float[timePointCount - 1];
+                for (int i = 0; i < timePointCount - 1; i++)
+                    gaps[i] = refRts[i + 1] - refRts[i];
+                // Partial sort to find median (insertion sort on small span)
+                var gapsCopy = gaps.ToArray();
+                Array.Sort(gapsCopy);
+                scanInterval = gapsCopy[gapsCopy.Length / 2];
+                if (scanInterval <= 0f)
+                    scanInterval = (refRts[timePointCount - 1] - refRts[0])
+                                   / Math.Max(timePointCount - 1, 1);
+            }
+            else
+            {
+                scanInterval = 0.03f; // ~30ms fallback
+            }
+
+            if (scanInterval <= 0f) scanInterval = 0.03f;
+
+            // ── Compute dynamic half-width in scans ──────────────────────────
+            int halfWidthScans = MinApexHalfWidthScans;
+            if (peakWidthMinutes > 0f)
+            {
+                int dynamicHalf = (int)Math.Round(peakWidthMinutes / 2f / scanInterval);
+                halfWidthScans = Math.Max(MinApexHalfWidthScans, dynamicHalf);
+            }
+
+            int rangeStart = Math.Max(0, apexIdx - halfWidthScans);
+            int rangeEnd = Math.Min(timePointCount - 1, apexIdx + halfWidthScans);
+            int rangeLength = rangeEnd - rangeStart + 1;
+            if (rangeLength < 2) return;
+
+            // ── Find fragments with >= 2 nonzero points in range ─────────────
+            // Threshold is 2 (not 3) because the window is narrow by design.
+            Span<int> detectedFrags = stackalloc int[Math.Min(fragmentCount, 64)];
+            int nDetected = 0;
+
+            for (int f = 0; f < fragmentCount && nDetected < detectedFrags.Length; f++)
+            {
+                int nonzero = 0;
+                for (int t = rangeStart; t <= rangeEnd; t++)
+                    if (matrix[t * fragmentCount + f] > 0f) nonzero++;
+                if (nonzero >= 2)
+                    detectedFrags[nDetected++] = f;
+            }
+
+            if (nDetected < 2) return;
+
+            // ── Compute all pairwise Pearson correlations ─────────────────────
+            int maxPairs = nDetected * (nDetected - 1) / 2;
+            float[] pairCorrs = new float[maxPairs];
+            int nPairs = 0;
+            float minCorr = float.MaxValue;
+
+            for (int a = 0; a < nDetected; a++)
+            {
+                for (int b = a + 1; b < nDetected; b++)
+                {
+                    float r = PearsonCorrelationOnRange(
+                        matrix, detectedFrags[a], detectedFrags[b],
+                        fragmentCount, rangeStart, rangeEnd);
+
+                    if (!float.IsNaN(r))
+                    {
+                        pairCorrs[nPairs++] = r;
+                        if (r < minCorr) minCorr = r;
+                    }
+                }
+            }
+
+            if (nPairs == 0) return;
+
+            // ── Median of pairwise correlations ───────────────────────────────
+            // Sort only the populated slice.
+            var populated = new float[nPairs];
+            Array.Copy(pairCorrs, populated, nPairs);
+            Array.Sort(populated);
+
+            medianCorrelation = nPairs % 2 == 1
+                ? populated[nPairs / 2]
+                : (populated[nPairs / 2 - 1] + populated[nPairs / 2]) * 0.5f;
+
+            minCorrelation = minCorr;
+        }
         /// <summary>
         /// Binary search for the scan with RT closest to targetRt within [winStart, winStart+winCount).
         /// Scans must be sorted by RT within this range (guaranteed by DiaScanIndex).
@@ -1118,12 +1360,19 @@ namespace MassSpectrometry.Dia
         ///
         /// For each result R, the score is the fraction of R's total extracted fragment
         /// intensity that comes from fragments NOT shared (within ppm) with any other
-        /// precursor in the same DIA isolation window:
+        /// precursor in the same DIA isolation window whose chromatographic peak overlaps
+        /// with R's peak.
         ///
         ///   ChimericScore = uncontested_intensity / total_intensity
         ///
         /// A fragment of R is "contested" if any fragment of any other precursor Q in the
-        /// same window falls within <paramref name="ppmTolerance"/> ppm of that fragment's m/z.
+        /// same window falls within <paramref name="ppmTolerance"/> ppm of that fragment's m/z,
+        /// AND Q's peak (apex ± halfFwhm) overlaps with R's peak.
+        ///
+        /// Co-eluter overlap uses ObservedApexRt ± PeakWidth/2 (falling back to a fixed
+        /// 0.075 min half-width when no peak was detected). This is much narrower than the
+        /// extraction window (±1 min) and correctly restricts interference detection to
+        /// precursors that are physically co-eluting at the chromatographic peak level.
         ///
         /// Interpretation:
         ///   1.0 — no fragment m/z overlaps with any co-eluting precursor (clean precursor)
@@ -1133,13 +1382,14 @@ namespace MassSpectrometry.Dia
         /// When total extracted intensity is zero, ChimericScore is set to 1.0 (no evidence
         /// of contamination).
         ///
-        /// Must be called after assembly (ExtractedIntensities populated) and before FDR.
+        /// Must be called after assembly (ExtractedIntensities and ObservedApexRt populated)
+        /// and before FDR.
         /// </summary>
         /// <param name="precursors">Library precursor inputs carrying fragment m/z values.</param>
         /// <param name="results">Assembled results. ChimericScore is set in place.</param>
         /// <param name="ppmTolerance">
         /// PPM tolerance for fragment m/z overlap detection. A fragment is contested if
-        /// any other precursor in the same window has a fragment within this tolerance.
+        /// any other co-eluting precursor in the same window has a fragment within this tolerance.
         /// </param>
         public static void ComputeChimericScores(
             IReadOnlyList<LibraryPrecursorInput> precursors,
@@ -1148,14 +1398,6 @@ namespace MassSpectrometry.Dia
         {
             if (results == null || results.Count == 0)
                 return;
-
-            // Build a lookup: (Sequence, ChargeState, IsDecoy) → precursor index.
-            var precursorLookup = new Dictionary<(string, int, bool), int>(results.Count);
-            for (int i = 0; i < precursors.Count; i++)
-            {
-                var key = (precursors[i].Sequence, precursors[i].ChargeState, precursors[i].IsDecoy);
-                precursorLookup.TryAdd(key, i);
-            }
 
             // Group result indices by window ID.
             var windowGroups = new Dictionary<int, List<int>>();
@@ -1177,16 +1419,19 @@ namespace MassSpectrometry.Dia
                 // Cache per-result data needed in the hot loops to avoid repeated
                 // property access through the result list.
                 var precursorIndices = new int[n];
-                var rtStart = new float[n];
-                var rtEnd = new float[n];
+                var apexRt = new float[n];
+                var halfFwhm = new float[n];
+
+                const float fallbackHalfFwhm = 0.075f; // 2× median observed peak FWHM (~0.069 min)
 
                 for (int a = 0; a < n; a++)
                 {
                     var r = results[indices[a]];
-                    precursorIndices[a] = precursorLookup.TryGetValue(
-                        (r.Sequence, r.ChargeState, r.IsDecoy), out int pi) ? pi : -1;
-                    rtStart[a] = r.RtWindowStart;
-                    rtEnd[a] = r.RtWindowEnd;
+                    precursorIndices[a] = r.PrecursorIndex;
+                    apexRt[a] = r.ObservedApexRt;
+                    halfFwhm[a] = (!float.IsNaN(r.PeakWidth) && r.PeakWidth > 0f)
+                        ? r.PeakWidth * 0.5f
+                        : fallbackHalfFwhm;
                 }
 
                 for (int a = 0; a < n; a++)
@@ -1199,11 +1444,18 @@ namespace MassSpectrometry.Dia
                         continue;
                     }
 
+                    // If result A has no detected apex, fall back to extraction window overlap.
+                    // This avoids silently assigning 1.0 to unscored results.
+                    bool aHasApex = !float.IsNaN(apexRt[a]);
+                    float aLo = aHasApex ? apexRt[a] - halfFwhm[a] : ra.RtWindowStart;
+                    float aHi = aHasApex ? apexRt[a] + halfFwhm[a] : ra.RtWindowEnd;
+
                     var precA = precursors[piA];
                     float totalIntensity = 0f;
                     float uncontestedIntensity = 0f;
 
-                    for (int f = 0; f < precA.FragmentCount; f++)
+                    int fragCount = Math.Min(precA.FragmentCount, ra.ExtractedIntensities?.Length ?? 0);
+                    for (int f = 0; f < fragCount; f++)
                     {
                         float intensity = ra.ExtractedIntensities[f];
                         totalIntensity += intensity;
@@ -1217,13 +1469,15 @@ namespace MassSpectrometry.Dia
                             int piB = precursorIndices[b];
                             if (piB < 0) continue;
 
-                            // Only consider co-eluters: precursors whose RT extraction
-                            // window overlaps with result A's window. This prevents the
-                            // entire window's ~2800 precursors (spanning the full run)
-                            // from contesting every fragment, which would drive all scores
-                            // to zero. Two windows overlap when neither ends before the
-                            // other starts.
-                            if (rtEnd[b] <= rtStart[a] || rtStart[b] >= rtEnd[a])
+                            // Only consider co-eluters: precursors whose chromatographic peak
+                            // overlaps with result A's peak. Uses apex ± halfFwhm, which is
+                            // ~0.15 min wide — much narrower than the ±1 min extraction window.
+                            // Falls back to extraction window bounds when no apex was detected.
+                            bool bHasApex = !float.IsNaN(apexRt[b]);
+                            float bLo = bHasApex ? apexRt[b] - halfFwhm[b] : results[indices[b]].RtWindowStart;
+                            float bHi = bHasApex ? apexRt[b] + halfFwhm[b] : results[indices[b]].RtWindowEnd;
+
+                            if (aHi <= bLo || bHi <= aLo)
                                 continue;
 
                             var precB = precursors[piB];

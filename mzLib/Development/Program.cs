@@ -24,7 +24,7 @@ namespace Development
     /// </summary>
     public class Program
     {
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             Console.WriteLine("mzLib Development Benchmarks");
             Console.WriteLine(new string('=', 60));
@@ -126,13 +126,14 @@ namespace Development
             //    ppmTol: 20,
             //    filenameDecoySuffix: true);
 
-            DiaSearchRunner.Run(
+            await DiaSearchRunner.Run(
                 rawFilePath: @"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",
+                //targetMspPath: @"F:\DiaBenchmark\PXD005573\koina_input.msp",
                 targetMspPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diannFig2helalib.msp",
-                decoyMspPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_decoys.msp",
+                //decoyMspPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_decoys.msp",
                 outputTsvPath: @"F:\DiaBenchmark\PXD005573\Runner\dia_search_results.tsv",
                 groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_report.tsv",
-                classifierType: DiaClassifierType.GradientBoostedTree);
+                classifierType: DiaClassifierType.LinearDiscriminant);
 
             Console.WriteLine(new string('=', 60));
             Console.WriteLine("All benchmarks complete.");
