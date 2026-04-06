@@ -239,9 +239,8 @@ public class ModificationOccupancyCalculatorTests
 
         var result = ModificationOccupancyCalculator.CalculateDigestionProductLevelOccupancy([psm1, psm2]);
 
-        Assert.That(result.ContainsKey("ACDEF"), Is.True);
-        Assert.That(result["ACDEF"].ContainsKey(4), Is.True);
-        var site = result["ACDEF"][4][0];
+        Assert.That(result.ContainsKey(4), Is.True);
+        var site = result[4][0];
         Assert.That(site.ModifiedCount, Is.EqualTo(1));
         Assert.That(site.TotalCount, Is.EqualTo(2));
         Assert.That(site.CountBasedOccupancy, Is.EqualTo(0.5));
@@ -265,7 +264,7 @@ public class ModificationOccupancyCalculatorTests
 
         var result = ModificationOccupancyCalculator.CalculateDigestionProductLevelOccupancy([psm1, psm2]);
 
-        var site = result["ACDEF"][4][0];
+        var site = result[4][0];
         Assert.That(site.ModifiedIntensity, Is.EqualTo(2_000_000));
         Assert.That(site.TotalIntensity, Is.EqualTo(10_000_000));
         Assert.That(site.IntensityBasedStoichiometry, Is.EqualTo(0.2));
@@ -287,6 +286,11 @@ public class ModificationOccupancyCalculatorTests
         Assert.That(result, Is.Empty);
     }
 
+    /// <summary>
+    /// The method requires all PSMs to share the same BaseSequence.
+    /// Passing PSMs with different base sequences must throw <see cref="ArgumentException"/>.
+    /// To calculate occupancy across multiple peptides, call the method separately per base sequence.
+    /// </summary>
     [Test]
     public void PeptideLevelWithMultipleBaseSequences()
     {
@@ -303,12 +307,10 @@ public class ModificationOccupancyCalculatorTests
         var psm1 = new MockSpectralMatch("test.raw", "ACD[Phosphorylation]EF", "ACDEF", 1.0, 1, [peptide1]);
         var psm2 = new MockSpectralMatch("test.raw", "GH[Phosphorylation]IKLM", "GHIKLM", 1.0, 2, [peptide2]);
 
-        // Both base sequences are handled in a single call; results are bucketed by base sequence.
-        var result = ModificationOccupancyCalculator.CalculateDigestionProductLevelOccupancy([psm1, psm2]);
-
-        Assert.That(result.Count, Is.EqualTo(2));
-        Assert.That(result.ContainsKey("ACDEF"), Is.True);
-        Assert.That(result.ContainsKey("GHIKLM"), Is.True);
+        // PSMs with different base sequences must not be mixed in a single call.
+        Assert.That(
+            () => ModificationOccupancyCalculator.CalculateDigestionProductLevelOccupancy([psm1, psm2]),
+            Throws.ArgumentException);
     }
 
     #endregion

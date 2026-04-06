@@ -28,6 +28,9 @@ namespace MzLibUtil
         public static readonly string ModificationPattern = @"-?\[(.+?)(?<!\[I+)\]";
         public static readonly string ProteinSplitPattern = @";|\|";
 
+        private static readonly Regex CompiledModificationPattern = new(ModificationPattern, RegexOptions.Compiled);
+        private static readonly Regex CompiledProteinSplitPattern = new(ProteinSplitPattern, RegexOptions.Compiled);
+
         /// <summary>
         /// Applies a boxcar smoothing algorithm to the input data.
         /// </summary>
@@ -260,12 +263,9 @@ namespace MzLibUtil
             // "(.+?)": captures the content of the mod, which can be anything except for a closing bracket
             // "(?<!\[I+)": negative lookbehind to ensure that the closing bracket match does not correspond to a cation charge state (also defined with brackets).
             // "\]": indicates the end of the mod
-            string pattern = @"-?\[(.+?)(?<!\[I+)\]";
-            Regex regex = new(pattern);
-
             Dictionary<int, string> modDict = new();
 
-            MatchCollection matches = regex.Matches(fullSeq);
+            MatchCollection matches = CompiledModificationPattern.Matches(fullSeq);
             int totalCaptureLength = 0;
             foreach (Match match in matches)
             {
@@ -287,8 +287,8 @@ namespace MzLibUtil
         }
 
         public static string GetBaseSequenceFromFullSequence(this string fullSeq, string? modPattern=null, string? replacement=null)
-        { 
-            Regex regex = new(modPattern ?? ModificationPattern);
+        {
+            Regex regex = modPattern != null ? new Regex(modPattern) : CompiledModificationPattern;
             return regex.Replace(fullSeq, replacement ?? string.Empty);
         }
 
@@ -306,9 +306,15 @@ namespace MzLibUtil
             fullSeq = regexSpecialChar.Replace(fullSeq, replacement);
         }
 
+        /// <summary>
+        /// Splits a protein group name into individual accessions by <c>;</c> or <c>|</c> delimiters.
+        /// Expects a clean accession string (e.g., "P12345|Q67890"), not a full sequence with
+        /// modification annotations — the <c>|</c> character inside modification brackets would
+        /// cause incorrect splits.
+        /// </summary>
         public static string[] SplitProteinAccessions(this string proteinGroupName)
         {
-            return Regex.Split(proteinGroupName, ProteinSplitPattern);
+            return CompiledProteinSplitPattern.Split(proteinGroupName);
         }
     }
 }

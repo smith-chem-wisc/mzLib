@@ -571,7 +571,7 @@ namespace Omics.BioPolymerGroup
                                 Label = label,
                                 SpectralCount = psmsInGroup.Count,
                                 FilesInGroup = filesInGroup.ToDictionary(kvp => kvp.FilenameWithoutExtension, kvp => (ISampleInfo)kvp)
-                                // IntensitiesBySample left null → HasIntensityData = false
+                                // IntensitiesBySample left empty → HasIntensityData = false
                             };
                         }
 
@@ -612,7 +612,7 @@ namespace Omics.BioPolymerGroup
                                 Label = label,
                                 SpectralCount = psmsInFile.Count,
                                 FilesInGroup = new Dictionary<string, ISampleInfo> { { label, sample } }
-                                // IntensitiesBySample left null → HasIntensityData = false
+                                // IntensitiesBySample left empty → HasIntensityData = false
                             };
                         }
 
@@ -664,10 +664,16 @@ namespace Omics.BioPolymerGroup
             }
             else
             {
-                var occupancy = ModificationOccupancyCalculator.CalculateDigestionProductLevelOccupancy(psms);
+                var psmsGroupedByBaseSequence = psms.GroupBy(p => p.BaseSequence);
+                foreach (var baseSeqGroup in psmsGroupedByBaseSequence)
+                { 
+                    var occupancy = ModificationOccupancyCalculator.CalculateDigestionProductLevelOccupancy(baseSeqGroup.ToList());
 
-                foreach (var (baseSequence, sites) in occupancy)
-                    result.DigestionProductOccupancy[baseSequence] = sites;
+                    if (occupancy.Count > 0)
+                    {
+                        result.DigestionProductOccupancy[baseSeqGroup.Key] = occupancy;
+                    }
+                }
             }
         }
 

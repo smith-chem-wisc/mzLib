@@ -45,7 +45,7 @@ namespace MzLibUtil.PositionFrequencyAnalysis
         /// <exception cref="Exception"></exception>
         public void SetProteinModsFromPeptides()
         {
-            if (Sequence.IsNullOrEmpty())
+            if (string.IsNullOrEmpty(Sequence))
             {
                 throw new Exception("The protein sequence is unknown.");
             }
@@ -61,7 +61,11 @@ namespace MzLibUtil.PositionFrequencyAnalysis
             foreach (var peptide in Peptides.Values)
             {
                 // always recompute start position from this protein's sequence — the peptide instance
-                // may be shared across multiple proteins, so a cached value could be stale.    
+                // may be shared across multiple proteins, so a cached value could be stale.
+                // Known limitation: IndexOf returns the first occurrence only. For proteins with
+                // repeated domains or motifs where the same base sequence appears at multiple
+                // positions, the peptide will always be mapped to the first occurrence, which may
+                // cause modifications to be attributed to the wrong position.
                 int idx = Sequence.IndexOf(peptide.BaseSequence);
                 if (idx == -1)
                     throw new InvalidOperationException(
