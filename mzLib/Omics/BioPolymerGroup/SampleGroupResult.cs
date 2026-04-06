@@ -67,16 +67,16 @@ public sealed class SampleGroupResult
 
     /// <summary>
     /// Protein-level modification occupancy keyed by biopolymer accession, then by one-based protein position.
-    /// Populated by <see cref="ModificationOccupancyCalculator.CalculateProteinLevelOccupancy"/>.
+    /// Populated by <see cref="ModificationOccupancyCalculator.CalculateParentLevelOccupancy"/>.
     /// </summary>
-    public Dictionary<string, Dictionary<int, List<SiteSpecificModificationOccupancy>>> ProteinOccupancy { get; } = new();
+    public Dictionary<string, Dictionary<int, List<SiteSpecificModificationOccupancy>>> ParentOccupancy { get; } = new();
 
     /// <summary>
     /// Peptide-level modification occupancy keyed by base sequence, then by peptide-local position
     /// (AllModsOneIsNterminus convention: 1 = N-terminus, 2 = first residue, etc.).
-    /// Populated by <see cref="ModificationOccupancyCalculator.CalculatePeptideLevelOccupancy"/>.
+    /// Populated by <see cref="ModificationOccupancyCalculator.CalculateDigestionProductLevelOccupancy"/>.
     /// </summary>
-    public Dictionary<string, Dictionary<int, List<SiteSpecificModificationOccupancy>>> PeptideOccupancy { get; } = new();
+    public Dictionary<string, Dictionary<int, List<SiteSpecificModificationOccupancy>>> DigestionProductOccupancy { get; } = new();
 
     #endregion
 
@@ -96,7 +96,7 @@ public sealed class SampleGroupResult
     /// <param name="proteinLevel">True for protein-level occupancy; false for peptide-level.</param>
     public string FormatCountOccupancy(IEnumerable<string> orderedKeys, bool proteinLevel = true)
     {
-        var occupancy = proteinLevel ? ProteinOccupancy : PeptideOccupancy;
+        var occupancy = proteinLevel ? ParentOccupancy : DigestionProductOccupancy;
         return FormatOccupancy(occupancy, orderedKeys, o => o.ToSpectralCountModInfoString());
     }
 
@@ -108,7 +108,7 @@ public sealed class SampleGroupResult
     /// <param name="proteinLevel">True for protein-level occupancy; false for peptide-level.</param>
     public string FormatIntensityOccupancy(IEnumerable<string> orderedKeys, bool proteinLevel = true)
     {
-        var occupancy = proteinLevel ? ProteinOccupancy : PeptideOccupancy;
+        var occupancy = proteinLevel ? ParentOccupancy : DigestionProductOccupancy;
         return FormatOccupancy(occupancy, orderedKeys, o => o.ToIntensityModInfoString());
     }
 

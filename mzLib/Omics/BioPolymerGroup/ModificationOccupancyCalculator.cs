@@ -30,7 +30,7 @@ public static class ModificationOccupancyCalculator
     /// PSMs whose <see cref="ISpectralMatch.Intensities"/> is a single-element array contribute
     /// to intensity-based stoichiometry; others contribute only to count-based metrics.
     /// </param>
-    public static Dictionary<int, List<SiteSpecificModificationOccupancy>> CalculateProteinLevelOccupancy(
+    public static Dictionary<int, List<SiteSpecificModificationOccupancy>> CalculateParentLevelOccupancy(
         IBioPolymer bioPolymer,
         IEnumerable<ISpectralMatch> psms)
     {
@@ -122,7 +122,7 @@ public static class ModificationOccupancyCalculator
     /// Dictionary keyed by base sequence, each value a dictionary keyed by peptide-local position
     /// (AllModsOneIsNterminus convention) containing <see cref="SiteSpecificModificationOccupancy"/> entries.
     /// </returns>
-    public static Dictionary<string, Dictionary<int, List<SiteSpecificModificationOccupancy>>> CalculatePeptideLevelOccupancy(
+    public static Dictionary<string, Dictionary<int, List<SiteSpecificModificationOccupancy>>> CalculateDigestionProductLevelOccupancy(
         IEnumerable<ISpectralMatch> psms)
     {
         var psmList = psms as IList<ISpectralMatch> ?? psms.ToList();

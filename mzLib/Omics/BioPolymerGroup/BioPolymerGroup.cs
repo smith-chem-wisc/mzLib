@@ -50,11 +50,11 @@ namespace Omics.BioPolymerGroup
         /// and not shared with any other biopolymer group.</param>
         /// <param name="groupType">Identifies the type of biopolymer in this group, which determines the modification
         /// occupancy calculation strategy used by <see cref="PopulateSampleGroupResults"/>.
-        /// <see cref="BioPolymerGroupType.Protein"/> uses protein-level coordinates;
-        /// <see cref="BioPolymerGroupType.Peptide"/> and <see cref="BioPolymerGroupType.Oligo"/> use
-        /// digestion-product-local coordinates.</param>
+        /// <see cref="BioPolymerGroupType.Parent"/> uses parent(typically protein)-level coordinates;
+        /// <see cref="BioPolymerGroupType.DigestionProduct"/> uses
+        /// digestion-product-local coordinates (typically peptide positions).</param>
         public BioPolymerGroup(HashSet<IBioPolymer> bioPolymers, HashSet<IBioPolymerWithSetMods> bioPolymersWithSetMods,
-            HashSet<IBioPolymerWithSetMods> uniqueBioPolymersWithSetMods, BioPolymerGroupType groupType = BioPolymerGroupType.Protein)
+            HashSet<IBioPolymerWithSetMods> uniqueBioPolymersWithSetMods, BioPolymerGroupType groupType = BioPolymerGroupType.Parent)
         {
             BioPolymers = bioPolymers;
             ListOfBioPolymersOrderedByAccession = BioPolymers.OrderBy(p => p.Accession).ToList();
@@ -257,9 +257,8 @@ namespace Omics.BioPolymerGroup
         /// <summary>
         /// Identifies the type of biopolymer in this group, which determines the modification
         /// occupancy calculation strategy used by <see cref="PopulateSampleGroupResults"/>.
-        /// <see cref="BioPolymerGroupType.Protein"/> uses protein-level coordinates;
-        /// <see cref="BioPolymerGroupType.Peptide"/> and <see cref="BioPolymerGroupType.Oligo"/> use
-        /// digestion-product-local coordinates.
+        /// <see cref="BioPolymerGroupType.Parent"/> uses protein-level coordinates;
+        /// <see cref="BioPolymerGroupType.DigestionProduct"/> use digestion-product-local coordinates.
         /// </summary>
         public BioPolymerGroupType GroupType { get; }
 
@@ -410,9 +409,9 @@ namespace Omics.BioPolymerGroup
             // Output per-group quantification and occupancy
             if (SampleGroupResults is null) PopulateSampleGroupResults();
 
-            bool isProteinLevel = GroupType == BioPolymerGroupType.Protein;
+            bool isParentLevel = GroupType == BioPolymerGroupType.Parent;
 
-            List<string> orderedKeys = (isProteinLevel
+            List<string> orderedKeys = (isParentLevel
                 ? ListOfBioPolymersOrderedByAccession.Select(p => p.Accession)
                 : AllBioPolymersWithSetMods.Select(p => p.BaseSequence).Distinct().OrderBy(s => s))
                 .ToList();
@@ -428,12 +427,12 @@ namespace Omics.BioPolymerGroup
                     sb.Append("\t");
                 }
 
-                sb.Append(TruncateString(group.FormatCountOccupancy(orderedKeys, isProteinLevel)));
+                sb.Append(TruncateString(group.FormatCountOccupancy(orderedKeys, isParentLevel)));
                 sb.Append("\t");
 
                 if (group.HasIntensityData)
                 {
-                    sb.Append(TruncateString(group.FormatIntensityOccupancy(orderedKeys, isProteinLevel)));
+                    sb.Append(TruncateString(group.FormatIntensityOccupancy(orderedKeys, isParentLevel)));
                     sb.Append("\t");
                 }
             }
@@ -652,23 +651,23 @@ namespace Omics.BioPolymerGroup
         /// </summary>
         private void PopulateOccupancy(SampleGroupResult result, List<ISpectralMatch> psms)
         {
-            if (GroupType == BioPolymerGroupType.Protein)
+            if (GroupType == BioPolymerGroupType.Parent)
             {
                 foreach (var bioPolymer in ListOfBioPolymersOrderedByAccession)
                 {
-                    var occupancy = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+                    var occupancy = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(
                         bioPolymer, psms);
 
                     if (occupancy.Count > 0)
-                        result.ProteinOccupancy[bioPolymer.Accession] = occupancy;
+                        result.ParentOccupancy[bioPolymer.Accession] = occupancy;
                 }
             }
             else
             {
-                var occupancy = ModificationOccupancyCalculator.CalculatePeptideLevelOccupancy(psms);
+                var occupancy = ModificationOccupancyCalculator.CalculateDigestionProductLevelOccupancy(psms);
 
                 foreach (var (baseSequence, sites) in occupancy)
-                    result.PeptideOccupancy[baseSequence] = sites;
+                    result.DigestionProductOccupancy[baseSequence] = sites;
             }
         }
 

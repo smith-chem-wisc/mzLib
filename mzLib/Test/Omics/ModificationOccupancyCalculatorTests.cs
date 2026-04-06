@@ -26,7 +26,7 @@ public class ModificationOccupancyCalculatorTests
         var peptide = new MockBioPolymerWithSetMods("ACDEF", "ACD[Phosphorylation]EF", protein, 1, 5, mods);
         var psm = new MockSpectralMatch("test.raw", "ACD[Phosphorylation]EF", "ACDEF", 1.0, 1, [peptide]);
 
-        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(protein, [psm]);
+        var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(protein, [psm]);
 
         Assert.That(result.ContainsKey(3), Is.True);
         Assert.That(result[3].Count, Is.EqualTo(1));
@@ -49,7 +49,7 @@ public class ModificationOccupancyCalculatorTests
         var psm1 = new MockSpectralMatch("test.raw", "ACD[Phosphorylation]EF", "ACDEF", 1.0, 1, [modifiedPeptide]);
         var psm2 = new MockSpectralMatch("test.raw", "ACDEF", "ACDEF", 1.0, 2, [unmodifiedPeptide]);
 
-        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(protein, [psm1, psm2]);
+        var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(protein, [psm1, psm2]);
 
         Assert.That(result.ContainsKey(3), Is.True);
         Assert.That(result[3][0].ModifiedCount, Is.EqualTo(1));
@@ -68,7 +68,7 @@ public class ModificationOccupancyCalculatorTests
         var peptide = new MockBioPolymerWithSetMods("ACDEF", "ACD[Oxidation]EF", protein, 1, 5, mods);
         var psm = new MockSpectralMatch("test.raw", "ACD[Oxidation]EF", "ACDEF", 1.0, 1, [peptide]);
 
-        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(protein, [psm]);
+        var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(protein, [psm]);
 
         Assert.That(result, Is.Empty);
     }
@@ -84,7 +84,7 @@ public class ModificationOccupancyCalculatorTests
         var peptide = new MockBioPolymerWithSetMods("ACDEF", "[Acetylation]ACDEF", protein, 1, 5, mods);
         var psm = new MockSpectralMatch("test.raw", "[Acetylation]ACDEF", "ACDEF", 1.0, 1, [peptide]);
 
-        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(protein, [psm]);
+        var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(protein, [psm]);
 
         Assert.That(result, Is.Empty);
     }
@@ -105,7 +105,7 @@ public class ModificationOccupancyCalculatorTests
         var psm2 = new MockSpectralMatch("test.raw", "ACDEF", "ACDEF", 1.0, 2, [unmodifiedPeptide]);
         psm2.Intensities = [3_000_000.0];
 
-        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(protein, [psm1, psm2]);
+        var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(protein, [psm1, psm2]);
 
         var site = result[3][0];
         Assert.That(site.ModifiedIntensity, Is.EqualTo(1_000_000));
@@ -130,7 +130,7 @@ public class ModificationOccupancyCalculatorTests
         var psm1 = new MockSpectralMatch("test.raw", "ACD[Phosphorylation]EF", "ACDEF", 1.0, 1, [modifiedPeptide]);
         var psm2 = new MockSpectralMatch("test.raw", "CDEFG", "CDEFG", 1.0, 2, [overlappingPeptide]);
 
-        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(protein, [psm1, psm2]);
+        var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(protein, [psm1, psm2]);
 
         Assert.That(result[3][0].ModifiedCount, Is.EqualTo(1));
         Assert.That(result[3][0].TotalCount, Is.EqualTo(2));
@@ -142,7 +142,7 @@ public class ModificationOccupancyCalculatorTests
     {
         var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
 
-        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(
+        var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(
             protein, Enumerable.Empty<ISpectralMatch>());
 
         Assert.That(result, Is.Empty);
@@ -173,7 +173,7 @@ public class ModificationOccupancyCalculatorTests
         // GetIdentifiedBioPolymersWithSetMods() but must not be counted.
         var psm = new MockSpectralMatch("test.raw", "IVEN[Deamidation on N]", "IVEN", 1.0, 1, [form1, form2]);
 
-        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(protein, [psm]);
+        var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(protein, [psm]);
 
         Assert.That(result.ContainsKey(4), Is.True);
         var modsAtSite = result[4];
@@ -210,7 +210,7 @@ public class ModificationOccupancyCalculatorTests
         // PSM returns protein B's form first; the calculator must still resolve protein A's form.
         var psm = new MockSpectralMatch("test.raw", "ACD[Phosphorylation]EF", "ACDEF", 1.0, 1, [formB, formA]);
 
-        var result = ModificationOccupancyCalculator.CalculateProteinLevelOccupancy(proteinA, [psm]);
+        var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(proteinA, [psm]);
 
         Assert.That(result.ContainsKey(3), Is.True);
         var site = result[3][0];
@@ -237,7 +237,7 @@ public class ModificationOccupancyCalculatorTests
         var psm1 = new MockSpectralMatch("test.raw", "ACD[Phosphorylation]EF", "ACDEF", 1.0, 1, [modifiedPeptide]);
         var psm2 = new MockSpectralMatch("test.raw", "ACDEF", "ACDEF", 1.0, 2, [unmodifiedPeptide]);
 
-        var result = ModificationOccupancyCalculator.CalculatePeptideLevelOccupancy([psm1, psm2]);
+        var result = ModificationOccupancyCalculator.CalculateDigestionProductLevelOccupancy([psm1, psm2]);
 
         Assert.That(result.ContainsKey("ACDEF"), Is.True);
         Assert.That(result["ACDEF"].ContainsKey(4), Is.True);
@@ -263,7 +263,7 @@ public class ModificationOccupancyCalculatorTests
         var psm2 = new MockSpectralMatch("test.raw", "ACDEF", "ACDEF", 1.0, 2, [unmodifiedPeptide]);
         psm2.Intensities = [8_000_000.0];
 
-        var result = ModificationOccupancyCalculator.CalculatePeptideLevelOccupancy([psm1, psm2]);
+        var result = ModificationOccupancyCalculator.CalculateDigestionProductLevelOccupancy([psm1, psm2]);
 
         var site = result["ACDEF"][4][0];
         Assert.That(site.ModifiedIntensity, Is.EqualTo(2_000_000));
@@ -282,7 +282,7 @@ public class ModificationOccupancyCalculatorTests
         var peptide = new MockBioPolymerWithSetMods("ACDEF", "AC[Carbamidomethyl]DEF", protein, 1, 5, mods);
         var psm = new MockSpectralMatch("test.raw", "AC[Carbamidomethyl]DEF", "ACDEF", 1.0, 1, [peptide]);
 
-        var result = ModificationOccupancyCalculator.CalculatePeptideLevelOccupancy([psm]);
+        var result = ModificationOccupancyCalculator.CalculateDigestionProductLevelOccupancy([psm]);
 
         Assert.That(result, Is.Empty);
     }
@@ -304,7 +304,7 @@ public class ModificationOccupancyCalculatorTests
         var psm2 = new MockSpectralMatch("test.raw", "GH[Phosphorylation]IKLM", "GHIKLM", 1.0, 2, [peptide2]);
 
         // Both base sequences are handled in a single call; results are bucketed by base sequence.
-        var result = ModificationOccupancyCalculator.CalculatePeptideLevelOccupancy([psm1, psm2]);
+        var result = ModificationOccupancyCalculator.CalculateDigestionProductLevelOccupancy([psm1, psm2]);
 
         Assert.That(result.Count, Is.EqualTo(2));
         Assert.That(result.ContainsKey("ACDEF"), Is.True);

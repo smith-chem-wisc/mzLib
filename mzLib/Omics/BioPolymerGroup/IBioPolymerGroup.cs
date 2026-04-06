@@ -111,9 +111,9 @@ namespace Omics.BioPolymerGroup
 
         /// <summary>
         /// Identifies the type of biopolymer in this group, which determines the modification
-        /// occupancy calculation strategy. <see cref="BioPolymerGroupType.Protein"/> uses
-        /// protein-level coordinates; <see cref="BioPolymerGroupType.Peptide"/> and
-        /// <see cref="BioPolymerGroupType.Oligo"/> use digestion-product-local coordinates.
+        /// occupancy calculation strategy. <see cref="BioPolymerGroupType.Parent"/> uses
+        /// parent-level positions; <see cref="BioPolymerGroupType.DigestionProduct"/> uses 
+        /// digestion-product-local positions.
         /// </summary>
         BioPolymerGroupType GroupType { get; }
 
