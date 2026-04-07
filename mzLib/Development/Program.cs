@@ -133,7 +133,7 @@ namespace Development
                 //decoyMspPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_decoys.msp",
                 outputTsvPath: @"F:\DiaBenchmark\PXD005573\Runner\dia_search_results.tsv",
                 groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_report.tsv",
-                classifierType: DiaClassifierType.LinearDiscriminant);
+                classifierType: DiaClassifierType.GradientBoostedTree);
 
             Console.WriteLine(new string('=', 60));
             Console.WriteLine("All benchmarks complete.");
