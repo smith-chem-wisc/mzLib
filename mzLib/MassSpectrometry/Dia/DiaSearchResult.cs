@@ -45,6 +45,10 @@ namespace MassSpectrometry.Dia
 
         /// <summary>Index into the combined precursors list. Set during assembly. -1 if unknown.</summary>
         public int PrecursorIndex { get; set; } = -1;
+        /// <summary>
+        /// Sequence with all modification annotations stripped, for charge-state grouping.
+        /// Cached on first access.
+        /// </summary>
 
         #endregion
 
@@ -97,6 +101,15 @@ namespace MassSpectrometry.Dia
 
         /// <summary>Upper bound of the RT extraction window (minutes)</summary>
         public float RtWindowEnd { get; }
+
+        /// <summary>
+        /// RT deviation of this precursor's apex from the highest-scoring charge state
+        /// of the same bare sequence, in units of expected FWHM.
+        /// 0 = this IS the dominant charge state, or only one charge state exists.
+        /// Large value = apex disagrees with dominant charge → likely false positive.
+        /// Populated by DiaSearchEngine after FDR iteration 1.
+        /// </summary>
+        public float ChargeStateRtConsensus { get; set; } = 0f;
 
         #endregion
 

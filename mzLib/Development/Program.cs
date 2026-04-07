@@ -128,8 +128,8 @@ namespace Development
 
             await DiaSearchRunner.Run(
                 rawFilePath: @"F:\DiaBenchmark\PXD005573\Fig2HeLa-0-5h_MHRM_R01_T0.raw",
-                //targetMspPath: @"F:\DiaBenchmark\PXD005573\koina_input.msp",
-                targetMspPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diannFig2helalib.msp",
+                targetMspPath: @"F:\DiaBenchmark\PXD005573\koina_input.msp",
+                //targetMspPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diannFig2helalib.msp",
                 //decoyMspPath: @"F:\DiaBenchmark\PXD005573\DiannOut\koina_decoys.msp",
                 outputTsvPath: @"F:\DiaBenchmark\PXD005573\Runner\dia_search_results.tsv",
                 groundTruthTsvPath: @"F:\DiaBenchmark\PXD005573\DiannOut\diann_report.tsv",

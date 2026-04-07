@@ -278,11 +278,22 @@ namespace MassSpectrometry.Dia
                 @"F:\DiaBenchmark\PXD005573\Runner\peakwidth_diagnostics.tsv");
 
             // ── Step 8: Iterative FDR ────────────────────────────────────────
+            // ── Step 8: Iterative FDR ────────────────────────────────────────
             Log($"[DiaSearch] Running iterative FDR ({classifierType})...");
             var fdrSw = Stopwatch.StartNew();
 
+            float fwhmForConsensus = lowess != null ? (float)lowess.SigmaMinutes * 0.5f : 0.069f;
+
+            if (bootstrap.Seed != null && bootstrap.Seed.MedianPeakFwhmMinutes > 0f)
+                fwhmForConsensus = bootstrap.Seed.MedianPeakFwhmMinutes;
+
             var fdrResult = DiaFdrEngine.RunIterativeFdr(
-                results, features, classifierType);
+                results, features, classifierType,
+                afterIteration1: (res, fvs) =>
+                {
+                    ComputeChargeStateRtConsensus(res, fvs, fwhmForConsensus);
+                    Log($"[DiaSearch] ChargeStateRtConsensus injected  fwhm={fwhmForConsensus:F3} min");
+                });
 
             fdrSw.Stop();
             Log($"[DiaSearch] FDR done in {fdrSw.Elapsed.TotalSeconds:F1}s  " +
@@ -328,6 +339,64 @@ namespace MassSpectrometry.Dia
             for (int i = 0; i < results.Count; i++)
                 if (results[i].IsDecoy) n++;
             return n;
+        }
+        /// <summary>
+        /// Computes ChargeStateRtConsensus for every result.
+        ///
+        /// For each bare sequence, finds the result with the highest ClassifierScore
+        /// across all charge states — this is the dominant charge state and its
+        /// ObservedApexRt is the RT reference.
+        ///
+        /// Every other charge state of the same sequence gets:
+        ///   ChargeStateRtConsensus = |thisApexRt - dominantApexRt| / expectedFwhmMinutes
+        ///
+        /// The dominant charge state itself gets 0 (it IS the reference).
+        /// Singletons (only one charge state) get 0 (no information either way).
+        ///
+        /// Called after FDR iteration 1 has written ClassifierScore onto results,
+        /// before remaining FDR iterations use the updated feature vectors.
+        /// </summary>
+        // Add this private static method to DiaSearchEngine:
+        private static void ComputeChargeStateRtConsensus(
+            List<DiaSearchResult> results,
+            DiaFeatureVector[] features,
+            float expectedFwhmMinutes)
+        {
+            // ── Pass 1: find dominant (highest ClassifierScore) apex RT per sequence ─
+            var dominantApexRt = new Dictionary<(string bare, bool isDecoy), float>(results.Count / 2);
+            var dominantScore = new Dictionary<(string bare, bool isDecoy), float>(results.Count / 2);
+
+            for (int i = 0; i < results.Count; i++)
+            {
+                var r = results[i];
+                if (float.IsNaN(r.ObservedApexRt)) continue;
+
+                var key = (r.Sequence, r.IsDecoy);
+                float score = results[i].ClassifierScore;
+
+                if (!dominantScore.TryGetValue(key, out float best) || score > best)
+                {
+                    dominantScore[key] = score;
+                    dominantApexRt[key] = r.ObservedApexRt;
+                }
+            }
+
+            // ── Pass 2: assign deviation in units of FWHM ────────────────────────
+            float invFwhm = expectedFwhmMinutes > 0f ? 1f / expectedFwhmMinutes : 1f / 0.069f;
+
+            for (int i = 0; i < results.Count; i++)
+            {
+                var r = results[i];
+                if (float.IsNaN(r.ObservedApexRt)) continue;
+
+                var key = (r.Sequence, r.IsDecoy);
+                if (dominantApexRt.TryGetValue(key, out float refRt))
+                {
+                    float dev = MathF.Abs(r.ObservedApexRt - refRt) * invFwhm;
+                    r.ChargeStateRtConsensus = dev;
+                    features[i].ChargeStateRtConsensus = dev;
+                }
+            }
         }
     }
 }

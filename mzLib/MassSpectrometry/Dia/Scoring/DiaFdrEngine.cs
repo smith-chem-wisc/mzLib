@@ -150,7 +150,8 @@ namespace MassSpectrometry.Dia
             float learningRate = 0.05f,
             int maxEpochs = 300,
             bool rtWindowRefinement = false,
-            float rtSigmaMultiplier = 3.0f)
+            float rtSigmaMultiplier = 3.0f,
+            Action<List<DiaSearchResult>, DiaFeatureVector[]> afterIteration1 = null)
         {
             if (results == null || results.Count == 0)
                 throw new ArgumentException("Results list cannot be null or empty.");
@@ -313,6 +314,15 @@ namespace MassSpectrometry.Dia
                     positives.Length, negatives.Length,
                     idsAt1Pct, weightChange, classifierType, classifier);
                 diagnosticsList.Add(diag);
+
+                // ── Post-iteration-1 injection hook ─────────────────────
+                // Fires once after iteration 1 has written ClassifierScore
+                // onto all results. Allows caller to inject features that
+                // depend on relative classifier scores across results
+                // (e.g. ChargeStateRtConsensus). The updated feature vectors
+                // are then used when iteration 2 collects training positives.
+                if (iteration == 1 && afterIteration1 != null)
+                    afterIteration1(results, features);
 
                 // ── Convergence check (skip iteration 1) ────────────────
                 if (iteration > 1)

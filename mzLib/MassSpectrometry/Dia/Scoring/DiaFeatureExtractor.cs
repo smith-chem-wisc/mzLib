@@ -141,7 +141,7 @@ namespace MassSpectrometry.Dia
         /// Targets should have systematically higher values than decoys.
         /// </summary>
         public float Ms1ApexConfirmationScore;   // [37]
-
+        public float ChargeStateRtConsensus;   // [38]
         // -- Metadata (not classifier features) ---------------------------
         public bool IsDecoy;
         public int PrecursorIndex;
@@ -155,7 +155,7 @@ namespace MassSpectrometry.Dia
         /// Prompt 3: 35 → 37 (added CoElutionStd [35] and CandidateScoreGap [36]).
         /// MS1 Interference Resolution phase: 37 → 38 (added Ms1ApexConfirmationScore [37]).
         /// </summary>
-        public const int ClassifierFeatureCount = 38;
+        public const int ClassifierFeatureCount = 39;
 
         /// <summary>Index of ApexScore in the feature vector.</summary>
         public const int InteractionFeatureIndexA = 0;  // ApexScore
@@ -212,6 +212,7 @@ namespace MassSpectrometry.Dia
             features[36] = float.IsNaN(CandidateScoreGap) ? 0f : CandidateScoreGap;
             // MS1 apex confirmation [37]
             features[37] = float.IsNaN(Ms1ApexConfirmationScore) ? 1.0f : Ms1ApexConfirmationScore;
+            features[38] = ChargeStateRtConsensus;
         }
 
         /// <summary>
@@ -239,6 +240,7 @@ namespace MassSpectrometry.Dia
             "CoElutionStd",                                                       // [35]
             "CandidateScoreGap",                                                  // [36]
             "Ms1ApexConfirmationScore",                                           // [37]
+            "ChargeStateRtConsensus",   // [38]
         };
     }
 
@@ -403,6 +405,8 @@ namespace MassSpectrometry.Dia
             // Default 1.0f (neutral) is the initialization on DiaSearchResult.
             // WriteTo uses 1.0f as the NaN sentinel (same neutral value).
             fv.Ms1ApexConfirmationScore = result.Ms1ApexConfirmationScore;
+
+            fv.ChargeStateRtConsensus = result.ChargeStateRtConsensus;
 
             // -- Metadata -------------------------------------------------
             fv.ChargeState = result.ChargeState;

@@ -69,7 +69,7 @@ namespace MassSpectrometry.Dia.Calibration
         public const int MinDecoysRequired = 10;
         public const float SnrGateThreshold = 2.0f;
         public const int MinGatedFragments = 3;
-        public const int FeatureCount = 15;
+        public const int FeatureCount = 16;
 
         /// <summary>
         /// R² below this is considered a poor fit — slope is rescued from prior anchors.
@@ -100,6 +100,7 @@ namespace MassSpectrometry.Dia.Calibration
         public const int FeatCandidateCount = 12;
         public const int FeatRtDeviationMinutes = 13;
         public const int FeatRtDeviationSquared = 14;
+        public const int FeatTimePointsUsed = 15;
 
         public static readonly string[] FeatureNames =
         {
@@ -107,7 +108,8 @@ namespace MassSpectrometry.Dia.Calibration
             "Log2SNR", "ApexToMeanRatio", "BoundarySignalRatio",
             "MeanSignalRatioDev", "MeanMassErrorPpm", "FragDetRate",
             "BestFragCorrSum", "MedianFragRefCorr", "Ms1Ms2Corr",
-            "CandidateCount", "RtDeviationMin", "RtDeviationSq"
+            "CandidateCount", "RtDeviationMin", "RtDeviationSq",
+            "TimePointsUsed"
         };
 
         // ══════════════════════════════════════════════════════════════════
@@ -722,17 +724,17 @@ namespace MassSpectrometry.Dia.Calibration
         // ══════════════════════════════════════════════════════════════════
 
         private static (float[][] Features, bool[] IsDecoy,
-                        float[] LibraryRts, float[] ObservedApexRts,
-                        float[] PeakFwhms,
-                        int Gated, int Total)
-            ComputeFeatureVectors(
-                IReadOnlyList<LibraryPrecursorInput> precursors,
-                SliceGroup[] groups,
-                FragmentQuery[] queries,
-                ExtractionResult extr,
-                DiaScanIndex scanIndex,
-                float ppmTol,
-                BootstrapRtLine? rtPrediction = null)
+                float[] LibraryRts, float[] ObservedApexRts,
+                float[] PeakFwhms,
+                int Gated, int Total)
+    ComputeFeatureVectors(
+        IReadOnlyList<LibraryPrecursorInput> precursors,
+        SliceGroup[] groups,
+        FragmentQuery[] queries,
+        ExtractionResult extr,
+        DiaScanIndex scanIndex,
+        float ppmTol,
+        BootstrapRtLine? rtPrediction = null)
         {
             var fList = new List<float[]>(groups.Length);
             var dList = new List<bool>(groups.Length);
@@ -741,7 +743,10 @@ namespace MassSpectrometry.Dia.Calibration
             var fwhms = new List<float>(groups.Length);
             int gated = 0;
 
-            // Pre-compute per-window precursor count for CandidateCount feature
+            // ── Pre-compute per-window precursor count ───────────────────────────
+            // CandidateCount measures how many precursors compete in the same
+            // isolation window. High counts indicate a chimeric/crowded window
+            // where any individual peptide signal is less reliable.
             var windowCandidateCount = new Dictionary<int, int>(32);
             foreach (var g in groups)
             {
@@ -759,6 +764,10 @@ namespace MassSpectrometry.Dia.Calibration
                 var p = precursors[g.PrecursorIndex];
                 if (g.QueryCount == 0) continue;
 
+                // ── Find the reference fragment (longest XIC) ────────────────────
+                // The reference fragment defines the RT grid that all other
+                // fragment XICs are aligned to. Choosing the longest XIC ensures
+                // the widest coverage of the elution profile.
                 int refFragIdx = -1, refPts = 0;
                 for (int qi = g.QueryOffset; qi < g.QueryOffset + g.QueryCount; qi++)
                 {
@@ -771,6 +780,9 @@ namespace MassSpectrometry.Dia.Calibration
                 int timePoints = refResult.DataPointCount;
                 int fc = g.QueryCount;
 
+                // ── Allocate and build fragment intensity matrix ──────────────────
+                // mat is a [timePoints × fc] row-major matrix.
+                // Each column is one fragment's XIC aligned to the reference RT grid.
                 float[] mat = ArrayPool<float>.Shared.Rent(timePoints * fc);
                 float[] ticBuf = ArrayPool<float>.Shared.Rent(timePoints);
                 Array.Clear(mat, 0, timePoints * fc);
@@ -791,6 +803,10 @@ namespace MassSpectrometry.Dia.Calibration
                             mat, fi, fc, timePoints);
                     }
 
+                    // ── Build TIC and locate apex ────────────────────────────────
+                    // TIC = sum of all fragment intensities at each time point.
+                    // The apex is the scan with maximum TIC — this defines the
+                    // centre of the elution peak for all downstream features.
                     Span<float> ticSpan = ticBuf.AsSpan(0, timePoints);
                     float apexTic = 0f; int apexT = 0; float sumTic = 0f;
                     for (int t = 0; t < timePoints; t++)
@@ -801,11 +817,20 @@ namespace MassSpectrometry.Dia.Calibration
                         if (tic > apexTic) { apexTic = tic; apexT = t; }
                     }
 
+                    // ── SNR gate ─────────────────────────────────────────────────
+                    // Reject precursors where the apex TIC is less than
+                    // SnrGateThreshold × median TIC. This removes flat noise
+                    // profiles that have no detectable peak shape.
                     float medianTic = MedianOfSpan(ticSpan, timePoints);
                     float snr = medianTic > 0f ? apexTic / medianTic : 0f;
                     if (snr < SnrGateThreshold) continue;
                     gated++;
 
+                    // ── Extract apex scan intensities ────────────────────────────
+                    // apexBuf holds the observed fragment intensities at the apex
+                    // scan. expBuf holds the library reference intensities.
+                    // gatedFc counts fragments above 5% of apex intensity —
+                    // weak fragments are excluded to avoid noise inflating scores.
                     if (apexBuf.Length < fc) { apexBuf = new float[fc]; expBuf = new float[fc]; }
                     else Array.Clear(apexBuf, 0, fc);
 
@@ -823,30 +848,121 @@ namespace MassSpectrometry.Dia.Calibration
                     float observedApexRt = refRts[apexT];
                     float fwhm = ComputeFwhm(ticSpan, refRts, apexT, apexTic);
 
+                    // ── Peak-restricted scan range ───────────────────────────────
+                    // Restrict correlation features to ±½ FWHM around the apex.
+                    // Without this restriction, co-eluting peptides outside the
+                    // peak inflate pairwise correlations for decoys just as much
+                    // as for targets, destroying the feature's discriminating power.
+                    // Falls back to the full window when FWHM is unavailable
+                    // (e.g. cold seed pass where the peak shape is too flat).
+                    int peakLeft = 0;
+                    int peakRight = timePoints - 1;
+                    if (!float.IsNaN(fwhm) && fwhm > 0f)
+                    {
+                        float halfFwhm = fwhm * 0.5f;
+
+                        // Walk left from apex to the half-max boundary
+                        peakLeft = apexT;
+                        for (int t = apexT - 1; t >= 0; t--)
+                        {
+                            if (MathF.Abs(refRts[t] - observedApexRt) <= halfFwhm)
+                                peakLeft = t;
+                            else break;
+                        }
+                        // Walk right from apex to the half-max boundary
+                        peakRight = apexT;
+                        for (int t = apexT + 1; t < timePoints; t++)
+                        {
+                            if (MathF.Abs(refRts[t] - observedApexRt) <= halfFwhm)
+                                peakRight = t;
+                            else break;
+                        }
+                        // Guarantee a minimum of 3 scans so Pearson r is defined
+                        if (peakRight - peakLeft < 2)
+                        {
+                            peakLeft = Math.Max(0, apexT - 1);
+                            peakRight = Math.Min(timePoints - 1, apexT + 1);
+                        }
+                    }
+
+                    // ── Scalar features ──────────────────────────────────────────
+
+                    // Normalised dot product between observed and library apex spectra.
                     float dot = NdpScore(new ReadOnlySpan<float>(apexBuf, 0, fc),
                                          new ReadOnlySpan<float>(expBuf, 0, fc));
-                    (float mc, float mnc) = PairwiseXicCorrelation(mat, fc, timePoints);
+
+                    // Pairwise XIC correlations over the peak-restricted window.
+                    // mc = mean pairwise r; mnc = minimum pairwise r.
+                    (float mc, float mnc) = PairwiseXicCorrelation(
+                        mat, fc, timePoints, peakLeft, peakRight);
+
+                    // Log2 SNR: already computed above as apexTic / medianTic.
                     float log2Snr = MathF.Log2(Math.Max(snr, 1f));
+
+                    // Apex-to-mean TIC ratio: sharp peaks score higher than
+                    // broad humps — a good complement to BoundarySignalRatio.
                     float meanTic = sumTic / timePoints;
                     float a2m = meanTic > 0f ? apexTic / meanTic : 1f;
+
+                    // Boundary signal ratio: average of first and last scan TIC
+                    // divided by apex TIC. True peaks are near zero; noise is ~1.
                     float bndRatio = apexTic > 0f
                         ? (ticSpan[0] + ticSpan[timePoints - 1]) * 0.5f / apexTic : 1f;
+
+                    // Mean signal ratio deviation: how much each fragment's
+                    // relative intensity deviates from the library expectation.
                     float srd = ComputeMeanSignalRatioDev(
                         new ReadOnlySpan<float>(apexBuf, 0, fc),
                         new ReadOnlySpan<float>(expBuf, 0, fc));
+
+                    // Mean ppm mass error across all matched fragments at apex scan.
                     float massErr = ComputeMassErrorPpm(
                         g, queries, extr, scanIndex, observedApexRt, ppmTol);
 
-                    // ── New features ─────────────────────────────────────────
+                    // ── Correlation-based features (peak-restricted) ─────────────
+                    // bestFragCorrSum: sum of correlations from the best fragment
+                    //   (highest row-sum in the correlation matrix) to all others.
+                    //   High values mean one fragment co-elutes tightly with all others.
+                    // medianFragRefCorr: median of those per-fragment correlations.
+                    //   More robust to one outlier fragment than the sum.
                     (float bestFragCorrSum, float medianFragRefCorr) =
-                        ComputeBestFragFeatures(mat, fc, timePoints);
+                        ComputeBestFragFeatures(mat, fc, timePoints, peakLeft, peakRight);
 
+                    // MS1/MS2 correlation: Pearson r between the precursor isotope
+                    // XIC (from MS1 scans) and the best fragment XIC (from MS2).
+                    // True peptides should show correlated precursor and fragment elution.
                     float ms1Ms2Corr = ComputeBootstrapMs1Ms2Correlation(
                         scanIndex, g.WindowId, observedApexRt,
                         extr, g.QueryOffset + refFragIdx, ppmTol);
 
+                    // Number of precursors in the same isolation window competing
+                    // for signal. Proxy for chimeric complexity.
                     windowCandidateCount.TryGetValue(g.WindowId, out int candCount);
 
+                    // ── TimePointsUsed ───────────────────────────────────────────
+                    // Count of scans with non-zero TIC across the full extraction
+                    // window. True peptide peaks have a well-defined elution profile
+                    // with signal in many consecutive scans; noise and false matches
+                    // tend to have sparse, discontinuous signal. Sep=4.0 in the full
+                    // search makes this one of the strongest discriminating features.
+                    int timePointsUsed = 0;
+                    for (int t = 0; t < timePoints; t++)
+                        if (ticSpan[t] > 0f) timePointsUsed++;
+
+                    // ── RT deviation ─────────────────────────────────────────────
+                    // Signed difference between observed apex RT and the RT predicted
+                    // by the current bootstrap calibration line. Targets cluster near
+                    // zero; decoys are jittered by ±DecoyRtJitterMinutes so they
+                    // spread away from zero. Only meaningful once rtPrediction is
+                    // available — set to 0 on the cold seed pass.
+                    float rtDev = 0f;
+                    if (rtPrediction != null && p.RetentionTime.HasValue)
+                    {
+                        float predicted = rtPrediction.PredictObservedRt((float)p.RetentionTime.Value);
+                        rtDev = observedApexRt - predicted;
+                    }
+
+                    // ── Assemble feature vector ──────────────────────────────────
                     var vec = new float[FeatureCount];
                     vec[FeatApexDotProduct] = dot;
                     vec[FeatMeanFragCorr] = float.IsNaN(mc) ? 0f : mc;
@@ -861,18 +977,9 @@ namespace MassSpectrometry.Dia.Calibration
                     vec[FeatMedianFragRefCorr] = float.IsNaN(medianFragRefCorr) ? 0f : medianFragRefCorr;
                     vec[FeatMs1Ms2Correlation] = float.IsNaN(ms1Ms2Corr) ? 0f : ms1Ms2Corr;
                     vec[FeatCandidateCount] = candCount;
-
-                    // RT deviation — predicted vs observed apex RT.
-                    // Targets cluster near 0; jittered decoys are spread across ±1 min.
-                    // Use 0 when no RT prediction is available (cold seed pass).
-                    float rtDev = 0f;
-                    if (rtPrediction != null && p.RetentionTime.HasValue)
-                    {
-                        float predicted = rtPrediction.PredictObservedRt((float)p.RetentionTime.Value);
-                        rtDev = observedApexRt - predicted;
-                    }
                     vec[FeatRtDeviationMinutes] = rtDev;
                     vec[FeatRtDeviationSquared] = rtDev * rtDev;
+                    vec[FeatTimePointsUsed] = timePointsUsed;
 
                     fList.Add(vec);
                     dList.Add(p.IsDecoy);
@@ -960,9 +1067,15 @@ namespace MassSpectrometry.Dia.Calibration
         // ══════════════════════════════════════════════════════════════════
 
         private static (float Mean, float Min) PairwiseXicCorrelation(
-            float[] mat, int fc, int timePoints)
+            float[] mat, int fc, int timePoints,
+            int rangeStart = 0, int rangeEnd = -1)
         {
             if (fc < 2) return (float.NaN, float.NaN);
+            if (rangeEnd < 0) rangeEnd = timePoints - 1;
+            rangeStart = Math.Max(0, rangeStart);
+            rangeEnd = Math.Min(timePoints - 1, rangeEnd);
+            int n = rangeEnd - rangeStart + 1;
+            if (n < 3) return (float.NaN, float.NaN);
 
             float sumR = 0f; float minR = float.MaxValue; int pairs = 0;
 
@@ -971,16 +1084,16 @@ namespace MassSpectrometry.Dia.Calibration
                 for (int b = a + 1; b < fc; b++)
                 {
                     double sa = 0, sb = 0, sa2 = 0, sb2 = 0, sab = 0;
-                    for (int t = 0; t < timePoints; t++)
+                    for (int t = rangeStart; t <= rangeEnd; t++)
                     {
                         double va = mat[t * fc + a];
                         double vb = mat[t * fc + b];
                         sa += va; sb += vb; sa2 += va * va; sb2 += vb * vb; sab += va * vb;
                     }
-                    double n = timePoints;
-                    double num = sab - sa * sb / n;
-                    double den = Math.Sqrt(Math.Max(sa2 - sa * sa / n, 0) *
-                                          Math.Max(sb2 - sb * sb / n, 0));
+                    double dn = n;
+                    double num = sab - sa * sb / dn;
+                    double den = Math.Sqrt(Math.Max(sa2 - sa * sa / dn, 0) *
+                                           Math.Max(sb2 - sb * sb / dn, 0));
                     float r = den > 1e-8 ? (float)(num / den) : 0f;
                     sumR += r;
                     if (r < minR) minR = r;
@@ -997,11 +1110,16 @@ namespace MassSpectrometry.Dia.Calibration
         // ══════════════════════════════════════════════════════════════════
 
         private static (float BestFragCorrSum, float MedianFragRefCorr)
-            ComputeBestFragFeatures(float[] mat, int fc, int timePoints)
+    ComputeBestFragFeatures(float[] mat, int fc, int timePoints,
+                            int rangeStart = 0, int rangeEnd = -1)
         {
             if (fc < 3) return (float.NaN, float.NaN);
+            if (rangeEnd < 0) rangeEnd = timePoints - 1;
+            rangeStart = Math.Max(0, rangeStart);
+            rangeEnd = Math.Min(timePoints - 1, rangeEnd);
+            int n = rangeEnd - rangeStart + 1;
+            if (n < 3) return (float.NaN, float.NaN);
 
-            // Build pairwise correlation matrix
             float[] corrMat = new float[fc * fc];
             for (int a = 0; a < fc; a++)
             {
@@ -1009,23 +1127,22 @@ namespace MassSpectrometry.Dia.Calibration
                 for (int b = a + 1; b < fc; b++)
                 {
                     double sa = 0, sb = 0, sa2 = 0, sb2 = 0, sab = 0;
-                    for (int t = 0; t < timePoints; t++)
+                    for (int t = rangeStart; t <= rangeEnd; t++)
                     {
                         double va = mat[t * fc + a];
                         double vb = mat[t * fc + b];
                         sa += va; sb += vb; sa2 += va * va; sb2 += vb * vb; sab += va * vb;
                     }
-                    double n = timePoints;
-                    double num = sab - sa * sb / n;
-                    double den = Math.Sqrt(Math.Max(sa2 - sa * sa / n, 0) *
-                                          Math.Max(sb2 - sb * sb / n, 0));
+                    double dn = n;
+                    double num = sab - sa * sb / dn;
+                    double den = Math.Sqrt(Math.Max(sa2 - sa * sa / dn, 0) *
+                                           Math.Max(sb2 - sb * sb / dn, 0));
                     float r = den > 1e-8 ? (float)(num / den) : 0f;
                     corrMat[a * fc + b] = r;
                     corrMat[b * fc + a] = r;
                 }
             }
 
-            // Find best fragment (highest row-sum)
             int bestFrag = 0; float bestSum = float.MinValue;
             for (int a = 0; a < fc; a++)
             {
@@ -1034,7 +1151,6 @@ namespace MassSpectrometry.Dia.Calibration
                 if (rowSum > bestSum) { bestSum = rowSum; bestFrag = a; }
             }
 
-            // Median of other fragments vs best fragment
             var refCorrs = new float[fc - 1];
             int ri = 0;
             for (int b = 0; b < fc; b++)
