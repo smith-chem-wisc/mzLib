@@ -826,6 +826,19 @@
 	  <None Update="DataFiles\TestCompensationVoltageReading.raw">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
+      <None Include="..\Development\DeconvolutionDevelopment\TestData\Averaged_221110_CytoOnly.mzML">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <Link>DeconvolutionDevelopment\TestData\Averaged_221110_CytoOnly.mzML</Link>
+      </None>
+      <None Include="..\Development\DeconvolutionDevelopment\TestData\Averaged_221110_HGHOnly.mzML">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <Link>DeconvolutionDevelopment\TestData\Averaged_221110_HGHOnly.mzML</Link>
+      </None>
+      <None Include="..\Development\DeconvolutionDevelopment\TestData\Averaged_221110_UbiqOnly.mzML">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <Link>DeconvolutionDevelopment\TestData\Averaged_221110_UbiqOnly.mzML</Link>
+      </None>
+
   </ItemGroup>
 
   <ItemGroup>
