@@ -1,167 +1,278 @@
 ﻿// FLASHDeconvolutionAlgorithm.cs
 //
-// Status: STEP 2 COMPLETE — candidate mass finding
+// Status: STEPS 1–5 COMPLETE — full spectral deconvolution implemented
 //
-// Step 1 (log transform + pattern construction): complete
-// Step 2 (binned universal pattern scanning → candidate masses): complete
-// Steps 3–5 (isotope clustering, scoring, output): TODO skeleton remains
+// Step 1 — log transform + universal/harmonic pattern construction
+// Step 2 — binned candidate mass finding (single-round mass bin computation)
+// Step 3 — isotope peak recruitment per candidate per charge
+// Step 4 — cosine scoring against Averagine; isotope offset optimisation
+// Step 5 — IsotopicEnvelope output
 //
 // Reference:
 //   Jeong et al. (2020) Cell Systems 10(2):213-218.e6
 //   DOI: 10.1016/j.cels.2020.01.003
 //   OpenMS source: src/openms/source/ANALYSIS/TOPDOWN/SpectralDeconvolution.cpp
-//     → generatePeakGroupsFromSpectrum_(), updateMassBins_(),
-//       updateCandidateMassBins_(), filterMassBins_(), getCandidatePeakGroups_()
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Chemistry;                           // Constants.ProtonMass, Constants.C13MinusC12
+using Chemistry;                           // Constants.ProtonMass, C13MinusC12, ToMz/ToMass
 using MassSpectrometry.MzSpectra;          // SpectralSimilarity.CosineOfAlignedVectors
-using MzLibUtil;
+using MzLibUtil;                           // PpmTolerance
 
 namespace MassSpectrometry
 {
     internal class FLASHDeconvolutionAlgorithm : DeconvolutionAlgorithm
     {
-        // ── Harmonic denominators (½, ⅓, ⅖ from the paper) ──────────────────
+        // ── Algorithm constants ───────────────────────────────────────────────
+
+        /// <summary>Harmonic denominators from the paper (½, ⅓, ⅖).</summary>
         private static readonly int[] HarmonicDenominators = { 2, 3, 5 };
 
-        // ── Minimum number of continuous support peaks required to mark a
-        //    mass bin as a candidate (mirrors min_support_peak_count_ in OpenMS,
-        //    which defaults to 3 for MS1 and 2 for MS2). Fixed at 3 here; could
-        //    be promoted to FLASHDeconvolutionParameters later.
+        /// <summary>
+        /// Minimum continuous support peaks to mark a mass bin as a candidate.
+        /// Note: because the first peak of a run is credited retroactively when
+        /// the second arrives, reaching spc==3 means 3 real peaks confirmed.
+        /// </summary>
         private const int MinSupportPeakCount = 3;
 
-        // ── Intensity-ratio threshold between consecutive charge states.
-        //    If the ratio exceeds this factor the charge run is considered broken
-        //    and the support count resets. OpenMS uses 10 for charges ≤ 3 and a
-        //    sliding value for higher charges; we use the conservative fixed value.
+        /// <summary>
+        /// Maximum intensity ratio between adjacent charge states before the
+        /// charge run is considered broken and the support count resets.
+        /// </summary>
         private const float MaxChargeIntensityRatio = 10.0f;
 
-        // ── Bin multiplication factor: bins per log unit.
-        //    At tolerance T ppm the bin width in log space is approximately T×1e-6,
-        //    so bin_mul_factor ≈ 1/(T×1e-6). We compute it from the parameter.
         private static double ComputeBinMulFactor(double tolerancePpm)
             => 1.0 / (tolerancePpm * 1e-6);
 
+        // ── Constructor ───────────────────────────────────────────────────────
         internal FLASHDeconvolutionAlgorithm(DeconvolutionParameters deconParameters)
             : base(deconParameters)
         {
         }
 
         // ══════════════════════════════════════════════════════════════════════
-        // PUBLIC ENTRY POINT
+        // ENTRY POINT
         // ══════════════════════════════════════════════════════════════════════
 
         internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range)
         {
-            var deconParams = DeconvolutionParameters as FLASHDeconvolutionParameters
+            var p = DeconvolutionParameters as FLASHDeconvolutionParameters
                 ?? throw new MzLibException("Deconvolution params and algorithm do not match");
 
             range ??= spectrum.Range;
+            if (spectrum.Size == 0) return Enumerable.Empty<IsotopicEnvelope>();
 
-            if (spectrum.Size == 0)
-                return Enumerable.Empty<IsotopicEnvelope>();
+            // ── Step 1 ────────────────────────────────────────────────────────
+            var logPeaks = BuildLogMzPeaks(spectrum, range, p.Polarity);
+            if (logPeaks.Count == 0) return Enumerable.Empty<IsotopicEnvelope>();
 
-            // ── Step 1: log transform + patterns ─────────────────────────────
-            var logPeaks = BuildLogMzPeaks(spectrum, range, deconParams.Polarity);
-            if (logPeaks.Count == 0)
-                return Enumerable.Empty<IsotopicEnvelope>();
-
-            int minAbsCharge = Math.Abs(deconParams.MinAssumedChargeState);
-            int maxAbsCharge = Math.Abs(deconParams.MaxAssumedChargeState);
+            int minAbsCharge = Math.Abs(p.MinAssumedChargeState);
+            int maxAbsCharge = Math.Abs(p.MaxAssumedChargeState);
             int chargeRange = maxAbsCharge - minAbsCharge + 1;
 
             double[] universalPattern = BuildUniversalPattern(minAbsCharge, chargeRange);
             double[][] harmonicPatterns = BuildHarmonicPatterns(minAbsCharge, chargeRange);
+            double binMulFactor = ComputeBinMulFactor(p.DeconvolutionTolerancePpm);
 
-            // ── Step 2: candidate mass finding ────────────────────────────────
-            double binMulFactor = ComputeBinMulFactor(deconParams.DeconvolutionTolerancePpm);
+            // ── Step 2 ────────────────────────────────────────────────────────
+            var candidates = FindCandidateMasses(
+                logPeaks, universalPattern, harmonicPatterns, binMulFactor, p);
+            if (candidates.Count == 0) return Enumerable.Empty<IsotopicEnvelope>();
 
-            var candidateMasses = FindCandidateMasses(
-                logPeaks,
-                universalPattern,
-                harmonicPatterns,
-                binMulFactor,
-                deconParams);
-
-            if (candidateMasses.Count == 0)
-                return Enumerable.Empty<IsotopicEnvelope>();
-
-            // ── Steps 3–5: isotope clustering, scoring, output ────────────────
-            //
-            // STEP 3 — ISOTOPE ENVELOPE CLUSTERING (to be implemented)
-            //   For each CandidateMass, scan the spectrum around the expected m/z
-            //   positions for each charge in its charge range. For each charge c,
-            //   the most intense peak within mz_delta of (mass + n * C13MinusC12)/c
-            //   for n = 0, ±1, ±2, … is recruited. Isotope index is assigned by
-            //   round((mz_observed - mz_base) / (C13MinusC12 / c)), then shifted
-            //   so that the apex of the Averagine distribution sits at the right index.
-            //   Peaks outside [−leftCount, rightCount] from the Averagine apex are excluded.
-            //   Use AverageResidueModel.GetAllTheoreticalMasses/Intensities for the lookup.
-            //
-            // STEP 4 — SCORING AND FILTRATION (to be implemented)
-            //   a) Build per-isotope intensity vector from all recruited peaks.
-            //   b) Try isotope offsets from −apexIndex to +apexIndex; pick the offset
-            //      that maximises SpectralSimilarity.CosineOfAlignedVectors(observed, theoretical).
-            //   c) Reject if best cosine < deconParams.MinCosineScore.
-            //   d) Determine monoisotopic mass from the winning offset.
-            //   e) Reject if monoisotopic mass outside [MinMassRange, MaxMassRange].
-            //   f) Reject if recruited peak count < MinIsotopicPeakCount.
-            //
-            // STEP 5 — OUTPUT (to be implemented)
-            //   new IsotopicEnvelope(id: 0, peaks, monoMass, signedCharge, totalIntensity, cosineScore)
-            //   Sign the charge: positive for Polarity.Positive, negative for Polarity.Negative.
-
-            return Enumerable.Empty<IsotopicEnvelope>();
+            // ── Steps 3–5 ────────────────────────────────────────────────────
+            return ScoreAndBuildEnvelopes(spectrum, candidates, p);
         }
 
         // ══════════════════════════════════════════════════════════════════════
-        // STEP 2 — CANDIDATE MASS FINDING
+        // STEP 3 — ISOTOPE RECRUITMENT
+        // STEP 4 — COSINE SCORING
+        // STEP 5 — IsotopicEnvelope OUTPUT
         // ══════════════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Intermediate result returned by <see cref="FindCandidateMasses"/>.
-        /// Represents a candidate mass identified by universal-pattern scanning,
-        /// together with the charge range that contributed to it.
-        /// Fields are populated incrementally and are readable by Step 3.
+        /// For each candidate mass, recruits isotope peaks from the raw spectrum
+        /// for each charge state in the candidate's range, scores the resulting
+        /// isotope intensity distribution against Averagine, and returns accepted
+        /// envelopes.
         /// </summary>
+        private IEnumerable<IsotopicEnvelope> ScoreAndBuildEnvelopes(
+            MzSpectrum spectrum,
+            List<CandidateMass> candidates,
+            FLASHDeconvolutionParameters p)
+        {
+            var results = new List<IsotopicEnvelope>();
+            var tolerance = new PpmTolerance(p.DeconvolutionTolerancePpm);
+            int polSign = Math.Sign((int)p.Polarity); // +1 positive, -1 negative
+
+            foreach (var candidate in candidates)
+            {
+                // ── Step 3a: get Averagine shape for this mass ─────────────────
+                // GetAllTheoreticalMasses/Intensities returns arrays sorted
+                // INTENSITY-DESCENDING (index 0 = most abundant / apex isotope).
+                // We re-sort to MASS-ASCENDING for use in the per-isotope cosine vector.
+                //
+                // DiffToMonoisotopic[i] = MostIntenseMasses[i] - monoisotopicMass
+                //                       = apexMass - monoMass (already computed, exact)
+                // This is the distance in Da from monoisotopic to apex — exactly what we need
+                // for the monoisotopic mass calculation, and avoids all fine-resolution array indexing.
+                int avgIdx = p.AverageResidueModel.GetMostIntenseMassIndex(candidate.Mass);
+                double apexDaFromMono = p.AverageResidueModel.GetDiffToMonoisotopic(avgIdx);
+
+                double[] avgMasses = p.AverageResidueModel.GetAllTheoreticalMasses(avgIdx);
+                double[] avgIntensRaw = p.AverageResidueModel.GetAllTheoreticalIntensities(avgIdx);
+
+                // Sort to mass-ascending order for cosine scoring vector
+                var sortedAvg = avgMasses.Zip(avgIntensRaw)
+                    .OrderBy(pair => pair.First)
+                    .ToArray();
+                double[] avgIntens = sortedAvg.Select(pair => pair.Second).ToArray();
+                int nIso = avgIntens.Length;
+
+                // apexIdx in the mass-ascending array — used to set the isoWindowSize
+                // and to center the perIsotopeObs vector.
+                int apexIdx = Array.IndexOf(avgIntens, avgIntens.Max());
+
+                // ── Step 3b: recruit peaks per charge state ────────────────────
+                // Per-isotope intensity vector accumulated across all charges.
+                // Slot 0 = monoisotopic (candidate.Mass), apexIdx = most-abundant isotope.
+                // Track (mz, intensity, z, n) so we can compute monoMass correctly per peak.
+                int isoWindowSize = nIso + apexIdx;
+                var perIsotopeObs = new double[isoWindowSize];
+                // recruitedPeaks: (mz, intensity, absCharge, isotopeIndex n from monoisotopic)
+                var recruitedPeaks = new List<(double mz, double intensity, int z, int n)>();
+
+                for (int z = candidate.MinAbsCharge; z <= candidate.MaxAbsCharge; z++)
+                {
+                    double isoDelta = Constants.C13MinusC12 / z;
+                    double baseMz = candidate.Mass.ToMz(polSign * z);
+
+                    // Search forward (n=0 is monoisotopic, n>0 are heavier)
+                    for (int n = 0; n < nIso; n++)
+                    {
+                        double targetMz = baseMz + n * isoDelta;
+                        var indices = spectrum.GetPeakIndicesWithinTolerance(targetMz, tolerance);
+                        if (indices.Count == 0) break;
+
+                        int bestIdx = indices.OrderByDescending(i => spectrum.YArray[i]).First();
+                        double obsIntensity = spectrum.YArray[bestIdx];
+                        double obsMz = spectrum.XArray[bestIdx];
+
+                        int isoSlot = apexIdx + n;
+                        if (isoSlot < isoWindowSize)
+                            perIsotopeObs[isoSlot] += obsIntensity;
+
+                        recruitedPeaks.Add((obsMz, obsIntensity, z, n));
+                    }
+
+                    // Search backward (lighter than monoisotopic, n=−1,−2,…)
+                    for (int n = 1; n <= apexIdx; n++)
+                    {
+                        double targetMz = baseMz - n * isoDelta;
+                        if (targetMz <= 0) break;
+
+                        var indices = spectrum.GetPeakIndicesWithinTolerance(targetMz, tolerance);
+                        if (indices.Count == 0) break;
+
+                        int bestIdx = indices.OrderByDescending(i => spectrum.YArray[i]).First();
+                        double obsIntensity = spectrum.YArray[bestIdx];
+                        double obsMz = spectrum.XArray[bestIdx];
+
+                        int isoSlot = apexIdx - n;
+                        if (isoSlot >= 0 && isoSlot < isoWindowSize)
+                            perIsotopeObs[isoSlot] += obsIntensity;
+
+                        recruitedPeaks.Add((obsMz, obsIntensity, z, -n));
+                    }
+                }
+
+                if (recruitedPeaks.Count < p.MinIsotopicPeakCount)
+                    continue;
+
+                // ── Step 4a: find best isotope offset ─────────────────────────
+                // The candidate mass from Step 2 is approximate. Shift the observed
+                // intensity vector relative to the Averagine template to find the
+                // offset that maximises cosine similarity. Offset search range: ±apexIdx.
+                double bestCosine = -1.0;
+                int bestOffset = 0;
+
+                for (int offset = -apexIdx; offset <= apexIdx; offset++)
+                {
+                    // Align: avgIntens[i] ↔ perIsotopeObs[i + apexIdx + offset]
+                    var obsSlice = new double[nIso];
+                    for (int i = 0; i < nIso; i++)
+                    {
+                        int slot = i + offset;
+                        if (slot >= 0 && slot < isoWindowSize)
+                            obsSlice[i] = perIsotopeObs[slot];
+                    }
+
+                    double cos = SpectralSimilarity.CosineOfAlignedVectors(obsSlice, avgIntens);
+                    if (cos > bestCosine)
+                    {
+                        bestCosine = cos;
+                        bestOffset = offset;
+                    }
+                }
+
+                // ── Step 4b: apply filters ─────────────────────────────────────
+                if (bestCosine < p.MinCosineScore) continue;
+
+                // Deduplicate: same raw spectrum peak recruited from multiple charges.
+                var uniquePeaks = recruitedPeaks
+                    .GroupBy(pk => spectrum.GetClosestPeakIndex(pk.mz))
+                    .Select(g => g.OrderByDescending(pk => pk.intensity).First())
+                    .ToList();
+
+                if (uniquePeaks.Count < p.MinIsotopicPeakCount) continue;
+
+                // candidate.Mass ≈ apex mass (Step 2 bins on whatever peaks triggered the run,
+                // which are near the apex of the isotope distribution).
+                // The Averagine apex is apexDaFromMono Da above monoisotopic.
+                // bestOffset shifts the alignment frame by that many fine-resolution bins,
+                // which corresponds to bestOffset * C13MinusC12 in mass space.
+                //
+                // monoMass = candidate.Mass - apexDaFromMono + bestOffset * C13MinusC12
+                //
+                // This is exact regardless of charge and independent of the fine-resolution
+                // array indexing, because apexDaFromMono is in Da directly from Averagine.
+                double monoMass = candidate.Mass - apexDaFromMono + bestOffset * Constants.C13MinusC12;
+                if (monoMass < p.MinMassRange || monoMass > p.MaxMassRange) continue;
+
+                // Representative charge for the signed output
+                int repCharge = (candidate.MinAbsCharge + candidate.MaxAbsCharge) / 2;
+                int signedCharge = polSign * repCharge;
+
+                double totalIntensity = uniquePeaks.Sum(pk => pk.intensity);
+                var outputPeaks = uniquePeaks
+                    .Select(pk => (pk.mz, pk.intensity))
+                    .ToList();
+
+                results.Add(new IsotopicEnvelope(
+                    id: 0,
+                    peaks: outputPeaks,
+                    monoisotopicmass: monoMass,
+                    chargestate: signedCharge,
+                    intensity: totalIntensity,
+                    score: bestCosine));
+            }
+
+            return results;
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // STEP 2 — CANDIDATE MASS FINDING (unchanged)
+        // ══════════════════════════════════════════════════════════════════════
+
         internal sealed class CandidateMass
         {
-            /// <summary>Candidate neutral monoisotopic mass (exp of the mass-bin log value).</summary>
             public double Mass { get; init; }
-
-            /// <summary>Log of the candidate mass (the mass-bin centre value).</summary>
             public double LogMass { get; init; }
-
-            /// <summary>
-            /// Minimum absolute charge state that contributed support peaks
-            /// for this candidate (index into the universal pattern + minAbsCharge).
-            /// </summary>
             public int MinAbsCharge { get; init; }
-
-            /// <summary>Maximum absolute charge state that contributed support peaks.</summary>
             public int MaxAbsCharge { get; init; }
-
-            /// <summary>
-            /// Summed intensity of all non-harmonic support peaks for this candidate.
-            /// Used to resolve conflicts when a peak belongs to multiple candidates.
-            /// </summary>
             public float SupportIntensity { get; init; }
         }
 
-        /// <summary>
-        /// Scans the log-transformed spectrum using the universal charge pattern and
-        /// returns a list of candidate masses sorted ascending by mass.
-        /// <para>
-        /// This is the C# equivalent of OpenMS
-        /// <c>updateCandidateMassBins_() + filterMassBins_()</c>. The binning
-        /// approach is identical: log-m/z and log-mass values are mapped to integer
-        /// bin indices so that the universal-pattern offset becomes a constant integer
-        /// offset per charge, enabling O(peaks × charges) scanning.
-        /// </para>
-        /// </summary>
         internal static List<CandidateMass> FindCandidateMasses(
             List<LogMzPeak> logPeaks,
             double[] universalPattern,
@@ -174,50 +285,27 @@ namespace MassSpectrometry
             int chargeRange = universalPattern.Length;
             int minAbsCharge = Math.Abs(deconParams.MinAssumedChargeState);
 
-            // ── Set up bin space ──────────────────────────────────────────────
-            // mz bin space: logMz values of all peaks → integer bins
-            double mzBinMinValue = logPeaks[0].LogMz;       // smallest logMz in spectrum
-            double mzBinMaxValue = logPeaks[^1].LogMz;      // largest  logMz in spectrum
-
-            // mass bin space: spans from log(MinMassRange) to
-            // log(MaxMassRange + some isotope headroom).  We add headroom so that
-            // the most abundant isotope of heavy proteins is still captured.
+            double mzBinMinValue = logPeaks[0].LogMz;
+            double mzBinMaxValue = logPeaks[^1].LogMz;
             double massBinMinValue = Math.Log(Math.Max(1.0, deconParams.MinMassRange - 50.0));
             double massBinMaxValue = Math.Log(deconParams.MaxMassRange + 200.0);
 
             int mzBinCount = BinNumber(mzBinMaxValue, mzBinMinValue, binMulFactor) + 1;
             int massBinCount = BinNumber(massBinMaxValue, massBinMinValue, binMulFactor) + 1;
 
-            // ── Pre-compute integer universal-pattern offsets ─────────────────
-            // Each element j: the integer offset from an mz-bin to the mass-bin
-            // corresponding to charge (minAbsCharge + j).
-            // offset[j] = round( (mzBinMin − universalPattern[j] − massBinMin) × binMulFactor )
-            // This converts "shift by −log(c) in log space" into an integer bin shift.
-            var binUniversalPattern = new int[chargeRange];
-            for (int j = 0; j < chargeRange; j++)
-            {
-                binUniversalPattern[j] = (int)Math.Round(
-                    (mzBinMinValue - universalPattern[j] - massBinMinValue) * binMulFactor);
-            }
-
-            // Harmonic pattern bin offsets [harmonicDenominatorIndex][chargeIndex]
+            // Pre-compute integer harmonic bin offsets for mz-space lookups
             var binHarmonicPatterns = new int[harmonicPatterns.Length][];
             for (int k = 0; k < harmonicPatterns.Length; k++)
             {
                 binHarmonicPatterns[k] = new int[chargeRange];
                 for (int j = 0; j < chargeRange; j++)
-                {
                     binHarmonicPatterns[k][j] = (int)Math.Round(
                         (mzBinMinValue - harmonicPatterns[k][j] - massBinMinValue) * binMulFactor);
-                }
             }
 
-            // ── Build mz-bin arrays from log peaks ────────────────────────────
-            // mzBinOccupied[b] = true  when any peak maps to bin b
-            // mzBinIntensity[b] = intensity of the peak at bin b (summed if multiple)
             var mzBinOccupied = new bool[mzBinCount];
             var mzBinIntensity = new float[mzBinCount];
-            var peakBinIndex = new int[logPeaks.Count];   // bin index per peak
+            var peakBinIndex = new int[logPeaks.Count];
 
             for (int i = 0; i < logPeaks.Count; i++)
             {
@@ -228,54 +316,35 @@ namespace MassSpectrometry
                 mzBinIntensity[b] += (float)logPeaks[i].Intensity;
             }
 
-            // ── Per-mass-bin accumulators ─────────────────────────────────────
-            var massBinOccupied = new bool[massBinCount];  // candidate bit
-            var massBinIntensity = new float[massBinCount]; // support intensity
-            var massBinSupportCount = new int[massBinCount];   // # support peaks
-            var massBinMinChargeIdx = new int[massBinCount];   // lowest charge index j
-            var massBinMaxChargeIdx = new int[massBinCount];   // highest charge index j
-
-            // Initialise charge range tracking
+            var massBinOccupied = new bool[massBinCount];
+            var massBinIntensity = new float[massBinCount];
+            var massBinSupportCount = new int[massBinCount];
+            var massBinMinChargeIdx = new int[massBinCount];
+            var massBinMaxChargeIdx = new int[massBinCount];
             for (int i = 0; i < massBinCount; i++)
             {
                 massBinMinChargeIdx[i] = int.MaxValue;
                 massBinMaxChargeIdx[i] = int.MinValue;
             }
 
-            // Per-mass-bin tracking of previous charge and intensity
-            // (for continuity / intensity-ratio checks)
             var prevChargeIdx = new int[massBinCount];
             var prevIntensity = new float[massBinCount];
-            for (int i = 0; i < massBinCount; i++) prevChargeIdx[i] = chargeRange + 2; // sentinel: "none"
+            for (int i = 0; i < massBinCount; i++) prevChargeIdx[i] = chargeRange + 2;
 
-            // ── Main scan: iterate peaks from HIGH to LOW mz (right to left) ──
-            // OpenMS iterates in reverse so that charge states increment (small
-            // to large) as we walk from high-mz to low-mz for a given mass.
-            // This makes the "continuous charge" check meaningful.
+            // Main scan: right-to-left (high logMz → low logMz)
             for (int i = logPeaks.Count - 1; i >= 0; i--)
             {
                 int mzBin = peakBinIndex[i];
                 double logMz = logPeaks[i].LogMz;
                 float intensity = (float)logPeaks[i].Intensity;
 
-                // For each charge state j (low abs charge to high abs charge):
                 for (int j = 0; j < chargeRange; j++)
                 {
-                    // ── SINGLE-ROUND mass bin computation ─────────────────────
-                    // Computing massBin as mzBin + binUniversalPattern[j] uses
-                    // TWO separate round() calls (one for mzBin, one for the
-                    // pre-computed integer offset), which can place peaks from
-                    // different charge states of the same mass into adjacent bins
-                    // (off by ±1). Instead, we compute the mass bin in one
-                    // combined round(), which is mathematically equivalent to
-                    // round(log(mass) × binMulFactor) for all charges:
-                    //   logMz - universalPattern[j] = log(mass/z) - (-log(z)) = log(mass)
+                    // Single-round mass bin: avoids double-rounding that scatters
+                    // peaks from the same mass into adjacent bins.
                     int massBin = BinNumber(logMz - universalPattern[j], massBinMinValue, binMulFactor);
                     if (massBin < 0 || massBin >= massBinCount) continue;
 
-                    int absCharge = minAbsCharge + j;
-
-                    // ── Intensity-ratio / continuity check ────────────────────
                     bool chargeIsContinuous = (prevChargeIdx[massBin] - j) == -1
                                              && prevChargeIdx[massBin] <= chargeRange;
                     float ratio = prevIntensity[massBin] <= 0f
@@ -283,19 +352,14 @@ namespace MassSpectrometry
                         : intensity / prevIntensity[massBin];
                     if (ratio < 1f) ratio = 1f / ratio;
 
-                    bool passIntensityCheck = chargeIsContinuous && ratio <= MaxChargeIntensityRatio;
+                    bool passCheck = chargeIsContinuous && ratio <= MaxChargeIntensityRatio;
 
-                    if (!passIntensityCheck)
+                    if (!passCheck)
                     {
-                        // Broken charge run: reset support count.
                         massBinSupportCount[massBin] = 0;
                     }
                     else
                     {
-                        // ── Harmonic check ────────────────────────────────────
-                        // A peak is "harmonic" if an interleaved harmonic-pattern
-                        // peak is present in the occupied mz-bin set at the same
-                        // intensity order of magnitude.
                         bool isHarmonic = false;
                         float maxHarmonicIntensity = 0f;
 
@@ -319,19 +383,10 @@ namespace MassSpectrometry
 
                         if (!isHarmonic)
                         {
-                            // When the second peak of a new continuous run arrives it
-                            // confirms the first peak retroactively — credit both.
-                            // (The first peak of a run cannot credit itself because it
-                            // has no prior peak to be "continuous" with; OpenMS handles
-                            // this via support_peak_intensity carrying the previous
-                            // peak's intensity forward.)
                             if (massBinSupportCount[massBin] == 0)
                             {
-                                // This is the second peak confirming the first:
-                                // count the predecessor too.
                                 massBinSupportCount[massBin] = 2;
                                 massBinIntensity[massBin] += prevIntensity[massBin] + intensity;
-                                // Also credit the first peak's charge index in the range
                                 int prevJ = prevChargeIdx[massBin];
                                 if (prevJ < chargeRange)
                                 {
@@ -345,20 +400,10 @@ namespace MassSpectrometry
                                 massBinIntensity[massBin] += intensity;
                             }
 
-                            // Mark as candidate once MinSupportPeakCount - 1 continuous
-                            // support peaks have been confirmed. The -1 accounts for the
-                            // first peak of the run being credited retroactively above:
-                            // after the second peak arrives, spc == 2 and we have already
-                            // counted the full run of 2 confirmed peaks (the retroactive
-                            // first + the current second). With MinSupportPeakCount = 3,
-                            // we mark after the third peak sets spc = 3.
                             if (!massBinOccupied[massBin]
                                 && massBinSupportCount[massBin] >= MinSupportPeakCount)
-                            {
                                 massBinOccupied[massBin] = true;
-                            }
 
-                            // Track charge range for this mass bin
                             if (j < massBinMinChargeIdx[massBin]) massBinMinChargeIdx[massBin] = j;
                             if (j > massBinMaxChargeIdx[massBin]) massBinMaxChargeIdx[massBin] = j;
                         }
@@ -374,10 +419,7 @@ namespace MassSpectrometry
                 }
             }
 
-            // ── Conflict resolution: for each mz-peak assign to highest-intensity mass ─
-            // When a peak maps to multiple candidate mass bins (different charges),
-            // keep only the assignment to the highest-intensity mass bin.
-            // Uses the same single-round mass bin computation as the main scan loop.
+            // Conflict resolution: assign each mz-peak to the highest-intensity mass bin
             var finalMassBins = new bool[massBinCount];
             for (int i = 0; i < logPeaks.Count; i++)
             {
@@ -390,7 +432,6 @@ namespace MassSpectrometry
                     int massBin = BinNumber(logMz - universalPattern[j], massBinMinValue, binMulFactor);
                     if (massBin < 0 || massBin >= massBinCount) continue;
                     if (!massBinOccupied[massBin]) continue;
-
                     if (massBinIntensity[massBin] > bestIntensity)
                     {
                         bestIntensity = massBinIntensity[massBin];
@@ -401,9 +442,7 @@ namespace MassSpectrometry
                 if (bestMassBin >= 0) finalMassBins[bestMassBin] = true;
             }
 
-            // ── Collect candidates ────────────────────────────────────────────
             var candidates = new List<CandidateMass>();
-
             for (int b = 0; b < massBinCount; b++)
             {
                 if (!finalMassBins[b]) continue;
@@ -424,32 +463,24 @@ namespace MassSpectrometry
                 });
             }
 
-            return candidates; // already sorted ascending by mass (bins are ordered)
+            return candidates;
         }
 
         // ══════════════════════════════════════════════════════════════════════
-        // BIN ARITHMETIC HELPERS
+        // BIN HELPERS
         // ══════════════════════════════════════════════════════════════════════
 
-        /// <summary>
-        /// Converts a log-space value to an integer bin index.
-        /// <c>bin = round((value − minValue) × binMulFactor)</c>
-        /// </summary>
         internal static int BinNumber(double value, double minValue, double binMulFactor)
         {
             double raw = (value - minValue) * binMulFactor;
             return raw < 0.0 ? 0 : (int)Math.Round(raw);
         }
 
-        /// <summary>
-        /// Converts an integer bin index back to the corresponding log-space value.
-        /// <c>value = minValue + bin / binMulFactor</c>
-        /// </summary>
         internal static double BinValue(int bin, double minValue, double binMulFactor)
             => minValue + bin / binMulFactor;
 
         // ══════════════════════════════════════════════════════════════════════
-        // STEP 1 METHODS (unchanged from Step 1 — reproduced for completeness)
+        // STEP 1 HELPERS
         // ══════════════════════════════════════════════════════════════════════
 
         internal static double GetLogMz(double mz, Polarity polarity)
@@ -480,34 +511,33 @@ namespace MassSpectrometry
         {
             if (chargeRange <= 0) throw new ArgumentOutOfRangeException(nameof(chargeRange), "Must be > 0");
             if (minAbsCharge <= 0) throw new ArgumentOutOfRangeException(nameof(minAbsCharge), "Must be > 0");
-            var pattern = new double[chargeRange];
-            for (int j = 0; j < chargeRange; j++)
-                pattern[j] = -Math.Log(minAbsCharge + j);
-            return pattern;
+            var p = new double[chargeRange];
+            for (int j = 0; j < chargeRange; j++) p[j] = -Math.Log(minAbsCharge + j);
+            return p;
         }
 
         internal static double[][] BuildHarmonicPatterns(int minAbsCharge, int chargeRange)
         {
             double[] up = BuildUniversalPattern(minAbsCharge, chargeRange);
-            var harmonics = new double[HarmonicDenominators.Length][];
+            var h = new double[HarmonicDenominators.Length][];
             for (int k = 0; k < HarmonicDenominators.Length; k++)
             {
                 int d = HarmonicDenominators[k];
                 int n = d / 2;
-                harmonics[k] = new double[chargeRange];
+                h[k] = new double[chargeRange];
                 for (int j = 0; j < chargeRange; j++)
                 {
                     double b = Math.Exp(-up[j]);
                     double a = j > 0 ? Math.Exp(-up[j - 1]) : 0.0;
-                    double harmonicMz = b - (b - a) * (double)n / d;
-                    harmonics[k][j] = harmonicMz > 0.0 ? -Math.Log(harmonicMz) : up[j];
+                    double hMz = b - (b - a) * (double)n / d;
+                    h[k][j] = hMz > 0.0 ? -Math.Log(hMz) : up[j];
                 }
             }
-            return harmonics;
+            return h;
         }
 
         // ══════════════════════════════════════════════════════════════════════
-        // LogMzPeak STRUCT (unchanged from Step 1)
+        // LogMzPeak STRUCT
         // ══════════════════════════════════════════════════════════════════════
 
         internal readonly struct LogMzPeak
