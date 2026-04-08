@@ -6,7 +6,7 @@
 // Step 2 — binned candidate mass finding (single-round mass bin computation)
 // Step 3 — isotope peak recruitment per candidate per charge
 // Step 4 — cosine scoring against Averagine; isotope offset optimisation
-// Step 5 — IsotopicEnvelope output
+// Step 5 — IsotopicEnvelope output, deduplication, Qscoring
 //
 // Reference:
 //   Jeong et al. (2020) Cell Systems 10(2):213-218.e6
@@ -80,13 +80,28 @@ namespace MassSpectrometry
                 logPeaks, universalPattern, harmonicPatterns, binMulFactor, p);
             if (candidates.Count == 0) return Enumerable.Empty<IsotopicEnvelope>();
 
-            // ── Steps 3–5 ────────────────────────────────────────────────────
-            double medianIntensity = FLASHDeconvScorer.ComputeMedianIntensity(spectrum);
+            // ── Steps 3–5: recruit → score → dedup → Qscore ──────────────────
+            // ScoreAndBuildEnvelopesWithPpmError computes the exact ppm error
+            // during recruitment while the isotope index n is still known,
+            // matching the OpenMS formula:
+            //   theorMz = monoMass.ToMz(z) + n * C13/z
+            //   error   = |obsMz - theorMz| / theorMz * 1e6
+            // This is stored alongside each envelope and passed to AssignQscores
+            // so that f[4] of the logistic regression uses the correct value
+            // rather than the post-hoc approximation anchored at the apex peak.
+            var pairs = ScoreAndBuildEnvelopesWithPpmError(spectrum, candidates, p).ToList();
+
+            // Build a reference-identity lookup so deduplication survivors can
+            // retrieve their ppm error. The deduplicator yields the actual winning
+            // envelope objects unchanged, so object reference equality is safe here.
+            var ppmByRef = pairs.ToDictionary(x => x.Envelope, x => x.AvgPpmError);
+
+            var deduped = FLASHDeconvDeduplicator
+                .Deduplicate(pairs.Select(x => x.Envelope), p.DeconvolutionTolerancePpm);
+
             return FLASHDeconvScorer.AssignQscores(
-                FLASHDeconvDeduplicator.Deduplicate(ScoreAndBuildEnvelopes(spectrum, candidates, p),
-                                                    p.DeconvolutionTolerancePpm),
-                medianIntensity,
-                p.DeconvolutionTolerancePpm);
+                deduped.Select(env =>
+                    (env, ppmByRef.TryGetValue(env, out double ppm) ? ppm : 0.0)));
         }
 
         // ══════════════════════════════════════════════════════════════════════
@@ -99,14 +114,22 @@ namespace MassSpectrometry
         /// For each candidate mass, recruits isotope peaks from the raw spectrum
         /// for each charge state in the candidate's range, scores the resulting
         /// isotope intensity distribution against Averagine, and returns accepted
-        /// envelopes.
+        /// envelopes paired with their average ppm error.
+        ///
+        /// The ppm error is computed here while the isotope index n for each
+        /// recruited peak is still known, using the OpenMS formula:
+        ///   theorMz = monoMass.ToMz(polSign * z) + n * C13/z
+        ///   error   = |obsMz − theorMz| / theorMz × 1e6
+        /// This is more accurate than recomputing it post-hoc from the (mz, intensity)
+        /// peak list, where n must be reconstructed by rounding.
         /// </summary>
-        private IEnumerable<IsotopicEnvelope> ScoreAndBuildEnvelopes(
-            MzSpectrum spectrum,
-            List<CandidateMass> candidates,
-            FLASHDeconvolutionParameters p)
+        private IEnumerable<(IsotopicEnvelope Envelope, double AvgPpmError)>
+            ScoreAndBuildEnvelopesWithPpmError(
+                MzSpectrum spectrum,
+                List<CandidateMass> candidates,
+                FLASHDeconvolutionParameters p)
         {
-            var results = new List<IsotopicEnvelope>();
+            var results = new List<(IsotopicEnvelope, double)>();
             var tolerance = new PpmTolerance(p.DeconvolutionTolerancePpm);
             int polSign = Math.Sign((int)p.Polarity); // +1 positive, -1 negative
 
@@ -141,7 +164,7 @@ namespace MassSpectrometry
                 // ── Step 3b: recruit peaks per charge state ────────────────────
                 // Per-isotope intensity vector accumulated across all charges.
                 // Slot 0 = monoisotopic (candidate.Mass), apexIdx = most-abundant isotope.
-                // Track (mz, intensity, z, n) so we can compute monoMass correctly per peak.
+                // Track (mz, intensity, z, n) so we can compute monoMass and ppm error.
                 int isoWindowSize = nIso + apexIdx;
                 var perIsotopeObs = new double[isoWindowSize];
                 // recruitedPeaks: (mz, intensity, absCharge, isotopeIndex n from monoisotopic)
@@ -253,13 +276,28 @@ namespace MassSpectrometry
                     .Select(pk => (pk.mz, pk.intensity))
                     .ToList();
 
-                results.Add(new IsotopicEnvelope(
+                // ── Compute avg ppm error while isotope index n is still known ─
+                // theorMz = monoMass.ToMz(polSign * z) + n * C13/z
+                // This matches the OpenMS getPPMError_ formula and is more accurate
+                // than the post-hoc approximation anchored from the apex peak.
+                double totalPpmError = 0.0;
+                foreach (var (obsMz, _, z, n) in uniquePeaks)
+                {
+                    double isoDelta = Constants.C13MinusC12 / z;
+                    double theorMz = monoMass.ToMz(polSign * z) + n * isoDelta;
+                    totalPpmError += Math.Abs(obsMz - theorMz) / theorMz * 1e6;
+                }
+                double avgPpmError = uniquePeaks.Count > 0
+                    ? totalPpmError / uniquePeaks.Count
+                    : 0.0;
+
+                results.Add((new IsotopicEnvelope(
                     id: 0,
                     peaks: outputPeaks,
                     monoisotopicmass: monoMass,
                     chargestate: signedCharge,
                     intensity: totalIntensity,
-                    score: bestCosine));
+                    score: bestCosine), avgPpmError));
             }
 
             return results;

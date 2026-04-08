@@ -1,83 +1,61 @@
 ﻿// FLASHDeconvScorer.cs
 //
-// Computes a Qscore analog for IsotopicEnvelope objects produced by
-// FLASHDeconvolutionAlgorithm. The model is a direct port of the logistic
-// regression in OpenMS PeakGroupScoring.cpp.
+// Computes a Qscore for IsotopicEnvelope objects produced by
+// FLASHDeconvolutionAlgorithm. The model ports the logistic regression in
+// OpenMS PeakGroupScoring.cpp (Kyowon Jeong, BSD-3-Clause).
 //
-// ── OpenMS reference ─────────────────────────────────────────────────────────
-// File:    src/openms/source/ANALYSIS/TOPDOWN/PeakGroupScoring.cpp
-// Authors: Kyowon Jeong
-// License: BSD-3-Clause
+// ── OpenMS feature vector (toFeatureVector_) ─────────────────────────────────
+//   f[0] = isotopeCosine
+//   f[1] = isotopeCosine − chargeIsotopeCosine(repZ)   inter-charge cosine drop
+//   f[2] = log2(1 + chargeSNR(repZ))                   per-charge SNR, log-scaled
+//   f[3] = log2(1 + chargeSNR(repZ)) − log2(1 + SNR)   per-charge vs global SNR drop
+//   f[4] = avgPPMError
 //
-// OpenMS weight vector (from PeakGroupScoring.cpp):
-//   weights = { -21.0476, 1.5045, -0.1303, 0.183, 0.1834, 17.804 }
-//   Intercept (last element) = 17.804, adjusted by +0.5 inside getQscore()
-//   giving an effective intercept of 18.304.
+// ── OpenMS SNR formula (updateSNR_ in PeakGroup.cpp) ─────────────────────────
+// For each charge c:
+//   cos²      = per_charge_cos[c]²
+//   sig_pwr   = per_charge_sum_signal_squared[c] × cos²
+//   noise_pwr = per_charge_noise_pwr[c]     ← peaks NOT matching the isotope pattern
+//   chargeSNR = (ε + mul_factor × sig_pwr)
+//             / (ε + noise_pwr + (1 − cos²) × sum_signal_squared[c])
 //
-// OpenMS feature vector (toFeatureVector_):
-//   f[0] = isotopeCosine                                (global cosine, all charges)
-//   f[1] = isotopeCosine − chargeIsotopeCosine(repZ)   (inter-charge cosine drop)
-//   f[2] = log2(1 + chargeSNR(repZ))                   (per-charge SNR, log-scaled)
-//   f[3] = log2(1 + chargeSNR(repZ)) − log2(1 + SNR)   (per-charge vs global SNR drop)
-//   f[4] = avgPPMError                                  (average mass PPM error)
+// ── SNR approximation (self-noise) ───────────────────────────────────────────
+// We do NOT run a separate noise-peak recruitment pass. OpenMS collects peaks
+// in the same m/z window that fall between isotope positions to form noise_pwr.
+// Replicating this requires a second scan of the raw spectrum per envelope.
 //
-// ── mzLib mapping ────────────────────────────────────────────────────────────
-// IsotopicEnvelope carries:
-//   Score        — cosine of the full recruited envelope vs Averagine (Step 4)
-//                  This is the closest analogue to OpenMS isotopeCosine.
-//   Peaks        — list of (mz, intensity) for recruited isotope peaks
-//   Charge       — signed representative charge (one charge per envelope)
-//   TotalIntensity
-//   MonoisotopicMass
+// CURRENT APPROXIMATION: use the cosine mismatch fraction as self-noise.
+//   chargeSNR ≈ cos² / (1 − cos² + ε)
 //
-// Because FLASHDeconvolutionAlgorithm emits one envelope per (candidate, charge)
-// pair BEFORE deduplication, each envelope represents a single charge state.
-// After deduplication only the best-scoring envelope per mass cluster survives.
-// Therefore:
+// This is equivalent to the OpenMS formula when external noise_pwr = 0.
+// It correctly ranks high-cosine over low-cosine envelopes but cannot
+// distinguish two envelopes with the same cosine and different background noise.
 //
-//   f[0] — isotopeCosine              → envelope.Score  (cosine stored at construction)
-//   f[1] — cosine drop across charges → 0.0  (we have one charge per envelope; there
-//                                             is no "other charge" to compare against.
-//                                             Approximated as zero, which is the neutral
-//                                             (non-penalising) value for this feature.)
-//   f[2] — log2(1 + chargeSNR)        → log2(1 + SNR(envelope))
-//                                       where SNR = TotalIntensity / noiseEstimate.
-//                                       We estimate noise as the spectrum median intensity
-//                                       passed in at scoring time.
-//   f[3] — per-charge vs global SNR   → 0.0  (same reason as f[1]; approximated as zero)
-//   f[4] — avgPPMError                → mean absolute ppm error of recruited peaks
-//                                       vs the theoretical Averagine m/z positions,
-//                                       computed from the peaks list and charge.
+// TODO: proper noise estimation
+// The right fix is to collect non-matching peaks during Step 3 (isotope
+// recruitment). After recruiting signal peaks within ±tolerancePpm of each
+// expected isotope position, also collect raw spectrum peaks in the same m/z
+// window that fall outside the tolerance band. Sum their squared intensities
+// per charge to get per_charge_noise_pwr, pass it into AssignQscores alongside
+// the envelope, and use it in the SNR formula. This would match the OpenMS
+// model exactly for f[2] and f[3] and is the highest-priority scoring
+// improvement after the current round of validation.
 //
-// f[1] and f[3] being zero is conservative: it means the model cannot penalise
-// for inter-charge inconsistency, which is fine for a first-pass scorer. The
-// ML-improved version will handle this properly once we track per-charge cosines.
+// ── PPM error: exact vs approximate ──────────────────────────────────────────
+// f[4] is the average absolute ppm error of recruited peaks vs the theoretical
+// Averagine isotope positions. This is most accurately computed during Step 3
+// while the isotope index n for each recruited peak is still known:
+//   theorMz = monoMass.ToMz(charge) + n * C13/z
+//   error   = |obsMz − theorMz| / theorMz × 1e6
 //
-// ── Qscore interpretation ─────────────────────────────────────────────────────
-// Qscore = sigmoid(-score) where score is the linear combination.
-// Higher Qscore = more likely to be a real peak group.
-// OpenMS threshold for keeping a feature: Qscore >= 0.7 gives ~99% recall of
-// high-confidence peaks on the Filgrastim dataset (see validation analysis).
+// The preferred call path is:
+//   ScoreAndBuildEnvelopesWithPpmError → pairs of (envelope, avgPpmError)
+//   → FLASHDeconvDeduplicator.Deduplicate (with ppm error propagated)
+//   → FLASHDeconvScorer.AssignQscores(pairs, tolerancePpm)
 //
-// ── Placement ────────────────────────────────────────────────────────────────
-// Add to MassSpectrometry/Deconvolution/Algorithms/ alongside
-// FLASHDeconvolutionAlgorithm.cs and FLASHDeconvDeduplicator.cs.
-//
-// ── Usage in FLASHDeconvolutionAlgorithm.Deconvolute() ──────────────────────
-// After deduplication:
-//
-//   var deduped = FLASHDeconvDeduplicator.Deduplicate(
-//                     ScoreAndBuildEnvelopes(spectrum, candidates, p),
-//                     p.DeconvolutionTolerancePpm);
-//   double medianIntensity = ComputeMedianIntensity(spectrum);  // helper below
-//   return FLASHDeconvScorer.AssignQscores(deduped, medianIntensity, p.DeconvolutionTolerancePpm);
-//
-// Or, if you prefer to filter rather than annotate:
-//   return FLASHDeconvScorer.AssignQscores(deduped, medianIntensity, p.DeconvolutionTolerancePpm)
-//                           .Where(e => e.Score >= p.MinQscore);
-//
-// MinQscore can be added to FLASHDeconvolutionParameters; suggested default: 0.0
-// (keep everything, let downstream filtering decide) or 0.3 (light pre-filter).
+// A fallback overload AssignQscores(envelopes, tolerancePpm) recomputes ppm
+// error post-hoc from the peak list, which is less accurate because the isotope
+// index n is reconstructed by rounding rather than known exactly.
 
 using System;
 using System.Collections.Generic;
@@ -95,49 +73,35 @@ namespace MassSpectrometry
     internal static class FLASHDeconvScorer
     {
         // ── Logistic regression weights ───────────────────────────────────────
-        // Directly from OpenMS PeakGroupScoring.cpp weight_ vector.
-        // Element order matches toFeatureVector_ in that file.
+        // From OpenMS PeakGroupScoring.cpp weight_ vector (stored negated).
+        // score = intercept + sum(w[i] * f[i])
+        // Qscore = 1 / (1 + exp(score))
         //
-        //   w[0] = -21.0476  → isotopeCosine
-        //   w[1] =   1.5045  → cosine drop across charges  (we set feature = 0)
-        //   w[2] =  -0.1303  → log2(1 + chargeSNR)
-        //   w[3] =   0.183   → chargeSNR vs globalSNR drop (we set feature = 0)
-        //   w[4] =   0.1834  → avgPPMError
-        //   w[5] =  17.804   → intercept (OpenMS adds +0.5 inside getQscore)
-        //
-        // Note on signs: OpenMS negates its weight_ vector internally (see code).
-        // The stored values ARE the negated coefficients. The linear combination is
-        //   score = intercept + 0.5 + sum(w[i] * f[i])
-        // and then sigmoid(-score) — which simplifies to:
-        //   Qscore = 1 / (1 + exp(score))   [standard sigmoid of negative argument]
+        //   w[0] = -21.0476  isotopeCosine       high cosine → low score → high Qscore
+        //   w[1] =   1.5045  inter-charge drop   (set to 0, single-charge envelope)
+        //   w[2] =  -0.1303  log2(1+chargeSNR)   high SNR → lower score → higher Qscore
+        //   w[3] =   0.183   SNR drop            (set to 0, single-charge envelope)
+        //   w[4] =   0.1834  avgPPMError         high error → higher score → lower Qscore
         private static readonly double[] Weights = { -21.0476, 1.5045, -0.1303, 0.183, 0.1834 };
         private static readonly double Intercept = 17.804 + 0.5; // +0.5 matches OpenMS getQscore()
 
-        /// <summary>
-        /// Assigns Qscores to a sequence of envelopes by replacing their <c>Score</c>
-        /// field with the logistic-regression Qscore. The cosine score used to build
-        /// the feature vector is read before replacement.
-        /// </summary>
-        /// <param name="envelopes">Deduplicated envelopes from FLASHDeconvolutionAlgorithm.</param>
-        /// <param name="medianSpectrumIntensity">
-        /// Median intensity of the raw spectrum, used as noise floor for SNR estimation.
-        /// Pass 1.0 if unknown (degrades SNR features to neutral values).
-        /// </param>
-        /// <param name="tolerancePpm">Peak-matching tolerance in ppm (same as decon tolerance).</param>
-        /// <returns>
-        /// New <see cref="IsotopicEnvelope"/> objects with <c>Score</c> replaced by
-        /// the Qscore in [0, 1]. Higher = more confident.
-        /// </returns>
-        internal static IEnumerable<IsotopicEnvelope> AssignQscores(
-            IEnumerable<IsotopicEnvelope> envelopes,
-            double medianSpectrumIntensity,
-            double tolerancePpm = 10.0)
-        {
-            double noiseFloor = Math.Max(medianSpectrumIntensity, 1.0);
+        // ── Primary path: pre-computed ppm error ──────────────────────────────
 
-            foreach (var env in envelopes)
+        /// <summary>
+        /// Assigns Qscores using the exact ppm error computed during Step 3 while
+        /// the isotope index was still known. Preferred over the envelope-only overload.
+        /// </summary>
+        /// <param name="pairs">
+        /// (envelope with Score=cosine, avgPpmError in ppm) from
+        /// <see cref="FLASHDeconvolutionAlgorithm.ScoreAndBuildEnvelopesWithPpmError"/>,
+        /// after deduplication with ppm error propagated.
+        /// </param>
+        internal static IEnumerable<IsotopicEnvelope> AssignQscores(
+            IEnumerable<(IsotopicEnvelope Envelope, double AvgPpmError)> pairs)
+        {
+            foreach (var (env, ppmError) in pairs)
             {
-                double qscore = ComputeQscore(env, noiseFloor, tolerancePpm);
+                double qscore = ComputeQscore(env.Score, ppmError);
                 yield return new IsotopicEnvelope(
                     id: env.PrecursorId,
                     peaks: env.Peaks,
@@ -148,106 +112,95 @@ namespace MassSpectrometry
             }
         }
 
+        // ── Fallback path: envelope only (ppm error reconstructed post-hoc) ──
+
         /// <summary>
-        /// Computes the Qscore for a single envelope without creating a new object.
-        /// Useful for filtering before allocation.
+        /// Assigns Qscores using only the envelope. Ppm error is reconstructed
+        /// from the (mz, intensity) peak list by rounding to the nearest isotope
+        /// index — less accurate than the primary path but usable when the
+        /// pre-computed error is not available.
         /// </summary>
-        internal static double ComputeQscore(
-            IsotopicEnvelope env,
-            double noiseFloor,
+        internal static IEnumerable<IsotopicEnvelope> AssignQscores(
+            IEnumerable<IsotopicEnvelope> envelopes,
             double tolerancePpm = 10.0)
         {
-            if (env.Peaks == null || env.Peaks.Count == 0)
-                return 0.0;
+            foreach (var env in envelopes)
+            {
+                double ppmError = RecomputeAvgPpmError(env, tolerancePpm);
+                double qscore = ComputeQscore(env.Score, ppmError);
+                yield return new IsotopicEnvelope(
+                    id: env.PrecursorId,
+                    peaks: env.Peaks,
+                    monoisotopicmass: env.MonoisotopicMass,
+                    chargestate: env.Charge,
+                    intensity: env.TotalIntensity,
+                    score: qscore);
+            }
+        }
 
-            double[] fv = BuildFeatureVector(env, noiseFloor, tolerancePpm);
+        // ── Core computation ──────────────────────────────────────────────────
 
-            double linearScore = Intercept;
-            for (int i = 0; i < Weights.Length; i++)
-                linearScore += Weights[i] * fv[i];
+        /// <summary>
+        /// Computes the Qscore from a cosine and a known ppm error.
+        /// </summary>
+        internal static double ComputeQscore(double cosine, double avgPpmError)
+        {
+            // f[0]: isotopeCosine
+            double f0 = cosine;
 
-            // OpenMS: qscore = 1 / (1 + exp(score))
-            // Higher linear score → lower Qscore (the negation is already in the weights)
+            // f[1]: inter-charge cosine drop — zero (single-charge envelope)
+            double f1 = 0.0;
+
+            // f[2]: log2(1 + chargeSNR) via self-noise approximation
+            // SNR = cos² / (1 − cos² + ε)
+            // See file header for the TODO on proper external noise collection.
+            double cos2 = cosine * cosine;
+            double selfNoiseSNR = cos2 / (1.0 - cos2 + 1e-6);
+            double f2 = Math.Log(1.0 + selfNoiseSNR, 2.0);
+
+            // f[3]: per-charge vs global SNR drop — zero (same reason as f[1])
+            double f3 = 0.0;
+
+            // f[4]: avg ppm error — passed in directly
+            double f4 = avgPpmError;
+
+            double linearScore = Intercept
+                + Weights[0] * f0
+                + Weights[1] * f1
+                + Weights[2] * f2
+                + Weights[3] * f3
+                + Weights[4] * f4;
+
             return 1.0 / (1.0 + Math.Exp(linearScore));
         }
 
-        // ── Feature vector construction ───────────────────────────────────────
+        // ── Post-hoc ppm error reconstruction (fallback) ─────────────────────
 
-        private static double[] BuildFeatureVector(
-            IsotopicEnvelope env,
-            double noiseFloor,
-            double tolerancePpm)
+        private static double RecomputeAvgPpmError(IsotopicEnvelope env, double tolerancePpm)
         {
-            // f[0]: isotopeCosine — the cosine stored in Score at envelope creation
-            double isotopeCosine = env.Score;
-
-            // f[1]: inter-charge cosine drop — zero (single-charge envelope)
-            double cosDropAcrossCharges = 0.0;
-
-            // f[2]: log2(1 + chargeSNR)
-            // SNR = signal power / noise power ≈ TotalIntensity / noiseFloor
-            // OpenMS SNR is more nuanced (per-charge cosine-weighted power ratio),
-            // but TotalIntensity / median is a reasonable analogue for a single charge.
-            double snr = env.TotalIntensity / noiseFloor;
-            double logChargeSNR = Math.Log(1.0 + snr, 2.0);
-
-            // f[3]: per-charge SNR drop vs global SNR — zero (one charge per envelope)
-            double snrDrop = 0.0;
-
-            // f[4]: average absolute ppm error of recruited peaks vs Averagine theoretical
-            double avgPpmError = ComputeAvgPpmError(env, tolerancePpm);
-
-            return new[] { isotopeCosine, cosDropAcrossCharges, logChargeSNR, snrDrop, avgPpmError };
-        }
-
-        /// <summary>
-        /// Computes the mean absolute ppm error between the recruited m/z peaks and
-        /// the theoretical Averagine isotope positions at this charge state.
-        /// </summary>
-        private static double ComputeAvgPpmError(IsotopicEnvelope env, double tolerancePpm)
-        {
-            if (env.Peaks.Count == 0) return tolerancePpm; // worst-case default
-
+            if (env.Peaks.Count == 0 || env.Charge == 0) return tolerancePpm;
             int absCharge = Math.Abs(env.Charge);
-            if (absCharge == 0) return tolerancePpm;
-
-            // Theoretical isotope spacing at this charge = C13 / z
             double isotopeStepMz = Constants.C13MinusC12 / absCharge;
-
-            // Use the most-intense peak as the anchor for theoretical positions
-            var apexPeak = env.Peaks.MaxBy(p => p.intensity);
-            double apexMz = apexPeak.mz;
-
-            double totalPpmError = 0.0;
-            int count = 0;
-
+            double apexMz = env.Peaks.MaxBy(p => p.intensity).mz;
+            double totalPpm = 0.0;
             foreach (var (mz, _) in env.Peaks)
             {
-                // Nearest theoretical isotope index relative to apex
-                double offsetMz = mz - apexMz;
-                int n = (int)Math.Round(offsetMz / isotopeStepMz);
-                double theoreticalMz = apexMz + n * isotopeStepMz;
-
-                double ppm = Math.Abs(mz - theoreticalMz) / theoreticalMz * 1e6;
-                totalPpmError += ppm;
-                count++;
+                int n = (int)Math.Round((mz - apexMz) / isotopeStepMz);
+                double theorMz = apexMz + n * isotopeStepMz;
+                totalPpm += Math.Abs(mz - theorMz) / theorMz * 1e6;
             }
-
-            return count > 0 ? totalPpmError / count : tolerancePpm;
+            return totalPpm / env.Peaks.Count;
         }
 
-        // ── Spectrum noise estimation helper ──────────────────────────────────
+        // ── Utility ───────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Estimates the noise floor of a spectrum as the median of all peak intensities.
-        /// Call this once per spectrum and pass the result to <see cref="AssignQscores"/>.
-        /// Returns 1.0 if the spectrum is empty.
+        /// Median intensity of the spectrum. Kept for callers that may want it
+        /// for other purposes; no longer used internally by <see cref="AssignQscores"/>.
         /// </summary>
         internal static double ComputeMedianIntensity(MzSpectrum spectrum)
         {
             if (spectrum == null || spectrum.Size == 0) return 1.0;
-
-            // Copy intensities and find median without full sort (approximate with sort for simplicity)
             var intensities = spectrum.YArray.ToList();
             intensities.Sort();
             int mid = intensities.Count / 2;
