@@ -403,7 +403,45 @@ namespace MassSpectrometry.MzSpectra
             }
             return squaredSumDifferences > 0 ? Math.Log(Math.Pow(squaredSumDifferences, -1)) : double.MaxValue;
         }
+        /// <summary>
+        /// Computes the cosine similarity between two pre-aligned intensity vectors
+        /// of the same length. No peak-matching by m/z is performed — index <c>i</c>
+        /// in <paramref name="a"/> directly corresponds to index <c>i</c> in
+        /// <paramref name="b"/>. This is the lightweight counterpart of
+        /// <see cref="CosineSimilarity"/> for cases where the two vectors are already
+        /// index-aligned (e.g. comparing an observed per-isotope intensity array
+        /// against a theoretical Averagine distribution of the same length).
+        ///
+        /// <para>
+        /// Returns 0.0 when either input is empty, lengths differ, or the denominator
+        /// is zero (one or both vectors are all-zeros).
+        /// </para>
+        ///
+        /// <para>
+        /// Uses <see cref="ReadOnlySpan{T}"/> so that callers can pass a plain
+        /// <c>double[]</c>, a stack-allocated span, or an array slice without
+        /// any additional allocation.
+        /// </para>
+        /// </summary>
+        /// <param name="a">First intensity vector (e.g. observed isotope intensities).</param>
+        /// <param name="b">Second intensity vector (e.g. theoretical Averagine intensities).</param>
+        /// <returns>Cosine similarity in [0, 1]. Higher is more similar.</returns>
+        public static double CosineOfAlignedVectors(ReadOnlySpan<double> a, ReadOnlySpan<double> b)
+        {
+            if (a.Length != b.Length || a.Length == 0)
+                return 0.0;
 
+            double dot = 0.0, normA = 0.0, normB = 0.0;
+            for (int i = 0; i < a.Length; i++)
+            {
+                dot += a[i] * b[i];
+                normA += a[i] * a[i];
+                normB += b[i] * b[i];
+            }
+
+            double denom = Math.Sqrt(normA) * Math.Sqrt(normB);
+            return denom == 0.0 ? 0.0 : dot / denom;
+        }
         #endregion similarityMethods
 
         //use Math.Max() in the denominator for consistency
