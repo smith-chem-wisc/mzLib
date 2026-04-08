@@ -6,8 +6,8 @@ namespace Omics.BioPolymerGroup;
 /// </summary>
 public class SiteSpecificModificationOccupancy
 {
-    /// <summary>One-based position in the parent biopolymer sequence.</summary>
-    public int OneBasedPositionInBioPolymer { get; }
+    /// <summary>AllModsOneIsNTerminus position in the parent biopolymer sequence.</summary>
+    public int OneIsNTerminusPositionInBioPolymer { get; }
 
     /// <summary>The modification identity (e.g., "Oxidation on M").</summary>
     public string ModificationIdWithMotif { get; }
@@ -32,29 +32,29 @@ public class SiteSpecificModificationOccupancy
 
     public SiteSpecificModificationOccupancy(int oneBasedPosition, string modIdWithMotif)
     {
-        OneBasedPositionInBioPolymer = oneBasedPosition;
+        OneIsNTerminusPositionInBioPolymer = oneBasedPosition;
         ModificationIdWithMotif = modIdWithMotif;
     }
 
     /// <summary>
-    /// Formatted string for spectral count-based occupancy output.
-    /// Format: #aa{position}[{modName},info:occupancy={fraction}({count}/{total})]
+    /// Formatted string for occupancy output.
+    /// Format: position{zeroBasedPosition}[{modName},info:occupancy={fraction}({mod observation at site}/{total site observations})]
+    /// We report the zero-based position to be consistent with residue positions. This way N-terminal pos=0,
+    /// C-terminal pos=length+1, and side chain modifications are at positions 1 through length.
     /// </summary>
-    public string ToSpectralCountModInfoString()
+    public string ToModInfoString(bool intensityBased=false)
     {
-        string occupancy = CountBasedOccupancy.ToString("F2");
-        string fractional = $"{ModifiedCount}/{TotalCount}";
-        return $"#aa{OneBasedPositionInBioPolymer}[{ModificationIdWithMotif},info:occupancy={occupancy}({fractional})]";
-    }
-
-    /// <summary>
-    /// Formatted string for intensity-based stoichiometry output.
-    /// Format: #aa{position}[{modName},info:stoichiometry={fraction}({modifiedIntensity}/{totalIntensity})]
-    /// </summary>
-    public string ToIntensityModInfoString()
-    {
-        string stoichiometry = IntensityBasedStoichiometry.ToString("F4");
-        string fractional = $"{ModifiedIntensity:G4}/{TotalIntensity:G4}";
-        return $"#aa{OneBasedPositionInBioPolymer}[{ModificationIdWithMotif},info:stoichiometry={stoichiometry}({fractional})]";
+        if (intensityBased)
+        {
+            string occupancy = IntensityBasedStoichiometry.ToString("F4");
+            string fractional = $"{ModifiedIntensity:G4}/{TotalIntensity:G4}";
+            return $"pos{OneIsNTerminusPositionInBioPolymer - 1}[{ModificationIdWithMotif},info:fraction={occupancy}({fractional})]";
+        }
+        else
+        {
+            string occupancy = CountBasedOccupancy.ToString("F2");
+            string fractional = $"{ModifiedCount}/{TotalCount}";
+            return $"pos{OneIsNTerminusPositionInBioPolymer - 1}[{ModificationIdWithMotif},info:fraction={occupancy}({fractional})]";
+        }
     }
 }

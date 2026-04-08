@@ -28,11 +28,11 @@ public class ModificationOccupancyCalculatorTests
 
         var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(protein, [psm]);
 
-        Assert.That(result.ContainsKey(3), Is.True);
-        Assert.That(result[3].Count, Is.EqualTo(1));
-        Assert.That(result[3][0].ModifiedCount, Is.EqualTo(1));
-        Assert.That(result[3][0].TotalCount, Is.EqualTo(1));
-        Assert.That(result[3][0].CountBasedOccupancy, Is.EqualTo(1.0));
+        Assert.That(result.ContainsKey(4), Is.True);
+        Assert.That(result[4].Count, Is.EqualTo(1));
+        Assert.That(result[4][0].ModifiedCount, Is.EqualTo(1));
+        Assert.That(result[4][0].TotalCount, Is.EqualTo(1));
+        Assert.That(result[4][0].CountBasedOccupancy, Is.EqualTo(1.0));
     }
 
     [Test]
@@ -51,10 +51,10 @@ public class ModificationOccupancyCalculatorTests
 
         var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(protein, [psm1, psm2]);
 
-        Assert.That(result.ContainsKey(3), Is.True);
-        Assert.That(result[3][0].ModifiedCount, Is.EqualTo(1));
-        Assert.That(result[3][0].TotalCount, Is.EqualTo(2));
-        Assert.That(result[3][0].CountBasedOccupancy, Is.EqualTo(0.5));
+        Assert.That(result.ContainsKey(4), Is.True);
+        Assert.That(result[4][0].ModifiedCount, Is.EqualTo(1));
+        Assert.That(result[4][0].TotalCount, Is.EqualTo(2));
+        Assert.That(result[4][0].CountBasedOccupancy, Is.EqualTo(0.5));
     }
 
     [Test]
@@ -107,7 +107,7 @@ public class ModificationOccupancyCalculatorTests
 
         var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(protein, [psm1, psm2]);
 
-        var site = result[3][0];
+        var site = result[4][0];
         Assert.That(site.ModifiedIntensity, Is.EqualTo(1_000_000));
         Assert.That(site.TotalIntensity, Is.EqualTo(4_000_000));
         Assert.That(site.IntensityBasedStoichiometry, Is.EqualTo(0.25));
@@ -132,9 +132,9 @@ public class ModificationOccupancyCalculatorTests
 
         var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(protein, [psm1, psm2]);
 
-        Assert.That(result[3][0].ModifiedCount, Is.EqualTo(1));
-        Assert.That(result[3][0].TotalCount, Is.EqualTo(2));
-        Assert.That(result[3][0].CountBasedOccupancy, Is.EqualTo(0.5));
+        Assert.That(result[4][0].ModifiedCount, Is.EqualTo(1));
+        Assert.That(result[4][0].TotalCount, Is.EqualTo(2));
+        Assert.That(result[4][0].CountBasedOccupancy, Is.EqualTo(0.5));
     }
 
     [Test]
@@ -175,8 +175,8 @@ public class ModificationOccupancyCalculatorTests
 
         var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(protein, [psm]);
 
-        Assert.That(result.ContainsKey(4), Is.True);
-        var modsAtSite = result[4];
+        Assert.That(result.ContainsKey(5), Is.True);
+        var modsAtSite = result[5];
 
         // Only the form matching PSM.FullSequence should be discovered.
         var deamSite = modsAtSite.FirstOrDefault(s => s.ModificationIdWithMotif == "Deamidation on N");
@@ -212,8 +212,8 @@ public class ModificationOccupancyCalculatorTests
 
         var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(proteinA, [psm]);
 
-        Assert.That(result.ContainsKey(3), Is.True);
-        var site = result[3][0];
+        Assert.That(result.ContainsKey(4), Is.True);
+        var site = result[4][0];
         Assert.That(site.TotalCount, Is.EqualTo(1), "TotalCount must be 1 — protein-A form must be found even when protein B's form comes first");
         Assert.That(site.ModifiedCount, Is.EqualTo(1));
         Assert.That(site.CountBasedOccupancy, Is.LessThanOrEqualTo(1.0));
@@ -326,8 +326,8 @@ public class ModificationOccupancyCalculatorTests
             TotalCount = 10
         };
 
-        string expected = "#aa5[Phosphorylation on S,info:occupancy=0.30(3/10)]";
-        Assert.That(site.ToSpectralCountModInfoString(), Is.EqualTo(expected));
+        string expected = "pos4[Phosphorylation on S,info:fraction=0.30(3/10)]";
+        Assert.That(site.ToModInfoString(intensityBased: false), Is.EqualTo(expected));
     }
 
     [Test]

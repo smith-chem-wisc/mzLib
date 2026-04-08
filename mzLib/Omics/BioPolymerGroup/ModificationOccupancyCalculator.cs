@@ -1,3 +1,4 @@
+using CsvHelper.Configuration.Attributes;
 using MzLibUtil;
 using Omics.BioPolymer;
 using Omics.Modifications;
@@ -38,21 +39,20 @@ public static class ModificationOccupancyCalculator
     {
         var psmList = psms as IList<ISpectralMatch> ?? psms.ToList();
 
-        // Map each PSM to the single form that owns its intensity: matching FullSequence + Accession.
-        var psmToBioPolymer = psmList
-            .ToHashSet() // Ensure distinct PSMs in case of duplicates in input, since we're using PSMs as keys in a dictionary
-            .ToDictionary(
-                p => p,
-                p => p.GetIdentifiedBioPolymersWithSetMods()
-                    .FirstOrDefault(s => s.FullSequence != null
-                        && s.BaseSequence == p.BaseSequence
-                        && s.FullSequence == p.FullSequence
-                        && s.Parent.Accession == bioPolymer.Accession));
+        // Pre-compute the matching form for each PSM by position.
+        var psmForms = psmList
+            .Select(p => p.GetIdentifiedBioPolymersWithSetMods()
+                .FirstOrDefault(s => s.FullSequence != null
+                    && s.BaseSequence == p.BaseSequence
+                    && s.FullSequence == p.FullSequence
+                    && s.Parent.Accession == bioPolymer.Accession))
+            .ToArray();
 
         var positionTotals = new Dictionary<int, (int totalCount, double totalIntensity)>();
-        foreach (var psm in psmList)
+        for (int j = 0; j < psmList.Count; j++)
         {
-            var sequence = psmToBioPolymer[psm];
+            var psm = psmList[j];
+            var sequence = psmForms[j];
             if (sequence is null) // PSM for this protein might be ambiguous (e.g. missing full sequence)
             {
                 try
@@ -72,8 +72,8 @@ public static class ModificationOccupancyCalculator
             if (sequence is null) // No form found for this PSM, skip it entirely.
                 continue;
 
-            int rangeStart = sequence.OneBasedStartResidue - (sequence.OneBasedStartResidue == 1 ? 1 : 0); // Include position 1 if sequence starts at the protein N-terminus
-            int rangeEnd = sequence.OneBasedEndResidue + (sequence.OneBasedEndResidue == bioPolymer.Length ? 1 : 0); // Include last position if sequence ends at the protein C-terminus
+            int rangeStart = sequence.OneBasedStartResidue + (sequence.OneBasedStartResidue == 1 ? 0 : 1); // Include position 1 if sequence starts at the protein N-terminus
+            int rangeEnd = sequence.OneBasedEndResidue + (sequence.OneBasedEndResidue == bioPolymer.Length ? 2 : 1); // Include last position if sequence ends at the protein C-terminus
             for (int i = rangeStart; i <= rangeEnd; i++)
             {
                 if (!positionTotals.ContainsKey(i))
@@ -87,10 +87,11 @@ public static class ModificationOccupancyCalculator
         }
 
         var working = new Dictionary<int, Dictionary<string, SiteSpecificModificationOccupancy>>();
-        foreach (var psm in psmList)
+        for (int j = 0; j < psmList.Count; j++)
         {
-            var sequence = psmToBioPolymer[psm];
-            if (sequence is null)  // PSM has no form for this protein, skip 
+            var psm = psmList[j];
+            var sequence = psmForms[j];
+            if (sequence is null)  // PSM has no form for this protein, skip
                 continue;
 
             foreach (var mod in sequence.AllModsOneIsNterminus)
@@ -109,10 +110,13 @@ public static class ModificationOccupancyCalculator
 
                 if (!modsAtPosition.ContainsKey(mod.Value.IdWithMotif))
                 {
+                    if (!positionTotals.TryGetValue(indexInProtein, out var posTotals))
+                        continue;
+
                     modsAtPosition[mod.Value.IdWithMotif] = new SiteSpecificModificationOccupancy(indexInProtein, mod.Value.IdWithMotif)
                     {
-                        TotalCount = positionTotals[indexInProtein].totalCount,
-                        TotalIntensity = positionTotals[indexInProtein].totalIntensity
+                        TotalCount = posTotals.totalCount,
+                        TotalIntensity = posTotals.totalIntensity
                     };
                 }
 
@@ -175,7 +179,7 @@ public static class ModificationOccupancyCalculator
 
             foreach (var mod in form.AllModsOneIsNterminus)
             {
-                if (IsExcludedMod(mod.Value))
+                if (IsExcludedMod(mod.Value, ignoreLocation: true))
                     continue;
 
                 if (!working.TryGetValue(mod.Key, out var modsAtPosition))
@@ -219,15 +223,21 @@ public static class ModificationOccupancyCalculator
 
         if (mod.Value.LocationRestriction.Equals("N-terminal."))
         {
+            if (sequence.OneBasedStartResidue != 1)
+                return false;
+
             indexInProtein = 1;
         }
         else if (mod.Value.LocationRestriction.Equals("Anywhere."))
         {
-            indexInProtein = sequence.OneBasedStartResidue + mod.Key - 2;
+            indexInProtein = sequence.OneBasedStartResidue + mod.Key - 1;
         }
         else if (mod.Value.LocationRestriction.Equals("C-terminal."))
         {
-            indexInProtein = bioPolymerLength;
+            if (sequence.OneBasedEndResidue != bioPolymerLength)
+                return false;
+
+            indexInProtein = bioPolymerLength + 2;
         }
         else
         {
@@ -237,9 +247,9 @@ public static class ModificationOccupancyCalculator
         return true;
     }
 
-    private static bool IsExcludedMod(Modification mod)
+    private static bool IsExcludedMod(Modification mod, bool ignoreLocation = false)
     {
-        if (ExcludedLocations.Contains(mod.LocationRestriction))
+        if (ExcludedLocations.Contains(mod.LocationRestriction) && !ignoreLocation)
             return true;
 
         if (ExcludedModTypes.Contains(mod.ModificationType))
