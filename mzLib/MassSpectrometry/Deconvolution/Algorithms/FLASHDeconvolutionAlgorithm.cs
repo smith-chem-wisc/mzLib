@@ -81,7 +81,12 @@ namespace MassSpectrometry
             if (candidates.Count == 0) return Enumerable.Empty<IsotopicEnvelope>();
 
             // ── Steps 3–5 ────────────────────────────────────────────────────
-            return ScoreAndBuildEnvelopes(spectrum, candidates, p);
+            double medianIntensity = FLASHDeconvScorer.ComputeMedianIntensity(spectrum);
+            return FLASHDeconvScorer.AssignQscores(
+                FLASHDeconvDeduplicator.Deduplicate(ScoreAndBuildEnvelopes(spectrum, candidates, p),
+                                                    p.DeconvolutionTolerancePpm),
+                medianIntensity,
+                p.DeconvolutionTolerancePpm);
         }
 
         // ══════════════════════════════════════════════════════════════════════
