@@ -255,12 +255,22 @@ namespace MassSpectrometry
             for (int i = logPeaks.Count - 1; i >= 0; i--)
             {
                 int mzBin = peakBinIndex[i];
+                double logMz = logPeaks[i].LogMz;
                 float intensity = (float)logPeaks[i].Intensity;
 
                 // For each charge state j (low abs charge to high abs charge):
                 for (int j = 0; j < chargeRange; j++)
                 {
-                    int massBin = mzBin + binUniversalPattern[j];
+                    // ── SINGLE-ROUND mass bin computation ─────────────────────
+                    // Computing massBin as mzBin + binUniversalPattern[j] uses
+                    // TWO separate round() calls (one for mzBin, one for the
+                    // pre-computed integer offset), which can place peaks from
+                    // different charge states of the same mass into adjacent bins
+                    // (off by ±1). Instead, we compute the mass bin in one
+                    // combined round(), which is mathematically equivalent to
+                    // round(log(mass) × binMulFactor) for all charges:
+                    //   logMz - universalPattern[j] = log(mass/z) - (-log(z)) = log(mass)
+                    int massBin = BinNumber(logMz - universalPattern[j], massBinMinValue, binMulFactor);
                     if (massBin < 0 || massBin >= massBinCount) continue;
 
                     int absCharge = minAbsCharge + j;
@@ -277,7 +287,7 @@ namespace MassSpectrometry
 
                     if (!passIntensityCheck)
                     {
-                        // Broken charge run: reset support count
+                        // Broken charge run: reset support count.
                         massBinSupportCount[massBin] = 0;
                     }
                     else
@@ -296,8 +306,6 @@ namespace MassSpectrometry
                                 && mzBinOccupied[hBin])
                             {
                                 float hIntensity = mzBinIntensity[hBin];
-                                // Harmonic peak must be comparable intensity
-                                // (within a factor of MaxChargeIntensityRatio)
                                 float hRatio = hIntensity > intensity
                                     ? hIntensity / intensity
                                     : intensity / hIntensity;
@@ -311,10 +319,39 @@ namespace MassSpectrometry
 
                         if (!isHarmonic)
                         {
-                            massBinSupportCount[massBin]++;
-                            massBinIntensity[massBin] += intensity;
+                            // When the second peak of a new continuous run arrives it
+                            // confirms the first peak retroactively — credit both.
+                            // (The first peak of a run cannot credit itself because it
+                            // has no prior peak to be "continuous" with; OpenMS handles
+                            // this via support_peak_intensity carrying the previous
+                            // peak's intensity forward.)
+                            if (massBinSupportCount[massBin] == 0)
+                            {
+                                // This is the second peak confirming the first:
+                                // count the predecessor too.
+                                massBinSupportCount[massBin] = 2;
+                                massBinIntensity[massBin] += prevIntensity[massBin] + intensity;
+                                // Also credit the first peak's charge index in the range
+                                int prevJ = prevChargeIdx[massBin];
+                                if (prevJ < chargeRange)
+                                {
+                                    if (prevJ < massBinMinChargeIdx[massBin]) massBinMinChargeIdx[massBin] = prevJ;
+                                    if (prevJ > massBinMaxChargeIdx[massBin]) massBinMaxChargeIdx[massBin] = prevJ;
+                                }
+                            }
+                            else
+                            {
+                                massBinSupportCount[massBin]++;
+                                massBinIntensity[massBin] += intensity;
+                            }
 
-                            // Mark as candidate once enough support peaks are seen
+                            // Mark as candidate once MinSupportPeakCount - 1 continuous
+                            // support peaks have been confirmed. The -1 accounts for the
+                            // first peak of the run being credited retroactively above:
+                            // after the second peak arrives, spc == 2 and we have already
+                            // counted the full run of 2 confirmed peaks (the retroactive
+                            // first + the current second). With MinSupportPeakCount = 3,
+                            // we mark after the third peak sets spc = 3.
                             if (!massBinOccupied[massBin]
                                 && massBinSupportCount[massBin] >= MinSupportPeakCount)
                             {
@@ -327,7 +364,6 @@ namespace MassSpectrometry
                         }
                         else
                         {
-                            // Harmonic: subtract its intensity from the running total
                             massBinIntensity[massBin] -= maxHarmonicIntensity;
                             if (massBinSupportCount[massBin] > 0) massBinSupportCount[massBin]--;
                         }
@@ -341,17 +377,17 @@ namespace MassSpectrometry
             // ── Conflict resolution: for each mz-peak assign to highest-intensity mass ─
             // When a peak maps to multiple candidate mass bins (different charges),
             // keep only the assignment to the highest-intensity mass bin.
-            // (Mirrors OpenMS filterMassBins_() — simplified to single-pass here.)
+            // Uses the same single-round mass bin computation as the main scan loop.
             var finalMassBins = new bool[massBinCount];
             for (int i = 0; i < logPeaks.Count; i++)
             {
-                int mzBin = peakBinIndex[i];
+                double logMz = logPeaks[i].LogMz;
                 long bestMassBin = -1;
                 float bestIntensity = -1f;
 
                 for (int j = 0; j < chargeRange; j++)
                 {
-                    int massBin = mzBin + binUniversalPattern[j];
+                    int massBin = BinNumber(logMz - universalPattern[j], massBinMinValue, binMulFactor);
                     if (massBin < 0 || massBin >= massBinCount) continue;
                     if (!massBinOccupied[massBin]) continue;
 
