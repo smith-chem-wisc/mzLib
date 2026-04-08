@@ -53,7 +53,7 @@ namespace MassSpectrometry.Dia.Calibration
         /// <summary>Width of each arm step window as fraction of total RT range.
         /// Smaller than the seed (0.40) to keep each step focused.</summary>
         public const float StepWindowWidth = 0.20f;
-
+        public const float DecoyRtJitterMinutes = 2.0f;
         /// <summary>
         /// Maximum number of calibration anchors kept per step.
         /// All targets scoring above the LDA threshold are ranked by score descending;
@@ -496,7 +496,6 @@ namespace MassSpectrometry.Dia.Calibration
         // Maximum RT jitter applied to decoy extraction windows (minutes).
         // Decoys get a deterministic random offset in [-DecoyRtJitterMinutes, +DecoyRtJitterMinutes]
         // so the bootstrap LDA can exploit RT deviation to separate T from D.
-        public const float DecoyRtJitterMinutes = 1.0f;
 
         private static (FragmentQuery[] Queries, SliceGroup[] Groups) GenerateSliceQueries(
             IReadOnlyList<LibraryPrecursorInput> precursors,
@@ -514,15 +513,17 @@ namespace MassSpectrometry.Dia.Calibration
                 float qLo, qHi;
                 if (rtPrediction != null && p.RetentionTime.HasValue)
                 {
-                    float libRt = (float)p.RetentionTime.Value;
+                    float pred = rtPrediction.PredictObservedRt((float)p.RetentionTime.Value);
                     float hw = rtPrediction.HalfWidth;
-                    float pred = rtPrediction.PredictObservedRt(libRt);
                     qLo = pred - hw;
                     qHi = pred + hw;
 
-                    // Shift decoy windows by a deterministic random RT offset so the
-                    // bootstrap LDA can use RT deviation as a discriminating feature.
-                    // The offset is derived from the sequence hash — reproducible across runs.
+                    // Shift decoy windows by a deterministic RT offset so the LDA
+                    // can use RT deviation to separate targets from decoys.
+                    // Hash-derived jitter is reproducible across runs for the same
+                    // sequence. Targets cluster at rtDev≈0; decoys spread across
+                    // ±DecoyRtJitterMinutes — giving RtDeviationMinutes and
+                    // RtDeviationSquared real discriminating power during bootstrap.
                     if (p.IsDecoy)
                     {
                         int hash = p.Sequence.GetHashCode();
@@ -531,6 +532,11 @@ namespace MassSpectrometry.Dia.Calibration
                         qLo += jitter;
                         qHi += jitter;
                     }
+
+                    // Clamp to slice bounds after jitter
+                    if (qHi < sliceLo || qLo > sliceHi) continue;
+                    qLo = Math.Max(qLo, sliceLo);
+                    qHi = Math.Min(qHi, sliceHi);
                 }
                 else
                 {
