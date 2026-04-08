@@ -606,8 +606,8 @@ namespace Test.Omics
 
             var output = group.ToString();
             // N-terminal mod occupancy should report position as aa1
-            Assert.That(output, Does.Contain("#aa1["));
-            Assert.That(output, Does.Contain("occupancy=1.00(1/1)"));
+            Assert.That(output, Does.Contain("pos0["));
+            Assert.That(output, Does.Contain("fraction=1.00(1/1)"));
         }
 
         /// <summary>
@@ -615,7 +615,7 @@ namespace Test.Omics
         /// Critical: C-terminal occupancy must use protein length as position.
         /// </summary>
         [Test]
-        public void CalculateModificationOccupancy_CTerminalMod_UsesProteinLength()
+        public void CalculateModificationOccupancy_CTerminalMod_UsesProteinLengthPlusTwo()
         {
             var bioPolymer = new MockBioPolymer("PEPTIDEK", "P00001"); // Length = 8
 
@@ -627,7 +627,7 @@ namespace Test.Omics
                 _target: motif,
                 _monoisotopicMass: -0.98);
 
-            var modsDict = new Dictionary<int, Modification> { { 9, cTermMod } };
+            var modsDict = new Dictionary<int, Modification> { { 8, cTermMod } };
             var peptide = new MockBioPolymerWithSetMods("PEPTIDEK", "PEPTIDEK-[Amidated on K]", bioPolymer, 1, 8, modsDict);
 
             var group = new BioPolymerGroup(
@@ -639,9 +639,9 @@ namespace Test.Omics
             group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
 
             var output = group.ToString();
-            // C-terminal mod occupancy should report position as aa8 (protein length)
-            Assert.That(output, Does.Contain("#aa8["));
-            Assert.That(output, Does.Contain("occupancy=1.00(1/1)"));
+            // C-terminal mod occupancy should report position as aa10 (protein length + 2)
+            Assert.That(output, Does.Contain("pos9["));
+            Assert.That(output, Does.Contain("fraction=1.00(1/1)"));
         }
 
         /// <summary>

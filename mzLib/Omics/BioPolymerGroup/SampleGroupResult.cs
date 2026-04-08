@@ -89,33 +89,22 @@ public sealed class SampleGroupResult
     #region Formatting
 
     /// <summary>
-    /// Formats count-based occupancy for a TSV cell.
+    /// Formats occupancy for a TSV cell.
     /// Output: semicolon-separated mod entries within each entity, pipe-separated between entities.
     /// </summary>
     /// <param name="orderedKeys">Ordered accessions (protein-level) or base sequences (peptide-level).</param>
     /// <param name="proteinLevel">True for protein-level occupancy; false for peptide-level.</param>
-    public string FormatCountOccupancy(IEnumerable<string> orderedKeys, bool proteinLevel = true)
+    /// <param name="intensityBased">True to format intensity-based stoichiometry; false for count-based occupancy.</param>
+    public string FormatOccupancy(IEnumerable<string> orderedKeys, bool proteinLevel = true, bool intensityBased = false)
     {
         var occupancy = proteinLevel ? ParentOccupancy : DigestionProductOccupancy;
-        return FormatOccupancy(occupancy, orderedKeys, o => o.ToSpectralCountModInfoString());
-    }
-
-    /// <summary>
-    /// Formats intensity-based stoichiometry for a TSV cell.
-    /// Only meaningful when <see cref="HasIntensityData"/> is true.
-    /// </summary>
-    /// <param name="orderedKeys">Ordered accessions (protein-level) or base sequences (peptide-level).</param>
-    /// <param name="proteinLevel">True for protein-level occupancy; false for peptide-level.</param>
-    public string FormatIntensityOccupancy(IEnumerable<string> orderedKeys, bool proteinLevel = true)
-    {
-        var occupancy = proteinLevel ? ParentOccupancy : DigestionProductOccupancy;
-        return FormatOccupancy(occupancy, orderedKeys, o => o.ToIntensityModInfoString());
+        return FormatOccupancy(occupancy, orderedKeys, o => o.ToModInfoString(intensityBased));
     }
 
     /// <summary>
     /// Core formatting helper. Iterates ordered keys, formats each entity's modifications,
     /// and joins with the standard separators (; within entity, | between entities).
-    /// </summary>
+    /// </summary>s
     private static string FormatOccupancy(
         Dictionary<string, Dictionary<int, List<SiteSpecificModificationOccupancy>>> occupancy,
         IEnumerable<string> orderedKeys,

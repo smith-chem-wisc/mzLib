@@ -427,12 +427,12 @@ namespace Omics.BioPolymerGroup
                     sb.Append("\t");
                 }
 
-                sb.Append(TruncateString(group.FormatCountOccupancy(orderedKeys, isParentLevel)));
+                sb.Append(TruncateString(group.FormatOccupancy(orderedKeys, isParentLevel, intensityBased: false)));
                 sb.Append("\t");
 
                 if (group.HasIntensityData)
                 {
-                    sb.Append(TruncateString(group.FormatIntensityOccupancy(orderedKeys, isParentLevel)));
+                    sb.Append(TruncateString(group.FormatOccupancy(orderedKeys, isParentLevel, intensityBased: true)));
                     sb.Append("\t");
                 }
             }
