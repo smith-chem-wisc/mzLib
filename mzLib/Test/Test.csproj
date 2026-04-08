@@ -834,6 +834,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="NewFolder\" />
     <Folder Include="TestData\" />
   </ItemGroup>
 
