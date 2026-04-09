@@ -15,11 +15,12 @@ namespace MassSpectrometry
     /// access is required, supporting callers that deconvolute and discard the spectrum.
     ///
     /// The score produced by <see cref="ComputeScore"/> is a logistic function in [0, 1]
-    /// combining three features:
+    /// combining four features:
     /// <list type="bullet">
     ///   <item><see cref="EnvelopeScoreFeatures.AveragineCosineSimilarity"/> — isotope pattern fidelity</item>
     ///   <item><see cref="EnvelopeScoreFeatures.AvgPpmError"/> — mass accuracy</item>
     ///   <item><see cref="EnvelopeScoreFeatures.PeakCompleteness"/> — observed vs expected peak count</item>
+    ///   <item><see cref="EnvelopeScoreFeatures.IntensityRatioConsistency"/> — uniformity of per-peak scale ratios</item>
     /// </list>
     ///
     /// The logistic weights are provisional and should be recalibrated against labelled
@@ -32,10 +33,11 @@ namespace MassSpectrometry
         // Provisional weights — recalibrate against labelled training data.
         // Calibrated to produce scores broadly similar in range to the FLASHDeconv
         // Qscore on intact protein top-down data; not fit to a labelled data set.
-        private const double CoefficientCosine      = -14.0;  // high cosine → low linear score → high Qscore
-        private const double CoefficientPpmError    =   0.15; // high ppm error → higher linear score → lower Qscore
+        private const double CoefficientCosine = -14.0;  // high cosine → low linear score → high Qscore
+        private const double CoefficientPpmError = 0.15; // high ppm error → higher linear score → lower Qscore
         private const double CoefficientCompleteness = -3.0;  // high completeness → low linear score → high Qscore
-        private const double Intercept              =   9.5;
+        private const double CoefficientRatioConsistency = -3.0;  // high consistency → low linear score → high Qscore
+        private const double Intercept = 9.5;
 
         // ── Feature matching tolerance ────────────────────────────────────────
         private const double MatchTolerancePpm = 10.0;
@@ -56,26 +58,26 @@ namespace MassSpectrometry
             AverageResidue model)
         {
             if (envelope == null) throw new ArgumentNullException(nameof(envelope));
-            if (model    == null) throw new ArgumentNullException(nameof(model));
+            if (model == null) throw new ArgumentNullException(nameof(model));
 
             // ── Averagine lookup ──────────────────────────────────────────────
             int avgIdx = model.GetMostIntenseMassIndex(envelope.MonoisotopicMass);
 
-            double[] rawMasses  = model.GetAllTheoreticalMasses(avgIdx);
-            double[] rawIntens  = model.GetAllTheoreticalIntensities(avgIdx);
+            double[] rawMasses = model.GetAllTheoreticalMasses(avgIdx);
+            double[] rawIntens = model.GetAllTheoreticalIntensities(avgIdx);
 
             // Arrays from AverageResidue are sorted intensity-descending (index 0 = apex).
             // Re-sort to mass-ascending so index 0 = monoisotopic.
             var sorted = rawMasses.Zip(rawIntens)
                 .OrderBy(pair => pair.First)
                 .ToArray();
-            double[] avgMassAsc  = sorted.Select(p => p.First).ToArray();
-            double[] avgIntAsc   = sorted.Select(p => p.Second).ToArray();
-            int      nIso        = avgMassAsc.Length;
+            double[] avgMassAsc = sorted.Select(p => p.First).ToArray();
+            double[] avgIntAsc = sorted.Select(p => p.Second).ToArray();
+            int nIso = avgMassAsc.Length;
 
             // apexDaFromMono: distance in Da from monoisotopic to apex
             double apexDaFromMono = model.GetDiffToMonoisotopic(avgIdx);
-            int    absCharge      = Math.Abs(envelope.Charge);
+            int absCharge = Math.Abs(envelope.Charge);
 
             // Guard: if charge is 0 (unusual but defensive) fall back gracefully
             if (absCharge == 0)
@@ -86,17 +88,17 @@ namespace MassSpectrometry
             // ── Build observed intensity vector for cosine and completeness ───
             // For each theoretical isotope position n, find the closest peak in
             // envelope.Peaks within MatchTolerancePpm.
-            double monoMass   = envelope.MonoisotopicMass;
-            double monoMz     = monoMass.ToMz(absCharge);
-            var    peakList   = envelope.Peaks;
+            double monoMass = envelope.MonoisotopicMass;
+            double monoMz = monoMass.ToMz(absCharge);
+            var peakList = envelope.Peaks;
 
-            double[] observed     = new double[nIso];
-            bool[]   peakMatched  = new bool[nIso];
+            double[] observed = new double[nIso];
+            bool[] peakMatched = new bool[nIso];
 
             for (int n = 0; n < nIso; n++)
             {
-                double theorMz  = monoMz + n * isotopeStepMz;
-                double tolMz    = theorMz * MatchTolerancePpm * 1e-6;
+                double theorMz = monoMz + n * isotopeStepMz;
+                double tolMz = theorMz * MatchTolerancePpm * 1e-6;
 
                 // Find the peak in the envelope closest to this theoretical position.
                 double bestDist = double.MaxValue;
@@ -107,14 +109,14 @@ namespace MassSpectrometry
                     double dist = Math.Abs(mz - theorMz);
                     if (dist < tolMz && dist < bestDist)
                     {
-                        bestDist      = dist;
+                        bestDist = dist;
                         bestIntensity = intensity;
                     }
                 }
 
                 if (bestDist < double.MaxValue)
                 {
-                    observed[n]    = bestIntensity;
+                    observed[n] = bestIntensity;
                     peakMatched[n] = true;
                 }
                 // else observed[n] = 0 (default), peakMatched[n] = false
@@ -128,10 +130,10 @@ namespace MassSpectrometry
             double avgPpmError = ComputeAvgPpmError(peakList, absCharge, isotopeStepMz);
 
             // ── PeakCompleteness ──────────────────────────────────────────────
-            double maxTheoInt    = avgIntAsc.Max();
+            double maxTheoInt = avgIntAsc.Max();
             double threshold1pct = maxTheoInt * 0.01;
-            int    expectedPeaks = 0;
-            int    observedPeaks = 0;
+            int expectedPeaks = 0;
+            int observedPeaks = 0;
 
             for (int n = 0; n < nIso; n++)
             {
@@ -146,7 +148,10 @@ namespace MassSpectrometry
                 ? 0.0
                 : Math.Max(0.0, Math.Min(1.0, (double)observedPeaks / expectedPeaks));
 
-            return new EnvelopeScoreFeatures(cosine, avgPpmError, completeness);
+            // ── IntensityRatioConsistency ─────────────────────────────────────
+            double ratioConsistency = ComputeRatioConsistency(observed, avgIntAsc);
+
+            return new EnvelopeScoreFeatures(cosine, avgPpmError, completeness, ratioConsistency);
         }
 
         /// <summary>
@@ -161,9 +166,10 @@ namespace MassSpectrometry
         public static double ComputeScore(EnvelopeScoreFeatures features)
         {
             double linear = Intercept
-                + CoefficientCosine       * features.AveragineCosineSimilarity
-                + CoefficientPpmError     * features.AvgPpmError
-                + CoefficientCompleteness * features.PeakCompleteness;
+                + CoefficientCosine * features.AveragineCosineSimilarity
+                + CoefficientPpmError * features.AvgPpmError
+                + CoefficientCompleteness * features.PeakCompleteness
+                + CoefficientRatioConsistency * features.IntensityRatioConsistency;
 
             return 1.0 / (1.0 + Math.Exp(linear));
         }
@@ -192,6 +198,66 @@ namespace MassSpectrometry
         // ── Private helpers ───────────────────────────────────────────────────
 
         /// <summary>
+        /// Computes the intensity ratio consistency feature.
+        ///
+        /// For each matched isotope position n, the scale ratio is
+        /// <c>observed[n] / theoretical[n]</c>. For a real envelope these should all
+        /// be approximately equal (the envelope is the Averagine pattern scaled by a
+        /// single abundance). The coefficient of variation (CV = std / mean) of these
+        /// ratios measures how erratic the scaling is. We return <c>1 / (1 + CV²)</c>
+        /// so that the feature is in [0, 1] with 1.0 meaning perfectly consistent.
+        ///
+        /// Only positions where both observed > 0 and theoretical > 1% of max are
+        /// included, to avoid division by zero or near-zero theoretical intensities
+        /// corrupting the statistic.
+        /// </summary>
+        private static double ComputeRatioConsistency(double[] observed, double[] theoretical)
+        {
+            if (observed.Length != theoretical.Length || observed.Length == 0)
+                return 0.0;
+
+            double maxTheo = 0.0;
+            for (int i = 0; i < theoretical.Length; i++)
+                if (theoretical[i] > maxTheo) maxTheo = theoretical[i];
+
+            double threshold = maxTheo * 0.01;
+
+            // Collect per-peak scale ratios for positions with meaningful signal
+            double sumRatio = 0.0;
+            int count = 0;
+            for (int n = 0; n < observed.Length; n++)
+            {
+                if (theoretical[n] > threshold && observed[n] > 0.0)
+                {
+                    sumRatio += observed[n] / theoretical[n];
+                    count++;
+                }
+            }
+
+            if (count < 2) return 0.0; // CV undefined for fewer than 2 points
+
+            double meanRatio = sumRatio / count;
+            if (meanRatio <= 0.0) return 0.0;
+
+            // Variance of the ratios
+            double sumSqDev = 0.0;
+            for (int n = 0; n < observed.Length; n++)
+            {
+                if (theoretical[n] > threshold && observed[n] > 0.0)
+                {
+                    double dev = (observed[n] / theoretical[n]) - meanRatio;
+                    sumSqDev += dev * dev;
+                }
+            }
+
+            double variance = sumSqDev / count;
+            double cv = Math.Sqrt(variance) / meanRatio; // coefficient of variation
+
+            // Transform: 1 / (1 + CV²) → [0, 1], 1.0 = perfectly consistent
+            return 1.0 / (1.0 + cv * cv);
+        }
+
+        /// <summary>
         /// Computes the mean absolute ppm error of the envelope's peaks relative
         /// to the apex-anchored theoretical isotope grid.
         /// </summary>
@@ -208,7 +274,7 @@ namespace MassSpectrometry
             double totalPpm = 0.0;
             foreach (var (mz, _) in peaks)
             {
-                int    n       = (int)Math.Round((mz - apexMz) / isotopeStepMz);
+                int n = (int)Math.Round((mz - apexMz) / isotopeStepMz);
                 double theorMz = apexMz + n * isotopeStepMz;
                 totalPpm += Math.Abs(mz - theorMz) / theorMz * 1e6;
             }
