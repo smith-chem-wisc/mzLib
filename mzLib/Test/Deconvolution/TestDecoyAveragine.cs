@@ -272,40 +272,28 @@ namespace Test.Deconvolution
         [Test]
         public void D2_DecoyEnvelopes_ScoreLowerThanTargets_OnCleanSyntheticSpectrum()
         {
-            // Build a synthetic spectrum for a known mass at a known charge
-            // Targets should score better than decoys on their own signal
             const double monoMass = 5_000.0;
             const int charge = 5;
 
             var spectrum = BuildSyntheticSpectrum(monoMass, charge);
 
-            var targetParams = new ClassicDeconvolutionParameters(
-                1, 10, 4, 3,
-                averageResidueModel: new Averagine());
-
+            var targetParams = new ClassicDeconvolutionParameters(1, 10, 4, 3);
             var decoyParams = new ClassicDeconvolutionParameters(
                 1, 10, 4, 3,
                 averageResidueModel: new DecoyAveragine(new Averagine()));
 
-            var targets = Deconvoluter.Deconvolute(spectrum, targetParams).ToList();
-            var decoys = Deconvoluter.Deconvolute(spectrum, decoyParams).ToList();
+            var (targets, decoys) = Deconvoluter.DeconvoluteWithDecoys(spectrum, targetParams);
 
-            // Targets should find the real mass
             Assert.That(targets.Count, Is.GreaterThan(0),
                 "Expected target envelopes on the synthetic spectrum");
 
             if (decoys.Count == 0)
-            {
-                // Decoys producing nothing is also a valid outcome — means no false positives
-                Assert.Pass("No decoy envelopes found — decoy model correctly rejects the real signal.");
-            }
+                Assert.Pass("No decoy envelopes — decoy model correctly rejects the real signal.");
 
-            // If decoys are found, their mean score must be lower than targets
             double meanTargetScore = targets.Average(e => e.Score);
             double meanDecoyScore = decoys.Average(e => e.Score);
 
-            Assert.That(meanDecoyScore, Is.LessThan(meanTargetScore),
-                "Decoy mean score should be lower than target mean score on a clean synthetic spectrum");
+            Assert.That(meanDecoyScore, Is.LessThan(meanTargetScore));
         }
 
         [Test]
@@ -337,24 +325,26 @@ namespace Test.Deconvolution
         /// a simple intensity ramp.
         /// </summary>
         private static MzSpectrum BuildSyntheticSpectrum(double monoMass, int charge,
-            int numIsotopes = 5)
+            int numIsotopes = 8)
         {
             const double proton = Constants.ProtonMass;
             const double isoDelta = Constants.C13MinusC12;
 
-            double[] mzs = new double[numIsotopes];
-            double[] ints = new double[numIsotopes];
+            // Get realistic relative intensities from Averagine
+            var averagine = new Averagine();
+            int massIndex = averagine.GetMostIntenseMassIndex(monoMass);
+            double[] theorIntensities = averagine.GetAllTheoreticalIntensities(massIndex);
+            double[] theorMasses = averagine.GetAllTheoreticalMasses(massIndex);
 
-            // Simple triangular intensity profile peaking at the second isotope
-            double[] profile = { 0.3, 1.0, 0.8, 0.4, 0.15 };
+            // theorMasses is intensity-descending — sort by mass to get isotope order
+            var pairs = theorMasses.Zip(theorIntensities, (m, i) => (m, i))
+                                   .OrderBy(x => x.m)
+                                   .Take(numIsotopes)
+                                   .ToArray();
 
-            for (int i = 0; i < numIsotopes; i++)
-            {
-                mzs[i] = (monoMass + i * isoDelta + charge * proton) / charge;
-                ints[i] = profile[i] * 1e6;
-            }
+            double[] mzs = pairs.Select(p => p.m.ToMz(charge)).ToArray();
+            double[] ints = pairs.Select(p => p.i * 1e7).ToArray();
 
-            // MzSpectrum requires mass-ascending order (already the case here)
             return new MzSpectrum(mzs, ints, shouldCopy: false);
         }
     }
