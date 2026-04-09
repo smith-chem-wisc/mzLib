@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System.Runtime.InteropServices;
 
 namespace MassSpectrometry;
@@ -60,7 +60,10 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
             min_score_diff = MinScoreDiff,
             minareacovered = MinAreaCovered,
             isolength = IsoLength,
-            mass_diff_c = MassDiffC,
+            // Use DecoyIsotopeDistance rather than MassDiffC so that a decoy pass
+            // (DecoyIsotopeDistance = 0.9444 Da) is correctly forwarded to the DLL.
+            // For normal runs DecoyIsotopeDistance == Constants.C13MinusC12 == MassDiffC.
+            mass_diff_c = DecoyIsotopeDistance,
             adductmass = AdductMass,
             minusoneaszero = MinusOneAreasZero,
             isotopethreshold = IsotopeThreshold,
@@ -212,5 +215,22 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
         DataThreshold = relativeDataThreshold;
         if (Polarity == Polarity.Negative)
             AdductMass = (float)-1.00727276467;
+    }
+
+    /// <summary>
+    /// Creates a shallow clone and invalidates the cached <see cref="IsoSettings"/>
+    /// struct so that the next call to <see cref="ToIsoSettings"/> rebuilds it with
+    /// the cloned instance's <see cref="DeconvolutionParameters.DecoyIsotopeDistance"/>
+    /// (which <see cref="DeconvolutionDecoyGenerator"/> sets to 0.9444 Da for decoy runs).
+    /// Without this override, the cached struct would still hold <see cref="MassDiffC"/>
+    /// and the decoy isotope distance would never reach the DLL.
+    /// </summary>
+    internal override DeconvolutionParameters ShallowClone()
+    {
+        var clone = (IsoDecDeconvolutionParameters)MemberwiseClone();
+        // Invalidate the cached IsoSettings so ToIsoSettings() rebuilds from the
+        // clone's fields (including the updated DecoyIsotopeDistance).
+        clone._isoSettings = null;
+        return clone;
     }
 }
