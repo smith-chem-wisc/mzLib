@@ -5,5 +5,6 @@
         ClassicDeconvolution,
         ExampleNewDeconvolutionTemplate,
         IsoDecDeconvolution,
+        RealFLASHDeconvolution    // Wraps the official FLASHDeconv.exe from OpenMS
     }
 }
