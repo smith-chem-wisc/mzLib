@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>Development.MSL.MslBenchmarks-20260315-105734</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.15.8, Windows 11 (10.0.26200.8037/25H2/2025Update/HudsonValley2)
+Intel Core i7-8550U CPU 1.80GHz (Max: 1.99GHz) (Kaby Lake R), 1 CPU, 8 logical and 4 physical cores
+.NET SDK 10.0.103
+  [Host]   : .NET 8.0.21 (8.0.21, 8.0.2125.47513), X64 RyuJIT x86-64-v3
+  .NET 8.0 : .NET 8.0.21 (8.0.21, 8.0.2125.47513), X64 RyuJIT x86-64-v3
+</code></pre>
+<pre><code>Job=.NET 8.0  Runtime=.NET 8.0  LaunchCount=Default  
+WarmupCount=Default  
+</code></pre>
+
+<table>
+<thead><tr><th>Method                 </th><th>NPrecursors</th><th>AvgFrag</th><th>Mean         </th><th>Error      </th><th>StdDev     </th><th>Median       </th><th>Gen0 </th><th>Gen1</th><th>Gen2</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>Write_MslLibrary</td><td>1000</td><td>10</td><td>6,395,476.22 ns</td><td>120,252.558 ns</td><td>128,668.890 ns</td><td>6,391,104.69 ns</td><td>46.8750</td><td>-</td><td>-</td><td>211949 B</td>
+</tr><tr><td>FullLoad_MslLibrary</td><td>1000</td><td>10</td><td>1,637,810.21 ns</td><td>44,497.053 ns</td><td>128,384.181 ns</td><td>1,580,740.23 ns</td><td>277.3438</td><td>199.2188</td><td>82.0313</td><td>1717818 B</td>
+</tr><tr><td>IndexOnlyLoad_MslLibrary</td><td>1000</td><td>10</td><td>2,016,942.17 ns</td><td>28,848.931 ns</td><td>24,090.164 ns</td><td>2,020,774.02 ns</td><td>316.4063</td><td>167.9688</td><td>82.0313</td><td>1754185 B</td>
+</tr><tr><td>QueryMzWindow_SingleQuery</td><td>1000</td><td>10</td><td>52.94 ns</td><td>1.093 ns</td><td>2.511 ns</td><td>52.00 ns</td><td>-</td><td>-</td><td>-</td><td>-</td>
+</tr><tr><td>QueryMzWindow_1000Queries</td><td>1000</td><td>10</td><td>57,744.63 ns</td><td>996.899 ns</td><td>932.500 ns</td><td>57,670.43 ns</td><td>-</td><td>-</td><td>-</td><td>-</td>
+</tr><tr><td>DdaLookup_ExistingEntry</td><td>1000</td><td>10</td><td>93.85 ns</td><td>1.899 ns</td><td>1.776 ns</td><td>93.43 ns</td><td>0.0095</td><td>-</td><td>-</td><td>40 B</td>
+</tr><tr><td>DdaLookup_MissingEntry</td><td>1000</td><td>10</td><td>79.93 ns</td><td>1.028 ns</td><td>0.961 ns</td><td>80.26 ns</td><td>0.0153</td><td>-</td><td>-</td><td>64 B</td>
+</tr><tr><td>BuildIndex_FromEntries</td><td>1000</td><td>10</td><td>146,978.26 ns</td><td>2,431.564 ns</td><td>2,155.518 ns</td><td>147,203.89 ns</td><td>53.7109</td><td>15.1367</td><td>-</td><td>225904 B</td>
+</tr><tr><td>RtCalibration_LinearTransform</td><td>1000</td><td>10</td><td>155,049.37 ns</td><td>2,380.414 ns</td><td>2,226.641 ns</td><td>155,590.23 ns</td><td>52.7344</td><td>15.8691</td><td>-</td><td>226024 B</td>
+</tr><tr><td>Write_MslLibrary</td><td>50000</td><td>10</td><td>147,958,403.57 ns</td><td>2,346,632.916 ns</td><td>2,080,228.958 ns</td><td>148,203,375.00 ns</td><td>250.0000</td><td>-</td><td>-</td><td>2564040 B</td>
+</tr><tr><td>FullLoad_MslLibrary</td><td>50000</td><td>10</td><td>146,855,942.86 ns</td><td>2,633,711.186 ns</td><td>2,334,716.367 ns</td><td>146,945,250.00 ns</td><td>10250.0000</td><td>5250.0000</td><td>250.0000</td><td>84996756 B</td>
+</tr><tr><td>IndexOnlyLoad_MslLibrary</td><td>50000</td><td>10</td><td>396,326,491.30 ns</td><td>7,829,893.002 ns</td><td>9,902,308.476 ns</td><td>397,259,900.00 ns</td><td>10000.0000</td><td>5000.0000</td><td>-</td><td>86600872 B</td>
+</tr><tr><td>QueryMzWindow_SingleQuery</td><td>50000</td><td>10</td><td>1,515.74 ns</td><td>23.791 ns</td><td>22.254 ns</td><td>1,509.53 ns</td><td>-</td><td>-</td><td>-</td><td>-</td>
+</tr><tr><td>QueryMzWindow_1000Queries</td><td>50000</td><td>10</td><td>1,003,787.29 ns</td><td>19,244.286 ns</td><td>18,001.117 ns</td><td>997,763.18 ns</td><td>-</td><td>-</td><td>-</td><td>-</td>
+</tr><tr><td>DdaLookup_ExistingEntry</td><td>50000</td><td>10</td><td>95.78 ns</td><td>1.819 ns</td><td>1.613 ns</td><td>95.61 ns</td><td>0.0095</td><td>-</td><td>-</td><td>40 B</td>
+</tr><tr><td>DdaLookup_MissingEntry</td><td>50000</td><td>10</td><td>83.60 ns</td><td>1.442 ns</td><td>2.245 ns</td><td>83.07 ns</td><td>0.0153</td><td>-</td><td>-</td><td>64 B</td>
+</tr><tr><td>BuildIndex_FromEntries</td><td>50000</td><td>10</td><td>19,365,439.58 ns</td><td>186,553.770 ns</td><td>174,502.512 ns</td><td>19,361,262.50 ns</td><td>1031.2500</td><td>1000.0000</td><td>31.2500</td><td>10984317 B</td>
+</tr><tr><td>RtCalibration_LinearTransform</td><td>50000</td><td>10</td><td>14,277,074.40 ns</td><td>90,172.848 ns</td><td>75,298.412 ns</td><td>14,295,282.81 ns</td><td>1046.8750</td><td>1031.2500</td><td>46.8750</td><td>10984448 B</td>
+</tr><tr><td>Write_MslLibrary</td><td>500000</td><td>10</td><td>1,497,149,226.67 ns</td><td>17,993,061.923 ns</td><td>16,830,721.294 ns</td><td>1,495,650,700.00 ns</td><td>3000.0000</td><td>1000.0000</td><td>-</td><td>24164144 B</td>
+</tr><tr><td>FullLoad_MslLibrary</td><td>500000</td><td>10</td><td>1,393,995,876.56 ns</td><td>27,571,288.667 ns</td><td>63,900,658.756 ns</td><td>1,380,264,650.00 ns</td><td>99000.0000</td><td>48000.0000</td><td>-</td><td>844257840 B</td>
+</tr><tr><td>IndexOnlyLoad_MslLibrary</td><td>500000</td><td>10</td><td>4,948,797,064.29 ns</td><td>49,067,481.274 ns</td><td>43,497,044.105 ns</td><td>4,956,035,850.00 ns</td><td>101000.0000</td><td>50000.0000</td><td>-</td><td>860261872 B</td>
+</tr><tr><td>QueryMzWindow_SingleQuery</td><td>500000</td><td>10</td><td>24,848.96 ns</td><td>352.786 ns</td><td>312.736 ns</td><td>24,901.45 ns</td><td>-</td><td>-</td><td>-</td><td>-</td>
+</tr><tr><td>QueryMzWindow_1000Queries</td><td>500000</td><td>10</td><td>10,373,468.54 ns</td><td>190,316.511 ns</td><td>178,022.183 ns</td><td>10,307,285.94 ns</td><td>-</td><td>-</td><td>-</td><td>-</td>
+</tr><tr><td>DdaLookup_ExistingEntry</td><td>500000</td><td>10</td><td>97.30 ns</td><td>1.835 ns</td><td>1.717 ns</td><td>97.68 ns</td><td>0.0095</td><td>-</td><td>-</td><td>40 B</td>
+</tr><tr><td>DdaLookup_MissingEntry</td><td>500000</td><td>10</td><td>88.05 ns</td><td>1.442 ns</td><td>1.278 ns</td><td>87.92 ns</td><td>0.0153</td><td>-</td><td>-</td><td>64 B</td>
+</tr><tr><td>BuildIndex_FromEntries</td><td>500000</td><td>10</td><td>195,733,952.38 ns</td><td>1,729,572.722 ns</td><td>1,533,221.169 ns</td><td>195,570,050.00 ns</td><td>7666.6667</td><td>2333.3333</td><td>-</td><td>104245296 B</td>
+</tr><tr><td>RtCalibration_LinearTransform</td><td>500000</td><td>10</td><td>128,501,992.31 ns</td><td>1,129,759.883 ns</td><td>943,400.669 ns</td><td>128,371,000.00 ns</td><td>7750.0000</td><td>2000.0000</td><td>-</td><td>104245416 B</td>
+</tr></tbody></table>
+</body>
+</html>

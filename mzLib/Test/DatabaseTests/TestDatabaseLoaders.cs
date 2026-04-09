@@ -211,52 +211,6 @@ namespace Test.DatabaseTests
             Assert.That(bothApplied.BaseSequence.Length, Is.EqualTo(14));
         }
 
-
-        private static void ExtractSingleProteinEntry(string sourceXml, string accession, string outputPath)
-        {
-            using var reader = new StreamReader(sourceXml);
-            using var writer = new StreamWriter(outputPath);
-
-            // Write XML header
-            writer.WriteLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
-            writer.WriteLine("<uniprot xmlns=\"http://uniprot.org/uniprot\">");
-
-            var entryContent = new System.Text.StringBuilder();
-            bool inEntry = false;
-            bool isTargetEntry = false;
-
-            string line;
-            while ((line = reader.ReadLine()) != null)
-            {
-                if (line.Contains("<entry"))
-                {
-                    inEntry = true;
-                    entryContent.Clear();
-                    isTargetEntry = false;
-                }
-
-                if (inEntry)
-                {
-                    entryContent.AppendLine(line);
-
-                    if (line.Contains($"<accession>{accession}</accession>"))
-                        isTargetEntry = true;
-
-                    if (line.Contains("</entry>"))
-                    {
-                        inEntry = false;
-                        if (isTargetEntry)
-                        {
-                            writer.Write(entryContent.ToString());
-                            break;
-                        }
-                    }
-                }
-            }
-
-            writer.WriteLine("</uniprot>");
-        }
-
         [Test]
         [TestCase("proteinEntryLipidMoietyBindingRegion.xml", DecoyType.Reverse)]
         public void LoadingLipidAsMod(string fileName, DecoyType decoyType)

@@ -1,5 +1,6 @@
 ﻿using NUnit.Framework;
 using Omics.SequenceConversion;
+using Omics.SpectrumMatch;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 using PredictionClients.Koina.Util;
@@ -20,11 +21,11 @@ namespace Test.KoinaTests
         {
             var experPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\myPrositLib.msp");
             var predPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\koinaTestOutput.msp");
-            SpectralLibrary testLibraryWithoutDecoy = null;
-            SpectralLibrary spectralLibraryTest = null;
+			Readers.SpectralLibrary.SpectralLibrary testLibraryWithoutDecoy = null;
+			Readers.SpectralLibrary.SpectralLibrary spectralLibraryTest = null;
             try
             {
-                testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { experPath });
+                testLibraryWithoutDecoy = new Readers.SpectralLibrary.SpectralLibrary(new List<string> { experPath });
                 string aminoacids = @"ACDEFGHIKLMNPQRSTVWY";
                 var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra()
                     .Where(p => p.ChargeState < 6 && p.Sequence.Length < 30 && p.Sequence.Length > 1 && p.Sequence.ToHashSet().IsSubsetOf(aminoacids.ToHashSet())).ToList();
@@ -59,7 +60,7 @@ namespace Test.KoinaTests
                     var predictedSpectra = modelHandler.GenerateLibrarySpectraFromPredictions(retentionTimes, out var warning, predPath, minIntensityFilter: 1e-6);
 
                     // Test that the predicted spectrum that was saved matches the predicted spectra in memory
-                    spectralLibraryTest = new SpectralLibrary(new List<string> { predPath });
+                    spectralLibraryTest = new Readers.SpectralLibrary.SpectralLibrary(new List<string> { predPath });
                     var spectralLibrary = spectralLibraryTest.GetAllLibrarySpectra().ToList();
                     Assert.That(peptides.Count == spectralLibrary.Count);
 
@@ -186,11 +187,11 @@ namespace Test.KoinaTests
                 var predictions = model.Predict(modelInputs);
 
                 Assert.That(predictions.Count, Is.EqualTo(1),
-                    $"Charge state {charge} should be valid");
+                    $"ChargeState state {charge} should be valid");
                 Assert.That(predictions[0].Warning, Is.Null,
-                    $"Charge state {charge} should not produce a warning");
+                    $"ChargeState state {charge} should not produce a warning");
                 Assert.DoesNotThrow(() => throwModel.Predict(modelInputs),
-                    $"Charge state {charge} should not throw an exception in strict mode");
+                    $"ChargeState state {charge} should not throw an exception in strict mode");
             }
 
             // Test invalid charge state 0
@@ -210,11 +211,11 @@ namespace Test.KoinaTests
             Assert.That(predictionsZero.Count, Is.EqualTo(1),
                 "Should return a prediction entry for invalid charge");
             Assert.That(predictionsZero[0].Warning, Is.Not.Null,
-                "Charge state 0 should produce a warning");
+                "ChargeState state 0 should produce a warning");
             Assert.That(predictionsZero[0].FragmentAnnotations, Is.Null,
                 "Invalid charge should result in null predictions");
             Assert.Throws<ArgumentException>(() => throwModel.Predict(modelInputsZero),
-                $"Charge state 0 should throw an exception in strict mode");
+                $"ChargeState state 0 should throw an exception in strict mode");
 
             // Test invalid negative charge state
             var modelInputsNegative = new List<FragmentIntensityPredictionInput>
@@ -235,7 +236,7 @@ namespace Test.KoinaTests
             Assert.That(predictionsNegative[0].Warning, Is.Not.Null,
                 "Negative charge state should produce a warning");
             Assert.Throws<ArgumentException>(() => throwModel.Predict(modelInputsNegative),
-                $"Charge state -1 should throw an exception in strict mode");
+                $"ChargeState state -1 should throw an exception in strict mode");
         }
 
         /// <summary>
@@ -652,6 +653,143 @@ namespace Test.KoinaTests
             Assert.That(model.Predictions.Count, Is.EqualTo(numberOfSequences));
             Assert.That(model.ValidInputsMask, Is.All.True);
             Console.WriteLine($"Time taken to predict {numberOfSequences:N0} peptides: {watch.Elapsed.Minutes}min {watch.Elapsed.Seconds}s {watch.Elapsed.Milliseconds}ms");
-        }   
-    }
+        }
+
+		/// <summary>
+		/// Tests that the Prosit2020IntensityHCD model can generate fragmentation spectra for a short list of peptides
+		/// and write them directly to a temporary spectral library file.
+		/// 
+		/// This test:
+		/// - Creates a short list of peptides
+		/// - Uses normalized collision energy 30 and charge state 2
+		/// - Gets fragmentation spectra using the Prosit2020 model
+		/// - Writes the library directly to a temporary file
+		/// - Validates the generated library can be read back successfully
+		/// </summary>
+		[Test]
+		public static void TestGenerateSpectralLibraryWithShortPeptideList()
+		{
+			// Arrange
+			var peptides = new List<string>
+	            {
+		            "PEPTIDEK",
+		            "ELVISLIVESK",
+		            "TIDEKPEP",
+		            "SAMPLESEQ",
+		            "TESTINGK"
+	            };
+
+			var collisionEnergy = 30;
+			var chargeState = 2;
+
+			var modelInputs = new List<FragmentIntensityPredictionInput>();
+			foreach (var peptide in peptides)
+			{
+				modelInputs.Add(new FragmentIntensityPredictionInput(
+					FullSequence: peptide,
+					PrecursorCharge: chargeState,
+					CollisionEnergy: collisionEnergy,
+					InstrumentType: null,
+					FragmentationType: null
+				));
+			}
+
+			var retentionTimes = new double?[] { 10.5, 15.2, 20.8, 25.1, 30.6 };
+
+			string tempMspLibraryPath = Path.Combine(Path.GetTempPath(), $"test_spectral_library_{Guid.NewGuid()}.msp");
+			string tempMslLibraryPath = Path.Combine(Path.GetTempPath(), $"test_spectral_library_{Guid.NewGuid()}.msl");
+
+			Readers.SpectralLibrary.SpectralLibrary mspLibrary = null;
+			Readers.SpectralLibrary.SpectralLibrary mslLibrary = null;
+
+			try
+			{
+				var model = new Prosit2020IntensityHCD();
+				var predictions = model.Predict(modelInputs);
+
+				Assert.That(predictions.Count, Is.EqualTo(peptides.Count),
+					"Should have predictions for all input peptides");
+				Assert.That(predictions.All(p => p.FragmentAnnotations != null), Is.True,
+					"All predictions should have fragment annotations");
+
+				// ── MSP round-trip ────────────────────────────────────────────────────
+
+				var librarySpectra = model.GenerateLibrarySpectraFromPredictions(
+					retentionTimes,
+					out var warning,
+					filepath: tempMspLibraryPath,
+					minIntensityFilter: 1e-6);
+
+				Assert.That(librarySpectra.Count, Is.EqualTo(peptides.Count),
+					"Should have library spectra for all peptides");
+				Assert.That(File.Exists(tempMspLibraryPath), Is.True,
+					"MSP spectral library file should be created");
+
+				mspLibrary = new Readers.SpectralLibrary.SpectralLibrary(new List<string> { tempMspLibraryPath });
+				var mspLoadedSpectra = mspLibrary.GetAllLibrarySpectra().ToList();
+
+				Assert.That(mspLoadedSpectra.Count, Is.EqualTo(peptides.Count),
+					"MSP: loaded spectrum count must match input peptide count");
+
+				foreach (var spectrum in mspLoadedSpectra)
+				{
+					Assert.That(peptides, Does.Contain(spectrum.Sequence),
+						$"MSP: spectrum sequence {spectrum.Sequence} should be in input peptides list");
+					Assert.That(spectrum.ChargeState, Is.EqualTo(chargeState),
+						"MSP: spectrum charge state should match input");
+					Assert.That(spectrum.MatchedFragmentIons.Count, Is.GreaterThan(0),
+						$"MSP: spectrum for {spectrum.Sequence} should have fragment ions");
+				}
+
+				Console.WriteLine($"MSP: successfully loaded {mspLoadedSpectra.Count} spectra from {tempMspLibraryPath}");
+
+				// ── MSL round-trip ────────────────────────────────────────────────────
+
+				librarySpectra = model.GenerateLibrarySpectraFromPredictions(
+					retentionTimes,
+					out warning,
+					filepath: tempMslLibraryPath,
+					minIntensityFilter: 1e-6);
+
+				Assert.That(librarySpectra.Count, Is.EqualTo(peptides.Count),
+					"Should have library spectra for all peptides");
+				Assert.That(File.Exists(tempMslLibraryPath), Is.True,  // was incorrectly tempMspLibraryPath
+					"MSL spectral library file should be created");
+
+				mslLibrary = new Readers.SpectralLibrary.SpectralLibrary(new List<string> { tempMslLibraryPath });
+
+				// GetAllLibrarySpectra() only iterates the text-library byte-offset index
+				// (SequenceToFileAndLocation). For .msl files the constructor populates
+				// _mslLibraries instead, so GetAllLibrarySpectra() returns nothing.
+				// Use TryGetSpectrum to validate MSL round-trip correctness.
+				foreach (var peptide in peptides)
+				{
+					bool found = mslLibrary.TryGetSpectrum(peptide, chargeState, out LibrarySpectrum spectrum);
+
+					Assert.That(found, Is.True,
+						$"MSL: TryGetSpectrum must find '{peptide}' at charge {chargeState}");
+					Assert.That(spectrum.Sequence, Is.EqualTo(peptide),
+						$"MSL: returned spectrum sequence must match lookup key");
+					Assert.That(spectrum.ChargeState, Is.EqualTo(chargeState),
+						"MSL: spectrum charge state should match input");
+					Assert.That(spectrum.MatchedFragmentIons.Count, Is.GreaterThan(0),
+						$"MSL: spectrum for {peptide} should have fragment ions");
+				}
+
+				Console.WriteLine($"MSL: successfully validated {peptides.Count} spectra from {tempMslLibraryPath}");
+			}
+			finally
+			{
+				// Close each library separately — overwriting a single variable would leak
+				// the first library's StreamReader/FileStream and block deletion on Windows.
+				mspLibrary?.CloseConnections();
+				mslLibrary?.CloseConnections();
+
+				if (File.Exists(tempMspLibraryPath))
+					File.Delete(tempMspLibraryPath);
+				if (File.Exists(tempMslLibraryPath))
+					File.Delete(tempMslLibraryPath);
+			}
+		}
+	}
 }
