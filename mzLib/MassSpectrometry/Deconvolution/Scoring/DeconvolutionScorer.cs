@@ -30,14 +30,22 @@ namespace MassSpectrometry
     public static class DeconvolutionScorer
     {
         // ── Logistic regression weights ───────────────────────────────────────
-        // Provisional weights — recalibrate against labelled training data.
-        // Calibrated to produce scores broadly similar in range to the FLASHDeconv
-        // Qscore on intact protein top-down data; not fit to a labelled data set.
-        private const double CoefficientCosine = -14.0;  // high cosine → low linear score → high Qscore
-        private const double CoefficientPpmError = 0.15; // high ppm error → higher linear score → lower Qscore
-        private const double CoefficientCompleteness = -3.0;  // high completeness → low linear score → high Qscore
-        private const double CoefficientRatioConsistency = -3.0;  // high consistency → low linear score → high Qscore
-        private const double Intercept = 9.5;
+        // Calibrated against IsoDec top-down yeast data:
+        //   File:    05-26-17_B7A_yeast_td_fract8_rep2.mzML
+        //   Labels:  381,098 target envelopes / 198,445 decoy envelopes
+        //            (deconvolution-level labels via DecoyIsotopeDistance = 0.9444 Da)
+        //   AUC:     1.0000 on training set
+        //
+        // The AUC of 1.0 reflects near-perfect separation on this dataset. The weights
+        // capture the physical meaning of the features (high cosine/completeness/
+        // ratioConsistency = good; high ppmError = bad) and should generalise across
+        // algorithms, though re-calibration on Classic and FLASHDeconv output is
+        // recommended once those decoy distributions are available.
+        private const double CoefficientCosine = -3.4494;
+        private const double CoefficientPpmError = 1.6341;
+        private const double CoefficientCompleteness = -4.7795;
+        private const double CoefficientRatioConsistency = -2.1883;
+        private const double Intercept = -4.3142;
 
         // ── Feature matching tolerance ────────────────────────────────────────
         private const double MatchTolerancePpm = 10.0;
