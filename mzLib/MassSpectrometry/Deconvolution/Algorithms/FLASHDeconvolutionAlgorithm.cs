@@ -5,6 +5,7 @@
 // Step 1 — log transform + universal/harmonic pattern construction
 // Step 2 — binned candidate mass finding (single-round mass bin computation)
 // Step 3 — isotope peak recruitment per candidate per charge
+//          + per-charge cosine and noise power collection for Qscoring
 // Step 4 — cosine scoring against Averagine; isotope offset optimisation
 // Step 5 — IsotopicEnvelope output, deduplication, Qscoring
 //
@@ -81,27 +82,18 @@ namespace MassSpectrometry
             if (candidates.Count == 0) return Enumerable.Empty<IsotopicEnvelope>();
 
             // ── Steps 3–5: recruit → score → dedup → Qscore ──────────────────
-            // ScoreAndBuildEnvelopesWithPpmError computes the exact ppm error
-            // during recruitment while the isotope index n is still known,
-            // matching the OpenMS formula:
-            //   theorMz = monoMass.ToMz(z) + n * C13/z
-            //   error   = |obsMz - theorMz| / theorMz * 1e6
-            // This is stored alongside each envelope and passed to AssignQscores
-            // so that f[4] of the logistic regression uses the correct value
-            // rather than the post-hoc approximation anchored at the apex peak.
-            var pairs = ScoreAndBuildEnvelopesWithPpmError(spectrum, candidates, p).ToList();
+            // ScoreAndBuildEnvelopes collects:
+            //   • exact ppm error (isotope index n known during recruitment)
+            //   • per-charge cosine for the representative charge (f[1])
+            //   • per-charge noise power for the representative charge (f[2]/f[3])
+            //   • per-charge summed signal squared for the SNR denominator
+            var scoringData = ScoreAndBuildEnvelopes(spectrum, candidates, p).ToList();
 
-            // Build a reference-identity lookup so deduplication survivors can
-            // retrieve their ppm error. The deduplicator yields the actual winning
-            // envelope objects unchanged, so object reference equality is safe here.
-            var ppmByRef = pairs.ToDictionary(x => x.Envelope, x => x.AvgPpmError);
+            // Deduplicate on envelope identity; propagate the full EnvelopeScoringData
+            // through so the scorer receives all per-charge fields for the winner.
+            var dedupedData = FLASHDeconvDeduplicator.Deduplicate(scoringData, p.DeconvolutionTolerancePpm);
 
-            var deduped = FLASHDeconvDeduplicator
-                .Deduplicate(pairs.Select(x => x.Envelope), p.DeconvolutionTolerancePpm);
-
-            return FLASHDeconvScorer.AssignQscores(
-                deduped.Select(env =>
-                    (env, ppmByRef.TryGetValue(env, out double ppm) ? ppm : 0.0)));
+            return FLASHDeconvScorer.AssignQscores(dedupedData);
         }
 
         // ══════════════════════════════════════════════════════════════════════
@@ -114,22 +106,22 @@ namespace MassSpectrometry
         /// For each candidate mass, recruits isotope peaks from the raw spectrum
         /// for each charge state in the candidate's range, scores the resulting
         /// isotope intensity distribution against Averagine, and returns accepted
-        /// envelopes paired with their average ppm error.
+        /// envelopes as <see cref="FLASHDeconvScorer.EnvelopeScoringData"/>.
         ///
-        /// The ppm error is computed here while the isotope index n for each
-        /// recruited peak is still known, using the OpenMS formula:
-        ///   theorMz = monoMass.ToMz(polSign * z) + n * C13/z
-        ///   error   = |obsMz − theorMz| / theorMz × 1e6
-        /// This is more accurate than recomputing it post-hoc from the (mz, intensity)
-        /// peak list, where n must be reconstructed by rounding.
+        /// During recruitment the following are accumulated simultaneously:
+        /// <list type="bullet">
+        ///   <item>Global per-isotope intensity vector (all charges combined) for cosine scoring.</item>
+        ///   <item>Per-charge isotope intensity vectors for the representative charge.</item>
+        ///   <item>Noise peaks — raw spectrum peaks in the same m/z window as each expected
+        ///     isotope position but outside the ±ppm tolerance band — for the representative charge.</item>
+        /// </list>
         /// </summary>
-        private IEnumerable<(IsotopicEnvelope Envelope, double AvgPpmError)>
-            ScoreAndBuildEnvelopesWithPpmError(
-                MzSpectrum spectrum,
-                List<CandidateMass> candidates,
-                FLASHDeconvolutionParameters p)
+        private IEnumerable<FLASHDeconvScorer.EnvelopeScoringData> ScoreAndBuildEnvelopes(
+            MzSpectrum spectrum,
+            List<CandidateMass> candidates,
+            FLASHDeconvolutionParameters p)
         {
-            var results = new List<(IsotopicEnvelope, double)>();
+            var results = new List<FLASHDeconvScorer.EnvelopeScoringData>();
             var tolerance = new PpmTolerance(p.DeconvolutionTolerancePpm);
             int polSign = Math.Sign((int)p.Polarity); // +1 positive, -1 negative
 
@@ -142,8 +134,6 @@ namespace MassSpectrometry
                 //
                 // DiffToMonoisotopic[i] = MostIntenseMasses[i] - monoisotopicMass
                 //                       = apexMass - monoMass (already computed, exact)
-                // This is the distance in Da from monoisotopic to apex — exactly what we need
-                // for the monoisotopic mass calculation, and avoids all fine-resolution array indexing.
                 int avgIdx = p.AverageResidueModel.GetMostIntenseMassIndex(candidate.Mass);
                 double apexDaFromMono = p.AverageResidueModel.GetDiffToMonoisotopic(avgIdx);
 
@@ -151,46 +141,74 @@ namespace MassSpectrometry
                 double[] avgIntensRaw = p.AverageResidueModel.GetAllTheoreticalIntensities(avgIdx);
 
                 // Sort to mass-ascending order for cosine scoring vector
-                var sortedAvg = avgMasses.Zip(avgIntensRaw)
-                    .OrderBy(pair => pair.First)
-                    .ToArray();
+                var sortedAvg = avgMasses.Zip(avgIntensRaw).OrderBy(pair => pair.First).ToArray();
                 double[] avgIntens = sortedAvg.Select(pair => pair.Second).ToArray();
                 int nIso = avgIntens.Length;
 
-                // apexIdx in the mass-ascending array — used to set the isoWindowSize
-                // and to center the perIsotopeObs vector.
+                // apexIdx in the mass-ascending array — centers the perIsotopeObs vector
                 int apexIdx = Array.IndexOf(avgIntens, avgIntens.Max());
 
+                // Representative charge: midpoint of the candidate's charge range.
+                // Used for per-charge cosine and noise collection (f[1]–f[3]).
+                int repAbsCharge = (candidate.MinAbsCharge + candidate.MaxAbsCharge) / 2;
+
                 // ── Step 3b: recruit peaks per charge state ────────────────────
-                // Per-isotope intensity vector accumulated across all charges.
-                // Slot 0 = monoisotopic (candidate.Mass), apexIdx = most-abundant isotope.
-                // Track (mz, intensity, z, n) so we can compute monoMass and ppm error.
                 int isoWindowSize = nIso + apexIdx;
-                var perIsotopeObs = new double[isoWindowSize];
+                var perIsotopeObs = new double[isoWindowSize]; // global (all charges)
+                var repChargeObs = new double[isoWindowSize]; // representative charge only
+
                 // recruitedPeaks: (mz, intensity, absCharge, isotopeIndex n from monoisotopic)
                 var recruitedPeaks = new List<(double mz, double intensity, int z, int n)>();
+
+                // Per-charge noise and signal accumulators (representative charge only).
+                // noisePower: summed squared intensity of peaks in the isotope window
+                //             but OUTSIDE the ±ppm tolerance band.
+                // sumSignalSq: summed squared intensity of recruited signal peaks.
+                double repChargeNoisePower = 0.0;
+                double repChargeSumSignalSq = 0.0;
 
                 for (int z = candidate.MinAbsCharge; z <= candidate.MaxAbsCharge; z++)
                 {
                     double isoDelta = Constants.C13MinusC12 / z;
                     double baseMz = candidate.Mass.ToMz(polSign * z);
+                    bool isRepZ = (z == repAbsCharge);
 
-                    // Search forward (n=0 is monoisotopic, n>0 are heavier)
+                    // Search forward (n=0 is monoisotopic, n>0 are heavier isotopes)
                     for (int n = 0; n < nIso; n++)
                     {
                         double targetMz = baseMz + n * isoDelta;
-                        var indices = spectrum.GetPeakIndicesWithinTolerance(targetMz, tolerance);
-                        if (indices.Count == 0) break;
+                        double windowHalfDa = targetMz * p.DeconvolutionTolerancePpm * 1e-6;
+                        double windowLo = targetMz - windowHalfDa;
+                        double windowHi = targetMz + windowHalfDa;
 
-                        int bestIdx = indices.OrderByDescending(i => spectrum.YArray[i]).First();
+                        var signalIndices = spectrum.GetPeakIndicesWithinTolerance(targetMz, tolerance);
+                        if (signalIndices.Count == 0)
+                        {
+                            if (isRepZ)
+                                CollectNoisePeaks(spectrum, windowLo, windowHi,
+                                    signalIndices, ref repChargeNoisePower);
+                            break;
+                        }
+
+                        int bestIdx = signalIndices.OrderByDescending(i => spectrum.YArray[i]).First();
                         double obsIntensity = spectrum.YArray[bestIdx];
                         double obsMz = spectrum.XArray[bestIdx];
 
                         int isoSlot = apexIdx + n;
                         if (isoSlot < isoWindowSize)
+                        {
                             perIsotopeObs[isoSlot] += obsIntensity;
+                            if (isRepZ) repChargeObs[isoSlot] += obsIntensity;
+                        }
 
                         recruitedPeaks.Add((obsMz, obsIntensity, z, n));
+
+                        if (isRepZ)
+                        {
+                            repChargeSumSignalSq += obsIntensity * obsIntensity;
+                            CollectNoisePeaks(spectrum, windowLo, windowHi,
+                                signalIndices, ref repChargeNoisePower);
+                        }
                     }
 
                     // Search backward (lighter than monoisotopic, n=−1,−2,…)
@@ -199,18 +217,38 @@ namespace MassSpectrometry
                         double targetMz = baseMz - n * isoDelta;
                         if (targetMz <= 0) break;
 
-                        var indices = spectrum.GetPeakIndicesWithinTolerance(targetMz, tolerance);
-                        if (indices.Count == 0) break;
+                        double windowHalfDa = targetMz * p.DeconvolutionTolerancePpm * 1e-6;
+                        double windowLo = targetMz - windowHalfDa;
+                        double windowHi = targetMz + windowHalfDa;
 
-                        int bestIdx = indices.OrderByDescending(i => spectrum.YArray[i]).First();
+                        var signalIndices = spectrum.GetPeakIndicesWithinTolerance(targetMz, tolerance);
+                        if (signalIndices.Count == 0)
+                        {
+                            if (isRepZ)
+                                CollectNoisePeaks(spectrum, windowLo, windowHi,
+                                    signalIndices, ref repChargeNoisePower);
+                            break;
+                        }
+
+                        int bestIdx = signalIndices.OrderByDescending(i => spectrum.YArray[i]).First();
                         double obsIntensity = spectrum.YArray[bestIdx];
                         double obsMz = spectrum.XArray[bestIdx];
 
                         int isoSlot = apexIdx - n;
                         if (isoSlot >= 0 && isoSlot < isoWindowSize)
+                        {
                             perIsotopeObs[isoSlot] += obsIntensity;
+                            if (isRepZ) repChargeObs[isoSlot] += obsIntensity;
+                        }
 
                         recruitedPeaks.Add((obsMz, obsIntensity, z, -n));
+
+                        if (isRepZ)
+                        {
+                            repChargeSumSignalSq += obsIntensity * obsIntensity;
+                            CollectNoisePeaks(spectrum, windowLo, windowHi,
+                                signalIndices, ref repChargeNoisePower);
+                        }
                     }
                 }
 
@@ -218,15 +256,11 @@ namespace MassSpectrometry
                     continue;
 
                 // ── Step 4a: find best isotope offset ─────────────────────────
-                // The candidate mass from Step 2 is approximate. Shift the observed
-                // intensity vector relative to the Averagine template to find the
-                // offset that maximises cosine similarity. Offset search range: ±apexIdx.
                 double bestCosine = -1.0;
                 int bestOffset = 0;
 
                 for (int offset = -apexIdx; offset <= apexIdx; offset++)
                 {
-                    // Align: avgIntens[i] ↔ perIsotopeObs[i + apexIdx + offset]
                     var obsSlice = new double[nIso];
                     for (int i = 0; i < nIso; i++)
                     {
@@ -243,7 +277,19 @@ namespace MassSpectrometry
                     }
                 }
 
-                // ── Step 4b: apply filters ─────────────────────────────────────
+                // ── Step 4b: per-charge cosine for representative charge ────────
+                // Apply the same offset alignment to the representative-charge-only
+                // isotope vector to get chargeIsotopeCosine (used in f[1]).
+                var repObsSlice = new double[nIso];
+                for (int i = 0; i < nIso; i++)
+                {
+                    int slot = i + bestOffset;
+                    if (slot >= 0 && slot < isoWindowSize)
+                        repObsSlice[i] = repChargeObs[slot];
+                }
+                double repChargeCosine = SpectralSimilarity.CosineOfAlignedVectors(repObsSlice, avgIntens);
+
+                // ── Step 4c: apply filters ─────────────────────────────────────
                 if (bestCosine < p.MinCosineScore) continue;
 
                 // Deduplicate: same raw spectrum peak recruited from multiple charges.
@@ -254,53 +300,73 @@ namespace MassSpectrometry
 
                 if (uniquePeaks.Count < p.MinIsotopicPeakCount) continue;
 
-                // candidate.Mass ≈ apex mass (Step 2 bins on whatever peaks triggered the run,
-                // which are near the apex of the isotope distribution).
-                // The Averagine apex is apexDaFromMono Da above monoisotopic.
-                // bestOffset shifts the alignment frame by that many fine-resolution bins,
-                // which corresponds to bestOffset * C13MinusC12 in mass space.
-                //
-                // monoMass = candidate.Mass - apexDaFromMono + bestOffset * C13MinusC12
-                //
-                // This is exact regardless of charge and independent of the fine-resolution
-                // array indexing, because apexDaFromMono is in Da directly from Averagine.
+                // monoMass = candidate.Mass − apexDaFromMono + bestOffset × C13MinusC12
                 double monoMass = candidate.Mass - apexDaFromMono + bestOffset * Constants.C13MinusC12;
                 if (monoMass < p.MinMassRange || monoMass > p.MaxMassRange) continue;
 
-                // Representative charge for the signed output
-                int repCharge = (candidate.MinAbsCharge + candidate.MaxAbsCharge) / 2;
-                int signedCharge = polSign * repCharge;
-
+                int signedCharge = polSign * repAbsCharge;
                 double totalIntensity = uniquePeaks.Sum(pk => pk.intensity);
-                var outputPeaks = uniquePeaks
-                    .Select(pk => (pk.mz, pk.intensity))
-                    .ToList();
+                var outputPeaks = uniquePeaks.Select(pk => (pk.mz, pk.intensity)).ToList();
 
-                // ── Compute avg ppm error while isotope index n is still known ─
-                // theorMz = monoMass.ToMz(polSign * z) + n * C13/z
-                // This matches the OpenMS getPPMError_ formula and is more accurate
-                // than the post-hoc approximation anchored from the apex peak.
+                // ── Compute avg ppm error (isotope index n still known) ────────
                 double totalPpmError = 0.0;
                 foreach (var (obsMz, _, z, n) in uniquePeaks)
                 {
                     double isoDelta = Constants.C13MinusC12 / z;
-                    double theorMz = candidate.Mass.ToMz(polSign * z) + n * isoDelta; // ← was monoMass
+                    double theorMz = candidate.Mass.ToMz(polSign * z) + n * isoDelta;
                     totalPpmError += Math.Abs(obsMz - theorMz) / theorMz * 1e6;
                 }
                 double avgPpmError = uniquePeaks.Count > 0
                     ? totalPpmError / uniquePeaks.Count
                     : 0.0;
 
-                results.Add((new IsotopicEnvelope(
+                var envelope = new IsotopicEnvelope(
                     id: 0,
                     peaks: outputPeaks,
                     monoisotopicmass: monoMass,
                     chargestate: signedCharge,
                     intensity: totalIntensity,
-                    score: bestCosine), avgPpmError));
+                    score: bestCosine);   // Score = global cosine; replaced by Qscore after scoring
+
+                results.Add(new FLASHDeconvScorer.EnvelopeScoringData(
+                    envelope: envelope,
+                    avgPpmError: avgPpmError,
+                    repChargeIsotopeCosine: repChargeCosine,
+                    repChargeNoisePower: repChargeNoisePower,
+                    repChargeSumSignalSquared: repChargeSumSignalSq));
             }
 
             return results;
+        }
+
+        // ── Noise collection helper ───────────────────────────────────────────
+
+        /// <summary>
+        /// Adds to <paramref name="noisePower"/> the summed squared intensity of
+        /// all raw spectrum peaks within [windowLo, windowHi] that are NOT in
+        /// <paramref name="signalIndices"/> (i.e. peaks in the isotope window but
+        /// outside the ±ppm tolerance band around the expected isotope position).
+        /// </summary>
+        private static void CollectNoisePeaks(
+            MzSpectrum spectrum,
+            double windowLo,
+            double windowHi,
+            IReadOnlyCollection<int> signalIndices,
+            ref double noisePower)
+        {
+            // Binary-search to the first index at or above windowLo.
+            // MzSpectrum.XArray is sorted ascending.
+            int lo = spectrum.GetClosestPeakIndex(windowLo);
+            // Walk forward through all peaks in the window.
+            for (int i = lo; i < spectrum.Size; i++)
+            {
+                double mz = spectrum.XArray[i];
+                if (mz > windowHi) break;
+                if (mz < windowLo) continue;
+                if (signalIndices.Contains(i)) continue; // signal peak, skip
+                double intensity = spectrum.YArray[i];
+                noisePower += intensity * intensity;
+            }
         }
 
         // ══════════════════════════════════════════════════════════════════════
@@ -336,7 +402,9 @@ namespace MassSpectrometry
             int mzBinCount = BinNumber(mzBinMaxValue, mzBinMinValue, binMulFactor) + 1;
             int massBinCount = BinNumber(massBinMaxValue, massBinMinValue, binMulFactor) + 1;
 
-            // Pre-compute integer harmonic bin offsets for mz-space lookups
+            // Pre-compute integer harmonic bin offsets in mz-bin space.
+            // The harmonic check compares mz-bin positions of the current peak against
+            // positions that would be occupied by harmonic species at the same mass bin.
             var binHarmonicPatterns = new int[harmonicPatterns.Length][];
             for (int k = 0; k < harmonicPatterns.Length; k++)
             {
@@ -346,6 +414,7 @@ namespace MassSpectrometry
                         (mzBinMinValue - harmonicPatterns[k][j] - massBinMinValue) * binMulFactor);
             }
 
+            // mz-bin occupancy map — used by the harmonic check
             var mzBinOccupied = new bool[mzBinCount];
             var mzBinIntensity = new float[mzBinCount];
             var peakBinIndex = new int[logPeaks.Count];
@@ -374,7 +443,10 @@ namespace MassSpectrometry
             var prevIntensity = new float[massBinCount];
             for (int i = 0; i < massBinCount; i++) prevChargeIdx[i] = chargeRange + 2;
 
-            // Main scan: right-to-left (high logMz → low logMz)
+            // Main scan: right-to-left (high logMz → low logMz).
+            // Scanning in this direction means charge index j increases as we move
+            // to higher logMz, so consecutive charges for the same mass appear as
+            // j, j-1 — i.e. prevChargeIdx[massBin] - j == -1 when continuous.
             for (int i = logPeaks.Count - 1; i >= 0; i--)
             {
                 int mzBin = peakBinIndex[i];
@@ -383,8 +455,6 @@ namespace MassSpectrometry
 
                 for (int j = 0; j < chargeRange; j++)
                 {
-                    // Single-round mass bin: avoids double-rounding that scatters
-                    // peaks from the same mass into adjacent bins.
                     int massBin = BinNumber(logMz - universalPattern[j], massBinMinValue, binMulFactor);
                     if (massBin < 0 || massBin >= massBinCount) continue;
 
@@ -428,6 +498,8 @@ namespace MassSpectrometry
                         {
                             if (massBinSupportCount[massBin] == 0)
                             {
+                                // Retroactive credit: this is the second confirming peak,
+                                // so we count both this and the previous peak → support = 2.
                                 massBinSupportCount[massBin] = 2;
                                 massBinIntensity[massBin] += prevIntensity[massBin] + intensity;
                                 int prevJ = prevChargeIdx[massBin];
@@ -467,29 +539,29 @@ namespace MassSpectrometry
             for (int i = 0; i < logPeaks.Count; i++)
             {
                 double logMz = logPeaks[i].LogMz;
-                long bestMassBin = -1;
-                float bestIntensity = -1f;
+                long bestBin = -1;
+                float bestInt = -1f;
 
                 for (int j = 0; j < chargeRange; j++)
                 {
                     int massBin = BinNumber(logMz - universalPattern[j], massBinMinValue, binMulFactor);
                     if (massBin < 0 || massBin >= massBinCount) continue;
                     if (!massBinOccupied[massBin]) continue;
-                    if (massBinIntensity[massBin] > bestIntensity)
+                    if (massBinIntensity[massBin] > bestInt)
                     {
-                        bestIntensity = massBinIntensity[massBin];
-                        bestMassBin = massBin;
+                        bestInt = massBinIntensity[massBin];
+                        bestBin = massBin;
                     }
                 }
 
-                if (bestMassBin >= 0) finalMassBins[bestMassBin] = true;
+                if (bestBin >= 0) finalMassBins[bestBin] = true;
             }
 
             var candidates = new List<CandidateMass>();
             for (int b = 0; b < massBinCount; b++)
             {
                 if (!finalMassBins[b]) continue;
-                if (massBinMinChargeIdx[b] > massBinMaxChargeIdx[b]) continue;
+                if (massBinMinChargeIdx[b] == int.MaxValue || massBinMaxChargeIdx[b] == int.MinValue) continue;
 
                 double logMass = BinValue(b, massBinMinValue, binMulFactor);
                 double mass = Math.Exp(logMass);

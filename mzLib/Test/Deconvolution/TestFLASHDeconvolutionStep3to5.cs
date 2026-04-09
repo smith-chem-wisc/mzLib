@@ -122,17 +122,25 @@ namespace Test
         // ══════════════════════════════════════════════════════════════════════
 
         [Test]
-        public void Deconvolute_AllEnvelopes_HaveScoreAboveMinCosine()
+        public void Deconvolute_AllEnvelopes_HaveQscoreInValidRange()
         {
-
+            // After Steps 3–5, env.Score is a Qscore in [0, 1] produced by
+            // FLASHDeconvScorer.AssignQscores — it is NOT the raw Averagine cosine.
+            // The raw cosine filter (>= MinCosineScore) is applied inside the algorithm
+            // before scoring; by the time envelopes reach the caller their Score has been
+            // replaced with the logistic-regression Qscore. Any Qscore > 0 is valid.
             var deconParams = DefaultParams();
             var spectrum = Spectrum(12_223.2, new[] { 9, 10, 11, 12, 13 }, deconParams);
 
             var results = Deconvoluter.Deconvolute(spectrum, deconParams).ToList();
 
             foreach (var env in results)
-                Assert.That(env.Score, Is.GreaterThanOrEqualTo(deconParams.MinCosineScore),
-                    $"Envelope score {env.Score:F4} is below MinCosineScore {deconParams.MinCosineScore}");
+            {
+                Assert.That(env.Score, Is.GreaterThan(0.0),
+                    $"Qscore {env.Score:F4} must be positive");
+                Assert.That(env.Score, Is.LessThanOrEqualTo(1.0 + 1e-9),
+                    $"Qscore {env.Score:F4} must not exceed 1.0");
+            }
         }
 
         [Test]
