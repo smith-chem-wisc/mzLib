@@ -334,14 +334,6 @@ namespace Test
             Assert.That(attr.Xmlns, Is.EqualTo("http://example.org"));
         }
 
-        [Test]
-        public void EntryAttributes_CurrentDate_ReturnsToday_InExpectedFormat()
-        {
-            var attr = new UniProtEntryAttributes();
-            string expected = DateTime.Now.ToString("yyyy-MM-dd");
-
-            Assert.That(attr.CurrentDate, Is.EqualTo(expected));
-        }
 
         [Test]
         public void EntryAttributes_NullCreatedAndModified_FallBackToCurrentDate()

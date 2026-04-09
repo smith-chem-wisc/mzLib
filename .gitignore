@@ -6,6 +6,7 @@
 /AGENTS.md
 .claude/
 .serena/
+.pr_comments/ # Folder for agent-generate PR comments and suggested fixes
 
 # User-specific files
 *.suo

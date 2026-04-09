@@ -12,7 +12,6 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 using Transcriptomics;
-using static TorchSharp.torch.optim.lr_scheduler.impl.CyclicLR;
 
 namespace UsefulProteomicsDatabases
 {
@@ -515,15 +514,15 @@ namespace UsefulProteomicsDatabases
                     writer.WriteAttributeString("mass", sequenceAttributes.Mass.ToString(CultureInfo.InvariantCulture));
                     writer.WriteAttributeString("checksum", sequenceAttributes.Checksum);
                     writer.WriteAttributeString("modified", sequenceAttributes.EntryModified.ToString("yyyy-MM-dd"));
-                    writer.WriteAttributeString("version", protein.UniProtSequenceAttributes.SequenceVersion.ToString(CultureInfo.InvariantCulture));
+                    writer.WriteAttributeString("version", sequenceAttributes.SequenceVersion.ToString(CultureInfo.InvariantCulture));
                     //optional attributes
-                    if (protein.UniProtSequenceAttributes.IsPrecursor != null)
+                    if (sequenceAttributes.IsPrecursor != null)
                     {
-                        writer.WriteAttributeString("precursor", protein.UniProtSequenceAttributes.IsPrecursor.Value.ToString().ToLowerInvariant());
+                        writer.WriteAttributeString("precursor", sequenceAttributes.IsPrecursor.Value.ToString().ToLowerInvariant());
                     }
-                    if(protein.UniProtSequenceAttributes.Fragment != UniProtSequenceAttributes.FragmentType.unspecified)
+                    if(sequenceAttributes.Fragment != UniProtSequenceAttributes.FragmentType.unspecified)
                     {
-                        writer.WriteAttributeString("fragment", protein.UniProtSequenceAttributes.Fragment.ToString().ToLowerInvariant());
+                        writer.WriteAttributeString("fragment", sequenceAttributes.Fragment.ToString().ToLowerInvariant());
                     }
                     //end optional attributes
                     writer.WriteString(protein.BaseSequence);
@@ -566,6 +565,12 @@ namespace UsefulProteomicsDatabases
             }
         }
 
+        /// <summary>
+        /// Writes a feature element to the XML writer. If both begin and end positions are null, the feature is not written.
+        /// If only one position is null, or both positions are equal, the feature is written as a single position element.
+        /// This is intended behavior - features with a single null position collapse to a point feature, which is the correct
+        /// representation for features where only one boundary is known.
+        /// </summary>
         private static void WriteFeatureElement(XmlWriter writer, string featureType, string description, int? beginPosition, int? endPosition)
         {
             if (!beginPosition.HasValue && !endPosition.HasValue) return; // if there is no position information, don't write the feature at all.

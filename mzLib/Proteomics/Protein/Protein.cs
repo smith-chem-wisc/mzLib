@@ -145,6 +145,7 @@ namespace Proteomics
         /// <param name="spliceSites">New splice sites, or null to keep the original.</param>
         /// <param name="uniProtEntryAttributes">New UniProt entry attributes, or null to keep the original.</param>
         /// <param name="uniProtSequenceAttributes">New UniProt sequence attributes, or null to keep the original.</param>
+        /// <param name="nonVariantProtein">The non-variant protein reference, or null to set NonVariantProtein to this instance.</param>
         public Protein(Protein originalProtein,
             string? accession = null,
             string? proteinName = null,
@@ -164,11 +165,12 @@ namespace Proteomics
             List<DisulfideBond> disulfideBonds = null,
             List<SpliceSite> spliceSites = null,
             UniProtEntryAttributes uniProtEntryAttributes = null,
-            UniProtSequenceAttributes uniProtSequenceAttributes = null)
+            UniProtSequenceAttributes uniProtSequenceAttributes = null,
+            Protein nonVariantProtein = null)
         {
             BaseSequence = originalProtein.BaseSequence;
             Accession = accession ?? originalProtein.Accession;
-            NonVariantProtein = this;
+            NonVariantProtein = nonVariantProtein ?? this;
             Name = proteinName ?? originalProtein.Name;
             Organism = organism ?? originalProtein.Organism;
             FullName = proteinFullName ?? originalProtein.FullName;

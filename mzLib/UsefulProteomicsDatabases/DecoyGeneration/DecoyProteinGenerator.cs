@@ -352,9 +352,27 @@ namespace UsefulProteomicsDatabases
                         decoyVariationsSlide.Add(new SequenceVariation(decoy_begin, decoy_end, sv.OriginalSequence, new string(variationArraySlided), $"{decoyIdentifier} VARIANT: " + sv.VariantCallFormatDataString));
                     }
                 }
-                var decoyProteinSlide = new Protein(slided_sequence, $"{decoyIdentifier}_" + protein.Accession, protein.Organism, protein.GeneNames.ToList(), decoyModifications, decoyPPSlide,
-                    protein.Name, protein.FullName, true, protein.IsContaminant, null, decoyVariationsSlide, null, protein.SampleNameForVariants, decoy_disulfides_slide, spliceSitesSlide, protein.DatabaseFilePath,
-                    false, protein.UniProtEntryAttributes, isEntrapment: protein.IsEntrapment);
+                var decoyProteinSlide = new Protein(
+                    slided_sequence,
+                    $"{decoyIdentifier}_" + protein.Accession,
+                    protein.Organism,
+                    protein.GeneNames.ToList(),
+                    decoyModifications,
+                    decoyPPSlide,
+                    protein.Name,
+                    protein.FullName,
+                    true,
+                    protein.IsContaminant,
+                    null,
+                    decoyVariationsSlide,
+                    null,
+                    protein.SampleNameForVariants,
+                    decoy_disulfides_slide,
+                    spliceSitesSlide,
+                    protein.DatabaseFilePath,
+                    uniProtEntryAttributes: protein.UniProtEntryAttributes,
+                    uniProtSequenceAttributes: protein.UniProtSequenceAttributes,
+                    isEntrapment: protein.IsEntrapment);
                 lock (decoyProteins) { decoyProteins.Add(decoyProteinSlide); }
             });
             decoyProteins = decoyProteins.OrderBy(p => p.Accession).ToList();
