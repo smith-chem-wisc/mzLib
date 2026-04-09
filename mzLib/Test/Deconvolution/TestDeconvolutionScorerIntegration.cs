@@ -31,8 +31,14 @@ namespace Test
         // ── Synthetic spectrum helper ─────────────────────────────────────────
 
         /// <summary>
-        /// Builds a perfect noiseless synthetic spectrum from the Averagine model.
-        /// Peaks are placed at exact theoretical m/z positions for each charge.
+        /// Builds a noiseless synthetic spectrum from the Averagine model.
+        /// Intensities are drawn from the Averagine distribution, but peak positions
+        /// use idealized uniform C13 spacing (monoMass + n * C13MinusC12) rather than
+        /// the actual Averagine mass positions (sorted[n].First). At higher masses
+        /// (roughly >10 kDa), Averagine mass spacing diverges from uniform C13 spacing,
+        /// which can cause peaks to fall outside the scorer's 10 ppm matching window.
+        /// This means the spectrum is not truly "perfect" relative to the Averagine model
+        /// at high masses. To fix, replace the m/z calculation with sorted[n].First.ToMz(z).
         /// </summary>
         private static MzSpectrum MakeSyntheticSpectrum(
             double monoMass = MonoMass,

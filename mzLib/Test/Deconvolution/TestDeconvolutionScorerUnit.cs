@@ -83,6 +83,9 @@ namespace Test
 
             Assert.That(features.AveragineCosineSimilarity, Is.GreaterThanOrEqualTo(0.99),
                 $"Perfect synthetic envelope should have cosine ≥ 0.99. Got {features.AveragineCosineSimilarity:F4}");
+
+            Assert.That(features.IntensityRatioConsistency, Is.GreaterThanOrEqualTo(0.90),
+                $"Perfect synthetic envelope should have IntensityRatioConsistency ≥ 0.90. Got {features.IntensityRatioConsistency:F4}");
         }
 
         [Test]
@@ -178,6 +181,7 @@ namespace Test
             Assert.That(double.IsFinite(features.AveragineCosineSimilarity), Is.True);
             Assert.That(double.IsFinite(features.AvgPpmError),               Is.True);
             Assert.That(double.IsFinite(features.PeakCompleteness),          Is.True);
+            Assert.That(double.IsFinite(features.IntensityRatioConsistency), Is.True);
         }
 
         // ══════════════════════════════════════════════════════════════════════
@@ -190,7 +194,8 @@ namespace Test
             var features = new EnvelopeScoreFeatures(
                 averagineCosineSimilarity: 0.95,
                 avgPpmError:              1.5,
-                peakCompleteness:         0.95);
+                peakCompleteness:         0.95,
+                intensityRatioConsistency: 0.95);
 
             double score = DeconvolutionScorer.ComputeScore(features);
 
@@ -204,7 +209,8 @@ namespace Test
             var features = new EnvelopeScoreFeatures(
                 averagineCosineSimilarity: 0.2,
                 avgPpmError:              25.0,
-                peakCompleteness:         0.2);
+                peakCompleteness:         0.2,
+                intensityRatioConsistency: 0.1);
 
             double score = DeconvolutionScorer.ComputeScore(features);
 
@@ -216,20 +222,21 @@ namespace Test
         public void B3_ComputeScore_ScoreIsInZeroOneRange(
             [Values(0.0, 0.5, 1.0)] double cosine,
             [Values(0.0, 10.0, 100.0)] double ppm,
-            [Values(0.0, 0.5, 1.0)] double completeness)
+            [Values(0.0, 0.5, 1.0)] double completeness,
+            [Values(0.0, 0.5, 1.0)] double ratioConsistency)
         {
-            var features = new EnvelopeScoreFeatures(cosine, ppm, completeness);
+            var features = new EnvelopeScoreFeatures(cosine, ppm, completeness, ratioConsistency);
             double score = DeconvolutionScorer.ComputeScore(features);
 
             Assert.That(score, Is.InRange(0.0, 1.0),
-                $"Score must be in [0,1] for cosine={cosine}, ppm={ppm}, completeness={completeness}. Got {score:F6}");
+                $"Score must be in [0,1] for cosine={cosine}, ppm={ppm}, completeness={completeness}, ratioConsistency={ratioConsistency}. Got {score:F6}");
         }
 
         [Test]
         public void B4_ComputeScore_BetterFeaturesGiveHigherScore()
         {
-            var highQ = new EnvelopeScoreFeatures(0.95, 1.0, 0.95);
-            var lowQ  = new EnvelopeScoreFeatures(0.30, 20.0, 0.30);
+            var highQ = new EnvelopeScoreFeatures(0.95, 1.0, 0.95, 0.95);
+            var lowQ  = new EnvelopeScoreFeatures(0.30, 20.0, 0.30, 0.15);
 
             double scoreHigh = DeconvolutionScorer.ComputeScore(highQ);
             double scoreLow  = DeconvolutionScorer.ComputeScore(lowQ);

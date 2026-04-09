@@ -87,9 +87,16 @@ namespace MassSpectrometry
             double apexDaFromMono = model.GetDiffToMonoisotopic(avgIdx);
             int absCharge = Math.Abs(envelope.Charge);
 
-            // Guard: if charge is 0 (unusual but defensive) fall back gracefully
+            // Guard: charge of 0 is physically invalid — no isotope spacing can be computed.
+            // Return degenerate features that will produce a near-zero logistic score:
+            //   - Cosine similarity = 0 (no match)
+            //   - PpmError = double.MaxValue (forces the logistic linear combination to be
+            //     overwhelmingly positive, driving the sigmoid output to ~0 regardless of
+            //     coefficient calibration)
+            //   - PeakCompleteness = 0 (no peaks matched)
+            //   - IntensityRatioConsistency = 0 (no ratio data)
             if (absCharge == 0)
-                return new EnvelopeScoreFeatures(0.0, MatchTolerancePpm, 0.0);
+                return new EnvelopeScoreFeatures(0.0, double.MaxValue, 0.0, 0.0);
 
             double isotopeStepMz = Constants.C13MinusC12 / absCharge;
 

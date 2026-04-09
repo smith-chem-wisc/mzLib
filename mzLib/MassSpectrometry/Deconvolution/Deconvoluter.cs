@@ -1,5 +1,6 @@
 using Chemistry;
 using MzLibUtil;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -34,7 +35,14 @@ namespace MassSpectrometry
         {
             var targets = Deconvolute(spectrum, parameters, rangeToGetPeaksFrom).ToList();
 
-            DeconvolutionParameters decoyParams = parameters.ToDecoyParameters();
+            var decoyParams = parameters.ToDecoyParameters();
+            if (decoyParams is null)
+            {
+                throw new InvalidOperationException(
+                    $"DeconvoluteWithDecoys requires decoy support, but {parameters.GetType().Name} " +
+                    $"does not implement ToDecoyParameters(). Override ToDecoyParameters() in your " +
+                    $"parameter class to enable decoy deconvolution.");
+            }
             var decoys = Deconvolute(spectrum, decoyParams, rangeToGetPeaksFrom).ToList();
 
             return (targets, decoys);

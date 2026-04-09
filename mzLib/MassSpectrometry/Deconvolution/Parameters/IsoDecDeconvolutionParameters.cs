@@ -225,7 +225,12 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
             AdductMass = (float)-1.00727276467;
     }
 
-    private DeconvolutionParameters? _decoyParams = null;
+    // Thread-safe lazy caching of decoy parameters using double-checked locking.
+    // See ClassicDeconvolutionParameters for the full rationale: ??= alone is not
+    // atomic, so concurrent callers can receive different instances, violating the
+    // singleton-caching contract.
+    private volatile DeconvolutionParameters? _decoyParams = null;
+    private readonly object _decoyParamsLock = new();
 
     /// <summary>
     /// Returns a version of these parameters configured for decoy deconvolution,
@@ -236,22 +241,27 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
     /// </summary>
     public override DeconvolutionParameters ToDecoyParameters()
     {
-        if (_decoyParams != null) return _decoyParams;
+        if (_decoyParams is not null) return _decoyParams;
 
-        var decoy = new IsoDecDeconvolutionParameters(
-            polarity: Polarity,
-            phaseRes: PhaseRes,
-            reportMultipleMonoisos: ReportMulitpleMonoisos,
-            cssThreshold: CssThreshold,
-            matchTolerance: MatchTolerance,
-            maxShift: MaxShift,
-            mzWindow: MzWindow,
-            knockdownRounds: KnockdownRounds,
-            minAreaCovered: MinAreaCovered,
-            relativeDataThreshold: DataThreshold,
-            averageResidueModel: new DecoyAveragine(AverageResidueModel),
-            expectedIsotopeSpacing: DecoyAveragine.DefaultDecoyIsotopeSpacing);
+        lock (_decoyParamsLock)
+        {
+            if (_decoyParams is not null) return _decoyParams;
 
-        return _decoyParams = decoy;
+            var decoy = new IsoDecDeconvolutionParameters(
+                polarity: Polarity,
+                phaseRes: PhaseRes,
+                reportMultipleMonoisos: ReportMulitpleMonoisos,
+                cssThreshold: CssThreshold,
+                matchTolerance: MatchTolerance,
+                maxShift: MaxShift,
+                mzWindow: MzWindow,
+                knockdownRounds: KnockdownRounds,
+                minAreaCovered: MinAreaCovered,
+                relativeDataThreshold: DataThreshold,
+                averageResidueModel: new DecoyAveragine(AverageResidueModel),
+                expectedIsotopeSpacing: DecoyAveragine.DefaultDecoyIsotopeSpacing);
+
+            return _decoyParams = decoy;
+        }
     }
 }

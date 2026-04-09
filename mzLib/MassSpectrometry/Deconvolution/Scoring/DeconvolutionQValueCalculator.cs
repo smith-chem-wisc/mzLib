@@ -8,8 +8,9 @@ namespace MassSpectrometry
     /// Computes target-decoy q-values for <see cref="IsotopicEnvelope"/> scores
     /// produced by <see cref="DeconvolutionScorer"/>.
     ///
-    /// The q-value definition follows Käll et al. (2008):
-    ///   q(t) = #{decoys with score ≥ t} / #{targets with score ≥ t}
+    /// The q-value definition follows Käll et al. (2008) with the +1 correction
+    /// from Elias &amp; Gygi (2007):
+    ///   q(t) = (#{decoys with score ≥ t} + 1) / #{targets with score ≥ t}
     /// clamped to [0, 1] and enforced to be monotonically non-decreasing as the
     /// score threshold decreases (i.e., higher-scoring targets have q-values ≤
     /// lower-scoring targets).
@@ -80,9 +81,9 @@ namespace MassSpectrometry
                 int nDecoysAbove  = decoyPointer;
                 int nTargetsAbove = i + 1; // targets are sorted; indices 0..i are all >= threshold
 
-                double q = nTargetsAbove == 0
-                    ? 0.0
-                    : (double)nDecoysAbove / nTargetsAbove;
+                // +1 correction per Elias & Gygi (2007) / Käll et al. (2008):
+                // avoids 0% FDR estimates and accounts for expected false targets.
+                double q = (double)(nDecoysAbove + 1) / nTargetsAbove;
 
                 rawQ[i] = Math.Max(0.0, Math.Min(1.0, q));
             }

@@ -15,13 +15,7 @@ namespace MassSpectrometry
         {
         }
 
-        /// <summary>
-        /// Replace this with a cached clone of these parameters configured for decoy deconvolution.
-        /// See <see cref="ClassicDeconvolutionParameters.ToDecoyParameters"/> for a reference implementation.
-        /// </summary>
-        public override DeconvolutionParameters ToDecoyParameters() =>
-            throw new NotImplementedException(
-                "Implement ToDecoyParameters() for your new deconvolution method. " +
-                "See ClassicDeconvolutionParameters for the recommended pattern.");
+        // ToDecoyParameters() is not overridden — the base class default (returns null)
+        // signals that this algorithm does not yet support decoy deconvolution.
     }
 }
