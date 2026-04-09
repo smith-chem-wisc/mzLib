@@ -1,0 +1,30 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<uniprot xmlns="http://uniprot.org/uniprot" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://uniprot.org/uniprot http://www.uniprot.org/support/docs/uniprot.xsd">
+	<entry dataset="Swiss-Prot" created="1993-07-01" modified="2019-05-08" version="168">
+		<accession>P05067</accession>
+		<name>A4_HUMAN</name>
+		<protein>
+			<recommendedName>
+				<fullName evidence="151">Amyloid-beta precursor protein</fullName>
+				<shortName evidence="151">APP</shortName>
+			</recommendedName>
+		</protein>
+		<gene>
+			<name evidence="151" type="primary">APP</name>
+		</gene>
+		<organism>
+			<name type="scientific">Homo sapiens</name>
+			<name type="common">Human</name>
+			<dbReference type="NCBI Taxonomy" id="9606"/>
+			<lineage>
+				<taxon>Homo</taxon>
+			</lineage>
+		</organism>
+		<sequence length="10" mass="994" checksum="A12EE761403740F5" modified="1991-11-01" version="3" precursor="true">
+			LPGLALLLLA
+		</sequence>
+	</entry>
+	<copyright>
+		Copyrighted by the UniProt Consortium, see https://www.uniprot.org/terms Distributed under the Creative Commons Attribution (CC BY 4.0) License
+	</copyright>
+</uniprot>

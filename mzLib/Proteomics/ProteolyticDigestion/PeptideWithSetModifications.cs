@@ -96,7 +96,12 @@ namespace Proteomics.ProteolyticDigestion
 
         public int NumVariableMods => NumMods - NumFixedMods;
 
-        public double MonoisotopicMass
+        /// <summary>
+        /// The monoisotopic mass of this peptide, including residue masses, modification masses,
+        /// and water (for free termini). Virtual to allow derived types (e.g., circular peptides)
+        /// to adjust the mass calculation.
+        /// </summary>
+        public virtual double MonoisotopicMass
         {
             get
             {
@@ -557,13 +562,15 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         /// <summary>
-        /// Generates theoretical internal fragments for given dissociation type for this peptide. 
+        /// Generates theoretical internal fragments for given dissociation type for this peptide.
         /// The "products" parameter is filled with these fragments.
-        /// The "minLengthOfFragments" parameter is the minimum number of amino acids for an internal fragment to be included
+        /// The "minLengthOfFragments" parameter is the minimum number of amino acids for an internal fragment to be included.
+        /// Virtual to allow derived types (e.g., circular peptides) to provide
+        /// topology-specific fragmentation.
         /// TODO: Implement neutral losses (e.g. phospho)
         /// TODO: Implement Star/Degree ions from CID
         /// </summary>
-        public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments, List<Product> products, IFragmentationParams? fragmentationParams = null)
+        public virtual void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments, List<Product> products, IFragmentationParams? fragmentationParams = null)
         {
             products.Clear();
 
