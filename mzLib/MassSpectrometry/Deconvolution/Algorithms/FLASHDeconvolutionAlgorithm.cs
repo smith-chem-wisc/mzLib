@@ -284,7 +284,7 @@ namespace MassSpectrometry
                 foreach (var (obsMz, _, z, n) in uniquePeaks)
                 {
                     double isoDelta = Constants.C13MinusC12 / z;
-                    double theorMz = monoMass.ToMz(polSign * z) + n * isoDelta;
+                    double theorMz = candidate.Mass.ToMz(polSign * z) + n * isoDelta; // ← was monoMass
                     totalPpmError += Math.Abs(obsMz - theorMz) / theorMz * 1e6;
                 }
                 double avgPpmError = uniquePeaks.Count > 0
