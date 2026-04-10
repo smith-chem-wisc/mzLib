@@ -5,5 +5,6 @@
         ClassicDeconvolution,
         ExampleNewDeconvolutionTemplate,
         IsoDecDeconvolution,
+        FLASHDeconvolution
     }
 }
