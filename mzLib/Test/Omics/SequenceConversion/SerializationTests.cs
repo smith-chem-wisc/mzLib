@@ -17,6 +17,7 @@ public class SerializationTests
     private MassShiftSequenceSerializer _massShiftSerializer;
     private ChronologerSequenceSerializer _chronologerSerializer;
     private UnimodSequenceSerializer _unimodSerializer;
+    private FdrBenchSequenceSerializer _fdrBenchSerializer;
     private MzLibSequenceParser _mzLibParser;
     private MassShiftSequenceParser _massShiftParser;
 
@@ -30,6 +31,7 @@ public class SerializationTests
         _massShiftSerializer = new MassShiftSequenceSerializer(new(4));
         _chronologerSerializer = new ChronologerSequenceSerializer();
         _unimodSerializer = new UnimodSequenceSerializer();
+        _fdrBenchSerializer = new FdrBenchSequenceSerializer();
         _mzLibParser = new MzLibSequenceParser();
         _massShiftParser = new MassShiftSequenceParser();
     }
@@ -238,6 +240,38 @@ public class SerializationTests
         var result = _unimodSerializer.Serialize(canonical.Value);
 
         Assert.That(result, Is.EqualTo("PEPTM[UNIMOD:35]IDE"));
+    }
+
+    [Test]
+    [TestCaseSource(nameof(CoreTestCases))]
+    public void FdrBenchSerializer_CoreTestCases_ConvertsCorrectly(SequenceConversionTestCase testCase)
+    {
+        // Arrange - parse from mzLib format
+        var canonical = _mzLibParser.Parse(testCase.MzLibFormat);
+        Assert.That(canonical, Is.Not.Null);
+
+        // Act - serialize to FDRBench format (parentheses + CamelCase)
+        var result = _fdrBenchSerializer.Serialize(canonical.Value);
+
+        // Assert
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result, Is.EqualTo(testCase.FdrBenchFormat));
+    }
+
+    [Test]
+    [TestCaseSource(nameof(EdgeCases))]
+    public void FdrBenchSerializer_EdgeCases_ConvertsCorrectly(SequenceConversionTestCase testCase)
+    {
+        // Arrange - parse from mzLib format
+        var canonical = _mzLibParser.Parse(testCase.MzLibFormat);
+        Assert.That(canonical, Is.Not.Null);
+
+        // Act - serialize to FDRBench format
+        var result = _fdrBenchSerializer.Serialize(canonical.Value);
+
+        // Assert
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result, Is.EqualTo(testCase.FdrBenchFormat));
     }
 
     [Test]
