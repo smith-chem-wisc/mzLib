@@ -15,7 +15,7 @@ namespace MassSpectrometry
         {
         }
 
-        // ToDecoyParameters() is not overridden — the base class default (returns null)
-        // signals that this algorithm does not yet support decoy deconvolution.
+        // This algorithm does not yet support decoy deconvolution.
+        public override DeconvolutionParameters? ToDecoyParameters() => null;
     }
 }

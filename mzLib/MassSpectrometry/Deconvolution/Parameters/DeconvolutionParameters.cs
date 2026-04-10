@@ -32,15 +32,14 @@ namespace MassSpectrometry
 
         /// <summary>
         /// Returns a version of these parameters configured for decoy deconvolution.
-        /// The returned object is lazily constructed and cached — calling this multiple
-        /// times returns the same instance.
-        /// Subclasses that do not support decoy deconvolution may leave this default
-        /// implementation, which returns <c>null</c>.
+        /// The returned object should be lazily constructed and cached — calling this
+        /// multiple times should return the same instance.
+        /// Subclasses that do not support decoy deconvolution should return <c>null</c>.
         /// </summary>
         /// <returns>
         /// A <see cref="DeconvolutionParameters"/> configured for decoy spacing,
         /// or <c>null</c> if this parameter type does not support decoy deconvolution.
         /// </returns>
-        public virtual DeconvolutionParameters? ToDecoyParameters() => null;
+        public abstract DeconvolutionParameters? ToDecoyParameters();
     }
 }
