@@ -69,6 +69,12 @@ namespace MassSpectrometry
             return (targets, decoys);
         }
 
+        /// <summary>
+        /// Factory method to create the correct deconvolution algorithm from the parameters
+        /// </summary>
+        /// <param name="parameters"></param>
+        /// <returns></returns>
+        /// <exception cref="MzLibException"></exception>
         private static DeconvolutionAlgorithm CreateAlgorithm(DeconvolutionParameters parameters)
         {
             return parameters.DeconvolutionType switch
