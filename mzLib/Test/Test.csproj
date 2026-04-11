@@ -26,6 +26,7 @@
     <ProjectReference Include="..\BayesianEstimation\BayesianEstimation.csproj" />
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
     <ProjectReference Include="..\Chromatography\Chromatography.csproj" />
+    <ProjectReference Include="..\Development\Development.csproj" />
     <ProjectReference Include="..\FlashLFQ\FlashLFQ.csproj" />
     <ProjectReference Include="..\PredictionClients\PredictionClients.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
