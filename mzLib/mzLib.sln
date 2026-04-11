@@ -21,8 +21,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Proteomics", "Proteomics\Pr
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UsefulProteomicsDatabases", "UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj", "{6A510911-5F37-4314-8176-82772B7E5AE3}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "mzPlot", "mzPlot\mzPlot.csproj", "{3DFDFDE6-0355-412B-BD62-2D2AD36C5639}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Test", "Test\Test.csproj", "{78FF34E1-B093-4D10-B77B-5A3AED043DD7}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SpectralAveraging", "SpectralAveraging\SpectralAveraging.csproj", "{891888CA-E5CC-4168-B6F2-2B2CED74EA37}"
@@ -102,12 +100,6 @@ Global
 		{6A510911-5F37-4314-8176-82772B7E5AE3}.Release|x64.Build.0 = Release|x64
 		{6A510911-5F37-4314-8176-82772B7E5AE3}.TestAndRelease|x64.ActiveCfg = Release|x64
 		{6A510911-5F37-4314-8176-82772B7E5AE3}.TestAndRelease|x64.Build.0 = Release|x64
-		{3DFDFDE6-0355-412B-BD62-2D2AD36C5639}.Debug|x64.ActiveCfg = Debug|x64
-		{3DFDFDE6-0355-412B-BD62-2D2AD36C5639}.Debug|x64.Build.0 = Debug|x64
-		{3DFDFDE6-0355-412B-BD62-2D2AD36C5639}.Release|x64.ActiveCfg = Release|x64
-		{3DFDFDE6-0355-412B-BD62-2D2AD36C5639}.Release|x64.Build.0 = Release|x64
-		{3DFDFDE6-0355-412B-BD62-2D2AD36C5639}.TestAndRelease|x64.ActiveCfg = Release|x64
-		{3DFDFDE6-0355-412B-BD62-2D2AD36C5639}.TestAndRelease|x64.Build.0 = Release|x64
 		{78FF34E1-B093-4D10-B77B-5A3AED043DD7}.Debug|x64.ActiveCfg = Debug|x64
 		{78FF34E1-B093-4D10-B77B-5A3AED043DD7}.Debug|x64.Build.0 = Debug|x64
 		{78FF34E1-B093-4D10-B77B-5A3AED043DD7}.Release|x64.ActiveCfg = Release|x64

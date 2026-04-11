@@ -2,7 +2,6 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using mzIdentML111.Generated;
-using System.Windows.Media;
 using System.Xml.Serialization;
 using System.IO;
 

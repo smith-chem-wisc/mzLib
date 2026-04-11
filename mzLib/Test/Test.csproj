@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <Platforms>x64</Platforms>
   </PropertyGroup>
@@ -33,7 +33,6 @@
     <ProjectReference Include="..\Omics\Omics.csproj" />
     <ProjectReference Include="..\SpectralAveraging\SpectralAveraging.csproj" />
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
-    <ProjectReference Include="..\mzPlot\mzPlot.csproj" />
     <ProjectReference Include="..\Proteomics\Proteomics.csproj" />
     <ProjectReference Include="..\SpectralAveraging\SpectralAveraging.csproj" />
     <ProjectReference Include="..\Readers\Readers.csproj" />

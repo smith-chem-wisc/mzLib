@@ -12,7 +12,6 @@ using Newtonsoft.Json;
 using System.Diagnostics.Metrics;
 using System.Threading;
 using MzLibUtil.NoiseEstimation;
-using System.Windows.Data;
 
 namespace Test.FileReadingTests
 {
