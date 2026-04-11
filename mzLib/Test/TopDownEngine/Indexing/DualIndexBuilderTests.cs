@@ -17,7 +17,7 @@ public class DualIndexBuilderTests
     [Test]
     public void Build_UsesSingleFineIndexForFineAndThickMzRtQueries()
     {
-        string mzmlPath = TopDownTestPaths.GetRequiredFile("tiny.pwiz.1.1.mzML");
+        string mzmlPath = TopDownTestPaths.GetRequiredFile("SmallCalibratibleYeast.mzml");
         MsDataFile file = MsDataFileReader.GetDataFile(mzmlPath);
         file.LoadAllStaticData();
 

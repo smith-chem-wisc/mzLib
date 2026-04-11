@@ -17,10 +17,14 @@ public class MetaMorpheusRawIntegrationTests
     [Test]
     public void HighestScoringProteoform_CanDriveRawWindowIndexing()
     {
-        var psmPath = TopDownTestPaths.GetRequiredFile("MM_1p1p4_GPTMD_Search", "AllProteoforms.psmtsv");
-        var rawPath = TopDownTestPaths.GetRequiredFile("02-18-20_jurkat_td_rep1_fract7.raw", "02-18-20_jurkat_td_rep2_fract7.raw");
+        var psmPath = TopDownTestPaths.FindExistingFile("MM_1p1p4_GPTMD_Search", "AllProteoforms.psmtsv");
+        var rawPath = TopDownTestPaths.FindExistingFile("02-18-20_jurkat_td_rep1_fract7.raw", "02-18-20_jurkat_td_rep2_fract7.raw");
+        if (psmPath is null || rawPath is null)
+        {
+            Assert.Ignore("MetaMorpheus/RAW integration fixtures are not present in local test data.");
+        }
 
-        var proteoforms = SpectrumMatchTsvReader.ReadTsv(psmPath, out var warnings);
+        var proteoforms = SpectrumMatchTsvReader.ReadTsv(psmPath!, out var warnings);
         Assert.That(proteoforms, Is.Not.Empty);
         Assert.That(warnings, Is.Not.Null);
 
@@ -28,7 +32,7 @@ public class MetaMorpheusRawIntegrationTests
         Assert.That(topHit.RetentionTime, Is.GreaterThanOrEqualTo(0));
         Assert.That(topHit.MonoisotopicMass, Is.GreaterThan(0));
 
-        var rawFile = MsDataFileReader.GetDataFile(rawPath);
+        var rawFile = MsDataFileReader.GetDataFile(rawPath!);
         rawFile.LoadAllStaticData();
 
         var windowStart = Math.Max(0, topHit.RetentionTime - 1.0);

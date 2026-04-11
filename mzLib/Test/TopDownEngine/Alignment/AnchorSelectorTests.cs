@@ -58,10 +58,11 @@ public class AnchorSelectorTests
 
     private static ThickIndexView BuildIndex(params (double mz, double intensity)[] peaks)
     {
+        var ordered = peaks.OrderBy(p => p.mz).ToArray();
         MsDataScan[] scans =
         {
-            CreateMs1Scan(1, 1.0, peaks.Select(p => p.mz).ToArray(), peaks.Select(p => p.intensity).ToArray()),
-            CreateMs1Scan(2, 1.1, peaks.Select(p => p.mz).ToArray(), peaks.Select(p => p.intensity * 0.95).ToArray())
+            CreateMs1Scan(1, 1.0, ordered.Select(p => p.mz).ToArray(), ordered.Select(p => p.intensity).ToArray()),
+            CreateMs1Scan(2, 1.1, ordered.Select(p => p.mz).ToArray(), ordered.Select(p => p.intensity * 0.95).ToArray())
         };
 
         PeakIndexingEngine fineIndex = PeakIndexingEngine.InitializeIndexingEngine(scans)!;
