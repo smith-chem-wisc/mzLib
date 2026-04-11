@@ -15,6 +15,28 @@ internal static class TopDownTestPaths
     internal static string Harness => Path.Combine(Root, "Harness");
     internal static string Regression => Path.Combine(Root, "Regression");
 
+    internal static string Data => Path.GetFullPath(Path.Combine(TestContext.CurrentContext.TestDirectory, "..", "..", "..", "..", "Data"));
+    internal static string DataFiles => Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles");
+
+    internal static string? FindExistingFile(params string[] relativePaths)
+    {
+        foreach (var candidate in relativePaths)
+        {
+            var dataPath = Path.Combine(Data, candidate);
+            if (File.Exists(dataPath))
+                return dataPath;
+
+            var dataFilesPath = Path.Combine(DataFiles, candidate);
+            if (File.Exists(dataFilesPath))
+                return dataFilesPath;
+        }
+
+        return null;
+    }
+
+    internal static string GetRequiredFile(params string[] relativePaths) =>
+        FindExistingFile(relativePaths) ?? throw new FileNotFoundException($"Could not find any of: {string.Join(", ", relativePaths)}");
+
     internal static void EnsureDirectory(string path)
     {
         if (!Directory.Exists(path))

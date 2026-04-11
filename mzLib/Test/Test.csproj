@@ -32,6 +32,7 @@
     <ProjectReference Include="..\MzIdentML\MzIdentML.csproj" />
     <ProjectReference Include="..\Omics\Omics.csproj" />
     <ProjectReference Include="..\SpectralAveraging\SpectralAveraging.csproj" />
+    <ProjectReference Include="..\TopDownEngine\TopDownEngine.csproj" />
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
     <ProjectReference Include="..\Proteomics\Proteomics.csproj" />
     <ProjectReference Include="..\SpectralAveraging\SpectralAveraging.csproj" />

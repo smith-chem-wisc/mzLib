@@ -1,0 +1,64 @@
+namespace Readers;
+
+public class ProSightPdPsmRecord
+{
+    public int WorkflowID { get; set; }
+    public int ID { get; set; }
+    public int ActivationTypes { get; set; }
+    public double? IonInjectTime { get; set; }
+    public double Intensity { get; set; }
+    public double RetentionTime { get; set; }
+    public string? FragmentationScans { get; set; }
+    public int NumberFragmentationScans { get; set; }
+    public string? PrecursorScans { get; set; }
+    public int NumberPrecursorScans { get; set; }
+    public int MSOrderTypes { get; set; }
+    public string? IdentifyingNodeTypeName { get; set; }
+    public string? IdentifyingNodeName { get; set; }
+    public int IdentifyingNodeNumber { get; set; }
+    public string? IdentifyingNodeSearchID { get; set; }
+    public int UniqueSequenceID { get; set; }
+    public string? Sequence { get; set; }
+    public string? ModifiedSequence { get; set; }
+    public string? UniqueSequence { get; set; }
+    public int MatchConfidence { get; set; }
+    public string? Modifications { get; set; }
+    public int ParentProteinCount { get; set; }
+    public string? ParentProteinAccessions { get; set; }
+    public string? ParentProteinDescriptions { get; set; }
+    public int Rank { get; set; }
+    public int SearchEngineRank { get; set; }
+    public int Charge { get; set; }
+    public int OriginalPrecursorCharge { get; set; }
+    public double MassOverCharge { get; set; }
+    public double DetectedNeutralMass { get; set; }
+    public double TheoreticalNeutralMass { get; set; }
+    public double DeltaMassInDa { get; set; }
+    public double DeltaMassInPpm { get; set; }
+    public string? IonsMatched { get; set; }
+    public int MatchedIonsCount { get; set; }
+    public int TotalIonsCount { get; set; }
+    public int SpectrumFileId { get; set; }
+    public string? StudyFileId { get; set; }
+    public int ExcludedBy { get; set; }
+    public double? CScore { get; set; }
+    public double? ResidueCleavages { get; set; }
+    public double? CorrectedDeltaMassDa { get; set; }
+    public double? CorrectedDeltaMassppm { get; set; }
+    public int DetectedIonCount { get; set; }
+    public int ProteoformLevel { get; set; }
+    public string? ExternalTopDownDisplays { get; set; }
+    public double? CompensationVoltage { get; set; }
+    public int PTMsLocalized { get; set; }
+    public int PTMsIdentified { get; set; }
+    public int SequenceDefined { get; set; }
+    public int GeneIdentified { get; set; }
+    public string? ProformaHash { get; set; }
+    public string? LocalizedModifications { get; set; }
+    public string? NonlocalizedModifications { get; set; }
+    public double? NCE { get; set; }
+    public double? LogPScore { get; set; }
+    public double? LogEValue { get; set; }
+    public string? SubSeqAARange { get; set; }
+    public double Qvalue { get; set; }
+}
