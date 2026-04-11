@@ -75,8 +75,9 @@ public class GroundTruthExtractorTests
                 intensity: ordered.Select(t => t.i).ToArray()));
         }
 
-        var index = PeakIndexingEngine.InitializeIndexingEngine(scans.ToArray())!;
-        var extractor = new GroundTruthExtractor(index, ppmTolerance: 20.0);
+        var scanArray = scans.ToArray();
+        var index = PeakIndexingEngine.InitializeIndexingEngine(scanArray)!;
+        var extractor = new GroundTruthExtractor(index, scanArray, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
 
         var truth = extractor.Extract(
             monoisotopicMass: mass,
@@ -109,6 +110,30 @@ public class GroundTruthExtractorTests
         {
             double expected = chargeScale[c] * kernel.Intensity(0);
             Assert.That(truth.IsotopologueIntensities[c][0][5], Is.EqualTo(expected).Within(1e-3));
+        }
+
+        // Peak-window tensor: at the apex scan, each centroid window should contain at
+        // least one peak (the centroid itself) and its intensity should match the scalar.
+        Assert.That(truth.MzWindowHalfWidth, Is.EqualTo(0.05));
+        Assert.That(truth.IsotopologuePeakWindows.Length, Is.EqualTo(4));
+        for (int c = 0; c < 4; c++)
+        {
+            var window = truth.IsotopologuePeakWindows[c][0][5];
+            Assert.That(window.Length, Is.GreaterThanOrEqualTo(1));
+            double centroid = truth.CentroidMzs[c][0];
+            // There should be a peak within the window whose m/z is ~centroid and whose
+            // intensity equals the scalar cell.
+            bool foundMatch = window.Any(p =>
+                System.Math.Abs(p.Mz - centroid) < 1e-6
+                && System.Math.Abs(p.Intensity - truth.IsotopologueIntensities[c][0][5]) < 1e-3);
+            Assert.That(foundMatch, Is.True);
+        }
+
+        // RT edge scans still have a window allocated (but empty or zero-intensity).
+        for (int c = 0; c < 4; c++)
+        {
+            Assert.That(truth.IsotopologuePeakWindows[c][0][0], Is.Not.Null);
+            Assert.That(truth.IsotopologuePeakWindows[c][0][^1], Is.Not.Null);
         }
     }
 }

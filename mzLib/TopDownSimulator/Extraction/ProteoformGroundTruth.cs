@@ -28,9 +28,21 @@ public sealed class ProteoformGroundTruth
 
     /// <summary>
     /// Observed peak intensity per (chargeOffset, isotopologue, scanIndex).
-    /// Missing peaks (no match within ppm tolerance) are stored as 0.
+    /// This is the intensity of the single peak closest to the theoretical centroid
+    /// (within the m/z window). Missing peaks are stored as 0.
     /// </summary>
     public required double[][][] IsotopologueIntensities { get; init; }
+
+    /// <summary>
+    /// All peaks observed within ±<see cref="MzWindowHalfWidth"/> m/z of each theoretical
+    /// centroid, per (chargeOffset, isotopologue, scanIndex). Innermost array may be empty
+    /// if no peaks fell in the window. Supplies the raw m/z profile the envelope-width fitter
+    /// consumes.
+    /// </summary>
+    public required PeakSample[][][][] IsotopologuePeakWindows { get; init; }
+
+    /// <summary>m/z half-width used when collecting <see cref="IsotopologuePeakWindows"/>.</summary>
+    public required double MzWindowHalfWidth { get; init; }
 
     /// <summary>
     /// Summed-isotopologue intensity per (chargeOffset, scanIndex). Shape [nCharges][nScans].

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using MassSpectrometry;
 using MzLibUtil;
@@ -6,22 +7,38 @@ using TopDownSimulator.Model;
 namespace TopDownSimulator.Extraction;
 
 /// <summary>
-/// Pulls a <see cref="ProteoformGroundTruth"/> tensor from a pre-built
-/// <see cref="PeakIndexingEngine"/> for a given proteoform ID.
+/// Pulls a <see cref="ProteoformGroundTruth"/> tensor from a pre-built peak
+/// <see cref="IndexingEngine{T}"/> for a given proteoform.
 ///
 /// For each MS1 scan within (rtCenter ± rtHalfWidth) and each charge in
-/// [minCharge, maxCharge], the extractor queries the index at every theoretical
-/// isotopologue m/z using a ppm tolerance and records the matched peak intensity.
+/// [minCharge, maxCharge], the extractor collects every peak that falls within
+/// ±<c>mzWindowHalfWidth</c> of each theoretical isotopologue centroid, and also
+/// records the single closest peak's intensity in the scalar
+/// <see cref="ProteoformGroundTruth.IsotopologueIntensities"/> tensor.
 /// </summary>
 public sealed class GroundTruthExtractor
 {
     private readonly IndexingEngine<IndexedMassSpectralPeak> _index;
+    private readonly Dictionary<int, MzSpectrum> _spectraByScanIndex;
     private readonly double _ppmTolerance;
+    private readonly double _mzWindowHalfWidth;
 
-    public GroundTruthExtractor(IndexingEngine<IndexedMassSpectralPeak> index, double ppmTolerance = 10.0)
+    public GroundTruthExtractor(
+        IndexingEngine<IndexedMassSpectralPeak> index,
+        MsDataScan[] scans,
+        double ppmTolerance = 10.0,
+        double mzWindowHalfWidth = 0.05)
     {
         _index = index;
         _ppmTolerance = ppmTolerance;
+        _mzWindowHalfWidth = mzWindowHalfWidth;
+
+        _spectraByScanIndex = new Dictionary<int, MzSpectrum>(scans.Length);
+        for (int i = 0; i < scans.Length; i++)
+        {
+            if (scans[i] != null)
+                _spectraByScanIndex[i] = scans[i].MassSpectrum;
+        }
     }
 
     public ProteoformGroundTruth Extract(
@@ -49,14 +66,18 @@ public sealed class GroundTruthExtractor
             centroidMzs[z - minCharge] = kernel.CentroidMzs(z);
 
         var intensities = new double[nCharges][][];
+        var peakWindows = new PeakSample[nCharges][][][];
         var chargeXics = new double[nCharges][];
-        var tolerance = new PpmTolerance(_ppmTolerance);
 
         for (int c = 0; c < nCharges; c++)
         {
             intensities[c] = new double[nIsotopologues][];
+            peakWindows[c] = new PeakSample[nIsotopologues][][];
             for (int i = 0; i < nIsotopologues; i++)
+            {
                 intensities[c][i] = new double[nScans];
+                peakWindows[c][i] = new PeakSample[nScans][];
+            }
             chargeXics[c] = new double[nScans];
         }
 
@@ -68,18 +89,54 @@ public sealed class GroundTruthExtractor
             scanTimes[s] = scanInfos[s].RetentionTime;
         }
 
-        for (int c = 0; c < nCharges; c++)
+        var windowTolerance = new AbsoluteTolerance(_mzWindowHalfWidth);
+        var ppmTolerance = new PpmTolerance(_ppmTolerance);
+
+        for (int s = 0; s < nScans; s++)
         {
-            for (int i = 0; i < nIsotopologues; i++)
+            int scanIdx = scanIdxArray[s];
+            if (!_spectraByScanIndex.TryGetValue(scanIdx, out var spectrum))
+                continue;
+
+            for (int c = 0; c < nCharges; c++)
             {
-                double mz = centroidMzs[c][i];
-                for (int s = 0; s < nScans; s++)
+                for (int i = 0; i < nIsotopologues; i++)
                 {
-                    var peak = _index.GetIndexedPeak(mz, scanIdxArray[s], tolerance);
-                    if (peak == null) continue;
-                    double intensity = peak.Intensity;
-                    intensities[c][i][s] = intensity;
-                    chargeXics[c][s] += intensity;
+                    double centroid = centroidMzs[c][i];
+
+                    // 1) Collect every peak within the absolute m/z window.
+                    var indices = spectrum.GetPeakIndicesWithinTolerance(centroid, windowTolerance);
+                    PeakSample[] samples;
+                    if (indices.Count == 0)
+                    {
+                        samples = System.Array.Empty<PeakSample>();
+                    }
+                    else
+                    {
+                        samples = new PeakSample[indices.Count];
+                        for (int k = 0; k < indices.Count; k++)
+                        {
+                            int idx = indices[k];
+                            samples[k] = new PeakSample(spectrum.XArray[idx], spectrum.YArray[idx]);
+                        }
+                    }
+                    peakWindows[c][i][s] = samples;
+
+                    // 2) Scalar intensity = peak closest to centroid and within ppm tolerance.
+                    double bestIntensity = 0;
+                    double bestDelta = double.MaxValue;
+                    for (int k = 0; k < samples.Length; k++)
+                    {
+                        if (!ppmTolerance.Within(samples[k].Mz, centroid)) continue;
+                        double delta = System.Math.Abs(samples[k].Mz - centroid);
+                        if (delta < bestDelta)
+                        {
+                            bestDelta = delta;
+                            bestIntensity = samples[k].Intensity;
+                        }
+                    }
+                    intensities[c][i][s] = bestIntensity;
+                    chargeXics[c][s] += bestIntensity;
                 }
             }
         }
@@ -94,7 +151,9 @@ public sealed class GroundTruthExtractor
             ScanTimes = scanTimes,
             CentroidMzs = centroidMzs,
             IsotopologueIntensities = intensities,
+            IsotopologuePeakWindows = peakWindows,
             ChargeXics = chargeXics,
+            MzWindowHalfWidth = _mzWindowHalfWidth,
         };
     }
 }
