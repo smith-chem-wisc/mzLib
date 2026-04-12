@@ -286,6 +286,7 @@ namespace Test.RetentionTimePrediction
         }
 
         [Test]
+        [Category("Integration")]
         public void Prosit2019iRT_PredictRetentionTime_SinglePeptide_DoesNotThrow()
         {
             IRetentionTimePredictor predictor = new

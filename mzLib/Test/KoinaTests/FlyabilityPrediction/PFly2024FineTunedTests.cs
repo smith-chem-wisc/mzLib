@@ -9,6 +9,7 @@ using System.Linq;
 namespace Test.KoinaTests
 {
     [TestFixture]
+    [Category("Integration")]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class PFly2024FineTunedTests
     {

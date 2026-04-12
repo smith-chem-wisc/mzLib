@@ -12,6 +12,7 @@ using System.Linq;
 namespace Test.KoinaTests
 {
     [TestFixture]
+    [Category("Integration")]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class Prosit2020IntensityHCDTests
     {
