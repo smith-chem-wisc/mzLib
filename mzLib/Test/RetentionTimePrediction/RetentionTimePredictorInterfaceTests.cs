@@ -204,7 +204,7 @@ namespace Test.RetentionTimePrediction
             // This test will fail to compile if RetentionTimeModel does not implement
             // IRetentionTimePredictor — which is the point.
             var model = new PredictionClients.Koina.SupportedModels.RetentionTimeModels
-                .Prosit2019iRT(new List<string> { "PEPTIDE" }, out _);
+                .Prosit2019iRT();
 
             IRetentionTimePredictor predictor = model;
 
@@ -216,11 +216,8 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void Prosit2020iRTTMT_ImplementsIRetentionTimePredictor()
         {
-            // Prosit2020iRTTMT requires N-terminal labeling, so provide a valid TMT sequence
             var model = new PredictionClients.Koina.SupportedModels.RetentionTimeModels
-                .Prosit2020iRTTMT(
-                    new List<string> { "[Common Fixed:TMT6plex on N-terminus]PEPTIDEK[Common Fixed:TMT6plex on K]" },
-                    out _);
+                .Prosit2020iRTTMT();
 
             IRetentionTimePredictor predictor = model;
 
@@ -235,7 +232,7 @@ namespace Test.RetentionTimePrediction
             // Verifies the Koina override of PredictRetentionTimes issues a single
             // batch HTTP call rather than looping per-peptide.
             var model = new PredictionClients.Koina.SupportedModels.RetentionTimeModels
-                .Prosit2019iRT(new List<string> { "PEPTIDE", "AGHCEWQMK" }, out _);
+                .Prosit2019iRT();
 
             IRetentionTimePredictor predictor = model;
 

@@ -58,7 +58,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// - Request formatting method (ToBatchedRequests)
     /// - Model-specific modification handling if needed
     /// </remarks>
-    public abstract class RetentionTimeModel : KoinaModelBase<RetentionTimePredictionInput, PeptideRTPrediction>, IPredictor<RetentionTimePredictionInput, PeptideRTPrediction>
+    public abstract class RetentionTimeModel : KoinaModelBase<RetentionTimePredictionInput, PeptideRTPrediction>, IPredictor<RetentionTimePredictionInput, PeptideRTPrediction>, IRetentionTimePredictor
     {
         protected RetentionTimeModel(ISequenceConverter sequenceConverter)
             : base(sequenceConverter)
@@ -222,7 +222,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// 4. Creates PeptideRTPrediction objects with sequence mapping
         /// </remarks>
         protected virtual List<PeptideRTPrediction> ResponseToPredictions(
-            IReadOnlyList<string> responses, 
+            IReadOnlyList<string> responses,
             List<RetentionTimePredictionInput> requestInputs)
         {
             var predictions = new List<PeptideRTPrediction>();
@@ -261,6 +261,9 @@ namespace PredictionClients.Koina.AbstractClasses
                 ));
             }
 
+            return predictions;
+        }
+
         #region IRetentionTimePredictor Implementation
 
         /// <summary>
@@ -283,9 +286,11 @@ namespace PredictionClients.Koina.AbstractClasses
             failureReason = null;
             try
             {
-                var results = ((IRetentionTimePredictor)this).PredictRetentionTimes(new[] { peptide });
-                if (results.TryGetValue(peptide.FullSequence, out var value))
-                    return value;
+                var input = new RetentionTimePredictionInput(peptide.FullSequence);
+                var predictions = Predict(new List<RetentionTimePredictionInput> { input });
+                var prediction = predictions.FirstOrDefault(p => p.FullSequence == peptide.FullSequence);
+                if (prediction?.PredictedRetentionTime != null)
+                    return prediction.PredictedRetentionTime;
                 failureReason = RetentionTimeFailureReason.PredictionError;
                 return null;
             }
@@ -297,12 +302,11 @@ namespace PredictionClients.Koina.AbstractClasses
         }
 
         /// <summary>
-        /// Overrides the default IRetentionTimePredictor batch method to use the
-        /// already-populated Predictions list from the Koina inference run.
+        /// Overrides the default IRetentionTimePredictor batch method to issue a single
+        /// batch HTTP call to the Koina API for all peptides at once.
         ///
-        /// Because Koina models are constructed with their sequences and run via
-        /// RunInferenceAsync(), this method looks up results from the existing
-        /// Predictions collection rather than issuing a new HTTP call.
+        /// Converts IRetentionPredictable peptides to RetentionTimePredictionInput,
+        /// calls the Koina Predict() pipeline, and maps results back.
         ///
         /// Key is peptide.FullSequence; null values indicate prediction was not possible.
         /// </summary>
@@ -315,27 +319,23 @@ namespace PredictionClients.Koina.AbstractClasses
             if (peptideList.Count == 0)
                 return results;
 
-            // Run inference if it hasn't been run yet
-            if (Predictions.Count == 0 && PeptideSequences.Count > 0 && !_disposed)
+            try
             {
-                RunInferenceAsync().GetAwaiter().GetResult();
-            }
+                var inputs = peptideList
+                    .Select(p => new RetentionTimePredictionInput(p.FullSequence))
+                    .ToList();
 
-            // Build a lookup from the existing Predictions (which use UNIMOD format keys)
-            // back to mzLib format using the reverse conversion.
-            var predictionLookup = new Dictionary<string, double>();
-            foreach (var prediction in Predictions)
-            {
-                // Convert the UNIMOD-format key back to mzLib format for matching
-                var mzLibSequence = ConvertUnimodToMzLibModifications(prediction.FullSequence);
-                predictionLookup[mzLibSequence] = prediction.PredictedRetentionTime;
-            }
+                var predictions = Predict(inputs);
 
-            foreach (var peptide in peptideList)
+                foreach (var prediction in predictions)
+                {
+                    results[prediction.FullSequence] = prediction.PredictedRetentionTime;
+                }
+            }
+            catch
             {
-                if (predictionLookup.TryGetValue(peptide.FullSequence, out var rt))
-                    results[peptide.FullSequence] = rt;
-                else
+                // On total failure, return null for all
+                foreach (var peptide in peptideList)
                     results[peptide.FullSequence] = null;
             }
 
