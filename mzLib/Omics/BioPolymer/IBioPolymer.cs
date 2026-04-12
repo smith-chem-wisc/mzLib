@@ -13,6 +13,7 @@ namespace Omics
         string DatabaseFilePath { get; }
         bool IsDecoy { get; }
         bool IsContaminant { get; }
+        bool IsEntrapment { get; }
         string Organism { get; }
         string Accession { get; }
         /// <summary>

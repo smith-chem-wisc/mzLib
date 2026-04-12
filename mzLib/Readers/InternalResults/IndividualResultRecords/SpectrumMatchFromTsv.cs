@@ -25,6 +25,7 @@ namespace Readers
         public double PrecursorMz { get; protected set; }
         public double PrecursorMass { get; protected set; }
         public double RetentionTime { get; protected set; }
+        public double? CollisionEnergy { get; protected set; }
         public double Score { get; protected set; }
         public int SpectrumMatchCount { get; protected set; }
         public string Accession { get; protected set; }
@@ -71,6 +72,7 @@ namespace Readers
         public string BaseSequence => BaseSeq;
         public int ChargeState => PrecursorCharge;
         public bool IsDecoy => DecoyContamTarget.Contains('D');
+        public bool IsEntrapment => DecoyContamTarget.Contains('E');
         public double MonoisotopicMass => double.TryParse(MonoisotopicMassString.Split('|')[0], CultureInfo.InvariantCulture, out double monoMass) ? monoMass : -1;
         private List<(string proteinAccessions, string geneName, string organism)>? _proteinGroupInfos;
         public List<(string proteinAccessions, string geneName, string organism)> ProteinGroupInfos
@@ -187,6 +189,7 @@ namespace Readers
 
             // Parse TMT/isobaric reporter ion columns if present
             Intensities = ParseReporterIonColumns(spl, parsedHeader);
+            CollisionEnergy = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.CollisionEnergy, parsedHeader, spl);
         }
 
         /// <summary>

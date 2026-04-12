@@ -11,6 +11,7 @@ using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Omics.SequenceConversion;
 
 namespace Test.RetentionTimePrediction
 {
@@ -21,12 +22,20 @@ namespace Test.RetentionTimePrediction
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class ChronologerPredictorTests
     {
+        private sealed class StubRetentionPredictable : IRetentionPredictable
+        {
+            public string BaseSequence { get; init; } = string.Empty;
+            public string FullSequence { get; init; } = string.Empty;
+            public string FullSequenceWithMassShifts { get; init; } = string.Empty;
+            public double MonoisotopicMass { get; init; } = 1000;
+        }
+
         private ChronologerRetentionTimePredictor _predictor;
 
         [SetUp]
         public void Setup()
         {
-            _predictor = new ChronologerRetentionTimePredictor(IncompatibleModHandlingMode.RemoveIncompatibleMods);
+            _predictor = new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.RemoveIncompatibleElements);
         }
 
         [TearDown]
@@ -50,7 +59,7 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void Constructor_WithMode_CreatesPredictor()
         {
-            using var predictor = new ChronologerRetentionTimePredictor(IncompatibleModHandlingMode.ThrowException);
+            using var predictor = new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.ThrowException);
             
             Assert.That(predictor, Is.Not.Null);
         }
@@ -218,7 +227,7 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void PredictRetentionTime_IncompatibleMod_RemoveMode_ReturnsValue()
         {
-            using var predictor = new ChronologerRetentionTimePredictor(IncompatibleModHandlingMode.RemoveIncompatibleMods);
+            using var predictor = new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.RemoveIncompatibleElements);
             
             // Create a peptide with an unsupported modification
             var mods = new Dictionary<string, Modification>
@@ -236,7 +245,7 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void PredictRetentionTime_IncompatibleMod_UsePrimaryMode_ReturnsValue()
         {
-            using var predictor = new ChronologerRetentionTimePredictor(IncompatibleModHandlingMode.UsePrimarySequence);
+            using var predictor = new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.UsePrimarySequence);
             
             var mods = new Dictionary<string, Modification>
             {
@@ -253,7 +262,7 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void PredictRetentionTime_IncompatibleMod_ReturnNullMode_ReturnsNull()
         {
-            using var predictor = new ChronologerRetentionTimePredictor(IncompatibleModHandlingMode.ReturnNull);
+            using var predictor = new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.ReturnNull);
             
             var mods = new Dictionary<string, Modification>
             {
@@ -270,7 +279,7 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void PredictRetentionTime_IncompatibleMod_ThrowMode_ThrowsException()
         {
-            using var predictor = new ChronologerRetentionTimePredictor(IncompatibleModHandlingMode.ThrowException);
+            using var predictor = new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.ThrowException);
             
             var mods = new Dictionary<string, Modification>
             {
@@ -345,7 +354,7 @@ namespace Test.RetentionTimePrediction
             {
                 { "Acetylation on X", ModificationConverter.AllModsKnown["Acetylation on X"] }
             };
-            var peptide = new PeptideWithSetModifications("[Acetylation on X]-PEPTIDE", mods);
+            var peptide = new PeptideWithSetModifications("[Acetylation on X]PEPTIDE", mods);
             
             var formatted = _predictor.GetFormattedSequence(peptide, out var failureReason);
             
@@ -355,6 +364,51 @@ namespace Test.RetentionTimePrediction
             Assert.That(formatted, Does.Not.Contain("]"));
             Assert.That(formatted, Is.EqualTo("^PEPTIDE_")); 
             Assert.That(failureReason, Is.Null);
+        }
+
+        [Test]
+        public void GetFormattedSequence_AllCandidatesMissing_UsePrimaryFallsBackToFormattedBase()
+        {
+            using var predictor = new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.UsePrimarySequence);
+            var peptide = new StubRetentionPredictable
+            {
+                BaseSequence = string.Empty,
+                FullSequence = " ",
+                FullSequenceWithMassShifts = " "
+            };
+
+            var formatted = predictor.GetFormattedSequence(peptide, out var failureReason);
+
+            Assert.That(formatted, Is.EqualTo("-_"));
+            Assert.That(failureReason, Is.EqualTo(RetentionTimeFailureReason.PredictionError));
+        }
+
+        [Test]
+        public void GetFormattedSequence_AllCandidatesMissing_ReturnNullModeReturnsNull()
+        {
+            using var predictor = new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.ReturnNull);
+            var peptide = new StubRetentionPredictable
+            {
+                BaseSequence = string.Empty,
+                FullSequence = " ",
+                FullSequenceWithMassShifts = " "
+            };
+
+            var formatted = predictor.GetFormattedSequence(peptide, out var failureReason);
+
+            Assert.That(formatted, Is.Null);
+            Assert.That(failureReason, Is.EqualTo(RetentionTimeFailureReason.IncompatibleModifications));
+        }
+
+        [Test]
+        public void PredictCore_InvalidFormattedCharacter_ReturnsNull()
+        {
+            var peptide = new PeptideWithSetModifications("PEPTIDE", new Dictionary<string, Modification>());
+            var method = typeof(ChronologerRetentionTimePredictor).GetMethod("PredictCore", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+            var result = method!.Invoke(_predictor, new object[] { peptide, "~PEPTIDE_" });
+
+            Assert.That(result, Is.Null);
         }
 
         #endregion

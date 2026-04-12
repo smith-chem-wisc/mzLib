@@ -19,6 +19,7 @@
         public const string Score = "Score";
         public const string DeltaScore = "Delta Score";
         public const string Notch = "Notch";
+        public const string CollisionEnergy = "Collision Energy";
 
         // Sequence information
         public const string BaseSequence = "Base Sequence";
@@ -46,6 +47,7 @@
         public const string SpliceSites = "Splice Sites";
         public const string Contaminant = "Contaminant";
         public const string Decoy = "Decoy";
+        public const string Entrapment = "Entrapment";
         public const string Description = "Description";
         public const string StartAndEndResiduesInFullSequence = "Start and End Residues In Full Sequence";
         public const string PreviousResidue = "Previous Residue";

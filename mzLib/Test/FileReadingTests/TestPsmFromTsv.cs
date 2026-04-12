@@ -443,6 +443,7 @@ namespace Test.FileReadingTests
             string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
             List<string> warnings = new();
             List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out warnings).Take(3).ToList();
+            Assert.That(psms.All(p => p.CollisionEnergy == null));
             Assert.That(warnings.Count == 2);
             Assert.AreEqual("Could not read line: 2", warnings[0]);
             Assert.AreEqual("Warning: 1 PSMs were not read.", warnings[1]);

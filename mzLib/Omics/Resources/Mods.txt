@@ -248,7 +248,7 @@ TG   E
 PP   Peptide N-terminal.
 MT   Common Artifact
 CF   H-2 O-1
-DR   Unimod; 23.
+DR   Unimod; 27.
 //
 ID   Carbamyl
 TG   X
@@ -384,12 +384,14 @@ TG   S
 PP   Anywhere.
 MT   Less Common
 CF   H-2 O-1
+DR   Unimod; 23.
 //
 ID   Dehydrobutyrine
 TG   T
 PP   Anywhere.
 MT   Less Common
 CF   H-2 O-1
+DR   Unimod; 23.
 //
 ID   Didehydro
 TG   Y

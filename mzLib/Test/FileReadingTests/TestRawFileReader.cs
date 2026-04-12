@@ -315,8 +315,10 @@ namespace Test.FileReadingTests
             spectra.LoadAllStaticData(null, 1);
             var hcdScan = spectra.GetOneBasedScan(5);
             Assert.That(hcdScan.DissociationType == DissociationType.HCD);
+            Assert.That(hcdScan.HcdEnergy, Is.EqualTo("36.00"));
             var ethcdScan = spectra.GetOneBasedScan(6);
             Assert.That(ethcdScan.DissociationType == DissociationType.EThcD);
+            Assert.That(ethcdScan.HcdEnergy, Is.EqualTo("25.00"));
         }
 
         [Test]
