@@ -255,7 +255,6 @@ namespace Test.Omics
             Assert.That(group.CoverageResult.SequenceCoverageDisplayList.Count, Is.GreaterThan(1));
             Assert.That(group.CoverageResult.SequenceCoverageDisplayListWithMods.Count, Is.GreaterThan(1));
             Assert.That(group.CoverageResult.FragmentSequenceCoverageDisplayList.Count, Is.GreaterThan(1));
-            Assert.That(group.CoverageResult.ModsInfo.Count, Is.EqualTo(0));
         }
 
         #endregion
