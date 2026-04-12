@@ -27,11 +27,12 @@ public sealed class Simulator
         int maxCharge,
         double sigmaMz,
         double[] scanTimes,
+        bool isCentroid = false,
         int pointsPerSigma = 3,
         double mzPaddingInSigmas = 6.0)
     {
         var grid = _rasterizer.Rasterize(proteoforms, minCharge, maxCharge, sigmaMz, scanTimes, pointsPerSigma, mzPaddingInSigmas);
-        var scans = _scanBuilder.BuildMs1Scans(grid, isCentroid: false);
+        var scans = _scanBuilder.BuildMs1Scans(grid, isCentroid: isCentroid);
         var file = _scanBuilder.BuildMsDataFile(scans);
         return new SimulationResult(grid, scans, file);
     }
@@ -43,11 +44,12 @@ public sealed class Simulator
         double sigmaMz,
         double[] scanTimes,
         string outputPath,
+        bool isCentroid = false,
         bool writeIndexed = true,
         int pointsPerSigma = 3,
         double mzPaddingInSigmas = 6.0)
     {
-        var result = Simulate(proteoforms, minCharge, maxCharge, sigmaMz, scanTimes, pointsPerSigma, mzPaddingInSigmas);
+        var result = Simulate(proteoforms, minCharge, maxCharge, sigmaMz, scanTimes, isCentroid, pointsPerSigma, mzPaddingInSigmas);
         MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(result.DataFile, outputPath, writeIndexed);
     }
 }

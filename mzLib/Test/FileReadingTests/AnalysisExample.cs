@@ -67,6 +67,28 @@ namespace Test.FileReadingTests
                 MinImspThreshold: 1.0);
         }
 
+        private static bool GetSimulateCentroidedOutput()
+        {
+            return IsTrueEnvironmentVariable("MZLIB_TOPDOWN_SIM_CENTROID");
+        }
+
+        private static bool GetDeduplicateProteoforms()
+        {
+            if (IsTrueEnvironmentVariable("MZLIB_TOPDOWN_SIM_NO_DEDUP"))
+                return false;
+
+            return true;
+        }
+
+        private static bool IsTrueEnvironmentVariable(string variableName)
+        {
+            var value = Environment.GetEnvironmentVariable(variableName);
+            return string.Equals(value, "1", StringComparison.OrdinalIgnoreCase)
+                   || string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+                   || string.Equals(value, "yes", StringComparison.OrdinalIgnoreCase)
+                   || string.Equals(value, "on", StringComparison.OrdinalIgnoreCase);
+        }
+
 
         [Test]
         [Explicit("Interactive Plotly demo for a synthetic MS1 spectrum")]
@@ -323,8 +345,12 @@ namespace Test.FileReadingTests
         {
             var totalSw = Stopwatch.StartNew();
             var profile = GetSimulationRunProfile();
+            bool centroidOutput = GetSimulateCentroidedOutput();
+            bool deduplicate = GetDeduplicateProteoforms();
 
             Console.WriteLine($"Simulation mode: {profile.Mode} (set MZLIB_TOPDOWN_SIM_MODE=full for full-fidelity)");
+            Console.WriteLine($"Centroid output: {centroidOutput} (set MZLIB_TOPDOWN_SIM_CENTROID=1 to enable)");
+            Console.WriteLine($"Deduplicate proteoforms: {deduplicate} (set MZLIB_TOPDOWN_SIM_NO_DEDUP=1 to disable)");
 
             string rawPath = ResolveLocalPath(@"D:\JurkatTopdown\02-18-20_jurkat_td_rep2_fract7.raw");
             string mmPath = ResolveLocalPath(@"D:\JurkatTopdown\Frac7_GPTMD_Search\Task2-TopDownSearch\AllProteoforms.psmtsv");
@@ -357,25 +383,29 @@ namespace Test.FileReadingTests
                 .OrderByDescending(r => r.Score)
                 .Take(profile.MaxRecords)
                 .ToArray();
-            Console.WriteLine($"Loaded and filtered {records.Length} MM records in {stageSw.Elapsed}");
 
-            Assert.That(records, Is.Not.Empty, "No MetaMorpheus proteoform rows matched the rep2 raw filename.");
+            var simulationRecords = deduplicate ? DeduplicateByProteoform(records) : records;
+            Console.WriteLine($"Loaded and filtered {records.Length} MM records in {stageSw.Elapsed}");
+            if (simulationRecords.Length != records.Length)
+                Console.WriteLine($"Deduplicated records: {simulationRecords.Length}");
+
+            Assert.That(simulationRecords, Is.Not.Empty, "No MetaMorpheus proteoform rows matched the rep2 raw filename.");
 
             var fitter = new ParameterFitter(widthFitter: new EnvelopeWidthFitter(fallbackSigmaMz: 0.012));
-            var fitted = new List<FittedProteoform>(records.Length);
+            var fitted = new List<FittedProteoform>(simulationRecords.Length);
 
             int globalMinCharge = int.MaxValue;
             int globalMaxCharge = int.MinValue;
 
             int counter = 0;
-            foreach (var record in records)
+            foreach (var record in simulationRecords)
             {
                 int minCharge = Math.Max(2, record.PrecursorCharge - 2);
                 int maxCharge = Math.Min(80, record.PrecursorCharge + 2);
                 if (minCharge > maxCharge)
                     continue;
 
-                Console.WriteLine($"Starting fit {counter}/{records.Length}: {record.Identifier}, charge range {minCharge}-{maxCharge}");
+                Console.WriteLine($"Starting fit {counter}/{simulationRecords.Length}: {record.Identifier}, charge range {minCharge}-{maxCharge}");
 
                 var truth = extractor.Extract(record.MonoisotopicMass, record.RetentionTime, rtHalfWidth: profile.RtHalfWidth, minCharge: minCharge, maxCharge: maxCharge);
                 FittedProteoform fit;
@@ -395,7 +425,7 @@ namespace Test.FileReadingTests
                 globalMinCharge = Math.Min(globalMinCharge, minCharge);
                 globalMaxCharge = Math.Max(globalMaxCharge, maxCharge);
                 counter++;
-                Console.WriteLine($"Completed fit {counter}/{records.Length}: {record.Identifier}, charge range {minCharge}-{maxCharge}, fitted abundance {fit.Model.Abundance:F2}, sigmaMz {fit.SigmaMz:F6}");
+                Console.WriteLine($"Completed fit {counter}/{simulationRecords.Length}: {record.Identifier}, charge range {minCharge}-{maxCharge}, fitted abundance {fit.Model.Abundance:F2}, sigmaMz {fit.SigmaMz:F6}");
             }
 
             Assert.That(fitted, Is.Not.Empty, "No fit records were produced from rep2 MM results.");
@@ -425,9 +455,13 @@ namespace Test.FileReadingTests
                 mzPaddingInSigmas: profile.MzPaddingInSigmas);
             Console.WriteLine($"Simulated {simulation.Scans.Length} scans in {stageSw.Elapsed}");
 
+            var scansForExport = centroidOutput
+                ? CentroidizeSimulatedScans(simulation.Scans, relativeIntensityThreshold: 1e-4)
+                : simulation.Scans;
+
             stageSw.Restart();
             double maxSimIntensity = 0;
-            foreach (var scan in simulation.Scans)
+            foreach (var scan in scansForExport)
             {
                 if (!scan.MassSpectrum.YArray.Any())
                     continue;
@@ -438,7 +472,7 @@ namespace Test.FileReadingTests
             }
 
             double intensityThreshold = Math.Max(profile.MinImspThreshold, maxSimIntensity * profile.ImspThresholdFraction);
-            int peakCount = WriteImspFile(simulation.Scans, imspOutPath, intensityThreshold: intensityThreshold);
+            int peakCount = WriteImspFile(scansForExport, imspOutPath, intensityThreshold: intensityThreshold);
             Console.WriteLine($"Wrote IMSP in {stageSw.Elapsed} (threshold={intensityThreshold:F2})");
 
             Console.WriteLine($"Simulated models: {models.Length}");
@@ -447,6 +481,333 @@ namespace Test.FileReadingTests
             Console.WriteLine($"Wrote simulated IMSP: {imspOutPath}");
             Console.WriteLine($"Simulated peak count: {peakCount}");
             Console.WriteLine($"Total elapsed: {totalSw.Elapsed}");
+        }
+
+        [Test]
+        [Explicit("Writes real 31-35 min IMSP slice, simulated 31-35 slice, and full q<=0.01 simulation for rep2 fract7")]
+        public static void ExportRep2SliceAndQValueSimulations()
+        {
+            const double rtStart = 31.0;
+            const double rtEnd = 35.0;
+            const double qValueThreshold = 0.01;
+            const double rtHalfWidth = 0.25;
+            bool centroidOutput = GetSimulateCentroidedOutput();
+            bool deduplicate = GetDeduplicateProteoforms();
+
+            string rawPath = ResolveLocalPath(@"D:\JurkatTopdown\02-18-20_jurkat_td_rep2_fract7.raw");
+            string resultPath = ResolveLocalPath(@"D:\JurkatTopdown\Frac7_GPTMD_Search\Task2-TopDownSearch\Individual File Results\02-18-20_jurkat_td_rep2_fract7_Proteoforms.psmtsv");
+            string stem = Path.GetFileNameWithoutExtension(rawPath);
+            string outDir = Path.GetDirectoryName(rawPath)!;
+
+            string realSliceImspPath = Path.Combine(outDir, stem + ".rt31-35.real.imsp");
+            string simSliceImspPath = Path.Combine(outDir, stem + ".rt31-35.simulated.q001.imsp");
+            string simFullImspPath = Path.Combine(outDir, stem + ".full.simulated.q001.imsp");
+
+            var totalSw = Stopwatch.StartNew();
+
+            var reader = MsDataFileReader.GetDataFile(rawPath);
+            reader.LoadAllStaticData();
+            var allMs1Scans = reader.GetAllScansList()
+                .Where(s => s.MsnOrder == 1)
+                .OrderBy(s => s.OneBasedScanNumber)
+                .ToArray();
+            Assert.That(allMs1Scans, Is.Not.Empty, "No MS1 scans were found in the raw file.");
+
+            var rtSliceMs1Scans = allMs1Scans
+                .Where(s => s.RetentionTime >= rtStart && s.RetentionTime <= rtEnd)
+                .OrderBy(s => s.OneBasedScanNumber)
+                .ToArray();
+            Assert.That(rtSliceMs1Scans, Is.Not.Empty, "No MS1 scans were found in the 31-35 min window.");
+
+            int realSlicePeakCount = WriteImspFile(rtSliceMs1Scans, realSliceImspPath, intensityThreshold: 10000);
+            Console.WriteLine($"Real slice IMSP written: {realSliceImspPath}");
+            Console.WriteLine($"Real slice scans: {rtSliceMs1Scans.Length}, peaks: {realSlicePeakCount}");
+
+            var qFilteredRecords = LoadQualifiedMmRecords(resultPath, stem, qValueThreshold, rtStart: null, rtEnd: null);
+            if (deduplicate)
+            {
+                qFilteredRecords = DeduplicateByProteoform(qFilteredRecords);
+                Console.WriteLine($"Deduplicated q<=0.01 record count: {qFilteredRecords.Length}");
+            }
+            var qFilteredSliceRecords = qFilteredRecords
+                .Where(r => r.RetentionTime >= rtStart && r.RetentionTime <= rtEnd)
+                .ToArray();
+
+            Assert.That(qFilteredSliceRecords, Is.Not.Empty, "No proteoforms passed q<=0.01 inside 31-35 min.");
+            Assert.That(qFilteredRecords, Is.Not.Empty, "No proteoforms passed q<=0.01 for full run.");
+
+            var index = PeakIndexingEngine.InitializeIndexingEngine(allMs1Scans)!;
+            var extractor = new GroundTruthExtractor(index, allMs1Scans, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
+
+            var sliceFit = FitProteoforms(qFilteredSliceRecords, extractor, rtHalfWidth);
+            Assert.That(sliceFit.Models, Is.Not.Empty, "No simulated models were fitted for 31-35 min slice.");
+
+            var sliceScanTimes = rtSliceMs1Scans.Select(s => s.RetentionTime).ToArray();
+            var sliceSimulation = new Simulator().Simulate(
+                sliceFit.Models,
+                sliceFit.MinCharge,
+                sliceFit.MaxCharge,
+                sliceFit.SigmaMz,
+                sliceScanTimes,
+                pointsPerSigma: 1,
+                mzPaddingInSigmas: 4.0);
+
+            var sliceScansForExport = centroidOutput
+                ? CentroidizeSimulatedScans(sliceSimulation.Scans, relativeIntensityThreshold: 1e-4)
+                : sliceSimulation.Scans;
+
+            int simSlicePeakCount = WriteImspFile(
+                sliceScansForExport,
+                simSliceImspPath,
+                intensityThreshold: ComputeSimulationImspThreshold(sliceScansForExport, 1e-4, 1.0));
+
+            Console.WriteLine($"Simulated slice IMSP written: {simSliceImspPath}");
+            Console.WriteLine($"Simulated slice models: {sliceFit.Models.Length}, scans: {sliceSimulation.Scans.Length}, peaks: {simSlicePeakCount}");
+
+            var fullFit = FitProteoforms(qFilteredRecords, extractor, rtHalfWidth);
+            Assert.That(fullFit.Models, Is.Not.Empty, "No simulated models were fitted for full q<=0.01 run.");
+
+            var fullScanTimes = allMs1Scans.Select(s => s.RetentionTime).ToArray();
+            var fullSimulation = new Simulator().Simulate(
+                fullFit.Models,
+                fullFit.MinCharge,
+                fullFit.MaxCharge,
+                fullFit.SigmaMz,
+                fullScanTimes,
+                pointsPerSigma: 1,
+                mzPaddingInSigmas: 4.0);
+
+            var fullScansForExport = centroidOutput
+                ? CentroidizeSimulatedScans(fullSimulation.Scans, relativeIntensityThreshold: 1e-4)
+                : fullSimulation.Scans;
+
+            int simFullPeakCount = WriteImspFile(
+                fullScansForExport,
+                simFullImspPath,
+                intensityThreshold: ComputeSimulationImspThreshold(fullScansForExport, 1e-4, 1.0));
+
+            Console.WriteLine($"Simulated full IMSP written: {simFullImspPath}");
+            Console.WriteLine($"Simulated full models: {fullFit.Models.Length}, scans: {fullSimulation.Scans.Length}, peaks: {simFullPeakCount}");
+            Console.WriteLine($"Total elapsed: {totalSw.Elapsed}");
+        }
+
+        private static MmResultRecord[] LoadQualifiedMmRecords(
+            string psmTsvPath,
+            string expectedFileStem,
+            double qValueThreshold,
+            double? rtStart,
+            double? rtEnd)
+        {
+            var file = new PsmFromTsvFile(psmTsvPath, new SpectrumMatchParsingParameters
+            {
+                ParseMatchedFragmentIons = false,
+            });
+            file.LoadResults();
+
+            var records = file.Results
+                .Where(p => p is not null)
+                .Where(p => string.Equals(p.FileNameWithoutExtension, expectedFileStem, StringComparison.OrdinalIgnoreCase))
+                .Where(p => p.MonoisotopicMass > 0 && p.RetentionTime >= 0)
+                .Where(p => !double.IsNaN(p.QValue) && p.QValue <= qValueThreshold)
+                .Where(p => !rtStart.HasValue || p.RetentionTime >= rtStart.Value)
+                .Where(p => !rtEnd.HasValue || p.RetentionTime <= rtEnd.Value)
+                .Select(p => new MmResultRecord(
+                    FileNameWithoutExtension: p.FileNameWithoutExtension,
+                    PrecursorScanNumber: p.PrecursorScanNum,
+                    Ms2ScanNumber: p.Ms2ScanNumber,
+                    PrecursorCharge: p.PrecursorCharge,
+                    MonoisotopicMass: p.MonoisotopicMass,
+                    RetentionTime: p.RetentionTime,
+                    Score: p.Score,
+                    FullSequence: p.FullSequence,
+                    Accession: p.Accession,
+                    Identifier: BuildIdentifier(p)))
+                .OrderByDescending(r => r.Score)
+                .ThenBy(r => r.RetentionTime)
+                .ToArray();
+
+            Console.WriteLine($"Loaded qualified records from {psmTsvPath}: {records.Length} (q<={qValueThreshold})");
+            return records;
+        }
+
+        private static (ProteoformModel[] Models, int MinCharge, int MaxCharge, double SigmaMz) FitProteoforms(
+            IReadOnlyList<MmResultRecord> records,
+            GroundTruthExtractor extractor,
+            double rtHalfWidth)
+        {
+            var fitter = new ParameterFitter(widthFitter: new EnvelopeWidthFitter(fallbackSigmaMz: 0.012));
+            var fitted = new List<FittedProteoform>(records.Count);
+
+            int minChargeGlobal = int.MaxValue;
+            int maxChargeGlobal = int.MinValue;
+
+            for (int i = 0; i < records.Count; i++)
+            {
+                var record = records[i];
+                int minCharge = Math.Max(2, record.PrecursorCharge - 2);
+                int maxCharge = Math.Min(80, record.PrecursorCharge + 2);
+                if (minCharge > maxCharge)
+                    continue;
+
+                if (i % 25 == 0)
+                    Console.WriteLine($"Fitting record {i + 1}/{records.Count}: {record.Identifier}");
+
+                var truth = extractor.Extract(record.MonoisotopicMass, record.RetentionTime, rtHalfWidth, minCharge, maxCharge);
+                FittedProteoform fit;
+                try
+                {
+                    fit = fitter.Fit(truth, record.Identifier);
+                }
+                catch (InvalidOperationException)
+                {
+                    continue;
+                }
+
+                if (double.IsNaN(fit.Model.Abundance) || fit.Model.Abundance <= 0)
+                    continue;
+
+                fitted.Add(fit);
+                minChargeGlobal = Math.Min(minChargeGlobal, minCharge);
+                maxChargeGlobal = Math.Max(maxChargeGlobal, maxCharge);
+            }
+
+            if (minChargeGlobal == int.MaxValue)
+                minChargeGlobal = 2;
+            if (maxChargeGlobal == int.MinValue)
+                maxChargeGlobal = 80;
+
+            var sigmaCandidates = fitted
+                .Select(f => f.SigmaMz)
+                .Where(s => !double.IsNaN(s) && !double.IsInfinity(s) && s > 0)
+                .OrderBy(s => s)
+                .ToArray();
+            double sigmaMz = sigmaCandidates.Length == 0 ? 0.012 : sigmaCandidates[sigmaCandidates.Length / 2];
+
+            return (
+                fitted.Select(f => f.Model).ToArray(),
+                minChargeGlobal,
+                maxChargeGlobal,
+                sigmaMz);
+        }
+
+        private static MmResultRecord[] DeduplicateByProteoform(IReadOnlyList<MmResultRecord> records)
+        {
+            return records
+                .GroupBy(r => (
+                    Accession: string.IsNullOrWhiteSpace(r.Accession) ? string.Empty : r.Accession,
+                    Sequence: r.FullSequence,
+                    Charge: r.PrecursorCharge))
+                .Select(g => g
+                    .OrderByDescending(r => r.Score)
+                    .ThenBy(r => r.RetentionTime)
+                    .First())
+                .OrderByDescending(r => r.Score)
+                .ThenBy(r => r.RetentionTime)
+                .ToArray();
+        }
+
+        private static string BuildIdentifier(PsmFromTsv psm)
+        {
+            if (!string.IsNullOrWhiteSpace(psm.Accession))
+                return $"{psm.Accession}:{psm.FullSequence}:{psm.Ms2ScanNumber}";
+
+            return $"{psm.FileNameWithoutExtension}:{psm.Ms2ScanNumber}";
+        }
+
+        private static double ComputeSimulationImspThreshold(
+            MsDataScan[] scans,
+            double fractionOfMaxIntensity,
+            double minimumThreshold)
+        {
+            double maxIntensity = 0;
+            foreach (var scan in scans)
+            {
+                if (!scan.MassSpectrum.YArray.Any())
+                    continue;
+
+                double localMax = scan.MassSpectrum.YArray.Max();
+                if (localMax > maxIntensity)
+                    maxIntensity = localMax;
+            }
+
+            return Math.Max(minimumThreshold, maxIntensity * fractionOfMaxIntensity);
+        }
+
+        private static MsDataScan[] CentroidizeSimulatedScans(MsDataScan[] profileScans, double relativeIntensityThreshold)
+        {
+            var centroided = new MsDataScan[profileScans.Length];
+
+            for (int s = 0; s < profileScans.Length; s++)
+            {
+                var scan = profileScans[s];
+                var x = scan.MassSpectrum.XArray;
+                var y = scan.MassSpectrum.YArray;
+
+                if (x.Length == 0)
+                {
+                    centroided[s] = CloneScanWithSpectrum(scan, Array.Empty<double>(), Array.Empty<double>(), isCentroid: true);
+                    continue;
+                }
+
+                double maxIntensity = y.Max();
+                double floor = Math.Max(0.0, maxIntensity * relativeIntensityThreshold);
+
+                var mzList = new List<double>();
+                var intList = new List<double>();
+
+                for (int i = 1; i < y.Length - 1; i++)
+                {
+                    double current = y[i];
+                    if (current < floor)
+                        continue;
+
+                    bool isPeak = current >= y[i - 1] && current >= y[i + 1]
+                                  && (current > y[i - 1] || current > y[i + 1]);
+                    if (!isPeak)
+                        continue;
+
+                    mzList.Add(x[i]);
+                    intList.Add(current);
+                }
+
+                centroided[s] = CloneScanWithSpectrum(scan, mzList.ToArray(), intList.ToArray(), isCentroid: true);
+            }
+
+            return centroided;
+        }
+
+        private static MsDataScan CloneScanWithSpectrum(MsDataScan source, double[] mz, double[] intensities, bool isCentroid)
+        {
+            double tic = intensities.Sum();
+            MzRange scanWindowRange = mz.Length > 0
+                ? new MzRange(mz[0], mz[^1])
+                : source.ScanWindowRange;
+
+            return new MsDataScan(
+                massSpectrum: new MzSpectrum(mz, intensities, false),
+                oneBasedScanNumber: source.OneBasedScanNumber,
+                msnOrder: source.MsnOrder,
+                isCentroid: isCentroid,
+                polarity: source.Polarity,
+                retentionTime: source.RetentionTime,
+                scanWindowRange: scanWindowRange,
+                scanFilter: source.ScanFilter,
+                mzAnalyzer: source.MzAnalyzer,
+                totalIonCurrent: tic,
+                injectionTime: source.InjectionTime,
+                noiseData: source.NoiseData,
+                nativeId: source.NativeId,
+                selectedIonMz: source.SelectedIonMZ,
+                selectedIonChargeStateGuess: source.SelectedIonChargeStateGuess,
+                selectedIonIntensity: source.SelectedIonIntensity,
+                isolationMZ: source.IsolationMz,
+                isolationWidth: source.IsolationWidth,
+                dissociationType: source.DissociationType,
+                oneBasedPrecursorScanNumber: source.OneBasedPrecursorScanNumber,
+                selectedIonMonoisotopicGuessMz: source.SelectedIonMonoisotopicGuessMz,
+                hcdEnergy: source.HcdEnergy,
+                scanDescription: source.ScanDescription,
+                compensationVoltage: source.CompensationVoltage);
         }
 
         private static string ResolveLocalPath(string preferredPath)
