@@ -1,26 +1,52 @@
+using System.Collections.Generic;
+
 namespace Chromatography.RetentionTimePrediction;
 
 /// <summary>
-/// Represents a retention time predictor that can predict RT for peptides.
+/// Unified contract for all retention time predictors — local (Chronologer, SSRCalc3)
+/// and remote (Koina/Prosit). MetaMorpheus consumes this interface directly without
+/// an adapter layer.
 /// </summary>
 public interface IRetentionTimePredictor
 {
-    /// <summary>
-    /// Name/identifier for this predictor (e.g., "SSRCalc3", "Chronologer")
-    /// </summary>
+    /// <summary>Human-readable name, e.g. "Chronologer", "Prosit2019iRT"</summary>
     string PredictorName { get; }
 
-    /// <summary>
-    /// Gets the separation type this predictor is designed for
-    /// </summary>
+    /// <summary>Chromatographic or electrophoretic mode this predictor targets.</summary>
     SeparationType SeparationType { get; }
 
     /// <summary>
-    /// Predicts retention time for a given peptide.
-    /// Returns null if prediction cannot be made.
+    /// Predicts retention time for a single peptide.
+    /// Returns null when prediction is not possible (invalid sequence, unsupported
+    /// modifications, model error, etc.).
     /// </summary>
-    /// <returns>Predicted retention time in predictor-specific units, or null if prediction not possible</returns>
-    double? PredictRetentionTime(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason);
+    double? PredictRetentionTime(IRetentionPredictable peptide,
+                                 out RetentionTimeFailureReason? failureReason);
 
-    public string? GetFormattedSequence(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason);
+    /// <summary>
+    /// Predicts retention times for a batch of peptides.
+    ///
+    /// The default implementation calls PredictRetentionTime per peptide.
+    /// Koina-backed implementations should override this to issue a single HTTP
+    /// call for the entire batch.
+    ///
+    /// Dictionary key is peptide.FullSequence.
+    /// Null values indicate prediction was not possible for that peptide.
+    /// </summary>
+    Dictionary<string, double?> PredictRetentionTimes(
+        IEnumerable<IRetentionPredictable> peptides)
+    {
+        var results = new Dictionary<string, double?>();
+        foreach (var peptide in peptides)
+            results[peptide.FullSequence] = PredictRetentionTime(peptide, out _);
+        return results;
+    }
+
+    /// <summary>
+    /// Returns the predictor-specific formatted sequence string for a peptide,
+    /// or null if the peptide cannot be formatted for this predictor.
+    /// Useful for diagnostics and for callers that cache formatted sequences.
+    /// </summary>
+    string? GetFormattedSequence(IRetentionPredictable peptide,
+                                  out RetentionTimeFailureReason? failureReason);
 }

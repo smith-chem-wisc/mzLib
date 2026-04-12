@@ -1,5 +1,7 @@
 ﻿using Omics.SequenceConversion;
 using PredictionClients.Koina.Client;
+using Chromatography;
+using Chromatography.RetentionTimePrediction;
 using MzLibUtil;
 using System.ComponentModel;
 using PredictionClients.Koina.Interfaces;
@@ -56,7 +58,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// - Request formatting method (ToBatchedRequests)
     /// - Model-specific modification handling if needed
     /// </remarks>
-    public abstract class RetentionTimeModel : KoinaModelBase<RetentionTimePredictionInput, PeptideRTPrediction>, IPredictor<RetentionTimePredictionInput, PeptideRTPrediction>
+    public abstract class RetentionTimeModel : KoinaModelBase<RetentionTimePredictionInput, PeptideRTPrediction>, IPredictor<RetentionTimePredictionInput, PeptideRTPrediction>, IRetentionTimePredictor
     {
         protected RetentionTimeModel(ISequenceConverter sequenceConverter)
             : base(sequenceConverter)
@@ -220,7 +222,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// 4. Creates PeptideRTPrediction objects with sequence mapping
         /// </remarks>
         protected virtual List<PeptideRTPrediction> ResponseToPredictions(
-            IReadOnlyList<string> responses, 
+            IReadOnlyList<string> responses,
             List<RetentionTimePredictionInput> requestInputs)
         {
             var predictions = new List<PeptideRTPrediction>();
@@ -261,6 +263,97 @@ namespace PredictionClients.Koina.AbstractClasses
 
             return predictions;
         }
+
+        #region IRetentionTimePredictor Implementation
+
+        /// <summary>
+        /// Human-readable predictor name. Maps to the Koina ModelName.
+        /// </summary>
+        public string PredictorName => ModelName;
+
+        /// <summary>
+        /// All Koina RT models target HPLC separation.
+        /// </summary>
+        public SeparationType SeparationType => SeparationType.HPLC;
+
+        /// <summary>
+        /// Implements IRetentionTimePredictor.PredictRetentionTime by wrapping the existing
+        /// Koina batch prediction API for a single peptide.
+        /// </summary>
+        public double? PredictRetentionTime(IRetentionPredictable peptide,
+            out RetentionTimeFailureReason? failureReason)
+        {
+            failureReason = null;
+            try
+            {
+                var input = new RetentionTimePredictionInput(peptide.FullSequence);
+                var predictions = Predict(new List<RetentionTimePredictionInput> { input });
+                var prediction = predictions.FirstOrDefault(p => p.FullSequence == peptide.FullSequence);
+                if (prediction?.PredictedRetentionTime != null)
+                    return prediction.PredictedRetentionTime;
+                failureReason = RetentionTimeFailureReason.PredictionError;
+                return null;
+            }
+            catch
+            {
+                failureReason = RetentionTimeFailureReason.PredictionError;
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Overrides the default IRetentionTimePredictor batch method to issue a single
+        /// batch HTTP call to the Koina API for all peptides at once.
+        ///
+        /// Converts IRetentionPredictable peptides to RetentionTimePredictionInput,
+        /// calls the Koina Predict() pipeline, and maps results back.
+        ///
+        /// Key is peptide.FullSequence; null values indicate prediction was not possible.
+        /// </summary>
+        public Dictionary<string, double?> PredictRetentionTimes(
+            IEnumerable<IRetentionPredictable> peptides)
+        {
+            var peptideList = peptides.DistinctBy(p => p.FullSequence).ToList();
+            var results = new Dictionary<string, double?>();
+
+            if (peptideList.Count == 0)
+                return results;
+
+            try
+            {
+                var inputs = peptideList
+                    .Select(p => new RetentionTimePredictionInput(p.FullSequence))
+                    .ToList();
+
+                var predictions = Predict(inputs);
+
+                foreach (var prediction in predictions)
+                {
+                    results[prediction.FullSequence] = prediction.PredictedRetentionTime;
+                }
+            }
+            catch
+            {
+                // On total failure, return null for all
+                foreach (var peptide in peptideList)
+                    results[peptide.FullSequence] = null;
+            }
+
+            return results;
+        }
+
+        /// <summary>
+        /// Returns the mzLib FullSequence as the formatted form for Koina models.
+        /// </summary>
+        public string? GetFormattedSequence(IRetentionPredictable peptide,
+            out RetentionTimeFailureReason? failureReason)
+        {
+            failureReason = null;
+            return peptide.FullSequence;
+        }
+
+        #endregion
+
     }
 }
 
