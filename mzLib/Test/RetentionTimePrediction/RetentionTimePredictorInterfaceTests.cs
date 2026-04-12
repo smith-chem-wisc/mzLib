@@ -1,8 +1,10 @@
 using NUnit.Framework;
 using Chromatography.RetentionTimePrediction;
+using Chromatography.RetentionTimePrediction.Chronologer;
 using Chromatography;
 using System.Collections.Generic;
 using System.Linq;
+using Omics.SequenceConversion;
 
 namespace Test.RetentionTimePrediction
 {
@@ -14,6 +16,10 @@ namespace Test.RetentionTimePrediction
     [TestFixture]
     public class RetentionTimePredictorInterfaceTests
     {
+        // ── Shared constants ──────────────────────────────────────────────
+
+        private const double StubMonoisotopicMass = 1000.0;
+
         // ── Helper: minimal IRetentionPredictable stub ────────────────────
 
         private sealed class StubPeptide : IRetentionPredictable
@@ -21,7 +27,7 @@ namespace Test.RetentionTimePrediction
             public string BaseSequence { get; init; } = string.Empty;
             public string FullSequence { get; init; } = string.Empty;
             public string FullSequenceWithMassShifts { get; init; } = string.Empty;
-            public double MonoisotopicMass { get; init; } = 1000;
+            public double MonoisotopicMass { get; init; } = StubMonoisotopicMass;
         }
 
         // ── Helper: minimal mock IRetentionTimePredictor ──────────────────
@@ -54,11 +60,28 @@ namespace Test.RetentionTimePrediction
                 failureReason = null;
                 return peptide.BaseSequence;
             }
-            // Note: PredictRetentionTimes is NOT overridden here.
-            // This verifies the default interface implementation works.
+            // PredictRetentionTimes is NOT overridden here —
+            // verifies the default interface implementation works correctly.
         }
 
-        // ── Tests for default PredictRetentionTimes batch method ──────────
+        // ── Chronologer shared instance (expensive to construct) ──────────
+
+        private static ChronologerRetentionTimePredictor _chronologer;
+
+        [OneTimeSetUp]
+        public static void OneTimeSetUp()
+        {
+            _chronologer = new ChronologerRetentionTimePredictor(
+                SequenceConversionHandlingMode.RemoveIncompatibleElements);
+        }
+
+        [OneTimeTearDown]
+        public static void OneTimeTearDown()
+        {
+            _chronologer?.Dispose();
+        }
+
+        // ── Tests: default PredictRetentionTimes batch method ─────────────
 
         [Test]
         public void PredictRetentionTimes_DefaultImpl_ReturnsResultForEachPeptide()
@@ -113,9 +136,18 @@ namespace Test.RetentionTimePrediction
         }
 
         [Test]
+        public void PredictRetentionTimes_DefaultImpl_NullInput_ThrowsArgumentNullException()
+        {
+            IRetentionTimePredictor predictor = new MockPredictor(
+                new Dictionary<string, double?>());
+
+            Assert.That(() => predictor.PredictRetentionTimes(null!),
+                Throws.ArgumentNullException);
+        }
+
+        [Test]
         public void PredictRetentionTimes_DefaultImpl_KeyIsFullSequence()
         {
-            // Verify the dictionary key is FullSequence, not BaseSequence
             var predictions = new Dictionary<string, double?>
             {
                 { "PEPTM[Oxidation on M]IDE", 31.7 }
@@ -142,8 +174,7 @@ namespace Test.RetentionTimePrediction
         {
             var predictions = new Dictionary<string, double?>
             {
-                { "PEPTIDE", 25.3 },
-                // "UNKNOWN" not in dictionary -> will return null
+                { "PEPTIDE", 25.3 }
             };
             IRetentionTimePredictor predictor = new MockPredictor(predictions);
 
@@ -159,32 +190,55 @@ namespace Test.RetentionTimePrediction
             Assert.That(results["UNKNOWN"], Is.Null);
         }
 
-        // ── Tests verifying Chronologer satisfies the interface ───────────
+        [Test]
+        public void PredictRetentionTimes_DefaultImpl_ReturnsIReadOnlyDictionary()
+        {
+            IRetentionTimePredictor predictor = new MockPredictor(
+                new Dictionary<string, double?> { { "PEPTIDE", 1.0 } });
+
+            var results = predictor.PredictRetentionTimes(new List<IRetentionPredictable>
+            {
+                new StubPeptide { FullSequence = "PEPTIDE" }
+            });
+
+            Assert.That(results, Is.InstanceOf<IReadOnlyDictionary<string, double?>>());
+            Assert.That(results as Dictionary<string, double?>, Is.Null,
+                "Result should not be a mutable Dictionary");
+        }
+
+        // ── Tests: failureReason is not propagated in batch (documented limitation) ──
+
+        [Test]
+        public void PredictRetentionTimes_DefaultImpl_NullResultEntries_FailureReasonNotAvailable()
+        {
+            IRetentionTimePredictor predictor = new MockPredictor(
+                new Dictionary<string, double?>());
+
+            var results = predictor.PredictRetentionTimes(new List<IRetentionPredictable>
+            {
+                new StubPeptide { FullSequence = "UNKNOWN" }
+            });
+
+            Assert.That(results["UNKNOWN"], Is.Null);
+        }
+
+        // ── Tests: Chronologer satisfies the interface ────────────────────
 
         [Test]
         public void ChronologerRetentionTimePredictor_ImplementsIRetentionTimePredictor()
         {
-            using var predictor = new
-                Chromatography.RetentionTimePrediction.Chronologer
-                .ChronologerRetentionTimePredictor();
-
-            Assert.That(predictor, Is.InstanceOf<IRetentionTimePredictor>());
+            Assert.That(_chronologer, Is.InstanceOf<IRetentionTimePredictor>());
         }
 
         [Test]
         public void ChronologerRetentionTimePredictor_PredictRetentionTimes_DefaultBatch_Works()
         {
-            using var predictor = new
-                Chromatography.RetentionTimePrediction.Chronologer
-                .ChronologerRetentionTimePredictor();
-
-            // Cast to interface to ensure we're testing the interface method
-            IRetentionTimePredictor iPredictor = predictor;
+            IRetentionTimePredictor iPredictor = _chronologer;
 
             var peptides = new List<IRetentionPredictable>
             {
-                new StubPeptide { BaseSequence = "PEPTIDE", FullSequence = "PEPTIDE", FullSequenceWithMassShifts = "PEPTIDE" },
-                new StubPeptide { BaseSequence = "AGHCEWQMK", FullSequence = "AGHCEWQMK", FullSequenceWithMassShifts = "AGHCEWQMK" }
+                new StubPeptide { BaseSequence = "PEPTIDE", FullSequence = "PEPTIDE" },
+                new StubPeptide { BaseSequence = "AGHCEWQMK", FullSequence = "AGHCEWQMK" }
             };
 
             var results = iPredictor.PredictRetentionTimes(peptides);
@@ -194,19 +248,26 @@ namespace Test.RetentionTimePrediction
             Assert.That(results["AGHCEWQMK"], Is.Not.Null);
         }
 
-        // ── Tests verifying Koina RetentionTimeModel satisfies the interface ──
-        // These verify the interface is implemented; actual HTTP calls are [Explicit]
+        [Test]
+        public void ChronologerRetentionTimePredictor_PredictRetentionTimes_ReturnsIReadOnlyDictionary()
+        {
+            IRetentionTimePredictor iPredictor = _chronologer;
+
+            var results = iPredictor.PredictRetentionTimes(new List<IRetentionPredictable>
+            {
+                new StubPeptide { BaseSequence = "PEPTIDE", FullSequence = "PEPTIDE" }
+            });
+
+            Assert.That(results, Is.InstanceOf<IReadOnlyDictionary<string, double?>>());
+        }
+
+        // ── Tests: Koina models satisfy the interface ─────────────────────
 
         [Test]
         public void Prosit2019iRT_ImplementsIRetentionTimePredictor()
         {
-            // Verify that Prosit2019iRT satisfies the interface.
-            // This test will fail to compile if RetentionTimeModel does not implement
-            // IRetentionTimePredictor — which is the point.
-            var model = new PredictionClients.Koina.SupportedModels.RetentionTimeModels
-                .Prosit2019iRT();
-
-            IRetentionTimePredictor predictor = model;
+            IRetentionTimePredictor predictor = new
+                PredictionClients.Koina.SupportedModels.RetentionTimeModels.Prosit2019iRT();
 
             Assert.That(predictor, Is.Not.Null);
             Assert.That(predictor.PredictorName, Is.Not.Null.And.Not.Empty);
@@ -216,25 +277,62 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void Prosit2020iRTTMT_ImplementsIRetentionTimePredictor()
         {
-            var model = new PredictionClients.Koina.SupportedModels.RetentionTimeModels
+            IRetentionTimePredictor predictor = new
+                PredictionClients.Koina.SupportedModels.RetentionTimeModels
                 .Prosit2020iRTTMT();
-
-            IRetentionTimePredictor predictor = model;
 
             Assert.That(predictor, Is.Not.Null);
             Assert.That(predictor.PredictorName, Is.Not.Null.And.Not.Empty);
         }
 
         [Test]
+        public void Prosit2019iRT_PredictRetentionTime_SinglePeptide_DoesNotThrow()
+        {
+            IRetentionTimePredictor predictor = new
+                PredictionClients.Koina.SupportedModels.RetentionTimeModels.Prosit2019iRT();
+
+            Assert.DoesNotThrow(() =>
+            {
+                predictor.PredictRetentionTime(
+                    new StubPeptide { BaseSequence = "PEPTIDE", FullSequence = "PEPTIDE" },
+                    out _);
+            });
+        }
+
+        [Test]
+        public void Prosit2019iRT_GetFormattedSequence_ReturnsNonNullForValidPeptide()
+        {
+            IRetentionTimePredictor predictor = new
+                PredictionClients.Koina.SupportedModels.RetentionTimeModels.Prosit2019iRT();
+
+            var result = predictor.GetFormattedSequence(
+                new StubPeptide { BaseSequence = "PEPTIDE", FullSequence = "PEPTIDE" },
+                out var failureReason);
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(failureReason, Is.Null);
+        }
+
+        [Test]
+        public void Prosit2019iRT_GetFormattedSequence_NullPeptide_ReturnsNullWithFailureReason()
+        {
+            IRetentionTimePredictor predictor = new
+                PredictionClients.Koina.SupportedModels.RetentionTimeModels.Prosit2019iRT();
+
+            var result = predictor.GetFormattedSequence(null!, out var failureReason);
+
+            Assert.That(result, Is.Null);
+            Assert.That(failureReason, Is.Not.Null);
+        }
+
+        // ── Live API tests (excluded from CI) ─────────────────────────────
+
+        [Test]
         [Explicit("Requires live Koina API access")]
         public void Prosit2019iRT_PredictRetentionTimes_BatchOverride_ReturnsResults()
         {
-            // Verifies the Koina override of PredictRetentionTimes issues a single
-            // batch HTTP call rather than looping per-peptide.
-            var model = new PredictionClients.Koina.SupportedModels.RetentionTimeModels
-                .Prosit2019iRT();
-
-            IRetentionTimePredictor predictor = model;
+            IRetentionTimePredictor predictor = new
+                PredictionClients.Koina.SupportedModels.RetentionTimeModels.Prosit2019iRT();
 
             var peptides = new List<IRetentionPredictable>
             {
@@ -246,9 +344,30 @@ namespace Test.RetentionTimePrediction
 
             Assert.That(results.Count, Is.EqualTo(2));
             Assert.That(results.Values.All(v => v.HasValue), Is.True);
-            // iRT values are roughly in the range -100 to 200
             foreach (var value in results.Values)
                 Assert.That(value!.Value, Is.InRange(-100.0, 200.0));
+        }
+
+        [Test]
+        [Explicit("Requires live Koina API access")]
+        public void Prosit2019iRT_PredictRetentionTimes_MixedValidInvalid_InvalidReturnsNull()
+        {
+            // Regression test for the pre-existing ModelInputs index bug.
+            IRetentionTimePredictor predictor = new
+                PredictionClients.Koina.SupportedModels.RetentionTimeModels.Prosit2019iRT();
+
+            var peptides = new List<IRetentionPredictable>
+            {
+                new StubPeptide { BaseSequence = "PEPUIDE", FullSequence = "PEPUIDE" },
+                new StubPeptide { BaseSequence = "AGHCEWQMK", FullSequence = "AGHCEWQMK" }
+            };
+
+            var results = predictor.PredictRetentionTimes(peptides);
+
+            Assert.That(results["PEPUIDE"], Is.Null,
+                "Invalid sequence should produce null prediction");
+            Assert.That(results["AGHCEWQMK"], Is.Not.Null,
+                "Valid sequence after invalid one must receive correct prediction");
         }
     }
 }
