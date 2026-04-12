@@ -26,6 +26,47 @@ namespace Test.FileReadingTests
     [TestFixture]
     internal class AnalysisExample
     {
+        private enum SimulationRunMode
+        {
+            QuickDev,
+            FullFidelity,
+        }
+
+        private sealed record SimulationRunProfile(
+            SimulationRunMode Mode,
+            int MaxRecords,
+            double RtHalfWidth,
+            int PointsPerSigma,
+            double MzPaddingInSigmas,
+            double ImspThresholdFraction,
+            double MinImspThreshold);
+
+        private static SimulationRunProfile GetSimulationRunProfile()
+        {
+            string? mode = Environment.GetEnvironmentVariable("MZLIB_TOPDOWN_SIM_MODE");
+            if (string.Equals(mode, "full", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(mode, "fullfidelity", StringComparison.OrdinalIgnoreCase))
+            {
+                return new SimulationRunProfile(
+                    Mode: SimulationRunMode.FullFidelity,
+                    MaxRecords: 200,
+                    RtHalfWidth: 0.40,
+                    PointsPerSigma: 3,
+                    MzPaddingInSigmas: 6.0,
+                    ImspThresholdFraction: 1e-5,
+                    MinImspThreshold: 0.1);
+            }
+
+            return new SimulationRunProfile(
+                Mode: SimulationRunMode.QuickDev,
+                MaxRecords: 25,
+                RtHalfWidth: 0.25,
+                PointsPerSigma: 1,
+                MzPaddingInSigmas: 4.0,
+                ImspThresholdFraction: 1e-4,
+                MinImspThreshold: 1.0);
+        }
+
 
         [Test]
         [Explicit("Interactive Plotly demo for a synthetic MS1 spectrum")]
@@ -280,6 +321,11 @@ namespace Test.FileReadingTests
         [Explicit("Fits TopDownSimulator models from rep2 and writes simulated IMSP")]
         public static void SimulateJurkatRep2AndWriteImsp()
         {
+            var totalSw = Stopwatch.StartNew();
+            var profile = GetSimulationRunProfile();
+
+            Console.WriteLine($"Simulation mode: {profile.Mode} (set MZLIB_TOPDOWN_SIM_MODE=full for full-fidelity)");
+
             string rawPath = ResolveLocalPath(@"D:\JurkatTopdown\02-18-20_jurkat_td_rep2_fract7.raw");
             string mmPath = ResolveLocalPath(@"D:\JurkatTopdown\Frac7_GPTMD_Search\Task2-TopDownSearch\AllProteoforms.psmtsv");
 
@@ -287,23 +333,31 @@ namespace Test.FileReadingTests
             string outDir = Path.GetDirectoryName(rawPath)!;
             string imspOutPath = Path.Combine(outDir, stem + ".simulated.imsp");
 
+            var stageSw = Stopwatch.StartNew();
             var reader = MsDataFileReader.GetDataFile(rawPath);
             reader.LoadAllStaticData();
+            Console.WriteLine($"Loaded source file in {stageSw.Elapsed}");
 
+            stageSw.Restart();
             var ms1Scans = reader.GetAllScansList()
                 .Where(s => s.MsnOrder == 1)
                 .OrderBy(s => s.OneBasedScanNumber)
                 .ToArray();
+            Console.WriteLine($"Collected {ms1Scans.Length} MS1 scans in {stageSw.Elapsed}");
 
+            stageSw.Restart();
             var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(ms1Scans)!;
             var extractor = new GroundTruthExtractor(indexingEngine, ms1Scans, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
+            Console.WriteLine($"Built indexing engine in {stageSw.Elapsed}");
 
+            stageSw.Restart();
             var loader = new MmResultLoader();
             var records = loader.Load(mmPath)
                 .Where(r => string.Equals(r.FileNameWithoutExtension, stem, StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(r => r.Score)
-                .Take(3)
+                .Take(profile.MaxRecords)
                 .ToArray();
+            Console.WriteLine($"Loaded and filtered {records.Length} MM records in {stageSw.Elapsed}");
 
             Assert.That(records, Is.Not.Empty, "No MetaMorpheus proteoform rows matched the rep2 raw filename.");
 
@@ -323,7 +377,7 @@ namespace Test.FileReadingTests
 
                 Console.WriteLine($"Starting fit {counter}/{records.Length}: {record.Identifier}, charge range {minCharge}-{maxCharge}");
 
-                var truth = extractor.Extract(record.MonoisotopicMass, record.RetentionTime, rtHalfWidth: 0.25, minCharge: minCharge, maxCharge: maxCharge);
+                var truth = extractor.Extract(record.MonoisotopicMass, record.RetentionTime, rtHalfWidth: profile.RtHalfWidth, minCharge: minCharge, maxCharge: maxCharge);
                 FittedProteoform fit;
                 try
                 {
@@ -360,15 +414,39 @@ namespace Test.FileReadingTests
 
             var scanTimes = ms1Scans.Select(s => s.RetentionTime).ToArray();
             var models = fitted.Select(f => f.Model).ToArray();
-            var simulation = new Simulator().Simulate(models, globalMinCharge, globalMaxCharge, sigmaMz, scanTimes);
+            stageSw.Restart();
+            var simulation = new Simulator().Simulate(
+                models,
+                globalMinCharge,
+                globalMaxCharge,
+                sigmaMz,
+                scanTimes,
+                pointsPerSigma: profile.PointsPerSigma,
+                mzPaddingInSigmas: profile.MzPaddingInSigmas);
+            Console.WriteLine($"Simulated {simulation.Scans.Length} scans in {stageSw.Elapsed}");
 
-            int peakCount = WriteImspFile(simulation.Scans, imspOutPath, intensityThreshold: 0);
+            stageSw.Restart();
+            double maxSimIntensity = 0;
+            foreach (var scan in simulation.Scans)
+            {
+                if (!scan.MassSpectrum.YArray.Any())
+                    continue;
+
+                double localMax = scan.MassSpectrum.YArray.Max();
+                if (localMax > maxSimIntensity)
+                    maxSimIntensity = localMax;
+            }
+
+            double intensityThreshold = Math.Max(profile.MinImspThreshold, maxSimIntensity * profile.ImspThresholdFraction);
+            int peakCount = WriteImspFile(simulation.Scans, imspOutPath, intensityThreshold: intensityThreshold);
+            Console.WriteLine($"Wrote IMSP in {stageSw.Elapsed} (threshold={intensityThreshold:F2})");
 
             Console.WriteLine($"Simulated models: {models.Length}");
             Console.WriteLine($"Fitted sigmaMz (median): {sigmaMz:F6}");
             Console.WriteLine($"Charge range: {globalMinCharge}-{globalMaxCharge}");
             Console.WriteLine($"Wrote simulated IMSP: {imspOutPath}");
             Console.WriteLine($"Simulated peak count: {peakCount}");
+            Console.WriteLine($"Total elapsed: {totalSw.Elapsed}");
         }
 
         private static string ResolveLocalPath(string preferredPath)

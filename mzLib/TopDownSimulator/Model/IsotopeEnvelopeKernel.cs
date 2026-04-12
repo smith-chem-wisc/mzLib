@@ -25,6 +25,7 @@ public sealed class IsotopeEnvelopeKernel
     private readonly double[] _normalizedIntensities;
     private readonly Dictionary<int, double[]> _centroidCacheByCharge = new();
     private readonly Dictionary<int, (double[] Centroids, double[] Intensities)> _sortedEvaluationCacheByCharge = new();
+    private readonly Dictionary<int, (double MinMz, double MaxMz)> _mzBoundsCacheByCharge = new();
 
     public IsotopeEnvelopeKernel(double monoisotopicMass)
     {
@@ -98,6 +99,25 @@ public sealed class IsotopeEnvelopeKernel
 
         _centroidCacheByCharge[charge] = result;
         return result;
+    }
+
+    public (double MinMz, double MaxMz) GetMzBounds(int charge)
+    {
+        if (_mzBoundsCacheByCharge.TryGetValue(charge, out var cached))
+            return cached;
+
+        var centroids = CentroidMzs(charge);
+        double minMz = double.PositiveInfinity;
+        double maxMz = double.NegativeInfinity;
+        for (int i = 0; i < centroids.Length; i++)
+        {
+            if (centroids[i] < minMz) minMz = centroids[i];
+            if (centroids[i] > maxMz) maxMz = centroids[i];
+        }
+
+        var computed = (minMz, maxMz);
+        _mzBoundsCacheByCharge[charge] = computed;
+        return computed;
     }
 
     private (double[] Centroids, double[] Intensities) GetSortedEvaluationArrays(int charge)

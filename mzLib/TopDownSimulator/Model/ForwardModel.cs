@@ -11,6 +11,9 @@ namespace TopDownSimulator.Model;
 /// </summary>
 public sealed class ForwardModel
 {
+    private const double EvaluationWindowInSigmas = 6.0;
+    private const double MinimumContributionWeight = 1e-18;
+
     private readonly IReadOnlyList<(ProteoformModel Model, IsotopeEnvelopeKernel Kernel)> _species;
     private readonly int _minCharge;
     private readonly int _maxCharge;
@@ -59,14 +62,70 @@ public sealed class ForwardModel
     public double[,] Rasterize(double[] scanTimes, double[] mzGrid)
     {
         var result = new double[scanTimes.Length, mzGrid.Length];
+
+        double mzPadding = EvaluationWindowInSigmas * _sigmaMz;
         for (int s = 0; s < scanTimes.Length; s++)
         {
             double t = scanTimes[s];
-            for (int b = 0; b < mzGrid.Length; b++)
+
+            foreach (var (model, kernel) in _species)
             {
-                result[s, b] = Evaluate(t, mzGrid[b]);
+                double rt = model.RtProfile.Evaluate(t);
+                if (rt <= 0)
+                    continue;
+
+                double rtScaledAbundance = model.Abundance * rt;
+                if (rtScaledAbundance <= MinimumContributionWeight)
+                    continue;
+
+                for (int z = _minCharge; z <= _maxCharge; z++)
+                {
+                    double fz = model.ChargeDistribution.Evaluate(z);
+                    double weight = rtScaledAbundance * fz;
+                    if (weight <= MinimumContributionWeight)
+                        continue;
+
+                    var (minMz, maxMz) = kernel.GetMzBounds(z);
+                    int start = LowerBound(mzGrid, minMz - mzPadding);
+                    int endExclusive = UpperBound(mzGrid, maxMz + mzPadding);
+
+                    for (int b = start; b < endExclusive; b++)
+                        result[s, b] += weight * kernel.Evaluate(mzGrid[b], z, _sigmaMz);
+                }
             }
         }
         return result;
+    }
+
+    private static int LowerBound(double[] values, double target)
+    {
+        int lo = 0;
+        int hi = values.Length;
+        while (lo < hi)
+        {
+            int mid = lo + ((hi - lo) >> 1);
+            if (values[mid] < target)
+                lo = mid + 1;
+            else
+                hi = mid;
+        }
+
+        return lo;
+    }
+
+    private static int UpperBound(double[] values, double target)
+    {
+        int lo = 0;
+        int hi = values.Length;
+        while (lo < hi)
+        {
+            int mid = lo + ((hi - lo) >> 1);
+            if (values[mid] <= target)
+                lo = mid + 1;
+            else
+                hi = mid;
+        }
+
+        return lo;
     }
 }
