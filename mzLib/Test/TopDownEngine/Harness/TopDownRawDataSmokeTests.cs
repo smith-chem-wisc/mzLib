@@ -27,13 +27,18 @@ public class TopDownRawDataSmokeTests
     [Test]
     public void MetaMorpheusResultFolder_IsDiscoverable()
     {
-        var allPsms = TopDownTestPaths.FindExistingFile("MM_1p1p4_GPTMD_Search", "AllPSMs.psmtsv");
-        if (allPsms is null)
+        var allProteoforms = TopDownTestPaths.FindExistingFile(
+            "Frac7_GPTMD_Search/Task2-TopDownSearch/AllProteoforms.psmtsv",
+            "Frac7_GPTMD_Search\\Task2-TopDownSearch\\AllProteoforms.psmtsv",
+            "MM_1p1p4_GPTMD_Search/AllProteoforms.psmtsv",
+            "MM_1p1p4_GPTMD_Search\\AllProteoforms.psmtsv",
+            "AllProteoforms.psmtsv");
+        if (allProteoforms is null)
         {
             Assert.Ignore("MetaMorpheus top-down fixtures are not present in local test data.");
         }
 
-        Assert.That(allPsms, Is.Not.Null);
+        Assert.That(allProteoforms, Is.Not.Null);
     }
 
     [Test]

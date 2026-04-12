@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
 
@@ -5,6 +7,13 @@ namespace Test.TopDownEngine.Shared;
 
 internal static class TopDownTestPaths
 {
+    private static readonly string[] ExternalDataRoots =
+    {
+        Environment.GetEnvironmentVariable("MZLIB_TOPDOWN_DATA_ROOT") ?? string.Empty,
+        @"D:\JurkatTopdown",
+        "/mnt/d/JurkatTopdown"
+    };
+
     internal static string Root => Path.Combine(TestContext.CurrentContext.TestDirectory, "TopDownEngine");
     internal static string Parsers => Path.Combine(Root, "Parsers");
     internal static string MetaMorpheus => Path.Combine(Parsers, "MetaMorpheus");
@@ -22,6 +31,9 @@ internal static class TopDownTestPaths
     {
         foreach (var candidate in relativePaths)
         {
+            if (File.Exists(candidate))
+                return candidate;
+
             var dataPath = Path.Combine(Data, candidate);
             if (File.Exists(dataPath))
                 return dataPath;
@@ -29,6 +41,16 @@ internal static class TopDownTestPaths
             var dataFilesPath = Path.Combine(DataFiles, candidate);
             if (File.Exists(dataFilesPath))
                 return dataFilesPath;
+
+            foreach (var root in ExternalDataRoots)
+            {
+                if (string.IsNullOrWhiteSpace(root))
+                    continue;
+
+                var rootedPath = Path.Combine(root, candidate);
+                if (File.Exists(rootedPath))
+                    return rootedPath;
+            }
         }
 
         return null;

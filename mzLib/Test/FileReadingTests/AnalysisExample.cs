@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using System.Xml.Serialization;
 using Test.FileReadingTests;
 using TopDownSimulator.Extraction;
+using TopDownSimulator.Fitting;
 using TopDownSimulator.Model;
 using TopDownSimulator.Simulation;
 using UsefulProteomicsDatabases;
@@ -109,7 +110,7 @@ namespace Test.FileReadingTests
         {
             string histoneSeq = "MPEPAKSAPAPKKGSKKAVTKAQKKDGKKRKRSRKESYSVYVYKVLKQVHPDTGISSKAMGIMNSFVNDIFERIAGEASRLAHYNKRSTITSREIQTAVRLLLPGELAKHAVSEGTKAVTKYTSAK";
 
-            ChemicalFormula cf = new Peptide(histoneSeq).GetChemicalFormula();
+            ChemicalFormula cf = new Proteomics.AminoAcidPolymer.Peptide(histoneSeq).GetChemicalFormula();
             IsotopicDistribution dist = IsotopicDistribution.GetDistribution(cf, 0.125, 1e-8);
             double[] mz = dist.Masses.Select(v => v.ToMz(20)).ToArray();
             double[] intensities = dist.Intensities.Select(v => v * 100).ToArray();
@@ -273,6 +274,118 @@ namespace Test.FileReadingTests
             Console.WriteLine($"Total MS1 peaks written: {peakCount}");
 
             File.WriteAllText(mdPath, ImspFormatMarkdown);
+        }
+
+        [Test]
+        [Explicit("Fits TopDownSimulator models from rep2 and writes simulated IMSP")]
+        public static void SimulateJurkatRep2AndWriteImsp()
+        {
+            string rawPath = ResolveLocalPath(@"D:\JurkatTopdown\02-18-20_jurkat_td_rep2_fract7.raw");
+            string mmPath = ResolveLocalPath(@"D:\JurkatTopdown\Frac7_GPTMD_Search\Task2-TopDownSearch\AllProteoforms.psmtsv");
+
+            string stem = Path.GetFileNameWithoutExtension(rawPath);
+            string outDir = Path.GetDirectoryName(rawPath)!;
+            string imspOutPath = Path.Combine(outDir, stem + ".simulated.imsp");
+
+            var reader = MsDataFileReader.GetDataFile(rawPath);
+            reader.LoadAllStaticData();
+
+            var ms1Scans = reader.GetAllScansList()
+                .Where(s => s.MsnOrder == 1)
+                .OrderBy(s => s.OneBasedScanNumber)
+                .ToArray();
+
+            var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(ms1Scans)!;
+            var extractor = new GroundTruthExtractor(indexingEngine, ms1Scans, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
+
+            var loader = new MmResultLoader();
+            var records = loader.Load(mmPath)
+                .Where(r => string.Equals(r.FileNameWithoutExtension, stem, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(r => r.Score)
+                .Take(3)
+                .ToArray();
+
+            Assert.That(records, Is.Not.Empty, "No MetaMorpheus proteoform rows matched the rep2 raw filename.");
+
+            var fitter = new ParameterFitter(widthFitter: new EnvelopeWidthFitter(fallbackSigmaMz: 0.012));
+            var fitted = new List<FittedProteoform>(records.Length);
+
+            int globalMinCharge = int.MaxValue;
+            int globalMaxCharge = int.MinValue;
+
+            int counter = 0;
+            foreach (var record in records)
+            {
+                int minCharge = Math.Max(2, record.PrecursorCharge - 2);
+                int maxCharge = Math.Min(80, record.PrecursorCharge + 2);
+                if (minCharge > maxCharge)
+                    continue;
+
+                Console.WriteLine($"Starting fit {counter}/{records.Length}: {record.Identifier}, charge range {minCharge}-{maxCharge}");
+
+                var truth = extractor.Extract(record.MonoisotopicMass, record.RetentionTime, rtHalfWidth: 0.25, minCharge: minCharge, maxCharge: maxCharge);
+                FittedProteoform fit;
+                try
+                {
+                    fit = fitter.Fit(truth, record.Identifier);
+                }
+                catch (InvalidOperationException)
+                {
+                    continue;
+                }
+
+                if (double.IsNaN(fit.Model.Abundance) || fit.Model.Abundance <= 0)
+                    continue;
+
+                fitted.Add(fit);
+                globalMinCharge = Math.Min(globalMinCharge, minCharge);
+                globalMaxCharge = Math.Max(globalMaxCharge, maxCharge);
+                counter++;
+                Console.WriteLine($"Completed fit {counter}/{records.Length}: {record.Identifier}, charge range {minCharge}-{maxCharge}, fitted abundance {fit.Model.Abundance:F2}, sigmaMz {fit.SigmaMz:F6}");
+            }
+
+            Assert.That(fitted, Is.Not.Empty, "No fit records were produced from rep2 MM results.");
+
+            var sigmaCandidates = fitted
+                .Select(f => f.SigmaMz)
+                .Where(s => !double.IsNaN(s) && !double.IsInfinity(s) && s > 0)
+                .OrderBy(s => s)
+                .ToArray();
+            double sigmaMz = sigmaCandidates.Length == 0 ? 0.012 : sigmaCandidates[sigmaCandidates.Length / 2];
+
+            if (globalMinCharge == int.MaxValue)
+                globalMinCharge = 2;
+            if (globalMaxCharge == int.MinValue)
+                globalMaxCharge = 80;
+
+            var scanTimes = ms1Scans.Select(s => s.RetentionTime).ToArray();
+            var models = fitted.Select(f => f.Model).ToArray();
+            var simulation = new Simulator().Simulate(models, globalMinCharge, globalMaxCharge, sigmaMz, scanTimes);
+
+            int peakCount = WriteImspFile(simulation.Scans, imspOutPath, intensityThreshold: 0);
+
+            Console.WriteLine($"Simulated models: {models.Length}");
+            Console.WriteLine($"Fitted sigmaMz (median): {sigmaMz:F6}");
+            Console.WriteLine($"Charge range: {globalMinCharge}-{globalMaxCharge}");
+            Console.WriteLine($"Wrote simulated IMSP: {imspOutPath}");
+            Console.WriteLine($"Simulated peak count: {peakCount}");
+        }
+
+        private static string ResolveLocalPath(string preferredPath)
+        {
+            if (File.Exists(preferredPath) || Directory.Exists(preferredPath))
+                return preferredPath;
+
+            if (preferredPath.Length >= 3 && preferredPath[1] == ':' && (preferredPath[2] == '\\' || preferredPath[2] == '/'))
+            {
+                char drive = char.ToLowerInvariant(preferredPath[0]);
+                string remainder = preferredPath.Substring(3).Replace('\\', '/');
+                string wslPath = $"/mnt/{drive}/{remainder}";
+                if (File.Exists(wslPath) || Directory.Exists(wslPath))
+                    return wslPath;
+            }
+
+            return preferredPath;
         }
 
         /// <summary>

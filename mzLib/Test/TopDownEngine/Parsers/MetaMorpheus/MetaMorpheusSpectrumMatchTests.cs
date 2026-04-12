@@ -12,7 +12,12 @@ public class MetaMorpheusSpectrumMatchTests
     [Test]
     public void AllPsms_File_Parses()
     {
-        var path = TopDownTestPaths.FindExistingFile("MM_1p1p4_GPTMD_Search", "AllPSMs.psmtsv");
+        var path = TopDownTestPaths.FindExistingFile(
+            "Frac7_GPTMD_Search/Task2-TopDownSearch/AllPSMs.psmtsv",
+            "Frac7_GPTMD_Search\\Task2-TopDownSearch\\AllPSMs.psmtsv",
+            "MM_1p1p4_GPTMD_Search/AllPSMs.psmtsv",
+            "MM_1p1p4_GPTMD_Search\\AllPSMs.psmtsv",
+            "AllPSMs.psmtsv");
         if (path is null)
         {
             Assert.Ignore("MetaMorpheus parser fixtures are not present in local test data.");
@@ -33,7 +38,12 @@ public class MetaMorpheusSpectrumMatchTests
     [Test]
     public void AllProteoforms_File_Parses()
     {
-        var path = TopDownTestPaths.FindExistingFile("MM_1p1p4_GPTMD_Search", "AllProteoforms.psmtsv");
+        var path = TopDownTestPaths.FindExistingFile(
+            "Frac7_GPTMD_Search/Task2-TopDownSearch/AllProteoforms.psmtsv",
+            "Frac7_GPTMD_Search\\Task2-TopDownSearch\\AllProteoforms.psmtsv",
+            "MM_1p1p4_GPTMD_Search/AllProteoforms.psmtsv",
+            "MM_1p1p4_GPTMD_Search\\AllProteoforms.psmtsv",
+            "AllProteoforms.psmtsv");
         if (path is null)
         {
             Assert.Ignore("MetaMorpheus parser fixtures are not present in local test data.");

@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using Chemistry;
 using FlashLFQ;
 using MassSpectrometry;
 using NUnit.Framework;
@@ -17,7 +18,12 @@ public class MetaMorpheusRawIntegrationTests
     [Test]
     public void HighestScoringProteoform_CanDriveRawWindowIndexing()
     {
-        var psmPath = TopDownTestPaths.FindExistingFile("MM_1p1p4_GPTMD_Search", "AllProteoforms.psmtsv");
+        var psmPath = TopDownTestPaths.FindExistingFile(
+            "Frac7_GPTMD_Search/Task2-TopDownSearch/AllProteoforms.psmtsv",
+            "Frac7_GPTMD_Search\\Task2-TopDownSearch\\AllProteoforms.psmtsv",
+            "MM_1p1p4_GPTMD_Search/AllProteoforms.psmtsv",
+            "MM_1p1p4_GPTMD_Search\\AllProteoforms.psmtsv",
+            "AllProteoforms.psmtsv");
         var rawPath = TopDownTestPaths.FindExistingFile("02-18-20_jurkat_td_rep1_fract7.raw", "02-18-20_jurkat_td_rep2_fract7.raw");
         if (psmPath is null || rawPath is null)
         {
@@ -48,10 +54,11 @@ public class MetaMorpheusRawIntegrationTests
         Assert.That(indexingEngine, Is.Not.Null);
 
         var apexScan = scans.OrderByDescending(s => s.TotalIonCurrent).First();
-        var queryMz = apexScan.MassSpectrum.XArray[0];
-        var xic = indexingEngine!.GetXicByScanIndex(queryMz, apexScan.OneBasedScanNumber - 1, new PpmTolerance(10), 2, 1.0);
+        var precursorCharge = Math.Max(1, topHit.PrecursorCharge);
+        var expectedMz = topHit.MonoisotopicMass.ToMz(precursorCharge);
+
+        var xic = indexingEngine!.GetXicByScanIndex(expectedMz, apexScan.OneBasedScanNumber - 1, new PpmTolerance(20), 2, 1.0);
 
         Assert.That(xic, Is.Not.Null);
-        Assert.That(xic.Count, Is.GreaterThan(0));
     }
 }

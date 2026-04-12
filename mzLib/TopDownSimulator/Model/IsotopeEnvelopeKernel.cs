@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Chemistry;
 using MassSpectrometry;
 
@@ -18,8 +19,12 @@ namespace TopDownSimulator.Model;
 /// </remarks>
 public sealed class IsotopeEnvelopeKernel
 {
+    private const double EvaluationWindowInSigmas = 6.0;
+
     private readonly double[] _neutralMasses;
     private readonly double[] _normalizedIntensities;
+    private readonly Dictionary<int, double[]> _centroidCacheByCharge = new();
+    private readonly Dictionary<int, (double[] Centroids, double[] Intensities)> _sortedEvaluationCacheByCharge = new();
 
     public IsotopeEnvelopeKernel(double monoisotopicMass)
     {
@@ -43,6 +48,7 @@ public sealed class IsotopeEnvelopeKernel
         {
             _normalizedIntensities[i] = theorIntensities[i] / sum;
         }
+
     }
 
     public int IsotopologueCount => _neutralMasses.Length;
@@ -54,14 +60,26 @@ public sealed class IsotopeEnvelopeKernel
     /// </summary>
     public double Evaluate(double mz, int charge, double sigmaMz)
     {
+        if (sigmaMz <= 0)
+            throw new ArgumentOutOfRangeException(nameof(sigmaMz));
+
         double inv2Sigma2 = 1.0 / (2 * sigmaMz * sigmaMz);
         double norm = 1.0 / (sigmaMz * Math.Sqrt(2 * Math.PI));
+        double window = EvaluationWindowInSigmas * sigmaMz;
+
+        var (centroids, intensities) = GetSortedEvaluationArrays(charge);
+        int start = LowerBound(centroids, mz - window);
+        int endExclusive = UpperBound(centroids, mz + window);
+
+        if (start >= endExclusive)
+            return 0;
+
         double sum = 0;
-        for (int i = 0; i < _neutralMasses.Length; i++)
+        for (int i = start; i < endExclusive; i++)
         {
-            double center = _neutralMasses[i].ToMz(charge);
+            double center = centroids[i];
             double d = mz - center;
-            sum += _normalizedIntensities[i] * norm * Math.Exp(-d * d * inv2Sigma2);
+            sum += intensities[i] * norm * Math.Exp(-d * d * inv2Sigma2);
         }
         return sum;
     }
@@ -71,9 +89,61 @@ public sealed class IsotopeEnvelopeKernel
     /// </summary>
     public double[] CentroidMzs(int charge)
     {
+        if (_centroidCacheByCharge.TryGetValue(charge, out var cached))
+            return cached;
+
         var result = new double[_neutralMasses.Length];
         for (int i = 0; i < _neutralMasses.Length; i++)
             result[i] = _neutralMasses[i].ToMz(charge);
+
+        _centroidCacheByCharge[charge] = result;
         return result;
+    }
+
+    private (double[] Centroids, double[] Intensities) GetSortedEvaluationArrays(int charge)
+    {
+        if (_sortedEvaluationCacheByCharge.TryGetValue(charge, out var cached))
+            return cached;
+
+        var centroids = CentroidMzs(charge);
+        var sortedCentroids = (double[])centroids.Clone();
+        var sortedIntensities = (double[])_normalizedIntensities.Clone();
+        Array.Sort(sortedCentroids, sortedIntensities);
+
+        var computed = (sortedCentroids, sortedIntensities);
+        _sortedEvaluationCacheByCharge[charge] = computed;
+        return computed;
+    }
+
+    private static int LowerBound(double[] values, double target)
+    {
+        int lo = 0;
+        int hi = values.Length;
+        while (lo < hi)
+        {
+            int mid = lo + ((hi - lo) >> 1);
+            if (values[mid] < target)
+                lo = mid + 1;
+            else
+                hi = mid;
+        }
+
+        return lo;
+    }
+
+    private static int UpperBound(double[] values, double target)
+    {
+        int lo = 0;
+        int hi = values.Length;
+        while (lo < hi)
+        {
+            int mid = lo + ((hi - lo) >> 1);
+            if (values[mid] <= target)
+                lo = mid + 1;
+            else
+                hi = mid;
+        }
+
+        return lo;
     }
 }
