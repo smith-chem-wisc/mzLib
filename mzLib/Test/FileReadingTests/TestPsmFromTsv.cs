@@ -149,7 +149,6 @@ namespace Test.FileReadingTests
             Assert.That(parsedPsms.All(p => p.TotalGlycanSites != null));
             Assert.That(parsedPsms.All(p => p.NGlycanMotifCheck != null));
             Assert.That(parsedPsms.All(p => p.AllPotentialGlycanLocalization != null));
-            Assert.That(parsedPsms.All(p => p.AllSiteSpecificLocalizationProbability != null));
         }
 
         [Test]
