@@ -28,7 +28,7 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor
         SequenceHandlingMode = sequenceHandlingMode;
     }
 
-    public double? PredictRetentionTime(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason)
+    public double? PredictRetentionTimeEquivalent(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason)
     {
         if (peptide == null)
             throw new ArgumentNullException(nameof(peptide));
@@ -55,6 +55,24 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor
     /// Core prediction logic - called when peptide passes all validation
     /// </summary>
     protected abstract double? PredictCore(IRetentionPredictable peptide, string? formattedSequence = null);
+
+    /// <summary>
+    /// Default batch implementation — loops over singles. Predictors that support true
+    /// batched inference (e.g. Chronologer) should override this method.
+    /// </summary>
+    // TODO: Chronologer should override this with a true batched tensor call
+    public virtual IReadOnlyList<RetentionTimeEquivalentResult> PredictRetentionTimeEquivalents(IEnumerable<IRetentionPredictable> peptides)
+    {
+        return peptides
+            .Select(p => new RetentionTimeEquivalentResult(p, PredictRetentionTimeEquivalent(p, out var reason), reason))
+            .ToList();
+    }
+
+    /// <summary>
+    /// No-op dispose for predictors that hold no unmanaged resources.
+    /// Chronologer overrides this to release its TorchSharp model.
+    /// </summary>
+    public virtual void Dispose() { }
 
     /// <summary>
     /// Format the peptide sequence appropriately for this predictor
@@ -88,4 +106,18 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor
 
         return true;
     }
+}
+/// <summary>
+/// The result of a retention time equivalent prediction for a single peptide.
+/// The predicted value may represent a time, iRT, or hydrophobicity depending on the predictor used.
+/// </summary>
+public readonly record struct RetentionTimeEquivalentResult(
+    IRetentionPredictable Peptide,
+    double? PredictedValue,
+    RetentionTimeFailureReason? FailureReason)
+{
+    /// <summary>
+    /// True if a value was successfully predicted.
+    /// </summary>
+    public bool Success => PredictedValue.HasValue;
 }
