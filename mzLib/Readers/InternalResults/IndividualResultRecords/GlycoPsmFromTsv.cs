@@ -36,10 +36,14 @@ public class GlycoPsmFromTsv : PsmFromTsv
             else
                 GlycanLocalizationLevel = (LocalizationLevel)Enum.Parse(typeof(LocalizationLevel), localizationLevel);
         }
+        else // if the cell value is in invalid input (empty string or whiteSpace), set the localization level to null.
+        {
+            GlycanLocalizationLevel = null;
+        }
         LocalizedGlycanInPeptide = GetOptionalValue(SpectrumMatchFromTsvHeader.LocalizedGlycanInPeptide, parsedHeader, spl);
         LocalizedGlycanInProtein = GetOptionalValue(SpectrumMatchFromTsvHeader.LocalizedGlycanInProtein, parsedHeader, spl);
         R138144 = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.R138144, parsedHeader, spl, 0).GetValueOrDefault(0);
-        LocalizedScores = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.LocalizedScores, parsedHeader, spl, 0);
+        LocalizedScores = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.LocalizedScores, parsedHeader, spl);
         YionScore = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.YionScore, parsedHeader, spl);
         DiagonosticIonScore = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.DiagonosticIonScore, parsedHeader, spl);
         TotalGlycanSites = GetOptionalValue(SpectrumMatchFromTsvHeader.TotalGlycanSite, parsedHeader, spl);

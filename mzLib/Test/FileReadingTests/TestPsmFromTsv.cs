@@ -242,18 +242,28 @@ namespace Test.FileReadingTests
         [TestCase(@"FileReadingTests\SearchResults\nglyco_noLocalizationScore.psmtsv")]
         public static void ReadNGlycoPsms_nullCheck(string psmFile) 
         {
-            // This test is to ensure that when reading older versions of nglyco.psmtsv files that do not have localization scores, the glyco-specific fields are still read correctly and the missing localization score fields do not cause any issues.
+            // This test is to ensure that when reading older versions of nglyco.psmtsv files that do not value for several properties e.g. localizationScore and localizationLevel, the glyco-specific fields are still read correctly and the missing localization score fields do not cause any issues.
             var header = File.ReadLines(psmFile).First();
-            Assert.That(header.Contains("Localization Score"));
+            Assert.That(header.Contains(SpectrumMatchFromTsvHeader.LocalizationScore));
+            Assert.That(header.Contains(SpectrumMatchFromTsvHeader.GlycanLocalizationLevel));
+            Assert.That(header.Contains(SpectrumMatchFromTsvHeader.LocalizedGlycanInPeptide));
+            Assert.That(header.Contains(SpectrumMatchFromTsvHeader.LocalizedGlycanInProtein));
+            Assert.That(header.Contains(SpectrumMatchFromTsvHeader.AllPotentialGlycanLocalization));
+            Assert.That(header.Contains(SpectrumMatchFromTsvHeader.AllSiteSpecificLocalizationProbability));
+            Assert.That(header.Contains(SpectrumMatchFromTsvHeader.GlycanStructure));
+            Assert.That(header.Contains(SpectrumMatchFromTsvHeader.TotalGlycanSite));
 
             List<GlycoPsmFromTsv> parsedGsms = SpectrumMatchTsvReader.ReadGlycoPsmTsv(psmFile, out var warnings);
             Assert.AreEqual(18, parsedGsms.Count);
             Assert.That(parsedGsms.All(p => p is GlycoPsmFromTsv));
-            Assert.That(parsedGsms.All(p => p.LocalizedGlycanInPeptide != null));
-            Assert.That(parsedGsms.All(p => p.LocalizedGlycanInProtein != null));
+            Assert.That(parsedGsms.All(p => p.LocalizedGlycanInPeptide == null));
+            Assert.That(parsedGsms.All(p => p.LocalizedGlycanInProtein == null));
             Assert.That(parsedGsms.All(p => p.LocalizedScores == null));
             Assert.That(parsedGsms.All(p => p.GlycanLocalizationLevel == null));
-
+            Assert.That(parsedGsms.All(p => p.TotalGlycanSites == null));
+            Assert.That(parsedGsms.All(p => p.GlycanStructure == null));
+            Assert.That(parsedGsms.All(p => p.AllPotentialGlycanLocalization == null));
+            Assert.That(parsedGsms.All(p => p.AllSiteSpecificLocalizationProbability == null));
         }
 
         [Test]

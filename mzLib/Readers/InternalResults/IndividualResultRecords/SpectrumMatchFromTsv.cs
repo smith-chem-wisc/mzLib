@@ -295,7 +295,12 @@ namespace Readers
             {
                 return defaultValue;
             }
-            return splitLine[parsedHeader[header]].Trim();
+            var value = splitLine[parsedHeader[header]].Trim();
+            if (string.IsNullOrWhiteSpace(value)) // if the cell is empty or only whitespace, treat it as missing and return defaultValue
+            {
+                return defaultValue;
+            }
+            return value;
         }
 
         protected TNumber? GetOptionalValue<TNumber>(string header, Dictionary<string, int> parsedHeader, string[] splitLine, TNumber? defaultValue = null)
