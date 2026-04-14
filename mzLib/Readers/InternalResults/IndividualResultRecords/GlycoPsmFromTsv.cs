@@ -39,7 +39,8 @@ public class GlycoPsmFromTsv : PsmFromTsv
         }
         LocalizedGlycanInPeptide = (parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycanInPeptide] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycanInPeptide]];
         LocalizedGlycanInProtein = (parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycanInProtein] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycanInProtein]];
-        R138144 = (parsedHeader[SpectrumMatchFromTsvHeader.R138144] < 0) ? null : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.R138144]], CultureInfo.InvariantCulture);
+        R138144 = (parsedHeader[SpectrumMatchFromTsvHeader.R138144] < 0 ||
+            string.IsNullOrEmpty(spl[parsedHeader[SpectrumMatchFromTsvHeader.R138144]])) ? null : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.R138144]], CultureInfo.InvariantCulture);
         LocalizedScores = (parsedHeader[SpectrumMatchFromTsvHeader.LocalizedScores] < 0 
             || string.IsNullOrEmpty(spl[parsedHeader[SpectrumMatchFromTsvHeader.LocalizedScores]])) ? null : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.LocalizedScores]], CultureInfo.InvariantCulture);
         YionScore = (parsedHeader[SpectrumMatchFromTsvHeader.YionScore] < 0

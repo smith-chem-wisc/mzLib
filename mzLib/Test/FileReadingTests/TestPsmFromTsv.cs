@@ -250,7 +250,7 @@ namespace Test.FileReadingTests
             Assert.AreEqual(18, parsedGsms.Count);
             Assert.That(parsedGsms.All(p => p is GlycoPsmFromTsv));
             Assert.That(parsedGsms.All(p => p.LocalizedGlycanInPeptide != null));
-            Assert.That(parsedGsms.All(p => p.LocalizedGlycanInPeptide != null));
+            Assert.That(parsedGsms.All(p => p.LocalizedGlycanInProtein != null));
             Assert.That(parsedGsms.All(p => p.LocalizedScores == null));
             Assert.That(parsedGsms.All(p => p.GlycanLocalizationLevel == null));
 

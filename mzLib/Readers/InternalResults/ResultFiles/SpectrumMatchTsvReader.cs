@@ -45,8 +45,7 @@ namespace Readers
             // Pre-allocate result array
             T?[] psmsArray = new T[lineCount];
             var warningsBag = new System.Collections.Concurrent.ConcurrentBag<string>();
-            //int maxThreads = Math.Min(8, Environment.ProcessorCount - 1);
-            int maxThreads = 1;
+            int maxThreads = Math.Min(8, Environment.ProcessorCount - 1);
             int chunkSize = (int)Math.Ceiling((double)lineCount / maxThreads);
 
             Parallel.For(0, maxThreads, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, threadIdx =>
