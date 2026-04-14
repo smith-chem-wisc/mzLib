@@ -239,6 +239,24 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        [TestCase(@"FileReadingTests\SearchResults\nglyco_noLocalizationScore.psmtsv")]
+        public static void ReadNGlycoPsms_nullCheck(string psmFile) 
+        {
+            // This test is to ensure that when reading older versions of nglyco.psmtsv files that do not have localization scores, the glyco-specific fields are still read correctly and the missing localization score fields do not cause any issues.
+            var header = File.ReadLines(psmFile).First();
+            Assert.That(header.Contains("Localization Score"));
+
+            List<GlycoPsmFromTsv> parsedGsms = SpectrumMatchTsvReader.ReadGlycoPsmTsv(psmFile, out var warnings);
+            Assert.AreEqual(18, parsedGsms.Count);
+            Assert.That(parsedGsms.All(p => p is GlycoPsmFromTsv));
+            Assert.That(parsedGsms.All(p => p.LocalizedGlycanInPeptide != null));
+            Assert.That(parsedGsms.All(p => p.LocalizedGlycanInPeptide != null));
+            Assert.That(parsedGsms.All(p => p.LocalizedScores == null));
+            Assert.That(parsedGsms.All(p => p.GlycanLocalizationLevel == null));
+
+        }
+
+        [Test]
         public static void GlycoPsmReader_CreatesNormalPsmsForAllPSMFileWhenAppropriate()
         {
             int expectedGlyco = 9;

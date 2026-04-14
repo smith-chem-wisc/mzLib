@@ -10,7 +10,7 @@ public class GlycoPsmFromTsv : PsmFromTsv
     public LocalizationLevel? GlycanLocalizationLevel { get; set; }
     public string LocalizedGlycanInPeptide { get; set; }
     public string LocalizedGlycanInProtein { get; set; }
-    public double R138144 { get; set; }
+    public double? R138144 { get; set; }
     public double? LocalizedScores { get; set; }
     public double? YionScore { get; set; }
     public double? DiagonosticIonScore { get; set; }
@@ -28,7 +28,8 @@ public class GlycoPsmFromTsv : PsmFromTsv
         GlycanMass = (parsedHeader[SpectrumMatchFromTsvHeader.GlycanMass] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.GlycanMass]], CultureInfo.InvariantCulture);
         GlycanComposition = (parsedHeader[SpectrumMatchFromTsvHeader.GlycanComposition] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.GlycanComposition]];
         GlycanStructure = (parsedHeader[SpectrumMatchFromTsvHeader.GlycanStructure] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.GlycanStructure]];
-        var localizationLevel = (parsedHeader[SpectrumMatchFromTsvHeader.GlycanLocalizationLevel] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.GlycanLocalizationLevel]];
+        var localizationLevel = (parsedHeader[SpectrumMatchFromTsvHeader.GlycanLocalizationLevel] < 0 || 
+            string.IsNullOrEmpty(spl[parsedHeader[SpectrumMatchFromTsvHeader.GlycanLocalizationLevel]])) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.GlycanLocalizationLevel]];
         if (localizationLevel != null)
         {
             if (localizationLevel.Equals("NA"))
@@ -38,10 +39,13 @@ public class GlycoPsmFromTsv : PsmFromTsv
         }
         LocalizedGlycanInPeptide = (parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycanInPeptide] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycanInPeptide]];
         LocalizedGlycanInProtein = (parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycanInProtein] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.LocalizedGlycanInProtein]];
-        R138144 = (parsedHeader[SpectrumMatchFromTsvHeader.R138144] < 0) ? 0 : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.R138144]], CultureInfo.InvariantCulture);
-        LocalizedScores = (parsedHeader[SpectrumMatchFromTsvHeader.LocalizedScores] < 0) ? 0 : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.LocalizedScores]], CultureInfo.InvariantCulture);
-        YionScore = (parsedHeader[SpectrumMatchFromTsvHeader.YionScore] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.YionScore]], CultureInfo.InvariantCulture);
-        DiagonosticIonScore = (parsedHeader[SpectrumMatchFromTsvHeader.DiagonosticIonScore] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.DiagonosticIonScore]], CultureInfo.InvariantCulture);
+        R138144 = (parsedHeader[SpectrumMatchFromTsvHeader.R138144] < 0) ? null : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.R138144]], CultureInfo.InvariantCulture);
+        LocalizedScores = (parsedHeader[SpectrumMatchFromTsvHeader.LocalizedScores] < 0 
+            || string.IsNullOrEmpty(spl[parsedHeader[SpectrumMatchFromTsvHeader.LocalizedScores]])) ? null : double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.LocalizedScores]], CultureInfo.InvariantCulture);
+        YionScore = (parsedHeader[SpectrumMatchFromTsvHeader.YionScore] < 0
+            || string.IsNullOrEmpty(spl[parsedHeader[SpectrumMatchFromTsvHeader.YionScore]])) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.YionScore]], CultureInfo.InvariantCulture);
+        DiagonosticIonScore = (parsedHeader[SpectrumMatchFromTsvHeader.DiagonosticIonScore] < 0 
+            || string.IsNullOrEmpty(spl[parsedHeader[SpectrumMatchFromTsvHeader.DiagonosticIonScore]])) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.DiagonosticIonScore]], CultureInfo.InvariantCulture);
         TotalGlycanSites = (parsedHeader[SpectrumMatchFromTsvHeader.TotalGlycanSite] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.TotalGlycanSite]];
         FlankingResidues = (parsedHeader[SpectrumMatchFromTsvHeader.FlankingResidues] < 0) ? null
             : spl[parsedHeader[SpectrumMatchFromTsvHeader.FlankingResidues]];
