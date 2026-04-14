@@ -38,7 +38,7 @@ namespace Test.RetentionTimePrediction
         public void TearDown()
         {
             foreach (var predictor in _predictors)
-                predictor.Dispose();
+                (predictor as IDisposable)?.Dispose();
         }
 
         #region Result Struct Tests
@@ -120,7 +120,7 @@ namespace Test.RetentionTimePrediction
         }
 
         [Test]
-        public void PredictRetentionTimeEquivalents_PreservesOrderOfInput()
+        public void PredictRetentionTimeEquivalents_ContainsAllInputPeptides()
         {
             var sequences = new[] { "PEPTIDE", "PEPTIDER", "ANALYSIS", "TESTING", "PEPTIDER" };
             var peptides = sequences
@@ -131,11 +131,11 @@ namespace Test.RetentionTimePrediction
             {
                 var results = predictor.PredictRetentionTimeEquivalents(peptides);
 
-                for (int i = 0; i < sequences.Length; i++)
-                {
-                    Assert.That(results[i].Peptide.BaseSequence, Is.EqualTo(sequences[i]),
-                        $"{predictor.PredictorName} did not preserve input order at index {i}");
-                }
+                // Parallel production means results may be unordered; assert all sequences are present
+                var resultSequences = results.Select(r => r.Peptide.BaseSequence).OrderBy(s => s).ToList();
+                var expectedSequences = sequences.OrderBy(s => s).ToList();
+                Assert.That(resultSequences, Is.EqualTo(expectedSequences),
+                    $"{predictor.PredictorName} did not return all input peptides");
             }
         }
 
@@ -155,16 +155,18 @@ namespace Test.RetentionTimePrediction
 
             foreach (var predictor in _predictors)
             {
-                var batchResults = predictor.PredictRetentionTimeEquivalents(peptides);
+                var batchResults = predictor.PredictRetentionTimeEquivalents(peptides)
+                    .ToDictionary(r => r.Peptide.BaseSequence);
 
-                for (int i = 0; i < peptides.Length; i++)
+                foreach (var peptide in peptides)
                 {
-                    var singleResult = predictor.PredictRetentionTimeEquivalent(peptides[i], out var singleReason);
+                    var singleResult = predictor.PredictRetentionTimeEquivalent(peptide, out var singleReason);
+                    var batchResult = batchResults[peptide.BaseSequence];
 
-                    Assert.That(batchResults[i].PredictedValue, Is.EqualTo(singleResult),
-                        $"{predictor.PredictorName} batch result differed from single at index {i}");
-                    Assert.That(batchResults[i].FailureReason, Is.EqualTo(singleReason),
-                        $"{predictor.PredictorName} batch failure reason differed from single at index {i}");
+                    Assert.That(batchResult.PredictedValue, Is.EqualTo(singleResult),
+                        $"{predictor.PredictorName} batch result differed from single for {peptide.BaseSequence}");
+                    Assert.That(batchResult.FailureReason, Is.EqualTo(singleReason),
+                        $"{predictor.PredictorName} batch failure reason differed from single for {peptide.BaseSequence}");
                 }
             }
         }
@@ -180,13 +182,16 @@ namespace Test.RetentionTimePrediction
 
             foreach (var predictor in _predictors)
             {
-                var results1 = predictor.PredictRetentionTimeEquivalents(peptides);
-                var results2 = predictor.PredictRetentionTimeEquivalents(peptides);
+                var results1 = predictor.PredictRetentionTimeEquivalents(peptides)
+                    .ToDictionary(r => r.Peptide.BaseSequence);
+                var results2 = predictor.PredictRetentionTimeEquivalents(peptides)
+                    .ToDictionary(r => r.Peptide.BaseSequence);
 
-                for (int i = 0; i < peptides.Length; i++)
+                foreach (var peptide in peptides)
                 {
-                    Assert.That(results1[i].PredictedValue, Is.EqualTo(results2[i].PredictedValue),
-                        $"{predictor.PredictorName} gave inconsistent batch results at index {i}");
+                    Assert.That(results1[peptide.BaseSequence].PredictedValue,
+                        Is.EqualTo(results2[peptide.BaseSequence].PredictedValue),
+                        $"{predictor.PredictorName} gave inconsistent batch results for {peptide.BaseSequence}");
                 }
             }
         }
@@ -213,13 +218,16 @@ namespace Test.RetentionTimePrediction
 
                 Assert.That(results.Count, Is.EqualTo(5),
                     $"{predictor.PredictorName} returned wrong count for mixed batch");
-                Assert.That(results[0].Success, Is.True, $"{predictor.PredictorName} index 0 should succeed");
-                Assert.That(results[1].Success, Is.False, $"{predictor.PredictorName} index 1 should fail (too short)");
-                Assert.That(results[1].FailureReason, Is.EqualTo(RetentionTimeFailureReason.SequenceTooShort));
-                Assert.That(results[2].Success, Is.True, $"{predictor.PredictorName} index 2 should succeed");
-                Assert.That(results[3].Success, Is.False, $"{predictor.PredictorName} index 3 should fail (empty)");
-                Assert.That(results[3].FailureReason, Is.EqualTo(RetentionTimeFailureReason.EmptySequence));
-                Assert.That(results[4].Success, Is.True, $"{predictor.PredictorName} index 4 should succeed");
+
+                var bySequence = results.ToDictionary(r => r.Peptide.BaseSequence);
+
+                Assert.That(bySequence["PEPTIDE"].Success, Is.True, $"{predictor.PredictorName} PEPTIDE should succeed");
+                Assert.That(bySequence["PEP"].Success, Is.False, $"{predictor.PredictorName} PEP should fail (too short)");
+                Assert.That(bySequence["PEP"].FailureReason, Is.EqualTo(RetentionTimeFailureReason.SequenceTooShort));
+                Assert.That(bySequence["PEPTIDER"].Success, Is.True, $"{predictor.PredictorName} PEPTIDER should succeed");
+                Assert.That(bySequence[""].Success, Is.False, $"{predictor.PredictorName} empty should fail");
+                Assert.That(bySequence[""].FailureReason, Is.EqualTo(RetentionTimeFailureReason.EmptySequence));
+                Assert.That(bySequence["ANALYSIS"].Success, Is.True, $"{predictor.PredictorName} ANALYSIS should succeed");
             }
         }
 
@@ -229,7 +237,7 @@ namespace Test.RetentionTimePrediction
             // Only Chronologer has a MaxSequenceLength (50); SSRCalc3 and CZE do not
             var longPeptide = new PeptideWithSetModifications(new string('A', 60), new Dictionary<string, Modification>());
 
-            using var chronologer = new ChronologerRetentionTimePredictor();
+            var chronologer = new ChronologerRetentionTimePredictor();
             var results = chronologer.PredictRetentionTimeEquivalents(new[] { longPeptide });
 
             Assert.That(results[0].Success, Is.False);
@@ -335,7 +343,7 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void Factory_Create_SSRCalc3_ReturnsFunctionalPredictor()
         {
-            using var predictor = IRetentionTimePredictor.Create(IRetentionTimePredictor.PredictorType.SSRCalc3);
+            var predictor = IRetentionTimePredictor.Create(IRetentionTimePredictor.PredictorType.SSRCalc3);
             var peptides = new[] { new PeptideWithSetModifications("PEPTIDE", new Dictionary<string, Modification>()) };
 
             var results = predictor.PredictRetentionTimeEquivalents(peptides);
@@ -347,7 +355,7 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void Factory_Create_Chronologer_ReturnsFunctionalPredictor()
         {
-            using var predictor = IRetentionTimePredictor.Create(IRetentionTimePredictor.PredictorType.Chronologer);
+            var predictor = IRetentionTimePredictor.Create(IRetentionTimePredictor.PredictorType.Chronologer);
             var peptides = new[] { new PeptideWithSetModifications("PEPTIDE", new Dictionary<string, Modification>()) };
 
             var results = predictor.PredictRetentionTimeEquivalents(peptides);
@@ -359,7 +367,7 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void Factory_Create_CZE_ReturnsFunctionalPredictor()
         {
-            using var predictor = IRetentionTimePredictor.Create(IRetentionTimePredictor.PredictorType.CZE);
+            var predictor = IRetentionTimePredictor.Create(IRetentionTimePredictor.PredictorType.CZE);
             var peptides = new[] { new PeptideWithSetModifications("PEPTIDE", new Dictionary<string, Modification>()) };
 
             var results = predictor.PredictRetentionTimeEquivalents(peptides);

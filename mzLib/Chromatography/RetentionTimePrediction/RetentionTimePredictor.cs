@@ -57,16 +57,42 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor
     protected abstract double? PredictCore(IRetentionPredictable peptide, string? formattedSequence = null);
 
     /// <summary>
-    /// Default batch implementation — loops over singles. Predictors that support true
-    /// batched inference (e.g. Chronologer) should override this method.
+    /// Parallel producer — emits results as they complete, unordered.
+    /// Both PredictRetentionTimeEquivalents and StreamRetentionTimeEquivalents delegate here.
+    /// Predictors that support true batched inference (e.g. Chronologer) should override
+    /// PredictRetentionTimeEquivalents instead of this method.
+    /// </summary>
+    private IEnumerable<RetentionTimeEquivalentResult> ProduceResults(IEnumerable<IRetentionPredictable> peptides)
+    {
+        var collection = new System.Collections.Concurrent.BlockingCollection<RetentionTimeEquivalentResult>();
+
+        Task.Run(() =>
+        {
+            Parallel.ForEach(peptides, peptide =>
+            {
+                var value = PredictRetentionTimeEquivalent(peptide, out var reason);
+                collection.Add(new RetentionTimeEquivalentResult(peptide, value, reason));
+            });
+            collection.CompleteAdding();
+        });
+
+        foreach (var item in collection.GetConsumingEnumerable())
+            yield return item;
+    }
+
+    /// <summary>
+    /// Streams results as they are produced in parallel. Results may be unordered.
+    /// </summary>
+    public virtual IEnumerable<RetentionTimeEquivalentResult> StreamRetentionTimeEquivalents(IEnumerable<IRetentionPredictable> peptides)
+        => ProduceResults(peptides);
+
+    /// <summary>
+    /// Default batch implementation — parallel production, materialized result.
+    /// Predictors that support true batched inference (e.g. Chronologer) should override this method.
     /// </summary>
     // TODO: Chronologer should override this with a true batched tensor call
     public virtual IReadOnlyList<RetentionTimeEquivalentResult> PredictRetentionTimeEquivalents(IEnumerable<IRetentionPredictable> peptides)
-    {
-        return peptides
-            .Select(p => new RetentionTimeEquivalentResult(p, PredictRetentionTimeEquivalent(p, out var reason), reason))
-            .ToList();
-    }
+        => ProduceResults(peptides).ToList();
 
     /// <summary>
     /// No-op dispose for predictors that hold no unmanaged resources.
