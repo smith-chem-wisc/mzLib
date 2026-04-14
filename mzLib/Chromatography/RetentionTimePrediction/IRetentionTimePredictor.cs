@@ -7,7 +7,7 @@ namespace Chromatography.RetentionTimePrediction;
 /// <summary>
 /// Represents a retention time predictor that can predict RT for peptides.
 /// </summary>
-public interface IRetentionTimePredictor : IDisposable
+public interface IRetentionTimePredictor
 {
     /// <summary>
     /// The available predictor types that can be created via <see cref="Create"/>.

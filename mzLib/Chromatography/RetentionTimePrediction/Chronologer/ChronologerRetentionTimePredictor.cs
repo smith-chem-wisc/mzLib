@@ -8,7 +8,7 @@ namespace Chromatography.RetentionTimePrediction.Chronologer;
 /// Chronologer-based retention time predictor using deep learning.
 /// Predicts C18 retention times reported in % ACN.
 /// </summary>
-public class ChronologerRetentionTimePredictor : RetentionTimePredictor
+public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDisposable
 {
     private static readonly SequenceConversionService ConversionService = SequenceConversionService.Default;
     private static readonly string ChronologerFormatName = ChronologerSequenceFormatSchema.Instance.FormatName;
