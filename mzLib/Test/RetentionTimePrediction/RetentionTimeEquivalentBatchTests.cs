@@ -41,43 +41,6 @@ namespace Test.RetentionTimePrediction
                 (predictor as IDisposable)?.Dispose();
         }
 
-        #region Result Struct Tests
-
-        [Test]
-        public void RetentionTimeEquivalentResult_SuccessProperty_TrueWhenValuePresent()
-        {
-            var peptide = new PeptideWithSetModifications("PEPTIDE", new Dictionary<string, Modification>());
-            var result = new RetentionTimeEquivalentResult(peptide, 25.3, null);
-
-            Assert.That(result.Success, Is.True);
-            Assert.That(result.PredictedValue, Is.EqualTo(25.3));
-            Assert.That(result.FailureReason, Is.Null);
-            Assert.That(result.Peptide, Is.SameAs(peptide));
-        }
-
-        [Test]
-        public void RetentionTimeEquivalentResult_SuccessProperty_FalseWhenValueNull()
-        {
-            var peptide = new PeptideWithSetModifications("PEP", new Dictionary<string, Modification>());
-            var result = new RetentionTimeEquivalentResult(peptide, null, RetentionTimeFailureReason.SequenceTooShort);
-
-            Assert.That(result.Success, Is.False);
-            Assert.That(result.PredictedValue, Is.Null);
-            Assert.That(result.FailureReason, Is.EqualTo(RetentionTimeFailureReason.SequenceTooShort));
-        }
-
-        [Test]
-        public void RetentionTimeEquivalentResult_Equality_TwoIdenticalResultsAreEqual()
-        {
-            var peptide = new PeptideWithSetModifications("PEPTIDE", new Dictionary<string, Modification>());
-            var result1 = new RetentionTimeEquivalentResult(peptide, 25.3, null);
-            var result2 = new RetentionTimeEquivalentResult(peptide, 25.3, null);
-
-            Assert.That(result1, Is.EqualTo(result2));
-        }
-
-        #endregion
-
         #region Basic Batch Functionality
 
         [Test]
@@ -113,9 +76,9 @@ namespace Test.RetentionTimePrediction
             {
                 var results = predictor.PredictRetentionTimeEquivalents(peptides);
 
-                Assert.That(results.All(r => r.Success), Is.True,
+                Assert.That(results.All(r => r.PredictedValue.HasValue), Is.True,
                     $"{predictor.PredictorName} had unexpected failures: " +
-                    string.Join(", ", results.Where(r => !r.Success).Select(r => r.FailureReason)));
+                    string.Join(", ", results.Where(r => !r.PredictedValue.HasValue).Select(r => r.FailureReason)));
             }
         }
 
@@ -221,13 +184,13 @@ namespace Test.RetentionTimePrediction
 
                 var bySequence = results.ToDictionary(r => r.Peptide.BaseSequence);
 
-                Assert.That(bySequence["PEPTIDE"].Success, Is.True, $"{predictor.PredictorName} PEPTIDE should succeed");
-                Assert.That(bySequence["PEP"].Success, Is.False, $"{predictor.PredictorName} PEP should fail (too short)");
+                Assert.That(bySequence["PEPTIDE"].PredictedValue.HasValue, Is.True, $"{predictor.PredictorName} PEPTIDE should succeed");
+                Assert.That(bySequence["PEP"].PredictedValue.HasValue, Is.False, $"{predictor.PredictorName} PEP should fail (too short)");
                 Assert.That(bySequence["PEP"].FailureReason, Is.EqualTo(RetentionTimeFailureReason.SequenceTooShort));
-                Assert.That(bySequence["PEPTIDER"].Success, Is.True, $"{predictor.PredictorName} PEPTIDER should succeed");
-                Assert.That(bySequence[""].Success, Is.False, $"{predictor.PredictorName} empty should fail");
+                Assert.That(bySequence["PEPTIDER"].PredictedValue.HasValue, Is.True, $"{predictor.PredictorName} PEPTIDER should succeed");
+                Assert.That(bySequence[""].PredictedValue.HasValue, Is.False, $"{predictor.PredictorName} empty should fail");
                 Assert.That(bySequence[""].FailureReason, Is.EqualTo(RetentionTimeFailureReason.EmptySequence));
-                Assert.That(bySequence["ANALYSIS"].Success, Is.True, $"{predictor.PredictorName} ANALYSIS should succeed");
+                Assert.That(bySequence["ANALYSIS"].PredictedValue.HasValue, Is.True, $"{predictor.PredictorName} ANALYSIS should succeed");
             }
         }
 
@@ -240,7 +203,7 @@ namespace Test.RetentionTimePrediction
             var chronologer = new ChronologerRetentionTimePredictor();
             var results = chronologer.PredictRetentionTimeEquivalents(new[] { longPeptide });
 
-            Assert.That(results[0].Success, Is.False);
+            Assert.That(results[0].PredictedValue.HasValue, Is.False);
             Assert.That(results[0].FailureReason, Is.EqualTo(RetentionTimeFailureReason.SequenceTooLong));
         }
 
@@ -257,7 +220,7 @@ namespace Test.RetentionTimePrediction
             {
                 var results = predictor.PredictRetentionTimeEquivalents(peptides);
 
-                Assert.That(results.All(r => !r.Success), Is.True,
+                Assert.That(results.All(r => !r.PredictedValue.HasValue), Is.True,
                     $"{predictor.PredictorName} should have all failures");
                 Assert.That(results.All(r => r.FailureReason.HasValue), Is.True,
                     $"{predictor.PredictorName} should provide failure reasons for all");
@@ -296,7 +259,7 @@ namespace Test.RetentionTimePrediction
 
                 Assert.That(results.Count, Is.EqualTo(1),
                     $"{predictor.PredictorName} should return single result");
-                Assert.That(results[0].Success, Is.True,
+                Assert.That(results[0].PredictedValue.HasValue, Is.True,
                     $"{predictor.PredictorName} should succeed for valid single-item batch");
             }
         }
@@ -328,7 +291,7 @@ namespace Test.RetentionTimePrediction
 
             foreach (var predictor in _predictors)
             {
-                IReadOnlyList<RetentionTimeEquivalentResult> results = null;
+                IReadOnlyList<(double? PredictedValue, IRetentionPredictable Peptide, RetentionTimeFailureReason? FailureReason)> results = null;
                 Assert.DoesNotThrow(() => results = predictor.PredictRetentionTimeEquivalents(peptides),
                     $"{predictor.PredictorName} threw on large batch");
                 Assert.That(results.Count, Is.EqualTo(500),
@@ -349,7 +312,7 @@ namespace Test.RetentionTimePrediction
             var results = predictor.PredictRetentionTimeEquivalents(peptides);
 
             Assert.That(results.Count, Is.EqualTo(1));
-            Assert.That(results[0].Success, Is.True);
+            Assert.That(results[0].PredictedValue.HasValue, Is.True);
         }
 
         [Test]
@@ -361,7 +324,7 @@ namespace Test.RetentionTimePrediction
             var results = predictor.PredictRetentionTimeEquivalents(peptides);
 
             Assert.That(results.Count, Is.EqualTo(1));
-            Assert.That(results[0].Success, Is.True);
+            Assert.That(results[0].PredictedValue.HasValue, Is.True);
         }
 
         [Test]
@@ -373,7 +336,7 @@ namespace Test.RetentionTimePrediction
             var results = predictor.PredictRetentionTimeEquivalents(peptides);
 
             Assert.That(results.Count, Is.EqualTo(1));
-            Assert.That(results[0].Success, Is.True);
+            Assert.That(results[0].PredictedValue.HasValue, Is.True);
         }
 
         [Test]

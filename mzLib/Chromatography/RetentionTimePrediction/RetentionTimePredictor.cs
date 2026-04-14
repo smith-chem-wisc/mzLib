@@ -62,16 +62,16 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor
     /// Predictors that support true batched inference (e.g. Chronologer) should override
     /// PredictRetentionTimeEquivalents instead of this method.
     /// </summary>
-    private IEnumerable<RetentionTimeEquivalentResult> ProduceResults(IEnumerable<IRetentionPredictable> peptides)
+    private IEnumerable<(double? PredictedValue, IRetentionPredictable Peptide, RetentionTimeFailureReason? FailureReason)> ProduceResults(IEnumerable<IRetentionPredictable> peptides)
     {
-        var collection = new System.Collections.Concurrent.BlockingCollection<RetentionTimeEquivalentResult>();
+        var collection = new System.Collections.Concurrent.BlockingCollection<(double? PredictedValue, IRetentionPredictable Peptide, RetentionTimeFailureReason? FailureReason)>();
 
         Task.Run(() =>
         {
             Parallel.ForEach(peptides, peptide =>
             {
                 var value = PredictRetentionTimeEquivalent(peptide, out var reason);
-                collection.Add(new RetentionTimeEquivalentResult(peptide, value, reason));
+                collection.Add((value, peptide, reason));
             });
             collection.CompleteAdding();
         });
@@ -83,7 +83,7 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor
     /// <summary>
     /// Streams results as they are produced in parallel. Results may be unordered.
     /// </summary>
-    public virtual IEnumerable<RetentionTimeEquivalentResult> StreamRetentionTimeEquivalents(IEnumerable<IRetentionPredictable> peptides)
+    public virtual IEnumerable<(double? PredictedValue, IRetentionPredictable Peptide, RetentionTimeFailureReason? FailureReason)> StreamRetentionTimeEquivalents(IEnumerable<IRetentionPredictable> peptides)
         => ProduceResults(peptides);
 
     /// <summary>
@@ -91,7 +91,7 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor
     /// Predictors that support true batched inference (e.g. Chronologer) should override this method.
     /// </summary>
     // TODO: Chronologer should override this with a true batched tensor call
-    public virtual IReadOnlyList<RetentionTimeEquivalentResult> PredictRetentionTimeEquivalents(IEnumerable<IRetentionPredictable> peptides)
+    public virtual IReadOnlyList<(double? PredictedValue, IRetentionPredictable Peptide, RetentionTimeFailureReason? FailureReason)> PredictRetentionTimeEquivalents(IEnumerable<IRetentionPredictable> peptides)
         => ProduceResults(peptides).ToList();
 
     /// <summary>
@@ -132,18 +132,4 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor
 
         return true;
     }
-}
-/// <summary>
-/// The result of a retention time equivalent prediction for a single peptide.
-/// The predicted value may represent a time, iRT, or hydrophobicity depending on the predictor used.
-/// </summary>
-public readonly record struct RetentionTimeEquivalentResult(
-    IRetentionPredictable Peptide,
-    double? PredictedValue,
-    RetentionTimeFailureReason? FailureReason)
-{
-    /// <summary>
-    /// True if a value was successfully predicted.
-    /// </summary>
-    public bool Success => PredictedValue.HasValue;
 }
