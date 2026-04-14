@@ -14,6 +14,7 @@ using Omics.BioPolymer;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
+using Omics.SequenceConversion;
 using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
@@ -1382,6 +1383,70 @@ namespace Test
             var expectedFullStrings = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "essentialSequences.txt"));
 
             CollectionAssert.AreEquivalent(expectedFullStrings, allSequences.ToArray());
+        }
+
+        [Test]
+        public static void TestPeptideWithSetModsEssentialSequence_SequenceSerializerMatchesExtension()
+        {
+            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+
+            Dictionary<string, int> modsToWrite = new Dictionary<string, int>
+            {
+                { "UniProt", 0 }
+            };
+
+            var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml"), true, DecoyType.None, UniProtPtms, false, null, out var unknownMod);
+            var gapdh = proteinXml[0];
+
+            var gapdhPeptides = gapdh.Digest(new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Variable), UniProtPtms, new List<Modification>());
+
+            var serializer = new EssentialSequenceSerializer(modsToWrite);
+            var service = SequenceConversionService.Default;
+
+            List<string> extensionResults = new List<string>();
+            List<string> serializerResults = new List<string>();
+            List<string> serviceFullResults = new List<string>();
+            List<string> serviceStepResults = new List<string>();
+            List<string> serviceAutoFullResults = new List<string>();
+            List<string> serviceAutoStepResults = new List<string>();
+            foreach (var peptide in gapdhPeptides)
+            {
+                extensionResults.Add(peptide.EssentialSequence(modsToWrite));
+
+                var canonical = peptide.ToCanonicalSequenceBuilder().Build();
+                var serialized = serializer.Serialize(canonical);
+                serializerResults.Add(serialized ?? string.Empty);
+
+                var serviceFullConversion = service.Convert(peptide.FullSequence, "mzLib", "essential");
+                serviceFullResults.Add(serviceFullConversion ?? string.Empty);
+
+                var canon = service.Parse(peptide.FullSequence, "mzLib");
+                var serviceStepConversion = service.Serialize(canon.Value, "essential");
+                serviceStepResults.Add(serviceStepConversion ?? string.Empty);
+
+                var serviceAutoFull = service.ConvertAutoDetect(peptide.FullSequence, "essential");
+                serviceAutoFullResults.Add(serviceAutoFull ?? string.Empty);
+
+                var serviceAutoStep = service.ParseAutoDetect(peptide.FullSequence);
+                var serviceAutoStepConversion = service.Serialize(serviceAutoStep.Value, "essential");
+                serviceAutoStepResults.Add(serviceAutoStepConversion ?? string.Empty);
+            }
+
+            CollectionAssert.AreEquivalent(extensionResults, serializerResults);
+            CollectionAssert.AreEquivalent(extensionResults, serviceFullResults);
+            CollectionAssert.AreEquivalent(extensionResults, serviceStepResults);
+            CollectionAssert.AreEquivalent(extensionResults, serviceAutoFullResults);
+            CollectionAssert.AreEquivalent(extensionResults, serviceAutoStepResults);
+
+
+            var expectedFullStrings = File.ReadAllLines(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "essentialSequences.txt"));
+            CollectionAssert.AreEquivalent(expectedFullStrings, serializerResults.ToArray());
+            CollectionAssert.AreEquivalent(expectedFullStrings, serviceFullResults.ToArray());
+            CollectionAssert.AreEquivalent(expectedFullStrings, serviceStepResults.ToArray());
+            CollectionAssert.AreEquivalent(expectedFullStrings, serviceAutoFullResults.ToArray());
+            CollectionAssert.AreEquivalent(expectedFullStrings, serviceAutoStepResults.ToArray());
         }
         /// <summary>
         /// CRITICAL: Tests FullSequence and FullSequenceWithMassShift generation.

@@ -461,6 +461,7 @@ namespace Test.FileReadingTests
             string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
             List<string> warnings = new();
             List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out warnings).Take(3).ToList();
+            Assert.That(psms.All(p => p.CollisionEnergy == null));
             Assert.That(warnings.Count == 2);
             Assert.AreEqual("Could not read line: 2", warnings[0]);
             Assert.AreEqual("Warning: 1 PSMs were not read.", warnings[1]);
@@ -615,6 +616,98 @@ namespace Test.FileReadingTests
             var ids = file.MakeIdentifications(new() { f1, f2});
 
             CollectionAssert.AreEquivalent(ids.Select(i => i.ModifiedSequence), file.GetQuantifiableResults().Select(i => i.FullSequence));
+        }
+
+        [Test]
+        public static void FilteringParams_MatchedIonWithEnvelope_SpectrumMatchReaderPsm()
+        {
+            List<string> errors = new();
+            string psmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults", "BottomUpExample.psmtsv");
+            SpectrumMatchParsingParameters parsingParams = new SpectrumMatchParsingParameters
+            {
+                FragmentIonsHavePlaceholderForEnvelope = true
+            };
+
+            List<PsmFromTsv> results = SpectrumMatchTsvReader.ReadPsmTsv(psmFilePath, out errors, parsingParams);
+            Assert.That(errors.Count, Is.EqualTo(0));
+            foreach (var ion in results.SelectMany(p => p.MatchedIons))
+                Assert.That(ion is MatchedFragmentIonWithEnvelope, $"Expected MatchedFragmentIonWithEnvelope but got {ion.GetType().Name}");
+        }
+
+        [Test]
+        public static void FilteringParams_MatchedIonWithEnvelope_SpectrumMatchReaderGeneric()
+        {
+            List<string> errors = new();
+            string psmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults", "BottomUpExample.psmtsv");
+            SpectrumMatchParsingParameters parsingParams = new SpectrumMatchParsingParameters
+            {
+                FragmentIonsHavePlaceholderForEnvelope = true
+            };
+
+            List<PsmFromTsv> results = SpectrumMatchTsvReader.ReadTsv<PsmFromTsv>(psmFilePath, out errors, parsingParams);
+            Assert.That(errors.Count, Is.EqualTo(0));
+            foreach (var ion in results.SelectMany(p => p.MatchedIons))
+                Assert.That(ion is MatchedFragmentIonWithEnvelope, $"Expected MatchedFragmentIonWithEnvelope but got {ion.GetType().Name}");
+        }
+
+        [Test]
+        public static void FilteringParams_MatchedIonWithEnvelope_PsmFromTsvFile()
+        {
+            string psmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults", "BottomUpExample.psmtsv");
+            SpectrumMatchParsingParameters parsingParams = new SpectrumMatchParsingParameters
+            {
+                FragmentIonsHavePlaceholderForEnvelope = true
+            };
+
+            List<PsmFromTsv> results = new PsmFromTsvFile(psmFilePath, parsingParams).Results;
+            foreach (var ion in results.SelectMany(p => p.MatchedIons))
+                Assert.That(ion is MatchedFragmentIonWithEnvelope, $"Expected MatchedFragmentIonWithEnvelope but got {ion.GetType().Name}");
+        }
+
+        [Test]
+        public static void FilteringParams_MatchedIonWithEnvelope_SpectrumMatchReaderPsm_Glyco()
+        {
+            List<string> errors = new();
+            string psmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\oglyco.psmtsv");
+            SpectrumMatchParsingParameters parsingParams = new SpectrumMatchParsingParameters
+            {
+                FragmentIonsHavePlaceholderForEnvelope = true
+            };
+
+            List<GlycoPsmFromTsv> results = SpectrumMatchTsvReader.ReadGlycoPsmTsv(psmFilePath, out errors, parsingParams);
+            Assert.That(errors.Count, Is.EqualTo(0));
+            foreach (var ion in results.SelectMany(p => p.MatchedIons))
+                Assert.That(ion is MatchedFragmentIonWithEnvelope, $"Expected MatchedFragmentIonWithEnvelope but got {ion.GetType().Name}");
+        }
+
+        [Test]
+        public static void FilteringParams_MatchedIonWithEnvelope_SpectrumMatchReaderGeneric_Glyco()
+        {
+            List<string> errors = new();
+            string psmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\oglyco.psmtsv");
+            SpectrumMatchParsingParameters parsingParams = new SpectrumMatchParsingParameters
+            {
+                FragmentIonsHavePlaceholderForEnvelope = true
+            };
+
+            List<GlycoPsmFromTsv> results = SpectrumMatchTsvReader.ReadTsv<GlycoPsmFromTsv>(psmFilePath, out errors, parsingParams);
+            Assert.That(errors.Count, Is.EqualTo(0));
+            foreach (var ion in results.SelectMany(p => p.MatchedIons))
+                Assert.That(ion is MatchedFragmentIonWithEnvelope, $"Expected MatchedFragmentIonWithEnvelope but got {ion.GetType().Name}");
+        }
+
+        [Test]
+        public static void FilteringParams_DoNotParseFragmentIons()
+        {
+            string psmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults", "BottomUpExample.psmtsv");
+            SpectrumMatchParsingParameters parsingParams = new SpectrumMatchParsingParameters
+            {
+                ParseMatchedFragmentIons = false
+            };
+
+            List<PsmFromTsv> results = new PsmFromTsvFile(psmFilePath, parsingParams).Results;
+            foreach (var psm in results)
+                Assert.That(psm.MatchedIons, Is.Null.Or.Empty, $"Expected no matched ions but got {psm.MatchedIons?.Count ?? 0}");
         }
     }
 }

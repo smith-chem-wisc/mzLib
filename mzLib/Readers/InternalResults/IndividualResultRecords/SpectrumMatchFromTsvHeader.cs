@@ -19,6 +19,7 @@
         public const string Score = "Score";
         public const string DeltaScore = "Delta Score";
         public const string Notch = "Notch";
+        public const string CollisionEnergy = "Collision Energy";
 
         // Sequence information
         public const string BaseSequence = "Base Sequence";
@@ -46,6 +47,7 @@
         public const string SpliceSites = "Splice Sites";
         public const string Contaminant = "Contaminant";
         public const string Decoy = "Decoy";
+        public const string Entrapment = "Entrapment";
         public const string Description = "Description";
         public const string StartAndEndResiduesInFullSequence = "Start and End Residues In Full Sequence";
         public const string PreviousResidue = "Previous Residue";
@@ -120,5 +122,14 @@
         // Oligo
         public const string FivePrimeTerminus = "5'-Terminus";
         public const string ThreePrimeTerminus = "3'-Terminus";
+
+        // TMT/Isobaric reporter ion channels
+        public static readonly string[] TmtChannelNames = new[]
+        {
+            "126", "127N", "127C", "128N", "128C",
+            "129N", "129C", "130N", "130C", "131", // TMT 10
+            "131N", "131C", "132N", "132C", "133N", "133C", // TMT16+ channels
+            "134N", "134C", "135N", // TMTpro 18 channels
+        };
     }
 }

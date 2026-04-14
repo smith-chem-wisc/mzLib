@@ -312,5 +312,36 @@ namespace Test
                 File.Delete(tempFile);
             }
         }
+
+        [Test]
+        public void WriteXmlDatabase_NullTruncationProductPosition_DoesNotWriteEmptyPositionAttribute()
+        {
+            // TruncationProducts with a null begin or end position previously caused <begin position=""/> or
+            // <end position=""/>, which crashes external XML readers. The writer should instead emit a
+            // single <position> element using whichever value is non-null, with no empty position attribute.
+            var protein = new Protein(
+                sequence: "MPEPTIDESEQMPEPTIDESEQ",
+                accession: "TEST001",
+                proteolysisProducts: new List<TruncationProduct>
+                {
+                    new TruncationProduct(null, 12, "chain"),         // null begin, valid end
+                    new TruncationProduct(5, null, "signal peptide"), // valid begin, null end
+                });
+
+            string tempFile = Path.GetTempFileName();
+            try
+            {
+                ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { protein }, tempFile);
+                string xml = File.ReadAllText(tempFile);
+
+                Assert.That(xml, Does.Not.Contain("position=\"\""));
+                Assert.That(xml, Does.Contain("position=\"12\""));
+                Assert.That(xml, Does.Contain("position=\"5\""));
+            }
+            finally
+            {
+                File.Delete(tempFile);
+            }
+        }
     }
 }
