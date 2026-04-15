@@ -6,6 +6,7 @@ using Proteomics.ProteolyticDigestion;
 using Omics.Modifications;
 using System.Collections.Generic;
 using Chromatography;
+using Readers;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading.Tasks;
