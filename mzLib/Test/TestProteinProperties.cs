@@ -302,5 +302,62 @@ namespace Test
             Assert.That(!((IBioPolymer)rna).Equals(protein1));
             Assert.That(!((IBioPolymer)protein1).Equals(rna));
         }
+
+        [Test]
+        public void TestProteinCloneWithOverridesConstructor()
+        {
+            // Arrange: original protein with known properties
+            var originalGeneNames = new List<Tuple<string, string>> { new Tuple<string, string>("primary", "GENE1") };
+            var originalDbRefs = new List<DatabaseReference> { new DatabaseReference("type", "id", null) };
+            var originalEntryAttrs = new UniProtEntryAttributes("Swiss-Prot", "2020-01-01", "2024-01-01", "3");
+            var originalSeqAttrs = new UniProtSequenceAttributes(8, 1000, "CHKSUM", new DateTime(2024, 1, 1), 1);
+            var original = new Protein("MPEPTIDE", "P00001", organism: "Homo sapiens",
+                geneNames: originalGeneNames, name: "OrigName", fullName: "Original Full Name",
+                isDecoy: false, isContaminant: false, databaseReferences: originalDbRefs,
+                databaseFilePath: "original.fasta",
+                uniProtEntryAttributes: originalEntryAttrs, uniProtSequenceAttributes: originalSeqAttrs);
+
+            // Case 1: No overrides – all scalar properties and UniProt attributes are preserved from the original
+            var clone1 = new Protein(original);
+            NUnit.Framework.Assert.That(clone1.Accession, Is.EqualTo(original.Accession));
+            NUnit.Framework.Assert.That(clone1.Name, Is.EqualTo(original.Name));
+            NUnit.Framework.Assert.That(clone1.Organism, Is.EqualTo(original.Organism));
+            NUnit.Framework.Assert.That(clone1.IsDecoy, Is.EqualTo(original.IsDecoy));
+            NUnit.Framework.Assert.That(clone1.UniProtEntryAttributes, Is.SameAs(original.UniProtEntryAttributes));
+            NUnit.Framework.Assert.That(clone1.UniProtSequenceAttributes, Is.SameAs(original.UniProtSequenceAttributes));
+
+            // Case 2: String property overrides – accession, name, fullName, and organism change; base sequence is preserved
+            var clone2 = new Protein(original, accession: "P99999", proteinName: "NewName",
+                proteinFullName: "New Full Name", organism: "Mus musculus");
+            NUnit.Framework.Assert.That(clone2.Accession, Is.EqualTo("P99999"));
+            NUnit.Framework.Assert.That(clone2.Name, Is.EqualTo("NewName"));
+            NUnit.Framework.Assert.That(clone2.FullName, Is.EqualTo("New Full Name"));
+            NUnit.Framework.Assert.That(clone2.Organism, Is.EqualTo("Mus musculus"));
+            NUnit.Framework.Assert.That(clone2.BaseSequence, Is.EqualTo(original.BaseSequence));
+
+            // Case 3: Nullable bool overrides – isDecoy, isContaminant, and isEntrapment are flipped; accession is preserved
+            var clone3 = new Protein(original, isDecoy: true, isContaminant: true, isEntrapment: true);
+            NUnit.Framework.Assert.That(clone3.IsDecoy, Is.True);
+            NUnit.Framework.Assert.That(clone3.IsContaminant, Is.True);
+            NUnit.Framework.Assert.That(clone3.IsEntrapment, Is.True);
+            NUnit.Framework.Assert.That(clone3.Accession, Is.EqualTo(original.Accession));
+
+            // Case 4: Collection overrides – new gene names and database references replace the originals; organism is preserved
+            var newGeneNames = new List<Tuple<string, string>> { new Tuple<string, string>("primary", "GENE2") };
+            var newDbRefs = new List<DatabaseReference> { new DatabaseReference("newType", "newId", null) };
+            var clone4 = new Protein(original, geneNames: newGeneNames, databaseReferences: newDbRefs);
+            NUnit.Framework.Assert.That(clone4.GeneNames, Is.SameAs(newGeneNames));
+            NUnit.Framework.Assert.That(clone4.DatabaseReferences, Is.SameAs(newDbRefs));
+            NUnit.Framework.Assert.That(clone4.Organism, Is.EqualTo(original.Organism));
+
+            // Case 5: UniProt attribute overrides – both are replaced; the originals are no longer referenced
+            var newEntryAttrs = new UniProtEntryAttributes("TrEMBL", "2023-06-01", "2024-06-01", "7");
+            var newSeqAttrs = new UniProtSequenceAttributes(8, 2000, "NEWCHK", new DateTime(2023, 1, 1), 2);
+            var clone5 = new Protein(original, uniProtEntryAttributes: newEntryAttrs, uniProtSequenceAttributes: newSeqAttrs);
+            NUnit.Framework.Assert.That(clone5.UniProtEntryAttributes, Is.SameAs(newEntryAttrs));
+            NUnit.Framework.Assert.That(clone5.UniProtSequenceAttributes, Is.SameAs(newSeqAttrs));
+            NUnit.Framework.Assert.That(clone5.UniProtEntryAttributes, Is.Not.SameAs(original.UniProtEntryAttributes));
+            NUnit.Framework.Assert.That(clone5.UniProtSequenceAttributes, Is.Not.SameAs(original.UniProtSequenceAttributes));
+        }
     }
 }
