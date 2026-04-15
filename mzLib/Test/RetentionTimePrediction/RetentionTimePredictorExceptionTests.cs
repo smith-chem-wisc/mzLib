@@ -113,29 +113,6 @@ namespace Test.RetentionTimePrediction
             Assert.That(ex!.ParamName, Is.EqualTo("maxThreads"));
         }
 
-        [Test]
-        public void StreamRetentionTimeEquivalents_MaxThreadsZero_ThrowsArgumentOutOfRangeException()
-        {
-            using var predictor = new SSRCalc3RetentionTimePredictor();
-            var peptides = new[] { new PeptideWithSetModifications("PEPTIDE", new Dictionary<string, Modification>()) };
-
-            var ex = Assert.Throws<ArgumentOutOfRangeException>(
-                () => predictor.StreamRetentionTimeEquivalents(peptides, maxThreads: 0));
-
-            Assert.That(ex!.ParamName, Is.EqualTo("maxThreads"));
-        }
-
-        [Test]
-        public void StreamRetentionTimeEquivalents_MaxThreadsNegative_ThrowsArgumentOutOfRangeException()
-        {
-            using var predictor = new SSRCalc3RetentionTimePredictor();
-            var peptides = new[] { new PeptideWithSetModifications("PEPTIDE", new Dictionary<string, Modification>()) };
-
-            var ex = Assert.Throws<ArgumentOutOfRangeException>(
-                () => predictor.StreamRetentionTimeEquivalents(peptides, maxThreads: -1));
-
-            Assert.That(ex!.ParamName, Is.EqualTo("maxThreads"));
-        }
 
         [Test]
         public void PredictRetentionTimeEquivalents_MaxThreadsOne_DoesNotThrow()
@@ -161,43 +138,6 @@ namespace Test.RetentionTimePrediction
             Assert.That(ex!.InnerExceptions, Is.Not.Empty);
             Assert.That(ex.InnerExceptions.Any(e => e is InvalidOperationException), Is.True,
                 "Expected the original InvalidOperationException to be preserved as an inner exception.");
-        }
-
-        [Test]
-        public void StreamRetentionTimeEquivalents_ProducerFaults_ThrowsAggregateExceptionAfterDrain()
-        {
-            using var predictor = new ConcurrentThrowingPredictor();
-
-            var successes = new List<(double? PredictedValue, IRetentionPredictable Peptide, RetentionTimeFailureReason? FailureReason)>();
-
-            var ex = Assert.Throws<AggregateException>(() =>
-            {
-                foreach (var item in predictor.StreamRetentionTimeEquivalents(ThrowingEnumerable(), maxThreads: 2))
-                    successes.Add(item);
-            });
-
-            // The peptide yielded before the throw is allowed to drain first; the exception
-            // surfaces after the enumerator completes, not mid-iteration.
-            Assert.That(ex!.InnerExceptions.Any(e => e is InvalidOperationException), Is.True);
-        }
-
-        [Test]
-        public void StreamRetentionTimeEquivalents_ProducerFaults_NoDeadlock()
-        {
-            using var predictor = new ConcurrentThrowingPredictor();
-
-            // The contract of concern: CompleteAdding() must always run in the producer's
-            // finally block so the consumer's GetConsumingEnumerable() terminates even on
-            // fault. If that contract is ever broken, this test deadlocks rather than failing
-            // cleanly — so we cap it with an explicit timeout.
-            Assert.That(() =>
-            {
-                try
-                {
-                    foreach (var _ in predictor.StreamRetentionTimeEquivalents(ThrowingEnumerable(), maxThreads: 2)) { }
-                }
-                catch (AggregateException) { /* expected */ }
-            }, Throws.Nothing.After(5000));
         }
 
         #endregion

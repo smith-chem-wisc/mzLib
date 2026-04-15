@@ -215,27 +215,6 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor, IDisposa
     }
 
     /// <summary>
-    /// Streams results as they are produced in parallel. Results may be unordered.
-    /// </summary>
-    /// <param name="maxThreads">Degree of parallelism; must be at least 1.</param>
-    /// <exception cref="ArgumentOutOfRangeException">
-    /// Thrown when <paramref name="maxThreads"/> is less than 1.
-    /// </exception>
-    /// <exception cref="AggregateException">
-    /// Thrown after enumeration completes if the background producer encountered one or more
-    /// unhandled exceptions. Per-peptide prediction errors are reported via the
-    /// <see cref="RetentionTimeFailureReason"/> element of each tuple, not thrown.
-    /// </exception>
-    public virtual IEnumerable<(double? PredictedValue, IRetentionPredictable Peptide, RetentionTimeFailureReason? FailureReason)> StreamRetentionTimeEquivalents(
-        IEnumerable<IRetentionPredictable> peptides, int maxThreads = 1)
-    {
-        if (maxThreads < 1)
-            throw new ArgumentOutOfRangeException(nameof(maxThreads), maxThreads,
-                "maxThreads must be at least 1.");
-        return ProduceResults(peptides, maxThreads);
-    }
-
-    /// <summary>
     /// Default batch implementation — parallel production, materialized result.
     /// Predictors that support true batched inference (e.g. Chronologer) should override this method.
     /// </summary>
