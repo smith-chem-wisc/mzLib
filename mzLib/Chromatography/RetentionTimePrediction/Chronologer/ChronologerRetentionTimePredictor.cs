@@ -8,7 +8,7 @@ namespace Chromatography.RetentionTimePrediction.Chronologer;
 /// Chronologer-based retention time predictor using deep learning.
 /// Predicts C18 retention times reported in % ACN.
 /// </summary>
-public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDisposable
+public class ChronologerRetentionTimePredictor : RetentionTimePredictor
 {
     private static readonly SequenceConversionService ConversionService = SequenceConversionService.Default;
     private static readonly string ChronologerFormatName = ChronologerSequenceFormatSchema.Instance.FormatName;
@@ -36,10 +36,21 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDispos
             : new Chronologer();
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// Chronologer's TorchSharp model is guarded by a single lock in <see cref="PredictCore"/>,
+    /// so multi-threaded dispatch would only serialize on that lock and add partition/aggregation
+    /// overhead. This override forces sequential execution until true tensor-batched inference
+    /// is implemented.
+    /// </remarks>
+    public override IReadOnlyList<(double? PredictedValue, IRetentionPredictable Peptide, RetentionTimeFailureReason? FailureReason)> PredictRetentionTimeEquivalents(
+        IEnumerable<IRetentionPredictable> peptides, int maxThreads = 1)
+        => base.PredictRetentionTimeEquivalents(peptides, maxThreads: 1);
+
     protected override bool ValidateBasicConstraints(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason)
     {
         var baseSequence = peptide.BaseSequence;
-        if (baseSequence.Any(aa => Array.IndexOf(CanonicalAminoAcids, aa) == -1))
+        if (baseSequence.Any(aa => !CanonicalAminoAcids.Contains(aa)))
         {
             failureReason = RetentionTimeFailureReason.InvalidAminoAcid;
             return false;
@@ -207,7 +218,13 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor, IDispos
 
     #endregion
 
-    public void Dispose()
+    /// <summary>
+    /// Releases the underlying Chronologer TorchSharp model. Overrides the base
+    /// <see cref="RetentionTimePredictor.Dispose"/> so that virtual dispatch reaches
+    /// this implementation even when the caller holds a base-class or
+    /// <see cref="IDisposable"/> reference. Safe to call multiple times.
+    /// </summary>
+    public override void Dispose()
     {
         if (_disposed)
             return;

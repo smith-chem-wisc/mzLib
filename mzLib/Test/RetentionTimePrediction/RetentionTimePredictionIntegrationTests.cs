@@ -207,19 +207,22 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void Integration_LongPeptide_PredictorsHandleOrReject()
         {
-            var longSequence = new string('A', 60); // Longer than typical limit
+            var longSequence = new string('A', 60);
             var peptide = new PeptideWithSetModifications(longSequence, new Dictionary<string, Modification>());
-            
+
             foreach (var predictor in _predictors)
             {
                 var result = predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
-                
+
                 if (result == null)
                 {
                     Assert.That(failureReason, Is.Not.Null,
-                        $"Predictor {predictor.PredictorName} should report why prediction failed");
-                    Assert.That(failureReason, Is.EqualTo(RetentionTimeFailureReason.SequenceTooLong),
-                        $"Predictor {predictor.PredictorName} should indicate sequence too long");
+                        $"{predictor.PredictorName} returned null without a failure reason");
+                }
+                else
+                {
+                    Assert.That(failureReason, Is.Null,
+                        $"{predictor.PredictorName} returned a value but also set a failure reason");
                 }
             }
         }

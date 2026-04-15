@@ -1,32 +1,36 @@
-using Chromatography.RetentionTimePrediction.CZE;
-using Chromatography.RetentionTimePrediction.Chronologer;
-using Chromatography.RetentionTimePrediction.SSRCalc;
 namespace Chromatography.RetentionTimePrediction;
+
 /// <summary>
-/// Represents a retention time predictor that can predict RT for peptides.
+/// Contract for a retention time predictor. Implementations produce a predicted
+/// retention-time-equivalent value (time, iRT, or hydrophobicity, depending on the
+/// predictor) for a given peptide, individually or in batches.
 /// </summary>
-public interface IRetentionTimePredictor
+/// <remarks>
+/// <para>
+/// <b>Disposal:</b> the interface extends <see cref="IDisposable"/> so callers holding
+/// an <see cref="IRetentionTimePredictor"/>-typed variable can write
+/// <c>using var p = RetentionTimePredictorFactory.Create(...);</c> directly. Implementors
+/// that hold unmanaged resources (e.g. the TorchSharp model in
+/// <see cref="Chronologer.ChronologerRetentionTimePredictor"/>) release them in
+/// <see cref="IDisposable.Dispose"/>; lightweight predictors rely on the base-class no-op.
+/// </para>
+/// <para>
+/// <b>Construction is deliberately not part of this interface.</b> Use
+/// <see cref="RetentionTimePredictorFactory.Create"/> with a
+/// <see cref="PredictorType"/> value to build concrete predictors. This keeps the
+/// abstraction free of references to concrete types — most importantly the
+/// TorchSharp-backed <see cref="Chronologer.ChronologerRetentionTimePredictor"/>,
+/// which would otherwise force every consumer of this interface to transitively
+/// depend on TorchSharp and ship its large native binaries.
+/// </para>
+/// <para>
+/// <b>Migration:</b> the previously-nested <c>Create</c> method and
+/// <c>PredictorType</c> enum on this interface have been moved to the top-level
+/// <see cref="RetentionTimePredictorFactory"/> and <see cref="PredictorType"/>.
+/// </para>
+/// </remarks>
+public interface IRetentionTimePredictor : IDisposable
 {
-    /// <summary>
-    /// The available predictor types that can be created via <see cref="Create"/>.
-    /// </summary>
-    public enum PredictorType
-    {
-        SSRCalc3,
-        CZE,
-        Chronologer
-    }
-    /// <summary>
-    /// Creates a new predictor of the specified type with default parameters.
-    /// The caller is responsible for disposing the returned predictor.
-    /// </summary>
-    public static IRetentionTimePredictor Create(PredictorType type) => type switch
-    {
-        PredictorType.SSRCalc3 => new SSRCalc3RetentionTimePredictor(),
-        PredictorType.CZE => new CZERetentionTimePredictor(),
-        PredictorType.Chronologer => new ChronologerRetentionTimePredictor(),
-        _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
-    };
     /// <summary>
     /// Name/identifier for this predictor (e.g., "SSRCalc3", "Chronologer")
     /// </summary>
