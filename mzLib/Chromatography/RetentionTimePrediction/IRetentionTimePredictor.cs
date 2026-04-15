@@ -53,5 +53,9 @@ public interface IRetentionTimePredictor
     /// results can be consumed incrementally.
     /// </summary>
     IEnumerable<(double? PredictedValue, IRetentionPredictable Peptide, RetentionTimeFailureReason? FailureReason)> StreamRetentionTimeEquivalents(IEnumerable<IRetentionPredictable> peptides, int maxThreads = 1);
+    /// <inheritdoc cref="PredictRetentionTimeEquivalent"/>
+    [Obsolete("Use PredictRetentionTimeEquivalent instead.")]
+    public double? PredictRetentionTime(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason)
+        => PredictRetentionTimeEquivalent(peptide, out failureReason);
     public string? GetFormattedSequence(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason);
 }
