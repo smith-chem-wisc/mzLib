@@ -1,7 +1,9 @@
-﻿#nullable enable
+#nullable enable
 using System.Runtime.InteropServices;
+using Chemistry;
 
 namespace MassSpectrometry;
+
 public class IsoDecDeconvolutionParameters : DeconvolutionParameters
 {
     public override DeconvolutionType DeconvolutionType { get; protected set; } = DeconvolutionType.IsoDecDeconvolution;
@@ -38,7 +40,7 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
     }
 
     private IsoSettings? _isoSettings;
-    
+
     internal IsoSettings ToIsoSettings()
     {
         if (_isoSettings != null)
@@ -60,7 +62,11 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
             min_score_diff = MinScoreDiff,
             minareacovered = MinAreaCovered,
             isolength = IsoLength,
-            mass_diff_c = MassDiffC,
+            // NOTE: We use ExpectedIsotopeSpacing (from the base class) rather than the
+            // legacy MassDiffC field so that decoy runs (ExpectedIsotopeSpacing = 0.9444 Da,
+            // set via ToDecoyParameters()) are correctly forwarded to the DLL.
+            // For normal runs ExpectedIsotopeSpacing == Constants.C13MinusC12 == MassDiffC.
+            mass_diff_c = ExpectedIsotopeSpacing,
             adductmass = AdductMass,
             minusoneaszero = MinusOneAreasZero,
             isotopethreshold = IsotopeThreshold,
@@ -79,48 +85,48 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
     /// <summary>
     /// Precision of encoding matrix
     /// </summary>
-    public int PhaseRes { get; set; } 
+    public int PhaseRes { get; set; }
 
     /// <summary>
     /// Minimum cosine similarity score for isotope distribution
     /// </summary>
-    public float CssThreshold { get; set; } 
+    public float CssThreshold { get; set; }
 
     /// <summary>
     /// Match Tolerance for peak detection in ppm
     /// </summary>
-    public float MatchTolerance { get; set; } 
+    public float MatchTolerance { get; set; }
 
     /// <summary>
     /// Maximum shift allowed for isotope distribution
     /// </summary>
-    public int MaxShift { get; set; } 
+    public int MaxShift { get; set; }
 
     /// <summary>
     /// MZ Window for isotope distribution
     /// </summary>
     public float[] MzWindow { get; set; }
-        
+
     /// <summary>
     /// Number of knockdown rounds
     /// </summary>
     public int KnockdownRounds { get; set; }
-        
+
     /// <summary>
     /// Minimum area covered by isotope distribution. Use in or with css_thresh
     /// </summary>
     public float MinAreaCovered { get; set; }
-        
+
     /// <summary>
     /// Threshold for data. Will remove relative intensities below this relative to max intensity in each cluster
     /// </summary>
     public float DataThreshold { get; set; }
-        
+
     /// <summary>
     /// Report multiple monoisotopic peaks
     /// </summary>
     public bool ReportMulitpleMonoisos { get; set; }
-        
+
     #endregion User-Accessible Parameters
 
     #region Hard-Coded Parameters
@@ -161,9 +167,13 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
     public int IsoLength { get; protected set; } = 64;
 
     /// <summary>
-    /// Mass difference between isotopes
+    /// Legacy field kept for reference. The value actually passed to the DLL is
+    /// <see cref="DeconvolutionParameters.ExpectedIsotopeSpacing"/>, which defaults
+    /// to <see cref="Constants.C13MinusC12"/> and is set to
+    /// <see cref="DecoyAveragine.DefaultDecoyIsotopeSpacing"/> by
+    /// <see cref="ToDecoyParameters"/> for decoy runs.
     /// </summary>
-    public double MassDiffC { get; protected set; } = 1.0033; // TODO: Determine if this should be adjusted dynamically by <see cref="AverageResidueModel"/> deconvolution of alternative data types. 
+    public double MassDiffC { get; protected set; } = 1.0033;
 
     /// <summary>
     /// Adduct Mass
@@ -184,7 +194,7 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
     /// Ratio above which a secondary charge state prediction will be returned.
     /// </summary>
     public float ZScoreThreshold { get; protected set; } = (float)0.95;
-        
+
     #endregion Hard-Coded Parameters
 
     public IsoDecDeconvolutionParameters(
@@ -198,8 +208,9 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
         int knockdownRounds = 5,
         float minAreaCovered = (float)0.20,
         float relativeDataThreshold = (float)0.05,
-        AverageResidue? averageResidueModel = null)
-        : base(1, 50, polarity, averageResidueModel) // average residue model is currently unused for setting any parameters in IsoDec. 
+        AverageResidue? averageResidueModel = null,
+        double expectedIsotopeSpacing = Constants.C13MinusC12)
+        : base(1, 50, polarity, averageResidueModel, expectedIsotopeSpacing)
     {
         PhaseRes = phaseRes;
         ReportMulitpleMonoisos = reportMultipleMonoisos;
@@ -212,5 +223,45 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
         DataThreshold = relativeDataThreshold;
         if (Polarity == Polarity.Negative)
             AdductMass = (float)-1.00727276467;
+    }
+
+    // Thread-safe lazy caching of decoy parameters using double-checked locking.
+    // See ClassicDeconvolutionParameters for the full rationale: ??= alone is not
+    // atomic, so concurrent callers can receive different instances, violating the
+    // singleton-caching contract.
+    private volatile DeconvolutionParameters? _decoyParams = null;
+    private readonly object _decoyParamsLock = new();
+
+    /// <summary>
+    /// Returns a version of these parameters configured for decoy deconvolution,
+    /// with <see cref="DeconvolutionParameters.ExpectedIsotopeSpacing"/> set to
+    /// <see cref="DecoyAveragine.DefaultDecoyIsotopeSpacing"/> (0.9444 Da).
+    /// The cached IsoSettings struct is invalidated on the clone so that the next
+    /// call to <see cref="ToIsoSettings"/> rebuilds it with the decoy spacing.
+    /// </summary>
+    public override DeconvolutionParameters ToDecoyParameters()
+    {
+        if (_decoyParams is not null) return _decoyParams;
+
+        lock (_decoyParamsLock)
+        {
+            if (_decoyParams is not null) return _decoyParams;
+
+            var decoy = new IsoDecDeconvolutionParameters(
+                polarity: Polarity,
+                phaseRes: PhaseRes,
+                reportMultipleMonoisos: ReportMulitpleMonoisos,
+                cssThreshold: CssThreshold,
+                matchTolerance: MatchTolerance,
+                maxShift: MaxShift,
+                mzWindow: MzWindow,
+                knockdownRounds: KnockdownRounds,
+                minAreaCovered: MinAreaCovered,
+                relativeDataThreshold: DataThreshold,
+                averageResidueModel: new DecoyAveragine(AverageResidueModel),
+                expectedIsotopeSpacing: DecoyAveragine.DefaultDecoyIsotopeSpacing);
+
+            return _decoyParams = decoy;
+        }
     }
 }
