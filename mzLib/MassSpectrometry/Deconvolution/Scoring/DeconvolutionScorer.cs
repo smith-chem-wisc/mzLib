@@ -41,11 +41,13 @@ namespace MassSpectrometry
         // ratioConsistency = good; high ppmError = bad) and should generalise across
         // algorithms, though re-calibration on Classic and FLASHDeconv output is
         // recommended once those decoy distributions are available.
-        private const double CoefficientCosine = -3.4494;
-        private const double CoefficientPpmError = 1.6341;
-        private const double CoefficientCompleteness = -4.7795;
-        private const double CoefficientRatioConsistency = -2.1883;
-        private const double Intercept = -4.3142;
+        // Signs follow standard logistic convention: positive coefficient ⇒ feature
+        // increases P(true). Weights can be replaced directly with sklearn / glm output.
+        private const double CoefficientCosine = 3.4494;
+        private const double CoefficientPpmError = -1.6341;
+        private const double CoefficientCompleteness = 4.7795;
+        private const double CoefficientRatioConsistency = 2.1883;
+        private const double Intercept = 4.3142;
 
         // ── Feature matching tolerance ────────────────────────────────────────
         private const double MatchTolerancePpm = 10.0;
@@ -76,11 +78,12 @@ namespace MassSpectrometry
 
             // Arrays from AverageResidue are sorted intensity-descending (index 0 = apex).
             // Re-sort to mass-ascending so index 0 = monoisotopic.
-            var sorted = rawMasses.Zip(rawIntens)
-                .OrderBy(pair => pair.First)
-                .ToArray();
-            double[] avgMassAsc = sorted.Select(p => p.First).ToArray();
-            double[] avgIntAsc = sorted.Select(p => p.Second).ToArray();
+            int nIsoLen = rawMasses.Length;
+            double[] avgMassAsc = new double[nIsoLen];
+            double[] avgIntAsc = new double[nIsoLen];
+            Array.Copy(rawMasses, avgMassAsc, nIsoLen);
+            Array.Copy(rawIntens, avgIntAsc, nIsoLen);
+            Array.Sort(avgMassAsc, avgIntAsc);
             int nIso = avgMassAsc.Length;
 
             // apexDaFromMono: distance in Da from monoisotopic to apex
@@ -104,7 +107,9 @@ namespace MassSpectrometry
             // For each theoretical isotope position n, find the closest peak in
             // envelope.Peaks within MatchTolerancePpm.
             double monoMass = envelope.MonoisotopicMass;
-            double monoMz = monoMass.ToMz(absCharge);
+            // Use signed charge so negative-mode envelopes (proton subtracted) align
+            // with their peaks. absCharge still governs isotope spacing (sign-agnostic).
+            double monoMz = monoMass.ToMz(envelope.Charge);
             var peakList = envelope.Peaks;
 
             double[] observed = new double[nIso];
@@ -186,7 +191,7 @@ namespace MassSpectrometry
                 + CoefficientCompleteness * features.PeakCompleteness
                 + CoefficientRatioConsistency * features.IntensityRatioConsistency;
 
-            return 1.0 / (1.0 + Math.Exp(linear));
+            return 1.0 / (1.0 + Math.Exp(-linear));
         }
 
         /// <summary>
@@ -199,15 +204,25 @@ namespace MassSpectrometry
         /// Applies <see cref="ScoreEnvelope"/> to each envelope in the sequence and
         /// yields <c>(envelope, genericScore)</c> pairs. The original
         /// <see cref="IsotopicEnvelope.Score"/> field is not mutated.
+        /// Null elements in <paramref name="envelopes"/> are silently skipped.
         /// </summary>
-        /// <param name="envelopes">Envelopes to score.</param>
-        /// <param name="model">Averagine model for theoretical isotope lookup.</param>
+        /// <param name="envelopes">Envelopes to score. Must not be null; null elements are skipped.</param>
+        /// <param name="model">Averagine model for theoretical isotope lookup. Must not be null.</param>
+        /// <exception cref="ArgumentNullException">
+        /// Thrown if <paramref name="envelopes"/> or <paramref name="model"/> is null.
+        /// </exception>
         public static IEnumerable<(IsotopicEnvelope Envelope, double Score)> ScoreEnvelopes(
             IEnumerable<IsotopicEnvelope> envelopes,
             AverageResidue model)
         {
+            if (envelopes == null) throw new ArgumentNullException(nameof(envelopes));
+            if (model == null) throw new ArgumentNullException(nameof(model));
+
             foreach (var env in envelopes)
+            {
+                if (env == null) continue;
                 yield return (env, ScoreEnvelope(env, model));
+            }
         }
 
         // ── Private helpers ───────────────────────────────────────────────────
