@@ -32,8 +32,9 @@ namespace Omics.BioPolymerGroup
         /// <summary>
         /// Samples that contribute quantification data for this group.
         /// Supports <see cref="SpectraFileInfo"/> (label-free) and <see cref="IsobaricQuantSampleInfo"/> (TMT/iTRAQ).
+        /// May be null when no experimental design is available.
         /// </summary>
-        List<ISampleInfo> SamplesForQuantification { get; set; }
+        List<ISampleInfo>? SamplesForQuantification { get; set; }
 
         /// <summary>
         /// All biopolymers (e.g., proteins, RNA sequences) that belong to this group.
@@ -92,14 +93,53 @@ namespace Omics.BioPolymerGroup
         /// <summary>
         /// Measured intensity values for this group, keyed by sample.
         /// Supports both <see cref="SpectraFileInfo"/> and <see cref="IsobaricQuantSampleInfo"/> as keys.
+        /// May be null when no intensity data is available.
         /// </summary>
-        Dictionary<ISampleInfo, double> IntensitiesBySample { get; set; }
+        Dictionary<ISampleInfo, double>? IntensitiesBySample { get; set; }
 
         /// <summary>
         /// All biopolymers in this group ordered alphabetically by accession.
         /// Provides stable, deterministic ordering for output and display.
         /// </summary>
         List<IBioPolymer> ListOfBioPolymersOrderedByAccession { get; }
+
+        /// <summary>
+        /// Per-sample-group quantification and modification occupancy results.
+        /// Each entry represents one (Condition × BiologicalReplicate) group for label-free data,
+        /// one (File × Channel) for isobaric data, or one file for count-only results.
+        /// Built by PopulateSampleGroupResults, consumed by ToString and GetTabSeparatedHeader.
+        /// </summary>
+        List<SampleGroupResult>? SampleGroupResults { get; set; }
+
+        /// <summary>
+        /// Identifies the type of biopolymer in this group, which determines the modification
+        /// occupancy calculation strategy. <see cref="BioPolymerGroupType.Parent"/> uses
+        /// parent-level positions; <see cref="BioPolymerGroupType.DigestionProduct"/> uses 
+        /// digestion-product-local positions.
+        /// </summary>
+        BioPolymerGroupType GroupType { get; }
+
+        /// <summary>
+        /// Cumulative count of target groups at or above this group's rank, used for FDR calculation.
+        /// </summary>
+        int CumulativeTarget { get; set; }
+
+        /// <summary>
+        /// Cumulative count of decoy groups at or above this group's rank, used for FDR calculation.
+        /// </summary>
+        int CumulativeDecoy { get; set; }
+
+        /// <summary>
+        /// Computes <see cref="BioPolymerGroupScore"/> from the PSMs in <see cref="AllPsmsBelowOnePercentFDR"/>.
+        /// Score is the sum of the best (highest) score per unique base sequence.
+        /// </summary>
+        void Score();
+
+        /// <summary>
+        /// Computes sequence coverage for each biopolymer in the group based on the PSMs
+        /// in <see cref="AllPsmsBelowOnePercentFDR"/>.
+        /// </summary>
+        void CalculateSequenceCoverage();
 
         /// <summary>
         /// Returns a tab-separated header line for output files.
