@@ -39,4 +39,8 @@
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
 	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Deconvolution\Scoring\" />
+	</ItemGroup>
 </Project>
