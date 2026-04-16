@@ -261,38 +261,6 @@ namespace Test.Omics.SequenceConversion;
         Assert.That(mods, Contains.Key(5));
         Assert.That(mods[5].Target?.ToString(), Does.Contain("T"));
     }
-
-    [Test]
-    public void ParseToOneIsNterminusModificationDictionary_AutoDetectsUnimodInput()
-    {
-        var mods = SequenceConversionService.Default.ParseToOneIsNterminusModificationDictionary(
-            "PEPC[UNIMOD:4]IDE",
-            Mods.AllKnownProteinModsDictionary);
-
-        Assert.That(mods, Contains.Key(5));
-        Assert.That(mods[5].IdWithMotif, Is.EqualTo("Carbamidomethyl on C"));
-    }
-
-    [Test]
-    public void ParseToOneIsNterminusModificationDictionary_UsesSourceSerializerProjection()
-    {
-        var service = new SequenceConversionService();
-        var parser = new StubProjectionParser("source", input => input.Contains("X"), new CanonicalSequenceBuilder("PEPTIDE")
-            .AddResidueModification(3, "ignored", mzLibId: "Carbamidomethyl on C")
-            .WithSourceFormat("source")
-            .Build());
-        var serializer = new StubProjectionSerializer("source");
-        service.RegisterParser(parser);
-        service.RegisterSerializer(serializer);
-
-        var result = service.ParseToOneIsNterminusModificationDictionary(
-            "PEPTXIDE",
-            Mods.AllKnownProteinModsDictionary);
-
-        Assert.That(result, Contains.Key(42));
-        Assert.That(result[42].IdWithMotif, Is.EqualTo("Carbamidomethyl on C"));
-    }
-
     private static Modification CreateModification(string id, string residue, string location = "Anywhere.")
     {
         if (!ModificationMotif.TryGetMotif(residue, out var motif))

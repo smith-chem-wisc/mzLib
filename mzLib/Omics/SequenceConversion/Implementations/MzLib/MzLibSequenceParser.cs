@@ -33,6 +33,9 @@ public class MzLibSequenceParser : SequenceParserBase
         if (string.IsNullOrWhiteSpace(input))
             return false;
 
+        if (input.Contains("unimod:", StringComparison.InvariantCultureIgnoreCase))
+            return false; // unimod: identifiers are not mzLib format
+
         // mzLib format uses square brackets
         // Check for balanced brackets and valid structure
         bool hasSquareBrackets = input.Contains('[') && input.Contains(']');

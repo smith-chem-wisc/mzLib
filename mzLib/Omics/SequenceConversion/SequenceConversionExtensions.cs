@@ -176,27 +176,6 @@ public static class SequenceConversionExtensions
         return serializer.Serialize(canonical, warnings, mode);
     }
 
-    public static Dictionary<int, Modification> ParseToOneIsNterminusModificationDictionary(
-        this SequenceConversionService service,
-        string sequence,
-        Dictionary<string, Modification> knownMods,
-        ConversionWarnings? warnings = null,
-        SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException)
-    {
-        ArgumentNullException.ThrowIfNull(service);
-        ArgumentNullException.ThrowIfNull(knownMods);
-
-        warnings ??= new ConversionWarnings();
-        var canonical = service.ParseAutoDetect(sequence, warnings, mode);
-        if (!canonical.HasValue)
-        {
-            return new Dictionary<int, Modification>();
-        }
-
-        var serializer = ResolveSerializerForCanonical(service, canonical.Value);
-        return serializer.ToOneIsNterminusModificationDictionary(canonical.Value, knownMods, warnings, mode);
-    }
-
     public static Dictionary<int, Modification> ToOneIsNterminusModificationDictionary(
         this CanonicalSequence canonical,
         Dictionary<string, Modification> knownMods,
@@ -204,23 +183,7 @@ public static class SequenceConversionExtensions
         ConversionWarnings? warnings = null)
     {
         ArgumentNullException.ThrowIfNull(knownMods);
-        var serializer = ResolveSerializerForCanonical(SequenceConversionService.Default, canonical);
-        return serializer.ToOneIsNterminusModificationDictionary(canonical, knownMods, warnings, mode);
-    }
-
-    private static ISequenceSerializer ResolveSerializerForCanonical(SequenceConversionService service, CanonicalSequence canonical)
-    {
-        var sourceFormat = canonical.SourceFormat;
-        if (!string.IsNullOrWhiteSpace(sourceFormat))
-        {
-            var serializer = service.GetSerializer(sourceFormat);
-            if (serializer != null)
-            {
-                return serializer;
-            }
-        }
-
-        return MzLibSequenceSerializer.Instance;
+        return MzLibSequenceSerializer.Instance.ToOneIsNterminusModificationDictionary(canonical, knownMods, warnings, mode);
     }
 
     private static IDictionary<int, List<Modification>> SelectModDictionary(
