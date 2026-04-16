@@ -18,14 +18,6 @@ public class CZERetentionTimePredictor : RetentionTimePredictor
     public override SeparationType SeparationType => SeparationType.CZE;
 
     /// <summary>
-    /// CZE prediction is a pure function over the peptide sequence, its monoisotopic mass,
-    /// and the predictor's readonly instrument parameters (column length, voltage gradient).
-    /// No mutable per-instance state is touched during prediction, so concurrent batch
-    /// prediction on a single instance is safe.
-    /// </summary>
-    protected override bool IsConcurrentPredictionSafe => true;
-
-    /// <summary>
     /// Initializes a new CZE predictor with custom instrument parameters
     /// </summary>
     /// <param name="modHandlingMode">How to handle modifications (CZE uses mass, so this mainly affects which sequence to use)</param>

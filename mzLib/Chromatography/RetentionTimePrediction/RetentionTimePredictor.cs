@@ -56,7 +56,6 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor, IDisposa
     /// thread use at that entry point.
     /// </para>
     /// </remarks>
-    protected virtual bool IsConcurrentPredictionSafe => false;
 
     protected RetentionTimePredictor(SequenceConversionHandlingMode sequenceHandlingMode = SequenceConversionHandlingMode.UsePrimarySequence)
     {
@@ -137,7 +136,7 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor, IDisposa
         // Gate: predictors that have not opted in to concurrent prediction are run
         // single-threaded regardless of caller-supplied maxThreads. See
         // IsConcurrentPredictionSafe for the rationale.
-        int effectiveThreads = IsConcurrentPredictionSafe ? maxThreads : 1;
+        int effectiveThreads = maxThreads < 1 ? 1 : maxThreads;
 
         // Fast path: when there is no parallelism to exploit, bypass BlockingCollection +
         // Task.Run + Partitioner + Parallel.ForEach entirely. For small/medium batches this

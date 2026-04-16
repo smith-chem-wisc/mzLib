@@ -10,13 +10,6 @@ public class SSRCalc3RetentionTimePredictor : RetentionTimePredictor
     public override string PredictorName => "SSRCalc3";
     public override SeparationType SeparationType => SeparationType.HPLC;
 
-    /// <summary>
-    /// SSRCalc3 scoring is a pure function over the peptide sequence and the predictor's
-    /// readonly coefficient tables, with no mutable per-instance state. Concurrent batch
-    /// prediction on a single instance is therefore safe.
-    /// </summary>
-    protected override bool IsConcurrentPredictionSafe => true;
-
     public SSRCalc3RetentionTimePredictor(SSRCalc3.Column column = SSRCalc3.Column.A300)
     {
         _calculator = new SSRCalc3("SSRCalc3", column);

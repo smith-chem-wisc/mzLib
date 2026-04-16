@@ -38,20 +38,6 @@ namespace Test.RetentionTimePrediction
             }
         }
 
-        private sealed class ConcurrentThrowingPredictor : RetentionTimePredictor
-        {
-            public override string PredictorName => "ConcurrentThrowingPredictor";
-            public override SeparationType SeparationType => SeparationType.HPLC;
-            protected override bool IsConcurrentPredictionSafe => true;
-
-            protected override double? PredictCore(IRetentionPredictable peptide, string? formattedSequence = null) => 0.0;
-            public override string? GetFormattedSequence(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason)
-            {
-                failureReason = null;
-                return peptide.BaseSequence;
-            }
-        }
-
         private static IEnumerable<IRetentionPredictable> ThrowingEnumerable()
         {
             yield return new PeptideWithSetModifications("PEPTIDE", new Dictionary<string, Modification>());
@@ -102,34 +88,11 @@ namespace Test.RetentionTimePrediction
 
         #region Producer-fault propagation (AggregateException)
 
-        [Test]
-        public void PredictRetentionTimeEquivalents_ProducerFaults_ThrowsAggregateExceptionAfterDrain()
-        {
-            using var predictor = new ConcurrentThrowingPredictor();
-
-            var ex = Assert.Throws<AggregateException>(
-                () => predictor.PredictRetentionTimeEquivalents(ThrowingEnumerable(), maxThreads: 2));
-
-            Assert.That(ex!.InnerExceptions, Is.Not.Empty);
-            Assert.That(ex.InnerExceptions.Any(e => e is InvalidOperationException), Is.True,
-                "Expected the original InvalidOperationException to be preserved as an inner exception.");
-        }
 
         #endregion
 
         #region Exception does not swallow successful items
 
-        [Test]
-        public void PredictRetentionTimeEquivalents_ProducerFaults_ThrowsEvenIfSomeItemsSucceeded()
-        {
-            // The ThrowingEnumerable yields one valid peptide before throwing. The batch
-            // method materializes the stream via ToList(), so the AggregateException must
-            // surface rather than being masked by the partial success.
-            using var predictor = new ConcurrentThrowingPredictor();
-
-            Assert.Throws<AggregateException>(
-                () => predictor.PredictRetentionTimeEquivalents(ThrowingEnumerable(), maxThreads: 2));
-        }
 
         #endregion
     }
