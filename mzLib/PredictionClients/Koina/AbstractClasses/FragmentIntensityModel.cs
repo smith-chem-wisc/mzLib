@@ -323,7 +323,8 @@ namespace PredictionClients.Koina.AbstractClasses
                         var pwsm = new PeptideWithSetModifications(peptide.FullSequence);
                         List<Product> theoreticalProducts = new();
                         pwsm.Fragment(MassSpectrometry.DissociationType.HCD, FragmentationTerminus.Both, theoreticalProducts);
-                        Dictionary<string, Product> tpLookup = theoreticalProducts.ToDictionary(tp => tp.Annotation);
+                        Dictionary<string, Product> tpLookup = theoreticalProducts
+                            .DistinctBy(p => p.Annotation).ToDictionary(tp => tp.Annotation);
 
                         var fragmentIons = new List<string>();
                         var fragmentMZs = new List<double>();
@@ -498,7 +499,7 @@ namespace PredictionClients.Koina.AbstractClasses
                 List<Product> theoreticalProducts = new();
                 peptide.Fragment(MassSpectrometry.DissociationType.HCD, FragmentationTerminus.Both, theoreticalProducts); // Generate theoretical fragments to get the m/z values for the input sequence
                 Dictionary<string, double> predictionAnnotationIntensityLookup = new();
-                Dictionary<string, Product> tpLookup = theoreticalProducts.ToDictionary(tp => tp.Annotation);
+                Dictionary<string, Product> tpLookup = theoreticalProducts.DistinctBy(tp => tp.Annotation).ToDictionary(tp => tp.Annotation);
 
                 for (int i = 0; i < prediction.FragmentAnnotations.Count; i++)
                 {
