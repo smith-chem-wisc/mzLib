@@ -1,4 +1,6 @@
+using System.Globalization;
 using System.Text;
+using Omics.Modifications;
 
 namespace Omics.SequenceConversion;
 
@@ -60,6 +62,84 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
         {
             return HandleError(warnings, mode, ConversionFailureReason.UnknownFormat,
                 $"Unexpected error serializing sequence: {ex.Message}");
+        }
+    }
+
+    /// <inheritdoc />
+    public virtual Dictionary<int, Modification> ToOneIsNterminusModificationDictionary(
+        CanonicalSequence sequence,
+        Dictionary<string, Modification>? knownMods = null,
+        ConversionWarnings? warnings = null,
+        SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException)
+    {
+        warnings ??= new ConversionWarnings();
+
+        if (string.IsNullOrEmpty(sequence.BaseSequence))
+        {
+            HandleDictionaryError(
+                warnings,
+                mode,
+                ConversionFailureReason.InvalidSequence,
+                "Sequence has no base sequence.");
+            return new Dictionary<int, Modification>();
+        }
+
+        try
+        {
+            sequence = EnrichModificationsIfNeeded(sequence);
+            var allModsOneIsNterminus = new Dictionary<int, Modification>();
+
+            foreach (var canonicalModification in sequence.Modifications)
+            {
+                var index = ResolveOneIsNterminusIndex(canonicalModification, sequence.BaseSequence.Length);
+                var targetResidue = ResolveTargetResidue(canonicalModification, sequence.BaseSequence);
+
+                if (!TryResolveKnownModification(canonicalModification, targetResidue, knownMods, out var resolved))
+                {
+                    if (mode == SequenceConversionHandlingMode.ThrowException)
+                    {
+                        throw new SequenceConversionException(
+                            $"Unable to resolve modification {canonicalModification}",
+                            ConversionFailureReason.IncompatibleModifications,
+                            new[] { canonicalModification.ToString() });
+                    }
+
+                    warnings.AddWarning($"Unable to resolve modification {canonicalModification}; skipping.");
+                    warnings.AddIncompatibleItem(canonicalModification.ToString());
+                    continue;
+                }
+
+                if (allModsOneIsNterminus.ContainsKey(index))
+                {
+                    if (mode == SequenceConversionHandlingMode.ThrowException)
+                    {
+                        throw new SequenceConversionException(
+                            $"Multiple modifications map to OneIsNterminus index {index}.",
+                            ConversionFailureReason.InvalidSequence,
+                            new[] { canonicalModification.ToString() });
+                    }
+
+                    warnings.AddWarning($"Multiple modifications map to OneIsNterminus index {index}; keeping the first entry.");
+                    continue;
+                }
+
+                allModsOneIsNterminus.Add(index, resolved!);
+            }
+
+            return allModsOneIsNterminus;
+        }
+        catch (SequenceConversionException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            HandleDictionaryError(
+                warnings,
+                mode,
+                ConversionFailureReason.UnknownFormat,
+                $"Unexpected error projecting sequence modifications: {ex.Message}");
+            return new Dictionary<int, Modification>();
         }
     }
 
@@ -202,6 +282,279 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
         CanonicalModification mod, 
         ConversionWarnings warnings, 
         SequenceConversionHandlingMode mode);
+
+    private bool TryResolveKnownModification(
+        CanonicalModification canonicalModification,
+        char? targetResidue,
+        Dictionary<string, Modification>? knownMods,
+        out Modification? resolved)
+    {
+        resolved = null;
+
+        if (knownMods != null)
+        {
+            if (canonicalModification.MzLibModification != null &&
+                !string.IsNullOrWhiteSpace(canonicalModification.MzLibModification.IdWithMotif) &&
+                knownMods.TryGetValue(canonicalModification.MzLibModification.IdWithMotif, out var byIdWithMotif))
+            {
+                resolved = byIdWithMotif;
+                return true;
+            }
+
+            if (TryResolveByToken(canonicalModification.MzLibId, targetResidue, knownMods, out resolved))
+            {
+                return true;
+            }
+
+            if (TryResolveByToken(canonicalModification.OriginalRepresentation, targetResidue, knownMods, out resolved))
+            {
+                return true;
+            }
+
+            if (canonicalModification.UnimodId.HasValue &&
+                TryResolveByUnimodId(canonicalModification.UnimodId.Value, targetResidue, knownMods, out resolved))
+            {
+                return true;
+            }
+        }
+
+        if (canonicalModification.MzLibModification != null)
+        {
+            resolved = canonicalModification.MzLibModification;
+            return true;
+        }
+
+        if (_lookup != null)
+        {
+            var resolvedCanonical = _lookup.TryResolve(canonicalModification);
+            if (resolvedCanonical.HasValue && resolvedCanonical.Value.MzLibModification != null)
+            {
+                var lookupResolved = resolvedCanonical.Value.MzLibModification;
+
+                if (knownMods != null &&
+                    !string.IsNullOrWhiteSpace(lookupResolved.IdWithMotif) &&
+                    knownMods.TryGetValue(lookupResolved.IdWithMotif, out var remapped))
+                {
+                    resolved = remapped;
+                    return true;
+                }
+
+                resolved = lookupResolved;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static int ResolveOneIsNterminusIndex(CanonicalModification canonicalModification, int baseSequenceLength)
+    {
+        switch (canonicalModification.PositionType)
+        {
+            case ModificationPositionType.NTerminus:
+                return 1;
+
+            case ModificationPositionType.CTerminus:
+                return baseSequenceLength + 2;
+
+            case ModificationPositionType.Residue:
+                if (!canonicalModification.ResidueIndex.HasValue ||
+                    canonicalModification.ResidueIndex.Value < 0 ||
+                    canonicalModification.ResidueIndex.Value >= baseSequenceLength)
+                {
+                    throw new SequenceConversionException(
+                        $"Residue index {canonicalModification.ResidueIndex?.ToString() ?? "null"} is invalid for base sequence length {baseSequenceLength}.",
+                        ConversionFailureReason.InvalidSequence,
+                        new[] { canonicalModification.ToString() });
+                }
+
+                return canonicalModification.ResidueIndex.Value + 2;
+
+            default:
+                throw new SequenceConversionException(
+                    $"Unsupported modification position type: {canonicalModification.PositionType}",
+                    ConversionFailureReason.InvalidSequence,
+                    new[] { canonicalModification.ToString() });
+        }
+    }
+
+    private static char? ResolveTargetResidue(CanonicalModification canonicalModification, string baseSequence)
+    {
+        if (canonicalModification.TargetResidue.HasValue)
+        {
+            return canonicalModification.TargetResidue.Value;
+        }
+
+        if (canonicalModification.PositionType == ModificationPositionType.NTerminus)
+        {
+            return baseSequence.Length > 0 ? baseSequence[0] : (char?)null;
+        }
+
+        if (canonicalModification.PositionType == ModificationPositionType.CTerminus)
+        {
+            return baseSequence.Length > 0 ? baseSequence[^1] : (char?)null;
+        }
+
+        if (canonicalModification.ResidueIndex.HasValue &&
+            canonicalModification.ResidueIndex.Value >= 0 &&
+            canonicalModification.ResidueIndex.Value < baseSequence.Length)
+        {
+            return baseSequence[canonicalModification.ResidueIndex.Value];
+        }
+
+        return null;
+    }
+
+    private static bool TryResolveByToken(
+        string? modToken,
+        char? targetResidue,
+        Dictionary<string, Modification> knownMods,
+        out Modification? resolved)
+    {
+        resolved = null;
+        if (string.IsNullOrWhiteSpace(modToken))
+        {
+            return false;
+        }
+
+        var trimmed = modToken.Trim();
+        if (knownMods.TryGetValue(trimmed, out var exactMatch))
+        {
+            resolved = exactMatch;
+            return true;
+        }
+
+        var splitIndex = trimmed.IndexOf(':');
+        if (splitIndex > 0 && splitIndex < trimmed.Length - 1)
+        {
+            var tokenWithoutPrefix = trimmed.Substring(splitIndex + 1).Trim();
+            if (knownMods.TryGetValue(tokenWithoutPrefix, out var withoutPrefixMatch))
+            {
+                resolved = withoutPrefixMatch;
+                return true;
+            }
+        }
+
+        if (TryParseUnimodToken(trimmed, out var unimodId) &&
+            TryResolveByUnimodId(unimodId, targetResidue, knownMods, out resolved))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveByUnimodId(
+        int unimodId,
+        char? targetResidue,
+        Dictionary<string, Modification> knownMods,
+        out Modification? resolved)
+    {
+        resolved = null;
+
+        var candidates = knownMods.Values
+            .Where(modification => modification != null && MatchesUnimodId(modification, unimodId))
+            .Distinct()
+            .ToList();
+
+        if (candidates.Count == 0)
+        {
+            return false;
+        }
+
+        if (candidates.Count == 1)
+        {
+            resolved = candidates[0];
+            return true;
+        }
+
+        if (!targetResidue.HasValue)
+        {
+            return false;
+        }
+
+        var residueMatches = candidates
+            .Where(candidate =>
+            {
+                var target = candidate.Target?.ToString();
+                return !string.IsNullOrWhiteSpace(target) &&
+                       target.Contains(targetResidue.Value.ToString(), StringComparison.OrdinalIgnoreCase);
+            })
+            .Distinct()
+            .ToList();
+
+        if (residueMatches.Count != 1)
+        {
+            return false;
+        }
+
+        resolved = residueMatches[0];
+        return true;
+    }
+
+    private static bool MatchesUnimodId(Modification modification, int unimodId)
+    {
+        if (modification.DatabaseReference != null)
+        {
+            foreach (var databaseReference in modification.DatabaseReference)
+            {
+                if (!databaseReference.Key.Equals("UNIMOD", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                foreach (var token in databaseReference.Value)
+                {
+                    if (TryParseUnimodToken(token, out var parsedId) && parsedId == unimodId)
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return TryParseUnimodToken(modification.Accession, out var accessionId) && accessionId == unimodId;
+    }
+
+    private static bool TryParseUnimodToken(string? token, out int unimodId)
+    {
+        unimodId = 0;
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return false;
+        }
+
+        var trimmed = token.Trim();
+        var lastColon = trimmed.LastIndexOf(':');
+        if (lastColon >= 0 && lastColon < trimmed.Length - 1)
+        {
+            var prefix = trimmed.Substring(0, lastColon).Trim();
+            if (!string.IsNullOrWhiteSpace(prefix) &&
+                !prefix.Equals("UNIMOD", StringComparison.OrdinalIgnoreCase) &&
+                !prefix.EndsWith("UNIMOD", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            trimmed = trimmed.Substring(lastColon + 1).Trim();
+        }
+
+        return int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out unimodId);
+    }
+
+    private static void HandleDictionaryError(
+        ConversionWarnings warnings,
+        SequenceConversionHandlingMode mode,
+        ConversionFailureReason reason,
+        string message)
+    {
+        warnings.SetFailure(reason, message);
+
+        if (mode == SequenceConversionHandlingMode.ThrowException)
+        {
+            throw warnings.ToException(message);
+        }
+    }
 
     /// <summary>
     /// Handles an error based on the handling mode.

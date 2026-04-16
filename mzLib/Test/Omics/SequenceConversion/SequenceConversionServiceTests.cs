@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using Omics.Modifications;
 using Omics.SequenceConversion;
 using System;
 using System.Collections.Generic;
@@ -360,6 +361,12 @@ public class SequenceConversionServiceTests
             ConversionWarnings? warnings = null,
             SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException)
             => $"{FormatName}:{sequence.BaseSequence}";
+
+        public Dictionary<int, Modification> ToOneIsNterminusModificationDictionary(
+            CanonicalSequence sequence,
+            Dictionary<string, Modification>? knownMods = null,
+            ConversionWarnings? warnings = null,
+            SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException) => new();
     }
 
     private sealed class StubConverter : ISequenceConverter
