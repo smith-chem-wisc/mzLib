@@ -80,6 +80,26 @@ namespace Test.FileReadingTests
             return true;
         }
 
+        private static bool GetGlobalAbundanceRefitEnabled()
+        {
+            if (IsTrueEnvironmentVariable("MZLIB_TOPDOWN_SIM_NO_GLOBAL_ABUNDANCE_REFIT"))
+                return false;
+
+            return true;
+        }
+
+        private static int GetGlobalAbundanceRefitMaxModels()
+        {
+            const int defaultMaxModels = 200;
+            var raw = Environment.GetEnvironmentVariable("MZLIB_TOPDOWN_SIM_GLOBAL_REFIT_MAX_MODELS");
+            if (string.IsNullOrWhiteSpace(raw))
+                return defaultMaxModels;
+
+            return int.TryParse(raw, out int parsed) && parsed > 0
+                ? parsed
+                : defaultMaxModels;
+        }
+
         private static bool IsTrueEnvironmentVariable(string variableName)
         {
             var value = Environment.GetEnvironmentVariable(variableName);
@@ -166,6 +186,49 @@ namespace Test.FileReadingTests
                 .WithYAxisStyle<double, double, string>(Title: Plotly.NET.Title.init("Intensity of Diagnostic Ions"))
                 .WithSize(Width: 1000, Height: 500)
                 .Show();
+        }
+
+        [Test]
+        public static void RawDataLoadingTimer()
+        {
+            var path = @"D:\JurkatTopdown\02-18-20_jurkat_td_rep2_fract7.raw";
+            long size = new FileInfo(path).Length;
+            var sizeMb = size / (1024.0 * 1024.0);
+            var sw = Stopwatch.StartNew();
+            var reader = MsDataFileReader.GetDataFile(path);
+            reader.LoadAllStaticData();
+            sw.Stop();
+            Console.WriteLine($"Loaded {sizeMb:F2} MB .raw file in {sw.Elapsed.ToString(@"hh\:mm\:ss\.fff")}");
+
+            sw = Stopwatch.StartNew();
+            var ms1Scans = reader.GetAllScansList()
+                .Where(s => s.MsnOrder == 1)
+                .OrderBy(s => s.OneBasedScanNumber)
+                .ToArray();
+
+            var outDir = Path.GetDirectoryName(path);
+            var outPath = Path.Combine(outDir!, Path.GetFileNameWithoutExtension(path) + "_test.imsp");
+
+            int peakCount = WriteImspFile(ms1Scans, outPath, intensityThreshold: 10000);
+            sw.Stop();
+            Console.WriteLine($"Wrote {peakCount} peaks in {sw.Elapsed.ToString(@"hh\:mm\:ss\.fff")}");
+
+
+            if(File.Exists(outPath))
+                File.Delete(outPath);
+        }
+
+        [Test]
+        public static void MzmlDataLoadingTimer()
+        {
+            var path = @"D:\JurkatTopdown\02-17-20_jurkat_td_rep2_fract2-calib-averaged.mzML";
+            long size = new FileInfo(path).Length;
+            var sizeMb = size / (1024.0 * 1024.0);
+            var sw = Stopwatch.StartNew();
+            var reader = MsDataFileReader.GetDataFile(path);
+            reader.LoadAllStaticData();
+            sw.Stop();
+            Console.WriteLine($"Loaded {sizeMb:F2} MB .mzML file in {sw.Elapsed}");
         }
 
         [Test]
@@ -493,6 +556,8 @@ namespace Test.FileReadingTests
             const double rtHalfWidth = 0.25;
             bool centroidOutput = GetSimulateCentroidedOutput();
             bool deduplicate = GetDeduplicateProteoforms();
+            bool useGlobalAbundanceRefit = GetGlobalAbundanceRefitEnabled();
+            int globalRefitMaxModels = GetGlobalAbundanceRefitMaxModels();
 
             string rawPath = ResolveLocalPath(@"D:\JurkatTopdown\02-18-20_jurkat_td_rep2_fract7.raw");
             string resultPath = ResolveLocalPath(@"D:\JurkatTopdown\Frac7_GPTMD_Search\Task2-TopDownSearch\Individual File Results\02-18-20_jurkat_td_rep2_fract7_Proteoforms.psmtsv");
@@ -504,6 +569,8 @@ namespace Test.FileReadingTests
             string simFullImspPath = Path.Combine(outDir, stem + ".full.simulated.q001.imsp");
 
             var totalSw = Stopwatch.StartNew();
+            Console.WriteLine($"Global abundance refit: {useGlobalAbundanceRefit} (set MZLIB_TOPDOWN_SIM_NO_GLOBAL_ABUNDANCE_REFIT=1 to disable)");
+            Console.WriteLine($"Global abundance refit max models: {globalRefitMaxModels} (override with MZLIB_TOPDOWN_SIM_GLOBAL_REFIT_MAX_MODELS)");
 
             var reader = MsDataFileReader.GetDataFile(rawPath);
             reader.LoadAllStaticData();
@@ -539,7 +606,7 @@ namespace Test.FileReadingTests
             var index = PeakIndexingEngine.InitializeIndexingEngine(allMs1Scans)!;
             var extractor = new GroundTruthExtractor(index, allMs1Scans, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
 
-            var sliceFit = FitProteoforms(qFilteredSliceRecords, extractor, rtHalfWidth);
+            var sliceFit = FitProteoforms(qFilteredSliceRecords, extractor, rtHalfWidth, useGlobalAbundanceRefit, globalRefitMaxModels);
             Assert.That(sliceFit.Models, Is.Not.Empty, "No simulated models were fitted for 31-35 min slice.");
 
             var sliceScanTimes = rtSliceMs1Scans.Select(s => s.RetentionTime).ToArray();
@@ -564,7 +631,7 @@ namespace Test.FileReadingTests
             Console.WriteLine($"Simulated slice IMSP written: {simSliceImspPath}");
             Console.WriteLine($"Simulated slice models: {sliceFit.Models.Length}, scans: {sliceSimulation.Scans.Length}, peaks: {simSlicePeakCount}");
 
-            var fullFit = FitProteoforms(qFilteredRecords, extractor, rtHalfWidth);
+            var fullFit = FitProteoforms(qFilteredRecords, extractor, rtHalfWidth, useGlobalAbundanceRefit, globalRefitMaxModels);
             Assert.That(fullFit.Models, Is.Not.Empty, "No simulated models were fitted for full q<=0.01 run.");
 
             var fullScanTimes = allMs1Scans.Select(s => s.RetentionTime).ToArray();
@@ -633,10 +700,13 @@ namespace Test.FileReadingTests
         private static (ProteoformModel[] Models, int MinCharge, int MaxCharge, double SigmaMz) FitProteoforms(
             IReadOnlyList<MmResultRecord> records,
             GroundTruthExtractor extractor,
-            double rtHalfWidth)
+            double rtHalfWidth,
+            bool useGlobalAbundanceRefit,
+            int globalRefitMaxModels)
         {
             var fitter = new ParameterFitter(widthFitter: new EnvelopeWidthFitter(fallbackSigmaMz: 0.012));
             var fitted = new List<FittedProteoform>(records.Count);
+            var truths = new List<ProteoformGroundTruth>(records.Count);
 
             int minChargeGlobal = int.MaxValue;
             int maxChargeGlobal = int.MinValue;
@@ -667,6 +737,7 @@ namespace Test.FileReadingTests
                     continue;
 
                 fitted.Add(fit);
+                truths.Add(truth);
                 minChargeGlobal = Math.Min(minChargeGlobal, minCharge);
                 maxChargeGlobal = Math.Max(maxChargeGlobal, maxCharge);
             }
@@ -682,6 +753,27 @@ namespace Test.FileReadingTests
                 .OrderBy(s => s)
                 .ToArray();
             double sigmaMz = sigmaCandidates.Length == 0 ? 0.012 : sigmaCandidates[sigmaCandidates.Length / 2];
+
+            if (useGlobalAbundanceRefit && fitted.Count > 1)
+            {
+                if (fitted.Count > globalRefitMaxModels)
+                {
+                    Console.WriteLine($"Skipping global abundance refit for {fitted.Count} models (max allowed: {globalRefitMaxModels}).");
+                }
+                else
+                {
+                var refitter = new GlobalAbundanceRefitter(new GlobalAbundanceRefitOptions(
+                    MaxIterations: 8,
+                    ConvergenceTolerance: 1e-3,
+                    MinimumAbundance: 0,
+                    Verbose: true));
+
+                var refitResult = refitter.Refit(fitted, truths, minChargeGlobal, maxChargeGlobal, sigmaMz);
+                fitted = refitResult.FittedProteoforms.ToList();
+                Console.WriteLine($"Global abundance refit iterations: {refitResult.IterationsCompleted}, converged: {refitResult.Converged}");
+                Console.WriteLine($"Global abundance refit residual fraction: {refitResult.InitialResidualFraction:G6} -> {refitResult.FinalResidualFraction:G6}");
+                }
+            }
 
             return (
                 fitted.Select(f => f.Model).ToArray(),
@@ -885,83 +977,9 @@ namespace Test.FileReadingTests
         /// to the given output path. Returns the total number of peaks written.
         /// </summary>
         public static int WriteImspFile(MsDataScan[] ms1Scans, string outputPath,
-            double intensityThreshold = 10000)
+            double intensityThreshold = ImspExportService.DefaultIntensityThreshold)
         {
-            const int BinsPerDalton = 100;
-
-            double maxMz = ms1Scans
-                .Where(s => s.MassSpectrum.LastX.HasValue)
-                .Max(s => s.MassSpectrum.LastX.Value);
-            int binArrayLength = (int)Math.Ceiling(maxMz * BinsPerDalton) + 1;
-
-            var bins = new List<(double Mz, double Intensity, int ScanIndex)>[binArrayLength];
-
-            for (int scanIdx = 0; scanIdx < ms1Scans.Length; scanIdx++)
-            {
-                var scan = ms1Scans[scanIdx];
-                for (int j = 0; j < scan.MassSpectrum.XArray.Length; j++)
-                {
-                    double intensity = scan.MassSpectrum.YArray[j];
-                    if (intensity < intensityThreshold) continue;
-                    double mz  = scan.MassSpectrum.XArray[j];
-                    int binIdx = (int)Math.Round(mz * BinsPerDalton, 0);
-                    if (bins[binIdx] == null)
-                        bins[binIdx] = new List<(double, double, int)>();
-                    bins[binIdx].Add((mz, intensity, scanIdx));
-                }
-            }
-
-            var nonEmptyBins = Enumerable.Range(0, binArrayLength)
-                .Where(i => bins[i] != null)
-                .Select(i => (BinIndex: i, Peaks: bins[i]))
-                .ToArray();
-            int totalPeakCount = nonEmptyBins.Sum(b => b.Peaks.Count);
-
-            var ticPerScan = new double[ms1Scans.Length];
-            foreach (var (_, peaks) in nonEmptyBins)
-                foreach (var (_, intensity, scanIdx) in peaks)
-                    ticPerScan[scanIdx] += intensity;
-
-            using (var fs = File.Create(outputPath))
-            using (var bw = new BinaryWriter(fs))
-            {
-                // Section 1: File Header (24 bytes)
-                bw.Write(new byte[] { (byte)'I', (byte)'M', (byte)'S', (byte)'P' });
-                bw.Write((uint)1);                       // version
-                bw.Write((uint)BinsPerDalton);           // bins per dalton
-                bw.Write((uint)nonEmptyBins.Length);     // non-empty bin count  (N)
-                bw.Write((uint)totalPeakCount);          // total peak count     (T)
-                bw.Write((uint)ms1Scans.Length);         // MS1 scan count       (S)
-
-                // Section 2: Scan Table (S × 16 bytes)
-                for (int i = 0; i < ms1Scans.Length; i++)
-                {
-                    bw.Write((uint)ms1Scans[i].OneBasedScanNumber); // uint32  4 bytes
-                    bw.Write(ms1Scans[i].RetentionTime);             // float64 8 bytes
-                    bw.Write((float)ticPerScan[i]);                  // float32 4 bytes
-                }
-
-                // Section 3: Bin Directory (N × 12 bytes)
-                uint peakOffset = 0;
-                foreach (var (binIdx, peaks) in nonEmptyBins)
-                {
-                    bw.Write((uint)binIdx); // uint32  4 bytes
-                    bw.Write(peakOffset); // uint32  4 bytes
-                    bw.Write((uint)peaks.Count); // uint32  4 bytes
-                    peakOffset += (uint)peaks.Count; // keep track of the cumulative peak count for the next bin's offset
-                }
-
-                // Section 4: Peak Array (T × 12 bytes)
-                foreach (var (_, peaks) in nonEmptyBins)
-                    foreach (var (mz, intensity, scanIdx) in peaks)
-                    {
-                        bw.Write((uint)Math.Round(mz * 10000)); // uint32  4 bytes  offset 0
-                        bw.Write((float)intensity);              // float32 4 bytes  offset 4
-                        bw.Write((uint)scanIdx);                 // uint32  4 bytes  offset 8
-                    }
-            }
-
-            return totalPeakCount;
+            return new ImspExportService().WriteFile(ms1Scans, outputPath, intensityThreshold: intensityThreshold);
         }
 
         /// <summary>Creates a minimal synthetic MS1 scan for fixture generation.</summary>
