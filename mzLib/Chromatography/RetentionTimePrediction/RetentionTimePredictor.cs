@@ -231,8 +231,7 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor, IDisposa
         IEnumerable<IRetentionPredictable> peptides, int maxThreads = 1)
     {
         if (maxThreads < 1)
-            throw new ArgumentOutOfRangeException(nameof(maxThreads), maxThreads,
-                "maxThreads must be at least 1.");
+            maxThreads = 1;
         return ProduceResults(peptides, maxThreads).ToList();
     }
 
