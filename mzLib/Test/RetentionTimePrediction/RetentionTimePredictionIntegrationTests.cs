@@ -353,7 +353,7 @@ namespace Test.RetentionTimePrediction
         {
             var testCases = new[]
             {
-                (new PeptideWithSetModifications("A", new Dictionary<string, Modification>()), "empty sequence"),
+                (new PeptideWithSetModifications("", new Dictionary<string, Modification>()), "empty sequence"),
                 (new PeptideWithSetModifications(new string('A', 100), new Dictionary<string, Modification>()), "long sequence")
             };
 

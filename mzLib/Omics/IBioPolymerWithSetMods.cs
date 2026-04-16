@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.RegularExpressions;
 using Chemistry;
 using MassSpectrometry;
@@ -101,9 +101,15 @@ namespace Omics
         {
             ArgumentNullException.ThrowIfNull(allModsKnown);
 
+            if (string.IsNullOrEmpty(fullSequence))
+            {
+                return new Dictionary<int, Modification>();
+            }
+
             try
             {
-                return SequenceConversionService.Default.ParseToOneIsNterminusModificationDictionary(fullSequence, allModsKnown);
+                var canonical = SequenceConversionService.Default.ParseAutoDetect(fullSequence);
+                return MzLibSequenceSerializer.Instance.ToOneIsNterminusModificationDictionary(canonical!.Value, allModsKnown);
             }
             catch (SequenceConversionException e)
             {

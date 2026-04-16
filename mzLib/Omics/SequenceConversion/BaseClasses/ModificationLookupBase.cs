@@ -570,8 +570,8 @@ public abstract class ModificationLookupBase : IModificationLookup
         return source.Where(m =>
             (m.DatabaseReference != null &&
              m.DatabaseReference.Any(kvp => kvp.Key.Equals("UNIMOD", StringComparison.OrdinalIgnoreCase) &&
-                                             kvp.Value.Any(value => value.Contains(idString, StringComparison.OrdinalIgnoreCase))))
-            || (!string.IsNullOrEmpty(m.Accession) && m.Accession.Contains(idString, StringComparison.OrdinalIgnoreCase)));
+                                             kvp.Value.Any(value => value.Equals(idString, StringComparison.OrdinalIgnoreCase))))
+            || (!string.IsNullOrEmpty(m.Accession) && m.Accession.Equals(idString, StringComparison.OrdinalIgnoreCase)));
     }
 
     private IEnumerable<Modification> FilterByIdentifierSet(IEnumerable<Modification> source, HashSet<string> identifiers)
