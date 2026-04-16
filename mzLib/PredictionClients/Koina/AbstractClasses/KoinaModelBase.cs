@@ -9,7 +9,7 @@ namespace PredictionClients.Koina.AbstractClasses;
 
 public abstract class KoinaModelBase<TModelInput, TModelOutput>
 {
-
+    private static readonly Regex BaseStripper = new(@"\[[^\]]+\]", RegexOptions.Compiled);
     protected KoinaModelBase(ISequenceConverter sequenceConverter)
     {
         SequenceConverter = sequenceConverter ?? throw new ArgumentNullException(nameof(sequenceConverter));
@@ -101,6 +101,13 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     {
         apiSequence = null;
         warning = null;
+
+        var rawBase = BaseStripper.Replace(sequence, string.Empty);
+        if (!Regex.IsMatch(rawBase, AllowedAminoAcidPattern))
+        {
+            HandleFailure(ModHandlingMode, "Invalid base sequence.");
+            return null;
+        }
 
         var conversionWarnings = new ConversionWarnings();
         CanonicalSequence? canonical;
