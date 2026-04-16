@@ -1,5 +1,7 @@
 using NUnit.Framework;
 using Omics;
+using Omics.Modifications;
+using Proteomics.ProteolyticDigestion;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Test.Omics;
@@ -45,5 +47,37 @@ public class IBioPolymerWithSetModsTests
             fullSequence, startDelimiter, endDelimiter, cTerminusDelimiter);
 
         Assert.That(actualBaseSequence, Is.EqualTo(expectedBaseSequence));
+    }
+
+    [Test]
+    public void GetModificationDictionaryFromFullSequence_ResolvesUnimodModification()
+    {
+        var mods = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(
+            "PEPC[UNIMOD:4]IDE",
+            Mods.AllKnownProteinModsDictionary);
+
+        Assert.That(mods, Contains.Key(5));
+        Assert.That(mods[5].IdWithMotif, Is.EqualTo("Carbamidomethyl on C"));
+    }
+
+    [Test]
+    public void GetModificationDictionaryFromFullSequence_UsesResidueToDisambiguateUnimod()
+    {
+        var mods = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(
+            "PEPT[UNIMOD:21]IDE",
+            Mods.AllKnownProteinModsDictionary);
+
+        Assert.That(mods, Contains.Key(5));
+        Assert.That(mods[5].Target?.ToString(), Does.Contain("T"));
+    }
+
+    [Test]
+    public void PeptideWithSetModifications_Ctor_AcceptsUnimodSequence()
+    {
+        var peptide = new PeptideWithSetModifications("PEPC[UNIMOD:4]IDE");
+
+        Assert.That(peptide.BaseSequence, Is.EqualTo("PEPCIDE"));
+        Assert.That(peptide.AllModsOneIsNterminus, Contains.Key(5));
+        Assert.That(peptide.AllModsOneIsNterminus[5].IdWithMotif, Is.EqualTo("Carbamidomethyl on C"));
     }
 }

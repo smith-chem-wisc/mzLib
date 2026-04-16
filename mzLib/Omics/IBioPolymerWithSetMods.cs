@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 using Chemistry;
 using MassSpectrometry;
@@ -123,10 +124,11 @@ namespace Omics
                     bracketCount--;
                     if (bracketCount == 0)
                     {
+                        string modString;
                         try
                         {
                             //remove the beginning section (e.g. "Fixed", "Variable", "Uniprot") if present
-                            string modString = fullSequence.Substring(currentModStart, r - currentModStart);
+                            modString = fullSequence.Substring(currentModStart, r - currentModStart);
                             int splitIndex = modString.IndexOf(':');
                             modId = splitIndex > 0 ? modString.Substring(splitIndex + 1, modString.Length - splitIndex - 1) : modString;
                         }
@@ -138,8 +140,11 @@ namespace Omics
                         }
                         if (!allModsKnown.TryGetValue(modId, out var mod))
                         {
-                            throw new MzLibUtil.MzLibException(
-                                "Could not find modification while reading string: " + fullSequence);
+                            if (!TryResolveUnimodFromDatabaseReference(modString, currentModificationLocation, baseSequence, allModsKnown, out mod))
+                            {
+                                throw new MzLibUtil.MzLibException(
+                                    "Could not find modification while reading string: " + fullSequence);
+                            }
                         }
                         // Set the C-terminus modification index to its OneIsNTerminus Index.
                         // Checks if the location restriction for the mod contains C-terminal' (for protein and peptide BioPolymer objects)
@@ -160,6 +165,130 @@ namespace Omics
             }
 
             return allModsOneIsNterminus;
+
+            static bool TryResolveUnimodFromDatabaseReference(string modToken, int oneIsNTerminusPosition,
+                string sequence, Dictionary<string, Modification> knownMods, out Modification? resolved)
+            {
+                resolved = null;
+                if (string.IsNullOrWhiteSpace(modToken))
+                {
+                    return false;
+                }
+
+                int separatorIndex = modToken.IndexOf(':');
+                if (separatorIndex <= 0)
+                {
+                    return false;
+                }
+
+                string prefix = modToken.Substring(0, separatorIndex).Trim();
+                if (!prefix.Equals("UNIMOD", StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                string idToken = modToken.Substring(separatorIndex + 1).Trim();
+                if (!int.TryParse(idToken, NumberStyles.Integer, CultureInfo.InvariantCulture, out int unimodId))
+                {
+                    return false;
+                }
+
+                char? targetResidue = null;
+                int residueIndex = oneIsNTerminusPosition - 2;
+                if (residueIndex >= 0 && residueIndex < sequence.Length)
+                {
+                    targetResidue = sequence[residueIndex];
+                }
+
+                var candidates = new List<Modification>();
+                foreach (var candidate in knownMods.Values)
+                {
+                    if (candidate == null)
+                    {
+                        continue;
+                    }
+
+                    if (MatchesUnimodId(candidate, unimodId))
+                    {
+                        candidates.Add(candidate);
+                    }
+                }
+
+                if (candidates.Count == 0)
+                {
+                    return false;
+                }
+
+                if (candidates.Count == 1)
+                {
+                    resolved = candidates[0];
+                    return true;
+                }
+
+                if (targetResidue.HasValue)
+                {
+                    var residueMatches = new List<Modification>();
+                    foreach (var candidate in candidates)
+                    {
+                        var target = candidate.Target?.ToString();
+                        if (!string.IsNullOrEmpty(target) &&
+                            target.Contains(targetResidue.Value.ToString(), StringComparison.OrdinalIgnoreCase))
+                        {
+                            residueMatches.Add(candidate);
+                        }
+                    }
+
+                    if (residueMatches.Count == 1)
+                    {
+                        resolved = residueMatches[0];
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            static bool MatchesUnimodId(Modification modification, int unimodId)
+            {
+                if (modification.DatabaseReference != null)
+                {
+                    foreach (var reference in modification.DatabaseReference)
+                    {
+                        if (!reference.Key.Equals("UNIMOD", StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        foreach (var value in reference.Value)
+                        {
+                            if (TryParseUnimodId(value, out int parsedId) && parsedId == unimodId)
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+
+                return TryParseUnimodId(modification.Accession, out int accessionId) && accessionId == unimodId;
+            }
+
+            static bool TryParseUnimodId(string? token, out int unimodId)
+            {
+                unimodId = 0;
+                if (string.IsNullOrWhiteSpace(token))
+                {
+                    return false;
+                }
+
+                var trimmed = token.Trim();
+                int lastColon = trimmed.LastIndexOf(':');
+                if (lastColon >= 0 && lastColon < trimmed.Length - 1)
+                {
+                    trimmed = trimmed.Substring(lastColon + 1).Trim();
+                }
+
+                return int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out unimodId);
+            }
         }
 
         /// <summary>
