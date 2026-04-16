@@ -351,7 +351,42 @@ namespace Test.Omics.SequenceConversion;
             CanonicalSequence sequence,
             Dictionary<string, Modification>? knownMods = null,
             ConversionWarnings? warnings = null,
-            SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException) => new();
+            SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException)
+        {
+            if (mode == SequenceConversionHandlingMode.UsePrimarySequence)
+            {
+                return new Dictionary<int, Modification>();
+            }
+
+            var projected = new Dictionary<int, Modification>();
+            foreach (var modification in sequence.Modifications)
+            {
+                var resolved = ModificationLookup?.TryResolve(modification);
+                if (!resolved.HasValue || resolved.Value.MzLibModification == null)
+                {
+                    if (mode == SequenceConversionHandlingMode.ThrowException)
+                    {
+                        throw new SequenceConversionException(
+                            $"Unable to resolve modification {modification}",
+                            ConversionFailureReason.IncompatibleModifications,
+                            new[] { modification.ToString() });
+                    }
+
+                    continue;
+                }
+
+                var index = modification.PositionType switch
+                {
+                    ModificationPositionType.NTerminus => 1,
+                    ModificationPositionType.CTerminus => sequence.BaseSequence.Length + 2,
+                    _ => modification.ResidueIndex.GetValueOrDefault() + 2
+                };
+
+                projected[index] = resolved.Value.MzLibModification;
+            }
+
+            return projected;
+        }
     }
 
     private sealed class RecordingSequenceSerializer : ISequenceSerializer

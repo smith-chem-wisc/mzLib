@@ -297,9 +297,27 @@ public static class SequenceConversionExtensions
 
     public static void ConvertModifications(this IBioPolymerWithSetMods withSetMods, ISequenceSerializer sequenceSerializer)
     {
+        ArgumentNullException.ThrowIfNull(withSetMods);
         ArgumentNullException.ThrowIfNull(sequenceSerializer);
-        var lookup = sequenceSerializer.ModificationLookup ?? GlobalModificationLookup.Instance;
-        ConvertModifications(withSetMods, lookup, sequenceSerializer.HandlingMode);
+
+        if (sequenceSerializer.HandlingMode == SequenceConversionHandlingMode.UsePrimarySequence)
+        {
+            withSetMods.AllModsOneIsNterminus.Clear();
+            return;
+        }
+
+        var canonical = withSetMods.ToCanonicalSequence();
+        var projected = sequenceSerializer.ToOneIsNterminusModificationDictionary(
+            canonical,
+            knownMods: null,
+            warnings: null,
+            mode: sequenceSerializer.HandlingMode);
+
+        withSetMods.AllModsOneIsNterminus.Clear();
+        foreach (var kvp in projected)
+        {
+            withSetMods.AllModsOneIsNterminus[kvp.Key] = kvp.Value;
+        }
     }
 
     #endregion
