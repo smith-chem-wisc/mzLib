@@ -1,17 +1,12 @@
 ﻿using Chemistry;
 using FlashLFQ;
 using MassSpectrometry;
-using MathNet.Numerics.Interpolation;
+using MathNet.Numerics.Distributions;
 using MzLibUtil;
 using NUnit.Framework;
 using System.Collections.Generic;
 using System.Linq;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using MassSpectrometry;
-using Microsoft.ML.Transforms;
-using MathNet.Numerics.Distributions;
-using System.Collections;
-using Proteomics.AminoAcidPolymer;
 
 namespace Test
 {
