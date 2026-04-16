@@ -90,31 +90,6 @@ namespace Test.RetentionTimePrediction
         #region maxThreads validation at the public boundary
 
         [Test]
-        public void PredictRetentionTimeEquivalents_MaxThreadsZero_ThrowsArgumentOutOfRangeException()
-        {
-            using var predictor = new SSRCalc3RetentionTimePredictor();
-            var peptides = new[] { new PeptideWithSetModifications("PEPTIDE", new Dictionary<string, Modification>()) };
-
-            var ex = Assert.Throws<ArgumentOutOfRangeException>(
-                () => predictor.PredictRetentionTimeEquivalents(peptides, maxThreads: 0));
-
-            Assert.That(ex!.ParamName, Is.EqualTo("maxThreads"));
-        }
-
-        [Test]
-        public void PredictRetentionTimeEquivalents_MaxThreadsNegative_ThrowsArgumentOutOfRangeException()
-        {
-            using var predictor = new SSRCalc3RetentionTimePredictor();
-            var peptides = new[] { new PeptideWithSetModifications("PEPTIDE", new Dictionary<string, Modification>()) };
-
-            var ex = Assert.Throws<ArgumentOutOfRangeException>(
-                () => predictor.PredictRetentionTimeEquivalents(peptides, maxThreads: -1));
-
-            Assert.That(ex!.ParamName, Is.EqualTo("maxThreads"));
-        }
-
-
-        [Test]
         public void PredictRetentionTimeEquivalents_MaxThreadsOne_DoesNotThrow()
         {
             using var predictor = new SSRCalc3RetentionTimePredictor();

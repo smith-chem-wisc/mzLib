@@ -36,17 +36,6 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor
             : new Chronologer();
     }
 
-    /// <inheritdoc />
-    /// <remarks>
-    /// Chronologer's TorchSharp model is guarded by a single lock in <see cref="PredictCore"/>,
-    /// so multi-threaded dispatch would only serialize on that lock and add partition/aggregation
-    /// overhead. This override forces sequential execution until true tensor-batched inference
-    /// is implemented.
-    /// </remarks>
-    public override IReadOnlyList<(double? PredictedValue, IRetentionPredictable Peptide, RetentionTimeFailureReason? FailureReason)> PredictRetentionTimeEquivalents(
-        IEnumerable<IRetentionPredictable> peptides, int maxThreads = 1)
-        => base.PredictRetentionTimeEquivalents(peptides, maxThreads: 1);
-
     protected override bool ValidateBasicConstraints(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason)
     {
         var baseSequence = peptide.BaseSequence;
