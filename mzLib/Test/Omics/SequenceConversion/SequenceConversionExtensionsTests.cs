@@ -238,16 +238,40 @@ namespace Test.Omics.SequenceConversion;
             Assert.That(variantMods.Single().ModificationType, Is.EqualTo("Resolved"));
         }
 
-        [Test]
-        public void ConvertModifications_WithSetModsThrowModeThrowsWhenLookupFails()
-        {
-            var mods = new Dictionary<int, Modification> { { 2, CreateModification("Fail", "P") } };
+    [Test]
+    public void ConvertModifications_WithSetModsThrowModeThrowsWhenLookupFails()
+    {
+        var mods = new Dictionary<int, Modification> { { 2, CreateModification("Fail", "P") } };
             var peptide = new MockBioPolymerWithSetMods("PEPTIDE", "PEPTIDE", mods: mods);
             var lookup = new RecordingLookup(false);
             var serializer = new LookupBackedSerializer(lookup, SequenceConversionHandlingMode.ThrowException);
 
-            Assert.That(() => peptide.ConvertModifications(serializer), Throws.TypeOf<SequenceConversionException>());
-        }
+        Assert.That(() => peptide.ConvertModifications(serializer), Throws.TypeOf<SequenceConversionException>());
+    }
+
+    [Test]
+    public void ToOneIsNterminusModificationDictionary_ResolvesUnimodByResidueContext()
+    {
+        var canonical = new CanonicalSequenceBuilder("PEPTIDE")
+            .AddResidueModification(3, "UNIMOD:21", unimodId: 21)
+            .Build();
+
+        var mods = canonical.ToOneIsNterminusModificationDictionary(Mods.AllKnownProteinModsDictionary);
+
+        Assert.That(mods, Contains.Key(5));
+        Assert.That(mods[5].Target?.ToString(), Does.Contain("T"));
+    }
+
+    [Test]
+    public void ParseToOneIsNterminusModificationDictionary_AutoDetectsUnimodInput()
+    {
+        var mods = SequenceConversionService.Default.ParseToOneIsNterminusModificationDictionary(
+            "PEPC[UNIMOD:4]IDE",
+            Mods.AllKnownProteinModsDictionary);
+
+        Assert.That(mods, Contains.Key(5));
+        Assert.That(mods[5].IdWithMotif, Is.EqualTo("Carbamidomethyl on C"));
+    }
 
     private static Modification CreateModification(string id, string residue, string location = "Anywhere.")
     {
