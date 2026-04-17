@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text;
 using Omics.Modifications;
 
@@ -92,7 +91,7 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
             foreach (var canonicalModification in sequence.Modifications)
             {
                 var index = ResolveOneIsNterminusIndex(canonicalModification, sequence.BaseSequence.Length);
-                var resolved = ResolveProjectedModification(canonicalModification, knownMods);
+                var resolved = canonicalModification.MzLibModification;
                 if (resolved == null)
                 {
                     if (mode == SequenceConversionHandlingMode.ThrowException)
@@ -154,6 +153,7 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
         var modifications = sequence.Modifications;
         var updated = new CanonicalModification[modifications.Length];
         var changed = false;
+        var fallbackLookup = knownMods != null ? new KnownModsLookup(knownMods) : null;
 
         for (int i = 0; i < modifications.Length; i++)
         {
@@ -177,12 +177,18 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
                     }
                 }
 
-                if (enriched.MzLibModification == null && knownMods != null)
+                if (enriched.MzLibModification == null && fallbackLookup != null)
                 {
-                    var found = TryResolveFromKnownMods(mod, knownMods);
-                    if (found != null)
+                    var resolved = fallbackLookup.TryResolve(mod);
+                    if (resolved.HasValue)
                     {
-                        enriched = mod.WithResolvedModification(found, mod.ResidueIndex, mod.PositionType);
+                        enriched = resolved.Value with
+                        {
+                            PositionType = mod.PositionType,
+                            ResidueIndex = mod.ResidueIndex,
+                            TargetResidue = mod.TargetResidue ?? resolved.Value.TargetResidue,
+                            OriginalRepresentation = mod.OriginalRepresentation
+                        };
                     }
                 }
             }
@@ -338,159 +344,16 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
         ConversionWarnings warnings, 
         SequenceConversionHandlingMode mode);
 
-    private static Modification? ResolveProjectedModification(
-        CanonicalModification canonicalModification,
-        Dictionary<string, Modification>? knownMods)
+    /// <summary>
+    /// Handles an error based on the handling mode.
+    /// </summary>
+    protected static string? HandleError(
+        ConversionWarnings warnings,
+        SequenceConversionHandlingMode mode,
+        ConversionFailureReason reason,
+        string message)
     {
-        var resolved = canonicalModification.MzLibModification;
-        if (resolved == null)
-        {
-            return null;
-        }
-
-        if (knownMods == null)
-        {
-            return resolved;
-        }
-
-        if (!string.IsNullOrWhiteSpace(resolved.IdWithMotif) &&
-            knownMods.TryGetValue(resolved.IdWithMotif, out var scopedMatch))
-        {
-            return scopedMatch;
-        }
-
-        return resolved;
-    }
-
-    private static Modification? TryResolveFromKnownMods(
-        CanonicalModification mod,
-        Dictionary<string, Modification> knownMods)
-    {
-        if (!string.IsNullOrWhiteSpace(mod.MzLibId) &&
-            knownMods.TryGetValue(mod.MzLibId, out var byMzLibId))
-        {
-            return byMzLibId;
-        }
-
-        if (!string.IsNullOrWhiteSpace(mod.OriginalRepresentation) &&
-            knownMods.TryGetValue(mod.OriginalRepresentation, out var byOriginal))
-        {
-            return byOriginal;
-        }
-
-        if (!string.IsNullOrWhiteSpace(mod.MzLibId))
-        {
-            var stripped = StripTypePrefix(mod.MzLibId);
-            if (stripped != null && knownMods.TryGetValue(stripped, out var byStripped))
-            {
-                return byStripped;
-            }
-        }
-
-        if (mod.UnimodId.HasValue)
-        {
-            return ResolveByUnimodIdInKnownMods(mod.UnimodId.Value, mod.TargetResidue, knownMods);
-        }
-
-        return null;
-    }
-
-    private static string? StripTypePrefix(string token)
-    {
-        var colonIndex = token.IndexOf(':');
-        if (colonIndex > 0 && colonIndex < token.Length - 1)
-        {
-            return token.Substring(colonIndex + 1).Trim();
-        }
-
-        return null;
-    }
-
-    private static Modification? ResolveByUnimodIdInKnownMods(
-        int unimodId,
-        char? targetResidue,
-        Dictionary<string, Modification> knownMods)
-    {
-        var candidates = knownMods.Values
-            .Where(m => MatchesUnimodId(m, unimodId))
-            .Distinct()
-            .ToList();
-
-        if (candidates.Count == 0)
-        {
-            return null;
-        }
-
-        if (candidates.Count == 1)
-        {
-            return candidates[0];
-        }
-
-        if (targetResidue.HasValue)
-        {
-            var residueMatches = candidates
-                .Where(c => c.Target?.Motif?.Contains(
-                    targetResidue.Value.ToString(), StringComparison.OrdinalIgnoreCase) == true)
-                .Distinct()
-                .ToList();
-
-            if (residueMatches.Count == 1)
-            {
-                return residueMatches[0];
-            }
-        }
-
-        return null;
-    }
-
-    private static bool MatchesUnimodId(Modification modification, int unimodId)
-    {
-        if (modification.DatabaseReference != null)
-        {
-            foreach (var kvp in modification.DatabaseReference)
-            {
-                if (!kvp.Key.Equals("UNIMOD", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                foreach (var value in kvp.Value)
-                {
-                    if (TryParseUnimodToken(value, out var parsedId) && parsedId == unimodId)
-                    {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return TryParseUnimodToken(modification.Accession, out var accessionId) && accessionId == unimodId;
-    }
-
-    private static bool TryParseUnimodToken(string? token, out int unimodId)
-    {
-        unimodId = 0;
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            return false;
-        }
-
-        var trimmed = token.Trim();
-        var lastColon = trimmed.LastIndexOf(':');
-        if (lastColon >= 0 && lastColon < trimmed.Length - 1)
-        {
-            var prefix = trimmed.Substring(0, lastColon).Trim();
-            if (!string.IsNullOrWhiteSpace(prefix) &&
-                !prefix.Equals("UNIMOD", StringComparison.OrdinalIgnoreCase) &&
-                !prefix.EndsWith("UNIMOD", StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            trimmed = trimmed.Substring(lastColon + 1).Trim();
-        }
-
-        return int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out unimodId);
+        return SequenceConversionHelpers.HandleSerializerError(warnings, mode, reason, message);
     }
 
     private static int ResolveOneIsNterminusIndex(CanonicalModification canonicalModification, int baseSequenceLength)
@@ -536,17 +399,5 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
         {
             throw warnings.ToException(message);
         }
-    }
-
-    /// <summary>
-    /// Handles an error based on the handling mode.
-    /// </summary>
-    protected static string? HandleError(
-        ConversionWarnings warnings,
-        SequenceConversionHandlingMode mode,
-        ConversionFailureReason reason,
-        string message)
-    {
-        return SequenceConversionHelpers.HandleSerializerError(warnings, mode, reason, message);
     }
 }
