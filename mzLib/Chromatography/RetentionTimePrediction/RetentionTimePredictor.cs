@@ -185,15 +185,6 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor, IDisposa
                         }
                     });
             }
-            catch (AggregateException aex)
-            {
-                foreach (var inner in aex.Flatten().InnerExceptions)
-                    producerExceptions.Enqueue(inner);
-            }
-            catch (Exception ex)
-            {
-                producerExceptions.Enqueue(ex);
-            }
             finally
             {
                 // Guarantees the consumer's GetConsumingEnumerable() can terminate even if
