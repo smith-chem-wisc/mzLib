@@ -96,7 +96,7 @@ namespace Test.RetentionTimePrediction
         public void PredictRetentionTime_EmptySequence_ReturnsNull()
         {
             var peptide = new PeptideWithSetModifications("", new Dictionary<string, Modification>());
-            
+
             var result = _predictor.PredictRetentionTime(peptide, out var failureReason);
             
             Assert.That(result, Is.Null);

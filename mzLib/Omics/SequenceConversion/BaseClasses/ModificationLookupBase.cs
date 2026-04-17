@@ -398,6 +398,22 @@ public abstract class ModificationLookupBase : IModificationLookup
             working = nonIsobaricOrWithDiagnostic;
         }
 
+        // If no target residue was provided and candidates span multiple distinct residues,
+        // the lookup is ambiguous — don't pick an arbitrary residue match
+        if (!targetResidue.HasValue && working.Count > 1)
+        {
+            var distinctResidues = working
+                .Select(m => m.Target?.Motif ?? "")
+                .Where(m => !string.IsNullOrEmpty(m) && m != "X")
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (distinctResidues.Count > 1)
+            {
+                return null;
+            }
+        }
+
         if (working.Count == 1)
         {
             return working[0];
@@ -570,8 +586,27 @@ public abstract class ModificationLookupBase : IModificationLookup
         return source.Where(m =>
             (m.DatabaseReference != null &&
              m.DatabaseReference.Any(kvp => kvp.Key.Equals("UNIMOD", StringComparison.OrdinalIgnoreCase) &&
-                                             kvp.Value.Any(value => value.Contains(idString, StringComparison.OrdinalIgnoreCase))))
-            || (!string.IsNullOrEmpty(m.Accession) && m.Accession.Contains(idString, StringComparison.OrdinalIgnoreCase)));
+                                             kvp.Value.Any(value => UnimodIdEquals(value, idString))))
+            || (!string.IsNullOrEmpty(m.Accession) && UnimodIdEquals(m.Accession, idString)));
+    }
+
+    private static bool UnimodIdEquals(string? value, string idString)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        if (value.Equals(idString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var lastColon = value.LastIndexOf(':');
+        if (lastColon >= 0 && lastColon < value.Length - 1)
+        {
+            var suffix = value.AsSpan(lastColon + 1).Trim();
+            if (suffix.Equals(idString.AsSpan(), StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
     }
 
     private IEnumerable<Modification> FilterByIdentifierSet(IEnumerable<Modification> source, HashSet<string> identifiers)

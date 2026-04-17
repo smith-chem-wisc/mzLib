@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using Omics.Modifications;
 using Omics.SequenceConversion;
 using System;
 using System.Collections.Generic;
@@ -287,6 +288,28 @@ public class SequenceConversionServiceTests
         Assert.That(warnings.FailureReason, Is.EqualTo(ConversionFailureReason.InvalidSequence));
     }
 
+    [Test]
+    public void ParseAutoDetect_DefaultService_DetectsUnimodSequences()
+    {
+        var service = SequenceConversionService.Default;
+
+        var result = service.ParseAutoDetect("PEPC[UNIMOD:4]IDE");
+
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result!.Value.SourceFormat, Is.EqualTo(UnimodSequenceFormatSchema.Instance.FormatName));
+        Assert.That(result.Value.GetModificationAt(3)!.Value.UnimodId, Is.EqualTo(4));
+    }
+
+    [Test]
+    public void ConvertAutoDetect_DefaultService_ConvertsUnimodToMzLib()
+    {
+        var service = SequenceConversionService.Default;
+
+        var result = service.ConvertAutoDetect("PEPC[UNIMOD:4]IDE", MzLibSequenceFormatSchema.Instance.FormatName);
+
+        Assert.That(result, Is.EqualTo("PEPC[Common Fixed:Carbamidomethyl on C]IDE"));
+    }
+
     private sealed class StubParser : ISequenceParser
     {
         private readonly Func<string, bool> _canParse;
@@ -338,6 +361,12 @@ public class SequenceConversionServiceTests
             ConversionWarnings? warnings = null,
             SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException)
             => $"{FormatName}:{sequence.BaseSequence}";
+
+        public Dictionary<int, Modification> ToOneIsNterminusModificationDictionary(
+            CanonicalSequence sequence,
+            Dictionary<string, Modification>? knownMods = null,
+            ConversionWarnings? warnings = null,
+            SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException) => new();
     }
 
     private sealed class StubConverter : ISequenceConverter
