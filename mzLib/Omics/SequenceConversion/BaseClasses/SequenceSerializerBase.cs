@@ -162,9 +162,9 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
 
             if (mod.MzLibModification == null)
             {
-                if (_lookup != null)
+                if (fallbackLookup != null)
                 {
-                    var resolved = _lookup.TryResolve(mod);
+                    var resolved = fallbackLookup.TryResolve(mod);
                     if (resolved.HasValue)
                     {
                         enriched = resolved.Value with
@@ -177,9 +177,9 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
                     }
                 }
 
-                if (enriched.MzLibModification == null && fallbackLookup != null)
+                if (enriched.MzLibModification == null && _lookup != null)
                 {
-                    var resolved = fallbackLookup.TryResolve(mod);
+                    var resolved = _lookup.TryResolve(mod);
                     if (resolved.HasValue)
                     {
                         enriched = resolved.Value with
