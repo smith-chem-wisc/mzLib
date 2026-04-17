@@ -249,18 +249,6 @@ namespace Test.Omics.SequenceConversion;
         Assert.That(() => peptide.ConvertModifications(serializer), Throws.TypeOf<SequenceConversionException>());
     }
 
-    [Test]
-    public void ToOneIsNterminusModificationDictionary_ResolvesUnimodByResidueContext()
-    {
-        var canonical = new CanonicalSequenceBuilder("PEPTIDE")
-            .AddResidueModification(3, "UNIMOD:21", unimodId: 21)
-            .Build();
-
-        var mods = canonical.ToOneIsNterminusModificationDictionary(Mods.AllKnownProteinModsDictionary);
-
-        Assert.That(mods, Contains.Key(5));
-        Assert.That(mods[5].Target?.ToString(), Does.Contain("T"));
-    }
     private static Modification CreateModification(string id, string residue, string location = "Anywhere.")
     {
         if (!ModificationMotif.TryGetMotif(residue, out var motif))

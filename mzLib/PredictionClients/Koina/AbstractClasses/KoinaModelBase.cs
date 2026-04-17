@@ -10,6 +10,7 @@ namespace PredictionClients.Koina.AbstractClasses;
 public abstract class KoinaModelBase<TModelInput, TModelOutput>
 {
     private static readonly Regex BaseStripper = new(@"\[[^\]]+\]", RegexOptions.Compiled);
+
     protected KoinaModelBase(ISequenceConverter sequenceConverter)
     {
         SequenceConverter = sequenceConverter ?? throw new ArgumentNullException(nameof(sequenceConverter));

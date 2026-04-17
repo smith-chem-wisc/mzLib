@@ -176,16 +176,6 @@ public static class SequenceConversionExtensions
         return serializer.Serialize(canonical, warnings, mode);
     }
 
-    public static Dictionary<int, Modification> ToOneIsNterminusModificationDictionary(
-        this CanonicalSequence canonical,
-        Dictionary<string, Modification> knownMods,
-        SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException,
-        ConversionWarnings? warnings = null)
-    {
-        ArgumentNullException.ThrowIfNull(knownMods);
-        return MzLibSequenceSerializer.Instance.ToOneIsNterminusModificationDictionary(canonical, knownMods, warnings, mode);
-    }
-
     private static IDictionary<int, List<Modification>> SelectModDictionary(
         IBioPolymer bioPolymer,
         ConversionWarnings warnings)
@@ -260,27 +250,9 @@ public static class SequenceConversionExtensions
 
     public static void ConvertModifications(this IBioPolymerWithSetMods withSetMods, ISequenceSerializer sequenceSerializer)
     {
-        ArgumentNullException.ThrowIfNull(withSetMods);
         ArgumentNullException.ThrowIfNull(sequenceSerializer);
-
-        if (sequenceSerializer.HandlingMode == SequenceConversionHandlingMode.UsePrimarySequence)
-        {
-            withSetMods.AllModsOneIsNterminus.Clear();
-            return;
-        }
-
-        var canonical = withSetMods.ToCanonicalSequence();
-        var projected = sequenceSerializer.ToOneIsNterminusModificationDictionary(
-            canonical,
-            knownMods: null,
-            warnings: null,
-            mode: sequenceSerializer.HandlingMode);
-
-        withSetMods.AllModsOneIsNterminus.Clear();
-        foreach (var kvp in projected)
-        {
-            withSetMods.AllModsOneIsNterminus[kvp.Key] = kvp.Value;
-        }
+        var lookup = sequenceSerializer.ModificationLookup ?? GlobalModificationLookup.Instance;
+        ConvertModifications(withSetMods, lookup, sequenceSerializer.HandlingMode);
     }
 
     #endregion
