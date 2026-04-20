@@ -68,6 +68,18 @@ public class SequenceParserBaseTests
         Assert.That(warnings.Errors, Has.Some.Contains("Expected N-terminal separator '!"));
     }
 
+    [Test]
+    public void ParseMzLibFormat_DanglingCTermSeparators_AreTolerated()
+    {
+        var parser = new MzLibSequenceParser();
+
+        var canonical = parser.Parse("-XYZ--ABC");
+
+        Assert.That(canonical.HasValue, Is.True);
+        Assert.That(canonical.Value.BaseSequence, Is.EqualTo("XYZABC"));
+        Assert.That(canonical.Value.ModificationCount, Is.EqualTo(0));
+    }
+
     private sealed class TestSequenceParser : SequenceParserBase
     {
         private readonly SequenceFormatSchema _schema;

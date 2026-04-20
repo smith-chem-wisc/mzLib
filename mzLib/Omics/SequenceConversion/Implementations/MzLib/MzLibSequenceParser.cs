@@ -27,6 +27,8 @@ public class MzLibSequenceParser : SequenceParserBase
     /// <inheritdoc />
     public override SequenceFormatSchema Schema => MzLibSequenceFormatSchema.Instance;
 
+    protected override bool ThrowOnDanglingCTermSeparator => false;
+
     /// <inheritdoc />
     public override bool CanParse(string input)
     {

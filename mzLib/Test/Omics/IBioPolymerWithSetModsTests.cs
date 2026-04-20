@@ -80,4 +80,17 @@ public class IBioPolymerWithSetModsTests
         Assert.That(peptide.AllModsOneIsNterminus, Contains.Key(5));
         Assert.That(peptide.AllModsOneIsNterminus[5].IdWithMotif, Is.EqualTo("Carbamidomethyl on C"));
     }
+
+    [Test]
+    [TestCase("-XYZ--ABC")]
+    [TestCase("AB--------")]
+    [TestCase("-----F----*")]
+    public void GetModificationDictionaryFromFullSequence_LegacyDashPlaceholders_ReturnsEmptyDictionary(string fullSequence)
+    {
+        var mods = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(
+            fullSequence,
+            Mods.AllKnownProteinModsDictionary);
+
+        Assert.That(mods, Is.Empty);
+    }
 }
