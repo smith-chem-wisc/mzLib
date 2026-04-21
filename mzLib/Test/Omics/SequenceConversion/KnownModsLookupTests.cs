@@ -115,6 +115,39 @@ public class KnownModsLookupTests
     }
 
     [Test]
+    public void TryResolve_ByTypePrefixAliasKey_ResolvesFromDictionaryKey()
+    {
+        var mod = CreateModification("Oxidation on P", 'P', monoisotopicMass: 16.0, modificationType: "Variable");
+        var dict = new Dictionary<string, Modification> { { "Oxidation", mod } };
+        var lookup = new KnownModsLookup(dict);
+
+        var canonical = CanonicalModification.AtResidue(2, 'P', "Variable:Oxidation", mzLibId: "Variable:Oxidation");
+        var result = lookup.TryResolve(canonical);
+
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result!.Value.MzLibModification, Is.SameAs(mod));
+    }
+
+    [Test]
+    public void TryResolve_KeyAliasTakesPrecedenceOverValueMatching()
+    {
+        var keyMatched = CreateModification("Unrelated Name", 'N', modificationType: "Common Fixed");
+        var valueMatched = CreateModification("Test of N", 'N', modificationType: "Common Fixed");
+        var dict = new Dictionary<string, Modification>
+        {
+            { "Test of N", keyMatched },
+            { valueMatched.IdWithMotif, valueMatched }
+        };
+        var lookup = new KnownModsLookup(dict);
+
+        var canonical = CanonicalModification.AtResidue(1, 'N', "Common Fixed:Test of N", mzLibId: "Common Fixed:Test of N");
+        var result = lookup.TryResolve(canonical);
+
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result!.Value.MzLibModification, Is.SameAs(keyMatched));
+    }
+
+    [Test]
     public void TryResolve_NameNotInDictionary_ReturnsNull()
     {
         var mod = CreateModification("Known", 'S');
