@@ -93,4 +93,17 @@ public class IBioPolymerWithSetModsTests
 
         Assert.That(mods, Is.Empty);
     }
+
+    [Test]
+    [TestCase("EKVLTSSAR(2)")]
+    [TestCase("EKVLTSSAR(2)SLGKVGTR(4)")]
+    [TestCase("LLDNAAADLAAISGQKPLITKAR(21)")]
+    public void GetModificationDictionaryFromFullSequence_CrosslinkAnnotatedSequence_ReturnsEmptyDictionary(string fullSequence)
+    {
+        var mods = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(
+            fullSequence,
+            Mods.AllKnownProteinModsDictionary);
+
+        Assert.That(mods, Is.Empty);
+    }
 }

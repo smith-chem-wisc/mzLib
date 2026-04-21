@@ -80,6 +80,26 @@ public class SequenceParserBaseTests
         Assert.That(canonical.Value.ModificationCount, Is.EqualTo(0));
     }
 
+    [Test]
+    public void CanParseMzLibFormat_CrosslinkAnnotatedSequence_ReturnsTrue()
+    {
+        var parser = new MzLibSequenceParser();
+
+        Assert.That(parser.CanParse("EKVLTSSAR(2)SLGKVGTR(4)"), Is.True);
+    }
+
+    [Test]
+    public void ParseMzLibFormat_CrosslinkAnnotatedSequence_StripsAnnotations()
+    {
+        var parser = new MzLibSequenceParser();
+
+        var canonical = parser.Parse("EKVLTSSAR(2)SLGKVGTR(4)");
+
+        Assert.That(canonical.HasValue, Is.True);
+        Assert.That(canonical.Value.BaseSequence, Is.EqualTo("EKVLTSSARSLGKVGTR"));
+        Assert.That(canonical.Value.ModificationCount, Is.EqualTo(0));
+    }
+
     private sealed class TestSequenceParser : SequenceParserBase
     {
         private readonly SequenceFormatSchema _schema;

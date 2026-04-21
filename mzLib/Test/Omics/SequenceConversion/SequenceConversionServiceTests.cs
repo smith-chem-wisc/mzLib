@@ -310,6 +310,19 @@ public class SequenceConversionServiceTests
         Assert.That(result, Is.EqualTo("PEPC[Common Fixed:Carbamidomethyl on C]IDE"));
     }
 
+    [Test]
+    public void ParseAutoDetect_DefaultService_DetectsCrosslinkAnnotatedMzLibSequence()
+    {
+        var service = SequenceConversionService.Default;
+
+        var result = service.ParseAutoDetect("EKVLTSSAR(2)SLGKVGTR(4)");
+
+        Assert.That(result, Is.Not.Null);
+        Assert.That(result!.Value.SourceFormat, Is.EqualTo(MzLibSequenceFormatSchema.Instance.FormatName));
+        Assert.That(result.Value.BaseSequence, Is.EqualTo("EKVLTSSARSLGKVGTR"));
+        Assert.That(result.Value.ModificationCount, Is.EqualTo(0));
+    }
+
     private sealed class StubParser : ISequenceParser
     {
         private readonly Func<string, bool> _canParse;
