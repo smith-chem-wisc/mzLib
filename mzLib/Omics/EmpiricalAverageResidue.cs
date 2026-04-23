@@ -5,7 +5,7 @@ using Omics.Modifications;
 
 namespace Omics;
 
-public record struct AverageResidueComposition(double C, double H, double O, double N, double P);
+public record struct AverageResidueComposition(double C, double H, double O, double N, double P, double S, double Se);
 
 public class EmpiricalAverageResidue : AverageResidue
 {
@@ -41,6 +41,8 @@ public class EmpiricalAverageResidue : AverageResidue
             chemicalFormulaReg.Add("O", Convert.ToInt32(composition.O * averagineMultiplier));
             chemicalFormulaReg.Add("N", Convert.ToInt32(composition.N * averagineMultiplier));
             chemicalFormulaReg.Add("P", Convert.ToInt32(composition.P * averagineMultiplier));
+            chemicalFormulaReg.Add("S", Convert.ToInt32(composition.S * averagineMultiplier));
+            chemicalFormulaReg.Add("Se", Convert.ToInt32(composition.Se * averagineMultiplier));
 
             IsotopicDistribution ye = IsotopicDistribution.GetDistribution(chemicalFormulaReg, FineRes, MinRes);
             var masses = ye.Masses.ToArray();
@@ -77,7 +79,9 @@ public class EmpiricalAverageResidue : AverageResidue
         double averageO = totalChemicalFormula.CountWithIsotopes(PeriodicTable.GetElement("O")) / (double)totalResidues;
         double averageN = totalChemicalFormula.CountWithIsotopes(PeriodicTable.GetElement("N")) / (double)totalResidues;
         double averageP = totalChemicalFormula.CountWithIsotopes(PeriodicTable.GetElement("P")) / (double)totalResidues;
+        double averageS = totalChemicalFormula.CountWithIsotopes(PeriodicTable.GetElement("S")) / (double)totalResidues;
+        double averageSe = totalChemicalFormula.CountWithIsotopes(PeriodicTable.GetElement("Se")) / (double)totalResidues;
 
-        return new AverageResidueComposition(averageC, averageH, averageO, averageN, averageP);
+        return new AverageResidueComposition(averageC, averageH, averageO, averageN, averageP, averageS, averageSe);
     }
 }

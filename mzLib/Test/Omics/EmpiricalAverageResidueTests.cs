@@ -7,6 +7,7 @@ using Proteomics.ProteolyticDigestion;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using UsefulProteomicsDatabases;
 
 namespace Test.Omics;
 
@@ -17,7 +18,7 @@ public class EmpiricalAverageResidueTests
     [Test]
     public void Constructor_Composition_PopulatesExpectedCollectionsAndAccessors()
     {
-        var composition = new AverageResidueComposition(4.8, 7.7, 1.4, 1.3, 0.2);
+        var composition = new AverageResidueComposition(4.8, 7.7, 1.4, 1.3, 0.2, 0, 0);
         var model = new EmpiricalAverageResidue(composition);
 
         Assert.That(model.AllMasses.Length, Is.EqualTo(1500));
@@ -91,7 +92,9 @@ public class EmpiricalAverageResidueTests
             totalChemicalFormula.CountWithIsotopes(PeriodicTable.GetElement("H")) / (double)totalResidues,
             totalChemicalFormula.CountWithIsotopes(PeriodicTable.GetElement("O")) / (double)totalResidues,
             totalChemicalFormula.CountWithIsotopes(PeriodicTable.GetElement("N")) / (double)totalResidues,
-            totalChemicalFormula.CountWithIsotopes(PeriodicTable.GetElement("P")) / (double)totalResidues);
+            totalChemicalFormula.CountWithIsotopes(PeriodicTable.GetElement("P")) / (double)totalResidues,
+            totalChemicalFormula.CountWithIsotopes(PeriodicTable.GetElement("S")) / (double)totalResidues,
+            totalChemicalFormula.CountWithIsotopes(PeriodicTable.GetElement("Se")) / (double)totalResidues);
     }
 
     private static void AssertModelsMatchAtIndices(
