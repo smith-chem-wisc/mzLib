@@ -24,8 +24,8 @@ namespace Test
         /// ~5 kDa peptide — well within the Averagine model's calibrated range,
         /// produces a clearly resolved isotope pattern at z = 5.
         /// </summary>
-        private const double TestMass   = 5000.0;
-        private const int    TestCharge = 5;
+        private const double TestMass = 5000.0;
+        private const int TestCharge = 5;
 
         // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -35,8 +35,8 @@ namespace Test
         /// missing peaks. The peak list is suitable for verifying ideal feature values.
         /// </summary>
         private static IsotopicEnvelope BuildPerfectEnvelope(
-            double monoMass   = TestMass,
-            int    charge     = TestCharge,
+            double monoMass = TestMass,
+            int charge = TestCharge,
             double baseIntens = 1e6)
         {
             int avgIdx = Model.GetMostIntenseMassIndex(monoMass);
@@ -49,10 +49,10 @@ namespace Test
                 .OrderBy(p => p.First)
                 .ToArray();
 
-            int      absCharge   = Math.Abs(charge);
-            double   isotopeStep = Constants.C13MinusC12 / absCharge;
-            double   monoMz      = monoMass.ToMz(charge);
-            var      peaks       = new List<(double mz, double intensity)>();
+            int absCharge = Math.Abs(charge);
+            double isotopeStep = Constants.C13MinusC12 / absCharge;
+            double monoMz = monoMass.ToMz(charge);
+            var peaks = new List<(double mz, double intensity)>();
 
             for (int n = 0; n < sorted.Length; n++)
             {
@@ -64,12 +64,12 @@ namespace Test
 
             // Use the pre-scored constructor so the envelope is well-formed
             return new IsotopicEnvelope(
-                id:               0,
-                peaks:            peaks,
+                id: 0,
+                peaks: peaks,
                 monoisotopicmass: monoMass,
-                chargestate:      charge,
-                intensity:        peaks.Sum(p => p.intensity),
-                score:            0.999); // placeholder; not used by generic scorer
+                chargestate: charge,
+                intensity: peaks.Sum(p => p.intensity),
+                score: 0.999); // placeholder; not used by generic scorer
         }
 
         // ══════════════════════════════════════════════════════════════════════
@@ -79,7 +79,7 @@ namespace Test
         [Test]
         public void A1_ComputeFeatures_PerfectSyntheticEnvelope_CosineNearOne()
         {
-            var env      = BuildPerfectEnvelope();
+            var env = BuildPerfectEnvelope();
             var features = DeconvolutionScorer.ComputeFeatures(env, Model);
 
             Assert.That(features.AveragineCosineSimilarity, Is.GreaterThanOrEqualTo(0.99),
@@ -92,7 +92,7 @@ namespace Test
         [Test]
         public void A2_ComputeFeatures_PerfectSyntheticEnvelope_PpmErrorNearZero()
         {
-            var env      = BuildPerfectEnvelope();
+            var env = BuildPerfectEnvelope();
             var features = DeconvolutionScorer.ComputeFeatures(env, Model);
 
             Assert.That(features.AvgPpmError, Is.LessThan(0.01),
@@ -102,7 +102,7 @@ namespace Test
         [Test]
         public void A3_ComputeFeatures_PerfectSyntheticEnvelope_CompletenessIsOne()
         {
-            var env      = BuildPerfectEnvelope();
+            var env = BuildPerfectEnvelope();
             var features = DeconvolutionScorer.ComputeFeatures(env, Model);
 
             Assert.That(features.PeakCompleteness, Is.EqualTo(1.0).Within(0.01),
@@ -122,12 +122,12 @@ namespace Test
                 .ToList();
 
             var env = new IsotopicEnvelope(
-                id:               0,
-                peaks:            halfPeaks,
+                id: 0,
+                peaks: halfPeaks,
                 monoisotopicmass: full.MonoisotopicMass,
-                chargestate:      full.Charge,
-                intensity:        halfPeaks.Sum(p => p.intensity),
-                score:            0.0);
+                chargestate: full.Charge,
+                intensity: halfPeaks.Sum(p => p.intensity),
+                score: 0.0);
 
             var features = DeconvolutionScorer.ComputeFeatures(env, Model);
 
@@ -147,12 +147,12 @@ namespace Test
                 .ToList();
 
             var env = new IsotopicEnvelope(
-                id:               0,
-                peaks:            shiftedPeaks,
+                id: 0,
+                peaks: shiftedPeaks,
                 monoisotopicmass: full.MonoisotopicMass,
-                chargestate:      full.Charge,
-                intensity:        full.TotalIntensity,
-                score:            0.0);
+                chargestate: full.Charge,
+                intensity: full.TotalIntensity,
+                score: 0.0);
 
             var features = DeconvolutionScorer.ComputeFeatures(env, Model);
 
@@ -168,20 +168,20 @@ namespace Test
                 { (TestMass.ToMz(TestCharge), 0.0) };
 
             var env = new IsotopicEnvelope(
-                id:               0,
-                peaks:            peaks,
+                id: 0,
+                peaks: peaks,
                 monoisotopicmass: TestMass,
-                chargestate:      TestCharge,
-                intensity:        0.0,
-                score:            0.0);
+                chargestate: TestCharge,
+                intensity: 0.0,
+                score: 0.0);
 
             EnvelopeScoreFeatures features = default;
             Assert.DoesNotThrow(() => features = DeconvolutionScorer.ComputeFeatures(env, Model),
                 "ComputeFeatures must not throw for a degenerate single-peak envelope");
 
             Assert.That(double.IsFinite(features.AveragineCosineSimilarity), Is.True);
-            Assert.That(double.IsFinite(features.AvgPpmError),               Is.True);
-            Assert.That(double.IsFinite(features.PeakCompleteness),          Is.True);
+            Assert.That(double.IsFinite(features.AvgPpmError), Is.True);
+            Assert.That(double.IsFinite(features.PeakCompleteness), Is.True);
             Assert.That(double.IsFinite(features.IntensityRatioConsistency), Is.True);
         }
 
@@ -194,8 +194,8 @@ namespace Test
         {
             var features = new EnvelopeScoreFeatures(
                 averagineCosineSimilarity: 0.95,
-                avgPpmError:              1.5,
-                peakCompleteness:         0.95,
+                avgPpmError: 1.5,
+                peakCompleteness: 0.95,
                 intensityRatioConsistency: 0.95);
 
             double score = DeconvolutionScorer.ComputeScore(features);
@@ -209,8 +209,8 @@ namespace Test
         {
             var features = new EnvelopeScoreFeatures(
                 averagineCosineSimilarity: 0.2,
-                avgPpmError:              25.0,
-                peakCompleteness:         0.2,
+                avgPpmError: 25.0,
+                peakCompleteness: 0.2,
                 intensityRatioConsistency: 0.1);
 
             double score = DeconvolutionScorer.ComputeScore(features);
@@ -237,10 +237,10 @@ namespace Test
         public void B4_ComputeScore_BetterFeaturesGiveHigherScore()
         {
             var highQ = new EnvelopeScoreFeatures(0.95, 1.0, 0.95, 0.95);
-            var lowQ  = new EnvelopeScoreFeatures(0.30, 20.0, 0.30, 0.15);
+            var lowQ = new EnvelopeScoreFeatures(0.30, 20.0, 0.30, 0.15);
 
             double scoreHigh = DeconvolutionScorer.ComputeScore(highQ);
-            double scoreLow  = DeconvolutionScorer.ComputeScore(lowQ);
+            double scoreLow = DeconvolutionScorer.ComputeScore(lowQ);
 
             Assert.That(scoreHigh, Is.GreaterThan(scoreLow),
                 $"High-quality features ({scoreHigh:F4}) should score above low-quality ({scoreLow:F4})");

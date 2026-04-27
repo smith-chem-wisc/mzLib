@@ -19,7 +19,22 @@ namespace MassSpectrometry
         public readonly double TotalIntensity;
         public readonly int PrecursorId;
 
+        /// <summary>
+        /// Algorithm-specific score. Set at construction time and is the value used by each
+        /// deconvolution algorithm internally (e.g. Classic uses an empirical heuristic, IsoDec
+        /// passes its DLL-computed cosine score). Different algorithms place values on
+        /// different scales — do not compare directly across algorithms.
+        /// </summary>
         public double Score { get; private set; }
+
+        /// <summary>
+        /// Optional, post-construction generic deconvolution score in [0, 1] computed by
+        /// <see cref="DeconvolutionScorer.ScoreEnvelope"/>. Null until <see cref="SetGenericScore"/>
+        /// is called. Designed to be comparable across deconvolution algorithms because it is
+        /// recomputed from the envelope's peak list and an Averagine model — independent of
+        /// which algorithm produced the envelope.
+        /// </summary>
+        public double? GenericScore { get; private set; }
 
         /// <summary>
         /// Used for an isotopic envelope that mzLib deconvoluted (e.g., from a mass spectrum)
@@ -65,6 +80,17 @@ namespace MassSpectrometry
             TotalIntensity = intensity;
             Score = score;
             MostAbundantObservedIsotopicMass = peaks.MaxBy(p => p.intensity).mz * Math.Abs(chargestate);
+        }
+
+        /// <summary>
+        /// Sets the optional generic deconvolution score for this envelope. The generic score is
+        /// produced by <see cref="DeconvolutionScorer"/> and is comparable across deconvolution
+        /// algorithms. Calling this method does not change <see cref="Score"/>.
+        /// </summary>
+        /// <param name="genericScore">Generic deconvolution score, expected in [0, 1].</param>
+        public void SetGenericScore(double genericScore)
+        {
+            GenericScore = genericScore;
         }
 
         public override string ToString()

@@ -60,7 +60,13 @@ namespace Test
 
             MsDataScan scan = myMsDataFile.GetAllScansList()[0];
 
-            List<IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(spectrum, 1, 60, 4, 3).ToList();
+            DeconvolutionParameters deconParameters = new ClassicDeconvolutionParameters(
+                minCharge: 1,
+                maxCharge: 60,
+                deconPpm: 4,
+                intensityRatio: 3);
+
+            List<IsotopicEnvelope> isolatedMasses = scan.GetIsolatedMassesAndCharges(scan, deconParameters).ToList();
 
             List<double> monoIsotopicMasses = isolatedMasses.Select(m => m.MonoisotopicMass).ToList();
 
@@ -91,20 +97,21 @@ namespace Test
 
             MzSpectrum singlespec = singlescan[0].MassSpectrum;
             MzRange singleRange = new MzRange(singlespec.XArray.Min(), singlespec.XArray.Max());
-            int minAssumedChargeState = 1;
-            int maxAssumedChargeState = 60;
-            double deconvolutionTolerancePpm = 20;
-            double intensityRatioLimit = 3;
+
+            // NEW: Use the new deconvolution system
+            DeconvolutionParameters deconParams = new ClassicDeconvolutionParameters(
+                minCharge: 1,
+                maxCharge: 60,
+                deconPpm: 20,
+                intensityRatio: 3);
 
             //check assigned correctly
-            List<IsotopicEnvelope> lie2 = singlespec.Deconvolute(singleRange, minAssumedChargeState,
-                maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
+            List<IsotopicEnvelope> lie2 = Deconvoluter.Deconvolute(singlespec, deconParams, singleRange).ToList();
             List<IsotopicEnvelope> lie2_charge = lie2.Where(p => p.Charge == charge).ToList();
             Assert.That(lie2_charge[0].MostAbundantObservedIsotopicMass / charge, Is.EqualTo(m).Within(0.1));
 
             //check that if already assigned, skips assignment and just recalls same value
-            List<IsotopicEnvelope> lie3 = singlespec.Deconvolute(singleRange, minAssumedChargeState,
-                maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
+            List<IsotopicEnvelope> lie3 = Deconvoluter.Deconvolute(singlespec, deconParams, singleRange).ToList();
             Assert.That(lie2.Select(p => p.MostAbundantObservedIsotopicMass),
                 Is.EqualTo(lie3.Select(p => p.MostAbundantObservedIsotopicMass)).Within(.0005));
         }
