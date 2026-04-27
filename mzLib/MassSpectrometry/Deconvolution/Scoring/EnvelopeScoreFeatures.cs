@@ -1,50 +1,75 @@
-using System.Globalization;
-
 namespace MassSpectrometry
 {
     /// <summary>
-    /// Computed feature vector for a single <see cref="IsotopicEnvelope"/>. Produced by
-    /// <see cref="DeconvolutionScorer.ComputeFeatures"/> and consumed by
-    /// <see cref="DeconvolutionScorer.ComputeScore"/>. Pure data carrier — no scoring logic.
+    /// The computed feature vector for a single <see cref="IsotopicEnvelope"/>,
+    /// produced by <see cref="DeconvolutionScorer.ComputeFeatures"/> and consumed
+    /// by <see cref="DeconvolutionScorer.ComputeScore"/>.
+    ///
+    /// All four features are computable from the envelope's peak list and an
+    /// <see cref="AverageResidue"/> model alone — no raw spectrum access is required.
+    /// This allows the scorer to operate after the spectrum has been discarded
+    /// (deconvolute-and-discard callers).
     /// </summary>
     public readonly struct EnvelopeScoreFeatures
     {
         /// <summary>
-        /// Cosine similarity between the observed isotope intensity vector and the theoretical
-        /// Averagine distribution at the envelope's mass. Range [0, 1]. Higher = better match.
+        /// Cosine similarity between the observed isotope intensity distribution
+        /// and the theoretical Averagine distribution at the envelope's monoisotopic
+        /// mass. Computed by aligning observed peak intensities to Averagine isotope
+        /// positions at 10 ppm tolerance.
+        /// Range: [0, 1]. Higher values indicate better agreement with the expected
+        /// isotope pattern.
         /// </summary>
         public readonly double AveragineCosineSimilarity;
 
         /// <summary>
-        /// Mean absolute ppm error of observed peaks vs their theoretical m/z positions, anchored
-        /// at the apex peak. Lower = better mass accuracy.
+        /// Mean absolute ppm error of the observed peaks relative to their
+        /// theoretical m/z positions, anchored at the apex (most intense) peak.
+        /// Units: ppm. Lower values indicate better mass accuracy.
         /// </summary>
         public readonly double AvgPpmError;
 
         /// <summary>
-        /// Fraction of expected Averagine isotope peaks (above 1% of theoretical max intensity)
-        /// that were actually observed. Range [0, 1]. Higher = more complete envelope.
+        /// Fraction of expected Averagine isotope peaks (those with theoretical
+        /// intensity above 1% of the theoretical maximum) that were actually
+        /// observed in the envelope within 10 ppm.
+        /// Range: [0, 1]. A value of 1.0 means all significant isotope peaks were
+        /// observed; 0.5 means half were observed.
         /// </summary>
         public readonly double PeakCompleteness;
 
         /// <summary>
-        /// Uniformity of the per-peak observed/theoretical intensity ratios, expressed as
-        /// 1 / (1 + CV²) where CV is the coefficient of variation of those ratios. Range [0, 1].
-        /// A real isotope envelope is the Averagine pattern scaled by a single abundance factor,
-        /// so observed/theoretical should be a constant across peaks (low CV → value near 1.0).
-        /// A noise envelope has erratic ratios (high CV → value near 0.0).
+        /// Consistency of the observed-to-theoretical intensity ratios across all
+        /// matched isotope peaks, expressed as <c>1 / (1 + CV²)</c> where CV is the
+        /// coefficient of variation (std / mean) of the per-peak scale ratios
+        /// <c>observed[n] / theoretical[n]</c>.
+        ///
+        /// Physical interpretation: a real isotope envelope is the Averagine pattern
+        /// scaled by a single abundance factor, so every observed[n] / theoretical[n]
+        /// ratio should be approximately the same constant (low CV → value near 1.0).
+        /// A noise envelope has erratic ratios with no physical coherence
+        /// (high CV → value near 0.0).
+        ///
+        /// This feature is complementary to <see cref="AveragineCosineSimilarity"/>:
+        /// cosine captures global shape agreement; ratio consistency captures the
+        /// uniformity of the per-peak scale errors. A noisy envelope can achieve
+        /// moderate cosine similarity while having highly inconsistent ratios.
+        ///
+        /// Range: [0, 1]. Returns 0.0 when fewer than 2 peaks are matched (CV
+        /// undefined) or when the mean ratio is zero.
         /// </summary>
         public readonly double IntensityRatioConsistency;
 
         /// <summary>
-        /// Constructs an <see cref="EnvelopeScoreFeatures"/> with explicit values. Intended for
-        /// test code; production code should call <see cref="DeconvolutionScorer.ComputeFeatures"/>.
+        /// Constructs an <see cref="EnvelopeScoreFeatures"/> with all four feature values.
+        /// The <paramref name="intensityRatioConsistency"/> parameter defaults to 0.0
+        /// for backward compatibility with any call sites that pass only three values.
         /// </summary>
         public EnvelopeScoreFeatures(
             double averagineCosineSimilarity,
             double avgPpmError,
             double peakCompleteness,
-            double intensityRatioConsistency)
+            double intensityRatioConsistency = 0.0)
         {
             AveragineCosineSimilarity = averagineCosineSimilarity;
             AvgPpmError = avgPpmError;
@@ -52,12 +77,9 @@ namespace MassSpectrometry
             IntensityRatioConsistency = intensityRatioConsistency;
         }
 
+        /// <inheritdoc/>
         public override string ToString()
-        {
-            return string.Format(
-                CultureInfo.InvariantCulture,
-                "Cosine={0:F4}, PpmError={1:F4}, Completeness={2:F4}, RatioConsistency={3:F4}",
-                AveragineCosineSimilarity, AvgPpmError, PeakCompleteness, IntensityRatioConsistency);
-        }
+            => $"Cosine={AveragineCosineSimilarity:F4}  AvgPpmErr={AvgPpmError:F2}  " +
+               $"Completeness={PeakCompleteness:F4}  RatioConsistency={IntensityRatioConsistency:F4}";
     }
 }
