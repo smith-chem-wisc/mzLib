@@ -52,6 +52,38 @@ namespace MassSpectrometry
         // ── Feature matching tolerance ────────────────────────────────────────
         private const double MatchTolerancePpm = 10.0;
 
+        // ── Spectrum-aware window constants ───────────────────────────────────
+        // Half-width (Da) of the m/z window used when sampling the local noise floor for SNR.
+        // Wide enough to contain plenty of non-envelope peaks at typical top-down resolution,
+        // narrow enough that the noise estimate is genuinely local.
+        private const double SnrWindowDa = 2.0;
+        // Half-width (Da) of the m/z window used when checking whether the matched envelope
+        // peak is also the local apex (CompetingPeakRatio). Smaller than SnrWindowDa because
+        // we only care about peaks close enough to plausibly belong to a competing isotope
+        // envelope of similar charge.
+        private const double CompetingPeakWindowDa = 0.5;
+
+        // ── Spectrum-aware logistic weights (PROVISIONAL) ─────────────────────
+        // These extend the four envelope-only coefficients above with two more for the
+        // spectrum-aware features. They have NOT been fit against labelled data — they
+        // are chosen to satisfy the unit-test bounds in the spectrum-aware test fixture
+        // (high-quality features → score > 0.5, low-quality features → score < 0.5,
+        // all scores in [0, 1]) and to honour the physical meaning (higher SNR = better,
+        // more local-apex matches = better). Sign convention matches the envelope-only
+        // weights above: positive coefficient ⇒ feature increases P(true).
+        // The intercept is shifted negative relative to the envelope-only Intercept
+        // because the SNR squashing function and the additional CompetingPeakRatio term
+        // raise the typical linear score; without a more negative intercept, every
+        // envelope would score above 0.5 even at low cosine and completeness.
+        // RECALIBRATE AGAINST LABELLED DATA before relying on these in production.
+        private const double CoefficientSnr = 2.0;
+        private const double CoefficientCompetingRatio = 1.5;
+        private const double InterceptSpectrumAware = -2.5;
+
+        // TODO: Apex spectral percentile and unmatched-intensity-ratio features are deferred.
+        // Each requires its own validation and weight calibration; see the spectrum-aware
+        // PR follow-up section.
+
         // ── Public API ────────────────────────────────────────────────────────
 
         /// <summary>
@@ -173,6 +205,51 @@ namespace MassSpectrometry
         }
 
         /// <summary>
+        /// Spectrum-aware feature computation. Reuses the four envelope-only features from
+        /// <see cref="ComputeFeatures(IsotopicEnvelope, AverageResidue)"/> verbatim, then
+        /// augments them with two features that require access to the original spectrum:
+        /// <see cref="EnvelopeScoreFeatures.LocalSignalToNoise"/> and
+        /// <see cref="EnvelopeScoreFeatures.CompetingPeakRatio"/>.
+        /// </summary>
+        /// <remarks>
+        /// Use this overload when the caller still holds the <see cref="MzSpectrum"/> the
+        /// envelope was extracted from (the always-on path through
+        /// <see cref="Deconvoluter.DeconvoluteWithGenericScoring(MzSpectrum, DeconvolutionParameters, MzLibUtil.MzRange)"/>).
+        /// The richer feature vector flows into <see cref="ComputeScoreWithSpectrumContext"/>.
+        ///
+        /// Note: spectrum-aware scores are not strictly comparable across deconvolution
+        /// algorithms because preprocessing differences (peak picking, smoothing, threshold
+        /// choice) can leak into spectrum-derived features. For cross-algorithm comparability,
+        /// use the envelope-only path.
+        /// </remarks>
+        public static EnvelopeScoreFeatures ComputeFeatures(
+            IsotopicEnvelope envelope,
+            AverageResidue model,
+            MzSpectrum spectrum)
+        {
+            if (envelope == null) throw new ArgumentNullException(nameof(envelope));
+            if (model == null) throw new ArgumentNullException(nameof(model));
+            if (spectrum == null) throw new ArgumentNullException(nameof(spectrum));
+
+            // Reuse the existing envelope-only computation verbatim. This is the contract:
+            // anything that's true of the envelope-only features in the four-arg path is
+            // true here too — there is exactly one cosine/ppm/completeness/ratio assignment
+            // in this file.
+            EnvelopeScoreFeatures envelopeOnly = ComputeFeatures(envelope, model);
+
+            double snr = ComputeLocalSnr(envelope, spectrum);
+            double competing = ComputeCompetingPeakRatio(envelope, model, spectrum);
+
+            return new EnvelopeScoreFeatures(
+                envelopeOnly.AveragineCosineSimilarity,
+                envelopeOnly.AvgPpmError,
+                envelopeOnly.PeakCompleteness,
+                envelopeOnly.IntensityRatioConsistency,
+                snr,
+                competing);
+        }
+
+        /// <summary>
         /// Combines the three features into a single score in [0, 1] using a logistic
         /// function.
         /// <para>
@@ -197,6 +274,55 @@ namespace MassSpectrometry
         /// </summary>
         public static double ScoreEnvelope(IsotopicEnvelope envelope, AverageResidue model)
             => ComputeScore(ComputeFeatures(envelope, model));
+
+        /// <summary>
+        /// Combines all six features (four envelope-only + two spectrum-aware) into a single
+        /// quality score in [0, 1] using a logistic function. Use this in place of
+        /// <see cref="ComputeScore"/> when
+        /// <see cref="ComputeFeatures(IsotopicEnvelope, AverageResidue, MzSpectrum)"/>
+        /// was used to produce the features.
+        /// </summary>
+        /// <remarks>
+        /// Throws <see cref="ArgumentException"/> if <paramref name="features"/> does not have
+        /// spectrum features (i.e. <see cref="EnvelopeScoreFeatures.HasSpectrumFeatures"/> is
+        /// false). This prevents accidentally scoring envelope-only features through the
+        /// spectrum-aware formula, which would consume NaN values and silently return NaN.
+        ///
+        /// The <see cref="CoefficientSnr"/>, <see cref="CoefficientCompetingRatio"/>, and
+        /// <see cref="InterceptSpectrumAware"/> constants are provisional — see the comment
+        /// block at the top of the class.
+        /// </remarks>
+        public static double ComputeScoreWithSpectrumContext(EnvelopeScoreFeatures features)
+        {
+            if (!features.HasSpectrumFeatures)
+                throw new ArgumentException(
+                    "ComputeScoreWithSpectrumContext requires features produced by the spectrum-aware ComputeFeatures overload.",
+                    nameof(features));
+
+            double linear = InterceptSpectrumAware
+                + CoefficientCosine * features.AveragineCosineSimilarity
+                + CoefficientPpmError * features.AvgPpmError
+                + CoefficientCompleteness * features.PeakCompleteness
+                + CoefficientRatioConsistency * features.IntensityRatioConsistency
+                + CoefficientSnr * SquashSnr(features.LocalSignalToNoise)
+                + CoefficientCompetingRatio * features.CompetingPeakRatio;
+
+            // Saturate the exponent to keep the score firmly inside [0, 1] even at
+            // pathological inputs (e.g. AvgPpmError = double.MaxValue from the absCharge==0
+            // guard in ComputeFeatures). The cutoffs are chosen well inside the range where
+            // Math.Exp would overflow, but the resulting score is still within IEEE 754 limits.
+            if (linear >= 700.0) return 1.0;
+            if (linear <= -700.0) return 0.0;
+            return 1.0 / (1.0 + Math.Exp(-linear));
+        }
+
+        /// <summary>
+        /// Spectrum-aware convenience method: computes features (including SNR and
+        /// competing-peak ratio) then score for a single envelope. Mirrors the shape of
+        /// the envelope-only <see cref="ScoreEnvelope(IsotopicEnvelope, AverageResidue)"/>.
+        /// </summary>
+        public static double ScoreEnvelope(IsotopicEnvelope envelope, AverageResidue model, MzSpectrum spectrum)
+            => ComputeScoreWithSpectrumContext(ComputeFeatures(envelope, model, spectrum));
 
         /// <summary>
         /// Applies <see cref="ScoreEnvelope"/> to each envelope in the sequence and
@@ -308,6 +434,195 @@ namespace MassSpectrometry
             }
 
             return totalPpm / peaks.Count;
+        }
+
+        /// <summary>
+        /// Median per-peak SNR for the envelope against the local spectrum noise floor.
+        /// For each envelope peak at m/z = mz_p:
+        ///   1. Extract the window [mz_p − <see cref="SnrWindowDa"/>, mz_p + <see cref="SnrWindowDa"/>] from the spectrum.
+        ///   2. From the spectrum peaks in that window, exclude any peak whose m/z is within
+        ///      <see cref="MatchTolerancePpm"/> of any envelope peak (i.e. the envelope's own peaks).
+        ///   3. SNR_p = envelope peak intensity / median(remaining window intensities).
+        ///      If the remaining window is empty or its median is non-positive, SNR_p is treated
+        ///      as missing and is not contributed to the aggregate median.
+        /// Returns the median of the SNR_p values across all envelope peaks, or 0.0 if no SNR_p
+        /// could be computed (degenerate spectrum / envelope).
+        /// </summary>
+        private static double ComputeLocalSnr(IsotopicEnvelope envelope, MzSpectrum spectrum)
+        {
+            if (envelope.Peaks == null || envelope.Peaks.Count == 0) return 0.0;
+            if (spectrum.Size == 0) return 0.0;
+
+            double[] xArr = spectrum.XArray;
+            double[] yArr = spectrum.YArray;
+            var envPeaks = envelope.Peaks;
+
+            var snrPerPeak = new List<double>(envPeaks.Count);
+
+            foreach (var (envMz, envIntensity) in envPeaks)
+            {
+                if (envIntensity <= 0.0) continue;
+
+                (int start, int end) = SpectrumWindowIndices(spectrum, envMz - SnrWindowDa, envMz + SnrWindowDa);
+                if (start > end) continue; // empty window
+
+                // Collect non-envelope intensities inside the window.
+                var noiseIntensities = new List<double>(end - start + 1);
+                for (int i = start; i <= end; i++)
+                {
+                    double xi = xArr[i];
+                    if (IsEnvelopePeakMz(xi, envPeaks)) continue;
+                    noiseIntensities.Add(yArr[i]);
+                }
+
+                if (noiseIntensities.Count == 0) continue; // no noise sample → skip
+                double medianNoise = Median(noiseIntensities);
+                if (medianNoise <= 0.0) continue;
+
+                snrPerPeak.Add(envIntensity / medianNoise);
+            }
+
+            return snrPerPeak.Count == 0 ? 0.0 : Median(snrPerPeak);
+        }
+
+        /// <summary>
+        /// Fraction of matched theoretical isotope positions where the matched envelope peak
+        /// is also the local apex within ± <see cref="CompetingPeakWindowDa"/>. Catches
+        /// envelopes extracted from the shoulder of a larger feature.
+        ///
+        /// The alignment (Averagine model lookup, mass-ascending sort, per-isotope theoretical
+        /// m/z, 10 ppm matching) mirrors the envelope-only <see cref="ComputeFeatures(IsotopicEnvelope, AverageResidue)"/>
+        /// path so the two paths agree on which positions count as "matched".
+        /// </summary>
+        private static double ComputeCompetingPeakRatio(
+            IsotopicEnvelope envelope, AverageResidue model, MzSpectrum spectrum)
+        {
+            if (spectrum.Size == 0) return 0.0;
+
+            int absCharge = Math.Abs(envelope.Charge);
+            if (absCharge == 0) return 0.0;
+
+            // Mirror the alignment performed by ComputeFeatures(envelope, model).
+            int avgIdx = model.GetMostIntenseMassIndex(envelope.MonoisotopicMass);
+            double[] rawMasses = model.GetAllTheoreticalMasses(avgIdx);
+            double[] rawIntens = model.GetAllTheoreticalIntensities(avgIdx);
+
+            int nIsoLen = rawMasses.Length;
+            double[] avgMassAsc = new double[nIsoLen];
+            double[] avgIntAsc = new double[nIsoLen];
+            Array.Copy(rawMasses, avgMassAsc, nIsoLen);
+            Array.Copy(rawIntens, avgIntAsc, nIsoLen);
+            Array.Sort(avgMassAsc, avgIntAsc);
+
+            double maxTheoInt = 0.0;
+            for (int i = 0; i < avgIntAsc.Length; i++)
+                if (avgIntAsc[i] > maxTheoInt) maxTheoInt = avgIntAsc[i];
+            double threshold1pct = maxTheoInt * 0.01;
+
+            double isotopeStepMz = Constants.C13MinusC12 / absCharge;
+            double monoMz = envelope.MonoisotopicMass.ToMz(envelope.Charge);
+            var peakList = envelope.Peaks;
+
+            int matched = 0;
+            int nonCompeting = 0;
+            const double apexEpsilon = 1e-9;
+
+            for (int n = 0; n < avgIntAsc.Length; n++)
+            {
+                if (avgIntAsc[n] <= threshold1pct) continue;
+
+                double theorMz = monoMz + n * isotopeStepMz;
+                double tolMz = theorMz * MatchTolerancePpm * 1e-6;
+
+                // Find the most intense envelope peak within tolerance, recording its m/z.
+                double bestIntensity = 0.0;
+                double bestMz = 0.0;
+                foreach (var (mz, intensity) in peakList)
+                {
+                    if (Math.Abs(mz - theorMz) < tolMz && intensity > bestIntensity)
+                    {
+                        bestIntensity = intensity;
+                        bestMz = mz;
+                    }
+                }
+                if (bestIntensity <= 0.0) continue; // unmatched — counted in PeakCompleteness instead
+
+                matched++;
+
+                (int start, int end) = SpectrumWindowIndices(
+                    spectrum, bestMz - CompetingPeakWindowDa, bestMz + CompetingPeakWindowDa);
+                if (start > end)
+                {
+                    // No spectrum peaks in the competing-peak window: trivially the apex.
+                    nonCompeting++;
+                    continue;
+                }
+
+                double apexInWindow = 0.0;
+                double[] yArr = spectrum.YArray;
+                for (int i = start; i <= end; i++)
+                    if (yArr[i] > apexInWindow) apexInWindow = yArr[i];
+
+                if (bestIntensity >= apexInWindow * (1.0 - apexEpsilon))
+                    nonCompeting++;
+            }
+
+            return matched == 0 ? 0.0 : (double)nonCompeting / matched;
+        }
+
+        /// <summary>
+        /// Squashes raw SNR (potentially unbounded above) into [0, 1] via 1 − exp(−snr / scale).
+        /// Scale chosen so SNR ≈ 5 (typical good envelope) maps to ~0.6 and SNR ≈ 20 maps to ~0.96.
+        /// Negative or NaN SNR maps to 0.
+        /// </summary>
+        private static double SquashSnr(double snr)
+        {
+            if (double.IsNaN(snr) || snr <= 0.0) return 0.0;
+            const double SnrScale = 6.0;
+            return 1.0 - Math.Exp(-snr / SnrScale);
+        }
+
+        /// <summary>
+        /// Inclusive index range for the spectrum peaks in <c>[minMz, maxMz]</c>. Returns
+        /// <c>(start, end)</c> with <c>start &gt; end</c> when the window is empty.
+        /// Wraps the obsolete <see cref="MzSpectrum.ExtractIndices"/> at a single call site.
+        /// </summary>
+        private static (int start, int end) SpectrumWindowIndices(MzSpectrum spectrum, double minMz, double maxMz)
+        {
+#pragma warning disable CS0618 // ExtractIndices is marked Obsolete but is the documented entry point for index-range extraction.
+            return spectrum.ExtractIndices(minMz, maxMz);
+#pragma warning restore CS0618
+        }
+
+        /// <summary>
+        /// True if <paramref name="mz"/> is within <see cref="MatchTolerancePpm"/> of any peak
+        /// in <paramref name="envPeaks"/>. Used to exclude envelope peaks from the noise sample.
+        /// </summary>
+        private static bool IsEnvelopePeakMz(double mz, IReadOnlyList<(double mz, double intensity)> envPeaks)
+        {
+            for (int j = 0; j < envPeaks.Count; j++)
+            {
+                double pMz = envPeaks[j].mz;
+                if (pMz <= 0.0) continue;
+                double tol = pMz * MatchTolerancePpm * 1e-6;
+                if (Math.Abs(mz - pMz) < tol) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Sample median of a non-empty list. Sorts a local copy so the caller's list is
+        /// not mutated.
+        /// </summary>
+        private static double Median(List<double> values)
+        {
+            int n = values.Count;
+            double[] copy = new double[n];
+            values.CopyTo(copy);
+            Array.Sort(copy);
+            return (n & 1) == 1
+                ? copy[n / 2]
+                : 0.5 * (copy[n / 2 - 1] + copy[n / 2]);
         }
     }
 }

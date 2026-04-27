@@ -71,15 +71,17 @@ namespace MassSpectrometry
         /// is unchanged.
         /// </summary>
         /// <remarks>
-        /// Generic scoring adds a per-envelope feature-extraction pass (cosine vs Averagine,
-        /// ppm error, completeness, ratio consistency). Use this overload when you need a
-        /// score directly comparable across deconvolution algorithms; otherwise call
+        /// Generic scoring adds a per-envelope feature-extraction pass against the Averagine
+        /// model and the surrounding spectrum (cosine, ppm error, completeness, ratio
+        /// consistency, local SNR, competing-peak ratio). Use this overload when you need a
+        /// quality score that takes spectral context into account; otherwise call
         /// <see cref="Deconvolute(MzSpectrum, DeconvolutionParameters, MzRange)"/> to avoid the cost.
         ///
         /// If you already have an <see cref="IsotopicEnvelope"/> from a prior deconvolution call
         /// and want to score it without re-running the algorithm, use the
         /// <see cref="IsotopicEnvelopeExtensions.GetOrComputeGenericScore(IsotopicEnvelope, DeconvolutionParameters)"/>
-        /// extension method.
+        /// extension method. Note: that extension uses the envelope-only feature set because
+        /// the spectrum is no longer available at that call site.
         /// </remarks>
         public static IEnumerable<IsotopicEnvelope> DeconvoluteWithGenericScoring(MzSpectrum spectrum,
             DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null)
@@ -89,7 +91,8 @@ namespace MassSpectrometry
             {
                 if (envelope.GenericScore == null)
                 {
-                    double score = DeconvolutionScorer.ScoreEnvelope(envelope, model);
+                    // We have the spectrum here — use the spectrum-aware score.
+                    double score = DeconvolutionScorer.ScoreEnvelope(envelope, model, spectrum);
                     envelope.SetGenericScore(score);
                 }
                 yield return envelope;

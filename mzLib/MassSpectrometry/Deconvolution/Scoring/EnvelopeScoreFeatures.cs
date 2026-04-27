@@ -61,25 +61,76 @@ namespace MassSpectrometry
         public readonly double IntensityRatioConsistency;
 
         /// <summary>
+        /// Median signal-to-noise ratio across the envelope's matched isotope peaks. For each
+        /// matched peak, SNR is the peak's intensity divided by the median intensity of all
+        /// spectrum peaks in a wider m/z window around it that excludes the envelope's own
+        /// peaks. NaN when the scorer was called without a spectrum.
+        /// </summary>
+        public readonly double LocalSignalToNoise;
+
+        /// <summary>
+        /// Fraction of theoretical isotope positions (above the 1% intensity floor) where the
+        /// matched observed peak is the tallest peak within a small m/z window — i.e. the
+        /// envelope is not extracted from the shoulder of a larger feature. Range [0, 1].
+        /// NaN when the scorer was called without a spectrum.
+        /// </summary>
+        public readonly double CompetingPeakRatio;
+
+        /// <summary>
+        /// True if spectrum-aware features were computed (i.e. a spectrum was supplied to
+        /// <see cref="DeconvolutionScorer.ComputeFeatures(IsotopicEnvelope, AverageResidue, MzSpectrum)"/>).
+        /// Equivalent to <c>!double.IsNaN(LocalSignalToNoise)</c>.
+        /// </summary>
+        public bool HasSpectrumFeatures => !double.IsNaN(LocalSignalToNoise);
+
+        /// <summary>
         /// Constructs an <see cref="EnvelopeScoreFeatures"/> with all four feature values.
         /// The <paramref name="intensityRatioConsistency"/> parameter defaults to 0.0
         /// for backward compatibility with any call sites that pass only three values.
+        /// Spectrum-aware fields are set to <see cref="double.NaN"/>;
+        /// <see cref="HasSpectrumFeatures"/> will be <c>false</c>.
         /// </summary>
         public EnvelopeScoreFeatures(
             double averagineCosineSimilarity,
             double avgPpmError,
             double peakCompleteness,
             double intensityRatioConsistency = 0.0)
+            : this(averagineCosineSimilarity, avgPpmError, peakCompleteness,
+                   intensityRatioConsistency, double.NaN, double.NaN)
+        { }
+
+        /// <summary>
+        /// Constructs an <see cref="EnvelopeScoreFeatures"/> with all six feature values,
+        /// including the spectrum-aware <paramref name="localSignalToNoise"/> and
+        /// <paramref name="competingPeakRatio"/>. Use this constructor (or, more commonly,
+        /// let <see cref="DeconvolutionScorer.ComputeFeatures(IsotopicEnvelope, AverageResidue, MzSpectrum)"/>
+        /// build the struct) when both spectrum-aware features have been measured.
+        /// </summary>
+        public EnvelopeScoreFeatures(
+            double averagineCosineSimilarity,
+            double avgPpmError,
+            double peakCompleteness,
+            double intensityRatioConsistency,
+            double localSignalToNoise,
+            double competingPeakRatio)
         {
             AveragineCosineSimilarity = averagineCosineSimilarity;
             AvgPpmError = avgPpmError;
             PeakCompleteness = peakCompleteness;
             IntensityRatioConsistency = intensityRatioConsistency;
+            LocalSignalToNoise = localSignalToNoise;
+            CompetingPeakRatio = competingPeakRatio;
         }
 
         /// <inheritdoc/>
         public override string ToString()
-            => $"Cosine={AveragineCosineSimilarity:F4}  AvgPpmErr={AvgPpmError:F2}  " +
-               $"Completeness={PeakCompleteness:F4}  RatioConsistency={IntensityRatioConsistency:F4}";
+        {
+            string envOnly =
+                $"Cosine={AveragineCosineSimilarity:F4}  AvgPpmErr={AvgPpmError:F2}  " +
+                $"Completeness={PeakCompleteness:F4}  RatioConsistency={IntensityRatioConsistency:F4}";
+            return HasSpectrumFeatures
+                ? envOnly + $"  SNR={LocalSignalToNoise:F2}  CompetingPeakRatio={CompetingPeakRatio:F4}"
+                : envOnly;
+        }
     }
 }
