@@ -52,6 +52,12 @@ namespace MassSpectrometry
         /// is set before it is yielded; the algorithm-specific <see cref="IsotopicEnvelope.Score"/>
         /// is unchanged.
         /// </summary>
+        /// <remarks>
+        /// If you already have an <see cref="IsotopicEnvelope"/> from a prior deconvolution call
+        /// and want to score it without re-running the algorithm, use the
+        /// <see cref="IsotopicEnvelopeExtensions.GetOrComputeGenericScore(IsotopicEnvelope, DeconvolutionParameters)"/>
+        /// extension method.
+        /// </remarks>
         public static IEnumerable<IsotopicEnvelope> DeconvoluteWithGenericScoring(MsDataScan scan,
             DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null)
         {
@@ -69,6 +75,11 @@ namespace MassSpectrometry
         /// ppm error, completeness, ratio consistency). Use this overload when you need a
         /// score directly comparable across deconvolution algorithms; otherwise call
         /// <see cref="Deconvolute(MzSpectrum, DeconvolutionParameters, MzRange)"/> to avoid the cost.
+        ///
+        /// If you already have an <see cref="IsotopicEnvelope"/> from a prior deconvolution call
+        /// and want to score it without re-running the algorithm, use the
+        /// <see cref="IsotopicEnvelopeExtensions.GetOrComputeGenericScore(IsotopicEnvelope, DeconvolutionParameters)"/>
+        /// extension method.
         /// </remarks>
         public static IEnumerable<IsotopicEnvelope> DeconvoluteWithGenericScoring(MzSpectrum spectrum,
             DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null)

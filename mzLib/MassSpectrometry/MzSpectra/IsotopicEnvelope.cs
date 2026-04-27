@@ -93,6 +93,26 @@ namespace MassSpectrometry
             GenericScore = genericScore;
         }
 
+        /// <summary>
+        /// True if a generic deconvolution score has been computed and stored on this envelope.
+        /// Equivalent to <c>GenericScore.HasValue</c>; provided for readability at call sites.
+        /// </summary>
+        public bool HasGenericScore => GenericScore.HasValue;
+
+        /// <summary>
+        /// Returns <see cref="GenericScore"/> if set, otherwise <see cref="Score"/>. Callers that
+        /// want a single number per envelope and don't care which scoring system produced it should
+        /// prefer <see cref="GenericScore"/> directly, since it is the only score that is comparable
+        /// across deconvolution algorithms.
+        /// </summary>
+        /// <remarks>
+        /// This fallback exists for callers that have not yet wired up generic scoring — it lets
+        /// them write threshold or ranking code that works whether or not the score has been computed.
+        /// New code should not rely on this fallback; it should compute the generic score explicitly
+        /// (e.g. via <see cref="IsotopicEnvelopeExtensions.GetOrComputeGenericScore(IsotopicEnvelope, AverageResidue)"/>).
+        /// </remarks>
+        public double GenericOrFallbackScore => GenericScore ?? Score;
+
         public override string ToString()
         {
             return Charge + "\t" + Peaks[0].mz.ToString("G8") + "\t" + Peaks.Count + "\t" + TotalIntensity;

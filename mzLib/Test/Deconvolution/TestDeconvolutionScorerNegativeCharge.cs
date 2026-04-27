@@ -5,7 +5,7 @@ using Chemistry;
 using MassSpectrometry;
 using NUnit.Framework;
 
-namespace Test
+namespace Test.Deconvolution
 {
     /// <summary>
     /// Tests that the deconvolution scorer handles negative charge states
