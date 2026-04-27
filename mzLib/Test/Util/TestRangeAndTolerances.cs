@@ -25,7 +25,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 
-namespace Test
+namespace Test.Util
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -56,9 +56,9 @@ namespace Test
             // If the instance is less than the argument, a negative value is returned
             // If the instance is greater than the argument, a positive value is returned
             // An example of this is given below
-            Double five = 5;
+            double five = 5;
             double ten = 10;
-            Assert.That(five.CompareTo(ten) < 0);
+            NUnit.Framework.Assert.That(five.CompareTo(ten) < 0);
 
             // Range is greater than value
             var range = new DoubleRange(3, 10);
@@ -371,10 +371,10 @@ namespace Test
         public void PpmToleranceWithNotch_()
         {
             var tol = new PpmToleranceWithNotch(10, 2, 1);
-            Assert.AreEqual(tol.GetMaximumValue(100), (100 + 2 * 1.00335483810) * (1 + (10 / 1e6)));
-            Assert.AreEqual(tol.GetMinimumValue(100), (100 - 1 * 1.00335483810) * (1 - (10 / 1e6)));
-            Assert.AreEqual(tol.GetRange(100).Maximum, (100 + 2 * 1.00335483810) * (1 + (10 / 1e6)));
-            Assert.AreEqual(tol.GetRange(100).Minimum, (100 - 1 * 1.00335483810) * (1 - (10 / 1e6)));
+            Assert.AreEqual(tol.GetMaximumValue(100), (100 + 2 * 1.00335483810) * (1 + 10 / 1e6));
+            Assert.AreEqual(tol.GetMinimumValue(100), (100 - 1 * 1.00335483810) * (1 - 10 / 1e6));
+            Assert.AreEqual(tol.GetRange(100).Maximum, (100 + 2 * 1.00335483810) * (1 + 10 / 1e6));
+            Assert.AreEqual(tol.GetRange(100).Minimum, (100 - 1 * 1.00335483810) * (1 - 10 / 1e6));
 
             //notch +2
             Assert.IsTrue(tol.Within(102.0067, 100));
@@ -411,51 +411,51 @@ namespace Test
         public void PpmToleranceWithNotchTest(double baseValue, double tolerance, int positiveNotches, int negativeNotches)
         {
             var tol = new PpmToleranceWithNotch(tolerance, positiveNotches, negativeNotches);
-            double maxValue = (baseValue + positiveNotches * PpmToleranceWithNotch.NotchStep) * (1 + (tolerance / 1e6));
-            double minValue = (baseValue - negativeNotches * PpmToleranceWithNotch.NotchStep) * (1 - (tolerance / 1e6));
-            Assert.That(tol.GetMaximumValue(baseValue), Is.EqualTo(maxValue).Within(1e-6), "GetMaximumValue failed");
-            Assert.That(tol.GetMinimumValue(baseValue), Is.EqualTo(minValue).Within(1e-6), "GetMinimumValue failed");
-            Assert.That(tol.GetRange(baseValue).Maximum, Is.EqualTo(maxValue).Within(1e-6), "GetRange.Maximum failed");
-            Assert.That(tol.GetRange(baseValue).Minimum, Is.EqualTo(minValue).Within(1e-6), "GetRange.Minimum failed");
+            double maxValue = (baseValue + positiveNotches * PpmToleranceWithNotch.NotchStep) * (1 + tolerance / 1e6);
+            double minValue = (baseValue - negativeNotches * PpmToleranceWithNotch.NotchStep) * (1 - tolerance / 1e6);
+            NUnit.Framework.Assert.That(tol.GetMaximumValue(baseValue), Is.EqualTo(maxValue).Within(1e-6), "GetMaximumValue failed");
+            NUnit.Framework.Assert.That(tol.GetMinimumValue(baseValue), Is.EqualTo(minValue).Within(1e-6), "GetMinimumValue failed");
+            NUnit.Framework.Assert.That(tol.GetRange(baseValue).Maximum, Is.EqualTo(maxValue).Within(1e-6), "GetRange.Maximum failed");
+            NUnit.Framework.Assert.That(tol.GetRange(baseValue).Minimum, Is.EqualTo(minValue).Within(1e-6), "GetRange.Minimum failed");
             // Test values at notches and between
-            double notchPlus = (baseValue + positiveNotches * PpmToleranceWithNotch.NotchStep) * (1 + (tolerance / 1e6)) - 1e-6;
-            double notchMinus = (baseValue - negativeNotches * PpmToleranceWithNotch.NotchStep) * (1 - (tolerance / 1e6)) + 1e-6;
-            double notchZero = baseValue * (1 + (tolerance / 1e6)) - 1e-6;
+            double notchPlus = (baseValue + positiveNotches * PpmToleranceWithNotch.NotchStep) * (1 + tolerance / 1e6) - 1e-6;
+            double notchMinus = (baseValue - negativeNotches * PpmToleranceWithNotch.NotchStep) * (1 - tolerance / 1e6) + 1e-6;
+            double notchZero = baseValue * (1 + tolerance / 1e6) - 1e-6;
             double betweenNotches = baseValue + (positiveNotches + 1) * PpmToleranceWithNotch.NotchStep;
             double belowMin = minValue - 10;
             double aboveMax = maxValue + 10;
-            Assert.That(tol.Within(notchPlus, baseValue), Is.True, "Within failed at notchPlus");
-            Assert.That(tol.Within(notchMinus, baseValue), Is.True, "Within failed at notchMinus");
-            Assert.That(tol.Within(notchZero, baseValue), Is.True, "Within failed at notchZero");
+            NUnit.Framework.Assert.That(tol.Within(notchPlus, baseValue), Is.True, "Within failed at notchPlus");
+            NUnit.Framework.Assert.That(tol.Within(notchMinus, baseValue), Is.True, "Within failed at notchMinus");
+            NUnit.Framework.Assert.That(tol.Within(notchZero, baseValue), Is.True, "Within failed at notchZero");
             if (tolerance <= 100) // Only test between notches if both notches exist
             {
-                Assert.That(tol.Within(betweenNotches, baseValue), Is.False, "Within should not match at betweenNotches for high tolerance");
+                NUnit.Framework.Assert.That(tol.Within(betweenNotches, baseValue), Is.False, "Within should not match at betweenNotches for high tolerance");
             }
             else
             {
-                Assert.That(tol.Within(betweenNotches, baseValue), Is.True, "Within failed at betweenNotches");
+                NUnit.Framework.Assert.That(tol.Within(betweenNotches, baseValue), Is.True, "Within failed at betweenNotches");
             }
-            Assert.That(tol.Within(belowMin, baseValue), Is.False, "Within failed at belowMin");
-            Assert.That(tol.Within(aboveMax, baseValue), Is.False, "Within failed at aboveMax");
+            NUnit.Framework.Assert.That(tol.Within(belowMin, baseValue), Is.False, "Within failed at belowMin");
+            NUnit.Framework.Assert.That(tol.Within(aboveMax, baseValue), Is.False, "Within failed at aboveMax");
             // Edge: test all notches individually
             for (int i = -negativeNotches; i <= positiveNotches; i++)
             {
                 double shifted = baseValue + i * PpmToleranceWithNotch.NotchStep;
-                double testVal = shifted * (1 + (tolerance / 1e6)) - 1e-6;
-                Assert.That(tol.Within(testVal, baseValue), Is.True, $"Within failed at notch {i} (testVal={testVal})");
+                double testVal = shifted * (1 + tolerance / 1e6) - 1e-6;
+                NUnit.Framework.Assert.That(tol.Within(testVal, baseValue), Is.True, $"Within failed at notch {i} (testVal={testVal})");
             }
             // Edge: test just outside all notches
             for (int i = -negativeNotches; i <= positiveNotches; i++)
             {
                 double shifted = baseValue + i * PpmToleranceWithNotch.NotchStep;
-                double testVal = shifted * (1 + (tolerance / 1e6)) + 1e-3;
-                Assert.That(tol.Within(testVal, baseValue), Is.False, $"Within failed at outside notch {i} (testVal={testVal})");
+                double testVal = shifted * (1 + tolerance / 1e6) + 1e-3;
+                NUnit.Framework.Assert.That(tol.Within(testVal, baseValue), Is.False, $"Within failed at outside notch {i} (testVal={testVal})");
             }
             // Edge: test zero tolerance (should only match exact)
             if (tolerance == 0)
             {
-                Assert.That(tol.Within(baseValue, baseValue), Is.True, "Zero tolerance should match exact");
-                Assert.That(tol.Within(baseValue + 1e-6, baseValue), Is.False, "Zero tolerance should not match offset");
+                NUnit.Framework.Assert.That(tol.Within(baseValue, baseValue), Is.True, "Zero tolerance should match exact");
+                NUnit.Framework.Assert.That(tol.Within(baseValue + 1e-6, baseValue), Is.False, "Zero tolerance should not match offset");
             }
         }
     }

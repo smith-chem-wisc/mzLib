@@ -10,7 +10,7 @@ using System;
 using NUnit.Framework.Legacy;
 using MzLibUtil.PositionFrequencyAnalysis;
 
-namespace Test
+namespace Test.Util
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -47,24 +47,24 @@ namespace Test
             Assert.IsTrue(0.ToEnum<TimsTofMsMsType>(out var result));
             Assert.AreEqual(TimsTofMsMsType.MS, result);
 
-            Assert.IsTrue(2.ToEnum<TimsTofMsMsType>(out result));
+            Assert.IsTrue(2.ToEnum(out result));
             Assert.AreEqual(TimsTofMsMsType.MSMSFragment, result);
 
-            Assert.IsTrue(8.ToEnum<TimsTofMsMsType>(out result));
+            Assert.IsTrue(8.ToEnum(out result));
             Assert.AreEqual(TimsTofMsMsType.PASEF, result);
 
-            Assert.IsTrue(9.ToEnum<TimsTofMsMsType>(out result));
+            Assert.IsTrue(9.ToEnum(out result));
             Assert.AreEqual(TimsTofMsMsType.DIA, result);
 
-            Assert.IsTrue(10.ToEnum<TimsTofMsMsType>(out result));
+            Assert.IsTrue(10.ToEnum(out result));
             Assert.AreEqual(TimsTofMsMsType.PRM, result);
 
             Assert.IsTrue(0.ToEnum<TimsTofAcquisitionMode>(out var result2));
             Assert.AreEqual(TimsTofAcquisitionMode.MS, result2);
 
-            Assert.IsFalse(1.ToEnum<TimsTofMsMsType>(out result));
-            Assert.IsFalse(11.ToEnum<TimsTofMsMsType>(out result));
-            Assert.IsFalse(7.ToEnum<TimsTofMsMsType>(out result));
+            Assert.IsFalse(1.ToEnum(out result));
+            Assert.IsFalse(11.ToEnum(out result));
+            Assert.IsFalse(7.ToEnum(out result));
             
         }
 
@@ -129,7 +129,7 @@ namespace Test
         [Test]
         public void IsDefaultOrNull_WithDefaultStruct_ReturnsTrue()
         {
-            TestStruct value = default(TestStruct);
+            TestStruct value = default;
             bool result = value.IsDefaultOrNull();
             Assert.IsTrue(result);
         }
@@ -185,9 +185,9 @@ namespace Test
         public void TestQuantifiedPeptide_UnmodifiedSequence_HasNoModifications()
         {
             var peptide = new QuantifiedPeptide("PEPTIDE", intensity: 5);
-            Assert.That(peptide.BaseSequence, Is.EqualTo("PEPTIDE"));
-            Assert.That(peptide.Intensity, Is.EqualTo(5));
-            Assert.That(peptide.ModifiedAminoAcidPositions.Count, Is.EqualTo(0));
+            NUnit.Framework.Assert.That(peptide.BaseSequence, Is.EqualTo("PEPTIDE"));
+            NUnit.Framework.Assert.That(peptide.Intensity, Is.EqualTo(5));
+            NUnit.Framework.Assert.That(peptide.ModifiedAminoAcidPositions.Count, Is.EqualTo(0));
         }
 
         [Test]
@@ -195,13 +195,13 @@ namespace Test
         {
             var fullSeq1 = "[UniProt: N - palmitoyl glycine on G]G[UniProt: N - methylglycine on G]K[UniProt: O - linked(Hex) hydroxylysine on K]";
             var peptide1 = new QuantifiedPeptide(fullSeq1, intensity: 1);
-            Assert.That(peptide1.FullSequences.Contains(fullSeq1));
+            NUnit.Framework.Assert.That(peptide1.FullSequences.Contains(fullSeq1));
             Assert.AreEqual(peptide1.BaseSequence, "GK");
             Assert.AreEqual(peptide1.Intensity, 1);
             Assert.AreEqual(peptide1.ModifiedAminoAcidPositions.Count, 3);
-            Assert.That(peptide1.ModifiedAminoAcidPositions.ContainsKey(0));
-            Assert.That(peptide1.ModifiedAminoAcidPositions.ContainsKey(1));
-            Assert.That(peptide1.ModifiedAminoAcidPositions.ContainsKey(2));
+            NUnit.Framework.Assert.That(peptide1.ModifiedAminoAcidPositions.ContainsKey(0));
+            NUnit.Framework.Assert.That(peptide1.ModifiedAminoAcidPositions.ContainsKey(1));
+            NUnit.Framework.Assert.That(peptide1.ModifiedAminoAcidPositions.ContainsKey(2));
             Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[0].First().Value.Name, "UniProt: N - palmitoyl glycine on G");
             Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[1].First().Value.Name, "UniProt: N - methylglycine on G");
             Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[2].First().Value.Name, "UniProt: O - linked(Hex) hydroxylysine on K");
@@ -214,7 +214,7 @@ namespace Test
             var peptide2 = new QuantifiedPeptide(fullSeq2, intensity: 10);
             peptide1.MergePeptide(peptide2);
 
-            Assert.That(peptide1.FullSequences.Contains(fullSeq2));
+            NUnit.Framework.Assert.That(peptide1.FullSequences.Contains(fullSeq2));
             Assert.AreEqual(peptide1.Intensity, 11);
             Assert.AreEqual(peptide1.ModifiedAminoAcidPositions.Count, 3);
             Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[0].Count, 2);
@@ -229,7 +229,7 @@ namespace Test
             var fullSeq3 = "GK[UniProt: O - linked(Hex) hydroxylysine on K]";
             peptide1.AddFullSequence(fullSeq3, intensity:100);
 
-            Assert.That(peptide1.FullSequences.Contains(fullSeq3));
+            NUnit.Framework.Assert.That(peptide1.FullSequences.Contains(fullSeq3));
             Assert.AreEqual(peptide1.Intensity, 111);
             Assert.AreEqual(peptide1.ModifiedAminoAcidPositions.Count, 3);
             Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[0].Count, 2);
@@ -241,22 +241,22 @@ namespace Test
             Assert.AreEqual(peptide1.ModifiedAminoAcidPositions[2].First().Value.Intensity, 111);
 
             // Test failed merge due to base sequence mismatch
-            var exception1 = Assert.Throws<System.Exception>(() => peptide1.AddFullSequence("AK", intensity: 1));
+            var exception1 = NUnit.Framework.Assert.Throws<Exception>(() => peptide1.AddFullSequence("AK", intensity: 1));
 
             var peptide3 = new QuantifiedPeptide("AK", intensity: 1);
-            var exception2 = Assert.Throws<System.ArgumentException>(() => peptide1.MergePeptide(peptide3));
+            var exception2 = NUnit.Framework.Assert.Throws<ArgumentException>(() => peptide1.MergePeptide(peptide3));
 
             // Test failed merge due to null argument
-            var exception3 = Assert.Throws<System.ArgumentNullException>(() => peptide1.MergePeptide(null));
+            var exception3 = NUnit.Framework.Assert.Throws<ArgumentNullException>(() => peptide1.MergePeptide(null));
 
             // Test ModStoichiometry calculation
             var stoich = peptide1.GetModStoichiometryForPeptide();
             Assert.IsNotNull(stoich);
             Assert.AreEqual(stoich.Count, 3);
-            Assert.That(stoich[0]["UniProt: N - palmitoyl glycine on G"].Intensity, Is.EqualTo(1 / 111.0).Within(1e-10));
-            Assert.That(stoich[0]["UniProt: N - acetylglycine on G"].Intensity, Is.EqualTo(10 / 111.0).Within(1e-10));
-            Assert.That(stoich[1]["UniProt: N - methylglycine on G"].Intensity, Is.EqualTo(11 / 111.0).Within(1e-10));
-            Assert.That(stoich[2]["UniProt: O - linked(Hex) hydroxylysine on K"].Intensity, Is.EqualTo(111 / 111.0).Within(1e-10));
+            NUnit.Framework.Assert.That(stoich[0]["UniProt: N - palmitoyl glycine on G"].Intensity, Is.EqualTo(1 / 111.0).Within(1e-10));
+            NUnit.Framework.Assert.That(stoich[0]["UniProt: N - acetylglycine on G"].Intensity, Is.EqualTo(10 / 111.0).Within(1e-10));
+            NUnit.Framework.Assert.That(stoich[1]["UniProt: N - methylglycine on G"].Intensity, Is.EqualTo(11 / 111.0).Within(1e-10));
+            NUnit.Framework.Assert.That(stoich[2]["UniProt: O - linked(Hex) hydroxylysine on K"].Intensity, Is.EqualTo(111 / 111.0).Within(1e-10));
         }
 
         [Test]
@@ -300,10 +300,10 @@ namespace Test
 
             // Check stoichiometry results
             Assert.AreEqual(stoich.Count, 6);
-            Assert.That(stoich[0]["UniProt: N - palmitoyl glycine on G"], Is.EqualTo(1 / 11.0).Within(1e-10));
-            Assert.That(stoich[0]["UniProt: N - acetylglycine on G"], Is.EqualTo(10 / 11.0).Within(1e-10));
-            Assert.That(stoich[1]["UniProt: N - methylglycine on G"], Is.EqualTo(11 / 11.0).Within(1e-10));
-            Assert.That(stoich[2]["UniProt: O - linked(Hex) hydroxylysine on K"], Is.EqualTo(1 / 11.0).Within(1e-10));
+            NUnit.Framework.Assert.That(stoich[0]["UniProt: N - palmitoyl glycine on G"], Is.EqualTo(1 / 11.0).Within(1e-10));
+            NUnit.Framework.Assert.That(stoich[0]["UniProt: N - acetylglycine on G"], Is.EqualTo(10 / 11.0).Within(1e-10));
+            NUnit.Framework.Assert.That(stoich[1]["UniProt: N - methylglycine on G"], Is.EqualTo(11 / 11.0).Within(1e-10));
+            NUnit.Framework.Assert.That(stoich[2]["UniProt: O - linked(Hex) hydroxylysine on K"], Is.EqualTo(1 / 11.0).Within(1e-10));
             Assert.AreEqual(stoich[8]["UniProt:N-methylalanine on A"], 1);
             Assert.AreEqual(stoich[9]["UniProt: O - linked(Hex) hydroxylysine on K"], 1);
             Assert.AreEqual(stoich[10]["C-Terminal UniProt: Lysine Amide on K"], 1);
@@ -316,7 +316,7 @@ namespace Test
             var protein = new QuantifiedProtein(accession: "TESTPROT", sequence: "GKAAAAAAK",
                 peptides: new Dictionary<string, QuantifiedPeptide> { { peptide.BaseSequence, peptide } });
 
-            Assert.That(() => protein.SetProteinModsFromPeptides(),
+            NUnit.Framework.Assert.That(() => protein.SetProteinModsFromPeptides(),
                 Throws.InstanceOf<InvalidOperationException>()
                     .With.Message.Contain("XYZ"));
         }
@@ -336,13 +336,13 @@ namespace Test
 
             // Test incorrect argument where protein group name does not contain the names of the proteins
             var errorMessage = "The number of proteins provided does not match the number of proteins in the protein group name.";
-            var exception1 = Assert.Throws<System.Exception>(() => new QuantifiedProteinGroup("PROT1|PROT2", new Dictionary<string, QuantifiedProtein> { { protein1.Accession, protein1 } }));
+            var exception1 = NUnit.Framework.Assert.Throws<Exception>(() => new QuantifiedProteinGroup("PROT1|PROT2", new Dictionary<string, QuantifiedProtein> { { protein1.Accession, protein1 } }));
             Assert.AreEqual(exception1.Message, errorMessage);
 
-            var exception2 = Assert.Throws<System.Exception>(() => new QuantifiedProteinGroup("PROT1", proteins));
+            var exception2 = NUnit.Framework.Assert.Throws<Exception>(() => new QuantifiedProteinGroup("PROT1", proteins));
             Assert.AreEqual(exception2.Message, errorMessage);
 
-            var exception3 = Assert.Throws<System.Exception>(() => new QuantifiedProteinGroup("PROT1|PROT2|PROT3", proteins));
+            var exception3 = NUnit.Framework.Assert.Throws<Exception>(() => new QuantifiedProteinGroup("PROT1|PROT2|PROT3", proteins));
             Assert.AreEqual(exception3.Message, errorMessage);
 
             // Test matching count but wrong accessions — should also throw
@@ -352,15 +352,15 @@ namespace Test
                 { protein1.Accession, protein1 },
                 { protein3.Accession, protein3 }
             };
-            var exception4 = Assert.Throws<System.Exception>(() => new QuantifiedProteinGroup("PROT1|PROT2", mismatchedProteins));
+            var exception4 = NUnit.Framework.Assert.Throws<Exception>(() => new QuantifiedProteinGroup("PROT1|PROT2", mismatchedProteins));
             Assert.AreEqual(exception4.Message, errorMessage);
 
             // Test modification mapping from peptides to proteins - fails if protein does not have a sequence
             var newProt = new QuantifiedProtein(accession: "PROT3", sequence: null, peptides: new Dictionary<string, QuantifiedPeptide>());
-            Assert.Throws<System.Exception>(() => newProt.SetProteinModsFromPeptides());
+            NUnit.Framework.Assert.Throws<Exception>(() => newProt.SetProteinModsFromPeptides());
             newProt.Sequence = "AAAYYY";
             newProt.SetProteinModsFromPeptides();
-            Assert.That(newProt.ModifiedAminoAcidPositionsInProtein.Count == 0);
+            NUnit.Framework.Assert.That(newProt.ModifiedAminoAcidPositionsInProtein.Count == 0);
 
             // Test modification mapping from peptides to proteins
             var peptide1 = new QuantifiedPeptide("[UniProt: Mod1 on A]AAAYYY", intensity: 1);
@@ -390,11 +390,11 @@ namespace Test
             // Test protein modification stoichiometry calculation
             var stoich1 = proteinGroup.Proteins["PROT1"].GetModStoichiometryFromProteinMods();
             Assert.AreEqual(stoich1.Count, 1);
-            Assert.That(stoich1[0]["UniProt: Mod1 on A"], Is.EqualTo(1 / 4.0).Within(1e-10));
+            NUnit.Framework.Assert.That(stoich1[0]["UniProt: Mod1 on A"], Is.EqualTo(1 / 4.0).Within(1e-10));
 
             var stoich2 = proteinGroup.Proteins["PROT2"].GetModStoichiometryFromProteinMods();
-            Assert.That(stoich2.Count, Is.EqualTo(1));
-            Assert.That(stoich2[6]["UniProt: Mod2 on R"], Is.EqualTo(2 / 6.0).Within(1e-10));
+            NUnit.Framework.Assert.That(stoich2.Count, Is.EqualTo(1));
+            NUnit.Framework.Assert.That(stoich2[6]["UniProt: Mod2 on R"], Is.EqualTo(2 / 6.0).Within(1e-10));
         }
 
         [Test]
@@ -419,8 +419,8 @@ namespace Test
             var quant = new PositionFrequencyAnalysis();
             quant.SetUpQuantificationFromQuantifiedPeptideRecords(sequenceInputs, proteinSequences);
             Assert.AreEqual(quant.ProteinGroups.Count, 2);
-            Assert.That(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins.Keys.Contains("TESTPROT1"));
-            Assert.That(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins.Keys.Contains("TESTPROT2"));
+            NUnit.Framework.Assert.That(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins.Keys.Contains("TESTPROT1"));
+            NUnit.Framework.Assert.That(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins.Keys.Contains("TESTPROT2"));
             Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT1"].Accession, "TESTPROT1");
             Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT1"].Sequence, "GKAAAAAAK");
             Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT1"].Peptides.Count, 2);
@@ -432,7 +432,7 @@ namespace Test
             Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT2"].Peptides["GK"].FullSequences.Count, 2);
             Assert.AreEqual(quant.ProteinGroups["TESTPROT1|TESTPROT2"].Proteins["TESTPROT2"].Peptides["AAAA"].FullSequences.Count, 1);
 
-            Assert.That(quant.ProteinGroups["TESTPROT3"].Proteins.Keys.Contains("TESTPROT3"));
+            NUnit.Framework.Assert.That(quant.ProteinGroups["TESTPROT3"].Proteins.Keys.Contains("TESTPROT3"));
             Assert.AreEqual(quant.ProteinGroups["TESTPROT3"].Proteins["TESTPROT3"].Accession, "TESTPROT3");
             Assert.AreEqual(quant.ProteinGroups["TESTPROT3"].Proteins["TESTPROT3"].Sequence, "AKGK");
             Assert.AreEqual(quant.ProteinGroups["TESTPROT3"].Proteins["TESTPROT3"].Peptides.Count, 1);
@@ -441,8 +441,8 @@ namespace Test
             var protein3 = quant.ProteinGroups["TESTPROT3"].Proteins["TESTPROT3"];
             protein3.SetProteinModsFromPeptides();
             var stoich3 = protein3.GetModStoichiometryFromProteinMods();
-            Assert.That(stoich3, Is.Not.Null);
-            Assert.That(stoich3.Count, Is.GreaterThan(0));
+            NUnit.Framework.Assert.That(stoich3, Is.Not.Null);
+            NUnit.Framework.Assert.That(stoich3.Count, Is.GreaterThan(0));
         }
 
         public struct TestStruct

@@ -7,7 +7,7 @@ using MassSpectrometry;
 using System.Collections.Generic;
 using Chemistry;
 
-namespace Test
+namespace Test.Util
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]
@@ -40,13 +40,13 @@ namespace Test
             Assert.AreEqual(smallerSortedArray.GetClosestIndex(0), 0);
             Assert.AreEqual(smallerSortedArray.GetClosestIndex(1), 0);
             Assert.AreEqual(smallerSortedArray.GetClosestIndex(1.9), 1);
-            Assert.AreEqual(smallerSortedArray.GetClosestIndex(Double.MaxValue), 1);
+            Assert.AreEqual(smallerSortedArray.GetClosestIndex(double.MaxValue), 1);
 
             double[] smallestSortedArray = { 1 };
             Assert.AreEqual(smallestSortedArray.GetClosestIndex(-1), 0);
             Assert.AreEqual(smallestSortedArray.GetClosestIndex(0), 0);
             Assert.AreEqual(smallestSortedArray.GetClosestIndex(1), 0);
-            Assert.AreEqual(smallestSortedArray.GetClosestIndex(Double.MaxValue), 0);
+            Assert.AreEqual(smallestSortedArray.GetClosestIndex(double.MaxValue), 0);
         }
 
         [Test]
@@ -59,7 +59,7 @@ namespace Test
                 0.21, 0.4, 0.51, 0.53, 0.37, 0.3, 0.54, 0.47, 0.73, 0.53, 0.61, 0.63, 0.54, 0.39, 0.31, 0.59, 
                 0.72, 0.49, 0.25, 0.21, 0.3, 0.35, 0.42, 0.42, 0.54, 0.64, 0.63, 0.63, 0.4, 0.6, 0.46, 0.61, 0.34, 0.46, 
                 0.31, 0.56, 0.6, 0.68, 0.66, 0.42, 0.31, 0.1, 0.41, 0.55, 0.7, 0.7, 0.82, 0.8, 0.63, 0.61, 0.59, 0.64, 0.57, 0.66, 0.75, 0.57, 0.4, 0.34, 0.41, 0.42, 0.47, 0.52, 0.53, 0.58, 0.57, 0.71, 0.58, 0.57, 0.4 };
-            Assert.That(expectedOutput, Is.EqualTo(mySmoothedArray).Within(0.1));
+            NUnit.Framework.Assert.That(expectedOutput, Is.EqualTo(mySmoothedArray).Within(0.1));
         }
 
         [Test]
@@ -84,16 +84,16 @@ namespace Test
             var sameInt = new[] { 2, 2 };
             var sameDouble = new[] { 2.0, 2.0 };
             var sameSpectrum = new[] { spectrum1, spectrum1 };
-            Assert.That(sameInt.AllSame());
-            Assert.That(sameDouble.AllSame());
-            Assert.That(sameSpectrum.AllSame());
+            NUnit.Framework.Assert.That(sameInt.AllSame());
+            NUnit.Framework.Assert.That(sameDouble.AllSame());
+            NUnit.Framework.Assert.That(sameSpectrum.AllSame());
 
             var differentInt = new[] { 2, 5 };
             var differentDouble = new[] { 2.0, 5.0 };
             var differentSpectrum = new[] { spectrum1, spectrum2 };
-            Assert.That(!differentInt.AllSame());
-            Assert.That(!differentDouble.AllSame());
-            Assert.That(!differentSpectrum.AllSame());
+            NUnit.Framework.Assert.That(!differentInt.AllSame());
+            NUnit.Framework.Assert.That(!differentDouble.AllSame());
+            NUnit.Framework.Assert.That(!differentSpectrum.AllSame());
         }
 
         [Test]
@@ -110,8 +110,8 @@ namespace Test
 
         public static void TestToMzAndMass(double mass, double mz, int charge)
         {
-            Assert.That(mass, Is.EqualTo(mz.ToMass(charge)).Within(0.01));
-            Assert.That(mz, Is.EqualTo(mass.ToMz(charge)).Within(0.01));
+            NUnit.Framework.Assert.That(mass, Is.EqualTo(mz.ToMass(charge)).Within(0.01));
+            NUnit.Framework.Assert.That(mz, Is.EqualTo(mass.ToMz(charge)).Within(0.01));
         }
 
         [Test]
