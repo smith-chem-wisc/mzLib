@@ -16,13 +16,13 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Chemistry Library. If not, see <http://www.gnu.org/licenses/>
 
+using System;
 using Chemistry;
 using NUnit.Framework;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using System;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test
+namespace Test.ChemistryTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
