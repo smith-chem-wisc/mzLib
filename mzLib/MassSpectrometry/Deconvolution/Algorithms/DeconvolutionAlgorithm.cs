@@ -30,18 +30,5 @@ namespace MassSpectrometry
         /// <returns></returns>
         internal abstract IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range);
 
-        /// <summary>
-        /// Computes the standardized generic deconvolution score for an envelope using the
-        /// algorithm's <see cref="AverageResidueModel"/>. The returned score is in [0, 1] and is
-        /// directly comparable across deconvolution algorithms because it is recomputed from
-        /// the envelope's peak list — independent of how the envelope was originally produced.
-        ///
-        /// This method does not mutate the envelope. Callers can stash the score on the
-        /// envelope by calling <see cref="IsotopicEnvelope.SetGenericScore"/> if desired.
-        /// </summary>
-        protected double ComputeGenericScore(IsotopicEnvelope envelope)
-        {
-            return DeconvolutionScorer.ScoreEnvelope(envelope, AverageResidueModel);
-        }
     }
 }

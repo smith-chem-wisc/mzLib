@@ -1,79 +1,18 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Chemistry;
 using MassSpectrometry;
 using NUnit.Framework;
+using static Test.Deconvolution.DeconvolutionTestHelpers;
 
 namespace Test.Deconvolution
 {
     /// <summary>
     /// Unit tests for <see cref="IsotopicEnvelopeExtensions"/> and the small read-only
     /// conveniences <see cref="IsotopicEnvelope.HasGenericScore"/> and
-    /// <see cref="IsotopicEnvelope.GenericOrFallbackScore"/>. Mirrors the envelope-construction
-    /// pattern from <see cref="TestDeconvolutionScorerUnit"/> (6-arg constructor with named args)
-    /// to avoid introducing parallel helpers.
+    /// <see cref="IsotopicEnvelope.GenericOrFallbackScore"/>.
     /// </summary>
     [TestFixture]
     public sealed class TestIsotopicEnvelopeExtensions
     {
-        // ── Shared model and test mass ────────────────────────────────────────
-
-        private static readonly AverageResidue Model = new Averagine();
-
-        /// <summary>
-        /// ~5 kDa peptide — well within the Averagine model's calibrated range,
-        /// produces a clearly resolved isotope pattern at z = 5. Matches
-        /// <see cref="TestDeconvolutionScorerUnit"/>.
-        /// </summary>
-        private const double TestMass = 5000.0;
-        private const int TestCharge = 5;
-
-        // ── Helper (mirrors TestDeconvolutionScorerUnit.BuildPerfectEnvelope) ─
-
-        /// <summary>
-        /// Builds a perfect synthetic envelope using the same 6-arg constructor pattern with
-        /// named args as <see cref="TestDeconvolutionScorerUnit"/>. The optional
-        /// <paramref name="score"/> parameter lets tests inject a known algorithm-specific
-        /// score for fallback verification.
-        /// </summary>
-        private static IsotopicEnvelope BuildPerfectEnvelope(
-            double monoMass = TestMass,
-            int charge = TestCharge,
-            double baseIntens = 1e6,
-            double score = 0.999)
-        {
-            int avgIdx = Model.GetMostIntenseMassIndex(monoMass);
-
-            double[] rawMasses = Model.GetAllTheoreticalMasses(avgIdx);
-            double[] rawIntens = Model.GetAllTheoreticalIntensities(avgIdx);
-
-            // Mass-ascending sort so index 0 = monoisotopic
-            var sorted = rawMasses.Zip(rawIntens)
-                .OrderBy(p => p.First)
-                .ToArray();
-
-            int absCharge = Math.Abs(charge);
-            double isotopeStep = Constants.C13MinusC12 / absCharge;
-            double monoMz = monoMass.ToMz(charge);
-            var peaks = new List<(double mz, double intensity)>();
-
-            for (int n = 0; n < sorted.Length; n++)
-            {
-                double intensity = baseIntens * sorted[n].Second;
-                if (intensity < baseIntens * 0.001) continue; // skip near-zero peaks
-                double mz = monoMz + n * isotopeStep;
-                peaks.Add((mz, intensity));
-            }
-
-            return new IsotopicEnvelope(
-                id: 0,
-                peaks: peaks,
-                monoisotopicmass: monoMass,
-                chargestate: charge,
-                intensity: peaks.Sum(p => p.intensity),
-                score: score);
-        }
 
         // ══════════════════════════════════════════════════════════════════════
         // GetOrComputeGenericScore: behaviour and contracts
