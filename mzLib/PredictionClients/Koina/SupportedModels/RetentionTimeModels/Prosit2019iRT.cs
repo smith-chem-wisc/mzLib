@@ -61,7 +61,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
 
-        public Prosit2019iRT(SequenceConversionHandlingMode modHandlingMode = SequenceConversionHandlingMode.RemoveIncompatibleElements, int maxNumberOfBatchesPerRequest = 500, int throttlingDelayInMilliseconds = 100)
+        public Prosit2019iRT(SequenceConversionHandlingMode modHandlingMode = SequenceConversionHandlingMode.ReturnNull, int maxNumberOfBatchesPerRequest = 500, int throttlingDelayInMilliseconds = 100)
             : base(Converter)
         {
             ModHandlingMode = modHandlingMode;
