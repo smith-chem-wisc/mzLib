@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
-namespace Test.MzLibUtil;
+namespace Test;
 
 [TestFixture]
 [ExcludeFromCodeCoverage]

@@ -3,7 +3,7 @@ using NUnit.Framework;
 using System;
 using System.Diagnostics.CodeAnalysis;
 
-namespace Test.MzLibUtil;
+namespace Test;
 
 [TestFixture]
 [ExcludeFromCodeCoverage]
