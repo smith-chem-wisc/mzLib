@@ -2,7 +2,7 @@
 using System;
 using UsefulProteomicsDatabases;
 
-namespace Test
+namespace Test.DatabaseTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]

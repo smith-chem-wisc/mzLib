@@ -7,7 +7,7 @@ using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using UsefulProteomicsDatabases;
 
-namespace Test
+namespace Test.DatabaseTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]

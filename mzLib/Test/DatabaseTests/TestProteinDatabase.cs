@@ -10,7 +10,7 @@ using UsefulProteomicsDatabases;
 using Omics.BioPolymer;
 using System;
 
-namespace Test
+namespace Test.DatabaseTests
 {
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     [TestFixture]
@@ -247,13 +247,13 @@ namespace Test
                 var result = ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteinList, tempFile);
 
                 // Assert
-                Assert.That(File.Exists(tempFile), Is.True);
+                NUnit.Framework.Assert.That(File.Exists(tempFile), Is.True);
                 string xml = File.ReadAllText(tempFile);
-                Assert.That(xml, Does.Contain("CHK123"));
-                Assert.That(xml, Does.Contain("2024-06-13"));
-                Assert.That(xml, Does.Contain("length=\"11\""));
-                Assert.That(xml, Does.Contain("mass=\"1234\""));
-                Assert.That(xml, Does.Contain("version=\"1\""));
+                NUnit.Framework.Assert.That(xml, Does.Contain("CHK123"));
+                NUnit.Framework.Assert.That(xml, Does.Contain("2024-06-13"));
+                NUnit.Framework.Assert.That(xml, Does.Contain("length=\"11\""));
+                NUnit.Framework.Assert.That(xml, Does.Contain("mass=\"1234\""));
+                NUnit.Framework.Assert.That(xml, Does.Contain("version=\"1\""));
             }
             finally
             {
@@ -301,11 +301,11 @@ namespace Test
                 var result = ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), proteinList, tempFile);
 
                 // Assert
-                Assert.That(File.Exists(tempFile), Is.True);
+                NUnit.Framework.Assert.That(File.Exists(tempFile), Is.True);
                 string xml = File.ReadAllText(tempFile);
-                Assert.That(xml, Does.Contain("CHK456"));
-                Assert.That(xml, Does.Contain("precursor=\"true\""));
-                Assert.That(xml.ToLower(), Does.Contain("fragment=\"multiple\""));
+                NUnit.Framework.Assert.That(xml, Does.Contain("CHK456"));
+                NUnit.Framework.Assert.That(xml, Does.Contain("precursor=\"true\""));
+                NUnit.Framework.Assert.That(xml.ToLower(), Does.Contain("fragment=\"multiple\""));
             }
             finally
             {
@@ -334,9 +334,9 @@ namespace Test
                 ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), new List<Protein> { protein }, tempFile);
                 string xml = File.ReadAllText(tempFile);
 
-                Assert.That(xml, Does.Not.Contain("position=\"\""));
-                Assert.That(xml, Does.Contain("position=\"12\""));
-                Assert.That(xml, Does.Contain("position=\"5\""));
+                NUnit.Framework.Assert.That(xml, Does.Not.Contain("position=\"\""));
+                NUnit.Framework.Assert.That(xml, Does.Contain("position=\"12\""));
+                NUnit.Framework.Assert.That(xml, Does.Contain("position=\"5\""));
             }
             finally
             {

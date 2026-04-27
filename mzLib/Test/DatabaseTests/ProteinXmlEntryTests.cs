@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using System.Xml;
 using UsefulProteomicsDatabases;
 
-namespace Test
+namespace Test.DatabaseTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
