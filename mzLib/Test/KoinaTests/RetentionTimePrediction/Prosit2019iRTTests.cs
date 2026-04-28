@@ -157,7 +157,7 @@ namespace Test.KoinaTests
                 new RetentionTimePredictionInput("SEQUENS") // Non-canonical amino acid 'U'
             };
 
-            var model = new Prosit2019iRT();
+            var model = new Prosit2019iRT(modHandlingMode: SequenceConversionHandlingMode.RemoveIncompatibleElements);
             var predictions = model.Predict(modelInputs);
 
             Assert.That(predictions.Count, Is.EqualTo(4), "Should return entries for all inputs");
@@ -263,7 +263,7 @@ namespace Test.KoinaTests
             Assert.That(model.MaxPeptideLength, Is.EqualTo(30));
             Assert.That(model.MinPeptideLength, Is.EqualTo(1));
             Assert.That(model.IsIndexedRetentionTimeModel, Is.True);
-            Assert.That(model.ModHandlingMode, Is.EqualTo(SequenceConversionHandlingMode.RemoveIncompatibleElements));
+            Assert.That(model.ModHandlingMode, Is.EqualTo(SequenceConversionHandlingMode.ReturnNull));
             Assert.That(model.AllowedUnimodIds, Is.Not.Null);
             Assert.That(model.AllowedUnimodIds.Count, Is.EqualTo(2), "Should support Oxidation and Carbamidomethyl");
             Assert.That(model.AllowedUnimodIds.Contains(35), Is.True);
