@@ -16,6 +16,9 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
@@ -27,14 +30,12 @@ using Omics.Modifications;
 using Proteomics;
 using Proteomics.AminoAcidPolymer;
 using Proteomics.ProteolyticDigestion;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using Test.ProteomicsTests.ProteolyticDigestion;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test
+namespace Test.Omics.FragmentationTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -66,21 +67,21 @@ namespace Test
         [Test]
         public static void FragmentName()
         {
-            Fragment fragment = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.a, 1).ToArray()[0];
+            global::Proteomics.AminoAcidPolymer.Fragment fragment = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.a, 1).ToArray()[0];
             Assert.AreEqual("a1", fragment.ToString());
         }
 
         [Test]
         public static void FragmentAllBIons()
         {
-            List<Fragment> fragments = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b).ToList();
+            List<global::Proteomics.AminoAcidPolymer.Fragment> fragments = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b).ToList();
             Assert.AreEqual(19, fragments.Count);
         }
 
         [Test]
         public static void FragmentAnotherTest()
         {
-            List<Fragment> fragments = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b, 1, 2).ToList();
+            List<global::Proteomics.AminoAcidPolymer.Fragment> fragments = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b, 1, 2).ToList();
             Assert.AreEqual(2, fragments.Count);
         }
 

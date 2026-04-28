@@ -1,10 +1,9 @@
-using System;
-using Omics.Fragmentation;
-using NUnit.Framework;
 using System.Diagnostics.CodeAnalysis;
 using MassSpectrometry;
+using NUnit.Framework;
+using Omics.Fragmentation;
 
-namespace Test.Omics
+namespace Test.Omics.FragmentationTests
 {
     /// <summary>
     /// Tests for MatchedFragmentIon and MatchedFragmentIonWithCache classes.

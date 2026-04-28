@@ -16,25 +16,22 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Chemistry;
 using MassSpectrometry;
-using MzLibUtil;
 using NUnit.Framework;
-using Omics.Digestion;
 using Omics.Fragmentation;
-using Omics.Fragmentation.Peptide;
 using Omics.Modifications;
 using Proteomics;
 using Proteomics.AminoAcidPolymer;
 using Proteomics.ProteolyticDigestion;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test
+namespace Test.Omics.FragmentationTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -61,7 +58,7 @@ namespace Test
         public static void FragmentNTermModTest()
         {
             _mockPeptideEveryAminoAcid.AddModification(new OldSchoolChemicalFormulaModification(ChemicalFormula.ParseFormula("O"), "lala", ModificationSites.NTerminus));
-            Fragment fragment = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b, 1).First();
+            global::Proteomics.AminoAcidPolymer.Fragment fragment = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b, 1).First();
             Assert.IsTrue(fragment.Modifications.SequenceEqual(new List<OldSchoolModification> { new OldSchoolChemicalFormulaModification(ChemicalFormula.ParseFormula("O"), "lala", ModificationSites.NTerminus) }));
         }
 
@@ -72,8 +69,8 @@ namespace Test
             _mockPeptideEveryAminoAcid.AddModification(new OldSchoolModification(2, "mod2", ModificationSites.D));
             _mockPeptideEveryAminoAcid.AddModification(new OldSchoolModification(3, "mod3", ModificationSites.A));
             _mockPeptideEveryAminoAcid.AddModification(new OldSchoolModification(4, "mod4", ModificationSites.Y));
-            Fragment fragment = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b, 1).First();
-            Fragment fragmentEnd = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.y, 1).Last();
+            global::Proteomics.AminoAcidPolymer.Fragment fragment = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.b, 1).First();
+            global::Proteomics.AminoAcidPolymer.Fragment fragmentEnd = _mockPeptideEveryAminoAcid.Fragment(FragmentTypes.y, 1).Last();
 
             Assert.IsTrue(fragment.Modifications.SequenceEqual(new List<OldSchoolModification> { new OldSchoolModification(3, "mod3", ModificationSites.A) }));
 

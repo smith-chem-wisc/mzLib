@@ -1,18 +1,18 @@
-﻿using Chemistry;
-using MassSpectrometry;
-using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using Proteomics;
-using Proteomics.ProteolyticDigestion;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Chemistry;
+using MassSpectrometry;
+using NUnit.Framework;
 using Omics.Fragmentation;
-using Stopwatch = System.Diagnostics.Stopwatch;
 using Omics.Fragmentation.Peptide;
 using Omics.Modifications;
+using Proteomics;
+using Proteomics.ProteolyticDigestion;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test
+namespace Test.Omics.FragmentationTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]

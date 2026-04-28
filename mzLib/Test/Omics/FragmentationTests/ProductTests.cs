@@ -1,8 +1,8 @@
-﻿using NUnit.Framework;
+﻿using System.Diagnostics.CodeAnalysis;
+using NUnit.Framework;
 using Omics.Fragmentation;
-using System.Diagnostics.CodeAnalysis;
 
-namespace Test.Omics
+namespace Test.Omics.FragmentationTests
 {
     [ExcludeFromCodeCoverage]
     public class ProductTests

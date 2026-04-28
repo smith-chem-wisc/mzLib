@@ -16,16 +16,14 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
+using System;
 using Chemistry;
-using MassSpectrometry;
 using NUnit.Framework;
 using Omics.Fragmentation;
-using System;
-using System.Diagnostics;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test
+namespace Test.Omics.FragmentationTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]

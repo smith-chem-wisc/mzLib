@@ -3,7 +3,7 @@ using System.Linq;
 using NUnit.Framework;
 using Omics.Fragmentation;
 
-namespace Test.Omics;
+namespace Test.Omics.FragmentationTests;
 [TestFixture]
 public static class Fragmentation
 {
