@@ -93,6 +93,7 @@ namespace Transcriptomics.Digestion
         /// </returns>
         public static CustomDigestionAgentLoadResult LoadAndMergeCustomRnases(string path)
         {
+            ArgumentNullException.ThrowIfNull(path);
             return LoadAndMergeCustomRnases(new[] { path });
         }
 
@@ -126,6 +127,12 @@ namespace Transcriptomics.Digestion
         ///   </description></item>
         /// </list>
         ///
+        /// <para><b>Note on Skipped semantics:</b> The returned <see cref="CustomDigestionAgentLoadResult.Skipped"/>
+        /// list does not distinguish between collisions with embedded entries, collisions with names added by
+        /// an earlier file in the same batch, and collisions with names added by previous calls. Callers that
+        /// need to differentiate these cases (for user-facing diagnostics) must compare against the embedded
+        /// baseline themselves.</para>
+        ///
         /// <para>Files are processed in the order supplied. No default custom file is provided by mzLib;
         /// downstream consumers supply their own paths.</para>
         /// </summary>
@@ -135,7 +142,7 @@ namespace Transcriptomics.Digestion
         /// </returns>
         /// <exception cref="FileNotFoundException">Thrown if any path does not exist. Dictionary is not modified.</exception>
         /// <exception cref="MzLibException">Thrown if any file contains duplicate RNase names. Dictionary is not modified.</exception>
-        /// <exception cref="ArgumentNullException">Thrown when <paramref name="paths"/> is <c>null</c>.</exception>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="paths"/> is <c>null</c> or contains a <c>null</c> element.</exception>
         public static CustomDigestionAgentLoadResult LoadAndMergeCustomRnases(IEnumerable<string> paths)
         {
             ArgumentNullException.ThrowIfNull(paths);
@@ -148,6 +155,7 @@ namespace Transcriptomics.Digestion
             var parsedFiles = new List<Dictionary<string, Rnase>>();
             foreach (string path in paths)
             {
+                ArgumentNullException.ThrowIfNull(path);
                 string[] lines = File.ReadAllLines(path);
                 parsedFiles.Add(ParseRnaseLines(lines));
             }
@@ -183,6 +191,23 @@ namespace Transcriptomics.Digestion
         #endregion
 
         #region Deprecated API (kept for backward compatibility)
+
+        /// <summary>
+        /// Returns a fresh copy of the embedded RNase dictionary.
+        /// </summary>
+        /// <remarks>
+        /// Preserved as a thin wrapper for downstream consumers that previously called the
+        /// no-args <c>LoadRnaseDictionary()</c>. New code should read <see cref="Dictionary"/>
+        /// directly, which is seeded from the embedded resource at startup.
+        /// </remarks>
+        [Obsolete("Read RnaseDictionary.Dictionary instead. " +
+                  "The dictionary is now seeded from the embedded resource at startup; " +
+                  "this method returns a fresh parsed copy of the same embedded data. " +
+                  "Scheduled for removal in a future major version.", error: false)]
+        public static Dictionary<string, Rnase> LoadRnaseDictionary()
+        {
+            return LoadEmbeddedRnaseDictionary();
+        }
 
         /// <summary>
         /// Parses a custom RNases TSV file and returns a fresh dictionary of the entries it

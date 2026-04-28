@@ -239,6 +239,7 @@ namespace Proteomics.ProteolyticDigestion
         /// <summary>
         /// Convenience overload for loading a single custom protease file.
         /// See <see cref="LoadAndMergeCustomProteases(IEnumerable{string}, List{Modification})"/> for full details.
+        /// Not thread-safe; see the multi-path overload for the threading contract.
         /// </summary>
         /// <param name="path">Path to a custom proteases TSV file.</param>
         /// <param name="proteaseMods">Optional modifications to apply to proteases that require them.</param>
@@ -284,6 +285,11 @@ namespace Proteomics.ProteolyticDigestion
         ///
         /// <para>Files are processed in the order supplied. No default custom file is provided by mzLib;
         /// downstream consumers supply their own paths.</para>
+        ///
+        /// <para><b>Thread safety:</b> This method is <b>not</b> thread-safe. The underlying
+        /// <see cref="Dictionary"/> is a non-concurrent <see cref="System.Collections.Generic.Dictionary{TKey,TValue}"/>;
+        /// callers must invoke this method during single-threaded initialization, before any
+        /// concurrent reads or writes of <see cref="Dictionary"/> occur.</para>
         /// </summary>
         /// <param name="paths">One or more paths to custom proteases TSV files.</param>
         /// <param name="proteaseMods">
@@ -296,7 +302,11 @@ namespace Proteomics.ProteolyticDigestion
         /// A <see cref="CustomDigestionAgentLoadResult"/> with the names of added and skipped proteases.
         /// </returns>
         /// <exception cref="FileNotFoundException">Thrown if any path does not exist. Dictionary is not modified.</exception>
-        /// <exception cref="MzLibException">Thrown if any file contains duplicate protease names. Dictionary is not modified.</exception>
+        /// <exception cref="MzLibException">
+        /// Thrown if any file contains duplicate protease names, or if a protease entry specifies a cleavage
+        /// modification that is not present in <paramref name="proteaseMods"/> (or the embedded mods when null).
+        /// Entries that specify no cleavage modification are accepted silently. Dictionary is not modified.
+        /// </exception>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="paths"/> is <c>null</c>.</exception>
         public static CustomDigestionAgentLoadResult LoadAndMergeCustomProteases(
             IEnumerable<string> paths,
