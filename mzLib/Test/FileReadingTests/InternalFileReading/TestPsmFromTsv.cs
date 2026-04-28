@@ -12,7 +12,7 @@ using Readers;
 using MzLibUtil;
 using FlashLFQ;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.InternalFileReading
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -32,26 +32,26 @@ namespace Test.FileReadingTests
             string psmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults",
                 path);
             List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFilePath, out var warnings);
-            Assert.That(warnings.Count, Is.EqualTo(0));
-            Assert.That(parsedPsms.Count, Is.EqualTo(expected));
+            NUnit.Framework.Assert.That(warnings.Count, Is.EqualTo(0));
+            NUnit.Framework.Assert.That(parsedPsms.Count, Is.EqualTo(expected));
 
             PsmFromTsvFile psmFile = FileReader.ReadFile<PsmFromTsvFile>(psmFilePath);
             List<PsmFromTsv> psmFilePsms = psmFile.Results;
-            Assert.That(psmFilePsms.Count, Is.EqualTo(parsedPsms.Count));
+            NUnit.Framework.Assert.That(psmFilePsms.Count, Is.EqualTo(parsedPsms.Count));
             for (int i = 0; i < parsedPsms.Count; i++)
             {
-                Assert.That(parsedPsms[i].FullSequence, Is.EqualTo(psmFilePsms[i].FullSequence));
+                NUnit.Framework.Assert.That(parsedPsms[i].FullSequence, Is.EqualTo(psmFilePsms[i].FullSequence));
             }
 
             var spectralMatchFile = FileReader.ReadFile<SpectrumMatchFromTsvFile>(psmFilePath);
             List<SpectrumMatchFromTsv> spectralMatchFilePsms = spectralMatchFile.Results;
-            Assert.That(psmFilePsms.Count, Is.EqualTo(parsedPsms.Count));
+            NUnit.Framework.Assert.That(psmFilePsms.Count, Is.EqualTo(parsedPsms.Count));
             for (int i = 0; i < parsedPsms.Count; i++)
             {
                 PsmFromTsv casted = spectralMatchFilePsms[i] as PsmFromTsv;
-                if (casted == null) Assert.Fail();
+                if (casted == null) NUnit.Framework.Assert.Fail();
 
-                Assert.That(parsedPsms[i].FullSequence, Is.EqualTo(spectralMatchFilePsms[i].FullSequence));
+                NUnit.Framework.Assert.That(parsedPsms[i].FullSequence, Is.EqualTo(spectralMatchFilePsms[i].FullSequence));
             }
         }
 
@@ -131,9 +131,9 @@ namespace Test.FileReadingTests
             List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out var warnings);
             Assert.AreEqual(14, parsedPsms.Count);
             var oneOverK0 = parsedPsms[0].OneOverK0;
-            Assert.That(oneOverK0, Is.EqualTo(1.1068).Within(0.0001));
+            NUnit.Framework.Assert.That(oneOverK0, Is.EqualTo(1.1068).Within(0.0001));
             var clonedPsm = new PsmFromTsv(parsedPsms[0], parsedPsms[0].FullSequence, 0);
-            Assert.That(clonedPsm.OneOverK0, Is.EqualTo(1.1068).Within(0.0001));
+            NUnit.Framework.Assert.That(clonedPsm.OneOverK0, Is.EqualTo(1.1068).Within(0.0001));
         }
 
         [Test]
@@ -145,11 +145,11 @@ namespace Test.FileReadingTests
             // There are few headers edited in the newer versions. In order to maintain backward compatibility, we need to ensure that the older files are still read correctly.
             List<GlycoPsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadGlycoPsmTsv(psmFile, out var warnings);
             Assert.AreEqual(9, parsedPsms.Count);
-            Assert.That(parsedPsms.All(p=>p.FlankingResidues != null));
-            Assert.That(parsedPsms.All(p => p.TotalGlycanSites != null));
-            Assert.That(parsedPsms.All(p => p.NGlycanMotifCheck != null));
-            Assert.That(parsedPsms.All(p => p.AllPotentialGlycanLocalization != null));
-            Assert.That(parsedPsms.All(p => p.AllSiteSpecificLocalizationProbability != null));
+            NUnit.Framework.Assert.That(parsedPsms.All(p=>p.FlankingResidues != null));
+            NUnit.Framework.Assert.That(parsedPsms.All(p => p.TotalGlycanSites != null));
+            NUnit.Framework.Assert.That(parsedPsms.All(p => p.NGlycanMotifCheck != null));
+            NUnit.Framework.Assert.That(parsedPsms.All(p => p.AllPotentialGlycanLocalization != null));
+            NUnit.Framework.Assert.That(parsedPsms.All(p => p.AllSiteSpecificLocalizationProbability != null));
         }
 
         [Test]
@@ -246,7 +246,7 @@ namespace Test.FileReadingTests
             string path = @"FileReadingTests\SearchResults\oGlycoAllPsms.psmtsv";
 
             var parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(path, out var warnings);
-            Assert.That(warnings.Count, Is.EqualTo(0));
+            NUnit.Framework.Assert.That(warnings.Count, Is.EqualTo(0));
             Assert.AreEqual(expectedGlyco + expectedNormal, parsedPsms.Count);
 
             var glyco = parsedPsms.OfType<GlycoPsmFromTsv>().ToList();
@@ -270,7 +270,7 @@ namespace Test.FileReadingTests
             List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out var warnings);
             Assert.AreEqual(1, parsedPsms.Count);
             IEnumerable<string> expectedIons = new string[] { "y3+1", "y4+1", "b4+1", "b5+1", "b6+1", "b8+1" };
-            Assert.That(6 == parsedPsms[0].MatchedIons.Select(p => p.Annotation).Intersect(expectedIons).Count());
+            NUnit.Framework.Assert.That(6 == parsedPsms[0].MatchedIons.Select(p => p.Annotation).Intersect(expectedIons).Count());
         }
 
         [Test]
@@ -280,7 +280,7 @@ namespace Test.FileReadingTests
             var lines = File.ReadAllLines(psmFile).Length;
 
             // Throws the right type of exception
-            Assert.Throws<MzLibException>(() =>
+            NUnit.Framework.Assert.Throws<MzLibException>(() =>
             {
                 SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out _);
             });
@@ -296,15 +296,15 @@ namespace Test.FileReadingTests
             catch (MzLibException e)
             {
                 caught = true;
-                Assert.That(parsedPsms.Count == 0);
-                Assert.That(warnings.Count == lines);
-                Assert.That(e is MzLibException);
-                Assert.That(e.InnerException, Is.Not.Null);
-                Assert.That(e.InnerException, Is.TypeOf<MzLibException>());
-                Assert.That(e.InnerException.Message, Does.Contain("type not supported"));
+                NUnit.Framework.Assert.That(parsedPsms.Count == 0);
+                NUnit.Framework.Assert.That(warnings.Count == lines);
+                NUnit.Framework.Assert.That(e is MzLibException);
+                NUnit.Framework.Assert.That(e.InnerException, Is.Not.Null);
+                NUnit.Framework.Assert.That(e.InnerException, Is.TypeOf<MzLibException>());
+                NUnit.Framework.Assert.That(e.InnerException.Message, Does.Contain("type not supported"));
             }
 
-            Assert.That(caught);
+            NUnit.Framework.Assert.That(caught);
         }
 
         [Test]
@@ -320,7 +320,7 @@ namespace Test.FileReadingTests
             string fullSeq = psm.FullSequence;
             fullSeq = fullSeq.Substring(0, fullSeq.Length - 1);
             PsmFromTsv modifiedPsm = new(psm, fullSeq);
-            Assert.That(modifiedPsm.FullSequence == fullSeq);
+            NUnit.Framework.Assert.That(modifiedPsm.FullSequence == fullSeq);
 
             // disambiguation construction
             var ambiguousPsms = psms.Where(p => p.FullSequence.Contains('|'));
@@ -332,19 +332,19 @@ namespace Test.FileReadingTests
             foreach (var ambPsm in ambiguousPsms)
             {
                 PsmFromTsv disambiguatedPSM = new(ambPsm, ambPsm.FullSequence.Split("|")[0]);
-                Assert.That(disambiguatedPSM.StartAndEndResiduesInProtein == ambPsm.StartAndEndResiduesInProtein.Split("|")[0]);
-                Assert.That(disambiguatedPSM.BaseSeq == ambPsm.BaseSeq.Split("|")[0]);
-                Assert.That(disambiguatedPSM.EssentialSeq == ambPsm.EssentialSeq.Split("|")[0]);
-                Assert.That(disambiguatedPSM.ProteinAccession == ambPsm.ProteinAccession.Split("|")[0]);
-                Assert.That(disambiguatedPSM.PeptideMonoMass == ambPsm.PeptideMonoMass.Split("|")[0]);
-                Assert.That(disambiguatedPSM.MassDiffDa == ambPsm.MassDiffDa.Split("|")[0]);
-                Assert.That(disambiguatedPSM.MassDiffPpm == ambPsm.MassDiffPpm.Split("|")[0]);
-                Assert.That(disambiguatedPSM.ProteinName == ambPsm.ProteinName.Split("|")[0]);
-                Assert.That(disambiguatedPSM.GeneName == ambPsm.GeneName.Split("|")[0]);
+                NUnit.Framework.Assert.That(disambiguatedPSM.StartAndEndResiduesInProtein == ambPsm.StartAndEndResiduesInProtein.Split("|")[0]);
+                NUnit.Framework.Assert.That(disambiguatedPSM.BaseSeq == ambPsm.BaseSeq.Split("|")[0]);
+                NUnit.Framework.Assert.That(disambiguatedPSM.EssentialSeq == ambPsm.EssentialSeq.Split("|")[0]);
+                NUnit.Framework.Assert.That(disambiguatedPSM.ProteinAccession == ambPsm.ProteinAccession.Split("|")[0]);
+                NUnit.Framework.Assert.That(disambiguatedPSM.PeptideMonoMass == ambPsm.PeptideMonoMass.Split("|")[0]);
+                NUnit.Framework.Assert.That(disambiguatedPSM.MassDiffDa == ambPsm.MassDiffDa.Split("|")[0]);
+                NUnit.Framework.Assert.That(disambiguatedPSM.MassDiffPpm == ambPsm.MassDiffPpm.Split("|")[0]);
+                NUnit.Framework.Assert.That(disambiguatedPSM.ProteinName == ambPsm.ProteinName.Split("|")[0]);
+                NUnit.Framework.Assert.That(disambiguatedPSM.GeneName == ambPsm.GeneName.Split("|")[0]);
 
                 for (int i = 0; i < ambPsm.MatchedIons.Count; i++)
                 {
-                    Assert.That(disambiguatedPSM.MatchedIons[i] == ambPsm.MatchedIons[i]);
+                    NUnit.Framework.Assert.That(disambiguatedPSM.MatchedIons[i] == ambPsm.MatchedIons[i]);
                 }
 
                 if (ambPsm.StartAndEndResiduesInProtein.Split("|").Count() > 1)
@@ -352,24 +352,24 @@ namespace Test.FileReadingTests
                     for (int i = 1; i < ambPsm.StartAndEndResiduesInProtein.Split("|").Count(); i++)
                     {
                         disambiguatedPSM = new(ambPsm, ambPsm.FullSequence.Split("|")[i], i);
-                        Assert.That(disambiguatedPSM.StartAndEndResiduesInProtein == ambPsm.StartAndEndResiduesInProtein.Split("|")[i]);
-                        Assert.That(disambiguatedPSM.BaseSeq == ambPsm.BaseSeq.Split("|")[i]);
-                        Assert.That(disambiguatedPSM.EssentialSeq == ambPsm.EssentialSeq.Split("|")[i]);
-                        Assert.That(disambiguatedPSM.ProteinAccession == ambPsm.ProteinAccession.Split("|")[i]);
-                        Assert.That(disambiguatedPSM.ProteinName == ambPsm.ProteinName.Split("|")[i]);
-                        Assert.That(disambiguatedPSM.GeneName == ambPsm.GeneName.Split("|")[i]);
+                        NUnit.Framework.Assert.That(disambiguatedPSM.StartAndEndResiduesInProtein == ambPsm.StartAndEndResiduesInProtein.Split("|")[i]);
+                        NUnit.Framework.Assert.That(disambiguatedPSM.BaseSeq == ambPsm.BaseSeq.Split("|")[i]);
+                        NUnit.Framework.Assert.That(disambiguatedPSM.EssentialSeq == ambPsm.EssentialSeq.Split("|")[i]);
+                        NUnit.Framework.Assert.That(disambiguatedPSM.ProteinAccession == ambPsm.ProteinAccession.Split("|")[i]);
+                        NUnit.Framework.Assert.That(disambiguatedPSM.ProteinName == ambPsm.ProteinName.Split("|")[i]);
+                        NUnit.Framework.Assert.That(disambiguatedPSM.GeneName == ambPsm.GeneName.Split("|")[i]);
 
                         if (ambPsm.PeptideMonoMass.Split("|").Count() == 1)
                         {
-                            Assert.That(disambiguatedPSM.PeptideMonoMass == ambPsm.PeptideMonoMass.Split("|")[0]);
-                            Assert.That(disambiguatedPSM.MassDiffDa == ambPsm.MassDiffDa.Split("|")[0]);
-                            Assert.That(disambiguatedPSM.MassDiffPpm == ambPsm.MassDiffPpm.Split("|")[0]);
+                            NUnit.Framework.Assert.That(disambiguatedPSM.PeptideMonoMass == ambPsm.PeptideMonoMass.Split("|")[0]);
+                            NUnit.Framework.Assert.That(disambiguatedPSM.MassDiffDa == ambPsm.MassDiffDa.Split("|")[0]);
+                            NUnit.Framework.Assert.That(disambiguatedPSM.MassDiffPpm == ambPsm.MassDiffPpm.Split("|")[0]);
                         }
                         else
                         {
-                            Assert.That(disambiguatedPSM.PeptideMonoMass == ambPsm.PeptideMonoMass.Split("|")[i]);
-                            Assert.That(disambiguatedPSM.MassDiffDa == ambPsm.MassDiffDa.Split("|")[i]);
-                            Assert.That(disambiguatedPSM.MassDiffPpm == ambPsm.MassDiffPpm.Split("|")[i]);
+                            NUnit.Framework.Assert.That(disambiguatedPSM.PeptideMonoMass == ambPsm.PeptideMonoMass.Split("|")[i]);
+                            NUnit.Framework.Assert.That(disambiguatedPSM.MassDiffDa == ambPsm.MassDiffDa.Split("|")[i]);
+                            NUnit.Framework.Assert.That(disambiguatedPSM.MassDiffPpm == ambPsm.MassDiffPpm.Split("|")[i]);
                         }
                     }
                 }
@@ -382,22 +382,22 @@ namespace Test.FileReadingTests
             string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
             List<string> warnings = new();
             List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out warnings).Take(20).ToList();
-            Assert.That(warnings.Count == 2);
+            NUnit.Framework.Assert.That(warnings.Count == 2);
             Assert.AreEqual("Could not read line: 2", warnings[0]);
             Assert.AreEqual("Warning: 1 PSMs were not read.", warnings[1]);
 
             // psm with single modification
             PsmFromTsv singleMod = psms[0];
             var modDict = SpectrumMatchFromTsv.ParseModifications(singleMod.FullSequence);
-            Assert.That(modDict.Count == 1);
-            Assert.That(modDict.ContainsKey(37));
-            Assert.That(modDict.Values.First().Contains("Common Fixed:Carbamidomethyl on C"));
+            NUnit.Framework.Assert.That(modDict.Count == 1);
+            NUnit.Framework.Assert.That(modDict.ContainsKey(37));
+            NUnit.Framework.Assert.That(modDict.Values.First().Contains("Common Fixed:Carbamidomethyl on C"));
 
             // psm with two modifications
             PsmFromTsv twoMods = psms[15];
             modDict = SpectrumMatchFromTsv.ParseModifications(twoMods.FullSequence);
-            Assert.That(modDict.Count == 2);
-            Assert.That(modDict.ContainsKey(0) && modDict.ContainsKey(104));
+            NUnit.Framework.Assert.That(modDict.Count == 2);
+            NUnit.Framework.Assert.That(modDict.ContainsKey(0) && modDict.ContainsKey(104));
             Assert.AreEqual(modDict[0], "UniProt:N-acetylserine on S");
             Assert.AreEqual(modDict[104], "UniProt:N5-methylglutamine on Q");
 
@@ -405,7 +405,7 @@ namespace Test.FileReadingTests
             string allPosSeq = "[mod type1: testmodW on N-term]S[mod type2: testmodX on S]TGTSQ[Common Artifact: Fe[II] on Q]ADDC[mod type3: testmodY on C]-[mod type4: testmodZ on C-Term]";
             // test if the locations of mods are correct
             modDict = SpectrumMatchFromTsv.ParseModifications(allPosSeq);
-            Assert.That(modDict.Count == 5);
+            NUnit.Framework.Assert.That(modDict.Count == 5);
             Assert.AreEqual(modDict.Keys.Order(), new List<int>{ 0, 1, 6, 10, 11 });
             Assert.AreEqual(modDict[0], "mod type1: testmodW on N-term");
             Assert.AreEqual(modDict[1], "mod type2: testmodX on S");
@@ -420,13 +420,13 @@ namespace Test.FileReadingTests
             string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
             List<string> warnings = new();
             List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out warnings).Take(3).ToList();
-            Assert.That(warnings.Count == 2);
+            NUnit.Framework.Assert.That(warnings.Count == 2);
             Assert.AreEqual("Could not read line: 2", warnings[0]);
             Assert.AreEqual("Warning: 1 PSMs were not read.", warnings[1]);
 
-            Assert.That(psms[0].FullSequence.Equals(psms[0].ToString()));
-            Assert.That(psms[1].FullSequence.Equals(psms[1].ToString()));
-            Assert.That(psms[2].FullSequence.Equals(psms[2].ToString()));
+            NUnit.Framework.Assert.That(psms[0].FullSequence.Equals(psms[0].ToString()));
+            NUnit.Framework.Assert.That(psms[1].FullSequence.Equals(psms[1].ToString()));
+            NUnit.Framework.Assert.That(psms[2].FullSequence.Equals(psms[2].ToString()));
         }
 
         [Test]
@@ -443,8 +443,8 @@ namespace Test.FileReadingTests
             string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
             List<string> warnings = new();
             List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out warnings).Take(3).ToList();
-            Assert.That(psms.All(p => p.CollisionEnergy == null));
-            Assert.That(warnings.Count == 2);
+            NUnit.Framework.Assert.That(psms.All(p => p.CollisionEnergy == null));
+            NUnit.Framework.Assert.That(warnings.Count == 2);
             Assert.AreEqual("Could not read line: 2", warnings[0]);
             Assert.AreEqual("Warning: 1 PSMs were not read.", warnings[1]);
 
@@ -462,7 +462,7 @@ namespace Test.FileReadingTests
             psms[0].MatchedIons.Add(matchedIon);
             string librarySpectrumWithNeutralLoss = psms[0].ToLibrarySpectrum().ToString();
 
-            Assert.That(librarySpectrumWithNeutralLoss.Contains("WaterLoss"));
+            NUnit.Framework.Assert.That(librarySpectrumWithNeutralLoss.Contains("WaterLoss"));
         }
 
         [Test]
@@ -474,7 +474,7 @@ namespace Test.FileReadingTests
         {
             string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
             List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out var warnings);
-            Assert.That(warnings.Count == 2);
+            NUnit.Framework.Assert.That(warnings.Count == 2);
 
             IResultFile loadedFile = null;
             switch (fileLoadingType)
@@ -482,38 +482,38 @@ namespace Test.FileReadingTests
                 case "FileReader - PsmFromTsv":
                     var file = FileReader.ReadFile<PsmFromTsvFile>(psmTsvPath);
                     file.LoadResults();
-                    Assert.That(file.Results.Count == psms.Count);
+                    NUnit.Framework.Assert.That(file.Results.Count == psms.Count);
                     loadedFile = file;
                     break;
 
                 case "FileReader - SpectrumMatchFromTsv":
                     var file2 = FileReader.ReadFile<SpectrumMatchFromTsvFile>(psmTsvPath);
                     file2.LoadResults();
-                    Assert.That(file2.Results.Count == psms.Count);
+                    NUnit.Framework.Assert.That(file2.Results.Count == psms.Count);
                     loadedFile = file2;
                     break;
 
                 case "File Construction - PsmFromTsv":
                     var file3 = new PsmFromTsvFile(psmTsvPath);
                     file3.LoadResults();
-                    Assert.That(file3.Results.Count == psms.Count);
+                    NUnit.Framework.Assert.That(file3.Results.Count == psms.Count);
                     loadedFile = file3;
                     break;
 
                 case "File Construction - SpectrumMatchFromTsv":
                     var file4 = new SpectrumMatchFromTsvFile(psmTsvPath);
                     file4.LoadResults();
-                    Assert.That(file4.Results.Count == psms.Count);
+                    NUnit.Framework.Assert.That(file4.Results.Count == psms.Count);
                     loadedFile = file4;
                     break;
 
                 default:
-                    Assert.Fail();
+                    NUnit.Framework.Assert.Fail();
                     break;
             }
 
-            Assert.That(loadedFile.FileType == SupportedFileType.psmtsv);
-            Assert.Throws<NotImplementedException>(() => { loadedFile.WriteResults(""); });
+            NUnit.Framework.Assert.That(loadedFile.FileType == SupportedFileType.psmtsv);
+            NUnit.Framework.Assert.Throws<NotImplementedException>(() => { loadedFile.WriteResults(""); });
         }
 
         [Test]
@@ -521,19 +521,19 @@ namespace Test.FileReadingTests
         {
             string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\NewHeader.psmtsv");
             List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out var warnings);
-            Assert.That(warnings.Count == 2);
+            NUnit.Framework.Assert.That(warnings.Count == 2);
 
             IResultFile loadedFile = null;
             var file = FileReader.ReadFile<PsmFromTsvFile>(psmTsvPath);
             file.LoadResults();
-            Assert.That(file.Results.Count == psms.Count);
+            NUnit.Framework.Assert.That(file.Results.Count == psms.Count);
             loadedFile = file;
 
             var testResult = file.First();
-            Assert.That(testResult != null);
-            Assert.That(!Double.IsNaN(testResult.PEP));
-            Assert.That(!Double.IsNaN(testResult.PEP_QValue));
-            Assert.That(!Double.IsNaN(testResult.RetentionTime));
+            NUnit.Framework.Assert.That(testResult != null);
+            NUnit.Framework.Assert.That(!double.IsNaN(testResult.PEP));
+            NUnit.Framework.Assert.That(!double.IsNaN(testResult.PEP_QValue));
+            NUnit.Framework.Assert.That(!double.IsNaN(testResult.RetentionTime));
         }
 
         [Test]
@@ -545,7 +545,7 @@ namespace Test.FileReadingTests
             IResultFile loadedFile = null;
             var file = FileReader.ReadFile<PsmFromTsvFile>(psmTsvPath);
             file.LoadResults();
-            Assert.That(file.Results.Count == psms.Count);
+            NUnit.Framework.Assert.That(file.Results.Count == psms.Count);
             loadedFile = file;
         }
 
@@ -559,7 +559,7 @@ namespace Test.FileReadingTests
             List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFilePath, out var warnings);
 
             SpectrumMatchFromTsv ambiguousResult = parsedPsms.First(psm => psm.Accession.Contains("|"));
-            Assert.That(ambiguousResult.Accession.Contains("|"));
+            NUnit.Framework.Assert.That(ambiguousResult.Accession.Contains("|"));
             int ambiguityCount = ambiguousResult.Accession.Count(c => c == '|') + 1;
             Assert.AreEqual(ambiguityCount, ambiguousResult.ProteinGroupInfos.Count);
 
@@ -582,9 +582,9 @@ namespace Test.FileReadingTests
             List<string> filePaths = new List<string> { filePathA, filePathB };
 
             var dictionary = file.FileNameToFilePath(filePaths);
-            Assert.That(dictionary.Count == 2);
-            Assert.That(file.GetQuantifiableResults().Any(p => p.FileName.Equals(dictionary.Keys.First())));
-            Assert.That(file.GetQuantifiableResults().Any(p => p.FileName.Equals(dictionary.Keys.Last())));
+            NUnit.Framework.Assert.That(dictionary.Count == 2);
+            NUnit.Framework.Assert.That(file.GetQuantifiableResults().Any(p => p.FileName.Equals(dictionary.Keys.First())));
+            NUnit.Framework.Assert.That(file.GetQuantifiableResults().Any(p => p.FileName.Equals(dictionary.Keys.Last())));
         }
 
         [Test]
@@ -611,9 +611,9 @@ namespace Test.FileReadingTests
             };
 
             List<PsmFromTsv> results = SpectrumMatchTsvReader.ReadPsmTsv(psmFilePath, out errors, parsingParams);
-            Assert.That(errors.Count, Is.EqualTo(0));
+            NUnit.Framework.Assert.That(errors.Count, Is.EqualTo(0));
             foreach (var ion in results.SelectMany(p => p.MatchedIons))
-                Assert.That(ion is MatchedFragmentIonWithEnvelope, $"Expected MatchedFragmentIonWithEnvelope but got {ion.GetType().Name}");
+                NUnit.Framework.Assert.That(ion is MatchedFragmentIonWithEnvelope, $"Expected MatchedFragmentIonWithEnvelope but got {ion.GetType().Name}");
         }
 
         [Test]
@@ -627,9 +627,9 @@ namespace Test.FileReadingTests
             };
 
             List<PsmFromTsv> results = SpectrumMatchTsvReader.ReadTsv<PsmFromTsv>(psmFilePath, out errors, parsingParams);
-            Assert.That(errors.Count, Is.EqualTo(0));
+            NUnit.Framework.Assert.That(errors.Count, Is.EqualTo(0));
             foreach (var ion in results.SelectMany(p => p.MatchedIons))
-                Assert.That(ion is MatchedFragmentIonWithEnvelope, $"Expected MatchedFragmentIonWithEnvelope but got {ion.GetType().Name}");
+                NUnit.Framework.Assert.That(ion is MatchedFragmentIonWithEnvelope, $"Expected MatchedFragmentIonWithEnvelope but got {ion.GetType().Name}");
         }
 
         [Test]
@@ -643,7 +643,7 @@ namespace Test.FileReadingTests
 
             List<PsmFromTsv> results = new PsmFromTsvFile(psmFilePath, parsingParams).Results;
             foreach (var ion in results.SelectMany(p => p.MatchedIons))
-                Assert.That(ion is MatchedFragmentIonWithEnvelope, $"Expected MatchedFragmentIonWithEnvelope but got {ion.GetType().Name}");
+                NUnit.Framework.Assert.That(ion is MatchedFragmentIonWithEnvelope, $"Expected MatchedFragmentIonWithEnvelope but got {ion.GetType().Name}");
         }
 
         [Test]
@@ -657,9 +657,9 @@ namespace Test.FileReadingTests
             };
 
             List<GlycoPsmFromTsv> results = SpectrumMatchTsvReader.ReadGlycoPsmTsv(psmFilePath, out errors, parsingParams);
-            Assert.That(errors.Count, Is.EqualTo(0));
+            NUnit.Framework.Assert.That(errors.Count, Is.EqualTo(0));
             foreach (var ion in results.SelectMany(p => p.MatchedIons))
-                Assert.That(ion is MatchedFragmentIonWithEnvelope, $"Expected MatchedFragmentIonWithEnvelope but got {ion.GetType().Name}");
+                NUnit.Framework.Assert.That(ion is MatchedFragmentIonWithEnvelope, $"Expected MatchedFragmentIonWithEnvelope but got {ion.GetType().Name}");
         }
 
         [Test]
@@ -673,9 +673,9 @@ namespace Test.FileReadingTests
             };
 
             List<GlycoPsmFromTsv> results = SpectrumMatchTsvReader.ReadTsv<GlycoPsmFromTsv>(psmFilePath, out errors, parsingParams);
-            Assert.That(errors.Count, Is.EqualTo(0));
+            NUnit.Framework.Assert.That(errors.Count, Is.EqualTo(0));
             foreach (var ion in results.SelectMany(p => p.MatchedIons))
-                Assert.That(ion is MatchedFragmentIonWithEnvelope, $"Expected MatchedFragmentIonWithEnvelope but got {ion.GetType().Name}");
+                NUnit.Framework.Assert.That(ion is MatchedFragmentIonWithEnvelope, $"Expected MatchedFragmentIonWithEnvelope but got {ion.GetType().Name}");
         }
 
         [Test]
@@ -689,7 +689,7 @@ namespace Test.FileReadingTests
 
             List<PsmFromTsv> results = new PsmFromTsvFile(psmFilePath, parsingParams).Results;
             foreach (var psm in results)
-                Assert.That(psm.MatchedIons, Is.Null.Or.Empty, $"Expected no matched ions but got {psm.MatchedIons?.Count ?? 0}");
+                NUnit.Framework.Assert.That(psm.MatchedIons, Is.Null.Or.Empty, $"Expected no matched ions but got {psm.MatchedIons?.Count ?? 0}");
         }
     }
 }

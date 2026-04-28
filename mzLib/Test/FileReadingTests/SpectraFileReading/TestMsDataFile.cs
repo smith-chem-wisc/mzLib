@@ -32,7 +32,7 @@ using System.Linq;
 using Omics.Modifications;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.SpectraFileReading
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -151,7 +151,7 @@ namespace Test.FileReadingTests
             List<IsotopicEnvelope> isolatedMassesAndCharges = theSpectrum.GetIsolatedMassesAndCharges(_mzSpectrumA, 1, 10, 10, 1).ToList();
             Assert.AreEqual(0, isolatedMassesAndCharges.Count); //Isolation range is null, so we get an empty set
 
-            Assert.Throws<MzLibException>(() => theSpectrum.RefineSelectedMzAndIntensity(_mzSpectrumA)); //no isolation Mz throws error 
+            NUnit.Framework.Assert.Throws<MzLibException>(() => theSpectrum.RefineSelectedMzAndIntensity(_mzSpectrumA)); //no isolation Mz throws error 
 
             theSpectrum.SetOneBasedPrecursorScanNumber(6);
             Assert.AreEqual(6, theSpectrum.OneBasedPrecursorScanNumber);
@@ -313,46 +313,46 @@ namespace Test.FileReadingTests
             string dataFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast.mzml");
             var dataFile = MsDataFileReader.GetDataFile(dataFilePath);
 
-            Assert.That(!dataFile.CheckIfScansLoaded());
+            NUnit.Framework.Assert.That(!dataFile.CheckIfScansLoaded());
             var scansArray = dataFile.GetMsDataScans();
-            Assert.That(dataFile.CheckIfScansLoaded());
-            Assert.That(scansArray.Length == 142);
+            NUnit.Framework.Assert.That(dataFile.CheckIfScansLoaded());
+            NUnit.Framework.Assert.That(scansArray.Length == 142);
 
             dataFile = MsDataFileReader.GetDataFile(dataFilePath);
-            Assert.That(!dataFile.CheckIfScansLoaded());
+            NUnit.Framework.Assert.That(!dataFile.CheckIfScansLoaded());
             var scanslist = dataFile.GetAllScansList();
-            Assert.That(dataFile.CheckIfScansLoaded());
-            Assert.That(scanslist.Count == 142);
+            NUnit.Framework.Assert.That(dataFile.CheckIfScansLoaded());
+            NUnit.Framework.Assert.That(scanslist.Count == 142);
 
             dataFile = MsDataFileReader.GetDataFile(dataFilePath);
-            Assert.That(!dataFile.CheckIfScansLoaded());
+            NUnit.Framework.Assert.That(!dataFile.CheckIfScansLoaded());
             var ms1ScanList = dataFile.GetMS1Scans().ToList();
-            Assert.That(dataFile.CheckIfScansLoaded());
-            Assert.That(ms1ScanList.All(p => p.MsnOrder == 1));
-            Assert.That(scanslist.Count == 142);
+            NUnit.Framework.Assert.That(dataFile.CheckIfScansLoaded());
+            NUnit.Framework.Assert.That(ms1ScanList.All(p => p.MsnOrder == 1));
+            NUnit.Framework.Assert.That(scanslist.Count == 142);
 
             dataFile = MsDataFileReader.GetDataFile(dataFilePath);
-            Assert.That(!dataFile.CheckIfScansLoaded());
+            NUnit.Framework.Assert.That(!dataFile.CheckIfScansLoaded());
             var scan = dataFile.GetOneBasedScan(1);
-            Assert.That(dataFile.CheckIfScansLoaded());
+            NUnit.Framework.Assert.That(dataFile.CheckIfScansLoaded());
 
             dataFile = MsDataFileReader.GetDataFile(dataFilePath);
-            Assert.That(!dataFile.CheckIfScansLoaded());
+            NUnit.Framework.Assert.That(!dataFile.CheckIfScansLoaded());
             var scanslistInTimeRange = dataFile.GetMsScansInTimeRange(0, 100).ToList();
-            Assert.That(dataFile.CheckIfScansLoaded());
-            Assert.That(scanslistInTimeRange.Count == 142);
+            NUnit.Framework.Assert.That(dataFile.CheckIfScansLoaded());
+            NUnit.Framework.Assert.That(scanslistInTimeRange.Count == 142);
 
             dataFile = MsDataFileReader.GetDataFile(dataFilePath);
-            Assert.That(!dataFile.CheckIfScansLoaded());
+            NUnit.Framework.Assert.That(!dataFile.CheckIfScansLoaded());
             var scanslistInIndexRange = dataFile.GetMsScansInIndexRange(1, 10).ToList();
-            Assert.That(dataFile.CheckIfScansLoaded());
-            Assert.That(scanslistInIndexRange.Count == 10);
+            NUnit.Framework.Assert.That(dataFile.CheckIfScansLoaded());
+            NUnit.Framework.Assert.That(scanslistInIndexRange.Count == 10);
 
             dataFile = MsDataFileReader.GetDataFile(dataFilePath);
-            Assert.That(!dataFile.CheckIfScansLoaded());
+            NUnit.Framework.Assert.That(!dataFile.CheckIfScansLoaded());
             var index = dataFile.GetClosestOneBasedSpectrumNumber(5);
-            Assert.That(dataFile.CheckIfScansLoaded());
-            Assert.That(scanslist.Count == 142);
+            NUnit.Framework.Assert.That(dataFile.CheckIfScansLoaded());
+            NUnit.Framework.Assert.That(scanslist.Count == 142);
         }
 
         [Test]
@@ -363,14 +363,14 @@ namespace Test.FileReadingTests
             var scans = MsDataFileReader.GetDataFile(filePath).GetAllScansList();
             var ms1 = scans.FirstOrDefault(s => s.MsnOrder == 1);
 
-            Assert.That(ms1, Is.Not.Null, "No MS1 scan found in the file.");
-            Assert.That(ms1.Polarity, Is.EqualTo(Polarity.Negative), "MS1 scan polarity is not negative.");
+            NUnit.Framework.Assert.That(ms1, Is.Not.Null, "No MS1 scan found in the file.");
+            NUnit.Framework.Assert.That(ms1.Polarity, Is.EqualTo(Polarity.Negative), "MS1 scan polarity is not negative.");
 
             var ms2 = scans.FirstOrDefault(s => s.MsnOrder == 2);
-            Assert.That(ms2, Is.Not.Null, "No MS2 scan found in the file.");
-            Assert.That(ms2.Polarity, Is.EqualTo(Polarity.Negative), "MS2 scan polarity is not negative.");
-            Assert.That(ms2.SelectedIonChargeStateGuess.HasValue, Is.True, filePath + " does not have charge state guess for MS2 scan.");
-            Assert.That(ms2.SelectedIonChargeStateGuess!.Value, Is.EqualTo(-3), "MS2 scan charge state guess is not -3.");
+            NUnit.Framework.Assert.That(ms2, Is.Not.Null, "No MS2 scan found in the file.");
+            NUnit.Framework.Assert.That(ms2.Polarity, Is.EqualTo(Polarity.Negative), "MS2 scan polarity is not negative.");
+            NUnit.Framework.Assert.That(ms2.SelectedIonChargeStateGuess.HasValue, Is.True, filePath + " does not have charge state guess for MS2 scan.");
+            NUnit.Framework.Assert.That(ms2.SelectedIonChargeStateGuess!.Value, Is.EqualTo(-3), "MS2 scan charge state guess is not -3.");
         }
 
         [TestCase(Polarity.Positive, 3, 3, TestName = "PositiveMode_PositiveCharge")]
@@ -381,9 +381,9 @@ namespace Test.FileReadingTests
         {
             var scan = new MsDataScan(new([], [], false), 1, 2, true, polarity, 2, new(100, 1000), "", MZAnalyzerType.Orbitrap, 100, 2, null, "", 120, inputCharge, 20, 120, inputCharge, DissociationType.CID, 1, 120, "30", "");
 
-            Assert.That(scan.Polarity, Is.EqualTo(polarity), "Newly created scan has incorrect polarity.");
-            Assert.That(scan.SelectedIonChargeStateGuess, Is.Not.Null, "Charge state guess for newly created scan.");
-            Assert.That(scan.SelectedIonChargeStateGuess!.Value, Is.EqualTo(expectedCharge), $"Newly created scan charge state guess is not {expectedCharge}.");
+            NUnit.Framework.Assert.That(scan.Polarity, Is.EqualTo(polarity), "Newly created scan has incorrect polarity.");
+            NUnit.Framework.Assert.That(scan.SelectedIonChargeStateGuess, Is.Not.Null, "Charge state guess for newly created scan.");
+            NUnit.Framework.Assert.That(scan.SelectedIonChargeStateGuess!.Value, Is.EqualTo(expectedCharge), $"Newly created scan charge state guess is not {expectedCharge}.");
         }
     }
 }

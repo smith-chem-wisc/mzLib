@@ -5,7 +5,7 @@ using System.Linq;
 using Newtonsoft.Json;
 using Readers;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.ExternalFileReading
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]

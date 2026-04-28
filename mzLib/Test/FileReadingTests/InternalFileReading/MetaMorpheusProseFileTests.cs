@@ -6,7 +6,7 @@ using Readers.InternalResults;
 using System.IO;
 using System.Linq;
 
-namespace Test.FileReadingTests;
+namespace Test.FileReadingTests.InternalFileReading;
 
 [TestFixture]
 public class MetaMorpheusProseFileTests

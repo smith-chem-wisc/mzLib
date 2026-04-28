@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Readers;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.ExternalFileReading
 {
     [ExcludeFromCodeCoverage]
     public class TestMsPathFinderT

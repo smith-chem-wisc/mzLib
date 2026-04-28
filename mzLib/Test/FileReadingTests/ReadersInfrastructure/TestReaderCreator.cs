@@ -5,7 +5,7 @@ using MzLibUtil;
 using NUnit.Framework;
 using Readers;
 
-namespace Test.FileReadingTests;
+namespace Test.FileReadingTests.ReadersInfrastructure;
 
 [ExcludeFromCodeCoverage]
 public class TestReaderCreator

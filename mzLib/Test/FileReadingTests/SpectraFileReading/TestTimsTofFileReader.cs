@@ -12,7 +12,7 @@ using System.Linq;
 using System.Reflection;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.SpectraFileReading
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -42,8 +42,8 @@ namespace Test.FileReadingTests
             var tsfFile = MsDataFileReader.GetDataFile(tsfFilePath);
             tsfFile.LoadAllStaticData();
 
-            Assert.That(tsfFile.Scans[969].MassSpectrum.Size, Is.EqualTo(36));
-            Assert.That(tsfFile.Scans[969].MassSpectrum.SumOfAllY, Is.EqualTo(6494));
+            NUnit.Framework.Assert.That(tsfFile.Scans[969].MassSpectrum.Size, Is.EqualTo(36));
+            NUnit.Framework.Assert.That(tsfFile.Scans[969].MassSpectrum.SumOfAllY, Is.EqualTo(6494));
         }
 
         [Test]
@@ -56,20 +56,20 @@ namespace Test.FileReadingTests
             string mrmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_MRM.d");
             var reader = new TimsTofFileReader(mrmFilePath);
             reader.LoadAllStaticData(filteringParams: _filteringParams, maxThreads: 10);
-            Assert.That(reader.NumSpectra, Is.EqualTo(909), "Number of spectra in the MRM file is not as expected.");
+            NUnit.Framework.Assert.That(reader.NumSpectra, Is.EqualTo(909), "Number of spectra in the MRM file is not as expected.");
 
             reader.MrmScanArray[10] = null;
             reader.AssignScanNumbersToMrmScans();
-            Assert.That(reader.Scans[10], Is.Not.Null); // Null scan should be removed in AssignScanNumbersToMrmScans
-            Assert.That(reader.NumSpectra, Is.EqualTo(908));
-            Assert.That(reader.Scans[^1].OneBasedScanNumber, Is.EqualTo(908));
-            Assert.That(reader.Scans[0].IsolationWidth, Is.EqualTo(5).Within(0.01), "Isolation width of first scan is not as expected.");
-            Assert.That(reader.Scans[0].IsolationMz, Is.EqualTo(627.52).Within(0.01), "Selected ion m/z of first scan is not as expected.");
-            Assert.That(reader.Scans[0].HcdEnergy, Is.EqualTo("28"));
+            NUnit.Framework.Assert.That(reader.Scans[10], Is.Not.Null); // Null scan should be removed in AssignScanNumbersToMrmScans
+            NUnit.Framework.Assert.That(reader.NumSpectra, Is.EqualTo(908));
+            NUnit.Framework.Assert.That(reader.Scans[^1].OneBasedScanNumber, Is.EqualTo(908));
+            NUnit.Framework.Assert.That(reader.Scans[0].IsolationWidth, Is.EqualTo(5).Within(0.01), "Isolation width of first scan is not as expected.");
+            NUnit.Framework.Assert.That(reader.Scans[0].IsolationMz, Is.EqualTo(627.52).Within(0.01), "Selected ion m/z of first scan is not as expected.");
+            NUnit.Framework.Assert.That(reader.Scans[0].HcdEnergy, Is.EqualTo("28"));
 
             reader.MrmScanArray = new TimsDataScan[reader.NumSpectra];
             reader.AssignScanNumbersToMrmScans();
-            Assert.Pass(); // Make sure empty scan array doesn't crash
+            NUnit.Framework.Assert.Pass(); // Make sure empty scan array doesn't crash
         }
 
         [Test]
@@ -77,7 +77,7 @@ namespace Test.FileReadingTests
         {
             string diaFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_DIA.d");
             var reader = new TimsTofFileReader(diaFilePath);
-            Assert.That(
+            NUnit.Framework.Assert.That(
                 () => reader.LoadAllStaticData(filteringParams: new FilteringParams()),
                 Throws.TypeOf<MzLibException>()
                     .With.Message.EqualTo("The timsTOF file contains unsupported scan mode: DIA. Only DDA-PASEF and MRM data is supported at this time.")
@@ -96,7 +96,7 @@ namespace Test.FileReadingTests
 
             // Check that it's not null before closing
             var sqlConnectionBeforeClose = sqlConnectionField.GetValue(_testReader);
-            Assert.That(sqlConnectionBeforeClose, Is.Not.Null,
+            NUnit.Framework.Assert.That(sqlConnectionBeforeClose, Is.Not.Null,
                 "SQL connection should not be null after opening dynamic connection");
 
             // Close the connection
@@ -104,11 +104,11 @@ namespace Test.FileReadingTests
 
             // Check that it's null after closing
             var sqlConnectionAfterClose = sqlConnectionField.GetValue(_testReader);
-            Assert.That(sqlConnectionAfterClose, Is.Null,
+            NUnit.Framework.Assert.That(sqlConnectionAfterClose, Is.Null,
                 "SQL connection should be null after closing dynamic connection");
             
             _testReader.CloseDynamicConnection(); // Shouldn't throw an error
-            Assert.Pass();
+            NUnit.Framework.Assert.Pass();
         }
 
         [Test, NonParallelizable]
@@ -127,8 +127,8 @@ namespace Test.FileReadingTests
                     corruptedOffsets[i] = bigNumber; // Set all offsets to a large number to simulate corruption
                 }
                 scanOffsetsProperty.SetValue(frame, corruptedOffsets); // Simulate corrupted data by setting scan offsets to null
-                Assert.That(!frame.IsFrameValid());
-                Assert.Throws<ArgumentException>(() => frame.GetScanIntensities(100));
+                NUnit.Framework.Assert.That(!frame.IsFrameValid());
+                NUnit.Framework.Assert.Throws<ArgumentException>(() => frame.GetScanIntensities(100));
             }
             finally
             {
@@ -145,7 +145,7 @@ namespace Test.FileReadingTests
                 tempReader.InitiateDynamicConnection();
                 var mockFactory = new MockFrameProxyFactory(tempReader.FrameProxyFactory);
                 var x = typeof(TimsTofFileReader).GetProperty("FrameProxyFactory", BindingFlags.NonPublic | BindingFlags.Instance);
-                Assert.That(x, Is.Not.Null, "FrameProxyFactory property is null. This should not happen.");
+                NUnit.Framework.Assert.That(x, Is.Not.Null, "FrameProxyFactory property is null. This should not happen.");
                 x.SetValue(tempReader, mockFactory);
                 //typeof(TimsTofFileReader).GetProperty("FrameProxyFactory", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(tempReader, mockFactory);
 
@@ -156,7 +156,7 @@ namespace Test.FileReadingTests
                     isCentroid: true,
                     polarity: Polarity.Positive,
                     retentionTime: 1,
-                    scanWindowRange: new MzLibUtil.MzRange(200, 2000),
+                    scanWindowRange: new MzRange(200, 2000),
                     scanFilter: "xyz",
                     mzAnalyzer: MZAnalyzerType.TOF,
                     totalIonCurrent: -1, // Will be set later
@@ -180,9 +180,9 @@ namespace Test.FileReadingTests
                     frames:new List<long> { 2 });
                 tempReader.PopulateSpectraForPasefScans(new List<TimsDataScan>() { scan }, new List<long> { 2 }, null);
 
-                Assert.That(tempReader.FaultyFrameIds.Contains(1));
-                Assert.That(tempReader.FaultyFrameIds.Contains(2));
-                Assert.That(tempReader.Warnings, Is.EqualTo("The following frames were not read correctly: 1, 2"));
+                NUnit.Framework.Assert.That(tempReader.FaultyFrameIds.Contains(1));
+                NUnit.Framework.Assert.That(tempReader.FaultyFrameIds.Contains(2));
+                NUnit.Framework.Assert.That(tempReader.Warnings, Is.EqualTo("The following frames were not read correctly: 1, 2"));
             }
             finally
             {
@@ -199,17 +199,17 @@ namespace Test.FileReadingTests
                 .GetScanFromPrecursorAndFrameIdFromDynamicConnection((int)_testMs2Scan.PrecursorId, (int)_testMs2Scan.FrameId, _filteringParams);
             Assert.IsNotNull(dynamicScan);
 
-            Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs2Scan.PrecursorId), "PrecursorId values are not equal.");
-            Assert.That(dynamicScan.ScanNumberStart, Is.EqualTo(_testMs2Scan.ScanNumberStart), "ScanStart values are not equal.");
-            Assert.That(dynamicScan.ScanNumberEnd, Is.EqualTo(_testMs2Scan.ScanNumberEnd), "ScanEnd values are not equal.");
-            Assert.That(dynamicScan.OneOverK0, Is.EqualTo(_testMs2Scan.OneOverK0), "ScanMedian values are not equal.");
-            Assert.That(dynamicScan.IsolationMz, Is.EqualTo(_testMs2Scan.IsolationMz), "IsolationMz values are not equal.");
-            Assert.That(dynamicScan.IsolationWidth, Is.EqualTo(_testMs2Scan.IsolationWidth), "IsolationWidth values are not equal.");
-            Assert.That(dynamicScan.HcdEnergy, Is.EqualTo(_testMs2Scan.HcdEnergy), "CollisionEnergy values are not equal.");
-            Assert.That(dynamicScan.SelectedIonMZ, Is.EqualTo(_testMs2Scan.SelectedIonMZ), "MostAbundantPrecursorMz values are not equal.");
-            Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz, Is.EqualTo(_testMs2Scan.SelectedIonMonoisotopicGuessMz), "PrecursorMonoisotopicMz values are not equal.");
-            Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs2Scan.PrecursorId), "PrecursorID values are not equal.");
-            Assert.That(dynamicScan.MassSpectrum, Is.EqualTo(_testMs2Scan.MassSpectrum), "Mass spectra are not equal");
+            NUnit.Framework.Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs2Scan.PrecursorId), "PrecursorId values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.ScanNumberStart, Is.EqualTo(_testMs2Scan.ScanNumberStart), "ScanStart values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.ScanNumberEnd, Is.EqualTo(_testMs2Scan.ScanNumberEnd), "ScanEnd values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.OneOverK0, Is.EqualTo(_testMs2Scan.OneOverK0), "ScanMedian values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.IsolationMz, Is.EqualTo(_testMs2Scan.IsolationMz), "IsolationMz values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.IsolationWidth, Is.EqualTo(_testMs2Scan.IsolationWidth), "IsolationWidth values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.HcdEnergy, Is.EqualTo(_testMs2Scan.HcdEnergy), "CollisionEnergy values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.SelectedIonMZ, Is.EqualTo(_testMs2Scan.SelectedIonMZ), "MostAbundantPrecursorMz values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz, Is.EqualTo(_testMs2Scan.SelectedIonMonoisotopicGuessMz), "PrecursorMonoisotopicMz values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs2Scan.PrecursorId), "PrecursorID values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.MassSpectrum, Is.EqualTo(_testMs2Scan.MassSpectrum), "Mass spectra are not equal");
         }
 
         [Test, NonParallelizable]
@@ -221,17 +221,17 @@ namespace Test.FileReadingTests
                 .GetScanFromPrecursorAndFrameIdFromDynamicConnection((int)_testMs1Scan.PrecursorId, (int)_testMs1Scan.FrameId, _filteringParams);
             Assert.IsNotNull(dynamicScan);
 
-            Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs1Scan.PrecursorId), "PrecursorId values are not equal.");
-            Assert.That(dynamicScan.ScanNumberStart, Is.EqualTo(_testMs1Scan.ScanNumberStart), "ScanStart values are not equal.");
-            Assert.That(dynamicScan.ScanNumberEnd, Is.EqualTo(_testMs1Scan.ScanNumberEnd), "ScanEnd values are not equal.");
-            Assert.That(dynamicScan.OneOverK0, Is.EqualTo(_testMs1Scan.OneOverK0), "ScanMedian values are not equal.");
-            Assert.That(dynamicScan.IsolationMz, Is.EqualTo(_testMs1Scan.IsolationMz), "IsolationMz values are not equal.");
-            Assert.That(dynamicScan.IsolationWidth, Is.EqualTo(_testMs1Scan.IsolationWidth), "IsolationWidth values are not equal.");
-            Assert.That(dynamicScan.HcdEnergy, Is.EqualTo(_testMs1Scan.HcdEnergy), "CollisionEnergy values are not equal.");
-            Assert.That(dynamicScan.SelectedIonMZ, Is.EqualTo(_testMs1Scan.SelectedIonMZ), "MostAbundantPrecursorMz values are not equal.");
-            Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz, Is.EqualTo(_testMs1Scan.SelectedIonMonoisotopicGuessMz), "PrecursorMonoisotopicMz values are not equal.");
-            Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs1Scan.PrecursorId), "PrecursorID values are not equal.");
-            Assert.That(dynamicScan.MassSpectrum, Is.EqualTo(_testMs1Scan.MassSpectrum), "Mass spectra are not equal");
+            NUnit.Framework.Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs1Scan.PrecursorId), "PrecursorId values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.ScanNumberStart, Is.EqualTo(_testMs1Scan.ScanNumberStart), "ScanStart values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.ScanNumberEnd, Is.EqualTo(_testMs1Scan.ScanNumberEnd), "ScanEnd values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.OneOverK0, Is.EqualTo(_testMs1Scan.OneOverK0), "ScanMedian values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.IsolationMz, Is.EqualTo(_testMs1Scan.IsolationMz), "IsolationMz values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.IsolationWidth, Is.EqualTo(_testMs1Scan.IsolationWidth), "IsolationWidth values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.HcdEnergy, Is.EqualTo(_testMs1Scan.HcdEnergy), "CollisionEnergy values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.SelectedIonMZ, Is.EqualTo(_testMs1Scan.SelectedIonMZ), "MostAbundantPrecursorMz values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz, Is.EqualTo(_testMs1Scan.SelectedIonMonoisotopicGuessMz), "PrecursorMonoisotopicMz values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs1Scan.PrecursorId), "PrecursorID values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.MassSpectrum, Is.EqualTo(_testMs1Scan.MassSpectrum), "Mass spectra are not equal");
         }
 
         [Test, NonParallelizable]
@@ -243,36 +243,36 @@ namespace Test.FileReadingTests
             var dynamicScan = scanBeforeCast as TimsDataScan;
             Assert.IsNotNull(dynamicScan);
 
-            Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs1Scan.PrecursorId), "PrecursorId values are not equal.");
-            Assert.That(dynamicScan.ScanNumberStart, Is.EqualTo(_testMs1Scan.ScanNumberStart), "ScanStart values are not equal.");
-            Assert.That(dynamicScan.ScanNumberEnd, Is.EqualTo(_testMs1Scan.ScanNumberEnd), "ScanEnd values are not equal.");
-            Assert.That(dynamicScan.OneOverK0, Is.EqualTo(_testMs1Scan.OneOverK0), "ScanMedian values are not equal.");
-            Assert.That(dynamicScan.IsolationMz, Is.EqualTo(_testMs1Scan.IsolationMz), "IsolationMz values are not equal.");
-            Assert.That(dynamicScan.IsolationWidth, Is.EqualTo(_testMs1Scan.IsolationWidth), "IsolationWidth values are not equal.");
-            Assert.That(dynamicScan.HcdEnergy, Is.EqualTo(_testMs1Scan.HcdEnergy), "CollisionEnergy values are not equal.");
-            Assert.That(dynamicScan.SelectedIonMZ, Is.EqualTo(_testMs1Scan.SelectedIonMZ), "MostAbundantPrecursorMz values are not equal.");
-            Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz, Is.EqualTo(_testMs1Scan.SelectedIonMonoisotopicGuessMz), "PrecursorMonoisotopicMz values are not equal.");
-            Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs1Scan.PrecursorId), "PrecursorID values are not equal.");
-            Assert.That(dynamicScan.MassSpectrum, Is.EqualTo(_testMs1Scan.MassSpectrum), "Mass spectra are not equal");
-            Assert.That(dynamicScan.OneBasedScanNumber, Is.EqualTo(_testMs1Scan.OneBasedScanNumber));
+            NUnit.Framework.Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs1Scan.PrecursorId), "PrecursorId values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.ScanNumberStart, Is.EqualTo(_testMs1Scan.ScanNumberStart), "ScanStart values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.ScanNumberEnd, Is.EqualTo(_testMs1Scan.ScanNumberEnd), "ScanEnd values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.OneOverK0, Is.EqualTo(_testMs1Scan.OneOverK0), "ScanMedian values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.IsolationMz, Is.EqualTo(_testMs1Scan.IsolationMz), "IsolationMz values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.IsolationWidth, Is.EqualTo(_testMs1Scan.IsolationWidth), "IsolationWidth values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.HcdEnergy, Is.EqualTo(_testMs1Scan.HcdEnergy), "CollisionEnergy values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.SelectedIonMZ, Is.EqualTo(_testMs1Scan.SelectedIonMZ), "MostAbundantPrecursorMz values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz, Is.EqualTo(_testMs1Scan.SelectedIonMonoisotopicGuessMz), "PrecursorMonoisotopicMz values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs1Scan.PrecursorId), "PrecursorID values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.MassSpectrum, Is.EqualTo(_testMs1Scan.MassSpectrum), "Mass spectra are not equal");
+            NUnit.Framework.Assert.That(dynamicScan.OneBasedScanNumber, Is.EqualTo(_testMs1Scan.OneBasedScanNumber));
 
 
             scanBeforeCast = dynamicReader.GetOneBasedScanFromDynamicConnection(_testMs2Scan.OneBasedScanNumber, _filteringParams);
             dynamicScan = scanBeforeCast as TimsDataScan;
             Assert.IsNotNull(dynamicScan);
 
-            Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs2Scan.PrecursorId), "PrecursorId values are not equal.");
-            Assert.That(dynamicScan.ScanNumberStart, Is.EqualTo(_testMs2Scan.ScanNumberStart), "ScanStart values are not equal.");
-            Assert.That(dynamicScan.ScanNumberEnd, Is.EqualTo(_testMs2Scan.ScanNumberEnd), "ScanEnd values are not equal.");
-            Assert.That(dynamicScan.OneOverK0, Is.EqualTo(_testMs2Scan.OneOverK0), "ScanMedian values are not equal.");
-            Assert.That(dynamicScan.IsolationMz, Is.EqualTo(_testMs2Scan.IsolationMz), "IsolationMz values are not equal.");
-            Assert.That(dynamicScan.IsolationWidth, Is.EqualTo(_testMs2Scan.IsolationWidth), "IsolationWidth values are not equal.");
-            Assert.That(dynamicScan.HcdEnergy, Is.EqualTo(_testMs2Scan.HcdEnergy), "CollisionEnergy values are not equal.");
-            Assert.That(dynamicScan.SelectedIonMZ, Is.EqualTo(_testMs2Scan.SelectedIonMZ), "MostAbundantPrecursorMz values are not equal.");
-            Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz, Is.EqualTo(_testMs2Scan.SelectedIonMonoisotopicGuessMz), "PrecursorMonoisotopicMz values are not equal.");
-            Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs2Scan.PrecursorId), "PrecursorID values are not equal.");
-            Assert.That(dynamicScan.MassSpectrum, Is.EqualTo(_testMs2Scan.MassSpectrum), "Mass spectra are not equal");
-            Assert.That(dynamicScan.OneBasedScanNumber, Is.EqualTo(_testMs2Scan.OneBasedScanNumber));
+            NUnit.Framework.Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs2Scan.PrecursorId), "PrecursorId values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.ScanNumberStart, Is.EqualTo(_testMs2Scan.ScanNumberStart), "ScanStart values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.ScanNumberEnd, Is.EqualTo(_testMs2Scan.ScanNumberEnd), "ScanEnd values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.OneOverK0, Is.EqualTo(_testMs2Scan.OneOverK0), "ScanMedian values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.IsolationMz, Is.EqualTo(_testMs2Scan.IsolationMz), "IsolationMz values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.IsolationWidth, Is.EqualTo(_testMs2Scan.IsolationWidth), "IsolationWidth values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.HcdEnergy, Is.EqualTo(_testMs2Scan.HcdEnergy), "CollisionEnergy values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.SelectedIonMZ, Is.EqualTo(_testMs2Scan.SelectedIonMZ), "MostAbundantPrecursorMz values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz, Is.EqualTo(_testMs2Scan.SelectedIonMonoisotopicGuessMz), "PrecursorMonoisotopicMz values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.PrecursorId, Is.EqualTo(_testMs2Scan.PrecursorId), "PrecursorID values are not equal.");
+            NUnit.Framework.Assert.That(dynamicScan.MassSpectrum, Is.EqualTo(_testMs2Scan.MassSpectrum), "Mass spectra are not equal");
+            NUnit.Framework.Assert.That(dynamicScan.OneBasedScanNumber, Is.EqualTo(_testMs2Scan.OneBasedScanNumber));
         }
 
         [Test]
@@ -288,8 +288,8 @@ namespace Test.FileReadingTests
 
             var mergerOutput = TofSpectraMerger.TwoPointerMerge(indices1, indices2, intensities1, intensities2);
 
-            Assert.That(mergerOutput.Intensities, Is.EqualTo(intendedOutput));
-            Assert.That(mergerOutput.Indices.Select(i => (int)i).ToArray(), Is.EqualTo(intendedOutput));
+            NUnit.Framework.Assert.That(mergerOutput.Intensities, Is.EqualTo(intendedOutput));
+            NUnit.Framework.Assert.That(mergerOutput.Indices.Select(i => (int)i).ToArray(), Is.EqualTo(intendedOutput));
 
             indices2 = new uint[] { 0, 2, 4, 6, 8, 10, 12, 13, 14, 15, 16 };
 
@@ -299,8 +299,8 @@ namespace Test.FileReadingTests
 
             mergerOutput = TofSpectraMerger.TwoPointerMerge(indices1, indices2, intensities1, intensities2);
 
-            Assert.That(mergerOutput.Intensities, Is.EqualTo(intendedOutput));
-            Assert.That(mergerOutput.Indices.Select(i => (int)i).ToArray(), Is.EqualTo(intendedOutput));
+            NUnit.Framework.Assert.That(mergerOutput.Intensities, Is.EqualTo(intendedOutput));
+            NUnit.Framework.Assert.That(mergerOutput.Indices.Select(i => (int)i).ToArray(), Is.EqualTo(intendedOutput));
         }
 
         [Test]
@@ -314,8 +314,8 @@ namespace Test.FileReadingTests
 
             var collapsedOutput = TofSpectraMerger.CollapseArrays(indices, intensities);
 
-            Assert.That(collapsedOutput.Indices, Is.EqualTo(intendedIdx));
-            Assert.That(collapsedOutput.Intensities, Is.EqualTo(intendedIntensities));
+            NUnit.Framework.Assert.That(collapsedOutput.Indices, Is.EqualTo(intendedIdx));
+            NUnit.Framework.Assert.That(collapsedOutput.Intensities, Is.EqualTo(intendedIntensities));
 
 
             indices = new uint[] { 0, 1, 2, 3, 4, 5, 6, 7,  9, 11 };
@@ -326,8 +326,8 @@ namespace Test.FileReadingTests
 
             collapsedOutput = TofSpectraMerger.CollapseArrays(indices, intensities);
 
-            Assert.That(collapsedOutput.Indices, Is.EqualTo(intendedIdx));
-            Assert.That(collapsedOutput.Intensities, Is.EqualTo(intendedIntensities));
+            NUnit.Framework.Assert.That(collapsedOutput.Indices, Is.EqualTo(intendedIdx));
+            NUnit.Framework.Assert.That(collapsedOutput.Intensities, Is.EqualTo(intendedIntensities));
 
             indices = new uint[] { 0, 1, 2, 3, 4, 5, 6, 7, 9, 11, 11, 18, 523, 1000, 1000, 1000 };
             intensities = new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 9, 11, 11, 18, 523, 1000, 1000, 1000 };
@@ -337,8 +337,8 @@ namespace Test.FileReadingTests
 
             collapsedOutput = TofSpectraMerger.CollapseArrays(indices, intensities);
 
-            Assert.That(collapsedOutput.Indices, Is.EqualTo(intendedIdx));
-            Assert.That(collapsedOutput.Intensities, Is.EqualTo(intendedIntensities));
+            NUnit.Framework.Assert.That(collapsedOutput.Indices, Is.EqualTo(intendedIdx));
+            NUnit.Framework.Assert.That(collapsedOutput.Intensities, Is.EqualTo(intendedIntensities));
         }
 
         [Test]
@@ -348,7 +348,7 @@ namespace Test.FileReadingTests
             string tsfFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "timsTOF_TSF_MRM.d");
             if (!Directory.Exists(tsfFilePath))
             {
-                Assert.Ignore("TSF test file not available, skipping test.");
+                NUnit.Framework.Assert.Ignore("TSF test file not available, skipping test.");
             }
 
             var reader = new TimsTofFileReader(tsfFilePath);
@@ -360,10 +360,10 @@ namespace Test.FileReadingTests
                 var mzValues = timsConverter.DoTransformation(reader.FrameProxyFactory.FileHandle, 1, indexValues, ConversionFunctions.IndexToMzTsf);
                 var transformedIndices = timsConverter.DoTransformation(reader.FrameProxyFactory.FileHandle, 1, mzValues, ConversionFunctions.MzToIndexTsf);
 
-                Assert.That(transformedIndices, Is.Not.Null, "Transformed indices should not be null");
+                NUnit.Framework.Assert.That(transformedIndices, Is.Not.Null, "Transformed indices should not be null");
                 for (int i = 0; i < indexValues.Length; i++)
                 {
-                    Assert.That(transformedIndices[i], Is.EqualTo(indexValues[i]).Within(0.1),
+                    NUnit.Framework.Assert.That(transformedIndices[i], Is.EqualTo(indexValues[i]).Within(0.1),
                         $"Transformed index for mz={mzValues[i]} should be close to original value {indexValues[i]}");
                 }
             }
@@ -377,19 +377,19 @@ namespace Test.FileReadingTests
         public void TestConstructor()
         {
             var reader = MsDataFileReader.GetDataFile(_testDataPath);
-            Assert.That(reader, !Is.Null);
+            NUnit.Framework.Assert.That(reader, !Is.Null);
         }
 
         [Test]
         public void TestFileDoesntExist()
         {
             string fakePath = "fakePath.d";
-            Assert.Throws<FileNotFoundException>(() =>
+            NUnit.Framework.Assert.Throws<FileNotFoundException>(() =>
                 MsDataFileReader.GetDataFile(fakePath));
 
             TimsTofFileReader reader = new TimsTofFileReader(fakePath);
 
-            Assert.Throws<FileNotFoundException>(() =>
+            NUnit.Framework.Assert.Throws<FileNotFoundException>(() =>
               reader.LoadAllStaticData());
         }
 
@@ -397,19 +397,19 @@ namespace Test.FileReadingTests
         [Test]
         public void TestLoadAllStaticData()
         {
-            Assert.That(_testReader.NumSpectra, Is.EqualTo(4096));
+            NUnit.Framework.Assert.That(_testReader.NumSpectra, Is.EqualTo(4096));
 
-            Assert.That(_testMs2Scan.Polarity == Polarity.Positive);
-            Assert.That(_testMs2Scan.DissociationType == DissociationType.CID);
-            Assert.That(_testMs2Scan.TotalIonCurrent == 25130);
-            Assert.That(_testMs2Scan.NativeId == "frames=64-64;scans=410-435");
-            Assert.That(_testMs2Scan.SelectedIonMZ, Is.EqualTo(739.3668).Within(0.001));
-            Assert.That(_testMs2Scan.MsnOrder == 2);
-            Assert.That(_testMs2Scan.IsCentroid);
-            Assert.That(_testMs2Scan.ScanNumberStart == 410);
-            Assert.That(_testMs2Scan.OneOverK0, Is.EqualTo(1.0424).Within(0.0001));
-            Assert.That(_testReader.Scans.All(s => s != null));
-            Assert.That(_testMs1Scan.RetentionTime, Is.EqualTo(11.28).Within(0.01));
+            NUnit.Framework.Assert.That(_testMs2Scan.Polarity == Polarity.Positive);
+            NUnit.Framework.Assert.That(_testMs2Scan.DissociationType == DissociationType.CID);
+            NUnit.Framework.Assert.That(_testMs2Scan.TotalIonCurrent == 25130);
+            NUnit.Framework.Assert.That(_testMs2Scan.NativeId == "frames=64-64;scans=410-435");
+            NUnit.Framework.Assert.That(_testMs2Scan.SelectedIonMZ, Is.EqualTo(739.3668).Within(0.001));
+            NUnit.Framework.Assert.That(_testMs2Scan.MsnOrder == 2);
+            NUnit.Framework.Assert.That(_testMs2Scan.IsCentroid);
+            NUnit.Framework.Assert.That(_testMs2Scan.ScanNumberStart == 410);
+            NUnit.Framework.Assert.That(_testMs2Scan.OneOverK0, Is.EqualTo(1.0424).Within(0.0001));
+            NUnit.Framework.Assert.That(_testReader.Scans.All(s => s != null));
+            NUnit.Framework.Assert.That(_testMs1Scan.RetentionTime, Is.EqualTo(11.28).Within(0.01));
         }
 
         [Test]

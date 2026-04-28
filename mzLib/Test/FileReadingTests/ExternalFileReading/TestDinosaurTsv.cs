@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.ExternalFileReading
 {
     internal class TestDinosaurTsv
     {

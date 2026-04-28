@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using Path = System.IO.Path;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.ReadersInfrastructure
 {
     [TestFixture]
     public sealed class TestReaderConnection

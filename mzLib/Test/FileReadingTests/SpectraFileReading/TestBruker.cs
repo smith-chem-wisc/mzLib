@@ -1,11 +1,11 @@
 ﻿using System.Diagnostics;
 using System.IO;
 using MassSpectrometry;
-using NUnit; 
+using NUnit;
 using NUnit.Framework;
 using Readers;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.SpectraFileReading
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]

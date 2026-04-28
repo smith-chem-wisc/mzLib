@@ -9,7 +9,7 @@ using NUnit.Framework;
 using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using Readers;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.ExternalFileReading
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]
@@ -140,7 +140,7 @@ namespace Test.FileReadingTests
         [TestCase(@"FileReadingTests\ExternalFileTypes\ToppicProteofromSingle_TopPICv1.6.2_proteoform_single.tsv")]
         public void TestToppicProteoformFileResultReading(string path)
         {
-            string filePath = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory, path);
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
             ToppicSearchResultFile file = new ToppicSearchResultFile(filePath);
             Assert.That(file.FileType,
                 path.Contains("single")

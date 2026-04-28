@@ -14,7 +14,7 @@ using System.Threading;
 using MzLibUtil.NoiseEstimation;
 using System.Windows.Data;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.ExternalFileReading
 {
     [ExcludeFromCodeCoverage]
     internal class TestMsFraggerResultFiles

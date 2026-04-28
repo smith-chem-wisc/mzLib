@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using Readers;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.InternalFileReading
 {
     [ExcludeFromCodeCoverage]
     internal class TestQuantifiedPeak

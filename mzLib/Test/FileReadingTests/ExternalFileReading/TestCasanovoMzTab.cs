@@ -7,7 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.ExternalFileReading
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]

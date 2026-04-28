@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using NUnit.Framework;
 using Readers;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.ReadersInfrastructure
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]
@@ -38,7 +38,7 @@ namespace Test.FileReadingTests
             Assert.That(ms1Features.Equals((object)ms1FeatureCopy));
             Assert.That(ms1Features.Equals((object)ms1Features));
             Assert.That(!ms1Features.Equals((object)null));
-            Assert.That(!ms1Features.Equals((object)ms2Features));
+            Assert.That(!ms1Features.Equals(ms2Features));
 
             Ms1FeatureFile ms1Features2 = new Ms1FeatureFile(path2);
             Assert.That(ms1Features2.Software, Is.EqualTo(Software.FLASHDeconv));

@@ -9,7 +9,7 @@ using NUnit.Framework.Legacy;
 using Readers;
 using MzLibUtil;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.InternalFileReading
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -64,7 +64,7 @@ namespace Test.FileReadingTests
             var lwFile = FileReader.ReadFile<LightWeightSpectralMatchFile>(psmTsvPath);
             Assert.AreEqual(fullPsms.Count, lwFile.Results.Count);
             Assert.AreEqual(SupportedFileType.psmtsv, lwFile.FileType);
-            Assert.Throws<NotImplementedException>(() => lwFile.WriteResults(""));
+            NUnit.Framework.Assert.Throws<NotImplementedException>(() => lwFile.WriteResults(""));
         }
 
         [Test]
@@ -172,8 +172,8 @@ namespace Test.FileReadingTests
                 @"FileReadingTests\SearchResults\BottomUpExample.psmtsv");
 
             var lwResults = LightWeightSpectralMatchReader.ReadTsv(psmFilePath, out _);
-            Assert.That(lwResults.Count > 0);
-            Assert.Throws<NotSupportedException>(() =>
+            NUnit.Framework.Assert.That(lwResults.Count > 0);
+            NUnit.Framework.Assert.Throws<NotSupportedException>(() =>
             {
                 lwResults[0].GetIdentifiedBioPolymersWithSetMods();
             });
@@ -186,13 +186,13 @@ namespace Test.FileReadingTests
                 @"FileReadingTests\SearchResults\BottomUpExample.psmtsv");
 
             var lwResults = LightWeightSpectralMatchReader.ReadTsv(psmFilePath, out _);
-            Assert.That(lwResults.Count >= 2);
+            NUnit.Framework.Assert.That(lwResults.Count >= 2);
 
             // Sort by score descending (CompareTo uses higher-is-better convention)
             var sorted = lwResults.OrderBy(r => r).ToList();
             for (int i = 0; i < sorted.Count - 1; i++)
             {
-                Assert.That(sorted[i].Score >= sorted[i + 1].Score);
+                NUnit.Framework.Assert.That(sorted[i].Score >= sorted[i + 1].Score);
             }
         }
 
@@ -211,9 +211,9 @@ namespace Test.FileReadingTests
             var allResults = LightWeightSpectralMatchReader.ReadTsv(psmFilePath, out _);
             var filteredResults = LightWeightSpectralMatchReader.ReadTsv(psmFilePath, out _, rowFilters: rowFilters);
 
-            Assert.That(filteredResults.Count > 0);
-            Assert.That(filteredResults.Count <= allResults.Count);
-            Assert.That(filteredResults.All(r => !r.IsDecoy));
+            NUnit.Framework.Assert.That(filteredResults.Count > 0);
+            NUnit.Framework.Assert.That(filteredResults.Count <= allResults.Count);
+            NUnit.Framework.Assert.That(filteredResults.All(r => !r.IsDecoy));
         }
 
         [Test]
@@ -233,9 +233,9 @@ namespace Test.FileReadingTests
             var filteredResults = LightWeightSpectralMatchReader.ReadTsv(psmFilePath, out _,
                 terminatingFilters: terminatingFilters);
 
-            Assert.That(filteredResults.Count > 0);
-            Assert.That(filteredResults.Count <= allResults.Count);
-            Assert.That(filteredResults.All(r => r.QValue <= qValueCutoff));
+            NUnit.Framework.Assert.That(filteredResults.Count > 0);
+            NUnit.Framework.Assert.That(filteredResults.Count <= allResults.Count);
+            NUnit.Framework.Assert.That(filteredResults.All(r => r.QValue <= qValueCutoff));
         }
 
         [Test]
@@ -258,9 +258,9 @@ namespace Test.FileReadingTests
             var filteredResults = LightWeightSpectralMatchReader.ReadTsv(psmFilePath, out _,
                 rowFilters: rowFilters, terminatingFilters: terminatingFilters);
 
-            Assert.That(filteredResults.Count > 0);
-            Assert.That(filteredResults.All(r => !r.IsDecoy));
-            Assert.That(filteredResults.All(r => r.QValue <= qValueCutoff));
+            NUnit.Framework.Assert.That(filteredResults.Count > 0);
+            NUnit.Framework.Assert.That(filteredResults.All(r => !r.IsDecoy));
+            NUnit.Framework.Assert.That(filteredResults.All(r => r.QValue <= qValueCutoff));
         }
 
         [Test]
@@ -274,8 +274,8 @@ namespace Test.FileReadingTests
             Assert.AreEqual(fullPsms.Count, lwFile.Results.Count);
 
             var testResult = lwFile.Results.First();
-            Assert.That(!double.IsNaN(testResult.PepQValue));
-            Assert.That(!double.IsNaN(testResult.RetentionTime) && testResult.RetentionTime != -1);
+            NUnit.Framework.Assert.That(!double.IsNaN(testResult.PepQValue));
+            NUnit.Framework.Assert.That(!double.IsNaN(testResult.RetentionTime) && testResult.RetentionTime != -1);
         }
 
         [Test]
@@ -301,9 +301,9 @@ namespace Test.FileReadingTests
             List<string> filePaths = new List<string> { filePathA, filePathB };
 
             var dictionary = lwFile.FileNameToFilePath(filePaths);
-            Assert.That(dictionary.Count == 2);
-            Assert.That(lwFile.GetQuantifiableResults().Any(p => p.FileName.Equals(dictionary.Keys.First())));
-            Assert.That(lwFile.GetQuantifiableResults().Any(p => p.FileName.Equals(dictionary.Keys.Last())));
+            NUnit.Framework.Assert.That(dictionary.Count == 2);
+            NUnit.Framework.Assert.That(lwFile.GetQuantifiableResults().Any(p => p.FileName.Equals(dictionary.Keys.First())));
+            NUnit.Framework.Assert.That(lwFile.GetQuantifiableResults().Any(p => p.FileName.Equals(dictionary.Keys.Last())));
         }
 
         [Test]
@@ -319,10 +319,10 @@ namespace Test.FileReadingTests
             // Verify IQuantifiableRecord properties are populated
             foreach (var result in quantResults)
             {
-                Assert.That(!string.IsNullOrEmpty(result.FileName));
-                Assert.That(!string.IsNullOrEmpty(result.BaseSequence));
-                Assert.That(!string.IsNullOrEmpty(result.FullSequence));
-                Assert.That(result.ChargeState > 0);
+                NUnit.Framework.Assert.That(!string.IsNullOrEmpty(result.FileName));
+                NUnit.Framework.Assert.That(!string.IsNullOrEmpty(result.BaseSequence));
+                NUnit.Framework.Assert.That(!string.IsNullOrEmpty(result.FullSequence));
+                NUnit.Framework.Assert.That(result.ChargeState > 0);
             }
         }
 
@@ -334,8 +334,8 @@ namespace Test.FileReadingTests
                 @"FileReadingTests\SearchResults\BottomUpExample.psmtsv");
 
             var lwResults = LightWeightSpectralMatchReader.ReadTsv(psmFilePath, out _);
-            Assert.That(lwResults.Count > 0);
-            Assert.That(lwResults.All(r => r.Intensities == null));
+            NUnit.Framework.Assert.That(lwResults.Count > 0);
+            NUnit.Framework.Assert.That(lwResults.All(r => r.Intensities == null));
         }
 
         [Test]
@@ -351,7 +351,7 @@ namespace Test.FileReadingTests
             };
 
             var results = LightWeightSpectralMatchReader.ReadTsv(psmFilePath, out var warnings, rowFilters: rowFilters);
-            Assert.That(results.Count > 0);
+            NUnit.Framework.Assert.That(results.Count > 0);
         }
     }
 }

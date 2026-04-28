@@ -11,7 +11,7 @@ using NUnit.Framework.Legacy;
 using Proteomics;
 using Readers;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.SpectraFileReading
 {
     [ExcludeFromCodeCoverage]
     internal class TestMsAlign

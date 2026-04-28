@@ -8,7 +8,7 @@ using Newtonsoft.Json;
 using NUnit.Framework;
 using Readers;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.ExternalFileReading
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]

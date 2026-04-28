@@ -5,7 +5,7 @@ using NUnit.Framework;
 using NUnit.Framework.Legacy;
 using Readers;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.SpectraFileReading
 {
     [TestFixture]
     public class TestExportSnipAsMzML

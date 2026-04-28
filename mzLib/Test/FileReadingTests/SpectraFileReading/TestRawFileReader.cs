@@ -7,7 +7,7 @@ using NUnit.Framework;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Readers;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.SpectraFileReading
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -18,7 +18,7 @@ namespace Test.FileReadingTests
         {
             string fakePath = "fakePath.raw";
             var reader = MsDataFileReader.GetDataFile(fakePath);
-            Assert.Throws<FileNotFoundException>(() =>
+            NUnit.Framework.Assert.Throws<FileNotFoundException>(() =>
             {
                 reader.InitiateDynamicConnection();
             });
@@ -31,9 +31,9 @@ namespace Test.FileReadingTests
         {
             var fakeRawFile = "asdasd.raw";
 
-            var ex = Assert.Throws<FileNotFoundException>(() => MsDataFileReader.GetDataFile(fakeRawFile).LoadAllStaticData());
+            var ex = NUnit.Framework.Assert.Throws<FileNotFoundException>(() => MsDataFileReader.GetDataFile(fakeRawFile).LoadAllStaticData());
 
-            Assert.That(ex.Message, Is.EqualTo(new FileNotFoundException().Message));
+            NUnit.Framework.Assert.That(ex.Message, Is.EqualTo(new FileNotFoundException().Message));
         }
 
         #endregion
@@ -47,8 +47,8 @@ namespace Test.FileReadingTests
             var ms1Scans = scans.Where(x => x.MsnOrder == 1).ToList();
             var ms2Scans = scans.Where(x => x.MsnOrder == 2).ToList();
 
-            ms1Scans.ForEach(x => Assert.That(x.ScanDescription, Is.EqualTo(null)));
-            ms2Scans.ForEach(x => Assert.That(x.ScanDescription, Is.EqualTo("Testing2")));
+            ms1Scans.ForEach(x => NUnit.Framework.Assert.That(x.ScanDescription, Is.EqualTo(null)));
+            ms2Scans.ForEach(x => NUnit.Framework.Assert.That(x.ScanDescription, Is.EqualTo("Testing2")));
         }
 
         /// <summary>
@@ -68,7 +68,7 @@ namespace Test.FileReadingTests
             outfile2 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", outfile2);
 
             string dummyPath = "aaljienxmbelsiemxmbmeba.raw";
-            Assert.Throws<FileNotFoundException>(() =>
+            NUnit.Framework.Assert.Throws<FileNotFoundException>(() =>
             {
                 var dummyReader = MsDataFileReader.GetDataFile(dummyPath);
                 dummyReader.LoadAllStaticData();
@@ -96,7 +96,7 @@ namespace Test.FileReadingTests
             var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw");
             var reader = MsDataFileReader.GetDataFile(path);
             SourceFile sf = reader.GetSourceFile();
-            Assert.That(sf.NativeIdFormat, Is.EqualTo(@"Thermo nativeID format"));
+            NUnit.Framework.Assert.That(sf.NativeIdFormat, Is.EqualTo(@"Thermo nativeID format"));
         }
 
         /// <summary>
@@ -117,22 +117,22 @@ namespace Test.FileReadingTests
             thermoDynamic2.InitiateDynamicConnection();
 
             var msOrders = thermoDynamic1.GetMsOrderByScanInDynamicConnection();
-            Assert.That(msOrders != null && msOrders.Length > 0);
+            NUnit.Framework.Assert.That(msOrders != null && msOrders.Length > 0);
 
             var a = thermoDynamic1.GetOneBasedScanFromDynamicConnection(1);
-            Assert.That(a != null);
+            NUnit.Framework.Assert.That(a != null);
 
             var b = thermoDynamic2.GetOneBasedScanFromDynamicConnection(1);
-            Assert.That(b != null);
+            NUnit.Framework.Assert.That(b != null);
 
-            Assert.That(a.MassSpectrum.XArray.Length != b.MassSpectrum.XArray.Length);
+            NUnit.Framework.Assert.That(a.MassSpectrum.XArray.Length != b.MassSpectrum.XArray.Length);
 
             a = thermoDynamic1.GetOneBasedScanFromDynamicConnection(10000);
             thermoDynamic1.CloseDynamicConnection();
             thermoDynamic2.CloseDynamicConnection();
 
             Console.WriteLine($"Analysis time for TestDynamicConnectionRawFileReader: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
-            Assert.That(a == null);
+            NUnit.Framework.Assert.That(a == null);
         }
 
         [Test]
@@ -150,22 +150,22 @@ namespace Test.FileReadingTests
             thermoDynamic2.InitiateDynamicConnection();
 
             var msOrders = thermoDynamic1.GetMsOrderByScanInDynamicConnection();
-            Assert.That(msOrders != null && msOrders.Length > 0);
+            NUnit.Framework.Assert.That(msOrders != null && msOrders.Length > 0);
 
             var a = thermoDynamic1.GetOneBasedScanFromDynamicConnection(1);
-            Assert.That(a != null);
+            NUnit.Framework.Assert.That(a != null);
 
             var b = thermoDynamic2.GetOneBasedScanFromDynamicConnection(1);
-            Assert.That(b != null);
+            NUnit.Framework.Assert.That(b != null);
 
-            Assert.That(a.MassSpectrum.XArray.Length != b.MassSpectrum.XArray.Length);
+            NUnit.Framework.Assert.That(a.MassSpectrum.XArray.Length != b.MassSpectrum.XArray.Length);
 
             a = thermoDynamic1.GetOneBasedScanFromDynamicConnection(10000);
             thermoDynamic1.CloseDynamicConnection();
             thermoDynamic2.CloseDynamicConnection();
 
             Console.WriteLine($"Analysis time for TestDynamicConnectionRawFileReader: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
-            Assert.That(a == null);
+            NUnit.Framework.Assert.That(a == null);
         }
 
         /// <summary>
@@ -188,7 +188,7 @@ namespace Test.FileReadingTests
             var rawScans = reader.GetAllScansList();
             foreach (var scan in rawScans)
             {
-                Assert.That(scan.MassSpectrum.XArray.Length <= 200);
+                NUnit.Framework.Assert.That(scan.MassSpectrum.XArray.Length <= 200);
             }
 
             string outfile1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", Path.GetFileNameWithoutExtension(infile) + ".mzML");
@@ -231,7 +231,7 @@ namespace Test.FileReadingTests
             stopwatch.Start();
 
             var licence = ThermoRawFileReaderLicence.ThermoLicenceText;
-            Assert.That(licence.Length > 100);
+            NUnit.Framework.Assert.That(licence.Length > 100);
 
             Console.WriteLine($"Analysis time for TestThermoLicence: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
         }
@@ -258,37 +258,37 @@ namespace Test.FileReadingTests
 
                 Assert.IsFalse(staticScan.MassSpectrum.YArray.Contains(0));
                 Assert.IsFalse(dynamicScan.MassSpectrum.YArray.Contains(0));
-                Assert.That(dynamicScan.OneBasedScanNumber == staticScan.OneBasedScanNumber);
-                Assert.That(dynamicScan.MsnOrder == staticScan.MsnOrder);
-                Assert.That(dynamicScan.RetentionTime == staticScan.RetentionTime);
-                Assert.That(dynamicScan.Polarity == staticScan.Polarity);
-                Assert.That(dynamicScan.ScanWindowRange.Minimum == staticScan.ScanWindowRange.Minimum);
-                Assert.That(dynamicScan.ScanWindowRange.Maximum == staticScan.ScanWindowRange.Maximum);
-                Assert.That(dynamicScan.ScanFilter == staticScan.ScanFilter);
-                Assert.That(dynamicScan.NativeId == staticScan.NativeId);
-                Assert.That(dynamicScan.IsCentroid == staticScan.IsCentroid);
-                Assert.That(dynamicScan.IsCentroid == staticScan.IsCentroid);
-                Assert.That(dynamicScan.InjectionTime == staticScan.InjectionTime);
-                Assert.That(dynamicScan.NoiseData == staticScan.NoiseData);
+                NUnit.Framework.Assert.That(dynamicScan.OneBasedScanNumber == staticScan.OneBasedScanNumber);
+                NUnit.Framework.Assert.That(dynamicScan.MsnOrder == staticScan.MsnOrder);
+                NUnit.Framework.Assert.That(dynamicScan.RetentionTime == staticScan.RetentionTime);
+                NUnit.Framework.Assert.That(dynamicScan.Polarity == staticScan.Polarity);
+                NUnit.Framework.Assert.That(dynamicScan.ScanWindowRange.Minimum == staticScan.ScanWindowRange.Minimum);
+                NUnit.Framework.Assert.That(dynamicScan.ScanWindowRange.Maximum == staticScan.ScanWindowRange.Maximum);
+                NUnit.Framework.Assert.That(dynamicScan.ScanFilter == staticScan.ScanFilter);
+                NUnit.Framework.Assert.That(dynamicScan.NativeId == staticScan.NativeId);
+                NUnit.Framework.Assert.That(dynamicScan.IsCentroid == staticScan.IsCentroid);
+                NUnit.Framework.Assert.That(dynamicScan.IsCentroid == staticScan.IsCentroid);
+                NUnit.Framework.Assert.That(dynamicScan.InjectionTime == staticScan.InjectionTime);
+                NUnit.Framework.Assert.That(dynamicScan.NoiseData == staticScan.NoiseData);
 
-                Assert.That(dynamicScan.IsolationMz == staticScan.IsolationMz);
-                Assert.That(dynamicScan.SelectedIonChargeStateGuess == staticScan.SelectedIonChargeStateGuess);
-                Assert.That(dynamicScan.SelectedIonIntensity == staticScan.SelectedIonIntensity);
-                Assert.That(dynamicScan.SelectedIonMZ == staticScan.SelectedIonMZ);
-                Assert.That(dynamicScan.DissociationType == staticScan.DissociationType);
-                Assert.That(dynamicScan.IsolationWidth == staticScan.IsolationWidth);
-                Assert.That(dynamicScan.OneBasedPrecursorScanNumber == staticScan.OneBasedPrecursorScanNumber);
-                Assert.That(dynamicScan.SelectedIonMonoisotopicGuessIntensity == staticScan.SelectedIonMonoisotopicGuessIntensity);
-                Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz == staticScan.SelectedIonMonoisotopicGuessMz);
+                NUnit.Framework.Assert.That(dynamicScan.IsolationMz == staticScan.IsolationMz);
+                NUnit.Framework.Assert.That(dynamicScan.SelectedIonChargeStateGuess == staticScan.SelectedIonChargeStateGuess);
+                NUnit.Framework.Assert.That(dynamicScan.SelectedIonIntensity == staticScan.SelectedIonIntensity);
+                NUnit.Framework.Assert.That(dynamicScan.SelectedIonMZ == staticScan.SelectedIonMZ);
+                NUnit.Framework.Assert.That(dynamicScan.DissociationType == staticScan.DissociationType);
+                NUnit.Framework.Assert.That(dynamicScan.IsolationWidth == staticScan.IsolationWidth);
+                NUnit.Framework.Assert.That(dynamicScan.OneBasedPrecursorScanNumber == staticScan.OneBasedPrecursorScanNumber);
+                NUnit.Framework.Assert.That(dynamicScan.SelectedIonMonoisotopicGuessIntensity == staticScan.SelectedIonMonoisotopicGuessIntensity);
+                NUnit.Framework.Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz == staticScan.SelectedIonMonoisotopicGuessMz);
 
                 if (dynamicScan.IsolationRange != null || staticScan.IsolationRange != null)
                 {
-                    Assert.That(dynamicScan.IsolationRange.Minimum == staticScan.IsolationRange.Minimum);
-                    Assert.That(dynamicScan.IsolationRange.Maximum == staticScan.IsolationRange.Maximum);
+                    NUnit.Framework.Assert.That(dynamicScan.IsolationRange.Minimum == staticScan.IsolationRange.Minimum);
+                    NUnit.Framework.Assert.That(dynamicScan.IsolationRange.Maximum == staticScan.IsolationRange.Maximum);
                 }
 
-                Assert.That(dynamicScan.MassSpectrum.XArray.Length == staticScan.MassSpectrum.XArray.Length);
-                Assert.That(dynamicScan.MassSpectrum.YArray.Length == staticScan.MassSpectrum.YArray.Length);
+                NUnit.Framework.Assert.That(dynamicScan.MassSpectrum.XArray.Length == staticScan.MassSpectrum.XArray.Length);
+                NUnit.Framework.Assert.That(dynamicScan.MassSpectrum.YArray.Length == staticScan.MassSpectrum.YArray.Length);
 
                 for (int i = 0; i < staticScan.MassSpectrum.XArray.Length; i++)
                 {
@@ -298,8 +298,8 @@ namespace Test.FileReadingTests
                     double dynamicMz = dynamicScan.MassSpectrum.XArray[i];
                     double dynamicIntensity = dynamicScan.MassSpectrum.YArray[i];
 
-                    Assert.That(dynamicMz == staticMz);
-                    Assert.That(dynamicIntensity == staticIntensity);
+                    NUnit.Framework.Assert.That(dynamicMz == staticMz);
+                    NUnit.Framework.Assert.That(dynamicIntensity == staticIntensity);
                 }
             }
         }
@@ -314,11 +314,11 @@ namespace Test.FileReadingTests
             var spectra = MsDataFileReader.GetDataFile(filePath);
             spectra.LoadAllStaticData(null, 1);
             var hcdScan = spectra.GetOneBasedScan(5);
-            Assert.That(hcdScan.DissociationType == DissociationType.HCD);
-            Assert.That(hcdScan.HcdEnergy, Is.EqualTo("36.00"));
+            NUnit.Framework.Assert.That(hcdScan.DissociationType == DissociationType.HCD);
+            NUnit.Framework.Assert.That(hcdScan.HcdEnergy, Is.EqualTo("36.00"));
             var ethcdScan = spectra.GetOneBasedScan(6);
-            Assert.That(ethcdScan.DissociationType == DissociationType.EThcD);
-            Assert.That(ethcdScan.HcdEnergy, Is.EqualTo("25.00"));
+            NUnit.Framework.Assert.That(ethcdScan.DissociationType == DissociationType.EThcD);
+            NUnit.Framework.Assert.That(ethcdScan.HcdEnergy, Is.EqualTo("25.00"));
         }
 
         [Test]

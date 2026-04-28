@@ -1,7 +1,7 @@
 ﻿using NUnit.Framework;
 using Readers;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.ReadersInfrastructure
 {
     public static class ModificationConversions
     {

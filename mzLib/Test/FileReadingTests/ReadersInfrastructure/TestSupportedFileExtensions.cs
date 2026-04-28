@@ -7,7 +7,7 @@ using MzLibUtil;
 using NUnit.Framework;
 using Readers;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.ReadersInfrastructure
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]
@@ -145,7 +145,7 @@ namespace Test.FileReadingTests
             e = Assert.Throws<MzLibException>(() => badTest.ParseFileType());
             Assert.That(e?.Message, Is.EqualTo($"Csv file type not supported"));
 
-            badTest = Path.Combine(TestContext.CurrentContext.TestDirectory, "DoubleProtease.tsv");
+            badTest = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteomicsTests", "ProteaseFilesForLoadingTests", "DoubleProtease.tsv");
             e = Assert.Throws<MzLibException>(() => badTest.ParseFileType());
             Assert.That(e?.Message, Is.EqualTo($"Tsv file type not supported"));
 

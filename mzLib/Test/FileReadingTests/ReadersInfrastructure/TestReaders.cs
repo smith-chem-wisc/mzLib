@@ -10,7 +10,7 @@ using System.Collections.Concurrent;
 using System;
 using System.Threading.Tasks;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.ReadersInfrastructure
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]
@@ -46,17 +46,17 @@ namespace Test.FileReadingTests
             switch (Path.GetExtension(filePath).ToLower())
             {
                 case ".raw":
-                    dataFile = IO.ThermoRawFileReader.ThermoRawFileReader.LoadAllStaticData(filePath);
+                    dataFile = ThermoRawFileReader.LoadAllStaticData(filePath);
                     scans = dataFile.GetAllScansList();
                     break;
 
                 case ".mzml":
-                    dataFile = IO.MzML.Mzml.LoadAllStaticData(filePath);
+                    dataFile = Mzml.LoadAllStaticData(filePath);
                     scans = dataFile.GetAllScansList();
                     break;
 
                 case ".mgf":
-                    dataFile = IO.Mgf.Mgf.LoadAllStaticData(filePath);
+                    dataFile = Mgf.LoadAllStaticData(filePath);
                     scans = dataFile.GetAllScansList();
                     break;
 

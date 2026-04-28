@@ -12,7 +12,7 @@ using NUnit.Framework;
 using pepXML.Generated;
 using Readers;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.ExternalFileReading
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]

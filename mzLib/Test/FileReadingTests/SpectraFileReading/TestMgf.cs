@@ -8,7 +8,7 @@ using Readers;
 using MzLibUtil;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test.FileReadingTests
+namespace Test.FileReadingTests.SpectraFileReading
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -78,8 +78,8 @@ namespace Test.FileReadingTests
             var scans = file.GetAllScansList();
 
             // Skipped two empty spectra, so only one scan should be loaded
-            Assert.That(scans.Count, Is.EqualTo(1));
-            Assert.That(scans[0].OneBasedScanNumber, Is.EqualTo(25501));
+            NUnit.Framework.Assert.That(scans.Count, Is.EqualTo(1));
+            NUnit.Framework.Assert.That(scans[0].OneBasedScanNumber, Is.EqualTo(25501));
         }
 
         [Test]
@@ -95,14 +95,14 @@ namespace Test.FileReadingTests
             Assert.AreEqual(2, ya.MsnOrder);
             Assert.AreEqual(2, ya.OneBasedScanNumber);
             Assert.AreEqual(Polarity.Positive, ya.Polarity);
-            Assert.That(ya.RetentionTime, Is.EqualTo(15.393).Within(0.1));
-            Assert.That(ya.IsolationMz, Is.EqualTo(354.8).Within(0.1));
-            Assert.That(ya.SelectedIonMZ, Is.EqualTo(354.8).Within(0.1));
-            Assert.That(ya.SelectedIonChargeStateGuess, Is.EqualTo(2));
-            Assert.That(ya.SelectedIonMonoisotopicGuessMz, Is.EqualTo(354.8).Within(0.1));
-            Assert.That(ya.TotalIonCurrent, Is.EqualTo(1737).Within(0.1));
-            Assert.That(ya.ScanWindowRange.Minimum, Is.EqualTo(227.787).Within(0.1));
-            Assert.That(ya.ScanWindowRange.Maximum, Is.EqualTo(565.64).Within(0.1));
+            NUnit.Framework.Assert.That(ya.RetentionTime, Is.EqualTo(15.393).Within(0.1));
+            NUnit.Framework.Assert.That(ya.IsolationMz, Is.EqualTo(354.8).Within(0.1));
+            NUnit.Framework.Assert.That(ya.SelectedIonMZ, Is.EqualTo(354.8).Within(0.1));
+            NUnit.Framework.Assert.That(ya.SelectedIonChargeStateGuess, Is.EqualTo(2));
+            NUnit.Framework.Assert.That(ya.SelectedIonMonoisotopicGuessMz, Is.EqualTo(354.8).Within(0.1));
+            NUnit.Framework.Assert.That(ya.TotalIonCurrent, Is.EqualTo(1737).Within(0.1));
+            NUnit.Framework.Assert.That(ya.ScanWindowRange.Minimum, Is.EqualTo(227.787).Within(0.1));
+            NUnit.Framework.Assert.That(ya.ScanWindowRange.Maximum, Is.EqualTo(565.64).Within(0.1));
         }
 
         [Test]
@@ -111,7 +111,7 @@ namespace Test.FileReadingTests
             var reader = MsDataFileReader.GetDataFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
             var fileDoesntExistReader = MsDataFileReader.GetDataFile("fakeFile.mgf");
 
-            Assert.Throws<FileNotFoundException>(() =>
+            NUnit.Framework.Assert.Throws<FileNotFoundException>(() =>
             {
                 fileDoesntExistReader.InitiateDynamicConnection();
             });
@@ -162,9 +162,9 @@ namespace Test.FileReadingTests
             reader.LoadAllStaticData();
 
             var scans = reader.GetAllScansList();
-            Assert.That(scans.Count, Is.EqualTo(1));
-            Assert.That(scans[0].SelectedIonIntensity, Is.Not.Null);
-            Assert.That(scans[0].SelectedIonIntensity, Is.EqualTo(47641904.0).Within(0.00001));
+            NUnit.Framework.Assert.That(scans.Count, Is.EqualTo(1));
+            NUnit.Framework.Assert.That(scans[0].SelectedIonIntensity, Is.Not.Null);
+            NUnit.Framework.Assert.That(scans[0].SelectedIonIntensity, Is.EqualTo(47641904.0).Within(0.00001));
         }
 
 
@@ -207,42 +207,42 @@ namespace Test.FileReadingTests
             {
                 MsDataScan dynamicScan = reader.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
 
-                Assert.That(dynamicScan.OneBasedScanNumber == staticScan.OneBasedScanNumber);
-                Assert.That(dynamicScan.MsnOrder == staticScan.MsnOrder);
+                NUnit.Framework.Assert.That(dynamicScan.OneBasedScanNumber == staticScan.OneBasedScanNumber);
+                NUnit.Framework.Assert.That(dynamicScan.MsnOrder == staticScan.MsnOrder);
 
                 if (!double.IsNaN(dynamicScan.RetentionTime) || !double.IsNaN(staticScan.RetentionTime))
                 {
-                    Assert.That(dynamicScan.RetentionTime == staticScan.RetentionTime);
+                    NUnit.Framework.Assert.That(dynamicScan.RetentionTime == staticScan.RetentionTime);
                 }
 
-                Assert.That(dynamicScan.Polarity == staticScan.Polarity);
-                Assert.That(dynamicScan.ScanWindowRange.Minimum == staticScan.ScanWindowRange.Minimum);
-                Assert.That(dynamicScan.ScanWindowRange.Maximum == staticScan.ScanWindowRange.Maximum);
-                Assert.That(dynamicScan.ScanFilter == staticScan.ScanFilter);
-                Assert.That(dynamicScan.NativeId == staticScan.NativeId);
-                Assert.That(dynamicScan.IsCentroid == staticScan.IsCentroid);
-                Assert.That(dynamicScan.IsCentroid == staticScan.IsCentroid);
-                Assert.That(dynamicScan.InjectionTime == staticScan.InjectionTime);
-                Assert.That(dynamicScan.NoiseData == staticScan.NoiseData);
+                NUnit.Framework.Assert.That(dynamicScan.Polarity == staticScan.Polarity);
+                NUnit.Framework.Assert.That(dynamicScan.ScanWindowRange.Minimum == staticScan.ScanWindowRange.Minimum);
+                NUnit.Framework.Assert.That(dynamicScan.ScanWindowRange.Maximum == staticScan.ScanWindowRange.Maximum);
+                NUnit.Framework.Assert.That(dynamicScan.ScanFilter == staticScan.ScanFilter);
+                NUnit.Framework.Assert.That(dynamicScan.NativeId == staticScan.NativeId);
+                NUnit.Framework.Assert.That(dynamicScan.IsCentroid == staticScan.IsCentroid);
+                NUnit.Framework.Assert.That(dynamicScan.IsCentroid == staticScan.IsCentroid);
+                NUnit.Framework.Assert.That(dynamicScan.InjectionTime == staticScan.InjectionTime);
+                NUnit.Framework.Assert.That(dynamicScan.NoiseData == staticScan.NoiseData);
 
-                Assert.That(dynamicScan.IsolationMz == staticScan.IsolationMz);
-                Assert.That(dynamicScan.SelectedIonChargeStateGuess == staticScan.SelectedIonChargeStateGuess);
-                Assert.That(dynamicScan.SelectedIonIntensity == staticScan.SelectedIonIntensity);
-                Assert.That(dynamicScan.SelectedIonMZ == staticScan.SelectedIonMZ);
-                Assert.That(dynamicScan.DissociationType == staticScan.DissociationType);
-                Assert.That(dynamicScan.IsolationWidth == staticScan.IsolationWidth);
-                Assert.That(dynamicScan.OneBasedPrecursorScanNumber == staticScan.OneBasedPrecursorScanNumber);
-                Assert.That(dynamicScan.SelectedIonMonoisotopicGuessIntensity == staticScan.SelectedIonMonoisotopicGuessIntensity);
-                Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz == staticScan.SelectedIonMonoisotopicGuessMz);
+                NUnit.Framework.Assert.That(dynamicScan.IsolationMz == staticScan.IsolationMz);
+                NUnit.Framework.Assert.That(dynamicScan.SelectedIonChargeStateGuess == staticScan.SelectedIonChargeStateGuess);
+                NUnit.Framework.Assert.That(dynamicScan.SelectedIonIntensity == staticScan.SelectedIonIntensity);
+                NUnit.Framework.Assert.That(dynamicScan.SelectedIonMZ == staticScan.SelectedIonMZ);
+                NUnit.Framework.Assert.That(dynamicScan.DissociationType == staticScan.DissociationType);
+                NUnit.Framework.Assert.That(dynamicScan.IsolationWidth == staticScan.IsolationWidth);
+                NUnit.Framework.Assert.That(dynamicScan.OneBasedPrecursorScanNumber == staticScan.OneBasedPrecursorScanNumber);
+                NUnit.Framework.Assert.That(dynamicScan.SelectedIonMonoisotopicGuessIntensity == staticScan.SelectedIonMonoisotopicGuessIntensity);
+                NUnit.Framework.Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz == staticScan.SelectedIonMonoisotopicGuessMz);
 
                 if (dynamicScan.IsolationRange != null || staticScan.IsolationRange != null)
                 {
-                    Assert.That(dynamicScan.IsolationRange.Minimum == staticScan.IsolationRange.Minimum);
-                    Assert.That(dynamicScan.IsolationRange.Maximum == staticScan.IsolationRange.Maximum);
+                    NUnit.Framework.Assert.That(dynamicScan.IsolationRange.Minimum == staticScan.IsolationRange.Minimum);
+                    NUnit.Framework.Assert.That(dynamicScan.IsolationRange.Maximum == staticScan.IsolationRange.Maximum);
                 }
 
-                Assert.That(dynamicScan.MassSpectrum.XArray.Length == staticScan.MassSpectrum.XArray.Length);
-                Assert.That(dynamicScan.MassSpectrum.YArray.Length == staticScan.MassSpectrum.YArray.Length);
+                NUnit.Framework.Assert.That(dynamicScan.MassSpectrum.XArray.Length == staticScan.MassSpectrum.XArray.Length);
+                NUnit.Framework.Assert.That(dynamicScan.MassSpectrum.YArray.Length == staticScan.MassSpectrum.YArray.Length);
 
                 for (int i = 0; i < staticScan.MassSpectrum.XArray.Length; i++)
                 {
@@ -252,8 +252,8 @@ namespace Test.FileReadingTests
                     double dynamicMz = dynamicScan.MassSpectrum.XArray[i];
                     double dynamicIntensity = dynamicScan.MassSpectrum.YArray[i];
 
-                    Assert.That(dynamicMz == staticMz);
-                    Assert.That(dynamicIntensity == staticIntensity);
+                    NUnit.Framework.Assert.That(dynamicMz == staticMz);
+                    NUnit.Framework.Assert.That(dynamicIntensity == staticIntensity);
                 }
             }
         }
@@ -263,7 +263,7 @@ namespace Test.FileReadingTests
         {
             // create a stream reader that will generate a null
             StreamReader streamReader = null;
-            Assert.Throws<MzLibException>(() => TextFileReading.GetByteOffsetAtCurrentPosition(streamReader));
+            NUnit.Framework.Assert.Throws<MzLibException>(() => TextFileReading.GetByteOffsetAtCurrentPosition(streamReader));
         }
     }
 }
