@@ -4,7 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using MassSpectrometry;
 using NUnit.Framework;
 
-namespace Test.Omics
+namespace Test.Omics.SampleInfo
 {
     /// <summary>
     /// Tests for ISampleInfo implementations (SpectraFileInfo and IsobaricQuantSampleInfo).
@@ -135,7 +135,7 @@ namespace Test.Omics
             Assert.That(isobaric1 != isobaric3, Is.True);
 
             // Null handling
-            IsobaricQuantSampleInfo? nullSample = null;
+            IsobaricQuantSampleInfo nullSample = null;
             Assert.That(isobaric1 == nullSample, Is.False);
             Assert.That(nullSample == isobaric1, Is.False);
             Assert.That(nullSample == nullSample, Is.True);
@@ -360,8 +360,8 @@ namespace Test.Omics
             {
                 Assert.That(spectra.Equals(isobaric), Is.False);
                 Assert.That(isobaric.Equals(spectra), Is.False);
-                Assert.That(spectra.Equals((ISampleInfo)isobaric), Is.False);
-                Assert.That(isobaric.Equals((ISampleInfo)spectra), Is.False);
+                Assert.That(spectra.Equals(isobaric), Is.False);
+                Assert.That(isobaric.Equals(spectra), Is.False);
             });
         }
 

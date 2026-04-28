@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using MassSpectrometry;
 using NUnit.Framework;
 
-namespace Test.Omics
+namespace Test.Omics.SampleInfo
 {
     /// <summary>
     /// Tests for ISampleInfo interface contract using real implementations.
