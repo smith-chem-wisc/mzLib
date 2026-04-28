@@ -64,16 +64,17 @@ namespace Test.RetentionTimePrediction
             // verifies the default interface implementation works correctly.
         }
 
-        // ── Chronologer shared instance (expensive to construct) ──────────
+        // ── Chronologer shared instance (expensive to construct, lazy) ────
+        //
+        // Lazy init isolates TorchSharp model load to the three Chronologer-using
+        // tests; failures there do not collateral-fail the mock-only tests in
+        // this fixture.
 
-        private static ChronologerRetentionTimePredictor _chronologer;
+        private static ChronologerRetentionTimePredictor? _chronologer;
 
-        [OneTimeSetUp]
-        public static void OneTimeSetUp()
-        {
-            _chronologer = new ChronologerRetentionTimePredictor(
+        private static ChronologerRetentionTimePredictor Chronologer =>
+            _chronologer ??= new ChronologerRetentionTimePredictor(
                 SequenceConversionHandlingMode.RemoveIncompatibleElements);
-        }
 
         [OneTimeTearDown]
         public static void OneTimeTearDown()
@@ -227,13 +228,13 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void ChronologerRetentionTimePredictor_ImplementsIRetentionTimePredictor()
         {
-            Assert.That(_chronologer, Is.InstanceOf<IRetentionTimePredictor>());
+            Assert.That(Chronologer, Is.InstanceOf<IRetentionTimePredictor>());
         }
 
         [Test]
         public void ChronologerRetentionTimePredictor_PredictRetentionTimes_DefaultBatch_Works()
         {
-            IRetentionTimePredictor iPredictor = _chronologer;
+            IRetentionTimePredictor iPredictor = Chronologer;
 
             var peptides = new List<IRetentionPredictable>
             {
@@ -251,7 +252,7 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void ChronologerRetentionTimePredictor_PredictRetentionTimes_ReturnsIReadOnlyDictionary()
         {
-            IRetentionTimePredictor iPredictor = _chronologer;
+            IRetentionTimePredictor iPredictor = Chronologer;
 
             var results = iPredictor.PredictRetentionTimes(new List<IRetentionPredictable>
             {
@@ -326,10 +327,10 @@ namespace Test.RetentionTimePrediction
             Assert.That(failureReason, Is.Not.Null);
         }
 
-        // ── Live API tests (excluded from CI) ─────────────────────────────
+        // ── Live API tests (run in CI under the Integration category) ────
 
         [Test]
-        [Explicit("Requires live Koina API access")]
+        [Category("Integration")]
         public void Prosit2019iRT_PredictRetentionTimes_BatchOverride_ReturnsResults()
         {
             IRetentionTimePredictor predictor = new
@@ -350,7 +351,7 @@ namespace Test.RetentionTimePrediction
         }
 
         [Test]
-        [Explicit("Requires live Koina API access")]
+        [Category("Integration")]
         public void Prosit2019iRT_PredictRetentionTimes_MixedValidInvalid_InvalidReturnsNull()
         {
             // Regression test for the pre-existing ModelInputs index bug.

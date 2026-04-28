@@ -42,6 +42,8 @@ public interface IRetentionTimePredictor
     /// Duplicate <c>FullSequence</c> entries result in redundant prediction work in the
     /// default implementation (the last result silently overwrites earlier ones in the
     /// output dictionary).
+    ///
+    /// Null elements in <paramref name="peptides"/> are skipped.
     /// </summary>
     /// <exception cref="ArgumentNullException">
     /// Thrown when <paramref name="peptides"/> is null.
@@ -54,7 +56,11 @@ public interface IRetentionTimePredictor
 
         var results = new Dictionary<string, double?>();
         foreach (var peptide in peptides)
+        {
+            if (peptide is null)
+                continue;
             results[peptide.FullSequence] = PredictRetentionTime(peptide, out _);
+        }
 
         return new ReadOnlyDictionary<string, double?>(results);
     }
