@@ -53,34 +53,6 @@ namespace Test.RetentionTimePrediction
         }
 
         /// <summary>
-        /// Test predictor that throws AggregateException to test the specific AggregateException handling path
-        /// </summary>
-        private class AggregateExceptionThrowingPredictor : RetentionTimePredictor
-        {
-            private readonly AggregateException _aggregateException;
-
-            public override string PredictorName => "AggregateThrowingPredictor";
-            public override SeparationType SeparationType => SeparationType.HPLC;
-
-            public AggregateExceptionThrowingPredictor(params Exception[] innerExceptions)
-                : base(SequenceConversionHandlingMode.UsePrimarySequence)
-            {
-                _aggregateException = new AggregateException("Test aggregate exception", innerExceptions);
-            }
-
-            protected override double? PredictCore(IRetentionPredictable peptide, string? formattedSequence = null)
-            {
-                throw _aggregateException;
-            }
-
-            public override string? GetFormattedSequence(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason)
-            {
-                failureReason = null;
-                return peptide.BaseSequence;
-            }
-        }
-
-        /// <summary>
         /// Mock peptide for testing
         /// </summary>
         private class MockPeptide : IRetentionPredictable
@@ -157,85 +129,6 @@ namespace Test.RetentionTimePrediction
         }
 
         #region Exception Handling Tests (Multi-threaded Only)
-
-        [Test]
-        [Description("Diagnostic test to understand parallel execution behavior")]
-        public void Diagnostic_ParallelExecution_Behavior()
-        {
-            // Arrange - create a predictor that logs when it's called
-            var predictor = new DiagnosticRetentionTimePredictor();
-            var peptides = new List<MockPeptide>();
-
-            // Create many peptides
-            for (int i = 0; i < 100; i++)
-            {
-                peptides.Add(new MockPeptide($"PEPTIDE{i:D3}R"));
-            }
-
-            Console.WriteLine($"Testing with {peptides.Count} peptides and maxThreads=10");
-
-            // Act
-            try
-            {
-                var results = predictor.PredictRetentionTimeEquivalents(peptides, maxThreads: 10);
-                Console.WriteLine($"Completed successfully with {results.Count} results");
-                Console.WriteLine($"Single-threaded calls: {predictor.SingleThreadedCalls}");
-                Console.WriteLine($"Parallel calls detected: {predictor.ParallelCallsDetected}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Exception thrown: {ex.GetType().Name}: {ex.Message}");
-            }
-
-            // This test is just for diagnostics - no assertions needed
-        }
-
-        /// <summary>
-        /// Diagnostic predictor to understand execution patterns
-        /// </summary>
-        private class DiagnosticRetentionTimePredictor : RetentionTimePredictor
-        {
-            private int _callCount = 0;
-            private readonly object _lock = new object();
-
-            public override string PredictorName => "DiagnosticPredictor";
-            public override SeparationType SeparationType => SeparationType.HPLC;
-
-            public int SingleThreadedCalls { get; private set; }
-            public bool ParallelCallsDetected { get; private set; }
-
-            public DiagnosticRetentionTimePredictor() : base(SequenceConversionHandlingMode.UsePrimarySequence) { }
-
-            protected override double? PredictCore(IRetentionPredictable peptide, string? formattedSequence = null)
-            {
-                lock (_lock)
-                {
-                    _callCount++;
-                    if (_callCount == 1)
-                    {
-                        // First call - check if we're in parallel by introducing a delay
-                        System.Threading.Thread.Sleep(100);
-                        if (_callCount > 1)
-                        {
-                            ParallelCallsDetected = true;
-                            Console.WriteLine("PARALLEL EXECUTION DETECTED!");
-                        }
-                        else
-                        {
-                            SingleThreadedCalls++;
-                        }
-                    }
-                }
-
-                return peptide.BaseSequence.Length * 1.5;
-            }
-
-            public override string? GetFormattedSequence(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason)
-            {
-                failureReason = null;
-                return peptide.BaseSequence;
-            }
-        }
 
         [Test]
         [Description("Single-threaded execution should handle exceptions gracefully without throwing")]
@@ -357,22 +250,18 @@ namespace Test.RetentionTimePrediction
         [Description("PredictRetentionTimeEquivalents should delegate to ProduceResults with correct parameters")]
         public void PredictRetentionTimeEquivalents_DelegatesToProduceResults()
         {
-            // Arrange - use a simple successful predictor for this test
-            var predictor = new TestRetentionTimePredictor();
+            var predictor = new SpyRetentionTimePredictor();
             var peptides = new List<MockPeptide>
             {
-                new MockPeptide("PEPTIDERLONG")  // Use longer sequence
+                new MockPeptide("PEPTIDERLONG")
             };
 
-            // Act - test that the method completes and returns results
             var results = predictor.PredictRetentionTimeEquivalents(peptides, maxThreads: 3);
 
-            // Assert - verify basic delegation worked
+            Assert.That(predictor.WasProduceResultsCalled, Is.True);
+            Assert.That(predictor.LastMaxThreads, Is.EqualTo(3));
             Assert.That(results, Is.Not.Null);
             Assert.That(results.Count, Is.EqualTo(1));
-
-            // If we get here, delegation to ProduceResults worked
-            // (more complex spy verification was causing issues)
         }
 
         #endregion

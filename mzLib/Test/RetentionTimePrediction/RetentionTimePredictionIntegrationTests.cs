@@ -1,4 +1,4 @@
-using NUnit.Framework;
+﻿using NUnit.Framework;
 using Chromatography.RetentionTimePrediction;
 using Chromatography.RetentionTimePrediction.Chronologer;
 using Chromatography.RetentionTimePrediction.SSRCalc;
@@ -207,13 +207,13 @@ namespace Test.RetentionTimePrediction
         [Test]
         public void Integration_LongPeptide_PredictorsHandleOrReject()
         {
-            var longSequence = new string('A', 60);
+            var longSequence = new string('A', 60); // Longer than typical limit
             var peptide = new PeptideWithSetModifications(longSequence, new Dictionary<string, Modification>());
-
+            
             foreach (var predictor in _predictors)
             {
                 var result = predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
-
+                
                 if (result == null)
                 {
                     Assert.That(failureReason, Is.Not.Null,

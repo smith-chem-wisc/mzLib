@@ -1,4 +1,4 @@
-namespace Chromatography.RetentionTimePrediction;
+﻿namespace Chromatography.RetentionTimePrediction;
 
 /// <summary>
 /// Contract for a retention time predictor. Implementations produce a predicted
@@ -35,10 +35,12 @@ public interface IRetentionTimePredictor : IDisposable
     /// Name/identifier for this predictor (e.g., "SSRCalc3", "Chronologer")
     /// </summary>
     string PredictorName { get; }
+
     /// <summary>
     /// Gets the separation type this predictor is designed for
     /// </summary>
     SeparationType SeparationType { get; }
+
     /// <summary>
     /// Predicts a retention time equivalent for a given peptide.
     /// The value may represent a time, iRT, or hydrophobicity depending on the predictor.
@@ -46,14 +48,17 @@ public interface IRetentionTimePredictor : IDisposable
     /// </summary>
     /// <returns>Predicted value in predictor-specific units, or null if prediction not possible</returns>
     double? PredictRetentionTimeEquivalent(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason);
+
     /// <summary>
     /// Predicts retention time equivalents for a batch of peptides.
     /// Results are materialized and safe to enumerate multiple times.
     /// </summary>
+    /// <remarks>
+    /// <b>Order is not guaranteed.</b> Pair predictions to inputs via the
+    /// <c>Peptide</c> element of each tuple, not by index — implementations may run
+    /// in parallel and emit completed items in any order.
+    /// </remarks>
     IReadOnlyList<(double? PredictedValue, IRetentionPredictable Peptide, RetentionTimeFailureReason? FailureReason)> PredictRetentionTimeEquivalents(IEnumerable<IRetentionPredictable> peptides, int maxThreads = 1);
-    /// <inheritdoc cref="PredictRetentionTimeEquivalent"/>
-    [Obsolete("Use PredictRetentionTimeEquivalent instead.")]
-    public double? PredictRetentionTime(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason)
-        => PredictRetentionTimeEquivalent(peptide, out failureReason);
+
     public string? GetFormattedSequence(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason);
-}
+}

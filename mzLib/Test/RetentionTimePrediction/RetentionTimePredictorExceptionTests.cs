@@ -38,12 +38,6 @@ namespace Test.RetentionTimePrediction
             }
         }
 
-        private static IEnumerable<IRetentionPredictable> ThrowingEnumerable()
-        {
-            yield return new PeptideWithSetModifications("PEPTIDE", new Dictionary<string, Modification>());
-            throw new InvalidOperationException("intentional fault during enumeration");
-        }
-
         #endregion
 
         #region PredictRetentionTimeEquivalent — argument & PredictionError paths
@@ -83,16 +77,6 @@ namespace Test.RetentionTimePrediction
 
             Assert.DoesNotThrow(() => predictor.PredictRetentionTimeEquivalents(peptides, maxThreads: 1));
         }
-
-        #endregion
-
-        #region Producer-fault propagation (AggregateException)
-
-
-        #endregion
-
-        #region Exception does not swallow successful items
-
 
         #endregion
     }

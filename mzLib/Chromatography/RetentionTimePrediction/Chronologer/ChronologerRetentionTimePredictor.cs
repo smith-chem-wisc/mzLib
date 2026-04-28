@@ -1,4 +1,4 @@
-using TorchSharp;
+﻿using TorchSharp;
 using static TorchSharp.torch;
 using Omics.SequenceConversion;
 

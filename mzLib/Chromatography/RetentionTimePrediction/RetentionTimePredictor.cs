@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 
 namespace Chromatography.RetentionTimePrediction;
 
-public abstract class RetentionTimePredictor : IRetentionTimePredictor, IDisposable
+public abstract class RetentionTimePredictor : IRetentionTimePredictor
 {
     /// <summary>
     /// The 20 standard proteinogenic amino-acid one-letter codes. Stored as a
@@ -28,34 +28,6 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor, IDisposa
     public virtual SequenceConversionHandlingMode SequenceHandlingMode { get; }
     protected virtual int MinSequenceLength => 7;
     protected virtual int MaxSequenceLength => int.MaxValue;
-
-    /// <summary>
-    /// Indicates whether <see cref="PredictCore"/> and <see cref="GetFormattedSequence"/>
-    /// are safe to invoke concurrently on the same instance from multiple threads.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Default is <c>false</c></b> — a safe default for any subclass that has not been
-    /// explicitly audited for concurrency. When this property is <c>false</c>, the batch
-    /// pipeline (<see cref="PredictRetentionTimeEquivalents"/> and
-    /// <see cref="StreamRetentionTimeEquivalents"/>) transparently collapses the degree of
-    /// parallelism to 1, regardless of the <c>maxThreads</c> argument. This prevents
-    /// silently corrupt predictions from races on mutable predictor state (models, caches,
-    /// accumulators) without forcing the caller to know the internals of each predictor.
-    /// </para>
-    /// <para>
-    /// <b>Subclasses should override this property to return <c>true</c></b> only when
-    /// every invocation of <see cref="PredictCore"/> and <see cref="GetFormattedSequence"/>
-    /// either reads exclusively from immutable / readonly state or is otherwise fully
-    /// reentrant (no shared mutable fields, no non-reentrant native handles, no locks that
-    /// would merely re-serialize threads defeating the parallel path).
-    /// </para>
-    /// <para>
-    /// This gate affects batch parallelism only. Single-call predictions via
-    /// <see cref="PredictRetentionTimeEquivalent"/> are unaffected: callers always control
-    /// thread use at that entry point.
-    /// </para>
-    /// </remarks>
 
     protected RetentionTimePredictor(SequenceConversionHandlingMode sequenceHandlingMode = SequenceConversionHandlingMode.UsePrimarySequence)
     {
@@ -91,13 +63,12 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor, IDisposa
         => PredictRetentionTimeEquivalent(peptide, out failureReason);
 
     /// <summary>
-    /// Core prediction logic — called when a peptide has passed all validation.
+    /// Core prediction logic - called when peptide passes all validation
     /// </summary>
     /// <remarks>
-    /// Implementations that are safe to invoke concurrently on the same instance
-    /// from multiple threads MUST also override <see cref="IsConcurrentPredictionSafe"/>
-    /// to return <c>true</c>. Otherwise the batch pipeline will run this method
-    /// single-threaded on this instance, regardless of the caller's <c>maxThreads</c>.
+    /// Implementations are responsible for their own thread-safety. The batch pipeline
+    /// in <see cref="PredictRetentionTimeEquivalents"/> may invoke this method
+    /// concurrently from multiple worker threads when <c>maxThreads &gt; 1</c>.
     /// </remarks>
     protected abstract double? PredictCore(IRetentionPredictable peptide, string? formattedSequence = null);
 
@@ -107,9 +78,9 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor, IDisposa
     /// (using ceiling division) so each worker processes a contiguous slice of roughly equal size
     /// (e.g. 100 000 peptides / 10 threads = 10 000 each). When the peptide count is smaller than
     /// <paramref name="maxThreads"/>, the number of partitions equals the peptide count.
-    /// Both <see cref="PredictRetentionTimeEquivalents"/> and <see cref="StreamRetentionTimeEquivalents"/>
-    /// delegate here. Predictors that support true batched inference (e.g. Chronologer) should
-    /// override <see cref="PredictRetentionTimeEquivalents"/> instead of this method.
+    /// <see cref="PredictRetentionTimeEquivalents"/> delegates here. Predictors that support
+    /// true batched inference (e.g. Chronologer) should override
+    /// <see cref="PredictRetentionTimeEquivalents"/> instead of this method.
     /// </summary>
     /// <remarks>
     /// Exception handling contract:
@@ -133,9 +104,6 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor, IDisposa
     private IEnumerable<(double? PredictedValue, IRetentionPredictable Peptide, RetentionTimeFailureReason? FailureReason)> ProduceResults(
         IEnumerable<IRetentionPredictable> peptides, int maxThreads = 1)
     {
-        // Gate: predictors that have not opted in to concurrent prediction are run
-        // single-threaded regardless of caller-supplied maxThreads. See
-        // IsConcurrentPredictionSafe for the rationale.
         int effectiveThreads = maxThreads < 1 ? 1 : maxThreads;
 
         // Fast path: when there is no parallelism to exploit, bypass BlockingCollection +
@@ -153,6 +121,13 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor, IDisposa
             yield break;
         }
 
+        // Materialize on the caller's thread so exceptions from enumerating non-rewindable
+        // or thread-affine sources surface synchronously, and the source is enumerated
+        // exactly once.
+        var peptideList = peptides.ToList();
+        if (peptideList.Count == 0)
+            yield break;
+
         // BlockingCollection wraps a SemaphoreSlim (finalizable). Use a `using` declaration
         // so it's disposed when the iterator state machine is disposed — i.e. when the caller's
         // foreach drains or the enumerator is otherwise disposed — rather than leaking one
@@ -164,10 +139,6 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor, IDisposa
         {
             try
             {
-                var peptideList = peptides.ToList();
-                if (peptideList.Count == 0)
-                    return;
-
                 // Ceiling division so we produce at most `effectiveThreads` partitions.
                 // Floor division would yield rangeSize=1 whenever peptideList.Count < 2*effectiveThreads,
                 // creating one partition per peptide and adding needless scheduling overhead.
@@ -184,6 +155,10 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor, IDisposa
                             collection.Add((value, peptideList[i], reason));
                         }
                     });
+            }
+            catch (Exception ex)
+            {
+                producerExceptions.Enqueue(ex);
             }
             finally
             {
@@ -208,10 +183,14 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor, IDisposa
     /// Default batch implementation — parallel production, materialized result.
     /// Predictors that support true batched inference (e.g. Chronologer) should override this method.
     /// </summary>
-    /// <param name="maxThreads">Degree of parallelism; must be at least 1.</param>
-    /// <exception cref="ArgumentOutOfRangeException">
-    /// Thrown when <paramref name="maxThreads"/> is less than 1.
-    /// </exception>
+    /// <remarks>
+    /// <b>Result order is not guaranteed.</b> Items in the returned list reflect worker
+    /// completion order, not the order of <paramref name="peptides"/>. Each tuple carries
+    /// its source <c>Peptide</c> reference, so callers should pair predictions to inputs
+    /// via the tuple element rather than by index. Do not assume
+    /// <c>results[i].Peptide == peptides.ElementAt(i)</c>.
+    /// </remarks>
+    /// <param name="maxThreads">Degree of parallelism; values less than 1 are clamped to 1.</param>
     /// <exception cref="AggregateException">
     /// Thrown if the background producer encountered one or more unhandled exceptions while
     /// enumerating or partitioning the input. Per-peptide prediction errors are reported via the
