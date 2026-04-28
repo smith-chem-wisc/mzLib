@@ -1,14 +1,14 @@
-﻿using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using NUnit.Framework;
 using NUnit.Framework.Legacy;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
 using Readers;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
-namespace Test
+namespace Test.FileReadingTests.SpectralLibraryTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -45,7 +45,7 @@ namespace Test
             string psmFile = @"FileReadingTests\SearchResults\XL_Intralinks.tsv";
             List<PsmFromTsv> parsedPsms = SpectrumMatchTsvReader.ReadPsmTsv(psmFile, out var warnings);
             Assert.AreEqual(6, parsedPsms.Count);
-            Assert.That(parsedPsms[0].UniqueSequence, Is.EqualTo("LLDNAAADLAAISGQKPLITKAR(21)ITLNMGVGEAIADKK(14)"));
+            NUnit.Framework.Assert.That(parsedPsms[0].UniqueSequence, Is.EqualTo("LLDNAAADLAAISGQKPLITKAR(21)ITLNMGVGEAIADKK(14)"));
         }
 
         [Test]
@@ -54,7 +54,7 @@ namespace Test
             string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\XL_Intralinks.tsv");
             List<string> warnings = new();
             List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out warnings).ToList();
-            Assert.That(warnings.Count == 0);
+            NUnit.Framework.Assert.That(warnings.Count == 0);
 
             CrosslinkLibrarySpectrum librarySpectrum = psms[0].ToLibrarySpectrum() as CrosslinkLibrarySpectrum;
             Assert.IsNotNull(librarySpectrum);

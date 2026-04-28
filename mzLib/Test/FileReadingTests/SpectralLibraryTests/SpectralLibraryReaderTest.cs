@@ -1,13 +1,13 @@
-﻿using NUnit.Framework;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Collections.Generic;
-using Omics.Fragmentation;
-using Readers.SpectralLibrary;
-using Omics.SpectrumMatch;
+using NUnit.Framework;
 using NUnit.Framework.Legacy;
+using Omics.Fragmentation;
+using Omics.SpectrumMatch;
+using Readers.SpectralLibrary;
 
-namespace Test
+namespace Test.FileReadingTests.SpectralLibraryTests
 {
     [TestFixture]
     public static class SpectralLibraryTest
@@ -15,7 +15,7 @@ namespace Test
         [Test]
         public static void SpectralLibraryReaderTest()
         {
-            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\myPrositLib.msp");
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\myPrositLib.msp");
 
             var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { path });
             var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
@@ -77,7 +77,7 @@ namespace Test
             }
 
             // write the library w/ the ToString method
-            var writtenPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\testLibraryToString.msp");
+            var writtenPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\testLibraryToString.msp");
             var str = librarySpectra.SelectMany(p => p.ToString().Split(new char[] { '\n' }));
             File.WriteAllLines(writtenPath, str);
 
@@ -116,7 +116,7 @@ namespace Test
         [Test]
         public static void SpectralLibraryReaderTestNeutralLoss()
         {
-            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\spectralLibraryNeutralLossTest.msp");
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\spectralLibraryNeutralLossTest.msp");
 
             var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { path });
             var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
@@ -170,7 +170,7 @@ namespace Test
             }
 
             // write the library w/ the ToString method
-            var writtenPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\testLibraryToString.msp");
+            var writtenPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\testLibraryToString.msp");
             var str = librarySpectra.SelectMany(p => p.ToString().Split(new char[] { '\n' }));
             File.WriteAllLines(writtenPath, str);
 
@@ -192,7 +192,7 @@ namespace Test
                 var readFrag = test1.MatchedFragmentIons[i];
 
                 Assert.That(frag.mz == readFrag.Mz);
-                Assert.That((frag.intensity / maxOfIntensity) == readFrag.Intensity);
+                Assert.That(frag.intensity / maxOfIntensity == readFrag.Intensity);
                 Assert.That(frag.ProductType == readFrag.NeutralTheoreticalProduct.ProductType);
                 Assert.That(frag.fragmentNumber == readFrag.NeutralTheoreticalProduct.FragmentNumber);
                 Assert.That(frag.charge == readFrag.Charge);
@@ -206,7 +206,7 @@ namespace Test
         [Test]
         public static void SpectralLibraryReaderTest_pDeep()
         {
-            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\yeast2fake_pdeep_lib.msp");
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\yeast2fake_pdeep_lib.msp");
 
             var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { path });
             var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
@@ -248,7 +248,7 @@ namespace Test
             }
 
             // write the library w/ the ToString method
-            var writtenPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\testLibraryToString.msp");
+            var writtenPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\testLibraryToString.msp");
             var str = librarySpectra.SelectMany(p => p.ToString().Split(new char[] { '\n' }));
             File.WriteAllLines(writtenPath, str);
 
@@ -277,7 +277,7 @@ namespace Test
                 var readFrag = test1.MatchedFragmentIons[i];
 
                 Assert.That(frag.mz == readFrag.Mz);
-                Assert.That((frag.intensity/ maxOfIntensity) == readFrag.Intensity);
+                Assert.That(frag.intensity/ maxOfIntensity == readFrag.Intensity);
                 Assert.That(frag.ProductType == readFrag.NeutralTheoreticalProduct.ProductType);
                 Assert.That(frag.fragmentNumber == readFrag.NeutralTheoreticalProduct.FragmentNumber);
                 Assert.That(frag.charge == readFrag.Charge);
@@ -312,7 +312,7 @@ namespace Test
         [Test]
         public static void TestNegativeIonReading()
         {
-            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\RnaSpectralLibrary.msp");
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\RnaSpectralLibrary.msp");
 
             var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { path });
             var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
@@ -345,7 +345,7 @@ namespace Test
                 var readFrag = spectrum1.MatchedFragmentIons[i];
 
                 Assert.That(frag.mz == readFrag.Mz);
-                Assert.That((frag.intensity / maxOfIntensity) == readFrag.Intensity);
+                Assert.That(frag.intensity / maxOfIntensity == readFrag.Intensity);
                 Assert.That(frag.ProductType == readFrag.NeutralTheoreticalProduct.ProductType);
                 Assert.That(frag.fragmentNumber == readFrag.NeutralTheoreticalProduct.FragmentNumber);
                 Assert.That(frag.charge == readFrag.Charge);
@@ -355,7 +355,7 @@ namespace Test
         [Test]
         public static void WriteXlSpectralLibraryTest()
         {
-            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\SpectralLibrary_XL.msp");
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\SpectralLibrary_XL.msp");
             var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { path });
 
             // Check that SinglePeptides are written
@@ -393,7 +393,7 @@ namespace Test
         [Test]
         public static void SpectralLibraryReader_Ms2Pip()
         {
-            var libraryPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\test_ms2pip.msp"); ;
+            var libraryPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\test_ms2pip.msp"); ;
             var pathList = new List<string> { libraryPath }; 
             var library = new SpectralLibrary(pathList);
             var librarySpectra = library.GetAllLibrarySpectra().ToList();
