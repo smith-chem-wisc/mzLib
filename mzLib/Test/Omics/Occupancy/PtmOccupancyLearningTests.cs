@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
-namespace Test.Omics;
+namespace Test.Omics.Occupancy;
 
 /// <summary>
 /// Educational unit tests for understanding how PTM occupancy is calculated
