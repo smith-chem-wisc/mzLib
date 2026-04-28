@@ -1,21 +1,21 @@
-using Chemistry;
-using Readers;
-using MassSpectrometry;
-using MzLibUtil;
-using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using Chemistry;
+using MassSpectrometry;
+using MzLibUtil;
+using NUnit.Framework;
 using Omics.Digestion;
 using Omics.Modifications;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
+using Readers;
 using Test.FileReadingTests;
 
-namespace Test
+namespace Test.MassSpectrometryTests.Deconvolution
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]
@@ -320,7 +320,7 @@ namespace Test
             //The primary monoisotopic mass should be the same regardless of which peak in which charge state was selected for isolation.
             //this case is interesting because other monoisotopic mass may have a sodium adduct. The unit test could be expanded to consider this.
             //Updated the tolerance on this test to be 5 ppm (which felt reasonable to me? --JGP)
-            double ppmwidth = (14037.926829 / 1e6) * 5;
+            double ppmwidth = 14037.926829 / 1e6 * 5;
             bool isAnyEqual1 = monoIsotopicMasses.Any(m =>  m >= 14037.926829 - ppmwidth && m <= 14037.926826 + ppmwidth);
             bool isAnyEqual2 = monoIsotopicMasses2.Any(m => m >= 14037.926829 - ppmwidth && m <= 14037.926826 + ppmwidth);
             Assert.That(isAnyEqual1);
@@ -403,7 +403,7 @@ namespace Test
             Assert.Throws<NotImplementedException>(() => _ = Deconvoluter.Deconvolute(scan, deconParams).ToList());
 
             // test default exceptions in deconvoluter
-            var badEnumValue = (DeconvolutionType)Int32.MaxValue;
+            var badEnumValue = (DeconvolutionType)int.MaxValue;
             deconParams.GetType().GetProperty("DeconvolutionType")!.SetValue(deconParams, badEnumValue);
             Assert.Throws<MzLibException>(() => _ = Deconvoluter.Deconvolute(spectrum, deconParams).ToList());
             Assert.Throws<MzLibException>(() => _ = Deconvoluter.Deconvolute(scan, deconParams).ToList());

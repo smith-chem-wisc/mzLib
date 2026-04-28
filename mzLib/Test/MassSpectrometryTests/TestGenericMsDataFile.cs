@@ -7,13 +7,12 @@ using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Proteomics.AminoAcidPolymer;
-using Proteomics; 
-using Readers;
-using Proteomics.ProteolyticDigestion;
 using Omics.Modifications;
+using Proteomics.AminoAcidPolymer;
+using Proteomics.ProteolyticDigestion;
+using Readers;
 
-namespace Test;
+namespace Test.MassSpectrometryTests;
 
 [ExcludeFromCodeCoverage]
 public class TestGenericMsDataFile
@@ -48,7 +47,7 @@ public class TestGenericMsDataFile
     {
         // Tests to see if any errors are thrown in the constructors
         var sf = new SourceFile("no nativeID format", "mgf format", null, null, null);
-        string dummyPath = String.Empty;
+        string dummyPath = string.Empty;
         GenericMsDataFile gFile2 = new GenericMsDataFile(_scans, sf);
         GenericMsDataFile gFile3 = new GenericMsDataFile(_scans.Length, sf);
         GenericMsDataFile gFile4 = new GenericMsDataFile(dummyPath); 

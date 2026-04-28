@@ -1,11 +1,9 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using Chemistry;
 using MassSpectrometry;
 using NUnit.Framework;
 
-namespace Test
+namespace Test.MassSpectrometryTests.Deconvolution
 {
     /// <summary>
     /// Tests that validate DeconvolutionScorer against independently sourced

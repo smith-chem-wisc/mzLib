@@ -26,7 +26,7 @@ using Chemistry;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test
+namespace Test.MassSpectrometryTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -338,10 +338,10 @@ namespace Test
             Assert.IsFalse(identicalSpectrum.Equals((object)_mzSpectrumA));
             Assert.AreNotEqual(identicalSpectrum.GetHashCode(), _mzSpectrumA.GetHashCode());
 
-            Assert.That(!_mzSpectrumA.Equals(null));
-            Assert.That(!_mzSpectrumA.Equals((object)null));
-            Assert.That(!_mzSpectrumA.Equals(2));
-            Assert.That(!_mzSpectrumA.Equals((object)2));
+            NUnit.Framework.Assert.That(!_mzSpectrumA.Equals(null));
+            NUnit.Framework.Assert.That(!_mzSpectrumA.Equals((object)null));
+            NUnit.Framework.Assert.That(!_mzSpectrumA.Equals(2));
+            NUnit.Framework.Assert.That(!_mzSpectrumA.Equals(2));
         }
 
         #region Neutral Mass Spectrum
@@ -355,9 +355,9 @@ namespace Test
 
             var spectrum = new NeutralMassSpectrum(monoisotopicMasses, intensities, charges, true);
 
-            Assert.That(monoisotopicMasses.Length, Is.EqualTo(spectrum.XArray.Length));
-            Assert.That(intensities.Length, Is.EqualTo(spectrum.YArray.Length));
-            Assert.That(charges.Length, Is.EqualTo(spectrum.Charges.Length));
+            NUnit.Framework.Assert.That(monoisotopicMasses.Length, Is.EqualTo(spectrum.XArray.Length));
+            NUnit.Framework.Assert.That(intensities.Length, Is.EqualTo(spectrum.YArray.Length));
+            NUnit.Framework.Assert.That(charges.Length, Is.EqualTo(spectrum.Charges.Length));
         }
 
         [Test]
@@ -368,7 +368,7 @@ namespace Test
             int[] charges = { 1, 2, 3 };
             bool shouldCopy = true;
 
-            Assert.Throws<ArgumentException>(() => new NeutralMassSpectrum(monoisotopicMasses, intensities, charges, shouldCopy));
+            NUnit.Framework.Assert.Throws<ArgumentException>(() => new NeutralMassSpectrum(monoisotopicMasses, intensities, charges, shouldCopy));
         }
 
         [Test]
@@ -381,7 +381,7 @@ namespace Test
 
 
             var peak = spectrum.Extract(50, 210).ToArray();
-            Assert.That(peak.Length, Is.EqualTo(2));
+            NUnit.Framework.Assert.That(peak.Length, Is.EqualTo(2));
 
             for (int i = 0; i < peak.Length; i++)
             {
@@ -390,8 +390,8 @@ namespace Test
                 double intensity = intensities[i];
                 double mz = mono.ToMz(charge);
 
-                Assert.That(peak[i].Mz, Is.EqualTo(mz));
-                Assert.That(peak[i].Intensity, Is.EqualTo(intensity));
+                NUnit.Framework.Assert.That(peak[i].Mz, Is.EqualTo(mz));
+                NUnit.Framework.Assert.That(peak[i].Intensity, Is.EqualTo(intensity));
             }
         }
 
@@ -405,14 +405,14 @@ namespace Test
 
 
             var peak = spectrum.Extract(50, 2100).ToArray();
-            Assert.That(peak.Length, Is.EqualTo(3));
+            NUnit.Framework.Assert.That(peak.Length, Is.EqualTo(3));
             var minPeak = peak.MinBy(p => p.Mz);
             var maxPeak = peak.MaxBy(p => p.Mz);
 
-            Assert.That(minPeak.Mz, Is.EqualTo(spectrum.Range.Minimum));
-            Assert.That(minPeak.Mz, Is.EqualTo(spectrum.FirstX));
-            Assert.That(maxPeak.Mz, Is.EqualTo(spectrum.Range.Maximum));
-            Assert.That(maxPeak.Mz, Is.EqualTo(spectrum.LastX));
+            NUnit.Framework.Assert.That(minPeak.Mz, Is.EqualTo(spectrum.Range.Minimum));
+            NUnit.Framework.Assert.That(minPeak.Mz, Is.EqualTo(spectrum.FirstX));
+            NUnit.Framework.Assert.That(maxPeak.Mz, Is.EqualTo(spectrum.Range.Maximum));
+            NUnit.Framework.Assert.That(maxPeak.Mz, Is.EqualTo(spectrum.LastX));
 
             for (int i = 0; i < peak.Length; i++)
             {
@@ -421,8 +421,8 @@ namespace Test
                 double intensity = intensities[i];
                 double mz = mono.ToMz(charge);
 
-                Assert.That(peak[i].Mz, Is.EqualTo(mz));
-                Assert.That(peak[i].Intensity, Is.EqualTo(intensity));
+                NUnit.Framework.Assert.That(peak[i].Mz, Is.EqualTo(mz));
+                NUnit.Framework.Assert.That(peak[i].Intensity, Is.EqualTo(intensity));
             }
         }
 
@@ -448,7 +448,7 @@ namespace Test
             int[] charges = new int[] { 1, 2, 3 };
 
             // Act & Assert
-            Assert.Throws<ArgumentException>(() => new NeutralMassSpectrum(monoisotopicMassesIntensities, charges));
+            NUnit.Framework.Assert.Throws<ArgumentException>(() => new NeutralMassSpectrum(monoisotopicMassesIntensities, charges));
         }
 
         #endregion

@@ -5,7 +5,7 @@ using Chemistry;
 using MassSpectrometry;
 using NUnit.Framework;
 
-namespace Test
+namespace Test.MassSpectrometryTests.Deconvolution
 {
     [TestFixture]
     public sealed class TestScoreEnvelopesNullHandling

@@ -15,18 +15,18 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Tests. If not, see <http://www.gnu.org/licenses/>.
 
+using System;
+using System.Linq;
 using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Proteomics.AminoAcidPolymer;
-using System;
-using System.Linq;
 using Test.FileReadingTests;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test
+namespace Test.MassSpectrometryTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]

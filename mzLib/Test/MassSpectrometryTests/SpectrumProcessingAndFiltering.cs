@@ -1,16 +1,16 @@
-﻿using Chemistry;
-using Readers;
-using MassSpectrometry;
-using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Chemistry;
+using MassSpectrometry;
+using NUnit.Framework;
+using Readers;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
-namespace Test
+namespace Test.MassSpectrometryTests
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]
@@ -28,7 +28,7 @@ namespace Test
 
             for (int i = 0; i < 100; i++)
             {
-                mzArray[i] = 100d + ((double)i / 100d) * 1900;
+                mzArray[i] = 100d + i / 100d * 1900;
                 intArray[i] = i;
             }
 
@@ -38,15 +38,15 @@ namespace Test
 
             if (nominalWindowWidthDaltons.HasValue)
             {
-                Assert.LessOrEqual((decimal)mzArray.Count(), (decimal)peaksToKeep * (decimal)nominalWindowWidthDaltons);
+                Assert.LessOrEqual(mzArray.Count(), peaksToKeep * (decimal)nominalWindowWidthDaltons);
             }
             else
             {
-                Assert.LessOrEqual((decimal)mzArray.Count(), (decimal)peaksToKeep * (decimal)1.0);
+                Assert.LessOrEqual(mzArray.Count(), peaksToKeep * (decimal)1.0);
             }
             if (normalize)
             {
-                Assert.That(50, Is.EqualTo(intArray.Max()).Within(0.1));
+                NUnit.Framework.Assert.That(50, Is.EqualTo(intArray.Max()).Within(0.1));
             }
         }
 
@@ -58,8 +58,8 @@ namespace Test
 
             for (int i = 0; i < 100; i++)
             {
-                mzArray[i] = (double)i;
-                intArray[i] = (double)i;
+                mzArray[i] = i;
+                intArray[i] = i;
             }
 
             FilteringParams f = new FilteringParams(null, 0.05, null, null, false, false, false);
@@ -79,8 +79,8 @@ namespace Test
 
             for (int i = 0; i < 200; i++)
             {
-                mzArray[i] = (double)(i + 1);
-                intArray[i] = (double)(i + 1);
+                mzArray[i] = i + 1;
+                intArray[i] = i + 1;
             }
 
             FilteringParams f = new FilteringParams(100, null, null, null, false, false, false);
@@ -103,8 +103,8 @@ namespace Test
 
             for (int i = 0; i < 200; i++)
             {
-                mzArray[i] = (double)(i + 1);
-                intArray[i] = (double)(i + 1);
+                mzArray[i] = i + 1;
+                intArray[i] = i + 1;
             }
 
             FilteringParams f = new FilteringParams(10, null, 20, 10, false, false, false);
@@ -129,8 +129,8 @@ namespace Test
 
             for (int i = 0; i < 200; i++)
             {
-                mzArray[i] = (double)(i + 1);
-                intArray[i] = (i * Math.Abs(r.Next(1, 100)) + 1d);
+                mzArray[i] = i + 1;
+                intArray[i] = i * Math.Abs(r.Next(1, 100)) + 1d;
             }
 
             List<double> l = intArray.ToList();
@@ -184,7 +184,7 @@ namespace Test
             double precursorIntensity = 0;
             for (int i = 0; i < spectrum.XArray.Length; i++)
             {
-                if (spectrum.XArray[i] > (241.122 - 1.5) && spectrum.XArray[i] < (241.122 + 1.5))
+                if (spectrum.XArray[i] > 241.122 - 1.5 && spectrum.XArray[i] < 241.122 + 1.5)
                 {
                     precursorIntensity += spectrum.YArray[i];
                 }
@@ -256,7 +256,7 @@ namespace Test
 
             for (int i = 0; i < expectedResults.Count; i++)
             {
-                Assert.That(double.Parse(expectedResults[i]), Is.EqualTo(xArrayProcessed[i]).Within(0.001));
+                NUnit.Framework.Assert.That(double.Parse(expectedResults[i]), Is.EqualTo(xArrayProcessed[i]).Within(0.001));
             }
             
         }
