@@ -1,12 +1,12 @@
-﻿using NUnit.Framework;
-using Omics.Modifications;
-using Proteomics.ProteolyticDigestion;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using NUnit.Framework;
+using Omics.Modifications;
+using Proteomics.ProteolyticDigestion;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
-namespace Test
+namespace Test.ProteomicsTests.ProteolyticDigestion
 {
     /// <summary>
     /// Tests for ProteaseDictionary embedded resource functionality,

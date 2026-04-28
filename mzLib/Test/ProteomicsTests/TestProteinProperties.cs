@@ -11,7 +11,7 @@ using Omics.Modifications;
 using Stopwatch = System.Diagnostics.Stopwatch;
 using Transcriptomics;
 
-namespace Test
+namespace Test.ProteomicsTests
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -297,10 +297,10 @@ namespace Test
             RNA rna = new RNA("GUACUG");
 
 
-            Assert.That(!rna.Equals(protein1));
-            Assert.That(!protein1.Equals(rna));
-            Assert.That(!((IBioPolymer)rna).Equals(protein1));
-            Assert.That(!((IBioPolymer)protein1).Equals(rna));
+            NUnit.Framework.Assert.That(!rna.Equals(protein1));
+            NUnit.Framework.Assert.That(!protein1.Equals(rna));
+            NUnit.Framework.Assert.That(!((IBioPolymer)rna).Equals(protein1));
+            NUnit.Framework.Assert.That(!((IBioPolymer)protein1).Equals(rna));
         }
 
         [Test]

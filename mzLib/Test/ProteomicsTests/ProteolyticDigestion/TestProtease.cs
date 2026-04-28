@@ -16,11 +16,11 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
-using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
+using Proteomics.AminoAcidPolymer;
 
-namespace Test
+namespace Test.ProteomicsTests.ProteolyticDigestion
 {
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     internal class TestProtease : IProtease

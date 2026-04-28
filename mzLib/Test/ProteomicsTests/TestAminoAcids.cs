@@ -16,14 +16,14 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with Proteomics. If not, see <http://www.gnu.org/licenses/>.
 
-using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using Proteomics.AminoAcidPolymer;
 using System;
 using System.Diagnostics.CodeAnalysis;
+using NUnit.Framework;
+using Proteomics.AminoAcidPolymer;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test
+namespace Test.ProteomicsTests
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]

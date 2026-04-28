@@ -1,26 +1,17 @@
-using Chemistry;
-using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
-using Proteomics;
-using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using MzLibUtil;
+using NUnit.Framework;
 using Omics;
-using Omics.BioPolymer;
 using Omics.Digestion;
-using Omics.Fragmentation;
 using Omics.Modifications;
-using Omics.SequenceConversion;
+using Proteomics;
+using Proteomics.ProteolyticDigestion;
 using Transcriptomics.Digestion;
-using UsefulProteomicsDatabases;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
-using Transcriptomics;
 
-namespace Test
+namespace Test.ProteomicsTests.ProteolyticDigestion
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]

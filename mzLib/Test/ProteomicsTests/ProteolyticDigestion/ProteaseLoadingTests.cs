@@ -1,28 +1,19 @@
-using Chemistry;
-using MassSpectrometry;
-using MzLibUtil;
-using NUnit.Framework;
-using Omics;
-using Omics.BioPolymer;
-using Omics.Digestion;
-using Omics.Fragmentation;
-using Omics.Modifications;
-using Proteomics;
-using Proteomics.AminoAcidPolymer;
-using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using Omics.Modifications.IO;
+using MzLibUtil;
+using NUnit.Framework;
+using Omics.Digestion;
+using Omics.Modifications;
+using Proteomics;
+using Proteomics.ProteolyticDigestion;
 using UsefulProteomicsDatabases;
-using static Chemistry.PeriodicTable;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
-using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test
+namespace Test.ProteomicsTests.ProteolyticDigestion
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -46,10 +37,10 @@ namespace Test
         [Test]
         public static void ProteaseLoader()
         {
-            string path1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteaseFilesForLoadingTests", "TestProteases_badMod.tsv");
-            string path2 = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteaseFilesForLoadingTests", "TestProteases_badMod_dupName.tsv");
-            string path3 = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteaseFilesForLoadingTests", "TestProteases_dupName.tsv");
-            string path4 = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteaseFilesForLoadingTests", "TestProteases_Mod_dupName.tsv");
+            string path1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteomicsTests", "ProteaseFilesForLoadingTests", "TestProteases_badMod.tsv");
+            string path2 = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteomicsTests", "ProteaseFilesForLoadingTests", "TestProteases_badMod_dupName.tsv");
+            string path3 = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteomicsTests", "ProteaseFilesForLoadingTests", "TestProteases_dupName.tsv");
+            string path4 = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteomicsTests", "ProteaseFilesForLoadingTests", "TestProteases_Mod_dupName.tsv");
             var proteaseMods = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "ProteaseMods.txt"), out var errors).ToList();
 
             NUnit.Framework.Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path1, proteaseMods));
