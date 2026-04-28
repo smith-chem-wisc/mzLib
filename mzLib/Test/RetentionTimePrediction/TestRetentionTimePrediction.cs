@@ -10,7 +10,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 using Chromatography.RetentionTimePrediction.CZE;
 using Omics.SequenceConversion;
 
-namespace Test
+namespace Test.RetentionTimePrediction
 {
     /*
      * Original author: Brendan MacLean <brendanx .at. u.washington.edu>,

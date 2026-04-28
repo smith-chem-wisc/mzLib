@@ -1,12 +1,11 @@
-﻿using NUnit.Framework;
-using System;
+﻿using System;
 using System.Diagnostics.CodeAnalysis;
-using mzIdentML111.Generated;
-using System.Windows.Media;
-using System.Xml.Serialization;
 using System.IO;
+using System.Xml.Serialization;
+using mzIdentML111.Generated;
+using NUnit.Framework;
 
-namespace Test
+namespace Test.MzIdentML
 {
     [TestFixture]
     [ExcludeFromCodeCoverage]

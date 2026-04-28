@@ -1,15 +1,15 @@
-﻿using NUnit.Framework;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using NUnit.Framework;
 using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 using PredictionClients.Koina.Util;
 using Readers.SpectralLibrary;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 
-namespace Test.KoinaTests
+namespace Test.KoinaTests.FragmentIntensityPrediction
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]

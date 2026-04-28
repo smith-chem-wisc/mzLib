@@ -1,15 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.IO;
 using MzIdentML;
-using MzLibUtil;
 using NUnit.Framework;
 
-namespace Test
+namespace Test.MzIdentML
 {
     [TestFixture]
     public class MzidIdentificationsTests
