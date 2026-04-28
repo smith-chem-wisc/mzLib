@@ -18,8 +18,8 @@ namespace Test.KoinaTests
         [Test]
         public static void TestKoinaProsit2020IntensityHCDModelWritesReadableSpectralLibrary()
         {
-            var experPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\myPrositLib.msp");
-            var predPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\koinaTestOutput.msp");
+            var experPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\myPrositLib.msp");
+            var predPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\koinaTestOutput.msp");
             SpectralLibrary testLibraryWithoutDecoy = null;
             SpectralLibrary spectralLibraryTest = null;
             try

@@ -1,4 +1,4 @@
-﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
+// Copyright 2012, 2013, 2014 Derek J. Bailey
 // Modified work copyright 2016 Stefan Solntsev
 //
 // This file (ChemicalFormulaTestFixture.cs) is part of Chemistry Library.
@@ -58,7 +58,8 @@ namespace Test.ChemistryTests
         [Test]
         public static void AddingExistingElementsTest()
         {
-            var elementC = new Element("GGG", 127, 12.0106);
+            var elementC = new Element("GGG", 127, 270);
+            elementC.AddIsotope(270, 270, 1.0);
             PeriodicTable.Add(elementC);
         }
     }
