@@ -1,12 +1,12 @@
-﻿using NUnit.Framework;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using NUnit.Framework;
 using Omics;
 using Omics.Fragmentation;
 using Omics.SpectralMatch;
 
-namespace Test.Omics
+namespace Test.Omics.SpectralMatchTests
 {
     /// <summary>
     /// Minimal tests for ISpectralMatch interface behavior.
@@ -78,7 +78,7 @@ namespace Test.Omics
         {
             // Arrange: create a source list containing a null entry and a real biopolymer
             var polymer = new MockBioPolymerWithSetMods("Z", "Z");
-            var identifiedList = new List<IBioPolymerWithSetMods?> { null, polymer };
+            var identifiedList = new List<IBioPolymerWithSetMods> { null, polymer };
 
             // Create match with the test list (constructor makes a defensive copy)
             var match = new MockSpectralMatch("f", "Z", "Z", score: 1, scanNumber: 1, identified: identifiedList);

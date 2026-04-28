@@ -1,18 +1,12 @@
-﻿using Chemistry;
-using MassSpectrometry;
-using NUnit.Framework;
-using Omics;
-using Omics.Digestion;
-using Omics.Fragmentation;
-using Omics.Modifications;
-using Omics.SpectralMatch;
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using static Test.Omics.BioPolymerGroupSequenceCoverageTests;
+using NUnit.Framework;
+using Omics;
+using Omics.Fragmentation;
+using Omics.SpectralMatch;
 
-namespace Test.Omics
+namespace Test.Omics.SpectralMatchTests
 {
     /// <summary>
     /// Tests for BaseSpectralMatch class.
@@ -267,7 +261,7 @@ namespace Test.Omics
         {
             var match = new MockSpectralMatch("file", "SEQ", "SEQ", 100.0, 1);
 
-            Assert.That(match.CompareTo((IHasSequenceCoverageFromFragments?)null), Is.LessThan(0));
+            Assert.That(match.CompareTo((IHasSequenceCoverageFromFragments)null), Is.LessThan(0));
         }
 
         // Helper class for testing non-ISpectralMatch comparison
@@ -312,7 +306,7 @@ namespace Test.Omics
                 Assert.That(match.Equals("string"), Is.False);
                 Assert.That(match.Equals(123), Is.False);
                 Assert.That(match.Equals(new List<string>()), Is.False);
-                Assert.That(match.Equals((object?)null), Is.False);
+                Assert.That(match.Equals((object)null), Is.False);
             });
         }
 
@@ -364,7 +358,7 @@ namespace Test.Omics
         public void EqualityOperators_HandleNullCorrectly()
         {
             var match = new MockSpectralMatch("file", "SEQ", "SEQ", 100.0, 1);
-            MockSpectralMatch? nullMatch = null;
+            MockSpectralMatch nullMatch = null;
 
             Assert.Multiple(() =>
             {
@@ -428,7 +422,7 @@ namespace Test.Omics
             Assert.That(scan5.CompareTo((ISpectralMatch)scan10), Is.GreaterThan(0));
 
             // Null handling
-            Assert.That(highScore.CompareTo((ISpectralMatch?)null), Is.GreaterThan(0));
+            Assert.That(highScore.CompareTo((ISpectralMatch)null), Is.GreaterThan(0));
 
             // Equal matches
             var equal1 = new MockSpectralMatch("file", "SEQ", "SEQ", 100.0, 1);
