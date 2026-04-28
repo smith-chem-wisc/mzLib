@@ -8,7 +8,7 @@ using Omics.Modifications;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
-namespace Test
+namespace Test.Omics.Modifications
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -105,7 +105,7 @@ namespace Test
         [TestCase("m.txt", "0 or 238.229666 is not a valid monoisotopic mass")]
         public static void SampleModFileLoadingFail3General(string filename, string errorMessage)
         {
-            Assert.That(() =>
+            NUnit.Framework.Assert.That(() =>
                 PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", filename), out var errors).ToList(),
                 Throws.TypeOf<MzLibException>().With.Property("Message").EqualTo(errorMessage));
         }
@@ -146,9 +146,9 @@ namespace Test
             var motifs = mods.Select(p => p.Target.ToString()).Distinct().ToList();
             var ids = mods.Select(p => p.IdWithMotif).Distinct().ToList();
 
-            Assert.That(mods.Count == 6);
-            Assert.That(motifs.Count == 6);
-            Assert.That(ids.Count == 6);
+            NUnit.Framework.Assert.That(mods.Count == 6);
+            NUnit.Framework.Assert.That(motifs.Count == 6);
+            NUnit.Framework.Assert.That(ids.Count == 6);
         }
 
         [Test]
@@ -160,10 +160,10 @@ namespace Test
             File.WriteAllLines(filepath, new string[] { mod });
 
             var ptms = PtmListLoader.ReadModsFromFile(filepath, out var warnings).ToList();
-            Assert.That(ptms.Count == 0);
-            Assert.That(warnings.Count == 2);
+            NUnit.Framework.Assert.That(ptms.Count == 0);
+            NUnit.Framework.Assert.That(warnings.Count == 2);
 
-            Assert.That(warnings.First().Item2.Contains("Modification type cannot contain ':'!"));
+            NUnit.Framework.Assert.That(warnings.First().Item2.Contains("Modification type cannot contain ':'!"));
         }
     }
 }

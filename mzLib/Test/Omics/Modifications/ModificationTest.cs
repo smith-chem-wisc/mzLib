@@ -5,7 +5,7 @@ using Omics.Modifications;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Test.Omics;
+namespace Test.Omics.Modifications;
 
 [TestFixture]
 public static class ModificationTest
