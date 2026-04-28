@@ -1,19 +1,13 @@
-﻿using Chemistry;
+﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using MassSpectrometry;
 using NUnit.Framework;
 using Omics;
-using Omics.BioPolymer;
 using Omics.BioPolymerGroup;
-using Omics.Digestion;
-using Omics.Fragmentation;
-using Omics.Modifications;
-using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using Omics.SpectralMatch;
 
-namespace Test.Omics
+namespace Test.Omics.BioPolymerGroupTests
 {
     /// <summary>
     /// Integration tests for BioPolymerGroup class adapted directly from unit tests inside

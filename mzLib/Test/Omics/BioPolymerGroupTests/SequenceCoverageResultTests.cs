@@ -1,11 +1,11 @@
-﻿using NUnit.Framework;
+﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using NUnit.Framework;
+using Omics;
 using Omics.BioPolymerGroup;
 using Omics.SpectralMatch;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using Omics;
 
-namespace Test.Omics
+namespace Test.Omics.BioPolymerGroupTests
 {
     /// <summary>
     /// Tests for BioPolymerGroup.SequenceCoverageResult nested class.

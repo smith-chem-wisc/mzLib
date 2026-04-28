@@ -1,14 +1,14 @@
-﻿using NUnit.Framework;
+﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using NUnit.Framework;
 using Omics;
 using Omics.BioPolymerGroup;
 using Omics.Fragmentation;
 using Omics.Modifications;
 using Omics.SpectralMatch;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 
-namespace Test.Omics
+namespace Test.Omics.BioPolymerGroupTests
 {
     /// <summary>
     /// Tests for BioPolymerGroup.CalculateSequenceCoverage() functionality.
