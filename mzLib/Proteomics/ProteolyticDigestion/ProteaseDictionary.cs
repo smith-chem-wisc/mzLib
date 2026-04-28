@@ -10,13 +10,12 @@ using Omics.Modifications;
 namespace Proteomics.ProteolyticDigestion
 {
     /// <summary>
-    /// Provides a centralized, immutable-baseline dictionary of proteases used for protein digestion.
+    /// Provides a centralized, protected-baseline dictionary of proteases used for protein digestion.
     ///
     /// <para><b>Embedded Resource Architecture:</b></para>
     /// <para>
     /// All default protease definitions are loaded from embedded resources (proteases.tsv and
-    /// protease_mods.txt) compiled directly into the assembly. These definitions are the authoritative
-    /// source of truth and cannot be overridden by any custom file. When the library is updated, the
+    /// protease_mods.txt) compiled directly into the assembly. When the library is updated, the
     /// embedded resources are updated with it — any local file previously named proteases.tsv is
     /// superseded automatically because the embedded resource is never read from disk.
     /// </para>
@@ -25,16 +24,17 @@ namespace Proteomics.ProteolyticDigestion
     /// <para>
     /// Downstream consumers (e.g. MetaMorpheus, ProteaseGuru) may supplement the default set with
     /// custom proteases by calling <see cref="LoadAndMergeCustomProteases(IEnumerable{string}, List{Modification})"/>.
-    /// Custom proteases are additive only — they can never replace an embedded definition.
-    /// Name collisions are reported via the returned <see cref="CustomDigestionAgentLoadResult"/>
-    /// rather than throwing, so callers can warn users without crashing.
+    /// Names that collide with an embedded entry are not overridden by the merge; the embedded
+    /// definition wins and the skipped name is reported via the returned
+    /// <see cref="CustomDigestionAgentLoadResult"/> rather than throwing, so callers can warn users
+    /// without crashing.
     /// </para>
     ///
     /// <para><b>Design notes:</b></para>
     /// <list type="bullet">
     ///   <item><description>No default custom file is provided by mzLib. Downstream projects supply their own.</description></item>
     ///   <item><description>The <see cref="Dictionary"/> property has a private setter; external code cannot
-    ///   replace the whole dictionary.</description></item>
+    ///   replace the whole dictionary, though the dictionary's contents can still be modified directly via the indexer.</description></item>
     ///   <item><description>Duplicate names within a single custom file still throw, because that file is itself
     ///   malformed and the caller should fix it.</description></item>
     /// </list>
@@ -348,6 +348,50 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             return new CustomDigestionAgentLoadResult(added.AsReadOnly(), skipped.AsReadOnly());
+        }
+
+        #endregion
+
+        #region Deprecated API (kept for backward compatibility)
+
+        /// <summary>
+        /// Parses a custom proteases TSV file and returns a fresh dictionary of the entries it
+        /// contains. Does NOT mutate <see cref="Dictionary"/>.
+        /// </summary>
+        /// <remarks>
+        /// Preserved as a thin wrapper for downstream consumers that previously called
+        /// <c>LoadProteaseDictionary(path, mods)</c> and assigned the result themselves. New code
+        /// should call <see cref="LoadAndMergeCustomProteases(string, List{Modification})"/>, which
+        /// merges atomically and reports collisions via <see cref="CustomDigestionAgentLoadResult"/>.
+        /// </remarks>
+        [Obsolete("Use LoadAndMergeCustomProteases(path, proteaseMods) instead. " +
+                  "This method returns a parsed-but-unmerged dictionary; the new API merges into " +
+                  "the global Dictionary atomically and reports collisions via CustomDigestionAgentLoadResult. " +
+                  "Scheduled for removal in a future major version.", error: false)]
+        public static Dictionary<string, Protease> LoadProteaseDictionary(string path, List<Modification> proteaseMods = null)
+        {
+            string[] lines = File.ReadAllLines(path);
+            return ParseProteaseLines(lines, proteaseMods);
+        }
+
+        /// <summary>
+        /// Rebuilds <see cref="Dictionary"/> from the embedded resource, discarding any custom
+        /// proteases that were merged in via <see cref="LoadAndMergeCustomProteases(string, List{Modification})"/>.
+        /// </summary>
+        /// <remarks>
+        /// Preserved for downstream consumers that previously called <c>ResetToDefaults()</c> to
+        /// roll back custom additions. New code should track the names returned in
+        /// <see cref="CustomDigestionAgentLoadResult.Added"/> and remove them individually.
+        /// </remarks>
+        [Obsolete("The dictionary is now seeded from the embedded resource at startup. " +
+                  "To roll back custom additions, remove the names returned in " +
+                  "CustomDigestionAgentLoadResult.Added. Scheduled for removal in a future major version.",
+                  error: false)]
+        public static void ResetToDefaults(List<Modification> proteaseMods = null)
+        {
+            Dictionary = proteaseMods == null
+                ? LoadProteaseDictionaryWithEmbeddedMods()
+                : LoadProteaseDictionaryFromEmbeddedResource(proteaseMods);
         }
 
         #endregion

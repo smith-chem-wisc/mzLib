@@ -97,11 +97,17 @@ namespace Test
             // If the file uses names that collide with embedded entries they will be skipped.
             var result = ProteaseDictionary.LoadAndMergeCustomProteases(path, proteaseMods);
 
-            // Retrieve using whatever names the custom file actually defines.
-            // Adjust the key strings below to match the names in DoubleProtease.tsv.
-            var protease1 = ProteaseDictionary.Dictionary["CNBr"];
-            var protease2 = ProteaseDictionary.Dictionary["CNBr_old"];
-            var protease3 = ProteaseDictionary.Dictionary["CNBr_N"];
+            // Verify the custom proteases were actually added (not silently skipped due to a name
+            // collision with the embedded resource). This guards against regressions in the merge
+            // semantics — without this, a fallback to the embedded definition would let later
+            // assertions pass for the wrong reason.
+            Assert.That(result.Added, Contains.Item("CNBr_custom"));
+            Assert.That(result.Added, Contains.Item("CNBr_old_custom"));
+            Assert.That(result.Added, Contains.Item("CNBr_N_custom"));
+
+            var protease1 = ProteaseDictionary.Dictionary["CNBr_custom"];
+            var protease2 = ProteaseDictionary.Dictionary["CNBr_old_custom"];
+            var protease3 = ProteaseDictionary.Dictionary["CNBr_N_custom"];
 
             DigestionParams digestionParams1 = new DigestionParams(
                 protease: protease1.Name, maxMissedCleavages: 0, minPeptideLength: 1,

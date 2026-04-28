@@ -4,31 +4,31 @@ using Omics.Digestion;
 namespace Transcriptomics.Digestion
 {
     /// <summary>
-    /// Provides a centralized, immutable-baseline dictionary of RNases used for RNA digestion.
+    /// Provides a centralized, protected-baseline dictionary of RNases used for RNA digestion.
     ///
     /// <para><b>Embedded Resource Architecture:</b></para>
     /// <para>
     /// All default RNase definitions are loaded from the embedded resource (rnases.tsv) compiled
-    /// directly into the assembly. These definitions are the authoritative source of truth and cannot
-    /// be overridden by any custom file. When the library is updated, the embedded resource is updated
-    /// with it — any local file previously named rnases.tsv is superseded automatically because the
-    /// embedded resource is never read from disk.
+    /// directly into the assembly. When the library is updated, the embedded resource is updated
+    /// with it — any local file previously named rnases.tsv is superseded automatically because
+    /// the embedded resource is never read from disk.
     /// </para>
     ///
     /// <para><b>Custom Digestion Agent Support:</b></para>
     /// <para>
     /// Downstream consumers (e.g. MetaMorpheus, ProteaseGuru) may supplement the default set with
     /// custom RNases by calling <see cref="LoadAndMergeCustomRnases(IEnumerable{string})"/>.
-    /// Custom RNases are additive only — they can never replace an embedded definition.
-    /// Name collisions are reported via the returned <see cref="CustomDigestionAgentLoadResult"/>
-    /// rather than throwing, so callers can warn users without crashing.
+    /// Names that collide with an embedded entry are not overridden by the merge; the embedded
+    /// definition wins and the skipped name is reported via the returned
+    /// <see cref="CustomDigestionAgentLoadResult"/> rather than throwing, so callers can warn users
+    /// without crashing.
     /// </para>
     ///
     /// <para><b>Design notes:</b></para>
     /// <list type="bullet">
     ///   <item><description>No default custom file is provided by mzLib. Downstream projects supply their own.</description></item>
     ///   <item><description>The <see cref="Dictionary"/> property has a private setter; external code cannot
-    ///   replace the whole dictionary.</description></item>
+    ///   replace the whole dictionary, though the dictionary's contents can still be modified directly via the indexer.</description></item>
     ///   <item><description>Duplicate names within a single custom file still throw, because that file is itself
     ///   malformed and the caller should fix it.</description></item>
     /// </list>
@@ -182,6 +182,48 @@ namespace Transcriptomics.Digestion
 
         #endregion
 
+        #region Deprecated API (kept for backward compatibility)
+
+        /// <summary>
+        /// Parses a custom RNases TSV file and returns a fresh dictionary of the entries it
+        /// contains. Does NOT mutate <see cref="Dictionary"/>.
+        /// </summary>
+        /// <remarks>
+        /// Preserved as a thin wrapper for downstream consumers that previously called
+        /// <c>LoadRnaseDictionary(path)</c> and assigned the result themselves. New code should
+        /// call <see cref="LoadAndMergeCustomRnases(string)"/>, which merges atomically and reports
+        /// collisions via <see cref="CustomDigestionAgentLoadResult"/>.
+        /// </remarks>
+        [Obsolete("Use LoadAndMergeCustomRnases(path) instead. " +
+                  "This method returns a parsed-but-unmerged dictionary; the new API merges into " +
+                  "the global Dictionary atomically and reports collisions via CustomDigestionAgentLoadResult. " +
+                  "Scheduled for removal in a future major version.", error: false)]
+        public static Dictionary<string, Rnase> LoadRnaseDictionary(string path)
+        {
+            string[] lines = File.ReadAllLines(path);
+            return ParseRnaseLines(lines);
+        }
+
+        /// <summary>
+        /// Rebuilds <see cref="Dictionary"/> from the embedded resource, discarding any custom
+        /// RNases that were merged in via <see cref="LoadAndMergeCustomRnases(string)"/>.
+        /// </summary>
+        /// <remarks>
+        /// Preserved for downstream consumers that previously called <c>ResetToDefaults()</c> to
+        /// roll back custom additions. New code should track the names returned in
+        /// <see cref="CustomDigestionAgentLoadResult.Added"/> and remove them individually.
+        /// </remarks>
+        [Obsolete("The dictionary is now seeded from the embedded resource at startup. " +
+                  "To roll back custom additions, remove the names returned in " +
+                  "CustomDigestionAgentLoadResult.Added. Scheduled for removal in a future major version.",
+                  error: false)]
+        public static void ResetToDefaults()
+        {
+            Dictionary = LoadEmbeddedRnaseDictionary();
+        }
+
+        #endregion
+
         #region TSV Parsing
 
         /// <summary>
@@ -196,8 +238,8 @@ namespace Transcriptomics.Digestion
             Dictionary<string, int> columnIndices = null;
 
             // Column name aliases for backward compatibility (first alias is canonical)
-            string[] nameAliases        = { "name" };
-            string[] motifAliases       = { "motif", "sequences inducing cleavage" };
+            string[] nameAliases = { "name" };
+            string[] motifAliases = { "motif", "sequences inducing cleavage" };
             string[] specificityAliases = { "specificity", "cleavage specificity" };
 
             foreach (string line in lines)
@@ -218,8 +260,8 @@ namespace Transcriptomics.Digestion
                     continue;
                 }
 
-                string name             = GetFieldValue(fields, columnIndices, nameAliases);
-                string motifField       = GetFieldValue(fields, columnIndices, motifAliases);
+                string name = GetFieldValue(fields, columnIndices, nameAliases);
+                string motifField = GetFieldValue(fields, columnIndices, motifAliases);
                 string specificityField = GetFieldValue(fields, columnIndices, specificityAliases);
 
                 if (string.IsNullOrWhiteSpace(name))
