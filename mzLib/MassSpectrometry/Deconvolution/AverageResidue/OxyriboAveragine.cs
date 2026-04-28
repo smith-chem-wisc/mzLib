@@ -27,10 +27,26 @@ public sealed class OxyriboAveragine : AverageResidue
         // This is not the best approach and future work should refine these numbers. 
         // One possible approach is to also incorporate the residue frequency in RNA sequences. 
 
-        double averageC = 9.5;
-        double averageH = 12.75;
-        double averageO = 3.75;
-        double averageN = 5;
+        var water = ChemicalFormula.ParseFormula("H2O");
+        var phosphate = ChemicalFormula.ParseFormula("H3PO4");
+        var ribose = ChemicalFormula.ParseFormula("C5H10O5");
+        var a = ChemicalFormula.ParseFormula("C5H5N5");
+        var c = ChemicalFormula.ParseFormula("C4H5N3O");
+        var g = ChemicalFormula.ParseFormula("C5H5N5O");
+        var u = ChemicalFormula.ParseFormula("C4H4N2O2");
+
+        var amp = a + ribose - water + phosphate - water;
+        var cmp = c + ribose - water + phosphate - water;
+        var gmp = g + ribose - water + phosphate - water;
+        var ump = u + ribose - water + phosphate - water;
+
+        var combined = amp + cmp + gmp + ump;
+
+        var averageC = combined.CountWithIsotopes(PeriodicTable.GetElement("C")) / 4.0;
+        var averageH = combined.CountWithIsotopes(PeriodicTable.GetElement("H")) / 4.0;
+        var averageO = combined.CountWithIsotopes(PeriodicTable.GetElement("O")) / 4.0;
+        var averageN = combined.CountWithIsotopes(PeriodicTable.GetElement("N")) / 4.0;
+        var averageP = combined.CountWithIsotopes(PeriodicTable.GetElement("P")) / 4.0;
 
         for (int i = 0; i < NumAveraginesToGenerate; i++)
         {
@@ -40,6 +56,7 @@ public sealed class OxyriboAveragine : AverageResidue
             chemicalFormula.Add("H", Convert.ToInt32(averageH * averagineMultiplier));
             chemicalFormula.Add("O", Convert.ToInt32(averageO * averagineMultiplier));
             chemicalFormula.Add("N", Convert.ToInt32(averageN * averagineMultiplier));
+            chemicalFormula.Add("P", Convert.ToInt32(averageP * averagineMultiplier));
 
             {
                 var chemicalFormulaReg = chemicalFormula;
