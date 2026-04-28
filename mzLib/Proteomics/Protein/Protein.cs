@@ -44,8 +44,8 @@ namespace Proteomics
             string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false,
             List<DatabaseReference> databaseReferences = null,
             List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
-            List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false, 
-            string dataset = "unknown", string created = "unknown", string modified = "unknown", string version = "unknown", string xmlns = "http://uniprot.org/uniprot",
+            List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false,
+            UniProtEntryAttributes uniProtEntryAttributes = null,
             UniProtSequenceAttributes uniProtSequenceAttributes = null, bool isEntrapment = false)
         {
             BaseSequence = sequence;
@@ -82,11 +82,7 @@ namespace Proteomics
             {
                 this.AddTruncations();
             }
-            DatasetEntryTag = dataset;
-            CreatedEntryTag = created;
-            ModifiedEntryTag = modified;
-            VersionEntryTag = version;
-            XmlnsEntryTag = xmlns;
+            UniProtEntryAttributes = uniProtEntryAttributes ?? new UniProtEntryAttributes();
             UniProtSequenceAttributes = uniProtSequenceAttributes ?? new UniProtSequenceAttributes(Length, (int)Math.Round(new PeptideWithSetModifications(BaseSequence, new Dictionary<string,Modification>()).MonoisotopicMass), "unknown", DateTime.Now, -1);
         }
 
@@ -120,12 +116,84 @@ namespace Proteomics
             DisulfideBonds = originalProtein.DisulfideBonds;
             SpliceSites = originalProtein.SpliceSites;
             DatabaseFilePath = originalProtein.DatabaseFilePath;
-            DatasetEntryTag = originalProtein.DatasetEntryTag;
-            CreatedEntryTag = originalProtein.CreatedEntryTag;
-            ModifiedEntryTag = originalProtein.ModifiedEntryTag;
-            VersionEntryTag = originalProtein.VersionEntryTag;
-            XmlnsEntryTag = originalProtein.XmlnsEntryTag;
+            UniProtEntryAttributes = originalProtein.UniProtEntryAttributes;
             UniProtSequenceAttributes = originalProtein.UniProtSequenceAttributes;
+        }
+
+        /// <summary>
+        /// Protein construction that clones a protein but allows the assignment of any
+        /// number of new properties. Each parameter defaults to the original protein's
+        /// value when null.
+        /// </summary>
+        /// <param name="originalProtein">The protein to clone.</param>
+        /// <param name="accession">New accession, or null to keep the original.</param>
+        /// <param name="proteinName">New name, or null to keep the original.</param>
+        /// <param name="proteinFullName">New full name, or null to keep the original.</param>
+        /// <param name="organism">New organism, or null to keep the original.</param>
+        /// <param name="databaseFilePath">New database file path, or null to keep the original.</param>
+        /// <param name="sampleNameForVariants">New sample name for variants, or null to keep the original.</param>
+        /// <param name="isDecoy">New isDecoy flag, or null to keep the original.</param>
+        /// <param name="isContaminant">New isContaminant flag, or null to keep the original.</param>
+        /// <param name="isEntrapment">New isEntrapment flag, or null to keep the original.</param>
+        /// <param name="geneNames">New gene names, or null to keep the original.</param>
+        /// <param name="oneBasedModifications">New modifications, or null to keep the original.</param>
+        /// <param name="proteolysisProducts">New truncation products, or null to keep the original.</param>
+        /// <param name="sequenceVariations">New sequence variations, or null to keep the original.</param>
+        /// <param name="appliedSequenceVariations">New applied sequence variations, or null to keep the original.</param>
+        /// <param name="databaseReferences">New database references, or null to keep the original.</param>
+        /// <param name="disulfideBonds">New disulfide bonds, or null to keep the original.</param>
+        /// <param name="spliceSites">New splice sites, or null to keep the original.</param>
+        /// <param name="uniProtEntryAttributes">New UniProt entry attributes, or null to keep the original.</param>
+        /// <param name="uniProtSequenceAttributes">New UniProt sequence attributes, or null to keep the original.</param>
+        /// <param name="nonVariantProtein">The non-variant protein reference, or null to set NonVariantProtein to this instance.</param>
+        public Protein(Protein originalProtein,
+            string? accession = null,
+            string? proteinName = null,
+            string? proteinFullName = null,
+            string? organism = null,
+            string? databaseFilePath = null,
+            string? sampleNameForVariants = null,
+            bool? isDecoy = null,
+            bool? isContaminant = null,
+            bool? isEntrapment = null,
+            List<Tuple<string, string>> geneNames = null,
+            IDictionary<int, List<Modification>> oneBasedModifications = null,
+            List<TruncationProduct> proteolysisProducts = null,
+            List<SequenceVariation> sequenceVariations = null,
+            List<SequenceVariation> appliedSequenceVariations = null,
+            List<DatabaseReference> databaseReferences = null,
+            List<DisulfideBond> disulfideBonds = null,
+            List<SpliceSite> spliceSites = null,
+            UniProtEntryAttributes uniProtEntryAttributes = null,
+            UniProtSequenceAttributes uniProtSequenceAttributes = null,
+            Protein nonVariantProtein = null)
+        {
+            BaseSequence = originalProtein.BaseSequence;
+            Accession = accession ?? originalProtein.Accession;
+            NonVariantProtein = nonVariantProtein ?? this;
+            Name = proteinName ?? originalProtein.Name;
+            Organism = organism ?? originalProtein.Organism;
+            FullName = proteinFullName ?? originalProtein.FullName;
+            IsDecoy = isDecoy ?? originalProtein.IsDecoy;
+            IsContaminant = isContaminant ?? originalProtein.IsContaminant;
+            IsEntrapment = isEntrapment ?? originalProtein.IsEntrapment;
+            DatabaseFilePath = databaseFilePath ?? originalProtein.DatabaseFilePath;
+            SampleNameForVariants = sampleNameForVariants ?? originalProtein.SampleNameForVariants;
+            GeneNames = geneNames ?? originalProtein.GeneNames;
+            _proteolysisProducts = proteolysisProducts ?? originalProtein._proteolysisProducts;
+            SequenceVariations = sequenceVariations ?? originalProtein.SequenceVariations;
+            AppliedSequenceVariations = appliedSequenceVariations ?? originalProtein.AppliedSequenceVariations;
+            OriginalNonVariantModifications = oneBasedModifications != null
+                ? oneBasedModifications.ToDictionary(x => x.Key, x => x.Value)
+                : originalProtein.OriginalNonVariantModifications;
+            OneBasedPossibleLocalizedModifications = oneBasedModifications != null
+                ? ((IBioPolymer)this).SelectValidOneBaseMods(oneBasedModifications)
+                : originalProtein.OneBasedPossibleLocalizedModifications;
+            DatabaseReferences = databaseReferences ?? originalProtein.DatabaseReferences;
+            DisulfideBonds = disulfideBonds ?? originalProtein.DisulfideBonds;
+            SpliceSites = spliceSites ?? originalProtein.SpliceSites;
+            UniProtEntryAttributes = uniProtEntryAttributes ?? originalProtein.UniProtEntryAttributes;
+            UniProtSequenceAttributes = uniProtSequenceAttributes ?? originalProtein.UniProtSequenceAttributes;
         }
 
         /// <summary>
@@ -156,11 +224,7 @@ namespace Proteomics
                   disulfideBonds: new List<DisulfideBond>(protein.DisulfideBonds),
                   spliceSites: new List<SpliceSite>(protein.SpliceSites),
                   databaseFilePath: protein.DatabaseFilePath,
-                  dataset: protein.DatasetEntryTag,
-                  created: protein.CreatedEntryTag,
-                  modified: protein.ModifiedEntryTag,
-                  version: protein.VersionEntryTag,
-                  xmlns: protein.XmlnsEntryTag,
+                  uniProtEntryAttributes: protein.UniProtEntryAttributes,
                   uniProtSequenceAttributes: protein.UniProtSequenceAttributes)
         {
             NonVariantProtein = protein.ConsensusVariant as Protein;
@@ -228,11 +292,7 @@ namespace Proteomics
         public List<DatabaseReference> DatabaseReferences { get; }
 
         public string DatabaseFilePath { get; }
-        public string DatasetEntryTag { get; private set; }
-        public string CreatedEntryTag { get; private set; }
-        public string ModifiedEntryTag { get; private set; }
-        public string VersionEntryTag { get; private set; }
-        public string XmlnsEntryTag { get; private set; }
+        public UniProtEntryAttributes UniProtEntryAttributes { get; private set; }
         public UniProtSequenceAttributes UniProtSequenceAttributes { get; private set; }
         /// <summary>
         /// Formats a string for a UniProt fasta header. See https://www.uniprot.org/help/fasta-headers.

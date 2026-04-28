@@ -31,7 +31,6 @@ namespace Test.Omics
                 Assert.That(result.SequenceCoverageDisplayList, Is.Not.Null.And.Empty);
                 Assert.That(result.SequenceCoverageDisplayListWithMods, Is.Not.Null.And.Empty);
                 Assert.That(result.FragmentSequenceCoverageDisplayList, Is.Not.Null.And.Empty);
-                Assert.That(result.ModsInfo, Is.Not.Null.And.Empty);
             });
         }
 
@@ -212,67 +211,6 @@ namespace Test.Omics
 
         #endregion
 
-        #region ModsInfo Tests
-
-        [Test]
-        public void ModsInfo_CanAddOccupancyStrings()
-        {
-            var result = new BioPolymerGroup.SequenceCoverageResult();
-
-            result.ModsInfo.Add("#aa3[Phospho on S,info:occupancy=0.50(1/2)]");
-
-            Assert.That(result.ModsInfo.Count, Is.EqualTo(1));
-            Assert.That(result.ModsInfo[0], Does.Contain("#aa3"));
-            Assert.That(result.ModsInfo[0], Does.Contain("occupancy"));
-        }
-
-        [Test]
-        public void ModsInfo_CanAddMultipleModifications()
-        {
-            var result = new BioPolymerGroup.SequenceCoverageResult();
-
-            result.ModsInfo.Add("#aa3[Phospho on S,info:occupancy=0.50(1/2)];#aa7[Acetyl on K,info:occupancy=1.00(2/2)]");
-
-            Assert.That(result.ModsInfo[0], Does.Contain("#aa3"));
-            Assert.That(result.ModsInfo[0], Does.Contain("#aa7"));
-        }
-
-        [Test]
-        public void ModsInfo_CanAddMultipleEntriesForDifferentProteins()
-        {
-            var result = new BioPolymerGroup.SequenceCoverageResult();
-
-            result.ModsInfo.Add("#aa5[Phospho on S,info:occupancy=1.00(3/3)]");
-            result.ModsInfo.Add("#aa10[Oxidation on M,info:occupancy=0.33(1/3)]");
-
-            Assert.That(result.ModsInfo.Count, Is.EqualTo(2));
-        }
-
-        [Test]
-        public void ModsInfo_AcceptsEmptyString()
-        {
-            var result = new BioPolymerGroup.SequenceCoverageResult();
-
-            result.ModsInfo.Add("");
-
-            Assert.That(result.ModsInfo.Count, Is.EqualTo(1));
-            Assert.That(result.ModsInfo[0], Is.EqualTo(string.Empty));
-        }
-
-        [Test]
-        public void ModsInfo_OccupancyFormatIsCorrect()
-        {
-            var result = new BioPolymerGroup.SequenceCoverageResult();
-
-            // Expected format: #aa{position}[{modName},info:occupancy={fraction}({count}/{total})]
-            var modInfo = "#aa15[Phosphorylation on S,info:occupancy=0.75(3/4)]";
-            result.ModsInfo.Add(modInfo);
-
-            Assert.That(result.ModsInfo[0], Does.Match(@"#aa\d+\[.+,info:occupancy=\d+\.\d+\(\d+/\d+\)\]"));
-        }
-
-        #endregion
-
         #region List Behavior Tests
 
         [Test]
@@ -284,13 +222,11 @@ namespace Test.Omics
             result.SequenceCoverageDisplayList.AddRange(new[] { "SEQ1", "SEQ2" });
             result.SequenceCoverageDisplayListWithMods.AddRange(new[] { "MOD1", "MOD2" });
             result.FragmentSequenceCoverageDisplayList.AddRange(new[] { "FRAG1", "FRAG2" });
-            result.ModsInfo.AddRange(new[] { "INFO1", "INFO2" });
 
             Assert.That(result.SequenceCoverageFraction.Count, Is.EqualTo(3));
             Assert.That(result.SequenceCoverageDisplayList.Count, Is.EqualTo(2));
             Assert.That(result.SequenceCoverageDisplayListWithMods.Count, Is.EqualTo(2));
             Assert.That(result.FragmentSequenceCoverageDisplayList.Count, Is.EqualTo(2));
-            Assert.That(result.ModsInfo.Count, Is.EqualTo(2));
         }
 
         [Test]
@@ -419,10 +355,8 @@ namespace Test.Omics
         {
             var result = new BioPolymerGroup.SequenceCoverageResult();
 
-            result.ModsInfo.Add("#aa5[Phospho (STY),info:occupancy=0.50(1/2)]");
             result.SequenceCoverageDisplayListWithMods.Add("acde[Phospho (STY)]fghik");
 
-            Assert.That(result.ModsInfo[0], Does.Contain("Phospho (STY)"));
             Assert.That(result.SequenceCoverageDisplayListWithMods[0], Does.Contain("[Phospho (STY)]"));
         }
 

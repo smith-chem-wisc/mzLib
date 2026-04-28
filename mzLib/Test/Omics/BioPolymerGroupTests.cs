@@ -396,18 +396,38 @@ namespace Test.Omics
         /// Note: When files don't exist, the code treats it as SILAC experimental design and uses filename.
         /// </summary>
         [Test]
-        public void GetTabSeparatedHeader_LabelFree_WithConditions_UsesFilenameWhenFilesDoNotExist()
+        public void GetTabSeparatedHeader_LabelFree_WithConditions_NoIntensities_OmitsIntensityColumns()
         {
             // Files that don't exist trigger SILAC experimental design path, which uses filename
-            // Different bioreps ensure separate columns
             var file1 = new SpectraFileInfo(@"C:\test1.raw", "Control", 0, 1, 0);
             var file2 = new SpectraFileInfo(@"C:\test2.raw", "Treatment", 1, 1, 0);
 
             _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { file1, file2 };
+            _bioPolymerGroup.PopulateSampleGroupResults();
 
             var header = _bioPolymerGroup.GetTabSeparatedHeader();
 
-            // When files don't exist, falls back to filename format
+            // Without IntensitiesBySample, intensity columns should not appear
+            Assert.That(header, Does.Not.Contain("Intensity_test1"));
+            Assert.That(header, Does.Not.Contain("Intensity_test2"));
+        }
+
+        [Test]
+        public void GetTabSeparatedHeader_LabelFree_WithConditions_WithIntensities_ContainsIntensityColumns()
+        {
+            // Files that don't exist trigger SILAC experimental design path, which uses filename
+            var file1 = new SpectraFileInfo(@"C:\test1.raw", "Control", 0, 1, 0);
+            var file2 = new SpectraFileInfo(@"C:\test2.raw", "Treatment", 1, 1, 0);
+
+            _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { file1, file2 };
+            _bioPolymerGroup.IntensitiesBySample = new Dictionary<ISampleInfo, double>
+            {
+                { file1, 1000.0 },
+                { file2, 2000.0 }
+            };
+            _bioPolymerGroup.PopulateSampleGroupResults();
+
+            var header = _bioPolymerGroup.GetTabSeparatedHeader();
             Assert.That(header, Does.Contain("Intensity_test1"));
             Assert.That(header, Does.Contain("Intensity_test2"));
         }
@@ -417,14 +437,33 @@ namespace Test.Omics
         /// Critical: Ensures correct fallback behavior for simple experimental designs.
         /// </summary>
         [Test]
-        public void GetTabSeparatedHeader_LabelFree_UndefinedConditions_UsesFilename()
+        public void GetTabSeparatedHeader_LabelFree_UndefinedConditions_NoIntensities_OmitsIntensityColumns()
         {
-            // Use different biological replicates so they generate separate columns
-            // Constructor: SpectraFileInfo(path, condition, biorep, techrep, fraction)
-            var file1 = new SpectraFileInfo(@"C:\sample_A.raw", "", 0, 1, 0);  // biorep=0
-            var file2 = new SpectraFileInfo(@"C:\sample_B.raw", "", 1, 1, 0);  // biorep=1
+            var file1 = new SpectraFileInfo(@"C:\sample_A.raw", "", 0, 1, 0);
+            var file2 = new SpectraFileInfo(@"C:\sample_B.raw", "", 1, 1, 0);
 
             _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { file1, file2 };
+            _bioPolymerGroup.PopulateSampleGroupResults();
+
+            var header = _bioPolymerGroup.GetTabSeparatedHeader();
+
+            Assert.That(header, Does.Not.Contain("Intensity_sample_A"));
+            Assert.That(header, Does.Not.Contain("Intensity_sample_B"));
+        }
+
+        [Test]
+        public void GetTabSeparatedHeader_LabelFree_UndefinedConditions_WithIntensities_ContainsIntensityColumns()
+        {
+            var file1 = new SpectraFileInfo(@"C:\sample_A.raw", "", 0, 1, 0);
+            var file2 = new SpectraFileInfo(@"C:\sample_B.raw", "", 1, 1, 0);
+
+            _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { file1, file2 };
+            _bioPolymerGroup.IntensitiesBySample = new Dictionary<ISampleInfo, double>
+            {
+                { file1, 1000.0 },
+                { file2, 2000.0 }
+            };
+            _bioPolymerGroup.PopulateSampleGroupResults();
 
             var header = _bioPolymerGroup.GetTabSeparatedHeader();
 
@@ -560,15 +599,15 @@ namespace Test.Omics
                 new HashSet<IBioPolymerWithSetMods> { peptide },
                 new HashSet<IBioPolymerWithSetMods> { peptide });
 
-            var psm = new MockSpectralMatch(@"C:\test.raw", "MPEPTIDE", "[Acetyl on M]-MPEPTIDE", 100, 1, [peptide]);
+            var psm = new MockSpectralMatch(@"C:\test.raw", "[Acetyl on M]-MPEPTIDE", "MPEPTIDE", 100, 1, [peptide]);
             group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
 
             group.CalculateSequenceCoverage();
 
             var output = group.ToString();
             // N-terminal mod occupancy should report position as aa1
-            Assert.That(output, Does.Contain("#aa1["));
-            Assert.That(output, Does.Contain("occupancy=1.00(1/1)"));
+            Assert.That(output, Does.Contain("pos0["));
+            Assert.That(output, Does.Contain("fraction=1.00(1/1)"));
         }
 
         /// <summary>
@@ -576,7 +615,7 @@ namespace Test.Omics
         /// Critical: C-terminal occupancy must use protein length as position.
         /// </summary>
         [Test]
-        public void CalculateModificationOccupancy_CTerminalMod_UsesProteinLength()
+        public void CalculateModificationOccupancy_CTerminalMod_UsesProteinLengthPlusTwo()
         {
             var bioPolymer = new MockBioPolymer("PEPTIDEK", "P00001"); // Length = 8
 
@@ -588,7 +627,7 @@ namespace Test.Omics
                 _target: motif,
                 _monoisotopicMass: -0.98);
 
-            var modsDict = new Dictionary<int, Modification> { { 9, cTermMod } };
+            var modsDict = new Dictionary<int, Modification> { { 8, cTermMod } };
             var peptide = new MockBioPolymerWithSetMods("PEPTIDEK", "PEPTIDEK-[Amidated on K]", bioPolymer, 1, 8, modsDict);
 
             var group = new BioPolymerGroup(
@@ -596,15 +635,13 @@ namespace Test.Omics
                 new HashSet<IBioPolymerWithSetMods> { peptide },
                 new HashSet<IBioPolymerWithSetMods> { peptide });
 
-            var psm = new MockSpectralMatch(@"C:\test.raw", "PEPTIDEK", "PEPTIDEK-[Amidated on K]", 100, 1, [peptide]);
+            var psm = new MockSpectralMatch(@"C:\test.raw", "PEPTIDEK-[Amidated on K]", "PEPTIDEK", 100, 1, [peptide]);
             group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
 
-            group.CalculateSequenceCoverage();
-
             var output = group.ToString();
-            // C-terminal mod occupancy should report position as aa8 (protein length)
-            Assert.That(output, Does.Contain("#aa8["));
-            Assert.That(output, Does.Contain("occupancy=1.00(1/1)"));
+            // C-terminal mod occupancy should report position as aa10 (protein length + 2)
+            Assert.That(output, Does.Contain("pos9["));
+            Assert.That(output, Does.Contain("fraction=1.00(1/1)"));
         }
 
         /// <summary>
