@@ -1,14 +1,13 @@
-﻿using Easy.Common.Extensions;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using Easy.Common.Extensions;
 using NUnit.Framework;
 using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
-using PredictionClients.Koina.Util;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 
-namespace Test.KoinaTests
+namespace Test.KoinaTests.RetentionTimePrediction
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
