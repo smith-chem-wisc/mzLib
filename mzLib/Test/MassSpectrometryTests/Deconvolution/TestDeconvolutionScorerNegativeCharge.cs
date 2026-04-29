@@ -1,7 +1,7 @@
 using System.Linq;
 using MassSpectrometry;
 using NUnit.Framework;
-using static Test.Deconvolution.DeconvolutionTestHelpers;
+using static Test.MassSpectrometryTests.Deconvolution.DeconvolutionTestHelpers;
 
 namespace Test.MassSpectrometryTests.Deconvolution
 {

@@ -4,7 +4,7 @@ using System.Linq;
 using Chemistry;
 using MassSpectrometry;
 
-namespace Test.Deconvolution
+namespace Test.MassSpectrometryTests.Deconvolution
 {
     /// <summary>
     /// Shared test helpers for deconvolution scorer tests.
