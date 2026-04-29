@@ -266,8 +266,8 @@ namespace Test.Deconvolution
             {
                 Assert.That(envelope.HasGenericScore, Is.True,
                     "Every yielded envelope must have GenericScore set");
-                Assert.That(envelope.GenericScore!.Value, Is.InRange(0.0, 1.0),
-                    $"GenericScore must be in [0,1]. Got {envelope.GenericScore}");
+                Assert.That(envelope.GenericScore!.Value, Is.GreaterThan(0.5),
+                    $"Perfect synthetic Averagine envelope must score > 0.5. Got {envelope.GenericScore}");
             }
         }
 
@@ -325,7 +325,8 @@ namespace Test.Deconvolution
             {
                 Assert.That(envelope.HasGenericScore, Is.True,
                     "MsDataScan overload must also set GenericScore on every envelope");
-                Assert.That(envelope.GenericScore!.Value, Is.InRange(0.0, 1.0));
+                Assert.That(envelope.GenericScore!.Value, Is.GreaterThan(0.5),
+                    $"Perfect synthetic Averagine envelope must score > 0.5. Got {envelope.GenericScore}");
             }
         }
     }
