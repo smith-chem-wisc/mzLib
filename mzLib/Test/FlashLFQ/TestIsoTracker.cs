@@ -130,7 +130,7 @@ namespace Test.FlashLFQ
             // In this testing, we will check the isobaricPeptideGroup and targetMzs output
             // All three ids are isobaric peptides with the same monoisotopic mass, so they should be grouped together and generate only 5 target m/z values
 
-            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ/XICData");
             string file1 = "20100604_Velos1_TaGe_SA_A549_3_first_noRt";
             string file2 = "20100604_Velos1_TaGe_SA_A549_3_second_noRt";
             SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1 + ".mzML"), "one", 1, 1, 1);
@@ -193,7 +193,7 @@ namespace Test.FlashLFQ
             // In this testing, we will check the isobaricPeptideGroup and targetMzs output
             // All three ids are isobaric peptides with the different monoisotopic mass, so they should be grouped together and generate 15(3*5) target m/z values
 
-            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ/XICData");
             string file1 = "20100604_Velos1_TaGe_SA_A549_3_first_noRt";
             string file2 = "20100604_Velos1_TaGe_SA_A549_3_second_noRt";
             SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1 + ".mzML"), "one", 1, 1, 1);
@@ -256,7 +256,7 @@ namespace Test.FlashLFQ
             // Description: Test the peak indexing engine pruning function
             // In this test, we will create the targetMzs from the ids to prune the indexPeaks.
             // After pruning, the index engine should only keep the peaks with the target m/z values.
-            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ/XICData");
             string file1 = "20100604_Velos1_TaGe_SA_A549_3_first_noRt";
             string file2 = "20100604_Velos1_TaGe_SA_A549_3_second_noRt";
             SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1 + ".mzML"), "one", 1, 1, 1);
@@ -691,7 +691,7 @@ namespace Test.FlashLFQ
             //Description: Test the IsoTracker in the FlashLFQ, checking items include the peak tracking and the peak output
             //There are three XIC included isobaric peaks that with 3 min gap.
 
-            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ/XICData");
             string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
             Directory.CreateDirectory(outputDirectory);
 
@@ -799,7 +799,7 @@ namespace Test.FlashLFQ
             //Description: Test the IsoTracker in the FlashLFQ, checking items include the peak tracking and the peak output
             //There are three XIC included isobaric peaks that with 3 min gap.
 
-            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ/XICData");
             string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
             Directory.CreateDirectory(outputDirectory);
 
@@ -935,7 +935,7 @@ namespace Test.FlashLFQ
             //IsoID: DIVENY[Common Variable:Oxidation on M]FMR   should be the same as DIVENYFM[Common Variable:Oxidation on M]R
 
             //Try to turn on the MBR and Isotracker at the same time
-            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ/XICData");
             string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
             Directory.CreateDirectory(outputDirectory);
 
@@ -1071,7 +1071,7 @@ namespace Test.FlashLFQ
             //The Monoisotopic mass are 1201.5436, 1201.5437, 1201.5438, they should be recognized as the same IsoID
 
             //Try to turn on the MBR and Isotracker at the same time
-            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ/XICData");
             string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
             Directory.CreateDirectory(outputDirectory);
 
@@ -1181,7 +1181,7 @@ namespace Test.FlashLFQ
             //The quantified peak1 will be MSMS and Isotrack_MBR, and the quantified peak2 will be IsoTrack_Ambiguous
 
             //Try to turn on the MBR and Isotracker at the same time
-            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ/XICData");
             string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
             Directory.CreateDirectory(outputDirectory);
 
@@ -1330,7 +1330,7 @@ namespace Test.FlashLFQ
 
 
             //Try to turn on the MBR and Isotracker at the same time
-            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ/XICData");
             string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
             Directory.CreateDirectory(outputDirectory);
 
@@ -1496,7 +1496,7 @@ namespace Test.FlashLFQ
             //In this case, only one kind of peptide can be searched: baseSequence PEPNINEN -> PEPN[Mod]INEN, PEPNIN[Mod]EN, PEPNINEN[Mod]
             // Run 1 with PEPNIN[Mod]EN, PEPNINEN[Mod]
             // Run 2 with PEPN[Mod]INEN
-            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ/XICData");
             string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
             Directory.CreateDirectory(outputDirectory);
 
@@ -1620,7 +1620,7 @@ namespace Test.FlashLFQ
             //In this case, run 1 has 4 ids (pepA_1, pepA_2, pepB_1, pepC_1)
             //run 2 has 3 ids (pepA_1, pepB_1, pepC_1)
             //Only pepA can be searched.
-            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ/XICData");
             string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
             Directory.CreateDirectory(outputDirectory);
 
@@ -1738,7 +1738,7 @@ namespace Test.FlashLFQ
 
             //There are two isobaric peptide, Iso_A and Iso_B (with similar mass)
             //RunErrorCheck will merge the two peaks, and we hope there is no crush and the detectionType will be set as MSMSAmbiguousPeakfinding
-            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ/XICData");
             string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
             Directory.CreateDirectory(outputDirectory);
 
@@ -1872,7 +1872,7 @@ namespace Test.FlashLFQ
             //There are two isobaric peptide, Iso_A and Iso_B (with similar mass)
             //RunErrorCheck will merge the two peaks, total four merge isoPeaks
             //According to the definition of IsoTracker, the detectionType should be set as MSMSAmbiguousPeakfinding, and their intensity should be set as 0
-            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "XICData");
+            string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ/XICData");
             string outputDirectory = Path.Combine(testDataDirectory, "testFlash");
             Directory.CreateDirectory(outputDirectory);
 
