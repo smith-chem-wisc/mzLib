@@ -562,7 +562,7 @@
     <None Update="DataFiles\withZeros.mgf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="DoubleProtease.tsv">
+    <None Update="ProteomicsTests\ProteaseFilesForLoadingTests\DoubleProtease.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\SearchResults\nglyco_noLocalizationScore.psmtsv">
@@ -655,16 +655,16 @@
     <None Update="ModificationTests\ProteaseMods.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="ProteaseFilesForLoadingTests\TestProteases_badMod.tsv">
+    <None Update="ProteomicsTests\ProteaseFilesForLoadingTests\TestProteases_badMod.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="ProteaseFilesForLoadingTests\TestProteases_badMod_dupName.tsv">
+    <None Update="ProteomicsTests\ProteaseFilesForLoadingTests\TestProteases_badMod_dupName.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="ProteaseFilesForLoadingTests\TestProteases_dupName.tsv">
+    <None Update="ProteomicsTests\ProteaseFilesForLoadingTests\TestProteases_dupName.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="ProteaseFilesForLoadingTests\TestProteases_Mod_dupName.tsv">
+    <None Update="ProteomicsTests\ProteaseFilesForLoadingTests\TestProteases_Mod_dupName.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	</None>
     <None Update="FileReadingTests\SearchResults\ExcelEditedPeptide.psmtsv">
@@ -691,22 +691,22 @@
     <None Update="FileReadingTests\SearchResults\VariantCrossTest.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="SpectralLibrary\SpectralLibraryData\myPrositLib.msp">
+    <None Update="FileReadingTests\SpectralLibraryTests\SpectralLibraryData\myPrositLib.msp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="SpectralLibrary\SpectralLibraryData\RnaSpectralLibrary.msp">
+    <None Update="FileReadingTests\SpectralLibraryTests\SpectralLibraryData\RnaSpectralLibrary.msp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="SpectralLibrary\SpectralLibraryData\spectralLibraryNeutralLossTest.msp">
+    <None Update="FileReadingTests\SpectralLibraryTests\SpectralLibraryData\spectralLibraryNeutralLossTest.msp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="SpectralLibrary\SpectralLibraryData\SpectralLibrary_XL.msp">
+    <None Update="FileReadingTests\SpectralLibraryTests\SpectralLibraryData\SpectralLibrary_XL.msp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="SpectralLibrary\SpectralLibraryData\test_ms2pip.msp">
+    <None Update="FileReadingTests\SpectralLibraryTests\SpectralLibraryData\test_ms2pip.msp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="SpectralLibrary\SpectralLibraryData\yeast2fake_pdeep_lib.msp">
+    <None Update="FileReadingTests\SpectralLibraryTests\SpectralLibraryData\yeast2fake_pdeep_lib.msp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="Transcriptomics\TestData\20mer1.fasta">
@@ -778,37 +778,37 @@
     <None Update="Transcriptomics\TestData\TruncationAndVariantMods.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\20100604_Velos1_TaGe_SA_A549_3_first_noRt.mzML">
+    <None Update="FlashLFQ\XICData\20100604_Velos1_TaGe_SA_A549_3_first_noRt.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\20100604_Velos1_TaGe_SA_A549_3_second_noRt.mzML">
+    <None Update="FlashLFQ\XICData\20100604_Velos1_TaGe_SA_A549_3_second_noRt.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\AllPSMs.psmtsv">
+    <None Update="FlashLFQ\XICData\AllPSMs.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\AllPSMs_IDMergeConflict_2.psmtsv">
+    <None Update="FlashLFQ\XICData\AllPSMs_IDMergeConflict_2.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\AllPSMs_IDMergeConflict.psmtsv">
+    <None Update="FlashLFQ\XICData\AllPSMs_IDMergeConflict.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\AllPSMs_IsoID.psmtsv">
+    <None Update="FlashLFQ\XICData\AllPSMs_IsoID.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\AllPSMs_IdChecking.psmtsv">
+    <None Update="FlashLFQ\XICData\AllPSMs_IdChecking.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\AllPSMs_SearchTarget.psmtsv">
+    <None Update="FlashLFQ\XICData\AllPSMs_SearchTarget.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\AllPSMs_IsoID_Combined.psmtsv">
+    <None Update="FlashLFQ\XICData\AllPSMs_IsoID_Combined.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\AllPSMs_IsoID_Mixture.psmtsv">
+    <None Update="FlashLFQ\XICData\AllPSMs_IsoID_Mixture.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\AllPSMs_IsoID_MonoIsotopicmassTolerance.psmtsv">
+    <None Update="FlashLFQ\XICData\AllPSMs_IsoID_MonoIsotopicmassTolerance.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
 	<None Update="DataFiles\centroid_1x_MS1_4x_autoMS2.d\**">
