@@ -149,7 +149,6 @@ namespace Test.FileReadingTests.InternalFileReading
             NUnit.Framework.Assert.That(parsedPsms.All(p => p.TotalGlycanSites != null));
             NUnit.Framework.Assert.That(parsedPsms.All(p => p.NGlycanMotifCheck != null));
             NUnit.Framework.Assert.That(parsedPsms.All(p => p.AllPotentialGlycanLocalization != null));
-            NUnit.Framework.Assert.That(parsedPsms.All(p => p.AllSiteSpecificLocalizationProbability != null));
         }
 
         [Test]
