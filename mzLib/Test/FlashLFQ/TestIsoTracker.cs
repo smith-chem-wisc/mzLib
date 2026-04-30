@@ -1,17 +1,17 @@
-﻿using FlashLFQ;
+﻿using Chemistry;
+using Easy.Common.Extensions;
+using FlashLFQ;
 using FlashLFQ.IsoTracker;
 using MassSpectrometry;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Interpolation;
+using MzLibUtil;
 using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using Chemistry;
-using Easy.Common.Extensions;
-using MzLibUtil;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 
