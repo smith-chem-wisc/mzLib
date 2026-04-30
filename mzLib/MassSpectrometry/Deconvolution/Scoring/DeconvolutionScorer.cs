@@ -115,7 +115,7 @@ namespace MassSpectrometry
             double[] observed = new double[nIso];
             bool[] peakMatched = new bool[nIso];
 
-            for (int n = 0; n < nIso; n++)
+            for (int n = 0; n < nIso; n++) 
             {
                 double theorMz = monoMz + n * isotopeStepMz;
                 double tolMz = theorMz * MatchTolerancePpm * 1e-6;
