@@ -165,7 +165,32 @@ namespace Test.RetentionTimePrediction
                 new Dictionary<string, double?>());
 
             Assert.That(() => predictor.PredictRetentionTimes(null!),
-                Throws.ArgumentNullException);
+                Throws.ArgumentNullException.With.Property("ParamName").EqualTo("peptides"));
+        }
+
+        [Test]
+        public void PredictRetentionTimes_DefaultImpl_NullElement_IsSkipped()
+        {
+            // Locks the documented contract: null elements in the input collection
+            // are skipped silently rather than throwing or producing dictionary
+            // entries. Without this test, a refactor (e.g. switching from foreach
+            // to a LINQ projection) could quietly change null-element behavior.
+            var predictions = new Dictionary<string, double?> { { "PEPTIDE", 25.3 } };
+            IRetentionTimePredictor predictor = new MockPredictor(predictions);
+
+            var peptides = new List<IRetentionPredictable>
+            {
+                new StubPeptide { BaseSequence = "PEPTIDE", FullSequence = "PEPTIDE" },
+                null!,
+                new StubPeptide { BaseSequence = "PEPTIDE", FullSequence = "PEPTIDE" }
+            };
+
+            var results = predictor.PredictRetentionTimes(peptides);
+
+            Assert.That(results.Count, Is.EqualTo(1),
+                "Null element should be skipped; only the unique non-null entry remains.");
+            Assert.That(results.ContainsKey("PEPTIDE"), Is.True);
+            Assert.That(results["PEPTIDE"], Is.EqualTo(25.3));
         }
 
         [Test]
@@ -230,20 +255,6 @@ namespace Test.RetentionTimePrediction
         }
 
         // ── Tests: failureReason is not propagated in batch (documented limitation) ──
-
-        [Test]
-        public void PredictRetentionTimes_DefaultImpl_NullResultEntries_FailureReasonNotAvailable()
-        {
-            IRetentionTimePredictor predictor = new MockPredictor(
-                new Dictionary<string, double?>());
-
-            var results = predictor.PredictRetentionTimes(new List<IRetentionPredictable>
-            {
-                new StubPeptide { FullSequence = "UNKNOWN" }
-            });
-
-            Assert.That(results["UNKNOWN"], Is.Null);
-        }
 
         // ── Tests: Chronologer satisfies the interface ────────────────────
 
@@ -392,6 +403,40 @@ namespace Test.RetentionTimePrediction
                 "Invalid sequence should produce null prediction");
             Assert.That(results["AGHCEWQMK"], Is.Not.Null,
                 "Valid sequence after invalid one must receive correct prediction");
+        }
+
+        [Test]
+        [Category("Integration")]
+        public void Prosit2019iRT_PredictRetentionTimes_ModifiedPeptide_ReturnsKeyedByOriginalFullSequence()
+        {
+            // Verifies the UNIMOD->mzLib reverse conversion in the batch override.
+            // mzLib FullSequence:  M[Common Variable:Oxidation on M]SEQENS
+            // Koina UNIMOD form:   M[UNIMOD:35]SEQENS
+            // The dictionary returned by PredictRetentionTimes must be keyed by the
+            // ORIGINAL mzLib form -- regression in the rekey path would silently
+            // produce nulls for valid peptides downstream.
+            IRetentionTimePredictor predictor = new
+                PredictionClients.Koina.SupportedModels.RetentionTimeModels.Prosit2019iRT();
+
+            const string modifiedSeq = "M[Common Variable:Oxidation on M]SEQENS";
+            const string unmodifiedSeq = "PEPTIDE";
+
+            var peptides = new List<IRetentionPredictable>
+            {
+                new StubPeptide { BaseSequence = "MSEQENS", FullSequence = modifiedSeq },
+                new StubPeptide { BaseSequence = unmodifiedSeq, FullSequence = unmodifiedSeq }
+            };
+
+            var results = predictor.PredictRetentionTimes(peptides);
+
+            Assert.That(results.Count, Is.EqualTo(2));
+            Assert.That(results.ContainsKey(modifiedSeq), Is.True,
+                $"Dictionary must be keyed by original mzLib FullSequence " +
+                $"'{modifiedSeq}', not the UNIMOD form. Actual keys: " +
+                $"[{string.Join(", ", results.Keys)}]");
+            Assert.That(results.ContainsKey(unmodifiedSeq), Is.True);
+            Assert.That(results[modifiedSeq].HasValue, Is.True);
+            Assert.That(results[unmodifiedSeq].HasValue, Is.True);
         }
     }
 }

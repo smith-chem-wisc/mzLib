@@ -38,7 +38,9 @@ public interface IRetentionTimePredictor : IDisposable
     /// <summary>Human-readable name, e.g. "Chronologer", "Prosit2019iRT".</summary>
     string PredictorName { get; }
 
-    /// <summary>Chromatographic or electrophoretic mode this predictor targets.</summary>
+    /// <summary>
+    /// Gets the separation type this predictor is designed for
+    /// </summary>
     SeparationType SeparationType { get; }
 
     /// <summary>
@@ -81,7 +83,11 @@ public interface IRetentionTimePredictor : IDisposable
         var results = new Dictionary<string, double?>();
         foreach (var peptide in peptides)
         {
-            if (peptide is null)
+            // Skip malformed inputs symmetrically: a null FullSequence flows
+            // into the dictionary indexer and throws ArgumentNullException,
+            // dropping every prior result mid-iteration. Treat it the same
+            // way as a null peptide -- skip and continue.
+            if (peptide is null || string.IsNullOrEmpty(peptide.FullSequence))
                 continue;
             results[peptide.FullSequence] = PredictRetentionTime(peptide, out _);
         }

@@ -157,19 +157,22 @@ namespace Test.KoinaTests.RetentionTimePrediction
         // ═══════════════════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// Null peptide must not NRE — it must return null with a PredictionError
-        /// failure reason. PEP downstream treats null as a sentinel value; propagating
-        /// an NRE would crash the whole analysis.
+        /// Null peptide must not NRE -- it must return null with EmptySequence as the
+        /// failure reason. A null peptide is semantically "no input to predict from"
+        /// (same bucket as an empty BaseSequence/FullSequence), not "the model was
+        /// consulted and failed". EmptySequence lets upstream callers route null-input
+        /// cases distinctly from genuine model errors. PEP downstream treats null as a
+        /// sentinel value; propagating an NRE would crash the whole analysis.
         /// </summary>
         [Test]
-        public void PredictRetentionTime_NullPeptide_ReturnsNullWithPredictionError()
+        public void PredictRetentionTime_NullPeptide_ReturnsNullWithEmptySequence()
         {
             var model = new TestableRetentionTimeModel();
 
             var result = model.PredictRetentionTime(null!, out var reason);
 
             Assert.That(result, Is.Null);
-            Assert.That(reason, Is.EqualTo(RetentionTimeFailureReason.PredictionError));
+            Assert.That(reason, Is.EqualTo(RetentionTimeFailureReason.EmptySequence));
         }
 
         /// <summary>

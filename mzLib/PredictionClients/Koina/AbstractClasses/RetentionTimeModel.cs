@@ -294,7 +294,7 @@ namespace PredictionClients.Koina.AbstractClasses
 
             if (peptide is null)
             {
-                failureReason = RetentionTimeFailureReason.PredictionError;
+                failureReason = RetentionTimeFailureReason.EmptySequence;
                 return null;
             }
 
@@ -304,26 +304,24 @@ namespace PredictionClients.Koina.AbstractClasses
                 return null;
             }
 
-            try
-            {
-                var results = PredictRetentionTimes(new[] { peptide });
-                if (results.TryGetValue(peptide.FullSequence, out var value) && value.HasValue)
-                    return value;
+            // PredictRetentionTimes documents and implements a "swallow everything,
+            // fill nulls and return" contract; with the null-FullSequence filter and
+            // the Predictions clear at its top, nothing should escape it under the
+            // documented inputs. No outer catch here -- a future regression that
+            // does leak should surface as a real exception, not be silently mapped
+            // to PredictionError.
+            var results = PredictRetentionTimes(new[] { peptide });
+            if (results.TryGetValue(peptide.FullSequence, out var value) && value.HasValue)
+                return value;
 
-                // Batch realigns rejected inputs into Predictions with a non-null Warning
-                // (e.g. mods unrepresentable in UNIMOD). Surface that as IncompatibleModifications
-                // instead of collapsing every null into PredictionError.
-                var matching = Predictions.FirstOrDefault(p => p.FullSequence == peptide.FullSequence);
-                failureReason = matching?.Warning != null
-                    ? RetentionTimeFailureReason.IncompatibleModifications
-                    : RetentionTimeFailureReason.PredictionError;
-                return null;
-            }
-            catch (Exception)
-            {
-                failureReason = RetentionTimeFailureReason.PredictionError;
-                return null;
-            }
+            // Batch realigns rejected inputs into Predictions with a non-null Warning
+            // (e.g. mods unrepresentable in UNIMOD). Surface that as IncompatibleModifications
+            // instead of collapsing every null into PredictionError.
+            var matching = Predictions.FirstOrDefault(p => p.FullSequence == peptide.FullSequence);
+            failureReason = matching?.Warning != null
+                ? RetentionTimeFailureReason.IncompatibleModifications
+                : RetentionTimeFailureReason.PredictionError;
+            return null;
         }
 
         /// <summary>
@@ -346,8 +344,15 @@ namespace PredictionClients.Koina.AbstractClasses
             if (peptides is null)
                 throw new ArgumentNullException(nameof(peptides));
 
+            // Clear stale Predictions from any prior call. PredictRetentionTime's
+            // failure-reason fallback inspects this collection; if a transient HTTP
+            // failure prevents AsyncThrottledPredictor from reaching its final
+            // Predictions = realignedPredictions assignment, prior-call data would
+            // otherwise leak into the failure reason for the current peptide.
+            Predictions = new List<PeptideRTPrediction>();
+
             var peptideList = peptides
-                .Where(p => p is not null)
+                .Where(p => p is not null && !string.IsNullOrEmpty(p.FullSequence))
                 .DistinctBy(p => p.FullSequence)
                 .ToList();
 
@@ -366,7 +371,12 @@ namespace PredictionClients.Koina.AbstractClasses
 
                 foreach (var prediction in predictions)
                 {
-                    results[prediction.FullSequence] = prediction.PredictedRetentionTime;
+                    // Normalize NaN/Infinity to null so the documented "null means
+                    // prediction was not possible" contract holds end-to-end. Callers
+                    // doing arithmetic on the result would otherwise silently corrupt.
+                    var rt = prediction.PredictedRetentionTime;
+                    results[prediction.FullSequence] =
+                        (rt.HasValue && double.IsFinite(rt.Value)) ? rt : null;
                 }
 
                 // Fill null for any inputs missing from predictions (defensive)
