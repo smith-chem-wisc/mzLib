@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using MzLibUtil;
 
 namespace MassSpectrometry
@@ -42,6 +43,12 @@ namespace MassSpectrometry
 
         // ── Per-scan entry point ──────────────────────────────────────────────
 
+        /// <summary>
+        /// Per-scan deconvolution. Range filtering uses the midpoint of FLASHDeconv's
+        /// representative m/z range; envelopes whose isotope tail extends past
+        /// spectrum.Range.Maximum may be dropped at the edge. For full-fidelity
+        /// results use <see cref="DeconvoluteFile"/>.
+        /// </summary>
         internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range)
         {
             var p = DeconvolutionParameters as RealFLASHDeconvolutionParameters
@@ -97,8 +104,6 @@ namespace MassSpectrometry
                 RunFLASHDeconv(exePath, mzmlPath, tmpFeat, tmpMs1, tmpMs2, p);
                 if (!File.Exists(tmpMs1)) return new Dictionary<int, List<IsotopicEnvelope>>();
                 return ParseSpecTsvByScan(tmpMs1, p);
-                //if (!File.Exists(tmpMs1)) return new Dictionary<int, List<IsotopicEnvelope>>();
-                //return ParseSpecTsvByScan(tmpMs1, p);
             }
             finally
             {
@@ -170,7 +175,7 @@ namespace MassSpectrometry
             args.Append($"-in \"{inputMzml}\" ");
             args.Append($"-out \"{outFeatureTsv}\" ");
             // Two paths: MS1 first, MS2 second. Required for mixed-level files.
-            args.Append($"-out_spec {outMs1Tsv} {outMs2Tsv} ");
+            args.Append($"-out_spec \"{outMs1Tsv}\" \"{outMs2Tsv}\" ");
             args.Append($"-Algorithm:tol {p.TolerancePpm.ToString(CultureInfo.InvariantCulture)} ");
             args.Append($"-Algorithm:min_charge {minCharge} ");
             args.Append($"-Algorithm:max_charge {maxCharge} ");
@@ -192,17 +197,22 @@ namespace MassSpectrometry
             };
 
             proc.Start();
-            string stdout = proc.StandardOutput.ReadToEnd();
-            string stderr = proc.StandardError.ReadToEnd();
+            // Drain both streams asynchronously: a synchronous ReadToEnd before
+            // WaitForExit defeats the timeout (it blocks until the child exits)
+            // and risks a stdout/stderr pipe-buffer deadlock on chatty children.
+            var stdoutTask = Task.Run(() => proc.StandardOutput.ReadToEnd());
+            var stderrTask = Task.Run(() => proc.StandardError.ReadToEnd());
 
-            Console.WriteLine($"[FD] Args: {args}"); bool done = proc.WaitForExit(p.ProcessTimeoutSeconds * 1_000);
+            bool done = proc.WaitForExit(p.ProcessTimeoutSeconds * 1_000);
             if (!done)
             {
                 try { proc.Kill(); } catch { }
                 throw new TimeoutException($"FLASHDeconv timed out after {p.ProcessTimeoutSeconds}s.");
             }
 
-            Console.WriteLine($"[FD] ExitCode={proc.ExitCode} STDOUT={stdout} STDERR={stderr}"); if (proc.ExitCode != 0)
+            string stdout = stdoutTask.Result;
+            string stderr = stderrTask.Result;
+            if (proc.ExitCode != 0)
                 throw new MzLibException(
                     $"FLASHDeconv exited with code {proc.ExitCode}.\n" +
                     $"Args: {args}\nSTDOUT: {stdout}\nSTDERR: {stderr}");
@@ -210,7 +220,7 @@ namespace MassSpectrometry
 
         // ── TSV parser ────────────────────────────────────────────────────────
 
-        private static Dictionary<int, List<IsotopicEnvelope>> ParseSpecTsvByScan(
+        internal static Dictionary<int, List<IsotopicEnvelope>> ParseSpecTsvByScan(
             string tsvPath, RealFLASHDeconvolutionParameters p)
         {
             var results = new Dictionary<int, List<IsotopicEnvelope>>();
@@ -246,10 +256,9 @@ namespace MassSpectrometry
                 if (idxMzEnd >= 0 && D(c, idxMzEnd, out double mzEnd))
                     repMz = (mzStart + mzEnd) / 2.0;
                 D(c, idxCosine, out double cosine);
-                double score = 0;
-                if (idxQscore >= 0) D(c, idxQscore, out score);
-                if (score == 0 && idxSNR >= 0) D(c, idxSNR, out score);
-                if (score == 0) score = cosine;
+                if (!D(c, idxQscore, out double score))
+                    if (!D(c, idxSNR, out score))
+                        score = cosine;
                 int signedZ = p.Polarity == Polarity.Negative ? -Math.Abs(z) : Math.Abs(z);
                 if (mono < p.MinMass || mono > p.MaxMass) continue;
                 var env = new IsotopicEnvelope(
@@ -268,7 +277,7 @@ namespace MassSpectrometry
 
         // ── mzML writer ───────────────────────────────────────────────────────
 
-        private static void WriteSingleScanMzml(MzSpectrum spectrum, string path, Polarity polarity)
+        internal static void WriteSingleScanMzml(MzSpectrum spectrum, string path, Polarity polarity)
         {
             int n = spectrum.XArray.Length;
             double lowMz = n > 0 ? spectrum.XArray[0] : 0;
@@ -308,8 +317,8 @@ namespace MassSpectrometry
             sb.AppendLine(CV("MS:1000505", "base peak intensity", bpInt));
             sb.AppendLine(@"        <scanList count=""1""><cvParam cvRef=""MS"" accession=""MS:1000795"" name=""no combination""/><scan><cvParam cvRef=""MS"" accession=""MS:1000016"" name=""scan start time"" value=""0"" unitCvRef=""UO"" unitAccession=""UO:0000031"" unitName=""minute""/></scan></scanList>");
             sb.AppendLine(@"        <binaryDataArrayList count=""2"">");
-            sb.AppendLine($@"          <binaryDataArray encodedLength=""{mzB64.Length}""><cvParam cvRef=""MS"" accession=""MS:1000514"" name=""m/z array"" unitCvRef=""MS"" unitAccession=""MS:1000040"" unitName=""m/z""/><cvParam cvRef=""MS"" accession=""MS:1000576"" name=""no compression""/><cvParam cvRef=""MS"" accession=""MS:1000515"" name=""64-bit float""/><binary>{mzB64}</binary></binaryDataArray>");
-            sb.AppendLine($@"          <binaryDataArray encodedLength=""{intB64.Length}""><cvParam cvRef=""MS"" accession=""MS:1000515"" name=""intensity array"" unitCvRef=""MS"" unitAccession=""MS:1000131"" unitName=""number of detector counts""/><cvParam cvRef=""MS"" accession=""MS:1000576"" name=""no compression""/><cvParam cvRef=""MS"" accession=""MS:1000515"" name=""64-bit float""/><binary>{intB64}</binary></binaryDataArray>");
+            sb.AppendLine($@"          <binaryDataArray encodedLength=""{mzB64.Length}""><cvParam cvRef=""MS"" accession=""MS:1000514"" name=""m/z array"" unitCvRef=""MS"" unitAccession=""MS:1000040"" unitName=""m/z""/><cvParam cvRef=""MS"" accession=""MS:1000576"" name=""no compression""/><cvParam cvRef=""MS"" accession=""MS:1000523"" name=""64-bit float""/><binary>{mzB64}</binary></binaryDataArray>");
+            sb.AppendLine($@"          <binaryDataArray encodedLength=""{intB64.Length}""><cvParam cvRef=""MS"" accession=""MS:1000515"" name=""intensity array"" unitCvRef=""MS"" unitAccession=""MS:1000131"" unitName=""number of detector counts""/><cvParam cvRef=""MS"" accession=""MS:1000576"" name=""no compression""/><cvParam cvRef=""MS"" accession=""MS:1000523"" name=""64-bit float""/><binary>{intB64}</binary></binaryDataArray>");
             sb.AppendLine(@"        </binaryDataArrayList>");
             sb.AppendLine(@"      </spectrum>");
             sb.AppendLine(@"    </spectrumList>");
