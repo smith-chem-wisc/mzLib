@@ -206,8 +206,25 @@ namespace MassSpectrometry
             IEnumerable<IsotopicEnvelope> envelopes,
             AverageResidue model)
         {
+            // Validate eagerly: an iterator's body is deferred until MoveNext, so
+            // throwing inside the foreach below would not fire on an empty input
+            // and would mask null arguments behind a NullReferenceException on
+            // first iteration. Splitting into wrapper + private iterator is the
+            // canonical pattern for eager validation of yield-return methods.
+            if (envelopes == null) throw new ArgumentNullException(nameof(envelopes));
+            if (model == null) throw new ArgumentNullException(nameof(model));
+            return ScoreEnvelopesIterator(envelopes, model);
+        }
+
+        private static IEnumerable<(IsotopicEnvelope Envelope, double Score)> ScoreEnvelopesIterator(
+            IEnumerable<IsotopicEnvelope> envelopes,
+            AverageResidue model)
+        {
             foreach (var env in envelopes)
+            {
+                if (env == null) continue;
                 yield return (env, ScoreEnvelope(env, model));
+            }
         }
 
         // ── Private helpers ───────────────────────────────────────────────────
