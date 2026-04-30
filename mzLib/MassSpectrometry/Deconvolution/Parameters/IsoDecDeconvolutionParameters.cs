@@ -258,7 +258,7 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
                 knockdownRounds: KnockdownRounds,
                 minAreaCovered: MinAreaCovered,
                 relativeDataThreshold: DataThreshold,
-                averageResidueModel: new DecoyAveragine(AverageResidueModel),
+                averageResidueModel: new DecoyAveragine(AverageResidueModel, DecoyAveragine.DefaultDecoyIsotopeSpacing, ExpectedIsotopeSpacing),
                 expectedIsotopeSpacing: DecoyAveragine.DefaultDecoyIsotopeSpacing);
 
             return _decoyParams = decoy;

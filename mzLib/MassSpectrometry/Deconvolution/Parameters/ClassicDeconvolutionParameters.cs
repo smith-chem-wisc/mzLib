@@ -50,7 +50,7 @@ namespace MassSpectrometry
                     IntensityRatioLimit,
                     Polarity,
                     averageResidueModel: new DecoyAveragine(AverageResidueModel,
-                        DecoyAveragine.DefaultDecoyIsotopeSpacing),
+                        DecoyAveragine.DefaultDecoyIsotopeSpacing, ExpectedIsotopeSpacing),
                     expectedIsotopeSpacing: DecoyAveragine.DefaultDecoyIsotopeSpacing);
             }
         }

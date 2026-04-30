@@ -135,7 +135,7 @@ public sealed class DecoyAveragine : AverageResidue
     ///   envelopes to the real model, which is not a valid decoy.
     /// </exception>
     public DecoyAveragine(AverageResidue realModel,
-        double decoyIsotopeSpacing = DefaultDecoyIsotopeSpacing)
+        double decoyIsotopeSpacing = DefaultDecoyIsotopeSpacing, double targetIsotopeSpacing = Constants.C13MinusC12)
     {
         if (Math.Abs(decoyIsotopeSpacing - Constants.C13MinusC12) < 1e-6)
             throw new ArgumentException(
@@ -149,7 +149,7 @@ public sealed class DecoyAveragine : AverageResidue
         // Per-isotope shift relative to the real spacing.
         // Positive offset → peaks spread further apart.
         // Negative offset (default) → peaks compressed together.
-        double perPeakOffset = decoyIsotopeSpacing - Constants.C13MinusC12;
+        double perPeakOffset = decoyIsotopeSpacing - targetIsotopeSpacing;
 
         _allMasses = new double[NumAveraginesToGenerate][];
         _mostIntenseMasses = new double[NumAveraginesToGenerate];
