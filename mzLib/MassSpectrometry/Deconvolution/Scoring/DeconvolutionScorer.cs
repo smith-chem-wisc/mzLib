@@ -104,7 +104,10 @@ namespace MassSpectrometry
             // For each theoretical isotope position n, find the closest peak in
             // envelope.Peaks within MatchTolerancePpm.
             double monoMass = envelope.MonoisotopicMass;
-            double monoMz = monoMass.ToMz(absCharge);
+            // Signed charge: ToMz embeds the polarity-dependent proton sign
+            // (mass/|z| + sign(z)*proton), so a negative envelope anchors on its
+            // physically-correct negative-mode m/z, not the positive-mode mirror.
+            double monoMz = monoMass.ToMz(envelope.Charge);
             var peakList = envelope.Peaks;
 
             double[] observed = new double[nIso];
