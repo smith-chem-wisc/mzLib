@@ -23,14 +23,16 @@ public class SSRCalc3RetentionTimePredictor : RetentionTimePredictor
 
     protected override bool ValidateBasicConstraints(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason)
     {
-        var baseSequence = peptide.BaseSequence;
-        if (baseSequence.Any(aa => Array.IndexOf(CanonicalAminoAcids, aa) == -1))
+        if (!base.ValidateBasicConstraints(peptide, out failureReason))
+            return false;
+
+        if (peptide.BaseSequence.Any(aa => !CanonicalAminoAcids.Contains(aa)))
         {
             failureReason = RetentionTimeFailureReason.InvalidAminoAcid;
             return false;
         }
 
-        return base.ValidateBasicConstraints(peptide, out failureReason);
+        return true;
     }
 
     protected override double? PredictCore(IRetentionPredictable peptide, string? formattedSequence = null)
