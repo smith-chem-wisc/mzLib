@@ -10,6 +10,14 @@ namespace MassSpectrometry
     /// This allows the scorer to operate after the spectrum has been discarded
     /// (deconvolute-and-discard callers).
     /// </summary>
+    /// <remarks>
+    /// Kept as a readonly struct (4 doubles, 32 bytes) rather than a class or record
+    /// class because <see cref="DeconvolutionScorer.ComputeFeatures"/> is invoked once
+    /// per envelope on the batch-scoring hot path (potentially thousands per scan), and
+    /// stack-local value semantics avoid the per-envelope heap allocation a reference
+    /// type would incur. The 32-byte copy cost on parameter passes is acceptable
+    /// because the type only crosses the ComputeFeatures -> ComputeScore boundary once.
+    /// </remarks>
     public readonly struct EnvelopeScoreFeatures
     {
         /// <summary>
