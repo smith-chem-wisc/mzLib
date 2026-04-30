@@ -1,6 +1,8 @@
-﻿using System.Collections.Generic;
 using Chemistry;
 using MzLibUtil;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace MassSpectrometry
 {
@@ -19,7 +21,6 @@ namespace MassSpectrometry
         public static IEnumerable<IsotopicEnvelope> Deconvolute(MsDataScan scan,
             DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null)
         {
-            // set any specific deconvolution parameters found only in the MsDataScan
             return Deconvolute(scan.MassSpectrum, deconvolutionParameters, rangeToGetPeaksFrom);
         }
 
@@ -39,11 +40,35 @@ namespace MassSpectrometry
             if (spectrum is NeutralMassSpectrum newt)
                 return DeconvoluteNeutralMassSpectrum(newt, rangeToGetPeaksFrom);
 
-            // set deconvolution algorithm 
+            // set deconvolution algorithm
             DeconvolutionAlgorithm deconAlgorithm = CreateAlgorithm(deconvolutionParameters);
 
             // Delegate deconvolution to the algorithm
             return deconAlgorithm.Deconvolute(spectrum, rangeToGetPeaksFrom);
+        }
+
+        public static (List<IsotopicEnvelope> Targets, List<IsotopicEnvelope> Decoys)
+            DeconvoluteWithDecoys(MsDataScan scan, DeconvolutionParameters parameters,
+                MzRange rangeToGetPeaksFrom = null)
+            => DeconvoluteWithDecoys(scan.MassSpectrum, parameters, rangeToGetPeaksFrom);
+
+        public static (List<IsotopicEnvelope> Targets, List<IsotopicEnvelope> Decoys)
+            DeconvoluteWithDecoys(MzSpectrum spectrum, DeconvolutionParameters parameters,
+                MzRange rangeToGetPeaksFrom = null)
+        {
+            var targets = Deconvolute(spectrum, parameters, rangeToGetPeaksFrom).ToList();
+
+            var decoyParams = parameters.ToDecoyParameters();
+            if (decoyParams is null)
+            {
+                throw new InvalidOperationException(
+                    $"DeconvoluteWithDecoys requires decoy support, but {parameters.GetType().Name} " +
+                    $"does not implement ToDecoyParameters(). Override ToDecoyParameters() in your " +
+                    $"parameter class to enable decoy deconvolution.");
+            }
+            var decoys = Deconvolute(spectrum, decoyParams, rangeToGetPeaksFrom).ToList();
+
+            return (targets, decoys);
         }
 
         /// <summary>
@@ -122,7 +147,8 @@ namespace MassSpectrometry
         /// <param name="neutralSpectrum"></param>
         /// <param name="range"></param>
         /// <returns></returns>
-        private static IEnumerable<IsotopicEnvelope> DeconvoluteNeutralMassSpectrum(NeutralMassSpectrum neutralSpectrum, MzRange range)
+        private static IEnumerable<IsotopicEnvelope> DeconvoluteNeutralMassSpectrum(
+            NeutralMassSpectrum neutralSpectrum, MzRange range)
         {
             for (int i = 0; i < neutralSpectrum.XArray.Length; i++)
             {
