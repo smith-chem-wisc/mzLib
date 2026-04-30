@@ -60,6 +60,28 @@ namespace Test.RetentionTimePrediction
                 failureReason = null;
                 return peptide.BaseSequence;
             }
+
+            // For the mock, equivalent == time. Delegate to PredictRetentionTime.
+            public double? PredictRetentionTimeEquivalent(IRetentionPredictable peptide,
+                out RetentionTimeFailureReason? failureReason)
+                => PredictRetentionTime(peptide, out failureReason);
+
+            // Minimal batch stub: per-peptide via the single-shot path.
+            public IReadOnlyList<(double? PredictedValue, IRetentionPredictable Peptide, RetentionTimeFailureReason? FailureReason)>
+                PredictRetentionTimeEquivalents(IEnumerable<IRetentionPredictable> peptides, int maxThreads = 1)
+            {
+                var output = new List<(double?, IRetentionPredictable, RetentionTimeFailureReason?)>();
+                foreach (var p in peptides)
+                {
+                    if (p is null) continue;
+                    var v = PredictRetentionTime(p, out var reason);
+                    output.Add((v, p, reason));
+                }
+                return output;
+            }
+
+            public void Dispose() { }
+
             // PredictRetentionTimes is NOT overridden here —
             // verifies the default interface implementation works correctly.
         }
