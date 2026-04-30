@@ -9,6 +9,7 @@ using UsefulProteomicsDatabases;
 namespace Test.Transcriptomics
 {
     [ExcludeFromCodeCoverage]
+    [TestFixture]
     public class TestNucleotide
     {
         public record NucleotideTestCase(Nucleotide Nucleotide, string Name, char OneLetterCode, string Symbol, ChemicalFormula Formula, double Mass,
