@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Chemistry;
 using MassSpectrometry;
+using MzLibUtil;
 using NUnit.Framework;
 using Omics;
 using Omics.BioPolymer;
@@ -50,10 +52,10 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         [Test]
         public static void ProteaseLoader_InvalidFiles_Throw()
         {
-            string path_badMod = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteaseFilesForLoadingTests", "TestProteases_badMod.tsv");
-            string path_badModDupName = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteaseFilesForLoadingTests", "TestProteases_badMod_dupName.tsv");
-            string path_dupName = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteaseFilesForLoadingTests", "TestProteases_dupName.tsv");
-            string path_modDupName = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteaseFilesForLoadingTests", "TestProteases_Mod_dupName.tsv");
+            string path_badMod = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteomicsTests", "ProteaseFilesForLoadingTests", "TestProteases_badMod.tsv");
+            string path_badModDupName = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteomicsTests", "ProteaseFilesForLoadingTests", "TestProteases_badMod_dupName.tsv");
+            string path_dupName = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteomicsTests", "ProteaseFilesForLoadingTests", "TestProteases_dupName.tsv");
+            string path_modDupName = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteomicsTests", "ProteaseFilesForLoadingTests", "TestProteases_Mod_dupName.tsv");
 
             // A file referencing a modification name that doesn't exist should throw
             NUnit.Framework.Assert.Throws<MzLibException>(
@@ -87,7 +89,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             var prot = new Protein("PEPTIDEMPEPTIDEM", null);
             var prot2 = new Protein("MPEPTIDEMPEPTIDE", null);
 
-            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DoubleProtease.tsv");
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteomicsTests", "ProteaseFilesForLoadingTests", "DoubleProtease.tsv");
             NUnit.Framework.Assert.That(File.Exists(path));
 
             // Load the custom file — these proteases must have names not in the embedded resource

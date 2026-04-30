@@ -1,8 +1,8 @@
 ﻿using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
-using Omics.Digestion;
 using Omics.Modifications;
 using Proteomics.ProteolyticDigestion;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
