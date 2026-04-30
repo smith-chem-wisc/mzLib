@@ -10,7 +10,6 @@ using Omics.Modifications;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using UsefulProteomicsDatabases;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace Test.ProteomicsTests.ProteolyticDigestion
@@ -43,10 +42,10 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             string path4 = Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteomicsTests", "ProteaseFilesForLoadingTests", "TestProteases_Mod_dupName.tsv");
             var proteaseMods = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "ProteaseMods.txt"), out var errors).ToList();
 
-            NUnit.Framework.Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path1, proteaseMods));
-            NUnit.Framework.Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path2, proteaseMods));
-            NUnit.Framework.Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path3, proteaseMods));
-            NUnit.Framework.Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path4, proteaseMods));
+            Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path1, proteaseMods));
+            Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path2, proteaseMods));
+            Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path3, proteaseMods));
+            Assert.Throws<MzLibUtil.MzLibException>(() => ProteaseDictionary.LoadProteaseDictionary(path4, proteaseMods));
         }
 
         /// <summary>
@@ -213,7 +212,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         /// <summary>
         /// Tests the custom protease dictionary functionality including:
         /// - Loading custom proteases from a file and merging into the main dictionary
-        /// - Overwriting existing proteases with custom definitions
+        /// - Skipping (not overwriting) existing built-in proteases
         /// - Adding new proteases not in the default set
         /// - Using custom proteases for protein digestion
         /// - Resetting to default proteases
@@ -222,28 +221,28 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         /// Name, Motif, Specificity, PSI-MS Accession, PSI-MS Name, Cleavage Modification
         /// 
         /// Merge rules:
-        /// - If protease name matches existing entry: OVERWRITES the built-in definition
+        /// - If protease name matches existing entry: SKIPS the custom definition (built-in is retained)
         /// - If protease name is new: ADDS to the dictionary
         /// </summary>
         [Test]
-        public static void LoadAndMergeCustomProteases_OverwritesAndAddsProteases()
+        public static void LoadAndMergeCustomProteases_SkipsExistingAndAddsNew()
         {
             // Arrange - capture initial state
+            ProteaseDictionary.ResetToDefaults();
             int initialProteaseCount = ProteaseDictionary.Dictionary.Count;
             var originalTrypsin = ProteaseDictionary.Dictionary["trypsin|P"];
             Assert.That(originalTrypsin.DigestionMotifs.Count, Is.EqualTo(2)); // K[P]| and R[P]|
-            // Verify original trypsin|P cleaves after K and R (not before P)
             Assert.That(originalTrypsin.DigestionMotifs.Any(m => m.InducingCleavage == "K"), Is.True);
             Assert.That(originalTrypsin.DigestionMotifs.Any(m => m.InducingCleavage == "R"), Is.True);
 
             // Create a custom protease file that:
-            // 1. Overrides trypsin|P with a completely different (nonsense) cleavage rule: cleave after L unless followed by P
+            // 1. Attempts to override trypsin|P — should be SKIPPED (built-in wins)
             // 2. Adds a completely new custom protease
             string customProteaseFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_custom_proteases.tsv");
             string[] lines =
             {
                 "Name\tMotif\tSpecificity\tPSI-MS Accession\tPSI-MS Name\tCleavage Modification",
-                "trypsin|P\tL[P]|\tfull\tMS:1001313\tTrypsin\t",  // Override: change from K[P]|,R[P]| to L[P]| (nonsense rule for testing)
+                "trypsin|P\tL[P]|\tfull\tMS:1001313\tTrypsin\t",  // Collision: same name as built-in, will be skipped
                 "MyLabProtease\tE|\tfull\t\tCustom Glu-C variant\t"  // New: cleaves after glutamate
             };
             File.WriteAllLines(customProteaseFile, lines);
@@ -251,19 +250,21 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             try
             {
                 // Act - merge custom proteases
-                var addedOrUpdated = ProteaseDictionary.LoadAndMergeCustomProteases(customProteaseFile);
+                var result = ProteaseDictionary.LoadAndMergeCustomProteases(customProteaseFile);
 
                 // Assert - verify merge results
-                Assert.That(addedOrUpdated.Count, Is.EqualTo(2));
-                Assert.That(addedOrUpdated, Contains.Item("trypsin|P"));
-                Assert.That(addedOrUpdated, Contains.Item("MyLabProtease"));
-                Assert.That(ProteaseDictionary.Dictionary.Count, Is.EqualTo(initialProteaseCount + 1)); // Only one new protease added (MyLabProtease); trypsin|P was overwritten
+                // trypsin|P collides with a built-in → Skipped; MyLabProtease is new → Added
+                Assert.That(result.Added.Count, Is.EqualTo(1));
+                Assert.That(result.Added, Contains.Item("MyLabProtease"));
+                Assert.That(result.Skipped.Count, Is.EqualTo(1));
+                Assert.That(result.Skipped, Contains.Item("trypsin|P"));
+                Assert.That(ProteaseDictionary.Dictionary.Count, Is.EqualTo(initialProteaseCount + 1));
 
-                // Verify trypsin|P was overwritten with the new L[P]| motif
-                var customTrypsin = ProteaseDictionary.Dictionary["trypsin|P"];
-                Assert.That(customTrypsin.DigestionMotifs.Count, Is.EqualTo(1)); // Now only L[P]|
-                Assert.That(customTrypsin.DigestionMotifs[0].InducingCleavage, Is.EqualTo("L"));
-                Assert.That(customTrypsin.DigestionMotifs[0].PreventingCleavage, Is.EqualTo("P"));
+                // Verify trypsin|P was NOT overwritten — original K[P]|, R[P]| motifs intact
+                var trypsinAfterMerge = ProteaseDictionary.Dictionary["trypsin|P"];
+                Assert.That(trypsinAfterMerge.DigestionMotifs.Count, Is.EqualTo(2));
+                Assert.That(trypsinAfterMerge.DigestionMotifs.Any(m => m.InducingCleavage == "K"), Is.True);
+                Assert.That(trypsinAfterMerge.DigestionMotifs.Any(m => m.InducingCleavage == "R"), Is.True);
 
                 // Verify new protease was added
                 Assert.That(ProteaseDictionary.Dictionary.ContainsKey("MyLabProtease"), Is.True);
@@ -271,29 +272,14 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 Assert.That(myLabProtease.DigestionMotifs.Count, Is.EqualTo(1));
                 Assert.That(myLabProtease.DigestionMotifs[0].InducingCleavage, Is.EqualTo("E"));
 
-                // Verify custom proteases work for digestion
-                // Protein with L's for testing the overwritten trypsin|P
-                // Note: L at position 8 is followed by 'E' (not P), so cleavage will occur there
+                // Verify the new protease works for digestion (cleaves after each E)
                 var protein = new Protein("PEPTIDELEPEPTIDER", null);
-
-                // Custom trypsin|P should now cleave after L (unless followed by P)
-                var customTrypsinParams = new DigestionParams(
-                    protease: "trypsin|P",
-                    maxMissedCleavages: 0,
-                    minPeptideLength: 1);
-                var customDigest = protein.Digest(customTrypsinParams, new List<Modification>(), new List<Modification>()).ToList();
-                // Should cleave after L at position 8 (L is followed by E, not P), producing: PEPTIDEL, EPEPTIDER
-                Assert.That(customDigest.Count, Is.EqualTo(2));
-                Assert.That(customDigest[0].BaseSequence, Is.EqualTo("PEPTIDEL"));
-                Assert.That(customDigest[1].BaseSequence, Is.EqualTo("EPEPTIDER"));
-
-                // New protease should work
                 var myLabParams = new DigestionParams(
                     protease: "MyLabProtease",
                     maxMissedCleavages: 0,
                     minPeptideLength: 1);
                 var myLabDigest = protein.Digest(myLabParams, new List<Modification>(), new List<Modification>()).ToList();
-                Assert.That(myLabDigest.Count, Is.EqualTo(6)); // PE, PTIDE, LE, PE, PTIDE, R (cleaves after each E)
+                Assert.That(myLabDigest.Count, Is.EqualTo(6)); // PE, PTIDE, LE, PE, PTIDE, R
 
                 // Act - reset to defaults
                 ProteaseDictionary.ResetToDefaults();
@@ -302,7 +288,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 Assert.That(ProteaseDictionary.Dictionary.Count, Is.EqualTo(initialProteaseCount));
                 Assert.That(ProteaseDictionary.Dictionary.ContainsKey("MyLabProtease"), Is.False);
 
-                // Verify trypsin|P is back to original behavior (K[P]| and R[P]|)
+                // Verify trypsin|P is still the built-in definition
                 var restoredTrypsin = ProteaseDictionary.Dictionary["trypsin|P"];
                 Assert.That(restoredTrypsin.DigestionMotifs.Count, Is.EqualTo(2));
                 Assert.That(restoredTrypsin.DigestionMotifs.Any(m => m.InducingCleavage == "K"), Is.True);
@@ -310,12 +296,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             }
             finally
             {
-                // Cleanup - ensure dictionary is reset even if test fails
                 ProteaseDictionary.ResetToDefaults();
                 if (File.Exists(customProteaseFile))
-                {
                     File.Delete(customProteaseFile);
-                }
             }
         }
     }
