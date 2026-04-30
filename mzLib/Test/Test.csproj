@@ -565,6 +565,9 @@
     <None Update="ProteomicsTests\ProteaseFilesForLoadingTests\DoubleProtease.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="FileReadingTests\SearchResults\nglyco_noLocalizationScore.psmtsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="FileReadingTests\SearchResults\oGlycoAllPsms.psmtsv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
