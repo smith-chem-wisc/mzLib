@@ -1,12 +1,11 @@
-﻿using NUnit.Framework;
-using Omics.SequenceConversion;
-using PredictionClients.Koina.SupportedModels.FlyabilityModels;
-using PredictionClients.Koina.Util;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using NUnit.Framework;
+using Omics.SequenceConversion;
+using PredictionClients.Koina.SupportedModels.FlyabilityModels;
 
-namespace Test.KoinaTests
+namespace Test.KoinaTests.FlyabilityPrediction
 {
     [TestFixture]
     [Category("Integration")]

@@ -27,7 +27,7 @@ namespace Test.Transcriptomics
         private static IEnumerable<(string, RnaFastaHeaderType)> DetectHeaderTestCases =>
             new List<(string, RnaFastaHeaderType)>
             {
-                (Path.Combine(TestContext.CurrentContext.TestDirectory, "DoubleProtease.tsv"), RnaFastaHeaderType.Unknown),
+                (Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteomicsTests", "ProteaseFilesForLoadingTests", "DoubleProtease.tsv"), RnaFastaHeaderType.Unknown),
                 (ModomicsUnmodifedFastaPath, RnaFastaHeaderType.Modomics),
                 (Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.fasta"), RnaFastaHeaderType.Modomics),
                 
