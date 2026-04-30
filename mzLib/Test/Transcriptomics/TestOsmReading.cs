@@ -12,6 +12,7 @@ using Transcriptomics.Digestion;
 
 namespace Test.Transcriptomics;
 
+[TestFixture]
 public class TestOsmReading
 {
     public static string OsmFilePath => Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "OsmFileForTesting.osmtsv");
