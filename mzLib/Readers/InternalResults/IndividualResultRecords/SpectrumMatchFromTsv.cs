@@ -172,8 +172,8 @@ namespace Readers
             GeneName = GetOptionalValue(SpectrumMatchFromTsvHeader.GeneName, parsedHeader, spl);
             OrganismName = GetOptionalValue(SpectrumMatchFromTsvHeader.OrganismName, parsedHeader, spl);
             IntersectingSequenceVariations = GetOptionalValue(SpectrumMatchFromTsvHeader.IntersectingSequenceVariations, parsedHeader, spl);
-            IdentifiedSequenceVariations = GetOptionalValue(SpectrumMatchFromTsvHeader.IdentifiedSequenceVariations, parsedHeader, spl);
-            SpliceSites = GetOptionalValue(SpectrumMatchFromTsvHeader.SpliceSites, parsedHeader, spl);
+            IdentifiedSequenceVariations = GetOptionalValue(SpectrumMatchFromTsvHeader.IdentifiedSequenceVariations, parsedHeader, spl, "");
+            SpliceSites = GetOptionalValue(SpectrumMatchFromTsvHeader.SpliceSites, parsedHeader, spl, "");
             Description = GetOptionalValue(SpectrumMatchFromTsvHeader.Description, parsedHeader, spl);
             StartAndEndResiduesInParentSequence = GetOptionalValue(SpectrumMatchFromTsvHeader.StartAndEndResiduesInFullSequence, parsedHeader, spl);
             PreviousResidue = GetOptionalValue(SpectrumMatchFromTsvHeader.PreviousResidue, parsedHeader, spl);
@@ -295,7 +295,12 @@ namespace Readers
             {
                 return defaultValue;
             }
-            return splitLine[parsedHeader[header]].Trim();
+            var value = splitLine[parsedHeader[header]].Trim();
+            if (string.IsNullOrWhiteSpace(value)) // if the cell is empty or only whitespace, treat it as missing and return defaultValue
+            {
+                return defaultValue;
+            }
+            return value;
         }
 
         protected TNumber? GetOptionalValue<TNumber>(string header, Dictionary<string, int> parsedHeader, string[] splitLine, TNumber? defaultValue = null)
