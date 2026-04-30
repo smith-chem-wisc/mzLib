@@ -20,7 +20,7 @@ namespace Test
     ///      <see cref="IsoDecDeconvolutionParameters.ToIsoSettings"/>.
     /// </summary>
     [TestFixture]
-    public class TestShallowClone
+    public class TestToDecoyParameters
     {
         // ══════════════════════════════════════════════════════════════════════
         // ClassicDeconvolutionParameters
@@ -213,6 +213,14 @@ namespace Test
         public void IsoDec_ToDecoyParameters_DecoySpacingReachesDll()
         {
             var original = new IsoDecDeconvolutionParameters();
+
+            // Warm the original's cache before cloning. Without this, _isoSettings on
+            // the original is null, so any future "cache leaks to decoy" regression
+            // (e.g. a MemberwiseClone-based ToDecoyParameters that copies the field)
+            // would be invisible because there'd be no cache to copy in the first place.
+            var originalSettings = original.ToIsoSettings();
+            Assert.That(originalSettings.mass_diff_c, Is.EqualTo(Constants.C13MinusC12).Within(1e-6),
+                "Sanity: original cache should hold C13MinusC12 before cloning");
 
             var decoy = (IsoDecDeconvolutionParameters)original.ToDecoyParameters();
             IsoDecDeconvolutionParameters.IsoSettings decoySettings = decoy.ToIsoSettings();

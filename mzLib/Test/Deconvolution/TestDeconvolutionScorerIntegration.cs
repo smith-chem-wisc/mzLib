@@ -162,11 +162,14 @@ namespace Test
         {
             // Classic deconvolution infers isotope spacing from raw peak-to-peak m/z
             // differences rather than from DecoyIsotopeDistance. The decoy parameter
-            // therefore has no effect on Classic output — targets and decoys will be
-            // identical envelopes. This test verifies the documented limitation: both
-            // lists are non-null, all scores are in [0,1], and no exception is thrown.
-            // For algorithms that read DecoyIsotopeDistance (e.g. FLASHDeconv), a
-            // separate test can assert that decoy scores are lower on average.
+            // therefore has no effect on Classic output: decoys is empty for Classic
+            // on this synthetic spectrum (an earlier draft of this comment claimed
+            // "identical envelopes" -- empirically that is wrong; the count is zero).
+            // This test verifies the documented limitation: both lists are non-null,
+            // target scores are in [0,1], and no exception is thrown. Asserting
+            // decoys.Count > 0 here would fail by design -- the gap-detection that
+            // belongs in a separate test using an algorithm that reads
+            // DecoyIsotopeDistance (e.g. FLASHDeconv) and actually generates decoys.
             // See GenericDeconvolutionScorer_SessionWrapUp.md — Known Limitations §4.
             var spectrum = MakeSyntheticSpectrum();
             var (targets, decoys) = Deconvoluter.DeconvoluteWithDecoys(spectrum, DefaultClassic());
@@ -359,30 +362,27 @@ namespace Test
         [Test]
         public void G4_AssignQValues_MonotonicallyEnforced()
         {
-            // Construct a case where naive ordering would violate monotonicity.
-            // Targets: 0.95, 0.80, 0.70, 0.50
-            // Decoys:  0.85 (only one decoy, between the first and second target)
-            // Raw q at threshold 0.95: 0/1 = 0.0
-            // Raw q at threshold 0.80: 1/2 = 0.5
-            // Raw q at threshold 0.70: 1/3 = 0.33 — this must be floored to 0.33, not 0.5
-            // After monotone sweep from bottom, q[0.95] = min(0.0, ...) = 0.0, q[0.80] = 0.33...
+            // Targets: 0.95, 0.80, 0.70, 0.50  Decoys: 0.85 (between the top two targets)
+            // With the +1 correction (Elias & Gygi / Käll), raw q at thresholds is:
+            //   0.95: (0+1)/1 = 1.0
+            //   0.80: (1+1)/2 = 1.0
+            //   0.70: (1+1)/3 = 0.667
+            //   0.50: (1+1)/4 = 0.5
+            // Back-to-front running-min sweep collapses all four to 0.5 (the suffix min).
+            // Asserting the exact values is what makes this test detect (a) the +1
+            // correction being dropped, (b) the monotone sweep being removed, or
+            // (c) the wrong sweep direction -- a non-decreasing-only check trivially
+            // passes for any constant array and would catch none of those regressions.
             double[] targets = { 0.95, 0.80, 0.70, 0.50 };
             double[] decoys = { 0.85 };
 
             double[] qValues = DeconvolutionQValueCalculator.AssignQValues(targets, decoys);
 
             Assert.That(qValues.Length, Is.EqualTo(4));
-
-            // After sorting by score descending: 0.95, 0.80, 0.70, 0.50
-            // q must be non-decreasing (i.e. lowest score has highest q)
-            var sorted = targets.Zip(qValues)
-                .OrderByDescending(p => p.First)
-                .Select(p => p.Second)
-                .ToList();
-
-            for (int i = 1; i < sorted.Count; i++)
-                Assert.That(sorted[i], Is.GreaterThanOrEqualTo(sorted[i - 1] - 1e-9),
-                    $"Q-values must be non-decreasing. At index {i}: {sorted[i]:F4} < {sorted[i - 1]:F4}");
+            Assert.That(qValues[0], Is.EqualTo(0.5).Within(1e-9));
+            Assert.That(qValues[1], Is.EqualTo(0.5).Within(1e-9));
+            Assert.That(qValues[2], Is.EqualTo(0.5).Within(1e-9));
+            Assert.That(qValues[3], Is.EqualTo(0.5).Within(1e-9));
         }
 
         [Test]

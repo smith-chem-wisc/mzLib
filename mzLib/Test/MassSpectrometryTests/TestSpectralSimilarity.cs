@@ -456,5 +456,33 @@ namespace Test.MassSpectrometryTests
             NUnit.Framework.Assert.That(s.KullbackLeiblerDivergence_P_Q() == null);
 
         }
+
+        [Test]
+        public void CosineOfAlignedVectors_ZeroNorm_ReturnsZero()
+        {
+            // Pin the contract: when either vector has zero norm, the cosine helper
+            // returns 0.0 -- not NaN. DeconvolutionScorer.ComputeFeatures (and any
+            // future caller) relies on this for envelopes whose observed-intensity
+            // vector at theoretical positions is all zero.
+            NUnit.Framework.Assert.That(
+                SpectralSimilarity.CosineOfAlignedVectors(new double[] { 0, 0, 0 }, new double[] { 1, 2, 3 }),
+                Is.EqualTo(0.0));
+            NUnit.Framework.Assert.That(
+                SpectralSimilarity.CosineOfAlignedVectors(new double[] { 1, 2, 3 }, new double[] { 0, 0, 0 }),
+                Is.EqualTo(0.0));
+            NUnit.Framework.Assert.That(
+                SpectralSimilarity.CosineOfAlignedVectors(new double[] { 0, 0 }, new double[] { 0, 0 }),
+                Is.EqualTo(0.0));
+            NUnit.Framework.Assert.That(
+                SpectralSimilarity.CosineOfAlignedVectors(new double[] { 1, 2 }, new double[] { 1, 2, 3 }),
+                Is.EqualTo(0.0));
+            NUnit.Framework.Assert.That(
+                SpectralSimilarity.CosineOfAlignedVectors(Array.Empty<double>(), Array.Empty<double>()),
+                Is.EqualTo(0.0));
+            // Sanity: identical non-zero vectors give cosine = 1
+            NUnit.Framework.Assert.That(
+                SpectralSimilarity.CosineOfAlignedVectors(new double[] { 1, 2, 3 }, new double[] { 1, 2, 3 }),
+                Is.EqualTo(1.0).Within(1e-9));
+        }
     }
 }

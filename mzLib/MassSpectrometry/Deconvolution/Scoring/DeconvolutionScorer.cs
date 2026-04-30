@@ -41,11 +41,13 @@ namespace MassSpectrometry
         // ratioConsistency = good; high ppmError = bad) and should generalise across
         // algorithms, though re-calibration on Classic and FLASHDeconv output is
         // recommended once those decoy distributions are available.
-        private const double CoefficientCosine = -3.4494;
-        private const double CoefficientPpmError = 1.6341;
-        private const double CoefficientCompleteness = -4.7795;
-        private const double CoefficientRatioConsistency = -2.1883;
-        private const double Intercept = -4.3142;
+        // Signs follow standard logistic convention: positive coefficient => feature
+        // increases P(true). Weights can be replaced directly with sklearn / glm output.
+        private const double CoefficientCosine = 3.4494;
+        private const double CoefficientPpmError = -1.6341;
+        private const double CoefficientCompleteness = 4.7795;
+        private const double CoefficientRatioConsistency = 2.1883;
+        private const double Intercept = 4.3142;
 
         // ── Feature matching tolerance ────────────────────────────────────────
         private const double MatchTolerancePpm = 10.0;
@@ -189,7 +191,7 @@ namespace MassSpectrometry
                 + CoefficientCompleteness * features.PeakCompleteness
                 + CoefficientRatioConsistency * features.IntensityRatioConsistency;
 
-            return 1.0 / (1.0 + Math.Exp(linear));
+            return 1.0 / (1.0 + Math.Exp(-linear));
         }
 
         /// <summary>

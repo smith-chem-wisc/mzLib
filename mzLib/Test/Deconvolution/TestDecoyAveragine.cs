@@ -136,20 +136,50 @@ namespace Test.Deconvolution
         // ── C: Shift magnitude and direction ──────────────────────────────────
 
         [Test]
-        public void C1_MonoisotopicPeak_IsNotShifted()
+        public void C1_MonoisotopicRecovery_HoldsAtLowMassBreaksAtHighMass()
         {
-            // The monoisotopic peak (n=0) must have the same mass as in the real model
-            // monoisotopic mass = apexMass - DiffToMonoisotopic
-            for (int idx = 0; idx < 20; idx++)
-            {
-                double realMono = RealModel.GetAllTheoreticalMasses(idx)[0]
-                                   - RealModel.GetDiffToMonoisotopic(idx);
-                double decoyMono = DecoyModel.GetAllTheoreticalMasses(idx)[0]
-                                   - DecoyModel.GetDiffToMonoisotopic(idx);
+            // The mass-spec API convention is:
+            //     monoisotopicMass = apexMass - GetDiffToMonoisotopic(idx)
+            // i.e. callers recover the mono mass by subtracting the apex->mono distance.
+            //
+            // For DecoyAveragine that relationship holds only for low-mass entries
+            // where the apex IS the monoisotopic peak (apex_n = 0). For high-mass
+            // entries (apex_n > 0) it breaks because:
+            //   * DecoyAveragine shifts each isotope peak by n * perPeakOffset, so the
+            //     apex is shifted by apex_n * perPeakOffset (DecoyAveragine.cs:196,201).
+            //   * GetDiffToMonoisotopic forwards unchanged to the real model
+            //     (DecoyAveragine.cs:116).
+            // Net effect: apex - DiffToMono = realMono + apex_n * perPeakOffset.
+            //
+            // FOLLOW-UP CANDIDATE (out of PR scope, not implemented here):
+            // override DecoyAveragine.GetDiffToMonoisotopic to return
+            // realDiffToMono - apex_n * perPeakOffset, restoring the contract for
+            // decoys. That's a behaviour change touching every consumer of
+            // GetDiffToMonoisotopic on a decoy averagine, so it warrants its own PR
+            // with a sweep of those call sites. This test pins current actual
+            // behaviour so the contract violation is visible and intentional rather
+            // than masked by the original "iterate idx 0..19 only" loop.
 
-                Assert.That(decoyMono, Is.EqualTo(realMono).Within(1e-6),
-                    $"Monoisotopic mass shifted at index {idx}");
-            }
+            // Low-mass: apex IS monoisotopic, recovery matches.
+            int lowIdx = DecoyModel.GetMostIntenseMassIndex(500.0);
+            double realMonoLow = RealModel.GetAllTheoreticalMasses(lowIdx)[0]
+                                 - RealModel.GetDiffToMonoisotopic(lowIdx);
+            double recoveredLow = DecoyModel.GetAllTheoreticalMasses(lowIdx)[0]
+                                  - DecoyModel.GetDiffToMonoisotopic(lowIdx);
+            Assert.That(recoveredLow, Is.EqualTo(realMonoLow).Within(1e-6),
+                "Low-mass entry (apex_n = 0): apex - DiffToMono should equal realMono");
+
+            // High-mass: apex_n > 0, recovery diverges from realMono.
+            int highIdx = DecoyModel.GetMostIntenseMassIndex(12000.0);
+            double realMonoHigh = RealModel.GetAllTheoreticalMasses(highIdx)[0]
+                                  - RealModel.GetDiffToMonoisotopic(highIdx);
+            double recoveredHigh = DecoyModel.GetAllTheoreticalMasses(highIdx)[0]
+                                   - DecoyModel.GetDiffToMonoisotopic(highIdx);
+            Assert.That(Math.Abs(recoveredHigh - realMonoHigh), Is.GreaterThan(1e-3),
+                $"High-mass entry: apex - DiffToMono should NOT equal realMono " +
+                $"(recovered={recoveredHigh:F6}, realMono={realMonoHigh:F6}). " +
+                "If this assertion starts failing, the DecoyAveragine contract " +
+                "may have been fixed -- update this test accordingly.");
         }
 
         [Test]
@@ -284,12 +314,20 @@ namespace Test.Deconvolution
             Assert.That(targets.Count, Is.GreaterThan(0),
                 "Expected target envelopes on the synthetic spectrum");
 
-            // Classic decoys have AUC ≈ 0.50 (scores are indistinguishable from targets),
-            // so we only verify that the decoy list is returned without error and that
-            // every envelope has a finite score — no target-vs-decoy comparison is valid here.
+            // Classic decoys have AUC ~ 0.50 (scores are indistinguishable from targets),
+            // so we don't compare target-vs-decoy. Instead, exercise the new generic
+            // scorer (the API this PR introduces) on every returned envelope and assert
+            // finiteness + [0,1] range. Asserting on e.Score would only verify the
+            // algorithm's raw score, not the scorer this PR is meant to validate.
             Assert.That(decoys, Is.Not.Null);
-            Assert.That(targets.Concat(decoys).All(e => double.IsFinite(e.Score)), Is.True,
-                "All envelope scores should be finite");
+            foreach (var e in targets.Concat(decoys))
+            {
+                double score = DeconvolutionScorer.ScoreEnvelope(e, RealModel);
+                Assert.That(double.IsFinite(score), Is.True,
+                    $"Generic score must be finite. Got {score}");
+                Assert.That(score, Is.InRange(0.0, 1.0),
+                    $"Generic score must be in [0,1]. Got {score:F4}");
+            }
         }
 
         [Test]

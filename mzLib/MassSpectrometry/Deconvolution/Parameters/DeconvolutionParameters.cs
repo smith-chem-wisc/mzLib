@@ -26,7 +26,7 @@ namespace MassSpectrometry
             MinAssumedChargeState = minCharge;
             MaxAssumedChargeState = maxCharge;
             Polarity = polarity;
-            AverageResidueModel = averageResidueModel ?? new Averagine();
+            AverageResidueModel = averageResidueModel ?? new Averagine(); // Default to Averagine
             ExpectedIsotopeSpacing = expectedIsotopeSpacing;
         }
 

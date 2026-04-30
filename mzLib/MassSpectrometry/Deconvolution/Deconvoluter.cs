@@ -35,13 +35,15 @@ namespace MassSpectrometry
             DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null)
         {
             rangeToGetPeaksFrom ??= spectrum.Range;
-            
+
             // Short circuit deconvolution if it is called on a neutral mass spectrum
             if (spectrum is NeutralMassSpectrum newt)
                 return DeconvoluteNeutralMassSpectrum(newt, rangeToGetPeaksFrom);
-            
-            // set deconvolution algorithm 
+
+            // set deconvolution algorithm
             DeconvolutionAlgorithm deconAlgorithm = CreateAlgorithm(deconvolutionParameters);
+
+            // Delegate deconvolution to the algorithm
             return deconAlgorithm.Deconvolute(spectrum, rangeToGetPeaksFrom);
         }
 
@@ -100,8 +102,11 @@ namespace MassSpectrometry
                 double neutralMass = neutralSpectrum.XArray[i];
                 double intensity = neutralSpectrum.YArray[i];
                 int chargeState = neutralSpectrum.Charges[i];
+
                 if (range.Contains(neutralMass.ToMz(chargeState)))
+                {
                     yield return new IsotopicEnvelope(neutralMass, intensity, chargeState);
+                }
             }
         }
     }
