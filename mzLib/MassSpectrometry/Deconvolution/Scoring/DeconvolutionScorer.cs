@@ -41,7 +41,7 @@ namespace MassSpectrometry
         // ratioConsistency = good; high ppmError = bad) and should generalise across
         // algorithms, though re-calibration on Classic and FLASHDeconv output is
         // recommended once those decoy distributions are available.
-        // Signs follow standard logistic convention: positive coefficient ⇒ feature
+        // Signs follow standard logistic convention: positive coefficient => feature
         // increases P(true). Weights can be replaced directly with sklearn / glm output.
         private const double CoefficientCosine = 3.4494;
         private const double CoefficientPpmError = -1.6341;
@@ -78,12 +78,11 @@ namespace MassSpectrometry
 
             // Arrays from AverageResidue are sorted intensity-descending (index 0 = apex).
             // Re-sort to mass-ascending so index 0 = monoisotopic.
-            int nIsoLen = rawMasses.Length;
-            double[] avgMassAsc = new double[nIsoLen];
-            double[] avgIntAsc = new double[nIsoLen];
-            Array.Copy(rawMasses, avgMassAsc, nIsoLen);
-            Array.Copy(rawIntens, avgIntAsc, nIsoLen);
-            Array.Sort(avgMassAsc, avgIntAsc);
+            var sorted = rawMasses.Zip(rawIntens)
+                .OrderBy(pair => pair.First)
+                .ToArray();
+            double[] avgMassAsc = sorted.Select(p => p.First).ToArray();
+            double[] avgIntAsc = sorted.Select(p => p.Second).ToArray();
             int nIso = avgMassAsc.Length;
 
             // apexDaFromMono: distance in Da from monoisotopic to apex
@@ -107,8 +106,9 @@ namespace MassSpectrometry
             // For each theoretical isotope position n, find the closest peak in
             // envelope.Peaks within MatchTolerancePpm.
             double monoMass = envelope.MonoisotopicMass;
-            // Use signed charge so negative-mode envelopes (proton subtracted) align
-            // with their peaks. absCharge still governs isotope spacing (sign-agnostic).
+            // Signed charge: ToMz embeds the polarity-dependent proton sign
+            // (mass/|z| + sign(z)*proton), so a negative envelope anchors on its
+            // physically-correct negative-mode m/z, not the positive-mode mirror.
             double monoMz = monoMass.ToMz(envelope.Charge);
             var peakList = envelope.Peaks;
 
@@ -204,20 +204,27 @@ namespace MassSpectrometry
         /// Applies <see cref="ScoreEnvelope"/> to each envelope in the sequence and
         /// yields <c>(envelope, genericScore)</c> pairs. The original
         /// <see cref="IsotopicEnvelope.Score"/> field is not mutated.
-        /// Null elements in <paramref name="envelopes"/> are silently skipped.
         /// </summary>
-        /// <param name="envelopes">Envelopes to score. Must not be null; null elements are skipped.</param>
-        /// <param name="model">Averagine model for theoretical isotope lookup. Must not be null.</param>
-        /// <exception cref="ArgumentNullException">
-        /// Thrown if <paramref name="envelopes"/> or <paramref name="model"/> is null.
-        /// </exception>
+        /// <param name="envelopes">Envelopes to score.</param>
+        /// <param name="model">Averagine model for theoretical isotope lookup.</param>
         public static IEnumerable<(IsotopicEnvelope Envelope, double Score)> ScoreEnvelopes(
             IEnumerable<IsotopicEnvelope> envelopes,
             AverageResidue model)
         {
+            // Validate eagerly: an iterator's body is deferred until MoveNext, so
+            // throwing inside the foreach below would not fire on an empty input
+            // and would mask null arguments behind a NullReferenceException on
+            // first iteration. Splitting into wrapper + private iterator is the
+            // canonical pattern for eager validation of yield-return methods.
             if (envelopes == null) throw new ArgumentNullException(nameof(envelopes));
             if (model == null) throw new ArgumentNullException(nameof(model));
+            return ScoreEnvelopesIterator(envelopes, model);
+        }
 
+        private static IEnumerable<(IsotopicEnvelope Envelope, double Score)> ScoreEnvelopesIterator(
+            IEnumerable<IsotopicEnvelope> envelopes,
+            AverageResidue model)
+        {
             foreach (var env in envelopes)
             {
                 if (env == null) continue;
