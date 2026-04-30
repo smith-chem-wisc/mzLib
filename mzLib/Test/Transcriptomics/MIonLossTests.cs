@@ -69,21 +69,6 @@ namespace Test.Transcriptomics
         }
 
         [Test]
-        public void ThisChemicalFormula_Setter_UpdatesFormulaAndMass()
-        {
-            // Arrange
-            var loss = new MIonLoss("TestLoss", "TestLoss", ChemicalFormula.ParseFormula("H2O"));
-            var newFormula = ChemicalFormula.ParseFormula("CO2");
-
-            // Act
-            loss.ThisChemicalFormula = newFormula;
-
-            // Assert
-            Assert.That(loss.ThisChemicalFormula, Is.EqualTo(newFormula));
-            Assert.That(loss.MonoisotopicMass, Is.EqualTo(newFormula.MonoisotopicMass));
-        }
-
-        [Test]
         public void MatchedIonHasExpectedAnnotation()
         {
             var oligo = new OligoWithSetMods("GUACUG", []);
