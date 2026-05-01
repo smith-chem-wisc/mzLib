@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text.RegularExpressions;
 
 
@@ -16,6 +17,9 @@ namespace Omics.SequenceConversion;
 /// </summary>
 public class MzLibSequenceParser : SequenceParserBase
 {
+    private static readonly Regex CrosslinkAnnotationSequencePattern =
+        new(@"^[A-Za-z\-\*\s]*(?:\(\d+\)[A-Za-z\-\*\s]*)*$", RegexOptions.Compiled);
+
     /// <summary>
     /// Singleton instance for convenience.
     /// </summary>
@@ -27,23 +31,37 @@ public class MzLibSequenceParser : SequenceParserBase
     /// <inheritdoc />
     public override SequenceFormatSchema Schema => MzLibSequenceFormatSchema.Instance;
 
+    protected override bool ThrowOnDanglingCTermSeparator => false;
+
     /// <inheritdoc />
     public override bool CanParse(string input)
     {
         if (string.IsNullOrWhiteSpace(input))
             return false;
 
+        if (input.Contains("unimod:", StringComparison.InvariantCultureIgnoreCase))
+            return false; // unimod: identifiers are not mzLib format
+
         // mzLib format uses square brackets
         // Check for balanced brackets and valid structure
         bool hasSquareBrackets = input.Contains('[') && input.Contains(']');
         bool hasParentheses = input.Contains('(') && input.Contains(')');
 
-        // If it has parentheses but no square brackets, it's probably not mzLib format
+        // Parenthetical numeric annotations are used by crosslink outputs (e.g. EKVLTSSAR(2)).
+        // Treat these as mzLib-compatible unmodified sequences for legacy interoperability.
         if (hasParentheses && !hasSquareBrackets)
-            return false;
+            return IsCrosslinkAnnotatedSequence(input);
 
         // Check that brackets are balanced
         return AreBracketsBalanced(input);
+    }
+
+    private static bool IsCrosslinkAnnotatedSequence(string input)
+    {
+        if (!input.Any(char.IsLetter))
+            return false;
+
+        return CrosslinkAnnotationSequencePattern.IsMatch(input);
     }
 
     /// <summary>

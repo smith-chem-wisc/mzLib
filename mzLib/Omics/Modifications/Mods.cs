@@ -22,7 +22,7 @@ public static class Mods
     static Mods()
     {
         LoadAllProteinModifications();
-        AllProteinModsList = UnimodModifications.Concat(UniprotModifications).Concat(MetaMorpheusProteinModifications).ToList();
+        AllProteinModsList = MetaMorpheusProteinModifications.Concat(UniprotModifications).Concat(UnimodModifications).ToList();
         AllKnownProteinModsDictionary = AllProteinModsList
             .DistinctBy(m => m.IdWithMotif)
             .ToDictionary(m => m.IdWithMotif);
