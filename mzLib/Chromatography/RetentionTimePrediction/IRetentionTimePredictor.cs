@@ -1,4 +1,8 @@
-﻿namespace Chromatography.RetentionTimePrediction;
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+
+namespace Chromatography.RetentionTimePrediction;
 
 /// <summary>
 /// Contract for a retention time predictor. Implementations produce a predicted
@@ -31,15 +35,67 @@
 /// </remarks>
 public interface IRetentionTimePredictor : IDisposable
 {
-    /// <summary>
-    /// Name/identifier for this predictor (e.g., "SSRCalc3", "Chronologer")
-    /// </summary>
+    /// <summary>Human-readable name, e.g. "Chronologer", "Prosit2019iRT".</summary>
     string PredictorName { get; }
 
     /// <summary>
     /// Gets the separation type this predictor is designed for
     /// </summary>
     SeparationType SeparationType { get; }
+
+    /// <summary>
+    /// Predicts retention time for a single peptide.
+    /// Returns null when prediction is not possible (invalid sequence, unsupported
+    /// modifications, model error, etc.). The <paramref name="failureReason"/> out
+    /// parameter is set when null is returned.
+    /// </summary>
+    double? PredictRetentionTime(IRetentionPredictable peptide,
+                                 out RetentionTimeFailureReason? failureReason);
+
+    /// <summary>
+    /// Predicts retention times for a batch of peptides.
+    ///
+    /// The default implementation calls <see cref="PredictRetentionTime"/> per peptide.
+    /// Koina-backed implementations override this to issue a single HTTP call for the
+    /// entire batch.
+    ///
+    /// The returned dictionary is read-only. Key is <c>peptide.FullSequence</c>.
+    /// A null value indicates prediction was not possible for that peptide; the specific
+    /// failure reason is not preserved in the batch result. Callers requiring per-peptide
+    /// failure diagnostics should call <see cref="PredictRetentionTime"/> individually.
+    ///
+    /// Callers are responsible for deduplicating input before calling this method.
+    /// Duplicate <c>FullSequence</c> entries result in redundant prediction work in the
+    /// default implementation (the last result silently overwrites earlier ones in the
+    /// output dictionary).
+    ///
+    /// Null elements in <paramref name="peptides"/> are skipped.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when <paramref name="peptides"/> is null.
+    /// </exception>
+    IReadOnlyDictionary<string, double?> PredictRetentionTimes(
+        IEnumerable<IRetentionPredictable> peptides)
+    {
+        if (peptides is null)
+            throw new ArgumentNullException(nameof(peptides));
+
+        var results = new Dictionary<string, double?>();
+        foreach (var peptide in peptides)
+        {
+            // Skip null peptides and null FullSequences only: a null FullSequence
+            // flows into the dictionary indexer below and throws ArgumentNullException,
+            // dropping every prior result mid-iteration. An empty FullSequence is a
+            // legal dict key, so let it through -- PredictRetentionTime returns null
+            // with EmptySequence for that case, and the caller sees results[""] = null
+            // instead of a silent drop.
+            if (peptide is null || peptide.FullSequence is null)
+                continue;
+            results[peptide.FullSequence] = PredictRetentionTime(peptide, out _);
+        }
+
+        return new ReadOnlyDictionary<string, double?>(results);
+    }
 
     /// <summary>
     /// Predicts a retention time equivalent for a given peptide.
