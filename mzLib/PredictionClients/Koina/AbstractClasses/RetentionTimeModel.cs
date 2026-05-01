@@ -407,7 +407,10 @@ namespace PredictionClients.Koina.AbstractClasses
 
             if (peptide is null)
             {
-                failureReason = RetentionTimeFailureReason.PredictionError;
+                // Aligns with PredictRetentionTime's null-peptide handling so callers
+                // branching on FailureReason see the same value across the IRetentionTimePredictor
+                // interface methods.
+                failureReason = RetentionTimeFailureReason.EmptySequence;
                 return null;
             }
 
@@ -454,22 +457,36 @@ namespace PredictionClients.Koina.AbstractClasses
         {
             if (peptides is null) throw new ArgumentNullException(nameof(peptides));
 
-            var peptideList = peptides
-                .Where(p => p is not null && !string.IsNullOrEmpty(p.FullSequence))
+            // Drop literal null peptide references -- they have no identity worth tracking.
+            // Empty/null FullSequence IS preserved through to a failure tuple so callers
+            // who pass real-but-malformed peptides get an EmptySequence diagnostic instead
+            // of a silently shorter list.
+            var inputList = peptides.Where(p => p is not null).ToList();
+
+            var validPeptides = inputList
+                .Where(p => !string.IsNullOrEmpty(p.FullSequence))
                 .ToList();
 
-            var batchResults = PredictRetentionTimes(peptideList);
-            var output = new List<(double?, IRetentionPredictable, RetentionTimeFailureReason?)>(peptideList.Count);
+            var batchResults = PredictRetentionTimes(validPeptides);
+            var output = new List<(double?, IRetentionPredictable, RetentionTimeFailureReason?)>(inputList.Count);
 
-            foreach (var peptide in peptideList)
+            foreach (var peptide in inputList)
             {
+                if (string.IsNullOrEmpty(peptide.FullSequence))
+                {
+                    output.Add((null, peptide, RetentionTimeFailureReason.EmptySequence));
+                    continue;
+                }
+
                 if (batchResults.TryGetValue(peptide.FullSequence, out var value) && value.HasValue)
                 {
                     output.Add((value, peptide, null));
                 }
                 else
                 {
-                    var matching = Predictions?.FirstOrDefault(p => p.FullSequence == peptide.FullSequence);
+                    // Predictions is always a non-null list at this point: PredictRetentionTimes
+                    // (called above) clears it to new() at the top of its body.
+                    var matching = Predictions.FirstOrDefault(p => p.FullSequence == peptide.FullSequence);
                     var reason = matching?.Warning != null
                         ? RetentionTimeFailureReason.IncompatibleModifications
                         : RetentionTimeFailureReason.PredictionError;

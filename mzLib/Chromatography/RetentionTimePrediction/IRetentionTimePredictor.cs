@@ -83,11 +83,13 @@ public interface IRetentionTimePredictor : IDisposable
         var results = new Dictionary<string, double?>();
         foreach (var peptide in peptides)
         {
-            // Skip malformed inputs symmetrically: a null FullSequence flows
-            // into the dictionary indexer and throws ArgumentNullException,
-            // dropping every prior result mid-iteration. Treat it the same
-            // way as a null peptide -- skip and continue.
-            if (peptide is null || string.IsNullOrEmpty(peptide.FullSequence))
+            // Skip null peptides and null FullSequences only: a null FullSequence
+            // flows into the dictionary indexer below and throws ArgumentNullException,
+            // dropping every prior result mid-iteration. An empty FullSequence is a
+            // legal dict key, so let it through -- PredictRetentionTime returns null
+            // with EmptySequence for that case, and the caller sees results[""] = null
+            // instead of a silent drop.
+            if (peptide is null || peptide.FullSequence is null)
                 continue;
             results[peptide.FullSequence] = PredictRetentionTime(peptide, out _);
         }

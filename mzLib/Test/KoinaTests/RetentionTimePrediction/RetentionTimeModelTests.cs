@@ -441,16 +441,19 @@ namespace Test.KoinaTests.RetentionTimePrediction
         /// <summary>
         /// Null peptide must not NRE. This method is used for diagnostics and
         /// caching — an NRE here would destabilize any code that calls it defensively.
+        /// The reason is EmptySequence (matching PredictRetentionTime's null-peptide
+        /// handling) so callers branching on FailureReason see the same value across
+        /// the IRetentionTimePredictor interface methods.
         /// </summary>
         [Test]
-        public void GetFormattedSequence_NullPeptide_ReturnsNullWithPredictionError()
+        public void GetFormattedSequence_NullPeptide_ReturnsNullWithEmptySequence()
         {
             var model = new TestableRetentionTimeModel();
 
             var result = model.GetFormattedSequence(null!, out var reason);
 
             Assert.That(result, Is.Null);
-            Assert.That(reason, Is.EqualTo(RetentionTimeFailureReason.PredictionError));
+            Assert.That(reason, Is.EqualTo(RetentionTimeFailureReason.EmptySequence));
         }
 
         /// <summary>
