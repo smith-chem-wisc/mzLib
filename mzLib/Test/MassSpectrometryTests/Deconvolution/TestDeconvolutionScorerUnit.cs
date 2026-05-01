@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using Chemistry;
 using MassSpectrometry;
+using MzLibUtil;
 using NUnit.Framework;
+using static Test.MassSpectrometryTests.Deconvolution.DeconvolutionTestHelpers;
 
 namespace Test.MassSpectrometryTests.Deconvolution
 {
@@ -16,62 +18,6 @@ namespace Test.MassSpectrometryTests.Deconvolution
     [TestFixture]
     public sealed class TestDeconvolutionScorerUnit
     {
-        // ── Shared model and test mass ────────────────────────────────────────
-
-        private static readonly AverageResidue Model = new Averagine();
-
-        /// <summary>
-        /// ~5 kDa peptide — well within the Averagine model's calibrated range,
-        /// produces a clearly resolved isotope pattern at z = 5.
-        /// </summary>
-        private const double TestMass   = 5000.0;
-        private const int    TestCharge = 5;
-
-        // ── Helpers ───────────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Builds a perfect synthetic envelope: peaks placed at exact theoretical
-        /// m/z positions with Averagine-proportional intensities. No noise, no
-        /// missing peaks. The peak list is suitable for verifying ideal feature values.
-        /// </summary>
-        private static IsotopicEnvelope BuildPerfectEnvelope(
-            double monoMass   = TestMass,
-            int    charge     = TestCharge,
-            double baseIntens = 1e6)
-        {
-            int avgIdx = Model.GetMostIntenseMassIndex(monoMass);
-
-            double[] rawMasses = Model.GetAllTheoreticalMasses(avgIdx);
-            double[] rawIntens = Model.GetAllTheoreticalIntensities(avgIdx);
-
-            // Mass-ascending sort so index 0 = monoisotopic
-            var sorted = rawMasses.Zip(rawIntens)
-                .OrderBy(p => p.First)
-                .ToArray();
-
-            int      absCharge   = Math.Abs(charge);
-            double   isotopeStep = Constants.C13MinusC12 / absCharge;
-            double   monoMz      = monoMass.ToMz(charge);
-            var      peaks       = new List<(double mz, double intensity)>();
-
-            for (int n = 0; n < sorted.Length; n++)
-            {
-                double intensity = baseIntens * sorted[n].Second;
-                if (intensity < baseIntens * 0.001) continue; // skip near-zero peaks
-                double mz = monoMz + n * isotopeStep;
-                peaks.Add((mz, intensity));
-            }
-
-            // Use the pre-scored constructor so the envelope is well-formed
-            return new IsotopicEnvelope(
-                id:               0,
-                peaks:            peaks,
-                monoisotopicmass: monoMass,
-                chargestate:      charge,
-                intensity:        peaks.Sum(p => p.intensity),
-                score:            0.999); // placeholder; not used by generic scorer
-        }
-
         // ══════════════════════════════════════════════════════════════════════
         // Group A — ComputeFeatures: feature correctness on synthetic data
         // ══════════════════════════════════════════════════════════════════════
@@ -85,8 +31,12 @@ namespace Test.MassSpectrometryTests.Deconvolution
             Assert.That(features.AveragineCosineSimilarity, Is.GreaterThanOrEqualTo(0.99),
                 $"Perfect synthetic envelope should have cosine ≥ 0.99. Got {features.AveragineCosineSimilarity:F4}");
 
-            Assert.That(features.IntensityRatioConsistency, Is.GreaterThanOrEqualTo(0.90),
-                $"Perfect synthetic envelope should have IntensityRatioConsistency ≥ 0.90. Got {features.IntensityRatioConsistency:F4}");
+            // BuildPerfectEnvelope scales every peak by the same baseIntens, so the
+            // per-peak ratio CV is exactly 0 and IntensityRatioConsistency = 1/(1+0) = 1.0.
+            // The construction pins this mathematically; the assertion should pin it
+            // tightly so a regression introducing even small per-peak ratio drift fails.
+            Assert.That(features.IntensityRatioConsistency, Is.EqualTo(1.0).Within(1e-6),
+                $"Perfect synthetic envelope must produce IntensityRatioConsistency == 1.0. Got {features.IntensityRatioConsistency:F6}");
         }
 
         [Test]
@@ -156,8 +106,12 @@ namespace Test.MassSpectrometryTests.Deconvolution
 
             var features = DeconvolutionScorer.ComputeFeatures(env, Model);
 
-            Assert.That(features.AveragineCosineSimilarity, Is.LessThan(0.5),
-                $"50 ppm shifted peaks should not match Averagine positions. Cosine: {features.AveragineCosineSimilarity:F4}");
+            // The 10 ppm matching window means a 50 ppm shift produces an all-zero
+            // observed vector; cosine must be exactly 0. A looser bound (e.g.
+            // < 0.5) would silently accept any partial leakage of out-of-window
+            // intensity into observed[], so pin the contract precisely.
+            Assert.That(features.AveragineCosineSimilarity, Is.EqualTo(0.0).Within(1e-9),
+                $"50 ppm shifted peaks must produce cosine == 0. Got: {features.AveragineCosineSimilarity:F6}");
         }
 
         [Test]
@@ -291,6 +245,103 @@ namespace Test.MassSpectrometryTests.Deconvolution
 
             Assert.That(result, Is.Empty,
                 "ScoreEnvelopes on an empty sequence must return an empty sequence");
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // Group D — UseGenericScore via Deconvolute: integration tests
+        // ══════════════════════════════════════════════════════════════════════
+
+        [Test]
+        public void D1_Deconvolute_UseGenericScore_MzSpectrum_SetsGenericScoreOnEveryEnvelope()
+        {
+            // Arrange: build a spectrum from a perfect synthetic envelope at charge 2.
+            // Charge 2 needs 2/5 = 0 adjacent charge states observed by Classic deconvolution,
+            // so it works with an isolated synthetic isotope pattern.
+            var env = BuildPerfectEnvelope(monoMass: TestMass, charge: 2);
+            double[] mzArray = env.Peaks.Select(p => p.mz).ToArray();
+            double[] intensityArray = env.Peaks.Select(p => p.intensity).ToArray();
+            var spectrum = new MzSpectrum(mzArray, intensityArray, false);
+
+            var deconParams = new ClassicDeconvolutionParameters(
+                minCharge: 1, maxCharge: 10, deconPpm: 20, intensityRatio: 3)
+            { UseGenericScore = true };
+
+            // Act
+            var results = Deconvoluter.Deconvolute(spectrum, deconParams).ToList();
+
+            // Assert
+            Assert.That(results, Is.Not.Empty, "Should deconvolute at least one envelope");
+            foreach (var envelope in results)
+            {
+                Assert.That(envelope.HasGenericScore, Is.True,
+                    "Every yielded envelope must have GenericScore set");
+                Assert.That(envelope.GenericScore!.Value, Is.GreaterThan(0.5),
+                    $"Perfect synthetic Averagine envelope must score > 0.5. Got {envelope.GenericScore}");
+            }
+        }
+
+        [Test]
+        public void D2_Deconvolute_UseGenericScore_MzSpectrum_DoesNotMutateAlgorithmScore()
+        {
+            // Arrange: same spectrum as D1, but now with two parameter objects --
+            // one with UseGenericScore off (baseline) and one with it on (scored).
+            var env = BuildPerfectEnvelope(monoMass: TestMass, charge: 2);
+            double[] mzArray = env.Peaks.Select(p => p.mz).ToArray();
+            double[] intensityArray = env.Peaks.Select(p => p.intensity).ToArray();
+
+            var baselineParams = new ClassicDeconvolutionParameters(
+                minCharge: 1, maxCharge: 10, deconPpm: 20, intensityRatio: 3);
+            var scoringParams = new ClassicDeconvolutionParameters(
+                minCharge: 1, maxCharge: 10, deconPpm: 20, intensityRatio: 3)
+            { UseGenericScore = true };
+
+            // Get baseline scores from plain Deconvolute (UseGenericScore = false)
+            var spectrum1 = new MzSpectrum(mzArray, intensityArray, false);
+            var baseline = Deconvoluter.Deconvolute(spectrum1, baselineParams).ToList();
+
+            // Get scored results from a fresh spectrum with UseGenericScore = true
+            var spectrum2 = new MzSpectrum(mzArray, intensityArray, false);
+            var scored = Deconvoluter.Deconvolute(spectrum2, scoringParams).ToList();
+
+            // Assert: same number of envelopes, and algorithm-specific Score values match
+            Assert.That(scored.Count, Is.EqualTo(baseline.Count),
+                "UseGenericScore must not change the number of envelopes yielded");
+            for (int i = 0; i < baseline.Count; i++)
+            {
+                Assert.That(scored[i].Score, Is.EqualTo(baseline[i].Score).Within(1e-10),
+                    $"Envelope {i}: algorithm-specific Score must be unchanged by generic scoring");
+            }
+        }
+
+        [Test]
+        public void D3_Deconvolute_UseGenericScore_MsDataScan_SetsGenericScore()
+        {
+            // Arrange: same envelope as D1, wrapped in an MsDataScan
+            var env = BuildPerfectEnvelope(monoMass: TestMass, charge: 2);
+            double[] mzArray = env.Peaks.Select(p => p.mz).ToArray();
+            double[] intensityArray = env.Peaks.Select(p => p.intensity).ToArray();
+            var spectrum = new MzSpectrum(mzArray, intensityArray, false);
+
+            var scan = new MsDataScan(spectrum, 1, 1, true, Polarity.Positive, 1.0,
+                spectrum.Range, "test scan", MZAnalyzerType.Unknown, spectrum.SumOfAllY,
+                null, null, null);
+
+            var deconParams = new ClassicDeconvolutionParameters(
+                minCharge: 1, maxCharge: 10, deconPpm: 20, intensityRatio: 3)
+            { UseGenericScore = true };
+
+            // Act
+            var results = Deconvoluter.Deconvolute(scan, deconParams).ToList();
+
+            // Assert
+            Assert.That(results, Is.Not.Empty, "MsDataScan overload should yield envelopes");
+            foreach (var envelope in results)
+            {
+                Assert.That(envelope.HasGenericScore, Is.True,
+                    "MsDataScan overload must also set GenericScore on every envelope");
+                Assert.That(envelope.GenericScore!.Value, Is.GreaterThan(0.5),
+                    $"Perfect synthetic Averagine envelope must score > 0.5. Got {envelope.GenericScore}");
+            }
         }
     }
 }

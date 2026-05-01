@@ -42,9 +42,29 @@ namespace MassSpectrometry
 
             // set deconvolution algorithm
             DeconvolutionAlgorithm deconAlgorithm = CreateAlgorithm(deconvolutionParameters);
+            var envelopes = deconAlgorithm.Deconvolute(spectrum, rangeToGetPeaksFrom);
 
-            // Delegate deconvolution to the algorithm
-            return deconAlgorithm.Deconvolute(spectrum, rangeToGetPeaksFrom);
+            // Optional generic-scoring post-pass, gated by parameters.UseGenericScore.
+            // Implemented in a separate iterator helper so the NeutralMassSpectrum
+            // early-return above stays eager rather than being deferred to MoveNext.
+            return deconvolutionParameters.UseGenericScore
+                ? AddGenericScoring(envelopes, deconvolutionParameters)
+                : envelopes;
+        }
+
+        private static IEnumerable<IsotopicEnvelope> AddGenericScoring(
+            IEnumerable<IsotopicEnvelope> envelopes, DeconvolutionParameters deconvolutionParameters)
+        {
+            AverageResidue model = deconvolutionParameters.AverageResidueModel;
+            foreach (var envelope in envelopes)
+            {
+                if (envelope.GenericScore == null)
+                {
+                    double score = DeconvolutionScorer.ScoreEnvelope(envelope, model);
+                    envelope.SetGenericScore(score);
+                }
+                yield return envelope;
+            }
         }
 
         public static (List<IsotopicEnvelope> Targets, List<IsotopicEnvelope> Decoys)
