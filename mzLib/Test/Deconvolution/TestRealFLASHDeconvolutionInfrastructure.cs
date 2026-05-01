@@ -114,6 +114,31 @@ namespace Test.Deconvolution
         }
 
         [Test]
+        public void Deconvolute_EmptySpectrum_RunnerIsNotInvoked()
+        {
+            // Pins the empty-spectrum short-circuit DIRECTLY via a stub runner that
+            // fails the test if invoked, instead of relying on the indirect side
+            // effect of an unresolvable exe path. A future refactor that moves or
+            // restructures ResolveExePath could quietly cause _runner(...) to be
+            // called on empty spectra without breaking the indirect test above.
+            string fakeExe = CreateFakeExeFile();
+            try
+            {
+                var p = new RealFLASHDeconvolutionParameters(flashDeconvExePath: fakeExe);
+                RealFLASHDeconvolutionAlgorithm.FLASHDeconvRunner failIfCalled =
+                    (_, _, _, _, _, _) => Assert.Fail("Runner must not be invoked for an empty spectrum.");
+
+                var algorithm = new RealFLASHDeconvolutionAlgorithm(p, failIfCalled);
+                var empty = new MzSpectrum(Array.Empty<double>(), Array.Empty<double>(), shouldCopy: false);
+
+                var result = algorithm.Deconvolute(empty, new MzRange(0, 5000)).ToList();
+
+                Assert.That(result, Is.Empty);
+            }
+            finally { File.Delete(fakeExe); }
+        }
+
+        [Test]
         public void RealFLASH_Factory_BadExePath_ThrowsFileNotFound()
         {
             var p = new RealFLASHDeconvolutionParameters(
@@ -213,10 +238,20 @@ namespace Test.Deconvolution
             Console.WriteLine($"Total envelopes: {total}");
 
             // Reference run on OpenMS-3.0.0-pre-HEAD-2023-06-17 produced 3149 envelopes.
-            // We assert a sanity floor rather than the exact count so the test stays
-            // green across OpenMS versions.
-            Assert.That(total, Is.GreaterThan(1000),
-                "Envelope count should be substantial (reference run produced 3149).");
+            // ~5% tolerance is generous enough to absorb legitimate cross-version drift
+            // (minor OpenMS bumps, scoring-threshold tweaks) but tight enough that a
+            // regression cutting the output by half would no longer silently pass --
+            // matching what the test name "MatchesReference" promises.
+            //
+            // The 3149 constant is calibrated specifically to OpenMS-3.0.0-pre-HEAD-2023-06-17.
+            // Contributors who run this test against a newer OpenMS (3.3.0 / 3.4.0 / 3.5.0,
+            // all of which appear in the algorithm's well-known-paths search) may see the
+            // count drift outside ±150 due to upstream filter or scoring-threshold tweaks
+            // -- this is an environment difference, not an mzLib regression. Either update
+            // the constant after verifying the new count is plausible, or run with
+            // FLASHDECONV_EXE pointed at the reference version.
+            Assert.That(total, Is.EqualTo(3149).Within(150),
+                "Envelope count must be within 5% of the reference run (3149) to catch real regressions.");
         }
 
         [Test]
@@ -234,7 +269,8 @@ namespace Test.Deconvolution
             var allEnvs = RealFLASHDeconvolutionAlgorithm.DeconvoluteFile(mzml, p)
                 .Values.SelectMany(x => x).ToList();
 
-            Assume.That(allEnvs.Count, Is.GreaterThan(0));
+            Assert.That(allEnvs.Count, Is.GreaterThan(0),
+                "Regression that empties FLASHDeconv output should be a hard failure, not Inconclusive");
 
             foreach (var env in allEnvs)
             {
@@ -261,7 +297,8 @@ namespace Test.Deconvolution
             var allEnvs = RealFLASHDeconvolutionAlgorithm.DeconvoluteFile(mzml, p)
                 .Values.SelectMany(x => x).ToList();
 
-            Assume.That(allEnvs.Count, Is.GreaterThan(0));
+            Assert.That(allEnvs.Count, Is.GreaterThan(0),
+                "Regression that empties FLASHDeconv output should be a hard failure, not Inconclusive");
 
             // All masses must be within the requested bounds
             Assert.That(allEnvs.All(e => e.MonoisotopicMass >= 50 && e.MonoisotopicMass <= 5000),
@@ -489,6 +526,78 @@ namespace Test.Deconvolution
             }
         }
 
+        [Test]
+        public void ParseSpecTsvByScan_HeaderOnly_ReturnsEmptyDictionary()
+        {
+            // Pins the lines.Length < 2 early-return: FLASHDeconv occasionally
+            // produces an MS1 TSV with only the header row when filters reject
+            // every candidate envelope. The parser must return an empty dict
+            // cleanly rather than throw or proceed into the row loop.
+            string tsv = Path.Combine(Path.GetTempPath(),
+                $"realflash_headeronly_{Guid.NewGuid():N}.tsv");
+            try
+            {
+                File.WriteAllLines(tsv, new[]
+                {
+                    "ScanNum\tMonoisotopicMass\tSumIntensity\tRepresentativeCharge\t" +
+                    "RepresentativeMzStart\tRepresentativeMzEnd\tIsotopeCosine\tMassSNR\tQscore",
+                });
+
+                var p = new RealFLASHDeconvolutionParameters(
+                    flashDeconvExePath: @"C:\unused\FLASHDeconv.exe",
+                    minMass: 50, maxMass: 5000);
+
+                var result = RealFLASHDeconvolutionAlgorithm.ParseSpecTsvByScan(tsv, p);
+
+                Assert.That(result, Is.Empty);
+            }
+            finally
+            {
+                if (File.Exists(tsv)) File.Delete(tsv);
+            }
+        }
+
+        [Test]
+        public void ParseSpecTsvByScan_RowsWithUnparseableRequiredCells_AreSilentlySkipped()
+        {
+            // Pins the per-row silent-skip cascade: real FLASHDeconv output occasionally
+            // contains "NA" or other non-numeric cells in required columns (ScanNum,
+            // MonoisotopicMass, RepresentativeCharge, ...). The parser's documented contract
+            // is "skip the row, return what you can" -- not "throw" and not "include with
+            // garbage values." Mix valid + unparseable rows in one file and verify only
+            // the valid ones come back.
+            string tsv = Path.Combine(Path.GetTempPath(),
+                $"realflash_unparseable_{Guid.NewGuid():N}.tsv");
+            try
+            {
+                File.WriteAllLines(tsv, new[]
+                {
+                    "ScanNum\tMonoisotopicMass\tSumIntensity\tRepresentativeCharge\t" +
+                    "RepresentativeMzStart\tRepresentativeMzEnd\tIsotopeCosine\tMassSNR\tQscore",
+                    "1\t1000.0\t5.0e5\t5\t201.0\t201.4\t0.95\t12.0\t0.8",       // valid
+                    "NA\t2000.0\t6.0e5\t8\t251.5\t251.9\t0.88\t14.0\t0.7",     // bad ScanNum
+                    "2\tNA\t6.0e5\t8\t251.5\t251.9\t0.88\t14.0\t0.7",          // bad mono
+                    "3\t1500.0\t4.5e5\tNA\t251.0\t251.3\t0.90\t11.0\t0.75",    // bad charge
+                    "4\t1800.0\t7.0e5\t6\t301.0\t301.4\t0.92\t13.0\t0.85",     // valid
+                });
+
+                var p = new RealFLASHDeconvolutionParameters(
+                    flashDeconvExePath: @"C:\unused\FLASHDeconv.exe",
+                    minMass: 50, maxMass: 5000);
+
+                var byScan = RealFLASHDeconvolutionAlgorithm.ParseSpecTsvByScan(tsv, p);
+
+                int total = byScan.Values.Sum(l => l.Count);
+                Assert.That(total, Is.EqualTo(2),
+                    "Only the two well-formed rows should have parsed; the three with unparseable required cells must be silently skipped.");
+                Assert.That(byScan.Keys, Is.EquivalentTo(new[] { 1, 4 }));
+            }
+            finally
+            {
+                if (File.Exists(tsv)) File.Delete(tsv);
+            }
+        }
+
         // ── E: ResolveExePath unit tests ──────────────────────────────────────
 
         [Test]
@@ -627,6 +736,46 @@ namespace Test.Deconvolution
 
                 Assert.That(result, Has.Count.EqualTo(1));
                 Assert.That(result[0].MonoisotopicMass, Is.EqualTo(1000.0).Within(1e-6));
+            }
+            finally { File.Delete(fakeExe); }
+        }
+
+        [Test]
+        public void Deconvolute_StubRunner_RangeFilterIsInclusiveOnUpperBound()
+        {
+            // Pins the boundary semantic: MzRange.Contains is inclusive on both ends
+            // (DoubleRange.Contains, "True if the item is within the range (inclusive)"),
+            // so an envelope whose representative-mz midpoint sits EXACTLY at the upper
+            // bound must be kept, and one that's epsilon past it must be dropped.
+            // Without this, a future change to MzRange's endpoint behaviour or to the
+            // Where-clause expression could silently shift edge results.
+            string fakeExe = CreateFakeExeFile();
+            try
+            {
+                var p = new RealFLASHDeconvolutionParameters(
+                    flashDeconvExePath: fakeExe,
+                    minMass: 50, maxMass: 100_000);
+
+                // Three rows: midpoint exactly at 1000.0 (must be IN), midpoint just past
+                // (1000.05, must be OUT), and clearly in (200.0) as a sanity baseline.
+                // Midpoint = (mzStart + mzEnd) / 2.
+                string tsv = string.Join("\n",
+                    Ms1TsvHeader,
+                    "1\t1000.0\t5.0e5\t5\t999.9\t1000.1\t0.95\t12.0\t0.8",  // mid=1000.0, IN (inclusive)
+                    "1\t2000.0\t6.0e5\t8\t999.9\t1000.2\t0.88\t14.0\t0.7",  // mid=1000.05, OUT
+                    "1\t3000.0\t7.0e5\t6\t199.5\t200.5\t0.92\t13.0\t0.85"); // mid=200.0, IN baseline
+
+                var algorithm = new RealFLASHDeconvolutionAlgorithm(p, BuildStubRunner(tsv));
+
+                var result = algorithm
+                    .Deconvolute(BuildSyntheticSpectrum(), new MzRange(0, 1000))
+                    .ToList();
+
+                Assert.That(result, Has.Count.EqualTo(2),
+                    "Range filter is inclusive on the upper bound: 1000.0 is IN, 1000.05 is OUT, baseline is IN.");
+                Assert.That(result.Select(e => e.MonoisotopicMass).OrderBy(m => m),
+                    Is.EqualTo(new[] { 1000.0, 3000.0 }).AsCollection,
+                    "Expected the at-bound and baseline envelopes; the just-past envelope must be dropped.");
             }
             finally { File.Delete(fakeExe); }
         }
