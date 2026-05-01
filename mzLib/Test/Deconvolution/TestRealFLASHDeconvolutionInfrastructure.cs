@@ -19,6 +19,21 @@ namespace Test.Deconvolution
     /// Key implementation note: -out_spec requires TWO paths for MS1+MS2 files.
     /// Passing only one path causes FLASHDeconv to write MS2 output there,
     /// leaving MS1 output missing entirely.
+    ///
+    /// Accepted coverage gaps (intentionally not unit-tested):
+    ///   - ResolveExePath null-path fallback (well-known list + PATH search, then
+    ///     throw): the well-known list hardcodes installed OpenMS layouts; a test
+    ///     that passes a null exe path resolves via well-known on dev machines
+    ///     where OpenMS is installed and never reaches the throw, while CI runners
+    ///     without OpenMS take the throw path. Same test, different result by
+    ///     environment -- flaky. The deterministic failure mode (explicit path
+    ///     missing) IS covered by RealFLASH_Factory_BadExePath_ThrowsFileNotFound.
+    ///     Production callers set GlobalSettings.FLASHDeconvExecutablePath, so the
+    ///     null-path branch is edge-case fallback only.
+    ///   - Deconvolute body (process invocation + temp-file orchestration) and
+    ///     RunFLASHDeconv (timeout / non-zero-exit handling): require the real
+    ///     FLASHDeconv exe. Covered by the RealFLASH_RealExe_* integration tests
+    ///     below when FLASHDECONV_EXE is set or OpenMS is installed at KnownExePath.
     /// </summary>
     [TestFixture]
     public class TestRealFLASHDeconvolutionInfrastructure
@@ -101,6 +116,22 @@ namespace Test.Deconvolution
                 flashDeconvExePath: @"C:\DoesNotExist\FLASHDeconv.exe");
             Assert.That(
                 () => Deconvoluter.Deconvolute(BuildSyntheticSpectrum(), p).ToList(),
+                Throws.TypeOf<FileNotFoundException>());
+        }
+
+        [Test]
+        public void DeconvoluteFile_MissingMzml_ThrowsFileNotFound()
+        {
+            // Pins the input-file guard at the top of DeconvoluteFile. Catching this
+            // before launching FLASHDeconv produces a clear error message instead of
+            // letting the exe fail with an opaque parse error.
+            string nonexistent = Path.Combine(Path.GetTempPath(),
+                $"realflash_missing_{Guid.NewGuid():N}.mzML");
+            var p = new RealFLASHDeconvolutionParameters(
+                flashDeconvExePath: @"C:\unused\FLASHDeconv.exe");
+
+            Assert.That(
+                () => RealFLASHDeconvolutionAlgorithm.DeconvoluteFile(nonexistent, p),
                 Throws.TypeOf<FileNotFoundException>());
         }
 
@@ -375,6 +406,78 @@ namespace Test.Deconvolution
 
                 Assume.That(allEnvs, Has.Count.EqualTo(1));
                 Assert.That(allEnvs[0].Score, Is.EqualTo(expectedScore).Within(1e-9));
+            }
+            finally
+            {
+                if (File.Exists(tsv)) File.Delete(tsv);
+            }
+        }
+
+        [Test]
+        public void ParseSpecTsvByScan_RequiredColumnMissing_ThrowsMzLibException()
+        {
+            // Pins the required-column contract in Col(): a header missing any of
+            // {ScanNum, MonoisotopicMass, RepresentativeCharge, SumIntensity,
+            // RepresentativeMzStart, IsotopeCosine} must fail loudly with the
+            // tried-name list -- not silently produce zero envelopes.
+            string tsv = Path.Combine(Path.GetTempPath(),
+                $"realflash_missingcol_{Guid.NewGuid():N}.tsv");
+            try
+            {
+                // Header omits the required ScanNum column.
+                File.WriteAllLines(tsv, new[]
+                {
+                    "MonoisotopicMass\tSumIntensity\tRepresentativeCharge\t" +
+                    "RepresentativeMzStart\tRepresentativeMzEnd\tIsotopeCosine\tMassSNR\tQscore",
+                    "1000.0\t5.0e5\t5\t201.0\t201.4\t0.95\t12.0\t0.8",
+                });
+
+                var p = new RealFLASHDeconvolutionParameters(
+                    flashDeconvExePath: @"C:\unused\FLASHDeconv.exe",
+                    minMass: 50, maxMass: 5000);
+
+                Assert.That(
+                    () => RealFLASHDeconvolutionAlgorithm.ParseSpecTsvByScan(tsv, p),
+                    Throws.TypeOf<MzLibException>()
+                          .With.Message.Contains("ScanNum"));
+            }
+            finally
+            {
+                if (File.Exists(tsv)) File.Delete(tsv);
+            }
+        }
+
+        [Test]
+        public void ParseSpecTsvByScan_OptionalColumnsAbsent_ParsesAndUsesFallbacks()
+        {
+            // Pins the optional-column behavior of ColOpt: when the header has none
+            // of the alternative names, ColOpt returns -1 and downstream parsing
+            // gracefully degrades (mzEnd missing -> repMz = mzStart; both score
+            // sources missing -> falls through to IsotopeCosine).
+            string tsv = Path.Combine(Path.GetTempPath(),
+                $"realflash_nooptional_{Guid.NewGuid():N}.tsv");
+            try
+            {
+                // Header has only the six required columns -- no RepresentativeMzEnd,
+                // Qscore, or MassSNR. Exercises ColOpt's "return -1" path for all three.
+                File.WriteAllLines(tsv, new[]
+                {
+                    "ScanNum\tMonoisotopicMass\tSumIntensity\tRepresentativeCharge\t" +
+                    "RepresentativeMzStart\tIsotopeCosine",
+                    "1\t1000.0\t5.0e5\t5\t201.0\t0.95",
+                });
+
+                var p = new RealFLASHDeconvolutionParameters(
+                    flashDeconvExePath: @"C:\unused\FLASHDeconv.exe",
+                    minMass: 50, maxMass: 5000);
+
+                var allEnvs = RealFLASHDeconvolutionAlgorithm.ParseSpecTsvByScan(tsv, p)
+                    .Values.SelectMany(x => x).ToList();
+
+                Assert.That(allEnvs, Has.Count.EqualTo(1));
+                // Score falls through to IsotopeCosine when both Qscore and MassSNR
+                // columns are absent from the header.
+                Assert.That(allEnvs[0].Score, Is.EqualTo(0.95).Within(1e-9));
             }
             finally
             {
