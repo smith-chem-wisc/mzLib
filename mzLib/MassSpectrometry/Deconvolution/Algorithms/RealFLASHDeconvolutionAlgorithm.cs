@@ -173,11 +173,30 @@ namespace MassSpectrometry
 
         // ── Exe resolution ────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Production-side resolver: consult the static registry first; on miss,
+        /// run the full validate-and-resolve pass and cache the result so the
+        /// next per-scan call skips the filesystem.
+        ///
+        /// MetaMorpheus / other consumers can prime the registry up front via
+        /// <see cref="FlashDeconvExePathRegistry.Register"/>, in which case this
+        /// method becomes a single dictionary lookup per call.
+        /// </summary>
         private static string ResolveExePath(string? explicitPath)
-            => ResolveExePath(
+        {
+            if (FlashDeconvExePathRegistry.TryGet(explicitPath, out string cached))
+                return cached;
+
+            string resolved = ResolveExePath(
                 explicitPath,
                 DefaultWellKnownPaths,
                 Environment.GetEnvironmentVariable("PATH"));
+
+            // The inner overload already verified File.Exists during the resolve;
+            // store the result so the next call doesn't re-check.
+            FlashDeconvExePathRegistry.CacheValidated(explicitPath, resolved);
+            return resolved;
+        }
 
         /// <summary>
         /// Test-friendly overload that takes the well-known-paths list and PATH-env

@@ -598,6 +598,89 @@ namespace Test.Deconvolution
             }
         }
 
+        // ── E0: FlashDeconvExePathRegistry (caching layer) ────────────────────
+
+        [Test]
+        public void FlashDeconvExePathRegistry_RegisterValidPath_AddsEntryAndCounts()
+        {
+            FlashDeconvExePathRegistry.Clear();
+            string fake = CreateFakeExeFile();
+            try
+            {
+                Assert.That(FlashDeconvExePathRegistry.Count, Is.EqualTo(0));
+                FlashDeconvExePathRegistry.Register(fake);
+                Assert.That(FlashDeconvExePathRegistry.Count, Is.EqualTo(1));
+            }
+            finally
+            {
+                FlashDeconvExePathRegistry.Clear();
+                if (File.Exists(fake)) File.Delete(fake);
+            }
+        }
+
+        [Test]
+        public void FlashDeconvExePathRegistry_RegisterMissingPath_ThrowsFileNotFound()
+        {
+            FlashDeconvExePathRegistry.Clear();
+            string nonexistent = Path.Combine(Path.GetTempPath(),
+                $"realflash_missing_{Guid.NewGuid():N}.exe");
+
+            Assert.That(
+                () => FlashDeconvExePathRegistry.Register(nonexistent),
+                Throws.TypeOf<FileNotFoundException>());
+            Assert.That(FlashDeconvExePathRegistry.Count, Is.EqualTo(0),
+                "Failed registration must not leak a partial entry into the registry.");
+        }
+
+        [Test]
+        public void FlashDeconvExePathRegistry_RegisterNullOrEmpty_ThrowsArgumentException()
+        {
+            Assert.That(() => FlashDeconvExePathRegistry.Register(null!),
+                Throws.TypeOf<ArgumentException>());
+            Assert.That(() => FlashDeconvExePathRegistry.Register(""),
+                Throws.TypeOf<ArgumentException>());
+            Assert.That(() => FlashDeconvExePathRegistry.Register("   "),
+                Throws.TypeOf<ArgumentException>());
+        }
+
+        [Test]
+        public void Deconvolute_WithRegisteredPath_SkipsFilesystemValidation()
+        {
+            // Pin the optimization: once a path is in the registry, the algorithm
+            // uses it without re-checking File.Exists. Prove the cache is being
+            // consulted by registering the path, deleting the file, and observing
+            // that Deconvolute still proceeds to the stub runner -- a non-cached
+            // resolve would throw FileNotFoundException at this point.
+            FlashDeconvExePathRegistry.Clear();
+            string fakeExe = CreateFakeExeFile();
+            FlashDeconvExePathRegistry.Register(fakeExe);
+            File.Delete(fakeExe);  // cache says it exists; filesystem says otherwise
+
+            try
+            {
+                var p = new RealFLASHDeconvolutionParameters(
+                    flashDeconvExePath: fakeExe,
+                    minMass: 50, maxMass: 5000);
+
+                string tsv = string.Join("\n",
+                    Ms1TsvHeader,
+                    "1\t1000.0\t5.0e5\t5\t201.0\t201.4\t0.95\t12.0\t0.8");
+
+                var algorithm = new RealFLASHDeconvolutionAlgorithm(p, BuildStubRunner(tsv));
+
+                var result = algorithm
+                    .Deconvolute(BuildSyntheticSpectrum(), new MzRange(0, 5000))
+                    .ToList();
+
+                Assert.That(result, Has.Count.EqualTo(1),
+                    "Cached path must be honored without re-validating that the file still exists; the deleted file would otherwise throw before the stub runner runs.");
+            }
+            finally
+            {
+                FlashDeconvExePathRegistry.Clear();
+            }
+        }
+
         // ── E: ResolveExePath unit tests ──────────────────────────────────────
 
         [Test]
