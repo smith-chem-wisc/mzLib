@@ -49,8 +49,7 @@ namespace Test
                 .OrderBy(p => p.First)
                 .ToArray();
 
-            int      absCharge   = Math.Abs(charge);
-            double   isotopeStep = Constants.C13MinusC12 / absCharge;
+            double   isotopeStep = Constants.C13MinusC12 / charge;
             double   monoMz      = monoMass.ToMz(charge);
             var      peaks       = new List<(double mz, double intensity)>();
 
@@ -161,7 +160,7 @@ namespace Test
         }
 
         [Test]
-        public void A6_ComputeFeatures_SingleZeroIntensityPeak_DoesNotThrow()
+        public void A6_ComputeFeatures_EmptyPeakList_DoesNotThrow()
         {
             // A degenerate envelope with a single zero-intensity peak
             var peaks = new List<(double mz, double intensity)>

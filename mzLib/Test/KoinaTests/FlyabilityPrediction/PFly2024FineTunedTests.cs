@@ -1,12 +1,11 @@
-﻿using NUnit.Framework;
-using Omics.SequenceConversion;
-using PredictionClients.Koina.SupportedModels.FlyabilityModels;
-using PredictionClients.Koina.Util;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using NUnit.Framework;
+using Omics.SequenceConversion;
+using PredictionClients.Koina.SupportedModels.FlyabilityModels;
 
-namespace Test.KoinaTests
+namespace Test.KoinaTests.FlyabilityPrediction
 {
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -51,7 +50,7 @@ namespace Test.KoinaTests
                 new DetectabilityPredictionInput("PEPTIDEPEPI")
             };
    
-            var model = new PFly2024FineTuned();
+            var model = new PFly2024FineTuned(modHandlingMode: SequenceConversionHandlingMode.UsePrimarySequence);
             var predictions = model.Predict(modelInputs);
 
             Assert.That(predictions.Count, Is.EqualTo(4), "Should return predictions for all inputs");
@@ -261,7 +260,7 @@ namespace Test.KoinaTests
             Assert.That(model.DetectabilityClasses[3], Is.EqualTo("High Detectability"));
             Assert.That(model.MaxPeptideLength, Is.EqualTo(40));
             Assert.That(model.MinPeptideLength, Is.EqualTo(1));
-            Assert.That(model.ModHandlingMode, Is.EqualTo(SequenceConversionHandlingMode.UsePrimarySequence));
+            Assert.That(model.ModHandlingMode, Is.EqualTo(SequenceConversionHandlingMode.ReturnNull));
             Assert.That(model.AllowedUnimodIds.Count, Is.EqualTo(0), "PFly does not support any modifications");
         }
 

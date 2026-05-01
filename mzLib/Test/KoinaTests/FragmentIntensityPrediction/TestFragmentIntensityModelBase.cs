@@ -1,12 +1,12 @@
-﻿using NUnit.Framework;
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using NUnit.Framework;
 using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.Util;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 
-namespace Test.KoinaTests
+namespace Test.KoinaTests.FragmentIntensityPrediction
 {
     /// <summary>
     /// Test harness for FragmentIntensityModel validation logic.
