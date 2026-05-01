@@ -4,9 +4,9 @@ using System.Linq;
 using Chemistry;
 using MassSpectrometry;
 using NUnit.Framework;
-using static Test.MassSpectrometry.Deconvolution.DeconvolutionTestHelpers;
+using static Test.MassSpectrometryTests.Deconvolution.DeconvolutionTestHelpers;
 
-namespace Test.MassSpectrometry.Deconvolution
+namespace Test.MassSpectrometryTests.Deconvolution
 {
     /// <summary>
     /// Unit tests for the spectrum-aware path of <see cref="DeconvolutionScorer"/>:

@@ -5,7 +5,7 @@ using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using static Test.Deconvolution.DeconvolutionTestHelpers;
+using static Test.MassSpectrometryTests.Deconvolution.DeconvolutionTestHelpers;
 
 namespace Test.MassSpectrometryTests.Deconvolution
 {
