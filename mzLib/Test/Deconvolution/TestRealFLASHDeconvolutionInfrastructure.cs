@@ -20,20 +20,24 @@ namespace Test.Deconvolution
     /// Passing only one path causes FLASHDeconv to write MS2 output there,
     /// leaving MS1 output missing entirely.
     ///
-    /// Accepted coverage gaps (intentionally not unit-tested):
-    ///   - ResolveExePath null-path fallback (well-known list + PATH search, then
-    ///     throw): the well-known list hardcodes installed OpenMS layouts; a test
-    ///     that passes a null exe path resolves via well-known on dev machines
-    ///     where OpenMS is installed and never reaches the throw, while CI runners
-    ///     without OpenMS take the throw path. Same test, different result by
-    ///     environment -- flaky. The deterministic failure mode (explicit path
-    ///     missing) IS covered by RealFLASH_Factory_BadExePath_ThrowsFileNotFound.
-    ///     Production callers set GlobalSettings.FLASHDeconvExecutablePath, so the
-    ///     null-path branch is edge-case fallback only.
-    ///   - Deconvolute body (process invocation + temp-file orchestration) and
-    ///     RunFLASHDeconv (timeout / non-zero-exit handling): require the real
-    ///     FLASHDeconv exe. Covered by the RealFLASH_RealExe_* integration tests
-    ///     below when FLASHDECONV_EXE is set or OpenMS is installed at KnownExePath.
+    /// Coverage strategy:
+    ///   - ResolveExePath was refactored to accept the well-known-paths list and
+    ///     PATH-env value as parameters, so its three branches (well-known found,
+    ///     PATH-search hit, not-found-anywhere throw) can be exercised
+    ///     deterministically (Section E below).
+    ///   - Deconvolute and DeconvoluteFile accept an injected FLASHDeconvRunner
+    ///     delegate. Tests pass a stub that writes canned TSV files instead of
+    ///     spawning the real exe, so the surrounding orchestration (mzML writing,
+    ///     range filtering, TSV parsing, missing-MS1 handling) is unit-testable
+    ///     (Section F below).
+    ///
+    /// Accepted coverage gap (intentionally not unit-tested):
+    ///   - RunFLASHDeconvDefault: pure subprocess plumbing -- spawn Process,
+    ///     async-drain stdout/stderr, enforce timeout, throw on non-zero exit.
+    ///     Marked [ExcludeFromCodeCoverage] so it doesn't drag the line-coverage
+    ///     metric. Real-exe coverage is provided by the RealFLASH_RealExe_*
+    ///     integration tests below when FLASHDECONV_EXE is set or OpenMS is
+    ///     installed at KnownExePath.
     /// </summary>
     [TestFixture]
     public class TestRealFLASHDeconvolutionInfrastructure
@@ -484,6 +488,243 @@ namespace Test.Deconvolution
                 if (File.Exists(tsv)) File.Delete(tsv);
             }
         }
+
+        // ── E: ResolveExePath unit tests ──────────────────────────────────────
+
+        [Test]
+        public void ResolveExePath_NoExplicit_FoundInWellKnown_ReturnsThatPath()
+        {
+            // Pins the well-known-search branch: when no explicit path is given
+            // and one of the well-known paths exists on disk, that path is returned.
+            string fake = CreateFakeExeFile();
+            try
+            {
+                string result = RealFLASHDeconvolutionAlgorithm.ResolveExePath(
+                    explicitPath: null,
+                    wellKnownPaths: new[] { fake },
+                    pathEnv: "");
+
+                Assert.That(result, Is.EqualTo(fake));
+            }
+            finally { File.Delete(fake); }
+        }
+
+        [Test]
+        public void ResolveExePath_NoExplicit_NoWellKnown_FoundInPathEnv_ReturnsFromPath()
+        {
+            // Pins the PATH-search branch: when no explicit path is given, no
+            // well-known path matches, but a directory on PATH contains the exe,
+            // it is found and returned. Uses an isolated temp directory as the
+            // sole PATH entry so the test isn't affected by what the host has.
+            string dir = Path.Combine(Path.GetTempPath(), $"realflash_path_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(dir);
+            string fakeName = OperatingSystem.IsWindows() ? "FLASHDeconv.exe" : "FLASHDeconv";
+            string fake = Path.Combine(dir, fakeName);
+            File.WriteAllText(fake, "stub");
+            try
+            {
+                string result = RealFLASHDeconvolutionAlgorithm.ResolveExePath(
+                    explicitPath: null,
+                    wellKnownPaths: Array.Empty<string>(),
+                    pathEnv: dir);
+
+                Assert.That(result, Is.EqualTo(fake));
+            }
+            finally { Directory.Delete(dir, recursive: true); }
+        }
+
+        [Test]
+        public void ResolveExePath_NoExplicit_NoWellKnown_NoPath_ThrowsFileNotFound()
+        {
+            // Pins the not-found-anywhere throw with a clear message that points
+            // the user at the override knob.
+            Assert.That(
+                () => RealFLASHDeconvolutionAlgorithm.ResolveExePath(
+                    explicitPath: null,
+                    wellKnownPaths: Array.Empty<string>(),
+                    pathEnv: ""),
+                Throws.TypeOf<FileNotFoundException>()
+                      .With.Message.Contains("FLASHDeconvExePath"));
+        }
+
+        // ── F: Orchestration unit tests with stubbed FLASHDeconvRunner ────────
+
+        [Test]
+        public void Deconvolute_StubRunnerWritesValidTsv_ReturnsParsedEnvelopes()
+        {
+            // Pins the per-scan happy path: WriteSingleScanMzml -> stub runner
+            // produces canned MS1 TSV -> ParseSpecTsvByScan -> range filter ->
+            // returned envelopes. No real exe, no integration assumption.
+            string fakeExe = CreateFakeExeFile();
+            try
+            {
+                var p = new RealFLASHDeconvolutionParameters(
+                    flashDeconvExePath: fakeExe,
+                    minMass: 50, maxMass: 5000);
+
+                string tsv = string.Join("\n",
+                    Ms1TsvHeader,
+                    "1\t1000.0\t5.0e5\t5\t201.0\t201.4\t0.95\t12.0\t0.8");
+
+                var algorithm = new RealFLASHDeconvolutionAlgorithm(p, BuildStubRunner(tsv));
+
+                var result = algorithm
+                    .Deconvolute(BuildSyntheticSpectrum(), new MzRange(0, 5000))
+                    .ToList();
+
+                Assert.That(result, Has.Count.EqualTo(1));
+                Assert.That(result[0].MonoisotopicMass, Is.EqualTo(1000.0).Within(1e-6));
+            }
+            finally { File.Delete(fakeExe); }
+        }
+
+        [Test]
+        public void Deconvolute_StubRunnerWritesNoMs1_ReturnsEmpty()
+        {
+            // Pins the missing-MS1-file early-return at the top of the parse step.
+            // FLASHDeconv occasionally produces no MS1 TSV when no envelopes pass
+            // the configured filters; the algorithm must return empty cleanly
+            // rather than throw on a missing file.
+            string fakeExe = CreateFakeExeFile();
+            try
+            {
+                var p = new RealFLASHDeconvolutionParameters(flashDeconvExePath: fakeExe);
+                var algorithm = new RealFLASHDeconvolutionAlgorithm(
+                    p, BuildStubRunner(ms1Content: null));
+
+                var result = algorithm
+                    .Deconvolute(BuildSyntheticSpectrum(), new MzRange(0, 5000))
+                    .ToList();
+
+                Assert.That(result, Is.Empty);
+            }
+            finally { File.Delete(fakeExe); }
+        }
+
+        [Test]
+        public void Deconvolute_StubRunner_FiltersEnvelopesByRange()
+        {
+            // Pins the range-filter behaviour: even when the runner produces
+            // envelopes outside the requested mz range, only those whose
+            // representative-mz midpoint is within range are returned.
+            string fakeExe = CreateFakeExeFile();
+            try
+            {
+                var p = new RealFLASHDeconvolutionParameters(
+                    flashDeconvExePath: fakeExe,
+                    minMass: 50, maxMass: 100_000);
+
+                string tsv = string.Join("\n",
+                    Ms1TsvHeader,
+                    "1\t1000.0\t5.0e5\t5\t201.0\t201.4\t0.95\t12.0\t0.8",
+                    "1\t2000.0\t6.0e5\t8\t9999.0\t9999.5\t0.88\t14.0\t0.7");
+
+                var algorithm = new RealFLASHDeconvolutionAlgorithm(p, BuildStubRunner(tsv));
+
+                var result = algorithm
+                    .Deconvolute(BuildSyntheticSpectrum(), new MzRange(0, 1000))
+                    .ToList();
+
+                Assert.That(result, Has.Count.EqualTo(1));
+                Assert.That(result[0].MonoisotopicMass, Is.EqualTo(1000.0).Within(1e-6));
+            }
+            finally { File.Delete(fakeExe); }
+        }
+
+        [Test]
+        public void DeconvoluteFile_StubRunnerWritesValidTsv_ReturnsScansKeyedByScanNum()
+        {
+            // Pins the whole-file orchestration: input mzML existence check ->
+            // stub runner writes canned MS1 TSV -> ParseSpecTsvByScan groups
+            // by scan number -> returned dictionary. mzML content is irrelevant
+            // because the runner is stubbed.
+            string fakeExe = CreateFakeExeFile();
+            string fakeMzml = Path.Combine(Path.GetTempPath(),
+                $"realflash_in_{Guid.NewGuid():N}.mzML");
+            File.WriteAllText(fakeMzml, "<mzML/>");
+            try
+            {
+                var p = new RealFLASHDeconvolutionParameters(
+                    flashDeconvExePath: fakeExe,
+                    minMass: 50, maxMass: 5000);
+
+                string tsv = string.Join("\n",
+                    Ms1TsvHeader,
+                    "1\t1000.0\t5.0e5\t5\t201.0\t201.4\t0.95\t12.0\t0.8",
+                    "2\t2000.0\t6.0e5\t8\t251.5\t251.9\t0.88\t14.0\t0.7");
+
+                var byScan = RealFLASHDeconvolutionAlgorithm.DeconvoluteFile(
+                    fakeMzml, p, BuildStubRunner(tsv));
+
+                Assert.That(byScan.Keys, Is.EquivalentTo(new[] { 1, 2 }));
+                Assert.That(byScan.Values.Sum(l => l.Count), Is.EqualTo(2));
+            }
+            finally
+            {
+                File.Delete(fakeExe);
+                File.Delete(fakeMzml);
+            }
+        }
+
+        [Test]
+        public void DeconvoluteFile_StubRunnerWritesNoMs1_ReturnsEmptyDictionary()
+        {
+            // Pins the missing-MS1-file early-return for the whole-file path.
+            string fakeExe = CreateFakeExeFile();
+            string fakeMzml = Path.Combine(Path.GetTempPath(),
+                $"realflash_in_{Guid.NewGuid():N}.mzML");
+            File.WriteAllText(fakeMzml, "<mzML/>");
+            try
+            {
+                var p = new RealFLASHDeconvolutionParameters(flashDeconvExePath: fakeExe);
+
+                var byScan = RealFLASHDeconvolutionAlgorithm.DeconvoluteFile(
+                    fakeMzml, p, BuildStubRunner(ms1Content: null));
+
+                Assert.That(byScan, Is.Empty);
+            }
+            finally
+            {
+                File.Delete(fakeExe);
+                File.Delete(fakeMzml);
+            }
+        }
+
+        [Test]
+        public void Deconvolute_WrongParameterType_ThrowsMzLibException()
+        {
+            // Pins the up-front parameter-type guard at the top of Deconvolute:
+            // constructing the algorithm with a parameter class meant for a
+            // different deconvolution algorithm must throw clearly rather than
+            // proceed and fail deeper in.
+            var wrongParams = new ClassicDeconvolutionParameters(1, 12, 4.0, 3.0);
+            var algorithm = new RealFLASHDeconvolutionAlgorithm(wrongParams);
+
+            Assert.That(
+                () => algorithm.Deconvolute(BuildSyntheticSpectrum(), new MzRange(0, 5000)).ToList(),
+                Throws.TypeOf<MzLibException>().With.Message.Contains("do not match"));
+        }
+
+        // ── Stub-runner helpers ───────────────────────────────────────────────
+
+        private const string Ms1TsvHeader =
+            "ScanNum\tMonoisotopicMass\tSumIntensity\tRepresentativeCharge\t" +
+            "RepresentativeMzStart\tRepresentativeMzEnd\tIsotopeCosine\tMassSNR\tQscore";
+
+        private static string CreateFakeExeFile()
+        {
+            string path = Path.Combine(Path.GetTempPath(),
+                $"realflash_fake_exe_{Guid.NewGuid():N}.exe");
+            File.WriteAllText(path, "stub");
+            return path;
+        }
+
+        private static RealFLASHDeconvolutionAlgorithm.FLASHDeconvRunner BuildStubRunner(
+            string? ms1Content)
+            => (exe, inMzml, outFeat, outMs1, outMs2, p) =>
+            {
+                if (ms1Content != null) File.WriteAllText(outMs1, ms1Content);
+            };
 
         // ── Helper ────────────────────────────────────────────────────────────
 

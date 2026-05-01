@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -38,8 +39,55 @@ namespace MassSpectrometry
     /// </summary>
     internal class RealFLASHDeconvolutionAlgorithm : DeconvolutionAlgorithm
     {
+        /// <summary>
+        /// Delegate signature for invoking FLASHDeconv. Production calls this
+        /// with the real-Process implementation (<see cref="RunFLASHDeconvDefault"/>);
+        /// tests inject a stub that writes canned TSV files to the requested output
+        /// paths so the surrounding orchestration (mzML writing, range filtering,
+        /// TSV parsing) can be unit-tested without launching a subprocess.
+        /// </summary>
+        internal delegate void FLASHDeconvRunner(
+            string exePath,
+            string inputMzml,
+            string outFeatureTsv,
+            string outMs1Tsv,
+            string outMs2Tsv,
+            RealFLASHDeconvolutionParameters parameters);
+
+        /// <summary>
+        /// Hardcoded install paths probed when no explicit FLASHDeconv path is supplied
+        /// and PATH search misses. Exposed internally so tests can inject a known list
+        /// (or an empty list) to exercise the resolver's branches deterministically.
+        /// </summary>
+        internal static readonly IReadOnlyList<string> DefaultWellKnownPaths = new[]
+        {
+            @"C:\Program Files\OpenMS-3.0.0-pre-HEAD-2023-06-17\bin\FLASHDeconv.exe",
+            @"C:\Program Files\OpenMS-3.5.0\bin\FLASHDeconv.exe",
+            @"C:\Program Files\OpenMS-3.4.0\bin\FLASHDeconv.exe",
+            @"C:\Program Files\OpenMS-3.3.0\bin\FLASHDeconv.exe",
+            @"C:\Program Files\OpenMS-3.0.0\bin\FLASHDeconv.exe",
+            "/usr/bin/FLASHDeconv",
+            "/usr/local/bin/FLASHDeconv",
+            "/opt/openms/bin/FLASHDeconv",
+        };
+
+        private readonly FLASHDeconvRunner _runner;
+
         internal RealFLASHDeconvolutionAlgorithm(DeconvolutionParameters deconParameters)
-            : base(deconParameters) { }
+            : this(deconParameters, runner: null) { }
+
+        /// <summary>
+        /// Test-friendly constructor that accepts an injected runner. The default
+        /// (null) runner is the real Process-based implementation. Tests pass a
+        /// stub that writes canned TSV files to the requested output paths.
+        /// </summary>
+        internal RealFLASHDeconvolutionAlgorithm(
+            DeconvolutionParameters deconParameters,
+            FLASHDeconvRunner? runner)
+            : base(deconParameters)
+        {
+            _runner = runner ?? RunFLASHDeconvDefault;
+        }
 
         // ── Per-scan entry point ──────────────────────────────────────────────
 
@@ -67,7 +115,7 @@ namespace MassSpectrometry
             try
             {
                 WriteSingleScanMzml(spectrum, tmpIn, p.Polarity);
-                RunFLASHDeconv(exePath, tmpIn, tmpFeat, tmpMs1, tmpMs2, p);
+                _runner(exePath, tmpIn, tmpFeat, tmpMs1, tmpMs2, p);
                 if (!File.Exists(tmpMs1)) return Enumerable.Empty<IsotopicEnvelope>();
                 return ParseSpecTsvByScan(tmpMs1, p)
                     .Values.SelectMany(x => x)
@@ -89,10 +137,21 @@ namespace MassSpectrometry
         /// </summary>
         internal static Dictionary<int, List<IsotopicEnvelope>> DeconvoluteFile(
             string mzmlPath, RealFLASHDeconvolutionParameters p)
+            => DeconvoluteFile(mzmlPath, p, runner: null);
+
+        /// <summary>
+        /// Test-friendly overload that accepts an injected <see cref="FLASHDeconvRunner"/>.
+        /// The default (null) runner is the real Process-based implementation.
+        /// </summary>
+        internal static Dictionary<int, List<IsotopicEnvelope>> DeconvoluteFile(
+            string mzmlPath,
+            RealFLASHDeconvolutionParameters p,
+            FLASHDeconvRunner? runner)
         {
             if (!File.Exists(mzmlPath))
                 throw new FileNotFoundException($"mzML not found: {mzmlPath}", mzmlPath);
 
+            FLASHDeconvRunner effectiveRunner = runner ?? RunFLASHDeconvDefault;
             string exePath = ResolveExePath(p.FLASHDeconvExePath);
             string guid = Guid.NewGuid().ToString("N");
             string tmpFeat = Path.Combine(p.WorkingDirectory, $"mzlib_fd_{guid}_feat.tsv");
@@ -101,7 +160,7 @@ namespace MassSpectrometry
 
             try
             {
-                RunFLASHDeconv(exePath, mzmlPath, tmpFeat, tmpMs1, tmpMs2, p);
+                effectiveRunner(exePath, mzmlPath, tmpFeat, tmpMs1, tmpMs2, p);
                 if (!File.Exists(tmpMs1)) return new Dictionary<int, List<IsotopicEnvelope>>();
                 return ParseSpecTsvByScan(tmpMs1, p);
             }
@@ -115,6 +174,22 @@ namespace MassSpectrometry
         // ── Exe resolution ────────────────────────────────────────────────────
 
         private static string ResolveExePath(string? explicitPath)
+            => ResolveExePath(
+                explicitPath,
+                DefaultWellKnownPaths,
+                Environment.GetEnvironmentVariable("PATH"));
+
+        /// <summary>
+        /// Test-friendly overload that takes the well-known-paths list and PATH-env
+        /// value as parameters instead of reading them from compiled-in defaults +
+        /// the live process environment. Lets tests deterministically exercise the
+        /// well-known-search, PATH-search, and not-found-anywhere branches without
+        /// depending on what's installed on the runner.
+        /// </summary>
+        internal static string ResolveExePath(
+            string? explicitPath,
+            IEnumerable<string> wellKnownPaths,
+            string? pathEnv)
         {
             if (!string.IsNullOrWhiteSpace(explicitPath))
             {
@@ -122,21 +197,9 @@ namespace MassSpectrometry
                 throw new FileNotFoundException($"FLASHDeconv not found at: {explicitPath}", explicitPath);
             }
 
-            string[] wellKnown =
-            {
-                @"C:\Program Files\OpenMS-3.0.0-pre-HEAD-2023-06-17\bin\FLASHDeconv.exe",
-                @"C:\Program Files\OpenMS-3.5.0\bin\FLASHDeconv.exe",
-                @"C:\Program Files\OpenMS-3.4.0\bin\FLASHDeconv.exe",
-                @"C:\Program Files\OpenMS-3.3.0\bin\FLASHDeconv.exe",
-                @"C:\Program Files\OpenMS-3.0.0\bin\FLASHDeconv.exe",
-                "/usr/bin/FLASHDeconv",
-                "/usr/local/bin/FLASHDeconv",
-                "/opt/openms/bin/FLASHDeconv",
-            };
-            foreach (string c in wellKnown)
+            foreach (string c in wellKnownPaths)
                 if (File.Exists(c)) return c;
 
-            string? pathEnv = Environment.GetEnvironmentVariable("PATH");
             if (pathEnv != null)
             {
                 string[] names = OperatingSystem.IsWindows()
@@ -157,11 +220,19 @@ namespace MassSpectrometry
         // ── Process invocation ────────────────────────────────────────────────
 
         /// <summary>
-        /// Invokes FLASHDeconv with two -out_spec paths (MS1 and MS2).
-        /// Passing two paths is required for mixed MS1/MS2 files — with only one path,
-        /// FLASHDeconv writes MS2 output to it and produces no MS1 output.
+        /// Default <see cref="FLASHDeconvRunner"/> implementation: spawns a real
+        /// Process, drains its stdout/stderr asynchronously, enforces the configured
+        /// timeout, and throws on non-zero exit.
+        ///
+        /// Excluded from code-coverage stats because every line is pure subprocess
+        /// plumbing -- testing it requires either the real FLASHDeconv exe (covered
+        /// by the RealFLASH_RealExe_* integration tests when OpenMS is installed)
+        /// or a Process abstraction that's out of scope here. The orchestration
+        /// around this method is testable via <see cref="FLASHDeconvRunner"/>
+        /// injection on the constructor and on <see cref="DeconvoluteFile"/>.
         /// </summary>
-        private static void RunFLASHDeconv(
+        [ExcludeFromCodeCoverage]
+        private static void RunFLASHDeconvDefault(
             string exePath, string inputMzml,
             string outFeatureTsv, string outMs1Tsv, string outMs2Tsv,
             RealFLASHDeconvolutionParameters p)
