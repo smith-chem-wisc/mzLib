@@ -82,5 +82,8 @@ namespace MassSpectrometry
             WorkingDirectory = workingDirectory ?? Path.GetTempPath();
             ProcessTimeoutSeconds = processTimeoutSeconds;
         }
+
+        // Decoy deconvolution doesn't apply to the FLASHDeconv exe wrapper.
+        public override DeconvolutionParameters? ToDecoyParameters() => null;
     }
 }
