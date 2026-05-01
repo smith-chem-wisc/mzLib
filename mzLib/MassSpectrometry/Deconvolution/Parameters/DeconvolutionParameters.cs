@@ -18,6 +18,17 @@ namespace MassSpectrometry
         /// </summary>
         public double ExpectedIsotopeSpacing { get; set; }
 
+        /// <summary>
+        /// When true, <see cref="Deconvoluter.Deconvolute(MzSpectrum, DeconvolutionParameters, MzLibUtil.MzRange)"/>
+        /// runs an additional per-envelope generic-scoring pass after the algorithm produces
+        /// envelopes: each yielded envelope's <see cref="IsotopicEnvelope.GenericScore"/> is set
+        /// (via <see cref="DeconvolutionScorer.ScoreEnvelope(IsotopicEnvelope, AverageResidue)"/>) without
+        /// modifying the algorithm-specific <see cref="IsotopicEnvelope.Score"/>.
+        /// Defaults to false to keep the cost off the hot path for callers that only need the
+        /// algorithm score.
+        /// </summary>
+        public bool UseGenericScore { get; set; } = false;
+
         protected DeconvolutionParameters(int minCharge, int maxCharge,
             Polarity polarity = Polarity.Positive,
             AverageResidue? averageResidueModel = null,

@@ -42,9 +42,29 @@ namespace MassSpectrometry
 
             // set deconvolution algorithm
             DeconvolutionAlgorithm deconAlgorithm = CreateAlgorithm(deconvolutionParameters);
+            var envelopes = deconAlgorithm.Deconvolute(spectrum, rangeToGetPeaksFrom);
 
-            // Delegate deconvolution to the algorithm
-            return deconAlgorithm.Deconvolute(spectrum, rangeToGetPeaksFrom);
+            // Optional generic-scoring post-pass, gated by parameters.UseGenericScore.
+            // Implemented in a separate iterator helper so the NeutralMassSpectrum
+            // early-return above stays eager rather than being deferred to MoveNext.
+            return deconvolutionParameters.UseGenericScore
+                ? AddGenericScoring(envelopes, deconvolutionParameters)
+                : envelopes;
+        }
+
+        private static IEnumerable<IsotopicEnvelope> AddGenericScoring(
+            IEnumerable<IsotopicEnvelope> envelopes, DeconvolutionParameters deconvolutionParameters)
+        {
+            AverageResidue model = deconvolutionParameters.AverageResidueModel;
+            foreach (var envelope in envelopes)
+            {
+                if (envelope.GenericScore == null)
+                {
+                    double score = DeconvolutionScorer.ScoreEnvelope(envelope, model);
+                    envelope.SetGenericScore(score);
+                }
+                yield return envelope;
+            }
         }
 
         public static (List<IsotopicEnvelope> Targets, List<IsotopicEnvelope> Decoys)
@@ -69,56 +89,6 @@ namespace MassSpectrometry
             var decoys = Deconvolute(spectrum, decoyParams, rangeToGetPeaksFrom).ToList();
 
             return (targets, decoys);
-        }
-
-        /// <summary>
-        /// Deconvolutes a scan and additionally computes the generic deconvolution score for
-        /// every yielded envelope. Each envelope's <see cref="IsotopicEnvelope.GenericScore"/>
-        /// is set before it is yielded; the algorithm-specific <see cref="IsotopicEnvelope.Score"/>
-        /// is unchanged.
-        /// </summary>
-        /// <remarks>
-        /// If you already have an <see cref="IsotopicEnvelope"/> from a prior deconvolution call
-        /// and want to score it without re-running the algorithm, use the
-        /// <see cref="IsotopicEnvelopeExtensions.GetOrComputeGenericScore(IsotopicEnvelope, DeconvolutionParameters)"/>
-        /// extension method.
-        /// </remarks>
-        public static IEnumerable<IsotopicEnvelope> DeconvoluteWithGenericScoring(MsDataScan scan,
-            DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null)
-        {
-            return DeconvoluteWithGenericScoring(scan.MassSpectrum, deconvolutionParameters, rangeToGetPeaksFrom);
-        }
-
-        /// <summary>
-        /// Deconvolutes a spectrum and additionally computes the generic deconvolution score for
-        /// every yielded envelope. Each envelope's <see cref="IsotopicEnvelope.GenericScore"/>
-        /// is set before it is yielded; the algorithm-specific <see cref="IsotopicEnvelope.Score"/>
-        /// is unchanged.
-        /// </summary>
-        /// <remarks>
-        /// Generic scoring adds a per-envelope feature-extraction pass (cosine vs Averagine,
-        /// ppm error, completeness, ratio consistency). Use this overload when you need a
-        /// score directly comparable across deconvolution algorithms; otherwise call
-        /// <see cref="Deconvolute(MzSpectrum, DeconvolutionParameters, MzRange)"/> to avoid the cost.
-        ///
-        /// If you already have an <see cref="IsotopicEnvelope"/> from a prior deconvolution call
-        /// and want to score it without re-running the algorithm, use the
-        /// <see cref="IsotopicEnvelopeExtensions.GetOrComputeGenericScore(IsotopicEnvelope, DeconvolutionParameters)"/>
-        /// extension method.
-        /// </remarks>
-        public static IEnumerable<IsotopicEnvelope> DeconvoluteWithGenericScoring(MzSpectrum spectrum,
-            DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null)
-        {
-            AverageResidue model = deconvolutionParameters.AverageResidueModel;
-            foreach (var envelope in Deconvolute(spectrum, deconvolutionParameters, rangeToGetPeaksFrom))
-            {
-                if (envelope.GenericScore == null)
-                {
-                    double score = DeconvolutionScorer.ScoreEnvelope(envelope, model);
-                    envelope.SetGenericScore(score);
-                }
-                yield return envelope;
-            }
         }
 
         /// <summary>

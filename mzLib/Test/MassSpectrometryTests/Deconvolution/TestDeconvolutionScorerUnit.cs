@@ -248,11 +248,11 @@ namespace Test.MassSpectrometryTests.Deconvolution
         }
 
         // ══════════════════════════════════════════════════════════════════════
-        // Group D — DeconvoluteWithGenericScoring: integration tests
+        // Group D — UseGenericScore via Deconvolute: integration tests
         // ══════════════════════════════════════════════════════════════════════
 
         [Test]
-        public void D1_DeconvoluteWithGenericScoring_MzSpectrum_SetsGenericScoreOnEveryEnvelope()
+        public void D1_Deconvolute_UseGenericScore_MzSpectrum_SetsGenericScoreOnEveryEnvelope()
         {
             // Arrange: build a spectrum from a perfect synthetic envelope at charge 2.
             // Charge 2 needs 2/5 = 0 adjacent charge states observed by Classic deconvolution,
@@ -263,10 +263,11 @@ namespace Test.MassSpectrometryTests.Deconvolution
             var spectrum = new MzSpectrum(mzArray, intensityArray, false);
 
             var deconParams = new ClassicDeconvolutionParameters(
-                minCharge: 1, maxCharge: 10, deconPpm: 20, intensityRatio: 3);
+                minCharge: 1, maxCharge: 10, deconPpm: 20, intensityRatio: 3)
+            { UseGenericScore = true };
 
             // Act
-            var results = Deconvoluter.DeconvoluteWithGenericScoring(spectrum, deconParams).ToList();
+            var results = Deconvoluter.Deconvolute(spectrum, deconParams).ToList();
 
             // Assert
             Assert.That(results, Is.Not.Empty, "Should deconvolute at least one envelope");
@@ -280,27 +281,31 @@ namespace Test.MassSpectrometryTests.Deconvolution
         }
 
         [Test]
-        public void D2_DeconvoluteWithGenericScoring_MzSpectrum_DoesNotMutateAlgorithmScore()
+        public void D2_Deconvolute_UseGenericScore_MzSpectrum_DoesNotMutateAlgorithmScore()
         {
-            // Arrange: same spectrum/params as D1
+            // Arrange: same spectrum as D1, but now with two parameter objects --
+            // one with UseGenericScore off (baseline) and one with it on (scored).
             var env = BuildPerfectEnvelope(monoMass: TestMass, charge: 2);
             double[] mzArray = env.Peaks.Select(p => p.mz).ToArray();
             double[] intensityArray = env.Peaks.Select(p => p.intensity).ToArray();
 
-            var deconParams = new ClassicDeconvolutionParameters(
+            var baselineParams = new ClassicDeconvolutionParameters(
                 minCharge: 1, maxCharge: 10, deconPpm: 20, intensityRatio: 3);
+            var scoringParams = new ClassicDeconvolutionParameters(
+                minCharge: 1, maxCharge: 10, deconPpm: 20, intensityRatio: 3)
+            { UseGenericScore = true };
 
-            // Get baseline scores from plain Deconvolute
+            // Get baseline scores from plain Deconvolute (UseGenericScore = false)
             var spectrum1 = new MzSpectrum(mzArray, intensityArray, false);
-            var baseline = Deconvoluter.Deconvolute(spectrum1, deconParams).ToList();
+            var baseline = Deconvoluter.Deconvolute(spectrum1, baselineParams).ToList();
 
-            // Get scored results from a fresh spectrum
+            // Get scored results from a fresh spectrum with UseGenericScore = true
             var spectrum2 = new MzSpectrum(mzArray, intensityArray, false);
-            var scored = Deconvoluter.DeconvoluteWithGenericScoring(spectrum2, deconParams).ToList();
+            var scored = Deconvoluter.Deconvolute(spectrum2, scoringParams).ToList();
 
-            // Assert: same number of envelopes, and Score values match
+            // Assert: same number of envelopes, and algorithm-specific Score values match
             Assert.That(scored.Count, Is.EqualTo(baseline.Count),
-                "DeconvoluteWithGenericScoring should yield the same number of envelopes as Deconvolute");
+                "UseGenericScore must not change the number of envelopes yielded");
             for (int i = 0; i < baseline.Count; i++)
             {
                 Assert.That(scored[i].Score, Is.EqualTo(baseline[i].Score).Within(1e-10),
@@ -309,7 +314,7 @@ namespace Test.MassSpectrometryTests.Deconvolution
         }
 
         [Test]
-        public void D3_DeconvoluteWithGenericScoring_MsDataScan_SetsGenericScore()
+        public void D3_Deconvolute_UseGenericScore_MsDataScan_SetsGenericScore()
         {
             // Arrange: same envelope as D1, wrapped in an MsDataScan
             var env = BuildPerfectEnvelope(monoMass: TestMass, charge: 2);
@@ -322,10 +327,11 @@ namespace Test.MassSpectrometryTests.Deconvolution
                 null, null, null);
 
             var deconParams = new ClassicDeconvolutionParameters(
-                minCharge: 1, maxCharge: 10, deconPpm: 20, intensityRatio: 3);
+                minCharge: 1, maxCharge: 10, deconPpm: 20, intensityRatio: 3)
+            { UseGenericScore = true };
 
             // Act
-            var results = Deconvoluter.DeconvoluteWithGenericScoring(scan, deconParams).ToList();
+            var results = Deconvoluter.Deconvolute(scan, deconParams).ToList();
 
             // Assert
             Assert.That(results, Is.Not.Empty, "MsDataScan overload should yield envelopes");
