@@ -31,8 +31,12 @@ namespace Test.MassSpectrometryTests.Deconvolution
             Assert.That(features.AveragineCosineSimilarity, Is.GreaterThanOrEqualTo(0.99),
                 $"Perfect synthetic envelope should have cosine ≥ 0.99. Got {features.AveragineCosineSimilarity:F4}");
 
-            Assert.That(features.IntensityRatioConsistency, Is.GreaterThanOrEqualTo(0.90),
-                $"Perfect synthetic envelope should have IntensityRatioConsistency ≥ 0.90. Got {features.IntensityRatioConsistency:F4}");
+            // BuildPerfectEnvelope scales every peak by the same baseIntens, so the
+            // per-peak ratio CV is exactly 0 and IntensityRatioConsistency = 1/(1+0) = 1.0.
+            // The construction pins this mathematically; the assertion should pin it
+            // tightly so a regression introducing even small per-peak ratio drift fails.
+            Assert.That(features.IntensityRatioConsistency, Is.EqualTo(1.0).Within(1e-6),
+                $"Perfect synthetic envelope must produce IntensityRatioConsistency == 1.0. Got {features.IntensityRatioConsistency:F6}");
         }
 
         [Test]
@@ -102,8 +106,12 @@ namespace Test.MassSpectrometryTests.Deconvolution
 
             var features = DeconvolutionScorer.ComputeFeatures(env, Model);
 
-            Assert.That(features.AveragineCosineSimilarity, Is.LessThan(0.5),
-                $"50 ppm shifted peaks should not match Averagine positions. Cosine: {features.AveragineCosineSimilarity:F4}");
+            // The 10 ppm matching window means a 50 ppm shift produces an all-zero
+            // observed vector; cosine must be exactly 0. A looser bound (e.g.
+            // < 0.5) would silently accept any partial leakage of out-of-window
+            // intensity into observed[], so pin the contract precisely.
+            Assert.That(features.AveragineCosineSimilarity, Is.EqualTo(0.0).Within(1e-9),
+                $"50 ppm shifted peaks must produce cosine == 0. Got: {features.AveragineCosineSimilarity:F6}");
         }
 
         [Test]

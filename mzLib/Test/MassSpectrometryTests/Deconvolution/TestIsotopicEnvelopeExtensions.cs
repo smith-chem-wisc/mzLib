@@ -3,7 +3,7 @@ using MassSpectrometry;
 using NUnit.Framework;
 using static Test.MassSpectrometryTests.Deconvolution.DeconvolutionTestHelpers;
 
-namespace Test.Deconvolution
+namespace Test.MassSpectrometryTests.Deconvolution
 {
     /// <summary>
     /// Unit tests for <see cref="IsotopicEnvelopeExtensions"/> and the small read-only
@@ -61,9 +61,21 @@ namespace Test.Deconvolution
         {
             IsotopicEnvelope nullEnv = null;
 
+            // (envelope, AverageResidue) overload with null envelope
             var ex = Assert.Throws<ArgumentNullException>(
                 () => nullEnv.GetOrComputeGenericScore(Model));
             Assert.That(ex.ParamName, Is.EqualTo("envelope"));
+
+            // (envelope, DeconvolutionParameters) overload with null envelope --
+            // pinned separately because a refactor that looks up
+            // parameters.AverageResidueModel before the envelope null check would
+            // surface as NullReferenceException without this assertion.
+            var parameters = new ClassicDeconvolutionParameters(
+                minCharge: 1, maxCharge: 10, deconPpm: 4.0, intensityRatio: 3.0,
+                averageResidueModel: Model);
+            var ex2 = Assert.Throws<ArgumentNullException>(
+                () => nullEnv.GetOrComputeGenericScore(parameters));
+            Assert.That(ex2.ParamName, Is.EqualTo("envelope"));
         }
 
         [Test]
