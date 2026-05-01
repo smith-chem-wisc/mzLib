@@ -84,6 +84,7 @@ namespace MassSpectrometry
                 DeconvolutionType.ClassicDeconvolution => new ClassicDeconvolutionAlgorithm(parameters),
                 DeconvolutionType.ExampleNewDeconvolutionTemplate => new ExampleNewDeconvolutionAlgorithmTemplate(parameters),
                 DeconvolutionType.IsoDecDeconvolution => new IsoDecAlgorithm(parameters),
+                DeconvolutionType.RealFLASHDeconvolution => new RealFLASHDeconvolutionAlgorithm(parameters),
                 _ => throw new MzLibException("DeconvolutionType not yet supported")
             };
         }
