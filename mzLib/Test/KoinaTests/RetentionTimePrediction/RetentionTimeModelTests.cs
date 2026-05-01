@@ -25,6 +25,14 @@ namespace Test.KoinaTests.RetentionTimePrediction
     ///   • The HTTP section itself (~30 lines of <c>AsyncThrottledPredictor</c>) is not
     ///     unit-testable without a refactor; it is covered by the Integration-category
     ///     tests that hit the real Koina API.
+    ///   • Three IRetentionTimePredictor members are intentionally minimal and not
+    ///     unit-tested directly: <c>PredictRetentionTimeEquivalent</c> (a one-line
+    ///     delegation to <c>PredictRetentionTime</c> with no behavior of its own),
+    ///     <c>Dispose</c> (empty no-op default; subclasses with unmanaged resources
+    ///     override), and the multi-batch throttling delay inside
+    ///     <c>AsyncThrottledPredictor</c> (a single <c>await Task.Delay</c> that only
+    ///     fires when an input batch spans more than one chunk; pinning it would
+    ///     require timing-aware assertions that don't add behavioral value).
     ///
     /// These tests intentionally live OUTSIDE the [Category("Integration")] fixtures so
     /// they run on every PR build.
@@ -677,6 +685,84 @@ namespace Test.KoinaTests.RetentionTimePrediction
             Assert.That(result.All(r => r.Warning is not null), Is.True,
                 "Every invalid input must carry a warning explaining why it was skipped");
             Assert.That(model.ValidInputsMask, Is.All.False);
+        }
+
+        // ── PredictRetentionTimeEquivalents: IRetentionTimePredictor batch contract ──
+
+        [Test]
+        public void PredictRetentionTimeEquivalents_NullPeptides_ThrowsArgumentNullException()
+        {
+            // Pins the input-null guard at the top of PredictRetentionTimeEquivalents
+            // so a typo'd or unset peptide list fails fast instead of NRE'ing deeper in.
+            var model = new TestableRetentionTimeModel();
+
+            Assert.That(
+                () => model.PredictRetentionTimeEquivalents(null!),
+                Throws.TypeOf<ArgumentNullException>()
+                      .With.Property("ParamName").EqualTo("peptides"));
+        }
+
+        [Test]
+        public void PredictRetentionTimeEquivalents_SuccessfulBatch_ReturnsTuplesKeyedByOriginalPeptides()
+        {
+            // Pins the happy-path reshape: each input peptide produces one tuple in the
+            // output, the PredictedValue carries through from the batch result, and the
+            // FailureReason is null. The original IRetentionPredictable is round-tripped
+            // through .Peptide so callers can join results back to their input objects.
+            var model = new TestableRetentionTimeModel
+            {
+                PredictStub = inputs => inputs
+                    .Select(inp => Pred(inp.FullSequence, 12.5))
+                    .ToList()
+            };
+            var peptides = new[]
+            {
+                new StubPeptide { FullSequence = "PEPTIDE",  BaseSequence = "PEPTIDE"  },
+                new StubPeptide { FullSequence = "ANALYSIS", BaseSequence = "ANALYSIS" },
+            };
+
+            var result = model.PredictRetentionTimeEquivalents(peptides);
+
+            Assert.That(result.Count, Is.EqualTo(2));
+            Assert.That(result.All(r => r.PredictedValue.HasValue), Is.True);
+            Assert.That(result.All(r => r.PredictedValue == 12.5), Is.True);
+            Assert.That(result.All(r => r.FailureReason is null), Is.True);
+            Assert.That(result.Select(r => r.Peptide.FullSequence).OrderBy(s => s),
+                Is.EqualTo(new[] { "ANALYSIS", "PEPTIDE" }).AsCollection,
+                "Each input peptide must round-trip through the .Peptide tuple slot");
+        }
+
+        [Test]
+        public void PredictRetentionTimeEquivalents_FailedPrediction_PreservesWarningAsIncompatibleMods()
+        {
+            // Pins the failure-reshape branch: when the batch result has no value for an
+            // input peptide AND the matching Predictions entry carries a Warning, the
+            // tuple's FailureReason is IncompatibleModifications (not the catch-all
+            // PredictionError). Lets callers distinguish "model bug / network error"
+            // from "this peptide had a sequence/mod the model couldn't handle."
+            var model = new TestableRetentionTimeModel
+            {
+                PredictStub = inputs => inputs.Select(inp =>
+                    new PeptideRTPrediction(
+                        FullSequence:           inp.FullSequence,
+                        ValidatedFullSequence:  inp.FullSequence,
+                        PredictedRetentionTime: null,
+                        IsIndexed:              true,
+                        Warning:                new WarningException("Mod not in UNIMOD"))
+                ).ToList()
+            };
+            var peptides = new[]
+            {
+                new StubPeptide { FullSequence = "PEPTIDE", BaseSequence = "PEPTIDE" },
+            };
+
+            var result = model.PredictRetentionTimeEquivalents(peptides);
+
+            Assert.That(result.Count, Is.EqualTo(1));
+            Assert.That(result[0].PredictedValue, Is.Null);
+            Assert.That(result[0].FailureReason,
+                Is.EqualTo(RetentionTimeFailureReason.IncompatibleModifications),
+                "A null prediction with a non-null Warning must map to IncompatibleModifications");
         }
     }
 }
