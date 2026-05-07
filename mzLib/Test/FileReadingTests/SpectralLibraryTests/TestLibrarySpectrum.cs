@@ -565,5 +565,131 @@ namespace Test.FileReadingTests.SpectralLibraryTests
         }
 
         #endregion
+
+        #region Extension shortcut tests
+
+        [Test]
+        public static void LibrarySpectrum_GetSimilarityMeasure_ShortcutMatchesExplicit()
+        {
+            Product a = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product b = new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0);
+            var peaks = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 400.0, 1000.0, 1),
+                new MatchedFragmentIon(b, 500.0, 2000.0, 1)
+            };
+            var lib = new LibrarySpectrum("SEQ", 500.0, 2, peaks, 10.0);
+
+            var shortcut = lib.GetSimilarityMeasure(lib, SpectralSimilarity.SimilarityMeasures.CosineSimilarity, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+            var explicitValue = lib.ComputeSpectralSimilarity(lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).CosineSimilarity();
+
+            Assert.AreEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void LibrarySpectrum_GetSimilarityMeasure_MzSpectrum_ShortcutMatchesExplicit()
+        {
+            Product a = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product b = new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0);
+            var peaks = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 400.0, 1000.0, 1),
+                new MatchedFragmentIon(b, 500.0, 2000.0, 1)
+            };
+            var lib = new LibrarySpectrum("SEQ", 500.0, 2, peaks, 10.0);
+            var mz = new MzSpectrum(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 }, false);
+
+            var shortcut = lib.GetSimilarityMeasure(mz, SpectralSimilarity.SimilarityMeasures.CosineSimilarity, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+            var explicitValue = lib.ComputeSpectralSimilarity(mz, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).CosineSimilarity();
+
+            Assert.AreEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void MzSpectrum_GetSimilarityMeasure_LibrarySpectrum_ShortcutMatchesExplicit()
+        {
+            Product a = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product b = new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0);
+            var peaks = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 400.0, 1000.0, 1),
+                new MatchedFragmentIon(b, 500.0, 2000.0, 1)
+            };
+            var lib = new LibrarySpectrum("SEQ", 500.0, 2, peaks, 10.0);
+            var mz = new MzSpectrum(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 }, false);
+
+            var shortcut = mz.GetSimilarityMeasure(lib, SpectralSimilarity.SimilarityMeasures.CosineSimilarity, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+            var explicitValue = mz.ComputeSpectralSimilarity(lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).CosineSimilarity();
+
+            Assert.AreEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void MsDataScan_GetSimilarityMeasure_LibrarySpectrum_ShortcutMatchesExplicit()
+        {
+            Product a = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product b = new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0);
+            var peaks = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 400.0, 1000.0, 1),
+                new MatchedFragmentIon(b, 500.0, 2000.0, 1)
+            };
+            var lib = new LibrarySpectrum("SEQ", 500.0, 2, peaks, 10.0);
+            var scan = CreateTestScan(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 });
+
+            var shortcut = scan.GetSimilarityMeasure(lib, SpectralSimilarity.SimilarityMeasures.CosineSimilarity, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+            var explicitValue = scan.ComputeSpectralSimilarity(lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).CosineSimilarity();
+
+            Assert.AreEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void LibrarySpectrum_GetAllSimilarityMeasures_ShortcutMatchesExplicit()
+        {
+            Product a = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product b = new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0);
+            var peaks = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 400.0, 1000.0, 1),
+                new MatchedFragmentIon(b, 500.0, 2000.0, 1)
+            };
+            var lib = new LibrarySpectrum("SEQ", 500.0, 2, peaks, 10.0);
+
+            var shortcut = lib.GetAllSimilarityMeasures(lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = lib.ComputeSpectralSimilarity(lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetAllSimilarityMeasures().ToList();
+
+            Assert.AreEqual(explicitValue.Count, shortcut.Count);
+            for (int i = 0; i < explicitValue.Count; i++)
+            {
+                Assert.AreEqual(explicitValue[i].Item1, shortcut[i].Item1);
+                Assert.AreEqual(explicitValue[i].Item2, shortcut[i].Item2);
+            }
+        }
+
+        [Test]
+        public static void LibrarySpectrum_GetSelectedSimilarityMeasures_ShortcutMatchesExplicit()
+        {
+            Product a = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product b = new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0);
+            var peaks = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 400.0, 1000.0, 1),
+                new MatchedFragmentIon(b, 500.0, 2000.0, 1)
+            };
+            var lib = new LibrarySpectrum("SEQ", 500.0, 2, peaks, 10.0);
+            var measures = new[] { SpectralSimilarity.SimilarityMeasures.CosineSimilarity, SpectralSimilarity.SimilarityMeasures.DotProduct };
+
+            var shortcut = lib.GetSelectedSimilarityMeasures(lib, measures, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = lib.ComputeSpectralSimilarity(lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetSelectedSimilarityMeasures(measures).ToList();
+
+            Assert.AreEqual(explicitValue.Count, shortcut.Count);
+            for (int i = 0; i < explicitValue.Count; i++)
+            {
+                Assert.AreEqual(explicitValue[i].Item1, shortcut[i].Item1);
+                Assert.AreEqual(explicitValue[i].Item2, shortcut[i].Item2);
+            }
+        }
+
+        #endregion
     }
 }
