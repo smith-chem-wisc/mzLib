@@ -216,7 +216,64 @@ namespace MassSpectrometry.MzSpectra
 
         #endregion normalization
 
-        #region similarityMethods
+        #region SimilarityMethods
+
+        public enum SimilarityMeasures
+        {
+            CosineSimilarity,
+            SpectralContrastAngle,
+            EuclideanDistance,
+            BrayCurtis,
+            PearsonsCorrelation,
+            DotProduct,
+            SpectralEntropy,
+            KullbackLeiblerDivergence_P_Q,
+            SearleSimilarity
+        }
+
+        public double? GetSimilarityMeasure(SimilarityMeasures measure)
+        {
+            return measure switch
+            {
+                SimilarityMeasures.CosineSimilarity => CosineSimilarity(),
+                SimilarityMeasures.SpectralContrastAngle => SpectralContrastAngle(),
+                SimilarityMeasures.EuclideanDistance => EuclideanDistance(),
+                SimilarityMeasures.BrayCurtis => BrayCurtis(),
+                SimilarityMeasures.PearsonsCorrelation => PearsonsCorrelation(),
+                SimilarityMeasures.DotProduct => DotProduct(),
+                SimilarityMeasures.SpectralEntropy => SpectralEntropy(),
+                SimilarityMeasures.KullbackLeiblerDivergence_P_Q => KullbackLeiblerDivergence_P_Q(),
+                SimilarityMeasures.SearleSimilarity => SearleSimilarity(),
+                _ => null,
+            };
+        }
+
+        public IEnumerable<(SimilarityMeasures, double?)> GetAllSimilarityMeasures()
+        {
+            foreach (SimilarityMeasures measure in Enum.GetValues(typeof(SimilarityMeasures)))
+            {
+                yield return (measure, GetSimilarityMeasure(measure));
+            }
+        }
+
+        public IEnumerable<(SimilarityMeasures, double?)> GetAllSimilarityMeasuresExcept(params SimilarityMeasures[] measuresToExclude)
+        {
+            foreach (SimilarityMeasures measure in Enum.GetValues(typeof(SimilarityMeasures)))
+            {
+                if (!measuresToExclude.Contains(measure))
+                {
+                    yield return (measure, GetSimilarityMeasure(measure));
+                }
+            }
+        }
+
+        public IEnumerable<(SimilarityMeasures, double?)> GetSelectedSimilarityMeasures(params SimilarityMeasures[] measuresToInclude)
+        {
+            foreach (SimilarityMeasures measure in measuresToInclude)
+            {
+                yield return (measure, GetSimilarityMeasure(measure));
+            }
+        }
 
         //The cosine similarity returns values between 1 and -1 with 1 being closes and -1 being opposite and 0 being orthogonal
         public double? CosineSimilarity()

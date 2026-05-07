@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -451,6 +452,116 @@ namespace Test.FileReadingTests.SpectralLibraryTests
 
             Assert.IsNotNull(similarity);
             NUnit.Framework.Assert.That(similarity.CosineSimilarity(), Is.EqualTo(1.0).Within(0.001));
+        }
+
+        #endregion
+
+        #region SpectralSimilarity dispatcher tests
+
+        [Test]
+        public static void SpectralSimilarity_GetSimilarityMeasure_MatchesDirectCalls()
+        {
+            Product a = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product b = new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0);
+            var peaks = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 400.0, 1000.0, 1),
+                new MatchedFragmentIon(b, 500.0, 2000.0, 1)
+            };
+            var lib = new LibrarySpectrum("SEQ", 500.0, 2, peaks, 10.0);
+            var similarity = lib.ComputeSpectralSimilarity(lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+
+            // Verify each enum-backed call returns the same value as the direct method call
+            Assert.AreEqual(similarity.CosineSimilarity(), similarity.GetSimilarityMeasure(SpectralSimilarity.SimilarityMeasures.CosineSimilarity), "CosineSimilarity mismatch");
+            Assert.AreEqual(similarity.SpectralContrastAngle(), similarity.GetSimilarityMeasure(SpectralSimilarity.SimilarityMeasures.SpectralContrastAngle), "SpectralContrastAngle mismatch");
+            Assert.AreEqual(similarity.EuclideanDistance(), similarity.GetSimilarityMeasure(SpectralSimilarity.SimilarityMeasures.EuclideanDistance), "EuclideanDistance mismatch");
+            Assert.AreEqual(similarity.BrayCurtis(), similarity.GetSimilarityMeasure(SpectralSimilarity.SimilarityMeasures.BrayCurtis), "BrayCurtis mismatch");
+            Assert.AreEqual(similarity.PearsonsCorrelation(), similarity.GetSimilarityMeasure(SpectralSimilarity.SimilarityMeasures.PearsonsCorrelation), "PearsonsCorrelation mismatch");
+            Assert.AreEqual(similarity.DotProduct(), similarity.GetSimilarityMeasure(SpectralSimilarity.SimilarityMeasures.DotProduct), "DotProduct mismatch");
+            Assert.AreEqual(similarity.SpectralEntropy(), similarity.GetSimilarityMeasure(SpectralSimilarity.SimilarityMeasures.SpectralEntropy), "SpectralEntropy mismatch");
+            Assert.AreEqual(similarity.KullbackLeiblerDivergence_P_Q(), similarity.GetSimilarityMeasure(SpectralSimilarity.SimilarityMeasures.KullbackLeiblerDivergence_P_Q), "KullbackLeiblerDivergence_P_Q mismatch");
+            Assert.AreEqual(similarity.SearleSimilarity(), similarity.GetSimilarityMeasure(SpectralSimilarity.SimilarityMeasures.SearleSimilarity), "SearleSimilarity mismatch");
+        }
+
+        [Test]
+        public static void SpectralSimilarity_GetAllSimilarityMeasures_ReturnsAllMeasures()
+        {
+            Product a = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product b = new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0);
+            var peaks = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 400.0, 1000.0, 1),
+                new MatchedFragmentIon(b, 500.0, 2000.0, 1)
+            };
+            var lib = new LibrarySpectrum("SEQ", 500.0, 2, peaks, 10.0);
+            var similarity = lib.ComputeSpectralSimilarity(lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+
+            var all = similarity.GetAllSimilarityMeasures().ToList();
+            int expectedCount = Enum.GetValues(typeof(SpectralSimilarity.SimilarityMeasures)).Length;
+            Assert.AreEqual(expectedCount, all.Count);
+
+            foreach (var (measure, value) in all)
+            {
+                Assert.AreEqual(similarity.GetSimilarityMeasure(measure), value, $"Mismatch for {measure}");
+            }
+        }
+
+        [Test]
+        public static void SpectralSimilarity_GetAllSimilarityMeasuresExcept_ExcludesSpecified()
+        {
+            Product a = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product b = new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0);
+            var peaks = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 400.0, 1000.0, 1),
+                new MatchedFragmentIon(b, 500.0, 2000.0, 1)
+            };
+            var lib = new LibrarySpectrum("SEQ", 500.0, 2, peaks, 10.0);
+            var similarity = lib.ComputeSpectralSimilarity(lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+
+            var except = similarity.GetAllSimilarityMeasuresExcept(SpectralSimilarity.SimilarityMeasures.CosineSimilarity).ToList();
+            int expectedCount = Enum.GetValues(typeof(SpectralSimilarity.SimilarityMeasures)).Length - 1;
+            Assert.AreEqual(expectedCount, except.Count);
+            Assert.IsFalse(except.Any(m => m.Item1 == SpectralSimilarity.SimilarityMeasures.CosineSimilarity));
+        }
+
+        [Test]
+        public static void SpectralSimilarity_GetSelectedSimilarityMeasures_ReturnsOnlySelected()
+        {
+            Product a = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product b = new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0);
+            var peaks = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 400.0, 1000.0, 1),
+                new MatchedFragmentIon(b, 500.0, 2000.0, 1)
+            };
+            var lib = new LibrarySpectrum("SEQ", 500.0, 2, peaks, 10.0);
+            var similarity = lib.ComputeSpectralSimilarity(lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+
+            var selected = similarity.GetSelectedSimilarityMeasures(
+                SpectralSimilarity.SimilarityMeasures.CosineSimilarity,
+                SpectralSimilarity.SimilarityMeasures.DotProduct).ToList();
+
+            Assert.AreEqual(2, selected.Count);
+            Assert.IsTrue(selected.Any(m => m.Item1 == SpectralSimilarity.SimilarityMeasures.CosineSimilarity));
+            Assert.IsTrue(selected.Any(m => m.Item1 == SpectralSimilarity.SimilarityMeasures.DotProduct));
+        }
+
+        [Test]
+        public static void SpectralSimilarity_GetSimilarityMeasure_InvalidEnum_ReturnsNull()
+        {
+            Product a = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product b = new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0);
+            var peaks = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 400.0, 1000.0, 1),
+                new MatchedFragmentIon(b, 500.0, 2000.0, 1)
+            };
+            var lib = new LibrarySpectrum("SEQ", 500.0, 2, peaks, 10.0);
+            var similarity = lib.ComputeSpectralSimilarity(lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+
+            var invalid = (SpectralSimilarity.SimilarityMeasures)999;
+            Assert.IsNull(similarity.GetSimilarityMeasure(invalid));
         }
 
         #endregion
