@@ -1,4 +1,3 @@
-﻿using System.Globalization;
 using System.Text;
 using Chemistry;
 using Easy.Common.Extensions;
@@ -8,7 +7,7 @@ using Omics.Fragmentation;
 
 namespace Omics.SpectrumMatch
 {
-    public class LibrarySpectrum : MzSpectrum
+    public class LibrarySpectrum : MzSpectrum, IEquatable<LibrarySpectrum>
     {
         public string Sequence { get; set; }
         public double? RetentionTime { get; set; }
@@ -107,6 +106,37 @@ namespace Omics.SpectrumMatch
                 }
             }
             return decoyFragmentIons;
+        }
+
+        public bool Equals(LibrarySpectrum? other)
+        {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return base.Equals(other) && Sequence == other.Sequence && Nullable.Equals(RetentionTime, other.RetentionTime) && PrecursorMz.Equals(other.PrecursorMz) && ChargeState == other.ChargeState && MatchedFragmentIons.SequenceEqual(other.MatchedFragmentIons) && IsDecoy == other.IsDecoy;
+        }
+
+        public override bool Equals(object? obj)
+        {
+            if (obj is null) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != GetType()) return false;
+            return Equals((LibrarySpectrum)obj);
+        }
+
+        public override int GetHashCode()
+        {
+            var hash = new HashCode();
+            hash.Add(base.GetHashCode());
+            hash.Add(Sequence);
+            hash.Add(RetentionTime);
+            hash.Add(PrecursorMz);
+            hash.Add(ChargeState);
+            hash.Add(IsDecoy);
+            foreach (var ion in MatchedFragmentIons)
+            {
+                hash.Add(ion);
+            }
+            return hash.ToHashCode();
         }
     }
 }

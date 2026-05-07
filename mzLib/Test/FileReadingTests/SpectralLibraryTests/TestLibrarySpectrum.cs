@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
@@ -64,5 +64,144 @@ namespace Test.FileReadingTests.SpectralLibraryTests
             CollectionAssert.AreEquivalent(librarySpectrum.MatchedFragmentIons.Select(ion => ion.Annotation), psms[0].MatchedIons.Select(ion => ion.Annotation));
             CollectionAssert.AreEquivalent(librarySpectrum.BetaPeptideSpectrum.MatchedFragmentIons.Select(ion => ion.Annotation), psms[0].BetaPeptideMatchedIons.Select(ion => ion.Annotation));
         }
+
+        [Test]
+        public static void LibrarySpectrum_Equals_Null_ReturnsFalse()
+        {
+            var peaks = new List<MatchedFragmentIon> { new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0), 100, 1000, 1) };
+            var spectrum = new LibrarySpectrum("SEQ", 500, 2, peaks, 10.0);
+            Assert.IsFalse(spectrum.Equals((LibrarySpectrum?)null));
+        }
+
+        [Test]
+        public static void LibrarySpectrum_Equals_SameReference_ReturnsTrue()
+        {
+            var peaks = new List<MatchedFragmentIon> { new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0), 100, 1000, 1) };
+            var spectrum = new LibrarySpectrum("SEQ", 500, 2, peaks, 10.0);
+            Assert.IsTrue(spectrum.Equals(spectrum));
+        }
+
+        [Test]
+        public static void LibrarySpectrum_Equals_SameValues_ReturnsTrue()
+        {
+            var product = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            var peaks1 = new List<MatchedFragmentIon> { new MatchedFragmentIon(product, 100, 1000, 1) };
+            var peaks2 = new List<MatchedFragmentIon> { new MatchedFragmentIon(product, 100, 1000, 1) };
+            var spectrum1 = new LibrarySpectrum("SEQ", 500, 2, peaks1, 10.0);
+            var spectrum2 = new LibrarySpectrum("SEQ", 500, 2, peaks2, 10.0);
+            Assert.IsTrue(spectrum1.Equals(spectrum2));
+        }
+
+        [Test]
+        public static void LibrarySpectrum_Equals_DifferentSequence_ReturnsFalse()
+        {
+            var product = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            var peaks = new List<MatchedFragmentIon> { new MatchedFragmentIon(product, 100, 1000, 1) };
+            var spectrum1 = new LibrarySpectrum("SEQ", 500, 2, peaks, 10.0);
+            var spectrum2 = new LibrarySpectrum("PEP", 500, 2, peaks, 10.0);
+            Assert.IsFalse(spectrum1.Equals(spectrum2));
+        }
+
+        [Test]
+        public static void LibrarySpectrum_Equals_DifferentRetentionTime_ReturnsFalse()
+        {
+            var product = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            var peaks = new List<MatchedFragmentIon> { new MatchedFragmentIon(product, 100, 1000, 1) };
+            var spectrum1 = new LibrarySpectrum("SEQ", 500, 2, peaks, 10.0);
+            var spectrum2 = new LibrarySpectrum("SEQ", 500, 2, peaks, 20.0);
+            Assert.IsFalse(spectrum1.Equals(spectrum2));
+        }
+
+        [Test]
+        public static void LibrarySpectrum_Equals_DifferentPrecursorMz_ReturnsFalse()
+        {
+            var product = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            var peaks = new List<MatchedFragmentIon> { new MatchedFragmentIon(product, 100, 1000, 1) };
+            var spectrum1 = new LibrarySpectrum("SEQ", 500, 2, peaks, 10.0);
+            var spectrum2 = new LibrarySpectrum("SEQ", 501, 2, peaks, 10.0);
+            Assert.IsFalse(spectrum1.Equals(spectrum2));
+        }
+
+        [Test]
+        public static void LibrarySpectrum_Equals_DifferentChargeState_ReturnsFalse()
+        {
+            var product = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            var peaks = new List<MatchedFragmentIon> { new MatchedFragmentIon(product, 100, 1000, 1) };
+            var spectrum1 = new LibrarySpectrum("SEQ", 500, 2, peaks, 10.0);
+            var spectrum2 = new LibrarySpectrum("SEQ", 500, 3, peaks, 10.0);
+            Assert.IsFalse(spectrum1.Equals(spectrum2));
+        }
+
+        [Test]
+        public static void LibrarySpectrum_Equals_DifferentMatchedFragmentIons_ReturnsFalse()
+        {
+            var product = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            var peaks1 = new List<MatchedFragmentIon> { new MatchedFragmentIon(product, 100, 1000, 1) };
+            var peaks2 = new List<MatchedFragmentIon> { new MatchedFragmentIon(product, 101, 1000, 1) };
+            var spectrum1 = new LibrarySpectrum("SEQ", 500, 2, peaks1, 10.0);
+            var spectrum2 = new LibrarySpectrum("SEQ", 500, 2, peaks2, 10.0);
+            Assert.IsFalse(spectrum1.Equals(spectrum2));
+        }
+
+        [Test]
+        public static void LibrarySpectrum_Equals_SameArraysDifferentAnnotations_ReturnsFalse()
+        {
+            var product1 = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            var product2 = new Product(ProductType.y, FragmentationTerminus.C, 1, 2, 2, 0);
+            var peaks1 = new List<MatchedFragmentIon> { new MatchedFragmentIon(product1, 100, 1000, 1) };
+            var peaks2 = new List<MatchedFragmentIon> { new MatchedFragmentIon(product2, 100, 1000, 1) };
+            var spectrum1 = new LibrarySpectrum("SEQ", 500, 2, peaks1, 10.0);
+            var spectrum2 = new LibrarySpectrum("SEQ", 500, 2, peaks2, 10.0);
+            Assert.IsFalse(spectrum1.Equals(spectrum2));
+        }
+
+        [Test]
+        public static void LibrarySpectrum_Equals_DifferentIsDecoy_ReturnsFalse()
+        {
+            var product = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            var peaks = new List<MatchedFragmentIon> { new MatchedFragmentIon(product, 100, 1000, 1) };
+            var spectrum1 = new LibrarySpectrum("SEQ", 500, 2, peaks, 10.0, isDecoy: false);
+            var spectrum2 = new LibrarySpectrum("SEQ", 500, 2, peaks, 10.0, isDecoy: true);
+            Assert.IsFalse(spectrum1.Equals(spectrum2));
+        }
+
+        [Test]
+        public static void LibrarySpectrum_ObjectEquals_Null_ReturnsFalse()
+        {
+            var peaks = new List<MatchedFragmentIon> { new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0), 100, 1000, 1) };
+            var spectrum = new LibrarySpectrum("SEQ", 500, 2, peaks, 10.0);
+            Assert.IsFalse(spectrum.Equals((object?)null));
+        }
+
+        [Test]
+        public static void LibrarySpectrum_ObjectEquals_WrongType_ReturnsFalse()
+        {
+            var peaks = new List<MatchedFragmentIon> { new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0), 100, 1000, 1) };
+            var spectrum = new LibrarySpectrum("SEQ", 500, 2, peaks, 10.0);
+            Assert.IsFalse(spectrum.Equals("not a spectrum"));
+        }
+
+        [Test]
+        public static void LibrarySpectrum_ObjectEquals_SameValues_ReturnsTrue()
+        {
+            var product = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            var peaks1 = new List<MatchedFragmentIon> { new MatchedFragmentIon(product, 100, 1000, 1) };
+            var peaks2 = new List<MatchedFragmentIon> { new MatchedFragmentIon(product, 100, 1000, 1) };
+            var spectrum1 = new LibrarySpectrum("SEQ", 500, 2, peaks1, 10.0);
+            var spectrum2 = new LibrarySpectrum("SEQ", 500, 2, peaks2, 10.0);
+            Assert.IsTrue(spectrum1.Equals((object)spectrum2));
+        }
+
+        [Test]
+        public static void LibrarySpectrum_GetHashCode_EqualObjects_SameHashCode()
+        {
+            var product = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            var peaks1 = new List<MatchedFragmentIon> { new MatchedFragmentIon(product, 100, 1000, 1) };
+            var peaks2 = new List<MatchedFragmentIon> { new MatchedFragmentIon(product, 100, 1000, 1) };
+            var spectrum1 = new LibrarySpectrum("SEQ", 500, 2, peaks1, 10.0);
+            var spectrum2 = new LibrarySpectrum("SEQ", 500, 2, peaks2, 10.0);
+            Assert.AreEqual(spectrum1.GetHashCode(), spectrum2.GetHashCode());
+        }
+
     }
 }
