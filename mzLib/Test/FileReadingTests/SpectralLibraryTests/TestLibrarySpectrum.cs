@@ -1,9 +1,12 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using MassSpectrometry;
+using MassSpectrometry.MzSpectra;
 using NUnit.Framework;
 using NUnit.Framework.Legacy;
 using Omics.Fragmentation;
+using Omics.SpectralLibrary;
 using Omics.SpectrumMatch;
 using Readers;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
@@ -203,5 +206,151 @@ namespace Test.FileReadingTests.SpectralLibraryTests
             Assert.AreEqual(spectrum1.GetHashCode(), spectrum2.GetHashCode());
         }
 
+        [Test]
+        public static void LibrarySpectrum_ComputeSpectralSimilarity_LibraryToLibrary_IdenticalSpectra()
+        {
+            Product a = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product b = new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0);
+            var peaks = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 400.0, 1000.0, 1),
+                new MatchedFragmentIon(b, 500.0, 2000.0, 1)
+            };
+            var lib1 = new LibrarySpectrum("SEQ", 500.0, 2, peaks, 10.0);
+            var lib2 = new LibrarySpectrum("SEQ", 500.0, 2, peaks, 10.0);
+
+            var similarity = lib1.ComputeSpectralSimilarity(lib2, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+
+            Assert.IsNotNull(similarity);
+            NUnit.Framework.Assert.That(similarity.CosineSimilarity(), Is.EqualTo(1.0).Within(0.001));
+        }
+
+        [Test]
+        public static void LibrarySpectrum_ComputeSpectralSimilarity_LibraryToLibrary_DifferentSpectra()
+        {
+            Product a = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product b = new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0);
+            var peaks1 = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 400.0, 1000.0, 1),
+                new MatchedFragmentIon(b, 500.0, 2000.0, 1)
+            };
+            var peaks2 = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 600.0, 3000.0, 1),
+                new MatchedFragmentIon(b, 700.0, 4000.0, 1)
+            };
+            var lib1 = new LibrarySpectrum("SEQ", 500.0, 2, peaks1, 10.0);
+            var lib2 = new LibrarySpectrum("SEQ", 500.0, 2, peaks2, 10.0);
+
+            var similarity = lib1.ComputeSpectralSimilarity(lib2, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+
+            Assert.IsNotNull(similarity);
+            NUnit.Framework.Assert.That(similarity.CosineSimilarity(), Is.EqualTo(0.0).Within(0.001));
+        }
+
+        [Test]
+        public static void LibrarySpectrum_ComputeSpectralSimilarity_LibraryToMzSpectrum()
+        {
+            Product a = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product b = new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0);
+            var peaks = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 400.0, 1000.0, 1),
+                new MatchedFragmentIon(b, 500.0, 2000.0, 1)
+            };
+            var lib = new LibrarySpectrum("SEQ", 500.0, 2, peaks, 10.0);
+            var mz = new MzSpectrum(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 }, false);
+
+            var similarity = lib.ComputeSpectralSimilarity(mz, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+
+            Assert.IsNotNull(similarity);
+            NUnit.Framework.Assert.That(similarity.CosineSimilarity(), Is.EqualTo(1.0).Within(0.001));
+        }
+
+        [Test]
+        public static void LibrarySpectrum_ComputeSpectralSimilarity_MzSpectrumToLibrary()
+        {
+            Product a = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product b = new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0);
+            var peaks = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 400.0, 1000.0, 1),
+                new MatchedFragmentIon(b, 500.0, 2000.0, 1)
+            };
+            var lib = new LibrarySpectrum("SEQ", 500.0, 2, peaks, 10.0);
+            var mz = new MzSpectrum(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 }, false);
+
+            var similarity = mz.ComputeSpectralSimilarity(lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+
+            Assert.IsNotNull(similarity);
+            NUnit.Framework.Assert.That(similarity.CosineSimilarity(), Is.EqualTo(1.0).Within(0.001));
+        }
+
+        [Test]
+        public static void LibrarySpectrum_ComputeSpectralSimilarity_PartialOverlap()
+        {
+            Product a = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product b = new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0);
+            var peaks1 = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 400.0, 1000.0, 1),
+                new MatchedFragmentIon(b, 500.0, 2000.0, 1)
+            };
+            var peaks2 = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 400.0, 1000.0, 1),
+                new MatchedFragmentIon(b, 600.0, 3000.0, 1)
+            };
+            var lib1 = new LibrarySpectrum("SEQ", 500.0, 2, peaks1, 10.0);
+            var lib2 = new LibrarySpectrum("SEQ", 500.0, 2, peaks2, 10.0);
+
+            var similarity = lib1.ComputeSpectralSimilarity(lib2, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+
+            Assert.IsNotNull(similarity);
+            // Partial overlap should yield a cosine between 0 and 1
+            double? cosine = similarity.CosineSimilarity();
+            NUnit.Framework.Assert.That(cosine, Is.GreaterThan(0.0).And.LessThan(1.0));
+        }
+
+        [Test]
+        public static void LibrarySpectrum_ComputeSpectralSimilarity_LibraryToArrays()
+        {
+            Product a = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product b = new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0);
+            var peaks = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 400.0, 1000.0, 1),
+                new MatchedFragmentIon(b, 500.0, 2000.0, 1)
+            };
+            var lib = new LibrarySpectrum("SEQ", 500.0, 2, peaks, 10.0);
+            double[] xArray = new double[] { 400.0, 500.0 };
+            double[] yArray = new double[] { 1000.0, 2000.0 };
+
+            var similarity = lib.ComputeSpectralSimilarity(xArray, yArray, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+
+            Assert.IsNotNull(similarity);
+            NUnit.Framework.Assert.That(similarity.CosineSimilarity(), Is.EqualTo(1.0).Within(0.001));
+        }
+
+        [Test]
+        public static void LibrarySpectrum_ComputeSpectralSimilarity_ArraysToLibrary()
+        {
+            Product a = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product b = new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0);
+            var peaks = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 400.0, 1000.0, 1),
+                new MatchedFragmentIon(b, 500.0, 2000.0, 1)
+            };
+            var lib = new LibrarySpectrum("SEQ", 500.0, 2, peaks, 10.0);
+            double[] xArray = new double[] { 400.0, 500.0 };
+            double[] yArray = new double[] { 1000.0, 2000.0 };
+
+            var similarity = xArray.ComputeSpectralSimilarity(yArray, lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+
+            Assert.IsNotNull(similarity);
+            NUnit.Framework.Assert.That(similarity.CosineSimilarity(), Is.EqualTo(1.0).Within(0.001));
+        }
     }
 }
