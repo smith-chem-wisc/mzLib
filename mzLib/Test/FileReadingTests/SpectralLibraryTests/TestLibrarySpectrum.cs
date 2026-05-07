@@ -691,5 +691,389 @@ namespace Test.FileReadingTests.SpectralLibraryTests
         }
 
         #endregion
+
+        #region Shared fixture helpers
+
+        private static List<MatchedFragmentIon> CreateTestPeaks()
+        {
+            Product a = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            Product b = new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0);
+            return new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(a, 400.0, 1000.0, 1),
+                new MatchedFragmentIon(b, 500.0, 2000.0, 1)
+            };
+        }
+
+        private static LibrarySpectrum CreateTestLibrarySpectrum()
+        {
+            return new LibrarySpectrum("SEQ", 500.0, 2, CreateTestPeaks(), 10.0);
+        }
+
+        private static MzSpectrum CreateTestMzSpectrum()
+        {
+            return new MzSpectrum(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 }, false);
+        }
+
+        private static (double[] xArray, double[] yArray) CreateTestArrays()
+        {
+            return (new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 });
+        }
+
+        private static void AssertSimilarityMeasuresEqual(
+            List<(SpectralSimilarity.SimilarityMeasures, double?)> expected,
+            List<(SpectralSimilarity.SimilarityMeasures, double?)> actual)
+        {
+            Assert.AreEqual(expected.Count, actual.Count);
+            for (int i = 0; i < expected.Count; i++)
+            {
+                Assert.AreEqual(expected[i].Item1, actual[i].Item1);
+                Assert.AreEqual(expected[i].Item2, actual[i].Item2);
+            }
+        }
+
+        #endregion
+
+        #region GetSimilarityMeasure shortcut tests — remaining shapes
+
+        [Test]
+        public static void LibrarySpectrum_GetSimilarityMeasure_Arrays_ShortcutMatchesExplicit()
+        {
+            var lib = CreateTestLibrarySpectrum();
+            var (xArray, yArray) = CreateTestArrays();
+
+            var shortcut = lib.GetSimilarityMeasure(xArray, yArray, SpectralSimilarity.SimilarityMeasures.CosineSimilarity, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+            var explicitValue = lib.ComputeSpectralSimilarity(xArray, yArray, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).CosineSimilarity();
+
+            Assert.AreEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void Arrays_GetSimilarityMeasure_LibrarySpectrum_ShortcutMatchesExplicit()
+        {
+            var (xArray, yArray) = CreateTestArrays();
+            var lib = CreateTestLibrarySpectrum();
+
+            var shortcut = xArray.GetSimilarityMeasure(yArray, lib, SpectralSimilarity.SimilarityMeasures.CosineSimilarity, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+            var explicitValue = xArray.ComputeSpectralSimilarity(yArray, lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).CosineSimilarity();
+
+            Assert.AreEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void MsDataScan_GetSimilarityMeasure_MzSpectrum_ShortcutMatchesExplicit()
+        {
+            var scan = CreateTestScan(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 });
+            var mz = CreateTestMzSpectrum();
+
+            var shortcut = scan.GetSimilarityMeasure(mz, SpectralSimilarity.SimilarityMeasures.CosineSimilarity, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+            var explicitValue = scan.ComputeSpectralSimilarity(mz, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).CosineSimilarity();
+
+            Assert.AreEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void LibrarySpectrum_GetSimilarityMeasure_MsDataScan_ShortcutMatchesExplicit()
+        {
+            var lib = CreateTestLibrarySpectrum();
+            var scan = CreateTestScan(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 });
+
+            var shortcut = lib.GetSimilarityMeasure(scan, SpectralSimilarity.SimilarityMeasures.CosineSimilarity, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+            var explicitValue = lib.ComputeSpectralSimilarity(scan, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).CosineSimilarity();
+
+            Assert.AreEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void MzSpectrum_GetSimilarityMeasure_MsDataScan_ShortcutMatchesExplicit()
+        {
+            var mz = CreateTestMzSpectrum();
+            var scan = CreateTestScan(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 });
+
+            var shortcut = mz.GetSimilarityMeasure(scan, SpectralSimilarity.SimilarityMeasures.CosineSimilarity, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+            var explicitValue = mz.ComputeSpectralSimilarity(scan, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).CosineSimilarity();
+
+            Assert.AreEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void MsDataScan_GetSimilarityMeasure_Arrays_ShortcutMatchesExplicit()
+        {
+            var scan = CreateTestScan(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 });
+            var (xArray, yArray) = CreateTestArrays();
+
+            var shortcut = scan.GetSimilarityMeasure(xArray, yArray, SpectralSimilarity.SimilarityMeasures.CosineSimilarity, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+            var explicitValue = scan.ComputeSpectralSimilarity(xArray, yArray, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).CosineSimilarity();
+
+            Assert.AreEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void Arrays_GetSimilarityMeasure_MsDataScan_ShortcutMatchesExplicit()
+        {
+            var (xArray, yArray) = CreateTestArrays();
+            var scan = CreateTestScan(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 });
+
+            var shortcut = xArray.GetSimilarityMeasure(yArray, scan, SpectralSimilarity.SimilarityMeasures.CosineSimilarity, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+            var explicitValue = xArray.ComputeSpectralSimilarity(yArray, scan, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).CosineSimilarity();
+
+            Assert.AreEqual(explicitValue, shortcut);
+        }
+
+        #endregion
+
+        #region GetAllSimilarityMeasures shortcut tests — remaining shapes
+
+        [Test]
+        public static void LibrarySpectrum_GetAllSimilarityMeasures_MzSpectrum_ShortcutMatchesExplicit()
+        {
+            var lib = CreateTestLibrarySpectrum();
+            var mz = CreateTestMzSpectrum();
+
+            var shortcut = lib.GetAllSimilarityMeasures(mz, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = lib.ComputeSpectralSimilarity(mz, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetAllSimilarityMeasures().ToList();
+
+            AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void MzSpectrum_GetAllSimilarityMeasures_LibrarySpectrum_ShortcutMatchesExplicit()
+        {
+            var mz = CreateTestMzSpectrum();
+            var lib = CreateTestLibrarySpectrum();
+
+            var shortcut = mz.GetAllSimilarityMeasures(lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = mz.ComputeSpectralSimilarity(lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetAllSimilarityMeasures().ToList();
+
+            AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void LibrarySpectrum_GetAllSimilarityMeasures_Arrays_ShortcutMatchesExplicit()
+        {
+            var lib = CreateTestLibrarySpectrum();
+            var (xArray, yArray) = CreateTestArrays();
+
+            var shortcut = lib.GetAllSimilarityMeasures(xArray, yArray, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = lib.ComputeSpectralSimilarity(xArray, yArray, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetAllSimilarityMeasures().ToList();
+
+            AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void Arrays_GetAllSimilarityMeasures_LibrarySpectrum_ShortcutMatchesExplicit()
+        {
+            var (xArray, yArray) = CreateTestArrays();
+            var lib = CreateTestLibrarySpectrum();
+
+            var shortcut = xArray.GetAllSimilarityMeasures(yArray, lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = xArray.ComputeSpectralSimilarity(yArray, lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetAllSimilarityMeasures().ToList();
+
+            AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void MsDataScan_GetAllSimilarityMeasures_LibrarySpectrum_ShortcutMatchesExplicit()
+        {
+            var scan = CreateTestScan(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 });
+            var lib = CreateTestLibrarySpectrum();
+
+            var shortcut = scan.GetAllSimilarityMeasures(lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = scan.ComputeSpectralSimilarity(lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetAllSimilarityMeasures().ToList();
+
+            AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void MsDataScan_GetAllSimilarityMeasures_MzSpectrum_ShortcutMatchesExplicit()
+        {
+            var scan = CreateTestScan(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 });
+            var mz = CreateTestMzSpectrum();
+
+            var shortcut = scan.GetAllSimilarityMeasures(mz, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = scan.ComputeSpectralSimilarity(mz, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetAllSimilarityMeasures().ToList();
+
+            AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void LibrarySpectrum_GetAllSimilarityMeasures_MsDataScan_ShortcutMatchesExplicit()
+        {
+            var lib = CreateTestLibrarySpectrum();
+            var scan = CreateTestScan(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 });
+
+            var shortcut = lib.GetAllSimilarityMeasures(scan, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = lib.ComputeSpectralSimilarity(scan, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetAllSimilarityMeasures().ToList();
+
+            AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void MzSpectrum_GetAllSimilarityMeasures_MsDataScan_ShortcutMatchesExplicit()
+        {
+            var mz = CreateTestMzSpectrum();
+            var scan = CreateTestScan(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 });
+
+            var shortcut = mz.GetAllSimilarityMeasures(scan, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = mz.ComputeSpectralSimilarity(scan, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetAllSimilarityMeasures().ToList();
+
+            AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void MsDataScan_GetAllSimilarityMeasures_Arrays_ShortcutMatchesExplicit()
+        {
+            var scan = CreateTestScan(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 });
+            var (xArray, yArray) = CreateTestArrays();
+
+            var shortcut = scan.GetAllSimilarityMeasures(xArray, yArray, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = scan.ComputeSpectralSimilarity(xArray, yArray, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetAllSimilarityMeasures().ToList();
+
+            AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void Arrays_GetAllSimilarityMeasures_MsDataScan_ShortcutMatchesExplicit()
+        {
+            var (xArray, yArray) = CreateTestArrays();
+            var scan = CreateTestScan(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 });
+
+            var shortcut = xArray.GetAllSimilarityMeasures(yArray, scan, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = xArray.ComputeSpectralSimilarity(yArray, scan, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetAllSimilarityMeasures().ToList();
+
+            AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        #endregion
+
+        #region GetSelectedSimilarityMeasures shortcut tests — remaining shapes
+
+        private static readonly SpectralSimilarity.SimilarityMeasures[] _selectedMeasures =
+        {
+            SpectralSimilarity.SimilarityMeasures.CosineSimilarity,
+            SpectralSimilarity.SimilarityMeasures.DotProduct
+        };
+
+        [Test]
+        public static void LibrarySpectrum_GetSelectedSimilarityMeasures_MzSpectrum_ShortcutMatchesExplicit()
+        {
+            var lib = CreateTestLibrarySpectrum();
+            var mz = CreateTestMzSpectrum();
+
+            var shortcut = lib.GetSelectedSimilarityMeasures(mz, _selectedMeasures, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = lib.ComputeSpectralSimilarity(mz, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetSelectedSimilarityMeasures(_selectedMeasures).ToList();
+
+            AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void MzSpectrum_GetSelectedSimilarityMeasures_LibrarySpectrum_ShortcutMatchesExplicit()
+        {
+            var mz = CreateTestMzSpectrum();
+            var lib = CreateTestLibrarySpectrum();
+
+            var shortcut = mz.GetSelectedSimilarityMeasures(lib, _selectedMeasures, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = mz.ComputeSpectralSimilarity(lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetSelectedSimilarityMeasures(_selectedMeasures).ToList();
+
+            AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void LibrarySpectrum_GetSelectedSimilarityMeasures_Arrays_ShortcutMatchesExplicit()
+        {
+            var lib = CreateTestLibrarySpectrum();
+            var (xArray, yArray) = CreateTestArrays();
+
+            var shortcut = lib.GetSelectedSimilarityMeasures(xArray, yArray, _selectedMeasures, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = lib.ComputeSpectralSimilarity(xArray, yArray, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetSelectedSimilarityMeasures(_selectedMeasures).ToList();
+
+            AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void Arrays_GetSelectedSimilarityMeasures_LibrarySpectrum_ShortcutMatchesExplicit()
+        {
+            var (xArray, yArray) = CreateTestArrays();
+            var lib = CreateTestLibrarySpectrum();
+
+            var shortcut = xArray.GetSelectedSimilarityMeasures(yArray, lib, _selectedMeasures, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = xArray.ComputeSpectralSimilarity(yArray, lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetSelectedSimilarityMeasures(_selectedMeasures).ToList();
+
+            AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void MsDataScan_GetSelectedSimilarityMeasures_LibrarySpectrum_ShortcutMatchesExplicit()
+        {
+            var scan = CreateTestScan(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 });
+            var lib = CreateTestLibrarySpectrum();
+
+            var shortcut = scan.GetSelectedSimilarityMeasures(lib, _selectedMeasures, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = scan.ComputeSpectralSimilarity(lib, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetSelectedSimilarityMeasures(_selectedMeasures).ToList();
+
+            AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void MsDataScan_GetSelectedSimilarityMeasures_MzSpectrum_ShortcutMatchesExplicit()
+        {
+            var scan = CreateTestScan(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 });
+            var mz = CreateTestMzSpectrum();
+
+            var shortcut = scan.GetSelectedSimilarityMeasures(mz, _selectedMeasures, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = scan.ComputeSpectralSimilarity(mz, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetSelectedSimilarityMeasures(_selectedMeasures).ToList();
+
+            AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void LibrarySpectrum_GetSelectedSimilarityMeasures_MsDataScan_ShortcutMatchesExplicit()
+        {
+            var lib = CreateTestLibrarySpectrum();
+            var scan = CreateTestScan(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 });
+
+            var shortcut = lib.GetSelectedSimilarityMeasures(scan, _selectedMeasures, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = lib.ComputeSpectralSimilarity(scan, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetSelectedSimilarityMeasures(_selectedMeasures).ToList();
+
+            AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void MzSpectrum_GetSelectedSimilarityMeasures_MsDataScan_ShortcutMatchesExplicit()
+        {
+            var mz = CreateTestMzSpectrum();
+            var scan = CreateTestScan(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 });
+
+            var shortcut = mz.GetSelectedSimilarityMeasures(scan, _selectedMeasures, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = mz.ComputeSpectralSimilarity(scan, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetSelectedSimilarityMeasures(_selectedMeasures).ToList();
+
+            AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void MsDataScan_GetSelectedSimilarityMeasures_Arrays_ShortcutMatchesExplicit()
+        {
+            var scan = CreateTestScan(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 });
+            var (xArray, yArray) = CreateTestArrays();
+
+            var shortcut = scan.GetSelectedSimilarityMeasures(xArray, yArray, _selectedMeasures, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = scan.ComputeSpectralSimilarity(xArray, yArray, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetSelectedSimilarityMeasures(_selectedMeasures).ToList();
+
+            AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        [Test]
+        public static void Arrays_GetSelectedSimilarityMeasures_MsDataScan_ShortcutMatchesExplicit()
+        {
+            var (xArray, yArray) = CreateTestArrays();
+            var scan = CreateTestScan(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 });
+
+            var shortcut = xArray.GetSelectedSimilarityMeasures(yArray, scan, _selectedMeasures, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).ToList();
+            var explicitValue = xArray.ComputeSpectralSimilarity(yArray, scan, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetSelectedSimilarityMeasures(_selectedMeasures).ToList();
+
+            AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        #endregion
     }
 }
