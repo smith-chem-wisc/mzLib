@@ -15,7 +15,7 @@ namespace Readers.SpectralLibrary
         public override SupportedFileType FileType => FilePath.ParseFileType();
         public override Software Software { get; set; }
         public SpectralLibrary() : base() { }
-        public SpectralLibrary(string filePath) : base(filePath, Software.MetaMorpheus) { }
+        public SpectralLibrary(string filePath) : this([filePath], Software.MetaMorpheus) { }
 
         public override void LoadResults()
         {
@@ -54,7 +54,8 @@ namespace Readers.SpectralLibrary
             {"CAM", "[Common Fixed:Carbamidomethyl on C]" }
         };
 
-        public SpectralLibrary(List<string> pathsToLibraries)
+        public SpectralLibrary(List<string> pathsToLibraries, Software software = Software.Unspecified) 
+            : base(pathsToLibraries.Any() ? pathsToLibraries[0] : string.Empty, software)
         {
             LibraryPaths = pathsToLibraries;
             SequenceToFileAndLocation = new Dictionary<string, (string, long)>();
