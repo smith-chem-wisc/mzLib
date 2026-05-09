@@ -1768,6 +1768,122 @@ namespace Test.FileReadingTests.SpectraFileReading
             return new MzSpectrum(allMassesArray, allIntensitiessArray, false);
         }
 
+        [Test]
+        public static void ChargeArrayRoundTrip()
+        {
+            // Regression test for the MS:1000516 "charge array" round-trip:
+            //   1. construct an MsDataScan with a per-peak chargeArray,
+            //   2. write it as mzML,
+            //   3. re-read it,
+            //   4. assert the round-tripped ChargeArray matches the original element-for-element.
+            //
+            // Exercises both the writer branch in MzmlMethods (third <binaryDataArray> with
+            // accession="MS:1000516") and the reader branch in Mzml.cs (cvParam recognition
+            // + 32-bit-float decode rounded back to int[]).
+            var spectrum = new MzSpectrum(
+                new[] { 100.0, 200.0, 300.0 },
+                new[] { 1000.0, 2000.0, 3000.0 },
+                shouldCopy: false);
+            var charges = new[] { 2, 3, 1 };
+
+            var scan = new MsDataScan(
+                spectrum,
+                oneBasedScanNumber: 1,
+                msnOrder: 1,
+                isCentroid: true,
+                polarity: Polarity.Positive,
+                retentionTime: 1.0,
+                scanWindowRange: new MzRange(50, 1000),
+                scanFilter: "FTMS + p NSI Full ms",
+                mzAnalyzer: MZAnalyzerType.Orbitrap,
+                totalIonCurrent: 6000,
+                injectionTime: null,
+                noiseData: null,
+                nativeId: "scan=1",
+                chargeArray: charges);
+
+            var sourceFile = new SourceFile(
+                nativeIdFormat: "scan number only nativeID format",
+                massSpectrometerFileFormat: "mzML format",
+                checkSum: null,
+                fileChecksumType: "SHA-1",
+                uri: new Uri("file:///test"),
+                id: "test",
+                fileName: "test.mzML");
+
+            var dataFile = new GenericMsDataFile(new[] { scan }, sourceFile);
+            string outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "charge_roundtrip.mzML");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(dataFile, outPath, false);
+
+            try
+            {
+                var reread = (Mzml)MsDataFileReader.GetDataFile(outPath);
+                reread.LoadAllStaticData();
+                var readBack = reread.GetOneBasedScan(1);
+
+                Assert.IsNotNull(readBack.ChargeArray, "ChargeArray was not populated on read-back");
+                Assert.AreEqual(charges.Length, readBack.ChargeArray.Length, "ChargeArray length mismatch");
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(charges, readBack.ChargeArray);
+            }
+            finally
+            {
+                if (File.Exists(outPath)) File.Delete(outPath);
+            }
+        }
+
+        [Test]
+        public static void ChargeArrayDefaultsToNullWhenAbsent()
+        {
+            // A scan written without a chargeArray should round-trip with ChargeArray == null,
+            // confirming the new code path is strictly additive and does not introduce a default
+            // empty array on read-back.
+            var spectrum = new MzSpectrum(
+                new[] { 100.0, 200.0 },
+                new[] { 500.0, 1500.0 },
+                shouldCopy: false);
+
+            var scan = new MsDataScan(
+                spectrum,
+                oneBasedScanNumber: 1,
+                msnOrder: 1,
+                isCentroid: true,
+                polarity: Polarity.Positive,
+                retentionTime: 1.0,
+                scanWindowRange: new MzRange(50, 1000),
+                scanFilter: "FTMS + p NSI Full ms",
+                mzAnalyzer: MZAnalyzerType.Orbitrap,
+                totalIonCurrent: 2000,
+                injectionTime: null,
+                noiseData: null,
+                nativeId: "scan=1");
+
+            var sourceFile = new SourceFile(
+                nativeIdFormat: "scan number only nativeID format",
+                massSpectrometerFileFormat: "mzML format",
+                checkSum: null,
+                fileChecksumType: "SHA-1",
+                uri: new Uri("file:///test"),
+                id: "test",
+                fileName: "test.mzML");
+
+            var dataFile = new GenericMsDataFile(new[] { scan }, sourceFile);
+            string outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "no_charge_roundtrip.mzML");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(dataFile, outPath, false);
+
+            try
+            {
+                var reread = (Mzml)MsDataFileReader.GetDataFile(outPath);
+                reread.LoadAllStaticData();
+                var readBack = reread.GetOneBasedScan(1);
+
+                Assert.IsNull(readBack.ChargeArray, "ChargeArray should be null when not written");
+            }
+            finally
+            {
+                if (File.Exists(outPath)) File.Delete(outPath);
+            }
+        }
+
         private MzSpectrum CreateSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
         {
             IsotopicDistribution isodist = IsotopicDistribution.GetDistribution(f, 0.1);
