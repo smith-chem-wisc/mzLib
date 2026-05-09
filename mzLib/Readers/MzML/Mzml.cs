@@ -63,6 +63,7 @@ namespace Readers
         private const string _ionInjectionTime = "MS:1000927";
         private const string _mzArray = "MS:1000514";
         private const string _intensityArray = "MS:1000515";
+        private const string _chargeArray = "MS:1000516";
 
         /// <summary>
         /// HUPO-PSI Information: 
@@ -842,12 +843,14 @@ namespace Readers
 
             double[] masses = new double[0];
             double[] intensities = new double[0];
+            int[] chargeArray = null;
 
             foreach (Generated.BinaryDataArrayType binaryData in _mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].binaryDataArrayList.binaryDataArray)
             {
                 bool compressed = false;
                 bool mzArray = false;
                 bool intensityArray = false;
+                bool isChargeArray = false;
                 bool is32bit = true;
                 foreach (Generated.CVParamType cv in binaryData.cvParam)
                 {
@@ -856,6 +859,7 @@ namespace Readers
                     is32bit |= cv.accession.Equals(_32bit);
                     mzArray |= cv.accession.Equals(_mzArray);
                     intensityArray |= cv.accession.Equals(_intensityArray);
+                    isChargeArray |= cv.accession.Equals(_chargeArray);
                 }
 
                 //in the futurem we may see scass w/ no data and there will be a crash here. if that happens, you can retrun an MsDataScan with null as the mzSpectrum
@@ -869,6 +873,15 @@ namespace Readers
                 if (intensityArray)
                 {
                     intensities = data;
+                }
+
+                if (isChargeArray)
+                {
+                    // Charge array stores integer charge states as float (per PSI-MS convention).
+                    // Cast back to int for the public API.
+                    chargeArray = new int[data.Length];
+                    for (int k = 0; k < data.Length; k++)
+                        chargeArray[k] = (int)Math.Round(data[k]);
                 }
             }
 
@@ -930,7 +943,8 @@ namespace Readers
                     injectionTime,
                     null,
                     nativeId,
-                    compensationVoltage: compensationVoltage);
+                    compensationVoltage: compensationVoltage,
+                    chargeArray: chargeArray);
             }
 
             double selectedIonMz = double.NaN;
@@ -1047,7 +1061,8 @@ namespace Readers
                 dissociationType,
                 precursorScanNumber,
                 monoisotopicMz,
-                compensationVoltage: compensationVoltage
+                compensationVoltage: compensationVoltage,
+                chargeArray: chargeArray
                 );
         }
 
