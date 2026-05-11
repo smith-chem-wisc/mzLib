@@ -46,6 +46,15 @@ namespace Test.Deconvolution
         private static readonly string KnownExePath =
             @"C:\Program Files\OpenMS-3.0.0-pre-HEAD-2023-06-17\bin\FLASHDeconv.exe";
 
+        // FlashDeconvExePathRegistry._validated is process-wide static state.
+        // Reset it before AND after every test so order-dependent flakes can't
+        // sneak in when a future test asserts on Count or hits the cache.
+        [SetUp]
+        public void ResetRegistry() => FlashDeconvExePathRegistry.Clear();
+
+        [TearDown]
+        public void ClearRegistry() => FlashDeconvExePathRegistry.Clear();
+
         // ── A: Parameters ─────────────────────────────────────────────────────
 
         [Test]
@@ -644,6 +653,93 @@ namespace Test.Deconvolution
                 Throws.TypeOf<ArgumentException>());
         }
 
+        [Test]
+        public void FlashDeconvExePathRegistry_RegisterThenDeleteFile_ResolveReturnsRegisteredValue()
+        {
+            // Pins Register's cache pre-warm contract: after Register(path), a
+            // subsequent Resolve(path) must return the registered value without
+            // touching the filesystem. Proven by deleting the file between the
+            // two calls -- only a cache hit can produce a result once the file
+            // is gone. Distinct from the Resolve()-side cache test: this one
+            // proves Register seeds the cache under the correct (explicit-path)
+            // key. A buggy Register that stored under the default-search
+            // sentinel would still leave Count == 1 but fail this assertion.
+            FlashDeconvExePathRegistry.Clear();
+            string fakeExe = CreateFakeExeFile();
+            try
+            {
+                FlashDeconvExePathRegistry.Register(fakeExe);
+
+                File.Delete(fakeExe);
+                string resolved = FlashDeconvExePathRegistry.Resolve(fakeExe);
+                Assert.That(resolved, Is.EqualTo(fakeExe),
+                    "Resolve must return the registered path from cache; the file is no longer on disk.");
+            }
+            finally
+            {
+                FlashDeconvExePathRegistry.Clear();
+                if (File.Exists(fakeExe)) File.Delete(fakeExe);
+            }
+        }
+
+        [Test]
+        public void Resolve_PublicMethod_SecondCallAfterFileDeleted_ReturnsCachedValue()
+        {
+            // Pins the cache round-trip on the public single-argument Resolve(path):
+            // first call validates and caches via CacheValidated; second call short-
+            // circuits via TryGet without ever touching the filesystem. Proven by
+            // deleting the file between calls -- if the cache were bypassed the
+            // second call would throw FileNotFoundException.
+            FlashDeconvExePathRegistry.Clear();
+            string fakeExe = CreateFakeExeFile();
+            try
+            {
+                string first = FlashDeconvExePathRegistry.Resolve(fakeExe);
+                Assert.That(first, Is.EqualTo(fakeExe));
+
+                File.Delete(fakeExe);
+                string second = FlashDeconvExePathRegistry.Resolve(fakeExe);
+                Assert.That(second, Is.EqualTo(fakeExe),
+                    "Second call must come from the cache; the file no longer exists on disk.");
+            }
+            finally
+            {
+                FlashDeconvExePathRegistry.Clear();
+                if (File.Exists(fakeExe)) File.Delete(fakeExe);
+            }
+        }
+
+        [Test]
+        public void Resolve_PublicMethod_RegisteredExplicitPath_DoesNotSatisfyDefaultSearch()
+        {
+            // Pins the <default-search> sentinel keying: a Register(explicitPath)
+            // entry is keyed by that explicit path string and MUST NOT short-
+            // circuit a subsequent Resolve(null) (which is keyed by the sentinel).
+            // Without separate keys, an explicit-path registration would silently
+            // hijack the default search for every other caller.
+            FlashDeconvExePathRegistry.Clear();
+            string fakeExe = CreateFakeExeFile();
+            try
+            {
+                FlashDeconvExePathRegistry.Register(fakeExe);
+
+                // Resolve(null) must walk the supplied (empty) well-known list and
+                // empty PATH and throw -- it must NOT return the registered explicit
+                // path, because that entry is keyed differently in the cache.
+                Assert.That(
+                    () => FlashDeconvExePathRegistry.Resolve(
+                        explicitPath: null,
+                        wellKnownPaths: Array.Empty<string>(),
+                        pathEnv: ""),
+                    Throws.TypeOf<FileNotFoundException>());
+            }
+            finally
+            {
+                FlashDeconvExePathRegistry.Clear();
+                if (File.Exists(fakeExe)) File.Delete(fakeExe);
+            }
+        }
+
         // ── E: FlashDeconvExePathRegistry.Resolve unit tests ─────────────────
 
         [Test]
@@ -700,6 +796,44 @@ namespace Test.Deconvolution
                     pathEnv: ""),
                 Throws.TypeOf<FileNotFoundException>()
                       .With.Message.Contains("FLASHDeconvExePath"));
+        }
+
+        [Test]
+        public void Resolve_ExplicitPathExists_ReturnsItWithoutConsultingWellKnown()
+        {
+            // Pins the explicit-path-wins branch: when the caller supplies a path
+            // that exists, it is returned directly. Empty wellKnownPaths and
+            // pathEnv ensure the result couldn't have come from those branches.
+            string fake = CreateFakeExeFile();
+            try
+            {
+                string result = FlashDeconvExePathRegistry.Resolve(
+                    explicitPath: fake,
+                    wellKnownPaths: Array.Empty<string>(),
+                    pathEnv: "");
+
+                Assert.That(result, Is.EqualTo(fake));
+            }
+            finally { File.Delete(fake); }
+        }
+
+        [Test]
+        public void Resolve_ExplicitPathMissing_ThrowsFileNotFoundWithPathName()
+        {
+            // Pins the explicit-path-missing branch: an explicit path that does
+            // not exist must throw FileNotFoundException -- NOT silently fall
+            // through to the well-known/PATH search, which would mask the
+            // caller's intent (they told us where it lives; honor that).
+            string missing = Path.Combine(Path.GetTempPath(),
+                $"realflash_explicit_missing_{Guid.NewGuid():N}.exe");
+
+            Assert.That(
+                () => FlashDeconvExePathRegistry.Resolve(
+                    explicitPath: missing,
+                    wellKnownPaths: Array.Empty<string>(),
+                    pathEnv: ""),
+                Throws.TypeOf<FileNotFoundException>()
+                      .With.Message.Contains(missing));
         }
 
         [Test]
