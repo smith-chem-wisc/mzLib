@@ -7,14 +7,12 @@ namespace MassSpectrometry
     /// Parameters for <see cref="RealFLASHDeconvolutionAlgorithm"/>, which wraps
     /// the official FLASHDeconv executable from OpenMS.
     ///
-    /// The executable is located via:
-    ///   1. <see cref="FLASHDeconvExePath"/> (explicit, highest priority)
-    ///   2. Well-known OpenMS install paths checked at runtime
-    ///   3. System PATH
-    ///
-    /// In MetaMorpheus, set <c>GlobalSettings.FLASHDeconvExecutablePath</c> once
-    /// (persisted in GlobalSettings.toml) and leave <see cref="FLASHDeconvExePath"/>
-    /// null — the algorithm will use the global setting automatically.
+    /// <see cref="FLASHDeconvExePath"/> must be set to a valid path before the
+    /// algorithm runs. The algorithm itself does no path discovery -- use
+    /// <see cref="FlashDeconvExePathRegistry.Resolve"/> at startup to locate
+    /// FLASHDeconv (checks an explicit path, well-known install locations, and
+    /// the PATH environment variable), then assign the returned path to
+    /// <see cref="FLASHDeconvExePath"/>.
     /// </summary>
     public class RealFLASHDeconvolutionParameters : DeconvolutionParameters
     {
@@ -24,8 +22,10 @@ namespace MassSpectrometry
         // ── Executable location ───────────────────────────────────────────────
 
         /// <summary>
-        /// Full path to FLASHDeconv.exe.  Leave null to use the well-known-path
-        /// search or GlobalSettings.FLASHDeconvExecutablePath.
+        /// Full path to FLASHDeconv.exe. Must be set by the caller before the
+        /// algorithm runs -- the algorithm throws if it is null/empty or if the
+        /// file does not exist. Use <see cref="FlashDeconvExePathRegistry.Resolve"/>
+        /// to discover the executable at startup.
         /// </summary>
         public string? FLASHDeconvExePath { get; set; }
 

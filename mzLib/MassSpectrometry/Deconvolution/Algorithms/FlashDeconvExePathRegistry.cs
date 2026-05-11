@@ -1,25 +1,30 @@
+#nullable enable
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 
 namespace MassSpectrometry
 {
     /// <summary>
-    /// Static registry of validated FLASHDeconv executable paths.
+    /// Caller-side helper for locating and caching the FLASHDeconv executable.
     ///
-    /// Each <see cref="Deconvoluter.Deconvolute(MzSpectrum, DeconvolutionParameters, MzLibUtil.MzRange)"/>
-    /// call constructs a fresh <see cref="RealFLASHDeconvolutionAlgorithm"/>, and
-    /// resolving the FLASHDeconv exe path costs File.Exists syscalls (the explicit
-    /// path, plus a walk of well-known paths and the PATH env var on misses).
-    /// On a per-scan hot path that's a few-hundred-ms stack of redundant syscalls
-    /// per minute. The exe doesn't move between calls, so first-call validation
-    /// is enough -- this registry caches the resolved path so subsequent calls
-    /// skip the filesystem.
+    /// <see cref="RealFLASHDeconvolutionAlgorithm"/> deliberately does NOT search
+    /// for the executable; it uses whatever path is on its parameters object and
+    /// throws if that path is missing or invalid. This class is where the
+    /// "go find FLASHDeconv on this machine" logic lives, so that exe discovery
+    /// is an explicit step the caller performs once -- not a side effect of
+    /// running deconvolution.
     ///
-    /// Production callers that know the path up front (typically MetaMorpheus via
-    /// <c>GlobalSettings.FLASHDeconvExecutablePath</c>) should call
-    /// <see cref="Register"/> once at startup. Ad-hoc callers don't have to do
-    /// anything: the algorithm caches lazily on first resolution either way.
+    /// Typical usage (e.g. MetaMorpheus at startup):
+    /// <code>
+    /// string exe = FlashDeconvExePathRegistry.Resolve(GlobalSettings.FLASHDeconvExecutablePath);
+    /// // ...later, when configuring deconvolution params...
+    /// var p = new RealFLASHDeconvolutionParameters(flashDeconvExePath: exe);
+    /// </code>
+    ///
+    /// The registry caches resolved paths so repeated <see cref="Resolve"/>
+    /// calls skip the filesystem walk.
     /// </summary>
     public static class FlashDeconvExePathRegistry
     {
@@ -32,8 +37,25 @@ namespace MassSpectrometry
             = new ConcurrentDictionary<string, string>();
 
         /// <summary>
-        /// Validate the given exe path once and cache it so subsequent
-        /// deconvolution calls skip the filesystem check.
+        /// Hardcoded install paths probed by <see cref="Resolve(string?)"/> when no
+        /// explicit FLASHDeconv path is supplied and PATH search misses.
+        /// </summary>
+        public static readonly IReadOnlyList<string> DefaultWellKnownPaths = new[]
+        {
+            @"C:\Program Files\OpenMS-3.0.0-pre-HEAD-2023-06-17\bin\FLASHDeconv.exe",
+            @"C:\Program Files\OpenMS-3.5.0\bin\FLASHDeconv.exe",
+            @"C:\Program Files\OpenMS-3.4.0\bin\FLASHDeconv.exe",
+            @"C:\Program Files\OpenMS-3.3.0\bin\FLASHDeconv.exe",
+            @"C:\Program Files\OpenMS-3.0.0\bin\FLASHDeconv.exe",
+            "/usr/bin/FLASHDeconv",
+            "/usr/local/bin/FLASHDeconv",
+            "/opt/openms/bin/FLASHDeconv",
+        };
+
+        /// <summary>
+        /// Register an already-known FLASHDeconv path. Validates that the file
+        /// exists, then caches the result so subsequent <see cref="Resolve(string?)"/>
+        /// calls with the same path return immediately.
         /// </summary>
         /// <exception cref="ArgumentException">path is null/whitespace.</exception>
         /// <exception cref="FileNotFoundException">path does not exist on disk.</exception>
@@ -45,6 +67,75 @@ namespace MassSpectrometry
                 throw new FileNotFoundException(
                     $"FLASHDeconv not found at: {path}", path);
             _validated[path] = path;
+        }
+
+        /// <summary>
+        /// Locate the FLASHDeconv executable. Search order:
+        ///   1. <paramref name="explicitPath"/> if supplied
+        ///   2. <see cref="DefaultWellKnownPaths"/>
+        ///   3. directories on the PATH environment variable
+        /// Caches the result so repeated calls skip the filesystem walk.
+        /// </summary>
+        /// <param name="explicitPath">Optional explicit path; pass null/empty to
+        /// trigger the default search.</param>
+        /// <returns>The validated absolute path of FLASHDeconv.</returns>
+        /// <exception cref="FileNotFoundException">
+        /// <paramref name="explicitPath"/> was supplied but does not exist, or no
+        /// explicit path was supplied and the default search found nothing.
+        /// </exception>
+        public static string Resolve(string? explicitPath = null)
+        {
+            if (TryGet(explicitPath, out string cached))
+                return cached;
+
+            string resolved = Resolve(
+                explicitPath,
+                DefaultWellKnownPaths,
+                Environment.GetEnvironmentVariable("PATH"));
+
+            CacheValidated(explicitPath, resolved);
+            return resolved;
+        }
+
+        /// <summary>
+        /// Test-friendly overload that takes the well-known-paths list and PATH-env
+        /// value as parameters instead of reading them from compiled-in defaults +
+        /// the live process environment. Lets tests deterministically exercise the
+        /// well-known-search, PATH-search, and not-found-anywhere branches without
+        /// depending on what's installed on the runner.
+        /// Does NOT consult or update the cache; pure resolution.
+        /// </summary>
+        internal static string Resolve(
+            string? explicitPath,
+            IEnumerable<string> wellKnownPaths,
+            string? pathEnv)
+        {
+            if (!string.IsNullOrWhiteSpace(explicitPath))
+            {
+                if (File.Exists(explicitPath)) return explicitPath!;
+                throw new FileNotFoundException(
+                    $"FLASHDeconv not found at: {explicitPath}", explicitPath);
+            }
+
+            foreach (string c in wellKnownPaths)
+                if (File.Exists(c)) return c;
+
+            if (pathEnv != null)
+            {
+                string[] names = OperatingSystem.IsWindows()
+                    ? new[] { "FLASHDeconv.exe" }
+                    : new[] { "FLASHDeconv", "flashdeconv" };
+                foreach (string dir in pathEnv.Split(Path.PathSeparator))
+                    foreach (string name in names)
+                    {
+                        string full = Path.Combine(dir, name);
+                        if (File.Exists(full)) return full;
+                    }
+            }
+
+            throw new FileNotFoundException(
+                "FLASHDeconv not found. Set RealFLASHDeconvolutionParameters.FLASHDeconvExePath " +
+                "or install OpenMS to a well-known location.");
         }
 
         /// <summary>
@@ -76,9 +167,8 @@ namespace MassSpectrometry
         }
 
         /// <summary>
-        /// Cache a resolution that has already been validated (typically by the
-        /// algorithm's own resolve pass). Keyed identically to
-        /// <see cref="TryGet"/>: explicit path or default-search sentinel.
+        /// Cache a resolution that has already been validated. Keyed identically
+        /// to <see cref="TryGet"/>: explicit path or default-search sentinel.
         /// </summary>
         internal static void CacheValidated(string? explicitPath, string resolved)
         {

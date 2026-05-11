@@ -21,8 +21,9 @@ namespace Test.Deconvolution
     /// leaving MS1 output missing entirely.
     ///
     /// Coverage strategy:
-    ///   - ResolveExePath was refactored to accept the well-known-paths list and
-    ///     PATH-env value as parameters, so its three branches (well-known found,
+    ///   - Path resolution lives on FlashDeconvExePathRegistry (not the algorithm).
+    ///     Its Resolve overload accepts the well-known-paths list and PATH-env
+    ///     value as parameters, so its three branches (well-known found,
     ///     PATH-search hit, not-found-anywhere throw) can be exercised
     ///     deterministically (Section E below).
     ///   - Deconvolute and DeconvoluteFile accept an injected FLASHDeconvRunner
@@ -119,7 +120,7 @@ namespace Test.Deconvolution
             // Pins the empty-spectrum short-circuit DIRECTLY via a stub runner that
             // fails the test if invoked, instead of relying on the indirect side
             // effect of an unresolvable exe path. A future refactor that moves or
-            // restructures ResolveExePath could quietly cause _runner(...) to be
+            // restructures the exe-path guard could quietly cause _runner(...) to be
             // called on empty spectra without breaking the indirect test above.
             string fakeExe = CreateFakeExeFile();
             try
@@ -643,55 +644,17 @@ namespace Test.Deconvolution
                 Throws.TypeOf<ArgumentException>());
         }
 
-        [Test]
-        public void Deconvolute_WithRegisteredPath_SkipsFilesystemValidation()
-        {
-            // Pin the optimization: once a path is in the registry, the algorithm
-            // uses it without re-checking File.Exists. Prove the cache is being
-            // consulted by registering the path, deleting the file, and observing
-            // that Deconvolute still proceeds to the stub runner -- a non-cached
-            // resolve would throw FileNotFoundException at this point.
-            FlashDeconvExePathRegistry.Clear();
-            string fakeExe = CreateFakeExeFile();
-            FlashDeconvExePathRegistry.Register(fakeExe);
-            File.Delete(fakeExe);  // cache says it exists; filesystem says otherwise
-
-            try
-            {
-                var p = new RealFLASHDeconvolutionParameters(
-                    flashDeconvExePath: fakeExe,
-                    minMass: 50, maxMass: 5000);
-
-                string tsv = string.Join("\n",
-                    Ms1TsvHeader,
-                    "1\t1000.0\t5.0e5\t5\t201.0\t201.4\t0.95\t12.0\t0.8");
-
-                var algorithm = new RealFLASHDeconvolutionAlgorithm(p, BuildStubRunner(tsv));
-
-                var result = algorithm
-                    .Deconvolute(BuildSyntheticSpectrum(), new MzRange(0, 5000))
-                    .ToList();
-
-                Assert.That(result, Has.Count.EqualTo(1),
-                    "Cached path must be honored without re-validating that the file still exists; the deleted file would otherwise throw before the stub runner runs.");
-            }
-            finally
-            {
-                FlashDeconvExePathRegistry.Clear();
-            }
-        }
-
-        // ── E: ResolveExePath unit tests ──────────────────────────────────────
+        // ── E: FlashDeconvExePathRegistry.Resolve unit tests ─────────────────
 
         [Test]
-        public void ResolveExePath_NoExplicit_FoundInWellKnown_ReturnsThatPath()
+        public void Resolve_NoExplicit_FoundInWellKnown_ReturnsThatPath()
         {
             // Pins the well-known-search branch: when no explicit path is given
             // and one of the well-known paths exists on disk, that path is returned.
             string fake = CreateFakeExeFile();
             try
             {
-                string result = RealFLASHDeconvolutionAlgorithm.ResolveExePath(
+                string result = FlashDeconvExePathRegistry.Resolve(
                     explicitPath: null,
                     wellKnownPaths: new[] { fake },
                     pathEnv: "");
@@ -702,7 +665,7 @@ namespace Test.Deconvolution
         }
 
         [Test]
-        public void ResolveExePath_NoExplicit_NoWellKnown_FoundInPathEnv_ReturnsFromPath()
+        public void Resolve_NoExplicit_NoWellKnown_FoundInPathEnv_ReturnsFromPath()
         {
             // Pins the PATH-search branch: when no explicit path is given, no
             // well-known path matches, but a directory on PATH contains the exe,
@@ -715,7 +678,7 @@ namespace Test.Deconvolution
             File.WriteAllText(fake, "stub");
             try
             {
-                string result = RealFLASHDeconvolutionAlgorithm.ResolveExePath(
+                string result = FlashDeconvExePathRegistry.Resolve(
                     explicitPath: null,
                     wellKnownPaths: Array.Empty<string>(),
                     pathEnv: dir);
@@ -726,16 +689,31 @@ namespace Test.Deconvolution
         }
 
         [Test]
-        public void ResolveExePath_NoExplicit_NoWellKnown_NoPath_ThrowsFileNotFound()
+        public void Resolve_NoExplicit_NoWellKnown_NoPath_ThrowsFileNotFound()
         {
             // Pins the not-found-anywhere throw with a clear message that points
             // the user at the override knob.
             Assert.That(
-                () => RealFLASHDeconvolutionAlgorithm.ResolveExePath(
+                () => FlashDeconvExePathRegistry.Resolve(
                     explicitPath: null,
                     wellKnownPaths: Array.Empty<string>(),
                     pathEnv: ""),
                 Throws.TypeOf<FileNotFoundException>()
+                      .With.Message.Contains("FLASHDeconvExePath"));
+        }
+
+        [Test]
+        public void Deconvolute_NullExePath_ThrowsMzLibException()
+        {
+            // Pins the algorithm's "caller must set the path" contract: the
+            // algorithm itself does no path discovery, so a missing path is
+            // a programming error and surfaces with a clear MzLibException.
+            var p = new RealFLASHDeconvolutionParameters(flashDeconvExePath: null);
+            var algorithm = new RealFLASHDeconvolutionAlgorithm(p);
+
+            Assert.That(
+                () => algorithm.Deconvolute(BuildSyntheticSpectrum(), new MzRange(0, 5000)).ToList(),
+                Throws.TypeOf<MzLibException>()
                       .With.Message.Contains("FLASHDeconvExePath"));
         }
 
