@@ -284,12 +284,28 @@ namespace Readers
                     }
                 }
 
+                // Defensive URI parse: some converters (Waters / Bruker / vendor exporters)
+                // write a non-URI string in the sourceFile/@location attribute — e.g.
+                // "Company", a bare Windows path "Z:\foo\bar", or a relative path. The
+                // mzML XSD types this as xsd:anyURI but in practice anything goes. The
+                // previous `new Uri(simpler.location)` threw UriFormatException and aborted
+                // the entire file load. Now: try absolute first, fall back to wrapping the
+                // value as a file:/// URI based on the file we actually opened, finally
+                // fall back to a synthetic placeholder. The Uri is metadata only — none
+                // of the algorithm or writer paths depend on it being meaningful.
+                Uri sourceUri;
+                if (string.IsNullOrWhiteSpace(simpler.location)
+                    || !Uri.TryCreate(simpler.location, UriKind.Absolute, out sourceUri))
+                {
+                    try { sourceUri = new Uri(System.IO.Path.GetFullPath(FilePath)); }
+                    catch { sourceUri = new Uri("file:///unknown-source"); }
+                }
                 sourceFile = new SourceFile(
                     nativeIdFormat,
                     fileFormat,
                     checkSum,
                     checkSumType,
-                    new Uri(simpler.location),
+                    sourceUri,
                     simpler.id,
                     simpler.name);
             }
