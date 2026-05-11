@@ -118,3 +118,4 @@ StcE-trypsin	TX|T,TX|S,SX|T,SX|S,K|,R|	full		StcE/Trypsin
 CNBr_old	M|	full	MS:1001307	CNBr	
 CNBr_N	|M	full	MS:1001307	CNBr	Test on M
 ProAlanase	P|,A|	full			
+subtilisin|p	N[P]|,S[P]|,L[P]|,K[P]|,I[P]|,D[P]|,Y[P]|,V[P]|,G[P]|,F[P]|,T[P]|,E[P]|,Q[P]|,A[P]|,R[P]|	full	MS:1001312	Subtilisin
