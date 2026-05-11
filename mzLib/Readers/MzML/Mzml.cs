@@ -400,9 +400,14 @@ namespace Readers
                         bool compressed = false;
                         bool readingMzs = false;
                         bool readingIntensities = false;
+                        bool readingCharges = false;
                         bool is32bit = true;
                         double[] mzs = null;
                         double[] intensities = null;
+                        // Per-peak charge array (PSI-MS MS:1000516). Stays null when the
+                        // spectrum doesn't include the third binaryDataArray, matching the
+                        // static-reader path's behavior.
+                        int[] chargeArray = null;
 
                         while (xmlReader.Read())
                         {
@@ -578,12 +583,22 @@ namespace Readers
                                         case "MS:1000515":
                                             readingIntensities = true;
                                             break;
+
+                                        // charge array — PSI-MS MS:1000516. The static-reader
+                                        // path (GetMsDataOneBasedScanFromConnection) recognizes
+                                        // this and populates MsDataScan.ChargeArray; previously
+                                        // the dynamic path did not, so any caller using
+                                        // InitiateDynamicConnection silently lost per-peak charge
+                                        // info round-tripping through this reader.
+                                        case "MS:1000516":
+                                            readingCharges = true;
+                                            break;
                                     }
                                     break;
 
-                                // binary data array (e.g., m/z or intensity array)
+                                // binary data array (e.g., m/z or intensity or charge array)
                                 case "BINARY":
-                                    if (!readingMzs && !readingIntensities)
+                                    if (!readingMzs && !readingIntensities && !readingCharges)
                                     {
                                         break;
                                     }
@@ -608,6 +623,16 @@ namespace Readers
                                     {
                                         intensities = data;
                                         readingIntensities = false;
+                                    }
+                                    else if (readingCharges)
+                                    {
+                                        // Mirror the static-reader path: charges are stored as
+                                        // 32-bit float per PSI-MS convention; round back to int
+                                        // for the public API.
+                                        chargeArray = new int[data.Length];
+                                        for (int k = 0; k < data.Length; k++)
+                                            chargeArray[k] = (int)Math.Round(data[k]);
+                                        readingCharges = false;
                                     }
 
                                     break;
@@ -684,7 +709,8 @@ namespace Readers
                                             retentionTime, range, scanFilter, mzAnalyzerType, tic, injTime, noiseData,
                                             nativeId, selectedIonMz, selectedCharge, selectedIonIntensity, isolationMz, isolationWidth,
                                             dissociationType, oneBasedPrecursorScanNumber, selectedIonMonoisotopicGuessMz,
-                                            compensationVoltage: compensationVoltage);
+                                            compensationVoltage: compensationVoltage,
+                                            chargeArray: chargeArray);
 
                                         return scan;
                                     }

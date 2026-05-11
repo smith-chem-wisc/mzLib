@@ -89,7 +89,9 @@ namespace MassSpectrometry
         /// Per-peak charge state, parallel to <see cref="MassSpectrum"/>.XArray.
         /// Length must equal MassSpectrum.Size when set; null means "no charge data captured".
         /// Encoded in mzML as a third &lt;binaryDataArray&gt; with cvParam
-        /// MS:1000516 ("charge array"), 32-bit float, zlib-compressed.
+        /// MS:1000516 ("charge array"), 32-bit float, no compression
+        /// (charge arrays are small enough that the zlib overhead isn't worth it; could
+        /// be made configurable in a follow-up if a downstream consumer needs it).
         ///
         /// Only set by deisotopers (e.g. YADA's annotate mode); vendor-converted mzML
         /// rarely includes it. Readers that don't understand MS:1000516 silently ignore it.
