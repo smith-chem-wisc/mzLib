@@ -53,16 +53,30 @@ namespace MassSpectrometry
         };
 
         /// <summary>
-        /// Register an already-known FLASHDeconv path. Validates that the file
-        /// exists, then caches the result so subsequent <see cref="Resolve(string?)"/>
-        /// calls with the same path return immediately.
+        /// Register an already-known FLASHDeconv path. Validates that the path
+        /// (a) is non-empty, (b) names something that looks like FLASHDeconv
+        /// (filename starts with "FLASHDeconv", case-insensitive), and
+        /// (c) exists on disk, then caches the result so subsequent
+        /// <see cref="Resolve(string?)"/> calls with the same path return
+        /// immediately. The name check catches obvious mistakes like
+        /// registering an unrelated file (e.g. a .psmtsv) and surfaces them at
+        /// registration time rather than as an opaque Process.Start error on
+        /// the first Deconvolute call.
         /// </summary>
-        /// <exception cref="ArgumentException">path is null/whitespace.</exception>
+        /// <exception cref="ArgumentException">path is null/whitespace, or the filename does not start with "FLASHDeconv".</exception>
         /// <exception cref="FileNotFoundException">path does not exist on disk.</exception>
         public static void Register(string path)
         {
             if (string.IsNullOrWhiteSpace(path))
                 throw new ArgumentException("Path must be a non-empty string.", nameof(path));
+
+            string fileName = Path.GetFileName(path);
+            if (!fileName.StartsWith("FLASHDeconv", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException(
+                    $"Path does not look like the FLASHDeconv executable: '{fileName}'. " +
+                    $"Expected a filename starting with 'FLASHDeconv' (e.g. 'FLASHDeconv.exe' or 'FLASHDeconv').",
+                    nameof(path));
+
             if (!File.Exists(path))
                 throw new FileNotFoundException(
                     $"FLASHDeconv not found at: {path}", path);

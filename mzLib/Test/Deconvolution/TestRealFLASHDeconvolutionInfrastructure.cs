@@ -631,9 +631,12 @@ namespace Test.Deconvolution
         [Test]
         public void FlashDeconvExePathRegistry_RegisterMissingPath_ThrowsFileNotFound()
         {
+            // Filename starts with "FLASHDeconv" so this test exercises the
+            // File.Exists branch, not the filename-shape branch (which is
+            // covered separately by RegisterWrongFilename_ThrowsArgumentException).
             FlashDeconvExePathRegistry.Clear();
             string nonexistent = Path.Combine(Path.GetTempPath(),
-                $"realflash_missing_{Guid.NewGuid():N}.exe");
+                $"FLASHDeconv_missing_{Guid.NewGuid():N}.exe");
 
             Assert.That(
                 () => FlashDeconvExePathRegistry.Register(nonexistent),
@@ -651,6 +654,33 @@ namespace Test.Deconvolution
                 Throws.TypeOf<ArgumentException>());
             Assert.That(() => FlashDeconvExePathRegistry.Register("   "),
                 Throws.TypeOf<ArgumentException>());
+        }
+
+        [Test]
+        public void FlashDeconvExePathRegistry_RegisterWrongFilename_ThrowsArgumentException()
+        {
+            // Pins the filename-shape guard: Register must reject paths whose
+            // basename does not start with "FLASHDeconv" (case-insensitive), even
+            // if the file exists on disk. Catches obvious mistakes like pointing
+            // the registry at a .psmtsv or some other unrelated file at
+            // registration time rather than as an opaque Process.Start error
+            // on the first Deconvolute call.
+            string wrong = Path.Combine(Path.GetTempPath(),
+                $"realflash_wrong_{Guid.NewGuid():N}.psmtsv");
+            File.WriteAllText(wrong, "stub");
+            try
+            {
+                Assert.That(
+                    () => FlashDeconvExePathRegistry.Register(wrong),
+                    Throws.TypeOf<ArgumentException>()
+                          .With.Message.Contains("FLASHDeconv"));
+                Assert.That(FlashDeconvExePathRegistry.Count, Is.EqualTo(0),
+                    "Rejected registration must not leak a partial entry.");
+            }
+            finally
+            {
+                if (File.Exists(wrong)) File.Delete(wrong);
+            }
         }
 
         [Test]
@@ -1057,8 +1087,12 @@ namespace Test.Deconvolution
 
         private static string CreateFakeExeFile()
         {
+            // Name must start with "FLASHDeconv" so Register() accepts it -- the
+            // registry rejects anything whose filename doesn't look like FLASHDeconv
+            // to catch obvious mistakes (e.g. registering a .psmtsv) at registration
+            // time rather than as a downstream Process.Start error.
             string path = Path.Combine(Path.GetTempPath(),
-                $"realflash_fake_exe_{Guid.NewGuid():N}.exe");
+                $"FLASHDeconv_fake_{Guid.NewGuid():N}.exe");
             File.WriteAllText(path, "stub");
             return path;
         }
