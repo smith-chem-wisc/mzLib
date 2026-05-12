@@ -562,7 +562,7 @@
     <None Update="DataFiles\withZeros.mgf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="FileReadingTests\SearchResults\TDGPTMDSearchResults_NoNameAndOrganism.psmtsv">
+    <None Update="FileReadingTests\SearchResults\TDGPTMDSearchResults_NoNameAndGene.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="ProteomicsTests\ProteaseFilesForLoadingTests\DoubleProtease.tsv">
