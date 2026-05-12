@@ -184,11 +184,17 @@ namespace MassSpectrometry
         public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(MzSpectrum precursorSpectrum,
             DeconvolutionParameters deconParameters)
         {
-            return IsolationRange == null
-                ? new List<IsotopicEnvelope>()
-                : Deconvoluter.Deconvolute(precursorSpectrum, deconParameters,
-                    new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5))
-                    .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
+            const double isolationPadding = 8.5;
+
+            if (IsolationRange is null)
+                return new List<IsotopicEnvelope>();
+
+            MzRange range = new MzRange(IsolationRange.Minimum - isolationPadding, IsolationRange.Maximum + isolationPadding);
+            if (deconParameters is FromFileDeconvolutionParameters)
+                range = new MzRtRange(range, RetentionTime, 0.1);
+
+            return Deconvoluter.Deconvolute(precursorSpectrum, deconParameters, range)
+                .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
         }
 
         /// <summary>
@@ -205,11 +211,17 @@ namespace MassSpectrometry
         public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(MsDataScan precursorScan,
             DeconvolutionParameters deconParameters)
         {
-            return IsolationRange == null
-                ? new List<IsotopicEnvelope>()
-                : Deconvoluter.Deconvolute(precursorScan, deconParameters,
-                    new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5))
-                    .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
+            const double isolationPadding = 8.5;
+
+            if (IsolationRange is null)
+                return new List<IsotopicEnvelope>();
+
+            MzRange range = new MzRange(IsolationRange.Minimum - isolationPadding, IsolationRange.Maximum + isolationPadding);
+            if (deconParameters is FromFileDeconvolutionParameters)
+                range = new MzRtRange(range, RetentionTime, 0.1);
+
+            return Deconvoluter.Deconvolute(precursorScan, deconParameters, range)
+                .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
         }
         
 
