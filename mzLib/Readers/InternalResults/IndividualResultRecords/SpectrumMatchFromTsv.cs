@@ -7,6 +7,7 @@ using Omics.Fragmentation.Peptide;
 using Omics.SpectrumMatch;
 using MzLibUtil;
 using System.Numerics;
+using ThermoFisher.CommonCore.Data.Business;
 
 namespace Readers
 {
@@ -223,21 +224,27 @@ namespace Readers
                 StartAndEndResiduesInParentSequence = psm.StartAndEndResiduesInParentSequence.Split("|")[index];
                 Accession = psm.Accession.Split("|")[index];
 
-                var nameSplits = psm.Name?.Split("|") ?? Array.Empty<string>();
-                if (nameSplits.Length == 1)
-                    Name = nameSplits[0];
-                else if (nameSplits.Length != 0)
-                    Name = nameSplits[index];
-                else
+                if (psm.Name is null)
                     Name = string.Empty;
-
-                var geneSplits = psm.GeneName?.Split("|") ?? Array.Empty<string>();
-                if (geneSplits.Length == 1)
-                    GeneName = geneSplits[0];
-                else if (geneSplits.Length != 0)
-                    GeneName = geneSplits[index];
                 else
+                {
+                    var nameSplits = psm.Name.Split("|");
+                    if (nameSplits.Length == 1)
+                        Name = nameSplits[0];
+                    else 
+                        Name = nameSplits[index];
+                }
+
+                if (psm.GeneName is null)
                     GeneName = string.Empty;
+                else
+                {
+                    var geneSplits = psm.GeneName.Split("|");
+                    if (geneSplits.Length == 1)
+                        GeneName = geneSplits[0];
+                    else
+                        GeneName = geneSplits[index];
+                }
 
                 if (psm.MonoisotopicMassString.Split("|").Count() == 1)
                 {
