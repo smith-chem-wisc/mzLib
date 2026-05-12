@@ -189,9 +189,11 @@ namespace MassSpectrometry
             if (IsolationRange is null)
                 return new List<IsotopicEnvelope>();
 
+            // We need the Rt information to filter features properly
+            if (deconParameters.DeconvolutionType == DeconvolutionType.FromFile)
+                throw new ArgumentException("If DeconvolutionType is FromFile, you must use the scan to deconvolute instead of the spectrum");
+
             var range = new MzRange(IsolationRange.Minimum - magicNumber, IsolationRange.Maximum + magicNumber);
-            if (deconParameters is FromFileDeconvolutionParameters)
-                range = new MzRtRange(range, RetentionTime, 0.1);
 
             return Deconvoluter.Deconvolute(precursorSpectrum, deconParameters, range)
                     .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
