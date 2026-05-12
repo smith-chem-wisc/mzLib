@@ -21,6 +21,14 @@ namespace MassSpectrometry
         public static IEnumerable<IsotopicEnvelope> Deconvolute(MsDataScan scan,
             DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null)
         {
+            if (deconvolutionParameters.DeconvolutionType == DeconvolutionType.FromFile && !(rangeToGetPeaksFrom is MzRtRange))
+            {
+                // If the deconvolution type is FromFile, we expect the range to get peaks from to be an MzRtRange. If it is not provided, we will create one using the scan's retention time and the full m/z range of the spectrum
+                rangeToGetPeaksFrom = rangeToGetPeaksFrom is null 
+                    ? new MzRtRange(scan.MassSpectrum.Range, scan.RetentionTime) 
+                    : new MzRtRange(rangeToGetPeaksFrom, scan.RetentionTime);
+            }                
+
             return Deconvolute(scan.MassSpectrum, deconvolutionParameters, rangeToGetPeaksFrom);
         }
 
@@ -35,6 +43,9 @@ namespace MassSpectrometry
             DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null)
         {
             rangeToGetPeaksFrom ??= spectrum.Range;
+
+            if (deconvolutionParameters.DeconvolutionType == DeconvolutionType.FromFile && !(rangeToGetPeaksFrom is MzRtRange))
+                throw new ArgumentException("If DeconvolutionType is FromFile, rangeToGetPeaksFrom must be an MzRtRange");
 
             // Short circuit deconvolution if it is called on a neutral mass spectrum
             if (spectrum is NeutralMassSpectrum newt)
