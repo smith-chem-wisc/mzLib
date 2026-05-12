@@ -3,7 +3,6 @@ using System.Text;
 using Chemistry;
 using CsvHelper.Configuration;
 using CsvHelper.Configuration.Attributes;
-using MassSpectrometry;
 
 namespace Readers
 {
