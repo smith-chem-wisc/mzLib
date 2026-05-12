@@ -284,5 +284,84 @@ namespace Test.MassSpectrometryTests
             var envelopes = ms2.GetIsolatedMassesAndCharges(precursorMs1, parameters).ToList();
             Assert.AreEqual(0, envelopes.Count);
         }
+
+        // -------- contract / error-path tests for FromFileDeconvolutionParameters
+
+        [Test]
+        public void FromFileDeconvolutionParameters_NullFilePath_Throws()
+        {
+            Assert.Throws<System.ArgumentNullException>(
+                () => new FromFileDeconvolutionParameters((string)null!, minCharge: 1, maxCharge: 60));
+        }
+
+        [Test]
+        public void FromFileDeconvolutionParameters_NonFeatureFile_ThrowsMzLibException()
+        {
+            // .psmtsv is a recognized SupportedFileType but its IResultFile (PsmFromTsvFile)
+            // doesn't implement IMs1FeatureFile — the ctor must reject it with a clear
+            // message rather than silently producing an empty feature set.
+            var psmTsv = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\SearchResults\BottomUpExample.psmtsv");
+            Assert.Throws<MzLibUtil.MzLibException>(
+                () => new FromFileDeconvolutionParameters(psmTsv, minCharge: 1, maxCharge: 60));
+        }
+
+        [Test]
+        public void FromFileDeconvolutionParameters_ToDecoyParameters_ReturnsNull()
+        {
+            // FromFile has no decoy variant (masses are taken as authoritative).
+            Assert.IsNull(Params(Feature()).ToDecoyParameters());
+        }
+
+        // -------- Deconvoluter auto-upgrade with null range ---------------------
+
+        [Test]
+        public void Deconvoluter_MsDataScanOverload_NullRange_AutoUpgradesUsingScanRange()
+        {
+            // When the caller passes no range, Deconvolute(MsDataScan, ...) for FromFile
+            // params auto-upgrades using the scan's MassSpectrum.Range and RetentionTime.
+            // Covers the null-side of the ternary in the auto-upgrade branch.
+            var precursorMs1 = MakeMs1(1, rt: 12.5);
+            // Feature m/z 500 lies inside MinimalMs1Spectrum's range (single peak at 500.0).
+            var feat = new SingleChargeMs1Feature(500.0, Charge: 2, RetentionTimeStart: 10, RetentionTimeEnd: 15, Intensity: 1e5);
+
+            var envelopes = Deconvoluter.Deconvolute(precursorMs1, Params(feat)).ToList();
+            Assert.AreEqual(1, envelopes.Count);
+            Assert.AreEqual(2, envelopes[0].Charge);
+        }
+
+        [Test]
+        public void Deconvoluter_DeconvoluteWithDecoys_FromFileParams_ThrowsBecauseNoDecoySupport()
+        {
+            // FromFileDeconvolutionParameters.ToDecoyParameters() returns null.
+            // DeconvoluteWithDecoys must surface that as InvalidOperationException
+            // rather than crashing deeper. Locks Deconvoluter's documented contract.
+            var feat = Feature();
+            var range = new MzRtRange(599.0, 601.0, 12.0, 13.0);
+            Assert.Throws<System.InvalidOperationException>(
+                () => Deconvoluter.DeconvoluteWithDecoys(MinimalMs1Spectrum(), Params(feat), range));
+        }
+
+        // Test-only stub: a DeconvolutionParameters that claims DeconvolutionType.FromFile
+        // but doesn't override CreateAlgorithm. This is the case Deconvoluter's
+        // enum-switch FromFile branch is defending against; a future subclass with this
+        // shape would otherwise fall through and produce a confusing failure.
+        private sealed class FromFileParamsWithoutAlgorithmOverride : DeconvolutionParameters
+        {
+            public override DeconvolutionType DeconvolutionType { get; protected set; } = DeconvolutionType.FromFile;
+            public FromFileParamsWithoutAlgorithmOverride() : base(minCharge: 1, maxCharge: 10) { }
+            public override DeconvolutionParameters ToDecoyParameters() => null;
+        }
+
+        [Test]
+        public void Deconvoluter_FromFileWithoutCreateAlgorithmOverride_ThrowsExplanatoryMzLibException()
+        {
+            var range = new MzRtRange(599.0, 601.0, 12.0, 13.0);
+            var brokenParams = new FromFileParamsWithoutAlgorithmOverride();
+            var ex = Assert.Throws<MzLibUtil.MzLibException>(
+                () => Deconvoluter.Deconvolute(MinimalMs1Spectrum(), brokenParams, range).ToList());
+            Assert.IsTrue(ex.Message.Contains("CreateAlgorithm"),
+                $"exception message should point at the missing CreateAlgorithm override; was: {ex.Message}");
+        }
     }
 }
