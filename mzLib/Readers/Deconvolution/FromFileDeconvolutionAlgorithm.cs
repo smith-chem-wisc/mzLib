@@ -41,12 +41,17 @@ namespace Readers
                 ?? throw new MzLibException(
                     "FromFileDeconvolutionAlgorithm requires an MzRtRange (m/z range + RT bounds)");
 
-            foreach (var feat in fromFileParams.Features)
+            // Features are sorted by m/z. Binary-search for the lower bound, iterate
+            // forward, and break as soon as we pass the upper bound — O(log N + k).
+            var features = fromFileParams.Features;
+            int start = fromFileParams.FindFirstIndexAtOrAbove(rangeWithRt.Minimum);
+            for (int i = start; i < features.Count; i++)
             {
+                var feat = features[i];
+                if (feat.Mz > rangeWithRt.Maximum) yield break;
+
                 if (feat.Charge < fromFileParams.MinAssumedChargeState) continue;
                 if (feat.Charge > fromFileParams.MaxAssumedChargeState) continue;
-                if (feat.Mz < rangeWithRt.Minimum) continue;
-                if (feat.Mz > rangeWithRt.Maximum) continue;
                 if (feat.RetentionTimeEnd < rangeWithRt.MinimumRt) continue;
                 if (feat.RetentionTimeStart > rangeWithRt.MaximumRt) continue;
 
