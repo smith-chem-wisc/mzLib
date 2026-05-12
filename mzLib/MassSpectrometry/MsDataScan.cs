@@ -189,9 +189,7 @@ namespace MassSpectrometry
             if (IsolationRange is null)
                 return new List<IsotopicEnvelope>();
 
-            MzRange range = new MzRange(IsolationRange.Minimum - isolationPadding, IsolationRange.Maximum + isolationPadding);
-            if (deconParameters is FromFileDeconvolutionParameters)
-                range = new MzRtRange(range, RetentionTime, 0.1);
+            var range = new MzRange(IsolationRange.Minimum - isolationPadding, IsolationRange.Maximum + isolationPadding);
 
             return Deconvoluter.Deconvolute(precursorSpectrum, deconParameters, range)
                 .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
@@ -216,9 +214,7 @@ namespace MassSpectrometry
             if (IsolationRange is null)
                 return new List<IsotopicEnvelope>();
 
-            MzRange range = new MzRange(IsolationRange.Minimum - isolationPadding, IsolationRange.Maximum + isolationPadding);
-            if (deconParameters is FromFileDeconvolutionParameters)
-                range = new MzRtRange(range, RetentionTime, 0.1);
+            var range = new MzRange(IsolationRange.Minimum - isolationPadding, IsolationRange.Maximum + isolationPadding);
 
             return Deconvoluter.Deconvolute(precursorScan, deconParameters, range)
                 .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));

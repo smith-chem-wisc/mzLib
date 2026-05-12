@@ -1,13 +1,14 @@
 using System.Collections.Generic;
 using Chemistry;
+using MassSpectrometry;
 using MzLibUtil;
 
-namespace MassSpectrometry
+namespace Readers
 {
     /// <summary>
     /// Deconvolution algorithm that yields envelopes for pre-deconvoluted MS1 features
-    /// (typically loaded from a FlashDeconv / TopFD <c>.ms1.feature</c> file via the
-    /// Readers project, then wrapped in <see cref="FromFileDeconvolutionParameters"/>).
+    /// loaded by <see cref="FromFileDeconvolutionParameters"/> from a feature file
+    /// (FlashDeconv / TopFD <c>.ms1.feature</c>, Dinosaur <c>.feature.tsv</c>, ...).
     /// </summary>
     /// <remarks>
     /// Pure join. For each <see cref="ISingleChargeMs1Feature"/> in the parameters,
@@ -21,11 +22,7 @@ namespace MassSpectrometry
     /// falls inside <c>[MinAssumedChargeState, MaxAssumedChargeState]</c>.</description></item>
     /// </list>
     /// The <see cref="MzSpectrum"/> argument is ignored — the masses come from the
-    /// pre-deconvoluted features, not from the spectrum. The returned envelope is
-    /// built via <see cref="IsotopicEnvelope(double, double, int)"/>; its <c>Peaks</c>
-    /// list contains a single synthetic entry at the feature's m/z. Per-peak data
-    /// from the producer is not surfaced because external <c>.ms1.feature</c> formats
-    /// do not carry it.
+    /// pre-deconvoluted features, not from the spectrum.
     /// </remarks>
     internal class FromFileDeconvolutionAlgorithm : DeconvolutionAlgorithm
     {
@@ -34,7 +31,7 @@ namespace MassSpectrometry
         {
         }
 
-        internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range)
+        protected override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range)
         {
             var fromFileParams = DeconvolutionParameters as FromFileDeconvolutionParameters
                 ?? throw new MzLibException(

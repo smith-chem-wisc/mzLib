@@ -47,6 +47,8 @@ namespace Test.MassSpectrometryTests
             double rtStart = 10.0, double rtEnd = 15.0, double intensity = 1e5)
             => new SingleChargeMs1Feature(mz, charge, rtStart, rtEnd, intensity);
 
+        // Tests use the internal IEnumerable ctor (InternalsVisibleTo("Test") is declared in
+        // Readers) to seed parameters without writing a temp feature file.
         private static FromFileDeconvolutionParameters Params(params ISingleChargeMs1Feature[] feats)
             => new FromFileDeconvolutionParameters(feats, minCharge: 1, maxCharge: 60);
 
@@ -58,10 +60,9 @@ namespace Test.MassSpectrometryTests
         public void DirectAlgorithm_FeatureInsideRange_EmitsOneEnvelope()
         {
             var feat = Feature();
-            var spectrum = MinimalMs1Spectrum();
             var range = new MzRtRange(minMZ: 599.0, maxMZ: 601.0, minRt: 12.0, maxRt: 13.0);
 
-            var envelopes = Deconvoluter.Deconvolute(spectrum, Params(feat), range).ToList();
+            var envelopes = Deconvoluter.Deconvolute(MinimalMs1Spectrum(), Params(feat), range).ToList();
 
             Assert.AreEqual(1, envelopes.Count);
             var env = envelopes[0];
@@ -75,10 +76,8 @@ namespace Test.MassSpectrometryTests
         public void DirectAlgorithm_FeatureRtWindowOutsideRange_NoEmit()
         {
             // Feature elutes at [10, 15]; range asks for [20, 21].
-            var feat = Feature();
             var range = new MzRtRange(minMZ: 599.0, maxMZ: 601.0, minRt: 20.0, maxRt: 21.0);
-
-            var envelopes = Deconvoluter.Deconvolute(MinimalMs1Spectrum(), Params(feat), range).ToList();
+            var envelopes = Deconvoluter.Deconvolute(MinimalMs1Spectrum(), Params(Feature()), range).ToList();
             Assert.AreEqual(0, envelopes.Count);
         }
 
@@ -86,10 +85,8 @@ namespace Test.MassSpectrometryTests
         public void DirectAlgorithm_FeatureRtWindowOverlapsRange_Emits()
         {
             // Feature [10, 15] overlaps requested [14, 18] at [14, 15].
-            var feat = Feature();
             var range = new MzRtRange(minMZ: 599.0, maxMZ: 601.0, minRt: 14.0, maxRt: 18.0);
-
-            var envelopes = Deconvoluter.Deconvolute(MinimalMs1Spectrum(), Params(feat), range).ToList();
+            var envelopes = Deconvoluter.Deconvolute(MinimalMs1Spectrum(), Params(Feature()), range).ToList();
             Assert.AreEqual(1, envelopes.Count);
         }
 
@@ -97,10 +94,8 @@ namespace Test.MassSpectrometryTests
         public void DirectAlgorithm_FeatureMzOutsideMzRange_NoEmit()
         {
             // Feature m/z = 600; range asks for [700, 705].
-            var feat = Feature();
             var range = new MzRtRange(minMZ: 700.0, maxMZ: 705.0, minRt: 12.0, maxRt: 13.0);
-
-            var envelopes = Deconvoluter.Deconvolute(MinimalMs1Spectrum(), Params(feat), range).ToList();
+            var envelopes = Deconvoluter.Deconvolute(MinimalMs1Spectrum(), Params(Feature()), range).ToList();
             Assert.AreEqual(0, envelopes.Count);
         }
 
@@ -119,14 +114,11 @@ namespace Test.MassSpectrometryTests
         [Test]
         public void DirectAlgorithm_RequiresMzRtRange_ThrowsOnPlainMzRange()
         {
-            // FromFileDeconvolutionAlgorithm cannot deconvolute without an RT window
-            // because the features carry RT bounds — Deconvoluter raises
-            // ArgumentException before the algorithm even runs.
-            var feat = Feature();
+            // FromFile requires an MzRtRange. Deconvoluter raises ArgumentException
+            // before the algorithm even runs.
             var range = new MzRange(599.0, 601.0);
-
             Assert.Throws<System.ArgumentException>(
-                () => Deconvoluter.Deconvolute(MinimalMs1Spectrum(), Params(feat), range).ToList());
+                () => Deconvoluter.Deconvolute(MinimalMs1Spectrum(), Params(Feature()), range).ToList());
         }
 
         [Test]
@@ -149,67 +141,76 @@ namespace Test.MassSpectrometryTests
             Assert.AreEqual(0, envelopes.Count);
         }
 
-        // -------- integration tests via MsDataScan.GetIsolatedMassesAndCharges --
-        // These exercise the MM-style path: GIMC auto-upgrades the requested range
-        // to an MzRtRange (with rtTolerance = 0.1) using the MS2 scan's own RT,
-        // then dispatches through Deconvoluter.
+        // -------- contract tests for the MzSpectrum / MsDataScan overloads ------
 
         [Test]
-        public void Integration_GetIsolatedMassesAndCharges_RtInsideAndMzInIsolation_EmitsOne()
+        public void MzSpectrumOverloadOfGimc_FromFileWithoutMzRtRange_Throws()
         {
-            // MS2 at RT 12.5, isolating m/z 600 ± 1. Feature m/z 600, RT [10, 15].
-            // GIMC builds MzRtRange around the MS2's RT (±0.1); feature window covers
-            // that range; m/z is inside the isolation window; one envelope returned.
+            // MsDataScan.GetIsolatedMassesAndCharges(MzSpectrum, ...) builds a plain
+            // MzRange and hands off to Deconvoluter.Deconvolute(MzSpectrum, ...),
+            // which throws when the params demand RT context. Documenting that
+            // contract so callers know to use the MsDataScan overload instead.
+            var ms2 = MakeMs2(2, rt: 12.5, isolationMz: 600.0, isolationWidth: 2.0);
+            Assert.Throws<System.ArgumentException>(
+                () => ms2.GetIsolatedMassesAndCharges(MinimalMs1Spectrum(), Params(Feature())).ToList());
+        }
+
+        // -------- integration tests via the MsDataScan overload of GIMC ---------
+        // The MM-side flow: pass a precursor MS1 MsDataScan; Deconvoluter auto-upgrades
+        // the plain MzRange to an MzRtRange using the precursor's RT.
+
+        [Test]
+        public void Integration_GimcMsDataScanOverload_RtInsideAndMzInIsolation_EmitsOne()
+        {
+            var precursorMs1 = MakeMs1(1, rt: 12.5);
             var ms2 = MakeMs2(2, rt: 12.5, isolationMz: 600.0, isolationWidth: 2.0);
 
-            var envelopes = ms2.GetIsolatedMassesAndCharges(MinimalMs1Spectrum(), Params(Feature())).ToList();
+            var envelopes = ms2.GetIsolatedMassesAndCharges(precursorMs1, Params(Feature())).ToList();
             Assert.AreEqual(1, envelopes.Count);
             Assert.AreEqual(2, envelopes[0].Charge);
             Assert.AreEqual(600.0.ToMass(2), envelopes[0].MonoisotopicMass, 1e-9);
         }
 
         [Test]
-        public void Integration_GetIsolatedMassesAndCharges_MzOutsideIsolation_NoEmit()
+        public void Integration_GimcMsDataScanOverload_MzOutsideIsolation_NoEmit()
         {
-            // Feature at m/z 600 is inside the algorithm's 8.5-padded m/z range
-            // [591.5, 608.5] but OUTSIDE the strict IsolationRange [599, 601] -- wait,
-            // 600 is inside that. Use 597 instead, which is in the padded range but
-            // outside strict isolation.
+            // m/z 597 is inside the 8.5-padded m/z range [591.5, 608.5] but OUTSIDE
+            // the strict isolation [599, 601]. The post-filter rejects it.
             var feat = new SingleChargeMs1Feature(597.0, 2, 10, 15, 1e5);
+            var precursorMs1 = MakeMs1(1, rt: 12.5);
             var ms2 = MakeMs2(2, rt: 12.5, isolationMz: 600.0, isolationWidth: 2.0);
 
-            var envelopes = ms2.GetIsolatedMassesAndCharges(MinimalMs1Spectrum(), Params(feat)).ToList();
-            Assert.AreEqual(0, envelopes.Count,
-                "post-filter on isolationRange.Contains(peak.mz) rejects features that the padded m/z range admitted but the strict isolation excludes");
+            var envelopes = ms2.GetIsolatedMassesAndCharges(precursorMs1, Params(feat)).ToList();
+            Assert.AreEqual(0, envelopes.Count);
         }
 
         [Test]
-        public void Integration_GetIsolatedMassesAndCharges_RtOutsideFeatureWindow_NoEmit()
+        public void Integration_GimcMsDataScanOverload_RtOutsideFeatureWindow_NoEmit()
         {
-            // MS2 at RT 100; feature window [10, 15].
+            var precursorMs1 = MakeMs1(1, rt: 100.0);
             var ms2 = MakeMs2(2, rt: 100.0, isolationMz: 600.0, isolationWidth: 2.0);
-
-            var envelopes = ms2.GetIsolatedMassesAndCharges(MinimalMs1Spectrum(), Params(Feature())).ToList();
+            var envelopes = ms2.GetIsolatedMassesAndCharges(precursorMs1, Params(Feature())).ToList();
             Assert.AreEqual(0, envelopes.Count);
         }
 
         [Test]
-        public void Integration_GetIsolatedMassesAndCharges_NullIsolation_ReturnsEmpty()
+        public void Integration_GimcMsDataScanOverload_NullIsolation_ReturnsEmpty()
         {
+            var precursorMs1 = MakeMs1(1, rt: 12.5);
             var ms2 = MakeMs2(2, rt: 12.5, isolationMz: null, isolationWidth: null);
-
-            var envelopes = ms2.GetIsolatedMassesAndCharges(MinimalMs1Spectrum(), Params(Feature())).ToList();
+            var envelopes = ms2.GetIsolatedMassesAndCharges(precursorMs1, Params(Feature())).ToList();
             Assert.AreEqual(0, envelopes.Count);
         }
 
         [Test]
-        public void Integration_GetIsolatedMassesAndCharges_TwoFeaturesIntoSameIsolation_EmitsChimera()
+        public void Integration_GimcMsDataScanOverload_TwoFeaturesIntoSameIsolation_EmitsChimera()
         {
+            var precursorMs1 = MakeMs1(1, rt: 12.5);
             var ms2 = MakeMs2(2, rt: 12.5, isolationMz: 600.0, isolationWidth: 4.0);
             var featA = new SingleChargeMs1Feature(599.0, Charge: 2, RetentionTimeStart: 10, RetentionTimeEnd: 15, Intensity: 1e5);
             var featB = new SingleChargeMs1Feature(601.0, Charge: 3, RetentionTimeStart: 10, RetentionTimeEnd: 15, Intensity: 2e5);
 
-            var envelopes = ms2.GetIsolatedMassesAndCharges(MinimalMs1Spectrum(), Params(featA, featB)).ToList();
+            var envelopes = ms2.GetIsolatedMassesAndCharges(precursorMs1, Params(featA, featB)).ToList();
             Assert.AreEqual(2, envelopes.Count);
             CollectionAssert.AreEquivalent(new[] { 2, 3 }, envelopes.Select(e => e.Charge));
         }
@@ -217,45 +218,44 @@ namespace Test.MassSpectrometryTests
         [Test]
         public void Integration_OneFeatureSpansMultipleMs2Scans_EachScanResolvesIt()
         {
-            // Caller iterates MS2 scans; each call to GIMC sees the same feature.
-            var msScans = new[]
-            {
-                MakeMs2(2, rt: 11.5, isolationMz: 600.0, isolationWidth: 2.0),
-                MakeMs2(3, rt: 12.5, isolationMz: 600.0, isolationWidth: 2.0),
-                MakeMs2(4, rt: 13.5, isolationMz: 600.0, isolationWidth: 2.0),
-            };
             var parameters = Params(Feature());
-            int totalEnvelopes = msScans
-                .Select(ms2 => ms2.GetIsolatedMassesAndCharges(MinimalMs1Spectrum(), parameters).Count())
+            var msPairs = new (MsDataScan precursor, MsDataScan ms2)[]
+            {
+                (MakeMs1(1, rt: 11.5), MakeMs2(2, rt: 11.5, isolationMz: 600.0, isolationWidth: 2.0)),
+                (MakeMs1(3, rt: 12.5), MakeMs2(4, rt: 12.5, isolationMz: 600.0, isolationWidth: 2.0)),
+                (MakeMs1(5, rt: 13.5), MakeMs2(6, rt: 13.5, isolationMz: 600.0, isolationWidth: 2.0)),
+            };
+            int totalEnvelopes = msPairs
+                .Select(p => p.ms2.GetIsolatedMassesAndCharges(p.precursor, parameters).Count())
                 .Sum();
             Assert.AreEqual(3, totalEnvelopes);
         }
 
         // -------- end-to-end fixture tests --------------------------------------
-        // Load a real .ms1.feature file (FlashDeconv or TopFD format) through the
-        // production Ms1FeatureFile reader, then drive the algorithm via
-        // MsDataScan.GetIsolatedMassesAndCharges with a synthetic MS2 scan tuned to
-        // capture exactly one charge state of feature row #1.
-        //
-        // Both fixtures contain a feature with Mass ≈ 10835.9 Da (charges 7-18 for
-        // FlashDeconv, 7-17 for TopFD) over RT ≈ 2375-2402 s. Charge 10 m/z ≈ 1084.60.
-        // An MS2 with isolationMz 1084.6 ± 1.0 at RT 2390 selects only that charge.
+        // Drive the file-path constructor for FromFileDeconvolutionParameters,
+        // exercising the format-detection path (FileReader.ReadResultFile +
+        // SupportedFileType + Ms1FeatureFile.LoadResults). Each fixture loads a real
+        // .ms1.feature file (FlashDeconv or TopFD), then pairs against a synthetic
+        // MS2 tuned to capture exactly one charge state of feature row #1.
 
         [TestCase(@"FileReadingTests\ExternalFileTypes\Ms1Feature_FlashDeconvOpenMs3.0.0_ms1.feature",
             /*expectedIntensityPositive*/ false)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.6.2_ms1.feature",
             /*expectedIntensityPositive*/ true)]
-        public void EndToEnd_RealMs1FeatureFile_ResolvesExpectedChargeState(string relativeFixturePath, bool expectedIntensityPositive)
+        public void EndToEnd_FilePathCtor_ResolvesExpectedChargeState(string relativeFixturePath, bool expectedIntensityPositive)
         {
             var fixturePath = Path.Combine(TestContext.CurrentContext.TestDirectory, relativeFixturePath);
-            var perChargeFeatures = new Ms1FeatureFile(fixturePath).GetMs1Features().ToList();
-            Assert.IsTrue(perChargeFeatures.Count >= 25,
-                $"fixture {Path.GetFileName(relativeFixturePath)} unexpectedly small: {perChargeFeatures.Count} per-charge entries");
 
-            var parameters = new FromFileDeconvolutionParameters(perChargeFeatures, minCharge: 1, maxCharge: 60);
+            // Drives the public file-path ctor — exercises FileReader.ReadResultFile,
+            // SupportedFileType auto-detection, and Ms1FeatureFile.LoadResults.
+            var parameters = new FromFileDeconvolutionParameters(fixturePath, minCharge: 1, maxCharge: 60);
+            Assert.IsTrue(parameters.Features.Count >= 25,
+                $"fixture {Path.GetFileName(relativeFixturePath)} unexpectedly small: {parameters.Features.Count} per-charge entries");
+
+            var precursorMs1 = MakeMs1(1, rt: 2390.0);
             var ms2 = MakeMs2(2, rt: 2390.0, isolationMz: 1084.6, isolationWidth: 2.0);
 
-            var envelopes = ms2.GetIsolatedMassesAndCharges(MinimalMs1Spectrum(), parameters).ToList();
+            var envelopes = ms2.GetIsolatedMassesAndCharges(precursorMs1, parameters).ToList();
 
             Assert.AreEqual(1, envelopes.Count, "exactly one feature-charge in this isolation window");
             var env = envelopes[0];
@@ -264,8 +264,6 @@ namespace Test.MassSpectrometryTests
             double monoMz = env.MonoisotopicMass.ToMz(env.Charge);
             Assert.IsTrue(monoMz > 1083.6 && monoMz < 1085.6, $"emitted m/z {monoMz} outside isolation window");
 
-            // FlashDeconv format has no Apex_intensity column → Intensity flows through
-            // as 0. TopFD has it → positive.
             if (expectedIntensityPositive)
                 Assert.IsTrue(env.TotalIntensity > 0, "TopFD-derived envelope should carry a positive intensity");
             else
@@ -273,17 +271,17 @@ namespace Test.MassSpectrometryTests
         }
 
         [Test]
-        public void EndToEnd_RealMs1FeatureFile_NoMs2InWindow_NoEmit()
+        public void EndToEnd_FilePathCtor_NoMs2InWindow_NoEmit()
         {
             var fixturePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
                 @"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.6.2_ms1.feature");
-            var perChargeFeatures = new Ms1FeatureFile(fixturePath).GetMs1Features().ToList();
-            var parameters = new FromFileDeconvolutionParameters(perChargeFeatures, minCharge: 1, maxCharge: 60);
+            var parameters = new FromFileDeconvolutionParameters(fixturePath, minCharge: 1, maxCharge: 60);
 
             // MS2 at RT 100000 — far outside any feature's window.
+            var precursorMs1 = MakeMs1(1, rt: 100000.0);
             var ms2 = MakeMs2(2, rt: 100000.0, isolationMz: 1084.6, isolationWidth: 2.0);
 
-            var envelopes = ms2.GetIsolatedMassesAndCharges(MinimalMs1Spectrum(), parameters).ToList();
+            var envelopes = ms2.GetIsolatedMassesAndCharges(precursorMs1, parameters).ToList();
             Assert.AreEqual(0, envelopes.Count);
         }
     }

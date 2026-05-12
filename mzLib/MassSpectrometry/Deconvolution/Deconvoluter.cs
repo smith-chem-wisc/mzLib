@@ -95,19 +95,26 @@ namespace MassSpectrometry
         }
 
         /// <summary>
-        /// Factory method to create the correct deconvolution algorithm from the parameters
+        /// Factory method to create the correct deconvolution algorithm from the parameters.
+        /// First gives the parameters object a chance to construct its own algorithm via
+        /// <see cref="DeconvolutionParameters.CreateAlgorithm"/> — this is how algorithms
+        /// living outside <c>MassSpectrometry</c> (e.g. <c>FromFileDeconvolutionAlgorithm</c>
+        /// in <c>Readers</c>) plug themselves in. Falls back to the enum-based switch for
+        /// in-project algorithms.
         /// </summary>
         /// <param name="parameters"></param>
         /// <returns></returns>
         /// <exception cref="MzLibException"></exception>
         private static DeconvolutionAlgorithm CreateAlgorithm(DeconvolutionParameters parameters)
         {
-            return parameters.DeconvolutionType switch
+            return parameters.CreateAlgorithm() ?? parameters.DeconvolutionType switch
             {
                 DeconvolutionType.ClassicDeconvolution => new ClassicDeconvolutionAlgorithm(parameters),
                 DeconvolutionType.ExampleNewDeconvolutionTemplate => new ExampleNewDeconvolutionAlgorithmTemplate(parameters),
                 DeconvolutionType.IsoDecDeconvolution => new IsoDecAlgorithm(parameters),
-                DeconvolutionType.FromFile => new FromFileDeconvolutionAlgorithm(parameters),
+                DeconvolutionType.FromFile => throw new MzLibException(
+                    "FromFile deconvolution requires a DeconvolutionParameters subclass that overrides " +
+                    "CreateAlgorithm() (typically FromFileDeconvolutionParameters in the Readers project)."),
                 _ => throw new MzLibException("DeconvolutionType not yet supported")
             };
         }
