@@ -1999,6 +1999,248 @@ namespace Test.FileReadingTests.SpectraFileReading
             }
         }
 
+        // =====================================================================
+        // Charge-array <-> peak-array alignment tests (regression for the
+        // permutation-sync gap trishorts identified in PR #1060 review). The
+        // reader paths reorder/trim m/z and intensity in three places (zero-
+        // intensity removal, WindowModeHelper filtering, and the final
+        // Array.Sort by m/z); all three must apply the same permutation/mask
+        // to the per-peak chargeArray. Each test below targets one of those
+        // three operations and asserts that the (m/z, charge) pairing in the
+        // round-tripped scan matches the (m/z, charge) pairing the writer
+        // saw, peak-for-peak.
+        // =====================================================================
+
+        [Test]
+        public static void ChargeArrayUnsortedMzInputAlignsAfterReaderSort()
+        {
+            // Regression: when the on-disk mzML carries m/z values out of order, the
+            // reader's final Array.Sort(masses, intensities) used to permute m/z and
+            // intensities but leave the charge array in source order — so charges silently
+            // pointed at the wrong peaks once the spectrum reached the caller. Lengths
+            // matched, so the existing length-only policy didn't catch it.
+            //
+            // Construction: source pairs are (mz=300, charge=2), (mz=200, charge=3),
+            // (mz=100, charge=1). MzSpectrum's 3-arg ctor with shouldCopy:false stores
+            // XArray verbatim, and MzmlMethods writes that order via Get64BitXarray (no
+            // sort on write). After the reader sorts by m/z, the surviving (mz, charge)
+            // pairings should still be (100, 1), (200, 3), (300, 2).
+            var sourceMz = new[] { 300.0, 200.0, 100.0 };
+            var sourceIntensity = new[] { 600.0, 400.0, 200.0 };
+            var sourceCharges = new[] { 2, 3, 1 };
+            var spectrum = new MzSpectrum(sourceMz, sourceIntensity, shouldCopy: false);
+
+            var scan = new MsDataScan(
+                spectrum,
+                oneBasedScanNumber: 1,
+                msnOrder: 1,
+                isCentroid: true,
+                polarity: Polarity.Positive,
+                retentionTime: 1.0,
+                scanWindowRange: new MzRange(50, 1000),
+                scanFilter: "FTMS + p NSI Full ms",
+                mzAnalyzer: MZAnalyzerType.Orbitrap,
+                totalIonCurrent: 1200,
+                injectionTime: null,
+                noiseData: null,
+                nativeId: "scan=1",
+                chargeArray: sourceCharges);
+
+            var sourceFile = new SourceFile(
+                nativeIdFormat: "scan number only nativeID format",
+                massSpectrometerFileFormat: "mzML format",
+                checkSum: null,
+                fileChecksumType: "SHA-1",
+                uri: new Uri("file:///test"),
+                id: "test",
+                fileName: "test.mzML");
+
+            var dataFile = new GenericMsDataFile(new[] { scan }, sourceFile);
+            string outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "charge_unsorted_mz_roundtrip.mzML");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(dataFile, outPath, false);
+
+            try
+            {
+                var reread = (Mzml)MsDataFileReader.GetDataFile(outPath);
+                reread.LoadAllStaticData();
+                var readBack = reread.GetOneBasedScan(1);
+
+                Assert.IsNotNull(readBack.ChargeArray, "ChargeArray dropped on read-back of unsorted-m/z input");
+                Assert.AreEqual(sourceMz.Length, readBack.MassSpectrum.Size,
+                    "Peak count changed unexpectedly on read-back");
+
+                // The reader sorts by m/z; the SOURCE pairing was (300,2)(200,3)(100,1),
+                // so the post-sort expected pairing is (100,1)(200,3)(300,2).
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(
+                    new[] { 100.0, 200.0, 300.0 }, readBack.MassSpectrum.XArray);
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(
+                    new[] { 200.0, 400.0, 600.0 }, readBack.MassSpectrum.YArray);
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(
+                    new[] { 1, 3, 2 }, readBack.ChargeArray);
+            }
+            finally
+            {
+                if (File.Exists(outPath)) File.Delete(outPath);
+            }
+        }
+
+        [Test]
+        public static void ChargeArraySurvivesZeroIntensityFilter()
+        {
+            // Regression: the reader trims peaks with intensity < 0.01 by sorting on
+            // intensity, slicing off the low-intensity prefix, and re-sorting by m/z.
+            // Without the fix, the chargeArray was unaffected by either sort or by the
+            // SubArray slice — its length still matched but it pointed at the wrong peaks
+            // (and was now too long for the trimmed spectrum, only "happening" to match
+            // length when zero peaks were trimmed). Assert that a sub-0.01 intensity peak
+            // is dropped and the surviving charges line up with the surviving (m/z, intensity).
+            //
+            // Source: (100, 0.005, charge=9), (200, 1000, 2), (300, 2000, 3). The 0.005
+            // peak gets trimmed; expected survivors are (200, 1000, 2) and (300, 2000, 3).
+            var sourceMz = new[] { 100.0, 200.0, 300.0 };
+            var sourceIntensity = new[] { 0.005, 1000.0, 2000.0 };
+            var sourceCharges = new[] { 9, 2, 3 };
+            var spectrum = new MzSpectrum(sourceMz, sourceIntensity, shouldCopy: false);
+
+            var scan = new MsDataScan(
+                spectrum,
+                oneBasedScanNumber: 1,
+                msnOrder: 1,
+                isCentroid: true,
+                polarity: Polarity.Positive,
+                retentionTime: 1.0,
+                scanWindowRange: new MzRange(50, 1000),
+                scanFilter: "FTMS + p NSI Full ms",
+                mzAnalyzer: MZAnalyzerType.Orbitrap,
+                totalIonCurrent: 3000.005,
+                injectionTime: null,
+                noiseData: null,
+                nativeId: "scan=1",
+                chargeArray: sourceCharges);
+
+            var sourceFile = new SourceFile(
+                nativeIdFormat: "scan number only nativeID format",
+                massSpectrometerFileFormat: "mzML format",
+                checkSum: null,
+                fileChecksumType: "SHA-1",
+                uri: new Uri("file:///test"),
+                id: "test",
+                fileName: "test.mzML");
+
+            var dataFile = new GenericMsDataFile(new[] { scan }, sourceFile);
+            string outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "charge_zero_intensity_roundtrip.mzML");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(dataFile, outPath, false);
+
+            try
+            {
+                var reread = (Mzml)MsDataFileReader.GetDataFile(outPath);
+                reread.LoadAllStaticData();
+                var readBack = reread.GetOneBasedScan(1);
+
+                Assert.AreEqual(2, readBack.MassSpectrum.Size,
+                    "Reader should have trimmed the sub-0.01 intensity peak");
+                Assert.IsNotNull(readBack.ChargeArray, "ChargeArray dropped after zero-intensity trim");
+                Assert.AreEqual(readBack.MassSpectrum.Size, readBack.ChargeArray.Length,
+                    "ChargeArray length must match surviving peak count");
+
+                // Pairings: (200, 1000, 2), (300, 2000, 3). Reader's final sort is by m/z,
+                // and these two peaks were already in m/z order so no further permutation
+                // beyond the trim itself.
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(
+                    new[] { 200.0, 300.0 }, readBack.MassSpectrum.XArray);
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(
+                    new[] { 1000.0, 2000.0 }, readBack.MassSpectrum.YArray);
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(
+                    new[] { 2, 3 }, readBack.ChargeArray);
+            }
+            finally
+            {
+                if (File.Exists(outPath)) File.Delete(outPath);
+            }
+        }
+
+        [Test]
+        public static void ChargeArraySurvivesFilteringParamsPruning()
+        {
+            // Regression: the reader optionally runs WindowModeHelper.Run when
+            // FilteringParams selects MS-level trimming. WindowModeHelper sorts by
+            // intensity, builds m/z windows, keeps only the top-N most-intense peaks per
+            // window, and finally re-sorts by m/z. None of those steps used to touch the
+            // chargeArray — survivors had the wrong charges. Assert that the surviving
+            // (m/z, intensity, charge) triples retain their source pairings after
+            // FilteringParams-driven pruning.
+            //
+            // Source: 6 peaks where the 3 weakest will be culled by
+            // NumberOfPeaksToKeepPerWindow = 3 across a single window. The scan window
+            // (50..1000 m/z) covers all peaks, NumberOfWindows omitted → one window total.
+            var sourceMz = new[] { 100.0, 200.0, 300.0, 400.0, 500.0, 600.0 };
+            var sourceIntensity = new[] { 10.0, 80.0, 30.0, 70.0, 20.0, 90.0 };
+            var sourceCharges = new[] { 1, 2, 3, 4, 5, 6 };
+            var spectrum = new MzSpectrum(sourceMz, sourceIntensity, shouldCopy: false);
+
+            var scan = new MsDataScan(
+                spectrum,
+                oneBasedScanNumber: 1,
+                msnOrder: 1,
+                isCentroid: true,
+                polarity: Polarity.Positive,
+                retentionTime: 1.0,
+                scanWindowRange: new MzRange(50, 1000),
+                scanFilter: "FTMS + p NSI Full ms",
+                mzAnalyzer: MZAnalyzerType.Orbitrap,
+                totalIonCurrent: 300,
+                injectionTime: null,
+                noiseData: null,
+                nativeId: "scan=1",
+                chargeArray: sourceCharges);
+
+            var sourceFile = new SourceFile(
+                nativeIdFormat: "scan number only nativeID format",
+                massSpectrometerFileFormat: "mzML format",
+                checkSum: null,
+                fileChecksumType: "SHA-1",
+                uri: new Uri("file:///test"),
+                id: "test",
+                fileName: "test.mzML");
+
+            var dataFile = new GenericMsDataFile(new[] { scan }, sourceFile);
+            string outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "charge_filterparams_roundtrip.mzML");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(dataFile, outPath, false);
+
+            try
+            {
+                var filterParams = new FilteringParams(
+                    numberOfPeaksToKeepPerWindow: 3,
+                    minimumAllowedIntensityRatioToBasePeak: null,
+                    windowWidthThomsons: null,
+                    numberOfWindows: 1,
+                    normalizePeaksAcrossAllWindows: false,
+                    applyTrimmingToMs1: true,
+                    applyTrimmingToMsMs: true);
+
+                var reread = (Mzml)MsDataFileReader.GetDataFile(outPath);
+                reread.LoadAllStaticData(filterParams);
+                var readBack = reread.GetOneBasedScan(1);
+
+                Assert.IsNotNull(readBack.ChargeArray, "ChargeArray dropped after FilteringParams pruning");
+                Assert.AreEqual(readBack.MassSpectrum.Size, readBack.ChargeArray.Length,
+                    "ChargeArray length must match surviving peak count after FilteringParams");
+
+                // The survivors should be the 3 most-intense peaks: (600, 90, 6), (200, 80, 2),
+                // (400, 70, 4). After the reader's final m/z sort: (200, 80, 2), (400, 70, 4),
+                // (600, 90, 6). Per-peak alignment is what we're really asserting here — the
+                // exact m/z values come from the source array.
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(
+                    new[] { 200.0, 400.0, 600.0 }, readBack.MassSpectrum.XArray);
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(
+                    new[] { 2, 4, 6 }, readBack.ChargeArray);
+            }
+            finally
+            {
+                if (File.Exists(outPath)) File.Delete(outPath);
+            }
+        }
+
         private MzSpectrum CreateSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
         {
             IsotopicDistribution isodist = IsotopicDistribution.GetDistribution(f, 0.1);

@@ -682,14 +682,29 @@ namespace Readers
                                         double zeroEquivalentIntensity = 0.01;
                                         int zeroIntensityCount = intensities.Count(i => i < zeroEquivalentIntensity);
                                         int intensityValueCount = intensities.Count();
+                                        // Mirror the static-reader path's charge-alignment policy: the per-peak
+                                        // chargeArray (if loaded) must follow every reorder/trim of mzs/intensities,
+                                        // otherwise charges silently misalign with their peaks. A length-mismatched
+                                        // chargeArray is treated as ambiguous and dropped.
+                                        bool hasCharges = chargeArray != null && chargeArray.Length == intensityValueCount;
+                                        if (chargeArray != null && !hasCharges) chargeArray = null;
                                         if (zeroIntensityCount > 0 && zeroIntensityCount < intensityValueCount)
                                         {
-                                            Array.Sort(intensities, mzs);
-                                            double[] nonZeroIntensities = new double[intensityValueCount - zeroIntensityCount];
-                                            double[] nonZeroMzs = new double[intensityValueCount - zeroIntensityCount];
-                                            intensities = intensities.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
-                                            mzs = mzs.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
-                                            Array.Sort(mzs, intensities);
+                                            if (hasCharges)
+                                            {
+                                                SortInPlaceByKey(intensities, mzs, chargeArray);
+                                                intensities = intensities.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                                                mzs = mzs.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                                                chargeArray = chargeArray.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                                                SortInPlaceByKey(mzs, intensities, chargeArray);
+                                            }
+                                            else
+                                            {
+                                                Array.Sort(intensities, mzs);
+                                                intensities = intensities.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                                                mzs = mzs.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                                                Array.Sort(mzs, intensities);
+                                            }
                                         }
 
 
@@ -697,10 +712,20 @@ namespace Readers
                                         if (filterParams != null && intensities.Length > 0 &&
                                             ((filterParams.ApplyTrimmingToMs1 && msOrder.Value == 1) || (filterParams.ApplyTrimmingToMsMs && msOrder.Value == 2) || (filterParams.ApplyTrimmingToMsN && msOrder.Value > 2)))
                                         {
-                                            WindowModeHelper.Run(ref intensities, ref mzs, filterParams, scanLowerLimit, scanUpperLimit);
+                                            // Charge-aware overload — keeps charges aligned through the
+                                            // window selection / pruning / final sort that WindowModeHelper does.
+                                            WindowModeHelper.Run(ref intensities, ref mzs, ref chargeArray, filterParams, scanLowerLimit, scanUpperLimit);
                                         }
 
-                                        Array.Sort(mzs, intensities);
+                                        if (hasCharges && chargeArray != null && chargeArray.Length == mzs.Length)
+                                        {
+                                            SortInPlaceByKey(mzs, intensities, chargeArray);
+                                        }
+                                        else
+                                        {
+                                            chargeArray = null;
+                                            Array.Sort(mzs, intensities);
+                                        }
 
                                         range = new MzRange(scanLowerLimit, scanUpperLimit);
                                         spectrum = new MzSpectrum(mzs, intensities, false);
@@ -951,22 +976,51 @@ namespace Readers
             double zeroEquivalentIntensity = 0.01;
             int zeroIntensityCount = intensities.Count(i => i < zeroEquivalentIntensity);
             int intensityValueCount = intensities.Count();
+            // Charge alignment policy: if the mzML included a per-peak chargeArray, every
+            // reorder/trim below has to be applied to it in lockstep, otherwise charges end
+            // up pointing at the wrong peaks (lengths can still match while values misalign,
+            // so the reader's existing length-only policy doesn't catch this). When the
+            // captured chargeArray length doesn't match the peak count, drop it — preserving
+            // a misaligned array would corrupt downstream consumers.
+            bool hasCharges = chargeArray != null && chargeArray.Length == intensityValueCount;
+            if (chargeArray != null && !hasCharges) chargeArray = null;
             if (zeroIntensityCount > 0 && zeroIntensityCount < intensityValueCount)
             {
-                Array.Sort(intensities, masses);
-                double[] nonZeroIntensities = new double[intensityValueCount - zeroIntensityCount];
-                double[] nonZeroMzs = new double[intensityValueCount - zeroIntensityCount];
-                intensities = intensities.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
-                masses = masses.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
-                Array.Sort(masses, intensities);
+                if (hasCharges)
+                {
+                    SortInPlaceByKey(intensities, masses, chargeArray);
+                    intensities = intensities.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                    masses = masses.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                    chargeArray = chargeArray.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                    SortInPlaceByKey(masses, intensities, chargeArray);
+                }
+                else
+                {
+                    Array.Sort(intensities, masses);
+                    intensities = intensities.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                    masses = masses.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                    Array.Sort(masses, intensities);
+                }
             }
 
             if (filterParams != null && intensities.Length > 0 && ((filterParams.ApplyTrimmingToMs1 && msOrder.Value == 1) || (filterParams.ApplyTrimmingToMsMs && msOrder.Value == 2) || (filterParams.ApplyTrimmingToMsN && msOrder.Value > 2)))
             {
-                WindowModeHelper.Run(ref intensities, ref masses, filterParams, low, high);
+                // Charge-aware overload: WindowModeHelper carries the array through its
+                // own sort/select/reduce when it's non-null and length-aligned.
+                WindowModeHelper.Run(ref intensities, ref masses, ref chargeArray, filterParams, low, high);
             }
 
-            Array.Sort(masses, intensities);
+            if (hasCharges && chargeArray != null && chargeArray.Length == masses.Length)
+            {
+                SortInPlaceByKey(masses, intensities, chargeArray);
+            }
+            else
+            {
+                // chargeArray went null at some point above (length mismatch after a
+                // filter), or there never was one — fall through to the original 2-array sort.
+                chargeArray = null;
+                Array.Sort(masses, intensities);
+            }
             var mzmlMzSpectrum = new MzSpectrum(masses, intensities, false);
 
             if (msOrder.Value == 1)
@@ -1106,6 +1160,34 @@ namespace Readers
                 compensationVoltage: compensationVoltage,
                 chargeArray: chargeArray
                 );
+        }
+
+        /// <summary>
+        /// In-place sort of three parallel arrays (key, valuesA, valuesB) by ascending key.
+        /// <see cref="Array.Sort(Array, Array)"/> only handles two parallel arrays at a time;
+        /// this helper uses an index-permutation pass so the per-peak m/z, intensity, and
+        /// charge arrays stay aligned through every reorder/trim point in the reader paths.
+        /// </summary>
+        private static void SortInPlaceByKey(double[] keys, double[] valuesA, int[] valuesB)
+        {
+            int n = keys.Length;
+            if (valuesA.Length != n || valuesB.Length != n)
+                throw new ArgumentException("SortInPlaceByKey: parallel arrays must have equal length.");
+            int[] perm = new int[n];
+            for (int i = 0; i < n; i++) perm[i] = i;
+            Array.Sort(perm, (a, b) => keys[a].CompareTo(keys[b]));
+            var newKeys = new double[n];
+            var newA = new double[n];
+            var newB = new int[n];
+            for (int i = 0; i < n; i++)
+            {
+                newKeys[i] = keys[perm[i]];
+                newA[i] = valuesA[perm[i]];
+                newB[i] = valuesB[perm[i]];
+            }
+            Array.Copy(newKeys, keys, n);
+            Array.Copy(newA, valuesA, n);
+            Array.Copy(newB, valuesB, n);
         }
 
         /// <summary>
