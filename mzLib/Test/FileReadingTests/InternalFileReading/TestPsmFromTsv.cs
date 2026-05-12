@@ -27,6 +27,7 @@ namespace Test.FileReadingTests.InternalFileReading
         [TestCase("VariantCrossTest.psmtsv", 15)] // variant crossing
         [TestCase("XL_Intralinks.tsv", 6)] // variant crossing
         [TestCase("XLink.psmtsv", 19)] // variant crossing
+        [TestCase("missingGeneAndName.psmtsv", 2)] // gene and name are null
         public static void TestPsmReaderWithMultipleEntryPoints(string path, int expected)
         {
             string psmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults",
@@ -335,10 +336,12 @@ namespace Test.FileReadingTests.InternalFileReading
         }
 
         [Test]
-        public static void TestPsmFromTsvDisambiguatingConstructor()
+        [TestCase(@"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv")]
+        [TestCase(@"FileReadingTests\SearchResults\TDGPTMDSearchResults_NoNameAndOrganism.psmtsv")]
+        public static void TestPsmFromTsvDisambiguatingConstructor(string file)
         {
             // initialize values
-            string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
+            string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, file);
             List<string> warnings = new();
             List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out warnings);
             PsmFromTsv psm = psms.First();
