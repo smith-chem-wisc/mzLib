@@ -1768,6 +1768,237 @@ namespace Test.FileReadingTests.SpectraFileReading
             return new MzSpectrum(allMassesArray, allIntensitiessArray, false);
         }
 
+        [Test]
+        public static void ChargeArrayRoundTrip()
+        {
+            // Regression test for the MS:1000516 "charge array" round-trip:
+            //   1. construct an MsDataScan with a per-peak chargeArray,
+            //   2. write it as mzML,
+            //   3. re-read it,
+            //   4. assert ChargeArray, m/z, AND intensity all round-trip element-for-element.
+            //
+            // Exercises both the writer branch in MzmlMethods (third <binaryDataArray> with
+            // accession="MS:1000516") and the reader branch in Mzml.cs (cvParam recognition
+            // + 32-bit-float decode rounded back to int[]).
+            //
+            // m/z and intensity assertions cover the most likely class of regression in this
+            // PR: a bug in the writer's per-spectrum array-list sizing (count attribute,
+            // allocation index, off-by-one when slotting the third <binaryDataArray>) could
+            // leave the new charge array intact while corrupting or mis-indexing the m/z or
+            // intensity arrays. Without these assertions a "passing" green test could ship
+            // a corrupted m/z/intensity round-trip.
+            var mzs = new[] { 100.0, 200.0, 300.0 };
+            var intensities = new[] { 1000.0, 2000.0, 3000.0 };
+            var spectrum = new MzSpectrum(mzs, intensities, shouldCopy: false);
+            var charges = new[] { 2, 3, 1 };
+
+            var scan = new MsDataScan(
+                spectrum,
+                oneBasedScanNumber: 1,
+                msnOrder: 1,
+                isCentroid: true,
+                polarity: Polarity.Positive,
+                retentionTime: 1.0,
+                scanWindowRange: new MzRange(50, 1000),
+                scanFilter: "FTMS + p NSI Full ms",
+                mzAnalyzer: MZAnalyzerType.Orbitrap,
+                totalIonCurrent: 6000,
+                injectionTime: null,
+                noiseData: null,
+                nativeId: "scan=1",
+                chargeArray: charges);
+
+            var sourceFile = new SourceFile(
+                nativeIdFormat: "scan number only nativeID format",
+                massSpectrometerFileFormat: "mzML format",
+                checkSum: null,
+                fileChecksumType: "SHA-1",
+                uri: new Uri("file:///test"),
+                id: "test",
+                fileName: "test.mzML");
+
+            var dataFile = new GenericMsDataFile(new[] { scan }, sourceFile);
+            string outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "charge_roundtrip.mzML");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(dataFile, outPath, false);
+
+            try
+            {
+                var reread = (Mzml)MsDataFileReader.GetDataFile(outPath);
+                reread.LoadAllStaticData();
+                var readBack = reread.GetOneBasedScan(1);
+
+                Assert.IsNotNull(readBack.ChargeArray, "ChargeArray was not populated on read-back");
+                Assert.AreEqual(charges.Length, readBack.ChargeArray.Length, "ChargeArray length mismatch");
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(charges, readBack.ChargeArray);
+
+                // m/z + intensity round-trip — guards against writer sizing/indexing bugs that
+                // would corrupt the existing arrays while leaving the new charge array alone.
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(mzs, readBack.MassSpectrum.XArray);
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(intensities, readBack.MassSpectrum.YArray);
+            }
+            finally
+            {
+                if (File.Exists(outPath)) File.Delete(outPath);
+            }
+        }
+
+        [Test]
+        public static void ChargeArrayRoundTripWithNoiseData()
+        {
+            // The writer's per-spectrum array-list sizing formula is
+            //   2 (m/z + intensity) + (3 if NoiseData) + (1 if ChargeArray)
+            // giving four distinct branches: 2, 3, 5, 6 arrays per spectrum.
+            //
+            // ChargeArrayRoundTrip exercises the 3-array branch (charges, no noise);
+            // ChargeArrayDefaultsToNullWhenAbsent exercises the baseline 2-array branch;
+            // this test exercises the most complex 6-array branch (BOTH noise AND charges).
+            // That branch is exactly where indexing/count bugs are most likely — a swap of
+            // NoiseData and ChargeArray bytes, a wrong count attribute, or a wrong array
+            // order would all surface here as an m/z, intensity, or charge mismatch on
+            // read-back, while passing the simpler tests above.
+            //
+            // Note: NoiseData itself is not currently re-populated on read-back (the reader
+            // has a "// TODO: read this" against it), so we don't assert NoiseData survives.
+            // What we DO assert is that adding NoiseData on the write side doesn't shift,
+            // duplicate, or corrupt the m/z / intensity / charge arrays it shares the
+            // binaryDataArrayList with.
+            var mzs = new[] { 110.0, 220.0, 330.0, 440.0 };
+            var intensities = new[] { 1100.0, 2200.0, 3300.0, 4400.0 };
+            var spectrum = new MzSpectrum(mzs, intensities, shouldCopy: false);
+            var charges = new[] { 1, 2, 3, 4 };
+
+            // [3, N]: row 0 = noise mass, row 1 = noise value, row 2 = baseline. Matches
+            // the GetNoiseDataMass/Noise/Baseline accessors in MsDataScan.
+            var noiseData = new double[3, 2]
+            {
+                { 50.0, 60.0 },     // mass
+                { 5.0, 6.0 },       // noise
+                { 0.5, 0.6 },       // baseline
+            };
+
+            var scan = new MsDataScan(
+                spectrum,
+                oneBasedScanNumber: 1,
+                msnOrder: 1,
+                isCentroid: true,
+                polarity: Polarity.Positive,
+                retentionTime: 1.0,
+                scanWindowRange: new MzRange(50, 1000),
+                scanFilter: "FTMS + p NSI Full ms",
+                mzAnalyzer: MZAnalyzerType.Orbitrap,
+                totalIonCurrent: 11000,
+                injectionTime: null,
+                noiseData: noiseData,
+                nativeId: "scan=1",
+                chargeArray: charges);
+
+            var sourceFile = new SourceFile(
+                nativeIdFormat: "scan number only nativeID format",
+                massSpectrometerFileFormat: "mzML format",
+                checkSum: null,
+                fileChecksumType: "SHA-1",
+                uri: new Uri("file:///test"),
+                id: "test",
+                fileName: "test.mzML");
+
+            var dataFile = new GenericMsDataFile(new[] { scan }, sourceFile);
+            string outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "charge_noise_roundtrip.mzML");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(dataFile, outPath, false);
+
+            try
+            {
+                var reread = (Mzml)MsDataFileReader.GetDataFile(outPath);
+                reread.LoadAllStaticData();
+                var readBack = reread.GetOneBasedScan(1);
+
+                // m/z, intensity, charge all survive the 6-array writer branch.
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(mzs, readBack.MassSpectrum.XArray,
+                    "m/z array drifted when NoiseData + ChargeArray both written");
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(intensities, readBack.MassSpectrum.YArray,
+                    "intensity array drifted when NoiseData + ChargeArray both written");
+                Assert.IsNotNull(readBack.ChargeArray, "ChargeArray null after writing alongside NoiseData");
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(charges, readBack.ChargeArray);
+
+                // Sanity-check the on-disk XML: the spectrum's <binaryDataArrayList>
+                // should declare count="6" (m/z + intensity + 3 noise + charge), and the
+                // file must carry an MS:1000516 cvParam somewhere. Catches writer
+                // count-attribute and array-allocation-index bugs even when the reader is
+                // permissive enough to still parse the file.
+                //
+                // We extract the count attribute on the FIRST binaryDataArrayList in the
+                // file (the spectrum's) rather than counting <binaryDataArray> across the
+                // whole file — indexed mzML appends chromatograms (TIC + base peak) which
+                // contribute their own binaryDataArray elements at file scope.
+                string xml = File.ReadAllText(outPath);
+                var listCountMatch = System.Text.RegularExpressions.Regex.Match(
+                    xml, "<binaryDataArrayList\\s+count=\"(\\d+)\"");
+                Assert.IsTrue(listCountMatch.Success,
+                    "Output XML missing a <binaryDataArrayList count=...> element");
+                Assert.AreEqual("6", listCountMatch.Groups[1].Value,
+                    "Spectrum's binaryDataArrayList should declare count=\"6\" "
+                    + "(2 m/z+intensity + 3 noise + 1 charge)");
+                NUnit.Framework.Legacy.StringAssert.Contains("accession=\"MS:1000516\"", xml,
+                    "Output XML missing the MS:1000516 \"charge array\" cvParam");
+            }
+            finally
+            {
+                if (File.Exists(outPath)) File.Delete(outPath);
+            }
+        }
+
+        [Test]
+        public static void ChargeArrayDefaultsToNullWhenAbsent()
+        {
+            // A scan written without a chargeArray should round-trip with ChargeArray == null,
+            // confirming the new code path is strictly additive and does not introduce a default
+            // empty array on read-back.
+            var spectrum = new MzSpectrum(
+                new[] { 100.0, 200.0 },
+                new[] { 500.0, 1500.0 },
+                shouldCopy: false);
+
+            var scan = new MsDataScan(
+                spectrum,
+                oneBasedScanNumber: 1,
+                msnOrder: 1,
+                isCentroid: true,
+                polarity: Polarity.Positive,
+                retentionTime: 1.0,
+                scanWindowRange: new MzRange(50, 1000),
+                scanFilter: "FTMS + p NSI Full ms",
+                mzAnalyzer: MZAnalyzerType.Orbitrap,
+                totalIonCurrent: 2000,
+                injectionTime: null,
+                noiseData: null,
+                nativeId: "scan=1");
+
+            var sourceFile = new SourceFile(
+                nativeIdFormat: "scan number only nativeID format",
+                massSpectrometerFileFormat: "mzML format",
+                checkSum: null,
+                fileChecksumType: "SHA-1",
+                uri: new Uri("file:///test"),
+                id: "test",
+                fileName: "test.mzML");
+
+            var dataFile = new GenericMsDataFile(new[] { scan }, sourceFile);
+            string outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "no_charge_roundtrip.mzML");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(dataFile, outPath, false);
+
+            try
+            {
+                var reread = (Mzml)MsDataFileReader.GetDataFile(outPath);
+                reread.LoadAllStaticData();
+                var readBack = reread.GetOneBasedScan(1);
+
+                Assert.IsNull(readBack.ChargeArray, "ChargeArray should be null when not written");
+            }
+            finally
+            {
+                if (File.Exists(outPath)) File.Delete(outPath);
+            }
+        }
+
         private MzSpectrum CreateSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
         {
             IsotopicDistribution isodist = IsotopicDistribution.GetDistribution(f, 0.1);
