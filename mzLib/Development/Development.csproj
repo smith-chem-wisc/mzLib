@@ -34,6 +34,10 @@
     <None Update="DeconvolutionDevelopment\TestData\Averaged_221110_UbiqOnly.mzML">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="..\Test\DataFiles\lvsYeastTopDownSnip.mzML">
+      <Link>DeconvolutionDevelopment\TestData\lvsYeastTopDownSnip.mzML</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
