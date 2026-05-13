@@ -52,5 +52,15 @@ namespace MassSpectrometry
         /// or <c>null</c> if this parameter type does not support decoy deconvolution.
         /// </returns>
         public abstract DeconvolutionParameters? ToDecoyParameters();
+
+        /// <summary>
+        /// Polymorphic factory hook — a parameters subclass can return its own
+        /// <see cref="DeconvolutionAlgorithm"/> instance instead of going through the
+        /// enum-based switch in <see cref="Deconvoluter"/>. Used when the algorithm
+        /// lives in a project that <c>MassSpectrometry</c> does not reference (e.g.
+        /// <c>Readers</c>). Default implementation returns <c>null</c> so existing
+        /// subclasses keep dispatching via <see cref="DeconvolutionType"/>.
+        /// </summary>
+        public virtual DeconvolutionAlgorithm? CreateAlgorithm() => null;
     }
 }

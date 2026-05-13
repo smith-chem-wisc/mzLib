@@ -21,6 +21,17 @@ namespace MassSpectrometry
         public static IEnumerable<IsotopicEnvelope> Deconvolute(MsDataScan scan,
             DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null)
         {
+            // FromFile decon needs RT in addition to m/z. If the caller didn't supply
+            // an MzRtRange we synthesize one from the scan's RetentionTime (the natural
+            // anchor when "this scan's precursor" is what's being requested).
+            if (deconvolutionParameters.DeconvolutionType == DeconvolutionType.FromFile
+                && rangeToGetPeaksFrom is not MzRtRange)
+            {
+                rangeToGetPeaksFrom = rangeToGetPeaksFrom is null
+                    ? new MzRtRange(scan.MassSpectrum.Range, scan.RetentionTime)
+                    : new MzRtRange(rangeToGetPeaksFrom, scan.RetentionTime);
+            }
+
             return Deconvolute(scan.MassSpectrum, deconvolutionParameters, rangeToGetPeaksFrom);
         }
 
@@ -35,6 +46,18 @@ namespace MassSpectrometry
             DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null)
         {
             rangeToGetPeaksFrom ??= spectrum.Range;
+
+            // FromFile decon has no spectrum to anchor RT against — the caller must
+            // supply an MzRtRange explicitly. We surface that as an ArgumentException
+            // rather than letting it surface deeper inside the algorithm.
+            if (deconvolutionParameters.DeconvolutionType == DeconvolutionType.FromFile
+                && rangeToGetPeaksFrom is not MzRtRange)
+            {
+                throw new ArgumentException(
+                    "FromFile deconvolution requires an MzRtRange (with RT bounds). " +
+                    "Use the MsDataScan overload, or construct an MzRtRange explicitly.",
+                    nameof(rangeToGetPeaksFrom));
+            }
 
             // Short circuit deconvolution if it is called on a neutral mass spectrum
             if (spectrum is NeutralMassSpectrum newt)
@@ -92,18 +115,26 @@ namespace MassSpectrometry
         }
 
         /// <summary>
-        /// Factory method to create the correct deconvolution algorithm from the parameters
+        /// Factory method to create the correct deconvolution algorithm from the parameters.
+        /// First gives the parameters object a chance to construct its own algorithm via
+        /// <see cref="DeconvolutionParameters.CreateAlgorithm"/> — this is how algorithms
+        /// living outside <c>MassSpectrometry</c> (e.g. <c>FromFileDeconvolutionAlgorithm</c>
+        /// in <c>Readers</c>) plug themselves in. Falls back to the enum-based switch for
+        /// in-project algorithms.
         /// </summary>
         /// <param name="parameters"></param>
         /// <returns></returns>
         /// <exception cref="MzLibException"></exception>
         private static DeconvolutionAlgorithm CreateAlgorithm(DeconvolutionParameters parameters)
         {
-            return parameters.DeconvolutionType switch
+            return parameters.CreateAlgorithm() ?? parameters.DeconvolutionType switch
             {
                 DeconvolutionType.ClassicDeconvolution => new ClassicDeconvolutionAlgorithm(parameters),
                 DeconvolutionType.ExampleNewDeconvolutionTemplate => new ExampleNewDeconvolutionAlgorithmTemplate(parameters),
                 DeconvolutionType.IsoDecDeconvolution => new IsoDecAlgorithm(parameters),
+                DeconvolutionType.FromFile => throw new MzLibException(
+                    "FromFile deconvolution requires a DeconvolutionParameters subclass that overrides " +
+                    "CreateAlgorithm() (typically FromFileDeconvolutionParameters in the Readers project)."),
                 _ => throw new MzLibException("DeconvolutionType not yet supported")
             };
         }
