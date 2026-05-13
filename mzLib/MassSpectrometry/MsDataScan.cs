@@ -25,30 +25,31 @@ namespace MassSpectrometry
 {
     public class MsDataScan
     {
-        public MsDataScan(MzSpectrum massSpectrum, 
-            int oneBasedScanNumber, 
-            int msnOrder, 
-            bool isCentroid, 
-            Polarity polarity, 
-            double retentionTime, 
-            MzRange scanWindowRange, 
-            string scanFilter, 
+        public MsDataScan(MzSpectrum massSpectrum,
+            int oneBasedScanNumber,
+            int msnOrder,
+            bool isCentroid,
+            Polarity polarity,
+            double retentionTime,
+            MzRange scanWindowRange,
+            string scanFilter,
             MZAnalyzerType mzAnalyzer,
-            double totalIonCurrent, 
-            double? injectionTime, 
-            double[,] noiseData, 
-            string nativeId, 
-            double? selectedIonMz = null, 
-            int? selectedIonChargeStateGuess = null, 
-            double? selectedIonIntensity = null, 
+            double totalIonCurrent,
+            double? injectionTime,
+            double[,] noiseData,
+            string nativeId,
+            double? selectedIonMz = null,
+            int? selectedIonChargeStateGuess = null,
+            double? selectedIonIntensity = null,
             double? isolationMZ = null,
-            double? isolationWidth = null, 
-            DissociationType? dissociationType = null, 
-            int? oneBasedPrecursorScanNumber = null, 
-            double? selectedIonMonoisotopicGuessMz = null, 
+            double? isolationWidth = null,
+            DissociationType? dissociationType = null,
+            int? oneBasedPrecursorScanNumber = null,
+            double? selectedIonMonoisotopicGuessMz = null,
             string hcdEnergy = null,
-            string scanDescription = null, 
-            double? compensationVoltage = null)
+            string scanDescription = null,
+            double? compensationVoltage = null,
+            int[] chargeArray = null)
         {
             OneBasedScanNumber = oneBasedScanNumber;
             MsnOrder = msnOrder;
@@ -72,9 +73,10 @@ namespace MassSpectrometry
             SelectedIonMonoisotopicGuessMz = selectedIonMonoisotopicGuessMz;
             HcdEnergy = hcdEnergy;
             ScanDescription = scanDescription;
-            CompensationVoltage = compensationVoltage; 
+            CompensationVoltage = compensationVoltage;
+            ChargeArray = chargeArray;
 
-            // Ensure the charge of the selected ion matches the polarity of the scan 
+            // Ensure the charge of the selected ion matches the polarity of the scan
             SelectedIonChargeStateGuess = Polarity switch
             {
                 Polarity.Negative when selectedIonChargeStateGuess is > 0 => -selectedIonChargeStateGuess,
@@ -82,6 +84,19 @@ namespace MassSpectrometry
                 _ => selectedIonChargeStateGuess
             };
         }
+
+        /// <summary>
+        /// Per-peak charge state, parallel to <see cref="MassSpectrum"/>.XArray.
+        /// Length must equal MassSpectrum.Size when set; null means "no charge data captured".
+        /// Encoded in mzML as a third &lt;binaryDataArray&gt; with cvParam
+        /// MS:1000516 ("charge array"), 32-bit float, no compression
+        /// (charge arrays are small enough that the zlib overhead isn't worth it; could
+        /// be made configurable in a follow-up if a downstream consumer needs it).
+        ///
+        /// Only set by deisotopers (e.g. YADA's annotate mode); vendor-converted mzML
+        /// rarely includes it. Readers that don't understand MS:1000516 silently ignore it.
+        /// </summary>
+        public int[] ChargeArray { get; protected set; }
 
         /// <summary>
         /// The mass spectrum associated with the scan
@@ -169,11 +184,15 @@ namespace MassSpectrometry
         public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(MzSpectrum precursorSpectrum,
             DeconvolutionParameters deconParameters)
         {
-            return IsolationRange == null
-                ? new List<IsotopicEnvelope>()
-                : Deconvoluter.Deconvolute(precursorSpectrum, deconParameters,
-                    new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5))
-                    .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
+            const double isolationPadding = 8.5;
+
+            if (IsolationRange is null)
+                return new List<IsotopicEnvelope>();
+
+            var range = new MzRange(IsolationRange.Minimum - isolationPadding, IsolationRange.Maximum + isolationPadding);
+
+            return Deconvoluter.Deconvolute(precursorSpectrum, deconParameters, range)
+                .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
         }
 
         /// <summary>
@@ -190,11 +209,15 @@ namespace MassSpectrometry
         public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(MsDataScan precursorScan,
             DeconvolutionParameters deconParameters)
         {
-            return IsolationRange == null
-                ? new List<IsotopicEnvelope>()
-                : Deconvoluter.Deconvolute(precursorScan, deconParameters,
-                    new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5))
-                    .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
+            const double isolationPadding = 8.5;
+
+            if (IsolationRange is null)
+                return new List<IsotopicEnvelope>();
+
+            var range = new MzRange(IsolationRange.Minimum - isolationPadding, IsolationRange.Maximum + isolationPadding);
+
+            return Deconvoluter.Deconvolute(precursorScan, deconParameters, range)
+                .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
         }
         
 
