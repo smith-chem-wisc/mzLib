@@ -78,12 +78,19 @@ namespace Readers
             int fractionId = 0,
             Software software = Software.FLASHDeconv)
         {
-            var file = new Ms1FeatureFile { Software = software };
+            // Build the record list up front and assign via the setter.
+            // Going through file.Results.Add(...) instead would invoke
+            // ResultFile<T>.Results' lazy-load getter (which calls
+            // LoadResults whenever _results is empty); the in-memory-
+            // constructed file has no FilePath, so LoadResults would throw.
+            var records = new List<Ms1Feature>();
             int sequentialId = 0;
             foreach (var f in features)
             {
-                file.Results.Add(f.ToMs1Feature(sequentialId++, sampleId, fractionId));
+                records.Add(f.ToMs1Feature(sequentialId++, sampleId, fractionId));
             }
+            var file = new Ms1FeatureFile { Software = software };
+            file.Results = records;
             return file;
         }
 
