@@ -63,7 +63,40 @@ namespace Readers
                     "Expected an Ms1Feature (.ms1.feature) or Dinosaur (.feature.tsv) file.");
 
             resultFile.LoadResults();
-            (_featuresMzAscending, _mzKeys) = SortAndIndex(featureFile.GetMs1Features());
+            (_featuresMzAscending, _mzKeys) = SortAndIndex(NormaliseRetentionTimes(featureFile.GetMs1Features()));
+        }
+
+        /// <summary>
+        /// Detects RT-in-seconds inputs (FlashDeconv / TopFD canonical convention) and
+        /// converts them to minutes so the algorithm's RT comparisons against
+        /// <see cref="MsDataScan.RetentionTime"/> (always minutes in mzML / Thermo's API)
+        /// line up. Heuristic: if the largest <c>RetentionTimeEnd</c> in the file
+        /// exceeds 500, it can't be minutes -- no realistic LC run is over 8 hours
+        /// long -- so the file is in seconds and every RT value is divided by 60.
+        /// Files already in minutes pass through unchanged.
+        ///
+        /// Without this normalisation, FlashDeconv / TopFD files that emit RT in
+        /// seconds (e.g. <c>Time_begin = 2787</c> for a 46-minute LC run) silently
+        /// produce zero matching features at search time, because the algorithm
+        /// compares 2787 (seconds-as-loaded) against ~46 (the scan's RT in minutes)
+        /// and never sees overlap on any scan.
+        /// </summary>
+        private static IEnumerable<ISingleChargeMs1Feature> NormaliseRetentionTimes(
+            IEnumerable<ISingleChargeMs1Feature> features)
+        {
+            var materialised = features.ToList();
+            if (materialised.Count == 0) return materialised;
+
+            double maxRt = materialised.Max(f => f.RetentionTimeEnd);
+            if (maxRt <= 500.0) return materialised;
+
+            return materialised.Select(f => (ISingleChargeMs1Feature)new SingleChargeMs1Feature(
+                f.Mz,
+                f.Charge,
+                f.RetentionTimeStart / 60.0,
+                f.RetentionTimeEnd / 60.0,
+                f.Intensity,
+                f.NumberOfIsotopes));
         }
 
         /// <summary>
