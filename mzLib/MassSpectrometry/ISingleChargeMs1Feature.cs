@@ -1,16 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Readers
+namespace MassSpectrometry
 {
     /// <summary>
     /// Contract for an external deconvolution result used to pair with raw MS2 scans
     /// and (optionally) construct external MS2 spectra for database searching.
     /// Implementations are typically produced by mzLib Readers that parse
-    /// third-party deconvolution outputs.
+    /// third-party deconvolution outputs, or by mzLib's own whole-file
+    /// deconvolution algorithms.
     /// </summary>
     /// <remarks>
     /// Required fields:
@@ -21,8 +16,9 @@ namespace Readers
     /// <item><description><see cref="RetentionTimeEnd"/>: RT window end, minutes (double)</description></item>
     /// <item><description><see cref="NumberOfIsotopes"/>: Number of isotopes observed, nullable int</description></item>
     /// </list>
-    /// Pairing is performed by checking if an MS2 scan’s RT apex lies within
-    /// [<see cref="RetentionTimeStart"/>, <see cref="RetentionTimeEnd"/>].
+    /// Pairing is performed by checking if an MS2 scan’s RT lies within
+    /// [<see cref="RetentionTimeStart"/>, <see cref="RetentionTimeEnd"/>]
+    /// AND its precursor m/z falls inside the MS2 isolation window.
     /// Implementations should ensure values are valid (no NaN; charge &gt; 0; start ≤ end).
     /// </remarks>
     public interface ISingleChargeMs1Feature
