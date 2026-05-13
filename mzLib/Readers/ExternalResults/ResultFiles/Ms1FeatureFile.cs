@@ -1,5 +1,6 @@
 ﻿using CsvHelper;
 using MassSpectrometry;
+using MassSpectrometry.Deconvolution.Consensus;
 
 namespace Readers
 {
@@ -43,6 +44,47 @@ namespace Readers
             Results = csv.GetRecords<Ms1Feature>().ToList();
 
             Software = Results.All(p => p.IntensityApex == null) ? Software.FLASHDeconv : Software.TopFD;
+        }
+
+        /// <summary>
+        /// Build an <see cref="Ms1FeatureFile"/> from a sequence of consensus-tracer
+        /// <see cref="MassFeature"/> objects, pre-populated and ready to write
+        /// via <see cref="WriteResults"/>. No file I/O happens in this factory
+        /// -- the caller picks the destination path and invokes WriteResults
+        /// separately.
+        ///
+        /// The output round-trips through <see cref="LoadResults"/>: every
+        /// downstream-consumed field (Mass, Intensity, RetentionTime begin/
+        /// end/apex, charge bounds, apex intensity) survives. The schema is
+        /// FLASHDeconv-style (newer-TopFD column aliases are aliases, not
+        /// the canonical write target).
+        /// </summary>
+        /// <param name="features">Finalised cross-charge features to emit.
+        /// Caller must have invoked <see cref="MassFeature.Finalise"/> on
+        /// each.</param>
+        /// <param name="sampleId">Sample identifier written into every row.
+        /// Default 0 fits the single-mzML case; multi-file producers can
+        /// pass an external index.</param>
+        /// <param name="fractionId">Fraction identifier written into both the
+        /// Minimum_fraction_id and Maximum_fraction_id columns of every row.
+        /// Default 0 fits a single fraction.</param>
+        /// <param name="software">Software label for the produced file.
+        /// Defaults to <see cref="Software.FLASHDeconv"/> because that's
+        /// the canonical write schema; pass <see cref="Software.Unspecified"/>
+        /// to leave it blank.</param>
+        public static Ms1FeatureFile FromMassFeatures(
+            IEnumerable<MassFeature> features,
+            int sampleId = 0,
+            int fractionId = 0,
+            Software software = Software.FLASHDeconv)
+        {
+            var file = new Ms1FeatureFile { Software = software };
+            int sequentialId = 0;
+            foreach (var f in features)
+            {
+                file.Results.Add(f.ToMs1Feature(sequentialId++, sampleId, fractionId));
+            }
+            return file;
         }
 
         /// <summary>
