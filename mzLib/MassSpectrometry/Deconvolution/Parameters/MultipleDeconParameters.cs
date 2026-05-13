@@ -15,13 +15,25 @@ public class MultipleDeconParameters : DeconvolutionParameters
         Parameters = deconParameters.ToArray();
     }
 
+    private volatile DeconvolutionParameters? _decoyParams = null;
+    private readonly object _decoyParamsLock = new();
+
     public override DeconvolutionParameters ToDecoyParameters()
     {
-        var decoyParams = Parameters.Select(p => p.ToDecoyParameters()).ToArray();
+        if (_decoyParams is not null)
+            return _decoyParams;
 
-        if (decoyParams.Any(p => p is null))
-            return null; // If any of the individual parameter sets don't support decoys, then we can't do decoys for the whole thing
+        lock (_decoyParamsLock)
+        {
+            if (_decoyParams is not null)
+                return _decoyParams;
 
-        return new MultipleDeconParameters(decoyParams, MinAssumedChargeState, MaxAssumedChargeState, Polarity, new DecoyAveragine(AverageResidueModel, DecoyAveragine.DefaultDecoyIsotopeSpacing, ExpectedIsotopeSpacing), DecoyAveragine.DefaultDecoyIsotopeSpacing);
+            var decoySubParams = Parameters.Select(p => p.ToDecoyParameters()).ToArray();
+
+            if (decoySubParams.Any(p => p is null))
+                return null; // If any of the individual parameter sets don't support decoys, then we can't do decoys for the whole thing
+
+            return _decoyParams = new MultipleDeconParameters(decoySubParams, MinAssumedChargeState, MaxAssumedChargeState, Polarity, new DecoyAveragine(AverageResidueModel, DecoyAveragine.DefaultDecoyIsotopeSpacing, ExpectedIsotopeSpacing), DecoyAveragine.DefaultDecoyIsotopeSpacing);
+        }
     }
 }
