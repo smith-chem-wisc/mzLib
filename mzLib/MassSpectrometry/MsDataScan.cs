@@ -226,11 +226,15 @@ namespace MassSpectrometry
         public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(MzSpectrum precursorSpectrum,
             DeconvolutionParameters deconParameters)
         {
-            return IsolationRange == null
-                ? new List<IsotopicEnvelope>()
-                : Deconvoluter.Deconvolute(precursorSpectrum, deconParameters,
-                    new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5))
-                    .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
+            const double isolationPadding = 8.5;
+
+            if (IsolationRange is null)
+                return new List<IsotopicEnvelope>();
+
+            var range = new MzRange(IsolationRange.Minimum - isolationPadding, IsolationRange.Maximum + isolationPadding);
+
+            return Deconvoluter.Deconvolute(precursorSpectrum, deconParameters, range)
+                .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
         }
 
         /// <summary>
@@ -247,11 +251,15 @@ namespace MassSpectrometry
         public IEnumerable<IsotopicEnvelope> GetIsolatedMassesAndCharges(MsDataScan precursorScan,
             DeconvolutionParameters deconParameters)
         {
-            return IsolationRange == null
-                ? new List<IsotopicEnvelope>()
-                : Deconvoluter.Deconvolute(precursorScan, deconParameters,
-                    new MzRange(IsolationRange.Minimum - 8.5, IsolationRange.Maximum + 8.5))
-                    .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
+            const double isolationPadding = 8.5;
+
+            if (IsolationRange is null)
+                return new List<IsotopicEnvelope>();
+
+            var range = new MzRange(IsolationRange.Minimum - isolationPadding, IsolationRange.Maximum + isolationPadding);
+
+            return Deconvoluter.Deconvolute(precursorScan, deconParameters, range)
+                .Where(b => b.Peaks.Any(cc => isolationRange.Contains(cc.mz)));
         }
         
 
