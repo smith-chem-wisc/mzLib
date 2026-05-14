@@ -103,7 +103,7 @@ namespace MassSpectrometry
             double isotopeStepMz = Constants.C13MinusC12 / absCharge;
 
             // ── Build observed intensity vector for cosine and completeness ───
-            // For each theoretical isotope position n, find the closest peak in
+            // For each theoretical isotope position n, find the most intense peak in
             // envelope.Peaks within MatchTolerancePpm.
             double monoMass = envelope.MonoisotopicMass;
             // Signed charge: ToMz embeds the polarity-dependent proton sign
@@ -120,21 +120,19 @@ namespace MassSpectrometry
                 double theorMz = monoMz + n * isotopeStepMz;
                 double tolMz = theorMz * MatchTolerancePpm * 1e-6;
 
-                // Find the peak in the envelope closest to this theoretical position.
-                double bestDist = double.MaxValue;
+                // Find the most intense peak in the envelope within tolerance of this
+                // theoretical position.
                 double bestIntensity = 0.0;
 
                 foreach (var (mz, intensity) in peakList)
                 {
-                    double dist = Math.Abs(mz - theorMz);
-                    if (dist < tolMz && dist < bestDist)
+                    if (Math.Abs(mz - theorMz) < tolMz && intensity > bestIntensity)
                     {
-                        bestDist = dist;
                         bestIntensity = intensity;
                     }
                 }
 
-                if (bestDist < double.MaxValue)
+                if (bestIntensity > 0.0)
                 {
                     observed[n] = bestIntensity;
                     peakMatched[n] = true;
