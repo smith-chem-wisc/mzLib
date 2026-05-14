@@ -15,9 +15,10 @@ namespace Omics.SpectralLibrary
             LibrarySpectrum theoretical,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return new SpectralSimilarity(experimental, theoretical, scheme, toleranceInPpm, allPeaks);
+            return new SpectralSimilarity(experimental, theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz);
         }
 
         /// <summary>
@@ -28,9 +29,10 @@ namespace Omics.SpectralLibrary
             MzSpectrum theoretical,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return new SpectralSimilarity(experimental, theoretical, scheme, toleranceInPpm, allPeaks);
+            return new SpectralSimilarity(experimental, theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz);
         }
 
         /// <summary>
@@ -41,9 +43,10 @@ namespace Omics.SpectralLibrary
             LibrarySpectrum theoretical,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return new SpectralSimilarity(experimental, theoretical, scheme, toleranceInPpm, allPeaks);
+            return new SpectralSimilarity(experimental, theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz);
         }
 
         /// <summary>
@@ -55,12 +58,13 @@ namespace Omics.SpectralLibrary
             double[] theoreticalY,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
             return new SpectralSimilarity(
                 experimental.XArray, experimental.YArray,
                 theoreticalX, theoreticalY,
-                scheme, toleranceInPpm, allPeaks);
+                scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz);
         }
 
         /// <summary>
@@ -72,12 +76,13 @@ namespace Omics.SpectralLibrary
             LibrarySpectrum theoretical,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
             return new SpectralSimilarity(
                 experimentalX, experimentalY,
                 theoretical.XArray, theoretical.YArray,
-                scheme, toleranceInPpm, allPeaks);
+                scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz);
         }
 
         #region MsDataScan overloads
@@ -90,9 +95,10 @@ namespace Omics.SpectralLibrary
             LibrarySpectrum theoretical,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return new SpectralSimilarity(experimental.MassSpectrum, theoretical, scheme, toleranceInPpm, allPeaks);
+            return new SpectralSimilarity(experimental.MassSpectrum, theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz);
         }
 
         /// <summary>
@@ -103,9 +109,10 @@ namespace Omics.SpectralLibrary
             MzSpectrum theoretical,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return new SpectralSimilarity(experimental.MassSpectrum, theoretical, scheme, toleranceInPpm, allPeaks);
+            return new SpectralSimilarity(experimental.MassSpectrum, theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz);
         }
 
         /// <summary>
@@ -116,9 +123,10 @@ namespace Omics.SpectralLibrary
             MsDataScan theoretical,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return new SpectralSimilarity(experimental, theoretical.MassSpectrum, scheme, toleranceInPpm, allPeaks);
+            return new SpectralSimilarity(experimental, theoretical.MassSpectrum, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz);
         }
 
         /// <summary>
@@ -129,9 +137,10 @@ namespace Omics.SpectralLibrary
             MsDataScan theoretical,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return new SpectralSimilarity(experimental, theoretical.MassSpectrum, scheme, toleranceInPpm, allPeaks);
+            return new SpectralSimilarity(experimental, theoretical.MassSpectrum, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz);
         }
 
         /// <summary>
@@ -143,12 +152,13 @@ namespace Omics.SpectralLibrary
             double[] theoreticalY,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
             return new SpectralSimilarity(
                 experimental.MassSpectrum.XArray, experimental.MassSpectrum.YArray,
                 theoreticalX, theoreticalY,
-                scheme, toleranceInPpm, allPeaks);
+                scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz);
         }
 
         /// <summary>
@@ -160,12 +170,13 @@ namespace Omics.SpectralLibrary
             MsDataScan theoretical,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
             return new SpectralSimilarity(
                 experimentalX, experimentalY,
                 theoretical.MassSpectrum.XArray, theoretical.MassSpectrum.YArray,
-                scheme, toleranceInPpm, allPeaks);
+                scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz);
         }
 
         #endregion
@@ -181,9 +192,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures measure,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSimilarityMeasure(measure);
         }
 
@@ -196,9 +208,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures measure,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSimilarityMeasure(measure);
         }
 
@@ -211,9 +224,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures measure,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSimilarityMeasure(measure);
         }
 
@@ -227,9 +241,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures measure,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoreticalX, theoreticalY, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoreticalX, theoreticalY, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSimilarityMeasure(measure);
         }
 
@@ -243,9 +258,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures measure,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimentalX.ComputeSpectralSimilarity(experimentalY, theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimentalX.ComputeSpectralSimilarity(experimentalY, theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSimilarityMeasure(measure);
         }
 
@@ -258,9 +274,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures measure,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSimilarityMeasure(measure);
         }
 
@@ -273,9 +290,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures measure,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSimilarityMeasure(measure);
         }
 
@@ -288,9 +306,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures measure,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSimilarityMeasure(measure);
         }
 
@@ -303,9 +322,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures measure,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSimilarityMeasure(measure);
         }
 
@@ -319,9 +339,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures measure,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoreticalX, theoreticalY, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoreticalX, theoreticalY, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSimilarityMeasure(measure);
         }
 
@@ -335,9 +356,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures measure,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimentalX.ComputeSpectralSimilarity(experimentalY, theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimentalX.ComputeSpectralSimilarity(experimentalY, theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSimilarityMeasure(measure);
         }
 
@@ -353,9 +375,10 @@ namespace Omics.SpectralLibrary
             LibrarySpectrum theoretical,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetAllSimilarityMeasures();
         }
 
@@ -367,9 +390,10 @@ namespace Omics.SpectralLibrary
             MzSpectrum theoretical,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetAllSimilarityMeasures();
         }
 
@@ -381,9 +405,10 @@ namespace Omics.SpectralLibrary
             LibrarySpectrum theoretical,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetAllSimilarityMeasures();
         }
 
@@ -396,9 +421,10 @@ namespace Omics.SpectralLibrary
             double[] theoreticalY,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoreticalX, theoreticalY, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoreticalX, theoreticalY, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetAllSimilarityMeasures();
         }
 
@@ -411,9 +437,10 @@ namespace Omics.SpectralLibrary
             LibrarySpectrum theoretical,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimentalX.ComputeSpectralSimilarity(experimentalY, theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimentalX.ComputeSpectralSimilarity(experimentalY, theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetAllSimilarityMeasures();
         }
 
@@ -425,9 +452,10 @@ namespace Omics.SpectralLibrary
             LibrarySpectrum theoretical,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetAllSimilarityMeasures();
         }
 
@@ -439,9 +467,10 @@ namespace Omics.SpectralLibrary
             MzSpectrum theoretical,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetAllSimilarityMeasures();
         }
 
@@ -453,9 +482,10 @@ namespace Omics.SpectralLibrary
             MsDataScan theoretical,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetAllSimilarityMeasures();
         }
 
@@ -467,9 +497,10 @@ namespace Omics.SpectralLibrary
             MsDataScan theoretical,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetAllSimilarityMeasures();
         }
 
@@ -482,9 +513,10 @@ namespace Omics.SpectralLibrary
             double[] theoreticalY,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoreticalX, theoreticalY, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoreticalX, theoreticalY, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetAllSimilarityMeasures();
         }
 
@@ -497,9 +529,10 @@ namespace Omics.SpectralLibrary
             MsDataScan theoretical,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimentalX.ComputeSpectralSimilarity(experimentalY, theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimentalX.ComputeSpectralSimilarity(experimentalY, theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetAllSimilarityMeasures();
         }
 
@@ -516,9 +549,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures[] measures,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSelectedSimilarityMeasures(measures);
         }
 
@@ -531,9 +565,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures[] measures,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSelectedSimilarityMeasures(measures);
         }
 
@@ -546,9 +581,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures[] measures,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSelectedSimilarityMeasures(measures);
         }
 
@@ -562,9 +598,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures[] measures,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoreticalX, theoreticalY, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoreticalX, theoreticalY, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSelectedSimilarityMeasures(measures);
         }
 
@@ -578,9 +615,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures[] measures,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimentalX.ComputeSpectralSimilarity(experimentalY, theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimentalX.ComputeSpectralSimilarity(experimentalY, theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSelectedSimilarityMeasures(measures);
         }
 
@@ -593,9 +631,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures[] measures,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSelectedSimilarityMeasures(measures);
         }
 
@@ -608,9 +647,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures[] measures,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSelectedSimilarityMeasures(measures);
         }
 
@@ -623,9 +663,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures[] measures,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSelectedSimilarityMeasures(measures);
         }
 
@@ -638,9 +679,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures[] measures,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSelectedSimilarityMeasures(measures);
         }
 
@@ -654,9 +696,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures[] measures,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimental.ComputeSpectralSimilarity(theoreticalX, theoreticalY, scheme, toleranceInPpm, allPeaks)
+            return experimental.ComputeSpectralSimilarity(theoreticalX, theoreticalY, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSelectedSimilarityMeasures(measures);
         }
 
@@ -670,9 +713,10 @@ namespace Omics.SpectralLibrary
             SpectralSimilarity.SimilarityMeasures[] measures,
             SpectralSimilarity.SpectrumNormalizationScheme scheme = SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum,
             double toleranceInPpm = 20,
-            bool allPeaks = true)
+            bool allPeaks = true,
+            double filterOutBelowThisMz = 300)
         {
-            return experimentalX.ComputeSpectralSimilarity(experimentalY, theoretical, scheme, toleranceInPpm, allPeaks)
+            return experimentalX.ComputeSpectralSimilarity(experimentalY, theoretical, scheme, toleranceInPpm, allPeaks, filterOutBelowThisMz)
                 .GetSelectedSimilarityMeasures(measures);
         }
 

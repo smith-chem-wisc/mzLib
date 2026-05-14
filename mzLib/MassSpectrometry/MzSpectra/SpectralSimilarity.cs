@@ -1,4 +1,4 @@
-﻿using MzLibUtil;
+using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -216,7 +216,7 @@ namespace MassSpectrometry.MzSpectra
 
         #endregion normalization
 
-        #region SimilarityMethods
+        #region similarityMethods
 
         public enum SimilarityMeasures
         {

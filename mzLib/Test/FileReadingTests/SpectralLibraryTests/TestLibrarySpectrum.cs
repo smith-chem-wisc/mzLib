@@ -198,6 +198,36 @@ namespace Test.FileReadingTests.SpectralLibraryTests
         }
 
         [Test]
+        public static void LibrarySpectrum_Equals_CrosslinkLibrarySpectrum_ReturnsFalse()
+        {
+            var product = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            var peaks = new List<MatchedFragmentIon> { new MatchedFragmentIon(product, 100, 1000, 1) };
+            var librarySpectrum = new LibrarySpectrum("SEQ", 500, 2, peaks, 10.0);
+            var crosslinkSpectrum = new CrosslinkLibrarySpectrum("SEQ(1)PEP", 500, 2, peaks, 10.0, peaks);
+
+            Assert.IsFalse(librarySpectrum.Equals(crosslinkSpectrum));
+            Assert.IsFalse(librarySpectrum.Equals((object)crosslinkSpectrum));
+        }
+
+        [Test]
+        public static void CrosslinkLibrarySpectrum_Equals_SameValues_ReturnsTrue()
+        {
+            var alphaProduct = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
+            var betaProduct = new Product(ProductType.y, FragmentationTerminus.C, 1, 1, 1, 0);
+
+            var alphaPeaks1 = new List<MatchedFragmentIon> { new MatchedFragmentIon(alphaProduct, 100, 1000, 1) };
+            var betaPeaks1 = new List<MatchedFragmentIon> { new MatchedFragmentIon(betaProduct, 200, 500, 1) };
+            var alphaPeaks2 = new List<MatchedFragmentIon> { new MatchedFragmentIon(alphaProduct, 100, 1000, 1) };
+            var betaPeaks2 = new List<MatchedFragmentIon> { new MatchedFragmentIon(betaProduct, 200, 500, 1) };
+
+            var spectrum1 = new CrosslinkLibrarySpectrum("SEQ(1)PEP", 500, 2, alphaPeaks1, 10.0, betaPeaks1);
+            var spectrum2 = new CrosslinkLibrarySpectrum("SEQ(1)PEP", 500, 2, alphaPeaks2, 10.0, betaPeaks2);
+
+            Assert.IsTrue(spectrum1.Equals((object)spectrum2));
+            Assert.AreEqual(spectrum1.GetHashCode(), spectrum2.GetHashCode());
+        }
+
+        [Test]
         public static void LibrarySpectrum_GetHashCode_EqualObjects_SameHashCode()
         {
             var product = new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0);
@@ -1072,6 +1102,101 @@ namespace Test.FileReadingTests.SpectralLibraryTests
             var explicitValue = xArray.ComputeSpectralSimilarity(yArray, scan, SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true).GetSelectedSimilarityMeasures(_selectedMeasures).ToList();
 
             AssertSimilarityMeasuresEqual(explicitValue, shortcut);
+        }
+
+        #endregion
+
+        #region Asymmetric similarity tests (catches swapped-argument bugs)
+
+        [Test]
+        public static void LibrarySpectrum_ComputeSpectralSimilarity_LibraryToMzSpectrum_Asymmetric()
+        {
+            var expPeaks = new List<MatchedFragmentIon>
+            {
+                new(new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0), 400.0, 1000.0, 1),
+                new(new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0), 500.0, 2000.0, 1),
+            };
+            var lib = new LibrarySpectrum("SEQ", 500.0, 2, expPeaks, 10.0);
+            var theoPeaks = new List<MatchedFragmentIon>
+            {
+                new(new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0), 400.0, 1000.0, 1),
+            };
+            var libTheo = new LibrarySpectrum("SEQ", 500.0, 2, theoPeaks, 10.0);
+
+            var result = lib.ComputeSpectralSimilarity((MzSpectrum)libTheo,
+                SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+
+            var explicitResult = new SpectralSimilarity(
+                lib.XArray, lib.YArray,
+                libTheo.XArray, libTheo.YArray,
+                SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+
+            Assert.That(result.CosineSimilarity(), Is.EqualTo(explicitResult.CosineSimilarity()).Within(0.001));
+        }
+
+        [Test]
+        public static void LibrarySpectrum_ComputeSpectralSimilarity_LibraryToArrays_Asymmetric()
+        {
+            var expPeaks = new List<MatchedFragmentIon>
+            {
+                new(new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0), 400.0, 1000.0, 1),
+                new(new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0), 500.0, 2000.0, 1),
+            };
+            var lib = new LibrarySpectrum("SEQ", 500.0, 2, expPeaks, 10.0);
+            var theoX = new double[] { 400.0 };
+            var theoY = new double[] { 1000.0 };
+
+            var result = lib.ComputeSpectralSimilarity(theoX, theoY,
+                SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+
+            var explicitResult = new SpectralSimilarity(
+                lib.XArray, lib.YArray,
+                theoX, theoY,
+                SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+
+            Assert.That(result.CosineSimilarity(), Is.EqualTo(explicitResult.CosineSimilarity()).Within(0.001));
+        }
+
+        [Test]
+        public static void MzSpectrum_ComputeSpectralSimilarity_LibrarySpectrum_Asymmetric()
+        {
+            var expPeaks = new List<MatchedFragmentIon>
+            {
+                new(new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0), 400.0, 1000.0, 1),
+                new(new Product(ProductType.b, FragmentationTerminus.N, 2, 2, 1, 0), 500.0, 2000.0, 1),
+            };
+            var expLib = new LibrarySpectrum("SEQ", 500.0, 2, expPeaks, 10.0);
+            var theoMz = new MzSpectrum(new double[] { 400.0 }, new double[] { 1000.0 }, false);
+
+            var result = expLib.ComputeSpectralSimilarity(theoMz,
+                SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+
+            var explicitResult = new SpectralSimilarity(
+                expLib.XArray, expLib.YArray,
+                theoMz.XArray, theoMz.YArray,
+                SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+
+            Assert.That(result.CosineSimilarity(), Is.EqualTo(explicitResult.CosineSimilarity()).Within(0.001));
+        }
+
+        [Test]
+        public static void MsDataScan_ComputeSpectralSimilarity_LibrarySpectrum_Asymmetric()
+        {
+            var scan = CreateTestScan(new double[] { 400.0, 500.0 }, new double[] { 1000.0, 2000.0 });
+            var theoPeaks = new List<MatchedFragmentIon>
+            {
+                new(new Product(ProductType.b, FragmentationTerminus.N, 1, 1, 1, 0), 400.0, 1000.0, 1),
+            };
+            var lib = new LibrarySpectrum("SEQ", 500.0, 2, theoPeaks, 10.0);
+
+            var result = scan.ComputeSpectralSimilarity(lib,
+                SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+
+            var explicitResult = new SpectralSimilarity(
+                scan.MassSpectrum, lib,
+                SpectralSimilarity.SpectrumNormalizationScheme.MostAbundantPeak, 20, true);
+
+            Assert.That(result.CosineSimilarity(), Is.EqualTo(explicitResult.CosineSimilarity()).Within(0.001));
         }
 
         #endregion

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using Chemistry;
 using Easy.Common.Extensions;
@@ -112,6 +113,7 @@ namespace Omics.SpectrumMatch
         {
             if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;
+            if (other.GetType() != GetType()) return false;
             return base.Equals(other) && Sequence == other.Sequence && Nullable.Equals(RetentionTime, other.RetentionTime) && PrecursorMz.Equals(other.PrecursorMz) && ChargeState == other.ChargeState && MatchedFragmentIons.SequenceEqual(other.MatchedFragmentIons) && IsDecoy == other.IsDecoy;
         }
 
