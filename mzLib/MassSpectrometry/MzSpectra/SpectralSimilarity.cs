@@ -404,6 +404,43 @@ namespace MassSpectrometry.MzSpectra
             return squaredSumDifferences > 0 ? Math.Log(Math.Pow(squaredSumDifferences, -1)) : double.MaxValue;
         }
 
+        /// <summary>
+        /// Computes the cosine similarity between two pre-aligned intensity vectors of equal length.
+        /// Both vectors must be in the same positional order (index i of <paramref name="a"/> corresponds
+        /// to index i of <paramref name="b"/>). No peak matching is performed.
+        ///
+        /// Used by deconvolution scoring to compare an observed isotope intensity distribution
+        /// against a theoretical Averagine distribution after the two vectors have already been
+        /// aligned to the same isotope index grid.
+        /// </summary>
+        /// <param name="a">First intensity vector (e.g. observed isotope intensities).</param>
+        /// <param name="b">Second intensity vector (e.g. theoretical Averagine intensities).</param>
+        /// <returns>
+        /// Cosine similarity in [0, 1] for non-negative input vectors.
+        /// Returns 0 if either vector is all-zero or if the lengths differ.
+        /// </returns>
+        public static double CosineOfAlignedVectors(ReadOnlySpan<double> a, ReadOnlySpan<double> b)
+        {
+            if (a.Length != b.Length || a.Length == 0)
+                return 0.0;
+
+            double dot = 0.0;
+            double normA = 0.0;
+            double normB = 0.0;
+
+            for (int i = 0; i < a.Length; i++)
+            {
+                dot += a[i] * b[i];
+                normA += a[i] * a[i];
+                normB += b[i] * b[i];
+            }
+
+            if (normA <= 0.0 || normB <= 0.0)
+                return 0.0;
+
+            return dot / (Math.Sqrt(normA) * Math.Sqrt(normB));
+        }
+
         #endregion similarityMethods
 
         //use Math.Max() in the denominator for consistency

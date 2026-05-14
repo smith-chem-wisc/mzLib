@@ -85,13 +85,6 @@ namespace Test.Transcriptomics
                 new[] { "G", "UACUG", "CCUCUAG", "UG", "AAG", "CA" });
         }
 
-        [OneTimeSetUp]
-        public void OneTimeSetup()
-        {
-            // Ensure dictionary is loaded from embedded resource
-            RnaseDictionary.ResetToDefaults();
-        }
-
         #region Rnase
 
         [Test]
@@ -1082,15 +1075,15 @@ namespace Test.Transcriptomics
                     Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UACUG"));
                     Assert.That(fullSequences.Contains("GUACUG-[Metal:Sodium on G]"));
                 }
-                else if (rnaDigestionParams.MaxMods >= 2)
+                if (rnaDigestionParams.MaxMods >= 2)
                 {
                     Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UACUG-[Metal:Sodium on G]"));
                     Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG-[Metal:Sodium on G]"));
                     Assert.That(fullSequences.Contains("[Metal:Potassium on G]G[Metal:Potassium on G]UACUG"));
                 }
-                else if (rnaDigestionParams.MaxMods >= 3)
+                if (rnaDigestionParams.MaxMods >= 3)
                 {
-                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]G[Metal:Potassium on G]UACUG[Metal:Sodium on G]"));
+                    Assert.That(fullSequences.Contains("[Metal:Potassium on G]G[Metal:Potassium on G]UACUG-[Metal:Sodium on G]"));
                 }
             }
         }
@@ -1151,7 +1144,7 @@ namespace Test.Transcriptomics
                     Assert.That(fullSequences.Contains("GUACUG-[Metal:Sodium on G]"));
                     Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG"));
                 }
-                else if (rnaDigestionParams.MaxMods >= 2)
+                if (rnaDigestionParams.MaxMods >= 2)
                 {
                     Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UACUG[Metal:Potassium on G]"));
                     Assert.That(fullSequences.Contains("G[Metal:Potassium on G]UACUG-[Metal:Sodium on G]"));
@@ -1160,7 +1153,7 @@ namespace Test.Transcriptomics
                     Assert.That(fullSequences.Contains("[Metal:Potassium on G]G[Metal:Potassium on G]UACUG"));
                     Assert.That(fullSequences.Contains("[Metal:Potassium on G]GUACUG[Metal:Potassium on G]"));
                 }
-                else if (rnaDigestionParams.MaxMods >= 3)
+                if (rnaDigestionParams.MaxMods >= 3)
                 {
                     Assert.That(fullSequences.Contains("[Metal:Potassium on G]G[Metal:Potassium on G]UACUG-[Metal:Sodium on G]"));
                     Assert.That(fullSequences.Contains("[Metal:Potassium on G]G[Metal:Potassium on G]UACUG[Metal:Potassium on G]"));
@@ -1185,5 +1178,330 @@ namespace Test.Transcriptomics
         }
 
         #endregion
+    }
+
+    [TestFixture]
+    [ExcludeFromCodeCoverage]
+    public class RnaseDictionaryAtomicLoadTests
+    {
+        private static string _tempDir;
+        private static string _validFile1;
+        private static string _validFile2;
+        private static string _duplicateInternalFile;
+        private static string _nonExistentFile;
+        private static int _embeddedCount;
+
+        [OneTimeSetUp]
+        public void OneTimeSetUp()
+        {
+            _tempDir = Path.Combine(Path.GetTempPath(), "RnaseDictAtomicTests_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(_tempDir);
+
+            // Capture baseline embedded count (static ctor has already run)
+            _embeddedCount = RnaseDictionary.Dictionary.Count;
+
+            // Valid file 1 — one custom RNase
+            _validFile1 = Path.Combine(_tempDir, "custom1.tsv");
+            File.WriteAllText(_validFile1,
+                "Name\tMotif\tSpecificity\n" +
+                "TestRnaseAlpha\tA|, C|\tFull\n");
+
+            // Valid file 2 — a different custom RNase
+            _validFile2 = Path.Combine(_tempDir, "custom2.tsv");
+            File.WriteAllText(_validFile2,
+                "Name\tMotif\tSpecificity\n" +
+                "TestRnaseBeta\tG|, U|\tFull\n");
+
+            // File with duplicate names inside itself (malformed)
+            _duplicateInternalFile = Path.Combine(_tempDir, "dup_internal.tsv");
+            File.WriteAllText(_duplicateInternalFile,
+                "Name\tMotif\tSpecificity\n" +
+                "TestRnaseDup\tA|\tFull\n" +
+                "TestRnaseDup\tC|\tFull\n");
+
+            // Path that does not point to an actual file
+            _nonExistentFile = Path.Combine(_tempDir, "does_not_exist.tsv");
+        }
+
+        [OneTimeTearDown]
+        public void OneTimeTearDown()
+        {
+            if (Directory.Exists(_tempDir))
+                Directory.Delete(_tempDir, true);
+        }
+
+        [SetUp]
+        public void ResetDictionary()
+        {
+            // Remove any non-embedded keys added by a prior test.
+            var keysToRemove = RnaseDictionary.Dictionary.Keys
+                .Where(k => k.StartsWith("TestRnase"))
+                .ToList();
+            foreach (var key in keysToRemove)
+                RnaseDictionary.Dictionary.Remove(key);
+        }
+
+        // ----------------------------------------------------------------
+        // Happy-path regression guards
+        // ----------------------------------------------------------------
+
+        [Test]
+        public void LoadAndMergeCustomRnases_SingleValidFile_AddsEntryToDictionary()
+        {
+            var result = RnaseDictionary.LoadAndMergeCustomRnases(_validFile1);
+
+            Assert.That(result.Added, Does.Contain("TestRnaseAlpha"));
+            Assert.That(RnaseDictionary.Dictionary.ContainsKey("TestRnaseAlpha"), Is.True);
+            Assert.That(RnaseDictionary.Dictionary.Count, Is.EqualTo(_embeddedCount + 1));
+        }
+
+        [Test]
+        public void LoadAndMergeCustomRnases_TwoValidFiles_AddsBothEntries()
+        {
+            var result = RnaseDictionary.LoadAndMergeCustomRnases(new[] { _validFile1, _validFile2 });
+
+            Assert.That(result.Added, Does.Contain("TestRnaseAlpha"));
+            Assert.That(result.Added, Does.Contain("TestRnaseBeta"));
+            Assert.That(RnaseDictionary.Dictionary.Count, Is.EqualTo(_embeddedCount + 2));
+        }
+
+        // ----------------------------------------------------------------
+        // Atomicity — the core bug
+        // ----------------------------------------------------------------
+
+        [Test]
+        public void LoadAndMergeCustomRnases_SecondPathInvalid_DictionaryUnchanged()
+        {
+            int countBefore = RnaseDictionary.Dictionary.Count;
+
+            Assert.That(() =>
+                RnaseDictionary.LoadAndMergeCustomRnases(new[] { _validFile1, _nonExistentFile }),
+                Throws.Exception);
+
+            Assert.That(RnaseDictionary.Dictionary.Count, Is.EqualTo(countBefore),
+                "Dictionary must not grow when the second file is missing");
+            Assert.That(RnaseDictionary.Dictionary.ContainsKey("TestRnaseAlpha"), Is.False,
+                "Entry from the first (valid) file must not be present after a failed multi-file load");
+        }
+
+        [Test]
+        public void LoadAndMergeCustomRnases_SecondFileHasInternalDuplicates_DictionaryUnchanged()
+        {
+            int countBefore = RnaseDictionary.Dictionary.Count;
+
+            Assert.That(() =>
+                RnaseDictionary.LoadAndMergeCustomRnases(new[] { _validFile1, _duplicateInternalFile }),
+                Throws.TypeOf<MzLibUtil.MzLibException>());
+
+            Assert.That(RnaseDictionary.Dictionary.Count, Is.EqualTo(countBefore),
+                "Dictionary must remain unchanged when a later file in the batch is malformed");
+            Assert.That(RnaseDictionary.Dictionary.ContainsKey("TestRnaseAlpha"), Is.False);
+        }
+
+        // ----------------------------------------------------------------
+        // Edge cases
+        // ----------------------------------------------------------------
+
+        [Test]
+        public void LoadAndMergeCustomRnases_FirstFileInvalid_DictionaryUnchanged()
+        {
+            int countBefore = RnaseDictionary.Dictionary.Count;
+
+            Assert.That(() =>
+                RnaseDictionary.LoadAndMergeCustomRnases(new[] { _nonExistentFile, _validFile1 }),
+                Throws.Exception);
+
+            Assert.That(RnaseDictionary.Dictionary.Count, Is.EqualTo(countBefore));
+        }
+
+        [Test]
+        public void LoadAndMergeCustomRnases_EmptyPathsList_DictionaryUnchanged()
+        {
+            int countBefore = RnaseDictionary.Dictionary.Count;
+
+            var result = RnaseDictionary.LoadAndMergeCustomRnases(Array.Empty<string>());
+
+            Assert.That(result.Added, Is.Empty);
+            Assert.That(result.Skipped, Is.Empty);
+            Assert.That(RnaseDictionary.Dictionary.Count, Is.EqualTo(countBefore));
+        }
+
+        [Test]
+        public void LoadAndMergeCustomRnases_DuplicateAcrossFiles_FirstFileWins()
+        {
+            string dupeAcrossFile = Path.Combine(_tempDir, "dupe_across.tsv");
+            File.WriteAllText(dupeAcrossFile,
+                "Name\tMotif\tSpecificity\n" +
+                "TestRnaseAlpha\tU|\tFull\n");
+
+            var result = RnaseDictionary.LoadAndMergeCustomRnases(new[] { _validFile1, dupeAcrossFile });
+
+            Assert.That(result.Added, Does.Contain("TestRnaseAlpha"));
+            Assert.That(result.Skipped, Does.Contain("TestRnaseAlpha"));
+            Assert.That(RnaseDictionary.Dictionary["TestRnaseAlpha"].DigestionMotifs.Count, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void LoadAndMergeCustomRnases_NameCollidesWithEmbedded_Skipped()
+        {
+            string embeddedName = RnaseDictionary.Dictionary.Keys.First();
+            string collisionFile = Path.Combine(_tempDir, "collision.tsv");
+            File.WriteAllText(collisionFile,
+                $"Name\tMotif\tSpecificity\n" +
+                $"{embeddedName}\tA|\tFull\n");
+
+            var result = RnaseDictionary.LoadAndMergeCustomRnases(collisionFile);
+
+            Assert.That(result.Skipped, Does.Contain(embeddedName));
+            Assert.That(result.Added, Does.Not.Contain(embeddedName));
+            Assert.That(RnaseDictionary.Dictionary.Count, Is.EqualTo(_embeddedCount));
+        }
+
+        [Test]
+        public void LoadAndMergeCustomRnases_NullEnumerable_ThrowsArgumentNullException()
+        {
+            Assert.That(
+                () => RnaseDictionary.LoadAndMergeCustomRnases((IEnumerable<string>)null),
+                Throws.TypeOf<ArgumentNullException>()
+                    .With.Property("ParamName").EqualTo("paths"));
+        }
+    }
+
+    [TestFixture]
+    [ExcludeFromCodeCoverage]
+    public class RnaseDictionarySkipSemanticsTests
+    {
+        private static string _tempDir;
+        private static string _collisionFilePath;
+        private static string _newRnaseFilePath;
+        private static string _mixedFilePath;
+
+        private static string _embeddedRnaseName;
+        private static Rnase _embeddedRnaseOriginal;
+
+        [OneTimeSetUp]
+        public void OneTimeSetUp()
+        {
+            _tempDir = Path.Combine(Path.GetTempPath(), "RnaseDictSkipTests_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(_tempDir);
+
+            var firstEntry = RnaseDictionary.Dictionary.First();
+            _embeddedRnaseName = firstEntry.Key;
+            _embeddedRnaseOriginal = firstEntry.Value;
+
+            // File 1: contains ONLY a name that collides with an embedded RNase
+            _collisionFilePath = Path.Combine(_tempDir, "collision_rnases.tsv");
+            File.WriteAllLines(_collisionFilePath, new[]
+            {
+                "Name\tMotif\tSpecificity",
+                $"{_embeddedRnaseName}\tA[X]|[X]\tFull"
+            });
+
+            // File 2: contains ONLY a genuinely new RNase
+            _newRnaseFilePath = Path.Combine(_tempDir, "new_rnases.tsv");
+            File.WriteAllLines(_newRnaseFilePath, new[]
+            {
+                "Name\tMotif\tSpecificity",
+                "ZZZ_CustomTestRnase_New\tG[X]|[X]\tFull"
+            });
+
+            // File 3: contains one collision AND one new entry
+            _mixedFilePath = Path.Combine(_tempDir, "mixed_rnases.tsv");
+            File.WriteAllLines(_mixedFilePath, new[]
+            {
+                "Name\tMotif\tSpecificity",
+                $"{_embeddedRnaseName}\tA[X]|[X]\tFull",
+                "ZZZ_CustomTestRnase_Mixed\tC[X]|[X]\tFull"
+            });
+        }
+
+        [OneTimeTearDown]
+        public void OneTimeTearDown()
+        {
+            RnaseDictionary.Dictionary.Remove("ZZZ_CustomTestRnase_New");
+            RnaseDictionary.Dictionary.Remove("ZZZ_CustomTestRnase_Mixed");
+
+            if (Directory.Exists(_tempDir))
+                Directory.Delete(_tempDir, true);
+        }
+
+        [Test]
+        public void LoadAndMergeCustomRnases_CollisionWithEmbeddedName_EmbeddedDefinitionRetainedAndNameInSkipped()
+        {
+            var embeddedBefore = RnaseDictionary.Dictionary[_embeddedRnaseName];
+
+            var result = RnaseDictionary.LoadAndMergeCustomRnases(_collisionFilePath);
+
+            Assert.That(result.Skipped, Does.Contain(_embeddedRnaseName),
+                "Colliding name should appear in the Skipped list");
+            Assert.That(result.Added, Does.Not.Contain(_embeddedRnaseName),
+                "Colliding name must NOT appear in the Added list");
+            Assert.That(RnaseDictionary.Dictionary[_embeddedRnaseName], Is.SameAs(embeddedBefore),
+                "The embedded RNase object must not be replaced");
+        }
+
+        [Test]
+        public void LoadAndMergeCustomRnases_NewRnaseName_AddedToDictionaryAndRecordedInAdded()
+        {
+            var result = RnaseDictionary.LoadAndMergeCustomRnases(_newRnaseFilePath);
+
+            Assert.That(result.Added, Does.Contain("ZZZ_CustomTestRnase_New"),
+                "New RNase should appear in the Added list");
+            Assert.That(result.Skipped, Does.Not.Contain("ZZZ_CustomTestRnase_New"),
+                "New RNase must NOT appear in the Skipped list");
+            Assert.That(RnaseDictionary.Dictionary.ContainsKey("ZZZ_CustomTestRnase_New"), Is.True,
+                "New RNase should be present in the Dictionary after merge");
+        }
+
+        [Test]
+        public void LoadAndMergeCustomRnases_MixedCollisionAndNew_CorrectPartitioning()
+        {
+            var embeddedBefore = RnaseDictionary.Dictionary[_embeddedRnaseName];
+
+            var result = RnaseDictionary.LoadAndMergeCustomRnases(_mixedFilePath);
+
+            Assert.That(result.Skipped, Does.Contain(_embeddedRnaseName),
+                "Colliding name should be in Skipped");
+            Assert.That(RnaseDictionary.Dictionary[_embeddedRnaseName], Is.SameAs(embeddedBefore),
+                "Embedded RNase must survive the merge unchanged");
+
+            Assert.That(result.Added, Does.Contain("ZZZ_CustomTestRnase_Mixed"),
+                "New name should be in Added");
+            Assert.That(RnaseDictionary.Dictionary.ContainsKey("ZZZ_CustomTestRnase_Mixed"), Is.True,
+                "New RNase should exist in Dictionary after merge");
+
+            Assert.That(result.Skipped.Count, Is.EqualTo(1),
+                "Exactly one entry should have been skipped");
+            Assert.That(result.Added.Count, Is.EqualTo(1),
+                "Exactly one entry should have been added");
+        }
+
+        [Test]
+        public void LoadAndMergeCustomRnases_CollisionWithEmbeddedName_MotifIsNotOverwritten()
+        {
+            var originalMotifs = _embeddedRnaseOriginal.DigestionMotifs;
+
+            RnaseDictionary.LoadAndMergeCustomRnases(_collisionFilePath);
+
+            var currentMotifs = RnaseDictionary.Dictionary[_embeddedRnaseName].DigestionMotifs;
+            Assert.That(currentMotifs, Is.EqualTo(originalMotifs),
+                "Digestion motifs must remain the embedded originals after a collision merge");
+        }
+
+        [Test]
+        public void LoadAndMergeCustomRnases_EmptyCustomFile_NoAddedNoSkipped()
+        {
+            var emptyFile = Path.Combine(_tempDir, "empty_rnases.tsv");
+            File.WriteAllLines(emptyFile, new[] { "Name\tMotif\tSpecificity" });
+
+            var countBefore = RnaseDictionary.Dictionary.Count;
+
+            var result = RnaseDictionary.LoadAndMergeCustomRnases(emptyFile);
+
+            Assert.That(result.Added, Is.Empty, "No entries should be added from an empty file");
+            Assert.That(result.Skipped, Is.Empty, "No entries should be skipped from an empty file");
+            Assert.That(RnaseDictionary.Dictionary.Count, Is.EqualTo(countBefore),
+                "Dictionary size should be unchanged");
+        }
     }
 }

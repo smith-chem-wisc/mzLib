@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace MassSpectrometry
 {
@@ -16,5 +12,8 @@ namespace MassSpectrometry
         {
 
         }
+
+        // This algorithm does not yet support decoy deconvolution.
+        public override DeconvolutionParameters? ToDecoyParameters() => null;
     }
 }

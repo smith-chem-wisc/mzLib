@@ -1,15 +1,15 @@
-﻿using NUnit.Framework;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using NUnit.Framework;
 using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 using PredictionClients.Koina.Util;
 using Readers.SpectralLibrary;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 
-namespace Test.KoinaTests
+namespace Test.KoinaTests.FragmentIntensityPrediction
 {
     [TestFixture]
     [Category("Integration")]
@@ -19,8 +19,8 @@ namespace Test.KoinaTests
         [Test]
         public static void TestKoinaProsit2020IntensityHCDModelWritesReadableSpectralLibrary()
         {
-            var experPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\myPrositLib.msp");
-            var predPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\koinaTestOutput.msp");
+            var experPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\myPrositLib.msp");
+            var predPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\koinaTestOutput.msp");
             SpectralLibrary testLibraryWithoutDecoy = null;
             SpectralLibrary spectralLibraryTest = null;
             try
