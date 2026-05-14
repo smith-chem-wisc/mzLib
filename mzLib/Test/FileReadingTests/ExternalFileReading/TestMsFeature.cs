@@ -36,6 +36,7 @@ namespace Test.FileReadingTests.ExternalFileReading
         [TestCase(@"FileReadingTests\ExternalFileTypes\Ms2Feature_FlashDeconvOpenMs3.0.0_ms2.feature", 2, 1)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.6.2_ms1.feature", 1, 4)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\Ms2Feature_TopFDv1.6.2_ms2.feature", 2, 5)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.7.0_ms1.feature", 1, 4)]
         public void TestFeaturesLoadAndCountIsCorrect(string path, int type, int featureCount)
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, path);
@@ -186,6 +187,83 @@ namespace Test.FileReadingTests.ExternalFileReading
             Assert.That(last.FractionIdMax, Is.EqualTo(0));
         }
 
+        /// <summary>
+        /// TopFD v1.7.0 output (with "File_name", "Feature_ID", "Min_time", "Min_charge", etc.) carries
+        /// the same per-feature information as TopFDv1.6.2 but under different column names. The reader
+        /// covers both schemas via [Name(...)] aliases on the Ms1Feature record; columns absent in the
+        /// v1.7.0 schema (Sample_ID, Minimum_fraction_id, Maximum_fraction_id) fall back to their default
+        /// values because they are marked [Optional] and aren't consumed downstream.
+        /// </summary>
+        [Test]
+        public static void TestTopFDv1_7_0Ms1FeatureFirstAndLastAreCorrect()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.7.0_ms1.feature");
+            var ms1Features = FileReader.ReadFile<Ms1FeatureFile>(filePath);
+
+            var first = ms1Features.First();
+            var last = ms1Features.Last();
+
+            // SampleId is absent from the newer schema (newer TopFD uses "File_name" instead and is
+            // marked [Optional] for that reason). CsvHelper assigns the int default (0) when the column
+            // is missing.
+            Assert.That(first.SampleId, Is.EqualTo(0));
+            Assert.That(first.Id, Is.EqualTo(0));               // "Feature_ID"
+            Assert.That(first.Mass, Is.EqualTo(6983.005647734753).Within(0.00001));
+            Assert.That(first.Intensity, Is.EqualTo(29168462662.22477).Within(0.00001));
+            Assert.That(first.RetentionTimeBegin, Is.EqualTo(44.45833333333334).Within(1e-10)); // "Min_time"
+            Assert.That(first.RetentionTimeEnd, Is.EqualTo(45.27966666666667).Within(1e-10));   // "Max_time"
+            Assert.That(first.RetentionTimeApex, Is.EqualTo(44.67983333333333).Within(1e-10));  // "Apex_time"
+            Assert.That(first.IntensityApex, Is.EqualTo(2503126332.811494).Within(0.00001));
+            Assert.That(first.ChargeStateMin, Is.EqualTo(6));   // "Min_charge"
+            Assert.That(first.ChargeStateMax, Is.EqualTo(14));  // "Max_charge"
+            // Minimum_fraction_id / Maximum_fraction_id are not present in newer TopFD output.
+            Assert.That(first.FractionIdMin, Is.EqualTo(0));
+            Assert.That(first.FractionIdMax, Is.EqualTo(0));
+
+            Assert.That(last.SampleId, Is.EqualTo(0));
+            Assert.That(last.Id, Is.EqualTo(4866));
+            Assert.That(last.Mass, Is.EqualTo(1058.561082900803).Within(0.00001));
+            Assert.That(last.Intensity, Is.EqualTo(917.3366640849712).Within(0.00001));
+            Assert.That(last.RetentionTimeBegin, Is.EqualTo(134.8063333333333).Within(1e-10));
+            Assert.That(last.RetentionTimeEnd, Is.EqualTo(134.8063333333333).Within(1e-10));
+            Assert.That(last.RetentionTimeApex, Is.EqualTo(134.8063333333333).Within(1e-10));
+            Assert.That(last.IntensityApex, Is.EqualTo(917.3366640849712).Within(0.00001));
+            Assert.That(last.ChargeStateMin, Is.EqualTo(1));    // single-charge feature
+            Assert.That(last.ChargeStateMax, Is.EqualTo(1));
+            Assert.That(last.FractionIdMin, Is.EqualTo(0));
+            Assert.That(last.FractionIdMax, Is.EqualTo(0));
+        }
+
+        /// <summary>
+        /// Confirms GetSingleChargeFeatures behaves identically across the two TopFD schemas: charge
+        /// range 6-14 expands to 9 envelopes, and a single-charge feature (Min_charge == Max_charge == 1)
+        /// expands to exactly one.
+        /// </summary>
+        [Test]
+        public static void TestTopFDv1_7_0Ms1GetSingleChargeFeatureFunctions()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.7.0_ms1.feature");
+            var ms1Features = FileReader.ReadFile<Ms1FeatureFile>(filePath);
+
+            var first = ms1Features.First();
+            var last = ms1Features.Last();
+
+            var firstSingleCharge = first.GetSingleChargeFeatures().ToList();
+            Assert.That(firstSingleCharge.Count, Is.EqualTo(9)); // charges 6..14 inclusive
+            Assert.That(firstSingleCharge.First().Charge, Is.EqualTo(6));
+            Assert.That(firstSingleCharge.Last().Charge, Is.EqualTo(14));
+            Assert.That(firstSingleCharge.First().Mz, Is.EqualTo(first.Mass.ToMz(6)).Within(0.001));
+
+            Assert.That(last.GetSingleChargeFeatures().Count(), Is.EqualTo(1));
+            Assert.That(last.GetSingleChargeFeatures().Single().Charge, Is.EqualTo(1));
+
+            // GetMs1Features() flattens all four features in the fixture; expanded charge counts are
+            // 9 + 12 + 10 + 1 = 32.
+            Assert.That(ms1Features.GetMs1Features().Count(), Is.EqualTo(32));
+        }
+
         [Test]
         public static void TestTopFDMs1GetSingleChargeFeatureFunctions()
         {
@@ -252,9 +330,16 @@ namespace Test.FileReadingTests.ExternalFileReading
             Assert.That(last.SampleFeatureIntensity, Is.EqualTo(10451720.37999999).Within(0.00001));
         }
 
+        // For the newer-TopFD fixture, read/write is not value-lossless: the writer emits the older
+        // schema headers (Sample_ID, ID, Time_begin, ...) so columns absent from the newer schema get
+        // written as their type defaults (0). The round-trip therefore compares default-filled
+        // serializations, not byte-identical ones. That's still useful coverage because it confirms
+        // every field consumed downstream (Mass, RT, charge bounds, apex intensity) survives the
+        // round-trip; columns that don't survive are exactly the ones marked [Optional] and unused.
         [Test]
         [TestCase(@"FileReadingTests\ExternalFileTypes\Ms1Feature_FlashDeconvOpenMs3.0.0_ms1.feature")]
         [TestCase(@"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.6.2_ms1.feature")]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.7.0_ms1.feature")]
         public static void TestMs1FeatureReadWrite(string filePath)
         {
             var testFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, filePath);
