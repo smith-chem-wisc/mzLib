@@ -7,7 +7,6 @@ using Omics.Fragmentation.Peptide;
 using Omics.SpectrumMatch;
 using MzLibUtil;
 using System.Numerics;
-using ThermoFisher.CommonCore.Data.Business;
 
 namespace Readers
 {
@@ -231,7 +230,7 @@ namespace Readers
                     var nameSplits = psm.Name.Split("|");
                     if (nameSplits.Length == 1)
                         Name = nameSplits[0];
-                    else 
+                    else
                         Name = nameSplits[index];
                 }
 
