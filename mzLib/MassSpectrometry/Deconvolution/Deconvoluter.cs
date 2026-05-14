@@ -24,8 +24,11 @@ namespace MassSpectrometry
             // FromFile decon needs RT in addition to m/z. If the caller didn't supply
             // an MzRtRange we synthesize one from the scan's RetentionTime (the natural
             // anchor when "this scan's precursor" is what's being requested).
-            if (deconvolutionParameters.DeconvolutionType == DeconvolutionType.FromFile
-                && rangeToGetPeaksFrom is not MzRtRange)
+            var requiresRt = deconvolutionParameters.DeconvolutionType == DeconvolutionType.FromFile
+                             || (deconvolutionParameters is MultipleDeconParameters multiple
+                                 && multiple.Parameters.Any(p => p.DeconvolutionType == DeconvolutionType.FromFile));
+
+            if (requiresRt && rangeToGetPeaksFrom is not MzRtRange)
             {
                 rangeToGetPeaksFrom = rangeToGetPeaksFrom is null
                     ? new MzRtRange(scan.MassSpectrum.Range, scan.RetentionTime)
@@ -135,6 +138,7 @@ namespace MassSpectrometry
                 DeconvolutionType.FromFile => throw new MzLibException(
                     "FromFile deconvolution requires a DeconvolutionParameters subclass that overrides " +
                     "CreateAlgorithm() (typically FromFileDeconvolutionParameters in the Readers project)."),
+                DeconvolutionType.Multiple => new MultipleDeconvolutionAlgorithm(parameters),
                 _ => throw new MzLibException("DeconvolutionType not yet supported")
             };
         }

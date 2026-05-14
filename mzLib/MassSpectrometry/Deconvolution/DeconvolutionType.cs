@@ -6,5 +6,6 @@
         ExampleNewDeconvolutionTemplate,
         IsoDecDeconvolution,
         FromFile,
+        Multiple
     }
 }
