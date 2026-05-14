@@ -74,19 +74,25 @@ namespace MassSpectrometry
             // Implemented in a separate iterator helper so the NeutralMassSpectrum
             // early-return above stays eager rather than being deferred to MoveNext.
             return deconvolutionParameters.UseGenericScore
-                ? AddGenericScoring(envelopes, deconvolutionParameters)
+                ? AddGenericScoring(envelopes, deconvolutionParameters, spectrum)
                 : envelopes;
         }
 
         private static IEnumerable<IsotopicEnvelope> AddGenericScoring(
-            IEnumerable<IsotopicEnvelope> envelopes, DeconvolutionParameters deconvolutionParameters)
+            IEnumerable<IsotopicEnvelope> envelopes, DeconvolutionParameters deconvolutionParameters,
+            MzSpectrum spectrum)
         {
             AverageResidue model = deconvolutionParameters.AverageResidueModel;
             foreach (var envelope in envelopes)
             {
                 if (envelope.GenericScore == null)
                 {
-                    double score = DeconvolutionScorer.ScoreEnvelope(envelope, model);
+                    // Spectrum-aware path (PR #1056): the 3-arg ScoreEnvelope folds in SNR
+                    // and CompetingPeakRatio features against the source spectrum. The
+                    // envelope-only 2-arg overload is retained for call sites that no
+                    // longer hold the spectrum (e.g.
+                    // IsotopicEnvelopeExtensions.GetOrComputeGenericScore).
+                    double score = DeconvolutionScorer.ScoreEnvelope(envelope, model, spectrum);
                     envelope.SetGenericScore(score);
                 }
                 yield return envelope;
