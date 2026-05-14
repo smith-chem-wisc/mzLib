@@ -129,8 +129,8 @@ namespace Test.MassSpectrometryTests.Deconvolution
 
             var features = DeconvolutionScorer.ComputeFeatures(env, Model);
 
-            Assert.That(features.AveragineCosineSimilarity, Is.LessThan(0.85),
-                $"Off-by-one shifted envelope should have degraded cosine. Got {features.AveragineCosineSimilarity:F4}");
+            Assert.That(features.AveragineCosineSimilarity, Is.LessThan(0.7),
+                $"Off-by-one shifted envelope should drop cosine well below the positive-case 0.85 baseline. Got {features.AveragineCosineSimilarity:F4}");
         }
 
         [Test]
