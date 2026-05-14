@@ -18,6 +18,17 @@ namespace MassSpectrometry
         /// </summary>
         public double ExpectedIsotopeSpacing { get; set; }
 
+        /// <summary>
+        /// When true, <see cref="Deconvoluter.Deconvolute(MzSpectrum, DeconvolutionParameters, MzLibUtil.MzRange)"/>
+        /// runs an additional per-envelope generic-scoring pass after the algorithm produces
+        /// envelopes: each yielded envelope's <see cref="IsotopicEnvelope.GenericScore"/> is set
+        /// (via <see cref="DeconvolutionScorer.ScoreEnvelope(IsotopicEnvelope, AverageResidue)"/>) without
+        /// modifying the algorithm-specific <see cref="IsotopicEnvelope.Score"/>.
+        /// Defaults to false to keep the cost off the hot path for callers that only need the
+        /// algorithm score.
+        /// </summary>
+        public bool UseGenericScore { get; set; } = false;
+
         protected DeconvolutionParameters(int minCharge, int maxCharge,
             Polarity polarity = Polarity.Positive,
             AverageResidue? averageResidueModel = null,
@@ -41,5 +52,15 @@ namespace MassSpectrometry
         /// or <c>null</c> if this parameter type does not support decoy deconvolution.
         /// </returns>
         public abstract DeconvolutionParameters? ToDecoyParameters();
+
+        /// <summary>
+        /// Polymorphic factory hook — a parameters subclass can return its own
+        /// <see cref="DeconvolutionAlgorithm"/> instance instead of going through the
+        /// enum-based switch in <see cref="Deconvoluter"/>. Used when the algorithm
+        /// lives in a project that <c>MassSpectrometry</c> does not reference (e.g.
+        /// <c>Readers</c>). Default implementation returns <c>null</c> so existing
+        /// subclasses keep dispatching via <see cref="DeconvolutionType"/>.
+        /// </summary>
+        public virtual DeconvolutionAlgorithm? CreateAlgorithm() => null;
     }
 }
