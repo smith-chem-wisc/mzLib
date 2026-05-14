@@ -5,9 +5,9 @@ using System.Collections.ObjectModel;
 namespace Chromatography.RetentionTimePrediction;
 
 /// <summary>
-/// Unified contract for all retention time predictors — local (Chronologer, SSRCalc3)
-/// and remote (Koina/Prosit). MetaMorpheus consumes this interface directly without
-/// an adapter layer.
+/// Contract for a retention time predictor. Implementations produce a predicted
+/// retention-time-equivalent value (time, iRT, or hydrophobicity, depending on the
+/// predictor) for a given peptide, individually or in batches.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -38,7 +38,9 @@ public interface IRetentionTimePredictor : IDisposable
     /// <summary>Human-readable name, e.g. "Chronologer", "Prosit2019iRT".</summary>
     string PredictorName { get; }
 
-    /// <summary>Chromatographic or electrophoretic mode this predictor targets.</summary>
+    /// <summary>
+    /// Gets the separation type this predictor is designed for
+    /// </summary>
     SeparationType SeparationType { get; }
 
     /// <summary>
@@ -66,6 +68,8 @@ public interface IRetentionTimePredictor : IDisposable
     /// Duplicate <c>FullSequence</c> entries result in redundant prediction work in the
     /// default implementation (the last result silently overwrites earlier ones in the
     /// output dictionary).
+    ///
+    /// Null elements in <paramref name="peptides"/> are skipped.
     /// </summary>
     /// <exception cref="ArgumentNullException">
     /// Thrown when <paramref name="peptides"/> is null.
@@ -78,7 +82,17 @@ public interface IRetentionTimePredictor : IDisposable
 
         var results = new Dictionary<string, double?>();
         foreach (var peptide in peptides)
+        {
+            // Skip null peptides and null FullSequences only: a null FullSequence
+            // flows into the dictionary indexer below and throws ArgumentNullException,
+            // dropping every prior result mid-iteration. An empty FullSequence is a
+            // legal dict key, so let it through -- PredictRetentionTime returns null
+            // with EmptySequence for that case, and the caller sees results[""] = null
+            // instead of a silent drop.
+            if (peptide is null || peptide.FullSequence is null)
+                continue;
             results[peptide.FullSequence] = PredictRetentionTime(peptide, out _);
+        }
 
         return new ReadOnlyDictionary<string, double?>(results);
     }
@@ -104,4 +118,4 @@ public interface IRetentionTimePredictor : IDisposable
     IReadOnlyList<(double? PredictedValue, IRetentionPredictable Peptide, RetentionTimeFailureReason? FailureReason)> PredictRetentionTimeEquivalents(IEnumerable<IRetentionPredictable> peptides, int maxThreads = 1);
 
     public string? GetFormattedSequence(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason);
-}
+}
