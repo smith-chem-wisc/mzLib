@@ -222,8 +222,28 @@ namespace Readers
                 BaseSeq = baseSequence == "" ? psm.BaseSeq.Split("|")[index] : baseSequence;
                 StartAndEndResiduesInParentSequence = psm.StartAndEndResiduesInParentSequence.Split("|")[index];
                 Accession = psm.Accession.Split("|")[index];
-                Name = psm.Name.Split("|")[index];
-                GeneName = psm.GeneName.Split("|")[index];
+
+                if (psm.Name is null)
+                    Name = string.Empty;
+                else
+                {
+                    var nameSplits = psm.Name.Split("|");
+                    if (nameSplits.Length == 1)
+                        Name = nameSplits[0];
+                    else
+                        Name = nameSplits[index];
+                }
+
+                if (psm.GeneName is null)
+                    GeneName = string.Empty;
+                else
+                {
+                    var geneSplits = psm.GeneName.Split("|");
+                    if (geneSplits.Length == 1)
+                        GeneName = geneSplits[0];
+                    else
+                        GeneName = geneSplits[index];
+                }
 
                 if (psm.MonoisotopicMassString.Split("|").Count() == 1)
                 {
