@@ -22,7 +22,7 @@ namespace MassSpectrometry
         /// <param name="spectrumToDeconvolute">spectrum to deconvolute</param>
         /// <param name="range">Range of peaks to deconvolute</param>
         /// <returns></returns>
-        internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrumToDeconvolute, MzRange range)
+        protected internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrumToDeconvolute, MzRange range)
         {
             var deconParams = DeconvolutionParameters as ClassicDeconvolutionParameters ?? throw new MzLibException("Deconvolution params and algorithm do not match");
             spectrum = spectrumToDeconvolute;

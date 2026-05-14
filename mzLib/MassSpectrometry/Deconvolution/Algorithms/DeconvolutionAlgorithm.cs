@@ -28,7 +28,10 @@ namespace MassSpectrometry
         /// <param name="spectrum">spectrum to be deconvoluted</param>
         /// <param name="range">Range of peaks to deconvolute</param>
         /// <returns></returns>
-        internal abstract IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range);
-
+        // protected internal so DeconvolutionAlgorithm subclasses living outside
+        // MassSpectrometry.dll (e.g. FromFileDeconvolutionAlgorithm in Readers) can
+        // override this method. Same-assembly callers in Deconvoluter retain access
+        // via the `internal` half of the access modifier.
+        protected internal abstract IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range);
     }
 }

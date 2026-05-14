@@ -213,8 +213,9 @@ namespace MassSpectrometry
         /// </summary>
         /// <remarks>
         /// Use this overload when the caller still holds the <see cref="MzSpectrum"/> the
-        /// envelope was extracted from (the always-on path through
-        /// <see cref="Deconvoluter.DeconvoluteWithGenericScoring(MzSpectrum, DeconvolutionParameters, MzLibUtil.MzRange)"/>).
+        /// envelope was extracted from (the path through
+        /// <see cref="Deconvoluter.Deconvolute(MzSpectrum, DeconvolutionParameters, MzLibUtil.MzRange)"/>
+        /// with <see cref="DeconvolutionParameters.UseGenericScore"/> set to <c>true</c>).
         /// The richer feature vector flows into <see cref="ComputeScoreWithSpectrumContext"/>.
         ///
         /// Note: spectrum-aware scores are not strictly comparable across deconvolution

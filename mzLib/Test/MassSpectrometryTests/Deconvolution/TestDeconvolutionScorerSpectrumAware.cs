@@ -331,10 +331,10 @@ namespace Test.MassSpectrometryTests.Deconvolution
                 $"ScoreEnvelope(env, model, spec) must equal ComputeScoreWithSpectrumContext(ComputeFeatures(env, model, spec)). Got {convenience} vs {explicitChain}");
         }
 
-        // ── DeconvoluteWithGenericScoring uses the spectrum-aware path ────────
+        // ── Deconvolute with UseGenericScore=true uses the spectrum-aware path ──
 
         [Test]
-        public void DeconvoluteWithGenericScoring_PopulatesScoreFromSpectrumAwarePath()
+        public void Deconvolute_UseGenericScore_PopulatesScoreFromSpectrumAwarePath()
         {
             // Part 1: every yielded envelope has GenericScore.HasValue == true.
             var env = BuildPerfectEnvelope(monoMass: TestMass, charge: 2);
@@ -343,9 +343,10 @@ namespace Test.MassSpectrometryTests.Deconvolution
             var clean = new MzSpectrum(mzArr, yArr, false);
 
             var deconParams = new ClassicDeconvolutionParameters(
-                minCharge: 1, maxCharge: 10, deconPpm: 20, intensityRatio: 3);
+                minCharge: 1, maxCharge: 10, deconPpm: 20, intensityRatio: 3)
+            { UseGenericScore = true };
 
-            var cleanResults = Deconvoluter.DeconvoluteWithGenericScoring(clean, deconParams).ToList();
+            var cleanResults = Deconvoluter.Deconvolute(clean, deconParams).ToList();
             Assert.That(cleanResults, Is.Not.Empty, "Clean spectrum should yield at least one envelope");
             foreach (var e in cleanResults)
             {
@@ -370,7 +371,7 @@ namespace Test.MassSpectrometryTests.Deconvolution
             //       ScoreEnvelope(env, model, syntheticNoisySpec) — proving the spectrum-aware
             //       scorer is sensitive to spectral context (and not, for example, ignoring the
             //       spectrum and falling back to envelope-only).
-            // Together these prove DeconvoluteWithGenericScoring is on the spectrum-aware path.
+            // Together these prove the UseGenericScore=true path is spectrum-aware.
             var yielded = cleanResults[0];
             double directCleanScore =
                 DeconvolutionScorer.ScoreEnvelope(yielded, deconParams.AverageResidueModel, clean);
@@ -384,8 +385,9 @@ namespace Test.MassSpectrometryTests.Deconvolution
             // spectrum.
             double meanEnvIntensity = yielded.Peaks.Average(p => p.intensity);
             var noisePeaks = new List<(double mz, double intensity)>();
-            foreach (var (mz, _) in yielded.Peaks)
+            foreach (var peak in yielded.Peaks)
             {
+                double mz = peak.mz;
                 noisePeaks.Add((mz - 1.3, meanEnvIntensity));
                 noisePeaks.Add((mz - 0.7, meanEnvIntensity));
                 noisePeaks.Add((mz + 0.7, meanEnvIntensity));

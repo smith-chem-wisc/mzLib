@@ -58,8 +58,12 @@ namespace Test.MassSpectrometryTests.Deconvolution
         [Test]
         public void ScoreEnvelopes_NullCollection_ThrowsArgumentNullException()
         {
+            // No .ToList() inside the lambda -- this only passes if the throw fires
+            // at the call site, before MoveNext. Pins the wrapper+iterator split
+            // against a silent regression to a single iterator method (which would
+            // make the throw deferred to first enumeration).
             Assert.That(
-                () => DeconvolutionScorer.ScoreEnvelopes(null, Model).ToList(),
+                () => DeconvolutionScorer.ScoreEnvelopes(null, Model),
                 Throws.TypeOf<ArgumentNullException>()
                     .With.Property("ParamName").EqualTo("envelopes"));
         }
@@ -69,8 +73,10 @@ namespace Test.MassSpectrometryTests.Deconvolution
         {
             var envelopes = new List<IsotopicEnvelope>();
 
+            // See comment on the null-collection sibling -- no .ToList() so this
+            // distinguishes eager throw from deferred-to-MoveNext throw.
             Assert.That(
-                () => DeconvolutionScorer.ScoreEnvelopes(envelopes, null).ToList(),
+                () => DeconvolutionScorer.ScoreEnvelopes(envelopes, null),
                 Throws.TypeOf<ArgumentNullException>()
                     .With.Property("ParamName").EqualTo("model"));
         }

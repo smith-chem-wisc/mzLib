@@ -16,7 +16,8 @@
         /// </summary>
         /// <remarks>
         /// Idempotent: if <see cref="IsotopicEnvelope.GenericScore"/> has already been set
-        /// (e.g. by <see cref="Deconvoluter.DeconvoluteWithGenericScoring(MzSpectrum, DeconvolutionParameters, MzLibUtil.MzRange)"/>),
+        /// (e.g. by <see cref="Deconvoluter.Deconvolute(MzSpectrum, DeconvolutionParameters, MzLibUtil.MzRange)"/>
+        /// with <see cref="DeconvolutionParameters.UseGenericScore"/> set to <c>true</c>),
         /// the cached value is returned without recomputation.
         /// </remarks>
         public static double GetOrComputeGenericScore(this IsotopicEnvelope envelope, AverageResidue model)

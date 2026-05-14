@@ -13,7 +13,6 @@ namespace Test.MassSpectrometryTests.Deconvolution
     [TestFixture]
     public sealed class TestDeconvolutionScorerNegativeCharge
     {
-
         [Test]
         public void ComputeFeatures_NegativeCharge_CosineMatchesPositive()
         {
