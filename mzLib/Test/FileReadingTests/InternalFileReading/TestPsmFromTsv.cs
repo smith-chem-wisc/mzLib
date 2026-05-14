@@ -335,13 +335,17 @@ namespace Test.FileReadingTests.InternalFileReading
         }
 
         [Test]
-        public static void TestPsmFromTsvDisambiguatingConstructor()
+        [TestCase(@"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv")]
+        [TestCase(@"FileReadingTests\SearchResults\TDGPTMDSearchResults_NoNameAndGene.psmtsv")]
+        public static void TestPsmFromTsvDisambiguatingConstructor(string file)
         {
             // initialize values
-            string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
+            string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, file);
             List<string> warnings = new();
             List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(psmTsvPath, out warnings);
             PsmFromTsv psm = psms.First();
+
+            bool missingNameAndGene = file.Contains("NoNameAndGene");
 
             // non ambiguous construction should not be successful
             string fullSeq = psm.FullSequence;
@@ -366,8 +370,12 @@ namespace Test.FileReadingTests.InternalFileReading
                 NUnit.Framework.Assert.That(disambiguatedPSM.PeptideMonoMass == ambPsm.PeptideMonoMass.Split("|")[0]);
                 NUnit.Framework.Assert.That(disambiguatedPSM.MassDiffDa == ambPsm.MassDiffDa.Split("|")[0]);
                 NUnit.Framework.Assert.That(disambiguatedPSM.MassDiffPpm == ambPsm.MassDiffPpm.Split("|")[0]);
-                NUnit.Framework.Assert.That(disambiguatedPSM.ProteinName == ambPsm.ProteinName.Split("|")[0]);
-                NUnit.Framework.Assert.That(disambiguatedPSM.GeneName == ambPsm.GeneName.Split("|")[0]);
+
+                var name = missingNameAndGene ? string.Empty : ambPsm.ProteinName.Split("|")[0];
+                var gene = missingNameAndGene ? string.Empty : ambPsm.GeneName.Split("|")[0];
+
+                NUnit.Framework.Assert.That(disambiguatedPSM.ProteinName == name);
+                NUnit.Framework.Assert.That(disambiguatedPSM.GeneName == gene);
 
                 for (int i = 0; i < ambPsm.MatchedIons.Count; i++)
                 {
@@ -383,8 +391,10 @@ namespace Test.FileReadingTests.InternalFileReading
                         NUnit.Framework.Assert.That(disambiguatedPSM.BaseSeq == ambPsm.BaseSeq.Split("|")[i]);
                         NUnit.Framework.Assert.That(disambiguatedPSM.EssentialSeq == ambPsm.EssentialSeq.Split("|")[i]);
                         NUnit.Framework.Assert.That(disambiguatedPSM.ProteinAccession == ambPsm.ProteinAccession.Split("|")[i]);
-                        NUnit.Framework.Assert.That(disambiguatedPSM.ProteinName == ambPsm.ProteinName.Split("|")[i]);
-                        NUnit.Framework.Assert.That(disambiguatedPSM.GeneName == ambPsm.GeneName.Split("|")[i]);
+                        name = missingNameAndGene ? string.Empty : ambPsm.ProteinName.Split("|")[i];
+                        gene = missingNameAndGene ? string.Empty : ambPsm.GeneName.Split("|")[i];
+                        NUnit.Framework.Assert.That(disambiguatedPSM.ProteinName == name);
+                        NUnit.Framework.Assert.That(disambiguatedPSM.GeneName == gene);
 
                         if (ambPsm.PeptideMonoMass.Split("|").Count() == 1)
                         {
