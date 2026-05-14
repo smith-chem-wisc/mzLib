@@ -992,5 +992,56 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 ProteaseDictionary.Dictionary.Remove("MyLabProtease");
             }
         }
+
+        /// <summary>
+        /// Tests that subtilisin|p is present in the protease dictionary and correctly
+        /// cleaves a peptide sequence after the expected residues (N, S, L, K, I, D, Y,
+        /// V, G, F, T, E, Q, A, R), while respecting the proline-inhibition rule.
+        /// </summary>
+        [Test]
+        public static void TestSubtilisinP_DigestsCorrectlyAndRespectsProlineRestriction()
+        {
+            // Verify subtilisin|P is loaded from the embedded resource
+            Assert.That(ProteaseDictionary.Dictionary.ContainsKey("subtilisin|P"),
+                "subtilisin|P must be present in the embedded protease dictionary");
+
+            var subtilisin = ProteaseDictionary.Dictionary["subtilisin|P"];
+            Assert.That(subtilisin.CleavageSpecificity, Is.EqualTo(CleavageSpecificity.Full));
+
+            // Basic digestion: ANKTIDE should be cut after A, N, K, T, I, D → several fragments
+            var prot = new Protein("ANKTIDE", null);
+            var digestionParams = new DigestionParams(
+                protease: "subtilisin|P", maxMissedCleavages: 0, minPeptideLength: 1,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+
+            var peptides = prot.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
+
+            // Every residue except the last is a cleavage site → 7 single-AA fragments
+            Assert.That(peptides.Count, Is.EqualTo(7),
+                "subtilisin|P should cleave after every residue in ANKTIDE (no prolines present)");
+            CollectionAssert.AreEquivalent(
+                new[] { "A", "N", "K", "T", "I", "D", "E" },
+                peptides.Select(p => p.BaseSequence).ToList());
+
+            // Proline-restriction: cleavage AFTER K is inhibited when followed by P
+            // AKPIDE → K is followed by P → K| should NOT fire; cleavage after A, I, D only
+            var protWithPro = new Protein("AKPIDE", null);
+            var peptidesWithPro = protWithPro.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
+
+            Assert.That(peptidesWithPro.Any(p => p.BaseSequence == "KPI"),
+                "KPI should be kept intact because K[P]| is inhibited before proline");
+            Assert.That(peptidesWithPro.All(p => p.BaseSequence != "K"),
+                "K alone must not appear as a fragment when the next residue is P");
+        }
+        [Test]
+        public static void LoadProteaseDictionary_SubtilisinP_HasProlineRestrictedMotifs()
+        {
+            Assert.That(ProteaseDictionary.Dictionary.ContainsKey("subtilisin|P"), Is.True);
+            var subtilisinP = ProteaseDictionary.Dictionary["subtilisin|P"];
+
+            Assert.That(subtilisinP.CleavageSpecificity, Is.EqualTo(CleavageSpecificity.Full));
+            Assert.That(subtilisinP.DigestionMotifs.All(m => m.PreventingCleavage == "P"), Is.True,
+                "All subtilisin|P motifs should prevent cleavage before proline");
+        }
     }
 }
