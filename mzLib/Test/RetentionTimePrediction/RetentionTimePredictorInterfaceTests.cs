@@ -6,6 +6,12 @@ using System.Collections.Generic;
 using System.Linq;
 using Omics.SequenceConversion;
 
+// The PredictRetentionTime / PredictRetentionTimes pair is marked [Obsolete] in favor
+// of PredictRetentionTimeEquivalent / PredictRetentionTimeEquivalents. These tests
+// intentionally exercise the legacy surface (including the interface's default
+// dictionary-shaped batch implementation) to lock in backward-compatible behavior.
+#pragma warning disable CS0618 // Type or member is obsolete
+
 namespace Test.RetentionTimePrediction
 {
     /// <summary>

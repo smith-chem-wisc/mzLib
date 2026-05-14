@@ -10,6 +10,11 @@ using NUnit.Framework;
 using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 
+// The PredictRetentionTime / PredictRetentionTimes pair is marked [Obsolete] in favor
+// of PredictRetentionTimeEquivalent / PredictRetentionTimeEquivalents. These tests
+// intentionally exercise the legacy surface to lock in backward-compatible behavior.
+#pragma warning disable CS0618 // Type or member is obsolete
+
 namespace Test.KoinaTests.RetentionTimePrediction
 {
     /// <summary>

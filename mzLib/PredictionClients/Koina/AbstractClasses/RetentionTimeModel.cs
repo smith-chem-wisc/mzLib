@@ -282,114 +282,43 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         public virtual SeparationType SeparationType => SeparationType.HPLC;
 
-        /// <summary>
-        /// Implements IRetentionTimePredictor.PredictRetentionTime by delegating to the
-        /// batch method with a list-of-one. This avoids duplicate validation logic and
-        /// ensures consistent behavior between single and batch call sites.
-        /// </summary>
+        /// <inheritdoc cref="PredictRetentionTimeEquivalent"/>
+        [Obsolete("Use PredictRetentionTimeEquivalent instead. Retained for backward compatibility with the prior IRetentionTimePredictor surface; will be removed in a future release.")]
         public double? PredictRetentionTime(IRetentionPredictable peptide,
             out RetentionTimeFailureReason? failureReason)
-        {
-            failureReason = null;
-
-            if (peptide is null)
-            {
-                failureReason = RetentionTimeFailureReason.EmptySequence;
-                return null;
-            }
-
-            if (string.IsNullOrEmpty(peptide.BaseSequence) || string.IsNullOrEmpty(peptide.FullSequence))
-            {
-                failureReason = RetentionTimeFailureReason.EmptySequence;
-                return null;
-            }
-
-            // PredictRetentionTimes documents and implements a "swallow everything,
-            // fill nulls and return" contract; with the null-FullSequence filter and
-            // the Predictions clear at its top, nothing should escape it under the
-            // documented inputs. No outer catch here -- a future regression that
-            // does leak should surface as a real exception, not be silently mapped
-            // to PredictionError.
-            var results = PredictRetentionTimes(new[] { peptide });
-            if (results.TryGetValue(peptide.FullSequence, out var value) && value.HasValue)
-                return value;
-
-            // Batch realigns rejected inputs into Predictions with a non-null Warning
-            // (e.g. mods unrepresentable in UNIMOD). Surface that as IncompatibleModifications
-            // instead of collapsing every null into PredictionError.
-            var matching = Predictions.FirstOrDefault(p => p.FullSequence == peptide.FullSequence);
-            failureReason = matching?.Warning != null
-                ? RetentionTimeFailureReason.IncompatibleModifications
-                : RetentionTimeFailureReason.PredictionError;
-            return null;
-        }
+            => PredictRetentionTimeEquivalent(peptide, out failureReason);
 
         /// <summary>
-        /// Overrides the default IRetentionTimePredictor batch method to issue a single
-        /// batch HTTP call to the Koina API for all peptides at once.
-        ///
-        /// Each call runs a fresh inference; results are not cached across calls and
-        /// the Predictions collection is overwritten on every invocation.
-        ///
-        /// Input is deduplicated on FullSequence before the API call. The returned
-        /// dictionary is read-only; key is peptide.FullSequence; null values indicate
-        /// prediction was not possible for that peptide.
+        /// Backward-compatible dictionary-shaped batch. Routes through
+        /// <see cref="PredictRetentionTimeEquivalents"/> (the authoritative batch entry
+        /// point) and reshapes the tuple list into a dictionary keyed by
+        /// <c>FullSequence</c>. Null and empty-FullSequence peptides are dropped because
+        /// they cannot serve as dictionary keys; callers needing per-peptide failure
+        /// reasons should use <see cref="PredictRetentionTimeEquivalents"/> directly.
         /// </summary>
         /// <exception cref="ArgumentNullException">
         /// Thrown when <paramref name="peptides"/> is null.
         /// </exception>
+        [Obsolete("Use PredictRetentionTimeEquivalents instead. Retained for backward compatibility with the prior IRetentionTimePredictor surface; will be removed in a future release.")]
         public IReadOnlyDictionary<string, double?> PredictRetentionTimes(
             IEnumerable<IRetentionPredictable> peptides)
         {
             if (peptides is null)
                 throw new ArgumentNullException(nameof(peptides));
 
-            // Clear stale Predictions from any prior call. PredictRetentionTime's
-            // failure-reason fallback inspects this collection; if a transient HTTP
-            // failure prevents AsyncThrottledPredictor from reaching its final
-            // Predictions = realignedPredictions assignment, prior-call data would
-            // otherwise leak into the failure reason for the current peptide.
-            Predictions = new List<PeptideRTPrediction>();
-
-            var peptideList = peptides
-                .Where(p => p is not null && !string.IsNullOrEmpty(p.FullSequence))
-                .DistinctBy(p => p.FullSequence)
-                .ToList();
-
+            var equivalents = PredictRetentionTimeEquivalents(peptides, 1);
             var results = new Dictionary<string, double?>();
 
-            if (peptideList.Count == 0)
-                return new ReadOnlyDictionary<string, double?>(results);
-
-            try
+            foreach (var (predictedValue, peptide, _) in equivalents)
             {
-                var inputs = peptideList
-                    .Select(p => new RetentionTimePredictionInput(p.FullSequence))
-                    .ToList();
+                if (string.IsNullOrEmpty(peptide.FullSequence))
+                    continue;
 
-                var predictions = Predict(inputs);
-
-                foreach (var prediction in predictions)
-                {
-                    // Normalize NaN/Infinity to null so the documented "null means
-                    // prediction was not possible" contract holds end-to-end. Callers
-                    // doing arithmetic on the result would otherwise silently corrupt.
-                    var rt = prediction.PredictedRetentionTime;
-                    results[prediction.FullSequence] =
-                        (rt.HasValue && double.IsFinite(rt.Value)) ? rt : null;
-                }
-
-                // Fill null for any inputs missing from predictions (defensive)
-                foreach (var peptide in peptideList)
-                {
-                    if (!results.ContainsKey(peptide.FullSequence))
-                        results[peptide.FullSequence] = null;
-                }
-            }
-            catch (Exception)
-            {
-                foreach (var peptide in peptideList)
-                    results[peptide.FullSequence] = null;
+                // First-write-wins: PredictRetentionTimeEquivalents dedups before the HTTP
+                // call so every duplicate FullSequence in the tuple list carries the same
+                // PredictedValue. TryAdd avoids the dictionary-indexer overwrite that the
+                // prior dictionary-only path also avoided via DistinctBy.
+                results.TryAdd(peptide.FullSequence, predictedValue);
             }
 
             return new ReadOnlyDictionary<string, double?>(results);
@@ -437,21 +366,45 @@ namespace PredictionClients.Koina.AbstractClasses
         }
 
         /// <summary>
-        /// For Koina retention time models, the predicted value IS the retention time
-        /// equivalent (iRT or similar predictor-specific unit), so this delegates to
-        /// PredictRetentionTime.
+        /// Singular retention time equivalent — the authoritative single-peptide entry point.
+        /// Routes through <see cref="PredictRetentionTimeEquivalents"/> with a list-of-one so
+        /// the single and batch paths share the same Koina HTTP pipeline and failure-reason
+        /// logic. Returns null with <paramref name="failureReason"/> set when prediction is
+        /// not possible.
         /// </summary>
         public double? PredictRetentionTimeEquivalent(IRetentionPredictable peptide,
             out RetentionTimeFailureReason? failureReason)
-            => PredictRetentionTime(peptide, out failureReason);
+        {
+            failureReason = null;
+
+            if (peptide is null)
+            {
+                failureReason = RetentionTimeFailureReason.EmptySequence;
+                return null;
+            }
+
+            if (string.IsNullOrEmpty(peptide.BaseSequence) || string.IsNullOrEmpty(peptide.FullSequence))
+            {
+                failureReason = RetentionTimeFailureReason.EmptySequence;
+                return null;
+            }
+
+            var results = PredictRetentionTimeEquivalents(new[] { peptide }, 1);
+            var tuple = results[0];
+            failureReason = tuple.FailureReason;
+            return tuple.PredictedValue;
+        }
 
         /// <summary>
-        /// Batch retention time equivalents. Routes through the batch
-        /// PredictRetentionTimes (single Koina HTTP call) and reshapes into the
-        /// tuple list the interface specifies. The maxThreads parameter is accepted
-        /// for interface compatibility but ignored: Koina batches a single HTTP
-        /// request regardless of thread count.
+        /// Batch retention time equivalents — the authoritative batch entry point. Issues a
+        /// single Koina HTTP call for all peptides and reshapes the result into the tuple
+        /// list the interface specifies. The maxThreads parameter is accepted for interface
+        /// compatibility but ignored: Koina batches a single HTTP request regardless of
+        /// thread count.
         /// </summary>
+        /// <exception cref="ArgumentNullException">
+        /// Thrown when <paramref name="peptides"/> is null.
+        /// </exception>
         public IReadOnlyList<(double? PredictedValue, IRetentionPredictable Peptide, RetentionTimeFailureReason? FailureReason)>
             PredictRetentionTimeEquivalents(IEnumerable<IRetentionPredictable> peptides, int maxThreads = 1)
         {
@@ -463,11 +416,54 @@ namespace PredictionClients.Koina.AbstractClasses
             // of a silently shorter list.
             var inputList = peptides.Where(p => p is not null).ToList();
 
+            // Clear stale Predictions from any prior call. The failure-reason fallback below
+            // inspects this collection; if a transient HTTP failure prevents
+            // AsyncThrottledPredictor from reaching its final Predictions = realignedPredictions
+            // assignment, prior-call data would otherwise leak into the failure reason for the
+            // current peptide.
+            Predictions = new List<PeptideRTPrediction>();
+
             var validPeptides = inputList
                 .Where(p => !string.IsNullOrEmpty(p.FullSequence))
+                .DistinctBy(p => p.FullSequence)
                 .ToList();
 
-            var batchResults = PredictRetentionTimes(validPeptides);
+            var batchResults = new Dictionary<string, double?>();
+
+            if (validPeptides.Count > 0)
+            {
+                try
+                {
+                    var inputs = validPeptides
+                        .Select(p => new RetentionTimePredictionInput(p.FullSequence))
+                        .ToList();
+
+                    var predictions = Predict(inputs);
+
+                    foreach (var prediction in predictions)
+                    {
+                        // Normalize NaN/Infinity to null so the documented "null means
+                        // prediction was not possible" contract holds end-to-end. Callers
+                        // doing arithmetic on the result would otherwise silently corrupt.
+                        var rt = prediction.PredictedRetentionTime;
+                        batchResults[prediction.FullSequence] =
+                            (rt.HasValue && double.IsFinite(rt.Value)) ? rt : null;
+                    }
+
+                    // Fill null for any inputs missing from predictions (defensive)
+                    foreach (var peptide in validPeptides)
+                    {
+                        if (!batchResults.ContainsKey(peptide.FullSequence))
+                            batchResults[peptide.FullSequence] = null;
+                    }
+                }
+                catch (Exception)
+                {
+                    foreach (var peptide in validPeptides)
+                        batchResults[peptide.FullSequence] = null;
+                }
+            }
+
             var output = new List<(double?, IRetentionPredictable, RetentionTimeFailureReason?)>(inputList.Count);
 
             foreach (var peptide in inputList)
@@ -484,8 +480,6 @@ namespace PredictionClients.Koina.AbstractClasses
                 }
                 else
                 {
-                    // Predictions is always a non-null list at this point: PredictRetentionTimes
-                    // (called above) clears it to new() at the top of its body.
                     var matching = Predictions.FirstOrDefault(p => p.FullSequence == peptide.FullSequence);
                     var reason = matching?.Warning != null
                         ? RetentionTimeFailureReason.IncompatibleModifications

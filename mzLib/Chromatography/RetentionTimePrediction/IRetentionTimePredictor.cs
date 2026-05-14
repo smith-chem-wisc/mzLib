@@ -49,6 +49,7 @@ public interface IRetentionTimePredictor : IDisposable
     /// modifications, model error, etc.). The <paramref name="failureReason"/> out
     /// parameter is set when null is returned.
     /// </summary>
+    [Obsolete("Use PredictRetentionTimeEquivalent instead. This method exists only to preserve the prior dictionary-shaped contract and will be removed in a future release.")]
     double? PredictRetentionTime(IRetentionPredictable peptide,
                                  out RetentionTimeFailureReason? failureReason);
 
@@ -74,6 +75,7 @@ public interface IRetentionTimePredictor : IDisposable
     /// <exception cref="ArgumentNullException">
     /// Thrown when <paramref name="peptides"/> is null.
     /// </exception>
+    [Obsolete("Use PredictRetentionTimeEquivalents instead. This method exists only to preserve the prior dictionary-shaped contract and will be removed in a future release.")]
     IReadOnlyDictionary<string, double?> PredictRetentionTimes(
         IEnumerable<IRetentionPredictable> peptides)
     {
@@ -86,12 +88,12 @@ public interface IRetentionTimePredictor : IDisposable
             // Skip null peptides and null FullSequences only: a null FullSequence
             // flows into the dictionary indexer below and throws ArgumentNullException,
             // dropping every prior result mid-iteration. An empty FullSequence is a
-            // legal dict key, so let it through -- PredictRetentionTime returns null
-            // with EmptySequence for that case, and the caller sees results[""] = null
+            // legal dict key, so let it through -- PredictRetentionTimeEquivalent returns
+            // null with EmptySequence for that case, and the caller sees results[""] = null
             // instead of a silent drop.
             if (peptide is null || peptide.FullSequence is null)
                 continue;
-            results[peptide.FullSequence] = PredictRetentionTime(peptide, out _);
+            results[peptide.FullSequence] = PredictRetentionTimeEquivalent(peptide, out _);
         }
 
         return new ReadOnlyDictionary<string, double?>(results);
