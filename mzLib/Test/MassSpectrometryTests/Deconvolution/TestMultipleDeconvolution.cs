@@ -104,7 +104,17 @@ namespace Test.MassSpectrometryTests.Deconvolution
             Assert.That(p.Polarity, Is.EqualTo(Polarity.Negative));
         }
 
-        // ?? 2. Algorithm dispatch ?????????????????????????????????????????????
+        [Test]
+        public void MultipleDeconParameters_NullParameters_ThrowsArgumentNullException()
+        {
+            Assert.Throws<ArgumentNullException>(() => new MultipleDeconParameters(null, 1, 60));
+        }
+
+        [Test]
+        public void MultipleDeconParameters_EmptyParameters_ThrowsArgumentException()
+        {
+            Assert.Throws<ArgumentException>(() => new MultipleDeconParameters([], 1, 60));
+        }
 
         [Test]
         public void MultipleDecon_Dispatch_DoesNotThrow()
@@ -148,15 +158,18 @@ namespace Test.MassSpectrometryTests.Deconvolution
             var wrapped = Deconvoluter.Deconvolute(spectrum, multipleParams).ToList();
 
             Assert.That(wrapped.Count, Is.EqualTo(direct.Count));
+            Assert.That(
+                direct.Select(e => e.MonoisotopicMass).OrderBy(m => m),
+                Is.EquivalentTo(wrapped.Select(e => e.MonoisotopicMass).OrderBy(m => m)));
         }
 
         // ?? 4. Results from all sub-algorithms are concatenated ???????????????
 
         [Test]
-        public void MultipleDecon_ClassicAndIsoDec_CountIsAtLeastSumOfIndividual()
+        public void MultipleDecon_ClassicAndIsoDec_CountIsExactlySumOfIndividual()
         {
-            // The combined result may contain duplicate envelopes (the same peak found
-            // by both algorithms) but must contain at least as many as each alone.
+            // Concat performs no deduplication. The combined count must equal
+            // the exact sum of the individual algorithm counts.
             var spectrum = LoadProteoformSpectrum();
             var classicParams = DefaultClassicParams();
             var isoDecParams = DefaultIsoDecParams();
@@ -205,6 +218,7 @@ namespace Test.MassSpectrometryTests.Deconvolution
             var wrappedNarrow = Deconvoluter.Deconvolute(spectrum, multipleParams, narrowRange).ToList();
 
             Assert.That(wrappedNarrow.Count, Is.EqualTo(directNarrow.Count));
+            Assert.That(wrappedNarrow, Is.Not.Empty);
             // Every returned peak must fall within the narrow range.
             foreach (var env in wrappedNarrow)
                 Assert.That(env.Peaks.All(pk => narrowRange.Contains(pk.mz)));
@@ -238,6 +252,9 @@ namespace Test.MassSpectrometryTests.Deconvolution
             var fromSpectrum = Deconvoluter.Deconvolute(spectrum, multipleParams).ToList();
 
             Assert.That(fromScan.Count, Is.EqualTo(fromSpectrum.Count));
+            Assert.That(
+                fromSpectrum.Select(e => e.MonoisotopicMass).OrderBy(m => m),
+                Is.EquivalentTo(fromScan.Select(e => e.MonoisotopicMass).OrderBy(m => m)));
         }
 
         [Test]
@@ -294,7 +311,7 @@ namespace Test.MassSpectrometryTests.Deconvolution
                 () => _ = Deconvoluter.Deconvolute(spectrum, multipleParams).ToList());
         }
 
-        // ?? 8. ToDecoyParameters – all sub-params support decoys ??????????????
+        // ?? 8. ToDecoyParameters ï¿½ all sub-params support decoys ??????????????
 
         [Test]
         public void MultipleDecon_ToDecoyParameters_AllSupport_ReturnsNonNull()
@@ -329,7 +346,7 @@ namespace Test.MassSpectrometryTests.Deconvolution
             Assert.That(decoy.Parameters.Length, Is.EqualTo(p.Parameters.Length));
         }
 
-        // ?? 9. ToDecoyParameters – any sub-param lacks decoy support ??????????
+        // ?? 9. ToDecoyParameters ï¿½ any sub-param lacks decoy support ??????????
 
         [Test]
         public void MultipleDecon_ToDecoyParameters_FromFileSubParam_ReturnsNull()
@@ -437,6 +454,21 @@ namespace Test.MassSpectrometryTests.Deconvolution
             var decoy2 = p.ToDecoyParameters();
 
             Assert.That(decoy1, Is.SameAs(decoy2));
+        }
+
+        [Test]
+        public void MultipleDecon_ToDecoyParameters_FromFileSubParam_ReturnsNullOnRepeatedCalls()
+        {
+            var fromFile = new FromFileDeconvolutionParameters(
+                Enumerable.Empty<ISingleChargeMs1Feature>(), 1, 60);
+            var p = new MultipleDeconParameters(
+                new DeconvolutionParameters[] { fromFile }, 1, 60);
+
+            var decoy1 = p.ToDecoyParameters();
+            var decoy2 = p.ToDecoyParameters();
+
+            Assert.That(decoy1, Is.Null);
+            Assert.That(decoy2, Is.Null);
         }
     }
 }
