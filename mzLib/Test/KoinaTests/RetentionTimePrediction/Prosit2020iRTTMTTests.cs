@@ -10,7 +10,7 @@ using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
 namespace Test.KoinaTests.RetentionTimePrediction
 {
     [TestFixture]
-    [Category("Integration")]
+    [Category("Koina")]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class Prosit2020iRTTMTTests
     {

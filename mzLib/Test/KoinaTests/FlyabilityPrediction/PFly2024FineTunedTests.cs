@@ -8,7 +8,7 @@ using PredictionClients.Koina.SupportedModels.FlyabilityModels;
 namespace Test.KoinaTests.FlyabilityPrediction
 {
     [TestFixture]
-    [Category("Integration")]
+    [Category("Koina")]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class PFly2024FineTunedTests
     {

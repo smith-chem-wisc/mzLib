@@ -12,7 +12,7 @@ using Readers.SpectralLibrary;
 namespace Test.KoinaTests.FragmentIntensityPrediction
 {
     [TestFixture]
-    [Category("Integration")]
+    [Category("Koina")]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class Prosit2020IntensityHCDTests
     {

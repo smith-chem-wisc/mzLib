@@ -3,7 +3,6 @@ using PredictionClients.Koina.Client;
 using Chromatography;
 using Chromatography.RetentionTimePrediction;
 using MzLibUtil;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using PredictionClients.Koina.Interfaces;
 using Easy.Common.Extensions;
@@ -59,7 +58,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// - Request formatting method (ToBatchedRequests)
     /// - Model-specific modification handling if needed
     ///
-    /// Thread safety: instances are NOT thread-safe. Predict/PredictRetentionTime/PredictRetentionTimes
+    /// Thread safety: instances are NOT thread-safe. Predict/PredictRetentionTimeEquivalent/PredictRetentionTimeEquivalents
     /// mutate instance state (ModelInputs, ValidInputsMask, Predictions); callers must not invoke
     /// these methods concurrently on the same instance, nor read Predictions while a call is in flight.
     /// Use one instance per concurrent caller (or serialize externally) when sharing across pipelines.
@@ -282,48 +281,6 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         public virtual SeparationType SeparationType => SeparationType.HPLC;
 
-        /// <inheritdoc cref="PredictRetentionTimeEquivalent"/>
-        [Obsolete("Use PredictRetentionTimeEquivalent instead. Retained for backward compatibility with the prior IRetentionTimePredictor surface; will be removed in a future release.")]
-        public double? PredictRetentionTime(IRetentionPredictable peptide,
-            out RetentionTimeFailureReason? failureReason)
-            => PredictRetentionTimeEquivalent(peptide, out failureReason);
-
-        /// <summary>
-        /// Backward-compatible dictionary-shaped batch. Routes through
-        /// <see cref="PredictRetentionTimeEquivalents"/> (the authoritative batch entry
-        /// point) and reshapes the tuple list into a dictionary keyed by
-        /// <c>FullSequence</c>. Null and empty-FullSequence peptides are dropped because
-        /// they cannot serve as dictionary keys; callers needing per-peptide failure
-        /// reasons should use <see cref="PredictRetentionTimeEquivalents"/> directly.
-        /// </summary>
-        /// <exception cref="ArgumentNullException">
-        /// Thrown when <paramref name="peptides"/> is null.
-        /// </exception>
-        [Obsolete("Use PredictRetentionTimeEquivalents instead. Retained for backward compatibility with the prior IRetentionTimePredictor surface; will be removed in a future release.")]
-        public IReadOnlyDictionary<string, double?> PredictRetentionTimes(
-            IEnumerable<IRetentionPredictable> peptides)
-        {
-            if (peptides is null)
-                throw new ArgumentNullException(nameof(peptides));
-
-            var equivalents = PredictRetentionTimeEquivalents(peptides, 1);
-            var results = new Dictionary<string, double?>();
-
-            foreach (var (predictedValue, peptide, _) in equivalents)
-            {
-                if (string.IsNullOrEmpty(peptide.FullSequence))
-                    continue;
-
-                // First-write-wins: PredictRetentionTimeEquivalents dedups before the HTTP
-                // call so every duplicate FullSequence in the tuple list carries the same
-                // PredictedValue. TryAdd avoids the dictionary-indexer overwrite that the
-                // prior dictionary-only path also avoided via DistinctBy.
-                results.TryAdd(peptide.FullSequence, predictedValue);
-            }
-
-            return new ReadOnlyDictionary<string, double?>(results);
-        }
-
         /// <summary>
         /// Returns the Koina-format (API-ready) sequence for a peptide using the same
         /// internal sequence conversion logic as the batch prediction pipeline.
@@ -336,7 +293,7 @@ namespace PredictionClients.Koina.AbstractClasses
 
             if (peptide is null)
             {
-                // Aligns with PredictRetentionTime's null-peptide handling so callers
+                // Aligns with PredictRetentionTimeEquivalent's null-peptide handling so callers
                 // branching on FailureReason see the same value across the IRetentionTimePredictor
                 // interface methods.
                 failureReason = RetentionTimeFailureReason.EmptySequence;
