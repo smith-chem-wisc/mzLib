@@ -45,6 +45,8 @@ jobs:
       run: cd mzLib && dotnet restore
     - name: Build
       run: cd mzLib && dotnet build --no-restore --configuration Release
+    - name: Build (Test)
+      run: cd mzLib && dotnet build --no-restore --configuration Release ./Test/Test.csproj
     # mzLib tests with [Category("Integration")] (e.g. live Koina HTTP calls)
     # are excluded from the build job's test step and run here instead, where
     # the longer 45-minute timeout accommodates network-dependent runs.
