@@ -414,6 +414,56 @@ namespace Test.KoinaTests.RetentionTimePrediction
             Assert.That(model.ValidInputsMask, Is.All.False);
         }
 
+        // ── PredictRetentionTimeEquivalent: single-peptide IRetentionTimePredictor contract ──
+
+        [Test]
+        public void PredictRetentionTimeEquivalent_NullPeptide_ReturnsNullWithEmptySequence()
+        {
+            // Null peptide is "no input to predict from" — must surface EmptySequence
+            // rather than NRE'ing or returning the catch-all PredictionError. Callers
+            // (notably PEP training loops) treat null as a sentinel; an NRE here would
+            // crash the whole analysis.
+            var model = new TestableRetentionTimeModel();
+
+            var result = model.PredictRetentionTimeEquivalent(null!, out var reason);
+
+            Assert.That(result, Is.Null);
+            Assert.That(reason, Is.EqualTo(RetentionTimeFailureReason.EmptySequence));
+        }
+
+        [Test]
+        public void PredictRetentionTimeEquivalent_EmptyFullSequence_ReturnsNullWithEmptySequence()
+        {
+            // An empty sequence is "nothing to predict", semantically distinct from a
+            // model-side failure. EmptySequence lets the caller route the case without
+            // treating it as a prediction error.
+            var model = new TestableRetentionTimeModel();
+            var peptide = new StubPeptide { BaseSequence = "PEPTIDE", FullSequence = "" };
+
+            var result = model.PredictRetentionTimeEquivalent(peptide, out var reason);
+
+            Assert.That(result, Is.Null);
+            Assert.That(reason, Is.EqualTo(RetentionTimeFailureReason.EmptySequence));
+        }
+
+        [Test]
+        public void PredictRetentionTimeEquivalent_Success_RoutesThroughBatch()
+        {
+            // Pins the list-of-one delegation: a single-peptide call must unwrap the
+            // batch result without changing the value. A regression here would silently
+            // diverge single-peptide vs batch outputs.
+            var model = new TestableRetentionTimeModel
+            {
+                PredictStub = inputs => inputs.Select(i => Pred(i.FullSequence, 42.5)).ToList()
+            };
+            var peptide = new StubPeptide { BaseSequence = "PEPTIDE", FullSequence = "PEPTIDE" };
+
+            var result = model.PredictRetentionTimeEquivalent(peptide, out var reason);
+
+            Assert.That(result, Is.EqualTo(42.5));
+            Assert.That(reason, Is.Null);
+        }
+
         // ── PredictRetentionTimeEquivalents: IRetentionTimePredictor batch contract ──
 
         [Test]
@@ -490,6 +540,89 @@ namespace Test.KoinaTests.RetentionTimePrediction
             Assert.That(result[0].FailureReason,
                 Is.EqualTo(RetentionTimeFailureReason.IncompatibleModifications),
                 "A null prediction with a non-null Warning must map to IncompatibleModifications");
+        }
+
+        [Test]
+        public void PredictRetentionTimeEquivalents_PredictThrows_ReturnsPredictionErrorForAllValid()
+        {
+            // Pins the catch(Exception) fallback: a transient HTTP failure (or any
+            // exception from the predictor) must not propagate. Every valid input
+            // surfaces as null with PredictionError so downstream PEP code sees
+            // sentinel values uniformly. Complement of the warning-path test, which
+            // returns IncompatibleModifications.
+            var model = new TestableRetentionTimeModel { ThrowOnPredict = true };
+            var peptides = new[]
+            {
+                new StubPeptide { FullSequence = "PEPTIDE",  BaseSequence = "PEPTIDE"  },
+                new StubPeptide { FullSequence = "ANALYSIS", BaseSequence = "ANALYSIS" },
+            };
+
+            var result = model.PredictRetentionTimeEquivalents(peptides);
+
+            Assert.That(result.Count, Is.EqualTo(2));
+            Assert.That(result.All(r => r.PredictedValue is null), Is.True);
+            Assert.That(result.All(r => r.FailureReason == RetentionTimeFailureReason.PredictionError), Is.True,
+                "No Warning on Predictions, so the failure must be PredictionError, not IncompatibleModifications");
+        }
+
+        [Test]
+        public void PredictRetentionTimeEquivalents_PredictReturnsFewer_MissingFilledAsPredictionError()
+        {
+            // Pins the defensive-fill: when the predictor returns results for fewer
+            // peptides than were sent, the missing entries must still appear in the
+            // output (as PredictionError) rather than being silently dropped. Callers
+            // pair predictions to inputs and would crash on a shorter-than-expected list.
+            var model = new TestableRetentionTimeModel
+            {
+                PredictStub = _ => new List<PeptideRTPrediction>
+                {
+                    Pred("PEPTIDE", 25.3)
+                    // ANALYSIS intentionally missing
+                }
+            };
+            var peptides = new[]
+            {
+                new StubPeptide { FullSequence = "PEPTIDE",  BaseSequence = "PEPTIDE"  },
+                new StubPeptide { FullSequence = "ANALYSIS", BaseSequence = "ANALYSIS" },
+            };
+
+            var result = model.PredictRetentionTimeEquivalents(peptides);
+
+            Assert.That(result.Count, Is.EqualTo(2));
+            var pep = result.Single(r => r.Peptide.FullSequence == "PEPTIDE");
+            var ana = result.Single(r => r.Peptide.FullSequence == "ANALYSIS");
+            Assert.That(pep.PredictedValue, Is.EqualTo(25.3));
+            Assert.That(pep.FailureReason, Is.Null);
+            Assert.That(ana.PredictedValue, Is.Null);
+            Assert.That(ana.FailureReason, Is.EqualTo(RetentionTimeFailureReason.PredictionError));
+        }
+
+        [Test]
+        public void PredictRetentionTimeEquivalents_EmptyFullSequencePeptide_PreservedAsEmptySequenceTuple()
+        {
+            // Pins the empty-FullSequence branch of the output reshape loop: a
+            // real-but-malformed peptide (empty FullSequence) must still appear in the
+            // output with FailureReason=EmptySequence, distinct from PredictionError,
+            // so callers can distinguish "didn't send this to the model" from "model
+            // failed on this peptide."
+            var model = new TestableRetentionTimeModel
+            {
+                PredictStub = inputs => inputs.Select(i => Pred(i.FullSequence, 10.0)).ToList()
+            };
+            var peptides = new[]
+            {
+                new StubPeptide { FullSequence = "PEPTIDE", BaseSequence = "PEPTIDE" },
+                new StubPeptide { FullSequence = "",        BaseSequence = "EMPTY"   },
+            };
+
+            var result = model.PredictRetentionTimeEquivalents(peptides);
+
+            Assert.That(result.Count, Is.EqualTo(2));
+            var good = result.Single(r => r.Peptide.FullSequence == "PEPTIDE");
+            var empty = result.Single(r => r.Peptide.FullSequence == "");
+            Assert.That(good.PredictedValue, Is.EqualTo(10.0));
+            Assert.That(empty.PredictedValue, Is.Null);
+            Assert.That(empty.FailureReason, Is.EqualTo(RetentionTimeFailureReason.EmptySequence));
         }
     }
 }
