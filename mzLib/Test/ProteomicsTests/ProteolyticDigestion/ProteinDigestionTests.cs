@@ -1001,24 +1001,24 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         [Test]
         public static void TestSubtilisinP_DigestsCorrectlyAndRespectsProlineRestriction()
         {
-            // Verify subtilisin|p is loaded from the embedded resource
-            Assert.That(ProteaseDictionary.Dictionary.ContainsKey("subtilisin|p"),
-                "subtilisin|p must be present in the embedded protease dictionary");
+            // Verify subtilisin|P is loaded from the embedded resource
+            Assert.That(ProteaseDictionary.Dictionary.ContainsKey("subtilisin|P"),
+                "subtilisin|P must be present in the embedded protease dictionary");
 
-            var subtilisin = ProteaseDictionary.Dictionary["subtilisin|p"];
+            var subtilisin = ProteaseDictionary.Dictionary["subtilisin|P"];
             Assert.That(subtilisin.CleavageSpecificity, Is.EqualTo(CleavageSpecificity.Full));
 
             // Basic digestion: ANKTIDE should be cut after A, N, K, T, I, D → several fragments
             var prot = new Protein("ANKTIDE", null);
             var digestionParams = new DigestionParams(
-                protease: "subtilisin|p", maxMissedCleavages: 0, minPeptideLength: 1,
+                protease: "subtilisin|P", maxMissedCleavages: 0, minPeptideLength: 1,
                 initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
 
             var peptides = prot.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
 
             // Every residue except the last is a cleavage site → 7 single-AA fragments
             Assert.That(peptides.Count, Is.EqualTo(7),
-                "subtilisin|p should cleave after every residue in ANKTIDE (no prolines present)");
+                "subtilisin|P should cleave after every residue in ANKTIDE (no prolines present)");
             CollectionAssert.AreEquivalent(
                 new[] { "A", "N", "K", "T", "I", "D", "E" },
                 peptides.Select(p => p.BaseSequence).ToList());
@@ -1028,10 +1028,20 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             var protWithPro = new Protein("AKPIDE", null);
             var peptidesWithPro = protWithPro.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
 
-            Assert.That(peptidesWithPro.Any(p => p.BaseSequence == "KP"),
-                "KP should be kept intact because K[P]| is inhibited before proline");
+            Assert.That(peptidesWithPro.Any(p => p.BaseSequence == "KPI"),
+                "KPI should be kept intact because K[P]| is inhibited before proline");
             Assert.That(peptidesWithPro.All(p => p.BaseSequence != "K"),
                 "K alone must not appear as a fragment when the next residue is P");
+        }
+        [Test]
+        public static void LoadProteaseDictionary_SubtilisinP_HasProlineRestrictedMotifs()
+        {
+            Assert.That(ProteaseDictionary.Dictionary.ContainsKey("subtilisin|P"), Is.True);
+            var subtilisinP = ProteaseDictionary.Dictionary["subtilisin|P"];
+
+            Assert.That(subtilisinP.CleavageSpecificity, Is.EqualTo(CleavageSpecificity.Full));
+            Assert.That(subtilisinP.DigestionMotifs.All(m => m.PreventingCleavage == "P"), Is.True,
+                "All subtilisin|P motifs should prevent cleavage before proline");
         }
     }
 }
