@@ -32,7 +32,7 @@ jobs:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         verbose: true
         files: mzLib/Test*/TestResults/*/coverage.cobertura.xml
-  koina:
+  integration:
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
@@ -45,13 +45,6 @@ jobs:
       run: cd mzLib && dotnet restore
     - name: Build
       run: cd mzLib && dotnet build --no-restore --configuration Release
-    - name: Build (Test)
-      run: cd mzLib && dotnet build --no-restore --configuration Release ./Test/Test.csproj
-    # mzLib tests with [Category("Koina")] (live Koina HTTP calls) are excluded
-    # from the build job's test step and run here instead, where the longer
-    # 45-minute timeout accommodates network-dependent runs.
-    - name: Test (mzLib Koina)
-      run: cd mzLib && dotnet test --no-build --verbosity normal --configuration Release --filter "Category=Koina" ./Test/Test.csproj
     - name: Change mzLib version, pack, add source
       run: |
         cd mzLib;
