@@ -1,9 +1,10 @@
 #nullable enable
+using System;
 using Chemistry;
 
 namespace MassSpectrometry
 {
-    public abstract class DeconvolutionParameters
+    public abstract class DeconvolutionParameters : IEquatable<DeconvolutionParameters>
     {
         public abstract DeconvolutionType DeconvolutionType { get; protected set; }
         public int MinAssumedChargeState { get; set; }
@@ -62,5 +63,44 @@ namespace MassSpectrometry
         /// subclasses keep dispatching via <see cref="DeconvolutionType"/>.
         /// </summary>
         public virtual DeconvolutionAlgorithm? CreateAlgorithm() => null;
+
+        #region IEquatable<DeconvolutionParameters>
+
+        public bool Equals(DeconvolutionParameters? other)
+        {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+            if (GetType() != other.GetType()) return false;
+            return MinAssumedChargeState == other.MinAssumedChargeState
+                && MaxAssumedChargeState == other.MaxAssumedChargeState
+                && Polarity == other.Polarity
+                && ExpectedIsotopeSpacing.Equals(other.ExpectedIsotopeSpacing)
+                && UseGenericScore == other.UseGenericScore
+                && AverageResidueModel.GetType() == other.AverageResidueModel.GetType()
+                && EqualProperties(other);
+        }
+
+        public override bool Equals(object? obj) => Equals(obj as DeconvolutionParameters);
+
+        public override int GetHashCode()
+        {
+            var hash = new HashCode();
+            hash.Add(MinAssumedChargeState);
+            hash.Add(MaxAssumedChargeState);
+            hash.Add(Polarity);
+            hash.Add(ExpectedIsotopeSpacing);
+            hash.Add(UseGenericScore);
+            hash.Add(AverageResidueModel.GetType());
+            AddHashCodes(hash);
+            return hash.ToHashCode();
+        }
+
+        protected abstract bool EqualProperties(DeconvolutionParameters other);
+
+        protected abstract void AddHashCodes(HashCode hash);
+
+        #endregion
+
+        public abstract DeconvolutionParameters Clone();
     }
 }
