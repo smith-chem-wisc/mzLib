@@ -76,7 +76,7 @@ namespace MassSpectrometry
                 && Polarity == other.Polarity
                 && ExpectedIsotopeSpacing.Equals(other.ExpectedIsotopeSpacing)
                 && UseGenericScore == other.UseGenericScore
-                && AverageResidueModel.GetType() == other.AverageResidueModel.GetType()
+                && AverageResidueModel.Equals(other.AverageResidueModel)
                 && EqualProperties(other);
         }
 
@@ -90,7 +90,7 @@ namespace MassSpectrometry
             hash.Add(Polarity);
             hash.Add(ExpectedIsotopeSpacing);
             hash.Add(UseGenericScore);
-            hash.Add(AverageResidueModel.GetType());
+            hash.Add(AverageResidueModel);
             AddHashCodes(hash);
             return hash.ToHashCode();
         }
