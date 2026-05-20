@@ -253,7 +253,8 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
         hash.Add(MinAreaCovered);
         hash.Add(DataThreshold);
         hash.Add(ReportMulitpleMonoisos);
-        hash.Add(MzWindow.GetHashCode());
+        foreach (var mz in MzWindow)
+            hash.Add(mz);
     }
 
     public override IsoDecDeconvolutionParameters Clone()

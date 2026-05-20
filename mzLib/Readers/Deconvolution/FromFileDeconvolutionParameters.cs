@@ -128,7 +128,8 @@ namespace Readers
                 _featuresMzAscending.ToList(),
                 MinAssumedChargeState, MaxAssumedChargeState, Polarity)
             {
-                UseGenericScore = UseGenericScore
+                UseGenericScore = UseGenericScore,
+                OriginalFilePath = OriginalFilePath
             };
         }
 

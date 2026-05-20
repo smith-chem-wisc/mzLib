@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using Chemistry;
 
 namespace MassSpectrometry
@@ -76,7 +77,7 @@ namespace MassSpectrometry
                 && Polarity == other.Polarity
                 && ExpectedIsotopeSpacing.Equals(other.ExpectedIsotopeSpacing)
                 && UseGenericScore == other.UseGenericScore
-                && AverageResidueModel.Equals(other.AverageResidueModel)
+                && EqualityComparer<AverageResidue>.Default.Equals(AverageResidueModel, other.AverageResidueModel)
                 && EqualProperties(other);
         }
 

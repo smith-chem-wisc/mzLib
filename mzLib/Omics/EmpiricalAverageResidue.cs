@@ -8,6 +8,14 @@ namespace Omics;
 
 public record struct AverageResidueComposition(double C, double H, double O, double N, double P, double S, double Se);
 
+/// <summary>
+/// Average residue model derived from empirical data. Equality is composition-based:
+/// two instances constructed from equal <see cref="Composition"/> values compare equal,
+/// regardless of the state of derived array fields (<see cref="AllMasses"/>,
+/// <see cref="AllIntensities"/>, <see cref="MostIntenseMasses"/>,
+/// <see cref="DiffToMonoisotopic"/>), which are deterministically computed from
+/// <see cref="Composition"/> at construction time.
+/// </summary>
 public class EmpiricalAverageResidue : AverageResidue
 {
     public AverageResidueComposition Composition { get; }
