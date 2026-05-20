@@ -44,6 +44,13 @@ namespace Readers
         public IReadOnlyList<ISingleChargeMs1Feature> Features => _featuresMzAscending;
 
         /// <summary>
+        /// True if the feature file's retention times were detected as seconds at load
+        /// (max RetentionTimeEnd &gt; 500) and divided by 60 to minutes. Lets callers
+        /// surface that a unit conversion happened instead of it being silent.
+        /// </summary>
+        public bool RetentionTimeNormalizedFromSeconds { get; private set; }
+
+        /// <summary>
         /// Constructs from a feature-file path. Reader is auto-detected from the
         /// extension. The file's per-charge expansion is materialized in-memory
         /// once; this object is intended to be reused across many MS2 scans rather
@@ -81,7 +88,7 @@ namespace Readers
         /// compares 2787 (seconds-as-loaded) against ~46 (the scan's RT in minutes)
         /// and never sees overlap on any scan.
         /// </summary>
-        private static IEnumerable<ISingleChargeMs1Feature> NormaliseRetentionTimes(
+        private IEnumerable<ISingleChargeMs1Feature> NormaliseRetentionTimes(
             IEnumerable<ISingleChargeMs1Feature> features)
         {
             var materialised = features.ToList();
@@ -89,6 +96,14 @@ namespace Readers
 
             double maxRt = materialised.Max(f => f.RetentionTimeEnd);
             if (maxRt <= 500.0) return materialised;
+
+            // Looks like seconds (no realistic LC run exceeds 8 h = 500 min). Convert to
+            // minutes, and record + announce it -- a unit guess on scientific data should be
+            // visible to the caller (via the property below) and the console, not silent.
+            RetentionTimeNormalizedFromSeconds = true;
+            Console.Error.WriteLine(
+                "[FromFileDeconvolution] Feature-file retention times look like seconds " +
+                $"(max RetentionTimeEnd {maxRt:F0} > 500 min); normalising to minutes (/60).");
 
             return materialised.Select(f => (ISingleChargeMs1Feature)new SingleChargeMs1Feature(
                 f.Mz,

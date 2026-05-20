@@ -39,6 +39,12 @@ namespace Readers
             int sampleId = 0,
             int fractionId = 0)
         {
+            if (feature.Traces.Count == 0)
+                throw new System.ArgumentException("MassFeature has no traces.", nameof(feature));
+            if (feature.Charges.Count == 0)
+                throw new System.ArgumentException(
+                    "MassFeature.Finalise() must be called before ToMs1Feature(...).", nameof(feature));
+
             // Apex = max-intensity envelope of the max-intensity constituent
             // trace. "Apex of the dominant charge state at its most intense
             // scan" matches what FLASHDeconv/TopFD typically report.

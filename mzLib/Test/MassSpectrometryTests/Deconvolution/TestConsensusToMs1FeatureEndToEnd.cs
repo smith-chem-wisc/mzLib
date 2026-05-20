@@ -107,8 +107,10 @@ namespace Test.MassSpectrometryTests.Deconvolution
 
             // 4. Per-trace weighted-median off-by-one correction. Uniform
             //    weight matches NOTES.md's Phase 5 finding that weighting
-            //    scheme barely changes consensus mass.
-            var corrected = traces.Select(t => TraceCorrector.Correct(t)).ToList();
+            //    scheme barely changes consensus mass. A trace may split into
+            //    several corrected traces when it carries a resolvable distinct
+            //    co-grouped species (e.g. a deamidated form), hence SelectMany.
+            var corrected = traces.SelectMany(t => TraceCorrector.Correct(t)).ToList();
             int corrections = corrected.Sum(c => c.CorrectionCount);
             TestContext.Out.WriteLine($"[{spec.Label}] Corrections applied: {corrections}  (elapsed {sw.Elapsed})");
 

@@ -43,6 +43,9 @@ namespace MassSpectrometry.Deconvolution.Consensus
         /// </summary>
         public void Finalise()
         {
+            if (Traces.Count == 0)
+                throw new System.InvalidOperationException("Cannot Finalise a MassFeature with no traces.");
+
             Charges = new HashSet<int>(Traces.Select(t => t.Charge));
             SummedIntensity = Traces.Sum(t => t.TotalIntensity);
             RTStart = Traces.Min(t => t.FirstRT);

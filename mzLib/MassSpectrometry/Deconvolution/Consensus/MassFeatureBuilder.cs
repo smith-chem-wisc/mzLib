@@ -71,14 +71,27 @@ namespace MassSpectrometry.Deconvolution.Consensus
                 bucket.Add(sorted[i]);
             }
 
-            int nextId = 1;
+            // Finalise each component, then assign IDs in a deterministic order. Dictionary
+            // enumeration is not order-stable, so without this sort the feature IDs -- and the
+            // row order of the written _ms1.feature file -- would vary run-to-run on identical
+            // input. Order by (consensus mass, then min charge, then RT start).
             var features = new List<MassFeature>(byRoot.Count);
             foreach (var (_, traces) in byRoot)
             {
-                var f = new MassFeature { Id = nextId++, Traces = traces };
+                var f = new MassFeature { Traces = traces };
                 f.Finalise();
                 features.Add(f);
             }
+            features.Sort((a, b) =>
+            {
+                int c = a.ConsensusMass.CompareTo(b.ConsensusMass);
+                if (c != 0) return c;
+                c = a.Charges.Min().CompareTo(b.Charges.Min());
+                if (c != 0) return c;
+                return a.RTStart.CompareTo(b.RTStart);
+            });
+            for (int i = 0; i < features.Count; i++)
+                features[i].Id = i + 1;
             return features;
         }
 

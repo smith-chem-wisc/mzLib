@@ -208,6 +208,22 @@ namespace Test.FileReadingTests.ExternalFileReading
             Assert.That(file.Results.Select(r => r.Id), Is.EqualTo(new[] { 0, 1, 2 }));
         }
 
+        [Test]
+        public static void ToMs1Feature_NotFinalised_Throws()
+        {
+            // A MassFeature whose Finalise() was never called has an empty Charges set;
+            // ToMs1Feature must reject it rather than emit a charge-less row.
+            var feature = new MassFeature
+            {
+                Traces = { new CorrectedTrace { Charge = 5, ConsensusMass = 1000.0 } },
+            };
+            Assert.Throws<System.ArgumentException>(() => feature.ToMs1Feature(sequentialId: 0));
+        }
+
+        [Test]
+        public static void ToMs1Feature_NoTraces_Throws()
+            => Assert.Throws<System.ArgumentException>(() => new MassFeature().ToMs1Feature(sequentialId: 0));
+
         // ───────────────────────────────────────────────────────────────────
         // Fake-MassFeature builders
         // ───────────────────────────────────────────────────────────────────

@@ -323,6 +323,8 @@ namespace Test.MassSpectrometryTests
                 var parameters = new FromFileDeconvolutionParameters(tempFeatureFile, minCharge: 1, maxCharge: 60);
                 Assert.AreEqual(3, parameters.Features.Count,
                     "10..12 charges of one feature row should expand to 3 SingleChargeMs1Feature entries");
+                Assert.IsTrue(parameters.RetentionTimeNormalizedFromSeconds,
+                    "a seconds-RT file should be flagged as normalised");
 
                 // Confirm every per-charge feature's RT is in MINUTES (after the load-time
                 // seconds->minutes conversion). 2390.0 / 60 = 39.833...; 2410.0 / 60 = 40.166...
@@ -370,6 +372,8 @@ namespace Test.MassSpectrometryTests
                 });
 
                 var parameters = new FromFileDeconvolutionParameters(tempFeatureFile, minCharge: 1, maxCharge: 60);
+                Assert.IsFalse(parameters.RetentionTimeNormalizedFromSeconds,
+                    "an in-minutes file must not be flagged as normalised");
                 foreach (var f in parameters.Features)
                 {
                     Assert.AreEqual(39.0, f.RetentionTimeStart, 1e-6,

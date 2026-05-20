@@ -25,6 +25,11 @@ namespace MassSpectrometry.Deconvolution.Consensus
             double toleranceDa,
             int maxGap)
         {
+            if (perScanEnvelopes.Count != ms1Scans.Count)
+                throw new System.ArgumentException(
+                    $"perScanEnvelopes ({perScanEnvelopes.Count}) must align 1:1 with ms1Scans ({ms1Scans.Count}).",
+                    nameof(perScanEnvelopes));
+
             var open = new List<MassTrace>();
             var closed = new List<MassTrace>();
             int nextId = 1;
