@@ -34,6 +34,11 @@ namespace PredictionClients.Koina.AbstractClasses
 
     /// <summary>
     /// Abstract base class for collisional cross section (CCS) prediction models using the Koina API.
+    ///
+    /// Thread safety: instances are NOT thread-safe. Predict and related methods
+    /// mutate instance state (ModelInputs, ValidInputsMask, Predictions); callers must not invoke
+    /// these methods concurrently on the same instance, nor read Predictions while a call is in flight.
+    /// Use one instance per concurrent caller (or serialize externally) when sharing across pipelines.
     /// </summary>
     public abstract class CollisionalCrossSectionModel : KoinaModelBase<CCSPredictionInput, PeptideCCSPrediction>, IPredictor<CCSPredictionInput, PeptideCCSPrediction>
     {

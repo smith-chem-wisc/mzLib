@@ -63,6 +63,11 @@ namespace PredictionClients.Koina.AbstractClasses
     /// - In silico peptide screening prior to synthesis
     /// 
     /// API Documentation: https://koina.wilhelmlab.org/docs#post-/pfly_2024_fine_tuned/infer
+    ///
+    /// Thread safety: instances are NOT thread-safe. Predict and related methods
+    /// mutate instance state (ModelInputs, ValidInputsMask, Predictions); callers must not invoke
+    /// these methods concurrently on the same instance, nor read Predictions while a call is in flight.
+    /// Use one instance per concurrent caller (or serialize externally) when sharing across pipelines.
     /// </remarks>
     public abstract class DetectabilityModel : KoinaModelBase<DetectabilityPredictionInput, PeptideDetectabilityPrediction>, IPredictor<DetectabilityPredictionInput, PeptideDetectabilityPrediction>
     {

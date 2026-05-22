@@ -29,9 +29,11 @@ namespace PredictionClients.Koina.AbstractClasses
         {
             get
             {
-                if (NeutralLossFormula != null && FragmentIdentifier.Length > NeutralLossFormula.Length + 1)
+                if (NeutralLossFormula != null)
                 {
-                    return FragmentIdentifier.Substring(0, FragmentIdentifier.Length - NeutralLossFormula.Length - 1);
+                    var dashIndex = FragmentIdentifier.LastIndexOf('-');
+                    if (dashIndex > 0)
+                        return FragmentIdentifier.Substring(0, dashIndex);
                 }
                 return FragmentIdentifier;
             }
@@ -96,6 +98,11 @@ namespace PredictionClients.Koina.AbstractClasses
     /// 
     /// In most cases, users will only need to implement a constructor to properly set up the model parameters
     /// and a ToBatchedRequests method to batch requests according to the specific model's input format.
+    ///
+    /// Thread safety: instances are NOT thread-safe. Predict and related methods
+    /// mutate instance state (ModelInputs, ValidInputsMask, Predictions); callers must not invoke
+    /// these methods concurrently on the same instance, nor read Predictions while a call is in flight.
+    /// Use one instance per concurrent caller (or serialize externally) when sharing across pipelines.
     /// </summary>
     public abstract class FragmentIntensityModel : KoinaModelBase<FragmentIntensityPredictionInput, PeptideFragmentIntensityPrediction>, IPredictor<FragmentIntensityPredictionInput, PeptideFragmentIntensityPrediction>
     {

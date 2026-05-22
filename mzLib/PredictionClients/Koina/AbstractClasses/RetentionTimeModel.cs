@@ -168,7 +168,7 @@ namespace PredictionClients.Koina.AbstractClasses
                     }
                 }
 
-                predictions = ResponseToPredictions(responses.ToArray(), validInputs);
+                predictions = ResponseToPredictions(responses, validInputs);
                 #endregion
             }
 
