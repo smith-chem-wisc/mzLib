@@ -61,7 +61,9 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     public abstract int MinPeptideLength { get; }
 
     /// <summary>
-    /// Unimod Ids that are allowed to b passed to the model. 
+    /// Unimod modification IDs accepted by the model when converting sequences.
+    /// Used by the modification converter layer (not parameter validation).
+    /// empty = no modifications are accepted.
     /// </summary>
     public virtual IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>();
 

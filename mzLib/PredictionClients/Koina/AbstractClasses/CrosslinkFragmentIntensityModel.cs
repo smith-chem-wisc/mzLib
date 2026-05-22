@@ -61,7 +61,19 @@ namespace PredictionClients.Koina.AbstractClasses
         {
         }
 
+        /// <summary>
+        /// Set of precursor charge states supported by the model (e.g., {2, 3, 4}).
+        /// null = charge is not applicable to this model (skip validation).
+        /// empty = charge IS required but any value is accepted.
+        /// populated = only listed charge values are accepted.
+        /// </summary>
         public virtual HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
+        /// <summary>
+        /// Set of collision energies (NCE) accepted by the model.
+        /// null = collision energy is not applicable (skip validation).
+        /// empty = collision energy IS required but any FP32 value is accepted.
+        /// populated = only listed values are accepted.
+        /// </summary>
         public virtual HashSet<int>? AllowedCollisionEnergies => null;
         /// <summary>
         /// Whether this Koina model requires a separate beta sequence input.

@@ -145,8 +145,9 @@ namespace PredictionClients.Koina.AbstractClasses
         {
             warning = null;
 
-            // TODO: Empty AllowedPrecursorCharges currently bypasses all charge validation.
-            // Revisit what "allowed = empty" means and how it is implemented across models.
+            // AllowedPrecursorCharges is non-nullable in this class (inherited from KoinaModelBase?),
+            // so null semantics don't apply here. Empty = bypass (no charge constraint).
+            // TODO: Migrate AllowedPrecursorCharges to nullable to support the null/empty convention.
             if (!AllowedPrecursorCharges.IsNullOrEmpty() && !AllowedPrecursorCharges.Contains(input.PrecursorCharge))
             {
                 string exceptionMessage = $"Precursor charge {input.PrecursorCharge} is not supported by this model. Allowed precursor charges: {string.Join(", ", AllowedPrecursorCharges)}.";

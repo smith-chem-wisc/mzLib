@@ -113,10 +113,33 @@ namespace PredictionClients.Koina.AbstractClasses
 
 
         #region Additional Model-Type Constraints
-        /// <summary>Set of precursor charge states supported by the model (e.g., {2, 3, 4})</summary>
+        /// <summary>
+        /// Set of precursor charge states supported by the model (e.g., {2, 3, 4}).
+        /// null = charge is not applicable to this model (skip validation).
+        /// empty = charge IS required but any value is accepted.
+        /// populated = only listed charge values are accepted.
+        /// </summary>
         public abstract HashSet<int> AllowedPrecursorCharges { get; }
+        /// <summary>
+        /// Set of collision energies (NCE) accepted by the model.
+        /// null = collision energy is not applicable (skip validation).
+        /// empty = collision energy IS required but any FP32 value is accepted.
+        /// populated = only listed values are accepted (e.g., 20-40 for Altimeter).
+        /// </summary>
         public virtual HashSet<int>? AllowedCollisionEnergies => null;
+        /// <summary>
+        /// Set of instrument types accepted by the model.
+        /// null = instrument type is not applicable (skip validation).
+        /// empty = instrument type IS required but any value is accepted.
+        /// populated = only listed values are accepted.
+        /// </summary>
         public virtual HashSet<string>? AllowedInstrumentTypes => null;
+        /// <summary>
+        /// Set of fragmentation types accepted by the model.
+        /// null = fragmentation type is not applicable (skip validation).
+        /// empty = fragmentation type IS required but any value is accepted.
+        /// populated = only listed values are accepted (e.g., {"HCD", "CID"} for Prosit).
+        /// </summary>
         public virtual HashSet<string>? AllowedFragmentationTypes => null;
         /// <summary>
         /// Maps mzLib modification format to monoisotopic mass differences for mass-only conversions. 
