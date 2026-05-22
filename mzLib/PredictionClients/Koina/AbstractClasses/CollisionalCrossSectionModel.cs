@@ -127,7 +127,7 @@ namespace PredictionClients.Koina.AbstractClasses
                         ValidatedFullSequence: null,
                         PrecursorCharge: ModelInputs[i].PrecursorCharge,
                         PredictedCCS: null,
-                        Warning: ModelInputs[i].SequenceWarning ?? new WarningException("Input was invalid and skipped during prediction.")
+                        Warning: ModelInputs[i].ParameterWarning ?? ModelInputs[i].SequenceWarning ?? new WarningException("Input was invalid and skipped during prediction.")
                     ));
                 }
             }
@@ -145,24 +145,8 @@ namespace PredictionClients.Koina.AbstractClasses
         {
             warning = null;
 
-            // Reject non-physical charges even when the model declares no charge constraint.
-            // Koina rejects charge <= 0 server-side; catching it here gives a clearer client-side warning.
-            if (input.PrecursorCharge <= 0)
-            {
-                string exceptionMessage = $"Precursor charge {input.PrecursorCharge} is not physical; precursor charge must be a positive integer.";
-                switch (ParameterHandlingMode)
-                {
-                    case IncompatibleParameterHandlingMode.ThrowException:
-                        throw new ArgumentException(exceptionMessage);
-
-                    case IncompatibleParameterHandlingMode.ReturnNull:
-                        warning = new WarningException(exceptionMessage);
-                        return false;
-                    default:
-                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
-                }
-            }
-
+            // TODO: Empty AllowedPrecursorCharges currently bypasses all charge validation.
+            // Revisit what "allowed = empty" means and how it is implemented across models.
             if (!AllowedPrecursorCharges.IsNullOrEmpty() && !AllowedPrecursorCharges.Contains(input.PrecursorCharge))
             {
                 string exceptionMessage = $"Precursor charge {input.PrecursorCharge} is not supported by this model. Allowed precursor charges: {string.Join(", ", AllowedPrecursorCharges)}.";

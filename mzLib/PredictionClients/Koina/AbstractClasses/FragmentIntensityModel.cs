@@ -31,7 +31,7 @@ namespace PredictionClients.Koina.AbstractClasses
             {
                 if (NeutralLossFormula != null)
                 {
-                    var dashIndex = FragmentIdentifier.LastIndexOf('-');
+                    var dashIndex = FragmentIdentifier.IndexOf('-');
                     if (dashIndex > 0)
                         return FragmentIdentifier.Substring(0, dashIndex);
                 }
@@ -635,10 +635,9 @@ namespace PredictionClients.Koina.AbstractClasses
                 {
                     if (prediction.FragmentIntensities[i] == -1 || 
                         prediction.FragmentIntensities[i] < minIntensityFilter ||
-                        prediction.FragmentAnnotations[i] == null ||
-                        !prediction.FragmentAnnotations[i].Contains("+"))
+                        prediction.FragmentAnnotations[i] == null)
                     {
-                        // Skip impossible ions, peaks with near zero intensity, or misannotated fragments to be safe.
+                        // Skip impossible ions (intensity == -1) and peaks with near zero intensity.
                         // The model uses -1 to indicate impossible ions.
                         continue;
                     }
@@ -647,8 +646,19 @@ namespace PredictionClients.Koina.AbstractClasses
 
                 foreach (var pa in predictionAnnotationIntensityLookup.Keys)
                 {
-                    var parsed = ParseFragmentAnnotation(pa);
-                    var tp = tpLookup[parsed.BaseFragmentIdentifier];
+                    ParsedFragmentAnnotation parsed;
+                    try
+                    {
+                        parsed = ParseFragmentAnnotation(pa);
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+                    if (!tpLookup.TryGetValue(parsed.BaseFragmentIdentifier, out var tp))
+                    {
+                        continue;
+                    }
                     var charge = parsed.Charge;
                     double experMz = parsed.NeutralLossMass.HasValue
                         ? (tp.NeutralMass - parsed.NeutralLossMass.Value).ToMz(charge)
