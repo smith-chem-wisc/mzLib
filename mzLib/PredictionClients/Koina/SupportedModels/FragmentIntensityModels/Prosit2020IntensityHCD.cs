@@ -53,11 +53,10 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         /// <summary>Set of supported precursor charge states for this model</summary>
         public override HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
 
-        /// <summary>Set of supported collision energies for this model
-        /// Prosit supports any collision energy, but optimal are 20, 23, 25, 28, 30, 35.
-        /// Here, we constrain to 0-100, though the model can technically handle negative and higher values. 
+        /// <summary>Set of supported collision energies for this model.
+        /// Koina accepts any FP32 collision energy value.
         /// </summary>
-        public override HashSet<int> AllowedCollisionEnergies => Enumerable.Range(0, 101).ToHashSet();
+        public override HashSet<int> AllowedCollisionEnergies => new HashSet<int>();
 
         /// <summary>Total number of fragment ions predicted by this model per peptide</summary>
         public int NumberOfPredictedFragmentIons => 174;

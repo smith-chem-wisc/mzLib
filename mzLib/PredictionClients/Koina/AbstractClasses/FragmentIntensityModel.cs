@@ -13,6 +13,32 @@ using PredictionClients.Koina.Util;
 namespace PredictionClients.Koina.AbstractClasses
 {
     /// <summary>
+    /// Represents parsed fragment annotation data extracted from model output strings.
+    /// </summary>
+    /// <param name="FragmentIdentifier">Full fragment identifier including neutral loss suffix (e.g., "b5", "y3-H2O")</param>
+    /// <param name="Charge">Fragment charge state</param>
+    /// <param name="NeutralLossFormula">Neutral loss chemical formula if present (e.g., "H2O", "NH3"); null if no neutral loss</param>
+    /// <param name="NeutralLossMass">Monoisotopic mass of the neutral loss; null if no neutral loss</param>
+    public record ParsedFragmentAnnotation(string FragmentIdentifier, int Charge, string? NeutralLossFormula = null, double? NeutralLossMass = null)
+    {
+        /// <summary>
+        /// The base fragment identifier with the neutral loss suffix stripped (e.g., "y3" for "y3-H2O").
+        /// If there is no neutral loss, this is identical to <see cref="FragmentIdentifier"/>.
+        /// </summary>
+        public string BaseFragmentIdentifier
+        {
+            get
+            {
+                if (NeutralLossFormula != null && FragmentIdentifier.Length > NeutralLossFormula.Length + 1)
+                {
+                    return FragmentIdentifier.Substring(0, FragmentIdentifier.Length - NeutralLossFormula.Length - 1);
+                }
+                return FragmentIdentifier;
+            }
+        }
+    }
+
+    /// <summary>
     /// Represents the prediction results for a single peptide, containing fragment annotations,
     /// m/z values, and predicted intensities from a fragment intensity model.
     /// </summary>
@@ -140,6 +166,77 @@ namespace PredictionClients.Koina.AbstractClasses
 
 
         #region Querying Methods for the Koina API
+
+        /// <summary>
+        /// Extracts annotation, m/z, and intensity outputs from a Koina API response by matching output names.
+        /// Models may return outputs in different orders; this method resolves them by name.
+        /// </summary>
+        protected virtual (List<object> annotations, List<object> mz, List<object> intensities) ExtractOutputs(ResponseJSONStruct response)
+        {
+            List<object>? annotations = null;
+            List<object>? mz = null;
+            List<object>? intensities = null;
+
+            foreach (var output in response.Outputs)
+            {
+                if (output.Name == "annotation" || output.Name == "annotations")
+                    annotations = output.Data ?? throw new Exception($"Output '{output.Name}' has null data.");
+                else if (output.Name == "mz")
+                    mz = output.Data ?? throw new Exception($"Output '{output.Name}' has null data.");
+                else if (output.Name == "intensities")
+                    intensities = output.Data ?? throw new Exception($"Output '{output.Name}' has null data.");
+            }
+
+            if (annotations == null || mz == null || intensities == null)
+            {
+                throw new Exception($"API response is missing expected outputs. Found: {string.Join(", ", response.Outputs.Select(o => o.Name))}. Expected: annotations, mz, intensities.");
+            }
+
+            return (annotations, mz, intensities);
+        }
+
+        /// <summary>
+        /// Parses a fragment annotation string from model output into its identifier and charge components.
+        /// Default implementation expects the format "type+charge" (e.g., "b5+1", "y10+2").
+        /// Override in derived classes for models that use different annotation formats.
+        /// </summary>
+        /// <param name="annotation">Raw annotation string from model output</param>
+        /// <returns>Parsed fragment identifier and charge</returns>
+        /// <exception cref="Exception">Thrown when the annotation cannot be parsed</exception>
+        protected virtual ParsedFragmentAnnotation ParseFragmentAnnotation(string annotation)
+        {
+            var plusIndex = annotation.LastIndexOf('+');
+            if (plusIndex <= 0)
+            {
+                throw new Exception($"Cannot parse fragment annotation '{annotation}'. Expected format: 'type+charge' (e.g., 'b5+1', 'y10+2').");
+            }
+            var fragmentIdentifier = annotation.Substring(0, plusIndex);
+            var chargeStr = annotation.Substring(plusIndex + 1);
+            if (!int.TryParse(chargeStr, out int charge))
+            {
+                throw new Exception($"Cannot parse charge from fragment annotation '{annotation}'. Charge value: '{chargeStr}'.");
+            }
+
+            // Check for neutral loss suffix (e.g., "y3-H2O+1" -> base "y3", NL "H2O")
+            var dashIndex = fragmentIdentifier.IndexOf('-');
+            if (dashIndex > 0)
+            {
+                var baseId = fragmentIdentifier.Substring(0, dashIndex);
+                var nlFormula = fragmentIdentifier.Substring(dashIndex + 1);
+                try
+                {
+                    var nlMass = ChemicalFormula.ParseFormula(nlFormula).MonoisotopicMass;
+                    return new ParsedFragmentAnnotation(fragmentIdentifier, charge, nlFormula, nlMass);
+                }
+                catch
+                {
+                    // If the formula cannot be parsed (e.g., numeric mass like "18.01", or unknown notation),
+                    // fall through to return the annotation without neutral loss information.
+                }
+            }
+
+            return new ParsedFragmentAnnotation(fragmentIdentifier, charge);
+        }
 
         /// <summary>
         /// Executes fragment intensity prediction by sending batched requests to the Koina API.
@@ -285,11 +382,13 @@ namespace PredictionClients.Koina.AbstractClasses
                     throw new Exception($"API response is not in the expected format. Expected 3 outputs, got {response?.Outputs.Count}.");
                 }
 
-                var outputAnnotations = response.Outputs[0].Data;
-                var outputMZs = response.Outputs[1].Data;
-                var outputIntensities = response.Outputs[2].Data;
+                var (outputAnnotations, outputMZs, outputIntensities) = ExtractOutputs(response);
                 var batchPeptides = requestInputs.Skip(batchIndex * MaxBatchSize).Take(MaxBatchSize).ToList();
                 // Assuming outputData is structured such that each peptide's data is sequential
+                if (outputAnnotations.Count % batchPeptides.Count != 0)
+                {
+                    throw new Exception($"Fragment annotation count ({outputAnnotations.Count}) is not evenly divisible by peptide count ({batchPeptides.Count}).");
+                }
                 var fragmentCount = outputAnnotations.Count / batchPeptides.Count;
                 if (FragmentIonMappingMode == FragmentIonMappingMode.MapToValidatedFullSequence)
                 {
@@ -301,7 +400,7 @@ namespace PredictionClients.Koina.AbstractClasses
                         var predictedIntensities = new List<double>();
                         for (int j = 0; j < fragmentCount; j++)
                         {
-                            double intensity = Convert.ToDouble(outputMZs[i * fragmentCount + j]);
+                            double intensity = Convert.ToDouble(outputIntensities[i * fragmentCount + j]);
                             if (intensity == -1)
                             {
                                 // Skip impossible ions as indicated by the model with an intensity of -1. This is a convention used by the models to indicate that a particular fragment ion cannot be formed from the given peptide sequence and fragmentation conditions.
@@ -315,7 +414,7 @@ namespace PredictionClients.Koina.AbstractClasses
                         predictions.Add(new PeptideFragmentIntensityPrediction(
                             peptide.FullSequence,
                             peptide.ValidatedFullSequence!,
-                            ModelInputs[batchIndex * MaxBatchSize + i].PrecursorCharge,
+                            peptide.PrecursorCharge,
                             fragmentIons,
                             fragmentMZs,
                             predictedIntensities
@@ -338,23 +437,36 @@ namespace PredictionClients.Koina.AbstractClasses
                         var predictedIntensities = new List<double>();
                         for (int j = 0; j < fragmentCount; j++)
                         {
-                            double intensity = Convert.ToDouble(outputMZs[i * fragmentCount + j]);
+                            double intensity = Convert.ToDouble(outputIntensities[i * fragmentCount + j]);
                             if (intensity == -1)
                             {
                                 // Skip impossible ions as indicated by the model with an intensity of -1. This is a convention used by the models to indicate that a particular fragment ion cannot be formed from the given peptide sequence and fragmentation conditions.
                                 continue;
                             }
                             var fragmentIon = outputAnnotations[i * fragmentCount + j].ToString()!;
-                            int plusIndex = fragmentIon.IndexOf('+');
-                            int fragmentCharge = int.Parse(fragmentIon.Substring(plusIndex));
+                            ParsedFragmentAnnotation parsed;
+                            try
+                            {
+                                parsed = ParseFragmentAnnotation(fragmentIon);
+                            }
+                            catch
+                            {
+                                continue;
+                            }
                             fragmentIons.Add(fragmentIon);
-                            fragmentMZs.Add(tpLookup[fragmentIon.Substring(0, plusIndex)].ToMz(fragmentCharge));
+                            if (!tpLookup.TryGetValue(parsed.BaseFragmentIdentifier, out var tp))
+                            {
+                                continue;
+                            }
+                            fragmentMZs.Add(parsed.NeutralLossMass.HasValue
+                                ? (tp.NeutralMass - parsed.NeutralLossMass.Value).ToMz(parsed.Charge)
+                                : tp.ToMz(parsed.Charge));
                             predictedIntensities.Add(intensity);
                         }
                         predictions.Add(new PeptideFragmentIntensityPrediction(
                             peptide.FullSequence,
                             peptide.ValidatedFullSequence!,
-                            ModelInputs[batchIndex * MaxBatchSize + i].PrecursorCharge,
+                            peptide.PrecursorCharge,
                             fragmentIons,
                             fragmentMZs,
                             predictedIntensities
@@ -524,15 +636,17 @@ namespace PredictionClients.Koina.AbstractClasses
 
                 foreach (var pa in predictionAnnotationIntensityLookup.Keys)
                 {
-                    var productTypeAndCharge = pa.Split("+");
+                    var parsed = ParseFragmentAnnotation(pa);
+                    var tp = tpLookup[parsed.BaseFragmentIdentifier];
+                    var charge = parsed.Charge;
+                    double experMz = parsed.NeutralLossMass.HasValue
+                        ? (tp.NeutralMass - parsed.NeutralLossMass.Value).ToMz(charge)
+                        : tp.ToMz(charge);
 
-                    var tp = tpLookup[productTypeAndCharge[0]]; // Get theoretical product ("b5") from annotation like "b5+1"
-                    var charge = int.Parse(productTypeAndCharge[1]); // Get charge ("1") from annotation like "b5+1"
-                    // Create a new MatchedFragmentIon for each output
                     var fragmentIon = new MatchedFragmentIon
                     (
                         neutralTheoreticalProduct: tp,
-                        experMz: tp.ToMz(charge),
+                        experMz: experMz,
                         experIntensity: predictionAnnotationIntensityLookup[pa],
                         charge: charge
                     );

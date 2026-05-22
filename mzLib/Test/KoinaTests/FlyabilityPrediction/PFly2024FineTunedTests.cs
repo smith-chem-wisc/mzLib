@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using Omics.SequenceConversion;
+using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.SupportedModels.FlyabilityModels;
 
 namespace Test.KoinaTests.FlyabilityPrediction

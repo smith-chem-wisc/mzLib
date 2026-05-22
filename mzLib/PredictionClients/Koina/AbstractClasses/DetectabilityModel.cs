@@ -6,7 +6,7 @@ using MzLibUtil;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.Interfaces;
 
-namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
+namespace PredictionClients.Koina.AbstractClasses
 {
     /// <summary>
     /// Represents the prediction results for a single peptide, containing detectability probability scores

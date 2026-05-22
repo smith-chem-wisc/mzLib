@@ -9,7 +9,7 @@ namespace PredictionClients.Koina.AbstractClasses;
 
 public abstract class KoinaModelBase<TModelInput, TModelOutput>
 {
-    private static readonly Regex BaseStripper = new(@"\[[^\]]+\]", RegexOptions.Compiled);
+    protected static readonly Regex BaseStripper = new(@"\[[^\]]+\]", RegexOptions.Compiled);
 
     protected KoinaModelBase(ISequenceConverter sequenceConverter)
     {
@@ -176,6 +176,18 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         return new SequenceConverter(MzLibSequenceParser.Instance, serializer);
     }
 
+    /// <summary>
+    /// Creates a sequence converter that accepts all UNIMOD modifications.
+    /// Used by models like ms2pip and AlphaPeptDeep that accept any modification.
+    /// </summary>
+    protected static ISequenceConverter CreateUnimodConverterAcceptAll(UnimodSequenceFormatSchema schema)
+    {
+        var allMods = Mods.UnimodModifications.ToList();
+        var lookup = new UnimodModificationLookup(allMods);
+        var serializer = new UnimodSequenceSerializer(schema, lookup);
+        return new SequenceConverter(MzLibSequenceParser.Instance, serializer);
+    }
+
     private static IModificationLookup CreateLookup(IReadOnlySet<int> allowedUnimodIds)
     {
         if (allowedUnimodIds.Count == 0)
@@ -225,14 +237,14 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         return false;
     }
 
-    private static bool IsValidBaseSequence(string baseSequence, string allowedPattern, int minLength, int maxLength)
+    protected static bool IsValidBaseSequence(string baseSequence, string allowedPattern, int minLength, int maxLength)
     {
         return Regex.IsMatch(baseSequence, allowedPattern)
                && baseSequence.Length <= maxLength
                && baseSequence.Length >= minLength;
     }
 
-    private static void HandleFailure(SequenceConversionHandlingMode mode, string message)
+    protected static void HandleFailure(SequenceConversionHandlingMode mode, string message)
     {
         if (mode == SequenceConversionHandlingMode.ThrowException)
         {
