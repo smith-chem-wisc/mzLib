@@ -21,6 +21,7 @@ namespace PredictionClients.Koina.SupportedModels.CrosslinkIntensityModels
         public override int MaxPeptideLength => 30;
         public override int MinPeptideLength => 1;
         public override HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
+        public override HashSet<int>? AllowedCollisionEnergies => new HashSet<int>();
         public override int NumberOfPredictedFragmentIons => 174;
         public override IReadOnlySet<int> AllowedUnimodIds => Nms2UnimodIds;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }

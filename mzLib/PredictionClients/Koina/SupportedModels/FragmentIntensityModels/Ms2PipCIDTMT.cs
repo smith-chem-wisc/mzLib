@@ -20,7 +20,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override int MaxPeptideLength => 30;
         public override int MinPeptideLength => 1;
         public override HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
-        public override HashSet<int> AllowedCollisionEnergies => new HashSet<int>(); // Fixed CID, no CE input
+        public override HashSet<int>? AllowedCollisionEnergies => null; // Fixed CID, no CE input
         public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>(); // Accepts all UNIMOD (mods only affect m/z)
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }

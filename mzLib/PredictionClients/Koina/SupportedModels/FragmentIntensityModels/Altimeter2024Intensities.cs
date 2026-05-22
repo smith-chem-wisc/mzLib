@@ -33,7 +33,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override int MaxPeptideLength => 40; // Koina docs: 6-40 (6-30 recommended)
         public override int MinPeptideLength => 6;
         public override HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6, 7 };
-        public override HashSet<int> AllowedCollisionEnergies => Enumerable.Range(20, 21).ToHashSet(); // NCE 20-40
+        public override HashSet<int>? AllowedCollisionEnergies => Enumerable.Range(20, 21).ToHashSet(); // NCE 20-40
         public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }

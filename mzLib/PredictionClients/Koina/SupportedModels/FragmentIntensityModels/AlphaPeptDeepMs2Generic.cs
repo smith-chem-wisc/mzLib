@@ -30,8 +30,8 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override int MaxPeptideLength => 500; // Model has no upper limit; using 500 as practical bound to simplify validation
         public override int MinPeptideLength => 1;
         public override HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
-        public override HashSet<int> AllowedCollisionEnergies => new HashSet<int>(); // Koina accepts any FP32 collision energy
-        public override HashSet<string> AllowedInstrumentTypes => new() { "QE", "LUMOS", "TIMSTOF", "SCIEXTOF" };
+        public override HashSet<int>? AllowedCollisionEnergies => new HashSet<int>(); // Koina accepts any FP32 collision energy
+        public override HashSet<string>? AllowedInstrumentTypes => new() { "QE", "LUMOS", "TIMSTOF", "SCIEXTOF" };
         public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>(); // Accepts all UNIMOD modifications
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }

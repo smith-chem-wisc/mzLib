@@ -56,7 +56,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         /// <summary>Set of supported collision energies for this model.
         /// Koina accepts any FP32 collision energy value.
         /// </summary>
-        public override HashSet<int> AllowedCollisionEnergies => new HashSet<int>();
+        public override HashSet<int>? AllowedCollisionEnergies => new HashSet<int>();
 
         /// <summary>Total number of fragment ions predicted by this model per peptide</summary>
         public override int NumberOfPredictedFragmentIons => 174;

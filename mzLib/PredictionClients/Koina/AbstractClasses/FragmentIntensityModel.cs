@@ -115,9 +115,9 @@ namespace PredictionClients.Koina.AbstractClasses
         #region Additional Model-Type Constraints
         /// <summary>Set of precursor charge states supported by the model (e.g., {2, 3, 4})</summary>
         public abstract HashSet<int> AllowedPrecursorCharges { get; }
-        public virtual HashSet<int> AllowedCollisionEnergies => new HashSet<int>(); 
-        public virtual HashSet<string> AllowedInstrumentTypes => new HashSet<string>();
-        public virtual HashSet<string> AllowedFragmentationTypes => new HashSet<string>();
+        public virtual HashSet<int>? AllowedCollisionEnergies => null;
+        public virtual HashSet<string>? AllowedInstrumentTypes => null;
+        public virtual HashSet<string>? AllowedFragmentationTypes => null;
         /// <summary>
         /// Maps mzLib modification format to monoisotopic mass differences for mass-only conversions. 
         /// The monoisotopic masses should be obtained from the UNIMOD database for accuracy (https://www.unimod.org/).
@@ -491,15 +491,34 @@ namespace PredictionClients.Koina.AbstractClasses
         {
             warning = null;
 
-            // Check precursor charge constraints. Checked first and prioritized since every model will require it. 
-            if (!AllowedPrecursorCharges.IsNullOrEmpty() && !AllowedPrecursorCharges.Contains(input.PrecursorCharge))
+            // Check precursor charge constraints.
+            if (AllowedPrecursorCharges != null)
             {
-                string exceptionMessage = $"Precursor charge {input.PrecursorCharge} is not supported by this model. Allowed precursor charges: {string.Join(", ", AllowedPrecursorCharges)}.";
+                if (!AllowedPrecursorCharges.IsNullOrEmpty() && !AllowedPrecursorCharges.Contains(input.PrecursorCharge))
+                {
+                    string exceptionMessage = $"Precursor charge {input.PrecursorCharge} is not supported by this model. Allowed precursor charges: {string.Join(", ", AllowedPrecursorCharges)}.";
+                    switch (ParameterHandlingMode)
+                    {
+                        case IncompatibleParameterHandlingMode.ThrowException:
+                            throw new ArgumentException(exceptionMessage);
+
+                        case IncompatibleParameterHandlingMode.ReturnNull:
+                            warning = new WarningException(exceptionMessage);
+                            return false;
+                        default:
+                            throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
+                    }
+                }
+            }
+
+            // Check that input has defined all required additional parameters for the model.
+            if (AllowedCollisionEnergies != null && input.CollisionEnergy == null)
+            {
+                string exceptionMessage = "Input is missing required parameter CollisionEnergy for this model.";
                 switch (ParameterHandlingMode)
                 {
                     case IncompatibleParameterHandlingMode.ThrowException:
                         throw new ArgumentException(exceptionMessage);
-
                     case IncompatibleParameterHandlingMode.ReturnNull:
                         warning = new WarningException(exceptionMessage);
                         return false;
@@ -508,13 +527,24 @@ namespace PredictionClients.Koina.AbstractClasses
                 }
             }
 
-            // Check that input has defined ALL required additional parameters (beyond sequence and charge) for the model. The specific required parameters may differ between models,
-            // but this method checks all common parameters and can be overridden by derived classes to implement additional checks as needed.
-            if ((!AllowedCollisionEnergies.IsNullOrEmpty() && input.CollisionEnergy == null) ||
-                (!AllowedInstrumentTypes.IsNullOrEmpty() && input.InstrumentType == null) ||
-                (!AllowedFragmentationTypes.IsNullOrEmpty() && input.FragmentationType == null))
+            if (AllowedInstrumentTypes != null && input.InstrumentType == null)
             {
-                string exceptionMessage = $"Input is missing required parameters for this model. Required parameters: {(AllowedCollisionEnergies.IsNullOrEmpty() ? "" : "CollisionEnergy; ")}{(AllowedInstrumentTypes.IsNullOrEmpty() ? "" : "InstrumentType; ")}{(AllowedFragmentationTypes.IsNullOrEmpty() ? "" : "FragmentationType; ")}";
+                string exceptionMessage = "Input is missing required parameter InstrumentType for this model.";
+                switch (ParameterHandlingMode)
+                {
+                    case IncompatibleParameterHandlingMode.ThrowException:
+                        throw new ArgumentException(exceptionMessage);
+                    case IncompatibleParameterHandlingMode.ReturnNull:
+                        warning = new WarningException(exceptionMessage);
+                        return false;
+                    default:
+                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
+                }
+            }
+
+            if (AllowedFragmentationTypes != null && input.FragmentationType == null)
+            {
+                string exceptionMessage = "Input is missing required parameter FragmentationType for this model.";
                 switch (ParameterHandlingMode)
                 {
                     case IncompatibleParameterHandlingMode.ThrowException:
@@ -528,7 +558,7 @@ namespace PredictionClients.Koina.AbstractClasses
             }
 
             // Check collision energy constraints
-            if (!AllowedCollisionEnergies.IsNullOrEmpty() && input.CollisionEnergy != null && !AllowedCollisionEnergies.Contains(input.CollisionEnergy.Value))
+            if (AllowedCollisionEnergies != null && input.CollisionEnergy != null && !AllowedCollisionEnergies.IsNullOrEmpty() && !AllowedCollisionEnergies.Contains(input.CollisionEnergy.Value))
             {
                 string exceptionMessage = $"Collision energy {input.CollisionEnergy} is not supported by this model. Allowed collision energies: {string.Join(", ", AllowedCollisionEnergies)}.";
                 switch (ParameterHandlingMode)
@@ -544,7 +574,7 @@ namespace PredictionClients.Koina.AbstractClasses
             }
 
             // Check instrument type constraints
-            if (!AllowedInstrumentTypes.IsNullOrEmpty() && input.InstrumentType != null && !AllowedInstrumentTypes.Contains(input.InstrumentType))
+            if (AllowedInstrumentTypes != null && input.InstrumentType != null && !AllowedInstrumentTypes.IsNullOrEmpty() && !AllowedInstrumentTypes.Contains(input.InstrumentType))
             {
                 string exceptionMessage = $"Instrument type '{input.InstrumentType}' is not supported by this model. Allowed instrument types: {string.Join(", ", AllowedInstrumentTypes)}.";
                 switch (ParameterHandlingMode)
@@ -560,7 +590,7 @@ namespace PredictionClients.Koina.AbstractClasses
             }
 
             // Check fragmentation type constraints
-            if (!AllowedFragmentationTypes.IsNullOrEmpty() && input.FragmentationType != null && !AllowedFragmentationTypes.Contains(input.FragmentationType))
+            if (AllowedFragmentationTypes != null && input.FragmentationType != null && !AllowedFragmentationTypes.IsNullOrEmpty() && !AllowedFragmentationTypes.Contains(input.FragmentationType))
             {
                 string exceptionMessage = $"Fragmentation type '{input.FragmentationType}' is not supported by this model. Allowed fragmentation types: {string.Join(", ", AllowedFragmentationTypes)}.";
                 switch (ParameterHandlingMode)
@@ -574,6 +604,7 @@ namespace PredictionClients.Koina.AbstractClasses
                         throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
                 }
             }
+
             return true;
         }
 

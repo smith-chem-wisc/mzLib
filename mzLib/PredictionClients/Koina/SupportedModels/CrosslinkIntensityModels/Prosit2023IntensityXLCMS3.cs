@@ -22,7 +22,7 @@ namespace PredictionClients.Koina.SupportedModels.CrosslinkIntensityModels
         public override int MaxPeptideLength => 30;
         public override int MinPeptideLength => 1;
         public override HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
-        public override HashSet<int> AllowedCollisionEnergies => new HashSet<int>(); // Fixed NCE=35, no CE input
+        public override HashSet<int>? AllowedCollisionEnergies => null; // Fixed NCE=35, no CE input
         // CMS3 takes a single combined sequence in the alpha slot; beta is unused.
         public override bool RequiresBetaSequence => false;
         public override int NumberOfPredictedFragmentIons => 174;

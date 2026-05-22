@@ -62,7 +62,7 @@ namespace PredictionClients.Koina.AbstractClasses
         }
 
         public virtual HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
-        public virtual HashSet<int> AllowedCollisionEnergies => new HashSet<int>(); // Koina accepts any FP32 collision energy
+        public virtual HashSet<int>? AllowedCollisionEnergies => null;
         /// <summary>
         /// Whether this Koina model requires a separate beta sequence input.
         /// Paired-sequence models (CMS2, NMS2) leave this true; single-sequence helpers
@@ -274,23 +274,26 @@ namespace PredictionClients.Koina.AbstractClasses
                 }
             }
 
-            if (!AllowedPrecursorCharges.IsNullOrEmpty() && !AllowedPrecursorCharges.Contains(input.PrecursorCharge))
+            if (AllowedPrecursorCharges != null)
             {
-                string exceptionMessage = $"Precursor charge {input.PrecursorCharge} is not supported by this model. Allowed precursor charges: {string.Join(", ", AllowedPrecursorCharges)}.";
-                switch (ParameterHandlingMode)
+                if (!AllowedPrecursorCharges.IsNullOrEmpty() && !AllowedPrecursorCharges.Contains(input.PrecursorCharge))
                 {
-                    case IncompatibleParameterHandlingMode.ThrowException:
-                        throw new ArgumentException(exceptionMessage);
+                    string exceptionMessage = $"Precursor charge {input.PrecursorCharge} is not supported by this model. Allowed precursor charges: {string.Join(", ", AllowedPrecursorCharges)}.";
+                    switch (ParameterHandlingMode)
+                    {
+                        case IncompatibleParameterHandlingMode.ThrowException:
+                            throw new ArgumentException(exceptionMessage);
 
-                    case IncompatibleParameterHandlingMode.ReturnNull:
-                        warning = new WarningException(exceptionMessage);
-                        return false;
-                    default:
-                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
+                        case IncompatibleParameterHandlingMode.ReturnNull:
+                            warning = new WarningException(exceptionMessage);
+                            return false;
+                        default:
+                            throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
+                    }
                 }
             }
 
-            if (!AllowedCollisionEnergies.IsNullOrEmpty() && input.CollisionEnergy == null)
+            if (AllowedCollisionEnergies != null && input.CollisionEnergy == null)
             {
                 string exceptionMessage = "Input is missing required parameter CollisionEnergy for this model.";
                 switch (ParameterHandlingMode)
@@ -305,7 +308,7 @@ namespace PredictionClients.Koina.AbstractClasses
                 }
             }
 
-            if (!AllowedCollisionEnergies.IsNullOrEmpty() && input.CollisionEnergy != null && !AllowedCollisionEnergies.Contains(input.CollisionEnergy.Value))
+            if (AllowedCollisionEnergies != null && input.CollisionEnergy != null && !AllowedCollisionEnergies.IsNullOrEmpty() && !AllowedCollisionEnergies.Contains(input.CollisionEnergy.Value))
             {
                 string exceptionMessage = $"Collision energy {input.CollisionEnergy} is not supported by this model. Allowed collision energies: {string.Join(", ", AllowedCollisionEnergies)}.";
                 switch (ParameterHandlingMode)

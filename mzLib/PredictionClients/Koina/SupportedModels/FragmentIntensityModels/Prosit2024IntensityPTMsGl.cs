@@ -40,8 +40,8 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override int MaxPeptideLength => 30;
         public override int MinPeptideLength => 1;
         public override HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
-        public override HashSet<int> AllowedCollisionEnergies => new HashSet<int>(); // Koina accepts any FP32 collision energy
-        public override HashSet<string> AllowedFragmentationTypes => new() { "HCD", "CID" };
+        public override HashSet<int>? AllowedCollisionEnergies => new HashSet<int>(); // Koina accepts any FP32 collision energy
+        public override HashSet<string>? AllowedFragmentationTypes => new() { "HCD", "CID" };
         public override int NumberOfPredictedFragmentIons => 174;
         public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
