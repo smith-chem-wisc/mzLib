@@ -38,7 +38,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
         public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }
-        public int NumberOfPredictedFragmentIons => 380;
+        public override int NumberOfPredictedFragmentIons => 380;
 
         public Altimeter2024Intensities(
             SequenceConversionHandlingMode modHandlingMode = SequenceConversionHandlingMode.ReturnNull,
@@ -57,43 +57,18 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
 
         protected override List<Dictionary<string, object>> ToBatchedRequests(List<FragmentIntensityPredictionInput> validInputs)
         {
-            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToList();
-            var batchedCharges = validInputs.Select(p => p.PrecursorCharge).Chunk(MaxBatchSize).ToList();
-            var batchedEnergies = validInputs.Select(p => (double)p.CollisionEnergy!).Chunk(MaxBatchSize).ToList();
+            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToArray();
+            var batchedCharges = validInputs.Select(p => p.PrecursorCharge).Chunk(MaxBatchSize).ToArray();
+            var batchedEnergies = validInputs.Select(p => (double)p.CollisionEnergy!).Chunk(MaxBatchSize).ToArray();
 
-            var batchedRequests = new List<Dictionary<string, object>>();
-
-            for (int i = 0; i < batchedPeptides.Count; i++)
+            var batchedRequests = new List<Dictionary<string, object>>(batchedPeptides.Length);
+            for (int i = 0; i < batchedPeptides.Length; i++)
             {
-                var request = new Dictionary<string, object>
-                {
-                    { "id", $"Batch{i}_" + Guid.NewGuid()},
-                    { "inputs", new List<object>
-                        {
-                            new {
-                                name = "peptide_sequences",
-                                shape = new[]{ batchedPeptides[i].Length, 1 },
-                                datatype = "BYTES",
-                                data = batchedPeptides[i]
-                            },
-                            new {
-                                name = "precursor_charges",
-                                shape = new[]{ batchedCharges[i].Length, 1 },
-                                datatype = "INT32",
-                                data = batchedCharges[i]
-                            },
-                            new {
-                                name = "collision_energies",
-                                shape = new[]{ batchedEnergies[i].Length, 1 },
-                                datatype = "FP32",
-                                data = batchedEnergies[i]
-                            }
-                        }
-                    }
-                };
-                batchedRequests.Add(request);
+                batchedRequests.Add(BuildBatchedRequest(i,
+                    new InputField("peptide_sequences", "BYTES", batchedPeptides[i]),
+                    new InputField("precursor_charges", "INT32", batchedCharges[i]),
+                    new InputField("collision_energies", "FP32", batchedEnergies[i])));
             }
-
             return batchedRequests;
         }
 

@@ -153,6 +153,8 @@ namespace PredictionClients.Koina.AbstractClasses
                     case IncompatibleParameterHandlingMode.ReturnNull:
                         warning = new WarningException(exceptionMessage);
                         return false;
+                    default:
+                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
                 }
             }
 
@@ -167,6 +169,8 @@ namespace PredictionClients.Koina.AbstractClasses
                     case IncompatibleParameterHandlingMode.ReturnNull:
                         warning = new WarningException(exceptionMessage);
                         return false;
+                    default:
+                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
                 }
             }
 
@@ -189,7 +193,12 @@ namespace PredictionClients.Koina.AbstractClasses
                 throw new Exception("Something went wrong during deserialization of responses.");
             }
 
-            var ccsOutputs = deserializedResponses.SelectMany(r => r!.Outputs[0].Data.Select(d => Convert.ToDouble(d))).ToList();
+            var ccsOutputs = deserializedResponses.SelectMany(r =>
+            {
+                var output = r!.Outputs.FirstOrDefault(o => o.Name == "ccs")
+                    ?? throw new Exception($"API response is missing expected output 'ccs'. Found: {string.Join(", ", r.Outputs.Select(o => o.Name))}.");
+                return output.Data.Select(d => Convert.ToDouble(d));
+            }).ToList();
 
             if (ccsOutputs.Count != requestInputs.Count)
             {

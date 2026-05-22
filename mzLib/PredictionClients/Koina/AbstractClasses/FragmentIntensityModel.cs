@@ -121,6 +121,9 @@ namespace PredictionClients.Koina.AbstractClasses
         #endregion
 
         #region Validation Patterns and Filters
+        /// <summary>Total number of fragment ions predicted per peptide by this model. -1 if not known or dynamic.</summary>
+        public virtual int NumberOfPredictedFragmentIons => -1;
+
         /// <summary>Minimum intensity threshold for including predicted fragments in spectral library generation</summary>
         public virtual double MinIntensityFilter { get; protected set; } = 1e-6;
 
@@ -373,15 +376,6 @@ namespace PredictionClients.Koina.AbstractClasses
             {
                 var response = deserializedResponses[batchIndex];
 
-                /// Each response is excpected to have an outputs list with
-                /// 1) Fragment Annotations
-                /// 2) Fragment MZs
-                /// 3) Fragment Intensities
-                if (response == null || response.Outputs.Count != 3)
-                {
-                    throw new Exception($"API response is not in the expected format. Expected 3 outputs, got {response?.Outputs.Count}.");
-                }
-
                 var (outputAnnotations, outputMZs, outputIntensities) = ExtractOutputs(response);
                 var batchPeptides = requestInputs.Skip(batchIndex * MaxBatchSize).Take(MaxBatchSize).ToList();
                 // Assuming outputData is structured such that each peptide's data is sequential
@@ -502,6 +496,8 @@ namespace PredictionClients.Koina.AbstractClasses
                     case IncompatibleParameterHandlingMode.ReturnNull:
                         warning = new WarningException(exceptionMessage);
                         return false;
+                    default:
+                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
                 }
             }
 
@@ -519,6 +515,8 @@ namespace PredictionClients.Koina.AbstractClasses
                     case IncompatibleParameterHandlingMode.ReturnNull:
                         warning = new WarningException(exceptionMessage);
                         return false;
+                    default:
+                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
                 }
             }
 
@@ -533,6 +531,8 @@ namespace PredictionClients.Koina.AbstractClasses
                     case IncompatibleParameterHandlingMode.ReturnNull:
                         warning = new WarningException(exceptionMessage);
                         return false;
+                    default:
+                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
                 }
             }
 
@@ -547,6 +547,8 @@ namespace PredictionClients.Koina.AbstractClasses
                     case IncompatibleParameterHandlingMode.ReturnNull:
                         warning = new WarningException(exceptionMessage);
                         return false;
+                    default:
+                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
                 }
             }
 
@@ -561,6 +563,8 @@ namespace PredictionClients.Koina.AbstractClasses
                     case IncompatibleParameterHandlingMode.ReturnNull:
                         warning = new WarningException(exceptionMessage);
                         return false;
+                    default:
+                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
                 }
             }
             return true;

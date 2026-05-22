@@ -88,6 +88,30 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     /// The total number of sequences across all batches should equal PeptideSequences.Count.
     /// </remarks>
     protected abstract List<Dictionary<string, object>> ToBatchedRequests(List<TModelInput> validInputs);
+
+    /// <summary>
+    /// Creates a single batch request dictionary for the Koina API.
+    /// Models call this inside their <see cref="ToBatchedRequests"/> loop to build each batch.
+    /// </summary>
+    protected static Dictionary<string, object> BuildBatchedRequest(int batchIndex, params InputField[] fields)
+    {
+        var inputs = new List<object>(fields.Length);
+        foreach (var f in fields)
+        {
+            inputs.Add(new
+            {
+                name = f.Name,
+                shape = new[] { f.Data.Length, 1 },
+                datatype = f.Datatype,
+                data = f.Data
+            });
+        }
+        return new Dictionary<string, object>
+        {
+            { "id", $"Batch{batchIndex}" },
+            { "inputs", inputs }
+        };
+    }
     #endregion
 
     #region Validation and Modification Handling
@@ -279,3 +303,11 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         return messages.Count > 0 ? new WarningException(string.Join(" ", messages)) : null;
     }
 }
+
+/// <summary>
+/// Describes a single input field for a Koina API batch request.
+/// </summary>
+/// <param name="Name">Input field name as expected by the Koina model (e.g., "peptide_sequences")</param>
+/// <param name="Datatype">Koina data type (e.g., "BYTES", "INT32", "FP32")</param>
+/// <param name="Data">The data array for this batch. Must be a single batch chunk (already sliced to MaxBatchSize).</param>
+public sealed record InputField(string Name, string Datatype, Array Data);

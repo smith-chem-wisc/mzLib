@@ -37,26 +37,12 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
 
         protected override List<Dictionary<string, object>> ToBatchedRequests(List<RetentionTimePredictionInput> validInputs)
         {
-            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToList();
-            var batchedRequests = new List<Dictionary<string, object>>();
-
-            for (int i = 0; i < batchedPeptides.Count; i++)
+            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToArray();
+            var batchedRequests = new List<Dictionary<string, object>>(batchedPeptides.Length);
+            for (int i = 0; i < batchedPeptides.Length; i++)
             {
-                var request = new Dictionary<string, object>
-                {
-                    { "id", $"Batch{i}_" + Guid.NewGuid()},
-                    { "inputs", new List<object>
-                        {
-                            new {
-                                name = "peptide_sequences",
-                                shape = new[]{ batchedPeptides[i].Length, 1 },
-                                datatype = "BYTES",
-                                data = batchedPeptides[i]
-                            }
-                        }
-                    }
-                };
-                batchedRequests.Add(request);
+                batchedRequests.Add(BuildBatchedRequest(i,
+                    new InputField("peptide_sequences", "BYTES", batchedPeptides[i])));
             }
             return batchedRequests;
         }

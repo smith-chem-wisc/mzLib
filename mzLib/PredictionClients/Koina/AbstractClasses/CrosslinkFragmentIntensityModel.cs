@@ -94,24 +94,11 @@ namespace PredictionClients.Koina.AbstractClasses
                 string? cleanedBeta = null;
                 string? apiBeta = null;
                 WarningException? betaWarning = null;
-                bool betaOk;
-                if (RequiresBetaSequence)
+                bool betaOk = true;
+                if (RequiresBetaSequence && ModelInputs[i].BetaSequence != null)
                 {
-                    if (ModelInputs[i].BetaSequence == null)
-                    {
-                        betaOk = false;
-                        betaWarning = new WarningException("Beta sequence is required by this model but was null.");
-                    }
-                    else
-                    {
-                        cleanedBeta = TryCleanSequence(ModelInputs[i].BetaSequence!, out apiBeta, out betaWarning);
-                        betaOk = cleanedBeta != null && apiBeta != null;
-                    }
-                }
-                else
-                {
-                    // Single-sequence model: beta is not consumed; accept anything (including null).
-                    betaOk = true;
+                    cleanedBeta = TryCleanSequence(ModelInputs[i].BetaSequence!, out apiBeta, out betaWarning);
+                    betaOk = cleanedBeta != null && apiBeta != null;
                 }
 
                 var validModelParams = ValidateModelSpecificInputs(ModelInputs[i], out var parameterWarning);
@@ -189,7 +176,7 @@ namespace PredictionClients.Koina.AbstractClasses
                         FragmentAnnotations: null,
                         FragmentMZs: null,
                         FragmentIntensities: null,
-                        Warning: ModelInputs[i].AlphaSequenceWarning ?? ModelInputs[i].BetaSequenceWarning ?? new WarningException("Input was invalid and skipped during prediction.")
+                        Warning: ModelInputs[i].AlphaSequenceWarning ?? ModelInputs[i].BetaSequenceWarning ?? ModelInputs[i].ParameterWarning ?? new WarningException("Input was invalid and skipped during prediction.")
                     ));
                 }
             }
@@ -267,6 +254,21 @@ namespace PredictionClients.Koina.AbstractClasses
         {
             warning = null;
 
+            if (RequiresBetaSequence && input.BetaSequence == null)
+            {
+                string message = "Beta sequence is required by this model but was null.";
+                switch (ParameterHandlingMode)
+                {
+                    case IncompatibleParameterHandlingMode.ThrowException:
+                        throw new ArgumentException(message);
+                    case IncompatibleParameterHandlingMode.ReturnNull:
+                        warning = new WarningException(message);
+                        return false;
+                    default:
+                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
+                }
+            }
+
             if (!AllowedPrecursorCharges.IsNullOrEmpty() && !AllowedPrecursorCharges.Contains(input.PrecursorCharge))
             {
                 string exceptionMessage = $"Precursor charge {input.PrecursorCharge} is not supported by this model. Allowed precursor charges: {string.Join(", ", AllowedPrecursorCharges)}.";
@@ -278,6 +280,8 @@ namespace PredictionClients.Koina.AbstractClasses
                     case IncompatibleParameterHandlingMode.ReturnNull:
                         warning = new WarningException(exceptionMessage);
                         return false;
+                    default:
+                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
                 }
             }
 
@@ -291,6 +295,8 @@ namespace PredictionClients.Koina.AbstractClasses
                     case IncompatibleParameterHandlingMode.ReturnNull:
                         warning = new WarningException(exceptionMessage);
                         return false;
+                    default:
+                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
                 }
             }
 
@@ -304,6 +310,8 @@ namespace PredictionClients.Koina.AbstractClasses
                     case IncompatibleParameterHandlingMode.ReturnNull:
                         warning = new WarningException(exceptionMessage);
                         return false;
+                    default:
+                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
                 }
             }
 
@@ -353,11 +361,6 @@ namespace PredictionClients.Koina.AbstractClasses
             for (int batchIndex = 0; batchIndex < deserializedResponses.Count; batchIndex++)
             {
                 var response = deserializedResponses[batchIndex];
-                if (response == null || response.Outputs.Count != 3)
-                {
-                    throw new Exception($"API response is not in the expected format. Expected 3 outputs, got {response?.Outputs.Count}.");
-                }
-
                 var (outputAnnotations, outputMZs, outputIntensities) = ExtractOutputs(response);
 
                 var batchInputs = requestInputs.Skip(batchIndex * MaxBatchSize).Take(MaxBatchSize).ToList();
