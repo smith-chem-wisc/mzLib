@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -453,6 +454,15 @@ namespace Test.MassSpectrometryTests
             public override DeconvolutionType DeconvolutionType { get; protected set; } = DeconvolutionType.FromFile;
             public FromFileParamsWithoutAlgorithmOverride() : base(minCharge: 1, maxCharge: 10) { }
             public override DeconvolutionParameters ToDecoyParameters() => null;
+            protected override bool EqualProperties(DeconvolutionParameters other) => true;
+            protected override void AddHashCodes(HashCode hash) { }
+            public override FromFileParamsWithoutAlgorithmOverride Clone()
+            {
+                return new FromFileParamsWithoutAlgorithmOverride
+                {
+                    UseGenericScore = UseGenericScore
+                };
+            }
         }
 
         [Test]
